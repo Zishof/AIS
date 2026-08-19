@@ -28,10 +28,24 @@
 		<intercept-url pattern="/main2/**" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/q/**" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/AmbilLampiran**" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- Portal ALUMNI / tracer study bersifat PUBLIK (sama seperti /ppdb dan /pmb):
+			 dibuka alumni yang belum punya akun. Aturan ini WAJIB berada SEBELUM aturan
+			 "/al" di bawah supaya niatnya terbaca jelas dan tidak ikut tertutup lagi bila
+			 suatu saat pola di bawah diperlebar. -->
+		<intercept-url pattern="/alumni" access="IS_AUTHENTICATED_ANONYMOUSLY" />
+		<intercept-url pattern="/alumni.zul" access="IS_AUTHENTICATED_ANONYMOUSLY" />
+
 		<!-- Alias "/al" memetakan ke servlet class yang sama dengan /AmbilLampiran
 			 (lihat web.xml); wajib gerbang yang sama, jika tidak jatuh ke catch-all
-			 IS_AUTHENTICATED_ANONYMOUSLY di bawah dan servlet bisa diakses tanpa login. -->
-		<intercept-url pattern="/al**" access="IS_AUTHENTICATED_REMEMBERED" />
+			 IS_AUTHENTICATED_ANONYMOUSLY di bawah dan servlet bisa diakses tanpa login.
+
+			 PERBAIKAN: pola sebelumnya "/al**" TERLALU LEBAR: ia ikut menangkap /alumni dan
+			 /alumni.zul (satu-satunya url-pattern lain berawalan "al" di web.xml), sehingga
+			 portal alumni yang seharusnya publik selalu dilempar ke halaman login dan tampak
+			 "berputar" kembali ke login. Dipersempit menjadi path aliasnya saja; /al/** tetap
+			 disertakan agar tidak ada celah lewat sub-path. Proteksi lampiran TIDAK berkurang. -->
+		<intercept-url pattern="/al" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/al/**" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/pascasarjana/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 	

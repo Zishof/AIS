@@ -73,6 +73,29 @@ public final class LaporanKantinUtil {
         public String[] tipe = new String[0];
     }
 
+    /**
+     * Jalankan SQL laporan lalu isi {@code H.baris} apa adanya (dipakai laporan "rincian"/drill-down
+     * yang mengembalikan H sendiri, bukan lewat jalur eksekusi umum di akhir {@code build}).
+     */
+    private static void isiBarisDariSql(org.hibernate.Session session, Hasil H, String sql,
+            Map<String, Object> prm, int jumlahKolom) {
+        try {
+            SQLQuery q = session.createSQLQuery(sql);
+            for (Map.Entry<String, Object> e : prm.entrySet()) { q.setParameter(e.getKey(), e.getValue()); }
+            List<?> rows = q.list();
+            for (Object ro : rows) {
+                Object[] src = (ro instanceof Object[]) ? (Object[]) ro : new Object[] { ro };
+                Object[] baris = new Object[jumlahKolom];
+                for (int i = 0; i < jumlahKolom; i++) { baris[i] = i < src.length ? src[i] : null; }
+                H.baris.add(baris);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit LaporanKantinUtil.isiBarisDariSql");
+            H.status = "99";
+            H.message = "Rincian tidak dapat dimuat.";
+        }
+    }
+
     private static boolean ada(String s) { return s != null && s.trim().length() > 0; }
 
     /** Klausa rentang tanggal pada kolom tertentu + isi parameter ke map (idempoten). */
@@ -2437,6 +2460,56 @@ public final class LaporanKantinUtil {
                 }
                 return H;
 
+            } else if ("fin_laba_rugi_rincian_hpp".equals(r)) {
+                // DRILL-DOWN "HPP (Modal Barang Terjual)" -- dibuka saat pengguna mengklik angka
+                // HPP di Laporan Laba Rugi. Memakai FILTER & RUMUS PERSIS SAMA dgn baris HPP di
+                // fin_laba_rugi (qty terjual x hargabeli produk), hanya dipecah per produk dan
+                // diurutkan dari penyumbang terbesar -- sehingga salah input harga modal per item
+                // langsung terlihat di baris teratas (keluhan pengguna 2026-08-19: HPP minus miliaran).
+                H.judul = "Rincian HPP per Produk";
+                H.catatan = "Penyusun angka HPP: qty terjual x harga modal tiap produk. "
+                        + "Kolom Catatan menandai produk yang harga modalnya melebihi harga jual -- "
+                        + "biasanya itu salah input dan menjadi sebab HPP membengkak.";
+                H.grup = -1; H.grandTotal = true;
+                H.kolom.add(new Kolom("Kode","text")); H.kolom.add(new Kolom("Produk","text"));
+                H.kolom.add(new Kolom("Toko","text")); H.kolom.add(new Kolom("Qty Terjual","num"));
+                H.kolom.add(new Kolom("Harga Modal","num")); H.kolom.add(new Kolom("Harga Jual","num"));
+                H.kolom.add(new Kolom("Subtotal HPP","num")); H.kolom.add(new Kolom("Catatan","text"));
+                H.tipe = new String[]{"text","text","text","num","num","num","num","text"};
+                Map<String,Object> pr1 = new LinkedHashMap<String,Object>();
+                String wr1 = " where 1=1 " + kondToko("p.toko", tokoId, pr1)
+                        + klausaTanggal("p.waktu", tglMulai, tglSampai, pr1);
+                String sqlHpp = "select coalesce(pr.kode,''), pr.nama, coalesce(t.nama,'-'),"
+                        + " sum(coalesce(p.qty,0)), coalesce(pr.hargabeli,0), coalesce(pr.hargajual,0),"
+                        + " sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0)),"
+                        + " case when coalesce(pr.hargabeli,0) > coalesce(pr.hargajual,0)"
+                        + "      then 'PERIKSA: harga modal > harga jual' else '' end"
+                        + " from koperasi.pembelian p"
+                        + " join koperasi.produk pr on pr.id = p.produk"
+                        + " left join koperasi.toko t on t.id = p.toko" + wr1
+                        + " group by pr.id, pr.kode, pr.nama, t.nama, pr.hargabeli, pr.hargajual"
+                        + " order by 7 desc";
+                isiBarisDariSql(session, H, sqlHpp, pr1, 8);
+                return H;
+            } else if ("fin_laba_rugi_rincian_penjualan".equals(r)) {
+                // DRILL-DOWN "Penjualan" -- rincian nota penyusun angka pendapatan.
+                H.judul = "Rincian Penjualan per Nota";
+                H.catatan = "Penyusun angka Penjualan: total tiap nota pada rentang tanggal yang sama.";
+                H.grup = -1; H.grandTotal = true;
+                H.kolom.add(new Kolom("Waktu","tgl")); H.kolom.add(new Kolom("Kode Nota","text"));
+                H.kolom.add(new Kolom("Toko","text")); H.kolom.add(new Kolom("Kasir","text"));
+                H.kolom.add(new Kolom("Total Nota","num"));
+                H.tipe = new String[]{"tgl","text","text","text","num"};
+                Map<String,Object> pr2 = new LinkedHashMap<String,Object>();
+                String wr2 = " where 1=1 " + kondToko("h.toko", tokoId, pr2)
+                        + klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, pr2);
+                String sqlJual = "select h.tanggal_pembayaran, coalesce(h.kode,''), coalesce(t.nama,'-'),"
+                        + " coalesce(h.kasir_login_nama, h.oleh, '-'), coalesce(h.total_biaya,0)"
+                        + " from koperasi.pembelian_anggota_koperasi h"
+                        + " left join koperasi.toko t on t.id = h.toko" + wr2
+                        + " order by h.tanggal_pembayaran desc";
+                isiBarisDariSql(session, H, sqlJual, pr2, 5);
+                return H;
             } else if ("fin_laba_rugi".equals(r)) {
                 H.judul = "Laporan Laba Rugi";
                 H.catatan = "Laporan sederhana berbasis transaksi kantin (bukan jurnal akuntansi penuh). HPP = qty terjual x harga modal.";

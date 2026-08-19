@@ -172,6 +172,23 @@ if (!lockTokoLap) {
   </div>
 </div>
 
+
+<!-- Popup rincian perhitungan: dibuka saat angka laporan diklik (lihat bukaRincian()). -->
+<div class="modal fade" id="lkModalRincian" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lkModalRincianJudul">Rincian</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" id="lkModalRincianIsi"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var RND = "<%=rndLap%>";
@@ -413,6 +430,52 @@ if (!lockTokoLap) {
   var current = null, lastData = null;
 
   function el(id){ return document.getElementById(id + RND); }
+  // ---------- Drill-down: angka laporan bisa diklik utk melihat data penyusunnya ----------
+  // Peta: id laporan -> { potongan label baris : id laporan rincian }. Menambah drill-down baru
+  // cukup mendaftarkannya di sini + membuat cabang laporannya di LaporanKantinUtil, tanpa
+  // menyentuh alur render. Pencocokan label memakai "mengandung" agar tahan indentasi/terjemahan.
+  var PETA_RINCIAN = {
+    "fin_laba_rugi": [
+      ["HPP",              "fin_laba_rugi_rincian_hpp"],
+      ["Penjualan",        "fin_laba_rugi_rincian_penjualan"],
+      ["Pendapatan Bersih","fin_laba_rugi_rincian_penjualan"]
+    ]
+  };
+  function cariRincian(row){
+    if (!current || !PETA_RINCIAN[current.id] || !row || row.length===0) return null;
+    var label = String(row[0]==null?"":row[0]).trim().toLowerCase();
+    if (!label) return null;
+    var daftar = PETA_RINCIAN[current.id];
+    for (var i=0;i<daftar.length;i++){
+      if (label.indexOf(String(daftar[i][0]).toLowerCase()) >= 0) return daftar[i][1];
+    }
+    return null;
+  }
+  function bukaRincian(idRincian, judulBaris){
+    var modalEl = el("lkModalRincian");
+    el("lkModalRincianJudul").textContent = "Rincian: " + judulBaris;
+    var isi = el("lkModalRincianIsi");
+    isi.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+    var m = new bootstrap.Modal(modalEl); m.show();
+    var prm = filterParams(); prm.set("r", idRincian);
+    fetch(SVC, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body: prm.toString()})
+      .then(function(res){ return res.json(); })
+      .then(function(d){
+        if (d.status !== "00"){ isi.innerHTML = '<div class="text-danger py-3">'+esc(d.message||"Rincian tidak dapat dimuat.")+'</div>'; return; }
+        var html = '';
+        if (d.catatan) html += '<div class="alert alert-info small py-2">'+esc(d.catatan)+'</div>';
+        html += buildSheet(d);
+        isi.innerHTML = html;
+      })
+      .catch(function(){ isi.innerHTML = '<div class="text-danger py-3">Kesalahan koneksi.</div>'; });
+  }
+  document.addEventListener("click", function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest("a.lk-drill") : null;
+    if (!a) return;
+    ev.preventDefault();
+    bukaRincian(a.getAttribute("data-rincian"), a.getAttribute("data-judul"));
+  });
+
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function numv(v){ return typeof v==="number"?v:0; }
   function absUrl(u){ if(!u) return ""; return (/^https?:/i.test(u))?u:(location.origin + (u.charAt(0)==="/"?"":"/") + u); }
@@ -520,7 +583,10 @@ if (!lockTokoLap) {
       var s='';
       for(var c=0;c<kol.length;c++){ var v=row[c];
         if(gi>=0 && c===gi){ s+='<td></td>'; }
-        else if(kol[c].t==='num'){ if(v===null){ s+='<td class="num"></td>'; } else { var n=numv(v); grand[c]+=n; if(sub) sub[c]+=n; s+='<td class="num">'+fmtCell(v,kol[c].l)+'</td>'; } }
+        else if(kol[c].t==='num'){ if(v===null){ s+='<td class="num"></td>'; } else { var n=numv(v); grand[c]+=n; if(sub) sub[c]+=n;
+          var drillId = cariRincian(row); var isiSel = fmtCell(v,kol[c].l);
+          s+= drillId ? '<td class="num"><a href="javascript:void(0)" class="lk-drill" data-rincian="'+esc(drillId)+'" data-judul="'+esc(String(row[0]||'').trim())+'" title="Klik untuk melihat rincian perhitungan">'+isiSel+'</a></td>'
+                      : '<td class="num">'+isiSel+'</td>'; } }
         else if(kol[c].t==='tgl'){ s+='<td class="ctr">'+esc(v)+'</td>'; }
         else s+='<td>'+esc(v)+'</td>';
       }
