@@ -701,8 +701,75 @@ public abstract class FileFoto extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * Jalur cepat pembacaan berkas: kembalikan berkas kanonik HANYA bila berkas itu SUDAH
+	 * ada di disk dan namanya jelas milik baris ini.
+	 *
+	 * <p><b>Mengapa perlu.</b> {@link #getPathfile()} dahulu memanggil {@code getCopyDari()}
+	 * sebagai langkah PERTAMA, sebelum disk pernah dilihat sama sekali. {@code copyDari}
+	 * adalah asosiasi {@code @ManyToOne}, sehingga pada entitas yang masih terkelola
+	 * panggilan itu dapat menerbitkan SELECT — artinya setiap permintaan foto meminjam
+	 * koneksi dari kolam c3p0 walaupun berkasnya sudah lama tersimpan di cache. Satu halaman
+	 * berisi 20 foto berarti 20 koneksi tertahan tanpa guna. Pada dump 18-08-2026 07:51
+	 * terlihat 53 thread mengantre bersamaan di {@code BasicResourcePool.awaitAvailable}
+	 * lewat jalur AmbilLampiran -&gt; ambilFile -&gt; getPathfile.</p>
+	 *
+	 * <p><b>Sengaja konservatif.</b> Hanya memakai {@code getId()} dan {@code getNama()}
+	 * (kolom baris ini sendiri) ditambah pemeriksaan nama lewat
+	 * {@link #cocokDenganIdentitasBaris(String, FileFoto)} — TIDAK menelusuri rantai
+	 * {@code copyDari}. Baris "copy" yang berbagi berkas fisik milik baris sumber tidak
+	 * punya berkas kanonik atas namanya sendiri, sehingga otomatis tidak lolos di sini dan
+	 * tetap ditangani jalur penuh di bawah. Begitu pula berkas yang belum pernah dibangun.
+	 * Bila ragu, method ini mengembalikan {@code null} dan tidak mengubah perilaku apa pun.</p>
+	 *
+	 * <p>Seluruh operasi di sini murni disk ({@code direktoriBerkas()} dan
+	 * {@code berkasKanonik()} hanya memakai id dan nama kelas), jadi jalur cepat ini tidak
+	 * pernah menyentuh basis data.</p>
+	 *
+	 * @return berkas siap pakai, atau {@code null} bila jalur penuh harus dijalankan
+	 */
+	private File berkasCacheSiapPakai() {
+		try {
+			if (getId() == null) {
+				return null;
+			}
+			String namaFile = sanitizeFileName(getNama());
+			if (namaFile == null || namaFile.trim().length() == 0) {
+				return null;
+			}
+			File berkas;
+			String low = namaFile.toLowerCase();
+			if (low.endsWith("jrxml") || low.endsWith("jasper")) {
+				// Berkas laporan memang dinamai apa adanya di direktori report; guard identitas
+				// baris tidak berlaku untuknya (lihat berkasMilikBarisIni()).
+				berkas = new File(Common.ambilREAL_PATH_REPORT() + "/" + namaFile);
+			} else {
+				berkas = berkasKanonik(namaFile);
+				if (berkas == null || !cocokDenganIdentitasBaris(berkas.getName(), this)) {
+					return null;
+				}
+			}
+			if (berkas.exists() && berkas.length() > 0L) {
+				return berkas;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "berkasCacheSiapPakai src/ais/database/model/file/FileFoto.java");
+		}
+		return null;
+	}
+
 	public String getPathfile() {
 		String pathfile = null;
+
+		/*
+		 * CEK CACHE DISK DULU, BARU BASIS DATA. Berkas yang sudah ada dan terbukti milik
+		 * baris ini langsung dipakai, sebelum satu pun asosiasi disentuh -- lihat
+		 * berkasCacheSiapPakai() untuk alasannya.
+		 */
+		File dariCache = berkasCacheSiapPakai();
+		if (dariCache != null) {
+			return dariCache.getAbsolutePath();
+		}
 
 		try {
 			FileFoto copyDari = null;
