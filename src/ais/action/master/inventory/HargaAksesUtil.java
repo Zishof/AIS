@@ -60,9 +60,9 @@ public final class HargaAksesUtil {
 
 	/** Pesan penolakan seragam supaya keempat kanal menampilkan alasan yang sama. */
 	public static String pesanDitolak() {
-		return "Akun Anda tidak berhak mengubah harga pada toko ini. "
+		return "Anda tidak boleh mengubah harga karena tidak diberikan akses. "
 				+ "Kebijakan toko membatasi perubahan harga hanya untuk pengguna tertentu; "
-				+ "hubungi admin/supervisor bila harga memang perlu diperbarui.";
+				+ "hubungi admin atau supervisor bila harga memang perlu diperbarui.";
 	}
 
 	/** Bandingkan dua nilai harga dgn toleransi pecahan supaya tidak memicu gerbang sia-sia. */

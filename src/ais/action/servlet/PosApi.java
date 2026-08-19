@@ -1225,6 +1225,13 @@ public class PosApi extends HttpServlet {
 		hasil.put("bolehTransaksiStokHabis", toko != null
 				&& Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
 		hasil.put("tokoDemo", toko != null && Boolean.TRUE.equals(toko.getTokoDemo()));
+		// Hak UBAH HARGA akun ini pada toko aktif -- dikirim saat sesi dimuat supaya SETIAP
+		// layar (Produk, Kulakan, Grup Produk) dapat menonaktifkan kolom harga + menampilkan
+		// alasannya, tanpa menembak server lagi. Penolakan sesungguhnya tetap di server.
+		hasil.put("bolehUbahHarga",
+				ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser));
+		hasil.put("pesanTidakBolehUbahHarga",
+				ais.action.master.inventory.HargaAksesUtil.pesanDitolak());
 		hasil.put("dataSampleEbisnis", Common.bolehKonfigurasi(
 				Konfigurasi.DATA_SAMPLE_EBISNIS, Konfigurasi.TIDAK_AKTIF));
 		// Jangan menyimpulkan admin dari scope toko. Administrator tetap dapat terikat ke
