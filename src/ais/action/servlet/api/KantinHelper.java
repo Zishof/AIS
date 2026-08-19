@@ -13502,6 +13502,11 @@ public class KantinHelper {
 				j.put("nama", p.getNama());
 				j.put("kontak", p.getKontak() == null ? "" : p.getKontak());
 				j.put("telp", p.getTelp() == null ? "" : p.getTelp());
+				// Akun utang dagang: menentukan akun kredit jurnal kulakan kredit & debet jurnal
+				// pembayaran hutang. Kosong = jatuh ke konfigurasi akun_utang_supplier_toko.
+				j.put("akunUtangId", p.getAkunUtang() == null ? JSONObject.NULL : p.getAkunUtang().getId());
+				j.put("akunUtangLabel", p.getAkunUtang() == null ? ""
+						: ais.action.master.koperasi.helper.AkunKantinUtil.label(p.getAkunUtang()));
 				arr.put(j);
 			}
 			hasil.put("status", "00");
@@ -13559,6 +13564,14 @@ public class KantinHelper {
 			p.setAlamat(request.optString("alamat", ""));
 			p.setKodePos(request.optString("kode_pos", ""));
 			p.setKeterangan(request.optString("keterangan", ""));
+			if (request.has("akunUtangId")) {
+				if (request.isNull("akunUtangId") || request.optLong("akunUtangId", 0) <= 0) {
+					p.setAkunUtang(null);
+				} else {
+					p.setAkunUtang((ais.database.model.akunting.Akun) session.get(
+							ais.database.model.akunting.Akun.class, Long.valueOf(request.optLong("akunUtangId"))));
+				}
+			}
 
 			session.beginTransaction();
 			session.saveOrUpdate(p);

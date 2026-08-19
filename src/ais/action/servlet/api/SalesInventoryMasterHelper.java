@@ -137,7 +137,9 @@ public final class SalesInventoryMasterHelper {
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
 					"SELECT p.id, p.kode, p.nama, p.alamat, p.telp, p.kontak, p.email, p.keterangan, "
 							+ "sp.id, sp.termin_hari, sp.wilayah, sp.no_rekening, sp.atas_nama, sp.bank, sp.alamat_bank, "
-							+ "COALESCE(sp.aktif, true) " + dasar + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?");
+							+ "COALESCE(sp.aktif, true), p.akun_utang, "
+							+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = p.akun_utang) "
+							+ dasar + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?");
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, h[1]);
@@ -164,6 +166,10 @@ public final class SalesInventoryMasterHelper {
 				j.put("bank", str(rs.getString(14)));
 				j.put("alamatBank", str(rs.getString(15)));
 				j.put("aktif", rs.getBoolean(16));
+				// Akun utang dagang -- menentukan akun kredit saat kulakan kredit dijurnal.
+				long akunUtang = rs.getLong(17);
+				j.put("akunUtangId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(akunUtang));
+				j.put("akunUtangLabel", str(rs.getString(18)));
 				arr.put(j);
 			}
 			rs.close(); ps.close();
@@ -293,6 +299,17 @@ public final class SalesInventoryMasterHelper {
 			if (opt(request, "kontak") != null) p.setKontak(opt(request, "kontak"));
 			if (opt(request, "email") != null) p.setEmail(opt(request, "email"));
 			if (opt(request, "keterangan") != null) p.setKeterangan(opt(request, "keterangan"));
+			// Akun utang dagang: dipakai jurnal kulakan kredit & pembayaran hutang. Kirim null/0
+			// untuk mengosongkan (nanti jatuh ke konfigurasi akun_utang_supplier_toko).
+			if (request.has("akunUtangId")) {
+				if (request.isNull("akunUtangId") || request.optLong("akunUtangId", 0) <= 0) {
+					p.setAkunUtang(null);
+				} else {
+					p.setAkunUtang((ais.database.model.akunting.Akun) session.get(
+							ais.database.model.akunting.Akun.class,
+							Long.valueOf(request.optLong("akunUtangId"))));
+				}
+			}
 			isiOleh(p, tbmuser);
 
 			tx = session.beginTransaction();
