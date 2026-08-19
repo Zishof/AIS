@@ -170,12 +170,13 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 	// tidak menyediakan kolom status terbit sama sekali. Tab ini menutup celah
 	// tersebut: petugas dapat melihat status seluruh koleksi lalu menerbitkan atau
 	// menariknya, satu per satu maupun sekaligus.
-	private Textbox searchPublikasiNama;
-	private Textbox searchPublikasiPengarang;
-	private Combobox searchPublikasiStatus;
-	private MyGrid gridPublikasi;
-	private Paging pagingPublikasi;
-	private boolean comboStatusPublikasiSiap = false;
+	// protected: dipakai ulang oleh KaryaTulisItemAction yang mewarisi kelas ini.
+	protected Textbox searchPublikasiNama;
+	protected Textbox searchPublikasiPengarang;
+	protected Combobox searchPublikasiStatus;
+	protected MyGrid gridPublikasi;
+	protected Paging pagingPublikasi;
+	protected boolean comboStatusPublikasiSiap = false;
 
 	/**
 	 * 

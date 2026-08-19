@@ -226,10 +226,18 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 			for (String ss : s) {
 				try {
 					String[] sss = StringUtils.split(ss, ",");
+					// Guard token kosong/bukan angka (lihat retreiveDetailNilai): baris rusak
+					// dilewati diam-diam, tidak lagi memunculkan NumberFormatException yang
+					// ditampilkan ke admin lewat tampilErrorJikaAdmin.
+					if (sss == null || sss.length == 0 || sss[0] == null || !Common.isNumber(sss[0].trim())) {
+						continue;
+					}
 					Long idKknPunyaKomponenPenilaianKkn = Long.parseLong(sss[0].trim());
-					Double persen = sss.length > 3 ? Double.parseDouble(sss[3].trim()) : null;
+					Double persen = sss.length > 3 && sss[3] != null && Common.isNumber(sss[3].trim())
+							? Double.parseDouble(sss[3].trim()) : null;
 					if (persen != null) {
-						Double n = Double.parseDouble(sss[1].trim());
+						Double n = sss.length > 1 && sss[1] != null && Common.isNumber(sss[1].trim())
+								? Double.parseDouble(sss[1].trim()) : 0.0;
 						nilais.put(idKknPunyaKomponenPenilaianKkn, new Object[] { n, persen });
 
 						totalPersen += persen;
@@ -274,8 +282,10 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 				try {
 					String aformatBaru = "";
 					String[] s = nn.split(",");
-					if (!s[0].trim().isEmpty()) {
-						Long formatId = Long.parseLong(s[0]);
+					// Guard diperluas: bukan hanya kosong, tapi juga token yang bukan angka
+					// (lihat retreiveDetailNilai) supaya tidak jadi NumberFormatException.
+					if (s.length > 0 && s[0] != null && Common.isNumber(s[0].trim())) {
+						Long formatId = Long.parseLong(s[0].trim());
 						if (komponenPenilaianKkn.getId().equals(formatId)) {
 							aformatBaru = komponenPenilaianKkn.getId() + "," + jumlahAman + ",0,"
 									+ komponenPenilaianKkn.getBobot() + "," + verify;
@@ -330,6 +340,11 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 			for (String ss : s) {
 				try {
 					String[] sss = StringUtils.split(ss, ",");
+					// Guard token kosong/bukan angka (lihat retreiveDetailNilai): baris rusak
+					// memang harus DIBUANG oleh proses pembersihan ini, bukan jadi exception.
+					if (sss == null || sss.length == 0 || sss[0] == null || !Common.isNumber(sss[0].trim())) {
+						continue;
+					}
 					Long idKknPunyaKomponenPenilaianKkn = Long.parseLong(sss[0].trim());
 					if (!idKknPunyaKomponenPenilaianKkns.contains(idKknPunyaKomponenPenilaianKkn)) {
 						idKknPunyaKomponenPenilaianKkns.add(idKknPunyaKomponenPenilaianKkn);
@@ -380,9 +395,22 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
-					Long formatId = Long.parseLong(s[0]);
+					// FIX NumberFormatException: For input string: "" -- satu segmen detailNilai
+					// bisa kosong/rusak (mis. ada ";" ganda atau di ujung string, atau kolom id
+					// kosong). Token kosong/bukan angka BUKAN error: berarti "tidak ada nilai",
+					// jadi cukup dilewati. Idiom sama dengan parser sejenis yang sudah diperbaiki
+					// di Detailperkuliahan.retreiveDetailNilai (guard Common.isNumber).
+					if (s.length == 0 || s[0] == null || !Common.isNumber(s[0].trim())) {
+						continue;
+					}
+					Long formatId = Long.parseLong(s[0].trim());
 					if (formatIdSource.getId().equals(formatId)) {
-						return Double.parseDouble(s[1]);
+						// Kolom nilai bisa hilang/kosong/"null" pada baris lama yang rusak --
+						// anggap belum dinilai (0.0), jangan lempar exception.
+						if (s.length <= 1 || s[1] == null || !Common.isNumber(s[1].trim())) {
+							return 0.0;
+						}
+						return Double.parseDouble(s[1].trim());
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/MahasiswaDapatKelompokKkn.java:375");
 
@@ -402,12 +430,26 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
-					Long formatId = Long.parseLong(s[0]);
+					// Guard sama seperti retreiveDetailNilai di atas: segmen kosong/rusak
+					// dilewati, bukan dijadikan NumberFormatException.
+					if (s.length == 0 || s[0] == null || !Common.isNumber(s[0].trim())) {
+						continue;
+					}
+					Long formatId = Long.parseLong(s[0].trim());
 					if (formatIdSource.getKomponenPenilaianKkn().getId().equals(formatId)) {
-						if (Double.parseDouble(s[1]) < 0.01) {
+						// Nilai kosong/bukan angka = belum dinilai -> otomatis belum terverifikasi.
+						if (s.length <= 1 || s[1] == null || !Common.isNumber(s[1].trim())) {
 							return false;
 						}
-						return Boolean.parseBoolean(s[4]);
+						if (Double.parseDouble(s[1].trim()) < 0.01) {
+							return false;
+						}
+						// Kolom verifikasi bisa tidak ada pada baris format lama -> anggap false
+						// (perilaku sama dengan Boolean.parseBoolean untuk teks non-"true").
+						if (s.length <= 4 || s[4] == null) {
+							return false;
+						}
+						return Boolean.parseBoolean(s[4].trim());
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/MahasiswaDapatKelompokKkn.java:400");
 

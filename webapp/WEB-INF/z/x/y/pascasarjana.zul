@@ -48,7 +48,7 @@
 				<panel width="100%" border="normal"
 					title="Contact Information">
 					<panelchildren>
-						<grid use="ais.ui.util.MyGrid">
+						<grid fixedLayout="true" use="ais.ui.util.MyGrid">
 
 
 							<rows>

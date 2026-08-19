@@ -369,11 +369,18 @@ public class CommonDownloadUpload {
 												indexCol++;
 											}
 
+											/* Perbaikan NonUniqueResultException: kolom natural-key (kode / nomorInduk) TIDAK unik
+											 * di tabel tujuan (bisa berulang antar sekolah/yayasan/periode, apalagi bila idCrit null
+											 * sehingga scope-nya seluruh tabel). uniqueResult() polos melempar NonUniqueResultException,
+											 * exception itu tertelan catch di bawah -> valueObject tetap null -> baris impor DISISIPKAN
+											 * sebagai record baru, bukan meng-update yang lama (sumber data ganda). Pakai setMaxResults(1)
+											 * seperti pemanggilan sejenis lain di file ini agar tetap mengambil kandidat pencocokan
+											 * tanpa melempar exception. */
 											if (kodeKol != null && !kodeKol.trim().isEmpty()) {
 												valueObject = (GeneralValueObject) session.createCriteria(clazz)
 														.add(idCrit == null ? Restrictions.sqlRestriction("true")
 																: idCrit)
-														.add(Restrictions.eq("kode", kodeKol)).uniqueResult();
+														.add(Restrictions.eq("kode", kodeKol)).setMaxResults(1).uniqueResult();
 											}
 										} catch (Exception e) {
 											Common.tampilErrorJikaAdmin(e);
@@ -404,7 +411,7 @@ public class CommonDownloadUpload {
 														.add(uploadYayasan == null || uploadYayasan.getId() == null
 																? Restrictions.sqlRestriction("true")
 																: Restrictions.eq("yayasan", uploadYayasan))
-														.add(Restrictions.eq("nomorInduk", nomorInduk)).uniqueResult();
+														.add(Restrictions.eq("nomorInduk", nomorInduk)).setMaxResults(1).uniqueResult();
 											} else if (nomorInduk != null && !nomorInduk.trim().isEmpty()
 													&& uploadYayasan != null && uploadYayasan.getId() != null) {
 												valueObject = (GeneralValueObject) session.createCriteria(clazz)
@@ -413,7 +420,7 @@ public class CommonDownloadUpload {
 														.add(uploadYayasan == null || uploadYayasan.getId() == null
 																? Restrictions.sqlRestriction("true")
 																: Restrictions.eq("yayasan", uploadYayasan))
-														.add(Restrictions.eq("nomorInduk", nomorInduk)).uniqueResult();
+														.add(Restrictions.eq("nomorInduk", nomorInduk)).setMaxResults(1).uniqueResult();
 											} else {
 												valueObject = (GeneralValueObject) clazz.newInstance();
 											}

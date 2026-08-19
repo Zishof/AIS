@@ -1618,6 +1618,158 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	/**
+	 * SATU gambar rusak TIDAK BOLEH menggagalkan SELURUH laporan.
+	 *
+	 * <p><b>Masalah yang diperbaiki.</b> {@link #kosongkanParameterGambarTidakValid(Map)} hanya
+	 * menjangkau gambar yang dikirim sebagai PARAMETER laporan (logo, kop, ttd, barcode). Gambar
+	 * yang berasal dari DATA/blob -- mis. foto mahasiswa pada Kartu Mahasiswa yang diambil
+	 * langsung oleh query/field di dalam template -- tidak tersentuh sama sekali, sehingga satu
+	 * blob foto yang korup/kosong tetap membuat
+	 * {@code JRPdfExporter} melempar {@code JRException: java.io.IOException: The byte array is
+	 * not a recognized imageformat} dan pengguna TIDAK mendapat kartu sama sekali.</p>
+	 *
+	 * <p><b>Cara kerja.</b> Bekerja pada hasil isi/fill ({@link JasperPrint}) sehingga mencakup
+	 * SEMUA gambar, apapun asalnya (parameter maupun data/blob):</p>
+	 * <ol>
+	 * <li><b>Pakai mekanisme bawaan JasperReports.</b> Setiap {@code JRPrintImage} di-set
+	 * {@code onErrorType=BLANK}. Exporter JasperReports (lihat {@code JRPdfExporter.exportImage}
+	 * yang memanggil {@code RendererUtil.handleImageError(e, printImage.getOnErrorTypeValue())})
+	 * menghormati setelan ini: gambar yang gagal didekode DILEWATI (dibiarkan kosong) dan proses
+	 * ekspor tetap berjalan, bukan dilempar sebagai error. Default template biasanya
+	 * {@code ERROR}, itulah sebabnya satu gambar rusak menggagalkan seluruh PDF.</li>
+	 * <li><b>Jaring pengaman tambahan.</b> Renderer yang datanya memang tidak dapat didekode
+	 * sebagai gambar dibuang (di-set null), sehingga aman juga untuk exporter/jalur yang tidak
+	 * memeriksa {@code onErrorType}.</li>
+	 * </ol>
+	 *
+	 * <p>Sengaja HANYA dipanggil pada jalur PERCOBAAN ULANG (setelah ekspor pertama gagal karena
+	 * gambar), supaya jalur normal tidak terbebani menelusuri seluruh halaman (halaman laporan
+	 * besar bisa ter-virtualisasi ke swap file, lihat {@code ReportThrottle}).</p>
+	 *
+	 * @param jasperPrint hasil isi laporan (boleh null)
+	 * @return true bila ada yang diubah (ada gunanya mencoba ekspor ulang)
+	 */
+	@SuppressWarnings("rawtypes")
+	private static boolean bersihkanGambarRusakDiJasperPrint(JasperPrint jasperPrint) {
+		if (jasperPrint == null) {
+			return false;
+		}
+		boolean berubah = false;
+		try {
+			List pages = jasperPrint.getPages();
+			if (pages == null || pages.isEmpty()) {
+				return false;
+			}
+			for (int i = 0; i < pages.size(); i++) {
+				Object page = pages.get(i);
+				if (page instanceof net.sf.jasperreports.engine.JRPrintPage) {
+					if (bersihkanGambarRusakDiElemen(((net.sf.jasperreports.engine.JRPrintPage) page).getElements(),
+							0)) {
+						berubah = true;
+					}
+				}
+			}
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t,
+					"auto-audit(bersihkanGambarRusakDiJasperPrint) src/ais/action/report/Report.java");
+		}
+		return berubah;
+	}
+
+	/**
+	 * Penelusuran rekursif elemen hasil cetak (frame bisa bersarang). Lihat
+	 * {@link #bersihkanGambarRusakDiJasperPrint(JasperPrint)}.
+	 */
+	@SuppressWarnings("rawtypes")
+	private static boolean bersihkanGambarRusakDiElemen(List elements, int kedalaman) {
+		if (elements == null || elements.isEmpty() || kedalaman > 20) {
+			return false;
+		}
+		boolean berubah = false;
+		for (int i = 0; i < elements.size(); i++) {
+			Object el;
+			try {
+				el = elements.get(i);
+			} catch (Throwable t) {
+				continue;
+			}
+			if (el instanceof net.sf.jasperreports.engine.JRPrintFrame) {
+				if (bersihkanGambarRusakDiElemen(((net.sf.jasperreports.engine.JRPrintFrame) el).getElements(),
+						kedalaman + 1)) {
+					berubah = true;
+				}
+			} else if (el instanceof net.sf.jasperreports.engine.JRPrintImage) {
+				net.sf.jasperreports.engine.JRPrintImage gambar = (net.sf.jasperreports.engine.JRPrintImage) el;
+				try {
+					if (net.sf.jasperreports.engine.type.OnErrorTypeEnum.BLANK != gambar.getOnErrorTypeValue()) {
+						gambar.setOnErrorType(net.sf.jasperreports.engine.type.OnErrorTypeEnum.BLANK);
+						berubah = true;
+					}
+				} catch (Throwable t) {
+					ais.common.ErrorAuditUtil.record(t,
+							"auto-audit(setOnErrorType gambar laporan) src/ais/action/report/Report.java");
+				}
+				if (rendererGambarRusak(gambar)) {
+					try {
+						gambar.setRenderer(null);
+						berubah = true;
+					} catch (Throwable t) {
+						ais.common.ErrorAuditUtil.record(t,
+								"auto-audit(setRenderer null gambar rusak) src/ais/action/report/Report.java");
+					}
+				}
+			}
+		}
+		return berubah;
+	}
+
+	/**
+	 * Apakah data gambar pada sebuah elemen hasil cetak BENAR-BENAR tidak dapat didekode.
+	 * Data SVG (mis. barcode/QR dari komponen Barcode4J) sengaja TIDAK dianggap rusak walaupun
+	 * {@link ImageIO} tidak bisa membacanya.
+	 */
+	private static boolean rendererGambarRusak(net.sf.jasperreports.engine.JRPrintImage gambar) {
+		net.sf.jasperreports.renderers.Renderable renderer;
+		try {
+			renderer = gambar.getRenderer();
+		} catch (Throwable t) {
+			return true;
+		}
+		if (renderer == null) {
+			return false;
+		}
+		if (!(renderer instanceof net.sf.jasperreports.renderers.DataRenderable)) {
+			// Renderer non-data (mis. grafik/chart yang digambar langsung ke Graphics2D) tidak
+			// bisa diperiksa lewat byte array -- biarkan apa adanya.
+			return false;
+		}
+		byte[] data;
+		try {
+			data = ((net.sf.jasperreports.renderers.DataRenderable) renderer)
+					.getData(DefaultJasperReportsContext.getInstance());
+		} catch (Throwable t) {
+			return true;
+		}
+		if (data == null || data.length == 0) {
+			return true;
+		}
+		try {
+			if (net.sf.jasperreports.renderers.util.RendererUtil.getInstance(DefaultJasperReportsContext.getInstance())
+					.isSvgData(data)) {
+				return false;
+			}
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t,
+					"auto-audit(cek data SVG gambar laporan) src/ais/action/report/Report.java");
+		}
+		try {
+			return ImageIO.read(new java.io.ByteArrayInputStream(data)) == null;
+		} catch (Throwable t) {
+			return true;
+		}
+	}
+
+	/**
 	 * Cek apakah sebuah path berkas "terlihat" seperti gambar (berdasarkan
 	 * ekstensi) namun sebenarnya TIDAK VALID (tidak ada, kosong/0-byte, atau
 	 * gagal dibaca sebagai gambar oleh {@link ImageIO}). Dipakai sebagai jaring
@@ -2023,15 +2175,43 @@ public class Report extends GenericAutowireComposer {
 			try {
 				exportJasperPrint(jasperPrint, formatLaporan, myFile);
 			} catch (Exception exportEx) {
-				// Jika gagal karena foto tidak valid (URL eksternal kembalikan bukan gambar),
-				// hapus foto dan coba ulang agar laporan tetap tercetak tanpa foto.
-				if (isImageFormatError(exportEx) && lastFileJasper != null
-						&& kosongkanParameterGambarTidakValid(parameters)) {
-					if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace(); ais.common.ErrorAuditUtil.record(exportEx, "auto-audit src/ais/action/report/Report.java:1452");
-					JasperPrint jasperPrintRetry = fillJasperReport(lastFileJasper, parameters, maps);
-					exportJasperPrint(jasperPrintRetry, formatLaporan, myFile);
-				} else {
+				// Jika gagal karena gambar tidak valid (foto/logo/ttd/barcode korup, atau URL
+				// eksternal mengembalikan bukan gambar), laporan HARUS tetap terbit dengan
+				// gambar bermasalah dikosongkan -- bukan gagal total.
+				if (!isImageFormatError(exportEx)) {
 					throw exportEx;
+				}
+				if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace(); ais.common.ErrorAuditUtil.record(exportEx, "auto-audit src/ais/action/report/Report.java:1452");
+
+				boolean berhasilTanpaGambarRusak = false;
+
+				// TAHAP 1 (baru): bereskan langsung di hasil isi/fill. Ini menjangkau gambar dari
+				// DATA/blob (mis. foto mahasiswa pada Kartu Mahasiswa) yang TIDAK pernah lewat
+				// parameter, sekaligus mengaktifkan mekanisme bawaan JasperReports
+				// (onErrorType=BLANK) agar gambar rusak dilewati saat ekspor.
+				if (jasperPrint != null && bersihkanGambarRusakDiJasperPrint(jasperPrint)) {
+					try {
+						exportJasperPrint(jasperPrint, formatLaporan, myFile);
+						berhasilTanpaGambarRusak = true;
+					} catch (Exception exportEx2) {
+						if (!isImageFormatError(exportEx2)) {
+							throw exportEx2;
+						}
+						ais.common.ErrorAuditUtil.record(exportEx2,
+								"auto-audit(ekspor ulang setelah gambar rusak dikosongkan tetap gagal) src/ais/action/report/Report.java");
+					}
+				}
+
+				// TAHAP 2 (perilaku lama, tetap dipertahankan): kosongkan PARAMETER gambar yang
+				// tidak valid lalu isi ulang laporan dari template.
+				if (!berhasilTanpaGambarRusak) {
+					if (lastFileJasper != null && kosongkanParameterGambarTidakValid(parameters)) {
+						JasperPrint jasperPrintRetry = fillJasperReport(lastFileJasper, parameters, maps);
+						bersihkanGambarRusakDiJasperPrint(jasperPrintRetry);
+						exportJasperPrint(jasperPrintRetry, formatLaporan, myFile);
+					} else {
+						throw exportEx;
+					}
 				}
 			}
 			updateProgress(progress, 96, "Menyimpan riwayat laporan", "Mencatat riwayat file laporan yang dibuat");

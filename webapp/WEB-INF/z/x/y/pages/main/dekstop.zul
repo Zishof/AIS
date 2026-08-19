@@ -84,7 +84,7 @@
 
 
 			<center border="none" flex="true">
-				<grid>
+				<grid fixedLayout="true">
 					<rows>
 						<row id="headerHbox" sclass="headerHbox">
 

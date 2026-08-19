@@ -35,7 +35,7 @@
 		<borderlayout height="100%" width="100%" id="myborder">
 
 			<center border="none" flex="true">
-				<grid>
+				<grid fixedLayout="true">
 					<rows>
 						<row id="headerHbox" sclass="headerHbox">
 

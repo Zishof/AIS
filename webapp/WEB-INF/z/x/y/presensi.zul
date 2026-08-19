@@ -185,7 +185,7 @@
 								</north>
 								<center border="none" flex="true">
 
-									<grid use="ais.ui.util.MyGrid"
+									<grid fixedLayout="true" use="ais.ui.util.MyGrid"
 										sclass="fgrid">
 										<rows>
 											<row>

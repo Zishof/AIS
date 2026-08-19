@@ -4,7 +4,7 @@
 		border="none" height="100%" width="100%">
 		<borderlayout>
 			<center flex="true">
-				<grid use="ais.ui.util.MyGrid" height="100%" width="100%">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" height="100%" width="100%">
 					<rows>
 						<row>
 							<label use="ais.ui.util.MyLabelConfig" value="Kode Pembayaran"></label>

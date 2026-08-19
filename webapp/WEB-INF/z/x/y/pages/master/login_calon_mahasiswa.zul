@@ -47,7 +47,7 @@
 						<row>
 						<label use="ais.ui.util.MyLabelConfig"
 						value="Tanggal Lahir" />
-						<grid use="ais.ui.util.MyGrid" width="100%">
+						<grid fixedLayout="true" use="ais.ui.util.MyGrid" width="100%">
 						<rows>
 						<row>
 						<vbox width="33%">

@@ -298,6 +298,22 @@ public class CommonReport {
                             Locale locale = ambilLocale(localeCombobox);
                             Map<String, Serializable> mapParameter = parameters == null ? new HashMap<String, Serializable>()
                                     : parameters.generateParameters();
+                            // FIX error beruntun "parameters null saat generateFileReportCore" lalu
+                            // "Berkas hasil laporan tidak ditemukan": sesuai konvensi di seluruh
+                            // aplikasi, ParameterListener.generateParameters() mengembalikan null
+                            // untuk menyatakan "laporan BELUM bisa dibuat" (filter/peserta/periode
+                            // belum dipilih) dan SUDAH menampilkan pesan peringatannya sendiri
+                            // kepada pengguna. Meneruskan null ke generateDownloadReport hanya
+                            // menghasilkan dua pesan error teknis yang membingungkan, karena
+                            // generateFileReportCore memang menolak parameter null. Hentikan di
+                            // sini; jejaknya tetap dicatat untuk audit.
+                            if (mapParameter == null) {
+                                ais.common.ErrorAuditUtil.record(
+                                        new IllegalStateException("generateParameters() null (laporan belum siap dicetak), laporan="
+                                                + nama + ", format=" + tipeReport),
+                                        "auto-audit(parameter laporan belum siap, unduhan dibatalkan) src/ais/action/report/helper/CommonReport.java:exportReport");
+                                return;
+                            }
                             Report.generateDownloadReport(tipeReport, mapParameter, nama, map,
                                     ais.ui.util.WaktuUtil.getDate(), locale);
                         } catch (Exception e) {

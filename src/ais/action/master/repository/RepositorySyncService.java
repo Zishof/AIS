@@ -75,27 +75,16 @@ public class RepositorySyncService {
 	 * sudah mati (bukan sekadar transaksi/state Hibernate yang perlu di-rollback). Pada
 	 * kondisi ini, rollback()/clear()/beginTransaction() pada sesi yang sama tidak akan
 	 * memulihkan apa pun -- semua akan gagal lagi memakai koneksi yang sama-sama sudah tertutup.
+	 *
+	 * <p>Implementasinya sekarang TINGGAL SATU dan berada di
+	 * {@link ais.database.hibernate.HibernateUtil#isConnectionDead(Throwable)}, karena jalur
+	 * pembersihan session ({@code HibernateUtil.closeSessionQuietly}) butuh pemeriksaan yang
+	 * PERSIS SAMA supaya tidak melempar {@code TransactionException: JDBC rollback failed} pada
+	 * koneksi yang sudah mati. Method ini dipertahankan sebagai nama lokal (dipakai belasan kali
+	 * di kelas ini bersama flag {@link SyncSummary#connectionLost}) dan hanya mendelegasikan.</p>
 	 */
 	private static boolean isConnectionDead(Throwable e) {
-		Throwable cur = e;
-		int guard = 0;
-		while (cur != null && guard++ < 12) {
-			if (cur instanceof org.hibernate.exception.JDBCConnectionException
-					|| cur instanceof java.net.SocketException || cur instanceof javax.net.ssl.SSLException) {
-				return true;
-			}
-			String msg = cur.getMessage();
-			if (msg != null) {
-				String low = msg.toLowerCase();
-				if (low.contains("connection has been closed") || low.contains("statement has been closed")
-						|| low.contains("socket closed")
-						|| low.contains("i/o error occurred while sending to the backend")) {
-					return true;
-				}
-			}
-			cur = cur.getCause();
-		}
-		return false;
+		return ais.database.hibernate.HibernateUtil.isConnectionDead(e);
 	}
 
 	/**

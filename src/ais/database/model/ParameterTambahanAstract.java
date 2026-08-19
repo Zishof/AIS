@@ -1564,6 +1564,50 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return ambilValComponent(component, parameterTambahan);
 	}
 
+	/**
+	 * Membaca teks MENTAH sebuah komponen masukan ZK TANPA memicu validasi.
+	 *
+	 * <p><b>Kenapa perlu.</b> {@code InputElement.getText()} bukan sekadar getter: ia
+	 * MEM-VALIDASI ulang isi komponen dan melempar
+	 * {@code WrongValueException: You must specify a number, rather than -.} bila pengguna
+	 * mengetik teks yang belum berupa angka (mis. baru mengetik tanda minus "-"). Karena
+	 * {@code getText()} itu justru dipakai pada jalur PEMULIHAN error, satu ketikan "-" membuat
+	 * jalur pemulihan ikut gagal sehingga teks mentahnya hilang sama sekali dan proses simpan
+	 * terganggu. {@code getRawText()} mengembalikan nilai apa adanya dari klien tanpa validasi,
+	 * jadi dipakai lebih dulu; {@code getText()} hanya sebagai cadangan (dibungkus try-catch),
+	 * dan bila semuanya gagal hasilnya null yang diartikan "tidak ada nilai".</p>
+	 */
+	private static String ambilTeksMentahAman(org.zkoss.zul.impl.InputElement inputElement) {
+		if (inputElement == null) {
+			return null;
+		}
+		try {
+			String raw = inputElement.getRawText();
+			if (raw != null) {
+				return raw;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:ambilTeksMentahAman-getRawText");
+		}
+		try {
+			Object rawValue = inputElement.getRawValue();
+			if (rawValue != null) {
+				return rawValue.toString();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:ambilTeksMentahAman-getRawValue");
+		}
+		try {
+			return inputElement.getText();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:ambilTeksMentahAman-getText");
+		}
+		return null;
+	}
+
 	@SuppressWarnings("unchecked")
 	public static String ambilValComponent(Component component, ParameterTambahan parameterTambahan) {
 		String val = "";
@@ -1661,14 +1705,20 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 						// orang" sebelum field ini jadi Doublebox). JANGAN lempar ulang --
 						// akan menggagalkan seluruh populateParameterTambahan utk field lain.
 						// Fallback: ambil angka di depan teks mentah, bila tak ada anggap 0.
-						String raw = null;
-						try {
-							raw = ((MyDoublebox) component).getText();
-						} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:ambilValComponent-ANGKA-getText"); }
+						// FIX WrongValueException "You must specify a number, rather than -.":
+						// pembacaan teks mentah TIDAK BOLEH memakai getText() secara langsung,
+						// karena getText() memvalidasi ulang isinya dan ikut melempar
+						// WrongValueException (mis. pengguna baru mengetik tanda minus "-"),
+						// sehingga jalur pemulihan ini justru ikut gagal dan proses simpan
+						// parameter tambahan alumni batal. Pakai pembaca mentah yang aman
+						// (getRawText lebih dulu) -- lihat ambilTeksMentahAman.
+						String raw = ambilTeksMentahAman((MyDoublebox) component);
 						Double fallback = null;
 						if (raw != null && raw.trim().length() > 0) {
+							// Tanda minus/plus di depan ikut dikenali; token yang hanya berisi
+							// "-" / "+" / teks bebas TIDAK cocok -> dianggap "tanpa nilai".
 							java.util.regex.Matcher m = java.util.regex.Pattern
-									.compile("^\\s*([0-9]+([.,][0-9]+)?)").matcher(raw);
+									.compile("^\\s*([+-]?[0-9]+([.,][0-9]+)?)").matcher(raw);
 							if (m.find()) {
 								String angkaStr = m.group(1).replace(",", ".");
 								try {

@@ -698,6 +698,19 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 			@Override
 			public void run() {
+				/* KE-FIX (SessionException "Session is closed!" di SessionImpl.getTransaction,
+				 * dilempar dari baris `session.getTransaction().begin()` di bawah):
+				 * thread latar ini SEBELUMNYA memakai HibernateUtil.currentNativeSession(), yaitu
+				 * session ThreadLocal bersama. Di dalam loop, Common.singkronkanKrsMahasiswa(...)
+				 * -> CommonAcademicSyncHelper memanggil HibernateUtil.closeSession(), yang MENUTUP
+				 * dan melepas session ThreadLocal itu -- padahal variabel `session` di sini masih
+				 * memegang referensi ke objek yang sama. Baris berikutnya lalu memanggil
+				 * getTransaction() pada session yang sudah tertutup dan SELURUH sisa upload gagal.
+				 * Sekarang thread ini MEMILIKI session-nya sendiri lewat openSession() (tidak
+				 * terdaftar di ThreadLocal, jadi tidak bisa ditutup pihak lain) dan menutupnya
+				 * sendiri di finally lewat closeSessionQuietly (clear + disconnect + close).
+				 * Pekerjaan per barisnya TIDAK diubah sama sekali. */
+				Session session = null;
 				try {
 
 				try {
@@ -705,7 +718,7 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -787,6 +800,9 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 				label.setValue("");
 							} finally {
+					// Session milik thread ini: WAJIB ditutup tuntas (clear + disconnect + close).
+					ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+					// Tetap lepas session ThreadLocal yang mungkin dibuat helper lain di thread ini.
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}

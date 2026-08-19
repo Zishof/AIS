@@ -239,19 +239,108 @@ public class URLCommon {
 
 				System.out.println("curl file " + binaryFile.getAbsolutePath() + " to " + u);
 
-				String[] command = { "curl", "-k", "-4", "-v", "-H", "Content-Type: multipart/form-data", "--cookie",
+				/*
+				 * PERBAIKAN KEBUNTUAN PROSES (snapshot performa 12-19/08/2026).
+				 *
+				 * Versi lama memakai flag "-v" (verbose) sehingga curl menulis BANYAK keluaran ke
+				 * STDERR, sementara kode hanya membaca STDOUT dan TIDAK PERNAH menguras STDERR.
+				 * Begitu buffer pipa stderr penuh (biasanya beberapa puluh KB), curl TERBLOKIR saat
+				 * menulis; karena curl berhenti, stdout tidak lagi terisi dan readLine() di sini
+				 * menunggu SELAMANYA. Inilah sebabnya satu thread ("Thread-327") tercatat macet di
+				 * baris ini pada SELURUH 151 snapshot selama seminggu penuh, dan satu thread
+				 * request Tomcat ikut macet dengan pola yang sama.
+				 *
+				 * Tiga pengaman sekarang:
+				 *   1. "-v" diganti "-sS" (senyap tapi tetap menampilkan pesan error) sehingga
+				 *      stderr tidak lagi dibanjiri.
+				 *   2. STDERR tetap DIKURAS thread tersendiri, supaya buffer tak mungkin penuh
+				 *      walau curl mengeluarkan pesan panjang.
+				 *   3. Watchdog menghentikan proses bila melewati batas waktu, sehingga thread
+				 *      tidak pernah lagi menggantung tanpa batas.
+				 */
+				String[] command = { "curl", "-k", "-4", "-sS", "-H", "Content-Type: multipart/form-data", "--cookie",
 						"JSESSIONID=" + cookie + "", "-H", "accept: application/json", "-X", "POST", u, "-T",
 						binaryFile.getAbsolutePath() };
 
+				int batasDetik = 300;
+				try {
+					batasDetik = (int) Common.parseAngkaKonfigurasi(
+							Common.getKonfigurasi("timeout_upload_dspace_detik", "300").getNilai(), 300);
+				} catch (Exception eKonf) {
+					ais.common.ErrorAuditUtil.record(eKonf, "URLCommon.upload.timeoutKonfigurasi");
+				}
+				if (batasDetik < 10) {
+					batasDetik = 10;
+				}
+
 				ProcessBuilder process = new ProcessBuilder(command);
-				Process p;
-				p = process.start();
+				final Process p = process.start();
+
+				// (2) Penguras STDERR — WAJIB, lihat penjelasan di atas.
+				Thread pengurasError = new Thread(new Runnable() {
+					public void run() {
+						BufferedReader errReader = null;
+						try {
+							errReader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+							while (errReader.readLine() != null) {
+								// sengaja dibuang: yang penting pipa tidak pernah penuh
+							}
+						} catch (Exception abaikan) {
+						} finally {
+							try {
+								if (errReader != null) {
+									errReader.close();
+								}
+							} catch (Exception abaikan) {
+							}
+						}
+					}
+				}, "dspace-upload-stderr");
+				pengurasError.setDaemon(true);
+				pengurasError.start();
+
+				// (3) Watchdog batas waktu.
+				final int batasDetikFinal = batasDetik;
+				final java.util.concurrent.atomic.AtomicBoolean lewatBatas =
+						new java.util.concurrent.atomic.AtomicBoolean(false);
+				Thread watchdog = new Thread(new Runnable() {
+					public void run() {
+						try {
+							Thread.sleep(batasDetikFinal * 1000L);
+							lewatBatas.set(true);
+							p.destroy();
+						} catch (InterruptedException selesaiNormal) {
+							Thread.currentThread().interrupt();
+						} catch (Exception abaikan) {
+						}
+					}
+				}, "dspace-upload-watchdog");
+				watchdog.setDaemon(true);
+				watchdog.start();
+
 				BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 				StringBuilder builder = new StringBuilder();
 				String line = null;
-				while ((line = reader.readLine()) != null) {
-					builder.append(line);
-					builder.append(System.getProperty("line.separator"));
+				try {
+					while ((line = reader.readLine()) != null) {
+						builder.append(line);
+						builder.append(System.getProperty("line.separator"));
+					}
+				} finally {
+					try {
+						reader.close();
+					} catch (Exception abaikan) {
+					}
+					try {
+						p.waitFor();
+					} catch (InterruptedException ie) {
+						Thread.currentThread().interrupt();
+					}
+					watchdog.interrupt();
+				}
+				if (lewatBatas.get()) {
+					throw new Exception("Upload berkas ke DSpace dihentikan karena melewati batas waktu "
+							+ batasDetikFinal + " detik (berkas: " + binaryFile.getName() + ").");
 				}
 				data = builder.toString();
 

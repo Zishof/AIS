@@ -17,7 +17,7 @@
 					model="${cm}" mold="month" width="100%" height="100%" sclass="ais-cal-view">
 					<toolbar sclass="calendar-toolbar ais-cal-toolbar">
 						<div class="float-left ais-cal-filter-wrap">
-							<grid use="ais.ui.util.MyGrid" sclass="ais-cal-filter-grid">
+							<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="ais-cal-filter-grid">
 
 								<rows>
 

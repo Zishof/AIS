@@ -945,13 +945,57 @@ public class LaporanPendidikanLingkunganKampus extends MyWindow {
 		return parameters;
 	}
 
-	@SuppressWarnings({})
+	/**
+	 * Apakah pengguna memang BELUM memilih apa-apa (peserta dan/atau formulir kegiatan) sehingga
+	 * laporan memang belum bisa dibuat. Dipakai {@link #onKHS(Event)} untuk membedakan antara
+	 * "belum memilih" (perlu pesan yang jelas) dan "sudah memilih tapi gagal validasi/kuota"
+	 * (pesan sudah ditampilkan oleh {@code chek()} / {@link #generateParameter()}, jangan sampai
+	 * pengguna menerima dua pesan beruntun).
+	 */
+	private boolean belumMemilihDataLaporan() {
+		try {
+			boolean adaPeserta = bandboxMahasiswa.getAttribute("mahasiswa") != null
+					|| bandboxDosen.getAttribute("dosen") != null || bandboxSiswa.getAttribute("siswa") != null
+					|| bandboxGuru.getAttribute("guru") != null;
+			boolean adaFormulir = formulirKegiatan.getSelectedItem() != null
+					&& formulirKegiatan.getSelectedItem().getAttribute("value") != null;
+			return !adaPeserta || !adaFormulir;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(belumMemilihDataLaporan) src/ais/action/report/format1/akademik/LaporanPendidikanLingkunganKampus.java");
+			return true;
+		}
+	}
+
+	@SuppressWarnings({ "rawtypes" })
 	public void onKHS(Event event) throws Exception {
 
 		try {
 
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), "form_pendidikan_lingkungan_kampus",
-					ais.ui.util.WaktuUtil.getDate(), toolbar);
+			// FIX "parameters null saat generateFileReportCore,
+			// laporan=form_pendidikan_lingkungan_kampus" + error susulan "Berkas hasil laporan
+			// tidak ditemukan": generateParameter() SENGAJA mengembalikan null pada kondisi yang
+			// wajar -- (a) peserta (mahasiswa/dosen/siswa/guru) atau formulir kegiatan belum
+			// dipilih, (b) chek() gagal (syarat ujian/biaya belum terpenuhi), (c) kuota kegiatan
+			// sudah penuh. Kondisi (a) PASTI terjadi saat layar pertama kali dibuka, karena
+			// init() ditutup dengan eventListener.onEvent(null) yang berujung memanggil onKHS(...)
+			// SEBELUM pengguna sempat mengisi apa pun. Sebelumnya null itu diteruskan mentah ke
+			// Report.generateFileReportWithProgress sehingga muncul DUA error beruntun yang
+			// membingungkan. Sekarang: dihentikan di sini; pesan yang jelas hanya ditampilkan bila
+			// benar-benar dipicu aksi pengguna (event != null) dan penyebabnya memang "belum
+			// memilih" (bila penyebabnya validasi/kuota, pesannya sudah tampil lebih dulu).
+			Map parameters = generateParameter();
+			if (parameters == null) {
+				if (event != null && belumMemilihDataLaporan()) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, laporan belum dapat dicetak karena data yang diperlukan belum lengkap. Silakan pilih peserta (Mahasiswa/Dosen/Siswa/Guru) dan formulir/kegiatan terlebih dahulu, kemudian ulangi proses pencetakan.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				}
+				return;
+			}
+
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameters,
+					"form_pendidikan_lingkungan_kampus", ais.ui.util.WaktuUtil.getDate(), toolbar);
 			CommonReport.tampilkanReportPDF(center, file);
 
 		} catch (Exception e) {

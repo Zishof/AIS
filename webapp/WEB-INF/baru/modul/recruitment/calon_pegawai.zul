@@ -54,7 +54,7 @@
               </div>
             </north>
             <center border="none" style="border:0px;" flex="true" sclass="ecampus-zul-data-center">
-              <grid use="ais.ui.util.MyGrid" sclass="fgrid ecampus-zul-data-wrapper">
+              <grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid ecampus-zul-data-wrapper">
                 <rows>
                   <row>
                     <paging visible="false" id="paging" detailed="true" sclass="ecampus-zul-paging-top"/>

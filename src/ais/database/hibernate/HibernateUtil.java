@@ -905,7 +905,9 @@ public class HibernateUtil {
             if (session.isOpen()) {
                 try {
                     session.clear();
-                } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:873");
+                } catch (Exception e) {
+                    catatKegagalanPenutupan(e, "clear",
+                            "src/ais/database/hibernate/HibernateUtil.java:873");
                     // Abaikan agar proses close tetap lanjut.
                 }
                 /*
@@ -917,43 +919,183 @@ public class HibernateUtil {
                  * memegang row lock dari UPDATE yang sempat berjalan — terbukti
                  * di pg_stat_activity (idle in transaction berumur belasan
                  * menit dengan query terakhir berupa SELECT).
+                 *
+                 * KE-FIX (TransactionException "JDBC rollback failed" <- PSQLException
+                 * "This connection has been closed."): rollback hanya masuk akal bila koneksi
+                 * FISIK masih hidup. Begitu koneksi mati (SSL/socket putus, pool menutup koneksi,
+                 * server restart), rollback justru melempar exception BARU yang tidak informatif
+                 * dan MENUTUPI penyebab asli di log — persis yang terlihat pada jalur
+                 * RepositorySyncScheduler.jalankanSekali -> finally -> closeSessionQuietly.
+                 * Karena itu status koneksi diperiksa LEBIH DULU (isConnected + !isClosed), dan
+                 * bila toh masih gagal karena koneksi tertutup, itu diperlakukan sebagai derau
+                 * shutdown yang wajar: dicatat 1 baris TANPA stack trace. Error nyata tetap
+                 * dicatat penuh. Urutan rollback-sebelum-close TIDAK berubah, dan koneksi yang
+                 * masih hidup tetap di-rollback seperti semula.
                  */
+                java.sql.Connection connection = null;
+                boolean connectionUsable = false;
                 try {
-                    if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                    if (session.isConnected()) {
+                        connection = session.connection();
+                        connectionUsable = connection != null && !connection.isClosed();
+                    }
+                } catch (Exception e) {
+                    connection = null;
+                    connectionUsable = false;
+                    catatKegagalanPenutupan(e, "cek-koneksi",
+                            "src/ais/database/hibernate/HibernateUtil.java:895");
+                }
+                try {
+                    if (connectionUsable && session.getTransaction() != null
+                            && session.getTransaction().isActive()) {
                         session.getTransaction().rollback();
                     }
-                } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:890");
+                } catch (Exception e) {
+                    catatKegagalanPenutupan(e, "rollback-transaksi",
+                            "src/ais/database/hibernate/HibernateUtil.java:890");
                     // Abaikan agar proses close tetap lanjut.
                 }
                 try {
-                    if (session.isConnected()) {
-                        java.sql.Connection connection = session.connection();
-                        if (connection != null && !connection.getAutoCommit()) {
-                            connection.rollback();
-                        }
+                    if (connectionUsable && connection != null && !connection.isClosed()
+                            && !connection.getAutoCommit()) {
+                        connection.rollback();
                     }
-                } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:900");
+                } catch (Exception e) {
+                    catatKegagalanPenutupan(e, "rollback-koneksi",
+                            "src/ais/database/hibernate/HibernateUtil.java:900");
                     // Abaikan agar proses close tetap lanjut.
                 }
                 try {
                     session.disconnect();
-                } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:905");
+                } catch (Exception e) {
+                    catatKegagalanPenutupan(e, "disconnect",
+                            "src/ais/database/hibernate/HibernateUtil.java:905");
                     // Abaikan agar proses close tetap lanjut.
                 }
                 try {
                     session.close();
                 } catch (Exception e) {
-                    Common.tampilErrorJikaAdmin(e);
+                    if (isConnectionDead(e)) {
+                        catatKegagalanPenutupan(e, "close",
+                                "src/ais/database/hibernate/HibernateUtil.java:910");
+                    } else {
+                        Common.tampilErrorJikaAdmin(e);
+                    }
                 }
             }
         } catch (Exception e) {
-            Common.tampilErrorJikaAdmin(e);
+            if (isConnectionDead(e)) {
+                catatKegagalanPenutupan(e, "close-session",
+                        "src/ais/database/hibernate/HibernateUtil.java:915");
+            } else {
+                Common.tampilErrorJikaAdmin(e);
+            }
         } catch (Throwable t) {
             try {
-                Common.tampilErrorJikaAdmin(new Exception(t));
+                if (isConnectionDead(t)) {
+                    catatKegagalanPenutupan(t, "close-session",
+                            "src/ais/database/hibernate/HibernateUtil.java:919");
+                } else {
+                    Common.tampilErrorJikaAdmin(new Exception(t));
+                }
             } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:919");
             }
         }
+    }
+
+    /**
+     * Mencatat kegagalan salah satu langkah pembersihan session, sambil membedakan
+     * "koneksi memang sudah tertutup" (derau shutdown yang WAJAR) dari error nyata.
+     *
+     * <p><b>Tujuan.</b> Menghentikan banjir stack trace sekunder ketika koneksi JDBC fisik
+     * mati. Pada kondisi itu setiap langkah pembersihan (rollback/disconnect/close) melempar
+     * exception BARU ({@code TransactionException: JDBC rollback failed} <- {@code PSQLException:
+     * This connection has been closed.}) yang tidak menambah informasi apa pun dan justru
+     * MENUTUPI exception asli yang sudah dicatat pemanggil (mis. {@code RepositorySyncService}
+     * lewat flag {@code SyncSummary.connectionLost}).</p>
+     *
+     * <p><b>Cara kerja.</b> Bila {@link #isConnectionDead(Throwable)} bernilai {@code true},
+     * hanya satu baris ringkas dicetak ke stdout (tanpa stack trace, tanpa audit); selain itu
+     * exception dicatat penuh lewat {@code ErrorAuditUtil.record} seperti sebelumnya. Seluruh
+     * badan method dibungkus try/catch karena penutupan session TIDAK BOLEH melempar apa pun
+     * ke pemanggil.</p>
+     *
+     * @param e      exception yang terjadi (boleh null)
+     * @param tahap  nama langkah pembersihan, untuk log ringkas
+     * @param lokasi penanda lokasi kode untuk audit
+     */
+    private static void catatKegagalanPenutupan(Throwable e, String tahap, String lokasi) {
+        if (e == null) {
+            return;
+        }
+        try {
+            if (isConnectionDead(e)) {
+                // Koneksi fisik sudah tertutup: konsekuensi WAJAR dari kegagalan yang sudah
+                // tercatat di tempat lain. Cukup 1 baris; JANGAN stack trace / audit.
+                System.out.println("[HibernateUtil] Langkah '" + tahap
+                        + "' dilewati karena koneksi database sudah tertutup: " + e.getMessage());
+                return;
+            }
+            ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) " + lokasi);
+        } catch (Throwable ignored) {
+            // Penutupan session tidak boleh melempar apa pun ke pemanggil.
+        }
+    }
+
+    /**
+     * Deteksi apakah exception (atau salah satu cause-nya) menandakan koneksi JDBC FISIK sudah
+     * mati/tertutup — bukan sekadar transaksi/state Hibernate yang perlu di-rollback.
+     *
+     * <p><b>Tujuan.</b> Menjadi SATU definisi tunggal bagi seluruh aplikasi. Idiom ini semula
+     * hidup sebagai helper privat {@code isConnectionDead} di
+     * {@code ais.action.master.repository.RepositorySyncService} (dipakai berpasangan dengan flag
+     * {@code SyncSummary.connectionLost}); helper di sana sekarang mendelegasikan ke sini supaya
+     * tidak ada dua daftar pola yang bisa saling menyimpang.</p>
+     *
+     * <p><b>Cara kerja.</b> Menyusuri rantai {@code getCause()} (dibatasi 12 tingkat, plus
+     * penjagaan cause yang menunjuk dirinya sendiri) dan mengembalikan {@code true} bila
+     * menemukan {@link org.hibernate.exception.JDBCConnectionException},
+     * {@link java.net.SocketException}, {@link javax.net.ssl.SSLException}, atau pesan khas
+     * koneksi/statement yang sudah tertutup.</p>
+     *
+     * <p><b>Pemeliharaan.</b> Pada kondisi ini {@code rollback()}/{@code clear()}/
+     * {@code beginTransaction()} pada session yang sama TIDAK akan memulihkan apa pun — semua
+     * akan gagal lagi memakai koneksi yang sama. Jangan menambah pola yang terlalu umum
+     * (mis. sekadar "closed") supaya error nyata tidak ikut terbungkam.</p>
+     *
+     * @param e exception yang diperiksa (boleh null)
+     * @return {@code true} bila jelas merupakan kasus koneksi fisik sudah mati/tertutup
+     */
+    public static boolean isConnectionDead(Throwable e) {
+        Throwable cur = e;
+        int guard = 0;
+        while (cur != null && guard++ < 12) {
+            if (cur instanceof org.hibernate.exception.JDBCConnectionException
+                    || cur instanceof java.net.SocketException
+                    || cur instanceof javax.net.ssl.SSLException) {
+                return true;
+            }
+            String msg = cur.getMessage();
+            if (msg != null) {
+                String low = msg.toLowerCase();
+                if (low.contains("connection has been closed") || low.contains("connection is closed")
+                        || low.contains("connection has already been closed")
+                        || low.contains("connection already closed")
+                        || low.contains("statement has been closed")
+                        || low.contains("resultset has been closed")
+                        || low.contains("socket closed")
+                        || low.contains("connection closed")
+                        || low.contains("i/o error occurred while sending to the backend")) {
+                    return true;
+                }
+            }
+            Throwable next = cur.getCause();
+            if (next == cur) {
+                break;
+            }
+            cur = next;
+        }
+        return false;
     }
 
     /**

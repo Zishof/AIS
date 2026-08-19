@@ -21,7 +21,7 @@
 					<center title="Proses Ujian Online">
 
 
-						<grid use="ais.ui.util.MyGrid"  height="100%" width="100%">
+						<grid fixedLayout="true" use="ais.ui.util.MyGrid"  height="100%" width="100%">
 
 							<rows>
 

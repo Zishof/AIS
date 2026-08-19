@@ -85,13 +85,51 @@ public class MainTreeMenuHelper {
 		List<Menu> menus = (List<Menu>) Sessions.getCurrent().getAttribute("current_menus");
 
 		if (menus == null) {
+			/* KE-FIX (SessionException "Session is closed!" di PersistentSet.toArray <-
+			 * new ArrayList<Menu>(tbmrole.getMenus()) <- MainAction.initPencarianMenuJikaKosong):
+			 * tbmrole berasal dari atribut ZK session, jadi objeknya DETACHED dan koleksi
+			 * lazy `menus` miliknya masih terikat ke Session Hibernate LAMA yang sudah ditutup.
+			 * Membungkusnya dengan new ArrayList(...) memaksa inisialisasi koleksi itu memakai
+			 * session yang sudah mati -> exception -> `menus` tetap null -> MENU UTAMA KOSONG
+			 * saat halaman dimuat. session.refresh(tbmrole) di sini tidak dapat diandalkan
+			 * memasang ulang wrapper koleksinya pada instance detached tersebut.
+			 *
+			 * Sekarang daftar menu diambil EKSPLISIT lewat query pada session yang hidup, jadi
+			 * tidak ada koleksi lazy yang perlu diinisialisasi belakangan. Hasilnya List<Menu>
+			 * biasa (bukan PersistentSet) sehingga tetap aman dipakai setelah session ditutup,
+			 * persis seperti nilai yang di-cache di atribut ZK "current_menus". Bila query pun
+			 * gagal, menus di-fallback ke list KOSONG yang sudah terinisialisasi supaya kerangka
+			 * menu & item "Bantuan"/"Keluar Aplikasi" tetap ter-render (halaman tidak rusak);
+			 * fallback ini sengaja TIDAK di-cache ke ZK session supaya pemuatan berikutnya
+			 * mencoba lagi. Session dibuka manual (openSession) sehingga WAJIB ditutup di
+			 * finally lewat closeSessionQuietly (clear + disconnect + close). */
 			Session session = HibernateUtil.openSession();
 			try {
-				session.refresh(tbmrole);
-				menus = new ArrayList<Menu>(tbmrole.getMenus());
+				List<Menu> dimuat = null;
+				String roleId = tbmrole.getRoleId();
+				if (roleId != null) {
+					try {
+						dimuat = session
+								.createQuery("select distinct m from Tbmrole r join r.menus m where r.roleId = :roleId")
+								.setString("roleId", roleId).list();
+					} catch (Exception eQuery) {
+						// Cadangan: muat ulang role lewat session yang HIDUP, lalu inisialisasi
+						// koleksinya SELAGI session masih terbuka. Instance hasil get() terikat ke
+						// session ini (bukan ke session lama yang sudah ditutup), jadi aman.
+						ais.common.ErrorAuditUtil.record(eQuery,
+								"auto-audit src/ais/action/master/helper/MainTreeMenuHelper.java:menu-query");
+						Tbmrole segar = (Tbmrole) session.get(Tbmrole.class, roleId);
+						dimuat = segar == null || segar.getMenus() == null ? null
+								: new ArrayList<Menu>(segar.getMenus());
+					}
+				}
+				menus = dimuat == null ? new ArrayList<Menu>() : new ArrayList<Menu>(dimuat);
 				Collections.sort(menus);
 				Sessions.getCurrent().setAttribute("current_menus", menus);
 			} catch (Exception e) {
+				// Menu utama TIDAK BOLEH menggagalkan halaman: pakai daftar kosong yang sudah
+				// terinisialisasi (bukan null / bukan koleksi lazy) agar tree tetap terbentuk.
+				menus = new ArrayList<Menu>();
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainTreeMenuHelper.java:95");
 			} finally {
 				HibernateUtil.closeSessionQuietly(session);

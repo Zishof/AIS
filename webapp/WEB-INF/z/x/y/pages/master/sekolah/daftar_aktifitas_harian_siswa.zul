@@ -48,7 +48,7 @@
 			</west>
 
 			<center border="none" flex="true">
-				<grid use="ais.ui.util.MyGrid" sclass="fgrid" height="100%">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid" height="100%">
 					<rows>
 						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
 						<row>

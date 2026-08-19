@@ -1280,4 +1280,83 @@ public class KaryaTulisItemAction extends ItemAction {
 		return criteria;
 	}
 
+
+	/**
+	 * Kriteria tab Penerbitan KHUSUS KARYA ILMIAH.
+	 *
+	 * <p>Menimpa versi di {@link ItemAction} yang menyaring koleksi buku
+	 * ({@code defaultSatuanKerja} kosong). Karya ilmiah justru sebaliknya: selalu
+	 * terikat pada satuan kerja, bukan folder, dan bertipe Karya Ilmiah -- sama
+	 * persis dengan lingkup {@link #initCriteria(boolean)} layar ini, sehingga tab
+	 * Penerbitan tidak pernah menampilkan data di luar wewenang pengguna.</p>
+	 */
+	@Override
+	protected Criteria initCriteriaPublikasi(boolean order) {
+		Session session = HibernateUtil.currentSession();
+		Criteria criteria = session.createCriteria(Item.class);
+		if (order) {
+			criteria.addOrder(Order.desc("id"));
+		}
+
+		// Lingkup satuan kerja: ikut pembatasan akses pengguna, seperti daftar utama.
+		List<Long> ids = new ArrayList<Long>();
+		try {
+			SatuanKerja parent = satuanKerjaBanbox == null ? null
+					: (SatuanKerja) satuanKerjaBanbox.getAttribute("satuanKerja");
+			Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+			if (parent != null) {
+				satuanKerjas.clear();
+				satuanKerjas.add(parent);
+				satuanKerjaTreeModel.getChildsSet(parent, satuanKerjas);
+			}
+			for (SatuanKerja kerja : satuanKerjas) {
+				if (kerja != null && kerja.getId() != null) {
+					ids.add(kerja.getId());
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "KaryaTulisItemAction.initCriteriaPublikasi.satuanKerja");
+		}
+
+		criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.isNotNull("defaultSatuanKerja"))
+				.add(Restrictions.eq("folder", false))
+				.add(ids.isEmpty() ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.in("defaultSatuanKerja.id", ids));
+
+		// Tipe Karya Ilmiah; bila konstanta belum ter-init, cari berdasarkan nama.
+		TipeItem tipe = LibraryUtil.KARYA_ILMIAH;
+		if (tipe == null) {
+			tipe = (TipeItem) session.createCriteria(TipeItem.class)
+					.add(Restrictions.ilike("nama", "Karya Ilmiah", MatchMode.EXACT))
+					.setMaxResults(1).uniqueResult();
+		}
+		if (tipe != null) {
+			criteria.add(Restrictions.eq("tipeItem", tipe));
+		}
+
+		// Filter milik tab Penerbitan (judul, pengarang, status terbit).
+		if (searchPublikasiNama != null && !searchPublikasiNama.getValue().trim().isEmpty()) {
+			criteria.add(Restrictions.ilike("nama", searchPublikasiNama.getValue().trim(),
+					MatchMode.ANYWHERE));
+		}
+		if (searchPublikasiPengarang != null && !searchPublikasiPengarang.getValue().trim().isEmpty()) {
+			criteria.add(Restrictions.ilike("pengarangs", searchPublikasiPengarang.getValue().trim(),
+					MatchMode.ANYWHERE));
+		}
+		if (searchPublikasiStatus != null && searchPublikasiStatus.getSelectedItem() != null
+				&& searchPublikasiStatus.getSelectedItem().getAttribute("value") != null) {
+			StatusTerbitItem dipilih = (StatusTerbitItem) searchPublikasiStatus.getSelectedItem()
+					.getAttribute("value");
+			// Karya lama bisa berstatus NULL; samakan dengan Draft seperti di layar buku.
+			if (LibraryUtil.DRAFT != null && dipilih != null && LibraryUtil.DRAFT.getId() != null
+					&& LibraryUtil.DRAFT.getId().equals(dipilih.getId())) {
+				criteria.add(Restrictions.or(Restrictions.isNull("statusTerbitItem"),
+						Restrictions.eq("statusTerbitItem", dipilih)));
+			} else {
+				criteria.add(Restrictions.eq("statusTerbitItem", dipilih));
+			}
+		}
+		return criteria;
+	}
 }
