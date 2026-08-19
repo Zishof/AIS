@@ -455,6 +455,15 @@ public class PerformaSnapshotUtil {
 			detail.append("Sesi online  : tidak terbaca\n");
 		}
 
+		/* OPTIMASI FASE 10: jumlah ZK Desktop hidup. Tiap desktop menahan seluruh pohon
+		 * komponennya di memori sesi, jadi angka ini indikator langsung pemakaian RAM sisi UI
+		 * sekaligus bukti apakah batas max-desktops-per-session (15, Fase 5) sudah tepat. */
+		try {
+			detail.append("ZK desktop   : ").append(ais.common.DesktopCounterListener.statistik()).append("\n");
+		} catch (Throwable t) {
+			detail.append("ZK desktop   : tidak terbaca\n");
+		}
+
 		// Slot laporan (Fase 6)
 		try {
 			detail.append("Slot laporan : ").append(ais.action.report.ReportThrottle.statistik()).append("\n");

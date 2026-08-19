@@ -43,6 +43,15 @@
         <listener-class>org.zkoss.zkplus.hibernate.HibernateSessionContextListener</listener-class>
     </listener>
 
+    <!-- OPTIMASI FASE 10: penghitung ZK Desktop untuk snapshot performa.
+         Membuktikan apakah batas max-desktops-per-session (15, Fase 5) sudah tepat.
+         HANYA menyimpan angka -- tidak ada referensi Desktop/sesi/komponen yang ditahan,
+         dan tidak mencatat ID pengguna/sesi (bebas PII). -->
+    <listener>
+        <description>Penghitung ZK Desktop (observability)</description>
+        <listener-class>ais.common.DesktopCounterListener</listener-class>
+    </listener>
+
     <listener>
         <description>ThreadLocal Variables Synchronizer</description>
         <listener-class>ais.common.ZkossListener</listener-class>
