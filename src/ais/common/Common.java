@@ -4138,22 +4138,43 @@ public class Common {
 		if (comp == null || comp.getChildren() == null)
 			return;
 		int posisi = index < 0 ? 0 : index;
-		while (posisi < comp.getChildren().size()) {
+		/*
+		 * OPTIMASI PERFORMA (snapshot 12-19/08/2026: Common.clear adalah frame kode aplikasi
+		 * TERBANYAK yang sedang RUNNABLE, 400+ kemunculan).
+		 *
+		 * Versi lama memanggil comp.getChildren().size() dan .get(posisi) BERULANG di dalam
+		 * loop. Children ZK adalah list ber-akses SEKUENSIAL (AbstractSequentialList): get(i)
+		 * berbiaya O(i), sehingga pola lama berperilaku O(n^2). Pada kontainer berisi ribuan
+		 * anak (grid/rows) ini menghabiskan detik-detik CPU, dan celakanya dilakukan SAMBIL
+		 * MEMEGANG kunci desktop ZK -- seluruh request lain untuk desktop yang sama ikut antre
+		 * di UiEngineImpl.doActivate (terlihat pada 83-87 thread ajp-nio per snapshot).
+		 *
+		 * Perbaikan: ambil SATU salinan daftar anak lalu lepas satu per satu -> O(n). Perilaku
+		 * dipertahankan persis: anak sebelum "index" dilewati, Paging dan anak yang tidak cocok
+		 * filter "nama" tetap dipertahankan, dan tiap detach tetap dibungkus try/catch sendiri.
+		 */
+		java.util.List<?> anakAwal;
+		try {
+			anakAwal = new java.util.ArrayList<Object>(comp.getChildren());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Common.clear.salinAnak");
+			return;
+		}
+		for (int i = posisi; i < anakAwal.size(); i++) {
 			try {
-				Component child = (Component) comp.getChildren().get(posisi);
-				if (child instanceof Paging || (nama != null && child.getAttribute(nama) == null)) {
-					// Paging dikelola ZK. Anak yang tidak cocok filter juga dipertahankan;
-					// cursor harus maju agar loop tidak terus membaca anak yang sama.
-					posisi++;
+				Object o = anakAwal.get(i);
+				if (!(o instanceof Component)) {
 					continue;
 				}
-				// Setelah detach, anak berikutnya bergeser ke posisi yang sama. Jangan
-				// menaikkan cursor. Ini menghindari IndexOutOfBounds pada clear(..., 1).
+				Component child = (Component) o;
+				if (child instanceof Paging || (nama != null && child.getAttribute(nama) == null)) {
+					// Paging dikelola ZK. Anak yang tidak cocok filter juga dipertahankan.
+					continue;
+				}
 				child.detach();
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:4065");
-				// Struktur dapat berubah dari listener ZK ketika detach. Maju satu posisi
-				// agar satu anak bermasalah tidak membuat loop tanpa akhir.
-				posisi++;
+				// Struktur dapat berubah dari listener ZK ketika detach; anak berikutnya
+				// tetap diproses karena kita berjalan di atas salinan.
 			}
 		}
 	}

@@ -344,7 +344,7 @@ try {
 
     // Fungsi Penyusunan SQL Filter berdasarkan form yang diinput
     function buildFilterSQL<%=rnd%>() {
-        let condition = " WHERE 1=1 AND a.qty > 0 AND a.kode_transaksi = 6 AND (b.aktif IS NULL OR b.aktif = true) AND (b.status_terbit_item IS NULL OR b.status_terbit_item IN (SELECT id FROM library.status_terbit_item WHERE lower(nama) IN ('terbit', 'publish'))) ";
+        let condition = " WHERE 1=1 AND a.qty > 0 AND a.kode_transaksi = 6 AND (b.aktif IS NULL OR b.aktif = true) AND (b.status_terbit_item IS NULL OR b.status_terbit_item IN (SELECT id FROM library.status_terbit_item WHERE lower(nama) IN ('terbit', 'publish', 'disetujui'))) ";
         
         // Membaca Nilai Pencarian Dasar
         const elJudul = document.getElementById("filterJudul<%=rnd%>");

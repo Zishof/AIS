@@ -381,7 +381,7 @@ try {
     function buildFilterSQL<%=rnd%>() {
         let filters = [
             "(aktif is null or aktif = true)",
-            "(status_terbit_item is null or status_terbit_item in (select id from library.status_terbit_item where lower(nama) in ('terbit', 'publish')))"
+            "(status_terbit_item is null or status_terbit_item in (select id from library.status_terbit_item where lower(nama) in ('terbit', 'publish', 'disetujui')))"
         ];
         
         const elJudul = document.getElementById("filterJudul<%=rnd%>");

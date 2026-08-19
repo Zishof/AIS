@@ -255,8 +255,17 @@ public class MyGrid extends Grid {
 					setVisible(true);
 
 					for (Component c : tersembunyi) {
-						c.setVisible(false);
-						c.invalidate();
+						/* Jaring pengaman: sebagian komponen ZK MELARANG setVisible (mis. Popup
+						 * -> UnsupportedOperationException "Use open/close instead"). Satu
+						 * komponen bermasalah TIDAK boleh menggagalkan penampilan seluruh grid,
+						 * jadi tiap komponen diproses terpisah. */
+						try {
+							c.setVisible(false);
+							c.invalidate();
+						} catch (Throwable abaikan) {
+							ais.common.ErrorAuditUtil.record(abaikan,
+									"MyGrid.pulihkanVisibilitas:" + c.getClass().getName());
+						}
 					}
 
 				}
@@ -274,6 +283,16 @@ public class MyGrid extends Grid {
 				continue;
 			}
 			Component child = (Component) o;
+			/* JANGAN kumpulkan Popup: ZK melarang setVisible pada Popup
+			 * (UnsupportedOperationException "Use open/close instead") karena visibilitasnya
+			 * dikelola sendiri lewat open()/close(). Popup memang selalu tampak "hidden" saat
+			 * belum dibuka, sehingga tanpa filter ini SETIAP menu aksi kebab (⋯) pada baris
+			 * grid ikut terjaring dan menggagalkan pemulihan visibilitas seluruh grid.
+			 * Anak-anak di dalam Popup tetap ditelusuri agar perilaku lama tidak berubah. */
+			if (child instanceof org.zkoss.zul.Popup) {
+				ambilComponentTersembunyi(child, hasil);
+				continue;
+			}
 			if (!child.isVisible()) {
 				hasil.add(child);
 				// tidak perlu rekursi ke dalam child yg hidden — parent hidden sudah cukup

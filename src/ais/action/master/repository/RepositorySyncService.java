@@ -155,8 +155,55 @@ public class RepositorySyncService {
 		return synchronizeAll(HibernateUtil.currentSession(), pushToDspace, updateDspace, laporan);
 	}
 
-	/** Sinkronisasi dengan session milik pemanggil (dipakai scheduler/background). */
+	/**
+	 * Sinkronisasi dengan session milik pemanggil (dipakai scheduler/background).
+	 *
+	 * <p><b>KE-FIX (lock timeout massal pada TABEL SUMBER).</b> Log produksi menunjukkan siklus
+	 * ini meng-UPDATE tabel yang seharusnya HANYA DIBACA — {@code pegawai}, {@code mahasiswa},
+	 * {@code biodata_calon_mahasiswa}, {@code formatnilai}, {@code format_nilai_skripsi},
+	 * {@code detailperkuliahan} — lalu gagal "canceling statement due to lock timeout".</p>
+	 *
+	 * <p><b>Akar masalah.</b> {@code criteria.setReadOnly(true)} hanya melindungi entitas AKAR
+	 * hasil query. Saat metadata dibentuk, kode menyentuh relasi LAZY
+	 * ({@code getMahasiswa().getNama()}, {@code getMahasiswa().getJurusan()}, {@code joinAuthors},
+	 * dst.) sehingga entitas TERKAIT ikut dimuat sebagai entitas READ-WRITE biasa. Getter legacy
+	 * pada entitas itu menormalisasi field (trim/isi default), dirty-check Hibernate menganggapnya
+	 * berubah, dan {@code session.flush()} milik RepoItem ikut menuliskan UPDATE ke tabel sumber —
+	 * mengunci baris yang sedang dipakai pengguna lain.</p>
+	 *
+	 * <p><b>Perbaikan.</b> Seluruh sesi sinkronisasi dijadikan read-only secara DEFAULT sehingga
+	 * entitas apa pun yang dimuat (akar maupun relasi lazy) tidak pernah menghasilkan UPDATE.
+	 * Tabel milik repository ({@code RepoItem}, {@code RepoCollection}) dikembalikan writable
+	 * secara EKSPLISIT di titik pemuatannya, jadi fungsi sinkronisasi tetap utuh. Nilai
+	 * {@code defaultReadOnly} sebelumnya DIPULIHKAN di {@code finally}: salah satu pemanggil
+	 * memakai {@code HibernateUtil.currentSession()} milik request, dan tanpa pemulihan
+	 * penyimpanan data pengguna pada request yang sama bisa berhenti diam-diam.</p>
+	 */
 	public static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
+			 ais.common.LaporanUpload laporan) {
+		boolean readOnlySebelumnya = false;
+		boolean readOnlyDiubah = false;
+		try {
+			readOnlySebelumnya = session.isDefaultReadOnly();
+			session.setDefaultReadOnly(true);
+			readOnlyDiubah = true;
+		} catch (Throwable abaikan) {
+			ais.common.ErrorAuditUtil.record(abaikan, "RepositorySyncService.setDefaultReadOnly");
+		}
+		try {
+			return synchronizeAllInternal(session, pushToDspace, updateDspace, laporan);
+		} finally {
+			if (readOnlyDiubah) {
+				try {
+					session.setDefaultReadOnly(readOnlySebelumnya);
+				} catch (Throwable abaikan) {
+					ais.common.ErrorAuditUtil.record(abaikan, "RepositorySyncService.pulihkanDefaultReadOnly");
+				}
+			}
+		}
+	}
+
+	private static SyncSummary synchronizeAllInternal(Session session, boolean pushToDspace, boolean updateDspace,
 			 ais.common.LaporanUpload laporan) {
 		SyncSummary summary = new SyncSummary();
 		if (!cobaKunciSinkronisasi(session)) {
@@ -557,6 +604,8 @@ public class RepositorySyncService {
 		if (collection == null) {
 			collection = new RepoCollection();
 			collection.setKode(source.collectionCode);
+		} else {
+			jadikanWritable(session, collection);
 		}
 		collection.setNama(source.collectionName);
 		collection.setDeskripsi("Koleksi otomatis dari " + source.label);
@@ -573,9 +622,10 @@ public class RepositorySyncService {
 		 * pengurutan membuat baris yang terpilih berubah-ubah antar siklus. Akibatnya siklus
 		 * yang memilih baris ber-oai KOSONG akan mengisi identifier milik baris saudaranya
 		 * lalu gagal saat flush. Urutkan berdasarkan id agar pilihan selalu konsisten. */
-		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("sourceClass", sourceClass))
-				.add(Restrictions.eq("sourceId", sourceId))
+		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+				.add(Restrictions.eq("sourceClass", sourceClass)).add(Restrictions.eq("sourceId", sourceId))
 				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
+		return (RepoItem) jadikanWritable(session, item);
 	}
 
 	/** Cari RepoItem berdasarkan oai_identifier (kolom ber-constraint UNIQUE). */
@@ -584,8 +634,29 @@ public class RepositorySyncService {
 		if (kunci.length() == 0) {
 			return null;
 		}
-		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("oaiIdentifier", kunci))
-				.setMaxResults(1).uniqueResult();
+		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+				.add(Restrictions.eq("oaiIdentifier", kunci)).setMaxResults(1).uniqueResult();
+		return (RepoItem) jadikanWritable(session, item);
+	}
+
+	/**
+	 * Kembalikan entitas milik REPOSITORY menjadi writable.
+	 *
+	 * <p>Sesi sinkronisasi berjalan dengan {@code setDefaultReadOnly(true)} agar tabel SUMBER tidak
+	 * pernah ter-UPDATE (lihat javadoc {@code synchronizeAll}). Tanpa pengecualian ini, perubahan
+	 * pada RepoItem/RepoCollection tidak ikut ter-flush sehingga sinkronisasi berhenti berfungsi.
+	 * Entitas BARU (belum ada di session) tidak terpengaruh read-only dan tetap ter-INSERT.</p>
+	 */
+	private static Object jadikanWritable(Session session, Object entitasRepo) {
+		if (entitasRepo != null) {
+			try {
+				session.setReadOnly(entitasRepo, false);
+			} catch (Throwable abaikan) {
+				/* Instance belum/tidak lagi dikelola session: tidak ada yang perlu diubah. */
+				ais.common.ErrorAuditUtil.record(abaikan, "RepositorySyncService.jadikanWritable");
+			}
+		}
+		return entitasRepo;
 	}
 
 	/**

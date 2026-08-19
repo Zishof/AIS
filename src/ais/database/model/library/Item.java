@@ -870,6 +870,32 @@ public class Item extends GeneralValueObject {
 						URL myUrl = new URL(imga.trim());
 						URLConnection conn = myUrl.openConnection();
 
+						/*
+						 * BATAS WAKTU WAJIB (perbaikan performa 19-08-2026).
+						 *
+						 * URLConnection Java TIDAK punya batas waktu bawaan: bila host gambar
+						 * lambat/menggantung, thread ini menunggu SELAMANYA. Method ini terpanggil
+						 * saat merender daftar pustaka, jadi thread yang tergantung adalah thread
+						 * request Tomcat yang SEDANG MEMEGANG kunci desktop ZK -- seluruh request
+						 * lain pada desktop yang sama ikut membeku (terlihat pada snapshot: 89 kali
+						 * method ini tertangkap RUNNABLE, dan 83-87 thread ajp-nio antre di
+						 * UiEngineImpl.doActivate).
+						 *
+						 * Nilainya dapat disetel lewat konfigurasi bila ada host yang memang lambat.
+						 */
+						int batasKoneksiMs = 5000;
+						int batasBacaMs = 10000;
+						try {
+							batasKoneksiMs = (int) ais.common.Common.parseAngkaKonfigurasi(ais.common.Common
+									.getKonfigurasi("timeout_ambil_gambar_pustaka_koneksi_ms", "5000").getNilai(), 5000);
+							batasBacaMs = (int) ais.common.Common.parseAngkaKonfigurasi(ais.common.Common
+									.getKonfigurasi("timeout_ambil_gambar_pustaka_baca_ms", "10000").getNilai(), 10000);
+						} catch (Exception eKonf) {
+							ais.common.ErrorAuditUtil.record(eKonf, "Item.checkApakahGambarSudahTersimpanDiLocal.timeout");
+						}
+						conn.setConnectTimeout(batasKoneksiMs);
+						conn.setReadTimeout(batasBacaMs);
+
 						conn.addRequestProperty("Accept-Language", "en-US");
 						conn.setRequestProperty("User-Agent",
 								"Mozilla/5.0 (Windows; U; Windows NT 6.1; en-GB; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13 (.NET CLR 3.5.30729)");

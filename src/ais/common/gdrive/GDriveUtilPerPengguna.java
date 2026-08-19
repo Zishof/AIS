@@ -377,10 +377,20 @@ public class GDriveUtilPerPengguna {
 			@Override
 			public String waitForCode() throws IOException {
 
-				Session session = HibernateUtil.currentNativeSession();
-				GDriveCode gdriveCode = (GDriveCode) session.createCriteria(GDriveCode.class)
-						.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
-				HibernateUtil.closeSession();
+				/* Perbaikan kebocoran session: DULU closeSession() dipanggil lurus setelah query.
+				 * Bila query gagal (koneksi c3p0 mati / pool habis saat backup terjadwal berjalan
+				 * di Thread background), session hasil currentNativeSession() TIDAK pernah ditutup
+				 * dan tetap menempel di ThreadLocal thread backup yang berumur panjang -> koneksi
+				 * bocor permanen. Sesuai kontrak HibernateUtil: currentNativeSession() WAJIB ditutup
+				 * di finally dengan closeSession() (clear + disconnect + close). */
+				GDriveCode gdriveCode = null;
+				try {
+					Session session = HibernateUtil.currentNativeSession();
+					gdriveCode = (GDriveCode) session.createCriteria(GDriveCode.class)
+							.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
+				} finally {
+					HibernateUtil.closeSession();
+				}
 
 				System.out.println("gdriveCode -> " + gdriveCode);
 

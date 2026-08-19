@@ -11,6 +11,15 @@
 
 		<div sclass="ais-crud-portal">
 
+			<tabbox id="tabboxItem" width="100%">
+			<tabs>
+			<tab label="Pendataan Item" />
+			<tab id="tabPenerbitan" label="Penerbitan Katalog Publik"
+			forward="onSelect=onSearchPublikasi" />
+			</tabs>
+			<tabpanels>
+			<tabpanel>
+
 			<!-- ═══ KARTU FILTER ═══ -->
 			<div sclass="ais-crud-filter-card">
 				<div sclass="ais-crud-filter-head">
@@ -190,6 +199,79 @@
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
 			</div>
+
+
+			</tabpanel>
+
+			<!-- TAB PENERBITAN: menentukan koleksi mana yang tampil di katalog publik -->
+			<tabpanel>
+
+			<div sclass="ais-crud-filter-card">
+			<div sclass="ais-crud-filter-head">
+			<span sclass="ais-crud-filter-title">Penerbitan ke Katalog Publik</span>
+			<div sclass="ais-crud-filter-actions">
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="findPublikasi"
+			label="Cari" image="/img/search.gif" tooltiptext="Cari koleksi"
+			forward="onClick=onSearchPublikasi" />
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="pilihSemuaPublikasi"
+			label="Pilih Semua" image="/img/svg/check2.svg"
+			tooltiptext="Tandai seluruh baris pada halaman ini"
+			forward="onClick=onPilihSemuaPublikasi" />
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnTerbitkan"
+			label="Terbitkan" image="/img/svg/check2-circle.svg"
+			tooltiptext="Tampilkan koleksi terpilih di katalog publik"
+			forward="onClick=onTerbitkanTerpilih" />
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnTarikPublikasi"
+			label="Tarik dari Publik" image="/img/svg/warning-outline.svg"
+			tooltiptext="Sembunyikan koleksi terpilih dari katalog publik"
+			forward="onClick=onTarikTerpilih" />
+			</div>
+			</div>
+
+			<div sclass="ais-crud-filter-body">
+			<grid use="ais.ui.util.MyGrid" sclass="ais-crud-filter-grid" fixedLayout="true">
+			<columns>
+			<column use="ais.ui.util.MyColumnConfig" width="110px" />
+			<column use="ais.ui.util.MyColumnConfig" />
+			<column use="ais.ui.util.MyColumnConfig" width="110px" />
+			<column use="ais.ui.util.MyColumnConfig" />
+			<column use="ais.ui.util.MyColumnConfig" width="110px" />
+			<column use="ais.ui.util.MyColumnConfig" />
+			</columns>
+			<rows>
+			<row>
+			<label use="ais.ui.util.MyLabelConfig" value="Nama/Judul" />
+			<textbox forward="onOK=onSearchPublikasi" id="searchPublikasiNama" width="95%" />
+			<label use="ais.ui.util.MyLabelConfig" value="Pengarang" />
+			<textbox forward="onOK=onSearchPublikasi" id="searchPublikasiPengarang" width="95%" />
+			<label use="ais.ui.util.MyLabelConfig" value="Status Terbit" />
+			<combobox id="searchPublikasiStatus" width="95%" readonly="true"
+			forward="onChange=onSearchPublikasi" />
+			</row>
+			</rows>
+			</grid>
+			</div>
+			</div>
+
+			<div sclass="ais-crud-data-card">
+			<paging use="ais.ui.util.MyPagingKembar" visible="false" id="pagingPublikasi"
+			detailed="true" />
+			<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="gridPublikasi">
+			<columns>
+			<column use="ais.ui.util.MyColumnConfig" width="45px" label="" />
+			<column use="ais.ui.util.MyColumnConfig" label="Nama/Judul" width="30%" />
+			<column use="ais.ui.util.MyColumnConfig" label="Pengarang" width="18%" />
+			<column use="ais.ui.util.MyColumnConfig" label="Tipe" width="10%" />
+			<column use="ais.ui.util.MyColumnConfig" label="Tahun" width="7%" />
+			<column use="ais.ui.util.MyColumnConfig" label="Status Terbit" width="15%" />
+			<column use="ais.ui.util.MyColumnConfig" label="" width="12%" />
+			</columns>
+			</grid>
+			</div>
+
+			</tabpanel>
+			</tabpanels>
+			</tabbox>
 
 		</div>
 

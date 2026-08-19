@@ -211,6 +211,39 @@ tr.z-row[style*="display: none"],tr.z-row[style*="display:none"],tr.z-listitem[s
 html body .dgrid.z-grid{width:100%!important;}
 html body .dgrid.z-grid>.z-grid-body,html body .dgrid.z-grid>.z-grid-body>table,
 html body .dgrid.z-grid>.z-grid-header>table,html body .dgrid.z-grid>.z-grid-header table{width:100%!important;}
+
+/* ── SEMUA GRID PENUH 100% (permintaan 19-08-2026) ─────────────────────────
+   Aturan .dgrid di atas hanya mengenai grid DATA. Pemindaian 1.539 berkas ZUL menemukan
+   2.228 deklarasi <grid> TANPA atribut width, tersebar di sclass lain: ais-crud-filter-grid
+   (1.073), fgrid (57), gridHeader, ais-cal-filter-grid, dms-*, serta 101 grid tanpa sclass.
+   Tanpa lebar eksplisit ZK merender tabel selebar isinya saja sehingga menyisakan pita
+   kosong di kanan.
+
+   Diselesaikan lewat SATU aturan CSS, bukan menyunting 2.228 baris di 1.232 berkas ZUL:
+   hasil visualnya sama, berlaku juga untuk grid yang dibangun dari Java (tidak ada di ZUL),
+   dan jauh lebih mudah dikembalikan.
+
+   SENGAJA TANPA !important: bila sebuah grid menyatakan width sendiri di ZUL, ZK menuliskannya
+   sebagai style INLINE, dan style inline mengalahkan aturan ini. Jadi grid yang memang
+   dirancang sempit tetap dihormati; yang tidak menyatakan lebar akan penuh 100%. */
+html body .ais-crud-filter-grid.z-grid,
+html body .ais-cal-filter-grid.z-grid,
+html body .dms-filter-grid.z-grid,
+html body .dms-main-grid.z-grid,
+html body .gridHeader.z-grid,
+html body .fgrid.z-grid { width: 100%; }
+
+/* Tabel header & body ikut penuh; di sini !important diperlukan karena ZK menuliskan
+   lebar tabel hasil hitungannya sendiri secara inline pada elemen <table>. */
+html body .ais-crud-filter-grid.z-grid>.z-grid-body>table,
+html body .ais-crud-filter-grid.z-grid>.z-grid-header table,
+html body .ais-cal-filter-grid.z-grid>.z-grid-body>table,
+html body .dms-filter-grid.z-grid>.z-grid-body>table,
+html body .dms-main-grid.z-grid>.z-grid-body>table,
+html body .dms-main-grid.z-grid>.z-grid-header table,
+html body .gridHeader.z-grid>.z-grid-body>table,
+html body .fgrid.z-grid>.z-grid-body>table,
+html body .fgrid.z-grid>.z-grid-header table { width: 100% !important; }
 /* FIX ZEBRA tabel UTAMA: aturan grid-bersarang (tr.z-row td.z-row-inner .dgrid{background:#fff})
    ikut mengenai grid data utama (karena ter-nest di layout row) → container diputihkan
    sehingga zebra baris tertutup. Override: container grid utama (anak langsung .ais-crud-data-card)

@@ -146,6 +146,29 @@ if (!lockTokoLap) {
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Cari Pelanggan (kode / nama / member)")%></label>
               <input type="text" id="fPelanggan<%=rndLap%>" class="form-control" placeholder="<%=Common.getBahasaConfig("kode, nama, atau no. identitas")%>">
             </div>
+            <div class="col-md-12" id="wrapStok<%=rndLap%>" style="display:none;">
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Kategori / Jenis Barang")%></label>
+                  <select id="fJenisProduk<%=rndLap%>" class="form-select"><option value=""><%=Common.getBahasaConfig("-- Semua Kategori --")%></option></select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Grup Produk")%></label>
+                  <select id="fGrupProduk<%=rndLap%>" class="form-select"><option value=""><%=Common.getBahasaConfig("-- Semua Grup --")%></option></select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <div class="form-check me-3">
+                    <input type="checkbox" class="form-check-input" id="fHanyaAktif<%=rndLap%>" checked>
+                    <label class="form-check-label small fw-bold" for="fHanyaAktif<%=rndLap%>"><%=Common.getBahasaConfig("Hanya barang aktif")%></label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="fStokTidakNol<%=rndLap%>">
+                    <label class="form-check-label small fw-bold" for="fStokTidakNol<%=rndLap%>"><%=Common.getBahasaConfig("Sembunyikan stok nol")%></label>
+                  </div>
+                </div>
+              </div>
+              <div class="form-text"><%=Common.getBahasaConfig("Saldo dihitung sampai \"Tanggal Sampai\" di atas. Kosongkan tanggal untuk memakai stok terkini.")%></div>
+            </div>
             <% if (!lockTokoLap) { %>
             <div class="col-md-12" id="wrapPerToko<%=rndLap%>" style="display:none;">
               <div class="form-check">
@@ -193,6 +216,7 @@ if (!lockTokoLap) {
 (function(){
   var RND = "<%=rndLap%>";
   var SVC = "<%=svcLap%>";
+  var DATA_URL = "<%=Common.ROOT%>/Data";
   var PDFURL = "<%=pdfLap%>";
   var LOCK = <%=lockTokoLap%>;
   var TOKO_NAMA = "<%=lockTokoLap ? (scopeTokoLap.getNama()==null?"":scopeTokoLap.getNama().replace("\\","").replace("\"","")) : ""%>";
@@ -268,6 +292,7 @@ if (!lockTokoLap) {
       {id:"nilai_kerugian", judul:"Nilai Kerugian Barang", ket:"Akumulasi kerugian dari kekurangan stok saat opname per produk.", produk:true}
     ]},
     {kat:"Pergudangan — Kartu & Mutasi", items:[
+      {id:"stok_per_tanggal", judul:"Stok Barang per Tanggal", ket:"Saldo stok tiap barang pada tanggal tertentu; filter kategori/grup, unduh Excel atau PDF.", produk:true, perToko:true, stokPerTanggal:true},
       {id:"wh_kartu_stok", judul:"Kartu Stok Barang", ket:"Riwayat masuk/keluar/transfer/koreksi + saldo berjalan.", produk:true},
       {id:"wh_mutasi_harian", judul:"Mutasi Stok Harian", ket:"Total barang masuk & keluar tiap hari."},
       {id:"wh_mutasi_barang", judul:"Mutasi Stok per Barang", ket:"Rekap masuk/keluar/perubahan bersih per produk.", produk:true},
@@ -546,6 +571,34 @@ if (!lockTokoLap) {
     }
   });
 
+  // Isi dropdown Kategori & Grup Produk pada filter "Stok Barang per Tanggal".
+  // Memakai endpoint /Data (action sql) yang sama dipakai layar kantin lain; hasil
+  // di-cache sekali per pemuatan halaman agar tidak menembak DB tiap ganti laporan.
+  var opsiStokSudahDimuat = false;
+  function isiOpsiStok(){
+    if (opsiStokSudahDimuat) return;
+    opsiStokSudahDimuat = true;
+    var ambil = function(sql, elId, kosong){
+      fetch(DATA_URL, {method:"POST", headers:{"Content-Type":"application/json"},
+                       body: JSON.stringify({ action:"sql", sql: sql })})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var sel = el(elId); if (!sel) return;
+          var baris = (d && d.data) ? d.data : [];
+          var html = '<option value="">' + kosong + '</option>';
+          for (var i=0;i<baris.length;i++){
+            html += '<option value="' + baris[i].id + '">' + esc(baris[i].nama) + '</option>';
+          }
+          sel.innerHTML = html;
+        })
+        .catch(function(){ /* dropdown dibiarkan kosong; laporan tetap bisa dijalankan */ });
+    };
+    ambil("SELECT id, nama FROM koperasi.jenis_produk WHERE COALESCE(aktif,true) ORDER BY nama",
+          "fJenisProduk", "-- Semua Kategori --");
+    ambil("SELECT id, nama FROM koperasi.grup_produk WHERE COALESCE(aktif,true) ORDER BY nama",
+          "fGrupProduk", "-- Semua Grup --");
+  }
+
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function numv(v){ return typeof v==="number"?v:0; }
   function absUrl(u){ if(!u) return ""; return (/^https?:/i.test(u))?u:(location.origin + (u.charAt(0)==="/"?"":"/") + u); }
@@ -607,6 +660,8 @@ if (!lockTokoLap) {
     el("wrapPelanggan").style.display = rep.pelanggan ? "" : "none";
     var wpt = el("wrapPerToko");
     if (wpt) { wpt.style.display = rep.perToko ? "" : "none"; var cb = el("fPerToko"); if (cb) cb.checked = false; }
+    var wstok = el("wrapStok");
+    if (wstok) { wstok.style.display = rep.stokPerTanggal ? "" : "none"; if (rep.stokPerTanggal) isiOpsiStok(); }
     el("resultArea").innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-table fa-2x mb-2 opacity-50 d-block"></i>Atur filter lalu klik Tampilkan untuk melihat laporan, atau langsung Unduh PDF.</div>';
     el("listView").style.display = "none";
     el("reportView").style.display = "";
@@ -626,6 +681,13 @@ if (!lockTokoLap) {
     if (current.produk && el("fProduk")) p.append("qProduk", el("fProduk").value||"");
     if (current.pelanggan && el("fPelanggan")) p.append("qPelanggan", el("fPelanggan").value||"");
     if (current.perToko && el("fPerToko") && el("fPerToko").checked) p.append("perToko", "true");
+    if (current.stokPerTanggal) {
+      var jp = el("fJenisProduk"), gp = el("fGrupProduk");
+      if (jp && jp.value) p.append("jenisProdukId", jp.value);
+      if (gp && gp.value) p.append("grupProdukId", gp.value);
+      if (el("fHanyaAktif") && el("fHanyaAktif").checked) p.append("hanyaAktif", "true");
+      if (el("fStokTidakNol") && el("fStokTidakNol").checked) p.append("hanyaStokTidakNol", "true");
+    }
     return p;
   }
 

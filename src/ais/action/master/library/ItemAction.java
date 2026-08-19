@@ -115,6 +115,7 @@ import ais.database.model.file.FotoGambarItem;
 import ais.database.model.file.FotoImagePerHalamanItem;
 import ais.database.model.file.FotoItem;
 import ais.database.model.file.LampiranLain;
+import ais.database.model.library.StatusTerbitItem;
 import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.DataDdcItem;
 import ais.database.model.library.DataDdcItemDetail;
@@ -141,6 +142,7 @@ import ais.database.model.library.TipeItem;
 import ais.database.model.library.UdcItem;
 import ais.ui.dspace.DspaceCommon;
 import ais.ui.util.DataCriteria;
+import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyDatebox;
@@ -157,6 +159,23 @@ import de.undercouch.citeproc.csl.CSLType;
 import ais.action.master.helper.FilterLanjutHelper;
 
 public class ItemAction extends GenericAutowireComposer implements DataCriteria {
+
+	// ============================================================================
+	// TAB PENERBITAN KATALOG PUBLIK
+	// ============================================================================
+	// Katalog publik (/pustaka) HANYA menampilkan Item yang status terbitnya NULL,
+	// "Terbit"/"Publish", atau "Disetujui". Sementara Item.getStatusTerbitItem()
+	// mengembalikan DRAFT bila kosong, sehingga koleksi yang didata lewat layar
+	// Pendataan Item tidak pernah muncul di katalog publik -- dan layar itu memang
+	// tidak menyediakan kolom status terbit sama sekali. Tab ini menutup celah
+	// tersebut: petugas dapat melihat status seluruh koleksi lalu menerbitkan atau
+	// menariknya, satu per satu maupun sekaligus.
+	private Textbox searchPublikasiNama;
+	private Textbox searchPublikasiPengarang;
+	private Combobox searchPublikasiStatus;
+	private MyGrid gridPublikasi;
+	private Paging pagingPublikasi;
+	private boolean comboStatusPublikasiSiap = false;
 
 	/**
 	 * 
@@ -3606,6 +3625,286 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 		}
 	}
 
+
+	// ============================================================================
+	// TAB PENERBITAN -- logika
+	// ============================================================================
+
+	/** Ambil status terbit berdasarkan nama; null bila belum ada di basis data. */
+	private StatusTerbitItem ambilStatusTerbit(String nama) {
+		try {
+			return (StatusTerbitItem) HibernateUtil.currentSession()
+					.createCriteria(StatusTerbitItem.class)
+					.add(Restrictions.ilike("nama", nama, MatchMode.EXACT))
+					.setMaxResults(1).uniqueResult();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "ItemAction.ambilStatusTerbit");
+			return null;
+		}
+	}
+
+	/** Isi combobox filter status sekali saja, saat tab pertama dibuka. */
+	@SuppressWarnings("unchecked")
+	private void siapkanComboStatusPublikasi() {
+		if (comboStatusPublikasiSiap || searchPublikasiStatus == null) {
+			return;
+		}
+		try {
+			searchPublikasiStatus.getItems().clear();
+			MyComboitemConfig semua = new MyComboitemConfig("= Semua Status =");
+			semua.setAttribute("value", null);
+			semua.setParent(searchPublikasiStatus);
+			List<StatusTerbitItem> daftar = HibernateUtil.currentSession()
+					.createCriteria(StatusTerbitItem.class).addOrder(Order.asc("nama")).list();
+			for (StatusTerbitItem st : daftar) {
+				if (st == null) {
+					continue;
+				}
+				MyComboitemConfig ci = new MyComboitemConfig(st.getNama());
+				ci.setAttribute("value", st);
+				ci.setParent(searchPublikasiStatus);
+			}
+			searchPublikasiStatus.setSelectedIndex(0);
+
+			// Common.initPaging(criteria, paging) hanya mengisi total data; ia TIDAK
+			// memasang listener onPaging (lihat CommonPagingHelper.configure). Listener
+			// dipasang SEKALI di sini supaya klik nomor halaman memuat ulang daftar, dan
+			// tidak menumpuk listener setiap kali pencarian dijalankan.
+			if (pagingPublikasi != null) {
+				pagingPublikasi.addEventListener("onPaging", new EventListener() {
+					@Override
+					public void onEvent(Event ev) throws Exception {
+						onSearchPublikasi(ev);
+					}
+				});
+			}
+			comboStatusPublikasiSiap = true;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "ItemAction.siapkanComboStatusPublikasi");
+		}
+	}
+
+	/** Kriteria daftar koleksi pada tab Penerbitan. */
+	protected Criteria initCriteriaPublikasi(boolean order) {
+		Session session = HibernateUtil.currentSession();
+		Criteria criteria = session.createCriteria(Item.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.isNull("defaultSatuanKerja"));
+		if (order) {
+			criteria.addOrder(Order.desc("id"));
+		}
+		if (searchPublikasiNama != null && !searchPublikasiNama.getValue().trim().isEmpty()) {
+			criteria.add(Restrictions.ilike("nama", searchPublikasiNama.getValue().trim(), MatchMode.ANYWHERE));
+		}
+		if (searchPublikasiPengarang != null && !searchPublikasiPengarang.getValue().trim().isEmpty()) {
+			criteria.add(Restrictions.ilike("pengarangs", searchPublikasiPengarang.getValue().trim(),
+					MatchMode.ANYWHERE));
+		}
+		if (searchPublikasiStatus != null && searchPublikasiStatus.getSelectedItem() != null
+				&& searchPublikasiStatus.getSelectedItem().getAttribute("value") != null) {
+			StatusTerbitItem dipilih = (StatusTerbitItem) searchPublikasiStatus.getSelectedItem()
+					.getAttribute("value");
+			// Item lama bisa berstatus NULL di basis data. Bila petugas memilih status
+			// bawaan (Draft), baris NULL ikut ditampilkan karena getter memperlakukan sama.
+			if (LibraryUtil.DRAFT != null && dipilih != null && LibraryUtil.DRAFT.getId() != null
+					&& LibraryUtil.DRAFT.getId().equals(dipilih.getId())) {
+				criteria.add(Restrictions.or(Restrictions.isNull("statusTerbitItem"),
+						Restrictions.eq("statusTerbitItem", dipilih)));
+			} else {
+				criteria.add(Restrictions.eq("statusTerbitItem", dipilih));
+			}
+		}
+		return criteria;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public void onSearchPublikasi(Event event) {
+		if (gridPublikasi == null) {
+			return;
+		}
+		siapkanComboStatusPublikasi();
+		Common.initPaging(initCriteriaPublikasi(false), pagingPublikasi);
+		List data = initCriteriaPublikasi(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)
+				.setFirstResult(Common.ROWS_COUNT_ON_PAGE
+						* (pagingPublikasi == null ? 0 : pagingPublikasi.getActivePage()))
+				.list();
+		gridPublikasi.setRowRenderer(new PenerbitanRenderer());
+		gridPublikasi.setModelCheckMobile(new SimpleListModel(data));
+	}
+
+	/** Tandai atau lepas tanda seluruh baris pada halaman yang sedang tampil. */
+	public void onPilihSemuaPublikasi(Event event) {
+		if (gridPublikasi == null || gridPublikasi.getRows() == null) {
+			return;
+		}
+		boolean adaYangBelumDitandai = false;
+		for (Object o : gridPublikasi.getRows().getChildren()) {
+			Object cb = ((Row) o).getAttribute("checkPublikasi");
+			if (cb instanceof Checkbox && !((Checkbox) cb).isChecked()) {
+				adaYangBelumDitandai = true;
+				break;
+			}
+		}
+		for (Object o : gridPublikasi.getRows().getChildren()) {
+			Object cb = ((Row) o).getAttribute("checkPublikasi");
+			if (cb instanceof Checkbox) {
+				((Checkbox) cb).setChecked(adaYangBelumDitandai);
+			}
+		}
+	}
+
+	public void onTerbitkanTerpilih(Event event) throws Exception {
+		ubahStatusTerpilih(true);
+	}
+
+	public void onTarikTerpilih(Event event) throws Exception {
+		ubahStatusTerpilih(false);
+	}
+
+	/**
+	 * Ubah status terbit seluruh baris yang ditandai.
+	 *
+	 * @param terbitkan true = tampilkan di katalog publik (status "Terbit");
+	 *                  false = tarik dari katalog publik (status "Draft")
+	 */
+	private void ubahStatusTerpilih(final boolean terbitkan) throws Exception {
+		if (gridPublikasi == null || gridPublikasi.getRows() == null) {
+			return;
+		}
+		final List<Item> terpilih = new ArrayList<Item>();
+		for (Object o : gridPublikasi.getRows().getChildren()) {
+			Row row = (Row) o;
+			Object cb = row.getAttribute("checkPublikasi");
+			Object it = row.getAttribute("itemPublikasi");
+			if (cb instanceof Checkbox && ((Checkbox) cb).isChecked() && it instanceof Item) {
+				terpilih.add((Item) it);
+			}
+		}
+		if (terpilih.isEmpty()) {
+			MyMessageboxConfig.show(
+					"Belum ada koleksi yang ditandai. Centang dahulu baris yang ingin diproses.",
+					"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+
+		final StatusTerbitItem tujuan = terbitkan ? ambilStatusTerbit("Terbit")
+				: ambilStatusTerbit("Draft");
+		if (tujuan == null) {
+			MyMessageboxConfig.show(
+					"Status terbit yang dituju belum tersedia di basis data. Hubungi pengelola sistem.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		String pesan = terbitkan
+				? "Tampilkan " + terpilih.size() + " koleksi terpilih di katalog publik ?"
+				: "Sembunyikan " + terpilih.size() + " koleksi terpilih dari katalog publik ?";
+		MyMessageboxConfig.show(pesan, "Pertanyaan",
+				MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+					@Override
+					public void onEvent(Event ev) throws Exception {
+						if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
+							return;
+						}
+						int berhasil = 0;
+						int gagal = 0;
+						for (Item it : terpilih) {
+							try {
+								it.setStatusTerbitItem(tujuan);
+								Common.refreshSaveOrUpdate(it);
+								berhasil++;
+							} catch (Exception e) {
+								gagal++;
+								ais.common.ErrorAuditUtil.record(e, "ItemAction.ubahStatusTerpilih");
+							}
+						}
+						onSearchPublikasi(null);
+						MyMessageboxConfig.show(
+								(terbitkan ? "Diterbitkan" : "Ditarik dari katalog publik")
+										+ " : " + berhasil + " koleksi."
+										+ (gagal > 0 ? " Gagal: " + gagal + " koleksi." : ""),
+								"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					}
+				});
+	}
+
+	/** Selaras dengan filter katalog publik di WEB-INF/baru/modul/pustaka/katalog.jsp. */
+	private boolean tampilDiKatalogPublik(String namaStatus) {
+		if (namaStatus == null) {
+			return true;
+		}
+		String n = namaStatus.trim().toLowerCase();
+		return n.equals("terbit") || n.equals("publish")
+				|| n.equals("disetujui");
+	}
+
+	/** Baris tab Penerbitan: centang, data ringkas, status berwarna, dan tombol ubah cepat. */
+	class PenerbitanRenderer extends ais.ui.util.MyRowRenderer {
+
+		@Override
+		public void render(final Row arg0, Object arg1) throws Exception {
+			arg0.setValign("top");
+			final Item item = (Item) arg1;
+
+			final MyCheckboxConfig centang = new MyCheckboxConfig("");
+			centang.setParent(arg0);
+			arg0.setAttribute("checkPublikasi", centang);
+			arg0.setAttribute("itemPublikasi", item);
+
+			new Label(item.getNama()).setParent(arg0);
+			new Label(item.getPengarangs() == null ? "" : item.getPengarangs()).setParent(arg0);
+			new Label(item.getTipeItem() == null ? "" : item.getTipeItem().getNama()).setParent(arg0);
+			new Label(item.getTahun() == null ? "" : String.valueOf(item.getTahun())).setParent(arg0);
+
+			// Status diberi warna supaya terbaca sekilas: hijau = sudah tampil di publik.
+			StatusTerbitItem status = item.getStatusTerbitItem();
+			String namaStatus = status == null || status.getNama() == null ? "Draft"
+					: status.getNama();
+			final boolean tampilPublik = tampilDiKatalogPublik(namaStatus);
+			ais.ui.util.MyHtml htmlStatus = new ais.ui.util.MyHtml(
+					"<span style=\"font-size:9px;font-weight:bold;color:"
+							+ (tampilPublik ? "#0a7d55" : "#b3541e")
+							+ ";\">" + namaStatus + "</span>"
+							+ "<div style=\"font-size:9px;color:#777;\">"
+							+ (tampilPublik ? "tampil di katalog publik"
+									: "tidak tampil di publik")
+							+ "</div>");
+			htmlStatus.setParent(arg0);
+
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig(
+					tampilPublik ? "Tarik dari Publik" : "Terbitkan",
+					tampilPublik ? "/img/svg/warning-outline.svg"
+							: "/img/svg/check2-circle.svg");
+			tombol.setTooltiptext(tampilPublik
+					? "Sembunyikan koleksi ini dari katalog publik"
+					: "Tampilkan koleksi ini di katalog publik");
+			tombol.setVisible(edit);
+			tombol.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event ev) throws Exception {
+					StatusTerbitItem tujuan = ambilStatusTerbit(
+							tampilPublik ? "Draft" : "Terbit");
+					if (tujuan == null) {
+						MyMessageboxConfig.show(
+								"Status terbit yang dituju belum tersedia di basis data.",
+								"Peringatan", MyMessageboxConfig.OK,
+								MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
+					item.setStatusTerbitItem(tujuan);
+					Common.refreshSaveOrUpdate(item);
+					onSearchPublikasi(null);
+				}
+			});
+			aksiButtons.add(tombol);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+		}
+	}
 	public Criteria initCriteria(boolean order) {
 		return initCriteria(order, false);
 	}
