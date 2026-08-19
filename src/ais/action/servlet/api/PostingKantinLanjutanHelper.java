@@ -138,6 +138,70 @@ public final class PostingKantinLanjutanHelper {
         }
     }
 
+    /** Baris mentah hasil query; sengaja dibaca tuntas dulu sebelum entitas di-load. */
+    private static final class Mentah {
+        final Object[] kolom;
+
+        Mentah(Object[] kolom) {
+            this.kolom = kolom;
+        }
+
+        long lng(int i) {
+            Object v = kolom[i - 1];
+            return v instanceof Number ? ((Number) v).longValue() : 0;
+        }
+
+        double dbl(int i) {
+            Object v = kolom[i - 1];
+            return v instanceof Number ? ((Number) v).doubleValue() : 0;
+        }
+
+        String str(int i) {
+            Object v = kolom[i - 1];
+            return v == null ? "" : v.toString();
+        }
+
+        boolean bool(int i) {
+            Object v = kolom[i - 1];
+            return v instanceof Boolean && ((Boolean) v).booleanValue();
+        }
+
+        /** Kolomnya berisi nilai (bukan NULL) -- pengganti rs.wasNull(). */
+        boolean ada(int i) {
+            return kolom[i - 1] != null;
+        }
+
+        Date tgl(int i) {
+            Object v = kolom[i - 1];
+            return v instanceof java.util.Date ? (java.util.Date) v : null;
+        }
+    }
+
+    /**
+     * Membaca SELURUH hasil query ke memori lalu menutup statement-nya. Wajib dilakukan sebelum
+     * memanggil Hibernate (session.get / query) pada koneksi yang sama: Hibernate dapat menutup
+     * statement yang sedang dipakai sehingga ResultSet-nya ikut mati di tengah perulangan.
+     */
+    private static List<Mentah> baca(Session session, String sql, String mulai, String sampai, int jumlahKolom)
+            throws Exception {
+        List<Mentah> keluar = new ArrayList<Mentah>();
+        Connection conn = session.connection();
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setString(1, mulai);
+        ps.setString(2, sampai);
+        ResultSet rs = ps.executeQuery();
+        while (rs.next()) {
+            Object[] k = new Object[jumlahKolom];
+            for (int i = 0; i < jumlahKolom; i++) {
+                k[i] = rs.getObject(i + 1);
+            }
+            keluar.add(new Mentah(k));
+        }
+        rs.close();
+        ps.close();
+        return keluar;
+    }
+
     // ==================================================================== dispatch
 
     public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
@@ -333,8 +397,7 @@ public final class PostingKantinLanjutanHelper {
             throws Exception {
         Map<String, Draf> peta = new LinkedHashMap<String, Draf>();
         Map<String, Double> totalFaktur = new LinkedHashMap<String, Double>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT pp.id, pp.produk, COALESCE(pp.totalharga, COALESCE(pp.qty,0)*COALESCE(pp.hargabelisatuan,0), 0),"
                         + " pp.waktupengadaan, COALESCE(pp.nomorfaktur,''), pp.faktur_pengadaan,"
                         + " f.supplier, COALESCE(f.nomor_faktur,''), i.jenis_pembayaran, COALESCE(i.dibayar_awal,0),"
@@ -345,25 +408,23 @@ public final class PostingKantinLanjutanHelper {
                         + " LEFT JOIN koperasi.payable_faktur_info i ON i.pengadaan_faktur = f.id"
                         + " WHERE pp.posting_pembelian IS NULL"
                         + " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY pp.waktupengadaan, pp.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long idBaris = rs.getLong(1);
-            long idProduk = rs.getLong(2);
-            double nilai = rs.getDouble(3);
-            Date tanggal = rs.getTimestamp(4);
-            String noFaktur = rs.getString(5);
-            long idFaktur = rs.getLong(6);
-            boolean adaFaktur = !rs.wasNull() && idFaktur > 0;
-            long idSupplier = rs.getLong(7);
-            boolean adaSupplier = !rs.wasNull() && idSupplier > 0;
-            String noFakturHeader = rs.getString(8);
-            String jenisBayar = rs.getString(9);
-            double dibayarAwal = rs.getDouble(10);
-            String namaProduk = rs.getString(11);
-            String namaSupplierTeks = rs.getString(12);
+                        + " ORDER BY pp.waktupengadaan, pp.id", mulai, sampai, 12);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long idBaris = m.lng(1);
+            long idProduk = m.lng(2);
+            double nilai = m.dbl(3);
+            Date tanggal = m.tgl(4);
+            String noFaktur = m.str(5);
+            long idFaktur = m.lng(6);
+            boolean adaFaktur = m.ada(6) && idFaktur > 0;
+            long idSupplier = m.lng(7);
+            boolean adaSupplier = m.ada(7) && idSupplier > 0;
+            String noFakturHeader = m.str(8);
+            String jenisBayar = m.str(9);
+            double dibayarAwal = m.dbl(10);
+            String namaProduk = m.str(11);
+            String namaSupplierTeks = m.str(12);
 
             String kunci = adaFaktur ? ("F" + idFaktur) : ("P" + idBaris);
             Draf d = peta.get(kunci);
@@ -403,8 +464,6 @@ public final class PostingKantinLanjutanHelper {
                 gabungDebet(d, persediaan, nilai);
             }
         }
-        rs.close();
-        ps.close();
 
         // Sisi kredit baru bisa dihitung setelah total tiap dokumen lengkap.
         List<Draf> keluar = new ArrayList<Draf>();
@@ -478,8 +537,7 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafBayarHutang(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT p.id, p.supplier, COALESCE(p.nominal,0), p.tanggal, COALESCE(p.metode,''),"
                         + " COALESCE(p.keterangan,''), COALESCE(p.kode_unik,''), COALESCE(s.nama,''),"
                         + " COALESCE(p.status_dok,'')"
@@ -487,21 +545,19 @@ public final class PostingKantinLanjutanHelper {
                         + " LEFT JOIN library.penyedia s ON s.id = p.supplier"
                         + " WHERE p.posting_history IS NULL"
                         + " AND date(p.tanggal) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY p.tanggal, p.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            long idSupplier = rs.getLong(2);
-            boolean adaSupplier = !rs.wasNull() && idSupplier > 0;
-            double nominal = rs.getDouble(3);
-            Date tanggal = rs.getTimestamp(4);
-            String metode = rs.getString(5);
-            String ket = rs.getString(6);
-            String kodeUnik = rs.getString(7);
-            String namaSupplier = rs.getString(8);
-            String statusDok = rs.getString(9);
+                        + " ORDER BY p.tanggal, p.id", mulai, sampai, 9);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            long idSupplier = m.lng(2);
+            boolean adaSupplier = m.ada(2) && idSupplier > 0;
+            double nominal = m.dbl(3);
+            Date tanggal = m.tgl(4);
+            String metode = m.str(5);
+            String ket = m.str(6);
+            String kodeUnik = m.str(7);
+            String namaSupplier = m.str(8);
+            String statusDok = m.str(9);
 
             Draf d = new Draf();
             d.jenis = "bayar_hutang";
@@ -532,8 +588,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
@@ -542,28 +596,27 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafTerimaPiutang(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        // Akun piutang dibaca DULU (memanggil Hibernate) supaya tidak ada query lain yang berjalan
+        // saat hasil query di bawah sedang dibaca.
+        Akun akunPiutang = AkunKantinUtil.akunPiutang(session);
+        List<Mentah> barisMentah = baca(session,
                 "SELECT p.id, COALESCE(p.nominal,0), p.tanggal, COALESCE(p.metode,''), COALESCE(p.nomor,''),"
                         + " COALESCE(p.keterangan,''), COALESCE(a.nama,''), COALESCE(p.status_dok,'')"
                         + " FROM koperasi.penerimaan_piutang_customer p"
                         + " LEFT JOIN koperasi.anggota_koperasi a ON a.id = p.customer"
                         + " WHERE p.posting_history IS NULL"
                         + " AND date(p.tanggal) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY p.tanggal, p.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        Akun akunPiutang = AkunKantinUtil.akunPiutang(session);
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            double nominal = rs.getDouble(2);
-            Date tanggal = rs.getTimestamp(3);
-            String metode = rs.getString(4);
-            String nomor = rs.getString(5);
-            String ket = rs.getString(6);
-            String namaCustomer = rs.getString(7);
-            String statusDok = rs.getString(8);
+                        + " ORDER BY p.tanggal, p.id", mulai, sampai, 8);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            double nominal = m.dbl(2);
+            Date tanggal = m.tgl(3);
+            String metode = m.str(4);
+            String nomor = m.str(5);
+            String ket = m.str(6);
+            String namaCustomer = m.str(7);
+            String statusDok = m.str(8);
 
             Draf d = new Draf();
             d.jenis = "terima_piutang";
@@ -590,8 +643,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
@@ -611,28 +662,25 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafReturPembelian(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT r.id, r.produk, COALESCE(r.totalnilai, COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0), 0),"
                         + " r.waktu, r.supplier, COALESCE(r.alasan,''), COALESCE(pr.nama,''), COALESCE(s.nama,'')"
                         + " FROM koperasi.retur_pembelian r"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = r.produk"
                         + " LEFT JOIN library.penyedia s ON s.id = r.supplier"
                         + " WHERE r.posting_history IS NULL AND date(r.waktu) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY r.waktu, r.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            long idProduk = rs.getLong(2);
-            double nilai = rs.getDouble(3);
-            Date tanggal = rs.getTimestamp(4);
-            long idSupplier = rs.getLong(5);
-            boolean adaSupplier = !rs.wasNull() && idSupplier > 0;
-            String alasan = rs.getString(6);
-            String namaProduk = rs.getString(7);
-            String namaSupplier = rs.getString(8);
+                        + " ORDER BY r.waktu, r.id", mulai, sampai, 8);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            long idProduk = m.lng(2);
+            double nilai = m.dbl(3);
+            Date tanggal = m.tgl(4);
+            long idSupplier = m.lng(5);
+            boolean adaSupplier = m.ada(5) && idSupplier > 0;
+            String alasan = m.str(6);
+            String namaProduk = m.str(7);
+            String namaSupplier = m.str(8);
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -662,8 +710,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
@@ -675,8 +721,7 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafReturPenjualan(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT r.id, r.produk, COALESCE(r.totalnilai, COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0), 0),"
                         + " r.waktu, COALESCE(r.kembalikan_ke_stok,false), COALESCE(r.qty,0),"
                         + " COALESCE(pr.hargabeli,0), COALESCE(pr.nama,''), COALESCE(r.metodepengembalian,''),"
@@ -684,21 +729,19 @@ public final class PostingKantinLanjutanHelper {
                         + " FROM koperasi.retur_penjualan r"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = r.produk"
                         + " WHERE r.posting_history IS NULL AND date(r.waktu) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY r.waktu, r.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            long idProduk = rs.getLong(2);
-            double nilai = rs.getDouble(3);
-            Date tanggal = rs.getTimestamp(4);
-            boolean keStok = rs.getBoolean(5);
-            double qty = rs.getDouble(6);
-            double hargaBeli = rs.getDouble(7);
-            String namaProduk = rs.getString(8);
-            String metode = rs.getString(9);
-            String pembeli = rs.getString(10);
+                        + " ORDER BY r.waktu, r.id", mulai, sampai, 10);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            long idProduk = m.lng(2);
+            double nilai = m.dbl(3);
+            Date tanggal = m.tgl(4);
+            boolean keStok = m.bool(5);
+            double qty = m.dbl(6);
+            double hargaBeli = m.dbl(7);
+            String namaProduk = m.str(8);
+            String metode = m.str(9);
+            String pembeli = m.str(10);
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -734,8 +777,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
@@ -743,26 +784,23 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafOpname(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT o.id, o.produk, COALESCE(o.selisih,0), o.waktuopname, COALESCE(pr.hargabeli,0),"
                         + " COALESCE(pr.nama,''), COALESCE(o.keterangan,'')"
                         + " FROM koperasi.stok_opname o"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = o.produk"
                         + " WHERE o.posting_history IS NULL AND COALESCE(o.selisih,0) <> 0"
                         + " AND date(o.waktuopname) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY o.waktuopname, o.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            long idProduk = rs.getLong(2);
-            double selisih = rs.getDouble(3);
-            Date tanggal = rs.getTimestamp(4);
-            double hargaBeli = rs.getDouble(5);
-            String namaProduk = rs.getString(6);
-            String ket = rs.getString(7);
+                        + " ORDER BY o.waktuopname, o.id", mulai, sampai, 7);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            long idProduk = m.lng(2);
+            double selisih = m.dbl(3);
+            Date tanggal = m.tgl(4);
+            double hargaBeli = m.dbl(5);
+            String namaProduk = m.str(6);
+            String ket = m.str(7);
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -793,8 +831,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
@@ -806,8 +842,7 @@ public final class PostingKantinLanjutanHelper {
     private static List<Draf> drafMutasi(Session session, SatuanKerja satker, String mulai, String sampai)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        Connection conn = session.connection();
-        PreparedStatement ps = conn.prepareStatement(
+        List<Mentah> barisMentah = baca(session,
                 "SELECT m.id, m.produk_asal, m.produk_tujuan, COALESCE(m.qty,0), m.waktu,"
                         + " COALESCE(pa.hargabeli,0), COALESCE(pa.nama,''), COALESCE(ta.nama,''), COALESCE(tt.nama,'')"
                         + " FROM koperasi.mutasi_stok_toko m"
@@ -815,20 +850,18 @@ public final class PostingKantinLanjutanHelper {
                         + " LEFT JOIN koperasi.toko ta ON ta.id = m.toko_asal"
                         + " LEFT JOIN koperasi.toko tt ON tt.id = m.toko_tujuan"
                         + " WHERE m.posting_history IS NULL AND date(m.waktu) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY m.waktu, m.id");
-        ps.setString(1, mulai);
-        ps.setString(2, sampai);
-        ResultSet rs = ps.executeQuery();
-        while (rs.next()) {
-            long id = rs.getLong(1);
-            long idAsal = rs.getLong(2);
-            long idTujuan = rs.getLong(3);
-            double qty = rs.getDouble(4);
-            Date tanggal = rs.getTimestamp(5);
-            double hargaBeli = rs.getDouble(6);
-            String namaProduk = rs.getString(7);
-            String tokoAsal = rs.getString(8);
-            String tokoTujuan = rs.getString(9);
+                        + " ORDER BY m.waktu, m.id", mulai, sampai, 9);
+        for (int bi = 0; bi < barisMentah.size(); bi++) {
+            Mentah m = barisMentah.get(bi);
+            long id = m.lng(1);
+            long idAsal = m.lng(2);
+            long idTujuan = m.lng(3);
+            double qty = m.dbl(4);
+            Date tanggal = m.tgl(5);
+            double hargaBeli = m.dbl(6);
+            String namaProduk = m.str(7);
+            String tokoAsal = m.str(8);
+            String tokoTujuan = m.str(9);
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -855,8 +888,6 @@ public final class PostingKantinLanjutanHelper {
             }
             keluar.add(d);
         }
-        rs.close();
-        ps.close();
         return keluar;
     }
 
