@@ -3204,8 +3204,50 @@ public class Common {
 		if (comboboxs == null)
 			return;
 		for (int i = 0; i < comboboxs.length; i++) {
+			if (!parameterInitCombosLengkap(i, comboboxs, properties, classes, null)) {
+				continue;
+			}
 			insertCombo(comboboxs[i], properties[i], classes[i]);
 		}
+	}
+
+	/**
+	 * Periksa kelengkapan parameter satu baris {@code initCombos} sebelum dipakai.
+	 *
+	 * <p><b>Alasan.</b> {@code initCombos} DULU langsung mengindeks {@code properties[i]},
+	 * {@code classes[i]}, dan {@code criterions[i]} hanya berbekal panjang {@code comboboxs}.
+	 * Bila pemanggil mengirim array yang lebih pendek (atau null) -- mudah terjadi karena
+	 * ketiga/keempat array harus dijaga sejajar secara manual -- yang muncul adalah
+	 * NullPointerException/ArrayIndexOutOfBoundsException di dalam Common, sehingga SELURUH
+	 * combobox pada layar itu gagal terisi dan layar tampak kosong tanpa petunjuk apa pun.</p>
+	 *
+	 * <p><b>Perilaku sekarang.</b> Baris yang parameternya tidak lengkap DILEWATI (combobox lain
+	 * tetap terisi seperti biasa) dan ketidaksesuaiannya dicatat sekali ke audit agar bug
+	 * pemanggilnya tetap terlihat -- bukan disembunyikan. Untuk pemanggil yang arraynya sudah
+	 * benar, tidak ada perubahan perilaku sama sekali.</p>
+	 */
+	@SuppressWarnings({ "rawtypes" })
+	private static boolean parameterInitCombosLengkap(int index, Combobox[] comboboxs, String[] properties,
+			Class[] classes, Criterion[] criterions) {
+		String kurang = null;
+		if (properties == null || index >= properties.length) {
+			kurang = "properties";
+		} else if (classes == null || index >= classes.length) {
+			kurang = "classes";
+		} else if (criterions != null && index >= criterions.length) {
+			kurang = "criterions";
+		}
+		if (kurang == null) {
+			return true;
+		}
+		ais.common.ErrorAuditUtil.record(
+				new Exception("initCombos: array '" + kurang + "' lebih pendek dari comboboxs (butuh index " + index
+						+ ", comboboxs=" + (comboboxs == null ? 0 : comboboxs.length)
+						+ ", properties=" + (properties == null ? -1 : properties.length)
+						+ ", classes=" + (classes == null ? -1 : classes.length)
+						+ ", criterions=" + (criterions == null ? -1 : criterions.length) + ")"),
+				"auto-audit src/ais/common/Common.java:initCombos-parameter-tidak-sejajar");
+		return false;
 	}
 
 	/**
@@ -3236,6 +3278,9 @@ public class Common {
 		if (comboboxs == null)
 			return;
 		for (int i = 0; i < comboboxs.length; i++) {
+			if (!parameterInitCombosLengkap(i, comboboxs, properties, classes, criterions)) {
+				continue;
+			}
 			insertCombo(comboboxs[i], properties[i], classes[i], criterions[i]);
 		}
 	}

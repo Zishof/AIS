@@ -1,7 +1,8 @@
+<style>.kb684904e{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;}.kba6a1032{color:#334155;line-height:1.7;margin:0 0 12px;}.kbb407e34{display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;}.kbe8e16f8{display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;}</style>
 <!-- KB-FORMAT-V2 -->
 <h2 style="margin:0 0 10px;color:#1d4ed8;font-size:19px;">Panduan Penggunaan Halaman Informasi Cache Sistem</h2>
 <div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#9889; Ringkas &mdash; inti halaman ini</div><div style="color:#334155;line-height:1.7;">Secara ringkas: pahami fungsi cache, tinjau informasi dan penanda status, segarkan bila ada yang usang, pantau keseimbangan kinerja dan kemutakhiran. Dengan mengikuti urutan ini, cache sistem dimanfaatkan dengan tepat sehingga sistem cepat dan datanya benar.</div></div>
-<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:0 0 16px;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Tentang halaman ini</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:0 0 16px;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Tentang halaman ini</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;"><p class="kba6a1032">
 Halaman ini digunakan untuk menampilkan informasi cache sistem, yaitu keterangan mengenai data sementara yang
 disimpan sistem (cache) beserta penanda atau status terkaitnya, agar pengelola dapat memeriksa keadaan cache
 dan, bila diperlukan, menyegarkannya. Cache membantu mempercepat kinerja dengan menyimpan data yang sering
@@ -10,84 +11,84 @@ pemahaman penanda status, hingga penyegaran bila diperlukan. Singkatnya, di sini
 ditinjau. Panduan ini disusun berurutan agar Anda memahami fungsi tiap bagian serta langkah yang perlu
 disiapkan, dilakukan, dan diselesaikan dari awal hingga akhir.
 </p></div></details>
-<div style="margin:0 0 18px;"><div style="font-size:12px;color:#64748b;font-weight:600;margin:0 0 6px;">ISI PANDUAN</div><a href="#kb1" onclick="var e=document.getElementById('kb1');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">1. Tujuan Halaman</a><a href="#kb2" onclick="var e=document.getElementById('kb2');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">2. Memahami Informasi Cache</a><a href="#kb3" onclick="var e=document.getElementById('kb3');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">3. Meninjau Status Penanda</a><a href="#kb4" onclick="var e=document.getElementById('kb4');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">4. Menyegarkan Cache Bila Diperlukan</a><a href="#kb5" onclick="var e=document.getElementById('kb5');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">5. Memantau Kinerja dan Kemutakhiran</a><a href="#kb6" onclick="var e=document.getElementById('kb6');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">6. Kaitan dengan Kinerja dan Keandalan Data</a><a href="#kb7" onclick="var e=document.getElementById('kb7');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">7. Pertanyaan yang Sering Diajukan</a><a href="#kb8" onclick="var e=document.getElementById('kb8');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">8. Manfaat Peninjauan yang Tertib</a></div>
-<h3 id="kb1" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">1</span><span>Tujuan Halaman</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="margin:0 0 18px;"><div style="font-size:12px;color:#64748b;font-weight:600;margin:0 0 6px;">ISI PANDUAN</div><a class="kbe8e16f8" href="#kb1" onclick="var e=document.getElementById('kb1');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">1. Tujuan Halaman</a><a class="kbe8e16f8" href="#kb2" onclick="var e=document.getElementById('kb2');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">2. Memahami Informasi Cache</a><a class="kbe8e16f8" href="#kb3" onclick="var e=document.getElementById('kb3');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">3. Meninjau Status Penanda</a><a class="kbe8e16f8" href="#kb4" onclick="var e=document.getElementById('kb4');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">4. Menyegarkan Cache Bila Diperlukan</a><a class="kbe8e16f8" href="#kb5" onclick="var e=document.getElementById('kb5');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">5. Memantau Kinerja dan Kemutakhiran</a><a class="kbe8e16f8" href="#kb6" onclick="var e=document.getElementById('kb6');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">6. Kaitan dengan Kinerja dan Keandalan Data</a><a class="kbe8e16f8" href="#kb7" onclick="var e=document.getElementById('kb7');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">7. Pertanyaan yang Sering Diajukan</a><a class="kbe8e16f8" href="#kb8" onclick="var e=document.getElementById('kb8');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}">8. Manfaat Peninjauan yang Tertib</a></div>
+<h3 class="kbb407e34" id="kb1"><span class="kb684904e">1</span><span>Tujuan Halaman</span></h3><p class="kba6a1032">
 Halaman Informasi Cache Sistem berfungsi memberikan gambaran mengenai data sementara yang disimpan sistem
 agar pengelola dapat memastikan kinerja tetap baik dan data yang ditampilkan tetap mutakhir. Dengan informasi
 cache yang dikelola baik, pengelola dapat mengenali bila ada data lama yang perlu disegarkan. Peninjauan yang
 tertib memastikan cache mendukung kecepatan tanpa menampilkan data usang, sehingga sistem berjalan cepat
 sekaligus tetap menyajikan informasi yang benar.
 </p>
-<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b45309;margin:0 0 8px;font-size:14px;">&#9745; Hal yang Perlu Disiapkan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b45309;margin:0 0 8px;font-size:14px;">&#9745; Hal yang Perlu Disiapkan</div><div style="color:#334155;line-height:1.7;"><p class="kba6a1032">
 Sebelum meninjau, pahami bahwa cache berisi data sementara untuk mempercepat sistem, dan kenali keperluan
 yang mendorong peninjauan, misalnya bila data yang tampil terasa tidak mutakhir. Persiapan ini memastikan
 peninjauan terarah, sehingga Anda dapat menilai apakah cache perlu disegarkan atau dibiarkan tanpa tindakan
 yang tidak perlu yang justru dapat mengurangi manfaat kecepatannya.
 </p></div></div>
-<h3 id="kb2" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">2</span><span>Memahami Informasi Cache</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb2"><span class="kb684904e">2</span><span>Memahami Informasi Cache</span></h3><p class="kba6a1032">
 Informasi cache umumnya mencakup jenis data yang disimpan, penanda status seperti mutakhir atau kedaluwarsa,
 serta keterangan waktu. Memahami informasi ini penting agar peninjauan tepat. Dengan mengenali tiap penanda,
 Anda dapat mengetahui keadaan cache, misalnya bagian mana yang masih segar dan bagian mana yang sebaiknya
 disegarkan, sehingga keputusan yang diambil sesuai keadaan sebenarnya.
 </p>
-<h3 id="kb3" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">3</span><span>Meninjau Status Penanda</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb3"><span class="kb684904e">3</span><span>Meninjau Status Penanda</span></h3><p class="kba6a1032">
 Tinjau penanda status untuk menilai apakah data dalam cache masih sesuai dengan data sumbernya. Peninjauan
 ini penting agar data yang ditampilkan kepada pengguna tetap benar. Dengan memeriksa penanda, pengelola dapat
 mengenali ketidaksesuaian sejak dini, sehingga cache yang sudah tidak mencerminkan data terkini dapat
 ditindaklanjuti dan pengguna tidak melihat informasi yang usang.
 </p>
-<h3 id="kb4" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">4</span><span>Menyegarkan Cache Bila Diperlukan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb4"><span class="kb684904e">4</span><span>Menyegarkan Cache Bila Diperlukan</span></h3><p class="kba6a1032">
 Jika ditemukan data cache yang sudah tidak mutakhir, lakukan penyegaran sesuai cara yang tersedia agar
 sistem mengambil data terbaru dari sumbernya. Penyegaran yang tepat menjaga data tetap benar. Lakukan
 penyegaran secukupnya dan saat diperlukan saja, karena cache yang terlalu sering disegarkan dapat mengurangi
 manfaat kecepatannya, sehingga keseimbangan antara kemutakhiran dan kinerja terjaga.
 </p>
-<h3 id="kb5" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">5</span><span>Memantau Kinerja dan Kemutakhiran</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb5"><span class="kb684904e">5</span><span>Memantau Kinerja dan Kemutakhiran</span></h3><p class="kba6a1032">
 Pantau kinerja sistem dan kemutakhiran data secara berkala melalui informasi cache agar keseimbangan
 keduanya terjaga. Pemantauan ini penting agar cache benar-benar bermanfaat. Dengan memantau, pengelola dapat
 memastikan sistem tetap cepat sekaligus menampilkan data yang benar, sehingga manfaat cache diperoleh tanpa
 menimbulkan kebingungan akibat data yang usang.
 </p>
-<h3 id="kb6" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">6</span><span>Kaitan dengan Kinerja dan Keandalan Data</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb6"><span class="kb684904e">6</span><span>Kaitan dengan Kinerja dan Keandalan Data</span></h3><p class="kba6a1032">
 Informasi cache ini berkaitan dengan <b>kinerja sistem</b> dan <b>keandalan data</b> yang ditampilkan. Cache
 mempercepat sistem, namun harus tetap mencerminkan data sumber agar andal. Keterkaitan ini menjadikan
 peninjauan penting, karena kecepatan yang baik tidak boleh mengorbankan kebenaran data; cache yang usang
 dapat menyesatkan pengguna, sehingga keadaannya perlu dipantau agar kinerja dan keandalan sama-sama
 terjaga.
 </p>
-<div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#475569;margin:0 0 8px;font-size:14px;">&#128100; Peran dan Hak Akses</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#475569;margin:0 0 8px;font-size:14px;">&#128100; Peran dan Hak Akses</div><div style="color:#334155;line-height:1.7;"><p class="kba6a1032">
 Peninjauan informasi cache umumnya hanya tersedia bagi administrator atau pihak teknis yang berwenang,
 mengingat sifatnya yang berkaitan dengan pengelolaan sistem. Jika Anda tidak menemukan fungsi yang
 diharapkan, kemungkinan peran akun Anda belum memiliki haknya; hubungi administrator sistem untuk
 penyesuaian. Pembatasan ini menjaga agar cache dikelola pihak yang memahami dampaknya terhadap kinerja dan
 data.
 </p></div></div>
-<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b91c1c;margin:0 0 8px;font-size:14px;">&#9888; Kesalahan Umum dan Cara Menghindarinya</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b91c1c;margin:0 0 8px;font-size:14px;">&#9888; Kesalahan Umum dan Cara Menghindarinya</div><div style="color:#334155;line-height:1.7;"><p class="kba6a1032">
 Kendala yang sering terjadi antara lain membiarkan cache usang sehingga data tampak tidak mutakhir, serta
 menyegarkan cache terlalu sering sehingga kinerja menurun. Untuk menghindarinya, tinjau penanda status,
 segarkan hanya bila perlu, dan pantau keseimbangannya. Ketelitian ini menjaga agar sistem tetap cepat dan
 data tetap benar tanpa tindakan yang berlebihan.
 </p></div></div>
-<h3 id="kb7" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">7</span><span>Pertanyaan yang Sering Diajukan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb7"><span class="kb684904e">7</span><span>Pertanyaan yang Sering Diajukan</span></h3><p class="kba6a1032">
 <b>Apa itu cache?</b> Data sementara yang disimpan sistem untuk mempercepat kinerja. <b>Mengapa perlu
 ditinjau?</b> Agar data yang ditampilkan tetap mutakhir. <b>Kapan perlu disegarkan?</b> Saat data cache sudah
 tidak sesuai sumbernya. <b>Apakah menyegarkan selalu baik?</b> Tidak, secukupnya saja agar kinerja tetap
 terjaga.
 </p>
-<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#10003; Langkah Akhir dan Verifikasi</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#10003; Langkah Akhir dan Verifikasi</div><div style="color:#334155;line-height:1.7;"><p class="kba6a1032">
 Sebagai langkah akhir, periksa kembali informasi cache untuk memastikan penanda status telah ditinjau dan
 bagian yang usang telah disegarkan bila perlu. Pastikan data yang ditampilkan kepada pengguna sudah
 mutakhir. Dengan verifikasi ini, cache sistem mendukung kinerja sekaligus menyajikan data yang benar dan
 andal.
 </p></div></div>
-<h3 id="kb8" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">8</span><span>Manfaat Peninjauan yang Tertib</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<h3 class="kbb407e34" id="kb8"><span class="kb684904e">8</span><span>Manfaat Peninjauan yang Tertib</span></h3><p class="kba6a1032">
 Peninjauan informasi cache yang tertib memastikan sistem tetap cepat tanpa menampilkan data usang, sehingga
 pengguna memperoleh informasi yang benar dengan kinerja yang baik. Penyegaran yang bijak menjaga
 keseimbangan kecepatan dan kemutakhiran. Bagi institusi, pengelolaan cache yang baik mencerminkan sistem yang
 terkelola dengan saksama. Sebaliknya, cache yang diabaikan dapat menyajikan data keliru. Karena itu, tinjau
 informasi cache dengan cermat agar sistem andal.
 </p>
-<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#1d4ed8;margin:0 0 8px;font-size:14px;">&#128161; Tips Penggunaan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
+<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#1d4ed8;margin:0 0 8px;font-size:14px;">&#128161; Tips Penggunaan</div><div style="color:#334155;line-height:1.7;"><p class="kba6a1032">
 Tinjau penanda status cache sebelum menyimpulkan keadaannya. Segarkan cache hanya pada bagian yang benar-benar
 usang. Hindari penyegaran berlebihan yang menurunkan kinerja. Pantau keseimbangan antara kecepatan dan
 kemutakhiran secara berkala. Bila data tampak tidak mutakhir meski sumber sudah berubah, periksa cache, dan

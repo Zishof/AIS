@@ -8828,6 +8828,26 @@ public class KantinHelper {
 			hasil.put("kode", produk.getKode() == null ? "" : produk.getKode());
 			hasil.put("stokSistem", stokSistem);
 			hasil.put("stokMinimum", produk.getStokMinimum() == null ? 0d : produk.getStokMinimum());
+			// Harga utk pengisian otomatis baris Bulk Entry Faktur Kulakan (permintaan
+			// 2026-08-19). hargaBeliTerakhir diambil dari PENERIMAAN/KULAKAN TERAKHIR
+			// (pengadaan_produk, urut waktu desc) -- lebih tepat daripada harga master
+			// yang bisa lama tidak diperbarui; klien memakainya lebih dulu lalu jatuh ke
+			// hargaBeli master bila belum pernah ada penerimaan.
+			hasil.put("hargaBeli", produk.getHargaBeli() == null ? 0d : produk.getHargaBeli());
+			hasil.put("hargaJual", produk.getHargaJual() == null ? 0d : produk.getHargaJual());
+			try {
+				Object[] terakhir = (Object[]) session.createSQLQuery(
+						"SELECT hargabelisatuan, waktupengadaan FROM koperasi.pengadaan_produk"
+								+ " WHERE produk = " + produk.getId() + " AND COALESCE(hargabelisatuan,0) > 0"
+								+ " ORDER BY waktupengadaan DESC, id DESC LIMIT 1").uniqueResult();
+				if (terakhir != null && terakhir[0] != null) {
+					hasil.put("hargaBeliTerakhir", ((Number) terakhir[0]).doubleValue());
+					hasil.put("waktuHargaBeliTerakhir", terakhir[1] == null ? "" : String.valueOf(terakhir[1]));
+				}
+			} catch (Exception exHarga) {
+				// Gagal-aman: pengisian otomatis harga bukan syarat pemindaian produk.
+				ais.common.ErrorAuditUtil.record(exHarga, "auto-audit KantinHelper.soProdukScan.hargaTerakhir");
+			}
 		} finally {
 			tutupSessionPolaB(session);
 		}

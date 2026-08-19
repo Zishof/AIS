@@ -567,9 +567,17 @@ public class BroadcastHelper {
 						}
 					}
 				} else {
-					ais.common.ErrorAuditUtil.record(
-							new Exception("AktorSop/usernamePengguna kosong pada DisposisiAlurSop(sebelumnya) id=" + sebelumnya.getId()),
-							"kirimEmailDisposisi: penerima email (sebelumnya) dilewati karena data aktor SOP tidak lengkap - src/ais/action/master/helper/BroadcastHelper.java:536");
+					/* BUKAN error: AktorSop.usernamePengguna memang KOSONG untuk aktor berbasis
+					 * ROLE/jabatan/atasan/kaprodi/dekan -- itu keadaan normal, dan penerimanya
+					 * sudah diselesaikan secara dinamis oleh SopUtil.resolveAktor di bawah.
+					 * Dulu kondisi wajar ini dicatat sebagai error (lengkap dengan Exception
+					 * buatan) untuk SETIAP langkah pada SETIAP disposisi, sehingga membanjiri
+					 * log dan menenggelamkan error yang sebenarnya. Cukup 1 baris informasi;
+					 * kegagalan yang benar-benar perlu diketahui (tidak ada penerima sama
+					 * sekali) dicatat sekali di akhir method ini. */
+					System.out.println("BroadcastHelper: usernamePengguna aktor SOP kosong pada "
+							+ "DisposisiAlurSop(sebelumnya) id=" + sebelumnya.getId()
+							+ " -- penerima akan ditentukan lewat resolusi aktor dinamis.");
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:545");}
 			sebelumnya = sebelumnya.getSebelumnya();
@@ -590,9 +598,11 @@ public class BroadcastHelper {
 						}
 					}
 				} else {
-					ais.common.ErrorAuditUtil.record(
-							new Exception("AktorSop/usernamePengguna kosong pada DisposisiAlurSop(setelah) id=" + disposisiAlurSopSetelah.getId()),
-							"kirimEmailDisposisi: penerima email (setelah) dilewati karena data aktor SOP tidak lengkap - src/ais/action/master/helper/BroadcastHelper.java:551");
+					// Lihat penjelasan pada blok "sebelumnya" di atas: kondisi ini normal untuk
+					// aktor berbasis role/jabatan dan sudah ditangani resolusi aktor dinamis.
+					System.out.println("BroadcastHelper: usernamePengguna aktor SOP kosong pada "
+							+ "DisposisiAlurSop(setelah) id=" + disposisiAlurSopSetelah.getId()
+							+ " -- penerima akan ditentukan lewat resolusi aktor dinamis.");
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:560");}
 		}
@@ -646,6 +656,20 @@ public class BroadcastHelper {
 			}
 		}
 		String emailUser = emailUserBuilder.toString();
+
+		if (emailUser.trim().isEmpty() && userIds.length() == 0) {
+			/* INI kegagalan yang benar-benar perlu diketahui: setelah aktor terkonfigurasi,
+			 * resolusi aktor dinamis, DAN pelaku langkah sebelumnya semuanya dicoba, tidak ada
+			 * satu pun penerima -- artinya notifikasi lonceng/email disposisi ini TIDAK terkirim
+			 * ke siapa pun. Sebelumnya kondisi ini lolos tanpa jejak sama sekali (yang tercatat
+			 * justru kondisi wajar "usernamePengguna kosong"), sehingga SOP yang salah konfigurasi
+			 * sulit ditemukan. */
+			ais.common.ErrorAuditUtil.record(
+					new Exception("Tidak ada penerima notifikasi disposisi SOP pada DisposisiAlurSop id="
+							+ disposisiAlurSopSetelah.getId()),
+					"kirimEmailDisposisi: notifikasi disposisi SOP tidak terkirim karena tidak ada aktor yang dapat "
+							+ "diselesaikan - src/ais/action/master/helper/BroadcastHelper.java:kirimEmailDisposisi");
+		}
 
 		if (!emailUser.trim().isEmpty() || userIds.length() > 0) {
 			String catat = disposisiAlurSopSetelah.getAlurSop().getKeterangan() + " " + disposisiAlurSopSetelah.getKeterangan();
