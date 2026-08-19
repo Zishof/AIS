@@ -2001,6 +2001,19 @@ public class PosKantinAction extends GenericAutowireComposer {
 
         ais.database.model.koperasi.CaraPembayaranKoperasi cara = caraTerpilih;
         Long caraBayarId = cara.getId();
+        // PIUTANG WAJIB BERPEMILIK (selaras gerbang server KantinHelper.bayar): metode
+        // ber-masukSebagaiHutang membentuk tagihan toko ke pelanggan. Tanpa member, tagihan
+        // itu tidak dapat ditelusuri/ditagih tim keuangan -- kasir dihentikan di sini agar
+        // tidak menunggu penolakan server setelah menekan Bayar.
+        if (memberId == null && Boolean.TRUE.equals(cara.getMasukSebagaiHutang())) {
+            MyMessageboxConfig.show(
+                    "Transaksi piutang wajib memilih nama pelanggan terlebih dahulu. Langkah yang dapat dilakukan: "
+                            + "(1) scan kartu atau ketik nama/ID pelanggan pada kolom pencarian member; "
+                            + "(2) pastikan pelanggan benar; (3) ulangi proses pembayaran. "
+                            + "Tanpa nama pelanggan, tagihan ini tidak dapat ditagih oleh tim keuangan.",
+                    "Pelanggan Belum Dipilih", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            return;
+        }
         boolean manual = cara.getManual() != null && cara.getManual().booleanValue();
         String namaCara = cara.getNama() == null ? "" : cara.getNama().toLowerCase();
         boolean online = namaCara.contains("online") || namaCara.contains("qris") || namaCara.contains("topup");

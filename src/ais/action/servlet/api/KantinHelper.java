@@ -3233,6 +3233,24 @@ public class KantinHelper {
 				p.setHargaBeli(hargaBeliDiminta);
 			}
 
+			// PENJAGA HARGA MODAL (insiden 2026-08-19): satu produk pernah tersimpan dgn harga
+			// modal 5,66 MILIAR melawan harga jual 7.500 (salah input/impor katalog), membuat HPP
+			// di Laporan Laba Rugi membengkak sehingga laba tampak minus miliaran. Nilai yang jauh
+			// melampaui harga jual hampir selalu salah ketik, jadi ditolak dgn pesan yang menyebut
+			// angkanya. Bila memang disengaja (barang promo rugi/klaim garansi), klien dapat
+			// mengirim izin_harga_modal_tinggi=true.
+			double hargaModalFinal = p.getHargaBeli() == null ? 0.0 : p.getHargaBeli().doubleValue();
+			double hargaJualFinal = p.getHargaJual() == null ? 0.0 : p.getHargaJual().doubleValue();
+			if (!request.optBoolean("izin_harga_modal_tinggi", false)
+					&& hargaJualFinal > 0.0 && hargaModalFinal > hargaJualFinal * 10.0) {
+				hasil.put("status", "91");
+				hasil.put("description", "Harga modal (" + Common.numberFormat.get().format(hargaModalFinal)
+						+ ") lebih dari 10 kali harga jual (" + Common.numberFormat.get().format(hargaJualFinal)
+						+ "). Nilai sebesar ini biasanya salah ketik dan membuat Laporan Laba Rugi keliru. "
+						+ "Periksa kembali harga modal; bila memang disengaja, simpan ulang dengan persetujuan harga modal tinggi.");
+				return;
+			}
+
 			session.beginTransaction();
 			if (baru) {
 				session.save(p);

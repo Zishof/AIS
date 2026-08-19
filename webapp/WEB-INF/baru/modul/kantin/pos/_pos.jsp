@@ -973,12 +973,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         // ("tunai"/"cash" di nama metode). Sekarang pakai kolom sungguhan `ada_kembalian`, dgn fallback
         // SAMA PERSIS spt getter entity (COALESCE ke nama ILIKE tunai) utk metode lama yg kolomnya
         // masih NULL -- tidak perlu migrasi data.
-        let sql = "SELECT id, nama, manual, COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian " +
+        let sql = "SELECT id, nama, manual, COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(masuk_sebagai_hutang,false) AS masuk_sebagai_hutang " +
                    "FROM koperasi.cara_pembayaran_koperasi WHERE aktif = true ORDER BY nama ASC";
 
         // Jika ada ID Jenis Anggota, filter berdasarkan daftar_cara_pembayaran_yang_boleh_di_pilih
         if (idJenisAnggota) {
-            sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian " +
+            sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(cpk.masuk_sebagai_hutang,false) AS masuk_sebagai_hutang " +
                   "FROM koperasi.cara_pembayaran_koperasi cpk " +
                   "WHERE cpk.aktif = true " +
                   "AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = " + idJenisAnggota + ") LIKE '%,' || cpk.id || ',%' " +
@@ -993,7 +993,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 const isSelected = (res.length === 1) ? 'selected' : '';
                 const isManual = item.manual === true || item.manual === 't' || item.manual === 'true' ? 'true' : 'false';
                 const adaKembalian = item.ada_kembalian === true || item.ada_kembalian === 't' || item.ada_kembalian === 'true' ? 'true' : 'false';
-                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" data-ada-kembalian="' + adaKembalian + '" ' + isSelected + '>' + item.nama + '</option>';
+                const isHutang = item.masuk_sebagai_hutang === true || item.masuk_sebagai_hutang === 't' || item.masuk_sebagai_hutang === 'true' ? 'true' : 'false';
+                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" data-ada-kembalian="' + adaKembalian + '" data-hutang="' + isHutang + '" ' + isSelected + '>' + item.nama + '</option>';
             });
         } else if (idJenisAnggota) {
             optHtml = '<option value=""><%=Common.getBahasaConfig("-- Tidak Ada Metode Pembayaran Diizinkan --")%></option>';
@@ -2562,6 +2563,18 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             } else {
                 alert('<%=Common.getBahasaConfigJS("Silakan pilih Toko/Pedagang.")%>');
             }
+            return;
+        }
+        // PIUTANG WAJIB BERPEMILIK: metode ber-data-hutang membentuk tagihan toko ke
+        // pelanggan. Tanpa nama pelanggan tagihan tidak dapat ditagih tim keuangan --
+        // server pun menolaknya, jadi kasir dihentikan lebih awal di sini.
+        const optBayarTerpilih = selectBayar.options[selectBayar.selectedIndex];
+        const metodePiutang = optBayarTerpilih && optBayarTerpilih.getAttribute('data-hutang') === 'true';
+        if (metodePiutang && idMember === "") {
+            const pesanPiutang = '<%=Common.getBahasaConfigJS("Transaksi piutang wajib memilih nama pelanggan terlebih dahulu, agar tagihan dapat ditagih oleh tim keuangan.")%>';
+            if (typeof tampilkanToast === "function") { tampilkanToast(pesanPiutang, 'bg-warning text-dark'); } else { alert(pesanPiutang); }
+            const inputMember = document.getElementById('inputMember<%=rnd%>');
+            if (inputMember) { inputMember.focus(); }
             return;
         }
         if (idCaraBayar === "") {
