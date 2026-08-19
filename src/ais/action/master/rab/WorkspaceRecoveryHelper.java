@@ -74,9 +74,6 @@ public class WorkspaceRecoveryHelper {
 
 						final List<String> warnings = Collections.synchronizedList(new ArrayList<String>());
 						final Desktop desktop = Executions.getCurrent().getDesktop();
-						if (!desktop.isServerPushEnabled()) {
-							desktop.enableServerPush(true);
-						}
 
 						final Label label = Common.displayLoadBar(new EventListener() {
 							@Override
@@ -105,7 +102,13 @@ public class WorkspaceRecoveryHelper {
 							}
 						});
 
-						new Thread(new Runnable() {
+						/* OPTIMASI FASE 5: server push dulu dinyalakan di atas tetapi TIDAK PERNAH
+						 * dimatikan, sehingga browser terus polling (menahan thread Tomcat) selama
+						 * tab terbuka walau proses sudah selesai. Tugas juga dijalankan pada thread
+						 * MENTAH tanpa batas. jalankanDenganPush() menyalakan push
+						 * ber-reference-count, memakai pool daemon berbatas milik AsyncTaskManager,
+						 * lalu MELEPAS push di finally. */
+						ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 							@Override
 							public void run() {
 								try {
@@ -148,7 +151,7 @@ public class WorkspaceRecoveryHelper {
 									}
 								}
 							}
-						}).start();
+						});
 					}
 				});
 	}
