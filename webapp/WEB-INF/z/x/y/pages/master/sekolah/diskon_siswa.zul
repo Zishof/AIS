@@ -93,7 +93,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="8%"
 						label="Memotong Tagihan" />
 						<column use="ais.ui.util.MyColumnConfig" width="56px"
-						label="Aksi" align="center" />
+						label="⋯" align="center" />
 
 					</columns>
 				</grid>

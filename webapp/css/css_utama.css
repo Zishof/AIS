@@ -12665,10 +12665,10 @@ td.ais-action-column {
 	border-radius: 8px !important;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, .10) !important;
 }
+/* Ikon SVG tiga titik DISEMBUNYIKAN: pemicunya sekarang memakai glif "⋯" lewat
+   ::after di bawah. Kalau keduanya tampil, titiknya jadi dobel. */
 .ais-row-action-kebab img {
-	opacity: 1 !important;
-	width: 22px !important;
-	height: 22px !important;
+	display: none !important;
 }
 .ais-row-action-kebab:hover {
 	background: #e2e8f0 !important;
@@ -12676,21 +12676,20 @@ td.ais-action-column {
 }
 .ais-row-action-kebab:hover img { opacity: 1 !important; }
 
-/* Label teks "Aksi" DESKTOP (permintaan 19-08-2026): ikon tiga titik saja masih kurang
-   terbaca di layar lebar. Dipasang lewat ::after supaya TIDAK perlu mengubah Java dan
-   otomatis bisa disembunyikan di mobile (lihat media query di bawah) agar kolom aksi
-   tidak melebar di layar sempit. */
+/* Pemicu kebab: cukup "⋯" (tiga titik), JANGAN kata "Aksi" (permintaan pengguna).
+   Dulu di sini terpasang content:"Aksi" karena ikon SVG-nya samar; sekarang glif ini
+   yang dipakai sebagai tombolnya sendiri - jelas terbaca, ringkas, dan tidak
+   bergantung pada berkas ikon. Berlaku otomatis di SELURUH layar tanpa mengubah Java. */
 .ais-row-action-kebab::after {
-	content: "Aksi" !important;
-	font-size: 11px !important;
-	font-weight: 600 !important;
+	content: "⋯" !important;
+	font-size: 20px !important;
+	font-weight: 700 !important;
 	color: #475569 !important;
-	margin-left: 5px !important;
-	letter-spacing: .2px !important;
+	letter-spacing: 0 !important;
 	line-height: 1 !important;
 	white-space: nowrap !important;
 }
-.ais-row-action-kebab { padding: 3px 9px 3px 6px !important; }
+.ais-row-action-kebab { padding: 2px 8px !important; }
 .ais-row-action-kebab:hover::after { color: #1e293b !important; }
 /* Fokus keyboard: tetap terlihat jelas untuk aksesibilitas. */
 .ais-row-action-kebab:focus {
@@ -12705,9 +12704,10 @@ td.ais-action-column {
 		font-size: 14px !important;
 	}
 	.z-popup.ais-row-popup { min-width: 200px !important; }
-	/* Mobile: label teks disembunyikan, cukup ikon — hemat lebar kolom. */
-	.ais-row-action-kebab::after { content: none !important; }
-	.ais-row-action-kebab { padding: 3px 4px !important; }
+	/* Mobile: glif "⋯" TETAP tampil - ikon SVG-nya sudah disembunyikan, jadi
+	   menyembunyikan ::after juga akan menyisakan tombol KOSONG. Glifnya sendiri
+	   sudah ringkas sehingga tidak melebarkan kolom. */
+	.ais-row-action-kebab { padding: 2px 6px !important; }
 	/* Tombol pemicu kebab ikut diperbesar agar memenuhi target sentuh WCAG. */
 	.ais-row-action-kebab {
 		min-width: 44px !important;

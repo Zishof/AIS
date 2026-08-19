@@ -111,7 +111,7 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" label="Informasi" />
 						<column
-						use="ais.ui.util.MyColumnConfig" label="Aksi" width="56px" align="center" />
+						use="ais.ui.util.MyColumnConfig" label="⋯" width="56px" align="center" />
 
 
 					</columns>

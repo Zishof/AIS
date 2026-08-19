@@ -33,7 +33,7 @@
 					<column use="ais.ui.util.MyColumnConfig" label="Status"          width="160px" />
 					<column use="ais.ui.util.MyColumnConfig" label="Dipanggil"       width="145px" />
 					<column use="ais.ui.util.MyColumnConfig" label="Serah Terima"    width="145px" />
-					<column use="ais.ui.util.MyColumnConfig" label="Aksi"            width="56px" align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="⋯"            width="56px" align="center" />
 				</columns>
 			</grid>
 		</center>

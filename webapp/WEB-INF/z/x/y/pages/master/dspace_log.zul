@@ -92,7 +92,7 @@
 								sclass="dgrid" fixedLayout="true" id="grid">
 								<columns>
 									<column
-										use="ais.ui.util.MyColumnConfig" label="Aksi" width="56px" align="center" />
+										use="ais.ui.util.MyColumnConfig" label="⋯" width="56px" align="center" />
 									<column
 										use="ais.ui.util.MyColumnConfig" label="Informasi" />
 									<column

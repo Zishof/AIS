@@ -38,7 +38,7 @@
 					<column use="ais.ui.util.MyColumnConfig" label="Untuk"           width="140px" />
 					<column use="ais.ui.util.MyColumnConfig" label="Berlaku Sampai"  width="120px" />
 					<column use="ais.ui.util.MyColumnConfig" label="Aktif"           width="70px"  align="center" />
-					<column use="ais.ui.util.MyColumnConfig" label="Aksi"            width="56px" align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="⋯"            width="56px" align="center" />
 				</columns>
 			</grid>
 		</center>
