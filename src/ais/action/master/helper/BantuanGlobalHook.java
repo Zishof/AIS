@@ -260,6 +260,23 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			});
 			bantuan.setParent(wrapper);
 		}
+
+		// Pusat Panduan selalu ikut: panduan menurut peran pengguna, tidak bergantung
+		// pada tersedianya panduan khusus halaman ini.
+		final Div pusat = new Div();
+		pusat.setStyle("cursor:pointer;background:#0f766e;color:#ffffff;border-radius:22px;padding:9px 15px;"
+				+ "box-shadow:0 4px 14px rgba(15,118,110,.35);font-size:13px;font-weight:600;");
+		pusat.setTooltiptext("Kumpulan panduan menurut peran pengguna");
+		new Html("<span style='font-size:15px;line-height:1;'>&#128218;</span>"
+				+ "<span style='margin-left:6px;'>Panduan</span>").setParent(pusat);
+		pusat.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				BantuanHelper.tampilkanDariResource(pusat, "panduan", "Pusat Panduan");
+			}
+		});
+		pusat.setParent(wrapper);
+
 		return wrapper;
 	}
 

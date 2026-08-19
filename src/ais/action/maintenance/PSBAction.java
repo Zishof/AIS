@@ -536,10 +536,18 @@ public class PSBAction extends GenericAutowireComposer {
 		Label namaSeleksi = new Label(label_instansi_sekolah == null
 				? Common.getKonfigurasi("label_universitas", "Nama Instansi Kampus").getNilai()
 				: label_instansi_sekolah);
+		/*
+		 * KELAS "title1"/"motto" WAJIB dipasang. css_utama.css sudah menyediakan gayanya
+		 * (putih tebal + text-shadow, kontras di atas latar header bertema), tetapi kelas itu
+		 * TIDAK PERNAH diberikan ke label di sini sehingga label jatuh ke gaya generik .z-label
+		 * dan tampil PUCAT/nyaris tak terbaca di header dialog pendaftaran.
+		 */
+		namaSeleksi.setSclass("title1");
 		vbox.appendChild(namaSeleksi);
 
 		Label namaSekolah = new Label(
 				Common.getKonfigurasi("label_psb_kampus", "Seleksi Penerimaan Siswa Baru").getNilai());
+		namaSekolah.setSclass("motto");
 		vbox.appendChild(namaSekolah);
 
 		namaSeleksi.setSclass("title1");

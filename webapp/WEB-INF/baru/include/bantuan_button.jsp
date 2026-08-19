@@ -15,9 +15,14 @@
     if (__key.matches("login[0-9]+")) __key = "login";
     String __rp = __key.length() == 0 ? null : application.getRealPath("/WEB-INF/bantuan/" + __key + ".html");
     boolean __ada = __rp != null && new java.io.File(__rp).isFile();
-    if (__ada) {
+    // Pusat Panduan (kumpulan panduan per peran) selalu tersedia, terlepas dari
+    // ada tidaknya panduan khusus halaman ini.
+    String __rpPusat = application.getRealPath("/WEB-INF/bantuan/panduan.html");
+    boolean __adaPusat = __rpPusat != null && new java.io.File(__rpPusat).isFile();
+    if (__ada || __adaPusat) {
         String __ctx = request.getContextPath();
 %>
+<% if (__ada) { %>
 <div id="kbjspQaFab" onclick="kbjspOpenMode('qa')" title="Tanya jawab sesuai halaman ini"
      style="position:fixed;right:16px;bottom:62px;z-index:99990;cursor:pointer;background:#15803d;color:#fff;
      border-radius:22px;padding:9px 15px;box-shadow:0 4px 14px rgba(21,128,61,.35);
@@ -30,6 +35,16 @@
      font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
   <span style="font-size:15px;line-height:1;">&#63;</span><span>Bantuan</span>
 </div>
+<% } %>
+<% if (__adaPusat) { %>
+<div id="kbjspPusatFab" onclick="kbjspOpenMode('pusat')" title="Kumpulan panduan menurut peran pengguna"
+     style="position:fixed;right:16px;bottom:<%= __ada ? "108px" : "16px" %>;z-index:99990;cursor:pointer;
+     background:#0f766e;color:#fff;border-radius:22px;padding:9px 15px;
+     box-shadow:0 4px 14px rgba(15,118,110,.35);
+     font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
+  <span style="font-size:15px;line-height:1;">&#128218;</span><span>Panduan</span>
+</div>
+<% } %>
 <div id="kbjspOverlay" onclick="if(event.target===this)kbjspClose()"
      style="display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;z-index:99991;
      background:rgba(15,23,42,.55);padding:3vh 3vw;box-sizing:border-box;">
@@ -47,9 +62,14 @@
 function kbjspOpen(){ kbjspOpenMode('help'); }
 function kbjspOpenMode(mode){
   var f=document.getElementById('kbjspFrame');
-  var qa=mode==='qa', url='<%= __ctx %>/bantuan?key=<%= __key %>'+(qa?'&mode=qa':'');
+  // Bila halaman ini tidak punya panduan khusus, arahkan ke Pusat Panduan.
+  if(!<%= __ada %>) mode='pusat';
+  var qa=mode==='qa', pusat=mode==='pusat', url;
+  if(pusat){ url='<%= __ctx %>/bantuan?key=panduan'; }
+  else { url='<%= __ctx %>/bantuan?key=<%= __key %>'+(qa?'&mode=qa':''); }
   if(f.getAttribute('data-mode')!==mode){ f.src=url; f.setAttribute('data-mode',mode); }
-  document.getElementById('kbjspTitle').textContent=qa?'Tanya Jawab Halaman':'Pusat Bantuan';
+  document.getElementById('kbjspTitle').textContent=
+      pusat?'Pusat Panduan':(qa?'Tanya Jawab Halaman':'Pusat Bantuan');
   document.getElementById('kbjspOverlay').style.display='block';
 }
 function kbjspClose(){ document.getElementById('kbjspOverlay').style.display='none'; }

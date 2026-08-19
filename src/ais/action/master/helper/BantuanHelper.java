@@ -184,6 +184,22 @@ public class BantuanHelper {
 			});
 			cetak.setParent(toolbar);
 
+			// Tombol Pusat Panduan: kumpulan panduan menurut peran pengguna (petugas
+			// perpustakaan, dosen, mahasiswa, admin/calon siswa PPDB). Sengaja diletakkan
+			// pada SETIAP jendela bantuan agar dapat dicapai dari mana saja tanpa perlu
+			// mengetik alamat, baik pada tampilan Desktop maupun Mobile.
+			if (key == null || !key.trim().toLowerCase().startsWith("panduan")) {
+				MyToolbarbuttonConfig pusat = new MyToolbarbuttonConfig("Pusat Panduan", "/img/svg/books-thin.svg");
+				pusat.setTooltiptext("Kumpulan panduan menurut peran pengguna");
+				pusat.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						tampilkanDariResource(self, "panduan", "Pusat Panduan");
+					}
+				});
+				pusat.setParent(toolbar);
+			}
+
 			// Terjemah: alih-bahasakan isi panduan (Indonesia/English/Arab/Mandarin) DI jendela ini, tanpa
 			// mengubah bahasa aplikasi. DUA tombol: "Terjemahkan AI" (Ollama, kualitas lebih baik) dan
 			// "Terjemahkan Cepat" (kamus internal HTML-aware, instan/tanpa server AI).
@@ -1467,6 +1483,40 @@ public class BantuanHelper {
 				}
 			} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:1226");
 			}
+		}
+
+		// Panduan menurut peran (berkas "panduan*.html") tidak terikat pada menu mana pun,
+		// sehingga tidak akan pernah terjaring oleh penyaringan hak akses di atas. Panduan
+		// ini bersifat umum dan aman ditampilkan kepada semua pengguna, jadi selalu
+		// disertakan ke dalam katalog.
+		try {
+			String dirPanduan = Sessions.getCurrent().getWebApp().getRealPath("/WEB-INF/bantuan/");
+			if (dirPanduan != null) {
+				File dp = new File(dirPanduan);
+				File[] berkasPanduan = dp.listFiles();
+				if (berkasPanduan != null) {
+					for (int i = 0; i < berkasPanduan.length; i++) {
+						File f = berkasPanduan[i];
+						if (f == null || !f.isFile()) {
+							continue;
+						}
+						String nama = f.getName();
+						if (nama == null || !nama.toLowerCase().endsWith(".html")) {
+							continue;
+						}
+						String kunci = nama.substring(0, nama.length() - 5).toLowerCase();
+						if (!kunci.startsWith("panduan") || kunci.endsWith("_qa") || map.containsKey(kunci)) {
+							continue;
+						}
+						String htmlPanduan = muatKontenFile(kunci);
+						if (htmlPanduan == null || htmlPanduan.trim().isEmpty()) {
+							continue;
+						}
+						map.put(kunci, buatEntri(kunci, "Panduan Pengguna", htmlPanduan));
+					}
+				}
+			}
+		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:kumpulkanEntriBantuan-panduan");
 		}
 
 		// Isi jumlah buka untuk analitik ringan.

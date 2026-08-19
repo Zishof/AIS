@@ -5800,15 +5800,30 @@ html body .z-menu-popup-cnt li:hover a.z-menu-item-cnt {
     overflow: hidden !important;
 }
 
+/* Header dialog PPDB: teks WAJIB kontras.
+   Sebelumnya label header tampil pucat/hampir tak terbaca karena mewarisi gaya generik.
+   Selain memasang kelas title1/motto dari sisi Java, kontrasnya dikunci di sini:
+   warna terang + bayangan gelap, plus lapisan gelap tipis di belakang brand box supaya
+   tetap terbaca sekalipun logo/latar tema sekolah berwarna muda. */
+.pmb-zk-window .headerHbox .pmb-brand-box {
+    background: rgba(0, 0, 0, .18) !important;
+    border-radius: 12px !important;
+}
+
 .pmb-zk-window .title1 {
     font-size: 20px !important;
     font-weight: 800 !important;
     letter-spacing: -.01em !important;
+    color: #fff !important;
+    opacity: 1 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .35) !important;
 }
 
 .pmb-zk-window .motto {
     font-size: 12.5px !important;
-    opacity: .92 !important;
+    opacity: 1 !important;
+    color: rgba(255, 255, 255, .95) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .5) !important;
 }
 
 /* Toolbar menu utama: pill bertema, wrap otomatis di layar sempit */
