@@ -142,6 +142,7 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 	private Date tanggalSampai;
 	private Date tanggalDitolak;
 	private Tbmuser ditolakOleh;
+	private String alasanDitolak;
 	private Boolean tanpaAnggaran;
 	private Boolean pembelianLangsung;
 	private Workspace workspace;
@@ -837,5 +838,18 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 	public void setPengirimanPalingLambatOld(Date pengirimanPalingLambatOld) {
 		this.pengirimanPalingLambatOld = pengirimanPalingLambatOld;
 	}
+
+	/**
+	 * Alasan penolakan PO -- diisi saat penolakan supaya pembuat tahu apa yang harus
+	 * diperbaiki. Ditambahkan 2026-08-20 bersama pemakaian modul ini oleh POS
+	 * (Desktop/Android/JSP); kolom NULLABLE sehingga baris lama tidak terdampak.
+	 */
+	@Column(name = "alasan_ditolak", nullable = true)
+	public String getAlasanDitolak() {
+		return alasanDitolak;
+	}
 
+	public void setAlasanDitolak(String alasanDitolak) {
+		this.alasanDitolak = alasanDitolak;
+	}
 }
