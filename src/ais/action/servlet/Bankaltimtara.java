@@ -91,18 +91,7 @@ public class Bankaltimtara extends HttpServlet {
 		String[] command = { "curl", "--silent", "--show-error", "--location", strURL, "--header",
 				"Content-type: application/json", "--data-raw", login.toString() };
 
-		ProcessBuilder process = new ProcessBuilder(command);
-		process.redirectErrorStream(true);
-		Process p;
-		p = process.start();
-		BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-		StringBuilder builder = new StringBuilder();
-		String line = null;
-		while ((line = reader.readLine()) != null) {
-			builder.append(line);
-			builder.append(System.getProperty("line.separator"));
-		}
-		String hasil = builder.toString();
+		String hasil = jalankanPerintahAmbilKeluaran(command, true);
 		System.out.println(hasil);
 
 		JSONObject jsonObject2 = null;
@@ -126,18 +115,7 @@ public class Bankaltimtara extends HttpServlet {
 					"Content-type: application/json", "--header", "Authorization: Bearer " + token, "--data",
 					postData };
 
-			process = new ProcessBuilder(command);
-			process.redirectErrorStream(true);
-
-			p = process.start();
-			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			builder = new StringBuilder();
-			line = null;
-			while ((line = reader.readLine()) != null) {
-				builder.append(line);
-				builder.append(System.getProperty("line.separator"));
-			}
-			hasil = builder.toString();
+			hasil = jalankanPerintahAmbilKeluaran(command, true);
 			System.out.println(hasil);
 
 			jsonObject2 = BankaltimtaraResponseUtil.parseJson(hasil, "cek status QRIS");
@@ -200,12 +178,33 @@ public class Bankaltimtara extends HttpServlet {
 			return vaDulu ? checkPakaiva(virtualAccountBankReadOnly) : checkPakaiqris(virtualAccountBankReadOnly);
 		} catch (Exception e) {
 			errorPertama = e;
-			ais.common.ErrorAuditUtil.record(e, "Bankaltimtara.checkPakaivaAtauQris: kanal utama ("
-					+ (vaDulu ? "VA" : "QRIS") + ") gagal, mencoba kanal lain (" + (vaDulu ? "QRIS" : "VA") + ")");
+			/* Kegagalan kanal pertama karena bank menjawab "belum ada transaksi" (code 04 /
+			 * "not found") BUKAN kerusakan sistem: itu jawaban wajar untuk tagihan yang memang
+			 * belum dibayar. Dulu kondisi ini dicatat sebagai error lengkap dengan stack trace
+			 * pada SETIAP klik "Periksa Ulang", sehingga log dipenuhi kejadian normal dan error
+			 * yang sesungguhnya jadi sulit ditemukan. Kanal cadangan tetap dicoba seperti biasa;
+			 * hanya cara pencatatannya yang disesuaikan. */
+			if (merupakanTransaksiBelumAdaDiBank(e)) {
+				System.out.println("Bankaltimtara: kanal " + (vaDulu ? "VA" : "QRIS")
+						+ " menjawab transaksi belum ada (code 04) untuk VA id="
+						+ virtualAccountBankReadOnly.getId() + ", mencoba kanal "
+						+ (vaDulu ? "QRIS" : "VA") + ".");
+			} else {
+				ais.common.ErrorAuditUtil.record(e, "Bankaltimtara.checkPakaivaAtauQris: kanal utama ("
+						+ (vaDulu ? "VA" : "QRIS") + ") gagal, mencoba kanal lain (" + (vaDulu ? "QRIS" : "VA") + ")");
+			}
 		}
 		try {
 			return vaDulu ? checkPakaiqris(virtualAccountBankReadOnly) : checkPakaiva(virtualAccountBankReadOnly);
 		} catch (Exception eFallback) {
+			/* Bila KEDUA kanal sama-sama menjawab "belum ada transaksi", penyebabnya adalah data
+			 * pembayaran yang memang belum tercatat di bank -- bukan gangguan aplikasi. Berikan
+			 * pesan yang dapat dimengerti operator, bukan tumpukan pesan teknis dua kanal. */
+			if (merupakanTransaksiBelumAdaDiBank(errorPertama) && merupakanTransaksiBelumAdaDiBank(eFallback)) {
+				throw new Exception("Bank Bankaltimtara belum mencatat transaksi apa pun untuk Virtual Account ini"
+						+ " (VA id=" + virtualAccountBankReadOnly.getId() + "). Pembayaran kemungkinan memang belum"
+						+ " dilakukan, atau kode billing-nya sudah kedaluwarsa dan perlu dibuat ulang.", errorPertama);
+			}
 			throw new Exception(
 					"Pemeriksaan ulang gagal di kedua kanal Bankaltimtara. " + (vaDulu ? "VA" : "QRIS") + ": "
 							+ errorPertama.getMessage() + " | " + (vaDulu ? "QRIS" : "VA") + ": "
@@ -215,6 +214,139 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
+<<<<<<< .mine
+	 * Jalankan perintah eksternal (curl) lalu kembalikan SELURUH keluarannya sebagai String.
+	 *
+	 * <p><b>Alasan perbaikan.</b> Keempat pemanggilan {@code ProcessBuilder} di kelas ini DULU
+	 * membaca stdout lewat {@code BufferedReader} yang <b>tidak pernah ditutup</b>, dan proses
+	 * {@code curl}-nya tidak pernah di-{@code destroy()}. Setiap pemeriksaan status pembayaran
+	 * karena itu meninggalkan file descriptor pipe dan objek {@code Process} menggantung sampai
+	 * GC berjalan -- pada server yang ramai berujung pada "Too many open files" dan proses curl
+	 * zombie. Semua pembersihan kini dilakukan di {@code finally}, sehingga tetap terjadi
+	 * meskipun pembacaan gagal di tengah jalan.</p>
+	 *
+	 * <p><b>Perilaku dipertahankan.</b> Cara membaca datanya sama persis dengan kode lama
+	 * (baris demi baris, dipisah {@code line.separator} platform). Parameter
+	 * {@code gabungkanErrorStream} mengikuti setelan MASING-MASING pemanggil: kanal QRIS memang
+	 * memakai {@code redirectErrorStream(true)} (perintahnya sudah memakai
+	 * {@code --silent --show-error}), sedangkan kanal VA TIDAK -- pada kanal VA stderr sengaja
+	 * tidak digabungkan karena curl di sana masih menulis progress meter ke stderr, yang bila
+	 * ikut tergabung akan merusak JSON hasilnya.</p>
+	 *
+	 * <p>{@code waitFor()} hanya dipanggil bila stderr digabungkan ke stdout -- pada kasus itu
+	 * seluruh keluaran sudah habis terbaca sehingga proses dijamin tidak menggantung. Bila
+	 * stderr terpisah dan tidak dibaca, {@code waitFor()} berpotensi menggantung saat buffer
+	 * pipe penuh, jadi prosesnya cukup ditutup lewat {@code destroy()}.</p>
+	 */
+	private static String jalankanPerintahAmbilKeluaran(String[] command, boolean gabungkanErrorStream)
+			throws Exception {
+		Process p = null;
+		BufferedReader reader = null;
+		try {
+			ProcessBuilder process = new ProcessBuilder(command);
+			if (gabungkanErrorStream) {
+				process.redirectErrorStream(true);
+			}
+			p = process.start();
+			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			StringBuilder builder = new StringBuilder();
+			String line = null;
+			while ((line = reader.readLine()) != null) {
+				builder.append(line);
+				builder.append(System.getProperty("line.separator"));
+			}
+			return builder.toString();
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (Exception abaikan) {
+				}
+			}
+			if (p != null) {
+				try {
+					p.getOutputStream().close();
+				} catch (Exception abaikan) {
+				}
+				try {
+					p.getErrorStream().close();
+				} catch (Exception abaikan) {
+				}
+				if (gabungkanErrorStream) {
+					try {
+						p.waitFor();
+					} catch (InterruptedException interupsi) {
+						// Jangan telan status interrupt: kembalikan supaya lapisan di atas tahu.
+						Thread.currentThread().interrupt();
+					} catch (Exception abaikan) {
+					}
+				}
+				try {
+					p.destroy();
+				} catch (Exception abaikan) {
+				}
+			}
+		}
+	}
+
+	/**
+	 * Apakah kegagalan berasal dari jawaban Bankaltimtara "transaksi tidak ditemukan"
+	 * (<code>code: 04</code> / <code>not found</code>) -- yaitu keadaan bisnis yang WAJAR untuk
+	 * tagihan yang belum dibayar, bukan kerusakan sistem yang perlu diaudit sebagai error.
+	 */
+	private static boolean merupakanTransaksiBelumAdaDiBank(Throwable e) {
+		Throwable cur = e;
+		int pengaman = 0;
+		while (cur != null && pengaman < 12) {
+			String pesan = cur.getMessage();
+			if (pesan != null) {
+				String kecil = pesan.toLowerCase();
+				if (kecil.indexOf("not found") >= 0
+						|| kecil.indexOf("\"code\":\"04\"") >= 0
+						|| kecil.indexOf("code: 04") >= 0) {
+					return true;
+				}
+			}
+			if (cur.getCause() == cur) {
+				break;
+			}
+			cur = cur.getCause();
+			pengaman++;
+		}
+		return false;
+	}
+
+	/**
+||||||| .r77745
+=======
+	 * Apakah kegagalan berasal dari jawaban Bankaltimtara "transaksi tidak ditemukan"
+	 * (<code>code: 04</code> / <code>not found</code>) -- yaitu keadaan bisnis yang WAJAR untuk
+	 * tagihan yang belum dibayar, bukan kerusakan sistem yang perlu diaudit sebagai error.
+	 */
+	private static boolean merupakanTransaksiBelumAdaDiBank(Throwable e) {
+		Throwable cur = e;
+		int pengaman = 0;
+		while (cur != null && pengaman < 12) {
+			String pesan = cur.getMessage();
+			if (pesan != null) {
+				String kecil = pesan.toLowerCase();
+				if (kecil.indexOf("not found") >= 0
+						|| kecil.indexOf("\"code\":\"04\"") >= 0
+						|| kecil.indexOf("code: 04") >= 0) {
+					return true;
+				}
+			}
+			if (cur.getCause() == cur) {
+				break;
+			}
+			cur = cur.getCause();
+			pengaman++;
+		}
+		return false;
+	}
+
+	/**
+>>>>>>> .r77747
 	 * Validasi minimal sebelum {@code new JSONObject(hasil)}: pastikan respons tidak
 	 * null/kosong dan diawali karakter '{' (setelah di-trim). Endpoint bank kadang membalas
 	 * string kosong atau halaman HTML error (mis. gateway timeout/404) alih-alih JSON, yang
@@ -257,17 +389,7 @@ public class Bankaltimtara extends HttpServlet {
 		String[] command = { "curl", "--location", strURL, "--header", "Content-type: application/json", "--data-raw",
 				login.toString() };
 
-		ProcessBuilder process = new ProcessBuilder(command);
-		Process p;
-		p = process.start();
-		BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-		StringBuilder builder = new StringBuilder();
-		String line = null;
-		while ((line = reader.readLine()) != null) {
-			builder.append(line);
-			builder.append(System.getProperty("line.separator"));
-		}
-		String hasil = builder.toString();
+		String hasil = jalankanPerintahAmbilKeluaran(command, false);
 		System.out.println(hasil);
 
 		validasiResponJsonBankaltimtara(hasil, "login/autentikasi");
@@ -287,17 +409,7 @@ public class Bankaltimtara extends HttpServlet {
 
 		try {
 
-			process = new ProcessBuilder(commandPost);
-
-			p = process.start();
-			reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-			builder = new StringBuilder();
-			line = null;
-			while ((line = reader.readLine()) != null) {
-				builder.append(line);
-				builder.append(System.getProperty("line.separator"));
-			}
-			hasil = builder.toString();
+			hasil = jalankanPerintahAmbilKeluaran(commandPost, false);
 
 			System.out.println("hasil -> " + hasil);
 

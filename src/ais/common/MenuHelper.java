@@ -1877,7 +1877,20 @@ public class MenuHelper {
         Session session = null;
         Transaction tx = null;
         try {
-            session = HibernateUtil.currentNativeSession();
+            /* KE-FIX SessionException "Session is closed!" (thread AIS-Init-Data ->
+             * AppStartupListener.jalankanInitData -> ensureReimbursementMenus ->
+             * ensureReimbursementPrivilege): seeder ini DULU memakai currentNativeSession(),
+             * yaitu session ThreadLocal yang DIPAKAI BERSAMA seluruh seeder menu lain pada thread
+             * startup yang sama. Ada 22 seeder di kelas ini dan masing-masing menutup session
+             * ThreadLocal itu di finally-nya sendiri, sehingga session yang sedang dipegang
+             * seeder ini bisa ditutup dari luar di tengah jalan -- terlihat pada stack trace:
+             * INSERT job_has_menu masih sukses, lalu criteria di ensureReimbursementPrivilege
+             * gagal karena session sudah tertutup. Akibatnya menu dan hak akses Reimbursement
+             * untuk role am/keu TIDAK PERNAH selesai dipasang. Sekarang seeder ini MEMILIKI
+             * sessionnya sendiri lewat openSession() (tidak terdaftar di ThreadLocal sehingga
+             * tak dapat ditutup pihak lain) dan menutupnya sendiri di finally. Urutan langkah
+             * dan transaksinya tidak diubah sama sekali. */
+            session = HibernateUtil.getSessionFactory().openSession();
             tx = session.beginTransaction();
             // Bersihkan dua menu versi lama; isinya tetap dipakai sebagai tab include.
             session.createSQLQuery("DELETE FROM public.role_privilage WHERE menu IN (260815002,260815003)")
@@ -1892,7 +1905,8 @@ public class MenuHelper {
             };
             tx.commit(); tx = null;
 
-            session = HibernateUtil.currentNativeSession();
+            // Tetap memakai session milik method ini (jangan ambil ulang dari ThreadLocal):
+            // transaksi pertama sudah di-commit, session-nya sendiri masih terbuka dan aman.
             tx = session.beginTransaction();
             String idList = String.valueOf(id);
             session.createSQLQuery(
@@ -1917,10 +1931,10 @@ public class MenuHelper {
             System.err.println("[MenuHelper] ensureReimbursementMenus gagal: " + e.getMessage());
             ais.common.ErrorAuditUtil.record(e, "MenuHelper.ensureReimbursementMenus");
         } finally {
-            if (session != null) {
-                try { session.disconnect(); } catch (Exception ignored) { }
-                try { session.close(); } catch (Exception ignored) { }
-            }
+            // Session dibuka sendiri lewat openSession() -> WAJIB ditutup tuntas di finally
+            // (clear + rollback sisa + disconnect + close).
+            HibernateUtil.closeSessionQuietly(session);
+            // Lepaskan pula session ThreadLocal bila sempat dibuat oleh helper bersarang.
             HibernateUtil.closeSession();
         }
     }

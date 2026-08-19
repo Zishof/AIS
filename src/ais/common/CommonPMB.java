@@ -340,7 +340,14 @@ public class CommonPMB {
 			// tak sampai crash krn sudah try/catch). Cast hasilnya ke text + deklarasikan tipe kolom
 			// eksplisit via addScalar() supaya Hibernate tidak perlu menebak tipe dari metadata JDBC.
 			String lockKey = "PMB_NO_UJIAN_SAVE_" + biodataCalonMahasiswaId + "_" + safeTrim(noUjian);
-			session.createSQLQuery("select pg_advisory_xact_lock(hashtext(:lockKey))::text as lock_result")
+			// KE-FIX QueryException "Not all named parameters have been set: [:text]":
+			// Hibernate memindai string SQL untuk parameter bernama dengan pola ":nama", sehingga
+			// operator cast PostgreSQL "::text" ikut TERBACA sebagai parameter bernama ":text".
+			// Parameter itu tak pernah di-set -> query SELALU gagal -> advisory lock TIDAK PERNAH
+			// didapat, artinya pengaman race-condition nomor ujian sebenarnya MATI (tak terlihat
+			// karena tertelan try/catch). Cast ANSI "cast(... as text)" memberi hasil yang sama
+			// persis tanpa tanda ":" sehingga tidak lagi bentrok dengan sintaks parameter Hibernate.
+			session.createSQLQuery("select cast(pg_advisory_xact_lock(hashtext(:lockKey)) as text) as lock_result")
 					.addScalar("lock_result", org.hibernate.Hibernate.STRING)
 					.setParameter("lockKey", lockKey)
 					.uniqueResult();

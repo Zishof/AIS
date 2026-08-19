@@ -472,6 +472,23 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
                 Object managed = session.get(org.hibernate.Hibernate.getClass(o), deletedId);
                 if (managed != null) {
                     target = managed;
+                    /* KE-FIX StaleStateException "Batch update returned unexpected row count from
+                     * update [0]; expected: 1" saat commit (lewat Envers AuditProcess ->
+                     * flush -> EntityUpdateAction): session.get() di atas MEMUAT entitas ke
+                     * persistence context, dan getter legacy pada model AIS menormalkan isian
+                     * field saat dibaca sehingga entitas itu langsung dianggap KOTOR. Hibernate
+                     * mengeksekusi UPDATE sebelum DELETE; bila barisnya sudah tidak ada (dihapus
+                     * lebih dulu oleh proses/klik lain) UPDATE mengembalikan 0 baris dan seluruh
+                     * transaksi hapus gagal. Entitas ini memang akan DIHAPUS, jadi UPDATE apa pun
+                     * terhadapnya tidak ada gunanya: ditandai read-only supaya dirty-checking
+                     * melewatinya. session.delete() TETAP berjalan normal pada entitas read-only,
+                     * sehingga fungsi hapusnya tidak berubah sama sekali. */
+                    try {
+                        session.setReadOnly(managed, true);
+                    } catch (Exception abaikan) {
+                        ais.common.ErrorAuditUtil.record(abaikan,
+                                "auto-audit(empty-catch) src/ais/common/CommonHibernateHelper.java:refreshDelete-setReadOnly");
+                    }
                 }
             }
             session.delete(target);

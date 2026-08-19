@@ -262,13 +262,22 @@ public class AmbilDataMahasiswaBanyak extends MyWindow {
 					List<Row> rows = grid.getRows().getChildren();
 					for (Row row : rows) {
 						try {
+							/* KE-FIX NullPointerException: tidak semua baris di dalam Rows adalah
+							 * baris data hasil renderer -- ada baris bantu/placeholder yang TIDAK
+							 * memiliki atribut "checkbox" (dan/atau "mahasiswa"), sehingga
+							 * getAttribute() mengembalikan null dan checkbox.isChecked() meledak.
+							 * Exception-nya memang tertangkap, tetapi tercatat ke ErrorAuditUtil
+							 * untuk SETIAP baris semacam itu pada SETIAP klik Simpan. Baris tanpa
+							 * data cukup dilewati -- hasil akhirnya sama persis dengan perilaku
+							 * lama (baris itu memang tidak pernah ikut terpilih). */
 							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								Mahasiswa myMahasiswa = (Mahasiswa) row.getAttribute("mahasiswa");
-								mahasiswas.add(myMahasiswa);
+								if (myMahasiswa != null) {
+									mahasiswas.add(myMahasiswa);
+								}
 							}
 						}catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataMahasiswaBanyak.java:270");
-							// TODO: handle exception
 						}
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), mahasiswas);

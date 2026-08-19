@@ -195,6 +195,24 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 			btabs.tambahTabZul(idx++, "Posting Penjualan",
 					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penjualan_kantin.zul");
 		}
+		// Empat posting penutup rantai pengadaan->pembayaran toko (2026-08-20). Tanpa ini akun
+		// Persediaan hanya pernah dikredit jurnal HPP dan Utang Usaha tak pernah terbentuk.
+		if (Common.bolehKonfigurasi(P + "posting_kulakan")) {
+			btabs.tambahTabZul(idx++, "Posting Kulakan",
+					"/WEB-INF/z/x/y/pages/master/koperasi/posting_kulakan_toko.zul");
+		}
+		if (Common.bolehKonfigurasi(P + "posting_bayar_hutang")) {
+			btabs.tambahTabZul(idx++, "Posting Bayar Hutang",
+					"/WEB-INF/z/x/y/pages/master/koperasi/posting_bayar_hutang_toko.zul");
+		}
+		if (Common.bolehKonfigurasi(P + "posting_terima_piutang")) {
+			btabs.tambahTabZul(idx++, "Posting Terima Piutang",
+					"/WEB-INF/z/x/y/pages/master/koperasi/posting_terima_piutang_toko.zul");
+		}
+		if (Common.bolehKonfigurasi(P + "posting_penyesuaian")) {
+			btabs.tambahTabZul(idx++, "Posting Penyesuaian",
+					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penyesuaian_toko.zul");
+		}
 
 		super.doAfterCompose(comp);
 		btabs.pulihkanSeleksi(idx);

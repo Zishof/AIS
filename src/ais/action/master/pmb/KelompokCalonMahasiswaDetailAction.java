@@ -628,6 +628,74 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 	 * kelompok manual menang lebih dulu, lalu afiliasi, lalu default gelombang. Operator perlu
 	 * tahu yang mana supaya tidak menebak-nebak - tiap penyebab butuh tindakan yang berbeda.</p>
 	 */
+	/**
+	 * Cari kelompok LAIN di gelombang yang sama yang rentang skornya beririsan dgn kelompok ini.
+	 *
+	 * <p><b>Kenapa penting.</b> {@code validasiStatusAwalMahasiswa} menelusuri kelompok yang
+	 * diurutkan {@code skorSampai} MENAIK lalu berhenti di kecocokan PERTAMA. Jadi bila dua
+	 * kelompok sama-sama memuat sebuah skor, yang menang adalah yang batas atasnya lebih KECIL
+	 * - bukan yang lebih tepat atau yang dibuat lebih dulu. Batasnya pun inklusif di kedua ujung
+	 * ({@code skor >= mulai && skor <= sampai}), sehingga rentang bersambung seperti 0-204 dan
+	 * 204-500 pun beririsan di angka 204.</p>
+	 *
+	 * <p>Akibatnya calon bisa jatuh ke kelompok yang tidak dikehendaki tanpa pesan apa pun.
+	 * Irisan itu ditampilkan di sini supaya ketahuan sebelum jadi keluhan data.</p>
+	 *
+	 * @return teks peringatan siap tampil, atau {@code null} bila tidak ada irisan
+	 */
+	@SuppressWarnings("unchecked")
+	private String periksaTumpangTindihSkor() {
+		try {
+			if (!kelompokCalonMahasiswa.getAktifkanPenggunaanSkor()) {
+				return null;
+			}
+			int mulai = kelompokCalonMahasiswa.getSkorMulai();
+			int sampai = kelompokCalonMahasiswa.getSkorSampai();
+
+			List<KelompokCalonMahasiswa> lainnya = HibernateUtil.currentSession()
+					.createCriteria(KelompokCalonMahasiswa.class)
+					.add(Restrictions.eq("gelombangPendaftaran", kelompokCalonMahasiswa.getGelombangPendaftaran()))
+					.addOrder(Order.asc("skorSampai")).list();
+
+			StringBuilder irisan = new StringBuilder();
+			for (KelompokCalonMahasiswa lain : lainnya) {
+				if (lain == null || lain.getId() == null
+						|| lain.getId().equals(kelompokCalonMahasiswa.getId())
+						|| !lain.getAktifkanPenggunaanSkor()) {
+					continue;
+				}
+				int mulaiLain = lain.getSkorMulai();
+				int sampaiLain = lain.getSkorSampai();
+				if (mulai > sampaiLain || sampaiLain < mulai || mulaiLain > sampai) {
+					continue; // tidak beririsan
+				}
+				// Yang menang adalah batas ATAS terkecil; seri -> urutan hasil query.
+				boolean kelompokIniYangMenang = sampai < sampaiLain;
+				irisan.append("<br>&nbsp;&nbsp;- beririsan dengan <b>")
+						.append(lain.getStatusAwalMahasiswa() == null ? "(tanpa status)"
+								: lain.getStatusAwalMahasiswa().getNama())
+						.append("</b> (skor ").append(mulaiLain).append(" s/d ").append(sampaiLain).append("); pada skor")
+						.append(" yang dimuat keduanya, calon jatuh ke <b>")
+						.append(kelompokIniYangMenang ? "kelompok ini"
+								: (lain.getStatusAwalMahasiswa() == null ? "kelompok tsb"
+										: lain.getStatusAwalMahasiswa().getNama()))
+						.append("</b>.");
+			}
+			if (irisan.length() == 0) {
+				return null;
+			}
+			return "<b>Perhatian:</b> rentang skor kelompok ini (<b>" + mulai + " s/d " + sampai + "</b>)"
+					+ " tumpang tindih dengan kelompok lain di gelombang yang sama:" + irisan.toString()
+					+ "<br>Penentu kemenangan adalah BATAS ATAS yang lebih kecil, bukan urutan pembuatan"
+					+ " kelompok - dan batasnya inklusif, jadi rentang bersambung (mis. 0-204 dan 204-500)"
+					+ " tetap beririsan di angka sambungannya. Rapikan rentangnya bila pengelompokannya"
+					+ " tidak sesuai harapan.";
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "KelompokCalonMahasiswaDetailAction.periksaTumpangTindihSkor");
+			return null;
+		}
+	}
+
 	private String jelaskanKeanggotaanOtomatis(BiodataCalonMahasiswa calon) {
 		StringBuilder pesan = new StringBuilder();
 		pesan.append("\"").append(calon.getNama() == null ? "Calon ini" : calon.getNama()).append("\"")
@@ -654,9 +722,30 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 						+ " gelombang itu dikunci ke sini selama belum dikelompokkan manual.";
 				tindakan = "Lepas centang tersebut pada pengaturan gelombang bila pengelompokan ini tidak"
 						+ " dikehendaki, atau pindahkan calon ini saja lewat langkah di bawah.";
+			} else if (kelompokCalonMahasiswa.getAktifkanPenggunaanSkor()
+					&& calon.getTotalSkor() != null
+					&& kelompokCalonMahasiswa.getSkorMulai() != null
+					&& kelompokCalonMahasiswa.getSkorSampai() != null
+					&& calon.getTotalSkor() >= kelompokCalonMahasiswa.getSkorMulai()
+					&& calon.getTotalSkor() <= kelompokCalonMahasiswa.getSkorSampai()) {
+				/*
+				 * Penyebab paling sering, dan paling mudah terlewat: kelompok ini menyaring
+				 * berdasar SKOR, dan skor calon jatuh di rentangnya. Selama dia belum masuk
+				 * kelompok mana pun, tombol "Proses Ulang" akan MENGEMBALIKANNYA ke sini
+				 * berulang kali (lihat KelompokCalonMahasiswaAction.validasiStatusAwalMahasiswa).
+				 */
+				penyebab = "Kelompok ini menyaring berdasarkan SKOR (rentang "
+						+ kelompokCalonMahasiswa.getSkorMulai() + " s/d " + kelompokCalonMahasiswa.getSkorSampai()
+						+ "), dan skor calon ini " + calon.getTotalSkor() + " - masuk rentang tersebut.";
+				tindakan = "Selama calon ini belum masuk kelompok mana pun, tombol \"Proses Ulang\" akan"
+						+ " terus mengembalikannya ke sini. Pindahkan dia lewat langkah di bawah (kelompok yang"
+						+ " ditetapkan manual TIDAK ikut diproses ulang), atau perbaiki rentang skor kelompok ini.";
 			} else {
 				penyebab = "Status Awal yang tersimpan pada data calon ini memang sama dengan status"
-						+ " kelompok ini, dan dia belum pernah dimasukkan ke kelompok mana pun.";
+						+ " kelompok ini, dan dia belum pernah dimasukkan ke kelompok mana pun."
+						+ (kelompokCalonMahasiswa.getParameterTambahanInds().trim().isEmpty() ? ""
+								: " Kelompok ini juga punya kriteria parameter tambahan yang bisa mencocokkannya"
+										+ " lagi setiap kali \"Proses Ulang\" dijalankan.");
 				tindakan = "Pindahkan lewat langkah di bawah.";
 			}
 		} catch (Exception e) {
@@ -705,6 +794,11 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 					&& gelombang.getStatusAwalMahasiswaDefault().getId() != null
 					&& gelombang.getStatusAwalMahasiswaDefault().getId().equals(statusKelompok.getId());
 
+			String peringatanTumpangTindih = periksaTumpangTindihSkor();
+			if (peringatanTumpangTindih != null) {
+				catatan.append("<br><br>").append(peringatanTumpangTindih);
+			}
+
 			if (dikunciGelombang) {
 				catatan.append("<br><br><b>Perhatian:</b> gelombang \"").append(gelombang.getNama())
 						.append("\" mencentang <b>\"Calon mahasiswa harus mengikuti status awal default\"</b>")
@@ -715,7 +809,8 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 			}
 
 			ais.ui.util.MyHtml html = new ais.ui.util.MyHtml("<div style=\"font-size:11px;line-height:1.5;"
-					+ (dikunciGelombang ? "color:#92400e;background:#fef3c7;border:1px solid #fcd34d;"
+					+ (dikunciGelombang || peringatanTumpangTindih != null
+							? "color:#92400e;background:#fef3c7;border:1px solid #fcd34d;"
 							: "color:#334155;background:#f1f5f9;border:1px solid #cbd5e1;")
 					+ "border-radius:6px;padding:8px 10px;margin:6px 0;\">" + catatan.toString() + "</div>");
 			html.setParent(groupbox);

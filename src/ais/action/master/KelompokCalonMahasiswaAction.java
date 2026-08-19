@@ -481,6 +481,9 @@ public class KelompokCalonMahasiswaAction extends GenericAutowireComposer {
 					+ "<td style='padding:1px 10px 1px 2px;font-weight:600'>" + Common.numberFormat.get().format(masukSemuaGelombang) + "</td>"
 					+ "<td style='padding:1px 5px 1px 0;color:#777'>Persen</td>"
 					+ "<td style='padding:1px 0 1px 2px;font-weight:600'>" + Common.numberFormat.get().format(persen) + "%</td>"
+					+ "</tr><tr>"
+					+ "<td style='padding:1px 5px 1px 0;color:#777'>Kriteria</td>"
+					+ "<td colspan='3' style='padding:1px 0 1px 2px;font-weight:600'>" + kriteriaKelompok(kelompokCalonMahasiswa) + "</td>"
 					+ "</tr></table>";
 			org.zkoss.zul.Html kuotaHtmlComp = new org.zkoss.zul.Html();
 			kuotaHtmlComp.setContent(kuotaHtml);
@@ -560,6 +563,29 @@ public class KelompokCalonMahasiswaAction extends GenericAutowireComposer {
 		init(new KelompokCalonMahasiswa());
 		addWindow.setVisible(true);
 		addWindow.onModal();
+	}
+
+	/**
+	 * Ringkas kriteria yang dipakai sebuah kelompok untuk menyaring calon.
+	 *
+	 * <p>Tanpa ini rentang skor tiap kelompok tidak terlihat di mana pun kecuali dibuka satu
+	 * per satu, padahal justru rentang itulah yang menentukan calon jatuh ke kelompok mana
+	 * (lihat {@link #validasiStatusAwalMahasiswa}). Menampilkannya berdampingan membuat
+	 * rentang yang tumpang tindih antar kelompok langsung kelihatan.</p>
+	 */
+	public static String kriteriaKelompok(KelompokCalonMahasiswa kelompokCalonMahasiswa) {
+		try {
+			if (kelompokCalonMahasiswa.getAktifkanPenggunaanSkor()) {
+				return "Skor " + kelompokCalonMahasiswa.getSkorMulai() + " s/d "
+						+ kelompokCalonMahasiswa.getSkorSampai();
+			}
+			return kelompokCalonMahasiswa.getParameterTambahanInds().trim().isEmpty()
+					? "<span style='color:#b91c1c'>Belum ada kriteria</span>"
+					: "Parameter tambahan";
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "KelompokCalonMahasiswaAction.kriteriaKelompok");
+			return "-";
+		}
 	}
 
 	public static void validasiStatusAwalMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,

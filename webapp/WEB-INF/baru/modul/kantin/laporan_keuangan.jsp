@@ -117,6 +117,24 @@ if (!lockTokoLap) {
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_penjualan_kantin.zul">
       <i class="fas fa-file-invoice-dollar me-1"></i><%=Common.getBahasaConfig("Posting Penjualan")%>
     </a>
+    <%-- Empat posting penutup rantai pengadaan->pembayaran toko; tanpa ini Persediaan hanya
+         pernah dikredit jurnal HPP dan Utang Usaha tak pernah terbentuk di Neraca. --%>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_kulakan_toko.zul">
+      <i class="fas fa-truck-ramp-box me-1"></i><%=Common.getBahasaConfig("Posting Kulakan")%>
+    </a>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_bayar_hutang_toko.zul">
+      <i class="fas fa-money-bill-transfer me-1"></i><%=Common.getBahasaConfig("Posting Bayar Hutang")%>
+    </a>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_terima_piutang_toko.zul">
+      <i class="fas fa-hand-holding-dollar me-1"></i><%=Common.getBahasaConfig("Posting Terima Piutang")%>
+    </a>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_penyesuaian_toko.zul">
+      <i class="fas fa-sliders me-1"></i><%=Common.getBahasaConfig("Posting Penyesuaian")%>
+    </a>
   </div>
 
   <div id="listView<%=rndLap%>">

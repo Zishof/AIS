@@ -139,6 +139,19 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 				statusMahasiswa = check(statusMahasiswa);
 			} else {
 				mahasiswa = getMahasiswa();
+				/* KE-FIX NullPointerException di ambilStatusMahasiswa (dipanggil dari
+				 * PembayaranUtilHelper.getDetailBiayaMahasiswadariDatabase pada thread pool
+				 * TagihanUIBuilder): getMahasiswa() memanggil check(mahasiswa) yang BISA
+				 * mengembalikan null saat proxy lazy-nya sudah mati / barisnya terhapus.
+				 * Jadi meskipun pemeriksaan null di atas lolos, variabel mahasiswa dapat
+				 * berubah menjadi null TEPAT DI SINI, lalu seluruh blok di bawah
+				 * (mahasiswa.getStatusKeluar(), mahasiswa.ambilCuti(), ...) meledak dan
+				 * perhitungan tagihan mahasiswa itu gagal total. Bila terjadi, jatuhkan ke
+				 * penanganan yang SAMA seperti cabang "mahasiswa == null" di atas. */
+				if (mahasiswa == null) {
+					statusMahasiswa = check(statusMahasiswa);
+					return statusMahasiswa;
+				}
 				// FIX NPE (auto-unboxing): parameter semester bisa null (mis. dipanggil dari jalur
 				// kalkulasiStatusLogikaLanjutan/thread async dengan objek yang semester-nya belum
 				// diisi) -> "semester >= jumlah_semester" di bawah meledak saat unboxing meski

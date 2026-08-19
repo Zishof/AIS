@@ -1371,14 +1371,29 @@ public class PerkuliahanAction extends GenericAutowireComposer
 													MyMessageboxConfig.show(err, "Error Terjadi", MyMessageboxConfig.OK,
 															MyMessageboxConfig.EXCLAMATION);
 
-													File file = new File(
-															"/opt/ecampus/error_" + Common.randLong() + ".txt");
-
-													if (!file.getParentFile().exists()) {
-														file.getParentFile().mkdirs();
+													/* KE-FIX IOException "File '/opt/ecampus/error_xxx.txt' could not be
+													 * created": berkas log ditulis ke direktori ABSOLUT /opt/ecampus yang
+													 * di server produksi tidak dapat ditulisi oleh user Tomcat (mkdirs()
+													 * gagal diam-diam, lalu writeStringToFile melempar IOException).
+													 * Exception itu keluar dari event listener ZK sehingga dibungkus
+													 * UiException: sinkronisasi NeoFeeder BERHENTI dan baris berikutnya
+													 * (dataSearch.onSearchDefault) tidak pernah jalan -- padahal isi error
+													 * sudah ditampilkan di Messagebox. Sekarang berkas dibuat di direktori
+													 * temporer JVM yang dijamin dapat ditulisi, dan kegagalan menyimpan
+													 * berkas diagnostik TIDAK BOLEH menggagalkan alur: cukup dicatat. */
+													try {
+														File dirTemp = new File(System.getProperty("java.io.tmpdir"));
+														if (!dirTemp.exists()) {
+															dirTemp.mkdirs();
+														}
+														File file = new File(dirTemp,
+																"error_" + Common.randLong() + ".txt");
+														FileUtils.writeStringToFile(file, err);
+														Filedownload.save(file, "text/plain");
+													} catch (Exception eSimpanLog) {
+														ais.common.ErrorAuditUtil.record(eSimpanLog,
+																"PerkuliahanAction: gagal menyimpan berkas log error sinkronisasi NeoFeeder");
 													}
-													FileUtils.writeStringToFile(file, err);
-													Filedownload.save(file, "text/plain");
 												}
 
 												dataSearch.onSearchDefault(null);

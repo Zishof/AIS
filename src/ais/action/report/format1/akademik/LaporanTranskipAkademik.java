@@ -796,7 +796,28 @@ public class LaporanTranskipAkademik extends MyWindow {
 
 		try {
 
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), namaFile,
+			/* KE-FIX IllegalArgumentException "parameters null saat generateFileReportCore,
+			 * laporan=Transkrip_Akademik": generateParameter() SENGAJA mengembalikan null bila
+			 * data yang dibutuhkan (mahasiswa/tahun akademik) belum lengkap. Kondisi itu PASTI
+			 * terjadi saat layar pertama kali dibuka, karena init() ditutup dengan
+			 * onTranskrip(null) SEBELUM pengguna sempat memilih apa pun. Nilai null itu dulu
+			 * diteruskan mentah ke Report.generateFileReportWithProgress sehingga muncul error
+			 * teknis, lalu disusul error kedua "Berkas hasil laporan tidak ditemukan" pada jalur
+			 * unduh. Sekarang dihentikan di sini; pesan hanya ditampilkan bila benar-benar dipicu
+			 * aksi pengguna (event != null), sedangkan pemanggilan otomatis saat init tetap
+			 * senyap seperti sebelumnya. */
+			Map parameterLaporan = generateParameter();
+			if (parameterLaporan == null) {
+				if (event != null) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, transkrip akademik belum dapat dicetak karena data yang diperlukan belum lengkap. "
+									+ "Silakan lengkapi pilihan mahasiswa dan periode terlebih dahulu, kemudian ulangi proses pencetakan.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				}
+				return;
+			}
+
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameterLaporan, namaFile,
 					ais.ui.util.WaktuUtil.getDate(), toolbar);
 
 			CommonReport.tampilkanReportPDF(center, file);
