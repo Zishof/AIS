@@ -71,6 +71,15 @@ public class AmbilDataMahasiswaForKelasHelper {
 		this.kelas = kelas;
 		this.selectedFakultas = selectedFakultas;
 		this.selectedJurusan = selectedJurusan;
+		if (this.selectedJurusan == null && kelas != null) {
+			this.selectedJurusan = kelas.getJurusan();
+		}
+		if (this.selectedFakultas == null && this.selectedJurusan != null) {
+			this.selectedFakultas = this.selectedJurusan.getFakultas();
+		}
+		if (this.selectedFakultas == null && kelas != null) {
+			this.selectedFakultas = kelas.getFakultas();
+		}
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
@@ -83,6 +92,20 @@ public class AmbilDataMahasiswaForKelasHelper {
 			}
 		});
 
+	}
+
+	private void pilihFilterKonteksKelas() {
+		if (selectedFakultas != null) {
+			Common.selectComboItem(true, searchfakultas, selectedFakultas);
+			if (selectedJurusan != null) {
+				Common.insertCombo(searchjurusan, "nama", Jurusan.class,
+						Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
+						Restrictions.eq("fakultas", selectedFakultas));
+			}
+		}
+		if (selectedJurusan != null) {
+			Common.selectComboItem(true, searchjurusan, selectedJurusan);
+		}
 	}
 
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
@@ -225,12 +248,8 @@ public class AmbilDataMahasiswaForKelasHelper {
 		row.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
 		row.appendChild(searchfakultas);
 		searchfakultas.setWidth("90%");
-		searchfakultas.setWidth("90%");
-
-		if (selectedFakultas != null) {
-			Common.selectComboItem(true, searchfakultas, selectedFakultas);
-			searchfakultas.setDisabled(true);
-		}
+		pilihFilterKonteksKelas();
+		searchfakultas.setDisabled(selectedFakultas != null);
 
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Angkatan"));
@@ -242,12 +261,8 @@ public class AmbilDataMahasiswaForKelasHelper {
 		row.appendChild(new ais.ui.util.MyLabelConfig("Prodi"));
 		row.appendChild(searchjurusan);
 		searchjurusan.setWidth("90%");
-		searchjurusan.setWidth("90%");
-
-		if (selectedJurusan != null) {
-			Common.selectComboItem(true, searchjurusan, selectedJurusan);
-			searchjurusan.setDisabled(true);
-		}
+		pilihFilterKonteksKelas();
+		searchjurusan.setDisabled(selectedJurusan != null);
 
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Status Mahasiswa"));

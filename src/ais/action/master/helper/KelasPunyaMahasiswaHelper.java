@@ -261,6 +261,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		toolbar.appendChild(new Label(ais.common.Common.getBahasaConfig("Mhs : ")));
 		toolbar.appendChild(nama = new Textbox());
 		nama.setCols(10);
+		nama.setWidth("180px");
 		nama.addEventListener(Events.ON_OK, new EventListener() {
 
 			@Override
@@ -272,6 +273,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		toolbar.appendChild(new Label(ais.common.Common.getBahasaConfig("Angkatan : ")));
 		toolbar.appendChild(angkatan = new Intbox());
 		angkatan.setCols(4);
+		angkatan.setWidth("90px");
 		angkatan.addEventListener(Events.ON_OK, new EventListener() {
 
 			@Override
@@ -283,6 +285,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		toolbar.appendChild(new Label(Common.getBahasaConfig("Fakultas") + " : "));
 		toolbar.appendChild(searchfakultas);
 		searchfakultas.setCols(10);
+		searchfakultas.setWidth("220px");
 		searchfakultas.addEventListener(Events.ON_CHANGE, new EventListener() {
 
 			@Override
@@ -294,6 +297,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		toolbar.appendChild(new Label(Common.getBahasaConfig("Jurusan") + " : "));
 		toolbar.appendChild(searchjurusan);
 		searchjurusan.setCols(10);
+		searchjurusan.setWidth("260px");
 		searchjurusan.addEventListener(Events.ON_CHANGE, new EventListener() {
 
 			@Override
@@ -303,13 +307,16 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		});
 
 		if (kelas.getJurusan() != null) {
-			Common.selectComboItem(searchfakultas, kelas.getJurusan().getFakultas());
+			Common.selectComboItem(true, searchfakultas, kelas.getJurusan().getFakultas());
 			searchfakultas.setDisabled(true);
 			Common.insertCombo(searchjurusan, "nama", Jurusan.class,
 					Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
 					Restrictions.eq("fakultas", kelas.getJurusan().getFakultas()));
-			Common.selectComboItem(searchjurusan, kelas.getJurusan());
+			Common.selectComboItem(true, searchjurusan, kelas.getJurusan());
 			searchjurusan.setDisabled(true);
+		} else if (kelas.getFakultas() != null) {
+			Common.selectComboItem(true, searchfakultas, kelas.getFakultas());
+			searchfakultas.setDisabled(true);
 		}
 
 		if (kelas.getTahunAngkatan() != null) {
@@ -333,11 +340,21 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				Fakultas filterFakultas = (Fakultas) (searchfakultas.getSelectedItem() == null ? null
+						: searchfakultas.getSelectedItem().getValue());
+				Jurusan filterJurusan = (Jurusan) (searchjurusan.getSelectedItem() == null ? null
+						: searchjurusan.getSelectedItem().getValue());
+				if (filterJurusan == null && kelas != null) {
+					filterJurusan = kelas.getJurusan();
+				}
+				if (filterFakultas == null && filterJurusan != null) {
+					filterFakultas = filterJurusan.getFakultas();
+				}
+				if (filterFakultas == null && kelas != null) {
+					filterFakultas = kelas.getFakultas();
+				}
 				AmbilDataMahasiswaForKelasHelper dataMahasiswaHelper = new AmbilDataMahasiswaForKelasHelper(kelas,
-						(Fakultas) (searchfakultas.getSelectedItem() == null ? null
-								: searchfakultas.getSelectedItem().getValue()),
-						(Jurusan) (searchjurusan.getSelectedItem() == null ? null
-								: searchjurusan.getSelectedItem().getValue()));
+						filterFakultas, filterJurusan);
 				dataMahasiswaHelper.display(getDataloader(), window);
 			}
 

@@ -4,6 +4,7 @@ package ais.action.master.helper;
 import ais.common.CommonSearchFilterHelper;
 import java.util.List;
 
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -52,12 +53,18 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
-	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper(50);
 	private EventListener eventListener;
 
 	public AmbilDataKelasBanbox() {
 		super();
 		setReadonly(true);
+		pagingHelper.pasangOnPaging(new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onSearchDefault(null);
+			}
+		});
 
 		addEventListener("onOpen", new EventListener() {
 
@@ -174,6 +181,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		nama.addEventListener("onOK", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pagingHelper.getPaging().setActivePage(0);
 				onSearchDefault(null);
 			}
 		});
@@ -185,6 +193,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		searchfakultas.addEventListener("onChange", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pagingHelper.getPaging().setActivePage(0);
 				onSearchDefault(null);
 			}
 		});
@@ -196,6 +205,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		searchjurusan.addEventListener("onChange", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pagingHelper.getPaging().setActivePage(0);
 				onSearchDefault(null);
 			}
 		});
@@ -207,6 +217,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		searchtahun.addEventListener("onChange", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pagingHelper.getPaging().setActivePage(0);
 				onSearchDefault(null);
 			}
 		});
@@ -222,6 +233,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pagingHelper.getPaging().setActivePage(0);
 				onSearchDefault(null);
 			}
 		});
@@ -235,9 +247,6 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		 * client-side yang dibatasi MAX_RESULT_100. */
 		Row rowKetiga = new Row();
 		rowKetiga.setParent(rowsUtama);
-		grid.setMold("paging");
-		grid.setPageSize(50);
-		grid.getPagingChild().setMold("os");
 		grid.setParent(rowKetiga);
 
 		Columns columns = new Columns();
@@ -265,17 +274,18 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		column.setParent(columns);
 		column.setLabel("Keterangan");
 
+		Row rowKeempat = new Row();
+		rowKeempat.setParent(rowsUtama);
+		pagingHelper.getPaging().setParent(rowKeempat);
+
 		onSearchDefault(null);
 
 	}
 
-	@SuppressWarnings("unchecked")
-	public void onSearchDefault(Event event) {
-
-		Session session = HibernateUtil.currentSession();
-		List<Kelas> kelas = session.createCriteria(Kelas.class)
+	public Criteria initCriteria(Session session, boolean order) {
+		Criteria criteria = session.createCriteria(Kelas.class)
+				.createAlias("jurusan", "jurusanAlias", Criteria.LEFT_JOIN)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.addOrder(Order.asc("jurusan")).addOrder(Order.asc("tahunAngkatan")).addOrder(Order.asc("nama"))
 				.add(nama.getText().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.ilike("nama", nama.getText().trim(), MatchMode.ANYWHERE))
 
@@ -285,17 +295,39 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 										CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false)))
 
 				.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.or(Restrictions.eq("tahunAngkatan",0),
+						: Restrictions.or(Restrictions.eq("tahunAngkatan", 0),
 								Restrictions.eq("tahunAngkatan", searchtahun.getValue().intValue())))
 
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.or(Restrictions.isNull("fakultas"),
-										CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false)))
+								: Restrictions.or(
+										Restrictions.or(
+												CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false),
+												CommonSearchFilterHelper.eqSelectedWithId("jurusanAlias.fakultas", searchfakultas, false)),
+										Restrictions.and(Restrictions.isNull("fakultas"), Restrictions.isNull("jurusan"))));
+		if (order) {
+			criteria.addOrder(Order.asc("jurusan")).addOrder(Order.asc("tahunAngkatan")).addOrder(Order.asc("nama"));
+		}
+		return criteria;
+	}
 
-				.setMaxResults(Common.MAX_RESULT_50)
+	@SuppressWarnings("unchecked")
+	public void onSearchDefault(Event event) {
 
-				.list();
+		List<Kelas> kelas = pagingHelper.cari(new ais.ui.util.AmbilDataPagingHelper.CriteriaFactory() {
+			@Override
+			public Criteria initCriteria(Session session, boolean order) {
+				return AmbilDataKelasBanbox.this.initCriteria(session, order);
+			}
+		}, Kelas.class, new ais.ui.util.AmbilDataPagingHelper.Inisialisasi<Kelas>() {
+			@Override
+			public void init(Kelas data) {
+				if (data != null) {
+					data.getJurusan();
+					data.getFakultas();
+				}
+			}
+		});
 
 		System.out.println(kelas);
 		ListModel strset = new SimpleListModel(kelas);
