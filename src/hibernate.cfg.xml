@@ -51,7 +51,7 @@
 			fail-soft), sehingga ALTER manual per rilis tidak lagi diwajibkan; catatan di
 			atas dipertahankan sebagai konteks sejarah.
 		-->
-		<property name="hbm2ddl.auto">update</property>
+		<property name="hbm2ddl.auto">none</property>
 		<!-- PERCEPAT STARTUP: dialect sudah eksplisit (PostgreSQLDialect) di atas, jadi Hibernate
 		     TIDAK perlu membuka koneksi untuk membaca metadata JDBC saat membangun SessionFactory.
 		     Mematikan round-trip metadata ini memangkas waktu inisialisasi (fitur DB diambil dari
