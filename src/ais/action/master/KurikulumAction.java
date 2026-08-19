@@ -146,7 +146,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 	 * Tabbox utama halaman Kurikulum. Konten tiap tab dibangun LAZY oleh handler {@code onXxx} yang di
 	 * zul disambungkan lewat {@code forward="onClick=..."} pada masing-masing Tab. Pada ZK 5.5, memilih
 	 * tab memicu event <b>onSelect pada TABBOX</b> — {@code onClick} pada Tab tidak selalu terkirim —
-	 * sehingga konten tab (mis. <b>PIKOBE / Kurikulum OBE</b>) bisa TIDAK PERNAH terbangun dan tab
+	 * sehingga konten tab (mis. <b>Kesiapan OBE / Kurikulum OBE</b>) bisa TIDAK PERNAH terbangun dan tab
 	 * tampak KOSONG walau datanya ada. Dispatcher {@link #onPilihTabKurikulum(Event)} menjembatani hal
 	 * ini: saat tab dipilih, handler yang sesuai dipanggil. Semua handler idempoten (memeriksa
 	 * {@code getChildren().size()==0}) sehingga aman bila terpanggil dua kali (onClick + onSelect).

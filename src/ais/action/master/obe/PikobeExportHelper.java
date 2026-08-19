@@ -12,7 +12,7 @@ import ais.common.Common;
  *
  * <p>Membuat berkas Excel dari header + baris data yang sama persis dengan yang sedang
  * ditampilkan di grid, lalu mengirimkannya sebagai unduhan ke pengguna. Dipakai bersama
- * oleh tiap tab PIKOBE (reuse) sehingga semua tombol "Unduh Excel" berperilaku seragam
+ * oleh tiap tab Kesiapan OBE (reuse) sehingga semua tombol "Unduh Excel" berperilaku seragam
  * dan mudah dirawat.</p>
  *
  * <p>Memakai Apache/zkoss POI ({@code org.zkoss.poi}) — TANPA library chart. Bersifat

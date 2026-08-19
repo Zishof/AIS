@@ -733,7 +733,7 @@ String logo_PerguruanTinggi = (paramLogo != null && !paramLogo.trim().isEmpty())
                     <div class="col-md-6">
                         <div class="module-card">
                             <div class="module-title"><i class="fas fa-bullseye"></i> Kurikulum OBE & Ganda</div>
-                            <p class="module-desc"><%= Common.getBahasaConfig("Implementasi penuh Outcome Based Education (OBE): hierarki Sub-CPMK → CPMK → CPL (4 kategori SN-Dikti: Sikap, Pengetahuan, Keterampilan Umum & Khusus) → Profil Lulusan. Tiga siklus monitoring: Loop 1 (CPMK/semester), Loop 2 (CPL/tahun), Loop 3 (PL/3–5 tahun via Tracer Study). Dasbor PIKOBE skor 0–100 (Bronze/Silver/Gold/Platinum) + rekomendasi CQI otomatis. Ditambah kurikulum ganda (Nasional & Kitab Kuning) untuk pesantren.") %></p>
+                            <p class="module-desc"><%= Common.getBahasaConfig("Implementasi penuh Outcome Based Education (OBE): hierarki Sub-CPMK → CPMK → CPL (4 kategori SN-Dikti: Sikap, Pengetahuan, Keterampilan Umum & Khusus) → Profil Lulusan. Tiga siklus monitoring: Loop 1 (CPMK/semester), Loop 2 (CPL/tahun), Loop 3 (PL/3–5 tahun via Tracer Study). Dasbor OBE skor 0–100 (Bronze/Silver/Gold/Platinum) + rekomendasi CQI otomatis. Ditambah kurikulum ganda (Nasional & Kitab Kuning) untuk pesantren.") %></p>
                         </div>
                     </div>
                 </div>

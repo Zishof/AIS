@@ -211,7 +211,7 @@ public class DasboardObeElearningHelper extends Div {
             // Loop 3: Profil Lulusan coverage
             renderProfilLulusanCoverage(d);
 
-            // PIKOBE Readiness Score
+            // OBE Readiness Score
             renderPikobeScore(d);
 
             // OBE Points 3+4: Admin analisis CPL & PL di level prodi/tahun akademik
@@ -2011,7 +2011,7 @@ public class DasboardObeElearningHelper extends Div {
     }
 
     // ====================================================================
-    // Render sections — PIKOBE Readiness Score
+    // Render sections — OBE Readiness Score
     // ====================================================================
 
     private void renderPikobeScore(ObeData d) {
@@ -2020,7 +2020,7 @@ public class DasboardObeElearningHelper extends Div {
         appendHtml(this,
             "<div style='font-size:13px; font-weight:800; color:#0f172a; margin:16px 0 10px;"
             + " padding-bottom:8px; border-bottom:2px solid #e2e8f0;'>"
-            + "&#127942; Skor PIKOBE &mdash; Indeks Kesiapan OBE (Skala 0&ndash;400)</div>");
+            + "&#127942; Skor OBE &mdash; Indeks Kesiapan OBE (Skala 0&ndash;400)</div>");
 
         // ── PLAN (maks 100): Desain & Keselarasan Kurikulum ──────────────
         int planCpl    = d.totalMk == 0 ? 0 : d.mkPunyaCpl      * 25 / d.totalMk;
@@ -2050,7 +2050,7 @@ public class DasboardObeElearningHelper extends Div {
         int actLengkap = d.totalMk == 0 ? 0 : d.mkDenganCqiLengkap * 50 / d.totalMk; // maks 50
         int actTotal   = actCqi + actLengkap;
 
-        // ── Total PIKOBE 0–400 ────────────────────────────────────────────
+        // ── Total Skor OBE 0–400 ────────────────────────────────────────────
         int totalScore = planTotal + doTotal + checkTotal + actTotal;
 
         // ── Tier thresholds (skala 400) ───────────────────────────────────
@@ -2068,7 +2068,7 @@ public class DasboardObeElearningHelper extends Div {
         else
             { tier = "&#128308; Rintisan"; tierColor = "#7f1d1d"; tierBg = "#fef2f2"; }
 
-        Div panel = createPanel("&#127942; Skor PIKOBE Kesiapan OBE", this);
+        Div panel = createPanel("&#127942; Skor Kesiapan OBE", this);
         appendHtml(panel,
             "<div style='display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;'>"
 
@@ -2109,7 +2109,7 @@ public class DasboardObeElearningHelper extends Div {
                  + "&#128295; Belum ada CQI. Buka <b>Portofolio MK</b> &rarr; <b>Edit CQI</b> untuk setiap mata kuliah.</div>"
                : "")
             + "<div style='font-size:10px; color:#94a3b8; margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0;'>"
-            + "Tier PIKOBE: Rintisan &lt;100 | Bronze 100&ndash;200 | Silver 201&ndash;300 (CHECK&ge;90) | "
+            + "Tier OBE: Rintisan &lt;100 | Bronze 100&ndash;200 | Silver 201&ndash;300 (CHECK&ge;90) | "
             + "Gold 301&ndash;350 (CHECK+ACT&ge;125) | Platinum &gt;350 (CHECK+ACT&ge;151)"
             + "</div>"
             + "</div>"

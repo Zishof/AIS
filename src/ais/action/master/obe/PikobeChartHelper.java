@@ -8,7 +8,7 @@ import ais.common.CommonDashboardHtmlHelper;
  *
  * <p>Semua method mengembalikan potongan HTML murni (SVG/CSS inline) sehingga ringan,
  * responsif, dan bisa langsung ditaruh di komponen {@code org.zkoss.zul.Html}. Dipakai
- * bersama oleh halaman PIKOBE (dan bisa dipakai dasbor lain) agar gaya grafik konsisten
+ * bersama oleh halaman Kesiapan OBE (dan bisa dipakai dasbor lain) agar gaya grafik konsisten
  * dan mudah dirawat (reuse maksimal). Tidak ada ketergantungan ke pustaka chart eksternal.</p>
  *
  * <p>Gaya Java 1.6/1.7 (tanpa lambda/stream/diamond).</p>

@@ -2837,7 +2837,10 @@ public class CalonSiswaAction extends GenericAutowireComposer
 			}
 		});
 
-		if (row.isVisible()) {
+		// Keterangan + tautan NISN hanya tampil bila baris NISN memang ditampilkan.
+		// row.isVisible() BUKAN penanda yang tepat: baris yang disembunyikan konfigurasi
+		// di-set parent null (visible-nya tetap true), sehingga keterangan tampil yatim.
+		if (row.getParent() != null) {
 			Common.initKeterangan(rows,
 					"* Nomor Induk Siswa Nasional (NISN) pendidikan yang sebelumnya ditempuh, untuk mencari NISN, bisa di lihat di link berikut :");
 

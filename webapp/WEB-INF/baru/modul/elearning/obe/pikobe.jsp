@@ -54,7 +54,7 @@ try {
 %>
 
 <style>
-/* ROMBAK MOBILE PIKOBE: 14 tab jadi 1 baris yang bisa digeser (bukan menumpuk),
+/* ROMBAK MOBILE Kesiapan OBE: 14 tab jadi 1 baris yang bisa digeser (bukan menumpuk),
    padding lebih rapat, dan matriks tetap bisa digeser horizontal. */
 @media (max-width: 767.98px) {
     #pikobeTabs_<%=rnd%> { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
@@ -69,7 +69,7 @@ try {
 </style>
 <div id="wrapPikobe_<%=rnd%>" class="card border-0 shadow-sm rounded-4 animate__animated animate__fadeIn mb-4">
     <div class="card-header bg-white border-bottom pt-4 pb-3 px-4">
-        <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Pusat Indeks Kematangan OBE (PIKOBE)")%></h5>
+        <h5 class="fw-bold text-primary mb-3"><i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Pusat Indeks Kematangan OBE")%></h5>
         
         <div class="bg-light border rounded-3 p-3 mb-4 shadow-sm">
             <div class="row g-3">

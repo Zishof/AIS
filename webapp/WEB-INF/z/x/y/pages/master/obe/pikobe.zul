@@ -1,4 +1,4 @@
-<?page id="pikobe" title="PIKOBE - Penyusunan Kurikulum OBE" cacheable="false"
+<?page id="pikobe" title="Penyusunan Kurikulum OBE" cacheable="false"
 	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
 
 <zk xmlns="http://www.zkoss.org/2005/zul"
@@ -7,7 +7,7 @@
 	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
 
 	<!--
-		PIKOBE — satu halaman untuk mengentry & memantau seluruh komponen OBE
+		Indeks Kematangan OBE — satu halaman untuk mengentry & memantau seluruh komponen OBE
 		(Profesi, Profil, CPL, Bahan Kajian, CPMK, Mata Kuliah, matriks, dan
 		ringkasan grafik). Seluruh logika & UI dibangun oleh PikobeAction.
 	-->

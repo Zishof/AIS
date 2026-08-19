@@ -881,7 +881,7 @@ String nomorSurat = (paramNomorSurat != null && !paramNomorSurat.trim().isEmpty(
                     <ul class="highlight-list">
                         <li><strong>Hierarki Capaian OBE:</strong> Sub-CPMK → CPMK (Capaian Pembelajaran Mata Kuliah) → CPL (Capaian Pembelajaran Lulusan, 4 kategori SN-Dikti: <i>Sikap, Pengetahuan, Keterampilan Umum, Keterampilan Khusus</i>) → Profil Lulusan (PL) sebagai fondasi kurikulum program studi.</li>
                         <li><strong>3 Siklus Pemantauan Berkelanjutan:</strong> <i>Loop 1</i> — monitoring ketercapaian CPMK per semester (portofolio mata kuliah); <i>Loop 2</i> — evaluasi ketercapaian CPL per tahun akademik (laporan program studi); <i>Loop 3</i> — evaluasi Profil Lulusan setiap 3–5 tahun melalui Tracer Study alumni.</li>
-                        <li><strong>Dasbor PIKOBE:</strong> Skor kesiapan OBE institusi 0–100 dengan tier Bronze (&lt;50), Silver (50–74), Gold (75–86), Platinum (≥87). Menghasilkan rekomendasi <i>Continuous Quality Improvement</i> (CQI) otomatis untuk peningkatan kurikulum yang terukur.</li>
+                        <li><strong>Dasbor OBE:</strong> Skor kesiapan OBE institusi 0–100 dengan tier Bronze (&lt;50), Silver (50–74), Gold (75–86), Platinum (≥87). Menghasilkan rekomendasi <i>Continuous Quality Improvement</i> (CQI) otomatis untuk peningkatan kurikulum yang terukur.</li>
                         <li><strong>RPS OBE Lengkap:</strong> Setiap RPS menyertakan pemetaan CPL-CPMK dengan bobot penilaian, minimal ketercapaian, instrumen penilaian autentik, dan rumusan Sub-CPMK terperinci.</li>
                     </ul>
                 </div>

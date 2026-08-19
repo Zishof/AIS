@@ -10,7 +10,7 @@
 		apply="ais.action.master.KurikulumAction" width="100%" height="100%">
 
 		<!-- forward onSelect: memuat konten tab saat tab DIPILIH. Pada ZK 5.5 klik tab memicu onSelect
-		     pada TABBOX (onClick pada Tab tidak selalu terkirim), sehingga konten tab seperti PIKOBE /
+		     pada TABBOX (onClick pada Tab tidak selalu terkirim), sehingga konten tab seperti OBE /
 		     Kurikulum OBE bisa tak pernah terbangun = tab kosong. Handler idempoten, aman terpanggil 2x. -->
 		<tabbox id="tabboxKurikulum" width="100%" height="100%"
 			forward="onSelect=onPilihTabKurikulum">
@@ -50,7 +50,7 @@
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
 					forward="onClick=onPikobe">
-					PIKOBE
+					OBE
 				</tab>
 			</tabs>
 
