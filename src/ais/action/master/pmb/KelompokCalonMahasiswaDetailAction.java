@@ -666,7 +666,8 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 				}
 				int mulaiLain = lain.getSkorMulai();
 				int sampaiLain = lain.getSkorSampai();
-				if (mulai > sampaiLain || sampaiLain < mulai || mulaiLain > sampai) {
+				// Beririsan bila TIDAK (habis sebelum yg lain mulai) dan TIDAK (mulai setelah yg lain habis).
+				if (sampai < mulaiLain || sampaiLain < mulai) {
 					continue; // tidak beririsan
 				}
 				// Yang menang adalah batas ATAS terkecil; seri -> urutan hasil query.
