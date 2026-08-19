@@ -1,3 +1,4 @@
+<%@ page isELIgnored="true" %>
 <%@page import="ais.common.Common"%>
 <%
 String rand = Common.getGeneratedBarCode();

@@ -1,3 +1,4 @@
+<%@ page isELIgnored="true" %>
 <%@page import="java.util.Arrays"%>
 <%@page import="java.util.List"%>
 <%@page import="java.io.InputStream"%>
@@ -297,7 +298,7 @@
             const result = await res.json();
             let html = '<option value="">-- Pilih --</option>';
             if(result.data) {
-                result.data.forEach(row => { html += `<option value="\${row[idField]}">\${row[textField]}</option>`; });
+                result.data.forEach(row => { html += `<option value="${row[idField]}">${row[textField]}</option>`; });
             }
             el.innerHTML = html;
         } catch(e) {}
@@ -333,30 +334,30 @@
                     const statusBadge = row.aktif ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-danger">Non-Aktif</span>';
                     const jnsPtk = row["jenisPendidikDanTenagaKependidikan.nama"] || '-';
 
-                    let fotoHtml = `<img src="\${fotoKecil}" class="rounded-circle shadow-sm cursor-pointer border" style="width: 45px; height: 45px; object-fit: cover;" onclick="showFotoBesar<%=rnd%>('\${fotoBesar}')">`;
+                    let fotoHtml = `<img src="${fotoKecil}" class="rounded-circle shadow-sm cursor-pointer border" style="width: 45px; height: 45px; object-fit: cover;" onclick="showFotoBesar<%=rnd%>('${fotoBesar}')">`;
 
                     let actionBtns = '';
-                    <% if (edit) { %> actionBtns += `<button class="btn btn-sm btn-outline-warning shadow-sm px-2 me-1" onclick="editGuru<%=rnd%>(\${row.id})"><i class="fas fa-edit"></i></button>`; <% } %>
-                    <% if (delete) { %> actionBtns += `<button class="btn btn-sm btn-outline-danger shadow-sm px-2" onclick="hapusGuru<%=rnd%>(\${row.id})"><i class="fas fa-trash-alt"></i></button>`; <% } %>
+                    <% if (edit) { %> actionBtns += `<button class="btn btn-sm btn-outline-warning shadow-sm px-2 me-1" onclick="editGuru<%=rnd%>(${row.id})"><i class="fas fa-edit"></i></button>`; <% } %>
+                    <% if (delete) { %> actionBtns += `<button class="btn btn-sm btn-outline-danger shadow-sm px-2" onclick="hapusGuru<%=rnd%>(${row.id})"><i class="fas fa-trash-alt"></i></button>`; <% } %>
 
                     htmlList += `<tr>
-                        <td class="text-center text-muted fw-medium">\${no++}</td>
-                        <td class="text-center align-middle">\${fotoHtml}</td>
-                        <td class="text-start"><div class="fw-bold text-dark">\${safeNama}</div><small class="text-muted">NIP: \${row.nip || '-'}</small></td>
-                        <td class="text-start text-muted small"><div class="fw-bold">\${jnsPtk}</div>\${row.jenisKelamin || '-'}</td>
-                        <td class="text-start text-muted small">\${row.teleponGuru || row.hp || '-'}</td>
-                        <td class="text-center align-middle">\${statusBadge}</td>
-                        <td class="text-center text-nowrap">\${actionBtns}</td>
+                        <td class="text-center text-muted fw-medium">${no++}</td>
+                        <td class="text-center align-middle">${fotoHtml}</td>
+                        <td class="text-start"><div class="fw-bold text-dark">${safeNama}</div><small class="text-muted">NIP: ${row.nip || '-'}</small></td>
+                        <td class="text-start text-muted small"><div class="fw-bold">${jnsPtk}</div>${row.jenisKelamin || '-'}</td>
+                        <td class="text-start text-muted small">${row.teleponGuru || row.hp || '-'}</td>
+                        <td class="text-center align-middle">${statusBadge}</td>
+                        <td class="text-center text-nowrap">${actionBtns}</td>
                     </tr>`;
                 });
                 tbody.innerHTML = htmlList;
                 
-                document.getElementById('pagingInfoGuru<%=rnd%>').innerHTML = `Menampilkan \${recordList.length} dari \${totalRecords} data`;
+                document.getElementById('pagingInfoGuru<%=rnd%>').innerHTML = `Menampilkan ${recordList.length} dari ${totalRecords} data`;
                 let totalP = Math.ceil(totalRecords/limitPerPage<%=rnd%>) || 1;
                 document.getElementById('paginationContainer<%=rnd%>').innerHTML = `
-                    <li class="page-item \${currentPage<%=rnd%> === 1 ? 'disabled' : ''}"><button class="page-link" onclick="currentPage<%=rnd%>--; loadDataGuru<%=rnd%>()"><i class="fas fa-chevron-left"></i></button></li>
-                    <li class="page-item disabled"><span class="page-link fw-bold text-dark">\${currentPage<%=rnd%>} / \${totalP}</span></li>
-                    <li class="page-item \${currentPage<%=rnd%> === totalP ? 'disabled' : ''}"><button class="page-link" onclick="currentPage<%=rnd%>++; loadDataGuru<%=rnd%>()"><i class="fas fa-chevron-right"></i></button></li>
+                    <li class="page-item ${currentPage<%=rnd%> === 1 ? 'disabled' : ''}"><button class="page-link" onclick="currentPage<%=rnd%>--; loadDataGuru<%=rnd%>()"><i class="fas fa-chevron-left"></i></button></li>
+                    <li class="page-item disabled"><span class="page-link fw-bold text-dark">${currentPage<%=rnd%>} / ${totalP}</span></li>
+                    <li class="page-item ${currentPage<%=rnd%> === totalP ? 'disabled' : ''}"><button class="page-link" onclick="currentPage<%=rnd%>++; loadDataGuru<%=rnd%>()"><i class="fas fa-chevron-right"></i></button></li>
                 `;
             }
         } catch (e) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-5">Gagal menarik data.</td></tr>'; }

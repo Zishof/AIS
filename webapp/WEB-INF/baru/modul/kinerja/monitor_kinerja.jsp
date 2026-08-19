@@ -1,4 +1,5 @@
-﻿<%@page import="ais.database.model.Tbmrole"%>
+﻿<%@ page isELIgnored="true" %>
+<%@page import="ais.database.model.Tbmrole"%>
 <%@page import="ais.database.model.Pegawai"%>
 <%@page import="ais.database.model.Tbmuser"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>

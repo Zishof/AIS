@@ -1,3 +1,4 @@
+<%@ page isELIgnored="true" %>
 <%@page import="ais.database.model.inventory.Toko"%>
 <%@page import="ais.database.model.inventory.Pedagang"%>
 <%@page import="ais.database.model.Tbmuser"%>

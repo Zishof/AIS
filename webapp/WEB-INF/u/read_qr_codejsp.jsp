@@ -1,3 +1,4 @@
+<%@ page isELIgnored="true" %>
 <%@page import="java.net.URLEncoder"%>
 <%@page import="ais.common.Common"%>
 <html>
