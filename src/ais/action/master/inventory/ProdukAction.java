@@ -263,6 +263,26 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		}
 	}
 
+	/**
+	 * Sembunyikan {@code box} dan tampilkan nilainya sbg {@link org.zkoss.zul.Label}
+	 * di posisi yang sama. Komponen aslinya sengaja TIDAK dibuang supaya
+	 * {@code getValue()} saat simpan tetap mengembalikan nilai lama (tidak berubah,
+	 * jadi lolos gerbang), bukan null yang akan menghapus harga.
+	 */
+	private void jadikanLabelHarga(MyDoublebox box) {
+		if (box == null) {
+			return;
+		}
+		Double nilai = box.getValue();
+		org.zkoss.zul.Label label = new org.zkoss.zul.Label(
+				nilai == null ? "-" : new java.text.DecimalFormat("#,##0").format(nilai.doubleValue()));
+		label.setStyle("font-weight:600;");
+		if (box.getParent() != null) {
+			box.getParent().insertBefore(label, box);
+		}
+		box.setVisible(false);
+	}
+
 	class ProdukRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -464,6 +484,24 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Harga Jual *"));
 		row.appendChild(hargaJual = new MyDoublebox(produk.getHargaJual()));
+
+		// Tanpa hak ubah harga: nilainya disajikan sbg LABEL, bukan kolom isian
+		// yang di-disable -- kolom disable masih terlihat spt tempat mengetik.
+		// Nilai aslinya tetap dipegang komponen tersembunyi supaya simpan tidak
+		// mengosongkan harga yang sudah ada.
+		Toko tokoFormHarga = produk.getToko() != null ? produk.getToko() : currentToko;
+		if (!ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(
+				tokoFormHarga, ais.common.Common.getCurrentUser())) {
+			jadikanLabelHarga(hargaBeli);
+			jadikanLabelHarga(hargaJual);
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new ais.ui.util.MyLabelConfig(""));
+			org.zkoss.zul.Label catatanHarga = new org.zkoss.zul.Label(
+					ais.action.master.inventory.HargaAksesUtil.pesanDitolak());
+			catatanHarga.setStyle("color:#B45309;font-size:11px;");
+			row.appendChild(catatanHarga);
+		}
 
 		row = new MyFormRow();
 		row.setParent(rows);

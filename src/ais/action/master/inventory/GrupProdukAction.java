@@ -141,6 +141,15 @@ public class GrupProdukAction extends GenericCrudAction<GrupProduk> {
 		fb.addRow("Harga Jual", hargaJual,
 				"Kosongkan bila harga jual tidak dikendalikan grup (harga jual anggota tidak disentuh)");
 
+		// Tanpa hak ubah harga: nilai disajikan sbg label, bukan kolom di-disable.
+		// Komponen aslinya tetap ada (tersembunyi) supaya nilai lama terbawa saat
+		// simpan sehingga tidak dianggap berubah dan tidak menghapus harga grup.
+		if (!ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(
+				Common.getCurrentToko(), Common.getCurrentUser())) {
+			jadikanLabelHarga(hargaBeli);
+			jadikanLabelHarga(hargaJual);
+		}
+
 		org.zkoss.zul.South south = new org.zkoss.zul.South();
 		ZkCompat.setFlex(south, true);
 		south.setStyle(FormBuilder.STYLE_TOOLBAR_AREA);
@@ -307,4 +316,23 @@ public class GrupProdukAction extends GenericCrudAction<GrupProduk> {
 				+ "Setiap perubahan tercatat pada jejak audit per produk.</div>"
 				+ "</div>";
 	}
+
+	/**
+	 * Sembunyikan {@code box} lalu tampilkan nilainya sbg label di posisi yang sama.
+	 * Dipakai ketika akun tidak diberi akses ubah harga.
+	 */
+	private void jadikanLabelHarga(MyDoublebox box) {
+		if (box == null) {
+			return;
+		}
+		Double nilai = box.getValue();
+		org.zkoss.zul.Label label = new org.zkoss.zul.Label(
+				nilai == null ? "-" : new java.text.DecimalFormat("#,##0").format(nilai.doubleValue()));
+		label.setStyle("font-weight:600;");
+		if (box.getParent() != null) {
+			box.getParent().insertBefore(label, box);
+		}
+		box.setVisible(false);
+	}
+
 }
