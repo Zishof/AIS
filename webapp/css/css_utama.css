@@ -12627,6 +12627,23 @@ td.ais-action-column {
 	border-color: #94a3b8 !important;
 }
 .ais-row-action-kebab:hover img { opacity: 1 !important; }
+
+/* Label teks "Aksi" DESKTOP (permintaan 19-08-2026): ikon tiga titik saja masih kurang
+   terbaca di layar lebar. Dipasang lewat ::after supaya TIDAK perlu mengubah Java dan
+   otomatis bisa disembunyikan di mobile (lihat media query di bawah) agar kolom aksi
+   tidak melebar di layar sempit. */
+.ais-row-action-kebab::after {
+	content: "Aksi" !important;
+	font-size: 11px !important;
+	font-weight: 600 !important;
+	color: #475569 !important;
+	margin-left: 5px !important;
+	letter-spacing: .2px !important;
+	line-height: 1 !important;
+	white-space: nowrap !important;
+}
+.ais-row-action-kebab { padding: 3px 9px 3px 6px !important; }
+.ais-row-action-kebab:hover::after { color: #1e293b !important; }
 /* Fokus keyboard: tetap terlihat jelas untuk aksesibilitas. */
 .ais-row-action-kebab:focus {
 	outline: 2px solid #2563eb !important;
@@ -12640,6 +12657,9 @@ td.ais-action-column {
 		font-size: 14px !important;
 	}
 	.z-popup.ais-row-popup { min-width: 200px !important; }
+	/* Mobile: label teks disembunyikan, cukup ikon — hemat lebar kolom. */
+	.ais-row-action-kebab::after { content: none !important; }
+	.ais-row-action-kebab { padding: 3px 4px !important; }
 	/* Tombol pemicu kebab ikut diperbesar agar memenuhi target sentuh WCAG. */
 	.ais-row-action-kebab {
 		min-width: 44px !important;

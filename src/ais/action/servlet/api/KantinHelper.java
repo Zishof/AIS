@@ -822,6 +822,30 @@ public class KantinHelper {
 					// SEBELUM transaksi ditulis (bukan sesudah), supaya anggota tidak bisa menumpuk hutang
 					// melewati batas tipenya. Dilewati kalau tak ada anggota (transaksi umum/kasir tanpa
 					// member selalu lunas tunai/non-tunai, bukan hutang perorangan).
+					// PIUTANG WAJIB BERPEMILIK (permintaan tim keuangan 2026-08-19): bila salah satu
+					// slot pembayaran bertanda masukSebagaiHutang TAPI tidak ada pelanggan dipilih,
+					// transaksi ditolak. Sebelumnya seluruh blok ini dilewati saat anggota null,
+					// sehingga hutang tercatat TANPA pemilik -- tidak bisa ditagih dan tidak
+					// terhitung pada batas hutang siapa pun.
+					if (anggotaKoperasi == null) {
+						double hutangTanpaPemilik = 0.0;
+						double slot1TanpaPemilik = Math.max(0.0,
+								total.doubleValue() - split.nominal2 - split.nominal3 - split.nominal4 - split.nominal5);
+						if (caraPembayaranKoperasiOnline != null
+								&& Boolean.TRUE.equals(caraPembayaranKoperasiOnline.getMasukSebagaiHutang())) {
+							hutangTanpaPemilik += slot1TanpaPemilik;
+						}
+						if (split.cara2 != null && Boolean.TRUE.equals(split.cara2.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal2;
+						if (split.cara3 != null && Boolean.TRUE.equals(split.cara3.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal3;
+						if (split.cara4 != null && Boolean.TRUE.equals(split.cara4.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal4;
+						if (split.cara5 != null && Boolean.TRUE.equals(split.cara5.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal5;
+						if (hutangTanpaPemilik > 0.0) {
+							hasil.put("status", "91");
+							hasil.put("description", "Transaksi piutang wajib memilih nama pelanggan terlebih dahulu, "
+									+ "agar tagihan dapat ditelusuri dan ditagih oleh tim keuangan.");
+							return;
+						}
+					}
 					if (anggotaKoperasi != null) {
 						double slot1Nominal = Math.max(0.0,
 								total.doubleValue() - split.nominal2 - split.nominal3 - split.nominal4 - split.nominal5);
