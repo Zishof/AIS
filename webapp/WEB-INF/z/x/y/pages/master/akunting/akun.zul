@@ -96,7 +96,7 @@
 									<column use="ais.ui.util.MyColumnConfig" label="Grup Akun"/>
 									<column use="ais.ui.util.MyColumnConfig" label="Aktifitas"/>
 									<column use="ais.ui.util.MyColumnConfig" label="Bank"/>
-									<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+									<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 								</columns>
 							</grid>
 							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

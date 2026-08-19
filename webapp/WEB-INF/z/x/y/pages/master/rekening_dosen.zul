@@ -57,8 +57,8 @@
 						label="Dosen" sort="auto(dosen)" />
 						<column use="ais.ui.util.MyColumnConfig" width="27%"
 						label="Bank" sort="auto(bank)" />
-						<column use="ais.ui.util.MyColumnConfig" width="9%"
-						label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

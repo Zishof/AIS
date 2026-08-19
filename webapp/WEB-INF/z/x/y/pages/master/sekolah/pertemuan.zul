@@ -126,13 +126,13 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" width="40px" label="" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="17%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column
-						use="ais.ui.util.MyColumnConfig" width="22%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column
-						use="ais.ui.util.MyColumnConfig" width="31%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column
-						use="ais.ui.util.MyColumnConfig" width="30%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

@@ -117,7 +117,7 @@
 						label="Prodi"  />
 
 
-						<column use="ais.ui.util.MyColumnConfig" label="" width="10%" />
+						<column use="ais.ui.util.MyColumnConfig" label="" width="56px"  align="center"/>
 
 
 

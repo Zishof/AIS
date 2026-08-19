@@ -191,9 +191,9 @@
 						use="ais.ui.util.MyColumnConfig" width="10%"
 						label="Tersedia di" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="7%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column
-						use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>
@@ -264,7 +264,7 @@
 			<column use="ais.ui.util.MyColumnConfig" label="Tipe" width="10%" />
 			<column use="ais.ui.util.MyColumnConfig" label="Tahun" width="7%" />
 			<column use="ais.ui.util.MyColumnConfig" label="Status Terbit" width="15%" />
-			<column use="ais.ui.util.MyColumnConfig" label="" width="12%" />
+			<column use="ais.ui.util.MyColumnConfig" label="" width="56px"  align="center"/>
 			</columns>
 			</grid>
 			</div>

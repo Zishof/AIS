@@ -208,15 +208,15 @@
 														sclass="dgrid" fixedLayout="true" id="grid">
 														<columns>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="60px" label="" />
+																width="56px" label=""  align="center"/>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="20%" label="" />
+																width="56px" label=""  align="center"/>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="25%" label="" />
+																width="56px" label=""  align="center"/>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="30%" label="" />
+																width="56px" label=""  align="center"/>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="25%" label="" />
+																width="56px" label=""  align="center"/>
 														</columns>
 													</grid>
 												</row>

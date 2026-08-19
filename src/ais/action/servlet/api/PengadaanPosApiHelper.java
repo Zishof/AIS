@@ -980,9 +980,11 @@ public final class PengadaanPosApiHelper {
 	 * <li>{@code nilai} header dihitung ULANG dari baris, tidak pernah diambil dari klien.</li>
 	 * <li>PO yang sudah DISETUJUI atau sudah menerima pembayaran tidak dapat diubah -- dokumen
 	 * yang sudah menjadi komitmen kepada vendor tidak boleh disunting diam-diam.</li>
-	 * <li>Bila memakai termin, jumlah seluruh penagihan harus sama dengan nilai PO dikurangi DP.
-	 * Jadwal yang tidak menutup nilai PO adalah kesalahan input yang baru ketahuan saat menagih,
-	 * jadi ditolak sejak awal dengan pesan yang menyebutkan kedua angkanya.</li>
+	 * <li>Bila memakai termin, jumlah seluruh penagihan harus sama dengan nilai PO. Jadwal yang
+	 * tidak menutup nilai PO adalah kesalahan input yang baru ketahuan saat menagih, jadi ditolak
+	 * sejak awal dengan pesan yang menyebutkan kedua angkanya.</li>
+	 * <li>DP dan termin saling meniadakan, mengikuti model pengadaan yang sudah ada -- uang muka
+	 * pada PO bertermin ditulis sebagai termin pertama.</li>
 	 * </ul>
 	 */
 	public static void poSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
@@ -1091,8 +1093,21 @@ public final class PengadaanPosApiHelper {
 				}
 				totalRencana += angkaAman(b, "jumlah") * angkaAman(b, "hargaBeli");
 			}
-			double dp = po.getDp() == null ? 0 : po.getDp().doubleValue();
-			if (dp < 0) {
+			// Pada model pengadaan yang sudah ada, DP dan termin adalah dua cara bayar yang
+			// SALING MENIADAKAN: PemesananPengadaanMasterAsset.getDp() memaksa DP nol begitu
+			// byTermin menyala. Aturan itu ditegakkan di sini juga -- bukan didiamkan -- supaya
+			// pengguna tahu uang mukanya harus ditulis sebagai termin pertama, bukan hilang.
+			double dpDiminta = angkaAman(request, "dp");
+			if (byTermin && dpDiminta > 0) {
+				tolak(hasil, "Pemesanan Pembelian bertermin tidak memakai uang muka (DP) terpisah. "
+						+ "Tuliskan uang muka sebagai termin pertama.");
+				return;
+			}
+			if (byTermin) {
+				po.setDp(Double.valueOf(0));
+			}
+			double dp = byTermin ? 0 : (po.getDp() == null ? 0 : po.getDp().doubleValue());
+			if (dpDiminta < 0) {
 				tolak(hasil, "Uang muka (DP) tidak boleh bernilai negatif.");
 				return;
 			}
@@ -1117,14 +1132,12 @@ public final class PengadaanPosApiHelper {
 					}
 					totalTermin += n;
 				}
-				double harusTertagih = totalRencana - dp;
-				if (Math.abs(totalTermin - harusTertagih) > TOLERANSI) {
+				if (Math.abs(totalTermin - totalRencana) > TOLERANSI) {
 					tolak(hasil, "Jumlah penagihan seluruh termin "
 							+ Common.numberFormat.get().format(totalTermin)
-							+ " belum sama dengan nilai yang harus ditagih "
-							+ Common.numberFormat.get().format(harusTertagih)
-							+ " (nilai PO " + Common.numberFormat.get().format(totalRencana)
-							+ " dikurangi DP " + Common.numberFormat.get().format(dp) + ").");
+							+ " belum sama dengan nilai Pemesanan Pembelian "
+							+ Common.numberFormat.get().format(totalRencana)
+							+ ". Sesuaikan pembagian terminnya.");
 					return;
 				}
 			}

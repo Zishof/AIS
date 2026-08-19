@@ -62,8 +62,8 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Akun Kredit" />
 						<column use="ais.ui.util.MyColumnConfig" label="Akun Debet" />
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan" />
-						<column width="8%" label="" />
-						<column width="10%" label="" />
+						<column width="56px" label=""  align="center"/>
+						<column width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

@@ -78,9 +78,9 @@
 						<column use="ais.ui.util.MyColumnConfig"
 						width="5%" label="Min. %" sort="auto(minimal)" />
 						<column use="ais.ui.util.MyColumnConfig"
-						width="5%" label="" />
+						width="56px" label=""  align="center"/>
 						<column use="ais.ui.util.MyColumnConfig"
-						width="6%" label="" />
+						width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

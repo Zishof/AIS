@@ -111,7 +111,7 @@
 						sort="auto(program)" />
 						<column use="ais.ui.util.MyColumnConfig" width="7%"
 						label="Ganjil/Genap" sort="auto(ganjilGenap)" />
-						<column use="ais.ui.util.MyColumnConfig" width="7%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

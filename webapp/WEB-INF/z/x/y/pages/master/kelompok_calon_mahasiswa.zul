@@ -90,7 +90,7 @@
 									use="ais.ui.util.MyColumnConfig" width="45%"
 									label="Skor/Parameter" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+									use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

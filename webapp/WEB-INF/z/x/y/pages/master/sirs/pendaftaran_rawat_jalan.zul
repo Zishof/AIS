@@ -113,8 +113,8 @@
 													label="Telp" />
 												<column use="ais.ui.util.MyColumnConfig" width="5%"
 													label="Jenis" />
-												<column use="ais.ui.util.MyColumnConfig" width="13%"
-													label="" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px"
+													label=""  align="center"/>
 											</columns>
 
 										</grid>

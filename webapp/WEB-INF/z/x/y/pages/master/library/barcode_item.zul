@@ -133,7 +133,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Pengarang" width="11%" />
 						<column use="ais.ui.util.MyColumnConfig" width="21%"
 						label="Transaksi Terakhir" />
-						<column use="ais.ui.util.MyColumnConfig" width="13%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

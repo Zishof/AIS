@@ -121,14 +121,14 @@
 														label="Tipe Data" />
 													<column use="ais.ui.util.MyColumnConfig"
 														label="Nilai Data" />
-													<column use="ais.ui.util.MyColumnConfig" width="10%"
-														label="" />
+													<column use="ais.ui.util.MyColumnConfig" width="56px"
+														label=""  align="center"/>
 
-													<column use="ais.ui.util.MyColumnConfig" width="10%"
-														label="" />
+													<column use="ais.ui.util.MyColumnConfig" width="56px"
+														label=""  align="center"/>
 
-													<column use="ais.ui.util.MyColumnConfig" width="10%"
-														label="" />
+													<column use="ais.ui.util.MyColumnConfig" width="56px"
+														label=""  align="center"/>
 												</columns>
 
 											</grid>

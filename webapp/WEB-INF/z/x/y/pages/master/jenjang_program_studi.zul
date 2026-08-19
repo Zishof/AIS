@@ -63,8 +63,8 @@
 						label="No SK DIKTI" sort="auto(noSKDikti)" />
 						<column use="ais.ui.util.MyColumnConfig" width="9%"
 						label="No SK Akreditasi" sort="auto(noSKAkreditasi)" />
-						<column use="ais.ui.util.MyColumnConfig" width="9%"
-						label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

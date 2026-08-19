@@ -161,8 +161,8 @@
 									label="Nilai" />
 									<column use="ais.ui.util.MyColumnConfig" width="0%"
 									label="Keterangan" />
-									<column use="ais.ui.util.MyColumnConfig" width="12%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

@@ -119,7 +119,7 @@
 						use="ais.ui.util.MyColumnConfig" width="10%"
 						label="Persetujuan" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="15%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

@@ -104,8 +104,8 @@
 											<column
 												use="ais.ui.util.MyColumnConfig" label="Info Kegiatan" />
 											<column
-												use="ais.ui.util.MyColumnConfig" id="editCol" width="10%"
-												label="" />
+												use="ais.ui.util.MyColumnConfig" id="editCol" width="56px"
+												label=""  align="center"/>
 										</columns>
 
 									</grid>

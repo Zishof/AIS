@@ -97,7 +97,7 @@
 										width="15%" />
 									<column use="ais.ui.util.MyColumnConfig" label="Keterangan"
 										 />
-									<column width="10%" label="" />
+									<column width="56px" label=""  align="center"/>
 								</columns>
 
 							</grid>

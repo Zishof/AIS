@@ -165,7 +165,7 @@
 									use="ais.ui.util.MyColumnConfig"
 									label="Tampil di Tahun Angkatan" width="19%" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="9%" label="" />
+									use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

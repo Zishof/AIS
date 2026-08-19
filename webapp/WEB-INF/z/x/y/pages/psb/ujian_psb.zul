@@ -81,7 +81,7 @@
 								<column width="15%"
 									use="ais.ui.util.MyColumnConfig" label="Info Kartu Ujian" />
 								<column use="ais.ui.util.MyColumnConfig"
-									width="10%" label="" />
+									width="56px" label=""  align="center"/>
 							</columns>
 
 						</grid>

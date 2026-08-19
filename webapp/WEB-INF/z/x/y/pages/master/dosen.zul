@@ -224,7 +224,7 @@
 									use="ais.ui.util.MyColumnConfig" width="5%" label="Aktif"
 									id="label_aktif" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="8%" label="" />
+									use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

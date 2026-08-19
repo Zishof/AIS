@@ -88,7 +88,7 @@
 						use="ais.ui.util.MyColumnConfig" label="Keterangan"
 						sort="auto(keterangan)" />
 						<column
-						use="ais.ui.util.MyColumnConfig" label="" />
+						use="ais.ui.util.MyColumnConfig" label=""  width="56px" align="center"/>
 
 					</columns>
 				</grid>

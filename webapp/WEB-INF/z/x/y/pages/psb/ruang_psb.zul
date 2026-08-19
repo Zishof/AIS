@@ -110,8 +110,8 @@
 										label="Tahun Akademik" />
 									<column use="ais.ui.util.MyColumnConfig" width="8%"
 										label="Penuh" />
-									<column use="ais.ui.util.MyColumnConfig" width="20%"
-										label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+										label=""  align="center"/>
 
 								</columns>
 

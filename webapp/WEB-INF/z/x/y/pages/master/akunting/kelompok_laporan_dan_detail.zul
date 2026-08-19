@@ -105,8 +105,8 @@
 									label="Rinci" />
 									<column use="ais.ui.util.MyColumnConfig" width="5%"
 									label="Aktif" />
-									<column use="ais.ui.util.MyColumnConfig" width="10%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

@@ -110,8 +110,8 @@
 									label="Isi Perbaikan" />
 									<column use="ais.ui.util.MyColumnConfig" width="6%"
 									label="Aktif" />
-									<column use="ais.ui.util.MyColumnConfig" width="10%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

@@ -120,7 +120,7 @@
 
 
 									<column
-										use="ais.ui.util.MyColumnConfig" width="20%" label="" />
+										use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 

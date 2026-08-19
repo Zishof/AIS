@@ -105,8 +105,8 @@
 													align="right" label="Kembali" />
 
 												<column use="ais.ui.util.MyColumnConfig" label="Posting" />
-												<column use="ais.ui.util.MyColumnConfig" width="12%"
-													label="" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px"
+													label=""  align="center"/>
 											</columns>
 
 										</grid>

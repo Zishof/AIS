@@ -140,7 +140,7 @@
 						use="ais.ui.util.MyColumnConfig" width="15%"
 						label="Keterangan" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="25%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

@@ -55,7 +55,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="20%" label="Toko"/>
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
 						<column use="ais.ui.util.MyColumnConfig" width="7%" label="Aktif"/>
-						<column use="ais.ui.util.MyColumnConfig" width="12%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

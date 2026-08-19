@@ -50,8 +50,8 @@
 				<column use="ais.ui.util.MyColumnConfig" label="Koperasi"/>
 				<column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
 				<column use="ais.ui.util.MyColumnConfig" width="110px" label="Potong Saldo"/>
-				<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
-				<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+				<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
+				<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 			</columns>
 		</grid>
 		<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

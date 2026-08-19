@@ -89,7 +89,7 @@
 							<columns>
 								<column width="0px"></column>
 								<column use="ais.ui.util.MyColumnConfig"
-									label="" sort="auto(nama)" />
+									label="" sort="auto(nama)"  width="56px" align="center"/>
 
 							</columns>
 

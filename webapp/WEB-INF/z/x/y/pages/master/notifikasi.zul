@@ -139,7 +139,7 @@
 													use="ais.ui.util.MyColumnConfig" width="20%"
 													label="Waktu/Hasil" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+													use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 											</columns>
 
 										</grid>

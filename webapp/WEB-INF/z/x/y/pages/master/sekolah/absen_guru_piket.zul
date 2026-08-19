@@ -128,8 +128,8 @@
 									label="Jam-ke" width="10%" />
 									<column use="ais.ui.util.MyColumnConfig"
 									label="Keterangan"  />
-									<column use="ais.ui.util.MyColumnConfig" width="14%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

@@ -57,7 +57,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="110px" label="Imbal Hasil"/>
 						<column use="ais.ui.util.MyColumnConfig" width="110px" label="Status"/>
 						<column use="ais.ui.util.MyColumnConfig" width="80px" label="Aktif"/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

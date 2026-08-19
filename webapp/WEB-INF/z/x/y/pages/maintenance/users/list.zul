@@ -147,8 +147,8 @@
 							label="Satuan Kerja" />
 						<column use="ais.ui.util.MyColumnConfig" width="5%"
 							label="Aktif" />
-						<column use="ais.ui.util.MyColumnConfig" width="8%"
-							label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+							label=""  align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true"

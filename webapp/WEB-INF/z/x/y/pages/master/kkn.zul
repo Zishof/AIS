@@ -149,7 +149,7 @@
 									<column
 									use="ais.ui.util.MyColumnConfig" label="Item Biaya" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+									use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

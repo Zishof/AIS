@@ -33,7 +33,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Poin Online (Rp)" width="15%" />
 						<column use="ais.ui.util.MyColumnConfig" label="Masa Berlaku (hari)" width="15%" />
 						<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="8%" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 					</columns>
 				</grid>
 			</div>

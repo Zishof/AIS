@@ -113,8 +113,8 @@
 
 												<column use="ais.ui.util.MyColumnConfig" width="10%"
 													label="Ket." />
-												<column use="ais.ui.util.MyColumnConfig" width="5%"
-													label="" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px"
+													label=""  align="center"/>
 											</columns>
 
 										</grid>

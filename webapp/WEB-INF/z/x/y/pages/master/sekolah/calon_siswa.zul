@@ -230,8 +230,8 @@
 						label="Keterangan" />
 						<column use="ais.ui.util.MyColumnConfig" width="12%"
 						label="Status Diterima" />
-						<column use="ais.ui.util.MyColumnConfig" width="18%"
-						label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

@@ -138,7 +138,7 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" width="7%" label="Berlaku" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="8%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

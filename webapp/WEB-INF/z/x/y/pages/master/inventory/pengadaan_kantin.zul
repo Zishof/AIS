@@ -53,7 +53,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Qty" align="right"/>
 						<column use="ais.ui.util.MyColumnConfig" width="12%" label="Harga Satuan" align="right"/>
 						<column use="ais.ui.util.MyColumnConfig" width="12%" label="Total" align="right"/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

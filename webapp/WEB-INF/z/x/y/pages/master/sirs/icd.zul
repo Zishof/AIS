@@ -62,7 +62,7 @@
 						sort="auto(nama_english)" />
 						<column use="ais.ui.util.MyColumnConfig" label="Nama Indonesia"
 						sort="auto(nama_indonesia)" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

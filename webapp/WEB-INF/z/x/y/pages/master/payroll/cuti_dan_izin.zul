@@ -113,7 +113,7 @@
 												<column use="ais.ui.util.MyColumnConfig" label="Keterangan"  />
 												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Persetujuan" />
 												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Jatah Cuti" />
-												<column width="10%" label="" />
+												<column width="56px" label=""  align="center"/>
 											</columns>
 
 										</grid>

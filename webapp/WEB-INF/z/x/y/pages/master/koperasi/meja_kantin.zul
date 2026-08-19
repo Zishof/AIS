@@ -52,7 +52,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Nama Meja" sort="auto(nama)"/>
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
 						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aktif"/>
-						<column use="ais.ui.util.MyColumnConfig" width="12%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

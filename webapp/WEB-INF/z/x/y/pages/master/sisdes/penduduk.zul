@@ -94,8 +94,8 @@
 
 									<column use="ais.ui.util.MyColumnConfig" label="Aktif"
 									width="5%" />
-									<column width="12%"
-									label="" />
+									<column width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

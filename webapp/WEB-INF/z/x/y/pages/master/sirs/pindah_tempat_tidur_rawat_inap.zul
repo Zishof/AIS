@@ -95,8 +95,8 @@
 
 												<column use="ais.ui.util.MyColumnConfig" label="Kamar" />
 												<column use="ais.ui.util.MyColumnConfig" label="Bed" />
-												<column use="ais.ui.util.MyColumnConfig" width="7%"
-													label="" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px"
+													label=""  align="center"/>
 											</columns>
 
 										</grid>

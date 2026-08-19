@@ -93,9 +93,9 @@
 									<column use="ais.ui.util.MyColumnConfig"
 									label="Keterangan" />
 									<column use="ais.ui.util.MyColumnConfig"
-									width="5%" label="" />
+									width="56px" label=""  align="center"/>
 									<column use="ais.ui.util.MyColumnConfig"
-									width="9%" label="" />
+									width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

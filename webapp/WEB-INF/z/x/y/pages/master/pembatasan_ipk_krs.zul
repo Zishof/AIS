@@ -115,7 +115,7 @@
 						<column use="ais.ui.util.MyColumnConfig"
 						width="4%" label="SP" />
 						<column use="ais.ui.util.MyColumnConfig"
-						width="10%" label="" />
+						width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

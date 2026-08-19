@@ -135,7 +135,7 @@
 						width="7%" />
 						<column use="ais.ui.util.MyColumnConfig" label="Tgl terbit"
 						width="7%" />
-						<column use="ais.ui.util.MyColumnConfig" width="5%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>
@@ -206,7 +206,7 @@
 			<column use="ais.ui.util.MyColumnConfig" label="Tipe" width="10%" />
 			<column use="ais.ui.util.MyColumnConfig" label="Tahun" width="7%" />
 			<column use="ais.ui.util.MyColumnConfig" label="Status Terbit" width="15%" />
-			<column use="ais.ui.util.MyColumnConfig" label="" width="12%" />
+			<column use="ais.ui.util.MyColumnConfig" label="" width="56px"  align="center"/>
 			</columns>
 			</grid>
 			</div>

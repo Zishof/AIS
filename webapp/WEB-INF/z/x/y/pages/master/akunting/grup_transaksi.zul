@@ -163,7 +163,7 @@
 
 
 						<column id="colEdit"
-						use="ais.ui.util.MyColumnConfig" width="12%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column id="colPosting"
 						use="ais.ui.util.MyColumnConfig" width="0px" label="" />
 

@@ -158,7 +158,7 @@
 									label="Validator" />
 
 								<column use="ais.ui.util.MyColumnConfig"
-									width="8%" label="" />
+									width="56px" label=""  align="center"/>
 							</columns>
 
 						</grid>

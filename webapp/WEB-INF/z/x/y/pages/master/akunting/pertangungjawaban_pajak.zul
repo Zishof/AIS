@@ -138,7 +138,7 @@
 						<column width="7%"
 						use="ais.ui.util.MyColumnConfig" label="Tanggal Bayar" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="4%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

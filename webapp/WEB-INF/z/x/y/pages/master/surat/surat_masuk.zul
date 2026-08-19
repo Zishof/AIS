@@ -163,8 +163,8 @@
 									label="Status Disposisi" width="25%" visible="false" />
 									<column use="ais.ui.util.MyColumnConfig" width="5%"
 									label="Aktif" />
-									<column use="ais.ui.util.MyColumnConfig" width="12%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

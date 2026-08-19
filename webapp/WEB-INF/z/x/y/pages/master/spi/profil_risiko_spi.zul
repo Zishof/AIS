@@ -64,7 +64,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="80px" label="Tahun" />
 						<column use="ais.ui.util.MyColumnConfig" width="140px" label="Total &amp; Zona Risiko" />
 						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aktif" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

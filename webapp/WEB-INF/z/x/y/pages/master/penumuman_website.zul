@@ -40,7 +40,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="25%" label="Judul"/>
 						<column use="ais.ui.util.MyColumnConfig" width="34%" label="Ringkasan"/>
 						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aktif"/>
-						<column use="ais.ui.util.MyColumnConfig" width="7%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 					<rows/>
 				</grid>

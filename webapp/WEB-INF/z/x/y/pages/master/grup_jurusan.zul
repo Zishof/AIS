@@ -58,7 +58,7 @@
 						label="Kajur" id="kajur" sort="auto(kajur)" />
 						<column use="ais.ui.util.MyColumnConfig" width="20%"
 						label="Fakultas" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

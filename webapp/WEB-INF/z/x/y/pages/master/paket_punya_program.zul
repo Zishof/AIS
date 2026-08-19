@@ -58,7 +58,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Nama Paket" width="0px"
 						sort="auto(nama)" />
 						<column use="ais.ui.util.MyColumnConfig" label="Program" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

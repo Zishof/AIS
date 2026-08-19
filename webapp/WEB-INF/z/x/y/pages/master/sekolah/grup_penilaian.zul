@@ -82,7 +82,7 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" label="Ada Total" width="8%" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

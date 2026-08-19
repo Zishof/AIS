@@ -53,7 +53,7 @@
 									<column
 										use="ais.ui.util.MyColumnConfig" label="Status" width="10%" />
 									<column
-										use="ais.ui.util.MyColumnConfig" width="15%" label="" />
+										use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 								</columns>
 
 							</grid>

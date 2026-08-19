@@ -57,7 +57,7 @@
 						sort="auto(alamat)" />
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan"
 						sort="auto(keterangan)" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

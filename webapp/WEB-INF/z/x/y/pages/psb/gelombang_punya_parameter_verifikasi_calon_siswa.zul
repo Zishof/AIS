@@ -86,7 +86,7 @@
 								<column use="ais.ui.util.MyColumnConfig"
 									width="40%" label="Rincian Parameter" />
 								<column use="ais.ui.util.MyColumnConfig"
-									width="10%" label="" />
+									width="56px" label=""  align="center"/>
 							</columns>
 
 						</grid>

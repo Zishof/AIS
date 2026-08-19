@@ -130,7 +130,7 @@
 									<column use="ais.ui.util.MyColumnConfig" label="Tipe" width="8%" />
 									<column use="ais.ui.util.MyColumnConfig" label="Nilai" width="8%" />
 									<column use="ais.ui.util.MyColumnConfig" label="Tampil di Tahun Angkatan" width="13%" />
-									<column use="ais.ui.util.MyColumnConfig" width="5%" label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>

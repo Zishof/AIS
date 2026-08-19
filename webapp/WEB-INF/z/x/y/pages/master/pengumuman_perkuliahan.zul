@@ -88,7 +88,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Waktu" />
 						<column use="ais.ui.util.MyColumnConfig" width="4%" label="Aktif" />
 						<column use="ais.ui.util.MyColumnConfig" width="7%" label="Komentar" />
-						<column use="ais.ui.util.MyColumnConfig" width="8%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

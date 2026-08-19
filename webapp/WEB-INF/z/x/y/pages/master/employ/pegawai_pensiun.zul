@@ -123,7 +123,7 @@
 						use="ais.ui.util.MyColumnConfig" width="0px" visible="false"
 						label="Aktif" id="label_aktif" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="11%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

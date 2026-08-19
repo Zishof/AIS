@@ -105,7 +105,7 @@
 						<column width="15%"
 						use="ais.ui.util.MyColumnConfig" label="Pengembalian" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="5%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

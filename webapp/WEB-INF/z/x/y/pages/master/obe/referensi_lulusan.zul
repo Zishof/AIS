@@ -60,9 +60,9 @@
 						<column use="ais.ui.util.MyColumnConfig"
 						label="Keterangan / Link" />
 						<column use="ais.ui.util.MyColumnConfig"
-						width="5%" label="" />
+						width="56px" label=""  align="center"/>
 						<column use="ais.ui.util.MyColumnConfig"
-						width="10%" label="" />
+						width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

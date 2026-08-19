@@ -655,6 +655,11 @@ public class PosApi extends HttpServlet {
 			} else if ("kebijakan_retur_hapus".equals(action)) {
 				ais.action.servlet.api.KebijakanReturApiHelper.hapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_hapus");
+			} else if (action.startsWith("pemetaan_akun_")) {
+				// Pemetaan akun -> Kelompok Laporan (pratinjau & terapkan). Menentukan apakah sebuah akun
+				// ikut terhitung di Laba Rugi/Neraca berbasis jurnal.
+				ais.action.servlet.api.PemetaanAkunHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("kode_akun_")) {
 				// Konfigurasi Kode Akun (Akun, Daftar Akun, Bank, Jenis Transaksi) --
 				// dipindahkan dari layar ZK ke Desktop/Android; ZK tetap jadi rujukan bentuk data.

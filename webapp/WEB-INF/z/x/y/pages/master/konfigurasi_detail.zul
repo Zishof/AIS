@@ -80,8 +80,8 @@
 						sort="auto(info1)" />
 						<column use="ais.ui.util.MyColumnConfig"
 						label="Keterangan" />
-						<column use="ais.ui.util.MyColumnConfig" width="15%"
-						label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

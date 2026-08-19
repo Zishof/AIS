@@ -79,7 +79,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="25%" />
 						<column use="ais.ui.util.MyColumnConfig" width="5%"
 						label="Aktif" />
-						<column width="10%" label="" />
+						<column width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

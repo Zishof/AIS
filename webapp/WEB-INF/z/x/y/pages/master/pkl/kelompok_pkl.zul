@@ -121,8 +121,8 @@
 						use="ais.ui.util.MyColumnConfig" width="10%"
 						label="Dipilih Mhs" />
 						<column
-						use="ais.ui.util.MyColumnConfig" id="colEdit" width="10%"
-						label="" />
+						use="ais.ui.util.MyColumnConfig" id="colEdit" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

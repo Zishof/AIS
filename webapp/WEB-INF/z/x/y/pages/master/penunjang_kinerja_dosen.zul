@@ -104,8 +104,8 @@
 						use="ais.ui.util.MyColumnConfig" label="Keterangan"
 						/>
 						<column
-						use="ais.ui.util.MyColumnConfig" id="editLbl" width="10%"
-						label="" />
+						use="ais.ui.util.MyColumnConfig" id="editLbl" width="56px"
+						label=""  align="center"/>
 
 					</columns>
 				</grid>

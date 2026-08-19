@@ -56,9 +56,9 @@
 
 								<columns>
 									<column
-										use="ais.ui.util.MyColumnConfig" width="20%" label="" />
+										use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 									<column
-										use="ais.ui.util.MyColumnConfig" label="" />
+										use="ais.ui.util.MyColumnConfig" label=""  width="56px" align="center"/>
 								</columns>
 
 								<rows id="rowsUtama"></rows>

@@ -51,8 +51,8 @@
 						<column use="ais.ui.util.MyColumnConfig" width="13%" label="Harga Jual" align="right"/>
 						<column use="ais.ui.util.MyColumnConfig" width="13%" label="Tanggal"/>
 						<column use="ais.ui.util.MyColumnConfig" width="10%" label="Status"/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
-						<column use="ais.ui.util.MyColumnConfig" width="12%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

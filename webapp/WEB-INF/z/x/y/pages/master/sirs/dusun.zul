@@ -51,7 +51,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Nama Dusun"
 						sort="auto(nama)" />
 						<column use="ais.ui.util.MyColumnConfig" label="Nama Kelurahan" />
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

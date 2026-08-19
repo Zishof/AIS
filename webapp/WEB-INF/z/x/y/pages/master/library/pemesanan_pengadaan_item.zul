@@ -66,7 +66,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Disetujui Tgl" />
 						<column use="ais.ui.util.MyColumnConfig" label="Keterangan"
 						/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

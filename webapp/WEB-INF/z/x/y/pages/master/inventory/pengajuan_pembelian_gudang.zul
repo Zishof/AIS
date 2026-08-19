@@ -38,7 +38,7 @@
 						<column use="ais.ui.util.MyColumnConfig" label="Gudang" width="25%" />
 						<column use="ais.ui.util.MyColumnConfig" label="Ambang Minimum" width="15%" />
 						<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="10%" />
-						<column use="ais.ui.util.MyColumnConfig" label="" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" label="" width="56px"  align="center"/>
 					</columns>
 				</grid>
 			</div>

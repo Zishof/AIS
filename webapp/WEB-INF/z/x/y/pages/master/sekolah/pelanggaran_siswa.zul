@@ -126,7 +126,7 @@
 													use="ais.ui.util.MyColumnConfig" label="Saat Login"
 													width="8%" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+													use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 											</columns>
 
 										</grid>

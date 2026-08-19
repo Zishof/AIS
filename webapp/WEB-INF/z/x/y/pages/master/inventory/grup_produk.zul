@@ -52,8 +52,8 @@
 						<column use="ais.ui.util.MyColumnConfig" label="HPP / Harga Beli"/>
 						<column use="ais.ui.util.MyColumnConfig" label="Harga Jual"/>
 						<column use="ais.ui.util.MyColumnConfig" width="10%" label="Produk Anggota"/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
-						<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
+						<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

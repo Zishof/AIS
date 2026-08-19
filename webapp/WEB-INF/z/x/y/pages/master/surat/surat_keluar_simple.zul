@@ -123,7 +123,7 @@
 						<column use="ais.ui.util.MyColumnConfig"
 						label="Surat" />
 						<column use="ais.ui.util.MyColumnConfig"
-						width="15%" label="" />
+						width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

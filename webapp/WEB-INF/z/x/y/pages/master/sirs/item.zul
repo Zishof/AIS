@@ -120,8 +120,8 @@
 									label="Min." />
 									<column use="ais.ui.util.MyColumnConfig" width="5%"
 									label="Retur" />
-									<column use="ais.ui.util.MyColumnConfig" width="8%"
-									label="" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px"
+									label=""  align="center"/>
 
 								</columns>
 							</grid>

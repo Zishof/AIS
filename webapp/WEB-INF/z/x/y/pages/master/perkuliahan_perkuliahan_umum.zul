@@ -239,7 +239,7 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" width="13%" label="Jml Mhs" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="9%" label="" />
+						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

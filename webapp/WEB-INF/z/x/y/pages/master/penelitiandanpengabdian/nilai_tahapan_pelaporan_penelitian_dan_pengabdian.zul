@@ -62,7 +62,7 @@
 						label="Nama" sort="auto(nama)" />
 
 						<column use="ais.ui.util.MyColumnConfig"
-						width="80%" label="" />
+						width="56px" label=""  align="center"/>
 
 					</columns>
 				</grid>

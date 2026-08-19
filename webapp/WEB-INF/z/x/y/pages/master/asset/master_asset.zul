@@ -137,7 +137,7 @@
 									<column width="10%"
 									use="ais.ui.util.MyColumnConfig" label="Umur Ekonomis" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+									use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 
 								</columns>
 							</grid>
