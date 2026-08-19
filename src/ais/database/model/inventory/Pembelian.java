@@ -127,6 +127,14 @@ public class Pembelian extends GeneralValueObject {
 	private AturanDiskon aturanDiskon;
 	private Boolean terlayani;
 	private Long indukId;
+	/**
+	 * Penanda baris penjualan ini SUDAH ikut diposting sebagai HPP (beban pokok).
+	 * Ditambahkan 2026-08-19 agar Posting HPP dapat dilakukan PER BARANG seperti
+	 * Posting Cicilan Mahasiswa: tanpa penanda ini, memposting sebagian barang
+	 * berisiko terhitung DUA KALI ketika periode yang sama diposting ulang.
+	 * Kolomnya dibuat otomatis oleh Hibernate saat boot (hbm2ddl).
+	 */
+	private ais.database.model.akunting.PostingHistory postingHpp;
 
 	public Pembelian() {
 	}
@@ -572,5 +580,15 @@ public class Pembelian extends GeneralValueObject {
 
 	public void setCaraPembayaranKoperasi(CaraPembayaranKoperasi caraPembayaranKoperasi) {
 		this.caraPembayaranKoperasi = caraPembayaranKoperasi;
+	}
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_hpp", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHpp() {
+		return postingHpp;
+	}
+
+	public void setPostingHpp(ais.database.model.akunting.PostingHistory postingHpp) {
+		this.postingHpp = postingHpp;
 	}
 }

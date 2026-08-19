@@ -3273,7 +3273,14 @@ public class PosApi extends HttpServlet {
 		boolean perTransaksi = idsArr != null;
 		JSONObject data;
 		if ("hpp".equals(jenis)) {
-			data = new ais.action.master.koperasi.PostingHppKantinAction().prosesApi(mulai, sampai, posting);
+			ais.action.master.koperasi.PostingHppKantinAction aksiHpp =
+					new ais.action.master.koperasi.PostingHppKantinAction();
+			if (perTransaksi) {
+				data = aksiHpp.prosesApi(mulai, sampai, false);
+				data.put("hasilPosting", aksiHpp.postingPerBarang(idsDipilih, mulai, sampai));
+			} else {
+				data = aksiHpp.prosesApi(mulai, sampai, posting);
+			}
 		} else if ("penjualan".equals(jenis)) {
 			ais.action.master.koperasi.PostingPenjualanKantinAction aksiJual =
 					new ais.action.master.koperasi.PostingPenjualanKantinAction();

@@ -224,7 +224,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 						+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
 						+ "LEFT JOIN koperasi.jenis_produk jp ON jp.id = pr.jenis_produk "
 						+ "INNER JOIN koperasi.pembelian_anggota_koperasi h ON h.id = pb.pembelian_anggota_koperasi "
-						+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true "
+						+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true AND pb.posting_hpp IS NULL "
 						+ "AND date(h.tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
 						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli, pr.metode_hpp, jp.akun_hpp "
 						+ "ORDER BY pb.produk").list();
@@ -629,6 +629,133 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingHppKantinAction.barisDraftHpp");
 		}
 		return o;
+	}
+
+	/**
+	 * Posting HPP PER BARANG (pola Posting Cicilan Mahasiswa). Tiap barang menjadi SATU
+	 * entri jurnal: debit akun HPP, kredit akun persediaan, sebesar nilai HPP barang itu
+	 * pada periode terpilih. Baris penjualan penyumbangnya langsung DITANDAI
+	 * ({@code koperasi.pembelian.posting_hpp}) sehingga tidak mungkin terhitung dua kali
+	 * saat periode yang sama diposting ulang.
+	 *
+	 * @param idsDipilih daftar master_asset yang hendak diposting; kosong = semua yang siap.
+	 */
+	public JSONObject postingPerBarang(java.util.Collection<Long> idsDipilih, Date mulai, Date sampai)
+			throws Exception {
+		Session session = HibernateUtil.currentSession();
+		String mStr = Common.databaseDateFormat.get().format(mulai);
+		String sStr = Common.databaseDateFormat.get().format(sampai);
+		int diposting = 0, dilewati = 0, gagal = 0;
+		StringBuilder pesan = new StringBuilder();
+		for (int i = 0; i < rincianDraft.size(); i++) {
+			org.json.JSONObject baris = rincianDraft.get(i);
+			Long masterAssetId = baris.isNull("id") ? null : Long.valueOf(baris.get("id").toString());
+			if (masterAssetId == null) {
+				continue;
+			}
+			if (idsDipilih != null && !idsDipilih.isEmpty() && !idsDipilih.contains(masterAssetId)) {
+				continue;
+			}
+			if (!baris.optBoolean("siap", false)) {
+				dilewati++;
+				continue;
+			}
+			try {
+				if (postingSatuBarang(session, masterAssetId, baris, mStr, sStr)) {
+					diposting++;
+				} else {
+					gagal++;
+				}
+			} catch (Exception ex) {
+				gagal++;
+				ais.common.ErrorAuditUtil.record(ex,
+						"auto-audit PostingHppKantinAction.postingPerBarang aset " + masterAssetId);
+				if (pesan.length() < 300) {
+					pesan.append(pesan.length() == 0 ? "" : "; ").append(baris.optString("ref", "")).append(": ")
+							.append(ex.getMessage());
+				}
+			}
+		}
+		JSONObject out = new JSONObject();
+		out.put("diposting", diposting);
+		out.put("dilewati", dilewati);
+		out.put("gagal", gagal);
+		out.put("pesan", pesan.toString());
+		return out;
+	}
+
+	/** Tulis SATU barang jadi satu entri jurnal + tandai baris penjualan penyumbangnya. */
+	private boolean postingSatuBarang(Session session, Long masterAssetId, org.json.JSONObject baris,
+			String mStr, String sStr) throws Exception {
+		org.json.JSONArray jurnal = baris.optJSONArray("jurnal");
+		if (jurnal == null || jurnal.length() < 2) {
+			return false;
+		}
+		List<Akun> akunDebet = new ArrayList<Akun>();
+		List<Double> nilaiDebet = new ArrayList<Double>();
+		List<Akun> akunKredit = new ArrayList<Akun>();
+		List<Double> nilaiKredit = new ArrayList<Double>();
+		for (int i = 0; i < jurnal.length(); i++) {
+			org.json.JSONObject j = jurnal.getJSONObject(i);
+			Long akunId = j.isNull("akunId") ? null : Long.valueOf(j.get("akunId").toString());
+			if (akunId == null) {
+				continue;
+			}
+			Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), akunId);
+			if (akun == null) {
+				continue;
+			}
+			double d = j.optDouble("debit", 0);
+			double k = j.optDouble("kredit", 0);
+			if (d > 0) {
+				akunDebet.add(akun);
+				nilaiDebet.add(Double.valueOf(d));
+			}
+			if (k > 0) {
+				akunKredit.add(akun);
+				nilaiKredit.add(Double.valueOf(k));
+			}
+		}
+		if (akunDebet.isEmpty() || akunKredit.isEmpty()) {
+			return false;
+		}
+		String ket = "HPP Kantin - " + baris.optString("ref", "#" + masterAssetId);
+		PostingHistory ph = new PostingHistory(JENIS);
+		ph.setTanggal(dpSampai == null ? new Date() : dpSampai.getValue());
+		ph.setTbmuser(Common.getCurrentUser());
+		ph.setKeterangan(ket);
+		session.getTransaction().begin();
+		try {
+			session.save(ph);
+			boolean ok = CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}),
+					akunKredit.toArray(new Akun[] {}), null, null, ph, true, ket, ph.getTanggal(),
+					nilaiDebet.toArray(new Double[] {}), nilaiKredit.toArray(new Double[] {}),
+					Double.valueOf(0.0), null, satkerKantin(), session);
+			if (!ok) {
+				session.getTransaction().rollback();
+				return false;
+			}
+			// Tandai SEMUA baris penjualan yang menyumbang HPP barang ini pada periode
+			// terpilih -- inilah yang mencegah dobel posting.
+			session.createSQLQuery("UPDATE koperasi.pembelian SET posting_hpp = " + ph.getId().longValue()
+					+ " WHERE posting_hpp IS NULL AND aktif = true AND produk IN ("
+					+ "  SELECT id FROM koperasi.produk WHERE master_asset = " + masterAssetId.longValue() + ")"
+					+ " AND pembelian_anggota_koperasi IN ("
+					+ "  SELECT id FROM koperasi.pembelian_anggota_koperasi"
+					+ "  WHERE date(tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "'))")
+					.executeUpdate();
+			session.getTransaction().commit();
+			return true;
+		} catch (Exception ex) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored, "auto-audit postingSatuBarang rollback");
+			}
+			throw ex;
+		}
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
