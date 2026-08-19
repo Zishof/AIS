@@ -1,6 +1,7 @@
-<h2 style="margin:0 0 10px;color:#1d4ed8;">Panduan Penggunaan Halaman Menjalankan Templat Kueri</h2>
-
-<p style="color:#334155;line-height:1.6;margin:0 0 12px;">
+<!-- KB-FORMAT-V2 -->
+<h2 style="margin:0 0 10px;color:#1d4ed8;font-size:19px;">Panduan Penggunaan Halaman Menjalankan Templat Kueri</h2>
+<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#9889; Ringkas &mdash; inti halaman ini</div><div style="color:#334155;line-height:1.7;">Secara ringkas: pastikan templat tersedia dan sesuai, pilih templat, isi parameter dengan benar, jalankan, lalu tinjau hasilnya. Dengan mengikuti urutan ini, data yang dibutuhkan dapat diperoleh secara cepat, seragam, dan tepat sasaran.</div></div>
+<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:0 0 16px;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Tentang halaman ini</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Halaman ini digunakan untuk menjalankan templat kueri, yaitu menjalankan rancangan permintaan data yang
 telah disimpan sebelumnya guna menampilkan atau mengambil informasi tertentu dari basis data. Templat kueri
 memungkinkan permintaan data yang sama dijalankan berulang tanpa menyusunnya kembali. Pengelolaan mencakup
@@ -8,137 +9,87 @@ pemilihan templat, pengisian parameter bila ada, menjalankan, hingga peninjauan 
 sinilah templat permintaan data dijalankan untuk memperoleh informasi yang dibutuhkan. Panduan ini disusun
 berurutan agar Anda memahami fungsi tiap bagian serta langkah yang perlu disiapkan, dilakukan, dan
 diselesaikan dari awal hingga akhir.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">1. Tujuan Halaman</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></details>
+<div style="margin:0 0 18px;"><div style="font-size:12px;color:#64748b;font-weight:600;margin:0 0 6px;">ISI PANDUAN</div><a href="#kb1" onclick="var e=document.getElementById('kb1');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">1. Tujuan Halaman</a><a href="#kb2" onclick="var e=document.getElementById('kb2');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">2. Memahami Templat dan Parameter</a><a href="#kb3" onclick="var e=document.getElementById('kb3');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">3. Memilih dan Mengisi Parameter</a><a href="#kb4" onclick="var e=document.getElementById('kb4');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">4. Menjalankan Templat</a><a href="#kb5" onclick="var e=document.getElementById('kb5');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">5. Meninjau dan Memanfaatkan Hasil</a><a href="#kb6" onclick="var e=document.getElementById('kb6');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">6. Kaitan dengan Templat Kueri dan Pelaporan</a><a href="#kb7" onclick="var e=document.getElementById('kb7');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">7. Pertanyaan yang Sering Diajukan</a><a href="#kb8" onclick="var e=document.getElementById('kb8');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">8. Manfaat Penggunaan yang Tertib</a></div>
+<h3 id="kb1" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">1</span><span>Tujuan Halaman</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Halaman Menjalankan Templat Kueri berfungsi memudahkan pengambilan data dengan menjalankan templat yang
 telah disiapkan, sehingga informasi yang sering dibutuhkan dapat diperoleh cepat dan seragam. Dengan templat
 yang dijalankan baik, hasil yang konsisten dapat diperoleh berulang tanpa menyusun permintaan dari awal.
 Penggunaan yang tertib memastikan data yang ditampilkan benar dan sesuai keperluan, sehingga mendukung
 peninjauan maupun pelaporan secara efisien.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">2. Hal yang Perlu Disiapkan</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b45309;margin:0 0 8px;font-size:14px;">&#9745; Hal yang Perlu Disiapkan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Sebelum menjalankan, pastikan templat kueri yang dimaksud tersedia dan sesuai keperluan, serta ketahui
 parameter yang perlu diisi, misalnya periode atau kategori. Pahami pula data apa yang akan dihasilkan.
 Persiapan ini memastikan templat dijalankan dengan benar, sehingga hasil yang diperoleh tepat sasaran dan
 sesuai dengan informasi yang dibutuhkan.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">3. Memahami Templat dan Parameter</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb2" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">2</span><span>Memahami Templat dan Parameter</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Templat kueri umumnya memiliki nama, tujuan, serta parameter yang dapat diisi untuk menyesuaikan hasil,
 seperti rentang tanggal atau penyaring tertentu. Memahami hal ini penting agar hasil tepat. Dengan mengenali
 parameter, Anda dapat menjalankan templat sesuai kebutuhan, sehingga data yang ditampilkan terbatas pada
 yang relevan dan tidak terlalu luas maupun keliru.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">4. Memilih dan Mengisi Parameter</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb3" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">3</span><span>Memilih dan Mengisi Parameter</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Pilih templat kueri yang sesuai, lalu isi parameter yang diminta dengan nilai yang benar, misalnya periode
 atau kategori yang dikehendaki. Pengisian yang cermat menentukan ketepatan hasil. Pastikan parameter sesuai
 keperluan agar data yang diambil relevan, sehingga hasil tidak terlalu banyak maupun melewatkan informasi
 yang sebenarnya dibutuhkan.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">5. Menjalankan Templat</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb4" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">4</span><span>Menjalankan Templat</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Setelah parameter terisi, jalankan templat untuk memperoleh hasil. Proses ini mengambil data sesuai
 rancangan templat dan parameter yang diberikan. Jalankan templat hanya untuk keperluan yang sah dan pada
 templat yang dipercaya, agar data yang diambil benar dan penggunaannya bertanggung jawab sesuai dengan
 kewenangan Anda.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">6. Meninjau dan Memanfaatkan Hasil</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb5" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">5</span><span>Meninjau dan Memanfaatkan Hasil</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Tinjau hasil yang ditampilkan untuk memastikan datanya sesuai keperluan, lalu manfaatkan untuk peninjauan
 atau pelaporan. Peninjauan ini penting agar hasil benar-benar dipahami dan dipakai dengan tepat. Dengan
 memeriksa hasil, Anda dapat memastikan data yang diperoleh menjawab kebutuhan, sehingga keputusan atau
 laporan yang didasarkan padanya berpijak pada informasi yang benar.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Kaitan dengan Templat Kueri dan Pelaporan</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb6" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">6</span><span>Kaitan dengan Templat Kueri dan Pelaporan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Menjalankan templat ini berkaitan dengan <b>templat kueri</b> yang telah disusun dan dengan <b>pelaporan</b>
 atau peninjauan data. Templat menyediakan rancangan permintaan, sedangkan halaman ini menjalankannya.
 Keterkaitan ini menjadikan ketepatan templat penting, karena hasil hanya benar bila templatnya benar;
 templat yang keliru akan menghasilkan data yang keliru pula, sehingga templat harus tepercaya.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">8. Peran dan Hak Akses</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#475569;margin:0 0 8px;font-size:14px;">&#128100; Peran dan Hak Akses</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Menjalankan templat kueri umumnya hanya tersedia bagi peran yang berwenang, mengingat aksesnya ke data.
-Apabila Anda tidak menemukan templat atau tombol jalankan, kemungkinan peran akun Anda belum memiliki
+Jika Anda tidak menemukan templat atau tombol jalankan, kemungkinan peran akun Anda belum memiliki
 haknya; hubungi administrator sistem untuk penyesuaian. Pembatasan ini menjaga agar pengambilan data
 dilakukan pihak yang berwenang dan sesuai keperluan yang sah, sehingga keamanan data tetap terjaga.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">9. Kesalahan Umum dan Cara Menghindarinya</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b91c1c;margin:0 0 8px;font-size:14px;">&#9888; Kesalahan Umum dan Cara Menghindarinya</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Kendala yang sering terjadi antara lain salah mengisi parameter sehingga hasil tidak sesuai, menjalankan
 templat yang keliru, serta tidak meninjau hasil sebelum dipakai. Untuk menghindarinya, periksa parameter,
 pastikan templat yang dipilih benar, dan tinjau hasilnya. Ketelitian ini menjaga agar data yang diperoleh
 relevan dan dapat dipercaya.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">10. Pertanyaan yang Sering Diajukan</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb7" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">7</span><span>Pertanyaan yang Sering Diajukan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 <b>Apa fungsi halaman ini?</b> Menjalankan templat permintaan data yang sudah disiapkan. <b>Apa itu
 parameter?</b> Nilai yang diisi untuk menyesuaikan hasil, seperti periode. <b>Bisakah dijalankan
 berulang?</b> Bisa, dengan parameter berbeda sesuai kebutuhan. <b>Mengapa hasil bisa kosong?</b> Mungkin
 parameter terlalu sempit atau tidak ada data yang cocok.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">11. Langkah Akhir dan Verifikasi</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#10003; Langkah Akhir dan Verifikasi</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Sebagai langkah akhir, periksa kembali templat dan parameter yang dipakai serta hasil yang diperoleh untuk
 memastikan datanya sesuai keperluan dan masuk akal. Pastikan tidak ada parameter yang keliru. Dengan
 verifikasi ini, hasil dari templat kueri dapat dipercaya dan siap dimanfaatkan untuk peninjauan maupun
 pelaporan.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">12. Ringkasan Alur Singkat</h3>
-<p style="color:#334155;line-height:1.6;">
-Secara ringkas: pastikan templat tersedia dan sesuai, pilih templat, isi parameter dengan benar, jalankan,
-lalu tinjau hasilnya. Dengan mengikuti urutan ini, data yang dibutuhkan dapat diperoleh secara cepat,
-seragam, dan tepat sasaran.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">13. Manfaat Penggunaan yang Tertib</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb8" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">8</span><span>Manfaat Penggunaan yang Tertib</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Menjalankan templat kueri secara tertib memastikan informasi yang sering dibutuhkan dapat diperoleh cepat,
 seragam, dan tepat tanpa menyusun permintaan dari awal. Penggunaan parameter menjadikan hasil sesuai
 keperluan. Bagi institusi, pemanfaatan templat mencerminkan efisiensi dalam pengambilan data. Sebaliknya,
 menjalankan templat tanpa memeriksa parameter dapat menghasilkan data yang menyesatkan. Karena itu,
 jalankan templat dengan cermat agar hasilnya selalu dapat diandalkan.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">14. Tips Penggunaan</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#1d4ed8;margin:0 0 8px;font-size:14px;">&#128161; Tips Penggunaan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Pastikan memilih templat yang sesuai dengan informasi yang dibutuhkan. Isi parameter dengan teliti agar
 hasil relevan. Tinjau hasil sebelum dipakai untuk laporan. Jalankan templat hanya untuk keperluan yang sah
 sesuai kewenangan. Bila hasil tidak sesuai harapan, periksa kembali parameter, dan koordinasikan dengan
 pengelola templat agar templat yang dijalankan selalu tepat dan tepercaya.
-</p>
-
-<p style="color:#475569;line-height:1.6;margin-top:14px;font-style:italic;">
-Dengan mengikuti langkah-langkah di atas secara berurutan, menjalankan templat kueri dapat dilakukan dengan
-tertib, mulai dari pemilihan templat, pengisian parameter, hingga peninjauan hasil sebagai langkah akhir.
-Apabila menemui kendala dalam menjalankan templat atau memahami hasil, hubungi pengelola templat atau
-administrator sistem agar pengambilan data tetap cepat, tepat, dan dimanfaatkan secara bertanggung jawab
-sesuai keperluan yang sah. Menjalankan templat kueri secara cermat dengan parameter yang benar akan membantu
-memastikan bahwa data yang diperoleh relevan dan dapat dipercaya, sehingga peninjauan maupun laporan yang
-disusun berdasarkan hasilnya berpijak pada informasi yang akurat dan tidak menyesatkan pengambilan
-keputusan. Pemanfaatan templat yang konsisten juga menghemat waktu karena permintaan data yang sama tidak
-perlu disusun berulang kali dari awal, sehingga pekerjaan pengambilan data menjadi jauh lebih efisien bagi
-seluruh pengguna yang berwenang.
-</p>
-
-<p style="color:#94a3b8;line-height:1.6;margin-top:8px;font-size:0.92em;">
-Catatan: panduan ini disusun untuk memudahkan pengguna memahami alur kerja halaman secara umum.
-Tampilan, penamaan menu, serta ketersediaan sebagian tombol dapat berbeda menyesuaikan peran pengguna
-dan pengaturan masing-masing institusi. Apabila terdapat perbedaan, ikuti ketentuan resmi yang berlaku
-di lingkungan Anda dan tanyakan kepada petugas yang berwenang bila diperlukan.
-</p>
+</p></div></div>
+<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:20px 0 0;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Penutup</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;">Dengan mengikuti langkah-langkah di atas secara berurutan, menjalankan templat kueri dapat dilakukan dengan tertib, mulai dari pemilihan templat, pengisian parameter, hingga peninjauan hasil sebagai langkah akhir. Jika menemui kendala dalam menjalankan templat atau memahami hasil, hubungi pengelola templat atau administrator sistem agar pengambilan data tetap cepat, tepat, dan dimanfaatkan secara bertanggung jawab sesuai keperluan yang sah. Menjalankan templat kueri secara cermat dengan parameter yang benar akan membantu memastikan bahwa data yang diperoleh relevan dan dapat dipercaya, sehingga peninjauan maupun laporan yang disusun berdasarkan hasilnya berpijak pada informasi yang akurat dan tidak menyesatkan pengambilan keputusan. Pemanfaatan templat yang konsisten juga menghemat waktu karena permintaan data yang sama tidak perlu disusun berulang kali dari awal, sehingga pekerjaan pengambilan data menjadi jauh lebih efisien bagi seluruh pengguna yang berwenang.</div></details>
+<p style="color:#94a3b8;line-height:1.6;margin:14px 0 0;font-size:12px;">Catatan: panduan ini disusun untuk memudahkan pengguna memahami alur kerja halaman secara umum. Tampilan, penamaan menu, serta ketersediaan sebagian tombol dapat berbeda menyesuaikan peran pengguna dan pengaturan masing-masing institusi. Jika terdapat perbedaan, ikuti ketentuan resmi yang berlaku di lingkungan Anda dan tanyakan kepada petugas yang berwenang bila diperlukan.</p>

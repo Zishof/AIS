@@ -23,7 +23,7 @@ String rnd = Common.getGeneratedBarCode(7);
 	</li>
 	<li class="nav-item" role="presentation">
 		<button class="nav-link" data-bs-toggle="tab"
-			data-bs-target="#sub-mutasi-tabungan<%=rnd%>" type="button" role="tab"><%=Common.getBahasaConfig("Mutasi Tabungan")%></button>
+			data-bs-target="#sub-mutasi-tabungan<%=rnd%>" type="button" role="tab"><%=Common.getBahasaConfig("Mutasi Voucher")%></button>
 	</li>
 	<li class="nav-item" role="presentation">
 		<button class="nav-link" data-bs-toggle="tab"

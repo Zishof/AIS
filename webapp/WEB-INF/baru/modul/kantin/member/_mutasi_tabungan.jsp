@@ -24,7 +24,7 @@ String rnd = Common.getGeneratedBarCode(7);
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
         <div class="text-center text-md-start">
             <h4 class="fw-bolder text-primary mb-1">
-                <i class="fas fa-book me-2"></i><%=Common.getBahasaConfig("Mutasi Tabungan (Buku Besar)")%>
+                <i class="fas fa-book me-2"></i><%=Common.getBahasaConfig("Mutasi Voucher (Buku Besar)")%>
             </h4>
             <p class="text-muted small mb-0"><%=Common.getBahasaConfig("Urutan mutasi tabungan anggota: uang masuk, uang keluar, saldo per penabung, dan saldo total berjalan.")%></p>
         </div>
@@ -74,7 +74,7 @@ String rnd = Common.getGeneratedBarCode(7);
     <!-- DETAIL LEDGER -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" id="detailMutasiTabungan<%=rnd%>">
         <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
-            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Buku Besar Mutasi Tabungan")%></h6>
+            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Buku Besar Mutasi Voucher")%></h6>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive px-3 py-2" style="min-height: 300px;">
@@ -468,7 +468,7 @@ String rnd = Common.getGeneratedBarCode(7);
         }));
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Mutasi Tabungan");
+        XLSX.utils.book_append_sheet(wb, ws, "Mutasi Voucher");
         const tglAwal = document.getElementById('searchDateStartMutasi<%=rnd%>').value;
         const tglAkhir = document.getElementById('searchDateEndMutasi<%=rnd%>').value;
         XLSX.writeFile(wb, "Mutasi_Tabungan_" + tglAwal + "_sd_" + tglAkhir + ".xlsx");
@@ -619,11 +619,11 @@ String rnd = Common.getGeneratedBarCode(7);
                 '</tr>';
         });
 
-        const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mutasi Tabungan</title>' +
+        const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mutasi Voucher</title>' +
             '<style>body{font-family:Arial,sans-serif;font-size:11px;padding:16px;} h3{margin-bottom:4px;} p{margin-top:0;color:#555;} ' +
             'table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:5px 7px;} th{background:#f0f0f0;text-align:left;}</style>' +
             '</head><body>' +
-            '<h3><%=Common.getBahasaConfigJS("Mutasi Tabungan (Buku Besar)")%></h3>' +
+            '<h3><%=Common.getBahasaConfigJS("Mutasi Voucher (Buku Besar)")%></h3>' +
             '<p>' + tglAwal + ' s/d ' + tglAkhir + '</p>' +
             '<table><thead><tr>' +
             '<th><%=Common.getBahasaConfigJS("Nama")%></th><th><%=Common.getBahasaConfigJS("Tanggal")%></th>' +

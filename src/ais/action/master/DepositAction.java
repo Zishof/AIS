@@ -501,7 +501,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				String nama = row[2] != null ? String.valueOf(row[2]) : "Anonim";
 				Date tanggal = row[3] instanceof Date ? (Date) row[3] : null;
 				Double nominal = row[4] != null ? Double.valueOf(((Number) row[4]).doubleValue()) : Double.valueOf(0.0);
-				String keteranganData = row[5] != null ? String.valueOf(row[5]) : "Mutasi Tabungan";
+				String keteranganData = row[5] != null ? String.valueOf(row[5]) : "Mutasi Voucher";
 				String jenisMutasi = row.length > 6 && row[6] != null ? String.valueOf(row[6]) : "LAINNYA";
 				String fullNama = (nomor.length() > 0 ? nomor + " - " : "") + nama;
 
@@ -1373,7 +1373,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private void renderGridMutasi(Component parent, List<Map<String, Object>> mutasiList, double totalMasuk,
 			double totalKeluar, double saldo) {
 		Panel pnlMutasi = new Panel();
-		pnlMutasi.setTitle("Buku Besar Mutasi Tabungan");
+		pnlMutasi.setTitle("Buku Besar Mutasi Voucher");
 		pnlMutasi.setBorder("normal");
 		pnlMutasi.setParent(parent);
 
@@ -1479,7 +1479,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	private void renderSummaryPenabung(Component parent, Map<String, Map<String, Object>> summaryData) {
 		Panel pnlSummary = new Panel();
-		pnlSummary.setTitle("Summary Buku Besar Mutasi Tabungan");
+		pnlSummary.setTitle("Summary Buku Besar Mutasi Voucher");
 		pnlSummary.setBorder("normal");
 		pnlSummary.setStyle("margin-top:12px;");
 		pnlSummary.setParent(parent);

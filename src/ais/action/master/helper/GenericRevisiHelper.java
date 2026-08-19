@@ -1742,7 +1742,12 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
 
             new MyLabelAgakKecil(formatRevisionDate(revEntity, revisionObject)).setParent(row);
             new MyLabelAgakKecil(labelRevisionType(revType)).setParent(row);
-            new MyLabelAgakKecil(safeToString(revisionObject)).setParent(row);
+            /* Kolom "Data" menampilkan toString() object revisi yang panjangnya TIDAK dibatasi,
+             * sehingga object dengan toString() panjang membuat satu baris grid memenuhi layar.
+             * Nilai panjang kini dapat dilipat (keadaan awal tertutup); nilai pendek tampil
+             * persis seperti sebelumnya. */
+            buatSelTeksDapatDilipat(null, safeToString(revisionObject),
+                    "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
             String ringkasanPerubahan = buildComparisonWithPrevious(revisionObject, revEntity);
             Component perubahan = createComparisonComponent(ringkasanPerubahan);
             perubahan.setParent(row);
@@ -2713,7 +2718,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             if (changes == null || changes.isEmpty()) {
                 // Ringkasan yang tidak dapat diurai menjadi tabel pun bisa sangat panjang, jadi
                 // ikut dibuat dapat dilipat (default tertutup) seperti sel Sebelum/Sesudah.
-                return createComparisonCellComponent(null,
+                return buatSelTeksDapatDilipat(null,
                         ringkasanPerubahan == null ? "Tidak ada perubahan." : ringkasanPerubahan,
                         buildComparisonLabelStyle(ringkasanPerubahan));
             }
@@ -2722,7 +2727,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e,
                     "auto-audit src/ais/action/master/helper/GenericRevisiHelper.java:createComparisonComponent");
-            return createComparisonCellComponent(null, ringkasanPerubahan == null ? "" : ringkasanPerubahan,
+            return buatSelTeksDapatDilipat(null, ringkasanPerubahan == null ? "" : ringkasanPerubahan,
                     buildComparisonLabelStyle(ringkasanPerubahan));
         }
     }
@@ -2765,13 +2770,13 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             row.setStyle(i % 2 == 0 ? "background:#ffffff;" : "background:#fff7f7;");
             row.setParent(rows);
 
-            createComparisonCellComponent(wrapper, change == null ? "" : change.field,
+            buatSelTeksDapatDilipat(wrapper, change == null ? "" : change.field,
                     "font-size:11px; font-weight:900; color:#991b1b; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
-            createComparisonCellComponent(wrapper, change == null ? "" : change.before,
+            buatSelTeksDapatDilipat(wrapper, change == null ? "" : change.before,
                     "font-size:11px; color:#7f1d1d; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
-            createComparisonCellComponent(wrapper, change == null ? "" : change.after,
+            buatSelTeksDapatDilipat(wrapper, change == null ? "" : change.after,
                     "font-size:11px; color:#b91c1c; font-weight:700; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
         }
@@ -2782,6 +2787,15 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
      * Ambang panjang teks satu sel sebelum ditampilkan sebagai blok yang bisa dilipat.
      */
     private static final int BATAS_TEKS_SEL_RINGKAS = 140;
+    /**
+     * Batas panjang tiap NILAI di dalam ringkasan perbandingan ("field: sebelum -> sesudah").
+     * Dulu 180 karakter, sehingga nilai panjang seperti rincian CPMK sudah terpotong SEBELUM
+     * sampai ke layar dan tombol "Selengkapnya" pun tidak ada isi tambahan yang bisa ditampilkan.
+     * Dinaikkan supaya isi sebenarnya terbaca, tetapi TETAP dibatasi karena ringkasan ini
+     * disimpan di comparisonCache selama dialog terbuka -- batas ini yang menahan pemakaian
+     * memori bila satu revisi mengubah banyak kolom teks sekaligus.
+     */
+    private static final int BATAS_NILAI_RINGKASAN_PERBANDINGAN = 1000;
     /** Tinggi maksimum panel perbandingan selama seluruh sel panjang masih tertutup. */
     private static final String TINGGI_WADAH_BANDING_RINGKAS = "220px";
     /** Tinggi maksimum panel perbandingan setelah pengguna membuka salah satu sel panjang. */
@@ -2829,8 +2843,9 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
      * menutupnya kembali. Pemotongan lama pada shortenComparisonGridText tetap dipakai untuk
      * jalur teks pendek dan tidak dihapus.
      */
-    private Component createComparisonCellComponent(final Vbox wadah, String text, String style) {
-        final String rapi = compactComparisonWhitespace(text);
+    private Component buatSelTeksDapatDilipat(final Vbox wadah, String text, String style) {
+        final String utuh = text == null ? "" : text;
+        final String rapi = compactComparisonWhitespace(utuh);
         if (rapi.length() <= BATAS_TEKS_SEL_RINGKAS) {
             return createComparisonCellLabel(rapi, style);
         }
@@ -2845,7 +2860,9 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         ringkas.setStyle(style);
         ringkas.setParent(kotak);
 
-        final Label penuh = new MyLabelAgakKecil(rapi);
+        // Tampilan terbuka memakai teks ASLI (baris baru tetap dipertahankan), bukan versi
+        // yang sudah diratakan -- supaya nilai yang memang berbaris banyak tetap terbaca rapi.
+        final Label penuh = new MyLabelAgakKecil(utuh);
         penuh.setMultiline(true);
         penuh.setStyle(style);
         penuh.setVisible(false);
@@ -2873,7 +2890,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             ringkas.setTooltiptext("Teks dipersingkat. Klik \"Selengkapnya\" untuk menampilkan isi utuh.");
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e,
-                    "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:createComparisonCellComponent");
+                    "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:buatSelTeksDapatDilipat");
         }
         return kotak;
     }
@@ -3226,9 +3243,8 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             text = text.replace("  ", " ");
         }
         text = text.trim();
-        int max = 180;
-        if (text.length() > max) {
-            return text.substring(0, max) + "...";
+        if (text.length() > BATAS_NILAI_RINGKASAN_PERBANDINGAN) {
+            return text.substring(0, BATAS_NILAI_RINGKASAN_PERBANDINGAN) + "...";
         }
         return text;
     }
@@ -3367,11 +3383,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             }
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:2762");
         }
-        Label label = new Label(formatValue(value));
-        label.setMultiline(true);
-        label.setStyle((highlighted ? "color:#b91c1c; font-weight:bold;" : "color:#334155;")
-                + " white-space:normal; word-break:break-word; overflow-wrap:break-word; line-height:15px;");
-        return label;
+        /* Kolom "Nilai Revisi"/"Nilai Sebelumnya" menampilkan nilai UTUH tanpa batas panjang,
+         * sehingga satu nilai teks besar (mis. rincian CPMK berbentuk JSON) memenuhi layar dan
+         * menutupi field lain. Nilai panjang kini memakai blok yang dapat dilipat dengan keadaan
+         * awal TERTUTUP; nilai pendek tetap tampil apa adanya seperti sebelumnya. Tidak ada data
+         * yang dibuang -- teks utuh tetap dapat dibuka lewat tautan "Selengkapnya". */
+        return buatSelTeksDapatDilipat(null, formatValue(value),
+                (highlighted ? "color:#b91c1c; font-weight:bold;" : "color:#334155;")
+                        + " white-space:normal; word-break:break-word; overflow-wrap:break-word; line-height:15px;");
     }
 
     private void applyHighlightStyle(Component component, String style) {

@@ -332,6 +332,21 @@ public class VerifikasiPSBHelper {
 		final Rows subRowsVerifikasiKelengkapanCalonSiswa = new Rows();
 		subRowsVerifikasiKelengkapanCalonSiswa.setParent(subGrid);
 
+		/*
+		 * PENAUTAN TERTUNDA (bagian 4 dari 4) - bertahan saat gelombang diganti.
+		 *
+		 * Mengganti gelombang membuat daftar berkas dirender ULANG (Common.clear di bawah),
+		 * dan tanpa peta ini setiap render menghasilkan acuan sementara acak yang baru
+		 * (lihat FileFotoLain.createDownloadUpload: ref = -randLong() bila id masih null).
+		 * Akibatnya berkas yang sudah diunggah tidak ditemukan lagi: tombolnya kembali
+		 * kosong sehingga orang tua mengunggah ulang, dan berkas lamanya jadi yatim.
+		 *
+		 * Peta ini menyimpan satu acuan sementara PER JENIS BERKAS dan dipakai ulang di
+		 * setiap render, sehingga berkas yang sudah diunggah tetap tampil dan tetap bisa
+		 * ditautkan simpanVerifikasi() setelah calon siswa tersimpan.
+		 */
+		final java.util.Map<Long, Long> refSementaraBerkas = new java.util.HashMap<Long, Long>();
+
 		EventListener eventListenerBerkas = new EventListener() {
 
 			@Override
@@ -390,7 +405,7 @@ public class VerifikasiPSBHelper {
 								calonSiswaPunyaVerifikasiBerkas
 										.setVerifikasiKelengkapanCalonSiswa(verifikasiKelengkapanCalonSiswa);
 								/*
-								 * PENAUTAN TERTUNDA (bagian 1 dari 3).
+								 * PENAUTAN TERTUNDA (bagian 1 dari 4).
 								 * Pada PENDAFTARAN BARU calon siswa belum punya id, sehingga baris
 								 * penghubung ini belum boleh disimpan (kolom calon_siswa masih null).
 								 * Penyimpanan dilakukan simpanVerifikasi() SETELAH calon siswa tersimpan.
@@ -486,12 +501,45 @@ public class VerifikasiPSBHelper {
 							Hbox hbox = new Hbox();
 							hbox.setParent(myvbox);
 							/*
-							 * PENAUTAN TERTUNDA (bagian 2 dari 3).
+							 * PENAUTAN TERTUNDA (bagian 2 dari 4).
 							 * Saat pendaftaran baru, id baris penghubung masih null sehingga berkas
 							 * terunggah belum punya acuan. Berkasnya ditangkap ke atribut baris
 							 * "lampiranBaru" agar simpanVerifikasi() bisa menautkannya setelah id
 							 * terbit. Untuk data lama listener ini tidak mengubah apa pun.
 							 */
+							/*
+							 * Acuan sementara yang STABIL untuk pendaftaran baru: dipakai ulang
+							 * setiap kali daftar berkas dirender (mis. gelombang diganti), supaya
+							 * berkas yang sudah diunggah tetap ditemukan dan tetap tampil.
+							 */
+							Long refBerkas = calonSiswaPunyaVerifikasiBerkas.getId();
+							if (refBerkas == null && verifikasiKelengkapanCalonSiswa.getId() != null) {
+								refBerkas = refSementaraBerkas.get(verifikasiKelengkapanCalonSiswa.getId());
+								if (refBerkas == null) {
+									/*
+									 * Acuan sementara SELALU negatif supaya tidak mungkin bentrok
+									 * dengan id baris penghubung yang asli.
+									 *
+									 * Dua undian randLong() digabung (ruang ~1e16, bukan ~1e8): kolom
+									 * acuan ini dipakai bersama SEMUA pendaftar yang sedang mengisi
+									 * formulir, dan berkas dicari lewat acuan itu. Ruang yang sempit
+									 * berarti dua pendaftar bisa mendapat acuan yang sama untuk jenis
+									 * berkas yang sama, lalu saling melihat berkas satu sama lain.
+									 */
+									refBerkas = Long
+											.valueOf(-((Common.randLong() + 1L) * 100000000L + Common.randLong()));
+									refSementaraBerkas.put(verifikasiKelengkapanCalonSiswa.getId(), refBerkas);
+								}
+								subRow.setAttribute("refSementaraBerkas", refBerkas);
+
+								// Pulihkan berkas yang diunggah SEBELUM render ulang ini.
+								FileFotoLain berkasTerunggah = FileFotoLain.ambil(Boolean.FALSE, refBerkas,
+										CalonSiswaPunyaVerifikasiBerkas.class.getName(), LampiranLain.class, true);
+								if (berkasTerunggah instanceof LampiranLain) {
+									subRow.setAttribute("lampiranBaru", berkasTerunggah);
+								}
+							}
+
 							final MyFormRow subRowLampiran = subRow;
 							EventListener penangkapLampiran = new EventListener() {
 								@Override
@@ -505,7 +553,7 @@ public class VerifikasiPSBHelper {
 									}
 								}
 							};
-							LampiranLain.createDownloadUploadFileLain(hbox, calonSiswaPunyaVerifikasiBerkas.getId(),
+							LampiranLain.createDownloadUploadFileLain(hbox, refBerkas,
 									CalonSiswaPunyaVerifikasiBerkas.class.getName(), "Berkas", false,
 									penangkapLampiran, null, false,
 									false, false, !calonSiswaPunyaVerifikasiBerkas.getVerified(), null, false, true);
@@ -533,7 +581,7 @@ public class VerifikasiPSBHelper {
 			List<Row> rowsVerifikasi = subRowsVerifikasiKelengkapanCalonSiswa.getChildren();
 			for (Row row : rowsVerifikasi) {
 				/*
-				 * PENAUTAN TERTUNDA (bagian 3 dari 3).
+				 * PENAUTAN TERTUNDA (bagian 3 dari 4).
 				 *
 				 * Sebelumnya baris HANYA diproses bila punya atribut "checkbox", padahal
 				 * checkbox itu hanya dibuat pada cabang ADMIN. Akibatnya berkas yang diunggah
@@ -550,6 +598,19 @@ public class VerifikasiPSBHelper {
 				Checkbox checkbox = (Checkbox) ((row.getAttribute("checkbox") instanceof Checkbox)
 						? row.getAttribute("checkbox") : null);
 				Object lampiranBaru = row.getAttribute("lampiranBaru");
+				/*
+				 * Jalur cadangan: atribut "lampiranBaru" bisa hilang bila baris sempat
+				 * dirender ulang (gelombang diganti) setelah berkasnya diunggah. Acuan
+				 * sementaranya stabil, jadi berkasnya masih bisa ditemukan lewat acuan itu.
+				 */
+				Object refSementara = row.getAttribute("refSementaraBerkas");
+				if (!(lampiranBaru instanceof LampiranLain) && refSementara instanceof Long) {
+					FileFotoLain berkasSementara = FileFotoLain.ambil(Boolean.FALSE, (Long) refSementara,
+							CalonSiswaPunyaVerifikasiBerkas.class.getName(), LampiranLain.class, true);
+					if (berkasSementara instanceof LampiranLain) {
+						lampiranBaru = berkasSementara;
+					}
+				}
 				if (checkbox == null && !(lampiranBaru instanceof LampiranLain)) {
 					continue;
 				}
@@ -580,6 +641,7 @@ public class VerifikasiPSBHelper {
 					tautkanLampiranTertunda((LampiranLain) lampiranBaru,
 							calonSiswaPunyaVerifikasiBerkas.getId());
 					row.removeAttribute("lampiranBaru");
+					row.removeAttribute("refSementaraBerkas");
 				}
 			}
 		}

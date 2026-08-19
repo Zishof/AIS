@@ -1,6 +1,7 @@
-<h2 style="margin:0 0 10px;color:#1d4ed8;">Panduan Penggunaan Halaman Log Host to Host yang Belum Terekonsiliasi</h2>
-
-<p style="color:#334155;line-height:1.6;margin:0 0 12px;">
+<!-- KB-FORMAT-V2 -->
+<h2 style="margin:0 0 10px;color:#1d4ed8;font-size:19px;">Panduan Penggunaan Halaman Log Host to Host yang Belum Terekonsiliasi</h2>
+<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#9889; Ringkas &mdash; inti halaman ini</div><div style="color:#334155;line-height:1.7;">Secara ringkas: siapkan data bank, telusuri transaksi yang belum cocok, temukan sebabnya, tindaklanjuti sesuai prosedur, lalu tandai selesai bila benar cocok. Dengan mengikuti urutan ini, transaksi host to host yang belum terekonsiliasi dapat diselesaikan dengan tertib dan catatan keuangan tetap benar.</div></div>
+<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:0 0 16px;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Tentang halaman ini</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Halaman ini digunakan untuk menampilkan log host to host yang belum terekonsiliasi, yaitu catatan pertukaran
 data pembayaran antara sistem institusi dengan bank atau penyedia pembayaran yang statusnya belum cocok atau
 belum tersinkron antara catatan sistem dan catatan pihak bank. Berbeda dari log host to host secara umum yang
@@ -11,132 +12,84 @@ serta mengambil langkah rekonsiliasi. Pengelolaan mencakup penelusuran transaksi
 sebab, penandaan tindak lanjut, hingga pemanfaatannya sebagai daftar kerja rekonsiliasi. Panduan ini disusun
 berurutan agar Anda memahami fungsi tiap bagian serta langkah yang perlu disiapkan, dilakukan, dan diselesaikan
 dari awal hingga akhir dengan tertib.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">1. Tujuan Halaman</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></details>
+<div style="margin:0 0 18px;"><div style="font-size:12px;color:#64748b;font-weight:600;margin:0 0 6px;">ISI PANDUAN</div><a href="#kb1" onclick="var e=document.getElementById('kb1');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">1. Tujuan Halaman</a><a href="#kb2" onclick="var e=document.getElementById('kb2');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">2. Memahami Informasi Transaksi Belum Cocok</a><a href="#kb3" onclick="var e=document.getElementById('kb3');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">3. Menelusuri Transaksi yang Belum Cocok</a><a href="#kb4" onclick="var e=document.getElementById('kb4');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">4. Menindaklanjuti dan Menyelesaikan</a><a href="#kb5" onclick="var e=document.getElementById('kb5');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">5. Menjaga Ketepatan Tindak Lanjut</a><a href="#kb6" onclick="var e=document.getElementById('kb6');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">6. Kaitan dengan Log Umum dan Keuangan</a><a href="#kb7" onclick="var e=document.getElementById('kb7');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">7. Pertanyaan yang Sering Diajukan</a><a href="#kb8" onclick="var e=document.getElementById('kb8');if(e&&e.scrollIntoView){e.scrollIntoView();return false;}" style="display:inline-block;background:#eef2f7;border:1px solid #dbe3ec;border-radius:20px;padding:4px 11px;margin:0 6px 6px 0;color:#1d4ed8;text-decoration:none;font-size:12px;">8. Manfaat Penggunaan yang Tertib</a></div>
+<h3 id="kb1" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">1</span><span>Tujuan Halaman</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Halaman ini berfungsi menyoroti transaksi host to host yang belum terekonsiliasi agar dapat ditindaklanjuti,
 yang dirujuk saat menyelesaikan selisih pembayaran. Dengan tampilan yang terfokus, tiap transaksi menggantung
 terlihat jelas, sehingga rekonsiliasi terarah. Penelusuran yang cermat memastikan sebab ketidakcocokan
 diketahui, sehingga selisih dapat diselesaikan.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">2. Hal yang Perlu Disiapkan</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b45309;margin:0 0 8px;font-size:14px;">&#9745; Hal yang Perlu Disiapkan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Sebelum menelusuri, siapkan data pembanding dari pihak bank, informasi transaksi yang menggantung, serta
 pemahaman atas alur rekonsiliasi. Pahami pula sebab umum ketidakcocokan agar penelusuran tepat. Persiapan ini
 memastikan Anda dapat menindaklanjuti transaksi yang belum cocok dengan langkah yang benar.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">3. Memahami Informasi Transaksi Belum Cocok</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb2" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">2</span><span>Memahami Informasi Transaksi Belum Cocok</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Tiap transaksi yang belum terekonsiliasi umumnya mencakup waktu, nomor transaksi, nominal, serta keterangan
 ketidakcocokan. Memahami informasi ini penting agar tindak lanjut benar. Dengan mengenali tiap transaksi
 menggantung, Anda dapat menelusuri sebabnya dengan tepat, sehingga tidak keliru dalam menyimpulkan apakah
 selisih berasal dari sistem atau dari pihak bank.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">4. Menelusuri Transaksi yang Belum Cocok</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb3" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">3</span><span>Menelusuri Transaksi yang Belum Cocok</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Untuk menelusuri, perhatikan daftar transaksi yang disoroti, gunakan penyaring seperti waktu atau nominal, lalu
 bandingkan dengan data pihak bank. Penelusuran yang cermat memastikan sebab ketidakcocokan teridentifikasi.
 Pastikan pembandingan tepat agar Anda mengetahui apakah transaksi sebenarnya berhasil, gagal, atau perlu
 dicocokkan ulang.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">5. Menindaklanjuti dan Menyelesaikan</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb4" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">4</span><span>Menindaklanjuti dan Menyelesaikan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Setelah sebab diketahui, lakukan langkah rekonsiliasi yang sesuai, seperti mencocokkan ulang, menandai
 terselesaikan, atau meneruskan ke bagian yang berwenang. Tindak lanjut yang cermat memastikan transaksi tidak
 lagi menggantung. Karena penyelesaian dapat memengaruhi status pembayaran, lakukan dengan hati-hati dan sesuai
 prosedur agar catatan keuangan tetap benar.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">6. Menjaga Ketepatan Tindak Lanjut</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb5" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">5</span><span>Menjaga Ketepatan Tindak Lanjut</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Jaga ketepatan dengan memastikan pembandingan dengan data bank benar, mencatat tindak lanjut yang dilakukan,
 serta tidak menandai terselesaikan sebelum benar-benar cocok. Ketepatan ini memudahkan penutupan selisih.
 Kerapian ini penting agar rekonsiliasi tidak keliru akibat transaksi yang ditandai selesai padahal belum cocok,
 sehingga catatan keuangan tetap dapat diandalkan.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Kaitan dengan Log Umum dan Keuangan</h3>
-<p style="color:#334155;line-height:1.6;">
+<h3 id="kb6" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">6</span><span>Kaitan dengan Log Umum dan Keuangan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Halaman ini melengkapi <b>log host to host umum</b> dengan menyoroti <b>transaksi yang belum terekonsiliasi</b>
 untuk keperluan keuangan. Log umum menampilkan seluruh komunikasi, sedangkan halaman ini fokus pada yang perlu
 diselesaikan. Keterkaitan ini menjadikan ketepatan tindak lanjut penting, karena catatan keuangan yang benar
 bergantung pada rekonsiliasi yang akurat; menandai selesai secara keliru dapat menyimpangkan catatan, sehingga
 tindak lanjut harus dilakukan dengan teliti agar selisih benar-benar tuntas.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">8. Peran dan Hak Akses</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#475569;margin:0 0 8px;font-size:14px;">&#128100; Peran dan Hak Akses</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Pengelolaan halaman ini umumnya dibatasi untuk bagian keuangan atau administrator yang berwenang karena
-menyangkut penyelesaian transaksi, sehingga sebagian fungsi hanya tampil bagi peran tertentu. Apabila tombol
+menyangkut penyelesaian transaksi, sehingga sebagian fungsi hanya tampil bagi peran tertentu. Jika tombol
 yang Anda butuhkan tidak muncul, kemungkinan peran akun Anda belum memiliki haknya; hubungi administrator
 sistem untuk penyesuaian. Pembatasan ini menjaga agar rekonsiliasi dilakukan pihak yang berwenang.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">9. Kesalahan Umum dan Cara Menghindarinya</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#b91c1c;margin:0 0 8px;font-size:14px;">&#9888; Kesalahan Umum dan Cara Menghindarinya</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Kendala yang sering terjadi antara lain menandai selesai sebelum cocok, salah membandingkan data, serta
 membiarkan transaksi menggantung terlalu lama. Untuk menghindarinya, cocokkan dengan teliti, tandai selesai
 hanya bila benar cocok, dan tindaklanjuti segera. Ketelitian ini menjaga rekonsiliasi tetap akurat sehingga
 catatan keuangan benar.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">10. Pertanyaan yang Sering Diajukan</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb7" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">7</span><span>Pertanyaan yang Sering Diajukan</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 <b>Apa fungsi halaman ini?</b> Menyoroti transaksi host to host yang belum terekonsiliasi. <b>Apa bedanya
 dengan log umum?</b> Halaman ini fokus pada yang belum cocok saja. <b>Apa yang dilakukan?</b> Menelusuri sebab
 dan menyelesaikan selisih. <b>Kapan ditandai selesai?</b> Setelah benar-benar cocok dengan data bank.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">11. Langkah Akhir dan Verifikasi</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#166534;margin:0 0 8px;font-size:14px;">&#10003; Langkah Akhir dan Verifikasi</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Sebagai langkah akhir, pastikan tiap transaksi yang ditindaklanjuti telah dicocokkan dengan data bank dan
 ditandai sesuai keadaan sebenarnya. Pastikan tidak ada yang keliru ditandai selesai. Dengan verifikasi ini,
 data transaksi yang belum terekonsiliasi menjadi terkelola dan mendukung catatan keuangan yang benar di
 lingkungan institusi.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">12. Ringkasan Alur Singkat</h3>
-<p style="color:#334155;line-height:1.6;">
-Secara ringkas: siapkan data bank, telusuri transaksi yang belum cocok, temukan sebabnya, tindaklanjuti sesuai
-prosedur, lalu tandai selesai bila benar cocok. Dengan mengikuti urutan ini, transaksi host to host yang belum
-terekonsiliasi dapat diselesaikan dengan tertib dan catatan keuangan tetap benar.
-</p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">13. Manfaat Penggunaan yang Tertib</h3>
-<p style="color:#334155;line-height:1.6;">
+</p></div></div>
+<h3 id="kb8" style="display:flex;align-items:center;gap:9px;margin:26px 0 10px;font-size:15px;color:#0f172a;"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;">8</span><span>Manfaat Penggunaan yang Tertib</span></h3><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Penggunaan halaman ini yang tertib memastikan tiap transaksi menggantung ditindaklanjuti, sehingga selisih
 pembayaran tuntas dan catatan keuangan akurat. Penelusuran yang tepat memudahkan rekonsiliasi. Bagi institusi,
 penyelesaian yang baik mencerminkan pengelolaan keuangan yang cermat. Sebaliknya, transaksi yang dibiarkan
 menggantung dapat menumpuk dan menyulitkan. Karena itu, tindaklanjuti dengan teliti agar rekonsiliasi terkelola
 dengan baik.
 </p>
-
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">14. Tips Penggunaan</h3>
-<p style="color:#334155;line-height:1.6;">
+<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:12px 15px;margin:0 0 16px;"><div style="font-weight:700;color:#1d4ed8;margin:0 0 8px;font-size:14px;">&#128161; Tips Penggunaan</div><div style="color:#334155;line-height:1.7;"><p style="color:#334155;line-height:1.7;margin:0 0 12px;">
 Tindaklanjuti transaksi menggantung secara berkala agar tidak menumpuk. Cocokkan dengan data bank sebelum
 menandai selesai. Catat langkah tindak lanjut yang dilakukan. Untuk melihat seluruh komunikasi, gunakan log
 host to host umum, dan koordinasikan dengan bagian keuangan agar rekonsiliasi berjalan tepat.
-</p>
-
-<p style="color:#475569;line-height:1.6;margin-top:14px;font-style:italic;">
-Dengan mengikuti langkah-langkah di atas secara berurutan, penggunaan halaman log host to host yang belum
-terekonsiliasi dapat dilakukan dengan tertib, mulai dari penelusuran transaksi menggantung, pemeriksaan sebab,
-hingga penyelesaian sebagai langkah akhir. Apabila menemui kendala dalam menggunakan halaman ini, hubungi
-bagian keuangan atau administrator sistem agar transaksi yang belum terekonsiliasi selalu tertangani dan
-bermanfaat sebagai daftar kerja rekonsiliasi di lingkungan institusi, sehingga tiap selisih pembayaran dengan
-pihak bank dapat diselesaikan dengan benar dan catatan keuangan tetap akurat, melengkapi log host to host umum
-yang menampilkan seluruh riwayat komunikasi, dari waktu ke waktu sesuai kebutuhan pengelolaan pembayaran yang
-berlaku di lingkungan institusi.
-</p>
-
-<p style="color:#94a3b8;line-height:1.6;margin-top:8px;font-size:0.92em;">
-Catatan: panduan ini disusun untuk memudahkan pengguna memahami alur kerja halaman secara umum.
-Tampilan, penamaan menu, serta ketersediaan sebagian tombol dapat berbeda menyesuaikan peran pengguna
-dan pengaturan masing-masing institusi. Apabila terdapat perbedaan, ikuti ketentuan resmi yang berlaku
-di lingkungan Anda dan tanyakan kepada petugas yang berwenang bila diperlukan.
-</p>
+</p></div></div>
+<details style="border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;margin:20px 0 0;padding:0 13px;"><summary style="cursor:pointer;color:#475569;font-weight:600;padding:11px 0;font-size:13px;">Penutup</summary><div style="color:#334155;line-height:1.7;padding:0 0 12px;">Dengan mengikuti langkah-langkah di atas secara berurutan, penggunaan halaman log host to host yang belum terekonsiliasi dapat dilakukan dengan tertib, mulai dari penelusuran transaksi menggantung, pemeriksaan sebab, hingga penyelesaian sebagai langkah akhir. Jika menemui kendala dalam menggunakan halaman ini, hubungi bagian keuangan atau administrator sistem agar transaksi yang belum terekonsiliasi selalu tertangani dan bermanfaat sebagai daftar kerja rekonsiliasi di lingkungan institusi, sehingga tiap selisih pembayaran dengan pihak bank dapat diselesaikan dengan benar dan catatan keuangan tetap akurat, melengkapi log host to host umum yang menampilkan seluruh riwayat komunikasi, dari waktu ke waktu sesuai kebutuhan pengelolaan pembayaran yang berlaku di lingkungan institusi.</div></details>
+<p style="color:#94a3b8;line-height:1.6;margin:14px 0 0;font-size:12px;">Catatan: panduan ini disusun untuk memudahkan pengguna memahami alur kerja halaman secara umum. Tampilan, penamaan menu, serta ketersediaan sebagian tombol dapat berbeda menyesuaikan peran pengguna dan pengaturan masing-masing institusi. Jika terdapat perbedaan, ikuti ketentuan resmi yang berlaku di lingkungan Anda dan tanyakan kepada petugas yang berwenang bila diperlukan.</p>
