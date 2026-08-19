@@ -120,15 +120,16 @@ public final class KodeAkunApiHelper {
 			Connection conn = session.connection();
 			StringBuilder sql = new StringBuilder(
 					"SELECT b.id, COALESCE(b.nama,''), COALESCE(b.keterangan,''), COALESCE(b.aktif,true),"
-							+ " b.akun, COALESCE(a.kode,''), COALESCE(a.nama,'')"
+							+ " b.akun, COALESCE(a.kode,''), COALESCE(a.nama,''), COALESCE(b.kode,'')"
 							+ " FROM public.bank b LEFT JOIN akunting.akun a ON a.id = b.akun");
 			if (!cari.isEmpty()) {
-				sql.append(" WHERE b.nama ILIKE ?");
+				sql.append(" WHERE (b.nama ILIKE ? OR COALESCE(b.kode,'') ILIKE ?)");
 			}
 			sql.append(" ORDER BY b.nama ASC");
 			PreparedStatement ps = conn.prepareStatement(sql.toString());
 			if (!cari.isEmpty()) {
 				ps.setString(1, "%" + cari + "%");
+				ps.setString(2, "%" + cari + "%");
 			}
 			ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
@@ -142,6 +143,7 @@ public final class KodeAkunApiHelper {
 				j.put("akunId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(ak));
 				j.put("akunKode", rs.getString(6));
 				j.put("akunNama", rs.getString(7));
+				j.put("kode", rs.getString(8));
 				arr.put(j);
 			}
 			rs.close();
@@ -357,19 +359,35 @@ public final class KodeAkunApiHelper {
 				}
 				int nomorBaris = i + 2;
 				String nama = b.optString("nama", "").trim();
+				String kodeBank = b.optString("kode", "").trim();
 				if (nama.isEmpty()) {
 					ditolak++;
 					masalah.put("Baris " + nomorBaris + ": nama bank wajib diisi");
 					continue;
 				}
 				try {
-					ais.database.model.Bank bank = (ais.database.model.Bank) session
-							.createCriteria(ais.database.model.Bank.class)
-							.add(org.hibernate.criterion.Restrictions.eq("nama", nama)).uniqueResult();
+					// Cocokkan lewat KODE bila diisi (konsisten dgn Akun & Jenis Transaksi);
+					// baris lama yang belum punya kode tetap dikenali lewat NAMA.
+					ais.database.model.Bank bank = null;
+					if (!kodeBank.isEmpty()) {
+						bank = (ais.database.model.Bank) session
+								.createCriteria(ais.database.model.Bank.class)
+								.add(org.hibernate.criterion.Restrictions.eq("kode", kodeBank))
+								.setMaxResults(1).uniqueResult();
+					}
+					if (bank == null) {
+						bank = (ais.database.model.Bank) session
+								.createCriteria(ais.database.model.Bank.class)
+								.add(org.hibernate.criterion.Restrictions.eq("nama", nama))
+								.setMaxResults(1).uniqueResult();
+					}
 					boolean baru = bank == null;
 					if (baru) {
 						bank = new ais.database.model.Bank();
-						bank.setNama(nama);
+					}
+					bank.setNama(nama);
+					if (!kodeBank.isEmpty()) {
+						bank.setKode(kodeBank);
 					}
 					if (b.has("keterangan")) {
 						bank.setKeterangan(b.optString("keterangan", "").trim());

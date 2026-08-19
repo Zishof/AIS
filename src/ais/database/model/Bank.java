@@ -73,6 +73,14 @@ public class Bank extends GeneralValueObject {
 		return id + "-" + nama;
 	}
 
+	/**
+	 * Kode bank -- ditambahkan 2026-08-20 agar impor/ekspor Excel dapat mencocokkan
+	 * baris lewat KODE (konsisten dgn Akun dan Jenis Transaksi), bukan lewat nama.
+	 * Sengaja TIDAK unique di level basis data: baris lama belum punya kode, dan
+	 * batasan unik pada kolom yang masih kosong berisiko menggagalkan boot.
+	 * Keunikan diperiksa di jalur impor. Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private String kode;
 	private String nama;
 	private String keterangan;
 
@@ -102,6 +110,15 @@ public class Bank extends GeneralValueObject {
 
 	public void setAkun(Akun akun) {
 		this.akun = akun; 
+	}
+
+	@Column(name = "kode", nullable = true, length = 50)
+	public String getKode() {
+		return this.kode == null ? null : this.kode.trim();
+	}
+
+	public void setKode(String kode) {
+		this.kode = kode;
 	}
 
 	@Column(name = "nama", nullable = false, length = 255)

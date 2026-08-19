@@ -501,6 +501,10 @@ public class Data extends HttpServlet {
 				KantinHelper.mutasiStokSimpan(tbmuser, jsonObject, hasil);
 			} else if ("mutasi_stok_list".equals(action)) {
 				KantinHelper.mutasiStokList(tbmuser, jsonObject, hasil);
+			} else if (action != null && action.startsWith("pengadaan_")) {
+				// Modul Pengadaan POS -- helper yang SAMA dipakai PosApi (Desktop/Android),
+				// jadi aturan bisnisnya satu sumber. Helper self-guard kunci menu pengadaan_pr.
+				ais.action.servlet.api.PengadaanPosApiHelper.proses(action, tbmuser, jsonObject, hasil);
 			} else if ("kulakan_faktur_simpan".equals(action)) {
 				KantinHelper.kulakanFakturSimpan(tbmuser, jsonObject, hasil);
 			} else if ("kedaluwarsa_list".equals(action)) {
