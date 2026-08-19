@@ -407,6 +407,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 					.append(DashboardUiKit.esc(ringkas(belumDipetakan))).append("</div>");
 		}
 		previewBox.appendChild(DashboardUiKit.html(sb.toString()));
+		tampilkanGridDraf();
 	}
 
 	/**
@@ -756,6 +757,101 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 			throw ex;
 		}
+	}
+
+	/**
+	 * Grid DRAF JURNAL PER TRANSAKSI di layar ZK -- meniru layar Posting Cicilan
+	 * Mahasiswa: tiap transaksi tampil beserta baris akun debit/kreditnya sehingga
+	 * dapat dianalisis dulu, punya status sendiri, dan tombol "Posting" per baris.
+	 * Transaksi yang pemetaan akunnya belum lengkap ditandai beserta alasannya dan
+	 * TIDAK memblokir transaksi lain.
+	 */
+	private void tampilkanGridDraf() {
+		if (previewBox == null || rincianDraft.isEmpty()) {
+			return;
+		}
+		org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
+		grid.setWidth("100%");
+		grid.setSpan("true");
+		org.zkoss.zul.Columns cols = new org.zkoss.zul.Columns();
+		String[] judulKolom = new String[] { "Referensi", "Nilai", "Draf Jurnal (Akun / Debit / Kredit)",
+				"Status", "Aksi" };
+		String[] lebarKolom = new String[] { "18%", "12%", "44%", "16%", "10%" };
+		for (int i = 0; i < judulKolom.length; i++) {
+			org.zkoss.zul.Column c = new org.zkoss.zul.Column(judulKolom[i]);
+			c.setWidth(lebarKolom[i]);
+			cols.appendChild(c);
+		}
+		grid.appendChild(cols);
+		org.zkoss.zul.Rows rows = new org.zkoss.zul.Rows();
+		grid.appendChild(rows);
+		for (int i = 0; i < rincianDraft.size(); i++) {
+			final org.json.JSONObject baris = rincianDraft.get(i);
+			final boolean siap = baris.optBoolean("siap", false);
+			org.zkoss.zul.Row row = new org.zkoss.zul.Row();
+			row.setValign("top");
+			if (!siap) {
+				row.setStyle("background:#fff7ed;");
+			}
+			row.appendChild(new Label(baris.optString("ref", "-")));
+			row.appendChild(new Label("Rp " + DashboardUiKit.money(baris.optDouble("nilai", 0))));
+			StringBuilder j = new StringBuilder("<table style='width:100%;font-size:11px;'>");
+			org.json.JSONArray jr = baris.optJSONArray("jurnal");
+			for (int k = 0; jr != null && k < jr.length(); k++) {
+				org.json.JSONObject b = jr.optJSONObject(k);
+				if (b == null) {
+					continue;
+				}
+				double d = b.optDouble("debit", 0);
+				double kr = b.optDouble("kredit", 0);
+				j.append("<tr><td style='padding:1px 4px;'>")
+						.append(DashboardUiKit.esc(b.optString("akun", "-")))
+						.append("</td><td style='padding:1px 4px;text-align:right;'>")
+						.append(d > 0 ? DashboardUiKit.money(d) : "")
+						.append("</td><td style='padding:1px 4px;text-align:right;'>")
+						.append(kr > 0 ? DashboardUiKit.money(kr) : "").append("</td></tr>");
+			}
+			j.append("</table>");
+			row.appendChild(DashboardUiKit.html(j.toString()));
+			row.appendChild(DashboardUiKit.html(siap
+					? "<span style='color:#166534;font-size:11px;'>Siap diposting</span>"
+					: "<span style='color:#b45309;font-size:11px;'>Belum siap: "
+							+ DashboardUiKit.esc(baris.optString("alasan", "")) + "</span>"));
+			if (siap) {
+				org.zkoss.zul.Toolbarbutton tombol = new org.zkoss.zul.Toolbarbutton("Posting");
+				tombol.setStyle("color:#166534;font-weight:600;cursor:pointer;");
+				tombol.addEventListener("onClick", new EventListener() {
+					public void onEvent(Event ev) throws Exception {
+						postingBarisIni(baris);
+					}
+				});
+				row.appendChild(tombol);
+			} else {
+				row.appendChild(new Label("-"));
+			}
+			rows.appendChild(row);
+		}
+		previewBox.appendChild(DashboardUiKit.html(
+				"<div style='font-weight:700;font-size:12px;margin:10px 0 4px;'>Draf Jurnal per Barang"
+						+ " (analisis dulu, posting bisa satu per satu)</div>"));
+		previewBox.appendChild(grid);
+	}
+
+	/** Posting SATU baris draf dari grid, lalu segarkan pratinjau. */
+	private void postingBarisIni(org.json.JSONObject baris) throws Exception {
+		Long id = baris.isNull("id") ? null : Long.valueOf(baris.get("id").toString());
+		if (id == null) {
+			return;
+		}
+		JSONObject hasil = postingPerBarang(java.util.Collections.singletonList(id), dpMulai.getValue(), dpSampai.getValue());
+		int diposting = hasil.optInt("diposting", 0);
+		int gagal = hasil.optInt("gagal", 0);
+		MyMessageboxConfig.show(
+				gagal == 0 ? (diposting + " barang berhasil diposting ke jurnal.")
+						: ("Gagal memposting barang ini. " + hasil.optString("pesan", "")),
+				gagal == 0 ? "Berhasil" : "Gagal", MyMessageboxConfig.OK,
+				gagal == 0 ? MyMessageboxConfig.INFORMATION : MyMessageboxConfig.EXCLAMATION);
+		hitungPreview();
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
