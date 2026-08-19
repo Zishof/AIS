@@ -9540,6 +9540,49 @@ public class Common {
 	 * @param keterangan teks keterangan yang ditampilkan.
 	 * @return baris yang baru ditambahkan.
 	 */
+	/**
+	 * <h3>Tempelkan keterangan TEPAT DI BAWAH input, dalam sel yang sama</h3>
+	 *
+	 * <p><b>Masalah yang diselesaikan.</b> {@link #initKeterangan(Rows, String)} menambahkan
+	 * keterangan sebagai BARIS TERSENDIRI (kolom pertama kosong). Bila beberapa keterangan
+	 * berurutan, atau bila baris input-nya sendiri disembunyikan konfigurasi, keterangan itu
+	 * tampil sebagai blok teks yang terlepas dari input yang dijelaskannya -- pengguna tidak
+	 * tahu keterangan tersebut milik isian yang mana.</p>
+	 *
+	 * <p><b>Perbaikan.</b> Sel input pada baris dibungkus Vbox, lalu keterangan ditempel di
+	 * bawahnya sehingga label + input + keterangan tampil sebagai SATU paket. Bila baris input
+	 * TIDAK ditampilkan (parent null karena disembunyikan konfigurasi), keterangan ikut tidak
+	 * ditampilkan -- mencegah keterangan yatim.</p>
+	 *
+	 * @param row        baris form yang sel terakhirnya berisi input; boleh null (diabaikan).
+	 * @param keterangan teks keterangan yang ditempelkan di bawah input.
+	 */
+	public static void keteranganDalamSel(Row row, String keterangan) {
+		try {
+			if (row == null || row.getParent() == null || keterangan == null) {
+				return;
+			}
+			java.util.List<?> anak = row.getChildren();
+			if (anak == null || anak.isEmpty()) {
+				return;
+			}
+			Object terakhir = anak.get(anak.size() - 1);
+			if (!(terakhir instanceof org.zkoss.zk.ui.Component)) {
+				return;
+			}
+			org.zkoss.zk.ui.Component selInput = (org.zkoss.zk.ui.Component) terakhir;
+			org.zkoss.zul.Vbox bungkus = new org.zkoss.zul.Vbox();
+			bungkus.setSpacing("0px");
+			row.insertBefore(bungkus, selInput);
+			selInput.setParent(bungkus);
+			org.zkoss.zul.Label labelKeterangan = new org.zkoss.zul.Label(keterangan);
+			labelKeterangan.setStyle("font-size:10px;color:#6b7280;line-height:1.3;");
+			labelKeterangan.setParent(bungkus);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Common.keteranganDalamSel");
+		}
+	}
+
 	public static Row initKeterangan(Rows rows, String keterangan) {
 
 		String styled = null;

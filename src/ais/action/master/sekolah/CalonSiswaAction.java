@@ -3558,9 +3558,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		row.appendChild(namaWali = new Textbox(calonSiswa.getNamaWali()));
 		namaWali.setWidth("90%");
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan nama Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan nama Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "alamatWali");
@@ -3571,9 +3571,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		alamatWali.setWidth("90%");
 		alamatWali.setRows(2);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan alamat Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan alamat Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "tempatLahirWali");
@@ -3586,9 +3586,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		row.appendChild(hboxa);
 		tempatLahirWali.setCols(15);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan Tempat / Tanggal Lahir Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan Tempat / Tanggal Lahir Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 
@@ -3607,9 +3607,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		hp2wali.setCols(10);
 		hp3wali.setCols(10);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan nomor HP Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan nomor HP Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "waWali");
@@ -3619,9 +3619,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		row.appendChild(waWali = new Textbox(calonSiswa.getWaWali()));
 		waWali.setWidth("90%");
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan nomor WA Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan nomor WA Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "pendidikanWali");
@@ -3634,9 +3634,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		pendidikanWali.setWidth("90%");
 		pendidikanWali.setReadonly(true);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan Pendidikan Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan Pendidikan Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "pekerjaanWali");
@@ -3650,9 +3650,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		pekerjaanWali.setWidth("90%");
 		pekerjaanWali.setReadonly(true);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan Pekerjaan Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan Pekerjaan Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "penghasilanWali");
@@ -3665,9 +3665,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		penghasilanWali.setWidth("90%");
 		penghasilanWali.setReadonly(true);
 
-		if (row.isVisible()) {
-			Common.initKeterangan(rows, "* Kosongkan Rata-rata penghasilan Wali jika Wali nya adalah Ayah");
-		}
+		// Keterangan ditempel MENYATU di bawah input (bukan baris terpisah) dan
+		// otomatis tidak tampil bila baris input disembunyikan konfigurasi.
+		Common.keteranganDalamSel(row, "* Kosongkan Rata-rata penghasilan Wali jika Wali nya adalah Ayah");
 
 		row = new MyFormRow();
 
@@ -3677,6 +3677,35 @@ public class CalonSiswaAction extends GenericAutowireComposer
 				"Alamat e-mail" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
 		row.appendChild(alamatEmail = new Textbox(calonSiswa.getAlamatEmail()));
 		alamatEmail.setWidth("90%");
+
+		// PINDAH BAGIAN: Telepon Wali, Alamat & Telepon Orang Tua sebelumnya berada SETELAH
+		// header "IV. Sekolah Asal" sehingga tampil seolah bagian dari data sekolah asal.
+		// Ketiganya adalah data ORANG TUA/WALI, jadi dikembalikan ke bagian III.
+		row = new MyFormRow();
+		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "teleponWali");
+		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
+		row.appendChild(new ais.ui.util.MyLabelConfig(
+				"Telepon Wali" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
+		row.appendChild(teleponWali = new Textbox(calonSiswa.getTeleponWali()));
+		teleponWali.setWidth("90%");
+
+		row = new MyFormRow();
+		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "alamatOrangTua");
+		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
+		row.appendChild(new ais.ui.util.MyLabelConfig(
+				"Alamat Orang Tua" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
+		row.appendChild(alamatOrangTua = new Textbox(calonSiswa.getAlamatOrangTua()));
+		alamatOrangTua.setWidth("90%");
+		alamatOrangTua.setRows(2);
+
+		row = new MyFormRow();
+
+		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "teleponOrangTua");
+		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
+		row.appendChild(new ais.ui.util.MyLabelConfig(
+				"Telepon Orang Tua" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
+		row.appendChild(teleponOrangTua = new Textbox(calonSiswa.getTeleponOrangTua()));
+		teleponOrangTua.setWidth("90%");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -3792,31 +3821,6 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 		kotaSekolahAsal.setAttribute("wilayah", calonSiswa.getKotaSekolahAsal());
 
-		row = new MyFormRow();
-		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "teleponWali");
-		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
-		row.appendChild(new ais.ui.util.MyLabelConfig(
-				"Telepon Wali" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
-		row.appendChild(teleponWali = new Textbox(calonSiswa.getTeleponWali()));
-		teleponWali.setWidth("90%");
-
-		row = new MyFormRow();
-		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "alamatOrangTua");
-		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
-		row.appendChild(new ais.ui.util.MyLabelConfig(
-				"Alamat Orang Tua" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
-		row.appendChild(alamatOrangTua = new Textbox(calonSiswa.getAlamatOrangTua()));
-		alamatOrangTua.setWidth("90%");
-		alamatOrangTua.setRows(2);
-
-		row = new MyFormRow();
-
-		statusWajibIsi = KonfigurasiTampilanBiodataCalonSiswaAction.statusWajibIsi(tbmuser, "teleponOrangTua");
-		row.setParent((statusWajibIsi.equals(Konfigurasi.AKTIF) || statusWajibIsi.equals(Konfigurasi.AKTIF_TIDAK_WAJIB)) ? rows : null);
-		row.appendChild(new ais.ui.util.MyLabelConfig(
-				"Telepon Orang Tua" + (statusWajibIsi.equals(Konfigurasi.AKTIF) ? " (*)" : "")));
-		row.appendChild(teleponOrangTua = new Textbox(calonSiswa.getTeleponOrangTua()));
-		teleponOrangTua.setWidth("90%");
 
 		row = new MyFormRow();
 
