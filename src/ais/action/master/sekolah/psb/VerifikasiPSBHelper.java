@@ -370,18 +370,34 @@ public class VerifikasiPSBHelper {
 					rowVerifikasi.setVisible(!verifikasiKelengkapanCalonSiswas.isEmpty());
 					for (final VerifikasiKelengkapanCalonSiswa verifikasiKelengkapanCalonSiswa : verifikasiKelengkapanCalonSiswas) {
 						if (verifikasiKelengkapanCalonSiswa.getAktif()) {
-							CalonSiswaPunyaVerifikasiBerkas calonSiswaPunyaVerifikasiBerkas = (CalonSiswaPunyaVerifikasiBerkas) session
-									.createCriteria(CalonSiswaPunyaVerifikasiBerkas.class)
-									.add(Restrictions.eq("verifikasiKelengkapanCalonSiswa",
-											verifikasiKelengkapanCalonSiswa))
-									.add(Restrictions.eq("calonSiswa", calonSiswa)).setMaxResults(1).uniqueResult();
+							/*
+							 * Pada PENDAFTARAN BARU calon siswa masih transien (id null), sehingga
+							 * tidak ada baris penghubung yang bisa dicari - pencariannya dilewati
+							 * agar Hibernate tidak diberi acuan entitas yang belum tersimpan.
+							 */
+							CalonSiswaPunyaVerifikasiBerkas calonSiswaPunyaVerifikasiBerkas = (calonSiswa == null
+									|| calonSiswa.getId() == null) ? null
+											: (CalonSiswaPunyaVerifikasiBerkas) session
+													.createCriteria(CalonSiswaPunyaVerifikasiBerkas.class)
+													.add(Restrictions.eq("verifikasiKelengkapanCalonSiswa",
+															verifikasiKelengkapanCalonSiswa))
+													.add(Restrictions.eq("calonSiswa", calonSiswa)).setMaxResults(1)
+													.uniqueResult();
 
 							if (calonSiswaPunyaVerifikasiBerkas == null) {
 								calonSiswaPunyaVerifikasiBerkas = new CalonSiswaPunyaVerifikasiBerkas();
 								calonSiswaPunyaVerifikasiBerkas.setCalonSiswa(calonSiswa);
 								calonSiswaPunyaVerifikasiBerkas
 										.setVerifikasiKelengkapanCalonSiswa(verifikasiKelengkapanCalonSiswa);
-								Common.refreshSaveOrUpdate(session, calonSiswaPunyaVerifikasiBerkas);
+								/*
+								 * PENAUTAN TERTUNDA (bagian 1 dari 3).
+								 * Pada PENDAFTARAN BARU calon siswa belum punya id, sehingga baris
+								 * penghubung ini belum boleh disimpan (kolom calon_siswa masih null).
+								 * Penyimpanan dilakukan simpanVerifikasi() SETELAH calon siswa tersimpan.
+								 */
+								if (calonSiswa != null && calonSiswa.getId() != null) {
+									Common.refreshSaveOrUpdate(session, calonSiswaPunyaVerifikasiBerkas);
+								}
 							}
 
 							final MyFormRow subRow = new MyFormRow();
@@ -469,8 +485,29 @@ public class VerifikasiPSBHelper {
 
 							Hbox hbox = new Hbox();
 							hbox.setParent(myvbox);
+							/*
+							 * PENAUTAN TERTUNDA (bagian 2 dari 3).
+							 * Saat pendaftaran baru, id baris penghubung masih null sehingga berkas
+							 * terunggah belum punya acuan. Berkasnya ditangkap ke atribut baris
+							 * "lampiranBaru" agar simpanVerifikasi() bisa menautkannya setelah id
+							 * terbit. Untuk data lama listener ini tidak mengubah apa pun.
+							 */
+							final MyFormRow subRowLampiran = subRow;
+							EventListener penangkapLampiran = new EventListener() {
+								@Override
+								public void onEvent(Event argLampiran) throws Exception {
+									try {
+										if (argLampiran != null && argLampiran.getData() instanceof LampiranLain) {
+											subRowLampiran.setAttribute("lampiranBaru", argLampiran.getData());
+										}
+									} catch (Exception e) {
+										ais.common.ErrorAuditUtil.record(e, "VerifikasiPSBHelper.penangkapLampiran");
+									}
+								}
+							};
 							LampiranLain.createDownloadUploadFileLain(hbox, calonSiswaPunyaVerifikasiBerkas.getId(),
-									CalonSiswaPunyaVerifikasiBerkas.class.getName(), "Berkas", false, null, null, false,
+									CalonSiswaPunyaVerifikasiBerkas.class.getName(), "Berkas", false,
+									penangkapLampiran, null, false,
 									false, false, !calonSiswaPunyaVerifikasiBerkas.getVerified(), null, false, true);
 
 							new ais.ui.util.MyHtml("<hr>").setParent(myvbox);
@@ -495,27 +532,97 @@ public class VerifikasiPSBHelper {
 		if (subRowsVerifikasiKelengkapanCalonSiswa != null) {
 			List<Row> rowsVerifikasi = subRowsVerifikasiKelengkapanCalonSiswa.getChildren();
 			for (Row row : rowsVerifikasi) {
-				if (row.getAttribute("checkbox") != null) {
-					Checkbox checkbox = (Checkbox) row.getAttribute("checkbox");
-					VerifikasiKelengkapanCalonSiswa verifikasiKelengkapanCalonSiswa = (VerifikasiKelengkapanCalonSiswa) row
-							.getAttribute("verifikasiKelengkapanCalonSiswa");
-					CalonSiswaPunyaVerifikasiBerkas calonSiswaPunyaVerifikasiBerkas = (CalonSiswaPunyaVerifikasiBerkas) row
-							.getAttribute("calonSiswaPunyaVerifikasiBerkas");
-
-					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
-							&& row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan")
-									: null);
-
-					if (calonSiswaPunyaVerifikasiBerkas == null) {
-						calonSiswaPunyaVerifikasiBerkas = new CalonSiswaPunyaVerifikasiBerkas();
-						calonSiswaPunyaVerifikasiBerkas.setCalonSiswa(calonSiswa);
-						calonSiswaPunyaVerifikasiBerkas
-								.setVerifikasiKelengkapanCalonSiswa(verifikasiKelengkapanCalonSiswa);
-					}
-					calonSiswaPunyaVerifikasiBerkas.setVerified(checkbox.isChecked());
-					calonSiswaPunyaVerifikasiBerkas.setKeterangan(keterangan.getValue());
-					Common.refreshSaveOrUpdate(calonSiswaPunyaVerifikasiBerkas);
+				/*
+				 * PENAUTAN TERTUNDA (bagian 3 dari 3).
+				 *
+				 * Sebelumnya baris HANYA diproses bila punya atribut "checkbox", padahal
+				 * checkbox itu hanya dibuat pada cabang ADMIN. Akibatnya berkas yang diunggah
+				 * calon siswa sendiri (jalur pendaftaran) tidak pernah tersimpan penghubungnya.
+				 * Sekarang setiap baris yang mengenal jenis berkasnya ikut diproses; nilai
+				 * verified/keterangan tetap HANYA disentuh bila checkbox-nya memang ada,
+				 * sehingga perilaku layar admin tidak berubah.
+				 */
+				VerifikasiKelengkapanCalonSiswa verifikasiKelengkapanCalonSiswa = (VerifikasiKelengkapanCalonSiswa) row
+						.getAttribute("verifikasiKelengkapanCalonSiswa");
+				if (verifikasiKelengkapanCalonSiswa == null) {
+					continue;
 				}
+				Checkbox checkbox = (Checkbox) ((row.getAttribute("checkbox") instanceof Checkbox)
+						? row.getAttribute("checkbox") : null);
+				Object lampiranBaru = row.getAttribute("lampiranBaru");
+				if (checkbox == null && !(lampiranBaru instanceof LampiranLain)) {
+					continue;
+				}
+
+				CalonSiswaPunyaVerifikasiBerkas calonSiswaPunyaVerifikasiBerkas = (CalonSiswaPunyaVerifikasiBerkas) row
+						.getAttribute("calonSiswaPunyaVerifikasiBerkas");
+
+				Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
+						&& row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan")
+								: null);
+
+				if (calonSiswaPunyaVerifikasiBerkas == null) {
+					calonSiswaPunyaVerifikasiBerkas = new CalonSiswaPunyaVerifikasiBerkas();
+					calonSiswaPunyaVerifikasiBerkas
+							.setVerifikasiKelengkapanCalonSiswa(verifikasiKelengkapanCalonSiswa);
+				}
+				// Calon siswa sudah punya id di titik ini (dipanggil SETELAH calon siswa disimpan).
+				calonSiswaPunyaVerifikasiBerkas.setCalonSiswa(calonSiswa);
+				if (checkbox != null) {
+					calonSiswaPunyaVerifikasiBerkas.setVerified(checkbox.isChecked());
+					if (keterangan != null) {
+						calonSiswaPunyaVerifikasiBerkas.setKeterangan(keterangan.getValue());
+					}
+				}
+				Common.refreshSaveOrUpdate(calonSiswaPunyaVerifikasiBerkas);
+
+				if (lampiranBaru instanceof LampiranLain && calonSiswaPunyaVerifikasiBerkas.getId() != null) {
+					tautkanLampiranTertunda((LampiranLain) lampiranBaru,
+							calonSiswaPunyaVerifikasiBerkas.getId());
+					row.removeAttribute("lampiranBaru");
+				}
+			}
+		}
+	}
+
+	/**
+	 * Tautkan berkas yang diunggah SEBELUM baris penghubungnya punya id.
+	 *
+	 * <p>Berkas lampiran disimpan pada basis data STREAMING (terpisah dari basis data utama),
+	 * sehingga pembaruan acuannya memakai sesi streaming - pola yang sama dipakai
+	 * {@code CalonSiswaAction} saat menautkan foto dan lampiran Form Tambahan setelah simpan.</p>
+	 *
+	 * <p>Kegagalan di sini TIDAK boleh menggagalkan pendaftaran yang sudah tersimpan: berkas
+	 * masih bisa diunggah ulang, sedangkan data pendaftarannya tidak boleh hilang.</p>
+	 */
+	private static void tautkanLampiranTertunda(LampiranLain lampiran, Long idPenghubung) {
+		if (lampiran == null || idPenghubung == null) {
+			return;
+		}
+		if (idPenghubung.equals(lampiran.getRef())) {
+			return;
+		}
+		Session streamingSession = null;
+		try {
+			streamingSession = ais.database.hibernate.StreamingHibernateUtil.getInstance().currentSession();
+			streamingSession.getTransaction().begin();
+			streamingSession.refresh(lampiran);
+			lampiran.setRef(idPenghubung);
+			streamingSession.update(lampiran);
+			streamingSession.getTransaction().commit();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "VerifikasiPSBHelper.tautkanLampiranTertunda");
+			try {
+				if (streamingSession != null && streamingSession.getTransaction() != null
+						&& streamingSession.getTransaction().isActive()) {
+					streamingSession.getTransaction().rollback();
+				}
+			} catch (Exception abaikan) {
+			}
+		} finally {
+			try {
+				ais.database.hibernate.StreamingHibernateUtil.getInstance().closeSession();
+			} catch (Exception abaikan) {
 			}
 		}
 	}

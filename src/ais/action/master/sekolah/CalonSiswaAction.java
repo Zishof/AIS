@@ -3910,10 +3910,20 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		parameterTambahanListener = new ParameterTambahanPsbListener(calonSiswa, parameterRows, lampiranLains,
 				gelombangPendaftaran, false, rows);
 
-		if (calonSiswa.getId() != null) {
-			subRowsVerifikasiKelengkapanCalonSiswa = VerifikasiPSBHelper.tampilkanVerifikasi(calonSiswa, rows, null,
-					calonSiswa.getGelombangPendaftaranPsb());
+		/*
+		 * Verifikasi Kelengkapan Berkas kini ikut tampil pada PENDAFTARAN BARU supaya
+		 * orang tua bisa mengunggah KK, akta, dan berkas lain sekaligus. Berkasnya
+		 * ditautkan belakangan oleh VerifikasiPSBHelper.simpanVerifikasi() (penautan
+		 * tertunda), sama seperti mekanisme foto calon siswa.
+		 */
+		subRowsVerifikasiKelengkapanCalonSiswa = VerifikasiPSBHelper.tampilkanVerifikasi(calonSiswa, rows,
+				calonSiswa.getId() != null ? null : gelombangPendaftaran, calonSiswa.getGelombangPendaftaranPsb());
 
+		/*
+		 * Verifikasi nilai rapor dan nilai parameter tetap khusus data tersimpan: keduanya
+		 * milik petugas dan belum punya penautan tertunda.
+		 */
+		if (calonSiswa.getId() != null) {
 			subRowsVerifikasiNilaiRapor = VerifikasiMatapelajaranPSBHelper.tampilkanVerifikasi(calonSiswa, rows,
 					gelombangPendaftaran);
 
