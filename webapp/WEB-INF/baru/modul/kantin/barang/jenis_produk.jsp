@@ -157,14 +157,17 @@ boolean isAdmin = (toko == null);
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Pendapatan Penjualan")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunPendapatan<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
                                             <select class="form-select form-select-sm shadow-sm" id="inputAkunPendapatan<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun PPN Keluaran")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunPpnKeluaran<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
                                             <select class="form-select form-select-sm shadow-sm" id="inputAkunPpnKeluaran<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun HPP (Beban Pokok Penjualan)")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunHpp<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
                                             <select class="form-select form-select-sm shadow-sm" id="inputAkunHpp<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
                                         </div>
                                     </div>
@@ -225,23 +228,52 @@ boolean isAdmin = (toko == null);
     };
 
     // Pemilih Akun (mirror AmbilDataAkunBanbox versi ZK): daftar akun dari akunting.akun.
-    let akunOptionsHtml<%=rnd%> = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+    // Dilengkapi kotak cari (kode & nama) karena bagan akun bisa ratusan baris
+    // sehingga dropdown polos sulit dipakai.
+    const ID_AKUN<%=rnd%> = ['inputAkunPendapatan<%=rnd%>', 'inputAkunPpnKeluaran<%=rnd%>', 'inputAkunHpp<%=rnd%>'];
+    let akunDaftar<%=rnd%> = [];
+    const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
+        const kunci = (kata || '').trim().toLowerCase().split(/\s+/).filter((k) => k.length > 0);
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+        (akunDaftar<%=rnd%> || []).forEach((a) => {
+            const teks = ((a.kode || '') + ' ' + (a.nama || '')).toLowerCase();
+            let cocok = true;
+            kunci.forEach((k) => { if (teks.indexOf(k) < 0) { cocok = false; } });
+            // Akun yang sedang terpilih selalu ikut ditampilkan supaya nilainya
+            // tidak hilang ketika daftar sedang tersaring.
+            const iniTerpilih = nilai !== null && nilai !== undefined && nilai !== '' && (a.id + '') === (nilai + '');
+            if (!cocok && !iniTerpilih) { return; }
+            html += '<option value="' + a.id + '">' + escAkun<%=rnd%>((a.kode || '') + ' - ' + (a.nama || '')) + '</option>';
+        });
+        return html;
+    };
+    const terapkanFilterAkun<%=rnd%> = (sid) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        const cur = el.value;
+        el.innerHTML = opsiAkunHtml<%=rnd%>(box ? box.value : '', cur);
+        el.value = cur;
+    };
     const loadAkunOptions<%=rnd%> = async () => {
         const list = await fetchData<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
-        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
-        (list || []).forEach((a) => {
-            const label = ((a.kode || '') + ' - ' + (a.nama || '')).replace(/</g, '&lt;').replace(/"/g, '&quot;');
-            html += '<option value="' + a.id + '">' + label + '</option>';
-        });
-        akunOptionsHtml<%=rnd%> = html;
-        ['inputAkunPendapatan<%=rnd%>', 'inputAkunPpnKeluaran<%=rnd%>', 'inputAkunHpp<%=rnd%>'].forEach((sid) => {
-            const el = document.getElementById(sid);
-            if (el) { const cur = el.value; el.innerHTML = html; el.value = cur; }
-        });
+        akunDaftar<%=rnd%> = list || [];
+        ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
     };
+    ID_AKUN<%=rnd%>.forEach((sid) => {
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.addEventListener('input', function() { terapkanFilterAkun<%=rnd%>(sid); }); }
+    });
     const setAkunSelect<%=rnd%> = (sid, val) => {
         const el = document.getElementById(sid);
-        if (el) { el.value = (val === null || val === undefined) ? '' : (val + ''); }
+        if (!el) { return; }
+        // Kotak cari dikosongkan dulu agar nilai dari server pasti ada di daftar.
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.value = ''; }
+        const v = (val === null || val === undefined) ? '' : (val + '');
+        el.innerHTML = opsiAkunHtml<%=rnd%>('', v);
+        el.value = v;
     };
 
     // Label UI Switch Status Aktif

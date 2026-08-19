@@ -43,6 +43,7 @@ public class BankAction extends GenericCrudAction<Bank> {
     private static final long serialVersionUID = -5779730267402400328L;
 
     // Form fields — direset setiap buildFormContent dipanggil
+    private Textbox kode;
     private Textbox nama;
     private Textbox keterangan;
     private AmbilDataAkunBanbox akun;
@@ -66,7 +67,7 @@ public class BankAction extends GenericCrudAction<Bank> {
 
     @Override
     protected String[] getDownloadUploadContents() {
-        return new String[] { "id", "nama", "akun", "keterangan", "aktif" };
+        return new String[] { "id", "kode", "nama", "akun", "keterangan", "aktif" };
     }
 
     @Override
@@ -76,9 +77,12 @@ public class BankAction extends GenericCrudAction<Bank> {
         if (order) {
             criteria.addOrder(Order.asc("nama"));
         }
+        // Pencarian mencakup kode maupun nama bank.
         criteria.add(searchnama == null || searchnama.getValue().trim().isEmpty()
                 ? Restrictions.sqlRestriction("true")
-                : Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE));
+                : Restrictions.or(
+                        Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE),
+                        Restrictions.ilike("kode", searchnama.getValue().trim(), MatchMode.ANYWHERE)));
         return criteria;
     }
 
@@ -111,6 +115,10 @@ public class BankAction extends GenericCrudAction<Bank> {
         rows.setParent(formGrid);
 
         FormBuilder fb = new FormBuilder(rows);
+
+        kode = new Textbox(bank.getKode());
+        kode.setWidth("100%");
+        fb.addRow("Kode Bank", kode);
 
         nama = new Textbox(bank.getNama());
         nama.setWidth("100%");
@@ -174,6 +182,15 @@ public class BankAction extends GenericCrudAction<Bank> {
             		});
             return false;
         }
+        if (checkKodeBank()) {
+            PesanFormalHelper.tampilkanGagal("penyimpanan data bank",
+            		"Kode bank sudah dipakai bank lain, sehingga tidak dapat disimpan kembali untuk menghindari duplikasi data.",
+            		new String[] {
+            				"Gunakan kode bank yang berbeda dari data yang sudah ada.",
+            				"Kosongkan kolom Kode Bank apabila memang belum dipakai."
+            		});
+            return false;
+        }
         if (checkNamaBank()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data bank",
             		"Nama bank sudah terdaftar sebelumnya di database, sehingga tidak dapat disimpan kembali untuk menghindari duplikasi data.",
@@ -189,11 +206,29 @@ public class BankAction extends GenericCrudAction<Bank> {
             entity = (Bank) session.load(Bank.class, entity.getId());
             currentEntity = entity;
         }
+        entity.setKode(kode.getValue() == null ? null : kode.getValue().trim());
         entity.setNama(nama.getValue());
         entity.setAkun((Akun) akun.getAttribute("akun"));
         entity.setKeterangan(keterangan.getValue());
         Common.refreshSaveOrUpdate(session, entity);
         return true;
+    }
+
+    /** Kode bank wajib unik bila diisi; kosong dibiarkan (data lama belum berkode). */
+    private boolean checkKodeBank() {
+        String k = kode.getValue() == null ? "" : kode.getValue().trim();
+        if (k.isEmpty()) {
+            return false;
+        }
+        Session session = HibernateUtil.currentSession();
+        int count = ((Number) session.createCriteria(Bank.class)
+                .setProjection(org.hibernate.criterion.Projections.rowCount())
+                .add(Restrictions.eq("kode", k))
+                .add(currentEntity == null || currentEntity.getId() == null
+                        ? Restrictions.sqlRestriction("1=1")
+                        : Restrictions.ne("id", currentEntity.getId()))
+                .uniqueResult()).intValue();
+        return count != 0;
     }
 
     private boolean checkNamaBank() {
@@ -217,7 +252,9 @@ public class BankAction extends GenericCrudAction<Bank> {
             arg0.setValign("top");
             final Bank bank = (Bank) arg1;
 
-            RevisiHelper.createNewRevisi(Bank.class, bank, bank.getNama()).setParent(arg0);
+            String kodeBank = bank.getKode() == null ? "" : bank.getKode().trim();
+            RevisiHelper.createNewRevisi(Bank.class, bank,
+                    (kodeBank.isEmpty() ? "" : kodeBank + " - ") + bank.getNama()).setParent(arg0);
             new Label(bank.getAkun() == null ? ""
                     : bank.getAkun().getKode() + "-" + bank.getAkun().getNama()).setParent(arg0);
             new Label(bank.getKeterangan()).setParent(arg0);
