@@ -344,6 +344,9 @@ public class PerformaSnapshotUtil {
 			tulisGagal(detail, "Runtime", t);
 		}
 
+		// ------------------------------------------------- Metrik optimasi (Fase 1-10)
+		tambahMetrikOptimasi(detail);
+
 		// ---------------------------------------------------------------- Rekomendasi
 		analisa.rekomendasi = bangunRekomendasi(performaLog, analisa);
 
@@ -397,6 +400,84 @@ public class PerformaSnapshotUtil {
 	/**
 	 * Membaca snapshot performa JVM saat ini sebagai {@link PerformaLog} yang BELUM disimpan.
 	 */
+	/**
+	 * Menambahkan METRIK OPTIMASI (Fase 1-10) ke laporan snapshot.
+	 *
+	 * <p>Tanpa angka-angka ini hasil seluruh fase optimasi tidak dapat dibuktikan. Tiap baris
+	 * memetakan langsung ke satu perbaikan: pool koneksi c3p0 per factory (Fase 4, kapasitas
+	 * 6.100 turun ke 115), pool tugas latar dan sesi online (Fase 1 dan 5), slot laporan
+	 * (Fase 6), serta isi cache memori (Fase 2 dan 3).</p>
+	 *
+	 * <p>SELURUH pembacaan dibungkus try/catch sendiri-sendiri: snapshot tidak boleh gagal
+	 * hanya karena satu sumber metrik tak tersedia. Tidak ada data pribadi maupun kredensial
+	 * yang ditulis (hanya nama pool dan angka).</p>
+	 */
+	private static void tambahMetrikOptimasi(StringBuilder detail) {
+		detail.append("\n--- METRIK OPTIMASI (Fase 1-10) ---\n");
+
+		// Pool koneksi c3p0 (Fase 4). Refleksi agar tidak mengikat versi c3p0.
+		try {
+			Class<?> registry = Class.forName("com.mchange.v2.c3p0.C3P0Registry");
+			Object set = registry.getMethod("getPooledDataSources", new Class[0]).invoke(null, new Object[0]);
+			int jumlahPool = 0;
+			if (set instanceof java.util.Collection) {
+				for (Object pds : (java.util.Collection<?>) set) {
+					if (pds == null) {
+						continue;
+					}
+					jumlahPool++;
+					detail.append("Pool c3p0    : ").append(bacaMetrik(pds, "getDataSourceName"))
+							.append(" total=").append(bacaMetrik(pds, "getNumConnectionsDefaultUser"))
+							.append(", sibuk=").append(bacaMetrik(pds, "getNumBusyConnectionsDefaultUser"))
+							.append(", idle=").append(bacaMetrik(pds, "getNumIdleConnectionsDefaultUser"))
+							.append(", menunggu=").append(bacaMetrik(pds, "getNumThreadsAwaitingCheckoutDefaultUser"))
+							.append("\n");
+				}
+			}
+			if (jumlahPool == 0) {
+				detail.append("Pool c3p0    : belum ada pool aktif\n");
+			}
+		} catch (Throwable t) {
+			detail.append("Pool c3p0    : tidak terbaca (").append(t.getClass().getSimpleName()).append(")\n");
+		}
+
+		// Pool tugas latar / server push (Fase 1 dan 5)
+		try {
+			detail.append("Pool async   : ").append(ais.common.AsyncTaskManager.statistikPool()).append("\n");
+		} catch (Throwable t) {
+			detail.append("Pool async   : tidak terbaca\n");
+		}
+
+		// Sesi pengguna online (Fase 1: registry sesi dibersihkan terpusat)
+		try {
+			detail.append("Sesi online  : ").append(ais.common.SecurityFilter.dataOnline.size()).append("\n");
+		} catch (Throwable t) {
+			detail.append("Sesi online  : tidak terbaca\n");
+		}
+
+		// Slot laporan (Fase 6)
+		try {
+			detail.append("Slot laporan : ").append(ais.action.report.ReportThrottle.statistik()).append("\n");
+		} catch (Throwable t) {
+			detail.append("Slot laporan : tidak terbaca\n");
+		}
+
+		// Cache memori (Fase 2 dan 3)
+		try {
+			detail.append("Cache memori : ").append(ais.common.MemoryCacheUtil.statistik()).append("\n");
+		} catch (Throwable t) {
+			detail.append("Cache memori : tidak terbaca\n");
+		}
+	}
+
+	/** Panggil getter tanpa argumen lewat refleksi; kembalikan "-" bila tidak tersedia. */
+	private static Object bacaMetrik(Object target, String namaGetter) {
+		try {
+			return target.getClass().getMethod(namaGetter, new Class[0]).invoke(target, new Object[0]);
+		} catch (Throwable t) {
+			return "-";
+		}
+	}
 	public static PerformaLog captureNow() {
 		return analisaLengkap().ringkas;
 	}

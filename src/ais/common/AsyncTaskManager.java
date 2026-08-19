@@ -143,6 +143,26 @@ public class AsyncTaskManager {
 	 * terpisah). WAJIB dipasangkan dengan {@link #lepasPush(Desktop)} pada titik akhir alur,
 	 * jika tidak push akan bocor dan browser terus polling selamanya.</p>
 	 */
+	/**
+	 * Ringkasan kondisi pool async untuk snapshot performa (OPTIMASI FASE 10).
+	 * Dipakai membuktikan batas pool dan pelepasan tugas latar benar-benar bekerja.
+	 * Menelan seluruh kegagalan agar tidak pernah menggagalkan pembuatan snapshot.
+	 */
+	public static String statistikPool() {
+		try {
+			if (EXECUTOR instanceof java.util.concurrent.ThreadPoolExecutor) {
+				java.util.concurrent.ThreadPoolExecutor tpe = (java.util.concurrent.ThreadPoolExecutor) EXECUTOR;
+				return "aktif=" + tpe.getActiveCount()
+						+ ", pool=" + tpe.getPoolSize() + "/" + tpe.getMaximumPoolSize()
+						+ ", antre=" + tpe.getQueue().size()
+						+ ", selesai=" + tpe.getCompletedTaskCount()
+						+ (EXECUTOR.isShutdown() ? ", SUDAH-SHUTDOWN" : "");
+			}
+			return "tidak tersedia (bukan ThreadPoolExecutor)";
+		} catch (Throwable t) {
+			return "gagal dibaca: " + t.getClass().getSimpleName();
+		}
+	}
 	public static void tambahPush(Desktop desktop) {
 		increfServerPush(desktop);
 	}
