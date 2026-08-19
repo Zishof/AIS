@@ -60,6 +60,16 @@ public final class LaporanKatalogData {
 
     private static JSONObject item(String id, String judul, String ket, boolean produk, boolean pelanggan,
             boolean perToko, String url) throws Exception {
+        return item(id, judul, ket, produk, pelanggan, perToko, url, false);
+    }
+
+    /**
+     * Varian dengan flag {@code stokPerTanggal}: memberi tahu SEMUA penyaji (JSP, ZK, PDF, dan API
+     * POS Desktop/Android) bahwa laporan ini memakai panel filter stok -- "Per Tanggal" (acuan
+     * saldo), Kategori/Jenis Barang, Grup Produk, Hanya Aktif, dan Sembunyikan Stok Nol.
+     */
+    private static JSONObject item(String id, String judul, String ket, boolean produk, boolean pelanggan,
+            boolean perToko, String url, boolean stokPerTanggal) throws Exception {
         JSONObject o = new JSONObject();
         o.put("id", id);
         o.put("judul", Common.getBahasaConfig(judul));
@@ -67,6 +77,7 @@ public final class LaporanKatalogData {
         if (produk) o.put("produk", true);
         if (pelanggan) o.put("pelanggan", true);
         if (perToko) o.put("perToko", true);
+        if (stokPerTanggal) o.put("stokPerTanggal", true);
         if (url != null) o.put("url", url);
         return o;
     }
@@ -162,6 +173,9 @@ public final class LaporanKatalogData {
         semua.add(k);
 
         k = new Kat("Pergudangan — Kartu & Mutasi");
+        k.items.add(item("stok_per_tanggal", "Stok Barang per Tanggal",
+                "Saldo stok tiap barang pada tanggal tertentu; filter kategori/grup, unduh Excel atau PDF.",
+                true, false, true, null, true));
         k.items.add(item("wh_kartu_stok", "Kartu Stok Barang", "Riwayat masuk/keluar/transfer/koreksi + saldo berjalan.", true, false, false, null));
         k.items.add(item("wh_mutasi_harian", "Mutasi Stok Harian", "Total barang masuk & keluar tiap hari."));
         k.items.add(item("wh_mutasi_barang", "Mutasi Stok per Barang", "Rekap masuk/keluar/perubahan bersih per produk.", true, false, false, null));

@@ -355,6 +355,17 @@ public final class LaporanKantinUtil {
 
             String qp = ada(qProduk) ? ("%" + qProduk.trim().toLowerCase() + "%") : null;
             String qc = ada(qPelanggan) ? ("%" + qPelanggan.trim().toLowerCase() + "%") : null;
+            // Filter tambahan laporan stok (dipakai "stok_per_tanggal"): kategori/jenis barang,
+            // grup produk, hanya barang aktif, dan sembunyikan stok nol. Semua opsional --
+            // laporan lain mengabaikannya sehingga tidak mengubah perilaku yang sudah ada.
+            Long jenisProdukId = null;
+            String jpParam = request.getParameter("jenisProdukId");
+            if (ada(jpParam)) { try { jenisProdukId = Long.valueOf(jpParam.trim()); } catch (Exception e) { jenisProdukId = null; } }
+            Long grupProdukId = null;
+            String gpParam = request.getParameter("grupProdukId");
+            if (ada(gpParam)) { try { grupProdukId = Long.valueOf(gpParam.trim()); } catch (Exception e) { grupProdukId = null; } }
+            boolean hanyaAktif = "true".equalsIgnoreCase(request.getParameter("hanyaAktif"));
+            boolean hanyaStokTidakNol = "true".equalsIgnoreCase(request.getParameter("hanyaStokTidakNol"));
 
             if ("pnj_faktur".equals(r)) {
                 judul = "Daftar Faktur Penjualan";
@@ -981,6 +992,59 @@ public final class LaporanKantinUtil {
                 tipe = new String[]{"text","text","text","tgl"};
                 kolom.add(new Kolom("Lokasi","text")); kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Produk","text")); kolom.add(new Kolom("Terakhir Bergerak","tgl"));
 
+            } else if ("stok_per_tanggal".equals(r)) {
+                // "Stok Barang per Tanggal" -- saldo stok SEPERTI PADA tanggal acuan (parameter
+                // tglSampai). Rumusnya MENCERMINKAN PERSIS StokKantinUtil.formulaStokSql (7 suku,
+                // sumber kebenaran stok berjalan), hanya ditambah batas tanggal per tabel sumber
+                // (kolom tanggalnya berbeda-beda: waktupengadaan / waktuopname / waktu). Karena
+                // itu, memilih tanggal HARI INI menghasilkan angka yang sama dengan kolom stok di
+                // layar Produk -- laporan ini rekonsiliasi, bukan rumus tandingan.
+                judul = "Stok Barang per Tanggal"; grupIdx = -1;
+                catatan = "Saldo stok tiap barang pada tanggal acuan (kolom 'Per Tanggal'). "
+                        + "Kosongkan tanggal untuk memakai stok terkini.";
+                String cut = ada(tglSampai) ? " and cast(%s as date) <= cast(:tglSampai as date) " : " and 1=1 ";
+                if (ada(tglSampai)) { prm.put("tglSampai", tglSampai.trim()); }
+                String fStok =
+                      "  coalesce((select sum(x.qty) from koperasi.pengadaan_produk x where x.produk=pr.id"
+                    + String.format(cut, "x.waktupengadaan") + "),0)"
+                    + " + coalesce((select sum(x.selisih) from koperasi.stok_opname x where x.produk=pr.id"
+                    + String.format(cut, "x.waktuopname") + "),0)"
+                    + " - coalesce((select sum(x.qty) from koperasi.pembelian x where x.produk=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)"
+                    + " - coalesce((select sum(x.qty) from koperasi.pemakaian_bahan_baku x where x.produk=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)"
+                    + " + coalesce((select sum(x.qty) from koperasi.retur_penjualan x where x.produk=pr.id"
+                    + " and x.kembalikan_ke_stok = true" + String.format(cut, "x.waktu") + "),0)"
+                    + " + coalesce((select sum(x.qty) from koperasi.mutasi_stok_toko x where x.produk_tujuan=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)"
+                    + " - coalesce((select sum(x.qty) from koperasi.mutasi_stok_toko x where x.produk_asal=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)"
+                    + " - coalesce((select sum(x.qty) from koperasi.retur_pembelian x where x.produk=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("pr.toko", tokoId, prm));
+                if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp or lower(coalesce(pr.barcode,'')) like :qp) "); prm.put("qp", qp); }
+                if (jenisProdukId != null) { w.append(" and pr.jenis_produk = :jenisProdukId "); prm.put("jenisProdukId", jenisProdukId); }
+                if (grupProdukId != null) { w.append(" and pr.grup_produk = :grupProdukId "); prm.put("grupProdukId", grupProdukId); }
+                if (hanyaAktif) { w.append(" and coalesce(pr.aktif,true) = true "); }
+                if (hanyaStokTidakNol) { w.append(" "); }
+                sql = "select s.* from ( select coalesce(pr.kode,'') as kode, coalesce(pr.barcode,'') as barcode,"
+                    + " pr.nama as nama, coalesce(jp.nama,'-') as kategori, coalesce(t.nama,'-') as toko,"
+                    + " coalesce(pr.satuan,'') as satuan, (" + fStok + ") as stok,"
+                    + " coalesce(pr.hargabeli,0) as hargabeli, coalesce(pr.hargajual,0) as hargajual"
+                    + " from koperasi.produk pr"
+                    + " left join koperasi.jenis_produk jp on jp.id = pr.jenis_produk"
+                    + " left join koperasi.toko t on t.id = pr.toko" + w + " ) s"
+                    + (hanyaStokTidakNol ? " where s.stok <> 0 " : "")
+                    + " order by s.toko asc, s.nama asc";
+                sql = sql.replace("select s.* from", "select s.kode, s.barcode, s.nama, s.kategori, s.toko, s.satuan,"
+                    + " s.stok, s.hargabeli, s.hargajual, (s.stok * s.hargabeli) as nilai from");
+                tipe = new String[]{"text","text","text","text","text","text","num","num","num","num"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Barcode","text"));
+                kolom.add(new Kolom("Nama Barang","text")); kolom.add(new Kolom("Kategori","text"));
+                kolom.add(new Kolom("Toko","text")); kolom.add(new Kolom("Satuan","text"));
+                kolom.add(new Kolom("Stok","num")); kolom.add(new Kolom("Harga Beli","num"));
+                kolom.add(new Kolom("Harga Jual","num")); kolom.add(new Kolom("Nilai Stok","num"));
             } else if ("wh_kartu_stok".equals(r)) {
                 judul = "Kartu Stok Barang"; grupIdx = 0;
                 catatan = "Riwayat pergerakan tiap barang (masuk, keluar, transfer, koreksi) beserta saldo berjalan.";

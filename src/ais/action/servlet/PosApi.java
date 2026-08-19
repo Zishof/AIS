@@ -1801,6 +1801,10 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("apotik_resep_")) {
 			return menu.optBoolean("apotik_resep", false) || menu.optBoolean("apotik_kasir", false);
 		}
+		// IR-07: daftar metode pembayaran hanya berguna bagi kasir apotik.
+		if ("apotik_cara_bayar_list".equals(action)) {
+			return menu.optBoolean("apotik_kasir", false);
+		}
 		if (action.startsWith("apotik_item_")) {
 			return menu.optBoolean("apotik_kasir", false) || menu.optBoolean("apotik_formularium", false)
 					|| menu.optBoolean("apotik_stok_opname", false) || menu.optBoolean("apotik_batch", false);

@@ -19,6 +19,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.sirs.ApotikBatchKonsumsi;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.ApotikNarkotikaLog;
+import ais.database.model.sirs.ApotikPembayaranTransaksi;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.Resep;
@@ -814,11 +815,27 @@ public final class ApotikApiHelper {
 					session.save(log);
 				}
 			}
+			// IR-07: catat metode pembayaran DI DALAM transaksi yang sama supaya
+			// tidak pernah ada transaksi tanpa jejak metode saat metode dikirim.
+			if (caraBayar != null) {
+				ApotikPembayaranTransaksi bayarRow = new ApotikPembayaranTransaksi();
+				bayarRow.setTransaksi(trx);
+				bayarRow.setCaraBayar(caraBayar);
+				bayarRow.setNamaCaraBayar(str(caraBayar.getNama()));
+				bayarRow.setNominal(Double.valueOf(total));
+				bayarRow.setReferensi(request == null ? null
+						: request.optString("referensi_bayar", "").trim());
+				bayarRow.setWaktu(new Date());
+				bayarRow.setOleh(tbmuser.getUserId());
+				bayarRow.setOlehId(tbmuser.getUserId());
+				session.save(bayarRow);
+			}
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", trx.getId());
 			hasil.put("kode", str(trx.getKode()));
 			hasil.put("total", total);
+			hasil.put("caraBayar", caraBayar == null ? "" : str(caraBayar.getNama()));
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			ais.common.ErrorAuditUtil.record(e, "ApotikApiHelper.bayar");
