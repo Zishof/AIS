@@ -167,6 +167,26 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 			}
 		});
 		aksi.appendChild(btnPosting);
+		// "Posting Semua yang Siap" -- memakai mode PER transaksi (pola Posting Cicilan
+		// Mahasiswa): setiap baris siap dijurnal sendiri-sendiri, sehingga baris yang
+		// pemetaan akunnya belum lengkap dilewati TANPA memblokir yang lain. Berbeda
+		// dari tombol di sebelah kiri yang memakai mode agregat satu-jurnal-per-periode.
+		Button btnPostingSiap = new Button("Posting Semua yang Siap");
+		btnPostingSiap.setImage("/img/svg/check2-circle.svg");
+		btnPostingSiap.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				JSONObject ringkas = postingPerTransaksi(java.util.Collections.<Long>emptyList());
+				MyMessageboxConfig.show(
+						"Diposting: " + ringkas.optInt("diposting", 0) + " transaksi; dilewati (belum siap): "
+								+ ringkas.optInt("dilewati", 0) + "; gagal: " + ringkas.optInt("gagal", 0)
+								+ (ringkas.optString("pesan", "").isEmpty() ? ""
+										: ". " + ringkas.optString("pesan", "")),
+						"Hasil Posting", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				hitungPreview();
+			}
+		});
+		aksi.appendChild(btnPostingSiap);
 
 		Date lastEnd = lastPostedEnd();
 		java.util.Calendar c = java.util.Calendar.getInstance();
@@ -832,6 +852,20 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 						.append("</td><td style='padding:1px 4px;text-align:right;'>")
 						.append(kr > 0 ? DashboardUiKit.money(kr) : "").append("</td></tr>");
 			}
+			double totD = 0, totK = 0;
+			for (int k = 0; jr != null && k < jr.length(); k++) {
+				org.json.JSONObject b2 = jr.optJSONObject(k);
+				if (b2 == null) {
+					continue;
+				}
+				totD += b2.optDouble("debit", 0);
+				totK += b2.optDouble("kredit", 0);
+			}
+			j.append("<tr style='border-top:1px solid #cbd5e1;font-weight:700;'>")
+					.append("<td style='padding:1px 4px;'>Total</td>")
+					.append("<td style='padding:1px 4px;text-align:right;'>").append(DashboardUiKit.money(totD))
+					.append("</td><td style='padding:1px 4px;text-align:right;'>").append(DashboardUiKit.money(totK))
+					.append("</td></tr>");
 			j.append("</table>");
 			row.appendChild(DashboardUiKit.html(j.toString()));
 			row.appendChild(DashboardUiKit.html(siap
