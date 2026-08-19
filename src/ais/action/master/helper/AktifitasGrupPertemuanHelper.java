@@ -242,11 +242,14 @@ public class AktifitasGrupPertemuanHelper {
 
 					// Server push wajib agar label.setValue() dari Thread terdeteksi Timer
 					final org.zkoss.zk.ui.Desktop threadDesktop = org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
-					if (threadDesktop != null && !threadDesktop.isServerPushEnabled()) {
-						threadDesktop.enableServerPush(true);
-					}
 
-					new Thread(new Runnable() {
+					/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH
+					 * dimatikan, sehingga browser terus polling (menahan thread Tomcat) selama tab
+					 * terbuka walau proses sudah selesai. Tugas juga dijalankan pada thread MENTAH
+					 * tanpa batas. jalankanDenganPush() menyalakan push ber-reference-count,
+					 * menjalankan tugas pada pool daemon berbatas milik AsyncTaskManager, lalu
+					 * MELEPAS push di finally. */
+					ais.common.AsyncTaskManager.jalankanDenganPush(threadDesktop, new Runnable() {
 
 						@SuppressWarnings("rawtypes")
 						private void setLabel(String nilai) {
@@ -378,7 +381,7 @@ public class AktifitasGrupPertemuanHelper {
 
 							setLabel("");
 						}
-					}).start();
+					});
 
 				}
 			}

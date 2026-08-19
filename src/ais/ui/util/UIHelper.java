@@ -374,6 +374,56 @@ public class UIHelper {
 
         // ── Fase 6: kecilkan kolom Aksi — set lebar Column grid ke 56px ──────
         kecilkanKolomAksi(row, kebabHbox);
+
+        // ── Fase 7: buang PITA KOSONG di kanan tabel ────────────────────────
+        rapikanKolomSisaKanan(row);
+    }
+
+    /**
+     * Hilangkan pita kosong di sisi KANAN grid.
+     *
+     * <p><b>Akar masalah.</b> Fase 5 memanggil {@code hbox.detach()} untuk sel tombol yang
+     * sudah diserap ke dalam kebab. Akibatnya jumlah SEL pada baris menjadi lebih sedikit
+     * daripada jumlah {@code <column>} yang dideklarasikan di ZUL, dan ZK merender kolom
+     * sisa itu sebagai ruang kosong lebar di ujung kanan tabel. Sebagian layar juga memang
+     * sejak awal mendeklarasikan kolom kosong tambahan di ZUL.</p>
+     *
+     * <p><b>Perbaikan.</b> Ciutkan kolom sisa (lebar 0 + disembunyikan) mulai dari paling
+     * kanan. Pembersihan BERHENTI begitu menemukan kolom yang punya label — kolom berlabel
+     * adalah kolom nyata milik layar dan tidak boleh disentuh, sekalipun barisnya sedang
+     * kosong. Dengan begitu perbaikan ini hanya membuang kolom yang benar-benar tak berisi
+     * apa pun, dan berlaku otomatis untuk SELURUH grid tanpa perlu mengubah ratusan ZUL.</p>
+     */
+    private static void rapikanKolomSisaKanan(Row row) {
+        try {
+            Component rows = row.getParent();
+            if (rows == null || !(rows.getParent() instanceof Grid)) {
+                return;
+            }
+            Grid grid = (Grid) rows.getParent();
+            if (grid.getColumns() == null) {
+                return;
+            }
+            List<Object> cols = new ArrayList<Object>(grid.getColumns().getChildren());
+            int jumlahSel = row.getChildren().size();
+            for (int i = cols.size() - 1; i >= jumlahSel; i--) {
+                Object col = cols.get(i);
+                if (!(col instanceof Column)) {
+                    continue;
+                }
+                Column column = (Column) col;
+                String label = column.getLabel() == null ? "" : column.getLabel().trim();
+                if (label.length() > 0) {
+                    // Kolom berlabel = kolom nyata milik layar -> berhenti, jangan disentuh.
+                    break;
+                }
+                if (column.isVisible()) {
+                    column.setWidth("0px");
+                    column.setVisible(false);
+                }
+            }
+        } catch (Exception ignore) {
+        }
     }
 
     /** True bila child adalah sel kebab itu sendiri atau Vbox pembungkusnya. */

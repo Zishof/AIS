@@ -469,15 +469,17 @@ public class RecoveryPertemuanHelper extends MyWindow {
 											.synchronizedList(new ArrayList<String>());
 									final Desktop desktop = Executions.getCurrent().getDesktop();
 
-									// Enable Server Push (Wajib untuk modifikasi UI dari Thread)
-									if (!desktop.isServerPushEnabled()) {
-										desktop.enableServerPush(true);
-									}
-
 									// Kunci tombol agar tidak di-klik ganda
 									labelLoading.setValue("Memulai proses...");
 
-									new Thread(new Runnable() {
+									/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi
+									 * TIDAK PERNAH dimatikan, sehingga browser terus polling
+									 * (menahan thread Tomcat) selama tab terbuka walau proses sudah
+									 * selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+									 * jalankanDenganPush() menyalakan push ber-reference-count,
+									 * menjalankan tugas pada pool daemon berbatas milik
+									 * AsyncTaskManager, lalu MELEPAS push di finally. */
+									ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 										@Override
 										public void run() {
 											Session session = null;
@@ -563,7 +565,7 @@ public class RecoveryPertemuanHelper extends MyWindow {
 												}
 											}
 										}
-									}).start();
+									});
 								}
 							}
 						});

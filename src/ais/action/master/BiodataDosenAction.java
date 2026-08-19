@@ -4121,13 +4121,14 @@ public class BiodataDosenAction extends MyWindow {
 
 					if (Common.bolehKonfigurasi("terhubung_ke_dspace", Konfigurasi.TIDAK_AKTIF)) {
 
-						Hbox toolbar = new Hbox();
-						toolbar.setParent(myVbox);
+						// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+						final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+								new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 						final MyToolbarbuttonConfig exportKeOjs = new MyToolbarbuttonConfig("Ekspor",
 								"/img/corner.gif");
 						exportKeOjs.setStyle("font-size:9px;");
-						toolbar.appendChild(exportKeOjs);
+						aksiButtons.add(exportKeOjs);
 						exportKeOjs.setVisible(Common.bolehKonfigurasi("terhubung_ke_dspace", Konfigurasi.TIDAK_AKTIF)
 								&& Common.bolehKonfigurasi("biodata_dosen_terhubung_ke_dspace"));
 
@@ -4215,7 +4216,7 @@ public class BiodataDosenAction extends MyWindow {
 
 						MyToolbarbuttonConfig batalExport = new MyToolbarbuttonConfig("Batalkan Ekspor",
 								"/img/svg/trash.svg");
-						toolbar.appendChild(batalExport);
+						aksiButtons.add(batalExport);
 						batalExport.setVisible(Common.bolehKonfigurasi("terhubung_ke_dspace", Konfigurasi.TIDAK_AKTIF)
 								&& Common.bolehKonfigurasi("biodata_dosen_terhubung_ke_dspace"));
 						batalExport.addEventListener("onClick", new EventListener() {
@@ -4353,6 +4354,8 @@ public class BiodataDosenAction extends MyWindow {
 										});
 							}
 						});
+
+						ais.ui.util.UIHelper.buatBarisAksi(myVbox, 3, aksiButtons);
 
 					}
 

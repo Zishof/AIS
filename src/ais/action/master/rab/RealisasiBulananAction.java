@@ -2120,18 +2120,21 @@ public class RealisasiBulananAction extends GenericAutowireComposer {
 						int response = Integer.parseInt(ev.getData().toString());
 						if (response == MyMessageboxConfig.OK) {
 
-							// 3. Persiapan Server Push ZKoss
+							// 3. Persiapan Desktop ZKoss
 							final org.zkoss.zk.ui.Desktop desktop = org.zkoss.zk.ui.Executions.getCurrent()
 									.getDesktop();
-							if (!desktop.isServerPushEnabled()) {
-								desktop.enableServerPush(true);
-							}
 
 							// Listener callback kita simpan dulu
 							final Label label = Common.displayLoadBar(callbackListener);
 
-							// 4. Jalankan Background Thread Utama yang akan mengontrol Thread Pool
-							new Thread(new Runnable() {
+							/* 4. Jalankan tugas latar utama yang mengontrol Thread Pool. OPTIMASI
+							 * FASE 5: server push dulu dinyalakan di atas tetapi TIDAK PERNAH
+							 * dimatikan, sehingga browser terus polling (menahan thread Tomcat)
+							 * selama tab terbuka walau proses sudah selesai. Tugas juga dijalankan
+							 * pada thread MENTAH tanpa batas. jalankanDenganPush() menyalakan push
+							 * ber-reference-count, memakai pool daemon berbatas milik
+							 * AsyncTaskManager, lalu MELEPAS push di finally. */
+							ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 
 								// Helper untuk merubah tulisan Label Load Bar dari dalam Thread
 								private void updateProgress(final org.zkoss.zk.ui.Desktop desktop, final Label label,
@@ -2273,7 +2276,7 @@ public class RealisasiBulananAction extends GenericAutowireComposer {
 									}
 								}
 
-							}).start();
+							});
 						}
 					}
 				});

@@ -430,13 +430,15 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		// 3. Parsing loadingContainer ke displayLoadBar
 		final Label label = Common.displayLoadBar(this, file, loadingContainer, sizedata, sizedataCol);
 
-		// Tangkap Desktop dan aktifkan Server Push untuk ZK 5.5
+		// Tangkap Desktop untuk ZK 5.5
 		final Desktop desktop = Executions.getCurrent().getDesktop();
-		if (!desktop.isServerPushEnabled()) {
-			desktop.enableServerPush(true);
-		}
 
-		new Thread(new Runnable() {
+		/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+		 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+		 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+		 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+		 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 			@SuppressWarnings({ "unchecked" })
 			@Override
 			public void run() {
@@ -947,7 +949,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 					}
 				}
 			}
-		}).start();
+		});
 	}
 
 	// =========================================================================

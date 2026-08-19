@@ -473,11 +473,6 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 
 		final List<List> data = new ArrayList<List>();
 		final Desktop desktop = Executions.getCurrent().getDesktop();
-		/* enableServerPush wajib dipanggil ketika execution/event ZK masih aktif,
-		 * bukan dari Thread pekerja. */
-		if (!desktop.isServerPushEnabled()) {
-			desktop.enableServerPush(true);
-		}
 		final Map<Long, Map<String, String>> dokumenCache = loadDokumenPerkuliahanBatch(jurusans);
 
 		final String headerText = buildHeaderText(tahunAkd, fak, jur, prog, smstr, dsn);
@@ -489,7 +484,12 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		});
 
 
-		new Thread(new Runnable() {
+		/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+		 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+		 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+		 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+		 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 			@Override
 			public void run() {
 				final int size = jurusans.size();
@@ -788,7 +788,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				safeRenderRekap(desktop, data, headerText);
 				safeUpdateLabel(desktop, label, "");
 			}
-		}).start();
+		});
 	}
 
 	private String buildHeaderText(String tahunAkd, Fakultas fak, Jurusan jur, String prog, String smstr, Dosen dsn) {

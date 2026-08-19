@@ -897,7 +897,14 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 				});
 				aksiButtons.add(button);
 			}
-			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+			// Tampilkan kebab HANYA bila ada tombol; bila akun debet/kredit belum dipetakan
+			// daftar aksi kosong -> isi sel dengan Label kosong supaya kolom tetap sejajar
+			// tanpa memunculkan tombol "..." yang isinya hampa.
+			if (aksiButtons.isEmpty()) {
+				new Label("").setParent(arg0);
+			} else {
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+			}
 
 		}
 	}

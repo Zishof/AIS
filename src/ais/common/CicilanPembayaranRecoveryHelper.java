@@ -67,10 +67,6 @@ public class CicilanPembayaranRecoveryHelper {
 									final List<String> warnings = java.util.Collections.synchronizedList(new ArrayList<String>());
 									final Desktop desktop = Executions.getCurrent().getDesktop();
 
-									if (!desktop.isServerPushEnabled()) {
-										desktop.enableServerPush(true);
-									}
-
 									final Label label = Common.displayLoadBar(new EventListener() {
 										@Override
 										public void onEvent(Event arg0) throws Exception {
@@ -97,7 +93,12 @@ public class CicilanPembayaranRecoveryHelper {
 										}
 									});
 
-									new Thread(new Runnable() {
+									/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+									 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+									 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+									 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+									 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+									ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 										@Override
 										public void run() {
 											try {
@@ -140,7 +141,7 @@ public class CicilanPembayaranRecoveryHelper {
 												}
 											}
 										}
-									}).start();
+									});
 								}
 							}
 						});
@@ -173,7 +174,6 @@ public class CicilanPembayaranRecoveryHelper {
 
 								final List<String> warnings = java.util.Collections.synchronizedList(new ArrayList<String>());
 								final Desktop desktop = Executions.getCurrent().getDesktop();
-								if (!desktop.isServerPushEnabled()) desktop.enableServerPush(true);
 
 								final Label label = Common.displayLoadBar(new EventListener() {
 									@Override
@@ -194,7 +194,12 @@ public class CicilanPembayaranRecoveryHelper {
 									}
 								});
 
-								new Thread(new Runnable() {
+								/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+								 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+								 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+								 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+								 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+								ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 									@Override
 									public void run() {
 										try {
@@ -229,7 +234,7 @@ public class CicilanPembayaranRecoveryHelper {
 											} catch (Exception e) { e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CicilanPembayaranRecoveryHelper.java:229"); }
 										}
 									}
-								}).start();
+								});
 							}
 						});
 			}
@@ -259,7 +264,6 @@ public class CicilanPembayaranRecoveryHelper {
 
 								final List<String> warnings = java.util.Collections.synchronizedList(new ArrayList<String>());
 								final Desktop desktop = Executions.getCurrent().getDesktop();
-								if (!desktop.isServerPushEnabled()) desktop.enableServerPush(true);
 
 								final Label label = Common.displayLoadBar(new EventListener() {
 									@Override
@@ -280,7 +284,12 @@ public class CicilanPembayaranRecoveryHelper {
 									}
 								});
 
-								new Thread(new Runnable() {
+								/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+								 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+								 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+								 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+								 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+								ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 									@Override
 									public void run() {
 										try {
@@ -315,7 +324,7 @@ public class CicilanPembayaranRecoveryHelper {
 											} catch (Exception e) { e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CicilanPembayaranRecoveryHelper.java:315"); }
 										}
 									}
-								}).start();
+								});
 							}
 						});
 			}

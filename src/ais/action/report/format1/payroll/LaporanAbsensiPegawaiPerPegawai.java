@@ -452,8 +452,10 @@ public class LaporanAbsensiPegawaiPerPegawai extends MyWindow {
 		final org.zkoss.zk.ui.Desktop desktop = (label != null && org.zkoss.zk.ui.Executions.getCurrent() != null)
 				? org.zkoss.zk.ui.Executions.getCurrent().getDesktop()
 				: null;
+		boolean pushDinyalakanDiSini = false;
 		if (desktop != null && !desktop.isServerPushEnabled()) {
 			desktop.enableServerPush(true);
+			pushDinyalakanDiSini = true;
 		}
 
 		final java.util.concurrent.atomic.AtomicInteger progressCounter = new java.util.concurrent.atomic.AtomicInteger(
@@ -462,6 +464,7 @@ public class LaporanAbsensiPegawaiPerPegawai extends MyWindow {
 		final List<Pegawai> finalPegawais = pegawaisAsli;
 
 		// 3. EKSEKUSI MULTI-THREAD TERKONTROL
+		try {
 		ParallelTaskExecutor.process(listIndex, ParallelTaskExecutor.getDefaultReportMaxThreads(), new ParallelTaskExecutor.Task<Integer>() {
 			@Override
 			public void execute(final Integer idx) throws Exception {
@@ -902,6 +905,16 @@ public class LaporanAbsensiPegawaiPerPegawai extends MyWindow {
 				}
 			}
 		});
+		} finally {
+			/* OPTIMASI FASE 5: push dulu dinyalakan tapi tidak pernah dimatikan sehingga browser
+			 * terus polling dan menahan thread Tomcat selama tab terbuka. Matikan HANYA bila kita
+			 * yang menyalakannya, dan hanya bila desktop masih hidup. */
+			if (pushDinyalakanDiSini && desktop != null && desktop.isAlive() && desktop.isServerPushEnabled()) {
+				try { desktop.enableServerPush(false); } catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "Fase5.lepasServerPush");
+				}
+			}
+		}
 
 		// 4. MENGGABUNGKAN HASIL AKHIR DENGAN URUTAN YANG BENAR
 		this.maps = new ArrayList();

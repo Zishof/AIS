@@ -196,11 +196,8 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 								int response = Integer.parseInt(ev.getData().toString());
 								if (response == MyMessageboxConfig.OK) {
 
-									// 3. Persiapan ZK Server Push & Progress Bar
+									// 3. Persiapan Desktop ZK & Progress Bar
 									final org.zkoss.zk.ui.Desktop desktop = org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
-									if (!desktop.isServerPushEnabled()) {
-										desktop.enableServerPush(true);
-									}
 
 									final Label label = Common.displayLoadBar(new EventListener() {
 										@Override
@@ -214,8 +211,15 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 										}
 									});
 
-									// 4. Jalankan Background Thread
-									new Thread(new Runnable() {
+									/* 4. Jalankan tugas latar. OPTIMASI FASE 5: server push dulu
+									 * dinyalakan di atas tetapi TIDAK PERNAH dimatikan, sehingga
+									 * browser terus polling (menahan thread Tomcat) selama tab
+									 * terbuka walau proses sudah selesai. Tugas juga dijalankan
+									 * pada thread MENTAH tanpa batas. jalankanDenganPush()
+									 * menyalakan push ber-reference-count, memakai pool daemon
+									 * berbatas milik AsyncTaskManager, lalu MELEPAS push di
+									 * finally. */
+									ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 
 										// Helper untuk update UI
 										private void updateProgress(final org.zkoss.zk.ui.Desktop desktop,
@@ -440,7 +444,7 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 												}
 											}
 										}
-									}).start();
+									});
 								}
 							}
 						});

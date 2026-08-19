@@ -714,11 +714,13 @@ public class LaporanAlbumMahasiswaWisuda extends MyWindow {
 		});
 
 		desktop = Executions.getCurrent().getDesktop();
-		if (!desktop.isServerPushEnabled()) {
-			desktop.enableServerPush(true);
-		}
 
-		new Thread(new Runnable() {
+		/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+		 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau
+		 * laporan sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+		 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+		 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 
 			@Override
 			public void run() {
@@ -734,7 +736,7 @@ public class LaporanAlbumMahasiswaWisuda extends MyWindow {
 						});
 				}
 			}
-		}).start();
+		});
 
 	}
 

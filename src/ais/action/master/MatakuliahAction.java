@@ -2388,8 +2388,12 @@ public class MatakuliahAction extends GenericAutowireComposer
 			// konsisten dengan layar lain dan kolomnya menjadi kecil. Hbox bawaan
 			// copyEditDeleteButtons diratakan satu level agar tiap tombol masuk popup.
 			org.zkoss.zul.Hbox aksiHbox = Common.copyEditDeleteButtons(edit, delete, matakuliah, MatakuliahAction.this);
+			/* WAJIB ambilItemAksi, BUKAN getChildren(): copyEditDeleteButtons sudah membangun
+			 * kebab sendiri, sehingga anak langsung Hbox-nya adalah Popup + tombol pemicu "...",
+			 * bukan tombol aksinya. Memakai getChildren() menghasilkan kebab BERSARANG (pengguna
+			 * harus menekan "..." dua kali). ambilItemAksi menembus popup dan mengambil tombolnya. */
 			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
-					new java.util.ArrayList<org.zkoss.zk.ui.Component>(aksiHbox.getChildren());
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>(ais.ui.util.UIHelper.ambilItemAksi(aksiHbox));
 			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}

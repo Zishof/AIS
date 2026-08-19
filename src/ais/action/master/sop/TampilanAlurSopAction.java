@@ -1832,8 +1832,11 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 					// hanya boleh pada langkah terakhir miliknya (bolehEdit && sama).
 					boolean finalVisible = (bolehEdit && sama) || Boolean.TRUE.equals(isAdmin);
 
-					Hbox toolbar = new Hbox();
-					toolbar.setParent(vbox);
+					// kebab popup (⋯) via UIHelper.buatBarisAksi — tombol aksi langkah alur
+					// disusun ringkas. Induknya tetap 'vbox' (sel yang sama) karena sel ini juga
+					// memuat foto aktor + Html info, sehingga tidak menambah kolom baru pada baris.
+					final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+							new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 					MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 
 					// Visibilitas tombol 'Ubah' bergantung pada variabel finalVisible dari hasil
@@ -1884,7 +1887,7 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 							}
 						}
 					});
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 
 					MyToolbarbuttonConfig buttonHapus = new MyToolbarbuttonConfig("Batal", "/img/svg/trash.svg");
 					buttonHapus.setTooltiptext("Hapus Data");
@@ -2023,7 +2026,10 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 									});
 						}
 					});
-					buttonHapus.setParent(toolbar);
+					aksiButtons.add(buttonHapus);
+
+					// Susun semua tombol: max 3 per baris, rata tengah
+					ais.ui.util.UIHelper.buatBarisAksi(vbox, 3, aksiButtons);
 				}
 			}
 
