@@ -5446,14 +5446,19 @@ public class KantinHelper {
 	public static void caraBayarListSemua(JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			// masukSebagaiHutang IKUT dikirim (2026-08-19): kasir perlu tahu metode mana yang
+			// membentuk PIUTANG supaya dapat meminta nama pelanggan SEBELUM tombol Bayar ditekan,
+			// bukan ditolak server sesudahnya. Field tambahan -- klien lama mengabaikannya.
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT id, nama FROM koperasi.cara_pembayaran_koperasi WHERE COALESCE(aktif,true) = true ORDER BY nama ASC");
+					"SELECT id, nama, COALESCE(masuk_sebagai_hutang,false) FROM koperasi.cara_pembayaran_koperasi"
+							+ " WHERE COALESCE(aktif,true) = true ORDER BY nama ASC");
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
 			while (rs.next()) {
 				JSONObject j = new JSONObject();
 				j.put("id", rs.getLong(1));
 				j.put("nama", rs.getString(2));
+				j.put("masukSebagaiHutang", rs.getBoolean(3));
 				arr.put(j);
 			}
 			rs.close();
