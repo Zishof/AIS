@@ -194,12 +194,12 @@ public class BantuanHelper {
 			// pada SETIAP jendela bantuan agar dapat dicapai dari mana saja tanpa perlu
 			// mengetik alamat, baik pada tampilan Desktop maupun Mobile.
 			if (key == null || !key.trim().toLowerCase().startsWith("panduan")) {
-				MyToolbarbuttonConfig pusat = new MyToolbarbuttonConfig("Pusat Panduan", "/img/svg/books-thin.svg");
-				pusat.setTooltiptext("Kumpulan panduan menurut peran pengguna");
+				MyToolbarbuttonConfig pusat = new MyToolbarbuttonConfig("Semua Panduan", "/img/svg/books-thin.svg");
+				pusat.setTooltiptext("Daftar seluruh panduan: menurut peran dan per modul");
 				pusat.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
-						tampilkanDariResource(self, "panduan", "Pusat Panduan");
+						tampilkanDariResource(self, "panduan", "Semua Panduan");
 					}
 				});
 				pusat.setParent(toolbar);

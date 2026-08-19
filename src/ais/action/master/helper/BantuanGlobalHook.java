@@ -250,8 +250,8 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			final Div bantuan = new Div();
 			bantuan.setStyle("cursor:pointer;background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
 					+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;");
-			bantuan.setTooltiptext("Panduan penggunaan halaman ini");
-			new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span style='margin-left:6px;'>Bantuan</span>").setParent(bantuan);
+			bantuan.setTooltiptext("Panduan modul yang sedang Anda buka");
+			new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span style='margin-left:6px;'>Bantuan Halaman Ini</span>").setParent(bantuan);
 			bantuan.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -266,9 +266,9 @@ public class BantuanGlobalHook implements UiLifeCycle {
 		final Div pusat = new Div();
 		pusat.setStyle("cursor:pointer;background:#0f766e;color:#ffffff;border-radius:22px;padding:9px 15px;"
 				+ "box-shadow:0 4px 14px rgba(15,118,110,.35);font-size:13px;font-weight:600;");
-		pusat.setTooltiptext("Kumpulan panduan menurut peran pengguna");
+		pusat.setTooltiptext("Daftar seluruh panduan: menurut peran dan per modul");
 		new Html("<span style='font-size:15px;line-height:1;'>&#128218;</span>"
-				+ "<span style='margin-left:6px;'>Panduan</span>").setParent(pusat);
+				+ "<span style='margin-left:6px;'>Semua Panduan</span>").setParent(pusat);
 		pusat.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {

@@ -29,20 +29,20 @@
      font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
   <span style="font-size:15px;line-height:1;">&#128172;</span><span>Tanya Jawab</span>
 </div>
-<div id="kbjspFab" onclick="kbjspOpenMode('help')" title="Panduan penggunaan halaman ini"
+<div id="kbjspFab" onclick="kbjspOpenMode('help')" title="Panduan modul yang sedang Anda buka"
      style="position:fixed;right:16px;bottom:16px;z-index:99990;cursor:pointer;background:#1d4ed8;color:#fff;
      border-radius:22px;padding:9px 15px;box-shadow:0 4px 14px rgba(29,78,216,.35);
      font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
-  <span style="font-size:15px;line-height:1;">&#63;</span><span>Bantuan</span>
+  <span style="font-size:15px;line-height:1;">&#63;</span><span>Bantuan Halaman Ini</span>
 </div>
 <% } %>
 <% if (__adaPusat) { %>
-<div id="kbjspPusatFab" onclick="kbjspOpenMode('pusat')" title="Kumpulan panduan menurut peran pengguna"
+<div id="kbjspPusatFab" onclick="kbjspOpenMode('pusat')" title="Daftar seluruh panduan: menurut peran dan per modul"
      style="position:fixed;right:16px;bottom:<%= __ada ? "108px" : "16px" %>;z-index:99990;cursor:pointer;
      background:#0f766e;color:#fff;border-radius:22px;padding:9px 15px;
      box-shadow:0 4px 14px rgba(15,118,110,.35);
      font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
-  <span style="font-size:15px;line-height:1;">&#128218;</span><span>Panduan</span>
+  <span style="font-size:15px;line-height:1;">&#128218;</span><span>Semua Panduan</span>
 </div>
 <% } %>
 <div id="kbjspOverlay" onclick="if(event.target===this)kbjspClose()"
