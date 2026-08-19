@@ -78,7 +78,7 @@ public class AtasanMahasiswaHelper {
 
 		Columns columns = new Columns();
 		columns.setParent(grid);
-		String[] judul = { "Nama", "Peran", "Email", "Telp.", "Aktif", "Aksi" };
+		String[] judul = { "Nama", "Peran", "Email", "Telp.", "Aktif", "" };
 		String[] lebar = { "22%", "18%", "22%", "14%", "8%", "16%" };
 		for (int i = 0; i < judul.length; i++) {
 			MyColumnConfig col = new MyColumnConfig();

@@ -282,7 +282,7 @@ public class InventarisDashboard extends Vbox {
 		cDiterima.setAlign("right");
 		cDiterima.setParent(columns);
 		new MyColumnConfig("Tanggal").setParent(columns);
-		MyColumnConfig cAksi = new MyColumnConfig("Aksi");
+		MyColumnConfig cAksi = new MyColumnConfig("");
 		cAksi.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 		cAksi.setAlign("center");
 		cAksi.setParent(columns);

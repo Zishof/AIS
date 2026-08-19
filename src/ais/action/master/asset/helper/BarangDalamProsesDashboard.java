@@ -280,7 +280,7 @@ public class BarangDalamProsesDashboard extends Vbox {
 		cNilai.setParent(columns);
 		new MyColumnConfig("Tanggal").setParent(columns);
 		new MyColumnConfig("Status").setParent(columns);
-		MyColumnConfig cAksi = new MyColumnConfig("Aksi");
+		MyColumnConfig cAksi = new MyColumnConfig("");
 		cAksi.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 		cAksi.setAlign("center");
 		cAksi.setParent(columns);

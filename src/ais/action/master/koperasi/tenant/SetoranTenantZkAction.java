@@ -117,7 +117,7 @@ public class SetoranTenantZkAction extends MyWindow {
 		kol(cols, "Sisa");
 		kol(cols, "Status");
 		if (boleh) {
-			kol(cols, "Aksi");
+			kol(cols, "");
 		}
 		new Rows().setParent(grid);
 		refresh();

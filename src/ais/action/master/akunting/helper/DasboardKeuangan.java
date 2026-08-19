@@ -3136,7 +3136,7 @@ public class DasboardKeuangan extends MyPortallayout {
 		grid.setParent(pch);
 		org.zkoss.zul.Columns columns = new org.zkoss.zul.Columns();
 		columns.setParent(grid);
-		String[] headers = new String[] { "Jenis", "Kode / Nama", "Tanggal", "Satker", "Nilai", "Aksi" };
+		String[] headers = new String[] { "Jenis", "Kode / Nama", "Tanggal", "Satker", "Nilai", "" };
 		for (int i = 0; i < headers.length; i++) {
 			Column col = new MyColumnConfig(headers[i]);
 			col.setStyle("font-weight:800; color:#0f172a; background:#f1f5f9;");
@@ -3318,7 +3318,7 @@ public class DasboardKeuangan extends MyPortallayout {
 		org.zkoss.zul.Columns columns = new org.zkoss.zul.Columns();
 		columns.setParent(grid);
 		String[] headers = new String[] { "Jenis", "Kode / Nama", "Tanggal Pengajuan", "Tanggal Persetujuan", "Satker",
-				"Status", "Disetujui Oleh", "Nilai", "Keterangan", "Aksi" };
+				"Status", "Disetujui Oleh", "Nilai", "Keterangan", "" };
 		for (int i = 0; i < headers.length; i++) {
 			Column col = new MyColumnConfig(headers[i]);
 			col.setStyle("font-weight:800; color:#0f172a; background:#f1f5f9;");

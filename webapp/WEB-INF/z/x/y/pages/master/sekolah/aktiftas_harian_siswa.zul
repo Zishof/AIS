@@ -60,7 +60,7 @@
 												<column use="ais.ui.util.MyColumnConfig" label="Nama Siswa" sort="auto(siswa.namaSiswa)" />
 												<column use="ais.ui.util.MyColumnConfig" label="Rincian" />
 												<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="80px" align="center" />
-												<column use="ais.ui.util.MyColumnConfig" width="56px" label="⋯" align="center" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center" />
 											</columns>
 										</grid>
 								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

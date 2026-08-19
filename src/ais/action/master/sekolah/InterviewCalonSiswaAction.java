@@ -376,7 +376,7 @@ public class InterviewCalonSiswaAction extends org.zkoss.zk.ui.util.GenericAutow
         lhead.setParent(lbPeserta);
         String[] kolom = { "ID", Common.getBahasaConfig("Nama"), Common.getBahasaConfig("No Reg"),
                            Common.getBahasaConfig("Waktu Khusus"),
-                           Common.getBahasaConfig("Siap"), Common.getBahasaConfig("Aksi") };
+                           Common.getBahasaConfig("Siap"), "" };
         for (String k : kolom) { new Listheader(k).setParent(lhead); }
 
         for (final InterviewPunyaCalonSiswa rec : listPeserta) {

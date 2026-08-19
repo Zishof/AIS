@@ -38,7 +38,7 @@
 					<column use="ais.ui.util.MyColumnConfig" label="Sopir" />
 					<column use="ais.ui.util.MyColumnConfig" label="Kenek" />
 					<column use="ais.ui.util.MyColumnConfig" label="Aktif"      width="70px"  align="center" />
-					<column use="ais.ui.util.MyColumnConfig" label="⋯"       width="56px" align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label=""       width="56px" align="center" />
 				</columns>
 			</grid>
 		</center>

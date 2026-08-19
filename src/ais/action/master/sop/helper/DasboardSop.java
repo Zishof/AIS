@@ -2096,7 +2096,7 @@ public class DasboardSop extends MyPortallayout {
 		return new DetailRowRenderer() {
 			@Override
 			public String[] getHeaders() {
-				return new String[] { "SOP", "Pengaju", "Tahap / Petugas", "Status", "Waktu", "Batas Waktu", "Catatan", "Aksi" };
+				return new String[] { "SOP", "Pengaju", "Tahap / Petugas", "Status", "Waktu", "Batas Waktu", "Catatan", "" };
 			}
 
 			@SuppressWarnings("unchecked")
@@ -2140,7 +2140,7 @@ public class DasboardSop extends MyPortallayout {
 		return new DetailRowRenderer() {
 			@Override
 			public String[] getHeaders() {
-				return new String[] { "SOP", "Pengaju", "Waktu Pengajuan", "Status Terakhir", "Keterangan", "Aksi" };
+				return new String[] { "SOP", "Pengaju", "Waktu Pengajuan", "Status Terakhir", "Keterangan", "" };
 			}
 
 			@SuppressWarnings("unchecked")
@@ -2214,7 +2214,7 @@ public class DasboardSop extends MyPortallayout {
 		return new DetailRowRenderer() {
 			@Override
 			public String[] getHeaders() {
-				return new String[] { "SOP", "Tahap Awal", "Petugas", "Status", "Aksi" };
+				return new String[] { "SOP", "Tahap Awal", "Petugas", "Status", "" };
 			}
 
 			@SuppressWarnings("unchecked")

@@ -3255,11 +3255,35 @@ public class PosApi extends HttpServlet {
 		awal.setTime(sampai);
 		awal.set(java.util.Calendar.DAY_OF_MONTH, 1);
 		java.util.Date mulai = fmt.parse(payload.optString("mulai", fmt.format(awal.getTime())));
+		// Posting PER TRANSAKSI (pola Posting Cicilan Mahasiswa): klien mengirim
+		// posting_ids = [id faktur, ...] -- hanya faktur itu yang dijurnal, masing-masing
+		// sebagai SATU entri jurnal. Tanpa posting_ids, perilaku lama (agregat) dipakai
+		// sehingga klien versi lama tidak berubah.
+		JSONArray idsArr = payload.optJSONArray("posting_ids");
+		java.util.List<Long> idsDipilih = new java.util.ArrayList<Long>();
+		if (idsArr != null) {
+			for (int i = 0; i < idsArr.length(); i++) {
+				try {
+					idsDipilih.add(Long.valueOf(idsArr.get(i).toString().trim()));
+				} catch (Exception eId) {
+					ais.common.ErrorAuditUtil.record(eId, "auto-audit posting_ids");
+				}
+			}
+		}
+		boolean perTransaksi = idsArr != null;
 		JSONObject data;
 		if ("hpp".equals(jenis)) {
 			data = new ais.action.master.koperasi.PostingHppKantinAction().prosesApi(mulai, sampai, posting);
 		} else if ("penjualan".equals(jenis)) {
-			data = new ais.action.master.koperasi.PostingPenjualanKantinAction().prosesApi(mulai, sampai, posting);
+			ais.action.master.koperasi.PostingPenjualanKantinAction aksiJual =
+					new ais.action.master.koperasi.PostingPenjualanKantinAction();
+			if (perTransaksi) {
+				// Hitung draf dulu (tanpa posting), lalu posting hanya id terpilih.
+				data = aksiJual.prosesApi(mulai, sampai, false);
+				data.put("hasilPosting", aksiJual.postingPerTransaksi(idsDipilih));
+			} else {
+				data = aksiJual.prosesApi(mulai, sampai, posting);
+			}
 		} else {
 			throw new IllegalArgumentException("Jenis pendukung laporan keuangan tidak dikenal: " + jenis);
 		}

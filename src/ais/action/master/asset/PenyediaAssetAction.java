@@ -4406,7 +4406,7 @@ public class PenyediaAssetAction extends GenericAutowireComposer
 		tambahKolomCalon(columns, "Telp / HP", "8%");
 		tambahKolomCalon(columns, "Tgl Daftar", "8%");
 		tambahKolomCalon(columns, "Kelengkapan", "8%");
-		tambahKolomCalon(columns, "Aksi", "");
+		tambahKolomCalon(columns, "", "");
 
 		Rows rows = new Rows();
 		rows.setParent(grid);

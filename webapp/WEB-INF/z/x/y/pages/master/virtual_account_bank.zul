@@ -97,7 +97,7 @@
 												<column use="ais.ui.util.MyColumnConfig" label="Status" />
 												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="18%" />
 												<column use="ais.ui.util.MyColumnConfig" width="4%" label="Kendala" />
-												<column use="ais.ui.util.MyColumnConfig" width="56px" label="⋯" align="center" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center" />
 											</columns>
 										</grid>
 								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

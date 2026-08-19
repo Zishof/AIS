@@ -224,8 +224,16 @@ public class LaporanFormulirKegiatan extends MyWindow {
 			parameters.put("maps", maps);
 		} else {
 			for (FormulirKegiatanPeserta formulirKegiatanPeserta : formulirKegiatanPesertas) {
+				/* PARAMETER PESERTA LENGKAP (permintaan 19-08-2026): sebelumnya memakai overload
+				 * 4-argumen yang ber-deep=1, sehingga HANYA properti langsung
+				 * FormulirKegiatanPeserta yang tersedia di template. Relasi peserta (mahasiswa,
+				 * dosen, siswa, guru, pegawai, jurusan) TIDAK ikut, sehingga field seperti
+				 * KELAS / TELP-HP / EMAIL selalu kosong di formulir cetak.
+				 * Disamakan dengan cabang di atas: deep=2 = properti peserta + properti relasi
+				 * satu tingkat. \"formulirKegiatan\" dikecualikan agar tidak berputar balik ke
+				 * entitas induk. */
 				Common.insertProperty(FormulirKegiatanPeserta.class, formulirKegiatanPeserta, map,
-						formulirKegiatanPeserta.getKode());
+						formulirKegiatanPeserta.getKode(), 2, "formulirKegiatan");
 			}
 		}
 

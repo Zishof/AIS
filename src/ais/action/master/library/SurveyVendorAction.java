@@ -130,7 +130,7 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 		}
 		Grid g = grid(panelSetup);
 		kolom(g, "Kode", "12%", "Judul", "24%", "Jenis", "14%", "Tanggal", "10%", "Status", "10%",
-				"Vendor", "6%", "Penilai", "6%", "Aksi", "18%");
+				"Vendor", "6%", "Penilai", "6%", "", "18%");
 		Rows rs = new Rows();
 		rs.setParent(g);
 		for (SurveyVendor sv : daftarSurvey()) {
@@ -562,7 +562,7 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 		Common.clear(panelPenilaian);
 		new Label("Survey yang ditugaskan kepada Anda untuk dinilai:").setParent(panelPenilaian);
 		Grid g = grid(panelPenilaian);
-		kolom(g, "Kode", "14%", "Judul", "34%", "Jenis", "18%", "Status Penilaian Saya", "16%", "Aksi", "18%");
+		kolom(g, "Kode", "14%", "Judul", "34%", "Jenis", "18%", "Status Penilaian Saya", "16%", "", "18%");
 		Rows rs = new Rows();
 		rs.setParent(g);
 		Session s = HibernateUtil.currentSession();

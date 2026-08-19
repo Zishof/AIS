@@ -2109,7 +2109,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 							cProdi.setParent(cols);
 							org.zkoss.zul.Column cStatus = new org.zkoss.zul.Column("Status");
 							cStatus.setWidth("90px"); cStatus.setParent(cols);
-							org.zkoss.zul.Column cAksi = new org.zkoss.zul.Column("Aksi");
+							org.zkoss.zul.Column cAksi = new org.zkoss.zul.Column("");
 							cAksi.setWidth("200px"); cAksi.setParent(cols);
 
 							Rows rows = new Rows();

@@ -1007,7 +1007,7 @@ public class PikobeAction extends MyWindow {
 		new MyColumnConfig("Kode IK").setParent(cols);
 		new MyColumnConfig("Uraian Indikator (IK/PI)").setParent(cols);
 		new MyColumnConfig("Bobot").setParent(cols);
-		new MyColumnConfig("Aksi").setParent(cols);
+		new MyColumnConfig("").setParent(cols);
 		Rows rows = new Rows();
 		rows.setParent(grid);
 		if (iks.isEmpty()) {

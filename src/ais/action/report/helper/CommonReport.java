@@ -940,7 +940,7 @@ public class CommonReport {
             column = new MyColumnConfig("Tanggal Upload");
             column.setWidth("160px");
             column.setParent(columns);
-            column = new MyColumnConfig("Aksi");
+            column = new MyColumnConfig("");
             column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
             column.setParent(columns);
 

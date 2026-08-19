@@ -237,7 +237,7 @@
 									label="Keterangan" />
 									<column
 									use="ais.ui.util.MyColumnConfig" width="56px"
-									label="⋯" align="center" />
+									label="" align="center" />
 
 								</columns>
 							</grid>

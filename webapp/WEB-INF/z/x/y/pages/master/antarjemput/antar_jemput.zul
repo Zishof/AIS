@@ -436,7 +436,7 @@
 													<column use="ais.ui.util.MyColumnConfig" label="Gerbang" />
 													<column use="ais.ui.util.MyColumnConfig" label="Penjemput" />
 													<column use="ais.ui.util.MyColumnConfig" label="Status"  width="140px" />
-													<column use="ais.ui.util.MyColumnConfig" label="⋯"    width="56px" align="center" />
+													<column use="ais.ui.util.MyColumnConfig" label=""    width="56px" align="center" />
 												</columns>
 											</grid>
 										</center>

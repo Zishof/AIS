@@ -1199,7 +1199,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 		column = new MyColumnConfig("SOP");
 		column.setParent(columns);
 
-		column = new MyColumnConfig("Aksi");
+		column = new MyColumnConfig("");
 		column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 		column.setParent(columns);
 

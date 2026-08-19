@@ -330,7 +330,7 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         Columns cols = new Columns();
         cols.setParent(grid);
         cols.setSizable(true);
-        String[] headers = { "Mata Kuliah", "Dosen", "Pertemuan", "Nama Ujian", "TA / Semester", "Jml Soal", "Status", "Aksi" };
+        String[] headers = { "Mata Kuliah", "Dosen", "Pertemuan", "Nama Ujian", "TA / Semester", "Jml Soal", "Status", "" };
         String[] widths  = { "19%",         "14%",   "7%",        "16%",        "13%",           "6%",       "10%",   "15%" };
         for (int i = 0; i < headers.length; i++) {
             Column col = new Column(headers[i]);

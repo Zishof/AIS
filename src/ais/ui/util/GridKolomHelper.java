@@ -137,7 +137,7 @@ public final class GridKolomHelper {
 	 * @return kolom aksi berlebar {@link #LEBAR_KOLOM_AKSI}
 	 */
 	public static MyColumnConfig kolomAksi() {
-		MyColumnConfig kolom = new MyColumnConfig("Aksi");
+		MyColumnConfig kolom = new MyColumnConfig("");
 		kolom.setWidth(LEBAR_KOLOM_AKSI);
 		kolom.setAlign("center");
 		return kolom;

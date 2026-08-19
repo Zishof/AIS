@@ -92,6 +92,13 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	private final Map<Long, String> kategoriNama = new LinkedHashMap<Long, String>();
 	private final List<String> belumDipetakan = new ArrayList<String>();
 	private final List<Long> headerTerposting = new ArrayList<Long>();
+	/**
+	 * Draf jurnal PER TRANSAKSI (bukan agregat) -- dipakai layar "analisis sebelum
+	 * posting" ala Posting Cicilan Mahasiswa: tiap faktur tampil beserta baris
+	 * akun/debit/kredit-nya sendiri, statusnya siap atau belum, dan alasannya bila
+	 * pemetaan akun kurang. Diisi di hitungPreview(), dikirim lewat prosesApi().
+	 */
+	private final List<org.json.JSONObject> rincianDraft = new ArrayList<org.json.JSONObject>();
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page, Component parent,
@@ -213,6 +220,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		kategoriNama.clear();
 		belumDipetakan.clear();
 		headerTerposting.clear();
+		rincianDraft.clear();
 		if (previewBox != null) {
 			previewBox.getChildren().clear();
 		}
@@ -369,9 +377,11 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 			if (!valid) {
 				belumDipetakan.add("Faktur #" + headerId + " — " + alasan);
+				rincianDraft.add(barisDraft(headerId, total, alasan, null, null, null));
 				continue;
 			}
 
+			rincianDraft.add(barisDraft(headerId, total, null, debitHeader, pendHeader, ppnHeader));
 			// --- Commit ke akumulator global ---
 			for (Map.Entry<Long, Double> en : debitHeader.entrySet()) {
 				add(debitKasPerAkun, en.getKey(), en.getValue());
@@ -591,6 +601,184 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	}
 
 	/** Adapter headless POS; memakai kalkulasi dan transaksi jurnal yang sama dengan layar ZK. */
+	/**
+	 * Satu baris draf jurnal untuk SATU faktur: identitas, nilai, status siap/belum
+	 * beserta alasannya, dan baris akun debit/kredit-nya. Bentuk ini yang dirender
+	 * layar analisis sebelum posting (Desktop/Android/ZK) sehingga pengguna dapat
+	 * memeriksa jurnal tiap transaksi, lalu memposting satu per satu.
+	 */
+	private org.json.JSONObject barisDraft(Long headerId, double total, String alasan,
+			Map<Long, Double> debit, Map<Long, Double> pendapatan, Map<Long, Double> ppn) {
+		org.json.JSONObject o = new org.json.JSONObject();
+		try {
+		o.put("id", headerId);
+		o.put("ref", "Faktur #" + headerId);
+		o.put("nilai", total);
+		o.put("siap", alasan == null);
+		o.put("alasan", alasan == null ? "" : alasan);
+		org.json.JSONArray baris = new org.json.JSONArray();
+		if (debit != null) {
+			for (Map.Entry<Long, Double> en : debit.entrySet()) {
+				baris.put(barisJurnal(en.getKey(), en.getValue().doubleValue(), 0.0));
+			}
+		}
+		if (pendapatan != null) {
+			for (Map.Entry<Long, Double> en : pendapatan.entrySet()) {
+				baris.put(barisJurnal(en.getKey(), 0.0, en.getValue().doubleValue()));
+			}
+		}
+		if (ppn != null) {
+			for (Map.Entry<Long, Double> en : ppn.entrySet()) {
+				baris.put(barisJurnal(en.getKey(), 0.0, en.getValue().doubleValue()));
+			}
+		}
+		o.put("jurnal", baris);
+		} catch (Exception e) {
+			// Draf hanya untuk DITAMPILKAN; kegagalan menyusunnya tidak boleh
+			// menggagalkan perhitungan posting itu sendiri (gagal-aman).
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPenjualanKantinAction.barisDraft");
+		}
+		return o;
+	}
+
+	private org.json.JSONObject barisJurnal(Long akunId, double debit, double kredit) {
+		org.json.JSONObject j = new org.json.JSONObject();
+		try {
+			j.put("akunId", akunId);
+			j.put("akun", namaAkunById(akunId));
+			j.put("debit", debit);
+			j.put("kredit", kredit);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPenjualanKantinAction.barisJurnal");
+		}
+		return j;
+	}
+
+	/**
+	 * Posting PER TRANSAKSI mengikuti pola layar Posting Cicilan Mahasiswa: tiap faktur
+	 * menjadi SATU entri jurnal sendiri (bukan satu jurnal gabungan seperti mode lama),
+	 * sehingga pengguna dapat menganalisis lalu memposting satu per satu -- dan satu
+	 * transaksi bermasalah tidak lagi memblokir seluruh periode.
+	 *
+	 * @param idsDipilih daftar id faktur yang hendak diposting; kosong/null = SEMUA
+	 *                   faktur yang berstatus siap pada periode ini.
+	 * @return ringkasan {@code {diposting, dilewati, gagal, pesan}}.
+	 */
+	public JSONObject postingPerTransaksi(java.util.Collection<Long> idsDipilih) throws Exception {
+		Session session = HibernateUtil.currentSession();
+		int diposting = 0, dilewati = 0, gagal = 0;
+		StringBuilder pesan = new StringBuilder();
+		for (int i = 0; i < rincianDraft.size(); i++) {
+			org.json.JSONObject baris = rincianDraft.get(i);
+			Long id = baris.isNull("id") ? null : Long.valueOf(baris.get("id").toString());
+			if (id == null) {
+				continue;
+			}
+			if (idsDipilih != null && !idsDipilih.isEmpty() && !idsDipilih.contains(id)) {
+				continue;
+			}
+			if (!baris.optBoolean("siap", false)) {
+				dilewati++;
+				continue;
+			}
+			try {
+				if (postingSatuFaktur(session, id, baris)) {
+					diposting++;
+				} else {
+					gagal++;
+					if (pesan.length() < 300) {
+						pesan.append(pesan.length() == 0 ? "" : "; ").append("Faktur #").append(id)
+								.append(" gagal ditulis ke jurnal");
+					}
+				}
+			} catch (Exception ex) {
+				gagal++;
+				ais.common.ErrorAuditUtil.record(ex,
+						"auto-audit PostingPenjualanKantinAction.postingPerTransaksi faktur " + id);
+				if (pesan.length() < 300) {
+					pesan.append(pesan.length() == 0 ? "" : "; ").append("Faktur #").append(id).append(": ")
+							.append(ex.getMessage());
+				}
+			}
+		}
+		JSONObject out = new JSONObject();
+		out.put("diposting", diposting);
+		out.put("dilewati", dilewati);
+		out.put("gagal", gagal);
+		out.put("pesan", pesan.toString());
+		return out;
+	}
+
+	/**
+	 * Tulis SATU faktur menjadi satu entri jurnal + tandai fakturnya. Setiap faktur
+	 * memakai transaksi database sendiri: kegagalan pada satu faktur tidak membatalkan
+	 * faktur lain yang sudah berhasil (pola yang sama dipakai Posting Cicilan Mahasiswa).
+	 */
+	private boolean postingSatuFaktur(Session session, Long headerId, org.json.JSONObject baris) throws Exception {
+		org.json.JSONArray jurnal = baris.optJSONArray("jurnal");
+		if (jurnal == null || jurnal.length() == 0) {
+			return false;
+		}
+		List<Akun> akunDebet = new ArrayList<Akun>();
+		List<Double> nilaiDebet = new ArrayList<Double>();
+		List<Akun> akunKredit = new ArrayList<Akun>();
+		List<Double> nilaiKredit = new ArrayList<Double>();
+		for (int i = 0; i < jurnal.length(); i++) {
+			org.json.JSONObject j = jurnal.getJSONObject(i);
+			Long akunId = j.isNull("akunId") ? null : Long.valueOf(j.get("akunId").toString());
+			if (akunId == null) {
+				continue;
+			}
+			Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), akunId);
+			if (akun == null) {
+				continue;
+			}
+			double d = j.optDouble("debit", 0);
+			double k = j.optDouble("kredit", 0);
+			if (d > EPS) {
+				akunDebet.add(akun);
+				nilaiDebet.add(Double.valueOf(d));
+			}
+			if (k > EPS) {
+				akunKredit.add(akun);
+				nilaiKredit.add(Double.valueOf(k));
+			}
+		}
+		if (akunDebet.isEmpty() || akunKredit.isEmpty()) {
+			return false;
+		}
+		String ket = "Penjualan Kantin Faktur #" + headerId;
+		PostingHistory ph = new PostingHistory(JENIS);
+		ph.setTanggal(dpSampai == null ? new Date() : dpSampai.getValue());
+		ph.setTbmuser(Common.getCurrentUser());
+		ph.setKeterangan(ket);
+		session.getTransaction().begin();
+		try {
+			session.save(ph);
+			boolean ok = CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}),
+					akunKredit.toArray(new Akun[] {}), null, null, ph, true, ket,
+					ph.getTanggal(), nilaiDebet.toArray(new Double[] {}), nilaiKredit.toArray(new Double[] {}),
+					Double.valueOf(0.0), null, satkerKantin(), session);
+			if (!ok) {
+				session.getTransaction().rollback();
+				return false;
+			}
+			session.createSQLQuery("UPDATE koperasi.pembelian_anggota_koperasi SET posting_history = "
+					+ ph.getId().longValue() + " WHERE id = " + headerId.longValue()).executeUpdate();
+			session.getTransaction().commit();
+			return true;
+		} catch (Exception ex) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored, "auto-audit postingSatuFaktur rollback");
+			}
+			throw ex;
+		}
+	}
+
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting penjualan tidak valid.");
@@ -611,6 +799,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		hasil.put("jumlahTransaksi", headerTerposting.size());
 		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
 		hasil.put("jurnal", jurnalApi());
+		hasil.put("rincian", new JSONArray(rincianDraft));
 		Date terakhir = lastPostedEnd();
 		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
 		if (!posting) {

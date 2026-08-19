@@ -5492,7 +5492,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		Columns columns = new Columns();
 		columns.setParent(grid);
 		// Foto/NIM/TA/Aksi lebar tetap; Nama & Judul TANPA lebar agar melebar mengisi 100% (fixed layout).
-		String[] heads = { "Foto", "NIM/NIS", "Nama", "Judul", "TA/Smt", "Aksi" };
+		String[] heads = { "Foto", "NIM/NIS", "Nama", "Judul", "TA/Smt", "" };
 		String[] widths = { "64px", "130px", null, null, "150px", "205px" };
 		String[] aligns = { "center", "left", "left", "left", "center", "center" };
 		for (int i = 0; i < heads.length; i++) {

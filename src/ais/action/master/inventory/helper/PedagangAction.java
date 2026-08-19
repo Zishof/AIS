@@ -278,7 +278,7 @@ public class PedagangAction extends MyDetail {
 
 		column = new MyColumnConfig();
 		column.setParent(columns);
-		column.setLabel("Aksi");
+		column.setLabel("");
 		column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 		column.setAlign("center");
 

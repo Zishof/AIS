@@ -377,7 +377,7 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		column = new Column();
 		column.setParent(columns);
-		column.setLabel("Aksi");
+		column.setLabel("");
 		column.setAlign("center");
 		column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 

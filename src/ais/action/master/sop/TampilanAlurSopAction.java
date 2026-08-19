@@ -3984,7 +3984,7 @@ private static void renderWorkflowOverview(Vbox parent, DisposisiSop disposisiSo
 
 		Columns cols = new Columns();
 		cols.setParent(grid);
-		String[] colLabels = {"No", "Kode", "Nama Langkah", "Aktor", "Status", "Aksi"};
+		String[] colLabels = {"No", "Kode", "Nama Langkah", "Aktor", "Status", ""};
 		String[] colWidths = {"40px", "80px", null, "120px", "100px", "70px"};
 		for (int ci = 0; ci < colLabels.length; ci++) {
 			MyColumnConfig col = new MyColumnConfig(colLabels[ci]);

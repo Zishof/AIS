@@ -131,7 +131,7 @@ public class LokasiZkAction extends MyWindow {
 		tambahKolom(cols, "Alamat", null);
 		tambahKolom(cols, "Aktif", "80px");
 		if (boleh) {
-			tambahKolom(cols, "Aksi", "120px");
+			tambahKolom(cols, "", "120px");
 		}
 		new Rows().setParent(grid);
 

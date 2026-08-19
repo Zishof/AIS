@@ -2288,7 +2288,7 @@ public class DasboardObeElearningHelper extends Div {
 
         Columns cols = new Columns();
         cols.setParent(grid);
-        String[] headers = {"Mata Kuliah", "Prodi", "Dosen", "Status CQI", "Aksi"};
+        String[] headers = {"Mata Kuliah", "Prodi", "Dosen", "Status CQI", ""};
         String[] wids    = {"30%", "20%", "20%", "15%", "15%"};
         boolean[] cntr   = {false, false, false, true, true};
         for (int i = 0; i < headers.length; i++) {

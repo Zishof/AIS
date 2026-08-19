@@ -1097,7 +1097,7 @@ public class PembayaranKoperasiOnline extends GenericAutowireComposer {
         column.setAlign("right");
         column.setWidth("150px");
 
-        column = new MyColumnConfig("Aksi");
+        column = new MyColumnConfig("");
         column.setParent(columns);
         column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
 
