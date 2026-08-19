@@ -570,10 +570,20 @@ public class PPDB_Simple5 extends PPDB {
 		parameterTambahanListener = new ParameterTambahanPsbListener(calonSiswa, parameterRows, lampiranLains,
 				gelombangPendaftaranPsb, false, rows);
 
+		/*
+		 * Verifikasi Kelengkapan Berkas ikut tampil pada PENDAFTARAN BARU supaya calon
+		 * siswa bisa mengunggah berkas sekaligus. Penautan berkas ke baris penghubung
+		 * diselesaikan VerifikasiPSBHelper.simpanVerifikasi() setelah data tersimpan.
+		 */
+		try {
+			subRowsVerifikasiKelengkapanCalonSiswa = VerifikasiPSBHelper.tampilkanVerifikasi(calonSiswa, rows, null,
+					calonSiswa.getId() != null ? calonSiswa.getGelombangPendaftaranPsb() : gelombangPendaftaranPsb);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PPDB_Simple5.tampilkanVerifikasiBerkas");
+		}
+
 		if (calonSiswa.getId() != null) {
 			try {
-				subRowsVerifikasiKelengkapanCalonSiswa = VerifikasiPSBHelper.tampilkanVerifikasi(calonSiswa, rows, null,
-						calonSiswa.getGelombangPendaftaranPsb());
 				subRowsVerifikasiNilaiRapor = VerifikasiMatapelajaranPSBHelper.tampilkanVerifikasi(calonSiswa, rows,
 						gelombangPendaftaranPsb, null);
 

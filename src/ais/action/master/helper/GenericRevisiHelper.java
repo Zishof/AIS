@@ -2711,27 +2711,26 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
 
             List changes = parseComparisonChanges(ringkasanPerubahan);
             if (changes == null || changes.isEmpty()) {
-                Label kosong = new MyLabelAgakKecil(ringkasanPerubahan == null ? "Tidak ada perubahan." : ringkasanPerubahan);
-                kosong.setStyle(buildComparisonLabelStyle(ringkasanPerubahan));
-                kosong.setMultiline(true);
-                return kosong;
+                // Ringkasan yang tidak dapat diurai menjadi tabel pun bisa sangat panjang, jadi
+                // ikut dibuat dapat dilipat (default tertutup) seperti sel Sebelum/Sesudah.
+                return createComparisonCellComponent(null,
+                        ringkasanPerubahan == null ? "Tidak ada perubahan." : ringkasanPerubahan,
+                        buildComparisonLabelStyle(ringkasanPerubahan));
             }
 
             return createComparisonGrid(changes);
         } catch (Exception e) {
-            Label fallback = new MyLabelAgakKecil(ringkasanPerubahan == null ? "" : ringkasanPerubahan);
-            fallback.setMultiline(true);
-            fallback.setStyle(buildComparisonLabelStyle(ringkasanPerubahan));
-            return fallback;
+            ais.common.ErrorAuditUtil.record(e,
+                    "auto-audit src/ais/action/master/helper/GenericRevisiHelper.java:createComparisonComponent");
+            return createComparisonCellComponent(null, ringkasanPerubahan == null ? "" : ringkasanPerubahan,
+                    buildComparisonLabelStyle(ringkasanPerubahan));
         }
     }
 
     private Component createComparisonGrid(List changes) {
-        Vbox wrapper = new Vbox();
+        final Vbox wrapper = new Vbox();
         wrapper.setWidth("100%");
-        wrapper.setStyle("max-width:100%; max-height:220px; overflow-y:auto; overflow-x:hidden; "
-                + "box-sizing:border-box; padding:0; margin:0; background:#ffffff; border:1px solid #fee2e2; "
-                + "border-radius:10px;");
+        wrapper.setStyle(gayaWadahBanding(TINGGI_WADAH_BANDING_RINGKAS));
 
         org.zkoss.zul.Grid comparisonGrid = new org.zkoss.zul.Grid();
         comparisonGrid.setWidth("100%");
@@ -2766,17 +2765,117 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             row.setStyle(i % 2 == 0 ? "background:#ffffff;" : "background:#fff7f7;");
             row.setParent(rows);
 
-            createComparisonCellLabel(change == null ? "" : change.field,
+            createComparisonCellComponent(wrapper, change == null ? "" : change.field,
                     "font-size:11px; font-weight:900; color:#991b1b; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
-            createComparisonCellLabel(change == null ? "" : change.before,
+            createComparisonCellComponent(wrapper, change == null ? "" : change.before,
                     "font-size:11px; color:#7f1d1d; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
-            createComparisonCellLabel(change == null ? "" : change.after,
+            createComparisonCellComponent(wrapper, change == null ? "" : change.after,
                     "font-size:11px; color:#b91c1c; font-weight:700; line-height:1.35; "
                             + "white-space:normal; word-break:break-word; overflow-wrap:break-word;").setParent(row);
         }
         return wrapper;
+    }
+
+    /**
+     * Ambang panjang teks satu sel sebelum ditampilkan sebagai blok yang bisa dilipat.
+     */
+    private static final int BATAS_TEKS_SEL_RINGKAS = 140;
+    /** Tinggi maksimum panel perbandingan selama seluruh sel panjang masih tertutup. */
+    private static final String TINGGI_WADAH_BANDING_RINGKAS = "220px";
+    /** Tinggi maksimum panel perbandingan setelah pengguna membuka salah satu sel panjang. */
+    private static final String TINGGI_WADAH_BANDING_LUAS = "70vh";
+    private static final String GAYA_TOMBOL_LIPAT = "font-size:10px; font-weight:700; color:#1d4ed8; "
+            + "cursor:pointer; text-decoration:underline; margin:0; padding:0;";
+
+    private String gayaWadahBanding(String tinggiMaksimum) {
+        return "max-width:100%; max-height:" + tinggiMaksimum + "; overflow-y:auto; overflow-x:hidden; "
+                + "box-sizing:border-box; padding:0; margin:0; background:#ffffff; border:1px solid #fee2e2; "
+                + "border-radius:10px;";
+    }
+
+    private String labelTombolLipat(boolean terbuka, int panjang) {
+        return terbuka ? "▴ Ringkas" : "▾ Selengkapnya (" + panjang + " karakter)";
+    }
+
+    /** Potong cuplikan pada batas kata terdekat supaya tidak terputus di tengah kata. */
+    private String cuplikanAwal(String teks, int batas) {
+        if (teks == null) {
+            return "";
+        }
+        if (teks.length() <= batas) {
+            return teks;
+        }
+        int potong = batas;
+        int spasi = teks.lastIndexOf(' ', batas);
+        if (spasi > batas / 2) {
+            potong = spasi;
+        }
+        return teks.substring(0, potong).trim() + "…";
+    }
+
+    /**
+     * Sel kolom Sebelum/Sesudah pada Riwayat Revisi Data sering berisi teks SANGAT panjang --
+     * misalnya potongan JSON rincian CPMK pada ais.database.model.KurikulumPunyaMatakuliah.
+     * Sebelumnya teks dipotong keras pada 220 karakter dan sisanya hanya dapat dibaca lewat
+     * tooltip, sehingga isi sebenarnya praktis tidak terbaca; selain itu satu baris saja bisa
+     * setinggi seluruh panel dan mendorong baris lain keluar dari area yang terlihat.
+     *
+     * Perilaku sekarang: teks pendek tetap ditampilkan apa adanya (tidak ada perubahan sama
+     * sekali untuk kasus ini), sedangkan teks panjang dibungkus menjadi blok yang dapat dilipat
+     * dengan keadaan awal TERTUTUP -- hanya cuplikan awal yang tampak, ditambah tautan
+     * "Selengkapnya" untuk membuka teks UTUH (tidak lagi dipotong) dan "Ringkas" untuk
+     * menutupnya kembali. Pemotongan lama pada shortenComparisonGridText tetap dipakai untuk
+     * jalur teks pendek dan tidak dihapus.
+     */
+    private Component createComparisonCellComponent(final Vbox wadah, String text, String style) {
+        final String rapi = compactComparisonWhitespace(text);
+        if (rapi.length() <= BATAS_TEKS_SEL_RINGKAS) {
+            return createComparisonCellLabel(rapi, style);
+        }
+
+        Vbox kotak = new Vbox();
+        kotak.setWidth("100%");
+        kotak.setSpacing("2px");
+        kotak.setStyle("margin:0; padding:0;");
+
+        final Label ringkas = new MyLabelAgakKecil(cuplikanAwal(rapi, BATAS_TEKS_SEL_RINGKAS));
+        ringkas.setMultiline(true);
+        ringkas.setStyle(style);
+        ringkas.setParent(kotak);
+
+        final Label penuh = new MyLabelAgakKecil(rapi);
+        penuh.setMultiline(true);
+        penuh.setStyle(style);
+        penuh.setVisible(false);
+        penuh.setParent(kotak);
+
+        final int panjang = rapi.length();
+        final Label tombol = new MyLabelAgakKecil(labelTombolLipat(false, panjang));
+        tombol.setStyle(GAYA_TOMBOL_LIPAT);
+        tombol.setParent(kotak);
+        tombol.addEventListener(Events.ON_CLICK, new EventListener() {
+            public void onEvent(Event event) throws Exception {
+                boolean terbuka = !penuh.isVisible();
+                penuh.setVisible(terbuka);
+                ringkas.setVisible(!terbuka);
+                tombol.setValue(labelTombolLipat(terbuka, panjang));
+                if (terbuka && wadah != null) {
+                    // Beri ruang lebih begitu ada sel yang dibuka. Wadah tetap memakai max-height
+                    // (bukan height), jadi panel otomatis mengecil lagi saat sel ditutup kembali.
+                    wadah.setStyle(gayaWadahBanding(TINGGI_WADAH_BANDING_LUAS));
+                }
+            }
+        });
+
+        try {
+            ringkas.setTooltiptext("Teks dipersingkat. Klik \"Selengkapnya\" untuk menampilkan isi utuh.");
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e,
+                    "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:createComparisonCellComponent");
+        }
+        return kotak;
     }
 
     private Label createComparisonCellLabel(String text, String style) {
