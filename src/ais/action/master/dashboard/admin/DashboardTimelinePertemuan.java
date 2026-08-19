@@ -7034,6 +7034,11 @@ public class DashboardTimelinePertemuan extends MyWindow {
 											+ "3. Muat ulang halaman ini untuk memverifikasi."
 											+ "</div>"
 											: tpk) + "</div>"));
+											// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
+											// supaya pengguna tidak perlu menelusuri menu secara manual.
+											if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
+												tambahTombolTambahDataObe(vboxUtama, "Profil Lulusan", "pages/master/obe/profil_lulusan.zul");
+											}
 
 							vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
 									+ Common.getBahasaConfig("Capaian Lulusan (CPL)") + "</u>:</div>"));
@@ -7055,6 +7060,11 @@ public class DashboardTimelinePertemuan extends MyWindow {
 											+ "</div>"
 											: tpk)
 									+ "</div>"));
+									// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
+									// supaya pengguna tidak perlu menelusuri menu secara manual.
+									if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
+										tambahTombolTambahDataObe(vboxUtama, "Capaian Lulusan (CPL)", "pages/master/obe/capaian_lulusan.zul");
+									}
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardTimelinePertemuan.java:6923");
 						} finally {
 							if (session != null) {
@@ -7164,6 +7174,11 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										+ "3. Simpan, lalu muat ulang halaman ini."
 										+ "</div>"
 										: tpk) + "</div>"));
+										// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
+										// supaya pengguna tidak perlu menelusuri menu secara manual.
+										if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
+											tambahTombolTambahDataObe(vboxUtama, "Bahan Kajian", "pages/master/obe/bahan_kajian.zul");
+										}
 
 						vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
 								+ Common.getBahasaConfig("Pustaka") + "</u>:</div>"));
@@ -7236,6 +7251,11 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										+ "4. Simpan, lalu muat ulang halaman ini."
 										+ "</div>"
 										: tpk) + "</div>"));
+										// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
+										// supaya pengguna tidak perlu menelusuri menu secara manual.
+										if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
+											tambahTombolTambahDataObe(vboxUtama, "Pustaka / Referensi", "pages/master/obe/referensi_lulusan.zul");
+										}
 
 						vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
 								+ Common.getBahasaConfig("Bobot kemampuan akhir tiap tahapan belajar (Bobot Sub-CPMK)")
@@ -9686,6 +9706,75 @@ public class DashboardTimelinePertemuan extends MyWindow {
 
 	private static void closeHibernateSessionQuietly(Session session) {
 		ais.common.ElearningSessionUtil.closeQuietly(session);
+	}
+
+
+	/**
+	 * Tambahkan tombol <b>Tambah</b> di bawah kotak peringatan data OBE yang masih kosong.
+	 *
+	 * <p>Kotak peringatan (&quot;Cara mengisi:&quot;) sebelumnya hanya berisi TEKS petunjuk berisi
+	 * jalur menu yang harus ditelusuri sendiri oleh pengguna. Tombol ini memangkas langkah itu:
+	 * sekali klik langsung membuka layar entri datanya dalam jendela modal, sehingga pengguna
+	 * bisa memilih/menambah data saat itu juga lalu menutupnya dan memuat ulang halaman.</p>
+	 *
+	 * <p>Layar entri dibuka lewat {@link ais.ui.util.MyInclude} (pola yang sama dipakai
+	 * DasboardObeElearningHelper untuk membuka RPS OBE), sehingga composer aslinya berjalan
+	 * apa adanya tanpa duplikasi logika.</p>
+	 *
+	 * @param induk  wadah tempat tombol ditempel (umumnya vbox konten peringatan).
+	 * @param judul  judul jendela sekaligus keterangan tombol.
+	 * @param srcZul path ZUL layar entri, relatif terhadap {@code /WEB-INF/z/x/y/}.
+	 */
+	private static void tambahTombolTambahDataObe(org.zkoss.zk.ui.Component induk, final String judul,
+			final String srcZul) {
+		try {
+			if (induk == null) {
+				return;
+			}
+			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig("Tambah", "/img/svg/plus-circle.svg");
+			tombol.setTooltiptext("Buka layar " + judul + " untuk menambah/memilih data");
+			tombol.setStyle("font-weight:bold;color:#b26a00;");
+			tombol.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					final MyWindow window = new MyWindow(judul, "none", true);
+					window.setHeight("95%");
+					window.setWidth("95%");
+					window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+					Borderlayout bl = new ais.ui.util.MyBorderlayout();
+					bl.setParent(window);
+
+					South south = new South();
+					ais.ui.util.ZkCompat.setFlex(south, true);
+					south.setParent(bl);
+					Toolbar toolbarTutup = new Toolbar();
+					toolbarTutup.setParent(south);
+					MyToolbarbuttonConfig btnTutup = new MyToolbarbuttonConfig("Tutup",
+							"/img/svg/close-circle-line.svg");
+					btnTutup.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event e) throws Exception {
+							window.detach();
+						}
+					});
+					btnTutup.setParent(toolbarTutup);
+
+					Center center = new Center();
+					ais.ui.util.ZkCompat.setFlex(center, true);
+					center.setStyle("overflow:auto;");
+					center.setParent(bl);
+					ais.ui.util.MyInclude include = new ais.ui.util.MyInclude(srcZul);
+					include.setHeight("12000px");
+					include.setParent(center);
+
+					window.onModal();
+				}
+			});
+			tombol.setParent(induk);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "DashboardTimelinePertemuan.tambahTombolTambahDataObe:" + srcZul);
+		}
 	}
 
 }

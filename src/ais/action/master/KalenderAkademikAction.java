@@ -41,7 +41,6 @@ import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
-import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
 import ais.database.model.JenisKegiatan;
@@ -59,7 +58,6 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
-import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
@@ -382,22 +380,11 @@ public class KalenderAkademikAction extends GenericAutowireComposer implements D
 			Vbox c;
 			(c = RevisiHelper.createNewRevisi(KalenderAkademik.class, kalenderAkademik,
 					kalenderAkademik.getNamaKegiatanAkademik())).setParent(arg0);
-			Session session = HibernateUtil.currentSession();
-			List<KonfigurasiKalenderAkademik> konfigurasiKalenderAkademiks = ConstantValues
-					.simpleList(
-							session.createCriteria(KonfigurasiKalenderAkademik.class).addOrder(Order.asc("id"))
-									.add(Restrictions.eq("kalenderAkademik", kalenderAkademik)),
-							KonfigurasiKalenderAkademik.class);
-			for (KonfigurasiKalenderAkademik konfigurasiKalenderAkademik : konfigurasiKalenderAkademiks) {
-				new MyLabelAgakKecil(konfigurasiKalenderAkademik.getKonfigurasi().getNama() + ""
-						+ (konfigurasiKalenderAkademik.getKonfigurasi().getInfo1().isEmpty() ? ""
-								: "-" + konfigurasiKalenderAkademik.getKonfigurasi().getInfo1())
-						+ (konfigurasiKalenderAkademik.getKonfigurasi().getInfo2().isEmpty() ? ""
-								: "-" + konfigurasiKalenderAkademik.getKonfigurasi().getInfo2())
-						+ (konfigurasiKalenderAkademik.getKonfigurasi().getInfo3().isEmpty() ? ""
-								: "-" + konfigurasiKalenderAkademik.getKonfigurasi().getInfo3()))
-						.setParent(c);
-			}
+			// Daftar konfigurasi TIDAK lagi ditumpahkan di kolom "Nama Kegiatan": isinya bisa
+			// belasan baris sehingga satu baris grid memanjang & tak terbaca, padahal data yang
+			// sama sudah disajikan rapi (dengan aksi Ubah/Kunci/Hapus) pada panel detail
+			// "Daftar konfigurasi yang terkait kalender akademik ini" saat baris dibentangkan.
+			// Bonus: menghapus query per-baris ini juga menghilangkan N+1 select saat grid dimuat.
 
 			new Label(kalenderAkademik.getDeskripsiKegiatanAkademik()).setParent(arg0);
 
