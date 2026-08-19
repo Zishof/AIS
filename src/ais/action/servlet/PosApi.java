@@ -858,6 +858,8 @@ public class PosApi extends HttpServlet {
 				prosesLaporanPenjualanKasirList(tbmuser, payload, hasil);
 			} else if ("laporan_penjualan_kasir_detail".equals(action)) {
 				prosesLaporanPenjualanKasirDetail(tbmuser, payload, hasil);
+			} else if ("laporan_metode_bayar_opsi".equals(action)) {
+				prosesLaporanMetodeBayarOpsi(tbmuser, payload, hasil);
 			} else if ("laporan_penerimaan_kasir_list".equals(action)) {
 				prosesLaporanPenerimaanKasirList(tbmuser, payload, hasil);
 			} else if ("laporan_penerimaan_kasir_detail".equals(action)) {
@@ -3600,15 +3602,22 @@ public class PosApi extends HttpServlet {
 			java.sql.Connection conn = session.connection();
 			String dasar = " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
 					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date";
+			// Metode bayar ikut dibawa ke subquery agar bisa disaring (rekonsiliasi tim keuangan).
+			String metodeDipilih = payload.optString("metode", "").trim();
 			String sub = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
+					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai" + dasar + " GROUP BY 1";
-			String batasKasir = kasirDipilih.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
+			StringBuilder fbK = new StringBuilder();
+			if (kasirDipilih.length() > 0) { fbK.append(fbK.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(kasir))=LOWER(?)"); }
+			if (metodeDipilih.length() > 0) { fbK.append(fbK.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(metode))=LOWER(?)"); }
+			String batasKasir = fbK.toString();
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT kasir,COUNT(*),COALESCE(SUM(nilai),0) FROM (" + sub + ") trx" + batasKasir + " GROUP BY kasir ORDER BY kasir");
 			int ix = 1;
 			ps.setLong(ix++, tokoId.longValue()); ps.setString(ix++, tglMulai); ps.setString(ix++, tglSampai);
 			if (kasirDipilih.length() > 0) ps.setString(ix++, kasirDipilih);
+			if (metodeDipilih.length() > 0) ps.setString(ix++, metodeDipilih);
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray ringkasan = new JSONArray();
 			while (rs.next()) {
@@ -3654,6 +3663,41 @@ public class PosApi extends HttpServlet {
 	}
 
 	/** Ringkasan penerimaan dikelompokkan per tanggal, kasir, dan metode pembayaran. */
+	/**
+	 * Opsi isi dropdown "Metode Bayar" pada Laporan Transaksi -- diambil dari metode yang
+	 * BENAR-BENAR dipakai pada rentang tanggal & toko terpilih, sehingga daftar tidak
+	 * dipenuhi metode lama yang sudah tak terpakai. Dipakai bersama filter {@code metode}
+	 * di laporan penerimaan/penjualan per kasir (permintaan rekonsiliasi tim keuangan).
+	 */
+	private void prosesLaporanMetodeBayarOpsi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
+		Long tokoId = resolveTokoId(tbmuser, payload);
+		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+		String mulai = payload.optString("tglMulai", "").trim(); if (mulai.length() == 0) mulai = hariIni;
+		String sampai = payload.optString("tglSampai", "").trim(); if (sampai.length() == 0) sampai = hariIni;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT DISTINCT COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
+							+ " FROM koperasi.pembelian a"
+							+ " WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+							+ " ORDER BY 1");
+			ps.setLong(1, tokoId.longValue());
+			ps.setString(2, mulai);
+			ps.setString(3, sampai);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) { arr.put(rs.getString(1)); }
+			rs.close();
+			ps.close();
+			hasil.put("status", "success");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	private void prosesLaporanPenerimaanKasirList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
@@ -3678,14 +3722,26 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
 					+ " WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
-			String filter = kasir.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
+			// Filter METODE BAYAR (permintaan tim keuangan utk rekonsiliasi harian): opsional,
+			// dicocokkan case-insensitive pada nama metode yang sama dgn yang ditampilkan kolom
+			// "Metode / Bank". Kosong = semua metode (perilaku lama, kompatibel mundur).
+			String metode = payload.optString("metode", "").trim();
+			StringBuilder fb = new StringBuilder();
+			if (kasir.length() > 0) { fb.append(fb.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(kasir))=LOWER(?)"); }
+			if (metode.length() > 0) { fb.append(fb.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(metode))=LOWER(?)"); }
+			String filter = fb.toString();
 			String group = " SELECT tanggal,kasir,metode,COUNT(*) jumlah,COALESCE(SUM(nilai),0) total FROM (" + trx + ") t" + filter
 					+ " GROUP BY tanggal,kasir,metode";
 			java.sql.PreparedStatement pc = conn.prepareStatement("SELECT COUNT(*) FROM (" + group + ") g");
-			int ix = 1; pc.setLong(ix++, tokoId.longValue()); pc.setString(ix++, mulai); pc.setString(ix++, sampai); if (kasir.length() > 0) pc.setString(ix++, kasir);
+			int ix = 1; pc.setLong(ix++, tokoId.longValue()); pc.setString(ix++, mulai); pc.setString(ix++, sampai);
+			if (kasir.length() > 0) pc.setString(ix++, kasir);
+			if (metode.length() > 0) pc.setString(ix++, metode);
 			java.sql.ResultSet rc = pc.executeQuery(); long total = rc.next() ? rc.getLong(1) : 0; rc.close(); pc.close();
 			java.sql.PreparedStatement pd = conn.prepareStatement(group + " ORDER BY tanggal DESC,kasir,metode LIMIT ? OFFSET ?");
-			ix = 1; pd.setLong(ix++, tokoId.longValue()); pd.setString(ix++, mulai); pd.setString(ix++, sampai); if (kasir.length() > 0) pd.setString(ix++, kasir); pd.setInt(ix++, pageSize); pd.setInt(ix++, offset);
+			ix = 1; pd.setLong(ix++, tokoId.longValue()); pd.setString(ix++, mulai); pd.setString(ix++, sampai);
+			if (kasir.length() > 0) pd.setString(ix++, kasir);
+			if (metode.length() > 0) pd.setString(ix++, metode);
+			pd.setInt(ix++, pageSize); pd.setInt(ix++, offset);
 			java.sql.ResultSet rd = pd.executeQuery(); JSONArray data = new JSONArray();
 			while (rd.next()) { JSONObject o = new JSONObject(); o.put("tanggal", rd.getDate(1).toString()); o.put("kasir", rd.getString(2)); o.put("metode", rd.getString(3)); o.put("jumlahTransaksi", rd.getLong(4)); o.put("total", rd.getDouble(5)); data.put(o); }
 			rd.close(); pd.close();
