@@ -524,7 +524,9 @@ public class PenunjangKinerjaDosenAction extends GenericAutowireComposer {
 
 			PenunjangKinerjaDosenAction.displayRow(arg0, penunjangKinerjaDosen, ases);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.addEventListener("onClick", new EventListener() {
@@ -536,7 +538,7 @@ public class PenunjangKinerjaDosenAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -568,8 +570,8 @@ public class PenunjangKinerjaDosenAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

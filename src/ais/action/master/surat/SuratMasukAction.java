@@ -436,14 +436,21 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 				new Label(suratMasuk.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox toolbar = new Hbox();
-			GeneralValueObject.tampilKunci(toolbar, suratMasuk, tbmuser, new EventListener() {
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			// Tombol Kunci / Buka Kunci via temp container lalu pindah ke daftar aksi.
+			Hbox tempKunci = new Hbox();
+			GeneralValueObject.tampilKunci(tempKunci, suratMasuk, tbmuser, new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 					onSearchDefault(event);
 				}
 
 			}, false);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(tempKunci));
 
 			MyToolbarbuttonConfig catatanDisposisi = new MyToolbarbuttonConfig("", "/img/print.png");
 			catatanDisposisi.setTooltiptext("Catatan / Cetak / Simpan Disposisi");
@@ -464,7 +471,7 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 							(org.zkoss.zk.ui.Component) event.getTarget());
 				}
 			});
-			catatanDisposisi.setParent(toolbar);
+			aksiButtons.add(catatanDisposisi);
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("",
 					suratMasuk.getDikunci() == null ? "/img/svg/edit-box-line.svg" : "/img/svg/eye.svg");
@@ -479,7 +486,7 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -523,8 +530,9 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

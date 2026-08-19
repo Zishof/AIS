@@ -1275,7 +1275,11 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 			Tbmuser tbmuser = Common.getCurrentUser();
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/upload.gif");
 			button.setVisible(edit && tbmuser != null);
 			try {
@@ -1301,7 +1305,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
@@ -1319,7 +1323,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -1364,9 +1368,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			toolbar.setParent(arg0);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

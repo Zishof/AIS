@@ -170,7 +170,14 @@ public class AmbilDataAssetDetailBanyak extends MyWindow {
 
 		North north = new North();
 		north.setParent(borderlayout);
-		ais.ui.util.ZkCompat.setFlex(north, true);
+		// FIX toolbar/tombol tidak tampil: pada ZK5 region North memakai tinggi bawaan
+		// (+-100px); dengan flex=true isinya diregangkan ke tinggi tersebut sehingga
+		// Toolbar yang diletakkan DI BAWAH grid filter ikut terpotong. Disamakan dengan
+		// layar sejenis yang sudah benar (DownloadMahasiswa, DownloadKrs, DownloadNilai):
+		// flex dimatikan + tinggi eksplisit. Autoscroll sebagai pengaman bila isi bertambah.
+		ais.ui.util.ZkCompat.setFlex(north, false);
+		north.setHeight("160px");
+		north.setAutoscroll(true);
 
 		Div div = new Div();
 		div.setParent(north);

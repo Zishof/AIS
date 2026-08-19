@@ -930,7 +930,11 @@ public class AkunAction extends GenericAutowireComposer {
 			new MyLabelKecil(akun.getAtasNama()).setParent(vbox);
 			new MyLabelKecil(akun.getNoRek()).setParent(vbox);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -949,7 +953,7 @@ public class AkunAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -984,8 +988,9 @@ public class AkunAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}
@@ -1415,7 +1420,11 @@ public class AkunAction extends GenericAutowireComposer {
 
 					arg0 = new Treecell();
 					arg0.setParent(treerow);
-					Hbox toolbar = new Hbox();
+					// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+					// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+					final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+							new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 					MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/addthis.svg");
 					button.setTooltiptext("Tambah Data");
 					button.setVisible(edit);
@@ -1446,7 +1455,7 @@ public class AkunAction extends GenericAutowireComposer {
 						}
 
 					});
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 
 					button = new MyToolbarbuttonConfig("", "/img/svg/edit-copy.svg");
 					button.setTooltiptext("Copy Data");
@@ -1470,7 +1479,7 @@ public class AkunAction extends GenericAutowireComposer {
 						}
 
 					});
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 
 					button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 					button.setTooltiptext("Ubah Data");
@@ -1491,7 +1500,7 @@ public class AkunAction extends GenericAutowireComposer {
 						}
 
 					});
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 
 					button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 					button.setTooltiptext("Hapus Data");
@@ -1527,8 +1536,9 @@ public class AkunAction extends GenericAutowireComposer {
 
 						}
 					});
-					button.setParent(toolbar);
-					toolbar.setParent(arg0);
+					aksiButtons.add(button);
+
+					ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
 				}

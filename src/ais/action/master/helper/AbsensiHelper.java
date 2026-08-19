@@ -4303,8 +4303,9 @@ public class AbsensiHelper {
 
 					}
 				});
-				button.setParent(toolbar);
-				toolbar.setParent(hbox);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(hbox, 3, aksiButtons);
 
 				List<GeneralValueObject> mahasiswas = session.createCriteria(DetailKelasPertemuan.class)
 						.setProjection(Projections.property("mahasiswa")).createAlias("mahasiswa", "mahasiswa")

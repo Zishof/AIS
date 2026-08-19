@@ -734,7 +734,10 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				});
 			}
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Permintaan Pengadaan Asset");
@@ -747,7 +750,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 
@@ -841,7 +844,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			ditolak.setTooltiptext("Ditolak");
 
@@ -907,7 +910,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				}
 
 			});
-			ditolak.setParent(toolbar);
+			aksiButtons.add(ditolak);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -972,7 +975,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && permintaanPengadaanMasterAsset.getDisetujuiOleh() == null);
@@ -985,7 +988,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && permintaanPengadaanMasterAsset.getDisetujuiOleh() == null);
@@ -1051,10 +1054,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 
 				}
 			});
-			hapus.setParent(toolbar);
-
-			Vbox vbox = new Vbox();
-			vbox.appendChild(toolbar);
+			aksiButtons.add(hapus);
 
 			if (permintaanPengadaanMasterAsset.getPemesananPengadaanMasterAsset() != null
 					&& permintaanPengadaanMasterAsset.getPemesananPengadaanMasterAsset().getPembelianLangsung()
@@ -1139,7 +1139,7 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 						}
 
 					});
-					button.setParent(vbox);
+					aksiButtons.add(button);
 				}
 			}
 
@@ -1209,11 +1209,11 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 						}
 
 					});
-					button.setParent(vbox);
+					aksiButtons.add(button);
 				}
 			}
 
-			vbox.setParent(arg0);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

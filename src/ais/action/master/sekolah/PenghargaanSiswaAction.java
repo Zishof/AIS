@@ -344,7 +344,12 @@ public class PenghargaanSiswaAction extends GenericAutowireComposer implements D
 
 			new Label(penghargaanSiswa.getNomorSertifikat()).setParent(arg0);
 
-			final Hbox toolbar = new Hbox();
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			// aksiBoxRef menampung Vbox pembungkus supaya visibilitas grup tetap bisa
+			// diubah dari listener Combobox status (perilaku sama dgn Hbox toolbar lama).
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+			final Vbox[] aksiBoxRef = new Vbox[1];
 			final MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Krm ke feeder",
 					"/img/Finance-Invoice-icon.png");
 			final Hbox myHbox = new Hbox();
@@ -380,7 +385,9 @@ public class PenghargaanSiswaAction extends GenericAutowireComposer implements D
 								|| status.getSelectedItem().getValue() == null ? null
 										: status.getSelectedItem().getValue()));
 						Common.refreshUpdate(penghargaanSiswa);
-						toolbar.setVisible(!penghargaanSiswa.getStatus().equals(PenghargaanSiswa.DISETUJUI));
+						if (aksiBoxRef[0] != null) {
+							aksiBoxRef[0].setVisible(!penghargaanSiswa.getStatus().equals(PenghargaanSiswa.DISETUJUI));
+						}
 
 						if (tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
 								&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")) {
@@ -406,8 +413,6 @@ public class PenghargaanSiswaAction extends GenericAutowireComposer implements D
 
 			new Label(penghargaanSiswa.getKeterangan()).setParent(arg0);
 
-			toolbar.setVisible(!penghargaanSiswa.getStatus().equals(PenghargaanSiswa.DISETUJUI) && tbmuser != null);
-
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.addEventListener("onClick", new EventListener() {
@@ -419,7 +424,7 @@ public class PenghargaanSiswaAction extends GenericAutowireComposer implements D
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -458,12 +463,14 @@ public class PenghargaanSiswaAction extends GenericAutowireComposer implements D
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Vbox vbox1 = new Vbox();
 			vbox1.setParent(arg0);
 
-			toolbar.setParent(vbox1);
+			aksiBoxRef[0] = ais.ui.util.UIHelper.buatBarisAksi(vbox1, 3, aksiButtons);
+			aksiBoxRef[0].setVisible(
+					!penghargaanSiswa.getStatus().equals(PenghargaanSiswa.DISETUJUI) && tbmuser != null);
 
 			myHbox.setParent(vbox1);
 

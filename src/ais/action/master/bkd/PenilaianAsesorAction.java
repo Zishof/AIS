@@ -682,7 +682,9 @@ public class PenilaianAsesorAction extends GenericAutowireComposer implements Da
 				}
 			});
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			buttonPenilaian.setTooltiptext("Ubah Data");
 			buttonPenilaian.setVisible(edit && penilaianAsesor.getAsesemenPenilaian().getAktif());
@@ -694,7 +696,7 @@ public class PenilaianAsesorAction extends GenericAutowireComposer implements Da
 				}
 
 			});
-			buttonPenilaian.setParent(toolbar);
+			aksiButtons.add(buttonPenilaian);
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -727,8 +729,8 @@ public class PenilaianAsesorAction extends GenericAutowireComposer implements Da
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(myVbox);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(myVbox, 3, aksiButtons);
 
 		}
 
