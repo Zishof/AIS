@@ -45,8 +45,9 @@ import ais.database.model.inventory.Toko;
  */
 public final class PengadaanPosApiHelper {
 
-	/** Kunci menu tunggal utk seluruh tahap pengadaan POS (PR dulu, tahap lain menyusul). */
-	private static final String KUNCI_MENU = "pengadaan_pr";
+	/** Kunci menu per tahap pengadaan -- tiap tahap punya hak akses sendiri di TbmroleAction. */
+	private static final String KUNCI_PR = "pengadaan_pr";
+	private static final String KUNCI_PO = "pengadaan_po";
 
 	private PengadaanPosApiHelper() {
 	}
@@ -56,7 +57,7 @@ public final class PengadaanPosApiHelper {
 		hasil.put("description", pesan);
 	}
 
-	private static boolean bolehLihat(Tbmuser tbmuser) {
+	private static boolean bolehLihat(Tbmuser tbmuser, String kunci) {
 		if (tbmuser == null) {
 			return false;
 		}
@@ -68,10 +69,10 @@ public final class PengadaanPosApiHelper {
 			return true;
 		}
 		JSONObject menu = EbisnisMenuKatalog.urai(role.getEbisnisMenu()).optJSONObject("menu");
-		return menu != null && menu.optBoolean(KUNCI_MENU, false);
+		return menu != null && menu.optBoolean(kunci, false);
 	}
 
-	private static boolean bolehAksi(Tbmuser tbmuser, String aksi) {
+	private static boolean bolehAksi(Tbmuser tbmuser, String kunci, String aksi) {
 		if (tbmuser == null) {
 			return false;
 		}
@@ -83,7 +84,7 @@ public final class PengadaanPosApiHelper {
 			return true;
 		}
 		return EbisnisMenuKatalog.bolehAksi(
-				EbisnisMenuKatalog.urai(role.getEbisnisMenu()), KUNCI_MENU, aksi);
+				EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunci, aksi);
 	}
 
 	/** Toko lingkup pemanggil: pedagang dikunci ke tokonya, admin boleh memilih lewat payload. */
@@ -133,7 +134,7 @@ public final class PengadaanPosApiHelper {
 	 * {@code status} (DRAFT/DISETUJUI/DITOLAK/TUTUP), {@code page}, {@code pageSize}.
 	 */
 	public static void prDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PR)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -195,7 +196,7 @@ public final class PengadaanPosApiHelper {
 
 	/** Detail satu PR: header + baris barang. Param: {@code id}. */
 	public static void prDetail(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PR)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -275,7 +276,7 @@ public final class PengadaanPosApiHelper {
 	public static void prSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long id = (request == null || request.isNull("id") || (request.get("id") + "").trim().isEmpty())
 				? null : Long.valueOf((request.get("id") + "").trim());
-		if (!bolehAksi(tbmuser, id == null ? "create" : "update")) {
+		if (!bolehAksi(tbmuser, KUNCI_PR, id == null ? "create" : "update")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak "
 					+ (id == null ? "membuat" : "mengubah") + " Permintaan Pembelian.");
 			return;
@@ -402,7 +403,7 @@ public final class PengadaanPosApiHelper {
 	 * (wajib bila menolak). Butuh aksi granular {@code approve}.
 	 */
 	public static void prPutusan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehAksi(tbmuser, "approve")) {
+		if (!bolehAksi(tbmuser, KUNCI_PR, "approve")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menyetujui atau menolak Permintaan Pembelian.");
 			return;
 		}
@@ -487,7 +488,7 @@ public final class PengadaanPosApiHelper {
 	 * keputusan dan TIDAK dihapus (pola referential-guard sama dengan master lain).
 	 */
 	public static void prHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehAksi(tbmuser, "delete")) {
+		if (!bolehAksi(tbmuser, KUNCI_PR, "delete")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menghapus Permintaan Pembelian.");
 			return;
 		}
@@ -548,7 +549,8 @@ public final class PengadaanPosApiHelper {
 	 * sinkronisasi BAST ke Kulakan.
 	 */
 	public static void cariBarang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		// Pencarian barang dipakai layar PR maupun PO, jadi cukup salah satu menu aktif.
+		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -748,7 +750,7 @@ public final class PengadaanPosApiHelper {
 	 * {@code pageSize}.
 	 */
 	public static void poDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -827,7 +829,7 @@ public final class PengadaanPosApiHelper {
 	 * pembayaran -- cara pengenalan yang sama dipakai layar ZKoss.</p>
 	 */
 	public static void poDetail(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -990,7 +992,7 @@ public final class PengadaanPosApiHelper {
 	public static void poSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long id = (request == null || request.isNull("id") || (request.get("id") + "").trim().isEmpty())
 				? null : Long.valueOf((request.get("id") + "").trim());
-		if (!bolehAksi(tbmuser, id == null ? "create" : "update")) {
+		if (!bolehAksi(tbmuser, KUNCI_PO, id == null ? "create" : "update")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak "
 					+ (id == null ? "membuat" : "mengubah") + " Pemesanan Pembelian.");
 			return;
@@ -1227,7 +1229,7 @@ public final class PengadaanPosApiHelper {
 	 * Butuh aksi granular {@code approve}.
 	 */
 	public static void poPutusan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehAksi(tbmuser, "approve")) {
+		if (!bolehAksi(tbmuser, KUNCI_PO, "approve")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menyetujui atau menolak Pemesanan Pembelian.");
 			return;
 		}
@@ -1316,7 +1318,7 @@ public final class PengadaanPosApiHelper {
 	 * menerima pembayaran tidak boleh dihapus.
 	 */
 	public static void poHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehAksi(tbmuser, "delete")) {
+		if (!bolehAksi(tbmuser, KUNCI_PO, "delete")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menghapus Pemesanan Pembelian.");
 			return;
 		}
@@ -1382,7 +1384,7 @@ public final class PengadaanPosApiHelper {
 	 * beberapa PO tanpa terjadi pemesanan berlebih.</p>
 	 */
 	public static void poDariPr(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -1477,7 +1479,7 @@ public final class PengadaanPosApiHelper {
 
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
 	public static void cariPenyedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}

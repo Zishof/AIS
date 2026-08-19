@@ -99,9 +99,14 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "stokopname", "Stok Opname", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "kulakan", "Kulakan", "desktop", "android"));
 		// Modul Pengadaan POS (PR -> PO -> BAST -> Tagihan -> Bayar -> Kulakan). Lingkup TOKO,
-		// padanan alur ZKoss versi umum. Fail-closed via KUNCI_DEFAULT_NONAKTIF: menyangkut
-		// komitmen pembelian & pembayaran vendor, tidak boleh mendadak muncul utk role existing.
+		// padanan alur ZKoss versi umum. Atas permintaan pemilik produk (2026-08-20) kelima
+		// menu Pengadaan TAMPIL secara bawaan supaya toko dapat langsung memakainya; hak
+		// per-aksi tetap diatur admin lewat grid CRUD TbmroleAction.
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_pr", "Pengadaan: Permintaan Pembelian (PR)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_po", "Pengadaan: Pemesanan Pembelian (PO)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_bast", "Pengadaan: Penerimaan Barang/Jasa (BAST)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_tagihan", "Pengadaan: Terima Tagihan Vendor", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_dpc", "Pengadaan: Pembayaran Vendor (DPC)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "diskon", "Aturan Diskon", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "returpenjualan", "Retur Penjualan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatpenjualan", "Riwayat Penjualan", "desktop", "android"));
@@ -189,8 +194,6 @@ public final class EbisnisMenuKatalog {
 	public static final java.util.Set<String> KUNCI_DEFAULT_NONAKTIF = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 			// Grup Produk: perubahan harga massal lintas outlet -- fail-closed, nyala hanya via admin.
 			"grup_produk",
-			// Pengadaan POS: komitmen pembelian & pembayaran vendor -- fail-closed.
-			"pengadaan_pr",
 			// MitraInap: vertikal baru -- role POS existing tidak boleh mendadak melihatnya.
 			"hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
 			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik",
