@@ -1489,12 +1489,20 @@ public class BantuanHelper {
 
 	/**
 	 * Sidik jari murah untuk mendeteksi perubahan berkas panduan: jumlah berkas,
-	 * waktu ubah terbaru, dan total ukuran. Hanya melakukan stat, tidak membaca isi.
+	 * waktu ubah terbaru, total ukuran, dan jumlah hash NAMA berkas. Hanya
+	 * melakukan stat, tidak membaca isi.
+	 *
+	 * <p>Hash nama wajib ikut: mengganti nama berkas tidak mengubah jumlah,
+	 * ukuran, maupun waktu ubah, sehingga tanpa hash nama katalog akan tetap
+	 * menampilkan kunci lama sampai aplikasi dinyalakan ulang. Penjumlahan
+	 * dipakai (bukan perkalian berantai) agar hasilnya tidak bergantung pada
+	 * urutan yang dikembalikan sistem berkas.</p>
 	 */
 	private static String sidikDirektoriBantuan(File[] berkas) {
 		int n = 0;
 		long terbaru = 0L;
 		long total = 0L;
+		long hashNama = 0L;
 		for (int i = 0; i < berkas.length; i++) {
 			File f = berkas[i];
 			if (f == null || !f.isFile()) {
@@ -1510,8 +1518,9 @@ public class BantuanHelper {
 				terbaru = lm;
 			}
 			total += f.length();
+			hashNama += nama.toLowerCase().hashCode();
 		}
-		return n + ":" + terbaru + ":" + total;
+		return n + ":" + terbaru + ":" + total + ":" + hashNama;
 	}
 
 	/**
