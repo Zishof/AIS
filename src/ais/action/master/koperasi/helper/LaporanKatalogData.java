@@ -229,6 +229,7 @@ public final class LaporanKatalogData {
         k.items.add(item("ar_umur_piutang", "Umur Piutang (Aging)", "Sisa piutang per kelompok umur 0-30/31-60/61-90/>90 hari.", false, true, false, null));
         k.items.add(item("ar_sisa_kredit", "Limit & Sisa Kredit Pelanggan", "Plafon kredit anggota vs piutang terpakai; sisa & tanda melebihi limit. Atur limit di Pengaturan.", false, true, false, null));
         k.items.add(item("akn_bb_pembantu_piutang", "Buku Besar Pembantu Piutang", "Mutasi piutang per pelanggan (belanja hutang vs pembayaran) + saldo berjalan."));
+        k.items.add(item("ar_penerimaan_customer", "Riwayat Penerimaan Piutang Customer", "Pelunasan piutang dari pelanggan (modul Inventory & Sales) beserta status posting jurnalnya."));
         k.items.add(item("akn_histori_piutang", "Histori Piutang", "Seluruh mutasi piutang urut waktu (kronologis) + saldo total berjalan."));
         semua.add(k);
 
@@ -262,6 +263,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_daftar_akun", "Daftar Akun Perkiraan (Bagan Akun)", "Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."));
         k.items.add(item("akn_ringkasan_beban", "Ringkasan Pencatatan Beban", "Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."));
         k.items.add(item("akn_rincian_beban", "Rincian Beban Pembayaran", "Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."));
+        k.items.add(item("akn_diagnosa_jurnal_toko", "Diagnosa Jurnal Toko (Belum Diposting)", "Dokumen toko yang belum masuk buku besar per jenis: kulakan, bayar hutang, terima piutang, retur, opname, mutasi."));
         k.items.add(item("akn_diagnosa_akun", "Diagnosa Pemetaan Akun", "Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."));
         k.items.add(item("gl_rincian", "Rincian Buku Besar Kas (Ringkas)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."));
         k.items.add(item("akn_aset_tetap", "Daftar Aset Tetap (Nilai Buku)", "Aktiva tetap aktif: nilai perolehan, akumulasi penyusutan, dan nilai buku."));
@@ -327,6 +329,9 @@ public final class LaporanKatalogData {
         k.items.add(item("beli_bast_rinci", "Rincian BAST per Item", "Item barang tiap penerimaan/BAST (per nomor BAST).", true, false, false, null));
         k.items.add(item("beli_tagihan", "Terima Tagihan / Pembayaran Vendor", "Tagihan vendor: nilai, dibayar, pajak, sisa."));
         k.items.add(item("beli_utang_vendor", "Utang Vendor (Belum Lunas)", "Sisa kewajiban ke tiap vendor."));
+        k.items.add(item("ap_saldo_supplier", "Saldo Hutang per Supplier (Toko)", "Sisa hutang tiap pemasok: nilai faktur kulakan dikurangi dibayar di muka dan pembayaran yang sudah dialokasikan."));
+        k.items.add(item("ap_umur_utang", "Umur Hutang Supplier (Aging)", "Faktur kulakan yang belum lunas dipilah menurut umur sejak jatuh tempo."));
+        k.items.add(item("ap_pembayaran", "Riwayat Pembayaran Hutang Supplier", "Pembayaran ke pemasok + faktur yang dilunasi + status posting jurnalnya."));
         k.items.add(item("akn_bb_pembantu_utang", "Buku Besar Pembantu Utang (Kulakan)", "Kulakan/pengadaan barang masuk per pemasok + saldo berjalan (utang bruto)."));
         k.items.add(item("beli_per_vendor", "Pembelian per Vendor", "Rekap nilai PO per vendor."));
         k.items.add(item("beli_retur_pengadaan", "Retur Pengadaan (ke Vendor)", "Retur barang yang dikembalikan ke vendor."));

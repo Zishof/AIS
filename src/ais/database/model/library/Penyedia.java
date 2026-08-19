@@ -175,4 +175,24 @@ public class Penyedia extends GeneralValueObject {
 		this.kode = kode;
 	}
 
+
+	/**
+	 * Akun utang dagang penyedia -- ditambahkan 2026-08-20 sebagai prasyarat penjurnalan
+	 * kulakan & pembayaran hutang supplier toko. Sejajar dengan {@code PenyediaAsset.akunUtang}
+	 * pada rantai pengadaan aset. Bila kosong, pemakainya jatuh ke konfigurasi
+	 * {@code akun_utang_supplier_toko} lalu {@code akun_utang_id_default_data}.
+	 * Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private ais.database.model.akunting.Akun akunUtang;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_utang", nullable = true)
+	public ais.database.model.akunting.Akun getAkunUtang() {
+		return akunUtang;
+	}
+
+	public void setAkunUtang(ais.database.model.akunting.Akun akunUtang) {
+		this.akunUtang = akunUtang;
+	}
+
 }

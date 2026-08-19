@@ -372,6 +372,16 @@ public final class SalesInventoryPayableHelper {
 			bayar.setDibuatOleh(tbmuser);
 			isiOleh(bayar, tbmuser);
 			session.save(bayar);
+			// Tautkan ke Daftar Pengajuan Transfer supaya pembayaran ini terlihat di menu
+			// Pembayaran Transfer keuangan (sejajar pembayaran pengadaan aset). Kegagalan
+			// penautan tidak boleh menggagalkan pembayarannya sendiri -- tombol Sinkronkan
+			// pada layar transfer akan menyusulkan yang terlewat.
+			try {
+				ais.database.model.akunting.DaftarPengajuanTransfer.simpanPembayaranHutangSupplier(bayar);
+			} catch (Exception exDpc) {
+				ais.common.ErrorAuditUtil.record(exDpc,
+						"auto-audit SalesInventoryPayableHelper.payablePaymentCreate simpanDpc");
+			}
 			for (int i = 0; i < alokasi.length(); i++) {
 				JSONObject a = alokasi.getJSONObject(i);
 				AlokasiPembayaranHutangSupplier al = new AlokasiPembayaranHutangSupplier();

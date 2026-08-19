@@ -276,4 +276,40 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
+
+	/**
+	 * Penanda jurnal. Jurnal pembayaran hutang: debet Utang Supplier, kredit Kas/Bank. Diisi saat baris ini diposting ke buku besar; dipakai
+	 * sebagai kunci anti-posting-ganda dan jejak balik dari jurnal ke dokumen sumbernya.
+	 * Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
+
+	/**
+	 * Tautan ke Daftar Pengajuan Transfer (DPC) -- membuat pembayaran hutang supplier toko ikut
+	 * muncul di menu Pembayaran Transfer keuangan, sejajar dengan pembayaran pengadaan aset.
+	 * Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private ais.database.model.akunting.DaftarPengajuanTransfer daftarPengajuanTransfer;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "daftar_pengajuan_transfer", nullable = true)
+	public ais.database.model.akunting.DaftarPengajuanTransfer getDaftarPengajuanTransfer() {
+		return daftarPengajuanTransfer;
+	}
+
+	public void setDaftarPengajuanTransfer(ais.database.model.akunting.DaftarPengajuanTransfer daftarPengajuanTransfer) {
+		this.daftarPengajuanTransfer = daftarPengajuanTransfer;
+	}
+
 }

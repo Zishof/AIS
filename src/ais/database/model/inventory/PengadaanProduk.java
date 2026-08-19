@@ -185,4 +185,22 @@ public class PengadaanProduk extends GeneralValueObject {
 		this.fakturPengadaan = fakturPengadaan;
 	}
 
+
+	/**
+	 * Penanda jurnal. Jurnal kulakan: debet Persediaan, kredit Utang Supplier/Kas. Diisi saat baris ini diposting ke buku besar; dipakai
+	 * sebagai kunci anti-posting-ganda dan jejak balik dari jurnal ke dokumen sumbernya.
+	 * Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_pembelian", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

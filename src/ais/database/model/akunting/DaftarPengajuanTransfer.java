@@ -616,6 +616,58 @@ public class DaftarPengajuanTransfer extends DataSop {
 	 * menautkan balik lewat {@code daftar_pengajuan_transfer}. Klon
 	 * {@link #simpanUangMuka} untuk pola yang identik.
 	 */
+	/**
+	 * Pembayaran hutang supplier TOKO (modul Inventory &amp; Sales). Ditambahkan 2026-08-20 supaya
+	 * pembayaran ke pemasok toko ikut muncul di menu Pembayaran Transfer, sejajar dengan pembayaran
+	 * pengadaan aset yang sudah lebih dulu tertaut. Idempoten seperti simpanXxx lainnya.
+	 */
+	public static void simpanPembayaranHutangSupplier(
+			ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier) {
+
+		if (pembayaranHutangSupplier == null || pembayaranHutangSupplier.getDaftarPengajuanTransfer() != null) {
+			return;
+		}
+
+		Session session = HibernateUtil.currentNativeSession();
+		DaftarPengajuanTransfer daftarPengajuanTransfer = (DaftarPengajuanTransfer) session
+				.createCriteria(DaftarPengajuanTransfer.class)
+				.add(Restrictions.eq("pembayaranHutangSupplier", pembayaranHutangSupplier)).setMaxResults(1)
+				.uniqueResult();
+		if (daftarPengajuanTransfer == null) {
+			daftarPengajuanTransfer = new DaftarPengajuanTransfer();
+		}
+		daftarPengajuanTransfer.setPembayaranHutangSupplier(pembayaranHutangSupplier);
+		daftarPengajuanTransfer.setNama("Pembayaran hutang supplier toko "
+				+ (pembayaranHutangSupplier.getSupplier() == null ? ""
+						: pembayaranHutangSupplier.getSupplier().getNama()));
+
+		session.getTransaction().begin();
+		Common.refreshSaveOrUpdate(session, daftarPengajuanTransfer);
+		session.getTransaction().commit();
+
+		pembayaranHutangSupplier.setDaftarPengajuanTransfer(daftarPengajuanTransfer);
+
+		session.getTransaction().begin();
+		Common.refreshSaveOrUpdate(session, pembayaranHutangSupplier);
+		session.getTransaction().commit();
+
+		closeNativeSessionSafely(session);
+	}
+
+	private ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier;
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "pembayaran_hutang_supplier", nullable = true)
+	public ais.database.model.koperasi.PembayaranHutangSupplier getPembayaranHutangSupplier() {
+		pembayaranHutangSupplier = check(pembayaranHutangSupplier);
+		return pembayaranHutangSupplier;
+	}
+
+	public void setPembayaranHutangSupplier(
+			ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier) {
+		this.pembayaranHutangSupplier = pembayaranHutangSupplier;
+	}
+
 	public static void simpanReimbursement(ReimbursementPegawai reimbursementPegawai) {
 
 		if (reimbursementPegawai != null && reimbursementPegawai.getDaftarPengajuanTransfer() != null) {
@@ -811,6 +863,8 @@ public class DaftarPengajuanTransfer extends DataSop {
 				kode = getSaldoAwalMasterAsset().getKode();
 			} else if (getUangMuka() != null) {
 				kode = getUangMuka().getKode();
+			} else if (getPembayaranHutangSupplier() != null) {
+				kode = getPembayaranHutangSupplier().getKodeUnik();
 			} else if (getReimbursementPegawai() != null) {
 				kode = getReimbursementPegawai().getKode();
 			} else if (getPertangungjawaban() != null) {
@@ -1024,6 +1078,10 @@ public class DaftarPengajuanTransfer extends DataSop {
 
 		else if (getUangMuka() != null && getUangMuka().getNilai() != null) {
 			nominal = getUangMuka().getNilai();
+		}
+
+		else if (getPembayaranHutangSupplier() != null && getPembayaranHutangSupplier().getNominal() != null) {
+			nominal = Double.valueOf(getPembayaranHutangSupplier().getNominal().doubleValue());
 		}
 
 		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getNominal() != null) {

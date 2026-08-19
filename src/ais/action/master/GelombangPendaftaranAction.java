@@ -746,6 +746,12 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 				"Calon mahasiswa harus mengikuti status awal default"));
 		harusIkutStatusAwalDefault.setChecked(gelombangPendaftaran.getHarusIkutStatusAwalDefault());
 		row.setParent(rows);
+		Common.initKeterangan(rows,
+				"Bila dicentang, SELURUH calon di gelombang ini DIKUNCI ke \"Status Awal Mahasiswa Default\" di atas"
+						+ " - kecuali calon yang sudah dimasukkan ke sebuah Kelompok Calon Mahasiswa secara manual"
+						+ " (kelompok manual selalu menang). Calon yang terkunci akan muncul di layar Kelompok"
+						+ " sebagai anggota OTOMATIS (kolom Manual = Tidak) dan TIDAK bisa dihapus dari sana;"
+						+ " untuk memindahkannya, pakai tombol \"Ambil Data Calon Mahasiswa Manual\" di kelompok tujuan.");
 
 		row = new MyFormRow();
 		row.appendChild(new ais.ui.util.MyLabelConfig());

@@ -277,6 +277,9 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 		groupbox.setParent(this);
 		groupbox.appendChild(new MyCaptionStyled("Daftar calon mahasiswa yang masuk kelompok "
 				+ kelompokCalonMahasiswa.getStatusAwalMahasiswa().getNama()));
+
+		tampilkanCatatanKeanggotaan(groupbox);
+
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
 		toolbar.setParent(groupbox);
@@ -595,6 +598,54 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 		column.setWidth("5%");
 
 		loadData(null);
+	}
+
+	/**
+	 * Terangkan dari mana anggota kelompok ini berasal, dan kapan barisnya tidak bisa dihapus.
+	 *
+	 * <p>Daftar ini gabungan dua jalur (lihat {@link #initCriteria(boolean)}): jalur MANUAL
+	 * (calon di-assign eksplisit ke kelompok ini) dan jalur OTOMATIS (calon yang gelombang +
+	 * Status Awal-nya kebetulan cocok, dan belum masuk kelompok mana pun). Tombol "Hapus
+	 * Manual" hanya berlaku untuk jalur manual - jalur otomatis tidak menyimpan apa pun yang
+	 * bisa dihapus. Tanpa penjelasan ini operator mengira tombolnya rusak.</p>
+	 *
+	 * <p>Bila gelombang mencentang "Calon mahasiswa harus mengikuti status awal default" dan
+	 * defaultnya sama dengan status kelompok ini, seluruh calon gelombang tsb DIKUNCI ke sini
+	 * selama belum dipindah manual - itu ditandai terpisah supaya tidak dikira kesalahan data.</p>
+	 */
+	private void tampilkanCatatanKeanggotaan(ais.ui.util.MyDiv groupbox) {
+		try {
+			StringBuilder catatan = new StringBuilder();
+			catatan.append("Baris dengan kolom <b>Manual = Tidak</b> masuk ke sini secara OTOMATIS")
+					.append(" (gelombang + Status Awal-nya cocok), bukan karena disimpan di kelompok ini.")
+					.append(" Baris seperti itu memang tidak punya tombol Hapus - untuk memindahkannya,")
+					.append(" buka kelompok tujuan lalu pakai tombol <b>Ambil Data Calon Mahasiswa Manual</b>.");
+
+			ais.database.model.GelombangPendaftaran gelombang = kelompokCalonMahasiswa.getGelombangPendaftaran();
+			ais.database.model.StatusAwalMahasiswa statusKelompok = kelompokCalonMahasiswa.getStatusAwalMahasiswa();
+			boolean dikunciGelombang = gelombang != null && gelombang.getHarusIkutStatusAwalDefault()
+					&& gelombang.getStatusAwalMahasiswaDefault() != null && statusKelompok != null
+					&& gelombang.getStatusAwalMahasiswaDefault().getId() != null
+					&& gelombang.getStatusAwalMahasiswaDefault().getId().equals(statusKelompok.getId());
+
+			if (dikunciGelombang) {
+				catatan.append("<br><br><b>Perhatian:</b> gelombang \"").append(gelombang.getNama())
+						.append("\" mencentang <b>\"Calon mahasiswa harus mengikuti status awal default\"</b>")
+						.append(" dengan default <b>").append(statusKelompok.getNama()).append("</b>.")
+						.append(" Karena itu SELURUH calon gelombang tsb dikunci ke kelompok ini selama belum")
+						.append(" dipindah manual. Bila pengelompokan ini tidak dikehendaki, buka pengaturan")
+						.append(" gelombang dan lepas centang tersebut, atau ubah Status Awal Mahasiswa Default-nya.");
+			}
+
+			ais.ui.util.MyHtml html = new ais.ui.util.MyHtml("<div style=\"font-size:11px;line-height:1.5;"
+					+ (dikunciGelombang ? "color:#92400e;background:#fef3c7;border:1px solid #fcd34d;"
+							: "color:#334155;background:#f1f5f9;border:1px solid #cbd5e1;")
+					+ "border-radius:6px;padding:8px 10px;margin:6px 0;\">" + catatan.toString() + "</div>");
+			html.setParent(groupbox);
+		} catch (Exception e) {
+			// Catatan bantu saja - jangan pernah menggagalkan render halaman.
+			ais.common.ErrorAuditUtil.record(e, "KelompokCalonMahasiswaDetailAction.tampilkanCatatanKeanggotaan");
+		}
 	}
 
 	@Override

@@ -856,19 +856,153 @@ public final class LaporanKantinUtil {
 
             } else if ("akn_bb_pembantu_utang".equals(r)) {
                 judul = "Buku Besar Pembantu Utang (per Pemasok)"; grupIdx = 0;
-                catatan = "Kulakan/pengadaan barang masuk per pemasok + saldo berjalan. Catatan: modul kantin belum "
-                    + "mencatat pembayaran ke pemasok, sehingga saldo = akumulasi nilai kulakan (utang bruto), bukan sisa utang bersih.";
+                catatan = "Mutasi utang tiap pemasok: DEBET = pembayaran ke pemasok, KREDIT = kulakan masuk, "
+                    + "dengan saldo berjalan (sisa utang). Pembayaran diambil dari modul Pembayaran Hutang Supplier "
+                    + "sehingga saldo di sini adalah utang BERSIH, bukan lagi akumulasi kulakan saja.";
                 String wU = kondToko("pp.toko", tokoId, prm) + klausaTanggal("pp.waktupengadaan", tglMulai, tglSampai, prm);
-                sql = "select pemasok, tgl, faktur, produk, nilai, "
-                    + " sum(nilai) over (partition by pemasok order by tgl asc, urut asc rows between unbounded preceding and current row) as saldo "
-                    + " from ( select coalesce(nullif(trim(pp.namasupplier),''),'Tanpa Nama Pemasok') as pemasok, "
+                // Dua sumber digabung: kulakan MENAMBAH utang, pembayaran MENGURANGI. Sebelum perbaikan
+                // 2026-08-20 laporan ini hanya membaca kulakan sehingga saldonya selalu kelebihan.
+                sql = "select pemasok, tgl, faktur, produk, tambah, kurang, "
+                    + " sum(tambah - kurang) over (partition by pemasok order by tgl asc, urut asc "
+                    + "   rows between unbounded preceding and current row) as saldo "
+                    + " from ( select coalesce(nullif(trim(pp.namasupplier),''), coalesce(sp.nama,'Tanpa Nama Pemasok')) as pemasok, "
                     + "   cast(pp.waktupengadaan as date) as tgl, coalesce(pp.nomorfaktur,'-') as faktur, coalesce(pr.nama,'-') as produk, "
-                    + "   coalesce(pp.totalharga, coalesce(pp.qty,0)*coalesce(pp.hargabelisatuan,0), 0) as nilai, pp.id as urut "
-                    + "   from koperasi.pengadaan_produk pp left join koperasi.produk pr on pr.id = pp.produk " + wU
+                    + "   coalesce(pp.totalharga, coalesce(pp.qty,0)*coalesce(pp.hargabelisatuan,0), 0) as tambah, 0.0 as kurang, pp.id as urut "
+                    + "   from koperasi.pengadaan_produk pp "
+                    + "   left join koperasi.produk pr on pr.id = pp.produk "
+                    + "   left join koperasi.pengadaan_faktur pf on pf.id = pp.faktur_pengadaan "
+                    + "   left join library.penyedia sp on sp.id = pf.supplier " + wU
+                    + "   union all "
+                    + "   select coalesce(s2.nama,'Tanpa Nama Pemasok'), cast(pb.tanggal as date), "
+                    + "     coalesce(pb.kode_unik,'-'), 'Pembayaran ' || coalesce(pb.metode,''), 0.0, "
+                    + "     coalesce(pb.nominal,0), pb.id "
+                    + "   from koperasi.pembayaran_hutang_supplier pb "
+                    + "   left join library.penyedia s2 on s2.id = pb.supplier "
+                    + "   where coalesce(upper(pb.status_dok),'') not like '%BATAL%' "
+                    + kondTanggalInline("pb.tanggal", tglMulai, tglSampai)
                     + " ) x order by pemasok asc, tgl asc, urut asc ";
-                tipe = new String[]{"text","tgl","text","text","num","num"};
-                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("No. Faktur","text"));
-                kolom.add(new Kolom("Produk","text")); kolom.add(new Kolom("Nilai Kulakan","num")); kolom.add(new Kolom("Saldo","num"));
+                tipe = new String[]{"text","tgl","text","text","num","num","num"};
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Referensi","text"));
+                kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Kulakan (Kredit)","num"));
+                kolom.add(new Kolom("Pembayaran (Debet)","num")); kolom.add(new Kolom("Sisa Utang","num"));
+
+            } else if ("ap_saldo_supplier".equals(r)) {
+                judul = "Saldo Hutang per Supplier (Toko)";
+                catatan = "Sisa hutang tiap pemasok = nilai faktur kulakan \u2212 dibayar di muka \u2212 pembayaran yang "
+                    + "sudah dialokasikan. Sumber: faktur kulakan (koperasi.pengadaan_faktur) dan modul pembayaran "
+                    + "hutang supplier. Hanya pemasok bersaldo yang ditampilkan.";
+                sql = "select coalesce(s.nama,'(Tanpa Nama)') as pemasok, count(distinct f.id), "
+                    + " sum(coalesce(f.total_faktur_manual, coalesce(f.total_hitung_saat_simpan,0))), "
+                    + " sum(coalesce(i.dibayar_awal,0)) + coalesce(sum(al.terbayar),0), "
+                    + " sum(coalesce(f.total_faktur_manual, coalesce(f.total_hitung_saat_simpan,0))) "
+                    + "   - sum(coalesce(i.dibayar_awal,0)) - coalesce(sum(al.terbayar),0) "
+                    + " from koperasi.pengadaan_faktur f "
+                    + " left join library.penyedia s on s.id = f.supplier "
+                    + " left join koperasi.payable_faktur_info i on i.pengadaan_faktur = f.id "
+                    + " left join ( select a.pengadaan_faktur as fid, sum(coalesce(a.nominal,0)) as terbayar "
+                    + "   from koperasi.alokasi_pembayaran_hutang_supplier a "
+                    + "   join koperasi.pembayaran_hutang_supplier p on p.id = a.pembayaran "
+                    + "   where coalesce(upper(p.status_dok),'') not like '%BATAL%' group by a.pengadaan_faktur ) al "
+                    + "   on al.fid = f.id "
+                    + " where 1=1 " + kondToko("f.toko", tokoId, prm)
+                    + klausaTanggal("f.tanggal_faktur", tglMulai, tglSampai, prm)
+                    + " group by s.nama "
+                    + " having sum(coalesce(f.total_faktur_manual, coalesce(f.total_hitung_saat_simpan,0))) "
+                    + "   - sum(coalesce(i.dibayar_awal,0)) - coalesce(sum(al.terbayar),0) <> 0 "
+                    + " order by 5 desc ";
+                tipe = new String[]{"text","num","num","num","num"};
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Jml Faktur","num"));
+                kolom.add(new Kolom("Nilai Faktur","num")); kolom.add(new Kolom("Sudah Dibayar","num"));
+                kolom.add(new Kolom("Sisa Hutang","num"));
+
+            } else if ("ap_umur_utang".equals(r)) {
+                judul = "Umur Hutang Supplier (Aging)"; grupIdx = 0;
+                catatan = "Faktur kulakan yang belum lunas, dikelompokkan per pemasok dan dipilah menurut umur "
+                    + "sejak jatuh tempo (faktur tanpa termin dihitung dari tanggal fakturnya).";
+                sql = "select pemasok, no_faktur, tgl, jatuh_tempo, sisa, "
+                    + " case when hari <= 0 then 'Belum jatuh tempo' when hari <= 30 then '1-30 hari' "
+                    + "      when hari <= 60 then '31-60 hari' when hari <= 90 then '61-90 hari' "
+                    + "      else '> 90 hari' end as umur "
+                    + " from ( select coalesce(s.nama,'(Tanpa Nama)') as pemasok, coalesce(f.nomor_faktur,'-') as no_faktur, "
+                    + "   cast(f.tanggal_faktur as date) as tgl, cast(coalesce(i.jatuh_tempo, f.tanggal_faktur) as date) as jatuh_tempo, "
+                    + "   coalesce(f.total_faktur_manual, coalesce(f.total_hitung_saat_simpan,0)) - coalesce(i.dibayar_awal,0) "
+                    + "     - coalesce(( select sum(coalesce(a.nominal,0)) from koperasi.alokasi_pembayaran_hutang_supplier a "
+                    + "        join koperasi.pembayaran_hutang_supplier p on p.id = a.pembayaran "
+                    + "        where a.pengadaan_faktur = f.id and coalesce(upper(p.status_dok),'') not like '%BATAL%' ),0) as sisa, "
+                    + "   (current_date - cast(coalesce(i.jatuh_tempo, f.tanggal_faktur) as date)) as hari "
+                    + "   from koperasi.pengadaan_faktur f "
+                    + "   left join library.penyedia s on s.id = f.supplier "
+                    + "   left join koperasi.payable_faktur_info i on i.pengadaan_faktur = f.id "
+                    + "   where 1=1 " + kondToko("f.toko", tokoId, prm)
+                    + klausaTanggal("f.tanggal_faktur", tglMulai, tglSampai, prm)
+                    + " ) x where sisa > 0.005 order by pemasok, jatuh_tempo ";
+                tipe = new String[]{"text","text","tgl","tgl","num","text"};
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("No. Faktur","text"));
+                kolom.add(new Kolom("Tgl Faktur","tgl")); kolom.add(new Kolom("Jatuh Tempo","tgl"));
+                kolom.add(new Kolom("Sisa Hutang","num")); kolom.add(new Kolom("Umur","text"));
+
+            } else if ("ap_pembayaran".equals(r)) {
+                judul = "Riwayat Pembayaran Hutang Supplier";
+                catatan = "Pembayaran ke pemasok beserta faktur yang dilunasinya, termasuk status posting jurnal "
+                    + "(kolom terakhir) sehingga terlihat mana yang belum masuk buku besar.";
+                sql = "select cast(p.tanggal as date), coalesce(p.kode_unik,'-'), coalesce(s.nama,'(Tanpa Nama)'), "
+                    + " coalesce(p.metode,'-'), coalesce(p.nominal,0), "
+                    + " coalesce(( select string_agg(coalesce(f2.nomor_faktur,'#'||f2.id), ', ') "
+                    + "    from koperasi.alokasi_pembayaran_hutang_supplier a2 "
+                    + "    join koperasi.pengadaan_faktur f2 on f2.id = a2.pengadaan_faktur "
+                    + "    where a2.pembayaran = p.id ), '-'), "
+                    + " case when p.posting_history is null then 'BELUM diposting' else 'Sudah diposting' end "
+                    + " from koperasi.pembayaran_hutang_supplier p "
+                    + " left join library.penyedia s on s.id = p.supplier "
+                    + " where coalesce(upper(p.status_dok),'') not like '%BATAL%' "
+                    + klausaTanggal("p.tanggal", tglMulai, tglSampai, prm)
+                    + " order by p.tanggal desc, p.id desc ";
+                tipe = new String[]{"tgl","text","text","text","num","text","text"};
+                kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Kode","text"));
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Metode","text"));
+                kolom.add(new Kolom("Nominal","num")); kolom.add(new Kolom("Faktur Dilunasi","text"));
+                kolom.add(new Kolom("Status Jurnal","text"));
+
+            } else if ("ar_penerimaan_customer".equals(r)) {
+                judul = "Riwayat Penerimaan Piutang Customer";
+                catatan = "Penerimaan pelunasan piutang dari pelanggan (modul Inventory & Sales), termasuk status "
+                    + "posting jurnalnya.";
+                sql = "select cast(p.tanggal as date), coalesce(p.nomor, coalesce(p.kode_unik,'-')), "
+                    + " coalesce(a.nama,'(Tanpa Nama)'), coalesce(p.metode,'-'), coalesce(p.nominal,0), "
+                    + " case when p.posting_history is null then 'BELUM diposting' else 'Sudah diposting' end "
+                    + " from koperasi.penerimaan_piutang_customer p "
+                    + " left join koperasi.anggota_koperasi a on a.id = p.customer "
+                    + " where coalesce(upper(p.status_dok),'') not like '%BATAL%' "
+                    + klausaTanggal("p.tanggal", tglMulai, tglSampai, prm)
+                    + " order by p.tanggal desc, p.id desc ";
+                tipe = new String[]{"tgl","text","text","text","num","text"};
+                kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Nomor","text"));
+                kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Metode","text"));
+                kolom.add(new Kolom("Nominal","num")); kolom.add(new Kolom("Status Jurnal","text"));
+
+            } else if ("akn_diagnosa_jurnal_toko".equals(r)) {
+                judul = "Diagnosa Jurnal Toko (Dokumen Belum Diposting)";
+                catatan = "Jumlah dokumen toko yang belum masuk buku besar per jenis. Selama masih ada yang belum "
+                    + "diposting, Neraca dan Laba Rugi berbasis jurnal belum menggambarkan keadaan sebenarnya "
+                    + "(mis. Persediaan bisa minus bila HPP terposting tetapi kulakan belum).";
+                sql = "select 'Kulakan (pembelian persediaan)', count(*), coalesce(sum(coalesce(pp.totalharga,"
+                    + "   coalesce(pp.qty,0)*coalesce(pp.hargabelisatuan,0),0)),0) from koperasi.pengadaan_produk pp"
+                    + "   where pp.posting_pembelian is null "
+                    + " union all select 'Pembayaran hutang supplier', count(*), coalesce(sum(coalesce(nominal,0)),0)"
+                    + "   from koperasi.pembayaran_hutang_supplier where posting_history is null "
+                    + " union all select 'Penerimaan piutang customer', count(*), coalesce(sum(coalesce(nominal,0)),0)"
+                    + "   from koperasi.penerimaan_piutang_customer where posting_history is null "
+                    + " union all select 'Retur pembelian', count(*), coalesce(sum(coalesce(totalnilai,0)),0)"
+                    + "   from koperasi.retur_pembelian where posting_history is null "
+                    + " union all select 'Retur penjualan', count(*), coalesce(sum(coalesce(totalnilai,0)),0)"
+                    + "   from koperasi.retur_penjualan where posting_history is null "
+                    + " union all select 'Selisih stok opname', count(*), 0"
+                    + "   from koperasi.stok_opname where posting_history is null and coalesce(selisih,0) <> 0 "
+                    + " union all select 'Mutasi antar outlet', count(*), 0"
+                    + "   from koperasi.mutasi_stok_toko where posting_history is null ";
+                tipe = new String[]{"text","num","num"};
+                kolom.add(new Kolom("Jenis Dokumen","text")); kolom.add(new Kolom("Belum Diposting","num"));
+                kolom.add(new Kolom("Nilai","num"));
 
             } else if ("akn_aset_tetap".equals(r)) {
                 judul = "Daftar Aset Tetap (Nilai Buku)";

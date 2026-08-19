@@ -247,4 +247,22 @@ public class ReturPenjualan extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+
+	/**
+	 * Penanda jurnal. Jurnal retur jual: debet Pendapatan, kredit Kas/Piutang (+ balik HPP bila masuk stok). Diisi saat baris ini diposting ke buku besar; dipakai
+	 * sebagai kunci anti-posting-ganda dan jejak balik dari jurnal ke dokumen sumbernya.
+	 * Kolomnya dibuat otomatis oleh Hibernate.
+	 */
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }
