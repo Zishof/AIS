@@ -40,6 +40,8 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.NotAudited;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
@@ -606,8 +608,64 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	private String karpeg;
 
 
+	/**
+	 * Kembalikan instance {@link KelasSiswa} yang AMAN dibaca.
+	 *
+	 * <p><b>Akar masalah.</b> Entity {@code Siswa} beredar lintas-request lewat cache memori
+	 * (DataUtil/MemoryCacheUtil), sementara relasi {@code kelas} adalah proxy LAZY yang masih
+	 * menempel pada sesi Hibernate request LAMA. Begitu sesi itu ditutup, setiap getter proxy
+	 * melempar {@code LazyInitializationException: could not initialize proxy - no Session}.
+	 * Ini yang terjadi saat ZK merender ulang Grid pada request AJAX terpisah
+	 * ({@code onInitRender}).</p>
+	 *
+	 * <p><b>Perbaikan.</b> Jangan membuang datanya (mengembalikan null membuat kolom Kelas
+	 * tampil KOSONG padahal datanya ada di database, sekaligus membanjiri log dengan stack
+	 * trace per baris). Ambil ID dari proxy &mdash; tersedia TANPA perlu inisialisasi &mdash;
+	 * lalu muat ulang entity melalui cache/sesi yang aktif sekarang.</p>
+	 *
+	 * @param kelas proxy/entity yang mungkin sudah kehilangan sesinya; boleh {@code null}.
+	 * @return instance yang bisa dibaca, atau {@code null} bila memang tidak ada/gagal dimuat.
+	 */
+	private static KelasSiswa kelasSiswaAman(KelasSiswa kelas) {
+		if (kelas == null) {
+			return null;
+		}
+		try {
+			// Jalur cepat: entity biasa atau proxy yang sesinya masih hidup.
+			kelas.getTahunAjaran();
+			return kelas;
+		} catch (Exception proxyMati) {
+			/* Sengaja TIDAK dicatat ke audit: kondisi ini normal terjadi pada entity cache
+			 * lintas-request dan sudah ditangani dengan memuat ulang di bawah. Mencatatnya
+			 * hanya membanjiri log dengan satu stack trace per baris grid. */
+		}
+		try {
+			Long idKelas = null;
+			if (kelas instanceof HibernateProxy) {
+				LazyInitializer initializer = ((HibernateProxy) kelas).getHibernateLazyInitializer();
+				if (initializer != null && initializer.getIdentifier() instanceof Number) {
+					idKelas = Long.valueOf(((Number) initializer.getIdentifier()).longValue());
+				}
+			}
+			if (idKelas == null) {
+				return null;
+			}
+			ais.database.model.GeneralValueObject segar = ais.common.DataUtil.ambilData(KelasSiswa.class,
+					idKelas.toString(), true);
+			if (segar instanceof KelasSiswa) {
+				KelasSiswa hasil = (KelasSiswa) segar;
+				hasil.getTahunAjaran();
+				return hasil;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Siswa.kelasSiswaAman");
+		}
+		return null;
+	}
+
 	public static KelasSiswa ambilKelas(Siswa siswa, String ta) {
-		KelasSiswa kelas = siswa.kelas;
+		/* Pulihkan proxy yang sesinya sudah tertutup SEBELUM getter apa pun dipanggil. */
+		KelasSiswa kelas = kelasSiswaAman(siswa.kelas);
 		try {
 			if (kelas != null && Integer.parseInt(kelas.getTahunAjaran().split("/")[0]) < siswa.getTahunMasuk()) {
 				kelas = null;
@@ -617,12 +675,18 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 					kelas = null;
 					for (Object o : ConstantValues.ambilBerdasarClass(KelasSiswaPunyaSiswa.class).values()) {
 						KelasSiswaPunyaSiswa kelasSiswaPunyaSiswa = (KelasSiswaPunyaSiswa) o;
-						if (kelasSiswaPunyaSiswa != null && kelasSiswaPunyaSiswa.getSiswa() != null
-								&& siswa.getId() != null
-								&& kelasSiswaPunyaSiswa.getSiswa().getId().equals(siswa.getId())
-								&& kelasSiswaPunyaSiswa.getKelasSiswa().getTahunAjaran() != null && ta != null
-								&& kelasSiswaPunyaSiswa.getKelasSiswa().getTahunAjaran().equals(ta)) {
-							kelas = kelasSiswaPunyaSiswa.getKelasSiswa();
+						/* Cocokkan siswa DULU (getId() pada proxy tidak memicu inisialisasi),
+						 * baru resolusi KelasSiswa -- lebih hemat daripada versi lama yang
+						 * memanggil getKelasSiswa().getTahunAjaran() untuk SETIAP entri cache. */
+						if (kelasSiswaPunyaSiswa == null || kelasSiswaPunyaSiswa.getSiswa() == null
+								|| siswa.getId() == null
+								|| !kelasSiswaPunyaSiswa.getSiswa().getId().equals(siswa.getId())) {
+							continue;
+						}
+						KelasSiswa kandidat = kelasSiswaAman(kelasSiswaPunyaSiswa.getKelasSiswa());
+						if (kandidat != null && kandidat.getTahunAjaran() != null && ta != null
+								&& kandidat.getTahunAjaran().equals(ta)) {
+							kelas = kandidat;
 							return kelas;
 						}
 					}
