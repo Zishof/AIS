@@ -1941,23 +1941,13 @@
 		<url-pattern>/desktop-native-api</url-pattern>
 	</servlet-mapping>
 	<!--
-		JANGAN aktifkan kembali <distributable/> di aplikasi ini.
-
-		Dengan <distributable/>, Tomcat menandai context sebagai clusterable dan
-		StandardSession.setAttribute MENOLAK setiap atribut yang tidak Serializable dengan
-		melempar IllegalArgumentException. ZK 5.5 menyimpan objek sesinya sendiri pada atribut
-		HTTP session bernama "javax.zkoss.zk.ui.Session", dan objek itu TIDAK Serializable.
-		Akibatnya SETIAP pembuatan sesi ZK baru gagal di
-		WebManager.getSession -> SessionsCtrl.newSession -> SimpleSessionCache.put, sehingga
-		DHtmlLayoutServlet.doGet melempar exception dan halaman yang di-forward oleh
-		ais.action.servlet.Main.forwardToPage tidak pernah tampil.
-
-		Replikasi sesi juga tidak pernah benar-benar berfungsi di sini justru karena alasan yang
-		sama (objek sesi ZK tidak dapat diserialisasi), jadi menghapus tag ini tidak menghilangkan
-		kemampuan apa pun yang sebelumnya berjalan, hanya menghentikan kegagalannya.
-
-		Bila suatu saat aplikasi ini benar-benar dijalankan dalam cluster, jalur yang benar adalah
-		mengaktifkan dukungan serialisasi sesi milik ZK (lihat WEB-INF/zk.xml) TERLEBIH DAHULU,
-		bukan sekadar menambahkan kembali tag ini.
+		CATATAN (20-08-2026): tag <distributable/> ini SEMPAT dihapus di r77757 karena diduga
+		menjadi sebab IllegalArgumentException "setAttribute: Non-serializable attribute
+		[javax.zkoss.zk.ui.Session]" (Tomcat hanya menolak atribut non-Serializable bila context
+		ditandai distributable). Dugaan itu DIKEMBALIKAN karena tidak terbukti: tag ini sudah ada
+		jauh sebelum error tersebut muncul, sehingga tidak dapat berdiri sendiri sebagai penyebab.
+		Bila error itu muncul lagi, cari perubahan LAIN yang membuat sesi ZK dibuat pada jalur yang
+		sebelumnya tidak pernah menyimpannya ke HTTP session; jangan langsung menghapus tag ini.
 	-->
+	<distributable />
 </web-app>
