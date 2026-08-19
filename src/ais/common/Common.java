@@ -9583,6 +9583,59 @@ public class Common {
 		}
 	}
 
+	/**
+	 * <h3>Baca nilai konfigurasi sebagai angka desimal secara TOLERAN</h3>
+	 *
+	 * <p><b>Masalah yang diselesaikan.</b> Nilai konfigurasi diketik manusia. Admin di
+	 * Indonesia lazim menulis desimal memakai KOMA (mis. {@code 0,1}), sedangkan
+	 * {@link Double#parseDouble(String)} hanya menerima TITIK. Akibatnya parsing melempar
+	 * {@code NumberFormatException}; pemanggil yang membungkusnya dengan try/catch lalu
+	 * diam-diam memakai nilai bawaan. Dua dampaknya: (1) log dibanjiri stack trace karena
+	 * pembacaan konfigurasi terjadi pada tiap request, dan (2) LEBIH BERBAHAYA, nilai yang
+	 * dimaksud admin diabaikan tanpa peringatan -- mis. admin mengetik {@code 2,5} tetapi
+	 * sistem memakai bawaan {@code 0.1}.</p>
+	 *
+	 * <p><b>Aturan penerjemahan.</b>
+	 * <ul>
+	 *   <li>Ada KOMA dan TITIK sekaligus: pemisah desimal adalah yang paling KANAN, sisanya
+	 *       dianggap pemisah ribuan. Contoh {@code 1.234,56} dan {@code 1,234.56} sama-sama
+	 *       menjadi {@code 1234.56}.</li>
+	 *   <li>Hanya KOMA: dianggap pemisah desimal gaya Indonesia ({@code 0,1} -> {@code 0.1}).</li>
+	 *   <li>Hanya TITIK: dibiarkan apa adanya supaya perilaku konfigurasi lama yang sudah
+	 *       benar TIDAK berubah.</li>
+	 * </ul>
+	 * Bila tetap gagal, nilai bawaan dikembalikan seperti perilaku lama (tanpa melempar).</p>
+	 *
+	 * @param nilai  teks nilai konfigurasi; boleh null/kosong.
+	 * @param bawaan nilai yang dipakai bila teks kosong atau tidak bisa diartikan.
+	 * @return angka hasil pembacaan, atau {@code bawaan}.
+	 */
+	public static double parseAngkaKonfigurasi(String nilai, double bawaan) {
+		if (nilai == null) {
+			return bawaan;
+		}
+		String teks = nilai.trim();
+		if (teks.length() == 0) {
+			return bawaan;
+		}
+		try {
+			int posTitik = teks.indexOf(".") < 0 ? -1 : teks.lastIndexOf(".");
+			int posKoma = teks.indexOf(",") < 0 ? -1 : teks.lastIndexOf(",");
+			if (posKoma >= 0 && posTitik >= 0) {
+				if (posKoma > posTitik) {
+					teks = teks.replace(".", "").replace(",", ".");
+				} else {
+					teks = teks.replace(",", "");
+				}
+			} else if (posKoma >= 0) {
+				teks = teks.replace(",", ".");
+			}
+			return Double.parseDouble(teks);
+		} catch (Exception e) {
+			return bawaan;
+		}
+	}
+
 	public static Row initKeterangan(Rows rows, String keterangan) {
 
 		String styled = null;

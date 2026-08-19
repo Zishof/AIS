@@ -4080,13 +4080,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 		String nilai0MasukPenghitungan = Common
 				.getKonfigurasi("nilai_0_tidak_masuk_dalam_perhitungan_ipk", Konfigurasi.AKTIF).getNilai();
-		Double minimal = 0.1;
-		try {
-			minimal = Double.parseDouble(
-					Common.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai().trim());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:4046");
-
-		}
+		/*
+		 * Dibaca TOLERAN: admin lazim mengetik desimal dgn KOMA ("0,1"). Double.parseDouble
+		 * hanya menerima titik sehingga sebelumnya melempar NumberFormatException pada TIAP
+		 * pemuatan KRS -- membanjiri log, dan yang lebih berbahaya: nilai yang dimaksud admin
+		 * diabaikan diam-diam lalu dipakai bawaan 0.1 (mis. admin menulis "2,5" tapi sistem
+		 * memakai 0.1, sehingga penyaringan nilai untuk IPK jadi salah).
+		 */
+		Double minimal = Common.parseAngkaKonfigurasi(
+				Common.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai(), 0.1);
 		String nilaiHurufTidakMasukPerhitungan = Common.getKonfigurasi("nilai_huruf_yg_tidak_masuk_perhitungan_ip", "")
 				.getNilai();
 
