@@ -188,6 +188,26 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 			});
 			aksiButtons.add(button);
 
+			/*
+			 * Baris OTOMATIS tidak punya apa pun untuk dihapus, jadi tombol di atas
+			 * disembunyikan. Tapi tombol yang hilang begitu saja membuat operator mengira
+			 * sistemnya rusak ("sudah coba hapus tetapi tidak bisa"). Ganti dengan penjelas
+			 * yang menyebut penyebab SPESIFIK calon ini dan langkah yang harus ditempuh.
+			 */
+			MyToolbarbuttonConfig penjelas = new MyToolbarbuttonConfig("Kenapa tak bisa dihapus?",
+					"/img/svg/info.svg");
+			penjelas.setVisible(calonMahasiswa.getKelompokCalonMahasiswa() == null);
+			penjelas.setOrient("vertical");
+			penjelas.setTooltiptext("Keterangan keanggotaan otomatis");
+			penjelas.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					MyMessageboxConfig.show(jelaskanKeanggotaanOtomatis(calonMahasiswa), "Keanggotaan Otomatis",
+							MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				}
+			});
+			aksiButtons.add(penjelas);
+
 			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
@@ -598,6 +618,63 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 		column.setWidth("5%");
 
 		loadData(null);
+	}
+
+	/**
+	 * Susun penjelasan KENAPA seorang calon menempel di kelompok ini secara otomatis,
+	 * dengan menyebut aturan mana yang sedang menentukan Status Awal-nya.
+	 *
+	 * <p>Urutan pemeriksaan mengikuti {@code BiodataCalonMahasiswa.getStatusAwalMahasiswa()}:
+	 * kelompok manual menang lebih dulu, lalu afiliasi, lalu default gelombang. Operator perlu
+	 * tahu yang mana supaya tidak menebak-nebak - tiap penyebab butuh tindakan yang berbeda.</p>
+	 */
+	private String jelaskanKeanggotaanOtomatis(BiodataCalonMahasiswa calon) {
+		StringBuilder pesan = new StringBuilder();
+		pesan.append("\"").append(calon.getNama() == null ? "Calon ini" : calon.getNama()).append("\"")
+				.append(" TIDAK disimpan sebagai anggota kelompok ini, jadi tidak ada yang bisa dihapus.")
+				.append(" Dia muncul di sini karena Status Awal-nya kebetulan cocok dengan kelompok ini.");
+
+		String penyebab = null;
+		String tindakan = null;
+		try {
+			ais.database.model.AfiliasiCalonMahasiswa afiliasi = calon.getAfiliasiCalonMahasiswa();
+			ais.database.model.GelombangPendaftaran gelombang = calon.getGelombangPendaftaran();
+
+			if (afiliasi != null && afiliasi.getStatusAwalMahasiswa() != null) {
+				penyebab = "Status Awal-nya berasal dari Afiliasi \"" + afiliasi.getNama()
+						+ "\" yang disetel ke \"" + afiliasi.getStatusAwalMahasiswa().getNama() + "\".";
+				tindakan = "Lepaskan calon dari afiliasi tersebut (menu Afiliasi Calon Mahasiswa),"
+						+ " atau langsung pindahkan dia lewat langkah di bawah - kelompok yang ditetapkan"
+						+ " manual selalu menang atas afiliasi.";
+			} else if (gelombang != null && gelombang.getHarusIkutStatusAwalDefault()
+					&& gelombang.getStatusAwalMahasiswaDefault() != null) {
+				penyebab = "Gelombang \"" + gelombang.getNama() + "\" mencentang \"Calon mahasiswa harus"
+						+ " mengikuti status awal default\" dengan default \""
+						+ gelombang.getStatusAwalMahasiswaDefault().getNama() + "\", sehingga seluruh calon"
+						+ " gelombang itu dikunci ke sini selama belum dikelompokkan manual.";
+				tindakan = "Lepas centang tersebut pada pengaturan gelombang bila pengelompokan ini tidak"
+						+ " dikehendaki, atau pindahkan calon ini saja lewat langkah di bawah.";
+			} else {
+				penyebab = "Status Awal yang tersimpan pada data calon ini memang sama dengan status"
+						+ " kelompok ini, dan dia belum pernah dimasukkan ke kelompok mana pun.";
+				tindakan = "Pindahkan lewat langkah di bawah.";
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "KelompokCalonMahasiswaDetailAction.jelaskanKeanggotaanOtomatis");
+			penyebab = "Penyebab pastinya tidak dapat dibaca saat ini.";
+			tindakan = "Pindahkan lewat langkah di bawah.";
+		}
+
+		pesan.append("\n\nPENYEBAB: ").append(penyebab);
+		pesan.append("\n\nYANG PERLU DILAKUKAN: ").append(tindakan);
+		pesan.append("\n\nCARA MEMINDAHKAN: buka kelompok TUJUAN, tekan \"Ambil Data Calon Mahasiswa Manual\",")
+				.append(" lalu pilih calon ini. Status Awal-nya ikut disesuaikan ke kelompok tujuan dan dia")
+				.append(" otomatis hilang dari daftar ini.");
+		pesan.append("\n\nCATATAN TAGIHAN: Setting Biaya mencocokkan tagihan berdasarkan JENIS SELEKSI,")
+				.append(" bukan kelompok. Setelah dipindah, pastikan kelompok tujuan punya \"Jenis Seleksi")
+				.append(" Target\", tekan \"Sinkronkan Jenis Seleksi\", lalu buka layar tagihan calon ini dan")
+				.append(" tekan \"Reset\" - tagihan yang sudah terlanjur terbentuk TIDAK dihitung ulang sendiri.");
+		return pesan.toString();
 	}
 
 	/**

@@ -446,8 +446,18 @@ public class KelompokCalonMahasiswaAction extends GenericAutowireComposer {
 					.add(Restrictions.eq("kelompokCalonMahasiswa", kelompokCalonMahasiswa))
 					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 
+			/*
+			 * PENYEBUT "Semua" = SELURUH calon di gelombang ini, termasuk yang sudah masuk
+			 * kelompok mana pun.
+			 *
+			 * Sebelumnya di sini ikut dipasang Restrictions.isNull("kelompokCalonMahasiswa"),
+			 * sehingga penyebutnya hanya menghitung calon yang BELUM terkelompok - padahal
+			 * pembilangnya (masukOtomatis + masukManual) justru memasukkan anggota manual yang
+			 * kelompoknya PASTI tidak null. Dua populasi yang berbeda dibandingkan, jadi
+			 * persennya bisa melampaui 100% begitu sebuah kelompok punya anggota manual
+			 * (mis. Otomatis 4 + Manual 112 dibagi 64 -> 181,25%).
+			 */
 			int masukSemuaGelombang = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-					.add(Restrictions.isNull("kelompokCalonMahasiswa"))
 					.add(Restrictions.eq("gelombangPendaftaran", kelompokCalonMahasiswa.getGelombangPendaftaran()))
 					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 

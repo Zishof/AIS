@@ -366,6 +366,7 @@ if (!lockTokoLap) {
       {id:"akn_daftar_akun", judul:"Daftar Akun Perkiraan (Bagan Akun)", ket:"Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."},
       {id:"akn_ringkasan_beban", judul:"Ringkasan Pencatatan Beban", ket:"Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."},
       {id:"akn_rincian_beban", judul:"Rincian Beban Pembayaran", ket:"Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."},
+      {id:"akn_diagnosa_jurnal_toko", judul:"Diagnosa Jurnal Toko (Belum Diposting)", ket:"Dokumen toko yang belum masuk buku besar per jenis: kulakan, bayar hutang, terima piutang, retur, opname, mutasi."},
       {id:"akn_diagnosa_akun", judul:"Diagnosa Pemetaan Akun", ket:"Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."},
       {id:"gl_rincian", judul:"Rincian Buku Besar Kas (Ringkas)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."}
     ]},
