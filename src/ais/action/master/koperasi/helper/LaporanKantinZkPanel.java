@@ -464,11 +464,29 @@ public final class LaporanKantinZkPanel {
 				subtotal = new double[H.tipe.length];
 			}
 			sb.append("<tr>");
+			// Setiap angka dibuat DAPAT DIKLIK: menampilkan data penghitungannya (seluruh
+			// kolom baris ini + catatan rumus laporan) -- padanan drill-down di JSP/Desktop,
+			// dikerjakan dgn HTML+JS polos karena panel ini memang merender HTML mentah.
+			String rincianBaris = rincianBarisHtml(H, row);
 			for (int i = 0; i < H.tipe.length; i++) {
 				Object v = i < row.length ? row[i] : null;
+				String teksSel = esc(formatSel(H.tipe[i], v));
+				boolean selAngka = "num".equals(H.tipe[i]) && v != null;
 				sb.append("<td style=\"padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:")
-						.append("num".equals(H.tipe[i]) ? "right" : "left").append(";\">")
-						.append(esc(formatSel(H.tipe[i], v))).append("</td>");
+						.append("num".equals(H.tipe[i]) ? "right" : "left").append(";\">");
+				if (selAngka) {
+					String judulSel = esc(row.length > 0 && row[0] != null ? String.valueOf(row[0]).trim()
+							: (i < H.kolom.size() ? H.kolom.get(i).label : "Rincian"));
+					sb.append("<a href=\"javascript:void(0)\" class=\"lkzk-num\"")
+							.append(" style=\"text-decoration:underline dotted;cursor:pointer;color:inherit;\"")
+							.append(" title=\"Klik untuk melihat data penghitungannya\"")
+							.append(" data-judul=\"").append(judulSel).append("\"")
+							.append(" data-rincian=\"").append(rincianBaris).append("\">")
+							.append(teksSel).append("</a>");
+				} else {
+					sb.append(teksSel);
+				}
+				sb.append("</td>");
 				if ("num".equals(H.tipe[i]) && v instanceof Number) {
 					if (subtotal != null) {
 						subtotal[i] += ((Number) v).doubleValue();
@@ -489,6 +507,7 @@ public final class LaporanKantinZkPanel {
 			sb.append(barisSubtotal(H, grand, "Grand Total"));
 		}
 		sb.append("</tbody></table>");
+		sb.append(skripRincianAngka());
 		Html html = new Html(sb.toString());
 		hasilArea.appendChild(html);
 	}
@@ -498,6 +517,75 @@ public final class LaporanKantinZkPanel {
 			return b == null;
 		}
 		return a.equals(b);
+	}
+
+	/**
+	 * Ringkasan "asal angka" satu baris laporan: pasangan Kolom: Nilai dipisah " | ",
+	 * ditambah catatan rumus laporan bila ada. Dipakai sbg isi popup saat angka diklik
+	 * (atribut data-rincian), sudah di-escape agar aman disisipkan ke atribut HTML.
+	 */
+	private static String rincianBarisHtml(LaporanKantinUtil.Hasil H, Object[] row) {
+		StringBuilder r = new StringBuilder();
+		for (int i = 0; i < H.tipe.length && i < H.kolom.size(); i++) {
+			Object v = i < row.length ? row[i] : null;
+			if (r.length() > 0) {
+				r.append(" | ");
+			}
+			r.append(H.kolom.get(i).label).append(": ").append(formatSel(H.tipe[i], v));
+		}
+		if (H.catatan != null && H.catatan.trim().length() > 0) {
+			r.append("  ||  ").append(H.catatan.trim());
+		}
+		return esc(r.toString());
+	}
+
+	/**
+	 * Skrip popup rincian (sekali per render). Sengaja membangun DOM lewat API
+	 * (createElement/textContent), BUKAN merangkai string HTML: selain bebas isu
+	 * escape kutip di dalam sumber Java, nilai sel otomatis aman dari injeksi.
+	 */
+	private static String skripRincianAngka() {
+		return "<script>(function(){"
+				+ "if (window.__lkzkRincian) return; window.__lkzkRincian = true;"
+				+ "document.addEventListener('click', function(ev){"
+				+ "  var a = ev.target && ev.target.closest ? ev.target.closest('a.lkzk-num') : null;"
+				+ "  if (!a) return; ev.preventDefault();"
+				+ "  var judul = a.getAttribute('data-judul') || 'Rincian';"
+				+ "  var isi = a.getAttribute('data-rincian') || '';"
+				+ "  var bagian = isi.split('  ||  ');"
+				+ "  var baris = (bagian[0] || '').split(' | ');"
+				+ "  var ov = document.createElement('div');"
+				+ "  ov.id = 'lkzkOverlay';"
+				+ "  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99999;display:flex;align-items:center;justify-content:center';"
+				+ "  var box = document.createElement('div');"
+				+ "  box.style.cssText = 'background:#fff;border-radius:10px;max-width:560px;width:92%;max-height:80vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.25)';"
+				+ "  var h = document.createElement('div');"
+				+ "  h.style.cssText = 'font-weight:700;font-size:15px;margin-bottom:10px';"
+				+ "  h.textContent = 'Data Penghitungan: ' + judul; box.appendChild(h);"
+				+ "  var tb = document.createElement('table'); tb.style.cssText = 'width:100%;font-size:12.5px';"
+				+ "  for (var i=0;i<baris.length;i++){"
+				+ "    var p = baris[i].split(': ');"
+				+ "    var tr = document.createElement('tr');"
+				+ "    var td1 = document.createElement('td'); td1.style.cssText='padding:3px 6px;color:#475569;width:45%'; td1.textContent = p[0] || '';"
+				+ "    var td2 = document.createElement('td'); td2.style.cssText='padding:3px 6px;font-weight:600'; td2.textContent = p.slice(1).join(': ');"
+				+ "    tr.appendChild(td1); tr.appendChild(td2); tb.appendChild(tr);"
+				+ "  }"
+				+ "  box.appendChild(tb);"
+				+ "  if (bagian.length > 1) {"
+				+ "    var ct = document.createElement('div');"
+				+ "    ct.style.cssText = 'margin-top:10px;font-size:11.5px;font-style:italic;color:#64748b';"
+				+ "    ct.textContent = bagian[1]; box.appendChild(ct);"
+				+ "  }"
+				+ "  var wrap = document.createElement('div'); wrap.style.cssText = 'text-align:right;margin-top:14px';"
+				+ "  var btn = document.createElement('button');"
+				+ "  btn.type = 'button'; btn.textContent = 'Tutup';"
+				+ "  btn.style.cssText = 'padding:6px 16px;border:0;border-radius:6px;background:#1e3a5f;color:#fff;cursor:pointer';"
+				+ "  btn.onclick = function(){ ov.remove(); };"
+				+ "  wrap.appendChild(btn); box.appendChild(wrap); ov.appendChild(box);"
+				+ "  ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });"
+				+ "  document.body.appendChild(ov);"
+				+ "});"
+				+ "})();</script>";
 	}
 
 	private static String barisSubtotal(LaporanKantinUtil.Hasil H, double[] nilai, String label) {
