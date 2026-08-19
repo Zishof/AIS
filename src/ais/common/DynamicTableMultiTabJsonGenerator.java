@@ -196,7 +196,7 @@ public class DynamicTableMultiTabJsonGenerator {
             sb.append(" <span id='sortIcon_").append(columns[i]).append("_").append(randomID).append("' class='sort-icon'></span>\n");
             sb.append("          </th>\n");
         }
-        sb.append("          <th class='text-center' style='width: 50px;'>"+Common.getBahasaConfig("Aksi")+"</th>\n");
+        sb.append("          <th class='text-center' style='width: 50px;'></th>\n");
         sb.append("        </tr>\n");
         sb.append("      </thead>\n");
         sb.append("      <tbody id='tableBody_").append(randomID).append("'></tbody>\n");
@@ -697,7 +697,7 @@ public class DynamicTableMultiTabJsonGenerator {
         sb.append("      let tdAction = document.createElement('td'); tdAction.className = 'text-center';\n");
         sb.append("      tdAction.innerHTML = `\n");
         sb.append("        <div class=\"dropdown font-sans-serif position-static\">\r\n");
-        sb.append("          <button class=\"btn btn-link text-600 btn-sm dropdown-toggle btn-reveal\" type=\"button\" data-bs-toggle=\"dropdown\"><span class=\"fas fa-ellipsis-h fs-10\"></span></button>\r\n");
+        sb.append("          <button class=\"btn btn-link text-600 btn-sm dropdown-toggle btn-reveal\" type=\"button\" title=\"" + Common.getBahasaConfig("Aksi") + "\" aria-label=\"" + Common.getBahasaConfig("Aksi") + "\" data-bs-toggle=\"dropdown\"><span class=\"fas fa-ellipsis-h fs-10\"></span></button>\r\n");
         sb.append("          <div class=\"dropdown-menu dropdown-menu-end border py-0\">\r\n");
         sb.append("            <div class=\"py-2\">\n");
         sb.append("              <button class='dropdown-item' onclick='openModal_").append(randomID).append("(\"edit\", \""+(masterModelClass.equals(Tbmuser.class.getName()) ? "${item.userId}" : masterModelClass.equals(Tbmrole.class.getName()) ? "${item.roleId}" : masterModelClass.equals(Program.class.getName()) ? "${item.nama}" :  "${item.id}" )+"\")'><span class='fas fa-edit'></span> Ubah</button>\n");

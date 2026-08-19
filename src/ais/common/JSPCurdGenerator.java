@@ -1243,8 +1243,7 @@ public class JSPCurdGenerator {
 					"<div class='table-responsive scrollbar'><table class='table table-hover table-striped overflow-hidden'><thead><tr>");
 			for (String col : columns)
 				out.append("<th scope='col'>").append(Common.getBahasaConfig(col)).append("</th>");
-			out.append("<th class='text-end'>").append(Common.getBahasaConfig("Aksi"))
-					.append("</th></tr></thead><tbody>");
+			out.append("<th class='text-end'></th></tr></thead><tbody>");
 
 			if (generalValueObjects != null) {
 				for (GeneralValueObject obj : generalValueObjects) {
@@ -1276,7 +1275,7 @@ public class JSPCurdGenerator {
 
 					// Action Dropdown
 					out.append("<td class='text-end'><div class='dropdown font-sans-serif position-static'>").append(
-							"<button class='btn btn-link text-600 btn-sm dropdown-toggle btn-reveal' type='button' data-bs-toggle='dropdown'><span class='fas fa-ellipsis-h fs-10'></span></button>")
+							"<button class='btn btn-link text-600 btn-sm dropdown-toggle btn-reveal' type='button' title='" + Common.getBahasaConfig("Aksi") + "' aria-label='" + Common.getBahasaConfig("Aksi") + "' data-bs-toggle='dropdown'><span class='fas fa-ellipsis-h fs-10'></span></button>")
 							.append("<div class='dropdown-menu dropdown-menu-end border py-0'><div class='py-2'>")
 							.append("<a class='dropdown-item' href='").append(request.getContextPath())
 							.append("/baru?p=").append(p).append("&s=modif&view=true&iddata=").append(obj.getId())
