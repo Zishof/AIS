@@ -125,7 +125,123 @@ public class AmbilLampiran extends HttpServlet {
 		return header;
 	}
 
+	/**
+	 * Berapa lama peramban boleh memakai berkas dari cache-nya sendiri tanpa bertanya
+	 * ulang ke server. Ditahan pendek (10 menit) karena lampiran BISA diganti isinya
+	 * tanpa berganti alamat; setelah tenggang ini peramban tetap bertanya, dan dengan
+	 * ETag jawabannya cukup 304 tanpa mengirim ulang berkasnya.
+	 */
+	private static final int UMUR_CACHE_DETIK = 600;
+
+	/**
+	 * Pasang header cache pada berkas yang benar-benar ada di disk, lalu jawab 304 bila
+	 * salinan peramban masih sama.
+	 *
+	 * <p><b>Mengapa perlu.</b> Tanpa validator, tiap tampilan halaman menarik ulang
+	 * seluruh foto: satu halaman berisi 20 foto berarti 20 permintaan penuh, dan tiap
+	 * permintaan menempuh jalur {@code ambilFile()} sampai ke berkas. Pada dump
+	 * 18-08-2026 07:51 terlihat 53 thread mengantre bersamaan di kolam koneksi lewat
+	 * jalur servlet ini. Dengan ETag, permintaan berikutnya berhenti di 304 &mdash;
+	 * tanpa membaca isi berkas dan tanpa mengirim satu bita pun isi.</p>
+	 *
+	 * <p>Validatornya diturunkan dari ukuran dan waktu ubah berkas, bukan dari isinya,
+	 * supaya tidak perlu membaca berkas hanya untuk menentukan ETag. Berkas yang diganti
+	 * akan berganti ETag karena kedua nilai itu ikut berubah.</p>
+	 *
+	 * <p>Sengaja {@code private}: lampiran bisa bersifat pribadi, jadi proxy bersama
+	 * tidak boleh ikut menyimpannya.</p>
+	 *
+	 * @return {@code true} bila 304 sudah dikirim dan pemanggil harus berhenti
+	 */
+	private static boolean pasangCacheDanCekTidakBerubah(HttpServletRequest request, HttpServletResponse resp,
+			File file) {
+		try {
+			if (file == null || !file.exists() || file.length() <= 0L) {
+				return false;
+			}
+			long diubah = file.lastModified();
+			String etag = "\"" + Long.toHexString(file.length()) + "-" + Long.toHexString(diubah) + "\"";
+
+			resp.setHeader("ETag", etag);
+			resp.setDateHeader("Last-Modified", diubah);
+			resp.setHeader("Cache-Control", "private, max-age=" + UMUR_CACHE_DETIK + ", must-revalidate");
+
+			boolean samaSaja = false;
+			String etagKlien = request == null ? null : request.getHeader("If-None-Match");
+			if (etagKlien != null) {
+				samaSaja = cocokSalahSatuEtag(etagKlien, etag);
+			} else if (request != null) {
+				// Hanya diperiksa bila klien tidak mengirim ETag: bila keduanya dikirim,
+				// ETag yang menentukan (RFC 7232). Header tanggal HTTP cuma presisi detik,
+				// jadi milidetik dipotong supaya berkas yang tidak berubah tidak terlihat
+				// "lebih baru" satu detik.
+				long sejak = request.getDateHeader("If-Modified-Since");
+				samaSaja = sejak > -1L && diubah / 1000L <= sejak / 1000L;
+			}
+
+			if (samaSaja) {
+				/*
+				 * Method ini dipanggil dari beberapa titik, sebagian SESUDAH Content-Type,
+				 * Content-Disposition, dan Content-Length terlanjur diset (berkas final baru
+				 * diketahui setelah kemungkinan diganti thumbnail). Respons 304 tidak boleh
+				 * berbadan, dan Content-Length sisa bisa membingungkan klien -- jadi bersihkan
+				 * dahulu, lalu pasang ulang hanya header validator. Aman karena belum ada
+				 * satu bita pun yang ditulis ke output.
+				 */
+				if (!resp.isCommitted()) {
+					resp.reset();
+					resp.setHeader("ETag", etag);
+					resp.setDateHeader("Last-Modified", diubah);
+					resp.setHeader("Cache-Control", "private, max-age=" + UMUR_CACHE_DETIK + ", must-revalidate");
+				}
+				resp.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+				return true;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"pasangCacheDanCekTidakBerubah src/ais/action/servlet/AmbilLampiran.java");
+		}
+		return false;
+	}
+
+	/** Header If-None-Match boleh memuat beberapa ETag dipisah koma, dan boleh "*". */
+	private static boolean cocokSalahSatuEtag(String headerKlien, String etagKita) {
+		String h = headerKlien.trim();
+		if (h.equals("*")) {
+			return true;
+		}
+		String[] bagian = h.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			String satu = bagian[i].trim();
+			// Peramban dapat menandai ETag lemah dengan awalan W/ saat merevalidasi.
+			if (satu.startsWith("W/")) {
+				satu = satu.substring(2).trim();
+			}
+			if (satu.equals(etagKita)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Tandai respons agar TIDAK disimpan peramban. Dipakai untuk ikon pengganti
+	 * ("berkas tidak ada") supaya lampiran yang diunggah kemudian tidak tertutup oleh
+	 * ikon lama yang terlanjur tersimpan di cache.
+	 */
+	private static void laranganCache(HttpServletResponse resp) {
+		try {
+			resp.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+			resp.setHeader("Pragma", "no-cache");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "laranganCache src/ais/action/servlet/AmbilLampiran.java");
+		}
+	}
+
 	public static void doDownload(HttpServletRequest request1, HttpServletResponse resp, File file) throws Exception {
+		if (pasangCacheDanCekTidakBerubah(request1, resp, file)) {
+			return;
+		}
 		String mimeType = CommonMedia.getMime(file);
 		resp.setContentType(mimeType);
 		resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
@@ -370,6 +486,12 @@ public class AmbilLampiran extends HttpServlet {
 							resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
 							resp.setContentLength((int) file.length());
 						}
+						// Diperiksa di sini, bukan lebih awal: `file` bisa berganti menjadi
+						// thumbnail di blok resize di atas, dan validator harus dihitung dari
+						// berkas yang BENAR-BENAR dikirim.
+						if (pasangCacheDanCekTidakBerubah(request1, resp, file)) {
+							return;
+						}
 						in = new FileInputStream(file);
 
 					} else if (fileFotoLain != null && file != null) {
@@ -428,6 +550,9 @@ public class AmbilLampiran extends HttpServlet {
 						in = new FileInputStream(file);
 						resp.setContentType("image/png");
 						resp.setContentLength((int) file.length());
+						// Ikon pengganti: jangan sampai tersimpan di peramban, agar lampiran
+						// yang diunggah kemudian tidak tertutup ikon lama.
+						laranganCache(resp);
 					} else if (jenis != null && jenis.toLowerCase().contains("kop")) {
 						file = new File(Common.ambilREAL_PATH_REPORT() + "/sekolah/kop_surat.jpg");
 						if (file == null || !file.exists()) {
@@ -441,6 +566,7 @@ public class AmbilLampiran extends HttpServlet {
 						in = new FileInputStream(file);
 						resp.setContentType("image/png");
 						resp.setContentLength((int) file.length());
+						laranganCache(resp);
 					}
 
 				}
@@ -455,6 +581,7 @@ public class AmbilLampiran extends HttpServlet {
 				in = new FileInputStream(file);
 				resp.setContentType("image/png");
 				resp.setContentLength((int) file.length());
+				laranganCache(resp);
 			}
 
 			ServletOutputStream out = resp.getOutputStream();
