@@ -74,6 +74,13 @@ public final class RevisiApiHelper {
 		ENTITAS.put("hotel_tamu", ais.database.model.hotel.Tamu.class);
 		ENTITAS.put("hotel_tipe_kamar", ais.database.model.hotel.TipeKamar.class);
 		ENTITAS.put("hotel_kamar", ais.database.model.hotel.Kamar.class);
+		// Gelombang 3 (2026-08-19): melengkapi layar yang sudah baca lokal-dulu
+		// tapi belum punya tombol Riwayat (master Sales/Supplier IS, pencairan
+		// diskon, profil item apotik).
+		ENTITAS.put("si_sales", ais.database.model.koperasi.SalesInventory.class);
+		ENTITAS.put("si_supplier", ais.database.model.koperasi.SupplierInventoryProfile.class);
+		ENTITAS.put("pencairan_diskon", ais.database.model.koperasi.PencairanDiskon.class);
+		ENTITAS.put("apotik_item", ais.database.model.sirs.ApotikItemProfile.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
