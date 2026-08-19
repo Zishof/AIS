@@ -1941,13 +1941,26 @@
 		<url-pattern>/desktop-native-api</url-pattern>
 	</servlet-mapping>
 	<!--
-		CATATAN (20-08-2026): tag <distributable/> ini SEMPAT dihapus di r77757 karena diduga
-		menjadi sebab IllegalArgumentException "setAttribute: Non-serializable attribute
-		[javax.zkoss.zk.ui.Session]" (Tomcat hanya menolak atribut non-Serializable bila context
-		ditandai distributable). Dugaan itu DIKEMBALIKAN karena tidak terbukti: tag ini sudah ada
-		jauh sebelum error tersebut muncul, sehingga tidak dapat berdiri sendiri sebagai penyebab.
-		Bila error itu muncul lagi, cari perubahan LAIN yang membuat sesi ZK dibuat pada jalur yang
-		sebelumnya tidak pernah menyimpannya ke HTTP session; jangan langsung menghapus tag ini.
+		JANGAN aktifkan kembali <distributable/> di aplikasi ini.
+
+		DIBUKTIKAN LEWAT UJI BOLAK-BALIK (20-08-2026):
+		  r77757 tag dihapus  -> IllegalArgumentException "setAttribute: Non-serializable
+		                         attribute [javax.zkoss.zk.ui.Session]" HILANG.
+		  r77759 tag dipasang -> error itu MUNCUL LAGI (log 20-08-2026 05:51:34, /ecampus).
+		  r77760 tag dihapus lagi (perbaikan ini).
+
+		Sebabnya: Tomcat hanya menolak atribut non-Serializable bila context ditandai
+		distributable. ZK menyimpan objek sesinya sendiri pada atribut HTTP session bernama
+		"javax.zkoss.zk.ui.Session", dan objek itu TIDAK Serializable di ZK 5.0.13. Akibatnya
+		SETIAP pembuatan sesi ZK gagal di WebManager.getSession -> SessionsCtrl.newSession
+		-> SimpleSessionCache.put, sehingga DHtmlLayoutServlet.doGet melempar exception dan
+		halaman yang di-forward oleh ais.action.servlet.Main.forwardToPage gagal tampil.
+
+		Replikasi sesi juga tidak pernah benar-benar berfungsi di sini karena alasan yang sama,
+		jadi menghapus tag ini tidak menghilangkan kemampuan apa pun yang sebelumnya berjalan.
+
+		Bila suatu saat aplikasi ini dijalankan dalam cluster, jalur yang benar adalah membuat
+		sesi ZK dapat diserialisasi lebih dahulu (lihat WEB-INF/zk.xml, SerializableUiFactory),
+		bukan sekadar menambahkan kembali tag ini.
 	-->
-	<distributable />
 </web-app>
