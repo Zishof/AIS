@@ -1607,6 +1607,166 @@ public final class HotelApiHelper {
 		}
 	}
 
+	/**
+	 * Data CONTOH satu properti lengkap (ADMIN-ONLY, pola apotik_provision_demo /
+	 * generator produk contoh Unit Usaha): 1 properti "Hotel Contoh", 3 tipe kamar,
+	 * 9 kamar (3 lantai x 3), 3 tamu, 2 reservasi (BOOKED + CONFIRMED), 2 kontrak
+	 * pemilik. Setiap panggilan membuat properti contoh BARU berkode CONTOH-<stempel>
+	 * -- scope-nya per properti sehingga tidak menyentuh data properti sungguhan;
+	 * bersihkan dgn menonaktifkan/menghapus properti contoh tsb.
+	 */
+	public static void dataContoh(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (tbmuser == null || !ais.common.Common.getApakahAdminLain(tbmuser)) {
+			tolak(hasil, "Hanya admin sistem yang boleh membuat data contoh.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.beginTransaction();
+			String stempel = new java.text.SimpleDateFormat("ddHHmmss")
+					.format(ais.ui.util.WaktuUtil.getDate());
+			PropertiHotel p = new PropertiHotel();
+			p.setKode("CONTOH-" + stempel);
+			p.setNama("Hotel Contoh " + stempel);
+			p.setAlamat("Jl. Melati No. 1");
+			p.setKota("Bandung");
+			p.setTelp("022-1234567");
+			p.setKeterangan("Data contoh -- boleh dihapus/dinonaktifkan.");
+			p.setJumlahLantai(Integer.valueOf(3));
+			p.setAktif(Boolean.TRUE);
+			p.setOlehId(tbmuser.getUserId());
+			p.setOleh(tbmuser.getUserNama());
+			session.save(p);
+
+			String[][] defTipe = {
+					{ "STD", "Standar", "250000", "2" },
+					{ "DLX", "Deluxe", "400000", "2" },
+					{ "SUT", "Suite", "750000", "4" } };
+			TipeKamar[] tipe = new TipeKamar[defTipe.length];
+			for (int i = 0; i < defTipe.length; i++) {
+				TipeKamar t = new TipeKamar();
+				t.setProperti(p);
+				t.setKode(defTipe[i][0]);
+				t.setNama(defTipe[i][1]);
+				t.setHargaDasar(Double.valueOf(defTipe[i][2]));
+				t.setKapasitas(Integer.valueOf(defTipe[i][3]));
+				t.setAktif(Boolean.TRUE);
+				t.setOlehId(tbmuser.getUserId());
+				t.setOleh(tbmuser.getUserNama());
+				session.save(t);
+				tipe[i] = t;
+			}
+			Kamar kamarPertama = null;
+			Kamar kamarKedua = null;
+			int jumlahKamar = 0;
+			for (int lantai = 1; lantai <= 3; lantai++) {
+				for (int n = 1; n <= 3; n++) {
+					Kamar k = new Kamar();
+					k.setProperti(p);
+					k.setTipeKamar(tipe[(lantai + n) % tipe.length]);
+					k.setNomor(String.valueOf(lantai * 100 + n));
+					k.setLantai(Integer.valueOf(lantai));
+					k.setStatusHunian(Kamar.HUNIAN_VACANT);
+					k.setAktif(Boolean.TRUE);
+					k.setOlehId(tbmuser.getUserId());
+					k.setOleh(tbmuser.getUserNama());
+					session.save(k);
+					jumlahKamar++;
+					if (kamarPertama == null) kamarPertama = k;
+					else if (kamarKedua == null) kamarKedua = k;
+				}
+			}
+			String[][] defTamu = {
+					{ "Budi Santoso", "0812345001", "3273010101010001" },
+					{ "Siti Rahma", "0812345002", "3273010101010002" },
+					{ "Agus Wijaya", "0812345003", "3273010101010003" } };
+			ais.database.model.hotel.Tamu[] tamu =
+					new ais.database.model.hotel.Tamu[defTamu.length];
+			for (int i = 0; i < defTamu.length; i++) {
+				ais.database.model.hotel.Tamu t = new ais.database.model.hotel.Tamu();
+				t.setProperti(p);
+				t.setNama(defTamu[i][0]);
+				t.setTelp(defTamu[i][1]);
+				t.setJenisIdentitas("KTP");
+				t.setNoIdentitas(defTamu[i][2]);
+				t.setKeterangan("Tamu contoh");
+				t.setAktif(Boolean.TRUE);
+				session.save(t);
+				tamu[i] = t;
+			}
+			java.util.Calendar cal = java.util.Calendar.getInstance();
+			cal.add(java.util.Calendar.DAY_OF_MONTH, 1);
+			java.util.Date besok = cal.getTime();
+			cal.add(java.util.Calendar.DAY_OF_MONTH, 2);
+			java.util.Date lusaPlus = cal.getTime();
+			cal.add(java.util.Calendar.DAY_OF_MONTH, 1);
+			java.util.Date h4 = cal.getTime();
+			cal.add(java.util.Calendar.DAY_OF_MONTH, 2);
+			java.util.Date h6 = cal.getTime();
+			String[] statusRes = { ais.database.model.hotel.ReservasiKamar.STATUS_BOOKED,
+					ais.database.model.hotel.ReservasiKamar.STATUS_CONFIRMED };
+			java.util.Date[][] rentang = { { besok, lusaPlus }, { h4, h6 } };
+			for (int i = 0; i < 2; i++) {
+				ais.database.model.hotel.ReservasiKamar r =
+						new ais.database.model.hotel.ReservasiKamar();
+				r.setProperti(p);
+				r.setTamu(tamu[i]);
+				r.setTipeKamar(tipe[i]);
+				r.setKode("RSV-CONTOH-" + stempel + "-" + (i + 1));
+				r.setTanggalCheckin(rentang[i][0]);
+				r.setTanggalCheckout(rentang[i][1]);
+				r.setJumlahTamu(Integer.valueOf(2));
+				r.setHargaPerMalam(tipe[i].getHargaDasar());
+				r.setStatus(statusRes[i]);
+				r.setCatatan("Reservasi contoh");
+				r.setOlehId(tbmuser.getUserId());
+				r.setOleh(tbmuser.getUserNama());
+				session.save(r);
+			}
+			String[] namaPemilik = { "Investor Contoh A", "Investor Contoh B" };
+			double[] komisi = { 20, 25 };
+			Kamar[] kamarKontrak = { kamarPertama, kamarKedua };
+			java.util.Calendar awalTahun = java.util.Calendar.getInstance();
+			awalTahun.set(java.util.Calendar.MONTH, java.util.Calendar.JANUARY);
+			awalTahun.set(java.util.Calendar.DAY_OF_MONTH, 1);
+			for (int i = 0; i < 2; i++) {
+				ais.database.model.hotel.KontrakPemilik kk = new ais.database.model.hotel.KontrakPemilik();
+				kk.setProperti(p);
+				kk.setKamar(kamarKontrak[i]);
+				kk.setNamaPemilik(namaPemilik[i]);
+				kk.setReferensiPemilik("INV-CONTOH-" + (i + 1));
+				kk.setPersenKomisi(Double.valueOf(komisi[i]));
+				kk.setBerlakuDari(awalTahun.getTime());
+				kk.setAktif(Boolean.TRUE);
+				kk.setOlehId(tbmuser.getUserId());
+				kk.setOleh(tbmuser.getUserNama());
+				session.save(kk);
+			}
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("properti_id", p.getId());
+			hasil.put("properti_nama", p.getNama());
+			hasil.put("tipe_kamar", tipe.length);
+			hasil.put("kamar", jumlahKamar);
+			hasil.put("tamu", tamu.length);
+			hasil.put("reservasi", 2);
+			hasil.put("kontrak", 2);
+			hasil.put("description", "Data contoh dibuat: " + p.getNama() + " (" + tipe.length
+					+ " tipe, " + jumlahKamar + " kamar, " + tamu.length + " tamu, 2 reservasi, 2 kontrak).");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "HotelApiHelper.dataContoh rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** SHA-256 hex 64 char -- bukti snapshot laporan tidak berubah (pola fingerprint RetailIdempotencyUtil). */
 	private static String sha256Hex(String nilai) throws Exception {
 		byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(nilai.getBytes("UTF-8"));
@@ -1690,6 +1850,7 @@ public final class HotelApiHelper {
 		if ("hotel_laporan_pemilik_generate".equals(action)) { laporanPemilikGenerate(tbmuser, request, hasil); return true; }
 		if ("hotel_laporan_pemilik_list".equals(action)) { laporanPemilikList(tbmuser, request, hasil); return true; }
 		if ("hotel_booking_konfirmasi_bayar".equals(action)) { bookingKonfirmasiBayar(tbmuser, request, hasil); return true; }
+		if ("hotel_data_contoh".equals(action)) { dataContoh(tbmuser, request, hasil); return true; }
 		return false;
 	}
 }

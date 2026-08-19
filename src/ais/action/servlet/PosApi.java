@@ -1717,6 +1717,10 @@ public class PosApi extends HttpServlet {
 			if (action.startsWith("hotel_kitchen_ticket_")) return menu.optBoolean("hotel_tiket_dapur", false);
 			if (action.startsWith("hotel_kontrak_pemilik_")) return menu.optBoolean("hotel_kontrak_pemilik", false);
 			if (action.startsWith("hotel_laporan_pemilik_")) return menu.optBoolean("hotel_laporan_pemilik", false);
+			// "hotel_data_contoh" (generator sampel) sengaja TIDAK diberi kunci menu:
+			// admin resmi sudah lolos di awal method ini (getApakahAdminLain), dan
+			// non-admin jatuh ke false di bawah -- fail-closed, sejalan gerbang kedua
+			// di HotelApiHelper.dataContoh().
 			return false;
 		}
 		if (action.startsWith("grup_produk_")) {
