@@ -16,10 +16,10 @@ import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
-import ais.database.model.inventory.Produk;
+import ais.database.model.asset.MasterAsset;
+import ais.database.model.asset.PermintaanPengadaanMasterAsset;
+import ais.database.model.asset.PermintaanPengadaanMasterAssetDetail;
 import ais.database.model.inventory.Toko;
-import ais.database.model.koperasi.PengadaanPermintaanPos;
-import ais.database.model.koperasi.PengadaanPermintaanPosDetail;
 
 /**
  * <h3>API JSON Modul Pengadaan POS -- tahap 1: Permintaan Pembelian (PR).</h3>
@@ -103,7 +103,7 @@ public final class PengadaanPosApiHelper {
 	}
 
 	/** Label status baris PR -- dihitung server supaya SEMUA kanal menampilkan istilah sama. */
-	private static String statusPr(PengadaanPermintaanPos pr) {
+	private static String statusPr(PermintaanPengadaanMasterAsset pr) {
 		if (Boolean.TRUE.equals(pr.getTutup())) {
 			return "TUTUP";
 		}
@@ -125,12 +125,12 @@ public final class PengadaanPosApiHelper {
 		String periode = fmt.format(ais.ui.util.WaktuUtil.getDate());
 		String prefiks = "PR/" + (tokoId == null ? "0" : tokoId) + "/" + periode + "/";
 		for (int percobaan = 0; percobaan < 50; percobaan++) {
-			Number jml = (Number) session.createCriteria(PengadaanPermintaanPos.class)
+			Number jml = (Number) session.createCriteria(PermintaanPengadaanMasterAsset.class)
 					.setProjection(Projections.rowCount())
 					.add(Restrictions.ilike("kode", prefiks, MatchMode.START)).uniqueResult();
 			long urut = (jml == null ? 0 : jml.longValue()) + 1 + percobaan;
 			String kandidat = prefiks + (urut < 10 ? "000" : urut < 100 ? "00" : urut < 1000 ? "0" : "") + urut;
-			Number bentrok = (Number) session.createCriteria(PengadaanPermintaanPos.class)
+			Number bentrok = (Number) session.createCriteria(PermintaanPengadaanMasterAsset.class)
 					.setProjection(Projections.rowCount())
 					.add(Restrictions.eq("kode", kandidat)).uniqueResult();
 			if (bentrok == null || bentrok.intValue() == 0) {
@@ -156,7 +156,7 @@ public final class PengadaanPosApiHelper {
 		String status = request == null ? "" : request.optString("status", "").trim().toUpperCase();
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Criteria kriteria = session.createCriteria(PengadaanPermintaanPos.class);
+			Criteria kriteria = session.createCriteria(PermintaanPengadaanMasterAsset.class);
 			kriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
 			if (tokoId != null) {
 				kriteria.add(Restrictions.eq("toko.id", tokoId));
@@ -170,11 +170,11 @@ public final class PengadaanPosApiHelper {
 			// tanggal persetujuan/penolakan/tutup -- satu definisi, dipakai bersama statusPr().
 			kriteria.addOrder(Order.desc("id"));
 			@SuppressWarnings("unchecked")
-			List<PengadaanPermintaanPos> semua = kriteria.list();
+			List<PermintaanPengadaanMasterAsset> semua = kriteria.list();
 			JSONArray arr = new JSONArray();
 			int cocok = 0;
 			int mulai = (page - 1) * pageSize;
-			for (PengadaanPermintaanPos pr : semua) {
+			for (PermintaanPengadaanMasterAsset pr : semua) {
 				String st = statusPr(pr);
 				if (status.length() > 0 && !status.equals(st)) {
 					continue;
@@ -219,7 +219,7 @@ public final class PengadaanPosApiHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			PengadaanPermintaanPos pr = (PengadaanPermintaanPos) session.get(PengadaanPermintaanPos.class, id);
+			PermintaanPengadaanMasterAsset pr = (PermintaanPengadaanMasterAsset) session.get(PermintaanPengadaanMasterAsset.class, id);
 			if (pr == null) {
 				tolak(hasil, "Permintaan Pembelian tidak ditemukan.");
 				return;
@@ -246,17 +246,17 @@ public final class PengadaanPosApiHelper {
 			h.put("ditolakOleh", pr.getDitolakOleh() == null ? "" : pr.getDitolakOleh().getUserNama());
 
 			@SuppressWarnings("unchecked")
-			List<PengadaanPermintaanPosDetail> baris = session
-					.createCriteria(PengadaanPermintaanPosDetail.class)
-					.add(Restrictions.eq("permintaan.id", pr.getId()))
+			List<PermintaanPengadaanMasterAssetDetail> baris = session
+					.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+					.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId()))
 					.addOrder(Order.asc("id")).list();
 			JSONArray arr = new JSONArray();
-			for (PengadaanPermintaanPosDetail d : baris) {
+			for (PermintaanPengadaanMasterAssetDetail d : baris) {
 				JSONObject o = new JSONObject();
 				o.put("id", d.getId());
-				o.put("produk_id", d.getProduk() == null ? JSONObject.NULL : d.getProduk().getId());
-				o.put("produk", d.getProduk() == null ? "" : d.getProduk().getNama());
-				o.put("kodeProduk", d.getProduk() == null ? "" : (d.getProduk().getKode() == null ? "" : d.getProduk().getKode()));
+				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
+				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				o.put("kodeBarang", d.getMasterAsset() == null ? "" : (d.getMasterAsset().getKode() == null ? "" : d.getMasterAsset().getKode()));
 				o.put("jumlah", d.getJumlah() == null ? 0 : d.getJumlah());
 				o.put("hargaBeli", d.getHargaBeli() == null ? 0 : d.getHargaBeli());
 				o.put("hargaTotal", d.getHargaTotal() == null ? 0 : d.getHargaTotal());
@@ -300,9 +300,9 @@ public final class PengadaanPosApiHelper {
 		Long tokoId = tokoLingkup(tbmuser, request);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			PengadaanPermintaanPos pr;
+			PermintaanPengadaanMasterAsset pr;
 			if (id != null) {
-				pr = (PengadaanPermintaanPos) session.get(PengadaanPermintaanPos.class, id);
+				pr = (PermintaanPengadaanMasterAsset) session.get(PermintaanPengadaanMasterAsset.class, id);
 				if (pr == null) {
 					tolak(hasil, "Permintaan Pembelian tidak ditemukan.");
 					return;
@@ -321,7 +321,7 @@ public final class PengadaanPosApiHelper {
 					return;
 				}
 			} else {
-				pr = new PengadaanPermintaanPos();
+				pr = new PermintaanPengadaanMasterAsset();
 				pr.setTanggalPembuatan(ais.ui.util.WaktuUtil.getDate());
 				pr.setDibuatOleh(tbmuser);
 				pr.setAktif(Boolean.TRUE);
@@ -350,10 +350,10 @@ public final class PengadaanPosApiHelper {
 			session.flush();
 
 			@SuppressWarnings("unchecked")
-			List<PengadaanPermintaanPosDetail> lama = session
-					.createCriteria(PengadaanPermintaanPosDetail.class)
-					.add(Restrictions.eq("permintaan.id", pr.getId())).list();
-			for (PengadaanPermintaanPosDetail d : lama) {
+			List<PermintaanPengadaanMasterAssetDetail> lama = session
+					.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+					.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId())).list();
+			for (PermintaanPengadaanMasterAssetDetail d : lama) {
 				session.delete(d);
 			}
 			session.flush();
@@ -361,20 +361,20 @@ public final class PengadaanPosApiHelper {
 			double total = 0;
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
-				if (b.isNull("produk_id")) {
+				if (b.isNull("master_asset_id")) {
 					continue;
 				}
-				Produk produk = (Produk) session.get(Produk.class,
-						Long.valueOf((b.get("produk_id") + "").trim()));
-				if (produk == null) {
+				MasterAsset barang = (MasterAsset) session.get(MasterAsset.class,
+						Long.valueOf((b.get("master_asset_id") + "").trim()));
+				if (barang == null) {
 					continue;
 				}
 				double jumlah = b.optDouble("jumlah", 0);
-				double harga = b.optDouble("hargaBeli", produk.getHargaBeli() == null ? 0 : produk.getHargaBeli());
+				double harga = b.optDouble("hargaBeli", 0);
 				double sub = jumlah * harga;
-				PengadaanPermintaanPosDetail d = new PengadaanPermintaanPosDetail();
-				d.setPermintaan(pr);
-				d.setProduk(produk);
+				PermintaanPengadaanMasterAssetDetail d = new PermintaanPengadaanMasterAssetDetail();
+				d.setPermintaanPengadaanMasterAsset(pr);
+				d.setMasterAsset(barang);
 				d.setJumlah(Double.valueOf(jumlah));
 				d.setHargaBeli(Double.valueOf(harga));
 				d.setHargaTotal(Double.valueOf(sub));
@@ -432,7 +432,7 @@ public final class PengadaanPosApiHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			PengadaanPermintaanPos pr = (PengadaanPermintaanPos) session.get(PengadaanPermintaanPos.class, id);
+			PermintaanPengadaanMasterAsset pr = (PermintaanPengadaanMasterAsset) session.get(PermintaanPengadaanMasterAsset.class, id);
 			if (pr == null) {
 				tolak(hasil, "Permintaan Pembelian tidak ditemukan.");
 				return;
@@ -511,7 +511,7 @@ public final class PengadaanPosApiHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			PengadaanPermintaanPos pr = (PengadaanPermintaanPos) session.get(PengadaanPermintaanPos.class, id);
+			PermintaanPengadaanMasterAsset pr = (PermintaanPengadaanMasterAsset) session.get(PermintaanPengadaanMasterAsset.class, id);
 			if (pr == null) {
 				tolak(hasil, "Permintaan Pembelian tidak ditemukan.");
 				return;
@@ -528,10 +528,10 @@ public final class PengadaanPosApiHelper {
 			}
 			session.beginTransaction();
 			@SuppressWarnings("unchecked")
-			List<PengadaanPermintaanPosDetail> baris = session
-					.createCriteria(PengadaanPermintaanPosDetail.class)
-					.add(Restrictions.eq("permintaan.id", pr.getId())).list();
-			for (PengadaanPermintaanPosDetail d : baris) {
+			List<PermintaanPengadaanMasterAssetDetail> baris = session
+					.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+					.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId())).list();
+			for (PermintaanPengadaanMasterAssetDetail d : baris) {
 				session.delete(d);
 			}
 			session.delete(pr);
@@ -546,6 +546,50 @@ public final class PengadaanPosApiHelper {
 				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.prHapus rollback");
 			}
 			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+
+	/**
+	 * Pencarian barang (MasterAsset) untuk mengisi baris PR. Param: {@code keyword} (kode/nama),
+	 * {@code limit} (maks 100). Sengaja memakai MasterAsset -- bukan katalog produk POS --
+	 * karena sejak 2026-08-20 modul ini memakai TABEL PENGADAAN BERSAMA dengan JSP/ZKoss,
+	 * dibedakan lewat kolom toko. Pemetaan barang ke produk POS baru diperlukan pada tahap
+	 * sinkronisasi BAST ke Kulakan.
+	 */
+	public static void cariBarang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		String q = request == null ? "" : request.optString("keyword", "").trim();
+		int limit = Math.min(100, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(MasterAsset.class);
+			if (q.length() > 0) {
+				kriteria.add(Restrictions.or(
+						Restrictions.ilike("kode", q, MatchMode.ANYWHERE),
+						Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
+			}
+			kriteria.addOrder(Order.asc("nama"));
+			kriteria.setMaxResults(limit);
+			@SuppressWarnings("unchecked")
+			List<MasterAsset> daftar = kriteria.list();
+			JSONArray arr = new JSONArray();
+			for (MasterAsset m : daftar) {
+				JSONObject o = new JSONObject();
+				o.put("id", m.getId());
+				o.put("kode", m.getKode() == null ? "" : m.getKode());
+				o.put("nama", m.getNama() == null ? "" : m.getNama());
+				o.put("merk", m.getMerk() == null ? "" : m.getMerk());
+				o.put("satuan", m.getUnit() == null ? "" : m.getUnit());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -568,6 +612,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_pr_putusan".equals(action)) {
 			prPutusan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_barang_cari".equals(action)) {
+			cariBarang(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_pr_hapus".equals(action)) {

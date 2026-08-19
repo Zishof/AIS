@@ -123,6 +123,7 @@ public class PermintaanPengadaanMasterAsset extends DataSop {
 	private Akun akun;
 	private Boolean aktif;
 	private Boolean setujuiManual;
+	private String alasanDitolak;
 
 	public PermintaanPengadaanMasterAsset() {
 	}
@@ -531,4 +532,18 @@ public class PermintaanPengadaanMasterAsset extends DataSop {
 		this.danaTitipan = danaTitipan;
 	}
 
+
+	/**
+	 * Alasan penolakan PR -- diisi saat dokumen ditolak agar pembuat PR tahu langkah
+	 * perbaikannya. Ditambahkan 2026-08-20 bersama pemakaian modul ini oleh POS
+	 * (Desktop/Android/JSP); kolom NULLABLE sehingga baris lama tidak terdampak.
+	 */
+	@Column(name = "alasan_ditolak", nullable = true)
+	public String getAlasanDitolak() {
+		return alasanDitolak;
+	}
+
+	public void setAlasanDitolak(String alasanDitolak) {
+		this.alasanDitolak = alasanDitolak;
+	}
 }

@@ -145,7 +145,7 @@ String rnd = Common.getGeneratedBarCode(7);
       </div>
       <div class="modal-body">
         <input type="text" id="prProdukCari<%=rnd%>" class="form-control mb-2"
-               placeholder="<%=Common.getBahasaConfig("kode atau nama produk")%>"
+               placeholder="<%=Common.getBahasaConfig("kode atau nama barang")%>"
                onkeydown="if(event.key==='Enter')prProdukMuat<%=rnd%>()">
         <div id="prProdukHasil<%=rnd%>" class="list-group"></div>
       </div>
@@ -289,7 +289,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("prKeterangan").value = prAktif.keterangan || "";
       el("prKeterangan").disabled = terkunci;
       baris = (d.detail || []).map(function(x){
-        return { produk_id: x.produk_id, nama: x.produk, jumlah: angka(x.jumlah), harga: angka(x.hargaBeli) };
+        return { barang_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah), harga: angka(x.hargaBeli) };
       });
       if (terkunci){
         el("prKunciInfo").textContent = "PR berstatus " + st + " tidak dapat diubah. Batalkan keputusannya terlebih dahulu bila memang perlu dikoreksi.";
@@ -305,7 +305,7 @@ String rnd = Common.getGeneratedBarCode(7);
   window["prSimpan" + RND] = function(){
     if (!baris.length){ pesan("Tambahkan minimal satu baris barang.", false); return; }
     var payload = { action:"pengadaan_pr_simpan", keterangan: el("prKeterangan").value.trim(),
-                    detail: baris.map(function(b){ return { produk_id: b.produk_id, jumlah: b.jumlah, hargaBeli: b.harga }; }) };
+                    detail: baris.map(function(b){ return { master_asset_id: b.barang_id, jumlah: b.jumlah, hargaBeli: b.harga }; }) };
     if (prAktif && prAktif.id) payload.id = prAktif.id;
     api(payload).then(function(d){
       var ok = d.status === "00" || d.status === "success";
@@ -350,7 +350,7 @@ String rnd = Common.getGeneratedBarCode(7);
   };
   window["prProdukMuat" + RND] = function(){
     var q = el("prProdukCari").value.trim();
-    api({action:"katalog", cari:q, pageSize:50}).then(function(d){
+    api({action:"pengadaan_barang_cari", keyword:q, limit:50}).then(function(d){
       var rows = d.data || [];
       if (!rows.length){ el("prProdukHasil").innerHTML = '<div class="text-muted small py-2">Tidak ada produk ditemukan.</div>'; return; }
       var h = "";
@@ -364,8 +364,8 @@ String rnd = Common.getGeneratedBarCode(7);
       el("prProdukHasil").innerHTML = h;
     });
   };
-  window["prPilihProduk" + RND] = function(id, nama, hargaBeli){
-    baris.push({ produk_id:id, nama:nama, jumlah:1, harga:angka(hargaBeli) });
+  window["prPilihProduk" + RND] = function(id, nama){
+    baris.push({ barang_id:id, nama:nama, jumlah:1, harga:0 });
     renderBaris(false);
     bootstrap.Modal.getInstance(document.getElementById("prProdukModal" + RND)).hide();
   };

@@ -317,6 +317,9 @@ public class PosApi extends HttpServlet {
 			} else if ("pedagang_ubah".equals(action)) {
 				KantinHelper.pedagangUbah(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pedagang_ubah");
+			} else if ("hak_akses_list".equals(action)) {
+				KantinHelper.hakAksesList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "hak_akses_list");
 			} else if ("pengguna_toko_list".equals(action)) {
 				KantinHelper.penggunaTokoList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pengguna_toko_list");
