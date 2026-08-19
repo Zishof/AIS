@@ -69,7 +69,10 @@ public final class PengadaanPosApiHelper {
 			return true;
 		}
 		JSONObject menu = EbisnisMenuKatalog.urai(role.getEbisnisMenu()).optJSONObject("menu");
-		return menu != null && menu.optBoolean(kunci, false);
+		// Bawaan TAMPIL (2026-08-20, permintaan pemilik produk): peran lama yang JSON menunya
+		// belum memuat kunci ini tetap dapat memakai modul Pengadaan; admin dapat mematikannya
+		// per-peran lewat grid CRUD TbmroleAction.
+		return menu == null || menu.optBoolean(kunci, true);
 	}
 
 	private static boolean bolehAksi(Tbmuser tbmuser, String kunci, String aksi) {

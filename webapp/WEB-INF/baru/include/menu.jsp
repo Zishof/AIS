@@ -49,6 +49,10 @@
         if ("mutasi_rekening".equals(menu)) return menuTersimpan.optBoolean("mutasirekening", true);
         if ("produksi".equals(menu)) return menuTersimpan.optBoolean("produksi", true);
         if ("pengaturan_laporan".equals(menu)) return menuTersimpan.optBoolean("pengaturanlaporan", true);
+        // Modul Pengadaan POS -- default TAMPIL atas permintaan pemilik produk (2026-08-20);
+        // hak per-aksi tetap diatur admin lewat grid CRUD TbmroleAction.
+        if ("pengadaan_pr".equals(menu)) return menuTersimpan.optBoolean("pengadaan_pr", true);
+        if ("pengadaan_po".equals(menu)) return menuTersimpan.optBoolean("pengadaan_po", true);
         return true;
     }
 %>
@@ -262,7 +266,7 @@
                                         <h6 class="mega-menu-header mt-3"><%=Common.getBahasaConfig("e-Kantin") %></h6>
                                         <% 
                                            String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"};
-                                           String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi"});
+                                           String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengadaan_pr","pengadaan_po","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengadaan_pr","pengadaan_po"});
                                            for(String sub : subEL) {
                                                if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
                                                if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sub)){ continue; }
@@ -286,6 +290,8 @@
                                                        if(subSub.equals("mutasi_rekening")){ label = "Rekening Koran (Rekonsiliasi)"; }
                                                        if(subSub.equals("produksi")){ label = "Produksi Kantin"; }
                                                        if(subSub.equals("pengaturan_laporan")){ label = "Konfigurasi Laporan"; }
+                                                       if(subSub.equals("pengadaan_pr")){ label = "Permintaan Pembelian (PR)"; }
+                                                       if(subSub.equals("pengadaan_po")){ label = "Pemesanan Pembelian (PO)"; }
                                         %>
                                                    <a class="mega-menu-item ms-3 <%= (p.equals("kantin") && s.equals(subSub)) ? "active" : "" %>" href="<%=ctx%>/baru?p=kantin&s=<%=subSub%>">
                                                        <i class="<%=MenuHelper.getIconForMenu(label)%> text-muted" style="font-size: 11px;"></i> <span><%=Common.getBahasaConfig(label) %></span>

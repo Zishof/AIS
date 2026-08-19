@@ -219,7 +219,9 @@ public final class EbisnisMenuKatalog {
 	 */
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
-			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik", "anggota", "diskon", "kulakan",
+			// Pengadaan POS: tampil secara bawaan, hak per-aksi tetap dapat dibatasi admin.
+			"pengadaan_pr", "pengadaan_po", "pengadaan_bast", "pengadaan_tagihan", "pengadaan_dpc", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

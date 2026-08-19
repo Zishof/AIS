@@ -2514,27 +2514,47 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
 
 		afiliasiCalonMahasiswa = getAfiliasiCalonMahasiswa();
+		kelompokCalonMahasiswa = getKelompokCalonMahasiswa();
 
-		if (afiliasiCalonMahasiswa != null && afiliasiCalonMahasiswa.getStatusAwalMahasiswa() != null) {
+		/*
+		 * URUTAN PRIORITAS: KELOMPOK dulu, baru AFILIASI.
+		 *
+		 * Sebelumnya afiliasi diperiksa lebih dulu dan SELALU menang. Akibatnya calon yang
+		 * sudah dipindah lewat "Ambil Data Calon Mahasiswa Manual" ke kelompok lain (mis.
+		 * dari "Baru-Beasiswa Gratispol" ke "Baru") statusnya ditarik balik ke status
+		 * afiliasi. Karena getter ini adalah properti Hibernate (@JoinColumn di bawah),
+		 * nilai tarikan itu ikut DITULIS ULANG ke kolom status_awal_mahasiswa saat flush,
+		 * sehingga calon tsb muncul lagi di kelompok asal lewat jalur OTOMATIS - dan jalur
+		 * otomatis memang tidak punya tombol hapus (lihat KelompokCalonMahasiswaDetailAction
+		 * .initCriteria: cabang otomatis mensyaratkan kelompokCalonMahasiswa IS NULL).
+		 * Operator jadi terjebak: dipindah, balik lagi, dan tak bisa dihapus dari sana.
+		 *
+		 * Kelompok yang ditetapkan EKSPLISIT adalah keputusan operator, jadi harus menang.
+		 * Afiliasi tetap dipakai bila calon belum masuk kelompok mana pun, atau bila
+		 * kelompoknya sendiri tidak menentukan status awal.
+		 */
+
+		// FIX LazyInitializationException "could not initialize proxy - no Session": proxy
+		// kelompokCalonMahasiswa/statusAwalMahasiswa-nya bisa diakses dari konteks TANPA sesi
+		// Hibernate aktif (mis. laporan/report/thread setelah sesi pemuat aslinya sudah
+		// ditutup -- lihat CariDataPesertaUjianAction.genInfo, DaftarUlangMahasiswaBaruAction.
+		// onCariMahasiswa). Jangan biarkan seluruh halaman/laporan gagal hanya krn field
+		// turunan ini -- tangkap & lewati, statusAwalMahasiswa jatuh ke fallback di bawah.
+		StatusAwalMahasiswa statusAwalDariKelompok = null;
+		if (kelompokCalonMahasiswa != null) {
+			try {
+				statusAwalDariKelompok = kelompokCalonMahasiswa.getStatusAwalMahasiswa();
+				statusAwalMahasiswa = statusAwalDariKelompok;
+			} catch (org.hibernate.LazyInitializationException lie) { ais.common.ErrorAuditUtil.record(lie, "auto-audit(empty-catch) src/ais/database/model/BiodataCalonMahasiswa.java:2443");
+			}
+		}
+
+		if (statusAwalDariKelompok == null && afiliasiCalonMahasiswa != null
+				&& afiliasiCalonMahasiswa.getStatusAwalMahasiswa() != null) {
 			statusAwalMahasiswa = afiliasiCalonMahasiswa.getStatusAwalMahasiswa();
 		} else {
-			kelompokCalonMahasiswa = getKelompokCalonMahasiswa();
 			gelombangPendaftaran = getGelombangPendaftaran();
 
-			// FIX LazyInitializationException "could not initialize proxy - no Session": proxy
-			// kelompokCalonMahasiswa/statusAwalMahasiswa-nya bisa diakses dari konteks TANPA sesi
-			// Hibernate aktif (mis. laporan/report/thread setelah sesi pemuat aslinya sudah
-			// ditutup -- lihat CariDataPesertaUjianAction.genInfo, DaftarUlangMahasiswaBaruAction.
-			// onCariMahasiswa). Jangan biarkan seluruh halaman/laporan gagal hanya krn field
-			// turunan ini -- tangkap & lewati, statusAwalMahasiswa jatuh ke fallback di bawah.
-			StatusAwalMahasiswa statusAwalDariKelompok = null;
-			if (kelompokCalonMahasiswa != null) {
-				try {
-					statusAwalDariKelompok = kelompokCalonMahasiswa.getStatusAwalMahasiswa();
-					statusAwalMahasiswa = statusAwalDariKelompok;
-				} catch (org.hibernate.LazyInitializationException lie) { ais.common.ErrorAuditUtil.record(lie, "auto-audit(empty-catch) src/ais/database/model/BiodataCalonMahasiswa.java:2443");
-				}
-			}
 			if (statusAwalMahasiswa == null && kelompokCalonMahasiswa == null && gelombangPendaftaran != null) {
 				statusAwalMahasiswa = gelombangPendaftaran.getStatusAwalMahasiswaDefault();
 			}
