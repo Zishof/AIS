@@ -309,9 +309,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 			new Label(settingBiaya.getTa().equals(0) ? "" : settingBiaya.getTa().toString()).setParent(arg0);
 
-			// Di perangkat HP ASLI (Common.isAsliMobile), susun ikon aksi VERTIKAL (Vbox) agar tidak
-			// berdempetan/terlalu kecil di kolom sempit; di desktop tetap horizontal (Hbox) — tak berubah.
-			org.zkoss.zul.Box toolbar = Common.isAsliMobile() ? new Vbox() : new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -323,7 +324,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 					addWindow.onModal();
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/edit-copy.svg");
 			button.setTooltiptext("Copy Data");
@@ -341,7 +342,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -398,8 +399,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

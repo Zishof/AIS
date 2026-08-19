@@ -653,7 +653,10 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					}
 				}
 
-				Hbox toolbar = new Hbox();
+				// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+				// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
@@ -684,8 +687,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 					}
 				});
-				button.setParent(toolbar);
-				toolbar.setParent(arg0);
+				aksiButtons.add(button);
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:474");
@@ -823,7 +826,10 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					}
 				}
 
-				Hbox toolbar = new Hbox();
+				// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+				// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
@@ -854,8 +860,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 					}
 				});
-				button.setParent(toolbar);
-				toolbar.setParent(arg0);
+				aksiButtons.add(button);
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:592");
