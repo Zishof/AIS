@@ -722,9 +722,12 @@ public abstract class FileFoto extends GeneralValueObject {
 	 * tetap ditangani jalur penuh di bawah. Begitu pula berkas yang belum pernah dibangun.
 	 * Bila ragu, method ini mengembalikan {@code null} dan tidak mengubah perilaku apa pun.</p>
 	 *
-	 * <p>Seluruh operasi di sini murni disk ({@code direktoriBerkas()} dan
-	 * {@code berkasKanonik()} hanya memakai id dan nama kelas), jadi jalur cepat ini tidak
-	 * pernah menyentuh basis data.</p>
+	 * <p><b>Batasnya.</b> Jalur ini tidak menelusuri asosiasi dan tidak pernah membaca blob,
+	 * tetapi ia tetap memanggil {@code CommonMedia.getMediaDirectory()} yang di baliknya
+	 * membaca konfigurasi. Pembacaan itu dilayani cache memori dan hanya menyentuh basis
+	 * data saat cache kosong (mis. tepat setelah restart), jadi pada kondisi berjalan normal
+	 * jalur cepat ini tidak meminjam koneksi. Jangan menambahkan panggilan getter asosiasi
+	 * apa pun ke dalam method ini.</p>
 	 *
 	 * @return berkas siap pakai, atau {@code null} bila jalur penuh harus dijalankan
 	 */
