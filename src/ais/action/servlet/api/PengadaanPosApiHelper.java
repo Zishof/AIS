@@ -51,6 +51,7 @@ public final class PengadaanPosApiHelper {
 	private static final String KUNCI_PR = "pengadaan_pr";
 	private static final String KUNCI_PO = "pengadaan_po";
 	private static final String KUNCI_BAST = "pengadaan_bast";
+	private static final String KUNCI_TAGIHAN = "pengadaan_tagihan";
 
 	private PengadaanPosApiHelper() {
 	}
@@ -720,12 +721,41 @@ public final class PengadaanPosApiHelper {
 			}
 			String tgl = src.optString("tanggalD", "").trim();
 			if (!tgl.isEmpty()) {
-				// Divalidasi dulu supaya isi kolom formula tidak pernah berisi tanggal ngawur.
-				item.put("tanggalD", Common.dateFormat1.get().format(Common.dateFormat1.get().parse(tgl)));
+				// Divalidasi KETAT supaya kolom formula tidak pernah berisi tanggal ngawur.
+				java.util.Date jatuhTempo = tanggalKetat(tgl);
+				if (jatuhTempo == null) {
+					throw new IllegalArgumentException("Tanggal jatuh tempo termin \"" + tgl
+							+ "\" harus berformat hh-bb-tttt, mis. 31-12-2026.");
+				}
+				item.put("tanggalD", Common.dateFormat1.get().format(jatuhTempo));
 			}
 			hasil.put(item);
 		}
 		return hasil;
+	}
+
+	/**
+	 * Baca tanggal berpola {@code dd-MM-yyyy} secara KETAT.
+	 *
+	 * <p>{@code Common.dateFormat1} bersifat lenient: "2026-08-10" ikut terbaca dan diam-diam
+	 * berubah menjadi tanggal lain (hari 2026, bulan 08, tahun 10 digulung). Untuk dokumen
+	 * pengadaan hal itu berbahaya karena tanggal faktur dan batas kirim dipakai menghitung
+	 * jatuh tempo. Karena itu hasil parse ditulis ulang dan dibandingkan dengan masukan;
+	 * bila tidak sama persis, masukan ditolak.</p>
+	 *
+	 * @return tanggal hasil parse, atau {@code null} bila masukan tidak berpola benar.
+	 */
+	private static java.util.Date tanggalKetat(String teks) {
+		if (teks == null || teks.trim().isEmpty()) {
+			return null;
+		}
+		String rapi = teks.trim();
+		try {
+			java.util.Date tgl = Common.dateFormat1.get().parse(rapi);
+			return rapi.equals(Common.dateFormat1.get().format(tgl)) ? tgl : null;
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/**
@@ -1078,12 +1108,12 @@ public final class PengadaanPosApiHelper {
 			if (kirim.isEmpty()) {
 				po.setPengirimanPalingLambat(null);
 			} else {
-				try {
-					po.setPengirimanPalingLambat(Common.dateFormat1.get().parse(kirim));
-				} catch (Exception e) {
-					tolak(hasil, "Tanggal pengiriman paling lambat harus berformat hh-bb-tttt.");
+				java.util.Date parsed = tanggalKetat(kirim);
+				if (parsed == null) {
+					tolak(hasil, "Tanggal pengiriman paling lambat harus berformat hh-bb-tttt, mis. 31-12-2026.");
 					return;
 				}
+				po.setPengirimanPalingLambat(parsed);
 			}
 			if (po.getKode() == null || po.getKode().trim().isEmpty()) {
 				po.setKode(buatKodeUmum(session, PemesananPengadaanMasterAsset.class, "PO", tokoId));
@@ -1807,12 +1837,12 @@ public final class PengadaanPosApiHelper {
 			if (tglTagihan.isEmpty()) {
 				bast.setTanggalTagihan(null);
 			} else {
-				try {
-					bast.setTanggalTagihan(Common.dateFormat1.get().parse(tglTagihan));
-				} catch (Exception e) {
-					tolak(hasil, "Tanggal tagihan harus berformat hh-bb-tttt.");
+				java.util.Date parsed = tanggalKetat(tglTagihan);
+				if (parsed == null) {
+					tolak(hasil, "Tanggal tagihan harus berformat hh-bb-tttt, mis. 10-08-2026.");
 					return;
 				}
+				bast.setTanggalTagihan(parsed);
 			}
 			if (!request.isNull("tanggal")) {
 				try {
@@ -2140,6 +2170,255 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+
+	/**
+	 * Daftar tagihan vendor. Pada model pengadaan yang sudah ada, "terima tagihan" BUKAN
+	 * dokumen tersendiri melainkan tahap di atas BAST: nomor dan tanggal faktur vendor
+	 * dicapkan pada penerimaan yang sudah disetujui, lalu menjadi dasar pembayaran vendor.
+	 *
+	 * <p>Karena itu daftar ini menampilkan BAST yang SUDAH DISETUJUI saja -- barang yang
+	 * belum diakui diterima tidak boleh ditagihkan. Param opsional: {@code cari},
+	 * {@code status} (BELUM/SUDAH), {@code page}, {@code pageSize}.</p>
+	 */
+	public static void tagihanDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_TAGIHAN)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(5, request == null ? 15 : request.optInt("pageSize", 15)));
+		String cari = request == null ? "" : request.optString("cari", "").trim();
+		String status = request == null ? "" : request.optString("status", "").trim().toUpperCase();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(PenerimaanPengadaanMasterAsset.class);
+			kriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			kriteria.add(Restrictions.isNotNull("tanggalPersetujuan"));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (cari.length() > 0) {
+				kriteria.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("keterangan", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("kodeTagihan", cari, MatchMode.ANYWHERE)));
+			}
+			kriteria.addOrder(Order.desc("id"));
+			@SuppressWarnings("unchecked")
+			List<PenerimaanPengadaanMasterAsset> semua = kriteria.list();
+			JSONArray arr = new JSONArray();
+			int cocok = 0;
+			int mulai = (page - 1) * pageSize;
+			for (PenerimaanPengadaanMasterAsset bast : semua) {
+				boolean sudah = sudahDitagih(bast);
+				String st = sudah ? "SUDAH" : "BELUM";
+				if (status.length() > 0 && !status.equals(st)) {
+					continue;
+				}
+				cocok++;
+				if (cocok <= mulai || arr.length() >= pageSize) {
+					continue;
+				}
+				PemesananPengadaanMasterAsset po = bast.getPemesananPengadaanMasterAsset();
+				JSONObject o = new JSONObject();
+				o.put("id", bast.getId());
+				o.put("kode", bast.getKode() == null ? "" : bast.getKode());
+				o.put("keterangan", bast.getKeterangan() == null ? "" : bast.getKeterangan());
+				o.put("tanggal", bast.getTanggalPembuatan() == null ? JSONObject.NULL
+						: Common.dateFormat3.get().format(bast.getTanggalPembuatan()));
+				o.put("penyedia", bast.getPenyedia() == null ? "" : bast.getPenyedia().getNama());
+				o.put("po", po == null || po.getKode() == null ? "" : po.getKode());
+				o.put("nilai", bast.getNilai() == null ? 0 : bast.getNilai());
+				o.put("kodeTagihan", bast.getKodeTagihan() == null ? "" : bast.getKodeTagihan());
+				o.put("tanggalTagihan", bast.getTanggalTagihan() == null ? ""
+						: Common.dateFormat1.get().format(bast.getTanggalTagihan()));
+				o.put("status", st);
+				o.put("dibayarPo", po == null || po.getDibayar() == null ? 0 : po.getDibayar());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", cocok);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Sebuah BAST dianggap sudah ditagihkan bila nomor DAN tanggal fakturnya lengkap. */
+	private static boolean sudahDitagih(PenerimaanPengadaanMasterAsset bast) {
+		return bast.getKodeTagihan() != null && !bast.getKodeTagihan().trim().isEmpty()
+				&& bast.getTanggalTagihan() != null;
+	}
+
+	/**
+	 * Terima tagihan vendor atas sebuah BAST: mencapkan nomor dan tanggal faktur.
+	 *
+	 * <p>Keduanya WAJIB -- sama dengan syarat tombol "Simpan dan Terima Tagihan" pada layar
+	 * ZKoss, karena nomor faktur adalah rujukan pembayaran dan penagihan ulang. BAST yang
+	 * belum disetujui tidak dapat ditagihkan: barang yang belum diakui diterima tidak boleh
+	 * menimbulkan kewajiban bayar.</p>
+	 */
+	public static void tagihanTerima(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_TAGIHAN, "update")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menerima tagihan vendor.");
+			return;
+		}
+		if (tbmuser == null) {
+			tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		String kodeTagihan = request.optString("kodeTagihan", "").trim();
+		String tanggalTagihan = request.optString("tanggalTagihan", "").trim();
+		if (kodeTagihan.isEmpty()) {
+			tolak(hasil, "Nomor tagihan/faktur vendor wajib diisi sesuai dokumen yang diterima.");
+			return;
+		}
+		if (tanggalTagihan.isEmpty()) {
+			tolak(hasil, "Tanggal tagihan wajib diisi sesuai tanggal pada faktur vendor.");
+			return;
+		}
+		java.util.Date tglTagihan = tanggalKetat(tanggalTagihan);
+		if (tglTagihan == null) {
+			tolak(hasil, "Tanggal tagihan harus berformat hh-bb-tttt, mis. 10-08-2026.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PenerimaanPengadaanMasterAsset bast = (PenerimaanPengadaanMasterAsset) session
+					.get(PenerimaanPengadaanMasterAsset.class, id);
+			if (bast == null) {
+				tolak(hasil, "Penerimaan Barang tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			if (tokoId != null && bast.getToko() != null && !tokoId.equals(bast.getToko().getId())) {
+				tolak(hasil, "Penerimaan Barang ini milik toko lain.");
+				return;
+			}
+			if (bast.getTanggalPersetujuan() == null) {
+				tolak(hasil, "Tagihan hanya dapat diterima atas Penerimaan Barang yang sudah disetujui.");
+				return;
+			}
+			// Nomor faktur yang sama pada penyedia yang sama menandakan tagihan ganda --
+			// kesalahan yang baru ketahuan saat rekonsiliasi pembayaran bila didiamkan.
+			Criteria kembar = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+					.add(Restrictions.eq("kodeTagihan", kodeTagihan))
+					.add(Restrictions.ne("id", bast.getId()));
+			if (bast.getPenyedia() != null) {
+				kembar.add(Restrictions.eq("penyedia.id", bast.getPenyedia().getId()));
+			}
+			@SuppressWarnings("unchecked")
+			List<PenerimaanPengadaanMasterAsset> bentrok = kembar.list();
+			if (!bentrok.isEmpty()) {
+				tolak(hasil, "Nomor tagihan " + kodeTagihan + " sudah dipakai pada "
+						+ bentrok.get(0).getKode() + " untuk penyedia yang sama. "
+						+ "Periksa kembali agar tidak terjadi tagihan ganda.");
+				return;
+			}
+			session.beginTransaction();
+			bast.setKodeTagihan(kodeTagihan);
+			bast.setTanggalTagihan(tglTagihan);
+			bast.setOleh(tbmuser.getUserNama());
+			bast.setOlehId(tbmuser.getUserId());
+			session.saveOrUpdate(bast);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bast.getId());
+			hasil.put("kode", bast.getKode());
+			hasil.put("kodeTagihan", kodeTagihan);
+			hasil.put("statusTagihan", "SUDAH");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.tagihanTerima rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Batalkan tagihan vendor: mengosongkan nomor dan tanggal faktur pada BAST.
+	 *
+	 * <p>Ditolak bila Pemesanan Pembelian induknya SUDAH menerima pembayaran -- membuang
+	 * rujukan faktur atas pesanan yang sudah dibayar akan memutus jejak rekonsiliasi.
+	 * Penerimaan langsung (tanpa PO) tidak terkena pagar ini karena tidak ada pembayaran
+	 * termin yang menunjuknya.</p>
+	 */
+	public static void tagihanBatal(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_TAGIHAN, "delete")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak membatalkan tagihan vendor.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PenerimaanPengadaanMasterAsset bast = (PenerimaanPengadaanMasterAsset) session
+					.get(PenerimaanPengadaanMasterAsset.class, id);
+			if (bast == null) {
+				tolak(hasil, "Penerimaan Barang tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			if (tokoId != null && bast.getToko() != null && !tokoId.equals(bast.getToko().getId())) {
+				tolak(hasil, "Penerimaan Barang ini milik toko lain.");
+				return;
+			}
+			if (!sudahDitagih(bast)) {
+				tolak(hasil, "Penerimaan Barang ini belum memiliki tagihan yang dapat dibatalkan.");
+				return;
+			}
+			PemesananPengadaanMasterAsset po = bast.getPemesananPengadaanMasterAsset();
+			if (po != null && po.getDibayar() != null && po.getDibayar().doubleValue() > 0) {
+				tolak(hasil, "Tagihan tidak dapat dibatalkan karena Pemesanan Pembelian "
+						+ (po.getKode() == null ? "" : po.getKode()) + " sudah menerima pembayaran sebesar "
+						+ Common.numberFormat.get().format(po.getDibayar())
+						+ ". Batalkan pembayarannya terlebih dahulu bila memang perlu dikoreksi.");
+				return;
+			}
+			session.beginTransaction();
+			bast.setKodeTagihan(null);
+			bast.setTanggalTagihan(null);
+			if (tbmuser != null) {
+				bast.setOleh(tbmuser.getUserNama());
+				bast.setOlehId(tbmuser.getUserId());
+			}
+			session.saveOrUpdate(bast);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bast.getId());
+			hasil.put("statusTagihan", "BELUM");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.tagihanBatal rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -2217,6 +2496,18 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_bast_dari_po".equals(action)) {
 			bastDariPo(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_tagihan_daftar".equals(action) || "pengadaan_tagihan_list".equals(action)) {
+			tagihanDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_tagihan_terima".equals(action)) {
+			tagihanTerima(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_tagihan_batal".equals(action)) {
+			tagihanBatal(tbmuser, request, hasil);
 			return true;
 		}
 		return false;
