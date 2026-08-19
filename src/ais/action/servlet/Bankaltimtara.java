@@ -214,7 +214,6 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
-<<<<<<< .mine
 	 * Jalankan perintah eksternal (curl) lalu kembalikan SELURUH keluarannya sebagai String.
 	 *
 	 * <p><b>Alasan perbaikan.</b> Keempat pemanggilan {@code ProcessBuilder} di kelas ini DULU
@@ -317,36 +316,6 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
-||||||| .r77745
-=======
-	 * Apakah kegagalan berasal dari jawaban Bankaltimtara "transaksi tidak ditemukan"
-	 * (<code>code: 04</code> / <code>not found</code>) -- yaitu keadaan bisnis yang WAJAR untuk
-	 * tagihan yang belum dibayar, bukan kerusakan sistem yang perlu diaudit sebagai error.
-	 */
-	private static boolean merupakanTransaksiBelumAdaDiBank(Throwable e) {
-		Throwable cur = e;
-		int pengaman = 0;
-		while (cur != null && pengaman < 12) {
-			String pesan = cur.getMessage();
-			if (pesan != null) {
-				String kecil = pesan.toLowerCase();
-				if (kecil.indexOf("not found") >= 0
-						|| kecil.indexOf("\"code\":\"04\"") >= 0
-						|| kecil.indexOf("code: 04") >= 0) {
-					return true;
-				}
-			}
-			if (cur.getCause() == cur) {
-				break;
-			}
-			cur = cur.getCause();
-			pengaman++;
-		}
-		return false;
-	}
-
-	/**
->>>>>>> .r77747
 	 * Validasi minimal sebelum {@code new JSONObject(hasil)}: pastikan respons tidak
 	 * null/kosong dan diawali karakter '{' (setelah di-trim). Endpoint bank kadang membalas
 	 * string kosong atau halaman HTML error (mis. gateway timeout/404) alih-alih JSON, yang
