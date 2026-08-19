@@ -3521,7 +3521,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 	}
 
 	private void tampilkanJendelaAnalisisTagihanBaru(List<TahapAnalisisTagihanBaru> tahap, String kesimpulan,
-			int khusus, int kandidat, int detail, int bulanan, int smt, AnalisisHilirTagihanBaru hilir) {
+			int khusus, int kandidat, int detail, int bulanan, int smt, AnalisisHilirTagihanBaru hilir)
+			throws InterruptedException {
 		MyWindow window = new MyWindow("Analisis Data Tagihan Mahasiswa Baru", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 		window.setWidth("940px");
@@ -3587,6 +3588,12 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				.append("<li>Periksa item, nominal, semester, gelombang, dan prodi sebelum pembayaran diproses.</li></ol></div>")
 				.append("<div style='margin-top:8px;color:#7c2d12;font-size:11px'><b>Penting:</b> jangan mengubah data PMB calon mahasiswa hanya agar cocok dengan setting. Jika data calon benar, buat varian Setting Biaya yang sesuai.</div></div>");
 		new Html(html.toString()).setParent(isi);
+		/* FIX 19-08-2026: jendela hasil analisis DIBUAT dan diisi, tetapi tidak pernah
+		 * DITAMPILKAN -- tidak ada onModal()/setVisible sehingga pengguna menekan tombol
+		 * "Analisis Data" dan tidak terjadi apa-apa. Varian sekolah
+		 * (AnalisisTagihanSekolahHelper) sudah benar karena diakhiri onModal(). */
+		window.setVisible(true);
+		window.onModal();
 	}
 
 	private String htmlAnalisisHilirTagihanBaru(AnalisisHilirTagihanBaru hilir) {

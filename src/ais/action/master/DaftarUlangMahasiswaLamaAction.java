@@ -2598,7 +2598,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 	private void tampilkanJendelaAnalisisTagihan(List<TahapAnalisisTagihan> tahap, String rekomendasi,
 			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, int smt,
-			AnalisisHilirTagihanLama hilir) {
+			AnalisisHilirTagihanLama hilir) throws InterruptedException {
 		MyWindow window = new MyWindow("Analisis Data Tagihan", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 		window.setWidth("920px");
@@ -2663,6 +2663,12 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.append("<li>Periksa nama item, nominal, semester, dan sisa tagihan sebelum memproses pembayaran.</li></ol></div>")
 				.append("<div style='margin-top:8px;color:#7c2d12;font-size:11px'><b>Penting:</b> jangan mengubah data akademik mahasiswa hanya agar cocok dengan setting. Ubah data mahasiswa hanya bila datanya memang salah; selain itu buat varian Setting Biaya yang benar.</div></div>");
 		new Html(html.toString()).setParent(isi);
+		/* FIX 19-08-2026: jendela hasil analisis DIBUAT dan diisi, tetapi tidak pernah
+		 * DITAMPILKAN -- tidak ada onModal()/setVisible sehingga pengguna menekan tombol
+		 * "Analisis Data" dan tidak terjadi apa-apa. Varian sekolah
+		 * (AnalisisTagihanSekolahHelper) sudah benar karena diakhiri onModal(). */
+		window.setVisible(true);
+		window.onModal();
 	}
 
 	private String htmlAnalisisHilirTagihanLama(AnalisisHilirTagihanLama hilir) {
@@ -5700,8 +5706,18 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		Toolbarbutton toolbarbutton = new MyToolbarbuttonConfig("Tambah Baru", "/img/add_item.png");
 		// Wizard: sembunyikan "Tambah Baru" (baris cicilan baru dibuat otomatis dari pilihan
 		// langkah 2; mahasiswa tak perlu menambah baris manual).
-		toolbarbutton.setVisible(!modeWizardRingkas
-				&& !jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur());
+		/* KE-FIX NullPointerException di listCicilan: jadwalPembayaran.getJenisKegiatan() bisa
+		 * null (jadwal lama / data belum lengkap), dan getTidakBolehMengangsur() sendiri bertipe
+		 * Boolean sehingga "!nilai" meledak saat auto-unboxing bila isinya null. Akibatnya
+		 * SELURUH panel cicilan gagal dirender dan layar daftar ulang kosong. Bila datanya tidak
+		 * lengkap, perlakukan sebagai "boleh mengangsur" -- yaitu perilaku lama untuk jadwal
+		 * normal -- sehingga tombol tetap tampil dan fungsinya tidak hilang. */
+		boolean tidakBolehMengangsur = false;
+		if (jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
+				&& Boolean.TRUE.equals(jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur())) {
+			tidakBolehMengangsur = true;
+		}
+		toolbarbutton.setVisible(!modeWizardRingkas && !tidakBolehMengangsur);
 		toolbarbutton.setParent(hbox);
 		hbox.appendChild(new Space());
 		hbox.appendChild(new Space());
