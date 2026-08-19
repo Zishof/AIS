@@ -469,11 +469,81 @@ if (!lockTokoLap) {
       })
       .catch(function(){ isi.innerHTML = '<div class="text-danger py-3">Kesalahan koneksi.</div>'; });
   }
+  // Tabel ringkas penyusun angka (dipakai popup sisi-klien) -- memakai metadata kolom
+  // laporan yang sedang tampil sehingga format angka/tanggalnya konsisten dgn layar.
+  function tabelPenyusun(kol, baris, kolAngka){
+    var h = '<div class="table-responsive"><table class="table table-sm table-striped mb-2"><thead><tr>';
+    for (var i=0;i<kol.length;i++) h += '<th class="'+(kol[i].t==='num'?'num':'')+'">'+esc(kol[i].l)+'</th>';
+    h += '</tr></thead><tbody>';
+    var total = 0;
+    for (var r=0;r<baris.length;r++){
+      h += '<tr>';
+      for (var c=0;c<kol.length;c++){
+        var v = baris[r][c];
+        if (kol[c].t==='num'){ if (c===kolAngka) total += numv(v); h += '<td class="num">'+(v===null?'':fmtCell(v,kol[c].l))+'</td>'; }
+        else h += '<td>'+esc(v)+'</td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody><tfoot><tr class="fw-bold"><td colspan="'+Math.max(1,kolAngka)+'">TOTAL ('+esc(kol[kolAngka]?kol[kolAngka].l:'')+')</td>'
+       + '<td class="num">'+fmtCell(total, kol[kolAngka]?kol[kolAngka].l:'')+'</td>'
+       + (kol.length-kolAngka-1 > 0 ? '<td colspan="'+(kol.length-kolAngka-1)+'"></td>' : '')
+       + '</tr></tfoot></table></div>';
+    h += '<div class="text-muted small">'+baris.length+' baris penyusun.</div>';
+    return h;
+  }
+
+  // Popup "asal angka" utk sel biasa: tampilkan seluruh kolom baris itu + catatan rumus laporan.
+  function tabelAsalBaris(kol, row){
+    var h = '<table class="table table-sm mb-2"><tbody>';
+    for (var c=0;c<kol.length;c++){
+      var v = row[c];
+      h += '<tr><th style="width:38%">'+esc(kol[c].l)+'</th><td'+(kol[c].t==='num'?' class="num"':'')+'>'
+         + (v===null?'':(kol[c].t==='num'?fmtCell(v,kol[c].l):esc(v)))+'</td></tr>';
+    }
+    return h + '</tbody></table>';
+  }
+
+  function tampilkanPopupKlien(judul, isiHtml, catatan){
+    var modalEl = el("lkModalRincian");
+    el("lkModalRincianJudul").textContent = judul;
+    var pre = catatan ? '<div class="alert alert-info small py-2">'+esc(catatan)+'</div>' : '';
+    el("lkModalRincianIsi").innerHTML = pre + isiHtml;
+    new bootstrap.Modal(modalEl).show();
+  }
+
   document.addEventListener("click", function(ev){
     var a = ev.target && ev.target.closest ? ev.target.closest("a.lk-drill") : null;
     if (!a) return;
     ev.preventDefault();
-    bukaRincian(a.getAttribute("data-rincian"), a.getAttribute("data-judul"));
+    var judul = a.getAttribute("data-judul") || "Rincian";
+    // 1) Rincian dari server (laporan ringkasan yang punya kueri penyusun sendiri)
+    var idRincian = a.getAttribute("data-rincian");
+    if (idRincian) { bukaRincian(idRincian, judul); return; }
+    if (!lastData || !lastData.kolom) return;
+    var kol = lastData.kolom, gi = (typeof lastData.grup==='number') ? lastData.grup : -1;
+    var kolAngka = parseInt(a.getAttribute("data-kol")||"0",10);
+    // 2) Grand total -> seluruh baris penyusun kolom itu
+    var kolTotal = a.getAttribute("data-total");
+    if (kolTotal !== null) {
+      var ct = parseInt(kolTotal,10);
+      tampilkanPopupKlien(judul, tabelPenyusun(kol, lastData.baris, ct),
+        "Seluruh baris yang dijumlahkan menjadi angka ini.");
+      return;
+    }
+    // 3) Subtotal grup -> baris dalam grup tsb
+    var grup = a.getAttribute("data-grup");
+    if (grup !== null && gi >= 0) {
+      var anggota = lastData.baris.filter(function(r){ return String(r[gi]) === grup; });
+      tampilkanPopupKlien(judul, tabelPenyusun(kol, anggota, kolAngka),
+        "Baris yang dijumlahkan menjadi subtotal grup ini.");
+      return;
+    }
+    // 4) Sel biasa -> asal-usul baris + catatan rumus laporan
+    var idx = parseInt(a.getAttribute("data-baris")||"-1",10);
+    if (idx >= 0 && lastData.baris[idx]) {
+      tampilkanPopupKlien(judul, tabelAsalBaris(kol, lastData.baris[idx]), lastData.catatan||"");
+    }
   });
 
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -579,14 +649,19 @@ if (!lockTokoLap) {
     var kol=d.kolom, gi=(typeof d.grup==='number')?d.grup:-1;
     var grand=[], hasTotal=false;
     for(var c=0;c<kol.length;c++){ grand[c]=0; if(kol[c].t==='num') hasTotal=true; }
-    function cellsDetail(row, sub){
+    function cellsDetail(row, sub, idxBaris){
       var s='';
       for(var c=0;c<kol.length;c++){ var v=row[c];
         if(gi>=0 && c===gi){ s+='<td></td>'; }
         else if(kol[c].t==='num'){ if(v===null){ s+='<td class="num"></td>'; } else { var n=numv(v); grand[c]+=n; if(sub) sub[c]+=n;
           var drillId = cariRincian(row); var isiSel = fmtCell(v,kol[c].l);
-          s+= drillId ? '<td class="num"><a href="javascript:void(0)" class="lk-drill" data-rincian="'+esc(drillId)+'" data-judul="'+esc(String(row[0]||'').trim())+'" title="Klik untuk melihat rincian perhitungan">'+isiSel+'</a></td>'
-                      : '<td class="num">'+isiSel+'</td>'; } }
+          // SEMUA angka bisa diklik. Bila laporan punya rincian server (PETA_RINCIAN) dipakai itu;
+          // selain itu popup menampilkan asal-usul baris ini (seluruh kolomnya + catatan rumus).
+          s+= '<td class="num"><a href="javascript:void(0)" class="lk-drill"'
+              + (drillId ? ' data-rincian="'+esc(drillId)+'"' : '')
+              + ' data-baris="'+idxBaris+'" data-kol="'+c+'"'
+              + ' data-judul="'+esc(String(row[0]||kol[c].l||'').trim())+'"'
+              + ' title="Klik untuk melihat data penghitungannya">'+isiSel+'</a></td>'; } }
         else if(kol[c].t==='tgl'){ s+='<td class="ctr">'+esc(v)+'</td>'; }
         else s+='<td>'+esc(v)+'</td>';
       }
@@ -596,7 +671,7 @@ if (!lockTokoLap) {
       var s='<tr class="lk-sub">';
       for(var c=0;c<kol.length;c++){
         if(c===gi) s+='<td>Subtotal '+esc(key)+'</td>';
-        else if(kol[c].t==='num') s+='<td class="num">'+fmtCell(sub[c],kol[c].l)+'</td>';
+        else if(kol[c].t==='num') s+='<td class="num"><a href="javascript:void(0)" class="lk-drill" data-grup="'+esc(String(key))+'" data-kol="'+c+'" data-judul="Subtotal '+esc(String(key))+'" title="Klik untuk melihat baris penyusun subtotal">'+fmtCell(sub[c],kol[c].l)+'</a></td>';
         else s+='<td></td>';
       }
       return s+'</tr>';
@@ -604,25 +679,25 @@ if (!lockTokoLap) {
     var body='';
     if(gi>=0 && d.baris.length){
       var curKey=null, started=false, sub=null;
-      d.baris.forEach(function(row){
+      d.baris.forEach(function(row, idxAsli){
         var key=row[gi];
         if(!started || key!==curKey){
           if(started) body+=subtotalRow(curKey, sub);
           curKey=key; started=true; sub=[]; for(var c=0;c<kol.length;c++) sub[c]=0;
           body+='<tr class="lk-grp"><td colspan="'+kol.length+'">'+esc(key)+'</td></tr>';
         }
-        body+='<tr>'+cellsDetail(row, sub)+'</tr>';
+        body+='<tr>'+cellsDetail(row, sub, idxAsli)+'</tr>';
       });
       if(started) body+=subtotalRow(curKey, sub);
     } else {
-      d.baris.forEach(function(row){ body+='<tr>'+cellsDetail(row, null)+'</tr>'; });
+      d.baris.forEach(function(row, idxAsli){ body+='<tr>'+cellsDetail(row, null, idxAsli)+'</tr>'; });
     }
     var foot='';
     if(hasTotal && d.grandTotal!==false){
       foot='<tr>';
       for(var c2=0;c2<kol.length;c2++){
         if(c2===0) foot+='<td>GRAND TOTAL</td>';
-        else if(kol[c2].t==='num') foot+='<td class="num">'+fmtCell(grand[c2],kol[c2].l)+'</td>';
+        else if(kol[c2].t==='num') foot+='<td class="num"><a href="javascript:void(0)" class="lk-drill" data-total="'+c2+'" data-judul="Grand Total '+esc(kol[c2].l)+'" title="Klik untuk melihat seluruh baris penyusun">'+fmtCell(grand[c2],kol[c2].l)+'</a></td>';
         else foot+='<td></td>';
       }
       foot+='</tr>';

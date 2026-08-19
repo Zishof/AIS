@@ -44,8 +44,20 @@
 			 portal alumni yang seharusnya publik selalu dilempar ke halaman login dan tampak
 			 "berputar" kembali ke login. Dipersempit menjadi path aliasnya saja; /al/** tetap
 			 disertakan agar tidak ada celah lewat sub-path. Proteksi lampiran TIDAK berkurang. -->
-		<intercept-url pattern="/al" access="IS_AUTHENTICATED_REMEMBERED" />
-		<intercept-url pattern="/al/**" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- DIBUKA PUBLIK atas permintaan pemilik sistem (19-08-2026), sementara, supaya
+			 gambar/lampiran yang tampil di halaman publik tidak lagi dilempar ke login.
+
+			 CATATAN RISIKO (jangan dihapus sebelum ditindaklanjuti): servlet AmbilLampiran
+			 TIDAK memiliki pengecekan hak akses apa pun, dan selain token terenkripsi "d" ia
+			 juga menerima parameter polos ?ref=&amp;clazz= yang bisa ditebak berurutan. Dengan
+			 aturan ini SIAPA PUN dapat mengunduh lampiran apa pun tanpa login, termasuk KK,
+			 akte, ijazah, dan gambar TANDA TANGAN (TTD_*) yang dipakai mengesahkan dokumen.
+
+			 Rencana pengamanan yang disepakati untuk menyusul: endpoint publik terpisah yang
+			 (a) WAJIB memakai token "d" dan (b) hanya melayani jenis lampiran dalam daftar
+			 putih, sementara /al dikembalikan menjadi IS_AUTHENTICATED_REMEMBERED. -->
+		<intercept-url pattern="/al" access="IS_AUTHENTICATED_ANONYMOUSLY" />
+		<intercept-url pattern="/al/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/pascasarjana/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 	
