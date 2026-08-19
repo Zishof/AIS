@@ -693,6 +693,22 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		}
 		produk.setKebijakanRetur(kebijakan);
 		produk.setNama(nama.getValue());
+		// Kebijakan ubah harga per toko (lihat HargaAksesUtil). Digerbang di sini
+		// juga -- bukan cuma di POS Flutter -- supaya aturannya sama lewat ZKoss.
+		Toko tokoHarga = (Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue());
+		if (tokoHarga == null) {
+			tokoHarga = produk.getToko() != null ? produk.getToko() : currentToko;
+		}
+		double hbBaru = hargaBeli.getValue() == null ? 0d : hargaBeli.getValue().doubleValue();
+		double hjBaru = hargaJual.getValue() == null ? 0d : hargaJual.getValue().doubleValue();
+		if ((ais.action.master.inventory.HargaAksesUtil.berubah(produk.getHargaBeli(), hbBaru)
+				|| ais.action.master.inventory.HargaAksesUtil.berubah(produk.getHargaJual(), hjBaru))
+				&& !ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(
+						tokoHarga, ais.common.Common.getCurrentUser())) {
+			MyMessageboxConfig.show(ais.action.master.inventory.HargaAksesUtil.pesanDitolak(),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 		produk.setHargaBeli(hargaBeli.getValue());
 		produk.setHargaJual(hargaJual.getValue());
 		if (metodeHpp != null && metodeHpp.getSelectedItem() != null) {

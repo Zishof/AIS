@@ -292,6 +292,49 @@ public final class LaporanKantinUtil {
         return sb.toString();
     }
 
+    /** Klausa ledger KUMULATIF: seluruh jurnal terposting s/d Tgl Sampai (Tgl Mulai diabaikan).
+     *  Dipakai Neraca & saldo akhir Kas/Bank yang memang bersifat akumulatif, bukan periodik. */
+    private static String klausaLedgerSampai(org.hibernate.Session session, String tglSampai, Map<String, Object> p) {
+        long satker = kantinSatkerId(session);
+        p.put("satker", Long.valueOf(satker));
+        StringBuilder sb = new StringBuilder();
+        sb.append(" where a1.posting_history is not null and ( :satker = -1 or a1.satuan_kerja = :satker ) ");
+        if (ada(tglSampai)) {
+            sb.append(" and cast(a.tanggal_transaksi as date) <= cast(:tglSampai as date) ");
+            p.put("tglSampai", tglSampai.trim());
+        }
+        return sb.toString();
+    }
+
+    /** Klausa ledger SEBELUM periode: dipakai menghitung saldo awal Kas/Bank pada Arus Kas. */
+    private static String klausaLedgerSebelum(org.hibernate.Session session, String tglMulai, Map<String, Object> p) {
+        long satker = kantinSatkerId(session);
+        p.put("satker", Long.valueOf(satker));
+        StringBuilder sb = new StringBuilder();
+        sb.append(" where a1.posting_history is not null and ( :satker = -1 or a1.satuan_kerja = :satker ) ");
+        if (ada(tglMulai)) {
+            sb.append(" and cast(a.tanggal_transaksi as date) < cast(:tglMulai as date) ");
+            p.put("tglMulai", tglMulai.trim());
+        } else {
+            // Tanpa Tgl Mulai tidak ada "sebelum periode" — saldo awal dianggap 0.
+            sb.append(" and 1 = 0 ");
+        }
+        return sb.toString();
+    }
+
+    /** Jalankan SQL agregat 1 baris 1 kolom angka; 0 bila kosong/gagal. */
+    private static double angkaTunggal(org.hibernate.Session session, String sql, Map<String, Object> prm) {
+        try {
+            SQLQuery q = session.createSQLQuery(sql);
+            for (Map.Entry<String, Object> e : prm.entrySet()) { q.setParameter(e.getKey(), e.getValue()); }
+            Object v = q.uniqueResult();
+            return (v instanceof Number) ? ((Number) v).doubleValue() : 0.0;
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit LaporanKantinUtil.angkaTunggal");
+            return 0.0;
+        }
+    }
+
     /** FROM standar Buku Besar (transaksi + grup_transaksi + akun). */
     private static final String FROM_LEDGER =
         " from akunting.transaksi a "
@@ -300,19 +343,29 @@ public final class LaporanKantinUtil {
 
     /** Ekspresi pengenal akun Kas/Bank (heuristik: flag bank/no rekening, atau nama mengandung kas/bank).
      *  Catatan penamaan kolom: getBank()=@JoinColumn "bank_id"; getNoRek() TANPA @Column → terlipat "norek". */
-    private static final String FILTER_KASBANK =
-        " and (d.bank_id is not null or d.norek is not null "
-      + "      or lower(coalesce(d.nama,'')) like '%kas%' or lower(coalesce(d.nama,'')) like '%bank%') ";
+    private static final String EKSPRESI_KASBANK =
+        " d.bank_id is not null or d.norek is not null "
+      + " or lower(coalesce(d.nama,'')) like '%kas%' or lower(coalesce(d.nama,'')) like '%bank%' ";
+    private static final String FILTER_KASBANK = " and (" + EKSPRESI_KASBANK + ") ";
+    /** Kebalikannya: akun LAWAN (bukan kas/bank) — dipakai Arus Kas utk menguraikan sumber & penggunaan kas. */
+    private static final String FILTER_BUKAN_KASBANK = " and not (" + EKSPRESI_KASBANK + ") ";
 
-    /** JOIN klasifikasi akun -> Kelompok Laporan -> Jenis Laporan (utk laba rugi / beban). Alias b/c/f. */
+    /** JOIN klasifikasi akun -> Kelompok Laporan -> Jenis Laporan (utk laba rugi / beban). Alias b/c/f/m.
+     *  master_grup_laporan (alias m) WAJIB ikut: pada data nyata kolom kelompok_laporan.keterangan sering
+     *  KOSONG dan nama kelompok sesungguhnya ("Aktiva Tetap", "Beban Gaji", ...) ada di master_grup_laporan. */
     private static final String JOIN_KLAS =
         " join akunting.kelompok_laporan_punya_akun b on b.akun = d.id "
       + " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
-      + " join akunting.jenis_laporan f on f.id = c.jenis_laporan ";
+      + " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
+      + " left join akunting.master_grup_laporan m on m.id = c.master_grup_laporan ";
 
-    /** Ekspresi tag klasifikasi (kelompok + jenis) huruf kecil. */
+    /** Label kelompok yang ditampilkan; jatuh ke master_grup_laporan bila keterangan kelompok kosong. */
+    private static final String LABEL_KLAS =
+        " coalesce(nullif(trim(coalesce(c.keterangan,'')),''), nullif(trim(coalesce(m.keterangan,'')),''), '(Tanpa Kelompok)') ";
+
+    /** Ekspresi tag klasifikasi (kelompok + master grup + jenis) huruf kecil. */
     private static final String TAG_KLAS =
-        " lower(coalesce(c.keterangan,'') || ' ' || coalesce(f.keterangan,'')) ";
+        " lower(coalesce(c.keterangan,'') || ' ' || coalesce(m.keterangan,'') || ' ' || coalesce(f.keterangan,'')) ";
 
     /** Filter akun BEBAN/BIAYA (termasuk HPP) berdasar klasifikasi + hanya kelompok aktif. */
     private static final String FILTER_BEBAN =
@@ -2392,20 +2445,17 @@ public final class LaporanKantinUtil {
                 H.tipe = new String[]{"text","num"};
                 Map<String,Object> pl = new LinkedHashMap<String,Object>();
                 String w = klausaLedger(session, tglMulai, tglSampai, pl);
-                String q = "select coalesce(c.keterangan,'(Tanpa Kelompok)') as kelompok, d.kode, d.nama, "
+                String q = "select " + LABEL_KLAS + " as kelompok, d.kode, d.nama, "
                     + " coalesce(sum(a.kredit),0) - coalesce(sum(a.debet),0) as natural_kredit, "
                     + " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as natural_debet, "
-                    + " lower(coalesce(c.keterangan,'') || ' ' || coalesce(f.keterangan,'')) as tag "
-                    + FROM_LEDGER
-                    + " join akunting.kelompok_laporan_punya_akun b on b.akun = d.id "
-                    + " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
-                    + " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
+                    + TAG_KLAS + " as tag "
+                    + FROM_LEDGER + JOIN_KLAS
                     + w
                     + " and (c.aktif is null or c.aktif) "
                     + " and ( lower(coalesce(f.keterangan,'')) like '%laba%' or lower(coalesce(f.keterangan,'')) like '%rugi%' "
                     + "       or lower(coalesce(f.keterangan,'')) like '%pendapatan%' or lower(coalesce(f.keterangan,'')) like '%beban%' or lower(coalesce(f.keterangan,'')) like '%biaya%' ) "
-                    + " group by c.keterangan, d.kode, d.nama, f.keterangan, c.urut "
-                    + " order by coalesce(c.urut,0), c.keterangan, d.kode ";
+                    + " group by c.keterangan, m.keterangan, d.kode, d.nama, f.keterangan, c.urut "
+                    + " order by coalesce(c.urut,0), kelompok, d.kode ";
                 try {
                     SQLQuery lq = session.createSQLQuery(q);
                     for (Map.Entry<String,Object> e : pl.entrySet()) { lq.setParameter(e.getKey(), e.getValue()); }
@@ -2459,6 +2509,207 @@ public final class LaporanKantinUtil {
                     H.status = "99"; H.message = "Gagal menyusun Laba Rugi berbasis jurnal: " + e.getMessage();
                 }
                 return H;
+
+            } else if ("akn_neraca".equals(r)) {
+                H.judul = "Neraca (Berbasis Jurnal Akuntansi)";
+                H.catatan = "Saldo KUMULATIF seluruh jurnal TERPOSTING sampai dengan Tgl Sampai (Tgl Mulai diabaikan, "
+                    + "karena neraca bersifat kumulatif), dikelompokkan memakai klasifikasi Kelompok Laporan jenis 'Neraca'. "
+                    + "Laba (rugi) berjalan dari akun Laba Rugi ditambahkan pada sisi Kewajiban & Modal agar neraca seimbang. "
+                    + "Akun yang belum dipetakan tidak ikut muncul \u2014 periksa lewat laporan 'Diagnosa Pemetaan Akun'.";
+                H.grup = -1; H.grandTotal = false;
+                H.kolom.add(new Kolom("Keterangan","text")); H.kolom.add(new Kolom("Nilai","num"));
+                H.tipe = new String[]{"text","num"};
+                Map<String,Object> pn = new LinkedHashMap<String,Object>();
+                String wn = klausaLedgerSampai(session, tglSampai, pn);
+                String qn = "select " + LABEL_KLAS + " as kelompok, d.kode, d.nama, "
+                    + " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as saldo_debet, " + TAG_KLAS + " as tag "
+                    + FROM_LEDGER + JOIN_KLAS + wn
+                    + " and (c.aktif is null or c.aktif) "
+                    + " and lower(coalesce(f.keterangan,'')) like '%neraca%' "
+                    + " group by c.keterangan, m.keterangan, d.kode, d.nama, f.keterangan, c.urut "
+                    + " having coalesce(sum(a.debet),0) <> 0 or coalesce(sum(a.kredit),0) <> 0 "
+                    + " order by coalesce(c.urut,0), kelompok, d.kode ";
+                try {
+                    SQLQuery nq = session.createSQLQuery(qn);
+                    for (Map.Entry<String,Object> e : pn.entrySet()) { nq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> nrows = nq.list();
+                    Map<String, List<Object[]>> grpAktiva = new LinkedHashMap<String, List<Object[]>>();
+                    Map<String, List<Object[]>> grpPasiva = new LinkedHashMap<String, List<Object[]>>();
+                    double totalAktiva = 0.0, totalPasiva = 0.0;
+                    for (Object ro : nrows) {
+                        Object[] rr = (Object[]) ro;
+                        String kelompok = rr[0] == null ? "(Tanpa Kelompok)" : rr[0].toString();
+                        String kode = rr[1] == null ? "" : rr[1].toString();
+                        String nama = rr[2] == null ? "" : rr[2].toString();
+                        double saldoD = (rr[3] instanceof Number) ? ((Number) rr[3]).doubleValue() : 0.0;
+                        String tag = rr[4] == null ? "" : rr[4].toString();
+                        // Urutan cek penting: "piutang" memuat kata "utang", jadi sisi AKTIVA diperiksa lebih dulu.
+                        boolean aktiva = tag.contains("aktiva") || tag.contains("aset") || tag.contains("asset")
+                            || tag.contains("harta") || tag.contains("piutang") || tag.contains("persediaan")
+                            || tag.contains("kas") || tag.contains("bank");
+                        boolean pasiva = !aktiva && (tag.contains("kewajiban") || tag.contains("hutang")
+                            || tag.contains("utang") || tag.contains("modal") || tag.contains("ekuitas")
+                            || tag.contains("pasiva"));
+                        if (!aktiva && !pasiva) { aktiva = saldoD >= 0; }   // cadangan: ikut saldo alami akun
+                        if (aktiva) {
+                            totalAktiva += saldoD;
+                            if (!grpAktiva.containsKey(kelompok)) { grpAktiva.put(kelompok, new ArrayList<Object[]>()); }
+                            grpAktiva.get(kelompok).add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(saldoD) });
+                        } else {
+                            double saldoK = -saldoD;
+                            totalPasiva += saldoK;
+                            if (!grpPasiva.containsKey(kelompok)) { grpPasiva.put(kelompok, new ArrayList<Object[]>()); }
+                            grpPasiva.get(kelompok).add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(saldoK) });
+                        }
+                    }
+                    Map<String,Object> pl2 = new LinkedHashMap<String,Object>();
+                    String wl2 = klausaLedgerSampai(session, tglSampai, pl2);
+                    double labaBerjalan = angkaTunggal(session,
+                        "select coalesce(sum(a.kredit),0) - coalesce(sum(a.debet),0) " + FROM_LEDGER + JOIN_KLAS + wl2
+                        + " and (c.aktif is null or c.aktif) "
+                        + " and ( lower(coalesce(f.keterangan,'')) like '%laba%' or lower(coalesce(f.keterangan,'')) like '%rugi%' ) ", pl2);
+                    if (nrows.isEmpty() && labaBerjalan == 0.0) {
+                        H.baris.add(new Object[]{"Belum ada data. Pastikan transaksi sudah DIPOSTING ke jurnal & akun dipetakan ke Kelompok Laporan jenis 'Neraca'.", null});
+                        return H;
+                    }
+                    H.baris.add(new Object[]{"AKTIVA", null});
+                    for (Map.Entry<String, List<Object[]>> e : grpAktiva.entrySet()) {
+                        H.baris.add(new Object[]{"  " + e.getKey(), null});
+                        double sub = 0.0;
+                        for (Object[] x : e.getValue()) { H.baris.add(x); sub += ((Number) x[1]).doubleValue(); }
+                        H.baris.add(new Object[]{"  Subtotal " + e.getKey(), Double.valueOf(sub)});
+                    }
+                    H.baris.add(new Object[]{"TOTAL AKTIVA", Double.valueOf(totalAktiva)});
+                    H.baris.add(new Object[]{"KEWAJIBAN & MODAL", null});
+                    for (Map.Entry<String, List<Object[]>> e : grpPasiva.entrySet()) {
+                        H.baris.add(new Object[]{"  " + e.getKey(), null});
+                        double sub = 0.0;
+                        for (Object[] x : e.getValue()) { H.baris.add(x); sub += ((Number) x[1]).doubleValue(); }
+                        H.baris.add(new Object[]{"  Subtotal " + e.getKey(), Double.valueOf(sub)});
+                    }
+                    H.baris.add(new Object[]{"  LABA (RUGI) BERJALAN", Double.valueOf(labaBerjalan)});
+                    double totalPasivaPlus = totalPasiva + labaBerjalan;
+                    H.baris.add(new Object[]{"TOTAL KEWAJIBAN & MODAL", Double.valueOf(totalPasivaPlus)});
+                    H.baris.add(new Object[]{"SELISIH (harus 0)", Double.valueOf(totalAktiva - totalPasivaPlus)});
+                } catch (Exception e) {
+                    H.status = "99"; H.message = "Gagal menyusun Neraca berbasis jurnal: " + e.getMessage();
+                }
+                return H;
+
+            } else if ("akn_arus_kas".equals(r)) {
+                H.judul = "Arus Kas (Berbasis Jurnal Akuntansi)";
+                H.catatan = "Mutasi akun Kas/Bank pada jurnal TERPOSTING: saldo awal (sebelum Tgl Mulai), penerimaan & "
+                    + "pengeluaran periode yang diuraikan menurut AKUN LAWAN-nya, lalu saldo akhir (s/d Tgl Sampai). "
+                    + "Pada jurnal yang punya banyak baris, nilai kas dialokasikan PROPORSIONAL ke tiap akun lawan, "
+                    + "sehingga totalnya tetap sama dengan mutasi kas sesungguhnya.";
+                H.grup = -1; H.grandTotal = false;
+                H.kolom.add(new Kolom("Keterangan","text")); H.kolom.add(new Kolom("Nilai","num"));
+                H.tipe = new String[]{"text","num"};
+                try {
+                    Map<String,Object> pAwal = new LinkedHashMap<String,Object>();
+                    String wAwal = klausaLedgerSebelum(session, tglMulai, pAwal);
+                    double saldoAwal = angkaTunggal(session,
+                        "select coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) " + FROM_LEDGER + wAwal + FILTER_KASBANK, pAwal);
+
+                    Map<String,Object> pAkhir = new LinkedHashMap<String,Object>();
+                    String wAkhir = klausaLedgerSampai(session, tglSampai, pAkhir);
+                    double saldoAkhir = angkaTunggal(session,
+                        "select coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) " + FROM_LEDGER + wAkhir + FILTER_KASBANK, pAkhir);
+
+                    Map<String,Object> pp = new LinkedHashMap<String,Object>();
+                    String wp = klausaLedger(session, tglMulai, tglSampai, pp);
+                    String qm = "with kas as ( select a.grup_transaksi as gid, sum(coalesce(a.debet,0)) as masuk, "
+                        + "     sum(coalesce(a.kredit,0)) as keluar " + FROM_LEDGER + wp + FILTER_KASBANK
+                        + "   group by a.grup_transaksi ), "
+                        + " lawan as ( select a.grup_transaksi as gid, d.kode as kode, d.nama as nama, "
+                        + "     sum(coalesce(a.debet,0)) as ld, sum(coalesce(a.kredit,0)) as lk " + FROM_LEDGER + wp + FILTER_BUKAN_KASBANK
+                        + "   group by a.grup_transaksi, d.kode, d.nama ), "
+                        + " tot as ( select gid, sum(ld) as sld, sum(lk) as slk from lawan group by gid ) "
+                        + " select l.kode, l.nama, "
+                        + "   sum(case when coalesce(t.slk,0) > 0 then k.masuk * (l.lk / t.slk) else 0 end) as masuk, "
+                        + "   sum(case when coalesce(t.sld,0) > 0 then k.keluar * (l.ld / t.sld) else 0 end) as keluar "
+                        + " from kas k join lawan l on l.gid = k.gid join tot t on t.gid = k.gid "
+                        + " group by l.kode, l.nama "
+                        + " having sum(case when coalesce(t.slk,0) > 0 then k.masuk * (l.lk / t.slk) else 0 end) <> 0 "
+                        + "     or sum(case when coalesce(t.sld,0) > 0 then k.keluar * (l.ld / t.sld) else 0 end) <> 0 "
+                        + " order by l.kode ";
+                    SQLQuery mq = session.createSQLQuery(qm);
+                    for (Map.Entry<String,Object> e : pp.entrySet()) { mq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> mrows = mq.list();
+
+                    List<Object[]> masukList = new ArrayList<Object[]>();
+                    List<Object[]> keluarList = new ArrayList<Object[]>();
+                    double totalMasuk = 0.0, totalKeluar = 0.0;
+                    for (Object ro : mrows) {
+                        Object[] rr = (Object[]) ro;
+                        String kode = rr[0] == null ? "" : rr[0].toString();
+                        String nama = rr[1] == null ? "" : rr[1].toString();
+                        double masuk = (rr[2] instanceof Number) ? ((Number) rr[2]).doubleValue() : 0.0;
+                        double keluar = (rr[3] instanceof Number) ? ((Number) rr[3]).doubleValue() : 0.0;
+                        if (masuk != 0.0) { masukList.add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(masuk) }); totalMasuk += masuk; }
+                        if (keluar != 0.0) { keluarList.add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(keluar) }); totalKeluar += keluar; }
+                    }
+                    if (mrows.isEmpty() && saldoAwal == 0.0 && saldoAkhir == 0.0) {
+                        H.baris.add(new Object[]{"Belum ada mutasi Kas/Bank pada jurnal TERPOSTING untuk periode ini.", null});
+                        return H;
+                    }
+                    H.baris.add(new Object[]{"SALDO AWAL KAS & BANK", Double.valueOf(saldoAwal)});
+                    H.baris.add(new Object[]{"PENERIMAAN (menurut akun lawan)", null});
+                    for (Object[] x : masukList) { H.baris.add(x); }
+                    H.baris.add(new Object[]{"TOTAL PENERIMAAN", Double.valueOf(totalMasuk)});
+                    H.baris.add(new Object[]{"PENGELUARAN (menurut akun lawan)", null});
+                    for (Object[] x : keluarList) { H.baris.add(x); }
+                    H.baris.add(new Object[]{"TOTAL PENGELUARAN", Double.valueOf(totalKeluar)});
+                    H.baris.add(new Object[]{"KENAIKAN (PENURUNAN) KAS & BANK", Double.valueOf(totalMasuk - totalKeluar)});
+                    H.baris.add(new Object[]{"SALDO AKHIR KAS & BANK", Double.valueOf(saldoAkhir)});
+                    // Selisih hanya bermakna bila periodenya tertutup (Tgl Mulai & Tgl Sampai diisi).
+                    if (ada(tglMulai) && ada(tglSampai)) {
+                        H.baris.add(new Object[]{"SELISIH (harus 0)", Double.valueOf(saldoAwal + totalMasuk - totalKeluar - saldoAkhir)});
+                    }
+                    Map<String,Object> pr2 = new LinkedHashMap<String,Object>();
+                    String wr2 = klausaLedgerSampai(session, tglSampai, pr2);
+                    String qr2 = "select d.kode, d.nama, coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) "
+                        + FROM_LEDGER + wr2 + FILTER_KASBANK
+                        + " group by d.kode, d.nama "
+                        + " having coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) <> 0 order by d.kode ";
+                    SQLQuery rq = session.createSQLQuery(qr2);
+                    for (Map.Entry<String,Object> e : pr2.entrySet()) { rq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> rrows = rq.list();
+                    if (!rrows.isEmpty()) {
+                        H.baris.add(new Object[]{"RINCIAN SALDO AKHIR PER AKUN KAS/BANK", null});
+                        for (Object ro : rrows) {
+                            Object[] rr = (Object[]) ro;
+                            String kode = rr[0] == null ? "" : rr[0].toString();
+                            String nama = rr[1] == null ? "" : rr[1].toString();
+                            double sal = (rr[2] instanceof Number) ? ((Number) rr[2]).doubleValue() : 0.0;
+                            H.baris.add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(sal) });
+                        }
+                    }
+                } catch (Exception e) {
+                    H.status = "99"; H.message = "Gagal menyusun Arus Kas berbasis jurnal: " + e.getMessage();
+                }
+                return H;
+
+            } else if ("akn_diagnosa_akun".equals(r)) {
+                judul = "Diagnosa Pemetaan Akun (Jurnal vs Kelompok Laporan)";
+                catatan = "Akun yang DIPAKAI jurnal TERPOSTING tetapi BELUM terpetakan ke Kelompok Laporan aktif, sehingga "
+                    + "nilainya TIDAK ikut muncul di Laba Rugi / Neraca berbasis jurnal. Petakan lewat menu Akuntansi > "
+                    + "Kelompok Laporan agar laporan resmi lengkap.";
+                String w = klausaLedger(session, tglMulai, tglSampai, prm);
+                sql = "select d.kode, d.nama, coalesce(sum(a.debet),0), coalesce(sum(a.kredit),0), "
+                    + " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0), "
+                    + " case when exists ( select 1 from akunting.kelompok_laporan_punya_akun b2 where b2.akun = d.id ) "
+                    + "      then 'Terpetakan, tetapi kelompoknya non-aktif' else 'BELUM dipetakan' end "
+                    + FROM_LEDGER + w
+                    + " and not exists ( select 1 from akunting.kelompok_laporan_punya_akun b2 "
+                    + "     join akunting.kelompok_laporan c2 on c2.id = b2.kelompok_laporan "
+                    + "     where b2.akun = d.id and (c2.aktif is null or c2.aktif) ) "
+                    + " group by d.id, d.kode, d.nama "
+                    + " order by abs(coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0)) desc, d.kode ";
+                tipe = new String[]{"text","text","num","num","num","text"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text"));
+                kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num"));
+                kolom.add(new Kolom("Saldo (D-K)","num")); kolom.add(new Kolom("Status","text"));
 
             } else if ("fin_laba_rugi_rincian_hpp".equals(r)) {
                 // DRILL-DOWN "HPP (Modal Barang Terjual)" -- dibuka saat pengguna mengklik angka

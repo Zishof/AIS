@@ -262,7 +262,8 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_daftar_akun", "Daftar Akun Perkiraan (Bagan Akun)", "Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."));
         k.items.add(item("akn_ringkasan_beban", "Ringkasan Pencatatan Beban", "Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."));
         k.items.add(item("akn_rincian_beban", "Rincian Beban Pembayaran", "Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."));
-        k.items.add(item("gl_rincian", "Rincian Buku Besar Kas (Ringkas)", "Buku besar kas ringkas: penjualan vs pengadaan (approksimasi, tanpa posting)."));
+        k.items.add(item("akn_diagnosa_akun", "Diagnosa Pemetaan Akun", "Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."));
+        k.items.add(item("gl_rincian", "Rincian Buku Besar Kas (Ringkas)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."));
         k.items.add(item("akn_aset_tetap", "Daftar Aset Tetap (Nilai Buku)", "Aktiva tetap aktif: nilai perolehan, akumulasi penyusutan, dan nilai buku."));
         semua.add(k);
 
@@ -274,9 +275,11 @@ public final class LaporanKatalogData {
 
         k = new Kat("Keuangan");
         k.items.add(item("akn_laba_rugi", "Laba Rugi (Berbasis Jurnal Akuntansi)", "Laba rugi resmi dari jurnal TERPOSTING + klasifikasi akun (Satuan Kerja kantin)."));
-        k.items.add(item("fin_laba_rugi", "Laba Rugi (Ringkas Operasional)", "Perkiraan cepat: penjualan − HPP − bahan (tanpa posting jurnal)."));
-        k.items.add(item("fin_neraca", "Neraca (Ringkas Operasional)", "Perkiraan aktiva (kas, persediaan, piutang) & modal, per Tgl Sampai."));
-        k.items.add(item("fin_arus_kas", "Arus Kas (Ringkas Operasional)", "Perkiraan penerimaan penjualan vs pengeluaran pengadaan (periode)."));
+        k.items.add(item("akn_neraca", "Neraca (Berbasis Jurnal Akuntansi)", "Neraca resmi dari jurnal TERPOSTING (kumulatif s/d Tgl Sampai) + laba berjalan; dilengkapi baris SELISIH."));
+        k.items.add(item("akn_arus_kas", "Arus Kas (Berbasis Jurnal Akuntansi)", "Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."));
+        k.items.add(item("fin_laba_rugi", "Laba Rugi (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."));
+        k.items.add(item("fin_neraca", "Neraca (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."));
+        k.items.add(item("fin_arus_kas", "Arus Kas (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penerimaan penjualan vs pengeluaran pengadaan."));
         semua.add(k);
 
         k = new Kat("Laporan Keuangan Resmi — Komparatif (Akuntansi)");

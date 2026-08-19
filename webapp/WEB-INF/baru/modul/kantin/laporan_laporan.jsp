@@ -366,7 +366,8 @@ if (!lockTokoLap) {
       {id:"akn_daftar_akun", judul:"Daftar Akun Perkiraan (Bagan Akun)", ket:"Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."},
       {id:"akn_ringkasan_beban", judul:"Ringkasan Pencatatan Beban", ket:"Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."},
       {id:"akn_rincian_beban", judul:"Rincian Beban Pembayaran", ket:"Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."},
-      {id:"gl_rincian", judul:"Rincian Buku Besar Kas (Ringkas)", ket:"Buku besar kas ringkas: penjualan vs pengadaan (approksimasi, tanpa posting)."}
+      {id:"akn_diagnosa_akun", judul:"Diagnosa Pemetaan Akun", ket:"Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."},
+      {id:"gl_rincian", judul:"Rincian Buku Besar Kas (Ringkas)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."}
     ]},
     {kat:"Kas & Bank (Akuntansi)", items:[
       {id:"akn_rekening_koran", judul:"Rekening Koran (Kas & Bank)", ket:"Mutasi tiap akun Kas/Bank: penerimaan vs pengeluaran (dari Jurnal Akuntansi)."},
@@ -375,9 +376,11 @@ if (!lockTokoLap) {
     ]},
     {kat:"Keuangan", items:[
       {id:"akn_laba_rugi", judul:"Laba Rugi (Berbasis Jurnal Akuntansi)", ket:"Laba rugi resmi dari jurnal TERPOSTING + klasifikasi akun (Satuan Kerja kantin)."},
-      {id:"fin_laba_rugi", judul:"Laba Rugi (Ringkas Operasional)", ket:"Perkiraan cepat: penjualan − HPP − bahan (tanpa posting jurnal)."},
-      {id:"fin_neraca", judul:"Neraca (Ringkas Operasional)", ket:"Perkiraan aktiva (kas, persediaan, piutang) & modal, per Tgl Sampai."},
-      {id:"fin_arus_kas", judul:"Arus Kas (Ringkas Operasional)", ket:"Perkiraan penerimaan penjualan vs pengeluaran pengadaan (periode)."}
+      {id:"akn_neraca", judul:"Neraca (Berbasis Jurnal Akuntansi)", ket:"Neraca resmi dari jurnal TERPOSTING (kumulatif s/d Tgl Sampai) + laba berjalan; dilengkapi baris SELISIH."},
+      {id:"akn_arus_kas", judul:"Arus Kas (Berbasis Jurnal Akuntansi)", ket:"Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."},
+      {id:"fin_laba_rugi", judul:"Laba Rugi (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."},
+      {id:"fin_neraca", judul:"Neraca (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."},
+      {id:"fin_arus_kas", judul:"Arus Kas (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penerimaan penjualan vs pengeluaran pengadaan."}
     ]},
     {kat:"Laporan Keuangan Resmi — Komparatif (Akuntansi)", items:[
       {id:"lk_keu2",  judul:"Neraca / Laba Rugi / Arus Kas — 2 Periode", ket:"Perbandingan 2 periode (pilih jenis di combo 'Jenis Laporan'). Resmi dari jurnal, Satuan Kerja kantin.", url:LAUNCH+"keu2"},

@@ -204,6 +204,19 @@ public class GrupProdukAction extends GenericCrudAction<GrupProduk> {
 		grup.setKode(kode.getValue());
 		grup.setNama(nama.getValue());
 		grup.setKeterangan(keterangan.getValue());
+		// Harga grup diterapkan ke seluruh produk anggota, jadi gerbangnya
+		// mengikuti kebijakan ubah harga toko yang sedang aktif.
+		double hbGrup = hargaBeli.getValue() == null ? 0d : hargaBeli.getValue().doubleValue();
+		double hjGrup = hargaJual.getValue() == null ? 0d : hargaJual.getValue().doubleValue();
+		if ((ais.action.master.inventory.HargaAksesUtil.berubah(grup.getHargaBeli(), hbGrup)
+				|| ais.action.master.inventory.HargaAksesUtil.berubah(grup.getHargaJual(), hjGrup))
+				&& !ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(
+						Common.getCurrentToko(), Common.getCurrentUser())) {
+			ais.ui.util.MyMessageboxConfig.show(
+					ais.action.master.inventory.HargaAksesUtil.pesanDitolak(), "Peringatan",
+					ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 		grup.setHargaBeli(hargaBeli.getValue() == null ? null : hargaBeli.getValue().doubleValue());
 		grup.setHargaJual(hargaJual.getValue() == null ? null : hargaJual.getValue().doubleValue());
 		Common.refreshSaveOrUpdate(session, grup);
