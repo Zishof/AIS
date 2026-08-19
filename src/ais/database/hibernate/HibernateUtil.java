@@ -421,8 +421,29 @@ public class HibernateUtil {
                 } catch (Throwable e) {
                     zkSession = null;
                 }
+                /* KE-FIX HibernateException "createCriteria is not valid without active transaction"
+                 * (Common.checkKonfigurasiBigIcon <- MainAction.initData <- doAfterCompose):
+                 * hibernate.cfg.xml memakai current_session_context_class=thread, sehingga session
+                 * yang dikembalikan jalur ZK adalah PROXY ThreadLocalSessionContext
+                 * (TransactionProtectionWrapper). Proxy itu hanya mengizinkan sedikit method
+                 * (isOpen/getTransaction/beginTransaction/close) selama TIDAK ada transaksi aktif;
+                 * begitu ada eksekusi ZK yang transaksinya belum sempat dibuka oleh listener
+                 * OpenSessionInView, panggilan pertama seperti createCriteria() langsung meledak dan
+                 * SELURUH halaman gagal dirender.
+                 *
+                 * isSessionUsable() dulu hanya memeriksa "session terbuka", sehingga session yang
+                 * DIPASTIKAN akan melempar pada pemakaian pertama tetap diserahkan ke pemanggil.
+                 * Sekarang: bila transaksinya belum aktif, transaksi dibuka di sini -- persis yang
+                 * dilakukan pola Open Session In View -- sehingga listener cleanup ZK tetap yang
+                 * meng-commit/menutupnya seperti biasa. Bila membuka transaksi pun gagal, barulah
+                 * jatuh ke currentNativeSession() seperti perilaku fallback yang sudah ada.
+                 *
+                 * Perbaikan sengaja diletakkan di SATU titik ini karena seluruh pemanggil
+                 * currentSession() (ratusan) berbagi akar masalah yang sama. */
                 if (isSessionUsable(zkSession)) {
-                    return zkSession;
+                    if (transaksiSedangAktif(zkSession) || mulaiTransaksiBilaBisa(zkSession)) {
+                        return zkSession;
+                    }
                 }
             }
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:419");
@@ -540,6 +561,43 @@ public class HibernateUtil {
      *
      * @return session native open untuk thread saat ini
      */
+    /**
+     * Apakah session sedang berada di dalam transaksi aktif.
+     *
+     * <p>{@code getTransaction()} termasuk method yang DIIZINKAN oleh
+     * {@code ThreadLocalSessionContext$TransactionProtectionWrapper} meskipun belum ada transaksi,
+     * jadi pemeriksaan ini aman dipanggil pada session proxy maupun session biasa.</p>
+     */
+    private static boolean transaksiSedangAktif(Session session) {
+        try {
+            return session != null && session.getTransaction() != null && session.getTransaction().isActive();
+        } catch (Throwable abaikan) {
+            return false;
+        }
+    }
+
+    /**
+     * Buka transaksi bila memang belum ada, mengikuti pola Open Session In View.
+     *
+     * <p>{@code beginTransaction()} juga termasuk method yang diizinkan pada session proxy. Nilai
+     * balik {@code false} berarti transaksi tidak dapat dibuka, sehingga pemanggil harus memakai
+     * jalur cadangan ({@code currentNativeSession()}) alih-alih menyerahkan session yang dipastikan
+     * akan melempar exception pada pemakaian pertama.</p>
+     */
+    private static boolean mulaiTransaksiBilaBisa(Session session) {
+        if (session == null) {
+            return false;
+        }
+        try {
+            session.beginTransaction();
+            return transaksiSedangAktif(session);
+        } catch (Throwable e) {
+            ais.common.ErrorAuditUtil.record(e,
+                    "auto-audit src/ais/database/hibernate/HibernateUtil.java:mulaiTransaksiBilaBisa");
+            return false;
+        }
+    }
+
     public static Session currentNativeSession() {
         /* PENGINGAT (AI & kode baru): hasil method ini WAJIB ditutup di finally lewat closeSession()
          * (ThreadLocal) atau closeSessionQuietly(s) (openSession), yang melakukan clear+disconnect+close.
