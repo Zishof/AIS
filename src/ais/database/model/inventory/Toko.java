@@ -95,6 +95,8 @@ public class Toko extends GeneralValueObject {
 	private String pesanTerimaKasih;
 	private String alasanTahanJson;
 	private Boolean bolehTransaksiStokHabis;
+	private Boolean semuaBolehUbahHarga;
+	private String userBolehUbahHarga;
 	/** Penanda toko khusus demo/UAT. Default false agar data sample mustahil muncul di toko produksi. */
 	private Boolean tokoDemo;
 
@@ -295,6 +297,38 @@ public class Toko extends GeneralValueObject {
 
 	public void setBolehTransaksiStokHabis(Boolean bolehTransaksiStokHabis) {
 		this.bolehTransaksiStokHabis = bolehTransaksiStokHabis;
+	}
+
+	/**
+	 * Kebijakan UBAH HARGA per toko (permintaan 2026-08-20). Default {@code true} =
+	 * perilaku lama: semua pengguna boleh mengubah harga. Bila diset {@code false},
+	 * hanya akun yang terdaftar pada {@link #getUserBolehUbahHarga()} yang boleh
+	 * mengubah harga jual/harga beli -- berlaku di master Produk, Kulakan/Bulk Entry
+	 * Faktur, dan Grup Produk. Penegakannya di SERVER supaya keempat kanal
+	 * (Desktop, Android, JSP, ZK) tunduk pada aturan yang sama.
+	 */
+	@Column(name = "semua_boleh_ubah_harga", nullable = true)
+	public Boolean getSemuaBolehUbahHarga() {
+		return semuaBolehUbahHarga == null ? Boolean.TRUE : semuaBolehUbahHarga;
+	}
+
+	public void setSemuaBolehUbahHarga(Boolean semuaBolehUbahHarga) {
+		this.semuaBolehUbahHarga = semuaBolehUbahHarga;
+	}
+
+	/**
+	 * Daftar {@code Tbmuser.userId} yang boleh mengubah harga ketika
+	 * {@link #getSemuaBolehUbahHarga()} bernilai {@code false}. Disimpan sebagai CSV
+	 * berpembatas koma dgn koma pembungkus (mis. {@code ",admin,kasir1,"}) supaya
+	 * pencarian keanggotaan cukup memakai LIKE tanpa memecah string.
+	 */
+	@Column(name = "user_boleh_ubah_harga", columnDefinition = "text", nullable = true)
+	public String getUserBolehUbahHarga() {
+		return userBolehUbahHarga;
+	}
+
+	public void setUserBolehUbahHarga(String userBolehUbahHarga) {
+		this.userBolehUbahHarga = userBolehUbahHarga;
 	}
 
 	@Column(name = "toko_demo", nullable = true)

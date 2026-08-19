@@ -165,8 +165,29 @@ public final class GrupProdukApiHelper {
 			g.setKode(request.optString("kode", "").trim());
 			g.setNama(nama);
 			g.setKeterangan(request.optString("keterangan", "").trim());
-			g.setHargaBeli(request.isNull("harga_beli") ? null : Double.valueOf(request.getDouble("harga_beli")));
-			g.setHargaJual(request.isNull("harga_jual") ? null : Double.valueOf(request.getDouble("harga_jual")));
+			// GERBANG UBAH HARGA (kebijakan per toko): grup menyalin harga ke SELURUH produk
+			// anggota lintas outlet, jadi justru paling perlu dijaga. Diperiksa hanya bila
+			// nilainya berubah; pemeriksaan memakai toko aktif pemanggil karena grup sendiri
+			// bersifat lintas toko.
+			Double hargaBeliBaru = request.isNull("harga_beli") ? null : Double.valueOf(request.getDouble("harga_beli"));
+			Double hargaJualBaru = request.isNull("harga_jual") ? null : Double.valueOf(request.getDouble("harga_jual"));
+			boolean hargaGrupBerubah =
+					ais.action.master.inventory.HargaAksesUtil.berubah(g.getHargaBeli(),
+							hargaBeliBaru == null ? 0.0 : hargaBeliBaru.doubleValue())
+					|| ais.action.master.inventory.HargaAksesUtil.berubah(g.getHargaJual(),
+							hargaJualBaru == null ? 0.0 : hargaJualBaru.doubleValue());
+			if (hargaGrupBerubah) {
+				Long tokoPemanggil = (tbmuser != null && tbmuser.getPedagang() != null
+						&& tbmuser.getPedagang().getToko() != null)
+								? tbmuser.getPedagang().getToko().getId()
+								: tbmuser == null ? null : tbmuser.getTokoAktifMultiToko();
+				if (!ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(session, tokoPemanggil, tbmuser)) {
+					tolak(hasil, ais.action.master.inventory.HargaAksesUtil.pesanDitolak());
+					return;
+				}
+			}
+			g.setHargaBeli(hargaBeliBaru);
+			g.setHargaJual(hargaJualBaru);
 			// Field baru dikirim klien versi terbaru saja -- klien lama tidak mengirim
 			// kuncinya sama sekali sehingga nilai tersimpan TIDAK tersentuh (kompat mundur).
 			if (request.has("ikut_hpp")) {

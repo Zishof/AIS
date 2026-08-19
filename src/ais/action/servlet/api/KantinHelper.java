@@ -3166,7 +3166,18 @@ public class KantinHelper {
 					p.getToko() == null ? null : p.getToko().getId()));
 			p.setKeterangan(request.optString("keterangan", ""));
 			double hargaBeliDiminta = request.has("harga_beli") ? request.optDouble("harga_beli", 0) : (p.getHargaBeli() == null ? 0 : p.getHargaBeli());
-			p.setHargaJual(request.has("harga_jual") ? request.optDouble("harga_jual", 0) : (p.getHargaJual() == null ? 0 : p.getHargaJual()));
+			double hargaJualDiminta = request.has("harga_jual") ? request.optDouble("harga_jual", 0) : (p.getHargaJual() == null ? 0 : p.getHargaJual());
+			// GERBANG UBAH HARGA (kebijakan per toko, 2026-08-20): hanya diperiksa bila nilai
+			// harga BENAR-BENAR berubah, sehingga akun tanpa hak tetap bisa menyunting data
+			// non-harga (nama, stok minimum, kategori, dst.) pada produk yang sama.
+			boolean hargaBerubah = ais.action.master.inventory.HargaAksesUtil.berubah(p.getHargaBeli(), hargaBeliDiminta)
+					|| ais.action.master.inventory.HargaAksesUtil.berubah(p.getHargaJual(), hargaJualDiminta);
+			if (hargaBerubah && !ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(p.getToko(), tbmuser)) {
+				hasil.put("status", "91");
+				hasil.put("description", ais.action.master.inventory.HargaAksesUtil.pesanDitolak());
+				return;
+			}
+			p.setHargaJual(hargaJualDiminta);
 			p.setStok(request.has("stok") ? request.optDouble("stok", 0) : (p.getStok() == null ? 0 : p.getStok()));
 			p.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
 			p.setIzinkanJualMinusStok(request.optBoolean("izinkan_jual_minus_stok", false));
@@ -4957,6 +4968,51 @@ public class KantinHelper {
 		return hasil;
 	}
 
+	/**
+	 * Daftar akun pengguna yang terkait SATU toko -- mengisi pemilih "siapa boleh mengubah
+	 * harga" pada Konfigurasi &gt; Profil Toko. Sumbernya baris {@code koperasi.pedagang}
+	 * milik toko tsb (relasi resmi pengguna-toko di aplikasi ini), dikelompokkan agar satu
+	 * akun tidak muncul berkali-kali walau punya beberapa baris pedagang.
+	 */
+	public static void penggunaTokoList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT DISTINCT COALESCE(NULLIF(TRIM(p.tbmuser),''), TRIM(p.userid)) AS user_id,"
+							+ " COALESCE(NULLIF(TRIM(p.nama),''), TRIM(p.userid)) AS nama,"
+							+ " COALESCE(p.supervisor,false) AS supervisor"
+							+ " FROM koperasi.pedagang p"
+							+ " WHERE p.toko = ? AND COALESCE(NULLIF(TRIM(p.tbmuser),''), TRIM(p.userid)) IS NOT NULL"
+							+ " ORDER BY 2");
+			ps.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				String uid = rs.getString(1);
+				if (uid == null || uid.trim().length() == 0) {
+					continue;
+				}
+				JSONObject j = new JSONObject();
+				j.put("userId", uid.trim());
+				j.put("nama", rs.getString(2) == null ? uid.trim() : rs.getString(2));
+				j.put("supervisor", rs.getBoolean(3));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	public static void tokoProfilAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 		Long tokoId;
@@ -4998,6 +5054,20 @@ public class KantinHelper {
 			data.put("pesanTerimaKasih", toko.getPesanTerimaKasih());
 			data.put("alasanTahan", alasanTahanUntukToko(toko));
 			data.put("bolehTransaksiStokHabis", Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
+			// Kebijakan UBAH HARGA per toko + daftar akun yang dipilih. Klien memakainya utk
+			// menampilkan sakelar dan (bila dimatikan) pemilih pengguna.
+			data.put("semuaBolehUbahHarga", Boolean.TRUE.equals(toko.getSemuaBolehUbahHarga()));
+			JSONArray userHarga = new JSONArray();
+			String csvHarga = ais.action.master.inventory.HargaAksesUtil.normalkan(toko.getUserBolehUbahHarga());
+			String[] bagianHarga = csvHarga.split(",");
+			for (int i = 0; i < bagianHarga.length; i++) {
+				if (bagianHarga[i].trim().length() > 0) {
+					userHarga.put(bagianHarga[i].trim());
+				}
+			}
+			data.put("userBolehUbahHarga", userHarga);
+			data.put("bolehUbahHargaSaya",
+					ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser));
 			data.put("tokoDemo", Boolean.TRUE.equals(toko.getTokoDemo()));
 			hasil.put("status", "00");
 			hasil.put("data", data);
@@ -5065,6 +5135,25 @@ public class KantinHelper {
 			if (request.has("jam_operasional")) toko.setJamOperasional(request.optString("jam_operasional", ""));
 			if (request.has("keterangan")) toko.setKeterangan(request.optString("keterangan", ""));
 			if (request.has("pesan_terima_kasih")) toko.setPesanTerimaKasih(request.optString("pesan_terima_kasih", ""));
+			if (request.has("semua_boleh_ubah_harga")) {
+				toko.setSemuaBolehUbahHarga(Boolean.valueOf(
+						request.optBoolean("semua_boleh_ubah_harga", true)));
+			}
+			if (request.has("user_boleh_ubah_harga")) {
+				// Terima array id pengguna ATAU CSV; disimpan ternormalisasi (koma pembungkus).
+				StringBuilder csvBaru = new StringBuilder();
+				JSONArray arrUser = request.optJSONArray("user_boleh_ubah_harga");
+				if (arrUser != null) {
+					for (int i = 0; i < arrUser.length(); i++) {
+						if (csvBaru.length() > 0) { csvBaru.append(","); }
+						csvBaru.append(String.valueOf(arrUser.get(i)).trim());
+					}
+				} else {
+					csvBaru.append(request.optString("user_boleh_ubah_harga", ""));
+				}
+				toko.setUserBolehUbahHarga(
+						ais.action.master.inventory.HargaAksesUtil.normalkan(csvBaru.toString()));
+			}
 			if (request.has("boleh_transaksi_stok_habis")) {
 				toko.setBolehTransaksiStokHabis(Boolean.valueOf(
 						request.optBoolean("boleh_transaksi_stok_habis", false)));
@@ -12950,6 +13039,22 @@ public class KantinHelper {
 		if (tokoId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		// GERBANG UBAH HARGA (kebijakan per toko, 2026-08-20): faktur kulakan menetapkan
+		// harga beli -- dan dapat ikut memperbarui harga jual produk -- sehingga tunduk pada
+		// kebijakan yang sama dgn master Produk dan Grup Produk.
+		Session sesiCekHarga = HibernateUtil.getSessionFactory().openSession();
+		boolean bolehHargaKf;
+		try {
+			bolehHargaKf = ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(
+					sesiCekHarga, tokoId, tbmuser);
+		} finally {
+			HibernateUtil.closeSessionQuietly(sesiCekHarga);
+		}
+		if (!bolehHargaKf) {
+			hasil.put("status", "91");
+			hasil.put("description", ais.action.master.inventory.HargaAksesUtil.pesanDitolak());
 			return;
 		}
 		String nomorFaktur = request.optString("nomor_faktur", "").trim();

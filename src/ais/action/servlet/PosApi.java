@@ -317,12 +317,21 @@ public class PosApi extends HttpServlet {
 			} else if ("pedagang_ubah".equals(action)) {
 				KantinHelper.pedagangUbah(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pedagang_ubah");
+			} else if ("pengguna_toko_list".equals(action)) {
+				KantinHelper.penggunaTokoList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pengguna_toko_list");
 			} else if ("toko_profil_ambil".equals(action)) {
 				KantinHelper.tokoProfilAmbil(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "toko_profil_ambil");
 			} else if ("toko_profil_simpan".equals(action)) {
 				KantinHelper.tokoProfilSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "toko_profil_simpan");
+			} else if (action.startsWith("pengadaan_")) {
+				// Modul Pengadaan POS (PR dulu; PO/BAST/Tagihan/Bayar menyusul). Helper
+				// self-guard kunci menu pengadaan_pr + aksi granular, jadi tidak perlu
+				// gerbang tambahan di sini.
+				ais.action.servlet.api.PengadaanPosApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("grup_produk_")) {
 				// Grup Produk (harga terpusat lintas toko) -- gate menu di
 				// bolehAksesActionKantin + aksi CRUD granular di helper (dua lapis).
