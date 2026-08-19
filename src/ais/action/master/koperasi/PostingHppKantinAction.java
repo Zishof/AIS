@@ -79,6 +79,12 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	private final Map<Long, Double> kreditPerAkun = new LinkedHashMap<Long, Double>();
 	private final Map<Long, String> akunNama = new LinkedHashMap<Long, String>();
 	private final List<String> belumDipetakan = new ArrayList<String>();
+	/**
+	 * Draf jurnal PER BARANG (unit terkecil HPP) -- dipakai layar "analisis sebelum
+	 * posting": tiap barang tampil beserta qty, harga pokok, nilai HPP, akun HPP &
+	 * persediaannya, serta status siap/belum berikut alasannya. Diisi hitungPreview().
+	 */
+	private final List<org.json.JSONObject> rincianDraft = new ArrayList<org.json.JSONObject>();
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page, Component parent,
@@ -181,6 +187,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		kreditPerAkun.clear();
 		akunNama.clear();
 		belumDipetakan.clear();
+		rincianDraft.clear();
 		if (previewBox != null) {
 			previewBox.getChildren().clear();
 		}
@@ -308,6 +315,8 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 
 			boolean akunLengkap = hpp > 0 && akunHpp != null && akunPersediaan != null;
+			rincianDraft.add(barisDraftHpp(masterAssetId, namaBarang, qty, hargaPokok, hpp, akunHpp,
+					akunPersediaan, akunLengkap));
 
 			// Baris rincian per barang (selalu ditampilkan agar transparan; yang tak lengkap ditandai).
 			barisTampil++;
@@ -569,6 +578,59 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	 * sumber yang sama dengan layar ZK sehingga pratinjau dan jurnal tidak dapat
 	 * menyimpang. Tidak membuat komponen halaman atau melakukan redirect.
 	 */
+	/**
+	 * Satu baris draf jurnal HPP untuk SATU barang: identitas, qty, harga pokok, nilai
+	 * HPP, serta baris akun debit (HPP) dan kredit (Persediaan). Bila pemetaan akunnya
+	 * belum lengkap, baris tetap dikirim dengan {@code siap=false} + alasannya supaya
+	 * pengguna tahu PERSIS barang mana yang harus dibenahi (bukan sekadar jumlah total).
+	 */
+	private org.json.JSONObject barisDraftHpp(Long masterAssetId, String namaBarang, double qty,
+			double hargaPokok, double hpp, Akun akunHpp, Akun akunPersediaan, boolean akunLengkap) {
+		org.json.JSONObject o = new org.json.JSONObject();
+		try {
+			o.put("id", masterAssetId);
+			o.put("ref", namaBarang);
+			o.put("qty", qty);
+			o.put("hargaPokok", hargaPokok);
+			o.put("nilai", hpp);
+			o.put("siap", akunLengkap);
+			String alasan = "";
+			if (!akunLengkap) {
+				if (hpp <= 0) {
+					alasan = "Nilai HPP nol (harga pokok belum terisi)";
+				} else if (akunHpp == null && akunPersediaan == null) {
+					alasan = "Akun HPP dan akun persediaan belum diatur";
+				} else if (akunHpp == null) {
+					alasan = "Akun HPP belum diatur";
+				} else {
+					alasan = "Akun persediaan belum diatur";
+				}
+			}
+			o.put("alasan", alasan);
+			org.json.JSONArray baris = new org.json.JSONArray();
+			if (akunHpp != null) {
+				org.json.JSONObject d = new org.json.JSONObject();
+				d.put("akunId", akunHpp.getId());
+				d.put("akun", namaAkun(akunHpp));
+				d.put("debit", hpp);
+				d.put("kredit", 0.0);
+				baris.put(d);
+			}
+			if (akunPersediaan != null) {
+				org.json.JSONObject k = new org.json.JSONObject();
+				k.put("akunId", akunPersediaan.getId());
+				k.put("akun", namaAkun(akunPersediaan));
+				k.put("debit", 0.0);
+				k.put("kredit", hpp);
+				baris.put(k);
+			}
+			o.put("jurnal", baris);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingHppKantinAction.barisDraftHpp");
+		}
+		return o;
+	}
+
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting HPP tidak valid.");
@@ -586,6 +648,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		hasil.put("siap", totalCogs > 0 && !debitPerAkun.isEmpty() && belumDipetakan.isEmpty());
 		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
 		hasil.put("jurnal", jurnalApi(debitPerAkun, kreditPerAkun, "HPP", "Persediaan"));
+		hasil.put("rincian", new JSONArray(rincianDraft));
 		Date terakhir = lastPostedEnd();
 		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
 		if (!posting) {
