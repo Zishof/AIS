@@ -4195,6 +4195,15 @@ public class KantinHelper {
 				return;
 			}
 
+			// Impor Excel menulis harga jual & harga beli untuk SETIAP baris, jadi
+			// jalur ini ikut tunduk pada kebijakan ubah harga toko -- kalau tidak,
+			// gerbang di produkSimpan gampang dilewati lewat unggah berkas.
+			if (!ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser)) {
+				hasil.put("status", "91");
+				hasil.put("description", ais.action.master.inventory.HargaAksesUtil.pesanDitolak()
+						+ " Impor katalog mengubah harga jual dan harga beli seluruh baris.");
+				return;
+			}
 			Map<String, Long> petaKategori = new HashMap<String, Long>();
 			@SuppressWarnings("unchecked")
 			List<JenisProduk> semuaKategori = session.createCriteria(JenisProduk.class).list();
