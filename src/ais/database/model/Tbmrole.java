@@ -214,6 +214,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 */
 	private String ebisnisMenu;
 	private String tokoAksesJson;
+	private Boolean bolehLihatSemuaToko;
 	private SatuanKerja satuanKerja;
 
 	@ManyToMany(targetEntity = Menu.class, cascade = { CascadeType.MERGE })
@@ -970,6 +971,28 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	public void setTokoAksesJson(String tokoAksesJson) {
 		this.tokoAksesJson = tokoAksesJson;
+	}
+
+	/**
+	 * Izin melihat SELURUH toko yang aktif.
+	 *
+	 * <p>Berbeda dgn {@link #getTokoAksesJson()} yang menyebut daftar toko satu
+	 * per satu, flag ini berarti "semua toko aktif, termasuk toko yang dibuat
+	 * setelah grup ini disimpan". Dipakai oleh peran pengawas/manajemen yang
+	 * perlu melihat transaksi lintas toko di SEMUA menu, bukan hanya
+	 * dashboard.</p>
+	 *
+	 * <p>Default {@code false} -- sengaja: memberi akses lintas toko harus
+	 * keputusan sadar, bukan sesuatu yang menyala sendiri saat kolom baru
+	 * ditambahkan ke basis data.</p>
+	 */
+	@Column(name = "boleh_lihat_semua_toko")
+	public Boolean getBolehLihatSemuaToko() {
+		return bolehLihatSemuaToko == null ? Boolean.FALSE : bolehLihatSemuaToko;
+	}
+
+	public void setBolehLihatSemuaToko(Boolean bolehLihatSemuaToko) {
+		this.bolehLihatSemuaToko = bolehLihatSemuaToko;
 	}
 
 

@@ -52,6 +52,11 @@ import ais.database.model.rab.SatuanKerja;
  * {@code posting_history} / {@code posting_pembelian} sehingga tidak mungkin terposting dua kali,
  * satu transaksi basis data per dokumen, dan seluruh penulisan lewat Hibernate agar terekam Envers.</p>
  *
+ * <p><b>Dokumen pembalik.</b> Modul reversal AP/AR mengoreksi dengan menerbitkan dokumen baru
+ * bernominal NEGATIF (dokumen asal ditandai DIBATALKAN, tidak dihapus). Dokumen pembalik itu ikut
+ * dijurnal di sini dengan sisi debet/kredit yang ditukar, sehingga pembatalan benar-benar
+ * mengembalikan buku besar; dokumen asal yang dibatalkan tetapi BELUM sempat diposting dilewati.</p>
+ *
  * <p>Baris yang akunnya belum lengkap TIDAK diposting dan tidak disembunyikan &mdash; ia tetap
  * tampil dengan alasannya ("akun persediaan belum diatur", dst.) supaya yang perlu dibenahi
  * kelihatan, bukan diam-diam hilang dari laporan.</p>
@@ -597,8 +602,16 @@ public final class PostingKantinLanjutanHelper {
             } else if (akunKas == null) {
                 d.alasan = "Akun Kas/Bank untuk metode '" + metode + "' belum diatur (master Cara Pembayaran"
                         + " atau konfigurasi " + AkunKantinUtil.CFG_KAS_TOKO + ").";
-            } else if (nominal <= 0) {
+            } else if (Math.abs(nominal) < 0.005) {
                 d.alasan = "Nominal pembayaran nol.";
+            } else if (nominal < 0) {
+                // Dokumen PEMBALIK dari modul reversal (nominalnya negatif): sisi jurnal ditukar
+                // supaya pembatalan benar-benar mengembalikan buku besar. Tanpa ini, pembayaran
+                // yang sudah diposting lalu dibatalkan akan meninggalkan utang yang terlanjur
+                // berkurang di jurnal.
+                d.debet(akunKas, -nominal);
+                d.kredit(akunUtang, -nominal);
+                d.keterangan = "Pembalik - " + d.keterangan;
             } else {
                 d.debet(akunUtang, nominal);
                 d.kredit(akunKas, nominal);
@@ -652,8 +665,14 @@ public final class PostingKantinLanjutanHelper {
             } else if (akunPiutang == null) {
                 d.alasan = "Akun Piutang Usaha toko belum diatur (konfigurasi "
                         + AkunKantinUtil.CFG_PIUTANG_TOKO + " atau akun pada Cara Pembayaran piutang).";
-            } else if (nominal <= 0) {
+            } else if (Math.abs(nominal) < 0.005) {
                 d.alasan = "Nominal penerimaan nol.";
+            } else if (nominal < 0) {
+                // Dokumen PEMBALIK (nominal negatif) -- sisi jurnal ditukar, lihat catatan
+                // pada draf pembayaran hutang.
+                d.debet(akunPiutang, -nominal);
+                d.kredit(akunKas, -nominal);
+                d.keterangan = "Pembalik - " + d.keterangan;
             } else {
                 d.debet(akunKas, nominal);
                 d.kredit(akunPiutang, nominal);

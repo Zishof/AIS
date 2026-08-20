@@ -195,6 +195,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesReturPenjualan;
 	private MyCheckboxConfig kantinMemberLandingPage;
 	private MyCheckboxConfig inventorySalesLandingPage;
+	private MyCheckboxConfig bolehLihatSemuaToko;
 	private Map<Long, MyCheckboxConfig> tokoAksesCheckboxMap;
 	/**
 	 * Checkbox grid Create/Update/Delete/Approve/Reject per menu {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD}
@@ -2429,10 +2430,40 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		row.appendChild(bolehLihatSemuaToko = new MyCheckboxConfig("Boleh melihat seluruh toko"));
+		bolehLihatSemuaToko.setChecked(Boolean.TRUE.equals(tbmrole.getBolehLihatSemuaToko()));
+		bolehLihatSemuaToko.setTooltiptext(
+				"Bila dicentang, grup ini melihat transaksi SELURUH toko yang aktif di semua menu, "
+						+ "termasuk toko yang dibuat kemudian. Daftar di bawah tidak lagi dipakai.");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		// Daftar toko bisa puluhan baris; label dan isinya diratakan ke ATAS
+		// supaya label tidak melayang di tengah kolom yang panjang.
+		row.setValign("top");
 		row.appendChild(new ais.ui.util.MyLabelConfig("Toko yang boleh dilihat"));
+
+		// Dibungkus panel bergulir dgn tinggi tetap: sebelumnya seluruh daftar
+		// dirender apa adanya sehingga dialog memanjang jauh melewati layar.
+		org.zkoss.zul.Div wadahTokoAkses = new org.zkoss.zul.Div();
+		wadahTokoAkses.setStyle("max-height:240px;overflow-y:auto;overflow-x:hidden;"
+				+ "border:1px solid #d9d9d9;border-radius:4px;padding:6px 8px;");
+		wadahTokoAkses.setParent(row);
+
+		// Dua kolom supaya daftar panjang tidak menjadi satu pita tinggi.
+		org.zkoss.zul.Grid gridTokoAkses = new org.zkoss.zul.Grid();
+		gridTokoAkses.setStyle("border:0;");
+		org.zkoss.zul.Columns kolomTokoAkses = new org.zkoss.zul.Columns();
+		kolomTokoAkses.setParent(gridTokoAkses);
+		new org.zkoss.zul.Column().setParent(kolomTokoAkses);
+		new org.zkoss.zul.Column().setParent(kolomTokoAkses);
+		org.zkoss.zul.Rows barisTokoAkses = new org.zkoss.zul.Rows();
+		barisTokoAkses.setParent(gridTokoAkses);
+		gridTokoAkses.setParent(wadahTokoAkses);
+
 		Vbox boxTokoAkses = new Vbox();
 		boxTokoAkses.setSpacing("4px");
-		boxTokoAkses.setParent(row);
 		List<Long> tokoAksesDipilih = parseTokoAksesJson(tbmrole.getTokoAksesJson());
 		Session sessionTokoAkses = HibernateUtil.currentSession();
 		@SuppressWarnings("unchecked")
@@ -2443,14 +2474,18 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			if (tokoPilihan == null || tokoPilihan.getId() == null) {
 				continue;
 			}
-			Hbox hboxToko = new Hbox();
-			hboxToko.setSpacing("6px");
-			hboxToko.setAlign("center");
-			hboxToko.setParent(boxTokoAkses);
-			MyCheckboxConfig chkToko = new MyCheckboxConfig("");
+			// Nama ditaruh sbg label checkbox itu sendiri (bukan Label terpisah)
+			// supaya teksnya rata kiri menempel kotaknya dan bisa diklik.
+			MyCheckboxConfig chkToko = new MyCheckboxConfig(
+					tokoPilihan.getNama() == null ? ("Toko " + tokoPilihan.getId()) : tokoPilihan.getNama());
 			chkToko.setChecked(tokoAksesDipilih.contains(tokoPilihan.getId()));
-			chkToko.setParent(hboxToko);
-			new Label(tokoPilihan.getNama() == null ? ("Toko " + tokoPilihan.getId()) : tokoPilihan.getNama()).setParent(hboxToko);
+			if (barisTokoAkses.getLastChild() == null
+					|| barisTokoAkses.getLastChild().getChildren().size() >= 2) {
+				org.zkoss.zul.Row barisBaru = new org.zkoss.zul.Row();
+				barisBaru.setValign("top");
+				barisBaru.setParent(barisTokoAkses);
+			}
+			chkToko.setParent(barisTokoAkses.getLastChild());
 			tokoAksesCheckboxMap.put(tokoPilihan.getId(), chkToko);
 		}
 
@@ -2764,6 +2799,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setDashboardKoperasi(dashboardKoperasi.isChecked());
 		tbmrole.setEbisnisMenu(buildEbisnisMenuJson());
 		tbmrole.setTokoAksesJson(buildTokoAksesJson());
+		tbmrole.setBolehLihatSemuaToko(Boolean.valueOf(
+				bolehLihatSemuaToko != null && bolehLihatSemuaToko.isChecked()));
 		tbmrole.setMengajukanPengajuanPegawaiLain(mengajukanPengajuanPegawaiLain.isChecked());
 		tbmrole.setJenisJabatan((JenisJabatan) (jenisJabatan.getSelectedItem() == null ? null
 				: jenisJabatan.getSelectedItem().getValue()));

@@ -3261,6 +3261,11 @@ public final class PengadaanPosApiHelper {
 				tolak(hasil, "Dokumen pembayaran ini milik toko lain.");
 				return;
 			}
+			// Pengajuan transfer bank bersifat OPSIONAL dan diputuskan saat menyetujui:
+			// pembayaran tunai tidak perlu masuk antrean pencairan.
+			boolean ajukanTransfer = request.optBoolean("ajukanTransfer", false);
+			int transferDibuat = 0;
+			int transferDitarik = 0;
 			session.beginTransaction();
 			if ("SETUJUI".equals(keputusan)) {
 				bayar.setTanggalPersetujuan(ais.ui.util.WaktuUtil.getDate());
@@ -3273,11 +3278,20 @@ public final class PengadaanPosApiHelper {
 			bayar.setOlehId(tbmuser.getUserId());
 			session.saveOrUpdate(bayar);
 			session.flush();
+			if ("SETUJUI".equals(keputusan)) {
+				if (ajukanTransfer) {
+					transferDibuat = buatPengajuanTransfer(session, bayar, tbmuser);
+				}
+			} else {
+				transferDitarik = tarikPengajuanTransfer(session, bayar);
+			}
 			selaraskanPoDokumenBayar(session, bayar);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", bayar.getId());
 			hasil.put("statusDokumen", statusBayar(bayar));
+			hasil.put("transferDibuat", transferDibuat);
+			hasil.put("transferDitarik", transferDitarik);
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -3290,6 +3304,98 @@ public final class PengadaanPosApiHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+
+	/**
+	 * Buat pengajuan transfer bank untuk setiap baris sebuah dokumen pembayaran yang
+	 * disetujui -- padanan jalur DPC/ProsesTransfer pada versi ZKoss.
+	 *
+	 * <p>Pengajuan dibuat pada SAAT PERSETUJUAN, bukan saat dokumen disimpan, karena
+	 * persetujuanlah yang menjadikan pembayaran sebuah kewajiban yang harus dicairkan.
+	 * Rekening sumber sengaja dibiarkan kosong: pemilihan bank adalah wewenang keuangan,
+	 * dan memaksa kasir menebaknya justru menghasilkan data yang harus dikoreksi.</p>
+	 *
+	 * <p>Baris yang sudah punya pengajuan dilewati, sehingga persetujuan berulang tidak
+	 * menggandakan antrean transfer.</p>
+	 */
+	private static int buatPengajuanTransfer(Session session, PembayaranTerminMasterAsset bayar,
+			Tbmuser tbmuser) {
+		@SuppressWarnings("unchecked")
+		List<PembayaranTerminMasterAssetDetail> baris = session
+				.createCriteria(PembayaranTerminMasterAssetDetail.class)
+				.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId())).list();
+		int dibuat = 0;
+		int urut = 0;
+		for (PembayaranTerminMasterAssetDetail d : baris) {
+			urut++;
+			if (d.getDaftarPengajuanTransfer() != null) {
+				continue;
+			}
+			double nilai = d.getDibayar() == null ? 0 : d.getDibayar().doubleValue();
+			if (nilai <= 0) {
+				continue;
+			}
+			PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
+			String namaVendor = bayar.getPenyedia() == null ? "vendor" : bayar.getPenyedia().getNama();
+			ais.database.model.akunting.DaftarPengajuanTransfer trf =
+					new ais.database.model.akunting.DaftarPengajuanTransfer();
+			trf.setKode((bayar.getKode() == null ? "BYR" : bayar.getKode()) + "/" + urut);
+			trf.setNama("Pembayaran " + namaVendor
+					+ (po == null || po.getKode() == null ? "" : " - " + po.getKode()));
+			trf.setKeterangan("Diajukan dari pembayaran vendor "
+					+ (bayar.getKode() == null ? "" : bayar.getKode())
+					+ (bayar.getKeterangan() == null || bayar.getKeterangan().trim().isEmpty()
+							? "" : " (" + bayar.getKeterangan().trim() + ")"));
+			trf.setNominal(Double.valueOf(nilai));
+			trf.setAktif(Boolean.TRUE);
+			trf.setTransfer(Boolean.TRUE);
+			trf.setTransitori(Boolean.FALSE);
+			trf.setWaktu(ais.ui.util.WaktuUtil.getDate());
+			trf.setPembayaranTerminMasterAssetDetail(d);
+			if (tbmuser != null) {
+				trf.setOleh(tbmuser.getUserNama());
+				trf.setOlehId(tbmuser.getUserId());
+			}
+			session.save(trf);
+			d.setDaftarPengajuanTransfer(trf);
+			session.saveOrUpdate(d);
+			dibuat++;
+		}
+		if (dibuat > 0) {
+			session.flush();
+		}
+		return dibuat;
+	}
+
+	/**
+	 * Tarik kembali pengajuan transfer sebuah dokumen pembayaran. Dipakai saat persetujuan
+	 * dibatalkan atau dokumen dihapus: antrean transfer tidak boleh menyimpan permintaan
+	 * pencairan atas pembayaran yang sudah tidak berlaku.
+	 *
+	 * <p>Pengajuan dinonaktifkan, bukan dihapus, supaya jejaknya tetap terbaca keuangan.</p>
+	 */
+	private static int tarikPengajuanTransfer(Session session, PembayaranTerminMasterAsset bayar) {
+		@SuppressWarnings("unchecked")
+		List<PembayaranTerminMasterAssetDetail> baris = session
+				.createCriteria(PembayaranTerminMasterAssetDetail.class)
+				.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId())).list();
+		int ditarik = 0;
+		for (PembayaranTerminMasterAssetDetail d : baris) {
+			ais.database.model.akunting.DaftarPengajuanTransfer trf = d.getDaftarPengajuanTransfer();
+			if (trf == null) {
+				continue;
+			}
+			trf.setAktif(Boolean.FALSE);
+			session.saveOrUpdate(trf);
+			d.setDaftarPengajuanTransfer(null);
+			session.saveOrUpdate(d);
+			ditarik++;
+		}
+		if (ditarik > 0) {
+			session.flush();
+		}
+		return ditarik;
 	}
 
 	/** Selaraskan seluruh PO yang disebut sebuah dokumen pembayaran. */

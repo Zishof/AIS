@@ -62,6 +62,8 @@ public class PenyediaAction extends GenericAutowireComposer {
 	private Textbox kontak;
 	private Textbox email;
 	private Textbox keterangan;
+	/** Akun utang dagang -- menentukan akun kredit jurnal kulakan kredit & debet jurnal bayar hutang. */
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunUtang;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -264,6 +266,15 @@ public class PenyediaAction extends GenericAutowireComposer {
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Utang Dagang"));
+		row.appendChild(akunUtang = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
+		akunUtang.setValue(penyedia.getAkunUtang() == null ? ""
+				: ais.action.master.koperasi.helper.AkunKantinUtil.label(penyedia.getAkunUtang()));
+		akunUtang.setAttribute("akun", penyedia.getAkunUtang());
+		akunUtang.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Keterangan"));
 		row.appendChild(keterangan = new Textbox(
 				penyedia.getKeterangan() == null ? "" : penyedia
@@ -332,6 +343,9 @@ public class PenyediaAction extends GenericAutowireComposer {
 		penyedia.setKodePos(kodePos.getValue());
 		penyedia.setKontak(kontak.getValue());
 		penyedia.setTelp(telp.getValue());
+		// Kosongkan berarti pakai akun bawaan (konfigurasi akun_utang_supplier_toko).
+		penyedia.setAkunUtang(akunUtang == null ? null
+				: (ais.database.model.akunting.Akun) akunUtang.getAttribute("akun"));
 
 		if (penyedia.getId() != null) {
 			penyediaDao.update(penyedia);
