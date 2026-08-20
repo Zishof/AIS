@@ -337,7 +337,7 @@ public class RepositoryAction extends GenericAutowireComposer {
                 + "<div style='font-size:15px;font-weight:bold;margin-bottom:8px;'>Import Repository</div>"
                 + "<div style='font-size:12px;line-height:18px;margin-bottom:10px;'>" + safeMessage + "</div>"
                 + "<div style='height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden;'>"
-                + "<div style='height:14px;width:" + percent + "%;background:#2563eb;'></div></div>"
+                + "<div style='height:14px;width:" + percent + "%;background:var(--theme-primary,#2563eb);'></div></div>"
                 + "<div style='font-size:12px;color:#475569;margin-top:8px;'>Progress " + percent + "%</div>"
                 + "</div>";
     }

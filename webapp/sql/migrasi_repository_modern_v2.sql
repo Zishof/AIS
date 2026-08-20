@@ -1,23 +1,10 @@
--- Repository AIS modern workflow schema (PostgreSQL 9.6+).
--- Additive and idempotent. Run in a maintenance window after a verified backup.
+-- Repository AIS modern post-Hibernate migration (PostgreSQL 9.6+).
+-- IMPORTANT: every ADD/ALTER COLUMN is intentionally delegated to
+-- hibernate.hbm2ddl.auto=update. Run this script only AFTER the first successful
+-- application startup with the new entities/mappings.
+-- This script is additive/idempotent and only performs backfill, supporting
+-- table/index creation, and verification.
 BEGIN;
-
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS lock_version bigint NOT NULL DEFAULT 0;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS workflow_status varchar(40) NOT NULL DEFAULT 'DRAFT';
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS owner_id varchar(255);
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS assigned_reviewer_id varchar(255);
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS license_uri varchar(500);
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS embargo_until timestamp without time zone;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS published_at timestamp without time zone;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS withdrawn_at timestamp without time zone;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS withdrawal_reason text;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS doi varchar(255);
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS slug varchar(255);
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS version_number bigint NOT NULL DEFAULT 1;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS previous_version_id bigint;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS view_count bigint NOT NULL DEFAULT 0;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS download_count bigint NOT NULL DEFAULT 0;
-ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS extracted_text text;
 
 UPDATE public.repo_item
 SET workflow_status = CASE
@@ -31,55 +18,6 @@ SET workflow_status = CASE
     withdrawn_at = CASE WHEN is_withdrawn IS TRUE
         THEN coalesce(withdrawn_at, tanggal_dirubah) ELSE withdrawn_at END;
 
-ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS metadata_profile_json text NOT NULL DEFAULT '{}';
-ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS workflow_profile_json text NOT NULL DEFAULT '{}';
-ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS access_policy_json text NOT NULL DEFAULT '{}';
-ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS default_license_uri varchar(500);
-ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS deposit_enabled boolean NOT NULL DEFAULT true;
-
-ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS virus_scan_status varchar(30) NOT NULL DEFAULT 'PENDING';
-ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS virus_scanned_at timestamp without time zone;
-ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS signature_valid boolean NOT NULL DEFAULT false;
-ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS file_version bigint NOT NULL DEFAULT 1;
-
--- Envers tables must mirror every audited entity column. Some installations do
--- not create new_audit until auditing is enabled; do not roll back the entire
--- public migration merely because an optional audit table is absent.
-DO $repository_audit$
-BEGIN
-    IF to_regclass('new_audit.repo_item__audit') IS NOT NULL THEN
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS lock_version bigint;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS workflow_status varchar(40);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS owner_id varchar(255);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS assigned_reviewer_id varchar(255);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS license_uri varchar(500);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS embargo_until timestamp without time zone;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS published_at timestamp without time zone;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS withdrawn_at timestamp without time zone;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS withdrawal_reason text;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS doi varchar(255);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS slug varchar(255);
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS version_number bigint;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS previous_version_id bigint;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS view_count bigint;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS download_count bigint;
-        ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS extracted_text text;
-    END IF;
-    IF to_regclass('new_audit.repo_collection__audit') IS NOT NULL THEN
-        ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS metadata_profile_json text;
-        ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS workflow_profile_json text;
-        ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS access_policy_json text;
-        ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS default_license_uri varchar(500);
-        ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS deposit_enabled boolean;
-    END IF;
-    IF to_regclass('new_audit.repo_bitstream__audit') IS NOT NULL THEN
-        ALTER TABLE new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS virus_scan_status varchar(30);
-        ALTER TABLE new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS virus_scanned_at timestamp without time zone;
-        ALTER TABLE new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS signature_valid boolean;
-        ALTER TABLE new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS file_version bigint;
-    END IF;
-END
-$repository_audit$;
 
 CREATE TABLE IF NOT EXISTS public.repo_workflow_event (
     id bigserial PRIMARY KEY,

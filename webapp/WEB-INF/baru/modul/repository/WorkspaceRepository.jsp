@@ -32,7 +32,7 @@ RepoCollection adminCollection=(RepoCollection)request.getAttribute("repoAdminCo
 ImportResult importResult=(ImportResult)request.getAttribute("repoImportResult"); FixityResult fixityResult=(FixityResult)request.getAttribute("repoFixityResult");
 %>
 <!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Workspace Repository AIS</title><link rel="stylesheet" href="<%=root%>/css/repository-modern.css"></head>
+<title>Workspace Repository AIS</title><jsp:include page="/WEB-INF/baru/modul/repository/_repository_theme.jsp" /></head>
 <body class="repo-modern repo-workspace-body">
 <a class="repo-skip" href="#workspace-main">Lewati ke konten</a>
 <header class="repo-topbar"><div class="repo-wrap repo-nav"><a class="repo-brand" href="<%=root%>/repository"><span class="repo-brand-mark">R</span><span><strong>Repository AIS</strong><small>Workspace internal</small></span></a><nav class="repo-links" aria-label="Workspace"><a href="<%=root%>/repository">Portal publik</a><a href="<%=root%>/repository-workspace?view=deposit" <%="deposit".equals(view)?"aria-current='page'":""%>>Deposit saya</a><%if(admin){%><a href="<%=root%>/repository-workspace?view=review" <%="review".equals(view)?"aria-current='page'":""%>>Review</a><a href="<%=root%>/repository-workspace?view=admin" <%="admin".equals(view)?"aria-current='page'":""%>>Admin</a><%}%></nav></div></header>

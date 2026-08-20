@@ -4,7 +4,7 @@ String root = Common.ROOT;
 String requestedSort = request.getParameter("sort");
 String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requestedSort)) ? requestedSort : "NEWEST";
 %>
-<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css">
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821b">
 <script src="<%=root%>/assets/library-modern/library.js"></script>
 
 <div class="library-modern" id="libraryCatalog<%=rnd%>">

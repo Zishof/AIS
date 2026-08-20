@@ -74,10 +74,11 @@ String canonical = seoItem == null ? origin + context + "/repository" : origin +
   <% String schemaType="ScholarlyArticle";if("Book".equalsIgnoreCase(seoItem.documentType))schemaType="Book";else if(seoItem.documentType.toLowerCase().contains("thesis"))schemaType="Thesis";else if(seoItem.documentType.toLowerCase().contains("dataset"))schemaType="Dataset";JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type",schemaType);ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
   <script type="application/ld+json"><%=ld.toString().replace("</","<\\/")%></script>
   <% } %>
-  <link rel="stylesheet" href="<%=context%>/css/repository-modern.css">
+  <jsp:include page="/WEB-INF/baru/modul/repository/_repository_theme.jsp" />
 </head>
 <body>
   <jsp:include page="/WEB-INF/baru/modul/repository/ListRepository.jsp" />
   <script src="<%=context%>/js/repository-modern.js" defer></script>
+  <script>try{var c=getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim();if(c){document.querySelector('meta[name="theme-color"]').setAttribute('content',c);}}catch(e){}</script>
 </body>
 </html>

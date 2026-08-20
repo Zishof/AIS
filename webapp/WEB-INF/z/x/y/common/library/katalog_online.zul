@@ -1,6 +1,6 @@
 <?page id="testZul" title=" New ZUL Title" cacheable="false" 
 	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
-<?link rel="stylesheet" type="text/css" href="/assets/library-modern/library.css"?>
+<?link rel="stylesheet" type="text/css" href="/assets/library-modern/library.css?v=20260821b"?>
 
 
 

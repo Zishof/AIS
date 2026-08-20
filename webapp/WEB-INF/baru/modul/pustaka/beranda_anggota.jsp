@@ -5,6 +5,7 @@
     String memberCsrf = NewUiCsrfUtil.getToken(request.getSession());
     String memberRnd = Common.getGeneratedBarCode(7);
 %>
+<link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821b"><script src="<%=Common.ROOT%>/assets/library-modern/library.js"></script>
 <section class="library-modern" id="memberPortal<%=memberRnd%>">
   <div class="library-container library-page">
     <header class="library-page-head">

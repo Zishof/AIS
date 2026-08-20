@@ -1,5 +1,5 @@
 <%@page import="ais.common.Common"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%String root=Common.ROOT;String rnd=Common.getGeneratedBarCode(7);boolean admin=Common.getApakahAdmin();%>
-<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css"><script src="<%=root%>/assets/library-modern/library.js"></script>
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821b"><script src="<%=root%>/assets/library-modern/library.js"></script>
 <section class="library-modern library-page"><div class="library-container"><header class="library-page-head"><div><div class="library-eyebrow">Workflow</div><h1>Operasional Perpustakaan</h1><p class="library-muted">Satu pusat tindakan untuk serial, stocktake, moderasi, dan layanan personal.</p></div><button class="library-button" id="refresh<%=rnd%>" type="button">Muat ulang</button></header>
 <%if(admin){%><div class="library-grid library-grid-3" id="opsCounts<%=rnd%>"></div>
 <article class="library-card library-card-pad"><h2>Serial &amp; claiming</h2><div class="library-table-wrap"><table class="library-table"><thead><tr><th>Judul</th><th>Periode</th><th>Terbit berikutnya</th><th>Klaim</th></tr></thead><tbody id="serialRows<%=rnd%>"></tbody></table></div></article>

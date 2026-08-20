@@ -9,7 +9,7 @@
 %>
 
 <head>
-    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css">
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821b">
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>

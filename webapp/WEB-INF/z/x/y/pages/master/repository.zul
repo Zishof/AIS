@@ -16,12 +16,13 @@
 	/* --- Layout Shell --- */
 	.repo-shell { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; }
 	.repo-console-hero {
-		background: linear-gradient(115deg,#0b3155,#0f766e);
+		background: var(--theme-gradient,linear-gradient(115deg,#0b3155,#0f766e));
 		border-radius: 14px; padding: 12px 16px; margin-bottom: 10px;
-		color: #fff; box-shadow: 0 8px 22px rgba(11,49,85,.18);
+		color: var(--theme-text-on-primary,#fff); box-shadow: 0 8px 22px rgba(11,49,85,.18);
+		text-shadow: var(--theme-text-shadow,none);
 	}
-	.repo-console-title { font-size: 17px; font-weight: 700; color: #fff; }
-	.repo-console-subtitle { display: block; margin-top: 3px; color: #d8f3ef; font-size: 11px; }
+	.repo-console-title { font-size: 17px; font-weight: 700; color: var(--theme-text-on-primary,#fff) !important; }
+	.repo-console-subtitle { display: block; margin-top: 3px; color: var(--theme-text-on-primary,#fff) !important; opacity:.9; font-size: 11px; }
 
 	/* --- Toolbar North --- */
 	.repo-north {
@@ -50,7 +51,7 @@
 		font-size: 12px !important;
 		transition: border-color .2s;
 	}
-	.repo-quick-search input:focus { border-color: #3b82f6 !important; outline: none !important; }
+	.repo-quick-search input:focus { border-color: var(--theme-primary,#3b82f6) !important; outline: none !important; }
 
 	/* --- Filter Popup --- */
 	.repo-filter-popup {
@@ -79,9 +80,9 @@
 		transition: color .2s, background .2s !important;
 	}
 	.repo-tabs .z-tab-selected {
-		color: #1d4ed8 !important;
-		border-bottom: 3px solid #1d4ed8 !important;
-		background: #eff6ff !important;
+		color: var(--theme-primary,#1d4ed8) !important;
+		border-bottom: 3px solid var(--theme-primary,#1d4ed8) !important;
+		background: var(--theme-light,#eff6ff) !important;
 	}
 	.repo-tabs .z-tabbox { border: 0 !important; }
 	.repo-tabs .z-tabpanel { padding: 0 !important; }

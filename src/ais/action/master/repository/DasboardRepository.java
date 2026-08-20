@@ -148,9 +148,10 @@ public class DasboardRepository extends MyPortallayout {
                 "width:100%;box-sizing:border-box;padding:20px 24px;margin-bottom:14px;"
                 + "border-radius:14px;"
                 + "background:linear-gradient(135deg,rgba(0,0,0,.32),rgba(0,0,0,0) 55%),"
-                + "linear-gradient(135deg,var(--ais-theme-primary,#1d4ed8) 0%,"
-                + "var(--ais-theme-primary,#1d4ed8) 45%,var(--ais-theme-accent,#06b6d4) 100%);"
-                + "color:#ffffff;");
+                + "var(--theme-gradient,linear-gradient(135deg,var(--theme-primary,#1d4ed8) 0%,"
+                + "var(--theme-primary,#1d4ed8) 45%,var(--theme-hover,#06b6d4) 100%));"
+                + "color:var(--theme-text-on-primary,#ffffff);"
+                + "text-shadow:var(--theme-text-shadow,none);");
         addHtml(hero,
                 "<div style='font-size:11px;font-weight:600;letter-spacing:.12em;"
                 + "text-transform:uppercase;opacity:.75;margin-bottom:4px;'>"
