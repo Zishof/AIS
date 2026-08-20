@@ -640,14 +640,24 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				CommonMedia.tampilkanGambarKecil(calonMahasiswa).setParent(labelFotoMahasiswa);
 			}
 
-			rowJenisKuliah.setVisible(true);
-			jenisKuliah.setValue(calonMahasiswa.getProgram());
+			if (rowJenisKuliah != null) {
+				rowJenisKuliah.setVisible(true);
+			}
+			if (jenisKuliah != null) {
+				jenisKuliah.setValue(calonMahasiswa.getProgram());
+			}
 			Jurusan jurusanProfil = jurusanCalonUntukAnalisis();
 			Jenjang jenjangProfil = jurusanProfil != null && jurusanProfil.getJenjang() != null
 					? jurusanProfil.getJenjang() : calonMahasiswa.getJenjang();
-			rowJenjang.setVisible(true);
-			labelJenjang.setValue(jenjangProfil == null ? "-" : namaObjekAnalisisBaru(jenjangProfil));
-			rowProdi.setVisible(true);
+			if (rowJenjang != null) {
+				rowJenjang.setVisible(true);
+			}
+			if (labelJenjang != null) {
+				labelJenjang.setValue(jenjangProfil == null ? "-" : namaObjekAnalisisBaru(jenjangProfil));
+			}
+			if (rowProdi != null) {
+				rowProdi.setVisible(true);
+			}
 
 			String p = (calonMahasiswa.getProdi1() == null ? "" : calonMahasiswa.getProdi1().getNama() + "/")
 					+ (calonMahasiswa.getProdi2() == null ? "" : calonMahasiswa.getProdi2().getNama() + "/")
@@ -657,21 +667,35 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					+ (calonMahasiswa.getProdiLulus() == null ? ""
 							: " Lulus : " + calonMahasiswa.getProdiLulus().getNama());
 
-			prodi.setValue(p);
-			rowSemester.setVisible(false);
-			semester.setValue(smt.toString());
+			if (prodi != null) {
+				prodi.setValue(p);
+			}
+			if (rowSemester != null) {
+				rowSemester.setVisible(false);
+			}
+			if (semester != null) {
+				semester.setValue(smt == null ? "1" : smt.toString());
+			}
 
-			rowTahunMasuk.setVisible(true);
+			if (rowTahunMasuk != null) {
+				rowTahunMasuk.setVisible(true);
+			}
 			Integer tahunAngkatanMhs = calonMahasiswa.getTahun();
 			Integer semesterMulai = 0;
-			Integer tahunAkademikMulai = Common.getTahunAkademik(Integer.parseInt(semester.getValue()),
+			Integer tahunAkademikMulai = Common.getTahunAkademik(Integer.parseInt(semester == null
+					|| semester.getValue() == null || semester.getValue().trim().isEmpty() ? "1"
+							: semester.getValue()),
 					tahunAngkatanMhs, semesterMulai, calonMahasiswa.getSemesterMulai());
 			String tahunAkademik = tahunAkademikMulai + "/" + (tahunAkademikMulai + 1);
 
-			labelTahunAkademik.setValue(tahunAkademik);
-			labelTahunMasuk.setValue(calonMahasiswa.getTahun() == null
-					? String.valueOf(ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR))
-					: calonMahasiswa.getTahun().toString());
+			if (labelTahunAkademik != null) {
+				labelTahunAkademik.setValue(tahunAkademik);
+			}
+			if (labelTahunMasuk != null) {
+				labelTahunMasuk.setValue(calonMahasiswa.getTahun() == null
+						? String.valueOf(ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR))
+						: calonMahasiswa.getTahun().toString());
+			}
 
 			rowTahunAkademik.setVisible(true);
 			rowTanggalValidasi.setVisible(false);

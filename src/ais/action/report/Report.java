@@ -1734,8 +1734,7 @@ public class Report extends GenericAutowireComposer {
 						berubah = true;
 					}
 				} catch (Throwable t) {
-					ais.common.ErrorAuditUtil.record(t,
-							"auto-audit(setOnErrorType gambar laporan) src/ais/action/report/Report.java");
+					// Best-effort saja; renderer rusak tetap ditangani di bawah.
 				}
 				if (rendererGambarRusak(gambar)) {
 					try {

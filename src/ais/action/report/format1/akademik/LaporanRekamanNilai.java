@@ -285,7 +285,14 @@ public class LaporanRekamanNilai extends MyWindow {
 			return null;
 		}
 
-		return LaporanRekamanNilai.generateParameter(mahasiswa, semester, hitungUlang.isChecked(), tanggal.getValue());
+		Date tanggalCetak = null;
+		try {
+			tanggalCetak = tanggal.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			try { tanggal.clearErrorMessage(); } catch (Exception ce) { ais.common.ErrorAuditUtil.record(ce, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanRekamanNilai.java:tanggal"); }
+			return null;
+		}
+		return LaporanRekamanNilai.generateParameter(mahasiswa, semester, hitungUlang.isChecked(), tanggalCetak);
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })

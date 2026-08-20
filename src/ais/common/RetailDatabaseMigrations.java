@@ -239,6 +239,14 @@ public final class RetailDatabaseMigrations {
 						+ "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=r.sch AND table_name=r.tbl AND column_name=r.col AND data_type <> 'text') "
 						+ "THEN EXECUTE format('ALTER TABLE %I.%I ALTER COLUMN %I TYPE text', r.sch, r.tbl, r.col); "
 						+ "END IF; END LOOP; END $mig2$;"));
+		result.add(new Migration("20260821.001", "pelebaran audit biodata calon mahasiswa",
+				"DO $mig$ DECLARE r RECORD; BEGIN "
+						+ "FOR r IN SELECT column_name FROM information_schema.columns "
+						+ "WHERE table_schema='new_audit' AND table_name='biodata_calon_mahasiswa__audit' "
+						+ "AND data_type='character varying' AND character_maximum_length IS NOT NULL "
+						+ "AND character_maximum_length <= 100 LOOP "
+						+ "EXECUTE format('ALTER TABLE new_audit.biodata_calon_mahasiswa__audit ALTER COLUMN %I TYPE text', r.column_name); "
+						+ "END LOOP; END $mig$;"));
 		return result;
 	}
 

@@ -757,6 +757,8 @@ public class Document extends HttpServlet {
                         return namaRelasi;
                     }
                 }
+            } catch (NoSuchMethodException ignored) {
+                // Normal: tidak semua tipe user punya seluruh relasi yang dicoba.
             } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Document.java:740");
             }
         }
@@ -787,6 +789,8 @@ public class Document extends HttpServlet {
                 if (value != null && trim(String.valueOf(value)).length() > 0) {
                     return String.valueOf(value);
                 }
+            } catch (NoSuchMethodException ignored) {
+                // Normal: method fallback ini memang belum tentu ada di semua entity.
             } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Document.java:740");
             }
         }

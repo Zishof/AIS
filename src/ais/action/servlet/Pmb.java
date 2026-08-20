@@ -155,14 +155,7 @@ public class Pmb extends HttpServlet {
         if (response.isCommitted()) {
             return;
         }
-
-        try {
-            safeResetBuffer(response);
-            request.getRequestDispatcher(PATH_PMB_LAMA).forward(request, response);
-        } catch (Throwable legacyError) {
-            Common.tampilErrorJikaAdmin(asException(legacyError));
-            writeFallbackPage(request, response, originalError);
-        }
+        writeFallbackPage(request, response, originalError);
     }
 
     private void handleFatalError(HttpServletRequest request, HttpServletResponse response, Throwable e) throws IOException {
@@ -179,7 +172,6 @@ public class Pmb extends HttpServlet {
         response.setContentType("text/html;charset=UTF-8");
 
         String contextPath = request == null || request.getContextPath() == null ? "" : request.getContextPath();
-        String legacyUrl = contextPath + "/pmb?versilama=true";
         String homeUrl = contextPath + "/";
 
         PrintWriter writer = response.getWriter();
@@ -195,8 +187,8 @@ public class Pmb extends HttpServlet {
         writer.println(".small{font-size:12px;color:#6b7280;margin-top:18px}");
         writer.println("</style></head><body><div class=\"wrap\"><div class=\"card\">");
         writer.println("<h1>Halaman PMB belum bisa ditampilkan</h1>");
-        writer.println("<p>Terjadi kendala saat membuka tampilan PMB versi baru. Data Anda tetap aman. Silakan buka tampilan PMB versi lama atau kembali ke halaman utama.</p>");
-        writer.println("<div class=\"actions\"><a class=\"btn primary\" href=\"" + legacyUrl + "\">Buka PMB versi lama</a><a class=\"btn secondary\" href=\"" + homeUrl + "\">Kembali ke halaman utama</a></div>");
+        writer.println("<p>Terjadi kendala saat membuka tampilan PMB. Data Anda tetap aman. Silakan muat ulang halaman atau kembali ke halaman utama.</p>");
+        writer.println("<div class=\"actions\"><a class=\"btn primary\" href=\"javascript:location.reload()\">Muat ulang</a><a class=\"btn secondary\" href=\"" + homeUrl + "\">Kembali ke halaman utama</a></div>");
         writer.println("<div class=\"small\">Kode bantuan: PMB-FALLBACK</div>");
         writer.println("</div></div></body></html>");
         writer.flush();

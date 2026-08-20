@@ -308,10 +308,6 @@ public class CommonReport {
                             // generateFileReportCore memang menolak parameter null. Hentikan di
                             // sini; jejaknya tetap dicatat untuk audit.
                             if (mapParameter == null) {
-                                ais.common.ErrorAuditUtil.record(
-                                        new IllegalStateException("generateParameters() null (laporan belum siap dicetak), laporan="
-                                                + nama + ", format=" + tipeReport),
-                                        "auto-audit(parameter laporan belum siap, unduhan dibatalkan) src/ais/action/report/helper/CommonReport.java:exportReport");
                                 return;
                             }
                             Report.generateDownloadReport(tipeReport, mapParameter, nama, map,
