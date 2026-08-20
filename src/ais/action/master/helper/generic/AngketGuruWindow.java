@@ -150,7 +150,10 @@ public class AngketGuruWindow extends Groupbox {
 
 		Toolbar toolbar = new Toolbar();
 		toolbar.setParent(this);
-		toolbar.setStyle("padding:8px 12px; background:#ffffff; border-bottom:1px solid #e5e7eb;");
+		/* FIX 20-08-2026: Toolbar ZK 5.5 dirender dengan overflow tersembunyi dan tinggi mengikuti isi bawaan,
+		 * sehingga tombol "Selesai" yang diberi padding custom ikut terpotong. Tinggi dibuat otomatis,
+		 * luapan ditampilkan, dan isinya dijaga tetap satu baris. */
+		toolbar.setStyle("padding:8px 12px; background:#ffffff; border-bottom:1px solid #e5e7eb; height:auto; min-height:40px; overflow:visible; white-space:nowrap;");
 
 		if (tampilClose) {
 			MyToolbarbuttonConfig selesai = new MyToolbarbuttonConfig("Selesai", "/img/save.gif");

@@ -2126,7 +2126,7 @@ public class Pertemuan extends Tugas {
 
 	public void removePengajuanIzinTidakMasukPerkuliahan(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			c.put(id.toString(), "");
 			tulisLokasiPengajuanIzinTidakMasukPerkuliahan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2062");
@@ -2140,7 +2140,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			c.put(pengajuanIzinTidakMasukPerkuliahan.toString(), pengajuanIzinTidakMasukPerkuliahan.toString());
 			tulisLokasiPengajuanIzinTidakMasukPerkuliahan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2076");
@@ -2165,7 +2165,7 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2206,7 +2206,7 @@ public class Pertemuan extends Tugas {
 
 		PengajuanIzinTidakMasukPerkuliahan pengajuanIzinTidakMasukPerkuliahanMahasiswa = null;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2245,7 +2245,7 @@ public class Pertemuan extends Tugas {
 
 		PengajuanIzinTidakMasukPerkuliahan pengajuanIzinTidakMasukPerkuliahanMahasiswa = null;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2283,7 +2283,7 @@ public class Pertemuan extends Tugas {
 		}
 		List<String> keysData = new ArrayList<String>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2360,7 +2360,7 @@ public class Pertemuan extends Tugas {
 		if (id == null)
 			return;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
 			if (c.has(id.toString())) {
 				c.put(id.toString(), "");
 				tulisLokasiPertemuanPunyaDiskusi(c.toString());
@@ -2373,7 +2373,7 @@ public class Pertemuan extends Tugas {
 		if (pertemuanPunyaDiskusiid == null)
 			return;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
 			c.put(pertemuanPunyaDiskusiid.toString(), pertemuanPunyaDiskusiid.toString());
 			tulisLokasiPertemuanPunyaDiskusi(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2306");
@@ -2399,7 +2399,7 @@ public class Pertemuan extends Tugas {
 		int jumlah = 0;
 		List<Long> idsBelumAda = new ArrayList<Long>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2512,7 +2512,7 @@ public class Pertemuan extends Tugas {
 				GeneralValueObject voObj = GeneralValueObject.ambilData(Pertemuan.class, pertemuanid.toString());
 				if (voObj != null) {
 					Pertemuan pertemuan = (Pertemuan) voObj;
-					JSONObject c = new JSONObject(pertemuan.ambilLokasiPertemuanPunyaDiskusi());
+					JSONObject c = jsonObjekAtauKosong(pertemuan.ambilLokasiPertemuanPunyaDiskusi());
 					Iterator<String> keys = c.keys();
 					while (keys.hasNext()) {
 						String key = keys.next();
@@ -2576,7 +2576,7 @@ public class Pertemuan extends Tugas {
 				: new TreeSet<Long>(Collections.reverseOrder());
 		List<Long> idsBelumAda = new ArrayList<Long>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2762,7 +2762,7 @@ public class Pertemuan extends Tugas {
 
 	public void removePertemuanPunyaUjian(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
 			c.put(id.toString(), "");
 			tulisLokasiPertemuanPunyaUjian(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2692");
@@ -2776,7 +2776,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
 			c.put(pertemuanPunyaUjianid.toString(), pertemuanPunyaUjianid.toString());
 			tulisLokasiPertemuanPunyaUjian(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2706");
@@ -2803,7 +2803,7 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -2873,7 +2873,7 @@ public class Pertemuan extends Tugas {
 
 		try {
 			Date sekarang = WaktuUtil.getDate();
-			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3018,7 +3018,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removePertemuanFileContent(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanFileContent(id));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanFileContent(id));
 			c.put(id.toString(), "");
 			tulisLokasiPertemuanFileContent(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2931");
@@ -3032,7 +3032,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiPertemuanFileContent(pertemuanFileContent.getPertemuan()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanFileContent(pertemuanFileContent.getPertemuan()));
 			c.put(pertemuanFileContent.getId().toString(), pertemuanFileContent.write().getAbsolutePath());
 			tulisLokasiPertemuanFileContent(c.toString(), pertemuanFileContent.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2945");
@@ -3125,6 +3125,31 @@ public class Pertemuan extends Tugas {
 		} catch (Exception abaikan) {
 			return null;
 		}
+	}
+
+	/**
+	 * Sama seperti {@link #bacaJsonObjekAman(String)} tetapi TIDAK PERNAH mengembalikan
+	 * {@code null}: teks yang bukan JSON objek menghasilkan objek KOSONG.
+	 *
+	 * <p>KE-FIX JSONException "A JSONObject text must begin with '{' at 0": seluruh pembaca peta
+	 * lokasi di kelas ini DULU memanggil {@code jsonObjekAtauKosong(ambilLokasiXxx())} langsung. Bila
+	 * kolom penyimpan peta itu kosong, berisi spasi, atau rusak, parser melempar. Exception itu
+	 * memang tertangkap try/catch di tiap pemanggil sehingga method mengembalikan nilai
+	 * default-nya (0 / false / list kosong / map kosong), TETAPI jejaknya dicatat penuh ke
+	 * ErrorAuditUtil setiap kali dipanggil -- dan pemanggilnya termasuk warmup cache e-learning
+	 * yang berjalan berkala.</p>
+	 *
+	 * <p><b>Perilaku dipertahankan.</b> Objek kosong membuat {@code keys()} tidak menghasilkan
+	 * apa pun, sehingga badan perulangan tidak pernah dijalankan dan method mengembalikan nilai
+	 * default yang SAMA PERSIS seperti ketika exception dilempar lalu ditangkap. Untuk pemanggil
+	 * yang MENULIS kembali peta itu, memulai dari objek kosong juga merupakan satu-satunya
+	 * perilaku yang masuk akal -- sama dengan inisialisasi bawaan kelas ini yang memang memakai
+	 * {@code new JSONObject().toString()}. Tanpa ini, peta yang sekali rusak membuat fitur
+	 * terkait tidak akan pernah bisa dipakai lagi karena setiap penambahan selalu melempar.</p>
+	 */
+	private static JSONObject jsonObjekAtauKosong(String teks) {
+		JSONObject hasil = bacaJsonObjekAman(teks);
+		return hasil == null ? new JSONObject() : hasil;
 	}
 
 	public TreeMap<Long, PertemuanFileContent> ambilPertemuanFileContentTotal() {
@@ -3321,7 +3346,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removeVideoPertemuan(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiVideoPertemuan(id));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(id));
 			c.put(id.toString(), "");
 			tulisLokasiVideoPertemuan(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3177");
@@ -3335,7 +3360,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiVideoPertemuan(videoPertemuan.getPertemuan()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(videoPertemuan.getPertemuan()));
 			c.put(videoPertemuan.getId().toString(), videoPertemuan.write().getAbsolutePath());
 			tulisLokasiVideoPertemuan(c.toString(), videoPertemuan.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3191");
@@ -3366,7 +3391,7 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiVideoPertemuan(getId()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(getId()));
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3399,7 +3424,7 @@ public class Pertemuan extends Tugas {
 		}
 		TreeMap<Long, VideoPertemuan> videoPertemuansa = new TreeMap<Long, VideoPertemuan>(Collections.reverseOrder());
 		try {
-			JSONObject c = new JSONObject(ambilLokasiVideoPertemuan(getId()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(getId()));
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3559,7 +3584,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removeAudioPertemuan(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiAudioPertemuan(id));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(id));
 			c.put(id.toString(), "");
 			tulisLokasiAudioPertemuan(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3403");
@@ -3573,7 +3598,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiAudioPertemuan(audioPertemuan.getPertemuan()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(audioPertemuan.getPertemuan()));
 			c.put(audioPertemuan.getId().toString(), audioPertemuan.write().getAbsolutePath());
 			tulisLokasiAudioPertemuan(c.toString(), audioPertemuan.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3417");
@@ -3604,7 +3629,7 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiAudioPertemuan(getId()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(getId()));
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3637,7 +3662,7 @@ public class Pertemuan extends Tugas {
 		}
 		TreeMap<Long, AudioPertemuan> audioPertemuansa = new TreeMap<Long, AudioPertemuan>(Collections.reverseOrder());
 		try {
-			JSONObject c = new JSONObject(ambilLokasiAudioPertemuan(getId()));
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(getId()));
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3800,7 +3825,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeTugasPertemuan(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiTugasPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasPertemuan());
 			c.put(id.toString(), "");
 			tulisLokasiTugasPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3632");
@@ -3813,7 +3838,7 @@ public class Pertemuan extends Tugas {
 			if (tugasPertemuan == null) {
 				return;
 			}
-			JSONObject c = new JSONObject(ambilLokasiTugasPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasPertemuan());
 			c.put(tugasPertemuan.toString(), tugasPertemuan.toString());
 			tulisLokasiTugasPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3645");
@@ -3841,7 +3866,7 @@ public class Pertemuan extends Tugas {
 			}
 		}
 		try {
-			JSONObject c = new JSONObject(ambilLokasiTugasPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasPertemuan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3935,7 +3960,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeTugasKelompok(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiTugasKelompok());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasKelompok());
 			c.put(id.toString(), "");
 			tulisLokasiTugasKelompok(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3755");
@@ -3948,7 +3973,7 @@ public class Pertemuan extends Tugas {
 			if (tugasKelompok == null) {
 				return;
 			}
-			JSONObject c = new JSONObject(ambilLokasiTugasKelompok());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasKelompok());
 			c.put(tugasKelompok.toString(), tugasKelompok.toString());
 			tulisLokasiTugasKelompok(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3768");
@@ -3969,7 +3994,7 @@ public class Pertemuan extends Tugas {
 
 		TreeMap<Long, TugasKelompok> tugasKelompoksa = new TreeMap<Long, TugasKelompok>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiTugasKelompok());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasKelompok());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -4089,7 +4114,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeKelompokParameterTambahanPertemuan(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
 			c.put(id.toString(), "");
 			tulisLokasiKelompokParameterTambahanPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3909");
@@ -4103,7 +4128,7 @@ public class Pertemuan extends Tugas {
 			if (kelompokParameterTambahanPertemuan == null) {
 				return;
 			}
-			JSONObject c = new JSONObject(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
 			c.put(kelompokParameterTambahanPertemuan.getId().toString(),
 					tulisUlang ? kelompokParameterTambahanPertemuan.write().getAbsolutePath()
 							: kelompokParameterTambahanPertemuan.write().getAbsolutePath());
@@ -4121,7 +4146,7 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -4177,7 +4202,7 @@ public class Pertemuan extends Tugas {
 		}
 		TreeMap<Long, KelompokParameterTambahanPertemuan> kelompokParameterTambahanPertemuansa = new TreeMap<Long, KelompokParameterTambahanPertemuan>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();

@@ -124,7 +124,10 @@ public class AngketDosenWindow extends Groupbox {
 		subtitle.setParent(header);
 
 		Toolbar toolbar = new Toolbar();
-		toolbar.setStyle("padding:8px 12px; background:#ffffff; border-bottom:1px solid #e5e7eb;");
+		/* FIX 20-08-2026: Toolbar ZK 5.5 dirender dengan overflow tersembunyi dan tinggi mengikuti isi bawaan,
+		 * sehingga tombol "Selesai" yang diberi padding custom ikut terpotong. Tinggi dibuat otomatis,
+		 * luapan ditampilkan, dan isinya dijaga tetap satu baris. */
+		toolbar.setStyle("padding:8px 12px; background:#ffffff; border-bottom:1px solid #e5e7eb; height:auto; min-height:40px; overflow:visible; white-space:nowrap;");
 		this.appendChild(toolbar);
 
 		if (tampilClose) {
@@ -243,7 +246,8 @@ public class AngketDosenWindow extends Groupbox {
 			toolbar.setParent(row);
 			MyButtonConfig button = new MyButtonConfig("Lakukan Penilaian", "/img/Check-icon.png");
 			button.setOrient("vertical");
-			button.setWidth("100%");
+			/* FIX 20-08-2026: setWidth("100%") memaksa tombol selebar induknya, sehingga label ikut terpotong di sel/kolom sempit. Lebar dilepas agar tombol menyesuaikan isi, dan white-space:nowrap menjaga teks tetap satu baris. */
+			button.setStyle("white-space:nowrap; border-radius:8px; font-weight:bold; padding:6px 10px;");
 			button.setParent(toolbar);
 			button.addEventListener("onClick", new EventListener() {
 
