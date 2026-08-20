@@ -1458,12 +1458,22 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 		// membiarkan update mesin SOP selesai dulu (sekaligus mencegah FK
 		// daftar_pengajuan_transfer tertimpa update detached engine). Bila tetap
 		// terlewat, safety-net di renderer akan membuatkan baris DPC saat daftar dirender.
-		final ReimbursementPegawai fin = reimbursement;
+		final Long idFin = reimbursement.getId();
 		Common.createDefaultTimer(new EventListener() {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				if (ReimbursementPegawai.DISETUJUI.equals(fin.getStatus())) {
-					DaftarPengajuanTransfer.simpanReimbursement(fin);
+				if (idFin == null) {
+					return;
+				}
+				// Baca SEGAR dari DB (bukan instance in-memory): pada langkah persetujuan
+				// akhir, disposisiSetuju baru ditulis mesin SOP SETELAH onSave ini — status
+				// instance lama masih "Diajukan". Setelah jeda 3,5 dtk nilai di DB sudah
+				// final, sehingga DPC terbentuk LANGSUNG saat persetujuan (tidak menunggu
+				// daftar dirender / tombol Singkronkan).
+				ReimbursementPegawai segar = (ReimbursementPegawai) HibernateUtil.currentSession()
+						.get(ReimbursementPegawai.class, idFin);
+				if (segar != null && ReimbursementPegawai.DISETUJUI.equals(segar.getStatus())) {
+					DaftarPengajuanTransfer.simpanReimbursement(segar);
 				}
 			}
 		}, "", false, 3500);
