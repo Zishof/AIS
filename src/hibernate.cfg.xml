@@ -213,6 +213,9 @@
 		<mapping class="ais.database.model.ticket.Ticket" />
 		<mapping class="ais.database.model.ticket.TicketKomentar" />
 		<mapping class="ais.database.model.repository.RepoBitstream" />
+		<mapping class="ais.database.model.repository.RepoWorkflowEvent" />
+		<mapping class="ais.database.model.repository.RepoItemRelation" />
+		<mapping class="ais.database.model.repository.RepoUsageEvent" />
 
 
 

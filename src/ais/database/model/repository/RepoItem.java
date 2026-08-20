@@ -9,6 +9,7 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Version;
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 
@@ -43,6 +44,21 @@ public class RepoItem extends GeneralValueObject {
     private Date turnitinIndexedAt;
     private Date submittedAt;
     private Date issuedAt;
+    private Long lockVersion;
+    private String workflowStatus;
+    private String ownerId;
+    private String assignedReviewerId;
+    private String licenseUri;
+    private Date embargoUntil;
+    private Date publishedAt;
+    private Date withdrawnAt;
+    private String withdrawalReason;
+    private String doi;
+    private String slug;
+    private Long versionNumber;
+    private Long previousVersionId;
+    private Long viewCount;
+    private Long downloadCount;
     
     // Audit & Default Fields
     private String oleh;
@@ -153,6 +169,70 @@ public class RepoItem extends GeneralValueObject {
     @Column(name = "issued_at")
     public Date getIssuedAt() { return issuedAt; }
     public void setIssuedAt(Date issuedAt) { this.issuedAt = issuedAt; }
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    public Long getLockVersion() { return lockVersion == null ? Long.valueOf(0L) : lockVersion; }
+    public void setLockVersion(Long lockVersion) { this.lockVersion = lockVersion; }
+
+    @Column(name = "workflow_status", nullable = false, length = 40)
+    public String getWorkflowStatus() { return workflowStatus == null ? "DRAFT" : workflowStatus.trim(); }
+    public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
+
+    @Column(name = "owner_id", length = 255)
+    public String getOwnerId() { return ownerId == null ? "" : ownerId.trim(); }
+    public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
+
+    @Column(name = "assigned_reviewer_id", length = 255)
+    public String getAssignedReviewerId() { return assignedReviewerId == null ? "" : assignedReviewerId.trim(); }
+    public void setAssignedReviewerId(String assignedReviewerId) { this.assignedReviewerId = assignedReviewerId; }
+
+    @Column(name = "license_uri", length = 500)
+    public String getLicenseUri() { return licenseUri == null ? "" : licenseUri.trim(); }
+    public void setLicenseUri(String licenseUri) { this.licenseUri = licenseUri; }
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "embargo_until")
+    public Date getEmbargoUntil() { return embargoUntil; }
+    public void setEmbargoUntil(Date embargoUntil) { this.embargoUntil = embargoUntil; }
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "published_at")
+    public Date getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(Date publishedAt) { this.publishedAt = publishedAt; }
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "withdrawn_at")
+    public Date getWithdrawnAt() { return withdrawnAt; }
+    public void setWithdrawnAt(Date withdrawnAt) { this.withdrawnAt = withdrawnAt; }
+
+    @Column(name = "withdrawal_reason", columnDefinition = "TEXT")
+    public String getWithdrawalReason() { return withdrawalReason == null ? "" : withdrawalReason.trim(); }
+    public void setWithdrawalReason(String withdrawalReason) { this.withdrawalReason = withdrawalReason; }
+
+    @Column(name = "doi", length = 255)
+    public String getDoi() { return doi == null ? "" : doi.trim(); }
+    public void setDoi(String doi) { this.doi = doi; }
+
+    @Column(name = "slug", length = 255)
+    public String getSlug() { return slug == null ? "" : slug.trim(); }
+    public void setSlug(String slug) { this.slug = slug; }
+
+    @Column(name = "version_number", nullable = false)
+    public Long getVersionNumber() { return versionNumber == null ? Long.valueOf(1L) : versionNumber; }
+    public void setVersionNumber(Long versionNumber) { this.versionNumber = versionNumber; }
+
+    @Column(name = "previous_version_id")
+    public Long getPreviousVersionId() { return previousVersionId; }
+    public void setPreviousVersionId(Long previousVersionId) { this.previousVersionId = previousVersionId; }
+
+    @Column(name = "view_count", nullable = false)
+    public Long getViewCount() { return viewCount == null ? Long.valueOf(0L) : viewCount; }
+    public void setViewCount(Long viewCount) { this.viewCount = viewCount; }
+
+    @Column(name = "download_count", nullable = false)
+    public Long getDownloadCount() { return downloadCount == null ? Long.valueOf(0L) : downloadCount; }
+    public void setDownloadCount(Long downloadCount) { this.downloadCount = downloadCount; }
 
     // --- Audit Methods ---
     public String getOlehId() { return olehId; }

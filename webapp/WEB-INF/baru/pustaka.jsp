@@ -20,7 +20,7 @@ if(hanya_tampil_jsp){
             java.util.Set<String> pustakaPages = new java.util.HashSet<String>(java.util.Arrays.asList(
                 "katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota",
                 "_informasi_pustaka", "_item_rinci", "_catalog_api", "_beranda_anggota_service",
-                "_login_pustaka_service", "_welpus_service"));
+                "_login_pustaka_service", "_welpus_service", "_workspace_api"));
             if ("pustaka".equals(p) && !pustakaPages.contains(s)) {
                 response.sendError(404);
                 return;

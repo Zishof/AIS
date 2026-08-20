@@ -35,6 +35,10 @@ public class RepoBitstream extends GeneralValueObject {
     private Boolean primaryFile;
     private Boolean turnitinSubmitted;
     private Date turnitinSubmittedAt;
+    private String virusScanStatus;
+    private Date virusScannedAt;
+    private Boolean signatureValid;
+    private Long fileVersion;
     
     // Audit & Default Fields
     private String oleh;
@@ -110,6 +114,23 @@ public class RepoBitstream extends GeneralValueObject {
     @Column(name = "turnitin_submitted_at")
     public Date getTurnitinSubmittedAt() { return turnitinSubmittedAt; }
     public void setTurnitinSubmittedAt(Date turnitinSubmittedAt) { this.turnitinSubmittedAt = turnitinSubmittedAt; }
+
+    @Column(name = "virus_scan_status", nullable = false, length = 30)
+    public String getVirusScanStatus() { return virusScanStatus == null ? "PENDING" : virusScanStatus.trim(); }
+    public void setVirusScanStatus(String virusScanStatus) { this.virusScanStatus = virusScanStatus; }
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "virus_scanned_at")
+    public Date getVirusScannedAt() { return virusScannedAt; }
+    public void setVirusScannedAt(Date virusScannedAt) { this.virusScannedAt = virusScannedAt; }
+
+    @Column(name = "signature_valid", nullable = false)
+    public Boolean getSignatureValid() { return signatureValid == null ? Boolean.FALSE : signatureValid; }
+    public void setSignatureValid(Boolean signatureValid) { this.signatureValid = signatureValid; }
+
+    @Column(name = "file_version", nullable = false)
+    public Long getFileVersion() { return fileVersion == null ? Long.valueOf(1L) : fileVersion; }
+    public void setFileVersion(Long fileVersion) { this.fileVersion = fileVersion; }
 
     // --- Audit Methods ---
     public String getOlehId() { return olehId; }

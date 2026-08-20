@@ -29,6 +29,11 @@ public class RepoCollection extends GeneralValueObject {
     private String dspaceUuid;
     private String dspaceHandle;
     private Integer sortOrder;
+    private String metadataProfileJson;
+    private String workflowProfileJson;
+    private String accessPolicyJson;
+    private String defaultLicenseUri;
+    private Boolean depositEnabled;
     
     // Audit & Default Fields
     private String oleh;
@@ -79,6 +84,26 @@ public class RepoCollection extends GeneralValueObject {
     @Column(name = "sort_order")
     public Integer getSortOrder() { return sortOrder == null ? Integer.valueOf(0) : sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
+    @Column(name = "metadata_profile_json", columnDefinition = "TEXT")
+    public String getMetadataProfileJson() { return metadataProfileJson == null ? "{}" : metadataProfileJson; }
+    public void setMetadataProfileJson(String metadataProfileJson) { this.metadataProfileJson = metadataProfileJson; }
+
+    @Column(name = "workflow_profile_json", columnDefinition = "TEXT")
+    public String getWorkflowProfileJson() { return workflowProfileJson == null ? "{}" : workflowProfileJson; }
+    public void setWorkflowProfileJson(String workflowProfileJson) { this.workflowProfileJson = workflowProfileJson; }
+
+    @Column(name = "access_policy_json", columnDefinition = "TEXT")
+    public String getAccessPolicyJson() { return accessPolicyJson == null ? "{}" : accessPolicyJson; }
+    public void setAccessPolicyJson(String accessPolicyJson) { this.accessPolicyJson = accessPolicyJson; }
+
+    @Column(name = "default_license_uri", length = 500)
+    public String getDefaultLicenseUri() { return defaultLicenseUri == null ? "" : defaultLicenseUri.trim(); }
+    public void setDefaultLicenseUri(String defaultLicenseUri) { this.defaultLicenseUri = defaultLicenseUri; }
+
+    @Column(name = "deposit_enabled", nullable = false)
+    public Boolean getDepositEnabled() { return depositEnabled == null ? Boolean.TRUE : depositEnabled; }
+    public void setDepositEnabled(Boolean depositEnabled) { this.depositEnabled = depositEnabled; }
 
     // --- Audit Methods ---
     public String getOlehId() { return olehId; }
