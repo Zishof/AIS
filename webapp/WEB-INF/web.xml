@@ -570,6 +570,12 @@
 		<servlet-class>ais.action.servlet.Repository</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Authenticated repository deposit, review, and administration workspace</description>
+		<display-name>Repository Workspace</display-name>
+		<servlet-name>repositoryWorkspace</servlet-name>
+		<servlet-class>ais.action.servlet.RepositoryWorkspace</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>login2</display-name>
@@ -1427,6 +1433,10 @@
 	<servlet-mapping>
 		<servlet-name>repository</servlet-name>
 		<url-pattern>/repository</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>repositoryWorkspace</servlet-name>
+		<url-pattern>/repository-workspace</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login2</servlet-name>

@@ -23,6 +23,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
+import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoWorkflowEvent;
 
 /** Typed repository deposit and review state machine. */
@@ -46,6 +47,7 @@ public class RepositoryWorkflowService {
         public Long collectionId;
         public String title;
         public String authors;
+        public String authorOrcids;
         public String abstractText;
         public String subjects;
         public String publisher;
@@ -85,6 +87,7 @@ public class RepositoryWorkflowService {
                 auditFields(item, actor);
                 session.save(item);
                 session.flush();
+                syncContributorMetadata(session, item, input, actor);
                 event(session, item, null, DRAFT, "CREATE_DRAFT", "", actor, requestId);
                 return item;
             }
@@ -104,6 +107,7 @@ public class RepositoryWorkflowService {
                 applyInput(item, input);
                 auditFields(item, actor);
                 session.update(item);
+                syncContributorMetadata(session, item, input, actor);
                 event(session, item, item.getWorkflowStatus(), item.getWorkflowStatus(), "AUTOSAVE", "", actor, requestId);
                 return item;
             }
@@ -310,6 +314,40 @@ public class RepositoryWorkflowService {
         });
     }
 
+    public RepoItem workspaceItem(final Long id, final Tbmuser actor) {
+        requireLogin(actor);
+        return read(new Work<RepoItem>() {
+            public RepoItem run(Session session) {
+                RepoItem item = loadRequired(session, id);
+                requireOwnerOrAdmin(item, actor);
+                return item;
+            }
+        });
+    }
+
+    public RepoItem reviewItem(final Long id, final Tbmuser actor) {
+        requireReviewer(actor);
+        return read(new Work<RepoItem>() {
+            public RepoItem run(Session session) { return loadRequired(session, id); }
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    public String authorOrcids(final Long id, final Tbmuser actor) {
+        requireLogin(actor);
+        return read(new Work<String>() {
+            public String run(Session session) {
+                RepoItem item = loadRequired(session, id); requireOwnerReviewerOrAdmin(item, actor);
+                List<RepoItemMetadata> rows = session.createCriteria(RepoItemMetadata.class)
+                        .add(Restrictions.eq("itemId", id)).add(Restrictions.eq("metadataField", "repository.author.orcid"))
+                        .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.asc("place")).list();
+                StringBuilder value = new StringBuilder();
+                for (RepoItemMetadata row : rows) { if (value.length() > 0) value.append('\n'); value.append(row.getMetadataValue()); }
+                return value.toString();
+            }
+        });
+    }
+
     private RepoItem transition(final Long itemId, final Long expectedVersion, final Tbmuser actor,
             final String comment, final String requestId, final String action, final String[] allowedFrom,
             final String target, final boolean ownerAction, final boolean reviewerAction) {
@@ -379,6 +417,57 @@ public class RepositoryWorkflowService {
         item.setLicenseUri(limit(input.licenseUri, 500));
         item.setEmbargoUntil(input.embargoUntil);
         item.setDoi(limit(input.doi, 255));
+        validateOrcids(input.authorOrcids);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncContributorMetadata(Session session, RepoItem item, DraftInput input, Tbmuser actor) {
+        List<RepoItemMetadata> existing = session.createCriteria(RepoItemMetadata.class)
+                .add(Restrictions.eq("itemId", item.getId()))
+                .add(Restrictions.in("metadataField", new String[] { "dc.contributor.author", "repository.author.orcid" }))
+                .add(Restrictions.eq("aktif", Boolean.TRUE)).list();
+        for (RepoItemMetadata old : existing) { old.setAktif(Boolean.FALSE); old.setOlehId(actor.getUserId()); old.setOleh(actor.toString()); session.update(old); }
+        String[] authors = lines(input.authors);
+        String[] orcids = lines(input.authorOrcids);
+        for (int i = 0; i < authors.length; i++) {
+            if (blank(authors[i])) continue;
+            metadata(session, item.getId(), "dc.contributor.author", authors[i], i, actor);
+            if (i < orcids.length && !blank(orcids[i])) metadata(session, item.getId(), "repository.author.orcid", normalizeOrcid(orcids[i]), i, actor);
+        }
+    }
+
+    private void metadata(Session session, Long itemId, String field, String value, int place, Tbmuser actor) {
+        RepoItemMetadata row = new RepoItemMetadata(); row.setItemId(itemId); row.setMetadataField(field);
+        row.setMetadataValue(clean(value)); row.setPlace(Integer.valueOf(place)); row.setLanguage("id");
+        row.setAktif(Boolean.TRUE); row.setOlehId(actor.getUserId()); row.setOleh(actor.toString()); session.save(row);
+    }
+
+    private void validateOrcids(String value) {
+        String[] rows = lines(value);
+        for (String row : rows) if (!blank(row) && !validOrcid(normalizeOrcid(row)))
+            throw new IllegalArgumentException("ORCID tidak valid: " + clean(row));
+    }
+
+    public boolean validOrcid(String value) {
+        String digits = normalizeOrcid(value).replace("-", "");
+        if (!digits.matches("[0-9]{15}[0-9X]")) return false;
+        int total = 0;
+        for (int i = 0; i < 15; i++) total = (total + (digits.charAt(i) - '0')) * 2;
+        int remainder = total % 11;
+        int result = (12 - remainder) % 11;
+        char check = result == 10 ? 'X' : (char) ('0' + result);
+        return check == digits.charAt(15);
+    }
+
+    private static String normalizeOrcid(String value) {
+        String v = clean(value).replace("https://orcid.org/", "").replace("http://orcid.org/", "").toUpperCase();
+        String raw = v.replaceAll("[^0-9X]", "");
+        if (raw.length() != 16) return v;
+        return raw.substring(0,4)+"-"+raw.substring(4,8)+"-"+raw.substring(8,12)+"-"+raw.substring(12);
+    }
+
+    private static String[] lines(String value) {
+        String v = clean(value); return v.length() == 0 ? new String[0] : v.split("\\r?\\n");
     }
 
     private void ensureCollectionAcceptsDeposit(Session session, Long id) {
