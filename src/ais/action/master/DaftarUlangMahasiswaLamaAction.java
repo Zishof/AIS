@@ -2808,6 +2808,28 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 	}
 
 	/** URL filter cerdas menuju sumber tagihan bulanan mahasiswa yang sedang dibuka. */
+	private String nilaiParameterTambahanAnalisisLama(BiodataMahasiswa biodata, int urutan) {
+		String[] keys = new String[] { "tambah_dan_aktifkan_filter_ke_1_paramater_tambahan",
+				"tambah_dan_aktifkan_filter_ke_2_paramater_tambahan",
+				"tambah_dan_aktifkan_filter_ke_3_paramater_tambahan" };
+		if (biodata == null || urutan < 1 || urutan > keys.length) return "";
+		Konfigurasi konfigurasi = Common.getKonfigurasi(keys[urutan - 1], Konfigurasi.TIDAK_AKTIF, "-1", "", "");
+		if (konfigurasi == null || !Konfigurasi.AKTIF.equals(konfigurasi.getNilai())
+				|| konfigurasi.getInfo1() == null) return "";
+		String idParameter = konfigurasi.getInfo1().trim();
+		String data = biodata.getParameterTambahanInds();
+		if (data == null || data.trim().isEmpty()) return "";
+		for (String baris : data.split("\\n")) {
+			String[] bagian = baris.split("<=>");
+			String[] identitas = bagian.length > 0 ? bagian[0].trim().split("->") : new String[0];
+			String nilai = bagian.length > 1 ? bagian[1].trim() : "";
+			if (identitas.length > 1 && idParameter.equals(identitas[1].trim()) && !nilai.isEmpty()) {
+				return idParameter + "<=>" + nilai;
+			}
+		}
+		return "";
+	}
+
 	private String urlPengaturanBulananAnalisisLama(int smt, Jurusan jurusan) throws Exception {
 		Jenjang jenjang = jurusan != null && jurusan.getJenjang() != null ? jurusan.getJenjang()
 				: mahasiswa.getJenjang();
@@ -2849,6 +2871,12 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				+ "&searchJenisTempatTinggalMahasiswa=" + (biodataMahasiswa == null
 						|| biodataMahasiswa.getJenisTinggalMahasiswa() == null ? -1
 						: biodataMahasiswa.getJenisTinggalMahasiswa().getId())
+				+ "&searchTambahan1=" + URLEncoder.encode(
+						nilaiParameterTambahanAnalisisLama(biodataMahasiswa, 1), "UTF-8")
+				+ "&searchTambahan2=" + URLEncoder.encode(
+						nilaiParameterTambahanAnalisisLama(biodataMahasiswa, 2), "UTF-8")
+				+ "&searchTambahan3=" + URLEncoder.encode(
+						nilaiParameterTambahanAnalisisLama(biodataMahasiswa, 3), "UTF-8")
 				+ "&kunciFilterAnalisis=1"
 				+ "&autoBukaRencanaAngsuran=1";
 	}

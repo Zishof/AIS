@@ -3718,6 +3718,28 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 	}
 
 	/** URL filter cerdas menuju sumber tagihan bulanan untuk calon yang sedang dibuka. */
+	private String nilaiParameterTambahanAnalisisBaru(int urutan) {
+		String[] keys = new String[] { "tambah_dan_aktifkan_filter_ke_1_paramater_tambahan",
+				"tambah_dan_aktifkan_filter_ke_2_paramater_tambahan",
+				"tambah_dan_aktifkan_filter_ke_3_paramater_tambahan" };
+		if (urutan < 1 || urutan > keys.length) return "";
+		Konfigurasi konfigurasi = Common.getKonfigurasi(keys[urutan - 1], Konfigurasi.TIDAK_AKTIF, "-1", "", "");
+		if (konfigurasi == null || !Konfigurasi.AKTIF.equals(konfigurasi.getNilai())
+				|| konfigurasi.getInfo1() == null) return "";
+		String idParameter = konfigurasi.getInfo1().trim();
+		String data = calonMahasiswa.getParameterTambahanInds();
+		if (data == null || data.trim().isEmpty()) return "";
+		for (String baris : data.split("\\n")) {
+			String[] bagian = baris.split("<=>");
+			String[] identitas = bagian.length > 0 ? bagian[0].trim().split("->") : new String[0];
+			String nilai = bagian.length > 1 ? bagian[1].trim() : "";
+			if (identitas.length > 1 && idParameter.equals(identitas[1].trim()) && !nilai.isEmpty()) {
+				return idParameter + "<=>" + nilai;
+			}
+		}
+		return "";
+	}
+
 	private String urlPengaturanBulananAnalisisBaru(int smt, Jurusan jurusan) throws Exception {
 		Jenjang jenjang = jurusan != null && jurusan.getJenjang() != null ? jurusan.getJenjang()
 				: calonMahasiswa.getJenjang();
@@ -3744,6 +3766,9 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				+ "&searchKelas=" + (calonMahasiswa.getKelasPmb() == null
 						|| calonMahasiswa.getKelasPmb().getKelas() == null ? -1
 						: calonMahasiswa.getKelasPmb().getKelas().getId())
+				+ "&searchTambahan1=" + URLEncoder.encode(nilaiParameterTambahanAnalisisBaru(1), "UTF-8")
+				+ "&searchTambahan2=" + URLEncoder.encode(nilaiParameterTambahanAnalisisBaru(2), "UTF-8")
+				+ "&searchTambahan3=" + URLEncoder.encode(nilaiParameterTambahanAnalisisBaru(3), "UTF-8")
 				+ "&kunciFilterAnalisis=1"
 				+ "&autoBukaRencanaAngsuran=1";
 	}

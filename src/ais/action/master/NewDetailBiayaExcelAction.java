@@ -221,6 +221,17 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		return nilai != null && !nilai.trim().isEmpty() && !"-1".equals(nilai.trim());
 	}
 
+	private boolean pilihanAnalisisPresisi(Combobox combo, String parameter) {
+		if (combo == null || !parameterAnalisisAda(parameter) || combo.getSelectedItem() == null) return false;
+		Object nilai = combo.getSelectedItem().getValue();
+		String target = execution.getParameter(parameter).trim();
+		if (nilai instanceof ais.database.model.GeneralValueObject) {
+			Long id = ((ais.database.model.GeneralValueObject) nilai).getId();
+			return id != null && target.equals(id.toString());
+		}
+		return nilai != null && target.equals(nilai.toString().trim());
+	}
+
 	/**
 	 * Mengunci filter yang dipraisi dari Analisis Data. Jika suatu data tidak ada
 	 * pada Mahasiswa/BiodataCalonMahasiswa, label dan inputnya disembunyikan agar
@@ -228,7 +239,9 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	 */
 	private void kunciComboAnalisis(Combobox combo, Label label, String parameter) {
 		if (combo == null) return;
-		boolean tampil = parameterAnalisisAda(parameter) && combo.getSelectedItem() != null;
+		/* Jangan menerima selected-item default. Komponen hanya ditampilkan jika
+		 * nilai terpilih benar-benar sama dengan parameter dari master mahasiswa. */
+		boolean tampil = pilihanAnalisisPresisi(combo, parameter);
 		combo.setVisible(tampil);
 		combo.setDisabled(true);
 		if (label != null) label.setVisible(tampil);
@@ -239,7 +252,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		kunciComboAnalisis(searchSemester, lblSearchSemester, "searchSemester");
 		kunciComboAnalisis(searchTahunAjaran, lblSearchTahunAjaran, "searchTahunAjaran");
-		boolean tampilAngkatan = parameterAnalisisAda("labelAngkatan") && labelAngkatan.getValue() != null;
+		boolean tampilAngkatan = parameterAnalisisAda("labelAngkatan") && labelAngkatan.getValue() != null
+				&& execution.getParameter("labelAngkatan").trim().equals(labelAngkatan.getValue().toString());
 		labelAngkatan.setVisible(tampilAngkatan);
 		labelAngkatan.setDisabled(true);
 		if (lblLabelAngkatan != null) lblLabelAngkatan.setVisible(tampilAngkatan);
@@ -259,29 +273,38 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				"searchGelombangPendaftaran");
 
 		if (searchKelas != null) {
-			boolean tampil = parameterAnalisisAda("searchKelas") && searchKelas.getAttribute("kelas") != null;
+			Object kelas = searchKelas.getAttribute("kelas");
+			boolean tampil = Konfigurasi.AKTIF.equals(filterKelas) && parameterAnalisisAda("searchKelas")
+					&& kelas instanceof ais.database.model.GeneralValueObject
+					&& ((ais.database.model.GeneralValueObject) kelas).getId() != null
+					&& execution.getParameter("searchKelas").trim().equals(
+							((ais.database.model.GeneralValueObject) kelas).getId().toString());
 			searchKelas.setVisible(tampil);
 			searchKelas.setDisabled(true);
 			if (labelKelas != null) labelKelas.setVisible(tampil);
 		}
-		kunciComboAnalisis(searchJenisTempatTinggalMahasiswa, labelJenisTempatTinggalMahasiswa,
-				"searchJenisTempatTinggalMahasiswa");
+		if (searchJenisTempatTinggalMahasiswa != null) {
+			boolean tampil = Konfigurasi.AKTIF.equals(filterJenisTempatTinggalMahasiswa)
+					&& pilihanAnalisisPresisi(searchJenisTempatTinggalMahasiswa,
+							"searchJenisTempatTinggalMahasiswa");
+			searchJenisTempatTinggalMahasiswa.setVisible(tampil);
+			searchJenisTempatTinggalMahasiswa.setDisabled(true);
+			if (labelJenisTempatTinggalMahasiswa != null) {
+				labelJenisTempatTinggalMahasiswa.setVisible(tampil);
+			}
+		}
 
-		/* Parameter tambahan belum berasal dari master mahasiswa. Jangan tampilkan
-		 * nilai default "Tidak Dipilih" sebagai seolah-olah data mahasiswa. */
-		labelTambahan1.setVisible(false);
-		searchTambahan1.setVisible(false);
-		searchTambahan1.setDisabled(true);
-		labelTambahan2.setVisible(false);
-		searchTambahan2.setVisible(false);
-		searchTambahan2.setDisabled(true);
-		labelTambahan3.setVisible(false);
-		searchTambahan3.setVisible(false);
-		searchTambahan3.setDisabled(true);
+		kunciComboAnalisis(searchTambahan1, labelTambahan1, "searchTambahan1");
+		kunciComboAnalisis(searchTambahan2, labelTambahan2, "searchTambahan2");
+		kunciComboAnalisis(searchTambahan3, labelTambahan3, "searchTambahan3");
+		boolean adaTambahan = searchTambahan1.isVisible() || searchTambahan2.isVisible()
+				|| searchTambahan3.isVisible();
+		colTambahanLabel.setWidth(adaTambahan ? "100px" : "0px");
+		colTambahanNilai.setWidth(adaTambahan ? "120px" : "0px");
 
 		if (rowFilterPmb != null) {
 			rowFilterPmb.setVisible(searchJenisSeleksi.isVisible() || searchPaket.isVisible()
-					|| searchGelombangPendaftaran.isVisible());
+					|| searchGelombangPendaftaran.isVisible() || searchTambahan3.isVisible());
 		}
 	}
 
@@ -1093,6 +1116,15 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			if (jenisTinggal != null && searchJenisTempatTinggalMahasiswa != null) {
 				Common.selectComboItem(true, searchJenisTempatTinggalMahasiswa, jenisTinggal);
 			}
+		}
+		if (execution.getParameter("searchTambahan1") != null) {
+			Common.selectComboItem(true, searchTambahan1, execution.getParameter("searchTambahan1"));
+		}
+		if (execution.getParameter("searchTambahan2") != null) {
+			Common.selectComboItem(true, searchTambahan2, execution.getParameter("searchTambahan2"));
+		}
+		if (execution.getParameter("searchTambahan3") != null) {
+			Common.selectComboItem(true, searchTambahan3, execution.getParameter("searchTambahan3"));
 		}
 
 		terapkanKunciFilterAnalisis();
@@ -2731,8 +2763,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	}
 
 	private Kelas getFilterKelas() {
-		if (!Konfigurasi.AKTIF.equals(filterKelas) || searchKelas == null || !searchKelas.isVisible()
-				|| searchKelas.isDisabled()) {
+		if (!Konfigurasi.AKTIF.equals(filterKelas) || searchKelas == null || !searchKelas.isVisible()) {
 			return null;
 		}
 		Object kelas = searchKelas.getAttribute("kelas");
@@ -2743,7 +2774,6 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		if (!Konfigurasi.AKTIF.equals(filterJenisTempatTinggalMahasiswa)
 				|| searchJenisTempatTinggalMahasiswa == null
 				|| !searchJenisTempatTinggalMahasiswa.isVisible()
-				|| searchJenisTempatTinggalMahasiswa.isDisabled()
 				|| searchJenisTempatTinggalMahasiswa.getSelectedItem() == null) {
 			return null;
 		}
