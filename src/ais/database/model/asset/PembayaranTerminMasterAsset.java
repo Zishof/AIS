@@ -228,6 +228,9 @@ public class PembayaranTerminMasterAsset extends DataSop {
 	private String kodeUnik;
 	private Boolean aktif;
 	private ais.database.model.inventory.Toko toko;
+	private ais.database.model.akunting.CaraPembayaranTransfer caraPembayaranTransfer;
+	private String judul;
+	private java.util.Date tanggalRealisasi;
 
 	@Column(unique = true)
 	public String getKodeUnik() {
@@ -354,4 +357,54 @@ public class PembayaranTerminMasterAsset extends DataSop {
 	public void setToko(ais.database.model.inventory.Toko toko) {
 		this.toko = toko;
 	}
+
+	/**
+	 * Cara transfer yang dipakai membayar vendor -- mengikuti form Proses Transfer
+	 * ({@code ProsesTransferAction}) pada versi ZKoss. Nilainya penting bukan sekadar catatan:
+	 * {@code CaraPembayaranTransfer.getAkun()} adalah akun yang dipakai saat jurnal dibentuk,
+	 * sehingga pembayaran tanpa cara transfer tidak dapat dijurnal.
+	 * Kolom NULLABLE; dokumen lama yang dibuat sebelum kolom ini ada tetap sah.
+	 * Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.ManyToOne(cascade = { javax.persistence.CascadeType.PERSIST,
+			javax.persistence.CascadeType.MERGE }, fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "cara_pembayaran_transfer", nullable = true)
+	public ais.database.model.akunting.CaraPembayaranTransfer getCaraPembayaranTransfer() {
+		return caraPembayaranTransfer;
+	}
+
+	public void setCaraPembayaranTransfer(
+			ais.database.model.akunting.CaraPembayaranTransfer caraPembayaranTransfer) {
+		this.caraPembayaranTransfer = caraPembayaranTransfer;
+	}
+
+	/**
+	 * Judul transfer -- padanan kolom "Judul Transfer" pada form Proses Transfer versi ZKoss.
+	 * Ringkas dan dipakai sebagai kepala dokumen, terpisah dari {@code keterangan} yang berisi
+	 * penjelasan panjang. Kolom NULLABLE. Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.Column(name = "judul", nullable = true)
+	public String getJudul() {
+		return judul;
+	}
+
+	public void setJudul(String judul) {
+		this.judul = judul;
+	}
+
+	/**
+	 * Tanggal dana benar-benar ditransfer -- padanan "Tanggal Realisasi" pada form Proses
+	 * Transfer versi ZKoss. Berbeda dari tanggal pembuatan dokumen maupun tanggal persetujuan.
+	 * Kolom NULLABLE. Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
+	@javax.persistence.Column(name = "tanggal_realisasi", nullable = true, length = 19)
+	public java.util.Date getTanggalRealisasi() {
+		return tanggalRealisasi;
+	}
+
+	public void setTanggalRealisasi(java.util.Date tanggalRealisasi) {
+		this.tanggalRealisasi = tanggalRealisasi;
+	}
+
 }

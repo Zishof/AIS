@@ -146,6 +146,9 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 	private Boolean tanpaAnggaran;
 	private Boolean pembelianLangsung;
 	private Workspace workspace;
+	private Boolean tutup;
+	private String alasanTutup;
+	private PemesananPengadaanMasterAsset poInduk;
 
 	public PemesananPengadaanMasterAsset() {
 	}
@@ -852,4 +855,55 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 	public void setAlasanDitolak(String alasanDitolak) {
 		this.alasanDitolak = alasanDitolak;
 	}
+
+	/**
+	 * Sisa pesanan yang TIDAK akan dikirim lagi sudah ditutup (<i>short close</i>).
+	 *
+	 * <p>Dipakai saat barang datang kurang dan pemesan memutuskan tidak menunggu: sisanya
+	 * dibatalkan di sini, lalu -- bila masih dibutuhkan -- diterbitkan pesanan susulan
+	 * (<i>back order</i>) yang menunjuk dokumen ini lewat {@link #getPoInduk()}. Selama
+	 * bernilai true, sisa baris pesanan ini tidak boleh diterima lagi dan tidak lagi dihitung
+	 * sebagai "sudah dipesan" terhadap Permintaan Pembelian asalnya.</p>
+	 *
+	 * <p>Kolom NULLABLE; dokumen lama bernilai null dan diperlakukan sebagai belum ditutup.
+	 * Ditambahkan 2026-08-21.</p>
+	 */
+	@javax.persistence.Column(name = "tutup", nullable = true)
+	public Boolean getTutup() {
+		return tutup;
+	}
+
+	public void setTutup(Boolean tutup) {
+		this.tutup = tutup;
+	}
+
+	/**
+	 * Alasan sisa pesanan ditutup -- wajib diisi saat menutup, supaya keputusan membatalkan
+	 * sisa pesanan selalu dapat ditelusuri. Kolom NULLABLE. Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.Column(name = "alasan_tutup", nullable = true, length = 500)
+	public String getAlasanTutup() {
+		return alasanTutup;
+	}
+
+	public void setAlasanTutup(String alasanTutup) {
+		this.alasanTutup = alasanTutup;
+	}
+
+	/**
+	 * Pesanan asal bila dokumen ini adalah pesanan susulan (<i>back order</i>) atas kekurangan
+	 * kiriman. Membentuk rantai yang dapat ditelusuri: PO asal -> PO susulan -> dan seterusnya.
+	 * Kolom NULLABLE; pesanan biasa bernilai null. Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.ManyToOne(cascade = { javax.persistence.CascadeType.PERSIST,
+			javax.persistence.CascadeType.MERGE }, fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "po_induk", nullable = true)
+	public PemesananPengadaanMasterAsset getPoInduk() {
+		return poInduk;
+	}
+
+	public void setPoInduk(PemesananPengadaanMasterAsset poInduk) {
+		this.poInduk = poInduk;
+	}
+
 }

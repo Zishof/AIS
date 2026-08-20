@@ -226,17 +226,6 @@ public class Oai extends HttpServlet {
                 out.println("    <set>");
                 out.println("      <setSpec>col_" + col.getId() + "</setSpec>");
                 out.println("      <setName>" + escXml(col.getNama()) + "</setName>");
-                if (col.getDeskripsi() != null && !col.getDeskripsi().trim().isEmpty()) {
-                    out.println("      <setDescription>");
-                    out.println("        <oai_dc:dc xmlns:oai_dc=\"" + OAI_DC_NS + "\"");
-                    out.println("                   xmlns:dc=\"" + DC_NS + "\"");
-                    out.println("                   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
-                    out.println("                   xsi:schemaLocation=\"" + OAI_DC_NS + " " + OAI_DC_SCHEMA + "\">");
-                    out.println("          <dc:description xmlns:dc=\"" + DC_NS + "\">"
-                        + escXml(col.getDeskripsi()) + "</dc:description>");
-                    out.println("        </oai_dc:dc>");
-                    out.println("      </setDescription>");
-                }
                 out.println("    </set>");
             }
             out.println("  </ListSets>");
