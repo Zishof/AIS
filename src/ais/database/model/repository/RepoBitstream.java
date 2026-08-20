@@ -115,7 +115,8 @@ public class RepoBitstream extends GeneralValueObject {
     public Date getTurnitinSubmittedAt() { return turnitinSubmittedAt; }
     public void setTurnitinSubmittedAt(Date turnitinSubmittedAt) { this.turnitinSubmittedAt = turnitinSubmittedAt; }
 
-    @Column(name = "virus_scan_status", nullable = false, length = 30)
+    /* Nullable pada skema agar hbm2ddl dapat menambah kolom ke tabel lama berisi data. */
+    @Column(name = "virus_scan_status", length = 30)
     public String getVirusScanStatus() { return virusScanStatus == null ? "PENDING" : virusScanStatus.trim(); }
     public void setVirusScanStatus(String virusScanStatus) { this.virusScanStatus = virusScanStatus; }
 
@@ -124,11 +125,11 @@ public class RepoBitstream extends GeneralValueObject {
     public Date getVirusScannedAt() { return virusScannedAt; }
     public void setVirusScannedAt(Date virusScannedAt) { this.virusScannedAt = virusScannedAt; }
 
-    @Column(name = "signature_valid", nullable = false)
+    @Column(name = "signature_valid")
     public Boolean getSignatureValid() { return signatureValid == null ? Boolean.FALSE : signatureValid; }
     public void setSignatureValid(Boolean signatureValid) { this.signatureValid = signatureValid; }
 
-    @Column(name = "file_version", nullable = false)
+    @Column(name = "file_version")
     public Long getFileVersion() { return fileVersion == null ? Long.valueOf(1L) : fileVersion; }
     public void setFileVersion(Long fileVersion) { this.fileVersion = fileVersion; }
 

@@ -101,7 +101,14 @@ public class RepoCollection extends GeneralValueObject {
     public String getDefaultLicenseUri() { return defaultLicenseUri == null ? "" : defaultLicenseUri.trim(); }
     public void setDefaultLicenseUri(String defaultLicenseUri) { this.defaultLicenseUri = defaultLicenseUri; }
 
-    @Column(name = "deposit_enabled", nullable = false)
+    /*
+     * Harus nullable pada DDL: instalasi lama sudah memiliki baris. Hibernate 3
+     * menambahkan kolom baru tanpa DEFAULT; nullable=false membuat PostgreSQL
+     * menolak ADD COLUMN sehingga aplikasi kemudian gagal saat SELECT.
+     * Default bisnis tetap TRUE melalui getter dan data lama dibackfill oleh
+     * migrasi post-Hibernate.
+     */
+    @Column(name = "deposit_enabled")
     public Boolean getDepositEnabled() { return depositEnabled == null ? Boolean.TRUE : depositEnabled; }
     public void setDepositEnabled(Boolean depositEnabled) { this.depositEnabled = depositEnabled; }
 

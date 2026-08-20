@@ -82,9 +82,7 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 					 * inline cukup disembunyikan. Bila hook TIDAK memasang apa pun -- misalnya berkas
 					 * panduan halaman tidak tersedia -- gaya lama tetap dipakai agar bantuan tidak
 					 * hilang sama sekali. */
-					if (BantuanGlobalHook.adaFabDiHalaman(getPage())) {
-						setVisible(false);
-					} else if (!pasangKebabBantuan()) {
+					if (!pasangKebabBantuan()) {
 						tambahSclass(SCLASS_FAB);
 					}
 				}
@@ -111,11 +109,26 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 	 */
 	private boolean pasangKebabBantuan() {
 		try {
-			final org.zkoss.zk.ui.Page page = getPage();
-			if (page == null || !BantuanGlobalHook.klaimSlotFab(page)) {
+			final org.zkoss.zk.ui.Component induk = getParent();
+			if (induk == null) {
 				return false;
 			}
-			String key = BantuanGlobalHook.keyHalaman(page);
+			/* FIX 21-08-2026 -- BANTUAN SALAH HALAMAN.
+			 *
+			 * Dahulu tombol "?" dipasang ke PAGE dan diklaim sekali per halaman. Karena banyak
+			 * layar dimuat sebagai TAB ke dalam satu Page yang sama, tab yang dibuka pertama
+			 * merebut slotnya dan key panduannya terkunci -- membuka tab lain tetap menampilkan
+			 * panduan tab pertama. Kini tombol dipasang pada wadah tombol inline ini sendiri,
+			 * sehingga otomatis menjadi MILIK TAB INI dan ikut tersembunyi bersama tabnya.
+			 *
+			 * Hook global memasang FAB pada wadah tab sebelum isi tab selesai dibangun, jadi ia
+			 * belum tahu tab ini punya tombol Bantuan sendiri. FAB bawaan hook karena itu dilepas
+			 * lebih dulu supaya tidak ada dua tombol pada satu tab. */
+			BantuanGlobalHook.lepasFabDari(BantuanGlobalHook.wadahTab(this));
+
+			/* Key diambil dari include TAB terdekat, bukan dari request path halaman -- request
+			 * path selalu menunjuk halaman induk sehingga selalu salah untuk layar bertab. */
+			String key = BantuanGlobalHook.keyDariKomponen(this);
 			if (key == null || key.trim().length() == 0) {
 				key = "panduan";
 			}
@@ -123,14 +136,17 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 					new org.zkoss.zk.ui.event.EventListener() {
 						@Override
 						public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+							/* Item "Bantuan Halaman Ini" memicu ulang event tombol ini sendiri,
+							 * sebab onClick milik ZUL sudah membawa key panduan yang benar. */
 							org.zkoss.zk.ui.event.Events.sendEvent(new org.zkoss.zk.ui.event.Event(
 									org.zkoss.zk.ui.event.Events.ON_CLICK, MyToolbarbuttonConfig.this));
 						}
 					});
-			fab.setPage(page);
+			fab.setParent(induk);
 			setVisible(false);
 			return true;
 		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t, "MyToolbarbuttonConfig.pasangKebabBantuan");
 			return false;
 		}
 	}

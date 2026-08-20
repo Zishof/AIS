@@ -176,11 +176,12 @@ public class RepoItem extends GeneralValueObject {
     public void setIssuedAt(Date issuedAt) { this.issuedAt = issuedAt; }
 
     @Version
-    @Column(name = "lock_version", nullable = false)
+    /* Kolom modern pada tabel berisi data harus dapat ditambahkan Hibernate 3. */
+    @Column(name = "lock_version")
     public Long getLockVersion() { return lockVersion == null ? Long.valueOf(0L) : lockVersion; }
     public void setLockVersion(Long lockVersion) { this.lockVersion = lockVersion; }
 
-    @Column(name = "workflow_status", nullable = false, length = 40)
+    @Column(name = "workflow_status", length = 40)
     public String getWorkflowStatus() { return workflowStatus == null ? "DRAFT" : workflowStatus.trim(); }
     public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
 
@@ -223,7 +224,7 @@ public class RepoItem extends GeneralValueObject {
     public String getSlug() { return slug == null ? "" : slug.trim(); }
     public void setSlug(String slug) { this.slug = slug; }
 
-    @Column(name = "version_number", nullable = false)
+    @Column(name = "version_number")
     public Long getVersionNumber() { return versionNumber == null ? Long.valueOf(1L) : versionNumber; }
     public void setVersionNumber(Long versionNumber) { this.versionNumber = versionNumber; }
 
@@ -231,11 +232,11 @@ public class RepoItem extends GeneralValueObject {
     public Long getPreviousVersionId() { return previousVersionId; }
     public void setPreviousVersionId(Long previousVersionId) { this.previousVersionId = previousVersionId; }
 
-    @Column(name = "view_count", nullable = false)
+    @Column(name = "view_count")
     public Long getViewCount() { return viewCount == null ? Long.valueOf(0L) : viewCount; }
     public void setViewCount(Long viewCount) { this.viewCount = viewCount; }
 
-    @Column(name = "download_count", nullable = false)
+    @Column(name = "download_count")
     public Long getDownloadCount() { return downloadCount == null ? Long.valueOf(0L) : downloadCount; }
     public void setDownloadCount(Long downloadCount) { this.downloadCount = downloadCount; }
 

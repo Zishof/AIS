@@ -184,22 +184,27 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			// fab sbg anak kedua via fab.setParent(induk) melempar exception ini. FAB bersifat
 			// overlay (position:fixed) sehingga tidak perlu nested di layout sama sekali;
 			// pasang langsung ke Page bila tersedia (jalur normal), induk hanya sbg fallback.
-			if (page != null) {
-				if (page.getAttribute(ATTR_PAGE_DONE) != null) {
-					return;
-				}
-				buatFab(key, true).setPage(page);
-				page.setAttribute(ATTR_PAGE_DONE, Boolean.TRUE);
-			} else {
-				Component induk = comp.getParent();
-				// Guard tombol ganda: jika wadah yang sama sudah punya FAB (mis. dua include
-				// halaman-whitelist tampil bersamaan dalam satu container), jangan tambah lagi.
-				if (induk != null && sudahAdaFab(induk)) {
-					return;
-				}
-				if (induk != null) {
-					buatFab(key, true).setParent(induk);
-				}
+			/* FIX 21-08-2026 -- BANTUAN SALAH HALAMAN.
+			 *
+			 * Dahulu FAB dipasang ke PAGE dan ditandai ATTR_PAGE_DONE, sehingga hanya ADA SATU
+			 * tombol untuk seluruh halaman ZK. Padahal tab Home/Mahasiswa/Beasiswa berbagi satu
+			 * Page yang sama: tab yang dibuka PERTAMA merebut slot itu, dan key panduannya
+			 * terkunci di situ. Akibatnya membuka tab lain tetap menampilkan panduan tab pertama.
+			 *
+			 * Kini FAB dipasang ke WADAH TAB (induk dari include), sehingga tiap tab punya
+			 * tombolnya sendiri dengan key-nya sendiri, dan ikut tersembunyi ketika tabnya
+			 * tidak aktif. Bila wadahnya hanya boleh beranak tunggal (mis. region Borderlayout),
+			 * pemasangan dilewati -- lebih baik tanpa tombol daripada menampilkan panduan yang
+			 * keliru untuk halaman lain. */
+			Component induk = comp.getParent();
+			if (induk == null || sudahAdaFab(induk)) {
+				return;
+			}
+			try {
+				buatFab(key, true).setParent(induk);
+			} catch (Throwable takBolehBeranakBanyak) {
+				ais.common.ErrorAuditUtil.record(takBolehBeranakBanyak,
+						"BantuanGlobalHook: wadah tab menolak FAB, key=" + key);
 			}
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:196");
 			// JANGAN pernah mengganggu render halaman
@@ -354,6 +359,73 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	 * @return {@code true} bila pemanggil berhak memasang; {@code false} bila sudah terisi.
 	 */
 	/** Key panduan (nama berkas zul tanpa path/ekstensi) untuk halaman tsb, atau {@code null}. */
+	/**
+	 * Key panduan untuk KOMPONEN tertentu — ditelusuri dari include tab terdekat.
+	 *
+	 * <p>Dipakai tombol Bantuan inline. Menurunkan key dari {@code page.getRequestPath()}
+	 * TIDAK bisa dipakai di aplikasi ini karena banyak layar dimuat sebagai tab ke dalam
+	 * satu Page yang sama, sehingga request path-nya selalu halaman induk. Yang benar adalah
+	 * nama berkas ZUL milik include tab tempat komponen itu berada.</p>
+	 */
+	public static String keyDariKomponen(Component comp) {
+		try {
+			Component kini = comp;
+			while (kini != null) {
+				if (kini instanceof MyInclude) {
+					String k = keyDariSrc(((MyInclude) kini).getSrc());
+					if (k != null && k.trim().length() > 0) {
+						return k;
+					}
+				}
+				kini = kini.getParent();
+			}
+			return comp == null ? null : keyDariPage(comp.getPage());
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** Wadah tab (induk dari include terdekat) tempat komponen ini berada, atau {@code null}. */
+	public static Component wadahTab(Component comp) {
+		try {
+			Component kini = comp;
+			while (kini != null) {
+				if (kini instanceof MyInclude) {
+					return kini.getParent();
+				}
+				kini = kini.getParent();
+			}
+		} catch (Throwable t) {
+			/* abaikan */
+		}
+		return null;
+	}
+
+	/**
+	 * Lepas tombol Bantuan mengambang yang menempel LANGSUNG pada wadah ini.
+	 *
+	 * <p>Dipakai tombol Bantuan inline: hook global memasang FAB pada wadah tab sebelum isi
+	 * tab selesai dibangun, sehingga ia belum tahu bahwa tab tersebut punya tombol Bantuan
+	 * sendiri. Tombol inline-lah yang membawa key panduan paling tepat, jadi FAB bawaan hook
+	 * dilepas lebih dulu agar tidak ada dua tombol pada satu tab.</p>
+	 */
+	public static void lepasFabDari(Component wadah) {
+		try {
+			if (wadah == null) {
+				return;
+			}
+			java.util.List<Object> salinan = new java.util.ArrayList<Object>(wadah.getChildren());
+			for (int i = 0; i < salinan.size(); i++) {
+				Object o = salinan.get(i);
+				if (o instanceof Div && "kb-fab-global".equals(((Div) o).getSclass())) {
+					((Div) o).detach();
+				}
+			}
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t, "BantuanGlobalHook.lepasFabDari");
+		}
+	}
+
 	public static String keyHalaman(Page page) {
 		try {
 			return keyDariPage(page);

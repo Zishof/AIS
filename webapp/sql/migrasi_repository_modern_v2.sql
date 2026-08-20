@@ -16,7 +16,22 @@ SET workflow_status = CASE
     published_at = CASE WHEN sync_status IN ('SYNCED','PUBLISHED','APPROVED')
         THEN coalesce(published_at, issued_at, last_sync_at, submitted_at) ELSE published_at END,
     withdrawn_at = CASE WHEN is_withdrawn IS TRUE
-        THEN coalesce(withdrawn_at, tanggal_dirubah) ELSE withdrawn_at END;
+        THEN coalesce(withdrawn_at, tanggal_dirubah) ELSE withdrawn_at END,
+    lock_version = coalesce(lock_version, 0),
+    version_number = coalesce(version_number, 1),
+    view_count = coalesce(view_count, 0),
+    download_count = coalesce(download_count, 0);
+
+UPDATE public.repo_collection
+SET deposit_enabled = coalesce(deposit_enabled, true),
+    metadata_profile_json = coalesce(nullif(metadata_profile_json, ''), '{}'),
+    workflow_profile_json = coalesce(nullif(workflow_profile_json, ''), '{}'),
+    access_policy_json = coalesce(nullif(access_policy_json, ''), '{}');
+
+UPDATE public.repo_bitstream
+SET virus_scan_status = coalesce(nullif(virus_scan_status, ''), 'PENDING'),
+    signature_valid = coalesce(signature_valid, false),
+    file_version = coalesce(file_version, 1);
 
 
 CREATE TABLE IF NOT EXISTS public.repo_workflow_event (
