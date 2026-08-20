@@ -386,6 +386,16 @@ public abstract class GenericCrudAction<T extends GeneralValueObject>
         if (add == null || add.getParent() == null) {
             return;
         }
+        // Sakelar induk bantuan_tombol_tampil: bila tidak aktif, tombol Bantuan tidak
+        // dibuat sama sekali. Tombol ini dibuat lewat Java sehingga afterCompose()
+        // MyToolbarbuttonConfig tidak dipanggil -- pemeriksaannya harus di sini.
+        try {
+            if (!ais.action.master.helper.BantuanGlobalHook.tombolBantuanAktif()) {
+                return;
+            }
+        } catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/generic/GenericCrudAction.java:appendHelpButton");
+            /* gagal baca konfigurasi: pertahankan perilaku lama (tombol tampil) */
+        }
         MyToolbarbuttonConfig bantuan = new MyToolbarbuttonConfig(
                 "Bantuan", "/img/svg/question-circle.svg");
         bantuan.setTooltiptext("Panduan penggunaan modul ini");

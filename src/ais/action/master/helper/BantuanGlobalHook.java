@@ -36,9 +36,17 @@ import ais.ui.util.MyInclude;
  * {@code WEB-INF/bantuan/<key>.html} ada.</p>
  *
  * <p><b>Keamanan.</b> Seluruh proses dibungkus try/catch agar kegagalan apa pun TIDAK
- * pernah mengganggu render halaman. Dapat dimatikan administrator melalui konfigurasi
- * {@code bantuan_tombol_global} (default aktif) tanpa perlu deploy ulang; untuk menonaktifkan
- * permanen, hapus pendaftaran listener di {@code WEB-INF/zk.xml}.</p>
+ * pernah mengganggu render halaman. Dapat dimatikan administrator lewat konfigurasi
+ * tanpa perlu deploy ulang; untuk menonaktifkan permanen, hapus pendaftaran listener
+ * di {@code WEB-INF/zk.xml}.</p>
+ *
+ * <p><b>Dua konfigurasi, dua peran.</b>
+ * {@code bantuan_tombol_tampil} (default aktif) adalah sakelar INDUK ON/OFF: dimatikan
+ * berarti tidak ada tombol Bantuan sama sekali di seluruh halaman — ZK maupun JSP.
+ * {@code bantuan_tombol_global} (default aktif) hanya memilih GAYA tombol Bantuan
+ * inline: mengambang di pojok kanan-bawah (aktif) atau tetap menyatu di toolbar
+ * (tidak aktif); tombolnya sendiri tetap ada. Lihat {@link #tombolBantuanAktif()}
+ * dan {@link #gayaMengambangAktif()}.</p>
  */
 public class BantuanGlobalHook implements UiLifeCycle {
 
@@ -100,14 +108,51 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	private static volatile long lastCheck = 0L;
 	private static volatile boolean enabled = true;
 
+	// Cache sakelar induk, dipisah dari cache gaya di atas agar keduanya independen.
+	private static volatile long lastCheckTampil = 0L;
+	private static volatile boolean tampil = true;
+
+	/** Nama konfigurasi sakelar induk ON/OFF seluruh tombol Bantuan. */
+	public static final String KONFIG_TAMPIL = "bantuan_tombol_tampil";
+
+	/**
+	 * <b>Sakelar induk</b>: apakah tombol Bantuan ditampilkan sama sekali.
+	 * Konfigurasi {@code bantuan_tombol_tampil} (default AKTIF).
+	 *
+	 * <p>Bernilai TIDAK_AKTIF berarti tidak ada tombol Bantuan di mana pun —
+	 * tombol mengambang ZK (hook ini), tombol Bantuan inline pada toolbar
+	 * ({@code MyToolbarbuttonConfig}, {@code GenericCrudAction}), maupun tombol
+	 * mengambang halaman JSP ({@code WEB-INF/baru/include/bantuan_button.jsp}).
+	 * Isi panduannya sendiri tetap dapat diakses langsung lewat URL {@code /bantuan?key=...};
+	 * yang dimatikan hanyalah tombol pemicunya.</p>
+	 *
+	 * <p>Berbeda dari {@link #gayaMengambangAktif()} yang hanya memilih <i>gaya</i>
+	 * (mengambang atau tetap inline di toolbar) dan tidak pernah menyembunyikan tombol.</p>
+	 */
+	public static boolean tombolBantuanAktif() {
+		long now = System.currentTimeMillis();
+		if (now - lastCheckTampil > 60000L) {
+			try {
+				tampil = Common.bolehKonfigurasi(KONFIG_TAMPIL, Konfigurasi.AKTIF);
+			} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:tombolBantuanAktif");
+				// pertahankan nilai sebelumnya
+			}
+			lastCheckTampil = now;
+		}
+		return tampil;
+	}
+
 	/**
 	 * Apakah gaya "Bantuan mengambang" aktif. Dipakai bersama oleh hook ini (untuk
 	 * halaman tanpa toolbar) dan oleh {@code MyToolbarbuttonConfig}/{@code GenericCrudAction}
 	 * (untuk memindahkan tombol Bantuan inline dari toolbar ke pojok kanan-bawah).
-	 * Satu sakelar: konfigurasi {@code bantuan_tombol_global} (default AKTIF).
+	 * Konfigurasi {@code bantuan_tombol_global} (default AKTIF).
+	 *
+	 * <p>Tunduk pada sakelar induk {@link #tombolBantuanAktif()}: bila tombol Bantuan
+	 * dimatikan seluruhnya, tidak ada gaya mengambang yang perlu dipasang.</p>
 	 */
 	public static boolean gayaMengambangAktif() {
-		return aktif();
+		return tombolBantuanAktif() && aktif();
 	}
 
 	private static boolean aktif() {
@@ -138,7 +183,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	@Override
 	public void afterPageAttached(Page page, Desktop desktop) {
 		try {
-			if (!aktif()) {
+			if (!gayaMengambangAktif()) {
 				return;
 			}
 			final String key = keyDariPage(page);
@@ -168,7 +213,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			if (!(comp instanceof MyInclude)) {
 				return;
 			}
-			if (!aktif()) {
+			if (!gayaMengambangAktif()) {
 				return;
 			}
 			if (comp.getAttribute(ATTR_DONE) != null) {

@@ -53,16 +53,29 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 	}
 
 	/**
-	 * Dipanggil ZK setelah komponen selesai dikomposisi dari ZUL. Untuk tombol
-	 * "Bantuan" — bila fitur bantuan mengambang aktif ({@code bantuan_tombol_global})
-	 * — tombol dipindahkan ke pojok kanan-bawah (floating) dengan memasang sclass
-	 * {@link #SCLASS_FAB}. Tombol lain tidak terpengaruh. Seluruh proses dibungkus
-	 * try/catch agar tidak pernah mengganggu render halaman.
+	 * Dipanggil ZK setelah komponen selesai dikomposisi dari ZUL. Hanya tombol
+	 * berlabel "Bantuan" yang terpengaruh; tombol lain dilewati apa adanya.
+	 *
+	 * <ul>
+	 * <li>Sakelar induk {@code bantuan_tombol_tampil} tidak aktif → tombol
+	 * disembunyikan ({@code setVisible(false)}), sejalan dengan tombol Bantuan
+	 * mengambang di halaman ZK lain dan di JSP.</li>
+	 * <li>Sakelar induk aktif dan {@code bantuan_tombol_global} aktif → tombol
+	 * dipindahkan ke pojok kanan-bawah (floating) lewat sclass {@link #SCLASS_FAB}.</li>
+	 * <li>Sakelar induk aktif dan {@code bantuan_tombol_global} tidak aktif → tombol
+	 * tetap menyatu di toolbar seperti semula.</li>
+	 * </ul>
+	 *
+	 * <p>Seluruh proses dibungkus try/catch agar tidak pernah mengganggu render halaman.</p>
 	 */
 	public void afterCompose() {
 		try {
-			if (isTombolBantuan() && BantuanGlobalHook.gayaMengambangAktif()) {
-				tambahSclass(SCLASS_FAB);
+			if (isTombolBantuan()) {
+				if (!BantuanGlobalHook.tombolBantuanAktif()) {
+					setVisible(false);
+				} else if (BantuanGlobalHook.gayaMengambangAktif()) {
+					tambahSclass(SCLASS_FAB);
+				}
 			}
 		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/ui/util/MyToolbarbuttonConfig.java:67");
 			/* jangan pernah mengganggu render halaman */

@@ -13,6 +13,16 @@
     tombol bulat 48px yang membuka menu, sisi kanan-bawah hanya terpakai satu
     slot dan tumpang tindih itu hilang.
 --%><%
+    // Sakelar induk ON/OFF (konfigurasi "bantuan_tombol_tampil", default aktif) --
+    // sama persis dengan yang dipakai sisi ZK, sehingga satu setelan mematikan tombol
+    // Bantuan di SELURUH halaman. Bila konfigurasi gagal dibaca, pertahankan perilaku
+    // lama: tombol tetap tampil.
+    boolean __kbTampil = true;
+    try {
+        __kbTampil = ais.action.master.helper.BantuanGlobalHook.tombolBantuanAktif();
+    } catch (Throwable __kbT) {
+        __kbTampil = true;
+    }
     String __sp = request.getServletPath();
     String __key = __sp == null ? "" : __sp;
     int __sl = Math.max(__key.lastIndexOf('/'), __key.lastIndexOf('\\'));
@@ -27,7 +37,7 @@
     // terlepas dari ada tidaknya panduan khusus halaman ini.
     String __rpPusat = application.getRealPath("/WEB-INF/bantuan/panduan.html");
     boolean __adaPusat = __rpPusat != null && new java.io.File(__rpPusat).isFile();
-    if (__ada || __adaPusat) {
+    if (__kbTampil && (__ada || __adaPusat)) {
         String __ctx = request.getContextPath();
 %>
 <style type="text/css">

@@ -410,6 +410,7 @@ public class PenerimaanPengadaanMasterAsset extends DataSop {
 	private PostingHistory postingHistory;
 	private Boolean aktif;
 	private Date tanggalPersetujuanManual;
+	private ais.database.model.inventory.PengadaanFaktur pengadaanFaktur;
 
 	@Column(unique = true)
 	public String getKodeUnik() {
@@ -993,5 +994,21 @@ public class PenerimaanPengadaanMasterAsset extends DataSop {
 
 	public void setReimbursementPegawai(ais.database.model.akunting.ReimbursementPegawai reimbursementPegawai) {
 		this.reimbursementPegawai = reimbursementPegawai;
+	}
+	/**
+	 * Faktur Kulakan yang dihasilkan penerimaan ini saat disinkronkan ke stok POS.
+	 * Terisi sekali; keberadaannya menjadi penanda bahwa BAST sudah masuk stok sehingga
+	 * sinkronisasi tidak dapat berjalan dua kali dan menggandakan persediaan.
+	 * Kolom NULLABLE -- penerimaan versi umum yang tidak menyentuh stok toko tetap sah.
+	 * Ditambahkan 2026-08-20.
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "pengadaan_faktur", nullable = true)
+	public ais.database.model.inventory.PengadaanFaktur getPengadaanFaktur() {
+		return pengadaanFaktur;
+	}
+
+	public void setPengadaanFaktur(ais.database.model.inventory.PengadaanFaktur pengadaanFaktur) {
+		this.pengadaanFaktur = pengadaanFaktur;
 	}
 }
