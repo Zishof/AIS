@@ -5259,6 +5259,67 @@ public class KantinHelper {
 	 *
 	 * Request: { bayar: true|false, layani: true|false }
 	 */
+	/**
+	 * Tandai TERLAYANI transaksi yang belum dilayani dan tanggalnya sudah lewat
+	 * hari (melewati jam 24).
+	 *
+	 * <p>Hanya berjalan bila pengaturan efektif toko tsb menyala -- pengaturan
+	 * per toko mengalahkan global. Gerbang ini ada DI SERVER, bukan hanya di
+	 * layar: layar bisa memanggil aksi ini kapan saja, dan keputusan menandai
+	 * barang sudah diserahkan tanpa konfirmasi orang tidak boleh bergantung
+	 * pada klien.</p>
+	 *
+	 * <p>Batasnya {@code DATE(waktu) < CURRENT_DATE} -- sama persis dgn jendela
+	 * yang dipakai proses bayar otomatis, supaya keduanya tidak menyapu rentang
+	 * yang berbeda.</p>
+	 *
+	 * Request: { toko_id (opsional, default toko pengguna) }
+	 * Response: { status:"00", jumlah:<baris yang ditandai> }
+	 */
+	public static void otomatisLayaniJalankan(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Long tokoId = null;
+			if (tbmuser != null && tbmuser.getPedagang() != null
+					&& tbmuser.getPedagang().getToko() != null) {
+				tokoId = tbmuser.getPedagang().getToko().getId();
+			}
+			if (tokoId == null && request.has("toko_id")
+					&& ais.common.Common.isNumber(request.optString("toko_id", ""))) {
+				tokoId = Long.valueOf(request.optString("toko_id"));
+			}
+			if (tokoId == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko tidak diketahui untuk akun ini.");
+				return;
+			}
+			Toko toko = (Toko) session.get(Toko.class, tokoId);
+			if (!ais.action.master.koperasi.OtomatisPesananUtil.layaniOtomatis(toko)) {
+				// Bukan galat: pengaturan memang mati. Dilaporkan apa adanya
+				// supaya pemanggil tidak menyangka ada yang diproses.
+				hasil.put("status", "00");
+				hasil.put("jumlah", 0);
+				hasil.put("aktif", false);
+				return;
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"UPDATE koperasi.pembelian SET terlayani = true"
+							+ " WHERE COALESCE(terlayani, false) = false"
+							+ " AND DATE(waktu) < CURRENT_DATE AND toko = ?");
+			ps.setLong(1, tokoId.longValue());
+			session.getTransaction().begin();
+			int jumlah = ps.executeUpdate();
+			session.getTransaction().commit();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("jumlah", jumlah);
+			hasil.put("aktif", true);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	public static void otomatisPesananGlobalSimpan(Tbmuser tbmuser, JSONObject request,
 			JSONObject hasil) throws Exception {
 		if (!ais.common.Common.getApakahAdminLain(tbmuser)) {

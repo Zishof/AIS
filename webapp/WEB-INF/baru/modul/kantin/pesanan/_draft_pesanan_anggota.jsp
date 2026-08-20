@@ -27,7 +27,11 @@ if (toko != null) {
 }
 
 boolean adminBolehVerifikasiBayar = Common.getKonfigurasi("aktifkan_admin_boleh_verifikasi_bayar", Konfigurasi.TIDAK_AKTIF).getNilai().equalsIgnoreCase(Konfigurasi.AKTIF);
-boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_verifikasi_bayar_setelah_jam_24", Konfigurasi.TIDAK_AKTIF).getNilai().equalsIgnoreCase(Konfigurasi.AKTIF);
+// Pengaturan per toko MENGALAHKAN global (lihat OtomatisPesananUtil).
+// Sebelumnya hanya global yang dibaca, sehingga satu toko tidak dapat
+// mematikan proses otomatis yang dinyalakan untuk seluruh unit.
+boolean otomatisVerifikasiBayarSetelahJam24 = ais.action.master.koperasi.OtomatisPesananUtil.bayarOtomatis(toko);
+boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananUtil.layaniOtomatis(toko);
 
 %>
 
