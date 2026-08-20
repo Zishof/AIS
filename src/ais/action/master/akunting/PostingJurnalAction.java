@@ -213,6 +213,19 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 			btabs.tambahTabZul(idx++, "Posting Penyesuaian",
 					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penyesuaian_toko.zul");
 		}
+		// Siklus akuntansi: saldo awal, penyesuaian berkala, dan tutup buku (2026-08-20).
+		if (Common.bolehKonfigurasi(P + "saldo_awal")) {
+			btabs.tambahTabZul(idx++, "Saldo Awal",
+					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_saldo_awal.zul");
+		}
+		if (Common.bolehKonfigurasi(P + "jurnal_penyesuaian")) {
+			btabs.tambahTabZul(idx++, "Jurnal Penyesuaian",
+					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_penyesuaian.zul");
+		}
+		if (Common.bolehKonfigurasi(P + "tutup_buku_laba_ditahan")) {
+			btabs.tambahTabZul(idx++, "Tutup Buku",
+					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_tutup_buku.zul");
+		}
 
 		super.doAfterCompose(comp);
 		btabs.pulihkanSeleksi(idx);

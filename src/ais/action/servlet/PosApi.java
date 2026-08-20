@@ -5239,48 +5239,29 @@ public class PosApi extends HttpServlet {
 
 	/**
 	 * Pendaftar (tenant) tempat pengguna ini bernaung, atau {@code null} bila
-	 * ia bukan milik pendaftar mana pun.
+	 * ia admin pusat yang boleh melihat seluruh toko.
 	 *
-	 * <p>CATATAN: {@code Tbmuser} TIDAK punya relasi pendaftar sendiri, jadi
-	 * nilainya diturunkan dari dua jalur yang memang ada di basis data:</p>
-	 * <ol>
-	 *   <li>pedagang -&gt; toko -&gt; pendaftar (operator toko), lalu</li>
-	 *   <li>AkunManajemen dgn {@code userid} yang sama (akun manajemen tenant).</li>
-	 * </ol>
-	 *
-	 * <p>Pengguna tanpa pendaftar (mis. admin pusat) mendapat {@code null} dan
-	 * boleh melihat seluruh toko.</p>
+	 * <p>Sumber utamanya relasi langsung {@code Tbmuser.pendaftar} (diisi lewat
+	 * layar Manajemen Pendaftar). Bila kosong, dicoba turunkan dari
+	 * {@code pedagang -> toko -> pendaftar} supaya akun pedagang lama yang
+	 * belum sempat di-assign tetap terkurung di tenantnya sendiri.</p>
 	 */
 	private Long pendaftarIdPengguna(Session session, Tbmuser tbmuser) {
 		if (tbmuser == null) {
 			return null;
 		}
 		try {
+			if (tbmuser.getPendaftar() != null && tbmuser.getPendaftar().getId() != null) {
+				return tbmuser.getPendaftar().getId();
+			}
+		} catch (Exception e) { /* lazy load gagal -> coba jalur turunan */ }
+		try {
 			Pedagang pedagang = tbmuser.getPedagang();
 			if (pedagang != null && pedagang.getToko() != null
 					&& pedagang.getToko().getPendaftar() != null) {
 				return pedagang.getToko().getPendaftar().getId();
 			}
-		} catch (Exception e) { /* lanjut ke jalur berikutnya */ }
-		try {
-			String userId = tbmuser.getUserId();
-			if (userId != null && userId.trim().length() > 0) {
-				java.sql.PreparedStatement ps = session.connection().prepareStatement(
-						"SELECT pendaftar FROM public.akun_manajemen WHERE userid = ? LIMIT 1");
-				ps.setString(1, userId.trim());
-				java.sql.ResultSet rs = ps.executeQuery();
-				Long hasil = null;
-				if (rs.next()) {
-					long v = rs.getLong(1);
-					if (!rs.wasNull() && v > 0) {
-						hasil = Long.valueOf(v);
-					}
-				}
-				rs.close();
-				ps.close();
-				return hasil;
-			}
-		} catch (Exception e) { /* tabel/kolom tidak ada -> anggap tanpa pendaftar */ }
+		} catch (Exception e) { /* tanpa pendaftar */ }
 		return null;
 	}
 

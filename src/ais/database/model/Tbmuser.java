@@ -229,6 +229,7 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	private String bahasa;
 	private String usernameOjs;
 	private Pedagang pedagang;
+	private ais.database.model.Pendaftar pendaftar;
 	private String kelamin;
 
 	/**
@@ -2225,6 +2226,28 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	public void setPerguruanTinggi(PerguruanTinggi perguruanTinggi) {
 		this.perguruanTinggi = perguruanTinggi;
+	}
+
+	/**
+	 * Pendaftar (tenant) tempat pengguna ini bernaung.
+	 *
+	 * <p>Menentukan lingkup data yang boleh dilihatnya: pengguna yang terikat
+	 * pendaftar hanya melihat toko milik pendaftar itu, sedangkan pengguna
+	 * dgn nilai {@code null} -- admin pusat -- melihat seluruh toko.</p>
+	 *
+	 * <p>Sebelumnya lingkup ini hanya bisa disimpulkan lewat
+	 * {@code pedagang -> toko -> pendaftar}, sehingga akun admin yang bukan
+	 * pedagang tidak punya lingkup sama sekali dan melihat data lintas tenant.
+	 * Relasi langsung ini menutup celah itu.</p>
+	 */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "pendaftar", nullable = true)
+	public ais.database.model.Pendaftar getPendaftar() {
+		return pendaftar;
+	}
+
+	public void setPendaftar(ais.database.model.Pendaftar pendaftar) {
+		this.pendaftar = pendaftar;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
