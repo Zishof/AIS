@@ -290,6 +290,10 @@ public final class PengadaanPosApiHelper {
 				o.put("dibuatOleh", pr.getDibuatOleh() == null ? "" : pr.getDibuatOleh().getUserNama());
 				o.put("disetujuiOleh", pr.getDisetujuiOleh() == null ? "" : pr.getDisetujuiOleh().getUserNama());
 				o.put("alasanDitolak", pr.getAlasanDitolak() == null ? "" : pr.getAlasanDitolak());
+				o.put("tanpaAnggaran", Boolean.TRUE.equals(pr.getTanpaAnggaran()));
+				o.put("anggaran", pr.getWorkspace() == null ? ""
+						: ((pr.getWorkspace().getKode() == null ? "" : pr.getWorkspace().getKode() + " ")
+								+ (pr.getWorkspace().getNama() == null ? "" : pr.getWorkspace().getNama())).trim());
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -334,6 +338,11 @@ public final class PengadaanPosApiHelper {
 			h.put("nilai", pr.getNilai() == null ? 0 : pr.getNilai());
 			h.put("tutup", Boolean.TRUE.equals(pr.getTutup()));
 			h.put("alasanDitolak", pr.getAlasanDitolak() == null ? "" : pr.getAlasanDitolak());
+			h.put("tanpaAnggaran", Boolean.TRUE.equals(pr.getTanpaAnggaran()));
+			h.put("workspace_id", pr.getWorkspace() == null ? JSONObject.NULL : pr.getWorkspace().getId());
+			h.put("anggaran", pr.getWorkspace() == null ? ""
+					: ((pr.getWorkspace().getKode() == null ? "" : pr.getWorkspace().getKode() + " ")
+							+ (pr.getWorkspace().getNama() == null ? "" : pr.getWorkspace().getNama())).trim());
 			h.put("toko_id", pr.getToko() == null ? JSONObject.NULL : pr.getToko().getId());
 			h.put("toko", pr.getToko() == null ? "" : pr.getToko().getNama());
 			h.put("dibuatOleh", pr.getDibuatOleh() == null ? "" : pr.getDibuatOleh().getUserNama());
@@ -430,6 +439,29 @@ public final class PengadaanPosApiHelper {
 				pr.setToko((Toko) session.get(Toko.class, tokoId));
 			}
 			pr.setKeterangan(request.optString("keterangan", "").trim());
+			// --- Anggaran ---------------------------------------------------------
+			// Permintaan Pembelian memotong anggaran, jadi anggarannya HARUS jelas sejak
+			// awal. Satu-satunya jalan keluar adalah menyatakan permintaan ini memang
+			// tanpa anggaran -- pilihan yang eksplisit, bukan akibat kolom yang lupa diisi.
+			boolean tanpaAnggaran = request.optBoolean("tanpaAnggaran", false);
+			pr.setTanpaAnggaran(Boolean.valueOf(tanpaAnggaran));
+			if (tanpaAnggaran) {
+				pr.setWorkspace(null);
+			} else if (!request.isNull("workspace_id")
+					&& !(request.get("workspace_id") + "").trim().isEmpty()) {
+				ais.database.model.rab.Workspace anggaran = (ais.database.model.rab.Workspace) session
+						.get(ais.database.model.rab.Workspace.class,
+								Long.valueOf((request.get("workspace_id") + "").trim()));
+				if (anggaran == null) {
+					tolak(hasil, "Anggaran yang dipilih tidak ditemukan.");
+					return;
+				}
+				pr.setWorkspace(anggaran);
+			} else if (pr.getWorkspace() == null) {
+				tolak(hasil, "Anggaran wajib dipilih. Bila permintaan ini memang tidak "
+						+ "membebani anggaran, centang \"Tanpa anggaran\".");
+				return;
+			}
 			if (!request.isNull("tanggal")) {
 				try {
 					pr.setTanggalPembuatan(Common.dateFormat3.get().parse((request.get("tanggal") + "").trim()));
@@ -459,6 +491,7 @@ public final class PengadaanPosApiHelper {
 			session.flush();
 
 			double total = 0;
+			java.util.List<Long> barisBaru = new java.util.ArrayList<Long>();
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
 				MasterAsset barang = barangBaris(session, b);
@@ -480,9 +513,32 @@ public final class PengadaanPosApiHelper {
 					d.setOlehId(tbmuser.getUserId());
 				}
 				session.save(d);
+				session.flush();
+				barisBaru.add(d.getId());
 				total += sub;
 			}
 			pr.setNilai(Double.valueOf(total));
+			session.saveOrUpdate(pr);
+			session.flush();
+			// Catat pemakaian anggaran memakai PABRIK milik versi ZKoss sendiri, bukan
+			// salinan logikanya. PenggunaanAnggaran.prosesSimpan bersifat idempoten (dicari
+			// lewat ref) dan mengembalikan null bila PR tidak berAnggaran, sehingga aman
+			// dipanggil pada setiap penyimpanan -- termasuk saat PR diubah menjadi tanpa
+			// anggaran. Dengan begitu tabel penggunaan_anggaran terisi persis seperti bila
+			// PR-nya dibuat dari layar ZKoss.
+			for (Object idBaris : barisBaru) {
+				try {
+					PermintaanPengadaanMasterAssetDetail acuan = (PermintaanPengadaanMasterAssetDetail) session
+							.get(PermintaanPengadaanMasterAssetDetail.class, (Long) idBaris);
+					if (acuan != null) {
+						ais.database.model.rab.PenggunaanAnggaran.prosesSimpan(acuan, session);
+					}
+				} catch (Exception eAnggaran) {
+					// Kegagalan pencatatan anggaran TIDAK boleh membatalkan PR yang sah.
+					ais.common.ErrorAuditUtil.record(eAnggaran,
+							"PengadaanPosApiHelper.prSimpan penggunaanAnggaran baris=" + idBaris);
+				}
+			}
 			session.saveOrUpdate(pr);
 			session.getTransaction().commit();
 
@@ -3354,6 +3410,67 @@ public final class PengadaanPosApiHelper {
 		hasil.put("daftar", terbesar);
 		hasil.put("daftarJudul", "Pajak Terutang Terbesar");
 		hasil.put("catatanKosong", "Belum ada catatan pajak pada periode ini.");
+	}
+
+	/**
+	 * Pencarian Anggaran (Workspace) untuk pemilih pada layar Permintaan Pembelian.
+	 *
+	 * <p>Mengembalikan pagu, realisasi, dan sisanya supaya pengaju melihat kemampuan
+	 * anggaran SEBELUM permintaan diajukan -- bukan setelah ditolak penyetuju.</p>
+	 *
+	 * <p>Sisa dihitung dari kolom yang sudah dipelihara modul Anggaran sendiri
+	 * ({@code hargaTotal} dikurangi {@code realisasiTotal} dan {@code realisasiProses}),
+	 * bukan dihitung ulang di sini. Menghitung ulang berarti membuat definisi kedua
+	 * yang cepat atau lambat berbeda dengan angka pada layar Anggaran.</p>
+	 */
+	public static void cariAnggaran(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		String q = request == null ? "" : request.optString("keyword", "").trim();
+		if (q.isEmpty() && request != null) {
+			q = request.optString("cari", "").trim();
+		}
+		int limit = Math.min(200, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(ais.database.model.rab.Workspace.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			if (q.length() > 0) {
+				kriteria.add(Restrictions.or(
+						Restrictions.ilike("kode", q, MatchMode.ANYWHERE),
+						Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
+			}
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.rab.Workspace> daftar = kriteria.addOrder(Order.asc("kode"))
+					.setMaxResults(limit).list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.rab.Workspace w : daftar) {
+				double pagu = w.getHargaTotal() == null ? 0 : w.getHargaTotal().doubleValue();
+				double realisasi = w.getRealisasiTotal() == null ? 0 : w.getRealisasiTotal().doubleValue();
+				double proses = w.getRealisasiProses() == null ? 0 : w.getRealisasiProses().doubleValue();
+				JSONObject o = new JSONObject();
+				o.put("id", w.getId());
+				o.put("kode", w.getKode() == null ? "" : w.getKode());
+				o.put("nama", w.getNama() == null ? "" : w.getNama());
+				o.put("tahun", w.getTahunWorkspace() == null ? JSONObject.NULL : w.getTahunWorkspace());
+				o.put("pagu", pagu);
+				o.put("realisasi", realisasi);
+				o.put("dalamProses", proses);
+				o.put("sisa", pagu - realisasi - proses);
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			if (arr.length() == 0) {
+				hasil.put("catatan", "Tidak ada anggaran aktif yang cocok. Periksa menu Anggaran, "
+						+ "atau centang \"Tanpa anggaran\" bila permintaan ini memang tidak "
+						+ "membebani anggaran.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
@@ -6583,6 +6700,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_dasbor".equals(action)) {
 			dasbor(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_anggaran_cari".equals(action)) {
+			cariAnggaran(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_penyedia_cari".equals(action)) {

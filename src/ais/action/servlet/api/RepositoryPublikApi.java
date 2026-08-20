@@ -49,12 +49,40 @@ public final class RepositoryPublikApi {
 	}
 
 	/**
-	 * Izin membuka Repository (per pengguna, bawaan menyala). Diperiksa di
-	 * SETIAP aksi: menyembunyikan menu saja tidak menghalangi pemanggilan API.
+	 * Izin membaca Repository, disetel per GRUP PENGGUNA di TbmroleAction
+	 * (checkbox "Tampilkan menu Repository", bawaannya menyala).
+	 *
+	 * <p>SENGAJA memakai izin {@code bacaRepository}, bukan
+	 * {@code dasborRepository}: yang terakhir adalah izin MENGELOLA repository
+	 * yang bawaannya hanya administrator — memakainya berarti mahasiswa tidak
+	 * akan bisa membaca artefak sama sekali.</p>
+	 *
+	 * <p>Pengguna dapat memiliki lebih dari satu grup; izin diberikan bila
+	 * salah satu grupnya mengizinkan.</p>
 	 */
+	static boolean bolehMembacaRepository(Tbmuser pengguna) {
+		if (pengguna == null) {
+			return false;
+		}
+		try {
+			java.util.List<ais.database.model.Tbmrole> peran = pengguna.ambilRoles();
+			if (peran == null || peran.isEmpty()) {
+				return true;
+			}
+			for (ais.database.model.Tbmrole r : peran) {
+				if (r != null && Boolean.TRUE.equals(r.getBacaRepository())) {
+					return true;
+				}
+			}
+			return false;
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return false;
+		}
+	}
+
 	private static boolean bolehMembaca(Tbmuser pengguna) {
-		return pengguna != null
-				&& Boolean.TRUE.equals(pengguna.getBolehBacaRepository());
+		return bolehMembacaRepository(pengguna);
 	}
 
 	private static JSONObject tolakTanpaIzin() throws Exception {

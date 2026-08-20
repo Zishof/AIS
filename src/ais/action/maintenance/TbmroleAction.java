@@ -118,6 +118,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig elearning;
 	private MyCheckboxConfig kegiatanDanPrestasi;
 	private MyCheckboxConfig pustaka;
+	private MyCheckboxConfig bacaRepository;
 	private MyCheckboxConfig dashboard;
 	private MyCheckboxConfig workflow;
 	private MyCheckboxConfig administrasi;
@@ -2013,6 +2014,17 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		pustaka.setChecked(tbmrole.getPustaka());
 		pustaka.setParent(row);
 
+		// Membaca artefak repository di aplikasi mobile/desktop. Terpisah dari
+		// "Dasbor Repository" yang merupakan izin MENGELOLA (administrator);
+		// membaca artefak terpublikasi bawaannya terbuka untuk semua grup.
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		bacaRepository = new MyCheckboxConfig(
+				"Tampilkan menu Repository (baca artefak digital)");
+		bacaRepository.setChecked(tbmrole.getBacaRepository());
+		bacaRepository.setParent(row);
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
@@ -2778,6 +2790,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setElearning(elearning.isChecked());
 		tbmrole.setKegiatanDanPrestasi(kegiatanDanPrestasi.isChecked());
 		tbmrole.setPustaka(pustaka.isChecked());
+		if (bacaRepository != null) {
+			tbmrole.setBacaRepository(Boolean.valueOf(bacaRepository.isChecked()));
+		}
 		tbmrole.setDashboard(dashboard.isChecked());
 		tbmrole.setWorkflow(workflow.isChecked());
 		tbmrole.setAdministrasi(administrasi.isChecked());

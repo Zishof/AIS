@@ -63,12 +63,34 @@ public final class PustakaApi {
 	}
 
 	/**
-	 * Izin membuka Pustaka (disetel per pengguna lewat TbmuserAction, bawaan
-	 * menyala). Diperiksa di SETIAP aksi — menyembunyikan menu di aplikasi
-	 * saja bukan pengamanan, karena aksi API tetap bisa dipanggil langsung.
+	 * Izin membuka Pustaka, disetel per GRUP PENGGUNA di TbmroleAction
+	 * (checkbox "Tampilkan Dashboard Pustaka", bawaannya menyala).
+	 *
+	 * <p>Pengguna dapat memiliki lebih dari satu grup; izin diberikan bila
+	 * SALAH SATU grupnya mengizinkan — sama seperti cara hak akses lain di
+	 * sistem ini bekerja. Diperiksa di SETIAP aksi karena menyembunyikan menu
+	 * di aplikasi bukan pengamanan: aksi API tetap bisa dipanggil langsung.</p>
 	 */
 	private static boolean bolehMembaca(Tbmuser pengguna) {
-		return pengguna != null && Boolean.TRUE.equals(pengguna.getBolehBacaPustaka());
+		if (pengguna == null) {
+			return false;
+		}
+		try {
+			java.util.List<ais.database.model.Tbmrole> peran = pengguna.ambilRoles();
+			if (peran == null || peran.isEmpty()) {
+				// Tanpa grup, pakai bawaan sistem: menu pustaka terbuka.
+				return true;
+			}
+			for (ais.database.model.Tbmrole r : peran) {
+				if (r != null && Boolean.TRUE.equals(r.getPustaka())) {
+					return true;
+				}
+			}
+			return false;
+		} catch (Exception e) {
+			ais.common.Common.tampilErrorJikaAdmin(e);
+			return false;
+		}
 	}
 
 	private static JSONObject tolakTanpaIzin() throws Exception {
@@ -110,8 +132,8 @@ public final class PustakaApi {
 			return tolakTanpaToken();
 		}
 		JSONObject jawaban = ApiHelperSupport.status("00", "Izin menu berhasil dimuat.");
-		jawaban.put("pustaka", Boolean.TRUE.equals(pengguna.getBolehBacaPustaka()));
-		jawaban.put("repository", Boolean.TRUE.equals(pengguna.getBolehBacaRepository()));
+		jawaban.put("pustaka", bolehMembaca(pengguna));
+		jawaban.put("repository", RepositoryPublikApi.bolehMembacaRepository(pengguna));
 		return jawaban;
 	}
 
