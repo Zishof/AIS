@@ -320,6 +320,8 @@ public class PosApi extends HttpServlet {
 			} else if ("produk_isi_pemasok_dari_kulakan".equals(action)) {
 				KantinHelper.produkIsiPemasokDariKulakan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "produk_isi_pemasok_dari_kulakan");
+			} else if ("laporan_rincian_transaksi".equals(action)) {
+				prosesLaporanRincianTransaksi(tbmuser, payload, hasil);
 			} else if ("hak_akses_list".equals(action)) {
 				KantinHelper.hakAksesList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "hak_akses_list");
@@ -3979,6 +3981,121 @@ public class PosApi extends HttpServlet {
 			sb.append(nama).append(" Rp ").append(fmt.format(Math.round(nilai)));
 		}
 		return sb.length() == 0 ? bawaan : sb.toString();
+	}
+
+	/**
+	 * Rincian TRANSAKSI penyusun satu angka laporan -- padanan generik "Asal Angka".
+	 *
+	 * <p>Sebelumnya popup asal-angka hanya mengulang isi baris ringkasan (kode, nama,
+	 * qty, total) sehingga tidak menjawab "angka ini dari nota mana saja". Aksi ini
+	 * mengembalikan baris transaksi sebenarnya dari {@code koperasi.pembelian}
+	 * berikut header notanya, disaring oleh dimensi APA PUN yang dikirim klien:
+	 * kode/nama produk, kasir, metode bayar, atau pelanggan. Dimensi yang tidak
+	 * dikirim diabaikan, sehingga satu aksi melayani seluruh keluarga laporan
+	 * berbasis transaksi tanpa perlu cabang per laporan.</p>
+	 *
+	 * <p>Laporan yang TIDAK berbasis transaksi (stok, master data) tidak memakai
+	 * aksi ini -- klien tetap menampilkan rincian baris apa adanya.</p>
+	 */
+	private void prosesLaporanRincianTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
+			throws Exception {
+		Long tokoId = resolveTokoId(tbmuser, payload);
+		if (tokoId == null) {
+			hasil.put("status", "error");
+			hasil.put("message", "Toko tidak diketahui utk akun ini.");
+			return;
+		}
+		String mulai = payload.optString("tglMulai", "").trim();
+		String sampai = payload.optString("tglSampai", "").trim();
+		if (mulai.length() == 0 || sampai.length() == 0) {
+			hasil.put("status", "error");
+			hasil.put("message", "Rentang tanggal wajib diisi.");
+			return;
+		}
+		String kodeProduk = payload.optString("kodeProduk", "").trim();
+		String namaProduk = payload.optString("namaProduk", "").trim();
+		String kasir = payload.optString("kasir", "").trim();
+		String metode = payload.optString("metode", "").trim();
+		String pelanggan = payload.optString("pelanggan", "").trim();
+		int batas = Math.min(500, Math.max(20, payload.optInt("batas", 200)));
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			StringBuilder w = new StringBuilder(
+					" WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date ");
+			java.util.List<Object> prm = new java.util.ArrayList<Object>();
+			prm.add(tokoId);
+			prm.add(mulai);
+			prm.add(sampai);
+			if (kodeProduk.length() > 0) {
+				w.append(" AND COALESCE(pr.kode,'')=? ");
+				prm.add(kodeProduk);
+			} else if (namaProduk.length() > 0) {
+				w.append(" AND COALESCE(a.nama,pr.nama,'') ILIKE ? ");
+				prm.add(namaProduk);
+			}
+			if (kasir.length() > 0) {
+				w.append(" AND COALESCE(pak.kasir_login_nama,'') ILIKE ? ");
+				prm.add(kasir);
+			}
+			if (metode.length() > 0) {
+				w.append(" AND COALESCE(a.carabayar,'') ILIKE ? ");
+				prm.add("%" + metode + "%");
+			}
+			if (pelanggan.length() > 0) {
+				w.append(" AND COALESCE(ak.nama,a.member,'') ILIKE ? ");
+				prm.add("%" + pelanggan + "%");
+			}
+			String sql = "SELECT a.waktu, COALESCE(pak.kode,'') nota,"
+					+ " COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),'-') kasir,"
+					+ " COALESCE(NULLIF(TRIM(ak.nama),''),NULLIF(TRIM(a.member),''),'Umum') pelanggan,"
+					+ " COALESCE(NULLIF(TRIM(a.nama),''),COALESCE(pr.nama,'-')) produk,"
+					+ " COALESCE(pr.kode,'') kode_produk,"
+					+ " COALESCE(a.qty,0) qty, COALESCE(a.hargasatuan,0) harga,"
+					+ " COALESCE(a.diskon,0) diskon, COALESCE(a.total,0) total,"
+					+ " COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
+					+ " FROM koperasi.pembelian a"
+					+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
+					+ " LEFT JOIN koperasi.produk pr ON pr.id=a.produk"
+					+ " LEFT JOIN koperasi.anggota_koperasi ak ON ak.id=pak.anggota_koperasi"
+					+ w + " ORDER BY a.waktu DESC LIMIT " + batas;
+			java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+			for (int i = 0; i < prm.size(); i++) {
+				ikatParam(ps, i + 1, prm.get(i));
+			}
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray data = new JSONArray();
+			double totalQty = 0, totalNilai = 0;
+			while (rs.next()) {
+				JSONObject o = new JSONObject();
+				java.sql.Timestamp t = rs.getTimestamp(1);
+				o.put("waktu", t == null ? "" : t.toString());
+				o.put("nota", str(rs.getString(2)));
+				o.put("kasir", str(rs.getString(3)));
+				o.put("pelanggan", str(rs.getString(4)));
+				o.put("produk", str(rs.getString(5)));
+				o.put("kodeProduk", str(rs.getString(6)));
+				o.put("qty", rs.getDouble(7));
+				o.put("harga", rs.getDouble(8));
+				o.put("diskon", rs.getDouble(9));
+				o.put("total", rs.getDouble(10));
+				o.put("metode", str(rs.getString(11)));
+				totalQty += rs.getDouble(7);
+				totalNilai += rs.getDouble(10);
+				data.put(o);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "success");
+			hasil.put("data", data);
+			hasil.put("jumlahBaris", data.length());
+			hasil.put("totalQty", totalQty);
+			hasil.put("totalNilai", totalNilai);
+			hasil.put("dibatasi", data.length() >= batas);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	private void prosesLaporanPenerimaanKasirDetail(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
