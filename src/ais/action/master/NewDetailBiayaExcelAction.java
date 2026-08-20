@@ -920,10 +920,13 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			}
 		}
 		if (execution.getParameter("searchJenisKegiatan") != null) {
-			JenisSeleksi jenisSeleksi = (JenisSeleksi) ConstantValues.ambil(JenisSeleksi.class.getName(),
+			/* Parameter ini berisi ID JenisKegiatan. Sebelumnya keliru dibaca sebagai
+			 * JenisSeleksi sehingga pilihan gagal diterapkan dan layar memakai kegiatan
+			 * pembayaran default yang tidak sesuai dengan hasil analisis. */
+			JenisKegiatan jenisKegiatan = (JenisKegiatan) ConstantValues.ambil(JenisKegiatan.class.getName(),
 					Long.parseLong(execution.getParameter("searchJenisKegiatan")));
-			if (jenisSeleksi != null) {
-				Common.selectComboItem(true, searchJenisKegiatan, jenisSeleksi);
+			if (jenisKegiatan != null) {
+				Common.selectComboItem(true, searchJenisKegiatan, jenisKegiatan);
 				searchJenisKegiatan.setDisabled(true);
 			}
 		}

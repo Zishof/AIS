@@ -3085,6 +3085,11 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				if (khusus != null && !kandidatSumber.contains(khusus)) kandidatSumber.add(khusus);
 			int detailSetting = hitungDetailSettingBaru(sessionAnalisis, kandidatSumber, smt);
 			int pengaturanBulanan = hitungPengaturanBulananBaru(sessionAnalisis, kandidatSumber, smt);
+			/* Gunakan hasil penghitung produksi yang sama dengan panel pembayaran sebagai
+			 * sumber kebenaran. Query audit berbasis kandidat SettingBiaya dapat bernilai
+			 * nol ketika PPB berasal dari aturan JenisKegiatan/jenjang atau relasi setting
+			 * lama, padahal layar pembayaran sudah sah berjalan dalam mode bulanan. */
+			pengaturanBulanan = Math.max(pengaturanBulanan, countPengaturanBulanan);
 			AnalisisHilirTagihanBaru hilir = analisisHilirTagihanBaru(sessionAnalisis, kandidatSumber, smt,
 					pengaturanBulanan, settingKhusus > 0);
 
@@ -3545,9 +3550,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		barTindakan.setStyle("padding:8px 12px;background:#f8fafc;border-bottom:1px solid #cbd5e1;"
 				+ "box-sizing:border-box;white-space:normal;");
 		barTindakan.setParent(window);
-		Button bukaPengaturan = new MyButtonConfig(arahBulanan
-				? "Buka Pengaturan Tagihan Bulanan" : "Buka Setting Biaya");
-		bukaPengaturan.setImage(arahBulanan ? "/img/Money-Calculator-icon.png" : "/img/Bank-Check-icon.png");
+		Button bukaPengaturan = new MyToolbarbuttonConfig(arahBulanan
+				? "Buka Pengaturan Tagihan Bulanan" : "Buka Setting Biaya", "/img/svg/cash.svg");
 		bukaPengaturan.setTooltiptext("Buka sumber pengaturan yang dipilih otomatis dari hasil analisis");
 		bukaPengaturan.setParent(barTindakan);
 		new Label(arahBulanan ? " Sistem mendeteksi sumber tagihan bulanan/angsuran."
