@@ -1009,14 +1009,26 @@ public class KegiatanHelper {
 
 					updateEntitySafe(session, kegiatan);
 				} catch (Exception e) {
-					// FIX (KE-32): sebelumnya ditelan tanpa audit -- constraint violation (mis.
-					// mahasiswa_nimkey_key dobel akibat entity Mahasiswa ter-cascade save/update
-					// bersamaan dari proses lain) tak pernah tercatat, hanya tampil ke admin bila
-					// sedang online. Catat agar terlacak, konsisten dgn pola di seluruh file ini.
-					Common.tampilErrorJikaAdmin(e);
-					ais.common.ErrorAuditUtil.record(e,
-							"checkKegiatanMahasiswa: gagal simpan Kegiatan baru untuk mahasiswa="
-									+ (mahasiswa == null ? "null" : mahasiswa.getId()));
+					try {
+						String kodeunikRetry = Kegiatan.generateKodeUnik(mahasiswa, null, jenisKegiatan, smt, "",
+								null);
+						session = HibernateUtil.ensureOpenSession(session);
+						Kegiatan kegiatanSudahAda = (Kegiatan) session.createCriteria(Kegiatan.class)
+								.add(Restrictions.eq("kodeunik", kodeunikRetry)).setMaxResults(1)
+								.addOrder(Order.asc("id")).uniqueResult();
+						if (kegiatanSudahAda != null) {
+							kegiatan = kegiatanSudahAda;
+						} else {
+							Common.tampilErrorJikaAdmin(e);
+							ais.common.ErrorAuditUtil.record(e,
+									"checkKegiatanMahasiswa: gagal simpan Kegiatan baru untuk mahasiswa="
+											+ (mahasiswa == null ? "null" : mahasiswa.getId()));
+						}
+					} catch (Exception eRetry) {
+						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(eRetry,
+								"checkKegiatanMahasiswa: gagal ambil ulang Kegiatan setelah constraint violation");
+					}
 				}
 
 			} else if (kegiatan != null && hitungUlang) {

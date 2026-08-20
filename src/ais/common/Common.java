@@ -422,33 +422,30 @@ public class Common {
 	 * perlu mengulang clear/disconnect/close.
 	 */
 	public static void closeOpenedSession(Session session) {
+		if (session == null) {
+			return;
+		}
 		try {
-			// FIX (ERROR org.hibernate.SessionException: "Session is closed!" /
-			// "Session was already closed"): pemanggil kadang memanggil method ini dua
-			// kali untuk session yang sama (mis. jalur onSave() yang sudah menutup
-			// sendiri lalu dilanjut handler SOP di atasnya yang menutup lagi). clear()/
-			// disconnect()/close() pada session yang sudah closed melempar exception baru
-			// -- cek isOpen() dulu (sama seperti closeNativeSessionQuietly) supaya
-			// pemanggilan kedua benar-benar no-op, bukan cuma diredam oleh catch di bawah.
-			if (session != null && session.isOpen()) {
-				try {
-					session.clear();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:428");
-				}
-				try {
-					session.disconnect();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:432");
-				}
-				try {
-					session.close();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:436");
-				}
+			if (!session.isOpen()) {
+				return;
 			}
-		} finally {
-			try {
-				HibernateUtil.closeSession();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:442");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(session status gagal dibaca) src/ais/common/Common.java:closeOpenedSession");
+			return;
+		}
+		try {
+			session.clear();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:428");
+		}
+		try {
+			session.disconnect();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:432");
+		}
+		try {
+			if (session.isOpen()) {
+				session.close();
 			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:436");
 		}
 	}
 
