@@ -13450,6 +13450,9 @@ public class KantinHelper {
 			header.put("nomorFaktur", f.getNomorFaktur());
 			header.put("tanggalFaktur", Common.dateFormatInput.get().format(f.getTanggalFaktur()));
 			header.put("namaSupplier", f.getSupplier() == null ? "" : f.getSupplier().getNama());
+			// supplierId dipakai tombol "Edit" di layar Kulakan utk mengisi ulang picker supplier
+			// pada form entri; tanpa ini supplier faktur lama tidak dapat dipulihkan saat dikoreksi.
+			header.put("supplierId", f.getSupplier() == null ? JSONObject.NULL : f.getSupplier().getId());
 			header.put("totalFakturManual", f.getTotalFakturManual() == null ? JSONObject.NULL : f.getTotalFakturManual());
 			header.put("totalHitung", f.getTotalHitungSaatSimpan());
 			header.put("diskon", f.getDiskon());
@@ -13465,6 +13468,7 @@ public class KantinHelper {
 				j.put("id", pg.getId());
 				j.put("produkId", pg.getProduk().getId());
 				j.put("namaProduk", pg.getProduk().getNama());
+				j.put("kodeProduk", pg.getProduk().getKode() == null ? "" : pg.getProduk().getKode());
 				j.put("qty", pg.getQty());
 				j.put("hargaBeliSatuan", pg.getHargaBeliSatuan());
 				j.put("totalHarga", pg.getTotalHarga());
