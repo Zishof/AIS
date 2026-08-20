@@ -114,6 +114,16 @@ public class Pustaka extends HttpServlet {
 		if ("getFoto".equals(request.getParameter("action"))) {
 			String anggotaIdStr = request.getParameter("anggotaId");
 			boolean fotoBerhasilDiStream = false;
+			Tbmuser currentUser = Common.getCurrentUser(request);
+			Long requestedMemberId = null;
+			try { requestedMemberId = Long.valueOf(anggotaIdStr == null ? "" : anggotaIdStr.trim()); } catch (Exception ignored) { }
+			Anggota ownMember = currentUser == null ? null : Anggota.buatAtauAmbilAnggota(currentUser, false);
+			boolean mayReadPhoto = currentUser != null && requestedMemberId != null
+					&& (Common.getApakahAdmin() || (ownMember != null && requestedMemberId.equals(ownMember.getId())));
+			if (!mayReadPhoto) {
+				response.sendError(currentUser == null ? HttpServletResponse.SC_UNAUTHORIZED : HttpServletResponse.SC_FORBIDDEN);
+				return;
+			}
 
 			if (anggotaIdStr != null && !anggotaIdStr.trim().isEmpty()) {
 				try {
@@ -207,7 +217,7 @@ public class Pustaka extends HttpServlet {
 
 			// Fallback: Jika ID tidak ada atau foto fisik tidak ditemukan, alihkan ke layanan avatar
 			if (!fotoBerhasilDiStream) {
-				response.sendRedirect("https://ui-avatars.com/api/?name=User&background=random");
+				response.sendRedirect(Common.ROOT + "/img/user_default.png");
 				return;
 			}
 		}

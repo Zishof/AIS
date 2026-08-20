@@ -1137,6 +1137,11 @@
 		<servlet-class>ais.action.servlet.AmbilLampiranItem</servlet-class>
 	</servlet>
 	<servlet>
+		<display-name>LibraryItemCover</display-name>
+		<servlet-name>LibraryItemCover</servlet-name>
+		<servlet-class>ais.action.servlet.LibraryItemCover</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>AmbilLampiranLain</display-name>
@@ -1694,6 +1699,10 @@
 	<servlet-mapping>
 		<servlet-name>AmbilLampiranItem</servlet-name>
 		<url-pattern>/AmbilLampiranItem</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>LibraryItemCover</servlet-name>
+		<url-pattern>/library/item-cover</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>AmbilLampiranInformasiPerpustakaan</servlet-name>

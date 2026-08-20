@@ -91,6 +91,7 @@ import ais.database.model.library.KunjunganAnggota;
 import ais.database.model.library.PeminjamanPengadaanItem;
 import ais.database.model.library.PeminjamanPengadaanItemDetail;
 import ais.database.model.library.Perpustakaan;
+import ais.database.model.library.PesananAnggota;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.delivery.email.sender.MailSender;
@@ -202,6 +203,7 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 	private MyTextbox kode;
 	private AmbilDataAnggotaBanbox anggota;
 	private MyTextbox keterangan;
+	private MyCheckboxConfig overrideKebijakan;
 	private MyDatebox tanggalPembuatan;
 	private Combobox perpustakaan;
 
@@ -835,11 +837,11 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 				.createCriteria(PeminjamanPengadaanItemDetail.class)
 				.add(Restrictions.eq("peminjamanPengadaanItem", peminjamanPengadaanItem)).list();
 
-		session.createSQLQuery(
-				"delete from library.detail_transaksi where peminjaman_pengadaan_item_detail in (select id from library.peminjaman_pengadaan_item_detail where peminjaman_pengadaan_item = "
-						+ peminjamanPengadaanItem.getId() + ");")
-				.executeUpdate();
 		for (PeminjamanPengadaanItemDetail peminjamanPengadaanItemDetail : peminjamanPengadaanItemDetails) {
+			Number alreadyPosted = (Number) session.createCriteria(DetailTransaksi.class)
+					.add(Restrictions.eq("peminjamanPengadaanItemDetail", peminjamanPengadaanItemDetail))
+					.setProjection(Projections.rowCount()).uniqueResult();
+			if (alreadyPosted.longValue() > 0L) continue;
 			DetailTransaksi detailTransaksi = new DetailTransaksi();
 			detailTransaksi.setAnggota(peminjamanPengadaanItem.getAnggota());
 			detailTransaksi.setPeminjamanPengadaanItemDetail(peminjamanPengadaanItemDetail);
@@ -1180,49 +1182,14 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 			});
 			rubah.setParent(toolbar);
 
-			hapus.setTooltiptext("Hapus Data");
-			hapus.setVisible(delete);
+			hapus.setTooltiptext("Transaksi peminjaman yang sudah tercatat tidak dapat dihapus");
+			hapus.setVisible(false);
 			hapus.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
-					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
-							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
-							new EventListener() {
-
-								@SuppressWarnings("unchecked")
-								@Override
-								public void onEvent(Event event) throws Exception {
-									int i = Integer.parseInt(event.getData().toString());
-									if (i == MyMessageboxConfig.OK) {
-										try {
-
-											PeminjamanPengadaanItemDao peminjamanPengadaanItemDao = DaoFactory
-													.getInstance().getPeminjamanPengadaanItemDao();
-
-											Session session = peminjamanPengadaanItemDao.getCurrentSession();
-											List<PeminjamanPengadaanItemDetail> peminjamanPengadaanItemDetails = session
-													.createCriteria(PeminjamanPengadaanItemDetail.class)
-													.add(Restrictions.eq("peminjamanPengadaanItem",
-															peminjamanPengadaanItem))
-													.list();
-											for (PeminjamanPengadaanItemDetail peminjamanPengadaanItemDetail : peminjamanPengadaanItemDetails) {
-												session.delete(peminjamanPengadaanItemDetail);
-											}
-
-											Common.refreshDelete(peminjamanPengadaanItem);
-
-											onSearchDefault(event);
-										} catch (Exception e) {
-											Common.tampilErrorJikaAdmin(e);
-											MyMessageboxConfig.show(
-													"Data ini tidak dapat dihapus .., karena berelasi dengan data lainnya, error-nya adalah sbagai berikut:"
-															+ e.getMessage());
-										}
-
-									}
-
-								}
-							});
+					MyMessageboxConfig.show(
+							"Transaksi peminjaman yang sudah dicatat tidak boleh dihapus. Gunakan proses pengembalian/reversal agar histori audit tetap utuh.",
+							"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 
 				}
 			});
@@ -1475,6 +1442,13 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.setVisible(Common.getApakahAdmin());
+		row.appendChild(new ais.ui.util.MyLabelConfig("Override Kebijakan"));
+		row.appendChild(overrideKebijakan = new MyCheckboxConfig(
+				"Izinkan override (alasan minimal 10 karakter wajib di Keterangan)"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Informasi"));
 		row.appendChild(informasi = new Vbox());
 		informasi.setWidth("90%");
@@ -1588,7 +1562,8 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 				.getJumlahMaksimalPeminjaman();
 		System.out.println("jumlahmaksimal = " + jumlahmaksimal);
 		if (jumlahmaksimal != null
-				&& jumlahmaksimal.intValue() < (jumlahPeminjamanPengadaanItemDetails + rowsItem.size())) {
+				&& jumlahmaksimal.intValue() < (jumlahPeminjamanPengadaanItemDetails + rowsItem.size())
+				&& !catatOverride("BATAS_JUMLAH_PINJAMAN")) {
 			MyMessageboxConfig.show(
 					"Jumlah maksimal item yang boleh dipinjam adalah " + jumlahmaksimal
 							+ " buah.\nItem yang telah dipinjam : " + jumlahPeminjamanPengadaanItemDetails
@@ -1617,7 +1592,7 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 				.add(Restrictions.or(Restrictions.isNull("sampai"),
 						Restrictions.ge("sampai", ais.ui.util.WaktuUtil.getDate())))
 				.setMaxResults(1).uniqueResult();
-		if (anggotaYangDiblokir != null) {
+		if (anggotaYangDiblokir != null && !catatOverride("ANGGOTA_DIBLOKIR")) {
 			MyMessageboxConfig.show(
 					"Kode Anggota \"" + searchkodeangota.getValue().trim() + "\" dan nama \""
 							+ anggotaYangDiblokir.getAnggota().getNama() + "\" sedang diblokir mulai "
@@ -1672,11 +1647,40 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 			PeminjamanPengadaanItemDetail peminjamanPengadaanItemDetail = (PeminjamanPengadaanItemDetail) row
 					.getAttribute("peminjamanPengadaanItemDetail");
 			peminjamanPengadaanItemDetail.setPeminjamanPengadaanItem(peminjamanPengadaanItem);
+
+			// Pickup reservasi dilakukan di transaksi peminjaman yang sama. Antrean milik
+			// anggota lain tidak pernah disentuh; reservasi kedaluwarsa juga tidak dipakai.
+			PesananAnggota reservasi = (PesananAnggota) session.createCriteria(PesananAnggota.class)
+					.add(Restrictions.eq("anggota", peminjamanPengadaanItem.getAnggota()))
+					.add(Restrictions.eq("item", peminjamanPengadaanItemDetail.getItem()))
+					.add(Restrictions.eq("perpustakaan", peminjamanPengadaanItem.getPerpustakaan()))
+					.add(Restrictions.eq("status", PesananAnggota.PESAN))
+					.add(Restrictions.ge("kadaluarsa", ais.ui.util.WaktuUtil.getDate()))
+					.addOrder(Order.asc("tanggal")).setMaxResults(1).uniqueResult();
+			if (reservasi != null) {
+				reservasi.setStatus(PesananAnggota.PINJAM);
+				reservasi.setKeterangan("Diambil pada transaksi " + peminjamanPengadaanItem.getKode());
+				peminjamanPengadaanItemDetail.setPesananAnggota(reservasi);
+				session.update(reservasi);
+			}
 			session.saveOrUpdate(peminjamanPengadaanItemDetail);
 		}
 
 		System.out.println("mulai selesai -->");
 
+		return true;
+	}
+
+	/** Override hanya untuk administrator, selalu dengan alasan dan jejak Envers pada transaksi. */
+	private boolean catatOverride(String policy) {
+		if (!Common.getApakahAdmin() || overrideKebijakan == null || !overrideKebijakan.isChecked()) return false;
+		String reason = keterangan == null || keterangan.getValue() == null ? "" : keterangan.getValue().trim();
+		if (reason.length() < 10) return false;
+		Tbmuser user = Common.getCurrentUser();
+		String actor = user == null ? "unknown" : user.getUserId() + "/" + user.getUserNama();
+		String marker = "[OVERRIDE " + policy + " oleh " + actor + " pada "
+				+ Common.dateFormat51.get().format(ais.ui.util.WaktuUtil.getDate()) + "] ";
+		if (reason.indexOf("[OVERRIDE " + policy) < 0) keterangan.setValue(marker + reason);
 		return true;
 	}
 

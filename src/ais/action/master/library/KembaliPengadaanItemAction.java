@@ -359,10 +359,6 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 						.createCriteria(KembaliPengadaanItemDetail.class)
 						.add(Restrictions.eq("kembaliPengadaanItem", kembaliPengadaanItem)).list();
 
-				session.createSQLQuery(
-						"delete from library.detail_transaksi where kembali_pengadaan_item_detail in (select id from library.kembali_pengadaan_item_detail where kembali_pengadaan_item = "
-								+ kembaliPengadaanItem.getId() + ");")
-						.executeUpdate();
 				for (KembaliPengadaanItemDetail kembaliPengadaanItemDetail : kembaliPengadaanItemDetails) {
 
 					if (kembaliPengadaanItemDetail.getPeminjamanPengadaanItemDetail() != null
@@ -375,6 +371,16 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 						pesananAnggota.setStatus(PesananAnggota.DIKEMBALIKAN);
 						Common.refreshUpdate(session, pesananAnggota);
 					}
+
+					String conditionNote = kembaliPengadaanItemDetail.getKeterangan() == null ? ""
+							: kembaliPengadaanItemDetail.getKeterangan();
+					boolean unavailable = conditionNote.startsWith("[KONDISI=HILANG]")
+							|| conditionNote.startsWith("[KONDISI=RUSAK]")
+							|| conditionNote.startsWith("[KONDISI=PERBAIKAN]");
+					Number alreadyPosted = (Number) session.createCriteria(DetailTransaksi.class)
+							.add(Restrictions.eq("kembaliPengadaanItemDetail", kembaliPengadaanItemDetail))
+							.setProjection(Projections.rowCount()).uniqueResult();
+					if (unavailable || alreadyPosted.longValue() > 0L) continue;
 
 					DetailTransaksi detailTransaksi = new DetailTransaksi();
 					detailTransaksi.setAnggota(kembaliPengadaanItem.getPeminjamanPengadaanItem().getAnggota());
@@ -495,7 +501,7 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 			});
 			rubah.setParent(toolbar);
 
-			hapus.setTooltiptext("Hapus Data");
+			hapus.setTooltiptext("Batalkan transaksi dengan jejak audit");
 			hapus.setVisible(delete);
 			hapus.addEventListener("onClick", new EventListener() {
 				@Override
@@ -519,11 +525,23 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 													.createCriteria(KembaliPengadaanItemDetail.class)
 													.add(Restrictions.eq("kembaliPengadaanItem", kembaliPengadaanItem))
 													.list();
-											for (KembaliPengadaanItemDetail kembaliPengadaanItemDetail : kembaliPengadaanItemDetails) {
-												session.delete(kembaliPengadaanItemDetail);
+											for (KembaliPengadaanItemDetail detail : kembaliPengadaanItemDetails) {
+												PeminjamanPengadaanItemDetail loan = detail.getPeminjamanPengadaanItemDetail();
+												if (loan != null) {
+													loan.setKembaliPengadaanItemDetail(null);
+													loan.setTanggalKembali(null);
+													Common.refreshSaveOrUpdate(session, loan);
+												}
+												detail.setDikembali(0.0);
+												detail.setDenda(0.0);
+												detail.setKeterangan("[REVERSAL TRANSAKSI]");
+												Common.refreshSaveOrUpdate(session, detail);
 											}
-
-											Common.refreshDelete(kembaliPengadaanItem);
+											kembaliPengadaanItem.setKeterangan("[DIBATALKAN/REVERSAL oleh "
+													+ (Common.getCurrentUser() == null ? "unknown" : Common.getCurrentUser().getUserId())
+													+ " pada " + Common.dateFormat51.get().format(ais.ui.util.WaktuUtil.getDate()) + "] "
+													+ (kembaliPengadaanItem.getKeterangan() == null ? "" : kembaliPengadaanItem.getKeterangan()));
+											Common.refreshUpdate(session, kembaliPengadaanItem);
 
 											onSearchDefault(event);
 										} catch (Exception e) {
@@ -1037,6 +1055,19 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 						MyMessageboxConfig.EXCLAMATION);
 				return false;
 			}
+			Combobox kondisi = (Combobox) row.getAttribute("kondisi");
+			MyTextbox catatan = (MyTextbox) row.getAttribute("keteranganKondisi");
+			String condition = kondisi == null || kondisi.getSelectedItem() == null ? "BAIK"
+					: String.valueOf(kondisi.getSelectedItem().getValue());
+			String note = catatan == null || catatan.getValue() == null ? "" : catatan.getValue().trim();
+			if (("HILANG".equals(condition) || "RUSAK".equals(condition) || "PERBAIKAN".equals(condition))
+					&& note.length() < 10) {
+				MyMessageboxConfig.show("Kondisi " + condition
+						+ " memerlukan catatan kerusakan/kehilangan minimal 10 karakter.", "Peringatan",
+						MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+			kembaliPengadaanItemDetail.setKeterangan("[KONDISI=" + condition + "] " + note);
 		}
 
 		KembaliPengadaanItemDao kembaliPengadaanItemDao = DaoFactory.getInstance().getKembaliPengadaanItemDao();
@@ -1103,13 +1134,24 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 
 							Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
 							denda = denda * peminjamanPengadaanItemDetail.getJumlah();
+							MyDoublebox biayaPenggantian = (MyDoublebox) row.getAttribute("biayaPenggantian");
+							Double replacement = biayaPenggantian == null || biayaPenggantian.getValue() == null
+									? 0.0 : biayaPenggantian.getValue();
+							denda += replacement;
 							kembaliPengadaanItemDetail.setDenda(denda);
+							kembaliPengadaanItemDetail.setKetDenda("[BIAYA_PENGGANTIAN=" + replacement + "]");
 
 							MyCheckboxConfig telahDibayar = (MyCheckboxConfig) row.getAttribute("telahDibayar");
 							MyDoublebox dibayarSejumlah = (MyDoublebox) row.getAttribute("dibayarSejumlah");
 
 							kembaliPengadaanItemDetail.setTelahDibayar(telahDibayar.isChecked());
 							kembaliPengadaanItemDetail.setDibayarSejumlah(dibayarSejumlah.getValue());
+							Combobox kondisi = (Combobox) row.getAttribute("kondisi");
+							MyTextbox catatan = (MyTextbox) row.getAttribute("keteranganKondisi");
+							String condition = kondisi == null || kondisi.getSelectedItem() == null ? "BAIK"
+									: String.valueOf(kondisi.getSelectedItem().getValue());
+							String note = catatan == null || catatan.getValue() == null ? "" : catatan.getValue().trim();
+							kembaliPengadaanItemDetail.setKeterangan("[KONDISI=" + condition + "] " + note);
 
 							Common.refreshSaveOrUpdate(session, kembaliPengadaanItemDetail);
 
@@ -1118,10 +1160,23 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 
 							// }
 						} else if (kembaliPengadaanItemDetail.getId() != null) {
-							// session.refresh(kembaliPengadaanItemDetail);
-							// session.delete(kembaliPengadaanItemDetail);
-							session.createSQLQuery("delete from library.kembali_pengadaan_item_detail where id = "
-									+ kembaliPengadaanItemDetail.getId()).executeUpdate();
+							// Transaksi yang sudah tercatat tidak dihapus. Lepaskan kaitan pinjaman lalu
+							// simpan reversal agar Envers dan laporan audit tetap dapat menelusurinya.
+							PeminjamanPengadaanItemDetail loan = kembaliPengadaanItemDetail
+									.getPeminjamanPengadaanItemDetail();
+							if (loan != null) {
+								loan.setKembaliPengadaanItemDetail(null);
+								loan.setTanggalKembali(null);
+								Common.refreshSaveOrUpdate(session, loan);
+							}
+							kembaliPengadaanItemDetail.setDikembali(0.0);
+							kembaliPengadaanItemDetail.setDenda(0.0);
+							kembaliPengadaanItemDetail.setTelahDibayar(false);
+							kembaliPengadaanItemDetail.setDibayarSejumlah(0.0);
+							kembaliPengadaanItemDetail.setKeterangan("[REVERSAL oleh "
+									+ (Common.getCurrentUser() == null ? "unknown" : Common.getCurrentUser().getUserId())
+									+ " pada " + Common.dateFormat51.get().format(ais.ui.util.WaktuUtil.getDate()) + "]");
+							Common.refreshSaveOrUpdate(session, kembaliPengadaanItemDetail);
 						}
 					} catch (Exception e) {
 						Common.tampilErrorJikaAdmin(e);
@@ -1134,8 +1189,9 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 				// session.refresh(peminjamanPengadaanItem);
 				// peminjamanPengadaanItem.setDendaKeterlambatanPerItem(denda);
 				// session.update(peminjamanPengadaanItem);
-				session.createSQLQuery("update library.peminjaman_pengadaan_item set dendaketerlambatanperitem=" + denda
-						+ " where id=" + peminjamanPengadaanItem.getId()).executeUpdate();
+				session.createSQLQuery("update library.peminjaman_pengadaan_item set dendaketerlambatanperitem=:denda where id=:id")
+						.setDouble("denda", denda == null ? 0.0 : denda.doubleValue())
+						.setLong("id", peminjamanPengadaanItem.getId().longValue()).executeUpdate();
 
 				setujui(KembaliPengadaanItemAction.this.kembaliPengadaanItem);
 

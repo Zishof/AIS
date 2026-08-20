@@ -11,6 +11,8 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Comboitem;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Image;
 import org.zkoss.zul.Label;
@@ -229,12 +231,13 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 					Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
 					denda = denda * peminjamanPengadaanItemDetail.getJumlah();
+					denda += replacementCharge(kembaliPengadaanItemDetail.getKetDenda());
 
 					if (denda.intValue() != kembaliPengadaanItemDetail.getDenda().intValue()) {
 						Session session = HibernateUtil.currentNativeSession();
 						kembaliPengadaanItemDetail.setDenda(denda);
 						session.getTransaction().begin();
-						session.update(kembaliPengadaanItemDetail.getDenda());
+						session.update(kembaliPengadaanItemDetail);
 						session.getTransaction().commit();
 						// session.disconnect();
 						if (session.isOpen()) {
@@ -369,6 +372,11 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 					Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
 					denda = denda * peminjamanPengadaanItemDetail.getJumlah();
+					Object chargeField = row.getAttribute("biayaPenggantian");
+					if (chargeField instanceof ais.ui.util.MyDoublebox
+							&& ((ais.ui.util.MyDoublebox) chargeField).getValue() != null) {
+						denda += ((ais.ui.util.MyDoublebox) chargeField).getValue();
+					}
 					dibayarSejumlah.setValue(denda);
 				} else {
 					dibayarSejumlah.setValue(0.0);
@@ -376,25 +384,68 @@ public class KembaliPengadaanItemPunyaItemHelper {
 			}
 		});
 
-		final MyTextbox keterangan = new MyTextbox(
-				kembaliPengadaanItemDetail.getKeterangan() == null ? "" : kembaliPengadaanItemDetail.getKeterangan());
+		final String existingNote = kembaliPengadaanItemDetail.getKeterangan() == null ? ""
+				: kembaliPengadaanItemDetail.getKeterangan();
+		final Combobox kondisi = new Combobox();
+		kondisi.setReadonly(true);
+		kondisi.setWidth("90%");
+		kondisi.setDisabled(kembaliPengadaanItemDetail.getKembaliPengadaanItem().getDisetujuiOleh() != null || !edit);
+		String[] kondisiValues = new String[] { "BAIK", "RUSAK", "HILANG", "PERBAIKAN" };
+		for (String value : kondisiValues) {
+			Comboitem option = new Comboitem(value.substring(0, 1) + value.substring(1).toLowerCase());
+			option.setValue(value); option.setParent(kondisi);
+		}
+		String initialCondition = existingNote.startsWith("[KONDISI=RUSAK]") ? "RUSAK"
+				: existingNote.startsWith("[KONDISI=HILANG]") ? "HILANG"
+						: existingNote.startsWith("[KONDISI=PERBAIKAN]") ? "PERBAIKAN" : "BAIK";
+		for (Object child : kondisi.getItems()) {
+			Comboitem option = (Comboitem) child;
+			if (initialCondition.equals(option.getValue())) { kondisi.setSelectedItem(option); break; }
+		}
+		kondisi.setParent(vbox);
+		new MyLabelKecil("Biaya penggantian/kerusakan").setParent(vbox);
+		final ais.ui.util.MyDoublebox biayaPenggantian = new ais.ui.util.MyDoublebox(
+				replacementCharge(kembaliPengadaanItemDetail.getKetDenda()));
+		biayaPenggantian.setWidth("90%");
+		biayaPenggantian.setDisabled(kembaliPengadaanItemDetail.getKembaliPengadaanItem().getDisetujuiOleh() != null || !edit);
+		biayaPenggantian.setParent(vbox);
+		final MyTextbox keterangan = new MyTextbox(existingNote.replaceFirst("^\\[KONDISI=[A-Z]+\\]\\s*", ""));
 		keterangan.setWidth("90%");
-		keterangan.setHeight("95%");
 		keterangan.setRows(3);
-		keterangan.setParent(row);
+		keterangan.setParent(vbox);
+		row.setAttribute("kondisi", kondisi);
+		row.setAttribute("biayaPenggantian", biayaPenggantian);
+		row.setAttribute("keteranganKondisi", keterangan);
 		keterangan
 				.setDisabled(kembaliPengadaanItemDetail.getKembaliPengadaanItem().getDisetujuiOleh() != null || !edit);
 		keterangan.addEventListener(Events.ON_CHANGE, new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				kembaliPengadaanItemDetail.setKeterangan(keterangan.getValue());
+				String value = kondisi.getSelectedItem() == null ? "BAIK"
+						: String.valueOf(kondisi.getSelectedItem().getValue());
+				kembaliPengadaanItemDetail.setKeterangan("[KONDISI=" + value + "] " + keterangan.getValue());
 
 				row.setValign("top");
 				row.setAttribute("kembaliPengadaanItemDetail", kembaliPengadaanItemDetail);
 				if (kembaliPengadaanItemDetail.getId() != null) {
 					Common.refreshUpdate(kembaliPengadaanItemDetail);
 				}
+			}
+		});
+		kondisi.addEventListener(Events.ON_CHANGE, new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				String value = kondisi.getSelectedItem() == null ? "BAIK"
+						: String.valueOf(kondisi.getSelectedItem().getValue());
+				kembaliPengadaanItemDetail.setKeterangan("[KONDISI=" + value + "] " + keterangan.getValue());
+				row.setAttribute("kembaliPengadaanItemDetail", kembaliPengadaanItemDetail);
+			}
+		});
+		biayaPenggantian.addEventListener(Events.ON_CHANGE, new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				Double amount = biayaPenggantian.getValue() == null ? 0.0 : biayaPenggantian.getValue();
+				kembaliPengadaanItemDetail.setKetDenda("[BIAYA_PENGGANTIAN=" + amount + "]");
+				row.setAttribute("kembaliPengadaanItemDetail", kembaliPengadaanItemDetail);
 			}
 		});
 
@@ -424,6 +475,8 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 				Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
 				denda = denda * peminjamanPengadaanItemDetail.getJumlah();
+				Double replacement = biayaPenggantian.getValue() == null ? 0.0 : biayaPenggantian.getValue();
+				denda += replacement;
 
 				if (dendaPerItem != null && !dendaPerItem.getKeterangan().isEmpty()) {
 					textDenda.setValue(dendaPerItem.getKeterangan());
@@ -438,6 +491,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 				}
 
 				kembaliPengadaanItemDetail.setDenda(denda);
+				kembaliPengadaanItemDetail.setKetDenda("[BIAYA_PENGGANTIAN=" + replacement + "]");
 				kembaliPengadaanItemDetail.setPeminjamanPengadaanItemDetail(peminjamanPengadaanItemDetail);
 				kembaliPengadaanItemDetail.setTelahDibayar(telahDibayar.isChecked());
 				kembaliPengadaanItemDetail.setDibayarSejumlah(dibayarSejumlah.getValue());
@@ -466,10 +520,14 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				tanggal.setDisabled(!checkbox.isChecked());
-				keterangan.setDisabled(!checkbox.isChecked());
-				telahDibayar.setDisabled(!checkbox.isChecked());
-				dibayarSejumlah.setDisabled(!checkbox.isChecked());
+				boolean locked = !checkbox.isChecked()
+						|| kembaliPengadaanItemDetail.getKembaliPengadaanItem().getDisetujuiOleh() != null || !edit;
+				tanggal.setDisabled(locked);
+				keterangan.setDisabled(locked);
+				kondisi.setDisabled(locked);
+				biayaPenggantian.setDisabled(locked);
+				telahDibayar.setDisabled(locked);
+				dibayarSejumlah.setDisabled(locked);
 
 				tanggalEventListener.onEvent(arg0);
 			}
@@ -526,9 +584,9 @@ public class KembaliPengadaanItemPunyaItemHelper {
 				.getJumlahMaxPerpanjangan() > (peminjamanPengadaanItemDetail.getJumlahPerpanjangan()));
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Batalkan", "/img/svg/trash.svg");
-		button.setTooltiptext("Hapus Data");
+		button.setTooltiptext("Gunakan reversal transaksi; detail terposting tidak dapat dihapus");
 		button.setOrient("vertical");
-		button.setVisible(delete && checkbox.isDisabled());
+		button.setVisible(false);
 		aksiButtons.add(button);
 
 		button.addEventListener("onClick", new EventListener() {
@@ -536,32 +594,9 @@ public class KembaliPengadaanItemPunyaItemHelper {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
-				MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
-						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
-						new EventListener() {
-
-							@Override
-							public void onEvent(Event event) throws Exception {
-								int i = Integer.parseInt(event.getData().toString());
-								if (i == MyMessageboxConfig.OK) {
-									if (kembaliPengadaanItemDetail.getId() != null) {
-										Session session = HibernateUtil.currentSession();
-										session.delete(kembaliPengadaanItemDetail);
-									}
-
-									Common.createDefaultTimer(new EventListener() {
-
-										@Override
-										public void onEvent(Event arg0) throws Exception {
-											Common.clear(gridItem.getRows());
-											loadDataDetail(kembaliPengadaanItem, false);
-											loadDataDetailFromPeminjaman();
-										}
-									});
-								}
-
-							}
-						});
+				MyMessageboxConfig.show(
+						"Detail pengembalian terposting tidak boleh dihapus. Batalkan transaksi dari layar pengembalian agar reversal dan audit tercatat.",
+						"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 
 			}
 		});
@@ -751,6 +786,17 @@ public class KembaliPengadaanItemPunyaItemHelper {
 				}
 			}
 		});
+	}
+
+	private static Double replacementCharge(String value) {
+		if (value == null) return 0.0;
+		try {
+			java.util.regex.Matcher matcher = java.util.regex.Pattern
+					.compile("\\[BIAYA_PENGGANTIAN=([0-9]+(?:\\.[0-9]+)?)\\]").matcher(value);
+			return matcher.find() ? Double.valueOf(matcher.group(1)) : 0.0;
+		} catch (Exception ignored) {
+			return 0.0;
+		}
 	}
 
 }

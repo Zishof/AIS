@@ -34,7 +34,7 @@
     // Persiapan variabel data dengan validasi Null (Fallback ke strip "-")
     String coverImg = (item.getImageUrl() != null && item.getImageUrl().trim().startsWith("http")) 
         ? item.getImageUrl() 
-        : Common.getRequestHostWithProtocol() + "/AmbilMedia?id=" + item.getId() + "&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=400&width=300";
+        : Common.getRequestHostWithProtocol() + "/library/item-cover?id=" + item.getId();
     
     String judul = item.getTitle() != null && !item.getTitle().trim().isEmpty() ? item.getTitle() : Common.getBahasaConfig("Tanpa Judul");
     String pengarang = item.getAuthors() != null && !item.getAuthors().trim().isEmpty() ? item.getAuthors() : "-";
@@ -139,7 +139,7 @@
                     
                     <div class="col-md-5 col-lg-4 text-center">
                         <div class="p-3 rounded-4 shadow-sm mb-4 border" style="background-color: #ffffff;">
-                            <img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.src='https://via.placeholder.com/300x420?text=No+Cover'">
+                            <img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.onerror=null;this.src='<%=Common.ROOT%>/img/book.jpg'">
                         </div>
                         
                         <% if (urlLampiran != null && !urlLampiran.trim().isEmpty()) { %>

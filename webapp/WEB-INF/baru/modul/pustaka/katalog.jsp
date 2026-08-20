@@ -164,7 +164,7 @@ String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requ
     if (item.imageUrl && /^https?:\/\//i.test(item.imageUrl)) {
       return '<div class="library-cover"><img loading="lazy" src="' + LibraryModern.escapeHtml(item.imageUrl) + '" alt="" onerror="this.parentNode.innerHTML=\'KOLEKSI\'"></div>';
     }
-    var media = root + '/AmbilMedia?id=' + encodeURIComponent(item.id || '') + '&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=232&width=172';
+    var media = root + '/library/item-cover?id=' + encodeURIComponent(item.id || '');
     return '<div class="library-cover"><img loading="lazy" src="' + media + '" alt="" onerror="this.parentNode.textContent=\'KOLEKSI\'"></div>';
   }
   function renderItems(items) {

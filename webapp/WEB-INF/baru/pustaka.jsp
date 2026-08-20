@@ -20,9 +20,9 @@ if(hanya_tampil_jsp){
     if(!p.trim().isEmpty() && !s.trim().isEmpty()){
         try{
             java.util.Set<String> pustakaPages = new java.util.HashSet<String>(java.util.Arrays.asList(
-                "katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota",
+                "katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "integrasi",
                 "_informasi_pustaka", "_item_rinci", "_catalog_api", "_beranda_anggota_service",
-                "_login_pustaka_service", "_welpus_service", "_workspace_api"));
+                "_login_pustaka_service", "_welpus_service", "_workspace_api", "_integrations_api", "_oai"));
             if ("pustaka".equals(p) && !pustakaPages.contains(s)) {
                 response.sendError(404);
                 return;
@@ -31,6 +31,8 @@ if(hanya_tampil_jsp){
                 response.sendError(400);
                 return;
             }
+            if ("_oai".equals(s)) response.setContentType("text/xml; charset=UTF-8");
+            else if (s.endsWith("_api") || s.endsWith("_service")) response.setContentType("application/json; charset=UTF-8");
             String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
             %>
             <jsp:include page="<%=pg %>"></jsp:include>

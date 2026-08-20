@@ -184,7 +184,9 @@
                                     <% if(tbmrole != null && tbmrole.getPustaka()) { %>
                                         <h6 class="mega-menu-header mt-3"><%=Common.getBahasaConfig("Pustaka") %></h6>
                                         <% 
-                                           String[] subPus = {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "dashboard", "beranda_anggota"};
+                                           String[] subPus = Common.getApakahAdmin()
+                                               ? new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "integrasi"}
+                                               : new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota"};
                                            for(String sub : subPus) {
                                                String[] kataKata = sub.split("_");
                                                StringBuilder hasilAkhir = new StringBuilder();

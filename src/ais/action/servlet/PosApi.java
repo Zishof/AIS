@@ -24,6 +24,7 @@ import org.hibernate.criterion.Restrictions;
 
 import ais.action.master.inventory.PriceTagUtil;
 import ais.action.servlet.api.KantinHelper;
+import ais.action.servlet.api.SatuanKerjaKantinHelper;
 import ais.action.servlet.api.PosDeviceAuthApi;
 import ais.action.servlet.api.PosDemoProvisionHelper;
 import ais.common.Common;
@@ -320,6 +321,21 @@ public class PosApi extends HttpServlet {
 			} else if ("produk_isi_pemasok_dari_kulakan".equals(action)) {
 				KantinHelper.produkIsiPemasokDariKulakan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "produk_isi_pemasok_dari_kulakan");
+			} else if ("satuan_kerja_list".equals(action)) {
+				SatuanKerjaKantinHelper.satuanKerjaList(tbmuser, request, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "satuan_kerja_list");
+			} else if ("satuan_kerja_simpan".equals(action)) {
+				SatuanKerjaKantinHelper.satuanKerjaSimpan(tbmuser, request, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "satuan_kerja_simpan");
+			} else if ("satuan_kerja_hapus".equals(action)) {
+				SatuanKerjaKantinHelper.satuanKerjaHapus(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "satuan_kerja_hapus");
+			} else if ("satuan_kerja_anggota_list".equals(action)) {
+				SatuanKerjaKantinHelper.satuanKerjaAnggotaList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "satuan_kerja_anggota_list");
+			} else if ("satuan_kerja_anggota_simpan".equals(action)) {
+				SatuanKerjaKantinHelper.satuanKerjaAnggotaSimpan(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "satuan_kerja_anggota_simpan");
 			} else if ("laporan_rincian_transaksi".equals(action)) {
 				prosesLaporanRincianTransaksi(tbmuser, payload, hasil);
 			} else if ("hak_akses_list".equals(action)) {
