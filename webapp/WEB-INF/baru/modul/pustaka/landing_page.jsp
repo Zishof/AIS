@@ -10,6 +10,7 @@
 
 <head>
     <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821b">
+    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821b"></script>
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
@@ -55,6 +56,8 @@ const loadPageContent<%=rnd%> = async (url) => {
         if (response.ok) {
             container.innerHTML = await response.text();
             
+            // Script di dalam HTML hasil fetch tidak dijalankan oleh browser. Jalankan
+            // secara berurutan agar script inline tidak mendahului dependensinya.
             const scriptsArray = Array.from(container.getElementsByTagName('script'));
             for (let i = 0; i < scriptsArray.length; i++) {
                 const oldScript = scriptsArray[i];
@@ -62,9 +65,19 @@ const loadPageContent<%=rnd%> = async (url) => {
                 var srcEff = oldScript.src || oldScript.getAttribute('data-rocketlazyloadscript') || '';
                 Array.from(oldScript.attributes).forEach(attr => { if (attr.name.toLowerCase() !== 'type') scriptNode.setAttribute(attr.name, attr.value); });
                 scriptNode.type = 'text/javascript';
+                oldScript.parentNode.removeChild(oldScript);
                 if (srcEff) {
                     scriptNode.src = srcEff;
-                    document.body.appendChild(scriptNode);
+                    const alreadyLoaded = Array.from(document.scripts).some(function (script) {
+                        return script.src && script.src === scriptNode.src;
+                    });
+                    if (!alreadyLoaded) {
+                        await new Promise(function (resolve, reject) {
+                            scriptNode.onload = resolve;
+                            scriptNode.onerror = function () { reject(new Error('Gagal memuat script: ' + srcEff)); };
+                            document.body.appendChild(scriptNode);
+                        });
+                    }
                 } else {
                     scriptNode.text = oldScript.innerHTML;
                     document.body.appendChild(scriptNode).parentNode.removeChild(scriptNode);

@@ -696,11 +696,44 @@ public class RepositoryPublicService {
     private static String xmlEscape(String value){return safe(value).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
 
     public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId) {
-        if(itemId==null || !("VIEW".equals(eventType)||"DOWNLOAD".equals(eventType)))return;
-        Session s=session();org.hibernate.Transaction tx=null;try{tx=s.beginTransaction();RepoItem item=(RepoItem)s.get(RepoItem.class,itemId);if(item==null){tx.rollback();return;}
-            RepoUsageEvent e=new RepoUsageEvent();e.setItemId(itemId);e.setBitstreamId(bitstreamId);e.setEventType(eventType);e.setVisitorHash(hash(visitor));e.setActorId(clean(actorId));e.setUserAgentClass(userAgentClass(userAgent));e.setOccurredAt(new Date());s.save(e);
-            if("VIEW".equals(eventType))item.setViewCount(Long.valueOf((item.getViewCount()==null?0:item.getViewCount().longValue())+1));else item.setDownloadCount(Long.valueOf((item.getDownloadCount()==null?0:item.getDownloadCount().longValue())+1));s.update(item);tx.commit();
-        }catch(Exception ex){if(tx!=null&&tx.isActive())try{tx.rollback();}catch(Exception ignored){}ais.common.ErrorAuditUtil.record(ex,"RepositoryPublicService.recordUsage");}}
+        if (itemId == null || !("VIEW".equals(eventType) || "DOWNLOAD".equals(eventType))) return;
+        Session s = session();
+        org.hibernate.Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+
+            /*
+             * Jangan load/update RepoItem sebagai entity di sini. Data repository lama
+             * dapat mempunyai lock_version NULL setelah kolom dibuat oleh hbm2ddl;
+             * Hibernate 3 akan NPE di LongType.next() sebelum sempat menulis perubahan.
+             * Bulk DML ini atomik untuk akses bersamaan, sekaligus memperbaiki versi NULL
+             * pada record yang sedang dikunjungi tanpa ALTER tabel manual.
+             */
+            String counterColumn = "VIEW".equals(eventType) ? "view_count" : "download_count";
+            int updated = s.createSQLQuery("update public.repo_item set " + counterColumn
+                    + " = coalesce(" + counterColumn + ", 0) + 1, "
+                    + "lock_version = coalesce(lock_version, 0) where id = :itemId")
+                    .setLong("itemId", itemId.longValue()).executeUpdate();
+            if (updated == 0) {
+                tx.rollback();
+                return;
+            }
+
+            RepoUsageEvent e = new RepoUsageEvent();
+            e.setItemId(itemId);
+            e.setBitstreamId(bitstreamId);
+            e.setEventType(eventType);
+            e.setVisitorHash(hash(visitor));
+            e.setActorId(clean(actorId));
+            e.setUserAgentClass(userAgentClass(userAgent));
+            e.setOccurredAt(new Date());
+            s.save(e);
+            tx.commit();
+        } catch (Exception ex) {
+            if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception ignored) {}
+            ais.common.ErrorAuditUtil.record(ex, "RepositoryPublicService.recordUsage");
+        }
+    }
     private static String hash(String value){try{String salt=System.getProperty("ais.repository.analyticsSalt","AIS-REPOSITORY");byte[]b=MessageDigest.getInstance("SHA-256").digest((salt+"|"+clean(value)).getBytes("UTF-8"));StringBuilder x=new StringBuilder();for(byte v:b)x.append(String.format("%02x",v&255));return x.toString();}catch(Exception e){return "";}}
     private static String userAgentClass(String value){String v=clean(value).toLowerCase();if(v.contains("bot")||v.contains("crawler")||v.contains("spider"))return "BOT";if(v.contains("mobile"))return "MOBILE";return "DESKTOP";}
 
