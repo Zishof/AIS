@@ -63,6 +63,15 @@ public final class ApiRouteRegistry {
         register(routes, "simpanProfilSaya", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.simpanProfilSaya(req, json); } });
         register(routes, "ubahPasswordMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PasswordSayaApi.ubahMahasiswa(req, json); } });
         register(routes, "repositoryMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryMahasiswaApi.daftar(req, json); } });
+        // PUSTAKA & REPOSITORY publik (baca-saja, isi disajikan per halaman
+        // sebagai gambar ber-watermark; tidak ada jalur unduh berkas utuh).
+        register(routes, "pustaka_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.daftar(req, json); } });
+        register(routes, "pustaka_detail", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.detail(req, json); } });
+        register(routes, "pustaka_halaman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.halaman(req, json); } });
+        register(routes, "repository_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryPublikApi.daftar(req, json); } });
+        register(routes, "repository_detail", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryPublikApi.detail(req, json); } });
+        register(routes, "repository_berkas_info", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryPublikApi.jumlahHalaman(req, json); } });
+        register(routes, "repository_halaman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryPublikApi.halaman(req, json); } });
         register(routes, "pengaduanMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PengaduanMahasiswaApi.proses(req, json); } });
         register(routes, "kpiMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KpiMahasiswaApi.daftar(req, json); } });
         register(routes, "pengumuman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return ApiUtil.pengumuman(req, json, pt); } });
