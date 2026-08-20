@@ -5168,13 +5168,23 @@ public class PosApi extends HttpServlet {
 		boolean semua = bolehLihatSemuaToko(tbmuser);
 		JSONArray arr = new JSONArray();
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		Long pendaftarId = null;
 		try {
+			pendaftarId = pendaftarIdPengguna(session, tbmuser);
 			java.util.List<Toko> daftar;
 			if (semua) {
+				// Izin "seluruh toko" dibatasi pendaftar penggunanya. Tanpa ini,
+				// akun satu tenant bisa melihat toko tenant lain -- kebocoran
+				// lintas penyewa, bukan sekadar tampilan yang salah.
+				org.hibernate.Criteria kriteria = session.createCriteria(Toko.class)
+						.add(org.hibernate.criterion.Restrictions.eq("aktif", Boolean.TRUE));
+				if (pendaftarId != null) {
+					kriteria.add(org.hibernate.criterion.Restrictions.eq(
+							"pendaftar.id", pendaftarId));
+				}
 				@SuppressWarnings("unchecked")
-				java.util.List<Toko> semuaToko = session.createCriteria(Toko.class)
-						.add(org.hibernate.criterion.Restrictions.eq("aktif", Boolean.TRUE))
-						.addOrder(org.hibernate.criterion.Order.asc("nama")).list();
+				java.util.List<Toko> semuaToko =
+						kriteria.addOrder(org.hibernate.criterion.Order.asc("nama")).list();
 				daftar = semuaToko;
 			} else {
 				daftar = KantinHelper.daftarTokoBolehDiakses(session, tbmuser);
@@ -5192,7 +5202,13 @@ public class PosApi extends HttpServlet {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 		hasil.put("status", "success");
-		hasil.put("bolehSemuaToko", semua);
+		// Pengguna yang terikat pendaftar TIDAK mendapat pilihan "Semua Toko":
+		// kueri laporan menyaring toko lewat SATU parameter, sehingga "semua"
+		// di sana berarti benar-benar seluruh basis data. Membiarkannya berarti
+		// membuka data tenant lain, jadi mereka memilih toko satu per satu dari
+		// daftar yang sudah dibatasi di atas.
+		hasil.put("bolehSemuaToko", semua && pendaftarId == null);
+		hasil.put("terikatPendaftar", pendaftarId != null);
 		hasil.put("data", arr);
 	}
 
@@ -5222,6 +5238,53 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
+	 * Pendaftar (tenant) tempat pengguna ini bernaung, atau {@code null} bila
+	 * ia bukan milik pendaftar mana pun.
+	 *
+	 * <p>CATATAN: {@code Tbmuser} TIDAK punya relasi pendaftar sendiri, jadi
+	 * nilainya diturunkan dari dua jalur yang memang ada di basis data:</p>
+	 * <ol>
+	 *   <li>pedagang -&gt; toko -&gt; pendaftar (operator toko), lalu</li>
+	 *   <li>AkunManajemen dgn {@code userid} yang sama (akun manajemen tenant).</li>
+	 * </ol>
+	 *
+	 * <p>Pengguna tanpa pendaftar (mis. admin pusat) mendapat {@code null} dan
+	 * boleh melihat seluruh toko.</p>
+	 */
+	private Long pendaftarIdPengguna(Session session, Tbmuser tbmuser) {
+		if (tbmuser == null) {
+			return null;
+		}
+		try {
+			Pedagang pedagang = tbmuser.getPedagang();
+			if (pedagang != null && pedagang.getToko() != null
+					&& pedagang.getToko().getPendaftar() != null) {
+				return pedagang.getToko().getPendaftar().getId();
+			}
+		} catch (Exception e) { /* lanjut ke jalur berikutnya */ }
+		try {
+			String userId = tbmuser.getUserId();
+			if (userId != null && userId.trim().length() > 0) {
+				java.sql.PreparedStatement ps = session.connection().prepareStatement(
+						"SELECT pendaftar FROM public.akun_manajemen WHERE userid = ? LIMIT 1");
+				ps.setString(1, userId.trim());
+				java.sql.ResultSet rs = ps.executeQuery();
+				Long hasil = null;
+				if (rs.next()) {
+					long v = rs.getLong(1);
+					if (!rs.wasNull() && v > 0) {
+						hasil = Long.valueOf(v);
+					}
+				}
+				rs.close();
+				ps.close();
+				return hasil;
+			}
+		} catch (Exception e) { /* tabel/kolom tidak ada -> anggap tanpa pendaftar */ }
+		return null;
+	}
+
+	/**
 	 * Apakah peran pengguna ini boleh melihat SELURUH toko aktif?
 	 *
 	 * <p>Sumbernya kolom {@code boleh_lihat_semua_toko} pada Tbmrole (layar
@@ -5239,11 +5302,37 @@ public class PosApi extends HttpServlet {
 
 	private Long resolveTokoId(Tbmuser tbmuser, JSONObject payload) {
 		Long tokoDariPayload = ambilTokoIdPayload(payload);
-		// Peran berizin "seluruh toko" memakai pilihan dari klien apa adanya:
-		// terisi = disaring ke toko itu, kosong = SEMUA toko. Ini yang
-		// menggerakkan combo filter toko di bilah atas aplikasi.
+		// Peran berizin "seluruh toko": pilihan dari klien dipakai, tapi TIDAK
+		// dipercaya begitu saja.
+		//
+		// Pengguna yang terikat pendaftar (tenant) hanya boleh menyebut toko
+		// milik pendaftarnya sendiri -- tanpa pemeriksaan ini, mengirim id toko
+		// tenant lain akan membocorkan datanya (IDOR). Dan bila mereka tidak
+		// memilih toko sama sekali, kita TIDAK mengembalikan null (yang berarti
+		// "seluruh basis data"), melainkan toko pertama miliknya.
 		if (bolehLihatSemuaToko(tbmuser)) {
-			return tokoDariPayload;
+			Session sesiPendaftar = HibernateUtil.getSessionFactory().openSession();
+			try {
+				Long pendaftarId = pendaftarIdPengguna(sesiPendaftar, tbmuser);
+				if (pendaftarId == null) {
+					return tokoDariPayload; // tanpa pendaftar: kosong = seluruh toko
+				}
+				@SuppressWarnings("unchecked")
+				java.util.List<Toko> milikPendaftar = sesiPendaftar.createCriteria(Toko.class)
+						.add(org.hibernate.criterion.Restrictions.eq("aktif", Boolean.TRUE))
+						.add(org.hibernate.criterion.Restrictions.eq("pendaftar.id", pendaftarId))
+						.addOrder(org.hibernate.criterion.Order.asc("nama")).list();
+				if (tokoDariPayload != null) {
+					for (Toko t : milikPendaftar) {
+						if (t.getId() != null && t.getId().equals(tokoDariPayload)) {
+							return tokoDariPayload;
+						}
+					}
+				}
+				return milikPendaftar.isEmpty() ? null : milikPendaftar.get(0).getId();
+			} finally {
+				HibernateUtil.closeSessionQuietly(sesiPendaftar);
+			}
 		}
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		boolean roleMultiToko = role != null && role.getTokoAksesJson() != null;
