@@ -488,7 +488,15 @@ public class Report extends GenericAutowireComposer {
 				errorBox.setParent(progress.box);
 				progress.errorBox = errorBox;
 				org.zkoss.zul.Html message = new org.zkoss.zul.Html();
-				message.setContent("<div style='font-family:Arial,sans-serif;'><div style='font-size:16px;font-weight:bold;margin-bottom:6px;'>Laporan belum dapat ditampilkan</div><div style='font-size:13px;line-height:1.6;'>" + escapeHtml(getFriendlyReportErrorMessage(error)) + "</div><div style='font-size:12px;line-height:1.6;margin-top:8px;color:#9a3412;'>File detail error dapat diberikan kepada admin atau pengembang agar sumber masalah lebih cepat ditemukan.</div></div>");
+				String detailInfo = "";
+				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
+					detailInfo = "<div style='font-size:12px;line-height:1.5;margin-top:8px;color:#9a3412;'>Jika perlu bantuan admin, gunakan tombol Download detail error di bawah ini.</div>";
+				}
+				message.setContent("<div style='font-family:Arial,sans-serif;display:flex;gap:10px;align-items:flex-start;'>"
+						+ "<div style='width:24px;height:24px;border-radius:50%;background:#ffedd5;color:#c2410c;text-align:center;font-weight:bold;line-height:24px;flex:0 0 24px;'>!</div>"
+						+ "<div style='min-width:0;'><div style='font-size:15px;font-weight:bold;margin-bottom:4px;'>Laporan belum siap ditampilkan</div>"
+						+ "<div style='font-size:13px;line-height:1.55;'>" + escapeHtml(getFriendlyReportErrorMessage(error)) + "</div>"
+						+ detailInfo + "</div></div>");
 				message.setParent(errorBox);
 				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
 					org.zkoss.zul.Hbox buttons = new org.zkoss.zul.Hbox();
@@ -768,17 +776,16 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	private static String getFriendlyReportErrorMessage(Throwable throwable) {
-		String defaultMessage = getKonfigurasiNilai("report_error_pesan_user", "Maaf, laporan belum berhasil dibuat. Data yang Anda pilih tetap aman dan tidak berubah. Silakan coba kembali. Jika pesan ini muncul lagi, unduh detail error dan berikan kepada admin.");
+		String defaultMessage = getKonfigurasiNilai("report_error_pesan_user", "Data laporan belum bisa dimuat. Cek kembali filter/periode dan kelengkapan data, lalu klik Tampilkan atau Cetak lagi. Data yang Anda pilih tetap aman dan tidak berubah.");
 		if (containsInThrowable(throwable, "FileNotFoundException")
 				|| (throwable != null && throwable.getMessage() != null
 						&& throwable.getMessage().contains("template tidak ditemukan"))) {
 			return getKonfigurasiNilai("report_error_pesan_template_hilang",
-					"Berkas template laporan tidak ditemukan di server. Sistem sudah mencoba mengompilasi ulang secara otomatis, namun berkas sumber (.jrxml) juga tidak tersedia. "
-					+ "Silakan hubungi administrator dan sertakan tangkapan layar (screenshot) pesan ini agar template dapat segera disediakan.");
+					"Template laporan belum tersedia di server. Silakan hubungi admin dan sertakan screenshot halaman ini agar template dapat segera dicek.");
 		}
-		if (containsInThrowable(throwable, "Invalid UUID string")) return getKonfigurasiNilai("report_error_pesan_invalid_uuid", "Template laporan belum sesuai format JasperReports. Biasanya ada elemen JRXML yang memiliki UUID tidak valid. Silakan hubungi admin untuk memperbaiki template laporan.");
-		if (containsInThrowable(throwable, "JRXmlLoader") || containsInThrowable(throwable, "SAXParseException") || containsInThrowable(throwable, "JasperCompileManager")) return getKonfigurasiNilai("report_error_pesan_template_rusak", "Template laporan belum dapat dibaca. Kemungkinan file JRXML/Jasper rusak, tidak cocok dengan versi JasperReports, atau ada tag XML yang tidak valid.");
-		if (containsInThrowable(throwable, "Parameter") || containsInThrowable(throwable, "parameter")) return getKonfigurasiNilai("report_error_pesan_parameter", "Laporan belum dapat dibuat karena ada parameter laporan yang belum lengkap atau tidak sesuai. Silakan periksa pilihan filter lalu coba kembali.");
+		if (containsInThrowable(throwable, "Invalid UUID string")) return getKonfigurasiNilai("report_error_pesan_invalid_uuid", "Template laporan perlu diperbaiki oleh admin karena formatnya belum sesuai.");
+		if (containsInThrowable(throwable, "JRXmlLoader") || containsInThrowable(throwable, "SAXParseException") || containsInThrowable(throwable, "JasperCompileManager")) return getKonfigurasiNilai("report_error_pesan_template_rusak", "Template laporan belum dapat dibaca. Silakan hubungi admin dan sertakan screenshot halaman ini.");
+		if (containsInThrowable(throwable, "Parameter") || containsInThrowable(throwable, "parameter")) return getKonfigurasiNilai("report_error_pesan_parameter", "Ada filter atau parameter laporan yang belum lengkap. Periksa pilihan pada menu laporan, lalu coba tampilkan lagi.");
 		return defaultMessage;
 	}
 

@@ -1,5 +1,6 @@
 package ais.action.master.repository;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -22,6 +23,7 @@ import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
+import ais.database.model.file.LampiranLain;
 
 /**
  * Read-only, typed service for the public repository.
@@ -239,6 +241,7 @@ public class RepositoryPublicService {
         List<RepoBitstream> bitstreams = session.createCriteria(RepoBitstream.class)
                 .add(Restrictions.eq("itemId", id))
                 .add(activeRestriction())
+                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
                 .addOrder(Order.desc("primaryFile"))
                 .addOrder(Order.asc("id"))
                 .list();
@@ -250,13 +253,56 @@ public class RepositoryPublicService {
         return detail;
     }
 
+    public ItemDetail findPublicItemByOai(String identifier) {
+        String value = limit(clean(identifier), 255);
+        if (value.length() == 0) return null;
+        RepoItem item = (RepoItem) session().createCriteria(RepoItem.class)
+                .add(Restrictions.eq("oaiIdentifier", value))
+                .add(publicVisibilityRestriction())
+                .uniqueResult();
+        return item == null ? null : findPublicItem(item.getId());
+    }
+
     public RepoBitstream findDownloadableBitstream(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
         Session session = session();
-        RepoBitstream bitstream = (RepoBitstream) session.get(RepoBitstream.class, id);
-        if (bitstream == null || Boolean.FALSE.equals(bitstream.getAktif())) return null;
-        RepoItem item = (RepoItem) session.get(RepoItem.class, bitstream.getItemId());
+        RepoBitstream bitstream = (RepoBitstream) session.createCriteria(RepoBitstream.class)
+                .add(Restrictions.eq("id", id))
+                .add(activeRestriction())
+                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
+                .uniqueResult();
+        if (bitstream == null) return null;
+        RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("id", bitstream.getItemId()))
+                .add(publicVisibilityRestriction())
+                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
+                .uniqueResult();
         return canDownload(item, bitstream) ? bitstream : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public File resolveBitstreamFile(RepoBitstream bitstream) {
+        if (bitstream == null) return null;
+        String storedPath = clean(bitstream.getPathSistem());
+        if (storedPath.length() > 0) {
+            File direct = new File(storedPath);
+            if (direct.isAbsolute() && direct.exists() && direct.isFile()) return direct;
+        }
+        try {
+            List<LampiranLain> attachments = session().createCriteria(LampiranLain.class)
+                    .add(Restrictions.eq("ref", bitstream.getId()))
+                    .add(Restrictions.eq("jenis", RepoBitstream.class.getName()))
+                    .add(activeRestriction())
+                    .addOrder(Order.desc("id"))
+                    .setMaxResults(1)
+                    .list();
+            if (attachments.isEmpty()) return null;
+            File file = attachments.get(0).ambilFile();
+            return file != null && file.exists() && file.isFile() ? file : null;
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "RepositoryPublicService.resolveBitstreamFile");
+            return null;
+        }
     }
 
     public String citation(ItemDetail item, String format) {
@@ -355,8 +401,8 @@ public class RepositoryPublicService {
         Criteria criteria = searchCriteria(session, q);
         criteria.setProjection(Projections.projectionList()
                 .add(Projections.groupProperty(property))
-                .add(Projections.rowCount()));
-        criteria.addOrder(Order.desc("rowCount"));
+                .add(Projections.rowCount(), "facetCount"));
+        criteria.addOrder(Order.desc("facetCount"));
         List<Object[]> rows = criteria.setMaxResults(30).list();
         Map<String, Long> result = new LinkedHashMap<String, Long>();
         for (int i = 0; i < rows.size(); i++) {

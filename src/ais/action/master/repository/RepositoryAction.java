@@ -147,6 +147,12 @@ public class RepositoryAction extends GenericAutowireComposer {
         laporan.selesaikan(null);
     }
 
+    /** Opens the guarded, server-rendered public repository in a new tab. */
+    public void onOpenPublic(Event event) {
+        String root = Common.ROOT == null ? "" : Common.ROOT;
+        org.zkoss.zk.ui.Executions.getCurrent().sendRedirect(root + "/repository", "_blank");
+    }
+
     // -------------------------------------------------------------------------
     // Private Helpers
     // -------------------------------------------------------------------------
@@ -431,6 +437,9 @@ public class RepositoryAction extends GenericAutowireComposer {
             new Label(item.getTitle()).setParent(row);
             new Label(item.getSourceLabel()).setParent(row);
             new Label(item.getDocumentType()).setParent(row);
+            Html accessBadge = new Html(accessBadge(item.getAccessPolicy()));
+            accessBadge.setParent(row);
+            new Label(publicationLabel(item)).setParent(row);
             Html statusBadge = new Html(syncStatusBadge(item.getSyncStatus()));
             statusBadge.setParent(row);
             Html turnitinBadge = new Html(boolBadge(item.getTurnitinIndexed(), "Ya", "Belum"));
@@ -469,6 +478,23 @@ public class RepositoryAction extends GenericAutowireComposer {
 
     private String activeBadge(Boolean aktif) {
         return boolBadge(aktif, "Aktif", "Nonaktif");
+    }
+
+    private String accessBadge(String accessPolicy) {
+        String policy = accessPolicy == null ? "METADATA_ONLY" : accessPolicy.trim().toUpperCase();
+        String css = "OPEN_ACCESS".equals(policy) ? "repo-badge-synced"
+                : ("EMBARGOED".equals(policy) ? "repo-badge-draft" : "repo-badge-failed");
+        String label = "OPEN_ACCESS".equals(policy) ? "Open Access"
+                : ("METADATA_ONLY".equals(policy) ? "Metadata" : policy.replace('_', ' '));
+        return "<span class=\"repo-badge " + css + "\">" + escHtml(label) + "</span>";
+    }
+
+    private String publicationLabel(RepoItem item) {
+        if (item == null || Boolean.TRUE.equals(item.getIsWithdrawn())) return "Ditarik";
+        String status = item.getSyncStatus() == null ? "DRAFT" : item.getSyncStatus().trim().toUpperCase();
+        if ("SYNCED".equals(status) || "PUBLISHED".equals(status) || "APPROVED".equals(status)) return "Publik";
+        if ("FAILED".equals(status)) return "Perlu tindakan";
+        return "Draft/Internal";
     }
 
     private String escHtml(String s) {

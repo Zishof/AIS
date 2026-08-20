@@ -214,13 +214,13 @@ public final class PesanFormalHelper {
         String pesan = pesanGagalLaporanRingkas(aktivitas, penjelasanBisnis, langkahSolusi);
         if (parent != null) {
             try {
-                tempelPesanLaporan(parent, "Laporan belum dapat ditampilkan", pesan);
+                tempelPesanLaporan(parent, "Laporan belum siap ditampilkan", pesan);
                 return;
             } catch (Throwable t) {
                 ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalLaporan-tempel");
             }
         }
-        tampilkanToastRingkas("Laporan belum dapat ditampilkan", pesan);
+        tampilkanToastRingkas("Laporan belum siap ditampilkan", pesan);
     }
 
     /**
@@ -293,44 +293,45 @@ public final class PesanFormalHelper {
     private static String pesanGagalLaporanRingkas(String aktivitas, String penjelasanBisnis,
             String[] langkahSolusi) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Laporan belum bisa ditampilkan saat ini.");
+        sb.append("Data laporan belum bisa dimuat.");
         if (penjelasanBisnis != null && penjelasanBisnis.trim().length() > 0) {
             sb.append(" ").append(sederhanakanPesanLaporan(penjelasanBisnis.trim()));
         } else {
-            sb.append(" Biasanya ini terjadi karena filter/periode belum sesuai, data sumber laporan belum lengkap, atau sistem sedang sibuk.");
+            sb.append(" Biasanya karena filter/periode belum sesuai, data sumber belum lengkap, atau sistem sedang sibuk.");
         }
-        sb.append(" Silakan periksa kembali pilihan filter/periode, lalu klik Tampilkan atau Cetak lagi.");
+        sb.append(" Cek filter/periode dan kelengkapan data, lalu klik Tampilkan atau Cetak lagi.");
         if (langkahSolusi != null && langkahSolusi.length > 0) {
             String tambahan = langkahRingkas(langkahSolusi);
             if (tambahan.length() > 0) {
                 sb.append(" ").append(tambahan);
             }
         }
-        sb.append(" Jika masih muncul, hubungi admin sistem dan lampirkan screenshot layar ini.");
+        sb.append(" Jika tetap gagal, kirim screenshot halaman ini ke admin.");
         return sb.toString();
     }
 
     private static String sederhanakanPesanLaporan(String pesan) {
         String teks = pesan;
-        teks = teks.replace("Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena", "Kemungkinan penyebabnya:");
-        teks = teks.replace("Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh", "Kemungkinan penyebabnya:");
+        teks = teks.replace("Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena", "Kemungkinan ada");
+        teks = teks.replace("Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh", "Kemungkinan ada");
         teks = teks.replace("Bapak/Ibu", "Anda");
+        teks = teks.replace("data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", "data yang belum lengkap, filter yang belum sesuai, atau sistem sedang sibuk.");
         return teks;
     }
 
     private static String langkahRingkas(String[] langkahSolusi) {
         StringBuilder sb = new StringBuilder();
         int nomor = 1;
-        for (int i = 0; i < langkahSolusi.length && nomor <= 2; i++) {
+        for (int i = 0; i < langkahSolusi.length && nomor <= 1; i++) {
             if (langkahSolusi[i] == null || langkahSolusi[i].trim().length() == 0) {
                 continue;
             }
             if (nomor == 1) {
-                sb.append("Yang bisa dicoba: ");
+                sb.append("Langkah cepat: ");
             } else {
                 sb.append(" ");
             }
-            sb.append(nomor).append(". ").append(langkahSolusi[i].trim().replace("Bapak/Ibu", "Anda"));
+            sb.append(langkahSolusi[i].trim().replace("Bapak/Ibu", "Anda"));
             nomor++;
         }
         return sb.toString();
@@ -352,10 +353,13 @@ public final class PesanFormalHelper {
         box.setAttribute("aisInlineReportMessage", Boolean.TRUE);
         box.setSclass("ais-inline-report-message");
         box.setStyle("margin:8px 10px;padding:10px 12px;border:1px solid #fdba74;"
-                + "border-radius:8px;background:#fff7ed;color:#7c2d12;font-size:12px;"
-                + "line-height:1.45;box-shadow:0 1px 3px rgba(15,23,42,.10);");
-        box.appendChild(new org.zkoss.zul.Html("<div style='font-weight:700;margin-bottom:4px;'>"
-                + html(judul) + "</div><div>" + html(pesan) + "</div>"));
+                + "border-left:4px solid #f97316;border-radius:8px;background:#fffaf0;color:#7c2d12;"
+                + "font-size:12px;line-height:1.45;box-shadow:0 1px 3px rgba(15,23,42,.10);");
+        box.appendChild(new org.zkoss.zul.Html("<div style='display:flex;gap:10px;align-items:flex-start;'>"
+                + "<div style='width:22px;height:22px;border-radius:50%;background:#ffedd5;color:#c2410c;"
+                + "text-align:center;font-weight:700;line-height:22px;flex:0 0 22px;'>!</div>"
+                + "<div style='min-width:0;'><div style='font-weight:700;margin-bottom:3px;'>"
+                + html(judul) + "</div><div style='color:#854d0e;'>" + html(pesan) + "</div></div></div>"));
         if (parent.getFirstChild() != null) {
             parent.insertBefore(box, parent.getFirstChild());
         } else {

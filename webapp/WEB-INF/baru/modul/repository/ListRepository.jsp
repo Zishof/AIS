@@ -1,767 +1,199 @@
-﻿<%@page import="ais.common.CommonPrivilages"%>
-<%@page import="ais.database.model.Menu"%>
-<%@page import="ais.database.model.Tbmuser"%>
-<%@page import="ais.common.Common"%>
-<%
-    String rnd    = Common.getGeneratedBarCode(7);
-    Tbmuser tbmuser = Common.getCurrentUser(request);
-    String  menu    = request.getParameter("menu") == null ? "" : request.getParameter("menu").trim();
-
-    boolean edit    = false;
-    boolean add     = false;
-    boolean delete  = false;
-    boolean isAdmin = false;
-
-    if (tbmuser != null && tbmuser.getUserId() != null) {
-        edit   = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE, tbmuser);
-        delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE, tbmuser);
-        add    = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE, tbmuser);
-        if (Common.getApakahAdminLain(tbmuser)) {
-            edit = true; delete = true; add = true; isAdmin = true;
-        }
-    }
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.text.NumberFormat" %>
+<%@ page import="java.util.*" %>
+<%@ page import="ais.action.master.repository.RepositoryPublicService.*" %>
+<%!
+private String rh(String value) {
+    if (value == null) return "";
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace("\"", "&quot;").replace("'", "&#39;");
+}
+private String ru(String value) {
+    try { return URLEncoder.encode(value == null ? "" : value, "UTF-8"); }
+    catch (Exception e) { return ""; }
+}
+private String rlabel(String value) {
+    if ("OPEN_ACCESS".equals(value)) return "Open Access";
+    if ("METADATA_ONLY".equals(value)) return "Metadata saja";
+    if ("EMBARGOED".equals(value)) return "Embargo";
+    if ("INSTITUTION_ONLY".equals(value)) return "Khusus institusi";
+    if ("AUTHENTICATED".equals(value)) return "Pengguna terautentikasi";
+    if ("RESTRICTED".equals(value)) return "Terbatas";
+    return value == null || value.length() == 0 ? "Status belum ditetapkan" : value;
+}
+private String rsize(Long bytes) {
+    if (bytes == null) return "Ukuran tidak tersedia";
+    double value = bytes.doubleValue();
+    if (value >= 1073741824d) return String.format(java.util.Locale.US, "%.1f GB", value / 1073741824d);
+    if (value >= 1048576d) return String.format(java.util.Locale.US, "%.1f MB", value / 1048576d);
+    if (value >= 1024d) return String.format(java.util.Locale.US, "%.1f KB", value / 1024d);
+    return bytes + " B";
+}
 %>
+<%
+String root = request.getContextPath();
+String view = request.getAttribute("repoView") == null ? "home" : String.valueOf(request.getAttribute("repoView"));
+Summary summary = (Summary) request.getAttribute("repoSummary");
+List<CollectionView> collections = (List<CollectionView>) request.getAttribute("repoCollections");
+if (collections == null) collections = Collections.emptyList();
+String institution = "Institusi Pendidikan";
+String logo = "";
+try {
+    ais.database.model.PerguruanTinggi ptPublicRepo = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request);
+    if (ptPublicRepo != null && ptPublicRepo.getNama() != null) institution = ptPublicRepo.getNama();
+    logo = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_");
+} catch (Exception ignored) {
+    ais.common.ErrorAuditUtil.record(ignored, "repository public institution body");
+}
+NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
+%>
+<div class="repo-modern">
+  <a class="repo-skip" href="#repo-content">Lewati ke konten utama</a>
+  <header class="repo-nav">
+    <div class="repo-wrap repo-nav-inner">
+      <a class="repo-brand" href="<%=root%>/repository" aria-label="Beranda repositori">
+        <span class="repo-brand-mark"><%=logo != null && logo.trim().length() > 0 ? "<img src='" + rh(logo) + "' alt='' width='30' height='30'>" : "▤"%></span>
+        <span><strong>Repositori Institusi</strong><small><%=rh(institution)%></small></span>
+      </a>
+      <nav class="repo-links" aria-label="Navigasi repositori">
+        <a href="<%=root%>/repository" <%="home".equals(view) ? "aria-current='page'" : ""%>>Beranda</a>
+        <a href="<%=root%>/repository?view=search" <%="search".equals(view) || "browse".equals(view) ? "aria-current='page'" : ""%>>Jelajah</a>
+        <a href="<%=root%>/repository?view=policies" <%="policies".equals(view) ? "aria-current='page'" : ""%>>Kebijakan</a>
+        <a href="<%=root%>/repository?view=help" <%="help".equals(view) ? "aria-current='page'" : ""%>>Bantuan</a>
+      </nav>
+      <div class="repo-nav-actions"><a class="repo-btn repo-btn-primary" href="<%=root%>/login2">Masuk</a></div>
+    </div>
+  </header>
 
-<!-- HEADER -->
-<jsp:include page="header_repository.jsp" />
+  <main id="repo-content">
+  <% if ("home".equals(view)) {
+      List<ItemCard> latest = (List<ItemCard>) request.getAttribute("repoLatest");
+      if (latest == null) latest = Collections.emptyList(); %>
+    <section class="repo-wrap repo-hero" aria-labelledby="repo-hero-title">
+      <div class="repo-hero-main">
+        <span class="repo-eyebrow">Repositori terbuka dan terpercaya</span>
+        <h1 id="repo-hero-title">Temukan karya ilmiah dan pengetahuan institusi dalam satu pencarian</h1>
+        <p>Jelajahi skripsi, tesis, artikel, buku, bahan ajar, data penelitian, dan koleksi digital yang tersedia sesuai kebijakan akses.</p>
+        <form class="repo-search" action="<%=root%>/repository" method="get" role="search">
+          <input type="hidden" name="view" value="search">
+          <label class="visually-hidden" for="repo-home-q">Kata kunci</label>
+          <input id="repo-home-q" name="q" maxlength="200" placeholder="Cari judul, penulis, abstrak, subjek, atau identifier">
+          <button class="repo-btn repo-btn-primary" type="submit">Cari Repositori</button>
+        </form>
+      </div>
+      <aside class="repo-summary" aria-label="Statistik repositori">
+        <h2>Ringkasan repositori</h2>
+        <div class="repo-stat-grid">
+          <div class="repo-stat"><span>Karya terbit</span><b><%=summary == null ? "0" : nf.format(summary.totalItems)%></b></div>
+          <div class="repo-stat"><span>Koleksi</span><b><%=summary == null ? "0" : nf.format(summary.totalCollections)%></b></div>
+          <div class="repo-stat"><span>Open access</span><b><%=summary == null ? "0" : nf.format(summary.openAccess)%></b></div>
+          <div class="repo-stat"><span>Metadata saja</span><b><%=summary == null ? "0" : nf.format(summary.metadataOnly)%></b></div>
+        </div>
+        <p>Angka hanya menghitung record aktif dan berstatus publik.</p>
+      </aside>
+    </section>
 
-<div class="container animate__animated animate__fadeInUp">
+    <section class="repo-wrap repo-section" aria-labelledby="browse-title">
+      <div class="repo-section-head"><div><h2 id="browse-title">Jelajah repositori</h2><p>Masuk melalui jalur yang paling sesuai.</p></div><a class="repo-link" href="<%=root%>/repository?view=search">Lihat semua →</a></div>
+      <div class="repo-browse-grid">
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search"><span class="repo-browse-icon">▦</span><strong>Koleksi</strong><small><%=collections.size()%> koleksi aktif</small></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=title"><span class="repo-browse-icon">◎</span><strong>Pengarang</strong><small>Urutkan dan cari nama</small></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=newest"><span class="repo-browse-icon">◷</span><strong>Tahun terbit</strong><small>Terbaru lebih dahulu</small></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&q=subjek"><span class="repo-browse-icon">◇</span><strong>Subjek</strong><small>Topik dan kata kunci</small></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&type=Thesis"><span class="repo-browse-icon">▧</span><strong>Jenis dokumen</strong><small>Skripsi, artikel, buku</small></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&access=OPEN_ACCESS"><span class="repo-browse-icon">○</span><strong>Open access</strong><small>Berkas terbuka</small></a>
+      </div>
+    </section>
 
-    <!-- ── Search Card ──────────────────────────────────────────────────── -->
-    <div class="card shadow-sm border-0 rounded-4 search-card-repo mb-4 p-4 bg-white">
-        <div class="row justify-content-center">
-            <div class="col-lg-10 col-xl-9">
-                <div class="input-group input-group-lg search-group-repo">
-                    <input type="text" id="inputKeyword<%=rnd%>" class="form-control"
-                        placeholder="<%=Common.getBahasaConfig("Masukkan kata kunci pencarian...")%>"
-                        onkeypress="if(event.key==='Enter') muatDataRepository<%=rnd%>()">
-                    <select id="filterKoleksi<%=rnd%>" class="form-select">
-                        <option value=""><%=Common.getBahasaConfig("Semua Koleksi")%></option>
-                    </select>
-                    <button class="btn btn-primary" type="button"
-                        onclick="muatDataRepository<%=rnd%>()">
-                        <i class="fas fa-search me-2"></i><%=Common.getBahasaConfig("Cari")%>
-                    </button>
-                </div>
+    <section class="repo-wrap repo-section repo-home-grid">
+      <div class="repo-card repo-card-pad">
+        <div class="repo-section-head"><h2>Publikasi terbaru</h2><a class="repo-link" href="<%=root%>/repository?view=search">Lihat semua</a></div>
+        <div class="repo-list">
+        <% if (latest.isEmpty()) { %><div class="repo-empty"><h3>Belum ada publikasi</h3><p>Record publik akan muncul setelah proses persetujuan dan sinkronisasi selesai.</p></div><% }
+           for (ItemCard item : latest) { %>
+          <article class="repo-item-card">
+            <span class="repo-doc"><%=rh(item.documentType.length() > 3 ? item.documentType.substring(0, 3).toUpperCase() : item.documentType.toUpperCase())%></span>
+            <div><h3><a href="<%=root%>/repository?view=item&id=<%=item.id%>"><%=rh(item.title)%></a></h3>
+              <div class="repo-meta"><span><%=rh(item.authors)%></span><span>•</span><span><%=rh(item.year)%></span><span>•</span><span><%=rh(item.collectionName)%></span></div>
+              <div class="repo-chips"><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><span class="repo-chip"><%=rh(item.documentType)%></span></div>
             </div>
+            <a class="repo-btn repo-btn-soft" href="<%=root%>/repository?view=item&id=<%=item.id%>">Detail</a>
+          </article>
+        <% } %>
         </div>
-
-        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
-            <% if (add) { %>
-            <button class="btn btn-outline-primary rounded-pill px-4 shadow-sm fw-bold"
-                onclick="bukaFormTambah<%=rnd%>()">
-                <i class="fas fa-plus-circle me-2"></i>
-                <%=Common.getBahasaConfig("Tambah Repositori Baru")%>
-            </button>
-            <% } %>
-
-            <% if (isAdmin) { %>
-            <button class="btn btn-outline-primary rounded-pill px-4 shadow-sm fw-bold"
-                onclick="bukaManajemenKoleksi<%=rnd%>()">
-                <i class="fas fa-folder-open me-2"></i>
-                <%=Common.getBahasaConfig("Manajemen Koleksi")%>
-            </button>
-            <% } %>
-
-            <button class="btn btn-outline-secondary rounded-pill px-4 shadow-sm fw-bold"
-                onclick="unduhExcelRepository<%=rnd%>()">
-                <i class="fas fa-file-excel text-success me-2"></i>
-                <%=Common.getBahasaConfig("Unduh Laporan Excel")%>
-            </button>
+      </div>
+      <aside class="repo-card repo-card-pad">
+        <div class="repo-section-head"><h2>Koleksi</h2></div>
+        <div class="repo-collection-list">
+          <% for (CollectionView collection : collections) { %>
+          <a class="repo-collection" href="<%=root%>/repository?view=search&collection=<%=collection.id%>"><span><strong><%=rh(collection.nama)%></strong><small><%=rh(collection.tipe)%></small></span><b><%=nf.format(collection.itemCount)%></b></a>
+          <% } %>
         </div>
+      </aside>
+    </section>
+
+  <% } else if ("search".equals(view) || "browse".equals(view)) {
+      SearchResult search = (SearchResult) request.getAttribute("repoSearch");
+      Query query = search.query;
+      String baseSearch = root + "/repository?view=search&q=" + ru(query.keyword)
+              + "&collection=" + (query.collectionId == null ? "" : query.collectionId)
+              + "&type=" + ru(query.documentType) + "&access=" + ru(query.accessPolicy)
+              + "&year=" + (query.year == null ? "" : query.year) + "&sort=" + ru(query.sort) + "&size=" + query.pageSize;
+  %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Hasil pencarian</div><h1>Hasil pencarian</h1><p><%=query.keyword.length() == 0 ? "Jelajahi seluruh publikasi yang tersedia." : "Menampilkan hasil untuk “" + rh(query.keyword) + "”."%></p></section>
+    <section class="repo-wrap repo-card repo-search-panel">
+      <form class="repo-search" action="<%=root%>/repository" method="get" role="search">
+        <input type="hidden" name="view" value="search"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>">
+        <label class="visually-hidden" for="repo-search-q">Kata kunci</label><input id="repo-search-q" name="q" maxlength="200" value="<%=rh(query.keyword)%>" placeholder="Cari judul, penulis, abstrak, subjek, atau identifier"><button class="repo-btn repo-btn-primary" type="submit">Cari</button>
+      </form>
+    </section>
+    <div class="repo-wrap repo-search-layout">
+      <aside class="repo-card repo-facets" data-repo-facets aria-label="Filter hasil">
+        <h2>Saring hasil</h2><a class="repo-link" href="<%=root%>/repository?view=search&q=<%=ru(query.keyword)%>">Reset filter</a>
+        <div class="repo-facet"><h3>Hak akses</h3>
+          <% for (Map.Entry<String, Long> facet : search.accessFacets.entrySet()) { %><a href="<%=root%>/repository?view=search&q=<%=ru(query.keyword)%>&access=<%=ru(facet.getKey())%>&type=<%=ru(query.documentType)%>"><span><%=rh(rlabel(facet.getKey()))%></span><b><%=nf.format(facet.getValue())%></b></a><% } %>
+        </div>
+        <div class="repo-facet"><h3>Jenis dokumen</h3>
+          <% for (Map.Entry<String, Long> facet : search.typeFacets.entrySet()) { %><a href="<%=root%>/repository?view=search&q=<%=ru(query.keyword)%>&type=<%=ru(facet.getKey())%>&access=<%=ru(query.accessPolicy)%>"><span><%=rh(facet.getKey())%></span><b><%=nf.format(facet.getValue())%></b></a><% } %>
+        </div>
+        <div class="repo-facet"><h3>Koleksi</h3>
+          <% for (CollectionView collection : search.collections) { if (collection.itemCount > 0) { %><a href="<%=root%>/repository?view=search&q=<%=ru(query.keyword)%>&collection=<%=collection.id%>"><span><%=rh(collection.nama)%></span><b><%=nf.format(collection.itemCount)%></b></a><% }} %>
+        </div>
+      </aside>
+      <section aria-live="polite">
+        <div class="repo-results-head"><div><strong><%=nf.format(search.total)%> hasil</strong><div class="repo-chips"><% if (query.documentType.length() > 0) { %><span class="repo-chip"><%=rh(query.documentType)%></span><% } if (query.accessPolicy.length() > 0) { %><span class="repo-chip repo-chip-open"><%=rh(rlabel(query.accessPolicy))%></span><% } %></div></div>
+          <div><button class="repo-btn repo-mobile-filter" type="button" data-repo-filter-toggle aria-expanded="false">Filter</button>
+          <form method="get" action="<%=root%>/repository" style="display:inline"><input type="hidden" name="view" value="search"><input type="hidden" name="q" value="<%=rh(query.keyword)%>"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>"><select class="repo-btn" name="sort" onchange="this.form.submit()"><option value="newest" <%="newest".equals(query.sort) ? "selected" : ""%>>Terbaru</option><option value="oldest" <%="oldest".equals(query.sort) ? "selected" : ""%>>Terlama</option><option value="title" <%="title".equals(query.sort) ? "selected" : ""%>>Judul A–Z</option></select></form></div>
+        </div>
+        <div class="repo-results">
+          <% if (search.items.isEmpty()) { %><div class="repo-card repo-empty"><h2>Tidak ada hasil</h2><p>Coba gunakan kata kunci lebih singkat atau hapus sebagian filter.</p></div><% }
+             for (ItemCard item : search.items) { %>
+          <article class="repo-card repo-result-card"><h2><a href="<%=root%>/repository?view=item&id=<%=item.id%>"><%=rh(item.title)%></a></h2><div class="repo-authors"><%=rh(item.authors)%></div><div class="repo-meta"><span><%=rh(item.documentType)%></span><span>•</span><span><%=rh(item.year)%></span><span>•</span><span><%=rh(item.collectionName)%></span></div><p class="repo-abstract"><%=rh(item.abstractText)%></p><div class="repo-chips"><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><% if (item.subjects.length() > 0) { %><span class="repo-chip"><%=rh(item.subjects)%></span><% } %></div><div class="repo-result-actions"><span class="repo-meta"><%=rh(item.oaiIdentifier)%></span><a class="repo-btn repo-btn-soft" href="<%=root%>/repository?view=item&id=<%=item.id%>">Lihat detail</a></div></article>
+          <% } %>
+        </div>
+        <% if (search.totalPages > 1) { %><nav class="repo-pagination" aria-label="Halaman hasil"><% int first = Math.max(1, query.page - 2), last = Math.min(search.totalPages, query.page + 2); if (query.page > 1) { %><a href="<%=baseSearch%>&page=<%=query.page-1%>" aria-label="Halaman sebelumnya">‹</a><% } for (int pi = first; pi <= last; pi++) { if (pi == query.page) { %><span aria-current="page"><%=pi%></span><% } else { %><a href="<%=baseSearch%>&page=<%=pi%>"><%=pi%></a><% }} if (query.page < search.totalPages) { %><a href="<%=baseSearch%>&page=<%=query.page+1%>" aria-label="Halaman berikutnya">›</a><% } %></nav><% } %>
+      </section>
     </div>
 
-    <!-- ── Stat Cards ───────────────────────────────────────────────────── -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body">
-                    <small class="text-muted fw-bold text-uppercase"><%=Common.getBahasaConfig("Total Item")%></small>
-                    <h3 class="text-primary fw-bold mb-0" id="statTotalItem<%=rnd%>">0</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body">
-                    <small class="text-muted fw-bold text-uppercase"><%=Common.getBahasaConfig("Koleksi")%></small>
-                    <h3 class="text-success fw-bold mb-0" id="statCollection<%=rnd%>">0</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body">
-                    <small class="text-muted fw-bold text-uppercase"><%=Common.getBahasaConfig("Open Access")%></small>
-                    <h3 class="text-info fw-bold mb-0" id="statOpenAccess<%=rnd%>">0</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body">
-                    <small class="text-muted fw-bold text-uppercase"><%=Common.getBahasaConfig("Indeks Turnitin")%></small>
-                    <h3 class="text-warning fw-bold mb-0" id="statTurnitin<%=rnd%>">0</h3>
-                </div>
-            </div>
-        </div>
+  <% } else if ("item".equals(view)) {
+      ItemDetail item = (ItemDetail) request.getAttribute("repoItem"); %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / <a href="<%=root%>/repository?view=search">Publikasi</a> / <%=rh(item.documentType)%></div></section>
+    <div class="repo-wrap repo-detail">
+      <section>
+        <header class="repo-card repo-paper-head"><div class="repo-chips"><span class="repo-chip"><%=rh(item.documentType)%></span><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><% if (item.year.length() > 0) { %><span class="repo-chip">Terbit <%=rh(item.year)%></span><% } %></div><h1><%=rh(item.title)%></h1><div class="repo-authors"><%=rh(item.authors)%></div><div class="repo-meta"><span><%=rh(item.collectionName)%></span><% if (item.publisher.length() > 0) { %><span>•</span><span><%=rh(item.publisher)%></span><% } %></div><div class="repo-paper-actions"><a class="repo-btn repo-btn-primary" href="<%=root%>/repository?action=citation&format=ris&id=<%=item.id%>">Ekspor RIS</a><a class="repo-btn" href="<%=root%>/repository?action=citation&format=bibtex&id=<%=item.id%>">BibTeX</a><button class="repo-btn" type="button" data-repo-copy="<%=rh(request.getRequestURL().toString() + "?view=item&id=" + item.id)%>">Salin tautan</button></div></header>
+        <article class="repo-card repo-article"><h2>Abstrak</h2><% if (item.abstractText.length() > 0) { %><p><%=rh(item.abstractText)%></p><% } else { %><p>Abstrak belum tersedia pada metadata publik.</p><% } %><% if (item.subjects.length() > 0) { %><h2>Kata kunci</h2><div class="repo-chips"><span class="repo-chip"><%=rh(item.subjects)%></span></div><% } %></article>
+        <section class="repo-card repo-article"><h2>Informasi bibliografis</h2><table class="repo-metadata"><tbody><tr><th>Identifier OAI</th><td><%=rh(item.oaiIdentifier)%></td></tr><% if (item.dspaceHandle.length() > 0) { %><tr><th>Handle</th><td><%=rh(item.dspaceHandle)%></td></tr><% } %><tr><th>Jenis dokumen</th><td><%=rh(item.documentType)%></td></tr><tr><th>Bahasa</th><td><%=rh(item.language)%></td></tr><tr><th>Koleksi</th><td><%=rh(item.collectionName)%></td></tr><% for (Map.Entry<String, List<String>> entry : item.metadata.entrySet()) { if ("dc.title".equals(entry.getKey()) || "dc.contributor.author".equals(entry.getKey()) || "dc.description.abstract".equals(entry.getKey())) continue; %><tr><th><%=rh(entry.getKey())%></th><td><% for (String value : entry.getValue()) { %><div><%=rh(value)%></div><% } %></td></tr><% } %></tbody></table></section>
+      </section>
+      <aside class="repo-card repo-file-panel"><div class="repo-file-preview">PDF</div><h2>Berkas publik</h2><% if (item.files.isEmpty()) { %><p>Metadata tersedia; naskah penuh belum tersedia untuk akses publik.</p><% } for (BitstreamView file : item.files) { %><div class="repo-file"><strong><%=rh(file.namaFile)%></strong><small><%=rh(file.mimeType)%> · <%=rh(rsize(file.ukuranByte))%><% if (file.checksum.length() > 0) { %> · checksum tersedia<% } %></small><a class="repo-btn repo-btn-primary" href="<%=root%>/repository?action=download&id=<%=file.id%>">Unduh berkas</a></div><% } %><div class="repo-chips"><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span></div></aside>
     </div>
 
-    <!-- ── Submenu Filter Jenis Dokumen ─────────────────────────────────── -->
-    <div class="submenu-bar-repo d-flex justify-content-center flex-wrap shadow-sm mb-4">
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('')"
-            data-doc="">
-            <i class="fas fa-archive me-1"></i><%=Common.getBahasaConfig("Semua Koleksi")%>
-        </a>
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('Thesis')"
-            data-doc="Thesis">
-            <i class="fas fa-graduation-cap me-1"></i><%=Common.getBahasaConfig("Tesis / Skripsi")%>
-        </a>
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('Book')"
-            data-doc="Book">
-            <i class="fas fa-book me-1"></i><%=Common.getBahasaConfig("Buku")%>
-        </a>
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('Article')"
-            data-doc="Article">
-            <i class="fas fa-file-alt me-1"></i><%=Common.getBahasaConfig("Jurnal Ilmiah")%>
-        </a>
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('Research')"
-            data-doc="Research">
-            <i class="fas fa-flask me-1"></i><%=Common.getBahasaConfig("Penelitian / Pengabdian")%>
-        </a>
-        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
-            onclick="filterJenisDoc<%=rnd%>('Image')"
-            data-doc="Image">
-            <i class="far fa-images me-1"></i><%=Common.getBahasaConfig("Gambar")%>
-        </a>
-    </div>
+  <% } else if ("policies".equals(view)) { %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Kebijakan</div><h1>Kebijakan repositori</h1><p>Prinsip akses, hak cipta, embargo, dan penarikan konten.</p></section><section class="repo-wrap repo-info-page"><div class="repo-card"><h2>Kebijakan akses</h2><p>Metadata publik dapat dijelajahi tanpa login. Akses berkas mengikuti status Open Access, khusus institusi, terautentikasi, terbatas, atau embargo yang ditetapkan pengelola.</p><h2>Hak cipta dan lisensi</h2><p>Hak cipta tetap berada pada pemegang hak. Pengguna wajib mengikuti lisensi yang tercantum pada setiap record dan tidak boleh menganggap ketersediaan metadata sebagai izin menggandakan naskah.</p><h2>Embargo</h2><p>Berkas dengan embargo tidak disediakan sebelum periode pembatasan berakhir. Metadata dapat tetap terlihat bila kebijakan institusi mengizinkan.</p><h2>Penarikan dan koreksi</h2><p>Record terbit tidak dihapus diam-diam. Permintaan koreksi atau penarikan ditangani pengelola dan menyisakan jejak audit sesuai kebijakan institusi.</p></div></section>
+  <% } else { %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Bantuan</div><h1>Pusat bantuan repositori</h1><p>Panduan pencarian, akses berkas, dan pengajuan koreksi.</p></section><section class="repo-wrap repo-info-page"><div class="repo-card"><h2>Mencari publikasi</h2><p>Gunakan judul, nama penulis, kata kunci, abstrak, atau identifier. Hasil dapat disaring berdasarkan jenis dokumen, koleksi, dan hak akses.</p><h2>Mengunduh berkas</h2><p>Tombol unduh hanya muncul untuk berkas yang diizinkan bagi publik. Masuk melalui akun institusi bila record menyatakan akses terautentikasi.</p><h2>Sitasi</h2><p>Pada halaman detail tersedia ekspor RIS dan BibTeX yang dihasilkan dari metadata record.</p><h2>Melaporkan masalah</h2><p>Hubungi pengelola perpustakaan atau administrator institusi dengan menyertakan identifier OAI dan deskripsi masalah.</p></div></section>
+  <% } %>
+  </main>
 
-    <!-- ── Tabel Hasil Pencarian ─────────────────────────────────────────── -->
-    <div class="card shadow-sm border-0 rounded-4 mb-5">
-        <div class="card-body px-4 pt-4 pb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="text-primary fw-bold mb-0">
-                    <i class="fas fa-list-ul me-2"></i>
-                    <%=Common.getBahasaConfig("Hasil Pencarian Repositori")%>
-                </h5>
-                <small class="text-primary fw-bold bg-primary bg-opacity-10 px-3 py-1 rounded-pill"
-                    id="infoTotal<%=rnd%>">
-                    <%=Common.getBahasaConfig("Menampilkan data terbaru...")%>
-                </small>
-            </div>
-
-            <div class="table-responsive shadow-sm rounded border">
-                <table class="table table-hover table-striped align-middle mb-0">
-                    <thead class="table-dark text-center">
-                        <tr>
-                            <th width="5%"  class="py-3"><%=Common.getBahasaConfig("No")%></th>
-                            <th width="20%" class="py-3"><%=Common.getBahasaConfig("Identifier OAI")%></th>
-                            <th width="35%" class="py-3"><%=Common.getBahasaConfig("Judul Karya")%></th>
-                            <th width="15%" class="py-3"><%=Common.getBahasaConfig("Penulis")%></th>
-                            <th width="10%" class="py-3"><%=Common.getBahasaConfig("Tahun")%></th>
-                            <th width="15%" class="py-3"><%=Common.getBahasaConfig("Tindakan")%></th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyRepo<%=rnd%>">
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-5">
-                                <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i><br>
-                                <%=Common.getBahasaConfig("Sistem sedang memuat data, mohon menunggu...")%>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
+  <footer class="repo-footer"><div class="repo-wrap"><div class="repo-footer-grid"><div><h2>Repositori Institusi</h2><p>Pusat pelestarian dan diseminasi karya ilmiah, data penelitian, bahan ajar, publikasi, dan dokumen akademik <%=rh(institution)%>.</p></div><div><h3>Jelajah</h3><div class="repo-footer-links"><a href="<%=root%>/repository?view=search">Koleksi dan publikasi</a><a href="<%=root%>/repository?view=search&sort=newest">Terbitan terbaru</a><a href="<%=root%>/repository?view=search&access=OPEN_ACCESS">Open access</a></div></div><div><h3>Informasi</h3><div class="repo-footer-links"><a href="<%=root%>/repository?view=policies">Kebijakan akses</a><a href="<%=root%>/repository?view=help">Pusat bantuan</a><a href="<%=root%>/repository?action=oai&verb=Identify">OAI-PMH</a></div></div></div><div class="repo-footer-bottom">© <%=Calendar.getInstance().get(Calendar.YEAR)%> <%=rh(institution)%> · Aksesibilitas · Privasi</div></div></footer>
 </div>
-
-<!-- FOOTER -->
-<jsp:include page="footer_repository.jsp" />
-
-<script>
-(function () {
-    'use strict';
-
-    // ── Konstanta ──────────────────────────────────────────────────────────
-    const ROOT      = '<%=Common.ROOT%>';
-    const RND       = '<%=rnd%>';
-    const CAN_EDIT  = <%=edit%>;
-    const CAN_DEL   = <%=delete%>;
-
-    // Filter aktif dari submenu
-    let activeDocType = '';
-
-    // ── Escape SQL (single-quote) ──────────────────────────────────────────
-    // Mengganti ' menjadi '' agar aman dimasukkan ke dalam SQL LIKE
-    const escapeSql = (s) => (s || '').replace(/'/g, "''");
-
-    // ── Generic API helper ─────────────────────────────────────────────────
-    const apiPost = (body) =>
-        fetch(ROOT + '/Data', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(body)
-        }).then(r => r.json());
-
-    // ── Statistik ──────────────────────────────────────────────────────────
-    const muatStatistik = async () => {
-        try {
-            const data = await apiPost({
-                action:     'sql',
-                tanpaLogin: 'true',
-                sql:
-                    "SELECT "
-                    + "(SELECT COUNT(*) FROM repo_item WHERE aktif = true OR aktif IS NULL) AS total_item,"
-                    + "(SELECT COUNT(*) FROM repo_collection WHERE aktif = true OR aktif IS NULL) AS total_collection,"
-                    + "(SELECT COUNT(*) FROM repo_item WHERE (aktif = true OR aktif IS NULL)"
-                    + " AND access_policy = 'OPEN_ACCESS') AS open_access,"
-                    + "(SELECT COUNT(*) FROM repo_item WHERE (aktif = true OR aktif IS NULL)"
-                    + " AND turnitin_indexed = true) AS turnitin_indexed"
-            });
-            if (data && data.data && data.data.length > 0) {
-                document.getElementById('statTotalItem'  + RND).innerHTML = data.data[0].total_item       || 0;
-                document.getElementById('statCollection' + RND).innerHTML = data.data[0].total_collection || 0;
-                document.getElementById('statOpenAccess' + RND).innerHTML = data.data[0].open_access      || 0;
-                document.getElementById('statTurnitin'   + RND).innerHTML = data.data[0].turnitin_indexed || 0;
-            }
-        } catch (e) { console.error('Gagal muatStatistik:', e); }
-    };
-
-    // ── Dropdown Koleksi ───────────────────────────────────────────────────
-    const muatFilterKoleksi = async () => {
-        try {
-            const res = await apiPost({
-                action:     'daftar',
-                tanpaLogin: 'true',
-                class:      'ais.database.model.repository.RepoCollection',
-                max:        200,
-                order1:     'asc',
-                sort1:      'nama'
-            });
-            const sel = document.getElementById('filterKoleksi' + RND);
-            sel.innerHTML = '<option value=""><%=Common.getBahasaConfig("Semua Koleksi")%></option>';
-            if (res && res.data) {
-                res.data.forEach(c => {
-                    const opt  = document.createElement('option');
-                    opt.value  = c.id;
-                    opt.text   = c.nama;
-                    sel.appendChild(opt);
-                });
-            }
-        } catch (e) { console.error('Gagal muatFilterKoleksi:', e); }
-    };
-
-    // ── Submenu Filter Jenis Dokumen ───────────────────────────────────────
-    window['filterJenisDoc' + RND] = (docType) => {
-        activeDocType = docType;
-        // Tandai link aktif
-        document.querySelectorAll('.submenu-repo-item' + RND).forEach(el => {
-            el.classList.toggle('active', el.dataset.doc === docType);
-        });
-        muatData();
-    };
-
-    // ── Muat Data Tabel ────────────────────────────────────────────────────
-    const muatData = async () => {
-        const tbody     = document.getElementById('tbodyRepo'   + RND);
-        const infoTotal = document.getElementById('infoTotal'   + RND);
-        tbody.innerHTML =
-            "<tr><td colspan='6' class='text-center py-5'>"
-            + "<i class='fas fa-circle-notch fa-spin text-primary fa-3x mb-3'></i><br>"
-            + "<span class='text-muted fs-5'><%=Common.getBahasaConfig("Sedang menyinkronkan data dari peladen...")%></span>"
-            + "</td></tr>";
-
-        // Sanitise semua input user sebelum masuk SQL
-        const keyword   = escapeSql(
-            (document.getElementById('inputKeyword' + RND).value || '').trim().toLowerCase()
-        );
-        const koleksiId = parseInt(
-            document.getElementById('filterKoleksi' + RND).value || '0', 10
-        ) || 0; // pastikan integer, bukan string arbitrary
-
-        // ── Base query (JOIN item → metadata) ──
-        let baseSql =
-            "SELECT i.id, i.oai_identifier, i.document_type,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.title'              THEN m.metadata_value END) AS judul,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.contributor.author' THEN m.metadata_value END) AS penulis,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.date.issued'        THEN m.metadata_value END) AS tahun"
-            + " FROM repo_item i"
-            + " LEFT JOIN repo_item_metadata m ON i.id = m.item_id"
-            + " WHERE (i.aktif = true OR i.aktif IS NULL)";
-
-        if (koleksiId > 0) {
-            // Nilai sudah divalidasi integer — aman diinterpolasi
-            baseSql += " AND i.collection_id = " + koleksiId;
-        }
-        if (activeDocType !== '') {
-            // activeDocType berasal dari data-doc atribut yang di-hard-code JSP — aman
-            baseSql += " AND i.document_type = '" + escapeSql(activeDocType) + "'";
-        }
-        baseSql += " GROUP BY i.id, i.oai_identifier, i.document_type";
-
-        // ── Outer query dengan filter keyword ──
-        let finalSql = "SELECT * FROM (" + baseSql + ") AS sub WHERE 1=1";
-        if (keyword !== '') {
-            // keyword sudah di-escapeSql() di atas
-            finalSql += " AND (LOWER(judul) LIKE '%" + keyword + "%'"
-                      + " OR LOWER(penulis) LIKE '%" + keyword + "%')";
-        }
-        finalSql += " ORDER BY id DESC LIMIT 50";
-
-        try {
-            const res = await apiPost({ action: 'sql', sql: finalSql, tanpaLogin: 'true' });
-            const data = (res && res.data) ? res.data : [];
-
-            if (data.length === 0) {
-                tbody.innerHTML =
-                    "<tr><td colspan='6' class='text-center text-muted py-5'>"
-                    + "<i class='fas fa-search-minus fa-4x mb-3 opacity-50 text-primary'></i><br>"
-                    + "<h5 class='text-primary'><%=Common.getBahasaConfig("Tidak ada entri yang ditemukan.")%></h5>"
-                    + "<p><%=Common.getBahasaConfig("Silakan ubah kata kunci atau kriteria pencarian Anda.")%></p>"
-                    + "</td></tr>";
-                infoTotal.innerHTML = "<%=Common.getBahasaConfig("Ditemukan 0 entri")%>";
-                return;
-            }
-
-            infoTotal.innerHTML =
-                "<%=Common.getBahasaConfig("Menampilkan")%> " + data.length
-                + " <%=Common.getBahasaConfig("entri teratas")%>";
-
-            let html = '';
-            data.forEach((row, idx) => {
-                const no       = idx + 1;
-                const itemId   = row.id;
-                const oaiStr   = row.oai_identifier || '-';
-                const judulStr = row.judul           || '-';
-                const penulisStr = row.penulis       || '-';
-                const tahunStr   = row.tahun         || '-';
-
-                let tombol =
-                    "<button class='btn btn-sm btn-outline-success shadow-sm me-1 mb-1'"
-                    + " onclick='tampilkanDetail" + RND + "(" + itemId + ")'"
-                    + " title='<%=Common.getBahasaConfigJS("Lihat Rincian")%>'>"
-                    + "<i class='fas fa-eye'></i></button>";
-
-                if (CAN_EDIT) {
-                    tombol +=
-                        "<button class='btn btn-sm btn-outline-warning shadow-sm me-1 mb-1'"
-                        + " onclick='ubahRepository" + RND + "(" + itemId + ")'"
-                        + " title='<%=Common.getBahasaConfigJS("Perbarui Data")%>'>"
-                        + "<i class='fas fa-edit'></i></button>";
-                }
-                if (CAN_DEL) {
-                    tombol +=
-                        "<button class='btn btn-sm btn-outline-danger shadow-sm mb-1'"
-                        + " onclick='hapusRepository" + RND + "(" + itemId + ")'"
-                        + " title='<%=Common.getBahasaConfigJS("Hapus Entri")%>'>"
-                        + "<i class='fas fa-trash-alt'></i></button>";
-                }
-
-                html +=
-                    "<tr>"
-                    + "<td class='text-center fw-bold text-primary'>" + no + "</td>"
-                    + "<td><span class='badge bg-primary bg-opacity-10 text-primary border border-primary"
-                    +   " shadow-sm rounded-pill'><i class='fas fa-link me-1'></i> " + oaiStr + "</span></td>"
-                    + "<td class='fw-bold text-primary'>" + judulStr + "</td>"
-                    + "<td><i class='far fa-user-circle text-primary me-1'></i>"
-                    +   "<span class='text-primary'>" + penulisStr + "</span></td>"
-                    + "<td class='text-center fw-semibold text-primary'>" + tahunStr + "</td>"
-                    + "<td class='text-center'>" + tombol + "</td>"
-                    + "</tr>";
-            });
-            tbody.innerHTML = html;
-
-        } catch (e) {
-            console.error('Gagal muatData:', e);
-            tbody.innerHTML =
-                "<tr><td colspan='6' class='text-center text-danger py-5'>"
-                + "<i class='fas fa-exclamation-triangle fa-2x mb-3 d-block'></i>"
-                + "<%=Common.getBahasaConfig("Gagal memuat data. Periksa koneksi server.")%>"
-                + "</td></tr>";
-        }
-    };
-    window['muatDataRepository' + RND] = muatData;
-
-    // ── Hapus ──────────────────────────────────────────────────────────────
-    window['hapusRepository' + RND] = (id) => {
-        const fn = typeof prosesDeleteData === 'function'     ? prosesDeleteData
-                 : typeof proseshapusDataRinci === 'function' ? proseshapusDataRinci
-                 : null;
-        if (fn) {
-            fn('ais.database.model.repository.RepoItem', id, () => muatData());
-        } else {
-            if (!confirm('<%=Common.getBahasaConfigJS("Hapus item ini?")%>')) return;
-            apiPost({
-                action: 'simpanDataRinci',
-                class:  'ais.database.model.repository.RepoItem',
-                id:     id,
-                data:   { aktif: false }
-            }).then(() => muatData()).catch(console.error);
-        }
-    };
-
-    // ── Buka Form Tambah / Ubah ────────────────────────────────────────────
-    window['bukaFormTambah'   + RND] = () => bukaModalForm('');
-    window['ubahRepository'   + RND] = (id) => bukaModalForm(id);
-
-    const bukaModalForm = async (itemId) => {
-        const modalId = 'modalFormRepo_' + RND;
-        const el      = document.getElementById(modalId);
-        if (el) el.remove();
-
-        const judulModal = itemId === ''
-            ? '<%=Common.getBahasaConfigJS("Form Pendaftaran Koleksi Repositori")%>'
-            : '<%=Common.getBahasaConfigJS("Perbarui Data Repositori")%>';
-        const iconClass  = itemId === '' ? 'fa-cloud-upload-alt' : 'fa-edit';
-
-        // URL form dimuat dengan hanya_tampil_jsp=true agar tidak memuat layout penuh
-        const urlForm = ROOT + '/repository?hanya_tampil_jsp=true&p=repository&s=FormRepository'
-            + (itemId !== '' ? '&id=' + encodeURIComponent(itemId) : '');
-
-        document.body.insertAdjacentHTML('beforeend',
-            "<div class='modal fade' id='" + modalId + "' tabindex='-1'"
-            + " aria-hidden='true' data-bs-backdrop='static'>"
-            + "<div class='modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable'>"
-            + "<div class='modal-content border-0 shadow-lg'>"
-            + "<div class='modal-header bg-primary text-white'>"
-            + "<h5 class='modal-title fw-bold text-white'>"
-            + "<i class='fas " + iconClass + " me-2'></i> " + judulModal + "</h5>"
-            + "<button type='button' class='btn-close btn-close-white shadow-sm'"
-            + " data-bs-dismiss='modal' aria-label='Close'></button>"
-            + "</div>"
-            + "<div class='modal-body bg-light p-0' id='kontenFormRepo" + RND + "'>"
-            + "<div class='text-center py-5 my-5'>"
-            + "<i class='fas fa-sync fa-spin fa-4x text-primary mb-3'></i>"
-            + "<h5 class='text-muted'><%=Common.getBahasaConfig("Menyiapkan formulir...")%></h5>"
-            + "</div></div></div></div></div>");
-
-        const modalObj = new bootstrap.Modal(document.getElementById(modalId));
-        modalObj.show();
-
-        try {
-            const html      = await fetch(urlForm).then(r => r.text());
-            const container = document.getElementById('kontenFormRepo' + RND);
-            container.innerHTML = html;
-            // Re-eksekusi script yang ada dalam konten
-            container.querySelectorAll('script').forEach(old => {
-                const s = document.createElement('script');
-                [...old.attributes].forEach(a => s.setAttribute(a.name, a.value));
-                s.text = old.text;
-                old.replaceWith(s);
-            });
-        } catch (e) {
-            document.getElementById('kontenFormRepo' + RND).innerHTML =
-                "<div class='p-5 text-center text-danger'>"
-                + "<i class='fas fa-exclamation-triangle fa-3x mb-3'></i><br>"
-                + "<h5><%=Common.getBahasaConfig("Terjadi kesalahan teknis saat memuat formulir.")%></h5>"
-                + "</div>";
-        }
-    };
-
-    // ── Manajemen Koleksi ──────────────────────────────────────────────────
-    window['bukaManajemenKoleksi' + RND] = async () => {
-        const modalId = 'modalManajemenKoleksi_' + RND;
-        const el      = document.getElementById(modalId);
-        if (el) el.remove();
-
-        document.body.insertAdjacentHTML('beforeend',
-            "<div class='modal fade' id='" + modalId + "' tabindex='-1'"
-            + " aria-hidden='true' data-bs-backdrop='static'>"
-            + "<div class='modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable'>"
-            + "<div class='modal-content border-0 shadow-lg'>"
-            + "<div class='modal-header bg-primary text-white'>"
-            + "<h5 class='modal-title fw-bold text-white'>"
-            + "<i class='fas fa-folder-open me-2'></i>"
-            + "<%=Common.getBahasaConfig("Manajemen Koleksi Repositori")%></h5>"
-            + "<button type='button' class='btn-close btn-close-white shadow-sm'"
-            + " data-bs-dismiss='modal' aria-label='Close'></button>"
-            + "</div>"
-            + "<div class='modal-body bg-light p-0' id='kontenManajemenKoleksi" + RND + "'>"
-            + "<div class='text-center py-5 my-5'>"
-            + "<i class='fas fa-sync fa-spin fa-4x text-primary mb-3'></i>"
-            + "<h5 class='text-muted'><%=Common.getBahasaConfig("Menyiapkan antarmuka manajemen koleksi...")%></h5>"
-            + "</div></div></div></div></div>");
-
-        const modalObj = new bootstrap.Modal(document.getElementById(modalId));
-        modalObj.show();
-
-        const urlKoleksi = ROOT + '/repository?hanya_tampil_jsp=true&p=repository&s=_repo_collection';
-        try {
-            const html      = await fetch(urlKoleksi).then(r => r.text());
-            const container = document.getElementById('kontenManajemenKoleksi' + RND);
-            container.innerHTML = html;
-            container.querySelectorAll('script').forEach(old => {
-                const s = document.createElement('script');
-                [...old.attributes].forEach(a => s.setAttribute(a.name, a.value));
-                s.text = old.text;
-                old.replaceWith(s);
-            });
-            // Setelah modal koleksi ditutup, refresh dropdown koleksi di halaman utama
-            document.getElementById(modalId).addEventListener('hidden.bs.modal', () => {
-                muatFilterKoleksi();
-            });
-        } catch (e) {
-            document.getElementById('kontenManajemenKoleksi' + RND).innerHTML =
-                "<div class='p-5 text-center text-danger'>"
-                + "<i class='fas fa-exclamation-triangle fa-3x mb-3'></i><br>"
-                + "<h5><%=Common.getBahasaConfig("Terjadi kesalahan teknis saat memuat modul koleksi.")%></h5>"
-                + "</div>";
-        }
-    };
-
-    // ── Tampilkan Detail ───────────────────────────────────────────────────
-    window['tampilkanDetail' + RND] = async (itemId) => {
-        const modalId = 'modalDetail_' + RND;
-        const el      = document.getElementById(modalId);
-        if (el) el.remove();
-
-        document.body.insertAdjacentHTML('beforeend',
-            "<div class='modal fade' id='" + modalId + "' tabindex='-1' aria-hidden='true'>"
-            + "<div class='modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable'>"
-            + "<div class='modal-content border-0 shadow-lg'>"
-            + "<div class='modal-header bg-primary text-white'>"
-            + "<h5 class='modal-title fw-bold text-white'>"
-            + "<i class='fas fa-info-circle me-2'></i>"
-            + "<%=Common.getBahasaConfig("Rincian Metadata Dokumen")%></h5>"
-            + "<button type='button' class='btn-close btn-close-white shadow-sm'"
-            + " data-bs-dismiss='modal' aria-label='Close'></button>"
-            + "</div>"
-            + "<div class='modal-body bg-light'>"
-            + "<div class='text-center py-5' id='loadingDetail" + RND + "'>"
-            + "<i class='fas fa-spinner fa-spin fa-3x text-primary mb-3'></i>"
-            + "<h6 class='text-muted'><%=Common.getBahasaConfig("Menarik rincian metadata dari peladen...")%></h6>"
-            + "</div>"
-            + "<div id='kontenDetail" + RND + "' style='display:none;'></div>"
-            + "</div>"
-            + "<div class='modal-footer bg-white border-top-0'>"
-            + "<button type='button' class='btn btn-secondary shadow-sm rounded-pill px-4'"
-            + " data-bs-dismiss='modal'>"
-            + "<i class='fas fa-times me-1'></i><%=Common.getBahasaConfig("Tutup Jendela")%>"
-            + "</button></div></div></div></div>");
-
-        const modalObj = new bootstrap.Modal(document.getElementById(modalId));
-        modalObj.show();
-
-        try {
-            // Load item + koleksi
-            const resItem = await apiPost({
-                action:     'sql',
-                tanpaLogin: 'true',
-                sql: 'SELECT i.oai_identifier, c.nama'
-                   + ' FROM repo_item i'
-                   + ' LEFT JOIN repo_collection c ON i.collection_id = c.id'
-                   + ' WHERE i.id = ' + parseInt(itemId, 10)
-            });
-            let oaiId = '-', namaKoleksi = '-';
-            if (resItem && resItem.data && resItem.data.length > 0) {
-                oaiId       = resItem.data[0].oai_identifier || '-';
-                namaKoleksi = resItem.data[0].nama           || '-';
-            }
-
-            // Load metadata EAV
-            const resMd = await apiPost({
-                action:     'sql',
-                tanpaLogin: 'true',
-                sql: 'SELECT metadata_field, metadata_value'
-                   + ' FROM repo_item_metadata'
-                   + ' WHERE item_id = ' + parseInt(itemId, 10)
-                   + ' AND (aktif IS NULL OR aktif = true)'
-            });
-            let judul = '-', penulis = '-', tahun = '-', abstrak = '-';
-            if (resMd && resMd.data) {
-                resMd.data.forEach(row => {
-                    switch (row.metadata_field) {
-                        case 'dc.title':                judul   = row.metadata_value; break;
-                        case 'dc.contributor.author':   penulis = row.metadata_value; break;
-                        case 'dc.date.issued':          tahun   = row.metadata_value; break;
-                        case 'dc.description.abstract': abstrak = row.metadata_value; break;
-                    }
-                });
-            }
-
-            // Load bitstream — URL unduh via RepoBitstream (jenis-based lookup)
-            const resFile = await apiPost({
-                action:     'sql',
-                tanpaLogin: 'true',
-                sql: 'SELECT id, nama_file'
-                   + ' FROM repo_bitstream'
-                   + ' WHERE item_id = ' + parseInt(itemId, 10)
-                   + ' AND (aktif IS NULL OR aktif = true)'
-            });
-            let fileHtml = '';
-            if (resFile && resFile.data && resFile.data.length > 0) {
-                fileHtml = "<ul class='list-group shadow-sm'>";
-                resFile.data.forEach(row => {
-                    // URL unduh: Download servlet mencari LampiranLain berdasarkan jenis + sourceId
-                    const dlUrl = ROOT + '/Download?id=' + row.id
-                        + '&clazz=ais.database.model.file.LampiranLain'
-                        + '&jenis=ais.database.model.repository.RepoBitstream';
-                    fileHtml +=
-                        "<li class='list-group-item d-flex justify-content-between align-items-center bg-white'>"
-                        + "<div><i class='fas fa-file-pdf text-danger me-2 fa-lg'></i>"
-                        + "<span class='fw-medium text-dark'>" + row.nama_file + "</span></div>"
-                        + "<a href='" + dlUrl + "' target='_blank'"
-                        + " class='btn btn-sm btn-outline-success rounded-pill px-3 shadow-sm'>"
-                        + "<i class='fas fa-download me-1'></i><%=Common.getBahasaConfig("Unduh")%></a>"
-                        + "</li>";
-                });
-                fileHtml += "</ul>";
-            } else {
-                fileHtml =
-                    "<div class='alert alert-secondary border-0 mb-0 shadow-sm'>"
-                    + "<i class='fas fa-info-circle me-2'></i>"
-                    + "<%=Common.getBahasaConfig("Tidak ada lampiran dokumen yang tersedia.")%></div>";
-            }
-
-            const renderHtml =
-                "<div class='card border-0 shadow-sm mb-3 rounded-3'>"
-                + "<div class='card-header bg-white border-bottom pt-3 pb-2'>"
-                + "<h6 class='mb-0 text-primary fw-bold'>"
-                + "<i class='fas fa-bookmark me-2'></i>"
-                + "<%=Common.getBahasaConfig("Informasi Identitas")%></h6></div>"
-                + "<div class='card-body py-2'>"
-                + "<table class='table table-borderless table-sm mb-0'>"
-                + "<tr><td width='30%' class='text-primary fw-bold align-middle'>"
-                + "<%=Common.getBahasaConfig("Identifier OAI")%></td>"
-                + "<td width='5%' class='align-middle text-primary'>:</td>"
-                + "<td class='fw-medium align-middle'>"
-                + "<span class='badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1 rounded-pill'>"
-                + oaiId + "</span></td></tr>"
-                + "<tr><td class='text-primary fw-bold align-middle'>"
-                + "<%=Common.getBahasaConfig("Koleksi Repositori")%></td>"
-                + "<td class='align-middle text-primary'>:</td>"
-                + "<td class='fw-medium text-dark align-middle'>" + namaKoleksi + "</td></tr>"
-                + "</table></div></div>"
-
-                + "<div class='card border-0 shadow-sm mb-3 rounded-3'>"
-                + "<div class='card-header bg-white border-bottom pt-3 pb-2'>"
-                + "<h6 class='mb-0 text-primary fw-bold'><i class='fas fa-tags me-2'></i>"
-                + "<%=Common.getBahasaConfig("Metadata Lengkap")%> <small class='text-muted fw-normal'>(Dublin Core)</small>"
-                + "</h6></div>"
-                + "<div class='card-body py-2'>"
-                + "<table class='table table-borderless table-sm mb-0'>"
-                + "<tr><td width='30%' class='text-primary fw-bold'>"
-                + "<%=Common.getBahasaConfig("Judul Karya")%> <small class='text-muted d-block'>(dc.title)</small></td>"
-                + "<td width='5%' class='text-primary'>:</td>"
-                + "<td class='fw-bold text-dark fs-6'>" + judul + "</td></tr>"
-                + "<tr><td class='text-primary fw-bold'>"
-                + "<%=Common.getBahasaConfig("Penulis")%> <small class='text-muted d-block'>(dc.contributor.author)</small></td>"
-                + "<td class='text-primary'>:</td>"
-                + "<td class='fw-medium text-dark'>" + penulis + "</td></tr>"
-                + "<tr><td class='text-primary fw-bold'>"
-                + "<%=Common.getBahasaConfig("Tahun Terbit")%> <small class='text-muted d-block'>(dc.date.issued)</small></td>"
-                + "<td class='text-primary'>:</td>"
-                + "<td class='fw-medium text-dark'>" + tahun + "</td></tr>"
-                + "<tr><td class='text-primary fw-bold'>"
-                + "<%=Common.getBahasaConfig("Abstrak")%> <small class='text-muted d-block'>(dc.description.abstract)</small></td>"
-                + "<td class='text-primary'>:</td>"
-                + "<td class='fw-medium text-dark text-justify' style='white-space:pre-line;text-align:justify;'>"
-                + abstrak + "</td></tr>"
-                + "</table></div></div>"
-
-                + "<div class='card border-0 shadow-sm rounded-3'>"
-                + "<div class='card-header bg-white border-bottom pt-3 pb-2'>"
-                + "<h6 class='mb-0 text-primary fw-bold'><i class='fas fa-copy me-2'></i>"
-                + "<%=Common.getBahasaConfig("Lampiran Dokumen")%></h6></div>"
-                + "<div class='card-body p-3 bg-light rounded-bottom'>" + fileHtml + "</div>"
-                + "</div>";
-
-            document.getElementById('loadingDetail' + RND).style.display = 'none';
-            const konten = document.getElementById('kontenDetail' + RND);
-            konten.style.display = 'block';
-            konten.innerHTML     = renderHtml;
-
-        } catch (e) {
-            console.error(e);
-            document.getElementById('loadingDetail' + RND).style.display = 'none';
-            const konten = document.getElementById('kontenDetail' + RND);
-            konten.style.display = 'block';
-            konten.innerHTML =
-                "<div class='alert alert-danger border-0 shadow-sm rounded-3 p-4 text-center'>"
-                + "<i class='fas fa-exclamation-triangle fa-3x mb-3 text-danger'></i><br>"
-                + "<h6 class='fw-bold mb-0'>"
-                + "<%=Common.getBahasaConfig("Terjadi kesalahan teknis saat menarik rincian data repositori.")%>"
-                + "</h6></div>";
-        }
-    };
-
-    // ── Unduh CSV ──────────────────────────────────────────────────────────
-    window['unduhExcelRepository' + RND] = async () => {
-        const keyword   = escapeSql(
-            (document.getElementById('inputKeyword' + RND).value || '').trim().toLowerCase()
-        );
-        const koleksiId = parseInt(
-            document.getElementById('filterKoleksi' + RND).value || '0', 10
-        ) || 0;
-
-        let baseSql =
-            "SELECT i.oai_identifier,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.title'              THEN m.metadata_value END) AS judul,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.contributor.author' THEN m.metadata_value END) AS penulis,"
-            + " MAX(CASE WHEN m.metadata_field = 'dc.date.issued'        THEN m.metadata_value END) AS tahun"
-            + " FROM repo_item i"
-            + " LEFT JOIN repo_item_metadata m ON i.id = m.item_id"
-            + " WHERE (i.aktif = true OR i.aktif IS NULL)";
-
-        if (koleksiId > 0) baseSql += " AND i.collection_id = " + koleksiId;
-        if (activeDocType !== '') baseSql += " AND i.document_type = '" + escapeSql(activeDocType) + "'";
-        baseSql += " GROUP BY i.id, i.oai_identifier";
-
-        let finalSql = "SELECT oai_identifier, judul, penulis, tahun FROM (" + baseSql + ") AS sub WHERE 1=1";
-        if (keyword !== '') {
-            finalSql += " AND (LOWER(judul) LIKE '%" + keyword + "%'"
-                      + " OR LOWER(penulis) LIKE '%" + keyword + "%')";
-        }
-        finalSql += " ORDER BY judul ASC";
-
-        const res  = await apiPost({ action: 'sql', sql: finalSql, tanpaLogin: 'true' });
-        const data = (res && res.data) ? res.data : [];
-
-        if (data.length === 0) {
-            if (typeof tampilkanToast === 'function')
-                tampilkanToast(
-                    '<%=Common.getBahasaConfigJS("Maaf, tidak ada data yang memenuhi kriteria pencarian untuk diunduh.")%>',
-                    'bg-warning text-dark');
-            return;
-        }
-
-        let csv = "﻿"; // BOM UTF-8 agar Excel bisa baca karakter Indonesia
-        csv += '<%=Common.getBahasaConfigJS("Identifier OAI,Judul Karya Ilmiah,Nama Penulis,Tahun Penerbitan")%>\n';
-        data.forEach(row => {
-            const cols = [row.oai_identifier, row.judul, row.penulis, row.tahun];
-            csv += cols.map(c => c ? '"' + String(c).replace(/"/g, '""') + '"' : '""').join(',') + '\n';
-        });
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url  = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href     = url;
-        link.download = 'Laporan_Koleksi_Repositori_' + new Date().toISOString().slice(0, 10) + '.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        if (typeof tampilkanToast === 'function')
-            tampilkanToast(
-                '<%=Common.getBahasaConfigJS("Laporan berhasil diunduh ke perangkat Anda.")%>',
-                'bg-success text-white');
-    };
-
-    // ── Listener: setelah form simpan, reload tabel ────────────────────────
-    document.addEventListener('repositorySavedEvent', () => muatData());
-
-    // ── Init ───────────────────────────────────────────────────────────────
-    muatStatistik();
-    muatFilterKoleksi();
-    muatData();
-
-}());
-</script>
