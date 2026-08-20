@@ -24,7 +24,7 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
-import ais.database.hibernate.StreamingHibernateUtil;
+import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
@@ -43,6 +43,8 @@ public class Oai extends HttpServlet {
 
     /** Records returned per page for ListIdentifiers / ListRecords. */
     private static final int PAGE_SIZE = 100;
+    private static final String[] PUBLIC_STATUSES =
+        new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
 
     private static final String OAI_NS =
         "http://www.openarchives.org/OAI/2.0/";
@@ -61,11 +63,13 @@ public class Oai extends HttpServlet {
     private static SimpleDateFormat fullFmt() {
         SimpleDateFormat sdf = new SimpleDateFormat(FMT_FULL);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        sdf.setLenient(false);
         return sdf;
     }
     private static SimpleDateFormat dayFmt() {
         SimpleDateFormat sdf = new SimpleDateFormat(FMT_DAY);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        sdf.setLenient(false);
         return sdf;
     }
 
@@ -322,7 +326,7 @@ public class Oai extends HttpServlet {
             for (RepoItem item : items) {
                 String setSpec = "col_" + item.getCollectionId();
                 String datestamp = itemDatestamp(item);
-                out.println("    <header" + (item.getIsWithdrawn() ? " status=\"deleted\"" : "") + ">");
+                out.println("    <header" + (Boolean.TRUE.equals(item.getIsWithdrawn()) ? " status=\"deleted\"" : "") + ">");
                 out.println("      <identifier>" + escXml(item.getOaiIdentifier()) + "</identifier>");
                 out.println("      <datestamp>" + datestamp + "</datestamp>");
                 out.println("      <setSpec>" + setSpec + "</setSpec>");
@@ -379,7 +383,7 @@ public class Oai extends HttpServlet {
     private void writeRecord(PrintWriter out, Session session, RepoItem item,
                               List<RepoItemMetadata> metas, String setSpec) {
         String datestamp = itemDatestamp(item);
-        boolean deleted  = item.getIsWithdrawn();
+        boolean deleted  = Boolean.TRUE.equals(item.getIsWithdrawn());
 
         out.println("    <record>");
         out.println("      <header" + (deleted ? " status=\"deleted\"" : "") + ">");
@@ -511,8 +515,10 @@ public class Oai extends HttpServlet {
 
     private Criteria buildItemCriteria(Session session, ListQuery q) {
         Criteria c = session.createCriteria(RepoItem.class);
-        // Only expose active items (or withdrawn as deleted)
+        // Only records that reached a public state may be harvested. A
+        // withdrawn public record remains visible as an OAI deleted header.
         c.add(Restrictions.eq("aktif", Boolean.TRUE));
+        c.add(Restrictions.in("syncStatus", PUBLIC_STATUSES));
 
         if (q.setSpec != null) {
             // setSpec format: col_<id>
@@ -522,9 +528,9 @@ public class Oai extends HttpServlet {
             } catch (NumberFormatException ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Oai.java:522");}
         }
         if (q.from != null)
-            c.add(Restrictions.ge("submittedAt", q.from));
+            c.add(Restrictions.ge("lastSyncAt", q.from));
         if (q.until != null)
-            c.add(Restrictions.le("submittedAt", q.until));
+            c.add(Restrictions.le("lastSyncAt", q.until));
 
         return c;
     }
@@ -561,6 +567,8 @@ public class Oai extends HttpServlet {
             session = openSession();
             return (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("oaiIdentifier", identifier))
+                .add(Restrictions.eq("aktif", Boolean.TRUE))
+                .add(Restrictions.in("syncStatus", PUBLIC_STATUSES))
                 .setMaxResults(1)
                 .uniqueResult();
         } catch (Exception e) {
@@ -577,8 +585,9 @@ public class Oai extends HttpServlet {
             session = openSession();
             Object result = session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("aktif", Boolean.TRUE))
-                .add(Restrictions.isNotNull("submittedAt"))
-                .setProjection(Projections.min("submittedAt"))
+                .add(Restrictions.in("syncStatus", PUBLIC_STATUSES))
+                .add(Restrictions.isNotNull("lastSyncAt"))
+                .setProjection(Projections.min("lastSyncAt"))
                 .uniqueResult();
             if (result instanceof Date)
                 return fullFmt().format((Date) result);
@@ -650,6 +659,13 @@ public class Oai extends HttpServlet {
 
         if (token != null && !token.trim().isEmpty()) {
             // When resumptionToken is provided, no other args allowed (except verb)
+            if (param(request, "metadataPrefix") != null || param(request, "from") != null
+                    || param(request, "until") != null || param(request, "set") != null
+                    || param(request, "identifier") != null) {
+                q.errorCode = "badArgument";
+                q.error = "resumptionToken must be the only argument besides verb.";
+                return q;
+            }
             ListQuery decoded = decodeToken(token.trim());
             if (decoded == null) {
                 q.errorCode = "badResumptionToken";
@@ -675,6 +691,13 @@ public class Oai extends HttpServlet {
         String untilStr = param(request, "until");
         String setSpec  = param(request, "set");
 
+        if (fromStr != null && untilStr != null
+                && ((fromStr.length() == 10) != (untilStr.length() == 10))) {
+            q.errorCode = "badArgument";
+            q.error = "Arguments 'from' and 'until' must use the same granularity.";
+            return q;
+        }
+
         try {
             q.from = (fromStr  != null && !fromStr.trim().isEmpty())
                 ? parseDateFlexible(fromStr.trim()) : null;
@@ -693,6 +716,11 @@ public class Oai extends HttpServlet {
         }
 
         q.setSpec = (setSpec != null && !setSpec.trim().isEmpty()) ? setSpec.trim() : null;
+        if (q.setSpec != null && !q.setSpec.matches("col_[1-9][0-9]*")) {
+            q.errorCode = "noRecordsMatch";
+            q.error = "Unknown set: " + escXml(q.setSpec);
+            return q;
+        }
         q.offset  = 0;
         return q;
     }
@@ -803,13 +831,10 @@ public class Oai extends HttpServlet {
     // ── Hibernate helpers ─────────────────────────────────────────────────────
 
     private Session openSession() {
-        return StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
+        return HibernateUtil.openSession();
     }
 
     private void closeSession(Session session) {
-        if (session != null && session.isOpen()) {
-            try { session.clear(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Oai.java:811");}
-            try { session.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Oai.java:812");}
-        }
+        HibernateUtil.closeSessionQuietly(session);
     }
 }
