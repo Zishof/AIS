@@ -165,6 +165,13 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean bolehAksesSister;
 	private Boolean infoKegiatan;
 	private Boolean dasborRepository;
+	/**
+	 * Izin MEMBACA artefak repository di aplikasi mobile/desktop.
+	 * Sengaja terpisah dari {@link #dasborRepository} yang merupakan izin
+	 * MENGELOLA (bawaannya administrator saja): membaca artefak yang sudah
+	 * terpublikasi terbuka untuk semua grup kecuali dimatikan.
+	 */
+	private Boolean bacaRepository;
 	private Boolean dasboardAntarJemput;
 	private Boolean tampilkanSpmi;
 	private Boolean tampilkanGaji;
@@ -997,6 +1004,19 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 
 	@Column(name = "repository")
+	/**
+	 * Bawaan MENYALA untuk semua grup: repository berisi artefak yang memang
+	 * sudah terpublikasi. Grup lama yang kolomnya masih null ikut menyala
+	 * tanpa perlu pembaruan data massal.
+	 */
+	public Boolean getBacaRepository() {
+		return bacaRepository == null ? Boolean.TRUE : bacaRepository;
+	}
+
+	public void setBacaRepository(Boolean bacaRepository) {
+		this.bacaRepository = bacaRepository;
+	}
+
 	public Boolean getDasborRepository() {
 		return dasborRepository == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : dasborRepository;
 	}

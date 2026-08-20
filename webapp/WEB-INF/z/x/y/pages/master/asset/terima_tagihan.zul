@@ -9,6 +9,23 @@
 	<window use="ais.ui.util.MyWindow" border="none" id="window"
 		apply="ais.action.master.asset.TerimaTagihanAction" width="100%" height="100%">
 
+		<!-- Dua tab: "Dasbor" (ringkasan) dan "Terima Tagihan" (CRUD).
+		     Susunannya sepadan dengan tab yang sama pada POS Desktop/Android/JSP,
+		     dan angkanya berasal dari perhitungan yang SAMA. -->
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true"
+					forward="onClick=onDasborTagihan">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Terima Tagihan
+				</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabDasborTagihan"
+					forward="onCreate=onDasborTagihan"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
 		<div sclass="ais-crud-portal">
 
 			<!-- ═══ KARTU FILTER ═══ -->
@@ -130,6 +147,10 @@
 			</div>
 
 		</div>
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
 
 		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Saldo Awal" visible="false" mode="popup" position="center,center" border="normal" width="97%" height="97%">
 		</window>

@@ -24,6 +24,37 @@ package ais.action.master.asset;
  * <p><b>Threading dan pemeliharaan:</b> Tidak ada state tambahan. Java 1.7, ZKoss 5.5.</p>
  */
 public class TerimaTagihanAction extends SaldoAwalMasterAssetAction {
+	protected org.zkoss.zul.Tabpanel tabDasborTagihan;
+
+	/**
+	 * <b>Tujuan:</b> Memuat dasbor "Terima Tagihan" ke dalam tab pertama.
+	 *
+	 * <b>Cara kerja:</b> Lazy initialization seperti tab dasbor lain pada modul ini --
+	 * komponen hanya dibuat sekali, diperiksa lewat {@code getChildren().size() == 0}.
+	 * Dipicu dua kali jalur: {@code onCreate} pada tabpanel (karena tab pertama yang
+	 * terpilih tidak pernah menerima onClick) dan {@code onClick} pada tab-nya.
+	 *
+	 * <b>Sumber angka:</b> {@code PengadaanTahapDashboard} memanggil aksi yang sama
+	 * dengan dasbor POS, sehingga angka di ZKoss dan di POS tidak mungkin berbeda.
+	 *
+	 * <b>Pemeliharaan:</b> pastikan field {@code tabDasborTagihan} terwire di ZUL
+	 * lewat {@code id="tabDasborTagihan"} pada elemen {@code <tabpanel>}.
+	 *
+	 * @param event event ZK pemicu; tidak dipakai langsung
+	 */
+	public void onDasborTagihan(org.zkoss.zk.ui.event.Event event) {
+		if (tabDasborTagihan == null) {
+			return;
+		}
+		if (tabDasborTagihan.getChildren().size() == 0) {
+			ais.action.master.asset.helper.PengadaanTahapDashboard dashboard =
+					new ais.action.master.asset.helper.PengadaanTahapDashboard("tagihan");
+			dashboard.setHeight("100%");
+			dashboard.setWidth("100%");
+			dashboard.setParent(tabDasborTagihan);
+		}
+	}
+
 
 	/**
 	 * ID serialisasi yang dibutuhkan karena mewarisi {@code Serializable} via ZK.

@@ -9,6 +9,23 @@
 	<window use="ais.ui.util.MyWindow" border="none" id="window"
 		apply="ais.action.master.asset.PembayaranTerminMasterAssetAction" width="100%" height="100%">
 
+		<!-- Dua tab: "Dasbor" (ringkasan) dan "Pembayaran Vendor" (CRUD).
+		     Susunannya sepadan dengan tab yang sama pada POS Desktop/Android/JSP,
+		     dan angkanya berasal dari perhitungan yang SAMA. -->
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true"
+					forward="onClick=onDasborBayar">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Pembayaran Vendor
+				</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabDasborBayar"
+					forward="onCreate=onDasborBayar"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
 		<div sclass="ais-crud-portal">
 
 			<!-- ═══ KARTU FILTER ═══ -->
@@ -122,6 +139,10 @@
 			</div>
 
 		</div>
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
 
 		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Pemakaian" visible="false" mode="popup" position="center,center" border="normal" width="1150px" height="97%">
 		</window>

@@ -162,6 +162,37 @@ import ais.ui.util.WaktuUtil;
  * @see PembayaranTerminMasterAssetHelper
  */
 public class PembayaranTerminMasterAssetAction extends GenericAutowireComposer implements FormSop, DataCriteria {
+	protected org.zkoss.zul.Tabpanel tabDasborBayar;
+
+	/**
+	 * <b>Tujuan:</b> Memuat dasbor "Pembayaran Vendor" ke dalam tab pertama.
+	 *
+	 * <b>Cara kerja:</b> Lazy initialization seperti tab dasbor lain pada modul ini --
+	 * komponen hanya dibuat sekali, diperiksa lewat {@code getChildren().size() == 0}.
+	 * Dipicu dua kali jalur: {@code onCreate} pada tabpanel (karena tab pertama yang
+	 * terpilih tidak pernah menerima onClick) dan {@code onClick} pada tab-nya.
+	 *
+	 * <b>Sumber angka:</b> {@code PengadaanTahapDashboard} memanggil aksi yang sama
+	 * dengan dasbor POS, sehingga angka di ZKoss dan di POS tidak mungkin berbeda.
+	 *
+	 * <b>Pemeliharaan:</b> pastikan field {@code tabDasborBayar} terwire di ZUL
+	 * lewat {@code id="tabDasborBayar"} pada elemen {@code <tabpanel>}.
+	 *
+	 * @param event event ZK pemicu; tidak dipakai langsung
+	 */
+	public void onDasborBayar(Event event) {
+		if (tabDasborBayar == null) {
+			return;
+		}
+		if (tabDasborBayar.getChildren().size() == 0) {
+			ais.action.master.asset.helper.PengadaanTahapDashboard dashboard =
+					new ais.action.master.asset.helper.PengadaanTahapDashboard("dpc");
+			dashboard.setHeight("100%");
+			dashboard.setWidth("100%");
+			dashboard.setParent(tabDasborBayar);
+		}
+	}
+
 
 	/**
 	 * ID serialisasi untuk kompatibilitas antara versi kelas saat deserialisasi
