@@ -272,6 +272,28 @@ public class PendaftarAction extends GenericAutowireComposer
 				}
 
 			});
+
+			// ── Tab "Toko" -- daftar toko milik pendaftar ini ────────────────
+			final Tabpanel tabpanelToko = new ais.ui.util.MyTabpanel();
+			tabpanelToko.setParent(tabpanels);
+			tabToko.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					tabpanelToko.getChildren().clear();
+					gambarDaftarToko(tabpanelToko, pendaftar);
+				}
+			});
+
+			// ── Tab "Pengguna" -- assignment Tbmuser ke pendaftar ini ───────
+			final Tabpanel tabpanelPengguna = new ais.ui.util.MyTabpanel();
+			tabpanelPengguna.setParent(tabpanels);
+			tabPengguna.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					tabpanelPengguna.getChildren().clear();
+					gambarPenggunaPendaftar(tabpanelPengguna, pendaftar);
+				}
+			});
 		} else {
 			grid.setParent(center);
 		}
@@ -912,6 +934,190 @@ public class PendaftarAction extends GenericAutowireComposer
 				.uniqueResult()).intValue();
 
 		return !kotaCount.equals(0) || !countPt.equals(0) || !countSekolah.equals(0);
+	}
+
+
+	// ==================================================================
+	// TAB "TOKO" -- daftar toko milik satu pendaftar
+	// ==================================================================
+
+	/**
+	 * Tampilkan toko milik {@code pendaftar}. Hanya-baca: penambahan toko tetap
+	 * lewat layarnya sendiri, di sini sekadar memastikan lingkup tenant
+	 * terlihat jelas saat meng-assign pengguna.
+	 */
+	private void gambarDaftarToko(Tabpanel panel, Pendaftar pendaftar) throws Exception {
+		Session session = HibernateUtil.currentSession();
+		@SuppressWarnings("unchecked")
+		List<ais.database.model.inventory.Toko> daftar = session
+				.createCriteria(ais.database.model.inventory.Toko.class)
+				.add(Restrictions.eq("pendaftar", pendaftar))
+				.addOrder(Order.asc("nama")).list();
+
+		MyGrid g = new MyGrid();
+		g.setWidth("100%");
+		Columns cols = new Columns();
+		cols.setParent(g);
+		MyColumnConfig c1 = new MyColumnConfig(); c1.setLabel("Kode"); c1.setWidth("20%"); c1.setParent(cols);
+		MyColumnConfig c2 = new MyColumnConfig(); c2.setLabel("Nama Toko"); c2.setParent(cols);
+		MyColumnConfig c3 = new MyColumnConfig(); c3.setLabel("Aktif"); c3.setWidth("15%"); c3.setParent(cols);
+		Rows rows = new Rows();
+		rows.setParent(g);
+
+		if (daftar.isEmpty()) {
+			Row r = new Row();
+			r.setParent(rows);
+			new Label("Belum ada toko pada pendaftar ini.").setParent(r);
+			new Label("").setParent(r);
+			new Label("").setParent(r);
+		}
+		for (ais.database.model.inventory.Toko t : daftar) {
+			Row r = new Row();
+			r.setValign("top");
+			r.setParent(rows);
+			new Label(t.getKode() == null ? "-" : t.getKode()).setParent(r);
+			new Label(t.getNama() == null ? ("Toko " + t.getId()) : t.getNama()).setParent(r);
+			new Label(Boolean.TRUE.equals(t.getAktif()) ? "Ya" : "Tidak").setParent(r);
+		}
+		g.setParent(panel);
+	}
+
+	// ==================================================================
+	// TAB "PENGGUNA" -- assignment Tbmuser ke pendaftar
+	// ==================================================================
+
+	/**
+	 * Kelola pengguna yang bernaung di bawah {@code pendaftar}.
+	 *
+	 * <p>Pengguna yang ter-assign hanya melihat toko milik pendaftarnya;
+	 * pengguna tanpa pendaftar dianggap admin pusat dan melihat seluruh toko
+	 * (lihat {@code Tbmuser.getPendaftar()}).</p>
+	 */
+	private void gambarPenggunaPendaftar(final Tabpanel panel, final Pendaftar pendaftar) throws Exception {
+		final Session session = HibernateUtil.currentSession();
+
+		org.zkoss.zul.Vbox wadah = new org.zkoss.zul.Vbox();
+		wadah.setWidth("100%");
+		wadah.setSpacing("10px");
+		wadah.setParent(panel);
+
+		// -- baris tambah --
+		Hbox baris = new Hbox();
+		baris.setAlign("center");
+		baris.setSpacing("6px");
+		baris.setParent(wadah);
+		new Label("Tambahkan pengguna:").setParent(baris);
+		final Combobox cbUser = new Combobox();
+		cbUser.setWidth("320px");
+		cbUser.setAutodrop(true);
+		cbUser.setParent(baris);
+
+		// Hanya pengguna yang BELUM punya pendaftar yang bisa dipilih -- memindah
+		// pengguna antar tenant harus lewat pelepasan dulu, supaya tidak terjadi
+		// diam-diam.
+		@SuppressWarnings("unchecked")
+		List<Tbmuser> belumTerikat = session.createCriteria(Tbmuser.class)
+				.add(Restrictions.isNull("pendaftar"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.addOrder(Order.asc("userId")).setMaxResults(500).list();
+		for (Tbmuser u : belumTerikat) {
+			org.zkoss.zul.Comboitem ci = new org.zkoss.zul.Comboitem(
+					u.getUserId() + (u.getUserNama() == null ? "" : " -- " + u.getUserNama()));
+			ci.setValue(u.getId());
+			ci.setParent(cbUser);
+		}
+
+		MyToolbarbuttonConfig btnTambah = new MyToolbarbuttonConfig("Tambahkan", "/img/save.gif");
+		btnTambah.setParent(baris);
+		btnTambah.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				if (cbUser.getSelectedItem() == null) {
+					MyMessageboxConfig.show("Pilih pengguna terlebih dahulu.", "Informasi",
+							MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
+				}
+				Object idUser = cbUser.getSelectedItem().getValue();
+				Session s2 = HibernateUtil.currentSession();
+				Tbmuser u = (Tbmuser) s2.get(Tbmuser.class, (java.io.Serializable) idUser);
+				if (u == null) {
+					return;
+				}
+				u.setPendaftar((Pendaftar) s2.load(Pendaftar.class, pendaftar.getId()));
+				s2.getTransaction().begin();
+				s2.update(u);
+				s2.getTransaction().commit();
+				panel.getChildren().clear();
+				gambarPenggunaPendaftar(panel, pendaftar);
+			}
+		});
+
+		if (belumTerikat.isEmpty()) {
+			Label kosong = new Label("Semua pengguna aktif sudah terikat pendaftar.");
+			kosong.setStyle("color:#888;");
+			kosong.setParent(baris);
+		}
+
+		// -- daftar terikat --
+		@SuppressWarnings("unchecked")
+		List<Tbmuser> terikat = session.createCriteria(Tbmuser.class)
+				.add(Restrictions.eq("pendaftar", pendaftar))
+				.addOrder(Order.asc("userId")).list();
+
+		MyGrid g = new MyGrid();
+		g.setWidth("100%");
+		Columns cols = new Columns();
+		cols.setParent(g);
+		MyColumnConfig k1 = new MyColumnConfig(); k1.setLabel("User ID"); k1.setWidth("25%"); k1.setParent(cols);
+		MyColumnConfig k2 = new MyColumnConfig(); k2.setLabel("Nama"); k2.setParent(cols);
+		MyColumnConfig k3 = new MyColumnConfig(); k3.setLabel("Aksi"); k3.setWidth("15%"); k3.setParent(cols);
+		Rows rows = new Rows();
+		rows.setParent(g);
+
+		if (terikat.isEmpty()) {
+			Row r = new Row();
+			r.setParent(rows);
+			new Label("Belum ada pengguna yang di-assign ke pendaftar ini.").setParent(r);
+			new Label("").setParent(r);
+			new Label("").setParent(r);
+		}
+		for (final Tbmuser u : terikat) {
+			Row r = new Row();
+			r.setValign("top");
+			r.setParent(rows);
+			new Label(u.getUserId()).setParent(r);
+			new Label(u.getUserNama() == null ? "" : u.getUserNama()).setParent(r);
+			MyToolbarbuttonConfig btnLepas = new MyToolbarbuttonConfig("Lepas", "/img/cancel.gif");
+			btnLepas.setParent(r);
+			btnLepas.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event e) throws Exception {
+					MyMessageboxConfig.show(
+							"Lepaskan " + u.getUserId() + " dari pendaftar ini? "
+									+ "Setelah dilepas ia dianggap admin pusat dan melihat SELURUH toko.",
+							"Konfirmasi", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+							MyMessageboxConfig.QUESTION, new EventListener() {
+								@Override
+								public void onEvent(Event ev) throws Exception {
+									if (new Integer(ev.getData().toString()).intValue() != MyMessageboxConfig.OK) {
+										return;
+									}
+									Session s3 = HibernateUtil.currentSession();
+									Tbmuser target = (Tbmuser) s3.get(Tbmuser.class, u.getId());
+									if (target != null) {
+										target.setPendaftar(null);
+										s3.getTransaction().begin();
+										s3.update(target);
+										s3.getTransaction().commit();
+									}
+									panel.getChildren().clear();
+									gambarPenggunaPendaftar(panel, pendaftar);
+								}
+							});
+				}
+			});
+		}
+		g.setParent(wadah);
 	}
 
 }
