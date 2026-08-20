@@ -253,6 +253,18 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	 * sisi server seperti komponen ZK lainnya.</p>
 	 */
 	private static Div buatFab(final String key, boolean sertakanBantuan) {
+		return buatFab(key, sertakanBantuan, null);
+	}
+
+	/**
+	 * Varian yang membiarkan pemanggil menentukan sendiri aksi item "Bantuan Halaman Ini".
+	 *
+	 * <p>Dipakai tombol Bantuan <i>inline</i> milik ZUL. Tombol itu sudah membawa key panduan
+	 * yang benar di dalam {@code onClick}-nya, jadi lebih tepat memicu ulang aksi aslinya
+	 * daripada menebak key dari nama berkas -- key ZUL dan key panduan tidak selalu sama.</p>
+	 */
+	public static Div buatFab(final String key, boolean sertakanBantuan,
+			final EventListener aksiBantuanHalaman) {
 		final Div wrapper = new Div();
 		wrapper.setSclass("kb-fab-global");
 		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;"
@@ -278,7 +290,11 @@ public class BantuanGlobalHook implements UiLifeCycle {
 						@Override
 						public void onEvent(Event event) throws Exception {
 							panel.setVisible(false);
-							BantuanHelper.tampilkanDariResource(pemicu[0], key, "Bantuan");
+							if (aksiBantuanHalaman != null) {
+								aksiBantuanHalaman.onEvent(event);
+							} else {
+								BantuanHelper.tampilkanDariResource(pemicu[0], key, "Bantuan");
+							}
 						}
 					});
 
@@ -332,6 +348,32 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	 * panduan halaman tidak tersedia sehingga hook memilih tidak memasang apa pun -- tombol
 	 * inline tetap dipertahankan agar bantuan tidak hilang sama sekali.</p>
 	 */
+	/**
+	 * Klaim satu-satunya slot tombol Bantuan mengambang pada halaman ini.
+	 *
+	 * @return {@code true} bila pemanggil berhak memasang; {@code false} bila sudah terisi.
+	 */
+	/** Key panduan (nama berkas zul tanpa path/ekstensi) untuk halaman tsb, atau {@code null}. */
+	public static String keyHalaman(Page page) {
+		try {
+			return keyDariPage(page);
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	public static boolean klaimSlotFab(Page page) {
+		try {
+			if (page == null || page.getAttribute(ATTR_PAGE_DONE) != null) {
+				return false;
+			}
+			page.setAttribute(ATTR_PAGE_DONE, Boolean.TRUE);
+			return true;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	public static boolean adaFabDiHalaman(Page page) {
 		try {
 			return page != null && page.getAttribute(ATTR_PAGE_DONE) != null;

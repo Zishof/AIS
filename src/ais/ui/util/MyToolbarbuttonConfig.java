@@ -84,13 +84,54 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 					 * hilang sama sekali. */
 					if (BantuanGlobalHook.adaFabDiHalaman(getPage())) {
 						setVisible(false);
-					} else {
+					} else if (!pasangKebabBantuan()) {
 						tambahSclass(SCLASS_FAB);
 					}
 				}
 			}
 		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/ui/util/MyToolbarbuttonConfig.java:67");
 			/* jangan pernah mengganggu render halaman */
+		}
+	}
+
+	/**
+	 * Ganti tombol Bantuan inline dengan tombol bulat "?" bermenu tiga pilihan.
+	 *
+	 * <p>Dipakai bila hook global TIDAK memasang tombol untuk halaman ini -- misalnya karena
+	 * key hasil turunan nama berkas ZUL tidak punya berkas panduan, padahal tombol inline-nya
+	 * menunjuk key panduan yang lain. Tanpa jalur ini, halaman tersebut jatuh ke gaya pil
+	 * berlabel "Bantuan" yang sekali klik langsung membuka panduan, tanpa jalan ke Tanya
+	 * Jawab maupun Semua Panduan.</p>
+	 *
+	 * <p>Item "Bantuan Halaman Ini" sengaja memicu ulang event tombol ini sendiri, bukan
+	 * menebak key: {@code onClick} milik ZUL sudah membawa key panduan yang benar.</p>
+	 *
+	 * @return {@code true} bila kebab terpasang; {@code false} bila pemanggil harus memakai
+	 *         gaya cadangan.
+	 */
+	private boolean pasangKebabBantuan() {
+		try {
+			final org.zkoss.zk.ui.Page page = getPage();
+			if (page == null || !BantuanGlobalHook.klaimSlotFab(page)) {
+				return false;
+			}
+			String key = BantuanGlobalHook.keyHalaman(page);
+			if (key == null || key.trim().length() == 0) {
+				key = "panduan";
+			}
+			org.zkoss.zul.Div fab = BantuanGlobalHook.buatFab(key, true,
+					new org.zkoss.zk.ui.event.EventListener() {
+						@Override
+						public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+							org.zkoss.zk.ui.event.Events.sendEvent(new org.zkoss.zk.ui.event.Event(
+									org.zkoss.zk.ui.event.Events.ON_CLICK, MyToolbarbuttonConfig.this));
+						}
+					});
+			fab.setPage(page);
+			setVisible(false);
+			return true;
+		} catch (Throwable t) {
+			return false;
 		}
 	}
 

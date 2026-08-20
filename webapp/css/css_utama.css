@@ -12447,12 +12447,24 @@ a.ais-adv-search-toggle,
 	flex-wrap: nowrap !important;
 	align-items: center !important;
 	gap: 2px !important;
-	/* Rata KANAN: tombol selalu menempel ke tepi kanan kolom dalam satu baris. */
-	justify-content: flex-end !important;
+	/* UBAH 20-08-2026 atas permintaan pemilik: sebelumnya rata KANAN (flex-end) sehingga
+	   tombol "..." menempel ke tepi kolom. Diminta berada di posisi TENGAH kolom. */
+	justify-content: center !important;
 	width: 100% !important;
 	max-width: 100% !important;
 	box-sizing: border-box !important;
-	padding-right: 4px !important;
+	padding-right: 0 !important;
+	/* FIX 20-08-2026: baris data kerap setinggi beberapa baris (foto, kontak, status),
+	   sementara sel aksi rata ATAS sehingga tombol "..." tampak menggantung terlepas
+	   dari barisnya. Dengan height:100% wadah ini mengisi penuh tinggi sel, lalu
+	   align-items:center di atas menempatkan tombol tepat di tengah baris. */
+	height: 100% !important;
+}
+/* Penguat untuk peramban yang mendukung :has() -- selnya sendiri dibuat rata tengah.
+   Peramban lama mengabaikan aturan ini dan tetap tertolong oleh height:100% di atas. */
+.z-row td:has(> .ais-row-actions),
+.z-row td:has(> table.ais-row-actions) {
+	vertical-align: middle !important;
 }
 .ais-row-actions > tbody,
 .ais-row-actions > tbody > tr,
@@ -13276,10 +13288,17 @@ a.z-toolbarbutton.kb-fab-inline,
 	background: #1d4ed8 !important;
 	background-image: none !important;
 	border: none !important;
-	border-radius: 22px !important;
-	padding: 8px 15px !important;
+	/* FIX 20-08-2026: dahulu pil ber-label "? Bantuan". Diminta hanya ikon "?" saja,
+	   dan bentuknya harus sama persis dengan tombol "?" milik BantuanGlobalHook agar
+	   seluruh halaman memakai satu wujud tombol bantuan. */
+	width: 48px !important;
+	height: 48px !important;
+	border-radius: 50% !important;
+	padding: 0 !important;
 	min-height: 0 !important;
-	line-height: 1.15 !important;
+	line-height: 48px !important;
+	text-align: center !important;
+	overflow: hidden !important;
 	box-shadow: 0 4px 14px rgba(29, 78, 216, .35) !important;
 	color: #ffffff !important;
 	font-weight: 600 !important;
@@ -13301,9 +13320,21 @@ a.z-toolbarbutton.kb-fab-inline,
 .kb-fab-inline img {
 	display: none !important;
 }
+/* Teks label ("Bantuan") dikecilkan sampai hilang lewat font-size:0, lalu hanya
+   tanda tanya dari ::before yang diberi ukuran -- sehingga tombol benar-benar
+   menampilkan ikon "?" saja tanpa perlu menyunting satu pun berkas ZUL. */
+.kb-fab-inline .z-toolbarbutton-cnt {
+	font-size: 0 !important;
+	line-height: 48px !important;
+	display: block !important;
+	width: 48px !important;
+	text-align: center !important;
+}
 .kb-fab-inline .z-toolbarbutton-cnt::before {
-	content: "? ";
-	font-weight: 700;
+	content: "?";
+	font-size: 20px !important;
+	font-weight: 700 !important;
+	line-height: 48px !important;
 }
 .kb-fab-inline:hover,
 a.z-toolbarbutton.kb-fab-inline:hover {
