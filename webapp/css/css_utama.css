@@ -12983,6 +12983,50 @@ span.z-upload {
 	color: #64748b !important;
 }
 
+/* FIX 20-08-2026 — tampilan tagihan terpotong.
+   Gejala: label revisi "ke-1" tercetak menurun satu huruf per baris ("k/e/-/1"), dan
+   kotak nominal memotong angka menjadi "6.000.0". Sebabnya sel sub-grid rincian
+   membolehkan pemenggalan kata di mana saja, sementara kotak input tidak punya
+   lebar minimum sehingga menyusut mengikuti sel. Murni kosmetik. */
+.ais-tagihan-bln-rinci .z-row-inner,
+.ais-tagihan-bln-rinci .z-cell,
+.ais-tagihan-bln-rinci td,
+.ais-tagihan-bln-rinci .z-label,
+.ais-tagihan-bln-cell {
+	white-space: nowrap !important;
+	word-break: keep-all !important;
+	overflow-wrap: normal !important;
+}
+/* Kotak nominal & jumlah angsuran: cukup lebar untuk "6.000.000" tanpa melebihi selnya. */
+.ais-tagihan-bln-cell input,
+.ais-tagihan-bln-cell .z-doublebox-inp,
+.ais-tagihan-bln-cell .z-decimalbox-inp,
+.ais-tagihan-bln-cell .z-textbox-inp,
+.ais-tagihan-bln-rinci input,
+.ais-tagihan-bln-rinci .z-doublebox-inp,
+.ais-tagihan-bln-rinci .z-decimalbox-inp,
+.ais-tagihan-bln-rinci .z-textbox-inp {
+	min-width: 84px !important;
+	max-width: 100% !important;
+	box-sizing: border-box !important;
+}
+/* Kotak jumlah angsuran (intbox "x 1") tetap ramping supaya tidak mendesak yang lain. */
+.ais-tagihan-bln-cell .z-intbox-inp,
+.ais-tagihan-bln-rinci .z-intbox-inp {
+	min-width: 34px !important;
+	width: 34px !important;
+	box-sizing: border-box !important;
+}
+/* Baris footer "Total ... dari ... (100%) sisa 0" boleh turun baris, jangan dipaksa satu baris. */
+.ais-tagihan-bln-rinci .z-foot,
+.ais-tagihan-bln-rinci .z-footer,
+.ais-tagihan-bln-rinci .z-footer-cnt {
+	white-space: normal !important;
+	word-break: keep-all !important;
+	font-size: 10px !important;
+	line-height: 1.35 !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    SCAN STATION — "kios" peminjaman & pengembalian item/buku perpustakaan.
    Dipakai oleh: peminjaman_pengadaan_item.zul (pinjam) & kembali_pengadaan_item.zul

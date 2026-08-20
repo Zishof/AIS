@@ -2627,7 +2627,10 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 			}
 			grid.setWidth((320 + ((size * banyak) * 130)) + "px");
 		} else {
-			grid.setWidth((320 + (size * 300)) + "px");
+			/* FIX 20-08-2026: kolom item tunggal harus memuat [nominal] x [jumlah] [Reset] dalam satu
+			 * baris, plus kotak nominal per cicilan di bawahnya. 300px tidak cukup sehingga angka
+			 * "6.000.000" dan tombolnya terpotong. Dilebarkan ke 360px (lihat setWidth kolom di bawah). */
+			grid.setWidth((320 + (size * 360)) + "px");
 		}
 		ais.ui.util.ZkCompat.setFixedLayout(grid, false);
 
@@ -2703,7 +2706,7 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 			column.setParent(columns);
 			column.appendChild(label);
 
-			column.setWidth("300px");
+			column.setWidth("360px"); /* FIX 20-08-2026: selaras dengan grid.setWidth(320 + size*360) di atas. */
 		}
 
 		loadData(null);
