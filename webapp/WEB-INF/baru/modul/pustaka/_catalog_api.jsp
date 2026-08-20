@@ -6,6 +6,6 @@ try {
 } catch (Exception error) {
     ais.common.ErrorAuditUtil.record(error, "library typed catalog API");
     response.setStatus(500);
-    out.print(new JSONObject().put("ok", false).put("error", "Katalog belum dapat dimuat. Silakan coba kembali.").toString());
+    out.print("{\"ok\":false,\"error\":\"Katalog belum dapat dimuat. Silakan coba kembali.\"}");
 }
 %>
