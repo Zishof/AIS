@@ -74,7 +74,19 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 				if (!BantuanGlobalHook.tombolBantuanAktif()) {
 					setVisible(false);
 				} else if (BantuanGlobalHook.gayaMengambangAktif()) {
-					tambahSclass(SCLASS_FAB);
+					/* BARU 20-08-2026: dahulu tombol Bantuan inline hanya DIAPUNGKAN ke sudut lewat
+					 * SCLASS_FAB, sehingga di sudut yang sama bisa ada DUA tombol -- tombol inline ini
+					 * dan tombol "?" milik BantuanGlobalHook -- dan sekali klik langsung membuka
+					 * panduan halaman tanpa jalan menuju Tanya Jawab atau Semua Panduan. Kini bila
+					 * hook global sudah memasang tombol "?" (menunya kini selalu lengkap), tombol
+					 * inline cukup disembunyikan. Bila hook TIDAK memasang apa pun -- misalnya berkas
+					 * panduan halaman tidak tersedia -- gaya lama tetap dipakai agar bantuan tidak
+					 * hilang sama sekali. */
+					if (BantuanGlobalHook.adaFabDiHalaman(getPage())) {
+						setVisible(false);
+					} else {
+						tambahSclass(SCLASS_FAB);
+					}
 				}
 			}
 		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/ui/util/MyToolbarbuttonConfig.java:67");
