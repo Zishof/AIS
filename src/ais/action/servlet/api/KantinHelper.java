@@ -3211,6 +3211,19 @@ public class KantinHelper {
 					p.setGrupProduk(grup);
 				}
 			}
+			// Pemasok Utama & Satuan -- SEBELUMNYA hanya bisa terisi lewat impor Excel, sehingga
+			// katalog yang dibuat/diedit dari form Produk, Kulakan, atau Bulk Entry SELALU kosong
+			// pada kedua kolom itu dan ekspor "Daftar Barang dan Jasa" ikut kosong. Di sini
+			// keduanya diterima sebagai NAMA lalu dicocokkan case-insensitive; kalau belum ada,
+			// master-nya dibuat otomatis -- perilaku yang sama dgn importir supaya pengguna tidak
+			// perlu membuka layar master dulu. Field hanya disentuh bila klien mengirimkannya,
+			// jadi klien lama tidak mengubah apa pun.
+			if (request.has("pemasok_nama")) {
+				p.setPemasok(resolvePemasokProduk(session, request.optString("pemasok_nama", "")));
+			}
+			if (request.has("satuan_nama")) {
+				p.setSatuan(resolveSatuanProduk(session, request.optString("satuan_nama", "")));
+			}
 			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().
 			if (request.has("jenis_item")) {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
@@ -5074,6 +5087,142 @@ public class KantinHelper {
 	 * Daftar Hak Akses (Tbmrole) utk pemilih "grup pengguna yang boleh mengubah harga".
 	 * Sumbernya tabel {@code public.tbmrole} -- sama dgn yang dipakai layar Hak Akses.
 	 */
+	/**
+	 * Cari master pemasok berdasarkan NAMA (case-insensitive); buat baru bila belum ada.
+	 * Nama kosong berarti "kosongkan pemasok" -- mengembalikan null.
+	 */
+	private static PemasokProduk resolvePemasokProduk(Session session, String nama) {
+		String bersih = nama == null ? "" : nama.trim();
+		if (bersih.length() == 0) {
+			return null;
+		}
+		PemasokProduk ada = (PemasokProduk) session.createCriteria(PemasokProduk.class)
+				.add(Restrictions.ilike("nama", bersih)).setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			return ada;
+		}
+		PemasokProduk baru = new PemasokProduk();
+		baru.setNama(bersih);
+		session.save(baru);
+		return baru;
+	}
+
+	/**
+	 * Cari master satuan berdasarkan NAMA (case-insensitive); buat baru bila belum ada.
+	 * Nama kosong berarti "kosongkan satuan" -- mengembalikan null.
+	 */
+	private static SatuanProduk resolveSatuanProduk(Session session, String nama) {
+		String bersih = nama == null ? "" : nama.trim();
+		if (bersih.length() == 0) {
+			return null;
+		}
+		SatuanProduk ada = (SatuanProduk) session.createCriteria(SatuanProduk.class)
+				.add(Restrictions.ilike("nama", bersih)).setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			return ada;
+		}
+		SatuanProduk baru = new SatuanProduk();
+		baru.setNama(bersih);
+		session.save(baru);
+		return baru;
+	}
+
+	/**
+	 * Isi "Pemasok Utama" produk yang masih kosong dari riwayat penerimaan barang
+	 * (kulakan/pengadaan) TERAKHIR tiap produk.
+	 *
+	 * <p>Pemasok pada penerimaan disimpan sbg {@code PenyediaAsset} -- tabel yang BERBEDA dari
+	 * {@code PemasokProduk} yang dipakai master produk -- sehingga id-nya TIDAK bisa disalin
+	 * langsung. Pencocokan dilakukan lewat NAMA (case-insensitive); bila nama itu belum ada di
+	 * master pemasok produk, master-nya dibuat.</p>
+	 *
+	 * <p>HANYA menyentuh produk yang pemasoknya masih NULL -- isian yang sudah ada tidak pernah
+	 * ditimpa. Kirim {@code "pratinjau": true} untuk menghitung saja tanpa menyimpan.</p>
+	 */
+	public static void produkIsiPemasokDariKulakan(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		// Gerbang yang sama dgn impor katalog: ini operasi massal pada master produk.
+		Long tokoId = gerbangDanTokoImporProduk(tbmuser, request, hasil,
+				"Hanya admin/manager atau supervisor toko yang dapat mengisi pemasok secara massal.");
+		if (tokoId == null) {
+			return;
+		}
+		boolean pratinjau = request.optBoolean("pratinjau", false);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction tx = null;
+		try {
+			if (!pratinjau) {
+				tx = session.beginTransaction();
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT p.id, x.nama_pemasok FROM koperasi.produk p"
+					+ " JOIN LATERAL ("
+					+ "   SELECT COALESCE(NULLIF(TRIM(pg.namasupplier),''), NULLIF(TRIM(pa.nama),'')) AS nama_pemasok"
+					+ "   FROM koperasi.pengadaan_produk pg"
+					+ "   LEFT JOIN asset.penyedia_asset pa ON pa.id = pg.supplier"
+					+ "   WHERE pg.produk = p.id"
+					+ "     AND COALESCE(NULLIF(TRIM(pg.namasupplier),''), NULLIF(TRIM(pa.nama),'')) IS NOT NULL"
+					+ "   ORDER BY pg.waktupengadaan DESC NULLS LAST, pg.id DESC LIMIT 1"
+					+ " ) x ON TRUE"
+					+ " WHERE p.toko = ? AND p.pemasok IS NULL");
+			ps.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			java.util.List<Long> idProduk = new java.util.ArrayList<Long>();
+			java.util.List<String> namaPemasok = new java.util.ArrayList<String>();
+			while (rs.next()) {
+				idProduk.add(Long.valueOf(rs.getLong(1)));
+				namaPemasok.add(rs.getString(2));
+			}
+			rs.close();
+			ps.close();
+
+			int terisi = 0;
+			java.util.Set<String> pemasokBaru = new java.util.LinkedHashSet<String>();
+			if (!pratinjau) {
+				for (int i = 0; i < idProduk.size(); i++) {
+					String nama = namaPemasok.get(i) == null ? "" : namaPemasok.get(i).trim();
+					if (nama.length() == 0) {
+						continue;
+					}
+					PemasokProduk sebelum = (PemasokProduk) session.createCriteria(PemasokProduk.class)
+							.add(Restrictions.ilike("nama", nama)).setMaxResults(1).uniqueResult();
+					PemasokProduk pemasok = resolvePemasokProduk(session, nama);
+					if (sebelum == null) {
+						pemasokBaru.add(nama);
+					}
+					Produk pr = (Produk) session.get(Produk.class, idProduk.get(i));
+					if (pr != null && pr.getPemasok() == null) {
+						pr.setPemasok(pemasok);
+						session.update(pr);
+						terisi++;
+					}
+					if (terisi % 200 == 0) {
+						session.flush();
+						session.clear();
+					}
+				}
+				session.flush();
+				tx.commit();
+				tx = null;
+			}
+			hasil.put("status", "00");
+			hasil.put("pratinjau", pratinjau);
+			hasil.put("kandidat", idProduk.size());
+			hasil.put("terisi", terisi);
+			hasil.put("pemasokBaru", pemasokBaru.size());
+			hasil.put("description", pratinjau
+					? (idProduk.size() + " produk dapat diisi pemasoknya dari riwayat penerimaan barang.")
+					: (terisi + " produk terisi pemasoknya (" + pemasokBaru.size() + " master pemasok baru dibuat)."));
+		} catch (Exception e) {
+			if (tx != null) {
+				try { tx.rollback(); } catch (Exception ig) { }
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	public static void hakAksesList(JSONObject request, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {

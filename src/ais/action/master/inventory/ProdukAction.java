@@ -83,6 +83,9 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 	private Textbox nama;
 	private Textbox barcode;
 	private Textbox keterangan;
+	/** Pemasok utama & satuan (UOM) -- isian bebas; master dibuat otomatis bila nama belum ada. */
+	private Textbox pemasokNama;
+	private Textbox satuanNama;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -281,6 +284,42 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 			box.getParent().insertBefore(label, box);
 		}
 		box.setVisible(false);
+	}
+
+	/** Cari master pemasok by nama (case-insensitive); buat baru bila belum ada. */
+	private static ais.database.model.inventory.PemasokProduk resolvePemasokZk(Session session, String nama) {
+		String bersih = nama == null ? "" : nama.trim();
+		if (bersih.length() == 0) {
+			return null;
+		}
+		ais.database.model.inventory.PemasokProduk ada = (ais.database.model.inventory.PemasokProduk) session
+				.createCriteria(ais.database.model.inventory.PemasokProduk.class)
+				.add(Restrictions.ilike("nama", bersih)).setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			return ada;
+		}
+		ais.database.model.inventory.PemasokProduk baru = new ais.database.model.inventory.PemasokProduk();
+		baru.setNama(bersih);
+		session.save(baru);
+		return baru;
+	}
+
+	/** Cari master satuan by nama (case-insensitive); buat baru bila belum ada. */
+	private static ais.database.model.inventory.SatuanProduk resolveSatuanZk(Session session, String nama) {
+		String bersih = nama == null ? "" : nama.trim();
+		if (bersih.length() == 0) {
+			return null;
+		}
+		ais.database.model.inventory.SatuanProduk ada = (ais.database.model.inventory.SatuanProduk) session
+				.createCriteria(ais.database.model.inventory.SatuanProduk.class)
+				.add(Restrictions.ilike("nama", bersih)).setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			return ada;
+		}
+		ais.database.model.inventory.SatuanProduk baru = new ais.database.model.inventory.SatuanProduk();
+		baru.setNama(bersih);
+		session.save(baru);
+		return baru;
 	}
 
 	class ProdukRenderer extends ais.ui.util.MyRowRenderer {
@@ -607,6 +646,23 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		imageUrl.setWidth("90%");
 		imageUrl.setRows(2);
 
+		// Pemasok Utama & Satuan -- SEBELUMNYA hanya bisa terisi lewat impor Excel,
+		// sehingga ekspor "Daftar Barang dan Jasa" kosong utk barang yg dibuat dari
+		// layar ini. Isian bebas: master dibuat otomatis saat simpan bila belum ada.
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Pemasok Utama"));
+		row.appendChild(pemasokNama = new Textbox(produk.getPemasok() == null ? "" : produk.getPemasok().getNama()));
+		pemasokNama.setWidth("90%");
+		pemasokNama.setTooltiptext("Kosongkan bila tidak ada. Contoh: AB Grosir");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Satuan"));
+		row.appendChild(satuanNama = new Textbox(produk.getSatuan() == null ? "" : produk.getSatuan().getNama()));
+		satuanNama.setWidth("90%");
+		satuanNama.setTooltiptext("Kosongkan bila tidak ada. Contoh: Pcs");
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Keterangan"));
@@ -759,6 +815,8 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 			produk.setIzinkanJualMinusStok(Boolean.valueOf((String) izinkanJualMinusStok.getSelectedItem().getValue()));
 		}
 		produk.setKeterangan(keterangan.getValue());
+		produk.setPemasok(resolvePemasokZk(session, pemasokNama.getValue()));
+		produk.setSatuan(resolveSatuanZk(session, satuanNama.getValue()));
 		produk.setToko((Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue()));
 		produk.setGrupProduk(grupProduk.getSelectedIndex() > 0
 				&& grupProduk.getSelectedItem().getValue() instanceof ais.database.model.inventory.GrupProduk
