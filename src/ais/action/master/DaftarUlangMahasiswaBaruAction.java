@@ -121,6 +121,7 @@ import ais.database.model.rab.SatuanKerja;
 import ais.ui.render.DetailPembayaranMahasiswaRenderer;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyPortallayout;
 import ais.ui.util.MyPortalchildren;
 import ais.ui.util.MyCheckboxConfig;
@@ -3547,16 +3548,18 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				|| kandidatSumber.get(0) == null ? null : kandidatSumber.get(0).getId();
 
 		org.zkoss.zul.Div barTindakan = new org.zkoss.zul.Div();
-		barTindakan.setStyle("padding:8px 12px;background:#f8fafc;border-bottom:1px solid #cbd5e1;"
+		barTindakan.setStyle("padding:4px 12px;background:#f8fafc;border-bottom:1px solid #cbd5e1;"
 				+ "box-sizing:border-box;white-space:normal;");
 		barTindakan.setParent(window);
-		Button bukaPengaturan = new MyToolbarbuttonConfig(arahBulanan
+		MyButtonTabbox navigasiPengaturan = MyButtonTabbox.buat(barTindakan, "52px", new int[] { 1 });
+		org.zkoss.zul.Div panelNavigasi = navigasiPengaturan.tambahTab(1, arahBulanan
 				? "Buka Pengaturan Tagihan Bulanan" : "Buka Setting Biaya", "/img/svg/cash.svg");
-		bukaPengaturan.setTooltiptext("Buka sumber pengaturan yang dipilih otomatis dari hasil analisis");
-		bukaPengaturan.setParent(barTindakan);
-		new Label(arahBulanan ? " Sistem mendeteksi sumber tagihan bulanan/angsuran."
-				: " Sistem mendeteksi sumber Setting Biaya bukan bulanan.").setParent(barTindakan);
-		bukaPengaturan.addEventListener("onClick", new EventListener() {
+		panelNavigasi.setStyle("padding:3px 2px;overflow:hidden;box-sizing:border-box;");
+		new Label(arahBulanan ? "Sistem mendeteksi sumber tagihan bulanan/angsuran."
+				: "Sistem mendeteksi sumber Setting Biaya bukan bulanan.").setParent(panelNavigasi);
+		navigasiPengaturan.setTooltipTombol(1,
+				"Buka sumber pengaturan yang dipilih otomatis dari hasil analisis");
+		navigasiPengaturan.onSetiapKlikPanel(panelNavigasi, new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (arahBulanan) {
@@ -3574,7 +3577,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		 * scrollbar. Div blok dengan tinggi maksimum membuat seluruh hasil terjangkau. */
 		org.zkoss.zul.Div isi = new org.zkoss.zul.Div();
 		isi.setWidth("100%");
-		isi.setStyle("height:calc(100% - 54px);max-height:calc(82vh - 82px);overflow-y:auto;overflow-x:auto;"
+		isi.setStyle("height:calc(100% - 62px);max-height:calc(82vh - 90px);overflow-y:auto;overflow-x:auto;"
 				+ "padding:12px;box-sizing:border-box;position:relative;");
 		isi.setParent(window);
 		String tindakan = tindakanUtamaTagihanBaru(tahap, khusus, kandidat, detail, bulanan, smt, hilir);
