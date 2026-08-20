@@ -471,6 +471,9 @@ public class Report extends GenericAutowireComposer {
 				activated = true;
 			}
 			progress.errorDetailFile = detailFile;
+			// Satu kode rujukan per kejadian: dicetak pada pesan yang dilihat pengguna DAN pada
+			// detail teknis, agar laporan pengguna dapat dicocokkan dengan catatan di server.
+			final String kodeRujukan = ais.common.DetailTeknisHelper.kodeRujukan();
 			if (progress.progressmeter != null) progress.progressmeter.setValue(100);
 			if (progress.title != null) {
 				progress.title.setValue("Laporan belum bisa dibuat");
@@ -489,20 +492,38 @@ public class Report extends GenericAutowireComposer {
 				progress.errorBox = errorBox;
 				org.zkoss.zul.Html message = new org.zkoss.zul.Html();
 				String detailInfo = "";
-				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
-					detailInfo = "<div style='font-size:12px;line-height:1.5;margin-top:8px;color:#9a3412;'>Jika perlu bantuan admin, gunakan tombol Download detail error di bawah ini.</div>";
+				if (ais.common.DetailTeknisHelper.tombolAktif()) {
+					detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:8px;color:#9a3412;'>Tekan <b>Detail Informasi Teknis</b> di bawah untuk melihat dan menyalin rincian kesalahan, lalu kirimkan kepada admin atau pengembang.</div>";
 				}
+				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
+					detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:6px;color:#9a3412;'>Jika perlu bantuan admin, gunakan tombol Download detail error di bawah ini.</div>";
+				}
+				detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:6px;color:#9a3412;'>Kode rujukan: <b>" + escapeHtml(kodeRujukan) + "</b></div>";
 				message.setContent("<div style='font-family:Arial,sans-serif;display:flex;gap:10px;align-items:flex-start;'>"
 						+ "<div style='width:24px;height:24px;border-radius:50%;background:#ffedd5;color:#c2410c;text-align:center;font-weight:bold;line-height:24px;flex:0 0 24px;'>!</div>"
 						+ "<div style='min-width:0;'><div style='font-size:15px;font-weight:bold;margin-bottom:4px;'>Laporan belum siap ditampilkan</div>"
 						+ "<div style='font-size:13px;line-height:1.55;'>" + escapeHtml(getFriendlyReportErrorMessage(error)) + "</div>"
 						+ detailInfo + "</div></div>");
 				message.setParent(errorBox);
+
+				// Tombol "Detail Informasi Teknis": exception yang sebenarnya dapat dibuka lalu
+				// disalin pengguna untuk dikirim ke pengembang. Sebelumnya satu-satunya jalur
+				// teknis adalah tombol Download di bawah, dan tombol itu hanya muncul bila berkas
+				// detail sempat ditulis ke disk -- pada banyak kegagalan berkas itu tidak ada,
+				// sehingga pengguna tidak punya jejak teknis apa pun untuk dilaporkan.
+				org.zkoss.zul.Hbox barisTombol = ais.common.DetailTeknisHelper.pasangPanel(
+						errorBox, "pembuatan laporan", error, detailFile, kodeRujukan);
+
 				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
-					org.zkoss.zul.Hbox buttons = new org.zkoss.zul.Hbox();
-					buttons.setSpacing("8px");
-					buttons.setStyle("margin-top:12px;");
-					buttons.setParent(errorBox);
+					// Pakai baris tombol yang sama bila panel detail sudah membuatnya, agar
+					// Download berdampingan dengan Detail Informasi Teknis, bukan menumpuk.
+					org.zkoss.zul.Hbox buttons = barisTombol;
+					if (buttons == null) {
+						buttons = new org.zkoss.zul.Hbox();
+						buttons.setSpacing("8px");
+						buttons.setStyle("margin-top:12px;");
+						buttons.setParent(errorBox);
+					}
 					org.zkoss.zul.Button download = new org.zkoss.zul.Button("Download detail error");
 					download.setStyle("padding:8px 14px;border-radius:999px;border:1px solid #fb923c;background:#ea580c;color:#ffffff;font-weight:bold;cursor:pointer;");
 					download.setParent(buttons);

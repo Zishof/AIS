@@ -210,4 +210,24 @@ public class JenisProduk extends GeneralValueObject {
 		this.akunSelisihPersediaan = akunSelisihPersediaan;
 	}
 
+
+	/**
+	 * Akun Retur Penjualan (kontra-pendapatan).
+	 * <p>Didebet saat retur penjualan dijurnal. Ditempelkan pada master ini &mdash; sejajar dengan
+	 * Akun Pendapatan/PPN/HPP &mdash; supaya tiap jenis produk bisa memakai akun retur sendiri.
+	 * Bila kosong, jurnal memakai akun pendapatan jenis produk yang bersangkutan. Kolomnya dibuat
+	 * otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunReturPenjualan;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_retur_penjualan", nullable = true)
+	public ais.database.model.akunting.Akun getAkunReturPenjualan() {
+		return akunReturPenjualan;
+	}
+
+	public void setAkunReturPenjualan(ais.database.model.akunting.Akun akunReturPenjualan) {
+		this.akunReturPenjualan = akunReturPenjualan;
+	}
+
 }

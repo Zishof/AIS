@@ -5872,7 +5872,8 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), manual, online, "
 							+ "COALESCE(memotong_deposit,false), COALESCE(masuk_sebagai_hutang,false), COALESCE(aktif,true), "
-							+ "COALESCE(ada_kembalian, nama ILIKE '%tunai%') "
+							+ "COALESCE(ada_kembalian, nama ILIKE '%tunai%'), akun, "
+							+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = akun) "
 							+ "FROM koperasi.cara_pembayaran_koperasi" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -5897,6 +5898,11 @@ public class KantinHelper {
 				j.put("masukSebagaiHutang", rs.getBoolean(8));
 				j.put("aktif", rs.getBoolean(9));
 				j.put("adaKembalian", rs.getBoolean(10));
+				// Akun Kas/Bank metode ini -- menempel pada master Cara Pembayaran; dipakai jurnal
+				// penjualan tunai, pembayaran hutang, dan penerimaan piutang.
+				long akunId = rs.getLong(11);
+				j.put("akunId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(akunId));
+				j.put("akunLabel", rs.getString(12) == null ? "" : rs.getString(12));
 				arr.put(j);
 			}
 			rs.close();
@@ -5958,6 +5964,15 @@ public class KantinHelper {
 				cara.setAdaKembalian(request.isNull("adaKembalian") ? null : Boolean.valueOf(request.optBoolean("adaKembalian")));
 			}
 			cara.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
+			// Akun Kas/Bank metode pembayaran; kirim 0/null untuk mengosongkan.
+			if (request.has("akunId")) {
+				if (request.isNull("akunId") || request.optLong("akunId", 0) <= 0) {
+					cara.setAkun(null);
+				} else {
+					cara.setAkun((ais.database.model.akunting.Akun) session.get(
+							ais.database.model.akunting.Akun.class, Long.valueOf(request.optLong("akunId"))));
+				}
+			}
 
 			session.beginTransaction();
 			session.saveOrUpdate(cara);

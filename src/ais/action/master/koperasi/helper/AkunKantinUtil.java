@@ -157,6 +157,14 @@ public final class AkunKantinUtil {
 
     /** Akun Retur Penjualan (kontra-pendapatan); cadangan: akun pendapatan barangnya. */
     public static Akun akunReturPenjualan(Session session, Produk produk) {
+        try {
+            JenisProduk jp = produk == null ? null : produk.getJenisProduk();
+            if (jp != null && jp.getAkunReturPenjualan() != null) {
+                return jp.getAkunReturPenjualan();
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunReturPenjualan");
+        }
         Akun a = akunKonfigurasi(CFG_RETUR_PENJUALAN);
         return a != null ? a : akunPendapatan(session, produk);
     }

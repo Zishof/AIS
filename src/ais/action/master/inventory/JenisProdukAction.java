@@ -63,6 +63,8 @@ public class JenisProdukAction extends GenericAutowireComposer
 	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunHpp;
 	/** Lawan jurnal selisih stok opname (susut/temuan). */
 	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunSelisihPersediaan;
+	/** Kontra-pendapatan saat retur penjualan dijurnal; kosong = pakai akun pendapatan. */
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunReturPenjualan;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -209,6 +211,16 @@ public class JenisProdukAction extends GenericAutowireComposer
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Retur Penjualan"));
+		row.appendChild(akunReturPenjualan = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
+		akunReturPenjualan.setWidth("90%");
+		if (jenisProduk.getAkunReturPenjualan() != null) {
+			akunReturPenjualan.setAttribute("akun", jenisProduk.getAkunReturPenjualan());
+			akunReturPenjualan.setValue(jenisProduk.getAkunReturPenjualan().toString());
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Selisih Persediaan"));
 		row.appendChild(akunSelisihPersediaan = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
 		akunSelisihPersediaan.setWidth("90%");
@@ -290,6 +302,8 @@ public class JenisProdukAction extends GenericAutowireComposer
 				(ais.database.model.akunting.Akun) (akunHpp == null ? null : akunHpp.getAttribute("akun")));
 		jenisProduk.setAkunSelisihPersediaan((ais.database.model.akunting.Akun) (akunSelisihPersediaan == null
 				? null : akunSelisihPersediaan.getAttribute("akun")));
+		jenisProduk.setAkunReturPenjualan((ais.database.model.akunting.Akun) (akunReturPenjualan == null
+				? null : akunReturPenjualan.getAttribute("akun")));
 
 		Common.refreshSaveOrUpdate(session, jenisProduk);
 

@@ -211,16 +211,59 @@ public final class PesanFormalHelper {
      */
     public static void tampilkanGagalLaporan(org.zkoss.zk.ui.Component parent, String aktivitas,
             String penjelasanBisnis, Throwable exception, String[] langkahSolusi) {
+        String kode = DetailTeknisHelper.kodeRujukan();
         String pesan = pesanGagalLaporanRingkas(aktivitas, penjelasanBisnis, langkahSolusi);
         if (parent != null) {
             try {
-                tempelPesanLaporan(parent, "Laporan belum siap ditampilkan", pesan);
+                tempelPesanLaporan(parent, "Laporan belum siap ditampilkan", pesan, aktivitas, exception, kode);
                 return;
             } catch (Throwable t) {
                 ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalLaporan-tempel");
             }
         }
-        tampilkanToastRingkas("Laporan belum siap ditampilkan", pesan);
+        // Tanpa komponen induk, panel ZK tidak dapat dipasang. Pakai dialog web bersama yang
+        // sudah punya Detail Error + Copy Error; toast polos hanya jalur terakhir, karena toast
+        // sama sekali tidak membawa informasi teknis.
+        if (tampilkanDialogWebLaporan(aktivitas, pesan, exception, langkahSolusi, kode)) {
+            return;
+        }
+        tampilkanToastRingkas("Laporan belum siap ditampilkan", pesan + " Kode rujukan: " + kode + ".");
+    }
+
+    /**
+     * Tampilkan kendala laporan lewat dialog web {@code tampilkanPesanGagalFormal}
+     * (pesan-formal.js), yang sudah menyediakan tombol Detail Error dan Copy Error.
+     *
+     * @return {@code true} bila perintah berhasil dikirim ke klien
+     */
+    private static boolean tampilkanDialogWebLaporan(String aktivitas, String pesan, Throwable exception,
+            String[] langkahSolusi, String kode) {
+        try {
+            org.json.JSONObject data = new org.json.JSONObject();
+            data.put("judul", "Laporan belum siap ditampilkan");
+            data.put("message", pesan);
+            org.json.JSONArray solusi = new org.json.JSONArray();
+            if (langkahSolusi != null) {
+                for (int i = 0; i < langkahSolusi.length; i++) {
+                    if (langkahSolusi[i] != null && langkahSolusi[i].trim().length() > 0) {
+                        solusi.put(langkahSolusi[i].trim());
+                    }
+                }
+            }
+            data.put("solusi", solusi);
+            data.put("teknis", DetailTeknisHelper.teksTeknis(aktivitas, exception, null, kode));
+            data.put("referensi", kode);
+            org.zkoss.zk.ui.util.Clients.evalJavaScript(
+                    "if(typeof tampilkanPesanGagalFormal==='function'){tampilkanPesanGagalFormal("
+                    + org.json.JSONObject.quote(kosongKe(aktivitas, "pembuatan laporan")) + ","
+                    + data.toString() + ");}else{"
+                    + jsToast("Laporan belum siap ditampilkan", pesan + " Kode rujukan: " + kode + ".")
+                    + "}");
+            return true;
+        } catch (Throwable t) {
+            ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanDialogWebLaporan");
+            return false;
+        }
     }
 
     /**
@@ -337,7 +380,8 @@ public final class PesanFormalHelper {
         return sb.toString();
     }
 
-    private static void tempelPesanLaporan(org.zkoss.zk.ui.Component parent, String judul, String pesan) {
+    private static void tempelPesanLaporan(org.zkoss.zk.ui.Component parent, String judul, String pesan,
+            String konteks, Throwable exception, String kode) {
         java.util.List anak = new java.util.ArrayList(parent.getChildren());
         for (int i = 0; i < anak.size(); i++) {
             Object obj = anak.get(i);
@@ -359,7 +403,15 @@ public final class PesanFormalHelper {
                 + "<div style='width:22px;height:22px;border-radius:50%;background:#ffedd5;color:#c2410c;"
                 + "text-align:center;font-weight:700;line-height:22px;flex:0 0 22px;'>!</div>"
                 + "<div style='min-width:0;'><div style='font-weight:700;margin-bottom:3px;'>"
-                + html(judul) + "</div><div style='color:#854d0e;'>" + html(pesan) + "</div></div></div>"));
+                + html(judul) + "</div><div style='color:#854d0e;'>" + html(pesan) + "</div>"
+                + "<div style='color:#854d0e;margin-top:6px;'>Kode rujukan: <b>" + html(kode)
+                + "</b></div></div></div>"));
+
+        // Tombol "Detail Informasi Teknis" + panel berisi exception yang sebenarnya, dapat
+        // disalin pengguna untuk dikirim ke pengembang. Sebelumnya parameter exception diterima
+        // tetapi TIDAK PERNAH dipakai, sehingga pesan ramah ini membuang seluruh jejak teknis.
+        DetailTeknisHelper.pasangPanel(box, konteks, exception, null, kode);
+
         if (parent.getFirstChild() != null) {
             parent.insertBefore(box, parent.getFirstChild());
         } else {

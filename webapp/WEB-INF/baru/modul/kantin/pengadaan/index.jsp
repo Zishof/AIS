@@ -213,6 +213,10 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
                                 <div class="col-md-3">
                                     <input type="text" class="form-control form-control-sm" id="supBaruTelp<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Telp")%>">
                                 </div>
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control form-control-sm mb-1" id="cariAkunUtang<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                    <select class="form-select form-select-sm" id="inputAkunUtang<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Akun Utang Dagang (opsional) -")%></option></select>
+                                </div>
                                 <div class="col-md-1">
                                     <button type="button" class="btn btn-sm btn-primary w-100" onclick="simpanSupplierBaru<%=rnd%>()" title="<%=Common.getBahasaConfig("Simpan")%>"><i class="fas fa-check"></i></button>
                                 </div>
@@ -432,6 +436,43 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
         box.style.display = box.style.display === 'none' ? 'block' : 'none';
     };
 
+    // Pemilih akun bercari (kode & nama) untuk Akun Utang Dagang supplier baru.
+    const ID_AKUN<%=rnd%> = ['inputAkunUtang<%=rnd%>'];
+    let akunDaftar<%=rnd%> = [];
+    const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
+        const kunci = (kata || '').trim().toLowerCase().split(/\s+/).filter((k) => k.length > 0);
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Akun Utang Dagang (opsional) -")%></option>';
+        (akunDaftar<%=rnd%> || []).forEach((a) => {
+            const teks = ((a.kode || '') + ' ' + (a.nama || '')).toLowerCase();
+            let cocok = true;
+            kunci.forEach((k) => { if (teks.indexOf(k) < 0) { cocok = false; } });
+            const iniTerpilih = nilai !== null && nilai !== undefined && nilai !== '' && (a.id + '') === (nilai + '');
+            if (!cocok && !iniTerpilih) { return; }
+            html += '<option value="' + a.id + '">' + escAkun<%=rnd%>((a.kode || '') + ' - ' + (a.nama || '')) + '</option>';
+        });
+        return html;
+    };
+    const terapkanFilterAkun<%=rnd%> = (sid) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        const cur = el.value;
+        el.innerHTML = opsiAkunHtml<%=rnd%>(box ? box.value : '', cur);
+        el.value = cur;
+    };
+    const loadAkunOptions<%=rnd%> = async () => {
+        const res = await fetchDataFaktur<%=rnd%>({ action: 'jalankanQuery',
+            query: "SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC" });
+        akunDaftar<%=rnd%> = (res && res.data) ? res.data : [];
+        ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
+    };
+    ID_AKUN<%=rnd%>.forEach((sid) => {
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.addEventListener('input', function() { terapkanFilterAkun<%=rnd%>(sid); }); }
+    });
+    loadAkunOptions<%=rnd%>();
+
     const simpanSupplierBaru<%=rnd%> = async () => {
         const nama = document.getElementById('supBaruNama<%=rnd%>').value.trim();
         if (!nama) {
@@ -442,7 +483,8 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
             action: 'penyedia_simpan',
             nama: nama,
             kontak: document.getElementById('supBaruKontak<%=rnd%>').value.trim(),
-            telp: document.getElementById('supBaruTelp<%=rnd%>').value.trim()
+            telp: document.getElementById('supBaruTelp<%=rnd%>').value.trim(),
+            akunUtangId: document.getElementById('inputAkunUtang<%=rnd%>').value || 0
         };
         const res = await fetchDataFaktur<%=rnd%>(payload);
         if (res.status === '00') {
@@ -451,6 +493,7 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
             document.getElementById('supBaruNama<%=rnd%>').value = '';
             document.getElementById('supBaruKontak<%=rnd%>').value = '';
             document.getElementById('supBaruTelp<%=rnd%>').value = '';
+            document.getElementById('inputAkunUtang<%=rnd%>').value = '';
             document.getElementById('boxSupplierBaru<%=rnd%>').style.display = 'none';
             showToastFaktur<%=rnd%>('<%=Common.getBahasaConfigJS("Supplier baru tersimpan.")%>', 'bg-success text-white');
         } else {

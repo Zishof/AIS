@@ -88,12 +88,14 @@ public final class JenisProdukApiHelper {
 							+ "jp.akun_pendapatan, ap.kode, ap.nama, "
 							+ "jp.akun_ppn_keluaran, app.kode, app.nama, "
 							+ "jp.akun_hpp, ah.kode, ah.nama, "
-							+ "jp.akun_selisih_persediaan, asl.kode, asl.nama "
+							+ "jp.akun_selisih_persediaan, asl.kode, asl.nama, "
+							+ "jp.akun_retur_penjualan, art.kode, art.nama "
 							+ "FROM koperasi.jenis_produk jp "
 							+ "LEFT JOIN akunting.akun ap  ON ap.id  = jp.akun_pendapatan "
 							+ "LEFT JOIN akunting.akun app ON app.id = jp.akun_ppn_keluaran "
 							+ "LEFT JOIN akunting.akun ah  ON ah.id  = jp.akun_hpp "
 							+ "LEFT JOIN akunting.akun asl ON asl.id = jp.akun_selisih_persediaan "
+							+ "LEFT JOIN akunting.akun art ON art.id = jp.akun_retur_penjualan "
 							+ where + " ORDER BY jp.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -125,6 +127,9 @@ public final class JenisProdukApiHelper {
 				long aslId = rs.getLong(16);
 				j.put("akunSelisihPersediaanId", rs.wasNull() ? JSONObject.NULL : aslId);
 				j.put("akunSelisihPersediaanNama", labelAkun(rs.getString(17), rs.getString(18)));
+				long artId = rs.getLong(19);
+				j.put("akunReturPenjualanId", rs.wasNull() ? JSONObject.NULL : artId);
+				j.put("akunReturPenjualanNama", labelAkun(rs.getString(20), rs.getString(21)));
 				arr.put(j);
 			}
 			rs.close();
@@ -180,6 +185,8 @@ public final class JenisProdukApiHelper {
 			jp.setAkunHpp(akunDariId(session, request, "akunHppId"));
 			// Akun selisih persediaan (susut/temuan) -- lawan jurnal stok opname.
 			jp.setAkunSelisihPersediaan(akunDariId(session, request, "akunSelisihPersediaanId"));
+			// Akun retur penjualan (kontra-pendapatan); kosong = pakai akun pendapatan jenis ini.
+			jp.setAkunReturPenjualan(akunDariId(session, request, "akunReturPenjualanId"));
 
 			session.beginTransaction();
 			session.saveOrUpdate(jp);

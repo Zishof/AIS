@@ -197,6 +197,16 @@ boolean isAdmin = (toko == null);
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Masukkan instruksi atau no. rekening jika ada...")%>"></textarea>
                             </div>
 
+
+                            <div class="col-12 mt-3">
+                                <div class="border rounded-3 p-3 bg-light-subtle">
+                                    <div class="fw-bold text-secondary small mb-2"><i class="fas fa-book text-primary me-1"></i><%=Common.getBahasaConfig("Akuntansi")%></div>
+                                    <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Kas/Bank")%></label>
+                                    <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunKas<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                    <select class="form-select form-select-sm shadow-sm" id="inputAkunKas<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                    <div class="form-text small"><%=Common.getBahasaConfig("Akun yang didebet/dikredit saat metode ini dipakai pada jurnal. Kosongkan untuk memakai Akun Kas/Bank pada master Toko.")%></div>
+                                </div>
+                            </div>
                             <div class="col-12 mt-4 text-end border-top pt-3">
                                 <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold border shadow-sm" onclick="tutupForm<%=rnd%>()"><i class="fas fa-times text-danger me-2"></i><%=Common.getBahasaConfig("Batal")%></button>
                                 <button type="submit" class="btn btn-success px-4 rounded-pill shadow-sm fw-bold" id="btnSimpan<%=rnd%>">
@@ -463,10 +473,57 @@ boolean isAdmin = (toko == null);
         const btnSimpan = document.getElementById('btnSimpan<%=rnd%>');
         
         // Object utama CaraPembayaranKoperasi.java
+    // Pemilih akun bercari (kode & nama). Bagan akun bisa ratusan baris sehingga dropdown
+    // polos sulit dipakai; akun yang sedang terpilih selalu ikut tampil saat daftar tersaring.
+    const ID_AKUN<%=rnd%> = ['inputAkunKas<%=rnd%>'];
+    let akunDaftar<%=rnd%> = [];
+    const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
+        const kunci = (kata || '').trim().toLowerCase().split(/\s+/).filter((k) => k.length > 0);
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+        (akunDaftar<%=rnd%> || []).forEach((a) => {
+            const teks = ((a.kode || '') + ' ' + (a.nama || '')).toLowerCase();
+            let cocok = true;
+            kunci.forEach((k) => { if (teks.indexOf(k) < 0) { cocok = false; } });
+            const iniTerpilih = nilai !== null && nilai !== undefined && nilai !== '' && (a.id + '') === (nilai + '');
+            if (!cocok && !iniTerpilih) { return; }
+            html += '<option value="' + a.id + '">' + escAkun<%=rnd%>((a.kode || '') + ' - ' + (a.nama || '')) + '</option>';
+        });
+        return html;
+    };
+    const terapkanFilterAkun<%=rnd%> = (sid) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        const cur = el.value;
+        el.innerHTML = opsiAkunHtml<%=rnd%>(box ? box.value : '', cur);
+        el.value = cur;
+    };
+    const loadAkunOptions<%=rnd%> = async () => {
+        const list = await fetchData<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
+        akunDaftar<%=rnd%> = list || [];
+        ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
+    };
+    ID_AKUN<%=rnd%>.forEach((sid) => {
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.addEventListener('input', function() { terapkanFilterAkun<%=rnd%>(sid); }); }
+    });
+    const setAkunSelect<%=rnd%> = (sid, val) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.value = ''; }
+        const v = (val === null || val === undefined) ? '' : (val + '');
+        el.innerHTML = opsiAkunHtml<%=rnd%>('', v);
+        el.value = v;
+    };
+    loadAkunOptions<%=rnd%>();
+
         const dataObj = {
             kode: document.getElementById('inputKode<%=rnd%>').value.trim(),
             nama: document.getElementById('inputNama<%=rnd%>').value.trim(),
             keterangan: document.getElementById('inputKeterangan<%=rnd%>').value.trim(),
+            akun: document.getElementById('inputAkunKas<%=rnd%>').value || null,
             manual: document.getElementById('inputManual<%=rnd%>').checked,
             online: document.getElementById('inputOnline<%=rnd%>').checked, // Parameter Online
             memotongDeposit: document.getElementById('inputMemotongDeposit<%=rnd%>').checked, // Kurangi saldo anggota
@@ -516,7 +573,7 @@ boolean isAdmin = (toko == null);
     const editCaraBayar<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif, ' +
+        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif, akun, ' +
             "COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian " +
             'FROM koperasi.cara_pembayaran_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
@@ -528,6 +585,7 @@ boolean isAdmin = (toko == null);
             document.getElementById('inputIdCaraBayar<%=rnd%>').value = data.id;
             document.getElementById('inputKode<%=rnd%>').value = data.kode || '';
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
+            setAkunSelect<%=rnd%>('inputAkunKas<%=rnd%>', data.akun);
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
             
             const isManual = (data.manual === null || data.manual === true || data.manual === 'true' || data.manual === 't');

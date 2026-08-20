@@ -143,6 +143,16 @@ String rnd = Common.getGeneratedBarCode(7);
                                 </div>
                             </div>
 
+
+                            <div class="col-12 mt-3">
+                                <div class="border rounded-3 p-3 bg-light-subtle">
+                                    <div class="fw-bold text-secondary small mb-2"><i class="fas fa-book text-primary me-1"></i><%=Common.getBahasaConfig("Akuntansi")%></div>
+                                    <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Utang Dagang")%></label>
+                                    <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunUtang<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                    <select class="form-select form-select-sm shadow-sm" id="inputAkunUtang<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                    <div class="form-text small"><%=Common.getBahasaConfig("Dikredit saat pengadaan kredit dijurnal, didebet saat pembayaran ke penyedia dijurnal.")%></div>
+                                </div>
+                            </div>
                             <div class="col-12 mt-5 text-end border-top pt-3">
                                 <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold border shadow-sm" onclick="tutupForm<%=rnd%>()"><i class="fas fa-times text-danger me-2"></i><%=Common.getBahasaConfig("Batal")%></button>
                                 <button type="submit" class="btn btn-success px-4 rounded-pill shadow-sm fw-bold" id="btnSimpan<%=rnd%>">
@@ -344,6 +354,51 @@ String rnd = Common.getGeneratedBarCode(7);
     // ==========================================
     const simpanPenyedia<%=rnd%> = async () => {
         const idPenyedia = document.getElementById('inputIdPenyedia<%=rnd%>').value;
+    // Pemilih akun bercari (kode & nama) untuk Akun Utang Dagang penyedia.
+    const ID_AKUN<%=rnd%> = ['inputAkunUtang<%=rnd%>'];
+    let akunDaftar<%=rnd%> = [];
+    const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
+        const kunci = (kata || '').trim().toLowerCase().split(/\s+/).filter((k) => k.length > 0);
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+        (akunDaftar<%=rnd%> || []).forEach((a) => {
+            const teks = ((a.kode || '') + ' ' + (a.nama || '')).toLowerCase();
+            let cocok = true;
+            kunci.forEach((k) => { if (teks.indexOf(k) < 0) { cocok = false; } });
+            const iniTerpilih = nilai !== null && nilai !== undefined && nilai !== '' && (a.id + '') === (nilai + '');
+            if (!cocok && !iniTerpilih) { return; }
+            html += '<option value="' + a.id + '">' + escAkun<%=rnd%>((a.kode || '') + ' - ' + (a.nama || '')) + '</option>';
+        });
+        return html;
+    };
+    const terapkanFilterAkun<%=rnd%> = (sid) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        const cur = el.value;
+        el.innerHTML = opsiAkunHtml<%=rnd%>(box ? box.value : '', cur);
+        el.value = cur;
+    };
+    const loadAkunOptions<%=rnd%> = async () => {
+        const list = await fetchData<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
+        akunDaftar<%=rnd%> = list || [];
+        ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
+    };
+    ID_AKUN<%=rnd%>.forEach((sid) => {
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.addEventListener('input', function() { terapkanFilterAkun<%=rnd%>(sid); }); }
+    });
+    const setAkunSelect<%=rnd%> = (sid, val) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.value = ''; }
+        const v = (val === null || val === undefined) ? '' : (val + '');
+        el.innerHTML = opsiAkunHtml<%=rnd%>('', v);
+        el.value = v;
+    };
+    loadAkunOptions<%=rnd%>();
+
         const btnSimpan = document.getElementById('btnSimpan<%=rnd%>');
 
         // CATATAN PENTING:
@@ -355,7 +410,8 @@ String rnd = Common.getGeneratedBarCode(7);
             kontak: document.getElementById('inputCp<%=rnd%>').value.trim(), // Pastikan nama property Java nya sesuai
             telp: document.getElementById('inputtelp<%=rnd%>').value.trim(),
             email: document.getElementById('inputEmail<%=rnd%>').value.trim(),
-            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
+            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked,
+            akunUtang: document.getElementById('inputAkunUtang<%=rnd%>').value || null
         };
         
         const payload = { 
@@ -398,7 +454,7 @@ String rnd = Common.getGeneratedBarCode(7);
 
     const editPenyedia<%=rnd%> = async (id) => {
         // Tarik data berdasarkan ID
-        const sql = 'SELECT id, nama, npwp, alamat, kontak, telp, email, aktif FROM asset.penyedia_asset WHERE id = ' + id;
+        const sql = 'SELECT id, nama, npwp, alamat, kontak, telp, email, aktif, akun_utang FROM asset.penyedia_asset WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
         
         if (res.length > 0) {
@@ -406,6 +462,7 @@ String rnd = Common.getGeneratedBarCode(7);
             
             document.getElementById('inputIdPenyedia<%=rnd%>').value = data.id;
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
+            setAkunSelect<%=rnd%>('inputAkunUtang<%=rnd%>', data.akun_utang);
             document.getElementById('inputNpwp<%=rnd%>').value = data.npwp || '';
             document.getElementById('inputAlamat<%=rnd%>').value = data.alamat || '';
             document.getElementById('inputCp<%=rnd%>').value = data.kontak || '';

@@ -175,6 +175,12 @@ boolean isAdmin = (toko == null);
                                             <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunSelisih<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
                                             <select class="form-select form-select-sm shadow-sm" id="inputAkunSelisih<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
                                             <div class="form-text small"><%=Common.getBahasaConfig("Lawan jurnal saat selisih stok opname diposting.")%></div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Retur Penjualan")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunRetur<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunRetur<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                            <div class="form-text small"><%=Common.getBahasaConfig("Kosongkan untuk memakai Akun Pendapatan.")%></div>
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -236,7 +242,7 @@ boolean isAdmin = (toko == null);
     // Pemilih Akun (mirror AmbilDataAkunBanbox versi ZK): daftar akun dari akunting.akun.
     // Dilengkapi kotak cari (kode & nama) karena bagan akun bisa ratusan baris
     // sehingga dropdown polos sulit dipakai.
-    const ID_AKUN<%=rnd%> = ['inputAkunPendapatan<%=rnd%>', 'inputAkunPpnKeluaran<%=rnd%>', 'inputAkunHpp<%=rnd%>', 'inputAkunSelisih<%=rnd%>'];
+    const ID_AKUN<%=rnd%> = ['inputAkunPendapatan<%=rnd%>', 'inputAkunPpnKeluaran<%=rnd%>', 'inputAkunHpp<%=rnd%>', 'inputAkunSelisih<%=rnd%>', 'inputAkunRetur<%=rnd%>'];
     let akunDaftar<%=rnd%> = [];
     const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
@@ -453,7 +459,8 @@ boolean isAdmin = (toko == null);
             akunPendapatan: document.getElementById('inputAkunPendapatan<%=rnd%>').value || null,
             akunPpnKeluaran: document.getElementById('inputAkunPpnKeluaran<%=rnd%>').value || null,
             akunHpp: document.getElementById('inputAkunHpp<%=rnd%>').value || null,
-            akunSelisihPersediaan: document.getElementById('inputAkunSelisih<%=rnd%>').value || null
+            akunSelisihPersediaan: document.getElementById('inputAkunSelisih<%=rnd%>').value || null,
+            akunReturPenjualan: document.getElementById('inputAkunRetur<%=rnd%>').value || null
         };
         
         const payload = { 
@@ -497,7 +504,7 @@ boolean isAdmin = (toko == null);
     const editJenisProduk<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, nama, keterangan, maksimalharian as maksimal_harian, defaultproduk as default_produk, aktif, akun_pendapatan, akun_ppn_keluaran, akun_hpp, akun_selisih_persediaan FROM koperasi.jenis_produk WHERE id = ' + id;
+        const sql = 'SELECT id, nama, keterangan, maksimalharian as maksimal_harian, defaultproduk as default_produk, aktif, akun_pendapatan, akun_ppn_keluaran, akun_hpp, akun_selisih_persediaan, akun_retur_penjualan FROM koperasi.jenis_produk WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
 
         if (res.length > 0) {
@@ -512,6 +519,7 @@ boolean isAdmin = (toko == null);
             setAkunSelect<%=rnd%>('inputAkunPpnKeluaran<%=rnd%>', data.akun_ppn_keluaran);
             setAkunSelect<%=rnd%>('inputAkunHpp<%=rnd%>', data.akun_hpp);
             setAkunSelect<%=rnd%>('inputAkunSelisih<%=rnd%>', data.akun_selisih_persediaan);
+            setAkunSelect<%=rnd%>('inputAkunRetur<%=rnd%>', data.akun_retur_penjualan);
             
             const isDefault = (data.default_produk === true || data.default_produk === 'true' || data.default_produk === 't');
             document.getElementById('inputDefaultProduk<%=rnd%>').checked = isDefault;
