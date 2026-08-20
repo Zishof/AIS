@@ -73,6 +73,7 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
         "LUNAS = seluruh nilai PO sudah dibayar dan disetujui"
       ],
       penting: [
+        "Tombol Dari PR menampilkan BARANG-nya, dikelompokkan per nomor PR; barang dari beberapa PR boleh digabung ke dalam satu pesanan.",
         "Jumlah seluruh termin wajib sama dengan nilai PO; selisih lebih dari Rp 1 ditolak saat menyimpan.",
         "DP dan termin saling meniadakan. Bila memakai termin, tuliskan uang mukanya sebagai termin pertama.",
         "PO yang sudah disetujui atau sudah menerima pembayaran tidak dapat diubah.",
@@ -95,6 +96,9 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
         "Tanpa PO = penerimaan langsung untuk pembelian toko tanpa pesanan"
       ],
       penting: [
+        "Barang datang kurang? Simpan dahulu yang benar-benar diterima, lalu tekan Back Order / Pesan Kembali untuk menutup sisanya dan menerbitkan pesanan susulan.",
+        "Sisa pesanan yang sudah ditutup tidak menerima barang lagi; kekurangannya diterima pada pesanan susulan.",
+        "PPN dan PPh diisi per baris dalam persen, dan nilainya ikut muncul di layar Bayar Pajak.",
         "Jumlah diterima tidak boleh melebihi sisa yang dipesan; angka sisanya tertera pada tiap baris.",
         "Satu PO boleh diterima bertahap bila barang datang beberapa kali.",
         "Stok baru bertambah setelah BAST disetujui DAN disinkronkan ke Kulakan.",
@@ -116,6 +120,9 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
         "SUDAH DITAGIH = nomor dan tanggal faktur sudah tercatat"
       ],
       penting: [
+        "Invoice WAJIB diunggah dan harus berupa gambar; tagihan tidak dapat diterima sebelum lampiran itu ada.",
+        "Faktur Pajak, Surat Jalan, dan Kwitansi bersifat pelengkap.",
+        "Berkasnya tersimpan di tabel lampiran yang sama dengan versi ZKoss, jadi terbaca di kedua versi.",
         "Hanya penerimaan yang sudah DISETUJUI yang muncul di sini; barang yang belum diakui diterima tidak boleh menimbulkan kewajiban bayar.",
         "Nomor dan tanggal faktur keduanya wajib karena menjadi rujukan pembayaran.",
         "Nomor faktur yang sama pada penyedia yang sama akan ditolak untuk mencegah tagihan berganda.",
@@ -136,6 +143,8 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
         "Pengajuan transfer = permintaan pencairan yang masuk antrean keuangan"
       ],
       penting: [
+        "Cara transfer wajib dipilih karena akun pada cara transfer itulah yang dipakai saat jurnal dibentuk.",
+        "Tagihan yang sudah diajukan pada dokumen lain tidak muncul lagi, supaya tidak terbayar dua kali.",
         "Dokumen DRAFT belum diakui sebagai pembayaran; status pesanan baru berubah setelah DISETUJUI.",
         "Nilai bayar tidak boleh melebihi sisa tagihan terminnya.",
         "Pembayaran yang sudah disetujui tidak dapat diubah maupun dihapus; batalkan persetujuannya dulu.",
@@ -150,16 +159,18 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
     },
     bdp: {
       judul: "Barang Dalam Proses",
-      tujuan: "Memantau barang yang sudah dipesan tetapi belum diterima.",
-      langkah: ["Buka daftar", "Saring yang terlambat", "Periksa umur pesanan", "Tindak lanjuti ke penyedia"],
+      tujuan: "Merekap penerimaan barang (BAST) beserta nilai dan statusnya, sekaligus memantau kiriman yang belum datang.",
+      langkah: ["Pilih pandangan Sudah Diterima atau Belum Datang", "Saring bila perlu", "Periksa nilai dan status", "Tindak lanjuti ke penyedia"],
       istilah: [
+        "CIP = Pekerjaan Dalam Pelaksanaan, kelompok aset yang pengerjaannya belum selesai",
+        "Sudah masuk stok = penerimaan ini sudah disalin menjadi faktur Kulakan",
         "Belum datang = jumlah dipesan dikurangi yang sudah diterima",
-        "Umur = berapa hari sejak pesanan dibuat",
         "Terlambat = sudah melewati batas kirim yang disepakati"
       ],
       penting: [
-        "Halaman ini tidak dapat diubah; isinya dihitung dari selisih pesanan dan penerimaan.",
-        "Angkanya memakai definisi yang sama dengan pagar penerimaan, jadi tidak akan berbeda dengan sisa yang boleh diterima di layar BAST."
+        "Istilah Barang Dalam Proses di sini mengikuti versi ZKoss: sumbernya PENERIMAAN, bukan pesanan yang belum datang.",
+        "Penyaring CIP mati secara bawaan, karena pada pemasangan POS umumnya belum ada kelompok aset yang ditandai CIP.",
+        "Halaman ini tidak dapat diubah; isinya dihitung dari dokumen yang sudah tercatat."
       ],
       tanya: []
     },
@@ -175,6 +186,8 @@ if (tahapBantuan == null || tahapBantuan.trim().isEmpty()) {
         "Terutang = pajak yang sudah timbul tetapi belum disetor"
       ],
       penting: [
+        "Pajak datang dari dua sumber: PPN/PPh yang diketik pada penerimaan barang (lencana BAST), dan PPh termin dari pembayaran vendor (lencana BAYAR).",
+        "Baris yang dokumennya belum disetujui tetap ditampilkan tetapi belum dapat disetor.",
         "PPN menambah tagihan ke vendor, sedangkan PPh dipotong dari kas yang keluar. Keduanya mudah tertukar, jadi ditampilkan terpisah.",
         "Pajak baru menjadi terutang setelah pembayaran vendor disetujui.",
         "Nilainya dihitung sebanding dengan porsi yang benar-benar dibayar, sehingga pembayaran sebagian tidak menyetorkan pajak atas nilai yang belum dibayar.",

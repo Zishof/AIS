@@ -2476,11 +2476,28 @@ public final class PengadaanPosApiHelper {
 				tolak(hasil, "Tidak ada barang yang dipilih untuk dipesan ulang.");
 				return;
 			}
+			// Nilai pesanan setelah ditutup = sebatas yang benar-benar diterima. Tanpa ini
+			// penyedia masih dapat menagih barang yang tidak pernah dikirim, karena daftar
+			// tagihan terbuka membaca PemesananPengadaanMasterAsset.nilai.
+			double nilaiDiterima = 0;
+			for (PemesananPengadaanMasterAssetDetail d : baris) {
+				double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
+				nilaiDiterima += jumlahSudahDiterima(session, d.getId(), null) * harga;
+			}
+			boolean nilaiDisesuaikan = false;
+
 			session.beginTransaction();
 			// Langkah 1 -- tutup sisa pesanan lama. Selalu dilakukan, baik dengan maupun tanpa
 			// pesanan susulan, supaya sisa yang batal tidak terhitung dua kali.
 			po.setTutup(Boolean.TRUE);
 			po.setAlasanTutup(alasan);
+			// Pesanan BERTERMIN tidak disesuaikan otomatis: jadwal terminnya disusun manusia
+			// dan penjumlahannya harus tetap sama dengan nilai pesanan. Menyesuaikan nilai
+			// tanpa menyusun ulang termin justru membuat dokumennya tidak konsisten.
+			if (!Boolean.TRUE.equals(po.getByTermin())) {
+				po.setNilai(Double.valueOf(nilaiDiterima));
+				nilaiDisesuaikan = true;
+			}
 			session.saveOrUpdate(po);
 			session.flush();
 
@@ -2552,14 +2569,20 @@ public final class PengadaanPosApiHelper {
 			hasil.put("po", po.getKode() == null ? "" : po.getKode());
 			hasil.put("tindakan", tindakan);
 			hasil.put("ditutup", true);
+			hasil.put("nilaiDisesuaikan", nilaiDisesuaikan);
+			hasil.put("nilaiSetelahTutup", nilaiDisesuaikan ? nilaiDiterima
+					: (po.getNilai() == null ? 0 : po.getNilai().doubleValue()));
 			hasil.put("po_baru_id", baru == null ? JSONObject.NULL : baru.getId());
 			hasil.put("po_baru", baru == null ? "" : (baru.getKode() == null ? "" : baru.getKode()));
 			hasil.put("nilaiBaru", nilaiBaru);
-			hasil.put("description", baru == null
+			String catatanTermin = Boolean.TRUE.equals(po.getByTermin())
+					? " Pesanan ini bertermin, jadi nilai dan jadwal terminnya perlu Anda sesuaikan sendiri."
+					: "";
+			hasil.put("description", catatanTermin + (baru == null
 					? "Sisa pesanan ditutup. Tidak ada pesanan susulan yang diterbitkan."
 					: "Sisa pesanan ditutup dan pesanan susulan "
 							+ (baru.getKode() == null ? "" : baru.getKode())
-							+ " diterbitkan sebagai draf. Setujui dahulu sebelum dikirim ke penyedia.");
+							+ " diterbitkan sebagai draf. Setujui dahulu sebelum dikirim ke penyedia."));
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -5230,7 +5253,12 @@ public final class PengadaanPosApiHelper {
 			@SuppressWarnings("unchecked")
 			List<PenerimaanPengadaanMasterAssetDetail> barisBast = session
 					.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
-					.addOrder(Order.asc("id")).list();
+					// Hanya baris yang benar-benar berpajak yang perlu diperiksa. Tanpa saringan
+					// ini seluruh tabel penerimaan ikut terbaca -- mahal pada basis data besar.
+					.add(Restrictions.or(Restrictions.gt("persenPpn", Double.valueOf(0)),
+							Restrictions.gt("persenPph", Double.valueOf(0))))
+					.add(Restrictions.isNull("pajak"))
+					.addOrder(Order.asc("id")).setMaxResults(3000).list();
 			for (PenerimaanPengadaanMasterAssetDetail d : barisBast) {
 				PenerimaanPengadaanMasterAsset induk = d.getPenerimaanPengadaanMasterAsset();
 				if (induk == null || Boolean.FALSE.equals(induk.getAktif())) {
