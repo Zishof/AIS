@@ -586,6 +586,18 @@ public final class RevisiApiHelper {
 		RevisionType tipeSaring = tipeRevisi(request.optString("tipe", ""));
 		if (tipeSaring != null) q.add(AuditEntity.revisionType().eq(tipeSaring));
 
+		// Saringan satu baris. Adanya parameter ini membuat "Pulihkan baris ini"
+		// memakai JALUR YANG SAMA PERSIS dengan "Pulihkan semua" -- hanya dengan
+		// himpunan yang menyusut jadi satu. Tanpa itu, restore satuan dan massal
+		// akan punya aturan pemilihan revisi sendiri-sendiri, dan cepat atau lambat
+		// keduanya berbeda arti bagi orang yang menekannya.
+		if (request != null && !request.isNull("id")) {
+			String idSatu = (request.get("id") + "").trim();
+			if (idSatu.length() > 0 && !"null".equals(idSatu)) {
+				q.add(AuditEntity.id().eq(Long.valueOf(idSatu)));
+			}
+		}
+
 		if (request != null && !request.isNull("toko")) {
 			String t = (request.get("toko") + "").trim();
 			if (t.length() > 0 && !"null".equals(t) && punyaProperti(meta, "toko")) {
@@ -732,6 +744,11 @@ public final class RevisiApiHelper {
 		if (sampai == null) return;
 		if (dari.after(sampai)) { tolak(hasil, "Tanggal awal melewati tanggal akhir."); return; }
 		boolean timpa = request.optBoolean("timpaYangMasihAda", false);
+		// Mode hitung-dulu. Restore massal tidak punya tombol "batal": begitu baris
+		// tertulis, keadaan sebelumnya hanya bisa dikejar lewat revisi baru. Jadi
+		// pemanggil harus bisa menanyakan "berapa yang akan tersentuh" tanpa
+		// menyentuh apa pun.
+		boolean simulasi = request.optBoolean("simulasi", false);
 		// Batas atas jumlah baris yang boleh dipulihkan dalam satu panggilan.
 		// Tanpa batas, satu klik keliru pada rentang lebar bisa menulis ulang
 		// ribuan baris -- dan tidak ada tombol "batal" untuk itu.
@@ -789,6 +806,13 @@ public final class RevisiApiHelper {
 					continue;
 				}
 				diproses++;
+				if (simulasi) {
+					JSONObject rs = new JSONObject();
+					rs.put("id", id);
+					rs.put("status", "AKAN DIPULIHKAN");
+					rincian.put(rs);
+					continue;
+				}
 				JSONObject lapor = salinKeLive(session, meta, clazz, snapshot, id);
 				JSONObject r = new JSONObject();
 				r.put("id", id);
@@ -818,9 +842,15 @@ public final class RevisiApiHelper {
 			hasil.put("gagal", gagal.length());
 			hasil.put("rincian", rincian);
 			hasil.put("terpotong", terpotong ? Boolean.TRUE : Boolean.FALSE);
+			hasil.put("simulasi", simulasi ? Boolean.TRUE : Boolean.FALSE);
+			hasil.put("akanDipulihkan", simulasi ? diproses : berhasil);
 			StringBuffer pesan = new StringBuffer();
-			pesan.append(berhasil).append(" baris dipulihkan (").append(dihidupkan)
-					.append(" dihidupkan kembali)");
+			if (simulasi) {
+				pesan.append("Simulasi: ").append(diproses).append(" baris AKAN dipulihkan");
+			} else {
+				pesan.append(berhasil).append(" baris dipulihkan (").append(dihidupkan)
+						.append(" dihidupkan kembali)");
+			}
 			if (dilewatiMasihAda > 0) {
 				pesan.append("; ").append(dilewatiMasihAda).append(" dilewati karena datanya masih ada");
 			}
