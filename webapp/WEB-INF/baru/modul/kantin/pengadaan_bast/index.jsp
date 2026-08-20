@@ -32,6 +32,9 @@ String rnd = Common.getGeneratedBarCode(7);
       <button class="btn btn-outline-primary fw-bold rounded-pill px-3 me-2" onclick="bsDariPo<%=rnd%>()">
         <i class="fas fa-clipboard-check me-2"></i><%=Common.getBahasaConfig("Dari PO")%>
       </button>
+      <a class="btn btn-outline-secondary fw-bold rounded-pill px-3 me-2" href="<%=Common.ROOT%>/baru?p=kantin&s=pengadaan_bulk&jenis=bast">
+        <i class="fas fa-table me-2"></i><%=Common.getBahasaConfig("Bulk Entry")%>
+      </a>
       <button class="btn btn-primary fw-bold rounded-pill px-4" onclick="bsForm<%=rnd%>(null)">
         <i class="fas fa-plus me-2"></i><%=Common.getBahasaConfig("Terima Langsung")%>
       </button>
