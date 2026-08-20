@@ -87,6 +87,56 @@ public final class PembacaTerlindungiUtil {
 		}
 	}
 
+	/**
+	 * Varian sumber aliran data: berkas pustaka disimpan sebagai Blob di basis
+	 * data (bukan berkas di disk seperti repository), jadi isinya dibaca
+	 * langsung tanpa pernah menyentuh disk — tidak ada salinan sementara yang
+	 * bisa tertinggal atau terambil orang lain.
+	 */
+	public static String halamanSebagaiBase64(java.io.InputStream sumber, int halaman,
+			String identitas) throws Exception {
+		PDDocument dokumen = null;
+		try {
+			dokumen = PDDocument.load(sumber);
+			@SuppressWarnings("rawtypes")
+			List halamanSemua = dokumen.getDocumentCatalog().getAllPages();
+			if (halaman < 1 || halaman > halamanSemua.size()) {
+				return null;
+			}
+			PDPage pd = (PDPage) halamanSemua.get(halaman - 1);
+			BufferedImage gambar = pd.convertToImage(BufferedImage.TYPE_INT_RGB, DPI);
+			gambarWatermark(gambar, identitas);
+			ByteArrayOutputStream keluaran = new ByteArrayOutputStream();
+			ImageIO.write(gambar, "jpg", keluaran);
+			return new String(Base64.encodeBase64(keluaran.toByteArray()), "UTF-8");
+		} finally {
+			if (dokumen != null) {
+				try {
+					dokumen.close();
+				} catch (Exception abaikan) {
+					// Dokumen sudah tertutup/rusak.
+				}
+			}
+		}
+	}
+
+	/** Jumlah halaman dari aliran data. */
+	public static int jumlahHalaman(java.io.InputStream sumber) throws Exception {
+		PDDocument dokumen = null;
+		try {
+			dokumen = PDDocument.load(sumber);
+			return dokumen.getNumberOfPages();
+		} finally {
+			if (dokumen != null) {
+				try {
+					dokumen.close();
+				} catch (Exception abaikan) {
+					// Lihat catatan di atas.
+				}
+			}
+		}
+	}
+
 	/** Jumlah halaman dokumen; dipakai klien untuk navigasi. */
 	public static int jumlahHalaman(File berkasPdf) throws Exception {
 		PDDocument dokumen = null;
