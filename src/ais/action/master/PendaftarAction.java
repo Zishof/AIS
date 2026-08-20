@@ -230,6 +230,10 @@ public class PendaftarAction extends GenericAutowireComposer
 			tabs.appendChild(new MyTabConfig("Data Pendaftaran"));
 			MyTabConfig tabSekolah = new MyTabConfig("Data Sekolah");
 			tabSekolah.setParent(tabs);
+			MyTabConfig tabToko = new MyTabConfig("Toko");
+			tabToko.setParent(tabs);
+			MyTabConfig tabPengguna = new MyTabConfig("Pengguna");
+			tabPengguna.setParent(tabs);
 
 			Tabpanels tabpanels = new Tabpanels();
 			tabpanels.setParent(tabbox);

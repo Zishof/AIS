@@ -2916,13 +2916,21 @@ public final class LaporanKantinUtil {
                         String nama = rr[2] == null ? "" : rr[2].toString();
                         double saldoD = (rr[3] instanceof Number) ? ((Number) rr[3]).doubleValue() : 0.0;
                         String tag = rr[4] == null ? "" : rr[4].toString();
-                        // Urutan cek penting: "piutang" memuat kata "utang", jadi sisi AKTIVA diperiksa lebih dulu.
-                        boolean aktiva = tag.contains("aktiva") || tag.contains("aset") || tag.contains("asset")
-                            || tag.contains("harta") || tag.contains("piutang") || tag.contains("persediaan")
-                            || tag.contains("kas") || tag.contains("bank");
-                        boolean pasiva = !aktiva && (tag.contains("kewajiban") || tag.contains("hutang")
-                            || tag.contains("utang") || tag.contains("modal") || tag.contains("ekuitas")
-                            || tag.contains("pasiva"));
+                        // Urutan cek penting dan tidak boleh dibalik:
+                        // 1) EKUITAS lebih dulu -- "ASET BERSIH"/"AKTIVA BERSIH" (istilah ekuitas pada
+                        //    laporan nirlaba) mengandung kata "aset" sehingga akan salah masuk AKTIVA
+                        //    bila dicek belakangan;
+                        // 2) baru AKTIVA -- "piutang" mengandung "utang", jadi harus mendahului PASIVA;
+                        // 3) sisanya PASIVA.
+                        boolean ekuitas = tag.contains("aset bersih") || tag.contains("aktiva bersih")
+                            || tag.contains("ekuitas") || tag.contains("modal") || tag.contains("laba ditahan");
+                        boolean aktiva = !ekuitas && (tag.contains("aktiva") || tag.contains("aset")
+                            || tag.contains("asset") || tag.contains("harta") || tag.contains("piutang")
+                            || tag.contains("persediaan") || tag.contains("kas") || tag.contains("bank")
+                            || tag.contains("dibayar dimuka") || tag.contains("dibayar di muka")
+                            || tag.contains("uang muka"));
+                        boolean pasiva = !aktiva && (ekuitas || tag.contains("kewajiban")
+                            || tag.contains("hutang") || tag.contains("utang") || tag.contains("pasiva"));
                         if (!aktiva && !pasiva) { aktiva = saldoD >= 0; }   // cadangan: ikut saldo alami akun
                         if (aktiva) {
                             totalAktiva += saldoD;
