@@ -3904,6 +3904,41 @@ public class PosApi extends HttpServlet {
 	}
 
 	/** Daftar transaksi penyusun satu baris ringkasan penerimaan. */
+	/**
+	 * Ubah rincian split mentah dari SQL ({@code "nama~nominal|nama~nominal"}) menjadi label siap
+	 * tampil ({@code "QRIS BSI Rp 5.000 + Tunai Rp 4.000"}). Sengaja diformat di Java, BUKAN di
+	 * SQL, supaya pemisah ribuan tidak bergantung locale server database.
+	 *
+	 * @param mentah rincian dari kolom {@code metode_split}; {@code null}/kosong utk nota non-split
+	 * @param bawaan label yang dipakai bila nota bukan split (nama metode tunggal)
+	 */
+	private static String labelMetodeSplit(String mentah, String bawaan) {
+		if (mentah == null || mentah.trim().length() == 0) {
+			return bawaan;
+		}
+		java.text.NumberFormat fmt = java.text.NumberFormat.getIntegerInstance(new java.util.Locale("id", "ID"));
+		StringBuilder sb = new StringBuilder();
+		String[] bagian = mentah.split(java.util.regex.Pattern.quote("|"));
+		for (int i = 0; i < bagian.length; i++) {
+			int pisah = bagian[i].lastIndexOf('~');
+			if (pisah <= 0) {
+				continue;
+			}
+			String nama = bagian[i].substring(0, pisah).trim();
+			double nilai;
+			try {
+				nilai = Double.parseDouble(bagian[i].substring(pisah + 1).trim());
+			} catch (Exception e) {
+				continue;
+			}
+			if (sb.length() > 0) {
+				sb.append(" + ");
+			}
+			sb.append(nama).append(" Rp ").append(fmt.format(Math.round(nilai)));
+		}
+		return sb.length() == 0 ? bawaan : sb.toString();
+	}
+
 	private void prosesLaporanPenerimaanKasirDetail(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
@@ -4277,6 +4312,27 @@ public class PosApi extends HttpServlet {
 				+ "         COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') AS kasir,"
 				+ "         MAX(pak.sesi_kas_kasir) AS sesi_kas_kasir_id, MAX(pak.nama_mesin) AS nama_mesin,"
 				+ "         MAX(pak.id_perangkat) AS id_perangkat, MAX(a.carabayar) AS metode,"
+				// Rincian metode utk nota SPLIT: pasangan "nama~nominal" dipisah "|", DIURUT
+				// slot. Sengaja tidak diformat di SQL (pemisah ribuan bergantung locale server);
+				// pemformatan rupiah dilakukan di Java. NULL bila nota bukan split -- pemanggil
+				// lalu memakai kolom metode biasa spt sebelumnya.
+				+ "         MAX(CASE WHEN (COALESCE(pak.nominal_bayar_2,0)+COALESCE(pak.nominal_bayar_3,0)"
+				+ "                       +COALESCE(pak.nominal_bayar_4,0)+COALESCE(pak.nominal_bayar_5,0)) <> 0"
+				+ "              THEN (SELECT string_agg(sp.nm || '~' || sp.nilai::text, '|' ORDER BY sp.urut)"
+				+ "                    FROM (SELECT 1 AS urut, COALESCE(NULLIF(TRIM(c1.nama),''),'-') AS nm,"
+				+ "                                 (COALESCE(pak.total_biaya,0)-COALESCE(pak.nominal_bayar_2,0)"
+				+ "                                  -COALESCE(pak.nominal_bayar_3,0)-COALESCE(pak.nominal_bayar_4,0)"
+				+ "                                  -COALESCE(pak.nominal_bayar_5,0)) AS nilai"
+				+ "                          FROM koperasi.cara_pembayaran_koperasi c1 WHERE c1.id=pak.cara_pembayaran_koperasi"
+				+ "                          UNION ALL SELECT 2, COALESCE(NULLIF(TRIM(c2.nama),''),'-'), COALESCE(pak.nominal_bayar_2,0)"
+				+ "                          FROM koperasi.cara_pembayaran_koperasi c2 WHERE c2.id=pak.cara_pembayaran_koperasi_2"
+				+ "                          UNION ALL SELECT 3, COALESCE(NULLIF(TRIM(c3.nama),''),'-'), COALESCE(pak.nominal_bayar_3,0)"
+				+ "                          FROM koperasi.cara_pembayaran_koperasi c3 WHERE c3.id=pak.cara_pembayaran_koperasi_3"
+				+ "                          UNION ALL SELECT 4, COALESCE(NULLIF(TRIM(c4.nama),''),'-'), COALESCE(pak.nominal_bayar_4,0)"
+				+ "                          FROM koperasi.cara_pembayaran_koperasi c4 WHERE c4.id=pak.cara_pembayaran_koperasi_4"
+				+ "                          UNION ALL SELECT 5, COALESCE(NULLIF(TRIM(c5.nama),''),'-'), COALESCE(pak.nominal_bayar_5,0)"
+				+ "                          FROM koperasi.cara_pembayaran_koperasi c5 WHERE c5.id=pak.cara_pembayaran_koperasi_5"
+				+ "                         ) sp WHERE sp.nilai <> 0) END) AS metode_split,"
 				+ "         SUM(a.qty) AS qty, SUM(a.total) AS subtotal_barang,"
 				+ "         COALESCE(MAX(pak.total_diskon), SUM(COALESCE(a.diskon,0))) AS total_diskon,"
 				+ "         COALESCE(MAX(pak.pajak),0) AS pajak,"
@@ -4297,7 +4353,7 @@ public class PosApi extends HttpServlet {
 				+ "    ORDER BY s.waktubuka DESC LIMIT 1"
 				+ "  ) sb ON true"
 				+ ") "
-				+ "SELECT id_transaksi, kode_nota, waktu, pembeli, kasir, metode, qty, subtotal_barang,"
+				+ "SELECT id_transaksi, kode_nota, waktu, pembeli, kasir, metode, metode_split, qty, subtotal_barang,"
 				+ "       total_diskon, pajak, total_biaya, total_master, total_detail, selisih_total,"
 				+ "       bayar_tunai, bayar_non_tunai, sesi_id, nomor_sesi,"
 				+ "       ROW_NUMBER() OVER (PARTITION BY sesi_id ORDER BY waktu) AS nomor_order_dalam_sesi,"
@@ -4320,24 +4376,29 @@ public class PosApi extends HttpServlet {
 			o.put("waktu", w == null ? "" : w.toString());
 			o.put("pembeli", rs.getString(4) == null || rs.getString(4).trim().isEmpty() ? "Umum" : rs.getString(4));
 			o.put("kasir", rs.getString(5) == null ? "" : rs.getString(5));
-			o.put("metode", rs.getString(6) == null || rs.getString(6).trim().isEmpty() ? "-" : rs.getString(6));
-			o.put("qty", rs.getDouble(7));
-			o.put("subtotalBarang", rs.getDouble(8));
-			o.put("totalDiskon", rs.getDouble(9));
-			o.put("pajak", rs.getDouble(10));
-			o.put("totalBiaya", rs.getDouble(11));
-			double totalMaster = rs.getDouble(12); boolean adaMaster = !rs.wasNull();
-			double totalDetail = rs.getDouble(13);
-			double selisihTotal = rs.getDouble(14);
+			String metodeSatu = rs.getString(6) == null || rs.getString(6).trim().isEmpty() ? "-" : rs.getString(6);
+			// Nota SPLIT: tampilkan SEMUA metode berikut nominalnya ("QRIS BSI Rp 5.000 +
+			// Tunai Rp 4.000"), bukan satu nama saja. Kolom carabayar pada rincian hanya
+			// memuat SATU nama, sehingga nota split sebelumnya terbaca seolah dibayar penuh
+			// dgn satu metode -- keluhan Toko Al-Bahjah atas nota AB21908202600072.
+			o.put("metode", labelMetodeSplit(rs.getString(7), metodeSatu));
+			o.put("qty", rs.getDouble(8));
+			o.put("subtotalBarang", rs.getDouble(9));
+			o.put("totalDiskon", rs.getDouble(10));
+			o.put("pajak", rs.getDouble(11));
+			o.put("totalBiaya", rs.getDouble(12));
+			double totalMaster = rs.getDouble(13); boolean adaMaster = !rs.wasNull();
+			double totalDetail = rs.getDouble(14);
+			double selisihTotal = rs.getDouble(15);
 			o.put("totalMaster", adaMaster ? Double.valueOf(totalMaster) : JSONObject.NULL);
 			o.put("totalDetail", totalDetail);
 			o.put("selisihTotal", selisihTotal);
 			o.put("transaksiTidakValid", adaMaster && selisihTotal > 0.01d);
-			o.put("bayarTunai", rs.getDouble(15));
-			o.put("bayarNonTunai", rs.getDouble(16));
-			rs.getLong(17); boolean adaSesi = !rs.wasNull();
-			long nomorSesi = rs.getLong(18); boolean adaNomorSesi = !rs.wasNull();
-			long nomorDalamSesi = rs.getLong(19);
+			o.put("bayarTunai", rs.getDouble(16));
+			o.put("bayarNonTunai", rs.getDouble(17));
+			rs.getLong(18); boolean adaSesi = !rs.wasNull();
+			long nomorSesi = rs.getLong(19); boolean adaNomorSesi = !rs.wasNull();
+			long nomorDalamSesi = rs.getLong(20);
 			String sesiKode = adaSesi && adaNomorSesi ? (tokoKode + "/" + lpad(nomorSesi, 4)) : "-";
 			o.put("sesiKode", sesiKode);
 			o.put("nomorIdOrder", sesiKode);
@@ -4348,11 +4409,11 @@ public class PosApi extends HttpServlet {
 			o.put("clientTrxId", kodeNota);
 			o.put("nomorNota", "Order " + tokoKode + " - " + (adaNomorSesi ? lpad(nomorSesi, 4) : "0000") + " - " + lpad(nomorDalamSesi, 3)
 					+ (kodeNota.length() > 0 ? " (" + kodeNota + ")" : ""));
-			String namaMesin = rs.getString(20);
+			String namaMesin = rs.getString(21);
 			o.put("namaMesin", namaMesin == null || namaMesin.trim().isEmpty() ? JSONObject.NULL : str(namaMesin));
-			String idPerangkat = rs.getString(21);
+			String idPerangkat = rs.getString(22);
 			o.put("idPerangkat", idPerangkat == null || idPerangkat.trim().isEmpty() ? JSONObject.NULL : str(idPerangkat));
-			String kasirUserId = rs.getString(22);
+			String kasirUserId = rs.getString(23);
 			if (kasirUserId == null || kasirUserId.trim().isEmpty()) kasirUserId = rs.getString(5);
 			o.put("kasirUserId", kasirUserId == null || kasirUserId.trim().isEmpty() ? JSONObject.NULL : str(kasirUserId));
 			arr.put(o);
