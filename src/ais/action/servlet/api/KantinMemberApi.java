@@ -694,6 +694,45 @@ public final class KantinMemberApi {
         } finally { closeSession(s); }
     }
 
+    // ── 10b. CEK MEJA (dari QR) ─────────────────────────────
+    /**
+     * Terjemahkan kode QR meja menjadi id + nama meja.
+     *
+     * <p>Versi JSP melakukan ini dgn SQL mentah dari sisi klien
+     * ({@code action:"sql"} ke servlet /Data). Jalur itu butuh sesi web dan
+     * menerima SQL apa adanya dari browser, jadi TIDAK dipakai aplikasi
+     * mobile; aksi ini menyediakan hasil yang sama lewat query berparameter.</p>
+     *
+     * Request: { token, kode }
+     * Response: { status:"00", data:{ id, nama, kode } }
+     */
+    public static JSONObject mejaCek(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception {
+        if (ApiUtil.currentUser(json, req) == null) return noAuth();
+        String kode = safeStr(json, "kode");
+        if (kode.isEmpty()) return ApiHelperSupport.status("99", "kode meja diperlukan");
+
+        Session s = HibernateUtil.getSessionFactory().openSession();
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = s.createSQLQuery(
+                "SELECT id, nama, kode FROM koperasi.meja_kantin "
+                    + "WHERE kode = :kode AND aktif = true LIMIT 1"
+            ).setParameter("kode", kode).list();
+            if (rows.isEmpty()) {
+                return ApiHelperSupport.status("99", "QR meja tidak dikenali atau meja tidak aktif");
+            }
+            Object[] r = rows.get(0);
+            JSONObject data = new JSONObject();
+            data.put("id",   r[0]);
+            data.put("nama", r[1]);
+            data.put("kode", r[2]);
+            JSONObject hasil = new JSONObject();
+            hasil.put("data", data);
+            hasil.put("status", "00");
+            return hasil;
+        } finally { closeSession(s); }
+    }
+
     // ── 11. TRANSAKSI LIST ────────────────────────────────────────────────────
     /**
      * Riwayat transaksi yang sudah lunas (paginasi).
