@@ -3052,6 +3052,47 @@ public final class LaporanKantinUtil {
                 H.baris.add(new Object[]{"TOTAL KEWAJIBAN & EKUITAS", Double.valueOf(totalAktiva)});
                 return H;
 
+            } else if ("fin_penerimaan_per_metode".equals(r)) {
+                // Penerimaan penjualan per akun kas/bank (metode bayar) per hari.
+                //
+                // Nota SPLIT dipecah dulu: satu nota yang dibayar mis. Rp5.000 QRIS BSI +
+                // Rp4.000 Tunai menyumbang ke DUA metode, bukan seluruhnya ke satu metode.
+                // Slot 1 nominalnya IMPLISIT (total_biaya dikurangi slot 2..5 -- lihat
+                // JavaDoc PembelianAnggotaKoperasi), slot 2..5 memakai nominal_bayar_N.
+                // Kolom "Jumlah Transaksi" memakai COUNT DISTINCT id nota supaya nota
+                // split tidak terhitung ganda di dalam satu metode.
+                judul = "Penerimaan per Kas/Bank (Harian)"; grupIdx = 0;
+                catatan = "Nota dengan pembayaran split dipecah ke tiap metode sesuai nominalnya, "
+                        + "sehingga jumlah seluruh metode sama dengan total penerimaan.";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                if (tokoId != null) { w.append(" and h.toko = :tokoId "); prm.put("tokoId", tokoId); }
+                w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
+                String kondisi = w.toString();
+                StringBuilder u = new StringBuilder();
+                u.append("select h.id as id_nota, cast(h.tanggal_pembayaran as date) as tanggal,")
+                 .append(" coalesce(nullif(trim(cb.nama),''),'-') as metode,")
+                 .append(" (coalesce(h.total_biaya,0)-coalesce(h.nominal_bayar_2,0)-coalesce(h.nominal_bayar_3,0)")
+                 .append("  -coalesce(h.nominal_bayar_4,0)-coalesce(h.nominal_bayar_5,0)) as nilai")
+                 .append(" from koperasi.pembelian_anggota_koperasi h")
+                 .append(" left join koperasi.cara_pembayaran_koperasi cb on cb.id = h.cara_pembayaran_koperasi")
+                 .append(kondisi);
+                for (int slot = 2; slot <= 5; slot++) {
+                    u.append(" union all select h.id, cast(h.tanggal_pembayaran as date),")
+                     .append(" coalesce(nullif(trim(cb.nama),''),'-'), coalesce(h.nominal_bayar_").append(slot).append(",0)")
+                     .append(" from koperasi.pembelian_anggota_koperasi h")
+                     .append(" left join koperasi.cara_pembayaran_koperasi cb on cb.id = h.cara_pembayaran_koperasi_").append(slot)
+                     .append(kondisi)
+                     .append(" and coalesce(h.nominal_bayar_").append(slot).append(",0) <> 0 ");
+                }
+                sql = "select s.metode, s.tanggal, count(distinct s.id_nota), coalesce(sum(s.nilai),0)"
+                    + " from (" + u + ") s where s.nilai <> 0"
+                    + " group by s.metode, s.tanggal order by s.metode asc, s.tanggal asc";
+                tipe = new String[]{"text","tgl","num","num"};
+                kolom.add(new Kolom("Nama Kas/Bank","text"));
+                kolom.add(new Kolom("Tanggal","tgl"));
+                kolom.add(new Kolom("Total Transaksi Penerimaan","num"));
+                kolom.add(new Kolom("Total Penerimaan","num"));
+
             } else if ("fin_arus_kas".equals(r)) {
                 H.judul = "Laporan Arus Kas";
                 H.catatan = "Arus kas operasional sederhana: penerimaan penjualan vs pengeluaran pengadaan pada periode.";

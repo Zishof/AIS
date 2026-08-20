@@ -281,6 +281,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_arus_kas", "Arus Kas (Berbasis Jurnal Akuntansi)", "Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."));
         k.items.add(item("fin_laba_rugi", "Laba Rugi (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."));
         k.items.add(item("fin_neraca", "Neraca (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."));
+        k.items.add(item("fin_penerimaan_per_metode", "Penerimaan per Kas/Bank (Harian)", "Penerimaan penjualan per akun kas/bank per hari. Nota split dipecah ke tiap metode sesuai nominalnya."));
         k.items.add(item("fin_arus_kas", "Arus Kas (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penerimaan penjualan vs pengeluaran pengadaan."));
         semua.add(k);
 

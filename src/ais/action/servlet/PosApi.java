@@ -3825,12 +3825,39 @@ public class PosApi extends HttpServlet {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
-			String trx = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,DATE(MAX(a.waktu)) tanggal,"
+			// Satu nota bisa dibayar SPLIT (mis. Rp5.000 QRIS + Rp4.000 Tunai). Kolom
+			// carabayar pada rincian hanya menyimpan SATU nama, jadi kalau dipakai apa
+			// adanya seluruh nilai nota jatuh ke satu metode saja -- itulah laporan
+			// Al-Bahjah 19-08-2026 yang menaruh Rp9.000 ke QRIS BSI padahal Rp4.000-nya
+			// tunai. Karena itu nota dipecah dulu jadi satu baris per metode:
+			// slot 1 nominalnya IMPLISIT (total - slot 2..5, lihat JavaDoc
+			// PembelianAnggotaKoperasi), slot 2..5 memakai nominal_bayar_N.
+			// Nota tanpa header (pembelian_anggota_koperasi NULL) tetap memakai
+			// carabayar rincian spt sebelumnya supaya perilaku lama tidak berubah.
+			String trx = "WITH nota AS ("
+					+ " SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,DATE(MAX(a.waktu)) tanggal,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
-					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
-					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai"
+					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode_rincian,"
+					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai,"
+					+ " MAX(pak.cara_pembayaran_koperasi) cp1,"
+					+ " MAX(pak.cara_pembayaran_koperasi_2) cp2,MAX(COALESCE(pak.nominal_bayar_2,0)) n2,"
+					+ " MAX(pak.cara_pembayaran_koperasi_3) cp3,MAX(COALESCE(pak.nominal_bayar_3,0)) n3,"
+					+ " MAX(pak.cara_pembayaran_koperasi_4) cp4,MAX(COALESCE(pak.nominal_bayar_4,0)) n4,"
+					+ " MAX(pak.cara_pembayaran_koperasi_5) cp5,MAX(COALESCE(pak.nominal_bayar_5,0)) n5"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
+					+ " WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1)"
+					+ " SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),t.metode_rincian) metode,"
+					+ " (t.nilai-t.n2-t.n3-t.n4-t.n5) nilai FROM nota t"
+					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp1"
+					+ " WHERE (t.nilai-t.n2-t.n3-t.n4-t.n5)<>0"
+					+ " UNION ALL SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),'-'),t.n2 FROM nota t"
+					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp2 WHERE t.n2<>0"
+					+ " UNION ALL SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),'-'),t.n3 FROM nota t"
+					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp3 WHERE t.n3<>0"
+					+ " UNION ALL SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),'-'),t.n4 FROM nota t"
+					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp4 WHERE t.n4<>0"
+					+ " UNION ALL SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),'-'),t.n5 FROM nota t"
+					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp5 WHERE t.n5<>0";
 			// Filter METODE BAYAR (permintaan tim keuangan utk rekonsiliasi harian): opsional,
 			// dicocokkan case-insensitive pada nama metode yang sama dgn yang ditampilkan kolom
 			// "Metode / Bank". Kosong = semua metode (perilaku lama, kompatibel mundur).
@@ -3839,7 +3866,7 @@ public class PosApi extends HttpServlet {
 			if (kasir.length() > 0) { fb.append(fb.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(kasir))=LOWER(?)"); }
 			if (metode.length() > 0) { fb.append(fb.length() == 0 ? " WHERE " : " AND ").append("LOWER(TRIM(metode))=LOWER(?)"); }
 			String filter = fb.toString();
-			String group = " SELECT tanggal,kasir,metode,COUNT(*) jumlah,COALESCE(SUM(nilai),0) total FROM (" + trx + ") t" + filter
+			String group = " SELECT tanggal,kasir,metode,COUNT(DISTINCT id_trx) jumlah,COALESCE(SUM(nilai),0) total FROM (" + trx + ") t" + filter
 					+ " GROUP BY tanggal,kasir,metode";
 			java.sql.PreparedStatement pc = conn.prepareStatement("SELECT COUNT(*) FROM (" + group + ") g");
 			int ix = 1; pc.setLong(ix++, tokoId.longValue()); pc.setString(ix++, mulai); pc.setString(ix++, sampai);
@@ -4174,7 +4201,17 @@ public class PosApi extends HttpServlet {
 		if (mesin.length() > 0) { whereTrx.append(" AND COALESCE(pak.nama_mesin,'') ILIKE ?"); paramsTrx.add("%" + mesin + "%"); }
 		if (nomorNota.length() > 0) { whereTrx.append(" AND COALESCE(pak.kode,'') ILIKE ?"); paramsTrx.add("%" + nomorNota + "%"); }
 		if (metodeExact.length() > 0) {
-			whereTrx.append(" AND COALESCE(a.carabayar,'') ILIKE ?");
+			// Nota SPLIT menyimpan metode di 5 slot header (cara_pembayaran_koperasi dan
+			// _2.._5), sedangkan a.carabayar pada rincian hanya memuat SATU nama. Kalau
+			// hanya carabayar yang dicocokkan, mengklik baris ringkasan "Tunai" tidak
+			// memunculkan nota yang tunainya berasal dari split -- ringkasan dan rincian
+			// jadi tidak cocok. Karena itu slot header ikut diperiksa.
+			whereTrx.append(" AND (COALESCE(a.carabayar,'') ILIKE ?"
+					+ " OR EXISTS (SELECT 1 FROM koperasi.cara_pembayaran_koperasi cbx"
+					+ " WHERE cbx.id IN (pak.cara_pembayaran_koperasi,pak.cara_pembayaran_koperasi_2,"
+					+ "pak.cara_pembayaran_koperasi_3,pak.cara_pembayaran_koperasi_4,pak.cara_pembayaran_koperasi_5)"
+					+ " AND COALESCE(cbx.nama,'') ILIKE ?))");
+			paramsTrx.add("%" + metodeExact + "%");
 			paramsTrx.add("%" + metodeExact + "%");
 		}
 		if (produk.length() > 0) {
