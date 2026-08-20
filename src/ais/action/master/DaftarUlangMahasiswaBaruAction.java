@@ -3586,7 +3586,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			throws InterruptedException {
 		MyWindow window = new MyWindow("Analisis Data Tagihan Mahasiswa Baru", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
-		window.setWidth("940px");
+		window.setWidth("95%");
 		window.setHeight("82%");
 		window.setSizable(true);
 		final Jurusan jurusan = jurusanCalonUntukAnalisis();

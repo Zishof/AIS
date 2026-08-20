@@ -2665,7 +2665,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			AnalisisHilirTagihanLama hilir, List<SettingBiaya> kandidatSumber) throws InterruptedException {
 		MyWindow window = new MyWindow("Analisis Data Tagihan", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
-		window.setWidth("940px");
+		window.setWidth("95%");
 		window.setHeight("82%");
 		window.setSizable(true);
 		final Jurusan jurusan = mahasiswa.getJurusan();
