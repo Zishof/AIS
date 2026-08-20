@@ -87,6 +87,7 @@ public class PembayaranTerminMasterAssetDetail extends GeneralValueObject {
 	private Date tanggalDibayar;
 	private PostingHistory postingHistory;
 	private DaftarPengajuanTransfer daftarPengajuanTransfer;
+	private ais.database.model.akunting.Pajak pajak;
 	private String tagihan;
 	private Date tanggalTransaksi;
 
@@ -323,5 +324,21 @@ public class PembayaranTerminMasterAssetDetail extends GeneralValueObject {
 		}
 		Double dpp = getDppTermin();
 		return (double) Math.round((jpb.getPersen() / 100.0) * (dpp == null ? 0.0 : dpp));
+	}
+	/**
+	 * Rekaman setoran pajak yang menanggung PPh dipotong dari baris pembayaran ini.
+	 * Selama masih kosong, PPh-nya dianggap TERUTANG dan muncul pada daftar pajak yang
+	 * belum disetor. Kolom NULLABLE; baris lama dan pembayaran tanpa PPh tetap sah.
+	 * Ditambahkan 2026-08-20.
+	 */
+	@javax.persistence.ManyToOne(cascade = { javax.persistence.CascadeType.PERSIST,
+			javax.persistence.CascadeType.MERGE }, fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "pajak", nullable = true)
+	public ais.database.model.akunting.Pajak getPajak() {
+		return pajak;
+	}
+
+	public void setPajak(ais.database.model.akunting.Pajak pajak) {
+		this.pajak = pajak;
 	}
 }

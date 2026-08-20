@@ -428,4 +428,77 @@ public class Toko extends GeneralValueObject {
 		this.brand = brand;
 	}
 
+
+	/**
+	 * Akun Kas/Bank outlet.
+	 * <p>Dipakai sebagai lawan jurnal pembayaran & penerimaan tunai toko bila metode pembayarannya belum punya akun sendiri. Ditempelkan pada master ini (bukan konfigurasi global) supaya
+	 * tiap outlet/jenis bisa berbeda; konfigurasi global tetap dipakai sebagai cadangan terakhir
+	 * agar pemasangan lama tidak berubah perilakunya. Kolomnya dibuat otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunKas;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_kas", nullable = true)
+	public ais.database.model.akunting.Akun getAkunKas() {
+		return akunKas;
+	}
+
+	public void setAkunKas(ais.database.model.akunting.Akun akunKas) {
+		this.akunKas = akunKas;
+	}
+
+	/**
+	 * Akun Piutang Usaha outlet.
+	 * <p>Dikredit saat penerimaan piutang pelanggan dijurnal. Ditempelkan pada master ini (bukan konfigurasi global) supaya
+	 * tiap outlet/jenis bisa berbeda; konfigurasi global tetap dipakai sebagai cadangan terakhir
+	 * agar pemasangan lama tidak berubah perilakunya. Kolomnya dibuat otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunPiutang;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_piutang", nullable = true)
+	public ais.database.model.akunting.Akun getAkunPiutang() {
+		return akunPiutang;
+	}
+
+	public void setAkunPiutang(ais.database.model.akunting.Akun akunPiutang) {
+		this.akunPiutang = akunPiutang;
+	}
+
+	/**
+	 * Akun Modal/Ekuitas Awal outlet.
+	 * <p>Menampung selisih debet-kredit pada jurnal pembukaan (saldo awal). Ditempelkan pada master ini (bukan konfigurasi global) supaya
+	 * tiap outlet/jenis bisa berbeda; konfigurasi global tetap dipakai sebagai cadangan terakhir
+	 * agar pemasangan lama tidak berubah perilakunya. Kolomnya dibuat otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunModalAwal;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_modal_awal", nullable = true)
+	public ais.database.model.akunting.Akun getAkunModalAwal() {
+		return akunModalAwal;
+	}
+
+	public void setAkunModalAwal(ais.database.model.akunting.Akun akunModalAwal) {
+		this.akunModalAwal = akunModalAwal;
+	}
+
+	/**
+	 * Akun Laba Ditahan outlet.
+	 * <p>Tujuan pemindahan laba/rugi bersih saat tutup buku. Ditempelkan pada master ini (bukan konfigurasi global) supaya
+	 * tiap outlet/jenis bisa berbeda; konfigurasi global tetap dipakai sebagai cadangan terakhir
+	 * agar pemasangan lama tidak berubah perilakunya. Kolomnya dibuat otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunLabaDitahan;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_laba_ditahan", nullable = true)
+	public ais.database.model.akunting.Akun getAkunLabaDitahan() {
+		return akunLabaDitahan;
+	}
+
+	public void setAkunLabaDitahan(ais.database.model.akunting.Akun akunLabaDitahan) {
+		this.akunLabaDitahan = akunLabaDitahan;
+	}
+
 }

@@ -108,6 +108,7 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_tagihan", "Pengadaan: Terima Tagihan Vendor", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_dpc", "Pengadaan: Pembayaran Vendor (DPC)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_bdp", "Pengadaan: Barang Dalam Proses", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_pajak", "Pengadaan: Bayar Pajak (PPh/PPN)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_sinkron", "Pengadaan: Sinkronisasi Penerimaan ke Kulakan", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "diskon", "Aturan Diskon", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "returpenjualan", "Retur Penjualan", "desktop", "android"));
@@ -304,7 +305,7 @@ public final class EbisnisMenuKatalog {
 			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
 			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik", "anggota", "diskon", "kulakan",
 			// Pengadaan POS: tampil secara bawaan, hak per-aksi tetap dapat dibatasi admin.
-			"pengadaan_pr", "pengadaan_po", "pengadaan_bast", "pengadaan_tagihan", "pengadaan_dpc", "pengadaan_bdp", "pengadaan_sinkron", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"pengadaan_pr", "pengadaan_po", "pengadaan_bast", "pengadaan_tagihan", "pengadaan_dpc", "pengadaan_bdp", "pengadaan_sinkron", "pengadaan_pajak", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

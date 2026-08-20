@@ -96,6 +96,7 @@ public class Pajak extends GeneralValueObject {
 
 	private String kode;
 	private JenisPajakBarang jenisPajakBarang;
+	private ais.database.model.asset.JenisPajakPpn jenisPajakPpn;
 	private String nama;
 	private String keterangan;
 	private SatuanKerja satuanKerja;
@@ -930,5 +931,20 @@ public class Pajak extends GeneralValueObject {
 
 	public void setDpp(Double dpp) {
 		this.dpp = dpp;
+	}
+	/**
+	 * Jenis PPN bila setoran ini mewakili PPN, bukan PPh. Satu rekaman setoran hanya
+	 * mewakili SATU jenis pajak: {@code jenisPajakBarang} terisi untuk PPh, kolom ini
+	 * terisi untuk PPN. Kolom NULLABLE sehingga rekaman lama tetap sah.
+	 * Ditambahkan 2026-08-20 bersama tahap "Bayar Pajak" pada Pengadaan POS.
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "jenis_pajak_ppn", nullable = true)
+	public ais.database.model.asset.JenisPajakPpn getJenisPajakPpn() {
+		return jenisPajakPpn;
+	}
+
+	public void setJenisPajakPpn(ais.database.model.asset.JenisPajakPpn jenisPajakPpn) {
+		this.jenisPajakPpn = jenisPajakPpn;
 	}
 }

@@ -93,6 +93,16 @@ public final class TokoApiHelper {
 				o.put("boleh_transaksi_stok_habis", Boolean.TRUE.equals(t.getBolehTransaksiStokHabis()));
 				o.put("toko_demo", Boolean.TRUE.equals(t.getTokoDemo()));
 				o.put("unit_usaha", unitArr);
+				// Akun akuntansi per outlet -- menempel di master ini (bukan konfigurasi global)
+				// supaya tiap toko bisa berbeda kas/piutang/modal/laba ditahannya.
+				o.put("akun_kas_id", t.getAkunKas() == null ? JSONObject.NULL : t.getAkunKas().getId());
+				o.put("akun_kas_label", ais.action.master.koperasi.helper.AkunKantinUtil.label(t.getAkunKas()));
+				o.put("akun_piutang_id", t.getAkunPiutang() == null ? JSONObject.NULL : t.getAkunPiutang().getId());
+				o.put("akun_piutang_label", ais.action.master.koperasi.helper.AkunKantinUtil.label(t.getAkunPiutang()));
+				o.put("akun_modal_awal_id", t.getAkunModalAwal() == null ? JSONObject.NULL : t.getAkunModalAwal().getId());
+				o.put("akun_modal_awal_label", ais.action.master.koperasi.helper.AkunKantinUtil.label(t.getAkunModalAwal()));
+				o.put("akun_laba_ditahan_id", t.getAkunLabaDitahan() == null ? JSONObject.NULL : t.getAkunLabaDitahan().getId());
+				o.put("akun_laba_ditahan_label", ais.action.master.koperasi.helper.AkunKantinUtil.label(t.getAkunLabaDitahan()));
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -163,6 +173,11 @@ public final class TokoApiHelper {
 				}
 				t.setUnitUsahaJson(UnitUsahaKatalog.keJson(kodeSet));
 			}
+			// Akun akuntansi outlet; kirim 0/null untuk mengosongkan.
+			setAkun(session, request, "akun_kas_id", t, "kas");
+			setAkun(session, request, "akun_piutang_id", t, "piutang");
+			setAkun(session, request, "akun_modal_awal_id", t, "modal");
+			setAkun(session, request, "akun_laba_ditahan_id", t, "laba");
 			if (tbmuser != null) {
 				t.setOleh(tbmuser.getUserNama());
 				t.setOlehId(tbmuser.getUserId());
@@ -190,6 +205,27 @@ public final class TokoApiHelper {
 
 	/** Hapus toko -- DITOLAK bila masih direferensikan produk atau pedagang (referential
 	 *  guard; pola sama grup produk/purge master lain). */
+	/** Pasang akun akuntansi outlet dari id yang dikirim klien; 0/null berarti dikosongkan. */
+	private static void setAkun(Session session, JSONObject request, String kunci, Toko t, String jenis) {
+		if (request == null || !request.has(kunci)) {
+			return;
+		}
+		ais.database.model.akunting.Akun akun = null;
+		if (!request.isNull(kunci) && request.optLong(kunci, 0) > 0) {
+			akun = (ais.database.model.akunting.Akun) session.get(ais.database.model.akunting.Akun.class,
+					Long.valueOf(request.optLong(kunci)));
+		}
+		if ("piutang".equals(jenis)) {
+			t.setAkunPiutang(akun);
+		} else if ("modal".equals(jenis)) {
+			t.setAkunModalAwal(akun);
+		} else if ("laba".equals(jenis)) {
+			t.setAkunLabaDitahan(akun);
+		} else {
+			t.setAkunKas(akun);
+		}
+	}
+
 	public static void hapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!admin(tbmuser)) {
 			tolak(hasil, "Hanya admin sistem yang dapat menghapus Toko.");

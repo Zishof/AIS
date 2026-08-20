@@ -63,6 +63,7 @@
         if ("pengadaan_tagihan".equals(menu)) return menuTersimpan.optBoolean("pengadaan_tagihan", true);
         if ("pengadaan_dpc".equals(menu)) return menuTersimpan.optBoolean("pengadaan_dpc", true);
         if ("pengadaan_bdp".equals(menu)) return menuTersimpan.optBoolean("pengadaan_bdp", true);
+        if ("pengadaan_pajak".equals(menu)) return menuTersimpan.optBoolean("pengadaan_pajak", true);
         // Bulk entry memakai hak menu tahap manapun; cukup salah satu aktif.
         if ("pengadaan_bulk".equals(menu)) return menuTersimpan.optBoolean("pengadaan_pr", true)
                 || menuTersimpan.optBoolean("pengadaan_po", true)
@@ -284,7 +285,7 @@
                                            // Tahap Pengadaan dipisah dari submenu Pengaturan supaya punya judul
                                            // sendiri yang dapat dilipat (bawaan tertutup).
                                            String[] subPengadaanEL = new String[]{"pengadaan_pr","pengadaan_po","pengadaan_bast",
-                                                   "pengadaan_tagihan","pengadaan_dpc","pengadaan_bdp","pengadaan_bulk"};
+                                                   "pengadaan_tagihan","pengadaan_dpc","pengadaan_bdp","pengadaan_pajak","pengadaan_bulk"};
                                            for(String sub : subEL) {
                                                if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
                                                if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sub)){ continue; }
@@ -347,6 +348,7 @@
                                                            if(sp.equals("pengadaan_tagihan")){ labelPengadaan = "Terima Tagihan Vendor"; }
                                                            if(sp.equals("pengadaan_dpc")){ labelPengadaan = "Pembayaran Vendor"; }
                                                            if(sp.equals("pengadaan_bdp")){ labelPengadaan = "Barang Dalam Proses"; }
+                                                           if(sp.equals("pengadaan_pajak")){ labelPengadaan = "Bayar Pajak"; }
                                                            if(sp.equals("pengadaan_bulk")){ labelPengadaan = "Bulk Entry Pengadaan"; }
                                           %>
                                                        <a class="mega-menu-item ms-4 <%= (p.equals("kantin") && s.equals(sp)) ? "active" : "" %>" href="<%=ctx%>/baru?p=kantin&s=<%=sp%>">

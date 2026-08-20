@@ -57,6 +57,7 @@ public final class PengadaanPosApiHelper {
 	private static final String KUNCI_DPC = "pengadaan_dpc";
 	private static final String KUNCI_BDP = "pengadaan_bdp";
 	private static final String KUNCI_SINKRON = "pengadaan_sinkron";
+	private static final String KUNCI_PAJAK = "pengadaan_pajak";
 
 	private PengadaanPosApiHelper() {
 	}
@@ -795,7 +796,8 @@ public final class PengadaanPosApiHelper {
 	 * dari kasir. Tanggal ditulis memakai pola {@code dd-MM-yyyy}, sama dengan yang dibaca
 	 * layar ZKoss, supaya satu dokumen tetap terbaca di kedua versi.</p>
 	 */
-	private static JSONArray gabungTermin(JSONArray payload, JSONArray lama) throws Exception {
+	private static JSONArray gabungTermin(Session session, JSONArray payload, JSONArray lama)
+			throws Exception {
 		JSONArray hasil = new JSONArray();
 		if (payload == null) {
 			return hasil;
@@ -822,7 +824,25 @@ public final class PengadaanPosApiHelper {
 			item.put("nomor", (i + 1) + "");
 			String nama = src.optString("nama", "").trim();
 			item.put("nama", nama.isEmpty() ? "Termin " + (i + 1) : nama);
-			item.put("penagihan", angkaAman(src, "penagihan"));
+			double dpp = angkaAman(src, "penagihan");
+			item.put("penagihan", dpp);
+			// PPh dan PPN per termin. Kunci "pajak" dan "ppn" adalah kunci yang SAMA dengan
+			// yang dibaca layar ZKoss, sehingga satu dokumen tetap terbaca di kedua versi;
+			// "pajakPpn" adalah tambahan POS yang menyimpan SUMBER tarif PPN, sementara
+			// nominalnya tetap ditulis ke "ppn" agar ZKoss melihat angka yang sama.
+			String idPph = src.isNull("pajak") ? "" : (src.get("pajak") + "").trim();
+			if (!idPph.isEmpty()) {
+				item.put("pajak", idPph);
+			} else if (!src.isNull("pajak")) {
+				item.remove("pajak");
+			}
+			String idPpn = src.isNull("pajakPpn") ? "" : (src.get("pajakPpn") + "").trim();
+			if (!idPpn.isEmpty()) {
+				item.put("pajakPpn", idPpn);
+				item.put("ppn", Math.rint((persenPpn(session, idPpn) / 100.0) * dpp));
+			} else if (!src.isNull("ppn")) {
+				item.put("ppn", angkaAman(src, "ppn"));
+			}
 			if (!src.isNull("pekerjaan")) {
 				item.put("pekerjaan", angkaAman(src, "pekerjaan"));
 			} else if (item.isNull("pekerjaan")) {
@@ -1117,7 +1137,23 @@ public final class PengadaanPosApiHelper {
 			o.put("key", kunci);
 			o.put("nomor", src.isNull("nomor") ? (i + 1) + "" : src.get("nomor") + "");
 			o.put("nama", src.isNull("nama") ? "" : src.get("nama") + "");
+			// Rincian pajak per termin. DPP = penagihan; PPN ditambahkan ke tagihan vendor,
+			// sedangkan PPh DIPOTONG dari kas yang keluar dan disetorkan sendiri ke negara.
+			String idPph = src.isNull("pajak") ? "" : (src.get("pajak") + "").trim();
+			String idPpn = src.isNull("pajakPpn") ? "" : (src.get("pajakPpn") + "").trim();
+			double tarifPph = persenPph(session, idPph);
+			double nilaiPpn = angkaAman(src, "ppn");
+			double nilaiPph = Math.rint((tarifPph / 100.0) * tagih);
 			o.put("penagihan", tagih);
+			o.put("dpp", tagih);
+			o.put("pajak", idPph);
+			o.put("pajakPpn", idPpn);
+			o.put("namaPajak", namaJenisPajak(session, idPph, idPpn));
+			o.put("persenPph", tarifPph);
+			o.put("pph", nilaiPph);
+			o.put("ppn", nilaiPpn);
+			o.put("tagihanVendor", tagih + nilaiPpn);
+			o.put("kasKeluar", tagih + nilaiPpn - nilaiPph);
 			o.put("pekerjaan", angkaAman(src, "pekerjaan"));
 			o.put("tanggalD", src.isNull("tanggalD") ? "" : src.get("tanggalD") + "");
 			o.put("dibayar", bayar);
@@ -1278,7 +1314,7 @@ public final class PengadaanPosApiHelper {
 					tolak(hasil, "Pemesanan Pembelian bertermin harus memiliki minimal satu baris termin.");
 					return;
 				}
-				terminBaru = gabungTermin(terminPayload, terminDari(po));
+				terminBaru = gabungTermin(session, terminPayload, terminDari(po));
 				double totalTermin = 0;
 				for (int i = 0; i < terminBaru.length(); i++) {
 					double n = angkaAman(terminBaru.getJSONObject(i), "penagihan");
@@ -3769,6 +3805,531 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+
+	/**
+	 * Pilihan jenis pajak untuk editor termin: PPh (JenisPajakBarang) dan PPN (JenisPajakPpn).
+	 * Tarifnya dikirim apa adanya supaya layar dapat menghitung pratinjau tanpa menebak.
+	 */
+	public static void pajakOpsi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_DPC)
+				&& !bolehLihat(tbmuser, KUNCI_PAJAK)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JSONArray pph = new JSONArray();
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.asset.JenisPajakBarang> daftarPph = session
+					.createCriteria(ais.database.model.asset.JenisPajakBarang.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+					.addOrder(Order.asc("nama")).list();
+			for (ais.database.model.asset.JenisPajakBarang j : daftarPph) {
+				JSONObject o = new JSONObject();
+				o.put("id", j.getId());
+				o.put("kode", j.getKode() == null ? "" : j.getKode());
+				o.put("nama", j.getNama() == null ? "" : j.getNama());
+				o.put("persen", j.getPersen() == null ? 0 : j.getPersen());
+				pph.put(o);
+			}
+			JSONArray ppn = new JSONArray();
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.asset.JenisPajakPpn> daftarPpn = session
+					.createCriteria(ais.database.model.asset.JenisPajakPpn.class)
+					.addOrder(Order.asc("nama")).list();
+			for (ais.database.model.asset.JenisPajakPpn j : daftarPpn) {
+				JSONObject o = new JSONObject();
+				o.put("id", j.getId());
+				o.put("kode", j.getKode() == null ? "" : j.getKode());
+				o.put("nama", j.getNama() == null ? "" : j.getNama());
+				o.put("persen", j.getPersen() == null ? 0 : j.getPersen());
+				ppn.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("pph", pph);
+			hasil.put("ppn", ppn);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Tarif sebuah jenis PPh; 0 bila tidak dikenali. */
+	private static double persenPph(Session session, String idPajak) {
+		if (idPajak == null || idPajak.trim().isEmpty()) {
+			return 0;
+		}
+		try {
+			ais.database.model.asset.JenisPajakBarang j = (ais.database.model.asset.JenisPajakBarang) session
+					.get(ais.database.model.asset.JenisPajakBarang.class, Long.valueOf(idPajak.trim()));
+			return j == null || j.getPersen() == null ? 0 : j.getPersen().doubleValue();
+		} catch (Exception e) {
+			return 0;
+		}
+	}
+
+	/** Tarif sebuah jenis PPN; 0 bila tidak dikenali. */
+	private static double persenPpn(Session session, String idPajak) {
+		if (idPajak == null || idPajak.trim().isEmpty()) {
+			return 0;
+		}
+		try {
+			ais.database.model.asset.JenisPajakPpn j = (ais.database.model.asset.JenisPajakPpn) session
+					.get(ais.database.model.asset.JenisPajakPpn.class, Long.valueOf(idPajak.trim()));
+			return j == null || j.getPersen() == null ? 0 : j.getPersen().doubleValue();
+		} catch (Exception e) {
+			return 0;
+		}
+	}
+
+	/** Nama jenis pajak untuk ditampilkan; kosong bila tidak dikenali. */
+	private static String namaJenisPajak(Session session, String idPph, String idPpn) {
+		try {
+			if (idPph != null && !idPph.trim().isEmpty()) {
+				ais.database.model.asset.JenisPajakBarang j = (ais.database.model.asset.JenisPajakBarang) session
+						.get(ais.database.model.asset.JenisPajakBarang.class, Long.valueOf(idPph.trim()));
+				if (j != null) {
+					return j.getNama() == null ? "" : j.getNama();
+				}
+			}
+			if (idPpn != null && !idPpn.trim().isEmpty()) {
+				ais.database.model.asset.JenisPajakPpn j = (ais.database.model.asset.JenisPajakPpn) session
+						.get(ais.database.model.asset.JenisPajakPpn.class, Long.valueOf(idPpn.trim()));
+				if (j != null) {
+					return j.getNama() == null ? "" : j.getNama();
+				}
+			}
+		} catch (Exception e) {
+			return "";
+		}
+		return "";
+	}
+
+
+	/**
+	 * Pajak TERUTANG: PPh dan PPN yang melekat pada baris pembayaran vendor yang sudah
+	 * disetujui tetapi belum tercakup rekaman setoran mana pun.
+	 *
+	 * <p>PPh dipotong dari kas yang keluar dan menjadi kewajiban kita kepada negara,
+	 * sedangkan PPN dibayarkan kepada vendor sebagai pajak masukan; keduanya ditampilkan
+	 * agar petugas melihat gambaran utuh sebelum menyetor.</p>
+	 */
+	public static void pajakTerutang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PAJAK)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAssetDetail> baris = session
+					.createCriteria(PembayaranTerminMasterAssetDetail.class)
+					.addOrder(Order.asc("id")).list();
+			JSONArray arr = new JSONArray();
+			double totalPph = 0;
+			double totalPpn = 0;
+			for (PembayaranTerminMasterAssetDetail d : baris) {
+				PembayaranTerminMasterAsset induk = d.getPembayaranTerminMasterAsset();
+				if (induk == null || induk.getDisetujuiOleh() == null
+						|| Boolean.FALSE.equals(induk.getAktif())) {
+					continue;
+				}
+				if (tokoId != null && induk.getToko() != null && !tokoId.equals(induk.getToko().getId())) {
+					continue;
+				}
+				if (d.getPajak() != null) {
+					continue;
+				}
+				JSONObject rincian = rincianPajakBaris(session, d);
+				double pph = rincian.optDouble("pph", 0);
+				double ppn = rincian.optDouble("ppn", 0);
+				if (pph <= 0 && ppn <= 0) {
+					continue;
+				}
+				PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
+				JSONObject o = new JSONObject();
+				o.put("detail_id", d.getId());
+				o.put("bayar_id", induk.getId());
+				o.put("bayar", induk.getKode() == null ? "" : induk.getKode());
+				o.put("tanggal", induk.getTanggalPembuatan() == null ? ""
+						: Common.dateFormat1.get().format(induk.getTanggalPembuatan()));
+				o.put("penyedia", induk.getPenyedia() == null ? "" : induk.getPenyedia().getNama());
+				o.put("po", po == null || po.getKode() == null ? "" : po.getKode());
+				o.put("termin", rincian.optString("termin", ""));
+				o.put("dpp", rincian.optDouble("dpp", 0));
+				o.put("namaPajak", rincian.optString("namaPajak", ""));
+				o.put("persenPph", rincian.optDouble("persenPph", 0));
+				o.put("pph", pph);
+				o.put("ppn", ppn);
+				arr.put(o);
+				totalPph += pph;
+				totalPpn += ppn;
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", arr.length());
+			hasil.put("totalPph", totalPph);
+			hasil.put("totalPpn", totalPpn);
+			if (arr.length() == 0) {
+				hasil.put("catatan", "Tidak ada pajak terutang dari pembayaran vendor yang sudah disetujui.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Rincian pajak sebuah baris pembayaran, dibaca dari item termin PO yang ditunjuknya.
+	 * Perhitungannya sengaja sama dengan yang dipakai layar PO agar angka pada kedua
+	 * tempat tidak pernah berselisih.
+	 */
+	private static JSONObject rincianPajakBaris(Session session, PembayaranTerminMasterAssetDetail d)
+			throws Exception {
+		JSONObject hasil = new JSONObject();
+		hasil.put("dpp", 0);
+		hasil.put("pph", 0);
+		hasil.put("ppn", 0);
+		hasil.put("termin", "");
+		hasil.put("namaPajak", "");
+		hasil.put("persenPph", 0);
+		PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
+		if (po == null) {
+			return hasil;
+		}
+		String kunci = "";
+		if (d.getTagihan() != null && !d.getTagihan().trim().isEmpty()) {
+			try {
+				JSONObject t = new JSONObject(d.getTagihan());
+				kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
+			} catch (Exception e) {
+				kunci = "";
+			}
+		}
+		JSONArray termin = terminDari(po);
+		for (int i = 0; i < termin.length(); i++) {
+			JSONObject t = termin.optJSONObject(i);
+			if (t == null) {
+				continue;
+			}
+			String k = t.isNull("key") ? "" : (t.get("key") + "").trim();
+			if (!kunci.equals(k)) {
+				continue;
+			}
+			String idPph = t.isNull("pajak") ? "" : (t.get("pajak") + "").trim();
+			String idPpn = t.isNull("pajakPpn") ? "" : (t.get("pajakPpn") + "").trim();
+			double dpp = angkaAman(t, "penagihan");
+			double tarif = persenPph(session, idPph);
+			// PPh dan PPN dihitung SEBANDING dengan porsi yang benar-benar dibayar, supaya
+			// pembayaran sebagian tidak menyetorkan pajak atas nilai yang belum dibayar.
+			double dibayar = d.getDibayar() == null ? 0 : d.getDibayar().doubleValue();
+			double porsi = dpp <= 0 ? 0 : Math.min(1.0, dibayar / dpp);
+			hasil.put("dpp", Math.rint(dpp * porsi));
+			hasil.put("pph", Math.rint((tarif / 100.0) * dpp * porsi));
+			hasil.put("ppn", Math.rint(angkaAman(t, "ppn") * porsi));
+			hasil.put("termin", t.isNull("nama") ? "" : t.get("nama") + "");
+			hasil.put("namaPajak", namaJenisPajak(session, idPph, idPpn));
+			hasil.put("persenPph", tarif);
+			return hasil;
+		}
+		return hasil;
+	}
+
+	/**
+	 * Catat setoran pajak atas baris-baris pembayaran terpilih.
+	 *
+	 * <p>Satu rekaman {@code Pajak} mewakili SATU jenis setoran (PPH atau PPN), mengikuti
+	 * bentuk yang dipakai layar Pertanggungjawaban Pajak versi ZKoss: kode, nama, jenis
+	 * pajak, DPP, nilai, NPWP, nama wajib pajak, NTPN, dan tanggal setor.</p>
+	 *
+	 * <p>Baris yang sudah tercakup setoran lain ditolak, sehingga satu kewajiban tidak
+	 * pernah disetorkan dua kali.</p>
+	 */
+	public static void pajakSetor(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_PAJAK, "create")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak mencatat setoran pajak.");
+			return;
+		}
+		if (tbmuser == null) {
+			tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+			return;
+		}
+		JSONArray detail = request == null ? null : request.optJSONArray("detail");
+		if (detail == null || detail.length() == 0) {
+			tolak(hasil, "Pilih minimal satu baris pajak yang akan disetor.");
+			return;
+		}
+		String jenis = request.optString("jenis", "PPH").trim().toUpperCase();
+		if (!"PPH".equals(jenis) && !"PPN".equals(jenis)) {
+			tolak(hasil, "Jenis setoran hanya PPH atau PPN.");
+			return;
+		}
+		String ntpn = request.optString("ntpn", "").trim();
+		if (ntpn.isEmpty()) {
+			tolak(hasil, "NTPN (Nomor Transaksi Penerimaan Negara) wajib diisi sebagai bukti setor.");
+			return;
+		}
+		String tglSetor = request.optString("tanggalSetor", "").trim();
+		java.util.Date tanggalSetor = tanggalKetat(tglSetor);
+		if (tanggalSetor == null) {
+			tolak(hasil, "Tanggal setor wajib diisi dan berformat hh-bb-tttt, mis. 20-08-2026.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.util.List<PembayaranTerminMasterAssetDetail> terpilih =
+					new java.util.ArrayList<PembayaranTerminMasterAssetDetail>();
+			double totalDpp = 0;
+			double totalNilai = 0;
+			String idJenisPph = "";
+			String idJenisPpn = "";
+			for (int i = 0; i < detail.length(); i++) {
+				JSONObject b = detail.optJSONObject(i);
+				if (b == null || b.isNull("detail_id")) {
+					continue;
+				}
+				PembayaranTerminMasterAssetDetail d = (PembayaranTerminMasterAssetDetail) session
+						.get(PembayaranTerminMasterAssetDetail.class,
+								Long.valueOf((b.get("detail_id") + "").trim()));
+				if (d == null) {
+					tolak(hasil, "Baris pembayaran ke-" + (i + 1) + " tidak ditemukan.");
+					return;
+				}
+				PembayaranTerminMasterAsset induk = d.getPembayaranTerminMasterAsset();
+				if (induk == null || induk.getDisetujuiOleh() == null) {
+					tolak(hasil, "Pajak hanya dapat disetor dari pembayaran vendor yang sudah disetujui.");
+					return;
+				}
+				if (tokoId != null && induk.getToko() != null && !tokoId.equals(induk.getToko().getId())) {
+					tolak(hasil, "Baris pembayaran ke-" + (i + 1) + " milik toko lain.");
+					return;
+				}
+				if (d.getPajak() != null) {
+					tolak(hasil, "Baris pembayaran pada " + (induk.getKode() == null ? "" : induk.getKode())
+							+ " sudah tercakup setoran pajak sebelumnya.");
+					return;
+				}
+				JSONObject rincian = rincianPajakBaris(session, d);
+				double nilai = "PPH".equals(jenis) ? rincian.optDouble("pph", 0) : rincian.optDouble("ppn", 0);
+				if (nilai <= 0) {
+					tolak(hasil, "Baris pembayaran ke-" + (i + 1) + " tidak memiliki " + jenis + " untuk disetor.");
+					return;
+				}
+				totalDpp += rincian.optDouble("dpp", 0);
+				totalNilai += nilai;
+				terpilih.add(d);
+				if (idJenisPph.isEmpty() || idJenisPpn.isEmpty()) {
+					PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
+					JSONArray termin = terminDari(po);
+					for (int j = 0; j < termin.length(); j++) {
+						JSONObject t = termin.optJSONObject(j);
+						if (t == null) {
+							continue;
+						}
+						if (idJenisPph.isEmpty() && !t.isNull("pajak")) {
+							idJenisPph = (t.get("pajak") + "").trim();
+						}
+						if (idJenisPpn.isEmpty() && !t.isNull("pajakPpn")) {
+							idJenisPpn = (t.get("pajakPpn") + "").trim();
+						}
+					}
+				}
+			}
+			if (terpilih.isEmpty()) {
+				tolak(hasil, "Tidak ada baris pajak yang dapat disetor.");
+				return;
+			}
+
+			session.beginTransaction();
+			ais.database.model.akunting.Pajak pajak = new ais.database.model.akunting.Pajak();
+			pajak.setKode(buatKodeUmum(session, ais.database.model.akunting.Pajak.class, "PJK", tokoId));
+			pajak.setNama("Setoran " + jenis + " pengadaan");
+			pajak.setKeterangan(request.optString("keterangan", "").trim());
+			pajak.setDpp(Double.valueOf(totalDpp));
+			pajak.setNilai(Double.valueOf(totalNilai));
+			pajak.setJumlah(Double.valueOf(totalNilai));
+			pajak.setNtpn(ntpn);
+			pajak.setNpwp(request.optString("npwp", "").trim());
+			pajak.setNamaWp(request.optString("namaWp", "").trim());
+			pajak.setTanggal(tanggalSetor);
+			pajak.setTanggalStor(tanggalSetor);
+			pajak.setTanggalTransaksi(tanggalSetor);
+			pajak.setAktif(Boolean.TRUE);
+			if ("PPH".equals(jenis) && !idJenisPph.isEmpty()) {
+				pajak.setJenisPajakBarang((ais.database.model.asset.JenisPajakBarang) session
+						.get(ais.database.model.asset.JenisPajakBarang.class, Long.valueOf(idJenisPph)));
+			}
+			if ("PPN".equals(jenis) && !idJenisPpn.isEmpty()) {
+				pajak.setJenisPajakPpn((ais.database.model.asset.JenisPajakPpn) session
+						.get(ais.database.model.asset.JenisPajakPpn.class, Long.valueOf(idJenisPpn)));
+			}
+			pajak.setOleh(tbmuser.getUserNama());
+			pajak.setOlehId(tbmuser.getUserId());
+			session.save(pajak);
+			session.flush();
+			for (PembayaranTerminMasterAssetDetail d : terpilih) {
+				d.setPajak(pajak);
+				session.saveOrUpdate(d);
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("id", pajak.getId());
+			hasil.put("kode", pajak.getKode());
+			hasil.put("jenis", jenis);
+			hasil.put("nilai", totalNilai);
+			hasil.put("jumlahBaris", terpilih.size());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.pajakSetor rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Daftar setoran pajak yang berasal dari pembayaran vendor pada lingkup toko.
+	 * Kolomnya mengikuti layar Pertanggungjawaban Pajak versi ZKoss supaya petugas
+	 * yang sudah terbiasa tidak perlu belajar bentuk baru.
+	 */
+	public static void pajakDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PAJAK)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		String cari = request == null ? "" : request.optString("cari", "").trim().toLowerCase();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAssetDetail> baris = session
+					.createCriteria(PembayaranTerminMasterAssetDetail.class)
+					.add(Restrictions.isNotNull("pajak")).addOrder(Order.desc("id")).list();
+			java.util.Map<Long, JSONObject> peta = new java.util.LinkedHashMap<Long, JSONObject>();
+			for (PembayaranTerminMasterAssetDetail d : baris) {
+				PembayaranTerminMasterAsset induk = d.getPembayaranTerminMasterAsset();
+				if (induk == null) {
+					continue;
+				}
+				if (tokoId != null && induk.getToko() != null && !tokoId.equals(induk.getToko().getId())) {
+					continue;
+				}
+				ais.database.model.akunting.Pajak pj = d.getPajak();
+				if (pj == null) {
+					continue;
+				}
+				String kode = pj.getKode() == null ? "" : pj.getKode();
+				if (cari.length() > 0 && kode.toLowerCase().indexOf(cari) < 0
+						&& (pj.getNtpn() == null ? "" : pj.getNtpn().toLowerCase()).indexOf(cari) < 0) {
+					continue;
+				}
+				JSONObject o = peta.get(pj.getId());
+				if (o == null) {
+					o = new JSONObject();
+					o.put("id", pj.getId());
+					o.put("kode", kode);
+					o.put("nama", pj.getNama() == null ? "" : pj.getNama());
+					o.put("jenisPajak", pj.getJenisPajakBarang() != null
+							? (pj.getJenisPajakBarang().getNama() == null ? "" : pj.getJenisPajakBarang().getNama())
+							: (pj.getJenisPajakPpn() == null || pj.getJenisPajakPpn().getNama() == null
+									? "" : pj.getJenisPajakPpn().getNama()));
+					o.put("jenis", pj.getJenisPajakPpn() != null ? "PPN" : "PPH");
+					o.put("dpp", pj.getDpp() == null ? 0 : pj.getDpp());
+					o.put("nilai", pj.getNilai() == null ? 0 : pj.getNilai());
+					o.put("ntpn", pj.getNtpn() == null ? "" : pj.getNtpn());
+					o.put("npwp", pj.getNpwp() == null ? "" : pj.getNpwp());
+					o.put("namaWp", pj.getNamaWp() == null ? "" : pj.getNamaWp());
+					o.put("keterangan", pj.getKeterangan() == null ? "" : pj.getKeterangan());
+					o.put("tanggalSetor", pj.getTanggalStor() == null ? ""
+							: Common.dateFormat1.get().format(pj.getTanggalStor()));
+					o.put("aktif", !Boolean.FALSE.equals(pj.getAktif()));
+					o.put("jumlahBaris", 0);
+					peta.put(pj.getId(), o);
+				}
+				o.put("jumlahBaris", o.optInt("jumlahBaris") + 1);
+			}
+			JSONArray arr = new JSONArray();
+			for (JSONObject o : peta.values()) {
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", arr.length());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Batalkan sebuah setoran pajak: rekamannya dinonaktifkan (bukan dihapus, agar jejak
+	 * bukti setor tetap terbaca) dan baris pembayaran yang ditanggungnya kembali menjadi
+	 * terutang sehingga dapat disetor ulang dengan bukti yang benar.
+	 */
+	public static void pajakBatal(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_PAJAK, "delete")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak membatalkan setoran pajak.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.akunting.Pajak pajak = (ais.database.model.akunting.Pajak) session
+					.get(ais.database.model.akunting.Pajak.class, id);
+			if (pajak == null) {
+				tolak(hasil, "Setoran pajak tidak ditemukan.");
+				return;
+			}
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAssetDetail> baris = session
+					.createCriteria(PembayaranTerminMasterAssetDetail.class)
+					.add(Restrictions.eq("pajak.id", id)).list();
+			for (PembayaranTerminMasterAssetDetail d : baris) {
+				PembayaranTerminMasterAsset induk = d.getPembayaranTerminMasterAsset();
+				if (tokoId != null && induk != null && induk.getToko() != null
+						&& !tokoId.equals(induk.getToko().getId())) {
+					tolak(hasil, "Setoran pajak ini menyangkut toko lain.");
+					return;
+				}
+			}
+			session.beginTransaction();
+			for (PembayaranTerminMasterAssetDetail d : baris) {
+				d.setPajak(null);
+				session.saveOrUpdate(d);
+			}
+			pajak.setAktif(Boolean.FALSE);
+			pajak.setOleh(tbmuser == null ? "" : tbmuser.getUserNama());
+			pajak.setOlehId(tbmuser == null ? "" : tbmuser.getUserId());
+			session.saveOrUpdate(pajak);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", id);
+			hasil.put("barisDilepas", baris.size());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.pajakBatal rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -3894,6 +4455,26 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_bast_sinkron_kulakan".equals(action)) {
 			bastSinkronKulakan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pajak_opsi".equals(action)) {
+			pajakOpsi(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pajak_terutang".equals(action)) {
+			pajakTerutang(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pajak_setor".equals(action)) {
+			pajakSetor(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pajak_daftar".equals(action)) {
+			pajakDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pajak_batal".equals(action)) {
+			pajakBatal(tbmuser, request, hasil);
 			return true;
 		}
 		return false;

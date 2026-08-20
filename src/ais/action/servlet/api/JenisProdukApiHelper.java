@@ -87,11 +87,13 @@ public final class JenisProdukApiHelper {
 							+ "COALESCE(jp.defaultproduk,false), COALESCE(jp.aktif,true), "
 							+ "jp.akun_pendapatan, ap.kode, ap.nama, "
 							+ "jp.akun_ppn_keluaran, app.kode, app.nama, "
-							+ "jp.akun_hpp, ah.kode, ah.nama "
+							+ "jp.akun_hpp, ah.kode, ah.nama, "
+							+ "jp.akun_selisih_persediaan, asl.kode, asl.nama "
 							+ "FROM koperasi.jenis_produk jp "
 							+ "LEFT JOIN akunting.akun ap  ON ap.id  = jp.akun_pendapatan "
 							+ "LEFT JOIN akunting.akun app ON app.id = jp.akun_ppn_keluaran "
 							+ "LEFT JOIN akunting.akun ah  ON ah.id  = jp.akun_hpp "
+							+ "LEFT JOIN akunting.akun asl ON asl.id = jp.akun_selisih_persediaan "
 							+ where + " ORDER BY jp.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -120,6 +122,9 @@ public final class JenisProdukApiHelper {
 				long ahId = rs.getLong(13);
 				j.put("akunHppId", rs.wasNull() ? JSONObject.NULL : ahId);
 				j.put("akunHppNama", labelAkun(rs.getString(14), rs.getString(15)));
+				long aslId = rs.getLong(16);
+				j.put("akunSelisihPersediaanId", rs.wasNull() ? JSONObject.NULL : aslId);
+				j.put("akunSelisihPersediaanNama", labelAkun(rs.getString(17), rs.getString(18)));
 				arr.put(j);
 			}
 			rs.close();
@@ -173,6 +178,8 @@ public final class JenisProdukApiHelper {
 			jp.setAkunPendapatan(akunDariId(session, request, "akunPendapatanId"));
 			jp.setAkunPpnKeluaran(akunDariId(session, request, "akunPpnKeluaranId"));
 			jp.setAkunHpp(akunDariId(session, request, "akunHppId"));
+			// Akun selisih persediaan (susut/temuan) -- lawan jurnal stok opname.
+			jp.setAkunSelisihPersediaan(akunDariId(session, request, "akunSelisihPersediaanId"));
 
 			session.beginTransaction();
 			session.saveOrUpdate(jp);

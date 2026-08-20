@@ -136,12 +136,16 @@ public final class TutupBukuHelper {
 			}
 
 			double labaBersih = totalPendapatan - totalBeban;
-			Akun akunLabaDitahan = AkunKantinUtil.akunKonfigurasi(CFG_LABA_DITAHAN);
+			// Akun tujuan diambil dari master TOKO (kolom Akun Laba Ditahan); konfigurasi lama
+			// hanya cadangan bagi pemasangan yang belum mengisi masternya.
+			Long tokoId = payload != null && payload.optLong("tokoId", 0) > 0
+					? Long.valueOf(payload.optLong("tokoId")) : null;
+			Akun akunLabaDitahan = AkunKantinUtil.akunLabaDitahan(session, tokoId);
 			String alasan = "";
 			if (rincian.length() == 0) {
 				alasan = "Tidak ada saldo akun Laba Rugi pada periode ini yang perlu ditutup.";
 			} else if (akunLabaDitahan == null) {
-				alasan = "Akun Laba Ditahan belum diatur (konfigurasi " + CFG_LABA_DITAHAN + ").";
+				alasan = "Akun Laba Ditahan belum diatur. Isi kolom Akun Laba Ditahan pada master Toko.";
 			} else if (sudahDitutup(session, penanda)) {
 				alasan = "Periode ini sudah pernah ditutup. Batalkan jurnal penutupnya lebih dulu bila ingin mengulang.";
 			}

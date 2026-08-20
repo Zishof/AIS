@@ -191,4 +191,23 @@ public class JenisProduk extends GeneralValueObject {
 		this.akunHpp = akunHpp;
 	}
 
+
+	/**
+	 * Akun selisih persediaan (susut/temuan).
+	 * <p>Lawan jurnal saat selisih stok opname dicatat; sejajar dengan Akun HPP pada master yang sama. Ditempelkan pada master ini (bukan konfigurasi global) supaya
+	 * tiap outlet/jenis bisa berbeda; konfigurasi global tetap dipakai sebagai cadangan terakhir
+	 * agar pemasangan lama tidak berubah perilakunya. Kolomnya dibuat otomatis oleh Hibernate.</p>
+	 */
+	private ais.database.model.akunting.Akun akunSelisihPersediaan;
+
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_selisih_persediaan", nullable = true)
+	public ais.database.model.akunting.Akun getAkunSelisihPersediaan() {
+		return akunSelisihPersediaan;
+	}
+
+	public void setAkunSelisihPersediaan(ais.database.model.akunting.Akun akunSelisihPersediaan) {
+		this.akunSelisihPersediaan = akunSelisihPersediaan;
+	}
+
 }

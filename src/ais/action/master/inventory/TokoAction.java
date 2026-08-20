@@ -69,6 +69,15 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 	private org.zkoss.zul.Combobox gudangPemasok;
 
 	private Textbox keterangan;
+	/**
+	 * Akun akuntansi outlet -- menempel pada master Toko (bukan konfigurasi global) supaya tiap
+	 * toko bisa berbeda. Dipakai jurnal kas/piutang toko, jurnal pembukaan (saldo awal), dan
+	 * tutup buku (laba ditahan).
+	 */
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunKas;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunPiutang;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunModalAwal;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunLabaDitahan;
 	private MyCheckboxConfig bolehTransaksiStokHabis;
 	private MyCheckboxConfig tokoDemo;
 	/** kode unit usaha -> checkbox; diisi ulang tiap init() (lihat UnitUsahaKatalog). */
@@ -435,6 +444,38 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 		bolehTransaksiStokHabis.setTooltiptext("OFF: ikuti izin stok minus pada masing-masing produk. ON: seluruh produk toko ini boleh dijual saat stok nol/minus.");
 		row.appendChild(bolehTransaksiStokHabis);
 
+		// Akun akuntansi outlet (empat kolom pada master Toko).
+		String[][] akunToko = new String[][] {
+				{ "kas", "Akun Kas/Bank" }, { "piutang", "Akun Piutang Usaha" },
+				{ "modal", "Akun Modal/Ekuitas Awal" }, { "laba", "Akun Laba Ditahan" } };
+		for (int iAk = 0; iAk < akunToko.length; iAk++) {
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new ais.ui.util.MyLabelConfig(akunToko[iAk][1]));
+			ais.action.master.akunting.helper.AmbilDataAkunBanbox bb =
+					new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false);
+			bb.setWidth("90%");
+			ais.database.model.akunting.Akun nilai;
+			if ("piutang".equals(akunToko[iAk][0])) {
+				nilai = toko.getAkunPiutang();
+				akunPiutang = bb;
+			} else if ("modal".equals(akunToko[iAk][0])) {
+				nilai = toko.getAkunModalAwal();
+				akunModalAwal = bb;
+			} else if ("laba".equals(akunToko[iAk][0])) {
+				nilai = toko.getAkunLabaDitahan();
+				akunLabaDitahan = bb;
+			} else {
+				nilai = toko.getAkunKas();
+				akunKas = bb;
+			}
+			if (nilai != null) {
+				bb.setAttribute("akun", nilai);
+				bb.setValue(ais.action.master.koperasi.helper.AkunKantinUtil.label(nilai));
+			}
+			row.appendChild(bb);
+		}
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Toko Demo / UAT"));
@@ -560,6 +601,13 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 		toko.setKode(kode.getValue());
 		toko.setNama(nama.getValue());
 		toko.setKeterangan(keterangan.getValue());
+		toko.setAkunKas((ais.database.model.akunting.Akun) (akunKas == null ? null : akunKas.getAttribute("akun")));
+		toko.setAkunPiutang((ais.database.model.akunting.Akun) (akunPiutang == null ? null
+				: akunPiutang.getAttribute("akun")));
+		toko.setAkunModalAwal((ais.database.model.akunting.Akun) (akunModalAwal == null ? null
+				: akunModalAwal.getAttribute("akun")));
+		toko.setAkunLabaDitahan((ais.database.model.akunting.Akun) (akunLabaDitahan == null ? null
+				: akunLabaDitahan.getAttribute("akun")));
 		toko.setBolehTransaksiStokHabis(bolehTransaksiStokHabis.isChecked());
 		if (Common.getApakahAdminLain()) toko.setTokoDemo(tokoDemo.isChecked());
 		if (unitUsahaCek != null) {

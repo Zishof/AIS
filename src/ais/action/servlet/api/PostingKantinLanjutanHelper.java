@@ -238,6 +238,13 @@ public final class PostingKantinLanjutanHelper {
             hasil.put("message", "Tanggal mulai dan sampai wajib diisi.");
             return;
         }
+        // Konteks toko: akun Kas/Piutang diambil dari master Toko lebih dulu (lihat AkunKantinUtil).
+        // Baris yang punya kolom toko sendiri memakai tokonya; sisanya memakai toko aktif dari POS.
+        Long tokoDefault = null;
+        if (payload != null && payload.has("tokoId") && !payload.isNull("tokoId")
+                && payload.optLong("tokoId", 0) > 0) {
+            tokoDefault = Long.valueOf(payload.optLong("tokoId"));
+        }
         Set<Long> dipilih = new HashSet<Long>();
         JSONArray ids = payload == null ? null : payload.optJSONArray("posting_ids");
         for (int i = 0; ids != null && i < ids.length(); i++) {
@@ -249,13 +256,13 @@ public final class PostingKantinLanjutanHelper {
             SatuanKerja satker = AkunKantinUtil.satkerKantin();
             List<Draf> draf;
             if ("kulakan".equals(jenis)) {
-                draf = drafKulakan(session, satker, mulai, sampai);
+                draf = drafKulakan(session, satker, mulai, sampai, tokoDefault);
             } else if ("bayar_hutang".equals(jenis)) {
-                draf = drafBayarHutang(session, satker, mulai, sampai);
+                draf = drafBayarHutang(session, satker, mulai, sampai, tokoDefault);
             } else if ("terima_piutang".equals(jenis)) {
-                draf = drafTerimaPiutang(session, satker, mulai, sampai);
+                draf = drafTerimaPiutang(session, satker, mulai, sampai, tokoDefault);
             } else {
-                draf = drafPenyesuaian(session, satker, mulai, sampai);
+                draf = drafPenyesuaian(session, satker, mulai, sampai, tokoDefault);
             }
 
             JSONArray arr = new JSONArray();
@@ -415,7 +422,8 @@ public final class PostingKantinLanjutanHelper {
      * dijurnal sendiri-sendiri dan diperlakukan TUNAI (sesuai kontrak modul AP: faktur tanpa
      * info termin = cash lunas).
      */
-    private static List<Draf> drafKulakan(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafKulakan(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         Map<String, Draf> peta = new LinkedHashMap<String, Draf>();
         Map<String, Double> totalFaktur = new LinkedHashMap<String, Double>();
@@ -423,14 +431,14 @@ public final class PostingKantinLanjutanHelper {
                 "SELECT pp.id, pp.produk, COALESCE(pp.totalharga, COALESCE(pp.qty,0)*COALESCE(pp.hargabelisatuan,0), 0),"
                         + " pp.waktupengadaan, COALESCE(pp.nomorfaktur,''), pp.faktur_pengadaan,"
                         + " f.supplier, COALESCE(f.nomor_faktur,''), i.jenis_pembayaran, COALESCE(i.dibayar_awal,0),"
-                        + " COALESCE(pr.nama,''), COALESCE(pp.namasupplier,'')"
+                        + " COALESCE(pr.nama,''), COALESCE(pp.namasupplier,''), pp.toko"
                         + " FROM koperasi.pengadaan_produk pp"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = pp.produk"
                         + " LEFT JOIN koperasi.pengadaan_faktur f ON f.id = pp.faktur_pengadaan"
                         + " LEFT JOIN koperasi.payable_faktur_info i ON i.pengadaan_faktur = f.id"
                         + " WHERE pp.posting_pembelian IS NULL"
                         + " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY pp.waktupengadaan, pp.id", mulai, sampai, 12);
+                        + " ORDER BY pp.waktupengadaan, pp.id", mulai, sampai, 13);
         for (int bi = 0; bi < barisMentah.size(); bi++) {
             Mentah m = barisMentah.get(bi);
             long idBaris = m.lng(1);
@@ -447,6 +455,7 @@ public final class PostingKantinLanjutanHelper {
             double dibayarAwal = m.dbl(10);
             String namaProduk = m.str(11);
             String namaSupplierTeks = m.str(12);
+            Long tokoBaris = m.ada(13) ? Long.valueOf(m.lng(13)) : tokoDefault;
 
             String kunci = adaFaktur ? ("F" + idFaktur) : ("P" + idBaris);
             Draf d = peta.get(kunci);
@@ -468,9 +477,9 @@ public final class PostingKantinLanjutanHelper {
                 if (adaFaktur && adaSupplier) {
                     Penyedia sup = (Penyedia) session.get(Penyedia.class, Long.valueOf(idSupplier));
                     d.akunDebet.clear();
-                    simpanKonteksKredit(d, session, sup, jenisBayar, dibayarAwal);
+                    simpanKonteksKredit(d, session, sup, jenisBayar, dibayarAwal, tokoBaris);
                 } else {
-                    simpanKonteksKredit(d, session, null, null, 0);
+                    simpanKonteksKredit(d, session, null, null, 0, tokoBaris);
                 }
             }
             d.idPengadaan.add(Long.valueOf(idBaris));
@@ -500,11 +509,11 @@ public final class PostingKantinLanjutanHelper {
 
     /** Menyimpan konteks kredit (akun utang/kas + nilai DP) pada draf, dipakai saat total lengkap. */
     private static void simpanKonteksKredit(Draf d, Session session, Penyedia supplier, String jenisBayar,
-            double dibayarAwal) {
+            double dibayarAwal, Long tokoId) {
         boolean kredit = jenisBayar != null
                 && (jenisBayar.toUpperCase().indexOf("CREDIT") >= 0 || jenisBayar.toUpperCase().indexOf("KREDIT") >= 0
                         || jenisBayar.toUpperCase().indexOf("DP") >= 0);
-        Akun akunKas = AkunKantinUtil.akunKasBank(session, null);
+        Akun akunKas = AkunKantinUtil.akunKasBank(session, null, tokoId);
         if (!kredit) {
             if (akunKas == null) {
                 d.alasan = "Akun Kas/Bank toko belum diatur (konfigurasi " + AkunKantinUtil.CFG_KAS_TOKO + ").";
@@ -556,7 +565,8 @@ public final class PostingKantinLanjutanHelper {
 
     // ==================================================================== draf: bayar hutang
 
-    private static List<Draf> drafBayarHutang(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafBayarHutang(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         List<Mentah> barisMentah = baca(session,
@@ -595,7 +605,7 @@ public final class PostingKantinLanjutanHelper {
             }
             Penyedia sup = adaSupplier ? (Penyedia) session.get(Penyedia.class, Long.valueOf(idSupplier)) : null;
             Akun akunUtang = AkunKantinUtil.akunUtangSupplier(session, sup);
-            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode);
+            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode, tokoDefault);
             if (akunUtang == null) {
                 d.alasan = "Akun Utang supplier belum diatur (master Penyedia / konfigurasi "
                         + AkunKantinUtil.CFG_UTANG_SUPPLIER + ").";
@@ -623,12 +633,13 @@ public final class PostingKantinLanjutanHelper {
 
     // ==================================================================== draf: terima piutang
 
-    private static List<Draf> drafTerimaPiutang(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafTerimaPiutang(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         // Akun piutang dibaca DULU (memanggil Hibernate) supaya tidak ada query lain yang berjalan
         // saat hasil query di bawah sedang dibaca.
-        Akun akunPiutang = AkunKantinUtil.akunPiutang(session);
+        Akun akunPiutang = AkunKantinUtil.akunPiutang(session, tokoDefault);
         List<Mentah> barisMentah = baca(session,
                 "SELECT p.id, COALESCE(p.nominal,0), p.tanggal, COALESCE(p.metode,''), COALESCE(p.nomor,''),"
                         + " COALESCE(p.keterangan,''), COALESCE(a.nama,''), COALESCE(p.status_dok,'')"
@@ -657,7 +668,7 @@ public final class PostingKantinLanjutanHelper {
             d.keterangan = "Penerimaan piutang " + namaCustomer + " " + d.referensi
                     + (ket.isEmpty() ? "" : " - " + ket);
 
-            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode);
+            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode, tokoDefault);
             if (statusDok != null && statusDok.toUpperCase().indexOf("BATAL") >= 0) {
                 d.alasan = "Dokumen berstatus " + statusDok + ", tidak dijurnal.";
             } else if (akunKas == null) {
@@ -684,28 +695,30 @@ public final class PostingKantinLanjutanHelper {
 
     // ==================================================================== draf: penyesuaian
 
-    private static List<Draf> drafPenyesuaian(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafPenyesuaian(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
-        keluar.addAll(drafReturPembelian(session, satker, mulai, sampai));
-        keluar.addAll(drafReturPenjualan(session, satker, mulai, sampai));
-        keluar.addAll(drafOpname(session, satker, mulai, sampai));
-        keluar.addAll(drafMutasi(session, satker, mulai, sampai));
+        keluar.addAll(drafReturPembelian(session, satker, mulai, sampai, tokoDefault));
+        keluar.addAll(drafReturPenjualan(session, satker, mulai, sampai, tokoDefault));
+        keluar.addAll(drafOpname(session, satker, mulai, sampai, tokoDefault));
+        keluar.addAll(drafMutasi(session, satker, mulai, sampai, tokoDefault));
         return keluar;
     }
 
     /** Retur beli: barang keluar kembali ke pemasok -> debet Utang/Kas, kredit Persediaan. */
-    private static List<Draf> drafReturPembelian(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafReturPembelian(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         List<Mentah> barisMentah = baca(session,
                 "SELECT r.id, r.produk, COALESCE(r.totalnilai, COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0), 0),"
-                        + " r.waktu, r.supplier, COALESCE(r.alasan,''), COALESCE(pr.nama,''), COALESCE(s.nama,'')"
+                        + " r.waktu, r.supplier, COALESCE(r.alasan,''), COALESCE(pr.nama,''), COALESCE(s.nama,''), r.toko"
                         + " FROM koperasi.retur_pembelian r"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = r.produk"
                         + " LEFT JOIN library.penyedia s ON s.id = r.supplier"
                         + " WHERE r.posting_history IS NULL AND date(r.waktu) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY r.waktu, r.id", mulai, sampai, 8);
+                        + " ORDER BY r.waktu, r.id", mulai, sampai, 9);
         for (int bi = 0; bi < barisMentah.size(); bi++) {
             Mentah m = barisMentah.get(bi);
             long id = m.lng(1);
@@ -717,6 +730,7 @@ public final class PostingKantinLanjutanHelper {
             String alasan = m.str(6);
             String namaProduk = m.str(7);
             String namaSupplier = m.str(8);
+            Long tokoBaris = m.ada(9) ? Long.valueOf(m.lng(9)) : tokoDefault;
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -732,7 +746,7 @@ public final class PostingKantinLanjutanHelper {
             Penyedia sup = adaSupplier ? (Penyedia) session.get(Penyedia.class, Long.valueOf(idSupplier)) : null;
             Akun lawan = AkunKantinUtil.akunUtangSupplier(session, sup);
             if (lawan == null) {
-                lawan = AkunKantinUtil.akunKasBank(session, null);
+                lawan = AkunKantinUtil.akunKasBank(session, null, tokoBaris);
             }
             if (persediaan == null) {
                 d.alasan = "Akun persediaan belum diatur untuk barang " + namaProduk + ".";
@@ -754,18 +768,19 @@ public final class PostingKantinLanjutanHelper {
      * kembali ke stok, ditambah pasangan debet Persediaan / kredit HPP sebesar harga pokoknya
      * supaya persediaan dan HPP ikut terkoreksi.
      */
-    private static List<Draf> drafReturPenjualan(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafReturPenjualan(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         List<Mentah> barisMentah = baca(session,
                 "SELECT r.id, r.produk, COALESCE(r.totalnilai, COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0), 0),"
                         + " r.waktu, COALESCE(r.kembalikan_ke_stok,false), COALESCE(r.qty,0),"
                         + " COALESCE(pr.hargabeli,0), COALESCE(pr.nama,''), COALESCE(r.metodepengembalian,''),"
-                        + " COALESCE(r.namapembeli,'')"
+                        + " COALESCE(r.namapembeli,''), r.toko"
                         + " FROM koperasi.retur_penjualan r"
                         + " LEFT JOIN koperasi.produk pr ON pr.id = r.produk"
                         + " WHERE r.posting_history IS NULL AND date(r.waktu) BETWEEN date(?) AND date(?)"
-                        + " ORDER BY r.waktu, r.id", mulai, sampai, 10);
+                        + " ORDER BY r.waktu, r.id", mulai, sampai, 11);
         for (int bi = 0; bi < barisMentah.size(); bi++) {
             Mentah m = barisMentah.get(bi);
             long id = m.lng(1);
@@ -778,6 +793,7 @@ public final class PostingKantinLanjutanHelper {
             String namaProduk = m.str(8);
             String metode = m.str(9);
             String pembeli = m.str(10);
+            Long tokoBaris = m.ada(11) ? Long.valueOf(m.lng(11)) : tokoDefault;
 
             Draf d = new Draf();
             d.jenis = "penyesuaian";
@@ -790,7 +806,7 @@ public final class PostingKantinLanjutanHelper {
 
             Produk produk = (Produk) session.get(Produk.class, Long.valueOf(idProduk));
             Akun akunRetur = AkunKantinUtil.akunReturPenjualan(session, produk);
-            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode);
+            Akun akunKas = AkunKantinUtil.akunKasBank(session, metode, tokoBaris);
             if (akunRetur == null) {
                 d.alasan = "Akun Retur Penjualan / Pendapatan belum diatur untuk barang " + namaProduk + ".";
             } else if (akunKas == null) {
@@ -817,7 +833,8 @@ public final class PostingKantinLanjutanHelper {
     }
 
     /** Selisih opname dinilai dengan harga beli produk: minus = susut (beban), plus = temuan. */
-    private static List<Draf> drafOpname(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafOpname(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         List<Mentah> barisMentah = baca(session,
@@ -875,7 +892,8 @@ public final class PostingKantinLanjutanHelper {
      * bila sama, perpindahan tidak mengubah buku besar sehingga baris langsung ditandai "tidak
      * perlu jurnal" (dan tetap ditampilkan agar tidak terkesan hilang).
      */
-    private static List<Draf> drafMutasi(Session session, SatuanKerja satker, String mulai, String sampai)
+    private static List<Draf> drafMutasi(Session session, SatuanKerja satker, String mulai, String sampai,
+            Long tokoDefault)
             throws Exception {
         List<Draf> keluar = new ArrayList<Draf>();
         List<Mentah> barisMentah = baca(session,

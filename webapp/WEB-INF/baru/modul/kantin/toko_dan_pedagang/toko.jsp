@@ -167,6 +167,35 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
                             </div>
 
                             <div class="col-12 mt-3">
+                                <div class="border rounded-3 p-3 bg-light-subtle">
+                                    <div class="fw-bold text-secondary small mb-2"><i class="fas fa-book text-primary me-1"></i><%=Common.getBahasaConfig("Akun Akuntansi Outlet")%></div>
+                                    <div class="text-muted small mb-2"><%=Common.getBahasaConfig("Dipakai jurnal toko: kas/bank untuk pembayaran & penerimaan tunai, piutang untuk pelunasan pelanggan, modal awal untuk jurnal pembukaan, dan laba ditahan untuk tutup buku.")%></div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Kas/Bank")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunKas<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunKas<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Piutang Usaha")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunPiutang<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunPiutang<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Modal/Ekuitas Awal")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunModalAwal<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunModalAwal<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Laba Ditahan")%></label>
+                                            <input type="text" class="form-control form-control-sm shadow-sm mb-1" id="cariAkunLabaDitahan<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari kode atau nama akun...")%>" autocomplete="off">
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunLabaDitahan<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-3">
                                 <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Keterangan Tambahan")%></label>
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Lokasi, PIC, dll...")%>"></textarea>
                             </div>
@@ -435,6 +464,55 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
         const idToko = document.getElementById('inputIdToko<%=rnd%>').value;
         const btnSimpan = document.getElementById('btnSimpan<%=rnd%>');
         
+    // Pemilih akun bercari (kode & nama) untuk empat akun akuntansi outlet -- bagan akun bisa
+    // ratusan baris sehingga dropdown polos sulit dipakai.
+    const ID_AKUN<%=rnd%> = ['inputAkunKas<%=rnd%>', 'inputAkunPiutang<%=rnd%>', 'inputAkunModalAwal<%=rnd%>',
+        'inputAkunLabaDitahan<%=rnd%>'];
+    let akunDaftar<%=rnd%> = [];
+    const escAkun<%=rnd%> = (t) => (t + '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const opsiAkunHtml<%=rnd%> = (kata, nilai) => {
+        const kunci = (kata || '').trim().toLowerCase().split(/\s+/).filter((k) => k.length > 0);
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+        (akunDaftar<%=rnd%> || []).forEach((a) => {
+            const teks = ((a.kode || '') + ' ' + (a.nama || '')).toLowerCase();
+            let cocok = true;
+            kunci.forEach((k) => { if (teks.indexOf(k) < 0) { cocok = false; } });
+            // Akun yang sedang terpilih selalu ikut tampil supaya nilainya tidak hilang saat tersaring.
+            const iniTerpilih = nilai !== null && nilai !== undefined && nilai !== '' && (a.id + '') === (nilai + '');
+            if (!cocok && !iniTerpilih) { return; }
+            html += '<option value="' + a.id + '">' + escAkun<%=rnd%>((a.kode || '') + ' - ' + (a.nama || '')) + '</option>';
+        });
+        return html;
+    };
+    const terapkanFilterAkun<%=rnd%> = (sid) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        const cur = el.value;
+        el.innerHTML = opsiAkunHtml<%=rnd%>(box ? box.value : '', cur);
+        el.value = cur;
+    };
+    const loadAkunOptions<%=rnd%> = async () => {
+        const list = await fetchData<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
+        akunDaftar<%=rnd%> = list || [];
+        ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
+    };
+    ID_AKUN<%=rnd%>.forEach((sid) => {
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.addEventListener('input', function() { terapkanFilterAkun<%=rnd%>(sid); }); }
+    });
+    const setAkunSelect<%=rnd%> = (sid, val) => {
+        const el = document.getElementById(sid);
+        if (!el) { return; }
+        // Kotak cari dikosongkan dulu agar nilai dari server pasti ada di daftar.
+        const box = document.getElementById(sid.replace('input', 'cari'));
+        if (box) { box.value = ''; }
+        const v = (val === null || val === undefined) ? '' : (val + '');
+        el.innerHTML = opsiAkunHtml<%=rnd%>('', v);
+        el.value = v;
+    };
+    loadAkunOptions<%=rnd%>();
+
         // Object utama Toko.java
         const dataObj = {
             kode: document.getElementById('inputKode<%=rnd%>').value.trim(),
@@ -443,7 +521,11 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             bolehMelihatTokolain: document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked,
             bolehTransaksiStokHabis: document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked,
             unitUsahaJson: JSON.stringify(ambilUnitUsahaTerpilih<%=rnd%>()),
-            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
+            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked,
+            akunKas: document.getElementById('inputAkunKas<%=rnd%>').value || null,
+            akunPiutang: document.getElementById('inputAkunPiutang<%=rnd%>').value || null,
+            akunModalAwal: document.getElementById('inputAkunModalAwal<%=rnd%>').value || null,
+            akunLabaDitahan: document.getElementById('inputAkunLabaDitahan<%=rnd%>').value || null
         };
         
         const payload = { 
@@ -487,7 +569,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
     const editToko<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, boleh_transaksi_stok_habis, unit_usaha_json, aktif FROM koperasi.toko WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, boleh_transaksi_stok_habis, unit_usaha_json, aktif, akun_kas, akun_piutang, akun_modal_awal, akun_laba_ditahan FROM koperasi.toko WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
 
         if (res.length > 0) {
@@ -498,6 +580,10 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             document.getElementById('inputKode<%=rnd%>').value = data.kode || '';
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
+            setAkunSelect<%=rnd%>('inputAkunKas<%=rnd%>', data.akun_kas);
+            setAkunSelect<%=rnd%>('inputAkunPiutang<%=rnd%>', data.akun_piutang);
+            setAkunSelect<%=rnd%>('inputAkunModalAwal<%=rnd%>', data.akun_modal_awal);
+            setAkunSelect<%=rnd%>('inputAkunLabaDitahan<%=rnd%>', data.akun_laba_ditahan);
 
             const isBolehMelihat = (data.bolehmelihattokolain === true || data.bolehmelihattokolain === 'true' || data.bolehmelihattokolain === 't');
             document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked = isBolehMelihat;

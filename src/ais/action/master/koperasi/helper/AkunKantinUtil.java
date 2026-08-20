@@ -21,8 +21,9 @@ import ais.database.model.library.Penyedia;
  * muncul di Neraca. Kelas ini memusatkan penentuan akun untuk jurnal-jurnal penutup celah itu:
  * kulakan, pembayaran hutang supplier, penerimaan piutang customer, retur, opname, dan mutasi.</p>
  *
- * <p><b>Urutan pencarian dibuat konsisten:</b> master yang paling dekat dengan barang/mitra dulu,
- * baru konfigurasi global sebagai cadangan. Semua method mengembalikan {@code null} bila tidak
+ * <p><b>Urutan pencarian dibuat konsisten:</b> master yang paling dekat dengan barang/mitra dulu
+ * (Penyedia, Jenis Produk, Cara Pembayaran), lalu master <b>Toko</b> tempat kejadiannya, baru
+ * konfigurasi global sebagai cadangan terakhir. Semua method mengembalikan {@code null} bila tidak
  * ketemu &mdash; pemanggil WAJIB memperlakukan itu sebagai "belum siap posting" dan menampilkan
  * alasannya, bukan memaksakan jurnal timpang.</p>
  */
@@ -62,6 +63,33 @@ public final class AkunKantinUtil {
             }
             return (Akun) ConstantValues.ambil(Akun.class.getName(), Long.valueOf(Long.parseLong(v.trim())));
         } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Akun pada master Toko; null bila toko/akunnya tidak diisi. Jenis: kas|piutang|modal|laba. */
+    public static Akun akunToko(Session session, Long tokoId, String jenis) {
+        if (session == null || tokoId == null || tokoId.longValue() <= 0) {
+            return null;
+        }
+        try {
+            ais.database.model.inventory.Toko t = (ais.database.model.inventory.Toko) session
+                    .get(ais.database.model.inventory.Toko.class, tokoId);
+            if (t == null) {
+                return null;
+            }
+            if ("piutang".equals(jenis)) {
+                return t.getAkunPiutang();
+            }
+            if ("modal".equals(jenis)) {
+                return t.getAkunModalAwal();
+            }
+            if ("laba".equals(jenis)) {
+                return t.getAkunLabaDitahan();
+            }
+            return t.getAkunKas();
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunToko");
             return null;
         }
     }
@@ -156,6 +184,10 @@ public final class AkunKantinUtil {
      * sudah punya akun) lewat kode/nama; bila gagal jatuh ke konfigurasi {@code akun_kas_toko}.
      */
     public static Akun akunKasBank(Session session, String metode) {
+        return akunKasBank(session, metode, null);
+    }
+
+    public static Akun akunKasBank(Session session, String metode, Long tokoId) {
         try {
             String m = metode == null ? "" : metode.trim();
             if (!m.isEmpty() && session != null) {
@@ -170,7 +202,8 @@ public final class AkunKantinUtil {
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunKasBank");
         }
-        return akunKonfigurasi(CFG_KAS_TOKO);
+        Akun dariToko = akunToko(session, tokoId, "kas");
+        return dariToko != null ? dariToko : akunKonfigurasi(CFG_KAS_TOKO);
     }
 
     /**
@@ -179,6 +212,14 @@ public final class AkunKantinUtil {
      * kredit diposting, sehingga penerimaan piutang mengkredit akun yang sama).
      */
     public static Akun akunPiutang(Session session) {
+        return akunPiutang(session, null);
+    }
+
+    public static Akun akunPiutang(Session session, Long tokoId) {
+        Akun dariToko = akunToko(session, tokoId, "piutang");
+        if (dariToko != null) {
+            return dariToko;
+        }
         Akun a = akunKonfigurasi(CFG_PIUTANG_TOKO);
         if (a != null) {
             return a;
@@ -201,8 +242,34 @@ public final class AkunKantinUtil {
 
     /** Akun selisih persediaan (susut/lebih) untuk jurnal stok opname. */
     public static Akun akunSelisihPersediaan(Session session, Produk produk, SatuanKerja satker) {
+        try {
+            JenisProduk jp = produk == null ? null : produk.getJenisProduk();
+            if (jp != null && jp.getAkunSelisihPersediaan() != null) {
+                return jp.getAkunSelisihPersediaan();
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunSelisihPersediaan");
+        }
         Akun a = akunKonfigurasi(CFG_SELISIH_PERSEDIAAN);
         return a != null ? a : akunHpp(session, produk, satker);
+    }
+
+    /**
+     * Akun Modal/Ekuitas Awal: master Toko dulu, lalu konfigurasi {@code akun_modal_awal}.
+     * Dipakai menampung selisih debet-kredit pada jurnal pembukaan saldo awal.
+     */
+    public static Akun akunModalAwal(Session session, Long tokoId) {
+        Akun dariToko = akunToko(session, tokoId, "modal");
+        return dariToko != null ? dariToko : akunKonfigurasi("akun_modal_awal");
+    }
+
+    /**
+     * Akun Laba Ditahan: master Toko dulu, lalu konfigurasi {@code akun_laba_ditahan}.
+     * Tujuan pemindahan laba/rugi bersih saat tutup buku.
+     */
+    public static Akun akunLabaDitahan(Session session, Long tokoId) {
+        Akun dariToko = akunToko(session, tokoId, "laba");
+        return dariToko != null ? dariToko : akunKonfigurasi("akun_laba_ditahan");
     }
 
     /** Teks akun utk ditampilkan di draf jurnal. */

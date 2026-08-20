@@ -373,15 +373,19 @@ public final class SaldoAwalAkunHelper {
 			}
 
 			double selisih = totalD - totalK;
-			Akun akunModal = AkunKantinUtil.akunKonfigurasi(CFG_MODAL_AWAL);
+			// Akun penyeimbang diambil dari master TOKO (kolom Akun Modal Awal); konfigurasi lama
+			// hanya cadangan bagi pemasangan yang belum mengisi masternya.
+			Long tokoId = payload != null && payload.optLong("tokoId", 0) > 0
+					? Long.valueOf(payload.optLong("tokoId")) : null;
+			Akun akunModal = AkunKantinUtil.akunModalAwal(session, tokoId);
 			String alasan = "";
 			if (rincian.length() == 0) {
 				alasan = "Belum ada saldo awal yang perlu diposting.";
 			} else if (Math.abs(selisih) >= 0.005 && akunModal == null) {
 				alasan = "Total debet dan kredit belum sama (selisih "
 						+ Common.numberFormat.get().format(Math.abs(selisih))
-						+ ") dan akun Modal/Ekuitas Awal belum diatur (konfigurasi " + CFG_MODAL_AWAL
-						+ "). Isi konfigurasi itu atau seimbangkan angkanya lebih dulu.";
+						+ ") dan akun Modal/Ekuitas Awal belum diatur. Isi kolom Akun Modal Awal pada master Toko"
+						+ " (atau seimbangkan angkanya lebih dulu).";
 			}
 			if (Math.abs(selisih) >= 0.005 && akunModal != null) {
 				// Selisih ditempatkan pada Modal Awal: debet lebih besar berarti modal bertambah
