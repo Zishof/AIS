@@ -124,7 +124,13 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 			 * Hook global memasang FAB pada wadah tab sebelum isi tab selesai dibangun, jadi ia
 			 * belum tahu tab ini punya tombol Bantuan sendiri. FAB bawaan hook karena itu dilepas
 			 * lebih dulu supaya tidak ada dua tombol pada satu tab. */
-			BantuanGlobalHook.lepasFabDari(BantuanGlobalHook.wadahTab(this));
+			org.zkoss.zk.ui.Component wadahTab = BantuanGlobalHook.wadahTab(this);
+			if (wadahTab != null) {
+				BantuanGlobalHook.lepasFabDari(wadahTab);
+			} else {
+				// Layar dibuka sebagai halaman penuh: FAB bawaan hook menempel pada Page.
+				BantuanGlobalHook.lepasFabDariHalaman(getPage());
+			}
 
 			/* Key diambil dari include TAB terdekat, bukan dari request path halaman -- request
 			 * path selalu menunjuk halaman induk sehingga selalu salah untuk layar bertab. */

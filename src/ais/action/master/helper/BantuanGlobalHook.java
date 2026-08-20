@@ -31,7 +31,8 @@ import ais.ui.util.MyInclude;
  * Sejak 20-08-2026 menu ini SELALU lengkap: dahulu dua pilihan pertama hanya muncul untuk
  * daftar key tertentu, karena halaman lain sudah punya tombol Bantuan inline sendiri dan
  * dikhawatirkan tombolnya dobel. Kini tombol inline itu justru disembunyikan oleh
- * {@code MyToolbarbuttonConfig} (lihat {@link #adaFabDiHalaman(Page)}), sehingga seluruh
+ * {@code MyToolbarbuttonConfig}, yang menggantinya dengan tombol "?" MILIK TAB itu
+ * sendiri (lihat {@link #keyDariKomponen(Component)}), sehingga seluruh
  * halaman ZK memakai satu pola bantuan yang sama dan layar utama tidak penuh tombol.
  * Pengaman lama tetap berlaku: tombol hanya muncul bila berkas
  * {@code WEB-INF/bantuan/<key>.html} ada, jadi pilihan yang ditawarkan pasti ada isinya.</p>
@@ -409,6 +410,31 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	 * sendiri. Tombol inline-lah yang membawa key panduan paling tepat, jadi FAB bawaan hook
 	 * dilepas lebih dulu agar tidak ada dua tombol pada satu tab.</p>
 	 */
+	/**
+	 * Lepas tombol Bantuan mengambang yang menempel langsung pada HALAMAN.
+	 *
+	 * <p>Padanan {@link #lepasFabDari(Component)} untuk layar yang dibuka sebagai halaman
+	 * penuh (bukan tab). Pada jalur itu {@code afterPageAttached} memasang FAB ke Page, dan
+	 * penelusuran wadah tab tidak akan menemukannya.</p>
+	 */
+	public static void lepasFabDariHalaman(Page page) {
+		try {
+			if (page == null) {
+				return;
+			}
+			java.util.List<Object> salinan = new java.util.ArrayList<Object>(page.getRoots());
+			for (int i = 0; i < salinan.size(); i++) {
+				Object o = salinan.get(i);
+				if (o instanceof Div && "kb-fab-global".equals(((Div) o).getSclass())) {
+					((Div) o).detach();
+				}
+			}
+			page.removeAttribute(ATTR_PAGE_DONE);
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t, "BantuanGlobalHook.lepasFabDariHalaman");
+		}
+	}
+
 	public static void lepasFabDari(Component wadah) {
 		try {
 			if (wadah == null) {
@@ -426,33 +452,8 @@ public class BantuanGlobalHook implements UiLifeCycle {
 		}
 	}
 
-	public static String keyHalaman(Page page) {
-		try {
-			return keyDariPage(page);
-		} catch (Throwable t) {
-			return null;
-		}
-	}
 
-	public static boolean klaimSlotFab(Page page) {
-		try {
-			if (page == null || page.getAttribute(ATTR_PAGE_DONE) != null) {
-				return false;
-			}
-			page.setAttribute(ATTR_PAGE_DONE, Boolean.TRUE);
-			return true;
-		} catch (Throwable t) {
-			return false;
-		}
-	}
 
-	public static boolean adaFabDiHalaman(Page page) {
-		try {
-			return page != null && page.getAttribute(ATTR_PAGE_DONE) != null;
-		} catch (Throwable t) {
-			return false;
-		}
-	}
 
 	private static String keyDariSrc(String src) {
 		if (src == null || src.trim().length() == 0) {
