@@ -54,18 +54,18 @@
 						<row
 							style="border:0px;background: transparent;">
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Semester" />
+								id="lblSearchSemester" value="Semester" />
 							<combobox readonly="true"
 								id="searchSemester" width="95%" />
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Tahun Akademik" />
+								id="lblSearchTahunAjaran" value="Tahun Akademik" />
 							<combobox readonly="true"
 								id="searchTahunAjaran" width="95%" />
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Angkatan" />
+								id="lblLabelAngkatan" value="Angkatan" />
 							<intbox id="labelAngkatan" width="95%" />
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Semester Mulai" />
+								id="lblSearchMulaiBelajarDiSemester" value="Semester Mulai" />
 							<combobox readonly="true"
 								forward="onChange=onSearchDefault"
 								id="searchMulaiBelajarDiSemester" width="95%" />
@@ -80,35 +80,35 @@
 						<row
 							style="border:0px;background: transparent;">
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Program" />
+								id="lblSearchProgram" value="Program" />
 							<combobox readonly="true"
 								forward="onChange=onSearchDefault" id="searchProgram"
 								width="95%" />
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Jenjang" />
+								id="lblSearchJenjang" value="Jenjang" />
 
 							<hbox>
 								<combobox id="searchJenjang"
 									readonly="true" forward="onChange=onSearchDefault" cols="4" />
-								<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+								<label use="ais.ui.util.MyLabelConfig" id="lblSearchJurusan" value="Prodi"/>
 								<combobox readonly="true"
 									forward="onChange=onSearchDefault" id="searchJurusan" cols="4" />
 							</hbox>
 
 
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Warga Negara" />
+								id="lblSearchWargaNegara" value="Warga Negara" />
 							<combobox readonly="true"
 								id="searchWargaNegara" forward="onChange=onSearchDefault"
 								width="95%" />
 
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Status" />
+								id="lblSearchStatusMahasiswa" value="Status" />
 							<hbox>
 								<combobox readonly="true"
 									forward="onChange=onSearchDefault" id="searchStatusMahasiswa"
 									cols="4" />
-								<label use="ais.ui.util.MyLabelConfig" value="Sts Awal"/>
+								<label use="ais.ui.util.MyLabelConfig" id="lblSearchStatusAwalMahasiswa" value="Sts Awal"/>
 								<combobox readonly="true"
 									forward="onChange=onSearchDefault"
 									id="searchStatusAwalMahasiswa" cols="4" />
@@ -124,7 +124,7 @@
 						<row
 							style="border:0px;background: transparent;" spans="1,9">
 							<label use="ais.ui.util.MyLabelConfig"
-								value="Pembayaran" />
+								id="lblSearchJenisKegiatan" value="Pembayaran" />
 							<combobox readonly="true"
 								id="searchJenisKegiatan" width="95%" />
 						</row>

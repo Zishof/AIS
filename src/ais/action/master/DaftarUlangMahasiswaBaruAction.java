@@ -479,6 +479,12 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		return true;
 	}
 
+	/** Tagihan bulanan dapat valid walau sumber DetailBiaya nonbulanan kosong. */
+	private boolean adaTagihanTerpilihUntukProses() {
+		return (detailBiayas != null && !detailBiayas.isEmpty())
+				|| Math.abs(jumlahYangAkanDibayar) >= 0.01;
+	}
+
 	private EventListener rubahTanggal = new EventListener() {
 		@Override
 		public void onEvent(Event arg0) throws Exception {
@@ -3722,6 +3728,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				+ "&searchMulaiBelajarDiSemester=" + URLEncoder.encode(calonMahasiswa.getSemesterMulai() == null
 						? "" : calonMahasiswa.getSemesterMulai(), "UTF-8")
 				+ "&searchProgram=" + URLEncoder.encode(calonMahasiswa.getProgram() == null ? "" : calonMahasiswa.getProgram(), "UTF-8")
+				+ "&searchWargaNegara=" + URLEncoder.encode(calonMahasiswa.getKewarganegaraan() == null
+						? "" : calonMahasiswa.getKewarganegaraan(), "UTF-8")
 				+ "&searchJenjang=" + (jenjang == null || jenjang.getId() == null ? -1 : jenjang.getId())
 				+ "&searchJurusan=" + (jurusan == null || jurusan.getId() == null ? -1 : jurusan.getId())
 				+ "&searchStatusMahasiswa=" + (ConstantValues.AKTIF == null ? -1 : ConstantValues.AKTIF.getId())
@@ -3733,6 +3741,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						: calonMahasiswa.getJenisSeleksi().getId())
 				+ "&searchGelombangPendaftaran=" + (calonMahasiswa.getGelombangPendaftaran() == null ? -1
 						: calonMahasiswa.getGelombangPendaftaran().getId())
+				+ "&searchKelas=" + (calonMahasiswa.getKelasPmb() == null
+						|| calonMahasiswa.getKelasPmb().getKelas() == null ? -1
+						: calonMahasiswa.getKelasPmb().getKelas().getId())
+				+ "&kunciFilterAnalisis=1"
 				+ "&autoBukaRencanaAngsuran=1";
 	}
 
@@ -4658,7 +4670,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 							public void onEvent(Event arg0) throws Exception {
 								if (!apakah0(true))
 									return;
-								if (!detailBiayas.isEmpty()) {
+								if (adaTagihanTerpilihUntukProses()) {
 									Integer smt = (Integer) semesterPilihan.getSelectedItem().getValue();
 									VirtualAccountBank virtualAccountBank = DownloadNoUjianCalonMahasiswaBankBtn
 											.downloadData(calonMahasiswa, jadwalPembayaran, detailBiayas, gridCicilan,
@@ -4722,7 +4734,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 							public void onEvent(Event arg0) throws Exception {
 								if (!apakah0(true))
 									return;
-								if (!detailBiayas.isEmpty()) {
+								if (adaTagihanTerpilihUntukProses()) {
 									final MyWindow window = new MyWindow("Pilihlah Bayar Via", "none", false);
 									window.setHeight("150px");
 									window.setWidth("400px");
@@ -4865,7 +4877,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 							public void onEvent(Event arg0) throws Exception {
 								if (!apakah0(true))
 									return;
-								if (!detailBiayas.isEmpty()) {
+								if (adaTagihanTerpilihUntukProses()) {
 									Double biayaAdministrasi = 0.0;
 									try {
 										biayaAdministrasi = Double.parseDouble(
@@ -4957,7 +4969,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 							public void onEvent(Event arg0) throws Exception {
 								if (!apakah0(true))
 									return;
-								if (!detailBiayas.isEmpty()) {
+								if (adaTagihanTerpilihUntukProses()) {
 									VirtualAccountBank virtualAccountBank = DownloadNoUjianCalonMahasiswaBankNtt
 											.downloadData(calonMahasiswa, jadwalPembayaran, detailBiayas, gridCicilan);
 									String code = virtualAccountBank.getKode();
@@ -5026,7 +5038,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 							public void onEvent(Event arg0) throws Exception {
 								if (!apakah0(true))
 									return;
-								if (!detailBiayas.isEmpty()) {
+								if (adaTagihanTerpilihUntukProses()) {
 									VirtualAccountBank virtualAccountBank = DownloadNoUjianCalonMahasiswaBankBjb
 											.downloadData(calonMahasiswa, jadwalPembayaran, detailBiayas, gridCicilan);
 									String code = virtualAccountBank.getKode();
@@ -5416,7 +5428,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					public void onEvent(Event arg0) throws Exception {
 						if (!apakah0(true))
 							return;
-						if (!detailBiayas.isEmpty()) {
+						if (adaTagihanTerpilihUntukProses()) {
 							Double biayaAdministrasi = 0.0;
 							try {
 								biayaAdministrasi = Double

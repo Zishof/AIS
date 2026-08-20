@@ -132,6 +132,17 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 	private Combobox searchGelombangPendaftaran;
 	private Label lblsearchGelombangPendaftaran;
+	private Label lblSearchSemester;
+	private Label lblSearchTahunAjaran;
+	private Label lblLabelAngkatan;
+	private Label lblSearchMulaiBelajarDiSemester;
+	private Label lblSearchProgram;
+	private Label lblSearchJenjang;
+	private Label lblSearchJurusan;
+	private Label lblSearchWargaNegara;
+	private Label lblSearchStatusMahasiswa;
+	private Label lblSearchStatusAwalMahasiswa;
+	private Label lblSearchJenisKegiatan;
 
 	private Label labelKelas;
 	private Label labelJenisTempatTinggalMahasiswa;
@@ -202,6 +213,75 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		}
 		if (rowInfoTagihan != null) {
 			rowInfoTagihan.setVisible(false);
+		}
+	}
+
+	private boolean parameterAnalisisAda(String nama) {
+		String nilai = execution.getParameter(nama);
+		return nilai != null && !nilai.trim().isEmpty() && !"-1".equals(nilai.trim());
+	}
+
+	/**
+	 * Mengunci filter yang dipraisi dari Analisis Data. Jika suatu data tidak ada
+	 * pada Mahasiswa/BiodataCalonMahasiswa, label dan inputnya disembunyikan agar
+	 * nilai default layar tidak disalahartikan sebagai data mahasiswa.
+	 */
+	private void kunciComboAnalisis(Combobox combo, Label label, String parameter) {
+		if (combo == null) return;
+		boolean tampil = parameterAnalisisAda(parameter) && combo.getSelectedItem() != null;
+		combo.setVisible(tampil);
+		combo.setDisabled(true);
+		if (label != null) label.setVisible(tampil);
+	}
+
+	private void terapkanKunciFilterAnalisis() {
+		if (!"1".equals(execution.getParameter("kunciFilterAnalisis"))) return;
+
+		kunciComboAnalisis(searchSemester, lblSearchSemester, "searchSemester");
+		kunciComboAnalisis(searchTahunAjaran, lblSearchTahunAjaran, "searchTahunAjaran");
+		boolean tampilAngkatan = parameterAnalisisAda("labelAngkatan") && labelAngkatan.getValue() != null;
+		labelAngkatan.setVisible(tampilAngkatan);
+		labelAngkatan.setDisabled(true);
+		if (lblLabelAngkatan != null) lblLabelAngkatan.setVisible(tampilAngkatan);
+		kunciComboAnalisis(searchMulaiBelajarDiSemester, lblSearchMulaiBelajarDiSemester,
+				"searchMulaiBelajarDiSemester");
+		kunciComboAnalisis(searchProgram, lblSearchProgram, "searchProgram");
+		kunciComboAnalisis(searchJenjang, lblSearchJenjang, "searchJenjang");
+		kunciComboAnalisis(searchJurusan, lblSearchJurusan, "searchJurusan");
+		kunciComboAnalisis(searchWargaNegara, lblSearchWargaNegara, "searchWargaNegara");
+		kunciComboAnalisis(searchStatusMahasiswa, lblSearchStatusMahasiswa, "searchStatusMahasiswa");
+		kunciComboAnalisis(searchStatusAwalMahasiswa, lblSearchStatusAwalMahasiswa,
+				"searchStatusAwalMahasiswa");
+		kunciComboAnalisis(searchJenisKegiatan, lblSearchJenisKegiatan, "searchJenisKegiatan");
+		kunciComboAnalisis(searchJenisSeleksi, lblsearchJenisSeleksi, "searchJenisSeleksi");
+		kunciComboAnalisis(searchPaket, lblsearchPaket, "searchPaket");
+		kunciComboAnalisis(searchGelombangPendaftaran, lblsearchGelombangPendaftaran,
+				"searchGelombangPendaftaran");
+
+		if (searchKelas != null) {
+			boolean tampil = parameterAnalisisAda("searchKelas") && searchKelas.getAttribute("kelas") != null;
+			searchKelas.setVisible(tampil);
+			searchKelas.setDisabled(true);
+			if (labelKelas != null) labelKelas.setVisible(tampil);
+		}
+		kunciComboAnalisis(searchJenisTempatTinggalMahasiswa, labelJenisTempatTinggalMahasiswa,
+				"searchJenisTempatTinggalMahasiswa");
+
+		/* Parameter tambahan belum berasal dari master mahasiswa. Jangan tampilkan
+		 * nilai default "Tidak Dipilih" sebagai seolah-olah data mahasiswa. */
+		labelTambahan1.setVisible(false);
+		searchTambahan1.setVisible(false);
+		searchTambahan1.setDisabled(true);
+		labelTambahan2.setVisible(false);
+		searchTambahan2.setVisible(false);
+		searchTambahan2.setDisabled(true);
+		labelTambahan3.setVisible(false);
+		searchTambahan3.setVisible(false);
+		searchTambahan3.setDisabled(true);
+
+		if (rowFilterPmb != null) {
+			rowFilterPmb.setVisible(searchJenisSeleksi.isVisible() || searchPaket.isVisible()
+					|| searchGelombangPendaftaran.isVisible());
 		}
 	}
 
@@ -291,7 +371,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				: searchTambahan3.getSelectedItem().getValue());
 
 		GelombangPendaftaran gelombangPendaftaran = (GelombangPendaftaran) (!searchGelombangPendaftaran.isVisible()
-				|| searchGelombangPendaftaran.isDisabled() || searchGelombangPendaftaran.getSelectedItem() == null
+				|| searchGelombangPendaftaran.getSelectedItem() == null
 						? null
 						: searchGelombangPendaftaran.getSelectedItem().getValue());
 
@@ -647,7 +727,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 							final String capturedNt3 = searchTambahan3.getSelectedItem() == null ? null : (String) searchTambahan3.getSelectedItem().getValue();
 							final Paket capturedPaket = searchPaket.getSelectedItem() == null ? null : (Paket) searchPaket.getSelectedItem().getValue();
 							final GelombangPendaftaran capturedGelombang = (!searchGelombangPendaftaran.isVisible()
-									|| searchGelombangPendaftaran.isDisabled() || searchGelombangPendaftaran.getSelectedItem() == null)
+									|| searchGelombangPendaftaran.getSelectedItem() == null)
 											? null : (GelombangPendaftaran) searchGelombangPendaftaran.getSelectedItem().getValue();
 							final JenisKegiatan capturedJenisKegiatan = (JenisKegiatan) searchJenisKegiatan.getSelectedItem().getValue();
 							final Kelas capturedKelas = getFilterKelas();
@@ -993,17 +1073,36 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 					Long.parseLong(execution.getParameter("searchGelombangPendaftaran")));
 			if (gelombang != null && searchGelombangPendaftaran.isVisible()) {
 				Common.selectComboItem(true, searchGelombangPendaftaran, gelombang);
-				/* Jangan disabled: logika pencarian lama menganggap combo Gelombang yang
-				 * disabled sebagai filter null. Readonly sudah cukup mencegah input bebas. */
-				searchGelombangPendaftaran.setDisabled(false);
+				searchGelombangPendaftaran.setDisabled(true);
 			}
 		}
+		if (execution.getParameter("searchKelas") != null
+				&& !"-1".equals(execution.getParameter("searchKelas"))) {
+			Kelas kelas = (Kelas) ConstantValues.ambil(Kelas.class.getName(),
+					Long.parseLong(execution.getParameter("searchKelas")));
+			if (kelas != null && searchKelas != null) {
+				searchKelas.setAttribute("kelas", kelas);
+				searchKelas.setValue(kelas.toString());
+			}
+		}
+		if (execution.getParameter("searchJenisTempatTinggalMahasiswa") != null
+				&& !"-1".equals(execution.getParameter("searchJenisTempatTinggalMahasiswa"))) {
+			JenisTinggalMahasiswa jenisTinggal = (JenisTinggalMahasiswa) ConstantValues.ambil(
+					JenisTinggalMahasiswa.class.getName(),
+					Long.parseLong(execution.getParameter("searchJenisTempatTinggalMahasiswa")));
+			if (jenisTinggal != null && searchJenisTempatTinggalMahasiswa != null) {
+				Common.selectComboItem(true, searchJenisTempatTinggalMahasiswa, jenisTinggal);
+			}
+		}
+
+		terapkanKunciFilterAnalisis();
 
 		Common.createDefaultTimer(new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onSearchDefault(null);
+				terapkanKunciFilterAnalisis();
 			}
 		});
 	}
@@ -2670,7 +2769,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		Paket paket = (Paket) (searchPaket.getSelectedItem() == null ? null : searchPaket.getSelectedItem().getValue());
 		GelombangPendaftaran gelombangPendaftaran = (GelombangPendaftaran) (!searchGelombangPendaftaran.isVisible()
-				|| searchGelombangPendaftaran.isDisabled() || searchGelombangPendaftaran.getSelectedItem() == null
+				|| searchGelombangPendaftaran.getSelectedItem() == null
 						? null
 						: searchGelombangPendaftaran.getSelectedItem().getValue());
 
@@ -2748,7 +2847,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		Paket paket = (Paket) (searchPaket.getSelectedItem() == null ? null : searchPaket.getSelectedItem().getValue());
 		GelombangPendaftaran gelombangPendaftaran = (GelombangPendaftaran) (!searchGelombangPendaftaran.isVisible()
-				|| searchGelombangPendaftaran.isDisabled() || searchGelombangPendaftaran.getSelectedItem() == null
+				|| searchGelombangPendaftaran.getSelectedItem() == null
 						? null
 						: searchGelombangPendaftaran.getSelectedItem().getValue());
 
@@ -2840,7 +2939,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		Paket paket = (Paket) (searchPaket.getSelectedItem() == null ? null : searchPaket.getSelectedItem().getValue());
 		GelombangPendaftaran gelombangPendaftaran = (GelombangPendaftaran) (!searchGelombangPendaftaran.isVisible()
-				|| searchGelombangPendaftaran.isDisabled() || searchGelombangPendaftaran.getSelectedItem() == null
+				|| searchGelombangPendaftaran.getSelectedItem() == null
 						? null
 						: searchGelombangPendaftaran.getSelectedItem().getValue());
 
