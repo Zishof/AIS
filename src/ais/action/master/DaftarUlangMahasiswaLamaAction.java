@@ -2612,6 +2612,54 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		return html.append("</ol>").toString();
 	}
 
+	/** Penjelasan kontekstual per baris agar petugas memahami arti dan tindak lanjut audit. */
+	private String keteranganPintarTahapLama(TahapAnalisisTagihan t, int kandidatAkhir) {
+		String arti = artiKriteriaTagihanLama(t.nama);
+		if (t.criterion == null) {
+			return arti + (t.jumlah == 0
+					? " Tidak ada data dasar; buat Setting Biaya sebelum memeriksa kriteria lain."
+					: " Ditemukan " + t.jumlah + " konfigurasi sebagai titik awal analisis.");
+		}
+		if (kandidatAkhir == 0 && t.jumlahJikaDilewati > 0) {
+			return arti + " Kriteria ini terbukti menjadi penghambat: tanpa kriteria ini ditemukan "
+					+ t.jumlahJikaDilewati + " kandidat. Data yang tersedia: " + t.nilaiTersedia
+					+ ". " + t.tindakan;
+		}
+		if (t.gagalPertama) {
+			return arti + " Rantai pencarian pertama kali menjadi kosong di sini. Sistem membutuhkan '"
+					+ t.nilai + "'. Data sebelum tahap ini: " + t.nilaiTersedia + ". " + t.tindakan;
+		}
+		if (t.jumlah > 0 && t.jumlahJikaDilewati > t.jumlah) {
+			return arti + " Cocok. Kriteria ini menyaring kandidat dari " + t.jumlahJikaDilewati
+					+ " menjadi " + t.jumlah + ", sehingga nilainya berpengaruh tetapi valid.";
+		}
+		if (t.jumlah > 0) {
+			return arti + " Cocok. Tersisa " + t.jumlah
+					+ " kandidat; kriteria lain juga sudah cukup mengarahkan ke konfigurasi yang sama.";
+		}
+		return arti + " Belum ada kandidat tersisa karena kegagalan telah terjadi pada baris sebelumnya.";
+	}
+
+	private String artiKriteriaTagihanLama(String nama) {
+		if ("Semua data Setting Biaya".equals(nama)) return "Basis seluruh konfigurasi biaya tanpa filter.";
+		if ("Jenis pembayaran".equals(nama)) return "Memastikan konfigurasi memakai Jenis Kegiatan pembayaran yang sedang dibuka.";
+		if ("Periode setting".equals(nama)) return "Memastikan tahun/periode konfigurasi sudah berlaku untuk transaksi ini.";
+		if (nama != null && nama.startsWith("Cakupan")) return "Menentukan apakah biaya berlaku umum atau khusus untuk mahasiswa ini.";
+		if ("Semester".equals(nama)) return "Memastikan semester berada dalam rentang minimum dan maksimum biaya.";
+		if ("Angkatan".equals(nama)) return "Mencocokkan tahun masuk mahasiswa dengan angkatan pada Setting Biaya.";
+		if ("Jenjang".equals(nama)) return "Mencocokkan jenjang pendidikan; nilai Semua/null berarti lintas jenjang.";
+		if ("Status awal".equals(nama)) return "Membedakan mahasiswa baru, pindahan, beasiswa, atau status awal lainnya.";
+		if ("Status mahasiswa".equals(nama)) return "Memastikan status akademik mahasiswa memenuhi aturan biaya.";
+		if ("Jenis seleksi".equals(nama)) return "Mencocokkan jalur penerimaan yang dapat mempunyai tarif berbeda.";
+		if ("Gelombang".equals(nama)) return "Mencocokkan gelombang pendaftaran mahasiswa.";
+		if ("Paket".equals(nama)) return "Mencocokkan paket PMB asal mahasiswa yang menentukan kelompok biaya.";
+		if ("Program".equals(nama)) return "Mencocokkan program atau jenis kuliah, misalnya reguler/karyawan.";
+		if ("Prodi/Jurusan".equals(nama)) return "Mencocokkan program studi aktif mahasiswa.";
+		if ("Jenis kelamin".equals(nama)) return "Menerapkan tarif khusus jenis kelamin bila memang dikonfigurasi.";
+		if ("Afiliasi".equals(nama)) return "Mencocokkan afiliasi mahasiswa; kosong berarti tidak dibatasi.";
+		return "Kriteria produksi yang ikut menentukan sumber tagihan.";
+	}
+
 	private void tampilkanJendelaAnalisisTagihan(List<TahapAnalisisTagihan> tahap, String rekomendasi,
 			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, final int smt,
 			AnalisisHilirTagihanLama hilir, List<SettingBiaya> kandidatSumber) throws InterruptedException {
@@ -2656,8 +2704,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		 * scrollbar. Div blok dengan tinggi maksimum membuat seluruh hasil terjangkau. */
 		org.zkoss.zul.Div isi = new org.zkoss.zul.Div();
 		isi.setWidth("100%");
-		isi.setStyle("height:calc(100% - 62px);max-height:calc(82vh - 90px);overflow-y:auto;overflow-x:auto;"
-				+ "padding:12px;box-sizing:border-box;position:relative;");
+		isi.setStyle("height:calc(82vh - 145px);max-height:calc(82vh - 145px);min-height:260px;"
+				+ "overflow-y:scroll;overflow-x:auto;padding:12px 12px 64px 12px;box-sizing:border-box;position:relative;");
 		isi.setParent(window);
 		StringBuffer html = new StringBuffer();
 		String tindakanUtama = tindakanUtamaAnalisisTagihan(tahap, settingKhususMahasiswa,
@@ -2670,20 +2718,22 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.append(" &nbsp;|&nbsp; Semester: ").append(smt)
 				.append(" &nbsp;|&nbsp; Angkatan: ").append(mahasiswa.getTahunangkatan()).append("</div>")
 				.append("<p>Query diuji dua arah: dimasukkan berurutan dan dilewati satu per satu. Nilai pada kolom <b>Jika dilewati</b> yang berubah menjadi lebih dari nol membuktikan kriteria tersebut sebagai penyebab utama.</p>")
-				.append("<table style='width:100%;border-collapse:collapse;font-size:12px'>")
-				.append("<tr style='background:#e5e7eb'><th style='padding:7px;border:1px solid #d1d5db'>No.</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Kriteria yang ditambahkan</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Nilai mahasiswa</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db'>Kandidat tersisa</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db'>Jika dilewati</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Data tersedia saat gagal</th>")
-				.append("<th style='padding:7px;border:1px solid #d1d5db'>Status</th></tr>");
+				.append("<table style='width:100%;min-width:1240px;border-collapse:collapse;font-size:12px'>")
+				.append("<tr style='background:#e5e7eb'><th title='Urutan pemeriksaan query' style='padding:7px;border:1px solid #d1d5db'>No.</th>")
+				.append("<th title='Syarat Setting Biaya yang sedang diuji' style='padding:7px;border:1px solid #d1d5db;text-align:left'>Kriteria yang ditambahkan</th>")
+				.append("<th title='Nilai nyata milik mahasiswa' style='padding:7px;border:1px solid #d1d5db;text-align:left'>Nilai mahasiswa</th>")
+				.append("<th title='Jumlah Setting Biaya yang masih cocok setelah syarat diterapkan' style='padding:7px;border:1px solid #d1d5db'>Kandidat tersisa</th>")
+				.append("<th title='Jumlah kandidat jika hanya syarat pada baris ini diabaikan' style='padding:7px;border:1px solid #d1d5db'>Jika dilewati</th>")
+				.append("<th title='Pilihan nilai yang ditemukan sebelum query menjadi kosong' style='padding:7px;border:1px solid #d1d5db;text-align:left'>Data tersedia saat gagal</th>")
+				.append("<th title='Kesimpulan kecocokan atau titik penyebab' style='padding:7px;border:1px solid #d1d5db'>Status</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left;min-width:320px'>Keterangan Pintar</th></tr>");
 		for (int i = 0; i < tahap.size(); i++) {
 			TahapAnalisisTagihan t = tahap.get(i);
 			String bg = t.gagalPertama ? "#fee2e2" : (t.jumlah > 0 ? "#f0fdf4" : "#f9fafb");
 			boolean terbukti = kandidatAkhir == 0 && t.jumlahJikaDilewati > 0;
 			String status = terbukti ? "&#9888; PENYEBAB TERBUKTI"
 					: (t.gagalPertama ? "&#10060; TITIK GAGAL" : (t.jumlah > 0 ? "&#10004; Cocok" : "- Tetap kosong"));
+			String keteranganPintar = keteranganPintarTahapLama(t, kandidatAkhir);
 			html.append("<tr style='background:").append(bg).append("'><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
 					.append(i + 1).append("</td><td style='padding:6px;border:1px solid #d1d5db'><b>")
 					.append(escHtmlTagihan(t.nama)).append("</b></td><td style='padding:6px;border:1px solid #d1d5db'>")
@@ -2692,7 +2742,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					.append(t.criterion == null ? "-" : String.valueOf(t.jumlahJikaDilewati))
 					.append("</td><td style='padding:6px;border:1px solid #d1d5db'>")
 					.append(escHtmlTagihan(t.nilaiTersedia)).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
-					.append(status).append("</td></tr>");
+					.append(status).append("</td><td style='padding:6px;border:1px solid #d1d5db;line-height:1.45'>")
+					.append(escHtmlTagihan(keteranganPintar)).append("</td></tr>");
 		}
 		html.append("</table>")
 				.append(htmlAnalisisHilirTagihanLama(hilir))
@@ -2779,6 +2830,10 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				+ "&searchJenisKegiatan=" + (jenisKegiatan == null || jenisKegiatan.getId() == null
 						? -1 : jenisKegiatan.getId())
 				+ "&searchPaket=" + (paket == null || paket.getId() == null ? -1 : paket.getId())
+				+ "&searchJenisSeleksi=" + (mahasiswa.getJenisSeleksi() == null ? -1
+						: mahasiswa.getJenisSeleksi().getId())
+				+ "&searchGelombangPendaftaran=" + (mahasiswa.getGelombangPendaftaran() == null ? -1
+						: mahasiswa.getGelombangPendaftaran().getId())
 				+ "&autoBukaRencanaAngsuran=1";
 	}
 

@@ -329,6 +329,14 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				Konfigurasi.TIDAK_AKTIF, "-1", "", "");
 		Konfigurasi konfigurasiTambahan3 = Common.getKonfigurasi("tambah_dan_aktifkan_filter_ke_3_paramater_tambahan",
 				Konfigurasi.TIDAK_AKTIF, "-1", "", "");
+		/* ZUL menampilkan komponen secara default. Mulai dari keadaan tersembunyi agar
+		 * kotak tanpa label tidak muncul ketika tidak ada konfigurasi parameter. */
+		labelTambahan1.setVisible(false);
+		searchTambahan1.setVisible(false);
+		labelTambahan2.setVisible(false);
+		searchTambahan2.setVisible(false);
+		labelTambahan3.setVisible(false);
+		searchTambahan3.setVisible(false);
 
 		if (konfigurasiTambahan1.getNilai().equals(Konfigurasi.AKTIF)
 				|| konfigurasiTambahan2.getNilai().equals(Konfigurasi.AKTIF)
@@ -342,6 +350,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						.createCriteria(ParameterTambahan.class)
 						.add(Restrictions.idEq(Long.parseLong(konfigurasiTambahan1.getInfo1().trim()))).uniqueResult();
 				if (parameterTambahan1 != null) {
+					labelTambahan1.setVisible(true);
+					searchTambahan1.setVisible(true);
 					labelTambahan1.setValue(parameterTambahan1.getLabelInputan());
 					String[] ss = StringUtils.split(parameterTambahan1.getNilaiDataInputan(), ";");
 					Arrays.sort(ss);
@@ -369,6 +379,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						.createCriteria(ParameterTambahan.class)
 						.add(Restrictions.idEq(Long.parseLong(konfigurasiTambahan2.getInfo1().trim()))).uniqueResult();
 				if (parameterTambahan2 != null) {
+					labelTambahan2.setVisible(true);
+					searchTambahan2.setVisible(true);
 					labelTambahan2.setValue(parameterTambahan2.getLabelInputan());
 					String[] ss = StringUtils.split(parameterTambahan2.getNilaiDataInputan(), ";");
 					Arrays.sort(ss);
@@ -396,6 +408,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						.createCriteria(ParameterTambahan.class)
 						.add(Restrictions.idEq(Long.parseLong(konfigurasiTambahan3.getInfo1().trim()))).uniqueResult();
 				if (parameterTambahan3 != null) {
+					labelTambahan3.setVisible(true);
+					searchTambahan3.setVisible(true);
 					labelTambahan3.setValue(parameterTambahan3.getLabelInputan());
 					String[] ss = StringUtils.split(parameterTambahan3.getNilaiDataInputan(), ";");
 					Arrays.sort(ss);
@@ -928,6 +942,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			if (jenisKegiatan != null) {
 				Common.selectComboItem(true, searchJenisKegiatan, jenisKegiatan);
 				searchJenisKegiatan.setDisabled(true);
+				/* Pemilihan melalui parameter URL tidak memicu onChange. Terapkan ulang
+				 * visibilitas filter agar Jenis Seleksi, Paket dan Gelombang langsung
+				 * muncul untuk Daftar Ulang Mahasiswa Baru/Calon Mahasiswa. */
+				activatedJenisSeleksi();
 			}
 		}
 		if (execution.getParameter("searchStatusMahasiswa") != null) {
@@ -959,6 +977,25 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			if (paket != null) {
 				Common.selectComboItem(true, searchPaket, paket);
 				searchPaket.setDisabled(true);
+			}
+		}
+		if (execution.getParameter("searchJenisSeleksi") != null) {
+			JenisSeleksi jenisSeleksi = (JenisSeleksi) ConstantValues.ambil(JenisSeleksi.class.getName(),
+					Long.parseLong(execution.getParameter("searchJenisSeleksi")));
+			if (jenisSeleksi != null) {
+				Common.selectComboItem(true, searchJenisSeleksi, jenisSeleksi);
+				searchJenisSeleksi.setDisabled(true);
+			}
+		}
+		if (execution.getParameter("searchGelombangPendaftaran") != null) {
+			GelombangPendaftaran gelombang = (GelombangPendaftaran) ConstantValues.ambil(
+					GelombangPendaftaran.class.getName(),
+					Long.parseLong(execution.getParameter("searchGelombangPendaftaran")));
+			if (gelombang != null && searchGelombangPendaftaran.isVisible()) {
+				Common.selectComboItem(true, searchGelombangPendaftaran, gelombang);
+				/* Jangan disabled: logika pencarian lama menganggap combo Gelombang yang
+				 * disabled sebagai filter null. Readonly sudah cukup mencegah input bebas. */
+				searchGelombangPendaftaran.setDisabled(false);
 			}
 		}
 
