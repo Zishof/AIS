@@ -549,7 +549,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("poDp").value = Number(poAktif.dp) || 0;
       el("poBertermin").checked = poAktif.byTermin === true;
       baris = (d.detail || []).map(function(x){
-        return { barang_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah),
+        return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah),
                  harga: angka(x.hargaBeli), pr_detail_id: x.pr_detail_id || null };
       });
       termin = (d.termin || []).map(function(x){
@@ -589,7 +589,8 @@ String rnd = Common.getGeneratedBarCode(7);
       dp: bertermin ? 0 : angka(el("poDp").value),
       byTermin: bertermin,
       detail: baris.map(function(b){
-        var o = { master_asset_id: b.barang_id, jumlah: b.jumlah, hargaBeli: b.harga };
+        var o = { jumlah: b.jumlah, hargaBeli: b.harga };
+        if (b.barang_id) o.produk_id = b.barang_id; else o.master_asset_id = b.master_asset_id;
         if (b.pr_detail_id) o.pr_detail_id = b.pr_detail_id;
         return o;
       })
@@ -659,7 +660,7 @@ String rnd = Common.getGeneratedBarCode(7);
     });
   };
   window["poPilihBarang" + RND] = function(id, nama){
-    baris.push({ barang_id:id, nama:nama, jumlah:1, harga:0, pr_detail_id:null });
+    baris.push({ barang_id:id, master_asset_id:null, nama:nama, jumlah:1, harga:0, pr_detail_id:null });
     renderBaris(false);
     bootstrap.Modal.getInstance(document.getElementById("poBarangModal" + RND)).hide();
   };
@@ -727,7 +728,7 @@ String rnd = Common.getGeneratedBarCode(7);
       kosongkanForm();
       el("poKeterangan").value = d.keterangan || "";
       baris = isian.map(function(x){
-        return { barang_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah),
+        return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah),
                  harga: angka(x.hargaBeli), pr_detail_id: x.pr_detail_id || null };
       });
       bukaForm(false, "Buat PO dari " + (d.pr_kode || "PR"), "");

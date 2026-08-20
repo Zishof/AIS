@@ -226,56 +226,104 @@ public class BantuanGlobalHook implements UiLifeCycle {
 		return false;
 	}
 
-	/** Bangun tombol Bantuan mengambang (belum dipasang ke parent/page). */
+	/** Gaya satu baris menu di dalam panel kebab. */
+	private static final String GAYA_ITEM =
+			"cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:#0f172a;"
+			+ "display:flex;align-items:center;white-space:nowrap;";
+
+	/** Satu baris menu: ikon, label, dan aksinya. */
+	private static Div itemMenu(Div panel, String ikon, String label, String tooltip, EventListener aksi) {
+		Div item = new Div();
+		item.setStyle(GAYA_ITEM);
+		item.setTooltiptext(tooltip);
+		new Html("<span style='font-size:15px;line-height:1;width:18px;text-align:center;'>" + ikon
+				+ "</span><span style='margin-left:10px;'>" + label + "</span>").setParent(item);
+		item.addEventListener("onClick", aksi);
+		item.setParent(panel);
+		return item;
+	}
+
+	/**
+	 * Bangun tombol Bantuan mengambang berbentuk KEBAB (belum dipasang ke parent/page).
+	 *
+	 * <p><b>Kenapa kebab.</b> Sebelumnya tiga tombol pil ditumpuk vertikal mulai
+	 * {@code bottom:78px}, sehingga kolomnya membentang sampai sekitar 199px. Tombol
+	 * mengambang lain di aplikasi ini menempati sudut yang sama -- {@code TicketFabHook}
+	 * ada di {@code bottom:138px}, tepat di tengah kolom itu -- sehingga keduanya
+	 * bertindih. Dengan satu tombol bulat 48px pada {@code bottom:78px} (tepi atas 126px),
+	 * sudut kanan-bawah hanya terpakai satu slot dan tumpang tindih itu hilang.</p>
+	 *
+	 * <p>Panel menunya komponen ZK biasa yang disembunyikan/ditampilkan lewat
+	 * {@code setVisible}, BUKAN JavaScript: isi yang disisipkan ZK lewat innerHTML tidak
+	 * pernah menjalankan {@code <script>}, jadi peralihan tampil-sembunyi dikerjakan di
+	 * sisi server seperti komponen ZK lainnya.</p>
+	 */
 	private static Div buatFab(final String key, boolean sertakanBantuan) {
 		final Div wrapper = new Div();
 		wrapper.setSclass("kb-fab-global");
-		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;display:flex;"
-				+ "flex-direction:column;align-items:flex-end;gap:8px;font-family:'Segoe UI',Arial,sans-serif;");
+		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;"
+				+ "font-family:'Segoe UI',Arial,sans-serif;");
 
-		final Div qa = new Div();
-		qa.setStyle("cursor:pointer;background:#15803d;color:#ffffff;border-radius:22px;padding:9px 15px;"
-				+ "box-shadow:0 4px 14px rgba(21,128,61,.35);font-size:13px;font-weight:600;");
-		qa.setTooltiptext("Tanya jawab lengkap sesuai halaman ini");
-		new Html("<span style='font-size:15px;line-height:1;'>&#128172;</span><span style='margin-left:6px;'>Tanya Jawab</span>").setParent(qa);
-		qa.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				BantuanHelper.tampilkanTanyaJawabDariResource(qa, key, "Tanya Jawab");
-			}
-		});
-		qa.setParent(wrapper);
+		// Panel menu, tersembunyi sampai tombol ditekan. Diposisikan absolut TERHADAP
+		// wrapper sehingga tidak menambah tinggi slot saat tertutup.
+		final Div panel = new Div();
+		panel.setVisible(false);
+		panel.setStyle("position:absolute;right:0;bottom:60px;min-width:224px;background:#ffffff;"
+				+ "border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;"
+				+ "box-shadow:0 14px 38px rgba(15,23,42,.20);");
+		panel.setParent(wrapper);
+
+		new Html("<div style='padding:9px 14px 7px;font-size:11px;letter-spacing:.06em;"
+				+ "text-transform:uppercase;color:#64748b;background:#f8fafc;"
+				+ "border-bottom:1px solid #eef2f7;'>Bantuan</div>").setParent(panel);
 
 		if (sertakanBantuan) {
-			final Div bantuan = new Div();
-			bantuan.setStyle("cursor:pointer;background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
-					+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;");
-			bantuan.setTooltiptext("Panduan modul yang sedang Anda buka");
-			new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span style='margin-left:6px;'>Bantuan Halaman Ini</span>").setParent(bantuan);
-			bantuan.addEventListener("onClick", new EventListener() {
-				@Override
-				public void onEvent(Event event) throws Exception {
-					BantuanHelper.tampilkanDariResource(bantuan, key, "Bantuan");
-				}
-			});
-			bantuan.setParent(wrapper);
+			final Div[] pemicu = new Div[1];
+			pemicu[0] = itemMenu(panel, "&#128214;", "Bantuan Halaman Ini",
+					"Panduan modul yang sedang Anda buka", new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							panel.setVisible(false);
+							BantuanHelper.tampilkanDariResource(pemicu[0], key, "Bantuan");
+						}
+					});
+
+			final Div[] pemicuQa = new Div[1];
+			pemicuQa[0] = itemMenu(panel, "&#128172;", "Tanya Jawab",
+					"Tanya jawab lengkap sesuai halaman ini", new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							panel.setVisible(false);
+							BantuanHelper.tampilkanTanyaJawabDariResource(pemicuQa[0], key, "Tanya Jawab");
+						}
+					});
 		}
 
-		// Pusat Panduan selalu ikut: panduan menurut peran pengguna, tidak bergantung
-		// pada tersedianya panduan khusus halaman ini.
-		final Div pusat = new Div();
-		pusat.setStyle("cursor:pointer;background:#0f766e;color:#ffffff;border-radius:22px;padding:9px 15px;"
-				+ "box-shadow:0 4px 14px rgba(15,118,110,.35);font-size:13px;font-weight:600;");
-		pusat.setTooltiptext("Daftar seluruh panduan: menurut peran dan per modul");
-		new Html("<span style='font-size:15px;line-height:1;'>&#128218;</span>"
-				+ "<span style='margin-left:6px;'>Semua Panduan</span>").setParent(pusat);
-		pusat.addEventListener("onClick", new EventListener() {
+		// Pusat Panduan selalu ikut: seluruh panduan menurut peran dan per modul,
+		// tidak bergantung pada tersedianya panduan khusus halaman ini.
+		final Div[] pemicuPusat = new Div[1];
+		pemicuPusat[0] = itemMenu(panel, "&#128218;", "Semua Panduan",
+				"Daftar seluruh panduan: menurut peran dan per modul", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						panel.setVisible(false);
+						BantuanHelper.tampilkanDariResource(pemicuPusat[0], "panduan", "Pusat Panduan");
+					}
+				});
+
+		final Div tombol = new Div();
+		tombol.setStyle("width:48px;height:48px;border-radius:50%;cursor:pointer;background:#1d4ed8;"
+				+ "color:#ffffff;font-size:20px;font-weight:700;line-height:48px;text-align:center;"
+				+ "box-shadow:0 6px 18px rgba(29,78,216,.38);");
+		tombol.setTooltiptext("Bantuan");
+		new Html("?").setParent(tombol);
+		tombol.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				BantuanHelper.tampilkanDariResource(pusat, "panduan", "Pusat Panduan");
+				panel.setVisible(!panel.isVisible());
 			}
 		});
-		pusat.setParent(wrapper);
+		tombol.setParent(wrapper);
 
 		return wrapper;
 	}

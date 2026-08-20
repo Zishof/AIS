@@ -856,11 +856,13 @@ String appendParams = (queryString != null && !queryString.isEmpty()) ? "?" + qu
         .sticky-cta-floating {
             position: fixed;
             right: 16px;
-            /* Ditumpuk di atas tombol "Tanya Jawab" (bantuan_button.jsp: right:16px;
-               bottom:62px, tinggi ~33px -> tepi atas ~95px) supaya tidak bertindih.
-               90px sebelumnya masih tumpang tindih krn tombol ini sendiri lebih
-               tinggi (~48px) dan box-shadow-nya melebar ke bawah. */
-            bottom: 122px;
+            /* Ditempatkan di atas tombol bantuan. Sejak bantuan_button.jsp memakai
+               bentuk kebab, sudut kanan-bawah hanya terpakai SATU tombol bulat 48px
+               pada bottom:16px, jadi tepi atasnya di 64px. 80px memberi jarak 16px
+               di atas garis itu. Sebelumnya 122px, ketika masih ada tiga tombol pil
+               bertumpuk -- dan pada praktiknya tetap bertindih dengan tombol paling
+               atas ("Semua Panduan", bottom:108px, tepi atas ~141px). */
+            bottom: 80px;
             z-index: 1060;
             display: flex;
             align-items: center;

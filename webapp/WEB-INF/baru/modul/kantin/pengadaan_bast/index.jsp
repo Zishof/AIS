@@ -440,7 +440,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("bsTglTagihan").value = keIsoTgl(bsAktif.tanggalTagihan || "");
       el("bsKurir").value = bsAktif.kurir || "";
       baris = (d.detail || []).map(function(x){
-        return { barang_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
+        return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
                  harga: angka(x.hargaBeli), potongan: 0, ppn: 0,
                  po_detail_id: x.po_detail_id || null,
                  sisaBoleh: (x.sisaBolehDiterima === null || x.sisaBolehDiterima === undefined)
@@ -469,9 +469,10 @@ String rnd = Common.getGeneratedBarCode(7);
       tanggalTagihan: keTampilan(el("bsTglTagihan").value),
       kurir: el("bsKurir").value.trim(),
       detail: baris.map(function(b){
-        var o = { master_asset_id: b.barang_id, diterima: angka(b.diterima),
+        var o = { diterima: angka(b.diterima),
                   hargaBeli: angka(b.harga), hargaPotongan: angka(b.potongan),
                   diskonPersen: diskonPersen(), persenPpn: angka(b.ppn), persenPph: 0 };
+        if (b.barang_id) o.produk_id = b.barang_id; else o.master_asset_id = b.master_asset_id;
         if (b.po_detail_id) o.po_detail_id = b.po_detail_id;
         return o;
       })
@@ -528,7 +529,7 @@ String rnd = Common.getGeneratedBarCode(7);
     });
   };
   window["bsPilihBarang" + RND] = function(id, nama){
-    baris.push({ barang_id:id, nama:nama, diterima:1, harga:0, potongan:0, ppn:0,
+    baris.push({ barang_id:id, master_asset_id:null, nama:nama, diterima:1, harga:0, potongan:0, ppn:0,
                  po_detail_id:null, sisaBoleh:null });
     renderBaris(false);
     bootstrap.Modal.getInstance(document.getElementById("bsBarangModal" + RND)).hide();
@@ -601,7 +602,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("bsPenyediaNama").value = d.penyedia || "";
       el("bsKeterangan").value = d.keterangan || "";
       baris = isian.map(function(x){
-        return { barang_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
+        return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
                  harga: angka(x.hargaBeli), potongan: 0, ppn: 0,
                  po_detail_id: x.po_detail_id || null,
                  sisaBoleh: Number(x.sisaBolehDiterima) };

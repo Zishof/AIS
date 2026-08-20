@@ -348,6 +348,9 @@ public final class PengadaanPosApiHelper {
 				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				// Alias "produk": layar JSP menamai kolom ini demikian. Disediakan server agar
+				// kedua penamaan sah dan nama barang tidak pernah tampil kosong.
+				o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null ? "" : (d.getMasterAsset().getKode() == null ? "" : d.getMasterAsset().getKode()));
 				o.put("jumlah", d.getJumlah() == null ? 0 : d.getJumlah());
 				o.put("hargaBeli", d.getHargaBeli() == null ? 0 : d.getHargaBeli());
@@ -1033,6 +1036,9 @@ public final class PengadaanPosApiHelper {
 				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				// Alias "produk": layar JSP menamai kolom ini demikian. Disediakan server agar
+				// kedua penamaan sah dan nama barang tidak pernah tampil kosong.
+				o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
 						: d.getMasterAsset().getKode());
 				o.put("jumlah", d.getJumlah() == null ? 0 : d.getJumlah());
@@ -1573,6 +1579,9 @@ public final class PengadaanPosApiHelper {
 				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				// Alias "produk": layar JSP menamai kolom ini demikian. Disediakan server agar
+				// kedua penamaan sah dan nama barang tidak pernah tampil kosong.
+				o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
 						: d.getMasterAsset().getKode());
 				o.put("jumlahDiminta", diminta);
@@ -1832,6 +1841,9 @@ public final class PengadaanPosApiHelper {
 				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				// Alias "produk": layar JSP menamai kolom ini demikian. Disediakan server agar
+				// kedua penamaan sah dan nama barang tidak pernah tampil kosong.
+				o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
 						: d.getMasterAsset().getKode());
 				o.put("jumlahDipesan", dipesan);
@@ -2250,6 +2262,9 @@ public final class PengadaanPosApiHelper {
 				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				// Alias "produk": layar JSP menamai kolom ini demikian. Disediakan server agar
+				// kedua penamaan sah dan nama barang tidak pernah tampil kosong.
+				o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
 						: d.getMasterAsset().getKode());
 				o.put("jumlahDipesan", dipesan);
