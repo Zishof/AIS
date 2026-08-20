@@ -82,6 +82,12 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
+
+<%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
+<jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
+  <jsp:param name="tahap" value="bdp"/>
+</jsp:include>
+
 <script>
 (function(){
   var RND = "<%=rnd%>";

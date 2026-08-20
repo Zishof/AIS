@@ -174,6 +174,12 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
   </div>
 </div>
 
+
+<%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
+<jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
+  <jsp:param name="tahap" value="pr"/>
+</jsp:include>
+
 <script>
 (function(){
   var RND = "<%=rnd%>";
