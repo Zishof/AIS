@@ -30,6 +30,8 @@ import ais.ui.util.MyPortalchildren;
 import ais.ui.util.MyPortallayout;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Comboitem;
+import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Filedownload;
@@ -2117,6 +2119,195 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		return ais.action.master.helper.KegiatanPersistenceHelper.hitungTagihanSegarKonsisten(k);
 	}
 
+	/**
+	 * Teks kolom "Tahun Akademik / Smt": tahun akademik ditambah semesternya.
+	 *
+	 * <p>Kolom "Smt" yang berdiri sendiri sudah dihapus, tetapi semesternya tetap harus
+	 * terbaca -- pada satu mahasiswa lazim ada beberapa baris dengan tahun akademik yang
+	 * SAMA yang hanya dibedakan oleh semester (mis. 2024/2025 semester 1 dan 2). Tanpa
+	 * penanda ini baris-baris itu terlihat identik kecuali nominalnya.</p>
+	 *
+	 * <p>Sengaja hanya memakai karakter ASCII agar tampilannya tidak bergantung pada
+	 * charset yang dipakai saat kompilasi.</p>
+	 *
+	 * <p>Catatan kontrak: {@code Kegiatan.getSemster()} TIDAK PERNAH mengembalikan null
+	 * -- nilai null diubah menjadi 0, dan kegiatan "Pendaftaran Calon Mahasiswa" dipaksa
+	 * ke 0. Jadi semester 0 adalah nilai yang SAH dan tetap ditampilkan, persis seperti
+	 * kolom "Smt" lama yang menampilkan angka 0 pada baris pendaftaran. Pemeriksaan null
+	 * di bawah dipertahankan hanya sebagai pengaman bila kontrak itu berubah.</p>
+	 */
+	static String tahunAkademikDenganSemester(Kegiatan kegiatan) {
+		if (kegiatan == null) {
+			return "";
+		}
+		String tahun = kegiatan.getTahunAkademik() == null ? "" : kegiatan.getTahunAkademik().trim();
+		Integer smt = null;
+		try {
+			smt = kegiatan.getSemster();
+		} catch (Exception e) {
+			smt = null;
+		}
+		if (smt == null) {
+			return tahun;
+		}
+		if (tahun.length() == 0) {
+			return "Smt " + smt;
+		}
+		return tahun + " (Smt " + smt + ")";
+	}
+
+	/** Pilihan rentang semester pada panel "Daftar Pembayaran Keseluruhan". */
+	private Combobox cmbSmtMulai;
+	private Combobox cmbSmtSampai;
+
+	/**
+	 * Semester yang sedang berjalan bagi mahasiswa ini, atau {@code null} bila tidak
+	 * dapat ditentukan (mis. calon mahasiswa yang belum punya riwayat semester).
+	 */
+	private Integer smtBerjalanMahasiswa() {
+		try {
+			if (calMhs == null && mahasiswa != null) {
+				Integer sb = mahasiswa.currentSemester();
+				if (sb != null && sb.intValue() > 0) {
+					return sb;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"smtBerjalanMahasiswa src/ais/action/master/InformasiPembayaranMahasiswaAction.java");
+		}
+		return null;
+	}
+
+	private Integer nilaiSemesterTerpilih(Combobox cmb) {
+		try {
+			if (cmb != null && cmb.getSelectedItem() != null) {
+				Object v = cmb.getSelectedItem().getValue();
+				if (v instanceof Integer) {
+					return (Integer) v;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"nilaiSemesterTerpilih src/ais/action/master/InformasiPembayaranMahasiswaAction.java");
+		}
+		return null;
+	}
+
+	/** Batas bawah rentang; {@code null} berarti tanpa batas bawah. */
+	private Integer smtFilterMulai() {
+		return nilaiSemesterTerpilih(cmbSmtMulai);
+	}
+
+	/** Batas atas rentang; {@code null} berarti tanpa batas atas (pilihan "Semua"). */
+	private Integer smtFilterSampai() {
+		return nilaiSemesterTerpilih(cmbSmtSampai);
+	}
+
+	/** Satu combobox angka semester; nilai tiap item berupa Integer, kecuali "Semua" = null. */
+	private Combobox comboSemester(Component induk, int maks, Integer terpilih, boolean pakaiSemua) {
+		Combobox cmb = new Combobox();
+		cmb.setReadonly(true);
+		cmb.setWidth("84px");
+		cmb.setParent(induk);
+
+		Comboitem itemTerpilih = null;
+		if (pakaiSemua) {
+			Comboitem semua = new MyComboitemConfig("Semua");
+			semua.setValue(null);
+			semua.setParent(cmb);
+			if (terpilih == null) {
+				itemTerpilih = semua;
+			}
+		}
+		for (int i = 0; i <= maks; i++) {
+			Comboitem it = new MyComboitemConfig(String.valueOf(i));
+			it.setValue(Integer.valueOf(i));
+			it.setParent(cmb);
+			if (terpilih != null && terpilih.intValue() == i) {
+				itemTerpilih = it;
+			}
+		}
+		if (itemTerpilih != null) {
+			cmb.setSelectedItem(itemTerpilih);
+		}
+		return cmb;
+	}
+
+	/**
+	 * Pasang filter rentang semester tepat DI ATAS grid "Daftar Pembayaran Keseluruhan".
+	 *
+	 * <p>Bawaannya <b>semester 0 sampai semester berjalan</b>, yaitu persis apa yang sudah
+	 * tampil sebelum filter ini ada -- pengguna yang tidak menyentuhnya tidak melihat
+	 * perubahan apa pun. Pilihan semester disediakan MELEBIHI semester berjalan supaya
+	 * tagihan yang sudah terbentuk untuk semester mendatang bisa dilihat lebih awal;
+	 * penyaringnya sendiri sudah ada di {@link #loadKegiatan(boolean, Integer, Integer)},
+	 * dan penjaga "semester masa depan" di sana mengalah hanya bila rentangnya dipilih
+	 * secara sengaja.</p>
+	 *
+	 * <p>Perubahan pilihan memuat ulang dengan {@code refresh=false}: cukup menyaring ulang
+	 * kegiatan yang sudah diambil, tanpa perjalanan bolak-balik ke basis data.</p>
+	 */
+	private void pasangFilterSemester(Component induk, boolean refresh) {
+		try {
+			if (induk == null) {
+				return;
+			}
+			Integer berjalan = smtBerjalanMahasiswa();
+			int maks = berjalan == null ? 14 : berjalan.intValue() + 4;
+			if (maks < 14) {
+				maks = 14;
+			}
+			if (maks > 24) {
+				maks = 24;
+			}
+
+			Div bar = new Div();
+			bar.setStyle("display:flex;flex-wrap:wrap;align-items:center;gap:6px;"
+					+ "margin:8px 8px 0 8px;font-size:12px;color:#334155;");
+
+			Label lblJudul = new Label("Semester");
+			lblJudul.setStyle("font-weight:600;");
+			lblJudul.setParent(bar);
+
+			cmbSmtMulai = comboSemester(bar, maks, Integer.valueOf(0), false);
+			cmbSmtMulai.setTooltiptext("Semester awal yang ditampilkan");
+
+			new Label("s/d").setParent(bar);
+
+			cmbSmtSampai = comboSemester(bar, maks, berjalan, true);
+			cmbSmtSampai.setTooltiptext("Semester akhir yang ditampilkan. Boleh dipilih melebihi "
+					+ "semester berjalan untuk melihat tagihan semester mendatang.");
+
+			if (berjalan != null) {
+				Label lblKet = new Label("(semester berjalan: " + berjalan + ")");
+				lblKet.setStyle("color:#64748b;");
+				lblKet.setParent(bar);
+			}
+
+			EventListener saring = new EventListener() {
+				@Override
+				public void onEvent(Event ev) throws Exception {
+					// refresh=false: cukup saring ulang, jangan ambil ulang dari basis data.
+					loadKegiatan(false, smtFilterMulai(), smtFilterSampai());
+				}
+			};
+			cmbSmtMulai.addEventListener("onSelect", saring);
+			cmbSmtSampai.addEventListener("onSelect", saring);
+
+			// Grid sudah lebih dulu ditambahkan ke wadah ini, jadi bar disisipkan
+			// SEBELUM grid agar filternya berada di atas tabel, bukan di bawahnya.
+			if (fotoGrid != null && fotoGrid.getParent() == induk) {
+				induk.insertBefore(bar, fotoGrid);
+			} else {
+				bar.setParent(induk);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"pasangFilterSemester src/ais/action/master/InformasiPembayaranMahasiswaAction.java");
+		}
+	}
+
 	public void loadKegiatan(boolean refresh, Integer smtMulai, Integer smtSampai) throws Exception {
 		if (fotoGrid != null) {
 			// Muat baru → buang memoisasi "tagihan segar" agar tidak basi antar-muat.
@@ -2166,7 +2357,11 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 					// Tagihan semester masa depan belum boleh tampil sebelum semester itu
 					// menjadi semester berjalan. Data tidak dihapus agar tetap aman untuk audit;
 					// ketika waktunya tiba, baris akan muncul otomatis.
-					if (smtBerjalan != null && smt > smtBerjalan) {
+					// Pengecualian: bila pengguna SENGAJA memilih rentang sampai semester
+					// tertentu lewat filter di atas grid, semester dalam rentang itu tetap
+					// ditampilkan meski melewati semester berjalan. Tanpa filter
+					// (smtSampai == null) perilakunya persis seperti semula.
+					if (smtBerjalan != null && smt > smtBerjalan && (smtSampai == null || smt > smtSampai)) {
 						continue;
 					}
 
@@ -2266,14 +2461,15 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		column.setAlign("center");
 		column = new MyColumnConfig();
 		column.setParent(columns);
-		column.setLabel("Tahun Akademik");
+		column.setLabel("Tahun Akademik / Smt");
 		column.setAlign("center");
-		column.setWidth("18%");
-		column = new MyColumnConfig();
-		column.setParent(columns);
-		column.setLabel("Smt");
-		column.setAlign("center");
-		column.setWidth("5%");
+		// 18% + 5% bekas kolom "Smt": isinya kini lebih panjang ("2024/2025 (Smt 2)")
+		// sehingga butuh ruang bekas kolom yang dihapus agar tidak terbelah dua baris.
+		column.setWidth("23%");
+		// Kolom "Smt" DIHAPUS: rentang semester yang sedang ditampilkan kini dinyatakan
+		// oleh filter di atas grid, sehingga kolom sempit ini tidak lagi diperlukan.
+		// Sel padanannya di KegiatanRenderer.render() ikut dihapus -- keduanya HARUS
+		// selalu berubah bersamaan, kalau tidak seluruh kolom sesudahnya bergeser.
 		columnBulan = new MyColumnConfig();
 		columnBulan.setParent(columns);
 		columnBulan.setLabel("Bulan");
@@ -2299,7 +2495,12 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		column.setLabel("Cetak");
 		column.setWidth("8%");
 
-	    loadKegiatan(refresh, null, null);
+	    // Filter semester, dipasang TEPAT DI ATAS grid. Bawaannya semester 0 sampai
+	    // semester berjalan -- sama persis dengan yang tampil sebelum filter ini ada --
+	    // sehingga pengguna yang tidak menyentuhnya tidak melihat perubahan apa pun.
+	    pasangFilterSemester(listContainer, refresh);
+
+	    loadKegiatan(refresh, smtFilterMulai(), smtFilterSampai());
 
 	    // 2. Setup Panel Rincian Tagihan agar tidak error
 	    // Wrapper Panel agar mematuhi aturan MyPortalchildren
@@ -2647,8 +2848,10 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 							kegiatan.getJenisKegiatan() == null ? "" : kegiatan.getJenisKegiatan().getNamaKegiatan())
 					.setParent(arg0);
 
-			new Label(kegiatan.getTahunAkademik()).setParent(arg0);
-			new Label(kegiatan.getSemster() + "").setParent(arg0);
+			// Semester digabung ke sel tahun akademik: kolom "Smt" sendiri sudah dihapus,
+			// sedangkan semesternya tetap perlu terbaca -- beberapa baris berbagi tahun
+			// akademik yang sama dan hanya dibedakan oleh semesternya.
+			new Label(tahunAkademikDenganSemester(kegiatan)).setParent(arg0);
 			new Label(kegiatan.getBulan() == null ? "N/A" : kegiatan.getBulan().toString()).setParent(arg0);
 			if (!columnBulan.isVisible() && kegiatan.getBulan() != null) {
 				columnBulan.setVisible(true);

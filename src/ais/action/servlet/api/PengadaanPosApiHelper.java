@@ -23,6 +23,7 @@ import ais.database.model.asset.PemesananPengadaanMasterAssetDetail;
 import ais.database.model.asset.PenerimaanPengadaanMasterAsset;
 import ais.database.model.asset.PenerimaanPengadaanMasterAssetDetail;
 import ais.database.model.asset.PenyediaAsset;
+import ais.database.model.inventory.Produk;
 import ais.database.model.asset.PermintaanPengadaanMasterAsset;
 import ais.database.model.asset.PermintaanPengadaanMasterAssetDetail;
 import ais.database.model.inventory.Toko;
@@ -134,6 +135,99 @@ public final class PengadaanPosApiHelper {
 	 */
 	private static String buatKode(Session session, Long tokoId) {
 		return buatKodeUmum(session, PermintaanPengadaanMasterAsset.class, "PR", tokoId);
+	}
+
+
+	/**
+	 * Jembatan Produk POS ke MasterAsset.
+	 *
+	 * <p>Tabel pengadaan dipakai BERSAMA dengan JSP/ZKoss dan ber-FK ke {@code master_asset},
+	 * sedangkan pengguna toko memilih dari daftar Produk POS. Fungsi ini mencarikan padanan
+	 * MasterAsset untuk sebuah produk dan MENYIMPAN tautannya pada {@code produk.master_asset},
+	 * sehingga pemetaan terisi sendiri seiring pemakaian -- sekaligus menjadi jembatan yang
+	 * dibutuhkan sinkronisasi penerimaan ke Kulakan.</p>
+	 *
+	 * <p>Urutan pencarian: tautan yang sudah ada, lalu MasterAsset berkode sama, baru dibuat
+	 * baru. Pencocokan lewat kode dipakai supaya produk yang sudah punya padanan aset tidak
+	 * menghasilkan duplikat.</p>
+	 */
+	private static MasterAsset masterAssetUntukProduk(Session session, Produk produk) {
+		if (produk == null) {
+			return null;
+		}
+		if (produk.getMasterAsset() != null) {
+			return produk.getMasterAsset();
+		}
+		String kode = produk.getKode() == null ? "" : produk.getKode().trim();
+		MasterAsset padanan = null;
+		if (!kode.isEmpty()) {
+			padanan = (MasterAsset) session.createCriteria(MasterAsset.class)
+					.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+		}
+		if (padanan == null) {
+			padanan = new MasterAsset();
+			padanan.setKode(kode.isEmpty() ? null : kode);
+			padanan.setNama(produk.getNama() == null ? "(tanpa nama)" : produk.getNama());
+			// Produk POS tidak menyimpan satuan tersendiri, jadi unit dibiarkan kosong.
+			session.save(padanan);
+			session.flush();
+		}
+		produk.setMasterAsset(padanan);
+		session.saveOrUpdate(produk);
+		return padanan;
+	}
+
+	/**
+	 * Tentukan barang sebuah baris dokumen. Klien POS mengirim {@code produk_id};
+	 * {@code master_asset_id} tetap diterima sebagai jalur langsung untuk data lama
+	 * maupun barang inventaris yang memang tidak berpadanan produk toko.
+	 */
+	private static MasterAsset barangBaris(Session session, JSONObject baris) throws Exception {
+		if (baris == null) {
+			return null;
+		}
+		if (!baris.isNull("produk_id") && !(baris.get("produk_id") + "").trim().isEmpty()) {
+			Produk produk = (Produk) session.get(Produk.class,
+					Long.valueOf((baris.get("produk_id") + "").trim()));
+			return masterAssetUntukProduk(session, produk);
+		}
+		if (!baris.isNull("master_asset_id") && !(baris.get("master_asset_id") + "").trim().isEmpty()) {
+			return (MasterAsset) session.get(MasterAsset.class,
+					Long.valueOf((baris.get("master_asset_id") + "").trim()));
+		}
+		return null;
+	}
+
+	/**
+	 * Tentukan penyedia sebuah dokumen. Vendor pengadaan memakai master PENYEDIA ASET
+	 * ({@code asset.penyedia_asset}) -- daftar yang sama dengan versi ZKoss, sesuai keputusan
+	 * pemilik produk 2026-08-20. {@code penyedia_asset_id} diterima sebagai alias eksplisit.
+	 */
+	private static PenyediaAsset penyediaDokumen(Session session, JSONObject request) throws Exception {
+		if (request == null) {
+			return null;
+		}
+		String kunci = null;
+		if (!request.isNull("penyedia_id") && !(request.get("penyedia_id") + "").trim().isEmpty()) {
+			kunci = (request.get("penyedia_id") + "").trim();
+		} else if (!request.isNull("penyedia_asset_id")
+				&& !(request.get("penyedia_asset_id") + "").trim().isEmpty()) {
+			kunci = (request.get("penyedia_asset_id") + "").trim();
+		}
+		if (kunci == null) {
+			return null;
+		}
+		return (PenyediaAsset) session.get(PenyediaAsset.class, Long.valueOf(kunci));
+	}
+
+	/** Produk POS yang menunjuk sebuah MasterAsset -- dipakai agar layar dapat memuat ulang pilihan. */
+	private static Produk produkDariMasterAsset(Session session, MasterAsset aset) {
+		if (aset == null) {
+			return null;
+		}
+		return (Produk) session.createCriteria(Produk.class)
+				.add(Restrictions.eq("masterAsset.id", aset.getId()))
+				.setMaxResults(1).uniqueResult();
 	}
 
 	/**
@@ -250,6 +344,8 @@ public final class PengadaanPosApiHelper {
 			for (PermintaanPengadaanMasterAssetDetail d : baris) {
 				JSONObject o = new JSONObject();
 				o.put("id", d.getId());
+				Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null ? "" : (d.getMasterAsset().getKode() == null ? "" : d.getMasterAsset().getKode()));
@@ -357,16 +453,12 @@ public final class PengadaanPosApiHelper {
 			double total = 0;
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
-				if (b.isNull("master_asset_id")) {
-					continue;
-				}
-				MasterAsset barang = (MasterAsset) session.get(MasterAsset.class,
-						Long.valueOf((b.get("master_asset_id") + "").trim()));
+				MasterAsset barang = barangBaris(session, b);
 				if (barang == null) {
 					continue;
 				}
-				double jumlah = b.optDouble("jumlah", 0);
-				double harga = b.optDouble("hargaBeli", 0);
+				double jumlah = angkaAman(b, "jumlah");
+				double harga = angkaAman(b, "hargaBeli");
 				double sub = jumlah * harga;
 				PermintaanPengadaanMasterAssetDetail d = new PermintaanPengadaanMasterAssetDetail();
 				d.setPermintaanPengadaanMasterAsset(pr);
@@ -556,33 +648,43 @@ public final class PengadaanPosApiHelper {
 	 * sinkronisasi BAST ke Kulakan.
 	 */
 	public static void cariBarang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		// Pencarian barang dipakai layar PR maupun PO, jadi cukup salah satu menu aktif.
-		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)) {
+		// Pencarian barang dipakai layar PR, PO, maupun BAST, jadi cukup salah satu menu aktif.
+		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)
+				&& !bolehLihat(tbmuser, KUNCI_BAST)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
 		String q = request == null ? "" : request.optString("keyword", "").trim();
-		int limit = Math.min(100, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
+		int limit = Math.min(200, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
+		Long tokoId = tokoLingkup(tbmuser, request);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Criteria kriteria = session.createCriteria(MasterAsset.class);
+			// Pengguna toko memilih dari PRODUK POS; padanan MasterAsset dibuat/ditautkan
+			// server saat dokumen disimpan (lihat masterAssetUntukProduk).
+			Criteria kriteria = session.createCriteria(Produk.class);
+			kriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
 			if (q.length() > 0) {
-				kriteria.add(Restrictions.or(
-						Restrictions.ilike("kode", q, MatchMode.ANYWHERE),
-						Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
+				kriteria.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", q, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
 			}
 			kriteria.addOrder(Order.asc("nama"));
 			kriteria.setMaxResults(limit);
 			@SuppressWarnings("unchecked")
-			List<MasterAsset> daftar = kriteria.list();
+			List<Produk> daftar = kriteria.list();
 			JSONArray arr = new JSONArray();
-			for (MasterAsset m : daftar) {
+			for (Produk pr : daftar) {
 				JSONObject o = new JSONObject();
-				o.put("id", m.getId());
-				o.put("kode", m.getKode() == null ? "" : m.getKode());
-				o.put("nama", m.getNama() == null ? "" : m.getNama());
-				o.put("merk", m.getMerk() == null ? "" : m.getMerk());
-				o.put("satuan", m.getUnit() == null ? "" : m.getUnit());
+				o.put("produk_id", pr.getId());
+				o.put("id", pr.getId());
+				o.put("kode", pr.getKode() == null ? "" : pr.getKode());
+				o.put("nama", pr.getNama() == null ? "" : pr.getNama());
+				o.put("hargaBeli", pr.getHargaBeli() == null ? 0 : pr.getHargaBeli());
+				o.put("master_asset_id", pr.getMasterAsset() == null ? JSONObject.NULL
+						: pr.getMasterAsset().getId());
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -927,6 +1029,8 @@ public final class PengadaanPosApiHelper {
 			for (PemesananPengadaanMasterAssetDetail d : baris) {
 				JSONObject o = new JSONObject();
 				o.put("id", d.getId());
+				Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
@@ -1046,9 +1150,9 @@ public final class PengadaanPosApiHelper {
 			tolak(hasil, "Pemesanan Pembelian harus memiliki minimal satu baris barang.");
 			return;
 		}
-		Long penyediaId = (request.isNull("penyedia_id") || (request.get("penyedia_id") + "").trim().isEmpty())
-				? null : Long.valueOf((request.get("penyedia_id") + "").trim());
-		if (penyediaId == null) {
+		boolean adaPenyedia = (!request.isNull("penyedia_id") && !(request.get("penyedia_id") + "").trim().isEmpty())
+				|| (!request.isNull("penyedia_asset_id") && !(request.get("penyedia_asset_id") + "").trim().isEmpty());
+		if (!adaPenyedia) {
 			tolak(hasil, "Penyedia/vendor wajib dipilih pada Pemesanan Pembelian.");
 			return;
 		}
@@ -1087,7 +1191,7 @@ public final class PengadaanPosApiHelper {
 				po.setDibayar(Double.valueOf(0));
 				po.setLunas(Boolean.FALSE);
 			}
-			PenyediaAsset penyedia = (PenyediaAsset) session.get(PenyediaAsset.class, penyediaId);
+			PenyediaAsset penyedia = penyediaDokumen(session, request);
 			if (penyedia == null) {
 				tolak(hasil, "Penyedia/vendor tidak ditemukan.");
 				return;
@@ -1130,7 +1234,7 @@ public final class PengadaanPosApiHelper {
 			double totalRencana = 0;
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.optJSONObject(i);
-				if (b == null || b.isNull("master_asset_id")) {
+				if (b == null || (b.isNull("master_asset_id") && b.isNull("produk_id"))) {
 					continue;
 				}
 				totalRencana += angkaAman(b, "jumlah") * angkaAman(b, "hargaBeli");
@@ -1202,11 +1306,7 @@ public final class PengadaanPosApiHelper {
 			double total = 0;
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
-				if (b.isNull("master_asset_id")) {
-					continue;
-				}
-				MasterAsset barang = (MasterAsset) session.get(MasterAsset.class,
-						Long.valueOf((b.get("master_asset_id") + "").trim()));
+				MasterAsset barang = barangBaris(session, b);
 				if (barang == null) {
 					continue;
 				}
@@ -1469,6 +1569,8 @@ public final class PengadaanPosApiHelper {
 				double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
 				JSONObject o = new JSONObject();
 				o.put("pr_detail_id", d.getId());
+				Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
@@ -1519,31 +1621,32 @@ public final class PengadaanPosApiHelper {
 
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
 	public static void cariPenyedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser, KUNCI_PO)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_BAST)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
 		String q = request == null ? "" : request.optString("keyword", "").trim();
-		int limit = Math.min(100, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
+		int limit = Math.min(200, Math.max(5, request == null ? 50 : request.optInt("limit", 50)));
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Criteria kriteria = session.createCriteria(PenyediaAsset.class);
 			if (q.length() > 0) {
-				kriteria.add(Restrictions.or(
-						Restrictions.ilike("kode", q, MatchMode.ANYWHERE),
-						Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
+				kriteria.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", q, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("nama", q, MatchMode.ANYWHERE)));
 			}
 			kriteria.addOrder(Order.asc("nama"));
 			kriteria.setMaxResults(limit);
 			@SuppressWarnings("unchecked")
 			List<PenyediaAsset> daftar = kriteria.list();
 			JSONArray arr = new JSONArray();
-			for (PenyediaAsset p : daftar) {
+			for (PenyediaAsset v : daftar) {
 				JSONObject o = new JSONObject();
-				o.put("id", p.getId());
-				o.put("kode", p.getKode() == null ? "" : p.getKode());
-				o.put("nama", p.getNama() == null ? "" : p.getNama());
-				o.put("alamat", p.getAlamat() == null ? "" : p.getAlamat());
+				o.put("id", v.getId());
+				o.put("penyedia_id", v.getId());
+				o.put("kode", v.getKode() == null ? "" : v.getKode());
+				o.put("nama", v.getNama() == null ? "" : v.getNama());
+				o.put("alamat", v.getAlamat() == null ? "" : v.getAlamat());
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -1725,6 +1828,8 @@ public final class PengadaanPosApiHelper {
 				double lain = asal == null ? 0 : jumlahSudahDiterima(session, asal.getId(), bast.getId());
 				JSONObject o = new JSONObject();
 				o.put("id", d.getId());
+				Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
@@ -1827,9 +1932,11 @@ public final class PengadaanPosApiHelper {
 			bast.setTampaPemesanan(Boolean.valueOf(po == null));
 			if (po != null && po.getPenyedia() != null) {
 				bast.setPenyedia(po.getPenyedia());
-			} else if (!request.isNull("penyedia_id") && !(request.get("penyedia_id") + "").trim().isEmpty()) {
-				bast.setPenyedia((PenyediaAsset) session.get(PenyediaAsset.class,
-						Long.valueOf((request.get("penyedia_id") + "").trim())));
+			} else {
+				PenyediaAsset vendor = penyediaDokumen(session, request);
+				if (vendor != null) {
+					bast.setPenyedia(vendor);
+				}
 			}
 			if (tokoId != null) {
 				bast.setToko((Toko) session.get(Toko.class, tokoId));
@@ -1903,11 +2010,7 @@ public final class PengadaanPosApiHelper {
 			double total = 0;
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
-				if (b.isNull("master_asset_id")) {
-					continue;
-				}
-				MasterAsset barang = (MasterAsset) session.get(MasterAsset.class,
-						Long.valueOf((b.get("master_asset_id") + "").trim()));
+				MasterAsset barang = barangBaris(session, b);
 				if (barang == null) {
 					continue;
 				}
@@ -2143,6 +2246,8 @@ public final class PengadaanPosApiHelper {
 				double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
 				JSONObject o = new JSONObject();
 				o.put("po_detail_id", d.getId());
+				Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+				o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
 				o.put("master_asset_id", d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
 				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
 				o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
@@ -2423,6 +2528,125 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+
+	/**
+	 * Cocokkan baris tempelan/Excel ke Produk POS secara massal -- penopang bulk entry
+	 * PR/PO/BAST, sepadan dengan "Cek Produk Existing" pada Bulk Entry Kulakan.
+	 *
+	 * <p>Param: {@code baris} berisi array objek dengan {@code kode} dan/atau {@code nama}.
+	 * Setiap baris dikembalikan apa adanya beserta hasil pencocokan, sehingga klien dapat
+	 * menandai mana yang sudah dikenal dan mana yang perlu diperbaiki SEBELUM menyimpan.</p>
+	 *
+	 * <p>Urutan pencocokan: kode/barcode persis, lalu nama persis, lalu nama mengandung.
+	 * Bila lebih dari satu produk cocok pada tahap terakhir, baris ditandai
+	 * {@code ganda} agar pengguna memilih sendiri -- menebak diam-diam berisiko salah barang.</p>
+	 */
+	public static void barangResolve(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)
+				&& !bolehLihat(tbmuser, KUNCI_BAST)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		JSONArray baris = request == null ? null : request.optJSONArray("baris");
+		if (baris == null || baris.length() == 0) {
+			tolak(hasil, "Tidak ada baris yang dapat dicocokkan.");
+			return;
+		}
+		if (baris.length() > 2000) {
+			tolak(hasil, "Terlalu banyak baris sekaligus (maksimal 2000). Bagi menjadi beberapa unggahan.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JSONArray arr = new JSONArray();
+			int ketemu = 0;
+			int ganda = 0;
+			for (int i = 0; i < baris.length(); i++) {
+				JSONObject src = baris.optJSONObject(i);
+				if (src == null) {
+					continue;
+				}
+				String kode = src.optString("kode", "").trim();
+				String nama = src.optString("nama", "").trim();
+				JSONObject o = new JSONObject();
+				o.put("baris", i + 1);
+				o.put("kode", kode);
+				o.put("nama", nama);
+				o.put("jumlah", angkaAman(src, "jumlah"));
+				o.put("hargaBeli", angkaAman(src, "hargaBeli"));
+				o.put("keterangan", src.optString("keterangan", "").trim());
+
+				java.util.List<Produk> cocok = cariProdukCocok(session, tokoId, kode, nama);
+				if (cocok.size() == 1) {
+					Produk p = cocok.get(0);
+					ketemu++;
+					o.put("produk_id", p.getId());
+					o.put("kodeProduk", p.getKode() == null ? "" : p.getKode());
+					o.put("namaProduk", p.getNama() == null ? "" : p.getNama());
+					if (angkaAman(src, "hargaBeli") <= 0 && p.getHargaBeli() != null) {
+						o.put("hargaBeli", p.getHargaBeli());
+					}
+					o.put("statusCocok", "COCOK");
+				} else if (cocok.size() > 1) {
+					ganda++;
+					o.put("statusCocok", "GANDA");
+					o.put("catatan", "Ada " + cocok.size() + " produk yang cocok, pilih sendiri barangnya.");
+				} else {
+					o.put("statusCocok", "TIDAK ADA");
+					o.put("catatan", "Produk tidak ditemukan pada toko ini.");
+				}
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("jumlahBaris", arr.length());
+			hasil.put("jumlahCocok", ketemu);
+			hasil.put("jumlahGanda", ganda);
+			hasil.put("jumlahTidakAda", arr.length() - ketemu - ganda);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Cari produk yang cocok untuk satu baris tempelan; lihat {@link #barangResolve}. */
+	private static java.util.List<Produk> cariProdukCocok(Session session, Long tokoId, String kode, String nama) {
+		if ((kode == null || kode.isEmpty()) && (nama == null || nama.isEmpty())) {
+			return new java.util.ArrayList<Produk>();
+		}
+		if (kode != null && !kode.isEmpty()) {
+			@SuppressWarnings("unchecked")
+			java.util.List<Produk> lewatKode = kriteriaProduk(session, tokoId)
+					.add(Restrictions.eq("kode", kode)).setMaxResults(5).list();
+			if (!lewatKode.isEmpty()) {
+				return lewatKode;
+			}
+		}
+		if (nama != null && !nama.isEmpty()) {
+			@SuppressWarnings("unchecked")
+			java.util.List<Produk> persis = kriteriaProduk(session, tokoId)
+					.add(Restrictions.eq("nama", nama).ignoreCase()).setMaxResults(5).list();
+			if (!persis.isEmpty()) {
+				return persis;
+			}
+			@SuppressWarnings("unchecked")
+			java.util.List<Produk> mengandung = kriteriaProduk(session, tokoId)
+					.add(Restrictions.ilike("nama", nama, MatchMode.ANYWHERE)).setMaxResults(5).list();
+			return mengandung;
+		}
+		return new java.util.ArrayList<Produk>();
+	}
+
+	/** Kriteria dasar produk aktif pada lingkup toko. */
+	private static Criteria kriteriaProduk(Session session, Long tokoId) {
+		Criteria k = session.createCriteria(Produk.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+		if (tokoId != null) {
+			k.add(Restrictions.eq("toko.id", tokoId));
+		}
+		return k;
+	}
+
 	/** Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -2512,6 +2736,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_tagihan_batal".equals(action)) {
 			tagihanBatal(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_barang_resolve".equals(action)) {
+			barangResolve(tbmuser, request, hasil);
 			return true;
 		}
 		return false;
