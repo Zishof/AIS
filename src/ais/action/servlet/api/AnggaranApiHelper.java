@@ -400,7 +400,9 @@ public final class AnggaranApiHelper {
 	private static void hitungUlangInduk(Session session, Long parentId) {
 		Long kini = parentId;
 		int pagar = 0;
-		while (kini != null && kini.longValue() > 0 && pagar++ < 50) {
+		// id induk BOLEH negatif: baris akar satuan kerja buatan ZK (checkRootSatuanKerja)
+		// memakai id/penunjuk negatif besar, dan layar ZK tetap memperbarui agregatnya.
+		while (kini != null && kini.longValue() != 0 && pagar++ < 50) {
 			Workspace induk = (Workspace) session.get(Workspace.class, kini);
 			if (induk == null) {
 				return;
@@ -568,7 +570,7 @@ public final class AnggaranApiHelper {
 	private static boolean keturunanDari(Session session, long calonIndukId, long id) {
 		Long kini = Long.valueOf(calonIndukId);
 		int pagar = 0;
-		while (kini != null && kini.longValue() > 0 && pagar++ < 50) {
+		while (kini != null && kini.longValue() != 0 && pagar++ < 50) {
 			if (kini.longValue() == id) {
 				return true;
 			}
@@ -1089,7 +1091,18 @@ public final class AnggaranApiHelper {
 				return;
 			}
 			p.setKode(request.optString("kode", "").trim());
-			p.setRef(request.optString("ref", "").trim());
+			// Kolom `ref` WAJIB terisi (NOT NULL di basis data) dan menjadi kunci dedup
+			// baris milik dokumen (lihat PenggunaanAnggaran.refData: "<id>_<TIPE>").
+			// Entri manual tidak punya dokumen sumber, jadi dibuatkan ref sendiri sekali
+			// saat dibuat dan dipertahankan saat diubah.
+			String ref = request.optString("ref", "").trim();
+			if (ref.isEmpty()) {
+				ref = p.getRef() == null ? "" : p.getRef().trim();
+			}
+			if (ref.isEmpty()) {
+				ref = System.currentTimeMillis() + "_MANUAL";
+			}
+			p.setRef(ref);
 			p.setNama(nama);
 			p.setKeterangan(request.optString("keterangan", "").trim());
 			p.setNilai(Double.valueOf(nilai));

@@ -2597,6 +2597,725 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+	// ================= Dasbor Pengadaan =================
+	//
+	// Satu aksi melayani seluruh tahap; bentuk balasannya SERAGAM (kpi, tren,
+	// komposisi, peringkat, daftar, corong) sehingga Desktop, Android, dan JSP
+	// cukup punya SATU perender untuk enam dasbor. Isi tiap tahap meniru dasbor
+	// yang sudah ada di versi ZKoss: TraceStatusPengadaanAssetDashboard (kartu
+	// ringkasan tahapan + tabel proses) dan DasboardPajak (kartu + tren bulanan +
+	// komposisi jenis pajak).
+
+	/** Berapa bulan ke belakang yang ditarik dasbor bila klien tidak menentukan. */
+	private static final int BULAN_DASBOR_BAWAAN = 12;
+
+	private static java.util.Date awalPeriodeDasbor(int bulan) {
+		java.util.Calendar kal = java.util.Calendar.getInstance();
+		kal.setTime(ais.ui.util.WaktuUtil.getDate());
+		kal.add(java.util.Calendar.MONTH, -(Math.max(1, bulan) - 1));
+		kal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+		kal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+		kal.set(java.util.Calendar.MINUTE, 0);
+		kal.set(java.util.Calendar.SECOND, 0);
+		kal.set(java.util.Calendar.MILLISECOND, 0);
+		return kal.getTime();
+	}
+
+	private static final String[] NAMA_BULAN_SINGKAT = { "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+			"Jul", "Ags", "Sep", "Okt", "Nov", "Des" };
+
+	private static String kunciBulan(java.util.Date tgl) {
+		if (tgl == null) {
+			return "";
+		}
+		java.util.Calendar kal = java.util.Calendar.getInstance();
+		kal.setTime(tgl);
+		int b = kal.get(java.util.Calendar.MONTH) + 1;
+		return kal.get(java.util.Calendar.YEAR) + "-" + (b < 10 ? "0" + b : "" + b);
+	}
+
+	private static String labelBulan(String kunci) {
+		if (kunci == null || kunci.length() < 7) {
+			return kunci == null ? "" : kunci;
+		}
+		int bln = Integer.parseInt(kunci.substring(5, 7));
+		return NAMA_BULAN_SINGKAT[Math.max(0, Math.min(11, bln - 1))] + " " + kunci.substring(2, 4);
+	}
+
+	/**
+	 * Kerangka deret bulanan yang SELALU lengkap sepanjang periode, termasuk bulan
+	 * yang nihil. Grafik tren yang bolong-bolong menyesatkan pembacanya -- naik
+	 * turunnya jadi tampak lebih tajam daripada kenyataannya.
+	 */
+	private static java.util.LinkedHashMap<String, double[]> kerangkaBulan(int bulan) {
+		java.util.LinkedHashMap<String, double[]> peta = new java.util.LinkedHashMap<String, double[]>();
+		java.util.Calendar kal = java.util.Calendar.getInstance();
+		kal.setTime(awalPeriodeDasbor(bulan));
+		for (int i = 0; i < Math.max(1, bulan); i++) {
+			int b = kal.get(java.util.Calendar.MONTH) + 1;
+			peta.put(kal.get(java.util.Calendar.YEAR) + "-" + (b < 10 ? "0" + b : "" + b),
+					new double[] { 0, 0 });
+			kal.add(java.util.Calendar.MONTH, 1);
+		}
+		return peta;
+	}
+
+	private static void tambahBulan(java.util.LinkedHashMap<String, double[]> peta,
+			java.util.Date tgl, double nilai) {
+		String k = kunciBulan(tgl);
+		double[] sel = peta.get(k);
+		if (sel == null) {
+			return;
+		}
+		sel[0] += 1;
+		sel[1] += nilai;
+	}
+
+	private static JSONArray trenDari(java.util.LinkedHashMap<String, double[]> peta) throws Exception {
+		JSONArray arr = new JSONArray();
+		for (java.util.Map.Entry<String, double[]> e : peta.entrySet()) {
+			JSONObject o = new JSONObject();
+			o.put("kunci", e.getKey());
+			o.put("label", labelBulan(e.getKey()));
+			o.put("jumlah", e.getValue()[0]);
+			o.put("nilai", e.getValue()[1]);
+			arr.put(o);
+		}
+		return arr;
+	}
+
+	private static JSONObject kpi(String label, String nilai, String catatan, String warna) throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("label", label);
+		o.put("nilai", nilai);
+		o.put("catatan", catatan == null ? "" : catatan);
+		o.put("warna", warna);
+		return o;
+	}
+
+	private static JSONObject titik(String label, double nilai) throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("label", label);
+		o.put("nilai", nilai);
+		return o;
+	}
+
+	/** Urutkan peta label->nilai menurun, ambil beberapa teratas. */
+	private static JSONArray peringkatDari(java.util.Map<String, Double> peta, int maks) throws Exception {
+		java.util.List<java.util.Map.Entry<String, Double>> daftar =
+				new java.util.ArrayList<java.util.Map.Entry<String, Double>>(peta.entrySet());
+		java.util.Collections.sort(daftar, new java.util.Comparator<java.util.Map.Entry<String, Double>>() {
+			public int compare(java.util.Map.Entry<String, Double> a, java.util.Map.Entry<String, Double> b) {
+				return Double.compare(b.getValue().doubleValue(), a.getValue().doubleValue());
+			}
+		});
+		JSONArray arr = new JSONArray();
+		for (int i = 0; i < daftar.size() && i < maks; i++) {
+			arr.put(titik(daftar.get(i).getKey(), daftar.get(i).getValue().doubleValue()));
+		}
+		return arr;
+	}
+
+	private static void tambahPeta(java.util.Map<String, Double> peta, String kunci, double nilai) {
+		if (kunci == null || kunci.trim().isEmpty()) {
+			kunci = "(tanpa nama)";
+		}
+		Double lama = peta.get(kunci);
+		peta.put(kunci, Double.valueOf((lama == null ? 0 : lama.doubleValue()) + nilai));
+	}
+
+	/**
+	 * Dasbor satu tahap pengadaan. Parameter {@code tahap}: pr, po, bast, tagihan,
+	 * dpc, atau pajak. Opsional {@code bulan} (bawaan 12) dan {@code toko_id}.
+	 *
+	 * <p>Tidak menulis apa pun. Hak aksesnya mengikuti menu tahap yang diminta,
+	 * sehingga pengguna tidak dapat melihat ringkasan tahap yang menunya memang
+	 * tidak diaktifkan untuk grup-nya.</p>
+	 */
+	public static void dasbor(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		String tahap = request == null ? "" : request.optString("tahap", "").trim().toLowerCase();
+		String kunciMenu = "pr".equals(tahap) ? KUNCI_PR
+				: "po".equals(tahap) ? KUNCI_PO
+				: "bast".equals(tahap) ? KUNCI_BAST
+				: "tagihan".equals(tahap) ? KUNCI_TAGIHAN
+				: "dpc".equals(tahap) ? KUNCI_DPC
+				: "pajak".equals(tahap) ? KUNCI_PAJAK : null;
+		if (kunciMenu == null) {
+			tolak(hasil, "Tahap dasbor tidak dikenali. Pilih salah satu: pr, po, bast, tagihan, dpc, pajak.");
+			return;
+		}
+		if (!bolehLihat(tbmuser, kunciMenu)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		int bulan = Math.min(36, Math.max(3, request.optInt("bulan", BULAN_DASBOR_BAWAAN)));
+		Long tokoId = tokoLingkup(tbmuser, request);
+		java.util.Date sejak = awalPeriodeDasbor(bulan);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			hasil.put("status", "00");
+			hasil.put("tahap", tahap);
+			hasil.put("bulan", bulan);
+			hasil.put("sejak", Common.dateFormat1.get().format(sejak));
+			if ("pr".equals(tahap)) {
+				dasborPr(session, tokoId, sejak, bulan, hasil);
+			} else if ("po".equals(tahap)) {
+				dasborPo(session, tokoId, sejak, bulan, hasil);
+			} else if ("bast".equals(tahap)) {
+				dasborBast(session, tokoId, sejak, bulan, hasil);
+			} else if ("tagihan".equals(tahap)) {
+				dasborTagihan(session, tokoId, sejak, bulan, hasil);
+			} else if ("dpc".equals(tahap)) {
+				dasborDpc(session, tokoId, sejak, bulan, hasil);
+			} else {
+				dasborPajak(session, tbmuser, tokoId, sejak, bulan, hasil);
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Dasbor Permintaan Pembelian, lengkap dengan CORONG tahapan
+	 * PR -> PO -> BAST -> Tagihan -> Bayar. Corong ini padanan "Ringkasan Tahapan"
+	 * pada TraceStatusPengadaanAssetDashboard versi ZKoss: satu pandangan yang
+	 * memperlihatkan di tahap mana permintaan tersendat.
+	 */
+	private static void dasborPr(Session session, Long tokoId, java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		Criteria kriteria = session.createCriteria(PermintaanPengadaanMasterAsset.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.ge("tanggalPembuatan", sejak));
+		if (tokoId != null) {
+			kriteria.add(Restrictions.eq("toko.id", tokoId));
+		}
+		@SuppressWarnings("unchecked")
+		List<PermintaanPengadaanMasterAsset> daftar = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> barangTeratas = new java.util.HashMap<String, Double>();
+		int draf = 0, disetujui = 0, ditolak = 0, tutup = 0;
+		double nilaiTotal = 0, nilaiDisetujui = 0;
+		int capaiPo = 0, capaiBast = 0, capaiTagihan = 0, capaiBayar = 0;
+		JSONArray menunggu = new JSONArray();
+		java.util.Date hariIni = ais.ui.util.WaktuUtil.getDate();
+
+		for (PermintaanPengadaanMasterAsset pr : daftar) {
+			double nilai = nilaiPr(session, pr, barangTeratas);
+			nilaiTotal += nilai;
+			tambahBulan(tren, pr.getTanggalPembuatan(), nilai);
+			String status = statusPr(pr);
+			tambahPeta(komposisi, status, 1);
+			if ("DISETUJUI".equals(status)) {
+				disetujui++;
+				nilaiDisetujui += nilai;
+			} else if ("DITOLAK".equals(status)) {
+				ditolak++;
+			} else if ("DRAFT".equals(status)) {
+				draf++;
+			}
+			if (Boolean.TRUE.equals(pr.getTutup())) {
+				tutup++;
+			}
+			int capai = tahapTercapaiPr(session, pr);
+			if (capai >= 1) capaiPo++;
+			if (capai >= 2) capaiBast++;
+			if (capai >= 3) capaiTagihan++;
+			if (capai >= 4) capaiBayar++;
+			if (pr.getTanggalPersetujuan() == null && pr.getTanggalDitolak() == null
+					&& menunggu.length() < 10) {
+				JSONObject o = new JSONObject();
+				o.put("kode", pr.getKode() == null ? "" : pr.getKode());
+				o.put("keterangan", pr.getKeterangan() == null ? "" : pr.getKeterangan());
+				o.put("nilai", nilai);
+				o.put("umurHari", umurHari(pr.getTanggalPembuatan(), hariIni));
+				menunggu.put(o);
+			}
+		}
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("Total PR", "" + daftar.size(), "permintaan dalam periode", "#1d4ed8"));
+		kartu.put(kpi("Nilai Diajukan", Common.numberFormat.get().format(nilaiTotal),
+				"seluruh permintaan", "#0ea5e9"));
+		kartu.put(kpi("Disetujui", "" + disetujui,
+				Common.numberFormat.get().format(nilaiDisetujui) + " nilai disetujui", "#15803d"));
+		kartu.put(kpi("Menunggu Persetujuan", "" + draf, "belum diputuskan", "#b45309"));
+		kartu.put(kpi("Ditolak", "" + ditolak, "tidak dilanjutkan", "#dc2626"));
+		kartu.put(kpi("Ditutup", "" + tutup, "tidak dipesan lagi", "#64748b"));
+
+		JSONArray corong = new JSONArray();
+		corong.put(titik("PR", daftar.size()));
+		corong.put(titik("Sudah PO", capaiPo));
+		corong.put(titik("Sudah BAST", capaiBast));
+		corong.put(titik("Sudah Tagihan", capaiTagihan));
+		corong.put(titik("Sudah Dibayar", capaiBayar));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("peringkat", peringkatDari(barangTeratas, 8));
+		hasil.put("peringkatJudul", "Barang Paling Sering Diminta");
+		hasil.put("corong", corong);
+		hasil.put("daftar", menunggu);
+		hasil.put("daftarJudul", "Menunggu Persetujuan Paling Lama");
+	}
+
+	/**
+	 * Nilai sebuah PR (jumlah x harga seluruh barisnya). Sekalian mengisi peta
+	 * peringkat barang bila peta-nya disediakan, supaya tabel PR hanya dibaca sekali.
+	 */
+	private static double nilaiPr(Session session, PermintaanPengadaanMasterAsset pr,
+			java.util.Map<String, Double> barangTeratas) {
+		@SuppressWarnings("unchecked")
+		List<PermintaanPengadaanMasterAssetDetail> baris = session
+				.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+				.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId())).list();
+		double total = 0;
+		for (PermintaanPengadaanMasterAssetDetail d : baris) {
+			double jml = d.getJumlah() == null ? 0 : d.getJumlah().doubleValue();
+			double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
+			total += jml * harga;
+			if (barangTeratas != null && d.getMasterAsset() != null) {
+				tambahPeta(barangTeratas, d.getMasterAsset().getNama(), jml);
+			}
+		}
+		return total;
+	}
+
+	/**
+	 * Sejauh mana sebuah PR sudah berjalan: 0 belum dipesan, 1 sudah PO,
+	 * 2 sudah diterima (BAST), 3 sudah bertagihan, 4 sudah dibayar.
+	 *
+	 * <p>Ditelusuri lewat rantai baris: PR detail -> PO detail -> BAST detail ->
+	 * BAST (kodeTagihan) -> pembayaran termin. Cara yang sama dipakai
+	 * TraceStatusPengadaanAssetDashboard versi ZKoss untuk menyusun Ringkasan Tahapan.</p>
+	 */
+	private static int tahapTercapaiPr(Session session, PermintaanPengadaanMasterAsset pr) {
+		@SuppressWarnings("unchecked")
+		List<PermintaanPengadaanMasterAssetDetail> baris = session
+				.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+				.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId())).list();
+		int tertinggi = 0;
+		for (PermintaanPengadaanMasterAssetDetail d : baris) {
+			@SuppressWarnings("unchecked")
+			List<PemesananPengadaanMasterAssetDetail> po = session
+					.createCriteria(PemesananPengadaanMasterAssetDetail.class)
+					.add(Restrictions.eq("permintaanPengadaanMasterAssetDetail.id", d.getId())).list();
+			for (PemesananPengadaanMasterAssetDetail dp : po) {
+				PemesananPengadaanMasterAsset induk = dp.getPemesananPengadaanMasterAsset();
+				if (induk == null || Boolean.FALSE.equals(induk.getAktif())) {
+					continue;
+				}
+				if (tertinggi < 1) tertinggi = 1;
+				@SuppressWarnings("unchecked")
+				List<PenerimaanPengadaanMasterAssetDetail> bast = session
+						.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
+						.add(Restrictions.eq("pemesananPengadaanMasterAssetDetail.id", dp.getId())).list();
+				for (PenerimaanPengadaanMasterAssetDetail db : bast) {
+					PenerimaanPengadaanMasterAsset ib = db.getPenerimaanPengadaanMasterAsset();
+					if (ib == null || Boolean.FALSE.equals(ib.getAktif())) {
+						continue;
+					}
+					if (tertinggi < 2) tertinggi = 2;
+					if (ib.getKodeTagihan() != null && !ib.getKodeTagihan().trim().isEmpty()
+							&& tertinggi < 3) {
+						tertinggi = 3;
+					}
+				}
+				if (tertinggi >= 3 && terpakaiPembayaranPo(session, induk.getId(), null, true) > 0
+						&& tertinggi < 4) {
+					tertinggi = 4;
+				}
+			}
+		}
+		return tertinggi;
+	}
+
+	/** Dasbor Pemesanan Pembelian: nilai pesanan, pembayaran, dan kiriman tertunda. */
+	private static void dasborPo(Session session, Long tokoId, java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		Criteria kriteria = session.createCriteria(PemesananPengadaanMasterAsset.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.ge("tanggalPembuatan", sejak));
+		if (tokoId != null) {
+			kriteria.add(Restrictions.eq("toko.id", tokoId));
+		}
+		@SuppressWarnings("unchecked")
+		List<PemesananPengadaanMasterAsset> daftar = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> penyediaTeratas = new java.util.HashMap<String, Double>();
+		int draf = 0, disetujui = 0, lunas = 0, ditutup = 0, terlambat = 0;
+		double nilaiTotal = 0, dibayarTotal = 0;
+		JSONArray jatuhTempo = new JSONArray();
+		java.util.Date hariIni = ais.ui.util.WaktuUtil.getDate();
+
+		for (PemesananPengadaanMasterAsset po : daftar) {
+			double nilai = po.getNilai() == null ? 0 : po.getNilai().doubleValue();
+			double dibayar = terpakaiPembayaranPo(session, po.getId(), null, true);
+			nilaiTotal += nilai;
+			dibayarTotal += dibayar;
+			tambahBulan(tren, po.getTanggalPembuatan(), nilai);
+			String status = statusPo(po);
+			tambahPeta(komposisi, status, 1);
+			if ("LUNAS".equals(status)) lunas++;
+			else if ("DISETUJUI".equals(status)) disetujui++;
+			else if ("DRAFT".equals(status)) draf++;
+			if (Boolean.TRUE.equals(po.getTutup())) ditutup++;
+			if (po.getPenyedia() != null) {
+				tambahPeta(penyediaTeratas, po.getPenyedia().getNama(), nilai);
+			}
+			boolean lewat = po.getPengirimanPalingLambat() != null
+					&& po.getPengirimanPalingLambat().before(hariIni)
+					&& !Boolean.TRUE.equals(po.getTutup());
+			if (lewat) {
+				terlambat++;
+				if (jatuhTempo.length() < 10) {
+					JSONObject o = new JSONObject();
+					o.put("kode", po.getKode() == null ? "" : po.getKode());
+					o.put("keterangan", po.getPenyedia() == null ? "" : po.getPenyedia().getNama());
+					o.put("nilai", nilai);
+					o.put("umurHari", umurHari(po.getPengirimanPalingLambat(), hariIni));
+					jatuhTempo.put(o);
+				}
+			}
+		}
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("Total PO", "" + daftar.size(), "pesanan dalam periode", "#1d4ed8"));
+		kartu.put(kpi("Nilai Pesanan", Common.numberFormat.get().format(nilaiTotal),
+				"seluruh pesanan", "#0ea5e9"));
+		kartu.put(kpi("Sudah Dibayar", Common.numberFormat.get().format(dibayarTotal),
+				"pembayaran yang sudah disetujui", "#15803d"));
+		kartu.put(kpi("Sisa Kewajiban", Common.numberFormat.get().format(Math.max(0, nilaiTotal - dibayarTotal)),
+				"belum dibayar", "#dc2626"));
+		kartu.put(kpi("Menunggu Persetujuan", "" + draf, "belum diputuskan", "#b45309"));
+		kartu.put(kpi("Lewat Batas Kirim", "" + terlambat, "perlu ditagih ke penyedia", "#ea580c"));
+		kartu.put(kpi("Lunas", "" + lunas, "pembayaran selesai", "#4338ca"));
+		kartu.put(kpi("Ditutup", "" + ditutup, "sisa dibatalkan lewat back order", "#64748b"));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("peringkat", peringkatDari(penyediaTeratas, 8));
+		hasil.put("peringkatJudul", "Penyedia dengan Nilai Pesanan Terbesar");
+		hasil.put("daftar", jatuhTempo);
+		hasil.put("daftarJudul", "Pesanan Lewat Batas Kirim");
+		hasil.put("catatanKosong", "Belum ada Pemesanan Pembelian pada periode ini.");
+	}
+
+	/** Dasbor Penerimaan Barang: nilai yang diterima dan yang sudah menjadi stok. */
+	private static void dasborBast(Session session, Long tokoId, java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		Criteria kriteria = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.ge("tanggalPembuatan", sejak));
+		if (tokoId != null) {
+			kriteria.add(Restrictions.eq("toko.id", tokoId));
+		}
+		@SuppressWarnings("unchecked")
+		List<PenerimaanPengadaanMasterAsset> daftar = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> penyediaTeratas = new java.util.HashMap<String, Double>();
+		int disetujui = 0, masukStok = 0;
+		double nilaiTotal = 0, nilaiDisetujui = 0;
+		JSONArray belumSetuju = new JSONArray();
+		java.util.Date hariIni = ais.ui.util.WaktuUtil.getDate();
+
+		for (PenerimaanPengadaanMasterAsset bast : daftar) {
+			double nilai = bast.getNilai() == null ? 0 : bast.getNilai().doubleValue();
+			nilaiTotal += nilai;
+			tambahBulan(tren, bast.getTanggalPembuatan(), nilai);
+			tambahPeta(komposisi, statusBast(bast), 1);
+			if (bast.getPenyedia() != null) {
+				tambahPeta(penyediaTeratas, bast.getPenyedia().getNama(), nilai);
+			}
+			if (bast.getDisetujuiOleh() != null) {
+				disetujui++;
+				nilaiDisetujui += nilai;
+			} else if (belumSetuju.length() < 10) {
+				JSONObject o = new JSONObject();
+				o.put("kode", bast.getKode() == null ? "" : bast.getKode());
+				o.put("keterangan", bast.getPenyedia() == null ? "" : bast.getPenyedia().getNama());
+				o.put("nilai", nilai);
+				o.put("umurHari", umurHari(bast.getTanggalPembuatan(), hariIni));
+				belumSetuju.put(o);
+			}
+			if (bast.getPengadaanFaktur() != null) {
+				masukStok++;
+			}
+		}
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("Total BAST", "" + daftar.size(), "penerimaan dalam periode", "#1d4ed8"));
+		kartu.put(kpi("Nilai Diterima", Common.numberFormat.get().format(nilaiTotal),
+				"seluruh penerimaan", "#0ea5e9"));
+		kartu.put(kpi("Sudah Disetujui", "" + disetujui,
+				Common.numberFormat.get().format(nilaiDisetujui) + " nilai", "#15803d"));
+		kartu.put(kpi("Belum Disetujui", "" + (daftar.size() - disetujui), "menunggu putusan", "#b45309"));
+		kartu.put(kpi("Sudah Masuk Stok", "" + masukStok, "tersalin ke faktur Kulakan", "#4338ca"));
+		kartu.put(kpi("Belum Masuk Stok", "" + (daftar.size() - masukStok), "perlu disinkronkan", "#ea580c"));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("peringkat", peringkatDari(penyediaTeratas, 8));
+		hasil.put("peringkatJudul", "Penyedia dengan Nilai Penerimaan Terbesar");
+		hasil.put("daftar", belumSetuju);
+		hasil.put("daftarJudul", "Penerimaan Menunggu Persetujuan Paling Lama");
+		hasil.put("catatanKosong", "Belum ada Penerimaan Barang pada periode ini.");
+	}
+
+	/** Dasbor Terima Tagihan: seberapa cepat penerimaan berubah menjadi tagihan. */
+	private static void dasborTagihan(Session session, Long tokoId, java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		Criteria kriteria = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.isNotNull("tanggalPersetujuan"))
+				.add(Restrictions.ge("tanggalPembuatan", sejak));
+		if (tokoId != null) {
+			kriteria.add(Restrictions.eq("toko.id", tokoId));
+		}
+		@SuppressWarnings("unchecked")
+		List<PenerimaanPengadaanMasterAsset> daftar = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> penyediaTeratas = new java.util.HashMap<String, Double>();
+		int sudah = 0;
+		double nilaiSudah = 0, nilaiBelum = 0, totalUmur = 0;
+		JSONArray belum = new JSONArray();
+		java.util.Date hariIni = ais.ui.util.WaktuUtil.getDate();
+
+		for (PenerimaanPengadaanMasterAsset bast : daftar) {
+			double nilai = bast.getNilai() == null ? 0 : bast.getNilai().doubleValue();
+			boolean adaTagihan = bast.getKodeTagihan() != null && !bast.getKodeTagihan().trim().isEmpty();
+			tambahPeta(komposisi, adaTagihan ? "SUDAH BERTAGIHAN" : "BELUM BERTAGIHAN", 1);
+			if (adaTagihan) {
+				sudah++;
+				nilaiSudah += nilai;
+				tambahBulan(tren, bast.getTanggalTagihan() == null ? bast.getTanggalPembuatan()
+						: bast.getTanggalTagihan(), nilai);
+				if (bast.getPenyedia() != null) {
+					tambahPeta(penyediaTeratas, bast.getPenyedia().getNama(), nilai);
+				}
+			} else {
+				nilaiBelum += nilai;
+				totalUmur += umurHari(bast.getTanggalPersetujuan(), hariIni);
+				if (belum.length() < 10) {
+					JSONObject o = new JSONObject();
+					o.put("kode", bast.getKode() == null ? "" : bast.getKode());
+					o.put("keterangan", bast.getPenyedia() == null ? "" : bast.getPenyedia().getNama());
+					o.put("nilai", nilai);
+					o.put("umurHari", umurHari(bast.getTanggalPersetujuan(), hariIni));
+					belum.put(o);
+				}
+			}
+		}
+		int jumlahBelum = daftar.size() - sudah;
+		long rataUmur = jumlahBelum == 0 ? 0 : Math.round(totalUmur / jumlahBelum);
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("Siap Ditagih", "" + daftar.size(), "penerimaan yang sudah disetujui", "#1d4ed8"));
+		kartu.put(kpi("Sudah Bertagihan", "" + sudah,
+				Common.numberFormat.get().format(nilaiSudah) + " nilai", "#15803d"));
+		kartu.put(kpi("Belum Bertagihan", "" + jumlahBelum,
+				Common.numberFormat.get().format(nilaiBelum) + " nilai", "#b45309"));
+		kartu.put(kpi("Rata-rata Menunggu", rataUmur + " hari",
+				"sejak penerimaan disetujui", "#ea580c"));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("trenJudul", "Nilai Tagihan Diterima per Bulan");
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("peringkat", peringkatDari(penyediaTeratas, 8));
+		hasil.put("peringkatJudul", "Penyedia dengan Nilai Tagihan Terbesar");
+		hasil.put("daftar", belum);
+		hasil.put("daftarJudul", "Belum Bertagihan Paling Lama");
+		hasil.put("catatanKosong", "Belum ada penerimaan yang siap ditagih pada periode ini.");
+	}
+
+	/** Dasbor Pembayaran Vendor: nilai yang dibayar dan kewajiban yang masih terbuka. */
+	private static void dasborDpc(Session session, Long tokoId, java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		Criteria kriteria = session.createCriteria(PembayaranTerminMasterAsset.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.ge("tanggalPembuatan", sejak));
+		if (tokoId != null) {
+			kriteria.add(Restrictions.eq("toko.id", tokoId));
+		}
+		@SuppressWarnings("unchecked")
+		List<PembayaranTerminMasterAsset> daftar = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> caraTeratas = new java.util.LinkedHashMap<String, Double>();
+		java.util.Map<String, Double> penyediaTeratas = new java.util.HashMap<String, Double>();
+		int draf = 0, disetujui = 0, tanpaCara = 0;
+		double nilaiDisetujui = 0, nilaiDraf = 0;
+		JSONArray drafTerlama = new JSONArray();
+		java.util.Date hariIni = ais.ui.util.WaktuUtil.getDate();
+
+		for (PembayaranTerminMasterAsset b : daftar) {
+			double nilai = b.getNilaiDibayar() == null ? 0 : b.getNilaiDibayar().doubleValue();
+			tambahPeta(komposisi, statusBayar(b), 1);
+			if (b.getDisetujuiOleh() != null) {
+				disetujui++;
+				nilaiDisetujui += nilai;
+				tambahBulan(tren, b.getTanggalPembuatan(), nilai);
+				tambahPeta(caraTeratas, b.getCaraPembayaranTransfer() == null ? "(belum ditentukan)"
+						: b.getCaraPembayaranTransfer().getNama(), nilai);
+				if (b.getPenyedia() != null) {
+					tambahPeta(penyediaTeratas, b.getPenyedia().getNama(), nilai);
+				}
+			} else {
+				draf++;
+				nilaiDraf += nilai;
+				if (drafTerlama.length() < 10) {
+					JSONObject o = new JSONObject();
+					o.put("kode", b.getKode() == null ? "" : b.getKode());
+					o.put("keterangan", b.getPenyedia() == null ? "" : b.getPenyedia().getNama());
+					o.put("nilai", nilai);
+					o.put("umurHari", umurHari(b.getTanggalPembuatan(), hariIni));
+					drafTerlama.put(o);
+				}
+			}
+			if (b.getCaraPembayaranTransfer() == null) {
+				tanpaCara++;
+			}
+		}
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("Dokumen Pembayaran", "" + daftar.size(), "dalam periode", "#1d4ed8"));
+		kartu.put(kpi("Sudah Dibayar", Common.numberFormat.get().format(nilaiDisetujui),
+				disetujui + " dokumen disetujui", "#15803d"));
+		kartu.put(kpi("Masih Draf", "" + draf,
+				Common.numberFormat.get().format(nilaiDraf) + " menunggu persetujuan", "#b45309"));
+		kartu.put(kpi("Tanpa Cara Transfer", "" + tanpaCara,
+				"belum dapat dijurnal", tanpaCara > 0 ? "#dc2626" : "#64748b"));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("trenJudul", "Nilai Pembayaran Disetujui per Bulan");
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("peringkat", peringkatDari(penyediaTeratas, 8));
+		hasil.put("peringkatJudul", "Penyedia dengan Pembayaran Terbesar");
+		hasil.put("caraBayar", peringkatDari(caraTeratas, 8));
+		hasil.put("daftar", drafTerlama);
+		hasil.put("daftarJudul", "Draf Pembayaran Paling Lama");
+		hasil.put("catatanKosong", "Belum ada pembayaran vendor pada periode ini.");
+	}
+
+	/**
+	 * Dasbor Bayar Pajak. Meniru DasboardPajak versi ZKoss: kartu ringkasan,
+	 * tren bulanan, dan komposisi per jenis pajak -- ditambah pemisahan sumber
+	 * (BAST atau pembayaran vendor) yang khas modul POS.
+	 */
+	private static void dasborPajak(Session session, Tbmuser tbmuser, Long tokoId,
+			java.util.Date sejak, int bulan,
+			JSONObject hasil) throws Exception {
+		// --- Yang masih terutang, dari kedua sumber -------------------------------
+		JSONObject terutang = new JSONObject();
+		JSONObject permintaan = new JSONObject();
+		if (tokoId != null) {
+			permintaan.put("toko_id", tokoId);
+		}
+		// Sengaja memakai aksi yang sama dengan layar Bayar Pajak, bukan menyalin
+		// perhitungannya: satu definisi "terutang" untuk dasbor dan daftar.
+		pajakTerutang(tbmuser, permintaan, terutang);
+		JSONArray barisTerutang = terutang.optJSONArray("data");
+		double pphTerutang = 0, ppnTerutang = 0;
+		int dariBast = 0, dariBayar = 0;
+		java.util.Map<String, Double> komposisi = new java.util.LinkedHashMap<String, Double>();
+		JSONArray terbesar = new JSONArray();
+		if (barisTerutang != null) {
+			java.util.List<JSONObject> urut = new java.util.ArrayList<JSONObject>();
+			for (int i = 0; i < barisTerutang.length(); i++) {
+				JSONObject x = barisTerutang.getJSONObject(i);
+				pphTerutang += x.optDouble("pph", 0);
+				ppnTerutang += x.optDouble("ppn", 0);
+				if ("BAST".equals(x.optString("sumber"))) {
+					dariBast++;
+				} else {
+					dariBayar++;
+				}
+				urut.add(x);
+			}
+			java.util.Collections.sort(urut, new java.util.Comparator<JSONObject>() {
+				public int compare(JSONObject a, JSONObject b) {
+					return Double.compare(b.optDouble("pph", 0) + b.optDouble("ppn", 0),
+							a.optDouble("pph", 0) + a.optDouble("ppn", 0));
+				}
+			});
+			for (int i = 0; i < urut.size() && i < 10; i++) {
+				JSONObject x = urut.get(i);
+				JSONObject o = new JSONObject();
+				o.put("kode", x.optString("dokumen", ""));
+				o.put("keterangan", x.optString("penyedia", ""));
+				o.put("nilai", x.optDouble("pph", 0) + x.optDouble("ppn", 0));
+				o.put("umurHari", 0);
+				terbesar.put(o);
+			}
+		}
+		tambahPeta(komposisi, "Dari BAST", dariBast);
+		tambahPeta(komposisi, "Dari Pembayaran", dariBayar);
+
+		// --- Yang sudah disetor ---------------------------------------------------
+		Criteria kriteria = session.createCriteria(ais.database.model.akunting.Pajak.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.add(Restrictions.isNotNull("tanggalStor"))
+				.add(Restrictions.ge("tanggalStor", sejak));
+		@SuppressWarnings("unchecked")
+		List<ais.database.model.akunting.Pajak> setoran = kriteria.addOrder(Order.desc("id"))
+				.setMaxResults(5000).list();
+
+		java.util.LinkedHashMap<String, double[]> tren = kerangkaBulan(bulan);
+		java.util.Map<String, Double> jenisTeratas = new java.util.HashMap<String, Double>();
+		double nilaiSetor = 0, dppSetor = 0;
+		for (ais.database.model.akunting.Pajak p : setoran) {
+			double nilai = p.getNilai() == null ? 0 : p.getNilai().doubleValue();
+			nilaiSetor += nilai;
+			dppSetor += p.getDpp() == null ? 0 : p.getDpp().doubleValue();
+			tambahBulan(tren, p.getTanggalStor(), nilai);
+			String jenis = p.getJenisPajakBarang() != null && p.getJenisPajakBarang().getNama() != null
+					? p.getJenisPajakBarang().getNama()
+					: (p.getJenisPajakPpn() != null ? "PPN" : "(tanpa jenis)");
+			tambahPeta(jenisTeratas, jenis, nilai);
+		}
+
+		JSONArray kartu = new JSONArray();
+		kartu.put(kpi("PPh Terutang", Common.numberFormat.get().format(pphTerutang),
+				"belum disetor ke negara", pphTerutang > 0 ? "#dc2626" : "#64748b"));
+		kartu.put(kpi("PPN Tercatat", Common.numberFormat.get().format(ppnTerutang),
+				"belum disetor", "#ea580c"));
+		kartu.put(kpi("Baris Terutang", "" + (barisTerutang == null ? 0 : barisTerutang.length()),
+				dariBast + " dari BAST, " + dariBayar + " dari pembayaran", "#b45309"));
+		kartu.put(kpi("Sudah Disetor", Common.numberFormat.get().format(nilaiSetor),
+				setoran.size() + " setoran dalam periode", "#15803d"));
+		kartu.put(kpi("Total DPP Disetor", Common.numberFormat.get().format(dppSetor),
+				"dasar pengenaan pajak", "#7c3aed"));
+
+		hasil.put("kpi", kartu);
+		hasil.put("tren", trenDari(tren));
+		hasil.put("trenJudul", "Nilai Setoran Pajak per Bulan");
+		hasil.put("komposisi", peringkatDari(komposisi, 8));
+		hasil.put("komposisiJudul", "Sumber Pajak Terutang");
+		hasil.put("peringkat", peringkatDari(jenisTeratas, 8));
+		hasil.put("peringkatJudul", "Komposisi per Jenis Pajak (sudah disetor)");
+		hasil.put("daftar", terbesar);
+		hasil.put("daftarJudul", "Pajak Terutang Terbesar");
+		hasil.put("catatanKosong", "Belum ada catatan pajak pada periode ini.");
+	}
+
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
 	public static void cariPenyedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_BAST)) {
@@ -4152,9 +4871,9 @@ public final class PengadaanPosApiHelper {
 			}
 			bayar.setKeterangan(request.optString("keterangan", "").trim());
 			bayar.setJudul(request.optString("judul", "").trim());
-			// Cara transfer -- mengikuti form Proses Transfer versi ZKoss. Akun pada cara transfer
-			// inilah yang nanti dipakai membentuk jurnal, jadi dokumen tanpa cara transfer akan
-			// menggantung di sisi akuntansi.
+			// Cara transfer -- mengikuti form Proses Transfer versi ZKoss. Pada tahap DRAF
+			// nilainya boleh kosong; yang menuntutnya adalah persetujuan (lihat bayarPutusan),
+			// sebab di sanalah jurnal dibentuk dari akun yang melekat pada cara transfer.
 			ais.database.model.akunting.CaraPembayaranTransfer caraBayar = null;
 			if (!request.isNull("cara_bayar_id") && !(request.get("cara_bayar_id") + "").trim().isEmpty()) {
 				caraBayar = (ais.database.model.akunting.CaraPembayaranTransfer) session.get(
@@ -4171,19 +4890,7 @@ public final class PengadaanPosApiHelper {
 					return;
 				}
 				bayar.setCaraPembayaranTransfer(caraBayar);
-			} else {
-				// Wajib -- KECUALI bila master Cara Transfer memang belum terisi sama sekali.
-				// Memaksakan syarat yang mustahil dipenuhi hanya akan mengunci alur pembayaran.
-				long tersedia = ((Number) session
-						.createCriteria(ais.database.model.akunting.CaraPembayaranTransfer.class)
-						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-						.add(Restrictions.isNotNull("akun"))
-						.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult())
-								.longValue();
-				if (tersedia > 0 && bayar.getCaraPembayaranTransfer() == null) {
-					tolak(hasil, "Cara transfer wajib dipilih karena dipakai membentuk jurnal pembayaran.");
-					return;
-				}
+			}
 			}
 			java.util.Date tglRealisasi = tanggalKetat(request.optString("tanggalRealisasi", ""));
 			if (tglRealisasi != null) {
@@ -4388,6 +5095,25 @@ public final class PengadaanPosApiHelper {
 			boolean ajukanTransfer = request.optBoolean("ajukanTransfer", false);
 			int transferDibuat = 0;
 			int transferDitarik = 0;
+			// Cara transfer diminta pada PERSETUJUAN, bukan saat draf disimpan: di titik
+			// inilah uang benar-benar bergerak dan jurnal dibentuk dari akun yang melekat
+			// pada cara transfer. Versi ZKoss pun memperlakukannya begitu -- pada
+			// ProsesTransferAction combo Cara Transfer berubah menjadi label mati begitu
+			// dokumennya disetujui. Syaratnya dilewati bila master Cara Transfer memang
+			// belum terisi, supaya alur pembayaran tidak terkunci oleh syarat yang mustahil.
+			if ("SETUJUI".equals(keputusan) && bayar.getCaraPembayaranTransfer() == null) {
+				long caraTersedia = ((Number) session
+						.createCriteria(ais.database.model.akunting.CaraPembayaranTransfer.class)
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.add(Restrictions.isNotNull("akun"))
+						.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult())
+								.longValue();
+				if (caraTersedia > 0) {
+					tolak(hasil, "Cara transfer wajib dipilih sebelum pembayaran disetujui, "
+							+ "karena akun pada cara transfer itulah yang dipakai membentuk jurnal.");
+					return;
+				}
+			}
 			session.beginTransaction();
 			if ("SETUJUI".equals(keputusan)) {
 				bayar.setTanggalPersetujuan(ais.ui.util.WaktuUtil.getDate());
@@ -5813,6 +6539,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_po_back_order".equals(action)) {
 			poBackOrder(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_dasbor".equals(action)) {
+			dasbor(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_penyedia_cari".equals(action)) {

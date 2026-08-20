@@ -410,8 +410,10 @@ String rnd = Common.getGeneratedBarCode(7);
     }
     if (!detail.length){ pesan("Centang minimal satu tagihan untuk dibayar.", false); return; }
     var caraBayarId = el("dpCaraBayar").value;
+    // Cara transfer tidak menghalangi penyimpanan draf; ia dituntut saat pembayaran
+    // DISETUJUI, karena di titik itulah jurnal dibentuk.
     if (!caraBayarId && caraBayarOpsi.length){
-      pesan("Pilih cara transfer - dipakai membentuk jurnal pembayaran.", false); return;
+      pesan("Cara transfer belum dipilih. Draf tetap tersimpan, tetapi harus diisi sebelum pembayaran disetujui.", true);
     }
     var payload = { action:"pengadaan_bayar_simpan", penyedia_id: vendorId,
                     judul: el("dpJudul").value.trim(),
