@@ -92,6 +92,9 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	protected Combobox jurusan;
 	protected Combobox program;
 	protected Boolean merupakanRemedial = false;
+	private boolean sedangSinkronFilter;
+	private String kunciRefreshTerakhir;
+	private long waktuRefreshTerakhir;
 
 	protected MyDatebox ppbegin = new MyDatebox();
 	protected MyTimebox waktuMulai;
@@ -255,9 +258,39 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	}
 
 	public void onRefresh(Event event) {
+		if (sedangSinkronFilter) {
+			return;
+		}
+		String kunciRefresh = bangunKunciRefresh();
+		long sekarang = System.currentTimeMillis();
+		if (kunciRefresh.equals(kunciRefreshTerakhir) && sekarang - waktuRefreshTerakhir < 500) {
+			return;
+		}
+		kunciRefreshTerakhir = kunciRefresh;
+		waktuRefreshTerakhir = sekarang;
 		initCalendarModel();
 		calendars.invalidate();
 		loadDataMahasiswa(null);
+	}
+
+	private String bangunKunciRefresh() {
+		return nilaiTerpilih(tahunAjaran) + "|" + nilaiTerpilih(fakultas) + "|" + nilaiTerpilih(jurusan) + "|"
+				+ nilaiTerpilih(program) + "|" + nilaiTerpilih(semester) + "|"
+				+ (kelas == null || kelas.getValue() == null ? "" : kelas.getValue().trim());
+	}
+
+	private String nilaiTerpilih(Combobox combo) {
+		if (combo == null || combo.getSelectedItem() == null || combo.getSelectedItem().getValue() == null) {
+			return "";
+		}
+		Object value = combo.getSelectedItem().getValue();
+		if (value instanceof Fakultas) {
+			return "fakultas:" + ((Fakultas) value).getId();
+		}
+		if (value instanceof Jurusan) {
+			return "jurusan:" + ((Jurusan) value).getId();
+		}
+		return String.valueOf(value);
 	}
 
 	@Override
@@ -363,15 +396,22 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 			@Override
 			public void onEvent(Event event) throws Exception {
-				// TODO Auto-generated method stub
-				Common.clear(jurusan);
-				jurusan.setSelectedItem(null);
-				if (fakultas.getSelectedItem() == null || fakultas.getSelectedItem().getValue() == null) {
-					return;
+				sedangSinkronFilter = true;
+				try {
+					Common.clear(jurusan);
+					jurusan.setSelectedItem(null);
+					if (fakultas.getSelectedItem() == null || fakultas.getSelectedItem().getValue() == null) {
+						Common.insertCombo(jurusan, new String[] { "nama", "kodeEpsbed" }, "jenjang", Jurusan.class,
+								Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+					} else {
+						Common.insertCombo(jurusan, new String[] { "nama", "kodeEpsbed" }, "jenjang", Jurusan.class,
+								Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
+								CommonSearchFilterHelper.eqSelectedWithId("fakultas", fakultas, false));
+					}
+				} finally {
+					sedangSinkronFilter = false;
 				}
-				Common.insertCombo(jurusan, new String[] { "nama", "kodeEpsbed" }, "jenjang", Jurusan.class,
-						Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
-						CommonSearchFilterHelper.eqSelectedWithId("fakultas", fakultas, false));
+				onRefresh(event);
 			}
 
 		}

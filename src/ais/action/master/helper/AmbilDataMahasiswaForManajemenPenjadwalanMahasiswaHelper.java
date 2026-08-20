@@ -166,6 +166,7 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 	private final Combobox searchjurusan = new Combobox();
 	private final Combobox searchstatusmahasiswa = new Combobox();
 	private final Paging paging;
+	private boolean sedangSinkronFilter;
 
 	/**
 	 * Himpunan id mahasiswa yang SUDAH terdaftar pada (kelas, tahun ajaran, semester) ini. Dimuat
@@ -194,6 +195,7 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 		this.fakultas = jurusan != null ? jurusan.getFakultas() : (kelas == null ? null : kelas.getFakultas());
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
+		pasangRelasiFakultasJurusan();
 
 		paging = new Paging();
 		Common.initPaging(paging, new EventListener() {
@@ -208,6 +210,7 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 		if (fakultas != null) {
 			Common.selectComboItem(true, searchfakultas, fakultas);
 			if (jurusan != null) {
+				Common.clear(searchjurusan);
 				Common.insertCombo(searchjurusan, "nama", Jurusan.class,
 						Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
 						Restrictions.eq("fakultas", fakultas));
@@ -215,6 +218,36 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 		}
 		if (jurusan != null) {
 			Common.selectComboItem(true, searchjurusan, jurusan);
+		}
+	}
+
+	private void pasangRelasiFakultasJurusan() {
+		searchfakultas.addEventListener(Events.ON_CHANGE, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				muatUlangJurusanDariFakultas();
+			}
+		});
+	}
+
+	private void muatUlangJurusanDariFakultas() {
+		if (sedangSinkronFilter || searchjurusan.isDisabled()) {
+			return;
+		}
+		sedangSinkronFilter = true;
+		try {
+			Common.clear(searchjurusan);
+			searchjurusan.setSelectedItem(null);
+			if (searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null) {
+				Common.insertComboDanSemua(searchjurusan, "nama", Jurusan.class,
+						Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+			} else {
+				Common.insertComboDanSemua(searchjurusan, "nama", Jurusan.class,
+						Restrictions.and(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
+								CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false)));
+			}
+		} finally {
+			sedangSinkronFilter = false;
 		}
 	}
 

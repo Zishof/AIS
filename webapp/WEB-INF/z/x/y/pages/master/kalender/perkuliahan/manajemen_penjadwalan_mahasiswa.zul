@@ -30,8 +30,7 @@
 
 										<label
 											use="ais.ui.util.MyLabelConfig" value="Fakultas" />
-										<combobox
-											forward="onChange=onRefresh" id="fakultas" width="95%" />
+										<combobox id="fakultas" width="95%" />
 
 									</row>
 
@@ -61,7 +60,7 @@
 											use="ais.ui.util.MyLabelConfig" value="Kelas" />
 										<bandbox
 											use="ais.action.master.helper.AmbilDataKelasBanbox"
-											id="kelas" value="A" cols="3" width="95%" forward="onChange=onRefresh">
+											id="kelas" value="A" cols="3" width="95%">
 										</bandbox>
 
 									</row>
