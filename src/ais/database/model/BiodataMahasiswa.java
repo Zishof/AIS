@@ -1745,8 +1745,6 @@ public class BiodataMahasiswa extends GeneralValueObject {
 
 					}
 
-					System.out.println("ket => " + ket);
-
 					String s = kelompokParameterTambahanAlumni.getNama() + "->" + parameterTambahan.getLabelInputan()
 							+ "<=>" + val + "<=>" + url + "<=>" + parameterTambahan.getNomorUrut() + "<=>"
 							+ parameterTambahan.getId() + "<=>" + kelompokParameterTambahanAlumni.getId() + "<=>"

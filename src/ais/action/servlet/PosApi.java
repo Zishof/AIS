@@ -1360,19 +1360,14 @@ public class PosApi extends HttpServlet {
 		// melihatnya tanpa pengaturan tambahan; peran lain tidak. Admin global tetap melihat
 		// semuanya, dan setelan eksplisit pada peran (grid CRUD TbmroleAction) selalu menang
 		// karena optBoolean hanya memakai nilai bawaan ini bila kuncinya belum pernah diatur.
-		final boolean bawaanAkuntansi = admin
-				|| ais.common.EbisnisMenuKatalog.peranAkuntansiBawaan(
-						roleAksesMenu == null ? null : roleAksesMenu.getRoleId());
 		final String menuPeranRaw = roleAksesMenu == null ? null : roleAksesMenu.getEbisnisMenu();
 		for (String kunciAkuntansi : ais.common.EbisnisMenuKatalog.KUNCI_AKUNTANSI) {
 			// urai() selalu mengisi semua kunci dgn nilai bawaannya, jadi optBoolean tidak dapat
 			// membedakan "belum diatur" dari "sengaja dimatikan" -- karena itu keputusannya dibaca
 			// dari JSON peran apa adanya: ada = ikuti setelan admin, tidak ada = ikuti bawaan peran.
-			boolean nilai = !admin
-					&& ais.common.EbisnisMenuKatalog.diaturEksplisit(menuPeranRaw, kunciAkuntansi)
-							? menuTersimpan.optBoolean(kunciAkuntansi, false)
-							: bawaanAkuntansi;
-			aksesMenu.put(kunciAkuntansi, nilai);
+			aksesMenu.put(kunciAkuntansi, admin || ais.common.EbisnisMenuKatalog.aksesAkuntansi(
+					menuPeranRaw, roleAksesMenu == null ? null : roleAksesMenu.getRoleId(),
+					kunciAkuntansi));
 		}
 		aksesMenu.put("pengaturanlaporan", menuTersimpan.optBoolean("pengaturanlaporan", true));
 		aksesMenu.put("pengaturan_laporan", menuTersimpan.optBoolean("pengaturanlaporan", true));

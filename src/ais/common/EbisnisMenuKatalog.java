@@ -272,6 +272,23 @@ public final class EbisnisMenuKatalog {
 	}
 
 	/**
+	 * Keputusan tampil/tidaknya satu kunci menu Akuntansi bagi sebuah peran &mdash; SATU sumber
+	 * kebenaran yang dipakai bersama POS (PosApi) maupun JSP (menu.jsp/nav.jsp) supaya aturannya
+	 * tidak bercabang antar platform.
+	 *
+	 * <p>Urutannya: setelan eksplisit pada peran menang; bila kunci itu belum pernah diatur,
+	 * barulah nilai bawaan per peran dipakai (hanya {@link #PERAN_AKUNTANSI_BAWAAN} yang terbuka).
+	 * Admin global ditangani pemanggil (mereka melewati seluruh gerbang menu).</p>
+	 */
+	public static boolean aksesAkuntansi(String rawEbisnisMenu, String roleId, String kunci) {
+		if (diaturEksplisit(rawEbisnisMenu, kunci)) {
+			JSONObject menu = urai(rawEbisnisMenu).optJSONObject("menu");
+			return menu != null && menu.optBoolean(kunci, false);
+		}
+		return peranAkuntansiBawaan(roleId);
+	}
+
+	/**
 	 * Subset {@link #DAFTAR} kunci yang punya record/CRUD sungguhan (bukan sekadar layar lihat-saja spt
 	 * Ringkasan/Log Error/Konfigurasi) -- menu inilah yang dapat kontrol granular per {@link #AKSI_CRUD}
 	 * ("Read"-nya sendiri TETAP diwakili {@code menu.<kunci>} yang sudah ada, tidak diduplikasi di sini).

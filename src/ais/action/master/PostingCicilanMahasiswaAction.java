@@ -1073,9 +1073,16 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 		}
 		String mulai = Common.databaseDateFormat.get().format(tglMulai.getValue());
 		String sampai = Common.databaseDateFormat.get().format(tglSampai.getValue());
-		return Restrictions.sqlRestriction("(date(coalesce(this_.tanggal_tagihan, this_.tanggal)) between date('" + mulai
-				+ "') and date('" + sampai + "') or date(this_.tanggal) between date('" + mulai + "') and date('"
-				+ sampai + "'))");
+		/* FIX 20-08-2026 (pencatatan realisasi): filter lama memakai
+		 * coalesce(tanggal_tagihan, tanggal) sehingga baris IKUT TERSARING berdasarkan tanggal
+		 * TAGIHAN. Akibatnya pembayaran yang direalisasikan 10-08 muncul pada rentang Juli hanya
+		 * karena tagihannya bertanggal 17-07 -- pengelompokan bulan jurnal pembayaran jadi salah.
+		 * Layar ini adalah JURNAL PEMBAYARAN, jadi dasar periodenya HARUS tanggal realisasi
+		 * pembayaran (kolom tanggal) -- konsisten dengan tanggal yang dipakai saat posting jurnal
+		 * (lihat pemanggilan posting yang memakai cicilanPembayaran.getTanggal()).
+		 * Tanggal tagihan tetap ditampilkan di kolom Waktu sebagai informasi. */
+		return Restrictions.sqlRestriction("date(this_.tanggal) between date('" + mulai + "') and date('"
+				+ sampai + "')");
 	}
 
 	@SuppressWarnings("unchecked")

@@ -28,7 +28,13 @@
         if ("pesanan".equals(menu)) return menuTersimpan.optBoolean("pesanan", true);
         if ("pengaturan".equals(menu)) return menuTersimpan.optBoolean("konfigurasi", true);
         if ("laporan_laporan".equals(menu)) return menuTersimpan.optBoolean("laporan", true);
-        if ("laporan_keuangan".equals(menu)) return menuTersimpan.optBoolean("laporankeuangan", true);
+        // Menu Akuntansi/Laporan Keuangan fail-closed: bawaannya hanya terbuka utk peran
+        // keu (Keuangan) dan am (Admin); setelan eksplisit pada peran tetap menang. Aturan
+        // yang SAMA dipakai POS lewat PosApi -> EbisnisMenuKatalog.aksesAkuntansi.
+        if ("laporan_keuangan".equals(menu)) {
+            return ais.common.EbisnisMenuKatalog.aksesAkuntansi(role.getEbisnisMenu(),
+                    role.getRoleId(), "laporankeuangan");
+        }
         if ("anggota".equals(menu)) return menuTersimpan.optBoolean("anggota", true);
         if ("barang".equals(menu)) return menuTersimpan.optBoolean("produk", true);
         if ("kulakan".equals(menu)) return menuTersimpan.optBoolean("kulakan", true);

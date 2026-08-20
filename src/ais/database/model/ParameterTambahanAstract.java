@@ -1555,11 +1555,38 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	}
 
 	public static String ambilVal(Row row, ParameterTambahan parameterTambahan, String componentData) {
+		if (row == null) {
+			return "";
+		}
 		Component component = (Component) row.getAttribute(componentData);
 		if (component == null) {
-			try {
-				component = (Component) row.getChildren().get(1);
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:1348"); }
+			/*
+			 * Cadangan bila atribut komponen tidak terpasang. Susunan baku satu baris
+			 * parameter adalah [0] = Label judul, [1] = komponen masukan.
+			 *
+			 * TETAPI baris bisa sah-sah saja hanya berisi label: {@link #initComponent}
+			 * MENDAFTARKAN baris ke parameterRows TANPA SYARAT (lihat parameterRows.add(row)
+			 * di method itu), termasuk ketika rantai pembuatan komponen tidak menghasilkan
+			 * apa pun -- mis. tipeDataInputan yang belum punya cabang penanganan, atau null.
+			 *
+			 * Dahulu indeks 1 diambil langsung dan IndexOutOfBoundsException-nya ditangkap
+			 * sebagai KENDALI ALUR. Hasil akhirnya memang sama (nilai kosong), tetapi setiap
+			 * penyimpanan membanjiri ErrorAudit dengan stack trace penuh -- satu per baris
+			 * bermasalah, per simpan; terpantau di produksi lewat
+			 * BiodataMahasiswa.populateParameterTambahanAlumni. Menangkap exception juga jauh
+			 * lebih mahal daripada sekadar memeriksa ukuran daftar. Karena itu jumlah anak
+			 * diperiksa lebih dulu, dan ketiadaan komponen diperlakukan sebagai keadaan
+			 * WAJAR (nilai kosong), bukan sebagai error.
+			 */
+			java.util.List<?> anak = row.getChildren();
+			if (anak == null || anak.size() < 2) {
+				return "";
+			}
+			Object kandidat = anak.get(1);
+			if (!(kandidat instanceof Component)) {
+				return "";
+			}
+			component = (Component) kandidat;
 		}
 		return ambilValComponent(component, parameterTambahan);
 	}
