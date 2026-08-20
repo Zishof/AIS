@@ -98,6 +98,8 @@ public class Toko extends GeneralValueObject {
 	private Boolean semuaBolehUbahHarga;
 	private String userBolehUbahHarga;
 	private String roleBolehUbahHarga;
+	private Boolean otomatisBayarSetelahJam24;
+	private Boolean otomatisLayaniSetelahJam24;
 	/** Penanda toko khusus demo/UAT. Default false agar data sample mustahil muncul di toko produksi. */
 	private Boolean tokoDemo;
 
@@ -339,6 +341,46 @@ public class Toko extends GeneralValueObject {
 	 * terdaftar ATAU role-nya terdaftar. Format CSV berpembatas koma dgn koma pembungkus,
 	 * sama seperti daftar pengguna.
 	 */
+	/**
+	 * Pesanan yang belum lunas dan sudah LEWAT hari (melewati jam 24) ditandai
+	 * terbayar secara otomatis.
+	 *
+	 * <p>TIGA keadaan, bukan dua:</p>
+	 * <ul>
+	 *   <li>{@code null} -- ikut pengaturan global
+	 *       ({@code otomatis_verifikasi_bayar_setelah_jam_24});</li>
+	 *   <li>{@code TRUE} -- menyala untuk toko ini walau global mati;</li>
+	 *   <li>{@code FALSE} -- mati untuk toko ini walau global menyala.</li>
+	 * </ul>
+	 *
+	 * <p>Tri-state disengaja: dgn boolean biasa, "belum pernah diatur" tidak
+	 * dapat dibedakan dari "sengaja dimatikan", sehingga toko yang belum
+	 * disentuh akan ikut menyala begitu global dinyalakan -- justru kebalikan
+	 * dari maksud pengaturan per toko.</p>
+	 */
+	@Column(name = "otomatis_bayar_setelah_jam_24")
+	public Boolean getOtomatisBayarSetelahJam24() {
+		return otomatisBayarSetelahJam24;
+	}
+
+	public void setOtomatisBayarSetelahJam24(Boolean otomatisBayarSetelahJam24) {
+		this.otomatisBayarSetelahJam24 = otomatisBayarSetelahJam24;
+	}
+
+	/**
+	 * Transaksi yang belum dilayani dan sudah lewat hari ditandai terlayani
+	 * secara otomatis. Tri-state, sama seperti
+	 * {@link #getOtomatisBayarSetelahJam24()}.
+	 */
+	@Column(name = "otomatis_layani_setelah_jam_24")
+	public Boolean getOtomatisLayaniSetelahJam24() {
+		return otomatisLayaniSetelahJam24;
+	}
+
+	public void setOtomatisLayaniSetelahJam24(Boolean otomatisLayaniSetelahJam24) {
+		this.otomatisLayaniSetelahJam24 = otomatisLayaniSetelahJam24;
+	}
+
 	@Column(name = "role_boleh_ubah_harga", columnDefinition = "text", nullable = true)
 	public String getRoleBolehUbahHarga() {
 		return roleBolehUbahHarga;

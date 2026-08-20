@@ -136,6 +136,10 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android"));
+		// Anggaran/RAB bulanan: rencana per bulan + revisi + realisasi. Layar ZK-nya
+		// (workspace_bulanan, workspace_revisi_bulanan, realisasi_bulanan, penggunaan_anggaran)
+		// tetap ada; kunci ini menggerbangi versi Desktop/Android-nya.
+		DAFTAR.add(new Entri(MODUL_POS, "anggaran", "Akuntansi: Anggaran (RAB Bulanan)", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatsinkronisasi", "Riwayat Sinkronisasi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "logerror", "Log Error", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "konfigurasi", "Konfigurasi (Desktop/Android)", "desktop", "android"));
@@ -236,7 +240,7 @@ public final class EbisnisMenuKatalog {
 			"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang"));
+			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran"));
 
 	/**
 	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
@@ -253,7 +257,7 @@ public final class EbisnisMenuKatalog {
 					"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang"));
+					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran"));
 
 	/**
 	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
@@ -327,7 +331,9 @@ public final class EbisnisMenuKatalog {
 			"pembelian_sales", "kas_jurnal",
 			// Master akuntansi: sejak layar Kode Akun punya tombol Tambah/Ubah/Hapus/Copy
 			// (padanan layar ZK), hak per-aksinya wajib bisa dibatasi admin per peran.
-			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
+			// "anggaran" ikut ber-CRUD: menyusun rencana, membuat revisi, dan mencatat
+			// penggunaan adalah tiga kewenangan berbeda yang sering dipisah antar peran.
+			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun", "anggaran",
 			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",

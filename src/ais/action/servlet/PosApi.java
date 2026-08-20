@@ -341,6 +341,9 @@ public class PosApi extends HttpServlet {
 			} else if ("hak_akses_list".equals(action)) {
 				KantinHelper.hakAksesList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "hak_akses_list");
+			} else if ("otomatis_pesanan_global_simpan".equals(action)) {
+				KantinHelper.otomatisPesananGlobalSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "otomatis_pesanan_global_simpan");
 			} else if ("toko_filter_list".equals(action)) {
 				prosesTokoFilterList(tbmuser, hasil);
 			} else if ("pengguna_toko_list".equals(action)) {
@@ -713,6 +716,12 @@ public class PosApi extends HttpServlet {
 				// Pemetaan akun -> Kelompok Laporan (pratinjau & terapkan). Menentukan apakah sebuah akun
 				// ikut terhitung di Laba Rugi/Neraca berbasis jurnal.
 				ais.action.servlet.api.PemetaanAkunHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("anggaran_")) {
+				// Anggaran / RAB Bulanan (rencana per bulan, revisi, realisasi, penggunaan) --
+				// dipindahkan dari layar ZK workspace_bulanan/workspace_revisi_bulanan/
+				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
+				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("kode_akun_")) {
 				// Konfigurasi Kode Akun (Akun, Daftar Akun, Bank, Jenis Transaksi) --

@@ -5250,6 +5250,65 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Simpan pengaturan GLOBAL "proses otomatis setelah lewat jam 24".
+	 *
+	 * <p>Hanya admin. Menyalakannya berarti sistem menandai pesanan terbayar /
+	 * terlayani tanpa ada orang yang mengonfirmasi, jadi bukan wewenang kasir
+	 * toko -- toko mengatur miliknya sendiri lewat Profil Toko.</p>
+	 *
+	 * Request: { bayar: true|false, layani: true|false }
+	 */
+	public static void otomatisPesananGlobalSimpan(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (!ais.common.Common.getApakahAdminLain(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin yang dapat mengubah pengaturan global.");
+			return;
+		}
+		if (request.has("bayar")) {
+			simpanKonfigurasiAktif(
+					ais.action.master.koperasi.OtomatisPesananUtil.KUNCI_BAYAR,
+					request.optBoolean("bayar"));
+		}
+		if (request.has("layani")) {
+			simpanKonfigurasiAktif(
+					ais.action.master.koperasi.OtomatisPesananUtil.KUNCI_LAYANI,
+					request.optBoolean("layani"));
+		}
+		hasil.put("status", "00");
+		hasil.put("bayar", ais.action.master.koperasi.OtomatisPesananUtil.globalBayar());
+		hasil.put("layani", ais.action.master.koperasi.OtomatisPesananUtil.globalLayani());
+	}
+
+	/**
+	 * Tulis satu konfigurasi bernilai AKTIF/TIDAK_AKTIF.
+	 *
+	 * <p>Cache konfigurasi di memori WAJIB ikut diperbarui; tanpa itu nilai
+	 * baru baru terbaca setelah aplikasi di-restart, dan pengelola akan
+	 * menyangka pengaturannya tidak tersimpan.</p>
+	 */
+	private static void simpanKonfigurasiAktif(String kunci, boolean aktif) throws Exception {
+		ais.database.model.Konfigurasi konfigurasi = ais.common.Common.getKonfigurasi(kunci,
+				ais.database.model.Konfigurasi.TIDAK_AKTIF);
+		konfigurasi.setNilai(aktif ? ais.database.model.Konfigurasi.AKTIF
+				: ais.database.model.Konfigurasi.TIDAK_AKTIF);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.getTransaction().begin();
+			session.update(konfigurasi);
+			session.getTransaction().commit();
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+		try {
+			ais.common.MemoryDbUtil.getKonfigurasi().put(konfigurasi.getNama(), konfigurasi);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"otomatisPesananGlobalSimpan: cache konfigurasi tidak dapat diperbarui");
+		}
+	}
+
 	public static void tokoProfilAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 		Long tokoId;
@@ -5312,6 +5371,23 @@ public class KantinHelper {
 				}
 			}
 			data.put("roleBolehUbahHarga", roleHarga);
+			// Tri-state dikirim APA ADANYA (null = ikut global) supaya layar
+			// dapat membedakan "belum diatur" dari "sengaja dimatikan".
+			data.put("otomatisBayarSetelahJam24",
+					toko.getOtomatisBayarSetelahJam24() == null ? JSONObject.NULL
+							: toko.getOtomatisBayarSetelahJam24());
+			data.put("otomatisLayaniSetelahJam24",
+					toko.getOtomatisLayaniSetelahJam24() == null ? JSONObject.NULL
+							: toko.getOtomatisLayaniSetelahJam24());
+			data.put("globalOtomatisBayarSetelahJam24",
+					ais.action.master.koperasi.OtomatisPesananUtil.globalBayar());
+			data.put("globalOtomatisLayaniSetelahJam24",
+					ais.action.master.koperasi.OtomatisPesananUtil.globalLayani());
+			// Nilai efektif = yang benar-benar berlaku utk toko ini.
+			data.put("efektifOtomatisBayarSetelahJam24",
+					ais.action.master.koperasi.OtomatisPesananUtil.bayarOtomatis(toko));
+			data.put("efektifOtomatisLayaniSetelahJam24",
+					ais.action.master.koperasi.OtomatisPesananUtil.layaniOtomatis(toko));
 			data.put("bolehUbahHargaSaya",
 					ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser));
 			data.put("tokoDemo", Boolean.TRUE.equals(toko.getTokoDemo()));
@@ -5413,6 +5489,18 @@ public class KantinHelper {
 				}
 				toko.setRoleBolehUbahHarga(
 						ais.action.master.inventory.HargaAksesUtil.normalkan(csvRoleBaru.toString()));
+			}
+			// Tri-state: kunci ADA tapi bernilai null -> kembalikan ke "ikut
+			// global". Kunci tidak dikirim sama sekali -> jangan diubah.
+			if (request.has("otomatis_bayar_setelah_jam_24")) {
+				toko.setOtomatisBayarSetelahJam24(
+						request.isNull("otomatis_bayar_setelah_jam_24") ? null
+								: Boolean.valueOf(request.optBoolean("otomatis_bayar_setelah_jam_24")));
+			}
+			if (request.has("otomatis_layani_setelah_jam_24")) {
+				toko.setOtomatisLayaniSetelahJam24(
+						request.isNull("otomatis_layani_setelah_jam_24") ? null
+								: Boolean.valueOf(request.optBoolean("otomatis_layani_setelah_jam_24")));
 			}
 			if (request.has("boleh_transaksi_stok_habis")) {
 				toko.setBolehTransaksiStokHabis(Boolean.valueOf(

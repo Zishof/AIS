@@ -27,6 +27,7 @@ import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
+import ais.database.model.repository.RepoItemRelation;
 import ais.database.model.repository.RepoUsageEvent;
 import ais.database.model.file.LampiranLain;
 
@@ -99,6 +100,7 @@ public class RepositoryPublicService {
         public String year;
         public Long collectionId;
         public String collectionName;
+        public long versionNumber;
     }
 
     public static class BitstreamView {
@@ -115,6 +117,17 @@ public class RepositoryPublicService {
     public static class ItemDetail extends ItemCard {
         public Map<String, List<String> > metadata = new LinkedHashMap<String, List<String> >();
         public List<BitstreamView> files = new ArrayList<BitstreamView>();
+        public List<ItemCard> relatedItems = new ArrayList<ItemCard>();
+        public List<ItemCard> versions = new ArrayList<ItemCard>();
+    }
+
+    public static class AuthorProfile {
+        public String name = "";
+        public String orcid = "";
+        public long workCount;
+        public List<ItemCard> works = new ArrayList<ItemCard>();
+        public Map<String, Long> yearTrend = new LinkedHashMap<String, Long>();
+        public Map<String, Long> subjects = new LinkedHashMap<String, Long>();
     }
 
     public static class SearchResult {
@@ -273,7 +286,28 @@ public class RepositoryPublicService {
             if (!canDownload(entity, bitstream)) continue;
             detail.files.add(toBitstream(bitstream));
         }
+        detail.relatedItems = relatedItems(session, entity, 8);
+        detail.versions = versionItems(session, entity, 20);
         return detail;
+    }
+
+    public CollectionView findCollection(Long id) {
+        if (id == null) return null;
+        RepoCollection row = (RepoCollection) session().createCriteria(RepoCollection.class)
+                .add(Restrictions.eq("id", id)).add(activeRestriction()).uniqueResult();
+        if (row == null) return null;
+        CollectionView view = new CollectionView(); view.id=row.getId(); view.kode=safe(row.getKode());
+        view.nama=safe(row.getNama()); view.deskripsi=safe(row.getDeskripsi()); view.tipe=safe(row.getTipe());
+        Long count=collectionCounts(session()).get(row.getId()); view.itemCount=count==null?0L:count.longValue(); return view;
+    }
+
+    public AuthorProfile authorProfile(String name) {
+        String author = limit(clean(name), 200); if (author.length() == 0) return null;
+        Query q = new Query(); q.author=author; q.sort="newest"; q.pageSize=MAX_PAGE_SIZE;
+        SearchResult result=search(q); if(result.total==0)return null;
+        AuthorProfile profile=new AuthorProfile(); profile.name=author; profile.workCount=result.total; profile.works=result.items;
+        for(ItemCard item:result.items){if(item.year.length()>0)increment(profile.yearTrend,item.year);for(String s:safe(item.subjects).split("[;,]"))if(clean(s).length()>0)increment(profile.subjects,clean(s));}
+        return profile;
     }
 
     public ItemDetail findPublicItemByOai(String identifier) {
@@ -519,6 +553,7 @@ public class RepositoryPublicService {
         card.year = entity.getIssuedAt() == null ? "" : new SimpleDateFormat("yyyy").format(entity.getIssuedAt());
         card.collectionId = entity.getCollectionId();
         card.collectionName = collection == null ? "" : safe(collection.getNama());
+        card.versionNumber = entity.getVersionNumber() == null ? 1L : entity.getVersionNumber().longValue();
         return card;
     }
 
@@ -541,7 +576,30 @@ public class RepositoryPublicService {
         target.year = source.year;
         target.collectionId = source.collectionId;
         target.collectionName = source.collectionName;
+        target.versionNumber = source.versionNumber;
     }
+
+    @SuppressWarnings("unchecked")
+    private List<ItemCard> relatedItems(Session session, RepoItem item, int maximum) {
+        List<RepoItemRelation> relations=session.createCriteria(RepoItemRelation.class).add(activeRestriction())
+                .add(Restrictions.or(Restrictions.eq("itemId",item.getId()),Restrictions.eq("relatedItemId",item.getId())))
+                .setMaxResults(maximum*2).list(); List<Long> ids=new ArrayList<Long>();
+        for(RepoItemRelation relation:relations){Long id=item.getId().equals(relation.getItemId())?relation.getRelatedItemId():relation.getItemId();if(id!=null&&!ids.contains(id))ids.add(id);}
+        if(ids.isEmpty()&&item.getSubjects().length()>0){List<RepoItem> candidates=publicCriteria(session,null).add(Restrictions.ne("id",item.getId())).add(Restrictions.ilike("subjects",firstToken(item.getSubjects()),MatchMode.ANYWHERE)).setMaxResults(maximum).list();return cards(session,candidates);}
+        if(ids.isEmpty())return new ArrayList<ItemCard>(); List<RepoItem> rows=publicCriteria(session,null).add(Restrictions.in("id",ids)).setMaxResults(maximum).list();return cards(session,rows);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ItemCard> versionItems(Session session, RepoItem item, int maximum) {
+        org.hibernate.criterion.Disjunction any=Restrictions.disjunction(); any.add(Restrictions.eq("id",item.getId()));
+        any.add(Restrictions.eq("previousVersionId",item.getId())); if(item.getPreviousVersionId()!=null)any.add(Restrictions.eq("id",item.getPreviousVersionId()));
+        if(item.getSourceClass()!=null&&item.getSourceId()!=null)any.add(Restrictions.and(Restrictions.eq("sourceClass",item.getSourceClass()),Restrictions.eq("sourceId",item.getSourceId())));
+        List<RepoItem> rows=publicCriteria(session,null).add(any).addOrder(Order.asc("versionNumber")).setMaxResults(maximum).list();return cards(session,rows);
+    }
+
+    private List<ItemCard> cards(Session session,List<RepoItem> rows){List<ItemCard> out=new ArrayList<ItemCard>();Map<Long,RepoCollection> map=loadCollectionMap(session,rows);for(RepoItem row:rows)out.add(toCard(row,map.get(row.getCollectionId())));return out;}
+    private static String firstToken(String value){String[]v=safe(value).split("[;,]");return v.length==0?"":clean(v[0]);}
+    private static void increment(Map<String,Long> map,String key){Long n=map.get(key);map.put(key,Long.valueOf(n==null?1L:n.longValue()+1L));}
 
     private BitstreamView toBitstream(RepoBitstream entity) {
         BitstreamView view = new BitstreamView();

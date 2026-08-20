@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLEncoder;
+import java.net.URLDecoder;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -24,6 +25,8 @@ import org.json.JSONObject;
 import ais.action.master.repository.RepositoryPublicService;
 import ais.action.master.repository.RepositoryPublicService.ItemCard;
 import ais.action.master.repository.RepositoryPublicService.ItemDetail;
+import ais.action.master.repository.RepositoryPublicService.AuthorProfile;
+import ais.action.master.repository.RepositoryPublicService.CollectionView;
 import ais.action.master.repository.RepositoryPublicService.Query;
 import ais.action.master.repository.RepositoryPublicService.SearchResult;
 import ais.common.Common;
@@ -81,6 +84,21 @@ public class Repository extends HttpServlet {
     private void process(HttpServletRequest request, HttpServletResponse response, String requestId) throws Exception {
         String action = clean(request.getParameter("action")).toLowerCase();
         String view = clean(request.getParameter("view")).toLowerCase();
+        Long routeId = null;
+        String routeAuthor = "";
+        String path = clean(request.getPathInfo());
+        if (path.length() > 0 && !"/".equals(path)) {
+            String[] segments = path.split("/");
+            if (path.equals("/search") || path.startsWith("/browse")) view = "search";
+            else if (path.equals("/policies")) view = "policies";
+            else if (path.equals("/help")) view = "help";
+            else if (path.equals("/rss/recent")) action = "feed";
+            else if (path.equals("/sitemap.xml")) { sitemap(request,response); return; }
+            else if (path.equals("/oai/request")) { response.sendRedirect(request.getContextPath()+"/oai"+(request.getQueryString()==null?"":"?"+request.getQueryString())); return; }
+            else if (segments.length > 2 && "item".equals(segments[1])) { view="item"; routeId=parseLong(segments[2]); }
+            else if (segments.length > 2 && "collection".equals(segments[1])) { view="collection"; routeId=parseLong(segments[2]); request.setAttribute("repoRouteCollectionId",routeId); }
+            else if (segments.length > 2 && "author".equals(segments[1])) { view="author"; routeAuthor=URLDecoder.decode(segments[2],"UTF-8"); }
+        }
         String ip = request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
         if (("search".equals(action) || "search".equals(view) || "browse".equals(view))
                 && !PublicRegistrationRateLimiter.izinkan("repository-search|" + ip, 300, 3600000L)) {
@@ -119,15 +137,24 @@ public class Repository extends HttpServlet {
         request.setAttribute("repoCollections", service.listCollections(12));
 
         if ("item".equals(view)) {
-            ItemDetail detail = service.findPublicItem(parseLong(request.getParameter("id")));
+            Long itemId=routeId==null?parseLong(request.getParameter("id")):routeId;
+            ItemDetail detail = service.findPublicItem(itemId);
             if (detail == null) {
-                detail = service.findTombstone(parseLong(request.getParameter("id")));
+                detail = service.findTombstone(itemId);
                 if (detail == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan."); return; }
             }
             request.setAttribute("repoItem", detail);
             if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
             request.setAttribute("repoSearch", service.search(queryFrom(request)));
+        } else if ("collection".equals(view)) {
+            CollectionView collection=service.findCollection(routeId==null?parseLong(request.getParameter("id")):routeId);
+            if(collection==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Koleksi tidak ditemukan.");return;}
+            request.setAttribute("repoCollection",collection); request.setAttribute("repoSearch",service.search(queryFrom(request)));
+        } else if ("author".equals(view)) {
+            String name=routeAuthor.length()==0?clean(request.getParameter("name")):routeAuthor;
+            AuthorProfile author=service.authorProfile(name);if(author==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Profil penulis tidak ditemukan.");return;}
+            request.setAttribute("repoAuthor",author);
         } else if ("policies".equals(view) || "help".equals(view)) {
             // Rendered by the allow-listed JSP view.
         } else {
@@ -144,7 +171,8 @@ public class Repository extends HttpServlet {
         q.subject = clean(request.getParameter("subject"));
         q.language = clean(request.getParameter("language"));
         q.identifier = clean(request.getParameter("identifier"));
-        q.collectionId = parseLong(request.getParameter("collection"));
+        q.collectionId = request.getAttribute("repoRouteCollectionId") instanceof Long
+                ? (Long)request.getAttribute("repoRouteCollectionId") : parseLong(request.getParameter("collection"));
         q.documentType = clean(request.getParameter("type"));
         q.accessPolicy = clean(request.getParameter("access"));
         q.year = parseInteger(request.getParameter("year"));
