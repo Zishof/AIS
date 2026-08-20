@@ -69,7 +69,6 @@ if(hanya_tampil_jsp){
       </div>
     </main>
     <jsp:include page="/WEB-INF/baru/include/foot.jsp"></jsp:include>
-  <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body>
+  </body>
 </html>
 <% } %>

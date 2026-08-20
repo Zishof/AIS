@@ -607,8 +607,7 @@ if (isUserAktif) {
                     const statusBuka = row.isRead ? 'SUDAH DIBACA' : 'BELUM DIBACA';
                     tableHtml += '<tr><td style="text-align: center;">' + row.time + '</td><td style="text-align: center;">' + row.type + '</td><td>' + row.message + '</td><td style="text-align: center;">' + statusBuka + '</td></tr>';
                 });
-                tableHtml += '</tbody></table><jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>';
+                tableHtml += '</tbody></table></body></html>';
                 const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
                 const url = URL.createObjectURL(blob); const link = document.createElement("a");
                 const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");

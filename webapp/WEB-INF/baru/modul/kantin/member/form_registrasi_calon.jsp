@@ -780,6 +780,5 @@ String rnd = Common.getGeneratedBarCode(7);
 
     <jsp:include page="/WEB-INF/baru/include/foot.jsp"></jsp:include>
 
-  <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body>
+  </body>
 </html>

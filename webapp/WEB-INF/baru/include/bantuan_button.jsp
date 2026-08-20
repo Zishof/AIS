@@ -37,7 +37,13 @@
     // terlepas dari ada tidaknya panduan khusus halaman ini.
     String __rpPusat = application.getRealPath("/WEB-INF/bantuan/panduan.html");
     boolean __adaPusat = __rpPusat != null && new java.io.File(__rpPusat).isFile();
-    if (__kbTampil && (__ada || __adaPusat)) {
+    // FIX 21-08-2026: sebagian modul memakai SATU shell bersama (mis. inventory/index.jsp
+    // yang di-include 48 halaman), sehingga tombol bantuan ikut terbawa ke halaman cetak
+    // yang seharusnya bersih. Halaman cetak/ekspor dikenali dari nama berkasnya sendiri --
+    // request.getServletPath() pada include tetap menunjuk halaman TERLUAR, jadi nilai
+    // __key di sini memang nama halaman yang sedang dibuka pengguna.
+    boolean __kbCetak = __key.matches(".*(cetak|print|export|pdf|struk).*");
+    if (__kbTampil && !__kbCetak && (__ada || __adaPusat)) {
         String __ctx = request.getContextPath();
 %>
 <style type="text/css">
