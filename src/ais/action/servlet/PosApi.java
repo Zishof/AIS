@@ -2510,9 +2510,13 @@ public class PosApi extends HttpServlet {
 		java.util.List<Object[]> perluResep = new java.util.ArrayList<Object[]>();
 		java.util.Set<Long> idBahan = new java.util.HashSet<Long>();
 
+		// tokoId null = seluruh toko (dipakai dashboard admin yang tidak memilih
+		// toko tertentu). Filter dilepas, bukan dibuat "toko = NULL" yang tidak
+		// akan pernah cocok.
 		java.sql.PreparedStatement psSemua = conn.prepareStatement(
-				"SELECT id, COALESCE(bahanbaku,''), COALESCE(hargabeli,0) FROM koperasi.produk WHERE toko = ?");
-		psSemua.setLong(1, tokoId.longValue());
+				"SELECT id, COALESCE(bahanbaku,''), COALESCE(hargabeli,0) FROM koperasi.produk"
+						+ (tokoId == null ? "" : " WHERE toko = ?"));
+		if (tokoId != null) psSemua.setLong(1, tokoId.longValue());
 		java.sql.ResultSet rsSemua = psSemua.executeQuery();
 		while (rsSemua.next()) {
 			long id = rsSemua.getLong(1);
@@ -2570,10 +2574,12 @@ public class PosApi extends HttpServlet {
 
 	/** @return {qty, pembeli(DISTINCT anggota), total} utk satu toko pada rentang waktu {@code kondisiWaktu} (fragmen SQL siap pakai, mis. {@code "DATE(a.waktu)=CURRENT_DATE"}). */
 	private static JSONObject performaPeriode(java.sql.Connection conn, Long tokoId, String kondisiWaktu) throws Exception {
+		// tokoId null = seluruh toko (lihat catatan di petaHargaPokok).
 		java.sql.PreparedStatement ps = conn.prepareStatement(
 				"SELECT COALESCE(SUM(a.qty),0), COUNT(DISTINCT a.anggota_koperasi), COALESCE(SUM(a.total),0) "
-						+ "FROM koperasi.pembelian a WHERE a.toko = ? AND " + kondisiWaktu);
-		ps.setLong(1, tokoId.longValue());
+						+ "FROM koperasi.pembelian a WHERE " + kondisiWaktu
+						+ (tokoId == null ? "" : " AND a.toko = ?"));
+		if (tokoId != null) ps.setLong(1, tokoId.longValue());
 		java.sql.ResultSet rs = ps.executeQuery();
 		JSONObject o = new JSONObject();
 		if (rs.next()) { o.put("qty", rs.getDouble(1)); o.put("pembeli", rs.getLong(2)); o.put("total", rs.getDouble(3)); }
@@ -4510,7 +4516,12 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardKeuangan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		// Admin global tanpa toko terpilih melihat SEMUA toko (sama spt tab
+		// Ringkasan Umum). Pedagang/kasir tetap terkunci oleh resolveTokoId.
+		boolean semuaToko = (tokoId == null);
+		if (semuaToko && tbmuser.getPedagang() != null) {
+			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
+		}
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 
@@ -4522,9 +4533,10 @@ public class PosApi extends HttpServlet {
 			// ---- Tren laba 14 hari (agregat qty*hpp per produk per hari) ----
 			java.sql.PreparedStatement psLaba = conn.prepareStatement(
 					"SELECT DATE(a.waktu), a.produk, SUM(a.total), SUM(a.qty) FROM koperasi.pembelian a "
-							+ "WHERE a.toko = ? AND DATE(a.waktu) >= " + acuanSql + " - INTERVAL '14 days'"
+							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '14 days'"
+							+ (semuaToko ? "" : " AND a.toko = ?")
 							+ " AND DATE(a.waktu) <= " + acuanSql + " GROUP BY DATE(a.waktu), a.produk ORDER BY 1");
-			psLaba.setLong(1, tokoId.longValue());
+			if (!semuaToko) psLaba.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsLaba = psLaba.executeQuery();
 			java.util.LinkedHashMap<String, double[]> perHari = new java.util.LinkedHashMap<String, double[]>();
 			while (rsLaba.next()) {
@@ -4568,8 +4580,9 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psResep = conn.prepareStatement(
 					"SELECT p.id, COALESCE(t.nama,'-'), p.nama, COALESCE(p.hargajual,0) FROM koperasi.produk p "
 							+ "LEFT JOIN koperasi.toko t ON t.id = p.toko "
-							+ "WHERE p.bahanbaku IS NOT NULL AND TRIM(p.bahanbaku) NOT IN ('','[]') AND p.toko = ? ORDER BY p.nama");
-			psResep.setLong(1, tokoId.longValue());
+							+ "WHERE p.bahanbaku IS NOT NULL AND TRIM(p.bahanbaku) NOT IN ('','[]')"
+							+ (semuaToko ? "" : " AND p.toko = ?") + " ORDER BY p.nama");
+			if (!semuaToko) psResep.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsResep = psResep.executeQuery();
 			JSONArray rekapMenu = new JSONArray();
 			double sumMargin = 0; int jumlahMenu = 0;
@@ -4599,9 +4612,10 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psBahan = conn.prepareStatement(
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(SUM(pb.qty),0), COALESCE(SUM(pb.qty * COALESCE(pr.hargabeli,0)),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
-							+ "WHERE pb.toko = ? AND pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ "WHERE pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ (semuaToko ? "" : " AND pb.toko = ?")
 							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.nama ORDER BY 2 DESC");
-			psBahan.setLong(1, tokoId.longValue());
+			if (!semuaToko) psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
 			JSONArray rekapBahan = new JSONArray();
 			double nilaiBahanTerpakai = 0;
@@ -4652,7 +4666,15 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardProduk(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		// Sama spt tab Ringkasan Umum: admin global (pedagang == null) yang tidak
+		// memilih toko tertentu melihat SEMUA toko sekaligus, bukan ditolak.
+		// Pedagang/kasir tetap terkunci ke tokonya sendiri oleh resolveTokoId,
+		// jadi tokoId == null di sini hanya mungkin utk admin.
+		boolean semuaToko = (tokoId == null);
+		if (semuaToko && tbmuser.getPedagang() != null) {
+			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
+		}
+		String kondisiToko = semuaToko ? "" : " AND a.toko = ?";
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
@@ -4663,8 +4685,9 @@ public class PosApi extends HttpServlet {
 			java.sql.Connection conn = session.connection();
 
 			java.sql.PreparedStatement psStok = conn.prepareStatement(
-					"SELECT c.nama, COALESCE(c.stok,0) FROM koperasi.produk c WHERE c.toko = ? AND (c.aktif = true OR c.aktif IS NULL) ORDER BY c.stok ASC LIMIT 100");
-			psStok.setLong(1, tokoId.longValue());
+					"SELECT c.nama, COALESCE(c.stok,0) FROM koperasi.produk c WHERE (c.aktif = true OR c.aktif IS NULL)"
+							+ (semuaToko ? "" : " AND c.toko = ?") + " ORDER BY c.stok ASC LIMIT 100");
+			if (!semuaToko) psStok.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsStok = psStok.executeQuery();
 			JSONArray stokArr = new JSONArray();
 			while (rsStok.next()) {
@@ -4681,9 +4704,10 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psBahan = conn.prepareStatement(
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(pr.stok,0), COALESCE(SUM(pb.qty),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
-							+ "WHERE pb.toko = ? AND pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ "WHERE pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ (semuaToko ? "" : " AND pb.toko = ?")
 							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.id, pr.nama, pr.stok ORDER BY 3 DESC");
-			psBahan.setLong(1, tokoId.longValue());
+			if (!semuaToko) psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
 			JSONArray bahanList = new JSONArray();
 			int segeraHabis = 0; String palingMendesakNama = null; double palingMendesakHari = Double.MAX_VALUE;
@@ -4711,9 +4735,15 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psNilaiStok = conn.prepareStatement(
 					"SELECT COALESCE(SUM(COALESCE(stok,0) * COALESCE(hargabeli,0)),0) FROM koperasi.produk "
-							+ "WHERE toko = ? AND id IN (SELECT DISTINCT produk FROM koperasi.pemakaian_bahan_baku WHERE toko = ?)");
-			psNilaiStok.setLong(1, tokoId.longValue());
-			psNilaiStok.setLong(2, tokoId.longValue());
+							+ "WHERE id IN (SELECT DISTINCT produk FROM koperasi.pemakaian_bahan_baku"
+							+ (semuaToko ? "" : " WHERE toko = ?") + ")"
+							+ (semuaToko ? "" : " AND toko = ?"));
+			if (!semuaToko) {
+				// Urutan parameter mengikuti urutan kemunculan di SQL: subquery
+				// pemakaian_bahan_baku lebih dulu, baru filter produk.
+				psNilaiStok.setLong(1, tokoId.longValue());
+				psNilaiStok.setLong(2, tokoId.longValue());
+			}
 			java.sql.ResultSet rsNilaiStok = psNilaiStok.executeQuery();
 			double nilaiStokBahan = rsNilaiStok.next() ? rsNilaiStok.getDouble(1) : 0;
 			rsNilaiStok.close();
@@ -4737,8 +4767,9 @@ public class PosApi extends HttpServlet {
 								+ "COALESCE((SELECT SUM((a.qty + a.qtybonus) * b.jenis) FROM asset.detail_transaksi_asset a "
 								+ "INNER JOIN library.kode_transaksi b ON a.kode_transaksi = b.id WHERE a.master_asset = p.master_asset), 0) "
 								+ "FROM koperasi.produk p INNER JOIN asset.master_asset ma ON ma.id = p.master_asset "
-								+ "LEFT JOIN koperasi.toko t ON t.id = p.toko WHERE p.master_asset IS NOT NULL AND p.toko = ? ORDER BY p.nama");
-				psAset.setLong(1, tokoId.longValue());
+								+ "LEFT JOIN koperasi.toko t ON t.id = p.toko WHERE p.master_asset IS NOT NULL"
+								+ (semuaToko ? "" : " AND p.toko = ?") + " ORDER BY p.nama");
+				if (!semuaToko) psAset.setLong(1, tokoId.longValue());
 				java.sql.ResultSet rsAset = psAset.executeQuery();
 				while (rsAset.next()) {
 					double stokKantin = rsAset.getDouble(4);
@@ -4935,7 +4966,13 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardPelanggan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		// Admin global tanpa toko terpilih melihat SEMUA toko (sama spt tab
+		// Ringkasan Umum). Pedagang/kasir tetap terkunci oleh resolveTokoId.
+		boolean semuaToko = (tokoId == null);
+		if (semuaToko && tbmuser.getPedagang() != null) {
+			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
+		}
+		String kondisiToko = semuaToko ? "" : " AND a.toko = ?";
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
@@ -4948,8 +4985,8 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psJam = conn.prepareStatement(
 					"SELECT EXTRACT(HOUR FROM a.waktu), COUNT(a.id) FROM koperasi.pembelian a "
 							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
-							+ " AND a.toko = ? GROUP BY 1 ORDER BY 1");
-			psJam.setLong(1, tokoId.longValue());
+							+ kondisiToko + " GROUP BY 1 ORDER BY 1");
+			if (!semuaToko) psJam.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsJam = psJam.executeQuery();
 			JSONArray jamSibuk = new JSONArray();
 			while (rsJam.next()) {
@@ -4965,9 +5002,9 @@ public class PosApi extends HttpServlet {
 					"SELECT b.nama, COUNT(a.id), SUM(a.total) FROM koperasi.pembelian a "
 							+ "INNER JOIN koperasi.anggota_koperasi b ON a.anggota_koperasi = b.id "
 							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
-							+ " AND a.anggota_koperasi IS NOT NULL AND a.toko = ? "
+							+ " AND a.anggota_koperasi IS NOT NULL" + kondisiToko + " "
 							+ "GROUP BY b.id, b.nama ORDER BY 3 DESC LIMIT 10");
-			psLoyal.setLong(1, tokoId.longValue());
+			if (!semuaToko) psLoyal.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsLoyal = psLoyal.executeQuery();
 			JSONArray pembeliTerloyal = new JSONArray();
 			while (rsLoyal.next()) {
@@ -4983,8 +5020,9 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psRekapLoyal = conn.prepareStatement(
 					"SELECT ak.nama, COUNT(a.id), SUM(a.total) FROM koperasi.pembelian a "
 							+ "INNER JOIN koperasi.anggota_koperasi ak ON a.anggota_koperasi = ak.id "
-							+ "WHERE a.toko = ? AND a.anggota_koperasi IS NOT NULL AND " + intervalRekap + " GROUP BY ak.id, ak.nama ORDER BY 3 DESC");
-			psRekapLoyal.setLong(1, tokoId.longValue());
+							+ "WHERE a.anggota_koperasi IS NOT NULL AND " + intervalRekap + kondisiToko
+							+ " GROUP BY ak.id, ak.nama ORDER BY 3 DESC");
+			if (!semuaToko) psRekapLoyal.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsRekapLoyal = psRekapLoyal.executeQuery();
 			JSONArray rekapPelangganTerloyal = new JSONArray();
 			while (rsRekapLoyal.next()) {
