@@ -15,7 +15,11 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.zkoss.poi.ss.usermodel.FormulaEvaluator;
+import org.zkoss.poi.ss.usermodel.CellStyle;
+import org.zkoss.poi.ss.util.CellRangeAddress;
 import org.zkoss.poi.xssf.usermodel.XSSFCell;
+import org.zkoss.poi.xssf.usermodel.XSSFCellStyle;
+import org.zkoss.poi.xssf.usermodel.XSSFFont;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
@@ -3524,6 +3528,19 @@ public class KantinHelper {
 	 * dan {@link #produkImporExcel} (mencari kolom berdasarkan label, bukan posisi tetap -- lihat
 	 * {@link #cariIndeksKolom}) -- sengaja identik dengan format akunting umum ("Daftar Barang dan
 	 * Jasa") yang sudah dipakai user supaya file yang sudah ada bisa diunggah tanpa diubah dulu. */
+	/** Satu baris judul yang di-merge dari kolom {@code dari} sampai {@code sampai}. */
+	private static void barisJudul(XSSFSheet sheet, int baris, int dari, int sampai, String teks,
+			XSSFCellStyle gaya) {
+		XSSFRow row = sheet.createRow(baris);
+		XSSFCell cell = row.createCell(dari);
+		cell.setCellValue(teks);
+		cell.setCellStyle(gaya);
+		for (int c = dari + 1; c <= sampai; c++) {
+			row.createCell(c).setCellStyle(gaya);
+		}
+		sheet.addMergedRegion(new CellRangeAddress(baris, baris, dari, sampai));
+	}
+
 	private static final String[] KOLOM_EXCEL_PRODUK = { "No", "Kode", "UPC/Barcode", "Kategori", "Nama Barang",
 			"Nama Pemasok Utama", "Satuan", "Kts", "Def. Hrg. Jual Sa", "Nilai Satuan", "Nilai Total" };
 
@@ -3590,11 +3607,42 @@ public class KantinHelper {
 			// dibaca {@link #deteksiKolomExcelProdukFormatAccurate} (fixed C..M) -- supaya Unduh Excel lalu
 			// Unggah Excel lagi (format Accurate) round-trip tanpa perlu menata ulang kolom.
 			final int OFFSET_KOLOM_ACCURATE = 2;
-			XSSFRow headerRow = sheet.createRow(0);
+			final int KOLOM_TERAKHIR = OFFSET_KOLOM_ACCURATE + KOLOM_EXCEL_PRODUK.length - 1;
+
+			// Blok judul di atas tabel, mengikuti berkas "Daftar Barang dan Jasa" yang sudah
+			// dipakai bagian akunting: nama unit, judul laporan, tanggal acuan, lalu keterangan
+			// cabang. Aman utk round-trip Unggah Excel karena baris header dicari lewat
+			// deteksi label KODE+BARCODE (lihat deteksiKolomExcelProdukFormatAccurate),
+			// BUKAN nomor baris tetap.
+			XSSFCellStyle gayaUnit = wb.createCellStyle();
+			XSSFFont fUnit = wb.createFont(); fUnit.setFontHeightInPoints((short) 12); gayaUnit.setFont(fUnit);
+			gayaUnit.setAlignment(CellStyle.ALIGN_CENTER);
+			XSSFCellStyle gayaJudul = wb.createCellStyle();
+			XSSFFont fJudul = wb.createFont(); fJudul.setBold(true); fJudul.setFontHeightInPoints((short) 18);
+			gayaJudul.setFont(fJudul);
+			gayaJudul.setAlignment(CellStyle.ALIGN_CENTER);
+			XSSFCellStyle gayaTanggal = wb.createCellStyle();
+			gayaTanggal.setAlignment(CellStyle.ALIGN_CENTER);
+			XSSFCellStyle gayaCabang = wb.createCellStyle();
+			gayaCabang.setAlignment(CellStyle.ALIGN_RIGHT);
+
+			String namaUnit = nvl(toko.getNama());
+			if (namaUnit.trim().length() == 0) namaUnit = "Unit Usaha";
+			java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("d MMMM yyyy", new java.util.Locale("id", "ID"));
+			String perTanggal = "Per Tgl. " + fmtTgl.format(new java.util.Date());
+
+			barisJudul(sheet, 0, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, namaUnit, gayaUnit);
+			barisJudul(sheet, 1, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, "Daftar Barang dan Jasa", gayaJudul);
+			barisJudul(sheet, 2, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, perTanggal, gayaTanggal);
+			barisJudul(sheet, 3, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR,
+					"Cabang : [" + namaUnit + "]", gayaCabang);
+
+			final int BARIS_HEADER = 4;
+			XSSFRow headerRow = sheet.createRow(BARIS_HEADER);
 			for (int i = 0; i < KOLOM_EXCEL_PRODUK.length; i++) {
 				headerRow.createCell(i + OFFSET_KOLOM_ACCURATE).setCellValue(KOLOM_EXCEL_PRODUK[i]);
 			}
-			int r = 1;
+			int r = BARIS_HEADER + 1;
 			int no = 1;
 			for (Produk p : daftar) {
 				XSSFRow row = sheet.createRow(r++);
