@@ -365,6 +365,39 @@ public final class SinkronDaftarPengajuanTransferHelper {
 	private static List<Sumber> daftarSumber() {
 		List<Sumber> l = new ArrayList<Sumber>();
 
+		// 0. Pembayaran Hutang Supplier TOKO -- ditambahkan 2026-08-20; sebelumnya pembayaran ke
+		// pemasok toko sama sekali tidak muncul di menu Pembayaran Transfer. Gating: dokumen tidak
+		// berstatus batal/reversal.
+		l.add(new Sumber() {
+			@Override
+			String nama() {
+				return "Pembayaran Hutang Supplier Toko";
+			}
+
+			@Override
+			List<Long> kandidat(Session s) {
+				return query(s, "select p.id from ais.database.model.koperasi.PembayaranHutangSupplier p "
+						+ "where p.daftarPengajuanTransfer is null");
+			}
+
+			@Override
+			boolean sinkronSatu(Long id) {
+				Session s = HibernateUtil.currentNativeSession();
+				ais.database.model.koperasi.PembayaranHutangSupplier e =
+						(ais.database.model.koperasi.PembayaranHutangSupplier) s
+								.get(ais.database.model.koperasi.PembayaranHutangSupplier.class, id);
+				if (e == null || e.getDaftarPengajuanTransfer() != null) {
+					return false;
+				}
+				String status = e.getStatusDok() == null ? "" : e.getStatusDok().toUpperCase();
+				if (status.indexOf("BATAL") >= 0 || status.indexOf("REVERSAL") >= 0) {
+					return false;
+				}
+				DaftarPengajuanTransfer.simpanPembayaranHutangSupplier(e);
+				return e.getDaftarPengajuanTransfer() != null;
+			}
+		});
+
 		// 1. Uang Muka — gating: status "Disetujui" (≡ disetujuiOleh != null).
 		l.add(new Sumber() {
 			@Override
@@ -389,6 +422,35 @@ public final class SinkronDaftarPengajuanTransferHelper {
 					return false;
 				}
 				DaftarPengajuanTransfer.simpanUangMuka(e);
+				return e.getDaftarPengajuanTransfer() != null;
+			}
+		});
+
+		// 1b. Reimbursement Pegawai — gating: status "Disetujui" (turunan disposisi SOP).
+		l.add(new Sumber() {
+			@Override
+			String nama() {
+				return "Reimbursement Pegawai";
+			}
+
+			@Override
+			List<Long> kandidat(Session s) {
+				return query(s, "select r.id from ais.database.model.akunting.ReimbursementPegawai r "
+						+ "where r.daftarPengajuanTransfer is null");
+			}
+
+			@Override
+			boolean sinkronSatu(Long id) {
+				Session s = HibernateUtil.currentNativeSession();
+				ais.database.model.akunting.ReimbursementPegawai e = (ais.database.model.akunting.ReimbursementPegawai) s
+						.get(ais.database.model.akunting.ReimbursementPegawai.class, id);
+				if (e == null || e.getDaftarPengajuanTransfer() != null) {
+					return false;
+				}
+				if (!ais.database.model.akunting.ReimbursementPegawai.DISETUJUI.equals(e.getStatus())) {
+					return false;
+				}
+				DaftarPengajuanTransfer.simpanReimbursement(e);
 				return e.getDaftarPengajuanTransfer() != null;
 			}
 		});
