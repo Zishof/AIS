@@ -729,6 +729,8 @@ public final class MenuSnapshotData {
             "561542342|420004|42000009|Anggota|/pages/master/library/anggota.zul|/img/Document-icon.png|0",
             "561542344|420004|42000400|Pendataan Item|/pages/master/library/item.zul|/img/Document-icon.png|0",
             "565423438|420004|42000401|Manajemen Karya Ilmiah|/pages/master/library/karya_tulis_item.zul|/img/Document-icon.png|0",
+            "565423439|420004|42000402|Katalogisasi MARCXML|/pages/master/library/katalogisasi_marc.zul|/img/Document-icon.png|0",
+            "565423440|420004|42000403|Operasional Modern|/pages/master/library/operasional_modern.zul|/img/monitor-icon.png|0",
             "561542348|420004|42000402|Publikasi Karya Ilmiah|/pages/master/library/item_tree.zul|/img/Document-icon.png|0",
             "561542349|420004|42000404|Informasi Perpustakaan|/pages/master/library/informasi_perpustakaan.zul|/img/Document-icon.png|0",
             "861542349|420004|42000405|Pesanan Anggota|/pages/master/library/pesanan_anggota.zul|/img/Document-icon.png|0",

@@ -213,8 +213,8 @@
                                 <ul class="nav collapse <%=p.equals("pustaka") ? "show" : "" %>" id="pustaka_sub">
                                     <% 
                                        String[] subEL = Common.getApakahAdmin()
-                                           ? new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "integrasi"}
-                                           : new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota"};
+                                           ? new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "operasional", "denda", "katalogisasi", "integrasi"}
+                                           : new String[] {"katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "operasional"};
                                        for(String sub : subEL) {
                                     	// Pisahkan kata berdasarkan underscore (_)
                                            String[] kataKata = sub.split("_");

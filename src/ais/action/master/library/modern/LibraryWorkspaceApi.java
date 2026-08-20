@@ -14,6 +14,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import ais.common.Common;
+import ais.common.newui.NewUiCsrfUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.library.Anggota;
@@ -25,10 +26,13 @@ public final class LibraryWorkspaceApi {
     public static JSONObject handle(HttpServletRequest request) throws JSONException {
         String action = request.getParameter("action");
         Context context = context(request);
-        if ("dashboard".equals(action)) return dashboard(context);
-        if ("visits".equals(action)) return visits(context, request);
-        if ("circulation".equals(action)) return circulation(context, request);
-        return new JSONObject().put("ok", false).put("error", "Operasi workspace tidak dikenal.");
+        JSONObject result;
+        if ("dashboard".equals(action)) result=dashboard(context);
+        else if ("visits".equals(action)) result=visits(context, request);
+        else if ("circulation".equals(action)) result=circulation(context, request);
+        else result=new JSONObject().put("ok", false).put("error", "Operasi workspace tidak dikenal.");
+        result.put("csrf",NewUiCsrfUtil.getToken(request.getSession()));
+        return result;
     }
 
     private static JSONObject dashboard(Context context) throws JSONException {

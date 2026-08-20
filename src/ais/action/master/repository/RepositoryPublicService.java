@@ -51,6 +51,7 @@ public class RepositoryPublicService {
         public String subject = "";
         public String language = "";
         public String identifier = "";
+        public String programStudy = "";
         public Long collectionId;
         public String documentType = "";
         public String accessPolicy = "";
@@ -138,6 +139,13 @@ public class RepositoryPublicService {
         public Map<String, Long> typeFacets = new LinkedHashMap<String, Long>();
         public Map<String, Long> accessFacets = new LinkedHashMap<String, Long>();
         public Map<String, Long> yearFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> authorFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> subjectFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> languageFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> programFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> sourceFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> licenseFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> fullTextFacets = new LinkedHashMap<String, Long>();
         public List<CollectionView> collections = new ArrayList<CollectionView>();
     }
 
@@ -156,6 +164,7 @@ public class RepositoryPublicService {
         q.subject = limit(clean(q.subject), 200);
         q.language = limit(clean(q.language).toLowerCase(), 20);
         q.identifier = limit(clean(q.identifier), 255);
+        q.programStudy = limit(clean(q.programStudy), 200);
         q.documentType = limit(clean(q.documentType), 80);
         q.accessPolicy = normalizeAccess(clean(q.accessPolicy));
         q.sort = normalizeSort(q.sort);
@@ -204,6 +213,10 @@ public class RepositoryPublicService {
         result.typeFacets = groupFacet(session, q, "documentType");
         result.accessFacets = groupFacet(session, q, "accessPolicy");
         result.yearFacets = yearFacet(session, q);
+        result.authorFacets = tokenFacet(session,q,"authors"); result.subjectFacets=tokenFacet(session,q,"subjects");
+        result.languageFacets=groupFacet(session,q,"language"); result.sourceFacets=groupFacet(session,q,"sourceClass");
+        result.licenseFacets=groupFacet(session,q,"licenseUri"); result.programFacets=programFacet(session);
+        result.fullTextFacets=fullTextFacet(session,q);
         result.collections = listCollections(100);
         return result;
     }
@@ -404,6 +417,14 @@ public class RepositoryPublicService {
         if ("csl".equals(type)) {
             try { JSONObject c=new JSONObject();c.put("id","ais-repository-"+item.id);c.put("type","article");c.put("title",item.title);c.put("issued",new JSONObject().put("raw",year));c.put("publisher",item.publisher);c.put("DOI",item.doi);c.put("URL",item.dspaceHandle);JSONArray a=new JSONArray();for(String author:safe(item.authors).split(";"))if(clean(author).length()>0)a.put(new JSONObject().put("literal",clean(author)));c.put("author",a);return c.toString(2);}catch(Exception e){throw new IllegalStateException(e);}
         }
+        if ("dcxml".equals(type)) {
+            StringBuilder x=new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">");
+            x.append("<dc:title>").append(xmlEscape(item.title)).append("</dc:title>");for(String author:safe(item.authors).split(";"))if(clean(author).length()>0)x.append("<dc:creator>").append(xmlEscape(clean(author))).append("</dc:creator>");
+            x.append("<dc:date>").append(xmlEscape(year)).append("</dc:date><dc:type>").append(xmlEscape(item.documentType)).append("</dc:type><dc:identifier>").append(xmlEscape(item.oaiIdentifier)).append("</dc:identifier></oai_dc:dc>");return x.toString();
+        }
+        if ("apa".equals(type)) return safe(item.authors)+" ("+year+"). "+safe(item.title)+". "+safe(item.publisher)+". "+safe(item.doi);
+        if ("ieee".equals(type)) return safe(item.authors)+", “"+safe(item.title)+",” "+safe(item.publisher)+", "+year+". "+safe(item.doi);
+        if ("chicago".equals(type)) return safe(item.authors)+". “"+safe(item.title)+".” "+safe(item.publisher)+", "+year+". "+safe(item.doi);
         return safe(item.authors) + " (" + year + "). " + safe(item.title) + ". "
                 + safe(item.publisher) + ". " + safe(item.oaiIdentifier);
     }
@@ -423,6 +444,9 @@ public class RepositoryPublicService {
         if (q.identifier.length() > 0) criteria.add(Restrictions.or(
                 Restrictions.ilike("oaiIdentifier", q.identifier, MatchMode.ANYWHERE),
                 Restrictions.ilike("dspaceHandle", q.identifier, MatchMode.ANYWHERE)));
+        if(q.programStudy.length()>0)criteria.add(Restrictions.sqlRestriction(
+                "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and rpm.metadata_field='repository.programStudy' and lower(rpm.metadata_value) like lower(?))",
+                "%"+q.programStudy+"%",Hibernate.STRING));
         if (q.year != null) {
             Calendar from = Calendar.getInstance();
             from.clear();
@@ -437,9 +461,12 @@ public class RepositoryPublicService {
             org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
                     "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')) @@ plainto_tsquery('simple', ?)",
                     q.keyword, Hibernate.STRING);
-            criteria.add(Restrictions.or(fts, Restrictions.or(
+            org.hibernate.criterion.Criterion eav=Restrictions.sqlRestriction(
+                    "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and coalesce(rpm.aktif,true)=true and lower(rpm.metadata_value) like lower(?))",
+                    "%"+q.keyword+"%",Hibernate.STRING);
+            criteria.add(Restrictions.or(fts, Restrictions.or(eav, Restrictions.or(
                     Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
-                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE))));
+                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE)))));
         }
         return criteria;
     }
@@ -491,11 +518,19 @@ public class RepositoryPublicService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Long> yearFacet(Session session, Query q) {
-        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.author=q.author; withoutYear.subject=q.subject; withoutYear.language=q.language; withoutYear.identifier=q.identifier; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
+        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.author=q.author; withoutYear.subject=q.subject; withoutYear.language=q.language; withoutYear.identifier=q.identifier;withoutYear.programStudy=q.programStudy; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
         List<RepoItem> rows = searchCriteria(session, withoutYear).addOrder(Order.desc("issuedAt")).setMaxResults(5000).list();
         Map<String,Long> result=new LinkedHashMap<String,Long>(); SimpleDateFormat f=new SimpleDateFormat("yyyy");
         for(RepoItem row:rows){if(row.getIssuedAt()==null)continue;String y=f.format(row.getIssuedAt());Long n=result.get(y);result.put(y,Long.valueOf(n==null?1:n.longValue()+1));} return result;
     }
+
+    @SuppressWarnings("unchecked")
+    private Map<String,Long> tokenFacet(Session session,Query q,String property){List<RepoItem> rows=searchCriteria(session,q).setMaxResults(5000).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(RepoItem row:rows){String value="authors".equals(property)?row.getAuthors():row.getSubjects();for(String token:safe(value).split("[;,]")){String key=clean(token);if(key.length()>0)increment(out,key);}}return top(out,30);}
+    @SuppressWarnings("unchecked")
+    private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true group by m.metadata_value order by count(*) desc limit 30").list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
+    @SuppressWarnings("unchecked")
+    private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
+    private static Map<String,Long> top(Map<String,Long> source,int maximum){List<Map.Entry<String,Long>> rows=new ArrayList<Map.Entry<String,Long>>(source.entrySet());Collections.sort(rows,new java.util.Comparator<Map.Entry<String,Long>>(){public int compare(Map.Entry<String,Long>a,Map.Entry<String,Long>b){return b.getValue().compareTo(a.getValue());}});Map<String,Long> out=new LinkedHashMap<String,Long>();for(int i=0;i<rows.size()&&i<maximum;i++)out.put(rows.get(i).getKey(),rows.get(i).getValue());return out;}
 
     @SuppressWarnings("unchecked")
     private Map<Long, RepoCollection> loadCollectionMap(Session session, List<RepoItem> items) {
@@ -658,6 +693,7 @@ public class RepositoryPublicService {
     private String citationEscape(String value) {
         return safe(value).replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}");
     }
+    private static String xmlEscape(String value){return safe(value).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
 
     public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId) {
         if(itemId==null || !("VIEW".equals(eventType)||"DOWNLOAD".equals(eventType)))return;

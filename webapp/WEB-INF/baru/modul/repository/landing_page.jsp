@@ -42,8 +42,8 @@ try {
 String view = request.getAttribute("repoView") == null ? "home" : String.valueOf(request.getAttribute("repoView"));
 ItemDetail seoItem = (ItemDetail) request.getAttribute("repoItem");
 String pageTitle = seoItem == null ? "Repositori Institusi - " + institution : seoItem.title + " - " + institution;
-String canonical = request.getRequestURL().toString();
-if (seoItem != null) canonical += "?view=item&id=" + seoItem.id;
+String origin = request.getScheme() + "://" + request.getServerName() + ((request.getServerPort()==80||request.getServerPort()==443)?"":":"+request.getServerPort());
+String canonical = seoItem == null ? origin + context + "/repository" : origin + context + "/repository/item/" + seoItem.id;
 %>
 <!doctype html>
 <html lang="id">
@@ -70,7 +70,8 @@ if (seoItem != null) canonical += "?view=item&id=" + seoItem.id;
   <meta property="og:title" content="<%=repoHtml(seoItem.title)%>">
   <meta property="og:description" content="<%=repoHtml(seoItem.abstractText)%>">
   <meta property="og:url" content="<%=repoHtml(canonical)%>">
-  <% JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type","ScholarlyArticle");ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
+  <meta property="og:site_name" content="<%=repoHtml(institution)%>"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="<%=repoHtml(seoItem.title)%>"><meta name="twitter:description" content="<%=repoHtml(seoItem.abstractText)%>">
+  <% String schemaType="ScholarlyArticle";if("Book".equalsIgnoreCase(seoItem.documentType))schemaType="Book";else if(seoItem.documentType.toLowerCase().contains("thesis"))schemaType="Thesis";else if(seoItem.documentType.toLowerCase().contains("dataset"))schemaType="Dataset";JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type",schemaType);ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
   <script type="application/ld+json"><%=ld.toString().replace("</","<\\/")%></script>
   <% } %>
   <link rel="stylesheet" href="<%=context%>/css/repository-modern.css">

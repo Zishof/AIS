@@ -152,6 +152,15 @@ public class RepositoryAdminService {
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }
 
+    @SuppressWarnings("unchecked")
+    public int retryFailedSync(Tbmuser actor) {
+        requireAdmin(actor); Session session=HibernateUtil.openSession();Transaction tx=null;
+        try{tx=session.beginTransaction();List<RepoItem> rows=session.createCriteria(RepoItem.class)
+                .add(Restrictions.in("syncStatus",new String[]{"FAILED","ERROR"})).list();
+            for(RepoItem item:rows){item.setSyncStatus("PENDING");item.setSyncMessage("Manual retry queued by "+actor.getUserId());item.setOlehId(actor.getUserId());item.setTanggal_dirubah(new Date());session.update(item);}tx.commit();return rows.size();
+        }catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
+    }
+
     private void requireAdmin(Tbmuser actor) { if (!workflow.isRepositoryAdmin(actor)) throw new SecurityException("Hak administrator repository diperlukan."); }
     private void ensureNoCycle(Session session, Long id, Long parent) { Long p=parent; int guard=0; while(p!=null&&guard++<100){if(p.equals(id))throw new IllegalArgumentException("Hierarchy koleksi membentuk siklus.");RepoCollection c=(RepoCollection)session.get(RepoCollection.class,p);if(c==null)throw new IllegalArgumentException("Induk koleksi tidak ditemukan.");p=c.getParentId();} }
     private static void validateJson(String value,String label){try{new JSONObject(jsonOrEmpty(value));}catch(Exception e){throw new IllegalArgumentException("JSON "+label+" tidak valid.");}}

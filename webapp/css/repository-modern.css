@@ -103,6 +103,8 @@
 .repo-facet h3 { font-size: 13px; margin: 0 0 7px; }
 .repo-facet a { display: flex; align-items: center; padding: 5px 0; color: #43566a; }
 .repo-facet a b { margin-left: auto; color: #8392a2; font-size: 11px; }
+.repo-facet summary { cursor: pointer; font-weight: 800; padding: 7px 0; }
+.repo-facet-static { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; color: var(--repo-muted); overflow-wrap: anywhere; }
 .repo-results-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .repo-results { display: grid; gap: 11px; }
 .repo-result-card { padding: 19px; }

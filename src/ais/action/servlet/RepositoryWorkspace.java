@@ -149,6 +149,8 @@ public class RepositoryWorkspace extends HttpServlet {
         } else if ("verifyFixity".equals(action)) {
             request.getSession().setAttribute("repository.fixity.result", adminService.verifyFixity(user));
             flash(request.getSession(), "repository.flash", "Pemeriksaan fixity selesai."); redirect(response, request, "admin", null); return;
+        } else if ("retrySync".equals(action)) {
+            int queued=adminService.retryFailedSync(user);flash(request.getSession(),"repository.flash",queued+" item sync gagal dimasukkan kembali ke antrian.");redirect(response,request,"admin",null);return;
         }
         else throw new IllegalArgumentException("Aksi workspace tidak dikenal.");
 
@@ -203,7 +205,7 @@ public class RepositoryWorkspace extends HttpServlet {
         if (!constantTime(expected, supplied)) throw new SecurityException("Token CSRF tidak valid. Muat ulang halaman.");
     }
     private boolean constantTime(String a, String b) { if (a == null || b == null) return false; int diff=a.length()^b.length(); int n=Math.min(a.length(),b.length()); for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i); return diff==0; }
-    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"importDryRun".equals(action); }
+    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"retrySync".equals(action)||"importDryRun".equals(action); }
     private Date date(String value) throws Exception { if(clean(value).length()==0)return null;SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(clean(value)); }
     private void fail(HttpServletRequest request,HttpServletResponse response,String message,int status)throws IOException{if("application/json".equals(request.getHeader("Accept"))){response.setStatus(status);response.setContentType("application/json;charset=UTF-8");try{JSONObject j=new JSONObject();j.put("status","ERROR");j.put("message",message);response.getWriter().write(j.toString());}catch(Exception e){response.sendError(status,message);}return;}flash(request.getSession(),"repository.flash.error",message);String view=reviewerAction(request.getParameter("action"))?"review":"deposit";redirect(response,request,view,positiveLong(request.getParameter("id")));}
     private void redirect(HttpServletResponse response,HttpServletRequest request,String view,Long id)throws IOException{String url=request.getContextPath()+"/repository-workspace?view="+view+(id==null?"":"&id="+id);response.sendRedirect(response.encodeRedirectURL(url));}

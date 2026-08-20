@@ -36,6 +36,7 @@ public final class LibraryMarcApi {
         Tbmuser user = Common.getCurrentUser(request);
         if (user == null || !Common.getApakahAdmin()) return error("Hak kataloger/administrator diperlukan.");
         String action = text(request.getParameter("action"), 40);
+        if ("status".equals(action)) return ok(request).put("maxRecords", MAX_RECORDS).put("maxBytes", MAX_XML);
         if ("export".equals(action)) return exportRecord(positiveLong(request.getParameter("itemId")));
         if (!"POST".equalsIgnoreCase(request.getMethod())) return error("Preview dan import hanya melalui POST.");
         if (!NewUiCsrfUtil.isValid(request)) return error("Token keamanan tidak valid.");
@@ -58,7 +59,7 @@ public final class LibraryMarcApi {
         Session session=null;Transaction tx=null;int imported=0,skipped=0;JSONArray result=new JSONArray();
         try{session=HibernateUtil.openSession();tx=session.beginTransaction();
             for(MarcRecord record:records){long duplicates=duplicateCount(session,record);if(duplicates>0&&!allowDuplicates){skipped++;result.put(record.json().put("status","SKIPPED_DUPLICATE"));continue;}
-                Item item=new Item();item.setKode("MARC-"+System.currentTimeMillis()+"-"+(imported+1));item.setNama(record.title);item.setIsbn(record.isbn);item.setIssn(record.issn);item.setPengarangs(record.author);item.setEdisi(record.edition);item.setTahun(record.year);item.setBahasa(record.language);item.setAbstrak(record.description);item.setKategories(record.subject);item.setDeweyDecimalClass(record.classification);item.setCatatan("Impor MARCXML; 001="+safe(record.controlNumber));item.setTanggal(new Date());item.setAktif(true);item.setDibuatOleh(user);
+                Item item=new Item();item.setKode("MARC-"+System.currentTimeMillis()+"-"+(imported+1));item.setNama(record.title);item.setIsbn(record.isbn);item.setIssn(record.issn);item.setPengarangs(record.author);item.setEdisi(record.edition);if(record.year!=null)item.setTahun(record.year);item.setBahasa(record.language);item.setAbstrak(record.description);item.setKategories(record.subject);item.setDeweyDecimalClass(record.classification);item.setCatatan("Impor MARCXML; 001="+safe(record.controlNumber));item.setTanggal(new Date());item.setAktif(true);item.setDibuatOleh(user);
                 if(record.publisher!=null)item.setPenerbit(publisher(session,record.publisher));session.save(item);imported++;result.put(record.json().put("status","IMPORTED").put("itemId",item.getId()));
             }tx.commit();return ok(request).put("data",result).put("imported",imported).put("skipped",skipped);
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
@@ -99,5 +100,5 @@ public final class LibraryMarcApi {
     private static JSONObject ok(HttpServletRequest r)throws Exception{return new JSONObject().put("ok",true).put("status","success").put("csrf",NewUiCsrfUtil.getToken(r.getSession()));}private static JSONObject error(String m)throws Exception{return new JSONObject().put("ok",false).put("status","error").put("error",m).put("message",m);}
     private static void rollback(Transaction tx){try{if(tx!=null&&tx.isActive())tx.rollback();}catch(Exception ignored){}}
 
-    private static final class MarcRecord{String controlNumber,isbn,issn,author,title,edition,publisher,language,classification,description,subject;Integer year;JSONObject json()throws Exception{return new JSONObject().put("controlNumber",safe(controlNumber)).put("isbn",safe(isbn)).put("issn",safe(issn)).put("author",safe(author)).put("title",safe(title)).put("edition",safe(edition)).put("publisher",safe(publisher)).put("year",year==null?JSONObject.NULL:year).put("language",safe(language)).put("classification",safe(classification)).put("description",safe(description)).put("subject",safe(subject));}}
+    private static final class MarcRecord{String controlNumber,isbn,issn,author,title,edition,publisher,language,classification,description,subject;Integer year;JSONObject json()throws Exception{return new JSONObject().put("controlNumber",safe(controlNumber)).put("isbn",safe(isbn)).put("issn",safe(issn)).put("author",safe(author)).put("title",safe(title)).put("edition",safe(edition)).put("publisher",safe(publisher)).put("year",year==null?"":year).put("language",safe(language)).put("classification",safe(classification)).put("description",safe(description)).put("subject",safe(subject));}}
 }

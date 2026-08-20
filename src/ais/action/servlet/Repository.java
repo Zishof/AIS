@@ -90,7 +90,7 @@ public class Repository extends HttpServlet {
         if (path.length() > 0 && !"/".equals(path)) {
             String[] segments = path.split("/");
             if (path.equals("/search") || path.startsWith("/browse")) view = "search";
-            else if (path.equals("/policies")) view = "policies";
+            else if (path.equals("/policies") || path.startsWith("/policies/")) view = "policies";
             else if (path.equals("/help")) view = "help";
             else if (path.equals("/rss/recent")) action = "feed";
             else if (path.equals("/sitemap.xml")) { sitemap(request,response); return; }
@@ -133,6 +133,7 @@ public class Repository extends HttpServlet {
 
         if (view.length() == 0) view = "home";
         request.setAttribute("repoView", view);
+        request.setAttribute("repoPublicUser", Common.getCurrentUser(request));
         request.setAttribute("repoSummary", service.loadSummary());
         request.setAttribute("repoCollections", service.listCollections(12));
 
@@ -171,6 +172,7 @@ public class Repository extends HttpServlet {
         q.subject = clean(request.getParameter("subject"));
         q.language = clean(request.getParameter("language"));
         q.identifier = clean(request.getParameter("identifier"));
+        q.programStudy = clean(request.getParameter("program"));
         q.collectionId = request.getAttribute("repoRouteCollectionId") instanceof Long
                 ? (Long)request.getAttribute("repoRouteCollectionId") : parseLong(request.getParameter("collection"));
         q.documentType = clean(request.getParameter("type"));
@@ -212,6 +214,9 @@ public class Repository extends HttpServlet {
         facets.put("type", new JSONObject(result.typeFacets));
         facets.put("access", new JSONObject(result.accessFacets));
         facets.put("year", new JSONObject(result.yearFacets));
+        facets.put("author",new JSONObject(result.authorFacets));facets.put("subject",new JSONObject(result.subjectFacets));
+        facets.put("language",new JSONObject(result.languageFacets));facets.put("program",new JSONObject(result.programFacets));
+        facets.put("source",new JSONObject(result.sourceFacets));facets.put("license",new JSONObject(result.licenseFacets));facets.put("fullText",new JSONObject(result.fullTextFacets));
         root.put("facets", facets);
         writeJson(response, root, HttpServletResponse.SC_OK);
     }
@@ -224,12 +229,13 @@ public class Repository extends HttpServlet {
         }
         String format = clean(request.getParameter("format")).toLowerCase();
         if (!"ris".equals(format) && !"bibtex".equals(format) && !"endnote".equals(format)
-                && !"csl".equals(format) && !"text".equals(format)) format = "text";
+                && !"csl".equals(format) && !"dcxml".equals(format) && !"apa".equals(format)
+                && !"ieee".equals(format) && !"chicago".equals(format) && !"text".equals(format)) format = "text";
         String body = service.citation(item, format);
         String extension = "bibtex".equals(format) ? "bib" : ("ris".equals(format) ? "ris"
-                : ("endnote".equals(format) ? "enw" : ("csl".equals(format) ? "json" : "txt")));
+                : ("endnote".equals(format) ? "enw" : ("csl".equals(format) ? "json" : ("dcxml".equals(format)?"xml":"txt"))));
         response.setContentType("csl".equals(format)
-                ? "application/vnd.citationstyles.csl+json;charset=UTF-8" : "text/plain;charset=UTF-8");
+                ? "application/vnd.citationstyles.csl+json;charset=UTF-8" : ("dcxml".equals(format)?"application/xml;charset=UTF-8":"text/plain;charset=UTF-8"));
         response.setHeader("Content-Disposition", "attachment; filename=repository-" + item.id + "." + extension);
         response.getWriter().write(body);
     }
@@ -396,7 +402,7 @@ public class Repository extends HttpServlet {
         do {
             page = service.search(q);
             for (ItemCard item : page.items)
-                out.print("<url><loc>" + xml(origin + "/repository?view=item&amp;id=" + item.id) + "</loc></url>");
+                out.print("<url><loc>" + xml(origin + "/repository/item/" + item.id) + "</loc></url>");
             q.page++;
         } while (q.page <= page.totalPages);
         out.print("</urlset>");
@@ -407,16 +413,17 @@ public class Repository extends HttpServlet {
         String base = request.getScheme() + "://" + request.getServerName()
                 + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort())
                 + request.getContextPath();
-        List<ItemCard> items = service.latest(20);
+        Query feedQuery=queryFrom(request);feedQuery.page=1;feedQuery.pageSize=20;feedQuery.sort="newest";
+        List<ItemCard> items = service.search(feedQuery).items;
         response.setContentType((atom ? "application/atom+xml" : "application/rss+xml") + ";charset=UTF-8");
         PrintWriter out = response.getWriter();
         if (atom) {
             out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><title>Publikasi terbaru Repository AIS</title><id>" + xml(base + "/repository") + "</id><updated>" + xmlDate(new Date()) + "</updated>");
-            for (ItemCard item : items) out.print("<entry><title>" + xml(item.title) + "</title><id>" + xml(item.oaiIdentifier) + "</id><link href=\"" + xml(base + "/repository?view=item&amp;id=" + item.id) + "\"/><updated>" + xmlDate(item.issuedAt) + "</updated><summary>" + xml(item.abstractText) + "</summary></entry>");
+            for (ItemCard item : items) out.print("<entry><title>" + xml(item.title) + "</title><id>" + xml(item.oaiIdentifier) + "</id><link href=\"" + xml(base + "/repository/item/" + item.id) + "\"/><updated>" + xmlDate(item.issuedAt) + "</updated><summary>" + xml(item.abstractText) + "</summary></entry>");
             out.print("</feed>");
         } else {
             out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\"><channel><title>Publikasi terbaru Repository AIS</title><link>" + xml(base + "/repository") + "</link><description>Karya ilmiah terbaru yang tersedia untuk publik.</description>");
-            for (ItemCard item : items) out.print("<item><title>" + xml(item.title) + "</title><guid isPermaLink=\"false\">" + xml(item.oaiIdentifier) + "</guid><link>" + xml(base + "/repository?view=item&amp;id=" + item.id) + "</link><description>" + xml(item.abstractText) + "</description><pubDate>" + rfc822(item.issuedAt) + "</pubDate></item>");
+            for (ItemCard item : items) out.print("<item><title>" + xml(item.title) + "</title><guid isPermaLink=\"false\">" + xml(item.oaiIdentifier) + "</guid><link>" + xml(base + "/repository/item/" + item.id) + "</link><description>" + xml(item.abstractText) + "</description><pubDate>" + rfc822(item.issuedAt) + "</pubDate></item>");
             out.print("</channel></rss>");
         }
     }
