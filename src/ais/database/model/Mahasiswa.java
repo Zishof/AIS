@@ -3301,13 +3301,24 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 		String nilai0MasukPenghitungan = Common
 				.getKonfigurasi("nilai_0_tidak_masuk_dalam_perhitungan_ipk", Konfigurasi.AKTIF).getNilai();
-		Double minimal = 0.1;
-		try {
-			minimal = Double.parseDouble(
-					Common.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai().trim());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:3280");
-
-		}
+		/*
+		 * Dibaca TOLERAN terhadap desimal bergaya Indonesia. Admin lazim mengetik "0,1"
+		 * dengan koma, sedangkan Double.parseDouble hanya menerima titik -- dulu itu
+		 * melempar NumberFormatException yang ditangkap sebagai kendali alur.
+		 *
+		 * Dua akibatnya, dan yang kedua jauh lebih berbahaya:
+		 *   1. Log dibanjiri stack trace, karena method ini dipanggil per semester pada
+		 *      tiap pembuatan transkrip.
+		 *   2. Nilai yang dimaksud admin DIABAIKAN diam-diam. Kebetulan "0,1" sama dengan
+		 *      bawaannya sehingga hasilnya benar; tetapi bila admin mengetik "2,5" maka
+		 *      sistem tetap memakai 0.1 dan seluruh perhitungan IPK ikut salah TANPA
+		 *      pesan apa pun.
+		 *
+		 * Common.parseAngkaKonfigurasi menerima "0,1" maupun "0.1", tidak pernah melempar,
+		 * dan jatuh ke bawaan hanya bila teksnya memang tidak bisa diartikan.
+		 */
+		Double minimal = Common.parseAngkaKonfigurasi(
+				Common.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai(), 0.1);
 		String nilaiHurufTidakMasukPerhitungan = Common.getKonfigurasi("nilai_huruf_yg_tidak_masuk_perhitungan_ip", "")
 				.getNilai();
 
