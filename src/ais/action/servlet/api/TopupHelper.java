@@ -564,6 +564,23 @@ public class TopupHelper {
 													session.createCriteria(AnggotaKoperasi.class)
 															.add(Restrictions.idEq(Long.parseLong(idMember.trim()))),
 													AnggotaKoperasi.class);
+											/*
+											 * GERBANG KEPEMILIKAN. idMember dibaca dari isi QR yang
+											 * dipindai klien, jadi nilainya TIDAK tepercaya: QR buatan
+											 * sendiri bisa mencantumkan id anggota orang lain dan
+											 * memotong saldo mereka. Akun biasa hanya boleh membayar
+											 * memakai anggota miliknya sendiri; pedagang/admin tetap
+											 * boleh menyebut anggota lain krn merekalah yang menagih.
+											 */
+											if (anggotaKoperasi != null
+													&& tbmuser.getPedagang() == null
+													&& !ais.common.Common.getApakahAdminLain(tbmuser)) {
+												AnggotaKoperasi milikSendiri = tbmuser.getAnggotaKoperasi();
+												if (milikSendiri == null || milikSendiri.getId() == null
+														|| !milikSendiri.getId().equals(anggotaKoperasi.getId())) {
+													anggotaKoperasi = milikSendiri;
+												}
+											}
 										} else if (tbmuser.getAnggotaKoperasi() != null) {
 											anggotaKoperasi = tbmuser.getAnggotaKoperasi();
 										}
