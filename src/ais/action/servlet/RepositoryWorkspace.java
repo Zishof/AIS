@@ -20,6 +20,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.json.JSONObject;
 
 import ais.action.master.repository.RepositoryFileService;
+import ais.action.master.repository.RepositoryAdminService;
 import ais.action.master.repository.RepositoryPublicService;
 import ais.action.master.repository.RepositoryWorkflowService;
 import ais.action.master.repository.RepositoryWorkflowService.DraftInput;
@@ -36,12 +37,20 @@ public class RepositoryWorkspace extends HttpServlet {
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
     private final RepositoryFileService files = new RepositoryFileService();
     private final RepositoryPublicService publicService = new RepositoryPublicService();
+    private final RepositoryAdminService adminService = new RepositoryAdminService();
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Tbmuser user = Common.getCurrentUser(request);
         if (user == null) { response.sendRedirect(request.getContextPath() + "/login2"); return; }
         securityHeaders(response);
         try {
+            if ("exportXlsx".equals(request.getParameter("action"))) {
+                if (!workflow.isRepositoryAdmin(user)) throw new SecurityException("Hak administrator repository diperlukan.");
+                response.setHeader("Cache-Control", "no-store");
+                response.setHeader("Content-Disposition", "attachment; filename=repository-ais.xlsx");
+                response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                adminService.exportXlsx(response.getOutputStream(), user); return;
+            }
             HttpSession httpSession = request.getSession(true);
             String token = (String) httpSession.getAttribute(CSRF);
             if (token == null) { token = UUID.randomUUID().toString() + UUID.randomUUID().toString(); httpSession.setAttribute(CSRF, token); }
@@ -67,7 +76,16 @@ public class RepositoryWorkspace extends HttpServlet {
                 duplicateInput.title = item.getTitle(); duplicateInput.authors = item.getAuthors();
                 request.setAttribute("repoDuplicates", workflow.duplicates(duplicateInput, 10));
             }
-            if (workflow.isRepositoryAdmin(user)) request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
+            if (workflow.isRepositoryAdmin(user)) {
+                request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
+                request.setAttribute("repoAdminCollections", adminService.collections(user));
+                request.setAttribute("repoAdminHealth", adminService.health(user));
+                Long collectionId = positiveLong(request.getParameter("collectionId"));
+                if (collectionId != null) for (ais.database.model.repository.RepoCollection c : adminService.collections(user))
+                    if (collectionId.equals(c.getId())) { request.setAttribute("repoAdminCollection", c); break; }
+                request.setAttribute("repoImportResult", consume(httpSession, "repository.import.result"));
+                request.setAttribute("repoFixityResult", consume(httpSession, "repository.fixity.result"));
+            }
             request.setAttribute("repoFlash", consume(httpSession, "repository.flash"));
             request.setAttribute("repoFlashError", consume(httpSession, "repository.flash.error"));
             request.getRequestDispatcher(JSP).forward(request, response);
@@ -119,6 +137,17 @@ public class RepositoryWorkspace extends HttpServlet {
         else if ("restore".equals(action)) result = workflow.restore(id, version, user, request.getParameter("comment"), requestId);
         else if ("comment".equals(action)) workflow.comment(id, user, request.getParameter("comment"), requestId);
         else if ("removeFile".equals(action)) files.remove(positiveLong(request.getParameter("fileId")), user, requestId);
+        else if ("saveCollectionProfile".equals(action)) {
+            adminService.saveCollection(positiveLong(request.getParameter("collectionProfileId")), request.getParameter("kode"),
+                    request.getParameter("nama"), request.getParameter("description"), positiveLong(request.getParameter("parentId")),
+                    "true".equalsIgnoreCase(request.getParameter("depositEnabled")), request.getParameter("defaultLicenseUri"),
+                    request.getParameter("metadataProfileJson"), request.getParameter("workflowProfileJson"),
+                    request.getParameter("accessPolicyJson"), user);
+            flash(request.getSession(), "repository.flash", "Profil koleksi berhasil disimpan."); redirect(response, request, "admin", null); return;
+        } else if ("verifyFixity".equals(action)) {
+            request.getSession().setAttribute("repository.fixity.result", adminService.verifyFixity(user));
+            flash(request.getSession(), "repository.flash", "Pemeriksaan fixity selesai."); redirect(response, request, "admin", null); return;
+        }
         else throw new IllegalArgumentException("Aksi workspace tidak dikenal.");
 
         if ("autosave".equals(action) || "application/json".equals(request.getHeader("Accept"))) {
@@ -145,6 +174,11 @@ public class RepositoryWorkspace extends HttpServlet {
         }
         verifyCsrf(request.getSession(false), fields.get("csrf"));
         if (uploaded == null) throw new IllegalArgumentException("Pilih berkas yang akan diunggah.");
+        if ("importDryRun".equals(fields.get("action"))) {
+            request.getSession().setAttribute("repository.import.result", adminService.dryRunXlsx(uploaded.getInputStream(), user));
+            flash(request.getSession(), "repository.flash", "Dry-run impor selesai; tidak ada data yang ditulis.");
+            redirect(response, request, "admin", null); return;
+        }
         Long itemId = positiveLong(fields.get("id"));
         files.store(itemId, uploaded.getName(), uploaded.getContentType(), uploaded.getSize(), uploaded.getInputStream(),
                 "true".equalsIgnoreCase(fields.get("primary")), fields.get("fileAccess"), fields.get("description"), user, requestId);
@@ -167,7 +201,7 @@ public class RepositoryWorkspace extends HttpServlet {
         if (!constantTime(expected, supplied)) throw new SecurityException("Token CSRF tidak valid. Muat ulang halaman.");
     }
     private boolean constantTime(String a, String b) { if (a == null || b == null) return false; int diff=a.length()^b.length(); int n=Math.min(a.length(),b.length()); for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i); return diff==0; }
-    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action); }
+    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"importDryRun".equals(action); }
     private Date date(String value) throws Exception { if(clean(value).length()==0)return null;SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(clean(value)); }
     private void fail(HttpServletRequest request,HttpServletResponse response,String message,int status)throws IOException{if("application/json".equals(request.getHeader("Accept"))){response.setStatus(status);response.setContentType("application/json;charset=UTF-8");try{JSONObject j=new JSONObject();j.put("status","ERROR");j.put("message",message);response.getWriter().write(j.toString());}catch(Exception e){response.sendError(status,message);}return;}flash(request.getSession(),"repository.flash.error",message);String view=reviewerAction(request.getParameter("action"))?"review":"deposit";redirect(response,request,view,positiveLong(request.getParameter("id")));}
     private void redirect(HttpServletResponse response,HttpServletRequest request,String view,Long id)throws IOException{String url=request.getContextPath()+"/repository-workspace?view="+view+(id==null?"":"&id="+id);response.sendRedirect(response.encodeRedirectURL(url));}

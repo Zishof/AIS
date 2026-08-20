@@ -154,7 +154,7 @@ public class RepositoryFileService {
                 File trash = canonicalChild(storageRoot(), ".trash" + File.separator + file.getItemId());
                 if (!trash.exists()) trash.mkdirs();
                 File target = canonicalChild(trash, System.currentTimeMillis() + "-" + safeFileName(file.getNamaFile()));
-                if (!source.renameTo(target)) copy(source, target);
+                if (!source.renameTo(target)) { copy(source, target); if (!source.delete()) throw new IllegalStateException("Berkas sumber tidak dapat dipindahkan ke trash."); }
             }
             file.setAktif(Boolean.FALSE); file.setPrimaryFile(Boolean.FALSE); session.update(file);
             workflowEvent(session, item.getId(), item.getWorkflowStatus(), "FILE_REMOVE", file.getNamaFile(), actor, requestId);
