@@ -1481,15 +1481,20 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.generateCode");
 		}
 
-		// PENGKODEAN KUSTOM (pola UangMuka): admin dapat mengatur format nomor lewat
-		// layar "Nomor Surat Proses Pengadaan Barang/Jasa" pada entri "Reimbursement
-		// Pegawai" (NomorSuratAlurKeuangan). Bila belum disetel, pakai format bawaan
-		// RMB-yyyyMM-urut.
+		// PENGKODEAN KUSTOM (pola UangMuka/SeleksiVendor): admin mengatur format nomor
+		// lewat layar "Nomor Surat Proses Pengadaan Barang/Jasa" (menu Aset & Pengadaan
+		// - Setup) entri "018 - Reimbursement Pegawai" kolom "Ganti Format". Kompat:
+		// bila belum, dicoba entri lama di Nomor Surat Alur Keuangan; terakhir fallback
+		// format bawaan RMB-yyyyMM-urut.
 		try {
-			if (ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null
-					&& ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat() != null) {
-				ais.database.model.surat.NomorSurat ns =
-						ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+			ais.database.model.surat.NomorSurat ns = null;
+			if (ais.database.model.asset.NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA != null) {
+				ns = ais.database.model.asset.NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA.getNomorSurat();
+			}
+			if (ns == null && ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null) {
+				ns = ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+			}
+			if (ns != null) {
 				Long index = ns.getGunakanIndexUrut() ? ns.getNomorIndex() : Long.valueOf(count + 1);
 				if (tambah) {
 					ais.database.model.surat.NomorSurat.tambahIndexNomorSurat(ns);
