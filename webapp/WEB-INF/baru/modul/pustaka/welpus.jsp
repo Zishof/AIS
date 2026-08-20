@@ -38,6 +38,15 @@
             }
         }
 
+        // Sekolah adalah konteks yang lebih spesifik dan harus menimpa tema PT.
+        ais.database.model.sekolah.Sekolah sekolahTema = ais.action.master.sekolah.util.SekolahUtil.getSekolah(request);
+        if (sekolahTema != null && sekolahTema.getId() != null && sekolahTema.getCss() != null
+                && !sekolahTema.getCss().trim().isEmpty()) {
+            String rawCssSekolah = sekolahTema.getCss().trim();
+            String fileNameSekolah = rawCssSekolah.substring(rawCssSekolah.lastIndexOf("/") + 1);
+            cssTema = "/css/baru/" + fileNameSekolah;
+        }
+
         backgroundPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_perguruanTinggi_");
         logoPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_");
         

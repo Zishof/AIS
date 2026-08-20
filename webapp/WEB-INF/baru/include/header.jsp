@@ -77,7 +77,13 @@ String _htmlLangHdr = "id".equals(_lgKode) ? "id-ID" : _lgKode;
     <link href="<%=request.getContextPath() %>/css/baru/custom-elearning.css?v=<%= cacheBuster %>" rel="stylesheet">
 
     <% 
+    // Tema mengikuti institusi aktif. Konteks Sekolah lebih spesifik sehingga
+    // menimpa tema PerguruanTinggi, sama dengan aturan MyThemeProvider/ZK.
     String rawCss = pt == null ? null : pt.getCss();
+    if (sekolah != null && sekolah.getId() != null && sekolah.getCss() != null
+            && !sekolah.getCss().trim().isEmpty()) {
+        rawCss = sekolah.getCss();
+    }
     if (rawCss != null && !rawCss.trim().isEmpty()) {
         String fileName = rawCss.substring(rawCss.lastIndexOf("/") + 1);
     %>
@@ -153,4 +159,3 @@ String _htmlLangHdr = "id".equals(_lgKode) ? "id-ID" : _lgKode;
     </script>
 
 </head>
-
