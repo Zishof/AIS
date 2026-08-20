@@ -153,6 +153,12 @@ public class RepositoryAction extends GenericAutowireComposer {
         org.zkoss.zk.ui.Executions.getCurrent().sendRedirect(root + "/repository", "_blank");
     }
 
+    /** Opens the same typed deposit/review/admin workflow used by the JSP version. */
+    public void onOpenWorkspace(Event event) {
+        String root = Common.ROOT == null ? "" : Common.ROOT;
+        org.zkoss.zk.ui.Executions.getCurrent().sendRedirect(root + "/repository-workspace", "_blank");
+    }
+
     // -------------------------------------------------------------------------
     // Private Helpers
     // -------------------------------------------------------------------------

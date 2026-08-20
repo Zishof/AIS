@@ -59,6 +59,7 @@ public class RepositoryWorkspace extends HttpServlet {
             request.setAttribute("repoIsAdmin", Boolean.valueOf(workflow.isRepositoryAdmin(user)));
             request.setAttribute("repoCollections", publicService.listCollections(500));
             request.setAttribute("repoMyDeposits", workflow.myDeposits(user, 200));
+            request.setAttribute("repoNotifications", workflow.notifications(user, 20));
             String view = clean(request.getParameter("view"));
             if (view.length() == 0) view = "deposit";
             if (("review".equals(view) || "admin".equals(view)) && !workflow.isRepositoryAdmin(user))
@@ -137,6 +138,7 @@ public class RepositoryWorkspace extends HttpServlet {
         else if ("restore".equals(action)) result = workflow.restore(id, version, user, request.getParameter("comment"), requestId);
         else if ("comment".equals(action)) workflow.comment(id, user, request.getParameter("comment"), requestId);
         else if ("removeFile".equals(action)) files.remove(positiveLong(request.getParameter("fileId")), user, requestId);
+        else if ("readNotification".equals(action)) { workflow.markNotificationRead(positiveLong(request.getParameter("notificationId")), user); redirect(response, request, "deposit", id); return; }
         else if ("saveCollectionProfile".equals(action)) {
             adminService.saveCollection(positiveLong(request.getParameter("collectionProfileId")), request.getParameter("kode"),
                     request.getParameter("nama"), request.getParameter("description"), positiveLong(request.getParameter("parentId")),

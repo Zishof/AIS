@@ -107,6 +107,7 @@ public class PenerimaanPengadaanMasterAssetDetail extends GeneralValueObject {
 	private Boolean diskonDalamBentukPersen;
 	private JenisPajakBarang jenisPajakBarang;
 	private JenisPajakPpn jenisPajakPpn;
+	private ais.database.model.akunting.Pajak pajak;
 
 	public PenerimaanPengadaanMasterAssetDetail() {
 	}
@@ -485,4 +486,23 @@ public class PenerimaanPengadaanMasterAssetDetail extends GeneralValueObject {
 	public void setPermintaanPengadaanMasterAsset(PermintaanPengadaanMasterAssetDetail permintaanPengadaanMasterAsset) {
 		this.permintaanPengadaanMasterAsset = permintaanPengadaanMasterAsset;
 	}
+
+	/**
+	 * Rekaman setoran pajak yang menanggung PPN/PPh atas baris penerimaan ini.
+	 * Selama masih kosong, pajaknya dianggap TERUTANG dan muncul pada daftar pajak yang
+	 * belum disetor -- sejajar dengan penanda serupa pada
+	 * {@code PembayaranTerminMasterAssetDetail.pajak}. Kolom NULLABLE; baris lama dan
+	 * penerimaan tanpa pajak tetap sah. Ditambahkan 2026-08-21.
+	 */
+	@javax.persistence.ManyToOne(cascade = { javax.persistence.CascadeType.PERSIST,
+			javax.persistence.CascadeType.MERGE }, fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "pajak", nullable = true)
+	public ais.database.model.akunting.Pajak getPajak() {
+		return pajak;
+	}
+
+	public void setPajak(ais.database.model.akunting.Pajak pajak) {
+		this.pajak = pajak;
+	}
+
 }

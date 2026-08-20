@@ -1,13 +1,9 @@
-<%@page import="ais.database.model.GeneralValueObject"%>
 <%@page import="ais.common.Common"%>
-<%@page import="ais.database.model.library.Item"%>
-<%@page import="ais.database.model.file.LampiranLain"%>
-<%@page import="ais.database.model.library.ItemPunyaBarcode"%>
+<%@page import="ais.action.master.library.modern.LibraryItemDetailService"%>
+<%@page import="ais.common.newui.NewUiCsrfUtil"%>
+<%@page import="org.apache.commons.lang.StringEscapeUtils"%>
 <%@page import="java.util.List"%>
 <%@page import="java.util.ArrayList"%>
-<%@page import="org.hibernate.Session"%>
-<%@page import="org.hibernate.criterion.Restrictions"%>
-<%@page import="ais.database.hibernate.HibernateUtil"%>
 
 <%
     // Mengambil dan memvalidasi parameter dari HTTP Request
@@ -17,20 +13,16 @@
     if (modalId == null || modalId.trim().isEmpty()) {
         modalId = "modalDetail";
     }
+    modalId = modalId.replaceAll("[^A-Za-z0-9_]", "");
+    if (modalId.length() == 0) modalId = "modalDetail";
 
-    Item item = null;
+    LibraryItemDetailService.Detail item = null;
     try {
-        // Mencegah error NullPointer atau Format Exception jika ID tidak valid
         if (idStr != null && !idStr.trim().isEmpty()) {
-            item = (Item) GeneralValueObject.ambilData(Item.class, idStr, true);
+            item = LibraryItemDetailService.find(Long.valueOf(idStr));
         }
     } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pustaka/_item_rinci.jsp:27");
         // Kesalahan parsing diabaikan agar sistem tidak crash, objek item tetap null
-    }
-
-    // Item nonaktif tidak boleh tetap dapat dibuka melalui URL/detail lama.
-    if (item != null && Boolean.FALSE.equals(item.getAktif())) {
-        item = null;
     }
 
     // Penanganan jika data pustaka tidak ditemukan, telah dihapus, atau dinonaktifkan
@@ -44,19 +36,19 @@
         ? item.getImageUrl() 
         : Common.getRequestHostWithProtocol() + "/AmbilMedia?id=" + item.getId() + "&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=400&width=300";
     
-    String judul = item.getNama() != null && !item.getNama().trim().isEmpty() ? item.getNama() : Common.getBahasaConfig("Tanpa Judul");
-    String pengarang = item.getPengarangs() != null && !item.getPengarangs().trim().isEmpty() ? item.getPengarangs() : "-";
-    String penerbit = (item.getPenerbit() != null && item.getPenerbit().getNama() != null) ? item.getPenerbit().getNama() : "-";
-    String kategori = item.getKategories() != null && !item.getKategories().trim().isEmpty() ? item.getKategories() : "-";
-    String klasifikasi = item.getDeweyDecimalClass() != null && !item.getDeweyDecimalClass().trim().isEmpty() ? item.getDeweyDecimalClass() : "-";
-    String tema = item.getTema() != null && !item.getTema().trim().isEmpty() ? item.getTema() : "-";
+    String judul = item.getTitle() != null && !item.getTitle().trim().isEmpty() ? item.getTitle() : Common.getBahasaConfig("Tanpa Judul");
+    String pengarang = item.getAuthors() != null && !item.getAuthors().trim().isEmpty() ? item.getAuthors() : "-";
+    String penerbit = item.getPublisher() != null ? item.getPublisher() : "-";
+    String kategori = item.getCategory() != null && !item.getCategory().trim().isEmpty() ? item.getCategory() : "-";
+    String klasifikasi = item.getClassification() != null && !item.getClassification().trim().isEmpty() ? item.getClassification() : "-";
+    String tema = item.getTheme() != null && !item.getTheme().trim().isEmpty() ? item.getTheme() : "-";
     String isbn = item.getIsbn() != null && !item.getIsbn().trim().isEmpty() ? item.getIsbn() : "-";
     String issn = item.getIssn() != null && !item.getIssn().trim().isEmpty() ? item.getIssn() : "-";
-    String edisi = item.getEdisi() != null && !item.getEdisi().trim().isEmpty() ? item.getEdisi() : "-";
-    String tahun = item.getTahun() != null ? item.getTahun().toString() : "-";
-    String bahasa = item.getBahasa() != null && !item.getBahasa().trim().isEmpty() ? item.getBahasa() : "-";
-    String callNumber = item.getCallnumber() != null && !item.getCallnumber().trim().isEmpty() ? item.getCallnumber() : "-";
-    String deskripsi = item.getAbstrak() != null && !item.getAbstrak().trim().isEmpty() ? item.getAbstrak() : Common.getBahasaConfig("Tidak ada deskripsi yang tersedia.");
+    String edisi = item.getEdition() != null && !item.getEdition().trim().isEmpty() ? item.getEdition() : "-";
+    String tahun = item.getYear() != null ? item.getYear().toString() : "-";
+    String bahasa = item.getLanguage() != null && !item.getLanguage().trim().isEmpty() ? item.getLanguage() : "-";
+    String callNumber = item.getCallNumber() != null && !item.getCallNumber().trim().isEmpty() ? item.getCallNumber() : "-";
+    String deskripsi = item.getSummary() != null && !item.getSummary().trim().isEmpty() ? item.getSummary() : Common.getBahasaConfig("Tidak ada deskripsi yang tersedia.");
 
     // Sanitasi data teks untuk menghindari error pada format JSON-LD (Kutip ganda & Baris baru)
     String jsonJudul = judul.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
@@ -64,26 +56,26 @@
     String jsonPengarang = pengarang.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
     String jsonPenerbit = penerbit.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
 
-    // Evaluasi Hak Akses Dokumen Digital (Unduhan Lampiran / Ebook)
-    LampiranLain l = (item.getBolehDiDownload() == null || !item.getBolehDiDownload()) ? null : LampiranLain.ambil(item.getId(), LampiranLain.ITEM);
-    String urlLampiran = l == null ? "" : l.createLinkUri();
+    judul = StringEscapeUtils.escapeHtml(judul);
+    pengarang = StringEscapeUtils.escapeHtml(pengarang);
+    penerbit = StringEscapeUtils.escapeHtml(penerbit);
+    kategori = StringEscapeUtils.escapeHtml(kategori);
+    klasifikasi = StringEscapeUtils.escapeHtml(klasifikasi);
+    tema = StringEscapeUtils.escapeHtml(tema);
+    isbn = StringEscapeUtils.escapeHtml(isbn);
+    issn = StringEscapeUtils.escapeHtml(issn);
+    edisi = StringEscapeUtils.escapeHtml(edisi);
+    tahun = StringEscapeUtils.escapeHtml(tahun);
+    bahasa = StringEscapeUtils.escapeHtml(bahasa);
+    callNumber = StringEscapeUtils.escapeHtml(callNumber);
+    deskripsi = StringEscapeUtils.escapeHtml(deskripsi);
 
-    // Mengambil Data Ketersediaan Fisik (Barcode dan Lokasi)
-    List<ItemPunyaBarcode> listKetersediaan = new ArrayList<ItemPunyaBarcode>();
-    Session dbSession = null;
-    try {
-        dbSession = HibernateUtil.openSession();
-        // PERBAIKAN SQL ERROR: Menggunakan Restrictions.eq("item", item) alih-alih ("item.id", item.getId())
-        listKetersediaan = dbSession.createCriteria(ItemPunyaBarcode.class)
-            .add(Restrictions.eq("item", item))
-            .list();
-    } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pustaka/_item_rinci.jsp:75");
-        // Abaikan Exception agar modal tetap terbuka meskipun query ketersediaan gagal
-    } finally {
-        if (dbSession != null && dbSession.isOpen()) {
-            HibernateUtil.closeSessionQuietly(dbSession);
-        }
-    }
+    // Evaluasi Hak Akses Dokumen Digital (Unduhan Lampiran / Ebook)
+    String urlLampiran = item.getDigitalUrl() == null ? "" : item.getDigitalUrl();
+
+    // Persistence access lives in a typed Java read service, not in this renderer.
+    List<LibraryItemDetailService.Holding> listKetersediaan = item.getHoldings();
+    String detailCsrf = NewUiCsrfUtil.getToken(request.getSession());
 %>
 
 <script type="application/ld+json">
@@ -151,11 +143,11 @@
                         </div>
                         
                         <% if (urlLampiran != null && !urlLampiran.trim().isEmpty()) { %>
-                            <a href="<%=urlLampiran%>" target="_blank" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                            <a href="<%=urlLampiran%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-file-download me-2"></i><%=Common.getBahasaConfig("Unduh / Baca Lampiran Buku")%>
                             </a>
-                        <% } else if (item.getEbooksLink() != null && !item.getEbooksLink().trim().isEmpty()) { %>
-                            <a href="<%=item.getEbooksLink()%>" target="_blank" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                        <% } else if (item.getEbookUrl() != null) { %>
+                            <a href="<%=item.getEbookUrl()%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-external-link-alt me-2"></i><%=Common.getBahasaConfig("Buka Tautan E-Book Eksternal")%>
                             </a>
                         <% } else { %>
@@ -164,6 +156,10 @@
                                 <span class="small fw-medium text-dark"><%=Common.getBahasaConfig("Hak akses dokumen digital dibatasi.")%></span>
                             </div>
                         <% } %>
+                        <button type="button" class="btn btn-outline-primary w-100 rounded-pill fw-bold mt-2" onclick="toggleFavoriteDetail<%=modalId%>(this)">
+                            <i class="fas fa-heart me-2"></i><%=Common.getBahasaConfig("Tambah / hapus favorit")%>
+                        </button>
+                        <div id="detailActionStatus<%=modalId%>" class="small mt-2" role="status" aria-live="polite"></div>
                     </div>
                     
                     <div class="col-md-7 col-lg-8">
@@ -328,15 +324,16 @@
                                                     <% if (listKetersediaan.isEmpty()) { %>
                                                         <span class="text-muted fw-bold"><%=Common.getBahasaConfig("Belum ada data ketersediaan fisik perpustakaan.")%></span>
                                                     <% } else { %>
-                                                        <% for (ItemPunyaBarcode ipb : listKetersediaan) {
-                                                            String barcodeStr = ipb.getBarcode() != null ? ipb.getBarcode() : "-";
-                                                            String perpusName = ipb.getPerpustakaan() != null ? ipb.getPerpustakaan().getNama() : Common.getBahasaConfig("Lokasi Tidak Diketahui");
+                                                        <% for (LibraryItemDetailService.Holding ipb : listKetersediaan) {
+                                                            String barcodeStr = StringEscapeUtils.escapeHtml(ipb.getBarcode());
+                                                            String perpusName = StringEscapeUtils.escapeHtml(ipb.getLibraryName());
                                                         %>
                                                         <div class="d-flex align-items-center mb-2">
                                                             <span class="me-3 text-dark fw-bold text-center" style="min-width: 65px;"><%=barcodeStr%></span>
                                                             <div class="px-3 py-1 shadow-sm rounded-1" style="background-color: #000080; color: #00ff00; font-family: monospace; font-size: 0.9rem; font-weight: bold;">
                                                                 <%=Common.getBahasaConfig("Tersedia di")%> <%=perpusName.toUpperCase()%>
                                                             </div>
+                                                            <% if (ipb.getLibraryId() != null) { %><button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="holdDetail<%=modalId%>(<%=ipb.getLibraryId()%>,this)"><%=Common.getBahasaConfig("Reservasi")%></button><% } %>
                                                         </div>
                                                         <% } %>
                                                     <% } %>
@@ -366,6 +363,22 @@
 </article>
 
 <script>
+    var detailApi<%=modalId%> = '<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_beranda_anggota_service';
+    var detailCsrf<%=modalId%> = '<%=detailCsrf%>';
+    function detailMutation<%=modalId%>(action, data, button) {
+        var status = document.getElementById('detailActionStatus<%=modalId%>');
+        var form = new URLSearchParams(Object.assign({action: action, nui_csrf: detailCsrf<%=modalId%>}, data));
+        button.disabled = true; status.className = 'small mt-2 text-secondary'; status.textContent = '<%=Common.getBahasaConfigJS("Memproses...")%>';
+        fetch(detailApi<%=modalId%>, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-NUI-CSRF':detailCsrf<%=modalId%>,'Accept':'application/json'}, body:form.toString()})
+          .then(function(r){return r.json();}).then(function(r){
+            detailCsrf<%=modalId%> = r.csrf || detailCsrf<%=modalId%>;
+            if (!r.ok) throw new Error(r.error || r.message);
+            status.className = 'small mt-2 text-success'; status.textContent = r.message; button.disabled = false;
+          }).catch(function(e){ status.className = 'small mt-2 text-danger'; status.textContent = e.message; button.disabled = false; });
+    }
+    function toggleFavoriteDetail<%=modalId%>(button) { detailMutation<%=modalId%>('favorite_toggle', {itemId:'<%=item.getId()%>'}, button); }
+    function holdDetail<%=modalId%>(libraryId, button) { detailMutation<%=modalId%>('hold', {itemId:'<%=item.getId()%>', libraryId:String(libraryId)}, button); }
+
     var currentUrl = window.location.href;
     if (currentUrl.indexOf('pustaka?id=') > -1 || currentUrl.indexOf('/main/item/') > -1) {
         setTimeout(function() {

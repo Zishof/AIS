@@ -25,6 +25,7 @@ import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoWorkflowEvent;
+import ais.database.model.repository.RepoNotification;
 
 /** Typed repository deposit and review state machine. */
 public class RepositoryWorkflowService {
@@ -283,6 +284,20 @@ public class RepositoryWorkflowService {
     }
 
     @SuppressWarnings("unchecked")
+    public List<RepoNotification> notifications(final Tbmuser actor, final int maximum) {
+        requireLogin(actor); return read(new Work<List<RepoNotification>>() { public List<RepoNotification> run(Session session) {
+            org.hibernate.criterion.Criterion mine=Restrictions.eq("recipientId",actor.getUserId());
+            if(isRepositoryAdmin(actor))mine=Restrictions.or(mine,Restrictions.eq("recipientRole","REPOSITORY_REVIEWER"));
+            return session.createCriteria(RepoNotification.class).add(mine).addOrder(Order.desc("createdAt")).setMaxResults(limit(maximum)).list();
+        }});
+    }
+
+    public void markNotificationRead(final Long id, final Tbmuser actor) {
+        requireLogin(actor); write(new Work<Object>() { public Object run(Session session) { RepoNotification n=(RepoNotification)session.get(RepoNotification.class,id);
+            if(n==null)throw new IllegalArgumentException("Notifikasi tidak ditemukan.");boolean allowed=actor.getUserId().equals(n.getRecipientId())||(isRepositoryAdmin(actor)&&"REPOSITORY_REVIEWER".equals(n.getRecipientRole()));if(!allowed)throw new SecurityException("Notifikasi bukan milik pengguna aktif.");n.setReadAt(new Date());session.update(n);return null; }});
+    }
+
+    @SuppressWarnings("unchecked")
     public List<DuplicateCandidate> duplicates(final DraftInput input, final int maximum) {
         if (input == null || blank(input.title)) return Collections.emptyList();
         return read(new Work<List<DuplicateCandidate> >() {
@@ -384,6 +399,8 @@ public class RepositoryWorkflowService {
         if (blank(item.getTitle())) result.errors.add("Judul wajib diisi.");
         if (blank(item.getAuthors())) result.errors.add("Minimal satu penulis wajib diisi.");
         if (blank(item.getDocumentType())) result.errors.add("Jenis dokumen wajib diisi.");
+        if (("Thesis".equalsIgnoreCase(item.getDocumentType()) || "Article".equalsIgnoreCase(item.getDocumentType()))
+                && blank(item.getAbstractText())) result.errors.add("Abstrak wajib untuk thesis/article.");
         if (!ACCESS_POLICIES.contains(item.getAccessPolicy())) result.errors.add("Kebijakan akses tidak valid.");
         if (!"METADATA_ONLY".equals(item.getAccessPolicy()) && blank(item.getLicenseUri()))
             result.errors.add("Lisensi wajib dipilih untuk berkas yang didistribusikan.");
@@ -396,6 +413,13 @@ public class RepositoryWorkflowService {
                     .add(Restrictions.eq("itemId", item.getId())).add(Restrictions.eq("aktif", Boolean.TRUE))
                     .add(Restrictions.eq("primaryFile", Boolean.TRUE)).setProjection(Projections.rowCount()).uniqueResult();
             if (files == null || files.longValue() == 0L) result.errors.add("Berkas utama wajib tersedia.");
+            @SuppressWarnings("unchecked") List<RepoBitstream> primary = session.createCriteria(RepoBitstream.class)
+                    .add(Restrictions.eq("itemId", item.getId())).add(Restrictions.eq("aktif", Boolean.TRUE))
+                    .add(Restrictions.eq("primaryFile", Boolean.TRUE)).list();
+            for (RepoBitstream file : primary) {
+                if (!Boolean.TRUE.equals(file.getSignatureValid())) result.errors.add("Signature berkas utama tidak valid.");
+                if ("INFECTED".equalsIgnoreCase(file.getVirusScanStatus())) result.errors.add("Berkas utama terdeteksi malware.");
+            }
         }
         result.valid = result.errors.isEmpty();
         return result;
@@ -405,7 +429,7 @@ public class RepositoryWorkflowService {
         if (input == null) throw new IllegalArgumentException("Data deposit tidak tersedia.");
         item.setCollectionId(input.collectionId);
         item.setTitle(limit(input.title, 4000));
-        item.setAuthors(limit(input.authors, 12000));
+        item.setAuthors(limit(joinLines(input.authors), 12000));
         item.setAbstractText(limit(input.abstractText, 40000));
         item.setSubjects(limit(input.subjects, 12000));
         item.setPublisher(limit(input.publisher, 255));
@@ -539,6 +563,14 @@ public class RepositoryWorkflowService {
         event.setCommentText(limit(comment, 10000)); event.setActorId(actor.getUserId());
         event.setActorName(limit(actor.toString(), 500)); event.setRequestId(limit(requestId, 100));
         event.setCreatedAt(new Date()); session.save(event);
+        notify(session,item,action,actor);
+    }
+
+    private void notify(Session session,RepoItem item,String action,Tbmuser actor){if("CREATE_DRAFT".equals(action)||"AUTOSAVE".equals(action))return;RepoNotification n=new RepoNotification();n.setItemId(item.getId());n.setType(action);n.setCreatedAt(new Date());n.setMessage(limit(action+": "+item.getTitle(),1000));
+        if("SUBMIT".equals(action)||"RESUBMIT".equals(action)){n.setRecipientRole("REPOSITORY_REVIEWER");}
+        else if("COMMENT".equals(action)&&actor.getUserId().equals(item.getOwnerId())){if(!blank(item.getAssignedReviewerId()))n.setRecipientId(item.getAssignedReviewerId());else n.setRecipientRole("REPOSITORY_REVIEWER");}
+        else {if(actor.getUserId().equals(item.getOwnerId()))return;n.setRecipientId(item.getOwnerId());}
+        session.save(n);
     }
 
     private void auditFields(RepoItem item, Tbmuser actor) {
@@ -594,6 +626,7 @@ public class RepositoryWorkflowService {
         for (String value : values) { if (b.length() > 0) b.append(" "); b.append(value); }
         return b.toString();
     }
+    private static String joinLines(String value) { StringBuilder b=new StringBuilder();for(String line:lines(value)){if(b.length()>0)b.append("; ");b.append(line);}return b.toString(); }
     private static String slug(String title, Long id) {
         String value = clean(title).toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
         if (value.length() > 80) value = value.substring(0, 80).replaceAll("-$", "");

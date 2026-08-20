@@ -10,19 +10,24 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.security.MessageDigest;
 
 import org.hibernate.Criteria;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
+import ais.database.model.repository.RepoUsageEvent;
 import ais.database.model.file.LampiranLain;
 
 /**
@@ -78,6 +83,14 @@ public class RepositoryPublicService {
         public String accessPolicy;
         public String language;
         public String publisher;
+        public String doi;
+        public String licenseUri;
+        public Date embargoUntil;
+        public long viewCount;
+        public long downloadCount;
+        public boolean withdrawn;
+        public String withdrawalReason;
+        public Date withdrawnAt;
         public Date issuedAt;
         public String year;
         public Long collectionId;
@@ -107,6 +120,7 @@ public class RepositoryPublicService {
         public List<ItemCard> items = new ArrayList<ItemCard>();
         public Map<String, Long> typeFacets = new LinkedHashMap<String, Long>();
         public Map<String, Long> accessFacets = new LinkedHashMap<String, Long>();
+        public Map<String, Long> yearFacets = new LinkedHashMap<String, Long>();
         public List<CollectionView> collections = new ArrayList<CollectionView>();
     }
 
@@ -168,6 +182,7 @@ public class RepositoryPublicService {
         }
         result.typeFacets = groupFacet(session, q, "documentType");
         result.accessFacets = groupFacet(session, q, "accessPolicy");
+        result.yearFacets = yearFacet(session, q);
         result.collections = listCollections(100);
         return result;
     }
@@ -263,6 +278,12 @@ public class RepositoryPublicService {
         return item == null ? null : findPublicItem(item.getId());
     }
 
+    public ItemDetail findTombstone(Long id) {
+        if(id==null)return null;Session session=session();RepoItem entity=(RepoItem)session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("id",id)).add(activeRestriction()).add(Restrictions.eq("isWithdrawn",Boolean.TRUE)).uniqueResult();
+        if(entity==null)return null;RepoCollection c=(RepoCollection)session.get(RepoCollection.class,entity.getCollectionId());ItemDetail d=new ItemDetail();copyCard(toCard(entity,c),d);d.authors="";d.abstractText="";d.subjects="";return d;
+    }
+
     public RepoBitstream findDownloadableBitstream(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
         Session session = session();
@@ -332,6 +353,15 @@ public class RepositoryPublicService {
             ris.append("ER  - \r\n");
             return ris.toString();
         }
+        if ("endnote".equals(type)) {
+            StringBuilder e = new StringBuilder(); e.append("%0 Generic\r\n");
+            String[] authors = safe(item.authors).split(";"); for(String author:authors)if(clean(author).length()>0)e.append("%A ").append(clean(author)).append("\r\n");
+            e.append("%T ").append(safe(item.title)).append("\r\n%8 ").append(year).append("\r\n%I ").append(safe(item.publisher)).append("\r\n");
+            if(clean(item.doi).length()>0)e.append("%R ").append(item.doi).append("\r\n"); e.append("%U ").append(safe(item.dspaceHandle)).append("\r\n"); return e.toString();
+        }
+        if ("csl".equals(type)) {
+            try { JSONObject c=new JSONObject();c.put("id","ais-repository-"+item.id);c.put("type","article");c.put("title",item.title);c.put("issued",new JSONObject().put("raw",year));c.put("publisher",item.publisher);c.put("DOI",item.doi);c.put("URL",item.dspaceHandle);JSONArray a=new JSONArray();for(String author:safe(item.authors).split(";"))if(clean(author).length()>0)a.put(new JSONObject().put("literal",clean(author)));c.put("author",a);return c.toString(2);}catch(Exception e){throw new IllegalStateException(e);}
+        }
         return safe(item.authors) + " (" + year + "). " + safe(item.title) + ". "
                 + safe(item.publisher) + ". " + safe(item.oaiIdentifier);
     }
@@ -356,17 +386,12 @@ public class RepositoryPublicService {
             criteria.add(Restrictions.lt("issuedAt", until.getTime()));
         }
         if (q.keyword.length() > 0) {
-            criteria.add(Restrictions.or(
-                    Restrictions.ilike("title", q.keyword, MatchMode.ANYWHERE),
-                    Restrictions.or(
-                            Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE),
-                            Restrictions.or(
-                                    Restrictions.ilike("abstractText", q.keyword, MatchMode.ANYWHERE),
-                                    Restrictions.or(
-                                            Restrictions.ilike("subjects", q.keyword, MatchMode.ANYWHERE),
-                                            Restrictions.or(
-                                                    Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
-                                                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE)))))));
+            org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
+                    "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')) @@ plainto_tsquery('simple', ?)",
+                    q.keyword, Hibernate.STRING);
+            criteria.add(Restrictions.or(fts, Restrictions.or(
+                    Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
+                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE))));
         }
         return criteria;
     }
@@ -415,6 +440,14 @@ public class RepositoryPublicService {
     }
 
     @SuppressWarnings("unchecked")
+    private Map<String, Long> yearFacet(Session session, Query q) {
+        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
+        List<RepoItem> rows = searchCriteria(session, withoutYear).addOrder(Order.desc("issuedAt")).setMaxResults(5000).list();
+        Map<String,Long> result=new LinkedHashMap<String,Long>(); SimpleDateFormat f=new SimpleDateFormat("yyyy");
+        for(RepoItem row:rows){if(row.getIssuedAt()==null)continue;String y=f.format(row.getIssuedAt());Long n=result.get(y);result.put(y,Long.valueOf(n==null?1:n.longValue()+1));} return result;
+    }
+
+    @SuppressWarnings("unchecked")
     private Map<Long, RepoCollection> loadCollectionMap(Session session, List<RepoItem> items) {
         if (items == null || items.isEmpty()) return Collections.emptyMap();
         List<Long> ids = new ArrayList<Long>();
@@ -460,6 +493,12 @@ public class RepositoryPublicService {
         card.accessPolicy = safe(entity.getAccessPolicy());
         card.language = safe(entity.getLanguage());
         card.publisher = safe(entity.getPublisher());
+        card.doi = safe(entity.getDoi());
+        card.licenseUri = safe(entity.getLicenseUri());
+        card.embargoUntil = entity.getEmbargoUntil();
+        card.viewCount = entity.getViewCount() == null ? 0L : entity.getViewCount().longValue();
+        card.downloadCount = entity.getDownloadCount() == null ? 0L : entity.getDownloadCount().longValue();
+        card.withdrawn = Boolean.TRUE.equals(entity.getIsWithdrawn()); card.withdrawalReason=safe(entity.getWithdrawalReason()); card.withdrawnAt=entity.getWithdrawnAt();
         card.issuedAt = entity.getIssuedAt();
         card.year = entity.getIssuedAt() == null ? "" : new SimpleDateFormat("yyyy").format(entity.getIssuedAt());
         card.collectionId = entity.getCollectionId();
@@ -479,6 +518,9 @@ public class RepositoryPublicService {
         target.accessPolicy = source.accessPolicy;
         target.language = source.language;
         target.publisher = source.publisher;
+        target.doi = source.doi; target.licenseUri=source.licenseUri; target.embargoUntil=source.embargoUntil;
+        target.viewCount=source.viewCount; target.downloadCount=source.downloadCount;
+        target.withdrawn=source.withdrawn;target.withdrawalReason=source.withdrawalReason;target.withdrawnAt=source.withdrawnAt;
         target.issuedAt = source.issuedAt;
         target.year = source.year;
         target.collectionId = source.collectionId;
@@ -542,6 +584,15 @@ public class RepositoryPublicService {
     private String citationEscape(String value) {
         return safe(value).replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}");
     }
+
+    public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId) {
+        if(itemId==null || !("VIEW".equals(eventType)||"DOWNLOAD".equals(eventType)))return;
+        Session s=session();org.hibernate.Transaction tx=null;try{tx=s.beginTransaction();RepoItem item=(RepoItem)s.get(RepoItem.class,itemId);if(item==null){tx.rollback();return;}
+            RepoUsageEvent e=new RepoUsageEvent();e.setItemId(itemId);e.setBitstreamId(bitstreamId);e.setEventType(eventType);e.setVisitorHash(hash(visitor));e.setActorId(clean(actorId));e.setUserAgentClass(userAgentClass(userAgent));e.setOccurredAt(new Date());s.save(e);
+            if("VIEW".equals(eventType))item.setViewCount(Long.valueOf((item.getViewCount()==null?0:item.getViewCount().longValue())+1));else item.setDownloadCount(Long.valueOf((item.getDownloadCount()==null?0:item.getDownloadCount().longValue())+1));s.update(item);tx.commit();
+        }catch(Exception ex){if(tx!=null&&tx.isActive())try{tx.rollback();}catch(Exception ignored){}ais.common.ErrorAuditUtil.record(ex,"RepositoryPublicService.recordUsage");}}
+    private static String hash(String value){try{String salt=System.getProperty("ais.repository.analyticsSalt","AIS-REPOSITORY");byte[]b=MessageDigest.getInstance("SHA-256").digest((salt+"|"+clean(value)).getBytes("UTF-8"));StringBuilder x=new StringBuilder();for(byte v:b)x.append(String.format("%02x",v&255));return x.toString();}catch(Exception e){return "";}}
+    private static String userAgentClass(String value){String v=clean(value).toLowerCase();if(v.contains("bot")||v.contains("crawler")||v.contains("spider"))return "BOT";if(v.contains("mobile"))return "MOBILE";return "DESKTOP";}
 
     public static String clean(String value) {
         return value == null ? "" : value.trim();

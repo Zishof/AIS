@@ -1,4 +1,6 @@
 <%@page import="ais.common.Common"%><%@page import="ais.common.ConstantValues"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%
+response.setHeader("X-Content-Type-Options", "nosniff");
+response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 boolean hanya_tampil_jsp = request.getParameter("hanya_tampil_jsp") != null && request.getParameter("hanya_tampil_jsp").trim().equalsIgnoreCase("true");
 String p = "";
 if(request.getParameter("p") != null && !request.getParameter("p").trim().isEmpty()){
@@ -34,7 +36,7 @@ if(hanya_tampil_jsp){
             <jsp:include page="<%=pg %>"></jsp:include>
             <%
         }catch(Exception e){
-            e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/pustaka.jsp:26");
+            ais.common.ErrorAuditUtil.record(e, "library-modern route adapter");
             %>
             <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
             <%

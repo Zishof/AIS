@@ -17,6 +17,7 @@ ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS version_number bigint NOT 
 ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS previous_version_id bigint;
 ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS view_count bigint NOT NULL DEFAULT 0;
 ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS download_count bigint NOT NULL DEFAULT 0;
+ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS extracted_text text;
 
 UPDATE public.repo_item
 SET workflow_status = CASE
@@ -57,6 +58,7 @@ ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS version_number b
 ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS previous_version_id bigint;
 ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS view_count bigint;
 ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS download_count bigint;
+ALTER TABLE new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS extracted_text text;
 ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS metadata_profile_json text;
 ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS workflow_profile_json text;
 ALTER TABLE new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS access_policy_json text;
@@ -104,6 +106,18 @@ CREATE TABLE IF NOT EXISTS public.repo_usage_event (
     CONSTRAINT repo_usage_event_type CHECK (event_type IN ('VIEW','DOWNLOAD'))
 );
 
+CREATE TABLE IF NOT EXISTS public.repo_notification (
+    id bigserial PRIMARY KEY,
+    item_id bigint NOT NULL REFERENCES public.repo_item(id),
+    recipient_id varchar(255),
+    recipient_role varchar(60),
+    type varchar(40) NOT NULL,
+    message varchar(1000) NOT NULL,
+    read_at timestamp without time zone,
+    created_at timestamp without time zone NOT NULL DEFAULT now(),
+    CONSTRAINT repo_notification_recipient CHECK (recipient_id IS NOT NULL OR recipient_role IS NOT NULL)
+);
+
 CREATE INDEX IF NOT EXISTS repo_item_public_idx
     ON public.repo_item (workflow_status, aktif, is_withdrawn, issued_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS repo_item_owner_status_idx
@@ -121,10 +135,13 @@ CREATE INDEX IF NOT EXISTS repo_usage_item_idx
     ON public.repo_usage_event (item_id, occurred_at DESC, event_type);
 CREATE INDEX IF NOT EXISTS repo_relation_item_idx
     ON public.repo_item_relation (item_id, aktif, relation_type);
+CREATE INDEX IF NOT EXISTS repo_notification_recipient_idx
+    ON public.repo_notification (recipient_id, recipient_role, read_at, created_at DESC);
 
 -- PostgreSQL full-text discovery without requiring an extra extension.
-CREATE INDEX IF NOT EXISTS repo_item_discovery_fts_idx ON public.repo_item USING gin
+DROP INDEX IF EXISTS public.repo_item_discovery_fts_idx;
+CREATE INDEX repo_item_discovery_fts_idx ON public.repo_item USING gin
     (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' '
-        || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'')));
+        || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')));
 
 COMMIT;

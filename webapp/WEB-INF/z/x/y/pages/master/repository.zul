@@ -186,6 +186,10 @@
 									label="Lihat Portal Publik" image="/img/search.gif"
 									tooltiptext="Buka portal Repository publik yang responsif"
 									forward="onClick=onOpenPublic" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									label="Workspace Deposit &amp; Review" image="/img/edit.gif"
+									tooltiptext="Buka workflow typed untuk deposit, review, profil, dan preservasi"
+									forward="onClick=onOpenWorkspace" />
 							</toolbar>
 						</row>
 					</rows>

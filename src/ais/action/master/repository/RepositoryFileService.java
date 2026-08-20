@@ -14,6 +14,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.io.ByteArrayOutputStream;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.util.PDFTextStripper;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -95,6 +99,7 @@ public class RepositoryFileService {
             temporary.delete();
         }
         final File stored = finalFile;
+        final String extractedText = extractText(stored, extension);
         Session session = HibernateUtil.openSession();
         Transaction transaction = null;
         try {
@@ -126,6 +131,7 @@ public class RepositoryFileService {
             bitstream.setFileVersion(Long.valueOf(maxVersion == null ? 1L : maxVersion.longValue() + 1L));
             bitstream.setAktif(Boolean.TRUE); bitstream.setOlehId(actor.getUserId()); bitstream.setOleh(actor.toString());
             session.save(bitstream); session.flush();
+            if (extractedText.length() > 0) { item.setExtractedText(extractedText); session.update(item); }
             workflowEvent(session, itemId, item.getWorkflowStatus(), "FILE_UPLOAD", safeName, actor, requestId);
             transaction.commit();
             return bitstream;
@@ -279,6 +285,7 @@ public class RepositoryFileService {
     private static String extension(String name){int p=name.lastIndexOf('.');return p<0?"":name.substring(p+1).toLowerCase();}
     private static String clean(String value){return value==null?"":value.trim();}
     private static String hex(byte[] bytes){StringBuilder b=new StringBuilder();for(byte v:bytes)b.append(String.format("%02x",v&255));return b.toString();}
+    private static String extractText(File file,String extension){try{String text="";if("pdf".equals(extension)){PDDocument d=PDDocument.load(file);try{text=new PDFTextStripper().getText(d);}finally{d.close();}}else if("txt".equals(extension)||"csv".equals(extension)||"rtf".equals(extension)){InputStream in=new FileInputStream(file);ByteArrayOutputStream out=new ByteArrayOutputStream();try{byte[]b=new byte[8192];int n,total=0;while((n=in.read(b))>=0&&total<1048576){int take=Math.min(n,1048576-total);out.write(b,0,take);total+=take;}}finally{in.close();}text=new String(out.toByteArray(),"UTF-8");}text=clean(text).replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]"," ");return text.length()>1048576?text.substring(0,1048576):text;}catch(Exception e){ais.common.ErrorAuditUtil.record(e,"RepositoryFileService.extractText");return "";}}
     private static void requireLogin(Tbmuser actor){if(actor==null||clean(actor.getUserId()).length()==0)throw new SecurityException("Login diperlukan.");}
     private static class ScanResult { String status; Date scannedAt; }
 }

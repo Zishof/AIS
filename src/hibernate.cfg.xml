@@ -216,6 +216,7 @@
 		<mapping class="ais.database.model.repository.RepoWorkflowEvent" />
 		<mapping class="ais.database.model.repository.RepoItemRelation" />
 		<mapping class="ais.database.model.repository.RepoUsageEvent" />
+		<mapping class="ais.database.model.repository.RepoNotification" />
 
 
 

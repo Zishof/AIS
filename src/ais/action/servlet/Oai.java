@@ -158,8 +158,6 @@ public class Oai extends HttpServlet {
                             Common.getKonfigurasi("email_institusi", "admin@repository.ac.id").getNilai())
                             .getNilai();
         String earliest   = queryEarliestDatestamp();
-        String desc       = Common.getKonfigurasi("oai_repository_description",
-                            repoName + " — Open Repository").getNilai();
 
         out.println("  <Identify>");
         out.println("    <repositoryName>" + escXml(repoName) + "</repositoryName>");
@@ -180,14 +178,6 @@ public class Oai extends HttpServlet {
         out.println("        <delimiter>:</delimiter>");
         out.println("        <sampleIdentifier>oai:" + escXml(buildRepositoryIdentifier(request)) + ":repo/1</sampleIdentifier>");
         out.println("      </oai-identifier>");
-        out.println("    </description>");
-        out.println("    <description>");
-        out.println("      <friends xmlns=\"http://www.openarchives.org/OAI/2.0/friends/\"");
-        out.println("               xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
-        out.println("               xsi:schemaLocation=\"http://www.openarchives.org/OAI/2.0/friends/");
-        out.println("                 http://www.openarchives.org/OAI/2.0/friends.xsd\">");
-        out.println("        <shortDescription>" + escXml(desc) + "</shortDescription>");
-        out.println("      </friends>");
         out.println("    </description>");
         out.println("  </Identify>");
     }
@@ -750,7 +740,13 @@ public class Oai extends HttpServlet {
     }
 
     private String buildRepositoryIdentifier(HttpServletRequest request) {
-        return request.getServerName();
+        String configured = Common.getKonfigurasi("oai_repository_identifier", "").getNilai();
+        String value = configured == null ? "" : configured.trim().toLowerCase();
+        if (!value.matches("[a-z0-9]+([.-][a-z0-9]+)+")) {
+            value = request.getServerName() == null ? "" : request.getServerName().trim().toLowerCase();
+            if (!value.matches("[a-z0-9]+([.-][a-z0-9]+)+")) value = "repository." + (value.matches("[a-z0-9]+") ? value : "localhost");
+        }
+        return value;
     }
 
     private String itemDatestamp(RepoItem item) {

@@ -31,6 +31,7 @@ public class RepoItem extends GeneralValueObject {
     private String dspaceHandle;
     private String title;
     private String abstractText;
+    private String extractedText;
     private String authors;
     private String subjects;
     private String publisher;
@@ -113,6 +114,10 @@ public class RepoItem extends GeneralValueObject {
     @Column(name = "abstract_text", columnDefinition = "TEXT")
     public String getAbstractText() { return abstractText == null ? "" : abstractText.trim(); }
     public void setAbstractText(String abstractText) { this.abstractText = abstractText; }
+
+    @Column(name = "extracted_text", columnDefinition = "TEXT")
+    public String getExtractedText() { return extractedText == null ? "" : extractedText; }
+    public void setExtractedText(String extractedText) { this.extractedText = extractedText; }
 
     @Column(name = "authors", columnDefinition = "TEXT")
     public String getAuthors() { return authors == null ? "" : authors.trim(); }

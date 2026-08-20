@@ -71,8 +71,10 @@ public final class LibraryMemberApi {
             long favorites = count(session, "select count(id) from library.item_favorit_anggota where anggota=:member", context.id);
             long visits = count(session, "select count(id) from library.kunjungan_anggota where anggota=:member", context.id);
             long history = count(session, "select count(id) from library.peminjaman_pengadaan_item where anggota=:member", context.id);
+            double assessedFine = decimal(session.createSQLQuery("select coalesce(sum(coalesce(r.denda,0)),0) from library.kembali_pengadaan_item_detail r join library.peminjaman_pengadaan_item_detail d on d.id=r.peminjaman_pengadaan_item_detail join library.peminjaman_pengadaan_item p on p.id=d.peminjaman_pengadaan_item where p.anggota=:member").setLong("member", context.id).uniqueResult());
             JSONObject data = new JSONObject().put("activeLoans", active).put("dueSoon", dueSoon).put("overdue", overdue)
                     .put("activeHolds", holds).put("favorites", favorites).put("visits", visits).put("loanHistory", history)
+                    .put("assessedFine", assessedFine).put("notifications", dueSoon + overdue + holds)
                     .put("pinjam", history).put("kembali", history - active).put("pesan", holds).put("kunjung", visits);
             data.put("member", new JSONObject().put("id", context.id).put("code", safe(context.member.getKode()))
                     .put("name", safe(context.member.getNama())).put("active", !Boolean.FALSE.equals(context.member.getAktif())));
@@ -200,6 +202,7 @@ public final class LibraryMemberApi {
     private static String first(String a,String b){return a==null?b:a;}
     private static String safe(Object value){return value==null?"":String.valueOf(value);}
     private static long number(Object value){return value instanceof Number?((Number)value).longValue():0L;}
+    private static double decimal(Object value){return value instanceof Number?((Number)value).doubleValue():0D;}
     private static void rollback(Transaction tx){try{if(tx!=null&&tx.isActive())tx.rollback();}catch(Exception ignored){}}
     private static final class MemberContext{private final Anggota member;private final Long id;private MemberContext(Anggota member){this.member=member;this.id=member.getId();}}
     private static final class Page{private final int number,size;private Page(int number,int size){this.number=number;this.size=size;}private int offset(){return(number-1)*size;}}

@@ -1668,6 +1668,155 @@ public final class PengadaanPosApiHelper {
 		return jml;
 	}
 
+	/**
+	 * Jumlah sebuah baris PR yang sudah benar-benar DITERIMA (lewat BAST mana pun),
+	 * ditelusuri melalui baris-baris PO yang menunjuk baris PR ini. Padanan kolom
+	 * "Qty BAST" pada layar Ambil Barang PR versi ZKoss.
+	 */
+	private static double jumlahSudahDiterimaPrBaris(Session session, Long prDetailId) {
+		if (prDetailId == null) {
+			return 0;
+		}
+		@SuppressWarnings("unchecked")
+		List<PemesananPengadaanMasterAssetDetail> daftar = session
+				.createCriteria(PemesananPengadaanMasterAssetDetail.class)
+				.add(Restrictions.eq("permintaanPengadaanMasterAssetDetail.id", prDetailId)).list();
+		double jml = 0;
+		for (PemesananPengadaanMasterAssetDetail d : daftar) {
+			PemesananPengadaanMasterAsset induk = d.getPemesananPengadaanMasterAsset();
+			if (induk == null || Boolean.FALSE.equals(induk.getAktif())) {
+				continue;
+			}
+			jml += jumlahSudahDiterima(session, d.getId(), null);
+		}
+		return jml;
+	}
+
+	/**
+	 * Daftar BARANG Permintaan Pembelian yang masih boleh dipesan, dikelompokkan per nomor PR --
+	 * padanan layar "Ambil Barang PR" versi ZKoss
+	 * ({@code AmbilDataPermintaanPengadaanMasterAssetBanyak}).
+	 *
+	 * <p>Berbeda dengan {@link #poDariPr} yang bekerja per DOKUMEN, aksi ini bekerja per BARIS.
+	 * Dengan begitu satu Pemesanan Pembelian boleh menggabungkan barang dari beberapa PR
+	 * sekaligus, persis seperti versi ZKoss yang mengumpulkan pilihan ke dalam
+	 * {@code PemesananPengadaanMasterAsset.permintaanPengadaanMasterAssets} (daftar id baris PR
+	 * dipisah koma).</p>
+	 *
+	 * <p>Syarat sebuah PR ikut tampil disamakan dengan versi ZKoss: aktif, sudah disetujui, dan
+	 * belum ditutup. Baris yang sisanya nol tidak ditampilkan sama sekali -- di ZKoss barisnya
+	 * tampil tanpa kotak centang; di sini disembunyikan supaya layar sempit (Android) tidak penuh
+	 * oleh baris yang memang tidak bisa dipilih.</p>
+	 *
+	 * <p>Tidak menulis apa pun. Klien mengumpulkan {@code pr_detail_id} yang dicentang lalu
+	 * menyimpannya lewat {@code pengadaan_po_simpan} yang memang sudah menerima
+	 * {@code pr_detail_id} per baris.</p>
+	 */
+	public static void prBarangTersedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_PO)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		String cari = request == null ? "" : request.optString("cari", "").trim();
+		int maksPr = Math.min(100, Math.max(5, request == null ? 30 : request.optInt("limit", 30)));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(PermintaanPengadaanMasterAsset.class);
+			kriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			// Hanya PR yang SUDAH DISETUJUI dan BELUM DITUTUP -- dua syarat yang sama dipakai
+			// versi ZKoss pada layar Ambil Barang PR.
+			kriteria.add(Restrictions.isNotNull("tanggalPersetujuan"));
+			kriteria.add(Restrictions.or(Restrictions.isNull("tutup"), Restrictions.eq("tutup", Boolean.FALSE)));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (cari.length() > 0) {
+				kriteria.add(Restrictions.or(
+						Restrictions.ilike("kode", cari, MatchMode.ANYWHERE),
+						Restrictions.ilike("keterangan", cari, MatchMode.ANYWHERE)));
+			}
+			kriteria.addOrder(Order.desc("id"));
+			@SuppressWarnings("unchecked")
+			List<PermintaanPengadaanMasterAsset> daftarPr = kriteria.setMaxResults(maksPr * 3).list();
+
+			JSONArray grup = new JSONArray();
+			int jumlahBarisTotal = 0;
+			for (PermintaanPengadaanMasterAsset pr : daftarPr) {
+				if (grup.length() >= maksPr) {
+					break;
+				}
+				@SuppressWarnings("unchecked")
+				List<PermintaanPengadaanMasterAssetDetail> baris = session
+						.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+						.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId()))
+						.addOrder(Order.asc("id")).list();
+				JSONArray arr = new JSONArray();
+				double nilaiSisa = 0;
+				for (PermintaanPengadaanMasterAssetDetail d : baris) {
+					double diminta = d.getJumlah() == null ? 0 : d.getJumlah().doubleValue();
+					double sudah = jumlahSudahDipesan(session, d.getId());
+					double sisa = diminta - sudah;
+					if (sisa <= TOLERANSI) {
+						continue;
+					}
+					double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
+					JSONObject o = new JSONObject();
+					o.put("pr_detail_id", d.getId());
+					Produk produkBaris = produkDariMasterAsset(session, d.getMasterAsset());
+					o.put("produk_id", produkBaris == null ? JSONObject.NULL : produkBaris.getId());
+					o.put("master_asset_id",
+							d.getMasterAsset() == null ? JSONObject.NULL : d.getMasterAsset().getId());
+					o.put("kodeBarang", d.getMasterAsset() == null || d.getMasterAsset().getKode() == null ? ""
+							: d.getMasterAsset().getKode());
+					o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+					// Alias "produk": sebagian layar menamai kolom ini demikian.
+					o.put("produk", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+					o.put("jumlahDiminta", diminta);
+					o.put("jumlahSudahDipesan", sudah);
+					o.put("jumlahDatang", jumlahSudahDiterimaPrBaris(session, d.getId()));
+					o.put("sisa", sisa);
+					// "jumlah" = usulan isian PO (sisa penuh), boleh dikurangi pengguna.
+					o.put("jumlah", sisa);
+					o.put("hargaBeli", harga);
+					o.put("hargaTotal", sisa * harga);
+					o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+					arr.put(o);
+					nilaiSisa += sisa * harga;
+				}
+				if (arr.length() == 0) {
+					continue;
+				}
+				JSONObject h = new JSONObject();
+				h.put("pr_id", pr.getId());
+				h.put("kode", pr.getKode() == null ? "" : pr.getKode());
+				h.put("keterangan", pr.getKeterangan() == null ? "" : pr.getKeterangan());
+				h.put("tanggal", pr.getTanggalPembuatan() == null ? JSONObject.NULL
+						: Common.dateFormat3.get().format(pr.getTanggalPembuatan()));
+				h.put("tanggalPersetujuan", pr.getTanggalPersetujuan() == null ? JSONObject.NULL
+						: Common.dateFormat3.get().format(pr.getTanggalPersetujuan()));
+				h.put("disetujuiOleh", pr.getDisetujuiOleh() == null ? ""
+						: (pr.getDisetujuiOleh().getUserNama() == null ? "" : pr.getDisetujuiOleh().getUserNama()));
+				h.put("toko_id", pr.getToko() == null ? JSONObject.NULL : pr.getToko().getId());
+				h.put("nilaiSisa", nilaiSisa);
+				h.put("detail", arr);
+				grup.put(h);
+				jumlahBarisTotal += arr.length();
+			}
+			hasil.put("status", "00");
+			hasil.put("data", grup);
+			hasil.put("jumlahBaris", jumlahBarisTotal);
+			if (grup.length() == 0) {
+				hasil.put("catatan", cari.length() > 0
+						? "Tidak ada barang PR yang cocok dengan pencarian dan masih boleh dipesan."
+						: "Belum ada barang Permintaan Pembelian yang menunggu dipesan. "
+								+ "Pastikan PR sudah disetujui dan belum ditutup.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
 	public static void cariPenyedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_BAST)) {
@@ -1900,6 +2049,17 @@ public final class PengadaanPosApiHelper {
 				o.put("diterima", d.getDiterima() == null ? 0 : d.getDiterima());
 				o.put("hargaBeli", d.getHargaBeli() == null ? 0 : d.getHargaBeli());
 				o.put("hargaTotal", d.getHargaTotal() == null ? 0 : d.getHargaTotal());
+				// Potongan dan pajak WAJIB ikut dikembalikan. Tanpa ini layar sunting membuka
+				// dokumen lama dengan PPN/PPh 0 sehingga nilainya terlihat "tidak tersimpan"
+				// padahal tersimpan (laporan pemilik produk, 2026-08-21).
+				o.put("hargaPotongan", d.getHargaPotongan() == null ? 0 : d.getHargaPotongan());
+				o.put("diskonPersen", Boolean.TRUE.equals(d.getDiskonDalamBentukPersen()));
+				o.put("persenPpn", d.getPersenPpn() == null ? 0 : d.getPersenPpn());
+				o.put("persenPph", d.getPersenPph() == null ? 0 : d.getPersenPph());
+				o.put("jenis_pajak_ppn_id", d.getJenisPajakPpn() == null ? JSONObject.NULL
+						: d.getJenisPajakPpn().getId());
+				o.put("jenis_pajak_barang_id", d.getJenisPajakBarang() == null ? JSONObject.NULL
+						: d.getJenisPajakBarang().getId());
 				o.put("kondisi", d.getKondisi() == null ? "" : d.getKondisi());
 				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
 				o.put("po_detail_id", asal == null ? JSONObject.NULL : asal.getId());
@@ -2752,7 +2912,33 @@ public final class PengadaanPosApiHelper {
 	}
 
 	/** Nilai yang sudah dibayar untuk satu termin tertentu pada sebuah PO. */
-	private static double terbayarTermin(Session session, Long poId, String kunciTermin, Long kecualiBayarId) {
+	/**
+	 * Nilai sebuah PO yang sudah TERPAKAI oleh dokumen pembayaran, dijumlahkan lintas termin.
+	 *
+	 * <p>Parameter {@code hanyaDisetujui} memisahkan dua pertanyaan yang sengaja TIDAK boleh
+	 * dicampur:</p>
+	 * <ul>
+	 * <li>{@code true} -- "berapa yang benar-benar sudah DIBAYAR?" Sama persis dengan definisi
+	 * {@code PemesananPengadaanMasterAsset.hitungDibayar()}: hanya dokumen yang sudah disetujui
+	 * yang diakui. Dipakai untuk status lunas, sisa utang, dan pelaporan.</li>
+	 * <li>{@code false} -- "berapa yang sudah DIAJUKAN?" Draf yang belum disetujui pun ikut
+	 * dihitung. Dipakai saat menyusun daftar tagihan yang boleh diajukan, supaya satu tagihan
+	 * tidak bisa diajukan dua kali (permintaan pemilik produk, 2026-08-21).</li>
+	 * </ul>
+	 */
+	private static double terpakaiPembayaranPo(Session session, Long poId, Long kecualiBayarId,
+			boolean hanyaDisetujui) {
+		return terpakaiPembayaran(session, poId, null, false, kecualiBayarId, hanyaDisetujui);
+	}
+
+	/** Sama dengan {@link #terpakaiPembayaranPo} tetapi dibatasi pada satu termin. */
+	private static double terpakaiPembayaranTermin(Session session, Long poId, String kunciTermin,
+			Long kecualiBayarId, boolean hanyaDisetujui) {
+		return terpakaiPembayaran(session, poId, kunciTermin, true, kecualiBayarId, hanyaDisetujui);
+	}
+
+	private static double terpakaiPembayaran(Session session, Long poId, String kunciTermin,
+			boolean saringTermin, Long kecualiBayarId, boolean hanyaDisetujui) {
 		@SuppressWarnings("unchecked")
 		List<PembayaranTerminMasterAssetDetail> daftar = session
 				.createCriteria(PembayaranTerminMasterAssetDetail.class)
@@ -2760,27 +2946,41 @@ public final class PengadaanPosApiHelper {
 		double jml = 0;
 		for (PembayaranTerminMasterAssetDetail b : daftar) {
 			PembayaranTerminMasterAsset induk = b.getPembayaranTerminMasterAsset();
-			if (induk == null || induk.getDisetujuiOleh() == null
-					|| Boolean.FALSE.equals(induk.getAktif())) {
+			if (induk == null || Boolean.FALSE.equals(induk.getAktif())) {
+				continue;
+			}
+			if (hanyaDisetujui && induk.getDisetujuiOleh() == null) {
 				continue;
 			}
 			if (kecualiBayarId != null && kecualiBayarId.equals(induk.getId())) {
 				continue;
 			}
-			String kunci = "";
-			if (b.getTagihan() != null && !b.getTagihan().trim().isEmpty()) {
-				try {
-					JSONObject t = new JSONObject(b.getTagihan());
-					kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
-				} catch (Exception e) {
-					kunci = "";
+			if (saringTermin) {
+				String kunci = "";
+				if (b.getTagihan() != null && !b.getTagihan().trim().isEmpty()) {
+					try {
+						JSONObject t = new JSONObject(b.getTagihan());
+						kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
+					} catch (Exception e) {
+						kunci = "";
+					}
+				}
+				if (kunciTermin == null ? !kunci.isEmpty() : !kunciTermin.equals(kunci)) {
+					continue;
 				}
 			}
-			if (kunciTermin == null ? kunci.isEmpty() : kunciTermin.equals(kunci)) {
-				jml += b.getDibayar() == null ? 0 : b.getDibayar().doubleValue();
-			}
+			jml += b.getDibayar() == null ? 0 : b.getDibayar().doubleValue();
 		}
 		return jml;
+	}
+
+	/**
+	 * Nilai satu termin yang sudah benar-benar DIBAYAR (dokumen pembayaran sudah disetujui).
+	 * Delegasi ke {@link #terpakaiPembayaranTermin} supaya definisi "dibayar" hanya ada di
+	 * satu tempat.
+	 */
+	private static double terbayarTermin(Session session, Long poId, String kunciTermin, Long kecualiBayarId) {
+		return terpakaiPembayaranTermin(session, poId, kunciTermin, kecualiBayarId, true);
 	}
 
 	/** Label status dokumen pembayaran vendor. */
@@ -2886,7 +3086,14 @@ public final class PengadaanPosApiHelper {
 			JSONArray arr = new JSONArray();
 			double totalSisa = 0;
 			for (PemesananPengadaanMasterAsset po : daftar) {
-				double sisaPo = sisaTagihanPo(session, po);
+				// Dua angka berbeda, sengaja dipisah:
+				//   dibayarPo  = sudah disetujui -> benar-benar dibayar (dipakai utk info).
+				//   diajukanPo = termasuk draf   -> dipakai utk menentukan apa yang MASIH boleh
+				//                diajukan, supaya tagihan yang sudah diajukan tidak muncul lagi.
+				double nilaiPo = po.getNilai() == null ? 0 : po.getNilai().doubleValue();
+				double dibayarPo = terpakaiPembayaranPo(session, po.getId(), kecuali, true);
+				double diajukanPo = terpakaiPembayaranPo(session, po.getId(), kecuali, false);
+				double sisaPo = nilaiPo - diajukanPo;
 				if (sisaPo <= TOLERANSI) {
 					continue;
 				}
@@ -2899,8 +3106,9 @@ public final class PengadaanPosApiHelper {
 						}
 						String kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
 						double tagih = angkaAman(t, "penagihan");
-						double sudah = terbayarTermin(session, po.getId(), kunci, kecuali);
-						double sisa = tagih - sudah;
+						double sudah = terpakaiPembayaranTermin(session, po.getId(), kunci, kecuali, true);
+						double diajukan = terpakaiPembayaranTermin(session, po.getId(), kunci, kecuali, false);
+						double sisa = tagih - diajukan;
 						if (sisa <= TOLERANSI) {
 							continue;
 						}
@@ -2912,6 +3120,7 @@ public final class PengadaanPosApiHelper {
 						o.put("jatuhTempo", t.isNull("tanggalD") ? "" : t.get("tanggalD") + "");
 						o.put("nilaiTagih", tagih);
 						o.put("sudahDibayar", sudah);
+						o.put("sedangDiajukan", Math.max(0, diajukan - sudah));
 						o.put("sisa", sisa);
 						o.put("dibayar", sisa);
 						arr.put(o);
@@ -2926,7 +3135,8 @@ public final class PengadaanPosApiHelper {
 					o.put("jatuhTempo", po.getPengirimanPalingLambat() == null ? ""
 							: Common.dateFormat1.get().format(po.getPengirimanPalingLambat()));
 					o.put("nilaiTagih", po.getNilai() == null ? 0 : po.getNilai());
-					o.put("sudahDibayar", (po.getNilai() == null ? 0 : po.getNilai().doubleValue()) - sisaPo);
+					o.put("sudahDibayar", dibayarPo);
+					o.put("sedangDiajukan", Math.max(0, diajukanPo - dibayarPo));
 					o.put("sisa", sisaPo);
 					o.put("dibayar", sisaPo);
 					arr.put(o);
@@ -3172,7 +3382,9 @@ public final class PengadaanPosApiHelper {
 					return;
 				}
 				double tagih = nilaiTagihanTermin(po, kunci);
-				double lain = terbayarTermin(session, po.getId(), kunci, bayar.getId());
+				// Batas pengajuan memakai angka TERMASUK draf yang belum disetujui: sekali sebuah
+				// tagihan diajukan, sisanya tidak boleh diajukan lagi lewat dokumen lain.
+				double lain = terpakaiPembayaranTermin(session, po.getId(), kunci, bayar.getId(), false);
 				double sisa = tagih - lain;
 				if (nilaiBayar > sisa + TOLERANSI) {
 					tolak(hasil, "Nilai bayar " + Common.numberFormat.get().format(nilaiBayar)
@@ -3200,6 +3412,7 @@ public final class PengadaanPosApiHelper {
 			session.flush();
 
 			double total = 0;
+			java.util.List<Long> detailBaru = new java.util.ArrayList<Long>();
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.getJSONObject(i);
 				if (b.isNull("po_id")) {
@@ -3230,6 +3443,8 @@ public final class PengadaanPosApiHelper {
 				d.setOleh(tbmuser.getUserNama());
 				d.setOlehId(tbmuser.getUserId());
 				session.save(d);
+				session.flush();
+				detailBaru.add(d.getId());
 				poTersentuh.add(po.getId());
 				total += nilaiBayar;
 			}
@@ -3244,6 +3459,26 @@ public final class PengadaanPosApiHelper {
 						(PemesananPengadaanMasterAsset) session.get(PemesananPengadaanMasterAsset.class, poId));
 			}
 			session.getTransaction().commit();
+
+			// Terbitkan baris Pajak (PPh termin) memakai pabrik milik versi ZKoss sendiri,
+			// BUKAN salinan logika di sini. Dengan begitu pajak dari pembayaran POS muncul di
+			// layar Pertanggungjawaban Pajak ZKoss dan ikut terdorong ke DPC lewat
+			// DaftarPengajuanTransfer.simpanPajak, persis seperti pembayaran yang dibuat di
+			// ZKoss. buatDariTermin bersifat idempoten dan menghapus sendiri barisnya bila
+			// PPh-nya nol, jadi aman dipanggil pada setiap penyimpanan.
+			//
+			// Dipanggil SETELAH commit dan dibungkus try/catch: kegagalan di sisi pajak tidak
+			// boleh membatalkan pembayaran yang sudah sah tersimpan.
+			for (Long idDetail : detailBaru) {
+				try {
+					PembayaranTerminMasterAssetDetail acuan = new PembayaranTerminMasterAssetDetail();
+					acuan.setId(idDetail);
+					ais.database.model.akunting.Pajak.buatDariTermin(acuan);
+				} catch (Exception ePajak) {
+					ais.common.ErrorAuditUtil.record(ePajak,
+							"PengadaanPosApiHelper.bayarSimpan buatDariTermin detail=" + idDetail);
+				}
+			}
 
 			hasil.put("status", "00");
 			hasil.put("id", bayar.getId());
@@ -3508,17 +3743,175 @@ public final class PengadaanPosApiHelper {
 
 
 	/**
-	 * Barang Dalam Proses: barang yang SUDAH DIPESAN tetapi BELUM DITERIMA.
+	 * EXISTS: penerimaan ini punya minimal satu baris yang kelompok asetnya ditandai
+	 * "Pekerjaan Dalam Pelaksanaan" (CIP). Disalin apa adanya dari versi ZKoss
+	 * ({@code BarangDalamProsesDashboard.SQL_EXISTS_KELOMPOK_CIP}) supaya kedua versi
+	 * menyaring baris yang sama persis.
+	 */
+	private static final String SQL_ADA_KELOMPOK_CIP =
+			"exists (select 1 from asset.penerimaan_pengadaan_master_asset_detail d "
+			+ "join asset.master_asset m on d.masterasset = m.id "
+			+ "join asset.kelompok_asset k on m.kelompok_asset = k.id "
+			+ "where d.penerimaan_pengadaan_master_asset = this_.id "
+			+ "and coalesce(k.merupakanpekerjaandalampelaksanaan, false) = true)";
+
+	/**
+	 * Barang Dalam Proses (CIP -- <i>Construction in Progress</i>): rekap seluruh PENERIMAAN
+	 * (BAST) beserta status persetujuan dan nilainya.
 	 *
-	 * <p>Bukan dokumen tersendiri melainkan pandangan yang diturunkan dari selisih
-	 * PO dan BAST -- persis definisi yang dipakai {@link #bastDariPo} untuk membatasi
-	 * penerimaan, sehingga angka pada layar pemantauan tidak pernah berbeda dengan
-	 * angka yang menjadi pagar saat menerima barang.</p>
+	 * <p><b>Riwayat perbaikan (2026-08-21).</b> Versi pertama modul ini keliru mengartikan
+	 * "Barang Dalam Proses" sebagai barang yang sudah dipesan tetapi belum diterima. Akibatnya
+	 * barang yang sudah dibeli justru HILANG dari layar tepat setelah BAST-nya dibuat. Acuan yang
+	 * benar adalah {@code BarangDalamProsesDashboard} pada versi ZKoss: sumbernya BAST, bukan PO.
+	 * Pandangan lama tetap berguna untuk memantau pengiriman yang tertunda, karena itu tidak
+	 * dibuang melainkan dipindahkan ke {@link #bdpBelumDatang} dan dapat dipanggil dengan
+	 * {@code mode=belum_datang}.</p>
+	 *
+	 * <p>Penyaring CIP versi ZKoss ({@link #SQL_ADA_KELOMPOK_CIP}) disediakan lewat parameter
+	 * {@code hanyaCip} dan <b>mati secara bawaan</b>. Alasannya: pada pemasangan POS/kantin
+	 * umumnya belum ada kelompok aset yang ditandai CIP, sehingga bila penyaring itu dipaksakan
+	 * diam-diam layarnya akan selalu kosong -- persis keluhan yang memunculkan perbaikan ini.
+	 * Penyaringnya ditampilkan sebagai pilihan yang terlihat, bukan aturan tersembunyi.</p>
+	 *
+	 * @param request {@code mode} ("bast" bawaan, atau "belum_datang"), {@code cari},
+	 *                {@code tanggalMulai}/{@code tanggalSampai} (dd-MM-yyyy), {@code hanyaCip},
+	 *                {@code hanyaBelumDisetujui}, {@code page}, {@code pageSize}.
+	 */
+	public static void bdpDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_BDP)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		String mode = request == null ? "" : request.optString("mode", "").trim().toLowerCase();
+		if ("belum_datang".equals(mode)) {
+			bdpBelumDatang(tbmuser, request, hasil);
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int pageSize = Math.min(200, Math.max(5, request == null ? 25 : request.optInt("pageSize", 25)));
+		String cari = request == null ? "" : request.optString("cari", "").trim().toLowerCase();
+		boolean hanyaCip = request != null && request.optBoolean("hanyaCip", false);
+		boolean hanyaBelumDisetujui = request != null && request.optBoolean("hanyaBelumDisetujui", false);
+		java.util.Date dariTgl = tanggalKetat(request == null ? null : request.optString("tanggalMulai", ""));
+		java.util.Date sampaiTgl = tanggalKetat(request == null ? null : request.optString("tanggalSampai", ""));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (hanyaCip) {
+				kriteria.add(Restrictions.sqlRestriction(SQL_ADA_KELOMPOK_CIP));
+			}
+			if (hanyaBelumDisetujui) {
+				kriteria.add(Restrictions.isNull("disetujuiOleh"));
+			}
+			if (dariTgl != null) {
+				kriteria.add(Restrictions.ge("tanggalPembuatan", dariTgl));
+			}
+			if (sampaiTgl != null) {
+				// Batas atas dibuat inklusif: tanggal yang diketik pengguna ikut terhitung.
+				java.util.Calendar kal = java.util.Calendar.getInstance();
+				kal.setTime(sampaiTgl);
+				kal.add(java.util.Calendar.DATE, 1);
+				kriteria.add(Restrictions.lt("tanggalPembuatan", kal.getTime()));
+			}
+			kriteria.addOrder(Order.desc("id"));
+			@SuppressWarnings("unchecked")
+			List<PenerimaanPengadaanMasterAsset> daftar = kriteria.setMaxResults(3000).list();
+
+			JSONArray arr = new JSONArray();
+			int cocok = 0;
+			int mulai = (page - 1) * pageSize;
+			double totalNilai = 0;
+			int jumlahDisetujui = 0;
+			double nilaiDisetujui = 0;
+			for (PenerimaanPengadaanMasterAsset bast : daftar) {
+				String kode = bast.getKode() == null ? "" : bast.getKode();
+				String vendor = bast.getPenyedia() == null || bast.getPenyedia().getNama() == null ? ""
+						: bast.getPenyedia().getNama();
+				String uraian = bast.getKeterangan() == null ? "" : bast.getKeterangan();
+				String kodePo = bast.getPemesananPengadaanMasterAsset() == null
+						|| bast.getPemesananPengadaanMasterAsset().getKode() == null ? ""
+								: bast.getPemesananPengadaanMasterAsset().getKode();
+				if (cari.length() > 0 && kode.toLowerCase().indexOf(cari) < 0
+						&& vendor.toLowerCase().indexOf(cari) < 0
+						&& uraian.toLowerCase().indexOf(cari) < 0
+						&& kodePo.toLowerCase().indexOf(cari) < 0) {
+					continue;
+				}
+				double nilai = bast.getNilai() == null ? 0 : bast.getNilai().doubleValue();
+				boolean disetujui = bast.getDisetujuiOleh() != null;
+				cocok++;
+				totalNilai += nilai;
+				if (disetujui) {
+					jumlahDisetujui++;
+					nilaiDisetujui += nilai;
+				}
+				if (cocok <= mulai || arr.length() >= pageSize) {
+					continue;
+				}
+				java.util.Date tanggal = bast.getTanggalPersetujuan() != null ? bast.getTanggalPersetujuan()
+						: bast.getTanggalPembuatan();
+				JSONObject o = new JSONObject();
+				o.put("bast_id", bast.getId());
+				o.put("kode", kode);
+				o.put("vendor", vendor);
+				o.put("penyedia", vendor);
+				o.put("lokasi", bast.getLokasi() == null || bast.getLokasi().getNama() == null ? ""
+						: bast.getLokasi().getNama());
+				o.put("po_id", bast.getPemesananPengadaanMasterAsset() == null ? JSONObject.NULL
+						: bast.getPemesananPengadaanMasterAsset().getId());
+				o.put("po", kodePo);
+				o.put("uraian", uraian);
+				o.put("nilai", nilai);
+				o.put("tanggal", tanggal == null ? "" : Common.dateFormat1.get().format(tanggal));
+				o.put("disetujui", disetujui);
+				o.put("status", disetujui ? "DISETUJUI" : "BELUM DISETUJUI");
+				// Khas POS: penanda apakah penerimaan ini sudah disalin menjadi faktur Kulakan
+				// (stok + HPP). Selama belum, barangnya memang masih "dalam proses" di gudang.
+				o.put("sudahMasukStok", bast.getPengadaanFaktur() != null);
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("mode", "bast");
+			hasil.put("data", arr);
+			hasil.put("total", cocok);
+			hasil.put("totalNilai", totalNilai);
+			hasil.put("jumlahDisetujui", jumlahDisetujui);
+			hasil.put("nilaiDisetujui", nilaiDisetujui);
+			hasil.put("jumlahBelumDisetujui", cocok - jumlahDisetujui);
+			hasil.put("nilaiBelumDisetujui", totalNilai - nilaiDisetujui);
+			hasil.put("hanyaCip", hanyaCip);
+			if (cocok == 0) {
+				hasil.put("catatan", hanyaCip
+						? "Tidak ada penerimaan dengan kelompok aset \"Pekerjaan Dalam Pelaksanaan\". "
+								+ "Matikan penyaring CIP untuk melihat seluruh penerimaan."
+						: "Belum ada penerimaan barang (BAST) yang tercatat.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Pandangan pendamping Barang Dalam Proses: barang yang SUDAH DIPESAN tetapi BELUM DITERIMA.
+	 *
+	 * <p>Dahulu inilah isi menu Barang Dalam Proses, sampai ketahuan bahwa istilah itu di versi
+	 * ZKoss berarti CIP dan bersumber dari BAST (lihat {@link #bdpDaftar}). Pandangan ini tetap
+	 * dipertahankan karena berguna memantau pengiriman yang tertunda, dan dipanggil dengan
+	 * {@code mode=belum_datang}.</p>
+	 *
+	 * <p>Selisih PO dan BAST di sini memakai definisi yang sama dengan {@link #bastDariPo},
+	 * sehingga angka pada layar pemantauan tidak pernah berbeda dengan angka yang menjadi pagar
+	 * saat menerima barang.</p>
 	 *
 	 * <p>Param opsional: {@code cari} (kode PO/nama barang), {@code penyedia_id},
 	 * {@code hanyaTerlambat}, {@code page}, {@code pageSize}.</p>
 	 */
-	public static void bdpDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+	public static void bdpBelumDatang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehLihat(tbmuser, KUNCI_BDP)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
@@ -3612,6 +4005,7 @@ public final class PengadaanPosApiHelper {
 				}
 			}
 			hasil.put("status", "00");
+			hasil.put("mode", "belum_datang");
 			hasil.put("data", arr);
 			hasil.put("total", cocok);
 			hasil.put("totalNilai", totalNilai);
@@ -3913,6 +4307,38 @@ public final class PengadaanPosApiHelper {
 	 * sedangkan PPN dibayarkan kepada vendor sebagai pajak masukan; keduanya ditampilkan
 	 * agar petugas melihat gambaran utuh sebelum menyetor.</p>
 	 */
+	/**
+	 * Dasar Pengenaan Pajak satu baris penerimaan (BAST), memakai rumus yang sama persis dengan
+	 * {@code PenerimaanPengadaanMasterAssetDetail.getHargaTotal()}: (diterima x harga) dikurangi
+	 * potongan, sebelum PPN/PPh dikenakan. Ditulis sebagai satu fungsi agar layar, penyimpanan,
+	 * dan daftar pajak tidak pernah memakai angka yang berbeda.
+	 */
+	private static double dppBarisBast(PenerimaanPengadaanMasterAssetDetail d) {
+		double diterima = d.getDiterima() == null ? 0 : d.getDiterima().doubleValue();
+		double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
+		double dpp = diterima * harga;
+		double potongan = d.getHargaPotongan() == null ? 0 : d.getHargaPotongan().doubleValue();
+		dpp -= Boolean.TRUE.equals(d.getDiskonDalamBentukPersen()) ? (potongan / 100.0) * dpp : potongan;
+		return dpp;
+	}
+
+	/**
+	 * Daftar pajak yang masih terutang, dari DUA sumber:
+	 *
+	 * <ol>
+	 * <li><b>Pembayaran vendor</b> -- PPh termin, mengikuti definisi
+	 * {@code PembayaranTerminMasterAssetDetail.getNilaiPphTermin()} yang juga dipakai
+	 * {@code Pajak.buatDariTermin} pada versi ZKoss.</li>
+	 * <li><b>Penerimaan barang (BAST)</b> -- PPN dan PPh yang diketik per baris pada layar
+	 * penerimaan. Sebelumnya sumber ini terlewat sama sekali, sehingga PPN yang sudah diisi di
+	 * BAST tidak pernah muncul di layar Bayar Pajak (laporan pemilik produk, 2026-08-21).</li>
+	 * </ol>
+	 *
+	 * <p>Baris BAST yang dokumennya belum disetujui tetap ditampilkan -- lengkap dengan penanda
+	 * {@code dokumenDisetujui=false} -- supaya pajaknya terlihat sejak awal, tetapi
+	 * {@link #pajakSetor} menolak menyetorkannya sampai dokumennya sah. Menyembunyikannya justru
+	 * membuat pengguna mengira pajaknya hilang.</p>
+	 */
 	public static void pajakTerutang(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehLihat(tbmuser, KUNCI_PAJAK)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
@@ -3921,13 +4347,15 @@ public final class PengadaanPosApiHelper {
 		Long tokoId = tokoLingkup(tbmuser, request);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			JSONArray arr = new JSONArray();
+			double totalPph = 0;
+			double totalPpn = 0;
+
+			// --- Sumber 1: pembayaran vendor (PPh termin) ---------------------------------
 			@SuppressWarnings("unchecked")
 			List<PembayaranTerminMasterAssetDetail> baris = session
 					.createCriteria(PembayaranTerminMasterAssetDetail.class)
 					.addOrder(Order.asc("id")).list();
-			JSONArray arr = new JSONArray();
-			double totalPph = 0;
-			double totalPpn = 0;
 			for (PembayaranTerminMasterAssetDetail d : baris) {
 				PembayaranTerminMasterAsset induk = d.getPembayaranTerminMasterAsset();
 				if (induk == null || induk.getDisetujuiOleh() == null
@@ -3948,9 +4376,12 @@ public final class PengadaanPosApiHelper {
 				}
 				PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
 				JSONObject o = new JSONObject();
+				o.put("sumber", "PEMBAYARAN");
 				o.put("detail_id", d.getId());
 				o.put("bayar_id", induk.getId());
 				o.put("bayar", induk.getKode() == null ? "" : induk.getKode());
+				o.put("dokumen", induk.getKode() == null ? "" : induk.getKode());
+				o.put("dokumenDisetujui", true);
 				o.put("tanggal", induk.getTanggalPembuatan() == null ? ""
 						: Common.dateFormat1.get().format(induk.getTanggalPembuatan()));
 				o.put("penyedia", induk.getPenyedia() == null ? "" : induk.getPenyedia().getNama());
@@ -3959,19 +4390,75 @@ public final class PengadaanPosApiHelper {
 				o.put("dpp", rincian.optDouble("dpp", 0));
 				o.put("namaPajak", rincian.optString("namaPajak", ""));
 				o.put("persenPph", rincian.optDouble("persenPph", 0));
+				o.put("persenPpn", 0);
 				o.put("pph", pph);
 				o.put("ppn", ppn);
 				arr.put(o);
 				totalPph += pph;
 				totalPpn += ppn;
 			}
+
+			// --- Sumber 2: penerimaan barang (BAST) ---------------------------------------
+			@SuppressWarnings("unchecked")
+			List<PenerimaanPengadaanMasterAssetDetail> barisBast = session
+					.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
+					.addOrder(Order.asc("id")).list();
+			for (PenerimaanPengadaanMasterAssetDetail d : barisBast) {
+				PenerimaanPengadaanMasterAsset induk = d.getPenerimaanPengadaanMasterAsset();
+				if (induk == null || Boolean.FALSE.equals(induk.getAktif())) {
+					continue;
+				}
+				if (tokoId != null && induk.getToko() != null && !tokoId.equals(induk.getToko().getId())) {
+					continue;
+				}
+				if (d.getPajak() != null) {
+					continue;
+				}
+				double persenPpn = d.getPersenPpn() == null ? 0 : d.getPersenPpn().doubleValue();
+				double persenPph = d.getPersenPph() == null ? 0 : d.getPersenPph().doubleValue();
+				if (persenPpn <= 0 && persenPph <= 0) {
+					continue;
+				}
+				double dpp = dppBarisBast(d);
+				double ppn = Math.rint((persenPpn / 100.0) * dpp);
+				double pph = Math.rint((persenPph / 100.0) * dpp);
+				if (ppn <= 0 && pph <= 0) {
+					continue;
+				}
+				PemesananPengadaanMasterAsset po = induk.getPemesananPengadaanMasterAsset();
+				JSONObject o = new JSONObject();
+				o.put("sumber", "BAST");
+				o.put("bast_detail_id", d.getId());
+				o.put("bast_id", induk.getId());
+				o.put("bast", induk.getKode() == null ? "" : induk.getKode());
+				o.put("dokumen", induk.getKode() == null ? "" : induk.getKode());
+				o.put("dokumenDisetujui", induk.getDisetujuiOleh() != null);
+				o.put("tanggal", induk.getTanggalPembuatan() == null ? ""
+						: Common.dateFormat1.get().format(induk.getTanggalPembuatan()));
+				o.put("penyedia", induk.getPenyedia() == null ? "" : induk.getPenyedia().getNama());
+				o.put("po", po == null || po.getKode() == null ? "" : po.getKode());
+				o.put("termin", "");
+				o.put("barang", d.getMasterAsset() == null ? "" : d.getMasterAsset().getNama());
+				o.put("dpp", dpp);
+				o.put("namaPajak", d.getJenisPajakBarang() == null ? "" : d.getJenisPajakBarang().getNama());
+				o.put("persenPph", persenPph);
+				o.put("persenPpn", persenPpn);
+				o.put("pph", pph);
+				o.put("ppn", ppn);
+				arr.put(o);
+				totalPph += pph;
+				totalPpn += ppn;
+			}
+
 			hasil.put("status", "00");
 			hasil.put("data", arr);
 			hasil.put("total", arr.length());
 			hasil.put("totalPph", totalPph);
 			hasil.put("totalPpn", totalPpn);
 			if (arr.length() == 0) {
-				hasil.put("catatan", "Tidak ada pajak terutang dari pembayaran vendor yang sudah disetujui.");
+				hasil.put("catatan", "Tidak ada pajak terutang. Pajak muncul di sini bila PPN/PPh diisi "
+						+ "pada penerimaan barang (BAST), atau bila pembayaran vendor bertermin "
+						+ "yang sudah disetujui memotong PPh.");
 			}
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
@@ -4079,13 +4566,68 @@ public final class PengadaanPosApiHelper {
 		try {
 			java.util.List<PembayaranTerminMasterAssetDetail> terpilih =
 					new java.util.ArrayList<PembayaranTerminMasterAssetDetail>();
+			java.util.List<PenerimaanPengadaanMasterAssetDetail> terpilihBast =
+					new java.util.ArrayList<PenerimaanPengadaanMasterAssetDetail>();
 			double totalDpp = 0;
 			double totalNilai = 0;
 			String idJenisPph = "";
 			String idJenisPpn = "";
 			for (int i = 0; i < detail.length(); i++) {
 				JSONObject b = detail.optJSONObject(i);
-				if (b == null || b.isNull("detail_id")) {
+				if (b == null) {
+					continue;
+				}
+				// Baris bersumber BAST: PPN/PPh yang diketik langsung pada penerimaan barang.
+				if (!b.isNull("bast_detail_id") && !(b.get("bast_detail_id") + "").trim().isEmpty()) {
+					PenerimaanPengadaanMasterAssetDetail db = (PenerimaanPengadaanMasterAssetDetail) session
+							.get(PenerimaanPengadaanMasterAssetDetail.class,
+									Long.valueOf((b.get("bast_detail_id") + "").trim()));
+					if (db == null) {
+						tolak(hasil, "Baris penerimaan ke-" + (i + 1) + " tidak ditemukan.");
+						return;
+					}
+					PenerimaanPengadaanMasterAsset indukBast = db.getPenerimaanPengadaanMasterAsset();
+					if (indukBast == null || indukBast.getDisetujuiOleh() == null) {
+						tolak(hasil, "Pajak dari penerimaan barang hanya dapat disetor setelah BAST-nya "
+								+ "disetujui. Setujui dahulu "
+								+ (indukBast == null || indukBast.getKode() == null ? "BAST tersebut"
+										: indukBast.getKode())
+								+ ".");
+						return;
+					}
+					if (tokoId != null && indukBast.getToko() != null
+							&& !tokoId.equals(indukBast.getToko().getId())) {
+						tolak(hasil, "Baris penerimaan ke-" + (i + 1) + " milik toko lain.");
+						return;
+					}
+					if (db.getPajak() != null) {
+						tolak(hasil, "Baris penerimaan pada "
+								+ (indukBast.getKode() == null ? "" : indukBast.getKode())
+								+ " sudah tercakup setoran pajak sebelumnya.");
+						return;
+					}
+					double persen = "PPH".equals(jenis)
+							? (db.getPersenPph() == null ? 0 : db.getPersenPph().doubleValue())
+							: (db.getPersenPpn() == null ? 0 : db.getPersenPpn().doubleValue());
+					double dppBast = dppBarisBast(db);
+					double nilaiBast = Math.rint((persen / 100.0) * dppBast);
+					if (nilaiBast <= 0) {
+						tolak(hasil, "Baris penerimaan ke-" + (i + 1) + " tidak memiliki " + jenis
+								+ " untuk disetor.");
+						return;
+					}
+					totalDpp += dppBast;
+					totalNilai += nilaiBast;
+					terpilihBast.add(db);
+					if ("PPH".equals(jenis) && idJenisPph.isEmpty() && db.getJenisPajakBarang() != null) {
+						idJenisPph = db.getJenisPajakBarang().getId() + "";
+					}
+					if ("PPN".equals(jenis) && idJenisPpn.isEmpty() && db.getJenisPajakPpn() != null) {
+						idJenisPpn = db.getJenisPajakPpn().getId() + "";
+					}
+					continue;
+				}
+				if (b.isNull("detail_id")) {
 					continue;
 				}
 				PembayaranTerminMasterAssetDetail d = (PembayaranTerminMasterAssetDetail) session
@@ -4135,7 +4677,7 @@ public final class PengadaanPosApiHelper {
 					}
 				}
 			}
-			if (terpilih.isEmpty()) {
+			if (terpilih.isEmpty() && terpilihBast.isEmpty()) {
 				tolak(hasil, "Tidak ada baris pajak yang dapat disetor.");
 				return;
 			}
@@ -4171,6 +4713,10 @@ public final class PengadaanPosApiHelper {
 				d.setPajak(pajak);
 				session.saveOrUpdate(d);
 			}
+			for (PenerimaanPengadaanMasterAssetDetail db : terpilihBast) {
+				db.setPajak(pajak);
+				session.saveOrUpdate(db);
+			}
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -4178,7 +4724,7 @@ public final class PengadaanPosApiHelper {
 			hasil.put("kode", pajak.getKode());
 			hasil.put("jenis", jenis);
 			hasil.put("nilai", totalNilai);
-			hasil.put("jumlahBaris", terpilih.size());
+			hasil.put("jumlahBaris", terpilih.size() + terpilihBast.size());
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -4379,6 +4925,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_po_dari_pr".equals(action)) {
 			poDariPr(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_pr_barang_tersedia".equals(action)) {
+			prBarangTersedia(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_penyedia_cari".equals(action)) {

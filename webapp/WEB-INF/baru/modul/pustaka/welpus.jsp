@@ -1,11 +1,13 @@
 ﻿<%@page import="ais.common.Common"%>
 <%@page import="ais.database.model.PerguruanTinggi"%>
 <%@page import="ais.action.master.helper.util.PerguruanTinggiUtil"%>
+<%@page import="ais.common.newui.NewUiCsrfUtil"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%
     // 1. INISIALISASI VARIABEL DASAR
     String rnd = Common.getGeneratedBarCode(7);
+    String kioskCsrf = NewUiCsrfUtil.getToken(request.getSession());
     long cacheBuster = System.currentTimeMillis();
     
     // 2. PENGAMBILAN DATA INSTITUSI & TEMA[cite: 5]
@@ -60,10 +62,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= Common.getBahasaConfig("Buku Tamu Perpustakaan") %> - <%= judul %></title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     
     <!-- CSS TERPUSAT[cite: 6] -->
     <link href="<%=request.getContextPath() %>/css/baru/base-theme.css?v=<%= cacheBuster %>" rel="stylesheet">
@@ -221,8 +219,8 @@
         </div>
     </div>
 
-    <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script data-cfasync="false" src="<%=Common.ROOT%>/component/uiux/vendors/bootstrap/bootstrap.min.js"></script>
+    <script data-cfasync="false" src="<%=Common.ROOT%>/component/uiux/vendors/fontawesome/all.min.js"></script>
     
     <script>
         document.addEventListener("DOMContentLoaded", function() {
@@ -240,19 +238,14 @@
             try {
                 const req = await fetch('<%= linkDetail %>', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'action=scan&kode=' + encodeURIComponent(identitas)
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-NUI-CSRF': '<%=kioskCsrf%>' },
+                    body: 'action=scan&nui_csrf=<%=kioskCsrf%>&kode=' + encodeURIComponent(identitas)
                 });
                 const response = await req.json();
-                Swal.fire({
-                    title: response.status === 'success' ? '<%= Common.getBahasaConfigJS("Selamat Datang") %>' : 'Peringatan',
-                    text: response.message,
-                    icon: response.status === 'success' ? 'success' : 'warning',
-                    timer: 2500,
-                    showConfirmButton: false
-                });
+                window.alert(response.message);
             } catch (error) {
-                Swal.fire('Error', '<%= Common.getBahasaConfigJS("Terjadi kesalahan jaringan.") %>', 'error');
+                window.alert('<%= Common.getBahasaConfigJS("Terjadi kesalahan jaringan.") %>');
             } finally {
                 inputField.value = '';
                 inputField.disabled = false;
@@ -275,7 +268,7 @@
             const alamat = document.getElementById('alamatTamu<%=rnd%>').value.trim();
             const ket = document.getElementById('ketTamu<%=rnd%>').value.trim();
             if (!nama || !alamat) {
-                Swal.fire('Peringatan', '<%= Common.getBahasaConfigJS("Nama dan Alamat wajib diisi.") %>', 'warning');
+                window.alert('<%= Common.getBahasaConfigJS("Nama dan Alamat wajib diisi.") %>');
                 return;
             }
             try {
@@ -284,21 +277,23 @@
                 params.append('nama', nama);
                 params.append('alamat', alamat);
                 params.append('keterangan', ket);
+                params.append('nui_csrf', '<%=kioskCsrf%>');
 
                 const req = await fetch('<%= linkDetail %>', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-NUI-CSRF': '<%=kioskCsrf%>' },
                     body: params.toString()
                 });
                 const response = await req.json();
                 if (response.status === 'success') {
-                    Swal.fire({ text: response.message, icon: 'success', timer: 2500, showConfirmButton: false });
+                    window.alert(response.message);
                     modalInstTamu.hide();
                 } else {
-                    Swal.fire('Gagal', response.message, 'error');
+                    window.alert(response.message);
                 }
             } catch (error) {
-                Swal.fire('Error', '<%= Common.getBahasaConfigJS("Gagal menyimpan data.") %>', 'error');
+                window.alert('<%= Common.getBahasaConfigJS("Gagal menyimpan data.") %>');
             }
         }
 
@@ -325,7 +320,7 @@
                         
                         let rowHtml = '<tr>' +
                                 '<td class="ps-4">' + no + '</td>' +
-                                '<td class="fw-bold text-dark">' + item.nama + '</td>' +
+                                '<td class="fw-bold text-dark">' + String(item.nama).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}) + '</td>' +
                                 '<td><span class="badge ' + statusBadge + ' px-3 rounded-pill">' + item.status + '</span></td>' +
                                 '<td class="text-center text-muted fw-medium">' + item.waktu + '</td>' +
                             '</tr>';

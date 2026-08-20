@@ -24,6 +24,7 @@ List<RepoItem> queue=(List<RepoItem>)request.getAttribute("repoReviewQueue"); if
 List<RepoBitstream> bitstreams=(List<RepoBitstream>)request.getAttribute("repoWorkspaceFiles"); if(bitstreams==null)bitstreams=Collections.emptyList();
 List<RepoWorkflowEvent> history=(List<RepoWorkflowEvent>)request.getAttribute("repoWorkspaceHistory"); if(history==null)history=Collections.emptyList();
 List<DuplicateCandidate> duplicates=(List<DuplicateCandidate>)request.getAttribute("repoDuplicates"); if(duplicates==null)duplicates=Collections.emptyList();
+List<RepoNotification> notifications=(List<RepoNotification>)request.getAttribute("repoNotifications"); if(notifications==null)notifications=Collections.emptyList();
 String orcids=(String)request.getAttribute("repoAuthorOrcids"); if(orcids==null)orcids="";
 Object flash=request.getAttribute("repoFlash"), flashError=request.getAttribute("repoFlashError"); boolean canEdit=editable(item);
 List<RepoCollection> adminCollections=(List<RepoCollection>)request.getAttribute("repoAdminCollections"); if(adminCollections==null)adminCollections=Collections.emptyList();
@@ -36,6 +37,7 @@ ImportResult importResult=(ImportResult)request.getAttribute("repoImportResult")
 <a class="repo-skip" href="#workspace-main">Lewati ke konten</a>
 <header class="repo-topbar"><div class="repo-wrap repo-nav"><a class="repo-brand" href="<%=root%>/repository"><span class="repo-brand-mark">R</span><span><strong>Repository AIS</strong><small>Workspace internal</small></span></a><nav class="repo-links" aria-label="Workspace"><a href="<%=root%>/repository">Portal publik</a><a href="<%=root%>/repository-workspace?view=deposit" <%="deposit".equals(view)?"aria-current='page'":""%>>Deposit saya</a><%if(admin){%><a href="<%=root%>/repository-workspace?view=review" <%="review".equals(view)?"aria-current='page'":""%>>Review</a><a href="<%=root%>/repository-workspace?view=admin" <%="admin".equals(view)?"aria-current='page'":""%>>Admin</a><%}%></nav></div></header>
 <main id="workspace-main" class="repo-wrap repo-workspace">
+<%if(!notifications.isEmpty()){%><details class="repo-card repo-notifications"><summary>Notifikasi repository (<%=notifications.size()%>)</summary><div><%for(RepoNotification n:notifications){%><article class="<%=n.getReadAt()==null?"is-unread":""%>"><span><strong><%=wh(n.getType())%></strong> · <%=wh(n.getMessage())%></span><small><%=ws(n.getCreatedAt())%></small><%if(n.getReadAt()==null){%><form method="post" action="<%=root%>/repository-workspace"><input type="hidden" name="csrf" value="<%=wh(csrf)%>"><input type="hidden" name="action" value="readNotification"><input type="hidden" name="notificationId" value="<%=n.getId()%>"><button class="repo-btn" type="submit">Tandai dibaca</button></form><%}%></article><%}%></div></details><%}%>
 <%if(flash!=null){%><div class="repo-alert repo-alert-success" role="status"><%=wh(String.valueOf(flash))%></div><%}%>
 <%if(flashError!=null){%><div class="repo-alert repo-alert-error" role="alert"><%=wh(String.valueOf(flashError))%></div><%}%>
 

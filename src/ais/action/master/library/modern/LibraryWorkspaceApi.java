@@ -32,6 +32,9 @@ public final class LibraryWorkspaceApi {
     }
 
     private static JSONObject dashboard(Context context) throws JSONException {
+        if (context.user != null && !context.admin && context.memberId == null) {
+            return new JSONObject().put("ok", false).put("error", "Akun ini tidak memiliki akses dashboard perpustakaan.");
+        }
         Session session = null;
         try {
             session = HibernateUtil.openSession();
@@ -99,6 +102,9 @@ public final class LibraryWorkspaceApi {
                 for (Object[] row : (List<Object[]>) aggregate.list()) rows.put(new JSONObject().put("date", string(row[0])).put("library", string(row[1])).put("count", number(row[2])));
                 return new JSONObject().put("ok", true).put("scope", "aggregate").put("data", rows).put("page", page).put("pageSize", size);
             }
+            if (!context.admin && context.memberId == null) {
+                return new JSONObject().put("ok", false).put("error", "Akun ini tidak memiliki akses riwayat kunjungan.");
+            }
 
             String from = " from library.kunjungan_anggota k left join library.anggota a on a.id=k.anggota left join library.perpustakaan p on p.id=k.perpustakaan where 1=1";
             if (context.memberOnly()) from += " and k.anggota=:memberId";
@@ -125,6 +131,7 @@ public final class LibraryWorkspaceApi {
     @SuppressWarnings("unchecked")
     private static JSONObject circulation(Context context, HttpServletRequest request) throws JSONException {
         if (context.user == null) return new JSONObject().put("ok", false).put("error", "Silakan masuk untuk melihat aktivitas sirkulasi.");
+        if (!context.admin && context.memberId == null) return new JSONObject().put("ok", false).put("error", "Akun ini tidak memiliki akses aktivitas sirkulasi.");
         Session session = null;
         try {
             session = HibernateUtil.openSession();

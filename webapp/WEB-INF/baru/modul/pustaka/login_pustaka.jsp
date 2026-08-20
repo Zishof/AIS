@@ -1,7 +1,9 @@
 <%@page import="ais.common.Common"%>
-<%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@page import="ais.common.newui.NewUiCsrfUtil"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%
     String rnd = Common.getGeneratedBarCode(7);
+    String loginCsrf = NewUiCsrfUtil.getToken(request.getSession());
     String judulNamaPerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request).getNama();
 %>
 
@@ -11,9 +13,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%=Common.getBahasaConfig("Masuk Sistem Perpustakaan")%> - <%=judulNamaPerguruanTinggi%></title>
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/v4-shims.min.css">
     
     <style>
         body {
@@ -131,10 +130,12 @@
                 const payload = new URLSearchParams();
                 payload.append('username', usernameVal);
                 payload.append('password', passwordVal);
+                payload.append('nui_csrf', '<%=loginCsrf%>');
 
                 const response = await fetch('<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_login_pustaka_service', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-NUI-CSRF': '<%=loginCsrf%>' },
                     body: payload.toString()
                 });
 
@@ -142,7 +143,7 @@
 
                 if (result.status === 'success') {
                     alertBox.classList.add('alert-success-<%=rnd%>');
-                    alertBox.innerHTML = '<i class="fas fa-check-circle me-2"></i> ' + result.message;
+                    alertBox.textContent = result.message;
                     alertBox.style.display = 'block';
                     
                     // Mengalihkan langsung ke halaman Beranda Anggota
@@ -151,7 +152,7 @@
                     }, 1000);
                 } else {
                     alertBox.classList.add('alert-danger-<%=rnd%>');
-                    alertBox.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i> ' + result.message;
+                    alertBox.textContent = result.message;
                     alertBox.style.display = 'block';
                     
                     // Mengembalikan tombol jika gagal

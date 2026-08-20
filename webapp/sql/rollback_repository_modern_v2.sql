@@ -1,6 +1,7 @@
 -- DESTRUCTIVE rollback for migrasi_repository_modern_v2.sql.
 -- Back up public.repo_workflow_event/repo_item_relation/repo_usage_event first.
 BEGIN;
+DROP TABLE IF EXISTS public.repo_notification;
 DROP TABLE IF EXISTS public.repo_usage_event;
 DROP TABLE IF EXISTS public.repo_item_relation;
 DROP TABLE IF EXISTS public.repo_workflow_event;
@@ -14,6 +15,7 @@ ALTER TABLE public.repo_bitstream DROP COLUMN IF EXISTS signature_valid;
 ALTER TABLE public.repo_bitstream DROP COLUMN IF EXISTS virus_scanned_at;
 ALTER TABLE public.repo_bitstream DROP COLUMN IF EXISTS virus_scan_status;
 ALTER TABLE public.repo_item DROP COLUMN IF EXISTS download_count;
+ALTER TABLE public.repo_item DROP COLUMN IF EXISTS extracted_text;
 ALTER TABLE public.repo_item DROP COLUMN IF EXISTS view_count;
 ALTER TABLE public.repo_item DROP COLUMN IF EXISTS previous_version_id;
 ALTER TABLE public.repo_item DROP COLUMN IF EXISTS version_number;
@@ -38,6 +40,7 @@ ALTER TABLE new_audit.repo_bitstream__audit DROP COLUMN IF EXISTS signature_vali
 ALTER TABLE new_audit.repo_bitstream__audit DROP COLUMN IF EXISTS virus_scanned_at;
 ALTER TABLE new_audit.repo_bitstream__audit DROP COLUMN IF EXISTS virus_scan_status;
 ALTER TABLE new_audit.repo_item__audit DROP COLUMN IF EXISTS download_count;
+ALTER TABLE new_audit.repo_item__audit DROP COLUMN IF EXISTS extracted_text;
 ALTER TABLE new_audit.repo_item__audit DROP COLUMN IF EXISTS view_count;
 ALTER TABLE new_audit.repo_item__audit DROP COLUMN IF EXISTS previous_version_id;
 ALTER TABLE new_audit.repo_item__audit DROP COLUMN IF EXISTS version_number;

@@ -2,6 +2,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="ais.common.Common" %>
 <%@ page import="ais.action.master.repository.RepositoryPublicService.ItemDetail" %>
+<%@ page import="org.json.*" %>
 <%!
 private String repoHtml(String value) {
     if (value == null) return "";
@@ -62,11 +63,15 @@ if (seoItem != null) canonical += "?view=item&id=" + seoItem.id;
   <% }} %>
   <meta name="citation_publication_date" content="<%=repoHtml(seoItem.year)%>">
   <meta name="citation_language" content="<%=repoHtml(seoItem.language)%>">
+  <% if (seoItem.doi != null && seoItem.doi.length() > 0) { %><meta name="citation_doi" content="<%=repoHtml(seoItem.doi)%>"><% } %>
+  <% if (!seoItem.files.isEmpty()) { %><meta name="citation_pdf_url" content="<%=repoHtml(request.getRequestURL().toString() + "?action=download&id=" + seoItem.files.get(0).id)%>"><% } %>
   <meta name="DC.identifier" content="<%=repoHtml(seoItem.oaiIdentifier)%>">
   <meta property="og:type" content="article">
   <meta property="og:title" content="<%=repoHtml(seoItem.title)%>">
   <meta property="og:description" content="<%=repoHtml(seoItem.abstractText)%>">
   <meta property="og:url" content="<%=repoHtml(canonical)%>">
+  <% JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type","ScholarlyArticle");ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
+  <script type="application/ld+json"><%=ld.toString().replace("</","<\\/")%></script>
   <% } %>
   <link rel="stylesheet" href="<%=context%>/css/repository-modern.css">
 </head>

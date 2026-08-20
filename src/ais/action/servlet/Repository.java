@@ -83,6 +83,8 @@ public class Repository extends HttpServlet {
 
     private void process(HttpServletRequest request, HttpServletResponse response, String requestId) throws Exception {
         String action = clean(request.getParameter("action")).toLowerCase();
+        if (request.getServletPath().endsWith("robots.txt")) { robots(request, response); return; }
+        if (request.getServletPath().endsWith("sitemap.xml")) { sitemap(request, response); return; }
         if ("search".equals(action)) {
             writeSearchJson(response, service.search(queryFrom(request)), requestId);
             return;
@@ -109,10 +111,11 @@ public class Repository extends HttpServlet {
         if ("item".equals(view)) {
             ItemDetail detail = service.findPublicItem(parseLong(request.getParameter("id")));
             if (detail == null) {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan.");
-                return;
+                detail = service.findTombstone(parseLong(request.getParameter("id")));
+                if (detail == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan."); return; }
             }
             request.setAttribute("repoItem", detail);
+            if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
             request.setAttribute("repoSearch", service.search(queryFrom(request)));
         } else if ("policies".equals(view) || "help".equals(view)) {
@@ -166,6 +169,7 @@ public class Repository extends HttpServlet {
         JSONObject facets = new JSONObject();
         facets.put("type", new JSONObject(result.typeFacets));
         facets.put("access", new JSONObject(result.accessFacets));
+        facets.put("year", new JSONObject(result.yearFacets));
         root.put("facets", facets);
         writeJson(response, root, HttpServletResponse.SC_OK);
     }
@@ -177,10 +181,13 @@ public class Repository extends HttpServlet {
             return;
         }
         String format = clean(request.getParameter("format")).toLowerCase();
-        if (!"ris".equals(format) && !"bibtex".equals(format) && !"text".equals(format)) format = "text";
+        if (!"ris".equals(format) && !"bibtex".equals(format) && !"endnote".equals(format)
+                && !"csl".equals(format) && !"text".equals(format)) format = "text";
         String body = service.citation(item, format);
-        String extension = "bibtex".equals(format) ? "bib" : ("ris".equals(format) ? "ris" : "txt");
-        response.setContentType("text/plain;charset=UTF-8");
+        String extension = "bibtex".equals(format) ? "bib" : ("ris".equals(format) ? "ris"
+                : ("endnote".equals(format) ? "enw" : ("csl".equals(format) ? "json" : "txt")));
+        response.setContentType("csl".equals(format)
+                ? "application/vnd.citationstyles.csl+json;charset=UTF-8" : "text/plain;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=repository-" + item.id + "." + extension);
         response.getWriter().write(body);
     }
@@ -196,6 +203,8 @@ public class Repository extends HttpServlet {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Berkas fisik belum tersedia.");
             return;
         }
+        service.recordUsage(bitstream.getItemId(), bitstream.getId(), "DOWNLOAD", request.getRemoteAddr(),
+                request.getHeader("User-Agent"), actorId(request));
         String fileName = safeFileName(bitstream.getNamaFile());
         String mime = clean(bitstream.getMimeType());
         if (mime.length() == 0) mime = getServletContext().getMimeType(fileName);
@@ -204,7 +213,8 @@ public class Repository extends HttpServlet {
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setContentType(mime);
         response.setHeader("Content-Length", String.valueOf(file.length()));
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName.replace("\"", "")
+        boolean inline = "true".equalsIgnoreCase(request.getParameter("inline")) && "application/pdf".equalsIgnoreCase(mime);
+        response.setHeader("Content-Disposition", (inline ? "inline" : "attachment") + "; filename=\"" + fileName.replace("\"", "")
                 + "\"; filename*=UTF-8''" + URLEncoder.encode(fileName, "UTF-8").replace("+", "%20"));
 
         BufferedInputStream input = new BufferedInputStream(new FileInputStream(file));
@@ -321,6 +331,33 @@ public class Repository extends HttpServlet {
             out.print("<dc:rights>" + xml(item.accessPolicy) + "</dc:rights></oai_dc:dc></metadata>");
         }
         if (includeMetadata) out.print("</record>");
+    }
+
+    private void robots(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.setContentType("text/plain;charset=UTF-8");
+        String origin = request.getScheme() + "://" + request.getServerName()
+                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort());
+        response.getWriter().print("User-agent: *\nAllow: " + request.getContextPath()
+                + "/repository\nSitemap: " + origin + request.getContextPath() + "/sitemap.xml\n");
+    }
+
+    private void sitemap(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.setContentType("application/xml;charset=UTF-8");
+        String origin = request.getScheme() + "://" + request.getServerName()
+                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort())
+                + request.getContextPath();
+        PrintWriter out = response.getWriter();
+        out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>"
+                + xml(origin + "/repository") + "</loc></url>");
+        Query q = new Query(); q.pageSize = RepositoryPublicService.MAX_PAGE_SIZE;
+        for (ItemCard item : service.search(q).items)
+            out.print("<url><loc>" + xml(origin + "/repository?view=item&amp;id=" + item.id) + "</loc></url>");
+        out.print("</urlset>");
+    }
+
+    private String actorId(HttpServletRequest request) {
+        try { ais.database.model.Tbmuser u = Common.getCurrentUser(request); return u == null ? "" : u.getUserId(); }
+        catch (Exception e) { return ""; }
     }
 
     private boolean validOaiPrefix(String value) {
