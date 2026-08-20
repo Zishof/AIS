@@ -501,6 +501,10 @@ public class Data extends HttpServlet {
 				KantinHelper.mutasiStokSimpan(tbmuser, jsonObject, hasil);
 			} else if ("mutasi_stok_list".equals(action)) {
 				KantinHelper.mutasiStokList(tbmuser, jsonObject, hasil);
+			} else if (action != null && action.startsWith("anggaran_")) {
+				// Anggaran/RAB bulanan -- helper yang SAMA dipakai PosApi (Desktop/Android),
+				// jadi angka dan aturan bisnisnya satu sumber untuk ketiga kanal.
+				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, jsonObject, hasil);
 			} else if (action != null && action.startsWith("pengadaan_")) {
 				// Modul Pengadaan POS -- helper yang SAMA dipakai PosApi (Desktop/Android),
 				// jadi aturan bisnisnya satu sumber. Helper self-guard kunci menu pengadaan_pr.
@@ -539,6 +543,16 @@ public class Data extends HttpServlet {
 				KantinHelper.sesiKasTutup(tbmuser, jsonObject, hasil);
 			} else if ("topup_saldo".equals(action)) {
 				KantinHelper.topupSaldo(tbmuser, jsonObject, hasil);
+			} else if ("penyesuaian_saldo_cek".equals(action)
+					|| "penyesuaian_saldo_simpan".equals(action)
+					|| "penyesuaian_saldo_list".equals(action)) {
+				// Opname saldo voucher/deposit dari halaman web memakai MESIN YANG SAMA dengan POS
+				// Desktop/Android (PenyesuaianSaldoHelper), bukan salinan aturan baru -- termasuk
+				// gerbang hak aksesnya (Tbmrole.bolehEntryTopup), pembacaan ulang saldo sistem di
+				// server, dan penulisan satu mutasi koreksi dalam satu transaksi. Bila aturannya
+				// ditulis ulang di JSP, dua kanal akan berbeda persis pada hal yang paling perlu
+				// konsisten: siapa yang boleh membetulkan saldo orang lain.
+				ais.action.servlet.api.PenyesuaianSaldoHelper.proses(action, tbmuser, jsonObject, hasil);
 			} else if ("retur_penjualan_list".equals(action)) {
 				KantinHelper.returPenjualanList(tbmuser, jsonObject, hasil);
 			} else if ("retur_penjualan_simpan".equals(action)) {

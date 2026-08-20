@@ -35,6 +35,12 @@
             return ais.common.EbisnisMenuKatalog.aksesAkuntansi(role.getEbisnisMenu(),
                     role.getRoleId(), "laporankeuangan");
         }
+        // Anggaran/RAB bulanan: gerbang yang SAMA dengan menu Akuntansi lain -- fail-closed,
+        // bawaannya hanya terbuka utk peran keu/am, dan admin dapat mengaturnya per peran.
+        if ("anggaran".equals(menu)) {
+            return ais.common.EbisnisMenuKatalog.aksesAkuntansi(role.getEbisnisMenu(),
+                    role.getRoleId(), "anggaran");
+        }
         if ("anggota".equals(menu)) return menuTersimpan.optBoolean("anggota", true);
         if ("barang".equals(menu)) return menuTersimpan.optBoolean("produk", true);
         if ("kulakan".equals(menu)) return menuTersimpan.optBoolean("kulakan", true);
@@ -318,7 +324,7 @@
                                 </a>
                                 <ul class="nav collapse <%=p.equals("kantin") || tbmrole.getRoleId().equalsIgnoreCase(Tbmrole.KANTIN)  ? "show" : "" %>" id="kantin_sub">
                                     <% 
-                                       String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"};
+                                       String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan", "anggaran"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan", "anggaran"};
                                        String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi"});
                                        for(String sub : subEL) {
                                            if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
@@ -326,6 +332,7 @@
                                            String label = sub.substring(0,1).toUpperCase() + sub.substring(1).replace("_", " ");
                                            if(sub.equals("laporan_laporan")){ label = "Laporan-Laporan"; }
                                            if(sub.equals("laporan_keuangan")){ label = "Laporan Keuangan"; }
+                                               if(sub.equals("anggaran")){ label = "Anggaran (RAB Bulanan)"; }
                                            if(label.equalsIgnoreCase("pengaturan")){
                                         	   Boolean subCollapse = false;
                                         	   for(String subSub : subSubEL) {

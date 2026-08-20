@@ -139,7 +139,7 @@ public final class EbisnisMenuKatalog {
 		// Anggaran/RAB bulanan: rencana per bulan + revisi + realisasi. Layar ZK-nya
 		// (workspace_bulanan, workspace_revisi_bulanan, realisasi_bulanan, penggunaan_anggaran)
 		// tetap ada; kunci ini menggerbangi versi Desktop/Android-nya.
-		DAFTAR.add(new Entri(MODUL_POS, "anggaran", "Akuntansi: Anggaran (RAB Bulanan)", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "anggaran", "Akuntansi: Anggaran (RAB Bulanan)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatsinkronisasi", "Riwayat Sinkronisasi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "logerror", "Log Error", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "konfigurasi", "Konfigurasi (Desktop/Android)", "desktop", "android"));

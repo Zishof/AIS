@@ -233,6 +233,12 @@ private boolean bolehAksesModulKantin(HttpServletRequest request, Tbmuser tbmuse
     if ("mutasi_rekening".equals(menu)) return menuTersimpan.optBoolean("mutasirekening", true);
     if ("produksi".equals(menu)) return menuTersimpan.optBoolean("produksi", true);
     if ("pengaturan_laporan".equals(menu)) return menuTersimpan.optBoolean("pengaturanlaporan", true);
+    // Anggaran/RAB bulanan fail-closed: menutup jalan masuk lewat URL langsung, bukan hanya
+    // menyembunyikan menunya. Aturannya sama dengan gerbang di nav.jsp/menu.jsp.
+    if ("anggaran".equals(menu)) {
+        return ais.common.EbisnisMenuKatalog.aksesAkuntansi(role.getEbisnisMenu(),
+                role.getRoleId(), "anggaran");
+    }
     return true;
 }
 %>
