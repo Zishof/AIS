@@ -13512,11 +13512,18 @@ public class KantinHelper {
 					.add(org.hibernate.criterion.Restrictions.eq("fakturPengadaan", f)).list();
 			JSONArray arr = new JSONArray();
 			for (PengadaanProduk pg : items) {
+				Produk produk = pg.getProduk();
+				String kodeProduk = produk.getKode() == null ? "" : produk.getKode().trim();
+				String barcodeProduk = produk.getBarcode() == null ? "" : produk.getBarcode().trim();
+				String kodeBarang = kodeProduk.length() > 0 ? kodeProduk : barcodeProduk;
+				if (kodeBarang.length() == 0) kodeBarang = String.valueOf(produk.getId());
 				JSONObject j = new JSONObject();
 				j.put("id", pg.getId());
-				j.put("produkId", pg.getProduk().getId());
-				j.put("namaProduk", pg.getProduk().getNama());
-				j.put("kodeProduk", pg.getProduk().getKode() == null ? "" : pg.getProduk().getKode());
+				j.put("produkId", produk.getId());
+				j.put("namaProduk", produk.getNama());
+				j.put("kodeProduk", kodeBarang);
+				j.put("kodeBarang", kodeBarang);
+				j.put("barcode", barcodeProduk);
 				j.put("qty", pg.getQty());
 				j.put("hargaBeliSatuan", pg.getHargaBeliSatuan());
 				j.put("totalHarga", pg.getTotalHarga());
@@ -15599,6 +15606,7 @@ public class KantinHelper {
 		}
 	}
 }
+
 
 
 
