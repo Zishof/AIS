@@ -89,7 +89,12 @@ public final class GridKolomHelper {
 	public static final String SCLASS_GRID_DATA = "dgrid";
 
 	/** Lebar baku kolom aksi compact; seluruh perintah berada di menu kebab (⋯). */
-	public static final String LEBAR_KOLOM_AKSI = "56px";
+	/* 56px -> 84px (20-08-2026): sejak tombol kebab diberi label "Aksi" untuk desktop,
+	 * lebar 56px membuat tombol TERPOTONG di ujung kanan tabel sehingga sebagian tidak
+	 * terlihat. 84px pas untuk ikon + label + padding, dan tetap jauh lebih ramping
+	 * daripada kolom aksi lama yang menampung banyak tombol berjajar.
+	 * Di layar sempit label disembunyikan CSS sehingga sisa ruang tidak terbuang. */
+	public static final String LEBAR_KOLOM_AKSI = "84px";
 
 	/** Lebar baku kolom "+" pembuka detail baris (piksel tetap karena ikon berukuran tetap). */
 	public static final String LEBAR_KOLOM_DETAIL = "50px";

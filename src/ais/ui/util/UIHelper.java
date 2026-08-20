@@ -406,7 +406,11 @@ public class UIHelper {
             }
             List<Object> cols = new ArrayList<Object>(grid.getColumns().getChildren());
             int jumlahSel = row.getChildren().size();
-            for (int i = cols.size() - 1; i >= jumlahSel; i--) {
+            /* PENJAGA (20-08-2026): jangan menciutkan kolom bila baris justru punya sel LEBIH
+             * BANYAK daripada kolom (colspan/detail row) -- pemetaan sel-ke-kolom tak dapat
+             * dipercaya. Sisakan pula minimal satu kolom agar tabel tidak kehilangan semuanya. */
+            if (jumlahSel > cols.size() || jumlahSel < 1) return;
+            for (int i = cols.size() - 1; i >= Math.max(jumlahSel, 1); i--) {
                 Object col = cols.get(i);
                 if (!(col instanceof Column)) {
                     continue;
@@ -474,6 +478,12 @@ public class UIHelper {
             if (grid.getColumns() == null) return;
 
             List<Object> cols = new ArrayList<Object>(grid.getColumns().getChildren());
+            /* PENJAGA (20-08-2026): ubah lebar kolom HANYA bila jumlah SEL baris persis sama
+             * dengan jumlah KOLOM. Bila tidak sejajar (baris memakai colspan/detail row, atau
+             * sel sudah diserap kebab), indeks sel TIDAK menunjuk kolom yang sama sehingga
+             * kolom ISI bisa ikut dipersempit ke lebar kolom aksi -- konten jadi terhimpit dan
+             * layar tampak rusak. Lebih aman tidak mengubah apa pun. */
+            if (row.getChildren().size() != cols.size()) return;
             if (idx >= cols.size()) return;
             Object col = cols.get(idx);
             if (col instanceof Column) {
