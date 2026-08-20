@@ -98,6 +98,23 @@ public final class PustakaApi {
 				: nama + " · " + nomor;
 	}
 
+	/**
+	 * Izin menu untuk akun yang sedang masuk. Dipakai aplikasi supaya menu
+	 * Pustaka/Repository hanya tampil bila memang diizinkan — sekadar
+	 * pelengkap tampilan; penegakan sesungguhnya tetap ada di setiap aksi.
+	 */
+	public static JSONObject izinMenu(HttpServletRequest req, JSONObject request)
+			throws Exception {
+		Tbmuser pengguna = ApiUtil.currentUser(request, req);
+		if (pengguna == null) {
+			return tolakTanpaToken();
+		}
+		JSONObject jawaban = ApiHelperSupport.status("00", "Izin menu berhasil dimuat.");
+		jawaban.put("pustaka", Boolean.TRUE.equals(pengguna.getBolehBacaPustaka()));
+		jawaban.put("repository", Boolean.TRUE.equals(pengguna.getBolehBacaRepository()));
+		return jawaban;
+	}
+
 	/** Daftar koleksi terbit, dengan pencarian dan paging. */
 	public static JSONObject daftar(HttpServletRequest req, JSONObject request) throws Exception {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
