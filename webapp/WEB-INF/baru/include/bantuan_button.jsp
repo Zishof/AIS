@@ -41,14 +41,15 @@
     // panduannya sudah tersedia tidak berubah perilakunya.
     String __indukDir = "";
     if (__sp != null) {
-        String __jalur = __sp.replace('\', '/');
+        // getServletPath() selalu memakai '/', jadi tidak perlu normalisasi pemisah.
+        String __jalur = __sp;
         int __s2 = __jalur.lastIndexOf('/');
         if (__s2 > 0) {
             int __s1 = __jalur.lastIndexOf('/', __s2 - 1);
             if (__s1 >= 0) __indukDir = __jalur.substring(__s1 + 1, __s2);
         }
     }
-    __indukDir = __indukDir.toLowerCase().replaceAll("[^a-z0-9_\-]", "");
+    __indukDir = __indukDir.toLowerCase().replaceAll("[^a-z0-9_-]", "");
     String __keySpesifik = __indukDir.length() == 0 ? "" : (__indukDir + "_" + __key);
     if (__keySpesifik.length() > 0) {
         String __rpSpesifik = application.getRealPath("/WEB-INF/bantuan/" + __keySpesifik + ".html");
@@ -68,7 +69,11 @@
     // request.getServletPath() pada include tetap menunjuk halaman TERLUAR, jadi nilai
     // __key di sini memang nama halaman yang sedang dibuka pengguna.
     boolean __kbCetak = __key.matches(".*(cetak|print|export|pdf|struk).*");
-    if (__kbTampil && !__kbCetak && (__ada || __adaPusat)) {
+    // FIX 21-08-2026: sejumlah berkas JSP bukan layar kerja melainkan halaman status,
+    // callback, pemindai perangkat, fragmen, atau materi pemasaran. Menawarkan panduan
+    // di sana hanya menambah tombol tanpa isi yang berarti.
+    boolean __kbBukanLayar = __key.matches("^(403|404|500|broken|gagal|success|accept|redirect|logout|azure|code|home_check|index_check|text_area|read_qr_code_kartu|read_qr_codejsp|read_rfid_kartu|jml_pendaftar|hak_akses|website|ebisnis|dashboard_ebisnis|landing_page|verifikasi_sertifikat|proposal_gudang|proposal_kesehatan|surat_penawaran_gudang|surat_penawaran_kesehatan|pks_gudang|pks_kesehatan|presentasi_gudang|presentasi_kesehatan)$");
+    if (__kbTampil && !__kbCetak && !__kbBukanLayar && (__ada || __adaPusat)) {
         String __ctx = request.getContextPath();
 %>
 <style type="text/css">
