@@ -125,8 +125,11 @@ public final class RetailDatabaseMigrations {
 		 * dijalankan manual lewat psql: docs/performance/migrations/20260819.001-*.sql
 		 *
 		 * Bagian 1 (ADD COLUMN) pada dasarnya sudah dikerjakan otomatis oleh hbm2ddl.auto=update
-		 * (tabel utama di public) dan AuditSchemaSyncUtil (tabel audit di new_audit); di sini
-		 * hanya DIBAKUKAN agar tidak lagi bergantung pada kelas *SchemaFix per-rilis.
+		 * untuk tabel utama di public; di sini hanya DIBAKUKAN agar tidak lagi bergantung pada
+		 * kelas *SchemaFix per-rilis. CATATAN: kolom tabel AUDIT di schema new_audit TIDAK ikut
+		 * tercakup. Dahulu disinkron AuditSchemaSyncUtil, tetapi kelas itu sudah dihapus dan
+		 * pengelolaan skema diserahkan sepenuhnya ke Hibernate, sehingga tabel *__audit kini
+		 * harus di-ALTER manual saat rilis menambah kolom pada entitas @Audited.
 		 * Bagian 2 (pelebaran varchar -> text) TIDAK BISA didelegasikan ke hibernate.cfg.xml:
 		 * hbm2ddl=update TIDAK PERNAH mengubah tipe kolom yang SUDAH ADA.
 		 *

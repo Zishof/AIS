@@ -46,12 +46,19 @@
 			Bila menambah kolom ke entitas @Audited, sinkronkan juga tabel *__audit di new_audit
 			(ALTER TABLE ... ADD COLUMN, atau DROP tabel audit-nya agar dibuat ulang saat startup).
 			Disarankan backup database sebelum start pertama dengan mode "update".
-			MULAI r77609: selisih kolom basis-vs-audit disinkron OTOMATIS saat startup oleh
-			ais.database.hibernate.AuditSchemaSyncUtil (dipanggil HibernateUtil.getSessionFactory,
-			fail-soft), sehingga ALTER manual per rilis tidak lagi diwajibkan; catatan di
-			atas dipertahankan sebagai konteks sejarah.
+
+			RIWAYAT PENTING:
+			r77609 - selisih kolom basis-vs-audit disinkron OTOMATIS saat startup oleh
+			         ais.database.hibernate.AuditSchemaSyncUtil, sehingga ALTER manual per
+			         rilis tidak lagi diwajibkan.
+			SEKARANG - util itu DIHAPUS atas keputusan pemilik; pengelolaan skema diserahkan
+			         sepenuhnya kepada Hibernate. Artinya kewajiban ALTER manual pada tabel
+			         *__audit KEMBALI BERLAKU persis seperti paragraf di atas. Pada sinkron
+			         terakhir sebelum penghapusan, 217 kolom audit tercatat tertinggal dari
+			         tabel basisnya - itu ukuran seberapa sering hal ini terjadi.
+			         Pola migrasi manual: webapp/sql/migrasi_*_audit.sql.
 		-->
-		<property name="hbm2ddl.auto">none</property>
+		<property name="hbm2ddl.auto">update</property>
 		<!-- PERCEPAT STARTUP: dialect sudah eksplisit (PostgreSQLDialect) di atas, jadi Hibernate
 		     TIDAK perlu membuka koneksi untuk membaca metadata JDBC saat membangun SessionFactory.
 		     Mematikan round-trip metadata ini memangkas waktu inisialisasi (fitur DB diambil dari

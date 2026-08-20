@@ -190,10 +190,19 @@ public class HibernateUtil {
             synchronized (HibernateUtil.class) {
                 if (FACTORY == null) {
                     FACTORY = ambilFactoryZkplusAtauBangunSendiri();
-                    // hbm2ddl=update tidak andal menambah kolom baru ke tabel audit di
-                    // schema new_audit (lihat catatan ENVERS di hibernate.cfg.xml) --
-                    // selisihnya disinkron otomatis di sini, fail-soft, sekali per boot.
-                    AuditSchemaSyncUtil.sinkronKolomAudit(FACTORY);
+                    /*
+                     * Pengelolaan skema SEPENUHNYA diserahkan ke Hibernate (hbm2ddl.auto).
+                     * Sinkron kolom tabel audit yang dahulu dijalankan di sini
+                     * (AuditSchemaSyncUtil, r77609) DIHAPUS atas keputusan pemilik.
+                     *
+                     * KONSEKUENSI YANG PERLU DIINGAT: pada Hibernate 3.6, hbm2ddl.auto=update
+                     * tidak andal menambahkan kolom baru ke tabel audit Envers yang berada di
+                     * schema lain (new_audit). Bila sebuah entitas @Audited mendapat kolom
+                     * baru dan tabel new_audit.<tabel>__audit belum ikut diubah, INSERT audit
+                     * gagal, flush ter-rollback, dan data pengguna TIDAK tersimpan.
+                     * Penanganannya kembali manual: jalankan ALTER TABLE pada tabel *__audit
+                     * saat rilis yang menambah kolom (pola lama ada di webapp/sql/migrasi_*_audit.sql).
+                     */
                 }
             }
         }
