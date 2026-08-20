@@ -37,6 +37,31 @@ import ais.database.model.akunting.PostingHistory;
  */
 public final class TutupBukuHelper {
 
+	/**
+	 * Gerbang aksi granular (grid CRUD {@code TbmroleAction}). Admin global boleh; pengguna tanpa
+	 * peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM PERNAH diatur admin
+	 * mengikuti visibilitas menunya -- lihat {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+	 */
+	private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+		if (peran == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+				kunciMenu, aksi);
+	}
+
+	/** Balasan seragam saat aksi ditolak gerbang peran. */
+	private static void tolakHak(JSONObject hasil, String pekerjaan) throws Exception {
+		hasil.put("status", "91");
+		hasil.put("description", "Anda tidak memiliki hak " + pekerjaan
+				+ ". Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+	}
+
+
 	public static final String JENIS = "Tutup Buku";
 	public static final String CFG_LABA_DITAHAN = "akun_laba_ditahan";
 
@@ -48,6 +73,10 @@ public final class TutupBukuHelper {
 		if ("tutup_buku_draft".equals(action)) {
 			jalankan(tbmuser, payload, hasil, false);
 		} else if ("tutup_buku_posting".equals(action)) {
+			if (!bolehAksiMenu(tbmuser, "tutup_buku", "create")) {
+				tolakHak(hasil, "memposting tutup buku");
+				return;
+			}
 			jalankan(tbmuser, payload, hasil, true);
 		} else {
 			hasil.put("status", "99");

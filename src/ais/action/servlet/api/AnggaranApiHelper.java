@@ -86,8 +86,10 @@ public final class AnggaranApiHelper {
 		if (role == null) {
 			return true;
 		}
-		return ais.common.EbisnisMenuKatalog.bolehAksi(
-				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), KUNCI_MENU, aksi);
+		// Satu aturan untuk seluruh kelompok Akuntansi: kotak CRUD yang sudah diatur admin
+		// menang, sedangkan yang BELUM PERNAH diatur mengikuti visibilitas menunya.
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(role.getEbisnisMenu(),
+				role.getRoleId(), KUNCI_MENU, aksi);
 	}
 
 	private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {

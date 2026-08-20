@@ -42,6 +42,31 @@ import ais.database.model.akunting.SaldoAwalAkun;
  */
 public final class SaldoAwalAkunHelper {
 
+	/**
+	 * Gerbang aksi granular (grid CRUD {@code TbmroleAction}). Admin global boleh; pengguna tanpa
+	 * peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM PERNAH diatur admin
+	 * mengikuti visibilitas menunya -- lihat {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+	 */
+	private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+		if (peran == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+				kunciMenu, aksi);
+	}
+
+	/** Balasan seragam saat aksi ditolak gerbang peran. */
+	private static void tolakHak(JSONObject hasil, String pekerjaan) throws Exception {
+		hasil.put("status", "91");
+		hasil.put("description", "Anda tidak memiliki hak " + pekerjaan
+				+ ". Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+	}
+
+
 	public static final String JENIS = "Saldo Awal (Neraca Awal)";
 	public static final String CFG_MODAL_AWAL = "akun_modal_awal";
 
@@ -53,14 +78,32 @@ public final class SaldoAwalAkunHelper {
 		if ("saldo_awal_daftar".equals(action)) {
 			daftar(payload, hasil);
 		} else if ("saldo_awal_simpan".equals(action)) {
+			boolean ubah = payload != null && payload.optLong("id", 0) > 0;
+			if (!bolehAksiMenu(tbmuser, "saldo_awal_akun", ubah ? "update" : "create")) {
+				tolakHak(hasil, ubah ? "mengubah saldo awal" : "menambah saldo awal");
+				return;
+			}
 			simpan(tbmuser, payload, hasil);
 		} else if ("saldo_awal_hapus".equals(action)) {
+			if (!bolehAksiMenu(tbmuser, "saldo_awal_akun", "delete")) {
+				tolakHak(hasil, "menghapus saldo awal");
+				return;
+			}
 			hapus(payload, hasil);
 		} else if ("saldo_awal_impor".equals(action)) {
+			if (!bolehAksiMenu(tbmuser, "saldo_awal_akun", "create")) {
+				tolakHak(hasil, "mengimpor saldo awal");
+				return;
+			}
 			impor(tbmuser, payload, hasil);
 		} else if ("saldo_awal_draft".equals(action)) {
 			draftAtauPosting(tbmuser, payload, hasil, false);
 		} else if ("saldo_awal_posting".equals(action)) {
+			// "create" di sini berarti BOLEH MEMPOSTING: menulis jurnal neraca awal.
+			if (!bolehAksiMenu(tbmuser, "saldo_awal_akun", "create")) {
+				tolakHak(hasil, "memposting saldo awal");
+				return;
+			}
 			draftAtauPosting(tbmuser, payload, hasil, true);
 		} else {
 			hasil.put("status", "99");

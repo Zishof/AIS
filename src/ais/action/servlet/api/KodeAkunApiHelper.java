@@ -551,8 +551,10 @@ public final class KodeAkunApiHelper {
 		if (role == null) {
 			return true;
 		}
-		return ais.common.EbisnisMenuKatalog.bolehAksi(
-				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunciMenu, aksi);
+		// Satu aturan untuk seluruh kelompok Akuntansi: kotak CRUD yang sudah diatur admin
+		// menang, sedangkan yang BELUM PERNAH diatur mengikuti visibilitas menunya.
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(role.getEbisnisMenu(),
+				role.getRoleId(), kunciMenu, aksi);
 	}
 
 	/** Hak tombol yang ikut pada tiap balasan daftar supaya klien tidak menebak-nebak. */

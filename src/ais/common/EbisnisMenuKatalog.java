@@ -136,6 +136,10 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android"));
+		// Retur beli/jual, stok opname, dan mutasi antar toko dijurnal lewat satu layar yang
+		// tampil sebagai tab pada Katalog Laporan -- kuncinya dipisah supaya kewenangan
+		// memposting penyesuaian dapat dibatasi tersendiri.
+		DAFTAR.add(new Entri(MODUL_POS, "posting_penyesuaian", "Akuntansi: Posting Penyesuaian (retur, opname, mutasi)", "desktop", "android", "jsp"));
 		// Anggaran/RAB bulanan: rencana per bulan + revisi + realisasi. Layar ZK-nya
 		// (workspace_bulanan, workspace_revisi_bulanan, realisasi_bulanan, penggunaan_anggaran)
 		// tetap ada; kunci ini menggerbangi versi Desktop/Android-nya.
@@ -240,7 +244,7 @@ public final class EbisnisMenuKatalog {
 			"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran"));
+			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian"));
 
 	/**
 	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
@@ -257,7 +261,7 @@ public final class EbisnisMenuKatalog {
 					"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran"));
+					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian"));
 
 	/**
 	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
@@ -282,6 +286,50 @@ public final class EbisnisMenuKatalog {
 		} catch (Exception e) {
 			return false;
 		}
+	}
+
+	/**
+	 * Hak satu aksi CRUD untuk menu kelompok <b>Akuntansi</b>.
+	 *
+	 * <p>Berbeda dari {@link #bolehAksi(JSONObject, String, String)} yang memakai nilai bawaan
+	 * {@code crud} apa adanya, method ini membedakan "BELUM PERNAH DIATUR" dari "SENGAJA
+	 * DIMATIKAN":</p>
+	 * <ul>
+	 * <li>kotak CRUD sudah diatur admin &rarr; setelan itu yang menang;</li>
+	 * <li>belum pernah diatur &rarr; ikut VISIBILITAS menunya ({@link #aksesAkuntansi}), yakni peran
+	 *     yang memang boleh membuka layarnya boleh pula memposting.</li>
+	 * </ul>
+	 *
+	 * <p>Aturan kedua itu disengaja: menu akuntansi baru mendapat kotak CRUD belakangan, dan bila
+	 * nilai bawaannya dipakai mentah-mentah (false untuk seluruh kunci fail-closed) maka tutup buku
+	 * atau posting bulanan yang sedang berjalan akan mendadak ditolak setelah pembaruan, padahal
+	 * administrator belum sempat mengatur apa pun.</p>
+	 *
+	 * @param rawEbisnisMenu JSON {@code Tbmrole.ebisnisMenu} apa adanya (boleh null).
+	 * @param roleId         {@code Tbmrole.roleId} pengguna.
+	 * @param kunci          kunci menu pada {@link #DAFTAR}.
+	 * @param aksi           salah satu {@link #AKSI_CRUD}.
+	 */
+	public static boolean bolehAksiAkuntansi(String rawEbisnisMenu, String roleId, String kunci, String aksi) {
+		if (kunci == null || aksi == null) {
+			return true;
+		}
+		if (rawEbisnisMenu != null && !rawEbisnisMenu.trim().isEmpty()) {
+			try {
+				JSONObject akar = new JSONObject(rawEbisnisMenu);
+				if (akar.optBoolean("supervisor", false)) {
+					return true;
+				}
+				JSONObject crud = akar.optJSONObject("crud");
+				JSONObject aksiMenu = crud == null ? null : crud.optJSONObject(kunci);
+				if (aksiMenu != null && aksiMenu.has(aksi)) {
+					return aksiMenu.optBoolean(aksi, false);
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "EbisnisMenuKatalog.bolehAksiAkuntansi: JSON peran rusak");
+			}
+		}
+		return aksesAkuntansi(rawEbisnisMenu, roleId, kunci);
 	}
 
 	public static boolean peranAkuntansiBawaan(String roleId) {
@@ -334,6 +382,11 @@ public final class EbisnisMenuKatalog {
 			// "anggaran" ikut ber-CRUD: menyusun rencana, membuat revisi, dan mencatat
 			// penggunaan adalah tiga kewenangan berbeda yang sering dipisah antar peran.
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun", "anggaran",
+			// Layar posting & siklus akuntansi: "Read"-nya tetap kolom menu.<kunci>, sedangkan
+			// Create di sini berarti BOLEH MEMPOSTING (menulis jurnal) -- kewenangan yang biasa
+			// dipisah dari sekadar boleh melihat drafnya.
+			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
+			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "posting_penyesuaian",
 			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",

@@ -30,6 +30,31 @@ import ais.database.model.akunting.TemplateJurnalPenyesuaian;
  */
 public final class JurnalPenyesuaianHelper {
 
+	/**
+	 * Gerbang aksi granular (grid CRUD {@code TbmroleAction}). Admin global boleh; pengguna tanpa
+	 * peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM PERNAH diatur admin
+	 * mengikuti visibilitas menunya -- lihat {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+	 */
+	private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+		if (peran == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+				kunciMenu, aksi);
+	}
+
+	/** Balasan seragam saat aksi ditolak gerbang peran. */
+	private static void tolakHak(JSONObject hasil, String pekerjaan) throws Exception {
+		hasil.put("status", "91");
+		hasil.put("description", "Anda tidak memiliki hak " + pekerjaan
+				+ ". Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+	}
+
+
 	public static final String JENIS = "Jurnal Penyesuaian Berkala";
 
 	private JurnalPenyesuaianHelper() {
@@ -40,12 +65,25 @@ public final class JurnalPenyesuaianHelper {
 		if ("penyesuaian_template_daftar".equals(action)) {
 			daftar(hasil);
 		} else if ("penyesuaian_template_simpan".equals(action)) {
+			boolean ubah = payload != null && payload.optLong("id", 0) > 0;
+			if (!bolehAksiMenu(tbmuser, "jurnal_penyesuaian", ubah ? "update" : "create")) {
+				tolakHak(hasil, ubah ? "mengubah template penyesuaian" : "menambah template penyesuaian");
+				return;
+			}
 			simpan(tbmuser, payload, hasil);
 		} else if ("penyesuaian_template_hapus".equals(action)) {
+			if (!bolehAksiMenu(tbmuser, "jurnal_penyesuaian", "delete")) {
+				tolakHak(hasil, "menghapus template penyesuaian");
+				return;
+			}
 			hapus(payload, hasil);
 		} else if ("penyesuaian_draft".equals(action)) {
 			jalankan(tbmuser, payload, hasil, false);
 		} else if ("penyesuaian_posting".equals(action)) {
+			if (!bolehAksiMenu(tbmuser, "jurnal_penyesuaian", "create")) {
+				tolakHak(hasil, "memposting jurnal penyesuaian");
+				return;
+			}
 			jalankan(tbmuser, payload, hasil, true);
 		} else {
 			hasil.put("status", "99");

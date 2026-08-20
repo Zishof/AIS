@@ -63,6 +63,31 @@ import ais.database.model.rab.SatuanKerja;
  */
 public final class PostingKantinLanjutanHelper {
 
+	/**
+	 * Gerbang aksi granular (grid CRUD {@code TbmroleAction}). Admin global boleh; pengguna tanpa
+	 * peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM PERNAH diatur admin
+	 * mengikuti visibilitas menunya -- lihat {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+	 */
+	private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+		if (peran == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+				kunciMenu, aksi);
+	}
+
+	/** Balasan seragam saat aksi ditolak gerbang peran. */
+	private static void tolakHak(JSONObject hasil, String pekerjaan) throws Exception {
+		hasil.put("status", "91");
+		hasil.put("description", "Anda tidak memiliki hak " + pekerjaan
+				+ ". Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+	}
+
+
     public static final String JENIS_KULAKAN = "Kulakan Toko";
     public static final String JENIS_BAYAR_HUTANG = "Pembayaran Hutang Supplier Toko";
     public static final String JENIS_TERIMA_PIUTANG = "Penerimaan Piutang Customer Toko";
@@ -224,6 +249,12 @@ public final class PostingKantinLanjutanHelper {
         } else {
             hasil.put("status", "99");
             hasil.put("message", "Aksi posting kantin lanjutan tidak dikenal: " + action);
+            return;
+        }
+        // Draf boleh dilihat siapa pun yang menunya tampil; MENERAPKAN (menulis jurnal) butuh
+        // hak "create" pada kunci posting yang bersangkutan -- kewenangan yang biasa dipisah.
+        if (terapkan && !bolehAksiMenu(tbmuser, "posting_" + jenis, "create")) {
+            tolakHak(hasil, "memposting " + jenis.replace("_", " "));
             return;
         }
         jalankan(jenis, terapkan, tbmuser, payload, hasil);
