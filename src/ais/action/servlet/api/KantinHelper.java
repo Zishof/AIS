@@ -13861,6 +13861,11 @@ public class KantinHelper {
 				j.put("alamat", p.getAlamat() == null ? "" : p.getAlamat());
 				j.put("kode_pos", p.getKodePos() == null ? "" : p.getKodePos());
 				j.put("keterangan", p.getKeterangan() == null ? "" : p.getKeterangan());
+				// Akun utang dagang -- WAJIB ikut di daftar admin: layar Supplier memakai aksi ini,
+				// tanpa ini nilai tersimpan tidak akan muncul saat baris dibuka untuk diubah.
+				j.put("akunUtangId", p.getAkunUtang() == null ? JSONObject.NULL : p.getAkunUtang().getId());
+				j.put("akunUtangLabel", p.getAkunUtang() == null ? ""
+						: ais.action.master.koperasi.helper.AkunKantinUtil.label(p.getAkunUtang()));
 				arr.put(j);
 			}
 			hasil.put("status", "00");

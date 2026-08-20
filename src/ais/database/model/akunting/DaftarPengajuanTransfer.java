@@ -1641,6 +1641,19 @@ public class DaftarPengajuanTransfer extends DataSop {
 			akun = getUangMuka().getJenisUangMuka().getAkun();
 		}
 
+		else if (getReimbursementPegawai() != null) {
+			// Akun reimbursement: dari anggaran/Jenis Reimbursement (getAkun sudah
+			// menurunkan workspace.akun atau akun tetap jenis); fallback akunBiaya lama.
+			try {
+				if (getReimbursementPegawai().getAkun() != null) {
+					akun = getReimbursementPegawai().getAkun();
+				} else if (getReimbursementPegawai().getAkunBiaya() != null) {
+					akun = getReimbursementPegawai().getAkunBiaya();
+				}
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) DaftarPengajuanTransfer.getAkun-reimbursement");
+			}
+		}
+
 		else if (getKasBesar() != null && getKasBesar().getJenisKasBesar() != null
 				&& getKasBesar().getJenisKasBesar().getAkun() != null) {
 			akun = getKasBesar().getJenisKasBesar().getAkun();

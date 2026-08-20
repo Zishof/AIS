@@ -170,6 +170,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 	private Row rowInfoTunggakan;
 	private Row rowNim;
 	private Row rowJenisKuliah;
+	private Row rowJenjang;
 	private Row rowProdi;
 	private Row rowSemester;
 	private Row rowTahunMasuk;
@@ -182,6 +183,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 	private AmbilDataMahasiswaBanbox nim;
 	private Label jenisKuliah;
+	private Label labelJenjang;
 	private Label prodi;
 	private Vbox labelFotoMahasiswa;
 	private Label labelNimMahasiswa;
@@ -759,6 +761,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			rowNim.setVisible(false);
 		if (rowJenisKuliah != null)
 			rowJenisKuliah.setVisible(false);
+		if (rowJenjang != null)
+			rowJenjang.setVisible(false);
 		if (rowProdi != null)
 			rowProdi.setVisible(false);
 		if (rowSemester != null)
@@ -1092,6 +1096,10 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			}
 
 			rowJenisKuliah.setVisible(true);
+			rowJenjang.setVisible(true);
+			Jenjang jenjangProfil = mahasiswa.getJurusan() != null
+					? mahasiswa.getJurusan().getJenjang() : mahasiswa.getJenjang();
+			labelJenjang.setValue(jenjangProfil == null ? "-" : namaObjekAnalisis(jenjangProfil));
 			rowProdi.setVisible(true);
 			prodi.setValue(mahasiswa.getJurusan() != null ? mahasiswa.getJurusan().getNama() : "-");
 			rowSemester.setVisible(true);
@@ -1199,7 +1207,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 			// Baris-baris profil mahasiswa (biarkan rowListBiaya = tabel item biaya tampil).
 			// + rowKeterangan: di Wizard fokus pemilihan item → sembunyikan field Keterangan.
-			String[] rowProfil = { "rowNim", "rowJenisKuliah", "rowProdi", "rowSemester", "rowTahunMasuk",
+			String[] rowProfil = { "rowNim", "rowJenisKuliah", "rowJenjang", "rowProdi", "rowSemester", "rowTahunMasuk",
 					"rowTahunAkademik", "rowTanggalValidasi", "rowValidator", "rowKeterangan" };
 			for (String rid : rowProfil) {
 				tambahSclass(windowComp.getFellowIfAny(rid), "wz-ringkas-hide");

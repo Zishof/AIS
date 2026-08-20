@@ -462,9 +462,7 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
         el.value = cur;
     };
     const loadAkunOptions<%=rnd%> = async () => {
-        const res = await fetchDataFaktur<%=rnd%>({ action: 'jalankanQuery',
-            query: "SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC" });
-        akunDaftar<%=rnd%> = (res && res.data) ? res.data : [];
+        akunDaftar<%=rnd%> = await fetchSqlFaktur<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
         ID_AKUN<%=rnd%>.forEach((sid) => { terapkanFilterAkun<%=rnd%>(sid); });
     };
     ID_AKUN<%=rnd%>.forEach((sid) => {
