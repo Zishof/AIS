@@ -108,8 +108,10 @@ import ais.database.model.DetailSettingBiaya;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalPembayaran;
+import ais.database.model.Jenjang;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.JenisPembayaran;
+import ais.database.model.Jurusan;
 import ais.database.model.Kegiatan;
 import ais.database.model.KegiatanTemporary;
 import ais.database.model.Konfigurasi;
@@ -117,6 +119,7 @@ import ais.database.model.KrsMahasiswa;
 import ais.database.model.LogPembayaran;
 import ais.database.model.Mahasiswa;
 import ais.database.model.PendaftaranCutiMahasiswa;
+import ais.database.model.Paket;
 import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
@@ -2187,7 +2190,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			String rekomendasi = rekomendasiAnalisisTagihan(tahap, settingKhususAngkatan,
 					settingKhususMahasiswa, kandidatAkhir.size(), detailSetting, pengaturanBulanan, smt, hilir);
 			tampilkanJendelaAnalisisTagihan(tahap, rekomendasi, settingKhususMahasiswa,
-					kandidatAkhir.size(), detailSetting, pengaturanBulanan, smt, hilir);
+					kandidatAkhir.size(), detailSetting, pengaturanBulanan, smt, hilir, kandidatSumber);
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "DaftarUlangMahasiswaLamaAction: analisis data tagihan");
 			MyMessageboxConfig.show("Analisis belum dapat diselesaikan: " + e.getMessage(), "Analisis Data",
@@ -2597,18 +2600,50 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 	}
 
 	private void tampilkanJendelaAnalisisTagihan(List<TahapAnalisisTagihan> tahap, String rekomendasi,
-			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, int smt,
-			AnalisisHilirTagihanLama hilir) throws InterruptedException {
+			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, final int smt,
+			AnalisisHilirTagihanLama hilir, List<SettingBiaya> kandidatSumber) throws InterruptedException {
 		MyWindow window = new MyWindow("Analisis Data Tagihan", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
-		window.setWidth("920px");
+		window.setWidth("940px");
 		window.setHeight("82%");
 		window.setSizable(true);
+		final Jurusan jurusan = mahasiswa.getJurusan();
+		final boolean arahBulanan = pengaturanBulanan > 0 || (hilir != null && hilir.mode != null
+				&& hilir.mode.toUpperCase().startsWith("BULANAN"));
+		final Long settingTujuanId = kandidatSumber == null || kandidatSumber.isEmpty()
+				|| kandidatSumber.get(0) == null ? null : kandidatSumber.get(0).getId();
 
-		Vbox isi = new Vbox();
+		org.zkoss.zul.Div barTindakan = new org.zkoss.zul.Div();
+		barTindakan.setStyle("padding:8px 12px;background:#f8fafc;border-bottom:1px solid #cbd5e1;"
+				+ "box-sizing:border-box;white-space:normal;");
+		barTindakan.setParent(window);
+		Button bukaPengaturan = new MyButtonConfig(arahBulanan
+				? "Buka Pengaturan Tagihan Bulanan" : "Buka Setting Biaya");
+		bukaPengaturan.setImage(arahBulanan ? "/img/Money-Calculator-icon.png" : "/img/Bank-Check-icon.png");
+		bukaPengaturan.setTooltiptext("Buka sumber pengaturan yang dipilih otomatis dari hasil analisis");
+		bukaPengaturan.setParent(barTindakan);
+		new Label(arahBulanan ? " Sistem mendeteksi sumber tagihan bulanan/angsuran."
+				: " Sistem mendeteksi sumber Setting Biaya bukan bulanan.").setParent(barTindakan);
+		bukaPengaturan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (arahBulanan) {
+					Common.displayWindow(urlPengaturanBulananAnalisisLama(smt, jurusan), true);
+				} else {
+					SettingBiaya tujuan = settingTujuanId == null ? buatSettingBiayaDariMahasiswa(smt, jurusan)
+							: (SettingBiaya) HibernateUtil.currentSession().get(SettingBiaya.class, settingTujuanId);
+					if (tujuan == null) tujuan = buatSettingBiayaDariMahasiswa(smt, jurusan);
+					SetingBiayaAction.onAddExternal(null, tujuan);
+				}
+			}
+		});
+
+		/* Pada ZK lama Vbox dirender seperti table sehingga overflow tidak membentuk
+		 * scrollbar. Div blok dengan tinggi maksimum membuat seluruh hasil terjangkau. */
+		org.zkoss.zul.Div isi = new org.zkoss.zul.Div();
 		isi.setWidth("100%");
-		isi.setHeight("100%");
-		isi.setStyle("overflow:auto;padding:12px;box-sizing:border-box;");
+		isi.setStyle("height:calc(100% - 54px);max-height:calc(82vh - 82px);overflow-y:auto;overflow-x:auto;"
+				+ "padding:12px;box-sizing:border-box;position:relative;");
 		isi.setParent(window);
 		StringBuffer html = new StringBuffer();
 		String tindakanUtama = tindakanUtamaAnalisisTagihan(tahap, settingKhususMahasiswa,
@@ -2669,6 +2704,68 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		 * (AnalisisTagihanSekolahHelper) sudah benar karena diakhiri onModal(). */
 		window.setVisible(true);
 		window.onModal();
+	}
+
+	/** Membentuk Setting Biaya baru yang sudah dipraisi sesuai mahasiswa hasil analisis. */
+	private SettingBiaya buatSettingBiayaDariMahasiswa(int smt, Jurusan jurusan) {
+		SettingBiaya setting = new SettingBiaya();
+		BiodataCalonMahasiswa biodata = biodataCalonUntukAnalisisLama();
+		setting.setJenisKegiatan(jenisKegiatan);
+		setting.setAngkatan(mahasiswa.getTahunangkatan());
+		setting.setJenjang(jurusan != null ? jurusan.getJenjang() : mahasiswa.getJenjang());
+		setting.setJurusan(jurusan);
+		setting.setStatusMahasiswa(statusmahasiswa);
+		setting.setStatusAwalMahasiswa(tempHistoryStatusMahasiswa == null
+				? mahasiswa.getStatusAwalMahasiswa() : tempHistoryStatusMahasiswa.getStatusAwalMahasiswa());
+		setting.setJenisSeleksi(mahasiswa.getJenisSeleksi());
+		setting.setGelombangPendaftaran(mahasiswa.getGelombangPendaftaran());
+		setting.setPaket(biodata == null ? null : biodata.getPaket());
+		setting.setProgram(tempHistoryStatusMahasiswa == null
+				? mahasiswa.getProgram() : tempHistoryStatusMahasiswa.getProgram());
+		setting.setMinSmt(Integer.valueOf(smt));
+		setting.setMaxSmt(Integer.valueOf(smt));
+		return setting;
+	}
+
+	private BiodataCalonMahasiswa biodataCalonUntukAnalisisLama() {
+		try {
+			return mahasiswa == null ? null : mahasiswa.getBiodataCalonMahasiswaData();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AnalisisTagihan: biodata mahasiswa lama");
+			return null;
+		}
+	}
+
+	/** URL filter cerdas menuju sumber tagihan bulanan mahasiswa yang sedang dibuka. */
+	private String urlPengaturanBulananAnalisisLama(int smt, Jurusan jurusan) throws Exception {
+		Jenjang jenjang = jurusan != null && jurusan.getJenjang() != null ? jurusan.getJenjang()
+				: mahasiswa.getJenjang();
+		BiodataCalonMahasiswa biodata = biodataCalonUntukAnalisisLama();
+		Paket paket = biodata == null ? null : biodata.getPaket();
+		Integer tahunAkademikMulai = Common.getTahunAkademik(smt, mahasiswa.getTahunangkatan(),
+				mahasiswa.getPindahKeKampusIniMasukSemester(), mahasiswa.getSemesterMulai());
+		String tahunAjaran = tahunAkademikMulai == null ? ""
+				: tahunAkademikMulai + "/" + (tahunAkademikMulai.intValue() + 1);
+		String program = tempHistoryStatusMahasiswa == null
+				? mahasiswa.getProgram() : tempHistoryStatusMahasiswa.getProgram();
+		Object statusAwal = tempHistoryStatusMahasiswa == null
+				? mahasiswa.getStatusAwalMahasiswa() : tempHistoryStatusMahasiswa.getStatusAwalMahasiswa();
+		return "/pages/master/detail_biaya_excel.zul?searchSemester=" + smt
+				+ "&searchTahunAjaran=" + URLEncoder.encode(tahunAjaran, "UTF-8")
+				+ "&labelAngkatan=" + (mahasiswa.getTahunangkatan() == null ? -1 : mahasiswa.getTahunangkatan())
+				+ "&searchMulaiBelajarDiSemester=" + URLEncoder.encode(mahasiswa.getSemesterMulai() == null
+						? "" : mahasiswa.getSemesterMulai(), "UTF-8")
+				+ "&searchProgram=" + URLEncoder.encode(program == null ? "" : program, "UTF-8")
+				+ "&searchJenjang=" + (jenjang == null || jenjang.getId() == null ? -1 : jenjang.getId())
+				+ "&searchJurusan=" + (jurusan == null || jurusan.getId() == null ? -1 : jurusan.getId())
+				+ "&searchStatusMahasiswa=" + (statusmahasiswa == null || statusmahasiswa.getId() == null
+						? -1 : statusmahasiswa.getId())
+				+ "&searchStatusAwalMahasiswa=" + (statusAwal == null ? -1
+						: ((ais.database.model.StatusAwalMahasiswa) statusAwal).getId())
+				+ "&searchJenisKegiatan=" + (jenisKegiatan == null || jenisKegiatan.getId() == null
+						? -1 : jenisKegiatan.getId())
+				+ "&searchPaket=" + (paket == null || paket.getId() == null ? -1 : paket.getId())
+				+ "&autoBukaRencanaAngsuran=1";
 	}
 
 	private String htmlAnalisisHilirTagihanLama(AnalisisHilirTagihanLama hilir) {
