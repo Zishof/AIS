@@ -173,10 +173,17 @@ String rnd = Common.getGeneratedBarCode(7);
     el("pjTabB").classList.toggle("active", !terutangAktif);
   };
 
+  // Pajak kini datang dari DUA sumber (pembayaran vendor dan penerimaan barang),
+  // sehingga id baris saja tidak lagi unik -- dipakai kunci gabungan sumber+id.
+  function kunciBaris(r){
+    var sumber = r.sumber || "PEMBAYARAN";
+    var id = (sumber === "BAST") ? r.bast_detail_id : r.detail_id;
+    return sumber + "|" + id;
+  }
   function totalDipilih(kunci){
     var t = 0;
     for (var i=0;i<terutang.length;i++){
-      if (dipilih[terutang[i].detail_id]) t += Number(terutang[i][kunci]) || 0;
+      if (dipilih[kunciBaris(terutang[i])]) t += Number(terutang[i][kunci]) || 0;
     }
     return t;
   }
@@ -189,8 +196,8 @@ String rnd = Common.getGeneratedBarCode(7);
     el("pjInfo").textContent = "Dipilih " + jumlahDipilih() + " baris - PPh " + rp(totalDipilih("pph"))
                              + ", PPN " + rp(totalDipilih("ppn"));
   }
-  window["pjPilih" + RND] = function(id, nilai){
-    if (nilai) dipilih[id] = true; else delete dipilih[id];
+  window["pjPilih" + RND] = function(kunci, nilai){
+    if (nilai) dipilih[kunci] = true; else delete dipilih[kunci];
     renderRingkas();
   };
 
@@ -206,18 +213,26 @@ String rnd = Common.getGeneratedBarCode(7);
       dipilih = {};
       if (!terutang.length){
         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'
-          + 'Tidak ada pajak terutang. Pajak muncul setelah pembayaran vendor disetujui.</td></tr>';
+          + esc(d.catatan || 'Tidak ada pajak terutang.') + '</td></tr>';
       } else {
         var h = "";
         for (var i=0;i<terutang.length;i++){
           var r = terutang[i];
           var catatanPajak = r.namaPajak ? ('<div class="small text-muted">' + esc(r.namaPajak) + '</div>') : "";
+          var kunci = kunciBaris(r);
+          var dariBast = (r.sumber === "BAST");
+          var belumSah = (r.dokumenDisetujui === false);
+          var lencana = '<span class="badge ' + (dariBast ? 'bg-primary-subtle text-primary-emphasis' : 'bg-info-subtle text-info-emphasis') + ' me-1">'
+                      + (dariBast ? 'BAST' : 'BAYAR') + '</span>';
+          var catatanSah = belumSah ? '<div class="small text-warning">dokumen belum disetujui - belum dapat disetor</div>' : "";
           h += '<tr>'
-            + '<td><input type="checkbox" class="form-check-input" onchange="pjPilih' + RND + '(' + r.detail_id + ',this.checked)"></td>'
-            + '<td><div class="fw-bold">' + esc(r.bayar) + '</div>'
-            + '<div class="small text-muted">' + esc(r.tanggal || "") + '</div></td>'
+            + '<td><input type="checkbox" class="form-check-input"' + (belumSah ? ' disabled' : '')
+            + ' onchange="pjPilih' + RND + '(&quot;' + kunci + '&quot;,this.checked)"></td>'
+            + '<td>' + lencana + '<span class="fw-bold">' + esc(r.dokumen || r.bayar || "") + '</span>'
+            + '<div class="small text-muted">' + esc(r.tanggal || "") + '</div>' + catatanSah + '</td>'
             + '<td>' + esc(r.penyedia || "-") + '</td>'
-            + '<td class="small">' + esc(r.po || "") + ' ' + esc(r.termin || "") + '</td>'
+            + '<td class="small">' + esc(r.po || "") + ' ' + esc(r.termin || "")
+            + (r.barang ? ('<div class="text-muted">' + esc(r.barang) + '</div>') : "") + '</td>'
             + '<td class="text-end">' + rp(r.dpp) + '</td>'
             + '<td class="text-end fw-bold">' + rp(r.pph) + catatanPajak + '</td>'
             + '<td class="text-end">' + rp(r.ppn) + '</td>'
@@ -284,7 +299,12 @@ String rnd = Common.getGeneratedBarCode(7);
     if (!ntpn){ pesan("NTPN wajib diisi sebagai bukti setor.", false); return; }
     if (!tgl){ pesan("Tanggal setor wajib diisi.", false); return; }
     var detail = [];
-    for (var k in dipilih){ if (dipilih.hasOwnProperty(k)) detail.push({detail_id: Number(k)}); }
+    for (var k in dipilih){
+      if (!dipilih.hasOwnProperty(k)) continue;
+      var bagian = k.split("|");
+      var id = Number(bagian[1]);
+      detail.push(bagian[0] === "BAST" ? {bast_detail_id: id} : {detail_id: id});
+    }
     api({action:"pengadaan_pajak_setor", jenis: jenisSetor, ntpn: ntpn, tanggalSetor: tgl,
          npwp: el("pjNpwp").value.trim(), namaWp: el("pjNamaWp").value.trim(),
          keterangan: el("pjKeterangan").value.trim(), detail: detail})

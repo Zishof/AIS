@@ -100,6 +100,9 @@ String rnd = Common.getGeneratedBarCode(7);
           <label class="form-label small mb-1"><%=Common.getBahasaConfig("Tanggal tagihan")%> *</label>
           <input type="date" id="tgTanggal<%=rnd%>" class="form-control">
         </div>
+        <hr class="my-3">
+        <div id="tgLampiran<%=rnd%>"></div>
+        <input type="file" id="tgLampiranFile<%=rnd%>" class="d-none">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
@@ -109,6 +112,20 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
+
+<div class="modal fade" id="tgPratinjauModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tgPratinjauJudul<%=rnd%>"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="tgPratinjauGambar<%=rnd%>" class="img-fluid" alt="">
+      </div>
+    </div>
+  </div>
+</div>
 
 <%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
 <jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
@@ -213,6 +230,7 @@ String rnd = Common.getGeneratedBarCode(7);
     el("tgRingkas").textContent = (aktif.penyedia || "-") + "  -  " + rp(aktif.nilai);
     el("tgKode").value = aktif.kodeTagihan || "";
     el("tgTanggal").value = keIsoTgl(aktif.tanggalTagihan || "");
+    window["tgLampiranMuat" + RND](aktif.id);
     new bootstrap.Modal(document.getElementById("tgModal" + RND)).show();
   };
 
@@ -243,6 +261,83 @@ String rnd = Common.getGeneratedBarCode(7);
   };
 
   // Muat pertama kali
+
+  // ---------- Lampiran dokumen tagihan ----------
+  // Berkasnya disimpan pada tabel LampiranLain yang SAMA dengan versi ZKoss, sehingga
+  // dokumen yang diunggah dari POS langsung terbaca di ZKoss dan sebaliknya.
+  // Invoice wajib dan harus berupa gambar; pagarnya ada di server agar Desktop,
+  // Android, dan halaman ini berperilaku sama.
+  window["tgLampiranMuat" + RND] = function(bastId){
+    var kotak = el("tgLampiran");
+    kotak.innerHTML = '<div class="text-muted small">Memuat lampiran...</div>';
+    api({action:"pengadaan_lampiran_daftar", bast_id: bastId}).then(function(d){
+      var slot = d.data || [];
+      if (!slot.length){ kotak.innerHTML = ""; return; }
+      var h = '<div class="fw-bold small mb-1">Lampiran Dokumen</div>'
+            + '<div class="text-muted" style="font-size:11px">Invoice wajib diunggah dan harus berupa gambar. Lampiran lain bersifat pelengkap.</div>'
+            + '<div class="list-group list-group-flush mt-1">';
+      for (var i=0;i<slot.length;i++){
+        var s = slot[i];
+        var warna = s.ada ? "text-success" : (s.wajib ? "text-danger" : "text-muted");
+        var ikon = s.ada ? "fa-circle-check" : "fa-upload";
+        h += '<div class="list-group-item px-0 py-1 d-flex align-items-center">'
+           + '<i class="fas ' + ikon + ' me-2 ' + warna + '"></i>'
+           + '<div class="flex-grow-1"><div class="small">' + esc(s.nama) + (s.wajib ? " *" : "") + '</div>'
+           + '<div class="' + warna + '" style="font-size:10px">'
+           + esc(s.ada ? (s.namaFile || "") : (s.wajib ? "belum diunggah" : "opsional")) + '</div></div>';
+        if (s.ada){
+          h += '<button class="btn btn-sm btn-link py-0" title="Lihat" onclick="tgLampiranLihat' + RND + '(' + s.lampiran_id + ')"><i class="fas fa-eye"></i></button>';
+        }
+        h += '<button class="btn btn-sm btn-link py-0" title="Unggah" onclick="tgLampiranPilih' + RND + '(' + bastId + ', &quot;' + esc(s.kunci) + '&quot;, ' + (s.harusGambar ? "true" : "false") + ')"><i class="fas fa-file-arrow-up"></i></button>';
+        if (s.ada){
+          h += '<button class="btn btn-sm btn-link text-danger py-0" title="Hapus" onclick="tgLampiranHapus' + RND + '(' + bastId + ', ' + s.lampiran_id + ')"><i class="fas fa-trash"></i></button>';
+        }
+        h += '</div>';
+      }
+      kotak.innerHTML = h + '</div>';
+    });
+  };
+  window["tgLampiranPilih" + RND] = function(bastId, kunci, harusGambar){
+    var inp = el("tgLampiranFile");
+    inp.accept = harusGambar ? "image/*" : "image/*,application/pdf";
+    inp.value = "";
+    inp.onchange = function(){
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var pembaca = new FileReader();
+      pembaca.onload = function(){
+        var hasil = String(pembaca.result || "");
+        var koma = hasil.indexOf(",");
+        var b64 = koma >= 0 ? hasil.substring(koma + 1) : hasil;
+        api({action:"pengadaan_lampiran_unggah", bast_id: bastId, kunci: kunci,
+             nama_file: f.name, file_base64: b64}).then(function(d){
+          var ok = d.status === "00" || d.status === "success";
+          if (!ok) pesan(d.description || "Gagal mengunggah lampiran.", false);
+          window["tgLampiranMuat" + RND](bastId);
+        });
+      };
+      pembaca.readAsDataURL(f);
+    };
+    inp.click();
+  };
+  window["tgLampiranHapus" + RND] = function(bastId, id){
+    api({action:"pengadaan_lampiran_hapus", lampiran_id: id}).then(function(){
+      window["tgLampiranMuat" + RND](bastId);
+    });
+  };
+  window["tgLampiranLihat" + RND] = function(id){
+    api({action:"pengadaan_lampiran_unduh", lampiran_id: id}).then(function(d){
+      if (d.status !== "00" && d.status !== "success"){ pesan(d.description || "Lampiran tidak ditemukan.", false); return; }
+      var tipe = d.tipe || "";
+      if (tipe.indexOf("image/") !== 0){
+        pesan((d.namaFile || "Berkas") + " bertipe " + tipe + " - pratinjau hanya tersedia untuk gambar.", false);
+        return;
+      }
+      el("tgPratinjauGambar").src = "data:" + tipe + ";base64," + (d.fileBase64 || "");
+      el("tgPratinjauJudul").textContent = d.namaFile || "Lampiran";
+      new bootstrap.Modal(document.getElementById("tgPratinjauModal" + RND)).show();
+    });
+  };
   window["tgMuat" + RND](1);
 })();
 </script>

@@ -82,13 +82,16 @@ public final class KodeAkunApiHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("hak", hakAksesJson(tbmuser, "kode_akun"));
+			// Kode anak bawaan = kode induk + nol sebanyak ini (padanan akun_lenght pada layar ZK).
+			hasil.put("panjangKodeAnak", panjangKodeAnak());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
 	/** Opsi Grup Akun (dipakai form Akun di klien). */
-	public static void grupAkunDaftar(JSONObject hasil) throws Exception {
+	public static void grupAkunDaftar(Tbmuser tbmuser, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Connection conn = session.connection();
@@ -107,13 +110,14 @@ public final class KodeAkunApiHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("hak", hakAksesJson(tbmuser, "grup_akun"));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
 	/** Daftar Bank + akun kasnya (tab "Bank" pada layar ZK). */
-	public static void bankDaftar(JSONObject request, JSONObject hasil) throws Exception {
+	public static void bankDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String cari = request == null ? "" : request.optString("cari", "").trim();
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -150,13 +154,15 @@ public final class KodeAkunApiHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("hak", hakAksesJson(tbmuser, "bank_akun"));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
 	/** Daftar Jenis Transaksi + akun terkait (tab "Jenis Transaksi" pada layar ZK). */
-	public static void jenisTransaksiDaftar(JSONObject request, JSONObject hasil) throws Exception {
+	public static void jenisTransaksiDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
 		String cari = request == null ? "" : request.optString("cari", "").trim();
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -194,6 +200,7 @@ public final class KodeAkunApiHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("hak", hakAksesJson(tbmuser, "jenis_transaksi"));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -520,6 +527,509 @@ public final class KodeAkunApiHelper {
 		}
 	}
 
+	// ==================================================================== CRUD
+
+	/** Nama kelas panjang dipakai berulang; alias supaya badan method tetap terbaca. */
+	private static ais.database.model.akunting.Akun akunById(Session session, long id) {
+		return id <= 0 ? null
+				: (ais.database.model.akunting.Akun) session
+						.get(ais.database.model.akunting.Akun.class, Long.valueOf(id));
+	}
+
+	/**
+	 * Gerbang aksi granular per menu -- padanan grid CRUD pada {@code TbmroleAction}.
+	 *
+	 * <p>Server yang menjadi gerbang sebenarnya: klien boleh menyembunyikan tombol, tapi
+	 * permintaan yang tetap dikirim akan ditolak di sini. Admin global boleh; pengguna tanpa
+	 * role dianggap boleh supaya akun lama tidak mendadak kehilangan akses.</p>
+	 */
+	private static boolean bolehAksi(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+		if (role == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksi(
+				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunciMenu, aksi);
+	}
+
+	/** Hak tombol yang ikut pada tiap balasan daftar supaya klien tidak menebak-nebak. */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser, String kunciMenu) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", bolehAksi(tbmuser, kunciMenu, "create"));
+		j.put("update", bolehAksi(tbmuser, kunciMenu, "update"));
+		j.put("delete", bolehAksi(tbmuser, kunciMenu, "delete"));
+		return j;
+	}
+
+	/** Panjang digit tambahan kode akun anak (system property {@code akun_lenght}, bawaan 2). */
+	static int panjangKodeAnak() {
+		try {
+			Object p = System.getProperties().get("akun_lenght");
+			if (p != null) {
+				int n = Integer.parseInt(p.toString().trim());
+				if (n > 0 && n < 10) {
+					return n;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit KodeAkunApiHelper.panjangKodeAnak");
+		}
+		return 2;
+	}
+
+	/** true bila {@code calonInduk} ternyata keturunan dari akun ber-id {@code id} (cegah lingkaran). */
+	private static boolean keturunanDari(ais.database.model.akunting.Akun calonInduk, long id) {
+		ais.database.model.akunting.Akun p = calonInduk;
+		int pagar = 0;
+		while (p != null && pagar++ < 50) {
+			if (p.getId() != null && p.getId().longValue() == id) {
+				return true;
+			}
+			p = p.getParent();
+		}
+		return false;
+	}
+
+	private static void batalkan(Session session) {
+		batalkanDiam(session);
+	}
+
+	/**
+	 * Simpan (tambah/ubah) satu Akun. Urutan validasinya SAMA dengan {@code AkunAction.onSave}:
+	 * kode wajib, nama wajib, debet/kredit wajib, grup akun wajib, lalu kode harus unik.
+	 *
+	 * <p>Tombol "Copy" dan "Tambah Anak" di klien memakai aksi yang sama; bedanya hanya nilai
+	 * awal formulir (kode induk + nol sebanyak {@link #panjangKodeAnak()} untuk anak).</p>
+	 */
+	public static void akunSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		long id = request == null ? 0 : request.optLong("id", 0);
+		boolean baru = id <= 0;
+		if (!bolehAksi(tbmuser, "kode_akun", baru ? "create" : "update")) {
+			tolak(hasil, baru ? "Anda tidak memiliki hak menambah akun."
+					: "Anda tidak memiliki hak mengubah akun.");
+			return;
+		}
+		String kode = request.optString("kode", "").trim();
+		String nama = request.optString("nama", "").trim();
+		if (kode.isEmpty()) {
+			tolak(hasil, "Kode Akun belum diisi.");
+			return;
+		}
+		if (nama.isEmpty()) {
+			tolak(hasil, "Nama Akun belum diisi.");
+			return;
+		}
+		int dc = request.optInt("debetCredit", 0);
+		if (dc != 1 && dc != 2) {
+			tolak(hasil, "Debet / Credit belum dipilih.");
+			return;
+		}
+		long grupId = request.optLong("grupAkunId", 0);
+		if (grupId <= 0) {
+			tolak(hasil, "Grup Akun belum dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria cek = session.createCriteria(ais.database.model.akunting.Akun.class)
+					.add(org.hibernate.criterion.Restrictions.eq("kode", kode));
+			if (!baru) {
+				cek.add(org.hibernate.criterion.Restrictions.ne("id", Long.valueOf(id)));
+			}
+			if (cek.setMaxResults(1).uniqueResult() != null) {
+				tolak(hasil, "Kode Akun \"" + kode + "\" sudah dipakai akun lain.");
+				return;
+			}
+			ais.database.model.akunting.Akun akun = baru ? new ais.database.model.akunting.Akun()
+					: akunById(session, id);
+			if (akun == null) {
+				tolak(hasil, "Akun yang diubah tidak ditemukan (mungkin sudah dihapus pengguna lain).");
+				return;
+			}
+			ais.database.model.akunting.GrupAkun grup = (ais.database.model.akunting.GrupAkun) session
+					.get(ais.database.model.akunting.GrupAkun.class, Long.valueOf(grupId));
+			if (grup == null) {
+				tolak(hasil, "Grup Akun tidak ditemukan.");
+				return;
+			}
+			ais.database.model.akunting.Akun induk = null;
+			long parentId = request.optLong("parentId", 0);
+			if (parentId > 0) {
+				if (!baru && parentId == id) {
+					tolak(hasil, "Induk tidak boleh akun itu sendiri.");
+					return;
+				}
+				induk = akunById(session, parentId);
+				if (induk == null) {
+					tolak(hasil, "Akun induk tidak ditemukan.");
+					return;
+				}
+				if (!baru && keturunanDari(induk, id)) {
+					tolak(hasil, "Induk tidak boleh akun turunannya sendiri (hierarki akan melingkar).");
+					return;
+				}
+			}
+			akun.setKode(kode);
+			akun.setNama(nama);
+			akun.setKeterangan(request.optString("keterangan", "").trim());
+			akun.setDebetCredit(Integer.valueOf(dc));
+			akun.setGrupAkun(grup);
+			akun.setParent(induk);
+			String aktifitas = request.optString("aktifitas", "").trim();
+			akun.setAktifitas(aktifitas.isEmpty() ? null : aktifitas);
+			long bankId = request.optLong("bankId", 0);
+			akun.setBank(bankId > 0
+					? (ais.database.model.Bank) session.get(ais.database.model.Bank.class, Long.valueOf(bankId))
+					: null);
+			akun.setAtasNama(request.optString("atasNama", "").trim());
+			akun.setNoRek(request.optString("noRek", "").trim());
+			if (tbmuser != null) {
+				akun.setOleh(tbmuser.getUserNama());
+				akun.setOlehId(tbmuser.getUserId());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(akun);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", akun.getId());
+			hasil.put("message", baru ? "Akun berhasil ditambahkan." : "Akun berhasil diperbarui.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Akun belum dapat disimpan: " + e.getMessage());
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Hapus satu Akun. Pengaman disamakan dengan layar ZK (tombol hapus di sana hanya muncul
+	 * untuk node tanpa anak), ditambah pengaman yang tidak ada di ZK: akun yang SUDAH DIPAKAI
+	 * jurnal tidak boleh hilang karena buku besarnya akan kehilangan induk.
+	 */
+	public static void akunHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, "kode_akun", "delete")) {
+			tolak(hasil, "Anda tidak memiliki hak menghapus akun.");
+			return;
+		}
+		long id = request == null ? 0 : request.optLong("id", 0);
+		if (id <= 0) {
+			tolak(hasil, "Akun yang dihapus belum dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.akunting.Akun akun = akunById(session, id);
+			if (akun == null) {
+				tolak(hasil, "Akun tidak ditemukan (mungkin sudah dihapus pengguna lain).");
+				return;
+			}
+			Number anak = (Number) session.createCriteria(ais.database.model.akunting.Akun.class)
+					.add(org.hibernate.criterion.Restrictions.eq("parent", akun))
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			if (anak != null && anak.longValue() > 0) {
+				tolak(hasil, "Akun ini masih punya " + anak.longValue()
+						+ " akun turunan. Hapus atau pindahkan turunannya lebih dulu.");
+				return;
+			}
+			Number dipakai = (Number) session
+					.createSQLQuery("SELECT count(*) FROM akunting.transaksi WHERE akun = :id")
+					.setLong("id", id).uniqueResult();
+			if (dipakai != null && dipakai.longValue() > 0) {
+				tolak(hasil, "Akun ini sudah dipakai " + dipakai.longValue()
+						+ " baris jurnal sehingga tidak boleh dihapus. Nonaktifkan pemakaiannya saja.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(akun);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("message", "Akun \"" + akun.getKode() + " - " + akun.getNama() + "\" dihapus.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Akun tidak dapat dihapus karena masih berelasi dengan data lain.");
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Simpan (tambah/ubah) satu Bank beserta akun kas/banknya. */
+	public static void bankSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		long id = request == null ? 0 : request.optLong("id", 0);
+		boolean baru = id <= 0;
+		if (!bolehAksi(tbmuser, "bank_akun", baru ? "create" : "update")) {
+			tolak(hasil, baru ? "Anda tidak memiliki hak menambah bank." : "Anda tidak memiliki hak mengubah bank.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			tolak(hasil, "Nama Bank belum diisi.");
+			return;
+		}
+		String kode = request.optString("kode", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (!kode.isEmpty()) {
+				org.hibernate.Criteria cek = session.createCriteria(ais.database.model.Bank.class)
+						.add(org.hibernate.criterion.Restrictions.eq("kode", kode));
+				if (!baru) {
+					cek.add(org.hibernate.criterion.Restrictions.ne("id", Long.valueOf(id)));
+				}
+				if (cek.setMaxResults(1).uniqueResult() != null) {
+					tolak(hasil, "Kode Bank \"" + kode + "\" sudah dipakai bank lain.");
+					return;
+				}
+			}
+			ais.database.model.Bank bank = baru ? new ais.database.model.Bank()
+					: (ais.database.model.Bank) session.get(ais.database.model.Bank.class, Long.valueOf(id));
+			if (bank == null) {
+				tolak(hasil, "Bank yang diubah tidak ditemukan.");
+				return;
+			}
+			bank.setKode(kode.isEmpty() ? null : kode);
+			bank.setNama(nama);
+			bank.setKeterangan(request.optString("keterangan", "").trim());
+			bank.setAktif(Boolean.valueOf(request.optBoolean("aktif", true)));
+			long akunId = request.optLong("akunId", 0);
+			bank.setAkun(akunId > 0 ? akunById(session, akunId) : null);
+			if (tbmuser != null) {
+				bank.setOleh(tbmuser.getUserNama());
+				bank.setOlehId(tbmuser.getUserId());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(bank);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bank.getId());
+			hasil.put("message", baru ? "Bank berhasil ditambahkan." : "Bank berhasil diperbarui.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Bank belum dapat disimpan: " + e.getMessage());
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Hapus satu Bank. */
+	public static void bankHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, "bank_akun", "delete")) {
+			tolak(hasil, "Anda tidak memiliki hak menghapus bank.");
+			return;
+		}
+		long id = request == null ? 0 : request.optLong("id", 0);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.Bank bank = id <= 0 ? null
+					: (ais.database.model.Bank) session.get(ais.database.model.Bank.class, Long.valueOf(id));
+			if (bank == null) {
+				tolak(hasil, "Bank tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(bank);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("message", "Bank \"" + bank.getNama() + "\" dihapus.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Bank tidak dapat dihapus karena masih dipakai data lain (mis. akun atau rekening).");
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Simpan (tambah/ubah) satu Jenis Transaksi. */
+	public static void jenisTransaksiSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		long id = request == null ? 0 : request.optLong("id", 0);
+		boolean baru = id <= 0;
+		if (!bolehAksi(tbmuser, "jenis_transaksi", baru ? "create" : "update")) {
+			tolak(hasil, baru ? "Anda tidak memiliki hak menambah jenis transaksi."
+					: "Anda tidak memiliki hak mengubah jenis transaksi.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			tolak(hasil, "Nama Jenis Transaksi belum diisi.");
+			return;
+		}
+		String kode = request.optString("kode", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (!kode.isEmpty()) {
+				org.hibernate.Criteria cek = session
+						.createCriteria(ais.database.model.akunting.JenisTransaksi.class)
+						.add(org.hibernate.criterion.Restrictions.eq("kode", kode));
+				if (!baru) {
+					cek.add(org.hibernate.criterion.Restrictions.ne("id", Long.valueOf(id)));
+				}
+				if (cek.setMaxResults(1).uniqueResult() != null) {
+					tolak(hasil, "Kode \"" + kode + "\" sudah dipakai jenis transaksi lain.");
+					return;
+				}
+			}
+			ais.database.model.akunting.JenisTransaksi jt = baru
+					? new ais.database.model.akunting.JenisTransaksi()
+					: (ais.database.model.akunting.JenisTransaksi) session
+							.get(ais.database.model.akunting.JenisTransaksi.class, Long.valueOf(id));
+			if (jt == null) {
+				tolak(hasil, "Jenis transaksi yang diubah tidak ditemukan.");
+				return;
+			}
+			jt.setKode(kode.isEmpty() ? null : kode);
+			jt.setNama(nama);
+			jt.setKeterangan(request.optString("keterangan", "").trim());
+			jt.setAktif(Boolean.valueOf(request.optBoolean("aktif", true)));
+			long akunId = request.optLong("akunId", 0);
+			jt.setAkun(akunId > 0 ? akunById(session, akunId) : null);
+			if (tbmuser != null) {
+				jt.setOleh(tbmuser.getUserNama());
+				jt.setOlehId(tbmuser.getUserId());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(jt);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", jt.getId());
+			hasil.put("message", baru ? "Jenis transaksi berhasil ditambahkan."
+					: "Jenis transaksi berhasil diperbarui.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Jenis transaksi belum dapat disimpan: " + e.getMessage());
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Hapus satu Jenis Transaksi. */
+	public static void jenisTransaksiHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		if (!bolehAksi(tbmuser, "jenis_transaksi", "delete")) {
+			tolak(hasil, "Anda tidak memiliki hak menghapus jenis transaksi.");
+			return;
+		}
+		long id = request == null ? 0 : request.optLong("id", 0);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.akunting.JenisTransaksi jt = id <= 0 ? null
+					: (ais.database.model.akunting.JenisTransaksi) session
+							.get(ais.database.model.akunting.JenisTransaksi.class, Long.valueOf(id));
+			if (jt == null) {
+				tolak(hasil, "Jenis transaksi tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(jt);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("message", "Jenis transaksi \"" + jt.getNama() + "\" dihapus.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Jenis transaksi tidak dapat dihapus karena masih dipakai transaksi lain.");
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Simpan (tambah/ubah) satu Grup Akun. */
+	public static void grupAkunSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		long id = request == null ? 0 : request.optLong("id", 0);
+		boolean baru = id <= 0;
+		if (!bolehAksi(tbmuser, "grup_akun", baru ? "create" : "update")) {
+			tolak(hasil, baru ? "Anda tidak memiliki hak menambah grup akun."
+					: "Anda tidak memiliki hak mengubah grup akun.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			tolak(hasil, "Nama Grup Akun belum diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria cek = session.createCriteria(ais.database.model.akunting.GrupAkun.class)
+					.add(org.hibernate.criterion.Restrictions.eq("nama", nama));
+			if (!baru) {
+				cek.add(org.hibernate.criterion.Restrictions.ne("id", Long.valueOf(id)));
+			}
+			if (cek.setMaxResults(1).uniqueResult() != null) {
+				tolak(hasil, "Grup Akun \"" + nama + "\" sudah ada.");
+				return;
+			}
+			ais.database.model.akunting.GrupAkun ga = baru ? new ais.database.model.akunting.GrupAkun()
+					: (ais.database.model.akunting.GrupAkun) session
+							.get(ais.database.model.akunting.GrupAkun.class, Long.valueOf(id));
+			if (ga == null) {
+				tolak(hasil, "Grup akun yang diubah tidak ditemukan.");
+				return;
+			}
+			ga.setNama(nama);
+			ga.setKeterangan(request.optString("keterangan", "").trim());
+			if (tbmuser != null) {
+				ga.setOleh(tbmuser.getUserNama());
+				ga.setOlehId(tbmuser.getUserId());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(ga);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", ga.getId());
+			hasil.put("message", baru ? "Grup akun berhasil ditambahkan." : "Grup akun berhasil diperbarui.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Grup akun belum dapat disimpan: " + e.getMessage());
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Hapus satu Grup Akun -- ditolak bila masih ada akun yang memakainya. */
+	public static void grupAkunHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, "grup_akun", "delete")) {
+			tolak(hasil, "Anda tidak memiliki hak menghapus grup akun.");
+			return;
+		}
+		long id = request == null ? 0 : request.optLong("id", 0);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.akunting.GrupAkun ga = id <= 0 ? null
+					: (ais.database.model.akunting.GrupAkun) session
+							.get(ais.database.model.akunting.GrupAkun.class, Long.valueOf(id));
+			if (ga == null) {
+				tolak(hasil, "Grup akun tidak ditemukan.");
+				return;
+			}
+			Number dipakai = (Number) session.createCriteria(ais.database.model.akunting.Akun.class)
+					.add(org.hibernate.criterion.Restrictions.eq("grupAkun", ga))
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			if (dipakai != null && dipakai.longValue() > 0) {
+				tolak(hasil, "Grup akun ini masih dipakai " + dipakai.longValue()
+						+ " akun. Pindahkan akun-akun itu ke grup lain lebih dulu.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(ga);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("message", "Grup akun \"" + ga.getNama() + "\" dihapus.");
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Grup akun tidak dapat dihapus karena masih berelasi dengan data lain.");
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: seluruh aksi berawalan {@code kode_akun_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -528,15 +1038,15 @@ public final class KodeAkunApiHelper {
 			return true;
 		}
 		if ("kode_akun_grup".equals(action)) {
-			grupAkunDaftar(hasil);
+			grupAkunDaftar(tbmuser, hasil);
 			return true;
 		}
 		if ("kode_akun_bank".equals(action)) {
-			bankDaftar(request, hasil);
+			bankDaftar(tbmuser, request, hasil);
 			return true;
 		}
 		if ("kode_akun_jenis_transaksi".equals(action)) {
-			jenisTransaksiDaftar(request, hasil);
+			jenisTransaksiDaftar(tbmuser, request, hasil);
 			return true;
 		}
 		if ("kode_akun_impor".equals(action)) {
@@ -549,6 +1059,38 @@ public final class KodeAkunApiHelper {
 		}
 		if ("kode_akun_jenis_transaksi_impor".equals(action)) {
 			jenisTransaksiImpor(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_simpan".equals(action)) {
+			akunSimpan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_hapus".equals(action)) {
+			akunHapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_bank_simpan".equals(action)) {
+			bankSimpan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_bank_hapus".equals(action)) {
+			bankHapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_jenis_transaksi_simpan".equals(action)) {
+			jenisTransaksiSimpan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_jenis_transaksi_hapus".equals(action)) {
+			jenisTransaksiHapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_grup_simpan".equals(action)) {
+			grupAkunSimpan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_grup_hapus".equals(action)) {
+			grupAkunHapus(tbmuser, request, hasil);
 			return true;
 		}
 		return false;

@@ -93,6 +93,9 @@
 .repo-page-head p { color: var(--repo-muted); margin: 5px 0 0; }
 .repo-search-panel { padding: 13px; margin-bottom: 16px; }
 .repo-search-panel .repo-search { margin: 0; border: 1px solid var(--repo-line); background: #fff; }
+.repo-advanced-search { margin-top: 12px; border-top: 1px solid var(--repo-line); padding: 10px 4px 2px; }
+.repo-advanced-search summary { cursor: pointer; color: var(--repo-primary); font-weight: 800; }
+.repo-advanced-search .repo-form-grid { margin-top: 14px; }
 .repo-search-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 17px; padding-bottom: 30px; }
 .repo-facets { align-self: start; position: sticky; top: 88px; padding: 18px; }
 .repo-facets h2 { font-size: 17px; margin: 0 0 10px; }

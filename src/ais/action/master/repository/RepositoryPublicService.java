@@ -46,6 +46,10 @@ public class RepositoryPublicService {
 
     public static class Query {
         public String keyword = "";
+        public String author = "";
+        public String subject = "";
+        public String language = "";
+        public String identifier = "";
         public Long collectionId;
         public String documentType = "";
         public String accessPolicy = "";
@@ -135,6 +139,10 @@ public class RepositoryPublicService {
     public Query normalize(Query input) {
         Query q = input == null ? new Query() : input;
         q.keyword = limit(clean(q.keyword), 200);
+        q.author = limit(clean(q.author), 200);
+        q.subject = limit(clean(q.subject), 200);
+        q.language = limit(clean(q.language).toLowerCase(), 20);
+        q.identifier = limit(clean(q.identifier), 255);
         q.documentType = limit(clean(q.documentType), 80);
         q.accessPolicy = normalizeAccess(clean(q.accessPolicy));
         q.sort = normalizeSort(q.sort);
@@ -375,6 +383,12 @@ public class RepositoryPublicService {
         if (q.collectionId != null) criteria.add(Restrictions.eq("collectionId", q.collectionId));
         if (q.documentType.length() > 0) criteria.add(Restrictions.eq("documentType", q.documentType));
         if (q.accessPolicy.length() > 0) criteria.add(Restrictions.eq("accessPolicy", q.accessPolicy));
+        if (q.author.length() > 0) criteria.add(Restrictions.ilike("authors", q.author, MatchMode.ANYWHERE));
+        if (q.subject.length() > 0) criteria.add(Restrictions.ilike("subjects", q.subject, MatchMode.ANYWHERE));
+        if (q.language.length() > 0) criteria.add(Restrictions.eq("language", q.language));
+        if (q.identifier.length() > 0) criteria.add(Restrictions.or(
+                Restrictions.ilike("oaiIdentifier", q.identifier, MatchMode.ANYWHERE),
+                Restrictions.ilike("dspaceHandle", q.identifier, MatchMode.ANYWHERE)));
         if (q.year != null) {
             Calendar from = Calendar.getInstance();
             from.clear();
@@ -416,6 +430,8 @@ public class RepositoryPublicService {
             criteria.addOrder(Order.asc("issuedAt")).addOrder(Order.asc("id"));
         } else if ("title".equals(sort)) {
             criteria.addOrder(Order.asc("title")).addOrder(Order.desc("id"));
+        } else if ("author".equals(sort)) {
+            criteria.addOrder(Order.asc("authors")).addOrder(Order.asc("title"));
         } else {
             criteria.addOrder(Order.desc("issuedAt")).addOrder(Order.desc("id"));
         }
@@ -441,7 +457,7 @@ public class RepositoryPublicService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Long> yearFacet(Session session, Query q) {
-        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
+        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.author=q.author; withoutYear.subject=q.subject; withoutYear.language=q.language; withoutYear.identifier=q.identifier; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
         List<RepoItem> rows = searchCriteria(session, withoutYear).addOrder(Order.desc("issuedAt")).setMaxResults(5000).list();
         Map<String,Long> result=new LinkedHashMap<String,Long>(); SimpleDateFormat f=new SimpleDateFormat("yyyy");
         for(RepoItem row:rows){if(row.getIssuedAt()==null)continue;String y=f.format(row.getIssuedAt());Long n=result.get(y);result.put(y,Long.valueOf(n==null?1:n.longValue()+1));} return result;
@@ -578,7 +594,7 @@ public class RepositoryPublicService {
 
     private String normalizeSort(String value) {
         String sort = clean(value).toLowerCase();
-        return "oldest".equals(sort) || "title".equals(sort) ? sort : "newest";
+        return "oldest".equals(sort) || "title".equals(sort) || "author".equals(sort) ? sort : "newest";
     }
 
     private String citationEscape(String value) {

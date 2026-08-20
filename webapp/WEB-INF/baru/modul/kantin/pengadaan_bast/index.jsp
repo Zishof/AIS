@@ -154,6 +154,7 @@ String rnd = Common.getGeneratedBarCode(7);
                 <th style="width:130px"><%=Common.getBahasaConfig("Harga")%></th>
                 <th style="width:110px"><%=Common.getBahasaConfig("Potongan")%></th>
                 <th style="width:90px"><%=Common.getBahasaConfig("PPN %")%></th>
+                <th style="width:90px"><%=Common.getBahasaConfig("PPh %")%></th>
                 <th class="text-end" style="width:140px"><%=Common.getBahasaConfig("Subtotal")%></th>
                 <th style="width:50px"></th>
               </tr>
@@ -161,7 +162,7 @@ String rnd = Common.getGeneratedBarCode(7);
             <tbody id="bsBarisTbody<%=rnd%>"></tbody>
             <tfoot>
               <tr class="fw-bold">
-                <td colspan="5" class="text-end"><%=Common.getBahasaConfig("Total Nilai Penerimaan")%></td>
+                <td colspan="6" class="text-end"><%=Common.getBahasaConfig("Total Nilai Penerimaan")%></td>
                 <td class="text-end" id="bsTotal<%=rnd%>">0</td>
                 <td></td>
               </tr>
@@ -174,6 +175,9 @@ String rnd = Common.getGeneratedBarCode(7);
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Tutup")%></button>
+        <button type="button" class="btn btn-outline-warning d-none" id="bsBackOrder<%=rnd%>" onclick="bsBackOrder<%=rnd%>()">
+          <i class="fas fa-rotate-left me-2"></i><%=Common.getBahasaConfig("Back Order / Pesan Kembali")%>
+        </button>
         <button type="button" class="btn btn-primary" id="bsSimpan<%=rnd%>" onclick="bsSimpan<%=rnd%>()"><%=Common.getBahasaConfig("Simpan")%></button>
       </div>
     </div>
@@ -234,6 +238,49 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
+
+
+<%-- Back Order / Pesan Kembali: dipakai bila barang datang kurang dari pesanan. --%>
+<div class="modal fade" id="bsBoModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bsBoJudul<%=rnd%>"><%=Common.getBahasaConfig("Back Order")%></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning py-2 small">
+          <%=Common.getBahasaConfig("Sisa pesanan ini akan DITUTUP. Sesudah ditutup, pesanan tidak menerima barang lagi -- kekurangannya diterima pada pesanan susulan.")%>
+        </div>
+        <div class="btn-group mb-2" role="group">
+          <input type="radio" class="btn-check" name="bsBoTindakan<%=rnd%>" id="bsBoPesan<%=rnd%>" checked
+                 onchange="bsBoGanti<%=rnd%>(true)">
+          <label class="btn btn-outline-primary btn-sm" for="bsBoPesan<%=rnd%>"><%=Common.getBahasaConfig("Pesan kembali")%></label>
+          <input type="radio" class="btn-check" name="bsBoTindakan<%=rnd%>" id="bsBoTutup<%=rnd%>"
+                 onchange="bsBoGanti<%=rnd%>(false)">
+          <label class="btn btn-outline-primary btn-sm" for="bsBoTutup<%=rnd%>"><%=Common.getBahasaConfig("Tutup sisa saja")%></label>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small"><%=Common.getBahasaConfig("Alasan")%> *</label>
+          <input type="text" id="bsBoAlasan<%=rnd%>" class="form-control form-control-sm"
+                 placeholder="<%=Common.getBahasaConfig("mis. stok vendor habis, barang tidak sesuai spesifikasi")%>">
+        </div>
+        <div class="mb-2" id="bsBoBatasBox<%=rnd%>">
+          <label class="form-label small"><%=Common.getBahasaConfig("Batas kirim (hh-bb-tttt)")%></label>
+          <input type="text" id="bsBoBatas<%=rnd%>" class="form-control form-control-sm" placeholder="dd-MM-yyyy">
+        </div>
+        <div id="bsBoIsi<%=rnd%>"></div>
+      </div>
+      <div class="modal-footer">
+        <span id="bsBoRingkas<%=rnd%>" class="me-auto small fw-bold"></span>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+        <button type="button" class="btn btn-primary" id="bsBoKirim<%=rnd%>" onclick="bsBoKirim<%=rnd%>()">
+          <i class="fas fa-rotate-left me-2"></i><%=Common.getBahasaConfig("Tutup & Pesan Kembali")%>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
 <jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
@@ -355,7 +402,7 @@ String rnd = Common.getGeneratedBarCode(7);
   function renderBaris(terkunci){
     var tb = el("bsBarisTbody");
     if (!baris.length){
-      tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Belum ada barang. Tambahkan minimal satu baris.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Belum ada barang. Tambahkan minimal satu baris.</td></tr>';
       hitungTotal(); return;
     }
     var h = "";
@@ -374,6 +421,8 @@ String rnd = Common.getGeneratedBarCode(7);
         + (terkunci ? ' disabled' : '') + ' oninput="bsUbahBaris' + RND + '(' + i + ',\'potongan\',this.value)"></td>'
         + '<td><input type="number" class="form-control form-control-sm" value="' + angka(b.ppn) + '"'
         + (terkunci ? ' disabled' : '') + ' oninput="bsUbahBaris' + RND + '(' + i + ',\'ppn\',this.value)"></td>'
+        + '<td><input type="number" class="form-control form-control-sm" value="' + angka(b.pph) + '"'
+        + (terkunci ? ' disabled' : '') + ' oninput="bsUbahBaris' + RND + '(' + i + ',\'pph\',this.value)"></td>'
         + '<td class="text-end" id="bsSub' + RND + i + '">' + rp(subtotal(b)) + '</td>'
         + '<td>' + (terkunci ? '' : '<button class="btn btn-sm btn-outline-danger" onclick="bsHapusBaris' + RND + '(' + i + ')"><i class="fas fa-times"></i></button>') + '</td>'
         + '</tr>';
@@ -421,6 +470,9 @@ String rnd = Common.getGeneratedBarCode(7);
     var kolom = ["bsKeterangan","bsKodeTagihan","bsTglTagihan","bsKurir","bsDiskonPersen"];
     for (var i=0;i<kolom.length;i++) el(kolom[i]).disabled = terkunci;
     renderBaris(terkunci);
+    // Back Order hanya masuk akal pada penerimaan yang sudah tersimpan dan
+    // berasal dari sebuah PO -- kekurangannya dihitung dari BAST yang tercatat.
+    el("bsBackOrder").classList.toggle("d-none", !(poId && bsAktif && bsAktif.id));
     new bootstrap.Modal(document.getElementById("bsModal" + RND)).show();
   }
 
@@ -452,7 +504,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("bsKurir").value = bsAktif.kurir || "";
       baris = (d.detail || []).map(function(x){
         return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
-                 harga: angka(x.hargaBeli), potongan: 0, ppn: 0,
+                 harga: angka(x.hargaBeli), potongan: angka(x.hargaPotongan), ppn: angka(x.persenPpn), pph: angka(x.persenPph),
                  po_detail_id: x.po_detail_id || null,
                  sisaBoleh: (x.sisaBolehDiterima === null || x.sisaBolehDiterima === undefined)
                             ? null : Number(x.sisaBolehDiterima) };
@@ -482,7 +534,7 @@ String rnd = Common.getGeneratedBarCode(7);
       detail: baris.map(function(b){
         var o = { diterima: angka(b.diterima),
                   hargaBeli: angka(b.harga), hargaPotongan: angka(b.potongan),
-                  diskonPersen: diskonPersen(), persenPpn: angka(b.ppn), persenPph: 0 };
+                  diskonPersen: diskonPersen(), persenPpn: angka(b.ppn), persenPph: angka(b.pph) };
         if (b.barang_id) o.produk_id = b.barang_id; else o.master_asset_id = b.master_asset_id;
         if (b.po_detail_id) o.po_detail_id = b.po_detail_id;
         return o;
@@ -554,7 +606,7 @@ String rnd = Common.getGeneratedBarCode(7);
     });
   };
   window["bsPilihBarang" + RND] = function(id, nama){
-    baris.push({ barang_id:id, master_asset_id:null, nama:nama, diterima:1, harga:0, potongan:0, ppn:0,
+    baris.push({ barang_id:id, master_asset_id:null, nama:nama, diterima:1, harga:0, potongan:0, ppn:0, pph:0,
                  po_detail_id:null, sisaBoleh:null });
     renderBaris(false);
     bootstrap.Modal.getInstance(document.getElementById("bsBarangModal" + RND)).hide();
@@ -628,7 +680,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("bsKeterangan").value = d.keterangan || "";
       baris = isian.map(function(x){
         return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, diterima: angka(x.diterima),
-                 harga: angka(x.hargaBeli), potongan: 0, ppn: 0,
+                 harga: angka(x.hargaBeli), potongan: 0, ppn: 0, pph: 0,
                  po_detail_id: x.po_detail_id || null,
                  sisaBoleh: Number(x.sisaBolehDiterima) };
       });
@@ -636,6 +688,106 @@ String rnd = Common.getGeneratedBarCode(7);
     });
   };
 
+
+  // ---------- Back Order / Pesan Kembali ----------
+  // Sisa pesanan lama SELALU ditutup lebih dulu; tanpa itu jumlah yang sama akan
+  // terhitung dua kali dan permintaan asalnya tampak dipesan melebihi yang diminta.
+  var boBaris = [], boPoId = null, boPenyediaId = null;
+  window["bsBackOrder" + RND] = function(){
+    if (!poId){ pesan("Back order hanya berlaku untuk penerimaan atas sebuah PO.", false); return; }
+    boPoId = poId;
+    el("bsBoJudul").textContent = "Back Order - " + (poKode || "");
+    el("bsBoAlasan").value = "";
+    el("bsBoBatas").value = "";
+    el("bsBoIsi").innerHTML = "";
+    el("bsBoRingkas").innerHTML = "";
+    document.getElementById("bsBoPesan" + RND).checked = true;
+    window["bsBoGanti" + RND](true);
+    new bootstrap.Modal(document.getElementById("bsBoModal" + RND)).show();
+    api({action:"pengadaan_po_kekurangan", po_id: boPoId}).then(function(d){
+      if (d.status !== "00" && d.status !== "success"){
+        el("bsBoIsi").innerHTML = '<div class="text-danger small">' + esc(d.description || "Gagal memuat kekurangan pesanan.") + '</div>';
+        return;
+      }
+      boPenyediaId = d.penyedia_id || null;
+      boBaris = (d.detail || []).filter(function(x){ return angka(x.kurang) > 0; });
+      if (!boBaris.length){
+        el("bsBoIsi").innerHTML = '<div class="text-muted small">Tidak ada kekurangan pada ' + esc(d.po || "") + ' - seluruh barang sudah diterima lengkap.</div>';
+        el("bsBoKirim").disabled = true;
+        return;
+      }
+      el("bsBoKirim").disabled = false;
+      var h = '<table class="table table-sm"><thead><tr><th style="width:36px"></th><th>Barang</th>'
+            + '<th class="text-end">Dipesan</th><th class="text-end">Diterima</th><th class="text-end">Kurang</th>'
+            + '<th class="text-end" style="width:110px">Pesan ulang</th><th class="text-end">Nilai</th></tr></thead><tbody>';
+      for (var i=0;i<boBaris.length;i++){
+        var x = boBaris[i];
+        h += '<tr><td><input type="checkbox" class="form-check-input" id="boCek' + i + RND + '" checked onchange="bsBoHitung' + RND + '()"></td>'
+           + '<td class="small">' + esc(x.barang || "") + '</td>'
+           + '<td class="text-end small">' + angka(x.dipesan) + '</td>'
+           + '<td class="text-end small">' + angka(x.diterima) + '</td>'
+           + '<td class="text-end small fw-bold">' + angka(x.kurang) + '</td>'
+           + '<td><input type="number" class="form-control form-control-sm text-end" id="boJml' + i + RND + '"'
+           + ' value="' + angka(x.kurang) + '" min="0" step="any" onchange="bsBoHitung' + RND + '()"></td>'
+           + '<td class="text-end small" id="boNil' + i + RND + '">' + rp(x.nilaiKurang) + '</td></tr>';
+      }
+      h += '</tbody></table>';
+      el("bsBoIsi").innerHTML = h;
+      window["bsBoHitung" + RND]();
+    });
+  };
+  window["bsBoGanti" + RND] = function(pesanKembali){
+    el("bsBoBatasBox").classList.toggle("d-none", !pesanKembali);
+    el("bsBoIsi").classList.toggle("d-none", !pesanKembali);
+    el("bsBoKirim").innerHTML = pesanKembali
+      ? '<i class="fas fa-rotate-left me-2"></i>Tutup &amp; Pesan Kembali'
+      : '<i class="fas fa-ban me-2"></i>Tutup Sisa';
+  };
+  window["bsBoHitung" + RND] = function(){
+    var n = 0, total = 0;
+    for (var i=0;i<boBaris.length;i++){
+      var c = document.getElementById("boCek" + i + RND);
+      var j = document.getElementById("boJml" + i + RND);
+      var t = document.getElementById("boNil" + i + RND);
+      var jml = j ? angka(j.value) : 0;
+      var sub = jml * angka(boBaris[i].hargaBeli);
+      if (t) t.innerHTML = rp(sub);
+      if (c && c.checked && jml > 0){ n++; total += sub; }
+    }
+    el("bsBoRingkas").innerHTML = n + " barang &middot; " + rp(total);
+  };
+  window["bsBoKirim" + RND] = function(){
+    var alasan = el("bsBoAlasan").value.trim();
+    if (!alasan){ pesan("Alasan wajib diisi - keputusan menutup sisa pesanan harus dapat ditelusuri.", false); return; }
+    var pesanKembali = document.getElementById("bsBoPesan" + RND).checked;
+    var det = [];
+    if (pesanKembali){
+      for (var i=0;i<boBaris.length;i++){
+        var c = document.getElementById("boCek" + i + RND);
+        var j = document.getElementById("boJml" + i + RND);
+        if (!c || !c.checked) continue;
+        var jml = j ? angka(j.value) : 0;
+        if (jml <= 0) continue;
+        det.push({ po_detail_id: boBaris[i].po_detail_id, jumlah: jml });
+      }
+      if (!det.length){ pesan("Centang barang yang ingin dipesan ulang, atau pilih Tutup sisa saja.", false); return; }
+    }
+    var payload = { action:"pengadaan_po_back_order", po_id: boPoId, alasan: alasan,
+                    tindakan: pesanKembali ? "pesan_kembali" : "tutup_saja" };
+    if (pesanKembali){
+      payload.detail = det;
+      if (boPenyediaId) payload.penyedia_id = boPenyediaId;
+      var batas = el("bsBoBatas").value.trim();
+      if (batas) payload.pengirimanPalingLambat = batas;
+    }
+    api(payload).then(function(d){
+      if (d.status !== "00" && d.status !== "success"){ pesan(d.description || "Gagal memproses back order.", false); return; }
+      bootstrap.Modal.getInstance(document.getElementById("bsBoModal" + RND)).hide();
+      bootstrap.Modal.getInstance(document.getElementById("bsModal" + RND)).hide();
+      pesan(d.description || "Back order diproses.", true);
+      window["bsMuat" + RND](1);
+    });
+  };
   // Muat pertama kali
   window["bsMuat" + RND](1);
 })();

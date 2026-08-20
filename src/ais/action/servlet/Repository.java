@@ -27,6 +27,7 @@ import ais.action.master.repository.RepositoryPublicService.ItemDetail;
 import ais.action.master.repository.RepositoryPublicService.Query;
 import ais.action.master.repository.RepositoryPublicService.SearchResult;
 import ais.common.Common;
+import ais.common.security.PublicRegistrationRateLimiter;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoBitstream;
 
@@ -58,12 +59,8 @@ public class Repository extends HttpServlet {
             request.setCharacterEncoding("UTF-8");
             process(request, response, requestId);
         } catch (Exception e) {
-            try {
-                Common.tampilErrorJikaAdmin(e);
-            } catch (Exception ignored) {
-                ais.common.ErrorAuditUtil.record(ignored,
-                        "Repository servlet failed while reporting error " + requestId);
-            }
+            ais.common.ErrorAuditUtil.recordVisibleFailure(e,
+                    "Repository public servlet", request, requestId);
             if (!response.isCommitted()) {
                 if (isJsonRequest(request)) {
                     writeJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -83,6 +80,16 @@ public class Repository extends HttpServlet {
 
     private void process(HttpServletRequest request, HttpServletResponse response, String requestId) throws Exception {
         String action = clean(request.getParameter("action")).toLowerCase();
+        String view = clean(request.getParameter("view")).toLowerCase();
+        String ip = request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
+        if (("search".equals(action) || "search".equals(view) || "browse".equals(view))
+                && !PublicRegistrationRateLimiter.izinkan("repository-search|" + ip, 300, 3600000L)) {
+            tooManyRequests(response, requestId); return;
+        }
+        if ("download".equals(action)
+                && !PublicRegistrationRateLimiter.izinkan("repository-download|" + ip, 120, 3600000L)) {
+            tooManyRequests(response, requestId); return;
+        }
         if (request.getServletPath().endsWith("robots.txt")) { robots(request, response); return; }
         if (request.getServletPath().endsWith("sitemap.xml")) { sitemap(request, response); return; }
         if ("search".equals(action)) {
@@ -97,12 +104,15 @@ public class Repository extends HttpServlet {
             citation(request, response);
             return;
         }
+        if ("feed".equals(action)) {
+            feed(request, response);
+            return;
+        }
         if ("oai".equals(action)) {
             oai(request, response);
             return;
         }
 
-        String view = clean(request.getParameter("view")).toLowerCase();
         if (view.length() == 0) view = "home";
         request.setAttribute("repoView", view);
         request.setAttribute("repoSummary", service.loadSummary());
@@ -130,6 +140,10 @@ public class Repository extends HttpServlet {
     private Query queryFrom(HttpServletRequest request) {
         Query q = new Query();
         q.keyword = clean(request.getParameter("q"));
+        q.author = clean(request.getParameter("author"));
+        q.subject = clean(request.getParameter("subject"));
+        q.language = clean(request.getParameter("language"));
+        q.identifier = clean(request.getParameter("identifier"));
         q.collectionId = parseLong(request.getParameter("collection"));
         q.documentType = clean(request.getParameter("type"));
         q.accessPolicy = clean(request.getParameter("access"));
@@ -349,10 +363,46 @@ public class Repository extends HttpServlet {
         PrintWriter out = response.getWriter();
         out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>"
                 + xml(origin + "/repository") + "</loc></url>");
-        Query q = new Query(); q.pageSize = RepositoryPublicService.MAX_PAGE_SIZE;
-        for (ItemCard item : service.search(q).items)
-            out.print("<url><loc>" + xml(origin + "/repository?view=item&amp;id=" + item.id) + "</loc></url>");
+        Query q = new Query(); q.pageSize = RepositoryPublicService.MAX_PAGE_SIZE; q.page = 1;
+        SearchResult page;
+        do {
+            page = service.search(q);
+            for (ItemCard item : page.items)
+                out.print("<url><loc>" + xml(origin + "/repository?view=item&amp;id=" + item.id) + "</loc></url>");
+            q.page++;
+        } while (q.page <= page.totalPages);
         out.print("</urlset>");
+    }
+
+    private void feed(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        boolean atom = "atom".equalsIgnoreCase(clean(request.getParameter("format")));
+        String base = request.getScheme() + "://" + request.getServerName()
+                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort())
+                + request.getContextPath();
+        List<ItemCard> items = service.latest(20);
+        response.setContentType((atom ? "application/atom+xml" : "application/rss+xml") + ";charset=UTF-8");
+        PrintWriter out = response.getWriter();
+        if (atom) {
+            out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><title>Publikasi terbaru Repository AIS</title><id>" + xml(base + "/repository") + "</id><updated>" + xmlDate(new Date()) + "</updated>");
+            for (ItemCard item : items) out.print("<entry><title>" + xml(item.title) + "</title><id>" + xml(item.oaiIdentifier) + "</id><link href=\"" + xml(base + "/repository?view=item&amp;id=" + item.id) + "\"/><updated>" + xmlDate(item.issuedAt) + "</updated><summary>" + xml(item.abstractText) + "</summary></entry>");
+            out.print("</feed>");
+        } else {
+            out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\"><channel><title>Publikasi terbaru Repository AIS</title><link>" + xml(base + "/repository") + "</link><description>Karya ilmiah terbaru yang tersedia untuk publik.</description>");
+            for (ItemCard item : items) out.print("<item><title>" + xml(item.title) + "</title><guid isPermaLink=\"false\">" + xml(item.oaiIdentifier) + "</guid><link>" + xml(base + "/repository?view=item&amp;id=" + item.id) + "</link><description>" + xml(item.abstractText) + "</description><pubDate>" + rfc822(item.issuedAt) + "</pubDate></item>");
+            out.print("</channel></rss>");
+        }
+    }
+
+    private String rfc822(Date date) {
+        SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US);
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return format.format(date == null ? new Date(0L) : date);
+    }
+
+    private void tooManyRequests(HttpServletResponse response, String requestId) throws IOException {
+        response.setHeader("Retry-After", "3600");
+        writeJsonError(response, 429, "RATE_LIMITED",
+                "Terlalu banyak permintaan. Silakan coba kembali beberapa saat lagi.", requestId);
     }
 
     private String actorId(HttpServletRequest request) {

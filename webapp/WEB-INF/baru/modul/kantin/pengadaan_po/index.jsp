@@ -253,20 +253,27 @@ String rnd = Common.getGeneratedBarCode(7);
 </div>
 
 <div class="modal fade" id="poPrModal<%=rnd%>" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><%=Common.getBahasaConfig("Pilih Permintaan Pembelian")%></h5>
+        <h5 class="modal-title"><%=Common.getBahasaConfig("Ambil Barang PR")%></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="small text-muted mb-2">
-          <%=Common.getBahasaConfig("Hanya PR berstatus DISETUJUI yang dapat dijadikan pesanan.")%>
+          <%=Common.getBahasaConfig("Centang barang yang ingin dipesan. Barang dari beberapa PR boleh digabung ke dalam satu Pemesanan Pembelian.")%>
         </div>
         <input type="text" id="poPrCari<%=rnd%>" class="form-control mb-2"
-               placeholder="<%=Common.getBahasaConfig("Cari kode / keterangan PR")%>"
+               placeholder="<%=Common.getBahasaConfig("Cari kode PR / keterangan")%>"
                onkeydown="if(event.key==='Enter')poPrMuat<%=rnd%>()">
-        <div id="poPrHasil<%=rnd%>" class="list-group"></div>
+        <div id="poPrHasil<%=rnd%>" style="max-height:52vh;overflow:auto"></div>
+      </div>
+      <div class="modal-footer">
+        <span id="poPrRingkas<%=rnd%>" class="me-auto small fw-bold"></span>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Tutup")%></button>
+        <button type="button" class="btn btn-primary" onclick="poAmbilPr<%=rnd%>()">
+          <i class="fas fa-list-check me-2"></i><%=Common.getBahasaConfig("Ambil Barang")%>
+        </button>
       </div>
     </div>
   </div>
@@ -699,48 +706,112 @@ String rnd = Common.getGeneratedBarCode(7);
     bootstrap.Modal.getInstance(document.getElementById("poPenyediaModal" + RND)).hide();
   };
 
-  // ---------- Buat PO dari PR ----------
+  // ---------- Ambil Barang PR ----------
+  // Padanan layar "Ambil Barang PR" versi ZKoss: yang ditampilkan adalah BARANG-nya,
+  // dikelompokkan per nomor PR, dan boleh dicentang lintas PR dalam satu pesanan.
+  var prGrup = [];
   window["poDariPr" + RND] = function(){
     el("poPrCari").value = "";
     el("poPrHasil").innerHTML = "";
+    el("poPrRingkas").innerHTML = "";
     new bootstrap.Modal(document.getElementById("poPrModal" + RND)).show();
     window["poPrMuat" + RND]();
   };
   window["poPrMuat" + RND] = function(){
-    api({action:"pengadaan_pr_daftar", status:"DISETUJUI", cari: el("poPrCari").value.trim(), page:1, pageSize:50})
+    api({action:"pengadaan_pr_barang_tersedia", cari: el("poPrCari").value.trim(), limit:30})
       .then(function(d){
-        var rows = d.data || [];
-        if (!rows.length){ el("poPrHasil").innerHTML = '<div class="text-muted small py-2">Belum ada PR disetujui yang bisa dipesan.</div>'; return; }
+        prGrup = d.data || [];
+        if (!prGrup.length){
+          el("poPrHasil").innerHTML = '<div class="text-muted small py-2">'
+            + esc(d.catatan || "Belum ada barang PR yang menunggu dipesan.") + '</div>';
+          window["poPrHitung" + RND]();
+          return;
+        }
         var h = "";
-        for (var i=0;i<rows.length;i++){
-          var r = rows[i];
-          h += '<a href="javascript:void(0)" class="list-group-item list-group-item-action"'
-             + ' onclick="poAmbilPr' + RND + '(' + r.id + ')">'
-             + '<div class="d-flex justify-content-between"><span class="fw-bold">' + esc(r.kode) + '</span>'
-             + '<span>' + rp(r.nilai) + '</span></div>'
-             + '<div class="small text-muted">' + esc(r.keterangan || "") + '</div></a>';
+        for (var g=0; g<prGrup.length; g++){
+          var pr = prGrup[g];
+          var det = pr.detail || [];
+          h += '<div class="card mb-2"><div class="card-header py-2 d-flex align-items-center">'
+             + '<input type="checkbox" class="form-check-input me-2" id="prGrupCek' + g + RND + '"'
+             + ' onchange="poPrGrupCek' + RND + '(' + g + ', this.checked)">'
+             + '<div class="flex-grow-1"><span class="fw-bold">' + esc(pr.kode || "") + '</span>'
+             + '<div class="small text-muted">' + esc(pr.keterangan || "")
+             + (pr.disetujuiOleh ? ' &middot; disetujui ' + esc(pr.disetujuiOleh) : "") + '</div></div>'
+             + '<span class="small">' + det.length + ' barang &middot; ' + rp(pr.nilaiSisa) + '</span>'
+             + '</div><div class="card-body py-2"><table class="table table-sm mb-0"><thead><tr>'
+             + '<th style="width:36px"></th><th>Kode</th><th>Nama Barang/Jasa</th>'
+             + '<th class="text-end">Diminta</th><th class="text-end">Sudah dipesan</th>'
+             + '<th class="text-end">Qty BAST</th><th class="text-end">Sisa</th>'
+             + '<th class="text-end" style="width:110px">Jumlah</th>'
+             + '<th class="text-end">Harga</th><th class="text-end">Total</th></tr></thead><tbody>';
+          for (var i=0;i<det.length;i++){
+            var x = det[i];
+            h += '<tr><td><input type="checkbox" class="form-check-input" id="prCek' + g + '_' + i + RND + '"'
+               + ' onchange="poPrHitung' + RND + '()"></td>'
+               + '<td class="small">' + esc(x.kodeBarang || "") + '</td>'
+               + '<td class="small">' + esc(x.barang || "") + '</td>'
+               + '<td class="text-end small">' + angka(x.jumlahDiminta) + '</td>'
+               + '<td class="text-end small">' + angka(x.jumlahSudahDipesan) + '</td>'
+               + '<td class="text-end small">' + angka(x.jumlahDatang) + '</td>'
+               + '<td class="text-end small fw-bold">' + angka(x.sisa) + '</td>'
+               + '<td><input type="number" class="form-control form-control-sm text-end" id="prJml' + g + '_' + i + RND + '"'
+               + ' value="' + angka(x.sisa) + '" min="0" step="any" onchange="poPrHitung' + RND + '()"></td>'
+               + '<td class="text-end small">' + rp(x.hargaBeli) + '</td>'
+               + '<td class="text-end small" id="prTot' + g + '_' + i + RND + '">' + rp(x.hargaTotal) + '</td></tr>';
+          }
+          h += '</tbody></table></div></div>';
         }
         el("poPrHasil").innerHTML = h;
+        window["poPrHitung" + RND]();
       });
   };
-  // Server mengembalikan SISA yang belum dipesan per baris PR, sehingga satu PR
-  // dapat dipecah menjadi beberapa PO tanpa terjadi pemesanan berlebih.
-  window["poAmbilPr" + RND] = function(prId){
-    api({action:"pengadaan_po_dari_pr", pr_id: prId}).then(function(d){
-      if (d.status !== "00" && d.status !== "success"){ pesan(d.description || "Gagal menyiapkan PO dari PR.", false); return; }
-      var isian = d.detail || [];
-      if (!isian.length){ pesan(d.catatan || "Tidak ada sisa yang perlu dipesan dari PR ini.", false); return; }
-      bootstrap.Modal.getInstance(document.getElementById("poPrModal" + RND)).hide();
-      kosongkanForm();
-      el("poKeterangan").value = d.keterangan || "";
-      baris = isian.map(function(x){
-        return { barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang, jumlah: angka(x.jumlah),
-                 harga: angka(x.hargaBeli), pr_detail_id: x.pr_detail_id || null };
-      });
-      bukaForm(false, "Buat PO dari " + (d.pr_kode || "PR"), "");
-    });
+  window["poPrGrupCek" + RND] = function(g, nyala){
+    var det = (prGrup[g] || {}).detail || [];
+    for (var i=0;i<det.length;i++){
+      var c = document.getElementById("prCek" + g + "_" + i + RND);
+      if (c) c.checked = nyala;
+    }
+    window["poPrHitung" + RND]();
   };
-
+  window["poPrHitung" + RND] = function(){
+    var n = 0, total = 0;
+    for (var g=0; g<prGrup.length; g++){
+      var det = (prGrup[g] || {}).detail || [];
+      for (var i=0;i<det.length;i++){
+        var c = document.getElementById("prCek" + g + "_" + i + RND);
+        var j = document.getElementById("prJml" + g + "_" + i + RND);
+        var t = document.getElementById("prTot" + g + "_" + i + RND);
+        var jml = j ? angka(j.value) : 0;
+        var sub = jml * angka(det[i].hargaBeli);
+        if (t) t.innerHTML = rp(sub);
+        if (c && c.checked && jml > 0){ n++; total += sub; }
+      }
+    }
+    el("poPrRingkas").innerHTML = n + " barang dipilih &middot; " + rp(total);
+  };
+  window["poAmbilPr" + RND] = function(){
+    var isian = [], kodePr = [];
+    for (var g=0; g<prGrup.length; g++){
+      var pr = prGrup[g];
+      var det = pr.detail || [];
+      for (var i=0;i<det.length;i++){
+        var c = document.getElementById("prCek" + g + "_" + i + RND);
+        var j = document.getElementById("prJml" + g + "_" + i + RND);
+        if (!c || !c.checked) continue;
+        var jml = j ? angka(j.value) : 0;
+        if (jml <= 0) continue;
+        var x = det[i];
+        isian.push({ barang_id: x.produk_id, master_asset_id: x.master_asset_id, nama: x.barang,
+                     jumlah: jml, harga: angka(x.hargaBeli), pr_detail_id: x.pr_detail_id || null });
+        if (kodePr.indexOf(pr.kode) < 0) kodePr.push(pr.kode);
+      }
+    }
+    if (!isian.length){ pesan("Centang dahulu barang yang ingin dipesan, dan pastikan jumlahnya lebih dari nol.", false); return; }
+    bootstrap.Modal.getInstance(document.getElementById("poPrModal" + RND)).hide();
+    kosongkanForm();
+    baris = isian;
+    bukaForm(false, "Buat PO dari " + kodePr.join(", "), "");
+  };
   // Muat pertama kali
   window["poMuat" + RND](1);
 })();

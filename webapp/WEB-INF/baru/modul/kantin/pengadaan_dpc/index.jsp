@@ -98,6 +98,22 @@ String rnd = Common.getGeneratedBarCode(7);
           <%=Common.getBahasaConfig("Dokumen ini baru mengubah status pesanan setelah DISETUJUI; draf belum diakui sebagai pembayaran.")%>
         </div>
         <div class="mb-3">
+          <label class="form-label small mb-1"><%=Common.getBahasaConfig("Judul transfer")%></label>
+          <input type="text" id="dpJudul<%=rnd%>" class="form-control"
+                 placeholder="<%=Common.getBahasaConfig("Mis. Pembayaran termin I CV Sumber Rejeki")%>">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-8">
+            <label class="form-label small mb-1"><%=Common.getBahasaConfig("Cara transfer")%> *</label>
+            <select id="dpCaraBayar<%=rnd%>" class="form-select"></select>
+            <div class="form-text small"><%=Common.getBahasaConfig("Akun pada cara transfer dipakai saat jurnal dibentuk")%></div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1"><%=Common.getBahasaConfig("Tanggal realisasi")%></label>
+            <input type="text" id="dpTglRealisasi<%=rnd%>" class="form-control" placeholder="dd-MM-yyyy">
+          </div>
+        </div>
+        <div class="mb-3">
           <label class="form-label small mb-1"><%=Common.getBahasaConfig("Keterangan pembayaran")%></label>
           <input type="text" id="dpKeterangan<%=rnd%>" class="form-control">
         </div>
@@ -336,8 +352,31 @@ String rnd = Common.getGeneratedBarCode(7);
     bootstrap.Modal.getInstance(document.getElementById("dpVendorModal" + RND)).hide();
     dpAktif = null;
     el("dpKeterangan").value = "";
+    el("dpJudul").value = "";
+    el("dpTglRealisasi").value = "";
+    muatCaraBayar(null);
     muatTagihan(null, [], false, "Bayar " + nama, "");
   };
+
+  // Pilihan Cara Transfer -- hanya yang aktif dan sudah punya akun, sama dengan
+  // penyaring pada form Proses Transfer versi ZKoss.
+  var caraBayarOpsi = [], caraBayarBawaan = null;
+  function muatCaraBayar(pilih){
+    api({action:"pengadaan_cara_bayar_opsi"}).then(function(d){
+      caraBayarOpsi = d.data || [];
+      caraBayarBawaan = d.bawaan_id || null;
+      var sel = el("dpCaraBayar");
+      var h = caraBayarOpsi.length ? "" : '<option value="">(belum ada Cara Transfer aktif)</option>';
+      for (var i=0;i<caraBayarOpsi.length;i++){
+        var c = caraBayarOpsi[i];
+        h += '<option value="' + c.id + '">' + esc(c.nama || "")
+           + (c.akun ? " - " + esc(c.akun) : "") + '</option>';
+      }
+      sel.innerHTML = h;
+      var terpilih = pilih || caraBayarBawaan;
+      if (terpilih) sel.value = String(terpilih);
+    });
+  }
 
   window["dpForm" + RND] = function(id){
     api({action:"pengadaan_bayar_detail", id:id}).then(function(d){
@@ -348,6 +387,9 @@ String rnd = Common.getGeneratedBarCode(7);
       vendorId = dpAktif.penyedia_id || null;
       vendorNama = dpAktif.penyedia || "";
       el("dpKeterangan").value = dpAktif.keterangan || "";
+      el("dpJudul").value = dpAktif.judul || "";
+      el("dpTglRealisasi").value = dpAktif.tanggalRealisasi || "";
+      muatCaraBayar(dpAktif.cara_bayar_id || null);
       muatTagihan(dpAktif.id, d.detail || [], terkunci,
         "Pembayaran " + (dpAktif.kode || "") + " - " + st,
         "Pembayaran yang sudah disetujui tidak dapat diubah. Batalkan persetujuannya terlebih dahulu bila perlu dikoreksi.");
@@ -367,8 +409,16 @@ String rnd = Common.getGeneratedBarCode(7);
       detail.push({ po_id: b.po_id, termin_key: b.termin_key, dibayar: angka(b.dibayar) });
     }
     if (!detail.length){ pesan("Centang minimal satu tagihan untuk dibayar.", false); return; }
+    var caraBayarId = el("dpCaraBayar").value;
+    if (!caraBayarId && caraBayarOpsi.length){
+      pesan("Pilih cara transfer - dipakai membentuk jurnal pembayaran.", false); return;
+    }
     var payload = { action:"pengadaan_bayar_simpan", penyedia_id: vendorId,
+                    judul: el("dpJudul").value.trim(),
                     keterangan: el("dpKeterangan").value.trim(), detail: detail };
+    if (caraBayarId) payload.cara_bayar_id = caraBayarId;
+    var tglReal = el("dpTglRealisasi").value.trim();
+    if (tglReal) payload.tanggalRealisasi = tglReal;
     if (dpAktif && dpAktif.id) payload.id = dpAktif.id;
     api(payload).then(function(d){
       var ok = d.status === "00" || d.status === "success";
