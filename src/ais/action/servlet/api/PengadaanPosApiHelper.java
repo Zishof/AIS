@@ -964,8 +964,12 @@ public final class PengadaanPosApiHelper {
 					.createCriteria(PembayaranTerminMasterAssetDetail.class)
 					.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", po.getId())).list();
 			for (PembayaranTerminMasterAssetDetail b : bayar) {
-				if (b.getPembayaranTerminMasterAsset() != null
-						&& Boolean.FALSE.equals(b.getPembayaranTerminMasterAsset().getAktif())) {
+				// HANYA pembayaran yang SUDAH DISETUJUI yang diakui -- definisi yang sama
+				// dipakai PemesananPengadaanMasterAsset.hitungDibayar(), sehingga angka di
+				// layar termin tidak pernah berbeda dengan kolom "dibayar" pada PO.
+				if (b.getPembayaranTerminMasterAsset() == null
+						|| b.getPembayaranTerminMasterAsset().getDisetujuiOleh() == null
+						|| Boolean.FALSE.equals(b.getPembayaranTerminMasterAsset().getAktif())) {
 					continue;
 				}
 				String kunci = "";

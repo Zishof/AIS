@@ -1355,7 +1355,17 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("laporantransaksi", menuTersimpan.optBoolean("laporantransaksi", true));
 		aksesMenu.put("laporan_transaksi", menuTersimpan.optBoolean("laporantransaksi", true));
 		aksesMenu.put("laporan", menuTersimpan.optBoolean("laporan", true));
-		aksesMenu.put("laporankeuangan", menuTersimpan.optBoolean("laporankeuangan", true));
+		// Grup menu "Akuntansi" (jurnal, posting, bagan akun) BUKAN pekerjaan kasir. Nilai
+		// bawaannya karena itu mengikuti peran: hanya keu (Keuangan) dan am (Admin) yang
+		// melihatnya tanpa pengaturan tambahan; peran lain tidak. Admin global tetap melihat
+		// semuanya, dan setelan eksplisit pada peran (grid CRUD TbmroleAction) selalu menang
+		// karena optBoolean hanya memakai nilai bawaan ini bila kuncinya belum pernah diatur.
+		final boolean bawaanAkuntansi = admin
+				|| ais.common.EbisnisMenuKatalog.peranAkuntansiBawaan(
+						roleAksesMenu == null ? null : roleAksesMenu.getRoleId());
+		for (String kunciAkuntansi : ais.common.EbisnisMenuKatalog.KUNCI_AKUNTANSI) {
+			aksesMenu.put(kunciAkuntansi, menuTersimpan.optBoolean(kunciAkuntansi, bawaanAkuntansi));
+		}
 		aksesMenu.put("pengaturanlaporan", menuTersimpan.optBoolean("pengaturanlaporan", true));
 		aksesMenu.put("pengaturan_laporan", menuTersimpan.optBoolean("pengaturanlaporan", true));
 		aksesMenu.put("riwayatsinkronisasi", menuTersimpan.optBoolean("riwayatsinkronisasi", true));

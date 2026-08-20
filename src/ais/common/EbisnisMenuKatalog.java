@@ -216,7 +216,40 @@ public final class EbisnisMenuKatalog {
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium", "apotik_batch",
 			"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_narkotika", "apotik_laporan",
 			"emedik_kasir", "emedik_pendaftaran", "emedik_tagihan", "emedik_deposit", "emedik_penjamin",
-			"emedik_laporan"));
+			"emedik_laporan",
+			// Grup "Akuntansi" (2026-08-20): jurnal, posting, dan bagan akun bukan pekerjaan kasir.
+			// Fail-closed supaya tidak muncul untuk peran POS biasa; secara BAWAAN hanya terbuka
+			// untuk peran pada PERAN_AKUNTANSI_BAWAAN, dan admin tetap dapat menyalakannya per
+			// peran lewat grid CRUD TbmroleAction.
+			"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
+			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun"));
+
+	/**
+	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
+	 * {@code keu} (Keuangan) dan {@code am} (Admin). Dibandingkan dengan {@code Tbmrole.roleId}
+	 * (huruf besar/kecil diabaikan). Peran lain tetap bisa diberi akses satu per satu lewat grid
+	 * CRUD TbmroleAction &mdash; daftar ini hanya menentukan NILAI BAWAAN, bukan batas keras.
+	 */
+	public static final java.util.Set<String> PERAN_AKUNTANSI_BAWAAN =
+			new java.util.LinkedHashSet<String>(java.util.Arrays.asList("keu", "am"));
+
+	/** Kunci menu yang mengikuti aturan bawaan {@link #PERAN_AKUNTANSI_BAWAAN}. */
+	public static final java.util.Set<String> KUNCI_AKUNTANSI =
+			new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
+					"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
+					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun"));
+
+	/**
+	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
+	 *
+	 * @param roleId {@code Tbmrole.roleId} pengguna; null/kosong dianggap tidak boleh.
+	 */
+	public static boolean peranAkuntansiBawaan(String roleId) {
+		if (roleId == null) {
+			return false;
+		}
+		return PERAN_AKUNTANSI_BAWAAN.contains(roleId.trim().toLowerCase());
+	}
 
 	/**
 	 * Subset {@link #DAFTAR} kunci yang punya record/CRUD sungguhan (bukan sekadar layar lihat-saja spt
