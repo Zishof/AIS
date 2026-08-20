@@ -1702,6 +1702,29 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			// persetujuan yang terjadi di mesin SOP tetap masuk daftar transfer.
 			Vbox dpc = new Vbox();
 			dpc.setParent(row);
+
+			// Link WORKFLOW/PENGAJUAN SOP (pola UangMuka): buka riwayat disposisi
+			// pengajuan ini langsung dari daftar.
+			if (d.getDisposisiSop() != null && d.getDisposisiSop().getId() != null) {
+				org.zkoss.zul.A linkSop = new org.zkoss.zul.A("Workflow/Pengajuan SOP");
+				linkSop.setStyle("font-size:9px;");
+				try {
+					if (d.getDisposisiSop().getSop() != null) {
+						linkSop.setTooltiptext("SOP " + d.getDisposisiSop().getSop().getNama());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementRenderer-linkSop");
+				}
+				linkSop.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						ais.action.master.sop.TampilanAlurSopAction.prosess(d.getDisposisiSop().getId(), null, null,
+								true, arg0.getTarget());
+					}
+				});
+				linkSop.setParent(dpc);
+			}
+
 			if (d.getDaftarPengajuanTransfer() != null) {
 				DaftarPengajuanTransfer.tampilStatus(d.getDaftarPengajuanTransfer(), dpc);
 			} else if (d.getDisetujuiOleh() != null) {
