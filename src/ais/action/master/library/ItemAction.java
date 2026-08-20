@@ -174,6 +174,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 	protected Textbox searchPublikasiNama;
 	protected Textbox searchPublikasiPengarang;
 	protected Combobox searchPublikasiStatus;
+	protected Combobox searchPublikasiTersedia;
 	protected MyGrid gridPublikasi;
 	protected Paging pagingPublikasi;
 	protected boolean comboStatusPublikasiSiap = false;
@@ -3667,6 +3668,20 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 			}
 			searchPublikasiStatus.setSelectedIndex(0);
 
+			if (searchPublikasiTersedia != null) {
+				searchPublikasiTersedia.getItems().clear();
+				MyComboitemConfig semuaTersedia = new MyComboitemConfig("= Semua =");
+				semuaTersedia.setAttribute("value", null);
+				semuaTersedia.setParent(searchPublikasiTersedia);
+				MyComboitemConfig tersedia = new MyComboitemConfig("Tersedia");
+				tersedia.setAttribute("value", "tersedia");
+				tersedia.setParent(searchPublikasiTersedia);
+				MyComboitemConfig tidakTersedia = new MyComboitemConfig("Tidak tersedia");
+				tidakTersedia.setAttribute("value", "tidak");
+				tidakTersedia.setParent(searchPublikasiTersedia);
+				searchPublikasiTersedia.setSelectedIndex(0);
+			}
+
 			// Common.initPaging(criteria, paging) hanya mengisi total data; ia TIDAK
 			// memasang listener onPaging (lihat CommonPagingHelper.configure). Listener
 			// dipasang SEKALI di sini supaya klik nomor halaman memuat ulang daftar, dan
@@ -3713,6 +3728,16 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 						Restrictions.eq("statusTerbitItem", dipilih)));
 			} else {
 				criteria.add(Restrictions.eq("statusTerbitItem", dipilih));
+			}
+		}
+		if (searchPublikasiTersedia != null && searchPublikasiTersedia.getSelectedItem() != null
+				&& searchPublikasiTersedia.getSelectedItem().getAttribute("value") != null) {
+			String tersedia = String.valueOf(searchPublikasiTersedia.getSelectedItem().getAttribute("value"));
+			if ("tersedia".equals(tersedia)) {
+				criteria.add(Restrictions.isNotNull("tersediaDi"));
+				criteria.add(Restrictions.ne("tersediaDi", ""));
+			} else if ("tidak".equals(tersedia)) {
+				criteria.add(Restrictions.or(Restrictions.isNull("tersediaDi"), Restrictions.eq("tersediaDi", "")));
 			}
 		}
 		return criteria;

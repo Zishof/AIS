@@ -237,6 +237,8 @@
 			<column use="ais.ui.util.MyColumnConfig" />
 			<column use="ais.ui.util.MyColumnConfig" width="110px" />
 			<column use="ais.ui.util.MyColumnConfig" />
+			<column use="ais.ui.util.MyColumnConfig" width="150px" />
+			<column use="ais.ui.util.MyColumnConfig" />
 			</columns>
 			<rows>
 			<row>
@@ -246,6 +248,9 @@
 			<textbox forward="onOK=onSearchPublikasi" id="searchPublikasiPengarang" width="95%" />
 			<label use="ais.ui.util.MyLabelConfig" value="Status Terbit" />
 			<combobox id="searchPublikasiStatus" width="95%" readonly="true"
+			forward="onChange=onSearchPublikasi" />
+			<label use="ais.ui.util.MyLabelConfig" value="Tersedia di Perpustakaan" />
+			<combobox id="searchPublikasiTersedia" width="95%" readonly="true"
 			forward="onChange=onSearchPublikasi" />
 			</row>
 			</rows>
