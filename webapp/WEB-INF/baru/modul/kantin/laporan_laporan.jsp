@@ -431,6 +431,8 @@ if (!lockTokoLap) {
     {kat:"Deposit / Saldo", items:[
       {id:"saldo_deposit", judul:"Deposit / Top Up Saldo", ket:"Daftar setoran/top up saldo (modul Deposit)."},
       {id:"saldo_deposit_rekap", judul:"Rekap Deposit per Nama", ket:"Total top up per nama/pengguna."},
+      {id:"psaldo_rincian", judul:"Rincian Penyesuaian Saldo (Opname Voucher)", ket:"Hasil opname saldo anggota: saldo sistem vs saldo seharusnya, selisih, dan alasannya."},
+      {id:"psaldo_rekap", judul:"Rekap Penyesuaian Saldo per Anggota", ket:"Berapa kali saldo tiap anggota disesuaikan beserta total selisihnya."},
       {id:"potong_gaji", judul:"Potong Gaji Pegawai", ket:"Potongan gaji pegawai (mis. belanja kantin) dari Transaksi Pegawai. Cari: ketik kantin.", pelanggan:true}
     ]},
     {kat:"Dompet, Tabungan & Voucher", items:[

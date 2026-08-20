@@ -1015,6 +1015,44 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Jenis Dokumen","text")); kolom.add(new Kolom("Belum Diposting","num"));
                 kolom.add(new Kolom("Nilai","num"));
 
+            } else if ("psaldo_rincian".equals(r)) {
+                judul = "Rincian Penyesuaian Saldo (Opname Voucher)";
+                catatan = "Hasil opname saldo voucher/deposit anggota: saldo menurut sistem, saldo yang "
+                    + "seharusnya menurut petugas, selisih, dan alasannya. Selisih positif berarti saldo "
+                    + "anggota ditambah, negatif berarti dikurangi. Tiap baris punya pasangan mutasi "
+                    + "deposit senilai selisihnya, sehingga saldo hasil hitungan selalu cocok.";
+                sql = "select cast(p.waktu as date), coalesce(a.kode,''), coalesce(a.nama,'(Tanpa Nama)'), "
+                    + " coalesce(p.saldo_sistem,0), coalesce(p.saldo_fisik,0), coalesce(p.selisih,0), "
+                    + " coalesce(p.keterangan,''), coalesce(p.oleh,'') "
+                    + " from koperasi.penyesuaian_saldo_anggota p "
+                    + " left join koperasi.anggota_koperasi a on a.id = p.anggota_koperasi "
+                    + " where 1=1 " + klausaTanggal("p.waktu", tglMulai, tglSampai, prm)
+                    + " order by p.waktu desc, p.id desc ";
+                tipe = new String[]{"tgl","text","text","num","num","num","text","text"};
+                kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Kode Anggota","text"));
+                kolom.add(new Kolom("Anggota","text")); kolom.add(new Kolom("Saldo Sistem","num"));
+                kolom.add(new Kolom("Saldo Seharusnya","num")); kolom.add(new Kolom("Selisih","num"));
+                kolom.add(new Kolom("Alasan","text")); kolom.add(new Kolom("Oleh","text"));
+
+            } else if ("psaldo_rekap".equals(r)) {
+                judul = "Rekap Penyesuaian Saldo per Anggota";
+                catatan = "Berapa kali saldo tiap anggota disesuaikan beserta total selisihnya. Anggota "
+                    + "yang sering muncul di sini layak ditelusuri: bisa jadi ada pola kesalahan input "
+                    + "topup atau pemakaian yang berulang.";
+                sql = "select coalesce(a.kode,''), coalesce(a.nama,'(Tanpa Nama)'), count(*), "
+                    + " coalesce(sum(case when coalesce(p.selisih,0) > 0 then p.selisih else 0 end),0), "
+                    + " coalesce(sum(case when coalesce(p.selisih,0) < 0 then -p.selisih else 0 end),0), "
+                    + " coalesce(sum(p.selisih),0) "
+                    + " from koperasi.penyesuaian_saldo_anggota p "
+                    + " left join koperasi.anggota_koperasi a on a.id = p.anggota_koperasi "
+                    + " where 1=1 " + klausaTanggal("p.waktu", tglMulai, tglSampai, prm)
+                    + " group by a.kode, a.nama "
+                    + " order by abs(coalesce(sum(p.selisih),0)) desc ";
+                tipe = new String[]{"text","text","num","num","num","num"};
+                kolom.add(new Kolom("Kode Anggota","text")); kolom.add(new Kolom("Anggota","text"));
+                kolom.add(new Kolom("Jml Penyesuaian","num")); kolom.add(new Kolom("Total Ditambah","num"));
+                kolom.add(new Kolom("Total Dikurangi","num")); kolom.add(new Kolom("Selisih Bersih","num"));
+
             } else if ("akn_aset_tetap".equals(r)) {
                 judul = "Daftar Aset Tetap (Nilai Buku)";
                 catatan = "Aktiva tetap yang masih aktif (belum dihapus): nilai perolehan, akumulasi penyusutan, "

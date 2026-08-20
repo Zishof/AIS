@@ -341,6 +341,8 @@ public final class LaporanKatalogData {
         k = new Kat("Deposit / Saldo");
         k.items.add(item("saldo_deposit", "Deposit / Top Up Saldo", "Daftar setoran/top up saldo (modul Deposit)."));
         k.items.add(item("saldo_deposit_rekap", "Rekap Deposit per Nama", "Total top up per nama/pengguna."));
+        k.items.add(item("psaldo_rincian", "Rincian Penyesuaian Saldo (Opname Voucher)", "Hasil opname saldo anggota: saldo sistem vs saldo seharusnya, selisih, dan alasannya."));
+        k.items.add(item("psaldo_rekap", "Rekap Penyesuaian Saldo per Anggota", "Berapa kali saldo tiap anggota disesuaikan beserta total selisihnya."));
         k.items.add(item("potong_gaji", "Potong Gaji Pegawai", "Potongan gaji pegawai (mis. belanja kantin) dari Transaksi Pegawai. Cari: ketik kantin.", false, true, false, null));
         semua.add(k);
 
