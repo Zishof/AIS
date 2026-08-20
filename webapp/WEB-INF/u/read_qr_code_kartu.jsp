@@ -111,6 +111,7 @@ String dev = deviceNumber.equalsIgnoreCase("0") ? "0" : "devices.length-1";
 			<div style="color: blue;font-size: 10px">*) Pastikan browser yang Anda gunakan sudah diizinkan akses kamera atau mendukung akses kamera, jika kamera tidak tampil juga, coba gunakan Google Chrome.</div>
 		</div>
 	</div>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 <script src="<%=request.getContextPath()%>/js/html5-qrcode.min.js"></script>
 <script src="<%=request.getContextPath()%>/js/pesan-formal.js"></script>

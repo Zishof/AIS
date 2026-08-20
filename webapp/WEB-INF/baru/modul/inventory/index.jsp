@@ -98,5 +98,6 @@
     <div class="si-toast" id="siToast" hidden></div>
 </div>
 <script><%@ include file="inventory.js" %></script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

@@ -86,6 +86,7 @@ Tbmuser tbmuser = Common.getCurrentUser(request);
 	<!--end::Drawers-->
 
 	<jsp:include page="/WEB-INF/o/ux/content/common/footer_tanpa_js.jsp"></jsp:include>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 <!--end::Body-->
 </html>

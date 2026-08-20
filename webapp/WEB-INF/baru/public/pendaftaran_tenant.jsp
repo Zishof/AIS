@@ -642,5 +642,6 @@ else if (MODE === 'verifikasi') initVerifikasi();
 else initWizard();
 })();
 </script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

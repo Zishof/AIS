@@ -8,5 +8,6 @@
 	</div>
 	<br>
 	<a href="<%=request.getContextPath()%>/logoff">Login</a>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

@@ -25,5 +25,6 @@
 <body>
 	<h1>Gagal</h1>
 	<p>Mohon Maaf, Pembayaran Anda Gagal Dilakukan.</p>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

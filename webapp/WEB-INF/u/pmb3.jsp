@@ -253,5 +253,6 @@
 		const forumData = <%=request.getAttribute("forumData")%>
 	</script>
     <script src="<%=request.getContextPath() %>/js/pmb3.js"></script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

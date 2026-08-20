@@ -4,5 +4,6 @@
 <body id="register_bg">
 	<jsp:include page="/WEB-INF/o/kursus/content/reg.jsp"></jsp:include>
 	<jsp:include page="/WEB-INF/o/kursus/inc/js.jsp"></jsp:include>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

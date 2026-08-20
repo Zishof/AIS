@@ -45,6 +45,7 @@ if (linkUrl != null && linkUrl.toString().endsWith("pdf")) {
 	response.sendRedirect(request.getContextPath());
 	}
 	%>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>
 

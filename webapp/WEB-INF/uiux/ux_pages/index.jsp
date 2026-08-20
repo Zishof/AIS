@@ -52,6 +52,7 @@ if(pageData!= null && !pageData.trim().isEmpty() && pageData.trim().equals("ujia
         <jsp:include page="/WEB-INF/uiux/ux_pages/include/footer.jsp"></jsp:include>
     </div> <!--end::App Wrapper--> <!--begin::Script--> <!--begin::Third Party Plugin(OverlayScrollbars)-->
     <jsp:include page="/WEB-INF/uiux/ux_pages/include/footer_bawah.jsp"></jsp:include>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body><!--end::Body-->
 
 </html>

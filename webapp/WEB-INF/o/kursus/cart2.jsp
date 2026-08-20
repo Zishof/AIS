@@ -19,6 +19,7 @@ if (tbmuser == null || tbmuser.getUserId() == null) {
 		<jsp:include page="/WEB-INF/o/kursus/inc/footer.jsp"></jsp:include>
 	</div>
 	<jsp:include page="/WEB-INF/o/kursus/inc/js.jsp"></jsp:include>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>
 <%

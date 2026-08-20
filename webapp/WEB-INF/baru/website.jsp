@@ -308,5 +308,6 @@ html{scroll-behavior:smooth}body{font-family:Segoe UI,system-ui,-apple-system,sa
 </section>
 <footer class="footer"><div class="container d-flex flex-wrap justify-content-between gap-3"><div><strong><%=safe(namaPt)%></strong><br><%=safe(alamat)%></div><div>&copy; <%=new java.text.SimpleDateFormat("yyyy").format(new Date())%> <%=safe(namaPt)%>. Seluruh hak cipta dilindungi.</div></div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

@@ -104,6 +104,7 @@
 		const books = <%=request.getAttribute("books")%>
 	</script>
     <script src="<%=request.getContextPath() %>/js/pustaka8.js"></script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 
 </html>

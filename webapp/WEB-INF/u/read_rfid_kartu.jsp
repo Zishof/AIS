@@ -107,6 +107,7 @@ String dev = deviceNumber.equalsIgnoreCase("0") ? "0" : "devices.length-1";
 			<p id="location"></p>
 		</div>
 	</div>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 <script src="<%=request.getContextPath()%>/js/html5-qrcode.min.js"></script>
 <script>

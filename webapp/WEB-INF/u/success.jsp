@@ -24,5 +24,6 @@
 <body>
 	<h1>Sukses</h1>
 	<p>Selamat Pembayaran Anda Sukses Dilakukan.</p>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

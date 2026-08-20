@@ -176,6 +176,7 @@ body {
 	<!--end::Root-->
 	<jsp:include page="/WEB-INF/o/ux/content/common/footer.jsp"></jsp:include>
 	<%=ais.common.Common.remember(request, response) %>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 <!--end::Body-->
 </html>

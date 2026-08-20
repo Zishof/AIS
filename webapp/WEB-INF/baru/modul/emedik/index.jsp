@@ -55,5 +55,6 @@
 <% if (isMob) { %><%= MobileHubHelper.buildMobScript(".fw-semibold") %><% } %>
 <% if (directPage) { %>
 </div></main><jsp:include page="/WEB-INF/baru/include/foot.jsp" />
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body></html>
 <% } %>

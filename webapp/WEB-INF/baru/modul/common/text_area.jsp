@@ -1021,7 +1021,8 @@
 	 function syncTextarea<%=rnd%>(){ document.getElementById(textareaID<%=rnd%>).value = document.getElementById(editorID<%=rnd%>).innerHTML; }
     
     function saveContent<%=rnd%>(){ handleOnChange<%=rnd%>(); textAreaToast<%=rnd%>('Konten berhasil disinkronkan ke textarea.', 'bg-success'); }
-    function printContent<%=rnd%>(){ var w=window.open('','','height=650,width=850'); if(!w){ textAreaToast<%=rnd%>('Popup print diblokir browser.', 'bg-warning'); return; } w.document.write('<html><head><title>Print</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:20px;} img,video,iframe{max-width:100%;}</style></head><body>'+document.getElementById(editorID<%=rnd%>).innerHTML+'</body></html>'); w.document.close(); w.focus(); w.print(); }
+    function printContent<%=rnd%>(){ var w=window.open('','','height=650,width=850'); if(!w){ textAreaToast<%=rnd%>('Popup print diblokir browser.', 'bg-warning'); return; } w.document.write('<html><head><title>Print</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:20px;} img,video,iframe{max-width:100%;}</style></head><body>'+document.getElementById(editorID<%=rnd%>).innerHTML+'<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
+</body></html>'); w.document.close(); w.focus(); w.print(); }
     document.getElementById(editorID<%=rnd%>).addEventListener('focus', function(){ if(this.innerText.trim()==="<%= Common.getBahasaConfig(placeholder) %>"){this.innerHTML="";this.classList.remove("text-muted");} saveSelection<%=rnd%>(); });
     document.addEventListener('DOMContentLoaded', function(){ try { syncTextarea<%=rnd%>(); } catch(e) {} });
 </script>

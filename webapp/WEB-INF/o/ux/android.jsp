@@ -94,6 +94,7 @@ int tinggi = 650;
 	<!--end::Drawers-->
 
 	<jsp:include page="content/common/footer.jsp"></jsp:include>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 <!--end::Body-->
 </html>

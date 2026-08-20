@@ -31,5 +31,6 @@
 	
 	</script>
     <script src="<%=request.getContextPath() %>/js/jadwal.js"></script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

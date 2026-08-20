@@ -30,6 +30,7 @@ response.setHeader("Pragma", "no-cache");
         <p>Server: <code><%= request.getServerName() %>:<%= request.getServerPort() %></code></p>
         <p>Waktu render server: <code><%= (System.currentTimeMillis() - start) %> ms</code></p>
     </div>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>
 <%

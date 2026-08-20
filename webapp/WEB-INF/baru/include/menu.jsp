@@ -280,7 +280,11 @@
                                         <h6 class="mega-menu-header mt-3"><%=Common.getBahasaConfig("e-Kantin") %></h6>
                                         <% 
                                            String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"};
-                                           String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengadaan_pr","pengadaan_po","pengadaan_bast","pengadaan_tagihan","pengadaan_dpc","pengadaan_bdp","pengadaan_bulk","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengadaan_pr","pengadaan_po","pengadaan_bast","pengadaan_tagihan","pengadaan_dpc","pengadaan_bdp","pengadaan_bulk"});
+                                           String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi"});
+                                           // Tahap Pengadaan dipisah dari submenu Pengaturan supaya punya judul
+                                           // sendiri yang dapat dilipat (bawaan tertutup).
+                                           String[] subPengadaanEL = new String[]{"pengadaan_pr","pengadaan_po","pengadaan_bast",
+                                                   "pengadaan_tagihan","pengadaan_dpc","pengadaan_bdp","pengadaan_bulk"};
                                            for(String sub : subEL) {
                                                if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
                                                if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sub)){ continue; }
@@ -304,18 +308,54 @@
                                                        if(subSub.equals("mutasi_rekening")){ label = "Rekening Koran (Rekonsiliasi)"; }
                                                        if(subSub.equals("produksi")){ label = "Produksi Kantin"; }
                                                        if(subSub.equals("pengaturan_laporan")){ label = "Konfigurasi Laporan"; }
-                                                       if(subSub.equals("pengadaan_pr")){ label = "Permintaan Pembelian (PR)"; }
-                                                       if(subSub.equals("pengadaan_po")){ label = "Pemesanan Pembelian (PO)"; }
-                                                       if(subSub.equals("pengadaan_bast")){ label = "Penerimaan Barang (BAST)"; }
-                                                       if(subSub.equals("pengadaan_tagihan")){ label = "Terima Tagihan Vendor"; }
-                                                       if(subSub.equals("pengadaan_dpc")){ label = "Pembayaran Vendor"; }
-                                                       if(subSub.equals("pengadaan_bdp")){ label = "Barang Dalam Proses"; }
-                                                       if(subSub.equals("pengadaan_bulk")){ label = "Bulk Entry Pengadaan"; }
                                         %>
                                                    <a class="mega-menu-item ms-3 <%= (p.equals("kantin") && s.equals(subSub)) ? "active" : "" %>" href="<%=ctx%>/baru?p=kantin&s=<%=subSub%>">
                                                        <i class="<%=MenuHelper.getIconForMenu(label)%> text-muted" style="font-size: 11px;"></i> <span><%=Common.getBahasaConfig(label) %></span>
                                                    </a>
                                         <%         }
+%>
+                                                   <%-- Grup "Pengadaan": judul sendiri dan DAPAT DILIPAT, bawaan tertutup
+                                                        (permintaan pemilik produk 2026-08-20). Terbuka sendiri bila halaman
+                                                        yang sedang dibuka termasuk salah satu tahapnya, supaya pengguna
+                                                        selalu melihat posisinya. --%>
+                                          <%
+                                                   boolean adaPengadaan = false;
+                                                   for(String sp : subPengadaanEL) {
+                                                       if(!Common.bolehKonfigurasi("kantin_menu_"+sp)){ continue; }
+                                                       if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sp)){ continue; }
+                                                       adaPengadaan = true;
+                                                   }
+                                                   boolean pengadaanAktif = p.equals("kantin") && s != null && s.startsWith("pengadaan");
+                                                   if(adaPengadaan) {
+                                          %>
+                                                   <a class="fw-bold mt-2 mb-1 ms-2 d-flex align-items-center text-decoration-none"
+                                                      data-bs-toggle="collapse" href="#megaMenuPengadaan" role="button"
+                                                      aria-expanded="<%= pengadaanAktif ? "true" : "false" %>"
+                                                      style="font-size:12px; color:var(--theme-primary);">
+                                                       <i class="fas fa-dolly me-1"></i><span><%=Common.getBahasaConfig("Pengadaan")%></span>
+                                                       <i class="fas fa-chevron-down ms-auto" style="font-size:10px"></i>
+                                                   </a>
+                                                   <div class="collapse <%= pengadaanAktif ? "show" : "" %>" id="megaMenuPengadaan">
+                                          <%
+                                                       for(String sp : subPengadaanEL) {
+                                                           if(!Common.bolehKonfigurasi("kantin_menu_"+sp)){ continue; }
+                                                           if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sp)){ continue; }
+                                                           String labelPengadaan = "Pengadaan";
+                                                           if(sp.equals("pengadaan_pr")){ labelPengadaan = "Permintaan Pembelian (PR)"; }
+                                                           if(sp.equals("pengadaan_po")){ labelPengadaan = "Pemesanan Pembelian (PO)"; }
+                                                           if(sp.equals("pengadaan_bast")){ labelPengadaan = "Penerimaan Barang (BAST)"; }
+                                                           if(sp.equals("pengadaan_tagihan")){ labelPengadaan = "Terima Tagihan Vendor"; }
+                                                           if(sp.equals("pengadaan_dpc")){ labelPengadaan = "Pembayaran Vendor"; }
+                                                           if(sp.equals("pengadaan_bdp")){ labelPengadaan = "Barang Dalam Proses"; }
+                                                           if(sp.equals("pengadaan_bulk")){ labelPengadaan = "Bulk Entry Pengadaan"; }
+                                          %>
+                                                       <a class="mega-menu-item ms-4 <%= (p.equals("kantin") && s.equals(sp)) ? "active" : "" %>" href="<%=ctx%>/baru?p=kantin&s=<%=sp%>">
+                                                           <i class="<%=MenuHelper.getIconForMenu(labelPengadaan)%> text-muted" style="font-size: 11px;"></i> <span><%=Common.getBahasaConfig(labelPengadaan) %></span>
+                                                       </a>
+                                          <%         }
+                                          %>
+                                                   </div>
+                                          <%     }
                                                } else {
                                         %>
                                                  <a class="mega-menu-item <%= (p.equals("kantin") && s.equals(sub)) ? "active" : "" %>" href="<%=ctx%>/baru?p=kantin&s=<%=sub%>">

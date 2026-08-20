@@ -8,5 +8,6 @@
 </head>
 <body>
 
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

@@ -23,5 +23,6 @@
         <p>Anda tidak memiliki hak akses untuk membuka halaman ini pada peran yang sedang aktif.
            Silakan hubungi administrator apabila Anda merasa seharusnya berhak.</p>
     </div>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

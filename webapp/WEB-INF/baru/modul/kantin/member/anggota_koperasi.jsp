@@ -762,7 +762,8 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
         html += '</head><body>';
         html += '<h3>Laporan Log Evaluasi Belanja & Notifikasi</h3><hr>';
         html += logContent;
-        html += '</body></html>';
+        html += '<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
+</body></html>';
 
         printWindow.document.write(html);
         printWindow.document.close();

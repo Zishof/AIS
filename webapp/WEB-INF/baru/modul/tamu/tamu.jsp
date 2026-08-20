@@ -273,5 +273,6 @@
             } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Gagal memuat riwayat.</td></tr>'; }
         }
     </script>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>

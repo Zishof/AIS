@@ -1334,7 +1334,8 @@
         printWindow.document.write('<style>body{font-family:sans-serif; padding:20px;} table{width:100%; border-collapse:collapse; margin-bottom:20px;} td{padding:8px; border-bottom:1px solid #ddd;}</style></head><body>');
         printWindow.document.write('<h2><%=Common.getBahasaConfig("Instruksi Pembayaran")%></h2>');
         printWindow.document.write(document.querySelector('#modalVAInfo<%=rnd%> .modal-body').innerHTML);
-        printWindow.document.write('</body></html>');
+        printWindow.document.write('<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
+</body></html>');
         printWindow.document.close();
         printWindow.focus();
         setTimeout(function(){ printWindow.print(); printWindow.close(); }, 500);

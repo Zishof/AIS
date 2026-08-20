@@ -67,6 +67,8 @@
 #kbjspMenu button + button{border-top:1px solid #f1f5f9;}
 #kbjspMenu .kbjsp-ikon{font-size:15px;line-height:1;width:18px;text-align:center;}
 @media (prefers-reduced-motion:reduce){#kbjspFab{transition:none;}}
+/* Jangan pernah ikut tercetak: sebagian halaman JSP juga dipakai untuk cetak/struk. */
+@media print{#kbjspWrap,#kbjspOverlay{display:none !important;}}
 </style>
 
 <div id="kbjspWrap">

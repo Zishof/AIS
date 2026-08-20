@@ -35,6 +35,7 @@
 	<br>
 	<button onclick="myFunction()"><%= Common.getBahasaConfig("COPY / SALIN") %></button>
 	<button type="button" onclick="window.close();"><%= Common.getBahasaConfig("TUTUP") %></button>
+<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
 </body>
 </html>
 
