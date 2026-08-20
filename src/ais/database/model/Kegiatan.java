@@ -1124,12 +1124,25 @@ public class Kegiatan extends GeneralValueObject {
 			if (detailBiaya == null) {
 				return 0.0;
 			}
+			/* PENYERAGAMAN 21-08-2026: keempat rute diskon di kelas ini semula memakai
+			 * cocokTanggalBerlakuUntuk() yang HANYA memeriksa rentang tanggal, sedangkan
+			 * DetailKegiatan -- yang menghitung angka untuk baris tagihan yang sama --
+			 * memakai cocokUntukKegiatan() yang juga menghormati filter Fakultas, Jurusan,
+			 * Program, dan Status Awal. Akibatnya kedua mesin dapat menghasilkan potongan
+			 * berbeda untuk tagihan yang sama. Kini keduanya memakai pemeriksaan yang sama. */
 			if (kegiatan != null && kegiatan.getMahasiswa() != null && detailBiaya != null
 					&& detailBiaya.getItemBiaya() != null && kegiatan.getMahasiswa().getKelompokMahasiswa() != null
 					&& kegiatan.getMahasiswa().getKelompokMahasiswa().getSmtMulai() <= kegiatan.getSemster()
 					&& kegiatan.getMahasiswa().getKelompokMahasiswa().getSmtSampai() >= kegiatan.getSemster()
 
 					&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa() != null
+					/* FIX 21-08-2026: rute Kelompok Mahasiswa memeriksa batas SEMESTER tetapi tidak pernah
+					 * memeriksa rentang TANGGAL berlaku jenis diskonnya, sehingga promo berbatas waktu di
+					 * jalur ini tidak pernah berhenti sendiri. Rute Jenis Seleksi dan Gelombang Pendaftaran
+					 * di bawah sudah memeriksanya; pemeriksaan yang sama ditambahkan di sini agar ketiga
+					 * rute berperilaku konsisten. */
+					&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa()
+							.cocokUntukKegiatan(kegiatan, detailBiaya)
 					&& !(detailKegiatan != null && detailKegiatan.adaDiskon())
 					&& !kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 							.isEmpty()
@@ -1154,7 +1167,7 @@ public class Kegiatan extends GeneralValueObject {
 						// FIX 19-08-2026: rute CALON mahasiswa dahulu TIDAK memeriksa Tanggal Mulai/
 						// Sampai Berlaku, sehingga promo berbatas waktu tetap memotong setelah lewat.
 						&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
-								.cocokTanggalBerlakuUntuk(kegiatan)
+								.cocokUntukKegiatan(kegiatan, detailBiaya)
 						&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 								.isEmpty()
 						&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -1208,7 +1221,7 @@ public class Kegiatan extends GeneralValueObject {
 						&& !(detailKegiatan != null && detailKegiatan.adaDiskon())
 						// FIX 19-08-2026: lihat catatan tanggal berlaku pada rute Jenis Seleksi di atas.
 						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa()
-								.cocokTanggalBerlakuUntuk(kegiatan)
+								.cocokUntukKegiatan(kegiatan, detailBiaya)
 						&& !kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 								.isEmpty()
 						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -1260,6 +1273,13 @@ public class Kegiatan extends GeneralValueObject {
 						&& kegiatan.getMahasiswa().getJenisSeleksi() != null
 						&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
 						&& !(detailKegiatan != null && detailKegiatan.adaDiskon())
+						/* FIX 21-08-2026: rute Jenis Seleksi milik mahasiswa AKTIF adalah satu-satunya
+						 * rute di kelas ini yang masih melewatkan pemeriksaan Tanggal Mulai/Sampai
+						 * Berlaku, sehingga promo berbatas waktu tidak pernah berhenti sendiri di
+						 * jalur ini. Disamakan dengan rute Kelompok, Jenis Seleksi calon, dan
+						 * Gelombang Pendaftaran. */
+						&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+								.cocokUntukKegiatan(kegiatan, detailBiaya)
 						&& !kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 								.isEmpty()
 						&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()

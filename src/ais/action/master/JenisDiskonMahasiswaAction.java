@@ -438,6 +438,51 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 			return false;
 		}
 
+		/* VALIDASI 21-08-2026 -- mencegah promo yang diam-diam tidak berefek.
+		 *
+		 * Mesin tagihan (JenisDiskonMahasiswa.cocokUntukTagihanGlobal) baru mengenakan promo
+		 * global bila item biaya baris tagihan termasuk daftar Default Item Biaya I..V. Bila
+		 * daftar itu kosong, promo dilewati TANPA pesan apa pun, dan pengguna menyimpulkan
+		 * diskonnya rusak padahal datanya yang belum lengkap. Hal yang sama berlaku untuk
+		 * nilai potongan nol dan rentang tanggal terbalik. */
+		if (berlakuUntukSemuaMahasiswa.isChecked()) {
+			boolean adaItemBiaya = itemBiaya.getSelectedItem() != null || itemBiaya2.getSelectedItem() != null
+					|| itemBiaya3.getSelectedItem() != null || itemBiaya4.getSelectedItem() != null
+					|| itemBiaya5.getSelectedItem() != null;
+			if (!adaItemBiaya) {
+				PesanFormalHelper.tampilkanGagal("penyimpanan data Jenis Diskon Mahasiswa",
+						"Diskon ini Bapak/Ibu tandai \"Berlaku Untuk Semua Mahasiswa\", tetapi belum ada satu pun "
+								+ "Default Item Biaya yang dipilih. Tanpa item biaya, potongan tidak akan pernah "
+								+ "dikenakan pada tagihan mana pun.",
+						new String[] {
+								"Pilih sekurang-kurangnya satu Default Item Biaya (I sampai V) yang hendak dipotong.",
+								"Ulangi proses penyimpanan setelah item biaya tersebut terisi."
+						});
+				return false;
+			}
+			if (diskon.getValue() == null || diskon.getValue().doubleValue() <= 0.0) {
+				PesanFormalHelper.tampilkanGagal("penyimpanan data Jenis Diskon Mahasiswa",
+						"Nilai potongan masih kosong atau nol, padahal diskon ini ditandai berlaku untuk semua "
+								+ "mahasiswa. Promo dengan potongan nol tidak mengubah tagihan sama sekali.",
+						new String[] {
+								"Isi kolom Diskon dengan nilai lebih besar dari nol.",
+								"Pastikan pilihan persen atau nominal sudah sesuai maksud Bapak/Ibu."
+						});
+				return false;
+			}
+		}
+		if (tanggalMulaiBerlaku.getValue() != null && tanggalSampaiBerlaku.getValue() != null
+				&& tanggalMulaiBerlaku.getValue().after(tanggalSampaiBerlaku.getValue())) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data Jenis Diskon Mahasiswa",
+					"Tanggal Mulai Berlaku lebih akhir daripada Tanggal Sampai Berlaku, sehingga rentang "
+							+ "waktunya kosong dan diskon tidak akan pernah aktif.",
+					new String[] {
+							"Perbaiki salah satu tanggal sehingga Mulai tidak melewati Sampai.",
+							"Kosongkan kedua tanggal bila diskon dimaksudkan berlaku tanpa batas waktu."
+					});
+			return false;
+		}
+
 		Session session = HibernateUtil.currentSession();
 		if (jenisDiskonMahasiswa.getId() != null) {
 			jenisDiskonMahasiswa = (JenisDiskonMahasiswa) session.load(JenisDiskonMahasiswa.class,
