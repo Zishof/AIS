@@ -311,7 +311,12 @@ String rnd = Common.getGeneratedBarCode(7);
   function aksiHtml(r, st){
     var h = '<button class="btn btn-sm btn-outline-primary me-1" title="Lihat / ubah" onclick="bsForm' + RND + '(' + r.id + ')"><i class="fas fa-edit"></i></button>';
     if (st === "DISETUJUI") {
-      h += '<button class="btn btn-sm btn-outline-secondary" title="Batalkan persetujuan" onclick="bsPutusan' + RND + '(' + r.id + ',\'BATAL\')"><i class="fas fa-undo"></i></button>';
+      h += '<button class="btn btn-sm btn-outline-secondary me-1" title="Batalkan persetujuan" onclick="bsPutusan' + RND + '(' + r.id + ',\'BATAL\')"><i class="fas fa-undo"></i></button>';
+      if (r.sudahSinkron) {
+        h += '<span class="badge bg-success" title="Sudah masuk stok lewat faktur ' + esc(r.nomorFakturKulakan || "") + '"><i class="fas fa-check"></i></span>';
+      } else {
+        h += '<button class="btn btn-sm btn-outline-info" title="Sinkronkan ke stok Kulakan" onclick="bsSinkron' + RND + '(' + r.id + ')"><i class="fas fa-sync-alt"></i></button>';
+      }
     } else {
       h += '<button class="btn btn-sm btn-outline-success me-1" title="Setujui" onclick="bsPutusan' + RND + '(' + r.id + ',\'SETUJUI\')"><i class="fas fa-check"></i></button>';
       h += '<button class="btn btn-sm btn-outline-secondary" title="Hapus" onclick="bsHapus' + RND + '(' + r.id + ',\'' + esc(String(r.kode).replace(/'/g,"")) + '\')"><i class="fas fa-trash"></i></button>';
@@ -503,6 +508,20 @@ String rnd = Common.getGeneratedBarCode(7);
     api({action:"pengadaan_bast_hapus", id:id}).then(function(d){
       var ok = d.status === "00" || d.status === "success";
       pesan(ok ? "BAST dihapus." : (d.description || "Gagal menghapus."), ok);
+      if (ok) window["bsMuat" + RND](halaman);
+    });
+  };
+
+  // ---------- Sinkronisasi ke Kulakan ----------
+  // Server menolak sinkronisasi kedua karena akan menggandakan stok, jadi
+  // konfirmasi di sini menegaskan bahwa langkah ini hanya sekali.
+  window["bsSinkron" + RND] = function(id){
+    if (!window.confirm("Tambahkan barang penerimaan ini ke stok toko sebagai faktur Kulakan? "
+        + "Langkah ini hanya dapat dilakukan sekali untuk penerimaan ini.")) return;
+    api({action:"pengadaan_bast_sinkron_kulakan", id:id}).then(function(d){
+      var ok = d.status === "00" || d.status === "success";
+      pesan(ok ? ("Stok bertambah lewat faktur " + (d.nomorFaktur || "") + " (" + (d.jumlahBaris || 0) + " baris).")
+               : (d.description || "Gagal menyinkronkan."), ok);
       if (ok) window["bsMuat" + RND](halaman);
     });
   };
