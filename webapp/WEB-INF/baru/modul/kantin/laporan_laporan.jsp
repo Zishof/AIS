@@ -603,6 +603,13 @@ if (!lockTokoLap) {
   function muatRincianTransaksi(kol, baris){
     var wadah = el("lkRincianTrx<%=rndLap%>");
     if (!wadah) return;
+    // Sama spt versi Desktop: tanpa rentang tanggal, permintaan rincian hanya
+    // menghasilkan error. Laporan seperti itu diberi keterangan, bukan dipaksa.
+    var mulai = el("fMulai<%=rndLap%>").value, sampai = el("fSampai<%=rndLap%>").value;
+    if (!mulai || !sampai) {
+      wadah.innerHTML = '<div class="small text-muted">Angka ini tidak berasal dari transaksi penjualan (mis. stok atau data master), sehingga tidak ada nota penyusun yang bisa ditampilkan.</div>';
+      return;
+    }
     var d = dimensiBaris(kol, baris);
     var punyaDimensi = false;
     for (var k in d) { if (d.hasOwnProperty(k)) { punyaDimensi = true; break; } }
@@ -611,8 +618,8 @@ if (!lockTokoLap) {
       return;
     }
     wadah.innerHTML = '<div class="small text-muted">Memuat rincian transaksi...</div>';
-    var q = "&rincianTransaksi=1&tglMulai=" + encodeURIComponent(el("fMulai<%=rndLap%>").value)
-          + "&tglSampai=" + encodeURIComponent(el("fSampai<%=rndLap%>").value);
+    var q = "&rincianTransaksi=1&tglMulai=" + encodeURIComponent(mulai)
+          + "&tglSampai=" + encodeURIComponent(sampai);
     for (var k2 in d) { if (d.hasOwnProperty(k2)) q += "&" + k2 + "=" + encodeURIComponent(d[k2]); }
     var selToko = el("fToko<%=rndLap%>");
     if (selToko && selToko.value) q += "&tokoId=" + encodeURIComponent(selToko.value);
