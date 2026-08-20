@@ -31,6 +31,31 @@
     __key = __key.toLowerCase().replaceAll("[^a-z0-9_\\-]", "");
     // Varian visual login (login2/login3/login5) memakai ulang panduan "login".
     if (__key.matches("login[0-9]+")) __key = "login";
+
+    // FIX 21-08-2026 -- TABRAKAN KUNCI PANDUAN.
+    // Kunci semula hanya nama berkas, padahal ada 13 halaman berbeda yang sama-sama
+    // bernama index.jsp (Kantin, Apotik, eMedik, Inventory, Mobile, Kursus, dsb).
+    // Semuanya akan berbagi satu berkas panduan dan menampilkan isi yang keliru.
+    // Karena itu kunci SPESIFIK (nama folder induk + nama berkas) dicoba lebih dulu;
+    // bila panduan spesifik belum ada, jatuh kembali ke kunci lama supaya halaman yang
+    // panduannya sudah tersedia tidak berubah perilakunya.
+    String __indukDir = "";
+    if (__sp != null) {
+        String __jalur = __sp.replace('\', '/');
+        int __s2 = __jalur.lastIndexOf('/');
+        if (__s2 > 0) {
+            int __s1 = __jalur.lastIndexOf('/', __s2 - 1);
+            if (__s1 >= 0) __indukDir = __jalur.substring(__s1 + 1, __s2);
+        }
+    }
+    __indukDir = __indukDir.toLowerCase().replaceAll("[^a-z0-9_\-]", "");
+    String __keySpesifik = __indukDir.length() == 0 ? "" : (__indukDir + "_" + __key);
+    if (__keySpesifik.length() > 0) {
+        String __rpSpesifik = application.getRealPath("/WEB-INF/bantuan/" + __keySpesifik + ".html");
+        if (__rpSpesifik != null && new java.io.File(__rpSpesifik).isFile()) {
+            __key = __keySpesifik;
+        }
+    }
     String __rp = __key.length() == 0 ? null : application.getRealPath("/WEB-INF/bantuan/" + __key + ".html");
     boolean __ada = __rp != null && new java.io.File(__rp).isFile();
     // Pusat Panduan (seluruh panduan, menurut peran dan per modul) selalu tersedia,
