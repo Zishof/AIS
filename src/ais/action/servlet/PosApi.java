@@ -2639,6 +2639,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardUmum(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		// Gap-closure paritas dgn ZK DashboardKantinAction.buildRingkasan() -- admin global (pedagang
 		// == null) BOLEH melihat SEMUA toko sekaligus bila tak eksplisit memilih satu (tokoId tetap
 		// null), BUKAN error "Toko tidak diketahui". Pedagang/kasir toko TETAP wajib toko diketahui
@@ -2649,7 +2650,7 @@ public class PosApi extends HttpServlet {
 			// Tak seharusnya tercapai (pedagang selalu punya toko terkunci) -- fail-safe murni.
 			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
 		}
-		String kondisiToko = semuaToko ? "" : " AND toko = ?";
+		String kondisiToko = semuaToko ? batasPendaftar("", pendaftarLingkup) : " AND toko = ?";
 
 		String periodeTren = payload.optString("periodeTren", "harian");
 		String tglMulai = payload.optString("tglMulai", "");
@@ -2680,7 +2681,7 @@ public class PosApi extends HttpServlet {
 			String subKpi = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,MAX(a.waktu) waktu,"
 					+ "COALESCE(MAX(h.total_biaya),SUM(a.total)) total_nota FROM koperasi.pembelian a "
 					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=a.pembelian_anggota_koperasi "
-					+ "WHERE COALESCE(a.aktif,true)=true" + (semuaToko ? "" : " AND a.toko=?") + " GROUP BY 1";
+					+ "WHERE COALESCE(a.aktif,true)=true" + (semuaToko ? batasPendaftar("a", pendaftarLingkup) : " AND a.toko = ?") + " GROUP BY 1";
 			// Semua jendela dihitung SAMPAI tanggal acuan (hari = acuan itu sendiri;
 			// minggu/bulan = awal periode acuan s.d. acuan; 6 bulan = acuan-6bln s.d.
 			// acuan) -- selaras teks UI "dihitung sampai tanggal ini".
@@ -2754,7 +2755,7 @@ public class PosApi extends HttpServlet {
 					+ "COALESCE(MAX(h.total_biaya),SUM(a.total)) nilai FROM koperasi.pembelian a "
 					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=a.pembelian_anggota_koperasi "
 					+ "WHERE COALESCE(a.aktif,true)=true AND a.waktu>=" + acuanSql + "-INTERVAL '" + intervalSql + "' AND DATE(a.waktu)<=" + acuanSql
-					+ (semuaToko ? "" : " AND a.toko=?") + " GROUP BY 1";
+					+ (semuaToko ? batasPendaftar("a", pendaftarLingkup) : " AND a.toko = ?") + " GROUP BY 1";
 			java.sql.PreparedStatement psTren = conn.prepareStatement(
 					"SELECT TO_CHAR(" + groupSql + ",'" + labelFmt + "') AS lbl,COUNT(*),COALESCE(SUM(nilai),0),"
 							+ "COALESCE(AVG(nilai),0),COALESCE(MIN(nilai),0),COALESCE(MAX(nilai),0),"
@@ -3574,6 +3575,7 @@ public class PosApi extends HttpServlet {
 
 	private void prosesLaporanRiwayatPenjualanAnalitik(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		boolean bolehSemuaKasir = bolehSupervisorAtauAdmin(tbmuser);
 		String namaKasirLogin = tbmuser == null ? "" : str(tbmuser.getUserNama()).trim();
@@ -3616,7 +3618,7 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " MAX(a.member) member FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
 					+ batasKasir + " GROUP BY 1";
 
 			java.sql.PreparedStatement pk = conn.prepareStatement("SELECT COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0),"
@@ -3685,7 +3687,7 @@ public class PosApi extends HttpServlet {
 					+ "COALESCE(SUM(a.qty),0),COALESCE(SUM(a.total),0),COUNT(DISTINCT COALESCE(a.pembelian_anggota_koperasi,a.id))"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.produk p ON p.id=a.produk"
 					+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
 					+ " GROUP BY a.produk ORDER BY 3 DESC LIMIT 15";
 			java.sql.PreparedStatement pProduk = conn.prepareStatement(sqlProduk);
 			isiParamToko(pProduk,1, tokoId); pProduk.setString(2, mulai); pProduk.setString(3, sampai);
@@ -3696,7 +3698,7 @@ public class PosApi extends HttpServlet {
 
 			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.totalnilai),0)"
 					+ " FROM koperasi.retur_penjualan rp LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=rp.pembelian_anggota_koperasi_id"
-					+ " WHERE COALESCE(?::bigint, COALESCE(rp.toko, -1)) = COALESCE(rp.toko, -1) AND DATE(rp.waktu)>=?::date AND DATE(rp.waktu)<=?::date";
+					+ " WHERE " + kondisiToko("rp", pendaftarLingkup) + " AND DATE(rp.waktu)>=?::date AND DATE(rp.waktu)<=?::date";
 			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),''))=LOWER(?)";
 			java.sql.PreparedStatement pRetur = conn.prepareStatement(sqlRetur);
 			isiParamToko(pRetur,1, tokoId); pRetur.setString(2, mulai); pRetur.setString(3, sampai);
@@ -3729,6 +3731,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesLaporanPenjualanKasirList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		boolean bolehSemua = bolehSupervisorAtauAdmin(tbmuser);
 		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
@@ -3756,7 +3759,7 @@ public class PosApi extends HttpServlet {
 			JSONObject daftar = daftarOrderDenganSesi(session, tokoId, tokoKode, aman);
 			java.sql.Connection conn = session.connection();
 			String dasar = " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date";
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date";
 			// Metode bayar ikut dibawa ke subquery agar bisa disaring (rekonsiliasi tim keuangan).
 			String metodeDipilih = payload.optString("metode", "").trim();
 			String sub = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
@@ -3826,6 +3829,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesLaporanMetodeBayarOpsi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
 		String mulai = payload.optString("tglMulai", "").trim(); if (mulai.length() == 0) mulai = hariIni;
@@ -3836,7 +3840,7 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT DISTINCT COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
 							+ " FROM koperasi.pembelian a"
-							+ " WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+							+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
 							+ " ORDER BY 1");
 			isiParamToko(ps,1, tokoId);
 			ps.setString(2, mulai);
@@ -3855,6 +3859,7 @@ public class PosApi extends HttpServlet {
 
 	private void prosesLaporanPenerimaanKasirList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		boolean bolehSemua = bolehSupervisorAtauAdmin(tbmuser);
 		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
@@ -3891,7 +3896,7 @@ public class PosApi extends HttpServlet {
 					+ " MAX(pak.cara_pembayaran_koperasi_4) cp4,MAX(COALESCE(pak.nominal_bayar_4,0)) n4,"
 					+ " MAX(pak.cara_pembayaran_koperasi_5) cp5,MAX(COALESCE(pak.nominal_bayar_5,0)) n5"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1)"
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1)"
 					+ " SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),t.metode_rincian) metode,"
 					+ " (t.nilai-t.n2-t.n3-t.n4-t.n5) nilai FROM nota t"
 					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp1"
@@ -4005,6 +4010,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesLaporanTransaksiPerKasir(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		boolean bolehSemua = bolehSupervisorAtauAdmin(tbmuser);
 		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
@@ -4025,7 +4031,7 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai,"
 					+ " COALESCE(MAX(pak.bayar_tunai),0) tunai,COALESCE(MAX(pak.bayar_non_tunai),0) non_tunai"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
 			String filterKasir = kasirDipilih.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
 			java.sql.PreparedStatement pt = conn.prepareStatement("SELECT kasir,metode,COUNT(*),COALESCE(SUM(nilai),0),COALESCE(SUM(tunai),0),COALESCE(SUM(non_tunai),0) FROM (" + transaksi + ") trx" + filterKasir + " GROUP BY kasir,metode ORDER BY kasir,metode");
 			int ix = 1; isiParamToko(pt, ix++, tokoId); pt.setString(ix++, mulai); pt.setString(ix++, sampai); if (kasirDipilih.length() > 0) pt.setString(ix++, kasirDipilih);
@@ -4051,7 +4057,7 @@ public class PosApi extends HttpServlet {
 			String sesiSql = "SELECT COALESCE(NULLIF(TRIM(sk.kasir_nama),''),'Kasir tidak tercatat'),COUNT(*),COALESCE(SUM(sk.modalawal),0),"
 					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN COALESCE(sk.uangfisik,0) ELSE COALESCE(sk.modalawal,0)+COALESCE((SELECT SUM(COALESCE(pak.bayar_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak WHERE pak.toko=sk.toko AND (pak.sesi_kas_kasir=sk.id OR (pak.sesi_kas_kasir IS NULL AND pak.kasir_login_nama=sk.kasir_nama)) AND pak.tanggal_pembayaran>=sk.waktubuka AND pak.tanggal_pembayaran<=NOW()),0) END),0),"
 					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN 1 ELSE 0 END),0)"
-					+ " FROM koperasi.sesi_kas_kasir sk WHERE COALESCE(?::bigint, COALESCE(sk.toko, -1)) = COALESCE(sk.toko, -1) AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterSesi + " GROUP BY 1 ORDER BY 1";
+					+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterSesi + " GROUP BY 1 ORDER BY 1";
 			java.sql.PreparedStatement ps = conn.prepareStatement(sesiSql);
 			ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai); if (kasirDipilih.length() > 0) ps.setString(ix++, kasirDipilih);
 			java.sql.ResultSet rs = ps.executeQuery();
@@ -4098,6 +4104,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesLaporanTransaksiPerKasirDetail(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		boolean bolehSemua = bolehSupervisorAtauAdmin(tbmuser);
 		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
@@ -4135,7 +4142,7 @@ public class PosApi extends HttpServlet {
 						+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat'),COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-'),"
 						+ " COALESCE(SUM(a.qty),0),COALESCE(MAX(pak.total_biaya),SUM(a.total)),COALESCE(MAX(pak.bayar_tunai),0),COALESCE(MAX(pak.bayar_non_tunai),0)"
 						+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-						+ " WHERE COALESCE(?::bigint, COALESCE(a.toko, -1)) = COALESCE(a.toko, -1) AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+						+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
 						+ filterKasir + filterMetode + " GROUP BY COALESCE(a.pembelian_anggota_koperasi,a.id) ORDER BY MAX(a.waktu) DESC";
 				java.sql.PreparedStatement ps = conn.prepareStatement(sql);
 				int ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai);
@@ -4160,7 +4167,7 @@ public class PosApi extends HttpServlet {
 				String filterKasir = kasir.length() == 0 ? "" : " AND LOWER(TRIM(sk.kasir_nama))=LOWER(?)";
 				java.sql.PreparedStatement ps = conn.prepareStatement(
 						"SELECT sk.id,sk.waktubuka,sk.waktututup,sk.status,COALESCE(NULLIF(TRIM(sk.kasir_nama),''),'Kasir tidak tercatat'),COALESCE(sk.modalawal,0),COALESCE(sk.uangfisik,0)"
-						+ " FROM koperasi.sesi_kas_kasir sk WHERE COALESCE(?::bigint, COALESCE(sk.toko, -1)) = COALESCE(sk.toko, -1) AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterKasir + " ORDER BY sk.waktubuka DESC");
+						+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterKasir + " ORDER BY sk.waktubuka DESC");
 				int ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai); if (kasir.length() > 0) ps.setString(ix++, kasir);
 				java.sql.ResultSet rs = ps.executeQuery();
 				while (rs.next()) {
@@ -4168,7 +4175,7 @@ public class PosApi extends HttpServlet {
 					String status = rs.getString(4); String namaKasir = rs.getString(5); double modal = rs.getDouble(6); double uangFisik = rs.getDouble(7);
 					java.sql.PreparedStatement pd = conn.prepareStatement(
 							"SELECT COUNT(*),COALESCE(SUM(total_biaya),0),COALESCE(SUM(bayar_tunai),0),COALESCE(SUM(bayar_non_tunai),0)"
-							+ " FROM koperasi.pembelian_anggota_koperasi WHERE COALESCE(?::bigint, COALESCE(toko, -1)) = COALESCE(toko, -1) AND (sesi_kas_kasir=? OR (sesi_kas_kasir IS NULL"
+							+ " FROM koperasi.pembelian_anggota_koperasi WHERE " + kondisiToko("", pendaftarLingkup) + " AND (sesi_kas_kasir=? OR (sesi_kas_kasir IS NULL"
 							+ " AND LOWER(NULLIF(TRIM(kasir_login_nama),''))=LOWER(?) AND tanggal_pembayaran>=? AND tanggal_pembayaran<=?))");
 					isiParamToko(pd,1, tokoId); pd.setLong(2, sesiId); pd.setString(3, namaKasir); pd.setTimestamp(4, buka);
 					pd.setTimestamp(5, tutup == null ? new java.sql.Timestamp(System.currentTimeMillis()) : tutup);
@@ -4486,6 +4493,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesLaporanSesiList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
@@ -4503,7 +4511,7 @@ public class PosApi extends HttpServlet {
 			String tokoNama = toko == null ? (tokoId == null ? "Semua Toko" : "") : str(toko.getNama());
 			java.sql.Connection conn = session.connection();
 
-			StringBuilder where = new StringBuilder("COALESCE(?::bigint, COALESCE(toko, -1)) = COALESCE(toko, -1)");
+			StringBuilder where = new StringBuilder("" + kondisiToko("", pendaftarLingkup) + "");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			params.add(tokoId);
 			if (tglMulai.length() > 0) { where.append(" AND DATE(waktubuka) >= ?"); params.add(tglMulai); }
@@ -4621,6 +4629,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardKeuangan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		// Admin global tanpa toko terpilih melihat SEMUA toko (sama spt tab
 		// Ringkasan Umum). Pedagang/kasir tetap terkunci oleh resolveTokoId.
 		boolean semuaToko = (tokoId == null);
@@ -4639,7 +4648,7 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psLaba = conn.prepareStatement(
 					"SELECT DATE(a.waktu), a.produk, SUM(a.total), SUM(a.qty) FROM koperasi.pembelian a "
 							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '14 days'"
-							+ (semuaToko ? "" : " AND a.toko = ?")
+							+ (semuaToko ? batasPendaftar("a", pendaftarLingkup) : " AND a.toko = ?")
 							+ " AND DATE(a.waktu) <= " + acuanSql + " GROUP BY DATE(a.waktu), a.produk ORDER BY 1");
 			if (!semuaToko) psLaba.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsLaba = psLaba.executeQuery();
@@ -4686,7 +4695,7 @@ public class PosApi extends HttpServlet {
 					"SELECT p.id, COALESCE(t.nama,'-'), p.nama, COALESCE(p.hargajual,0) FROM koperasi.produk p "
 							+ "LEFT JOIN koperasi.toko t ON t.id = p.toko "
 							+ "WHERE p.bahanbaku IS NOT NULL AND TRIM(p.bahanbaku) NOT IN ('','[]')"
-							+ (semuaToko ? "" : " AND p.toko = ?") + " ORDER BY p.nama");
+							+ (semuaToko ? batasPendaftar("p", pendaftarLingkup) : " AND p.toko = ?") + " ORDER BY p.nama");
 			if (!semuaToko) psResep.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsResep = psResep.executeQuery();
 			JSONArray rekapMenu = new JSONArray();
@@ -4718,7 +4727,7 @@ public class PosApi extends HttpServlet {
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(SUM(pb.qty),0), COALESCE(SUM(pb.qty * COALESCE(pr.hargabeli,0)),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
 							+ "WHERE pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
-							+ (semuaToko ? "" : " AND pb.toko = ?")
+							+ (semuaToko ? batasPendaftar("pb", pendaftarLingkup) : " AND pb.toko = ?")
 							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.nama ORDER BY 2 DESC");
 			if (!semuaToko) psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
@@ -4771,6 +4780,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardProduk(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		// Sama spt tab Ringkasan Umum: admin global (pedagang == null) yang tidak
 		// memilih toko tertentu melihat SEMUA toko sekaligus, bukan ditolak.
 		// Pedagang/kasir tetap terkunci ke tokonya sendiri oleh resolveTokoId,
@@ -4779,7 +4789,7 @@ public class PosApi extends HttpServlet {
 		if (semuaToko && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) {
 			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
 		}
-		String kondisiToko = semuaToko ? "" : " AND a.toko = ?";
+		String kondisiToko = semuaToko ? batasPendaftar("a", pendaftarLingkup) : " AND a.toko = ?";
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
@@ -4791,7 +4801,7 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psStok = conn.prepareStatement(
 					"SELECT c.nama, COALESCE(c.stok,0) FROM koperasi.produk c WHERE (c.aktif = true OR c.aktif IS NULL)"
-							+ (semuaToko ? "" : " AND c.toko = ?") + " ORDER BY c.stok ASC LIMIT 100");
+							+ (semuaToko ? batasPendaftar("c", pendaftarLingkup) : " AND c.toko = ?") + " ORDER BY c.stok ASC LIMIT 100");
 			if (!semuaToko) psStok.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsStok = psStok.executeQuery();
 			JSONArray stokArr = new JSONArray();
@@ -4810,7 +4820,7 @@ public class PosApi extends HttpServlet {
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(pr.stok,0), COALESCE(SUM(pb.qty),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
 							+ "WHERE pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
-							+ (semuaToko ? "" : " AND pb.toko = ?")
+							+ (semuaToko ? batasPendaftar("pb", pendaftarLingkup) : " AND pb.toko = ?")
 							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.id, pr.nama, pr.stok ORDER BY 3 DESC");
 			if (!semuaToko) psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
@@ -4842,7 +4852,7 @@ public class PosApi extends HttpServlet {
 					"SELECT COALESCE(SUM(COALESCE(stok,0) * COALESCE(hargabeli,0)),0) FROM koperasi.produk "
 							+ "WHERE id IN (SELECT DISTINCT produk FROM koperasi.pemakaian_bahan_baku"
 							+ (semuaToko ? "" : " WHERE toko = ?") + ")"
-							+ (semuaToko ? "" : " AND toko = ?"));
+							+ (semuaToko ? batasPendaftar("", pendaftarLingkup) : " AND toko = ?"));
 			if (!semuaToko) {
 				// Urutan parameter mengikuti urutan kemunculan di SQL: subquery
 				// pemakaian_bahan_baku lebih dulu, baru filter produk.
@@ -4873,7 +4883,7 @@ public class PosApi extends HttpServlet {
 								+ "INNER JOIN library.kode_transaksi b ON a.kode_transaksi = b.id WHERE a.master_asset = p.master_asset), 0) "
 								+ "FROM koperasi.produk p INNER JOIN asset.master_asset ma ON ma.id = p.master_asset "
 								+ "LEFT JOIN koperasi.toko t ON t.id = p.toko WHERE p.master_asset IS NOT NULL"
-								+ (semuaToko ? "" : " AND p.toko = ?") + " ORDER BY p.nama");
+								+ (semuaToko ? batasPendaftar("p", pendaftarLingkup) : " AND p.toko = ?") + " ORDER BY p.nama");
 				if (!semuaToko) psAset.setLong(1, tokoId.longValue());
 				java.sql.ResultSet rsAset = psAset.executeQuery();
 				while (rsAset.next()) {
@@ -5071,13 +5081,14 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesDashboardPelanggan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
 		// Admin global tanpa toko terpilih melihat SEMUA toko (sama spt tab
 		// Ringkasan Umum). Pedagang/kasir tetap terkunci oleh resolveTokoId.
 		boolean semuaToko = (tokoId == null);
 		if (semuaToko && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) {
 			hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return;
 		}
-		String kondisiToko = semuaToko ? "" : " AND a.toko = ?";
+		String kondisiToko = semuaToko ? batasPendaftar("a", pendaftarLingkup) : " AND a.toko = ?";
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
@@ -5170,7 +5181,7 @@ public class PosApi extends HttpServlet {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Long pendaftarId = null;
 		try {
-			pendaftarId = pendaftarIdPengguna(session, tbmuser);
+			pendaftarId = pendaftarIdPengguna(tbmuser);
 			java.util.List<Toko> daftar;
 			if (semua) {
 				// Izin "seluruh toko" dibatasi pendaftar penggunanya. Tanpa ini,
@@ -5202,12 +5213,10 @@ public class PosApi extends HttpServlet {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 		hasil.put("status", "success");
-		// Pengguna yang terikat pendaftar TIDAK mendapat pilihan "Semua Toko":
-		// kueri laporan menyaring toko lewat SATU parameter, sehingga "semua"
-		// di sana berarti benar-benar seluruh basis data. Membiarkannya berarti
-		// membuka data tenant lain, jadi mereka memilih toko satu per satu dari
-		// daftar yang sudah dibatasi di atas.
-		hasil.put("bolehSemuaToko", semua && pendaftarId == null);
+		// "Semua Toko" kini juga tersedia bagi pengguna yang terikat pendaftar:
+		// artinya seluruh toko MILIKNYA, bukan seluruh basis data. Pembatasnya
+		// ada di setiap kueri lewat kondisiToko(...), bukan di sini.
+		hasil.put("bolehSemuaToko", semua);
 		hasil.put("terikatPendaftar", pendaftarId != null);
 		hasil.put("data", arr);
 	}
@@ -5215,7 +5224,7 @@ public class PosApi extends HttpServlet {
 	/**
 	 * Isi parameter filter toko yang boleh KOSONG (= seluruh toko).
 	 *
-	 * <p>Dipakai bersama pola SQL {@code COALESCE(?::bigint, COALESCE(x.toko, -1)) = COALESCE(x.toko, -1)}:
+	 * <p>Dipakai bersama pola SQL {@code " + kondisiToko("x", pendaftarLingkup) + "}:
 	 * bila parameternya NULL, syaratnya selalu benar sehingga seluruh toko
 	 * ikut -- TERMASUK baris yang kolom tokonya kosong, sama spt tab Dashboard
 	 * yang melepas filternya. COALESCE pada KOLOM diperlukan justru untuk baris
@@ -5246,7 +5255,53 @@ public class PosApi extends HttpServlet {
 	 * {@code pedagang -> toko -> pendaftar} supaya akun pedagang lama yang
 	 * belum sempat di-assign tetap terkurung di tenantnya sendiri.</p>
 	 */
-	private Long pendaftarIdPengguna(Session session, Tbmuser tbmuser) {
+	/**
+	 * Kondisi WHERE untuk filter toko, sekaligus pembatas tenant.
+	 *
+	 * <p>Menggabungkan dua hal dalam satu potongan SQL:</p>
+	 * <ul>
+	 *   <li>filter toko OPSIONAL lewat satu parameter (lihat
+	 *       {@link #isiParamToko}) -- kosong berarti semua toko;</li>
+	 *   <li>pembatas pendaftar, bila penggunanya terikat tenant. Nilainya
+	 *       disisipkan sbg LITERAL, bukan parameter, supaya nomor parameter
+	 *       berikutnya tidak bergeser. Aman: angkanya berasal dari relasi di
+	 *       basis data ({@code Tbmuser.pendaftar}), bukan dari masukan klien.</li>
+	 * </ul>
+	 *
+	 * <p>Bagi pengguna terikat tenant, baris yang kolom tokonya KOSONG sengaja
+	 * tidak ikut: baris tanpa toko bukan milik tenant mana pun.</p>
+	 *
+	 * @param alias awalan kolom pada kueri (mis. {@code "a"}), boleh kosong
+	 */
+	private String kondisiToko(String alias, Long pendaftarId) {
+		String a = (alias == null || alias.length() == 0) ? "" : (alias + ".");
+		String dasar = "COALESCE(?::bigint, COALESCE(" + a + "toko, -1)) = COALESCE(" + a + "toko, -1)";
+		if (pendaftarId == null) {
+			return dasar;
+		}
+		return dasar + " AND " + a + "toko IN (SELECT id FROM koperasi.toko WHERE pendaftar = "
+				+ pendaftarId.longValue() + ")";
+	}
+
+	/**
+	 * Pembatas tenant murni, tanpa filter parameter toko.
+	 *
+	 * <p>Dipakai tab Dashboard yang menyaring toko dgn cara MELEPAS kondisinya
+	 * saat "semua toko" -- melepas kondisi tanpa pembatas ini berarti melihat
+	 * seluruh basis data, termasuk tenant lain. Nilainya literal (bukan
+	 * parameter) supaya nomor parameter yang sudah ada tidak bergeser; angkanya
+	 * berasal dari basis data, bukan masukan klien.</p>
+	 */
+	private String batasPendaftar(String alias, Long pendaftarId) {
+		if (pendaftarId == null) {
+			return "";
+		}
+		String a = (alias == null || alias.length() == 0) ? "" : (alias + ".");
+		return " AND " + a + "toko IN (SELECT id FROM koperasi.toko WHERE pendaftar = "
+				+ pendaftarId.longValue() + ")";
+	}
+
+	private Long pendaftarIdPengguna(Tbmuser tbmuser) {
 		if (tbmuser == null) {
 			return null;
 		}
@@ -5294,7 +5349,7 @@ public class PosApi extends HttpServlet {
 		if (bolehLihatSemuaToko(tbmuser)) {
 			Session sesiPendaftar = HibernateUtil.getSessionFactory().openSession();
 			try {
-				Long pendaftarId = pendaftarIdPengguna(sesiPendaftar, tbmuser);
+				Long pendaftarId = pendaftarIdPengguna(tbmuser);
 				if (pendaftarId == null) {
 					return tokoDariPayload; // tanpa pendaftar: kosong = seluruh toko
 				}
@@ -5309,8 +5364,14 @@ public class PosApi extends HttpServlet {
 							return tokoDariPayload;
 						}
 					}
+					// Toko yang disebut BUKAN milik pendaftarnya -> jangan layani
+					// toko itu; jatuhkan ke agregat tenant sendiri.
+					return null;
 				}
-				return milikPendaftar.isEmpty() ? null : milikPendaftar.get(0).getId();
+				// Tidak memilih toko = agregat SELURUH toko miliknya. Aman krn
+				// setiap kueri laporan sudah dibatasi kondisiToko(...) ke
+				// pendaftar ini, jadi "kosong" tidak berarti seluruh basis data.
+				return null;
 			} finally {
 				HibernateUtil.closeSessionQuietly(sesiPendaftar);
 			}
