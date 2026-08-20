@@ -14,6 +14,7 @@ import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.metadata.ClassMetadata;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
@@ -196,9 +197,11 @@ public class LibraryCatalogSearchService {
 
     @SuppressWarnings("unchecked")
     private JSONArray referenceList(Session session, Class<?> type) throws JSONException {
-        Criteria criteria = session.createCriteria(type)
-                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-                .addOrder(Order.asc("nama"));
+        Criteria criteria = session.createCriteria(type);
+        if (hasProperty(session, type, "aktif")) {
+            criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+        }
+        criteria.addOrder(Order.asc("nama"));
         List<Object> rows = criteria.setMaxResults(250).list();
         JSONArray result = new JSONArray();
         for (Object row : rows) {
@@ -222,5 +225,14 @@ public class LibraryCatalogSearchService {
             result.put(new JSONObject().put("id", id).put("nama", name == null ? "" : name));
         }
         return result;
+    }
+
+    private boolean hasProperty(Session session, Class<?> type, String property) {
+        ClassMetadata metadata = session.getSessionFactory().getClassMetadata(type);
+        if (metadata == null) return false;
+        String[] names = metadata.getPropertyNames();
+        if (names == null) return false;
+        for (String name : names) if (property.equals(name)) return true;
+        return false;
     }
 }

@@ -50,7 +50,7 @@ public final class LibraryWorkspaceApi {
                     "select count(k.id) from library.kembali_pengadaan_item k join library.peminjaman_pengadaan_item p on p.id=k.peminjaman_pengadaan_item where k.tanggal_persetujuan is not null",
                     "p.anggota", context);
             long overdue = scopedCount(session,
-                    "select count(d.id) from library.peminjaman_pengadaan_item_detail d join library.peminjaman_pengadaan_item p on p.id=d.peminjaman_pengadaan_item where d.batas_waktupengembalian < current_timestamp and d.kembali_pengadaan_item_detail is null",
+                    "select count(d.id) from library.peminjaman_pengadaan_item_detail d join library.peminjaman_pengadaan_item p on p.id=d.peminjaman_pengadaan_item where d.batas_waktu_pengembalian < current_timestamp and d.kembali_pengadaan_item_detail is null",
                     "p.anggota", context);
             long holds = scopedCount(session,
                     "select count(h.id) from library.pesanan_anggota h where lower(coalesce(h.status,'')) not in ('batal','selesai','diambil')",
