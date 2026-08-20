@@ -33,6 +33,30 @@ String rnd = Common.getGeneratedBarCode(7);
     </button>
   </div>
 
+  <%-- Dua tab pada setiap menu Pengadaan: "Dasbor" (ringkasan angka) dan
+       "Permintaan" (daftar + CRUD). Susunannya sama di keenam menu, dan
+       sepadan dengan tab yang sama di Desktop/Android. --%>
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" data-bs-toggle="tab"
+              data-bs-target="#tabDasbor<%=rnd%>" type="button" role="tab">
+        <i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Dasbor")%>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" data-bs-toggle="tab"
+              data-bs-target="#tabData<%=rnd%>" type="button" role="tab">
+        <i class="fas fa-list me-2"></i><%=Common.getBahasaConfig("Permintaan")%>
+      </button>
+    </li>
+  </ul>
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="tabDasbor<%=rnd%>" role="tabpanel">
+    <jsp:include page="/WEB-INF/baru/include/dasbor_pengadaan.jsp">
+      <jsp:param name="tahap" value="pr"/>
+    </jsp:include>
+  </div>
+  <div class="tab-pane fade" id="tabData<%=rnd%>" role="tabpanel">
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-3">
       <div class="row g-2 align-items-end">
@@ -84,6 +108,8 @@ String rnd = Common.getGeneratedBarCode(7);
         <button class="btn btn-sm btn-outline-secondary" id="prNext<%=rnd%>" onclick="prHal<%=rnd%>(1)">&raquo;</button>
       </div>
     </div>
+  </div>
+  </div>
   </div>
 </div>
 

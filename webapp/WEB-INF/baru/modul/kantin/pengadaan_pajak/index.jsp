@@ -27,6 +27,30 @@ String rnd = Common.getGeneratedBarCode(7);
     <div class="text-muted small"><%=Common.getBahasaConfig("Setor PPh yang dipotong dan catat PPN dari pembayaran vendor")%></div>
   </div>
 
+  <%-- Dua tab pada setiap menu Pengadaan: "Dasbor" (ringkasan angka) dan
+       "Pajak" (daftar + CRUD). Susunannya sama di keenam menu, dan
+       sepadan dengan tab yang sama di Desktop/Android. --%>
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" data-bs-toggle="tab"
+              data-bs-target="#tabDasbor<%=rnd%>" type="button" role="tab">
+        <i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Dasbor")%>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" data-bs-toggle="tab"
+              data-bs-target="#tabData<%=rnd%>" type="button" role="tab">
+        <i class="fas fa-list me-2"></i><%=Common.getBahasaConfig("Pajak")%>
+      </button>
+    </li>
+  </ul>
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="tabDasbor<%=rnd%>" role="tabpanel">
+    <jsp:include page="/WEB-INF/baru/include/dasbor_pengadaan.jsp">
+      <jsp:param name="tahap" value="pajak"/>
+    </jsp:include>
+  </div>
+  <div class="tab-pane fade" id="tabData<%=rnd%>" role="tabpanel">
   <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
       <a class="nav-link active" href="javascript:void(0)" id="pjTabA<%=rnd%>" onclick="pjTab<%=rnd%>('terutang')">
@@ -94,6 +118,8 @@ String rnd = Common.getGeneratedBarCode(7);
         </table>
       </div>
     </div>
+  </div>
+  </div>
   </div>
 </div>
 

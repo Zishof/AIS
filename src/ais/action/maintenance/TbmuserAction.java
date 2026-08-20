@@ -177,8 +177,6 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 	private boolean pt;
 	private boolean ya;
 	private MyCheckboxConfig memilikiHakAksesTambahan;
-	private MyCheckboxConfig bolehBacaPustaka;
-	private MyCheckboxConfig bolehBacaRepository;
 	private Combobox userRole2;
 	private Combobox userRole3;
 	private Combobox userRole4;
@@ -1094,22 +1092,6 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(memilikiHakAksesTambahan = new MyCheckboxConfig("Pengguna memiliki hak akses lebih dari satu"));
 		memilikiHakAksesTambahan.setChecked(tbmuser.getMemilikiHakAksesTambahan());
 
-		// Menu Pustaka & Repository pada aplikasi mobile/desktop. Keduanya
-		// BAWAANNYA MENYALA (lihat getter di Tbmuser: null dianggap true),
-		// jadi pengguna lama tetap melihat menunya tanpa pembaruan data.
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig());
-		row.appendChild(bolehBacaPustaka = new MyCheckboxConfig(
-				"Tampilkan menu Pustaka (baca koleksi perpustakaan)"));
-		bolehBacaPustaka.setChecked(tbmuser.getBolehBacaPustaka());
-
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig());
-		row.appendChild(bolehBacaRepository = new MyCheckboxConfig(
-				"Tampilkan menu Repository (baca artefak digital)"));
-		bolehBacaRepository.setChecked(tbmuser.getBolehBacaRepository());
 
 		row = new MyFormRow();
 		row.setVisible(false);
@@ -1739,12 +1721,6 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		tbmuser.setHp(hp.getValue());
 
 		tbmuser.setMemilikiHakAksesTambahan(memilikiHakAksesTambahan.isChecked());
-		if (bolehBacaPustaka != null) {
-			tbmuser.setBolehBacaPustaka(Boolean.valueOf(bolehBacaPustaka.isChecked()));
-		}
-		if (bolehBacaRepository != null) {
-			tbmuser.setBolehBacaRepository(Boolean.valueOf(bolehBacaRepository.isChecked()));
-		}
 
 		tbmuser.setUserRole2(tbmrole2);
 		tbmuser.setUserRole3(tbmrole3);

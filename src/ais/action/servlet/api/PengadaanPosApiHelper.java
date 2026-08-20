@@ -1906,6 +1906,22 @@ public final class PengadaanPosApiHelper {
 		return ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
 	}
 
+	/** Benar bila penyimpanan berkas dapat dipakai. Dipanggil sebelum aksi lampiran
+	 *  supaya kegagalannya menjadi pesan yang jelas, bukan galat mentah. */
+	private static boolean berkasSiap() {
+		Session s = null;
+		try {
+			s = sesiBerkas();
+			return s != null;
+		} catch (Throwable e) {
+			ais.common.ErrorAuditUtil.record(e instanceof Exception ? (Exception) e
+					: new Exception(e), "PengadaanPosApiHelper.berkasSiap");
+			return false;
+		} finally {
+			HibernateUtil.closeSessionQuietly(s);
+		}
+	}
+
 	private static ais.database.model.file.LampiranLain lampiranTagihan(Session sesi, Long bastId, String kunci) {
 		return (ais.database.model.file.LampiranLain) sesi
 				.createCriteria(ais.database.model.file.LampiranLain.class)
@@ -1920,6 +1936,10 @@ public final class PengadaanPosApiHelper {
 	 * masing-masing tanpa perlu menghafal daftarnya sendiri.
 	 */
 	public static void lampiranDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!berkasSiap()) {
+			tolak(hasil, "Penyimpanan berkas sedang tidak dapat dihubungi, sehingga lampiran belum dapat diproses.");
+			return;
+		}
 		if (!bolehLihat(tbmuser, KUNCI_TAGIHAN) && !bolehLihat(tbmuser, KUNCI_BAST)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
@@ -1978,6 +1998,10 @@ public final class PengadaanPosApiHelper {
 	 * berkas per pasangan ref+jenis.</p>
 	 */
 	public static void lampiranUnggah(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!berkasSiap()) {
+			tolak(hasil, "Penyimpanan berkas sedang tidak dapat dihubungi, sehingga lampiran belum dapat diproses.");
+			return;
+		}
 		if (!bolehAksi(tbmuser, KUNCI_TAGIHAN, "update") && !bolehAksi(tbmuser, KUNCI_BAST, "update")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak mengunggah lampiran tagihan.");
 			return;
@@ -2104,6 +2128,10 @@ public final class PengadaanPosApiHelper {
 
 	/** Ambil isi satu lampiran sebagai base64, untuk ditampilkan atau diunduh klien. */
 	public static void lampiranUnduh(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!berkasSiap()) {
+			tolak(hasil, "Penyimpanan berkas sedang tidak dapat dihubungi, sehingga lampiran belum dapat diproses.");
+			return;
+		}
 		if (!bolehLihat(tbmuser, KUNCI_TAGIHAN) && !bolehLihat(tbmuser, KUNCI_BAST)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
@@ -2144,6 +2172,10 @@ public final class PengadaanPosApiHelper {
 	 * diterima sampai slot itu diisi kembali (dijaga pada {@code tagihanTerima}).
 	 */
 	public static void lampiranHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!berkasSiap()) {
+			tolak(hasil, "Penyimpanan berkas sedang tidak dapat dihubungi, sehingga lampiran belum dapat diproses.");
+			return;
+		}
 		if (!bolehAksi(tbmuser, KUNCI_TAGIHAN, "delete") && !bolehAksi(tbmuser, KUNCI_BAST, "delete")) {
 			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menghapus lampiran tagihan.");
 			return;
@@ -2200,8 +2232,15 @@ public final class PengadaanPosApiHelper {
 					kurang.add(slot[1]);
 				}
 			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "PengadaanPosApiHelper.lampiranWajibKurang bast=" + bastId);
+		} catch (Throwable e) {
+			// Sengaja Throwable, bukan Exception. Bila basis data berkas gagal DIINISIALISASI
+			// (mis. konfigurasinya tidak ikut terpasang), yang dilempar adalah
+			// ExceptionInInitializerError/NoClassDefFoundError -- keduanya Error, bukan
+			// Exception, sehingga akan lolos dari catch biasa dan mematikan seluruh alur
+			// terima tagihan. Gangguan pada penyimpanan berkas tidak boleh sejauh itu
+			// akibatnya: dicatat, lalu kekurangan dianggap nihil.
+			ais.common.ErrorAuditUtil.record(e instanceof Exception ? (Exception) e
+					: new Exception(e), "PengadaanPosApiHelper.lampiranWajibKurang bast=" + bastId);
 			return new java.util.ArrayList<String>();
 		} finally {
 			HibernateUtil.closeSessionQuietly(sesi);
@@ -2860,6 +2899,7 @@ public final class PengadaanPosApiHelper {
 		hasil.put("corong", corong);
 		hasil.put("daftar", menunggu);
 		hasil.put("daftarJudul", "Menunggu Persetujuan Paling Lama");
+		hasil.put("catatanKosong", "Belum ada Permintaan Pembelian pada periode ini.");
 	}
 
 	/**

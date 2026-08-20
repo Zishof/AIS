@@ -827,6 +827,44 @@ public final class AnggaranApiHelper {
 				}
 			}
 
+			// ROLLUP: realisasi milik satu item ikut dijumlahkan ke SELURUH leluhurnya,
+			// padanan WorkspaceTreeModel.ubahRealisasiParents pada layar ZK. Tanpa ini baris
+			// induk pada pohon selalu 0 walaupun turunannya sudah terpakai.
+			Map<Long, Long> indukDari = new HashMap<Long, Long>();
+			for (Iterator<Workspace> it = items.iterator(); it.hasNext();) {
+				Workspace w = it.next();
+				indukDari.put(w.getId(), w.getParentId());
+			}
+			Map<Long, double[]> realisasiPohon = new HashMap<Long, double[]>();
+			Map<Long, Integer> transaksiPohon = new HashMap<Long, Integer>();
+			for (Iterator<Map.Entry<Long, double[]>> it = realisasiPerItem.entrySet().iterator(); it
+					.hasNext();) {
+				Map.Entry<Long, double[]> e = it.next();
+				double[] milik = e.getValue();
+				Integer nTrx = jumlahTransaksi.get(e.getKey());
+				Long kini = e.getKey();
+				int pagar = 0;
+				while (kini != null && pagar++ < 60) {
+					double[] t = realisasiPohon.get(kini);
+					if (t == null) {
+						t = new double[12];
+						realisasiPohon.put(kini, t);
+					}
+					for (int i = 0; i < 12; i++) {
+						t[i] += milik[i];
+					}
+					Integer n = transaksiPohon.get(kini);
+					transaksiPohon.put(kini,
+							Integer.valueOf((n == null ? 0 : n.intValue()) + (nTrx == null ? 0 : nTrx.intValue())));
+					Long induk = indukDari.get(kini);
+					// Berhenti di akar: induk tidak ada, nol, atau tidak ikut terambil.
+					if (induk == null || induk.longValue() == 0 || !indukDari.containsKey(induk)) {
+						break;
+					}
+					kini = induk;
+				}
+			}
+
 			JSONArray arr = new JSONArray();
 			double[] totalPaguBulan = new double[12];
 			double[] totalRealisasiBulan = new double[12];
@@ -840,34 +878,46 @@ public final class AnggaranApiHelper {
 					}
 				}
 				JSONObject j = itemJson(w);
-				double[] real = realisasiPerItem.get(w.getId());
+				double[] real = realisasiPohon.get(w.getId());
+				double[] milik = realisasiPerItem.get(w.getId());
 				JSONArray realisasiBulan = new JSONArray();
+				JSONArray realisasiSendiriBulan = new JSONArray();
 				double totalReal = 0.0;
+				double totalSendiri = 0.0;
 				for (int i = 0; i < 12; i++) {
 					double v = real == null ? 0.0 : real[i];
+					double vs = milik == null ? 0.0 : milik[i];
 					realisasiBulan.put(v);
+					realisasiSendiriBulan.put(vs);
 					totalReal += v;
+					totalSendiri += vs;
 				}
 				double pagu = d(w.getHargaTotal());
 				j.put("realisasiBulan", realisasiBulan);
 				j.put("realisasi", totalReal);
+				// Angka milik item itu sendiri tetap dibawa supaya pengguna bisa membedakan
+				// "terpakai di baris ini" dari "terpakai di seluruh turunannya".
+				j.put("realisasiSendiriBulan", realisasiSendiriBulan);
+				j.put("realisasiSendiri", totalSendiri);
 				j.put("sisa", pagu - totalReal);
 				j.put("persen", pagu == 0.0 ? 0.0 : (totalReal / pagu) * 100.0);
-				Integer n = jumlahTransaksi.get(w.getId());
+				Integer n = transaksiPohon.get(w.getId());
 				j.put("jumlahTransaksi", n == null ? 0 : n.intValue());
 				arr.put(j);
 
-				boolean akar = w.getParentId() == null || w.getParentId().longValue() <= 0;
+				// Akar = induknya tidak ikut terambil. Data ZK memakai penunjuk induk negatif
+				// besar (checkRootSatuanKerja), jadi tidak cukup memeriksa "parentId <= 0".
+				Long indukW = w.getParentId();
+				boolean akar = indukW == null || indukW.longValue() == 0 || !indukDari.containsKey(indukW);
 				if (akar) {
 					JSONArray b = j.getJSONArray("bulan");
 					for (int i = 0; i < 12; i++) {
 						totalPaguBulan[i] += b.getDouble(i);
+						// Pagu dan realisasi sama-sama sudah menjumlah ke atas, jadi total
+						// keseluruhan cukup diambil dari baris akar; menjumlah semua baris
+						// akan menghitung angka yang sama berkali-kali.
+						totalRealisasiBulan[i] += real == null ? 0.0 : real[i];
 					}
-				}
-				// Realisasi dijumlahkan dari SELURUH item (bukan hanya akar): angka realisasi
-				// tidak diagregasi ke induk seperti pagu, melainkan melekat pada item terpakai.
-				for (int i = 0; i < 12; i++) {
-					totalRealisasiBulan[i] += real == null ? 0.0 : real[i];
 				}
 			}
 			JSONArray paguBulanArr = new JSONArray();
