@@ -2413,12 +2413,14 @@ public class PosApi extends HttpServlet {
 	 *       DALAM {@code KantinHelper} SEBELUM try/catch-nya sendiri terbuka -- method itu tidak
 	 *       sempat mengisi {@code status} apa pun dlm kasus ini, lihat kondisi {@code toko==null} di
 	 *       {@code bayar()}/{@code draft_bayar()}).</li>
-	 *   <li>{@code PERMINTAAN_DITOLAK} -- status {@code "91"} yang membawa kalimat penjelas layak-baca
-	 *       ({@link #pesanBisnisAman}). Ini penolakan ATURAN BISNIS (hak akses, jenis keanggotaan,
-	 *       konfigurasi default belum ada), bukan kegagalan sistem: teksnya memang ditujukan kepada
-	 *       pengguna, jadi diteruskan apa adanya. Tanpa cabang ini seluruh penolakan "91" jatuh ke
-	 *       {@code SERVER_ERROR} dan pengguna hanya melihat "Server belum dapat menyelesaikan proses
-	 *       ini" -- alasan sebenarnya tertinggal di {@code teknis} yang tidak semua layar tampilkan.</li>
+	 *   <li>{@code PERMINTAAN_DITOLAK} -- status penolakan APA PUN yang membawa kalimat penjelas
+	 *       layak-baca ({@link #pesanBisnisAman}): "91" (gerbang aturan bisnis spt hak akses, jenis
+	 *       keanggotaan, konfigurasi default belum ada), "90", maupun "01" di luar konteks
+	 *       {@code checkBayar}. Ini penolakan ATURAN BISNIS, bukan kegagalan sistem: teksnya memang
+	 *       ditujukan kepada pengguna, jadi diteruskan apa adanya. Tanpa cabang ini seluruh
+	 *       penolakan itu jatuh ke {@code SERVER_ERROR} dan pengguna hanya melihat "Server belum
+	 *       dapat menyelesaikan proses ini" -- alasan sebenarnya tertinggal di {@code teknis} yang
+	 *       tidak semua layar tampilkan.</li>
 	 *   <li>{@code SERVER_ERROR} -- fallback umum (exception tak terduga, deskripsi asli Java tetap
 	 *       disertakan apa adanya di {@code message} utk konteks teknis).</li>
 	 * </ul>
@@ -2480,7 +2482,7 @@ public class PosApi extends HttpServlet {
 				pesan = desc;
 				solusi.put("Periksa produk dan jumlah di keranjang.")
 						.put("Minta petugas stok melakukan pemeriksaan fisik atau stok opname bila jumlah di layar tidak sesuai.");
-			} else if ("91".equals(asli) && pesanBisnisAman(desc)) {
+			} else if (pesanBisnisAman(desc)) {
 				// Penolakan ATURAN BISNIS, bukan kegagalan sistem: KantinHelper memakai "91" utk
 				// gerbang seperti hak akses topup, jenis keanggotaan yg tidak boleh ditopup, atau
 				// Cara Pembayaran/Jenis Tabungan default yg belum dikonfigurasi. Kalimatnya sudah
@@ -2489,6 +2491,13 @@ public class PosApi extends HttpServlet {
 				// di `teknis`, sehingga layar yg tidak menampilkan teknis (mis. dialog Topup)
 				// membuat pengguna menebak-nebak. Deskripsi yang MENGANDUNG jejak teknis sengaja
 				// tidak dipakai (lihat pesanBisnisAman) supaya stack/SQL tetap tidak bocor ke kasir.
+				//
+				// Syaratnya sengaja BUKAN "status == 91", melainkan "deskripsinya layak dibaca":
+				// KantinHelper juga memakai kode lain utk penolakan yang kalimatnya sama-sama
+				// ditujukan kepada pengguna -- mis. "90" pada checkBayar (yang memakai
+				// Common.tampilErrorJikaAdmin, sehingga bukan-admin menerima kalimat generik yang
+				// aman) dan "01" di luar konteks checkBayar. Cabang khusus di atas tetap
+				// didahulukan, jadi klasifikasi stok/duplikat/pesanan tidak berubah.
 				kode = "PERMINTAAN_DITOLAK";
 				judul = "Belum dapat diproses";
 				pesan = desc.trim();

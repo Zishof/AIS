@@ -239,42 +239,17 @@ public final class RevisiApiHelper {
 			Object snapshot = reader.find(clazz, id, Integer.valueOf(rev));
 			if (snapshot == null) { tolak(hasil, "Revisi tidak ditemukan."); return; }
 			ClassMetadata meta = HibernateUtil.getSessionFactory().getClassMetadata(clazz);
-			Object target = session.get(clazz, id);
-			boolean hidupkanLagi = (target == null);
-			if (hidupkanLagi) {
-				target = clazz.newInstance();
-				meta.setIdentifier(target, (Serializable) id, EntityMode.POJO);
+			// Jalur penyalinan SATU-SATUNYA, dipakai bersama restore massal. Kalau
+			// dipisah, keduanya akan menyimpang pelan-pelan dan "Pulihkan" satuan
+			// tidak lagi berarti hal yang sama dengan "Pulihkan semua".
+			JSONObject lapor = salinKeLive(session, meta, clazz, snapshot, id);
+			if (!lapor.optBoolean("ok", false)) {
+				tolak(hasil, "Restore gagal: " + lapor.optString("pesan", "tidak diketahui"));
+				return;
 			}
-			String[] props = meta.getPropertyNames();
-			Type[] tipeProp = meta.getPropertyTypes();
-			int dilewati = 0;
-			for (int i = 0; i < props.length; i++) {
-				if (tipeProp[i].isCollectionType()) continue;
-				try {
-					Object nilai = meta.getPropertyValue(snapshot, props[i], EntityMode.POJO);
-					if (tipeProp[i].isEntityType() && nilai != null) {
-						Class kelasRelasi = tipeProp[i].getReturnedClass();
-						ClassMetadata metaRelasi =
-								HibernateUtil.getSessionFactory().getClassMetadata(kelasRelasi);
-						Serializable idRelasi =
-								metaRelasi.getIdentifier(nilai, EntityMode.POJO);
-						nilai = idRelasi == null ? null : session.get(kelasRelasi, idRelasi);
-						if (nilai == null && idRelasi != null) { dilewati++; continue; }
-					}
-					meta.setPropertyValue(target, props[i], nilai, EntityMode.POJO);
-				} catch (Throwable abaikan) {
-					dilewati++; // satu properti bermasalah tidak menggagalkan restore.
-				}
-			}
-			session.beginTransaction();
-			if (hidupkanLagi) {
-				session.replicate(target, org.hibernate.ReplicationMode.OVERWRITE);
-			} else {
-				session.saveOrUpdate(target);
-			}
-			session.getTransaction().commit();
+			int dilewati = lapor.optInt("propertiDilewati", 0);
 			hasil.put("status", "00");
-			hasil.put("dihidupkanLagi", hidupkanLagi);
+			hasil.put("dihidupkanLagi", lapor.optBoolean("dihidupkanLagi", false));
 			hasil.put("propertiDilewati", dilewati);
 			hasil.put("description", "Data dipulihkan dari revisi " + rev
 					+ (dilewati > 0 ? " (" + dilewati + " properti dilewati)." : "."));
@@ -295,15 +270,6 @@ public final class RevisiApiHelper {
 	/** Nama properti relasi yang layak ditampilkan sbg penanda baris saat jelajah. */
 	private static final String[] RELASI_PENANDA = new String[] {
 			"toko", "anggotaKoperasi", "tbmuser", "mejaKantin", "caraPembayaranKoperasi", "lunas" };
-
-	private static boolean punyaProperti(ClassMetadata meta, String nama) {
-		if (meta == null) return false;
-		String[] props = meta.getPropertyNames();
-		for (int i = 0; i < props.length; i++) {
-			if (props[i].equals(nama)) return true;
-		}
-		return false;
-	}
 
 	/**
 	 * Batas rentang jelajah. {@code akhirHari} mendorong jam ke 23:59:59.999 supaya
@@ -397,48 +363,16 @@ public final class RevisiApiHelper {
 			tolak(hasil, "Tanggal awal melewati tanggal akhir.");
 			return;
 		}
-		RevisionType tipeSaring = tipeRevisi(request.optString("tipe", ""));
-		Long tokoId = null;
-		if (request != null && !request.isNull("toko")) {
-			String t = (request.get("toko") + "").trim();
-			if (t.length() > 0 && !"null".equals(t)) tokoId = Long.valueOf(t);
-		}
 		int batas = Math.min(300, Math.max(1, request.optInt("batas", 100)));
 		int mulai = Math.max(0, request.optInt("mulai", 0));
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			AuditReader reader = AuditReaderFactory.get(session);
-			// Rentang TANGGAL diterjemahkan lebih dulu ke rentang NOMOR revisi. Nomor
-			// revisi terindeks, sedangkan menyaring tanggal di sisi Java berarti menarik
-			// seluruh tabel audit ke memori.
-			Number revAwal;
-			try {
-				revAwal = reader.getRevisionNumberForDate(dari);
-			} catch (Exception belumAda) {
-				// Belum ada revisi apa pun sebelum tanggal awal -> mulai dari paling awal.
-				revAwal = Integer.valueOf(0);
-			}
-			Number revAkhir;
-			try {
-				revAkhir = reader.getRevisionNumberForDate(sampai);
-			} catch (Exception belumAda) {
-				// Tidak ada satu pun revisi sampai tanggal akhir -> pasti kosong.
-				hasil.put("status", "00");
-				hasil.put("data", new JSONArray());
-				hasil.put("adaLagi", Boolean.FALSE);
-				return;
-			}
-
 			ClassMetadata meta = HibernateUtil.getSessionFactory().getClassMetadata(clazz);
-			org.hibernate.envers.query.AuditQuery q = reader.createQuery()
-					.forRevisionsOfEntity(clazz, false, true)
-					.add(AuditEntity.revisionNumber().ge(revAwal))
-					.add(AuditEntity.revisionNumber().le(revAkhir));
-			if (tipeSaring != null) q.add(AuditEntity.revisionType().eq(tipeSaring));
-			if (tokoId != null && punyaProperti(meta, "toko")) {
-				q.add(AuditEntity.relatedId("toko").eq(tokoId));
-			}
+			org.hibernate.envers.query.AuditQuery q =
+					siapkanQuery(reader, clazz, meta, request, dari, sampai, hasil);
+			if (q == null) return;
 			q.addOrder(AuditEntity.revisionNumber().desc());
 			q.setFirstResult(mulai);
 			// +1 baris semata utk mengetahui masih ada halaman berikutnya; tidak dikirim.
@@ -508,6 +442,397 @@ public final class RevisiApiHelper {
 			hasil.put("data", arr);
 			hasil.put("adaLagi", adaLagi ? Boolean.TRUE : Boolean.FALSE);
 			hasil.put("bolehPulihkan", Common.getApakahAdminLain(tbmuser));
+			hasil.put("kolom", kolomTersedia(meta));
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private static int indeksProperti(ClassMetadata meta, String nama) {
+		if (meta == null || nama == null) return -1;
+		String[] props = meta.getPropertyNames();
+		for (int i = 0; i < props.length; i++) {
+			if (props[i].equals(nama)) return i;
+		}
+		return -1;
+	}
+
+	private static boolean punyaProperti(ClassMetadata meta, String nama) {
+		return indeksProperti(meta, nama) >= 0;
+	}
+
+	/** Properti bertipe teks -- satu-satunya yang aman dipakai LIKE. */
+	private static boolean propertiTeks(ClassMetadata meta, String nama) {
+		int i = indeksProperti(meta, nama);
+		if (i < 0) return false;
+		Type t = meta.getPropertyTypes()[i];
+		return !t.isCollectionType() && !t.isEntityType()
+				&& CharSequence.class.isAssignableFrom(t.getReturnedClass());
+	}
+
+	/**
+	 * Kriteria pencarian kata kunci: OR dari LIKE pada properti TEKS saja.
+	 *
+	 * <p>Pembatasan ke properti teks bukan kerapian, melainkan syarat kebenaran --
+	 * pelajaran yang sudah dibayar di versi ZK ({@code buildKeywordCriterion}).
+	 * Envers tetap bersedia membangun {@code ... LIKE ?} untuk kolom Integer/Long,
+	 * lalu Hibernate mem-binding parameternya memakai tipe kolom asli dan meledak
+	 * dengan ClassCastException -- bukan saat query disusun, melainkan jauh
+	 * kemudian saat dieksekusi. Properti non-teks dilewati di sini supaya kriteria
+	 * yang pasti gagal tidak pernah lahir.</p>
+	 */
+	private static org.hibernate.envers.query.criteria.AuditCriterion kriteriaKataKunci(
+			ClassMetadata meta, String kata) {
+		if (meta == null || kata == null || kata.trim().length() == 0) return null;
+		String bersih = kata.trim();
+		org.hibernate.envers.query.criteria.AuditCriterion kriteria = null;
+		String[] props = meta.getPropertyNames();
+		for (int i = 0; i < props.length; i++) {
+			if (!propertiTeks(meta, props[i])) continue;
+			org.hibernate.envers.query.criteria.AuditCriterion satu = AuditEntity
+					.property(props[i]).like(bersih, org.hibernate.criterion.MatchMode.ANYWHERE);
+			kriteria = kriteria == null ? satu : AuditEntity.or(kriteria, satu);
+		}
+		return kriteria;
+	}
+
+	/** Kriteria "kolom tertentu bernilai X", tipe menentukan cara membandingkan. */
+	private static org.hibernate.envers.query.criteria.AuditCriterion kriteriaKolom(
+			ClassMetadata meta, String kolom, String nilai) {
+		if (meta == null || kolom == null || kolom.trim().length() == 0) return null;
+		if (nilai == null || nilai.trim().length() == 0) return null;
+		String k = kolom.trim();
+		String v = nilai.trim();
+		int i = indeksProperti(meta, k);
+		if (i < 0) return null;
+		Type t = meta.getPropertyTypes()[i];
+		try {
+			if (t.isEntityType()) {
+				// Relasi disaring lewat id-nya, bukan isinya.
+				return AuditEntity.relatedId(k).eq(Long.valueOf(v));
+			}
+			Class kelas = t.getReturnedClass();
+			if (CharSequence.class.isAssignableFrom(kelas)) {
+				return AuditEntity.property(k).like(v, org.hibernate.criterion.MatchMode.ANYWHERE);
+			}
+			if (Boolean.class.isAssignableFrom(kelas) || boolean.class.equals(kelas)) {
+				return AuditEntity.property(k).eq(Boolean.valueOf(
+						"true".equalsIgnoreCase(v) || "1".equals(v) || "ya".equalsIgnoreCase(v)));
+			}
+			if (Date.class.isAssignableFrom(kelas)) {
+				java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd");
+				f.setLenient(false);
+				Date d = f.parse(v.length() > 10 ? v.substring(0, 10) : v);
+				java.util.Calendar c = java.util.Calendar.getInstance();
+				c.setTime(d);
+				c.set(java.util.Calendar.HOUR_OF_DAY, 23);
+				c.set(java.util.Calendar.MINUTE, 59);
+				c.set(java.util.Calendar.SECOND, 59);
+				c.set(java.util.Calendar.MILLISECOND, 999);
+				return AuditEntity.property(k).between(d, c.getTime());
+			}
+			if (Long.class.isAssignableFrom(kelas) || long.class.equals(kelas)) {
+				return AuditEntity.property(k).eq(Long.valueOf(v));
+			}
+			if (Integer.class.isAssignableFrom(kelas) || int.class.equals(kelas)) {
+				return AuditEntity.property(k).eq(Integer.valueOf(v));
+			}
+			if (Double.class.isAssignableFrom(kelas) || double.class.equals(kelas)) {
+				return AuditEntity.property(k).eq(Double.valueOf(v));
+			}
+		} catch (Exception nilaiTakCocok) {
+			// Nilai yang tidak bisa dikonversi ke tipe kolom lebih baik diabaikan
+			// daripada dipaksakan menjadi query yang pasti meledak saat dieksekusi.
+			return null;
+		}
+		return null;
+	}
+
+	/**
+	 * Menyusun AuditQuery bersama untuk jelajah dan restore massal, supaya
+	 * "yang terlihat di layar" dan "yang akan dipulihkan" tidak pernah berasal dari
+	 * saringan yang berbeda -- perbedaan sekecil apa pun di antara keduanya berarti
+	 * pengguna menekan Restore atas dasar daftar yang bukan itu.
+	 */
+	private static org.hibernate.envers.query.AuditQuery siapkanQuery(AuditReader reader,
+			Class clazz, ClassMetadata meta, JSONObject request, Date dari, Date sampai,
+			JSONObject hasil) throws Exception {
+		// Rentang TANGGAL diterjemahkan lebih dulu ke rentang NOMOR revisi. Nomor
+		// revisi terindeks, sedangkan menyaring tanggal di sisi Java berarti menarik
+		// seluruh tabel audit ke memori.
+		Number revAwal;
+		try {
+			revAwal = reader.getRevisionNumberForDate(dari);
+		} catch (Exception belumAda) {
+			// Belum ada revisi apa pun sebelum tanggal awal -> mulai dari paling awal.
+			revAwal = Integer.valueOf(0);
+		}
+		Number revAkhir;
+		try {
+			revAkhir = reader.getRevisionNumberForDate(sampai);
+		} catch (Exception belumAda) {
+			// Tidak ada satu pun revisi sampai tanggal akhir. Dibuat mustahil terpenuhi
+			// alih-alih dikembalikan null, supaya pemanggil tidak perlu punya jalur
+			// khusus "kosong" yang bisa lupa disamakan perilakunya.
+			revAkhir = Integer.valueOf(-1);
+			revAwal = Integer.valueOf(0);
+		}
+
+		org.hibernate.envers.query.AuditQuery q = reader.createQuery()
+				.forRevisionsOfEntity(clazz, false, true)
+				.add(AuditEntity.revisionNumber().ge(revAwal))
+				.add(AuditEntity.revisionNumber().le(revAkhir));
+
+		RevisionType tipeSaring = tipeRevisi(request.optString("tipe", ""));
+		if (tipeSaring != null) q.add(AuditEntity.revisionType().eq(tipeSaring));
+
+		if (request != null && !request.isNull("toko")) {
+			String t = (request.get("toko") + "").trim();
+			if (t.length() > 0 && !"null".equals(t) && punyaProperti(meta, "toko")) {
+				q.add(AuditEntity.relatedId("toko").eq(Long.valueOf(t)));
+			}
+		}
+
+		org.hibernate.envers.query.criteria.AuditCriterion kunci =
+				kriteriaKataKunci(meta, request.optString("kataKunci", ""));
+		if (kunci != null) q.add(kunci);
+
+		org.hibernate.envers.query.criteria.AuditCriterion kolom = kriteriaKolom(meta,
+				request.optString("kolom", ""), request.optString("nilai", ""));
+		if (kolom != null) q.add(kolom);
+
+		return q;
+	}
+
+	/** Daftar kolom yang bisa dipakai menyaring -- dipakai klien utk mengisi combo. */
+	private static JSONArray kolomTersedia(ClassMetadata meta) throws Exception {
+		JSONArray arr = new JSONArray();
+		if (meta == null) return arr;
+		String[] props = meta.getPropertyNames();
+		Type[] tipe = meta.getPropertyTypes();
+		for (int i = 0; i < props.length; i++) {
+			if (tipe[i].isCollectionType()) continue;
+			JSONObject j = new JSONObject();
+			j.put("nama", props[i]);
+			j.put("teks", propertiTeks(meta, props[i]));
+			j.put("relasi", tipe[i].isEntityType());
+			arr.put(j);
+		}
+		return arr;
+	}
+
+	/**
+	 * Menyalin satu cuplikan revisi ke baris hidup, di dalam SATU transaksi
+	 * tersendiri. Dipakai baik oleh restore satuan maupun restore massal supaya
+	 * keduanya tidak pernah berbeda perilaku.
+	 *
+	 * <p>Transaksi sengaja per baris, bukan satu transaksi besar: pada restore
+	 * massal, satu baris bermasalah tidak boleh menyeret seluruh sisanya ikut
+	 * batal. Ini juga pola yang dipakai versi ZK.</p>
+	 */
+	private static JSONObject salinKeLive(Session session, ClassMetadata meta, Class clazz,
+			Object snapshot, Serializable id) {
+		JSONObject lapor = new JSONObject();
+		org.hibernate.Transaction tx = null;
+		try {
+			Object target = session.get(clazz, id);
+			boolean hidupkanLagi = (target == null);
+			if (hidupkanLagi) {
+				target = clazz.newInstance();
+				meta.setIdentifier(target, id, EntityMode.POJO);
+			}
+			String[] props = meta.getPropertyNames();
+			Type[] tipeProp = meta.getPropertyTypes();
+			int dilewati = 0;
+			for (int i = 0; i < props.length; i++) {
+				if (tipeProp[i].isCollectionType()) continue;
+				try {
+					Object nilai = meta.getPropertyValue(snapshot, props[i], EntityMode.POJO);
+					if (tipeProp[i].isEntityType() && nilai != null) {
+						Class kelasRelasi = tipeProp[i].getReturnedClass();
+						ClassMetadata metaRelasi =
+								HibernateUtil.getSessionFactory().getClassMetadata(kelasRelasi);
+						Serializable idRelasi = metaRelasi.getIdentifier(nilai, EntityMode.POJO);
+						nilai = idRelasi == null ? null : session.get(kelasRelasi, idRelasi);
+						if (nilai == null && idRelasi != null) { dilewati++; continue; }
+					}
+					meta.setPropertyValue(target, props[i], nilai, EntityMode.POJO);
+				} catch (Throwable abaikan) {
+					dilewati++; // satu properti bermasalah tidak menggagalkan restore.
+				}
+			}
+			tx = session.beginTransaction();
+			if (hidupkanLagi) {
+				session.replicate(target, org.hibernate.ReplicationMode.OVERWRITE);
+			} else {
+				session.saveOrUpdate(target);
+			}
+			tx.commit();
+			lapor.put("ok", true);
+			lapor.put("dihidupkanLagi", hidupkanLagi);
+			lapor.put("propertiDilewati", dilewati);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) tx.rollback();
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "RevisiApiHelper.salinKeLive rollback");
+			}
+			try {
+				lapor.put("ok", false);
+				lapor.put("pesan", e.getMessage() == null ? e.toString() : e.getMessage());
+			} catch (Exception abaikan) {
+				// menyusun laporan kegagalan tidak boleh ikut gagal.
+			}
+		}
+		return lapor;
+	}
+
+	/**
+	 * <h3>Restore MASSAL "data terbaru" untuk seluruh baris yang cocok dengan
+	 * saringan -- meniru tombol "Restore Terbaru" pada {@code GenericRevisiHelper}
+	 * (ZK).</h3>
+	 *
+	 * <p>Aturan pemilihan cuplikan sama persis dengan versi ZK, dan perlu dipahami
+	 * sebelum dipakai:</p>
+	 * <ol>
+	 *   <li>revisi diurutkan dari yang TERBARU;</li>
+	 *   <li>revisi bertipe HAPUS <b>dilewati</b>, lalu;</li>
+	 *   <li>revisi pertama yang tersisa untuk tiap id dipakai.</li>
+	 * </ol>
+	 * <p>Artinya yang dipulihkan adalah keadaan terakhir baris itu <b>sebelum</b>
+	 * dihapus -- bukan cuplikan penghapusannya. Itulah yang dimaksud "data terakhir
+	 * yang dipakai".</p>
+	 *
+	 * <p><b>Beda yang disengaja dari versi ZK.</b> Bawaannya hanya menghidupkan
+	 * baris yang benar-benar SUDAH TIDAK ADA. Baris yang masih hidup dilewati,
+	 * kecuali {@code timpaYangMasihAda=true} diminta secara sadar. Versi ZK menimpa
+	 * semuanya; untuk sapuan lintas ratusan baris lewat API, menimpa data yang masih
+	 * dipakai orang adalah kerugian yang tidak bisa dibatalkan, sedangkan
+	 * menghidupkan yang hilang tidak merusak apa pun.</p>
+	 *
+	 * <p><b>Batas yang harus diketahui.</b> Restore ini DANGKAL: hanya baris pada
+	 * entitas yang dipilih. Versi ZK menelusuri dependensi secara rekursif; di sini
+	 * tidak. Untuk data berinduk-anak (mis. pesanan dan itemnya), induknya dipulihkan
+	 * lebih dulu, lalu anaknya dijalankan sebagai sapuan tersendiri -- relasi anak
+	 * mencari baris hidup ber-id sama, jadi urutan itu memang berhasil.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static void pulihkanMassal(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		if (tbmuser == null) { tolak(hasil, "Sesi tidak dikenali."); return; }
+		if (!Common.getApakahAdminLain(tbmuser)) {
+			tolak(hasil, "Restore massal hanya untuk ADMINISTRATOR.");
+			return;
+		}
+		Class clazz = kelasDari(request, hasil);
+		if (clazz == null) return;
+		Date dari = batasTanggal(request, "dari", false, hasil);
+		if (dari == null) return;
+		Date sampai = batasTanggal(request, "sampai", true, hasil);
+		if (sampai == null) return;
+		if (dari.after(sampai)) { tolak(hasil, "Tanggal awal melewati tanggal akhir."); return; }
+		boolean timpa = request.optBoolean("timpaYangMasihAda", false);
+		// Batas atas jumlah baris yang boleh dipulihkan dalam satu panggilan.
+		// Tanpa batas, satu klik keliru pada rentang lebar bisa menulis ulang
+		// ribuan baris -- dan tidak ada tombol "batal" untuk itu.
+		int batas = Math.min(500, Math.max(1, request.optInt("batas", 200)));
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AuditReader reader = AuditReaderFactory.get(session);
+			ClassMetadata meta = HibernateUtil.getSessionFactory().getClassMetadata(clazz);
+			org.hibernate.envers.query.AuditQuery q = siapkanQuery(reader, clazz, meta, request,
+					dari, sampai, hasil);
+			if (q == null) return;
+			q.addOrder(AuditEntity.revisionNumber().desc());
+			// Disapu lebih lebar daripada batas restore: revisi HAPUS dan revisi
+			// berulang pada id yang sama ikut terbaca dulu, baru disaring.
+			q.setMaxResults(5000);
+			List baris = q.getResultList();
+
+			java.util.LinkedHashMap terpilih = new java.util.LinkedHashMap();
+			for (int i = 0; i < baris.size(); i++) {
+				Object[] b = (Object[]) baris.get(i);
+				Object entitasBaris = b[0];
+				org.hibernate.envers.DefaultRevisionEntity rev =
+						(org.hibernate.envers.DefaultRevisionEntity) b[1];
+				RevisionType tipe = (RevisionType) b[2];
+				Date waktu = rev.getRevisionDate();
+				if (waktu == null || waktu.before(dari) || waktu.after(sampai)) continue;
+				// Cuplikan HAPUS dilewati: yang dicari keadaan terakhir SEBELUM dihapus.
+				if (tipe == RevisionType.DEL || entitasBaris == null) continue;
+				Serializable id;
+				try {
+					id = meta.getIdentifier(entitasBaris, EntityMode.POJO);
+				} catch (Throwable takTerbaca) {
+					continue;
+				}
+				if (id == null || terpilih.containsKey(id)) continue; // urut terbaru -> yg pertama menang.
+				terpilih.put(id, entitasBaris);
+			}
+
+			int berhasil = 0;
+			int dihidupkan = 0;
+			int dilewatiMasihAda = 0;
+			JSONArray gagal = new JSONArray();
+			JSONArray rincian = new JSONArray();
+			java.util.Iterator it = terpilih.entrySet().iterator();
+			int diproses = 0;
+			boolean terpotong = false;
+			while (it.hasNext()) {
+				if (diproses >= batas) { terpotong = true; break; }
+				java.util.Map.Entry e = (java.util.Map.Entry) it.next();
+				Serializable id = (Serializable) e.getKey();
+				Object snapshot = e.getValue();
+				if (!timpa && session.get(clazz, id) != null) {
+					dilewatiMasihAda++;
+					continue;
+				}
+				diproses++;
+				JSONObject lapor = salinKeLive(session, meta, clazz, snapshot, id);
+				JSONObject r = new JSONObject();
+				r.put("id", id);
+				if (lapor.optBoolean("ok", false)) {
+					berhasil++;
+					if (lapor.optBoolean("dihidupkanLagi", false)) dihidupkan++;
+					r.put("status", lapor.optBoolean("dihidupkanLagi", false) ? "DIHIDUPKAN" : "DIPERBARUI");
+					r.put("propertiDilewati", lapor.optInt("propertiDilewati", 0));
+				} else {
+					r.put("status", "GAGAL");
+					r.put("pesan", lapor.optString("pesan", "tidak diketahui"));
+					gagal.put(r);
+				}
+				rincian.put(r);
+				try {
+					session.clear(); // baris berikutnya tidak boleh mewarisi keadaan baris ini.
+				} catch (Exception abaikan) {
+					// membersihkan sesi gagal bukan alasan menghentikan sapuan.
+				}
+			}
+
+			hasil.put("status", "00");
+			hasil.put("kandidat", terpilih.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("dihidupkan", dihidupkan);
+			hasil.put("dilewatiMasihAda", dilewatiMasihAda);
+			hasil.put("gagal", gagal.length());
+			hasil.put("rincian", rincian);
+			hasil.put("terpotong", terpotong ? Boolean.TRUE : Boolean.FALSE);
+			StringBuffer pesan = new StringBuffer();
+			pesan.append(berhasil).append(" baris dipulihkan (").append(dihidupkan)
+					.append(" dihidupkan kembali)");
+			if (dilewatiMasihAda > 0) {
+				pesan.append("; ").append(dilewatiMasihAda).append(" dilewati karena datanya masih ada");
+			}
+			if (gagal.length() > 0) {
+				pesan.append("; ").append(gagal.length()).append(" gagal");
+			}
+			if (terpotong) {
+				pesan.append("; dihentikan pada batas ").append(batas)
+						.append(" baris -- jalankan lagi untuk sisanya");
+			}
+			pesan.append(".");
+			hasil.put("description", pesan.toString());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -521,6 +846,7 @@ public final class RevisiApiHelper {
 		if ("revisi_pulihkan".equals(action)) { pulihkan(tbmuser, request, hasil); return true; }
 		if ("revisi_jelajah".equals(action)) { jelajah(tbmuser, request, hasil); return true; }
 		if ("revisi_entitas".equals(action)) { entitas(tbmuser, request, hasil); return true; }
+		if ("revisi_pulihkan_massal".equals(action)) { pulihkanMassal(tbmuser, request, hasil); return true; }
 		return false;
 	}
 }

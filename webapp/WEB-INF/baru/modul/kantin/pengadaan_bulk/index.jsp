@@ -77,6 +77,19 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
           <label class="form-label small mb-1"><%=Common.getBahasaConfig("Kurir")%></label>
           <input type="text" id="bkKurir<%=rnd%>" class="form-control">
         </div>
+        <div class="col-md-8 d-none" id="bkBarisAnggaran<%=rnd%>">
+          <label class="form-label small mb-1"><%=Common.getBahasaConfig("Anggaran")%> *</label>
+          <select id="bkAnggaran<%=rnd%>" class="form-select"></select>
+        </div>
+        <div class="col-md-4 d-none" id="bkBarisTanpaAnggaran<%=rnd%>">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" id="bkTanpaAnggaran<%=rnd%>"
+                   onchange="bkGantiAnggaran<%=rnd%>()">
+            <label class="form-check-label small" for="bkTanpaAnggaran<%=rnd%>">
+              <%=Common.getBahasaConfig("Tanpa anggaran")%>
+            </label>
+          </div>
+        </div>
         <div class="col-12">
           <label class="form-label small mb-1"><%=Common.getBahasaConfig("Keterangan")%></label>
           <input type="text" id="bkKeterangan<%=rnd%>" class="form-control">
@@ -196,6 +209,29 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
     var p = String(iso).split("-");
     return p.length === 3 ? (p[2] + "-" + p[1] + "-" + p[0]) : "";
   }
+  // Pilihan Anggaran memakai aksi yang sama dengan Desktop/Android dan form PR satuan.
+  var anggaranOpsiBulk = [];
+  function muatAnggaranBulk(){
+    if (anggaranOpsiBulk.length) return;
+    api({action:"pengadaan_anggaran_cari", limit:50}).then(function(d){
+      anggaranOpsiBulk = d.data || [];
+      var h = anggaranOpsiBulk.length ? '<option value="">(pilih anggaran)</option>'
+            : '<option value="">(belum ada anggaran aktif)</option>';
+      for (var i=0;i<anggaranOpsiBulk.length;i++){
+        var a = anggaranOpsiBulk[i];
+        h += '<option value="' + a.id + '">' + esc(a.kode || "") + " " + esc(a.nama || "")
+           + " - sisa " + rp(a.sisa) + '</option>';
+      }
+      el("bkAnggaran").innerHTML = h;
+    });
+  }
+  window["bkGantiAnggaran" + RND] = function(){
+    var tanpa = el("bkTanpaAnggaran").checked;
+    // Disembunyikan, bukan sekadar dimatikan -- sejalan dengan form PR satuan.
+    el("bkBarisAnggaran").classList.toggle("d-none", tanpa || jenis !== "pr");
+    if (tanpa) el("bkAnggaran").value = "";
+  };
+
   function api(payload){
     return fetch(DATA_URL, {method:"POST", headers:{"Content-Type":"application/json"},
                             body: JSON.stringify(payload)}).then(function(r){ return r.json(); });
@@ -222,6 +258,11 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
     el("bkSub").textContent = JUDUL[jenis][1];
     // PR tidak menyebut vendor; PO memakai invoice & batas kirim; BAST memakai faktur & kurir.
     el("bkBarisPenyedia").classList.toggle("d-none", jenis === "pr");
+    // Anggaran hanya relevan pada Permintaan Pembelian -- PR-lah yang memotong anggaran.
+    el("bkBarisAnggaran").classList.toggle("d-none",
+        jenis !== "pr" || el("bkTanpaAnggaran").checked);
+    el("bkBarisTanpaAnggaran").classList.toggle("d-none", jenis !== "pr");
+    if (jenis === "pr") muatAnggaranBulk();
     el("bkBarisInvoice").classList.toggle("d-none", jenis !== "po");
     el("bkBarisKirim").classList.toggle("d-none", jenis !== "po");
     el("bkBarisTagihan").classList.toggle("d-none", jenis !== "bast");
@@ -549,7 +590,17 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
       if (jenis === "bast") o.diterima = angka(b.jumlah); else o.jumlah = angka(b.jumlah);
       detail.push(o);
     }
+    if (jenis === "pr" && !el("bkTanpaAnggaran").checked && !el("bkAnggaran").value){
+      pesan("Anggaran wajib dipilih. Centang \"Tanpa anggaran\" bila permintaan ini memang tidak membebani anggaran.", false);
+      return;
+    }
     var payload = { action: AKSI[jenis], keterangan: el("bkKeterangan").value.trim(), detail: detail };
+    if (jenis === "pr"){
+      payload.tanpaAnggaran = el("bkTanpaAnggaran").checked;
+      if (!payload.tanpaAnggaran && el("bkAnggaran").value){
+        payload.workspace_id = el("bkAnggaran").value;
+      }
+    }
     if (penyediaId) payload.penyedia_id = penyediaId;
     if (jenis === "po"){
       payload.kodeInvoice = el("bkKodeInvoice").value.trim();

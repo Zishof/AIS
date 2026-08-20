@@ -127,6 +127,36 @@ String rnd = Common.getGeneratedBarCode(7);
           <label class="form-label small fw-bold"><%=Common.getBahasaConfig("Keterangan / kebutuhan")%></label>
           <textarea id="prKeterangan<%=rnd%>" class="form-control" rows="2"></textarea>
         </div>
+        <%-- Permintaan Pembelian memotong anggaran, jadi anggarannya harus jelas
+             sejak awal. Satu-satunya jalan keluar adalah menyatakan permintaan ini
+             memang tanpa anggaran -- pilihan yang eksplisit. --%>
+        <div class="row g-2 mb-3">
+          <%-- Bandbox: kotak baca-saja + jendela pencarian, sepadan dengan bandbox
+               anggaran pada versi ZKoss. Disembunyikan bila "Tanpa anggaran". --%>
+          <div class="col-md-8" id="prKotakAnggaran<%=rnd%>">
+            <label class="form-label small fw-bold"><%=Common.getBahasaConfig("Anggaran")%> *</label>
+            <div class="input-group">
+              <input type="text" id="prAnggaranNama<%=rnd%>" class="form-control" readonly
+                     placeholder="<%=Common.getBahasaConfig("Belum dipilih")%>"
+                     onclick="prCariAnggaran<%=rnd%>()">
+              <button class="btn btn-outline-secondary" type="button" id="prTombolAnggaran<%=rnd%>"
+                      onclick="prCariAnggaran<%=rnd%>()">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+            <input type="hidden" id="prAnggaran<%=rnd%>">
+            <div class="form-text small" id="prAnggaranInfo<%=rnd%>"></div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" id="prTanpaAnggaran<%=rnd%>"
+                     onchange="prGantiAnggaran<%=rnd%>()">
+              <label class="form-check-label small" for="prTanpaAnggaran<%=rnd%>">
+                <%=Common.getBahasaConfig("Tanpa anggaran")%>
+              </label>
+            </div>
+          </div>
+        </div>
         <div class="d-flex justify-content-between align-items-center mb-2">
           <b><%=Common.getBahasaConfig("Barang yang Diminta")%></b>
           <button class="btn btn-sm btn-outline-primary" id="prTambahBaris<%=rnd%>" onclick="prCariProduk<%=rnd%>()">
@@ -182,6 +212,23 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
+
+<div class="modal fade" id="prAnggaranModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><%=Common.getBahasaConfig("Pilih Anggaran")%></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="prAnggaranCari<%=rnd%>" class="form-control mb-2"
+               placeholder="<%=Common.getBahasaConfig("Cari kode / nama anggaran")%>"
+               onkeydown="if(event.key==='Enter')prMuatAnggaran<%=rnd%>()">
+        <div id="prAnggaranHasil<%=rnd%>" class="list-group"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
 <jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
@@ -306,9 +353,76 @@ String rnd = Common.getGeneratedBarCode(7);
   };
   window["prHapusBaris" + RND] = function(i){ baris.splice(i,1); renderBaris(false); };
 
+  // Pemilih Anggaran berbentuk bandbox: kotak baca-saja + jendela pencarian.
+  // Aksinya sama dengan Desktop/Android sehingga daftar dan angkanya identik.
+  var anggaranData = [];
+  window["prCariAnggaran" + RND] = function(){
+    if (el("prTanpaAnggaran").checked || el("prTombolAnggaran").disabled) return;
+    el("prAnggaranCari").value = "";
+    el("prAnggaranHasil").innerHTML = "";
+    new bootstrap.Modal(document.getElementById("prAnggaranModal" + RND)).show();
+    window["prMuatAnggaran" + RND]();
+  };
+  window["prMuatAnggaran" + RND] = function(){
+    api({action:"pengadaan_anggaran_cari", keyword: el("prAnggaranCari").value.trim(), limit:50})
+      .then(function(d){
+        anggaranData = d.data || [];
+        if (!anggaranData.length){
+          el("prAnggaranHasil").innerHTML = '<div class="text-muted small py-2">'
+            + esc(d.catatan || "Tidak ada anggaran aktif.") + '</div>';
+          return;
+        }
+        var h = "";
+        for (var i=0;i<anggaranData.length;i++){
+          var a = anggaranData[i];
+          h += '<a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="prPilihAnggaran'
+             + RND + '(' + a.id + ')">'
+             + '<div class="d-flex justify-content-between"><span class="fw-bold">'
+             + esc(a.kode || "") + " " + esc(a.nama || "")
+             + '</span><span>sisa ' + rp(a.sisa) + '</span></div>'
+             + '<div class="small text-muted">pagu ' + rp(a.pagu)
+             + " - realisasi " + rp(a.realisasi) + " - dalam proses " + rp(a.dalamProses)
+             + '</div></a>';
+        }
+        el("prAnggaranHasil").innerHTML = h;
+      });
+  };
+  window["prPilihAnggaran" + RND] = function(id){
+    for (var i=0;i<anggaranData.length;i++){
+      if (String(anggaranData[i].id) !== String(id)) continue;
+      var a = anggaranData[i];
+      el("prAnggaran").value = a.id;
+      el("prAnggaranNama").value = (a.kode || "") + " " + (a.nama || "");
+      el("prAnggaranInfo").textContent = "Pagu " + rp(a.pagu) + " - realisasi "
+        + rp(a.realisasi) + " - sisa " + rp(a.sisa);
+    }
+    bootstrap.Modal.getInstance(document.getElementById("prAnggaranModal" + RND)).hide();
+  };
+  window["prGantiAnggaran" + RND] = function(){
+    var tanpa = el("prTanpaAnggaran").checked;
+    // Disembunyikan, bukan sekadar dimatikan: kolom mati yang tetap terlihat hanya
+    // mengundang pertanyaan apakah masih perlu diisi.
+    el("prKotakAnggaran").classList.toggle("d-none", tanpa);
+    if (tanpa){
+      el("prAnggaran").value = "";
+      el("prAnggaranNama").value = "";
+      el("prAnggaranInfo").textContent = "";
+    }
+  };
+  function setelAnggaranAwal(id, nama){
+    el("prAnggaran").value = id ? id : "";
+    el("prAnggaranNama").value = nama || "";
+    el("prAnggaranInfo").textContent = "";
+  }
+
   window["prForm" + RND] = function(id){
     prAktif = null; baris = [];
     el("prKeterangan").value = "";
+    el("prTanpaAnggaran").checked = false;
+    el("prTanpaAnggaran").disabled = false;
+    el("prTombolAnggaran").disabled = false;
+    setelAnggaranAwal(null, "");
+    window["prGantiAnggaran" + RND]();
     el("prKunciInfo").classList.add("d-none");
     el("prSimpan").classList.remove("d-none");
     el("prTambahBaris").classList.remove("d-none");
@@ -323,6 +437,11 @@ String rnd = Common.getGeneratedBarCode(7);
       el("prModalJudul").textContent = "PR " + (prAktif.kode || "") + "  -  " + st;
       el("prKeterangan").value = prAktif.keterangan || "";
       el("prKeterangan").disabled = terkunci;
+      el("prTanpaAnggaran").checked = prAktif.tanpaAnggaran === true;
+      el("prTanpaAnggaran").disabled = terkunci;
+      setelAnggaranAwal(prAktif.workspace_id || null, prAktif.anggaran || "");
+      el("prTombolAnggaran").disabled = terkunci;
+      window["prGantiAnggaran" + RND]();
       baris = (d.detail || []).map(function(x){
         return { produk_id: x.produk_id, nama: x.produk, jumlah: angka(x.jumlah), harga: angka(x.hargaBeli) };
       });
@@ -339,8 +458,16 @@ String rnd = Common.getGeneratedBarCode(7);
 
   window["prSimpan" + RND] = function(){
     if (!baris.length){ pesan("Tambahkan minimal satu baris barang.", false); return; }
+    var tanpaAnggaran = el("prTanpaAnggaran").checked;
+    var anggaranId = el("prAnggaran").value;
+    if (!tanpaAnggaran && !anggaranId){
+      pesan("Anggaran wajib dipilih. Centang \"Tanpa anggaran\" bila permintaan ini memang tidak membebani anggaran.", false);
+      return;
+    }
     var payload = { action:"pengadaan_pr_simpan", keterangan: el("prKeterangan").value.trim(),
+                    tanpaAnggaran: tanpaAnggaran,
                     detail: baris.map(function(b){ return { produk_id: b.produk_id, jumlah: b.jumlah, hargaBeli: b.harga }; }) };
+    if (!tanpaAnggaran && anggaranId) payload.workspace_id = anggaranId;
     if (prAktif && prAktif.id) payload.id = prAktif.id;
     api(payload).then(function(d){
       var ok = d.status === "00" || d.status === "success";

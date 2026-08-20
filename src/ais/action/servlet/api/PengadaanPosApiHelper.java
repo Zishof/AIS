@@ -5048,7 +5048,6 @@ public final class PengadaanPosApiHelper {
 				}
 				bayar.setCaraPembayaranTransfer(caraBayar);
 			}
-			}
 			java.util.Date tglRealisasi = tanggalKetat(request.optString("tanggalRealisasi", ""));
 			if (tglRealisasi != null) {
 				bayar.setTanggalRealisasi(tglRealisasi);

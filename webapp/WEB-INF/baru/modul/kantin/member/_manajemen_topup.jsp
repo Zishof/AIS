@@ -42,6 +42,9 @@ String rnd = Common.getGeneratedBarCode(7);
                 <button class="btn btn-warning rounded-pill px-3 shadow-sm fw-bold" onclick="showUploadModalTopup<%=rnd%>()" title="<%=Common.getBahasaConfig("Unggah file Excel")%>">
                     <i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Unggah Excel")%>
                 </button>
+                <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-bold" onclick="bukaPenyesuaian<%=rnd%>()" title="<%=Common.getBahasaConfig("Opname saldo: betulkan saldo yang tidak cocok tanpa menghapus riwayat")%>">
+                    <i class="fas fa-balance-scale me-1"></i><%=Common.getBahasaConfig("Penyesuaian Saldo")%>
+                </button>
                 <button class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold" onclick="bukaFormTopup<%=rnd%>()">
                     <i class="fas fa-plus-circle me-1"></i><%=Common.getBahasaConfig("Tambah Topup")%>
                 </button>
@@ -232,6 +235,102 @@ String rnd = Common.getGeneratedBarCode(7);
                         <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--
+    PENYESUAIAN SALDO (opname saldo voucher/deposit) -- padanan web dari tombol yang sama di
+    POS Desktop/Android. Sengaja ditumpangkan pada halaman Manajemen Saldo, bukan halaman baru:
+    petugas yang membetulkan saldo adalah petugas yang sama dengan yang mengisi topup, dan
+    keduanya butuh melihat riwayat mutasi yang sama sebelum memutuskan.
+
+    Seluruh aturannya (hak akses, hitung ulang saldo sistem, penulisan satu mutasi koreksi)
+    dikerjakan PenyesuaianSaldoHelper di server -- halaman ini hanya menyajikan.
+-->
+<div class="modal fade" id="modalPenyesuaian<%=rnd%>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="fas fa-balance-scale text-primary me-2"></i><%=Common.getBahasaConfig("Penyesuaian Saldo")%>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-2">
+                <div class="alert alert-info py-2 small mb-4">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <%=Common.getBahasaConfig("Bekerja seperti stok opname, hanya objeknya saldo. Saldo TIDAK ditimpa: sistem menambah satu mutasi koreksi senilai selisihnya, sehingga riwayat topup dan pemakaian tetap utuh.")%>
+                </div>
+
+                <label class="form-label small fw-bold text-muted"><%=Common.getBahasaConfig("Cari Member")%> <span class="text-danger">*</span></label>
+                <input type="text" class="form-control mb-2" id="cariMemberPenyesuaian<%=rnd%>"
+                       placeholder="<%=Common.getBahasaConfig("Ketik nama atau kode member...")%>" autocomplete="off">
+                <div id="hasilCariPenyesuaian<%=rnd%>" class="list-group mb-3" style="display:none; max-height:190px; overflow-y:auto;"></div>
+
+                <div id="kartuMemberPenyesuaian<%=rnd%>" class="card border-0 bg-light rounded-4 mb-3" style="display:none;">
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="small text-muted"><%=Common.getBahasaConfig("Member")%></div>
+                                <div class="fw-bold" id="namaMemberPenyesuaian<%=rnd%>">-</div>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <div class="small text-muted"><%=Common.getBahasaConfig("Saldo Sistem")%></div>
+                                <div class="fw-bold text-primary" id="saldoSistemPenyesuaian<%=rnd%>">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-muted"><%=Common.getBahasaConfig("Saldo Seharusnya")%> <span class="text-danger">*</span></label>
+                        <input type="number" step="1" min="0" class="form-control" id="saldoFisikPenyesuaian<%=rnd%>"
+                               placeholder="0" oninput="hitungSelisihPenyesuaian<%=rnd%>()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-muted"><%=Common.getBahasaConfig("Selisih")%></label>
+                        <div class="form-control bg-light fw-bold" id="selisihPenyesuaian<%=rnd%>">-</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-muted"><%=Common.getBahasaConfig("Alasan Penyesuaian")%> <span class="text-danger">*</span></label>
+                        <textarea class="form-control" rows="2" id="keteranganPenyesuaian<%=rnd%>"
+                                  placeholder="<%=Common.getBahasaConfig("Mis. koreksi topup ganda 19 Agu, sesuai bukti setoran")%>"></textarea>
+                    </div>
+                </div>
+
+                <div id="pesanPenyesuaian<%=rnd%>" class="alert alert-danger py-2 small mt-3" style="display:none;"></div>
+
+                <hr class="my-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-bold text-muted"><i class="fas fa-history me-1"></i><%=Common.getBahasaConfig("Penyesuaian Terakhir")%></span>
+                    <button type="button" class="btn btn-sm btn-link text-decoration-none" onclick="muatRiwayatPenyesuaian<%=rnd%>()"><%=Common.getBahasaConfig("Muat Ulang")%></button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="small"><%=Common.getBahasaConfig("Waktu")%></th>
+                                <th class="small"><%=Common.getBahasaConfig("Member")%></th>
+                                <th class="small text-end"><%=Common.getBahasaConfig("Sistem")%></th>
+                                <th class="small text-end"><%=Common.getBahasaConfig("Seharusnya")%></th>
+                                <th class="small text-end"><%=Common.getBahasaConfig("Selisih")%></th>
+                                <th class="small"><%=Common.getBahasaConfig("Alasan")%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="riwayatPenyesuaian<%=rnd%>">
+                            <tr><td colspan="6" class="text-center text-muted small py-3"><%=Common.getBahasaConfig("Belum dimuat.")%></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light px-4 rounded-pill fw-semibold" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                <button type="button" class="btn btn-primary px-4 rounded-pill fw-bold shadow-sm" id="btnSimpanPenyesuaian<%=rnd%>" onclick="simpanPenyesuaian<%=rnd%>()">
+                    <i class="fas fa-save me-2"></i><%=Common.getBahasaConfig("Simpan Penyesuaian")%>
+                </button>
             </div>
         </div>
     </div>
@@ -844,5 +943,156 @@ String rnd = Common.getGeneratedBarCode(7);
         loadComboboxData<%=rnd%>();
         loadDataTopup<%=rnd%>();
     });
+
+    // ==========================================
+    // PENYESUAIAN SALDO (opname saldo voucher)
+    // ==========================================
+    // Server yang memegang aturannya (PenyesuaianSaldoHelper, sama dengan POS Desktop/Android):
+    // saldo sistem dibaca ULANG di server saat menyimpan, jadi angka yang sempat basi di layar
+    // tidak akan tertulis sebagai koreksi. Blok ini hanya menyajikan dan meneruskan.
+    let idMemberPenyesuaian<%=rnd%> = null;
+    let saldoSistemPenyesuaian<%=rnd%> = 0;
+    let timerCariPenyesuaian<%=rnd%> = null;
+
+    const rupiahPenyesuaian<%=rnd%> = (n) =>
+        'Rp ' + (Number(n) || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+
+    const bukaPenyesuaian<%=rnd%> = () => {
+        idMemberPenyesuaian<%=rnd%> = null;
+        saldoSistemPenyesuaian<%=rnd%> = 0;
+        document.getElementById('cariMemberPenyesuaian<%=rnd%>').value = '';
+        document.getElementById('hasilCariPenyesuaian<%=rnd%>').style.display = 'none';
+        document.getElementById('kartuMemberPenyesuaian<%=rnd%>').style.display = 'none';
+        document.getElementById('saldoFisikPenyesuaian<%=rnd%>').value = '';
+        document.getElementById('keteranganPenyesuaian<%=rnd%>').value = '';
+        document.getElementById('selisihPenyesuaian<%=rnd%>').textContent = '-';
+        document.getElementById('pesanPenyesuaian<%=rnd%>').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('modalPenyesuaian<%=rnd%>')).show();
+        muatRiwayatPenyesuaian<%=rnd%>();
+    };
+
+    const galatPenyesuaian<%=rnd%> = (teks) => {
+        const box = document.getElementById('pesanPenyesuaian<%=rnd%>');
+        box.textContent = teks;
+        box.style.display = teks ? 'block' : 'none';
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById('cariMemberPenyesuaian<%=rnd%>');
+        if (!input) return;
+        input.addEventListener('input', () => {
+            clearTimeout(timerCariPenyesuaian<%=rnd%>);
+            timerCariPenyesuaian<%=rnd%> = setTimeout(cariMemberPenyesuaian<%=rnd%>, 300);
+        });
+    });
+
+    const cariMemberPenyesuaian<%=rnd%> = async () => {
+        const kata = document.getElementById('cariMemberPenyesuaian<%=rnd%>').value.trim();
+        const kotak = document.getElementById('hasilCariPenyesuaian<%=rnd%>');
+        if (kata.length < 2) { kotak.style.display = 'none'; return; }
+
+        const aman = kata.replace(/'/g, "''");
+        const sql = "SELECT a.id, COALESCE(a.nama,'') AS nama, COALESCE(a.kode,'') AS kode " +
+                    "FROM koperasi.anggota_koperasi a " +
+                    "WHERE a.nama ILIKE '%" + aman + "%' OR a.kode ILIKE '%" + aman + "%' " +
+                    "ORDER BY a.nama LIMIT 10;";
+        const res = await fetchApiTopup<%=rnd%>({ action: "sql", sql: sql });
+        const rows = res.data || [];
+        if (rows.length === 0) {
+            kotak.innerHTML = '<div class="list-group-item small text-muted"><%=Common.getBahasaConfigJS("Member tidak ditemukan.")%></div>';
+            kotak.style.display = 'block';
+            return;
+        }
+        kotak.innerHTML = rows.map(r =>
+            '<button type="button" class="list-group-item list-group-item-action" ' +
+            'onclick="pilihMemberPenyesuaian<%=rnd%>(' + r.id + ', ' + JSON.stringify(r.nama || '') + ')">' +
+            '<span class="fw-semibold">' + (r.nama || '-') + '</span>' +
+            '<span class="text-muted small ms-2">' + (r.kode || '') + '</span></button>').join('');
+        kotak.style.display = 'block';
+    };
+
+    const pilihMemberPenyesuaian<%=rnd%> = async (id, nama) => {
+        document.getElementById('hasilCariPenyesuaian<%=rnd%>').style.display = 'none';
+        document.getElementById('cariMemberPenyesuaian<%=rnd%>').value = nama;
+        galatPenyesuaian<%=rnd%>('');
+
+        // Saldo dibaca dari server (SUM topup - pemakaian), bukan dari kolom saldo.
+        const res = await fetchApiTopup<%=rnd%>({ action: "penyesuaian_saldo_cek", id_member: id });
+        if (res.status !== "00") {
+            galatPenyesuaian<%=rnd%>(res.description || res.message || '<%=Common.getBahasaConfigJS("Saldo member belum dapat dibaca.")%>');
+            return;
+        }
+        idMemberPenyesuaian<%=rnd%> = id;
+        saldoSistemPenyesuaian<%=rnd%> = Number(res.saldoSistem) || 0;
+        document.getElementById('namaMemberPenyesuaian<%=rnd%>').textContent = res.namaMember || nama;
+        document.getElementById('saldoSistemPenyesuaian<%=rnd%>').textContent =
+            rupiahPenyesuaian<%=rnd%>(saldoSistemPenyesuaian<%=rnd%>);
+        document.getElementById('kartuMemberPenyesuaian<%=rnd%>').style.display = 'block';
+        hitungSelisihPenyesuaian<%=rnd%>();
+        muatRiwayatPenyesuaian<%=rnd%>(nama);
+    };
+
+    const hitungSelisihPenyesuaian<%=rnd%> = () => {
+        const isi = document.getElementById('saldoFisikPenyesuaian<%=rnd%>').value;
+        const kotak = document.getElementById('selisihPenyesuaian<%=rnd%>');
+        if (isi === '' || idMemberPenyesuaian<%=rnd%> === null) { kotak.textContent = '-'; return; }
+        const selisih = (Number(isi) || 0) - saldoSistemPenyesuaian<%=rnd%>;
+        kotak.textContent = (selisih > 0 ? '+' : '') + rupiahPenyesuaian<%=rnd%>(selisih);
+        kotak.className = 'form-control bg-light fw-bold ' +
+            (selisih === 0 ? 'text-muted' : (selisih > 0 ? 'text-success' : 'text-danger'));
+    };
+
+    const simpanPenyesuaian<%=rnd%> = async () => {
+        galatPenyesuaian<%=rnd%>('');
+        if (idMemberPenyesuaian<%=rnd%> === null) {
+            galatPenyesuaian<%=rnd%>('<%=Common.getBahasaConfigJS("Member wajib dipilih.")%>');
+            return;
+        }
+        const tombol = document.getElementById('btnSimpanPenyesuaian<%=rnd%>');
+        tombol.disabled = true;
+        try {
+            const res = await fetchApiTopup<%=rnd%>({
+                action: "penyesuaian_saldo_simpan",
+                id_member: idMemberPenyesuaian<%=rnd%>,
+                saldo_fisik: document.getElementById('saldoFisikPenyesuaian<%=rnd%>').value.trim(),
+                keterangan: document.getElementById('keteranganPenyesuaian<%=rnd%>').value.trim()
+            });
+            if (res.status !== "00") {
+                galatPenyesuaian<%=rnd%>(res.description || res.message || '<%=Common.getBahasaConfigJS("Penyesuaian belum dapat disimpan.")%>');
+                return;
+            }
+            showToastUI<%=rnd%>(res.description || '<%=Common.getBahasaConfigJS("Saldo berhasil disesuaikan.")%>', 'bg-success text-white');
+            bootstrap.Modal.getInstance(document.getElementById('modalPenyesuaian<%=rnd%>')).hide();
+            // Mutasi koreksi ikut muncul sebagai baris Deposit, jadi daftar utama dimuat ulang.
+            resetAndLoadTopup<%=rnd%>();
+        } finally {
+            tombol.disabled = false;
+        }
+    };
+
+    const muatRiwayatPenyesuaian<%=rnd%> = async (cari) => {
+        const tbody = document.getElementById('riwayatPenyesuaian<%=rnd%>');
+        const res = await fetchApiTopup<%=rnd%>({
+            action: "penyesuaian_saldo_list",
+            cari: cari || '',
+            limit: 10
+        });
+        const rows = (res.status === "00" ? (res.data || []) : []);
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted small py-3">' +
+                '<%=Common.getBahasaConfigJS("Belum ada penyesuaian.")%></td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r =>
+            '<tr>' +
+            '<td class="small">' + (r.waktu || '') + '</td>' +
+            '<td class="small">' + (r.namaMember || '') + '</td>' +
+            '<td class="small text-end">' + rupiahPenyesuaian<%=rnd%>(r.saldoSistem) + '</td>' +
+            '<td class="small text-end">' + rupiahPenyesuaian<%=rnd%>(r.saldoFisik) + '</td>' +
+            '<td class="small text-end fw-bold ' + ((Number(r.selisih) || 0) < 0 ? 'text-danger' : 'text-success') + '">' +
+            ((Number(r.selisih) || 0) > 0 ? '+' : '') + rupiahPenyesuaian<%=rnd%>(r.selisih) + '</td>' +
+            '<td class="small">' + (r.keterangan || '') + '</td>' +
+            '</tr>').join('');
+    };
 
 </script>
