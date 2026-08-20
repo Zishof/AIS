@@ -17,6 +17,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.MasterAsset;
+import ais.database.model.asset.PembayaranTerminMasterAsset;
 import ais.database.model.asset.PembayaranTerminMasterAssetDetail;
 import ais.database.model.asset.PemesananPengadaanMasterAsset;
 import ais.database.model.asset.PemesananPengadaanMasterAssetDetail;
@@ -53,6 +54,7 @@ public final class PengadaanPosApiHelper {
 	private static final String KUNCI_PO = "pengadaan_po";
 	private static final String KUNCI_BAST = "pengadaan_bast";
 	private static final String KUNCI_TAGIHAN = "pengadaan_tagihan";
+	private static final String KUNCI_DPC = "pengadaan_dpc";
 
 	private PengadaanPosApiHelper() {
 	}
@@ -2662,6 +2664,696 @@ public final class PengadaanPosApiHelper {
 		return k;
 	}
 
+
+	/**
+	 * Sisa kewajiban sebuah PO: nilai dikurangi yang SUDAH DIBAYAR menurut perhitungan
+	 * kanonik entitas ({@code hitungDibayar}), yang hanya mengakui dokumen pembayaran
+	 * ber-persetujuan. Dipakai bersama oleh daftar tagihan terbuka dan pagar penyimpanan
+	 * agar keduanya tidak pernah berbeda definisi.
+	 */
+	private static double sisaTagihanPo(Session session, PemesananPengadaanMasterAsset po) {
+		if (po == null) {
+			return 0;
+		}
+		double nilai = po.getNilai() == null ? 0 : po.getNilai().doubleValue();
+		double dibayar;
+		try {
+			Double d = po.hitungDibayar(session);
+			dibayar = d == null ? 0 : d.doubleValue();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PengadaanPosApiHelper.sisaTagihanPo");
+			dibayar = po.getDibayar() == null ? 0 : po.getDibayar().doubleValue();
+		}
+		return nilai - dibayar;
+	}
+
+	/**
+	 * Selaraskan kolom {@code dibayar} dan {@code lunas} pada PO dengan perhitungan
+	 * kanonik entitas. Dipanggil setiap kali dokumen pembayaran disetujui, dibatalkan,
+	 * atau dihapus -- sehingga kolom ringkas pada PO tidak pernah tertinggal dari
+	 * kenyataan pembayarannya.
+	 */
+	private static void selaraskanPembayaranPo(Session session, PemesananPengadaanMasterAsset po) {
+		if (po == null) {
+			return;
+		}
+		Double d = po.hitungDibayar(session);
+		double dibayar = d == null ? 0 : d.doubleValue();
+		double nilai = po.getNilai() == null ? 0 : po.getNilai().doubleValue();
+		po.setDibayar(Double.valueOf(dibayar));
+		po.setLunas(Boolean.valueOf(nilai > 0 && dibayar >= nilai - TOLERANSI));
+		session.saveOrUpdate(po);
+	}
+
+	/** Nilai yang sudah dibayar untuk satu termin tertentu pada sebuah PO. */
+	private static double terbayarTermin(Session session, Long poId, String kunciTermin, Long kecualiBayarId) {
+		@SuppressWarnings("unchecked")
+		List<PembayaranTerminMasterAssetDetail> daftar = session
+				.createCriteria(PembayaranTerminMasterAssetDetail.class)
+				.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", poId)).list();
+		double jml = 0;
+		for (PembayaranTerminMasterAssetDetail b : daftar) {
+			PembayaranTerminMasterAsset induk = b.getPembayaranTerminMasterAsset();
+			if (induk == null || induk.getDisetujuiOleh() == null
+					|| Boolean.FALSE.equals(induk.getAktif())) {
+				continue;
+			}
+			if (kecualiBayarId != null && kecualiBayarId.equals(induk.getId())) {
+				continue;
+			}
+			String kunci = "";
+			if (b.getTagihan() != null && !b.getTagihan().trim().isEmpty()) {
+				try {
+					JSONObject t = new JSONObject(b.getTagihan());
+					kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
+				} catch (Exception e) {
+					kunci = "";
+				}
+			}
+			if (kunciTermin == null ? kunci.isEmpty() : kunciTermin.equals(kunci)) {
+				jml += b.getDibayar() == null ? 0 : b.getDibayar().doubleValue();
+			}
+		}
+		return jml;
+	}
+
+	/** Label status dokumen pembayaran vendor. */
+	private static String statusBayar(PembayaranTerminMasterAsset bayar) {
+		return bayar.getDisetujuiOleh() != null ? "DISETUJUI" : "DRAFT";
+	}
+
+	/**
+	 * Daftar dokumen pembayaran vendor pada lingkup toko. Param opsional: {@code cari}
+	 * (kode/keterangan), {@code status} (DRAFT/DISETUJUI), {@code page}, {@code pageSize}.
+	 */
+	public static void bayarDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_DPC)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(5, request == null ? 15 : request.optInt("pageSize", 15)));
+		String cari = request == null ? "" : request.optString("cari", "").trim();
+		String status = request == null ? "" : request.optString("status", "").trim().toUpperCase();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Criteria kriteria = session.createCriteria(PembayaranTerminMasterAsset.class);
+			kriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (cari.length() > 0) {
+				kriteria.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("keterangan", cari, MatchMode.ANYWHERE)));
+			}
+			kriteria.addOrder(Order.desc("id"));
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAsset> semua = kriteria.list();
+			JSONArray arr = new JSONArray();
+			int cocok = 0;
+			int mulai = (page - 1) * pageSize;
+			for (PembayaranTerminMasterAsset b : semua) {
+				String st = statusBayar(b);
+				if (status.length() > 0 && !status.equals(st)) {
+					continue;
+				}
+				cocok++;
+				if (cocok <= mulai || arr.length() >= pageSize) {
+					continue;
+				}
+				JSONObject o = new JSONObject();
+				o.put("id", b.getId());
+				o.put("kode", b.getKode() == null ? "" : b.getKode());
+				o.put("keterangan", b.getKeterangan() == null ? "" : b.getKeterangan());
+				o.put("tanggal", b.getTanggalPembuatan() == null ? JSONObject.NULL
+						: Common.dateFormat3.get().format(b.getTanggalPembuatan()));
+				o.put("penyedia", b.getPenyedia() == null ? "" : b.getPenyedia().getNama());
+				o.put("nilai", b.getNilaiDibayar() == null ? 0 : b.getNilaiDibayar());
+				o.put("status", st);
+				o.put("dibuatOleh", b.getDibuatOleh() == null ? "" : b.getDibuatOleh().getUserNama());
+				o.put("disetujuiOleh", b.getDisetujuiOleh() == null ? "" : b.getDisetujuiOleh().getUserNama());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", cocok);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Tagihan terbuka seorang penyedia: PO yang sudah disetujui dan masih menyisakan
+	 * kewajiban bayar. Untuk PO bertermin, sisa dirinci per termin sehingga pembayaran
+	 * dapat menunjuk termin yang mana -- rujukan itulah yang kemudian dibaca layar PO.
+	 *
+	 * <p>Tidak menulis apa pun; klien memakai hasilnya sebagai isian dokumen pembayaran.</p>
+	 */
+	public static void bayarTagihanTerbuka(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_DPC)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		PenyediaAsset penyedia = null;
+		Long kecuali = (request == null || request.isNull("kecuali_bayar_id")) ? null
+				: Long.valueOf((request.get("kecuali_bayar_id") + "").trim());
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			penyedia = penyediaDokumen(session, request);
+			if (penyedia == null) {
+				tolak(hasil, "Penyedia/vendor wajib dipilih untuk melihat tagihan terbukanya.");
+				return;
+			}
+			Criteria kriteria = session.createCriteria(PemesananPengadaanMasterAsset.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+					.add(Restrictions.isNotNull("tanggalPersetujuan"))
+					.add(Restrictions.eq("penyedia.id", penyedia.getId()));
+			if (tokoId != null) {
+				kriteria.add(Restrictions.eq("toko.id", tokoId));
+			}
+			kriteria.addOrder(Order.asc("id"));
+			@SuppressWarnings("unchecked")
+			List<PemesananPengadaanMasterAsset> daftar = kriteria.list();
+			JSONArray arr = new JSONArray();
+			double totalSisa = 0;
+			for (PemesananPengadaanMasterAsset po : daftar) {
+				double sisaPo = sisaTagihanPo(session, po);
+				if (sisaPo <= TOLERANSI) {
+					continue;
+				}
+				if (Boolean.TRUE.equals(po.getByTermin())) {
+					JSONArray termin = terminDari(po);
+					for (int i = 0; i < termin.length(); i++) {
+						JSONObject t = termin.optJSONObject(i);
+						if (t == null) {
+							continue;
+						}
+						String kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
+						double tagih = angkaAman(t, "penagihan");
+						double sudah = terbayarTermin(session, po.getId(), kunci, kecuali);
+						double sisa = tagih - sudah;
+						if (sisa <= TOLERANSI) {
+							continue;
+						}
+						JSONObject o = new JSONObject();
+						o.put("po_id", po.getId());
+						o.put("po", po.getKode() == null ? "" : po.getKode());
+						o.put("termin_key", kunci);
+						o.put("termin", t.isNull("nama") ? "" : t.get("nama") + "");
+						o.put("jatuhTempo", t.isNull("tanggalD") ? "" : t.get("tanggalD") + "");
+						o.put("nilaiTagih", tagih);
+						o.put("sudahDibayar", sudah);
+						o.put("sisa", sisa);
+						o.put("dibayar", sisa);
+						arr.put(o);
+						totalSisa += sisa;
+					}
+				} else {
+					JSONObject o = new JSONObject();
+					o.put("po_id", po.getId());
+					o.put("po", po.getKode() == null ? "" : po.getKode());
+					o.put("termin_key", "");
+					o.put("termin", "Tanpa termin");
+					o.put("jatuhTempo", po.getPengirimanPalingLambat() == null ? ""
+							: Common.dateFormat1.get().format(po.getPengirimanPalingLambat()));
+					o.put("nilaiTagih", po.getNilai() == null ? 0 : po.getNilai());
+					o.put("sudahDibayar", (po.getNilai() == null ? 0 : po.getNilai().doubleValue()) - sisaPo);
+					o.put("sisa", sisaPo);
+					o.put("dibayar", sisaPo);
+					arr.put(o);
+					totalSisa += sisaPo;
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("penyedia_id", penyedia.getId());
+			hasil.put("penyedia", penyedia.getNama() == null ? "" : penyedia.getNama());
+			hasil.put("data", arr);
+			hasil.put("totalSisa", totalSisa);
+			if (arr.length() == 0) {
+				hasil.put("catatan", "Tidak ada tagihan terbuka untuk penyedia ini.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Detail satu dokumen pembayaran vendor: header + baris tagihan yang dibayar. */
+	public static void bayarDetail(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_DPC)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PembayaranTerminMasterAsset bayar = (PembayaranTerminMasterAsset) session
+					.get(PembayaranTerminMasterAsset.class, id);
+			if (bayar == null) {
+				tolak(hasil, "Dokumen pembayaran tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+				tolak(hasil, "Dokumen pembayaran ini milik toko lain.");
+				return;
+			}
+			JSONObject h = new JSONObject();
+			h.put("id", bayar.getId());
+			h.put("kode", bayar.getKode() == null ? "" : bayar.getKode());
+			h.put("keterangan", bayar.getKeterangan() == null ? "" : bayar.getKeterangan());
+			h.put("tanggal", bayar.getTanggalPembuatan() == null ? JSONObject.NULL
+					: Common.dateFormat3.get().format(bayar.getTanggalPembuatan()));
+			h.put("status", statusBayar(bayar));
+			h.put("nilai", bayar.getNilaiDibayar() == null ? 0 : bayar.getNilaiDibayar());
+			h.put("penyedia_id", bayar.getPenyedia() == null ? JSONObject.NULL : bayar.getPenyedia().getId());
+			h.put("penyedia", bayar.getPenyedia() == null ? "" : bayar.getPenyedia().getNama());
+			h.put("toko_id", bayar.getToko() == null ? JSONObject.NULL : bayar.getToko().getId());
+			h.put("dibuatOleh", bayar.getDibuatOleh() == null ? "" : bayar.getDibuatOleh().getUserNama());
+			h.put("disetujuiOleh", bayar.getDisetujuiOleh() == null ? "" : bayar.getDisetujuiOleh().getUserNama());
+
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAssetDetail> baris = session
+					.createCriteria(PembayaranTerminMasterAssetDetail.class)
+					.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId()))
+					.addOrder(Order.asc("id")).list();
+			JSONArray arr = new JSONArray();
+			for (PembayaranTerminMasterAssetDetail d : baris) {
+				PemesananPengadaanMasterAsset po = d.getPemesananPengadaanMasterAsset();
+				String kunci = "";
+				if (d.getTagihan() != null && !d.getTagihan().trim().isEmpty()) {
+					try {
+						JSONObject t = new JSONObject(d.getTagihan());
+						kunci = t.isNull("key") ? "" : (t.get("key") + "").trim();
+					} catch (Exception e) {
+						kunci = "";
+					}
+				}
+				JSONObject o = new JSONObject();
+				o.put("id", d.getId());
+				o.put("po_id", po == null ? JSONObject.NULL : po.getId());
+				o.put("po", po == null || po.getKode() == null ? "" : po.getKode());
+				o.put("termin_key", kunci);
+				o.put("termin", namaTermin(po, kunci));
+				o.put("dibayar", d.getDibayar() == null ? 0 : d.getDibayar());
+				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+				// Sisa dihitung ulang tanpa memperhitungkan dokumen ini sendiri, supaya
+				// penyuntingan tidak menuduh dirinya sendiri melebihi tagihan.
+				double tagih = nilaiTagihanTermin(po, kunci);
+				double lain = po == null ? 0 : terbayarTermin(session, po.getId(), kunci, bayar.getId());
+				o.put("nilaiTagih", tagih);
+				o.put("sudahDibayar", lain);
+				o.put("sisa", Math.max(0, tagih - lain));
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("header", h);
+			hasil.put("detail", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Nama termin sebuah PO berdasarkan kuncinya; kosong berarti PO tanpa termin. */
+	private static String namaTermin(PemesananPengadaanMasterAsset po, String kunci) throws Exception {
+		if (po == null) {
+			return "";
+		}
+		if (kunci == null || kunci.isEmpty()) {
+			return "Tanpa termin";
+		}
+		JSONArray termin = terminDari(po);
+		for (int i = 0; i < termin.length(); i++) {
+			JSONObject t = termin.optJSONObject(i);
+			if (t != null && !t.isNull("key") && kunci.equals((t.get("key") + "").trim())) {
+				return t.isNull("nama") ? "" : t.get("nama") + "";
+			}
+		}
+		return "";
+	}
+
+	/** Nilai tagihan sebuah termin; untuk PO tanpa termin dipakai nilai PO. */
+	private static double nilaiTagihanTermin(PemesananPengadaanMasterAsset po, String kunci) throws Exception {
+		if (po == null) {
+			return 0;
+		}
+		if (kunci == null || kunci.isEmpty()) {
+			return po.getNilai() == null ? 0 : po.getNilai().doubleValue();
+		}
+		JSONArray termin = terminDari(po);
+		for (int i = 0; i < termin.length(); i++) {
+			JSONObject t = termin.optJSONObject(i);
+			if (t != null && !t.isNull("key") && kunci.equals((t.get("key") + "").trim())) {
+				return angkaAman(t, "penagihan");
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Tambah/ubah dokumen pembayaran vendor beserta barisnya dalam SATU transaksi.
+	 *
+	 * <p>Aturan yang ditegakkan server:</p>
+	 * <ul>
+	 * <li>Hanya PO yang SUDAH DISETUJUI yang dapat dibayar.</li>
+	 * <li>Nilai bayar per baris tidak boleh melebihi sisa tagihannya; sisa dihitung tanpa
+	 * memperhitungkan dokumen ini sendiri sehingga penyuntingan tidak menuduh diri sendiri.</li>
+	 * <li>Setiap baris disimpan DICENTANG ({@code pilih}) -- entitas memaksa nilai bayar nol
+	 * pada baris yang tidak dicentang, sehingga baris tanpa centang akan diam-diam hilang.</li>
+	 * <li>Dokumen yang sudah disetujui tidak dapat diubah.</li>
+	 * </ul>
+	 */
+	public static void bayarSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = (request == null || request.isNull("id") || (request.get("id") + "").trim().isEmpty())
+				? null : Long.valueOf((request.get("id") + "").trim());
+		if (!bolehAksi(tbmuser, KUNCI_DPC, id == null ? "create" : "update")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak "
+					+ (id == null ? "membuat" : "mengubah") + " pembayaran vendor.");
+			return;
+		}
+		if (tbmuser == null) {
+			tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+			return;
+		}
+		JSONArray detail = request == null ? null : request.optJSONArray("detail");
+		if (detail == null || detail.length() == 0) {
+			tolak(hasil, "Pembayaran harus memiliki minimal satu baris tagihan.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PembayaranTerminMasterAsset bayar;
+			if (id != null) {
+				bayar = (PembayaranTerminMasterAsset) session.get(PembayaranTerminMasterAsset.class, id);
+				if (bayar == null) {
+					tolak(hasil, "Dokumen pembayaran tidak ditemukan.");
+					return;
+				}
+				if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+					tolak(hasil, "Dokumen pembayaran ini milik toko lain.");
+					return;
+				}
+				if (bayar.getDisetujuiOleh() != null) {
+					tolak(hasil, "Pembayaran yang sudah disetujui tidak dapat diubah. "
+							+ "Batalkan persetujuannya terlebih dahulu bila memang perlu dikoreksi.");
+					return;
+				}
+			} else {
+				bayar = new PembayaranTerminMasterAsset();
+				bayar.setTanggalPembuatan(ais.ui.util.WaktuUtil.getDate());
+				bayar.setDibuatOleh(tbmuser);
+				bayar.setAktif(Boolean.TRUE);
+			}
+			PenyediaAsset penyedia = penyediaDokumen(session, request);
+			if (penyedia == null) {
+				tolak(hasil, "Penyedia/vendor wajib dipilih pada dokumen pembayaran.");
+				return;
+			}
+			bayar.setPenyedia(penyedia);
+			if (tokoId != null) {
+				bayar.setToko((Toko) session.get(Toko.class, tokoId));
+			}
+			bayar.setKeterangan(request.optString("keterangan", "").trim());
+			if (!request.isNull("tanggal")) {
+				try {
+					bayar.setTanggalPembuatan(Common.dateFormat3.get().parse((request.get("tanggal") + "").trim()));
+				} catch (Exception e) {
+					// Format tanggal tidak dikenali -> pertahankan nilai yang sudah ada.
+				}
+			}
+			if (bayar.getKode() == null || bayar.getKode().trim().isEmpty()) {
+				bayar.setKode(buatKodeUmum(session, PembayaranTerminMasterAsset.class, "BYR", tokoId));
+			}
+			bayar.setOleh(tbmuser.getUserNama());
+			bayar.setOlehId(tbmuser.getUserId());
+
+			// Validasi seluruh baris SEBELUM menulis, agar dokumen yang ditolak tidak
+			// meninggalkan jejak separuh jadi.
+			for (int i = 0; i < detail.length(); i++) {
+				JSONObject b = detail.optJSONObject(i);
+				if (b == null || b.isNull("po_id")) {
+					continue;
+				}
+				PemesananPengadaanMasterAsset po = (PemesananPengadaanMasterAsset) session
+						.get(PemesananPengadaanMasterAsset.class, Long.valueOf((b.get("po_id") + "").trim()));
+				if (po == null) {
+					tolak(hasil, "Pemesanan Pembelian pada baris ke-" + (i + 1) + " tidak ditemukan.");
+					return;
+				}
+				if (po.getTanggalPersetujuan() == null) {
+					tolak(hasil, "Pemesanan Pembelian " + (po.getKode() == null ? "" : po.getKode())
+							+ " belum disetujui sehingga belum dapat dibayar.");
+					return;
+				}
+				if (penyedia != null && po.getPenyedia() != null
+						&& !penyedia.getId().equals(po.getPenyedia().getId())) {
+					tolak(hasil, "Pemesanan Pembelian " + (po.getKode() == null ? "" : po.getKode())
+							+ " bukan milik penyedia yang dipilih.");
+					return;
+				}
+				String kunci = b.optString("termin_key", "").trim();
+				double nilaiBayar = angkaAman(b, "dibayar");
+				if (nilaiBayar <= 0) {
+					tolak(hasil, "Nilai bayar pada baris ke-" + (i + 1) + " harus lebih besar dari nol.");
+					return;
+				}
+				double tagih = nilaiTagihanTermin(po, kunci);
+				double lain = terbayarTermin(session, po.getId(), kunci, bayar.getId());
+				double sisa = tagih - lain;
+				if (nilaiBayar > sisa + TOLERANSI) {
+					tolak(hasil, "Nilai bayar " + Common.numberFormat.get().format(nilaiBayar)
+							+ " pada " + (po.getKode() == null ? "PO" : po.getKode())
+							+ " melebihi sisa tagihannya " + Common.numberFormat.get().format(Math.max(0, sisa)) + ".");
+					return;
+				}
+			}
+
+			session.beginTransaction();
+			session.saveOrUpdate(bayar);
+			session.flush();
+
+			@SuppressWarnings("unchecked")
+			List<PembayaranTerminMasterAssetDetail> lama = session
+					.createCriteria(PembayaranTerminMasterAssetDetail.class)
+					.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId())).list();
+			java.util.Set<Long> poTersentuh = new java.util.HashSet<Long>();
+			for (PembayaranTerminMasterAssetDetail d : lama) {
+				if (d.getPemesananPengadaanMasterAsset() != null) {
+					poTersentuh.add(d.getPemesananPengadaanMasterAsset().getId());
+				}
+				session.delete(d);
+			}
+			session.flush();
+
+			double total = 0;
+			for (int i = 0; i < detail.length(); i++) {
+				JSONObject b = detail.getJSONObject(i);
+				if (b.isNull("po_id")) {
+					continue;
+				}
+				PemesananPengadaanMasterAsset po = (PemesananPengadaanMasterAsset) session
+						.get(PemesananPengadaanMasterAsset.class, Long.valueOf((b.get("po_id") + "").trim()));
+				if (po == null) {
+					continue;
+				}
+				String kunci = b.optString("termin_key", "").trim();
+				double nilaiBayar = angkaAman(b, "dibayar");
+				PembayaranTerminMasterAssetDetail d = new PembayaranTerminMasterAssetDetail();
+				d.setPembayaranTerminMasterAsset(bayar);
+				d.setPemesananPengadaanMasterAsset(po);
+				// WAJIB dicentang: getDibayar() pada entitas memaksa nol bila pilih=false,
+				// sehingga baris tanpa centang tersimpan tetapi bernilai nol.
+				d.setPilih(Boolean.TRUE);
+				d.setDibayar(Double.valueOf(nilaiBayar));
+				d.setPinalti(Double.valueOf(angkaAman(b, "pinalti")));
+				d.setKeterangan(b.optString("keterangan", "").trim());
+				d.setTanggalDibayar(bayar.getTanggalPembuatan());
+				if (!kunci.isEmpty()) {
+					JSONObject tagihan = new JSONObject();
+					tagihan.put("key", kunci);
+					d.setTagihan(tagihan.toString());
+				}
+				d.setOleh(tbmuser.getUserNama());
+				d.setOlehId(tbmuser.getUserId());
+				session.save(d);
+				poTersentuh.add(po.getId());
+				total += nilaiBayar;
+			}
+			bayar.setNilaiDibayar(Double.valueOf(total));
+			session.saveOrUpdate(bayar);
+			session.flush();
+
+			// Dokumen DRAF belum diakui pembayaran, tetapi PO yang barisnya dilepas saat
+			// penyuntingan tetap perlu diselaraskan supaya kolom ringkasnya tidak basi.
+			for (Long poId : poTersentuh) {
+				selaraskanPembayaranPo(session,
+						(PemesananPengadaanMasterAsset) session.get(PemesananPengadaanMasterAsset.class, poId));
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("id", bayar.getId());
+			hasil.put("kode", bayar.getKode());
+			hasil.put("nilai", total);
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.bayarSimpan rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Keputusan atas dokumen pembayaran: setujui atau batalkan. Persetujuanlah yang membuat
+	 * pembayaran DIAKUI -- {@code hitungDibayar} pada PO hanya menghitung dokumen yang sudah
+	 * disetujui -- karena itu kolom {@code dibayar}/{@code lunas} PO diselaraskan di sini.
+	 */
+	public static void bayarPutusan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_DPC, "approve")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menyetujui pembayaran vendor.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		String keputusan = request.optString("keputusan", "").trim().toUpperCase();
+		if (!"SETUJUI".equals(keputusan) && !"BATAL".equals(keputusan)) {
+			tolak(hasil, "Keputusan untuk pembayaran hanya SETUJUI atau BATAL.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PembayaranTerminMasterAsset bayar = (PembayaranTerminMasterAsset) session
+					.get(PembayaranTerminMasterAsset.class, id);
+			if (bayar == null) {
+				tolak(hasil, "Dokumen pembayaran tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+				tolak(hasil, "Dokumen pembayaran ini milik toko lain.");
+				return;
+			}
+			session.beginTransaction();
+			if ("SETUJUI".equals(keputusan)) {
+				bayar.setTanggalPersetujuan(ais.ui.util.WaktuUtil.getDate());
+				bayar.setDisetujuiOleh(tbmuser);
+			} else {
+				bayar.setTanggalPersetujuan(null);
+				bayar.setDisetujuiOleh(null);
+			}
+			bayar.setOleh(tbmuser.getUserNama());
+			bayar.setOlehId(tbmuser.getUserId());
+			session.saveOrUpdate(bayar);
+			session.flush();
+			selaraskanPoDokumenBayar(session, bayar);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bayar.getId());
+			hasil.put("statusDokumen", statusBayar(bayar));
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.bayarPutusan rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Selaraskan seluruh PO yang disebut sebuah dokumen pembayaran. */
+	private static void selaraskanPoDokumenBayar(Session session, PembayaranTerminMasterAsset bayar) {
+		@SuppressWarnings("unchecked")
+		List<PembayaranTerminMasterAssetDetail> baris = session
+				.createCriteria(PembayaranTerminMasterAssetDetail.class)
+				.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId())).list();
+		java.util.Set<Long> po = new java.util.HashSet<Long>();
+		for (PembayaranTerminMasterAssetDetail d : baris) {
+			if (d.getPemesananPengadaanMasterAsset() != null) {
+				po.add(d.getPemesananPengadaanMasterAsset().getId());
+			}
+		}
+		for (Long poId : po) {
+			selaraskanPembayaranPo(session,
+					(PemesananPengadaanMasterAsset) session.get(PemesananPengadaanMasterAsset.class, poId));
+		}
+	}
+
+	/** Hapus lunak dokumen pembayaran; PO yang disebutnya diselaraskan kembali. */
+	public static void bayarHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_DPC, "delete")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menghapus pembayaran vendor.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PembayaranTerminMasterAsset bayar = (PembayaranTerminMasterAsset) session
+					.get(PembayaranTerminMasterAsset.class, id);
+			if (bayar == null) {
+				tolak(hasil, "Dokumen pembayaran tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+				tolak(hasil, "Dokumen pembayaran ini milik toko lain.");
+				return;
+			}
+			if (bayar.getDisetujuiOleh() != null) {
+				tolak(hasil, "Pembayaran yang sudah disetujui tidak dapat dihapus. "
+						+ "Batalkan persetujuannya terlebih dahulu.");
+				return;
+			}
+			session.beginTransaction();
+			bayar.setAktif(Boolean.FALSE);
+			bayar.setOleh(tbmuser.getUserNama());
+			bayar.setOlehId(tbmuser.getUserId());
+			session.saveOrUpdate(bayar);
+			session.flush();
+			selaraskanPoDokumenBayar(session, bayar);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bayar.getId());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.bayarHapus rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -2755,6 +3447,30 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_barang_resolve".equals(action)) {
 			barangResolve(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_daftar".equals(action) || "pengadaan_bayar_list".equals(action)) {
+			bayarDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_detail".equals(action)) {
+			bayarDetail(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_simpan".equals(action)) {
+			bayarSimpan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_putusan".equals(action)) {
+			bayarPutusan(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_hapus".equals(action)) {
+			bayarHapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_bayar_tagihan_terbuka".equals(action)) {
+			bayarTagihanTerbuka(tbmuser, request, hasil);
 			return true;
 		}
 		return false;

@@ -227,6 +227,7 @@ public class PembayaranTerminMasterAsset extends DataSop {
 
 	private String kodeUnik;
 	private Boolean aktif;
+	private ais.database.model.inventory.Toko toko;
 
 	@Column(unique = true)
 	public String getKodeUnik() {
@@ -337,5 +338,20 @@ public class PembayaranTerminMasterAsset extends DataSop {
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
+
+	/**
+	 * Toko pemilik dokumen pembayaran. Modul Pengadaan POS memakai tabel pengadaan
+	 * BERSAMA dengan JSP/ZKoss dan dibedakan lewat kolom toko (keputusan produk
+	 * 2026-08-20). Kolom NULLABLE sehingga dokumen versi umum yang tidak bertoko
+	 * tetap sah dan baris lama tidak terdampak. Ditambahkan 2026-08-20.
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "toko", nullable = true)
+	public ais.database.model.inventory.Toko getToko() {
+		return toko;
+	}
 
+	public void setToko(ais.database.model.inventory.Toko toko) {
+		this.toko = toko;
+	}
 }
