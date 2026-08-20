@@ -1242,6 +1242,7 @@
 		<mapping class="ais.database.model.akunting.AkunPajak"></mapping>
 		<mapping class="ais.database.model.akunting.AkunArusKas"></mapping>
 		<mapping class="ais.database.model.akunting.PostingHistory"></mapping>
+		<mapping class="ais.database.model.akunting.SaldoAwalAkun"></mapping>
 		<mapping class="ais.database.model.akunting.Pertangungjawaban" />
 		<mapping
 			class="ais.database.model.akunting.PertangungjawabanKasBesar" />
