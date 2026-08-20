@@ -97,6 +97,11 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
         <button class="btn btn-sm btn-outline-secondary" onclick="bkUnduhFormat<%=rnd%>()">
           <i class="fas fa-download me-1"></i><%=Common.getBahasaConfig("Unduh Format CSV")%>
         </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('bkBerkas' + '<%=rnd%>').click()">
+          <i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Unggah CSV / Excel")%>
+        </button>
+        <input type="file" id="bkBerkas<%=rnd%>" accept=".csv,.txt,.xlsx" class="d-none"
+               onchange="bkUnggah<%=rnd%>(this)">
         <button class="btn btn-sm btn-outline-secondary" onclick="bkTambahDariTempelan<%=rnd%>()">
           <i class="fas fa-paste me-1"></i><%=Common.getBahasaConfig("Tambahkan dari Tempelan")%>
         </button>
@@ -373,6 +378,129 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
     a.click();
     document.body.removeChild(a);
   };
+
+  // Unggah berkas ke draf. CSV/teks dibaca langsung; .xlsx dibaca sebagai ZIP
+  // memakai DecompressionStream bawaan peramban, lalu sharedStrings dan sheet1
+  // diambil seperlunya -- tanpa pustaka tambahan.
+  window["bkUnggah" + RND] = function(input){
+    var f = input.files && input.files[0];
+    input.value = "";
+    if (!f) return;
+    var nama = String(f.name || "").toLowerCase();
+    if (nama.indexOf(".xlsx") === nama.length - 5 && nama.length > 5) {
+      bacaXlsx(f);
+    } else {
+      var pembaca = new FileReader();
+      pembaca.onload = function(){ tambahTeks(String(pembaca.result || "")); };
+      pembaca.readAsText(f);
+    }
+  };
+
+  function tambahTeks(teks){
+    el("bkTempel").value = teks.replace(/\r/g, "");
+    window["bkTambahDariTempelan" + RND]();
+  }
+
+  function bacaXlsx(f){
+    if (typeof DecompressionStream === "undefined"){
+      pesan("Peramban ini belum mendukung pembacaan .xlsx. Simpan sebagai CSV lalu unggah ulang.", false);
+      return;
+    }
+    f.arrayBuffer().then(function(buf){
+      return ambilBerkasZip(new Uint8Array(buf));
+    }).then(function(isi){
+      var sheet = isi["xl/worksheets/sheet1.xml"];
+      if (!sheet){ pesan("Lembar pertama tidak ditemukan di berkas Excel.", false); return; }
+      var teksBersama = uraiSharedStrings(isi["xl/sharedStrings.xml"] || "");
+      tambahTeks(uraiSheet(sheet, teksBersama));
+    }).catch(function(){
+      pesan("Gagal membaca berkas Excel. Simpan sebagai CSV lalu unggah ulang.", false);
+    });
+  }
+
+  /** Ambil isi berkas di dalam ZIP (stored atau deflate) sebagai teks. */
+  function ambilBerkasZip(b){
+    var dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    var tugas = [], hasil = {};
+    var i = 0;
+    while (i + 4 <= b.length && dv.getUint32(i, true) === 0x04034b50) {
+      var metode = dv.getUint16(i + 8, true);
+      var ukuranKompres = dv.getUint32(i + 18, true);
+      var panjangNama = dv.getUint16(i + 26, true);
+      var panjangExtra = dv.getUint16(i + 28, true);
+      var awalNama = i + 30;
+      var nama = new TextDecoder().decode(b.subarray(awalNama, awalNama + panjangNama));
+      var awalData = awalNama + panjangNama + panjangExtra;
+      var data = b.subarray(awalData, awalData + ukuranKompres);
+      i = awalData + ukuranKompres;
+      if (nama !== "xl/worksheets/sheet1.xml" && nama !== "xl/sharedStrings.xml") continue;
+      tugas.push(bukaData(nama, data, metode, hasil));
+    }
+    return Promise.all(tugas).then(function(){ return hasil; });
+  }
+
+  function bukaData(nama, data, metode, hasil){
+    if (metode === 0){
+      hasil[nama] = new TextDecoder().decode(data);
+      return Promise.resolve();
+    }
+    var aliran = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Response(aliran).text().then(function(t){ hasil[nama] = t; });
+  }
+
+  function uraiSharedStrings(xml){
+    var daftar = [];
+    if (!xml) return daftar;
+    var potongan = xml.split("<si>");
+    for (var i = 1; i < potongan.length; i++){
+      var teks = "";
+      var cocok = potongan[i].match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [];
+      for (var j = 0; j < cocok.length; j++){
+        teks += cocok[j].replace(/<[^>]+>/g, "");
+      }
+      daftar.push(bukaEntitas(teks));
+    }
+    return daftar;
+  }
+
+  function bukaEntitas(t){
+    return String(t).replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+                    .replace(/&amp;/g, "&");
+  }
+
+  /** Ubah sheet XML menjadi teks berpemisah TAB agar masuk ke jalur tempelan yang sama. */
+  function uraiSheet(xml, teksBersama){
+    var keluar = [];
+    var barisXml = xml.split("<row");
+    for (var i = 1; i < barisXml.length; i++){
+      var sel = barisXml[i].match(/<c[^>]*>[\s\S]*?<\/c>|<c[^>]*\/>/g) || [];
+      var kolom = [];
+      for (var j = 0; j < sel.length; j++){
+        var s = sel[j];
+        var nilai = "";
+        var m = s.match(/<v>([\s\S]*?)<\/v>/);
+        if (m){
+          nilai = m[1];
+          if (s.indexOf('t="s"') >= 0){
+            var idx = parseInt(nilai, 10);
+            nilai = (teksBersama[idx] === undefined) ? "" : teksBersama[idx];
+          } else {
+            nilai = bukaEntitas(nilai);
+          }
+        } else {
+          var mi = s.match(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/);
+          if (mi) nilai = bukaEntitas(mi[1]);
+        }
+        kolom.push(String(nilai).replace(/\t/g, " "));
+      }
+      var baris = kolom.join("\t");
+      if (baris.replace(/\t/g, "").trim() !== "") keluar.push(baris);
+    }
+    // Baris pertama pada format unduhan adalah judul kolom, jadi dilewati.
+    if (keluar.length > 1 && /kode|nama|jumlah|harga/i.test(keluar[0])) keluar.shift();
+    return keluar.join("\n");
+  }
 
   window["bkCariPenyedia" + RND] = function(){
     el("bkPenyediaCari").value = "";

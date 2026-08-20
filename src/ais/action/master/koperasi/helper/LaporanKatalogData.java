@@ -278,6 +278,10 @@ public final class LaporanKatalogData {
         k = new Kat("Keuangan");
         k.items.add(item("akn_laba_rugi", "Laba Rugi (Berbasis Jurnal Akuntansi)", "Laba rugi resmi dari jurnal TERPOSTING + klasifikasi akun (Satuan Kerja kantin)."));
         k.items.add(item("akn_neraca", "Neraca (Berbasis Jurnal Akuntansi)", "Neraca resmi dari jurnal TERPOSTING (kumulatif s/d Tgl Sampai) + laba berjalan; dilengkapi baris SELISIH."));
+        k.items.add(item("akn_lr_2periode", "Laba Rugi — 2 Periode (Berbasis Jurnal)", "Periode berjalan dibanding periode sebelumnya yang sama panjang, per akun beserta selisihnya."));
+        k.items.add(item("akn_neraca_2tanggal", "Neraca — 2 Tanggal (Berbasis Jurnal)", "Saldo tiap akun neraca per Tgl Mulai vs per Tgl Sampai beserta perubahannya."));
+        k.items.add(item("akn_lr_12bulan", "Laba Rugi — 12 Bulan (Berbasis Jurnal)", "Dua belas bulan berakhir pada bulan Tgl Sampai, satu kolom per bulan."));
+        k.items.add(item("akn_neraca_lajur", "Neraca Lajur (Kertas Kerja)", "Saldo tiap akun dipilah ke kolom Laba Rugi dan Neraca — kertas kerja tutup buku."));
         k.items.add(item("akn_arus_kas", "Arus Kas (Berbasis Jurnal Akuntansi)", "Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."));
         k.items.add(item("fin_laba_rugi", "Laba Rugi (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."));
         k.items.add(item("fin_neraca", "Neraca (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."));

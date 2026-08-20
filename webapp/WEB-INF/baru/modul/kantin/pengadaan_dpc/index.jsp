@@ -374,10 +374,22 @@ String rnd = Common.getGeneratedBarCode(7);
     });
   };
 
+  // Saat menyetujui, penyetuju memilih apakah pembayaran masuk antrean transfer
+  // bank. Pembayaran tunai tidak perlu masuk antrean pencairan, jadi ditanyakan.
   window["dpPutusan" + RND] = function(id, keputusan){
-    api({action:"pengadaan_bayar_putusan", id:id, keputusan:keputusan}).then(function(d){
+    var payload = {action:"pengadaan_bayar_putusan", id:id, keputusan:keputusan};
+    if (keputusan === "SETUJUI"){
+      payload.ajukanTransfer = window.confirm(
+        "Ajukan transfer bank untuk pembayaran ini? OK = masuk antrean pencairan keuangan. "
+        + "Batal = disetujui tanpa pengajuan transfer, misalnya bila dibayar tunai.");
+    }
+    api(payload).then(function(d){
       var ok = d.status === "00" || d.status === "success";
-      pesan(ok ? ("Keputusan tersimpan: " + (d.statusDokumen || keputusan)) : (d.description || "Gagal menyimpan keputusan."), ok);
+      var catatan = "";
+      if (ok && (d.transferDibuat || 0) > 0) catatan = " - " + d.transferDibuat + " pengajuan transfer dibuat";
+      if (ok && (d.transferDitarik || 0) > 0) catatan = " - " + d.transferDitarik + " pengajuan transfer ditarik";
+      pesan(ok ? ("Keputusan tersimpan: " + (d.statusDokumen || keputusan) + catatan)
+               : (d.description || "Gagal menyimpan keputusan."), ok);
       if (ok) window["dpMuat" + RND](halaman);
     });
   };

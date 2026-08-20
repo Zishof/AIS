@@ -678,6 +678,19 @@ public class PosApi extends HttpServlet {
 				// di satu buku besar.
 				ais.action.servlet.api.JurnalUmumApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("penyesuaian_")) {
+				// Jurnal penyesuaian berkala dari template (amortisasi, akrual, penyisihan).
+				ais.action.servlet.api.JurnalPenyesuaianHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("tutup_buku_")) {
+				// Jurnal penutup akun nominal ke Laba Ditahan (Closing lama hanya menandai periode).
+				ais.action.servlet.api.TutupBukuHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("saldo_awal_")) {
+				// Saldo Awal (Neraca Awal): angka pembukaan tiap akun + jurnal pembukaannya.
+				// Tanpa ini Neraca/Buku Besar selalu mulai dari nol.
+				ais.action.servlet.api.SaldoAwalAkunHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("pemetaan_akun_")) {
 				// Pemetaan akun -> Kelompok Laporan (pratinjau & terapkan). Menentukan apakah sebuah akun
 				// ikut terhitung di Laba Rugi/Neraca berbasis jurnal.
@@ -887,6 +900,21 @@ public class PosApi extends HttpServlet {
 								"Jurnal pelunasan piutang pelanggan: debet Kas/Bank, kredit Piutang." },
 						{ "posting_penyesuaian", "Posting Penyesuaian Persediaan",
 								"Jurnal retur beli/jual, selisih stok opname, dan mutasi antar outlet." } };
+				// Siklus akuntansi: saldo awal (neraca awal), penyesuaian berkala, dan tutup buku.
+				String[][] siklus = new String[][] {
+						{ "saldo_awal_akun", "Saldo Awal (Neraca Awal)",
+								"Angka pembukaan tiap akun + jurnal pembukaannya. Tanpa ini Neraca & Buku Besar selalu mulai dari nol." },
+						{ "jurnal_penyesuaian", "Jurnal Penyesuaian Berkala",
+								"Amortisasi dibayar di muka, akrual beban, penyisihan piutang — dari template, sekali klik per periode." },
+						{ "tutup_buku", "Tutup Buku (Laba Ditahan)",
+								"Menutup akun pendapatan & beban ke Laba Ditahan pada akhir periode." } };
+				for (int iSk = 0; iSk < siklus.length; iSk++) {
+					JSONObject sk = new JSONObject();
+					sk.put("id", siklus[iSk][0]);
+					sk.put("judul", siklus[iSk][1]);
+					sk.put("keterangan", siklus[iSk][2]);
+					pendukung.put(sk);
+				}
 				for (int iPt = 0; iPt < postingToko.length; iPt++) {
 					JSONObject pt = new JSONObject();
 					pt.put("id", postingToko[iPt][0]);
