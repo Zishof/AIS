@@ -244,6 +244,26 @@ public final class EbisnisMenuKatalog {
 	 *
 	 * @param roleId {@code Tbmrole.roleId} pengguna; null/kosong dianggap tidak boleh.
 	 */
+	/**
+	 * Apakah kunci menu ini SUDAH diatur eksplisit pada JSON peran.
+	 *
+	 * <p>Perlu dibedakan karena {@link #urai(String)} selalu mengisi seluruh kunci dengan nilai
+	 * bawaannya, sehingga pemanggil tidak lagi bisa membedakan "belum pernah diatur" dari
+	 * "sengaja dimatikan". Nilai bawaan per peran (mis. menu Akuntansi untuk keu/am) hanya boleh
+	 * dipakai ketika admin memang belum pernah menyentuh kunci itu.</p>
+	 */
+	public static boolean diaturEksplisit(String raw, String kunci) {
+		if (raw == null || raw.trim().isEmpty() || kunci == null) {
+			return false;
+		}
+		try {
+			JSONObject menu = new JSONObject(raw).optJSONObject("menu");
+			return menu != null && menu.has(kunci);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
 	public static boolean peranAkuntansiBawaan(String roleId) {
 		if (roleId == null) {
 			return false;
