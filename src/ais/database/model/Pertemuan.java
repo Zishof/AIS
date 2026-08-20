@@ -2899,8 +2899,15 @@ public class Pertemuan extends Tugas {
 						} else {
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong/terpotong/format lama).
+									// Dilewati -- hasil akhirnya sama dengan perilaku lama yang melewatinya
+									// lewat exception, tanpa membanjiri log pada tiap siklus warmup cache.
+									continue;
+								}
 								PertemuanPunyaUjian pertemuanPunyaUjian = (PertemuanPunyaUjian) Common.convertToObject(
-										new JSONObject(ais.common.BacaTulisUtil.baca(file)), PertemuanPunyaUjian.class);
+										isiBerkas, PertemuanPunyaUjian.class);
 
 								if (pertemuanPunyaUjian != null && (nama == null || nama.trim().isEmpty()
 										|| pertemuanPunyaUjian.getNama().toLowerCase().contains(nama.toLowerCase()))) {
@@ -3064,7 +3071,13 @@ public class Pertemuan extends Tugas {
 		}
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanFileContent(getId()));
+			JSONObject c = bacaJsonObjekAman(ambilLokasiPertemuanFileContent(getId()));
+			if (c == null) {
+				// Peta lokasi belum ada / rusak: kembalikan 0 seperti perilaku lama (dulu
+				// new JSONObject melempar lalu ditangkap catch di bawah, dan jumlah tetap 0)
+				// -- hanya tanpa exception dan tanpa stack trace berulang.
+				return jumlah;
+			}
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3081,6 +3094,37 @@ public class Pertemuan extends Tugas {
 
 		}
 		return jumlah;
+	}
+
+	/**
+	 * Ubah teks menjadi {@link JSONObject} HANYA bila teks itu memang berbentuk objek JSON.
+	 *
+	 * <p>KE-FIX JSONException "A JSONObject text must begin with '{' at 0 [character 1 line 1]"
+	 * (terlihat lewat ElearningRingkasanCache.warmupSekarang -> hitungAgg ->
+	 * ambilPertemuanFileContentTotal): pemanggil DULU langsung memanggil
+	 * {@code new JSONObject(teks)} setelah memastikan berkasnya ADA, tanpa memeriksa ISI-nya.
+	 * Berkas lampiran pertemuan yang kosong, terpotong, atau berformat lama membuat parser
+	 * melempar. Exception itu memang tertangkap sehingga baris tersebut dilewati dan proses
+	 * tidak gagal, TETAPI jejaknya dicatat penuh ke ErrorAuditUtil pada SETIAP siklus warmup
+	 * cache e-learning -- membanjiri log dengan kondisi data lama yang sudah diketahui.</p>
+	 *
+	 * <p>Hasil akhirnya SAMA PERSIS dengan perilaku lama (baris berisi data tidak valid tetap
+	 * dilewati); yang hilang hanya exception dan stack trace berulangnya. Mengembalikan
+	 * {@code null} berarti "bukan JSON objek yang dapat dipakai".</p>
+	 */
+	private static JSONObject bacaJsonObjekAman(String teks) {
+		if (teks == null) {
+			return null;
+		}
+		String rapi = teks.trim();
+		if (rapi.length() == 0 || rapi.charAt(0) != '{') {
+			return null;
+		}
+		try {
+			return new JSONObject(rapi);
+		} catch (Exception abaikan) {
+			return null;
+		}
 	}
 
 	public TreeMap<Long, PertemuanFileContent> ambilPertemuanFileContentTotal() {
@@ -3102,7 +3146,13 @@ public class Pertemuan extends Tugas {
 		TreeMap<Long, PertemuanFileContent> pertemuanFileContentsa = new TreeMap<Long, PertemuanFileContent>(
 				Collections.reverseOrder());
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuanFileContent(getId()));
+			JSONObject c = bacaJsonObjekAman(ambilLokasiPertemuanFileContent(getId()));
+			if (c == null) {
+				// Peta lokasi belum ada / rusak: kembalikan map kosong seperti perilaku lama
+				// (dulu new JSONObject melempar lalu ditangkap catch di bawah dan map tetap
+				// kosong) -- hanya tanpa exception dan tanpa stack trace berulang.
+				return pertemuanFileContentsa;
+			}
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
@@ -3138,9 +3188,18 @@ public class Pertemuan extends Tugas {
 
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong, terpotong, atau
+									// format lama). Lewati baris ini -- hasil akhirnya sama dengan perilaku
+									// lama yang melewatinya lewat exception, tanpa membanjiri log.
+									System.out.println("Pertemuan " + getId()
+											+ ": isi berkas lampiran bukan JSON objek yang valid, dilewati -> "
+											+ file.getAbsolutePath());
+									continue;
+								}
 								PertemuanFileContent pertemuanFileContent = (PertemuanFileContent) Common
-										.convertToObject(new JSONObject(ais.common.BacaTulisUtil.baca(file)),
-												PertemuanFileContent.class);
+										.convertToObject(isiBerkas, PertemuanFileContent.class);
 								pertemuanFileContent.setPertemuan(this.getId());
 
 								if (pertemuanFileContent.getNama().equalsIgnoreCase("link")
@@ -3376,8 +3435,15 @@ public class Pertemuan extends Tugas {
 
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong/terpotong/format lama).
+									// Dilewati -- hasil akhirnya sama dengan perilaku lama yang melewatinya
+									// lewat exception, tanpa membanjiri log pada tiap siklus warmup cache.
+									continue;
+								}
 								VideoPertemuan videoPertemuan = (VideoPertemuan) Common.convertToObject(
-										new JSONObject(ais.common.BacaTulisUtil.baca(file)), VideoPertemuan.class);
+										isiBerkas, VideoPertemuan.class);
 								videoPertemuan.setPertemuan(this.getId());
 
 								if (videoPertemuan.getNama().equalsIgnoreCase("link")
@@ -3607,8 +3673,15 @@ public class Pertemuan extends Tugas {
 
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong/terpotong/format lama).
+									// Dilewati -- hasil akhirnya sama dengan perilaku lama yang melewatinya
+									// lewat exception, tanpa membanjiri log pada tiap siklus warmup cache.
+									continue;
+								}
 								AudioPertemuan audioPertemuan = (AudioPertemuan) Common.convertToObject(
-										new JSONObject(ais.common.BacaTulisUtil.baca(file)), AudioPertemuan.class);
+										isiBerkas, AudioPertemuan.class);
 								audioPertemuan.setPertemuan(this.getId());
 
 								if (audioPertemuan.getNama().equalsIgnoreCase("link")
@@ -4068,9 +4141,15 @@ public class Pertemuan extends Tugas {
 
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong/terpotong/format lama).
+									// Dilewati -- hasil akhirnya sama dengan perilaku lama yang melewatinya
+									// lewat exception, tanpa membanjiri log pada tiap siklus warmup cache.
+									continue;
+								}
 								KelompokParameterTambahanPertemuan kelompokParameterTambahanPertemuan = (KelompokParameterTambahanPertemuan) Common
-										.convertToObject(new JSONObject(ais.common.BacaTulisUtil.baca(file)),
-												KelompokParameterTambahanPertemuan.class);
+										.convertToObject(isiBerkas, KelompokParameterTambahanPertemuan.class);
 								if (kelompokParameterTambahanPertemuan != null
 										&& !kelompokParameterTambahanPertemuan.getNama().isEmpty()) {
 									jumlah++;
@@ -4119,9 +4198,15 @@ public class Pertemuan extends Tugas {
 
 							File file = new File(s);
 							if (file != null && file.exists()) {
+								JSONObject isiBerkas = bacaJsonObjekAman(ais.common.BacaTulisUtil.baca(file));
+								if (isiBerkas == null) {
+									// Berkas ADA tetapi isinya bukan JSON objek (kosong/terpotong/format lama).
+									// Dilewati -- hasil akhirnya sama dengan perilaku lama yang melewatinya
+									// lewat exception, tanpa membanjiri log pada tiap siklus warmup cache.
+									continue;
+								}
 								KelompokParameterTambahanPertemuan kelompokParameterTambahanPertemuan = (KelompokParameterTambahanPertemuan) Common
-										.convertToObject(new JSONObject(ais.common.BacaTulisUtil.baca(file)),
-												KelompokParameterTambahanPertemuan.class);
+										.convertToObject(isiBerkas, KelompokParameterTambahanPertemuan.class);
 								if (kelompokParameterTambahanPertemuan != null
 										&& !kelompokParameterTambahanPertemuan.getNama().isEmpty()) {
 									kelompokParameterTambahanPertemuansa.put(kelompokParameterTambahanPertemuan.getId(),
