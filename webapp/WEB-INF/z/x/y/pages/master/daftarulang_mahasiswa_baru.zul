@@ -112,6 +112,11 @@
 												<label id="jenisKuliah" />
 											</row>
 
+											<row id="rowJenjang" visible="false">
+												<label use="ais.ui.util.MyLabelConfig" value="Jenjang" />
+												<label id="labelJenjang" />
+											</row>
+
 											<row id="rowProdi" visible="false">
 												<label use="ais.ui.util.MyLabelConfig" value="Prodi" />
 												<label id="prodi" />
