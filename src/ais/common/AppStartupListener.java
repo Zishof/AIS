@@ -263,6 +263,16 @@ public class AppStartupListener implements ServletContextListener {
 				System.err.println("Penjadwal ARO deposito gagal dimulai (lanjut): " + e.getMessage());
 			}
 
+			// Penjadwal "proses otomatis setelah lewat jam 24" untuk pesanan kantin.
+			// Sebelumnya proses ini hanya berjalan saat ada orang membuka halaman
+			// Pesanan; hari yang sibuk justru yang paling mungkin terlewat.
+			try {
+				ais.action.master.koperasi.OtomatisPesananScheduler.mulai();
+			} catch (Throwable e) {
+				System.err.println(
+						"Penjadwal otomatis pesanan kantin gagal dimulai (lanjut): " + e.getMessage());
+			}
+
 			// Penjadwal ambang stok gudang (fitur "Purchase" gap analisis PDF klien 2026-07-26):
 			// notifikasi + pengajuan pembelian otomatis 2 tingkat saat stok bahan baku menipis.
 			try {
@@ -538,6 +548,11 @@ public class AppStartupListener implements ServletContextListener {
 		try {
 			DepositoAroScheduler.hentikan();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:445");
+		}
+		try {
+			ais.action.master.koperasi.OtomatisPesananScheduler.hentikan();
+		} catch (Throwable abaikan) {
+			ais.common.ErrorAuditUtil.record(abaikan, "OtomatisPesananScheduler.hentikan");
 		}
 		try {
 			ais.action.master.repository.RepositorySyncScheduler.hentikan();

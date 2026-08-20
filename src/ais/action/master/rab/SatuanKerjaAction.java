@@ -231,6 +231,19 @@ public class SatuanKerjaAction extends GenericAutowireComposer implements DataCr
 			});
 			button.setParent(toolbar);
 
+			// Pemilih member satuan kerja -- memakai helper yang sama dgn POS
+			// Desktop/Android dan halaman JSP, jadi aturan penugasannya tidak
+			// mungkin berbeda antar kanal.
+			button = new MyToolbarbuttonConfig("", "/img/svg/user-box-line.svg");
+			button.setTooltiptext("Pilih Member");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					ais.action.master.rab.helper.SatuanKerjaMemberZkDialog.buka(satuanKerja);
+				}
+			});
+			button.setParent(toolbar);
+
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
 			button.setVisible(delete);
