@@ -1548,6 +1548,10 @@ public class DaftarPengajuanTransfer extends DataSop {
 			disposisiSop = getUangMuka().getDisposisiSop();
 		}
 
+		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getDisposisiSop() != null) {
+			disposisiSop = getReimbursementPegawai().getDisposisiSop();
+		}
+
 		else if (getPertangungjawaban() != null && getPertangungjawaban().getDisposisiSop() != null) {
 			disposisiSop = getPertangungjawaban().getDisposisiSop();
 		}

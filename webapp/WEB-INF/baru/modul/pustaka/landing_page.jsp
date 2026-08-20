@@ -9,7 +9,7 @@
 %>
 
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css">
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
@@ -19,11 +19,11 @@
     <jsp:param name="rnd" value="<%=rnd%>" />
 </jsp:include>
 
-<div class="container mb-5" style="position: relative; z-index: 1; min-height: 60vh;">
+<div class="container-fluid library-shell-modern mb-5 px-0" style="position: relative; z-index: 1; min-height: 60vh;">
     <div class="row g-4">
         <div class="col-lg-12" id="mainContentScroll<%=rnd%>">
-            <div class="card shadow-lg rounded-4 border-0 panel-bg-white-<%=rnd%> p-0" style="overflow: hidden;">
-                <div id="mainContentContainer<%=rnd%>" class="p-4">
+            <div class="card border-0 panel-bg-white-<%=rnd%> p-0" style="overflow: hidden;">
+                <div id="mainContentContainer<%=rnd%>">
                     <div class="p-5 text-center text-muted">
                         <div class="spinner-border text-primary mb-3"></div><br><%= Common.getBahasaConfig("Menyiapkan Konten Perpustakaan...") %>
                     </div>

@@ -1,665 +1,231 @@
-﻿<%@page import="ais.common.ConstantValues"%>
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="ais.common.Common" %>
-<%@ page import="ais.database.model.library.*" %>
-<%@ page import="ais.database.model.sekolah.Sekolah" %>
-<%@ page import="ais.database.model.sekolah.Yayasan" %>
-<%@ page import="ais.database.model.Fakultas" %>
-<%@ page import="ais.database.model.Jurusan" %>
-<%@ page import="ais.database.model.Tbmuser" %>
-<%@ page import="java.util.List" %>
-<%@ page import="java.util.ArrayList" %>
-<%@ page import="org.hibernate.Session" %>
-<%@ page import="org.hibernate.criterion.Order" %>
-<%@ page import="org.hibernate.criterion.Restrictions" %>
-<%@ page import="ais.database.hibernate.HibernateUtil" %>
-<%
-String rnd = Common.getGeneratedBarCode(7); 
-String linkDetail = Common.ROOT + "/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_item_rinci";
-
-// =========================================================================
-// LOGIKA LOAD MASTER STRUKTUR ORGANISASI (MENAMPILKAN SEMUA DATA AKTIF)
-// =========================================================================
-Tbmuser tbmuser = Common.getCurrentUser(request);
-boolean[] ptYa = Common.chekPtAtauSekolah(tbmuser);
-boolean pt = ptYa[0];
-boolean ya = ptYa[1];
-
-List<Sekolah> listSekolahRyg = new ArrayList<Sekolah>();
-List<Yayasan> listYayasanRyg = new ArrayList<Yayasan>();
-List<Fakultas> listFakultasRyg = new ArrayList<Fakultas>();
-List<Jurusan> listJurusanRyg = new ArrayList<Jurusan>();
-
-Session sessFilterRyg = null;
-try {
-    sessFilterRyg = HibernateUtil.openSession();
-    
-    if (ya) {
-        org.hibernate.Criteria cYay = sessFilterRyg.createCriteria(Yayasan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.asc("nama"));
-        listYayasanRyg = ConstantValues.simpleList(cYay, Yayasan.class);
-
-        org.hibernate.Criteria cSek = sessFilterRyg.createCriteria(Sekolah.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.asc("nama"));
-        listSekolahRyg = ConstantValues.simpleList(cSek, Sekolah.class);
-    }
-    if (pt) {
-        org.hibernate.Criteria cFak = sessFilterRyg.createCriteria(Fakultas.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.asc("nama"));
-        listFakultasRyg = ConstantValues.simpleList(cFak, Fakultas.class);
-
-        org.hibernate.Criteria cJur = sessFilterRyg.createCriteria(Jurusan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.asc("nama"));
-        listJurusanRyg = ConstantValues.simpleList(cJur, Jurusan.class);
-    }
-} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pustaka/katalog.jsp:51");
-    // Abaikan agar halaman tidak mati jika terjadi galat koneksi
-} finally {
-    if(sessFilterRyg != null && sessFilterRyg.isOpen()) {
-        sessFilterRyg.disconnect();
-        sessFilterRyg.close();
-    }
-}
-// =========================================================================
+<%@page import="ais.common.Common"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%
+String rnd = Common.getGeneratedBarCode(7);
+String root = Common.ROOT;
+String requestedSort = request.getParameter("sort");
+String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requestedSort)) ? requestedSort : "NEWEST";
 %>
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css">
+<script src="<%=root%>/assets/library-modern/library.js"></script>
 
-<style>
-    /* Desain Dasar Halaman */
-    .main-body-bg<%=rnd%> { background-color: #f8f9fa; position: relative; }
-    .main-body-bg<%=rnd%>::before { 
-        content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-        background-image: url('<%=Common.ROOT%>/img/buku.jpeg'); 
-        background-size: cover; background-position: center; opacity: 0.25; z-index: -10; pointer-events: none; 
-    }
-
-    /* Estetika Kartu Pustaka */
-    .book-card<%=rnd%> { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); background: #fff; border: 1px solid rgba(0,0,0,0.05); }
-    .book-card<%=rnd%>:hover { transform: translateY(-7px); box-shadow: 0 1.5rem 2.5rem rgba(0,0,0,0.1)!important; border-color: transparent; }
-    .book-cover<%=rnd%> { object-fit: contain; height: 220px; width: 100%; padding: 15px; background: linear-gradient(to bottom, #f8f9fa, #ffffff); }
-    
-    /* Bagian Header/Hero */
-    .hero-section<%=rnd%> { 
-        background-image: url('<%=Common.ROOT%>/img/buku.jpeg'); background-size: cover; background-position: center; background-attachment: fixed; 
-        padding: 5rem 0 4rem 0; border-radius: 0 0 2.5rem 2.5rem; position: relative; overflow: hidden;
-    }
-    @media (max-width: 767.98px) { .hero-section<%=rnd%> { background-attachment: scroll; padding: 3rem 0 2rem 0; } }
-    .hero-section<%=rnd%>::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1; }
-    .hero-section<%=rnd%>::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: linear-gradient(to top, rgba(0,0,0,0.3), transparent); z-index: 1; }
-    .hero-section<%=rnd%> .container { position: relative; z-index: 2; }
-    .text-light-shadow<%=rnd%> { color: #ffffff !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8), -1px -1px 4px rgba(0, 0, 0, 0.6); font-weight: 800; }
-    
-    /* Panel Pencarian */
-    .search-wrapper<%=rnd%> { position: relative; overflow: hidden; background-color: #fff; }
-    .search-wrapper<%=rnd%>::before { 
-        content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
-        background-image: url('<%=Common.ROOT%>/img/buku.jpeg'); background-size: cover; background-position: center; opacity: 0.08; z-index: 1; 
-    }
-    .search-content-inner<%=rnd%> { position: relative; z-index: 2; background: rgba(255, 255, 255, 0.95); border-radius: 1.5rem; box-shadow: 0 8px 25px rgba(0,0,0,0.08); padding: 2.5rem; }
-    
-    /* Pengaturan Form Input agar tampak modern */
-    .input-group-text.bg-white { border-right: none; }
-    .form-control.border-start-0 { border-left: none; }
-    .form-control.border-start-0:focus { box-shadow: none; border-color: #ced4da; }
-    .form-select.border-start-0 { border-left: none; }
-    .form-select.border-start-0:focus { box-shadow: none; border-color: #ced4da; }
-
-    /* Pengaturan Slider */
-    .slider-container<%=rnd%> { display: flex; overflow-x: hidden; gap: 1.5rem; padding: 1rem 0.5rem 2rem 0.5rem; scroll-behavior: smooth; }
-    .slide-item<%=rnd%> { flex: 0 0 calc(20% - 1.2rem); max-width: calc(20% - 1.2rem); text-decoration: none; }
-    @media (max-width: 992px) { .slide-item<%=rnd%> { flex: 0 0 calc(33.333% - 1rem); max-width: calc(33.333% - 1rem); } }
-    @media (max-width: 576px) { .slide-item<%=rnd%> { flex: 0 0 calc(50% - 0.75rem); max-width: calc(50% - 0.75rem); } }
-    
-    /* Teks Elipsis */
-    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .text-truncate-custom { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-    #modalDetail<%=rnd%> .modal-dialog { max-width: 90% !important; }
-</style>
-
-<div class="main-body-bg<%=rnd%>" style="min-height: 100vh;">
-    <div class="hero-section<%=rnd%> text-center shadow mb-5">
-        <div class="container">
-            <h1 class="display-5 mb-3 text-light-shadow<%=rnd%>"><i class="fa fa-book me-3"></i><%=Common.getBahasaConfig("Katalog Elektronik Perpustakaan")%></h1>
-            <p class="lead mb-5 text-light-shadow<%=rnd%>" style="font-weight: 600;"><%=Common.getBahasaConfig("Eksplorasi literatur, jurnal, dan referensi akademik secara terpadu dan efisien.")%></p>
-            <div class="text-start mb-2 px-2">
-                <h5 class="mb-0 text-light-shadow<%=rnd%>"><i class="fa fa-star me-2"></i><%=Common.getBahasaConfig("Koleksi Terbaru Kami")%></h5>
-            </div>
-            <div class="slider-container<%=rnd%> text-start" id="sliderTerbaru<%=rnd%>">
-                <div class="w-100 text-center py-4">
-                    <div class="spinner-border text-light" role="status"></div>
-                </div>
-            </div>
-        </div>
+<div class="library-modern" id="libraryCatalog<%=rnd%>">
+  <section class="library-hero" aria-labelledby="libraryTitle<%=rnd%>">
+    <div class="library-container">
+      <div class="library-eyebrow" style="color:#99f6e4"><%=Common.getBahasaConfig("Katalog & Discovery")%></div>
+      <h1 id="libraryTitle<%=rnd%>"><%=Common.getBahasaConfig("Temukan pengetahuan untuk belajar, meneliti, dan berkarya")%></h1>
+      <p><%=Common.getBahasaConfig("Telusuri buku, e-book, jurnal, tugas akhir, multimedia, kitab, dan koleksi khusus dari seluruh unit perpustakaan.")%></p>
+      <form class="library-searchbar" id="libraryQuickSearch<%=rnd%>" role="search">
+        <label class="visually-hidden" for="libraryQuery<%=rnd%>"><%=Common.getBahasaConfig("Cari koleksi")%></label>
+        <input id="libraryQuery<%=rnd%>" name="query" autocomplete="off" maxlength="160"
+               placeholder="<%=Common.getBahasaConfig("Cari judul, penulis, ISBN, subjek, kata kunci, atau nomor panggil...")%>">
+        <button class="library-button library-button-primary" type="submit"><i class="fa fa-search" aria-hidden="true"></i> <%=Common.getBahasaConfig("Cari")%></button>
+      </form>
     </div>
+  </section>
 
-    <div class="container mb-5">
-        <div class="card shadow-sm border-0 rounded-4 mb-5 search-wrapper<%=rnd%>">
-            <div class="search-content-inner<%=rnd%>">
-                <h5 class="fw-bold mb-4 text-primary border-bottom pb-3"><i class="fa fa-search me-2"></i><%=Common.getBahasaConfig("Parameter Pencarian Katalog")%></h5>
-                <form id="formPencarian<%=rnd%>" onsubmit="event.preventDefault(); loadBuku<%=rnd%>(1);">
-                    
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Judul / Keterangan Pustaka")%></label>
-                            <div class="input-group shadow-sm rounded-3">
-                                <span class="input-group-text bg-white text-primary"><i class="fa fa-book"></i></span>
-                                <input type="text" id="filterJudul<%=rnd%>" class="form-control border-start-0 py-2" placeholder="<%=Common.getBahasaConfig("Ketikkan judul atau kata kunci referensi...")%>">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Nomor ISBN")%></label>
-                            <div class="input-group shadow-sm rounded-3">
-                                <span class="input-group-text bg-white text-muted"><i class="fa fa-barcode"></i></span>
-                                <input type="text" id="filterIsbn<%=rnd%>" class="form-control border-start-0 py-2" placeholder="<%=Common.getBahasaConfig("Contoh: 978-...")%>">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Nomor ISSN")%></label>
-                            <div class="input-group shadow-sm rounded-3">
-                                <span class="input-group-text bg-white text-muted"><i class="fa fa-qrcode"></i></span>
-                                <input type="text" id="filterIssn<%=rnd%>" class="form-control border-start-0 py-2" placeholder="<%=Common.getBahasaConfig("Contoh: 1234-...")%>">
-                            </div>
-                        </div>
-                    </div>
+  <div class="library-container">
+    <div class="library-workspace">
+      <aside class="library-card library-facets" id="libraryFacets<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter katalog")%>">
+        <div class="library-facet">
+          <div class="library-eyebrow"><%=Common.getBahasaConfig("Filter")%></div>
+          <h2 class="library-section-title"><%=Common.getBahasaConfig("Persempit hasil")%></h2>
+        </div>
+        <div class="library-facet">
+          <label for="libraryTitleFilter<%=rnd%>"><%=Common.getBahasaConfig("Judul")%></label>
+          <input class="library-input" id="libraryTitleFilter<%=rnd%>" maxlength="160">
+          <label for="libraryAuthor<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Penulis / Pengarang")%></label>
+          <input class="library-input" id="libraryAuthor<%=rnd%>" maxlength="120">
+          <label for="libraryPublisher<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Penerbit")%></label>
+          <input class="library-input" id="libraryPublisher<%=rnd%>" maxlength="120">
+        </div>
+        <div class="library-facet">
+          <label for="libraryBranch<%=rnd%>"><%=Common.getBahasaConfig("Perpustakaan / Cabang")%></label>
+          <select class="library-select" id="libraryBranch<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua cabang")%></option></select>
+          <label for="libraryItemType<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Jenis koleksi")%></label>
+          <select class="library-select" id="libraryItemType<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua jenis")%></option></select>
+          <label for="libraryMaterialType<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Format / tipe")%></label>
+          <select class="library-select" id="libraryMaterialType<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua format")%></option></select>
+        </div>
+        <div class="library-facet">
+          <label><%=Common.getBahasaConfig("Tahun terbit")%></label>
+          <div class="library-filter-grid">
+            <input class="library-input" id="libraryYearFrom<%=rnd%>" type="number" min="1000" max="2200" placeholder="Dari" aria-label="<%=Common.getBahasaConfig("Tahun mulai")%>">
+            <input class="library-input" id="libraryYearTo<%=rnd%>" type="number" min="1000" max="2200" placeholder="Sampai" aria-label="<%=Common.getBahasaConfig("Tahun akhir")%>">
+          </div>
+        </div>
+        <details class="library-facet">
+          <summary style="cursor:pointer;font-weight:800"><%=Common.getBahasaConfig("Institusi & unit akademik")%></summary>
+          <label for="libraryFoundation<%=rnd%>" style="margin-top:12px"><%=Common.getBahasaConfig("Yayasan")%></label>
+          <select class="library-select" id="libraryFoundation<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua yayasan")%></option></select>
+          <label for="librarySchool<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Sekolah")%></label>
+          <select class="library-select" id="librarySchool<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua sekolah")%></option></select>
+          <label for="libraryFaculty<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Fakultas")%></label>
+          <select class="library-select" id="libraryFaculty<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua fakultas")%></option></select>
+          <label for="libraryStudyProgram<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Program studi / jurusan")%></label>
+          <select class="library-select" id="libraryStudyProgram<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua program studi")%></option></select>
+        </details>
+        <div class="library-filter-actions">
+          <button class="library-button" id="libraryReset<%=rnd%>" type="button"><%=Common.getBahasaConfig("Atur ulang")%></button>
+          <button class="library-button library-button-primary" id="libraryApply<%=rnd%>" type="button"><%=Common.getBahasaConfig("Terapkan")%></button>
+        </div>
+      </aside>
 
-                    <div class="text-center mt-4 mb-2">
-                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-4 py-2 fw-bold shadow-sm transition-all" type="button" onclick="toggleAdvancedSearch<%=rnd%>(this)">
-                            <i class="fa fa-sliders me-2"></i> <span id="textToggle<%=rnd%>"><%=Common.getBahasaConfig("Tampilkan Pencarian Lanjutan")%></span>
-                        </button>
-                    </div>
-
-                    <div id="advancedSearch<%=rnd%>" style="display: none;" data-expanded="false" class="mt-3">
-                        <div class="card card-body bg-light border-0 shadow-sm rounded-4 p-4">
-                            <h6 class="fw-bold text-secondary mb-3"><i class="fa fa-filter me-2"></i><%=Common.getBahasaConfig("Filter Spesifik")%></h6>
-                            <div class="row g-3">
-                                
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Penerbit")%></label>
-                                    <div class="input-group bg-white rounded-3 shadow-sm">
-                                        <span class="input-group-text bg-white border-0 text-muted"><i class="fa fa-building-o"></i></span>
-                                        <input type="text" id="filterPenerbit<%=rnd%>" class="form-control border-0" placeholder="<%=Common.getBahasaConfig("Nama penerbit...")%>">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Pengarang")%></label>
-                                    <div class="input-group bg-white rounded-3 shadow-sm">
-                                        <span class="input-group-text bg-white border-0 text-muted"><i class="fa fa-user"></i></span>
-                                        <input type="text" id="filterPengarang<%=rnd%>" class="form-control border-0" placeholder="<%=Common.getBahasaConfig("Nama pengarang...")%>">
-                                    </div>
-                                </div>
-
-                                <% if (ya) { %>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Yayasan")%></label>
-                                        <div class="input-group bg-white rounded-3 shadow-sm">
-                                            <span class="input-group-text bg-white border-0 text-info"><i class="fa fa-building"></i></span>
-                                            <select id="filterYayasan<%=rnd%>" class="form-select border-0 fw-medium">
-                                                <option value=""><%=Common.getBahasaConfig("-- Seluruh Yayasan --")%></option>
-                                                <% for(Yayasan y : listYayasanRyg) { %><option value="<%=y.getId()%>"><%=y.getNama()%></option><% } %>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Sekolah")%></label>
-                                        <div class="input-group bg-white rounded-3 shadow-sm">
-                                            <span class="input-group-text bg-white border-0 text-primary"><i class="fa fa-institution"></i></span>
-                                            <select id="filterSekolah<%=rnd%>" class="form-select border-0 fw-medium">
-                                                <option value=""><%=Common.getBahasaConfig("-- Seluruh Sekolah --")%></option>
-                                                <% for(Sekolah s : listSekolahRyg) { %><option value="<%=s.getId()%>"><%=s.getNama()%></option><% } %>
-                                            </select>
-                                        </div>
-                                    </div>
-                                <% } %>
-
-                                <% if (pt) { %>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Fakultas")%></label>
-                                        <div class="input-group bg-white rounded-3 shadow-sm">
-                                            <span class="input-group-text bg-white border-0 text-info"><i class="fa fa-university"></i></span>
-                                            <select id="filterFakultas<%=rnd%>" class="form-select border-0 fw-medium">
-                                                <option value=""><%=Common.getBahasaConfig("-- Seluruh Fakultas --")%></option>
-                                                <% for(Fakultas f : listFakultasRyg) { %><option value="<%=f.getId()%>"><%=f.getNama()%></option><% } %>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Program Studi / Jurusan")%></label>
-                                        <div class="input-group bg-white rounded-3 shadow-sm">
-                                            <span class="input-group-text bg-white border-0 text-primary"><i class="fa fa-graduation-cap"></i></span>
-                                            <select id="filterJurusan<%=rnd%>" class="form-select border-0 fw-medium">
-                                                <option value=""><%=Common.getBahasaConfig("-- Seluruh Program Studi --")%></option>
-                                                <% for(Jurusan j : listJurusanRyg) { %><option value="<%=j.getId()%>"><%=j.getNama()%></option><% } %>
-                                            </select>
-                                        </div>
-                                    </div>
-                                <% } %>
-                                
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Lokasi Perpustakaan")%></label>
-                                    <div class="input-group bg-white rounded-3 shadow-sm">
-                                        <span class="input-group-text bg-white border-0 text-danger"><i class="fa fa-map-marker"></i></span>
-                                        <select id="filterPerpustakaan<%=rnd%>" class="form-select border-0 fw-medium">
-                                            <option value=""><%=Common.getBahasaConfig("-- Seluruh Lokasi --")%></option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Jenis Referensi")%></label>
-                                    <div class="input-group bg-white rounded-3 shadow-sm">
-                                        <span class="input-group-text bg-white border-0 text-success"><i class="fa fa-tags"></i></span>
-                                        <select id="filterJenis<%=rnd%>" class="form-select border-0 fw-medium">
-                                            <option value=""><%=Common.getBahasaConfig("-- Seluruh Jenis --")%></option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Tipe Kepustakaan")%></label>
-                                    <div class="input-group bg-white rounded-3 shadow-sm">
-                                        <span class="input-group-text bg-white border-0 text-warning"><i class="fa fa-bookmark"></i></span>
-                                        <select id="filterTipe<%=rnd%>" class="form-select border-0 fw-medium">
-                                            <option value=""><%=Common.getBahasaConfig("-- Seluruh Tipe --")%></option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex align-items-center justify-content-end gap-3 mt-4 pt-3 border-top">
-                        <button type="button" class="btn btn-light px-4 py-2 rounded-pill fw-bold text-secondary shadow-sm" onclick="resetFilter<%=rnd%>()">
-                            <i class="fa fa-undo me-2"></i><%=Common.getBahasaConfig("Atur Ulang Kriteria")%>
-                        </button>
-                        <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-sm fw-bold">
-                            <i class="fa fa-search me-2"></i><%=Common.getBahasaConfig("Cari Pustaka")%>
-                        </button>
-                    </div>
-                </form>
-            </div>
+      <main>
+        <div class="library-results-head">
+          <div>
+            <div class="library-eyebrow"><%=Common.getBahasaConfig("Hasil pencarian")%></div>
+            <h2 class="library-section-title" id="libraryResultTitle<%=rnd%>"><%=Common.getBahasaConfig("Seluruh koleksi")%></h2>
+            <div class="library-muted" id="libraryResultCount<%=rnd%>" aria-live="polite"><%=Common.getBahasaConfig("Menyiapkan katalog...")%></div>
+          </div>
+          <div class="library-result-tools">
+            <button class="library-button library-filter-toggle" id="libraryFilterToggle<%=rnd%>" type="button" aria-expanded="false"><%=Common.getBahasaConfig("Filter")%></button>
+            <button class="library-button" id="libraryListMode<%=rnd%>" type="button" aria-pressed="true" title="<%=Common.getBahasaConfig("Mode daftar")%>">☷</button>
+            <button class="library-button" id="libraryGridMode<%=rnd%>" type="button" aria-pressed="false" title="<%=Common.getBahasaConfig("Mode kartu")%>">▦</button>
+            <label class="visually-hidden" for="librarySort<%=rnd%>"><%=Common.getBahasaConfig("Urutkan")%></label>
+            <select class="library-select" id="librarySort<%=rnd%>">
+              <option value="NEWEST"><%=Common.getBahasaConfig("Koleksi terbaru")%></option>
+              <option value="YEAR_DESC"><%=Common.getBahasaConfig("Tahun terbaru")%></option>
+              <option value="TITLE_ASC"><%=Common.getBahasaConfig("Judul A-Z")%></option>
+              <option value="AUTHOR_ASC"><%=Common.getBahasaConfig("Penulis A-Z")%></option>
+              <option value="POPULAR"><%=Common.getBahasaConfig("Paling populer")%></option>
+            </select>
+          </div>
         </div>
 
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 border-bottom pb-3">
-            <h4 class="fw-bold text-dark m-0 mb-2 mb-md-0"><i class="fa fa-list text-primary me-2"></i><%=Common.getBahasaConfig("Daftar Koleksi Pustaka")%></h4>
-            <div id="infoHasil<%=rnd%>" class="text-muted small fw-medium bg-white px-3 py-1 rounded-pill border"><%=Common.getBahasaConfig("Sistem sedang menyiapkan data pustaka...")%></div>
+        <div class="library-chips" id="libraryActiveFilters<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter aktif")%>"></div>
+        <div class="library-result-list" id="libraryResults<%=rnd%>" aria-busy="true">
+          <div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div>
         </div>
-
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4" id="gridBuku<%=rnd%>"></div>
-
-        <nav class="mt-5 pt-3 pb-5" aria-label="<%=Common.getBahasaConfig("Navigasi Halaman Data")%>">
-            <ul class="pagination pagination-lg justify-content-center shadow-sm rounded-pill bg-white d-inline-flex px-2 py-2" id="paginationBuku<%=rnd%>"></ul>
+        <nav class="library-pagination" aria-label="<%=Common.getBahasaConfig("Navigasi halaman katalog")%>">
+          <button class="library-button" id="libraryPrevious<%=rnd%>" type="button"><%=Common.getBahasaConfig("Sebelumnya")%></button>
+          <span id="libraryPageInfo<%=rnd%>">1 / 1</span>
+          <button class="library-button" id="libraryNext<%=rnd%>" type="button"><%=Common.getBahasaConfig("Selanjutnya")%></button>
         </nav>
+      </main>
     </div>
+  </div>
 </div>
 
 <script>
-    const limitPerPage<%=rnd%> = 12;
-    let currentPageGlobal<%=rnd%> = 1;
-    let slideTimer<%=rnd%>; 
-    const apiUrl<%=rnd%> = '<%=Common.ROOT%>/Data';
-
-    const txtSedangMemuat<%=rnd%> = '<%=Common.getBahasaConfigJS("Sistem sedang memuat data pustaka...")%>';
-    const txtGagalMemuat<%=rnd%> = '<%=Common.getBahasaConfigJS("Terjadi kendala saat menarik data dari peladen. Silakan muat ulang halaman.")%>';
-    const txtTidakDitemukan<%=rnd%> = '<%=Common.getBahasaConfigJS("Mohon maaf, tidak ditemukan pustaka yang sesuai dengan kriteria pencarian Anda.")%>';
-    const txtTanpaJudul<%=rnd%> = '<%=Common.getBahasaConfigJS("Tanpa Judul")%>';
-    const txtTidakDiketahui<%=rnd%> = '<%=Common.getBahasaConfigJS("Data Tidak Tersedia")%>';
-    const txtSebelumnya<%=rnd%> = '<%=Common.getBahasaConfigJS("Sebelumnya")%>';
-    const txtSelanjutnya<%=rnd%> = '<%=Common.getBahasaConfigJS("Selanjutnya")%>';
-
-    // Fungsi Toggle Ekstra Aman berbasis data-attribute (Anti-glitch pada AJAX Lazy Load)
-    function toggleAdvancedSearch<%=rnd%>(btnElement) {
-        const panel = document.getElementById('advancedSearch<%=rnd%>');
-        const textSpan = document.getElementById('textToggle<%=rnd%>');
-        const isExpanded = panel.getAttribute('data-expanded') === 'true';
-        
-        if (!isExpanded) {
-            if (typeof window.jQuery !== 'undefined') { window.jQuery(panel).slideDown('fast'); } else { panel.style.display = 'block'; }
-            panel.setAttribute('data-expanded', 'true');
-            textSpan.innerHTML = '<%=Common.getBahasaConfigJS("Sembunyikan Pencarian Lanjutan")%>';
-            btnElement.className = 'btn btn-sm btn-secondary rounded-pill px-4 py-2 fw-bold shadow-sm transition-all text-white';
-        } else {
-            if (typeof window.jQuery !== 'undefined') { window.jQuery(panel).slideUp('fast', function(){ panel.style.display = 'none'; }); } else { panel.style.display = 'none'; }
-            panel.setAttribute('data-expanded', 'false');
-            textSpan.innerHTML = '<%=Common.getBahasaConfigJS("Tampilkan Pencarian Lanjutan")%>';
-            btnElement.className = 'btn btn-sm btn-outline-secondary rounded-pill px-4 py-2 fw-bold shadow-sm transition-all';
-        }
-    }
-
-    function initAutoSlider<%=rnd%>() {
-        const slider = document.getElementById("sliderTerbaru<%=rnd%>");
-        if (!slider) return;
-        if (slideTimer<%=rnd%>) clearInterval(slideTimer<%=rnd%>); 
-        slideTimer<%=rnd%> = setInterval(autoScroll, 3000); 
-        function autoScroll() {
-            const item = slider.querySelector('.slide-item<%=rnd%>');
-            if (!item) return;
-            const gap = parseFloat(getComputedStyle(slider).gap) || 24; 
-            const itemWidth = item.offsetWidth + gap;
-            if (slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 10) {
-                slider.scrollTo({ left: 0, behavior: 'smooth' });
-            } else {
-                slider.scrollBy({ left: itemWidth, behavior: 'smooth' });
-            }
-        }
-        slider.addEventListener('mouseenter', () => { if (slideTimer<%=rnd%>) clearInterval(slideTimer<%=rnd%>); });
-        slider.addEventListener('mouseleave', () => {
-            if (slideTimer<%=rnd%>) clearInterval(slideTimer<%=rnd%>);
-            slideTimer<%=rnd%> = setInterval(autoScroll, 3000); 
-        });
-    }
-
-    async function loadMasterData<%=rnd%>() {
-        try {
-            const reqPerpus = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "where1": "(aktif is null or aktif = true)", "max": 100, "order1": "asc", "sort1": "nama" };
-            const pPerpus = fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqPerpus) }).then(res => res.json());
-
-            const reqJenis = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.JenisItem.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
-            const pJenis = fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqJenis) }).then(res => res.json());
-
-            const reqTipe = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.TipeItem.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
-            const pTipe = fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqTipe) }).then(res => res.json());
-
-            const [dataPerpus, dataJenis, dataTipe] = await Promise.all([pPerpus, pJenis, pTipe]);
-
-            const selectPerpus = document.getElementById("filterPerpustakaan<%=rnd%>");
-            if (dataPerpus && dataPerpus.data) {
-                dataPerpus.data.forEach(p => selectPerpus.appendChild(new Option(p.nama, p.id)));
-                if (dataPerpus.data.length === 1) selectPerpus.value = dataPerpus.data[0].id;
-            }
-
-            const selectJenis = document.getElementById("filterJenis<%=rnd%>");
-            if (dataJenis && dataJenis.data) {
-                dataJenis.data.forEach(p => selectJenis.appendChild(new Option(p.nama, p.id)));
-                if (dataJenis.data.length === 1) selectJenis.value = dataJenis.data[0].id;
-            }
-
-            const selectTipe = document.getElementById("filterTipe<%=rnd%>");
-            if (dataTipe && dataTipe.data) {
-                dataTipe.data.forEach(p => selectTipe.appendChild(new Option(p.nama, p.id)));
-                if (dataTipe.data.length === 1) selectTipe.value = dataTipe.data[0].id;
-            }
-        } catch (error) { 
-            console.error("Gagal memuat referensi parameter pencarian:", error);
-        }
-    }
-
-    function buildFilterSQL<%=rnd%>() {
-        let filters = [
-            "(aktif is null or aktif = true)",
-            "(status_terbit_item is null or status_terbit_item in (select id from library.status_terbit_item where lower(nama) in ('terbit', 'publish', 'disetujui')))"
-        ];
-        
-        const elJudul = document.getElementById("filterJudul<%=rnd%>");
-        const elIsbn = document.getElementById("filterIsbn<%=rnd%>");
-        const elIssn = document.getElementById("filterIssn<%=rnd%>");
-        const elPenerbit = document.getElementById("filterPenerbit<%=rnd%>");
-        const elPengarang = document.getElementById("filterPengarang<%=rnd%>");
-        
-        const elPerpustakaan = document.getElementById("filterPerpustakaan<%=rnd%>");
-        const elJenis = document.getElementById("filterJenis<%=rnd%>");
-        const elTipe = document.getElementById("filterTipe<%=rnd%>");
-        const elYayasan = document.getElementById("filterYayasan<%=rnd%>");
-        const elSekolah = document.getElementById("filterSekolah<%=rnd%>");
-        const elFakultas = document.getElementById("filterFakultas<%=rnd%>");
-        const elJurusan = document.getElementById("filterJurusan<%=rnd%>");
-
-        if (elJudul && elJudul.value.trim()) filters.push("upper(nama) like upper('%" + elJudul.value.trim().replace(/'/g, "''") + "%')");
-        if (elIsbn && elIsbn.value.trim()) filters.push("isbn = '" + elIsbn.value.trim().replace(/'/g, "''") + "'");
-        if (elIssn && elIssn.value.trim()) filters.push("issn = '" + elIssn.value.trim().replace(/'/g, "''") + "'");
-        
-        if (elPenerbit && elPenerbit.value.trim()) {
-            filters.push("penerbit in (select id from library.penerbit where upper(nama) like upper('%" + elPenerbit.value.trim().replace(/'/g, "''") + "%'))");
-        }
-        
-        if (elPengarang && elPengarang.value.trim()) filters.push("pengarangs ilike '%" + elPengarang.value.trim().replace(/'/g, "''") + "%'");
-        
-        if (elPerpustakaan && elPerpustakaan.value) {
-            filters.push("id in (select ipb.item from library.item_punya_barcode ipb where ipb.perpustakaan = " + elPerpustakaan.value + ")");
-        }
-
-        if (elJenis && elJenis.value) filters.push("jenis_item = " + elJenis.value);
-        if (elTipe && elTipe.value) filters.push("tipe_item = " + elTipe.value);
-
-        if (elYayasan && elYayasan.value) filters.push("sekolah IN (SELECT id FROM sekolah WHERE yayasan = " + elYayasan.value + ")");
-        if (elSekolah && elSekolah.value) filters.push("sekolah = " + elSekolah.value);
-        if (elFakultas && elFakultas.value) filters.push("jurusan IN (SELECT id FROM jurusan WHERE fakultas = " + elFakultas.value + ")");
-        if (elJurusan && elJurusan.value) filters.push("jurusan = " + elJurusan.value);
-
-        return filters.length > 0 ? filters.join(" AND ") : null;
-    }
-
-    function getBookImage<%=rnd%>(item) {
-        if (item.imageUrl && item.imageUrl.trim() !== "" && item.imageUrl.trim().startsWith("http")) { 
-            return item.imageUrl;
-        } else {
-            const host = "<%=Common.ROOT%>";
-            return host + "/AmbilMedia?id=" + (item.id || "") + "&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=152&width=114";
-        }
-    }
-
-    async function loadSliderTerbaru<%=rnd%>() {
-        const slider = document.getElementById("sliderTerbaru<%=rnd%>");
-        if (!slider) return;
-
-        slider.innerHTML = "<div class='w-100 text-center py-4'><div class='spinner-border text-light' role='status'></div></div>";
-
-        const whereClause = buildFilterSQL<%=rnd%>();
-        var reqObj = { 
-            "action": "daftar", 
-            "tanpaLogin": "true", 
-            "class": "<%=ais.database.model.library.Item.class.getName()%>", 
-            "deep": "1", 
-            "max": 20, 
-            "order1": "desc", 
-            "sort1": "id" 
-        };
-        if (whereClause) { reqObj["where1"] = whereClause; }
-
-        try {
-            const response = await fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqObj) });
-            const dataResponse = await response.json();
-            const bukuList = dataResponse.data || [];
-
-            if (bukuList.length === 0) {
-                slider.innerHTML = "<div class='text-white-50 px-3 w-100 text-center'>" + txtTidakDitemukan<%=rnd%> + "</div>";
-                return;
-            }
-
-            let htmlContent = "";
-            bukuList.forEach(item => {
-                const imgSrc = getBookImage<%=rnd%>(item);
-                const judul = item.nama || txtTanpaJudul<%=rnd%>;
-                const pengarang = (item.pengarangs && item.pengarangs.trim() !== "") ? item.pengarangs : "-";
-                const penerbit = (item.penerbit && item.penerbit.nama) ? item.penerbit.nama : txtTidakDiketahui<%=rnd%>;
-                const tema = (item.tema && item.tema.trim() !== "") ? item.tema : "-";
-                const detailHref = '<%=Common.ROOT%>/pustaka?id=' + item.id;
-
-                htmlContent += 
-                    "<div class='slide-item<%=rnd%>'>" +
-                        "<div class='card bg-white border-0 shadow-sm rounded-4 h-100 book-card<%=rnd%> overflow-hidden' style='cursor: pointer;' onclick='event.preventDefault(); tampilkanDetail<%=rnd%>(\"" + item.id + "\")'>" +
-                            "<img src='" + imgSrc + "' class='card-img-top p-3 bg-light book-cover<%=rnd%>' alt='" + judul + "' onerror=\"this.src='https://via.placeholder.com/152x200?text=No+Cover'\">" +
-                            "<div class='card-body p-3 d-flex flex-column'>" +
-                                "<h6 class='card-title fw-bold text-dark mb-3 line-clamp-2' title='" + judul + "'>" + judul + "</h6>" +
-                                "<div class='mt-auto border-top pt-2'>" +
-                                    "<span class='small text-secondary mb-1 text-truncate-custom' title='" + pengarang + "'><i class='fa fa-user text-primary me-2 w-15px'></i>" + pengarang + "</span>" +
-                                    "<span class='small text-secondary mb-1 text-truncate-custom' title='" + penerbit + "'><i class='fa fa-building-o text-primary me-2 w-15px'></i>" + penerbit + "</span>" +
-                                    "<span class='small text-secondary mb-0 text-truncate-custom' title='" + tema + "'><i class='fa fa-tag text-primary me-2 w-15px'></i>" + tema + "</span>" +
-                                "</div>" +
-                            "</div>" +
-                        "</div>" +
-                    "</div>";
-            });
-
-            slider.innerHTML = htmlContent;
-            initAutoSlider<%=rnd%>();
-
-        } catch (error) {
-            console.error("Error API Slider:", error);
-            slider.innerHTML = "<div class='text-white-50 px-3 w-100 text-center'>Sistem gagal memuat koleksi terbaru.</div>";
-        }
-    }
-
-    async function loadBuku<%=rnd%>(currentPage) {
-        currentPageGlobal<%=rnd%> = currentPage;
-        
-        if (currentPage === 1) {
-            loadSliderTerbaru<%=rnd%>();
-        }
-
-        const grid = document.getElementById("gridBuku<%=rnd%>");
-        const infoText = document.getElementById("infoHasil<%=rnd%>");
-        
-        if (grid) grid.innerHTML = "<div class='col-12 text-center py-5'><div class='spinner-border text-primary' role='status' style='width: 3rem; height: 3rem;'></div><h5 class='mt-4 text-muted fw-bold'>" + txtSedangMemuat<%=rnd%> + "</h5></div>";
-        const paginationEl = document.getElementById("paginationBuku<%=rnd%>");
-        if (paginationEl) paginationEl.innerHTML = "";
-        if (infoText) infoText.innerHTML = "";
-
-        const whereClause = buildFilterSQL<%=rnd%>();
-        var reqObj = { "action": "daftar", tanpaLogin:"true", "class": "<%=ais.database.model.library.Item.class.getName()%>", "deep": "1", "max": limitPerPage<%=rnd%>, "halaman": (currentPage - 1), "order1": "desc", "sort1": "id", "count": "true" };
-        if (whereClause) { reqObj["where1"] = whereClause; }
-
-        try {
-            const response = await fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqObj) });
-            const dataResponse = await response.json();
-            renderBuku<%=rnd%>(dataResponse.data || []);
-            updateInfoHasil<%=rnd%>(parseInt(dataResponse.count || 0), (dataResponse.data || []).length, currentPage);
-            renderPagination<%=rnd%>(parseInt(dataResponse.count || 0), currentPage);
-        } catch (error) {
-            console.error("Error API:", error);
-            if (grid) grid.innerHTML = "<div class='col-12 text-center text-danger py-5'><div class='bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3'><i class='fa fa-exclamation-triangle fa-3x text-danger'></i></div><h5 class='fw-bold'>" + txtGagalMemuat<%=rnd%> + "</h5></div>";
-        }
-    }
-
-    function renderBuku<%=rnd%>(bukuList) {
-        const grid = document.getElementById("gridBuku<%=rnd%>");
-        if (!grid) return;
-        
-        grid.innerHTML = "";
-
-        if (bukuList.length === 0) {
-            grid.innerHTML = "<div class='col-12 text-center py-5'><i class='fa fa-folder-open-o fa-5x text-secondary opacity-50 mb-4'></i><h4 class='text-secondary fw-bold'>" + txtTidakDitemukan<%=rnd%> + "</h4></div>";
-            return;
-        }
-
-        let htmlContent = "";
-        bukuList.forEach(item => {
-            const imgSrc = getBookImage<%=rnd%>(item);
-            const judul = item.nama || txtTanpaJudul<%=rnd%>;
-            const pengarang = (item.pengarangs && item.pengarangs.trim() !== "") ? item.pengarangs : "-";
-            const penerbit = (item.penerbit && item.penerbit.nama) ? item.penerbit.nama : txtTidakDiketahui<%=rnd%>;
-            const tema = (item.tema && item.tema.trim() !== "") ? item.tema : "-";
-            const detailHref = '<%=Common.ROOT%>/pustaka?id=' + item.id;
-
-            htmlContent += 
-                "<div class='col'>" +
-                    "<a href='" + detailHref + "' class='card h-100 book-card<%=rnd%> rounded-4 overflow-hidden text-decoration-none' onclick='event.preventDefault(); tampilkanDetail<%=rnd%>(\"" + item.id + "\")'>" +
-                        "<img src='" + imgSrc + "' class='card-img-top book-cover<%=rnd%>' alt='" + judul + "' onerror=\"this.src='https://via.placeholder.com/114x152?text=No+Cover'\">" +
-                        "<div class='card-body d-flex flex-column p-4'>" +
-                            "<h6 class='card-title fw-bold text-dark mb-3 line-clamp-2' title='" + judul + "'>" + judul + "</h6>" +
-                            "<div class='mt-auto border-top pt-3'>" +
-                                "<div class='small text-secondary mb-2 text-truncate-custom' title='" + pengarang + "'><i class='fa fa-user text-primary me-2 w-15px'></i>" + pengarang + "</div>" +
-                                "<div class='small text-secondary mb-2 text-truncate-custom' title='" + penerbit + "'><i class='fa fa-building-o text-primary me-2 w-15px'></i>" + penerbit + "</div>" +
-                                "<div class='small text-secondary mb-0 text-truncate-custom' title='" + tema + "'><i class='fa fa-tag text-primary me-2 w-15px'></i>" + tema + "</div>" +
-                            "</div>" +
-                        "</div>" +
-                    "</a>" +
-                "</div>";
-        });
-
-        grid.innerHTML = htmlContent;
-    }
-
-    async function tampilkanDetail<%=rnd%>(itemId) {
-        const modalId = "modalDetail<%=rnd%>";
-        const existingModal = document.getElementById(modalId);
-        if (existingModal) { existingModal.remove(); }
-
-        try {
-            const detailUrl = '<%=linkDetail%>&id=' + itemId + '&modalId=' + modalId;
-            const response = await fetch(detailUrl);
-            
-            if (!response.ok) throw new Error("Gagal load halaman rincian");
-            let modalHtml = await response.text();
-            modalHtml = modalHtml.replace(/http:\/\/fonts\.googleapis\.com/g, 'https://fonts.googleapis.com');
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-            const modalElement = document.getElementById(modalId);
-            
-            if (!modalElement) throw new Error("Elemen rincian buku tidak ditemukan.");
-            
-            if (typeof bootstrap !== 'undefined') {
-                const modalInstance = new bootstrap.Modal(modalElement);
-                modalInstance.show();
-                modalElement.addEventListener('hidden.bs.modal', function () { modalElement.remove(); });
-            } 
-            else if (typeof window.jQuery !== 'undefined' && typeof window.jQuery(modalElement).modal === 'function') {
-                window.jQuery(modalElement).modal('show');
-                window.jQuery(modalElement).on('hidden.bs.modal', function () { modalElement.remove(); });
-            } 
-            else {
-                modalElement.classList.add('show');
-                modalElement.style.display = 'block';
-                modalElement.style.backgroundColor = 'rgba(0,0,0,0.6)';
-                modalElement.style.overflowY = 'auto';
-                document.body.style.overflow = 'hidden';
-                
-                const closeBtns = modalElement.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"], .btn-close');
-                closeBtns.forEach(btn => {
-                    btn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        modalElement.style.display = 'none';
-                        modalElement.classList.remove('show');
-                        document.body.style.overflow = 'auto';
-                        modalElement.remove(); 
-                    });
-                });
-            }
-            
-        } catch (error) {
-            console.error("Gagal menarik popup rincian:", error);
-            if(typeof tampilkanToast === 'function') { 
-                tampilkanToast('<%=Common.getBahasaConfigJS("Gagal memuat rincian pustaka dari peladen. Silakan coba lagi.")%>', 'bg-danger'); 
-            }
-        }
-    }
-
-    function renderPagination<%=rnd%>(totalRecords, currentPage) {
-        const totalPages = Math.ceil(totalRecords / limitPerPage<%=rnd%>);
-        const paginationEl = document.getElementById("paginationBuku<%=rnd%>");
-        if (!paginationEl) return;
-
-        paginationEl.innerHTML = "";
-        if (totalPages <= 1) return;
-        let html = "<li class='page-item " + (currentPage === 1 ? "disabled" : "") + "'><a class='page-link border-0 text-secondary fw-bold px-3 rounded-pill mx-1' href='#' onclick='event.preventDefault(); if(" + currentPage + " > 1) loadBuku<%=rnd%>(" + (currentPage - 1) + ")'><i class='fa fa-chevron-left me-2'></i>" + txtSebelumnya<%=rnd%> + "</a></li>";
-        let startPage = Math.max(1, currentPage - 2); let endPage = Math.min(totalPages, currentPage + 2);
-        for (let i = startPage; i <= endPage; i++) {
-            let activeClass = (i === currentPage) ? "active shadow-sm" : "";
-            let btnStyle = (i === currentPage) ? "background-color: #0d6efd; color: white;" : "color: #6c757d;";
-            html += "<li class='page-item mx-1 " + activeClass + " rounded-circle'><a class='page-link border-0 rounded-circle fw-bold' style='width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; " + btnStyle + "' href='#' onclick='event.preventDefault(); loadBuku<%=rnd%>(" + i + ")'>" + i + "</a></li>";
-        }
-        html += "<li class='page-item " + (currentPage === totalPages ? "disabled" : "") + "'><a class='page-link border-0 text-secondary fw-bold px-3 rounded-pill mx-1' href='#' onclick='event.preventDefault(); if(" + currentPage + " < " + totalPages + ") loadBuku<%=rnd%>(" + (currentPage + 1) + ")'>" + txtSelanjutnya<%=rnd%> + "<i class='fa fa-chevron-right ms-2'></i></a></li>";
-        paginationEl.innerHTML = html;
-    }
-
-    function updateInfoHasil<%=rnd%>(totalRecords, currentCount, currentPage) {
-        const infoText = document.getElementById("infoHasil<%=rnd%>");
-        if (!infoText) return;
-        
-        if (totalRecords > 0) { 
-            let start = ((currentPage - 1) * limitPerPage<%=rnd%>) + 1;
-            let end = start + currentCount - 1;
-            infoText.innerHTML = '<%=Common.getBahasaConfigJS("Menampilkan referensi")%>' + " <span class='text-primary fw-bold mx-1'>" + start + "-" + end + "</span> " + '<%=Common.getBahasaConfigJS("dari total keseluruhan")%>' + " <span class='text-primary fw-bold mx-1'>" + totalRecords + "</span> " + '<%=Common.getBahasaConfigJS("pustaka")%>' + ".";
-        } else { 
-            infoText.innerHTML = "";
-        }
-    }
-
-    function resetFilter<%=rnd%>() { 
-        const form = document.getElementById("formPencarian<%=rnd%>");
-        if(form) {
-            form.reset();
-            loadMasterData<%=rnd%>().then(() => loadBuku<%=rnd%>(1));
-        } else {
-            loadBuku<%=rnd%>(1); 
-        }
-    }
-
-    // Memicu pemanggilan paralel master data, setelah selesai baru render buku
-    loadMasterData<%=rnd%>().then(() => {
-        loadBuku<%=rnd%>(1);
+(function () {
+  'use strict';
+  var suffix = '<%=rnd%>';
+  var root = '<%=root%>';
+  var api = root + '/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_catalog_api';
+  var page = 1;
+  var pageSize = 12;
+  var total = 0;
+  var requestSerial = 0;
+  var filterMap = {
+    query: 'libraryQuery', title: 'libraryTitleFilter', author: 'libraryAuthor', publisher: 'libraryPublisher',
+    libraryId: 'libraryBranch', itemTypeId: 'libraryItemType', materialTypeId: 'libraryMaterialType',
+    foundationId: 'libraryFoundation', schoolId: 'librarySchool', facultyId: 'libraryFaculty',
+    studyProgramId: 'libraryStudyProgram', yearFrom: 'libraryYearFrom', yearTo: 'libraryYearTo'
+  };
+  var filterLabels = {
+    query: '<%=Common.getBahasaConfigJS("Kata kunci")%>', title: '<%=Common.getBahasaConfigJS("Judul")%>',
+    author: '<%=Common.getBahasaConfigJS("Penulis")%>', publisher: '<%=Common.getBahasaConfigJS("Penerbit")%>',
+    libraryId: '<%=Common.getBahasaConfigJS("Cabang")%>', itemTypeId: '<%=Common.getBahasaConfigJS("Jenis")%>',
+    materialTypeId: '<%=Common.getBahasaConfigJS("Format")%>', foundationId: '<%=Common.getBahasaConfigJS("Yayasan")%>',
+    schoolId: '<%=Common.getBahasaConfigJS("Sekolah")%>', facultyId: '<%=Common.getBahasaConfigJS("Fakultas")%>',
+    studyProgramId: '<%=Common.getBahasaConfigJS("Program studi")%>', yearFrom: '<%=Common.getBahasaConfigJS("Tahun mulai")%>',
+    yearTo: '<%=Common.getBahasaConfigJS("Tahun akhir")%>'
+  };
+  function el(base) { return document.getElementById(base + suffix); }
+  function value(key) { var node = el(filterMap[key]); return node ? node.value.trim() : ''; }
+  function params() {
+    var data = {action:'search', page:page, pageSize:pageSize, sort:el('librarySort').value};
+    Object.keys(filterMap).forEach(function (key) { if (value(key)) data[key] = value(key); });
+    return data;
+  }
+  function optionLabel(key, raw) {
+    var node = el(filterMap[key]);
+    if (node && node.tagName === 'SELECT' && node.selectedIndex >= 0) return node.options[node.selectedIndex].text;
+    return raw;
+  }
+  function fillSelect(base, rows) {
+    var select = el(base);
+    (rows || []).forEach(function (row) { select.appendChild(new Option(row.nama || '-', row.id)); });
+  }
+  function renderChips() {
+    var target = el('libraryActiveFilters');
+    var html = '';
+    Object.keys(filterMap).forEach(function (key) {
+      var raw = value(key);
+      if (raw) html += '<span class="library-chip">' + LibraryModern.escapeHtml(filterLabels[key] + ': ' + optionLabel(key, raw))
+        + '<button type="button" data-clear="' + key + '" aria-label="Hapus filter">×</button></span>';
     });
+    target.innerHTML = html;
+    Array.prototype.forEach.call(target.querySelectorAll('[data-clear]'), function (button) {
+      button.addEventListener('click', function () { el(filterMap[button.getAttribute('data-clear')]).value = ''; page = 1; load(); });
+    });
+  }
+  function cover(item) {
+    var title = LibraryModern.escapeHtml(item.nama || '<%=Common.getBahasaConfigJS("Tanpa judul")%>');
+    if (item.imageUrl && /^https?:\/\//i.test(item.imageUrl)) {
+      return '<div class="library-cover"><img loading="lazy" src="' + LibraryModern.escapeHtml(item.imageUrl) + '" alt="" onerror="this.parentNode.innerHTML=\'KOLEKSI\'"></div>';
+    }
+    var media = root + '/AmbilMedia?id=' + encodeURIComponent(item.id || '') + '&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=232&width=172';
+    return '<div class="library-cover"><img loading="lazy" src="' + media + '" alt="" onerror="this.parentNode.textContent=\'KOLEKSI\'"></div>';
+  }
+  function renderItems(items) {
+    var target = el('libraryResults');
+    if (!items || !items.length) {
+      target.innerHTML = '<div class="library-card library-state"><strong><%=Common.getBahasaConfigJS("Koleksi tidak ditemukan")%></strong><span class="library-muted"><%=Common.getBahasaConfigJS("Coba kurangi filter atau gunakan kata kunci yang lebih umum.")%></span></div>';
+      return;
+    }
+    target.innerHTML = items.map(function (item) {
+      var title = LibraryModern.escapeHtml(item.nama || '<%=Common.getBahasaConfigJS("Tanpa judul")%>');
+      var detail = root + '/pustaka?id=' + encodeURIComponent(item.id);
+      var copies = Number(item.jumlahEksemplar || 0);
+      return '<article class="library-card library-result">' + cover(item)
+        + '<div><div class="library-eyebrow">' + LibraryModern.escapeHtml(item.kategories || '<%=Common.getBahasaConfigJS("Koleksi perpustakaan")%>') + '</div>'
+        + '<h3><a href="' + detail + '">' + title + '</a></h3>'
+        + '<div class="library-meta"><span>✎ ' + LibraryModern.escapeHtml(item.pengarangs || '-') + '</span><span>▣ ' + LibraryModern.escapeHtml((item.penerbit && item.penerbit.nama) || '-') + '</span><span>◷ ' + LibraryModern.escapeHtml(item.tahun || '-') + '</span><span>' + LibraryModern.escapeHtml(item.bahasa || '-') + '</span></div>'
+        + '<p class="library-summary">' + LibraryModern.escapeHtml(item.ringkasan || '<%=Common.getBahasaConfigJS("Ringkasan belum tersedia.")%>') + '</p></div>'
+        + '<div class="library-result-action"><span class="library-status">● ' + copies + ' <%=Common.getBahasaConfigJS("eksemplar tercatat")%></span>'
+        + '<small>' + LibraryModern.escapeHtml(item.callNumber || item.isbn || item.issn || '<%=Common.getBahasaConfigJS("Nomor panggil belum tersedia")%>') + '</small>'
+        + '<a class="library-button library-button-primary" href="' + detail + '"><%=Common.getBahasaConfigJS("Lihat detail")%></a></div></article>';
+    }).join('');
+  }
+  function updatePage() {
+    var pages = Math.max(1, Math.ceil(total / pageSize));
+    el('libraryPageInfo').textContent = page + ' / ' + pages;
+    el('libraryPrevious').disabled = page <= 1;
+    el('libraryNext').disabled = page >= pages;
+  }
+  function load() {
+    var serial = ++requestSerial;
+    el('libraryResults').setAttribute('aria-busy', 'true');
+    el('libraryResults').innerHTML = '<div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div>';
+    renderChips();
+    LibraryModern.fetchJson(api, params()).then(function (data) {
+      if (serial !== requestSerial) return;
+      total = Number(data.total || data.count || 0);
+      renderItems(data.items || data.data || []);
+      el('libraryResultCount').textContent = total.toLocaleString('id-ID') + ' <%=Common.getBahasaConfigJS("judul ditemukan")%>';
+      var keyword = value('query');
+      el('libraryResultTitle').textContent = keyword ? '<%=Common.getBahasaConfigJS("Hasil untuk")%> “' + keyword + '”' : '<%=Common.getBahasaConfigJS("Seluruh koleksi")%>';
+      updatePage();
+    }).catch(function () {
+      if (serial !== requestSerial) return;
+      el('libraryResults').innerHTML = '<div class="library-card library-state"><strong><%=Common.getBahasaConfigJS("Katalog belum dapat dimuat")%></strong><span class="library-muted"><%=Common.getBahasaConfigJS("Periksa koneksi lalu coba kembali.")%></span><br><button class="library-button library-button-primary" type="button" id="libraryRetry<%=rnd%>"><%=Common.getBahasaConfigJS("Coba lagi")%></button></div>';
+      el('libraryRetry').addEventListener('click', load);
+    }).then(function () { el('libraryResults').setAttribute('aria-busy', 'false'); });
+  }
+  LibraryModern.fetchJson(api, {action:'references'}).then(function (data) {
+    fillSelect('libraryBranch', data.libraries); fillSelect('libraryItemType', data.itemTypes); fillSelect('libraryMaterialType', data.materialTypes);
+    fillSelect('libraryFoundation', data.foundations); fillSelect('librarySchool', data.schools); fillSelect('libraryFaculty', data.faculties); fillSelect('libraryStudyProgram', data.studyPrograms);
+  }).catch(function () { /* Search remains usable without optional reference lists. */ });
+  el('libraryQuickSearch').addEventListener('submit', function (event) { event.preventDefault(); page = 1; load(); });
+  el('libraryApply').addEventListener('click', function () { page = 1; load(); });
+  el('libraryReset').addEventListener('click', function () { Object.keys(filterMap).forEach(function (key) { el(filterMap[key]).value = ''; }); page = 1; load(); });
+  el('librarySort').addEventListener('change', function () { page = 1; load(); });
+  el('libraryPrevious').addEventListener('click', function () { if (page > 1) { page--; load(); } });
+  el('libraryNext').addEventListener('click', function () { if (page * pageSize < total) { page++; load(); } });
+  el('libraryFilterToggle').addEventListener('click', function () { var facets = el('libraryFacets'); var open = facets.classList.toggle('is-open'); this.setAttribute('aria-expanded', String(open)); });
+  el('libraryListMode').addEventListener('click', function () { el('libraryResults').classList.remove('library-grid-mode'); this.setAttribute('aria-pressed','true'); el('libraryGridMode').setAttribute('aria-pressed','false'); });
+  el('libraryGridMode').addEventListener('click', function () { el('libraryResults').classList.add('library-grid-mode'); this.setAttribute('aria-pressed','true'); el('libraryListMode').setAttribute('aria-pressed','false'); });
+  el('librarySort').value = '<%=defaultSort%>';
+  load();
+}());
 </script>
