@@ -83,8 +83,21 @@ public class UIHelper {
         toolbar.setSpacing("0px");
         toolbar.setAlign("center");
         toolbar.setSclass("ais-row-actions");
-        toolbar.setStyle("display:flex;flex-wrap:nowrap;width:auto;align-items:center;"
-                + "justify-content:flex-end;gap:0;");
+        /* UBAH 21-08-2026: semula width:auto + justify-content:flex-end, sehingga tombol
+         * kebab menempel ke tepi kolom. Diminta berada di TENGAH. Disetel di sini, bukan
+         * hanya lewat berkas CSS, karena style inline inilah yang menentukan posisinya. */
+        toolbar.setStyle("display:flex;flex-wrap:nowrap;width:100%;align-items:center;"
+                + "justify-content:center;gap:0;");
+
+        /* Wadah pembungkus milik pemanggil (Vbox/Hbox) menyusut mengikuti isinya, sehingga
+         * toolbar yang sudah center tetap tampak menepi di dalam sel. Lebarkan wadahnya agar
+         * titik tengah toolbar berimpit dengan titik tengah kolom. Perataan anak wadah
+         * sengaja TIDAK diubah supaya isi lain di dalamnya tidak ikut bergeser. */
+        if (parent instanceof Vbox) {
+            ((Vbox) parent).setWidth("100%");
+        } else if (parent instanceof Hbox) {
+            ((Hbox) parent).setWidth("100%");
+        }
 
         final Popup popup = new Popup();
         popup.setSclass("ais-row-popup");
@@ -158,8 +171,11 @@ public class UIHelper {
         hbox.setSclass("ais-row-actions");
         hbox.setSpacing("0px");
         hbox.setAlign("center");
-        hbox.setStyle("display:flex;flex-wrap:nowrap;width:auto;align-items:center;"
-                + "justify-content:flex-end;gap:0;");
+        /* UBAH 21-08-2026: semula width:auto + justify-content:flex-end, sehingga tombol
+         * kebab menempel ke tepi kolom. Diminta berada di TENGAH. Disetel di sini, bukan
+         * hanya lewat berkas CSS, karena style inline inilah yang menentukan posisinya. */
+        hbox.setStyle("display:flex;flex-wrap:nowrap;width:100%;align-items:center;"
+                + "justify-content:center;gap:0;");
 
         final Popup popup = new Popup();
         popup.setSclass("ais-row-popup");
