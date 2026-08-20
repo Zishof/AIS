@@ -18,6 +18,55 @@ import org.zkoss.zul.Vbox;
 public class UIHelper {
 
     /**
+     * Kembalikan wadah pada sel IDENTITAS baris, siap ditempeli keterangan tambahan.
+     *
+     * <p><b>Masalah yang dipecahkan.</b> Sejumlah layar menitipkan status feeder
+     * ("Feeder blm valid" + tombol "Krm ke Feeder") pada sel AKSI — wadah yang sama
+     * dengan tombol kebab. Sel itu sengaja dibuat sempit (selebar kebab), sehingga
+     * keterangan tersebut terpenggal menurun satu kata per baris. Tempatnya yang wajar
+     * adalah di bawah kolom identitas baris, seperti pada layar Mahasiswa.</p>
+     *
+     * <p><b>Cara kerja.</b> Sel identitas diambil sebagai sel PERTAMA baris yang bukan
+     * tombol buka-tutup rincian ({@code Detail}). Bila sel itu belum berupa {@link Vbox},
+     * ia dibungkus Vbox lebih dulu — isi lamanya tetap berada di baris pertama, dan
+     * komponen tambahan menempel di bawahnya. Pendekatan ini sengaja bekerja pada sel
+     * yang SUDAH terbentuk, sehingga tidak perlu menyunting method {@code displayRow}
+     * bersama yang dipakai banyak layar lain.</p>
+     *
+     * <p>Kembalikan {@code null} bila baris tidak punya sel yang layak; pemanggil
+     * hendaknya jatuh kembali ke wadah lamanya agar keterangan tidak hilang.</p>
+     */
+    public static Vbox selIdentitas(Row row) {
+        try {
+            if (row == null) {
+                return null;
+            }
+            Component sel = null;
+            for (Object o : row.getChildren()) {
+                if (!(o instanceof Component) || o instanceof org.zkoss.zul.Detail) {
+                    continue;
+                }
+                sel = (Component) o;
+                break;
+            }
+            if (sel == null) {
+                return null;
+            }
+            if (sel instanceof Vbox) {
+                return (Vbox) sel;
+            }
+            Vbox wadah = new Vbox();
+            wadah.setSpacing("2px");
+            row.insertBefore(wadah, sel);
+            sel.setParent(wadah);
+            return wadah;
+        } catch (Throwable t) {
+            ais.common.ErrorAuditUtil.record(t, "UIHelper.selIdentitas");
+            return null;
+        }
+    }
+
+    /**
      * Bungkus daftar tombol aksi ke dalam kebab popup (⋯).
      * Tombol tanpa label → label diisi dari tooltiptext.
      * Separator otomatis sebelum pergantian grup danger/kunci.

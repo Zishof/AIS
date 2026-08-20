@@ -986,7 +986,14 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 			RevisiHelper.createNewRevisi(Kurikulum.class, kurikulum, kurikulum.getTahun() + " ").setParent(vbox);
 			new Label((kurikulum.getId() == null ? "" : "ID:" + kurikulum.getId())).setParent(vbox);
 
-			new Label(kurikulum.getNama()).setParent(arg0);
+			/* UBAH 21-08-2026: kolom Nama dijadikan Vbox supaya status feeder dapat diletakkan
+			 * DI BAWAH nama kurikulum. Sebelumnya status feeder menumpang di sel aksi yang hanya
+			 * selebar tombol kebab, sehingga labelnya terpenggal menurun satu kata per baris. */
+			final Vbox vboxNama = new Vbox();
+			vboxNama.setParent(arg0);
+			vboxNama.setSpacing("2px");
+			vboxNama.setWidth("100%");
+			new Label(kurikulum.getNama()).setParent(vboxNama);
 
 			new Label(kurikulum.getJurusan() == null ? "" : kurikulum.getJurusan().getNama()).setParent(arg0);
 			new Label(kurikulum.getJurusan() == null || kurikulum.getJurusan().getJenjang() == null ? ""
@@ -1172,12 +1179,17 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 
 			Vbox vbox3 = new Vbox();
 			vbox3.setParent(arg0);
-			// Sel aksi juga memuat konten non-tombol (status feeder), jadi kebab dipasang
-			// ke vbox3 (bukan ke Row) agar jumlah kolom grid tidak bertambah.
+			// Kebab dipasang ke vbox3 (bukan langsung ke Row) agar jumlah sel baris tetap sama
+			// dengan jumlah kolom grid. Sejak 21-08-2026 sel ini hanya berisi kebab; status
+			// feeder sudah dipindah ke bawah kolom Nama.
 			ais.ui.util.UIHelper.buatBarisAksi(vbox3, 3, aksiButtons);
 
+			/* Status feeder DIPINDAH ke bawah kolom Nama (lihat catatan di kolom Nama). Sel aksi
+			 * kini hanya memuat tombol kebab, sehingga kolomnya bisa tetap sempit dan rapi. */
 			Hbox myHbox = new Hbox();
-			myHbox.setParent(vbox3);
+			myHbox.setAlign("center");
+			myHbox.setSpacing("3px");
+			myHbox.setParent(vboxNama);
 
 			if (tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
 					&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")) {
@@ -1192,8 +1204,8 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 
 				MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Krm ke feeder",
 						"/img/Finance-Invoice-icon.png");
-				buttonTagihan.setStyle("font-size:8px;");
-				buttonTagihan.setParent(vbox3);
+				buttonTagihan.setStyle("font-size:10px; white-space:nowrap;");
+				buttonTagihan.setParent(vboxNama);
 				buttonTagihan.addEventListener("onClick", new EventListener() {
 
 					@Override

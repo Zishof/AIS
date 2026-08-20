@@ -856,7 +856,15 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 			aksiBoxRef[0].setVisible(
 					!penghargaanMahasiswa.getStatus().equals(PenghargaanMahasiswa.DISETUJUI) && tbmuser != null);
 
-			myHbox.setParent(vbox1);
+			/* UBAH 21-08-2026: status feeder dahulu menumpang di sel AKSI yang hanya selebar
+			 * tombol kebab, sehingga labelnya terpenggal menurun satu kata per baris. Kini
+			 * ditempelkan di bawah sel identitas baris. Bila sel itu tidak ditemukan,
+			 * wadah lama tetap dipakai agar keterangannya tidak hilang. */
+			org.zkoss.zul.Vbox wadahFeeder = ais.ui.util.UIHelper.selIdentitas(arg0);
+			if (wadahFeeder == null) {
+				wadahFeeder = vbox1;
+			}
+			myHbox.setParent(wadahFeeder);
 
 			if (tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
 					&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")) {
@@ -870,8 +878,8 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 				}
 
 				buttonTagihan.setVisible(penghargaanMahasiswa.getStatus().equals(PenghargaanMahasiswa.DISETUJUI));
-				buttonTagihan.setStyle("font-size:8px;");
-				buttonTagihan.setParent(vbox1);
+				buttonTagihan.setStyle("font-size:10px; white-space:nowrap;");
+				buttonTagihan.setParent(wadahFeeder);
 				buttonTagihan.addEventListener("onClick", new EventListener() {
 
 					@Override
