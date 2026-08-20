@@ -12,7 +12,7 @@
 
 		<borderlayout height="100%" width="100%" id="myborder">
 			<center border="none" flex="true" sclass="main-scroll-center">
-				<grid fixedLayout="true" width="100%" sclass="pmb-zk-shell">
+				<grid width="100%" sclass="pmb-zk-shell">
 					<rows>
 						<row>
 							<hbox id="bahasaBox" width="100%" pack="end" align="center" sclass="pmb-bahasa-box">

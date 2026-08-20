@@ -25,7 +25,7 @@
 					<north border="none"
 						flex="true">
 
-						<grid fixedLayout="true" use="ais.ui.util.MyGrid">
+						<grid use="ais.ui.util.MyGrid">
 							<rows>
 
 								<row>
@@ -131,7 +131,7 @@
 
 			<center title="Import Data via File">
 
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 					<rows>
 						<row>
 							<grid use="ais.ui.util.MyGrid" 

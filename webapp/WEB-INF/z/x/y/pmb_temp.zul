@@ -36,7 +36,7 @@
 
 		<borderlayout height="100%" width="100%" id="myborder">
 			<center border="none" flex="true">
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid">
+				<grid use="ais.ui.util.MyGrid">
 					<rows>
 						<row>
 							<hbox id="headerHbox">

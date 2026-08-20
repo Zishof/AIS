@@ -113,7 +113,7 @@
 			</north>
 			<center border="none" flex="true">
 
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 					<rows>
 						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
 						<row>

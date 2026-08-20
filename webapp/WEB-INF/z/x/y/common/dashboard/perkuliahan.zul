@@ -231,7 +231,7 @@
 			</north>
 			<center border="none" flex="true">
 
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 					<rows>
 
 						<row>
@@ -307,7 +307,7 @@
 									<column
 										use="ais.ui.util.MyColumnConfig" width="25%" label="Jml Mhs" />
 									<column
-										use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+										use="ais.ui.util.MyColumnConfig" width="10%" label="" />
 								</columns>
 
 							</grid>

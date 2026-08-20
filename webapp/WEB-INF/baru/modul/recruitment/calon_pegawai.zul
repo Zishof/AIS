@@ -54,7 +54,7 @@
               </div>
             </north>
             <center border="none" style="border:0px;" flex="true" sclass="ecampus-zul-data-center">
-              <grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid ecampus-zul-data-wrapper">
+              <grid use="ais.ui.util.MyGrid" sclass="fgrid ecampus-zul-data-wrapper">
                 <rows>
                   <row>
                     <paging visible="false" id="paging" detailed="true" sclass="ecampus-zul-paging-top"/>
@@ -69,7 +69,7 @@
                         <column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="10%"/>
                         <column use="ais.ui.util.MyColumnConfig" label="Status Seleksi" width="12%"/>
                         <column use="ais.ui.util.MyColumnConfig" label="Aktif" width="7%"/>
-                        <column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center"/>
+                        <column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
                       </columns>
                     </grid>
                   </row>

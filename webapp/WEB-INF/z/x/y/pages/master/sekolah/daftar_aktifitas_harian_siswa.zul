@@ -48,7 +48,7 @@
 			</west>
 
 			<center border="none" flex="true">
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid" height="100%">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid" height="100%">
 					<rows>
 						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
 						<row>
@@ -60,7 +60,7 @@
 									<column use="ais.ui.util.MyColumnConfig" label="NIS" width="100px" sort="auto(nomorInduk)" />
 									<column use="ais.ui.util.MyColumnConfig" label="Nama Siswa" sort="auto(namaSiswa)" />
 									<column use="ais.ui.util.MyColumnConfig" label="Kelas" width="150px" />
-									<column use="ais.ui.util.MyColumnConfig" label="" width="56px" align="center" />
+									<column use="ais.ui.util.MyColumnConfig" label="Aksi" width="56px" align="center" />
 								</columns>
 							</grid>
 						</row>

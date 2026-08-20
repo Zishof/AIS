@@ -70,7 +70,7 @@
 						</north>
 
 						<center border="none" flex="true">
-							<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+							<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 								<rows>
 									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
 									<row>
@@ -86,7 +86,7 @@
 												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="10%" />
 												<column use="ais.ui.util.MyColumnConfig" label="Status Seleksi" width="12%" />
 												<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="7%" />
-												<column use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+												<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
 											</columns>
 										</grid>
 									</row>

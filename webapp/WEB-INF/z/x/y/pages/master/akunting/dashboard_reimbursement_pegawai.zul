@@ -17,14 +17,14 @@
         <vbox sclass="rdb-kpi" width="22%"><label sclass="rdb-kpi-title" value="SLA &amp; CYCLE TIME"/><label id="kpiSla" sclass="rdb-kpi-value"/></vbox>
       </hbox>
       <hbox width="100%" pack="stretch">
-        <vbox sclass="rdb-card" width="50%"><label value="Distribusi Status" style="font-weight:bold"/><grid fixedLayout="true" id="gridStatus" width="100%"><columns><column label="Status"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
-        <vbox sclass="rdb-card" width="50%"><label value="Kategori Pengeluaran" style="font-weight:bold"/><grid fixedLayout="true" id="gridKategori" width="100%"><columns><column label="Kategori"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Distribusi Status" style="font-weight:bold"/><grid id="gridStatus" width="100%"><columns><column label="Status"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Kategori Pengeluaran" style="font-weight:bold"/><grid id="gridKategori" width="100%"><columns><column label="Kategori"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
       </hbox>
       <hbox width="100%" pack="stretch">
-        <vbox sclass="rdb-card" width="50%"><label value="Aging Pengajuan Terbuka" style="font-weight:bold"/><grid fixedLayout="true" id="gridAging" width="100%"><columns><column label="Umur"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
-        <vbox sclass="rdb-card" width="50%"><label value="Tren Bulanan" style="font-weight:bold"/><grid fixedLayout="true" id="gridBulanan" width="100%"><columns><column label="Bulan"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Aging Pengajuan Terbuka" style="font-weight:bold"/><grid id="gridAging" width="100%"><columns><column label="Umur"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Tren Bulanan" style="font-weight:bold"/><grid id="gridBulanan" width="100%"><columns><column label="Bulan"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
       </hbox>
-      <vbox sclass="rdb-card" width="98%"><label value="20 Antrean Terlama yang Perlu Ditindaklanjuti" style="font-weight:bold"/><grid fixedLayout="true" id="gridAntrean" width="100%"><columns><column label="Kode"/><column label="Pegawai"/><column label="Status"/><column label="Umur"/><column label="Nominal"/><column label="Atasan"/></columns></grid></vbox>
+      <vbox sclass="rdb-card" width="98%"><label value="20 Antrean Terlama yang Perlu Ditindaklanjuti" style="font-weight:bold"/><grid id="gridAntrean" width="100%"><columns><column label="Kode"/><column label="Pegawai"/><column label="Status"/><column label="Umur"/><column label="Nominal"/><column label="Atasan"/></columns></grid></vbox>
     </div>
   </window>
 </zk>

@@ -261,7 +261,7 @@
 						<center border="none"
 							flex="true">
 
-							<grid fixedLayout="true" use="ais.ui.util.MyGrid"
+							<grid use="ais.ui.util.MyGrid"
 								sclass="fgrid">
 								<rows>
 									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
@@ -306,7 +306,7 @@
 												<column
 													use="ais.ui.util.MyColumnConfig" width="5%" label="Aktif" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+													use="ais.ui.util.MyColumnConfig" width="14%" label="" />
 											</columns>
 
 										</grid>

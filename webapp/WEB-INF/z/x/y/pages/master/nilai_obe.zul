@@ -48,7 +48,7 @@
 			</north>
 			<center border="none" flex="true">
 
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 					<rows>
 						<row>
 							<grid use="ais.ui.util.MyGrid"
@@ -56,9 +56,9 @@
 
 								<columns>
 									<column
-										use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+										use="ais.ui.util.MyColumnConfig" width="20%" label="" />
 									<column
-										use="ais.ui.util.MyColumnConfig" label=""  width="56px" align="center"/>
+										use="ais.ui.util.MyColumnConfig" label="" />
 								</columns>
 
 								<rows id="rowsUtama"></rows>

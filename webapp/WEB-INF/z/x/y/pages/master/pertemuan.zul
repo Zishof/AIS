@@ -190,7 +190,7 @@
 				</div>
 
 									<!-- ═══ Tabel data perkuliahan ═══ -->
-										<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+										<grid use="ais.ui.util.MyGrid" sclass="fgrid">
 											<rows>
 												<row sclass="ecampus-grid-gap-row">
 													<div sclass="ecampus-grid-gap-atas" height="64px" />
@@ -208,15 +208,15 @@
 														sclass="dgrid" fixedLayout="true" id="grid">
 														<columns>
 															<column use="ais.ui.util.MyColumnConfig"
-																width="56px" label=""  align="center"/>
+																width="60px" label="" />
 															<column use="ais.ui.util.MyColumnConfig"
-																width="56px" label=""  align="center"/>
+																width="20%" label="" />
 															<column use="ais.ui.util.MyColumnConfig"
-																width="56px" label=""  align="center"/>
+																width="25%" label="" />
 															<column use="ais.ui.util.MyColumnConfig"
-																width="56px" label=""  align="center"/>
+																width="30%" label="" />
 															<column use="ais.ui.util.MyColumnConfig"
-																width="56px" label=""  align="center"/>
+																width="25%" label="" />
 														</columns>
 													</grid>
 												</row>

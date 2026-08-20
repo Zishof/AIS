@@ -80,7 +80,7 @@
 
 
 			<center border="none" flex="true">
-				<grid fixedLayout="true">
+				<grid>
 					<rows>
 						<row id="headerHbox" sclass="headerHbox">
 

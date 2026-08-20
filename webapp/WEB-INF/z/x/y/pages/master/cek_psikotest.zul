@@ -42,7 +42,7 @@
 			</north>
 			<center border="none" flex="true" id="center"
 				title="Data Mahasiswa Baru">
-				<grid fixedLayout="true" use="ais.ui.util.MyGrid"
+				<grid use="ais.ui.util.MyGrid"
 					id="grids" mold="paging" height="100%">
 
 				</grid>

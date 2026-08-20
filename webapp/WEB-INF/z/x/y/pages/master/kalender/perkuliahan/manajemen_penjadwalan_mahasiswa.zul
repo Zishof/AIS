@@ -16,7 +16,7 @@
 					<toolbar sclass="calendar-toolbar">
 						<div class="float-left">
 
-							<grid fixedLayout="true" use="ais.ui.util.MyGrid">
+							<grid use="ais.ui.util.MyGrid">
 
 								<rows>
 
