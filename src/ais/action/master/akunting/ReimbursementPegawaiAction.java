@@ -1481,15 +1481,20 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.generateCode");
 		}
 
-		// PENGKODEAN KUSTOM (pola UangMuka): admin dapat mengatur format nomor lewat
-		// layar "Nomor Surat Proses Pengadaan Barang/Jasa" pada entri "Reimbursement
-		// Pegawai" (NomorSuratAlurKeuangan). Bila belum disetel, pakai format bawaan
-		// RMB-yyyyMM-urut.
+		// PENGKODEAN KUSTOM (pola UangMuka/SeleksiVendor): admin mengatur format nomor
+		// lewat layar "Nomor Surat Proses Pengadaan Barang/Jasa" (menu Aset & Pengadaan
+		// - Setup) entri "018 - Reimbursement Pegawai" kolom "Ganti Format". Kompat:
+		// bila belum, dicoba entri lama di Nomor Surat Alur Keuangan; terakhir fallback
+		// format bawaan RMB-yyyyMM-urut.
 		try {
-			if (ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null
-					&& ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat() != null) {
-				ais.database.model.surat.NomorSurat ns =
-						ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+			ais.database.model.surat.NomorSurat ns = null;
+			if (ais.database.model.asset.NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA != null) {
+				ns = ais.database.model.asset.NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA.getNomorSurat();
+			}
+			if (ns == null && ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null) {
+				ns = ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+			}
+			if (ns != null) {
 				Long index = ns.getGunakanIndexUrut() ? ns.getNomorIndex() : Long.valueOf(count + 1);
 				if (tambah) {
 					ais.database.model.surat.NomorSurat.tambahIndexNomorSurat(ns);
@@ -1697,6 +1702,29 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			// persetujuan yang terjadi di mesin SOP tetap masuk daftar transfer.
 			Vbox dpc = new Vbox();
 			dpc.setParent(row);
+
+			// Link WORKFLOW/PENGAJUAN SOP (pola UangMuka): buka riwayat disposisi
+			// pengajuan ini langsung dari daftar.
+			if (d.getDisposisiSop() != null && d.getDisposisiSop().getId() != null) {
+				org.zkoss.zul.A linkSop = new org.zkoss.zul.A("Workflow/Pengajuan SOP");
+				linkSop.setStyle("font-size:9px;");
+				try {
+					if (d.getDisposisiSop().getSop() != null) {
+						linkSop.setTooltiptext("SOP " + d.getDisposisiSop().getSop().getNama());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementRenderer-linkSop");
+				}
+				linkSop.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						ais.action.master.sop.TampilanAlurSopAction.prosess(d.getDisposisiSop().getId(), null, null,
+								true, arg0.getTarget());
+					}
+				});
+				linkSop.setParent(dpc);
+			}
+
 			if (d.getDaftarPengajuanTransfer() != null) {
 				DaftarPengajuanTransfer.tampilStatus(d.getDaftarPengajuanTransfer(), dpc);
 			} else if (d.getDisetujuiOleh() != null) {
@@ -1716,11 +1744,16 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			// Tombol baris SERAGAM dengan UangMuka: ikon standar Ubah/Hapus dari
 			// Common.copyEditDeleteButtons (Hapus kini MUNCUL untuk pengajuan yang
 			// masih bisa dihapus) + ikon Cetak print.png + ikon Lihat.
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			boolean bolehUbahHapus = !ReimbursementPegawai.DISETUJUI.equals(st)
 					&& !ReimbursementPegawai.LUNAS.equals(st);
 			Hbox aksi = Common.copyEditDeleteButtons(bolehUbahHapus, false, bolehUbahHapus, d,
 					ReimbursementPegawaiAction.this);
-			aksi.setParent(row);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(aksi));
 
 			MyToolbarbuttonConfig lihat = new MyToolbarbuttonConfig("", "/img/search.gif");
 			lihat.setTooltiptext("Lihat Rincian");
@@ -1732,7 +1765,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 					bukaForm(d, d.getDisposisiSop(), true);
 				}
 			});
-			lihat.setParent(aksi);
+			aksiButtons.add(lihat);
 
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("", "/img/print.png");
 			cetak.setTooltiptext("Cetak");
@@ -1746,7 +1779,9 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 					}
 				}
 			});
-			cetak.setParent(aksi);
+			aksiButtons.add(cetak);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 		}
 	}
 }
