@@ -2325,8 +2325,12 @@ public class PenjadwalanHelper {
 			final FormulirKegiatan formulirKegiatan, final Wisuda wisuda, final DataLoader dataLoader) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil (copy) dari agenda sebelumnya / lain",
 				"/img/svg/edit-copy.svg");
-		// Tombol "Ambil (copy) dari agenda sebelumnya / lain" HANYA untuk admin.
-		button.setVisible(Common.getApakahAdmin());
+		/* REVERT 20-08-2026 atas permintaan pemilik: r75196 (07-07-2026) menambahkan
+		 * button.setVisible(Common.getApakahAdmin()) sehingga tombol ini hanya tampil bagi
+		 * ADMINISTRATOR. Gerbang itu menimpa kendali lama pada pemanggil, yaitu kombinasi
+		 * tbmuser.getMahasiswa() == null dan perkuliahan.getDosenBisaMerubahTanggalPerkuliahan(),
+		 * sehingga dosen tidak pernah lagi bisa menarik agenda semester sebelumnya. Gerbang
+		 * admin dihapus; hak akses kembali ditentukan oleh kondisi di masing-masing pemanggil. */
 		button.addEventListener("onClick", new EventListener() {
 
 			@SuppressWarnings("unchecked")

@@ -2126,7 +2126,7 @@ public class Pertemuan extends Tugas {
 
 	public void removePengajuanIzinTidakMasukPerkuliahan(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			c.put(id.toString(), "");
 			tulisLokasiPengajuanIzinTidakMasukPerkuliahan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2062");
@@ -2140,7 +2140,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
 			c.put(pengajuanIzinTidakMasukPerkuliahan.toString(), pengajuanIzinTidakMasukPerkuliahan.toString());
 			tulisLokasiPengajuanIzinTidakMasukPerkuliahan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2076");
@@ -2360,7 +2360,7 @@ public class Pertemuan extends Tugas {
 		if (id == null)
 			return;
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanPunyaDiskusi());
 			if (c.has(id.toString())) {
 				c.put(id.toString(), "");
 				tulisLokasiPertemuanPunyaDiskusi(c.toString());
@@ -2373,7 +2373,7 @@ public class Pertemuan extends Tugas {
 		if (pertemuanPunyaDiskusiid == null)
 			return;
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaDiskusi());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanPunyaDiskusi());
 			c.put(pertemuanPunyaDiskusiid.toString(), pertemuanPunyaDiskusiid.toString());
 			tulisLokasiPertemuanPunyaDiskusi(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2306");
@@ -2762,7 +2762,7 @@ public class Pertemuan extends Tugas {
 
 	public void removePertemuanPunyaUjian(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanPunyaUjian());
 			c.put(id.toString(), "");
 			tulisLokasiPertemuanPunyaUjian(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2692");
@@ -2776,7 +2776,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanPunyaUjian());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanPunyaUjian());
 			c.put(pertemuanPunyaUjianid.toString(), pertemuanPunyaUjianid.toString());
 			tulisLokasiPertemuanPunyaUjian(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2706");
@@ -3018,7 +3018,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removePertemuanFileContent(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanFileContent(id));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanFileContent(id));
 			c.put(id.toString(), "");
 			tulisLokasiPertemuanFileContent(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2931");
@@ -3032,7 +3032,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiPertemuanFileContent(pertemuanFileContent.getPertemuan()));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanFileContent(pertemuanFileContent.getPertemuan()));
 			c.put(pertemuanFileContent.getId().toString(), pertemuanFileContent.write().getAbsolutePath());
 			tulisLokasiPertemuanFileContent(c.toString(), pertemuanFileContent.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:2945");
@@ -3150,6 +3150,37 @@ public class Pertemuan extends Tugas {
 	private static JSONObject jsonObjekAtauKosong(String teks) {
 		JSONObject hasil = bacaJsonObjekAman(teks);
 		return hasil == null ? new JSONObject() : hasil;
+	}
+
+	/**
+	 * Varian untuk jalur TULIS: baca peta lokasi, ubah, lalu simpan kembali.
+	 *
+	 * <p>Berbeda dari {@link #jsonObjekAtauKosong(String)}, method ini SENGAJA melempar bila teks
+	 * yang tersimpan tidak kosong tetapi juga bukan JSON objek yang sah. Alasannya: pada jalur
+	 * tulis, memulai dari objek kosong berarti peta lama DITIMPA peta baru, sehingga entri yang
+	 * sebenarnya masih tersimpan (walau untuk sementara tidak terbaca) hilang permanen. Pada
+	 * jalur baca hal itu tidak berbahaya karena tidak ada yang disimpan kembali.</p>
+	 *
+	 * <p>Peta yang memang BELUM ADA (null / kosong / hanya spasi) tetap menghasilkan objek kosong
+	 * -- itu keadaan awal yang wajar dan aman untuk ditulis, sama dengan inisialisasi bawaan
+	 * kelas ini yang memakai {@code new JSONObject().toString()}.</p>
+	 *
+	 * <p>Exception yang dilempar ditangkap try/catch milik tiap pemanggil, sehingga penyimpanan
+	 * DIBATALKAN dan teks lama tetap utuh untuk diperiksa/diperbaiki. Kejadian ini dipicu aksi
+	 * pengguna (menambah/menghapus lampiran), bukan proses berkala, jadi pencatatannya tidak
+	 * akan membanjiri log seperti jalur warmup cache.</p>
+	 */
+	private static JSONObject jsonObjekUntukTulis(String teks) {
+		if (teks == null || teks.trim().length() == 0) {
+			return new JSONObject();
+		}
+		JSONObject hasil = bacaJsonObjekAman(teks);
+		if (hasil == null) {
+			throw new IllegalStateException("Peta lokasi tersimpan RUSAK (bukan JSON objek yang sah)."
+					+ " Penyimpanan dibatalkan agar entri lama tidak tertimpa peta baru."
+					+ " Perbaiki isi kolom penyimpan peta itu lebih dahulu.");
+		}
+		return hasil;
 	}
 
 	public TreeMap<Long, PertemuanFileContent> ambilPertemuanFileContentTotal() {
@@ -3346,7 +3377,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removeVideoPertemuan(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(id));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiVideoPertemuan(id));
 			c.put(id.toString(), "");
 			tulisLokasiVideoPertemuan(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3177");
@@ -3360,7 +3391,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(videoPertemuan.getPertemuan()));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiVideoPertemuan(videoPertemuan.getPertemuan()));
 			c.put(videoPertemuan.getId().toString(), videoPertemuan.write().getAbsolutePath());
 			tulisLokasiVideoPertemuan(c.toString(), videoPertemuan.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3191");
@@ -3584,7 +3615,7 @@ public class Pertemuan extends Tugas {
 
 	public static void removeAudioPertemuan(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(id));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiAudioPertemuan(id));
 			c.put(id.toString(), "");
 			tulisLokasiAudioPertemuan(c.toString(), id);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3403");
@@ -3598,7 +3629,7 @@ public class Pertemuan extends Tugas {
 				return;
 			}
 
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiAudioPertemuan(audioPertemuan.getPertemuan()));
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiAudioPertemuan(audioPertemuan.getPertemuan()));
 			c.put(audioPertemuan.getId().toString(), audioPertemuan.write().getAbsolutePath());
 			tulisLokasiAudioPertemuan(c.toString(), audioPertemuan.getPertemuan());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3417");
@@ -3825,7 +3856,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeTugasPertemuan(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasPertemuan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasPertemuan());
 			c.put(id.toString(), "");
 			tulisLokasiTugasPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3632");
@@ -3838,7 +3869,7 @@ public class Pertemuan extends Tugas {
 			if (tugasPertemuan == null) {
 				return;
 			}
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasPertemuan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasPertemuan());
 			c.put(tugasPertemuan.toString(), tugasPertemuan.toString());
 			tulisLokasiTugasPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3645");
@@ -3960,7 +3991,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeTugasKelompok(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasKelompok());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasKelompok());
 			c.put(id.toString(), "");
 			tulisLokasiTugasKelompok(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3755");
@@ -3973,7 +4004,7 @@ public class Pertemuan extends Tugas {
 			if (tugasKelompok == null) {
 				return;
 			}
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiTugasKelompok());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasKelompok());
 			c.put(tugasKelompok.toString(), tugasKelompok.toString());
 			tulisLokasiTugasKelompok(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3768");
@@ -4114,7 +4145,7 @@ public class Pertemuan extends Tugas {
 
 	public void removeKelompokParameterTambahanPertemuan(Serializable id) {
 		try {
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiKelompokParameterTambahanPertemuan());
 			c.put(id.toString(), "");
 			tulisLokasiKelompokParameterTambahanPertemuan(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:3909");
@@ -4128,7 +4159,7 @@ public class Pertemuan extends Tugas {
 			if (kelompokParameterTambahanPertemuan == null) {
 				return;
 			}
-			JSONObject c = jsonObjekAtauKosong(ambilLokasiKelompokParameterTambahanPertemuan());
+			JSONObject c = jsonObjekUntukTulis(ambilLokasiKelompokParameterTambahanPertemuan());
 			c.put(kelompokParameterTambahanPertemuan.getId().toString(),
 					tulisUlang ? kelompokParameterTambahanPertemuan.write().getAbsolutePath()
 							: kelompokParameterTambahanPertemuan.write().getAbsolutePath());
