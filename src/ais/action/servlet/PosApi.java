@@ -661,6 +661,12 @@ public class PosApi extends HttpServlet {
 				// terima piutang customer, dan penyesuaian persediaan (retur/opname/mutasi).
 				ais.action.servlet.api.PostingKantinLanjutanHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("penyesuaian_saldo_")) {
+				// Opname saldo voucher/deposit member. Gerbang hak akses ada di dalam helper
+				// (hanya peran yang boleh entry/ubah topup) -- sengaja bukan di sini supaya
+				// aksi baca (cek/riwayat) tetap terbuka bagi yang boleh melihat saldo.
+				ais.action.servlet.api.PenyesuaianSaldoHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("jurnal_umum_")) {
 				// Jurnal Umum (jurnal manual) versi POS -- padanan layar ZK GrupTransaksiAction +
 				// TransaksiJurnalUmumHelper, memakai entitas yang sama sehingga bercampur mulus

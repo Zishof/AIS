@@ -58,7 +58,7 @@
 			         tabel basisnya - itu ukuran seberapa sering hal ini terjadi.
 			         Pola migrasi manual: webapp/sql/migrasi_*_audit.sql.
 		-->
-		<property name="hbm2ddl.auto">update</property>
+		<property name="hbm2ddl.auto">none</property>
 		<!-- PERCEPAT STARTUP: dialect sudah eksplisit (PostgreSQLDialect) di atas, jadi Hibernate
 		     TIDAK perlu membuka koneksi untuk membaca metadata JDBC saat membangun SessionFactory.
 		     Mematikan round-trip metadata ini memangkas waktu inisialisasi (fitur DB diambil dari
@@ -2308,6 +2308,7 @@
 		<mapping class="ais.database.model.inventory.ProdukKomentar"></mapping>
 		
 		<mapping class="ais.database.model.inventory.StokOpname"></mapping>
+		<mapping class="ais.database.model.koperasi.PenyesuaianSaldoAnggota"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiStokToko"></mapping>
 		<mapping class="ais.database.model.inventory.PengadaanFaktur"></mapping>
 		<mapping class="ais.database.model.inventory.PengadaanProduk"></mapping>
