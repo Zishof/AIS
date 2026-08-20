@@ -1163,10 +1163,19 @@ public class DaftarPengajuanTransfer extends DataSop {
 			bankSumber = getUangMuka().getJenisUangMuka().getAkun().getBank();
 		}
 
-		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getAkunPembayaran() != null) {
-			bankSumber = getReimbursementPegawai().getAkunPembayaran().getBank();
-		} else if (getReimbursementPegawai() != null && getReimbursementPegawai().getAkun() != null) {
-			bankSumber = getReimbursementPegawai().getAkun().getBank();
+		else if (getReimbursementPegawai() != null) {
+			// tujuan transfer reimbursement = bank PEGAWAI penerima; fallback akun
+			try {
+				if (getReimbursementPegawai().getPegawai() != null
+						&& getReimbursementPegawai().getPegawai().getBank() != null) {
+					bankSumber = getReimbursementPegawai().getPegawai().getBank();
+				} else if (getReimbursementPegawai().getAkunPembayaran() != null) {
+					bankSumber = getReimbursementPegawai().getAkunPembayaran().getBank();
+				} else if (getReimbursementPegawai().getAkun() != null) {
+					bankSumber = getReimbursementPegawai().getAkun().getBank();
+				}
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) DaftarPengajuanTransfer.getBankSumber-reimbursement");
+			}
 		}
 
 		else if (getPertangungjawaban() != null && getPertangungjawaban().getUangMuka().getJenisUangMuka() != null
@@ -1264,6 +1273,11 @@ public class DaftarPengajuanTransfer extends DataSop {
 			atasNamaSumber = getUangMuka().getJenisUangMuka().getAkun().getAtasNama();
 		}
 
+		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getPegawai() != null) {
+			// tujuan transfer reimbursement = rekening PEGAWAI penerima
+			atasNamaSumber = getReimbursementPegawai().getPegawai().getNama();
+		}
+
 		else if (getPertangungjawaban() != null && getPertangungjawaban().getUangMuka().getJenisUangMuka() != null
 				&& getPertangungjawaban().getUangMuka().getJenisUangMuka().getAkun() != null) {
 			atasNamaSumber = getPertangungjawaban().getUangMuka().getJenisUangMuka().getAkun().getAtasNama();
@@ -1358,6 +1372,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		} else if (getUangMuka() != null && getUangMuka().getJenisUangMuka() != null
 				&& getUangMuka().getJenisUangMuka().getAkun() != null) {
 			noRekSumber = getUangMuka().getJenisUangMuka().getAkun().getNoRek();
+		}
+
+		else if (getReimbursementPegawai() != null) {
+			// tujuan transfer reimbursement = rekening PEGAWAI penerima (kolom
+			// rekening_penerima bila diisi, fallback norek profil pegawai)
+			try {
+				if (getReimbursementPegawai().getRekeningPenerima() != null
+						&& !getReimbursementPegawai().getRekeningPenerima().trim().isEmpty()) {
+					noRekSumber = getReimbursementPegawai().getRekeningPenerima();
+				} else if (getReimbursementPegawai().getPegawai() != null) {
+					noRekSumber = getReimbursementPegawai().getPegawai().getNorek();
+				}
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) DaftarPengajuanTransfer.getNoRekSumber-reimbursement");
+			}
 		}
 
 		else if (getKasBesar() != null && getKasBesar().getJenisKasBesar() != null
@@ -1862,6 +1890,10 @@ public class DaftarPengajuanTransfer extends DataSop {
 			satuanKerja = getSaldoAwalMasterAsset().getSatuanKerja();
 		} else if (getUangMuka() != null) {
 			satuanKerja = getUangMuka().getSatuanKerja();
+		}
+
+		else if (getReimbursementPegawai() != null) {
+			satuanKerja = getReimbursementPegawai().getSatuanKerja();
 		}
 
 		else if (getPertangungjawaban() != null) {

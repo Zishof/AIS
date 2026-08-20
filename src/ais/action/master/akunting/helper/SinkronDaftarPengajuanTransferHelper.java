@@ -426,6 +426,35 @@ public final class SinkronDaftarPengajuanTransferHelper {
 			}
 		});
 
+		// 1b. Reimbursement Pegawai — gating: status "Disetujui" (turunan disposisi SOP).
+		l.add(new Sumber() {
+			@Override
+			String nama() {
+				return "Reimbursement Pegawai";
+			}
+
+			@Override
+			List<Long> kandidat(Session s) {
+				return query(s, "select r.id from ais.database.model.akunting.ReimbursementPegawai r "
+						+ "where r.daftarPengajuanTransfer is null");
+			}
+
+			@Override
+			boolean sinkronSatu(Long id) {
+				Session s = HibernateUtil.currentNativeSession();
+				ais.database.model.akunting.ReimbursementPegawai e = (ais.database.model.akunting.ReimbursementPegawai) s
+						.get(ais.database.model.akunting.ReimbursementPegawai.class, id);
+				if (e == null || e.getDaftarPengajuanTransfer() != null) {
+					return false;
+				}
+				if (!ais.database.model.akunting.ReimbursementPegawai.DISETUJUI.equals(e.getStatus())) {
+					return false;
+				}
+				DaftarPengajuanTransfer.simpanReimbursement(e);
+				return e.getDaftarPengajuanTransfer() != null;
+			}
+		});
+
 		// 2. Kas Besar — gating: status "Disetujui".
 		l.add(new Sumber() {
 			@Override

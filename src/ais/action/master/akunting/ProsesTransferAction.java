@@ -937,6 +937,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 		final MyCheckboxConfig dp = new MyCheckboxConfig("DP");
 		final MyCheckboxConfig diskon = new MyCheckboxConfig("Diskon");
 		final MyCheckboxConfig pajak = new MyCheckboxConfig("Pajak");
+		final MyCheckboxConfig reimburse = new MyCheckboxConfig("Reimbursement");
 		final AmbilDataSatuanKerjaBanbox satker = new AmbilDataSatuanKerjaBanbox();
 		final Textbox cari = new Textbox();
 		cari.setCols(10);
@@ -948,7 +949,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 				reload(rows, disposisiSop, cari.getValue().trim(), (SatuanKerja) satker.getAttribute("satuanKerja"),
 						uangMuka.isChecked(), lpj.isChecked(), kasBesar.isChecked(), kasKecil.isChecked(),
 						pengadaan.isChecked(), termin.isChecked(), dp.isChecked(), diskon.isChecked(),
-						pajak.isChecked(), this);
+						pajak.isChecked(), reimburse.isChecked(), this);
 			}
 		};
 
@@ -1011,6 +1012,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			dp.setChecked(true);
 			diskon.setChecked(true);
 			pajak.setChecked(true);
+			reimburse.setChecked(true);
 
 			uangMuka.addEventListener("onClick", eventListener);
 			lpj.addEventListener("onClick", eventListener);
@@ -1021,6 +1023,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			dp.addEventListener("onClick", eventListener);
 			diskon.addEventListener("onClick", eventListener);
 			pajak.addEventListener("onClick", eventListener);
+			reimburse.addEventListener("onClick", eventListener);
 
 			uangMuka.setParent(toolbar);
 			lpj.setParent(toolbar);
@@ -1031,6 +1034,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			dp.setParent(toolbar);
 			diskon.setParent(toolbar);
 			pajak.setParent(toolbar);
+			reimburse.setParent(toolbar);
 		}
 
 		Center center = new Center();
@@ -1176,7 +1180,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 					reload(rows, disposisiSop, cari.getValue().trim(), (SatuanKerja) satker.getAttribute("satuanKerja"),
 							uangMuka.isChecked(), lpj.isChecked(), kasBesar.isChecked(), kasKecil.isChecked(),
 							pengadaan.isChecked(), termin.isChecked(), dp.isChecked(), diskon.isChecked(),
-							pajak.isChecked(), eventListener);
+							pajak.isChecked(), reimburse.isChecked(), eventListener);
 
 					eventListenerHitung.onEvent(null);
 				}
@@ -1209,9 +1213,10 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			reload(rows, disposisiSop, cari.getValue().trim(), (SatuanKerja) satker.getAttribute("satuanKerja"),
 					uangMuka.isChecked(), lpj.isChecked(), kasBesar.isChecked(), kasKecil.isChecked(),
 					pengadaan.isChecked(), termin.isChecked(), dp.isChecked(), diskon.isChecked(), pajak.isChecked(),
-					eventListener);
+					reimburse.isChecked(), eventListener);
 		} else {
-			reload(rows, disposisiSop, "", null, true, true, true, true, true, true, true, true, true, eventListener);
+			reload(rows, disposisiSop, "", null, true, true, true, true, true, true, true, true, true, true,
+					eventListener);
 		}
 
 		Foot foot = new Foot();
@@ -1398,6 +1403,8 @@ public class ProsesTransferAction extends GenericAutowireComposer
 		try { if (d.getNoRekSumber() != null) hay.append(d.getNoRekSumber()).append(' '); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/ProsesTransferAction.java:1398");}
 		// No. dokumen sumber pengadaan (SaldoAwalMasterAsset) bila ada.
 		try { if (d.getSaldoAwalMasterAsset() != null && d.getSaldoAwalMasterAsset().getKode() != null) hay.append(d.getSaldoAwalMasterAsset().getKode()).append(' '); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/ProsesTransferAction.java:1400");}
+		// Kode/judul/nama pegawai untuk baris REIMBURSEMENT pegawai.
+		try { if (d.getReimbursementPegawai() != null) { if (d.getReimbursementPegawai().getKode() != null) hay.append(d.getReimbursementPegawai().getKode()).append(' '); if (d.getReimbursementPegawai().getNama() != null) hay.append(d.getReimbursementPegawai().getNama()).append(' '); if (d.getReimbursementPegawai().getPegawai() != null && d.getReimbursementPegawai().getPegawai().getNama() != null) hay.append(d.getReimbursementPegawai().getPegawai().getNama()).append(' '); } } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ProsesTransferAction.cocokKataKunci-reimbursement");}
 		try { if (d.getSaldoAwalMasterAsset() != null && d.getSaldoAwalMasterAsset().getPenyedia() != null && d.getSaldoAwalMasterAsset().getPenyedia().getNama() != null) hay.append(d.getSaldoAwalMasterAsset().getPenyedia().getNama()).append(' '); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/ProsesTransferAction.java:1401");}
 		// Kode pembayaran termin + kode PO (baris termin: vendor langsung / pajak via keyData).
 		try {
@@ -1418,7 +1425,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 	@SuppressWarnings("unchecked")
 	private void reload(final Rows rows, DisposisiSop disposisiSop, String cari, SatuanKerja satker, boolean uangMuka,
 			boolean lpj, boolean kasBesar, boolean kasKecil, boolean pengadaan, boolean termin, boolean dp,
-			boolean diskon, boolean pajak, final EventListener eventListener
+			boolean diskon, boolean pajak, boolean reimbursement, final EventListener eventListener
 
 	) {
 		Common.clear(rows);
@@ -1462,6 +1469,13 @@ public class ProsesTransferAction extends GenericAutowireComposer
 
 		criterion = pajak ? Restrictions.or(criterion, Restrictions.isNotNull("pajak"))
 				: Restrictions.and(criterion, Restrictions.isNull("pajak"));
+
+		// FIX: baris REIMBURSEMENT PEGAWAI dulunya SELALU tersaring — filter jenis di
+		// atas berpola whitelist per-FK sumber dan reimbursement belum punya cabangnya,
+		// sehingga item reimbursement yang sudah masuk DPC tidak pernah tampil di
+		// daftar transfer. Kini punya checkbox "Reimbursement" sendiri (default aktif).
+		criterion = reimbursement ? Restrictions.or(criterion, Restrictions.isNotNull("reimbursementPegawai"))
+				: Restrictions.and(criterion, Restrictions.isNull("reimbursementPegawai"));
 
 		Criteria criteria = HibernateUtil.currentSession().createCriteria(DaftarPengajuanTransfer.class)
 				.createAlias("disposisiSop", "disposisiSop", Criteria.LEFT_JOIN)
