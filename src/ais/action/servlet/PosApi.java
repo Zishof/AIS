@@ -2385,6 +2385,12 @@ public class PosApi extends HttpServlet {
 	 *       DALAM {@code KantinHelper} SEBELUM try/catch-nya sendiri terbuka -- method itu tidak
 	 *       sempat mengisi {@code status} apa pun dlm kasus ini, lihat kondisi {@code toko==null} di
 	 *       {@code bayar()}/{@code draft_bayar()}).</li>
+	 *   <li>{@code PERMINTAAN_DITOLAK} -- status {@code "91"} yang membawa kalimat penjelas layak-baca
+	 *       ({@link #pesanBisnisAman}). Ini penolakan ATURAN BISNIS (hak akses, jenis keanggotaan,
+	 *       konfigurasi default belum ada), bukan kegagalan sistem: teksnya memang ditujukan kepada
+	 *       pengguna, jadi diteruskan apa adanya. Tanpa cabang ini seluruh penolakan "91" jatuh ke
+	 *       {@code SERVER_ERROR} dan pengguna hanya melihat "Server belum dapat menyelesaikan proses
+	 *       ini" -- alasan sebenarnya tertinggal di {@code teknis} yang tidak semua layar tampilkan.</li>
 	 *   <li>{@code SERVER_ERROR} -- fallback umum (exception tak terduga, deskripsi asli Java tetap
 	 *       disertakan apa adanya di {@code message} utk konteks teknis).</li>
 	 * </ul>
@@ -2446,6 +2452,20 @@ public class PosApi extends HttpServlet {
 				pesan = desc;
 				solusi.put("Periksa produk dan jumlah di keranjang.")
 						.put("Minta petugas stok melakukan pemeriksaan fisik atau stok opname bila jumlah di layar tidak sesuai.");
+			} else if ("91".equals(asli) && pesanBisnisAman(desc)) {
+				// Penolakan ATURAN BISNIS, bukan kegagalan sistem: KantinHelper memakai "91" utk
+				// gerbang seperti hak akses topup, jenis keanggotaan yg tidak boleh ditopup, atau
+				// Cara Pembayaran/Jenis Tabungan default yg belum dikonfigurasi. Kalimatnya sudah
+				// ditulis utk pengguna, jadi diteruskan apa adanya -- sebelumnya semua alasan itu
+				// tersamar menjadi "Server belum dapat menyelesaikan proses ini" dan hanya tersisa
+				// di `teknis`, sehingga layar yg tidak menampilkan teknis (mis. dialog Topup)
+				// membuat pengguna menebak-nebak. Deskripsi yang MENGANDUNG jejak teknis sengaja
+				// tidak dipakai (lihat pesanBisnisAman) supaya stack/SQL tetap tidak bocor ke kasir.
+				kode = "PERMINTAAN_DITOLAK";
+				judul = "Belum dapat diproses";
+				pesan = desc.trim();
+				solusi.put("Perbaiki data sesuai penjelasan di atas, lalu simpan kembali.")
+						.put("Bila penjelasannya menyangkut hak akses atau pengaturan, hubungi admin/supervisor.");
 			} else {
 				kode = "SERVER_ERROR";
 				pesan = "Server belum dapat menyelesaikan proses ini. Tidak ada perubahan parsial yang dipertahankan.";
@@ -2466,6 +2486,36 @@ public class PosApi extends HttpServlet {
 		hasil.put("teknis", teknis.length() == 0
 				? "konteks=" + konteks + "; statusInternal=" + asli
 				: teknis);
+	}
+
+	/**
+	 * Penanda bahwa sebuah {@code description} sebenarnya jejak teknis (pesan exception, SQL, stack)
+	 * dan BUKAN kalimat untuk pengguna. Dipakai {@link #normalisasiStatusKantinHelper} sebelum
+	 * meneruskan deskripsi status {@code "91"} ke layar.
+	 *
+	 * <p>Ada beberapa titik di {@code KantinHelper} yang menaruh {@code e.getMessage()} ke dalam
+	 * {@code description} bersama status "91" (mis. {@code draftBayarRollback} dan
+	 * {@code editTransaksi}). Kalimat semacam itu tidak boleh ditampilkan mentah kepada kasir --
+	 * aturan yang sama sudah dianut KantinHelper sendiri ("Pesan utama untuk kasir tidak boleh berisi
+	 * nama class, SQL, atau stack trace"), jadi di sini penyaringnya ditegakkan sekali di pintu
+	 * keluar API, bukan diserahkan ke tiap pemanggil.</p>
+	 */
+	private static boolean pesanBisnisAman(String deskripsi) {
+		if (deskripsi == null) return false;
+		String bersih = deskripsi.trim();
+		// Batas panjang: kalimat penolakan terpanjang di KantinHelper ~230 karakter; yang jauh
+		// lebih panjang dari itu hampir pasti dump teknis.
+		if (bersih.length() == 0 || bersih.length() > 400) return false;
+		if (bersih.indexOf('\n') >= 0 || bersih.indexOf('\r') >= 0) return false;
+		String kecil = bersih.toLowerCase();
+		String[] penanda = { "exception", "caused by", "stacktrace", "stack trace", "\tat ", "at ais.",
+				"at java.", "at org.", "org.hibernate", "org.postgresql", "java.lang", "java.sql",
+				"sqlstate", "could not", "batch update", "constraint", "nullpointer", "error:",
+				"select ", "insert into", "delete from", "null pointer" };
+		for (int i = 0; i < penanda.length; i++) {
+			if (kecil.indexOf(penanda[i]) >= 0) return false;
+		}
+		return true;
 	}
 
 	private static String detailTeknis(Throwable error) {
@@ -4012,87 +4062,33 @@ public class PosApi extends HttpServlet {
 			hasil.put("message", "Rentang tanggal wajib diisi.");
 			return;
 		}
-		String kodeProduk = payload.optString("kodeProduk", "").trim();
-		String namaProduk = payload.optString("namaProduk", "").trim();
-		String kasir = payload.optString("kasir", "").trim();
-		String metode = payload.optString("metode", "").trim();
-		String pelanggan = payload.optString("pelanggan", "").trim();
-		int batas = Math.min(500, Math.max(20, payload.optInt("batas", 200)));
+		ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil.Dimensi dim =
+				new ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil.Dimensi();
+		dim.kodeProduk = payload.optString("kodeProduk", "");
+		dim.namaProduk = payload.optString("namaProduk", "");
+		dim.kasir = payload.optString("kasir", "");
+		dim.metode = payload.optString("metode", "");
+		dim.pelanggan = payload.optString("pelanggan", "");
+		int batas = payload.optInt("batas", 0);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			java.sql.Connection conn = session.connection();
-			StringBuilder w = new StringBuilder(
-					" WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date ");
-			java.util.List<Object> prm = new java.util.ArrayList<Object>();
-			prm.add(tokoId);
-			prm.add(mulai);
-			prm.add(sampai);
-			if (kodeProduk.length() > 0) {
-				w.append(" AND COALESCE(pr.kode,'')=? ");
-				prm.add(kodeProduk);
-			} else if (namaProduk.length() > 0) {
-				w.append(" AND COALESCE(a.nama,pr.nama,'') ILIKE ? ");
-				prm.add(namaProduk);
+			// Query-nya SENGAJA tidak ditulis di sini: dipakai bersama JSP dan ZKoss
+			// lewat LaporanRincianTransaksiUtil supaya ketiga kanal tidak pernah
+			// menjawab beda utk pertanyaan yang sama.
+			JSONObject rincian = ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil
+					.ambil(session, tokoId, mulai, sampai, dim, batas);
+			if (!"success".equals(rincian.optString("status"))) {
+				hasil.put("status", "error");
+				hasil.put("message", rincian.optString("message", "Rincian tidak dapat diambil."));
+				return;
 			}
-			if (kasir.length() > 0) {
-				w.append(" AND COALESCE(pak.kasir_login_nama,'') ILIKE ? ");
-				prm.add(kasir);
-			}
-			if (metode.length() > 0) {
-				w.append(" AND COALESCE(a.carabayar,'') ILIKE ? ");
-				prm.add("%" + metode + "%");
-			}
-			if (pelanggan.length() > 0) {
-				w.append(" AND COALESCE(ak.nama,a.member,'') ILIKE ? ");
-				prm.add("%" + pelanggan + "%");
-			}
-			String sql = "SELECT a.waktu, COALESCE(pak.kode,'') nota,"
-					+ " COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),'-') kasir,"
-					+ " COALESCE(NULLIF(TRIM(ak.nama),''),NULLIF(TRIM(a.member),''),'Umum') pelanggan,"
-					+ " COALESCE(NULLIF(TRIM(a.nama),''),COALESCE(pr.nama,'-')) produk,"
-					+ " COALESCE(pr.kode,'') kode_produk,"
-					+ " COALESCE(a.qty,0) qty, COALESCE(a.hargasatuan,0) harga,"
-					+ " COALESCE(a.diskon,0) diskon, COALESCE(a.total,0) total,"
-					+ " COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
-					+ " FROM koperasi.pembelian a"
-					+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " LEFT JOIN koperasi.produk pr ON pr.id=a.produk"
-					+ " LEFT JOIN koperasi.anggota_koperasi ak ON ak.id=pak.anggota_koperasi"
-					+ w + " ORDER BY a.waktu DESC LIMIT " + batas;
-			java.sql.PreparedStatement ps = conn.prepareStatement(sql);
-			for (int i = 0; i < prm.size(); i++) {
-				ikatParam(ps, i + 1, prm.get(i));
-			}
-			java.sql.ResultSet rs = ps.executeQuery();
-			JSONArray data = new JSONArray();
-			double totalQty = 0, totalNilai = 0;
-			while (rs.next()) {
-				JSONObject o = new JSONObject();
-				java.sql.Timestamp t = rs.getTimestamp(1);
-				o.put("waktu", t == null ? "" : t.toString());
-				o.put("nota", str(rs.getString(2)));
-				o.put("kasir", str(rs.getString(3)));
-				o.put("pelanggan", str(rs.getString(4)));
-				o.put("produk", str(rs.getString(5)));
-				o.put("kodeProduk", str(rs.getString(6)));
-				o.put("qty", rs.getDouble(7));
-				o.put("harga", rs.getDouble(8));
-				o.put("diskon", rs.getDouble(9));
-				o.put("total", rs.getDouble(10));
-				o.put("metode", str(rs.getString(11)));
-				totalQty += rs.getDouble(7);
-				totalNilai += rs.getDouble(10);
-				data.put(o);
-			}
-			rs.close();
-			ps.close();
 			hasil.put("status", "success");
-			hasil.put("data", data);
-			hasil.put("jumlahBaris", data.length());
-			hasil.put("totalQty", totalQty);
-			hasil.put("totalNilai", totalNilai);
-			hasil.put("dibatasi", data.length() >= batas);
+			hasil.put("data", rincian.getJSONArray("data"));
+			hasil.put("jumlahBaris", rincian.optInt("jumlahBaris"));
+			hasil.put("totalQty", rincian.optDouble("totalQty", 0));
+			hasil.put("totalNilai", rincian.optDouble("totalNilai", 0));
+			hasil.put("dibatasi", rincian.optBoolean("dibatasi", false));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

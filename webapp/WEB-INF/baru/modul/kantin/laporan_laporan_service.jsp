@@ -13,11 +13,43 @@
 <%@page import="ais.action.master.koperasi.helper.LaporanKantinUtil"%>
 <%@page import="ais.action.master.koperasi.helper.LaporanKantinUtil.Hasil"%>
 <%@page import="ais.action.master.koperasi.helper.LaporanKantinUtil.Kolom"%>
+<%@page import="ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil"%>
+<%@page import="ais.database.hibernate.HibernateUtil"%>
+<%@page import="ais.common.Common"%>
+<%@page import="ais.database.model.Tbmuser"%>
+<%@page import="ais.database.model.inventory.Toko"%>
 <%
 response.setContentType("application/json");
 response.setCharacterEncoding("UTF-8");
 JSONObject hasil = new JSONObject();
 try {
+    // Mode RINCIAN TRANSAKSI ("Asal Angka"): mengembalikan nota penyusun satu
+    // angka laporan, bukan laporannya sendiri. Query-nya dipakai bersama POS
+    // Desktop/Android dan ZKoss lewat LaporanRincianTransaksiUtil supaya
+    // ketiga kanal tidak pernah menjawab beda utk pertanyaan yang sama.
+    if ("1".equals(request.getParameter("rincianTransaksi"))) {
+        Tbmuser uRinc = Common.getCurrentUser(request);
+        Toko tokoRinc = (uRinc != null && uRinc.getPedagang() != null) ? uRinc.getPedagang().getToko() : null;
+        Long idTokoRinc = tokoRinc != null ? tokoRinc.getId() : null;
+        if (idTokoRinc == null) {
+            String pTok = request.getParameter("tokoId");
+            if (pTok != null && Common.isNumber(pTok.trim())) { idTokoRinc = Long.valueOf(pTok.trim()); }
+        }
+        LaporanRincianTransaksiUtil.Dimensi dim = new LaporanRincianTransaksiUtil.Dimensi();
+        dim.kodeProduk = request.getParameter("kodeProduk");
+        dim.namaProduk = request.getParameter("namaProduk");
+        dim.kasir = request.getParameter("kasir");
+        dim.metode = request.getParameter("metode");
+        dim.pelanggan = request.getParameter("pelanggan");
+        int batasRinc = 0;
+        String pBatas = request.getParameter("batas");
+        if (pBatas != null && Common.isNumber(pBatas.trim())) { batasRinc = Integer.parseInt(pBatas.trim()); }
+        out.print(LaporanRincianTransaksiUtil.ambil(HibernateUtil.currentSession(), idTokoRinc,
+                request.getParameter("tglMulai"), request.getParameter("tglSampai"),
+                dim, batasRinc).toString());
+        return;
+    }
+
     Hasil H = LaporanKantinUtil.build(request);
     if (!"00".equals(H.status)) {
         hasil.put("status", H.status);

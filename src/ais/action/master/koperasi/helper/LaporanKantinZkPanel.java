@@ -297,7 +297,7 @@ public final class LaporanKantinZkPanel {
 								H.message == null || H.message.isEmpty() ? "Laporan ini belum tersedia." : H.message));
 						return;
 					}
-					renderHasil(hasilArea, H);
+					renderHasil(hasilArea, H, urlRincianTransaksi(p));
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
 					MyMessageboxConfig.show("Gagal menjalankan laporan: " + e.getMessage(), "Peringatan",
@@ -444,7 +444,7 @@ public final class LaporanKantinZkPanel {
 	 * membangun ulang {@code Columns} dinamis tiap kali laporan dijalankan) -- termasuk subtotal per
 	 * grup ({@code H.grup}) dan grand total ({@code H.grandTotal}), meniru tampilan versi JSP.
 	 */
-	private static void renderHasil(Div hasilArea, LaporanKantinUtil.Hasil H) {
+	private static void renderHasil(Div hasilArea, LaporanKantinUtil.Hasil H, String urlRincian) {
 		hasilArea.getChildren().clear();
 		if (H.baris.isEmpty()) {
 			hasilArea.appendChild(new Label("Tidak ada data untuk filter yang dipilih."));
@@ -483,6 +483,10 @@ public final class LaporanKantinZkPanel {
 			// kolom baris ini + catatan rumus laporan) -- padanan drill-down di JSP/Desktop,
 			// dikerjakan dgn HTML+JS polos karena panel ini memang merender HTML mentah.
 			String rincianBaris = rincianBarisHtml(H, row);
+			// Dimensi baris (kode/nama produk, kasir, metode, pelanggan) ikut dibawa
+			// supaya popup dapat menarik NOTA penyusun angka -- bukan sekadar
+			// mengulang isi baris ringkasan.
+			String dimensiBaris = esc(dimensiQuery(H, row));
 			for (int i = 0; i < H.tipe.length; i++) {
 				Object v = i < row.length ? row[i] : null;
 				String teksSel = esc(formatSel(H.tipe[i], v));
@@ -496,7 +500,8 @@ public final class LaporanKantinZkPanel {
 							.append(" style=\"text-decoration:underline dotted;cursor:pointer;color:inherit;\"")
 							.append(" title=\"Klik untuk melihat data penghitungannya\"")
 							.append(" data-judul=\"").append(judulSel).append("\"")
-							.append(" data-rincian=\"").append(rincianBaris).append("\">")
+							.append(" data-rincian=\"").append(rincianBaris).append("\"")
+							.append(" data-dim=\"").append(dimensiBaris).append("\">")
 							.append(teksSel).append("</a>");
 				} else {
 					sb.append(teksSel);
@@ -522,7 +527,7 @@ public final class LaporanKantinZkPanel {
 			sb.append(barisSubtotal(H, grand, "Grand Total"));
 		}
 		sb.append("</tbody></table>");
-		sb.append(skripRincianAngka());
+		sb.append(skripRincianAngka(urlRincian));
 		Html html = new Html(sb.toString());
 		hasilArea.appendChild(html);
 	}
@@ -559,8 +564,97 @@ public final class LaporanKantinZkPanel {
 	 * (createElement/textContent), BUKAN merangkai string HTML: selain bebas isu
 	 * escape kutip di dalam sumber Java, nilai sel otomatis aman dari injeksi.
 	 */
-	private static String skripRincianAngka() {
+	/**
+	 * Alamat layanan rincian transaksi berikut filter yang SEDANG aktif (rentang
+	 * tanggal + toko). Endpoint-nya sama dgn yang dipakai layar Laporan versi JSP,
+	 * sehingga ZKoss tidak punya query sendiri yang bisa menyimpang.
+	 */
+	/** Literal string JavaScript yang aman (kutip tunggal + escape minimal). */
+	private static String jsString(String v) {
+		String x = v == null ? "" : v;
+		x = x.replace("\\", "\\\\").replace("'", "\'").replace("<", "\u003c");
+		return "'" + x + "'";
+	}
+
+	private static String urlRincianTransaksi(Map<String, String> p) {
+		StringBuilder u = new StringBuilder(ais.common.Common.ROOT);
+		u.append("/baru?hanya_tampil_jsp=true&p=kantin&s=laporan_laporan_service&rincianTransaksi=1");
+		tambahParam2(u, "tglMulai", p.get("tglMulai"));
+		tambahParam2(u, "tglSampai", p.get("tglSampai"));
+		tambahParam2(u, "tokoId", p.get("tokoId"));
+		return u.toString();
+	}
+
+	private static void tambahParam2(StringBuilder u, String nama, String nilai) {
+		if (nilai == null || nilai.trim().length() == 0) {
+			return;
+		}
+		try {
+			u.append("&").append(nama).append("=")
+					.append(java.net.URLEncoder.encode(nilai.trim(), "UTF-8"));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "LaporanKantinZkPanel.tambahParam2: gagal encode " + nama);
+		}
+	}
+
+	/**
+	 * Rangkai dimensi penyaring satu baris menjadi query-string, dikenali dari LABEL
+	 * kolomnya -- sama persis dgn aturan di POS Desktop/Android dan JSP, sehingga
+	 * ketiga kanal menyaring transaksi dengan cara yang sama.
+	 *
+	 * @return mis. {@code "kodeProduk=ABC-1&kasir=Hadi"}, atau string kosong bila baris
+	 *         ini tidak punya dimensi apa pun (mis. laporan stok / baris total)
+	 */
+	private static String dimensiQuery(LaporanKantinUtil.Hasil H, Object[] row) {
+		String kodeProduk = null, namaProduk = null, kasir = null, metode = null, pelanggan = null;
+		for (int i = 0; i < H.tipe.length && i < H.kolom.size() && i < row.length; i++) {
+			if (!"text".equals(H.tipe[i])) {
+				continue;
+			}
+			String nilai = row[i] == null ? "" : String.valueOf(row[i]).trim();
+			if (nilai.length() == 0 || "-".equals(nilai)) {
+				continue;
+			}
+			String label = H.kolom.get(i).label == null ? "" : H.kolom.get(i).label.toLowerCase();
+			if (label.indexOf("kode") >= 0 && kodeProduk == null) {
+				kodeProduk = nilai;
+			} else if ((label.indexOf("nama produk") >= 0 || label.indexOf("barang") >= 0) && namaProduk == null) {
+				namaProduk = nilai;
+			} else if (label.indexOf("kasir") >= 0 && kasir == null) {
+				kasir = nilai;
+			} else if ((label.indexOf("metode") >= 0 || label.indexOf("kas/bank") >= 0) && metode == null) {
+				metode = nilai;
+			} else if ((label.indexOf("pelanggan") >= 0 || label.indexOf("anggota") >= 0
+					|| label.indexOf("member") >= 0) && pelanggan == null) {
+				pelanggan = nilai;
+			}
+		}
+		StringBuilder q = new StringBuilder();
+		tambahParam(q, "kodeProduk", kodeProduk);
+		tambahParam(q, "namaProduk", namaProduk);
+		tambahParam(q, "kasir", kasir);
+		tambahParam(q, "metode", metode);
+		tambahParam(q, "pelanggan", pelanggan);
+		return q.toString();
+	}
+
+	private static void tambahParam(StringBuilder q, String nama, String nilai) {
+		if (nilai == null || nilai.trim().length() == 0) {
+			return;
+		}
+		try {
+			if (q.length() > 0) {
+				q.append("&");
+			}
+			q.append(nama).append("=").append(java.net.URLEncoder.encode(nilai.trim(), "UTF-8"));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "LaporanKantinZkPanel.tambahParam: gagal encode " + nama);
+		}
+	}
+
+	private static String skripRincianAngka(String urlRincian) {
 		return "<script>(function(){"
+				+ "window.__lkzkUrlRincian = " + jsString(urlRincian) + ";"
 				+ "if (window.__lkzkRincian) return; window.__lkzkRincian = true;"
 				+ "document.addEventListener('click', function(ev){"
 				+ "  var a = ev.target && ev.target.closest ? ev.target.closest('a.lkzk-num') : null;"
@@ -573,7 +667,7 @@ public final class LaporanKantinZkPanel {
 				+ "  ov.id = 'lkzkOverlay';"
 				+ "  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99999;display:flex;align-items:center;justify-content:center';"
 				+ "  var box = document.createElement('div');"
-				+ "  box.style.cssText = 'background:#fff;border-radius:10px;max-width:560px;width:92%;max-height:80vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.25)';"
+				+ "  box.style.cssText = 'background:#fff;border-radius:10px;max-width:900px;width:92%;max-height:80vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.25)';"
 				+ "  var h = document.createElement('div');"
 				+ "  h.style.cssText = 'font-weight:700;font-size:15px;margin-bottom:10px';"
 				+ "  h.textContent = 'Data Penghitungan: ' + judul; box.appendChild(h);"
@@ -590,6 +684,51 @@ public final class LaporanKantinZkPanel {
 				+ "    var ct = document.createElement('div');"
 				+ "    ct.style.cssText = 'margin-top:10px;font-size:11.5px;font-style:italic;color:#64748b';"
 				+ "    ct.textContent = bagian[1]; box.appendChild(ct);"
+				+ "  }"
+				+ "  var dim = a.getAttribute('data-dim') || '';"
+				+ "  var trx = document.createElement('div'); trx.style.cssText='margin-top:12px'; box.appendChild(trx);"
+				+ "  if (!dim) {"
+				+ "    trx.style.cssText='margin-top:12px;font-size:11.5px;color:#64748b';"
+				+ "    trx.textContent = 'Baris ini tidak berasal dari transaksi penjualan, sehingga tidak ada nota penyusun.';"
+				+ "  } else {"
+				+ "    trx.textContent = 'Memuat rincian transaksi...';"
+				+ "    trx.style.fontSize = '12px'; trx.style.color = '#64748b';"
+				+ "    fetch(window.__lkzkUrlRincian + '&' + dim).then(function(r){ return r.json(); }).then(function(res){"
+				+ "      var rows = (res && res.data) ? res.data : [];"
+				+ "      trx.textContent = '';"
+				+ "      trx.style.color = 'inherit';"
+				+ "      if (!rows.length) { trx.style.color='#64748b'; trx.textContent = 'Tidak ada transaksi yang cocok pada rentang tanggal ini.'; return; }"
+				+ "      var jud = document.createElement('div');"
+				+ "      jud.style.cssText='font-weight:700;font-size:12.5px;margin-bottom:6px';"
+				+ "      jud.textContent = 'Transaksi penyusun angka ini'; trx.appendChild(jud);"
+				+ "      var t2 = document.createElement('table'); t2.style.cssText='width:100%;font-size:11.5px;border-collapse:collapse';"
+				+ "      var judulKolom = ['Waktu','No. Nota','Kasir','Pelanggan','Produk','Qty','Harga','Total'];"
+				+ "      var trh = document.createElement('tr');"
+				+ "      for (var k=0;k<judulKolom.length;k++){"
+				+ "        var th = document.createElement('th');"
+				+ "        th.style.cssText='text-align:'+(k>=5?'right':'left')+';padding:3px 5px;border-bottom:1px solid #e2e8f0;color:#475569';"
+				+ "        th.textContent = judulKolom[k]; trh.appendChild(th);"
+				+ "      }"
+				+ "      t2.appendChild(trh);"
+				+ "      var fmt = function(v){ return new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(Number(v)||0); };"
+				+ "      for (var j=0;j<rows.length;j++){"
+				+ "        var r2 = rows[j]; var tr2 = document.createElement('tr');"
+				+ "        var isi = [String(r2.waktu||'').split('.')[0], r2.nota||'', r2.kasir||'', r2.pelanggan||'',"
+				+ "                   r2.produk||'', fmt(r2.qty), fmt(r2.harga), fmt(r2.total)];"
+				+ "        for (var c=0;c<isi.length;c++){"
+				+ "          var td = document.createElement('td');"
+				+ "          td.style.cssText='padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:'+(c>=5?'right':'left');"
+				+ "          td.textContent = isi[c]; tr2.appendChild(td);"
+				+ "        }"
+				+ "        t2.appendChild(tr2);"
+				+ "      }"
+				+ "      trx.appendChild(t2);"
+				+ "      var ket = document.createElement('div');"
+				+ "      ket.style.cssText='margin-top:6px;font-size:11px;font-style:italic;color:#64748b';"
+				+ "      ket.textContent = rows.length + ' baris transaksi · total ' + fmt(res.totalNilai)"
+				+ "        + (res.dibatasi ? ' (dibatasi, masih ada baris lain)' : '');"
+				+ "      trx.appendChild(ket);"
+				+ "    }).catch(function(){ trx.style.color='#b91c1c'; trx.textContent = 'Rincian transaksi tidak dapat dimuat.'; });"
 				+ "  }"
 				+ "  var wrap = document.createElement('div'); wrap.style.cssText = 'text-align:right;margin-top:14px';"
 				+ "  var btn = document.createElement('button');"

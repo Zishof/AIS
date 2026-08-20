@@ -570,12 +570,82 @@ if (!lockTokoLap) {
         "Baris yang dijumlahkan menjadi subtotal grup ini.");
       return;
     }
-    // 4) Sel biasa -> asal-usul baris + catatan rumus laporan
+    // 4) Sel biasa -> asal-usul baris + NOTA penyusunnya
     var idx = parseInt(a.getAttribute("data-baris")||"-1",10);
     if (idx >= 0 && lastData.baris[idx]) {
-      tampilkanPopupKlien(judul, tabelAsalBaris(kol, lastData.baris[idx]), lastData.catatan||"");
+      var baris = lastData.baris[idx];
+      tampilkanPopupKlien(judul,
+        tabelAsalBaris(kol, baris) + '<div id="lkRincianTrx<%=rndLap%>" class="mt-3"></div>',
+        lastData.catatan||"");
+      muatRincianTransaksi(kol, baris);
     }
   });
+
+  // Dimensi baris dikenali dari LABEL kolomnya, sama spt versi Desktop/Android,
+  // supaya satu endpoint melayani seluruh laporan berbasis transaksi tanpa
+  // daftar khusus per laporan.
+  function dimensiBaris(kol, baris){
+    var d = {};
+    for (var i=0;i<kol.length && i<baris.length;i++){
+      if ((kol[i].t||"text") !== "text") continue;
+      var nilai = String(baris[i]==null?"":baris[i]).trim();
+      if (!nilai || nilai === "-") continue;
+      var label = String(kol[i].l||"").toLowerCase();
+      if (label.indexOf("kode")>=0 && !d.kodeProduk) d.kodeProduk = nilai;
+      else if ((label.indexOf("nama produk")>=0 || label.indexOf("barang")>=0) && !d.namaProduk) d.namaProduk = nilai;
+      else if (label.indexOf("kasir")>=0 && !d.kasir) d.kasir = nilai;
+      else if ((label.indexOf("metode")>=0 || label.indexOf("kas/bank")>=0) && !d.metode) d.metode = nilai;
+      else if ((label.indexOf("pelanggan")>=0 || label.indexOf("anggota")>=0 || label.indexOf("member")>=0) && !d.pelanggan) d.pelanggan = nilai;
+    }
+    return d;
+  }
+
+  function muatRincianTransaksi(kol, baris){
+    var wadah = el("lkRincianTrx<%=rndLap%>");
+    if (!wadah) return;
+    var d = dimensiBaris(kol, baris);
+    var punyaDimensi = false;
+    for (var k in d) { if (d.hasOwnProperty(k)) { punyaDimensi = true; break; } }
+    if (!punyaDimensi) {
+      wadah.innerHTML = '<div class="small text-muted">Baris ini tidak berasal dari transaksi penjualan (mis. stok atau data master), sehingga tidak ada nota penyusun.</div>';
+      return;
+    }
+    wadah.innerHTML = '<div class="small text-muted">Memuat rincian transaksi...</div>';
+    var q = "&rincianTransaksi=1&tglMulai=" + encodeURIComponent(el("fMulai<%=rndLap%>").value)
+          + "&tglSampai=" + encodeURIComponent(el("fSampai<%=rndLap%>").value);
+    for (var k2 in d) { if (d.hasOwnProperty(k2)) q += "&" + k2 + "=" + encodeURIComponent(d[k2]); }
+    var selToko = el("fToko<%=rndLap%>");
+    if (selToko && selToko.value) q += "&tokoId=" + encodeURIComponent(selToko.value);
+    fetch(SVC + q)
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        var rows = (res && res.data) ? res.data : [];
+        if (!rows.length) {
+          wadah.innerHTML = '<div class="small text-muted">Tidak ada transaksi yang cocok pada rentang tanggal ini.</div>';
+          return;
+        }
+        var h = '<div class="fw-bold small mb-1">Transaksi penyusun angka ini</div>'
+              + '<div class="table-responsive"><table class="table table-sm table-bordered small mb-1"><thead><tr>'
+              + '<th>Waktu</th><th>No. Nota</th><th>Kasir</th><th>Pelanggan</th><th>Produk</th>'
+              + '<th class="text-end">Qty</th><th class="text-end">Harga</th><th class="text-end">Total</th></tr></thead><tbody>';
+        for (var i=0;i<rows.length;i++){
+          var r0 = rows[i];
+          h += '<tr><td>' + esc(String(r0.waktu||"").split(".")[0]) + '</td><td>' + esc(r0.nota||"")
+             + '</td><td>' + esc(r0.kasir||"") + '</td><td>' + esc(r0.pelanggan||"")
+             + '</td><td>' + esc(r0.produk||"")
+             + '</td><td class="text-end">' + fmtInt(r0.qty)
+             + '</td><td class="text-end">' + fmtAmt(r0.harga)
+             + '</td><td class="text-end">' + fmtAmt(r0.total) + '</td></tr>';
+        }
+        h += '</tbody></table></div><div class="small fst-italic text-muted">' + rows.length
+           + ' baris transaksi · total ' + fmtAmt(res.totalNilai)
+           + (res.dibatasi ? ' (dibatasi, masih ada baris lain)' : '') + '</div>';
+        wadah.innerHTML = h;
+      })
+      .catch(function(e){
+        wadah.innerHTML = '<div class="small text-danger">Rincian transaksi tidak dapat dimuat.</div>';
+      });
+  }
 
   // Isi dropdown Kategori & Grup Produk pada filter "Stok Barang per Tanggal".
   // Memakai endpoint /Data (action sql) yang sama dipakai layar kantin lain; hasil
