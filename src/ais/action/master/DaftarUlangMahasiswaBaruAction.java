@@ -3617,7 +3617,11 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (arahBulanan) {
-					Common.displayWindow(urlPengaturanBulananAnalisisBaru(smt, jurusan), true);
+					/* Full-screen dan tanpa wrapper scroll Grid generik. Wrapper lama dapat
+					 * menyusutkan Include menjadi setengah layar pada ZK lama. Halaman tujuan
+					 * sudah memiliki scroll internal sendiri. */
+					Common.displayWindow(urlPengaturanBulananAnalisisBaru(smt, jurusan), true,
+							"100%", "100%", null, "Pengaturan Tagihan Bulanan", false);
 				} else {
 					SettingBiaya tujuan = settingTujuanId == null ? buatSettingBiayaDariCalon(smt, jurusan)
 							: (SettingBiaya) HibernateUtil.currentSession().get(SettingBiaya.class, settingTujuanId);
