@@ -4,7 +4,7 @@
 <%@page import="ais.database.model.sekolah.Guru"%>
 <%@page import="ais.database.model.sekolah.Siswa"%>
 <%@page import="ais.database.model.sekolah.Sekolah"%>
-<%@page import="ais.database.model.Yayasan"%>
+<%@page import="ais.database.model.sekolah.Yayasan"%>
 <%@page import="ais.common.Common"%>
 <%@page import="ais.database.model.Tbmuser"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
