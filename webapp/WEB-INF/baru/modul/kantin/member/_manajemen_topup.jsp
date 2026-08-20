@@ -957,6 +957,13 @@ String rnd = Common.getGeneratedBarCode(7);
     const rupiahPenyesuaian<%=rnd%> = (n) =>
         'Rp ' + (Number(n) || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
 
+    // Nama member & alasan penyesuaian diketik pengguna: keduanya masuk ke innerHTML,
+    // jadi harus dilolosi. Tanpa ini satu tanda kutip pada nama sudah cukup merusak
+    // markup daftar hasil pencarian.
+    const escHtmlPenyesuaian<%=rnd%> = (teks) => String(teks == null ? '' : teks)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
     const bukaPenyesuaian<%=rnd%> = () => {
         idMemberPenyesuaian<%=rnd%> = null;
         saldoSistemPenyesuaian<%=rnd%> = 0;
@@ -1003,11 +1010,17 @@ String rnd = Common.getGeneratedBarCode(7);
             kotak.style.display = 'block';
             return;
         }
+        // Pemasangan listener dilakukan setelah innerHTML, bukan lewat atribut onclick:
+        // nama member boleh mengandung tanda kutip, dan atribut inline akan patah karenanya.
         kotak.innerHTML = rows.map(r =>
             '<button type="button" class="list-group-item list-group-item-action" ' +
-            'onclick="pilihMemberPenyesuaian<%=rnd%>(' + r.id + ', ' + JSON.stringify(r.nama || '') + ')">' +
-            '<span class="fw-semibold">' + (r.nama || '-') + '</span>' +
-            '<span class="text-muted small ms-2">' + (r.kode || '') + '</span></button>').join('');
+            'data-id="' + r.id + '" data-nama="' + escHtmlPenyesuaian<%=rnd%>(r.nama || '') + '">' +
+            '<span class="fw-semibold">' + escHtmlPenyesuaian<%=rnd%>(r.nama || '-') + '</span>' +
+            '<span class="text-muted small ms-2">' + escHtmlPenyesuaian<%=rnd%>(r.kode || '') + '</span></button>').join('');
+        kotak.querySelectorAll('button[data-id]').forEach((tombol) => {
+            tombol.addEventListener('click', () =>
+                pilihMemberPenyesuaian<%=rnd%>(Number(tombol.dataset.id), tombol.dataset.nama));
+        });
         kotak.style.display = 'block';
     };
 
@@ -1085,13 +1098,13 @@ String rnd = Common.getGeneratedBarCode(7);
         }
         tbody.innerHTML = rows.map(r =>
             '<tr>' +
-            '<td class="small">' + (r.waktu || '') + '</td>' +
-            '<td class="small">' + (r.namaMember || '') + '</td>' +
+            '<td class="small">' + escHtmlPenyesuaian<%=rnd%>(r.waktu || '') + '</td>' +
+            '<td class="small">' + escHtmlPenyesuaian<%=rnd%>(r.namaMember || '') + '</td>' +
             '<td class="small text-end">' + rupiahPenyesuaian<%=rnd%>(r.saldoSistem) + '</td>' +
             '<td class="small text-end">' + rupiahPenyesuaian<%=rnd%>(r.saldoFisik) + '</td>' +
             '<td class="small text-end fw-bold ' + ((Number(r.selisih) || 0) < 0 ? 'text-danger' : 'text-success') + '">' +
             ((Number(r.selisih) || 0) > 0 ? '+' : '') + rupiahPenyesuaian<%=rnd%>(r.selisih) + '</td>' +
-            '<td class="small">' + (r.keterangan || '') + '</td>' +
+            '<td class="small">' + escHtmlPenyesuaian<%=rnd%>(r.keterangan || '') + '</td>' +
             '</tr>').join('');
     };
 
