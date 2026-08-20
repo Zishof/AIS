@@ -48,6 +48,20 @@ public final class RepositoryPublikApi {
 				"Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.");
 	}
 
+	/**
+	 * Izin membuka Repository (per pengguna, bawaan menyala). Diperiksa di
+	 * SETIAP aksi: menyembunyikan menu saja tidak menghalangi pemanggilan API.
+	 */
+	private static boolean bolehMembaca(Tbmuser pengguna) {
+		return pengguna != null
+				&& Boolean.TRUE.equals(pengguna.getBolehBacaRepository());
+	}
+
+	private static JSONObject tolakTanpaIzin() throws Exception {
+		return ApiHelperSupport.status("96",
+				"Akses ke Repository tidak diaktifkan untuk akun Anda.");
+	}
+
 	private static Long angka(JSONObject request, String kunci) {
 		try {
 			String mentah = ApiHelperSupport.optString(request, kunci);
@@ -86,6 +100,9 @@ public final class RepositoryPublikApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		try {
 			RepositoryPublicService layanan = new RepositoryPublicService();
@@ -137,6 +154,9 @@ public final class RepositoryPublikApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		Long id = angka(request, "id");
 		if (id == null) {
@@ -192,6 +212,9 @@ public final class RepositoryPublikApi {
 		if (pengguna == null) {
 			return tolakTanpaToken();
 		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
+		}
 		Long berkasId = angka(request, "berkasId");
 		int halaman = request.optInt("halaman", 1);
 		if (berkasId == null || halaman < 1) {
@@ -238,6 +261,9 @@ public final class RepositoryPublikApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		Long berkasId = angka(request, "berkasId");
 		if (berkasId == null) {

@@ -62,6 +62,20 @@ public final class PustakaApi {
 				"Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.");
 	}
 
+	/**
+	 * Izin membuka Pustaka (disetel per pengguna lewat TbmuserAction, bawaan
+	 * menyala). Diperiksa di SETIAP aksi — menyembunyikan menu di aplikasi
+	 * saja bukan pengamanan, karena aksi API tetap bisa dipanggil langsung.
+	 */
+	private static boolean bolehMembaca(Tbmuser pengguna) {
+		return pengguna != null && Boolean.TRUE.equals(pengguna.getBolehBacaPustaka());
+	}
+
+	private static JSONObject tolakTanpaIzin() throws Exception {
+		return ApiHelperSupport.status("96",
+				"Akses ke Pustaka tidak diaktifkan untuk akun Anda.");
+	}
+
 	/** Identitas yang dicap pada tiap halaman; melekat pada pembacanya. */
 	private static String identitasPembaca(Tbmuser pengguna) {
 		if (pengguna == null) {
@@ -89,6 +103,9 @@ public final class PustakaApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		try {
 			LibraryCatalogSearchRequest cari = new LibraryCatalogSearchRequest();
@@ -125,6 +142,9 @@ public final class PustakaApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		Long id = angka(request, "id");
 		if (id == null) {
@@ -183,6 +203,9 @@ public final class PustakaApi {
 		Tbmuser pengguna = ApiUtil.currentUser(request, req);
 		if (pengguna == null) {
 			return tolakTanpaToken();
+		}
+		if (!bolehMembaca(pengguna)) {
+			return tolakTanpaIzin();
 		}
 		Long id = angka(request, "id");
 		int halaman = request.optInt("halaman", 1);

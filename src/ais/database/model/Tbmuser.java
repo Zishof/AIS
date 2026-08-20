@@ -186,6 +186,10 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	private Tbmrole userRole4;
 	private Tbmrole userRole5;
 	private Boolean memilikiHakAksesTambahan;
+	/** Izin membuka menu Pustaka pada aplikasi mobile/desktop. */
+	private Boolean bolehBacaPustaka;
+	/** Izin membuka menu Repository pada aplikasi mobile/desktop. */
+	private Boolean bolehBacaRepository;
 	private Integer userShow = 1;
 	private Dosen dosen;
 	private Guru guru;
@@ -1994,6 +1998,28 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	public void setUserRole5(Tbmrole userRole5) {
 		this.userRole5 = userRole5;
+	}
+
+	/**
+	 * Bawaan MENYALA: menu Pustaka tampil untuk semua pengguna kecuali
+	 * dimatikan admin. Pengguna lama yang kolomnya masih null otomatis ikut
+	 * menyala tanpa perlu pembaruan data massal.
+	 */
+	public Boolean getBolehBacaPustaka() {
+		return bolehBacaPustaka == null ? Boolean.TRUE : bolehBacaPustaka;
+	}
+
+	public void setBolehBacaPustaka(Boolean bolehBacaPustaka) {
+		this.bolehBacaPustaka = bolehBacaPustaka;
+	}
+
+	/** Bawaan MENYALA; lihat catatan pada {@link #getBolehBacaPustaka()}. */
+	public Boolean getBolehBacaRepository() {
+		return bolehBacaRepository == null ? Boolean.TRUE : bolehBacaRepository;
+	}
+
+	public void setBolehBacaRepository(Boolean bolehBacaRepository) {
+		this.bolehBacaRepository = bolehBacaRepository;
 	}
 
 	public Boolean getMemilikiHakAksesTambahan() {
