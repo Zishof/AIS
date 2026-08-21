@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
+import org.hibernate.Query;
 import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
@@ -23,7 +24,7 @@ public final class LibraryItemDetailService {
         try {
             session = HibernateUtil.openSession();
             Item item = (Item) session.get(Item.class, itemId);
-            if (item == null || Boolean.FALSE.equals(item.getAktif())) return null;
+            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item)) return null;
             String publisher = item.getPenerbit() == null ? null : item.getPenerbit().getNama();
             String digitalUrl = null;
             if (Boolean.TRUE.equals(item.getBolehDiDownload())) {
@@ -31,14 +32,7 @@ public final class LibraryItemDetailService {
                 if (attachment != null) digitalUrl = safeUrl(attachment.createLinkUri());
             }
             String ebookUrl = safeUrl(item.getEbooksLink());
-            List<Holding> holdings = new ArrayList<Holding>();
-            List<ItemPunyaBarcode> copies = session.createCriteria(ItemPunyaBarcode.class)
-                    .add(Restrictions.eq("item", item)).list();
-            for (ItemPunyaBarcode copy : copies) {
-                Perpustakaan library = copy.getPerpustakaan();
-                holdings.add(new Holding(copy.getBarcode(), library == null ? null : library.getId(),
-                        library == null ? "Lokasi tidak diketahui" : library.getNama()));
-            }
+            List<Holding> holdings = loadHoldings(session, itemId);
             return new Detail(item.getId(), item.getImageUrl(), item.getNama(), item.getPengarangs(), publisher,
                     item.getKategories(), item.getDeweyDecimalClass(), item.getTema(), item.getIsbn(), item.getIssn(),
                     item.getEdisi(), item.getTahun(), item.getBahasa(), item.getCallnumber(), item.getAbstrak(),
@@ -57,26 +51,23 @@ public final class LibraryItemDetailService {
         try {
             session = HibernateUtil.openSession();
             Item item = (Item) session.get(Item.class, itemId);
-            if (item == null || Boolean.FALSE.equals(item.getAktif())) return result;
-            List<ItemPunyaBarcode> copies = session.createCriteria(ItemPunyaBarcode.class)
-                    .add(Restrictions.eq("item", item)).list();
-            for (ItemPunyaBarcode copy : copies) {
-                Perpustakaan library = copy.getPerpustakaan();
-                result.add(new Holding(copy.getBarcode(), library == null ? null : library.getId(),
-                        library == null ? "Lokasi tidak diketahui" : library.getNama()));
-            }
-            return result;
+            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item)) return result;
+            return loadHoldings(session, itemId);
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }
 
     public static final class Holding {
         private final String barcode; private final Long libraryId; private final String libraryName;
-        private Holding(String barcode, Long libraryId, String libraryName) {
+        private final boolean available; private final String dueDate;
+        private Holding(String barcode, Long libraryId, String libraryName, boolean available, String dueDate) {
             this.barcode = barcode; this.libraryId = libraryId; this.libraryName = libraryName;
+            this.available = available; this.dueDate = dueDate;
         }
         public String getBarcode() { return barcode == null ? "-" : barcode; }
         public Long getLibraryId() { return libraryId; }
         public String getLibraryName() { return libraryName; }
+        public boolean isAvailable() { return available; }
+        public String getDueDate() { return dueDate == null ? "" : dueDate; }
     }
 
     public static final class Detail {
@@ -89,4 +80,29 @@ public final class LibraryItemDetailService {
     }
 
     private static String safeUrl(String value){if(value==null)return null;value=value.trim();if(value.startsWith("https://")||value.startsWith("http://")||value.startsWith("/"))return value;return null;}
+    private static boolean isPublic(Item item) {
+        if (item == null || item.getStatusTerbitItem() == null || item.getStatusTerbitItem().getNama() == null) return false;
+        String status = item.getStatusTerbitItem().getNama().trim().toLowerCase();
+        return "terbit".equals(status) || "publish".equals(status) || "published".equals(status);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Holding> loadHoldings(Session session, Long itemId) {
+        List<Holding> result = new ArrayList<Holding>();
+        Query query = session.createSQLQuery("select b.barcode,p.id,coalesce(p.nama,'Lokasi tidak diketahui'),"
+                + "case when loan.item_punya_barcode is null then true else false end,"
+                + "coalesce(to_char(loan.due_date,'DD-MM-YYYY'),'') from library.item_punya_barcode b "
+                + "left join library.perpustakaan p on p.id=b.perpustakaan left join "
+                + "(select item_punya_barcode,max(batas_waktu_pengembalian) due_date from library.peminjaman_pengadaan_item_detail "
+                + "where kembali_pengadaan_item_detail is null group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
+                + "where b.item=:item order by p.nama,b.barcode");
+        query.setLong("item", itemId.longValue());
+        for (Object[] row : (List<Object[]>) query.list()) {
+            Long libraryId = row[1] instanceof Number ? Long.valueOf(((Number) row[1]).longValue()) : null;
+            result.add(new Holding(row[0] == null ? null : String.valueOf(row[0]), libraryId,
+                    row[2] == null ? null : String.valueOf(row[2]), Boolean.TRUE.equals(row[3]),
+                    row[4] == null ? null : String.valueOf(row[4])));
+        }
+        return result;
+    }
 }

@@ -2,230 +2,110 @@
 String rnd = Common.getGeneratedBarCode(7);
 String root = Common.ROOT;
 String requestedSort = request.getParameter("sort");
-String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requestedSort)) ? requestedSort : "NEWEST";
+String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requestedSort)
+        || "TITLE_ASC".equals(requestedSort) || "AUTHOR_ASC".equals(requestedSort)) ? requestedSort : "NEWEST";
 %>
-<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821b">
-<script src="<%=root%>/assets/library-modern/library.js?v=20260821b"></script>
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821c">
+<script src="<%=root%>/assets/library-modern/library.js?v=20260821c"></script>
 
-<div class="library-modern" id="libraryCatalog<%=rnd%>">
-  <section class="library-hero" aria-labelledby="libraryTitle<%=rnd%>">
-    <div class="library-container">
-      <div class="library-eyebrow" style="color:#99f6e4"><%=Common.getBahasaConfig("Katalog & Discovery")%></div>
-      <h1 id="libraryTitle<%=rnd%>"><%=Common.getBahasaConfig("Temukan pengetahuan untuk belajar, meneliti, dan berkarya")%></h1>
-      <p><%=Common.getBahasaConfig("Telusuri buku, e-book, jurnal, tugas akhir, multimedia, kitab, dan koleksi khusus dari seluruh unit perpustakaan.")%></p>
-      <form class="library-searchbar" id="libraryQuickSearch<%=rnd%>" role="search">
-        <label class="visually-hidden" for="libraryQuery<%=rnd%>"><%=Common.getBahasaConfig("Cari koleksi")%></label>
-        <input id="libraryQuery<%=rnd%>" name="query" autocomplete="off" maxlength="160"
-               placeholder="<%=Common.getBahasaConfig("Cari judul, penulis, ISBN, subjek, kata kunci, atau nomor panggil...")%>">
-        <button class="library-button library-button-primary" type="submit"><i class="fa fa-search" aria-hidden="true"></i> <%=Common.getBahasaConfig("Cari")%></button>
-      </form>
+<div class="library-modern library-discovery-v2" id="libraryCatalog<%=rnd%>">
+  <section class="library-hero library-discovery-hero" id="libraryHero<%=rnd%>" aria-labelledby="libraryTitle<%=rnd%>">
+    <div class="library-container library-hero-grid">
+      <div>
+        <div class="library-eyebrow"><%=Common.getBahasaConfig("Katalog & Discovery")%></div>
+        <h1 id="libraryTitle<%=rnd%>"><%=Common.getBahasaConfig("Temukan koleksi yang tepat, lebih cepat")%></h1>
+        <p><%=Common.getBahasaConfig("Telusuri buku, e-book, jurnal, tugas akhir, multimedia, kitab, dan koleksi khusus dari seluruh unit perpustakaan.")%></p>
+        <form class="library-searchbar library-searchbar-v2" id="libraryQuickSearch<%=rnd%>" role="search">
+          <label class="visually-hidden" for="librarySearchField<%=rnd%>"><%=Common.getBahasaConfig("Bidang pencarian")%></label>
+          <select id="librarySearchField<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Bidang pencarian")%>">
+            <option value="ALL"><%=Common.getBahasaConfig("Semua bidang")%></option><option value="TITLE"><%=Common.getBahasaConfig("Judul")%></option>
+            <option value="AUTHOR"><%=Common.getBahasaConfig("Penulis")%></option><option value="ISBN">ISBN / ISSN</option>
+            <option value="SUBJECT"><%=Common.getBahasaConfig("Subjek")%></option><option value="PUBLISHER"><%=Common.getBahasaConfig("Penerbit")%></option>
+            <option value="CALL_NUMBER"><%=Common.getBahasaConfig("Nomor panggil")%></option><option value="BARCODE">Barcode</option>
+          </select>
+          <div class="library-search-input-wrap">
+            <label class="visually-hidden" for="libraryQuery<%=rnd%>"><%=Common.getBahasaConfig("Cari koleksi")%></label>
+            <input id="libraryQuery<%=rnd%>" name="query" autocomplete="off" maxlength="160" aria-autocomplete="list" aria-controls="librarySuggestions<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Cari judul, penulis, ISBN, subjek, atau nomor panggil...")%>">
+            <button class="library-search-clear" id="libraryQueryClear<%=rnd%>" type="button" aria-label="<%=Common.getBahasaConfig("Hapus kata pencarian")%>">×</button>
+            <div class="library-suggestions" id="librarySuggestions<%=rnd%>" role="listbox" hidden></div>
+          </div>
+          <button class="library-button library-button-primary" type="submit"><i class="fa fa-search" aria-hidden="true"></i> <%=Common.getBahasaConfig("Cari")%></button>
+        </form>
+        <div class="library-quick-searches" aria-label="<%=Common.getBahasaConfig("Pencarian populer")%>"><span><%=Common.getBahasaConfig("Pencarian populer")%>:</span><button type="button" data-quick-query="Farmasi">Farmasi</button><button type="button" data-quick-query="Bahasa Inggris"><%=Common.getBahasaConfig("Bahasa Inggris")%></button><button type="button" data-quick-availability="AVAILABLE"><%=Common.getBahasaConfig("Tersedia sekarang")%></button></div>
+      </div>
+      <aside class="library-hero-stats" aria-label="<%=Common.getBahasaConfig("Ringkasan koleksi")%>"><h2><%=Common.getBahasaConfig("Ringkasan koleksi")%></h2><div class="library-stat-grid"><div><strong id="libraryStatTitles<%=rnd%>">—</strong><span><%=Common.getBahasaConfig("Judul")%></span></div><div><strong id="libraryStatDigital<%=rnd%>">—</strong><span><%=Common.getBahasaConfig("Digital")%></span></div><div><strong id="libraryStatCopies<%=rnd%>">—</strong><span><%=Common.getBahasaConfig("Eksemplar")%></span></div><div><strong id="libraryStatBranches<%=rnd%>">—</strong><span><%=Common.getBahasaConfig("Cabang")%></span></div></div></aside>
     </div>
   </section>
 
-  <div class="library-container">
-    <div class="library-workspace">
-      <aside class="library-card library-facets" id="libraryFacets<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter katalog")%>">
-        <div class="library-facet">
-          <div class="library-eyebrow"><%=Common.getBahasaConfig("Filter")%></div>
-          <h2 class="library-section-title"><%=Common.getBahasaConfig("Persempit hasil")%></h2>
-        </div>
-        <div class="library-facet">
-          <label for="libraryTitleFilter<%=rnd%>"><%=Common.getBahasaConfig("Judul")%></label>
-          <input class="library-input" id="libraryTitleFilter<%=rnd%>" maxlength="160">
-          <label for="libraryAuthor<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Penulis / Pengarang")%></label>
-          <input class="library-input" id="libraryAuthor<%=rnd%>" maxlength="120">
-          <label for="libraryPublisher<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Penerbit")%></label>
-          <input class="library-input" id="libraryPublisher<%=rnd%>" maxlength="120">
-        </div>
-        <div class="library-facet">
-          <label for="libraryBranch<%=rnd%>"><%=Common.getBahasaConfig("Perpustakaan / Cabang")%></label>
-          <select class="library-select" id="libraryBranch<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua cabang")%></option></select>
-          <label for="libraryItemType<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Jenis koleksi")%></label>
-          <select class="library-select" id="libraryItemType<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua jenis")%></option></select>
-          <label for="libraryMaterialType<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Format / tipe")%></label>
-          <select class="library-select" id="libraryMaterialType<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua format")%></option></select>
-        </div>
-        <div class="library-facet">
-          <label><%=Common.getBahasaConfig("Tahun terbit")%></label>
-          <div class="library-filter-grid">
-            <input class="library-input" id="libraryYearFrom<%=rnd%>" type="number" min="1000" max="2200" placeholder="Dari" aria-label="<%=Common.getBahasaConfig("Tahun mulai")%>">
-            <input class="library-input" id="libraryYearTo<%=rnd%>" type="number" min="1000" max="2200" placeholder="Sampai" aria-label="<%=Common.getBahasaConfig("Tahun akhir")%>">
-          </div>
-        </div>
-        <details class="library-facet">
-          <summary style="cursor:pointer;font-weight:800"><%=Common.getBahasaConfig("Institusi & unit akademik")%></summary>
-          <label for="libraryFoundation<%=rnd%>" style="margin-top:12px"><%=Common.getBahasaConfig("Yayasan")%></label>
-          <select class="library-select" id="libraryFoundation<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua yayasan")%></option></select>
-          <label for="librarySchool<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Sekolah")%></label>
-          <select class="library-select" id="librarySchool<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua sekolah")%></option></select>
-          <label for="libraryFaculty<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Fakultas")%></label>
-          <select class="library-select" id="libraryFaculty<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua fakultas")%></option></select>
-          <label for="libraryStudyProgram<%=rnd%>" style="margin-top:10px"><%=Common.getBahasaConfig("Program studi / jurusan")%></label>
-          <select class="library-select" id="libraryStudyProgram<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua program studi")%></option></select>
-        </details>
-        <div class="library-filter-actions">
-          <button class="library-button" id="libraryReset<%=rnd%>" type="button"><%=Common.getBahasaConfig("Atur ulang")%></button>
-          <button class="library-button library-button-primary" id="libraryApply<%=rnd%>" type="button"><%=Common.getBahasaConfig("Terapkan")%></button>
-        </div>
+  <div class="library-container library-discovery-main">
+    <header class="library-results-head"><div><div class="library-eyebrow"><%=Common.getBahasaConfig("Hasil pencarian")%></div><h2 class="library-section-title" id="libraryResultTitle<%=rnd%>"><%=Common.getBahasaConfig("Seluruh koleksi")%></h2><div class="library-muted" id="libraryResultCount<%=rnd%>" aria-live="polite"><%=Common.getBahasaConfig("Menyiapkan katalog...")%></div></div><div class="library-result-tools"><button class="library-button" id="libraryShareSearch<%=rnd%>" type="button">↗ <%=Common.getBahasaConfig("Bagikan pencarian")%></button><button class="library-button library-filter-toggle" id="libraryFilterToggle<%=rnd%>" type="button" aria-expanded="false">☷ <%=Common.getBahasaConfig("Filter")%></button><button class="library-button" id="libraryListMode<%=rnd%>" type="button" aria-pressed="true" title="<%=Common.getBahasaConfig("Mode daftar")%>">☷</button><button class="library-button" id="libraryGridMode<%=rnd%>" type="button" aria-pressed="false" title="<%=Common.getBahasaConfig("Mode kartu")%>">▦</button></div></header>
+    <div class="library-chips" id="libraryActiveFilters<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter aktif")%>"></div>
+    <div class="library-mobile-toolbar"><button class="library-button" id="libraryMobileFilter<%=rnd%>" type="button">☷ <%=Common.getBahasaConfig("Filter")%> <span id="libraryFilterCount<%=rnd%>"></span></button><button class="library-button" id="libraryMobileSort<%=rnd%>" type="button">↕ <%=Common.getBahasaConfig("Urutkan")%></button></div>
+
+    <div class="library-workspace library-discovery-workspace">
+      <div class="library-facet-backdrop" id="libraryFacetBackdrop<%=rnd%>"></div>
+      <aside class="library-card library-facets library-facets-v2" id="libraryFacets<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter katalog")%>">
+        <div class="library-facet-head"><div><div class="library-eyebrow"><%=Common.getBahasaConfig("Filter")%></div><h2 class="library-section-title"><%=Common.getBahasaConfig("Persempit hasil")%></h2></div><button class="library-facet-close" id="libraryFacetClose<%=rnd%>" type="button" aria-label="<%=Common.getBahasaConfig("Tutup filter")%>">×</button></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Ketersediaan")%></h3><div id="libraryAvailabilityFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Jenis koleksi")%></h3><div id="libraryItemTypeFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Perpustakaan / Cabang")%></h3><div id="libraryBranchFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Format")%></h3><div id="libraryMaterialFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Bahasa")%></h3><div id="libraryLanguageFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <div class="library-facet"><h3><%=Common.getBahasaConfig("Subjek")%></h3><div id="librarySubjectFacets<%=rnd%>" class="library-facet-options"></div></div>
+        <details class="library-facet library-advanced-search"><summary><%=Common.getBahasaConfig("Pencarian lanjutan")%></summary><label for="libraryTitleFilter<%=rnd%>"><%=Common.getBahasaConfig("Judul")%></label><input class="library-input" id="libraryTitleFilter<%=rnd%>" maxlength="160"><label for="libraryAuthor<%=rnd%>"><%=Common.getBahasaConfig("Penulis / Pengarang")%></label><input class="library-input" id="libraryAuthor<%=rnd%>" maxlength="120"><label for="libraryPublisher<%=rnd%>"><%=Common.getBahasaConfig("Penerbit")%></label><input class="library-input" id="libraryPublisher<%=rnd%>" maxlength="120"><label for="libraryCallNumber<%=rnd%>"><%=Common.getBahasaConfig("Nomor panggil")%></label><input class="library-input" id="libraryCallNumber<%=rnd%>" maxlength="80"><label><%=Common.getBahasaConfig("Tahun terbit")%></label><div class="library-filter-grid"><input class="library-input" id="libraryYearFrom<%=rnd%>" type="number" min="1000" max="2200" placeholder="Dari"><input class="library-input" id="libraryYearTo<%=rnd%>" type="number" min="1000" max="2200" placeholder="Sampai"></div><label for="librarySchool<%=rnd%>"><%=Common.getBahasaConfig("Sekolah")%></label><select class="library-select" id="librarySchool<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua sekolah")%></option></select><label for="libraryStudyProgram<%=rnd%>"><%=Common.getBahasaConfig("Program studi / jurusan")%></label><select class="library-select" id="libraryStudyProgram<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Semua program studi")%></option></select></details>
+        <input type="hidden" id="libraryAvailability<%=rnd%>"><input type="hidden" id="libraryBranch<%=rnd%>"><input type="hidden" id="libraryItemType<%=rnd%>"><input type="hidden" id="libraryMaterialType<%=rnd%>"><input type="hidden" id="libraryLanguage<%=rnd%>"><input type="hidden" id="librarySubject<%=rnd%>">
+        <div class="library-filter-actions"><button class="library-button" id="libraryReset<%=rnd%>" type="button"><%=Common.getBahasaConfig("Hapus semua")%></button><button class="library-button library-button-primary" id="libraryApply<%=rnd%>" type="button"><%=Common.getBahasaConfig("Terapkan")%></button></div>
       </aside>
-
-      <main>
-        <div class="library-results-head">
-          <div>
-            <div class="library-eyebrow"><%=Common.getBahasaConfig("Hasil pencarian")%></div>
-            <h2 class="library-section-title" id="libraryResultTitle<%=rnd%>"><%=Common.getBahasaConfig("Seluruh koleksi")%></h2>
-            <div class="library-muted" id="libraryResultCount<%=rnd%>" aria-live="polite"><%=Common.getBahasaConfig("Menyiapkan katalog...")%></div>
-          </div>
-          <div class="library-result-tools">
-            <button class="library-button library-filter-toggle" id="libraryFilterToggle<%=rnd%>" type="button" aria-expanded="false"><%=Common.getBahasaConfig("Filter")%></button>
-            <button class="library-button" id="libraryListMode<%=rnd%>" type="button" aria-pressed="true" title="<%=Common.getBahasaConfig("Mode daftar")%>">☷</button>
-            <button class="library-button" id="libraryGridMode<%=rnd%>" type="button" aria-pressed="false" title="<%=Common.getBahasaConfig("Mode kartu")%>">▦</button>
-            <label class="visually-hidden" for="librarySort<%=rnd%>"><%=Common.getBahasaConfig("Urutkan")%></label>
-            <select class="library-select" id="librarySort<%=rnd%>">
-              <option value="NEWEST"><%=Common.getBahasaConfig("Koleksi terbaru")%></option>
-              <option value="YEAR_DESC"><%=Common.getBahasaConfig("Tahun terbaru")%></option>
-              <option value="TITLE_ASC"><%=Common.getBahasaConfig("Judul A-Z")%></option>
-              <option value="AUTHOR_ASC"><%=Common.getBahasaConfig("Penulis A-Z")%></option>
-              <option value="POPULAR"><%=Common.getBahasaConfig("Paling populer")%></option>
-            </select>
-          </div>
-        </div>
-
-        <div class="library-chips" id="libraryActiveFilters<%=rnd%>" aria-label="<%=Common.getBahasaConfig("Filter aktif")%>"></div>
-        <div class="library-result-list" id="libraryResults<%=rnd%>" aria-busy="true">
-          <div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div>
-        </div>
-        <nav class="library-pagination" aria-label="<%=Common.getBahasaConfig("Navigasi halaman katalog")%>">
-          <button class="library-button" id="libraryPrevious<%=rnd%>" type="button"><%=Common.getBahasaConfig("Sebelumnya")%></button>
-          <span id="libraryPageInfo<%=rnd%>">1 / 1</span>
-          <button class="library-button" id="libraryNext<%=rnd%>" type="button"><%=Common.getBahasaConfig("Selanjutnya")%></button>
-        </nav>
+      <main class="library-results-panel">
+        <div class="library-result-toolbar"><span id="libraryRangeInfo<%=rnd%>"></span><div></div><label for="libraryPageSize<%=rnd%>"><%=Common.getBahasaConfig("Per halaman")%></label><select class="library-select" id="libraryPageSize<%=rnd%>"><option>10</option><option selected>12</option><option>25</option><option>50</option></select><label class="visually-hidden" for="librarySort<%=rnd%>"><%=Common.getBahasaConfig("Urutkan")%></label><select class="library-select" id="librarySort<%=rnd%>"><option value="NEWEST"><%=Common.getBahasaConfig("Koleksi terbaru")%></option><option value="YEAR_DESC"><%=Common.getBahasaConfig("Tahun terbaru")%></option><option value="TITLE_ASC"><%=Common.getBahasaConfig("Judul A-Z")%></option><option value="AUTHOR_ASC"><%=Common.getBahasaConfig("Penulis A-Z")%></option><option value="POPULAR"><%=Common.getBahasaConfig("Paling populer")%></option></select></div>
+        <div id="libraryStateMessage<%=rnd%>" class="library-state-banner" role="status" aria-live="polite" hidden></div>
+        <div class="library-result-list" id="libraryResults<%=rnd%>" aria-busy="true"><div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div></div>
+        <nav class="library-pagination" aria-label="<%=Common.getBahasaConfig("Navigasi halaman katalog")%>"><button class="library-button" id="libraryPrevious<%=rnd%>" type="button"><%=Common.getBahasaConfig("Sebelumnya")%></button><span id="libraryPageInfo<%=rnd%>">1 / 1</span><button class="library-button" id="libraryNext<%=rnd%>" type="button"><%=Common.getBahasaConfig("Selanjutnya")%></button></nav>
       </main>
     </div>
   </div>
 </div>
 
 <script>
-(function () {
+(function(){
   'use strict';
-  var suffix = '<%=rnd%>';
-  var root = '<%=root%>';
-  var api = root + '/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_catalog_api';
-  var page = 1;
-  var pageSize = 12;
-  var total = 0;
-  var requestSerial = 0;
-  var filterMap = {
-    query: 'libraryQuery', title: 'libraryTitleFilter', author: 'libraryAuthor', publisher: 'libraryPublisher',
-    libraryId: 'libraryBranch', itemTypeId: 'libraryItemType', materialTypeId: 'libraryMaterialType',
-    foundationId: 'libraryFoundation', schoolId: 'librarySchool', facultyId: 'libraryFaculty',
-    studyProgramId: 'libraryStudyProgram', yearFrom: 'libraryYearFrom', yearTo: 'libraryYearTo'
-  };
-  var filterLabels = {
-    query: '<%=Common.getBahasaConfigJS("Kata kunci")%>', title: '<%=Common.getBahasaConfigJS("Judul")%>',
-    author: '<%=Common.getBahasaConfigJS("Penulis")%>', publisher: '<%=Common.getBahasaConfigJS("Penerbit")%>',
-    libraryId: '<%=Common.getBahasaConfigJS("Cabang")%>', itemTypeId: '<%=Common.getBahasaConfigJS("Jenis")%>',
-    materialTypeId: '<%=Common.getBahasaConfigJS("Format")%>', foundationId: '<%=Common.getBahasaConfigJS("Yayasan")%>',
-    schoolId: '<%=Common.getBahasaConfigJS("Sekolah")%>', facultyId: '<%=Common.getBahasaConfigJS("Fakultas")%>',
-    studyProgramId: '<%=Common.getBahasaConfigJS("Program studi")%>', yearFrom: '<%=Common.getBahasaConfigJS("Tahun mulai")%>',
-    yearTo: '<%=Common.getBahasaConfigJS("Tahun akhir")%>'
-  };
-  function el(base) { return document.getElementById(base + suffix); }
-  function value(key) { var node = el(filterMap[key]); return node ? node.value.trim() : ''; }
-  function params() {
-    var data = {action:'search', page:page, pageSize:pageSize, sort:el('librarySort').value};
-    Object.keys(filterMap).forEach(function (key) { if (value(key)) data[key] = value(key); });
-    return data;
-  }
-  function optionLabel(key, raw) {
-    var node = el(filterMap[key]);
-    if (node && node.tagName === 'SELECT' && node.selectedIndex >= 0) return node.options[node.selectedIndex].text;
-    return raw;
-  }
-  function fillSelect(base, rows) {
-    var select = el(base);
-    (rows || []).forEach(function (row) { select.appendChild(new Option(row.nama || '-', row.id)); });
-  }
-  function renderChips() {
-    var target = el('libraryActiveFilters');
-    var html = '';
-    Object.keys(filterMap).forEach(function (key) {
-      var raw = value(key);
-      if (raw) html += '<span class="library-chip">' + LibraryModern.escapeHtml(filterLabels[key] + ': ' + optionLabel(key, raw))
-        + '<button type="button" data-clear="' + key + '" aria-label="Hapus filter">×</button></span>';
-    });
-    target.innerHTML = html;
-    Array.prototype.forEach.call(target.querySelectorAll('[data-clear]'), function (button) {
-      button.addEventListener('click', function () { el(filterMap[button.getAttribute('data-clear')]).value = ''; page = 1; load(); });
-    });
-  }
-  function cover(item) {
-    var title = LibraryModern.escapeHtml(item.nama || '<%=Common.getBahasaConfigJS("Tanpa judul")%>');
-    if (item.imageUrl && /^https?:\/\//i.test(item.imageUrl)) {
-      return '<div class="library-cover"><img loading="lazy" src="' + LibraryModern.escapeHtml(item.imageUrl) + '" alt="" onerror="this.parentNode.innerHTML=\'KOLEKSI\'"></div>';
-    }
-    var media = root + '/library/item-cover?id=' + encodeURIComponent(item.id || '');
-    return '<div class="library-cover"><img loading="lazy" src="' + media + '" alt="" onerror="this.parentNode.textContent=\'KOLEKSI\'"></div>';
-  }
-  function renderItems(items) {
-    var target = el('libraryResults');
-    if (!items || !items.length) {
-      target.innerHTML = '<div class="library-card library-state"><strong><%=Common.getBahasaConfigJS("Koleksi tidak ditemukan")%></strong><span class="library-muted"><%=Common.getBahasaConfigJS("Coba kurangi filter atau gunakan kata kunci yang lebih umum.")%></span></div>';
-      return;
-    }
-    target.innerHTML = items.map(function (item) {
-      var title = LibraryModern.escapeHtml(item.nama || '<%=Common.getBahasaConfigJS("Tanpa judul")%>');
-      var detail = root + '/pustaka?id=' + encodeURIComponent(item.id);
-      var copies = Number(item.jumlahEksemplar || 0);
-      return '<article class="library-card library-result">' + cover(item)
-        + '<div><div class="library-eyebrow">' + LibraryModern.escapeHtml(item.kategories || '<%=Common.getBahasaConfigJS("Koleksi perpustakaan")%>') + '</div>'
-        + '<h3><a href="' + detail + '">' + title + '</a></h3>'
-        + '<div class="library-meta"><span>✎ ' + LibraryModern.escapeHtml(item.pengarangs || '-') + '</span><span>▣ ' + LibraryModern.escapeHtml((item.penerbit && item.penerbit.nama) || '-') + '</span><span>◷ ' + LibraryModern.escapeHtml(item.tahun || '-') + '</span><span>' + LibraryModern.escapeHtml(item.bahasa || '-') + '</span></div>'
-        + '<p class="library-summary">' + LibraryModern.escapeHtml(item.ringkasan || '<%=Common.getBahasaConfigJS("Ringkasan belum tersedia.")%>') + '</p></div>'
-        + '<div class="library-result-action"><span class="library-status">● ' + copies + ' <%=Common.getBahasaConfigJS("eksemplar tercatat")%></span>'
-        + '<small>' + LibraryModern.escapeHtml(item.callNumber || item.isbn || item.issn || '<%=Common.getBahasaConfigJS("Nomor panggil belum tersedia")%>') + '</small>'
-        + '<a class="library-button library-button-primary" href="' + detail + '"><%=Common.getBahasaConfigJS("Lihat detail")%></a></div></article>';
-    }).join('');
-  }
-  function updatePage() {
-    var pages = Math.max(1, Math.ceil(total / pageSize));
-    el('libraryPageInfo').textContent = page + ' / ' + pages;
-    el('libraryPrevious').disabled = page <= 1;
-    el('libraryNext').disabled = page >= pages;
-  }
-  function load() {
-    var serial = ++requestSerial;
-    el('libraryResults').setAttribute('aria-busy', 'true');
-    el('libraryResults').innerHTML = '<div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div>';
-    renderChips();
-    LibraryModern.fetchJson(api, params()).then(function (data) {
-      if (serial !== requestSerial) return;
-      total = Number(data.total || data.count || 0);
-      renderItems(data.items || data.data || []);
-      el('libraryResultCount').textContent = total.toLocaleString('id-ID') + ' <%=Common.getBahasaConfigJS("judul ditemukan")%>';
-      var keyword = value('query');
-      el('libraryResultTitle').textContent = keyword ? '<%=Common.getBahasaConfigJS("Hasil untuk")%> “' + keyword + '”' : '<%=Common.getBahasaConfigJS("Seluruh koleksi")%>';
-      updatePage();
-    }).catch(function () {
-      if (serial !== requestSerial) return;
-      el('libraryResults').innerHTML = '<div class="library-card library-state"><strong><%=Common.getBahasaConfigJS("Katalog belum dapat dimuat")%></strong><span class="library-muted"><%=Common.getBahasaConfigJS("Periksa koneksi lalu coba kembali.")%></span><br><button class="library-button library-button-primary" type="button" id="libraryRetry<%=rnd%>"><%=Common.getBahasaConfigJS("Coba lagi")%></button></div>';
-      el('libraryRetry').addEventListener('click', load);
-    }).then(function () { el('libraryResults').setAttribute('aria-busy', 'false'); });
-  }
-  LibraryModern.fetchJson(api, {action:'references'}).then(function (data) {
-    fillSelect('libraryBranch', data.libraries); fillSelect('libraryItemType', data.itemTypes); fillSelect('libraryMaterialType', data.materialTypes);
-    fillSelect('libraryFoundation', data.foundations); fillSelect('librarySchool', data.schools); fillSelect('libraryFaculty', data.faculties); fillSelect('libraryStudyProgram', data.studyPrograms);
-  }).catch(function () { /* Search remains usable without optional reference lists. */ });
-  el('libraryQuickSearch').addEventListener('submit', function (event) { event.preventDefault(); page = 1; load(); });
-  el('libraryApply').addEventListener('click', function () { page = 1; load(); });
-  el('libraryReset').addEventListener('click', function () { Object.keys(filterMap).forEach(function (key) { el(filterMap[key]).value = ''; }); page = 1; load(); });
-  el('librarySort').addEventListener('change', function () { page = 1; load(); });
-  el('libraryPrevious').addEventListener('click', function () { if (page > 1) { page--; load(); } });
-  el('libraryNext').addEventListener('click', function () { if (page * pageSize < total) { page++; load(); } });
-  el('libraryFilterToggle').addEventListener('click', function () { var facets = el('libraryFacets'); var open = facets.classList.toggle('is-open'); this.setAttribute('aria-expanded', String(open)); });
-  el('libraryListMode').addEventListener('click', function () { el('libraryResults').classList.remove('library-grid-mode'); this.setAttribute('aria-pressed','true'); el('libraryGridMode').setAttribute('aria-pressed','false'); });
-  el('libraryGridMode').addEventListener('click', function () { el('libraryResults').classList.add('library-grid-mode'); this.setAttribute('aria-pressed','true'); el('libraryListMode').setAttribute('aria-pressed','false'); });
-  el('librarySort').value = '<%=defaultSort%>';
-  load();
+  var suffix='<%=rnd%>',root='<%=root%>',api=root+'/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_catalog_api',memberApi=root+'/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_beranda_anggota_service';
+  var page=1,pageSize=12,total=0,requestSerial=0,controller=null,suggestionController=null,suggestionTimer=null,csrf='',capabilities={};
+  var filterMap={query:'libraryQuery',searchField:'librarySearchField',title:'libraryTitleFilter',author:'libraryAuthor',publisher:'libraryPublisher',callNumber:'libraryCallNumber',availability:'libraryAvailability',libraryId:'libraryBranch',itemTypeId:'libraryItemType',materialTypeId:'libraryMaterialType',language:'libraryLanguage',subject:'librarySubject',schoolId:'librarySchool',studyProgramId:'libraryStudyProgram',yearFrom:'libraryYearFrom',yearTo:'libraryYearTo'};
+  var labels={query:'<%=Common.getBahasaConfigJS("Kata kunci")%>',searchField:'<%=Common.getBahasaConfigJS("Bidang")%>',title:'<%=Common.getBahasaConfigJS("Judul")%>',author:'<%=Common.getBahasaConfigJS("Penulis")%>',publisher:'<%=Common.getBahasaConfigJS("Penerbit")%>',callNumber:'<%=Common.getBahasaConfigJS("Nomor panggil")%>',availability:'<%=Common.getBahasaConfigJS("Ketersediaan")%>',libraryId:'<%=Common.getBahasaConfigJS("Cabang")%>',itemTypeId:'<%=Common.getBahasaConfigJS("Jenis")%>',materialTypeId:'<%=Common.getBahasaConfigJS("Format")%>',language:'<%=Common.getBahasaConfigJS("Bahasa")%>',subject:'<%=Common.getBahasaConfigJS("Subjek")%>',schoolId:'<%=Common.getBahasaConfigJS("Sekolah")%>',studyProgramId:'<%=Common.getBahasaConfigJS("Program studi")%>',yearFrom:'<%=Common.getBahasaConfigJS("Tahun mulai")%>',yearTo:'<%=Common.getBahasaConfigJS("Tahun akhir")%>'};
+  var facetNames={};
+  function el(id){return document.getElementById(id+suffix);} function esc(v){return LibraryModern.escapeHtml(v==null?'':v);} function num(v){return Number(v||0).toLocaleString('id-ID');}
+  function value(key){var n=el(filterMap[key]);return n?String(n.value||'').trim():'';}
+  function params(){var p={action:'search',page:page,pageSize:pageSize,sort:el('librarySort').value};Object.keys(filterMap).forEach(function(k){var v=value(k);if(v&&!(k==='searchField'&&v==='ALL'))p[k]=v;});return p;}
+  function hasFilters(){return Object.keys(filterMap).some(function(k){return k!=='searchField'&&!!value(k);});}
+  function closeFacets(){el('libraryFacets').classList.remove('is-open');el('libraryFacetBackdrop').classList.remove('is-open');el('libraryFilterToggle').setAttribute('aria-expanded','false');document.body.classList.remove('library-sheet-open');}
+  function openFacets(){el('libraryFacets').classList.add('is-open');el('libraryFacetBackdrop').classList.add('is-open');el('libraryFilterToggle').setAttribute('aria-expanded','true');document.body.classList.add('library-sheet-open');var first=el('libraryFacets').querySelector('input,button,summary');if(first)first.focus();}
+  function syncUrl(){var q=new URLSearchParams();Object.keys(filterMap).forEach(function(k){var v=value(k);if(v&&!(k==='searchField'&&v==='ALL'))q.set(k,v);});if(page>1)q.set('page',page);if(pageSize!==12)q.set('pageSize',pageSize);if(el('librarySort').value!=='NEWEST')q.set('sort',el('librarySort').value);if(el('libraryResults').classList.contains('library-grid-mode'))q.set('view','grid');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);}
+  function hydrate(){var q=new URLSearchParams(location.search);Object.keys(filterMap).forEach(function(k){var n=el(filterMap[k]),v=q.get(k);if(n&&v!=null)n.value=v;});page=Math.max(1,Number(q.get('page')||1));pageSize=[10,12,25,50].indexOf(Number(q.get('pageSize')))>=0?Number(q.get('pageSize')):12;el('libraryPageSize').value=String(pageSize);el('librarySort').value=q.get('sort')||'<%=defaultSort%>';if(q.get('view')==='grid')setView('grid');}
+  function renderChips(){var target=el('libraryActiveFilters'),html='',count=0;Object.keys(filterMap).forEach(function(k){var raw=value(k);if(!raw||(k==='searchField'&&raw==='ALL'))return;count++;var node=el(filterMap[k]),shown=facetNames[k+':'+raw]||((node.tagName==='SELECT'&&node.selectedIndex>=0)?node.options[node.selectedIndex].text:raw);html+='<span class="library-chip">'+esc(labels[k]+': '+shown)+'<button type="button" data-clear="'+k+'" aria-label="<%=Common.getBahasaConfigJS("Hapus filter")%>">×</button></span>';});if(count)html+='<button class="library-chip library-chip-clear" type="button" data-clear-all="true"><%=Common.getBahasaConfigJS("Hapus semua filter")%></button>';target.innerHTML=html;el('libraryFilterCount').textContent=count?'('+count+')':'';target.querySelectorAll('[data-clear]').forEach(function(b){b.onclick=function(){el(filterMap[b.getAttribute('data-clear')]).value='';page=1;load();};});var clear=target.querySelector('[data-clear-all]');if(clear)clear.onclick=reset;}
+  function facetHtml(rows,key){return (rows||[]).map(function(x){var val=String(x.id!=null?x.id:x.value),name=x.name||x.nama||'-',checked=value(key)===val;facetNames[key+':'+val]=name;return '<label class="library-facet-option"><input type="radio" name="facet-'+key+suffix+'" data-facet="'+key+'" value="'+esc(val)+'" '+(checked?'checked':'')+'><span>'+esc(name)+'</span><strong>'+num(x.count)+'</strong></label>';}).join('')||'<span class="library-muted library-facet-empty"><%=Common.getBahasaConfigJS("Belum ada pilihan")%></span>';}
+  function renderFacets(f){f=f||{};el('libraryAvailabilityFacets').innerHTML=facetHtml(f.availability,'availability');el('libraryItemTypeFacets').innerHTML=facetHtml(f.itemTypes,'itemTypeId');el('libraryBranchFacets').innerHTML=facetHtml(f.libraries,'libraryId');el('libraryMaterialFacets').innerHTML=facetHtml(f.materialTypes,'materialTypeId');el('libraryLanguageFacets').innerHTML=facetHtml(f.languages,'language');el('librarySubjectFacets').innerHTML=facetHtml(f.subjects,'subject');var s=f.stats||{};el('libraryStatTitles').textContent=num(s.titles);el('libraryStatDigital').textContent=num(s.digital);el('libraryStatCopies').textContent=num(s.copies);el('libraryStatBranches').textContent=num(s.branches);el('libraryFacets').querySelectorAll('[data-facet]').forEach(function(n){n.onchange=function(){el(filterMap[n.getAttribute('data-facet')]).value=n.value;page=1;load();if(innerWidth<=900)closeFacets();};});}
+  function generatedCover(item){var title=String(item.nama||'Koleksi').trim(),words=title.split(/\s+/).filter(Boolean),mark=words.slice(0,3).map(function(w){return w.substring(0,Math.min(8,w.length)).toUpperCase();}).join('<br>'),hue=(Number(item.id||1)*47)%360;var fallback='<span class="library-generated-cover" style="--cover-hue:'+hue+'"><b>'+esc(mark)+'</b><small>'+esc(item.tahun||item.format||'KOLEKSI')+'</small></span>';if(item.imageUrl&&/^https?:\/\//i.test(item.imageUrl))return '<div class="library-cover">'+fallback+'<img loading="lazy" src="'+esc(item.imageUrl)+'" alt="<%=Common.getBahasaConfigJS("Sampul")%> '+esc(title)+'" onerror="this.remove()"></div>';return '<div class="library-cover">'+fallback+'</div>';}
+  function subjects(item){return String(item.kategories||item.tema||'').split(/[,;|]/).filter(Boolean).slice(0,3).map(function(x){return '<span class="library-subject">'+esc(x.trim())+'</span>';}).join('');}
+  function holdings(item){var rows=item.holdings||[];if(!rows.length)return '<div class="library-holding-empty"><%=Common.getBahasaConfigJS("Belum ada eksemplar tercatat")%></div>';return rows.slice(0,2).map(function(h){var ok=Number(h.available)>0;return '<div class="library-holding"><strong>'+esc(h.libraryName)+'</strong><span class="'+(ok?'is-available':'is-loaned')+'">● '+(ok?num(h.available)+' / '+num(h.total)+' <%=Common.getBahasaConfigJS("tersedia")%>':'<%=Common.getBahasaConfigJS("Sedang dipinjam")%>')+'</span>'+(h.shelf?'<small><%=Common.getBahasaConfigJS("Rak")%> '+esc(h.shelf)+'</small>':'')+(!ok&&h.dueDate?'<small><%=Common.getBahasaConfigJS("Jatuh tempo")%> '+esc(h.dueDate)+'</small>':'')+'</div>';}).join('');}
+  function itemActions(item){var hs=item.holdings||[],branch=hs.length?hs[0].libraryId:'',buttons='';if(capabilities.reservation&&item.jumlahEksemplar>0)buttons+='<button class="library-action-link" type="button" data-hold="'+item.id+'" data-library="'+esc(branch)+'"><i class="fa fa-calendar-plus-o"></i> <%=Common.getBahasaConfigJS("Reservasi")%></button>';if(capabilities.favorite)buttons+='<button class="library-action-link" type="button" data-favorite="'+item.id+'">♡ <%=Common.getBahasaConfigJS("Favorit")%></button>';if(item.digital&&item.digitalUrl)buttons+='<a class="library-action-link" target="_blank" rel="noopener noreferrer" href="'+esc(item.digitalUrl)+'"><i class="fa fa-book"></i> <%=Common.getBahasaConfigJS("Baca online")%></a>';buttons+='<button class="library-action-icon" type="button" data-copy="'+esc(item.callNumber||'')+'" title="<%=Common.getBahasaConfigJS("Salin nomor panggil")%>">⧉</button><button class="library-action-icon" type="button" data-cite="'+item.id+'" title="<%=Common.getBahasaConfigJS("Unduh sitasi")%>">Cite</button>';return buttons;}
+  function renderItems(items){var target=el('libraryResults');if(!items||!items.length){target.innerHTML='<div class="library-card library-state"><strong>'+(hasFilters()?'<%=Common.getBahasaConfigJS("Tidak ada koleksi yang cocok dengan filter")%>':'<%=Common.getBahasaConfigJS("Katalog belum memiliki koleksi publik")%>')+'</strong><span class="library-muted"><%=Common.getBahasaConfigJS("Coba kurangi filter atau gunakan kata kunci yang lebih umum.")%></span>'+(hasFilters()?'<br><button class="library-button library-button-primary" type="button" data-empty-reset="true"><%=Common.getBahasaConfigJS("Hapus semua filter")%></button>':'')+'</div>';var r=target.querySelector('[data-empty-reset]');if(r)r.onclick=reset;return;}target.innerHTML=items.map(function(item){var detail=root+'/pustaka?id='+encodeURIComponent(item.id),avail=Number(item.jumlahTersedia||0),totalCopies=Number(item.jumlahEksemplar||0);return '<article class="library-card library-result library-result-v2">'+generatedCover(item)+'<div class="library-result-copy"><div class="library-result-badges"><span>'+esc(item.jenisKoleksi||item.kategories||'<%=Common.getBahasaConfigJS("Koleksi")%>')+'</span>'+(item.format?'<span class="is-soft">'+esc(item.format)+'</span>':'')+(item.digital?'<span class="is-digital"><%=Common.getBahasaConfigJS("Akses digital")%></span>':'')+'</div><h3><a href="'+detail+'">'+esc(item.nama||'<%=Common.getBahasaConfigJS("Tanpa judul")%>')+'</a></h3><div class="library-meta"><span>✎ '+esc(item.pengarangs||'-')+'</span><span>▣ '+esc(item.penerbit&&item.penerbit.nama||'-')+'</span><span>◷ '+esc(item.tahun||'-')+'</span><span>🌐 '+esc(item.bahasa||'-')+'</span>'+(item.isbn?'<span>ISBN '+esc(item.isbn)+'</span>':'')+'</div><p class="library-summary">'+esc(item.ringkasan||'<%=Common.getBahasaConfigJS("Ringkasan belum tersedia.")%>')+'</p><div class="library-subjects">'+subjects(item)+(item.callNumber?'<span class="library-subject is-call">'+esc(item.callNumber)+'</span>':'')+'</div></div><aside class="library-result-action"><h4><%=Common.getBahasaConfigJS("Ketersediaan")%></h4><div class="library-availability-summary '+(avail>0?'is-available':totalCopies>0?'is-loaned':'is-empty')+'">● '+(avail>0?num(avail)+' <%=Common.getBahasaConfigJS("eksemplar tersedia")%>':totalCopies>0?'<%=Common.getBahasaConfigJS("Semua sedang dipinjam")%>':item.digital?'<%=Common.getBahasaConfigJS("Koleksi digital")%>':'<%=Common.getBahasaConfigJS("Belum ada holdings")%>')+'</div>'+holdings(item)+'<div class="library-context-actions">'+itemActions(item)+'</div><a class="library-button library-button-primary" href="'+detail+'"><%=Common.getBahasaConfigJS("Lihat detail")%></a></aside></article>';}).join('');bindItemActions(items);}
+  function bindItemActions(items){var map={};items.forEach(function(x){map[String(x.id)]=x;});el('libraryResults').querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){var v=b.getAttribute('data-copy');if(!v)return notify('<%=Common.getBahasaConfigJS("Nomor panggil belum tersedia")%>','warning');copyText(v).then(function(){notify('<%=Common.getBahasaConfigJS("Nomor panggil disalin")%>','success');});};});el('libraryResults').querySelectorAll('[data-cite]').forEach(function(b){b.onclick=function(){downloadCitation(map[b.getAttribute('data-cite')]);};});el('libraryResults').querySelectorAll('[data-favorite]').forEach(function(b){b.onclick=function(){memberPost({action:'favorite_toggle',itemId:b.getAttribute('data-favorite')});};});el('libraryResults').querySelectorAll('[data-hold]').forEach(function(b){b.onclick=function(){memberPost({action:'hold',itemId:b.getAttribute('data-hold'),libraryId:b.getAttribute('data-library')});};});}
+  function memberPost(data){data.csrf=csrf;LibraryModern.postJson(memberApi,data).then(function(r){csrf=r.csrf||csrf;notify(r.message||'<%=Common.getBahasaConfigJS("Tindakan berhasil")%>','success');}).catch(function(e){notify(e.message||'<%=Common.getBahasaConfigJS("Tindakan belum dapat diproses")%>','error');});}
+  function downloadCitation(item){if(!item)return;var ris='TY  - BOOK\nTI  - '+(item.nama||'')+'\nAU  - '+(item.pengarangs||'')+'\nPY  - '+(item.tahun||'')+'\nPB  - '+(item.penerbit&&item.penerbit.nama||'')+'\nSN  - '+(item.isbn||item.issn||'')+'\nER  - \n',blob=new Blob([ris],{type:'application/x-research-info-systems'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sitasi-'+item.id+'.ris';a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},500);}
+  function copyText(text){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text);var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();return Promise.resolve();}
+  function notify(message,type){var n=el('libraryStateMessage');n.hidden=false;n.className='library-state-banner is-'+(type||'info');n.textContent=message;setTimeout(function(){n.hidden=true;},4500);}
+  function updatePage(){var pages=Math.max(1,Math.ceil(total/pageSize)),start=total?(page-1)*pageSize+1:0,end=Math.min(total,page*pageSize);el('libraryPageInfo').textContent=page+' / '+pages;el('libraryPrevious').disabled=page<=1;el('libraryNext').disabled=page>=pages;el('libraryRangeInfo').textContent=total?'<%=Common.getBahasaConfigJS("Menampilkan")%> '+num(start)+'–'+num(end)+' <%=Common.getBahasaConfigJS("dari")%> '+num(total):'';}
+  function setView(view){var grid=view==='grid';el('libraryResults').classList.toggle('library-grid-mode',grid);el('libraryListMode').setAttribute('aria-pressed',String(!grid));el('libraryGridMode').setAttribute('aria-pressed',String(grid));try{localStorage.setItem('libraryCatalogView',view);}catch(e){}syncUrl();}
+  function load(){var serial=++requestSerial;if(controller)controller.abort();controller=window.AbortController?new AbortController():null;el('libraryResults').setAttribute('aria-busy','true');el('libraryResults').innerHTML='<div class="library-card library-skeleton"></div><div class="library-card library-skeleton"></div>';el('libraryStateMessage').hidden=true;renderChips();syncUrl();el('libraryHero').classList.toggle('is-compact',hasFilters());LibraryModern.fetchJson(api,params(),controller?{signal:controller.signal}:{}).then(function(data){if(serial!==requestSerial)return;csrf=data.csrf||csrf;capabilities=data.capabilities||{};total=Number(data.total||0);renderFacets(data.facets);renderChips();renderItems(data.items||[]);el('libraryResultCount').textContent=num(total)+' <%=Common.getBahasaConfigJS("judul ditemukan")%>';el('libraryResultTitle').textContent=value('query')?'<%=Common.getBahasaConfigJS("Hasil untuk")%> “'+value('query')+'”':'<%=Common.getBahasaConfigJS("Seluruh koleksi")%>';updatePage();}).catch(function(error){if(error&&error.name==='AbortError')return;if(serial!==requestSerial)return;var offline=!navigator.onLine,title=offline?'<%=Common.getBahasaConfigJS("Anda sedang offline")%>':error&&error.status===403?'<%=Common.getBahasaConfigJS("Akses katalog ditolak")%>':error&&error.status===401?'<%=Common.getBahasaConfigJS("Sesi Anda telah berakhir")%>':'<%=Common.getBahasaConfigJS("Katalog belum dapat dimuat")%>';el('libraryResults').innerHTML='<div class="library-card library-state"><strong>'+title+'</strong><span class="library-muted"><%=Common.getBahasaConfigJS("Periksa koneksi atau muat ulang halaman lalu coba kembali.")%></span><br><button class="library-button library-button-primary" type="button" data-retry="true"><%=Common.getBahasaConfigJS("Coba lagi")%></button></div>';el('libraryResults').querySelector('[data-retry]').onclick=load;}).then(function(){if(serial===requestSerial)el('libraryResults').setAttribute('aria-busy','false');});}
+  function reset(){Object.keys(filterMap).forEach(function(k){var n=el(filterMap[k]);if(n)n.value=k==='searchField'?'ALL':'';});page=1;closeFacets();load();}
+  function loadReferences(){LibraryModern.fetchJson(api,{action:'references'}).then(function(d){[['librarySchool',d.schools],['libraryStudyProgram',d.studyPrograms]].forEach(function(pair){(pair[1]||[]).forEach(function(x){el(pair[0]).appendChild(new Option(x.nama,x.id));});});}).catch(function(){});}
+  function suggestions(){clearTimeout(suggestionTimer);var q=value('query'),box=el('librarySuggestions');if(q.length<2){box.hidden=true;box.innerHTML='';return;}suggestionTimer=setTimeout(function(){if(suggestionController)suggestionController.abort();suggestionController=window.AbortController?new AbortController():null;LibraryModern.fetchJson(api,{action:'suggestions',query:q},suggestionController?{signal:suggestionController.signal}:{}).then(function(d){var rows=d.items||[];box.innerHTML=rows.map(function(x){return '<button type="button" role="option" data-suggestion="'+esc(x.title)+'"><strong>'+esc(x.title)+'</strong><span>'+esc(x.authors||'')+'</span></button>';}).join('');box.hidden=!rows.length;box.querySelectorAll('[data-suggestion]').forEach(function(b){b.onclick=function(){el('libraryQuery').value=b.getAttribute('data-suggestion');box.hidden=true;page=1;load();};});}).catch(function(e){if(!e||e.name!=='AbortError')box.hidden=true;});},280);}
+  el('libraryQuickSearch').onsubmit=function(e){e.preventDefault();el('librarySuggestions').hidden=true;page=1;load();};el('libraryQuery').oninput=suggestions;el('libraryQueryClear').onclick=function(){el('libraryQuery').value='';el('libraryQuery').focus();el('librarySuggestions').hidden=true;};
+  document.querySelectorAll('#libraryCatalog'+suffix+' [data-quick-query]').forEach(function(b){b.onclick=function(){el('libraryQuery').value=b.getAttribute('data-quick-query');page=1;load();};});document.querySelectorAll('#libraryCatalog'+suffix+' [data-quick-availability]').forEach(function(b){b.onclick=function(){el('libraryAvailability').value=b.getAttribute('data-quick-availability');page=1;load();};});
+  el('libraryApply').onclick=function(){page=1;closeFacets();load();};el('libraryReset').onclick=reset;el('librarySort').onchange=function(){page=1;load();};el('libraryPageSize').onchange=function(){pageSize=Number(this.value);page=1;load();};el('libraryPrevious').onclick=function(){if(page>1){page--;load();window.scrollTo({top:el('libraryCatalog').offsetTop,behavior:'smooth'});}};el('libraryNext').onclick=function(){if(page*pageSize<total){page++;load();window.scrollTo({top:el('libraryCatalog').offsetTop,behavior:'smooth'});}};
+  el('libraryFilterToggle').onclick=openFacets;el('libraryMobileFilter').onclick=openFacets;el('libraryFacetClose').onclick=closeFacets;el('libraryFacetBackdrop').onclick=closeFacets;el('libraryMobileSort').onclick=function(){el('librarySort').focus();el('librarySort').scrollIntoView({behavior:'smooth',block:'center'});};el('libraryListMode').onclick=function(){setView('list');};el('libraryGridMode').onclick=function(){setView('grid');};el('libraryShareSearch').onclick=function(){var url=location.href;if(navigator.share)navigator.share({title:'Perpustakaan Digital',url:url}).catch(function(){});else copyText(url).then(function(){notify('<%=Common.getBahasaConfigJS("Tautan pencarian disalin")%>','success');});};
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeFacets();el('librarySuggestions').hidden=true;}});window.addEventListener('online',function(){notify('<%=Common.getBahasaConfigJS("Koneksi kembali tersedia")%>','success');});window.addEventListener('offline',function(){notify('<%=Common.getBahasaConfigJS("Koneksi internet terputus")%>','warning');});
+  hydrate();try{if(!new URLSearchParams(location.search).get('view')&&localStorage.getItem('libraryCatalogView')==='grid')setView('grid');}catch(e){}loadReferences();load();
 }());
 </script>

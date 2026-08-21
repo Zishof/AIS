@@ -23,7 +23,6 @@ import ais.action.master.library.modern.LibraryCatalogSearchResult;
 import ais.action.master.library.modern.LibraryCatalogSearchService;
 import ais.action.master.library.util.LibraryUtil;
 import ais.common.Common;
-import ais.common.CommonMedia;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.Item;
 import ais.database.model.library.JenisItem;
@@ -79,12 +78,20 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
             row.setSclass("library-zk-result-row");
             final LibraryCatalogItemDto item = (LibraryCatalogItemDto) value;
 
-            Image cover = new Image(hasText(item.getImageUrl())
-                    ? item.getImageUrl() : CommonMedia.getMediaItem(item.getId(), 128, 168, true));
-            cover.setWidth("112px");
-            cover.setHeight("152px");
-            cover.setStyle("object-fit:cover;border-radius:10px;");
-            cover.setParent(row);
+            if (hasText(item.getImageUrl())) {
+                Image cover = new Image(item.getImageUrl());
+                cover.setWidth("112px"); cover.setHeight("152px");
+                cover.setStyle("object-fit:cover;border-radius:10px;"); cover.setParent(row);
+            } else {
+                int hue = (int) ((item.getId() == null ? 1L : item.getId().longValue()) * 47L % 360L);
+                String mark = coverMark(item.getTitle());
+                new ais.ui.util.MyHtml("<div title='Sampul dibuat otomatis untuk " + html(item.getTitle())
+                        + "' style='width:92px;height:132px;margin:8px;border-radius:10px;padding:12px;"
+                        + "background:linear-gradient(150deg,hsl(" + hue + ",72%,88%),hsl(" + hue
+                        + ",55%,58%));color:hsl(" + hue + ",70%,22%);font-weight:bold;box-shadow:0 8px 18px rgba(30,64,175,.13)'>"
+                        + mark + "<div style='margin-top:55px;font-size:10px'>"
+                        + html(item.getYear() == null ? "KOLEKSI" : item.getYear().toString()) + "</div></div>").setParent(row);
+            }
 
             String metadata = "<div style='padding:6px 10px'>"
                     + "<div style='color:#0f766e;font-size:11px;font-weight:bold;text-transform:uppercase'>" + html(item.getSubject()) + "</div>"
@@ -93,10 +100,12 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
                     + "<br/>Penerbit: " + html(orDash(item.getPublisher()))
                     + "<br/>Tahun: " + html(item.getYear() == null ? "-" : item.getYear().toString())
                     + " · Bahasa: " + html(orDash(item.getLanguage())) + "</div>"
-                    + "<div style='margin-top:8px;color:#047857;font-weight:bold'>● " + item.getCopyCount() + " eksemplar tercatat</div></div>";
+                    + "<div style='margin-top:8px;color:" + (item.getAvailableCount() > 0 ? "#047857" : "#b45309") + ";font-weight:bold'>● "
+                    + item.getAvailableCount() + " dari " + item.getCopyCount() + " tersedia</div></div>";
             new ais.ui.util.MyHtml(metadata).setParent(row);
 
-            String summary = "<div style='padding:8px;color:#44566c;line-height:1.65'><b>Ringkasan</b><br/>"
+            String summary = "<div style='padding:8px;color:#44566c;line-height:1.65'><b>" + html(orDash(item.getItemType()))
+                    + " · " + html(orDash(item.getMaterialType())) + "</b><br/><br/><b>Ringkasan</b><br/>"
                     + html(orDash(item.getSummary())) + "<br/><br/><b>Nomor panggil / ISBN</b><br/>"
                     + html(hasText(item.getCallNumber()) ? item.getCallNumber() : orDash(item.getIsbn())) + "</div>";
             new ais.ui.util.MyHtml(summary).setParent(row);
@@ -130,6 +139,13 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
                 }
             });
             reader.setParent(toolbar);
+
+            if (item.isDigital() && hasText(item.getDigitalUrl())) {
+                MyToolbarbuttonConfig digital = new MyToolbarbuttonConfig("Baca Online", "/img/svg/book.svg");
+                digital.setHref(item.getDigitalUrl());
+                digital.setTarget("_blank");
+                digital.setParent(toolbar);
+            }
             toolbar.setParent(row);
         }
     }
@@ -165,6 +181,15 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
     }
 
     private static boolean hasText(String value) { return value != null && value.trim().length() > 0; }
+    private static String coverMark(String value) {
+        if (!hasText(value)) return "KOLEKSI";
+        String[] words = value.trim().split("\\s+"); StringBuilder result = new StringBuilder();
+        for (int i = 0; i < words.length && i < 3; i++) {
+            if (i > 0) result.append("<br/>");
+            String word = words[i].toUpperCase(); result.append(html(word.length() > 9 ? word.substring(0, 9) : word));
+        }
+        return result.toString();
+    }
     private static String orDash(String value) { return hasText(value) ? value : "-"; }
     private static String html(String value) {
         if (value == null) return "";

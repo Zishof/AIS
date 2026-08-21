@@ -2,6 +2,7 @@ package ais.action.master.library.modern;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,15 +49,16 @@ public class LibraryCatalogSearchService {
             List<Item> entities = dataCriteria.setFirstResult(request.getOffset())
                     .setMaxResults(request.getPageSize()).list();
 
-            Map<Long, Integer> copyCounts = loadCopyCounts(session, entities);
+            Map<Long, List<LibraryHoldingDto>> holdings = loadHoldings(session, entities);
             List<LibraryCatalogItemDto> items = new ArrayList<LibraryCatalogItemDto>();
-            for (Item item : entities) items.add(toDto(item, copyCounts));
+            for (Item item : entities) items.add(toDto(item, holdings));
 
             LibraryCatalogSearchResult result = new LibraryCatalogSearchResult();
             result.setPage(request.getPage());
             result.setPageSize(request.getPageSize());
             result.setTotal(count == null ? 0L : count.longValue());
             result.setItems(items);
+            result.setFacets(new LibraryFacetService().facets(session, request));
             return result;
         } finally {
             HibernateUtil.closeSessionQuietly(session);
@@ -82,24 +84,34 @@ public class LibraryCatalogSearchService {
         }
     }
 
-    private Criteria createCriteria(Session session, LibraryCatalogSearchRequest request) {
+    Criteria createCriteria(Session session, LibraryCatalogSearchRequest request) {
         Criteria criteria = session.createCriteria(Item.class, "item");
         criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
         criteria.add(Restrictions.sqlRestriction(
-                "({alias}.status_terbit_item is null or {alias}.status_terbit_item in "
-                + "(select id from library.status_terbit_item where lower(nama) in ('terbit','publish','disetujui')))"));
+                "{alias}.status_terbit_item in (select id from library.status_terbit_item "
+                + "where lower(trim(nama)) in ('terbit','publish','published'))"));
 
         if (request.getQuery() != null) {
             String value = request.getQuery();
-            Criterion keyword = Restrictions.ilike("nama", value, MatchMode.ANYWHERE);
-            keyword = Restrictions.or(keyword, Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("kategories", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("abstrak", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("kewords", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("isbn", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("issn", value, MatchMode.ANYWHERE));
-            keyword = Restrictions.or(keyword, Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
-            criteria.add(keyword);
+            String field = request.getSearchField();
+            if ("TITLE".equals(field)) criteria.add(Restrictions.ilike("nama", value, MatchMode.ANYWHERE));
+            else if ("AUTHOR".equals(field)) criteria.add(Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
+            else if ("ISBN".equals(field)) criteria.add(Restrictions.or(Restrictions.ilike("isbn", value, MatchMode.ANYWHERE), Restrictions.ilike("issn", value, MatchMode.ANYWHERE)));
+            else if ("SUBJECT".equals(field)) criteria.add(Restrictions.or(Restrictions.ilike("kategories", value, MatchMode.ANYWHERE), Restrictions.ilike("tema", value, MatchMode.ANYWHERE)));
+            else if ("PUBLISHER".equals(field)) { criteria.createAlias("penerbit", "searchPublisher", Criteria.LEFT_JOIN); criteria.add(Restrictions.ilike("searchPublisher.nama", value, MatchMode.ANYWHERE)); }
+            else if ("CALL_NUMBER".equals(field)) criteria.add(Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
+            else if ("BARCODE".equals(field)) criteria.add(Restrictions.sqlRestriction("{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)", "%" + value.toLowerCase() + "%", Hibernate.STRING));
+            else {
+                Criterion keyword = Restrictions.ilike("nama", value, MatchMode.ANYWHERE);
+                keyword = Restrictions.or(keyword, Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("kategories", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("abstrak", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("kewords", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("isbn", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("issn", value, MatchMode.ANYWHERE));
+                keyword = Restrictions.or(keyword, Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
+                criteria.add(keyword);
+            }
         }
         if (request.getTitle() != null) criteria.add(Restrictions.ilike("nama", request.getTitle(), MatchMode.ANYWHERE));
         if (request.getIsbn() != null) {
@@ -115,6 +127,13 @@ public class LibraryCatalogSearchService {
             notes = Restrictions.or(notes, Restrictions.ilike("kewords", request.getNotes(), MatchMode.ANYWHERE));
             criteria.add(notes);
         }
+        if (request.getSubject() != null) criteria.add(Restrictions.or(
+                Restrictions.ilike("kategories", request.getSubject(), MatchMode.ANYWHERE),
+                Restrictions.ilike("tema", request.getSubject(), MatchMode.ANYWHERE)));
+        if (request.getCallNumber() != null) criteria.add(Restrictions.ilike("callnumber", request.getCallNumber(), MatchMode.ANYWHERE));
+        if (request.getBarcode() != null) criteria.add(Restrictions.sqlRestriction(
+                "{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)",
+                "%" + request.getBarcode().toLowerCase() + "%", Hibernate.STRING));
         if (request.getPublisher() != null) {
             criteria.createAlias("penerbit", "publisher", Criteria.LEFT_JOIN);
             criteria.add(Restrictions.ilike("publisher.nama", request.getPublisher(), MatchMode.ANYWHERE));
@@ -141,6 +160,15 @@ public class LibraryCatalogSearchService {
                     "{alias}.jurusan in (select id from jurusan where fakultas = ?)",
                     request.getFacultyId(), Hibernate.LONG));
         }
+        if ("AVAILABLE".equals(request.getAvailability())) criteria.add(Restrictions.sqlRestriction(
+                "exists (select 1 from library.item_punya_barcode b where b.item={alias}.id and not exists "
+                + "(select 1 from library.peminjaman_pengadaan_item_detail d where d.item_punya_barcode=b.id and d.kembali_pengadaan_item_detail is null))"));
+        else if ("LOANED".equals(request.getAvailability())) criteria.add(Restrictions.sqlRestriction(
+                "exists (select 1 from library.item_punya_barcode b join library.peminjaman_pengadaan_item_detail d "
+                + "on d.item_punya_barcode=b.id where b.item={alias}.id and d.kembali_pengadaan_item_detail is null)"));
+        else if ("DIGITAL".equals(request.getAvailability())) criteria.add(Restrictions.or(
+                Restrictions.eq("bolehDiDownload", Boolean.TRUE),
+                Restrictions.or(Restrictions.isNotNull("ebooksLink"), Restrictions.isNotNull("ebooksLinkPdf"))));
         return criteria;
     }
 
@@ -159,24 +187,37 @@ public class LibraryCatalogSearchService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Long, Integer> loadCopyCounts(Session session, List<Item> entities) {
-        Map<Long, Integer> result = new HashMap<Long, Integer>();
+    private Map<Long, List<LibraryHoldingDto>> loadHoldings(Session session, List<Item> entities) {
+        Map<Long, List<LibraryHoldingDto>> result = new LinkedHashMap<Long, List<LibraryHoldingDto>>();
         if (entities == null || entities.isEmpty()) return result;
         List<Long> ids = new ArrayList<Long>();
         for (Item item : entities) ids.add(item.getId());
         Query query = session.createSQLQuery(
-                "select item, count(id) from library.item_punya_barcode where item in (:ids) group by item");
+                "select b.item,p.id,coalesce(p.nama,'Lokasi belum ditentukan'),count(b.id),"
+                + "sum(case when loan.item_punya_barcode is null then 1 else 0 end),"
+                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),'') "
+                + "from library.item_punya_barcode b left join library.perpustakaan p on p.id=b.perpustakaan "
+                + "left join (select item_punya_barcode,max(batas_waktu_pengembalian) due_date "
+                + "from library.peminjaman_pengadaan_item_detail where kembali_pengadaan_item_detail is null "
+                + "group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
+                + "where b.item in (:ids) group by b.item,p.id,p.nama order by p.nama");
         query.setParameterList("ids", ids);
         List<Object[]> rows = query.list();
         for (Object[] row : rows) {
-            if (row[0] instanceof Number && row[1] instanceof Number) {
-                result.put(Long.valueOf(((Number) row[0]).longValue()), Integer.valueOf(((Number) row[1]).intValue()));
-            }
+            if (!(row[0] instanceof Number)) continue;
+            Long itemId = Long.valueOf(((Number) row[0]).longValue());
+            Long libraryId = row[1] instanceof Number ? Long.valueOf(((Number) row[1]).longValue()) : null;
+            int total = row[3] instanceof Number ? ((Number) row[3]).intValue() : 0;
+            int available = row[4] instanceof Number ? ((Number) row[4]).intValue() : 0;
+            List<LibraryHoldingDto> itemHoldings = result.get(itemId);
+            if (itemHoldings == null) { itemHoldings = new ArrayList<LibraryHoldingDto>(); result.put(itemId, itemHoldings); }
+            itemHoldings.add(new LibraryHoldingDto(libraryId, row[2] == null ? null : String.valueOf(row[2]),
+                    total, available, row[5] == null ? null : String.valueOf(row[5]), null));
         }
         return result;
     }
 
-    private LibraryCatalogItemDto toDto(Item item, Map<Long, Integer> copyCounts) {
+    private LibraryCatalogItemDto toDto(Item item, Map<Long, List<LibraryHoldingDto>> holdingMap) {
         LibraryCatalogItemDto dto = new LibraryCatalogItemDto();
         dto.setId(item.getId());
         dto.setTitle(item.getNama());
@@ -190,9 +231,25 @@ public class LibraryCatalogSearchService {
         dto.setLanguage(item.getBahasa());
         dto.setCallNumber(item.getCallnumber());
         dto.setYear(item.getTahun());
-        Integer copies = copyCounts.get(item.getId());
-        dto.setCopyCount(copies == null ? 0 : copies.intValue());
+        List<LibraryHoldingDto> holdings = holdingMap.get(item.getId());
+        int copies = 0, available = 0;
+        if (holdings != null) for (LibraryHoldingDto holding : holdings) { copies += holding.getTotal(); available += holding.getAvailable(); }
+        dto.setCopyCount(copies);
+        dto.setAvailableCount(available);
+        dto.setHoldings(holdings);
+        dto.setItemType(item.getJenisItem() == null ? null : item.getJenisItem().getNama());
+        dto.setMaterialType(item.getTipeItem() == null ? null : item.getTipeItem().getNama());
+        String ebook = safeUrl(item.getEbooksLink());
+        if (ebook == null) ebook = safeUrl(item.getEbooksLinkPdf());
+        dto.setDigital(Boolean.TRUE.equals(item.getBolehDiDownload()) || ebook != null);
+        dto.setDigitalUrl(ebook);
         return dto;
+    }
+
+    private String safeUrl(String value) {
+        if (value == null) return null;
+        value = value.trim();
+        return value.startsWith("https://") || value.startsWith("http://") || value.startsWith("/") ? value : null;
     }
 
     @SuppressWarnings("unchecked")

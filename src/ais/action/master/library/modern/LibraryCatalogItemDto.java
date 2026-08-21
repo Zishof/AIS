@@ -1,7 +1,11 @@
 package ais.action.master.library.modern;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import org.json.JSONException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Public-safe catalog projection. */
 public class LibraryCatalogItemDto {
@@ -18,6 +22,12 @@ public class LibraryCatalogItemDto {
     private String callNumber;
     private Integer year;
     private int copyCount;
+    private int availableCount;
+    private String itemType;
+    private String materialType;
+    private boolean digital;
+    private String digitalUrl;
+    private List<LibraryHoldingDto> holdings = new ArrayList<LibraryHoldingDto>();
 
     public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
@@ -35,6 +45,14 @@ public class LibraryCatalogItemDto {
         json.put("callNumber", safe(callNumber));
         json.put("tahun", year == null ? JSONObject.NULL : year);
         json.put("jumlahEksemplar", copyCount);
+        json.put("jumlahTersedia", availableCount);
+        json.put("jenisKoleksi", safe(itemType));
+        json.put("format", safe(materialType));
+        json.put("digital", digital);
+        json.put("digitalUrl", safe(digitalUrl));
+        JSONArray holdingData = new JSONArray();
+        for (LibraryHoldingDto holding : holdings) holdingData.put(holding.toJson());
+        json.put("holdings", holdingData);
         return json;
     }
 
@@ -66,4 +84,16 @@ public class LibraryCatalogItemDto {
     public void setYear(Integer year) { this.year = year; }
     public int getCopyCount() { return copyCount; }
     public void setCopyCount(int copyCount) { this.copyCount = copyCount; }
+    public int getAvailableCount() { return availableCount; }
+    public void setAvailableCount(int availableCount) { this.availableCount = availableCount; }
+    public String getItemType() { return itemType; }
+    public void setItemType(String itemType) { this.itemType = itemType; }
+    public String getMaterialType() { return materialType; }
+    public void setMaterialType(String materialType) { this.materialType = materialType; }
+    public boolean isDigital() { return digital; }
+    public void setDigital(boolean digital) { this.digital = digital; }
+    public String getDigitalUrl() { return digitalUrl; }
+    public void setDigitalUrl(String digitalUrl) { this.digitalUrl = digitalUrl; }
+    public List<LibraryHoldingDto> getHoldings() { return holdings; }
+    public void setHoldings(List<LibraryHoldingDto> holdings) { this.holdings = holdings == null ? new ArrayList<LibraryHoldingDto>() : holdings; }
 }

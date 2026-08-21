@@ -20,6 +20,11 @@ public class LibraryCatalogSearchRequest {
     private String language;
     private String edition;
     private String notes;
+    private String searchField;
+    private String subject;
+    private String callNumber;
+    private String barcode;
+    private String availability;
     private Long libraryId;
     private Long itemTypeId;
     private Long materialTypeId;
@@ -44,6 +49,11 @@ public class LibraryCatalogSearchRequest {
         value.language = text(request.getParameter("language"), 60);
         value.edition = text(request.getParameter("edition"), 80);
         value.notes = text(request.getParameter("notes"), 160);
+        value.searchField = allowedSearchField(request.getParameter("searchField"));
+        value.subject = text(request.getParameter("subject"), 120);
+        value.callNumber = text(request.getParameter("callNumber"), 80);
+        value.barcode = text(request.getParameter("barcode"), 80);
+        value.availability = allowedAvailability(request.getParameter("availability"));
         value.libraryId = positiveLong(request.getParameter("libraryId"));
         value.itemTypeId = positiveLong(request.getParameter("itemTypeId"));
         value.materialTypeId = positiveLong(request.getParameter("materialTypeId"));
@@ -102,6 +112,18 @@ public class LibraryCatalogSearchRequest {
         return "NEWEST";
     }
 
+    private static String allowedSearchField(String raw) {
+        if ("TITLE".equals(raw) || "AUTHOR".equals(raw) || "ISBN".equals(raw)
+                || "SUBJECT".equals(raw) || "PUBLISHER".equals(raw)
+                || "CALL_NUMBER".equals(raw) || "BARCODE".equals(raw)) return raw;
+        return "ALL";
+    }
+
+    private static String allowedAvailability(String raw) {
+        if ("AVAILABLE".equals(raw) || "LOANED".equals(raw) || "DIGITAL".equals(raw)) return raw;
+        return null;
+    }
+
     public int getOffset() { return (page - 1) * pageSize; }
     public String getQuery() { return query; }
     public String getTitle() { return title; }
@@ -112,6 +134,11 @@ public class LibraryCatalogSearchRequest {
     public String getLanguage() { return language; }
     public String getEdition() { return edition; }
     public String getNotes() { return notes; }
+    public String getSearchField() { return searchField; }
+    public String getSubject() { return subject; }
+    public String getCallNumber() { return callNumber; }
+    public String getBarcode() { return barcode; }
+    public String getAvailability() { return availability; }
     public Long getLibraryId() { return libraryId; }
     public Long getItemTypeId() { return itemTypeId; }
     public Long getMaterialTypeId() { return materialTypeId; }
@@ -133,6 +160,11 @@ public class LibraryCatalogSearchRequest {
     public void setLanguage(String language) { this.language = text(language, 60); }
     public void setEdition(String edition) { this.edition = text(edition, 80); }
     public void setNotes(String notes) { this.notes = text(notes, 160); }
+    public void setSearchField(String searchField) { this.searchField = allowedSearchField(searchField); }
+    public void setSubject(String subject) { this.subject = text(subject, 120); }
+    public void setCallNumber(String callNumber) { this.callNumber = text(callNumber, 80); }
+    public void setBarcode(String barcode) { this.barcode = text(barcode, 80); }
+    public void setAvailability(String availability) { this.availability = allowedAvailability(availability); }
     public void setItemTypeId(Long itemTypeId) { this.itemTypeId = itemTypeId; }
     public void setMaterialTypeId(Long materialTypeId) { this.materialTypeId = materialTypeId; }
     public void setPage(int page) { this.page = page < 1 ? 1 : page; }

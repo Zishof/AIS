@@ -76,6 +76,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
     private Div palette, gridArea;
     private Jurusan jurusanPengguna;
     private Fakultas fakultasPengguna;
+    private boolean modeReadonlyPenjadwalan;
 
     /** pId → {newHari, newJamId, newWm, newWs} — perubahan belum disimpan */
     private final Map<Long, Object[]>  changes     = new LinkedHashMap<Long, Object[]>();
@@ -461,6 +462,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
 
         final String ta  = (String)  cbTA.getSelectedItem().getValue();
         final int    smt = (Integer) cbSmt.getSelectedItem().getValue();
+        modeReadonlyPenjadwalan = jadwalTerpilihTidakAktif(false);
         Session s = HibernateUtil.currentSession();
 
         buildConflictIds(ta, smt, s);
@@ -683,20 +685,30 @@ public class TimetablePerkuliahanWindow extends MyWindow {
                        final String waktuMulai, final String waktuSelesai) {
         final Div cell = new Div();
         cell.setSclass("aisttpcell");
-        cell.setDroppable(DND);
+        cell.setDroppable(modeReadonlyPenjadwalan ? "false" : DND);
         cell.setAttribute("hari", hari);
         cell.setAttribute("jamId", jamId);
         cell.setAttribute("wm",   waktuMulai);
         cell.setAttribute("ws",   waktuSelesai);
         cell.addEventListener("onDrop", new EventListener() {
             public void onEvent(Event ev) throws Exception {
+                if (modeReadonlyPenjadwalan) {
+                    tampilkanPesanPenjadwalanTertutup();
+                    return;
+                }
                 DropEvent de = (DropEvent) ev;
                 if (de.getDragged() instanceof Div) cardToCell((Div) de.getDragged(), cell);
             }
         });
         // Klik sel -> pilih item dari "Belum Terjadwal" untuk ditambahkan ke slot ini.
         cell.addEventListener("onClick", new EventListener() {
-            public void onEvent(Event ev) throws Exception { bukaTambahKeCell(cell); }
+            public void onEvent(Event ev) throws Exception {
+                if (modeReadonlyPenjadwalan) {
+                    tampilkanPesanPenjadwalanTertutup();
+                    return;
+                }
+                bukaTambahKeCell(cell);
+            }
         });
         return cell;
     }
@@ -711,10 +723,11 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         final Long    pId       = p.getId();
         final boolean isLocked  = locked.contains(pId);
         final boolean isConflict = conflictIds.contains(pId);
+        final boolean canChange = bolehMengubahJadwal(p, false);
 
         final Div card = new Div();
         card.setAttribute("pId", pId);
-        card.setDraggable(isLocked ? "false" : DND);
+        card.setDraggable(isLocked || !canChange ? "false" : DND);
 
         Long   colorKey = p.getMatakuliah() != null ? p.getMatakuliah().getId() : pId;
         String bg       = CARD_COLORS[color(colorKey)];
@@ -722,6 +735,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
 
         StringBuilder sc = new StringBuilder("aisttpcard");
         if (isLocked)   sc.append(" locked");
+        if (!canChange && !isLocked) sc.append(" locked");
         if (isConflict) sc.append(" conflict");
         card.setSclass(sc.toString());
 
@@ -828,6 +842,10 @@ public class TimetablePerkuliahanWindow extends MyWindow {
     // ── DnD handlers ─────────────────────────────────────────────────────────
 
     private void cardToCell(Div card, Div cell) {
+        if (modeReadonlyPenjadwalan) {
+            tampilkanPesanPenjadwalanTertutup();
+            return;
+        }
         // Kartu MK dari kurikulum (belum ada perkuliahan) -> buat perkuliahan baru pada slot ini.
         if (card.getAttribute("pId") == null && card.getAttribute("mkId") != null) {
             buatPerkuliahanDariMk(card, cell);
@@ -835,6 +853,8 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         }
         Long pId = (Long) card.getAttribute("pId");
         if (pId == null || locked.contains(pId)) return;
+        Perkuliahan perkuliahan = (Perkuliahan) HibernateUtil.currentSession().get(Perkuliahan.class, pId);
+        if (perkuliahan == null || !bolehMengubahJadwal(perkuliahan, true)) return;
 
         card.detach();
         card.setParent(cell);
@@ -847,8 +867,14 @@ public class TimetablePerkuliahanWindow extends MyWindow {
 
     @SuppressWarnings("unchecked")
     private void cardToPalette(Div card) {
+        if (modeReadonlyPenjadwalan) {
+            tampilkanPesanPenjadwalanTertutup();
+            return;
+        }
         Long pId = (Long) card.getAttribute("pId");
         if (locked.contains(pId)) return;
+        Perkuliahan perkuliahan = (Perkuliahan) HibernateUtil.currentSession().get(Perkuliahan.class, pId);
+        if (perkuliahan == null || !bolehMengubahJadwal(perkuliahan, true)) return;
 
         for (Object c : new ArrayList<Object>(palette.getChildren())) {
             if (c instanceof Label) ((Component) c).detach();
@@ -1340,6 +1366,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
                     "Data Belum Lengkap", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
             return;
         }
+        if (jadwalTerpilihTidakAktif(true)) return;
         Session session = HibernateUtil.currentSession();
         List<Perkuliahan> data = ambilPerkuliahanTerpilih(session,
                 (String) cbTA.getSelectedItem().getValue(),
@@ -1458,6 +1485,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
     private void jalankanPenjadwalan(boolean dariRiwayat) {
         try {
             if (viewMode != 0 || cbTA.getSelectedItem() == null || cbSmt.getSelectedItem() == null) return;
+            if (jadwalTerpilihTidakAktif(true)) return;
             String ta = (String) cbTA.getSelectedItem().getValue();
             int smt = ((Integer) cbSmt.getSelectedItem().getValue()).intValue();
             Session session = HibernateUtil.currentSession();
@@ -1688,6 +1716,31 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         return true;
     }
 
+    private boolean jadwalTerpilihTidakAktif(boolean tampilkanPesan) {
+        if (viewMode != 0 || cbTA == null || cbTA.getSelectedItem() == null || cbSmt == null
+                || cbSmt.getSelectedItem() == null || cbJurusan == null || cbJurusan.getSelectedItem() == null
+                || cbJurusan.getSelectedItem().getValue() == null) {
+            return false;
+        }
+        Session session = HibernateUtil.currentSession();
+        Jurusan jurusan = (Jurusan) session.get(Jurusan.class, (Long) cbJurusan.getSelectedItem().getValue());
+        if (jurusanPengguna != null) jurusan = jurusanPengguna;
+        if (jurusan == null) return false;
+        int smt = (Integer) cbSmt.getSelectedItem().getValue();
+        boolean sp = smt == 3;
+        String jenisSemester = sp ? Perkuliahan.SP : (smt == 1 ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
+        String tahunAkademik = (String) cbTA.getSelectedItem().getValue();
+        boolean tidakAktif = CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik, jenisSemester,
+                sp ? Perkuliahan.SEMESTER_PENDEK : null, jurusan.getFakultas(), jurusan, null);
+        if (tidakAktif && tampilkanPesan) tampilkanPesanPenjadwalanTertutup();
+        return tidakAktif;
+    }
+
+    private void tampilkanPesanPenjadwalanTertutup() {
+        msgbox("Jadwal tidak dapat diubah karena periode penjadwalan sudah ditutup / belum aktif untuk program studi ini.",
+                "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+    }
+
     // ── Filter Kurikulum + kartu MK ─────────────────────────────────────────────
 
     /** Mengisi combobox Kurikulum (opsi "tanpa kurikulum" + daftar kurikulum, disaring jurusan bila ada). */
@@ -1750,7 +1803,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         card.setAttribute("mkId", mk.getId());
         card.setAttribute("kurId", kur.getId());
         card.setAttribute("kpmSmt", kpm.getSemester());
-        card.setDraggable(DND);
+        card.setDraggable(modeReadonlyPenjadwalan ? "false" : DND);
         card.setSclass("aisttpcard aisttpmk");
         Div cn = new Div(); cn.setSclass("cn");
         new Label("+ " + (mk.getNama() != null ? mk.getNama() : "-")).setParent(cn);
@@ -1764,6 +1817,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
     /** Membuat Perkuliahan baru dari kartu MK yang dijatuhkan ke sebuah sel, lalu menggantinya jadi kartu nyata. */
     private void buatPerkuliahanDariMk(Div mkCardEl, Div cell) {
         try {
+            if (modeReadonlyPenjadwalan || jadwalTerpilihTidakAktif(true)) return;
             if (cbTA.getSelectedItem() == null || cbSmt.getSelectedItem() == null) return;
             Session s = HibernateUtil.currentSession();
             Long mkId  = (Long) mkCardEl.getAttribute("mkId");
@@ -1903,6 +1957,7 @@ public class TimetablePerkuliahanWindow extends MyWindow {
     /** Menampilkan daftar item "Belum Terjadwal" untuk ditempatkan ke {@code cell} (klik = pindah). */
     @SuppressWarnings("unchecked")
     private void bukaTambahKeCell(final Div cell) throws Exception {
+        if (modeReadonlyPenjadwalan || jadwalTerpilihTidakAktif(true)) return;
         java.util.List<Div> kandidat = new java.util.ArrayList<Div>();
         for (Object o : palette.getChildren()) {
             if (o instanceof Div) {

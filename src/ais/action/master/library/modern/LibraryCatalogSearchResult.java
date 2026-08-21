@@ -12,6 +12,7 @@ public class LibraryCatalogSearchResult {
     private int pageSize;
     private long total;
     private List<LibraryCatalogItemDto> items = new ArrayList<LibraryCatalogItemDto>();
+    private JSONObject facets = new JSONObject();
 
     public JSONObject toJson() throws JSONException {
         JSONArray data = new JSONArray();
@@ -22,6 +23,7 @@ public class LibraryCatalogSearchResult {
                 .put("pageSize", pageSize)
                 .put("count", total)
                 .put("total", total)
+                .put("facets", facets)
                 .put("data", data)
                 .put("items", data);
     }
@@ -34,4 +36,6 @@ public class LibraryCatalogSearchResult {
     public void setTotal(long total) { this.total = total; }
     public List<LibraryCatalogItemDto> getItems() { return items; }
     public void setItems(List<LibraryCatalogItemDto> items) { this.items = items; }
+    public JSONObject getFacets() { return facets; }
+    public void setFacets(JSONObject facets) { this.facets = facets == null ? new JSONObject() : facets; }
 }

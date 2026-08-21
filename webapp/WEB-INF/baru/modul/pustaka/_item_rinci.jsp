@@ -330,8 +330,9 @@
                                                         %>
                                                         <div class="d-flex align-items-center mb-2">
                                                             <span class="me-3 text-dark fw-bold text-center" style="min-width: 65px;"><%=barcodeStr%></span>
-                                                            <div class="px-3 py-1 shadow-sm rounded-1" style="background-color: #000080; color: #00ff00; font-family: monospace; font-size: 0.9rem; font-weight: bold;">
-                                                                <%=Common.getBahasaConfig("Tersedia di")%> <%=perpusName.toUpperCase()%>
+                                                            <div class="px-3 py-1 shadow-sm rounded-1" style="background-color: <%=ipb.isAvailable() ? "#ecfdf5" : "#fff7ed"%>; color: <%=ipb.isAvailable() ? "#047857" : "#b45309"%>; font-size: 0.9rem; font-weight: bold;">
+                                                                <%=ipb.isAvailable() ? Common.getBahasaConfig("Tersedia di") : Common.getBahasaConfig("Sedang dipinjam di")%> <%=perpusName.toUpperCase()%>
+                                                                <%=!ipb.isAvailable() && !ipb.getDueDate().isEmpty() ? " · " + Common.getBahasaConfig("Jatuh tempo") + " " + ipb.getDueDate() : ""%>
                                                             </div>
                                                             <% if (ipb.getLibraryId() != null) { %><button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="holdDetail<%=modalId%>(<%=ipb.getLibraryId()%>,this)"><%=Common.getBahasaConfig("Reservasi")%></button><% } %>
                                                         </div>

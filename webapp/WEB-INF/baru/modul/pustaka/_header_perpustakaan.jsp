@@ -7,6 +7,14 @@
     String rnd = request.getParameter("rnd");
     if (rnd == null) rnd = Common.getGeneratedBarCode(7);
     Tbmuser tbmuser = Common.getCurrentUser(request);
+    String rolePustaka = tbmuser != null && tbmuser.hakAkses() != null && tbmuser.hakAkses().getRoleId() != null
+            ? tbmuser.hakAkses().getRoleId().trim().toLowerCase() : "";
+    boolean adminPustaka = "am".equals(rolePustaka) || rolePustaka.contains("admin");
+    boolean petugasPustaka = adminPustaka || rolePustaka.contains("pustaka") || rolePustaka.contains("library");
+    boolean anggotaPustaka = tbmuser != null && !petugasPustaka;
+    String sectionPustaka = request.getParameter("s");
+    boolean katalogPustaka = sectionPustaka == null || sectionPustaka.trim().isEmpty()
+            || "katalog".equals(sectionPustaka) || "populer".equals(sectionPustaka);
 
     String judulNamaPerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request).getNama();
     String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_");
@@ -32,6 +40,7 @@
         
         <div class="collapse navbar-collapse" id="navbarPerpus<%=rnd%>">
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0 fw-medium">
+                <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="<%=Common.ROOT%>/pustaka"><i class="fas fa-home me-1 text-primary"></i><%= Common.getBahasaConfig("Beranda") %></a></li>
                 
                 <li class="nav-item dropdown px-1">
                     <a class="nav-link dropdown-toggle text-dark" href="#" id="dropProfil" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -86,9 +95,17 @@
                     </ul>
                 </li>
 
-                <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('dashboard')"><i class="fas fa-chart-line me-1 text-primary"></i><%= Common.getBahasaConfig("Dasbor") %></a></li>
+                <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="<%=Common.ROOT%>/pustaka?availability=DIGITAL"><i class="fas fa-tablet-alt me-1 text-primary"></i><%= Common.getBahasaConfig("Koleksi Digital") %></a></li>
+                <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#libraryHelp" onclick="if(window.showHelpModal){showHelpModal();return false;}"><i class="far fa-question-circle me-1 text-primary"></i><%= Common.getBahasaConfig("Bantuan") %></a></li>
+
+                <% if (petugasPustaka) { %>
+                    <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('dashboard')"><i class="fas fa-chart-line me-1 text-primary"></i><%= Common.getBahasaConfig("Dasbor") %></a></li>
+                    <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('sirkulasi_data')"><%= Common.getBahasaConfig("Sirkulasi") %></a></li>
+                    <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('katalogisasi')"><%= Common.getBahasaConfig("Katalogisasi") %></a></li>
+                    <% if (adminPustaka) { %><li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('integrasi')"><%= Common.getBahasaConfig("Integrasi") %></a></li><% } %>
+                <% } %>
                 
-                <% if (tbmuser == null) { %>
+                <% if (anggotaPustaka) { %>
                     <li class="nav-item px-1"><a class="nav-link text-dark hover-primary" href="#" onclick="panggilMenu<%=rnd%>('beranda_anggota')"><i class="far fa-id-card me-1 text-secondary"></i><%= Common.getBahasaConfig("Beranda Anggota") %></a></li>
                 <% } %>
             </ul>
@@ -113,7 +130,7 @@
     </div>
 </nav>
 
-<div class="hero-section-perpus pb-5 mb-5 text-center">
+<% if (!katalogPustaka) { %><div class="hero-section-perpus pb-5 mb-5 text-center">
     <div class="container pb-4 pt-4">
         <h2 class="fw-bold text-white text-uppercase tracking-wide-perpus text-shadow-perpus mb-2 animate__animated animate__fadeInDown">
             <%= judulNamaPerguruanTinggi != null ? judulNamaPerguruanTinggi : "" %>
@@ -125,4 +142,4 @@
             <%= Common.getBahasaConfig("Selamat datang di layanan perpustakaan terpadu. Jelajahi koleksi pustaka, temukan buku populer, serta pantau aktivitas sirkulasi dan kunjungan anggota secara langsung.") %>
         </p>
     </div>
-</div>
+</div><% } %>

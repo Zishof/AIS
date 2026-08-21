@@ -9,8 +9,8 @@
 %>
 
 <head>
-    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821b">
-    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821b"></script>
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821c">
+    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821c"></script>
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
@@ -110,6 +110,10 @@ function panggilMenu<%=rnd%>(menuNama) {
         'kunjungan_data': baseURL + 'kunjungan',
         'dashboard': baseURL + 'dashboard',
         'beranda_anggota': baseURL + 'beranda_anggota',
+        'integrasi': baseURL + 'integrasi',
+        'katalogisasi': baseURL + 'katalogisasi',
+        'operasional': baseURL + 'operasional',
+        'denda': baseURL + 'denda',
         
         // Peta Informasi Profil & Layanan
         'sejarah': baseURL + '_informasi_pustaka&jenis=sejarah',

@@ -18,14 +18,16 @@
     return result.join('&');
   }
 
-  function fetchJson(url, params) {
+  function fetchJson(url, params, options) {
     var separator = url.indexOf('?') >= 0 ? '&' : '?';
+    options = options || {};
     return fetch(url + separator + query(params), {
       method: 'GET',
       credentials: 'same-origin',
-      headers: {'Accept': 'application/json'}
+      headers: {'Accept': 'application/json'},
+      signal: options.signal
     }).then(function (response) {
-      if (!response.ok) throw new Error('HTTP ' + response.status);
+      if (!response.ok) { var error = new Error('HTTP ' + response.status); error.status = response.status; throw error; }
       return response.json();
     }).then(function (data) {
       if (data && data.ok === false) throw new Error(data.error || 'Permintaan gagal');

@@ -3857,12 +3857,9 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 
 	/** Selaras dengan filter katalog publik di WEB-INF/baru/modul/pustaka/katalog.jsp. */
 	private boolean tampilDiKatalogPublik(String namaStatus) {
-		if (namaStatus == null) {
-			return true;
-		}
+        if (namaStatus == null) return false;
 		String n = namaStatus.trim().toLowerCase();
-		return n.equals("terbit") || n.equals("publish")
-				|| n.equals("disetujui");
+        return n.equals("terbit") || n.equals("publish") || n.equals("published");
 	}
 
 	/** Baris tab Penerbitan: centang, data ringkas, status berwarna, dan tombol ubah cepat. */
