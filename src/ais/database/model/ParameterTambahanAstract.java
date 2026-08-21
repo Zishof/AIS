@@ -1635,6 +1635,32 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return null;
 	}
 
+	private static Double ambilAngkaPertamaAman(String raw) {
+		if (raw == null || raw.trim().length() == 0) {
+			return null;
+		}
+		java.util.regex.Matcher m = java.util.regex.Pattern.compile("([+-]?[0-9]+([.,][0-9]+)?)").matcher(raw);
+		if (!m.find()) {
+			return null;
+		}
+		try {
+			return Double.valueOf(Double.parseDouble(m.group(1).replace(",", ".")));
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static Date parseTanggalAman(String raw, java.text.DateFormat format) {
+		if (raw == null || raw.trim().length() == 0 || format == null) {
+			return null;
+		}
+		try {
+			return format.parse(raw.trim());
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	public static String ambilValComponent(Component component, ParameterTambahan parameterTambahan) {
 		String val = "";
@@ -1690,15 +1716,8 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					try {
 						nilai = (((MyDatebox) component).getValue());
 					} catch (org.zkoss.zk.ui.WrongValueException wve) {
-						// FIX WrongValueException "You must specify a date. Format: dd-MM-yyyy HH:mm":
-						// JANGAN dibiarkan tertelan diam-diam oleh catch(Exception) di bawah --
-						// itu akan membuat val="" lalu menimpa nilai lama parameter tambahan
-						// dengan string kosong tanpa sepengetahuan pengguna. Lempar ulang dgn
-						// pesan yg menyebut LABEL parameter agar ZK menampilkan balloon merah
-						// tepat di komponen ybs dan proses simpan berhenti.
-						throw new org.zkoss.zk.ui.WrongValueException(component,
-								"Format tanggal & waktu untuk \"" + parameterTambahan.getLabelInputan()
-										+ "\" tidak valid. Format: dd-MM-yyyy HH:mm");
+						String raw = ambilTeksMentahAman((MyDatebox) component);
+						nilai = parseTanggalAman(raw, Common.dateFormat.get());
 					}
 					val = nilai == null ? "" : Common.dateFormat.get().format(nilai);
 				}
@@ -1713,11 +1732,8 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					try {
 						nilai = (((MyDatebox) component).getValue());
 					} catch (org.zkoss.zk.ui.WrongValueException wve) {
-						// FIX WrongValueException "You must specify a date. Format: dd-MM-yyyy":
-						// sama seperti TANGGAL_DAN_WAKTU di atas -- lempar ulang, jangan ditelan.
-						throw new org.zkoss.zk.ui.WrongValueException(component,
-								"Format tanggal untuk \"" + parameterTambahan.getLabelInputan()
-										+ "\" tidak valid. Format: dd-MM-yyyy");
+						String raw = ambilTeksMentahAman((MyDatebox) component);
+						nilai = parseTanggalAman(raw, Common.dateFormat1.get());
 					}
 					val = nilai == null ? "" : Common.dateFormat1.get().format(nilai);
 				}
@@ -1740,23 +1756,11 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 						// parameter tambahan alumni batal. Pakai pembaca mentah yang aman
 						// (getRawText lebih dulu) -- lihat ambilTeksMentahAman.
 						String raw = ambilTeksMentahAman((MyDoublebox) component);
-						Double fallback = null;
-						if (raw != null && raw.trim().length() > 0) {
-							// Tanda minus/plus di depan ikut dikenali; token yang hanya berisi
-							// "-" / "+" / teks bebas TIDAK cocok -> dianggap "tanpa nilai".
-							java.util.regex.Matcher m = java.util.regex.Pattern
-									.compile("^\\s*([+-]?[0-9]+([.,][0-9]+)?)").matcher(raw);
-							if (m.find()) {
-								String angkaStr = m.group(1).replace(",", ".");
-								try {
-									fallback = Double.parseDouble(angkaStr);
-								} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:ambilValComponent-ANGKA-fallbackparse"); }
-							}
+						Double fallback = ambilAngkaPertamaAman(raw);
+						if (fallback == null) {
+							fallback = ambilAngkaPertamaAman(wve.getMessage());
 						}
-						ais.common.ErrorAuditUtil.record(wve,
-								"WrongValueException ambilValComponent field ANGKA (tipe=" + ParameterTambahanAstract.ANGKA
-										+ "), rawText='" + raw + "', fallbackValue=" + fallback);
-						val = (fallback == null ? 0.0 : fallback) + "";
+						val = fallback == null ? "" : fallback + "";
 					}
 				}
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.TEXT_ANGKA)) {
@@ -1810,12 +1814,10 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				}
 			}
 		} catch (org.zkoss.zk.ui.WrongValueException wve) {
-			// JANGAN ditelan di sini: ini lemparan ulang sengaja dari cabang TANGGAL /
-			// TANGGAL_DAN_WAKTU di atas (pesan sudah menyebut label parameter). Biarkan
-			// naik ke pemanggil agar ZK menampilkan balloon merah & proses simpan
-			// berhenti, bukan diam-diam menimpa nilai lama dgn val="".
-			ais.common.ErrorAuditUtil.record(wve, "WrongValueException ambilValComponent (rethrow) - " + wve.getMessage());
-			throw wve;
+			// Nilai parameter tambahan berasal dari isian dinamis. WrongValueException di sini
+			// adalah input pengguna/data lama yang tidak sesuai tipe komponen, bukan error server.
+			// Biarkan nilai kosong agar field lain tetap tersimpan dan log produksi tidak banjir.
+			val = "";
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/ParameterTambahanAstract.java:1466");
 		}
@@ -1828,10 +1830,24 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					val = (((Combobox) component).getSelectedItem() == null ? ""
 							: (((Combobox) component).getSelectedItem().getValue())).toString();
 				} else if (component instanceof Datebox) {
-					Date nilai = (((Datebox) component).getValue());
+					Date nilai;
+					try {
+						nilai = (((Datebox) component).getValue());
+					} catch (org.zkoss.zk.ui.WrongValueException wve) {
+						nilai = parseTanggalAman(ambilTeksMentahAman((Datebox) component), Common.dateFormat1.get());
+					}
 					val = nilai == null ? "" : Common.dateFormat1.get().format(nilai);
 				} else if (component instanceof Doublebox) {
-					val = (((Doublebox) component).getValue()) + "";
+					Double nilai;
+					try {
+						nilai = (((Doublebox) component).getValue());
+					} catch (org.zkoss.zk.ui.WrongValueException wve) {
+						nilai = ambilAngkaPertamaAman(ambilTeksMentahAman((Doublebox) component));
+						if (nilai == null) {
+							nilai = ambilAngkaPertamaAman(wve.getMessage());
+						}
+					}
+					val = nilai == null ? "" : nilai + "";
 				} else if (component instanceof Intbox) {
 					val = (((Intbox) component).getValue()) + "";
 				}

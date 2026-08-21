@@ -78,6 +78,7 @@ public class RepositoryWorkflowService {
             public RepoItem run(Session session) {
                 ensureCollectionAcceptsDeposit(session, input == null ? null : input.collectionId);
                 RepoItem item = new RepoItem();
+                item.setTenantKey(RepositoryTenantScope.currentKey());
                 item.setCollectionId(input.collectionId);
                 item.setWorkflowStatus(DRAFT);
                 item.setSyncStatus(DRAFT);
@@ -252,7 +253,7 @@ public class RepositoryWorkflowService {
         requireLogin(actor);
         return read(new Work<List<RepoItem> >() {
             public List<RepoItem> run(Session session) {
-                return session.createCriteria(RepoItem.class).add(Restrictions.eq("ownerId", actor.getUserId()))
+                return session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("ownerId", actor.getUserId()))
                         .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.desc("tanggal_dirubah"))
                         .setMaxResults(limit(maximum)).list();
             }
@@ -265,6 +266,7 @@ public class RepositoryWorkflowService {
         return read(new Work<List<RepoItem> >() {
             public List<RepoItem> run(Session session) {
                 return session.createCriteria(RepoItem.class)
+                        .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
                         .add(Restrictions.in("workflowStatus", new String[] { SUBMITTED, IN_REVIEW, APPROVED }))
                         .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.asc("submittedAt"))
                         .setMaxResults(limit(maximum)).list();
@@ -305,6 +307,7 @@ public class RepositoryWorkflowService {
         return read(new Work<List<DuplicateCandidate> >() {
             public List<DuplicateCandidate> run(Session session) {
                 Criteria criteria = session.createCriteria(RepoItem.class)
+                        .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
                         .add(Restrictions.ilike("title", clean(input.title)))
                         .add(Restrictions.eq("aktif", Boolean.TRUE));
                 if (input.id != null) criteria.add(Restrictions.ne("id", input.id));
@@ -499,7 +502,7 @@ public class RepositoryWorkflowService {
     private void ensureCollectionAcceptsDeposit(Session session, Long id) {
         if (id == null) throw new IllegalArgumentException("Koleksi wajib dipilih.");
         RepoCollection collection = (RepoCollection) session.get(RepoCollection.class, id);
-        if (collection == null || !Boolean.TRUE.equals(collection.getAktif()))
+        if (collection == null || !RepositoryTenantScope.currentKey().equals(collection.getTenantKey()) || !Boolean.TRUE.equals(collection.getAktif()))
             throw new IllegalArgumentException("Koleksi tidak ditemukan atau tidak aktif.");
         if (!Boolean.TRUE.equals(collection.getDepositEnabled()))
             throw new IllegalStateException("Koleksi tidak menerima deposit baru.");
@@ -571,7 +574,7 @@ public class RepositoryWorkflowService {
     private RepoItem loadRequired(Session session, Long id) {
         if (id == null) throw new IllegalArgumentException("ID item wajib diisi.");
         RepoItem item = (RepoItem) session.get(RepoItem.class, id);
-        if (item == null || !Boolean.TRUE.equals(item.getAktif())) throw new IllegalArgumentException("Item tidak ditemukan.");
+        if (item == null || !RepositoryTenantScope.currentKey().equals(item.getTenantKey()) || !Boolean.TRUE.equals(item.getAktif())) throw new IllegalArgumentException("Item tidak ditemukan.");
         return item;
     }
 

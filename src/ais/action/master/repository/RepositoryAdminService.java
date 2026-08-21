@@ -51,7 +51,7 @@ public class RepositoryAdminService {
     @SuppressWarnings("unchecked")
     public List<RepoCollection> collections(Tbmuser actor) {
         requireAdmin(actor); Session session = HibernateUtil.openSession();
-        try { return session.createCriteria(RepoCollection.class).add(Restrictions.eq("aktif", Boolean.TRUE))
+        try { return session.createCriteria(RepoCollection.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif", Boolean.TRUE))
                 .addOrder(Order.asc("sortOrder")).addOrder(Order.asc("nama")).list(); }
         finally { HibernateUtil.closeSessionQuietly(session); }
     }
@@ -61,8 +61,8 @@ public class RepositoryAdminService {
         requireAdmin(actor); Session session = HibernateUtil.openSession();
         try {
             Health h = new Health();
-            List<RepoCollection> cs = session.createCriteria(RepoCollection.class).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
-            List<RepoItem> items = session.createCriteria(RepoItem.class).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
+            List<RepoCollection> cs = session.createCriteria(RepoCollection.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
+            List<RepoItem> items = session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
             List<RepoBitstream> files = session.createCriteria(RepoBitstream.class).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
             h.collections = cs.size(); h.items = items.size(); h.bitstreams = files.size();
             Map<String, Integer> oai = new LinkedHashMap<String, Integer>();
@@ -94,6 +94,8 @@ public class RepositoryAdminService {
         Session session = HibernateUtil.openSession(); Transaction tx = null;
         try {
             tx = session.beginTransaction(); RepoCollection c = id == null ? new RepoCollection() : (RepoCollection) session.get(RepoCollection.class, id);
+            if(id==null)c.setTenantKey(RepositoryTenantScope.currentKey());
+            if(id!=null&&(c==null||!RepositoryTenantScope.currentKey().equals(c.getTenantKey())))throw new SecurityException("Koleksi bukan milik tenant aktif.");
             if (c == null) throw new IllegalArgumentException("Koleksi tidak ditemukan.");
             if (parentId != null) { if (parentId.equals(id)) throw new IllegalArgumentException("Koleksi tidak boleh menjadi induknya sendiri."); ensureNoCycle(session, id, parentId); }
             c.setKode(clean(kode)); c.setNama(clean(nama)); c.setDeskripsi(clean(description)); c.setParentId(parentId);
@@ -110,7 +112,7 @@ public class RepositoryAdminService {
     public void exportXlsx(OutputStream out, Tbmuser actor) throws Exception {
         requireAdmin(actor); Session session = HibernateUtil.openSession(); XSSFWorkbook wb = new XSSFWorkbook();
         try {
-            List<RepoItem> items = session.createCriteria(RepoItem.class).addOrder(Order.asc("id")).list();
+            List<RepoItem> items = session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).addOrder(Order.asc("id")).list();
             Sheet sheet = wb.createSheet("Items"); row(sheet, 0, new Object[] {"ID","OAI Identifier","Judul","Penulis","Jenis","Status","Akses","DOI","Collection ID","Updated"});
             int i = 1; for (RepoItem item : items) row(sheet, i++, new Object[] {item.getId(),item.getOaiIdentifier(),item.getTitle(),item.getAuthors(),item.getDocumentType(),item.getWorkflowStatus(),item.getAccessPolicy(),item.getDoi(),item.getCollectionId(),item.getTanggal_dirubah()});
             List<RepoWorkflowEvent> events = session.createCriteria(RepoWorkflowEvent.class).addOrder(Order.asc("id")).list();
@@ -155,14 +157,14 @@ public class RepositoryAdminService {
     @SuppressWarnings("unchecked")
     public int retryFailedSync(Tbmuser actor) {
         requireAdmin(actor); Session session=HibernateUtil.openSession();Transaction tx=null;
-        try{tx=session.beginTransaction();List<RepoItem> rows=session.createCriteria(RepoItem.class)
+        try{tx=session.beginTransaction();List<RepoItem> rows=session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
                 .add(Restrictions.in("syncStatus",new String[]{"FAILED","ERROR"})).list();
             for(RepoItem item:rows){item.setSyncStatus("PENDING");item.setSyncMessage("Manual retry queued by "+actor.getUserId());item.setOlehId(actor.getUserId());item.setTanggal_dirubah(new Date());session.update(item);}tx.commit();return rows.size();
         }catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
 
     private void requireAdmin(Tbmuser actor) { if (!workflow.isRepositoryAdmin(actor)) throw new SecurityException("Hak administrator repository diperlukan."); }
-    private void ensureNoCycle(Session session, Long id, Long parent) { Long p=parent; int guard=0; while(p!=null&&guard++<100){if(p.equals(id))throw new IllegalArgumentException("Hierarchy koleksi membentuk siklus.");RepoCollection c=(RepoCollection)session.get(RepoCollection.class,p);if(c==null)throw new IllegalArgumentException("Induk koleksi tidak ditemukan.");p=c.getParentId();} }
+    private void ensureNoCycle(Session session, Long id, Long parent) { Long p=parent; int guard=0; while(p!=null&&guard++<100){if(p.equals(id))throw new IllegalArgumentException("Hierarchy koleksi membentuk siklus.");RepoCollection c=(RepoCollection)session.get(RepoCollection.class,p);if(c==null||!RepositoryTenantScope.currentKey().equals(c.getTenantKey()))throw new IllegalArgumentException("Induk koleksi tidak ditemukan.");p=c.getParentId();} }
     private static void validateJson(String value,String label){try{new JSONObject(jsonOrEmpty(value));}catch(Exception e){throw new IllegalArgumentException("JSON "+label+" tidak valid.");}}
     private static String jsonOrEmpty(String value){return clean(value).length()==0?"{}":clean(value);}
     private static void row(Sheet s,int n,Object[] values){Row r=s.createRow(n);for(int i=0;i<values.length;i++){Cell c=r.createCell(i);Object v=values[i];if(v instanceof Number)c.setCellValue(((Number)v).doubleValue());else if(v instanceof Date)c.setCellValue((Date)v);else c.setCellValue(v==null?"":String.valueOf(v));}}

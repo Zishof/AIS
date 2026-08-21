@@ -1,7 +1,7 @@
 const CACHE='ais-repository-static-v2',PAGES='ais-repository-pages-v2';
 const STATIC=['./css/repository-modern.css','./js/repository-modern.js','./repository-manifest.json'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('ais-repository-static-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>(key.startsWith('ais-repository-static-')&&key!==CACHE)||(key.startsWith('ais-repository-pages-')&&key!==PAGES)).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
   const url=new URL(event.request.url);

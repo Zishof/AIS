@@ -617,11 +617,13 @@ public class RepositorySyncService {
 		}
 		if (item == null) {
 			item = new RepoItem();
+			item.setTenantKey(RepositoryTenantScope.currentKey());
 			item.setSourceClass(source.modelClassName);
 			item.setSourceId(sourceId);
 			item.setCollectionId(collectionId);
 			item.setSubmittedAt(new Date());
 		}
+		if(item.getTenantKey()==null||item.getTenantKey().trim().isEmpty())item.setTenantKey(RepositoryTenantScope.currentKey());
 		Date sourceUpdatedAt = firstDate(obj, "getTanggal_dirubah", "getSetujuiTanggal", "getTanggalPublikasi",
 				"getTanggal");
 		if (!pushToDspace && item.getId() != null && item.getLastSyncAt() != null && sourceUpdatedAt != null
@@ -695,13 +697,15 @@ public class RepositorySyncService {
 
 	private static RepoCollection ensureCollection(Session session, SourceDescriptor source) {
 		RepoCollection collection = (RepoCollection) session.createCriteria(RepoCollection.class)
-				.add(Restrictions.eq("kode", source.collectionCode)).setMaxResults(1).uniqueResult();
+				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("kode", source.collectionCode)).setMaxResults(1).uniqueResult();
 		if (collection == null) {
 			collection = new RepoCollection();
+			collection.setTenantKey(RepositoryTenantScope.currentKey());
 			collection.setKode(source.collectionCode);
 		} else {
 			jadikanWritable(session, collection);
 		}
+		if(collection.getTenantKey()==null||collection.getTenantKey().trim().isEmpty())collection.setTenantKey(RepositoryTenantScope.currentKey());
 		collection.setNama(source.collectionName);
 		collection.setDeskripsi("Koleksi otomatis dari " + source.label);
 		collection.setSourceSystem("AIS");
@@ -718,6 +722,7 @@ public class RepositorySyncService {
 		 * yang memilih baris ber-oai KOSONG akan mengisi identifier milik baris saudaranya
 		 * lalu gagal saat flush. Urutkan berdasarkan id agar pilihan selalu konsisten. */
 		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
 				.add(Restrictions.eq("sourceClass", sourceClass)).add(Restrictions.eq("sourceId", sourceId))
 				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
 		return (RepoItem) jadikanWritable(session, item);
@@ -730,6 +735,7 @@ public class RepositorySyncService {
 			return null;
 		}
 		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
 				.add(Restrictions.eq("oaiIdentifier", kunci)).setMaxResults(1).uniqueResult();
 		return (RepoItem) jadikanWritable(session, item);
 	}

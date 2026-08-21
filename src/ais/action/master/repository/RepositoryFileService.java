@@ -195,7 +195,7 @@ public class RepositoryFileService {
 
     private RepoItem requiredVisibleWorkspaceItem(Session session, Long id, Tbmuser actor) {
         RepoItem item = (RepoItem) session.get(RepoItem.class, id);
-        if (item == null || !Boolean.TRUE.equals(item.getAktif())) throw new IllegalArgumentException("Item tidak ditemukan.");
+        if (item == null || !RepositoryTenantScope.currentKey().equals(item.getTenantKey()) || !Boolean.TRUE.equals(item.getAktif())) throw new IllegalArgumentException("Item tidak ditemukan.");
         if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryAdmin(actor))
             throw new SecurityException("Item bukan milik pengguna aktif.");
         return item;

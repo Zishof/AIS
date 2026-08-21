@@ -41,7 +41,7 @@ public class RepositoryWorkspace extends HttpServlet {
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Tbmuser user = Common.getCurrentUser(request);
-        if (user == null) { response.sendRedirect(request.getContextPath() + "/login2"); return; }
+        if (user == null) { renderState(request,response,HttpServletResponse.SC_UNAUTHORIZED,"Sesi telah berakhir","Silakan masuk kembali untuk membuka workspace repository."); return; }
         securityHeaders(response);
         try {
             if ("exportXlsx".equals(request.getParameter("action"))) {
@@ -91,7 +91,7 @@ public class RepositoryWorkspace extends HttpServlet {
             request.setAttribute("repoFlashError", consume(httpSession, "repository.flash.error"));
             request.getRequestDispatcher(JSP).forward(request, response);
         } catch (SecurityException e) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, e.getMessage());
+            renderState(request,response,HttpServletResponse.SC_FORBIDDEN,"Akses tidak diizinkan",e.getMessage());
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "RepositoryWorkspace.doGet");
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Workspace repository belum dapat dibuka.");
@@ -213,6 +213,7 @@ public class RepositoryWorkspace extends HttpServlet {
     private void redirect(HttpServletResponse response,HttpServletRequest request,String view,Long id)throws IOException{String url=request.getContextPath()+"/repository-workspace?view="+view+(id==null?"":"&id="+id);response.sendRedirect(response.encodeRedirectURL(url));}
     private void flash(HttpSession s,String key,String value){s.setAttribute(key,value);} private Object consume(HttpSession s,String key){Object v=s.getAttribute(key);s.removeAttribute(key);return v;}
     private void securityHeaders(HttpServletResponse r){r.setHeader("X-Content-Type-Options","nosniff");r.setHeader("X-Frame-Options","SAMEORIGIN");r.setHeader("Referrer-Policy","same-origin");r.setHeader("Cache-Control","no-store");}
+    private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",Long.toHexString(System.currentTimeMillis()));request.getRequestDispatcher("/WEB-INF/baru/modul/repository/landing_page.jsp").forward(request,response);}
     private static String clean(String v){return v==null?"":v.trim();}
     private static Long positiveLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>0?n:null;}catch(Exception e){return null;}}
     private static Long nonNegativeLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>=0?n:null;}catch(Exception e){return null;}}

@@ -8,13 +8,13 @@ import javax.persistence.*;
 /** Saved search and bookmark owned by one authenticated repository user. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true)
-@Table(schema="public",name="repo_user_preference",
-       uniqueConstraints=@UniqueConstraint(columnNames={"user_id","preference_type","item_id","query_value"}))
+@Table(schema="public",name="repo_user_preference")
 public class RepoUserPreference implements Serializable {
     private static final long serialVersionUID=1L;
-    private Long id,itemId; private String userId,preferenceType,label,queryValue; private Date createdAt; private Boolean aktif;
+    private Long id,itemId; private String tenantKey,userId,preferenceType,label,queryValue; private Date createdAt; private Boolean aktif;
     @Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",insertable=false,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}
     @Column(name="user_id",nullable=false,length=255) public String getUserId(){return userId;} public void setUserId(String v){userId=v;}
+    @Column(name="tenant_key",nullable=false,length=120) public String getTenantKey(){return tenantKey;} public void setTenantKey(String v){tenantKey=v;}
     @Column(name="preference_type",nullable=false,length=30) public String getPreferenceType(){return preferenceType;} public void setPreferenceType(String v){preferenceType=v;}
     @Column(name="item_id") public Long getItemId(){return itemId;} public void setItemId(Long v){itemId=v;}
     @Column(name="label",length=255) public String getLabel(){return label;} public void setLabel(String v){label=v;}

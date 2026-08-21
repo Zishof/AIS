@@ -60,6 +60,7 @@ public class RepoItem extends GeneralValueObject {
     private Long previousVersionId;
     private Long viewCount;
     private Long downloadCount;
+    private String tenantKey;
     
     // Audit & Default Fields
     private String oleh;
@@ -68,6 +69,10 @@ public class RepoItem extends GeneralValueObject {
     private Boolean aktif;
 
     public RepoItem() {}
+
+    @Column(name="tenant_key",length=120)
+    public String getTenantKey(){return tenantKey==null?"":tenantKey.trim();}
+    public void setTenantKey(String tenantKey){this.tenantKey=tenantKey;}
 
     @Id
     @GeneratedValue(strategy = IDENTITY)

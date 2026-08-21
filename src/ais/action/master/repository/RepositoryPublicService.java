@@ -45,6 +45,7 @@ public class RepositoryPublicService {
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
     private static final String[] PUBLIC_STATUSES = new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
+    private static final Map<String,Boolean> CLAIMED_TENANTS=Collections.synchronizedMap(new HashMap<String,Boolean>());
 
     public static class Query {
         public String keyword = "";
@@ -72,6 +73,7 @@ public class RepositoryPublicService {
         public long subjectCount;
         public long documentTypeCount;
         public long openFileItems;
+        public long downloads30Days;
         public int metadataQuality;
         public String firstYear = "";
         public String lastYear = "";
@@ -177,6 +179,7 @@ public class RepositoryPublicService {
         if (session == null || !session.isOpen()) {
             session = HibernateUtil.currentNativeSession();
         }
+        ensureTenantScope(session);
         return session;
     }
 
@@ -205,7 +208,7 @@ public class RepositoryPublicService {
         Summary summary = new Summary();
         summary.totalItems = count(publicCriteria(session, null));
         summary.totalCollections = count(session.createCriteria(RepoCollection.class)
-                .add(activeRestriction()));
+                .add(activeRestriction()).add(tenantRestriction()));
         summary.openAccess = count(publicCriteria(session, null)
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")));
         summary.metadataOnly = count(publicCriteria(session, null)
@@ -215,6 +218,8 @@ public class RepositoryPublicService {
         Object typeCount = publicCriteria(session, null).setProjection(Projections.countDistinct("documentType")).uniqueResult();
         summary.documentTypeCount = typeCount instanceof Number ? ((Number) typeCount).longValue() : 0L;
         summary.openFileItems = openFileItemCount(session);
+        Object recentDownloads=session.createSQLQuery("select count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where e.event_type='DOWNLOAD' and e.occurred_at>=current_timestamp-interval '30 days' and i.tenant_key=:tenant").setString("tenant",RepositoryTenantScope.currentKey()).uniqueResult();
+        summary.downloads30Days=recentDownloads instanceof Number?((Number)recentDownloads).longValue():0L;
         summary.metadataQuality = metadataQuality(session);
         Date first = (Date) publicCriteria(session, null).setProjection(Projections.min("issuedAt")).uniqueResult();
         Date last = (Date) publicCriteria(session, null).setProjection(Projections.max("issuedAt")).uniqueResult();
@@ -283,7 +288,7 @@ public class RepositoryPublicService {
 
     public boolean hasDepositCollection() {
         return count(session().createCriteria(RepoCollection.class).add(activeRestriction())
-                .add(Restrictions.or(Restrictions.isNull("depositEnabled"), Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
+                .add(tenantRestriction()).add(Restrictions.or(Restrictions.isNull("depositEnabled"), Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
     }
 
     @SuppressWarnings("unchecked")
@@ -291,7 +296,7 @@ public class RepositoryPublicService {
         String owner=limit(clean(userId),255), kind=normalizePreferenceType(type);
         List<PreferenceView> result=new ArrayList<PreferenceView>(); if(owner.length()==0||kind.length()==0)return result;
         List<RepoUserPreference> rows=session().createCriteria(RepoUserPreference.class)
-                .add(Restrictions.eq("userId",owner)).add(Restrictions.eq("preferenceType",kind)).add(activeRestriction())
+                .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("userId",owner)).add(Restrictions.eq("preferenceType",kind)).add(activeRestriction())
                 .addOrder(Order.desc("createdAt")).setMaxResults(maximum<1?20:Math.min(maximum,100)).list();
         for(RepoUserPreference row:rows){PreferenceView v=new PreferenceView();v.id=row.getId();v.itemId=row.getItemId();v.type=kind;v.label=safe(row.getLabel());v.queryValue=safe(row.getQueryValue());v.createdAt=row.getCreatedAt();result.add(v);}return result;
     }
@@ -300,8 +305,8 @@ public class RepositoryPublicService {
         String owner=limit(clean(userId),255);if(owner.length()==0||itemId==null||findPublicItem(itemId)==null)throw new SecurityException("Bookmark memerlukan pengguna dan item publik yang valid.");
         Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
             RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("userId",owner))
-                    .add(Restrictions.eq("preferenceType","BOOKMARK")).add(Restrictions.eq("itemId",itemId)).setMaxResults(1).uniqueResult();
-            boolean active=row==null||!Boolean.TRUE.equals(row.getAktif());if(row==null){row=new RepoUserPreference();row.setUserId(owner);row.setPreferenceType("BOOKMARK");row.setItemId(itemId);row.setLabel("");row.setQueryValue("");row.setCreatedAt(new Date());}
+                    .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("preferenceType","BOOKMARK")).add(Restrictions.eq("itemId",itemId)).setMaxResults(1).uniqueResult();
+            boolean active=row==null||!Boolean.TRUE.equals(row.getAktif());if(row==null){row=new RepoUserPreference();row.setTenantKey(RepositoryTenantScope.currentKey());row.setUserId(owner);row.setPreferenceType("BOOKMARK");row.setItemId(itemId);row.setLabel("");row.setQueryValue("");row.setCreatedAt(new Date());}
             row.setAktif(Boolean.valueOf(active));s.saveOrUpdate(row);tx.commit();return active;
         }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
     }
@@ -310,15 +315,15 @@ public class RepositoryPublicService {
         String owner=limit(clean(userId),255),query=limit(clean(queryValue),2000);if(owner.length()==0||query.length()==0)throw new IllegalArgumentException("Pencarian yang disimpan tidak valid.");
         Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
             RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("userId",owner))
-                    .add(Restrictions.eq("preferenceType",alert?"SEARCH_ALERT":"SAVED_SEARCH")).add(Restrictions.eq("queryValue",query)).setMaxResults(1).uniqueResult();
-            if(row==null){row=new RepoUserPreference();row.setUserId(owner);row.setPreferenceType(alert?"SEARCH_ALERT":"SAVED_SEARCH");row.setQueryValue(query);row.setCreatedAt(new Date());}
+                    .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("preferenceType",alert?"SEARCH_ALERT":"SAVED_SEARCH")).add(Restrictions.eq("queryValue",query)).setMaxResults(1).uniqueResult();
+            if(row==null){row=new RepoUserPreference();row.setTenantKey(RepositoryTenantScope.currentKey());row.setUserId(owner);row.setPreferenceType(alert?"SEARCH_ALERT":"SAVED_SEARCH");row.setQueryValue(query);row.setCreatedAt(new Date());}
             row.setLabel(limit(clean(label).length()==0?"Pencarian repository":clean(label),255));row.setAktif(Boolean.TRUE);s.saveOrUpdate(row);tx.commit();
         }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
     }
 
     public void removePreference(String userId,Long id) {
         String owner=limit(clean(userId),255);if(owner.length()==0||id==null)return;Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
-            RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("id",id)).add(Restrictions.eq("userId",owner)).uniqueResult();
+            RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("id",id)).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("userId",owner)).uniqueResult();
             if(row!=null){row.setAktif(Boolean.FALSE);s.update(row);}tx.commit();
         }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
     }
@@ -370,6 +375,7 @@ public class RepositoryPublicService {
         Session session = session();
         List<RepoCollection> rows = session.createCriteria(RepoCollection.class)
                 .add(activeRestriction())
+                .add(tenantRestriction())
                 .addOrder(Order.asc("sortOrder"))
                 .addOrder(Order.asc("nama"))
                 .setMaxResults(maximum < 1 ? 100 : Math.min(maximum, 500))
@@ -398,10 +404,12 @@ public class RepositoryPublicService {
         RepoItem entity = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id", id))
                 .add(publicVisibilityRestriction())
+                .add(tenantRestriction())
                 .uniqueResult();
         if (entity == null) return null;
 
         RepoCollection collection = (RepoCollection) session.get(RepoCollection.class, entity.getCollectionId());
+        if(collection!=null&&!RepositoryTenantScope.currentKey().equals(collection.getTenantKey()))collection=null;
         ItemCard card = toCard(entity, collection);
         ItemDetail detail = new ItemDetail();
         copyCard(card, detail);
@@ -448,7 +456,7 @@ public class RepositoryPublicService {
     public CollectionView findCollection(Long id) {
         if (id == null) return null;
         RepoCollection row = (RepoCollection) session().createCriteria(RepoCollection.class)
-                .add(Restrictions.eq("id", id)).add(activeRestriction()).uniqueResult();
+                .add(Restrictions.eq("id", id)).add(activeRestriction()).add(tenantRestriction()).uniqueResult();
         if (row == null) return null;
         CollectionView view = new CollectionView(); view.id=row.getId(); view.kode=safe(row.getKode());
         view.nama=safe(row.getNama()); view.deskripsi=safe(row.getDeskripsi()); view.tipe=safe(row.getTipe());
@@ -470,14 +478,15 @@ public class RepositoryPublicService {
         RepoItem item = (RepoItem) session().createCriteria(RepoItem.class)
                 .add(Restrictions.eq("oaiIdentifier", value))
                 .add(publicVisibilityRestriction())
+                .add(tenantRestriction())
                 .uniqueResult();
         return item == null ? null : findPublicItem(item.getId());
     }
 
     public ItemDetail findTombstone(Long id) {
         if(id==null)return null;Session session=session();RepoItem entity=(RepoItem)session.createCriteria(RepoItem.class)
-                .add(Restrictions.eq("id",id)).add(activeRestriction()).add(Restrictions.eq("isWithdrawn",Boolean.TRUE)).uniqueResult();
-        if(entity==null)return null;RepoCollection c=(RepoCollection)session.get(RepoCollection.class,entity.getCollectionId());ItemDetail d=new ItemDetail();copyCard(toCard(entity,c),d);d.authors="";d.abstractText="";d.subjects="";return d;
+                .add(Restrictions.eq("id",id)).add(activeRestriction()).add(tenantRestriction()).add(Restrictions.eq("isWithdrawn",Boolean.TRUE)).uniqueResult();
+        if(entity==null)return null;RepoCollection c=(RepoCollection)session.get(RepoCollection.class,entity.getCollectionId());if(c!=null&&!RepositoryTenantScope.currentKey().equals(c.getTenantKey()))c=null;ItemDetail d=new ItemDetail();copyCard(toCard(entity,c),d);d.authors="";d.abstractText="";d.subjects="";return d;
     }
 
     public RepoBitstream findDownloadableBitstream(Long id) {
@@ -492,6 +501,7 @@ public class RepositoryPublicService {
         RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id", bitstream.getItemId()))
                 .add(publicVisibilityRestriction())
+                .add(tenantRestriction())
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
                 .uniqueResult();
         return canDownload(item, bitstream) ? bitstream : null;
@@ -571,7 +581,7 @@ public class RepositoryPublicService {
     }
 
     private Criteria publicCriteria(Session session, Query ignored) {
-        return session.createCriteria(RepoItem.class).add(publicVisibilityRestriction());
+        return session.createCriteria(RepoItem.class).add(publicVisibilityRestriction()).add(tenantRestriction());
     }
 
     private Criteria searchCriteria(Session session, Query q) {
@@ -631,6 +641,10 @@ public class RepositoryPublicService {
         return Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE));
     }
 
+    private org.hibernate.criterion.Criterion tenantRestriction(){return Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey());}
+
+    private void ensureTenantScope(Session session){String key=RepositoryTenantScope.currentKey();if(CLAIMED_TENANTS.containsKey(key))return;synchronized(CLAIMED_TENANTS){if(CLAIMED_TENANTS.containsKey(key))return;org.hibernate.Transaction tx=null;try{tx=session.beginTransaction();session.createQuery("update RepoItem set tenantKey=:tenant where tenantKey is null or tenantKey=''").setString("tenant",key).executeUpdate();session.createQuery("update RepoCollection set tenantKey=:tenant where tenantKey is null or tenantKey=''").setString("tenant",key).executeUpdate();tx.commit();CLAIMED_TENANTS.put(key,Boolean.TRUE);}catch(Exception e){if(tx!=null&&tx.isActive())tx.rollback();throw new IllegalStateException("Scope tenant repository tidak dapat disiapkan.",e);}}}
+
     private long count(Criteria criteria) {
         Object value = criteria.setProjection(Projections.rowCount()).uniqueResult();
         return value instanceof Number ? ((Number) value).longValue() : 0L;
@@ -677,7 +691,7 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     private Map<String,Long> tokenFacet(Session session,Query q,String property){List<RepoItem> rows=searchCriteria(session,q).setMaxResults(5000).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(RepoItem row:rows){String value="authors".equals(property)?row.getAuthors():row.getSubjects();for(String token:safe(value).split("[;,]")){String key=clean(token);if(key.length()>0)increment(out,key);}}return top(out,30);}
     @SuppressWarnings("unchecked")
-    private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') group by m.metadata_value order by count(*) desc limit 30").list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
+    private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant group by m.metadata_value order by count(*) desc limit 30").setString("tenant",RepositoryTenantScope.currentKey()).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
     @SuppressWarnings("unchecked")
     private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
     private static Map<String,Long> top(Map<String,Long> source,int maximum){List<Map.Entry<String,Long>> rows=new ArrayList<Map.Entry<String,Long>>(source.entrySet());Collections.sort(rows,new java.util.Comparator<Map.Entry<String,Long>>(){public int compare(Map.Entry<String,Long>a,Map.Entry<String,Long>b){return b.getValue().compareTo(a.getValue());}});Map<String,Long> out=new LinkedHashMap<String,Long>();for(int i=0;i<rows.size()&&i<maximum;i++)out.put(rows.get(i).getKey(),rows.get(i).getValue());return out;}
@@ -685,17 +699,17 @@ public class RepositoryPublicService {
     private long distinctTokenCount(Session session, String property) {
         String column = "subjects".equals(property) ? "subjects" : "authors";
         Object value = session.createSQLQuery("select count(distinct lower(trim(token))) from repo_item i cross join lateral regexp_split_to_table(coalesce(i."
-                + column + ",''),'[;,]') as tokens(token) where trim(token)<>'' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED')").uniqueResult();
+                + column + ",''),'[;,]') as tokens(token) where trim(token)<>'' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant").setString("tenant",RepositoryTenantScope.currentKey()).uniqueResult();
         return value instanceof Number ? ((Number) value).longValue() : 0L;
     }
 
     private int metadataQuality(Session session) {
-        Object value = session.createSQLQuery("select round(100.0*avg(((case when nullif(trim(title),'') is not null then 1 else 0 end)+(case when nullif(trim(authors),'') is not null then 1 else 0 end)+(case when nullif(trim(abstract_text),'') is not null then 1 else 0 end)+(case when nullif(trim(subjects),'') is not null then 1 else 0 end)+(case when issued_at is not null then 1 else 0 end))/5.0)) from repo_item i where coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED')").uniqueResult();
+        Object value = session.createSQLQuery("select round(100.0*avg(((case when nullif(trim(title),'') is not null then 1 else 0 end)+(case when nullif(trim(authors),'') is not null then 1 else 0 end)+(case when nullif(trim(abstract_text),'') is not null then 1 else 0 end)+(case when nullif(trim(subjects),'') is not null then 1 else 0 end)+(case when issued_at is not null then 1 else 0 end))/5.0)) from repo_item i where coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant").setString("tenant",RepositoryTenantScope.currentKey()).uniqueResult();
         return value instanceof Number ? ((Number) value).intValue() : 0;
     }
 
     private long openFileItemCount(Session session) {
-        Object value = session.createSQLQuery("select count(distinct b.item_id) from repo_bitstream b join repo_item i on i.id=b.item_id where coalesce(b.aktif,true)=true and b.access_policy='OPEN_ACCESS' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.access_policy='OPEN_ACCESS'").uniqueResult();
+        Object value = session.createSQLQuery("select count(distinct b.item_id) from repo_bitstream b join repo_item i on i.id=b.item_id where coalesce(b.aktif,true)=true and b.access_policy='OPEN_ACCESS' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.access_policy='OPEN_ACCESS' and i.tenant_key=:tenant").setString("tenant",RepositoryTenantScope.currentKey()).uniqueResult();
         return value instanceof Number ? ((Number) value).longValue() : 0L;
     }
 
@@ -709,7 +723,7 @@ public class RepositoryPublicService {
         }
         if (ids.isEmpty()) return Collections.emptyMap();
         List<RepoCollection> rows = session.createCriteria(RepoCollection.class)
-                .add(Restrictions.in("id", ids)).list();
+                .add(Restrictions.in("id", ids)).add(tenantRestriction()).list();
         Map<Long, RepoCollection> result = new HashMap<Long, RepoCollection>();
         for (int i = 0; i < rows.size(); i++) result.put(rows.get(i).getId(), rows.get(i));
         return result;

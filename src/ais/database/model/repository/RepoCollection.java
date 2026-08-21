@@ -20,6 +20,7 @@ public class RepoCollection extends GeneralValueObject {
 
     private static final long serialVersionUID = 1L;
     private Long id;
+    private String tenantKey;
     private String kode;
     private String nama;
     private String deskripsi;
@@ -42,6 +43,10 @@ public class RepoCollection extends GeneralValueObject {
     private Boolean aktif;
 
     public RepoCollection() {}
+
+    @Column(name="tenant_key",length=120)
+    public String getTenantKey(){return tenantKey==null?"":tenantKey.trim();}
+    public void setTenantKey(String tenantKey){this.tenantKey=tenantKey;}
 
     @Id
     @GeneratedValue(strategy = IDENTITY)

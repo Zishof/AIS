@@ -144,6 +144,7 @@
 .repo-saved-searches summary { cursor:pointer; color:var(--repo-primary); font-weight:800; }
 .repo-saved-searches>div { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
 .repo-saved-searches a { padding:7px 10px; border-radius:9px; background:var(--repo-soft); }
+.repo-saved-entry { display:flex; align-items:stretch; border-radius:9px; background:var(--repo-soft); overflow:hidden; }.repo-saved-entry a { background:transparent; }.repo-saved-entry form { display:flex; }.repo-saved-entry button { border:0; padding:0 9px; background:transparent; color:var(--repo-danger); cursor:pointer; }
 .repo-saved-searches strong,.repo-saved-searches small { display:block; }
 .repo-saved-searches small { color:var(--repo-muted); }
 .repo-search-skeleton { grid-column:1/-1; display:grid; gap:10px; }
@@ -224,6 +225,7 @@
 .repo-hero-insight .repo-stat b { font-size:24px; margin:0; color:var(--repo-on-primary); }
 .repo-hero-insight .repo-stat span { color:var(--repo-on-primary); opacity:.78; }
 .repo-quality { margin-top:14px; }
+.repo-recent-downloads { display:block; margin-top:12px; padding:8px 10px; border-radius:10px; color:var(--repo-on-primary); background:rgba(3,26,44,.2); font-size:12px; }
 .repo-quality span { display:flex; justify-content:space-between; gap:10px; color:var(--repo-on-primary); font-size:11px; }
 .repo-quality progress { width:100%; height:7px; margin-top:7px; border:0; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.18); }
 .repo-quality progress::-webkit-progress-bar { background:rgba(255,255,255,.18); }
