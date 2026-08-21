@@ -120,6 +120,7 @@ public final class EbisnisMenuKatalog {
 		// gerbang grupnya supaya hak akses role yang sudah ada tidak berubah artinya; submenu
 		// di bawahnya punya kuncinya sendiri agar admin bisa membatasi per layar.
 		DAFTAR.add(new Entri(MODUL_POS, "laporankeuangan", "Akuntansi (grup menu)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "draft_jurnal", "Akuntansi: Draft Jurnal (dasbor posting)", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "jurnal_umum", "Akuntansi: Jurnal Umum", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_hpp", "Akuntansi: Posting HPP", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_penjualan", "Akuntansi: Posting Penjualan", "desktop", "android"));
@@ -251,7 +252,7 @@ public final class EbisnisMenuKatalog {
 			// Fail-closed supaya tidak muncul untuk peran POS biasa; secara BAWAAN hanya terbuka
 			// untuk peran pada PERAN_AKUNTANSI_BAWAAN, dan admin tetap dapat menyalakannya per
 			// peran lewat grid CRUD TbmroleAction.
-			"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
+			"laporankeuangan", "draft_jurnal", "jurnal_umum", "posting_hpp", "posting_penjualan",
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
@@ -270,7 +271,7 @@ public final class EbisnisMenuKatalog {
 	/** Kunci menu yang mengikuti aturan bawaan {@link #PERAN_AKUNTANSI_BAWAAN}. */
 	public static final java.util.Set<String> KUNCI_AKUNTANSI =
 			new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
-					"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
+					"laporankeuangan", "draft_jurnal", "jurnal_umum", "posting_hpp", "posting_penjualan",
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
