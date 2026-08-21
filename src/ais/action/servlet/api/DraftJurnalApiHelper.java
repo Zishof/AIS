@@ -54,13 +54,15 @@ public final class DraftJurnalApiHelper {
      * Kunci hak akses modul yang mesin postingnya SUDAH tersedia lewat API; null bila modul itu
      * belum punya mesin.
      *
-     * <p>Layar ZK pun baru menyediakan satu tombol posting massal ({@code Kas Kecil}); sisanya masih
-     * menjawab "belum tersedia". Daftar ini disimpan di satu tempat supaya dasbor tidak pernah
+     * <p>Layar ZK sendiri baru menyediakan satu tombol posting massal ({@code Kas Kecil}); mesin
+     * modul lain dibuka satu per satu di sisi API (kini {@code Kas Besar} menyusul), dan sisanya
+     * masih menjawab "belum tersedia". Daftar ini disimpan di satu tempat supaya dasbor tidak pernah
      * menawarkan tombol yang ujungnya menolak -- klien membacanya lewat bendera {@code bisaPosting}
      * pada ringkasan.</p>
      */
     private static String modulPosting(String namaBaris) {
         if ("Kas Kecil".equals(namaBaris)) return "kas_kecil";
+        if ("Kas Besar".equals(namaBaris)) return "kas_besar";
         return null;
     }
 
@@ -124,6 +126,11 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingKasKecilAction.postingSemua(mulai, sampai, tbmuser,
                             new Date())
                     : ais.action.master.akunting.PostingKasKecilAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Kas Besar".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingKasBesarAction.postingSemua(mulai, sampai, tbmuser,
+                            new Date())
+                    : ais.action.master.akunting.PostingKasBesarAction.batalkanPostingSemua(mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

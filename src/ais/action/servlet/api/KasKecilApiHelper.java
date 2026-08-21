@@ -600,6 +600,9 @@ public final class KasKecilApiHelper {
 			}
 			String kode = kk.getKode();
 			session.beginTransaction();
+			// Anggaran yang sempat terpotong dokumen ini dikembalikan lebih dulu; FK-nya
+			// tidak ber-ON DELETE CASCADE sehingga penghapusan akan ditolak bila dilewati.
+			AnggaranKeuanganUtil.lepaskan(session, "kas_kecil", kk.getId());
 			session.delete(kk);
 			session.getTransaction().commit();
 			hasil.put("status", "00");

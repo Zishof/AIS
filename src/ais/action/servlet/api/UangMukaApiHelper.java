@@ -630,6 +630,9 @@ public final class UangMukaApiHelper {
 			}
 			String kode = um.getKode();
 			session.beginTransaction();
+			// Anggaran yang sempat terpotong dokumen ini dikembalikan lebih dulu; FK-nya
+			// tidak ber-ON DELETE CASCADE sehingga penghapusan akan ditolak bila dilewati.
+			AnggaranKeuanganUtil.lepaskan(session, "uang_muka", um.getId());
 			session.delete(um);
 			session.getTransaction().commit();
 			hasil.put("status", "00");

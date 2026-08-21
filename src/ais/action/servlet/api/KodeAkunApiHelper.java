@@ -21,6 +21,30 @@ import ais.database.model.Tbmuser;
  *
  * <p>Baca memakai SQL native (ringan, tidak menyeret graf Hibernate); tulis memakai session
  * Hibernate agar tetap ter-audit Envers seperti layar ZK.</p>
+ *
+ * <h4>Hak akses: impor massal tunduk pada grid CRUD yang sama</h4>
+ *
+ * <p>Simpan dan hapus SATU baris bergerbang sejak awal, tetapi ketiga aksi IMPOR-nya sempat
+ * menerima payload apa adanya. Akibatnya peran yang di {@code TbmroleAction} hanya diberi hak
+ * MELIHAT Kode Akun tetap dapat membuat atau mengubah ratusan akun sekaligus lewat unggah
+ * Excel. Gerbang di layar tidak menolong: aksinya dapat dipanggil langsung tanpa melewati
+ * tombol mana pun, dan itulah sebabnya SERVER yang harus memutuskan.</p>
+ *
+ * <p>Pemeriksaannya dua lapis, dan keduanya perlu:</p>
+ * <ul>
+ * <li><b>Di muka</b> -- peran yang sama sekali tidak berhak (tidak {@code create} maupun
+ *     {@code update}) ditolak sekali, bukan baris demi baris, supaya pesannya jelas dan
+ *     berkas besar tidak diproses sia-sia.</li>
+ * <li><b>Per baris</b> -- satu berkas impor lazim memuat CAMPURAN baris baru dan baris
+ *     perubahan, sehingga hak yang diperlukan berbeda-beda di dalam satu unggahan. Peran
+ *     yang boleh menambah tapi tidak boleh mengubah tetap dapat mengimpor akun baru, dan
+ *     baris yang menimpa akun lama ditolak sendiri-sendiri.</li>
+ * </ul>
+ *
+ * <p>Baris yang ditolak masuk ke ringkasan {@code masalah} seperti penolakan validasi lainnya
+ * -- pengguna melihat persis baris mana yang tidak dikerjakan, bukan sekadar "gagal".
+ * Kunci yang dipakai mengikuti menu masing-masing tab: {@code kode_akun}, {@code bank_akun},
+ * dan {@code jenis_transaksi}.</p>
  */
 public final class KodeAkunApiHelper {
 
@@ -220,6 +244,8 @@ public final class KodeAkunApiHelper {
 	 * <li>Setiap baris diproses dalam transaksi sendiri: satu baris bermasalah tidak
 	 *     membatalkan baris lain yang sudah benar (pola sama dgn posting per transaksi).</li>
 	 * <li>Penulisan lewat session Hibernate agar tetap ter-audit Envers seperti layar ZK.</li>
+	 * <li>Hak akses diperiksa di muka DAN per baris ({@code kode_akun}) -- lihat penjelasan
+	 *     pada Javadoc kelas: satu berkas bisa memuat campuran baris baru dan perubahan.</li>
 	 * </ul>
 	 */
 	public static void akunImpor(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
@@ -358,6 +384,7 @@ public final class KodeAkunApiHelper {
 	 * Dicocokkan lewat NAMA (entitas Bank tidak punya kolom kode). Aturan pengaman
 	 * sama dgn impor akun: buat/perbarui saja (tidak pernah menghapus), baris tanpa
 	 * nama ditolak, kode akun tak ditemukan ditolak, tiap baris transaksi sendiri.
+	 * Hak akses memakai kunci {@code bank_akun}, diperiksa di muka dan per baris.
 	 */
 	public static void bankImpor(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		JSONArray baris = request == null ? null : request.optJSONArray("baris");
@@ -465,6 +492,7 @@ public final class KodeAkunApiHelper {
 	/**
 	 * Impor Jenis Transaksi dari Excel:
 	 * {@code baris: [{kode, nama, keterangan, kodeAkun, aktif}]}. Dicocokkan lewat KODE.
+	 * Hak akses memakai kunci {@code jenis_transaksi}, diperiksa di muka dan per baris.
 	 */
 	public static void jenisTransaksiImpor(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {

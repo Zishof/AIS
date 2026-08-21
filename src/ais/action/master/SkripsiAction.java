@@ -3136,6 +3136,69 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	private boolean samaData(GeneralValueObject data1, GeneralValueObject data2) {
+		if (data1 == null || data2 == null) {
+			return false;
+		}
+		return data1.getId() != null && data1.getId().equals(data2.getId());
+	}
+
+	private boolean samaProgram(String programFormat, String programMahasiswa) {
+		if (programFormat == null || programFormat.trim().isEmpty()) {
+			return false;
+		}
+		return programMahasiswa != null && programFormat.trim().equalsIgnoreCase(programMahasiswa.trim());
+	}
+
+	private boolean cocokTahunAngkatan(String tahunAngkatan, Mahasiswa mahasiswa) {
+		return tahunAngkatan == null || tahunAngkatan.trim().isEmpty()
+				|| (mahasiswa != null && mahasiswa.getTahunangkatan() != null
+						&& tahunAngkatan.trim().contains(mahasiswa.getTahunangkatan().toString()));
+	}
+
+	private int skorFilterFormatNilaiSkripsi(FormatNilaiSkripsi format, Mahasiswa mahasiswa, Fakultas fakultas,
+			Jurusan jurusan, String programPengajuan, StatusAwalMahasiswa statusAwalPengajuan) {
+		if (format == null) {
+			return -1;
+		}
+		int skor = 0;
+		if (samaData(format.getJurusan(), jurusan)) {
+			skor += 16;
+		}
+		if (samaData(format.getFakultas(), fakultas)) {
+			skor += 8;
+		}
+		if (samaProgram(format.getProgram(), programPengajuan)) {
+			skor += 4;
+		}
+		if (samaData(format.getStatusAwalMahasiswa(), statusAwalPengajuan)) {
+			skor += 2;
+		}
+		if (format.getTahunAngkatan() != null && !format.getTahunAngkatan().trim().isEmpty()
+				&& cocokTahunAngkatan(format.getTahunAngkatan(), mahasiswa)) {
+			skor += 1;
+		}
+		return skor;
+	}
+
+	private void urutkanFormatNilaiSkripsi(List<FormatNilaiSkripsi> formats, final Mahasiswa mahasiswa,
+			final Fakultas fakultas, final Jurusan jurusan, final String programPengajuan,
+			final StatusAwalMahasiswa statusAwalPengajuan) {
+		Collections.sort(formats, new java.util.Comparator<FormatNilaiSkripsi>() {
+			@Override
+			public int compare(FormatNilaiSkripsi f1, FormatNilaiSkripsi f2) {
+				int skor1 = skorFilterFormatNilaiSkripsi(f1, mahasiswa, fakultas, jurusan, programPengajuan,
+						statusAwalPengajuan);
+				int skor2 = skorFilterFormatNilaiSkripsi(f2, mahasiswa, fakultas, jurusan, programPengajuan,
+						statusAwalPengajuan);
+				if (skor1 != skor2) {
+					return skor2 - skor1;
+				}
+				return f1.getNama().compareToIgnoreCase(f2.getNama());
+			}
+		});
+	}
+
 	private void muatGelombangPendaftaranSidang(Mahasiswa mhs) throws Exception {
 		if (gelombangPendaftaranSidangTugasAkhir == null || mhs == null || mhs.getJurusan() == null) {
 			return;
@@ -3207,9 +3270,10 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 							: Restrictions.or(Restrictions.isNull("statusAwalMahasiswa"),
 									Restrictions.eq("statusAwalMahasiswa", statusAwalPengajuan)))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
+			urutkanFormatNilaiSkripsi(formatNilaiSkripsis, mahasiswa, fakultas, jurusan, programPengajuan,
+					statusAwalPengajuan);
 			for (FormatNilaiSkripsi formatNilaiSkripsi : formatNilaiSkripsis) {
-				if (formatNilaiSkripsi.getTahunAngkatan().trim().isEmpty() || (mahasiswa != null && formatNilaiSkripsi
-						.getTahunAngkatan().trim().contains(mahasiswa.getTahunangkatan().toString()))) {
+				if (cocokTahunAngkatan(formatNilaiSkripsi.getTahunAngkatan(), mahasiswa)) {
 					Comboitem comboitem = new Comboitem(formatNilaiSkripsi.getNama());
 					String mk = "";
 					for (String kode : formatNilaiSkripsi.getKodeMatakuliah().split(",")) {
@@ -3251,7 +3315,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			}
 			Common.selectComboItem(true, formatNilaiSkripsi, skripsi.getFormatNilaiSkripsi());
 
-			if (!formatNilaiSkripsi.getChildren().isEmpty() && formatNilaiSkripsi.getSelectedItem() == null) {
+			if (!formatNilaiSkripsi.getChildren().isEmpty()) {
 				formatNilaiSkripsi.setSelectedIndex(0);
 			}
 

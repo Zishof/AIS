@@ -3787,6 +3787,94 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 		ubahStatusTerpilih(false);
 	}
 
+	public void onTerbitkanSemuaPublikasi(Event event) throws Exception {
+		ubahStatusSemuaHasilFilter(true);
+	}
+
+	public void onTarikSemuaPublikasi(Event event) throws Exception {
+		ubahStatusSemuaHasilFilter(false);
+	}
+
+	/** Ubah status seluruh koleksi yang cocok dengan filter, termasuk halaman lain. */
+	@SuppressWarnings("unchecked")
+	private void ubahStatusSemuaHasilFilter(final boolean terbitkan) throws Exception {
+		siapkanComboStatusPublikasi();
+		final List<Long> ids = initCriteriaPublikasi(false)
+				.setProjection(Projections.id()).list();
+		if (ids == null || ids.isEmpty()) {
+			MyMessageboxConfig.show(
+					"Tidak ada koleksi yang sesuai dengan filter saat ini.",
+					"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+
+		final StatusTerbitItem tujuan = terbitkan ? ambilStatusTerbit("Terbit")
+				: ambilStatusTerbit("Draft");
+		if (tujuan == null) {
+			MyMessageboxConfig.show(
+					"Status terbit yang dituju belum tersedia di basis data. Hubungi pengelola sistem.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		String pesan = terbitkan
+				? "Publikasikan seluruh " + ids.size()
+						+ " koleksi yang sesuai dengan filter saat ini, termasuk yang berada di halaman lain?"
+				: "Tarik seluruh " + ids.size()
+						+ " koleksi yang sesuai dengan filter saat ini dari katalog publik, termasuk yang berada di halaman lain?";
+		MyMessageboxConfig.show(pesan, "Konfirmasi Proses Massal",
+				MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+					@Override
+					public void onEvent(Event ev) throws Exception {
+						if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
+							return;
+						}
+						int berhasil = 0;
+						try {
+							Session session = HibernateUtil.currentSession();
+							final int ukuranBatch = 500;
+							for (int mulai = 0; mulai < ids.size(); mulai += ukuranBatch) {
+								int sampai = Math.min(mulai + ukuranBatch, ids.size());
+								List<Long> batch = new ArrayList<Long>(ids.subList(mulai, sampai));
+								berhasil += session.createQuery(
+										"update Item set statusTerbitItem = :status where id in (:ids)")
+										.setParameter("status", tujuan)
+										.setParameterList("ids", batch).executeUpdate();
+							}
+							sinkronkanStatusBarisPublikasi(tujuan);
+							onSearchPublikasi(null);
+							MyMessageboxConfig.show(
+									(terbitkan ? "Berhasil dipublikasikan: "
+											: "Berhasil ditarik dari katalog publik: ")
+											+ berhasil + " koleksi.",
+									"Informasi", MyMessageboxConfig.OK,
+									MyMessageboxConfig.INFORMATION);
+						} catch (Exception e) {
+							ais.common.ErrorAuditUtil.record(e,
+									"ItemAction.ubahStatusSemuaHasilFilter");
+							MyMessageboxConfig.show(
+									"Proses massal belum berhasil diselesaikan. Silakan muat ulang data lalu coba kembali.",
+									"Peringatan", MyMessageboxConfig.OK,
+									MyMessageboxConfig.EXCLAMATION);
+						}
+					}
+				});
+	}
+
+	/** Selaraskan entity halaman aktif karena bulk HQL tidak memperbarui cache sesi. */
+	private void sinkronkanStatusBarisPublikasi(StatusTerbitItem tujuan) {
+		if (gridPublikasi == null || gridPublikasi.getRows() == null) {
+			return;
+		}
+		for (Object o : gridPublikasi.getRows().getChildren()) {
+			Object it = ((Row) o).getAttribute("itemPublikasi");
+			if (it instanceof Item) {
+				((Item) it).setStatusTerbitItem(tujuan);
+			}
+		}
+	}
+
 	/**
 	 * Ubah status terbit seluruh baris yang ditandai.
 	 *

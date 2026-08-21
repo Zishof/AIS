@@ -639,6 +639,9 @@ public final class PertangungjawabanApiHelper {
 				um.setPertangungjawaban(null);
 				session.update(um);
 			}
+			// Anggaran yang sempat terpotong dokumen ini dikembalikan lebih dulu; FK-nya
+			// tidak ber-ON DELETE CASCADE sehingga penghapusan akan ditolak bila dilewati.
+			AnggaranKeuanganUtil.lepaskan(session, "pertangungjawaban", pj.getId());
 			session.delete(pj);
 			session.getTransaction().commit();
 			hasil.put("status", "00");

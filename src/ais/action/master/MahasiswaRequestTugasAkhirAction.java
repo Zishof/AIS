@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -3500,6 +3501,69 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 		}
 	}
 
+	private boolean samaData(GeneralValueObject data1, GeneralValueObject data2) {
+		if (data1 == null || data2 == null) {
+			return false;
+		}
+		return data1.getId() != null && data1.getId().equals(data2.getId());
+	}
+
+	private boolean samaProgram(String programFormat, String programMahasiswa) {
+		if (programFormat == null || programFormat.trim().isEmpty()) {
+			return false;
+		}
+		return programMahasiswa != null && programFormat.trim().equalsIgnoreCase(programMahasiswa.trim());
+	}
+
+	private boolean cocokTahunAngkatan(String tahunAngkatan, Mahasiswa mahasiswa) {
+		return tahunAngkatan == null || tahunAngkatan.trim().isEmpty()
+				|| (mahasiswa != null && mahasiswa.getTahunangkatan() != null
+						&& tahunAngkatan.trim().contains(mahasiswa.getTahunangkatan().toString()));
+	}
+
+	private int skorFilterFormatNilaiProposalSkripsi(FormatNilaiProposalSkripsi format, Mahasiswa mahasiswa,
+			Fakultas fakultas, Jurusan jurusan, String programPengajuan, StatusAwalMahasiswa statusAwalPengajuan) {
+		if (format == null) {
+			return -1;
+		}
+		int skor = 0;
+		if (samaData(format.getJurusan(), jurusan)) {
+			skor += 16;
+		}
+		if (samaData(format.getFakultas(), fakultas)) {
+			skor += 8;
+		}
+		if (samaProgram(format.getProgram(), programPengajuan)) {
+			skor += 4;
+		}
+		if (samaData(format.getStatusAwalMahasiswa(), statusAwalPengajuan)) {
+			skor += 2;
+		}
+		if (format.getTahunAngkatan() != null && !format.getTahunAngkatan().trim().isEmpty()
+				&& cocokTahunAngkatan(format.getTahunAngkatan(), mahasiswa)) {
+			skor += 1;
+		}
+		return skor;
+	}
+
+	private void urutkanFormatNilaiProposalSkripsi(List<FormatNilaiProposalSkripsi> formats, final Mahasiswa mahasiswa,
+			final Fakultas fakultas, final Jurusan jurusan, final String programPengajuan,
+			final StatusAwalMahasiswa statusAwalPengajuan) {
+		Collections.sort(formats, new java.util.Comparator<FormatNilaiProposalSkripsi>() {
+			@Override
+			public int compare(FormatNilaiProposalSkripsi f1, FormatNilaiProposalSkripsi f2) {
+				int skor1 = skorFilterFormatNilaiProposalSkripsi(f1, mahasiswa, fakultas, jurusan, programPengajuan,
+						statusAwalPengajuan);
+				int skor2 = skorFilterFormatNilaiProposalSkripsi(f2, mahasiswa, fakultas, jurusan, programPengajuan,
+						statusAwalPengajuan);
+				if (skor1 != skor2) {
+					return skor2 - skor1;
+				}
+				return f1.getNama().compareToIgnoreCase(f2.getNama());
+			}
+		});
+	}
+
 	@SuppressWarnings("deprecation")
 	@Override
 	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop disposisiSop, MyToolbarbuttonConfig save,
@@ -3605,11 +3669,11 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 								: Restrictions.or(Restrictions.isNull("statusAwalMahasiswa"),
 										Restrictions.eq("statusAwalMahasiswa", statusAwalPengajuan)))
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
+				urutkanFormatNilaiProposalSkripsi(formatNilaiProposalSkripsis, mahasiswa, fakultas, jurusan,
+						programPengajuan, statusAwalPengajuan);
 				for (FormatNilaiProposalSkripsi formatNilaiProposalSkripsi : formatNilaiProposalSkripsis) {
 
-					if (formatNilaiProposalSkripsi.getTahunAngkatan().trim().isEmpty()
-							|| (mahasiswa != null && formatNilaiProposalSkripsi.getTahunAngkatan().trim()
-									.contains(mahasiswa.getTahunangkatan().toString()))) {
+					if (cocokTahunAngkatan(formatNilaiProposalSkripsi.getTahunAngkatan(), mahasiswa)) {
 						Comboitem comboitem = new Comboitem(formatNilaiProposalSkripsi.getNama());
 						String mk = "";
 						for (String kode : formatNilaiProposalSkripsi.getKodeMatakuliah().split(",")) {
@@ -3656,6 +3720,9 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 				}
 				Common.selectComboItem(true, formatNilaiProposalSkripsi,
 						mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi());
+				if (!formatNilaiProposalSkripsi.getChildren().isEmpty()) {
+					formatNilaiProposalSkripsi.setSelectedIndex(0);
+				}
 
 				if (mahasiswa != null) {
 					Common.insertComboDanSemua(tahapanPenyusunanTugasAkhir, new String[] { "nama", "prosentase" },

@@ -167,6 +167,14 @@
 			label="Tarik dari Publik" image="/img/svg/warning-outline.svg"
 			tooltiptext="Sembunyikan karya terpilih dari katalog publik"
 			forward="onClick=onTarikTerpilih" />
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnTerbitkanSemua"
+			label="Publikasikan Semua" image="/img/svg/check2-circle.svg"
+			tooltiptext="Publikasikan seluruh karya yang sesuai filter, termasuk halaman lain"
+			forward="onClick=onTerbitkanSemuaPublikasi" />
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnTarikSemuaPublikasi"
+			label="Tarik dari Publik Semua" image="/img/svg/warning-outline.svg"
+			tooltiptext="Tarik seluruh karya yang sesuai filter, termasuk halaman lain"
+			forward="onClick=onTarikSemuaPublikasi" />
 			</div>
 			</div>
 

@@ -102,6 +102,10 @@ public final class AnggaranKeuanganUtil {
 		while (rs.next()) {
 			JSONObject j = new JSONObject();
 			j.put("id", rs.getLong(1));
+			// Bentuk teksnya ikut dikirim: id anggaran adalah bilangan 19 digit yang tidak
+			// muat utuh pada tipe angka JavaScript, sedangkan formula rincian memang
+			// menyimpannya sebagai teks.
+			j.put("idTeks", String.valueOf(rs.getLong(1)));
 			j.put("kode", rs.getString(2));
 			j.put("nama", rs.getString(3));
 			j.put("pagu", rs.getDouble(4));
@@ -272,6 +276,31 @@ public final class AnggaranKeuanganUtil {
 		}
 		c.add(Restrictions.eq("tahunWorkspace", tahun));
 		return c;
+	}
+
+	// ============================================================ pelepasan
+
+	/**
+	 * Mengembalikan anggaran yang dipotong satu dokumen, dengan membuang baris
+	 * {@code rab.penggunaan_anggaran} miliknya.
+	 *
+	 * <p>Wajib dipanggil sebelum dokumennya dihapus: FK dari tabel itu ke dokumen tidak
+	 * memakai {@code ON DELETE CASCADE}, jadi tanpa ini basis data menolak penghapusan.
+	 * Dipanggil di dalam transaksi milik pemanggil supaya keduanya batal bersama bila
+	 * penghapusan dokumennya gagal.</p>
+	 *
+	 * @param kolom {@code uang_muka}, {@code kas_kecil}, {@code kas_besar}, atau
+	 *              {@code pertangungjawaban}.
+	 */
+	public static void lepaskan(Session session, String kolom, Long id) throws Exception {
+		if (session == null || id == null || !kolomSah(kolom)) {
+			return;
+		}
+		PreparedStatement ps = session.connection()
+				.prepareStatement("DELETE FROM rab.penggunaan_anggaran WHERE " + kolom + " = ?");
+		ps.setLong(1, id.longValue());
+		ps.executeUpdate();
+		ps.close();
 	}
 
 	// ============================================================ ringkasan pemakaian

@@ -1206,4 +1206,168 @@ public class PostingKasBesarAction extends GenericAutowireComposer {
 		});
 	}
 
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Tiga method berikut adalah kembaran non-ZK dari tombol "Posting Semua" dan
+	// "Batalkan Posting Semua" di halaman ini: TANPA dialog, TANPA label progress,
+	// dan tanpa thread sendiri -- rentang tanggalnya datang sebagai parameter, bukan
+	// dari datebox layar. Pola ini menyalin PostingKasKecilAction yang lebih dulu
+	// dibuka untuk dasbor.
+	//
+	// PEMELIHARAAN: logika per-dokumen di sini HARUS tetap identik dengan
+	// {@link #onPostingSemua}. Bila penentuan akun debet/kredit kas besar berubah,
+	// ubah di KEDUA tempat.
+	// =====================================================================
+
+	/**
+	 * Kriteria kas besar yang layak diposting pada rentang tanggal, tanpa bergantung pada
+	 * komponen layar. Isinya sama dengan {@link #initCriteria(boolean)} pada bagian yang
+	 * tidak berhubungan dengan filter satuan kerja/pencarian.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		Criteria c = session.createCriteria(KasBesar.class).add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA kas besar terposting dalam rentang. Mengikuti perilaku tombol
+	 * lama: hapus baris grup_transaksi yang BELUM closing lalu kosongkan postingHistory --
+	 * jurnal yang sudah closing TIDAK terhapus.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentSession();
+		List<KasBesar> kasBesars = kriteriaPostingStatic(session, mulai, sampai)
+				.add(Restrictions.isNotNull("postingHistory")).list();
+		for (KasBesar kasBesar : kasBesars) {
+			try {
+				kasBesar.setPostingHistory(null);
+				Common.refreshSaveOrUpdate(kasBesar);
+				session.createSQLQuery("delete from akunting.grup_transaksi where kas_besar=" + kasBesar.getId()
+						+ " and closing is null").executeUpdate();
+				n++;
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA kas besar yang belum diposting dalam rentang. Logika per-dokumen IDENTIK
+	 * dengan {@link #onPostingSemua}: akun debet diambil dari jenis kas kecil bila kas besar ini
+	 * merupakan penggantian kas kecil, selain itu dari akun penerima jenis kas besar; akun kredit
+	 * selalu akun jenis kas besar.
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting -- pemanggil memakai angka ini untuk
+	 *         membedakan "tidak ada yang diproses" dari "semuanya diproses".
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGGUNAAN_KAS_BESAR);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal kas besar dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			List<KasBesar> kasBesars = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+
+			for (KasBesar kasBesar : kasBesars) {
+				if (kasBesar == null) {
+					continue;
+				}
+				SatuanKerja satuanKerja = kasBesar.getSatuanKerja() != null ? kasBesar.getSatuanKerja() : null;
+				try {
+					List<Akun> akunDebets = new ArrayList<Akun>();
+					List<Double> nilaiDebets = new ArrayList<Double>();
+
+					Akun akunKredit = null;
+					if (kasBesar.getKasKecil() != null && kasBesar.getKasKecil().getJenisKasKecil() != null
+							&& kasBesar.getKasKecil().getJenisKasKecil().getAkun() != null
+							&& kasBesar.getJenisKasBesar() != null
+							&& kasBesar.getJenisKasBesar().getAkun() != null) {
+						akunDebets.add(kasBesar.getKasKecil().getJenisKasKecil().getAkun());
+						akunKredit = kasBesar.getJenisKasBesar().getAkun();
+					} else if (kasBesar.getJenisKasBesar() != null) {
+						if (kasBesar.getJenisKasBesar().getAkunPenerima() != null) {
+							akunDebets.add(kasBesar.getJenisKasBesar().getAkunPenerima());
+						}
+						akunKredit = kasBesar.getJenisKasBesar().getAkun();
+					}
+
+					if (akunDebets.isEmpty() || akunKredit == null) {
+						// Jurnalnya tidak lengkap: dilewati, sama seperti layar yang tidak
+						// menampilkan tombol posting untuk baris berjurnal tidak valid.
+						continue;
+					}
+
+					String ket = "";
+					try {
+						ket = "Persetujuan kas besar \"" + kasBesar.getKode() + "\" pada pengeluaran \""
+								+ kasBesar.getNama() + "\" senilai "
+								+ Common.numberFormat.get().format(kasBesar.getNilai());
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+					}
+
+					Double nilai = kasBesar.getNilai();
+					nilaiDebets.add(nilai);
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebets.toArray(new Akun[] {}),
+									new Akun[] { akunKredit }, null, null, postingHistory, Boolean.TRUE, ket,
+									kasBesar.getTanggalPersetujuan(), nilaiDebets.toArray(new Double[] {}),
+									new Double[] { nilai }, Double.valueOf(0.0), kasBesar, satuanKerja, session);
+						} else {
+							CommonAkunting.saveTransaksi(new Akun[] { akunKredit },
+									akunDebets.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
+									ket, kasBesar.getTanggalPersetujuan(), new Double[] { nilai },
+									nilaiDebets.toArray(new Double[] {}), Double.valueOf(0.0), kasBesar,
+									satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+					}
+
+					if (tersimpan) {
+						kasBesar.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(kasBesar);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					// Kegagalan satu dokumen tidak menghentikan sisanya -- sama dgn layar.
+					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingKasBesarAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingKasBesarAction.postingSemua-disconnect"); }
+			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingKasBesarAction.postingSemua-close"); }
+		}
+		return n;
+	}
 }
