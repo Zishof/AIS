@@ -271,6 +271,112 @@ public class CommonPMB {
 		}
 	}
 
+	public static String ambilNimTersimpanDariRiwayatPmb(Session sessionAktif,
+			BiodataCalonMahasiswa biodataCalonMahasiswa, Mahasiswa mahasiswa) {
+		if (mahasiswa != null && !isBlankString(mahasiswa.getNim())) {
+			return mahasiswa.getNim().trim();
+		}
+		Session session = sessionAktif;
+		boolean tutupSession = false;
+		try {
+			if (session == null) {
+				session = HibernateUtil.getSessionFactory().openSession();
+				tutupSession = true;
+			}
+			Long biodataId = biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getId();
+			Long mahasiswaId = mahasiswa == null ? null : mahasiswa.getId();
+			if (biodataId == null && mahasiswa != null && mahasiswa.getBiodataCalonMahasiswa() != null) {
+				biodataId = mahasiswa.getBiodataCalonMahasiswa();
+			}
+			String noReg = biodataCalonMahasiswa == null ? "" : safeTrim(biodataCalonMahasiswa.getNoRegistrasi());
+			String noUjian = biodataCalonMahasiswa == null ? "" : ambilNoUjianDariObject(biodataCalonMahasiswa);
+
+			String nim = ambilNimBiodataAktif(session, biodataId);
+			if (!isBlankString(nim)) {
+				return nim.trim();
+			}
+			nim = ambilNimBiodataAudit(session, "public", "biodata_calon_mahasiswa_aud",
+					biodataId, mahasiswaId, noReg, noUjian);
+			if (!isBlankString(nim)) {
+				return nim.trim();
+			}
+			nim = ambilNimBiodataAudit(session, "new_audit", "biodata_calon_mahasiswa__audit",
+					biodataId, mahasiswaId, noReg, noUjian);
+			return nim == null ? "" : nim.trim();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit CommonPMB.ambilNimTersimpanDariRiwayatPmb");
+			return "";
+		} finally {
+			if (tutupSession) {
+				tutupSessionLokal(session);
+			}
+		}
+	}
+
+	private static String ambilNimBiodataAktif(Session session, Long biodataId) {
+		if (session == null || biodataId == null) {
+			return "";
+		}
+		try {
+			Object value = session.createSQLQuery(
+					"select nim from public.biodata_calon_mahasiswa "
+					+ "where id = :id and nim is not null and trim(nim) <> ''")
+					.setParameter("id", biodataId).setMaxResults(1).uniqueResult();
+			return value == null ? "" : value.toString().trim();
+		} catch (Exception e) {
+			return "";
+		}
+	}
+
+	private static String ambilNimBiodataAudit(Session session, String schema, String table, Long biodataId,
+			Long mahasiswaId, String noReg, String noUjian) {
+		if (session == null || isBlankString(schema) || isBlankString(table)) {
+			return "";
+		}
+		try {
+			Object ada = session.createSQLQuery(
+					"select count(*) from information_schema.tables "
+					+ "where table_schema = :schema and table_name = :table")
+					.setParameter("schema", schema).setParameter("table", table).uniqueResult();
+			if (!(ada instanceof Number) || ((Number) ada).longValue() < 1L) {
+				return "";
+			}
+			StringBuilder sql = new StringBuilder();
+			sql.append("select nim from ").append(schema).append(".").append(table)
+					.append(" where nim is not null and trim(nim) <> '' and (1=0 ");
+			if (biodataId != null) {
+				sql.append("or id = :biodataId ");
+			}
+			if (mahasiswaId != null) {
+				sql.append("or mahasiswa = :mahasiswaId ");
+			}
+			if (!isBlankString(noReg)) {
+				sql.append("or trim(coalesce(no_registrasi,'')) = :noReg ");
+			}
+			if (!isBlankString(noUjian)) {
+				sql.append("or trim(coalesce(no_ujian,'')) = :noUjian ");
+			}
+			sql.append(") order by rev desc limit 1");
+			org.hibernate.SQLQuery query = session.createSQLQuery(sql.toString());
+			if (biodataId != null) {
+				query.setParameter("biodataId", biodataId);
+			}
+			if (mahasiswaId != null) {
+				query.setParameter("mahasiswaId", mahasiswaId);
+			}
+			if (!isBlankString(noReg)) {
+				query.setParameter("noReg", noReg);
+			}
+			if (!isBlankString(noUjian)) {
+				query.setParameter("noUjian", noUjian);
+			}
+			Object value = query.uniqueResult();
+			return value == null ? "" : value.toString().trim();
+		} catch (Exception e) {
+			return "";
+		}
+	}
+
 	private static void tutupSessionLokal(Session session) {
 		if (session == null) {
 			return;
@@ -990,6 +1096,10 @@ public class CommonPMB {
 							.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1),
 					Mahasiswa.class);
 		}
+		String nimRiwayat = ambilNimTersimpanDariRiwayatPmb(session, calonMahasiswa, mahasiswa);
+		if (!isBlankString(nimRiwayat)) {
+			nim = nimRiwayat;
+		}
 		if (mahasiswa == null) {
 			mahasiswa = new Mahasiswa();
 			mahasiswa.setPass(Common.desEncrypter.get().encrypt(nim));
@@ -1434,7 +1544,10 @@ public class CommonPMB {
 	        
 	        // Kasus 2: Mahasiswa belum punya NIM, proses generate NIM baru
 	        else {
-	            nim = nimGenerator.generateNim(calonMahasiswa);
+	            nim = ambilNimTersimpanDariRiwayatPmb(null, calonMahasiswa, calonMahasiswa.getMahasiswa());
+	            if (isBlankString(nim)) {
+	                nim = nimGenerator.generateNim(calonMahasiswa);
+	            }
 	            calonMahasiswa.setNim(nim);
 	            
 	            Session session = null;

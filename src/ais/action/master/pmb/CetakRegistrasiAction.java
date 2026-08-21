@@ -2933,6 +2933,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			try {
 				pembayaranRegistrasi = KegiatanHelper.checkKegiatanCalonMahasiswa(jenisKegiatan,
 						biodataForKegiatan, 0, taForKegiatan, true, false, null, session);
+				sinkronkanNominalKegiatanDariLogHostToHost(session, biodataForKegiatan, pembayaranRegistrasi, false);
 			} catch (Exception kegEx) {
 				// KE-10: bila koneksi/statement JDBC yang dipegang `session` sudah tertutup (c3p0
 				// mengembalikan koneksi basi / diputus admin-maintenance), session.clear()+
@@ -2970,6 +2971,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			try {
 				kegiatanDaftarUlang = KegiatanHelper.checkKegiatanCalonMahasiswa(jenisKegiatan,
 						biodataForKegiatan, 1, taForKegiatan, true, false, null, session);
+				sinkronkanNominalKegiatanDariLogHostToHost(session, biodataForKegiatan, kegiatanDaftarUlang, true);
 			} catch (Exception kegEx) {
 				// KE-10: sama seperti panggilan checkKegiatanCalonMahasiswa pertama di atas -- error
 				// koneksi transient tidak bisa "dipulihkan" dgn clear()+beginTransaction() pada
@@ -3085,6 +3087,76 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			Thread.currentThread().interrupt();
 			return;
 		}
+		}
+	}
+
+	private static void sinkronkanNominalKegiatanDariLogHostToHost(Session session,
+			BiodataCalonMahasiswa biodataCalonMahasiswa, Kegiatan kegiatan, boolean daftarUlang) {
+		try {
+			if (session == null || biodataCalonMahasiswa == null || kegiatan == null || kegiatan.getId() == null) {
+				return;
+			}
+			double totalKegiatan = (kegiatan.getAmount() == null ? 0.0 : kegiatan.getAmount().doubleValue())
+					+ (kegiatan.getAmountTerhutang() == null ? 0.0 : kegiatan.getAmountTerhutang().doubleValue());
+			if (totalKegiatan > 0.01) {
+				return;
+			}
+			String noReg = biodataCalonMahasiswa.getNoRegistrasi() == null ? ""
+					: biodataCalonMahasiswa.getNoRegistrasi().trim();
+			String noUjian = biodataCalonMahasiswa.getNoUjian() == null ? ""
+					: biodataCalonMahasiswa.getNoUjian().trim();
+			if (noReg.length() == 0 && noUjian.length() == 0) {
+				return;
+			}
+			String kolomCari = "lower(coalesce(item,'') || ' ' || coalesce(response,'') || ' ' "
+					+ "|| coalesce(nama,'') || ' ' || coalesce(keterangan,''))";
+			String sql = "select nominal, tanggal from log_host_to_host "
+					+ "where nominal is not null and nominal > 0.01 "
+					+ "and (trim(coalesce(nim,'')) = :noReg or trim(coalesce(nim,'')) = :noUjian "
+					+ "or trim(coalesce(kode,'')) = :noReg or trim(coalesce(kode,'')) = :noUjian) "
+					+ "and (lower(coalesce(response_code,'')) in ('ok','00','success','sukses') "
+					+ "or lower(coalesce(response_description,'')) like '%success%' "
+					+ "or lower(coalesce(response_description,'')) like '%sukses%' "
+					+ "or lower(coalesce(response,'')) like '%succeeded%' "
+					+ "or lower(coalesce(response,'')) like '%\"rc\":\"ok\"%') "
+					+ "and (" + kolomCari + " like :k1 or " + kolomCari + " like :k2 or "
+					+ kolomCari + " like :k3) "
+					+ "order by tanggal desc, id desc limit 1";
+			org.hibernate.SQLQuery query = session.createSQLQuery(sql);
+			query.setParameter("noReg", noReg);
+			query.setParameter("noUjian", noUjian);
+			if (daftarUlang) {
+				query.setParameter("k1", "%spp%");
+				query.setParameter("k2", "%daftar ulang%");
+				query.setParameter("k3", "%semester%");
+			} else {
+				query.setParameter("k1", "%uang pendaftaran%");
+				query.setParameter("k2", "%pendaftaran calon mahasiswa%");
+				query.setParameter("k3", "%registrasi%");
+			}
+			Object rowObj = query.uniqueResult();
+			if (!(rowObj instanceof Object[])) {
+				return;
+			}
+			Object[] row = (Object[]) rowObj;
+			if (!(row[0] instanceof Number)) {
+				return;
+			}
+			double nominalHostToHost = ((Number) row[0]).doubleValue();
+			if (nominalHostToHost <= 0.01) {
+				return;
+			}
+			kegiatan.setTagihan(nominalHostToHost);
+			kegiatan.setDibayar(nominalHostToHost);
+			kegiatan.setPersentaseLunas(100.0);
+			kegiatan.setLunas(true);
+			if (row.length > 1 && row[1] instanceof java.util.Date) {
+				kegiatan.setTanggalBayarAwal((java.util.Date) row[1]);
+			}
+			Common.refreshSaveOrUpdate(session, kegiatan);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit CetakRegistrasiAction.sinkronkanNominalKegiatanDariLogHostToHost");
 		}
 	}
 
