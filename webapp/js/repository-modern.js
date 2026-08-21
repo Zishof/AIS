@@ -7,6 +7,91 @@
   }
 
   ready(function () {
+    var menuButton = document.querySelector('[data-repo-menu-toggle]');
+    var menu = document.querySelector('[data-repo-menu]');
+    if (menuButton && menu) {
+      menuButton.addEventListener('click', function () {
+        var opened = menu.classList.toggle('is-open');
+        menuButton.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      });
+      menu.addEventListener('click', function () {
+        menu.classList.remove('is-open'); menuButton.setAttribute('aria-expanded', 'false');
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { menu.classList.remove('is-open'); menuButton.setAttribute('aria-expanded', 'false'); }
+      });
+    }
+
+    var suggestForms = document.querySelectorAll('[data-repo-suggest-form]');
+    for (var sf = 0; sf < suggestForms.length; sf++) (function (form) {
+      var input = form.querySelector('input[name="q"]');
+      var field = form.querySelector('select[name="field"]');
+      var panel = form.querySelector('.repo-suggestions');
+      var clearButton = form.querySelector('[data-repo-search-clear]');
+      if (!input || !field || !panel || !window.fetch) return;
+      var timer = null, requestNumber = 0, activeIndex = -1, options = [];
+
+      function closeSuggestions() {
+        panel.hidden = true; panel.textContent = ''; options = []; activeIndex = -1;
+        input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant');
+      }
+      function updateClear() { if (clearButton) clearButton.hidden = input.value.length === 0; }
+      function activate(index) {
+        if (!options.length) return;
+        activeIndex = (index + options.length) % options.length;
+        for (var i = 0; i < options.length; i++) options[i].classList.toggle('is-active', i === activeIndex);
+        input.setAttribute('aria-activedescendant', options[activeIndex].id);
+        options[activeIndex].scrollIntoView({ block: 'nearest' });
+      }
+      function choose(button) {
+        input.value = button.getAttribute('data-value') || button.querySelector('strong').textContent;
+        updateClear(); closeSuggestions(); form.submit();
+      }
+      function render(rows) {
+        panel.textContent = ''; options = []; activeIndex = -1;
+        if (!rows || !rows.length) { closeSuggestions(); return; }
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i], button = document.createElement('button');
+          button.type = 'button'; button.className = 'repo-suggestion'; button.id = panel.id + '-option-' + i;
+          button.setAttribute('role', 'option'); button.setAttribute('data-value', row.value || row.label || '');
+          var type = document.createElement('span'); type.className = 'repo-suggestion-type'; type.textContent = row.type || 'item';
+          var text = document.createElement('span'), label = document.createElement('strong'), detail = document.createElement('small');
+          label.textContent = row.label || ''; detail.textContent = row.detail || ''; text.appendChild(label); if (row.detail) text.appendChild(detail);
+          button.appendChild(type); button.appendChild(text); button.addEventListener('click', function () { choose(this); }); panel.appendChild(button); options.push(button);
+        }
+        panel.hidden = false; input.setAttribute('aria-expanded', 'true');
+      }
+      function showSuggestionState(message) {
+        panel.textContent = ''; options = []; activeIndex = -1; input.removeAttribute('aria-activedescendant');
+        var state = document.createElement('span'); state.className = 'repo-suggestion-state';
+        state.setAttribute('role', 'status'); state.textContent = message; panel.appendChild(state); panel.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+      function loadSuggestions() {
+        var term = input.value.trim(); updateClear();
+        if (term.length < 2) { closeSuggestions(); return; }
+        var current = ++requestNumber;
+        var endpoint = form.getAttribute('data-suggest-url') || form.action + '?action=suggest';
+        showSuggestionState('Mencari saran…');
+        fetch(endpoint + '&q=' + encodeURIComponent(term) + '&field=' + encodeURIComponent(field.value),
+          { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+          .then(function (response) { if (!response.ok) throw new Error('suggestion unavailable'); return response.json(); })
+          .then(function (body) { if (current === requestNumber) render(body.suggestions || []); })
+          .catch(function () { if (current === requestNumber) showSuggestionState('Saran belum tersedia. Tekan Enter untuk mencari.'); });
+      }
+      input.addEventListener('input', function () { updateClear(); if (timer) window.clearTimeout(timer); timer = window.setTimeout(loadSuggestions, 250); });
+      field.addEventListener('change', function () { if (input.value.trim().length >= 2) loadSuggestions(); });
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'ArrowDown' && options.length) { event.preventDefault(); activate(activeIndex + 1); }
+        else if (event.key === 'ArrowUp' && options.length) { event.preventDefault(); activate(activeIndex - 1); }
+        else if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); choose(options[activeIndex]); }
+        else if (event.key === 'Escape') closeSuggestions();
+      });
+      if (clearButton) clearButton.addEventListener('click', function () { input.value = ''; updateClear(); closeSuggestions(); input.focus(); });
+      document.addEventListener('click', function (event) { if (!form.contains(event.target)) closeSuggestions(); });
+      updateClear();
+    }(suggestForms[sf]));
+
     var filterButton = document.querySelector('[data-repo-filter-toggle]');
     var filterPanel = document.querySelector('[data-repo-facets]');
     if (filterButton && filterPanel) {

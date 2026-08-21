@@ -29,16 +29,20 @@ import ais.action.master.repository.RepositoryPublicService.AuthorProfile;
 import ais.action.master.repository.RepositoryPublicService.CollectionView;
 import ais.action.master.repository.RepositoryPublicService.Query;
 import ais.action.master.repository.RepositoryPublicService.SearchResult;
+import ais.action.master.repository.RepositoryPublicService.Suggestion;
+import ais.action.master.repository.RepositoryWorkflowService;
 import ais.common.Common;
 import ais.common.security.PublicRegistrationRateLimiter;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoBitstream;
+import ais.database.model.Tbmuser;
 
 /** Public entry point and typed read API for Repository AIS. */
 public class Repository extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final String JSP = "/WEB-INF/baru/modul/repository/landing_page.jsp";
     private final RepositoryPublicService service = new RepositoryPublicService();
+    private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -100,7 +104,7 @@ public class Repository extends HttpServlet {
             else if (segments.length > 2 && "author".equals(segments[1])) { view="author"; routeAuthor=URLDecoder.decode(segments[2],"UTF-8"); }
         }
         String ip = request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
-        if (("search".equals(action) || "search".equals(view) || "browse".equals(view))
+        if (("search".equals(action) || "suggest".equals(action) || "search".equals(view) || "browse".equals(view))
                 && !PublicRegistrationRateLimiter.izinkan("repository-search|" + ip, 300, 3600000L)) {
             tooManyRequests(response, requestId); return;
         }
@@ -112,6 +116,11 @@ public class Repository extends HttpServlet {
         if (request.getServletPath().endsWith("sitemap.xml")) { sitemap(request, response); return; }
         if ("search".equals(action)) {
             writeSearchJson(response, service.search(queryFrom(request)), requestId);
+            return;
+        }
+        if ("suggest".equals(action)) {
+            writeSuggestionJson(response, service.suggest(clean(request.getParameter("q")),
+                    clean(request.getParameter("field")), 8), requestId);
             return;
         }
         if ("download".equals(action)) {
@@ -133,9 +142,10 @@ public class Repository extends HttpServlet {
 
         if (view.length() == 0) view = "home";
         request.setAttribute("repoView", view);
-        request.setAttribute("repoPublicUser", Common.getCurrentUser(request));
-        request.setAttribute("repoSummary", service.loadSummary());
-        request.setAttribute("repoCollections", service.listCollections(12));
+        Tbmuser publicUser = Common.getCurrentUser(request);
+        request.setAttribute("repoPublicUser", publicUser);
+        request.setAttribute("repoIsReviewer", Boolean.valueOf(workflow.isRepositoryAdmin(publicUser)));
+        request.setAttribute("repoCanDeposit", Boolean.valueOf(publicUser != null && service.hasDepositCollection()));
 
         if ("item".equals(view)) {
             Long itemId=routeId==null?parseLong(request.getParameter("id")):routeId;
@@ -160,7 +170,11 @@ public class Repository extends HttpServlet {
             // Rendered by the allow-listed JSP view.
         } else {
             request.setAttribute("repoView", "home");
+            request.setAttribute("repoSummary", service.loadSummary());
+            request.setAttribute("repoCollections", service.listCollections(12));
             request.setAttribute("repoLatest", service.latest(6));
+            request.setAttribute("repoPopularCollections", service.popularCollections(6));
+            request.setAttribute("repoPopularTopics", service.popularSubjects(10));
         }
         request.getRequestDispatcher(JSP).forward(request, response);
     }
@@ -168,6 +182,7 @@ public class Repository extends HttpServlet {
     private Query queryFrom(HttpServletRequest request) {
         Query q = new Query();
         q.keyword = clean(request.getParameter("q"));
+        q.searchField = clean(request.getParameter("field"));
         q.author = clean(request.getParameter("author"));
         q.subject = clean(request.getParameter("subject"));
         q.language = clean(request.getParameter("language"));
@@ -194,6 +209,7 @@ public class Repository extends HttpServlet {
         root.put("pageSize", result.query.pageSize);
         root.put("total", result.total);
         root.put("totalPages", result.totalPages);
+        root.put("searchField", result.query.searchField);
         JSONArray items = new JSONArray();
         for (int i = 0; i < result.items.size(); i++) {
             ItemCard item = result.items.get(i);
@@ -207,6 +223,11 @@ public class Repository extends HttpServlet {
             row.put("accessPolicy", item.accessPolicy);
             row.put("collection", item.collectionName);
             row.put("oaiIdentifier", item.oaiIdentifier);
+            row.put("programStudy", item.programStudy);
+            row.put("publicFileCount", item.publicFileCount);
+            row.put("pdfAvailable", item.pdfAvailable);
+            row.put("viewCount", item.viewCount);
+            row.put("downloadCount", item.downloadCount);
             items.put(row);
         }
         root.put("items", items);
@@ -219,6 +240,16 @@ public class Repository extends HttpServlet {
         facets.put("source",new JSONObject(result.sourceFacets));facets.put("license",new JSONObject(result.licenseFacets));facets.put("fullText",new JSONObject(result.fullTextFacets));
         root.put("facets", facets);
         writeJson(response, root, HttpServletResponse.SC_OK);
+    }
+
+    private void writeSuggestionJson(HttpServletResponse response, List<Suggestion> suggestions, String requestId) throws Exception {
+        JSONObject root = new JSONObject(); root.put("status", "OK"); root.put("requestId", requestId);
+        JSONArray rows = new JSONArray();
+        for (Suggestion suggestion : suggestions) {
+            JSONObject row = new JSONObject(); row.put("type", suggestion.type); row.put("label", suggestion.label);
+            row.put("detail", suggestion.detail); row.put("value", suggestion.value); rows.put(row);
+        }
+        root.put("suggestions", rows); writeJson(response, root, HttpServletResponse.SC_OK);
     }
 
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {

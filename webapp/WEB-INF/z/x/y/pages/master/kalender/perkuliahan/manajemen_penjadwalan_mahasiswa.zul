@@ -10,7 +10,7 @@
 		apply="ais.action.master.helper.ManajemenPenjadwalanMahasiswaComposer"
 		height="100%">
 		<borderlayout id="main" height="82vh" style="min-height:520px">
-			<center border="none">
+			<west border="none" width="50%" splittable="true" collapsible="false">
 				<calendars id="calendars" firstDayOfWeek="Sunday"
 					model="${cm}" mold="default">
 					<toolbar sclass="calendar-toolbar">
@@ -92,13 +92,13 @@
 				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;manajemen_penjadwalan_mahasiswa&quot;, &quot;Bantuan&quot;);"/>
 			</toolbar>
 				</calendars>
-			</center>
+			</west>
 
-			<east width="50%" id="panelDaftarMahasiswa"
+			<center id="panelDaftarMahasiswa"
 				title="Daftar mahasiswa yang mengikuti perkuliahan-perkuliahan ini">
 
 
-			</east>
+			</center>
 
 		</borderlayout>
 

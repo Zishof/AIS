@@ -10,6 +10,8 @@ import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zul.Bandbox;
+import org.zkoss.zul.Bandpopup;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Columns;
@@ -69,6 +71,7 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 	}
 
 	private Textbox nama;
+	private Bandbox semester;
 
 	private void init() throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -79,7 +82,7 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("40px");
+		west.setHeight("48px");
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
@@ -91,6 +94,18 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 		columns.setParent(grid);
 		MyColumnConfig column = new MyColumnConfig();
 		column.setParent(columns);
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
 		column = new MyColumnConfig();
 		column.setParent(columns);
 
@@ -126,6 +141,21 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onKHS(arg0);
+			}
+		});
+
+		row.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
+		row.appendChild(semester = new Bandbox());
+		semester.setWidth("90%");
+		semester.setReadonly(true);
+		semester.setValue("Semua");
+		semester.setAttribute("semester", null);
+		semester.addEventListener("onOpen", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				if (semester.getChildren().isEmpty()) {
+					bangunPopupSemester(ambilJumlahSemester());
+				}
 			}
 		});
 
@@ -207,6 +237,50 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 		}
 	}
 
+	private void bangunPopupSemester(int jumlahSemester) {
+		Common.clear(semester);
+		Bandpopup popup = new ais.ui.util.MyBandpopup();
+		popup.setWidth("220px");
+		popup.setParent(semester);
+		Radiogroup group = new Radiogroup();
+		group.setParent(popup);
+		group.setStyle("display:block;padding:8px;");
+		tambahPilihanSemester(group, "Semua", null);
+		for (int i = 1; i <= jumlahSemester; i++) {
+			tambahPilihanSemester(group, "Semester " + i, Integer.valueOf(i));
+		}
+	}
+
+	private void tambahPilihanSemester(Radiogroup group, String label, final Integer nilai) {
+		final Radio radio = new Radio(label);
+		radio.setChecked(nilai == null ? semester.getAttribute("semester") == null
+				: nilai.equals(semester.getAttribute("semester")));
+		radio.setParent(group);
+		radio.addEventListener("onCheck", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				semester.setAttribute("semester", nilai);
+				semester.setValue(nilai == null ? "Semua" : nilai.toString());
+				semester.setOpen(false);
+				onKHS(event);
+			}
+		});
+	}
+
+	private int ambilJumlahSemester() {
+		try {
+			Kurikulum kurikulum = (Kurikulum) searchkurikulum.getAttribute("kurikulum");
+			if (kurikulum != null && kurikulum.getJurusan() != null && kurikulum.getJurusan().getJenjang() != null
+					&& kurikulum.getJurusan().getJenjang().getJumlahSemester() != null
+					&& kurikulum.getJurusan().getJenjang().getJumlahSemester().intValue() > 0) {
+				return kurikulum.getJurusan().getJenjang().getJumlahSemester().intValue();
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return 14;
+	}
+
 	private Kurikulum ambilKurikulumDefault() {
 		try {
 			List list = HibernateUtil.currentSession().createCriteria(Kurikulum.class)
@@ -262,6 +336,9 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 																	nama.getValue().trim(), MatchMode.ANYWHERE)))
 
 											.add(Restrictions.eq("kurikulum", kurikulum))
+											.add(semester == null || semester.getAttribute("semester") == null
+													? Restrictions.sqlRestriction("true")
+													: Restrictions.eq("semester", semester.getAttribute("semester")))
 											.addOrder(Order.asc("matakuliah.kode"))
 											.addOrder(Order.asc("matakuliah.nama"))
 											.add(Restrictions.or(Restrictions.isNull("aktif"),
@@ -279,9 +356,13 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 					Columns columns = new Columns();
 					columns.setParent(grid);
 
-					MyColumnConfig column = new MyColumnConfig("Kode");
+					MyColumnConfig column = new MyColumnConfig("Kurikulum");
 					column.setParent(columns);
-					column.setWidth("10%");
+					column.setWidth("24%");
+
+					column = new MyColumnConfig("Kode");
+					column.setParent(columns);
+					column.setWidth("8%");
 
 					column = new MyColumnConfig("Matakuliah");
 					column.setParent(columns);
@@ -302,13 +383,14 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 
 						MyFormRow row = new MyFormRow();row.setValign("top");
 						row.setParent(rows);
+						row.appendChild(new Label(kurikulum.getNama()));
 						row.appendChild(new Label(matakuliah.getKode()));
 						row.appendChild(ObeBaseAction.ringkasanKeterangan(matakuliah.getNama()));
 
 						Radiogroup radiogroup = new Radiogroup();
 						radiogroup.setParent(row);
 
-						for (int smt = 1; smt <= kurikulum.getJurusan().getJenjang().getJumlahSemester(); smt++) {
+						for (int smt = 1; smt <= ambilJumlahSemester(); smt++) {
 							final Radio checkbox = new Radio(smt + "");
 							checkbox.setTooltiptext("Semester " + smt);
 							checkbox.setChecked(kurikulumPunyaMatakuliah.getSemester() != null

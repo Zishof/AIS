@@ -30,6 +30,15 @@ private String rsize(Long bytes) {
     if (value >= 1024d) return String.format(java.util.Locale.US, "%.1f KB", value / 1024d);
     return bytes + " B";
 }
+private String rrelative(Date value) {
+    if (value == null) return "Tanggal belum tersedia";
+    long days = Math.max(0L, (System.currentTimeMillis() - value.getTime()) / 86400000L);
+    if (days == 0L) return "Hari ini";
+    if (days == 1L) return "Kemarin";
+    if (days < 30L) return days + " hari lalu";
+    if (days < 365L) return (days / 30L) + " bulan lalu";
+    return new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("id", "ID")).format(value);
+}
 %>
 <%
 String root = request.getContextPath();
@@ -39,6 +48,8 @@ List<CollectionView> collections = (List<CollectionView>) request.getAttribute("
 if (collections == null) collections = Collections.emptyList();
 String institution = "Institusi Pendidikan";
 ais.database.model.Tbmuser publicUser=(ais.database.model.Tbmuser)request.getAttribute("repoPublicUser");
+boolean isReviewer=Boolean.TRUE.equals(request.getAttribute("repoIsReviewer"));
+boolean canDeposit=Boolean.TRUE.equals(request.getAttribute("repoCanDeposit"));
 String logo = "";
 try {
     ais.database.model.PerguruanTinggi ptPublicRepo = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request);
@@ -57,53 +68,62 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
         <span class="repo-brand-mark"><%=logo != null && logo.trim().length() > 0 ? "<img src='" + rh(logo) + "' alt='' width='30' height='30'>" : "▤"%></span>
         <span><strong>Repositori Institusi</strong><small><%=rh(institution)%></small></span>
       </a>
-      <nav class="repo-links" aria-label="Navigasi repositori">
+      <button class="repo-menu-toggle" type="button" data-repo-menu-toggle aria-controls="repo-primary-nav" aria-expanded="false"><span aria-hidden="true">☰</span><span class="visually-hidden">Buka menu</span></button>
+      <nav class="repo-links" id="repo-primary-nav" data-repo-menu aria-label="Navigasi repositori">
         <a href="<%=root%>/repository" <%="home".equals(view) ? "aria-current='page'" : ""%>>Beranda</a>
         <a href="<%=root%>/repository?view=search" <%="search".equals(view) || "browse".equals(view) ? "aria-current='page'" : ""%>>Jelajah</a>
+        <a href="<%=root%>/repository?view=search&sort=newest">Koleksi</a>
         <a href="<%=root%>/repository?view=policies" <%="policies".equals(view) ? "aria-current='page'" : ""%>>Kebijakan</a>
         <a href="<%=root%>/repository?view=help" <%="help".equals(view) ? "aria-current='page'" : ""%>>Bantuan</a>
       </nav>
-      <div class="repo-nav-actions"><%if(publicUser!=null){%><a class="repo-btn repo-btn-primary" href="<%=root%>/repository-workspace">Unggah karya</a><%}else{%><a class="repo-btn repo-btn-primary" href="<%=root%>/login2">Masuk</a><%}%></div>
+      <div class="repo-nav-actions"><%if(publicUser==null){%><a class="repo-btn repo-btn-quiet" href="<%=root%>/repository/help#upload">Panduan unggah</a><a class="repo-btn repo-btn-primary" href="<%=root%>/login2">Masuk</a><%}else if(isReviewer){%><a class="repo-btn repo-btn-quiet" href="<%=root%>/repository-workspace?view=review">Antrian review</a><a class="repo-btn repo-btn-primary" href="<%=root%>/repository-workspace?view=admin">Dashboard</a><%}else{%><a class="repo-btn repo-btn-quiet" href="<%=root%>/repository-workspace?view=deposit">Karya saya</a><%if(canDeposit){%><a class="repo-btn repo-btn-primary" href="<%=root%>/repository-workspace?view=deposit">Unggah karya</a><%}%><%}%></div>
     </div>
   </header>
 
   <main id="repo-content">
   <% if ("home".equals(view)) {
       List<ItemCard> latest = (List<ItemCard>) request.getAttribute("repoLatest");
-      if (latest == null) latest = Collections.emptyList(); %>
-    <section class="repo-wrap repo-hero" aria-labelledby="repo-hero-title">
-      <div class="repo-hero-main">
-        <span class="repo-eyebrow">Repositori terbuka dan terpercaya</span>
-        <h1 id="repo-hero-title">Temukan karya ilmiah dan pengetahuan institusi dalam satu pencarian</h1>
-        <p>Jelajahi skripsi, tesis, artikel, buku, bahan ajar, data penelitian, dan koleksi digital yang tersedia sesuai kebijakan akses.</p>
-        <form class="repo-search" action="<%=root%>/repository" method="get" role="search">
+      if (latest == null) latest = Collections.emptyList();
+      List<CollectionView> popularCollections=(List<CollectionView>)request.getAttribute("repoPopularCollections");
+      if(popularCollections==null)popularCollections=Collections.emptyList();
+      Map<String,Long> popularTopics=(Map<String,Long>)request.getAttribute("repoPopularTopics");
+      if(popularTopics==null)popularTopics=Collections.emptyMap();
+      long openPercent=summary==null||summary.totalItems==0?0:Math.round(summary.openAccess*100.0d/summary.totalItems); %>
+    <section class="repo-wrap repo-hero-v2" aria-labelledby="repo-hero-title">
+      <div class="repo-hero-content">
+        <span class="repo-eyebrow">Repositori ilmiah <%=rh(institution)%></span>
+        <h1 id="repo-hero-title">Temukan karya ilmiah tepercaya dalam satu pencarian</h1>
+        <p>Jelajahi skripsi, tesis, artikel, buku, bahan ajar, data penelitian, dan koleksi digital sesuai kebijakan akses institusi.</p>
+        <form class="repo-search repo-search-v2" action="<%=root%>/repository" method="get" role="search" data-repo-suggest-form data-suggest-url="<%=root%>/repository?action=suggest">
           <input type="hidden" name="view" value="search">
-          <label class="visually-hidden" for="repo-home-q">Kata kunci</label>
-          <input id="repo-home-q" name="q" maxlength="200" placeholder="Cari judul, penulis, abstrak, subjek, atau identifier">
-          <button class="repo-btn repo-btn-primary" type="submit">Cari Repositori</button>
+          <label class="visually-hidden" for="repo-home-field">Bidang pencarian</label>
+          <select id="repo-home-field" name="field" aria-label="Cari berdasarkan"><option value="all">Semua bidang</option><option value="title">Judul</option><option value="author">Penulis</option><option value="subject">Subjek</option><option value="identifier">Identifier</option></select>
+          <span class="repo-search-input"><label class="visually-hidden" for="repo-home-q">Kata kunci</label><input id="repo-home-q" name="q" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-controls="repo-home-suggestions" aria-expanded="false" placeholder="Judul, penulis, subjek, DOI, atau identifier"><button class="repo-search-clear" type="button" data-repo-search-clear aria-label="Hapus kata kunci" hidden>×</button><span class="repo-suggestions" id="repo-home-suggestions" role="listbox" hidden></span></span>
+          <button class="repo-btn repo-btn-primary" type="submit">Cari</button>
         </form>
+        <%if(!popularTopics.isEmpty()){%><div class="repo-popular-inline"><span>Topik populer:</span><%int topicIndex=0;for(Map.Entry<String,Long> topic:popularTopics.entrySet()){if(topicIndex++>=4)break;%><a href="<%=root%>/repository/search?subject=<%=ru(topic.getKey())%>"><%=rh(topic.getKey())%></a><%}%></div><%}%>
       </div>
-      <aside class="repo-summary" aria-label="Statistik repositori">
-        <h2>Ringkasan repositori</h2>
-        <div class="repo-stat-grid">
-          <div class="repo-stat"><span>Karya terbit</span><b><%=summary == null ? "0" : nf.format(summary.totalItems)%></b></div>
-          <div class="repo-stat"><span>Koleksi</span><b><%=summary == null ? "0" : nf.format(summary.totalCollections)%></b></div>
-          <div class="repo-stat"><span>Open access</span><b><%=summary == null ? "0" : nf.format(summary.openAccess)%></b></div>
-          <div class="repo-stat"><span>Metadata saja</span><b><%=summary == null ? "0" : nf.format(summary.metadataOnly)%></b></div>
-        </div>
-        <p>Angka hanya menghitung record aktif dan berstatus publik.</p>
+      <aside class="repo-hero-insight" aria-label="Ringkasan repositori publik">
+        <div class="repo-insight-head"><span>Data publik terverifikasi</span><small>Record aktif dan berstatus terbit</small></div>
+        <%if(summary!=null&&summary.totalItems>0){%><div class="repo-stat-grid">
+          <a class="repo-stat" href="<%=root%>/repository/search"><b><%=nf.format(summary.totalItems)%></b><span>Karya terbit</span></a>
+          <%if(summary.openAccess>0){%><a class="repo-stat" href="<%=root%>/repository/search?access=OPEN_ACCESS"><b><%=openPercent%>%</b><span>Open access</span></a><%}%>
+          <%if(summary.totalCollections>0){%><a class="repo-stat" href="<%=root%>/repository/search"><b><%=nf.format(summary.totalCollections)%></b><span>Koleksi aktif</span></a><%}%>
+          <%if(summary.authorCount>0){%><a class="repo-stat" href="<%=root%>/repository/search?sort=author"><b><%=nf.format(summary.authorCount)%></b><span>Penulis</span></a><%}%>
+        </div><%if(summary.metadataQuality>0){%><div class="repo-quality"><span><b>Kelengkapan metadata</b><strong><%=summary.metadataQuality%>%</strong></span><progress max="100" value="<%=summary.metadataQuality%>"><%=summary.metadataQuality%>%</progress></div><%}%>
+        <%}else{%><div class="repo-insight-empty"><strong>Repositori siap digunakan</strong><p>Statistik akan tampil setelah record pertama berstatus publik.</p></div><%}%>
       </aside>
     </section>
 
     <section class="repo-wrap repo-section" aria-labelledby="browse-title">
       <div class="repo-section-head"><div><h2 id="browse-title">Jelajah repositori</h2><p>Masuk melalui jalur yang paling sesuai.</p></div><a class="repo-link" href="<%=root%>/repository?view=search">Lihat semua →</a></div>
-      <div class="repo-browse-grid">
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search"><span class="repo-browse-icon">▦</span><strong>Koleksi</strong><small><%=collections.size()%> koleksi aktif</small></a>
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=title"><span class="repo-browse-icon">◎</span><strong>Pengarang</strong><small>Urutkan dan cari nama</small></a>
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=newest"><span class="repo-browse-icon">◷</span><strong>Tahun terbit</strong><small>Terbaru lebih dahulu</small></a>
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search&q=subjek"><span class="repo-browse-icon">◇</span><strong>Subjek</strong><small>Topik dan kata kunci</small></a>
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search&type=Thesis"><span class="repo-browse-icon">▧</span><strong>Jenis dokumen</strong><small>Skripsi, artikel, buku</small></a>
-        <a class="repo-browse-card" href="<%=root%>/repository?view=search&access=OPEN_ACCESS"><span class="repo-browse-icon">○</span><strong>Open access</strong><small>Berkas terbuka</small></a>
+      <div class="repo-browse-grid repo-browse-grid-v2">
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search"><span class="repo-browse-icon">▦</span><span><strong>Koleksi</strong><%if(summary!=null&&summary.totalCollections>0){%><b><%=nf.format(summary.totalCollections)%></b><%}%><small>Kelompok karya yang aktif</small></span><i>→</i></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=author"><span class="repo-browse-icon">◎</span><span><strong>Penulis</strong><%if(summary!=null&&summary.authorCount>0){%><b><%=nf.format(summary.authorCount)%></b><%}%><small>Telusuri nama kontributor</small></span><i>→</i></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&sort=newest"><span class="repo-browse-icon">◷</span><span><strong>Tahun terbit</strong><%if(summary!=null&&summary.firstYear.length()>0){%><b><%=rh(summary.firstYear+(summary.lastYear.equals(summary.firstYear)?"":"–"+summary.lastYear))%></b><%}%><small>Urutkan dari yang terbaru</small></span><i>→</i></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search"><span class="repo-browse-icon">◇</span><span><strong>Subjek</strong><%if(summary!=null&&summary.subjectCount>0){%><b><%=nf.format(summary.subjectCount)%></b><%}%><small>Topik dari metadata publik</small></span><i>→</i></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search"><span class="repo-browse-icon">▧</span><span><strong>Jenis dokumen</strong><%if(summary!=null&&summary.documentTypeCount>0){%><b><%=nf.format(summary.documentTypeCount)%></b><%}%><small>Skripsi, artikel, buku, dan lainnya</small></span><i>→</i></a>
+        <a class="repo-browse-card" href="<%=root%>/repository?view=search&access=OPEN_ACCESS"><span class="repo-browse-icon">○</span><span><strong>Berkas terbuka</strong><%if(summary!=null&&summary.openFileItems>0){%><b><%=nf.format(summary.openFileItems)%></b><%}%><small>Dapat diunduh tanpa login</small></span><i>→</i></a>
       </div>
     </section>
 
@@ -117,27 +137,33 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
             <span class="repo-doc"><%=rh(item.documentType.length() > 3 ? item.documentType.substring(0, 3).toUpperCase() : item.documentType.toUpperCase())%></span>
             <div><h3><a href="<%=root%>/repository/item/<%=item.id%>"><%=rh(item.title)%></a></h3>
               <div class="repo-meta"><span><%=rh(item.authors)%></span><span>•</span><span><%=rh(item.year)%></span><span>•</span><span><%=rh(item.collectionName)%></span></div>
-              <div class="repo-chips"><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><span class="repo-chip"><%=rh(item.documentType)%></span></div>
+              <%if(item.abstractText.length()>0){%><p class="repo-item-abstract"><%=rh(item.abstractText.length()>190?item.abstractText.substring(0,190)+"…":item.abstractText)%></p><%}%>
+              <div class="repo-chips"><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><span class="repo-chip"><%=item.publicFileCount>0?(item.pdfAvailable?"PDF tersedia":item.publicFileCount+" berkas tersedia"):"Metadata tersedia"%></span><%if(item.programStudy.length()>0){%><span class="repo-chip"><%=rh(item.programStudy)%></span><%}%></div>
+              <div class="repo-item-foot"><span><%=rrelative(item.issuedAt)%></span><span><%=nf.format(item.viewCount)%> dilihat · <%=nf.format(item.downloadCount)%> unduhan</span></div>
             </div>
-            <a class="repo-btn repo-btn-soft" href="<%=root%>/repository/item/<%=item.id%>">Detail</a>
+            <a class="repo-btn repo-btn-soft" href="<%=root%>/repository/item/<%=item.id%>">Lihat detail</a>
           </article>
         <% } %>
         </div>
       </div>
       <aside class="repo-card repo-card-pad">
-        <div class="repo-section-head"><h2>Koleksi</h2></div>
+        <div class="repo-section-head"><h2>Koleksi populer</h2></div>
         <div class="repo-collection-list">
-          <% for (CollectionView collection : collections) { %>
+          <% if(popularCollections.isEmpty()){%><div class="repo-empty repo-empty-compact"><p>Koleksi akan tampil setelah memiliki item publik.</p></div><%} for (CollectionView collection : popularCollections) { %>
           <a class="repo-collection" href="<%=root%>/repository/collection/<%=collection.id%>"><span><strong><%=rh(collection.nama)%></strong><small><%=rh(collection.tipe)%></small></span><b><%=nf.format(collection.itemCount)%></b></a>
           <% } %>
         </div>
+        <%if(!popularTopics.isEmpty()){%><div class="repo-topic-panel"><h3>Topik populer</h3><div class="repo-chips"><%int pi=0;for(Map.Entry<String,Long> topic:popularTopics.entrySet()){if(pi++>=8)break;%><a class="repo-chip" href="<%=root%>/repository/search?subject=<%=ru(topic.getKey())%>"><%=rh(topic.getKey())%> <small><%=topic.getValue()%></small></a><%}%></div></div><%}%>
       </aside>
     </section>
+
+    <section class="repo-trust" aria-label="Layanan dan standar repositori"><div class="repo-wrap repo-trust-grid"><a href="<%=root%>/repository/policies#preservation"><span>⌁</span><strong>Identifier permanen</strong><small>Tautan stabil untuk setiap record</small></a><a href="<%=root%>/repository/policies#metadata"><span>≡</span><strong>Metadata terstruktur</strong><small>Siap ditemukan dan digunakan kembali</small></a><a href="<%=root%>/repository/policies#access"><span>◉</span><strong>Akses transparan</strong><small>Status berkas dijelaskan pada record</small></a><a href="<%=root%>/oai?verb=Identify"><span>↔</span><strong>OAI-PMH</strong><small>Interoperabilitas untuk pemanen metadata</small></a></div></section>
 
   <% } else if ("search".equals(view) || "browse".equals(view)) {
       SearchResult search = (SearchResult) request.getAttribute("repoSearch");
       Query query = search.query;
       String baseSearch = root + "/repository?view=search&q=" + ru(query.keyword)
+              + "&field=" + ru(query.searchField)
               + "&collection=" + (query.collectionId == null ? "" : query.collectionId)
               + "&type=" + ru(query.documentType) + "&access=" + ru(query.accessPolicy)
               + "&year=" + (query.year == null ? "" : query.year)
@@ -147,11 +173,11 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
   %>
     <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Hasil pencarian</div><h1>Hasil pencarian</h1><p><%=query.keyword.length() == 0 ? "Jelajahi seluruh publikasi yang tersedia." : "Menampilkan hasil untuk “" + rh(query.keyword) + "”."%></p></section>
     <section class="repo-wrap repo-card repo-search-panel">
-      <form class="repo-search" action="<%=root%>/repository" method="get" role="search">
+      <form class="repo-search repo-search-v2" action="<%=root%>/repository" method="get" role="search" data-repo-suggest-form data-suggest-url="<%=root%>/repository?action=suggest">
         <input type="hidden" name="view" value="search"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>"><input type="hidden" name="author" value="<%=rh(query.author)%>"><input type="hidden" name="subject" value="<%=rh(query.subject)%>"><input type="hidden" name="language" value="<%=rh(query.language)%>"><input type="hidden" name="identifier" value="<%=rh(query.identifier)%>"><input type="hidden" name="program" value="<%=rh(query.programStudy)%>">
-        <label class="visually-hidden" for="repo-search-q">Kata kunci</label><input id="repo-search-q" name="q" maxlength="200" value="<%=rh(query.keyword)%>" placeholder="Cari judul, penulis, abstrak, subjek, atau identifier"><button class="repo-btn repo-btn-primary" type="submit">Cari</button>
+        <label class="visually-hidden" for="repo-search-field">Bidang pencarian</label><select id="repo-search-field" name="field"><option value="all" <%="all".equals(query.searchField)?"selected":""%>>Semua bidang</option><option value="title" <%="title".equals(query.searchField)?"selected":""%>>Judul</option><option value="author" <%="author".equals(query.searchField)?"selected":""%>>Penulis</option><option value="subject" <%="subject".equals(query.searchField)?"selected":""%>>Subjek</option><option value="identifier" <%="identifier".equals(query.searchField)?"selected":""%>>Identifier</option></select><span class="repo-search-input"><label class="visually-hidden" for="repo-search-q">Kata kunci</label><input id="repo-search-q" name="q" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-controls="repo-search-suggestions" aria-expanded="false" value="<%=rh(query.keyword)%>" placeholder="Cari dalam repositori"><button class="repo-search-clear" type="button" data-repo-search-clear aria-label="Hapus kata kunci" <%=query.keyword.length()==0?"hidden":""%>>×</button><span class="repo-suggestions" id="repo-search-suggestions" role="listbox" hidden></span></span><button class="repo-btn repo-btn-primary" type="submit">Cari</button>
       </form>
-      <details class="repo-advanced-search" <%=(query.author.length()+query.subject.length()+query.language.length()+query.identifier.length()+query.programStudy.length()>0)?"open":""%>><summary>Pencarian lanjut</summary><form action="<%=root%>/repository/search" method="get" class="repo-form-grid"><label>Kata kunci umum<input name="q" maxlength="200" value="<%=rh(query.keyword)%>"></label><label>Penulis<input name="author" maxlength="200" value="<%=rh(query.author)%>"></label><label>Subjek/kata kunci<input name="subject" maxlength="200" value="<%=rh(query.subject)%>"></label><label>Program studi/unit<input name="program" maxlength="200" value="<%=rh(query.programStudy)%>"></label><label>Identifier/handle<input name="identifier" maxlength="255" value="<%=rh(query.identifier)%>"></label><label>Bahasa<select name="language"><option value="">Semua bahasa</option><option value="id" <%="id".equals(query.language)?"selected":""%>>Indonesia</option><option value="en" <%="en".equals(query.language)?"selected":""%>>English</option></select></label><label>Koleksi<select name="collection"><option value="">Semua koleksi</option><%for(CollectionView c:search.collections){%><option value="<%=c.id%>" <%=c.id.equals(query.collectionId)?"selected":""%>><%=rh(c.nama)%></option><%}%></select></label><div class="repo-field-full"><button class="repo-btn repo-btn-primary" type="submit">Terapkan pencarian lanjut</button> <a class="repo-btn" href="<%=root%>/repository/search">Reset</a></div></form></details>
+      <details class="repo-advanced-search" <%=(query.author.length()+query.subject.length()+query.language.length()+query.identifier.length()+query.programStudy.length()>0)?"open":""%>><summary>Pencarian lanjut</summary><form action="<%=root%>/repository/search" method="get" class="repo-form-grid"><input type="hidden" name="field" value="all"><label>Kata kunci umum<input name="q" maxlength="200" value="<%=rh(query.keyword)%>"></label><label>Penulis<input name="author" maxlength="200" value="<%=rh(query.author)%>"></label><label>Subjek/kata kunci<input name="subject" maxlength="200" value="<%=rh(query.subject)%>"></label><label>Program studi/unit<input name="program" maxlength="200" value="<%=rh(query.programStudy)%>"></label><label>Identifier/handle<input name="identifier" maxlength="255" value="<%=rh(query.identifier)%>"></label><label>Bahasa<select name="language"><option value="">Semua bahasa</option><option value="id" <%="id".equals(query.language)?"selected":""%>>Indonesia</option><option value="en" <%="en".equals(query.language)?"selected":""%>>English</option></select></label><label>Koleksi<select name="collection"><option value="">Semua koleksi</option><%for(CollectionView c:search.collections){%><option value="<%=c.id%>" <%=c.id.equals(query.collectionId)?"selected":""%>><%=rh(c.nama)%></option><%}%></select></label><div class="repo-field-full"><button class="repo-btn repo-btn-primary" type="submit">Terapkan pencarian lanjut</button> <a class="repo-btn" href="<%=root%>/repository/search">Reset</a></div></form></details>
     </section>
     <div class="repo-wrap repo-search-layout">
       <aside class="repo-card repo-facets" data-repo-facets aria-label="Filter hasil">
@@ -178,7 +204,7 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
       <section aria-live="polite">
         <div class="repo-results-head"><div><strong><%=nf.format(search.total)%> hasil</strong><div class="repo-chips"><% if (query.documentType.length() > 0) { %><span class="repo-chip"><%=rh(query.documentType)%></span><% } if (query.accessPolicy.length() > 0) { %><span class="repo-chip repo-chip-open"><%=rh(rlabel(query.accessPolicy))%></span><% } if(query.author.length()>0){%><span class="repo-chip">Penulis: <%=rh(query.author)%></span><%}if(query.subject.length()>0){%><span class="repo-chip">Subjek: <%=rh(query.subject)%></span><%}if(query.programStudy.length()>0){%><span class="repo-chip">Program: <%=rh(query.programStudy)%></span><%}%></div></div>
           <div><button class="repo-btn repo-mobile-filter" type="button" data-repo-filter-toggle aria-expanded="false">Filter</button>
-          <form method="get" action="<%=root%>/repository/search" style="display:inline"><input type="hidden" name="q" value="<%=rh(query.keyword)%>"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>"><input type="hidden" name="author" value="<%=rh(query.author)%>"><input type="hidden" name="subject" value="<%=rh(query.subject)%>"><input type="hidden" name="language" value="<%=rh(query.language)%>"><input type="hidden" name="identifier" value="<%=rh(query.identifier)%>"><input type="hidden" name="program" value="<%=rh(query.programStudy)%>"><select class="repo-btn" name="sort" onchange="this.form.submit()"><option value="newest" <%="newest".equals(query.sort) ? "selected" : ""%>>Terbaru</option><option value="oldest" <%="oldest".equals(query.sort) ? "selected" : ""%>>Terlama</option><option value="title" <%="title".equals(query.sort) ? "selected" : ""%>>Judul A–Z</option><option value="author" <%="author".equals(query.sort) ? "selected" : ""%>>Penulis A–Z</option></select></form></div>
+          <form method="get" action="<%=root%>/repository/search" style="display:inline"><input type="hidden" name="q" value="<%=rh(query.keyword)%>"><input type="hidden" name="field" value="<%=rh(query.searchField)%>"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>"><input type="hidden" name="author" value="<%=rh(query.author)%>"><input type="hidden" name="subject" value="<%=rh(query.subject)%>"><input type="hidden" name="language" value="<%=rh(query.language)%>"><input type="hidden" name="identifier" value="<%=rh(query.identifier)%>"><input type="hidden" name="program" value="<%=rh(query.programStudy)%>"><select class="repo-btn" name="sort" onchange="this.form.submit()"><option value="newest" <%="newest".equals(query.sort) ? "selected" : ""%>>Terbaru</option><option value="oldest" <%="oldest".equals(query.sort) ? "selected" : ""%>>Terlama</option><option value="title" <%="title".equals(query.sort) ? "selected" : ""%>>Judul A–Z</option><option value="author" <%="author".equals(query.sort) ? "selected" : ""%>>Penulis A–Z</option></select></form></div>
         </div>
         <div class="repo-results">
           <% if (search.items.isEmpty()) { %><div class="repo-card repo-empty"><h2>Tidak ada hasil</h2><p>Coba gunakan kata kunci lebih singkat atau hapus sebagian filter.</p></div><% }
@@ -212,7 +238,7 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
   <% } else if ("policies".equals(view)) { %>
     <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Kebijakan</div><h1>Kebijakan repositori</h1><p>Ketentuan pengiriman, metadata, akses, preservasi, privasi, dan penarikan konten.</p></section><section class="repo-wrap repo-info-page"><div class="repo-card"><h2 id="submission">Kebijakan pengiriman</h2><p>Pengiriman dilakukan oleh pengguna terautentikasi dan mengikuti review koleksi. Depositor bertanggung jawab atas keakuratan metadata serta kewenangan mendistribusikan berkas.</p><h2 id="metadata">Kebijakan metadata</h2><p>Metadata record publik dapat dipanen dan digunakan kembali dengan tetap menyebut sumber serta identifier permanen. Data akun, catatan internal, dan komentar review tidak dipublikasikan.</p><h2 id="content">Kebijakan konten</h2><p>Repositori menerima karya akademik sesuai profil koleksi. Pengelola dapat mengembalikan, menolak, atau menarik konten yang melanggar kebijakan institusi.</p><h2 id="access">Kebijakan akses terbuka</h2><p>Metadata publik dapat dijelajahi tanpa login. Akses berkas mengikuti status Open Access, khusus institusi, terautentikasi, terbatas, atau embargo.</p><h2 id="copyright">Hak cipta dan lisensi</h2><p>Hak cipta tetap berada pada pemegang hak. Pengguna wajib mengikuti lisensi yang tercantum pada record.</p><h2 id="embargo">Embargo</h2><p>Berkas berembargo tidak disediakan sebelum tanggal berakhir. Metadata dapat tetap terlihat bila kebijakan institusi mengizinkan.</p><h2 id="withdrawal">Penarikan dan takedown</h2><p>Record terbit tidak dihapus diam-diam. Record yang ditarik menyisakan tombstone dan jejak audit; laporan pelanggaran ditangani pengelola.</p><h2 id="privacy">Privasi</h2><p>Statistik publik menyimpan pseudonim hash, tipe perangkat, dan waktu kejadian; alamat jaringan mentah tidak ditampilkan sebagai statistik publik.</p><h2 id="accessibility">Aksesibilitas</h2><p>Antarmuka dirancang dapat digunakan dengan keyboard, fokus terlihat, struktur heading, label form, dan tampilan responsif. Laporkan hambatan kepada pengelola.</p><h2 id="preservation">Preservasi</h2><p>Checksum SHA-256, riwayat versi, pemeriksaan fixity, dan provenance digunakan untuk menjaga integritas aset digital.</p><h2 id="contact">Kontak dan umpan balik</h2><p>Hubungi perpustakaan atau administrator institusi dengan menyertakan URL permanen atau identifier OAI record yang dilaporkan.</p></div></section>
   <% } else { %>
-    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Bantuan</div><h1>Pusat bantuan repositori</h1><p>Panduan pencarian, akses berkas, dan pengajuan koreksi.</p></section><section class="repo-wrap repo-info-page"><div class="repo-card"><h2>Mencari publikasi</h2><p>Gunakan judul, nama penulis, kata kunci, abstrak, atau identifier. Hasil dapat disaring berdasarkan jenis dokumen, koleksi, dan hak akses.</p><h2>Mengunduh berkas</h2><p>Tombol unduh hanya muncul untuk berkas yang diizinkan bagi publik. Masuk melalui akun institusi bila record menyatakan akses terautentikasi.</p><h2>Sitasi</h2><p>Pada halaman detail tersedia ekspor RIS dan BibTeX yang dihasilkan dari metadata record.</p><h2>Melaporkan masalah</h2><p>Hubungi pengelola perpustakaan atau administrator institusi dengan menyertakan identifier OAI dan deskripsi masalah.</p></div></section>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Bantuan</div><h1>Pusat bantuan repositori</h1><p>Panduan pencarian, akses berkas, dan pengajuan koreksi.</p></section><section class="repo-wrap repo-info-page"><div class="repo-card"><h2>Mencari publikasi</h2><p>Gunakan judul, nama penulis, kata kunci, abstrak, atau identifier. Hasil dapat disaring berdasarkan jenis dokumen, koleksi, dan hak akses.</p><h2 id="upload">Mengunggah karya</h2><p>Masuk dengan akun institusi, buka Karya Saya, lalu pilih koleksi yang menerima deposit. Karya baru akan mengikuti tahapan review sebelum tersedia untuk publik.</p><h2>Mengunduh berkas</h2><p>Tombol unduh hanya muncul untuk berkas yang diizinkan bagi publik. Masuk melalui akun institusi bila record menyatakan akses terautentikasi.</p><h2>Sitasi</h2><p>Pada halaman detail tersedia ekspor RIS, BibTeX, EndNote, dan CSL-JSON yang dihasilkan dari metadata record.</p><h2>Melaporkan masalah</h2><p>Hubungi pengelola perpustakaan atau administrator institusi dengan menyertakan identifier OAI dan deskripsi masalah.</p></div></section>
   <% } %>
   </main>
 

@@ -47,6 +47,7 @@ public class RepositoryPublicService {
 
     public static class Query {
         public String keyword = "";
+        public String searchField = "all";
         public String author = "";
         public String subject = "";
         public String language = "";
@@ -66,6 +67,13 @@ public class RepositoryPublicService {
         public long totalCollections;
         public long openAccess;
         public long metadataOnly;
+        public long authorCount;
+        public long subjectCount;
+        public long documentTypeCount;
+        public long openFileItems;
+        public int metadataQuality;
+        public String firstYear = "";
+        public String lastYear = "";
     }
 
     public static class CollectionView {
@@ -102,6 +110,16 @@ public class RepositoryPublicService {
         public Long collectionId;
         public String collectionName;
         public long versionNumber;
+        public String programStudy = "";
+        public int publicFileCount;
+        public boolean pdfAvailable;
+    }
+
+    public static class Suggestion {
+        public String type = "item";
+        public String label = "";
+        public String detail = "";
+        public String value = "";
     }
 
     public static class BitstreamView {
@@ -160,6 +178,7 @@ public class RepositoryPublicService {
     public Query normalize(Query input) {
         Query q = input == null ? new Query() : input;
         q.keyword = limit(clean(q.keyword), 200);
+        q.searchField = normalizeSearchField(q.searchField);
         q.author = limit(clean(q.author), 200);
         q.subject = limit(clean(q.subject), 200);
         q.language = limit(clean(q.language).toLowerCase(), 20);
@@ -186,6 +205,17 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")));
         summary.metadataOnly = count(publicCriteria(session, null)
                 .add(Restrictions.eq("accessPolicy", "METADATA_ONLY")));
+        summary.authorCount = distinctTokenCount(session, "authors");
+        summary.subjectCount = distinctTokenCount(session, "subjects");
+        Object typeCount = publicCriteria(session, null).setProjection(Projections.countDistinct("documentType")).uniqueResult();
+        summary.documentTypeCount = typeCount instanceof Number ? ((Number) typeCount).longValue() : 0L;
+        summary.openFileItems = openFileItemCount(session);
+        summary.metadataQuality = metadataQuality(session);
+        Date first = (Date) publicCriteria(session, null).setProjection(Projections.min("issuedAt")).uniqueResult();
+        Date last = (Date) publicCriteria(session, null).setProjection(Projections.max("issuedAt")).uniqueResult();
+        SimpleDateFormat year = new SimpleDateFormat("yyyy");
+        summary.firstYear = first == null ? "" : year.format(first);
+        summary.lastYear = last == null ? "" : year.format(last);
         return summary;
     }
 
@@ -205,11 +235,7 @@ public class RepositoryPublicService {
         rows.setMaxResults(q.pageSize);
         List<RepoItem> entities = rows.list();
 
-        Map<Long, RepoCollection> collectionMap = loadCollectionMap(session, entities);
-        for (int i = 0; i < entities.size(); i++) {
-            RepoItem entity = entities.get(i);
-            result.items.add(toCard(entity, collectionMap.get(entity.getCollectionId())));
-        }
+        result.items = cards(session, entities);
         result.typeFacets = groupFacet(session, q, "documentType");
         result.accessFacets = groupFacet(session, q, "accessPolicy");
         result.yearFacets = yearFacet(session, q);
@@ -222,10 +248,68 @@ public class RepositoryPublicService {
     }
 
     public List<ItemCard> latest(int maximum) {
+        Session session = session();
+        @SuppressWarnings("unchecked")
+        List<RepoItem> rows = publicCriteria(session, null)
+                .addOrder(Order.desc("issuedAt")).addOrder(Order.desc("id"))
+                .setMaxResults(maximum < 1 ? 6 : Math.min(maximum, MAX_PAGE_SIZE)).list();
+        return cards(session, rows);
+    }
+
+    public List<CollectionView> popularCollections(int maximum) {
+        List<CollectionView> rows = listCollections(500);
+        Collections.sort(rows, new java.util.Comparator<CollectionView>() {
+            public int compare(CollectionView a, CollectionView b) {
+                int count = Long.valueOf(b.itemCount).compareTo(Long.valueOf(a.itemCount));
+                return count != 0 ? count : safe(a.nama).compareToIgnoreCase(safe(b.nama));
+            }
+        });
+        List<CollectionView> result = new ArrayList<CollectionView>();
+        int limit = maximum < 1 ? 6 : Math.min(maximum, 20);
+        for (CollectionView row : rows) {
+            if (row.itemCount > 0L && result.size() < limit) result.add(row);
+        }
+        return result;
+    }
+
+    public Map<String, Long> popularSubjects(int maximum) {
+        return top(tokenFacet(session(), new Query(), "subjects"), maximum < 1 ? 8 : Math.min(maximum, 30));
+    }
+
+    public boolean hasDepositCollection() {
+        return count(session().createCriteria(RepoCollection.class).add(activeRestriction())
+                .add(Restrictions.or(Restrictions.isNull("depositEnabled"), Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Suggestion> suggest(String text, String field, int maximum) {
         Query q = new Query();
-        q.pageSize = maximum < 1 ? 6 : Math.min(maximum, MAX_PAGE_SIZE);
-        q.sort = "newest";
-        return search(q).items;
+        q.keyword = text;
+        q.searchField = field;
+        normalize(q);
+        List<Suggestion> result = new ArrayList<Suggestion>();
+        if (q.keyword.length() < 2) return result;
+        int limit = maximum < 1 ? 8 : Math.min(maximum, 12);
+        List<RepoItem> rows = searchCriteria(session(), q).addOrder(Order.asc("title"))
+                .setMaxResults(Math.max(limit * 3, 12)).list();
+        Map<String, Boolean> seen = new LinkedHashMap<String, Boolean>();
+        for (RepoItem row : rows) {
+            String[] candidates;
+            String type;
+            if ("author".equals(q.searchField)) { candidates = safe(row.getAuthors()).split("[;,]"); type = "author"; }
+            else if ("subject".equals(q.searchField)) { candidates = safe(row.getSubjects()).split("[;,]"); type = "subject"; }
+            else if ("identifier".equals(q.searchField)) { candidates = new String[] { safe(row.getDoi()), safe(row.getOaiIdentifier()), safe(row.getDspaceHandle()) }; type = "identifier"; }
+            else { candidates = new String[] { safe(row.getTitle()) }; type = "item"; }
+            for (String candidate : candidates) {
+                String value = clean(candidate);
+                if (value.length() == 0 || value.toLowerCase().indexOf(q.keyword.toLowerCase()) < 0 || seen.containsKey(value.toLowerCase())) continue;
+                Suggestion suggestion = new Suggestion(); suggestion.type = type; suggestion.label = value;
+                suggestion.value = value; suggestion.detail = "item".equals(type) ? safe(row.getAuthors()) : safe(row.getTitle());
+                result.add(suggestion); seen.put(value.toLowerCase(), Boolean.TRUE);
+                if (result.size() >= limit) return result;
+            }
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -285,6 +369,7 @@ public class RepositoryPublicService {
                 detail.metadata.put(field, values);
             }
             values.add(safe(metadata.getMetadataValue()));
+            if ("repository.programStudy".equals(field) && detail.programStudy.length() == 0) detail.programStudy = safe(metadata.getMetadataValue());
         }
 
         List<RepoBitstream> bitstreams = session.createCriteria(RepoBitstream.class)
@@ -298,6 +383,9 @@ public class RepositoryPublicService {
             RepoBitstream bitstream = bitstreams.get(i);
             if (!canDownload(entity, bitstream)) continue;
             detail.files.add(toBitstream(bitstream));
+            detail.publicFileCount++;
+            String mime = safe(bitstream.getMimeType()).toLowerCase(); String name = safe(bitstream.getNamaFile()).toLowerCase();
+            if (mime.indexOf("pdf") >= 0 || name.endsWith(".pdf")) detail.pdfAvailable = true;
         }
         detail.relatedItems = relatedItems(session, entity, 8);
         detail.versions = versionItems(session, entity, 20);
@@ -458,15 +546,24 @@ public class RepositoryPublicService {
             criteria.add(Restrictions.lt("issuedAt", until.getTime()));
         }
         if (q.keyword.length() > 0) {
-            org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
-                    "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')) @@ plainto_tsquery('simple', ?)",
-                    q.keyword, Hibernate.STRING);
-            org.hibernate.criterion.Criterion eav=Restrictions.sqlRestriction(
-                    "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and coalesce(rpm.aktif,true)=true and lower(rpm.metadata_value) like lower(?))",
-                    "%"+q.keyword+"%",Hibernate.STRING);
-            criteria.add(Restrictions.or(fts, Restrictions.or(eav, Restrictions.or(
+            if ("title".equals(q.searchField)) criteria.add(Restrictions.ilike("title", q.keyword, MatchMode.ANYWHERE));
+            else if ("author".equals(q.searchField)) criteria.add(Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE));
+            else if ("subject".equals(q.searchField)) criteria.add(Restrictions.ilike("subjects", q.keyword, MatchMode.ANYWHERE));
+            else if ("identifier".equals(q.searchField)) criteria.add(Restrictions.or(
+                    Restrictions.ilike("doi", q.keyword, MatchMode.ANYWHERE), Restrictions.or(
                     Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
-                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE)))));
+                    Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE))));
+            else {
+                org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
+                        "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')) @@ plainto_tsquery('simple', ?)",
+                        q.keyword, Hibernate.STRING);
+                org.hibernate.criterion.Criterion eav=Restrictions.sqlRestriction(
+                        "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and coalesce(rpm.aktif,true)=true and lower(rpm.metadata_value) like lower(?))",
+                        "%"+q.keyword+"%",Hibernate.STRING);
+                criteria.add(Restrictions.or(fts, Restrictions.or(eav, Restrictions.or(
+                        Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
+                        Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE)))));
+            }
         }
         return criteria;
     }
@@ -518,7 +615,7 @@ public class RepositoryPublicService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Long> yearFacet(Session session, Query q) {
-        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.author=q.author; withoutYear.subject=q.subject; withoutYear.language=q.language; withoutYear.identifier=q.identifier;withoutYear.programStudy=q.programStudy; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
+        Query withoutYear = new Query(); withoutYear.keyword=q.keyword; withoutYear.searchField=q.searchField; withoutYear.author=q.author; withoutYear.subject=q.subject; withoutYear.language=q.language; withoutYear.identifier=q.identifier;withoutYear.programStudy=q.programStudy; withoutYear.collectionId=q.collectionId; withoutYear.documentType=q.documentType; withoutYear.accessPolicy=q.accessPolicy;
         List<RepoItem> rows = searchCriteria(session, withoutYear).addOrder(Order.desc("issuedAt")).setMaxResults(5000).list();
         Map<String,Long> result=new LinkedHashMap<String,Long>(); SimpleDateFormat f=new SimpleDateFormat("yyyy");
         for(RepoItem row:rows){if(row.getIssuedAt()==null)continue;String y=f.format(row.getIssuedAt());Long n=result.get(y);result.put(y,Long.valueOf(n==null?1:n.longValue()+1));} return result;
@@ -527,10 +624,27 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     private Map<String,Long> tokenFacet(Session session,Query q,String property){List<RepoItem> rows=searchCriteria(session,q).setMaxResults(5000).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(RepoItem row:rows){String value="authors".equals(property)?row.getAuthors():row.getSubjects();for(String token:safe(value).split("[;,]")){String key=clean(token);if(key.length()>0)increment(out,key);}}return top(out,30);}
     @SuppressWarnings("unchecked")
-    private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true group by m.metadata_value order by count(*) desc limit 30").list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
+    private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') group by m.metadata_value order by count(*) desc limit 30").list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
     @SuppressWarnings("unchecked")
     private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
     private static Map<String,Long> top(Map<String,Long> source,int maximum){List<Map.Entry<String,Long>> rows=new ArrayList<Map.Entry<String,Long>>(source.entrySet());Collections.sort(rows,new java.util.Comparator<Map.Entry<String,Long>>(){public int compare(Map.Entry<String,Long>a,Map.Entry<String,Long>b){return b.getValue().compareTo(a.getValue());}});Map<String,Long> out=new LinkedHashMap<String,Long>();for(int i=0;i<rows.size()&&i<maximum;i++)out.put(rows.get(i).getKey(),rows.get(i).getValue());return out;}
+
+    private long distinctTokenCount(Session session, String property) {
+        String column = "subjects".equals(property) ? "subjects" : "authors";
+        Object value = session.createSQLQuery("select count(distinct lower(trim(token))) from repo_item i cross join lateral regexp_split_to_table(coalesce(i."
+                + column + ",''),'[;,]') as tokens(token) where trim(token)<>'' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED')").uniqueResult();
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private int metadataQuality(Session session) {
+        Object value = session.createSQLQuery("select round(100.0*avg(((case when nullif(trim(title),'') is not null then 1 else 0 end)+(case when nullif(trim(authors),'') is not null then 1 else 0 end)+(case when nullif(trim(abstract_text),'') is not null then 1 else 0 end)+(case when nullif(trim(subjects),'') is not null then 1 else 0 end)+(case when issued_at is not null then 1 else 0 end))/5.0)) from repo_item i where coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED')").uniqueResult();
+        return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    private long openFileItemCount(Session session) {
+        Object value = session.createSQLQuery("select count(distinct b.item_id) from repo_bitstream b join repo_item i on i.id=b.item_id where coalesce(b.aktif,true)=true and b.access_policy='OPEN_ACCESS' and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.access_policy='OPEN_ACCESS'").uniqueResult();
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
 
     @SuppressWarnings("unchecked")
     private Map<Long, RepoCollection> loadCollectionMap(Session session, List<RepoItem> items) {
@@ -612,6 +726,9 @@ public class RepositoryPublicService {
         target.collectionId = source.collectionId;
         target.collectionName = source.collectionName;
         target.versionNumber = source.versionNumber;
+        target.programStudy = source.programStudy;
+        target.publicFileCount = source.publicFileCount;
+        target.pdfAvailable = source.pdfAvailable;
     }
 
     @SuppressWarnings("unchecked")
@@ -632,7 +749,32 @@ public class RepositoryPublicService {
         List<RepoItem> rows=publicCriteria(session,null).add(any).addOrder(Order.asc("versionNumber")).setMaxResults(maximum).list();return cards(session,rows);
     }
 
-    private List<ItemCard> cards(Session session,List<RepoItem> rows){List<ItemCard> out=new ArrayList<ItemCard>();Map<Long,RepoCollection> map=loadCollectionMap(session,rows);for(RepoItem row:rows)out.add(toCard(row,map.get(row.getCollectionId())));return out;}
+    private List<ItemCard> cards(Session session,List<RepoItem> rows){List<ItemCard> out=new ArrayList<ItemCard>();Map<Long,RepoCollection> map=loadCollectionMap(session,rows);for(RepoItem row:rows)out.add(toCard(row,map.get(row.getCollectionId())));enrichCards(session,out);return out;}
+
+    @SuppressWarnings("unchecked")
+    private void enrichCards(Session session, List<ItemCard> cards) {
+        if (cards == null || cards.isEmpty()) return;
+        List<Long> ids = new ArrayList<Long>(); Map<Long, ItemCard> byId = new HashMap<Long, ItemCard>();
+        for (ItemCard card : cards) { ids.add(card.id); byId.put(card.id, card); }
+        List<RepoItemMetadata> metadata = session.createCriteria(RepoItemMetadata.class)
+                .add(Restrictions.in("itemId", ids)).add(activeRestriction())
+                .add(Restrictions.eq("metadataField", "repository.programStudy"))
+                .addOrder(Order.asc("place")).addOrder(Order.asc("id")).list();
+        for (RepoItemMetadata row : metadata) {
+            ItemCard card = byId.get(row.getItemId());
+            if (card != null && card.programStudy.length() == 0) card.programStudy = safe(row.getMetadataValue());
+        }
+        List<RepoBitstream> files = session.createCriteria(RepoBitstream.class)
+                .add(Restrictions.in("itemId", ids)).add(activeRestriction())
+                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")).list();
+        for (RepoBitstream file : files) {
+            ItemCard card = byId.get(file.getItemId());
+            if (card == null || !"OPEN_ACCESS".equals(normalizeAccess(card.accessPolicy))) continue;
+            card.publicFileCount++;
+            String mime = safe(file.getMimeType()).toLowerCase(); String name = safe(file.getNamaFile()).toLowerCase();
+            if (mime.indexOf("pdf") >= 0 || name.endsWith(".pdf")) card.pdfAvailable = true;
+        }
+    }
     private static String firstToken(String value){String[]v=safe(value).split("[;,]");return v.length==0?"":clean(v[0]);}
     private static void increment(Map<String,Long> map,String key){Long n=map.get(key);map.put(key,Long.valueOf(n==null?1L:n.longValue()+1L));}
 
@@ -683,6 +825,12 @@ public class RepositoryPublicService {
                 || "INSTITUTION_ONLY".equals(access) || "AUTHENTICATED".equals(access)
                 || "RESTRICTED".equals(access) || "EMBARGOED".equals(access)) return access;
         return "";
+    }
+
+    private String normalizeSearchField(String value) {
+        String field = clean(value).toLowerCase();
+        return "title".equals(field) || "author".equals(field) || "subject".equals(field)
+                || "identifier".equals(field) ? field : "all";
     }
 
     private String normalizeSort(String value) {

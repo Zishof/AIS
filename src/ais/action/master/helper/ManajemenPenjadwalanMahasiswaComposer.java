@@ -32,7 +32,7 @@ import org.zkoss.zk.ui.util.GenericForwardComposer;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Decimalbox;
-import org.zkoss.zul.East;
+import org.zkoss.zul.Center;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
@@ -161,7 +161,7 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	protected MyDatebox perkuliahanDimulai;
 	protected MyDatebox perkuliahanSampai;
 
-	protected East panelDaftarMahasiswa;
+	protected Center panelDaftarMahasiswa;
 	protected Paging paging;
 
 	@SuppressWarnings({})
@@ -346,6 +346,9 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 			comboitem.setValue(i);
 			semester.appendChild(comboitem);
 		}
+		Boolean ganjilSekarang = Common.isNowSemensterGanjil();
+		Common.selectComboItem(semester,
+				ganjilSekarang == null || ganjilSekarang.booleanValue() ? Integer.valueOf(1) : Integer.valueOf(2));
 
 		Common.generateTahunAjaran(tahunAjaran);
 
@@ -478,6 +481,7 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 			}
 		});
 		initDataMahasiswa();
+		onRefresh(null);
 
 	}
 
@@ -512,19 +516,29 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		String program = (String) (this.program.getSelectedItem() == null
 				|| this.program.getSelectedItem().getValue() == null ? null
 						: this.program.getSelectedItem().getValue());
-		if (tahunAkademik == null || semester == null || fakultas == null || jurusan == null || program == null
-				|| kelas.equals("")) {
+		if (tahunAkademik == null || semester == null || kelas.equals("")) {
 
 			return;
 		}
 		Session session = HibernateUtil.currentSession();
-		perkuliahans = session.createCriteria(Perkuliahan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.property("id"))
+		Criteria criteria = session.createCriteria(Perkuliahan.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.setProjection(Projections.property("id"))
 				.add(Restrictions.isNull("perkuliahan_paralel"))
 				.add(semesterPendek == null ? Restrictions.isNull("statusSemesterPendek")
 						: Restrictions.eq("statusSemesterPendek", semesterPendek))
-				.add(Restrictions.ilike("kelas", kelas, MatchMode.EXACT)).add(Restrictions.eq("jurusan", jurusan))
-				.add(Restrictions.eq("program", program)).add(Restrictions.eq("tahunAjaran", tahunAkademik))
-				.add(Restrictions.eq("semester", semester)).list();
+				.add(Restrictions.ilike("kelas", kelas, MatchMode.EXACT))
+				.add(Restrictions.eq("tahunAjaran", tahunAkademik))
+				.add(Restrictions.eq("semester", semester));
+		if (jurusan != null) {
+			criteria.add(Restrictions.eq("jurusan", jurusan));
+		} else if (fakultas != null) {
+			criteria.createCriteria("jurusan", Criteria.LEFT_JOIN).add(Restrictions.eq("fakultas", fakultas));
+		}
+		if (program != null) {
+			criteria.add(Restrictions.eq("program", program));
+		}
+		perkuliahans = criteria.list();
 		System.out.println("perkuliahan = " + perkuliahans.size());
 		// fill the events' data
 		SimpleCalendarModel cm = new SimpleCalendarModel();
@@ -1301,11 +1315,17 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		Criteria criteria = session.createCriteria(PenjadwalanMahasiswa.class).createAlias("mahasiswa", "mahasiswa")
 				.add(angkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.eq("mahasiswa.tahunangkatan", angkatan.getValue()))
-				.add(Restrictions.eq("mahasiswa.jurusan", jrs)).add(Restrictions.eq("tahunAjaran", ta))
-				.add(Restrictions.eq("mahasiswa.program", prg)).add(Restrictions.eq("semester", smt))
+				.add(Restrictions.eq("tahunAjaran", ta))
+				.add(Restrictions.eq("semester", smt))
 				.add(Restrictions.ilike("mahasiswa.nim", teksAman(nim), MatchMode.ANYWHERE))
 				.add(Restrictions.ilike("mahasiswa.nama", teksAman(nama), MatchMode.ANYWHERE))
 				.add(Restrictions.eq("kelas", kls));
+		if (jrs != null) {
+			criteria.add(Restrictions.eq("mahasiswa.jurusan", jrs));
+		}
+		if (prg != null) {
+			criteria.add(Restrictions.eq("mahasiswa.program", prg));
+		}
 
 		if (order) {
 			criteria.addOrder(Order.asc("mahasiswa.nim"));
@@ -1327,6 +1347,11 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataMahasiswa(Object value) {
+		if (!filterMinimumDaftarMahasiswaTerisi()) {
+			grid.setRowRenderer(new DetailKelasRenderer());
+			grid.setModelCheckMobile(new SimpleListModel(new ArrayList<PenjadwalanMahasiswa>()));
+			return;
+		}
 		Common.initPaging(initCriteria(false), paging);
 		List<PenjadwalanMahasiswa> mahasiswas = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
@@ -1334,6 +1359,21 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		ListModel strset = new SimpleListModel(mahasiswas);
 		grid.setRowRenderer(new DetailKelasRenderer());
 		grid.setModelCheckMobile(strset);
+	}
+
+	private boolean filterMinimumDaftarMahasiswaTerisi() {
+		if (tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null) {
+			return false;
+		}
+		if (semester.getSelectedItem() == null || semester.getSelectedItem().getValue() == null) {
+			return false;
+		}
+		String namaKelas = kelas == null || kelas.getValue() == null ? "" : kelas.getValue().trim();
+		if (namaKelas.length() == 0) {
+			return false;
+		}
+		return HibernateUtil.currentSession().createCriteria(Kelas.class).add(Restrictions.eq("nama", namaKelas))
+				.setMaxResults(1).uniqueResult() != null;
 	}
 
 	/**
