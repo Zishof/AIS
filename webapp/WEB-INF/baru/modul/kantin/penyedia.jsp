@@ -285,10 +285,12 @@ String rnd = Common.getGeneratedBarCode(7);
                             '<td class="text-start">' + infoKontak + '</td>' +
                             '<td class="text-start text-muted small" title="' + textAlamat + '">' + displayAlamat + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>' +
-                            '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editPenyedia<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Edit Data")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusPenyedia<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>' +
+                            '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Edit Data")%>',
+                                  onclick: 'editPenyedia<%=rnd%>(' + row.id + ')' },
+                                { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>',
+                                  onclick: 'hapusPenyedia<%=rnd%>(' + row.id + ')', merusak: true }
+                            ]) + '</td>' +
                         '</tr>';
                 });
             }
