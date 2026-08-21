@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
+import ais.common.home.HomePortalService;
 import ais.database.model.Konfigurasi;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.sekolah.Sekolah;
@@ -94,7 +95,18 @@ public class Index extends HttpServlet {
 
         config = Common.getKonfigurasi("default_home_versi_baru", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
-            forward(request, response, "/WEB-INF/baru/home.jsp");
+            Konfigurasi homeV3 = Common.getKonfigurasi("home_ui_v3", Konfigurasi.AKTIF);
+            if (isAktif(homeV3)) {
+                try {
+                    request.setAttribute("homePortal", new HomePortalService().build(request));
+                    forward(request, response, "/WEB-INF/baru/home-v3.jsp");
+                } catch (Exception e) {
+                    ais.common.ErrorAuditUtil.record(e, "Index public home V3 fallback");
+                    forward(request, response, "/WEB-INF/baru/home.jsp");
+                }
+            } else {
+                forward(request, response, "/WEB-INF/baru/home.jsp");
+            }
             return;
         }
 
