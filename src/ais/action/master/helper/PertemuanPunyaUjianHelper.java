@@ -4178,12 +4178,17 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 											session.save(bsdBaru);
 										}
 									}
+									session.flush();
+									bankSoalBaru.reInitBankSoalDetail(session);
 
 									UjianPunyaSoal upsBaru = new UjianPunyaSoal();
 									upsBaru.setBankSoal(bankSoalBaru);
 									upsBaru.setUjian(ujianBaru);
+									upsBaru.setNomorUrut(ups.getNomorUrut());
 									session.save(upsBaru);
 								}
+								session.flush();
+								ujianBaru.reInitUjianPunyaSoal(session);
 
 								// 3. Salin PertemuanPunyaUjian — tautkan ke Ujian baru, nonaktif dulu
 								PertemuanPunyaUjian ppuBaru = (PertemuanPunyaUjian) ppu.clone();

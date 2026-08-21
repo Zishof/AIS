@@ -16,6 +16,7 @@ import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Checkbox;
@@ -39,6 +40,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataMatakuliahBanbox;
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.helper.RevisiUjianHelper;
 import ais.action.master.sekolah.helper.AmbilDataGuruBanbox;
 import ais.common.Common;
 import ais.common.ConstantValues;
@@ -447,6 +449,23 @@ public class AmbilDataUjianBanyak extends MyWindow {
 		});
 		button.setParent(toolbar);
 
+		button = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
+		button.setTooltiptext("Lihat audit Ujian dan restore master beserta seluruh relasi soalnya");
+		button.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				RevisiUjianHelper helper = new RevisiUjianHelper(new EventListener() {
+					public void onEvent(Event callbackEvent) throws Exception {
+						onSearchDefault(null);
+					}
+				});
+				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(helper);
+				helper.setVisible(true);
+				helper.onModal();
+			}
+		});
+		button.setParent(toolbar);
+
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");grid.setWidth("100%");
 		/* Paging server-side (AmbilDataPagingHelper) menggantikan mold "paging"
 		 * client-side yang dibatasi MAX_RESULT_100. */
@@ -574,15 +593,19 @@ public class AmbilDataUjianBanyak extends MyWindow {
 									UjianPunyaSoal ujianPunyaSoalBaru = new UjianPunyaSoal();
 									ujianPunyaSoalBaru.setBankSoal(ujianPunyaSoal.getBankSoal());
 									ujianPunyaSoalBaru.setUjian(myUjian);
+									ujianPunyaSoalBaru.setNomorUrut(ujianPunyaSoal.getNomorUrut());
 									session.save(ujianPunyaSoalBaru);
 
 								}
+								session.flush();
+								myUjian.reInitUjianPunyaSoal(session);
 
 								ujians.add(myUjian);
 
 							}
 						} catch (Exception e) {
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/generic/AmbilDataUjianBanyak.java:594");
+							throw e;
 						}
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), ujians);
@@ -638,18 +661,24 @@ public class AmbilDataUjianBanyak extends MyWindow {
 											session.save(bankSoalDetailBaru);
 										}
 									}
+									session.flush();
+									bankSoalBaru.reInitBankSoalDetail(session);
 
 									UjianPunyaSoal ujianPunyaSoalBaru = new UjianPunyaSoal();
 									ujianPunyaSoalBaru.setBankSoal(bankSoalBaru);
 									ujianPunyaSoalBaru.setUjian(myUjian);
+									ujianPunyaSoalBaru.setNomorUrut(ujianPunyaSoal.getNomorUrut());
 									session.save(ujianPunyaSoalBaru);
 
 								}
+								session.flush();
+								myUjian.reInitUjianPunyaSoal(session);
 
 								ujians.add(myUjian);
 							}
 						} catch (Exception e) {
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/generic/AmbilDataUjianBanyak.java:661");
+							throw e;
 						}
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), ujians);

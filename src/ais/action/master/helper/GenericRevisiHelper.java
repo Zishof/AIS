@@ -3368,7 +3368,6 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             ais.ui.util.ZkCompat.setSpans(r, "4");
             r.appendChild(new Label("Gagal menampilkan detail revisi: " + e.getMessage()));
         } finally {
-            restoreRevisionNumbers.remove(revisionObject);
             closeSession(session);
         }
     }
@@ -4695,6 +4694,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:3731");
             }
         } finally {
+            restoreRevisionNumbers.remove(revisionObject);
             closeSession(session);
         }
     }
