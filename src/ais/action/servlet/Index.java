@@ -98,6 +98,10 @@ public class Index extends HttpServlet {
             Konfigurasi homeV3 = Common.getKonfigurasi("home_ui_v3", Konfigurasi.AKTIF);
             if (isAktif(homeV3)) {
                 try {
+                    String requestedLanguage = request.getParameter("lang");
+                    if (requestedLanguage != null && requestedLanguage.trim().length() > 0) {
+                        Common.initBahasaParameter(requestedLanguage.trim());
+                    }
                     request.setAttribute("homePortal", new HomePortalService().build(request));
                     forward(request, response, "/WEB-INF/baru/home-v3.jsp");
                 } catch (Exception e) {

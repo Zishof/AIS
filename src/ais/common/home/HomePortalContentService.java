@@ -10,6 +10,7 @@ import org.hibernate.Session;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GelombangPendaftaran;
 import ais.database.model.Jurusan;
+import ais.database.model.KalenderAkademik;
 import ais.database.model.PengumumanAkademis;
 import ais.database.model.sekolah.GelombangPendaftaranPsb;
 
@@ -116,6 +117,42 @@ public class HomePortalContentService {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadAdmission");
+        } finally {
+            close(session);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void loadAgenda(HomePortalViewModel vm, HomePortalSectionResolver config) {
+        Session session = null;
+        try {
+            session = HibernateUtil.getSessionFactory().openSession();
+            StringBuilder hql = new StringBuilder("from KalenderAkademik k where k.aktif = true and k.tanggalSelesai >= :today");
+            if (vm.institution.schoolId != null) hql.append(" and k.sekolah.id = :tenant");
+            else if (vm.institution.foundationId != null) hql.append(" and k.yayasan.id = :tenant");
+            else hql.append(" and k.sekolah is null and k.yayasan is null");
+            org.hibernate.Query query = session.createQuery(hql.append(" order by k.tanggalMulai asc").toString()).setParameter("today", new Date()).setMaxResults(4);
+            if (vm.institution.schoolId != null || vm.institution.foundationId != null) {
+                query.setParameter("tenant", vm.institution.schoolId != null ? vm.institution.schoolId : vm.institution.foundationId);
+            }
+            List<KalenderAkademik> rows = query.list();
+            String url = config.value("home_v3_agenda_url", "#informasi");
+            SimpleDateFormat dayFormat = new SimpleDateFormat("dd", new Locale("id", "ID"));
+            SimpleDateFormat monthFormat = new SimpleDateFormat("MMM", new Locale("id", "ID"));
+            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd");
+            for (KalenderAkademik row : rows) {
+                HomePortalViewModel.AgendaItem item = new HomePortalViewModel.AgendaItem();
+                item.label = clean(row.getNamaKegiatanAkademik());
+                item.description = compact(row.getDeskripsiKegiatanAkademik(), 120);
+                Date date = row.getTanggalMulai();
+                item.day = date == null ? "" : dayFormat.format(date);
+                item.month = date == null ? "" : monthFormat.format(date).toUpperCase(new Locale("id", "ID"));
+                item.date = date == null ? "" : isoFormat.format(date);
+                copyLink(item, links.resolve(url, "#informasi"));
+                if (item.label.length() > 0) vm.agenda.add(item);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadAgenda");
         } finally {
             close(session);
         }

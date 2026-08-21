@@ -37,6 +37,7 @@ public class HomePortalService {
         if (vm.showPrograms) content.loadPrograms(vm, config);
         if (vm.showAdmission) content.loadAdmission(vm, config);
         if (vm.showNews) content.loadNews(vm, config);
+        if (vm.showAgenda) content.loadAgenda(vm, config);
         content.loadConfiguredContent(vm, config);
         addImpacts(vm);
         vm.showPrograms = vm.showPrograms && !vm.programs.isEmpty();
