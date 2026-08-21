@@ -800,7 +800,7 @@ if ("info".equals(actionParam)) {
                                 '</span>' +
                             '</td>' +
                             '<td class="px-3">' + opsiHtml + '</td>' +
-                            '<td class="text-center">' +
+                            '<td class="text-center" data-aksi-baris>' +
                                 '<div class="d-flex flex-column flex-xl-row justify-content-center gap-2 px-2">' +
                                     '<button type="button" class="btn btn-sm btn-primary shadow-sm w-100 d-flex align-items-center justify-content-center fw-bold" ' +
                                              'onclick="var cm=\'cm_\'+(++variable); loadModalContentCustomSimpan(\'' + labelUbahSoal + '\', \'' + urlEdit + '&contentModal=\'+cm+\'&idSoal=' + soal.id + '\', \'95%\', \'hidden\', \'\', cm);">' +

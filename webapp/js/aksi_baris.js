@@ -125,6 +125,91 @@
             '</span>';
     };
 
+    /* ------------------------------------------------------------------
+     * Halaman yang dirender di SERVER (scriptlet JSP) tidak dapat memanggil
+     * aksiBarisMenu(), karena barisnya sudah menjadi HTML sebelum sampai ke
+     * peramban. Untuk halaman seperti itu cukup tandai selnya:
+     *
+     *     <td class="text-center" data-aksi-baris>
+     *         <button ... title="Ubah"><i class="fas fa-edit"></i></button>
+     *         <button ... title="Hapus"><i class="fas fa-trash"></i></button>
+     *     </td>
+     *
+     * dan deretan tombolnya diubah sendiri menjadi menu "..." di sini. Label
+     * diambil dari title, ikon dari elemen <i>, dan tombol ASLINYA disimpan
+     * (tersembunyi) lalu diklik ulang -- sehingga penangan klik apa pun yang
+     * sudah terpasang padanya tetap hidup, termasuk yang dipasang lewat
+     * addEventListener. Kalau JavaScript gagal dimuat, tombolnya tetap tampil
+     * dan tetap berfungsi seperti sedia kala.
+     * ------------------------------------------------------------------ */
+    function butirDari(asli, rusak) {
+        var it = document.createElement('button');
+        it.type = 'button';
+        it.className = 'aksi-baris-item' + (rusak ? ' merusak' : '');
+        var ik = asli.querySelector('i');
+        var label = (asli.getAttribute('title') || asli.textContent || '').trim();
+        it.innerHTML = '<i class="' + (ik ? ik.className : 'fas fa-circle') + '"></i><span></span>';
+        it.lastChild.textContent = label;
+        if (asli.disabled) {
+            it.disabled = true;
+        } else {
+            it.onclick = function () { tutup(); asli.click(); };
+        }
+        return it;
+    }
+
+    window.aksiBarisOtomatis = function (akar) {
+        var wadah = (akar || document).querySelectorAll('[data-aksi-baris]');
+        for (var i = 0; i < wadah.length; i++) {
+            var w = wadah[i];
+            if (w.getAttribute('data-aksi-baris-siap')) { continue; }
+            var tombol = [], semua = w.querySelectorAll('button'), j;
+            for (j = 0; j < semua.length; j++) { tombol.push(semua[j]); }
+            if (tombol.length < 2) { continue; }   // satu aksi tetap satu tombol
+            pasangGaya();
+            w.setAttribute('data-aksi-baris-siap', '1');
+
+            var biasa = [], merusak = [];
+            for (j = 0; j < tombol.length; j++) {
+                var b = tombol[j];
+                var rusak = /danger|hapus|delete/i.test(b.className + ' ' + (b.getAttribute('title') || ''));
+                (rusak ? merusak : biasa).push(b);
+            }
+
+            var panel = document.createElement('span');
+            panel.className = 'aksi-baris-panel';
+            panel.style.display = 'none';
+            for (j = 0; j < biasa.length; j++) { panel.appendChild(butirDari(biasa[j], false)); }
+            if (biasa.length && merusak.length) {
+                var garis = document.createElement('div');
+                garis.className = 'aksi-baris-pisah';
+                panel.appendChild(garis);
+            }
+            for (j = 0; j < merusak.length; j++) { panel.appendChild(butirDari(merusak[j], true)); }
+
+            var pemicu = document.createElement('button');
+            pemicu.type = 'button';
+            pemicu.className = 'aksi-baris-tombol';
+            pemicu.title = w.getAttribute('data-aksi-baris') || 'Aksi lain';
+            pemicu.innerHTML = '&#8943;';
+            pemicu.onclick = function () { window.aksiBarisBuka(this); };
+
+            // tombol asli dipindah ke gudang tersembunyi, BUKAN dibuang
+            var gudang = document.createElement('span');
+            gudang.style.display = 'none';
+            for (j = 0; j < tombol.length; j++) { gudang.appendChild(tombol[j]); }
+
+            var pembungkus = document.createElement('span');
+            pembungkus.className = 'aksi-baris';
+            pembungkus.appendChild(pemicu);
+            pembungkus.appendChild(panel);
+
+            w.innerHTML = '';
+            w.appendChild(pembungkus);
+            w.appendChild(gudang);
+        }
+    };
+
     var panelTerbuka = null;   // panel yang sedang tampil di <body>
     var indukPanel = null;     // tempat asalnya, supaya dapat dikembalikan
 
@@ -183,4 +268,23 @@
      * daripada membiarkannya melayang di tempat yang salah. */
     window.addEventListener('scroll', tutup, true);
     window.addEventListener('resize', tutup);
+
+    /* Banyak tabel di sini diisi lewat AJAX SESUDAH halaman selesai dimuat --
+     * berkas bernama awalan garis bawah adalah potongan yang disisipkan
+     * belakangan. Karena itu selain saat muat, penyisipan baris baru juga
+     * diamati, supaya halaman-halaman itu tidak perlu memanggil apa pun. */
+    function sapu() { window.aksiBarisOtomatis(document); }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', sapu);
+    } else {
+        sapu();
+    }
+    if (window.MutationObserver) {
+        var tertunda = false;
+        new MutationObserver(function () {
+            if (tertunda) { return; }
+            tertunda = true;
+            setTimeout(function () { tertunda = false; sapu(); }, 60);
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
 })();

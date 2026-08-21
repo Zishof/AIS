@@ -119,7 +119,7 @@ if ("loadTabel1".equals(action)) {
                         <td class="text-secondary"><%=namaProfesi.replaceAll("\n", "<br>")%></td>
                         
                         <% if(edit || delete) { %>
-                        <td class="text-center text-nowrap">
+                        <td class="text-center text-nowrap" data-aksi-baris>
                             <% if(edit) { %>
                             <button type="button" class="btn btn-sm btn-outline-primary rounded-circle shadow-sm me-1" 
                                     onclick="window.bukaModalPL<%=rnd%>('<%=pl.getId()%>', '<%=kodePL.replace("'", "\\'")%>', '<%=namaPL.replace("'", "\\'").replace("\n", "\\n")%>', '<%=idProfesi%>')" 

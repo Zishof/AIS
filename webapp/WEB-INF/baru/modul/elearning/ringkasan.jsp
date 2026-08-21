@@ -819,7 +819,7 @@
                     json.forEach(function(item) {
                         var tdAksiPtm = ``;
                         if (bolehKelola<%=rnd%>) {
-                            tdAksiPtm = `<td class="text-center align-middle" style="white-space:nowrap;">
+                            tdAksiPtm = `<td class="text-center align-middle" style="white-space:nowrap;" data-aksi-baris>
                                 <div class="d-flex flex-wrap justify-content-center" style="gap:4px;">
                                     <button class="btn btn-outline-secondary btn-sm py-0 px-2" title="<%=Common.getBahasaConfig("Kelola Pertemuan")%>" onclick="kelolaPertemuan<%=rnd%>('`+item.id+`','`+idVop+`')"><i class="fas fa-cog"></i></button>
                                     <button class="btn btn-outline-success btn-sm py-0 px-2" title="<%=Common.getBahasaConfig("Buat Ujian Baru")%>" onclick="bukaFormBuat<%=rnd%>('ujian','`+item.id+`','`+idVop+`')"><i class="fas fa-file-signature"></i></button>

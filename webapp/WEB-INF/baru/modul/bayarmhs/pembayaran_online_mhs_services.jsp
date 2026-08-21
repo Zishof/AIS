@@ -978,7 +978,7 @@
                                             </td>
                                             <td class="text-end align-middle fw-bold text-success fs-8 px-3"><%= String.format("%,.0f", nilaiBayar) %></td>
                                             <% if (editPriv || deletePriv) { %>
-                                            <td class="text-center align-middle">
+                                            <td class="text-center align-middle" data-aksi-baris>
                                                 <div class="d-flex justify-content-center gap-1">
                                                     <% if (showEdit) { %>
                                                     <button type="button" class="btn btn-outline-primary btn-aksi-<%=rnd%> rounded-circle" data-id="<%=cp.getId()%>" data-tgl="<%=tglBayarStr%>" data-tgltagihan="<%=tglTagihanStr%>" data-nilai="<%=nilaiBayar%>" data-denda="<%=dendaBayar%>" data-cara="<%=idCaraBayar%>" data-item="<%=dataValItem%>" data-ket="<%=ketBayar%>" onclick="window.editRiwayat<%=rnd%>(this)" title="<%= Common.getBahasaConfig("Ubah Riwayat") %>"><i class="fas fa-pencil-alt" style="font-size: 0.75rem;"></i></button>

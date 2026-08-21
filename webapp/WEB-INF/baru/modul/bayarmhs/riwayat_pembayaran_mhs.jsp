@@ -393,7 +393,7 @@
                         '</td>' +
                         '<td><div class="small text-secondary text-wrap" style="max-width: 250px;">' + r.ket + '</div></td>' +
                         '<td class="text-end fw-bold text-success fs-5">' + formatter.format(r.nominal) + '</td>' +
-                        '<td class="text-center">' +
+                        '<td class="text-center" data-aksi-baris>' +
                             '<div class="d-flex justify-content-center gap-2">';
             
             if(r.bisaEdit) {

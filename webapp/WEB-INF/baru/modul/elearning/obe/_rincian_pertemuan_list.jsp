@@ -123,7 +123,7 @@ Collections.sort(listUrut, new Comparator<JSONObject>() {
                         <td><%=bkStr.length() > 0 ? bkStr.toString() : "-"%></td>
                         <td><%=refStr.length() > 0 ? refStr.toString() : "-"%></td>
                         <% if(!disableForm) { %>
-                        <td class="text-center text-nowrap">
+                        <td class="text-center text-nowrap" data-aksi-baris>
                             <button type="button" class="btn btn-sm btn-outline-primary rounded-circle shadow-sm me-1" onclick="window.bukaFormRincian<%=rnd%>('<%=keyRow%>')" title="<%=Common.getBahasaConfig("Edit")%>"><i class="fas fa-edit"></i></button>
                             <button type="button" class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" onclick="window.hapusRincianList<%=rnd%>('<%=keyRow%>')" title="<%=Common.getBahasaConfig("Hapus")%>"><i class="fas fa-trash"></i></button>
                         </td>
