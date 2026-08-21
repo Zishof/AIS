@@ -109,7 +109,9 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_dpc", "Pengadaan: Pembayaran Vendor (DPC)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_bdp", "Pengadaan: Barang Dalam Proses", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_pajak", "Pengadaan: Bayar Pajak (PPh/PPN)", "desktop", "android", "jsp"));
-		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_sinkron", "Pengadaan: Sinkronisasi Penerimaan ke Kulakan", "desktop", "android", "jsp"));
+		// Sinkronisasi penerimaan hanya ada di POS Desktop/Android; kanal JSP-nya pernah
+		// diklaim di sini padahal tidak ada halaman JSP yang menyebutnya sama sekali.
+		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_sinkron", "Pengadaan: Sinkronisasi Penerimaan ke Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "diskon", "Aturan Diskon", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "returpenjualan", "Retur Penjualan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatpenjualan", "Riwayat Penjualan", "desktop", "android"));
@@ -122,9 +124,9 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "laporankeuangan", "Akuntansi (grup menu)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "draft_jurnal", "Akuntansi: Draft Jurnal (dasbor posting)", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "jurnal_umum", "Akuntansi: Jurnal Umum", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "posting_hpp", "Akuntansi: Posting HPP", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "posting_penjualan", "Akuntansi: Posting Penjualan", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "kode_akun", "Akuntansi: Kode Akun", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_hpp", "Akuntansi: Posting HPP", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_penjualan", "Akuntansi: Posting Penjualan", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "kode_akun", "Akuntansi: Kode Akun", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "grup_akun", "Akuntansi: Grup Akun", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "jenis_transaksi", "Akuntansi: Jenis Transaksi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "bank_akun", "Akuntansi: Bank", "desktop", "android"));
@@ -134,9 +136,9 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "saldo_awal_akun", "Akuntansi: Saldo Awal (Neraca Awal)", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "jurnal_penyesuaian", "Akuntansi: Jurnal Penyesuaian Berkala", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "tutup_buku", "Akuntansi: Tutup Buku (Laba Ditahan)", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android", "jsp"));
 		// Grup "Keuangan" (2026-08-21): enam modul alur kas yang dipindahkan dari layar ZK
 		// akunting (UangMukaAction, PertangungjawabanAction, KasBesarAction,
 		// PertangungjawabanKasBesarAction, KasKecilAction, PenggantianKasKecilAction).

@@ -27,6 +27,17 @@ String svcLap = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin&s=laporan_la
 String reportsKeuanganJson = "[]";
 try { reportsKeuanganJson = ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan().toString(); } catch (Exception eLK) { ais.common.ErrorAuditUtil.record(eLK, "auto-audit(empty-catch) laporan_keuangan.jsp katalogKeuangan"); }
 String pdfLap = Common.ROOT + "/LaporanKantinPdf";
+// Pintasan ke layar akuntansi ZK mengikuti togel menu yang SAMA dgn Desktop/Android
+// (grid TbmroleAction). Fail-closed: tanpa peran, tidak ada pintasan yang muncul.
+ais.database.model.Tbmrole roleLap = tbmuserLap.hakAkses();
+java.util.Map<String, Boolean> bolehLap = new java.util.HashMap<String, Boolean>();
+for (String kunciLap : new String[] { "kode_akun", "posting_hpp", "posting_penjualan",
+        "posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang",
+        "posting_penyesuaian" }) {
+    bolehLap.put(kunciLap, Boolean.valueOf(roleLap != null
+            && ais.common.EbisnisMenuKatalog.aksesAkuntansi(roleLap.getEbisnisMenu(),
+                    roleLap.getRoleId(), kunciLap)));
+}
 Toko scopeTokoLap = (tbmuserLap.getPedagang() != null) ? tbmuserLap.getPedagang().getToko() : null;
 boolean lockTokoLap = (scopeTokoLap != null);
 
@@ -105,36 +116,50 @@ if (!lockTokoLap) {
   </div>
 
   <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Data pendukung laporan akuntansi">
+<% if (bolehLap.get("kode_akun").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/akunting/akun.zul">
       <i class="fas fa-sitemap me-1"></i><%=Common.getBahasaConfig("Akun / Perkiraan")%>
     </a>
+<% } %>
+<% if (bolehLap.get("posting_hpp").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_hpp_kantin.zul">
       <i class="fas fa-boxes-stacked me-1"></i><%=Common.getBahasaConfig("Posting HPP")%>
     </a>
+<% } %>
+<% if (bolehLap.get("posting_penjualan").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_penjualan_kantin.zul">
       <i class="fas fa-file-invoice-dollar me-1"></i><%=Common.getBahasaConfig("Posting Penjualan")%>
     </a>
+<% } %>
     <%-- Empat posting penutup rantai pengadaan->pembayaran toko; tanpa ini Persediaan hanya
          pernah dikredit jurnal HPP dan Utang Usaha tak pernah terbentuk di Neraca. --%>
+<% if (bolehLap.get("posting_kulakan").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_kulakan_toko.zul">
       <i class="fas fa-truck-ramp-box me-1"></i><%=Common.getBahasaConfig("Posting Kulakan")%>
     </a>
+<% } %>
+<% if (bolehLap.get("posting_bayar_hutang").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_bayar_hutang_toko.zul">
       <i class="fas fa-money-bill-transfer me-1"></i><%=Common.getBahasaConfig("Posting Bayar Hutang")%>
     </a>
+<% } %>
+<% if (bolehLap.get("posting_terima_piutang").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_terima_piutang_toko.zul">
       <i class="fas fa-hand-holding-dollar me-1"></i><%=Common.getBahasaConfig("Posting Terima Piutang")%>
     </a>
+<% } %>
+<% if (bolehLap.get("posting_penyesuaian").booleanValue()) { %>
     <a class="btn btn-outline-primary" target="_blank" rel="noopener"
        href="<%=Common.ROOT%>/pages/master/koperasi/posting_penyesuaian_toko.zul">
       <i class="fas fa-sliders me-1"></i><%=Common.getBahasaConfig("Posting Penyesuaian")%>
     </a>
+<% } %>
   </div>
 
   <div id="listView<%=rndLap%>">
