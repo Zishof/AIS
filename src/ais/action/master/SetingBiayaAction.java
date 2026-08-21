@@ -34,11 +34,13 @@ import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Caption;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Filedownload;
+import org.zkoss.zul.Groupbox;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
@@ -291,6 +293,15 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				});
 				editItem.setParent(vbox);
 			}
+			Groupbox daftarItemBiayaBox = new Groupbox();
+			daftarItemBiayaBox.setClosable(true);
+			daftarItemBiayaBox.setOpen(false);
+			daftarItemBiayaBox.setWidth("260px");
+			daftarItemBiayaBox.setStyle("margin-top:4px;");
+			daftarItemBiayaBox.appendChild(new Caption("Item Biaya (" + selectedItemBiaya.size() + ")"));
+			Vbox daftarItemBiaya = new Vbox();
+			daftarItemBiaya.setParent(daftarItemBiayaBox);
+			daftarItemBiayaBox.setParent(vbox);
 			int i = 1;
 			for (DetailSettingBiaya itemBiaya : selectedItemBiaya) {
 				RevisiHelper.createNewRevisi(DetailSettingBiaya.class, itemBiaya, i + ". "
@@ -302,7 +313,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 						+ (itemBiaya.getDefaultTanggalTagihan() != null
 								? " Tagihan : " + Common.dateFormat.get().format(itemBiaya.getDefaultTanggalTagihan()) + ""
 								: ""))
-						.setParent(vbox);
+						.setParent(daftarItemBiaya);
 				i++;
 			}
 			selectedItemBiaya = null;

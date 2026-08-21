@@ -171,6 +171,7 @@ import ais.database.model.StatusPekerjaanSetelahLulus;
 import ais.database.model.StatusSetelahLulus;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.UserAccess;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.FotoMahasiswa;
 import ais.database.model.file.FotoMahasiswaLulus;
@@ -4363,6 +4364,153 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 	}
 
+	private String ambilNimSemulaDariDatabase(Mahasiswa dataMahasiswa) {
+		try {
+			if (dataMahasiswa == null || dataMahasiswa.getId() == null) return null;
+			Mahasiswa tersimpan = (Mahasiswa) HibernateUtil.currentSession().get(Mahasiswa.class, dataMahasiswa.getId());
+			return tersimpan == null ? null : tersimpan.getNim();
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void tampilkanDialogEditNim(final Mahasiswa sumber) throws Exception {
+		if (sumber == null || sumber.getId() == null) return;
+		final MyWindow window = new MyWindow("Edit NIM Mahasiswa", "normal", true);
+		window.setParent(page.getFirstRoot());
+		window.setWidth("420px");
+		window.setHeight("190px");
+
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		borderlayout.setParent(window);
+		Center center = new Center();
+		center.setParent(borderlayout);
+		MyGrid grid = new MyGrid();
+		grid.setParent(center);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+		Columns columns = new Columns();
+		columns.setParent(grid);
+		MyColumnConfig kolom = new MyColumnConfig();
+		kolom.setWidth("32%");
+		kolom.setParent(columns);
+		kolom = new MyColumnConfig();
+		kolom.setParent(columns);
+		Rows rows = new Rows();
+		rows.setParent(grid);
+		MyFormRow row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("NIM Baru"));
+		final Textbox nimBaru = new Textbox(sumber.getNim() == null ? "" : sumber.getNim().trim());
+		nimBaru.setWidth("95%");
+		row.appendChild(nimBaru);
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+		Toolbar toolbar = new Toolbar();
+		toolbar.setParent(south);
+		MyToolbarbuttonConfig batal = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
+		batal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				window.detach();
+			}
+		});
+		batal.setParent(toolbar);
+		MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+		simpan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (simpanPerubahanNim(sumber.getId(), nimBaru.getValue())) {
+					window.detach();
+					onSearchDefault(null);
+				}
+			}
+		});
+		simpan.setParent(toolbar);
+		window.setVisible(true);
+		window.onModal();
+	}
+
+	@SuppressWarnings("unchecked")
+	private boolean simpanPerubahanNim(Long mahasiswaId, String nimBaruInput) throws Exception {
+		String nimBaru = nimBaruInput == null ? "" : nimBaruInput.trim();
+		if (nimBaru.isEmpty()) {
+			MyMessageboxConfig.show("NIM baru tidak boleh kosong.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		Session session = HibernateUtil.currentSession();
+		Mahasiswa target = (Mahasiswa) session.get(Mahasiswa.class, mahasiswaId);
+		if (target == null) return false;
+		String nimLama = target.getNim() == null ? "" : target.getNim().trim();
+		if (nimBaru.equals(nimLama)) return true;
+		Number jumlahDuplikat = (Number) session.createCriteria(Mahasiswa.class)
+				.add(Restrictions.eq("nim", nimBaru))
+				.add(Restrictions.ne("id", target.getId()))
+				.setProjection(Projections.rowCount()).uniqueResult();
+		if (jumlahDuplikat != null && jumlahDuplikat.intValue() > 0) {
+			MyMessageboxConfig.showFormat(
+					"NIM \"{V1}\" sudah digunakan mahasiswa lain. Silakan gunakan NIM lain.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, nimBaru);
+			return false;
+		}
+
+		String passwordTeks = nimBaru;
+		try {
+			String passLama = target.getPass() == null ? "" : Common.desEncrypter.get().decrypt(target.getPass());
+			passwordTeks = passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)
+					? nimBaru : passLama;
+			if (passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)) {
+				target.setPass(Common.desEncrypter.get().encrypt(nimBaru));
+			}
+		} catch (Exception e) {
+			passwordTeks = nimBaru;
+			target.setPass(Common.desEncrypter.get().encrypt(nimBaru));
+		}
+
+		UserAccess userLama = nimLama.isEmpty() ? null : (UserAccess) session.createCriteria(UserAccess.class)
+				.add(Restrictions.eq("username", nimLama)).setMaxResults(1).uniqueResult();
+		UserAccess userBaru = (UserAccess) session.createCriteria(UserAccess.class)
+				.add(Restrictions.eq("username", nimBaru)).setMaxResults(1).uniqueResult();
+		if (userLama != null && userBaru == null) {
+			userLama.setUsername(nimBaru);
+			userLama.setFirstName(nimBaru);
+			Common.refreshSaveOrUpdate(session, userLama);
+		}
+
+		target.setNim(nimBaru);
+		Common.refreshSaveOrUpdate(session, target);
+
+		List<BiodataCalonMahasiswa> calonTerkait = session.createCriteria(BiodataCalonMahasiswa.class)
+				.add(Restrictions.eq("mahasiswa", target)).list();
+		if (!nimLama.isEmpty()) {
+			calonTerkait.addAll(session.createCriteria(BiodataCalonMahasiswa.class)
+					.add(Restrictions.eq("nim", nimLama)).list());
+		}
+		for (BiodataCalonMahasiswa calon : calonTerkait) {
+			calon.setMahasiswa(target);
+			calon.setNim(nimBaru);
+			Common.refreshSaveOrUpdate(session, calon);
+		}
+
+		List<Tbmuser> pengguna = session.createCriteria(Tbmuser.class)
+				.add(Restrictions.eq("mahasiswa", target)).list();
+		for (Tbmuser user : pengguna) {
+			user.setUserId(nimBaru);
+			Common.refreshSaveOrUpdate(session, user);
+		}
+
+		Common.saveOrUpdateUserAccess(null, target, nimBaru, passwordTeks, target.getEmail());
+		MyMessageboxConfig.showFormat("NIM berhasil diubah dari \"{V1}\" menjadi \"{V2}\".",
+				"Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+				nimLama.isEmpty() ? "-" : nimLama, nimBaru);
+		return true;
+	}
+
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -4682,6 +4830,17 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 				});
 				aksiButtons.add(buttonEdit);
+
+				final MyToolbarbuttonConfig buttonEditNim = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
+				buttonEditNim.setTooltiptext("Edit NIM");
+				buttonEditNim.setVisible(tbmuser != null && edit);
+				buttonEditNim.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						tampilkanDialogEditNim(mahasiswa);
+					}
+				});
+				aksiButtons.add(buttonEditNim);
 
 				final MyToolbarbuttonConfig buttonDelete = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				buttonDelete.setSclass("ais-row-btn-danger");
@@ -6795,6 +6954,13 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 	}
 
 	public boolean onSave(Event event, final boolean reload) throws Exception {
+
+		if (nim.getValue().trim().equals("")) {
+			String nimSemula = ambilNimSemulaDariDatabase(mahasiswa);
+			if (nimSemula != null && !nimSemula.trim().isEmpty()) {
+				nim.setValue(nimSemula.trim());
+			}
+		}
 
 		if (nim.getValue().trim().equals("")) {
 			MyMessageboxConfig.show(
