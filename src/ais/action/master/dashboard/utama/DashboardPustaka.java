@@ -81,6 +81,7 @@ import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyLabelConfig;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -1902,46 +1903,31 @@ public class DashboardPustaka extends MyWindow {
 		cari.setWidth(mobile ? "95%" : "260px");
 		cari.setParent(toolbar);
 
-		final Div resultPanel = new Div();
-		resultPanel.setWidth("100%");
-		resultPanel.setStyle("overflow:auto;");
+		final TipeItem[] tipeAktif = new TipeItem[] { null };
+		final Component[] panelAktif = new Component[1];
+		final MyButtonTabbox tabboxTipe = MyButtonTabbox.buat(container, "100%", new int[] { 1 });
 
-		final Tabbox tabboxTipe = new Tabbox();
-		// Permintaan: tab jenis koleksi dipindah dari KIRI (vertical) ke ATAS (horizontal),
-		// agar konsisten dengan pola tab umum dan lebih hemat ruang di layar mobile.
-		tabboxTipe.setOrient("horizontal");
-		tabboxTipe.setWidth("100%");
-		tabboxTipe.setStyle("border:0; overflow-x:auto; overflow-y:hidden;");
-		tabboxTipe.setSclass("pustaka-tab-jenis");
-		tabboxTipe.setParent(container);
-
-		Tabs tabs = new Tabs();
-		// Lebar 34px dulu dipakai untuk kolom tab vertikal yang sempit; untuk tab horizontal
-		// di atas, biarkan mengisi lebar penuh dan boleh membungkus baris (responsif).
-		tabs.setWidth("100%");
-		tabs.setStyle("white-space:nowrap; overflow-x:auto; overflow-y:hidden;");
-		tabs.setParent(tabboxTipe);
-		Tabpanels tabpanels = new Tabpanels();
-		tabpanels.setParent(tabboxTipe);
-
-		MyTabConfig semuaTab = new MyTabConfig("Semua Jenis", "/img/Books-icon1.png");
-		semuaTab.setStyle("white-space:nowrap; min-width:110px; text-align:center;");
-		semuaTab.setAttribute("tipeItem", null);
-		semuaTab.setParent(tabs);
-		final Tabpanel semuaPanel = new ais.ui.util.MyTabpanel();
+		final Div semuaPanel = tabboxTipe.tambahTab(1, "Semua Jenis", "/img/Books-icon1.png");
 		semuaPanel.setStyle("padding:8px;overflow:auto;");
-		semuaPanel.setParent(tabpanels);
+		panelAktif[0] = semuaPanel;
+		tabboxTipe.onSetiapPilih(1, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				tipeAktif[0] = null;
+				panelAktif[0] = semuaPanel;
+				renderDaftarKoleksi(null, semuaPanel, cari, perpustakaan, 0);
+			}
+		});
 
-		final MyWindow advancedSearch = initPencarian(tabboxTipe, cari, perpustakaan);
+		final MyWindow advancedSearch = initPencarian(tipeAktif, panelAktif, cari, perpustakaan);
 
 		Toolbarbutton btnCari = new MyToolbarbuttonConfig("Cari / Refresh", "/img/svg/search.svg");
 		btnCari.setParent(toolbar);
 		btnCari.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				Tab tab = tabboxTipe.getSelectedTab();
 				resetAdvancedFilter();
-				renderDaftarKoleksi((TipeItem) tab.getAttribute("tipeItem"), tab.getLinkedPanel(), cari, perpustakaan, 0);
+				renderDaftarKoleksi(tipeAktif[0], panelAktif[0], cari, perpustakaan, 0);
 			}
 		});
 
@@ -1957,9 +1943,8 @@ public class DashboardPustaka extends MyWindow {
 		cari.addEventListener("onOK", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				Tab tab = tabboxTipe.getSelectedTab();
 				resetAdvancedFilter();
-				renderDaftarKoleksi((TipeItem) tab.getAttribute("tipeItem"), tab.getLinkedPanel(), cari, perpustakaan, 0);
+				renderDaftarKoleksi(tipeAktif[0], panelAktif[0], cari, perpustakaan, 0);
 			}
 		});
 
@@ -1971,18 +1956,17 @@ public class DashboardPustaka extends MyWindow {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/utama/DashboardPustaka.java:1953");
 		}
 		if (tipeItems != null) {
+			int indexTipe = 2;
 			for (final TipeItem tipeItem : tipeItems.values()) {
 				if (tipeItem != null && booleanTrue(tipeItem.getAktif())) {
-					final Tab tab = new Tab(safeString(tipeItem.getNama()), "/img/Books-icon1.png");
-					tab.setStyle("white-space:nowrap; min-width:86px; text-align:center;");
-					tab.setAttribute("tipeItem", tipeItem);
-					tab.setParent(tabs);
-					final Tabpanel panel = new ais.ui.util.MyTabpanel();
+					final int index = indexTipe++;
+					final Div panel = tabboxTipe.tambahTab(index, safeString(tipeItem.getNama()), "/img/Books-icon1.png");
 					panel.setStyle("padding:8px;overflow:auto;");
-					panel.setParent(tabpanels);
-					tab.addEventListener("onClick", new EventListener() {
+					tabboxTipe.onSetiapPilih(index, new EventListener() {
 						@Override
 						public void onEvent(Event event) throws Exception {
+							tipeAktif[0] = tipeItem;
+							panelAktif[0] = panel;
 							renderDaftarKoleksi(tipeItem, panel, cari, perpustakaan, 0);
 						}
 					});
@@ -1991,7 +1975,8 @@ public class DashboardPustaka extends MyWindow {
 		}
 	}
 
-	private MyWindow initPencarian(final Tabbox tabbox, final Textbox cari, final Perpustakaan perpustakaan) {
+	private MyWindow initPencarian(final TipeItem[] tipeAktif, final Component[] panelAktif, final Textbox cari,
+			final Perpustakaan perpustakaan) {
 		final MyWindow win = new MyWindow("Pencarian Lanjut", "normal", true);
 		win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 		win.setHeight("98%");
@@ -2035,8 +2020,8 @@ public class DashboardPustaka extends MyWindow {
 		EventListener searchListener = new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				Tab tab = tabbox.getSelectedTab();
-				renderDaftarKoleksi((TipeItem) tab.getAttribute("tipeItem"), tab.getLinkedPanel(), cari, perpustakaan, 0);
+				renderDaftarKoleksi(tipeAktif == null ? null : tipeAktif[0],
+						panelAktif == null || panelAktif.length == 0 ? null : panelAktif[0], cari, perpustakaan, 0);
 				win.setVisible(false);
 			}
 		};
