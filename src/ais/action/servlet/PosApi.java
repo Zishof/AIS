@@ -747,6 +747,11 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("pj_uang_muka_")) {
+				// Grup "Keuangan": pertanggungjawaban uang muka (LPJ) -- dipindahkan dari layar ZK
+				// PertangungjawabanAction; nilai LPJ selalu dihitung ulang di server.
+				ais.action.servlet.api.PertangungjawabanApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("uang_muka_")) {
 				// Grup "Keuangan": pengajuan uang muka (cash advance) -- dipindahkan dari layar ZK
 				// UangMukaAction; aturan validasi & penomorannya dibuat sama persis di helper.

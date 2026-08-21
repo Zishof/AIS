@@ -91,7 +91,7 @@ public class LaporanUangMuka extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public Map generateParameter() throws Exception {
+	public static Map parameter(UangMuka uangMuka) throws Exception {
 
 		if (uangMuka != null && uangMuka.getId() != null) {
 			HibernateUtil.currentSession().refresh(uangMuka);
@@ -222,6 +222,25 @@ public class LaporanUangMuka extends MyWindow {
 		}
 
 		return parameters;
+	}
+
+	/**
+	 * Delegasi ke {@link #parameter(UangMuka)} -- dipakai tombol ekspor pada layar ZK.
+	 * Isinya dipindah ke method statis supaya kanal lain (API Desktop/Android) dapat
+	 * mencetak dokumen yang SAMA tanpa perlu membuka layar ZK-nya.
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public Map generateParameter() throws Exception {
+		return parameter(uangMuka);
+	}
+
+	/**
+	 * Cetak PDF tanpa layar ZK: templat dan parameternya sama persis dengan tombol cetak
+	 * pada layar ZK, sehingga lembar cetak dari Desktop/Android identik.
+	 */
+	public static File cetakPdf(UangMuka uangMuka) throws Exception {
+		return Report.generateFileReport(Report.PDF, parameter(uangMuka), "akunting/uangMuka",
+				ais.ui.util.WaktuUtil.getDate(), null, new org.zkoss.zul.Toolbar());
 	}
 
 	@SuppressWarnings({})
