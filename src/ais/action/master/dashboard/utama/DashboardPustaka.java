@@ -1911,7 +1911,7 @@ public class DashboardPustaka extends MyWindow {
 		// agar konsisten dengan pola tab umum dan lebih hemat ruang di layar mobile.
 		tabboxTipe.setOrient("horizontal");
 		tabboxTipe.setWidth("100%");
-		tabboxTipe.setStyle("border:0; overflow:auto;");
+		tabboxTipe.setStyle("border:0; overflow-x:auto; overflow-y:hidden;");
 		tabboxTipe.setSclass("pustaka-tab-jenis");
 		tabboxTipe.setParent(container);
 
@@ -1919,12 +1919,13 @@ public class DashboardPustaka extends MyWindow {
 		// Lebar 34px dulu dipakai untuk kolom tab vertikal yang sempit; untuk tab horizontal
 		// di atas, biarkan mengisi lebar penuh dan boleh membungkus baris (responsif).
 		tabs.setWidth("100%");
+		tabs.setStyle("white-space:nowrap; overflow-x:auto; overflow-y:hidden;");
 		tabs.setParent(tabboxTipe);
 		Tabpanels tabpanels = new Tabpanels();
 		tabpanels.setParent(tabboxTipe);
 
 		MyTabConfig semuaTab = new MyTabConfig("Semua Jenis", "/img/Books-icon1.png");
-		semuaTab.setStyle("writing-mode: vertical-rl;text-orientation: mixed;");
+		semuaTab.setStyle("white-space:nowrap; min-width:110px; text-align:center;");
 		semuaTab.setAttribute("tipeItem", null);
 		semuaTab.setParent(tabs);
 		final Tabpanel semuaPanel = new ais.ui.util.MyTabpanel();
@@ -1973,7 +1974,7 @@ public class DashboardPustaka extends MyWindow {
 			for (final TipeItem tipeItem : tipeItems.values()) {
 				if (tipeItem != null && booleanTrue(tipeItem.getAktif())) {
 					final Tab tab = new Tab(safeString(tipeItem.getNama()), "/img/Books-icon1.png");
-					tab.setStyle("writing-mode: vertical-rl;text-orientation: mixed;");
+					tab.setStyle("white-space:nowrap; min-width:86px; text-align:center;");
 					tab.setAttribute("tipeItem", tipeItem);
 					tab.setParent(tabs);
 					final Tabpanel panel = new ais.ui.util.MyTabpanel();

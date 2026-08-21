@@ -411,8 +411,8 @@ public final class PesanFormalHelper {
                 + "<div style='color:#854d0e;margin-top:6px;'>Kode rujukan: <b>" + html(kode)
                 + "</b></div></div></div>"));
 
-        // Tombol "Detail Informasi Teknis" + panel berisi exception yang sebenarnya, dapat
-        // disalin pengguna untuk dikirim ke pengembang. Sebelumnya parameter exception diterima
+        // Tombol "Lihat Detail Error" + panel berisi exception yang sebenarnya, dapat
+        // disalin pengguna untuk dikirim ke admin. Sebelumnya parameter exception diterima
         // tetapi TIDAK PERNAH dipakai, sehingga pesan ramah ini membuang seluruh jejak teknis.
         DetailTeknisHelper.pasangPanel(box, konteks, exception, null, kode);
 
@@ -449,6 +449,63 @@ public final class PesanFormalHelper {
                 + "setTimeout(function(){try{if(d.parentNode)d.parentNode.removeChild(d);}catch(e){}},9000);"
                 + "}catch(e){}})(" + org.json.JSONObject.quote(kosongKe(judul, "Informasi")) + ","
                 + org.json.JSONObject.quote(kosongKe(pesan, "Proses belum dapat diselesaikan.")) + ");";
+    }
+
+    private static String jsDialogDetail(String judul, String pesan, String aktivitas, String teknis,
+            String kode) {
+        return "(function(t,m,a,d,k){try{"
+                + "var lama=document.getElementById('ais-error-detail-fallback');"
+                + "if(lama&&lama.parentNode)lama.parentNode.removeChild(lama);"
+                + "var salinan='Kode referensi: '+(k||'-')+'\\nAktivitas: '+(a||'proses aplikasi')+'\\n'+(d||'');"
+                + "var overlay=document.createElement('div');overlay.id='ais-error-detail-fallback';"
+                + "overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.42);"
+                + "display:flex;align-items:center;justify-content:center;padding:18px;';"
+                + "var box=document.createElement('div');box.style.cssText='width:min(620px,100%);max-height:90vh;"
+                + "overflow:auto;background:#fff;border-radius:12px;border:1px solid #dbe3ef;"
+                + "box-shadow:0 24px 70px rgba(15,23,42,.28);font:13px/1.45 Arial,sans-serif;color:#1f2937;';"
+                + "var header=document.createElement('div');header.style.cssText='padding:14px 18px;border-bottom:1px solid #e5e7eb;"
+                + "font-weight:700;color:#0f172a;';header.textContent=t||'Informasi';box.appendChild(header);"
+                + "var body=document.createElement('div');body.style.cssText='padding:14px 18px;';"
+                + "var msg=document.createElement('div');msg.style.cssText='margin-bottom:10px;';msg.textContent=m||'Proses belum dapat diselesaikan.';body.appendChild(msg);"
+                + "var ref=document.createElement('div');ref.style.cssText='margin-bottom:12px;color:#475569;font-size:12px;';"
+                + "ref.innerHTML='Kode rujukan: <b></b>';ref.getElementsByTagName('b')[0].textContent=k||'-';body.appendChild(ref);"
+                + "var info=document.createElement('div');info.style.cssText='margin-bottom:10px;color:#9a3412;font-size:12px;';"
+                + "info.textContent='Klik Lihat Detail Error lalu Copy Error untuk Admin agar admin mudah menelusuri penyebabnya.';"
+                + "body.appendChild(info);"
+                + "var area=document.createElement('textarea');area.readOnly=true;area.value=salinan;"
+                + "area.style.cssText='display:none;width:100%;height:220px;box-sizing:border-box;border:1px solid #fdba74;"
+                + "border-radius:8px;padding:8px;font:11px/1.45 Consolas,monospace;color:#1f2937;background:#fffaf0;';"
+                + "body.appendChild(area);box.appendChild(body);"
+                + "var footer=document.createElement('div');footer.style.cssText='display:flex;gap:8px;justify-content:flex-end;"
+                + "padding:12px 18px;border-top:1px solid #e5e7eb;background:#f8fafc;';"
+                + "var lihat=document.createElement('button');lihat.type='button';lihat.textContent='Lihat Detail Error';"
+                + "lihat.style.cssText='padding:7px 12px;border-radius:8px;border:1px solid #fb923c;background:#fff;color:#9a3412;font-weight:700;cursor:pointer;';"
+                + "var copy=document.createElement('button');copy.type='button';copy.textContent='Copy Error untuk Admin';"
+                + "copy.style.cssText='padding:7px 12px;border-radius:8px;border:1px solid #ea580c;background:#ea580c;color:#fff;font-weight:700;cursor:pointer;';"
+                + "var tutup=document.createElement('button');tutup.type='button';tutup.textContent='Tutup';"
+                + "tutup.style.cssText='padding:7px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:700;cursor:pointer;';"
+                + "var kabar=function(x){try{var n=document.createElement('div');n.style.cssText='position:fixed;z-index:2147483647;left:50%;top:18px;"
+                + "transform:translateX(-50%);background:#065f46;color:#ecfdf5;border-radius:8px;padding:9px 14px;"
+                + "box-shadow:0 10px 26px rgba(15,23,42,.25);font:13px/1.4 Arial,sans-serif;';n.textContent=x;"
+                + "document.body.appendChild(n);setTimeout(function(){try{if(n.parentNode)n.parentNode.removeChild(n);}catch(e){}},3000);}catch(e){}};"
+                + "lihat.onclick=function(){var buka=area.style.display==='none';area.style.display=buka?'block':'none';"
+                + "lihat.textContent=buka?'Sembunyikan Detail Error':'Lihat Detail Error';if(buka){try{area.focus();}catch(e){}}};"
+                + "var cadangan=function(){try{area.style.display='block';lihat.textContent='Sembunyikan Detail Error';"
+                + "area.focus();area.select();var ok=document.execCommand('copy');"
+                + "kabar(ok?'Detail error sudah disalin. Silakan kirim ke admin.':'Penyalinan otomatis gagal. Silakan Ctrl+A lalu Ctrl+C dari kotak detail.');"
+                + "}catch(e){kabar('Penyalinan otomatis gagal. Silakan Ctrl+A lalu Ctrl+C dari kotak detail.');}};"
+                + "copy.onclick=function(){try{if(navigator.clipboard&&navigator.clipboard.writeText){"
+                + "navigator.clipboard.writeText(salinan).then(function(){kabar('Detail error sudah disalin. Silakan kirim ke admin.');},"
+                + "function(){cadangan();});}else{cadangan();}}catch(e){cadangan();}};"
+                + "tutup.onclick=function(){try{if(overlay.parentNode)overlay.parentNode.removeChild(overlay);}catch(e){}};"
+                + "footer.appendChild(lihat);footer.appendChild(copy);footer.appendChild(tutup);box.appendChild(footer);"
+                + "overlay.appendChild(box);document.body.appendChild(overlay);"
+                + "}catch(e){try{alert((t||'Informasi')+'\\n\\n'+(m||'Proses belum dapat diselesaikan.')+'\\n\\nKode rujukan: '+(k||'-'));}catch(x){}}})("
+                + org.json.JSONObject.quote(kosongKe(judul, "Informasi")) + ","
+                + org.json.JSONObject.quote(kosongKe(pesan, "Proses belum dapat diselesaikan.")) + ","
+                + org.json.JSONObject.quote(kosongKe(aktivitas, "proses aplikasi")) + ","
+                + org.json.JSONObject.quote(teknis == null ? "" : teknis) + ","
+                + org.json.JSONObject.quote(kosongKe(kode, "-")) + ");";
     }
 
     private static String html(String s) {

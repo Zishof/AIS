@@ -495,7 +495,7 @@ public class Report extends GenericAutowireComposer {
 				org.zkoss.zul.Html message = new org.zkoss.zul.Html();
 				String detailInfo = "";
 				if (ais.common.DetailTeknisHelper.tombolAktif()) {
-					detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:8px;color:#9a3412;'>Tekan <b>Detail Informasi Teknis</b> di bawah untuk melihat dan menyalin rincian kesalahan, lalu kirimkan kepada admin atau pengembang.</div>";
+					detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:8px;color:#9a3412;'>Tekan <b>Lihat Detail Error</b> di bawah untuk melihat dan menyalin rincian kesalahan, lalu kirimkan kepada admin.</div>";
 				}
 				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
 					detailInfo += "<div style='font-size:12px;line-height:1.5;margin-top:6px;color:#9a3412;'>Jika perlu bantuan admin, gunakan tombol Download detail error di bawah ini.</div>";
@@ -508,8 +508,8 @@ public class Report extends GenericAutowireComposer {
 						+ detailInfo + "</div></div>");
 				message.setParent(errorBox);
 
-				// Tombol "Detail Informasi Teknis": exception yang sebenarnya dapat dibuka lalu
-				// disalin pengguna untuk dikirim ke pengembang. Sebelumnya satu-satunya jalur
+				// Tombol "Lihat Detail Error": exception yang sebenarnya dapat dibuka lalu
+				// disalin pengguna untuk dikirim ke admin. Sebelumnya satu-satunya jalur
 				// teknis adalah tombol Download di bawah, dan tombol itu hanya muncul bila berkas
 				// detail sempat ditulis ke disk -- pada banyak kegagalan berkas itu tidak ada,
 				// sehingga pengguna tidak punya jejak teknis apa pun untuk dilaporkan.
@@ -518,7 +518,7 @@ public class Report extends GenericAutowireComposer {
 
 				if (detailFile != null && detailFile.exists() && isReportErrorDownloadEnabled()) {
 					// Pakai baris tombol yang sama bila panel detail sudah membuatnya, agar
-					// Download berdampingan dengan Detail Informasi Teknis, bukan menumpuk.
+					// Download berdampingan dengan Lihat Detail Error, bukan menumpuk.
 					org.zkoss.zul.Hbox buttons = barisTombol;
 					if (buttons == null) {
 						buttons = new org.zkoss.zul.Hbox();
@@ -2240,7 +2240,7 @@ public class Report extends GenericAutowireComposer {
 		if (pesanAsli != null && (pesanAsli.contains("antrean cetak") || pesanAsli.contains("banyak laporan secara bersamaan"))) {
 			return pesanAsli;
 		}
-		return "Laporan belum dapat dibuat. Detail error sudah disiapkan untuk admin.";
+		return "Laporan belum dapat dibuat. Klik Lihat Detail Error lalu Copy Error untuk Admin.";
 	}
 
 	/**
