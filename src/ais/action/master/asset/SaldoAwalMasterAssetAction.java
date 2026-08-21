@@ -517,7 +517,10 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 	 * @return {@code Map} berisi semua parameter untuk template JasperReports
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static Map parameter(SaldoAwalMasterAsset saldoAwalMasterAsset) {
+	// Akses dilebarkan (2026-08-21) agar modul Pengadaan POS memakai pembangun
+	// parameter YANG SAMA, sehingga dokumen cetaknya identik dengan versi ZKoss.
+	// Isi metodenya tidak diubah dan tidak menyentuh keadaan instance.
+	public static Map parameter(SaldoAwalMasterAsset saldoAwalMasterAsset) {
 		Map parameters = ais.common.HashMapGenerator.getRand();
 		parameters.put("id", saldoAwalMasterAsset.getId());
 

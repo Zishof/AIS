@@ -1911,6 +1911,9 @@ public final class PengadaanPosApiHelper {
 	/** Awalan {@code jenis} pada LampiranLain untuk dokumen tagihan pengadaan. */
 	private static final String JENIS_LAMPIRAN_TAGIHAN = "Dokumen Tagihan Pengadaan - ";
 
+	/** Batas isi PDF cetak yang ikut dikirim sebagai base64 (8 MB). */
+	private static final long MAKS_BYTE_CETAK = 8L * 1024 * 1024;
+
 	/** Batas ukuran satu berkas lampiran (5 MB), cukup untuk foto invoice dari ponsel. */
 	private static final int MAKS_BYTE_LAMPIRAN = 5 * 1024 * 1024;
 
@@ -3471,6 +3474,167 @@ public final class PengadaanPosApiHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Cetak satu dokumen pengadaan menjadi PDF, lalu kembalikan URL-nya supaya klien
+	 * dapat MENAMPILKAN PRATINJAU lebih dulu sebelum benar-benar dicetak.
+	 *
+	 * <p><b>Templatnya sama persis dengan versi ZKoss</b> -- berkas JasperReports di
+	 * {@code /report/asset/*} -- dan parameternya dibangun oleh metode yang sama pula
+	 * ({@code PermintaanPengadaanMasterAssetAction.parameter}, dan seterusnya). Menyalin
+	 * pembangun parameter ke sini akan melahirkan dokumen kedua yang lambat laun berbeda
+	 * isinya dari cetakan ZKoss tanpa ada yang menyadarinya.</p>
+	 *
+	 * <p>Cara penyajian mengikuti pola yang sudah dipakai {@code LaporanApi}: berkas PDF
+	 * dihasilkan di sisi server, lalu yang dikirim adalah URL-nya -- bukan base64 -- supaya
+	 * dokumen besar tidak membebani muatan JSON dan peramban/pembaca PDF bisa langsung
+	 * menampilkannya.</p>
+	 *
+	 * @param request {@code tahap} (pr, po, bast, tagihan, dpc) dan {@code id} dokumen.
+	 */
+	public static void cetakDokumen(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		String tahap = request == null ? "" : request.optString("tahap", "").trim().toLowerCase();
+		String kunciMenu = "pr".equals(tahap) ? KUNCI_PR
+				: "po".equals(tahap) ? KUNCI_PO
+				: "bast".equals(tahap) ? KUNCI_BAST
+				: "tagihan".equals(tahap) ? KUNCI_TAGIHAN
+				: "dpc".equals(tahap) ? KUNCI_DPC : null;
+		if (kunciMenu == null) {
+			tolak(hasil, "Tahap cetak tidak dikenali. Pilih salah satu: pr, po, bast, tagihan, dpc.");
+			return;
+		}
+		if (!bolehLihat(tbmuser, kunciMenu)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long id = (request.isNull("id") || (request.get("id") + "").trim().isEmpty()) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id dokumen wajib diisi.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		java.util.Map<?, ?> parameter = null;
+		String templat = null;
+		java.util.Date tanggal = null;
+		String kode = "";
+		try {
+			if ("pr".equals(tahap)) {
+				PermintaanPengadaanMasterAsset d = (PermintaanPengadaanMasterAsset) session
+						.get(PermintaanPengadaanMasterAsset.class, id);
+				if (!milikToko(hasil, d == null ? null : (d.getToko() == null ? null : d.getToko().getId()),
+						tokoId, d == null)) {
+					return;
+				}
+				parameter = ais.action.master.asset.PermintaanPengadaanMasterAssetAction.parameter(d);
+				templat = "asset/permintaan_pengadaan";
+				tanggal = d.getTanggalPembuatan();
+				kode = d.getKode() == null ? "" : d.getKode();
+			} else if ("po".equals(tahap)) {
+				PemesananPengadaanMasterAsset d = (PemesananPengadaanMasterAsset) session
+						.get(PemesananPengadaanMasterAsset.class, id);
+				if (!milikToko(hasil, d == null ? null : (d.getToko() == null ? null : d.getToko().getId()),
+						tokoId, d == null)) {
+					return;
+				}
+				parameter = ais.action.master.asset.PemesananPengadaanMasterAssetAction.parameter(d);
+				templat = "asset/pemesanan_pengadaan";
+				tanggal = d.getTanggalPembuatan();
+				kode = d.getKode() == null ? "" : d.getKode();
+			} else if ("bast".equals(tahap) || "tagihan".equals(tahap)) {
+				PenerimaanPengadaanMasterAsset d = (PenerimaanPengadaanMasterAsset) session
+						.get(PenerimaanPengadaanMasterAsset.class, id);
+				if (!milikToko(hasil, d == null ? null : (d.getToko() == null ? null : d.getToko().getId()),
+						tokoId, d == null)) {
+					return;
+				}
+				parameter = ais.action.master.asset.PenerimaanPengadaanMasterAssetAction.parameter(d);
+				templat = "asset/penerimaan_pengadaan";
+				tanggal = d.getTanggalPembuatan();
+				kode = "tagihan".equals(tahap)
+						? (d.getKodeTagihan() == null || d.getKodeTagihan().trim().isEmpty()
+								? (d.getKode() == null ? "" : d.getKode()) : d.getKodeTagihan())
+						: (d.getKode() == null ? "" : d.getKode());
+			} else {
+				PembayaranTerminMasterAsset d = (PembayaranTerminMasterAsset) session
+						.get(PembayaranTerminMasterAsset.class, id);
+				if (!milikToko(hasil, d == null ? null : (d.getToko() == null ? null : d.getToko().getId()),
+						tokoId, d == null)) {
+					return;
+				}
+				parameter = ais.action.master.asset.PembayaranTerminMasterAssetAction.parameter(d);
+				templat = "asset/pembayaran_termin";
+				tanggal = d.getTanggalPembuatan();
+				kode = d.getKode() == null ? "" : d.getKode();
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+
+		java.io.File berkas = ais.action.report.Report.generateFileReport(
+				ais.action.report.Report.PDF, parameter, templat,
+				tanggal == null ? ais.ui.util.WaktuUtil.getDate() : tanggal,
+				(java.util.List) null, Common.locale);
+		if (berkas == null) {
+			tolak(hasil, "Dokumen gagal dicetak. Periksa apakah templat laporan tersedia di server.");
+			return;
+		}
+		hasil.put("status", "00");
+		hasil.put("tahap", tahap);
+		hasil.put("kode", kode);
+		hasil.put("namaFile", berkas.getName());
+		hasil.put("url", urlBerkasLaporan(berkas.getName()));
+		// Isi berkas ikut dikirim sebagai base64 supaya Desktop/Android dapat langsung
+		// menampilkan PRATINJAU tanpa unduhan terpisah. JSP cukup memakai url di atas.
+		// Dibatasi ukurannya: dokumen yang tidak wajar besar tetap dapat diambil lewat url,
+		// tanpa membuat muatan JSON membengkak.
+		try {
+			if (berkas.length() > 0 && berkas.length() <= MAKS_BYTE_CETAK) {
+				java.io.InputStream masuk = new java.io.FileInputStream(berkas);
+				java.io.ByteArrayOutputStream keluar = new java.io.ByteArrayOutputStream();
+				byte[] penyangga = new byte[8192];
+				int n;
+				while ((n = masuk.read(penyangga)) > 0) {
+					keluar.write(penyangga, 0, n);
+				}
+				masuk.close();
+				hasil.put("fileBase64",
+						java.util.Base64.getEncoder().encodeToString(keluar.toByteArray()));
+			}
+		} catch (Exception eBaca) {
+			// Gagal membaca isi berkas tidak membatalkan pencetakan -- url tetap sah.
+			ais.common.ErrorAuditUtil.record(eBaca,
+					"PengadaanPosApiHelper.cetakDokumen baca=" + berkas.getName());
+		}
+	}
+
+	/** Pagar kepemilikan toko yang dipakai bersama seluruh cabang {@link #cetakDokumen}. */
+	private static boolean milikToko(JSONObject hasil, Long tokoDokumen, Long tokoId, boolean tidakAda)
+			throws Exception {
+		if (tidakAda) {
+			tolak(hasil, "Dokumen tidak ditemukan.");
+			return false;
+		}
+		if (tokoId != null && tokoDokumen != null && !tokoId.equals(tokoDokumen)) {
+			tolak(hasil, "Dokumen ini milik toko lain.");
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * URL berkas laporan, mengikuti cara {@code LaporanApi} menyajikannya: lewat direktori
+	 * report langsung, atau lewat servlet /pdf bila pemasangan memakai direktori tergabung.
+	 */
+	private static String urlBerkasLaporan(String namaFile) throws Exception {
+		if (!Common.pakaiDirReportTergabung()) {
+			return Common.CURRENT_URL + "/report/"
+					+ java.net.URLEncoder.encode(namaFile, "UTF-8");
+		}
+		return Common.CURRENT_URL + "/pdf?p="
+				+ java.net.URLEncoder.encode(Common.desEncrypter.get().encrypt(namaFile), "UTF-8");
 	}
 
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
@@ -6703,6 +6867,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_anggaran_cari".equals(action)) {
 			cariAnggaran(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_cetak".equals(action)) {
+			cetakDokumen(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_penyedia_cari".equals(action)) {

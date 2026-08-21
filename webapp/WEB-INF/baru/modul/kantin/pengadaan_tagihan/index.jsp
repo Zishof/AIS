@@ -153,6 +153,35 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
+<%-- Pratinjau cetak dokumen Pengadaan.
+     Server merender PDF memakai templat JasperReports yang SAMA dengan versi
+     ZKoss, lalu URL-nya ditampilkan di dalam bingkai. Pembaca PDF bawaan
+     peramban menyediakan tombol cetak dan unduh, sehingga pengguna melihat
+     dokumennya lebih dulu sebelum memutuskan mencetak. --%>
+<div class="modal fade" id="cetakModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content" style="height:88vh">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cetakJudul<%=rnd%>"><%=Common.getBahasaConfig("Pratinjau Cetak")%></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" style="overflow:hidden">
+        <div id="cetakMemuat<%=rnd%>" class="text-muted small p-4"><%=Common.getBahasaConfig("Menyiapkan dokumen...")%></div>
+        <iframe id="cetakBingkai<%=rnd%>" style="width:100%;height:100%;border:0;display:none"></iframe>
+      </div>
+      <div class="modal-footer">
+        <a id="cetakUnduh<%=rnd%>" class="btn btn-outline-secondary d-none" target="_blank" href="#">
+          <i class="fas fa-download me-2"></i><%=Common.getBahasaConfig("Buka di tab baru")%>
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Tutup")%></button>
+        <button type="button" class="btn btn-primary" id="cetakTombol<%=rnd%>" onclick="cetakSekarang<%=rnd%>()">
+          <i class="fas fa-print me-2"></i><%=Common.getBahasaConfig("Cetak")%>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
 <jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
   <jsp:param name="tahap" value="tagihan"/>
@@ -179,6 +208,15 @@ String rnd = Common.getGeneratedBarCode(7);
     if (!tampilan) return "";
     var p = String(tampilan).split("-");
     return p.length === 3 ? (p[2] + "-" + p[1] + "-" + p[0]) : "";
+  }
+
+  // Tombol cetak per baris. Pratinjau lebih dulu; templat cetaknya sama dengan
+  // versi ZKoss sehingga hasilnya identik.
+  function tombolCetak(r){
+    return '<button class="btn btn-sm btn-outline-secondary me-1" title="Cetak / pratinjau"'
+         + ' onclick="cetakDokumen' + RND + '(\'tagihan\',' + r.id
+         + ',\'' + esc(r.kode || "") + '\')">'
+         + '<i class="fas fa-print"></i></button>';
   }
 
   function api(payload){
@@ -215,7 +253,7 @@ String rnd = Common.getGeneratedBarCode(7);
               ? '<div class="fw-bold text-success">' + esc(r.kodeTagihan) + '</div>'
                 + '<div class="small text-muted">' + esc(r.tanggalTagihan) + '</div>'
               : '<span class="badge bg-warning">BELUM DITAGIH</span>';
-            var aksi = '<button class="btn btn-sm btn-outline-success me-1" title="' + (sudah ? 'Ubah data faktur' : 'Terima tagihan') + '"'
+            var aksi = tombolCetak(r) + '<button class="btn btn-sm btn-outline-success me-1" title="' + (sudah ? 'Ubah data faktur' : 'Terima tagihan') + '"'
               + ' onclick="tgForm' + RND + '(' + r.id + ')"><i class="fas fa-file-invoice-dollar"></i></button>';
             if (sudah) {
               aksi += '<button class="btn btn-sm btn-outline-secondary" title="Batalkan tagihan"'
@@ -284,6 +322,40 @@ String rnd = Common.getGeneratedBarCode(7);
       pesan(ok ? "Tagihan dibatalkan." : (d.description || "Gagal membatalkan tagihan."), ok);
       if (ok) window["tgMuat" + RND](halaman);
     });
+  };
+
+  // ---------- Cetak dokumen ----------
+  window["cetakDokumen" + RND] = function(tahap, id, kode){
+    el("cetakJudul").textContent = "Pratinjau Cetak " + (kode || "");
+    el("cetakMemuat").classList.remove("d-none");
+    el("cetakBingkai").style.display = "none";
+    el("cetakUnduh").classList.add("d-none");
+    new bootstrap.Modal(document.getElementById("cetakModal" + RND)).show();
+    api({action:"pengadaan_cetak", tahap: tahap, id: id}).then(function(d){
+      if (d.status !== "00" && d.status !== "success"){
+        el("cetakMemuat").textContent = d.description || "Dokumen gagal dicetak.";
+        return;
+      }
+      el("cetakMemuat").classList.add("d-none");
+      el("cetakBingkai").src = d.url;
+      el("cetakBingkai").style.display = "block";
+      el("cetakUnduh").href = d.url;
+      el("cetakUnduh").classList.remove("d-none");
+    }).catch(function(){
+      el("cetakMemuat").textContent = "Kesalahan koneksi saat menyiapkan dokumen.";
+    });
+  };
+  window["cetakSekarang" + RND] = function(){
+    var bingkai = el("cetakBingkai");
+    if (!bingkai.src || bingkai.style.display === "none") return;
+    try {
+      bingkai.contentWindow.focus();
+      bingkai.contentWindow.print();
+    } catch (e) {
+      // Sebagian peramban memblokir print() lintas-bingkai; buka di tab baru
+      // supaya pengguna tetap dapat mencetak lewat pembaca PDF bawaannya.
+      window.open(bingkai.src, "_blank");
+    }
   };
 
   // Muat pertama kali

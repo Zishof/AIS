@@ -1349,7 +1349,10 @@ public class PembayaranTerminMasterAssetAction extends GenericAutowireComposer i
 	 * kan secara eksplisit di akhir untuk mencegah masalah serialisasi.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public Map parameter(PembayaranTerminMasterAsset pembayaranTerminMasterAsset) throws Exception {
+	// Akses dilebarkan (2026-08-21) agar modul Pengadaan POS memakai pembangun
+	// parameter YANG SAMA, sehingga dokumen cetaknya identik dengan versi ZKoss.
+	// Isi metodenya tidak diubah dan tidak menyentuh keadaan instance.
+	public static Map parameter(PembayaranTerminMasterAsset pembayaranTerminMasterAsset) throws Exception {
 		if (pembayaranTerminMasterAsset != null && pembayaranTerminMasterAsset.getId() != null) {
 			HibernateUtil.currentSession().refresh(pembayaranTerminMasterAsset);
 		}

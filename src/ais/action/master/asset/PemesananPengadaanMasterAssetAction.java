@@ -2047,7 +2047,10 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 	 * tambahkan di sini dengan key yang sesuai dengan placeholder di template JasperReports.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static Map parameter(PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset) throws Exception {
+	// Akses dilebarkan (2026-08-21) agar modul Pengadaan POS memakai pembangun
+	// parameter YANG SAMA, sehingga dokumen cetaknya identik dengan versi ZKoss.
+	// Isi metodenya tidak diubah dan tidak menyentuh keadaan instance.
+	public static Map parameter(PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset) throws Exception {
 		if (pemesananPengadaanMasterAsset != null && pemesananPengadaanMasterAsset.getId() != null) {
 			try {
 				HibernateUtil.currentSession().refresh(pemesananPengadaanMasterAsset);

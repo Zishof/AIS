@@ -1622,7 +1622,10 @@ public class PermintaanPengadaanMasterAssetAction extends GenericAutowireCompose
 	 *         {@code Report.generatePDFReport}; tidak pernah null
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static Map parameter(PermintaanPengadaanMasterAsset permintaanPengadaanMasterAsset) {
+	// Akses dilebarkan (2026-08-21) agar modul Pengadaan POS memakai pembangun
+	// parameter YANG SAMA, sehingga dokumen cetaknya identik dengan versi ZKoss.
+	// Isi metodenya tidak diubah dan tidak menyentuh keadaan instance.
+	public static Map parameter(PermintaanPengadaanMasterAsset permintaanPengadaanMasterAsset) {
 		if (permintaanPengadaanMasterAsset == null || permintaanPengadaanMasterAsset.getId() == null) {
 			return ais.common.HashMapGenerator.getRand();
 		}
