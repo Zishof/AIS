@@ -5372,15 +5372,26 @@ public class KantinHelper {
 
 	public static void tokoProfilAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = Common.getApakahAdminLain(tbmuser);
+		Long tokoPemanggil = (pemanggil == null || pemanggil.getToko() == null)
+				? null : pemanggil.getToko().getId();
+		Long tokoDiminta = request.isNull("toko_id")
+				? null : Long.valueOf((request.get("toko_id") + "").trim());
+		// Urutan ini HARUS sama persis dengan tokoProfilSimpan. Sebelumnya berbeda:
+		// membaca selalu memakai toko milik Pedagang, sedangkan menyimpan
+		// mengizinkan admin menyebut toko lain. Akibatnya seorang admin yang juga
+		// terdaftar sbg pedagang membaca profil toko A lalu menuliskannya ke toko B
+		// -- tanpa galat, tanpa tanda apa pun bahwa data mendarat di toko yang salah.
 		Long tokoId;
-		if (pemanggil != null) {
-			tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
+		if (adminGlobal) {
+			tokoId = tokoDiminta != null ? tokoDiminta : tokoPemanggil;
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = tokoPemanggil != null ? tokoPemanggil : tokoDiminta;
 		}
 		if (tokoId == null) {
 			hasil.put("status", "91");
-			hasil.put("description", "Toko tidak diketahui.");
+			hasil.put("description", "Toko tidak diketahui. Akun ini tidak terikat ke satu toko, "
+					+ "jadi toko yang dimaksud harus disebutkan (parameter toko_id).");
 			return;
 		}
 		boolean bolehUbah = Common.getApakahAdminLain(tbmuser)
@@ -5483,15 +5494,20 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengubah profil toko.");
 			return;
 		}
+		Long tokoPemanggil = (pemanggil == null || pemanggil.getToko() == null)
+				? null : pemanggil.getToko().getId();
 		Long tokoId;
 		if (!adminGlobal && supervisor) {
-			tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
+			tokoId = tokoPemanggil;
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			Long diminta = request.isNull("toko_id")
+					? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = diminta != null ? diminta : tokoPemanggil;
 		}
 		if (tokoId == null) {
 			hasil.put("status", "91");
-			hasil.put("description", "Toko tidak diketahui.");
+			hasil.put("description", "Toko tidak diketahui. Akun ini tidak terikat ke satu toko, "
+					+ "jadi toko yang dimaksud harus disebutkan (parameter toko_id).");
 			return;
 		}
 
