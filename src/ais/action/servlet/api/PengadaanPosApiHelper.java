@@ -5473,6 +5473,11 @@ public final class PengadaanPosApiHelper {
 				o.put("termin", namaTermin(po, kunci));
 				o.put("dibayar", d.getDibayar() == null ? 0 : d.getDibayar());
 				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+				/* Pilihan transfer/transitori disimpan pada DaftarPengajuanTransfer milik
+				 * baris ini, sama seperti versi ZKoss. Bawaannya transfer, sehingga
+				 * dokumen lama yang belum pernah punya pilihan tetap terbaca wajar. */
+				o.put("transitori", d.getDaftarPengajuanTransfer() != null
+						&& Boolean.TRUE.equals(d.getDaftarPengajuanTransfer().getTransitori()));
 				// Sisa dihitung ulang tanpa memperhitungkan dokumen ini sendiri, supaya
 				// penyuntingan tidak menuduh dirinya sendiri melebihi tagihan.
 				double tagih = nilaiTagihanTermin(po, kunci);
@@ -5685,7 +5690,19 @@ public final class PengadaanPosApiHelper {
 				if (d.getPemesananPengadaanMasterAsset() != null) {
 					poTersentuh.add(d.getPemesananPengadaanMasterAsset().getId());
 				}
+				/* Baris pengajuan transfer milik detail ini ikut dibuang, kalau tidak ia
+				 * menggantung menunjuk detail yang sudah tidak ada. Aman dilakukan karena
+				 * dokumen yang sudah disetujui ditolak lebih awal, sehingga yang sampai ke
+				 * sini pasti masih DRAF. Penjagaan tambahan tetap dipasang: pengajuan yang
+				 * sudah masuk proses transfer, sudah menjadi transitori, atau sudah
+				 * diposting TIDAK disentuh. */
+				ais.database.model.akunting.DaftarPengajuanTransfer pengajuanLama = d.getDaftarPengajuanTransfer();
 				session.delete(d);
+				if (pengajuanLama != null && pengajuanLama.getProsesTransfer() == null
+						&& pengajuanLama.getTransitoriData() == null
+						&& pengajuanLama.getPostingHistory() == null) {
+					session.delete(pengajuanLama);
+				}
 			}
 			session.flush();
 
@@ -5722,6 +5739,35 @@ public final class PengadaanPosApiHelper {
 				d.setOlehId(tbmuser.getUserId());
 				session.save(d);
 				session.flush();
+
+				/* Setiap baris yang akan ditransfer memperoleh DaftarPengajuanTransfer
+				 * sendiri, persis seperti versi ZKoss -- di situlah pilihan
+				 * transfer/transitori hidup, dan dari situ pula PostingPembayaranAction
+				 * menentukan akun kreditnya: CaraPembayaranTransfer.akun untuk transfer,
+				 * CaraPembayaranTransfer.akunTransitori untuk transitori.
+				 *
+				 * Dibuat langsung di sini, BUKAN lewat
+				 * DaftarPengajuanTransfer.simpanPembayaranTerminMasterAssetDetail, karena
+				 * pabrik itu membuka dan menutup transaksinya sendiri sedangkan seluruh
+				 * penyimpanan ini berjalan dalam satu transaksi. */
+				boolean transitoriBaris = b.optBoolean("transitori", false);
+				ais.database.model.akunting.DaftarPengajuanTransfer pengajuan = new ais.database.model.akunting.DaftarPengajuanTransfer();
+				pengajuan.setPembayaranTerminMasterAssetDetail(d);
+				pengajuan.setNama("Pembayaran pengadaan "
+						+ (po.getKode() == null ? "" : po.getKode())
+						+ (kunci.isEmpty() ? "" : " - " + namaTermin(po, kunci)));
+				pengajuan.setKeterangan(d.getKeterangan());
+				pengajuan.setNominal(Double.valueOf(nilaiBayar));
+				pengajuan.setTransitori(Boolean.valueOf(transitoriBaris));
+				pengajuan.setTransfer(Boolean.valueOf(!transitoriBaris));
+				pengajuan.setAktif(Boolean.TRUE);
+				pengajuan.setOleh(tbmuser.getUserNama());
+				pengajuan.setOlehId(tbmuser.getUserId());
+				session.save(pengajuan);
+				d.setDaftarPengajuanTransfer(pengajuan);
+				session.saveOrUpdate(d);
+				session.flush();
+
 				detailBaru.add(d.getId());
 				poTersentuh.add(po.getId());
 				total += nilaiBayar;
