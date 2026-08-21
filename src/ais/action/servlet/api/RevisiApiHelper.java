@@ -88,6 +88,14 @@ public final class RevisiApiHelper {
 		ENTITAS.put("pesanan", ais.database.model.koperasi.DraftPembelianAnggotaKoperasi.class);
 		ENTITAS.put("pesanan_item", ais.database.model.inventory.DraftPembelian.class);
 		ENTITAS.put("pembelian", ais.database.model.inventory.Pembelian.class);
+		// Gelombang 5 (2026-08-21): empat tahap PENGADAAN. Tombol Riwayat pada layar
+		// PR/PO/BAST/Bayar sudah lama mengirim kode entitas ini, tetapi kodenya tidak
+		// pernah terdaftar di sini sehingga selalu dijawab "Entitas tidak dikenal".
+		// Keempat kelasnya sudah @Audited, jadi riwayatnya memang tersedia.
+		ENTITAS.put("pengadaan_pr", ais.database.model.asset.PermintaanPengadaanMasterAsset.class);
+		ENTITAS.put("pengadaan_po", ais.database.model.asset.PemesananPengadaanMasterAsset.class);
+		ENTITAS.put("pengadaan_bast", ais.database.model.asset.PenerimaanPengadaanMasterAsset.class);
+		ENTITAS.put("pengadaan_bayar", ais.database.model.asset.PembayaranTerminMasterAsset.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {

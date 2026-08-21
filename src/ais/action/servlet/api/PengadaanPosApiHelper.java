@@ -485,6 +485,73 @@ public final class PengadaanPosApiHelper {
 			List<PermintaanPengadaanMasterAssetDetail> lama = session
 					.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
 					.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId())).list();
+
+			/* KE-FIX (ConstraintViolationException "could not delete:
+			 * [PermintaanPengadaanMasterAssetDetail#..]" -> foreign key
+			 * fkbdd96d7c2b2dbf8f pada pemesanan_pengadaan_master_asset_detail).
+			 *
+			 * Penyimpanan PR memakai pola HAPUS-SEMUA lalu BUAT-ULANG baris detail.
+			 * Begitu PR-nya sudah dipesan, baris Pemesanan (PO) menunjuk ke baris
+			 * detail PR tersebut, sehingga penghapusan ditolak database. Pengguna
+			 * hanya melihat pesan generik "Data belum berubah, muat ulang halaman"
+			 * yang sama sekali tidak menjelaskan sebabnya, dan menyunting ulang
+			 * berapa kali pun tidak akan pernah berhasil.
+			 *
+			 * Memaksa hapus juga BUKAN pilihan: itu akan memutus jejak PO ke PR
+			 * asalnya. Jadi penyuntingan ditolak lebih awal dengan pesan yang
+			 * menyebutkan nomor PO pemakainya, supaya pengguna tahu harus membatalkan
+			 * atau merevisi PO itu dulu. PR yang belum dipesan sama sekali tidak
+			 * terpengaruh dan tetap dapat disunting seperti biasa. */
+			if (!lama.isEmpty()) {
+				java.util.List<Long> idDetailLama = new java.util.ArrayList<Long>();
+				for (PermintaanPengadaanMasterAssetDetail d : lama) {
+					if (d.getId() != null) {
+						idDetailLama.add(d.getId());
+					}
+				}
+				if (!idDetailLama.isEmpty()) {
+					@SuppressWarnings("unchecked")
+					List<ais.database.model.asset.PemesananPengadaanMasterAssetDetail> dipakai = session
+							.createCriteria(ais.database.model.asset.PemesananPengadaanMasterAssetDetail.class)
+							.add(Restrictions.in("permintaanPengadaanMasterAssetDetail.id", idDetailLama))
+							.list();
+					if (!dipakai.isEmpty()) {
+						java.util.LinkedHashSet<String> kodePo = new java.util.LinkedHashSet<String>();
+						for (int i = 0; i < dipakai.size(); i++) {
+							ais.database.model.asset.PemesananPengadaanMasterAssetDetail dd = dipakai.get(i);
+							if (dd.getPemesananPengadaanMasterAsset() != null) {
+								String kode = dd.getPemesananPengadaanMasterAsset().getKode();
+								if (kode != null && kode.trim().length() > 0) {
+									kodePo.add(kode.trim());
+								}
+							}
+						}
+						StringBuilder daftar = new StringBuilder();
+						for (java.util.Iterator<String> it = kodePo.iterator(); it.hasNext();) {
+							if (daftar.length() > 0) {
+								daftar.append(", ");
+							}
+							daftar.append(it.next());
+						}
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception eRb) {
+							ais.common.ErrorAuditUtil.record(eRb,
+									"auto-audit(empty-catch) PengadaanPosApiHelper.prSimpan:rollback-terpakai");
+						}
+						hasil.put("status", "91");
+						hasil.put("description",
+								"Permintaan ini sudah dipesan"
+										+ (daftar.length() > 0 ? " pada PO " + daftar : "")
+										+ ", jadi rincian barangnya tidak dapat diubah lagi."
+										+ " Batalkan atau revisi pemesanan tersebut terlebih dahulu.");
+						return;
+					}
+				}
+			}
+
 			for (PermintaanPengadaanMasterAssetDetail d : lama) {
 				session.delete(d);
 			}
