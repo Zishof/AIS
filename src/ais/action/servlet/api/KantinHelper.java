@@ -682,6 +682,11 @@ public class KantinHelper {
 							ais.database.model.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS,
 							ais.database.model.Konfigurasi.TIDAK_AKTIF);
 					SesiKasKasir sesiKasAktif = null;
+					/* Sesi yang dipakai MENGIKAT transaksi ini. Untuk pembayaran langsung nilainya
+					 * sama dengan sesi yang sedang terbuka. Untuk pengiriman ULANG transaksi
+					 * offline, nilainya adalah sesi tempat penjualan itu BENAR-BENAR terjadi --
+					 * lihat KE-FIX di bawah. */
+					SesiKasKasir sesiKasTransaksi = null;
 					String idPerangkatTransaksi = idPerangkat(jsonObject);
 					if (wajibSesiKas && !inputSupervisor) {
 						String[] idKasir = identitasKasir(tbmuser);
@@ -724,12 +729,66 @@ public class KantinHelper {
 								}
 							}
 							boolean transaksiLangsung = !pengirimanPending && draftPembelianAnggotaKoperasi == null;
-							if (!draftKasirSama && !transaksiLangsung) {
+
+							/* KE-FIX (61 transaksi tertahan di Toko Al Bahjah, 21-08-2026, kasir ziko:
+							 * "Transaksi berasal dari sesi kas yang berbeda ...", percobaan terus
+							 * bertambah tanpa pernah berhasil).
+							 *
+							 * POS bekerja LOKAL-DULU: penjualan tersimpan di perangkat lebih dahulu,
+							 * pengirimannya menyusul. Ketika jaringan terganggu berjam-jam, sesi kas
+							 * tempat penjualan itu terjadi bisa SUDAH DITUTUP sebelum kirimannya
+							 * berhasil. Membandingkan kode sesi kiriman dengan sesi yang KEBETULAN
+							 * sedang terbuka lalu menolaknya membuat penjualan sah ditolak SELAMANYA:
+							 * sesi lamanya tidak akan pernah terbuka kembali, sehingga percobaan
+							 * berikutnya pasti gagal dengan alasan yang sama. Uangnya sudah diterima
+							 * di kasir dan struknya sudah tercetak, tetapi penjualannya tidak pernah
+							 * tercatat.
+							 *
+							 * Yang benar bukan melonggarkan pemeriksaan, melainkan memeriksa hal yang
+							 * tepat: cari sesi ASAL memakai kode yang dibawa payload, lalu terima bila
+							 * sesi itu memang milik TOKO, KASIR, dan PERANGKAT yang sama. Kode sesi
+							 * milik kasir atau perangkat lain tetap ditolak, jadi penyalahgunaan yang
+							 * hendak dicegah gerbang ini tetap tertutup.
+							 *
+							 * Transaksinya juga diikat ke sesi ASAL, bukan ke sesi yang sedang
+							 * berjalan. Tanpa itu penjualan sesi pagi yang baru terkirim siang akan
+							 * terhitung pada sesi siang, dan laporan Tutup Kas kedua sesi sama-sama
+							 * salah. */
+							boolean sesiAsalSah = false;
+							if (pengirimanPending) {
+								SesiKasKasir sesiAsal = ais.action.master.koperasi.helper.SesiKasUtil
+										.cariByKode(session, kodeSesiDiminta);
+								if (sesiAsal != null) {
+									boolean tokoSama = sesiAsal.getToko() != null && sesiAsal.getToko().getId() != null
+											&& sesiAsal.getToko().getId().equals(toko.getId());
+									boolean kasirSama = (sesiAsal.getKasirUserId() != null
+											&& idKasir[1] != null
+											&& idKasir[1].equals(sesiAsal.getKasirUserId().trim()))
+											|| (sesiAsal.getKasirNama() != null && idKasir[0] != null
+													&& idKasir[0].equalsIgnoreCase(sesiAsal.getKasirNama().trim()));
+									// Sesi lama (sebelum kolom idPerangkat dipakai) boleh kosong; bila
+									// terisi, HARUS cocok supaya kode sesi tidak bisa dipakai dari
+									// perangkat lain.
+									String perangkatSesi = sesiAsal.getIdPerangkat() == null ? ""
+											: sesiAsal.getIdPerangkat().trim();
+									boolean perangkatSama = perangkatSesi.length() == 0
+											|| perangkatSesi.equals(idPerangkatTransaksi);
+									if (tokoSama && kasirSama && perangkatSama) {
+										sesiAsalSah = true;
+										sesiKasTransaksi = sesiAsal;
+									}
+								}
+							}
+
+							if (!sesiAsalSah && !draftKasirSama && !transaksiLangsung) {
 								hasil.put("status", "91");
 								hasil.put("description", "Transaksi berasal dari sesi kas yang berbeda dan bukan transaksi tertahan milik kasir yang sedang login.");
 								return;
 							}
 						}
+					}
+					if (sesiKasTransaksi == null) {
+						sesiKasTransaksi = sesiKasAktif;
 					}
 					JSONArray transaksi = jsonObject.getJSONArray("transaksi");
 					// Hitung promo sekali lagi di SERVER sebelum penyimpanan. Dengan demikian POS
@@ -948,7 +1007,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
-						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
+						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasTransaksi);
 						pembelianAnggotaKoperasi.setIdPerangkat(idPerangkatTransaksi);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
@@ -984,7 +1043,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
-						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
+						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasTransaksi);
 						pembelianAnggotaKoperasi.setIdPerangkat(idPerangkatTransaksi);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
