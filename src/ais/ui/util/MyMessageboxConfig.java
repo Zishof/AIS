@@ -1,12 +1,27 @@
 package ais.ui.util;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.zkoss.zk.ui.Executions;
+import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zk.ui.util.Clients;
+import org.zkoss.zul.Button;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Label;
 import org.zkoss.zul.Messagebox;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Vbox;
+import org.zkoss.zul.Window;
+
+import org.json.JSONObject;
 
 import ais.common.Common;
 import ais.common.HeadlessActionContext;
@@ -105,6 +120,232 @@ public class MyMessageboxConfig {
 		return Common.pesan(template, args);
 	}
 
+	private static boolean hanyaTombolOk(Integer buttons) {
+		return buttons != null && buttons.intValue() == Messagebox.OK;
+	}
+
+	private static String warnaUtama(String icon) {
+		if (ERROR.equals(icon)) {
+			return "#dc2626";
+		}
+		if (EXCLAMATION.equals(icon)) {
+			return "#b45309";
+		}
+		if (QUESTION.equals(icon)) {
+			return "#2563eb";
+		}
+		return "#0f766e";
+	}
+
+	private static String simbol(String icon) {
+		if (ERROR.equals(icon)) {
+			return "!";
+		}
+		if (EXCLAMATION.equals(icon)) {
+			return "!";
+		}
+		if (QUESTION.equals(icon)) {
+			return "?";
+		}
+		return "i";
+	}
+
+	private static String stackTrace(Throwable throwable) {
+		if (throwable == null) {
+			return "";
+		}
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		throwable.printStackTrace(pw);
+		pw.flush();
+		return sw.toString();
+	}
+
+	private static String susunDetail(String pesan, String title, String icon, Throwable throwable,
+			String detailTambahan) {
+		StringBuilder detail = new StringBuilder();
+		detail.append("Waktu : ")
+				.append(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date())).append("\n");
+		detail.append("Judul : ").append(title == null ? "" : title).append("\n");
+		detail.append("Jenis : ").append(icon == null ? "" : icon).append("\n\n");
+		detail.append("Pesan Pengguna:\n").append(pesan == null ? "" : pesan).append("\n\n");
+		if (detailTambahan != null && detailTambahan.trim().length() > 0) {
+			detail.append("Detail/Saran:\n").append(detailTambahan.trim()).append("\n\n");
+		} else {
+			detail.append("Saran umum:\n");
+			detail.append("1. Periksa kembali data/filter/input pada form yang sedang diproses.\n");
+			detail.append("2. Ulangi proses setelah data yang wajib diisi sudah lengkap.\n");
+			detail.append("3. Jika masih gagal, salin detail ini lalu kirim ke admin/teknis.\n\n");
+		}
+		String trace = stackTrace(throwable);
+		if (trace.length() > 0) {
+			detail.append("Java Exception:\n").append(trace);
+		} else {
+			detail.append("Java Exception:\nTidak ada exception Java yang dikirim ke komponen alert ini.");
+		}
+		return detail.toString();
+	}
+
+	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
+			final EventListener eventListener, Throwable throwable, String detailTambahan) throws InterruptedException {
+		if (!isZkEnvironment() || !hanyaTombolOk(buttons)) {
+			return Messagebox.show(pesan, title, buttons, icon, eventListener);
+		}
+
+		try {
+			final String detail = susunDetail(pesan, title, icon, throwable, detailTambahan);
+			final Window win = new Window();
+			win.setTitle("");
+			win.setBorder("none");
+			win.setClosable(false);
+			win.setSizable(false);
+			win.setWidth("520px");
+			win.setStyle("border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.28);"
+					+ "background:#ffffff;border:1px solid #e5e7eb;");
+			win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+			String warna = warnaUtama(icon);
+			Vbox body = new Vbox();
+			body.setWidth("100%");
+			body.setSpacing("0");
+			body.setStyle("background:#fff;font-family:Arial,sans-serif;");
+			body.setParent(win);
+
+			Hbox header = new Hbox();
+			header.setWidth("100%");
+			header.setAlign("center");
+			header.setSpacing("12px");
+			header.setStyle("box-sizing:border-box;padding:18px 20px;background:linear-gradient(135deg,"
+					+ warna + ",#1d4ed8);color:#fff;");
+			header.setParent(body);
+
+			Label iconLabel = new Label(simbol(icon));
+			iconLabel.setStyle("display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;"
+					+ "border-radius:50%;background:rgba(255,255,255,.22);font-size:20px;font-weight:800;");
+			iconLabel.setParent(header);
+
+			Vbox headerText = new Vbox();
+			headerText.setSpacing("2px");
+			headerText.setStyle("min-width:0;");
+			headerText.setParent(header);
+
+			Label titleLabel = new Label(title == null || title.trim().length() == 0 ? "Informasi" : title);
+			titleLabel.setStyle("font-size:16px;font-weight:800;color:#fff;");
+			titleLabel.setParent(headerText);
+
+			Label subTitle = new Label("Klik Detail untuk melihat informasi teknis dan saran perbaikan.");
+			subTitle.setStyle("font-size:11px;color:rgba(255,255,255,.86);");
+			subTitle.setParent(headerText);
+
+			Vbox content = new Vbox();
+			content.setWidth("100%");
+			content.setSpacing("12px");
+			content.setStyle("box-sizing:border-box;padding:18px 20px 14px;");
+			content.setParent(body);
+
+			Label msg = new Label(pesan == null ? "" : pesan);
+			msg.setMultiline(true);
+			msg.setStyle("font-size:13px;line-height:1.55;color:#1f2937;");
+			msg.setParent(content);
+
+			final Vbox detailBox = new Vbox();
+			detailBox.setWidth("100%");
+			detailBox.setVisible(false);
+			detailBox.setSpacing("8px");
+			detailBox.setStyle("box-sizing:border-box;padding:10px;border:1px solid #dbeafe;border-radius:8px;"
+					+ "background:#f8fafc;");
+			detailBox.setParent(content);
+
+			final Textbox detailText = new Textbox(detail);
+			detailText.setReadonly(true);
+			detailText.setMultiline(true);
+			detailText.setRows(10);
+			detailText.setWidth("100%");
+			detailText.setStyle("box-sizing:border-box;font-family:Consolas,monospace;font-size:11px;"
+					+ "line-height:1.45;border:1px solid #cbd5e1;border-radius:6px;background:#fff;");
+			detailText.setParent(detailBox);
+
+			Hbox detailButtons = new Hbox();
+			detailButtons.setSpacing("8px");
+			detailButtons.setStyle("justify-content:flex-end;width:100%;");
+			detailButtons.setParent(detailBox);
+
+			Button copy = new Button("Copy Detail");
+			copy.setStyle("border:1px solid #94a3b8;background:#fff;color:#0f172a;border-radius:7px;"
+					+ "padding:5px 10px;font-weight:700;");
+			copy.setParent(detailButtons);
+			copy.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					String quoted = JSONObject.quote(detailText.getValue() == null ? "" : detailText.getValue());
+					Clients.evalJavaScript("(function(t){"
+							+ "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);}"
+							+ "else{var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);"
+							+ "a.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(a);}"
+							+ "})( " + quoted + " );");
+				}
+			});
+
+			Hbox footer = new Hbox();
+			footer.setWidth("100%");
+			footer.setSpacing("8px");
+			footer.setPack("end");
+			footer.setStyle("box-sizing:border-box;padding:12px 20px 18px;background:#f9fafb;"
+					+ "border-top:1px solid #e5e7eb;");
+			footer.setParent(body);
+
+			Button detailBtn = new Button("Detail");
+			detailBtn.setStyle("border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;"
+					+ "padding:6px 12px;font-weight:800;");
+			detailBtn.setParent(footer);
+			detailBtn.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					detailBox.setVisible(!detailBox.isVisible());
+				}
+			});
+
+			Button ok = new Button("OK");
+			ok.setStyle("border:0;background:" + warna + ";color:#fff;border-radius:8px;"
+					+ "padding:6px 18px;font-weight:800;");
+			ok.setParent(footer);
+			ok.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					win.detach();
+					if (eventListener != null) {
+						eventListener.onEvent(event);
+					}
+				}
+			});
+
+			win.doModal();
+			return OK;
+		} catch (Exception e) {
+			return Messagebox.show(pesan, title, buttons, icon, eventListener);
+		}
+	}
+
+	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
+			final EventListener eventListener) throws InterruptedException {
+		return tampilModern(pesan, title, buttons, icon, eventListener, null, null);
+	}
+
+	public static int showDetail(String messageCode, String titleCode, Integer buttons, String icon,
+			Throwable throwable, String detailTambahan) throws InterruptedException {
+		String pesan = terjemah(messageCode);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan + "\n" + susunDetail(pesan, titleCode, icon, throwable, detailTambahan));
+			return OK;
+		}
+		if (isZkEnvironment()) {
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null, throwable,
+					detailTambahan);
+		}
+		triggerGlobalJavascriptToast(pesan, icon);
+		return OK;
+	}
+
 	public static void show(String messageCode) throws InterruptedException {
 		String pesan = terjemah(messageCode);
 		if (HeadlessActionContext.isActive()) {
@@ -112,8 +353,7 @@ public class MyMessageboxConfig {
 			return;
 		}
 		if (isZkEnvironment()) {
-			Messagebox.show(pesan, Common.getBahasaConfig("Informasi"), Messagebox.OK,
-					Messagebox.INFORMATION);
+			tampilModern(pesan, Common.getBahasaConfig("Informasi"), Messagebox.OK, Messagebox.INFORMATION, null);
 		} else {
 			triggerGlobalJavascriptToast(pesan, INFORMATION);
 		}
@@ -129,7 +369,7 @@ public class MyMessageboxConfig {
 		if (isZkEnvironment()) {
 			// Mengembalikan tombol yang diklik (mode sinkron ZK) agar pemanggil dapat memeriksa
 			// hasil, mis. if (MyMessageboxConfig.show(...) == MyMessageboxConfig.YES) { ... }.
-			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;
@@ -144,7 +384,7 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			// Karena pemanggilan JavaScript di luar ZK berjalan secara asynchronous di browser,
@@ -175,7 +415,7 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;
@@ -195,7 +435,7 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;

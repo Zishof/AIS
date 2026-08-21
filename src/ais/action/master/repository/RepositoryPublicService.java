@@ -10,6 +10,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Arrays;
 import java.security.MessageDigest;
 
 import org.hibernate.Criteria;
@@ -47,6 +50,7 @@ public class RepositoryPublicService {
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
     private static final String[] PUBLIC_STATUSES = new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
+    private static final Set<String> STOPWORDS=new HashSet<String>(Arrays.asList("yang","dan","dengan","untuk","dari","pada","dalam","adalah","atau","the","and","with","from","this","that","study","penelitian"));
 
     public static class Query {
         public String keyword = "";
@@ -63,6 +67,7 @@ public class RepositoryPublicService {
         public String exactPhrase = "";
         public String anyWords = "";
         public String withoutWords = "";
+        public boolean semantic;
         public Long collectionId;
         public String documentType = "";
         public String accessPolicy = "";
@@ -197,6 +202,8 @@ public class RepositoryPublicService {
         public String didYouMean = "";
         public boolean synonymExpanded;
     }
+    public static class RepositoryAnswer { public String question="",answer="";public List<ItemCard> sources=new ArrayList<ItemCard>(); }
+    public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
         Session session = HibernateUtil.currentSession();
@@ -272,6 +279,7 @@ public class RepositoryPublicService {
         Session session = session();
         SearchResult result = new SearchResult();
         result.query = q;
+        if(q.semantic&&q.keyword.length()>0){result.items=semanticSearch(q.keyword,q.pageSize);result.total=result.items.size();result.totalPages=result.items.isEmpty()?0:1;result.collections=listCollections(100);return result;}
         result.total = count(searchCriteria(session, q));
         result.synonymExpanded = synonymTerms(q.keyword).size() > 1;
         if (result.total == 0L && q.keyword.length() >= 3) result.didYouMean = suggestCorrection(session, q.keyword);
@@ -295,6 +303,15 @@ public class RepositoryPublicService {
         result.collections = listCollections(100);
         return result;
     }
+
+    @SuppressWarnings("unchecked")
+    public List<ItemCard> semanticSearch(String text,int maximum){String query=clean(text).toLowerCase();if(query.length()==0)return new ArrayList<ItemCard>();List<RepoItem> rows=publicCriteria(session(),null).setMaxResults(2500).list();final Map<Long,Integer> scores=new HashMap<Long,Integer>();final List<String> terms=new ArrayList<String>();for(String expanded:synonymTerms(query))for(String token:expanded.split("[^\\p{L}\\p{N}]+"))if(token.length()>2&&!terms.contains(token))terms.add(token);
+        for(RepoItem row:rows){String title=safe(row.getTitle()).toLowerCase(),subject=safe(row.getSubjects()).toLowerCase(),body=(safe(row.getAbstractText())+" "+safe(row.getExtractedText())).toLowerCase();int score=0;for(String term:terms){if(title.indexOf(term)>=0)score+=8;if(subject.indexOf(term)>=0)score+=5;if(body.indexOf(term)>=0)score+=2;}if(score>0)scores.put(row.getId(),Integer.valueOf(score));}
+        Collections.sort(rows,new java.util.Comparator<RepoItem>(){public int compare(RepoItem a,RepoItem b){return Integer.valueOf(scores.containsKey(b.getId())?scores.get(b.getId()).intValue():0).compareTo(Integer.valueOf(scores.containsKey(a.getId())?scores.get(a.getId()).intValue():0));}});List<RepoItem> selected=new ArrayList<RepoItem>();for(RepoItem row:rows)if(scores.containsKey(row.getId())&&selected.size()<Math.max(1,Math.min(maximum,50)))selected.add(row);return cards(session(),selected);}
+
+    public RepositoryAnswer askRepository(String question){RepositoryAnswer answer=new RepositoryAnswer();answer.question=limit(clean(question),500);answer.sources=semanticSearch(answer.question,5);if(answer.sources.isEmpty()){answer.answer="Belum ditemukan karya repository yang cukup relevan. Coba gunakan istilah yang lebih spesifik.";return answer;}StringBuilder text=new StringBuilder("Berdasarkan karya yang tersedia di repository, topik ini dibahas dalam ");for(int i=0;i<answer.sources.size();i++){ItemCard source=answer.sources.get(i);if(i>0)text.append(i==answer.sources.size()-1?" dan ":", ");text.append('“').append(source.title).append('”');}text.append(". Buka sumber di bawah untuk membaca abstrak dan dokumen sesuai kebijakan akses. Jawaban ini hanya merangkum metadata repository dan tidak menggantikan pembacaan sumber.");answer.answer=text.toString();return answer;}
+
+    public MetadataSuggestion suggestMetadata(String title,String abstractText){MetadataSuggestion suggestion=new MetadataSuggestion();String text=(clean(title)+" "+clean(abstractText)).toLowerCase();suggestion.language=text.matches(".*\\b(the|and|with|from|study)\\b.*")?"en":"id";suggestion.documentType=text.contains("dataset")?"Dataset":(text.contains("skripsi")||text.contains("thesis")?"Thesis":"Article");Map<String,Integer> frequency=new LinkedHashMap<String,Integer>();for(String token:text.split("[^\\p{L}\\p{N}]+"))if(token.length()>4&&!STOPWORDS.contains(token)){Integer n=frequency.get(token);frequency.put(token,Integer.valueOf(n==null?1:n.intValue()+1));}List<Map.Entry<String,Integer>> words=new ArrayList<Map.Entry<String,Integer>>(frequency.entrySet());Collections.sort(words,new java.util.Comparator<Map.Entry<String,Integer>>(){public int compare(Map.Entry<String,Integer>a,Map.Entry<String,Integer>b){return b.getValue().compareTo(a.getValue());}});for(int i=0;i<words.size()&&i<8;i++)suggestion.keywords.add(words.get(i).getKey());suggestion.abstractDraft=clean(abstractText);Query q=new Query();q.keyword=clean(title);q.searchField="title";q.pageSize=5;suggestion.possibleDuplicates=search(q).items;return suggestion;}
 
     public List<ItemCard> latest(int maximum) {
         Session session = session();

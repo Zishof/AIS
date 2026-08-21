@@ -314,6 +314,7 @@ public final class SopService {
             data.put("keterangan", ApiHelperSupport.safeString(disposisiSop.getKeterangan()));
 
             JSONArray riwayat = new JSONArray();
+            List<DisposisiAlurSop> langkahRiwayat = new ArrayList<DisposisiAlurSop>();
             int jumlahDiambil = 0;
             DisposisiAlurSop terakhirDiambil = null;
             for (DisposisiAlurSop langkah : semuaLangkah) {
@@ -324,7 +325,12 @@ public final class SopService {
                 }
                 jumlahDiambil++;
                 terakhirDiambil = langkah;
-                riwayat.put(mapRiwayatLangkah(langkah));
+                langkahRiwayat.add(langkah);
+            }
+            boolean bolehSemuaLangkah = Common.getApakahAdminLain(tbmuser);
+            for (int i = 0; i < langkahRiwayat.size(); i++) {
+                riwayat.put(mapRiwayatLangkah(langkahRiwayat.get(i), tbmuser,
+                        i == langkahRiwayat.size() - 1, bolehSemuaLangkah));
             }
             data.put("riwayat", riwayat);
 
@@ -927,6 +933,265 @@ public final class SopService {
     // ════════════════════════════════════════════════════════════════════════
     // 8) CETAK PDF DISPOSISI — action: "sop_cetak"
     // ════════════════════════════════════════════════════════════════════════
+
+    // ---------------------------------------------------------------------
+    // 10) UBAH LANGKAH YANG SUDAH DIAMBIL - action: "sop_ubah_info", "sop_ubah"
+    // ---------------------------------------------------------------------
+
+    /**
+     * Form untuk MENGUBAH satu langkah yang sudah diambil - port tombol
+     * "Ubah" pada {@code TampilanAlurSopAction} (baris 1809-1872).
+     *
+     * <p>Aturan izinnya disalin apa adanya dari sana:
+     * {@code (bolehEdit && sama) || isAdmin} - non-admin hanya boleh pada langkah
+     * TERAKHIR yang diambilnya sendiri, admin boleh pada langkah mana pun. Rute
+     * hanya boleh diubah selama langkah ini belum melahirkan penerus.
+     */
+    public static JSONObject ubahInfo(HttpServletRequest req, JSONObject json) {
+        JSONObject hasil = new JSONObject();
+        Session session = null;
+        try {
+            Tbmuser tbmuser = ApiUtil.currentUser(json, req);
+            if (tbmuser == null || tbmuser.getUserId() == null) {
+                return ApiHelperSupport.status("97", "Token tidak sesuai");
+            }
+            if (ApiHelperSupport.isNullOrEmptyJsonValue(json, "disposisiAlurSopId")) {
+                return ApiHelperSupport.status("97", "Id langkah harus dikirim");
+            }
+            Long id = Long.parseLong(ApiHelperSupport.optString(json, "disposisiAlurSopId"));
+
+            session = HibernateUtil.getSessionFactory().openSession();
+            DisposisiAlurSop langkah = (DisposisiAlurSop) session.get(DisposisiAlurSop.class, id);
+            if (langkah == null || langkah.getAlurSop() == null) {
+                return ApiHelperSupport.status("99", "Langkah tidak ditemukan");
+            }
+            String tolak = tolakBilaTidakBolehUbah(session, tbmuser, langkah);
+            if (tolak != null) {
+                return ApiHelperSupport.status("97", tolak);
+            }
+
+            AlurSop alurSop = langkah.getAlurSop();
+            JSONObject data = new JSONObject();
+            data.put("disposisiAlurSopId", langkah.getId());
+            data.put("tahap", ApiHelperSupport.safeString(alurSop.getNama()));
+            data.put("keterangan", ApiHelperSupport.safeString(langkah.getKeterangan()));
+            data.put("waktu", langkah.getWaktu() == null ? ""
+                    : Common.dateFormat3.get().format(langkah.getWaktu()));
+            data.put("selesai", Boolean.TRUE.equals(langkah.getSelesai()));
+            data.put("kembali", Boolean.TRUE.equals(langkah.getKembali()));
+            data.put("catatanWajib", alurSop.getCatatanWajibDiisi() == null
+                    || Boolean.TRUE.equals(alurSop.getCatatanWajibDiisi()));
+            data.put("bolehDiisiCatatan", Boolean.TRUE.equals(alurSop.getBolehDiisiCatatan()));
+            data.put("tanggalBolehDiubah", Boolean.TRUE.equals(alurSop.getTanggalDisposisiBolehDiubah()));
+            data.put("bekukanDokumen", Boolean.TRUE.equals(alurSop.getBekukanDokumen()));
+            data.put("bisaKembali", Boolean.TRUE.equals(alurSop.getKembaliKeAktorSebelumnya())
+                    && langkah.getSebelumnya() != null);
+            data.put("bisaSelesai", Boolean.TRUE.equals(alurSop.getJikaProsesDisetujuiMakaSelesai()));
+            data.put("berupaPilihanTunggal", Boolean.TRUE.equals(alurSop.getAlurSetelahnyaBerupaPilihan()));
+            data.put("nextTidakWajib", Boolean.TRUE.equals(alurSop.getAlurSetelahnyaTidakWajib()));
+            data.put("nextOptions", buildNextOptions(alurSop));
+            data.put("parameterDefinisi", buildParameterDefinisi(session, alurSop));
+            data.put("dokumenDefinisi", buildDokumenDefinisi(alurSop));
+            // Rute hanya boleh diubah selama belum ada penerus (editPilihan di ZKoss).
+            data.put("bisaUbahPilihan", langkah.getSetelahnya() == null);
+            // Penanda bahwa pengubah adalah admin atas langkah milik orang lain: di
+            // ZKoss pengambil aslinya DIPERTAHANKAN (adminEditLangkahLama).
+            data.put("langkahOrangLain", !langkahMilik(langkah, tbmuser));
+            data.put("olehNama", namaAktorLangkah(langkah));
+
+            hasil.put("data", data);
+            ApiHelperSupport.putSuccess(hasil, "OK");
+            return hasil;
+        } catch (Exception e) {
+            return ApiHelperSupport.errorResponse("Gagal mengambil form ubah langkah");
+        } finally {
+            closeQuietly(session);
+        }
+    }
+
+    /**
+     * Menegakkan aturan izin ubah. Mengembalikan null bila boleh, atau alasan
+     * penolakan. SELALU dipanggil ulang di sisi server - flag di klien hanya
+     * untuk menampilkan tombol.
+     */
+    private static String tolakBilaTidakBolehUbah(Session session, Tbmuser tbmuser,
+            DisposisiAlurSop langkah) {
+        boolean sudahDiambil = langkah.getDiajukanOleh() != null || langkah.getMahasiswa() != null
+                || langkah.getSiswa() != null;
+        if (!sudahDiambil) {
+            return "Langkah ini belum diproses, jadi belum ada yang bisa diubah";
+        }
+        if (Common.getApakahAdminLain(tbmuser)) {
+            return null;
+        }
+        if (!langkahMilik(langkah, tbmuser)) {
+            return "Hanya pengambil langkah ini (atau administrator) yang boleh mengubahnya";
+        }
+        // bolehEdit: hanya langkah TERAKHIR yang sudah diambil pada pengajuan ini.
+        try {
+            @SuppressWarnings("unchecked")
+            List<DisposisiAlurSop> semua = session.createCriteria(DisposisiAlurSop.class)
+                    .add(Restrictions.eq("disposisiSop", langkah.getDisposisiSop()))
+                    .add(Restrictions.isNotNull("alurSop")).addOrder(Order.asc("id")).list();
+            DisposisiAlurSop terakhir = null;
+            for (DisposisiAlurSop x : semua) {
+                if (x.getDiajukanOleh() != null || x.getMahasiswa() != null || x.getSiswa() != null) {
+                    terakhir = x;
+                }
+            }
+            if (terakhir == null || terakhir.getId() == null
+                    || !terakhir.getId().equals(langkah.getId())) {
+                return "Hanya langkah TERAKHIR yang boleh diubah; langkah ini sudah dilanjutkan";
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.tolakBilaTidakBolehUbah");
+            return "Tidak dapat memastikan urutan langkah, perubahan dibatalkan";
+        }
+        return null;
+    }
+
+    /**
+     * Menyimpan perubahan atas langkah yang SUDAH diambil - port urutan tulis
+     * {@code DisposisiAlurSopAction.onSave} (baris 1596-1662).
+     *
+     * <p>Tiga aturan yang disalin apa adanya dari sana:</p>
+     * <ol>
+     * <li>Bila ADMIN mengubah langkah milik ORANG LAIN, pengambil aslinya
+     * DIPERTAHANKAN - identitas admin tidak menimpa jejak audit.</li>
+     * <li>Rute hanya boleh diubah selama langkah ini belum melahirkan penerus.
+     * Bila diubah, penerus lama dihapus lalu dibentuk ulang.</li>
+     * <li>Waktu disposisi hanya boleh diubah bila tahap mengizinkannya.</li>
+     * </ol>
+     */
+    public static JSONObject ubah(HttpServletRequest req, JSONObject json) {
+        JSONObject hasil = new JSONObject();
+        Session session = null;
+        try {
+            Tbmuser tbmuser = ApiUtil.currentUser(json, req);
+            if (tbmuser == null || tbmuser.getUserId() == null) {
+                return ApiHelperSupport.status("97", "Token tidak sesuai");
+            }
+            if (ApiHelperSupport.isNullOrEmptyJsonValue(json, "disposisiAlurSopId")) {
+                return ApiHelperSupport.status("97", "Id langkah harus dikirim");
+            }
+            Long id = Long.parseLong(ApiHelperSupport.optString(json, "disposisiAlurSopId"));
+
+            session = HibernateUtil.getSessionFactory().openSession();
+            DisposisiAlurSop langkah = (DisposisiAlurSop) session.get(DisposisiAlurSop.class, id);
+            if (langkah == null || langkah.getAlurSop() == null) {
+                return ApiHelperSupport.status("99", "Langkah tidak ditemukan");
+            }
+            // Izin ditegakkan ULANG di server - flag pada klien hanya untuk tombol.
+            String tolak = tolakBilaTidakBolehUbah(session, tbmuser, langkah);
+            if (tolak != null) {
+                return ApiHelperSupport.status("97", tolak);
+            }
+
+            AlurSop alurSop = langkah.getAlurSop();
+            DisposisiSop disposisiSop = langkah.getDisposisiSop();
+            String keterangan = ApiHelperSupport.optString(json, "keterangan").trim();
+            boolean bolehCatatan = Boolean.TRUE.equals(alurSop.getBolehDiisiCatatan());
+            boolean catatanWajib = alurSop.getCatatanWajibDiisi() == null
+                    || Boolean.TRUE.equals(alurSop.getCatatanWajibDiisi());
+            if (bolehCatatan && catatanWajib && !ApiHelperSupport.hasText(keterangan)) {
+                return ApiHelperSupport.status("97", "Catatan/keterangan harus diisi");
+            }
+
+            boolean bolehUbahPilihan = langkah.getSetelahnya() == null;
+            JSONArray alurSopIdsInput = json.has("alurSopIds") && !json.isNull("alurSopIds")
+                    ? json.optJSONArray("alurSopIds") : null;
+            List<AlurSop> nextNodes = new ArrayList<AlurSop>();
+            if (bolehUbahPilihan && alurSopIdsInput != null) {
+                for (int i = 0; i < alurSopIdsInput.length(); i++) {
+                    try {
+                        AlurSop next = (AlurSop) session.get(AlurSop.class, alurSopIdsInput.getLong(i));
+                        if (next != null) {
+                            nextNodes.add(next);
+                        }
+                    } catch (Exception eNext) {
+                        ais.common.ErrorAuditUtil.record(eNext, "SopService.ubah.next");
+                    }
+                }
+            }
+
+            // Waktu disposisi: hanya bila tahap mengizinkan (lihat proses()).
+            Date waktuBaru = langkah.getWaktu();
+            if (Boolean.TRUE.equals(alurSop.getTanggalDisposisiBolehDiubah())
+                    && ApiHelperSupport.hasText(ApiHelperSupport.optString(json, "waktu"))) {
+                try {
+                    waktuBaru = Common.dateFormat3.get().parse(
+                            ApiHelperSupport.optString(json, "waktu").trim());
+                } catch (Exception eWaktu) {
+                    ais.common.ErrorAuditUtil.record(eWaktu, "SopService.ubah.waktu");
+                }
+            }
+            if (waktuBaru == null) {
+                waktuBaru = new Date();
+            }
+
+            boolean selesai = json.optBoolean("selesai", Boolean.TRUE.equals(langkah.getSelesai()));
+            boolean kembali = json.optBoolean("kembali", Boolean.TRUE.equals(langkah.getKembali()));
+            JSONArray parameterTambahanInput = json.has("parameterTambahan") && !json.isNull("parameterTambahan")
+                    ? json.optJSONArray("parameterTambahan") : null;
+
+            session.getTransaction().begin();
+            // ADMIN yang mengubah langkah ORANG LAIN: pengambil asli DIPERTAHANKAN,
+            // persis adminEditLangkahLama di ZKoss. Karena itu diajukanOleh/mahasiswa/
+            // siswa dan usernamePengguna TIDAK disentuh sama sekali di sini.
+            langkah.setWaktu(waktuBaru);
+            langkah.setKeterangan(keterangan);
+            langkah.setSelesai(Boolean.valueOf(selesai));
+            langkah.setKembali(Boolean.valueOf(kembali));
+            if (parameterTambahanInput != null) {
+                langkah.setParameterTambahanInds(encodeParameterTambahanInds(parameterTambahanInput, langkah.getId()));
+            }
+            Common.refreshSaveOrUpdate(session, langkah);
+            session.getTransaction().commit();
+
+            // Pembentukan ulang rute hanya bila memang boleh diubah: penerus lama
+            // dihapus lalu dibuat ulang - sama dgn DisposisiAlurSopAction baris 1660.
+            if (bolehUbahPilihan && (kembali || !nextNodes.isEmpty())) {
+                try {
+                    session.getTransaction().begin();
+                    session.createSQLQuery("delete from disposisi_alur_sop where sebelumnya = :indukId")
+                            .setLong("indukId", langkah.getId().longValue()).executeUpdate();
+                    DisposisiAlurSop langkahSetelah = null;
+                    if (kembali && langkah.getSebelumnya() != null) {
+                        langkahSetelah = cariAtauBuatDisposisiAlurSop(session, disposisiSop,
+                                langkah.getSebelumnya().getAlurSop(), langkah);
+                    } else {
+                        for (AlurSop nextNode : nextNodes) {
+                            DisposisiAlurSop dibuat = cariAtauBuatDisposisiAlurSop(session, disposisiSop, nextNode, langkah);
+                            if (dibuat != null) {
+                                langkahSetelah = dibuat;
+                            }
+                        }
+                    }
+                    langkah.setSetelahnya(langkahSetelah);
+                    session.update(langkah);
+                    session.getTransaction().commit();
+                } catch (Exception eRute) {
+                    ApiHelperSupport.rollbackQuietly(session.getTransaction());
+                    ais.common.ErrorAuditUtil.record(eRute, "SopService.ubah.rute");
+                }
+            }
+
+            hasil.put("disposisiSopId", disposisiSop == null ? null : disposisiSop.getId());
+            hasil.put("disposisiAlurSopId", langkah.getId());
+            ApiHelperSupport.putSuccess(hasil, "Perubahan langkah tersimpan");
+            return hasil;
+        } catch (org.hibernate.StaleStateException eStale) {
+            // Padanan penjaga kunci optimistis di ZKoss (DisposisiAlurSopAction:1665).
+            ApiHelperSupport.rollbackQuietly(session == null ? null : session.getTransaction());
+            return ApiHelperSupport.status("97", "Data disposisi ini telah diubah pengguna lain. "
+                    + "Muat ulang halaman, periksa kembali perubahan Anda, lalu simpan lagi.");
+        } catch (Exception e) {
+            ApiHelperSupport.rollbackQuietly(session == null ? null : session.getTransaction());
+            return ApiHelperSupport.errorResponse("Gagal menyimpan perubahan langkah");
+        } finally {
+            closeQuietly(session);
+        }
+    }
 
     /** Reuse langsung {@link TampilanAlurSopAction#cetakDisposisi(DisposisiSop, boolean)} — bukan reimplementasi. */
     public static JSONObject cetak(HttpServletRequest req, JSONObject json) {
@@ -2092,10 +2357,52 @@ public final class SopService {
         return o;
     }
 
-    private static JSONObject mapRiwayatLangkah(DisposisiAlurSop langkah) {
+    /**
+     * @param terakhir     apakah ini langkah TERAKHIR yang sudah diambil
+     * @param bolehSemua   pengguna ini admin (boleh mengubah semua langkah)
+     */
+    /**
+     * Apakah langkah ini diambil oleh pengguna tersebut -- port pemeriksaan
+     * {@code sama} pada TampilanAlurSopAction: cocokkan userId, ATAU mahasiswa,
+     * ATAU siswa.
+     */
+    private static boolean langkahMilik(DisposisiAlurSop langkah, Tbmuser tbmuser) {
+        try {
+            if (langkah == null || tbmuser == null) {
+                return false;
+            }
+            Tbmuser pengambil = langkah.getDiajukanOleh();
+            if (pengambil != null && tbmuser.getUserId() != null && pengambil.getUserId() != null
+                    && tbmuser.getUserId().equals(pengambil.getUserId())) {
+                return true;
+            }
+            if (langkah.getMahasiswa() != null && tbmuser.getMahasiswa() != null
+                    && langkah.getMahasiswa().getId() != null
+                    && langkah.getMahasiswa().getId().equals(tbmuser.getMahasiswa().getId())) {
+                return true;
+            }
+            if (langkah.getSiswa() != null && tbmuser.getSiswa() != null
+                    && langkah.getSiswa().getId() != null
+                    && langkah.getSiswa().getId().equals(tbmuser.getSiswa().getId())) {
+                return true;
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.langkahMilik");
+        }
+        return false;
+    }
+
+    private static JSONObject mapRiwayatLangkah(DisposisiAlurSop langkah, Tbmuser tbmuser,
+            boolean terakhir, boolean bolehSemua) {
         JSONObject o = new JSONObject();
         try {
             o.put("id", langkah.getId());
+            // Izin "Ubah" -- port TampilanAlurSopAction baris 1833:
+            //   finalVisible = (bolehEdit && sama) || isAdmin
+            // Non-admin hanya boleh pada langkah TERAKHIR yang diambilnya sendiri.
+            o.put("bisaUbah", bolehSemua || (terakhir && langkahMilik(langkah, tbmuser)));
+            // Rute hanya boleh diubah selama langkah ini belum melahirkan penerus.
+            o.put("bisaUbahPilihan", langkah.getSetelahnya() == null);
             o.put("tahap", langkah.getAlurSop() == null ? "" : ApiHelperSupport.safeString(langkah.getAlurSop().getNama()));
             o.put("aktor", langkah.getAlurSop() == null ? "" : ApiHelperSupport.safeString(langkah.getAlurSop().getAktor()));
             o.put("olehNama", namaAktorLangkah(langkah));

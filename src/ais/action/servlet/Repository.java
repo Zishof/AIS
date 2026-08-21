@@ -101,6 +101,7 @@ public class Repository extends HttpServlet {
             if (path.equals("/search") || path.startsWith("/browse")) view = "search";
             else if (path.equals("/policies") || path.startsWith("/policies/")) view = "policies";
             else if (path.equals("/help")) view = "help";
+            else if(path.equals("/ask"))view="ask";
             else if (path.equals("/rss/recent")) action = "feed";
             else if (path.equals("/sitemap.xml")) { sitemap(request,response); return; }
             else if (path.equals("/oai/request")) { response.sendRedirect(request.getContextPath()+"/oai"+(request.getQueryString()==null?"":"?"+request.getQueryString())); return; }
@@ -184,6 +185,8 @@ public class Repository extends HttpServlet {
             String name=routeAuthor.length()==0?clean(request.getParameter("name")):routeAuthor;
             AuthorProfile author=service.authorProfile(name);if(author==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Profil penulis tidak ditemukan.");return;}
             request.setAttribute("repoAuthor",author);
+        } else if("ask".equals(view)){
+            request.setAttribute("repoAnswer",service.askRepository(clean(request.getParameter("q"))));
         } else if ("policies".equals(view) || "help".equals(view)) {
             // Rendered by the allow-listed JSP view.
         } else {
@@ -211,6 +214,7 @@ public class Repository extends HttpServlet {
         q.programStudy = clean(request.getParameter("program"));
         q.searchScope = clean(request.getParameter("scope"));
         q.fullText = clean(request.getParameter("fullText"));
+        q.semantic = "true".equalsIgnoreCase(request.getParameter("semantic"));
         q.exactPhrase = clean(request.getParameter("exact"));
         q.anyWords = clean(request.getParameter("any"));
         q.withoutWords = clean(request.getParameter("without"));

@@ -92,6 +92,7 @@ public class RepositoryWorkspace extends HttpServlet {
                 request.setAttribute("repoAdminCollections", adminService.collections(user));
                 request.setAttribute("repoAdminHealth", adminService.health(user));
                 request.setAttribute("repoDataCiteConfigured",Boolean.valueOf(integrations.dataCiteConfigured()));request.setAttribute("repoCoarConfigured",Boolean.valueOf(integrations.coarConfigured()));request.setAttribute("repoOrcidConfigured",Boolean.valueOf(integrations.orcidConfigured()));request.setAttribute("repoRorConfigured",Boolean.valueOf(integrations.rorConfigured()));request.setAttribute("repoAiConfigured",Boolean.valueOf(integrations.aiConfigured()));
+                request.setAttribute("repoDeploymentChecks",integrations.deploymentChecks());
                 Long collectionId = positiveLong(request.getParameter("collectionId"));
                 if (collectionId != null) for (ais.database.model.repository.RepoCollection c : adminService.collections(user))
                     if (collectionId.equals(c.getId())) { request.setAttribute("repoAdminCollection", c); break; }
@@ -100,6 +101,7 @@ public class RepositoryWorkspace extends HttpServlet {
             }
             request.setAttribute("repoFlash", consume(httpSession, "repository.flash"));
             request.setAttribute("repoFlashError", consume(httpSession, "repository.flash.error"));
+            request.setAttribute("repoAiSuggestion",consume(httpSession,"repository.ai.suggestion"));
             request.getRequestDispatcher(JSP).forward(request, response);
         } catch (SecurityException e) {
             renderState(request,response,HttpServletResponse.SC_FORBIDDEN,"Akses tidak diizinkan",e.getMessage());
@@ -170,6 +172,8 @@ public class RepositoryWorkspace extends HttpServlet {
             ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.mintOrUpdateDoi(id,publicItemUrl(request,id),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"review",id);return;
         } else if("coarNotify".equals(action)){
             ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.sendCoarNotify(id,publicItemUrl(request,id),request.getParameter("targetUrl"),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"review",id);return;
+        } else if("aiSuggest".equals(action)){
+            RepoItem draft=workflow.workspaceItem(id,user);request.getSession().setAttribute("repository.ai.suggestion",publicService.suggestMetadata(draft.getTitle(),draft.getAbstractText()));flash(request.getSession(),"repository.flash","Saran metadata dibuat sebagai draft; tinjau sebelum menyalin ke record.");redirect(response,request,"deposit",id);return;
         }
         else throw new IllegalArgumentException("Aksi workspace tidak dikenal.");
 

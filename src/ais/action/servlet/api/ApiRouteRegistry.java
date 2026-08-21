@@ -306,6 +306,8 @@ public final class ApiRouteRegistry {
         register(routes, "sop_mulai_info",             new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return SopService.mulaiInfo(req, json); } });
         register(routes, "sop_cari_entitas",           new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return SopService.cariEntitas(req, json); } });
         register(routes, "sop_ajukan",                 new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return SopService.ajukan(req, json); } });
+        register(routes, "sop_ubah_info",             new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return SopService.ubahInfo(req, json); } });
+        register(routes, "sop_ubah",                  new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return SopService.ubah(req, json); } });
     }
 
 }

@@ -400,6 +400,21 @@ public final class EbisnisMenuKatalog {
 			// dipisah dari sekadar boleh melihat drafnya.
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "posting_penyesuaian",
+			// posting_hpp dan posting_penjualan sifatnya SAMA PERSIS dengan empat posting di atas
+			// (menulis jurnal), tetapi selama ini tertinggal dari daftar ini sehingga haknya tidak
+			// pernah dapat dibatasi. Keduanya sudah terdaftar di KUNCI_AKUNTANSI, jadi pengaturannya
+			// mengikuti aturan akuntansi yang sama.
+			"posting_hpp", "posting_penjualan",
+			// Jurnal Umum: menyimpan draf, memposting, dan membatalkan posting adalah tiga
+			// kewenangan berbeda yang lazim dipisah antar peran.
+			"jurnal_umum",
+			// Kasir: MEMBUKA dan MENUTUP sesi kas adalah kewenangan penyelia di banyak toko,
+			// terpisah dari sekadar boleh melayani penjualan.
+			"kasir",
+			// Konfigurasi: layar ini mengubah akun pengguna lewat pedagang_ubah, termasuk kata
+			// sandinya. Tanpa baris ini, siapa pun yang dapat melihat menu Konfigurasi dapat
+			// mengubah akun orang lain.
+			"konfigurasi",
 			// Grup "Keuangan": dokumen pencairan dana, hak per-aksi WAJIB dapat dibatasi
 			// (mis. staf boleh mengajukan tetapi tidak boleh menghapus atau menyetujui).
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",

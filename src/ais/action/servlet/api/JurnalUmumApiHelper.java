@@ -73,6 +73,41 @@ public final class JurnalUmumApiHelper {
     private JurnalUmumApiHelper() {
     }
 
+    /**
+     * Penjaga hak per-aksi untuk menu Jurnal Umum.
+     *
+     * <p>Sebelumnya endpoint ini SAMA SEKALI tidak memeriksa hak per-aksi: siapa pun yang
+     * dapat melihat menunya dapat menyimpan, menghapus, memposting, dan membatalkan posting.
+     * Kotak centang di Tbmrole pun belum ada untuk menu ini, sehingga admin tidak punya cara
+     * membatasinya.</p>
+     *
+     * <p>Pemetaan aksinya: {@code create} menyimpan draf, {@code delete} menghapus,
+     * {@code approve} MEMPOSTING ke buku besar, {@code reject} membatalkan posting. Memposting
+     * sengaja dipisah dari menyimpan -- menulis buku besar adalah kewenangan yang lazim
+     * dipegang orang lain.</p>
+     */
+    private static boolean bolehAksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil, String aksi)
+            throws Exception {
+        if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+            return true;
+        }
+        ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+        if (role == null) {
+            return true;
+        }
+        // Aturan yang sama dengan kelompok Akuntansi lain: kotak yang sudah diatur admin
+        // menang, yang belum pernah diatur mengikuti visibilitas menunya.
+        if (ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(role.getEbisnisMenu(),
+                role.getRoleId(), "jurnal_umum", aksi)) {
+            return true;
+        }
+        hasil.put("status", "99");
+        hasil.put("message", "Grup pengguna Anda tidak memiliki hak " + aksi
+                + " pada menu Jurnal Umum.");
+        hasil.put("description", hasil.optString("message", ""));
+        return false;
+    }
+
     public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
             throws Exception {
         if ("jurnal_umum_list".equals(action)) {
@@ -80,12 +115,18 @@ public final class JurnalUmumApiHelper {
         } else if ("jurnal_umum_detail".equals(action)) {
             detail(payload, hasil);
         } else if ("jurnal_umum_simpan".equals(action)) {
+            if (!bolehAksi(tbmuser, payload, hasil, "create")) { return; }
             simpan(tbmuser, payload, hasil);
         } else if ("jurnal_umum_hapus".equals(action)) {
+            if (!bolehAksi(tbmuser, payload, hasil, "delete")) { return; }
             hapus(payload, hasil);
         } else if ("jurnal_umum_posting".equals(action)) {
+            // Memposting = menulis ke buku besar. Kewenangan tersendiri, bukan turunan
+            // dari boleh menyimpan draf.
+            if (!bolehAksi(tbmuser, payload, hasil, "approve")) { return; }
             posting(tbmuser, payload, hasil, true);
         } else if ("jurnal_umum_batal_posting".equals(action)) {
+            if (!bolehAksi(tbmuser, payload, hasil, "reject")) { return; }
             posting(tbmuser, payload, hasil, false);
         } else if ("jurnal_umum_jenis_transaksi".equals(action)) {
             jenisTransaksi(payload, hasil);

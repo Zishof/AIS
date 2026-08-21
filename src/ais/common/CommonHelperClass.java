@@ -130,6 +130,21 @@ public class CommonHelperClass {
 		// Simpan ke Database (Hibernate)
 		saveErrorToDatabase(stackTrace);
 
+		try {
+			MyMessageboxConfig.showDetail(
+					"Terjadi kesalahan pada sistem. Silakan klik Detail lalu copy informasi teknis untuk dikirim ke admin.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR, ex,
+					(info == null || info.trim().isEmpty()
+							? "Langkah perbaikan yang disarankan:\n"
+									+ "1. Ulangi proses setelah memastikan data/form sudah lengkap.\n"
+									+ "2. Jika error tetap muncul, klik Copy Detail lalu kirim ke admin/teknis.\n"
+									+ "3. Admin dapat mencari log error berdasarkan waktu kejadian pada detail ini."
+							: info));
+		} catch (Exception alertEx) {
+			ais.common.ErrorAuditUtil.record(alertEx,
+					"auto-audit(empty-catch) CommonHelperClass.tampilErrorJikaAdmin alert-detail");
+		}
+
 		return stackTrace;
 	}
 
