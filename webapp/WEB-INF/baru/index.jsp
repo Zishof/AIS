@@ -63,8 +63,17 @@ private boolean isLegacyZkPath(String path) {
         return false;
     }
     String p = path.trim().toLowerCase();
+    /* KE-FIX ("Route masih memakai ZK/ZUL ... Route CRUD belum mempunyai halaman JSP").
+       Klausa lama (p.indexOf("/modul/pages") >= 0 && p.endsWith("zul/index.jsp")) menilai
+       dari NAMA FOLDER, bukan dari isi halamannya. Nama folder rute tampilan baru memang
+       menyalin kunci menu lama, jadi RATUSAN rute yang halaman JSP-nya sudah benar-benar
+       ada -- mis. /WEB-INF/baru/modul/pagesmasterkantinpergudanganzul/index.jsp -- ikut
+       ditolak dan pengguna selalu mendapat halaman gagal.
+       Penilaian dikembalikan ke TARGET yang betul-betul artefak ZK: berkas .zul, servlet
+       displaymenu, direktori ZK asli /pages/, dan berkas shim *_zk.jsp. Berkas yang tidak
+       ada tetap tertangani oleh pemeriksaan keberadaan file di includePage. */
     return p.indexOf(".zul") >= 0 || p.indexOf("/displaymenu") >= 0 || p.indexOf("/pages/") >= 0
-            || p.indexOf("_zk.jsp") >= 0 || (p.indexOf("/modul/pages") >= 0 && p.endsWith("zul/index.jsp"));
+            || p.indexOf("_zk.jsp") >= 0;
 }
 
 private String safeModuleSegment(String value) {

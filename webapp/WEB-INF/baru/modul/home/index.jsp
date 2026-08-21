@@ -67,7 +67,7 @@ catch (Exception e) { tanggalNow = new java.text.SimpleDateFormat("EEEE, dd MMMM
 </div>
 
 <%-- ===== AKSES CEPAT MODUL (grid pintasan role-gated, dari index.zul) ===== --%>
-<jsp:include page="/WEB-INF/baru/modul/home/akses_cepat_modul.jsp"></jsp:include>
+<% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/akses_cepat_modul.jsp"); %>
 
 <%-- ===================================================================
      LAYOUT DASBOR: 2-KOLOM (cocok dengan ZKoss renderModernHomeCenter)
@@ -91,17 +91,17 @@ catch (Exception e) { tanggalNow = new java.text.SimpleDateFormat("EEEE, dd MMMM
 <%
 if (pt) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/info_kehadiran_dosen.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/info_kehadiran_dosen.jsp"); %>
 <%
 }
 if (ya) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/info_kehadiran_guru.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/info_kehadiran_guru.jsp"); %>
 <%
 }
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/pengumuman.jsp"></jsp:include>
-        <jsp:include page="/WEB-INF/baru/modul/home/kalender_akademik.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/pengumuman.jsp"); %>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/kalender_akademik.jsp"); %>
     </div>
 
     <%-- ===== KOLOM KANAN: profil berdasarkan peran (ikut urutan ProfileAction) ===== --%>
@@ -112,59 +112,59 @@ if (isGabungan) {
     // (ZKoss: new ProfileGabunganPengguna(tbmuser, tampilkanChart).init(center))
     if (mahasiswa != null) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/mahasiswa/info.jsp"></jsp:include>
-        <jsp:include page="/WEB-INF/baru/modul/home/mahasiswa/tombol.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/mahasiswa/info.jsp"); %>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/mahasiswa/tombol.jsp"); %>
 <%
     } else if (dosen != null) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/dosen/info.jsp"></jsp:include>
-        <jsp:include page="/WEB-INF/baru/modul/home/dosen/tombol.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/dosen/info.jsp"); %>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/dosen/tombol.jsp"); %>
 <%
     } else if (guru != null) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/guru/info.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/guru/info.jsp"); %>
 <%
     } else if (siswa != null) {
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/siswa/info.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/siswa/info.jsp"); %>
 <%
     }
 } else if (mahasiswa != null) {
     // ProfileMahasiswa
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/mahasiswa/info.jsp"></jsp:include>
-        <jsp:include page="/WEB-INF/baru/modul/home/mahasiswa/tombol.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/mahasiswa/info.jsp"); %>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/mahasiswa/tombol.jsp"); %>
 <%
 } else if (dosen != null) {
     // ProfileDosen
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/dosen/info.jsp"></jsp:include>
-        <jsp:include page="/WEB-INF/baru/modul/home/dosen/tombol.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/dosen/info.jsp"); %>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/dosen/tombol.jsp"); %>
 <%
 } else if (ya && siswa != null) {
     // ProfileSiswa (yayasan + siswa)
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/siswa/info.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/siswa/info.jsp"); %>
 <%
 } else if (ya && guru != null) {
     // ProfileGuru (yayasan + guru)
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/guru/info.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/guru/info.jsp"); %>
 <%
 } else if (isAdmin && ya) {
     // ProfileAdminSekolah (sekolah admin)
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/admin_sekolah/profile.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/admin_sekolah/profile.jsp"); %>
 <%
 } else if (isAdmin && pt) {
     // ProfileAdminPerguruanTinggi (admin PT)
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/admin_pt/profile.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/admin_pt/profile.jsp"); %>
 <%
 } else if (isAdmin) {
     // Fallback admin tanpa PT/YA teridentifikasi
 %>
-        <jsp:include page="/WEB-INF/baru/modul/home/admin_pt/profile.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/admin_pt/profile.jsp"); %>
 <%
 }
 %>
@@ -181,7 +181,7 @@ if (isAdmin) {
 %>
 <div class="row">
     <div class="col-12">
-        <jsp:include page="/WEB-INF/baru/modul/home/admin.jsp"></jsp:include>
+        <% ais.common.Common.sertakanJikaAda(pageContext, "/WEB-INF/baru/modul/home/admin.jsp"); %>
     </div>
 </div>
 <%
