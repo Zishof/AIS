@@ -1,8 +1,5 @@
 package ais.action.master.repository;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.util.List;
 
 import org.hibernate.Criteria;
@@ -10,10 +7,7 @@ import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
-import org.zkoss.util.media.Media;
-import org.zkoss.zk.ui.Sessions;
 import org.zkoss.zk.ui.Component;
-import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
@@ -25,8 +19,6 @@ import org.zkoss.zul.Paging;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.Textbox;
-import org.zkoss.zul.Vbox;
-import org.zkoss.zk.ui.util.Clients;
 
 import ais.common.Common;
 import ais.common.CommonPrivilages;
@@ -34,10 +26,8 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.ui.util.MyGrid;
-import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRowRenderer;
 import ais.ui.util.MyToolbarbuttonConfig;
-import ais.ui.util.MyWindow;
 
 public class RepositoryAction extends GenericAutowireComposer {
 
@@ -75,7 +65,8 @@ public class RepositoryAction extends GenericAutowireComposer {
         Common.initLaguage();
         canUpdate = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
         applyPrivileges();
-        initUploadSqlButton(comp);
+        // Import SQL tidak diekspos dari browser. Sinkronisasi repository hanya
+        // dijalankan melalui aksi/service typed dengan pemeriksaan privilege.
         initPagingListener();
         onSearchDefault(null);
         selectInitialTab();
@@ -175,185 +166,6 @@ public class RepositoryAction extends GenericAutowireComposer {
                 onSearchDefault(null);
             }
         });
-    }
-
-    private void initUploadSqlButton(final Component parentComp) {
-        Component toolbar = null;
-        if (syncDspace != null) {
-            toolbar = syncDspace.getParent();
-        }
-        if (toolbar == null && syncLocal != null) {
-            toolbar = syncLocal.getParent();
-        }
-        if (toolbar == null) {
-            return;
-        }
-
-        MyToolbarbuttonConfig uploadRepositorySql = new MyToolbarbuttonConfig("Upload SQL Repository", "/img/upload.gif");
-        uploadRepositorySql.setUpload("true,maxsize=-1");
-        uploadRepositorySql.setVisible(canUpdate);
-        uploadRepositorySql.addEventListener("onUpload", new EventListener() {
-            @Override
-            public void onEvent(Event event) throws Exception {
-                UploadEvent uploadEvent = (UploadEvent) event;
-                Media media = uploadEvent == null ? null : uploadEvent.getMedia();
-                if (media == null || media.getName() == null || !media.getName().toLowerCase().endsWith(".sql")) {
-                    MyMessageboxConfig.show("File yang di-upload harus berupa file SQL repository (.sql).",
-                            "Error", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
-                    return;
-                }
-
-                final File file = new File(Sessions.getCurrent().getWebApp().getRealPath("/temp/repository-import/"
-                        + System.currentTimeMillis() + "-" + sanitizeFileName(media.getName())));
-                file.getParentFile().mkdirs();
-                InputStream inputStream = media.getStreamData();
-                FileOutputStream fileOutputStream = new FileOutputStream(file);
-                try {
-                    int c;
-                    while ((c = inputStream.read()) != -1) {
-                        fileOutputStream.write(c);
-                    }
-                } finally {
-                    fileOutputStream.close();
-                    inputStream.close();
-                }
-
-                final MyWindow progressWindow = new MyWindow();
-                progressWindow.setTitle("Import Repository");
-                progressWindow.setWidth("560px");
-                progressWindow.setHeight("220px");
-                progressWindow.setClosable(false);
-                progressWindow.setSizable(false);
-                final Html progressHtml = new Html(buildRepositoryProgressHtml(0, "Menyiapkan import SQL repository."));
-                Vbox progressBox = new Vbox();
-                progressBox.setWidth("100%");
-                progressBox.setStyle("padding:16px;");
-                progressBox.appendChild(progressHtml);
-                progressWindow.appendChild(progressBox);
-                progressWindow.setParent(parentComp);
-                progressWindow.doModal();
-
-                final org.zkoss.zk.ui.Desktop desktop = org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
-                /* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
-                 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
-                 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
-                 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
-                 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
-                ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            RepositorySqlImportHelper helper = new RepositorySqlImportHelper();
-                            final String[] lastMessage = new String[] { "" };
-                            RepositorySqlImportHelper.Result result = helper.importSql(file,
-                                    new RepositorySqlImportHelper.ProgressListener() {
-                                        @Override
-                                        public void onProgress(int percent, String message) {
-                                            lastMessage[0] = percent + "% - " + message;
-                                            if (desktop == null || !desktop.isAlive()) {
-                                                return;
-                                            }
-                                            try {
-                                                org.zkoss.zk.ui.Executions.activate(desktop);
-                                                try {
-                                                    progressHtml.setContent(buildRepositoryProgressHtml(percent, message));
-                                                    Clients.showBusy(lastMessage[0]);
-                                                } finally {
-                                                    org.zkoss.zk.ui.Executions.deactivate(desktop);
-                                                }
-                                            } catch (Exception e) {
-                                                System.out.println(lastMessage[0]);
-                                            }
-                                        }
-                                    });
-                            if (desktop == null || !desktop.isAlive()) {
-                                return;
-                            }
-                            org.zkoss.zk.ui.Executions.activate(desktop);
-                            try {
-                                Clients.clearBusy();
-                                if (progressWindow.getParent() != null) {
-                                    progressWindow.detach();
-                                }
-                                onSearchDefault(null);
-                                String pesan = "Import repository selesai.\nSchema staging: " + result.schema
-                                        + "\nItem: " + result.importedItems
-                                        + "\nMetadata: " + result.importedMetadata
-                                        + "\nBitstream: " + result.importedBitstreams
-                                        + "\nStatement SQL gagal: " + result.failedStatements;
-                                MyMessageboxConfig.show(pesan, "Pemberitahuan", MyMessageboxConfig.OK,
-                                        MyMessageboxConfig.INFORMATION);
-                            } finally {
-                                org.zkoss.zk.ui.Executions.deactivate(desktop);
-                            }
-                        } catch (Exception e) {
-                            if (desktop == null || !desktop.isAlive()) {
-                                return;
-                            }
-                            try {
-                                org.zkoss.zk.ui.Executions.activate(desktop);
-                                try {
-                                    Clients.clearBusy();
-                                    if (progressWindow.getParent() != null) {
-                                        progressWindow.detach();
-                                    }
-                                    MyMessageboxConfig.show("Import repository gagal: " + e.getMessage(), "Error",
-                                            MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
-                                } finally {
-                                    org.zkoss.zk.ui.Executions.deactivate(desktop);
-                                }
-                            } catch (Exception uiError) {
-                                Common.tampilErrorJikaAdmin(uiError);
-                            }
-                        }
-                    }
-                });
-            }
-        });
-        uploadRepositorySql.setParent(toolbar);
-    }
-
-    private String buildSyncMessage(RepositorySyncService.SyncSummary s) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Dipindai : ").append(s.getScanned()).append("\n");
-        sb.append("Berhasil : ").append(s.getSynced()).append("\n");
-        sb.append("Gagal    : ").append(s.getFailed());
-        String msg = s.getMessage();
-        if (msg != null && msg.trim().length() > 0) {
-            sb.append("\n\n").append(msg);
-        }
-        return sb.toString();
-    }
-
-    private static String buildRepositoryProgressHtml(int percent, String message) {
-        if (percent < 0) {
-            percent = 0;
-        }
-        if (percent > 100) {
-            percent = 100;
-        }
-        String safeMessage = message == null ? "" : message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        return "<div style='font-family:Arial,sans-serif;color:#1f2937;'>"
-                + "<div style='font-size:15px;font-weight:bold;margin-bottom:8px;'>Import Repository</div>"
-                + "<div style='font-size:12px;line-height:18px;margin-bottom:10px;'>" + safeMessage + "</div>"
-                + "<div style='height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden;'>"
-                + "<div style='height:14px;width:" + percent + "%;background:var(--theme-primary,#2563eb);'></div></div>"
-                + "<div style='font-size:12px;color:#475569;margin-top:8px;'>Progress " + percent + "%</div>"
-                + "</div>";
-    }
-
-    private Thread createDaemonThread(Runnable runnable, String name) {
-        Thread thread = new Thread(runnable);
-        thread.setName(name == null || name.trim().length() == 0 ? "ais-repository-worker" : name);
-        thread.setDaemon(true);
-        return thread;
-    }
-
-    private String sanitizeFileName(String name) {
-        if (name == null) {
-            return "repository.sql";
-        }
-        return name.replace('\\', '_').replace('/', '_').replace(':', '_');
     }
 
     private void refreshDashboard() {

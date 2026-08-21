@@ -29,6 +29,9 @@ import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoWorkflowEvent;
 import ais.database.model.repository.RepoItemMetadata;
+import ais.database.model.repository.RepoAuthorAuthority;
+import ais.database.model.repository.RepoItemContributor;
+import ais.database.model.repository.RepoIntegrationEvent;
 
 /** Typed repository administration, reporting, import validation, and preservation checks. */
 public class RepositoryAdminService {
@@ -62,6 +65,22 @@ public class RepositoryAdminService {
                 .addOrder(Order.asc("sortOrder")).addOrder(Order.asc("nama")).list(); }
         finally { HibernateUtil.closeSessionQuietly(session); }
     }
+    @SuppressWarnings("unchecked") public List<RepoAuthorAuthority> authorities(Tbmuser actor,int maximum){requireAdmin(actor);Session session=HibernateUtil.openSession();try{return session.createCriteria(RepoAuthorAuthority.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif",Boolean.TRUE)).addOrder(Order.asc("canonicalName")).setMaxResults(Math.max(1,Math.min(maximum,1000))).list();}finally{HibernateUtil.closeSessionQuietly(session);}}
+    @SuppressWarnings("unchecked") public void mergeAuthorities(Long sourceId,Long targetId,Tbmuser actor,String requestId){
+        requireAdmin(actor);if(sourceId==null||targetId==null||sourceId.equals(targetId))throw new IllegalArgumentException("Pilih dua authority berbeda.");
+        Session session=HibernateUtil.openSession();Transaction tx=null;
+        try{
+            tx=session.beginTransaction();RepoAuthorAuthority source=(RepoAuthorAuthority)session.get(RepoAuthorAuthority.class,sourceId),target=(RepoAuthorAuthority)session.get(RepoAuthorAuthority.class,targetId);
+            if(source==null||target==null||!RepositoryTenantScope.currentKey().equals(source.getTenantKey())||!RepositoryTenantScope.currentKey().equals(target.getTenantKey()))throw new IllegalArgumentException("Authority tidak ditemukan.");
+            String before="sourceId="+sourceId+"; sourceName="+clean(source.getCanonicalName())+"; targetId="+targetId+"; targetName="+clean(target.getCanonicalName());
+            List<RepoItemContributor> links=session.createCriteria(RepoItemContributor.class).add(Restrictions.eq("authorityId",sourceId)).list();int moved=0,duplicates=0;
+            for(RepoItemContributor link:links){RepoItemContributor duplicate=(RepoItemContributor)session.createCriteria(RepoItemContributor.class).add(Restrictions.eq("itemId",link.getItemId())).add(Restrictions.eq("authorityId",targetId)).add(Restrictions.eq("contributorRole",link.getContributorRole())).setMaxResults(1).uniqueResult();if(duplicate==null){link.setAuthorityId(targetId);session.update(link);moved++;}else{link.setAktif(Boolean.FALSE);session.update(link);duplicates++;}}
+            target.setNameVariants(target.getNameVariants()+"\n"+source.getCanonicalName()+"\n"+source.getNameVariants());if(target.getOrcid().length()==0)target.setOrcid(source.getOrcid());if(target.getRorId().length()==0)target.setRorId(source.getRorId());target.setUpdatedAt(new Date());source.setAktif(Boolean.FALSE);source.setUpdatedAt(new Date());session.update(target);session.update(source);
+            String after="activeAuthorityId="+targetId+"; linksMoved="+moved+"; duplicateLinksDisabled="+duplicates;
+            RepoIntegrationEvent audit=new RepoIntegrationEvent();audit.setTenantKey(RepositoryTenantScope.currentKey());audit.setServiceName("AUTHORITY");audit.setActionName("MERGE");audit.setStatus("SUCCESS");audit.setActorId(actor==null?"":clean(actor.getUserId()));audit.setRequestId(clean(requestId));audit.setRequestPayload(before);audit.setResponsePayload(after);audit.setErrorMessage("");audit.setCreatedAt(new Date());session.save(audit);
+            tx.commit();
+        }catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
+    }
 
     @SuppressWarnings("unchecked")
     public Health health(Tbmuser actor) {
@@ -70,7 +89,8 @@ public class RepositoryAdminService {
             Health h = new Health();
             List<RepoCollection> cs = session.createCriteria(RepoCollection.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
             List<RepoItem> items = session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
-            List<RepoBitstream> files = session.createCriteria(RepoBitstream.class).add(Restrictions.eq("aktif", Boolean.TRUE)).list();
+            List<RepoBitstream> files = session.createQuery("from RepoBitstream b where b.aktif=true and b.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant and i.aktif=true)")
+                    .setString("tenant",RepositoryTenantScope.currentKey()).list();
             h.collections = cs.size(); h.items = items.size(); h.bitstreams = files.size();
             Map<String, Integer> oai = new LinkedHashMap<String, Integer>();
             for (RepoItem item : items) {

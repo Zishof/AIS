@@ -1,9 +1,5 @@
--- Rollback for objects created by migrasi_repository_modern_v2.sql.
--- Columns managed by Hibernate are intentionally retained; no ALTER TABLE is
--- executed here. Back up event/relation/usage/notification data first.
-BEGIN;
-DROP TABLE IF EXISTS public.repo_notification;
-DROP TABLE IF EXISTS public.repo_usage_event;
-DROP TABLE IF EXISTS public.repo_item_relation;
-DROP TABLE IF EXISTS public.repo_workflow_event;
-COMMIT;
+-- Tidak ada rollback DDL manual untuk Repository AIS modern V2.
+-- Skema dikelola Hibernate dan data repository tidak boleh dihapus oleh skrip.
+-- Rollback aplikasi dilakukan dengan mengembalikan source/WAR versi sebelumnya;
+-- kolom/tabel tambahan dibiarkan tetap ada agar rollback tidak merusak data.
+SELECT 'No destructive database rollback executed.' AS info;

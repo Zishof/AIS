@@ -433,13 +433,13 @@ public class MyCkEditor extends Borderlayout {
 
 									myWindow.detach();
 								} else {
-									Messagebox.show("Maaf, launcher tidak ditemukan", "Peringatan", Messagebox.OK,
-											Messagebox.EXCLAMATION);
+									MyMessageboxConfig.show("Maaf, launcher tidak ditemukan", "Peringatan",
+											MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 								}
 
 							} else {
-								Messagebox.show("Maaf, file yang diupload harus berupa file zip", "Peringatan",
-										Messagebox.OK, Messagebox.EXCLAMATION);
+								MyMessageboxConfig.show("Maaf, file yang diupload harus berupa file zip",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 							}
 
 						} catch (Exception e) {

@@ -124,6 +124,10 @@ public class MyMessageboxConfig {
 		return buttons != null && buttons.intValue() == Messagebox.OK;
 	}
 
+	private static boolean bisaPakaiModern(Integer buttons, EventListener eventListener) {
+		return hanyaTombolOk(buttons) || eventListener != null;
+	}
+
 	private static String warnaUtama(String icon) {
 		if (ERROR.equals(icon)) {
 			return "#dc2626";
@@ -188,7 +192,7 @@ public class MyMessageboxConfig {
 
 	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
 			final EventListener eventListener, Throwable throwable, String detailTambahan) throws InterruptedException {
-		if (!isZkEnvironment() || !hanyaTombolOk(buttons)) {
+		if (!isZkEnvironment() || !bisaPakaiModern(buttons, eventListener)) {
 			return Messagebox.show(pesan, title, buttons, icon, eventListener);
 		}
 
@@ -305,19 +309,7 @@ public class MyMessageboxConfig {
 				}
 			});
 
-			Button ok = new Button("OK");
-			ok.setStyle("border:0;background:" + warna + ";color:#fff;border-radius:8px;"
-					+ "padding:6px 18px;font-weight:800;");
-			ok.setParent(footer);
-			ok.addEventListener("onClick", new EventListener() {
-				@Override
-				public void onEvent(Event event) throws Exception {
-					win.detach();
-					if (eventListener != null) {
-						eventListener.onEvent(event);
-					}
-				}
-			});
+			tambahTombolAksi(footer, win, eventListener, buttons, warna);
 
 			win.doModal();
 			return OK;
@@ -329,6 +321,62 @@ public class MyMessageboxConfig {
 	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
 			final EventListener eventListener) throws InterruptedException {
 		return tampilModern(pesan, title, buttons, icon, eventListener, null, null);
+	}
+
+	private static void tambahTombolAksi(Hbox footer, final Window win, final EventListener eventListener,
+			Integer buttons, String warna) {
+		int mask = buttons == null ? Messagebox.OK : buttons.intValue();
+		boolean ada = false;
+		if ((mask & Messagebox.YES) != 0) {
+			tambahTombol(footer, win, eventListener, "Ya", Messagebox.YES, warna, true);
+			ada = true;
+		}
+		if ((mask & Messagebox.NO) != 0) {
+			tambahTombol(footer, win, eventListener, "Tidak", Messagebox.NO, warna, false);
+			ada = true;
+		}
+		if ((mask & Messagebox.OK) != 0) {
+			tambahTombol(footer, win, eventListener, "OK", Messagebox.OK, warna, true);
+			ada = true;
+		}
+		if ((mask & Messagebox.CANCEL) != 0) {
+			tambahTombol(footer, win, eventListener, "Batal", Messagebox.CANCEL, warna, false);
+			ada = true;
+		}
+		if ((mask & Messagebox.RETRY) != 0) {
+			tambahTombol(footer, win, eventListener, "Ulangi", Messagebox.RETRY, warna, true);
+			ada = true;
+		}
+		if ((mask & Messagebox.ABORT) != 0) {
+			tambahTombol(footer, win, eventListener, "Batalkan", Messagebox.ABORT, warna, false);
+			ada = true;
+		}
+		if ((mask & Messagebox.IGNORE) != 0) {
+			tambahTombol(footer, win, eventListener, "Abaikan", Messagebox.IGNORE, warna, false);
+			ada = true;
+		}
+		if (!ada) {
+			tambahTombol(footer, win, eventListener, "OK", Messagebox.OK, warna, true);
+		}
+	}
+
+	private static void tambahTombol(Hbox footer, final Window win, final EventListener eventListener, String label,
+			final int kode, String warna, boolean utama) {
+		Button button = new Button(label);
+		button.setStyle(utama
+				? "border:0;background:" + warna + ";color:#fff;border-radius:8px;padding:6px 18px;font-weight:800;"
+				: "border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;"
+						+ "padding:6px 12px;font-weight:800;");
+		button.setParent(footer);
+		button.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				win.detach();
+				if (eventListener != null) {
+					eventListener.onEvent(new Event(event.getName(), event.getTarget(), Integer.valueOf(kode)));
+				}
+			}
+		});
 	}
 
 	public static int showDetail(String messageCode, String titleCode, Integer buttons, String icon,
@@ -344,6 +392,20 @@ public class MyMessageboxConfig {
 		}
 		triggerGlobalJavascriptToast(pesan, icon);
 		return OK;
+	}
+
+	public static int showDetail(String messageCode, Throwable throwable) throws InterruptedException {
+		return showDetail(messageCode, "Peringatan", OK, ERROR, throwable, null);
+	}
+
+	public static int showDetail(String messageCode, Throwable throwable, String detailTambahan)
+			throws InterruptedException {
+		return showDetail(messageCode, "Peringatan", OK, ERROR, throwable, detailTambahan);
+	}
+
+	public static int showDetail(String messageCode, String titleCode, String icon, String detailTambahan)
+			throws InterruptedException {
+		return showDetail(messageCode, titleCode, OK, icon, null, detailTambahan);
 	}
 
 	public static void show(String messageCode) throws InterruptedException {

@@ -68,6 +68,7 @@ import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.Shift;
 import ais.database.model.sirs.Tindakan;
 import ais.database.model.sirs.TindakanDiagnosaPenyakit;
+import ais.ui.util.MyMessageboxConfig;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 
 public class CommonSirs {
@@ -1024,7 +1025,8 @@ public class CommonSirs {
 			KelasPerawatan kelasPerawatan, Lokasi lokasi, Double qty, Pendaftaran pendaftaran,
 			CetakKartuPasien cetakKartuPasien) throws Exception {
 		if (pasien == null) {
-			Messagebox.show("Pasien harus diisi", "Peringatan", Messagebox.OK, Messagebox.EXCLAMATION);
+			MyMessageboxConfig.show("Pasien harus diisi", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
 			return null;
 		}
 		if (tindakan == null) {

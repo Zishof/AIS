@@ -53,6 +53,9 @@ public class RepositoryWorkspace extends HttpServlet {
                 adminService.exportXlsx(response.getOutputStream(), user); return;
             }
             HttpSession httpSession = request.getSession(true);
+            String getAction=clean(request.getParameter("action"));
+            if("orcidStart".equals(getAction)){if(!workflow.isRepositoryAdmin(user))throw new SecurityException("Hak administrator repository diperlukan.");Long authorityId=positiveLong(request.getParameter("authorityId"));if(authorityId==null)throw new IllegalArgumentException("Authority penulis wajib dipilih.");String state=UUID.randomUUID().toString();httpSession.setAttribute("repository.orcid.state",state);httpSession.setAttribute("repository.orcid.authority",authorityId);String target=integrations.orcidAuthorizationUrl(state);if(target.length()==0)throw new IllegalStateException("ORCID OAuth belum dikonfigurasi.");response.sendRedirect(target);return;}
+            if("orcidCallback".equals(getAction)){String expected=(String)httpSession.getAttribute("repository.orcid.state");String supplied=clean(request.getParameter("state"));Long authorityId=(Long)httpSession.getAttribute("repository.orcid.authority");httpSession.removeAttribute("repository.orcid.state");httpSession.removeAttribute("repository.orcid.authority");if(!constantTime(expected,supplied))throw new SecurityException("State ORCID tidak valid.");ais.action.master.repository.RepositoryIntegrationService.Result result=integrations.authenticateOrcid(authorityId,request.getParameter("code"),user,Long.toHexString(System.currentTimeMillis()));flash(httpSession,result.success?"repository.flash":"repository.flash.error",result.message);response.sendRedirect(request.getContextPath()+"/repository-workspace?view=admin");return;}
             String token = (String) httpSession.getAttribute(CSRF);
             if (token == null) { token = UUID.randomUUID().toString() + UUID.randomUUID().toString(); httpSession.setAttribute(CSRF, token); }
             request.setAttribute("repoCsrf", token);
@@ -90,6 +93,7 @@ public class RepositoryWorkspace extends HttpServlet {
             if (workflow.isRepositoryAdmin(user)) {
                 request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
                 request.setAttribute("repoAdminCollections", adminService.collections(user));
+                request.setAttribute("repoAuthorities",adminService.authorities(user,500));
                 request.setAttribute("repoAdminHealth", adminService.health(user));
                 request.setAttribute("repoDataCiteConfigured",Boolean.valueOf(integrations.dataCiteConfigured()));request.setAttribute("repoCoarConfigured",Boolean.valueOf(integrations.coarConfigured()));request.setAttribute("repoOrcidConfigured",Boolean.valueOf(integrations.orcidConfigured()));request.setAttribute("repoRorConfigured",Boolean.valueOf(integrations.rorConfigured()));request.setAttribute("repoAiConfigured",Boolean.valueOf(integrations.aiConfigured()));
                 request.setAttribute("repoDeploymentChecks",integrations.deploymentChecks());
@@ -174,6 +178,10 @@ public class RepositoryWorkspace extends HttpServlet {
             ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.sendCoarNotify(id,publicItemUrl(request,id),request.getParameter("targetUrl"),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"review",id);return;
         } else if("aiSuggest".equals(action)){
             RepoItem draft=workflow.workspaceItem(id,user);request.getSession().setAttribute("repository.ai.suggestion",publicService.suggestMetadata(draft.getTitle(),draft.getAbstractText()));flash(request.getSession(),"repository.flash","Saran metadata dibuat sebagai draft; tinjau sebelum menyalin ke record.");redirect(response,request,"deposit",id);return;
+        } else if("rorMatch".equals(action)){
+            ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.matchRor(positiveLong(request.getParameter("authorityId")),request.getParameter("query"),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"admin",null);return;
+        } else if("mergeAuthorities".equals(action)){
+            adminService.mergeAuthorities(positiveLong(request.getParameter("sourceAuthorityId")),positiveLong(request.getParameter("targetAuthorityId")),user,requestId);flash(request.getSession(),"repository.flash","Authority penulis berhasil digabungkan.");redirect(response,request,"admin",null);return;
         }
         else throw new IllegalArgumentException("Aksi workspace tidak dikenal.");
 

@@ -319,7 +319,9 @@ public class PratinjauXlsxHelper {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (!file.isFile() || file.length() <= 0L) {
-					org.zkoss.zul.Messagebox.show("Berkas Excel belum berhasil dibuat. Periksa ruang penyimpanan server lalu proses kembali.");
+					MyMessageboxConfig.show(
+							"Berkas Excel belum berhasil dibuat. Periksa ruang penyimpanan server lalu proses kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					return;
 				}
 				try {

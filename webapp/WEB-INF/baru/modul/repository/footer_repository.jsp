@@ -7,6 +7,7 @@
     String Motto = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request).getMotto();
     String Alamat1 = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request).getAlamat1();
     String Email = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request).getEmail();
+    String repositoryFooterRoot = request.getContextPath();
 %>
 
 <!-- Kaki Halaman (Footer) Repository -->
@@ -23,9 +24,9 @@
             <div class="col-md-3 col-lg-3 col-xl-3 mx-auto mb-4">
                 <h5 class="text-uppercase fw-bold footer-alumni-highlight mb-3"><%= Common.getBahasaConfig("Tautan Navigasi") %></h5>
                 <div class="d-flex flex-column gap-2">
-                    <a href="#" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Panduan Unggah Mandiri") %></a>
-                    <a href="#" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Kebijakan Hak Cipta & Repositori") %></a>
-                    <a href="#" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Direktori Open Access") %></a>
+                    <a href="<%=repositoryFooterRoot%>/repository/help#upload" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Panduan Unggah Mandiri") %></a>
+                    <a href="<%=repositoryFooterRoot%>/repository/policies#copyright" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Kebijakan Hak Cipta & Repositori") %></a>
+                    <a href="<%=repositoryFooterRoot%>/repository?access=OPEN_ACCESS" class="footer-alumni-link"><i class="fas fa-angle-right me-2 footer-alumni-highlight"></i><%= Common.getBahasaConfig("Direktori Open Access") %></a>
                 </div>
             </div>
             
@@ -34,11 +35,7 @@
                 <p class="text-white-50 small mb-2"><i class="fas fa-map-marker-alt me-2 text-danger"></i> <%= Alamat1 != null ? Alamat1 : "-" %></p>
                 <p class="text-white-50 small mb-2"><i class="fas fa-envelope me-2 text-success"></i> <%= Email != null ? Email : "-" %></p>
                 <p class="text-white-50 small mb-4"><i class="fas fa-phone-alt me-2 text-info"></i> <%= Telepon != null ? Telepon : "-" %></p>
-                <div class="d-flex gap-2 justify-content-center justify-content-md-start">
-                    <a href="#" class="icon-medsos-alumni shadow-sm"><i class="fab fa-facebook-f"></i></a>
-                    <a href="#" class="icon-medsos-alumni shadow-sm"><i class="fab fa-twitter"></i></a>
-                    <a href="#" class="icon-medsos-alumni shadow-sm"><i class="fab fa-instagram"></i></a>
-                </div>
+                <p class="text-white-50 small mb-0"><%= Common.getBahasaConfig("Gunakan kontak institusi di atas untuk bantuan repository dan permintaan takedown.") %></p>
             </div>
             
         </div>
