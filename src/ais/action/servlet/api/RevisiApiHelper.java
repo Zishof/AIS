@@ -96,6 +96,12 @@ public final class RevisiApiHelper {
 		ENTITAS.put("pengadaan_po", ais.database.model.asset.PemesananPengadaanMasterAsset.class);
 		ENTITAS.put("pengadaan_bast", ais.database.model.asset.PenerimaanPengadaanMasterAsset.class);
 		ENTITAS.put("pengadaan_bayar", ais.database.model.asset.PembayaranTerminMasterAsset.class);
+		// Gelombang 6 (2026-08-21): UJIAN dan SOAL-nya. Ujian yang terhapus atau
+		// tersunting keliru sulit disusun ulang secara manual -- satu ujian bisa
+		// memuat puluhan soal. Keduanya sudah @Audited, jadi riwayatnya memang
+		// tersimpan; yang kurang hanya pendaftarannya di sini.
+		ENTITAS.put("ujian", ais.database.model.Ujian.class);
+		ENTITAS.put("ujian_soal", ais.database.model.UjianPunyaSoal.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {

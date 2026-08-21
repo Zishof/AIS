@@ -344,6 +344,22 @@ public class UjianAction extends GenericAutowireComposer {
 			});
 			button.setParent(toolbar);
 
+			/* Riwayat perubahan + pemulihan. Ujian yang terhapus atau tersunting
+			 * keliru sulit disusun ulang secara manual -- satu ujian dapat memuat
+			 * puluhan soal. Dialognya memakai RevisiApiHelper, mesin audit yang sama
+			 * dengan POS dan JSP, sehingga aturan pemulihannya tidak mungkin berbeda
+			 * antar kanal. Batas kewenangan (hanya admin) ditegakkan helper itu. */
+			button = new MyToolbarbuttonConfig("", "/img/svg/history.svg");
+			button.setTooltiptext("Riwayat Perubahan");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					ais.action.master.helper.RiwayatRevisiZkDialog.buka("ujian", ujian.getId(),
+							ujian.getNama() == null ? "" : ujian.getNama());
+				}
+			});
+			button.setParent(toolbar);
+
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
 			button.setVisible(delete);
