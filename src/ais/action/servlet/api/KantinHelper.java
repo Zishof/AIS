@@ -776,6 +776,22 @@ public class KantinHelper {
 									if (tokoSama && kasirSama && perangkatSama) {
 										sesiAsalSah = true;
 										sesiKasTransaksi = sesiAsal;
+										/* Sesi asalnya bisa saja SUDAH ditutup. Laporan Tutup Kas yang
+										 * terlanjur dicetak tidak berubah karena snapshot-nya disimpan
+										 * di kolom laporanTutupJson, tetapi total sesi bila DIHITUNG
+										 * ULANG kini akan berbeda dari kertas yang sudah ditandatangani.
+										 * Selisih itu tidak boleh terjadi diam-diam: dicatat ke audit dan
+										 * dikembalikan ke klien supaya bagian keuangan punya jejaknya. */
+										if (SesiKasKasir.STATUS_TUTUP.equalsIgnoreCase(
+												sesiAsal.getStatus() == null ? "" : sesiAsal.getStatus().trim())) {
+											hasil.put("sesi_kas_sudah_tutup", true);
+											hasil.put("sesi_kas_asal", sesiAsal.getKode());
+											ais.common.ErrorAuditUtil.record(
+													new IllegalStateException("Transaksi " + kodeUnik
+															+ " terkirim terlambat dan masuk ke sesi kas "
+															+ sesiAsal.getKode() + " yang sudah ditutup."),
+													"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-sesi-kas-sudah-tutup");
+										}
 									}
 								}
 							}
