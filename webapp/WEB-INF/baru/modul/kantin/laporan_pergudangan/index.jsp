@@ -229,8 +229,7 @@ String svc = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Flaporan_pergu
     var rows='<tr><th>Lokasi</th><th>Jenis</th><th>Kode</th><th>Produk</th><th>Qty</th><th>Harga Beli</th><th>Nilai (Beli)</th><th>Rata2 Biaya</th><th>Nilai (Rata2)</th></tr>';
     rekap.forEach(function(r){ rows+='<tr><td>'+esc(r.lokasi)+'</td><td>'+esc(r.jenis)+'</td><td>'+esc(r.kode)+'</td><td>'+esc(r.nama)+'</td>'
       +'<td>'+r.qty+'</td><td>'+r.hargaBeli+'</td><td>'+r.nilaiBeli+'</td><td>'+Math.round(r.avgCost)+'</td><td>'+Math.round(r.nilaiAvg)+'</td></tr>'; });
-    var html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1">'+rows+'</table><jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>';
+    var html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1">'+rows+'</table></body></html>';
     var blob=new Blob(['﻿'+html],{type:'application/vnd.ms-excel'}); var a=document.createElement('a');
     a.href=URL.createObjectURL(blob); a.download='laporan_pergudangan_'+new Date().toISOString().slice(0,10)+'.xls'; a.click(); URL.revokeObjectURL(a.href);
   };

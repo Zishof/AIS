@@ -1027,8 +1027,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table><jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>';
+            tableHtml += '</tbody></table></body></html>';
 
             const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
             const url = URL.createObjectURL(blob);

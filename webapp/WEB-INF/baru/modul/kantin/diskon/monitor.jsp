@@ -491,8 +491,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "Semua Toko Koperasi";
             columns.forEach(col => { tableHtml += '<td>' + row[col.key] + '</td>'; });
             tableHtml += '</tr>';
         });
-        tableHtml += '</tbody></table><jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>';
+        tableHtml += '</tbody></table></body></html>';
         
         const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
         const link = document.createElement("a");

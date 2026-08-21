@@ -593,8 +593,7 @@
         </head>
         <body>
             ${elemenLaporan}
-        <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body>
+        </body>
         </html>`;
 
         var blobObject = new Blob([templateExcel], { type: 'application/vnd.ms-excel' });

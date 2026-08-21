@@ -271,8 +271,7 @@
             }
             
             out.println("</table>");
-            out.println("<jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>");
+            out.println("</body></html>");
             out.flush();
             return; // Hentikan eksekusi di sini agar file excel tidak tercampur dengan whitespace file JSP
         }

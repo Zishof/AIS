@@ -874,8 +874,7 @@ boolean bolehEntryKulakan = isAdmin || (pedagang != null && Boolean.TRUE.equals(
                 tableHtml += '<td>' + (r.keterangan || '') + '</td>';
                 tableHtml += '</tr>';
             });
-            tableHtml += '</tbody></table><jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp"/>
-</body></html>';
+            tableHtml += '</tbody></table></body></html>';
 
             const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
             const url = URL.createObjectURL(blob);
