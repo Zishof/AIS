@@ -4714,14 +4714,96 @@ public final class PengadaanPosApiHelper {
 				o.put("tanggalTagihan", bast.getTanggalTagihan() == null ? ""
 						: Common.dateFormat1.get().format(bast.getTanggalTagihan()));
 				o.put("status", st);
+				o.put("statusBarang", statusBast(bast));
 				o.put("dibayarPo", po == null || po.getDibayar() == null ? 0 : po.getDibayar());
 				arr.put(o);
 			}
+			lengkapiLampiranTagihan(arr);
 			hasil.put("status", "00");
 			hasil.put("data", arr);
 			hasil.put("total", cocok);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Melengkapi baris daftar tagihan dengan ringkasan lampiran yang SUDAH diunggah.
+	 *
+	 * <p><b>Mengapa satu kueri borongan.</b> Lampiran tersimpan di basis data BERBEDA
+	 * ({@code StreamingHibernateUtil}), sehingga tidak dapat digabung lewat join dengan kueri
+	 * daftar tagihan. Menanyakannya per baris per slot berarti lima kueri lintas basis data
+	 * untuk setiap baris layar. Karena itu seluruh id BAST pada halaman ini ditanyakan
+	 * SEKALIGUS dalam satu kueri.</p>
+	 *
+	 * <p><b>Kegagalannya sengaja ditelan.</b> Penyimpanan berkas adalah basis data terpisah
+	 * yang bisa saja sedang tidak dapat dihubungi. Bila itu terjadi, daftar tagihan HARUS
+	 * tetap tampil -- hanya kolom lampirannya yang kosong. Membiarkan galatnya naik akan
+	 * mematikan seluruh layar hanya karena keterangan tambahan tidak terbaca.</p>
+	 */
+	private static void lengkapiLampiranTagihan(JSONArray arr) {
+		if (arr == null || arr.length() == 0 || !berkasSiap()) {
+			return;
+		}
+		Session sesi = null;
+		try {
+			java.util.List<Long> idBast = new java.util.ArrayList<Long>();
+			for (int i = 0; i < arr.length(); i++) {
+				Object id = arr.getJSONObject(i).opt("id");
+				if (id instanceof Number) {
+					idBast.add(Long.valueOf(((Number) id).longValue()));
+				}
+			}
+			if (idBast.isEmpty()) {
+				return;
+			}
+			java.util.List<String> jenis = new java.util.ArrayList<String>();
+			java.util.Map<String, String> namaSlot = new java.util.HashMap<String, String>();
+			for (int i = 0; i < SLOT_LAMPIRAN_TAGIHAN.length; i++) {
+				String penuh = JENIS_LAMPIRAN_TAGIHAN + SLOT_LAMPIRAN_TAGIHAN[i][0];
+				jenis.add(penuh);
+				namaSlot.put(penuh, SLOT_LAMPIRAN_TAGIHAN[i][1]);
+			}
+			sesi = sesiBerkas();
+			@SuppressWarnings("unchecked")
+			java.util.List<ais.database.model.file.LampiranLain> berkas = sesi
+					.createCriteria(ais.database.model.file.LampiranLain.class)
+					.add(Restrictions.in("ref", idBast))
+					.add(Restrictions.in("jenis", jenis)).list();
+			java.util.Map<Long, java.util.List<String>> peta = new java.util.HashMap<Long, java.util.List<String>>();
+			for (ais.database.model.file.LampiranLain b : berkas) {
+				if (b == null || b.getRef() == null) {
+					continue;
+				}
+				Long ref = Long.valueOf(b.getRef() + "");
+				java.util.List<String> daftar = peta.get(ref);
+				if (daftar == null) {
+					daftar = new java.util.ArrayList<String>();
+					peta.put(ref, daftar);
+				}
+				String nama = namaSlot.get(b.getJenis());
+				if (nama != null && !daftar.contains(nama)) {
+					daftar.add(nama);
+				}
+			}
+			for (int i = 0; i < arr.length(); i++) {
+				JSONObject o = arr.getJSONObject(i);
+				Object id = o.opt("id");
+				java.util.List<String> daftar = (id instanceof Number)
+						? peta.get(Long.valueOf(((Number) id).longValue())) : null;
+				if (daftar == null) {
+					daftar = new java.util.ArrayList<String>();
+				}
+				o.put("lampiran", new JSONArray(daftar));
+				o.put("lampiranTerisi", daftar.size());
+				o.put("lampiranTotal", SLOT_LAMPIRAN_TAGIHAN.length);
+				// Invoice satu-satunya slot wajib; layar memakainya untuk menandai yang belum lengkap.
+				o.put("lampiranWajibLengkap", daftar.contains(SLOT_LAMPIRAN_TAGIHAN[0][1]));
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PengadaanPosApiHelper.lengkapiLampiranTagihan");
+		} finally {
+			HibernateUtil.closeSessionQuietly(sesi);
 		}
 	}
 
