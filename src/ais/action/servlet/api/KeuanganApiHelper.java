@@ -377,6 +377,81 @@ public final class KeuanganApiHelper {
 		hasil.put("catatanKosong", "Belum ada pengeluaran kas besar pada periode ini.");
 	}
 
+	/**
+	 * Dasbor Pertanggungjawaban Kas Besar: nilai yang sudah dipertanggungjawabkan, pajak
+	 * terkumpul, dan sisa dana yang belum distor -- tiga angka yang menentukan apakah
+	 * siklus kas besar benar-benar tertutup.
+	 */
+	private static void dasborPjKasBesar(Session session, int bulan, JSONObject hasil) throws Exception {
+		Connection conn = session.connection();
+		java.sql.Timestamp sejak = awalPeriode(bulan);
+
+		PreparedStatement ps = conn.prepareStatement(
+				"SELECT COALESCE(status,''), count(*), COALESCE(SUM(nilai),0), COALESCE(SUM(pajak),0),"
+						+ " COALESCE(SUM(CASE WHEN COALESCE(telahdikembalikan,false) = false"
+						+ "                   THEN COALESCE(dikembalikan,0) ELSE 0 END),0)"
+						+ " FROM akunting.pertangungjawaban_kas_besar WHERE tanggal_pembuatan >= ?"
+						+ " GROUP BY COALESCE(status,'')");
+		ps.setTimestamp(1, sejak);
+		ResultSet rs = ps.executeQuery();
+		JSONArray komposisi = new JSONArray();
+		long total = 0;
+		double nilaiTotal = 0, pajakTotal = 0, belumStor = 0;
+		while (rs.next()) {
+			String s = rs.getString(1);
+			long jml = rs.getLong(2);
+			total += jml;
+			nilaiTotal += rs.getDouble(3);
+			pajakTotal += rs.getDouble(4);
+			belumStor += rs.getDouble(5);
+			komposisi.put(titik(s.isEmpty() ? "(tanpa status)" : s, jml));
+		}
+		rs.close();
+		ps.close();
+
+		JSONArray kpi = new JSONArray();
+		kpi.put(kartu("Jumlah PJ", String.valueOf(total)));
+		kpi.put(kartu("Nilai Dipertanggungjawabkan", rupiah(nilaiTotal)));
+		kpi.put(kartu("Pajak Terkumpul", rupiah(pajakTotal)));
+		kpi.put(kartu("Sisa Dana Belum Distor", rupiah(belumStor)));
+
+		hasil.put("kpi", kpi);
+		hasil.put("komposisi", komposisi);
+		hasil.put("komposisiJudul", "Komposisi Status PJ Kas Besar");
+		hasil.put("tren", trenBulanan(conn,
+				"SELECT to_char(tanggal_pembuatan,'YYYY-MM'), COALESCE(SUM(nilai),0), count(*)"
+						+ " FROM akunting.pertangungjawaban_kas_besar WHERE tanggal_pembuatan >= ? GROUP BY 1",
+				sejak, bulan));
+		hasil.put("trenJudul", "Tren Nilai PJ Kas Besar per Bulan");
+		hasil.put("peringkat", peringkat(conn,
+				"SELECT COALESCE(sk.nama,'(tanpa satuan kerja)'), COALESCE(SUM(p.nilai),0)"
+						+ " FROM akunting.pertangungjawaban_kas_besar p"
+						+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = p.satuan_kerja"
+						+ " WHERE p.tanggal_pembuatan >= ? GROUP BY 1 ORDER BY 2 DESC LIMIT 8", sejak));
+		hasil.put("peringkatJudul", "Satuan Kerja dengan PJ Terbesar");
+
+		ps = conn.prepareStatement(
+				"SELECT COALESCE(kode,''), COALESCE(nama,''), COALESCE(dikembalikan,0),"
+						+ " GREATEST(0, DATE_PART('day', now() - tanggal_pembuatan))"
+						+ " FROM akunting.pertangungjawaban_kas_besar"
+						+ " WHERE COALESCE(dikembalikan,0) > 0 AND COALESCE(telahdikembalikan,false) = false"
+						+ " ORDER BY tanggal_pembuatan ASC LIMIT 15");
+		rs = ps.executeQuery();
+		JSONArray daftar = new JSONArray();
+		while (rs.next()) {
+			JSONObject j = new JSONObject();
+			j.put("kode", rs.getString(1));
+			j.put("keterangan", rs.getString(2) + " — sisa " + rupiah(rs.getDouble(3)));
+			j.put("umurHari", (int) rs.getDouble(4));
+			daftar.put(j);
+		}
+		rs.close();
+		ps.close();
+		hasil.put("daftar", daftar);
+		hasil.put("daftarJudul", "Sisa Dana Belum Distor");
+		hasil.put("catatanKosong", "Belum ada pertanggungjawaban kas besar pada periode ini.");
+	}
+
 	/** Tren per bulan dalam kerangka penuh supaya bulan tanpa data tetap tampil sebagai 0. */
 	private static JSONArray trenBulanan(Connection conn, String sql, java.sql.Timestamp sejak, int bulan)
 			throws Exception {
