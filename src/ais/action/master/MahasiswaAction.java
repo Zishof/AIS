@@ -131,6 +131,7 @@ import ais.action.report.helper.nilai.LaporanDaftarPrestasiBelajarWindow;
 import ais.common.AsyncTaskManager;
 import ais.common.Common;
 import ais.common.CommonMedia;
+import ais.common.CommonPMB;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.common.MD5;
@@ -4368,7 +4369,11 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		try {
 			if (dataMahasiswa == null || dataMahasiswa.getId() == null) return null;
 			Mahasiswa tersimpan = (Mahasiswa) HibernateUtil.currentSession().get(Mahasiswa.class, dataMahasiswa.getId());
-			return tersimpan == null ? null : tersimpan.getNim();
+			if (tersimpan != null && tersimpan.getNim() != null && !tersimpan.getNim().trim().isEmpty()) {
+				return tersimpan.getNim().trim();
+			}
+			BiodataCalonMahasiswa biodata = tersimpan == null ? null : tersimpan.getBiodataCalonMahasiswaData();
+			return CommonPMB.ambilNimTersimpanDariRiwayatPmb(HibernateUtil.currentSession(), biodata, tersimpan);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 			return null;

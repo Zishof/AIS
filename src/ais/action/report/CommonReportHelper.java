@@ -1,4 +1,5 @@
 package ais.action.report;
+import ais.common.CommonPMB;
 import ais.common.PesanFormalHelper;
 
 import java.awt.Graphics2D;
@@ -730,7 +731,11 @@ public class CommonReportHelper {
 						.getNilai().trim();
 				NimGenerator nimGenerator = (NimGenerator) Class.forName(nimGenClassName).newInstance();
 
-				String nim = nimGenerator.generateNim(calonMahasiswa);
+				String nim = CommonPMB.ambilNimTersimpanDariRiwayatPmb(session, calonMahasiswa,
+						calonMahasiswa.getMahasiswa());
+				if (nim == null || nim.trim().isEmpty()) {
+					nim = nimGenerator.generateNim(calonMahasiswa);
+				}
 				System.out.println("nim => " + nim);
 
 				mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false);
