@@ -517,7 +517,35 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				.append("'>Rp ").append(DashboardUiKit.money(nilai)).append("</td></tr>");
 	}
 
+	/**
+	 * Hak MEMPOSTING menu ini, dibaca dari kotak CRUD peran (Tbmrole).
+	 *
+	 * <p>Sebelumnya layar ini tidak memeriksa hak per-aksi sama sekali: siapa pun yang
+	 * dapat membuka menunya dapat menulis ke buku besar. Menu ini kini terdaftar pada
+	 * {@code EbisnisMenuKatalog.KUNCI_CRUD}, sehingga admin dapat memisahkan "boleh
+	 * melihat draf" dari "boleh memposting" -- pemisahan yang lazim di bagian keuangan.</p>
+	 *
+	 * <p>Peran yang belum pernah diatur tetap boleh (lihat catatan backward-compat pada
+	 * {@code bolehAksiAkuntansi}), jadi instalasi lama tidak mendadak terkunci.</p>
+	 */
+	private boolean bolehMemposting() {
+		ais.database.model.Tbmuser pengguna = Common.getCurrentUser();
+		if (ais.common.Common.getApakahAdminLain(pengguna)) {
+			return true;
+		}
+		ais.database.model.Tbmrole peran = pengguna == null ? null : pengguna.hakAkses();
+		if (peran == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(),
+				peran.getRoleId(), "posting_penjualan", "approve");
+	}
+
 	private void onPosting() throws Exception {
+		if (!bolehMemposting()) {
+			MyMessagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.");
+			return;
+		}
 		Date mulai = dpMulai == null ? null : dpMulai.getValue();
 		Date sampai = dpSampai == null ? null : dpSampai.getValue();
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
@@ -894,6 +922,13 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 	/** Posting SATU baris draf dari grid, lalu segarkan pratinjau. */
 	private void postingBarisIni(org.json.JSONObject baris) throws Exception {
+		// Tombol "Posting" per baris memanggil metode ini LANGSUNG, tidak lewat
+		// onPosting(). Penjagaannya karena itu wajib ada di sini juga -- kalau hanya
+		// di onPosting(), tombol per baris menjadi jalan pintas yang melewatinya.
+		if (!bolehMemposting()) {
+			MyMessagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.");
+			return;
+		}
 		Long id = baris.isNull("id") ? null : Long.valueOf(baris.get("id").toString());
 		if (id == null) {
 			return;

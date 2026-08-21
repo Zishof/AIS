@@ -303,13 +303,27 @@ public class PosApi extends HttpServlet {
 					normalisasiStatusKantinHelper(hasil, "sesi_kas");
 				}
 			} else if ("sesi_kas_buka".equals(action)) {
+				// Membuka sesi kas adalah kewenangan penyelia di banyak toko, terpisah
+				// dari sekadar boleh melayani penjualan. Gerbangnya WAJIB di server:
+				// klien yang dimodifikasi dapat memanggil API ini langsung.
+				if (!bolehAksiCrudMenu(tbmuser, "kasir", "create")) {
+					hasil.put("status", "99");
+					hasil.put("description", "Grup pengguna Anda tidak memiliki hak membuka sesi kas.");
+					return;
+				}
 				KantinHelper.sesiKasBuka(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sesi_kas");
 			} else if ("sesi_kas_tutup".equals(action)) {
 				// Koreksi modal awal adalah kewenangan supervisor/admin. Gerbang ini
 				// wajib berada di server agar tidak dapat dilewati dengan memanggil API
 				// secara langsung dari klien yang dimodifikasi.
-				if ((!payload.isNull("modal_awal_koreksi") || !payload.isNull("penjualan_tunai_koreksi")) && !bolehSupervisorAtauAdmin(tbmuser)) {
+				if (!bolehAksiCrudMenu(tbmuser, "kasir", "delete")) {
+					// Menutup sesi kas mengunci angkanya. Haknya terpisah dari membuka,
+					// karena di banyak toko yang membuka kasir dan yang menutup kas
+					// memang bukan orang yang sama.
+					hasil.put("status", "99");
+					hasil.put("description", "Grup pengguna Anda tidak memiliki hak menutup sesi kas.");
+				} else if ((!payload.isNull("modal_awal_koreksi") || !payload.isNull("penjualan_tunai_koreksi")) && !bolehSupervisorAtauAdmin(tbmuser)) {
 					hasil.put("status", "91");
 					hasil.put("description", "Koreksi nominal sesi kas hanya dapat dilakukan oleh supervisor.");
 				} else {
@@ -329,6 +343,14 @@ public class PosApi extends HttpServlet {
 				KantinHelper.pedagangList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pedagang_list");
 			} else if ("pedagang_ubah".equals(action)) {
+				// Layar Konfigurasi mengubah akun pengguna lewat aksi ini, TERMASUK kata
+				// sandinya. Tanpa gerbang ini siapa pun yang dapat melihat menu Konfigurasi
+				// dapat mengubah akun orang lain.
+				if (!bolehAksiCrudMenu(tbmuser, "konfigurasi", "update")) {
+					hasil.put("status", "99");
+					hasil.put("description", "Grup pengguna Anda tidak memiliki hak mengubah akun pengguna.");
+					return;
+				}
 				KantinHelper.pedagangUbah(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pedagang_ubah");
 			} else if ("produk_isi_pemasok_dari_kulakan".equals(action)) {
@@ -1814,6 +1836,23 @@ public class PosApi extends HttpServlet {
 	 * {@code reject}. Default {@code true} (boleh) selama role belum pernah menyetel grid CRUD-nya --
 	 * TIDAK mengubah perilaku akun yang sudah ada, hanya menambah cara baru utk MEMBATASI role tertentu.
 	 */
+	/**
+	 * Hak per-aksi untuk satu menu {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD}.
+	 *
+	 * <p>Padanan umum dari {@link #bolehAksiCrudPesanan}, dipakai menu yang haknya baru
+	 * dapat diatur: {@code kasir} (buka/tutup sesi kas) dan {@code konfigurasi} (ubah akun
+	 * pengguna). Sebelum ini kedua menu itu tidak memeriksa hak per-aksi sama sekali --
+	 * siapa pun yang dapat melihat menunya dapat menjalankan aksinya.</p>
+	 */
+	private static boolean bolehAksiCrudMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+		if (role == null) {
+			return true;
+		}
+		return ais.common.EbisnisMenuKatalog.bolehAksi(
+				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunciMenu, aksi);
+	}
+
 	private static boolean bolehAksiCrudPesanan(Tbmuser tbmuser, String aksi) {
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role == null) {
