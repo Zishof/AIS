@@ -83,6 +83,8 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 	private Textbox searchnama;
 	private Combobox searchfakultas;
 	private Combobox searchjurusan;
+	private Combobox searchprogram;
+	private Combobox searchstatusAwalMahasiswa;
 	private Checkbox searchaktif;
 
 	private MyDoublebox pembimbing1;
@@ -236,6 +238,14 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 				StatusAwalMahasiswa.class, "Semua Status Awal Mahasiswa",
 				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 		Common.initFakultasDanJurusanDanSemua(fakultas, jurusan, searchfakultas, searchjurusan);
+		Common.initPrograms(searchprogram);
+		if (searchprogram.getSelectedItem() != null && searchprogram.getSelectedItem().getValue() == null) {
+			searchprogram.getSelectedItem().setLabel("Semua Program");
+		}
+		Common.insertComboDanSemua(searchstatusAwalMahasiswa, new String[] { "nama" }, "keterangan",
+				StatusAwalMahasiswa.class, "Semua Status Awal Mahasiswa",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.selectComboItem(searchstatusAwalMahasiswa, null);
 
 		if (add != null) {
 		add.setVisible(CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE));
@@ -1754,7 +1764,20 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")
 						: Restrictions.or(Restrictions.isNull("fakultas"),
-								CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false)));
+								CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false)))
+
+				.add(searchprogram == null || searchprogram.getSelectedItem() == null
+						|| searchprogram.getSelectedItem().getValue() == null
+						? Restrictions.sqlRestriction("1=1")
+						: Restrictions.or(Restrictions.isNull("program"),
+								Restrictions.eq("program", (String) searchprogram.getSelectedItem().getValue())))
+
+				.add(searchstatusAwalMahasiswa == null || searchstatusAwalMahasiswa.getSelectedItem() == null
+						|| searchstatusAwalMahasiswa.getSelectedItem().getValue() == null
+						? Restrictions.sqlRestriction("1=1")
+						: Restrictions.or(Restrictions.isNull("statusAwalMahasiswa"),
+								CommonSearchFilterHelper.eqSelectedWithId("statusAwalMahasiswa",
+										searchstatusAwalMahasiswa, false)));
 
 		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 				: Restrictions.ilike("nama", searchnama.getValue(), MatchMode.ANYWHERE));

@@ -63,6 +63,15 @@
 						label="Tampilkan hanya yang aktif" checked="true"
 						forward="onClick=onSearchDefault" width="95%" />
 						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Program" />
+							<combobox id="searchprogram" width="95%"
+								forward="onChange=onSearchDefault" />
+
+							<label use="ais.ui.util.MyLabelConfig" value="Status Awal Mahasiswa" />
+							<combobox id="searchstatusAwalMahasiswa" width="95%"
+								forward="onChange=onSearchDefault" />
+						</row>
 						</rows>
 					</grid>
 				</div>

@@ -73,6 +73,17 @@ public final class AnggaranApiHelper {
 	private AnggaranApiHelper() {
 	}
 
+	/**
+	 * Id {@code rab.workspace} pada basis data ini SELALU negatif (19 digit, warisan
+	 * {@code checkRootSatuanKerja} pada layar ZK), sedangkan satuan kerja, sumber dana, dan akun
+	 * justru positif. Karena itu "belum dipilih" untuk id anggaran berarti TEPAT nol -- penjaga
+	 * bergaya {@code id <= 0} akan menolak setiap anggaran yang sah, dan yang lebih berbahaya,
+	 * menilai item lama sebagai item BARU sehingga barisnya berlipat alih-alih diperbarui.
+	 */
+	private static boolean idKosong(long id) {
+		return id == 0L;
+	}
+
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
 		hasil.put("status", "91");
 		hasil.put("description", pesan);
@@ -357,6 +368,13 @@ public final class AnggaranApiHelper {
 		try {
 			Set<Long> satkerIds = satkerDanTurunan(session, satkerId, termasukAnak);
 			List<Workspace> items = ambilItem(session, tahun, satkerIds, sumberDanaId, revisi, termasukNonAktif);
+			// Baris AKAR = induknya tidak ikut terambil. Penunjuk induk pada data ZK berupa bilangan
+			// negatif besar, jadi "parentId <= 0" akan menilai SEMUA baris sebagai akar dan membuat
+			// ringkasan berlipat. Uji yang sama sudah dipakai realisasiList().
+			Set<Long> idTerambil = new HashSet<Long>();
+			for (Iterator<Workspace> itId = items.iterator(); itId.hasNext();) {
+				idTerambil.add(itId.next().getId());
+			}
 			JSONArray arr = new JSONArray();
 			double[] totalBulan = new double[12];
 			double totalPagu = 0.0;
@@ -373,7 +391,9 @@ public final class AnggaranApiHelper {
 				arr.put(j);
 				// Ringkasan memakai baris AKAR saja supaya tidak berlipat: induk sudah berisi
 				// jumlah seluruh anaknya (lihat aturan agregat di JavaDoc kelas ini).
-				boolean akar = w.getParentId() == null || w.getParentId().longValue() <= 0;
+				Long indukItem = w.getParentId();
+				boolean akar = indukItem == null || indukItem.longValue() == 0L
+						|| !idTerambil.contains(indukItem);
 				if (akar) {
 					JSONArray b = j.getJSONArray("bulan");
 					for (int i = 0; i < 12; i++) {
@@ -446,7 +466,7 @@ public final class AnggaranApiHelper {
 	 */
 	public static void itemSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		long id = request == null ? 0 : request.optLong("id", 0);
-		boolean baru = id <= 0;
+		boolean baru = idKosong(id);
 		if (!bolehAksi(tbmuser, baru ? "create" : "update")) {
 			tolak(hasil, baru ? "Anda tidak memiliki hak menambah item anggaran."
 					: "Anda tidak memiliki hak mengubah item anggaran.");
@@ -481,7 +501,7 @@ public final class AnggaranApiHelper {
 				tolak(hasil, "Induk tidak boleh item itu sendiri.");
 				return;
 			}
-			if (parentId > 0) {
+			if (!idKosong(parentId)) {
 				Workspace induk = (Workspace) session.get(Workspace.class, Long.valueOf(parentId));
 				if (induk == null) {
 					tolak(hasil, "Item induk tidak ditemukan.");
@@ -592,7 +612,7 @@ public final class AnggaranApiHelper {
 			return;
 		}
 		long id = request == null ? 0 : request.optLong("id", 0);
-		if (id <= 0) {
+		if (idKosong(id)) {
 			tolak(hasil, "Item yang dihapus belum dipilih.");
 			return;
 		}
@@ -982,7 +1002,9 @@ public final class AnggaranApiHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			StringBuilder hql = new StringBuilder("from PenggunaanAnggaran p where 1=1");
-			if (workspaceId > 0) {
+			// Saringan per item anggaran: id workspace negatif, jadi "> 0" membuat saringannya
+			// tidak pernah dipakai dan daftar penggunaan selalu tampil apa adanya.
+			if (!idKosong(workspaceId)) {
 				hql.append(" and p.workspace.id = :ws");
 			} else {
 				if (tahun > 0) {
@@ -997,7 +1019,7 @@ public final class AnggaranApiHelper {
 			}
 			hql.append(" order by p.waktu desc, p.id desc");
 			org.hibernate.Query q = session.createQuery(hql.toString());
-			if (workspaceId > 0) {
+			if (!idKosong(workspaceId)) {
 				q.setLong("ws", workspaceId);
 			} else {
 				if (tahun > 0) {
@@ -1100,7 +1122,7 @@ public final class AnggaranApiHelper {
 	/** Simpan entri penggunaan anggaran MANUAL (tanpa dokumen sumber). */
 	public static void penggunaanSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		long id = request == null ? 0 : request.optLong("id", 0);
-		boolean baru = id <= 0;
+		boolean baru = idKosong(id);
 		if (!bolehAksi(tbmuser, baru ? "create" : "update")) {
 			tolak(hasil, baru ? "Anda tidak memiliki hak menambah penggunaan anggaran."
 					: "Anda tidak memiliki hak mengubah penggunaan anggaran.");
@@ -1125,8 +1147,8 @@ public final class AnggaranApiHelper {
 				tolak(hasil, "Data penggunaan anggaran tidak ditemukan.");
 				return;
 			}
-			if (baru || workspaceId > 0) {
-				if (workspaceId <= 0) {
+			if (baru || !idKosong(workspaceId)) {
+				if (idKosong(workspaceId)) {
 					tolak(hasil, "Item anggaran belum dipilih.");
 					return;
 				}
@@ -1190,7 +1212,7 @@ public final class AnggaranApiHelper {
 		long id = request == null ? 0 : request.optLong("id", 0);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			PenggunaanAnggaran p = id <= 0 ? null
+			PenggunaanAnggaran p = idKosong(id) ? null
 					: (PenggunaanAnggaran) session.get(PenggunaanAnggaran.class, Long.valueOf(id));
 			if (p == null) {
 				tolak(hasil, "Data penggunaan anggaran tidak ditemukan.");
