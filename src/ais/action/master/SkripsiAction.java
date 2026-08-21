@@ -4154,6 +4154,31 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		return dosenBanbox == null ? null : (Dosen) dosenBanbox.getAttribute("myValue");
 	}
 
+	private boolean loginSebagaiMahasiswa() {
+		Tbmuser user = Common.getCurrentUser();
+		return user != null && user.getMahasiswa() != null;
+	}
+
+	private boolean mahasiswaLoginPemilik(Mahasiswa target) {
+		Tbmuser user = Common.getCurrentUser();
+		return user != null && user.getMahasiswa() != null && target != null
+				&& user.getMahasiswa().getId() != null && target.getId() != null
+				&& user.getMahasiswa().getId().equals(target.getId());
+	}
+
+	private boolean mahasiswaLoginPemilikSkripsi() {
+		Mahasiswa pemilik = skripsi == null ? null : skripsi.getMahasiswa();
+		if (pemilik == null) {
+			pemilik = dataMahasiswa;
+		}
+		return mahasiswaLoginPemilik(pemilik);
+	}
+
+	private boolean mahasiswaBolehUbahDataPersetujuan() {
+		return mahasiswaLoginPemilikSkripsi() && skripsi != null && skripsi.getSetujuiSidang()
+				&& !this.persetujuan;
+	}
+
 	private void sinkronkanDosenDariFormKeSkripsi() {
 		if (skripsi == null) {
 			return;
@@ -4343,10 +4368,19 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 
 	public boolean onSave(Event event) throws Exception {
 
+		if (loginSebagaiMahasiswa() && !mahasiswaLoginPemilikSkripsi()) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data Tugas Akhir",
+					"Data Tugas Akhir ini bukan milik akun mahasiswa yang sedang login.",
+					new String[] { "Buka kembali menu Daftar Yudisium dari akun mahasiswa yang bersangkutan." });
+			return false;
+		}
+
 		if (!checkSyarat()) {
 			return false;
 		}
-		sinkronkanDosenDariFormKeSkripsi();
+		if (!loginSebagaiMahasiswa()) {
+			sinkronkanDosenDariFormKeSkripsi();
+		}
 		if (gelombangPendaftaranSidangTugasAkhir.getSelectedItem() == null
 				|| gelombangPendaftaranSidangTugasAkhir.getSelectedItem().getValue() == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Gelombang Sidang",
@@ -4387,6 +4421,12 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 							"Isi/pilih terlebih dahulu Mahasiswa.",
 							"Ulangi proses penyimpanan setelah kolom tersebut terisi."
 					});
+			return false;
+		}
+		if (loginSebagaiMahasiswa() && !mahasiswaLoginPemilik(mahasiswa)) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data Tugas Akhir",
+					"Mahasiswa hanya dapat mengubah data Tugas Akhir miliknya sendiri.",
+					new String[] { "Tutup form ini, lalu buka kembali data dari menu Daftar Yudisium." });
 			return false;
 		}
 		FormatNilaiSkripsi formatNilaiSkripsi = (FormatNilaiSkripsi) (this.formatNilaiSkripsi.getSelectedItem() == null
