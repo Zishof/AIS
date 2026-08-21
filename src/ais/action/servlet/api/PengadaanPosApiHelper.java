@@ -4089,6 +4089,8 @@ public final class PengadaanPosApiHelper {
 						: (bast.getPemesananPengadaanMasterAsset().getKode() == null ? ""
 								: bast.getPemesananPengadaanMasterAsset().getKode()));
 				o.put("tanpaPemesanan", Boolean.TRUE.equals(bast.getTampaPemesanan()));
+				o.put("terminKey", bast.getKodeTermin() == null ? "" : bast.getKodeTermin());
+				o.put("termin", bast.getKeteranganTermin() == null ? "" : bast.getKeteranganTermin());
 				o.put("sudahSinkron", bast.getPengadaanFaktur() != null);
 				o.put("nomorFakturKulakan", bast.getPengadaanFaktur() == null ? ""
 						: (bast.getPengadaanFaktur().getNomorFaktur() == null ? ""
@@ -4145,6 +4147,8 @@ public final class PengadaanPosApiHelper {
 			h.put("tanggalTagihan", bast.getTanggalTagihan() == null ? ""
 					: Common.dateFormat1.get().format(bast.getTanggalTagihan()));
 			h.put("status", statusBast(bast));
+			h.put("terminKey", bast.getKodeTermin() == null ? "" : bast.getKodeTermin());
+			h.put("termin", bast.getKeteranganTermin() == null ? "" : bast.getKeteranganTermin());
 			h.put("nilai", bast.getNilai() == null ? 0 : bast.getNilai());
 			h.put("tanpaPemesanan", Boolean.TRUE.equals(bast.getTampaPemesanan()));
 			h.put("sudahSinkron", bast.getPengadaanFaktur() != null);
@@ -4293,6 +4297,71 @@ public final class PengadaanPosApiHelper {
 			}
 			bast.setPemesananPengadaanMasterAsset(po);
 			bast.setTampaPemesanan(Boolean.valueOf(po == null));
+
+			/* ================== SATU PENERIMAAN UNTUK SATU TERMIN ==================
+			 *
+			 * Pesanan bertermin ditagih PER TERMIN, bukan sekaligus. Karena itu setiap
+			 * penerimaan menunjuk satu termin, dan pesanan dengan tiga termin melahirkan
+			 * tiga penerimaan -- masing-masing dengan fakturnya sendiri. Aturan ini sama
+			 * dengan versi ZKoss ({@code PenerimaanPengadaanMasterAssetAction}), yang
+			 * menyediakan combo pilihan termin dan menyimpannya ke tiga kolom yang sama:
+			 * kodeTermin (kunci termin), jsonTermin (isi terminnya), keteranganTermin
+			 * (namanya, untuk ditampilkan tanpa mengurai JSON lagi).
+			 *
+			 * Ketiga kolom itu SUDAH ADA sejak lama dan dipakai ZKoss; POS-lah yang
+			 * selama ini tidak pernah mengisinya, sehingga penerimaan dari POS tidak
+			 * dapat dibedakan termin-nya dan hanya bisa ditagih sekali.
+			 *
+			 * JANGAN longgarkan pemeriksaan ganda di bawah: dua penerimaan aktif pada
+			 * termin yang sama membuat satu termin tertagih dua kali. */
+			String kunciTermin = request.optString("termin_key", "").trim();
+			if (po != null) {
+				JSONArray terminPo = terminDari(po);
+				if (terminPo.length() > 0) {
+					if (kunciTermin.isEmpty()) {
+						tolak(hasil, "Pemesanan " + (po.getKode() == null ? "" : po.getKode())
+								+ " dibayar bertermin, jadi termin yang diterima wajib dipilih.");
+						return;
+					}
+					JSONObject terminTerpilih = null;
+					for (int i = 0; i < terminPo.length(); i++) {
+						JSONObject t = terminPo.optJSONObject(i);
+						if (t != null && !t.isNull("key") && kunciTermin.equals((t.get("key") + "").trim())) {
+							terminTerpilih = t;
+							break;
+						}
+					}
+					if (terminTerpilih == null) {
+						tolak(hasil, "Termin yang dipilih tidak ada pada pemesanan ini.");
+						return;
+					}
+					@SuppressWarnings("unchecked")
+					List<PenerimaanPengadaanMasterAsset> seterminan = session
+							.createCriteria(PenerimaanPengadaanMasterAsset.class)
+							.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", po.getId()))
+							.add(Restrictions.eq("kodeTermin", kunciTermin)).list();
+					for (PenerimaanPengadaanMasterAsset lainnya : seterminan) {
+						if (lainnya == null || Boolean.FALSE.equals(lainnya.getAktif())) {
+							continue;
+						}
+						if (bast.getId() != null && bast.getId().equals(lainnya.getId())) {
+							continue;
+						}
+						tolak(hasil, "Termin ini sudah diterima lewat "
+								+ (lainnya.getKode() == null ? "penerimaan lain" : lainnya.getKode())
+								+ ". Satu termin hanya diterima sekali.");
+						return;
+					}
+					bast.setKodeTermin(kunciTermin);
+					bast.setJsonTermin(terminTerpilih.toString());
+					bast.setKeteranganTermin(terminTerpilih.isNull("nama") ? ""
+							: (terminTerpilih.get("nama") + ""));
+				} else {
+					bast.setKodeTermin(null);
+					bast.setJsonTermin(null);
+					bast.setKeteranganTermin(null);
+				}
+			}
 			if (po != null && po.getPenyedia() != null) {
 				bast.setPenyedia(po.getPenyedia());
 			} else {
@@ -4642,6 +4711,44 @@ public final class PengadaanPosApiHelper {
 			hasil.put("toko_id", po.getToko() == null ? JSONObject.NULL : po.getToko().getId());
 			hasil.put("detail", arr);
 			hasil.put("nilai", total);
+			/* Jadwal termin pesanan ini, berikut penanda termin mana yang SUDAH diterima.
+			 * Layar memerlukan keduanya: yang sudah diterima ditampilkan tetapi tidak dapat
+			 * dipilih lagi, sehingga petugas melihat kemajuannya tanpa bisa menagih ulang. */
+			JSONArray terminPo = terminDari(po);
+			JSONArray daftarTermin = new JSONArray();
+			if (terminPo.length() > 0) {
+				@SuppressWarnings("unchecked")
+				List<PenerimaanPengadaanMasterAsset> bastPo = session
+						.createCriteria(PenerimaanPengadaanMasterAsset.class)
+						.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", po.getId())).list();
+				java.util.Map<String, String> sudahDiterima = new java.util.HashMap<String, String>();
+				for (PenerimaanPengadaanMasterAsset b : bastPo) {
+					if (b == null || Boolean.FALSE.equals(b.getAktif()) || b.getKodeTermin() == null) {
+						continue;
+					}
+					sudahDiterima.put(b.getKodeTermin().trim(),
+							b.getKode() == null ? "" : b.getKode());
+				}
+				for (int i = 0; i < terminPo.length(); i++) {
+					JSONObject t = terminPo.optJSONObject(i);
+					if (t == null || t.isNull("key")) {
+						continue;
+					}
+					String kunci = (t.get("key") + "").trim();
+					JSONObject o = new JSONObject();
+					o.put("key", kunci);
+					o.put("nomor", t.isNull("nomor") ? "" : t.get("nomor") + "");
+					o.put("nama", t.isNull("nama") ? "" : t.get("nama") + "");
+					o.put("penagihan", angkaAman(t, "penagihan"));
+					o.put("jatuhTempo", t.isNull("tanggalD") ? "" : t.get("tanggalD") + "");
+					o.put("sudahDiterima", sudahDiterima.containsKey(kunci));
+					o.put("diterimaLewat", sudahDiterima.containsKey(kunci)
+							? sudahDiterima.get(kunci) : "");
+					daftarTermin.put(o);
+				}
+			}
+			hasil.put("termin", daftarTermin);
+			hasil.put("bertermin", daftarTermin.length() > 0);
 			if (arr.length() == 0) {
 				hasil.put("catatan", "Seluruh barang pada Pemesanan Pembelian ini sudah diterima.");
 			}
@@ -4715,6 +4822,8 @@ public final class PengadaanPosApiHelper {
 						: Common.dateFormat1.get().format(bast.getTanggalTagihan()));
 				o.put("status", st);
 				o.put("statusBarang", statusBast(bast));
+				o.put("terminKey", bast.getKodeTermin() == null ? "" : bast.getKodeTermin());
+				o.put("termin", bast.getKeteranganTermin() == null ? "" : bast.getKeteranganTermin());
 				o.put("dibayarPo", po == null || po.getDibayar() == null ? 0 : po.getDibayar());
 				arr.put(o);
 			}
