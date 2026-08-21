@@ -433,9 +433,9 @@ public class AmbilDataUjianBanyak extends MyWindow {
 		});
 
 		Toolbar toolbar = new Toolbar();
-		// Tinggi North tertutup dirapatkan (96px) agar area filter tidak menyisakan ruang kosong besar
+		// Tinggi North tertutup dirapatkan agar area filter tidak menyisakan ruang kosong besar
 		// di sekitar tombol "Pencarian Lebih Lanjut" (default 150px terlihat "terlalu besar").
-		ais.ui.util.BanboxFilterToggle.pasang(north, searchgrid, toolbar, "96px");
+		ais.ui.util.BanboxFilterToggle.pasang(north, searchgrid, toolbar, "74px");
 		// toolbar.setHeight("25px");
 		toolbar.setParent(div);
 
