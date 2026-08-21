@@ -8768,11 +8768,13 @@ public class CommonReportHelper {
 						try {
 							FileFotoLain lampiranLain = FileFotoLain.ambil(false, mahasiswa.getId(),
 									LampiranLain.TTD_MAHASISWA, LampiranLain.class);
-							File file = lampiranLain.ambilFile();
-							if (file.exists()) {
-								map.put("ttd_mahasiswa", file.getAbsolutePath());
+							if (lampiranLain != null) {
+								File file = lampiranLain.ambilFile();
+								if (file != null && file.exists()) {
+									map.put("ttd_mahasiswa", file.getAbsolutePath());
+								}
+								file = null;
 							}
-							file = null;
 							lampiranLain = null;
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:8070");
 //						e.printStackTrace();
@@ -10902,11 +10904,13 @@ public class CommonReportHelper {
 				try {
 					FileFotoLain lampiranLain = FileFotoLain.ambil(false, dosen.getId(), LampiranLain.TTD_DOSEN,
 							LampiranLain.class);
-					File file = lampiranLain.ambilFile();
-					if (file.exists()) {
-						parameters.put("ttd_dosen_" + index, file.getAbsolutePath());
+					if (lampiranLain != null) {
+						File file = lampiranLain.ambilFile();
+						if (file != null && file.exists()) {
+							parameters.put("ttd_dosen_" + index, file.getAbsolutePath());
+						}
+						file = null;
 					}
-					file = null;
 					lampiranLain = null;
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10174");
 //						e.printStackTrace();
@@ -11261,7 +11265,7 @@ public class CommonReportHelper {
 									LampiranLain.class);
 							if (lampiranLain != null) {
 								File file = lampiranLain.ambilFile();
-								if (file.exists()) {
+								if (file != null && file.exists()) {
 									parameters.put("ttd_dosen_" + index, file.getAbsolutePath());
 								}
 								file = null;
