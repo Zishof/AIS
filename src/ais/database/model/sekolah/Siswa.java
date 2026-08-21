@@ -714,11 +714,50 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "current_kelas_id")
 	public KelasSiswa getKelas() {
-		Tbmuser tbmuser = new Tbmuser();
-		tbmuser.setSiswa(this);
-		String ta = Common.getCurrentTahunAkademik(tbmuser, WaktuUtil.getDate());
-		tbmuser = null;
-		return Siswa.ambilKelas(this, ta);
+		/* AKAR MASALAH (5 error beruntun di Thread-21 PengaturanBiaya: NullPointerException di
+		 * AbstractLazyInitializer, AssertionFailure "possible non-threadsafe access to the
+		 * session", "This ResultSet is closed", LazyInitializationException, dan "illegally
+		 * attempted to associate a proxy with two open Sessions").
+		 *
+		 * Getter ini DIPETAKAN Hibernate (@ManyToOne pada getter = property access), sehingga
+		 * Hibernate memanggilnya pada SETIAP flush lewat
+		 * AbstractEntityTuplizer.getPropertyValues() untuk dirty-check. Padahal isinya
+		 * melakukan I/O: membaca tahun akademik berjalan, menelusuri cache, dan
+		 * menginisialisasi proxy KelasSiswa. Melakukan pekerjaan sesi DI DALAM flush berarti
+		 * masuk kembali ke sesi yang sedang mem-flush -- persis kondisi yang dilaporkan
+		 * Hibernate sebagai akses non-threadsafe.
+		 *
+		 * Dua penjagaan dipasang di sini, TANPA mengubah perilaku bisnis:
+		 *
+		 * 1. Seluruh badan dibungkus catch Throwable. Exception yang lolos dari getter
+		 *    TERPETAKAN akan menggagalkan seluruh flush -- termasuk penyimpanan data lain yang
+		 *    sama sekali tidak berhubungan dengan kelas siswa.
+		 *
+		 * 2. Bila jalur cerdas GAGAL, kembalikan field mentah {@code this.kelas} (nilai apa
+		 *    adanya dari kolom current_kelas_id), BUKAN null. Ini penting: karena getter ini
+		 *    yang dibaca Hibernate saat menulis, mengembalikan null pada kondisi galat membuat
+		 *    Hibernate MENIMPA current_kelas_id menjadi NULL di basis data -- kehilangan data
+		 *    diam-diam hanya gara-gara proxy yang sesinya kebetulan sudah tertutup.
+		 *
+		 * Jalur normal (tanpa galat) TIDAK berubah sedikit pun: bila ambilKelas() sengaja
+		 * mengembalikan null karena alasan bisnis -- mis. kelas berasal dari tahun ajaran
+		 * sebelum siswa masuk -- null itu tetap dikembalikan seperti semula. */
+		try {
+			Tbmuser tbmuser = new Tbmuser();
+			tbmuser.setSiswa(this);
+			String ta = Common.getCurrentTahunAkademik(tbmuser, WaktuUtil.getDate());
+			tbmuser = null;
+			return Siswa.ambilKelas(this, ta);
+		} catch (Throwable gagal) {
+			try {
+				ais.common.ErrorAuditUtil.record(gagal, "Siswa.getKelas(id="
+						+ (getId() == null ? "null" : String.valueOf(getId()))
+						+ ") gagal -- dikembalikan nilai kolom current_kelas_id apa adanya");
+			} catch (Throwable abaikan) {
+				// pencatatan audit tidak boleh ikut menggagalkan flush
+			}
+			return this.kelas;
+		}
 	}
 
 	public void setKelas(KelasSiswa kelas) {

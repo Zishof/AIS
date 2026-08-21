@@ -1785,7 +1785,27 @@ public class Report extends GenericAutowireComposer {
 				} catch (Throwable t) {
 					// Best-effort saja; renderer rusak tetap ditangani di bawah.
 				}
-				if (rendererGambarRusak(gambar)) {
+				/* AKAR MASALAH (JRException "The byte array is not a recognized imageformat."
+				 * saat ekspor PDF kartu mahasiswa): pemeriksaan "gambar rusak" di bawah memakai
+				 * ImageIO, sedangkan yang menyematkan gambar ke PDF adalah iText. Keduanya TIDAK
+				 * mendukung format yang sama. BMP dan WebP terbaca sempurna oleh ImageIO sehingga
+				 * dinyatakan sehat dan dibiarkan lewat, lalu ditolak iText dan menggagalkan
+				 * SELURUH laporan. Foto yang diunggah pengguna kerap berformat seperti itu.
+				 *
+				 * Daripada mengosongkan fotonya, data dikonversi lebih dulu ke PNG supaya foto
+				 * TETAP tercetak. Bila konversi pun tidak mungkin, barulah gambar dikosongkan --
+				 * lebih baik satu foto hilang daripada seluruh laporan gagal. */
+				byte[] gambarPng = konversiGambarTakDidukungPdf(gambar);
+				if (gambarPng != null) {
+					try {
+						gambar.setRenderer(
+								net.sf.jasperreports.renderers.SimpleDataRenderer.getInstance(gambarPng));
+						berubah = true;
+					} catch (Throwable t) {
+						ais.common.ErrorAuditUtil.record(t,
+								"auto-audit(konversi gambar laporan ke PNG) src/ais/action/report/Report.java");
+					}
+				} else if (rendererGambarRusak(gambar) || gambarTakDapatDisematkanPdf(gambar)) {
 					try {
 						gambar.setRenderer(null);
 						berubah = true;
@@ -1843,6 +1863,102 @@ public class Report extends GenericAutowireComposer {
 		} catch (Throwable t) {
 			return true;
 		}
+	}
+
+	/**
+	 * Apakah data gambar dapat <b>disematkan langsung ke PDF oleh iText</b> (pustaka yang
+	 * dipakai JasperReports untuk ekspor PDF), dikenali dari magic bytes-nya.
+	 *
+	 * <p>Daftar ini sengaja disusun dari sudut pandang iText, BUKAN {@link ImageIO}. Keduanya
+	 * berbeda: ImageIO membaca BMP dengan baik, sementara {@code com.lowagie.text.Image
+	 * .getInstance(byte[])} menolaknya dengan "The byte array is not a recognized
+	 * imageformat.". Memakai ImageIO sebagai penentu kelayakan PDF itulah yang membuat
+	 * laporan gagal di produksi meskipun gambarnya sebetulnya "terbaca".</p>
+	 */
+	static boolean formatGambarDidukungPdf(byte[] data) {
+		if (data == null || data.length < 4) {
+			return false;
+		}
+		int b0 = data[0] & 0xFF;
+		int b1 = data[1] & 0xFF;
+		int b2 = data[2] & 0xFF;
+		int b3 = data[3] & 0xFF;
+		if (b0 == 0xFF && b1 == 0xD8) return true;                             // JPEG
+		if (b0 == 0x89 && b1 == 0x50 && b2 == 0x4E && b3 == 0x47) return true; // PNG
+		if (b0 == 0x47 && b1 == 0x49 && b2 == 0x46) return true;               // GIF
+		if (b0 == 0x49 && b1 == 0x49 && b2 == 0x2A && b3 == 0x00) return true; // TIFF little-endian
+		if (b0 == 0x4D && b1 == 0x4D && b2 == 0x00 && b3 == 0x2A) return true; // TIFF big-endian
+		if (b0 == 0xD7 && b1 == 0xCD && b2 == 0xC6 && b3 == 0x9A) return true; // WMF
+		if (b0 == 0x00 && b1 == 0x00 && b2 == 0x00 && b3 == 0x0C) return true; // JPEG 2000 (JP2)
+		if (b0 == 0xFF && b1 == 0x4F && b2 == 0xFF && b3 == 0x51) return true; // JPEG 2000 codestream
+		return false;
+	}
+
+	/**
+	 * Konversi data gambar yang tidak didukung iText menjadi PNG.
+	 *
+	 * @return byte PNG hasil konversi, atau {@code null} bila tidak perlu dikonversi (format
+	 *         sudah didukung) atau tidak dapat dikonversi (data bukan gambar yang terbaca).
+	 */
+	static byte[] konversiGambarKePng(byte[] data) {
+		if (data == null || data.length == 0 || formatGambarDidukungPdf(data)) {
+			return null;
+		}
+		try {
+			java.awt.image.BufferedImage gambar = ImageIO.read(new java.io.ByteArrayInputStream(data));
+			if (gambar == null) {
+				return null;
+			}
+			java.io.ByteArrayOutputStream keluaran = new java.io.ByteArrayOutputStream();
+			if (!ImageIO.write(gambar, "png", keluaran)) {
+				return null;
+			}
+			byte[] hasil = keluaran.toByteArray();
+			return hasil.length == 0 ? null : hasil;
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** Ambil byte data gambar dari elemen cetak Jasper; {@code null} bila bukan renderer data. */
+	private static byte[] dataGambarCetak(net.sf.jasperreports.engine.JRPrintImage gambar) {
+		try {
+			net.sf.jasperreports.renderers.Renderable renderer = gambar.getRenderer();
+			if (!(renderer instanceof net.sf.jasperreports.renderers.DataRenderable)) {
+				return null;
+			}
+			byte[] data = ((net.sf.jasperreports.renderers.DataRenderable) renderer)
+					.getData(DefaultJasperReportsContext.getInstance());
+			if (data == null || data.length == 0) {
+				return null;
+			}
+			try {
+				/* SVG disematkan lewat Batik, bukan iText -- jangan diutak-atik. */
+				if (net.sf.jasperreports.renderers.util.RendererUtil
+						.getInstance(DefaultJasperReportsContext.getInstance()).isSvgData(data)) {
+					return null;
+				}
+			} catch (Throwable t) {
+				/* Gagal memeriksa SVG: lanjut saja, pemeriksaan magic bytes tetap aman. */
+			}
+			return data;
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/** Versi {@link #konversiGambarKePng(byte[])} untuk elemen cetak Jasper. */
+	private static byte[] konversiGambarTakDidukungPdf(net.sf.jasperreports.engine.JRPrintImage gambar) {
+		return konversiGambarKePng(dataGambarCetak(gambar));
+	}
+
+	/**
+	 * Gambar yang formatnya TIDAK dapat disematkan iText dan konversinya pun gagal. Gambar
+	 * seperti ini harus dikosongkan, kalau tidak ekspor PDF akan gagal seluruhnya.
+	 */
+	private static boolean gambarTakDapatDisematkanPdf(net.sf.jasperreports.engine.JRPrintImage gambar) {
+		byte[] data = dataGambarCetak(gambar);
+		return data != null && !formatGambarDidukungPdf(data);
 	}
 
 	/**

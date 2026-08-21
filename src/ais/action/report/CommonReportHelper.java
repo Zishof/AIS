@@ -6809,10 +6809,16 @@ public class CommonReportHelper {
 
 						map.put("nim", detailperkuliahan.getMahasiswa().getNim());
 						map.put("nama", detailperkuliahan.getMahasiswa().getNama());
-						map.put("nama_matakuliah", perkuliahan.getMatakuliah().getNama());
-						map.put("kode_matakuliah", perkuliahan.getMatakuliah().getKode());
+						// getRuang()/getJurusan() di sekitar sini sudah dijaga null, getMatakuliah()
+						// belum -- perkuliahan tanpa matakuliah (mis. matakuliahnya sudah dihapus)
+						// membuat SELURUH laporan gagal dicetak. Kini barisnya tetap tercetak
+						// dengan kolom matakuliah kosong, sama seperti perlakuan ruang/jurusan.
+						map.put("nama_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getNama());
+						map.put("kode_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode());
 						map.put("ruang", perkuliahan.getRuang() == null ? "" : perkuliahan.getRuang().getNama());
-						map.put("sks", perkuliahan.getMatakuliah().getSks());
+						map.put("sks", perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getSks());
 						map.put("jenis_semester",
 								perkuliahan.getStatusSemesterPendek() != null
 										&& perkuliahan.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK)
@@ -6820,8 +6826,11 @@ public class CommonReportHelper {
 												: perkuliahan.getGanjilGenap());
 
 						map.put("tahun_ajaran", perkuliahan.getTahunAjaran());
-						map.put("fakultas", perkuliahan.getJurusan() == null ? ""
-								: perkuliahan.getJurusan().getFakultas().getNama());
+						// getJurusan() dijaga null, getFakultas() di belakangnya tidak: program studi
+						// tanpa fakultas induk tetap melempar NPE dan menggagalkan laporan.
+						map.put("fakultas", perkuliahan.getJurusan() == null
+								|| perkuliahan.getJurusan().getFakultas() == null ? ""
+										: perkuliahan.getJurusan().getFakultas().getNama());
 						map.put("kelas", perkuliahan.getKelas());
 						map.put("nama_jurusan",
 								perkuliahan.getJurusan() == null ? "" : perkuliahan.getJurusan().getNama());
@@ -8794,10 +8803,16 @@ public class CommonReportHelper {
 
 						map.put("nim", mahasiswa.getNim());
 						map.put("nama", mahasiswa.getNama());
-						map.put("nama_matakuliah", perkuliahan.getMatakuliah().getNama());
-						map.put("kode_matakuliah", perkuliahan.getMatakuliah().getKode());
+						// getRuang()/getJurusan() di sekitar sini sudah dijaga null, getMatakuliah()
+						// belum -- perkuliahan tanpa matakuliah (mis. matakuliahnya sudah dihapus)
+						// membuat SELURUH laporan gagal dicetak. Kini barisnya tetap tercetak
+						// dengan kolom matakuliah kosong, sama seperti perlakuan ruang/jurusan.
+						map.put("nama_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getNama());
+						map.put("kode_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode());
 						map.put("ruang", perkuliahan.getRuang() == null ? "" : perkuliahan.getRuang().getNama());
-						map.put("sks", perkuliahan.getMatakuliah().getSks());
+						map.put("sks", perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getSks());
 						map.put("jenis_semester",
 								perkuliahan.getStatusSemesterPendek() != null
 										&& perkuliahan.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK)
@@ -8805,8 +8820,11 @@ public class CommonReportHelper {
 												: perkuliahan.getGanjilGenap());
 
 						map.put("tahun_ajaran", perkuliahan.getTahunAjaran());
-						map.put("fakultas", perkuliahan.getJurusan() == null ? ""
-								: perkuliahan.getJurusan().getFakultas().getNama());
+						// getJurusan() dijaga null, getFakultas() di belakangnya tidak: program studi
+						// tanpa fakultas induk tetap melempar NPE dan menggagalkan laporan.
+						map.put("fakultas", perkuliahan.getJurusan() == null
+								|| perkuliahan.getJurusan().getFakultas() == null ? ""
+										: perkuliahan.getJurusan().getFakultas().getNama());
 						map.put("kelas", perkuliahan.getKelas());
 						map.put("nama_jurusan",
 								perkuliahan.getJurusan() == null ? "" : perkuliahan.getJurusan().getNama());
@@ -9003,10 +9021,16 @@ public class CommonReportHelper {
 
 						map.put("nim", mahasiswa.getNim());
 						map.put("nama", mahasiswa.getNama());
-						map.put("nama_matakuliah", perkuliahan.getMatakuliah().getNama());
-						map.put("kode_matakuliah", perkuliahan.getMatakuliah().getKode());
+						// getRuang()/getJurusan() di sekitar sini sudah dijaga null, getMatakuliah()
+						// belum -- perkuliahan tanpa matakuliah (mis. matakuliahnya sudah dihapus)
+						// membuat SELURUH laporan gagal dicetak. Kini barisnya tetap tercetak
+						// dengan kolom matakuliah kosong, sama seperti perlakuan ruang/jurusan.
+						map.put("nama_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getNama());
+						map.put("kode_matakuliah",
+								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode());
 						map.put("ruang", perkuliahan.getRuang() == null ? "" : perkuliahan.getRuang().getNama());
-						map.put("sks", perkuliahan.getMatakuliah().getSks());
+						map.put("sks", perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getSks());
 						map.put("jenis_semester",
 								perkuliahan.getStatusSemesterPendek() != null
 										&& perkuliahan.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK)
@@ -9014,8 +9038,11 @@ public class CommonReportHelper {
 												: perkuliahan.getGanjilGenap());
 
 						map.put("tahun_ajaran", perkuliahan.getTahunAjaran());
-						map.put("fakultas", perkuliahan.getJurusan() == null ? ""
-								: perkuliahan.getJurusan().getFakultas().getNama());
+						// getJurusan() dijaga null, getFakultas() di belakangnya tidak: program studi
+						// tanpa fakultas induk tetap melempar NPE dan menggagalkan laporan.
+						map.put("fakultas", perkuliahan.getJurusan() == null
+								|| perkuliahan.getJurusan().getFakultas() == null ? ""
+										: perkuliahan.getJurusan().getFakultas().getNama());
 						map.put("kelas", perkuliahan.getKelas());
 						map.put("nama_jurusan",
 								perkuliahan.getJurusan() == null ? "" : perkuliahan.getJurusan().getNama());

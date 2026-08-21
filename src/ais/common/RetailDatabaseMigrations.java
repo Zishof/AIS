@@ -247,6 +247,34 @@ public final class RetailDatabaseMigrations {
 						+ "AND character_maximum_length <= 100 LOOP "
 						+ "EXECUTE format('ALTER TABLE new_audit.biodata_calon_mahasiswa__audit ALTER COLUMN %I TYPE text', r.column_name); "
 						+ "END LOOP; END $mig$;"));
+		/* AKAR MASALAH (NullPointerException di org.hibernate.type.LongType.next lewat
+		 * Versioning.increment, muncul di RepositorySyncService baik saat flush() maupun saat
+		 * auto-flush sebelum Criteria): kolom versi optimistic-lock (@Version) berisi NULL.
+		 *
+		 * Kolomnya ditambahkan belakangan oleh hbm2ddl.auto=update pada tabel yang SUDAH berisi
+		 * baris, sehingga baris lama mendapat NULL. Saat Hibernate hendak menaikkan versinya, ia
+		 * membaca nilai dari snapshot hasil load -- bukan dari getter -- sehingga getter yang
+		 * sudah menjaga null (mis. RepoItem.getLockVersion) TIDAK menolong sama sekali, lalu
+		 * NULL + 1 melempar NullPointerException dan menggagalkan seluruh siklus sinkronisasi.
+		 *
+		 * Perbaikan datanya dilakukan di sini, bukan di kode: nilainya harus benar untuk SEMUA
+		 * pembaca, dan hanya migrasi yang dijalankan tepat satu kali per basis data. Daftar
+		 * tabel dibatasi pada entitas yang memang memakai @Version supaya kolom bernama sama
+		 * milik tabel lain tidak ikut tersentuh; pemeriksaan lewat information_schema membuatnya
+		 * aman pada instalasi yang tidak memiliki sebagian tabel tersebut. Idempoten. */
+		result.add(new Migration("20260821.002", "isi 0 pada kolom versi optimistic-lock yang NULL",
+				"DO $mig3$ DECLARE r RECORD; BEGIN "
+						+ "FOR r IN SELECT c.table_schema AS sch, c.table_name AS tbl, c.column_name AS col "
+						+ "FROM information_schema.columns c "
+						+ "JOIN information_schema.tables t ON t.table_schema = c.table_schema "
+						+ "AND t.table_name = c.table_name "
+						+ "WHERE t.table_type = 'BASE TABLE' AND c.is_nullable = 'YES' "
+						+ "AND c.data_type IN ('bigint','integer','smallint','numeric') "
+						+ "AND ((c.table_name = 'repo_item' AND c.column_name = 'lock_version') "
+						+ "OR (c.column_name = 'version' AND c.table_name IN ('customer_inventory_profile','jenis_usaha_tenant','kegiatan','nota_sales_session','pendaftar_tenant_profile','pendaftaran_tenant','provisioning_job','sales_inventory','sales_order_lapangan','schema_name_reservation','supplier_inventory_profile','surat_perintah_sales_jalan','tenant_domain','tenant_membership','tenant_module_entitlement','tenant_registry'))) LOOP "
+						+ "EXECUTE format('UPDATE %I.%I SET %I = 0 WHERE %I IS NULL', "
+						+ "r.sch, r.tbl, r.col, r.col); "
+						+ "END LOOP; END $mig3$;"));
 		return result;
 	}
 

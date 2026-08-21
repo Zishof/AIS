@@ -265,7 +265,16 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:265");
 		}
 		try {
-			session.disconnect();
+			// AKAR MASALAH (SessionException "Session is closed!"): clear() di atas dan close()
+			// di bawah dijaga isOpen(), tetapi disconnect() TIDAK. Pada sesi yang sudah tertutup
+			// -- mis. sudah ditutup jalur lain saat onSave -- SessionImpl.disconnect() memanggil
+			// errorIfClosed() dan langsung melempar. Exception-nya memang tertangkap, tetapi
+			// setiap penyimpanan biodata calon mahasiswa jadi meninggalkan satu catatan error
+			// palsu di audit. Sesi yang sudah tertutup tidak memegang koneksi apa pun, jadi
+			// melewati disconnect() sama sekali tidak mengubah pelepasan koneksi.
+			if (session.isOpen()) {
+				session.disconnect();
+			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:269");
 		}
 		try {
