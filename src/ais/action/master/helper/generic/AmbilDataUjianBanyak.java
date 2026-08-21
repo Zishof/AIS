@@ -433,11 +433,10 @@ public class AmbilDataUjianBanyak extends MyWindow {
 		});
 
 		Toolbar toolbar = new Toolbar();
-		// Tinggi North tertutup dirapatkan agar area filter tidak menyisakan ruang kosong besar
-		// di sekitar tombol "Pencarian Lebih Lanjut" (default 150px terlihat "terlalu besar").
-		ais.ui.util.BanboxFilterToggle.pasang(north, searchgrid, toolbar, "74px");
-		// toolbar.setHeight("25px");
 		toolbar.setParent(div);
+		// Satu baris filter dan toolbar membutuhkan ruang sendiri. Tinggi 74px membuat
+		// toolbar menimpa header grid karena tinggi minimum toolbar tema adalah 46px.
+		ais.ui.util.BanboxFilterToggle.pasang(north, searchgrid, toolbar, "126px");
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 		button.addEventListener("onClick", new EventListener() {
