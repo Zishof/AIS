@@ -118,21 +118,22 @@
 			</div>
 
 			<!-- ═══ KARTU DATA ═══ -->
-			<div sclass="ais-crud-data-card">
+			<div sclass="ais-crud-data-card" style="overflow-x:auto;">
 				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
-				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid"
+					width="100%" style="min-width:1180px;">
 					<columns>
 
 						<column
 						use="ais.ui.util.MyColumnConfig" width="40px" label="" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+						use="ais.ui.util.MyColumnConfig" width="17%" label="" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+						use="ais.ui.util.MyColumnConfig" width="22%" label="" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+						use="ais.ui.util.MyColumnConfig" width="31%" label="" />
 						<column
-						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
+						use="ais.ui.util.MyColumnConfig" width="30%" label="" />
 
 					</columns>
 				</grid>
