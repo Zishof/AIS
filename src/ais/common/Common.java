@@ -19202,6 +19202,33 @@ public class Common {
 	 * @param value nilai mentah (boleh null)
 	 * @return nilai yang hanya berisi cookie-octet RFC 6265; "" bila masukannya null
 	 */
+	/**
+	 * Varian desimal dari {@link #angkaAtauNull(JSONObject, String)} untuk nilai uang.
+	 *
+	 * @return nilai Double, atau null bila tidak ada / kosong / bukan angka
+	 */
+	public static Double angkaDesimalAtauNull(JSONObject request, String kunci) {
+		if (request == null || kunci == null) {
+			return null;
+		}
+		Object mentah = request.opt(kunci);
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		if (mentah instanceof Number) {
+			return Double.valueOf(((Number) mentah).doubleValue());
+		}
+		String teks = String.valueOf(mentah).trim();
+		if (teks.length() == 0) {
+			return null;
+		}
+		try {
+			return Double.valueOf(teks);
+		} catch (NumberFormatException bukanAngka) {
+			return null;
+		}
+	}
+
 	public static String nilaiCookieAman(String value) {
 		if (value == null) {
 			return "";

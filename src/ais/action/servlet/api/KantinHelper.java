@@ -1154,6 +1154,33 @@ public class KantinHelper {
 					hasil.put("totalDiskon", totalDiskon.doubleValue());
 					hasil.put("diskonFaktur", th.diskonFaktur);
 					hasil.put("terlayani", dimintaLangsungTerlayani(jsonObject));
+					/* KE-FIX (struk kertas beda dgn sistem, mis. nota AB22008202600004 20-08-2026:
+					 * struk Rp 25.000, tercatat Rp 24.600 karena diskon Rp 400).
+					 *
+					 * Klien SELALU mengirim total versinya sendiri, tetapi sebelum ini tidak pernah
+					 * dibaca sama sekali. Padahal di titik ini server memegang KEDUA angka: total
+					 * klaim kasir dan total hasil hitung ulang promo di server (yang menimpa nilai
+					 * kasir, lihat terapkanEvaluasiDiskonServer). Selisihnya berarti kasir menerima
+					 * uang dengan angka yang berbeda dari yang tercatat -- laci kas tidak akan cocok
+					 * dan pelanggan bisa kelebihan/kekurangan bayar.
+					 *
+					 * Transaksinya TIDAK ditolak (uangnya sudah diterima di kasir dan penjualannya
+					 * sah), tetapi selisihnya dikembalikan ke klien supaya POS dapat mengoreksi
+					 * struk sebelum dicetak, dan dicatat ke audit supaya bagian keuangan punya
+					 * jejaknya. Berlaku untuk SEMUA kanal (POS Desktop, Android, JSP, ZK). */
+					Double totalKlien = Common.angkaDesimalAtauNull(jsonObject, "total");
+					if (totalKlien != null) {
+						hasil.put("totalKlien", totalKlien.doubleValue());
+						double selisih = total.doubleValue() - totalKlien.doubleValue();
+						if (Math.abs(selisih) >= 1d) {
+							hasil.put("selisihTotal", selisih);
+							ais.common.ErrorAuditUtil.record(
+									new IllegalStateException("Selisih total transaksi " + kodeUnik + ": kasir "
+											+ totalKlien + ", tercatat " + total + " (diskon server " + totalDiskon
+											+ ")."),
+									"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-selisih-total");
+						}
+					}
 					hasil.put("status", "00");
 
 				} catch (Exception e) {
