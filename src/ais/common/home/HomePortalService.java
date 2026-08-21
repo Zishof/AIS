@@ -17,6 +17,7 @@ public class HomePortalService {
         vm.assetVersion = config.value("home_v3_asset_version", "3.0.0");
         vm.institution = new HomePortalInstitutionResolver().resolve(request);
         resolveTerminology(vm);
+        resolveDigitalPortal(vm);
         vm.eyebrow = config.value("judul_kecil_home_portal", vm.institution.healthcare
                 ? "Portal Layanan Kesehatan" : "Enterprise Education Portal");
         vm.headline = config.value("home_v3_headline", vm.institution.healthcare
@@ -51,8 +52,12 @@ public class HomePortalService {
         vm.showAdmission = vm.showAdmission && vm.admission != null;
         vm.showNews = vm.showNews && !vm.news.isEmpty();
         vm.showAgenda = vm.showAgenda && !vm.agenda.isEmpty();
-        vm.androidUrl = safeAppUrl(config.value("home_v3_mobile_app_android_url", ""));
-        vm.iosUrl = safeAppUrl(config.value("home_v3_mobile_app_ios_url", ""));
+        vm.androidUrl = safeAppUrl(config.value("home_v3_mobile_app_android_url",
+                "https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
+        vm.iosUrl = safeAppUrl(config.value("home_v3_mobile_app_ios_url",
+                "https://apps.apple.com/id/app/ecampus/id6503487876?l=id"));
+        vm.desktopUrl = safeAppUrl(config.value("home_v3_desktop_app_url",
+                "https://github.com/Zishof/ecampus-eschool-releases/releases/latest"));
         vm.seo = new HomePortalSeoService().build(vm, config, request.getRequestURL().toString());
         return vm;
     }
@@ -70,6 +75,22 @@ public class HomePortalService {
             vm.terminology.learnerPlural = "Siswa / Santri"; vm.terminology.teacherPlural = "Guru / Ustadz";
             vm.terminology.admissionLabel = "Penerimaan Peserta Didik Baru"; vm.terminology.programLabel = "Program Pendidikan";
             vm.terminology.institutionLabel = "Sekolah / Pesantren";
+        }
+    }
+
+    private void resolveDigitalPortal(HomePortalViewModel vm) {
+        if (vm.institution.healthcare) {
+            vm.digitalPortalTitle = "Fasilitas Kesehatan Digital";
+            vm.digitalPortalSummary = "Pasien, rekam medis, farmasi, keuangan, SDM & layanan kesehatan";
+        } else if (vm.institution.college) {
+            vm.digitalPortalTitle = "eCampus Terintegrasi";
+            vm.digitalPortalSummary = "Akademik, PMB, keuangan, SDM, aset & layanan kampus";
+        } else if ("foundation".equals(vm.institution.type)) {
+            vm.digitalPortalTitle = "Yayasan Digital";
+            vm.digitalPortalSummary = "Multi-sekolah, keuangan, SDM, aset & layanan yayasan";
+        } else {
+            vm.digitalPortalTitle = "eSchool Terintegrasi";
+            vm.digitalPortalSummary = "Akademik, PPDB, keuangan, SDM, aset & layanan sekolah";
         }
     }
 

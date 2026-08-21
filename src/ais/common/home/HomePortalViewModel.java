@@ -15,6 +15,8 @@ public class HomePortalViewModel {
     public String eyebrow;
     public String headline;
     public String description;
+    public String digitalPortalTitle;
+    public String digitalPortalSummary;
     public String primaryLabel;
     public String primaryUrl;
     public String primaryTarget;
@@ -32,6 +34,7 @@ public class HomePortalViewModel {
     public String announcementRel;
     public String androidUrl;
     public String iosUrl;
+    public String desktopUrl;
     public boolean showAnnouncement;
     public boolean showPrograms;
     public boolean showAdmission;

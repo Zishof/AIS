@@ -15,8 +15,16 @@
             <div class="home-hero-media" aria-hidden="true">
                 <img src="<%=h(vm.institution.heroUrl)%>" width="720" height="620" alt="" fetchpriority="high">
                 <div class="home-hero-media-overlay"></div>
-                <div class="home-float-card"><i class="fas <%=vm.institution.healthcare ? "fa-building" : "fa-university"%>" aria-hidden="true"></i><span><strong><%=h(vm.terminology.institutionLabel)%> Digital</strong><small><%=vm.institution.healthcare ? "Pendaftaran, jadwal, rekam medis" : "Akademik, pustaka, repository"%></small></span></div>
+                <div class="home-float-card"><i class="fas <%=vm.institution.healthcare ? "fa-building" : "fa-university"%>" aria-hidden="true"></i><span><strong><%=h(vm.digitalPortalTitle)%></strong><small><%=h(vm.digitalPortalSummary)%></small></span></div>
             </div>
+            <aside class="home-app-availability<%=!vm.statistics.isEmpty() ? " home-app-availability-with-stats" : ""%>" aria-label="Aplikasi seluler">
+                <small>Tersedia juga di Google Play dan App Store</small>
+                <div>
+                    <a href="<%=h(vm.androidUrl)%>" target="_blank" rel="noopener noreferrer">Google Play</a>
+                    <a href="<%=h(vm.iosUrl)%>" target="_blank" rel="noopener noreferrer">App Store</a>
+                    <a href="<%=h(vm.desktopUrl)%>" target="_blank" rel="noopener noreferrer">Versi Desktop</a>
+                </div>
+            </aside>
             <% if (!vm.statistics.isEmpty()) { %>
             <dl class="home-stats">
                 <% for (HomePortalViewModel.StatItem stat : vm.statistics) { %><div><dt><%=h(stat.value)%></dt><dd><%=h(stat.label)%></dd></div><% } %>
