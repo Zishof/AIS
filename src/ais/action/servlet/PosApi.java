@@ -4147,7 +4147,7 @@ public class PosApi extends HttpServlet {
 				/* Kueri yang sedang berjalan paling lama. Inilah petunjuk paling langsung
 				 * ketika aksi bayar mulai melewati batas waktu 30 detik milik POS. */
 				java.util.List<?> lama = session.createSQLQuery(
-						"select round(extract(epoch from (now() - query_start)))::int as detik, state, "
+						"select cast(round(extract(epoch from (now() - query_start))) as int) as detik, state, "
 								+ "left(coalesce(query,''), 200) as kueri "
 								+ "from pg_stat_activity where state <> 'idle' and query_start is not null "
 								+ "order by query_start asc limit 5").list();

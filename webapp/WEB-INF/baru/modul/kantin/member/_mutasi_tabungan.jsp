@@ -270,8 +270,8 @@ String rnd = Common.getGeneratedBarCode(7);
             return;
         }
 
-        const batasAwal = "'" + tglAwal + "'::date";
-        const batasAkhir = "('" + tglAkhir + "'::date + interval '1 day')";
+        const batasAwal = "CAST('" + tglAwal + "' AS date)";
+        const batasAkhir = "(CAST('" + tglAkhir + "' AS date) + interval '1 day')";
         const filterAnggota = idAnggota !== '' ? (" AND anggota_koperasi = " + parseInt(idAnggota, 10) + " ") : "";
 
         const sql =
