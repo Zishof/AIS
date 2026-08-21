@@ -77,6 +77,14 @@
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    /* Sebagian halaman memakai gaya "regular" (far) atau "brands" (fab), bukan
+     * "solid" (fas). Nama yang sudah memuat awalannya dipakai apa adanya; yang
+     * hanya berupa "fa-xxx" diberi awalan fas supaya pemanggil lama tetap ringkas. */
+    function kelasIkon(ikon) {
+        var n = String(ikon || 'fa-circle').trim();
+        return n.indexOf(' ') >= 0 ? n : ('fas ' + n);
+    }
+
     /* Menghasilkan potongan HTML, bukan simpul DOM, karena halaman JSP di sini
      * merangkai barisnya sebagai string lalu memasangnya lewat innerHTML. */
     window.aksiBarisMenu = function (daftar, opsi) {
@@ -100,7 +108,7 @@
                 (a.merusak ? ' merusak' : '') + '"' +
                 (a.nonaktif ? ' disabled' : ' onclick="aksiBarisPilih(this);' +
                     amanAtribut(a.onclick) + '"') +
-                '><i class="fas ' + amanAtribut(a.ikon || 'fa-circle') + '"></i>' +
+                '><i class="' + amanAtribut(kelasIkon(a.ikon)) + '"></i>' +
                 '<span>' + amanTeks(a.label) + '</span></button>';
         }
 

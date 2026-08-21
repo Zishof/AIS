@@ -380,11 +380,17 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
                     if (isAdmin<%=rnd%>) {
                         const isTokoDemo = (row.toko_demo === true || row.toko_demo === 't' || row.toko_demo === 'true');
                         petaUnitUsahaToko<%=rnd%>[row.id] = row.unit_usaha_json || '[]';
-                        htmlList += '<td class="text-center text-nowrap">' +
-                                        (isTokoDemo ? '<button class="btn btn-sm btn-outline-success shadow-sm px-2 me-1 fw-bold" onclick="bukaGenerateProduk<%=rnd%>(' + row.id + ', \'' + safeNama + '\')" title="<%=Common.getBahasaConfig("Generate produk contoh sesuai unit usaha")%>"><i class="fas fa-magic"></i></button>' : '') +
-                                        '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editToko<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
-                                        '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusToko<%=rnd%>(' + row.id + ', \'' + safeNama + '\')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                                    '</td>';
+                        htmlList += '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                        // Dahulu tombol ini hanya MUNCUL untuk toko demo. Kini ia selalu
+                                        // tampil namun redup, supaya letak aksi lain tidak berpindah-pindah
+                                        // antar baris dan kemampuannya tetap terlihat.
+                                        { ikon: 'fa-magic', label: '<%=Common.getBahasaConfig("Generate produk contoh sesuai unit usaha")%>',
+                                          onclick: 'bukaGenerateProduk<%=rnd%>(' + row.id + ', \'' + safeNama + '\')', nonaktif: !isTokoDemo },
+                                        { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data")%>',
+                                          onclick: 'editToko<%=rnd%>(' + row.id + ')' },
+                                        { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>',
+                                          onclick: 'hapusToko<%=rnd%>(' + row.id + ', \'' + safeNama + '\')', merusak: true }
+                                    ]) + '</td>';
                     }
                             
                     htmlList += '</tr>';

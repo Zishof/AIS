@@ -602,10 +602,12 @@ String uploadUrl = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=common&s=upload_
                     html += '<td>'+formatCell(val, m, row, f)+'</td>';
                 }
                 var id = row._id || row.id;
-                html += '<td><div class="crud-row-actions">';
-                if(c.canEdit){ html += '<button type="button" class="crud-icon-btn" title="Ubah" onclick="CRUD_'+rnd+'.openForm(\'edit\',\''+esc(id)+'\')"><i class="fas fa-edit"></i></button>'; }
-                if(c.canDelete){ html += '<button type="button" class="crud-icon-btn" title="Hapus" onclick="CRUD_'+rnd+'.remove(\''+esc(id)+'\')"><i class="far fa-trash-alt"></i></button>'; }
-                html += '</div></td>';
+                // Aksi dirangkai dahulu karena keduanya bergantung hak akses; menu
+                // hanya tampil bila ada yang benar-benar dapat dipakai.
+                var aksiBaris = [];
+                if(c.canEdit){ aksiBaris.push({ ikon: 'fa-edit', label: 'Ubah', onclick: 'CRUD_'+rnd+'.openForm(\'edit\',\''+esc(id)+'\')' }); }
+                if(c.canDelete){ aksiBaris.push({ ikon: 'far fa-trash-alt', label: 'Hapus', onclick: 'CRUD_'+rnd+'.remove(\''+esc(id)+'\')', merusak: true }); }
+                html += '<td>' + aksiBarisMenu(aksiBaris) + '</td>';
                 html += '</tr>';
             }
             $('crudTbody_' + rnd).innerHTML = html;

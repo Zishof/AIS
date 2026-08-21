@@ -520,10 +520,10 @@ if(tbmuser != null && tbmuser.getUserId() != null){
                         '<td>' + (row["kategoriPenghargaan.nama"] || '-') + '</td>' +
                         '<td class="text-center">' + (row["tanggal.formated2"] || '-') + '</td>' +
                         '<td class="text-center">' + statusBadge + '</td>' +
-                        '<td class="text-center no-export">' +
-                            '<button class="btn btn-sm btn-outline-warning shadow-sm me-1" onclick="editPenghargaan<%=rnd%>(' + row.id + ')"><i class="fas fa-edit"></i></button>' +
-                            '<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="hapusPenghargaan<%=rnd%>(' + row.id + ')"><i class="fas fa-trash-alt"></i></button>' +
-                        '</td></tr>';
+                        '<td class="text-center no-export">' + aksiBarisMenu([
+                            { ikon: 'fas fa-edit', label: 'Ubah penghargaan', onclick: 'editPenghargaan<%=rnd%>(' + row.id + ')' },
+                            { ikon: 'fas fa-trash-alt', label: 'Hapus penghargaan', onclick: 'hapusPenghargaan<%=rnd%>(' + row.id + ')', merusak: true }
+                        ]) + '</td></tr>';
                 });
             }
             tbody.innerHTML = html;

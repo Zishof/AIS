@@ -111,8 +111,10 @@ String svcLK = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Flokasi&s=se
         +'<td class="small text-muted">'+esc(d.alamat||'')+'</td>'
         +'<td class="text-center">'+(d.aktif?'<span class="badge bg-success-subtle text-success">Aktif</span>':'<span class="badge bg-secondary-subtle text-secondary">Nonaktif</span>')+'</td>';
       if(BOLEH){ h+='<td class="text-center">'
-        +'<button class="btn btn-sm btn-outline-secondary border-0" title="Ubah" onclick=\'lkForm<%=rlk%>('+JSON.stringify(d)+')\'><i class="fas fa-pen"></i></button> '
-        +'<button class="btn btn-sm btn-outline-danger border-0" title="Hapus" onclick="lkHapus<%=rlk%>('+d.id+")\"><i class=\"fas fa-trash\"></i></button></td>"; }
+        + aksiBarisMenu([
+            { ikon: 'fa-pen',   label: 'Ubah',  onclick: 'lkForm<%=rlk%>('+JSON.stringify(d)+')' },
+            { ikon: 'fa-trash', label: 'Hapus', onclick: 'lkHapus<%=rlk%>('+d.id+')', merusak: true }
+        ]) + '</td>'; }
       h+='</tr>';
     });
     b.innerHTML=h;

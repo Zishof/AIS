@@ -80,7 +80,7 @@ String R = Common.getGeneratedBarCode(6);
         +'<td class="text-end">'+rp(x.omzet)+'</td><td class="text-end">'+rp(x.kewajiban)+'</td><td class="text-end">'+rp(x.setoran)+'</td>'
         +'<td class="text-end fw-bold '+(sisa>0?"text-danger":"text-success")+'">'+rp(sisa)+'</td>'
         +'<td><span class="badge2 st-'+x.status+'">'+x.status+'</span></td>'
-        +(BOLEH?('<td class="text-end"><button class="btn btn-sm btn-link p-0 me-2" onclick=\'ed<%=R%>('+JSON.stringify(x)+')\'><i class="fas fa-pen"></i></button><button class="btn btn-sm btn-link text-danger p-0" onclick="del<%=R%>('+x.id+')"><i class="fas fa-trash"></i></button></td>'):'')
+        +(BOLEH?('<td class="text-end">' + aksiBarisMenu([{ ikon: 'fa-pen', label: 'Ubah', onclick: 'ed<%=R%>('+JSON.stringify(x)+')' }, { ikon: 'fa-trash', label: 'Hapus', onclick: 'del<%=R%>('+x.id+')', merusak: true }]) + '</td>'):'')
         +'</tr>'; });
     g("tbl").innerHTML=h; };
 

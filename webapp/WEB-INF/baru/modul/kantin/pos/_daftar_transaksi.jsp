@@ -275,10 +275,12 @@ if (toko != null) {
                     htmlTbody += '<td class="text-center fw-bold text-dark">' + (row.qty || 0) + '</td>';
                     htmlTbody += '<td class="text-end fw-bold text-success px-3">' + formatRpRw<%=rnd%>(row.total) + '</td>';
                     
-                    htmlTbody += '<td class="text-center text-nowrap">' +
-                                    '<button class="btn btn-sm btn-outline-info shadow-sm px-3 fw-bold me-1" onclick="cetakStrukPOS<%=rnd%>(' + row.id_transaksi + ')" title="<%=Common.getBahasaConfig("Cetak Struk")%>"><i class="fas fa-print me-1"></i>Cetak</button>' +
-                                    '<button class="btn btn-sm btn-outline-danger shadow-sm px-3 fw-bold" onclick="hapusTransaksi<%=rnd%>(' + row.id_transaksi + ')" title="<%=Common.getBahasaConfig("Hapus Transaksi")%>"><i class="fas fa-trash-alt me-1"></i>Hapus</button>' +
-                                 '</td>';
+                    htmlTbody += '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                    { ikon: 'fa-print', label: '<%=Common.getBahasaConfig("Cetak Struk")%>',
+                                      onclick: 'cetakStrukPOS<%=rnd%>(' + row.id_transaksi + ')' },
+                                    { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Transaksi")%>',
+                                      onclick: 'hapusTransaksi<%=rnd%>(' + row.id_transaksi + ')', merusak: true }
+                                ]) + '</td>';
                     htmlTbody += '</tr>';
                 });
             }

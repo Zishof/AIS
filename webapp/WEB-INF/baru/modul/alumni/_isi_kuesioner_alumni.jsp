@@ -414,8 +414,10 @@
                     + '<td>'+esc(a.email)+'</td>'
                     + '<td>'+esc(a.telp)+'</td>'
                     + '<td>'+(a.masihAktif===false?'Tidak':'Ya')+'</td>'
-                    + '<td><button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="bukaModalAtasan'+rnd+'('+i+')"><i class="fas fa-pen"></i></button>'
-                    + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusAtasan'+rnd+'('+i+')"><i class="fas fa-trash"></i></button></td>'
+                    + '<td>' + aksiBarisMenu([
+                        { ikon: 'fas fa-pen', label: 'Ubah data atasan', onclick: 'bukaModalAtasan'+rnd+'('+i+')' },
+                        { ikon: 'fas fa-trash', label: 'Hapus data atasan', onclick: 'hapusAtasan'+rnd+'('+i+')', merusak: true }
+                    ]) + '</td>'
                     + '</tr>';
             }
             tb.innerHTML = h; sync();
