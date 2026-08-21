@@ -1075,6 +1075,8 @@ public final class AnggaranApiHelper {
 				}
 				JSONObject j = new JSONObject();
 				j.put("id", p.getId());
+				// Bentuk teks -- lihat catatan pada itemJson(): kanal JSP tidak sanggup 19 digit.
+				j.put("idTeks", p.getId() == null ? "" : String.valueOf(p.getId()));
 				j.put("kode", kode);
 				j.put("ref", p.getRef() == null ? "" : p.getRef());
 				j.put("nama", nama);

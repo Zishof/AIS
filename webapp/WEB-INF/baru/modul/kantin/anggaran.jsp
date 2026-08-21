@@ -257,11 +257,13 @@ String rnd = Common.getGeneratedBarCode(7);
   // ---- pohon: baris anak diberi indentasi sesuai kedalaman induknya, sama seperti
   //      tabel Kode Akun dan pohon pada layar ZK.
   function pohon(sumber){
+    // idTeks/parentIdTeks: identitas dipegang sebagai TEKS supaya id 19 digit tidak
+    // dibulatkan JavaScript (lihat catatan di kepala berkas).
     var anakDari = {}, akar = [], semua = {}, i;
-    for (i = 0; i < sumber.length; i++) { semua["k" + sumber[i].id] = true; }
+    for (i = 0; i < sumber.length; i++) { semua["k" + sumber[i].idTeks] = true; }
     for (i = 0; i < sumber.length; i++) {
-      var p = sumber[i].parentId;
-      if (p === null || p === undefined || !semua["k" + p]) { akar.push(sumber[i]); }
+      var p = sumber[i].parentIdTeks;
+      if (!p || p === "0" || !semua["k" + p]) { akar.push(sumber[i]); }
       else {
         if (!anakDari["k" + p]) anakDari["k" + p] = [];
         anakDari["k" + p].push(sumber[i]);
@@ -271,7 +273,7 @@ String rnd = Common.getGeneratedBarCode(7);
     function telusuri(node, level){
       node._level = level;
       hasil.push(node);
-      var anak = anakDari["k" + node.id] || [];
+      var anak = anakDari["k" + node.idTeks] || [];
       for (var j = 0; j < anak.length; j++) { telusuri(anak[j], level + 1); }
     }
     for (i = 0; i < akar.length; i++) { telusuri(akar[i], 0); }
@@ -400,13 +402,13 @@ String rnd = Common.getGeneratedBarCode(7);
   function tombolItem(a){
     var h = "";
     if (hak.create) {
-      h += '<button class="btn btn-sm btn-link p-0 me-2 aksi-anak" data-id="' + a.id + '" title="Tambah item di bawahnya"><i class="fas fa-plus"></i></button>';
+      h += '<button class="btn btn-sm btn-link p-0 me-2 aksi-anak" data-id="' + a.idTeks + '" title="Tambah item di bawahnya"><i class="fas fa-plus"></i></button>';
     }
     if (hak.update) {
-      h += '<button class="btn btn-sm btn-link p-0 me-2 aksi-ubah" data-id="' + a.id + '" title="Ubah"><i class="fas fa-pen"></i></button>';
+      h += '<button class="btn btn-sm btn-link p-0 me-2 aksi-ubah" data-id="' + a.idTeks + '" title="Ubah"><i class="fas fa-pen"></i></button>';
     }
     if (hak["delete"]) {
-      h += '<button class="btn btn-sm btn-link p-0 text-danger aksi-hapus" data-id="' + a.id + '" title="Hapus"><i class="fas fa-trash"></i></button>';
+      h += '<button class="btn btn-sm btn-link p-0 text-danger aksi-hapus" data-id="' + a.idTeks + '" title="Hapus"><i class="fas fa-trash"></i></button>';
     }
     return h || '<span class="text-muted small">&mdash;</span>';
   }
@@ -419,10 +421,10 @@ String rnd = Common.getGeneratedBarCode(7);
     }
     var h = "";
     if (hak.update) {
-      h += '<button class="btn btn-sm btn-link p-0 me-2 pakai-ubah" data-id="' + p.id + '" title="Ubah"><i class="fas fa-pen"></i></button>';
+      h += '<button class="btn btn-sm btn-link p-0 me-2 pakai-ubah" data-id="' + p.idTeks + '" title="Ubah"><i class="fas fa-pen"></i></button>';
     }
     if (hak["delete"]) {
-      h += '<button class="btn btn-sm btn-link p-0 text-danger pakai-hapus" data-id="' + p.id + '" title="Hapus"><i class="fas fa-trash"></i></button>';
+      h += '<button class="btn btn-sm btn-link p-0 text-danger pakai-hapus" data-id="' + p.idTeks + '" title="Hapus"><i class="fas fa-trash"></i></button>';
     }
     return h || '<span class="text-muted small">&mdash;</span>';
   }
@@ -509,11 +511,11 @@ String rnd = Common.getGeneratedBarCode(7);
     var o = '<option value="0">= Item Akar =</option>', i;
     var daftar = pohon(item);
     for (i = 0; i < daftar.length; i++) {
-      if (kecualiId && daftar[i].id === kecualiId) { continue; }
-      o += '<option value="' + daftar[i].id + '">' + esc((daftar[i].kode || "") + " " + (daftar[i].nama || "")) + "</option>";
+      if (kecualiId && String(daftar[i].idTeks) === String(kecualiId)) { continue; }
+      o += '<option value="' + daftar[i].idTeks + '">' + esc((daftar[i].kode || "") + " " + (daftar[i].nama || "")) + "</option>";
     }
     el("itemInduk").innerHTML = o;
-    el("itemInduk").value = String(terpilih || 0);
+    el("itemInduk").value = String(terpilih || "0");
   }
 
   function isiBulanForm(nilai){
@@ -536,7 +538,7 @@ String rnd = Common.getGeneratedBarCode(7);
   }
 
   function bukaFormItem(data, indukId){
-    el("itemId").value = data ? data.id : "";
+    el("itemId").value = data ? data.idTeks : "";
     el("itemKode").value = data ? (data.kode || "") : "";
     el("itemNama").value = data ? (data.nama || "") : "";
     el("itemKeterangan").value = data ? (data.keterangan || "") : "";
@@ -544,7 +546,7 @@ String rnd = Common.getGeneratedBarCode(7);
     el("itemSatuan").value = data ? (data.satuanVolume || "") : "";
     el("itemHarga").value = data ? (data.hargaSatuan || 0) : 0;
     el("judulItem").innerHTML = data ? "Ubah Item Anggaran" : (indukId ? "Tambah Item di Bawahnya" : "Tambah Item Anggaran");
-    isiPilihanInduk(data ? data.parentId : indukId, data ? data.id : 0);
+    isiPilihanInduk(data ? data.parentIdTeks : indukId, data ? data.idTeks : "");
     isiBulanForm(data ? data.bulan : []);
     new bootstrap.Modal(el("modalItem")).show();
   }
@@ -557,14 +559,14 @@ String rnd = Common.getGeneratedBarCode(7);
     var payload = {
       action:"anggaran_item_simpan",
       tahun: f.tahun, satkerId: f.satkerId, sumberDanaId: f.sumberDanaId, revisi: f.revisi,
-      parentId: parseInt(el("itemInduk").value || "0", 10),
+      parentIdTeks: el("itemInduk").value || "0",
       kode: (el("itemKode").value || "").trim(),
       nama: (el("itemNama").value || "").trim(),
       keterangan: (el("itemKeterangan").value || "").trim(),
       qty: angka("itemQty"), satuanVolume: (el("itemSatuan").value || "").trim(),
       hargaSatuan: angka("itemHarga"), bulan: bulan
     };
-    if (el("itemId").value) { payload.id = parseInt(el("itemId").value, 10); }
+    if (el("itemId").value) { payload.idTeks = el("itemId").value; }
     api(payload).then(function(d){
       if (!sukses(d)) { pesan(alasan(d), false); return; }
       pesan(d.message || "Tersimpan.", true);
@@ -575,7 +577,7 @@ String rnd = Common.getGeneratedBarCode(7);
 
   // ---- formulir penggunaan
   function bukaFormPakai(data){
-    el("pakaiId").value = data ? data.id : "";
+    el("pakaiId").value = data ? data.idTeks : "";
     el("pakaiKode").value = data ? (data.kode || "") : "";
     el("pakaiNama").value = data ? (data.nama || "") : "";
     el("pakaiNilai").value = data ? (data.nilai || 0) : 0;
@@ -584,10 +586,10 @@ String rnd = Common.getGeneratedBarCode(7);
                                                 : new Date().toISOString().substring(0, 10);
     var o = "", i, daftar = pohon(item);
     for (i = 0; i < daftar.length; i++) {
-      o += '<option value="' + daftar[i].id + '">' + esc((daftar[i].kode || "") + " " + (daftar[i].nama || "")) + "</option>";
+      o += '<option value="' + daftar[i].idTeks + '">' + esc((daftar[i].kode || "") + " " + (daftar[i].nama || "")) + "</option>";
     }
     el("pakaiItem").innerHTML = o;
-    if (data && data.workspaceId) { el("pakaiItem").value = String(data.workspaceId); }
+    if (data && data.workspaceIdTeks) { el("pakaiItem").value = String(data.workspaceIdTeks); }
     new bootstrap.Modal(el("modalPakai")).show();
   }
 
@@ -598,14 +600,14 @@ String rnd = Common.getGeneratedBarCode(7);
     }
     var payload = {
       action:"anggaran_penggunaan_simpan",
-      workspaceId: parseInt(el("pakaiItem").value, 10),
+      workspaceIdTeks: el("pakaiItem").value,
       kode: (el("pakaiKode").value || "").trim(),
       nama: (el("pakaiNama").value || "").trim(),
       keterangan: (el("pakaiKeterangan").value || "").trim(),
       nilai: angka("pakaiNilai"),
       waktu: (el("pakaiWaktu").value || "") + " 00:00:00"
     };
-    if (el("pakaiId").value) { payload.id = parseInt(el("pakaiId").value, 10); }
+    if (el("pakaiId").value) { payload.idTeks = el("pakaiId").value; }
     api(payload).then(function(d){
       if (!sukses(d)) { pesan(alasan(d), false); return; }
       pesan(d.message || "Tersimpan.", true);
@@ -738,18 +740,18 @@ String rnd = Common.getGeneratedBarCode(7);
   el("isi").addEventListener("click", function(ev){
     var t = ev.target.closest("button");
     if (!t) { return; }
-    var id = parseInt(t.getAttribute("data-id") || "0", 10);
+    var id = t.getAttribute("data-id") || "";
     var i, data = null;
     if (t.classList.contains("aksi-anak") || t.classList.contains("aksi-ubah") || t.classList.contains("aksi-hapus")) {
-      for (i = 0; i < item.length; i++) { if (item[i].id === id) { data = item[i]; } }
+      for (i = 0; i < item.length; i++) { if (String(item[i].idTeks) === id) { data = item[i]; } }
     } else {
-      for (i = 0; i < penggunaan.length; i++) { if (penggunaan[i].id === id) { data = penggunaan[i]; } }
+      for (i = 0; i < penggunaan.length; i++) { if (String(penggunaan[i].idTeks) === id) { data = penggunaan[i]; } }
     }
     if (t.classList.contains("aksi-anak")) { bukaFormItem(null, id); return; }
     if (t.classList.contains("aksi-ubah")) { bukaFormItem(data, 0); return; }
     if (t.classList.contains("aksi-hapus")) {
       if (!confirm("Hapus item \"" + ((data && data.nama) || "") + "\"? Item yang punya turunan atau sudah dipakai realisasi akan ditolak server.")) { return; }
-      api({action:"anggaran_item_hapus", id:id}).then(function(d){
+      api({action:"anggaran_item_hapus", idTeks:id}).then(function(d){
         if (!sukses(d)) { pesan(alasan(d), false); return; }
         pesan(d.message || "Terhapus.", true);
         muatTab();
@@ -759,7 +761,7 @@ String rnd = Common.getGeneratedBarCode(7);
     if (t.classList.contains("pakai-ubah")) { bukaFormPakai(data); return; }
     if (t.classList.contains("pakai-hapus")) {
       if (!confirm("Hapus penggunaan anggaran ini?")) { return; }
-      api({action:"anggaran_penggunaan_hapus", id:id}).then(function(d){
+      api({action:"anggaran_penggunaan_hapus", idTeks:id}).then(function(d){
         if (!sukses(d)) { pesan(alasan(d), false); return; }
         pesan(d.message || "Terhapus.", true);
         muatTab();
