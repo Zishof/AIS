@@ -10,27 +10,19 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import ais.action.master.helper.util.PerguruanTinggiUtil;
-import ais.action.master.sekolah.util.SekolahUtil;
-import ais.action.master.sirs.util.RumahSakitUtil;
 import ais.common.Common;
-import ais.common.home.HomePortalService;
 import ais.database.model.Konfigurasi;
-import ais.database.model.PerguruanTinggi;
-import ais.database.model.sekolah.Sekolah;
-import ais.database.model.sekolah.Yayasan;
-import ais.database.model.sirs.RumahSakit;
 
 /**
  * Servlet halaman index/home.
  *
- * Urutan tampilan publik:
- * 1. Pilihan domain "baru" -> Home V3 (atau home lama bila feature flag dimatikan).
- * 2. Pilihan domain "klasik" -> index/login klasik.
- * 3. Untuk pilihan "default", skin /WEB-INF/j/index.jsp didahulukan.
- * 4. Landing page khusus eBisnis/ERP sesuai konfigurasi.
- * 5. default_home_versi_baru -> Home V3 hanya bila tidak ada skin.
- * 6. Login baru, index/login klasik, lalu redirect /login.
+ * Urutan tampilan publik (kompatibel dengan routing lama):
+ * 1. default_login_ke_ebisnis -> ebisnis.jsp.
+ * 2. default_login_ke_erp -> erp.jsp.
+ * 3. default_home_versi_baru -> home.jsp.
+ * 4. default_home_login_versi_baru -> login2.jsp.
+ * 5. Skin hasil upload (/WEB-INF/j/index.jsp).
+ * 6. Bila skin tidak tersedia -> home.jsp.
  *
  * Enhancement aman:
  * - Null-safe untuk Konfigurasi.
@@ -71,31 +63,6 @@ public class Index extends HttpServlet {
     private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
         initCommonContext(request);
 
-        // Cek pilihan tampilan dari entitas domain (prioritas tertinggi)
-        String pilihan = getPilihanTampilanDomain(request);
-        if (PerguruanTinggi.TAMPILAN_BARU.equals(pilihan)) {
-            forwardModernPublicHome(request, response, "domain");
-            return;
-        } else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(pilihan)) {
-            String filePath = request.getRealPath("/WEB-INF/j/index.jsp");
-            if (fileExists(filePath)) {
-                forward(request, response, "/WEB-INF/j/index.jsp");
-            } else {
-                forward(request, response, "/WEB-INF/j/login.jsp");
-            }
-            return;
-        }
-
-        // Skin tenant adalah tampilan default yang paling spesifik. Jangan ditimpa
-        // konfigurasi home global; hanya pilihan domain "baru" di atas yang sengaja
-        // mengalihkan tenant dari skin ke Home V3.
-        String skinIndex = request.getRealPath("/WEB-INF/j/index.jsp");
-        if (fileExists(skinIndex)) {
-            request.setAttribute("homeUiEntry", "skin");
-            forward(request, response, "/WEB-INF/j/index.jsp");
-            return;
-        }
-
         Konfigurasi config = Common.getKonfigurasi("default_login_ke_ebisnis", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
             forward(request, response, "/WEB-INF/baru/ebisnis.jsp");
@@ -110,7 +77,8 @@ public class Index extends HttpServlet {
 
         config = Common.getKonfigurasi("default_home_versi_baru", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
-            forwardModernPublicHome(request, response, "configuration");
+            request.setAttribute("homeUiEntry", "configuration:home");
+            forward(request, response, "/WEB-INF/baru/home.jsp");
             return;
         }
 
@@ -122,19 +90,13 @@ public class Index extends HttpServlet {
 
         String fileDiMedia = request.getRealPath("/WEB-INF/j/index.jsp");
         if (fileExists(fileDiMedia)) {
+            request.setAttribute("homeUiEntry", "skin");
             forward(request, response, "/WEB-INF/j/index.jsp");
             return;
         }
 
-        fileDiMedia = request.getRealPath("/WEB-INF/j/login.jsp");
-        if (fileExists(fileDiMedia)) {
-            forward(request, response, "/WEB-INF/j/login.jsp");
-            return;
-        }
-
-        if (!response.isCommitted()) {
-            response.sendRedirect(request.getContextPath() + "/login");
-        }
+        request.setAttribute("homeUiEntry", "fallback:home");
+        forward(request, response, "/WEB-INF/baru/home.jsp");
     }
 
     private void initCommonContext(HttpServletRequest request) {
@@ -158,52 +120,6 @@ public class Index extends HttpServlet {
 
     private static boolean isAktif(Konfigurasi config) {
         return config != null && config.getNilai() != null && Konfigurasi.AKTIF.equalsIgnoreCase(config.getNilai().trim());
-    }
-
-    private void forwardModernPublicHome(HttpServletRequest request, HttpServletResponse response, String source)
-            throws ServletException, IOException {
-        Konfigurasi homeV3 = Common.getKonfigurasi("home_ui_v3", Konfigurasi.AKTIF);
-        if (!isAktif(homeV3)) {
-            request.setAttribute("homeUiEntry", source + ":legacy");
-            forward(request, response, "/WEB-INF/baru/home.jsp");
-            return;
-        }
-
-        try {
-            String requestedLanguage = request.getParameter("lang");
-            if (requestedLanguage != null && requestedLanguage.trim().length() > 0) {
-                Common.initBahasaParameter(requestedLanguage.trim());
-            }
-            request.setAttribute("homeUiEntry", source + ":v3");
-            request.setAttribute("homePortal", new HomePortalService().build(request));
-            forward(request, response, "/WEB-INF/baru/home-v3.jsp");
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "Index public home V3 fallback (" + source + ")");
-            if (!response.isCommitted()) {
-                request.setAttribute("homeUiEntry", source + ":fallback");
-                forward(request, response, "/WEB-INF/baru/home.jsp");
-            }
-        }
-    }
-
-    private String getPilihanTampilanDomain(HttpServletRequest request) {
-        try {
-            RumahSakit rumahSakit = RumahSakitUtil.getRumahSakit(request);
-            if (rumahSakit != null && rumahSakit.getId() != null) return rumahSakit.getPiilhanTampilan();
-            boolean[] ptAtauSekolah = Common.chekPtAtauSekolah();
-            boolean ya = ptAtauSekolah != null && ptAtauSekolah.length > 1 && ptAtauSekolah[1];
-            Sekolah sekolah = SekolahUtil.getSekolah(request);
-            if (sekolah != null && sekolah.getId() != null) return sekolah.getPiilhanTampilan();
-
-            Yayasan yayasan = SekolahUtil.getYayasan(request);
-            if (ya && yayasan != null && yayasan.getId() != null) return yayasan.getPiilhanTampilan();
-
-            PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
-            if (pt != null && pt.getId() != null) return pt.getPiilhanTampilan();
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "Index resolve public display choice");
-        }
-        return PerguruanTinggi.TAMPILAN_DEFAULT;
     }
 
     private static boolean fileExists(String filePath) {
