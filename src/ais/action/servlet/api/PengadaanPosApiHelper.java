@@ -1595,12 +1595,43 @@ public final class PengadaanPosApiHelper {
 				po.setTanggalDitolak(null);
 				po.setDitolakOleh(null);
 				po.setAlasanDitolak(null);
+				// Sisi lain dari aturan di cabang TOLAK: susulan yang hidup kembali
+				// berarti sisa induknya memang tidak lagi menunggu kiriman.
+				if (po.getPoInduk() != null) {
+					PemesananPengadaanMasterAsset induk = po.getPoInduk();
+					if (!Boolean.TRUE.equals(induk.getTutup())) {
+						induk.setTutup(Boolean.TRUE);
+						session.saveOrUpdate(induk);
+					}
+				}
 			} else if ("TOLAK".equals(keputusan)) {
 				po.setTanggalDitolak(ais.ui.util.WaktuUtil.getDate());
 				po.setDitolakOleh(tbmuser);
 				po.setAlasanDitolak(alasan);
 				po.setTanggalPersetujuan(null);
 				po.setDisetujuiOleh(null);
+				/* KE-FIX: pesanan SUSULAN yang ditolak harus MEMBUKA KEMBALI pesanan
+				 * induknya.
+				 *
+				 * Back Order menutup sisa pesanan lama (tutup=true) lalu menerbitkan
+				 * pesanan susulan. Bila susulan itu kemudian DITOLAK, kekurangannya tidak
+				 * lagi dipesan di mana pun -- tetapi pesanan induknya tetap berstatus
+				 * DITUTUP selamanya. Akibatnya penerimaan barang atas pesanan itu tidak
+				 * dapat disunting lagi ("Sisa Pemesanan Pembelian ini sudah ditutup lewat
+				 * Back Order"), dan tidak ada satu pun jalan untuk memulihkannya dari
+				 * layar mana pun -- pengguna terkunci.
+				 *
+				 * Aturannya dijadikan tegas: induk tertutup HANYA selama susulannya masih
+				 * hidup. Susulan yang ditolak berarti keputusan menutup sisa itu batal,
+				 * jadi induknya dibuka kembali. */
+				if (po.getPoInduk() != null) {
+					PemesananPengadaanMasterAsset induk = po.getPoInduk();
+					if (Boolean.TRUE.equals(induk.getTutup())) {
+						induk.setTutup(Boolean.FALSE);
+						session.saveOrUpdate(induk);
+						hasil.put("po_induk_dibuka", induk.getKode() == null ? "" : induk.getKode());
+					}
+				}
 			} else {
 				po.setTanggalPersetujuan(null);
 				po.setDisetujuiOleh(null);
