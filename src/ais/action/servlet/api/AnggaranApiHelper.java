@@ -305,6 +305,11 @@ public final class AnggaranApiHelper {
 		JSONObject j = new JSONObject();
 		j.put("id", w.getId());
 		j.put("parentId", w.getParentId() == null ? JSONObject.NULL : w.getParentId());
+		// Bentuk TEKS untuk kanal yang angkanya tidak sanggup 19 digit (JavaScript membulatkan
+		// diam-diam di atas 2^53). Klien JSP wajib memakai idTeks/parentIdTeks saat mengirim
+		// balik; bidang angka di atas dibiarkan demi klien Dart yang int-nya 64 bit.
+		j.put("idTeks", w.getId() == null ? "" : String.valueOf(w.getId()));
+		j.put("parentIdTeks", w.getParentId() == null ? "" : String.valueOf(w.getParentId()));
 		j.put("deep", w.getDeep() == null ? 0 : w.getDeep());
 		j.put("kode", w.getKode() == null ? "" : w.getKode());
 		j.put("nama", w.getNama() == null ? "" : w.getNama());
@@ -1065,11 +1070,14 @@ public final class AnggaranApiHelper {
 				j.put("sumber", sumberDokumen(p));
 				try {
 					j.put("workspaceId", p.getWorkspace() == null ? JSONObject.NULL : p.getWorkspace().getId());
+					j.put("workspaceIdTeks", p.getWorkspace() == null ? ""
+							: String.valueOf(p.getWorkspace().getId()));
 					j.put("workspaceLabel", p.getWorkspace() == null ? ""
 							: ((p.getWorkspace().getKode() == null ? "" : p.getWorkspace().getKode()) + " - "
 									+ (p.getWorkspace().getNama() == null ? "" : p.getWorkspace().getNama())));
 				} catch (Exception e) {
 					j.put("workspaceId", JSONObject.NULL);
+					j.put("workspaceIdTeks", "");
 					j.put("workspaceLabel", "");
 				}
 				if (aktif) {

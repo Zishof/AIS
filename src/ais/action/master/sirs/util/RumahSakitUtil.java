@@ -17,7 +17,7 @@ import ais.database.model.sirs.RumahSakit;
 
 /** Resolusi tenant fasilitas kesehatan berdasarkan domain request publik. */
 public final class RumahSakitUtil {
-    private static final long CACHE_MILLIS = 60_000L;
+    private static final long CACHE_MILLIS = 60000L;
     private static final Object CACHE_LOCK = new Object();
     private static volatile Map<String, RumahSakit> byDomain = Collections.emptyMap();
     private static volatile long loadedAt;
