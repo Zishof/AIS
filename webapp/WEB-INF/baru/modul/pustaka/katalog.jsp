@@ -5,8 +5,8 @@ String requestedSort = request.getParameter("sort");
 String defaultSort = ("POPULAR".equals(requestedSort) || "YEAR_DESC".equals(requestedSort)
         || "TITLE_ASC".equals(requestedSort) || "AUTHOR_ASC".equals(requestedSort)) ? requestedSort : "NEWEST";
 %>
-<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821d">
-<script src="<%=root%>/assets/library-modern/library.js?v=20260821d"></script>
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821e">
+<script src="<%=root%>/assets/library-modern/library.js?v=20260821e"></script>
 
 <div class="library-modern library-discovery-v2" id="libraryCatalog<%=rnd%>">
   <section class="library-hero library-discovery-hero" id="libraryHero<%=rnd%>" aria-labelledby="libraryTitle<%=rnd%>">

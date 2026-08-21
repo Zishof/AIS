@@ -6,11 +6,12 @@
     String rnd = Common.getGeneratedBarCode(7);
     String sParam = request.getParameter("s");
     String menuAwal = (sParam != null && !sParam.trim().isEmpty()) ? sParam : "katalog";
+    boolean katalogTanpaHeroHeader = "katalog".equals(menuAwal) || "populer".equals(menuAwal);
 %>
 
 <head>
-    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821d">
-    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821d"></script>
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821e">
+    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821e"></script>
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
@@ -20,7 +21,7 @@
     <jsp:param name="rnd" value="<%=rnd%>" />
 </jsp:include>
 
-<div class="container-fluid library-shell-modern mb-5 px-0" style="position: relative; z-index: 1; min-height: 60vh;">
+<div class="container-fluid library-shell-modern <%=katalogTanpaHeroHeader ? "library-shell-fixed-header" : ""%> mb-5 px-0" id="libraryShell<%=rnd%>" style="position: relative; z-index: 1; min-height: 60vh; --library-fixed-header-offset:<%=katalogTanpaHeroHeader ? "76px" : "0px"%>;">
     <div class="row g-4">
         <div class="col-lg-12" id="mainContentScroll<%=rnd%>">
             <div class="card border-0 panel-bg-white-<%=rnd%> p-0" style="overflow: hidden;">
@@ -144,5 +145,13 @@ function panggilMenu<%=rnd%>(menuNama) {
 const showLoading<%=rnd%> = () => { document.getElementById('globalLoader<%=rnd%>').classList.replace('d-none', 'd-flex'); };
 const hideLoading<%=rnd%> = () => { document.getElementById('globalLoader<%=rnd%>').classList.replace('d-flex', 'd-none'); };
 
-document.addEventListener("DOMContentLoaded", () => { panggilMenu<%=rnd%>('<%=menuAwal%>'); });
+function updateLibraryHeaderOffset<%=rnd%>() {
+    const shell = document.getElementById('libraryShell<%=rnd%>');
+    const nav = document.querySelector('.navbar-custom-perpus.fixed-top');
+    if (shell && nav && shell.classList.contains('library-shell-fixed-header')) {
+        shell.style.setProperty('--library-fixed-header-offset', Math.ceil(nav.getBoundingClientRect().height) + 'px');
+    }
+}
+document.addEventListener("DOMContentLoaded", () => { updateLibraryHeaderOffset<%=rnd%>(); panggilMenu<%=rnd%>('<%=menuAwal%>'); });
+window.addEventListener('resize', updateLibraryHeaderOffset<%=rnd%>);
 </script>
