@@ -1,0 +1,14 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.util.*" %><%@ page import="java.text.NumberFormat" %>
+<%@ page import="ais.action.master.repository.RepositoryPublicService.*" %>
+<%!
+private String lh(String v){return v==null?"":v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
+%><%
+String root=request.getContextPath(),view=String.valueOf(request.getAttribute("repoView"));
+if(!"home".equals(view)){%><jsp:include page="/WEB-INF/baru/modul/repository/ListRepository.jsp"/><%return;}
+Summary summary=(Summary)request.getAttribute("repoSummary");List<ItemCard> latest=(List<ItemCard>)request.getAttribute("repoLatest");if(latest==null)latest=Collections.emptyList();
+NumberFormat nf=NumberFormat.getIntegerInstance(new Locale("id","ID"));
+%>
+<div class="repo-modern repo-legacy"><header class="repo-nav"><div class="repo-wrap repo-nav-inner"><a class="repo-brand" href="<%=root%>/repository"><span class="repo-brand-mark">▤</span><span><strong>Repositori Institusi</strong><small>Tampilan kompatibilitas V1</small></span></a><nav class="repo-links"><a href="<%=root%>/repository">Beranda</a><a href="<%=root%>/repository/search">Jelajah</a><a href="<%=root%>/repository/policies">Kebijakan</a><a href="<%=root%>/repository/help">Bantuan</a></nav></div></header>
+<main><section class="repo-wrap repo-hero"><div class="repo-hero-main"><span class="repo-eyebrow">Repositori institusi</span><h1>Temukan karya ilmiah dan pengetahuan institusi</h1><p>Telusuri metadata dan publikasi yang tersedia untuk umum.</p><form class="repo-search" action="<%=root%>/repository/search"><input name="q" maxlength="200" placeholder="Cari judul, penulis, subjek, atau identifier"><button class="repo-btn repo-btn-primary">Cari</button></form></div><aside class="repo-summary"><h2>Ringkasan</h2><div class="repo-stat-grid"><div class="repo-stat"><b><%=summary==null?"0":nf.format(summary.totalItems)%></b><span>Karya publik</span></div><div class="repo-stat"><b><%=summary==null?"0":nf.format(summary.totalCollections)%></b><span>Koleksi</span></div></div></aside></section>
+<section class="repo-wrap repo-section"><div class="repo-section-head"><h2>Publikasi terbaru</h2><a class="repo-link" href="<%=root%>/repository/search">Lihat semua</a></div><div class="repo-results"><%for(ItemCard item:latest){%><article class="repo-card repo-result-card"><h2><a href="<%=root%>/repository/item/<%=item.id%>"><%=lh(item.title)%></a></h2><div class="repo-meta"><%=lh(item.authors)%> · <%=lh(item.year)%> · <%=lh(item.collectionName)%></div><p class="repo-abstract"><%=lh(item.abstractText)%></p></article><%}if(latest.isEmpty()){%><div class="repo-card repo-empty"><p>Belum ada publikasi yang tersedia.</p></div><%}%></div></section></main></div>

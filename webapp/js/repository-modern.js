@@ -49,7 +49,7 @@
       }
       function render(rows) {
         panel.textContent = ''; options = []; activeIndex = -1;
-        if (!rows || !rows.length) { closeSuggestions(); return; }
+        if (!rows || !rows.length) { showSuggestionState('Tidak ada saran. Tekan Enter untuk mencari kata kunci ini.'); return; }
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i], button = document.createElement('button');
           button.type = 'button'; button.className = 'repo-suggestion'; button.id = panel.id + '-option-' + i;
@@ -91,6 +91,14 @@
       document.addEventListener('click', function (event) { if (!form.contains(event.target)) closeSuggestions(); });
       updateClear();
     }(suggestForms[sf]));
+
+    var searchSkeleton = document.querySelector('[data-repo-search-skeleton]');
+    var repositorySearchForms = document.querySelectorAll('form[role="search"], .repo-advanced-search form');
+    for (var rs = 0; rs < repositorySearchForms.length; rs++) repositorySearchForms[rs].addEventListener('submit', function () {
+      if (searchSkeleton) { searchSkeleton.hidden = false; searchSkeleton.setAttribute('aria-hidden', 'false'); }
+      this.setAttribute('aria-busy', 'true');
+      var submit = this.querySelector('[type="submit"]'); if (submit) { submit.disabled = true; submit.setAttribute('data-old-label', submit.textContent); submit.textContent = 'Memuat…'; }
+    });
 
     var filterButton = document.querySelector('[data-repo-filter-toggle]');
     var filterPanel = document.querySelector('[data-repo-facets]');

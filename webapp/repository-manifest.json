@@ -1,0 +1,11 @@
+{
+  "name": "Repositori Institusi AIS",
+  "short_name": "Repository AIS",
+  "start_url": "./repository",
+  "scope": "./repository",
+  "display": "standalone",
+  "background_color": "#f7fafe",
+  "theme_color": "#0b3155",
+  "lang": "id",
+  "description": "Penelusuran metadata dan karya ilmiah institusi."
+}

@@ -165,6 +165,8 @@ public class RepositoryWorkspace extends HttpServlet {
     }
 
     private void processUpload(HttpServletRequest request, HttpServletResponse response, Tbmuser user, String requestId) throws Exception {
+        if (!workflow.canDeposit(user) && !workflow.isRepositoryAdmin(user))
+            throw new SecurityException("Pengguna tidak memiliki izin unggah repository.");
         DiskFileItemFactory factory = new DiskFileItemFactory();
         factory.setSizeThreshold(1024 * 1024);
         ServletFileUpload upload = new ServletFileUpload(factory);

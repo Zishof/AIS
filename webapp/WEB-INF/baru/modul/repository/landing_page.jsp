@@ -44,6 +44,7 @@ ItemDetail seoItem = (ItemDetail) request.getAttribute("repoItem");
 String pageTitle = seoItem == null ? "Repositori Institusi - " + institution : seoItem.title + " - " + institution;
 String origin = request.getScheme() + "://" + request.getServerName() + ((request.getServerPort()==80||request.getServerPort()==443)?"":":"+request.getServerPort());
 String canonical = seoItem == null ? origin + context + "/repository" : origin + context + "/repository/item/" + seoItem.id;
+boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.repository.uiV2", "true"));
 %>
 <!doctype html>
 <html lang="id">
@@ -51,6 +52,8 @@ String canonical = seoItem == null ? origin + context + "/repository" : origin +
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b3155">
+  <link rel="manifest" href="<%=context%>/repository-manifest.json">
+  <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="<%=repoHtml(seoItem == null ? "Repositori karya ilmiah, publikasi, bahan ajar, dan pengetahuan institusi." : seoItem.abstractText)%>">
   <link rel="canonical" href="<%=repoHtml(canonical)%>">
   <% if (logo != null && logo.trim().length() > 0) { %><link rel="icon" href="<%=repoHtml(logo)%>"><% } %>
@@ -77,8 +80,8 @@ String canonical = seoItem == null ? origin + context + "/repository" : origin +
   <jsp:include page="/WEB-INF/baru/modul/repository/_repository_theme.jsp" />
 </head>
 <body>
-  <jsp:include page="/WEB-INF/baru/modul/repository/ListRepository.jsp" />
+  <%if(repositoryV2){%><jsp:include page="/WEB-INF/baru/modul/repository/ListRepository.jsp" /><%}else{%><jsp:include page="/WEB-INF/baru/modul/repository/ListRepositoryLegacy.jsp" /><%}%>
   <script src="<%=context%>/js/repository-modern.js" defer></script>
-  <script>try{var c=getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim();if(c){document.querySelector('meta[name="theme-color"]').setAttribute('content',c);}}catch(e){}</script>
+  <script>try{var c=getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim();if(c){document.querySelector('meta[name="theme-color"]').setAttribute('content',c);}if('serviceWorker' in navigator){navigator.serviceWorker.register('<%=context%>/repository-sw.js',{scope:'<%=context%>/repository'});}}catch(e){}</script>
 </body>
 </html>

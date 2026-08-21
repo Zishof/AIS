@@ -73,7 +73,7 @@ public class RepositoryWorkflowService {
     }
 
     public RepoItem createDraft(final DraftInput input, final Tbmuser actor, final String requestId) {
-        requireLogin(actor);
+        requireDepositor(actor);
         return write(new Work<RepoItem>() {
             public RepoItem run(Session session) {
                 ensureCollectionAcceptsDeposit(session, input == null ? null : input.collectionId);
@@ -96,7 +96,7 @@ public class RepositoryWorkflowService {
     }
 
     public RepoItem saveDraft(final DraftInput input, final Tbmuser actor, final String requestId) {
-        requireLogin(actor);
+        requireDepositor(actor);
         if (input == null || input.id == null) return createDraft(input, actor, requestId);
         return write(new Work<RepoItem>() {
             public RepoItem run(Session session) {
@@ -117,11 +117,13 @@ public class RepositoryWorkflowService {
 
     public RepoItem submit(final Long itemId, final Long expectedVersion, final Tbmuser actor,
             final String comment, final String requestId) {
+        requireDepositor(actor);
         return transition(itemId, expectedVersion, actor, comment, requestId, "SUBMIT",
                 new String[] { DRAFT, REVISION_REQUIRED }, SUBMITTED, true, false);
     }
 
     public RepoItem resubmit(Long itemId, Long expectedVersion, Tbmuser actor, String comment, String requestId) {
+        requireDepositor(actor);
         return transition(itemId, expectedVersion, actor, comment, requestId, "RESUBMIT",
                 new String[] { REVISION_REQUIRED }, SUBMITTED, true, false);
     }
@@ -534,6 +536,18 @@ public class RepositoryWorkflowService {
         }
     }
 
+    public boolean isRepositoryAdministrator(Tbmuser user) {
+        if(user==null)return false;try{Tbmrole role=user.hakAkses();return role!=null&&Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId());}catch(Exception e){return false;}
+    }
+
+    public boolean canDeposit(Tbmuser user) {
+        if (user == null) return false;
+        try {
+            Tbmrole role = user.hakAkses();
+            return isRepositoryAdmin(user) || (role != null && Boolean.TRUE.equals(role.getBacaRepository()));
+        } catch (Exception e) { return false; }
+    }
+
     private void requireReviewer(Tbmuser actor) {
         requireLogin(actor);
         if (!isRepositoryAdmin(actor)) throw new SecurityException("Hak reviewer repository diperlukan.");
@@ -541,6 +555,11 @@ public class RepositoryWorkflowService {
 
     private void requireLogin(Tbmuser actor) {
         if (actor == null || blank(actor.getUserId())) throw new SecurityException("Login diperlukan.");
+    }
+
+    private void requireDepositor(Tbmuser actor) {
+        requireLogin(actor);
+        if (!canDeposit(actor)) throw new SecurityException("Pengguna tidak memiliki izin deposit repository.");
     }
 
     private void requireTransition(String from, String to) {

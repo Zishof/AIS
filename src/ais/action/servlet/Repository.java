@@ -13,11 +13,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.UUID;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -41,6 +43,7 @@ import ais.database.model.Tbmuser;
 public class Repository extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final String JSP = "/WEB-INF/baru/modul/repository/landing_page.jsp";
+    private static final String CSRF = "repository.public.csrf";
     private final RepositoryPublicService service = new RepositoryPublicService();
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
@@ -65,6 +68,8 @@ public class Repository extends HttpServlet {
         try {
             request.setCharacterEncoding("UTF-8");
             process(request, response, requestId);
+        } catch (SecurityException e) {
+            if (!response.isCommitted()) renderState(request,response,HttpServletResponse.SC_FORBIDDEN,"Akses tidak diizinkan",e.getMessage(),requestId);
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.recordVisibleFailure(e,
                     "Repository public servlet", request, requestId);
@@ -123,6 +128,14 @@ public class Repository extends HttpServlet {
                     clean(request.getParameter("field")), 8), requestId);
             return;
         }
+        if ("bookmark".equals(action) || "savesearch".equals(action) || "removepreference".equals(action)) {
+            Tbmuser actor=Common.getCurrentUser(request);if(actor==null){renderState(request,response,HttpServletResponse.SC_UNAUTHORIZED,"Sesi telah berakhir","Silakan masuk kembali untuk melanjutkan.",requestId);return;}
+            if(!"POST".equalsIgnoreCase(request.getMethod())){response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);return;}
+            verifyPublicCsrf(request.getSession(false),request.getParameter("csrf"));
+            if("bookmark".equals(action)){Long itemId=parseLong(request.getParameter("id"));service.toggleBookmark(actor.getUserId(),itemId);response.sendRedirect(request.getContextPath()+"/repository/item/"+itemId);return;}
+            if("savesearch".equals(action)){service.saveSearch(actor.getUserId(),clean(request.getParameter("label")),safeRepositoryUrl(request,request.getParameter("queryValue")),"true".equalsIgnoreCase(request.getParameter("alert")));response.sendRedirect(safeRepositoryUrl(request,request.getParameter("returnTo")));return;}
+            service.removePreference(actor.getUserId(),parseLong(request.getParameter("preferenceId")));response.sendRedirect(request.getContextPath()+"/repository");return;
+        }
         if ("download".equals(action)) {
             download(request, response);
             return;
@@ -143,9 +156,12 @@ public class Repository extends HttpServlet {
         if (view.length() == 0) view = "home";
         request.setAttribute("repoView", view);
         Tbmuser publicUser = Common.getCurrentUser(request);
+        if(publicUser==null&&"GET".equalsIgnoreCase(request.getMethod()))response.setHeader("X-Repository-Cacheable","public");
+        HttpSession publicSession=request.getSession(true);String publicCsrf=(String)publicSession.getAttribute(CSRF);if(publicCsrf==null){publicCsrf=UUID.randomUUID().toString()+UUID.randomUUID().toString();publicSession.setAttribute(CSRF,publicCsrf);}request.setAttribute("repoCsrf",publicCsrf);
         request.setAttribute("repoPublicUser", publicUser);
-        request.setAttribute("repoIsReviewer", Boolean.valueOf(workflow.isRepositoryAdmin(publicUser)));
-        request.setAttribute("repoCanDeposit", Boolean.valueOf(publicUser != null && service.hasDepositCollection()));
+        request.setAttribute("repoIsAdmin",Boolean.valueOf(workflow.isRepositoryAdministrator(publicUser)));
+        request.setAttribute("repoIsReviewer", Boolean.valueOf(workflow.isRepositoryAdmin(publicUser)&&!workflow.isRepositoryAdministrator(publicUser)));
+        request.setAttribute("repoCanDeposit", Boolean.valueOf(workflow.canDeposit(publicUser) && service.hasDepositCollection()));
 
         if ("item".equals(view)) {
             Long itemId=routeId==null?parseLong(request.getParameter("id")):routeId;
@@ -155,9 +171,11 @@ public class Repository extends HttpServlet {
                 if (detail == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan."); return; }
             }
             request.setAttribute("repoItem", detail);
+            if(publicUser!=null){boolean bookmarked=false;for(RepositoryPublicService.PreferenceView p:service.preferences(publicUser.getUserId(),"BOOKMARK",100))if(detail.id.equals(p.itemId)){bookmarked=true;break;}request.setAttribute("repoBookmarked",Boolean.valueOf(bookmarked));}
             if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
             request.setAttribute("repoSearch", service.search(queryFrom(request)));
+            if(publicUser!=null){request.setAttribute("repoSavedSearches",service.preferences(publicUser.getUserId(),"SAVED_SEARCH",20));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",20));}
         } else if ("collection".equals(view)) {
             CollectionView collection=service.findCollection(routeId==null?parseLong(request.getParameter("id")):routeId);
             if(collection==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Koleksi tidak ditemukan.");return;}
@@ -175,6 +193,7 @@ public class Repository extends HttpServlet {
             request.setAttribute("repoLatest", service.latest(6));
             request.setAttribute("repoPopularCollections", service.popularCollections(6));
             request.setAttribute("repoPopularTopics", service.popularSubjects(10));
+            if(publicUser!=null){request.setAttribute("repoRecommendations",service.recommendations(publicUser.getUserId(),4));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",10));}
         }
         request.getRequestDispatcher(JSP).forward(request, response);
     }
@@ -251,6 +270,11 @@ public class Repository extends HttpServlet {
         }
         root.put("suggestions", rows); writeJson(response, root, HttpServletResponse.SC_OK);
     }
+
+    private void verifyPublicCsrf(HttpSession session,String supplied){String expected=session==null?null:(String)session.getAttribute(CSRF);if(!constantTime(expected,supplied))throw new SecurityException("Token keamanan tidak valid atau sesi telah berakhir.");}
+    private boolean constantTime(String a,String b){if(a==null||b==null)return false;int diff=a.length()^b.length(),n=Math.min(a.length(),b.length());for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i);return diff==0;}
+    private String safeRepositoryUrl(HttpServletRequest request,String value){String context=request.getContextPath(),v=clean(value);if(v.startsWith(context+"/repository"))return v;if(v.startsWith("/repository"))return context+v;return context+"/repository";}
+    private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));request.getRequestDispatcher(JSP).forward(request,response);}
 
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {
         ItemDetail item = service.findPublicItem(parseLong(request.getParameter("id")));

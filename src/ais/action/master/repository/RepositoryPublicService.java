@@ -29,6 +29,7 @@ import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoItemRelation;
 import ais.database.model.repository.RepoUsageEvent;
+import ais.database.model.repository.RepoUserPreference;
 import ais.database.model.file.LampiranLain;
 
 /**
@@ -120,6 +121,10 @@ public class RepositoryPublicService {
         public String label = "";
         public String detail = "";
         public String value = "";
+    }
+
+    public static class PreferenceView {
+        public Long id,itemId; public String type="",label="",queryValue=""; public Date createdAt;
     }
 
     public static class BitstreamView {
@@ -279,6 +284,54 @@ public class RepositoryPublicService {
     public boolean hasDepositCollection() {
         return count(session().createCriteria(RepoCollection.class).add(activeRestriction())
                 .add(Restrictions.or(Restrictions.isNull("depositEnabled"), Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<PreferenceView> preferences(String userId, String type, int maximum) {
+        String owner=limit(clean(userId),255), kind=normalizePreferenceType(type);
+        List<PreferenceView> result=new ArrayList<PreferenceView>(); if(owner.length()==0||kind.length()==0)return result;
+        List<RepoUserPreference> rows=session().createCriteria(RepoUserPreference.class)
+                .add(Restrictions.eq("userId",owner)).add(Restrictions.eq("preferenceType",kind)).add(activeRestriction())
+                .addOrder(Order.desc("createdAt")).setMaxResults(maximum<1?20:Math.min(maximum,100)).list();
+        for(RepoUserPreference row:rows){PreferenceView v=new PreferenceView();v.id=row.getId();v.itemId=row.getItemId();v.type=kind;v.label=safe(row.getLabel());v.queryValue=safe(row.getQueryValue());v.createdAt=row.getCreatedAt();result.add(v);}return result;
+    }
+
+    public boolean toggleBookmark(String userId, Long itemId) {
+        String owner=limit(clean(userId),255);if(owner.length()==0||itemId==null||findPublicItem(itemId)==null)throw new SecurityException("Bookmark memerlukan pengguna dan item publik yang valid.");
+        Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
+            RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("userId",owner))
+                    .add(Restrictions.eq("preferenceType","BOOKMARK")).add(Restrictions.eq("itemId",itemId)).setMaxResults(1).uniqueResult();
+            boolean active=row==null||!Boolean.TRUE.equals(row.getAktif());if(row==null){row=new RepoUserPreference();row.setUserId(owner);row.setPreferenceType("BOOKMARK");row.setItemId(itemId);row.setLabel("");row.setQueryValue("");row.setCreatedAt(new Date());}
+            row.setAktif(Boolean.valueOf(active));s.saveOrUpdate(row);tx.commit();return active;
+        }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
+    }
+
+    public void saveSearch(String userId,String label,String queryValue,boolean alert) {
+        String owner=limit(clean(userId),255),query=limit(clean(queryValue),2000);if(owner.length()==0||query.length()==0)throw new IllegalArgumentException("Pencarian yang disimpan tidak valid.");
+        Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
+            RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("userId",owner))
+                    .add(Restrictions.eq("preferenceType",alert?"SEARCH_ALERT":"SAVED_SEARCH")).add(Restrictions.eq("queryValue",query)).setMaxResults(1).uniqueResult();
+            if(row==null){row=new RepoUserPreference();row.setUserId(owner);row.setPreferenceType(alert?"SEARCH_ALERT":"SAVED_SEARCH");row.setQueryValue(query);row.setCreatedAt(new Date());}
+            row.setLabel(limit(clean(label).length()==0?"Pencarian repository":clean(label),255));row.setAktif(Boolean.TRUE);s.saveOrUpdate(row);tx.commit();
+        }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
+    }
+
+    public void removePreference(String userId,Long id) {
+        String owner=limit(clean(userId),255);if(owner.length()==0||id==null)return;Session s=session();org.hibernate.Transaction tx=s.beginTransaction();try{
+            RepoUserPreference row=(RepoUserPreference)s.createCriteria(RepoUserPreference.class).add(Restrictions.eq("id",id)).add(Restrictions.eq("userId",owner)).uniqueResult();
+            if(row!=null){row.setAktif(Boolean.FALSE);s.update(row);}tx.commit();
+        }catch(RuntimeException e){if(tx.isActive())tx.rollback();throw e;}
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<ItemCard> recommendations(String userId,int maximum) {
+        List<PreferenceView> bookmarks=preferences(userId,"BOOKMARK",30);if(bookmarks.isEmpty())return new ArrayList<ItemCard>();
+        List<Long> ids=new ArrayList<Long>();for(PreferenceView v:bookmarks)if(v.itemId!=null)ids.add(v.itemId);if(ids.isEmpty())return new ArrayList<ItemCard>();
+        List<RepoItem> source=publicCriteria(session(),null).add(Restrictions.in("id",ids)).list();org.hibernate.criterion.Disjunction topics=Restrictions.disjunction();boolean hasTopic=false;
+        for(RepoItem row:source){String token=firstToken(row.getSubjects());if(token.length()>0){topics.add(Restrictions.ilike("subjects",token,MatchMode.ANYWHERE));hasTopic=true;}}
+        if(!hasTopic)return new ArrayList<ItemCard>();
+        List<RepoItem> rows=publicCriteria(session(),null).add(topics).add(Restrictions.not(Restrictions.in("id",ids))).addOrder(Order.desc("issuedAt"))
+                .setMaxResults(maximum<1?4:Math.min(maximum,12)).list();return cards(session(),rows);
     }
 
     @SuppressWarnings("unchecked")
@@ -831,6 +884,10 @@ public class RepositoryPublicService {
         String field = clean(value).toLowerCase();
         return "title".equals(field) || "author".equals(field) || "subject".equals(field)
                 || "identifier".equals(field) ? field : "all";
+    }
+
+    private String normalizePreferenceType(String value) {
+        String type=clean(value).toUpperCase();return "BOOKMARK".equals(type)||"SAVED_SEARCH".equals(type)||"SEARCH_ALERT".equals(type)?type:"";
     }
 
     private String normalizeSort(String value) {

@@ -217,6 +217,7 @@
 		<mapping class="ais.database.model.repository.RepoItemRelation" />
 		<mapping class="ais.database.model.repository.RepoUsageEvent" />
 		<mapping class="ais.database.model.repository.RepoNotification" />
+		<mapping class="ais.database.model.repository.RepoUserPreference" />
 
 
 
