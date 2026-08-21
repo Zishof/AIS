@@ -710,6 +710,53 @@ public class KantinHelper {
 						}
 						ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
 								sesiKasAktif, idPerangkatTransaksi, namaPerangkat(jsonObject));
+						/* =====================================================================
+						 * GERBANG SESI KAS -- JANGAN DIPERKETAT TANPA MEMBACA CATATAN INI
+						 * =====================================================================
+						 *
+						 * Gerbang di bawah pernah menahan 61 transaksi Toko Al Bahjah selama
+						 * dua hari (19-21 Agustus 2026). Uang sudah diterima di kasir dan
+						 * struk sudah tercetak, tetapi penjualannya tidak pernah tercatat.
+						 * Riwayat itu penting supaya perbaikannya tidak dianggap kelonggaran
+						 * yang layak "dikencangkan kembali".
+						 *
+						 * SIFAT SISTEMNYA. POS bekerja LOKAL-DULU: penjualan tersimpan di
+						 * perangkat lebih dahulu, pengirimannya menyusul -- bisa beberapa
+						 * detik, bisa beberapa hari bila jaringan mati. Karena itu, ketika
+						 * sebuah transaksi tiba di sini, keadaan sesi kas SUDAH BOLEH
+						 * BERUBAH sejak penjualannya terjadi. Itu keadaan NORMAL, bukan
+						 * tanda penyalahgunaan.
+						 *
+						 * TIGA KEADAAN YANG WAJIB TETAP DITERIMA:
+						 *
+						 * (a) Sesi asalnya SUDAH DITUTUP. Sesi lama tidak akan pernah
+						 *     terbuka kembali, jadi menolaknya berarti menolak SELAMANYA:
+						 *     percobaan berikutnya pasti gagal dengan alasan yang sama.
+						 *     Transaksinya diikat ke sesi asal itu, bukan ke sesi berjalan.
+						 *
+						 * (b) Kode sesinya TIDAK DIKENAL server. POS versi lama menyimpan
+						 *     kode karangan 'sesi-<tokoId>' saat status kas dipelajari dari
+						 *     server. Kode asing tidak membawa informasi apa pun, jadi
+						 *     menolaknya TIDAK menambah pengamanan sedikit pun -- payload
+						 *     yang sama sekali tidak mengirim `kode_sesi_kas` sudah lolos
+						 *     gerbang ini tanpa syarat sejak dulu. Siapa pun yang hendak
+						 *     menyalahgunakan cukup menghilangkan fieldnya.
+						 *
+						 * (c) Pesanan tertahan milik kasir yang sedang login.
+						 *
+						 * YANG BENAR-BENAR DIJAGA. Sesi asal hanya diterima bila TOKO,
+						 * KASIR, dan PERANGKATnya sama. Kode sesi milik kasir atau
+						 * perangkat lain tetap ditolak -- itulah penyalahgunaan yang
+						 * gerbang ini memang ada untuk mencegahnya, dan bagian itu tidak
+						 * boleh dilonggarkan.
+						 *
+						 * SETIAP JALUR TIDAK BIASA MENINGGALKAN JEJAK. Sesi yang sudah
+						 * ditutup dan kode yang tidak dikenal sama-sama dicatat ke audit
+						 * serta dikembalikan ke klien. Jangan menghapus pencatatan itu:
+						 * transaksi yang mendarat di sesi tertutup membuat total sesi
+						 * berbeda dari kertas Tutup Kas yang sudah ditandatangani, dan
+						 * selisih uang tidak boleh terjadi tanpa jejak.
+						 */
 						String kodeSesiDiminta = jsonObject.optString("kode_sesi_kas", "").trim();
 						if (kodeSesiDiminta.length() > 0 && !kodeSesiDiminta.equals(sesiKasAktif.getKode())) {
 							// Pembayaran langsung selalu diikat ke sesi server yang sedang aktif. Kode sesi
