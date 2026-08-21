@@ -17,7 +17,7 @@ import javax.persistence.TemporalType;
 public class RepoUsageEvent implements Serializable {
     private static final long serialVersionUID = 1L;
     private Long id, itemId, bitstreamId;
-    private String eventType, visitorHash, actorId, userAgentClass;
+    private String eventType, visitorHash, actorId, userAgentClass, countryCode, referrerHost;
     private Date occurredAt;
     @Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",insertable=false,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}
     @Column(name="item_id",nullable=false) public Long getItemId(){return itemId;} public void setItemId(Long v){itemId=v;}
@@ -26,5 +26,7 @@ public class RepoUsageEvent implements Serializable {
     @Column(name="visitor_hash",length=64) public String getVisitorHash(){return visitorHash;} public void setVisitorHash(String v){visitorHash=v;}
     @Column(name="actor_id",length=255) public String getActorId(){return actorId;} public void setActorId(String v){actorId=v;}
     @Column(name="user_agent_class",length=40) public String getUserAgentClass(){return userAgentClass;} public void setUserAgentClass(String v){userAgentClass=v;}
+    @Column(name="country_code",length=8) public String getCountryCode(){return countryCode;} public void setCountryCode(String v){countryCode=v;}
+    @Column(name="referrer_host",length=255) public String getReferrerHost(){return referrerHost;} public void setReferrerHost(String v){referrerHost=v;}
     @Temporal(TemporalType.TIMESTAMP) @Column(name="occurred_at",nullable=false) public Date getOccurredAt(){return occurredAt;} public void setOccurredAt(Date v){occurredAt=v;}
 }

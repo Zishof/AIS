@@ -211,9 +211,15 @@ public class GenerateNimCalonMahasiswaAkademikAction extends GenericAutowireComp
 			} else {
 				nim = nimGenerator.generateNim(calonMahasiswa);
 			}
+			boolean izinkanNimDenganTandaHubung = CommonPMB.konfirmasiNimMengandungTandaJikaPerlu(nim,
+					calonMahasiswa);
+			if (!izinkanNimDenganTandaHubung) {
+				return;
+			}
 			calonMahasiswa.setNim(nim);
 			Session session = HibernateUtil.currentSession();
-			mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim);
+			mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false,
+					izinkanNimDenganTandaHubung);
 
 			MyMessageboxConfig.showFormat(
 					"NIM telah berhasil digenerate untuk calon mahasiswa yang bersangkutan, yaitu \"{V1}\". Silakan lanjutkan ke proses berikutnya.",

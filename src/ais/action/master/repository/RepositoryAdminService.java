@@ -28,6 +28,7 @@ import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoWorkflowEvent;
+import ais.database.model.repository.RepoItemMetadata;
 
 /** Typed repository administration, reporting, import validation, and preservation checks. */
 public class RepositoryAdminService {
@@ -36,7 +37,13 @@ public class RepositoryAdminService {
     public static class Health {
         public long collections, items, publicItems, missingOai, duplicateOai, failedSync;
         public long bitstreams, missingChecksum, pendingScan, infected, turnitinSubmitted;
+        public long humanViews,uniqueViews,botViews,humanDownloads,uniqueDownloads;
         public final Map<String, Long> workflow = new LinkedHashMap<String, Long>();
+        public final Map<String, Integer> qualityPercent = new LinkedHashMap<String, Integer>();
+        public final Map<String, Long> qualityMissing = new LinkedHashMap<String, Long>();
+        public final Map<String, Long> countries = new LinkedHashMap<String, Long>();
+        public final Map<String, Long> referrers = new LinkedHashMap<String, Long>();
+        public final Map<String, Long> dailyTrend = new LinkedHashMap<String, Long>();
     }
     public static class ImportResult {
         public int rows, validRows;
@@ -82,6 +89,12 @@ public class RepositoryAdminService {
                 if ("INFECTED".equalsIgnoreCase(file.getVirusScanStatus())) h.infected++;
                 if (Boolean.TRUE.equals(file.getTurnitinSubmitted())) h.turnitinSubmitted++;
             }
+            quality(session,h,items,files);
+            Object[] usage=(Object[])session.createSQLQuery("select count(*) filter(where e.event_type='VIEW' and e.user_agent_class<>'BOT'),count(distinct e.visitor_hash) filter(where e.event_type='VIEW' and e.user_agent_class<>'BOT'),count(*) filter(where e.event_type='VIEW' and e.user_agent_class='BOT'),count(*) filter(where e.event_type='DOWNLOAD' and e.user_agent_class<>'BOT'),count(distinct e.visitor_hash) filter(where e.event_type='DOWNLOAD' and e.user_agent_class<>'BOT') from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant").setString("tenant",RepositoryTenantScope.currentKey()).uniqueResult();
+            if(usage!=null){h.humanViews=number(usage[0]);h.uniqueViews=number(usage[1]);h.botViews=number(usage[2]);h.humanDownloads=number(usage[3]);h.uniqueDownloads=number(usage[4]);}
+            fillUsageMap(session,h.countries,"select coalesce(nullif(e.country_code,''),'Tidak diketahui'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' group by 1 order by 2 desc limit 15");
+            fillUsageMap(session,h.referrers,"select coalesce(nullif(e.referrer_host,''),'Langsung'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' group by 1 order by 2 desc limit 15");
+            fillUsageMap(session,h.dailyTrend,"select to_char(e.occurred_at,'YYYY-MM-DD'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' and e.occurred_at>=current_timestamp-interval '30 days' group by 1 order by 1");
             return h;
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }
@@ -162,6 +175,30 @@ public class RepositoryAdminService {
             for(RepoItem item:rows){item.setSyncStatus("PENDING");item.setSyncMessage("Manual retry queued by "+actor.getUserId());item.setOlehId(actor.getUserId());item.setTanggal_dirubah(new Date());session.update(item);}tx.commit();return rows.size();
         }catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
+
+    public int bulkRepairMetadata(String field,Tbmuser actor){
+        requireAdmin(actor);String selected=clean(field);String property,value;
+        if("language".equals(selected)){property="language";value="id";}else if("documentType".equals(selected)){property="documentType";value="Other";}
+        else if("accessPolicy".equals(selected)){property="accessPolicy";value="METADATA_ONLY";}else throw new IllegalArgumentException("Field bulk repair tidak diizinkan.");
+        Session session=HibernateUtil.openSession();Transaction tx=null;try{tx=session.beginTransaction();List<RepoItem> rows=session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.or(Restrictions.isNull(property),Restrictions.eq(property,""))).list();
+            for(RepoItem row:rows){if("language".equals(property))row.setLanguage(value);else if("documentType".equals(property))row.setDocumentType(value);else row.setAccessPolicy(value);row.setTanggal_dirubah(new Date());row.setOlehId(actor.getUserId());session.update(row);}tx.commit();return rows.size();
+        }catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
+    }
+    public void toggleFeatured(Long itemId,Tbmuser actor){requireAdmin(actor);Session session=HibernateUtil.openSession();Transaction tx=null;try{tx=session.beginTransaction();RepoItem item=(RepoItem)session.get(RepoItem.class,itemId);if(item==null||!RepositoryTenantScope.currentKey().equals(item.getTenantKey()))throw new IllegalArgumentException("Item tidak ditemukan.");boolean next=!Boolean.TRUE.equals(item.getFeatured());item.setFeatured(Boolean.valueOf(next));item.setFeaturedAt(next?new Date():null);item.setOlehId(actor.getUserId());item.setTanggal_dirubah(new Date());session.update(item);tx.commit();}catch(RuntimeException e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}}
+
+    @SuppressWarnings("unchecked")
+    private void quality(Session session,Health h,List<RepoItem> items,List<RepoBitstream> files){
+        List<RepoItem> published=new ArrayList<RepoItem>();for(RepoItem item:items)if(Boolean.FALSE.equals(item.getIsWithdrawn())||item.getIsWithdrawn()==null)if("PUBLISHED".equals(item.getWorkflowStatus())||"SYNCED".equals(item.getSyncStatus())||"APPROVED".equals(item.getSyncStatus()))published.add(item);
+        Map<Long,Boolean> primary=new LinkedHashMap<Long,Boolean>();for(RepoBitstream f:files)if(Boolean.TRUE.equals(f.getPrimaryFile()))primary.put(f.getItemId(),Boolean.TRUE);
+        List<Long> programIds=new ArrayList<Long>(),orcidIds=new ArrayList<Long>();List<RepoItemMetadata> metas=session.createCriteria(RepoItemMetadata.class).add(Restrictions.in("metadataField",new String[]{"repository.programStudy","repository.author.orcid"})).add(Restrictions.eq("aktif",Boolean.TRUE)).list();
+        for(RepoItemMetadata m:metas){if("repository.programStudy".equals(m.getMetadataField())&&!programIds.contains(m.getItemId()))programIds.add(m.getItemId());if("repository.author.orcid".equals(m.getMetadataField())&&!orcidIds.contains(m.getItemId()))orcidIds.add(m.getItemId());}
+        int total=published.size();qualityMetric(h,"Judul",missing(published,"title",null),total);qualityMetric(h,"Penulis terstruktur",missing(published,"authors",null),total);qualityMetric(h,"Abstrak",missing(published,"abstract",null),total);qualityMetric(h,"Kata kunci",missing(published,"subjects",null),total);qualityMetric(h,"Program studi",missing(published,"ids",programIds),total);qualityMetric(h,"Lisensi",missing(published,"license",null),total);qualityMetric(h,"ORCID",missing(published,"ids",orcidIds),total);qualityMetric(h,"File utama",missing(published,"ids",new ArrayList<Long>(primary.keySet())),total);qualityMetric(h,"DOI",missing(published,"doi",null),total);
+    }
+    private long missing(List<RepoItem> items,String field,List<Long> ids){long n=0;for(RepoItem i:items){boolean ok="ids".equals(field)?ids.contains(i.getId()):("title".equals(field)?clean(i.getTitle()).length()>0:"authors".equals(field)?clean(i.getAuthors()).length()>0:"abstract".equals(field)?clean(i.getAbstractText()).length()>0:"subjects".equals(field)?clean(i.getSubjects()).length()>0:"license".equals(field)?clean(i.getLicenseUri()).length()>0:clean(i.getDoi()).length()>0);if(!ok)n++;}return n;}
+    private void qualityMetric(Health h,String label,long missing,int total){h.qualityMissing.put(label,Long.valueOf(missing));h.qualityPercent.put(label,Integer.valueOf(total==0?0:(int)Math.round(100.0d*(total-missing)/total)));}
+    @SuppressWarnings("unchecked") private void fillUsageMap(Session session,Map<String,Long> target,String sql){List<Object[]> rows=session.createSQLQuery(sql).setString("tenant",RepositoryTenantScope.currentKey()).list();for(Object[] row:rows)target.put(String.valueOf(row[0]),Long.valueOf(number(row[1])));}
+    private static long number(Object value){return value instanceof Number?((Number)value).longValue():0L;}
 
     private void requireAdmin(Tbmuser actor) { if (!workflow.isRepositoryAdmin(actor)) throw new SecurityException("Hak administrator repository diperlukan."); }
     private void ensureNoCycle(Session session, Long id, Long parent) { Long p=parent; int guard=0; while(p!=null&&guard++<100){if(p.equals(id))throw new IllegalArgumentException("Hierarchy koleksi membentuk siklus.");RepoCollection c=(RepoCollection)session.get(RepoCollection.class,p);if(c==null||!RepositoryTenantScope.currentKey().equals(c.getTenantKey()))throw new IllegalArgumentException("Induk koleksi tidak ditemukan.");p=c.getParentId();} }

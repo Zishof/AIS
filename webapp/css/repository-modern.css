@@ -370,6 +370,7 @@
 .repo-stepper { list-style: none; padding: 0; margin: 19px 0; display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; counter-reset: steps; }
 .repo-stepper li { position: relative; padding: 10px 7px; border-top: 3px solid #dbe4ec; color: var(--repo-muted); font-size: 12px; font-weight: 750; }
 .repo-stepper li.active { border-color: var(--repo-primary); color: var(--repo-primary); }
+.repo-stepper-nine { grid-template-columns:repeat(9,minmax(105px,1fr)); overflow-x:auto; }
 .repo-workspace-form fieldset { border: 0; border-top: 1px solid var(--repo-line); margin: 0; padding: 22px 0; }
 .repo-workspace-form legend { padding-right: 12px; font-size: 17px; font-weight: 800; }
 .repo-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -435,3 +436,4 @@
 @media (max-width: 1000px) { .repo-workspace-grid { grid-template-columns: 1fr; }.repo-workspace-side { position: static; max-height: none; }.repo-upload-form { grid-template-columns: 1fr 1fr; }.repo-admin-cards { grid-template-columns: 1fr 1fr; }.repo-admin-layout { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .repo-topbar .repo-nav { width: calc(100% - 24px); }.repo-topbar .repo-links { display: flex; overflow-x: auto; gap: 12px; }.repo-topbar .repo-brand small { display: none; }.repo-form-grid,.repo-upload-form,.repo-admin-cards,.repo-health-grid { grid-template-columns: 1fr; }.repo-field-full { grid-column: auto; }.repo-stepper { overflow-x: auto; grid-template-columns: repeat(5,minmax(110px,1fr)); }.repo-card-pad { padding: 17px; } }
 @media (max-width: 680px) { .repo-search-scope { align-items:flex-start; flex-wrap:wrap; gap:8px 14px; }.repo-search-scope legend { width:100%; }.repo-citation-menu > div { position:fixed; left:14px; right:14px; top:auto; bottom:70px; } }
+@media (max-width: 680px) { .repo-stepper-nine { grid-template-columns:repeat(9,minmax(110px,1fr)); } }

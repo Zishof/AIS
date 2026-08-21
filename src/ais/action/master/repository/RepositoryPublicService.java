@@ -30,6 +30,8 @@ import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoItemRelation;
 import ais.database.model.repository.RepoUsageEvent;
 import ais.database.model.repository.RepoUserPreference;
+import ais.database.model.repository.RepoAuthorAuthority;
+import ais.database.model.repository.RepoItemContributor;
 import ais.database.model.file.LampiranLain;
 
 /**
@@ -130,6 +132,7 @@ public class RepositoryPublicService {
         public int publicFileCount;
         public boolean pdfAvailable;
         public boolean superseded;
+        public String authorOrcids = "";
     }
 
     public static class Suggestion {
@@ -164,6 +167,11 @@ public class RepositoryPublicService {
     public static class AuthorProfile {
         public String name = "";
         public String orcid = "";
+        public Long authorityId;
+        public String affiliation = "";
+        public String rorId = "";
+        public String nameVariants = "";
+        public boolean verified;
         public long workCount;
         public List<ItemCard> works = new ArrayList<ItemCard>();
         public Map<String, Long> yearTrend = new LinkedHashMap<String, Long>();
@@ -296,6 +304,16 @@ public class RepositoryPublicService {
                 .setMaxResults(maximum < 1 ? 6 : Math.min(maximum, MAX_PAGE_SIZE)).list();
         return cards(session, rows);
     }
+
+    @SuppressWarnings("unchecked")
+    public List<ItemCard> featured(int maximum){List<RepoItem> rows=publicCriteria(session(),null).add(Restrictions.eq("featured",Boolean.TRUE))
+            .addOrder(Order.desc("featuredAt")).addOrder(Order.desc("issuedAt")).setMaxResults(Math.max(1,Math.min(maximum,12))).list();return cards(session(),rows);}
+
+    @SuppressWarnings("unchecked")
+    public List<ItemCard> mostDownloaded(String period,int maximum){String window="";if("30d".equals(period))window=" and e.occurred_at>=current_timestamp-interval '30 days'";else if("year".equals(period))window=" and e.occurred_at>=date_trunc('year',current_timestamp)";
+        List<Object[]> ranked=session().createSQLQuery("select e.item_id,count(*) hits from repo_usage_event e join repo_item i on i.id=e.item_id where e.event_type='DOWNLOAD' and e.user_agent_class<>'BOT' and i.tenant_key=:tenant"+window+" group by e.item_id order by hits desc limit "+Math.max(1,Math.min(maximum,20)))
+                .setString("tenant",RepositoryTenantScope.currentKey()).list();List<Long> ids=new ArrayList<Long>();for(Object[] row:ranked)if(row[0] instanceof Number)ids.add(Long.valueOf(((Number)row[0]).longValue()));if(ids.isEmpty())return new ArrayList<ItemCard>();
+        List<RepoItem> items=publicCriteria(session(),null).add(Restrictions.in("id",ids)).list();Map<Long,RepoItem> byId=new HashMap<Long,RepoItem>();for(RepoItem item:items)byId.put(item.getId(),item);List<RepoItem> ordered=new ArrayList<RepoItem>();for(Long id:ids)if(byId.get(id)!=null)ordered.add(byId.get(id));return cards(session(),ordered);}
 
     public List<CollectionView> popularCollections(int maximum) {
         List<CollectionView> rows = listCollections(500);
@@ -510,6 +528,12 @@ public class RepositoryPublicService {
         Query q = new Query(); q.author=author; q.sort="newest"; q.pageSize=MAX_PAGE_SIZE;
         SearchResult result=search(q); if(result.total==0)return null;
         AuthorProfile profile=new AuthorProfile(); profile.name=author; profile.workCount=result.total; profile.works=result.items;
+        RepoAuthorAuthority authority=(RepoAuthorAuthority)session().createCriteria(RepoAuthorAuthority.class)
+                .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
+                .add(Restrictions.eq("normalizedName",RepositoryAuthorityService.normalizeName(author)))
+                .add(activeRestriction()).setMaxResults(1).uniqueResult();
+        if(authority!=null){profile.authorityId=authority.getId();profile.name=authority.getCanonicalName();profile.orcid=authority.getOrcid();
+            profile.affiliation=authority.getAffiliation();profile.rorId=authority.getRorId();profile.nameVariants=authority.getNameVariants();profile.verified=Boolean.TRUE.equals(authority.getVerified());}
         for(ItemCard item:result.items){if(item.year.length()>0)increment(profile.yearTrend,item.year);for(String s:safe(item.subjects).split("[;,]"))if(clean(s).length()>0)increment(profile.subjects,clean(s));}
         return profile;
     }
@@ -904,6 +928,7 @@ public class RepositoryPublicService {
         target.publicFileCount = source.publicFileCount;
         target.pdfAvailable = source.pdfAvailable;
         target.superseded = source.superseded;
+        target.authorOrcids = source.authorOrcids;
     }
 
     @SuppressWarnings("unchecked")
@@ -949,6 +974,15 @@ public class RepositoryPublicService {
             String mime = safe(file.getMimeType()).toLowerCase(); String name = safe(file.getNamaFile()).toLowerCase();
             if (mime.indexOf("pdf") >= 0 || name.endsWith(".pdf")) card.pdfAvailable = true;
         }
+        List<RepoItemContributor> contributors=session.createCriteria(RepoItemContributor.class)
+                .add(Restrictions.in("itemId",ids)).add(activeRestriction()).addOrder(Order.asc("sequenceNumber")).list();
+        List<Long> authorityIds=new ArrayList<Long>();for(RepoItemContributor contributor:contributors)if(!authorityIds.contains(contributor.getAuthorityId()))authorityIds.add(contributor.getAuthorityId());
+        Map<Long,RepoAuthorAuthority> authorities=new HashMap<Long,RepoAuthorAuthority>();if(!authorityIds.isEmpty()){
+            List<RepoAuthorAuthority> authorityRows=session.createCriteria(RepoAuthorAuthority.class).add(Restrictions.in("id",authorityIds)).add(activeRestriction()).list();
+            for(RepoAuthorAuthority authority:authorityRows)authorities.put(authority.getId(),authority);
+        }
+        for(RepoItemContributor contributor:contributors){ItemCard card=byId.get(contributor.getItemId());RepoAuthorAuthority authority=authorities.get(contributor.getAuthorityId());
+            if(card!=null&&authority!=null&&authority.getOrcid().length()>0)card.authorOrcids+=(card.authorOrcids.length()==0?"":";")+authority.getOrcid();}
         List<Object> replaced=session.createCriteria(RepoItem.class).add(tenantRestriction()).add(publicVisibilityRestriction())
                 .add(Restrictions.in("previousVersionId",ids)).setProjection(Projections.distinct(Projections.property("previousVersionId"))).list();
         for(Object id:replaced)if(id instanceof Long&&byId.get((Long)id)!=null)byId.get((Long)id).superseded=true;
@@ -1096,6 +1130,10 @@ public class RepositoryPublicService {
     private static String xmlEscape(String value){return safe(value).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
 
     public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId) {
+        recordUsage(itemId,bitstreamId,eventType,visitor,userAgent,actorId,"","");
+    }
+    public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId,
+            String countryCode,String referrer) {
         if (itemId == null || !("VIEW".equals(eventType) || "DOWNLOAD".equals(eventType))) return;
         Session s = session();
         org.hibernate.Transaction tx = null;
@@ -1109,11 +1147,11 @@ public class RepositoryPublicService {
              * Bulk DML ini atomik untuk akses bersamaan, sekaligus memperbaiki versi NULL
              * pada record yang sedang dikunjungi tanpa ALTER tabel manual.
              */
-            String counterColumn = "VIEW".equals(eventType) ? "view_count" : "download_count";
-            int updated = s.createSQLQuery("update public.repo_item set " + counterColumn
-                    + " = coalesce(" + counterColumn + ", 0) + 1, "
-                    + "lock_version = coalesce(lock_version, 0) where id = :itemId")
-                    .setLong("itemId", itemId.longValue()).executeUpdate();
+            String agentClass=userAgentClass(userAgent);int updated=1;
+            if(!"BOT".equals(agentClass)){String counterColumn = "VIEW".equals(eventType) ? "view_count" : "download_count";
+                updated = s.createSQLQuery("update public.repo_item set " + counterColumn
+                        + " = coalesce(" + counterColumn + ", 0) + 1, lock_version = coalesce(lock_version, 0) where id = :itemId")
+                        .setLong("itemId", itemId.longValue()).executeUpdate();}
             if (updated == 0) {
                 tx.rollback();
                 return;
@@ -1125,7 +1163,7 @@ public class RepositoryPublicService {
             e.setEventType(eventType);
             e.setVisitorHash(hash(visitor));
             e.setActorId(clean(actorId));
-            e.setUserAgentClass(userAgentClass(userAgent));
+            e.setUserAgentClass(agentClass);e.setCountryCode(limit(clean(countryCode).toUpperCase(),8));e.setReferrerHost(referrerHost(referrer));
             e.setOccurredAt(new Date());
             s.save(e);
             tx.commit();
@@ -1136,6 +1174,7 @@ public class RepositoryPublicService {
     }
     private static String hash(String value){try{String salt=System.getProperty("ais.repository.analyticsSalt","AIS-REPOSITORY");byte[]b=MessageDigest.getInstance("SHA-256").digest((salt+"|"+clean(value)).getBytes("UTF-8"));StringBuilder x=new StringBuilder();for(byte v:b)x.append(String.format("%02x",v&255));return x.toString();}catch(Exception e){return "";}}
     private static String userAgentClass(String value){String v=clean(value).toLowerCase();if(v.contains("bot")||v.contains("crawler")||v.contains("spider"))return "BOT";if(v.contains("mobile"))return "MOBILE";return "DESKTOP";}
+    private static String referrerHost(String value){try{String host=new java.net.URL(clean(value)).getHost();return limit(clean(host).toLowerCase(),255);}catch(Exception e){return "";}}
 
     public static String clean(String value) {
         return value == null ? "" : value.trim();

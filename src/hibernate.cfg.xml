@@ -218,6 +218,9 @@
 		<mapping class="ais.database.model.repository.RepoUsageEvent" />
 		<mapping class="ais.database.model.repository.RepoNotification" />
 		<mapping class="ais.database.model.repository.RepoUserPreference" />
+		<mapping class="ais.database.model.repository.RepoAuthorAuthority" />
+		<mapping class="ais.database.model.repository.RepoItemContributor" />
+		<mapping class="ais.database.model.repository.RepoIntegrationEvent" />
 
 
 

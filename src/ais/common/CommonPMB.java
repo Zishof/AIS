@@ -237,6 +237,34 @@ public class CommonPMB {
 		return value.indexOf("--") < 0 && value.indexOf('_') < 0 && value.indexOf('-') < 0;
 	}
 
+	public static boolean isNimPmbMengandungTandaHubung(String nim) {
+		return nim != null && nim.trim().indexOf('-') >= 0;
+	}
+
+	public static boolean konfirmasiNimMengandungTandaJikaPerlu(String nim, BiodataCalonMahasiswa calonMahasiswa)
+			throws Exception {
+		if (!isNimPmbMengandungTandaHubung(nim)) {
+			return true;
+		}
+		String nama = calonMahasiswa == null || calonMahasiswa.getNama() == null ? "" : calonMahasiswa.getNama();
+		int hasil = MyMessageboxConfig.showFormat(
+				"NIM hasil generate mengandung tanda '-' yaitu \"{V1}\"{V2}. Apakah proses tetap dilanjutkan?",
+				"Peringatan", MyMessageboxConfig.YES | MyMessageboxConfig.NO, MyMessageboxConfig.EXCLAMATION,
+				nim, nama.trim().isEmpty() ? "" : " untuk " + nama);
+		return hasil == MyMessageboxConfig.YES;
+	}
+
+	private static boolean isNimPmbValidAtauDiizinkan(String nim, boolean izinkanTandaHubung) {
+		if (isNimPmbValid(nim)) {
+			return true;
+		}
+		if (!izinkanTandaHubung || isBlankString(nim)) {
+			return false;
+		}
+		String value = nim.trim();
+		return value.indexOf('_') < 0;
+	}
+
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
 	}
@@ -1210,6 +1238,11 @@ public class CommonPMB {
 
 	public static Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
 			boolean commitMaual) {
+		return saveMahasiswa(session, calonMahasiswa, nim, commitMaual, false);
+	}
+
+	public static Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
+			boolean commitMaual, boolean izinkanNimDenganTandaHubung) {
 
 		Mahasiswa mahasiswa = calonMahasiswa.getMahasiswa();
 		// Cek dulu lewat FK biodataCalonMahasiswa (lebih presisi & tak rawan salah tangkap
@@ -1238,7 +1271,7 @@ public class CommonPMB {
 		if (!isBlankString(nimRiwayat)) {
 			nim = nimRiwayat;
 		}
-		if (!isNimPmbValid(nim)) {
+		if (!isNimPmbValidAtauDiizinkan(nim, izinkanNimDenganTandaHubung)) {
 			throw new IllegalArgumentException("NIM PMB tidak valid: " + nim
 					+ ". Generate ulang NIM diperlukan karena NIM masih mengandung placeholder '-' atau '_'.");
 		}
@@ -1690,6 +1723,10 @@ public class CommonPMB {
 	            if (isBlankString(nim)) {
 	                nim = nimGenerator.generateNim(calonMahasiswa);
 	            }
+	            boolean izinkanNimDenganTandaHubung = konfirmasiNimMengandungTandaJikaPerlu(nim, calonMahasiswa);
+	            if (!izinkanNimDenganTandaHubung) {
+	            	return "";
+	            }
 	            calonMahasiswa.setNim(nim);
 	            
 	            Session session = null;
@@ -1698,7 +1735,8 @@ public class CommonPMB {
 	                session = HibernateUtil.getSessionFactory().openSession();
 	                Transaction tx = session.beginTransaction();
 	                
-	                Mahasiswa mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false);
+	                Mahasiswa mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false,
+	                		izinkanNimDenganTandaHubung);
 	                CommonPMB.copyLampiran(calonMahasiswa, mahasiswa);
 	                
 	                tx.commit();

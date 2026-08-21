@@ -35,6 +35,7 @@ public class RepositoryWorkspace extends HttpServlet {
     private static final String JSP = "/WEB-INF/baru/modul/repository/WorkspaceRepository.jsp";
     private static final String CSRF = "repository.csrf";
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
+    private final ais.action.master.repository.RepositoryIntegrationService integrations=new ais.action.master.repository.RepositoryIntegrationService();
     private final RepositoryFileService files = new RepositoryFileService();
     private final RepositoryPublicService publicService = new RepositoryPublicService();
     private final RepositoryAdminService adminService = new RepositoryAdminService();
@@ -73,6 +74,15 @@ public class RepositoryWorkspace extends HttpServlet {
                 request.setAttribute("repoWorkspaceFiles", files.list(id, user));
                 request.setAttribute("repoWorkspaceHistory", workflow.history(id, user));
                 request.setAttribute("repoAuthorOrcids", workflow.authorOrcids(id, user));
+                request.setAttribute("repoAuthorAffiliations",workflow.metadataText(id,"repository.author.affiliation",user));
+                request.setAttribute("repoAuthorRors",workflow.metadataText(id,"repository.author.ror",user));
+                request.setAttribute("repoAdvisors",workflow.metadataText(id,"dc.contributor.advisor",user));
+                request.setAttribute("repoExaminers",workflow.metadataText(id,"repository.examiner",user));
+                request.setAttribute("repoProgramStudy",workflow.metadataText(id,"repository.programStudy",user));
+                request.setAttribute("repoFaculty",workflow.metadataText(id,"repository.faculty",user));
+                request.setAttribute("repoFunding",workflow.metadataText(id,"dc.relation.isPartOf",user));
+                request.setAttribute("repoRightsStatement",workflow.metadataText(id,"dc.rights",user));
+                request.setAttribute("repoDepositorNote",workflow.metadataText(id,"repository.depositorNote",user));
                 DraftInput duplicateInput = new DraftInput(); duplicateInput.id = item.getId();
                 duplicateInput.title = item.getTitle(); duplicateInput.authors = item.getAuthors();
                 request.setAttribute("repoDuplicates", workflow.duplicates(duplicateInput, 10));
@@ -81,6 +91,7 @@ public class RepositoryWorkspace extends HttpServlet {
                 request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
                 request.setAttribute("repoAdminCollections", adminService.collections(user));
                 request.setAttribute("repoAdminHealth", adminService.health(user));
+                request.setAttribute("repoDataCiteConfigured",Boolean.valueOf(integrations.dataCiteConfigured()));request.setAttribute("repoCoarConfigured",Boolean.valueOf(integrations.coarConfigured()));request.setAttribute("repoOrcidConfigured",Boolean.valueOf(integrations.orcidConfigured()));request.setAttribute("repoRorConfigured",Boolean.valueOf(integrations.rorConfigured()));request.setAttribute("repoAiConfigured",Boolean.valueOf(integrations.aiConfigured()));
                 Long collectionId = positiveLong(request.getParameter("collectionId"));
                 if (collectionId != null) for (ais.database.model.repository.RepoCollection c : adminService.collections(user))
                     if (collectionId.equals(c.getId())) { request.setAttribute("repoAdminCollection", c); break; }
@@ -151,6 +162,14 @@ public class RepositoryWorkspace extends HttpServlet {
             flash(request.getSession(), "repository.flash", "Pemeriksaan fixity selesai."); redirect(response, request, "admin", null); return;
         } else if ("retrySync".equals(action)) {
             int queued=adminService.retryFailedSync(user);flash(request.getSession(),"repository.flash",queued+" item sync gagal dimasukkan kembali ke antrian.");redirect(response,request,"admin",null);return;
+        } else if("bulkRepairMetadata".equals(action)){
+            int repaired=adminService.bulkRepairMetadata(request.getParameter("field"),user);flash(request.getSession(),"repository.flash",repaired+" record diperbaiki secara massal.");redirect(response,request,"admin",null);return;
+        } else if("toggleFeatured".equals(action)){
+            adminService.toggleFeatured(id,user);flash(request.getSession(),"repository.flash","Status karya unggulan diperbarui.");redirect(response,request,"review",id);return;
+        } else if("datacite".equals(action)){
+            ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.mintOrUpdateDoi(id,publicItemUrl(request,id),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"review",id);return;
+        } else if("coarNotify".equals(action)){
+            ais.action.master.repository.RepositoryIntegrationService.Result integration=integrations.sendCoarNotify(id,publicItemUrl(request,id),request.getParameter("targetUrl"),user,requestId);flash(request.getSession(),integration.success?"repository.flash":"repository.flash.error",integration.message);redirect(response,request,"review",id);return;
         }
         else throw new IllegalArgumentException("Aksi workspace tidak dikenal.");
 
@@ -199,7 +218,12 @@ public class RepositoryWorkspace extends HttpServlet {
         input.subjects = request.getParameter("subjects"); input.publisher = request.getParameter("publisher");
         input.language = request.getParameter("language"); input.documentType = request.getParameter("documentType");
         input.accessPolicy = request.getParameter("accessPolicy"); input.licenseUri = request.getParameter("licenseUri");
-        input.embargoUntil = date(request.getParameter("embargoUntil")); input.doi = request.getParameter("doi"); return input;
+        input.embargoUntil = date(request.getParameter("embargoUntil")); input.doi = request.getParameter("doi");
+        input.authorAffiliations=request.getParameter("authorAffiliations");input.authorRors=request.getParameter("authorRors");
+        input.advisors=request.getParameter("advisors");input.examiners=request.getParameter("examiners");
+        input.programStudy=request.getParameter("programStudy");input.faculty=request.getParameter("faculty");
+        input.funding=request.getParameter("funding");input.rightsStatement=request.getParameter("rightsStatement");
+        input.depositorNote=request.getParameter("depositorNote");return input;
     }
 
     private void verifyCsrf(HttpSession session, String supplied) {
@@ -207,7 +231,8 @@ public class RepositoryWorkspace extends HttpServlet {
         if (!constantTime(expected, supplied)) throw new SecurityException("Token CSRF tidak valid. Muat ulang halaman.");
     }
     private boolean constantTime(String a, String b) { if (a == null || b == null) return false; int diff=a.length()^b.length(); int n=Math.min(a.length(),b.length()); for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i); return diff==0; }
-    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"retrySync".equals(action)||"importDryRun".equals(action); }
+    private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"toggleFeatured".equals(action)||"datacite".equals(action)||"coarNotify".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"retrySync".equals(action)||"bulkRepairMetadata".equals(action)||"importDryRun".equals(action); }
+    private String publicItemUrl(HttpServletRequest request,Long id){String origin=request.getScheme()+"://"+request.getServerName()+((request.getServerPort()==80||request.getServerPort()==443)?"":":"+request.getServerPort());return origin+request.getContextPath()+"/repository/item/"+id;}
     private Date date(String value) throws Exception { if(clean(value).length()==0)return null;SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(clean(value)); }
     private void fail(HttpServletRequest request,HttpServletResponse response,String message,int status)throws IOException{if("application/json".equals(request.getHeader("Accept"))){response.setStatus(status);response.setContentType("application/json;charset=UTF-8");try{JSONObject j=new JSONObject();j.put("status","ERROR");j.put("message",message);response.getWriter().write(j.toString());}catch(Exception e){response.sendError(status,message);}return;}flash(request.getSession(),"repository.flash.error",message);String view=reviewerAction(request.getParameter("action"))?"review":"deposit";redirect(response,request,view,positiveLong(request.getParameter("id")));}
     private void redirect(HttpServletResponse response,HttpServletRequest request,String view,Long id)throws IOException{String url=request.getContextPath()+"/repository-workspace?view="+view+(id==null?"":"&id="+id);response.sendRedirect(response.encodeRedirectURL(url));}

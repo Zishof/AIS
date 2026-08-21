@@ -61,6 +61,10 @@ public class RepoItem extends GeneralValueObject {
     private Long viewCount;
     private Long downloadCount;
     private String tenantKey;
+    private Boolean featured;
+    private Date featuredAt;
+    private String doiState;
+    private Date doiUpdatedAt;
     
     // Audit & Default Fields
     private String oleh;
@@ -73,6 +77,11 @@ public class RepoItem extends GeneralValueObject {
     @Column(name="tenant_key",length=120)
     public String getTenantKey(){return tenantKey==null?"":tenantKey.trim();}
     public void setTenantKey(String tenantKey){this.tenantKey=tenantKey;}
+
+    @Column(name="featured") public Boolean getFeatured(){return featured==null?Boolean.FALSE:featured;} public void setFeatured(Boolean v){featured=v;}
+    @Temporal(TemporalType.TIMESTAMP) @Column(name="featured_at") public Date getFeaturedAt(){return featuredAt;} public void setFeaturedAt(Date v){featuredAt=v;}
+    @Column(name="doi_state",length=30) public String getDoiState(){return doiState==null?"DRAFT":doiState;} public void setDoiState(String v){doiState=v;}
+    @Temporal(TemporalType.TIMESTAMP) @Column(name="doi_updated_at") public Date getDoiUpdatedAt(){return doiUpdatedAt;} public void setDoiUpdatedAt(Date v){doiUpdatedAt=v;}
 
     @Id
     @GeneratedValue(strategy = IDENTITY)

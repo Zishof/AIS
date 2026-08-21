@@ -58,6 +58,15 @@ public class RepositoryWorkflowService {
         public String licenseUri;
         public Date embargoUntil;
         public String doi;
+        public String authorAffiliations;
+        public String authorRors;
+        public String advisors;
+        public String examiners;
+        public String programStudy;
+        public String faculty;
+        public String funding;
+        public String rightsStatement;
+        public String depositorNote;
     }
 
     public static class ValidationResult {
@@ -90,6 +99,8 @@ public class RepositoryWorkflowService {
                 session.save(item);
                 session.flush();
                 syncContributorMetadata(session, item, input, actor);
+                syncExtendedMetadata(session,item,input,actor);
+                RepositoryAuthorityService.synchronizeItem(session, item);
                 event(session, item, null, DRAFT, "CREATE_DRAFT", "", actor, requestId);
                 return item;
             }
@@ -110,6 +121,8 @@ public class RepositoryWorkflowService {
                 auditFields(item, actor);
                 session.update(item);
                 syncContributorMetadata(session, item, input, actor);
+                syncExtendedMetadata(session,item,input,actor);
+                RepositoryAuthorityService.synchronizeItem(session, item);
                 event(session, item, item.getWorkflowStatus(), item.getWorkflowStatus(), "AUTOSAVE", "", actor, requestId);
                 return item;
             }
@@ -368,6 +381,17 @@ public class RepositoryWorkflowService {
         });
     }
 
+    @SuppressWarnings("unchecked")
+    public String metadataText(final Long id, final String field, final Tbmuser actor) {
+        requireLogin(actor);
+        return read(new Work<String>() { public String run(Session session) {
+            RepoItem item=loadRequired(session,id);requireOwnerReviewerOrAdmin(item,actor);
+            List<RepoItemMetadata> rows=session.createCriteria(RepoItemMetadata.class).add(Restrictions.eq("itemId",id))
+                    .add(Restrictions.eq("metadataField",field)).add(Restrictions.eq("aktif",Boolean.TRUE)).addOrder(Order.asc("place")).list();
+            StringBuilder value=new StringBuilder();for(RepoItemMetadata row:rows){if(value.length()>0)value.append('\n');value.append(row.getMetadataValue());}return value.toString();
+        }});
+    }
+
     private RepoItem transition(final Long itemId, final Long expectedVersion, final Tbmuser actor,
             final String comment, final String requestId, final String action, final String[] allowedFrom,
             final String target, final boolean ownerAction, final boolean reviewerAction) {
@@ -464,6 +488,26 @@ public class RepositoryWorkflowService {
             if (i < orcids.length && !blank(orcids[i])) metadata(session, item.getId(), "repository.author.orcid", normalizeOrcid(orcids[i]), i, actor);
         }
     }
+
+    @SuppressWarnings("unchecked")
+    private void syncExtendedMetadata(Session session,RepoItem item,DraftInput input,Tbmuser actor){
+        String[] fields={"repository.author.affiliation","repository.author.ror","dc.contributor.advisor","repository.examiner",
+                "repository.programStudy","repository.faculty","dc.relation.isPartOf","dc.rights","repository.depositorNote"};
+        List<RepoItemMetadata> old=session.createCriteria(RepoItemMetadata.class).add(Restrictions.eq("itemId",item.getId()))
+                .add(Restrictions.in("metadataField",fields)).add(Restrictions.eq("aktif",Boolean.TRUE)).list();
+        for(RepoItemMetadata row:old){row.setAktif(Boolean.FALSE);row.setOlehId(actor.getUserId());row.setOleh(actor.toString());session.update(row);}
+        metadataLines(session,item.getId(),"repository.author.affiliation",input.authorAffiliations,actor);
+        metadataLines(session,item.getId(),"repository.author.ror",input.authorRors,actor);
+        metadataLines(session,item.getId(),"dc.contributor.advisor",input.advisors,actor);
+        metadataLines(session,item.getId(),"repository.examiner",input.examiners,actor);
+        metadataSingle(session,item.getId(),"repository.programStudy",input.programStudy,actor);
+        metadataSingle(session,item.getId(),"repository.faculty",input.faculty,actor);
+        metadataSingle(session,item.getId(),"dc.relation.isPartOf",input.funding,actor);
+        metadataSingle(session,item.getId(),"dc.rights",input.rightsStatement,actor);
+        metadataSingle(session,item.getId(),"repository.depositorNote",input.depositorNote,actor);
+    }
+    private void metadataLines(Session session,Long itemId,String field,String value,Tbmuser actor){String[] rows=lines(value);for(int i=0;i<rows.length;i++)if(!blank(rows[i]))metadata(session,itemId,field,rows[i],i,actor);}
+    private void metadataSingle(Session session,Long itemId,String field,String value,Tbmuser actor){if(!blank(value))metadata(session,itemId,field,value,0,actor);}
 
     private void metadata(Session session, Long itemId, String field, String value, int place, Tbmuser actor) {
         RepoItemMetadata row = new RepoItemMetadata(); row.setItemId(itemId); row.setMetadataField(field);

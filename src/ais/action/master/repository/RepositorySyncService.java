@@ -692,6 +692,7 @@ public class RepositorySyncService {
 		 * di-rollback dan tidak dipakai lagi dalam keadaan poisoned. */
 		session.flush();
 		syncMetadata(session, item);
+		RepositoryAuthorityService.synchronizeItem(session, item);
 		return item;
 	}
 

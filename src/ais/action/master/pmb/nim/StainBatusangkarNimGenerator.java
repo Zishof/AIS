@@ -96,14 +96,14 @@ public class StainBatusangkarNimGenerator implements NimGenerator {
 	}
 
 	private void validasiNim(String nim, BiodataCalonMahasiswa calonMahasiswa) {
-		if (nim == null || nim.trim().isEmpty() || nim.indexOf('-') >= 0 || nim.indexOf('_') >= 0) {
+		if (nim == null || nim.trim().isEmpty()) {
 			throw new IllegalArgumentException("Format NIM tidak valid untuk "
 					+ (calonMahasiswa == null ? "" : calonMahasiswa.getNama()) + ": " + nim);
 		}
 	}
 
 	private void validasiKomponenNim(String nilai, String label, BiodataCalonMahasiswa calonMahasiswa) {
-		if (nilai == null || nilai.trim().isEmpty() || nilai.indexOf('-') >= 0 || nilai.indexOf('_') >= 0) {
+		if (nilai == null || nilai.trim().isEmpty()) {
 			throw new IllegalArgumentException("Komponen " + label + " untuk generate NIM belum valid"
 					+ (calonMahasiswa == null ? "" : " pada " + calonMahasiswa.getNama()) + ": " + nilai);
 		}

@@ -62,8 +62,10 @@ boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.reposit
   <% if (seoItem != null) { %>
   <meta name="citation_title" content="<%=repoHtml(seoItem.title)%>">
   <% String[] seoAuthors = seoItem.authors == null ? new String[0] : seoItem.authors.split(";");
+     String[] seoOrcids = seoItem.authorOrcids == null ? new String[0] : seoItem.authorOrcids.split(";");
      for (int ai = 0; ai < seoAuthors.length; ai++) { if (seoAuthors[ai].trim().length() > 0) { %>
   <meta name="citation_author" content="<%=repoHtml(seoAuthors[ai].trim())%>">
+  <% if(ai<seoOrcids.length&&seoOrcids[ai].trim().length()>0){%><meta name="citation_author_orcid" content="<%=repoHtml(seoOrcids[ai].trim())%>"><%}%>
   <% }} %>
   <meta name="citation_publication_date" content="<%=repoHtml(seoItem.year)%>">
   <meta name="citation_language" content="<%=repoHtml(seoItem.language)%>">

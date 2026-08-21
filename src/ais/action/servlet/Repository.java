@@ -172,7 +172,7 @@ public class Repository extends HttpServlet {
             }
             request.setAttribute("repoItem", detail);
             if(publicUser!=null){boolean bookmarked=false;for(RepositoryPublicService.PreferenceView p:service.preferences(publicUser.getUserId(),"BOOKMARK",100))if(detail.id.equals(p.itemId)){bookmarked=true;break;}request.setAttribute("repoBookmarked",Boolean.valueOf(bookmarked));}
-            if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request));detail.viewCount++;}
+            if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request),country(request),request.getHeader("Referer"));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
             request.setAttribute("repoSearch", service.search(queryFrom(request)));
             if(publicUser!=null){request.setAttribute("repoSavedSearches",service.preferences(publicUser.getUserId(),"SAVED_SEARCH",20));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",20));}
@@ -193,6 +193,8 @@ public class Repository extends HttpServlet {
             request.setAttribute("repoLatest", service.latest(6));
             request.setAttribute("repoPopularCollections", service.popularCollections(6));
             request.setAttribute("repoPopularTopics", service.popularSubjects(10));
+            request.setAttribute("repoFeatured",service.featured(6));
+            request.setAttribute("repoMostDownloaded",service.mostDownloaded(clean(request.getParameter("downloadPeriod")),6));
             if(publicUser!=null){request.setAttribute("repoRecommendations",service.recommendations(publicUser.getUserId(),4));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",10));}
         }
         request.getRequestDispatcher(JSP).forward(request, response);
@@ -316,7 +318,7 @@ public class Repository extends HttpServlet {
             return;
         }
         service.recordUsage(bitstream.getItemId(), bitstream.getId(), "DOWNLOAD", request.getRemoteAddr(),
-                request.getHeader("User-Agent"), actorId(request));
+                request.getHeader("User-Agent"), actorId(request),country(request),request.getHeader("Referer"));
         String fileName = safeFileName(bitstream.getNamaFile());
         String mime = clean(bitstream.getMimeType());
         if (mime.length() == 0) mime = getServletContext().getMimeType(fileName);
@@ -517,6 +519,7 @@ public class Repository extends HttpServlet {
         try { ais.database.model.Tbmuser u = Common.getCurrentUser(request); return u == null ? "" : u.getUserId(); }
         catch (Exception e) { return ""; }
     }
+    private String country(HttpServletRequest request){String value=clean(request.getHeader("CF-IPCountry"));if(value.length()==0)value=clean(request.getHeader("X-Country-Code"));return value;}
 
     private boolean validOaiPrefix(String value) {
         return "oai_dc".equals(clean(value));
