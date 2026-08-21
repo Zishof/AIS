@@ -92,15 +92,19 @@ public final class SopService {
             Date mulai = parseTanggal(json, "mulai");
             Date sampai = parseTanggal(json, "sampai");
             String keyword = ApiHelperSupport.optString(json, "keyword").trim();
+            // Penyaring ketiga toolbar dasbor ZKoss, di samping periode dan kata kunci.
+            Long satkerId = ApiHelperSupport.isNullOrEmptyJsonValue(json, "satuanKerjaId") ? null
+                    : Long.valueOf(Long.parseLong(ApiHelperSupport.optString(json, "satuanKerjaId")));
 
             session = HibernateUtil.getSessionFactory().openSession();
 
-            int jumlahSopBaru = countDataPengajuanAnda(session, tbmuser, mulai, sampai, keyword);
-            int menungguSaya = countCriteria(criteriaMenungguSaya(session, tbmuser, mulai, sampai, keyword, false));
-            int sudahSayaDisposisi = countCriteria(criteriaSudahDisposisi(session, tbmuser, mulai, sampai, keyword));
-            int selesai = countCriteria(criteriaSelesai(session, tbmuser, mulai, sampai, keyword));
-            int menungguAktor = countCriteria(criteriaMenungguAktor(session, tbmuser, mulai, sampai, keyword));
-            int lewatDeadline = countCriteria(criteriaMenungguSaya(session, tbmuser, mulai, sampai, keyword, true));
+            int jumlahSopBaru = countCriteria(
+                    satkerSop(criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword), satkerId));
+            int menungguSaya = countCriteria(satkerAlur(criteriaMenungguSaya(session, tbmuser, mulai, sampai, keyword, false), satkerId));
+            int sudahSayaDisposisi = countCriteria(satkerAlur(criteriaSudahDisposisi(session, tbmuser, mulai, sampai, keyword), satkerId));
+            int selesai = countCriteria(satkerAlur(criteriaSelesai(session, tbmuser, mulai, sampai, keyword), satkerId));
+            int menungguAktor = countCriteria(satkerAlur(criteriaMenungguAktor(session, tbmuser, mulai, sampai, keyword), satkerId));
+            int lewatDeadline = countCriteria(satkerAlur(criteriaMenungguSaya(session, tbmuser, mulai, sampai, keyword, true), satkerId));
             int totalAntrian = menungguSaya + menungguAktor;
             int totalAktivitas = jumlahSopBaru + menungguSaya + sudahSayaDisposisi + selesai + menungguAktor;
 
@@ -114,7 +118,7 @@ public final class SopService {
             data.put("totalAntrian", totalAntrian);
             data.put("totalAktivitas", totalAktivitas);
 
-            Criteria sample = criteriaDipantau(session, tbmuser, mulai, sampai, keyword);
+            Criteria sample = satkerAlur(criteriaDipantau(session, tbmuser, mulai, sampai, keyword), satkerId);
             sample.addOrder(Order.desc("id"));
             sample.setMaxResults(SAMPLE_LIMIT);
 
@@ -125,7 +129,7 @@ public final class SopService {
             // DISTINCT -- bukan dari sampel 500 baris yang dipakai analitik sebaran.
             // Dari sampel, angkanya jenuh di batas sampel begitu data melewatinya, sehingga
             // instalasi sibuk selalu melihat angka yang sama dan keliru.
-            int totalDipantau = hitungDipantauTepat(session, tbmuser, mulai, sampai, keyword);
+            int totalDipantau = hitungDipantauTepat(session, tbmuser, mulai, sampai, keyword, satkerId);
             if (totalDipantau <= 0) {
                 totalDipantau = analytic.getInt("totalDipantau");
             }
@@ -134,6 +138,7 @@ public final class SopService {
             data.put("metadataQuality", analytic.getJSONObject("metadataQuality"));
             data.put("perSop", analytic.getJSONArray("perSop"));
             data.put("perAktor", analytic.getJSONArray("perAktor"));
+            data.put("perBulan", analytic.getJSONArray("perBulan"));
             data.put("aktivitasTerbaru", analytic.getJSONArray("aktivitasTerbaru"));
 
             hasil.put("data", data);
@@ -176,6 +181,8 @@ public final class SopService {
             String keyword = ApiHelperSupport.optString(json, "keyword").trim();
             String sopNama = ApiHelperSupport.optString(json, "sopNama").trim();
             String aktorTahap = ApiHelperSupport.optString(json, "aktorTahap").trim();
+            Long satkerId = ApiHelperSupport.isNullOrEmptyJsonValue(json, "satuanKerjaId") ? null
+                    : Long.valueOf(Long.parseLong(ApiHelperSupport.optString(json, "satuanKerjaId")));
 
             int page = safeInt(json, "page", 1);
             if (page < 1) {
@@ -196,9 +203,9 @@ public final class SopService {
             int total;
 
             if ("pengajuan_anda".equals(kategori)) {
-                Criteria count = criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword);
+                Criteria count = satkerSop(criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword), satkerId);
                 total = countCriteria(count);
-                Criteria list = criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword);
+                Criteria list = satkerSop(criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword), satkerId);
                 list.addOrder(Order.desc("id")).setFirstResult(offset).setMaxResults(limit);
                 @SuppressWarnings("unchecked")
                 List<DisposisiSop> rows = list.list();
@@ -206,12 +213,12 @@ public final class SopService {
                     arr.put(mapDisposisiSopRow(session, d));
                 }
             } else {
-                Criteria count = buildKategoriCriteria(session, tbmuser, kategori, mulai, sampai, keyword, sopNama, aktorTahap);
+                Criteria count = satkerAlur(buildKategoriCriteria(session, tbmuser, kategori, mulai, sampai, keyword, sopNama, aktorTahap), satkerId);
                 if (count == null) {
                     return ApiHelperSupport.status("97", "Kategori tidak dikenali");
                 }
                 total = countCriteria(count);
-                Criteria list = buildKategoriCriteria(session, tbmuser, kategori, mulai, sampai, keyword, sopNama, aktorTahap);
+                Criteria list = satkerAlur(buildKategoriCriteria(session, tbmuser, kategori, mulai, sampai, keyword, sopNama, aktorTahap), satkerId);
                 list.addOrder(Order.desc("id")).setFirstResult(offset).setMaxResults(limit);
                 @SuppressWarnings("unchecked")
                 List<DisposisiAlurSop> rows = list.list();
@@ -572,7 +579,22 @@ public final class SopService {
             } else {
                 disposisiAlurSop.setDiajukanOleh(tbmuser);
             }
-            disposisiAlurSop.setWaktu(new Date());
+            // Waktu disposisi. ZKoss menampilkannya sebagai kolom yang BISA diubah hanya
+            // bila tahap dikonfigurasi tanggalDisposisiBolehDiubah; selain itu ditampilkan
+            // sbg label mati dan memakai waktu server. Sebelumnya API selalu memaksa waktu
+            // server, sehingga tahap yang SENGAJA dibuka untuk koreksi tanggal tidak bisa
+            // dipakai dari POS/mobile.
+            Date waktuDisposisi = new Date();
+            if (Boolean.TRUE.equals(alurSop.getTanggalDisposisiBolehDiubah())
+                    && ApiHelperSupport.hasText(ApiHelperSupport.optString(json, "waktu"))) {
+                try {
+                    waktuDisposisi = Common.dateFormat3.get().parse(
+                            ApiHelperSupport.optString(json, "waktu").trim());
+                } catch (Exception eWaktu) {
+                    ais.common.ErrorAuditUtil.record(eWaktu, "SopService.proses.waktu");
+                }
+            }
+            disposisiAlurSop.setWaktu(waktuDisposisi);
             disposisiAlurSop.setKeterangan(keterangan);
             disposisiAlurSop.setUsernamePengguna(ApiHelperSupport.safeString(tbmuser.getUserId()));
             disposisiAlurSop.setKembali(kembali);
@@ -1040,6 +1062,8 @@ public final class SopService {
             data.put("alurSopId", alurSop.getId());
             data.put("tahap", ApiHelperSupport.safeString(alurSop.getNama()));
             data.put("catatanWajib", alurSop.getCatatanWajibDiisi() == null || Boolean.TRUE.equals(alurSop.getCatatanWajibDiisi()));
+            data.put("bolehDiisiCatatan", Boolean.TRUE.equals(alurSop.getBolehDiisiCatatan()));
+            data.put("tanggalBolehDiubah", Boolean.TRUE.equals(alurSop.getTanggalDisposisiBolehDiubah()));
             data.put("lampiranCatatanWajib", Boolean.TRUE.equals(alurSop.getLampiranCatatanWajibDiisi())
                     && Common.bolehKonfigurasi("tampilkan_lampiran_catatan_disposisi"));
             data.put("nextOptions", buildNextOptions(alurSop));
@@ -1587,9 +1611,9 @@ public final class SopService {
      * Mengembalikan 0 bila gagal, supaya pemanggil dapat jatuh ke angka sampel.
      */
     private static int hitungDipantauTepat(Session session, Tbmuser tbmuser, Date mulai, Date sampai,
-            String keyword) {
+            String keyword, Long satuanKerjaId) {
         try {
-            Object n = criteriaDipantau(session, tbmuser, mulai, sampai, keyword)
+            Object n = satkerAlur(criteriaDipantau(session, tbmuser, mulai, sampai, keyword), satuanKerjaId)
                     .setProjection(Projections.countDistinct("disposisiSop.id")).uniqueResult();
             return n == null ? 0 : ((Number) n).intValue();
         } catch (Exception e) {
@@ -1694,10 +1718,6 @@ public final class SopService {
         return c;
     }
 
-    private static int countDataPengajuanAnda(Session session, Tbmuser tbmuser, Date mulai, Date sampai, String keyword) {
-        return countCriteria(criteriaPengajuanAnda(session, tbmuser, mulai, sampai, keyword));
-    }
-
     private static int countCriteria(Criteria criteria) {
         try {
             Number n = (Number) criteria.setProjection(Projections.rowCount()).uniqueResult();
@@ -1730,6 +1750,47 @@ public final class SopService {
      * BUKAN {@code this.waktu} (tanggal langkah, null untuk tahap pending) — persis seperti bug
      * yang sudah diperbaiki di versi web (lihat komentar di DasboardSop.java).
      */
+    /**
+     * Menyaring menurut Satuan Kerja pada criteria ber-root {@code DisposisiAlurSop}
+     * -- port {@code DasboardSop.applyGlobalSatkerFilter}: satker diambil dari pegawai
+     * milik PENGAJU pengajuan, atau pegawai milik pengambil langkah itu sendiri.
+     *
+     * <p>Mengembalikan criteria yang sama supaya bisa dibungkus langsung di titik
+     * panggil, tanpa mengubah tanda tangan rantai criteria yang sudah ada.</p>
+     */
+    private static Criteria satkerAlur(Criteria c, Long satuanKerjaId) {
+        if (c == null || satuanKerjaId == null) {
+            return c;
+        }
+        try {
+            c.createAlias("disposisiSop.diajukanOleh", "satkerPengajuUser", Criteria.LEFT_JOIN);
+            c.createAlias("satkerPengajuUser.pegawai", "satkerPengajuPegawai", Criteria.LEFT_JOIN);
+            c.createAlias("diajukanOleh", "satkerRootUser", Criteria.LEFT_JOIN);
+            c.createAlias("satkerRootUser.pegawai", "satkerRootPegawai", Criteria.LEFT_JOIN);
+            c.add(Restrictions.or(
+                    Restrictions.eq("satkerPengajuPegawai.satuanKerja.id", satuanKerjaId),
+                    Restrictions.eq("satkerRootPegawai.satuanKerja.id", satuanKerjaId)));
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.satkerAlur");
+        }
+        return c;
+    }
+
+    /** Padanan {@link #satkerAlur} untuk criteria ber-root {@code DisposisiSop}. */
+    private static Criteria satkerSop(Criteria c, Long satuanKerjaId) {
+        if (c == null || satuanKerjaId == null) {
+            return c;
+        }
+        try {
+            c.createAlias("diajukanOleh", "satkerSopUser", Criteria.LEFT_JOIN);
+            c.createAlias("satkerSopUser.pegawai", "satkerSopPegawai", Criteria.LEFT_JOIN);
+            c.add(Restrictions.eq("satkerSopPegawai.satuanKerja.id", satuanKerjaId));
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.satkerSop");
+        }
+        return c;
+    }
+
     private static void applyGlobalDisposisiFilter(Criteria c, Date mulai, Date sampai, String keyword) {
         if (mulai != null) {
             c.add(Restrictions.ge("disposisiSop.waktu", awalHari(mulai)));
@@ -1769,6 +1830,8 @@ public final class SopService {
         JSONObject hasil = new JSONObject();
         Map<String, Integer> perSop = new LinkedHashMap<String, Integer>();
         Map<String, Integer> perAktor = new LinkedHashMap<String, Integer>();
+        // Tren bulanan -- padanan d.perBulan pada DasboardSop (renderSopTrendBulananV13).
+        Map<String, Integer> perBulan = new LinkedHashMap<String, Integer>();
         Set<Long> uniqueDisposisi = new HashSet<Long>();
         int deadlineLewat = 0, deadlineHariIni = 0, deadlineMingguIni = 0, deadlineAman = 0;
         int tanpaDeadline = 0, tanpaAktor = 0, tanpaTahap = 0, tanpaCatatan = 0;
@@ -1796,6 +1859,7 @@ public final class SopService {
                 }
                 addCounter(perSop, getNamaSop(row));
                 addCounter(perAktor, getNamaAktor(row));
+                addCounter(perBulan, kunciBulanTahun(row));
 
                 try {
                     if (row.getWaktuMaksimal() == null) {
@@ -1866,6 +1930,7 @@ public final class SopService {
             hasil.put("metadataQuality", metadataQuality);
             hasil.put("perSop", topCounter(perSop, 8));
             hasil.put("perAktor", topCounter(perAktor, 8));
+            hasil.put("perBulan", deretWaktu(perBulan, 12));
             hasil.put("aktivitasTerbaru", aktivitasTerbaru);
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/SopService.java:1198");
         }
@@ -1876,6 +1941,58 @@ public final class SopService {
         String k = ApiHelperSupport.hasText(key) ? key : "Tidak diketahui";
         Integer cur = map.get(k);
         map.put(k, cur == null ? 1 : cur + 1);
+    }
+
+    /**
+     * Kunci bulan {@code yyyy-MM} untuk satu langkah alur -- port
+     * {@code DasboardSop.getBulanTahunKey}: memakai waktu langkah, dan bila kosong
+     * jatuh ke waktu pengajuan induknya.
+     */
+    private static String kunciBulanTahun(DisposisiAlurSop row) {
+        try {
+            Date waktu = null;
+            try {
+                waktu = row.getWaktu();
+            } catch (Exception e) {
+                waktu = null;
+            }
+            if (waktu == null && row.getDisposisiSop() != null) {
+                waktu = row.getDisposisiSop().getWaktu();
+            }
+            if (waktu != null) {
+                String f = Common.databaseDateFormat.get().format(waktu);
+                if (f != null && f.length() >= 7) {
+                    return f.substring(0, 7);
+                }
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.kunciBulanTahun");
+        }
+        return "?";
+    }
+
+    /**
+     * Serialisasi deret WAKTU: urut kronologis menaik lalu diambil {@code limit}
+     * bulan TERAKHIR. Sengaja tidak memakai {@link #topCounter}, yang mengurutkan
+     * menurut jumlah -- benar untuk peringkat, salah untuk tren.
+     */
+    private static JSONArray deretWaktu(Map<String, Integer> map, int limit) {
+        JSONArray arr = new JSONArray();
+        try {
+            List<String> kunci = new ArrayList<String>(map.keySet());
+            kunci.remove("?");
+            Collections.sort(kunci);
+            int mulai = kunci.size() > limit ? kunci.size() - limit : 0;
+            for (int i = mulai; i < kunci.size(); i++) {
+                JSONObject o = new JSONObject();
+                o.put("label", kunci.get(i));
+                o.put("jumlah", map.get(kunci.get(i)));
+                arr.put(o);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.deretWaktu");
+        }
+        return arr;
     }
 
     private static JSONArray topCounter(Map<String, Integer> map, int limit) {
@@ -2060,6 +2177,15 @@ public final class SopService {
             o.put("bisaKembali", alurSop != null && Boolean.TRUE.equals(alurSop.getKembaliKeAktorSebelumnya()) && langkah.getSebelumnya() != null);
             o.put("bisaSelesai", alurSop != null && Boolean.TRUE.equals(alurSop.getJikaProsesDisetujuiMakaSelesai()));
             o.put("catatanWajib", alurSop == null || alurSop.getCatatanWajibDiisi() == null || Boolean.TRUE.equals(alurSop.getCatatanWajibDiisi()));
+            // Dua konfigurasi tahap yang dipakai form disposisi ZKoss namun belum pernah
+            // sampai ke klien: apakah kolom catatan ditampilkan sama sekali, dan apakah
+            // waktu disposisi boleh diubah pengguna (DisposisiAlurSopAction baris 720-733).
+            o.put("bolehDiisiCatatan", alurSop == null || Boolean.TRUE.equals(alurSop.getBolehDiisiCatatan()));
+            o.put("tanggalBolehDiubah", alurSop != null && Boolean.TRUE.equals(alurSop.getTanggalDisposisiBolehDiubah()));
+            // Tahap yang membekukan dokumen tidak boleh menerima unggahan baru
+            // (DisposisiAlurSopAction baris 1238). Tanpa ini POS mengizinkan unggahan
+            // pada tahap yang di ZKoss justru terkunci.
+            o.put("bekukanDokumen", alurSop != null && Boolean.TRUE.equals(alurSop.getBekukanDokumen()));
             o.put("lampiranCatatanWajib", alurSop != null && Boolean.TRUE.equals(alurSop.getLampiranCatatanWajibDiisi())
                     && Common.bolehKonfigurasi("tampilkan_lampiran_catatan_disposisi"));
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/SopService.java:1393");
@@ -2146,6 +2272,13 @@ public final class SopService {
                 o.put("alurSopId", next.getId());
                 o.put("nama", ApiHelperSupport.safeString(next.getNama()));
                 o.put("opsi", opsis != null && i < opsis.size() && opsis.get(i) != null ? opsis.get(i).trim() : "");
+                // ZKoss merender PRATINJAU penerima tahap lanjutan (DisposisiAlurSopAction
+                // baris 1035/1171): bila tahap tujuan ber-kembaliKePengaju, dokumen kembali ke
+                // PENGAJU, bukan ke aktor berbasis peran. Tanpa penanda ini pengguna memilih
+                // rute tanpa tahu ke siapa dokumennya pergi.
+                o.put("kembaliKePengaju", Boolean.TRUE.equals(next.getKembaliKePengaju()));
+                o.put("aktorLabel", next.getAktorSop() == null ? ""
+                        : ApiHelperSupport.safeString(next.getAktor()));
                 arr.put(o);
             }
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/SopService.java:1479");

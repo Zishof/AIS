@@ -35,6 +35,7 @@ public final class KeuanganApiHelper {
 	private static final String[][] MODUL = {
 			{ "uang_muka", "uang_muka" },
 			{ "pj_uang_muka", "pj_uang_muka" },
+			{ "kas_besar", "kas_besar" },
 	};
 
 	private KeuanganApiHelper() {
@@ -115,7 +116,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka.");
+			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -130,6 +131,8 @@ public final class KeuanganApiHelper {
 			hasil.put("bulan", bulan);
 			if ("uang_muka".equals(modul)) {
 				dasborUangMuka(session, bulan, hasil);
+			} else if ("kas_besar".equals(modul)) {
+				dasborKasBesar(session, bulan, hasil);
 			} else {
 				dasborPj(session, bulan, hasil);
 			}
@@ -293,6 +296,84 @@ public final class KeuanganApiHelper {
 		hasil.put("catatanKosong", "Belum ada pertanggungjawaban pada periode ini.");
 	}
 
+	/**
+	 * Dasbor Kas Besar: berapa yang menunggu persetujuan, berapa yang sudah cair tetapi
+	 * BELUM dipertanggungjawabkan, tren pengeluaran per bulan, komposisi status, dan
+	 * jenis kas besar dengan nilai terbesar.
+	 */
+	private static void dasborKasBesar(Session session, int bulan, JSONObject hasil) throws Exception {
+		Connection conn = session.connection();
+		java.sql.Timestamp sejak = awalPeriode(bulan);
+
+		PreparedStatement ps = conn.prepareStatement(
+				"SELECT COALESCE(status,''), count(*), COALESCE(SUM(nilai),0),"
+						+ " COALESCE(SUM(CASE WHEN pertangungjawaban_kas_besar IS NULL THEN nilai ELSE 0 END),0)"
+						+ " FROM akunting.kas_besar WHERE tanggal_pembuatan >= ? GROUP BY COALESCE(status,'')");
+		ps.setTimestamp(1, sejak);
+		ResultSet rs = ps.executeQuery();
+		JSONArray komposisi = new JSONArray();
+		long total = 0;
+		double nilaiTotal = 0, nilaiMenunggu = 0, belumPj = 0;
+		while (rs.next()) {
+			String s = rs.getString(1);
+			long jml = rs.getLong(2);
+			double nilai = rs.getDouble(3);
+			total += jml;
+			nilaiTotal += nilai;
+			if (ais.database.model.akunting.KasBesar.PENGAJUAN.equals(s)) {
+				nilaiMenunggu += nilai;
+			}
+			if (ais.database.model.akunting.KasBesar.DISETUJU.equals(s)) {
+				belumPj += rs.getDouble(4);
+			}
+			komposisi.put(titik(s.isEmpty() ? "(tanpa status)" : s, jml));
+		}
+		rs.close();
+		ps.close();
+
+		JSONArray kpi = new JSONArray();
+		kpi.put(kartu("Jumlah Pengeluaran", String.valueOf(total)));
+		kpi.put(kartu("Nilai Pengeluaran", rupiah(nilaiTotal)));
+		kpi.put(kartu("Menunggu Persetujuan", rupiah(nilaiMenunggu)));
+		kpi.put(kartu("Cair, Belum di-PJ", rupiah(belumPj)));
+
+		hasil.put("kpi", kpi);
+		hasil.put("komposisi", komposisi);
+		hasil.put("komposisiJudul", "Komposisi Status Pengeluaran");
+		hasil.put("tren", trenBulanan(conn,
+				"SELECT to_char(tanggal_pembuatan,'YYYY-MM'), COALESCE(SUM(nilai),0), count(*)"
+						+ " FROM akunting.kas_besar WHERE tanggal_pembuatan >= ? GROUP BY 1", sejak, bulan));
+		hasil.put("trenJudul", "Tren Nilai Kas Besar per Bulan");
+		hasil.put("peringkat", peringkat(conn,
+				"SELECT COALESCE(j.nama,'(tanpa jenis)'), COALESCE(SUM(k.nilai),0)"
+						+ " FROM akunting.kas_besar k"
+						+ " LEFT JOIN public.jenis_kas_besar j ON j.id = k.jenis_kas_besar"
+						+ " WHERE k.tanggal_pembuatan >= ? GROUP BY 1 ORDER BY 2 DESC LIMIT 8", sejak));
+		hasil.put("peringkatJudul", "Jenis Kas Besar dengan Nilai Terbesar");
+
+		ps = conn.prepareStatement(
+				"SELECT COALESCE(kode,''), COALESCE(nama,''), COALESCE(nilai,0),"
+						+ " GREATEST(0, DATE_PART('day', now() - COALESCE(tanggal_persetujuan, tanggal_pembuatan)))"
+						+ " FROM akunting.kas_besar"
+						+ " WHERE COALESCE(status,'') = ? AND pertangungjawaban_kas_besar IS NULL"
+						+ " ORDER BY COALESCE(tanggal_persetujuan, tanggal_pembuatan) ASC LIMIT 15");
+		ps.setString(1, ais.database.model.akunting.KasBesar.DISETUJU);
+		rs = ps.executeQuery();
+		JSONArray daftar = new JSONArray();
+		while (rs.next()) {
+			JSONObject j = new JSONObject();
+			j.put("kode", rs.getString(1));
+			j.put("keterangan", rs.getString(2) + " — " + rupiah(rs.getDouble(3)));
+			j.put("umurHari", (int) rs.getDouble(4));
+			daftar.put(j);
+		}
+		rs.close();
+		ps.close();
+		hasil.put("daftar", daftar);
+		hasil.put("daftarJudul", "Sudah Cair, Belum Dipertanggungjawabkan");
+		hasil.put("catatanKosong", "Belum ada pengeluaran kas besar pada periode ini.");
+	}
+
 	/** Tren per bulan dalam kerangka penuh supaya bulan tanpa data tetap tampil sebagai 0. */
 	private static JSONArray trenBulanan(Connection conn, String sql, java.sql.Timestamp sejak, int bulan)
 			throws Exception {
@@ -349,7 +430,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka.");
+			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
