@@ -163,6 +163,35 @@ String rnd = Common.getGeneratedBarCode(7);
 </div>
 
 
+<%-- Pratinjau cetak dokumen Pengadaan.
+     Server merender PDF memakai templat JasperReports yang SAMA dengan versi
+     ZKoss, lalu URL-nya ditampilkan di dalam bingkai. Pembaca PDF bawaan
+     peramban menyediakan tombol cetak dan unduh, sehingga pengguna melihat
+     dokumennya lebih dulu sebelum memutuskan mencetak. --%>
+<div class="modal fade" id="cetakModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content" style="height:88vh">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cetakJudul<%=rnd%>"><%=Common.getBahasaConfig("Pratinjau Cetak")%></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" style="overflow:hidden">
+        <div id="cetakMemuat<%=rnd%>" class="text-muted small p-4"><%=Common.getBahasaConfig("Menyiapkan dokumen...")%></div>
+        <iframe id="cetakBingkai<%=rnd%>" style="width:100%;height:100%;border:0;display:none"></iframe>
+      </div>
+      <div class="modal-footer">
+        <a id="cetakUnduh<%=rnd%>" class="btn btn-outline-secondary d-none" target="_blank" href="#">
+          <i class="fas fa-download me-2"></i><%=Common.getBahasaConfig("Buka di tab baru")%>
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Tutup")%></button>
+        <button type="button" class="btn btn-primary" id="cetakTombol<%=rnd%>" onclick="cetakSekarang<%=rnd%>()">
+          <i class="fas fa-print me-2"></i><%=Common.getBahasaConfig("Cetak")%>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <%-- Tombol Bantuan mengambang; isinya sepadan dengan bantuan Desktop/Android. --%>
 <jsp:include page="/WEB-INF/baru/include/bantuan_pengadaan.jsp">
   <jsp:param name="tahap" value="pajak"/>
@@ -182,6 +211,15 @@ String rnd = Common.getGeneratedBarCode(7);
     var p = String(iso).split("-");
     return p.length === 3 ? (p[2] + "-" + p[1] + "-" + p[0]) : "";
   }
+  // Tombol cetak bukti setor pajak. Templatnya BARU -- versi ZKoss tidak punya
+  // dokumen per baris untuk pajak, hanya ekspor daftar.
+  function tombolCetak(r){
+    return '<button class="btn btn-sm btn-outline-secondary me-1" title="Cetak bukti setor"'
+         + ' onclick="cetakDokumen' + RND + '(\'pajak\',' + r.id
+         + ',\'' + esc(r.kode || "") + '\')">'
+         + '<i class="fas fa-print"></i></button>';
+  }
+
   function api(payload){
     return fetch(DATA_URL, {method:"POST", headers:{"Content-Type":"application/json"},
                             body: JSON.stringify(payload)}).then(function(r){ return r.json(); });
@@ -287,9 +325,9 @@ String rnd = Common.getGeneratedBarCode(7);
       var h = "";
       for (var i=0;i<setoran.length;i++){
         var r = setoran[i];
-        var aksi = r.aktif
+        var aksi = tombolCetak(r) + (r.aktif
           ? '<button class="btn btn-sm btn-outline-secondary" title="Batalkan setoran" onclick="pjBatal' + RND + '(' + r.id + ')"><i class="fas fa-undo"></i></button>'
-          : '<span class="small text-muted">dibatalkan</span>';
+          : '<span class="small text-muted">dibatalkan</span>');
         var jenis = esc(r.jenis) + (r.jenisPajak ? (" - " + esc(r.jenisPajak)) : "");
         h += '<tr>'
           + '<td class="fw-bold">' + esc(r.kode) + '</td>'
@@ -356,5 +394,39 @@ String rnd = Common.getGeneratedBarCode(7);
   };
 
   window["pjMuat" + RND]();
+  // ---------- Cetak dokumen ----------
+  window["cetakDokumen" + RND] = function(tahap, id, kode){
+    el("cetakJudul").textContent = "Pratinjau Cetak " + (kode || "");
+    el("cetakMemuat").classList.remove("d-none");
+    el("cetakBingkai").style.display = "none";
+    el("cetakUnduh").classList.add("d-none");
+    new bootstrap.Modal(document.getElementById("cetakModal" + RND)).show();
+    api({action:"pengadaan_cetak", tahap: tahap, id: id}).then(function(d){
+      if (d.status !== "00" && d.status !== "success"){
+        el("cetakMemuat").textContent = d.description || "Dokumen gagal dicetak.";
+        return;
+      }
+      el("cetakMemuat").classList.add("d-none");
+      el("cetakBingkai").src = d.url;
+      el("cetakBingkai").style.display = "block";
+      el("cetakUnduh").href = d.url;
+      el("cetakUnduh").classList.remove("d-none");
+    }).catch(function(){
+      el("cetakMemuat").textContent = "Kesalahan koneksi saat menyiapkan dokumen.";
+    });
+  };
+  window["cetakSekarang" + RND] = function(){
+    var bingkai = el("cetakBingkai");
+    if (!bingkai.src || bingkai.style.display === "none") return;
+    try {
+      bingkai.contentWindow.focus();
+      bingkai.contentWindow.print();
+    } catch (e) {
+      // Sebagian peramban memblokir print() lintas-bingkai; buka di tab baru
+      // supaya pengguna tetap dapat mencetak lewat pembaca PDF bawaannya.
+      window.open(bingkai.src, "_blank");
+    }
+  };
+
 })();
 </script>

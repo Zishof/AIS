@@ -1904,6 +1904,58 @@ public class ElearningApiUtil {
 
 	 
 
+	/**
+	 * Membaca id BERTIPE ANGKA dari payload JSON secara toleran.
+	 *
+	 * <p><b>KE-FIX</b> ("java.lang.NumberFormatException: For input string: &quot;&quot;").
+	 * Klien mengirim {@code "id": ""} (string KOSONG, bukan JSON null) untuk data BARU.
+	 * {@code JSONObject.isNull} bernilai false untuk string kosong, sehingga
+	 * {@code Long.parseLong("")} dieksekusi dan melempar NumberFormatException tiap kali
+	 * data baru disimpan. Exception itu tertelan catch di bawah -- alurnya kebetulan tetap
+	 * benar (id tetap null =&gt; buat data baru) tetapi Error Log terus dibanjiri.</p>
+	 *
+	 * <p>Nilai kosong/bukan angka kini langsung berarti "tanpa id" = data baru, persis
+	 * seperti hasil akhir sebelumnya, tanpa exception.</p>
+	 */
+	private static Long angkaIdAtauNull(Object mentah) {
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		if (mentah instanceof Number) {
+			return Long.valueOf(((Number) mentah).longValue());
+		}
+		String teks = String.valueOf(mentah).trim();
+		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "undefined".equalsIgnoreCase(teks)) {
+			return null;
+		}
+		try {
+			return Long.valueOf(teks);
+		} catch (NumberFormatException bukanAngka) {
+			// Bisa saja id desimal ("12.0") kiriman klien JavaScript; ambil bagian bulatnya.
+			try {
+				return Long.valueOf(new java.math.BigDecimal(teks).longValue());
+			} catch (NumberFormatException tetapBukanAngka) {
+				return null;
+			}
+		}
+	}
+
+	/**
+	 * Membaca id BERTIPE TEKS (userId/roleId/nama) dari payload JSON.
+	 *
+	 * <p>String kosong dinormalkan menjadi null. Sebelumnya id "" diteruskan ke
+	 * {@code Restrictions.idEq("")}: pada entitas ber-PK angka itu melempar galat tipe, dan
+	 * pada entitas ber-PK teks hasilnya selalu nihil. Keduanya sama artinya dengan "data
+	 * baru", jadi hasil akhirnya tidak berubah -- hanya tidak lagi lewat jalur galat.</p>
+	 */
+	private static String teksIdAtauNull(Object mentah) {
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		String teks = String.valueOf(mentah).trim();
+		return teks.length() == 0 ? null : teks;
+	}
+
 	@SuppressWarnings("rawtypes")
 	public static GeneralValueObject simpanData(Class clazz, Session session, JSONObject request, Tbmuser tbmuser,
 			List<String> warnings, HttpServletRequest req) throws Exception {
@@ -1911,13 +1963,13 @@ public class ElearningApiUtil {
 
 		try {
 			if (clazz.getName().equalsIgnoreCase(Tbmuser.class.getName())) {
-				id = request.isNull("userId") ? null : (request.get("userId") + "").trim();
+				id = teksIdAtauNull(request.opt("userId"));
 			} else if (clazz.getName().equalsIgnoreCase(Tbmrole.class.getName())) {
-				id = request.isNull("roleId") ? null : (request.get("roleId") + "").trim();
+				id = teksIdAtauNull(request.opt("roleId"));
 			} else if (clazz.getName().equalsIgnoreCase(Program.class.getName())) {
-				id = request.isNull("nama") ? null : (request.get("nama") + "").trim();
+				id = teksIdAtauNull(request.opt("nama"));
 			} else {
-				id = request.isNull("id") ? null : Long.parseLong((request.get("id") + "").trim());
+				id = angkaIdAtauNull(request.opt("id"));
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ElearningApiUtil.java:1918");
 			// TODO: handle exception
@@ -1928,13 +1980,13 @@ public class ElearningApiUtil {
 		try {
 			if (id == null) {
 				if (clazz.getName().equalsIgnoreCase(Tbmuser.class.getName())) {
-					id = data.isNull("userId") ? null : (data.get("userId") + "").trim();
+					id = teksIdAtauNull(data.opt("userId"));
 				} else if (clazz.getName().equalsIgnoreCase(Tbmrole.class.getName())) {
-					id = data.isNull("roleId") ? null : (data.get("roleId") + "").trim();
+					id = teksIdAtauNull(data.opt("roleId"));
 				} else if (clazz.getName().equalsIgnoreCase(Program.class.getName())) {
-					id = data.isNull("nama") ? null : (data.get("nama") + "").trim();
+					id = teksIdAtauNull(data.opt("nama"));
 				} else {
-					id = data.isNull("id") ? null : Long.parseLong((data.get("id") + "").trim());
+					id = angkaIdAtauNull(data.opt("id"));
 				}
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ElearningApiUtil.java:1936");
@@ -2948,7 +3000,16 @@ public class ElearningApiUtil {
 			}
 		}
 
-		Long id = request.isNull("id") ? null : Long.parseLong((request.get("id") + "").trim());
+		Long id = angkaIdAtauNull(request.opt("id"));
+		if (id == null) {
+			/* KE-FIX: sebelumnya id kosong/bukan angka melempar NumberFormatException mentah
+			 * ("For input string: &quot;&quot;") yang tampil ke pengguna sebagai layar galat.
+			 * Tanpa id, tidak ada baris yang bisa dihapus -- balas dengan pesan yang jelas dan
+			 * jangan membuka session/koneksi sama sekali. */
+			jsonObject.put("status", "92");
+			jsonObject.put("description", "Data yang akan dihapus tidak dikenali (id kosong).");
+			return jsonObject;
+		}
 		Session session = request.getString("class").startsWith("ais.database.model.file.")
 				|| request.getString("class").startsWith("ais.database.model.streaming.")
 						? StreamingHibernateUtil.getInstance().openSession()
