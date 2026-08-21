@@ -278,6 +278,9 @@ public final class PertangungjawabanApiHelper {
 			rs.close();
 			ps.close();
 			hasil.put("status", "00");
+			// Status DPC ikut dikirim supaya layar tahu dokumen mana yang sudah
+			// masuk kolam transfer bagian keuangan dan mana yang belum.
+			TransferDpcUtil.lampirkanStatus(session, "pj_uang_muka", arr);
 			hasil.put("data", arr);
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("totalDikembalikan", totalDikembalikan);
@@ -722,6 +725,10 @@ public final class PertangungjawabanApiHelper {
 		}
 		if ("pj_uang_muka_hitung".equals(action)) {
 			hitungPratinjau(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pj_uang_muka_ajukan_transfer".equals(action)) {
+			TransferDpcUtil.ajukan("pj_uang_muka", tbmuser, request, hasil);
 			return true;
 		}
 		if ("pj_uang_muka_simpan".equals(action)) {

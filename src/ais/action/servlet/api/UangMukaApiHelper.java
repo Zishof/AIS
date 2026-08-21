@@ -268,6 +268,9 @@ public final class UangMukaApiHelper {
 			rs.close();
 			ps.close();
 			hasil.put("status", "00");
+			// Status DPC ikut dikirim supaya layar tahu dokumen mana yang sudah
+			// masuk kolam transfer bagian keuangan dan mana yang belum.
+			TransferDpcUtil.lampirkanStatus(session, "uang_muka", arr);
 			hasil.put("data", arr);
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("hak", hakAksesJson(tbmuser));
@@ -339,10 +342,11 @@ public final class UangMukaApiHelper {
 	 * dokumen yang sedang disunting supaya nilainya sendiri tidak dihitung dua kali.
 	 */
 	public static void saldoAnggaran(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		// Id anggaran bisa negatif -- lihat AnggaranKeuanganUtil.lengkapiRincian.
 		long workspaceId = request == null ? 0 : request.optLong("workspaceId", 0);
 		long idKecuali = request == null ? 0 : request.optLong("id", 0);
 		Date pada = tanggal(request, "tanggal");
-		if (workspaceId <= 0) {
+		if (workspaceId == 0) {
 			hasil.put("status", "00");
 			hasil.put("saldo", 0);
 			return;
@@ -405,7 +409,7 @@ public final class UangMukaApiHelper {
 			tolak(hasil, "Akun belum dipilih.");
 			return;
 		}
-		if (workspaceId <= 0 && !tanpaAnggaran && !ambilDariPr) {
+		if (workspaceId == 0 && !tanpaAnggaran && !ambilDariPr) {
 			tolak(hasil, "Anggaran belum dipilih.");
 			return;
 		}
@@ -443,7 +447,7 @@ public final class UangMukaApiHelper {
 			}
 
 			Workspace workspace = null;
-			if (!tanpaAnggaran && workspaceId > 0) {
+			if (!tanpaAnggaran && workspaceId != 0) {
 				workspace = (Workspace) session.get(Workspace.class, Long.valueOf(workspaceId));
 				if (workspace == null) {
 					tolak(hasil, "Anggaran tidak ditemukan.");
@@ -726,6 +730,10 @@ public final class UangMukaApiHelper {
 		}
 		if ("uang_muka_saldo".equals(action)) {
 			saldoAnggaran(tbmuser, request, hasil);
+			return true;
+		}
+		if ("uang_muka_ajukan_transfer".equals(action)) {
+			TransferDpcUtil.ajukan("uang_muka", tbmuser, request, hasil);
 			return true;
 		}
 		if ("uang_muka_simpan".equals(action)) {

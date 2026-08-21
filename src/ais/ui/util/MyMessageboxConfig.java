@@ -332,7 +332,7 @@ public class MyMessageboxConfig {
 			detailButtons.setStyle("justify-content:flex-end;width:100%;");
 			detailButtons.setParent(detailBox);
 
-			Button copy = new Button("Copy Detail");
+			final Button copy = new Button("Copy Detail");
 			copy.setStyle("border:1px solid #94a3b8;background:#fff;color:#0f172a;border-radius:7px;"
 					+ "padding:5px 10px;font-weight:700;");
 			copy.setParent(detailButtons);

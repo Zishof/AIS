@@ -125,8 +125,10 @@ public final class AnggaranKeuanganUtil {
 	 * dengan layar ZK ({@code JenisUangMukaAction.hitungSaldo}).
 	 */
 	public static void saldo(JSONObject request, JSONObject hasil) throws Exception {
+		// Perhatikan: id anggaran boleh NEGATIF (lihat catatan pada lengkapiRincian),
+		// jadi "belum dipilih" berarti 0, bukan "kurang dari nol".
 		long workspaceId = request == null ? 0 : request.optLong("workspaceId", 0);
-		if (workspaceId <= 0) {
+		if (workspaceId == 0) {
 			hasil.put("status", "00");
 			hasil.put("saldo", 0);
 			return;
@@ -201,8 +203,11 @@ public final class AnggaranKeuanganUtil {
 			Workspace workspace = null;
 			if (!b.isNull("workspace")) {
 				try {
+					// Id anggaran pada basis data AIS bisa NEGATIF (rab.workspace memakai
+					// ruang id tersendiri, bukan serial). Penjaga "> 0" akan menolak
+					// seluruh anggaran yang sah -- yang menandakan "kosong" hanyalah 0.
 					long id = new BigDecimal(b.get("workspace") + "").longValue();
-					if (id > 0) {
+					if (id != 0) {
 						workspace = (Workspace) session.get(Workspace.class, Long.valueOf(id));
 					}
 				} catch (Exception e) {
@@ -212,7 +217,7 @@ public final class AnggaranKeuanganUtil {
 
 			Akun akunBiaya = null;
 			long akunId = b.optLong("akun", 0);
-			if (akunId > 0) {
+			if (akunId != 0) {
 				akunBiaya = (Akun) session.get(Akun.class, Long.valueOf(akunId));
 			}
 

@@ -228,6 +228,10 @@ public final class KodeAkunApiHelper {
 			tolak(hasil, "Tidak ada baris untuk diimpor.");
 			return;
 		}
+		if (!bolehAksi(tbmuser, "kode_akun", "create") && !bolehAksi(tbmuser, "kode_akun", "update")) {
+			tolak(hasil, "Anda tidak memiliki hak mengimpor akun.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		int dibuat = 0, diperbarui = 0, ditolak = 0;
 		JSONArray masalah = new JSONArray();
@@ -250,6 +254,12 @@ public final class KodeAkunApiHelper {
 							.createCriteria(ais.database.model.akunting.Akun.class)
 							.add(org.hibernate.criterion.Restrictions.eq("kode", kode)).uniqueResult();
 					boolean baru = akun == null;
+					if (!bolehAksi(tbmuser, "kode_akun", baru ? "create" : "update")) {
+						ditolak++;
+						masalah.put("Baris " + nomorBaris + ": hak akses tidak mengizinkan "
+								+ (baru ? "menambah" : "mengubah") + " akun");
+						continue;
+					}
 					if (baru) {
 						akun = new ais.database.model.akunting.Akun();
 						akun.setKode(kode);
@@ -355,6 +365,10 @@ public final class KodeAkunApiHelper {
 			tolak(hasil, "Tidak ada baris untuk diimpor.");
 			return;
 		}
+		if (!bolehAksi(tbmuser, "bank_akun", "create") && !bolehAksi(tbmuser, "bank_akun", "update")) {
+			tolak(hasil, "Anda tidak memiliki hak mengimpor bank.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		int dibuat = 0, diperbarui = 0, ditolak = 0;
 		JSONArray masalah = new JSONArray();
@@ -389,6 +403,12 @@ public final class KodeAkunApiHelper {
 								.setMaxResults(1).uniqueResult();
 					}
 					boolean baru = bank == null;
+					if (!bolehAksi(tbmuser, "bank_akun", baru ? "create" : "update")) {
+						ditolak++;
+						masalah.put("Baris " + nomorBaris + ": hak akses tidak mengizinkan "
+								+ (baru ? "menambah" : "mengubah") + " bank");
+						continue;
+					}
 					if (baru) {
 						bank = new ais.database.model.Bank();
 					}
@@ -453,6 +473,10 @@ public final class KodeAkunApiHelper {
 			tolak(hasil, "Tidak ada baris untuk diimpor.");
 			return;
 		}
+		if (!bolehAksi(tbmuser, "jenis_transaksi", "create") && !bolehAksi(tbmuser, "jenis_transaksi", "update")) {
+			tolak(hasil, "Anda tidak memiliki hak mengimpor jenis transaksi.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		int dibuat = 0, diperbarui = 0, ditolak = 0;
 		JSONArray masalah = new JSONArray();
@@ -476,6 +500,12 @@ public final class KodeAkunApiHelper {
 									.createCriteria(ais.database.model.akunting.JenisTransaksi.class)
 									.add(org.hibernate.criterion.Restrictions.eq("kode", kode)).uniqueResult();
 					boolean baru = jt == null;
+					if (!bolehAksi(tbmuser, "jenis_transaksi", baru ? "create" : "update")) {
+						ditolak++;
+						masalah.put("Baris " + nomorBaris + ": hak akses tidak mengizinkan "
+								+ (baru ? "menambah" : "mengubah") + " jenis transaksi");
+						continue;
+					}
 					if (baru) {
 						jt = new ais.database.model.akunting.JenisTransaksi();
 						jt.setKode(kode);

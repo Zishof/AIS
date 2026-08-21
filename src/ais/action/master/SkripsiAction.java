@@ -128,6 +128,7 @@ import ais.database.model.FormatNilai;
 import ais.database.model.FormatNilaiSkripsi;
 import ais.database.model.GelombangPendaftaranSidangTugasAkhir;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalSidangTugasAkhir;
 import ais.database.model.JenisKegiatan;
@@ -144,6 +145,7 @@ import ais.database.model.NilaiToeflToaflMahasiswa;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Skripsi;
 import ais.database.model.StatusDomisiliSetelahLulus;
+import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusKeluar;
 import ais.database.model.StatusPekerjaanSetelahLulus;
 import ais.database.model.StatusSetelahLulus;
@@ -3111,6 +3113,29 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		return Common.getCurrentTahunAkademik();
 	}
 
+	private Integer ambilSemesterPengajuanTerpilih(Mahasiswa mahasiswa) {
+		if (semester != null && semester.getSelectedItem() != null && semester.getSelectedItem().getValue() != null) {
+			return (Integer) semester.getSelectedItem().getValue();
+		}
+		if (skripsi != null && skripsi.getSemester() != null) {
+			return skripsi.getSemester();
+		}
+		return mahasiswa == null ? null : mahasiswa.currentSemester();
+	}
+
+	private HistoryStatusMahasiswa ambilHistoryPengajuan(Mahasiswa mahasiswa) {
+		if (mahasiswa == null) {
+			return null;
+		}
+		try {
+			return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa,
+					ambilTahunAkademikTerpilih(), ambilSemesterPengajuanTerpilih(mahasiswa), true);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
 	private void muatGelombangPendaftaranSidang(Mahasiswa mhs) throws Exception {
 		if (gelombangPendaftaranSidangTugasAkhir == null || mhs == null || mhs.getJurusan() == null) {
 			return;
@@ -3157,6 +3182,14 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 					: mahasiswa.getJurusan().getFakultas();
 			Jurusan jurusan = mahasiswa == null ? (tbmuser == null ? null : tbmuser.ambilJurusan())
 					: mahasiswa.getJurusan();
+			Integer semesterPengajuan = ambilSemesterPengajuanTerpilih(mahasiswa);
+			HistoryStatusMahasiswa historyPengajuan = ambilHistoryPengajuan(mahasiswa);
+			String programPengajuan = historyPengajuan == null ? HistoryStatusMahasiswa.ambilProgram(mahasiswa,
+					semesterPengajuan, mahasiswa == null ? null : mahasiswa.getProgram()) : historyPengajuan.getProgram();
+			StatusAwalMahasiswa statusAwalPengajuan = historyPengajuan == null
+					? HistoryStatusMahasiswa.ambilStatusAwal(mahasiswa, semesterPengajuan,
+							mahasiswa == null ? null : mahasiswa.getStatusAwalMahasiswa())
+					: historyPengajuan.getStatusAwalMahasiswa();
 
 			List<FormatNilaiSkripsi> formatNilaiSkripsis = HibernateUtil.currentSession()
 					.createCriteria(FormatNilaiSkripsi.class)
@@ -3166,6 +3199,13 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 							: Restrictions.sqlRestriction("true"))
 					.add(Restrictions.or(Restrictions.isNull("fakultas"), Restrictions.eq("fakultas", fakultas)))
 					.add(Restrictions.or(Restrictions.isNull("jurusan"), Restrictions.eq("jurusan", jurusan)))
+					.add(programPengajuan == null || programPengajuan.trim().isEmpty()
+							? Restrictions.sqlRestriction("true")
+							: Restrictions.or(Restrictions.isNull("program"),
+									Restrictions.eq("program", programPengajuan)))
+					.add(statusAwalPengajuan == null ? Restrictions.sqlRestriction("true")
+							: Restrictions.or(Restrictions.isNull("statusAwalMahasiswa"),
+									Restrictions.eq("statusAwalMahasiswa", statusAwalPengajuan)))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
 			for (FormatNilaiSkripsi formatNilaiSkripsi : formatNilaiSkripsis) {
 				if (formatNilaiSkripsi.getTahunAngkatan().trim().isEmpty() || (mahasiswa != null && formatNilaiSkripsi
@@ -6804,6 +6844,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event event) throws Exception {
 				muatGelombangPendaftaranSidang((Mahasiswa) mahasiswa.getAttribute("mahasiswa"));
+				mhsFormatEvent.onEvent(null);
 			}
 		});
 		muatGelombangPendaftaranSidang((Mahasiswa) mahasiswa.getAttribute("mahasiswa"));
@@ -6829,6 +6870,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		}
 
 		Common.selectComboItem(semester, skripsi.getSemester());
+		semester.addEventListener("onChange", mhsFormatEvent);
 
 		row = new MyFormRow();
 		row.setValign("top");

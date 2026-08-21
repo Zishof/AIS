@@ -386,6 +386,11 @@ public final class KasKecilApiHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			// Anggaran dilengkapi lebih dulu: baris yang hanya membawa anggaran akan
+			// memperoleh akun biayanya dari anggaran itu, sama seperti banbox ZK yang
+			// mengisi akun begitu anggaran dipilih. Tanpa ini baris tersebut keburu
+			// ditolak "akun belum dipilih".
+			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, false);
 			// --- urutan validasi disamakan dengan layar ZK
 			String masalah = masalahRincian(session, rincian);
 			if (masalah != null) {
@@ -464,10 +469,6 @@ public final class KasKecilApiHelper {
 			kk.setSisa(Double.valueOf(saldoD - nilai));
 			kk.setKeterangan(request.optString("keterangan", "").trim());
 			kk.setTanggal(tgl);
-			// Tiap baris rincian dilengkapi anggarannya SEBELUM formula disimpan. Tanpa field
-			// `workspace`, PenggunaanAnggaran.prosesKasKecil melewati baris itu dan anggaran
-			// tidak pernah terpotong -- persis celah yang ditutup banbox anggaran di layar ZK.
-			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, false);
 			kk.setFormula(rincian == null ? "[]" : rincian.toString());
 			kk.setTampilkanAnggaran(Boolean.valueOf(request.optBoolean("tampilkanAnggaran", false)));
 			if (kk.getDibuatOleh() == null) {

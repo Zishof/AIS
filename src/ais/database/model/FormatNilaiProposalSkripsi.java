@@ -119,6 +119,8 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 
 	private Fakultas fakultas;
 	private Jurusan jurusan;
+	private String program;
+	private StatusAwalMahasiswa statusAwalMahasiswa;
 	private Boolean aktif;
 	private Boolean tidakWajibMengambilMkTertentu;
 
@@ -360,6 +362,26 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 	public Fakultas getFakultas() {
 		fakultas = check(fakultas);
 		return fakultas;
+	}
+
+	public void setProgram(String program) {
+		this.program = program;
+	}
+
+	@Column(name = "program", length = 50)
+	public String getProgram() {
+		return program == null || program.trim().isEmpty() ? null : program.trim();
+	}
+
+	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
+		this.statusAwalMahasiswa = statusAwalMahasiswa;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
+	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
+		statusAwalMahasiswa = check(statusAwalMahasiswa);
+		return statusAwalMahasiswa;
 	}
 
 	public Boolean getAktif() {

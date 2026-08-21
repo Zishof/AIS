@@ -208,6 +208,9 @@ public final class PenggantianKasKecilApiHelper {
 			rs.close();
 			ps.close();
 			hasil.put("status", "00");
+			// Status DPC ikut dikirim supaya layar tahu dokumen mana yang sudah
+			// masuk kolam transfer bagian keuangan dan mana yang belum.
+			TransferDpcUtil.lampirkanStatus(session, "penggantian_kas_kecil", arr);
 			hasil.put("data", arr);
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("hak", hakAksesJson(tbmuser));
@@ -357,6 +360,9 @@ public final class PenggantianKasKecilApiHelper {
 				return;
 			}
 			// Rincian yang dikirim adalah rincian KAS KECIL-nya; aturannya sama.
+			// Anggaran dilengkapi lebih dulu supaya baris yang hanya membawa anggaran
+			// tetap memperoleh akun biayanya -- sama seperti banbox ZK.
+			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, kk.getTanggal(), false);
 			String masalah = rincian == null ? null : KasKecilApiHelper.masalahRincian(session, rincian);
 			if (masalah != null) {
 				tolak(hasil, masalah);
@@ -419,9 +425,6 @@ public final class PenggantianKasKecilApiHelper {
 			session.saveOrUpdate(pg);
 			// Rincian & nilai dokumen kas kecil ikut diperbarui, lalu ditautkan balik.
 			if (rincian != null) {
-				// Rincian yang disunting di sini adalah rincian kas kecil induknya, jadi
-				// anggarannya dilengkapi memakai TANGGAL dokumen induk itu.
-				AnggaranKeuanganUtil.lengkapiRincian(session, rincian, kk.getTanggal(), false);
 				kk.setFormula(rincian.toString());
 				kk.setNilai(Double.valueOf(nilai));
 			}
@@ -617,6 +620,10 @@ public final class PenggantianKasKecilApiHelper {
 		}
 		if ("penggantian_kas_kecil_saldo_anggaran".equals(action)) {
 			AnggaranKeuanganUtil.saldo(request, hasil);
+			return true;
+		}
+		if ("penggantian_kas_kecil_ajukan_transfer".equals(action)) {
+			TransferDpcUtil.ajukan("penggantian_kas_kecil", tbmuser, request, hasil);
 			return true;
 		}
 		if ("penggantian_kas_kecil_simpan".equals(action)) {

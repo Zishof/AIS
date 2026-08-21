@@ -84,6 +84,7 @@ import ais.database.model.DspaceInformation;
 import ais.database.model.Fakultas;
 import ais.database.model.FormatNilaiProposalSkripsi;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalSeminarTugasAkhir;
 import ais.database.model.JenisKegiatan;
@@ -3464,6 +3465,41 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 				"communities/" + getDspaceTugasAkhir(cookie, mahasiswaRequestTugasAkhir) + "/collections");
 	}
 
+	private String ambilTahunAkademikTerpilih() {
+		if (tahunAkademik != null && tahunAkademik.getSelectedItem() != null
+				&& tahunAkademik.getSelectedItem().getValue() != null) {
+			return tahunAkademik.getSelectedItem().getValue().toString();
+		}
+		if (mahasiswaRequestTugasAkhir != null && mahasiswaRequestTugasAkhir.getTahunAkademik() != null
+				&& !mahasiswaRequestTugasAkhir.getTahunAkademik().trim().isEmpty()) {
+			return mahasiswaRequestTugasAkhir.getTahunAkademik();
+		}
+		return Common.getCurrentTahunAkademik();
+	}
+
+	private Integer ambilSemesterPengajuanTerpilih(Mahasiswa mahasiswa) {
+		if (semester != null && semester.getSelectedItem() != null && semester.getSelectedItem().getValue() != null) {
+			return (Integer) semester.getSelectedItem().getValue();
+		}
+		if (mahasiswaRequestTugasAkhir != null && mahasiswaRequestTugasAkhir.getSemester() != null) {
+			return mahasiswaRequestTugasAkhir.getSemester();
+		}
+		return mahasiswa == null ? null : mahasiswa.currentSemester();
+	}
+
+	private HistoryStatusMahasiswa ambilHistoryPengajuan(Mahasiswa mahasiswa) {
+		if (mahasiswa == null) {
+			return null;
+		}
+		try {
+			return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa,
+					ambilTahunAkademikTerpilih(), ambilSemesterPengajuanTerpilih(mahasiswa), true);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
 	@SuppressWarnings("deprecation")
 	@Override
 	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop disposisiSop, MyToolbarbuttonConfig save,
@@ -3541,6 +3577,15 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 
 				Fakultas fakultas = mahasiswa == null ? tbmuser.ambilFakultas() : mahasiswa.getJurusan().getFakultas();
 				Jurusan jurusan = mahasiswa == null ? tbmuser.ambilJurusan() : mahasiswa.getJurusan();
+				Integer semesterPengajuan = ambilSemesterPengajuanTerpilih(mahasiswa);
+				HistoryStatusMahasiswa historyPengajuan = ambilHistoryPengajuan(mahasiswa);
+				String programPengajuan = historyPengajuan == null ? HistoryStatusMahasiswa.ambilProgram(mahasiswa,
+						semesterPengajuan, mahasiswa == null ? null : mahasiswa.getProgram())
+						: historyPengajuan.getProgram();
+				StatusAwalMahasiswa statusAwalPengajuan = historyPengajuan == null
+						? HistoryStatusMahasiswa.ambilStatusAwal(mahasiswa, semesterPengajuan,
+								mahasiswa == null ? null : mahasiswa.getStatusAwalMahasiswa())
+						: historyPengajuan.getStatusAwalMahasiswa();
 
 				List<FormatNilaiProposalSkripsi> formatNilaiProposalSkripsis = HibernateUtil.currentSession()
 						.createCriteria(FormatNilaiProposalSkripsi.class)
@@ -3552,6 +3597,13 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 
 						.add(Restrictions.or(Restrictions.isNull("fakultas"), Restrictions.eq("fakultas", fakultas)))
 						.add(Restrictions.or(Restrictions.isNull("jurusan"), Restrictions.eq("jurusan", jurusan)))
+						.add(programPengajuan == null || programPengajuan.trim().isEmpty()
+								? Restrictions.sqlRestriction("true")
+								: Restrictions.or(Restrictions.isNull("program"),
+										Restrictions.eq("program", programPengajuan)))
+						.add(statusAwalPengajuan == null ? Restrictions.sqlRestriction("true")
+								: Restrictions.or(Restrictions.isNull("statusAwalMahasiswa"),
+										Restrictions.eq("statusAwalMahasiswa", statusAwalPengajuan)))
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
 				for (FormatNilaiProposalSkripsi formatNilaiProposalSkripsi : formatNilaiProposalSkripsis) {
 
@@ -3644,6 +3696,7 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 			Common.selectComboItem(tahunAkademik, mahasiswaRequestTugasAkhir.getTahunAkademik());
 		}
 		tahunAkademik.setWidth("90%");
+		tahunAkademik.addEventListener("onChange", mhsFormatEvent);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -3666,6 +3719,7 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 		}
 
 		Common.selectComboItem(semester, mahasiswaRequestTugasAkhir.getSemester());
+		semester.addEventListener("onChange", mhsFormatEvent);
 
 //		row = new MyFormRow();
 //		row.setVisible(tbmuser.getMahasiswa() != null);

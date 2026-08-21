@@ -55,6 +55,7 @@ import ais.database.model.Jurusan;
 import ais.database.model.KomponenPenilaianSkripsi;
 import ais.database.model.Matakuliah;
 import ais.database.model.SkripsiPunyaKomponenPenilaianSkripsi;
+import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.Tbmuser;
 import ais.database.model.library.TipeItem;
 import ais.ui.util.MyCheckboxConfig;
@@ -175,6 +176,8 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 	private MyTextbox nama;
 	private Combobox fakultas;
 	private Combobox jurusan;
+	private Combobox program;
+	private Combobox statusAwalMahasiswa;
 
 	private List<KomponenPenilaianSkripsi> selectedKomponenPenilaianSkripsi;
 	private MyTextbox kodeMatakuliah;
@@ -275,6 +278,12 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 
 		fakultas = new Combobox();
 		jurusan = new Combobox();
+		program = new Combobox();
+		statusAwalMahasiswa = new Combobox();
+		Common.initPrograms(program);
+		Common.insertComboDanSemua(statusAwalMahasiswa, new String[] { "nama" }, "keterangan",
+				StatusAwalMahasiswa.class, "Semua Status Awal Mahasiswa",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 		Common.initFakultasDanJurusanDanSemua(fakultas, jurusan, searchfakultas, searchjurusan);
 
 		if (add != null) {
@@ -618,6 +627,27 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 
 		Common.initKeterangan(rows, "(Kosongkan " + Common.getBahasaConfig("Jurusan")
 				+ " jika format nilai ini berlaku untuk semua " + Common.getBahasaConfig("Jurusan") + ")");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Program"));
+		Common.selectComboItem(program, formatNilaiSkripsi.getProgram());
+		row.appendChild(program);
+		program.setWidth("90%");
+		program.setReadonly(true);
+
+		Common.initKeterangan(rows, "(Kosongkan Program jika format nilai ini berlaku untuk semua Program)");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Status Awal Mahasiswa"));
+		Common.selectComboItem(true, statusAwalMahasiswa, formatNilaiSkripsi.getStatusAwalMahasiswa());
+		row.appendChild(statusAwalMahasiswa);
+		statusAwalMahasiswa.setWidth("90%");
+		statusAwalMahasiswa.setReadonly(true);
+
+		Common.initKeterangan(rows,
+				"(Kosongkan Status Awal Mahasiswa jika format nilai ini berlaku untuk semua Status Awal Mahasiswa)");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1506,6 +1536,12 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 		formatNilaiSkripsi.setJurusan(
 				(Jurusan) (jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null ? null
 						: jurusan.getSelectedItem().getValue()));
+		formatNilaiSkripsi.setProgram(
+				(String) (program.getSelectedItem() == null || program.getSelectedItem().getValue() == null ? null
+						: program.getSelectedItem().getValue()));
+		formatNilaiSkripsi.setStatusAwalMahasiswa((StatusAwalMahasiswa) (statusAwalMahasiswa.getSelectedItem() == null
+				|| statusAwalMahasiswa.getSelectedItem().getValue() == null ? null
+						: statusAwalMahasiswa.getSelectedItem().getValue()));
 
 		formatNilaiSkripsi.setJenisKegiatanMahasiswa(
 				(JenisKegiatanMahasiswa) (jenis.getSelectedItem() == null ? null : jenis.getSelectedItem().getValue()));

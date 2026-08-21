@@ -248,6 +248,9 @@ public final class KasBesarApiHelper {
 			rs.close();
 			ps.close();
 			hasil.put("status", "00");
+			// Status DPC ikut dikirim supaya layar tahu dokumen mana yang sudah
+			// masuk kolam transfer bagian keuangan dan mana yang belum.
+			TransferDpcUtil.lampirkanStatus(session, "kas_besar", arr);
 			hasil.put("data", arr);
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("hak", hakAksesJson(tbmuser));
@@ -407,6 +410,11 @@ public final class KasBesarApiHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			// Anggaran dilengkapi lebih dulu: baris yang hanya membawa anggaran akan
+			// memperoleh akun biayanya dari anggaran itu, sama seperti banbox ZK yang
+			// mengisi akun begitu anggaran dipilih. Tanpa ini baris tersebut keburu
+			// ditolak "akun belum dipilih".
+			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, true);
 			KasBesar kb = baru ? new KasBesar() : (KasBesar) session.get(KasBesar.class, Long.valueOf(id));
 			if (kb == null) {
 				tolak(hasil, "Dokumen tidak ditemukan (mungkin sudah dihapus pengguna lain).");
@@ -430,9 +438,6 @@ public final class KasBesarApiHelper {
 			kb.setNilai(Double.valueOf(nilai));
 			kb.setKeterangan(request.optString("keterangan", "").trim());
 			kb.setTanggal(tgl);
-			// Sama seperti Kas Kecil, hanya saja Kas Besar juga menerima anggaran luncuran
-			// (carryOver) -- mengikuti PenggunaanAnggaran.prosesKasBesar.
-			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, true);
 			kb.setFormula(rincian == null ? "[]" : rincian.toString());
 			if (kb.getDibuatOleh() == null) {
 				kb.setDibuatOleh(tbmuser);
@@ -652,6 +657,10 @@ public final class KasBesarApiHelper {
 		}
 		if ("kas_besar_saldo_anggaran".equals(action)) {
 			AnggaranKeuanganUtil.saldo(request, hasil);
+			return true;
+		}
+		if ("kas_besar_ajukan_transfer".equals(action)) {
+			TransferDpcUtil.ajukan("kas_besar", tbmuser, request, hasil);
 			return true;
 		}
 		if ("kas_besar_simpan".equals(action)) {
