@@ -18,7 +18,7 @@
             <a href="#layanan">Layanan Digital</a>
         </nav>
         <div class="home-header-actions">
-            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa: <%=h(vm.language.toUpperCase())%>"><i class="fas fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar">العربية</a><a href="?lang=zh" lang="zh">中文</a></div></details><% } %>
+            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa: <%=h(vm.language.toUpperCase())%>"><i class="fas fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar" dir="rtl">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</a><a href="?lang=zh" lang="zh">&#20013;&#25991;</a></div></details><% } %>
             <a class="home-btn home-btn-login" href="<%=h(vm.loginUrl)%>" target="<%=h(vm.loginTarget)%>" rel="<%=h(vm.loginRel)%>">Masuk Sistem</a>
             <button class="home-menu-button" type="button" aria-expanded="false" aria-controls="home-mobile-nav" aria-label="Buka menu"><span></span><span></span><span></span></button>
         </div>
