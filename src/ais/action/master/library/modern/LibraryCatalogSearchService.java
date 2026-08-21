@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.hibernate.Criteria;
+import org.hibernate.FetchMode;
 import org.hibernate.Hibernate;
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -86,6 +87,8 @@ public class LibraryCatalogSearchService {
 
     Criteria createCriteria(Session session, LibraryCatalogSearchRequest request) {
         Criteria criteria = session.createCriteria(Item.class, "item");
+        criteria.setFetchMode("penerbit", FetchMode.JOIN).setFetchMode("jenisItem", FetchMode.JOIN)
+                .setFetchMode("tipeItem", FetchMode.JOIN);
         criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
         criteria.add(Restrictions.sqlRestriction(
                 "{alias}.status_terbit_item in (select id from library.status_terbit_item "

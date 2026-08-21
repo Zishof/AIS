@@ -32,7 +32,8 @@
     }
 
     // Persiapan variabel data dengan validasi Null (Fallback ke strip "-")
-    String coverImg = (item.getImageUrl() != null && item.getImageUrl().trim().startsWith("http")) 
+    boolean punyaCoverAsli = item.getImageUrl() != null && item.getImageUrl().trim().startsWith("http");
+    String coverImg = punyaCoverAsli
         ? item.getImageUrl() 
         : Common.getRequestHostWithProtocol() + "/library/item-cover?id=" + item.getId();
     
@@ -49,6 +50,15 @@
     String bahasa = item.getLanguage() != null && !item.getLanguage().trim().isEmpty() ? item.getLanguage() : "-";
     String callNumber = item.getCallNumber() != null && !item.getCallNumber().trim().isEmpty() ? item.getCallNumber() : "-";
     String deskripsi = item.getSummary() != null && !item.getSummary().trim().isEmpty() ? item.getSummary() : Common.getBahasaConfig("Tidak ada deskripsi yang tersedia.");
+    String[] kataCover = judul.trim().split("\\s+");
+    StringBuilder coverMarkBuilder = new StringBuilder();
+    for (int coverIndex = 0; coverIndex < kataCover.length && coverIndex < 3; coverIndex++) {
+        if (coverIndex > 0) coverMarkBuilder.append("<br>");
+        String kata = kataCover[coverIndex].toUpperCase();
+        coverMarkBuilder.append(StringEscapeUtils.escapeHtml(kata.length() > 10 ? kata.substring(0, 10) : kata));
+    }
+    String coverMark = coverMarkBuilder.length() == 0 ? "KOLEKSI" : coverMarkBuilder.toString();
+    int coverHue = (int) ((item.getId() == null ? 1L : item.getId().longValue()) * 47L % 360L);
 
     // Sanitasi data teks untuk menghindari error pada format JSON-LD (Kutip ganda & Baris baru)
     String jsonJudul = judul.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
@@ -71,7 +81,8 @@
     deskripsi = StringEscapeUtils.escapeHtml(deskripsi);
 
     // Evaluasi Hak Akses Dokumen Digital (Unduhan Lampiran / Ebook)
-    String urlLampiran = item.getDigitalUrl() == null ? "" : item.getDigitalUrl();
+    boolean bolehAksesDigital = Common.getCurrentUser(request) != null;
+    String urlLampiran = bolehAksesDigital && item.getDigitalUrl() != null ? item.getDigitalUrl() : "";
 
     // Persistence access lives in a typed Java read service, not in this renderer.
     List<LibraryItemDetailService.Holding> listKetersediaan = item.getHoldings();
@@ -139,14 +150,15 @@
                     
                     <div class="col-md-5 col-lg-4 text-center">
                         <div class="p-3 rounded-4 shadow-sm mb-4 border" style="background-color: #ffffff;">
-                            <img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.onerror=null;this.src='<%=Common.ROOT%>/img/book.jpg'">
+                            <% if (punyaCoverAsli) { %><img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                            <% } %><div <%=punyaCoverAsli ? "hidden" : ""%> role="img" aria-label="<%=Common.getBahasaConfig("Sampul dibuat otomatis untuk")%> <%=judul%>" style="width:min(100%,260px);height:360px;margin:auto;padding:28px 22px;border-radius:16px;text-align:left;font-weight:800;background:linear-gradient(150deg,hsl(<%=coverHue%>,72%,88%),hsl(<%=coverHue%>,55%,58%));color:hsl(<%=coverHue%>,70%,22%);box-shadow:0 14px 30px rgba(30,64,175,.16);"><div style="font-size:1.35rem;line-height:1.25"><%=coverMark%></div><div style="margin-top:220px;font-size:.9rem"><%=tahun%></div></div>
                         </div>
                         
                         <% if (urlLampiran != null && !urlLampiran.trim().isEmpty()) { %>
                             <a href="<%=urlLampiran%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-file-download me-2"></i><%=Common.getBahasaConfig("Unduh / Baca Lampiran Buku")%>
                             </a>
-                        <% } else if (item.getEbookUrl() != null) { %>
+                        <% } else if (bolehAksesDigital && item.getEbookUrl() != null) { %>
                             <a href="<%=item.getEbookUrl()%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-external-link-alt me-2"></i><%=Common.getBahasaConfig("Buka Tautan E-Book Eksternal")%>
                             </a>

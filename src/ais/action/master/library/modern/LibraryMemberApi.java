@@ -161,7 +161,7 @@ public final class LibraryMemberApi {
     private static JSONObject hold(MemberContext context,Long itemId,Long libraryId)throws Exception{
         if(itemId==null||libraryId==null)return error("Koleksi dan perpustakaan wajib dipilih.");if(Boolean.FALSE.equals(context.member.getAktif()))return error("Keanggotaan tidak aktif.");
         Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);Perpustakaan library=(Perpustakaan)session.get(Perpustakaan.class,libraryId);
-            if(item==null||Boolean.FALSE.equals(item.getAktif()))return error("Koleksi tidak ditemukan.");if(library==null||Boolean.FALSE.equals(library.getAktif()))return error("Perpustakaan tidak ditemukan.");
+            if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");if(library==null||Boolean.FALSE.equals(library.getAktif()))return error("Perpustakaan tidak ditemukan.");
             long stock=number(session.createSQLQuery("select coalesce(sum((coalesce(d.qty,0)+coalesce(d.qtybonus,0))*k.jenis),0) from library.detail_transaksi d join library.kode_transaksi k on k.id=d.kode_transaksi where d.item=:item and d.perpustakaan=:library").setLong("item",itemId).setLong("library",libraryId).uniqueResult());
             if(stock<1)return error("Koleksi tidak tersedia pada perpustakaan yang dipilih.");
             long duplicate=count(session,"select count(id) from library.pesanan_anggota where anggota=:member and item=:item and perpustakaan=:library and status=:status and kadaluarsa>=current_timestamp",context.id,itemId,libraryId,PesananAnggota.PESAN);if(duplicate>0)return error("Koleksi ini sudah Anda reservasi.");
@@ -179,13 +179,14 @@ public final class LibraryMemberApi {
     }
 
     private static JSONObject toggleFavorite(MemberContext context,Long itemId)throws Exception{
-        if(itemId==null)return error("Koleksi tidak valid.");Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);if(item==null||Boolean.FALSE.equals(item.getAktif()))return error("Koleksi tidak ditemukan.");
+        if(itemId==null)return error("Koleksi tidak valid.");Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");
             ItemFavoritAnggota f=(ItemFavoritAnggota)session.createCriteria(ItemFavoritAnggota.class).add(Restrictions.eq("anggota.id",context.id)).add(Restrictions.eq("item.id",itemId)).setMaxResults(1).uniqueResult();tx=session.beginTransaction();boolean favorite;
             if(f==null){f=new ItemFavoritAnggota();f.setAnggota((Anggota)session.get(Anggota.class,context.id));f.setItem(item);f.setTanggal(new Date());f.setTgl(new Date());f.setKeterangan("Favorit portal anggota");session.save(f);favorite=true;}else{session.delete(f);favorite=false;}tx.commit();return ok().put("message",favorite?"Ditambahkan ke favorit.":"Dihapus dari favorit.").put("favorite",favorite);
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
 
     private static MemberContext member(HttpServletRequest request){Tbmuser user=Common.getCurrentUser(request);if(user==null)return null;Anggota a=Anggota.buatAtauAmbilAnggota(user,false);return a==null||a.getId()==null?null:new MemberContext(a);}
+    private static boolean isPublic(Item item){if(item==null||item.getStatusTerbitItem()==null||item.getStatusTerbitItem().getNama()==null)return false;String status=item.getStatusTerbitItem().getNama().trim().toLowerCase();return "terbit".equals(status)||"publish".equals(status)||"published".equals(status);}
     private static JSONObject ok()throws JSONException{return new JSONObject().put("ok",true).put("status","success");}
     private static JSONObject error(String message)throws JSONException{return new JSONObject().put("ok",false).put("status","error").put("error",message).put("message",message);}
     private static JSONObject paged(JSONArray data,long total,Page page)throws JSONException{return ok().put("data",data).put("total",total).put("total_data",total).put("page",page.number).put("pageSize",page.size);}

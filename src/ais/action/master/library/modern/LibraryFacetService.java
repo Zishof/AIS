@@ -7,6 +7,7 @@ import org.hibernate.Hibernate;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -57,7 +58,8 @@ public final class LibraryFacetService {
         criteria.setProjection(Projections.projectionList()
                 .add(Projections.groupProperty(alias + ".id"))
                 .add(Projections.groupProperty(alias + ".nama"))
-                .add(Projections.rowCount()));
+                .add(Projections.rowCount(), "facetCount"));
+        criteria.addOrder(Order.desc("facetCount")).setMaxResults(FACET_LIMIT);
         JSONArray result = new JSONArray();
         int added = 0;
         for (Object[] row : (List<Object[]>) criteria.list()) {
@@ -72,7 +74,9 @@ public final class LibraryFacetService {
     private JSONArray scalarFacet(Session session, LibraryCatalogSearchRequest request, String property)
             throws JSONException {
         Criteria criteria = new LibraryCatalogSearchService().createCriteria(session, request);
-        criteria.setProjection(Projections.projectionList().add(Projections.groupProperty(property)).add(Projections.rowCount()));
+        criteria.setProjection(Projections.projectionList().add(Projections.groupProperty(property))
+                .add(Projections.rowCount(), "facetCount"));
+        criteria.addOrder(Order.desc("facetCount")).setMaxResults(FACET_LIMIT * 3);
         JSONArray result = new JSONArray();
         int added = 0;
         for (Object[] row : (List<Object[]>) criteria.list()) {

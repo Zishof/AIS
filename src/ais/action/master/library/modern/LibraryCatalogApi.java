@@ -3,6 +3,7 @@ package ais.action.master.library.modern;
 import javax.servlet.http.HttpServletRequest;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.hibernate.Session;
 
@@ -23,7 +24,12 @@ public final class LibraryCatalogApi {
         if ("suggestions".equals(action)) return suggestions(request);
         if ("search".equals(action) || "latest".equals(action)) {
             JSONObject result = service.search(LibraryCatalogSearchRequest.from(request)).toJson();
-            result.put("capabilities", capabilities(request));
+            JSONObject allowed = capabilities(request);
+            result.put("capabilities", allowed);
+            if (!allowed.optBoolean("digital", false)) {
+                JSONArray items = result.optJSONArray("items");
+                if (items != null) for (int i = 0; i < items.length(); i++) items.getJSONObject(i).put("digitalUrl", "");
+            }
             result.put("csrf", NewUiCsrfUtil.getToken(request.getSession()));
             return result;
         }
