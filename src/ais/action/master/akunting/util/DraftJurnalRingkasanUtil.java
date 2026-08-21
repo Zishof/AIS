@@ -691,13 +691,16 @@ public final class DraftJurnalRingkasanUtil {
      * Hitung dari kriteria dokumen: proyeksi rowCount ditambahkan DI SINI, bukan di pembangun
      * kriterianya, supaya kriteria yang sama dapat dipakai ulang untuk daftar rincian.
      */
-    private static int hitungDgnStatus(Session session, String namaBaris, boolean posted, Date mulai,
-            Date sampai) {
+    /**
+     * Jumlah dokumen satu baris pada satu status -- memakai kriteria yang sama dengan daftar
+     * rinciannya, sehingga angka dan daftar tidak mungkin berselisih.
+     */
+    public static int hitungStatus(Session session, String namaBaris, String status, Date mulai, Date sampai) {
         try {
             Criteria criteria = kriteriaDokumen(session, namaBaris, mulai, sampai);
             if (criteria == null) return 0;
             criteria.setProjection(Projections.rowCount());
-            terapkanStatus(criteria, namaBaris, posted ? "posting" : "draft");
+            terapkanStatus(criteria, namaBaris, status);
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);

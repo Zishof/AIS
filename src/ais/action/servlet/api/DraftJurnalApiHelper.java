@@ -104,6 +104,20 @@ public final class DraftJurnalApiHelper {
 
         Date mulai = tanggal(payload, "mulai", awalBawaan());
         Date sampai = tanggal(payload, "sampai", akhirBawaan());
+
+        // Berhenti bila memang tidak ada yang perlu dikerjakan. Bukan sekadar demi pesan yang
+        // enak dibaca: PostingKasKecilAction.postingSemua MENYIMPAN satu baris PostingHistory
+        // SEBELUM memeriksa ada-tidaknya dokumen, sehingga menekan tombol pada angka nol
+        // meninggalkan riwayat posting kosong di basis data.
+        int tersedia = hitungDokumen(nama, posting ? "draft" : "posting", mulai, sampai);
+        if (tersedia == 0) {
+            hasil.put("status", "91");
+            hasil.put("description", posting
+                    ? "Tidak ada draft \"" + nama + "\" pada periode ini yang perlu diposting."
+                    : "Tidak ada jurnal \"" + nama + "\" terposting pada periode ini yang dapat dibatalkan.");
+            return;
+        }
+
         int jumlah;
         if ("Kas Kecil".equals(nama)) {
             jumlah = posting
@@ -122,6 +136,16 @@ public final class DraftJurnalApiHelper {
         hasil.put("description", jumlah + " dokumen \"" + nama + "\" "
                 + (posting ? "berhasil diposting." : "posting-nya dibatalkan.")
                 + (posting ? "" : " Jurnal yang sudah closing tidak ikut dibatalkan."));
+    }
+
+    /** Jumlah dokumen satu baris pada satu status -- dipakai penjaga sebelum menjalankan mesin. */
+    private static int hitungDokumen(String nama, String status, Date mulai, Date sampai) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        try {
+            return DraftJurnalRingkasanUtil.hitungStatus(session, nama, status, mulai, sampai);
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     private static Date awalBawaan() {
