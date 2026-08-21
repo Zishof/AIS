@@ -130,6 +130,19 @@ public final class DraftJurnalApiHelper {
             return;
         }
 
+        if (jumlah == 0) {
+            // Ada dokumen yang memenuhi syarat, tetapi mesinnya tidak memproses satu pun. Ini
+            // TIDAK dilaporkan sebagai sukses: mesin posting lama menelan kegagalan per dokumen
+            // (Common.tampilErrorJikaAdmin), sehingga "berhasil, 0 dokumen" adalah kalimat yang
+            // menyesatkan persis ketika ada yang perlu diperiksa.
+            hasil.put("status", "91");
+            hasil.put("nama", nama);
+            hasil.put("jumlah", 0);
+            hasil.put("description", tersedia + " dokumen \"" + nama + "\" memenuhi syarat, tetapi tidak "
+                    + "satu pun berhasil diproses. Periksa Error Log server, lalu ulangi.");
+            return;
+        }
+
         hasil.put("status", "00");
         hasil.put("nama", nama);
         hasil.put("jumlah", jumlah);
