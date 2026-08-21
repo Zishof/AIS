@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 
 import javax.xml.soap.MessageFactory;
@@ -677,6 +678,11 @@ public class FeederConnector {
 			System.out.println(generalValueObject + " -> " + act + " -> key " + key + " -> Data yang dikirim : "
 					+ record + "\nError yang terjadi : " + responseObject);
 			if (error != null && !error.isEmpty() && errorLog != null) {
+				if (isInsertSudahAda(responseObject, act)) {
+					System.out.println("[NeoFeeder-IDEMPOTENT] " + act + " sudah ada di Feeder, proses dilanjutkan: "
+							+ error);
+					return responseObject;
+				}
 				// Susun pesan error yang RINCI: data + pesan server + catatan pemotongan + diagnosa penyebab.
 				StringBuilder pesan = new StringBuilder();
 				pesan.append(generalValueObject).append(" -> Data yang dikirim : ").append(req)
@@ -691,6 +697,35 @@ public class FeederConnector {
 			// error_desc tidak ada/format tak terduga — bukan kegagalan parse; kembalikan respons apa adanya.
 		}
 		return responseObject;
+	}
+
+	public static boolean isInsertSudahAda(JSONObject responseObject, String act) {
+		if (responseObject == null || !isInsertIdempotent(act)) {
+			return false;
+		}
+		try {
+			String error = responseObject.isNull("error_desc") ? "" : responseObject.getString("error_desc");
+			return isErrorSudahAda(error);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	private static boolean isInsertIdempotent(String act) {
+		if (act == null) {
+			return false;
+		}
+		String aksi = act.trim();
+		return "InsertKelasKuliah".equalsIgnoreCase(aksi) || "InsertPesertaKelasKuliah".equalsIgnoreCase(aksi);
+	}
+
+	private static boolean isErrorSudahAda(String error) {
+		if (error == null) {
+			return false;
+		}
+		String teks = error.toLowerCase(Locale.ENGLISH);
+		return teks.contains("sudah ada") || teks.contains("already exist") || teks.contains("duplicate")
+				|| teks.contains("duplikat");
 	}
 
 	// =====================================================================================

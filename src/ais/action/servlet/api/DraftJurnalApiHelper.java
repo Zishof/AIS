@@ -34,15 +34,94 @@ public final class DraftJurnalApiHelper {
         return new SimpleDateFormat("yyyy-MM-dd");
     }
 
-    public static void proses(String action, JSONObject payload, JSONObject hasil) throws Exception {
+    public static void proses(String action, ais.database.model.Tbmuser tbmuser, JSONObject payload,
+            JSONObject hasil) throws Exception {
         if ("draft_jurnal_ringkasan".equals(action)) {
             ringkasan(payload, hasil);
         } else if ("draft_jurnal_rincian".equals(action)) {
             rincian(payload, hasil);
+        } else if ("draft_jurnal_posting".equals(action)) {
+            jalankanPosting(tbmuser, payload, hasil, true);
+        } else if ("draft_jurnal_batal_posting".equals(action)) {
+            jalankanPosting(tbmuser, payload, hasil, false);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Aksi draft jurnal tidak dikenal: " + action);
         }
+    }
+
+    /**
+     * Kunci hak akses modul yang mesin postingnya SUDAH tersedia lewat API; null bila modul itu
+     * belum punya mesin.
+     *
+     * <p>Layar ZK pun baru menyediakan satu tombol posting massal ({@code Kas Kecil}); sisanya masih
+     * menjawab "belum tersedia". Daftar ini disimpan di satu tempat supaya dasbor tidak pernah
+     * menawarkan tombol yang ujungnya menolak -- klien membacanya lewat bendera {@code bisaPosting}
+     * pada ringkasan.</p>
+     */
+    private static String modulPosting(String namaBaris) {
+        if ("Kas Kecil".equals(namaBaris)) return "kas_kecil";
+        return null;
+    }
+
+    private static boolean bolehAksi(ais.database.model.Tbmuser tbmuser, String kunciMenu, String aksi) {
+        if (ais.common.Common.getApakahAdminLain(tbmuser)) return true;
+        ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+        if (peran == null) return true;
+        return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+                kunciMenu, aksi);
+    }
+
+    /**
+     * Posting atau batal posting seluruh dokumen satu modul pada rentang terpilih.
+     *
+     * <p>Menulis jurnal adalah kewenangan yang lazim dipisah dari sekadar melihat drafnya, jadi
+     * gerbangnya memakai hak "create" pada kunci MODUL-nya sendiri (mis. {@code kas_kecil}),
+     * bukan pada kunci dasbor -- supaya peran yang boleh membaca dasbor tidak otomatis boleh
+     * memposting isi modul yang bukan wewenangnya.</p>
+     */
+    private static void jalankanPosting(ais.database.model.Tbmuser tbmuser, JSONObject payload,
+            JSONObject hasil, boolean posting) throws Exception {
+        String nama = payload == null ? "" : payload.optString("nama", "").trim();
+        if (nama.length() == 0) {
+            hasil.put("status", "91");
+            hasil.put("description", "Jenis jurnal wajib dipilih.");
+            return;
+        }
+        String kunciModul = modulPosting(nama);
+        if (kunciModul == null) {
+            hasil.put("status", "91");
+            hasil.put("description", "Posting massal \"" + nama + "\" belum tersedia dari aplikasi. "
+                    + "Untuk sementara jalankan dari layar posting modul tersebut di aplikasi web.");
+            return;
+        }
+        if (!bolehAksi(tbmuser, kunciModul, "create")) {
+            hasil.put("status", "91");
+            hasil.put("description", "Anda tidak memiliki hak untuk memposting jurnal " + nama
+                    + ". Hubungi admin bila ini keliru.");
+            return;
+        }
+
+        Date mulai = tanggal(payload, "mulai", awalBawaan());
+        Date sampai = tanggal(payload, "sampai", akhirBawaan());
+        int jumlah;
+        if ("Kas Kecil".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingKasKecilAction.postingSemua(mulai, sampai, tbmuser,
+                            new Date())
+                    : ais.action.master.akunting.PostingKasKecilAction.batalkanPostingSemua(mulai, sampai);
+        } else {
+            hasil.put("status", "91");
+            hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");
+            return;
+        }
+
+        hasil.put("status", "00");
+        hasil.put("nama", nama);
+        hasil.put("jumlah", jumlah);
+        hasil.put("description", jumlah + " dokumen \"" + nama + "\" "
+                + (posting ? "berhasil diposting." : "posting-nya dibatalkan.")
+                + (posting ? "" : " Jurnal yang sudah closing tidak ikut dibatalkan."));
     }
 
     private static Date awalBawaan() {
@@ -91,6 +170,10 @@ public final class DraftJurnalApiHelper {
                 j.put("draft", b.getDraft());
                 j.put("posting", b.getPosting());
                 j.put("closing", b.getClosing());
+                // Bendera kemampuan: klien hanya menawarkan tombol yang benar-benar ada mesinnya,
+                // sehingga tidak ada tombol yang ujungnya menolak.
+                j.put("bisaRincian", DraftJurnalRingkasanUtil.punyaRincian(b.getNama()));
+                j.put("bisaPosting", modulPosting(b.getNama()) != null);
                 data.put(j);
                 totalDraft += b.getDraft();
                 totalPosting += b.getPosting();

@@ -5164,39 +5164,51 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		}
 		skripsi.setTahunAkademik((String) tahunAkademik.getSelectedItem().getValue());
 		skripsi.setSemester((Integer) this.semester.getSelectedItem().getValue());
-		skripsi.setSetujuiSidang(setujuiSidang.isChecked());
+		boolean mahasiswaLogin = loginSebagaiMahasiswa();
+		boolean mahasiswaBolehUbahPersetujuan = mahasiswaLoginPemilik(mahasiswa) && skripsi.getSetujuiSidang();
+		if (!mahasiswaLogin) {
+			skripsi.setSetujuiSidang(setujuiSidang.isChecked());
+		}
 		if (skripsi.getDetailperkuliahan() == null) {
 			skripsi.setDetailperkuliahan(detailperkuliahan);
 		}
 		skripsi.setMahasiswaRequestTugasAkhir(mahasiswaRequestTugasAkhir);
-		skripsi.setJadwalSidangTugasAkhir(
-				(JadwalSidangTugasAkhir) jadwalSidangTugasAkhir.getAttribute("jadwalSidangTugasAkhir"));
-		skripsi.setWaktuSampaiSidang(waktuSampaiSidang == null || waktuSampaiSidang.getValue() == null ? null
-				: Common.timeFormat.get().format(waktuSampaiSidang.getValue()));
-		skripsi.setWaktuSidang(waktuSidang == null || waktuSidang.getValue() == null ? null
-				: Common.timeFormat.get().format(waktuSidang.getValue()));
+		if (!mahasiswaLogin || mahasiswaBolehUbahPersetujuan) {
+			skripsi.setJadwalSidangTugasAkhir(
+					(JadwalSidangTugasAkhir) jadwalSidangTugasAkhir.getAttribute("jadwalSidangTugasAkhir"));
+			skripsi.setWaktuSampaiSidang(waktuSampaiSidang == null || waktuSampaiSidang.getValue() == null ? null
+					: Common.timeFormat.get().format(waktuSampaiSidang.getValue()));
+			skripsi.setWaktuSidang(waktuSidang == null || waktuSidang.getValue() == null ? null
+					: Common.timeFormat.get().format(waktuSidang.getValue()));
+		}
 		skripsi.setJudul(judulCK.getValue());
 		skripsi.setJudulen(judulEn.getValue());
 		skripsi.setKeyword(keyword.getValue().trim());
 
 		skripsi.setAbstrack(abstrack.getValue());
 		skripsi.setMahasiswa(mahasiswa);
-		skripsi.setKetuaSidang((Dosen) ketuaSidang.getAttribute("myValue"));
-		skripsi.setPembimbing((Dosen) pembimbing.getAttribute("myValue"));
-		skripsi.setPembimbing3((Dosen) pembimbing3.getAttribute("myValue"));
-		skripsi.setPenguji1((Dosen) penguji1.getAttribute("myValue"));
-		skripsi.setPenguji2((Dosen) penguji2.getAttribute("myValue"));
-		skripsi.setPenguji3((Dosen) penguji3.getAttribute("myValue"));
-		skripsi.setPenguji4((Dosen) penguji4.getAttribute("myValue"));
-		skripsi.setPenguji5((Dosen) penguji5.getAttribute("myValue"));
-		sinkronkanDosenDariFormKeSkripsi();
-		skripsi.setTanggalSidang(tanggalSidangVal);
-		skripsi.setTelahSidang(telahSidang.isChecked() ? 1 : 0);
-		skripsi.setLokasiUjian(lokasiUjian.getValue());
+		if (!mahasiswaLogin) {
+			skripsi.setKetuaSidang((Dosen) ketuaSidang.getAttribute("myValue"));
+			skripsi.setPembimbing((Dosen) pembimbing.getAttribute("myValue"));
+			skripsi.setPembimbing3((Dosen) pembimbing3.getAttribute("myValue"));
+			skripsi.setPenguji1((Dosen) penguji1.getAttribute("myValue"));
+			skripsi.setPenguji2((Dosen) penguji2.getAttribute("myValue"));
+			skripsi.setPenguji3((Dosen) penguji3.getAttribute("myValue"));
+			skripsi.setPenguji4((Dosen) penguji4.getAttribute("myValue"));
+			skripsi.setPenguji5((Dosen) penguji5.getAttribute("myValue"));
+			sinkronkanDosenDariFormKeSkripsi();
+			skripsi.setTelahSidang(telahSidang.isChecked() ? 1 : 0);
+		}
+		if (!mahasiswaLogin || mahasiswaBolehUbahPersetujuan) {
+			skripsi.setTanggalSidang(tanggalSidangVal);
+			skripsi.setLokasiUjian(lokasiUjian.getValue());
+		}
 		// skripsi.setNilaikomprehensif(nilaikomprehensif.getValue());
 
-		skripsi.setTglSk(tglSkVal);
-		skripsi.setNomorSk(nomorSk.getValue());
+		if (!mahasiswaLogin) {
+			skripsi.setTglSk(tglSkVal);
+			skripsi.setNomorSk(nomorSk.getValue());
+		}
 
 		skripsi.setAwalBimbingan(awalBimbinganVal);
 		skripsi.setAkhirBimbingan(akhirBimbinganVal);
@@ -5205,15 +5217,17 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 
 		skripsi.setFormatNilaiSkripsi(f);
 		skripsi.setGelombangPendaftaranSidangTugasAkhir(g);
-		skripsi.setPersetujuanPembimbing1(persetujuanPembimbing1.isChecked());
-		skripsi.setPersetujuanPembimbing2(persetujuanPembimbing2.isChecked());
-		skripsi.setPersetujuanPembimbing3(persetujuanPembimbing3.isChecked());
+		if (!mahasiswaLogin) {
+			skripsi.setPersetujuanPembimbing1(persetujuanPembimbing1.isChecked());
+			skripsi.setPersetujuanPembimbing2(persetujuanPembimbing2.isChecked());
+			skripsi.setPersetujuanPembimbing3(persetujuanPembimbing3.isChecked());
 
-		skripsi.setPersetujuanPenguji1(persetujuanPenguji1.isChecked());
-		skripsi.setPersetujuanPenguji2(persetujuanPenguji2.isChecked());
-		skripsi.setPersetujuanPenguji3(persetujuanPenguji3.isChecked());
-		skripsi.setPersetujuanPenguji4(persetujuanPenguji4.isChecked());
-		skripsi.setPersetujuanPenguji5(persetujuanPenguji5.isChecked());
+			skripsi.setPersetujuanPenguji1(persetujuanPenguji1.isChecked());
+			skripsi.setPersetujuanPenguji2(persetujuanPenguji2.isChecked());
+			skripsi.setPersetujuanPenguji3(persetujuanPenguji3.isChecked());
+			skripsi.setPersetujuanPenguji4(persetujuanPenguji4.isChecked());
+			skripsi.setPersetujuanPenguji5(persetujuanPenguji5.isChecked());
+		}
 
 		skripsi.setReferensi(referensis == null ? null : referensis.toString());
 		skripsi.setFeeder(feeder.getValue().trim());
@@ -7758,6 +7772,19 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		ais.ui.util.ZkCompat.setSpans(row, "2");
 		row.appendChild(new MyLabelStyled("III. Data Persetujuan"));
 
+		final boolean mahasiswaBolehUbahPersetujuan = mahasiswaBolehUbahDataPersetujuan();
+		if (mahasiswaLoginPemilikSkripsi()) {
+			row = new MyFormRow();
+			row.setParent(rows);
+			ais.ui.util.ZkCompat.setSpans(row, "2");
+			Label informasiPersetujuan = new Label(mahasiswaBolehUbahPersetujuan
+					? "Anda dapat memperbarui jadwal, tanggal, waktu, dan lokasi sidang. Persetujuan, penguji, hasil sidang, nilai, dan SK tetap dikelola dosen atau admin."
+					: "Data persetujuan dapat diperbarui setelah pengajuan sidang disetujui oleh dosen atau admin.");
+			informasiPersetujuan.setStyle(
+					"display:block;padding:8px;background:#f8fafc;border:1px solid #dbe4ee;color:#334155;");
+			row.appendChild(informasiPersetujuan);
+		}
+
 		row = new MyFormRow();
 		row.setValign("top");
 		row.setParent(rows);
@@ -7783,7 +7810,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		jadwalSidangTugasAkhir.setWidth("90%");
 
 		tbmuser = Common.getCurrentUser();
-		if ((tbmuser.getMahasiswa() != null || tbmuser.ambilDosen() != null) || this.persetujuan) {
+		if (((tbmuser.getMahasiswa() != null && !mahasiswaBolehUbahPersetujuan) || tbmuser.ambilDosen() != null)
+				|| this.persetujuan) {
 			rowSidang.appendChild(new Label(
 					skripsi.getJadwalSidangTugasAkhir() == null ? "" : skripsi.getJadwalSidangTugasAkhir().getNama()));
 		} else {
@@ -8042,7 +8070,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal Sidang *"));
 		tanggalSidang = new MyDatebox(skripsi.getTanggalSidang());
-		if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan) {
+		if ((tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan)
+				|| mahasiswaBolehUbahPersetujuan) {
 			row.appendChild(tanggalSidang);
 		} else {
 			row.appendChild(new Label(skripsi.getTanggalSidang() == null ? ""
@@ -8058,7 +8087,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 
 		hbox = new Hbox();
 
-		if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan) {
+		if ((tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan)
+				|| mahasiswaBolehUbahPersetujuan) {
 			hbox.appendChild(waktuSidang);
 			hbox.appendChild(new Label("-"));
 			hbox.appendChild(waktuSampaiSidang);
@@ -8104,7 +8134,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Lokasi Sidang"));
 		lokasiUjian = new Textbox(skripsi.getLokasiUjian());
-		if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan) {
+		if ((tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && !this.persetujuan)
+				|| mahasiswaBolehUbahPersetujuan) {
 			row.appendChild(lokasiUjian);
 		} else {
 			row.appendChild(new Label(skripsi.getLokasiUjian()));

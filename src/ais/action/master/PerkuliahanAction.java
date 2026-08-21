@@ -2655,6 +2655,12 @@ public class PerkuliahanAction extends GenericAutowireComposer
 	 */
 	public static void kirimKeFeeder(FeederExporter feederImporter, Detailperkuliahan detailperkuliahan,
 			FeederConnector feederConnector, String token, Mahasiswa mahasiswa, List<String> errorLog, boolean lagi) {
+		kirimKeFeeder(feederImporter, detailperkuliahan, feederConnector, token, mahasiswa, errorLog, lagi, null);
+	}
+
+	public static void kirimKeFeeder(FeederExporter feederImporter, Detailperkuliahan detailperkuliahan,
+			FeederConnector feederConnector, String token, Mahasiswa mahasiswa, List<String> errorLog, boolean lagi,
+			java.util.Set<String> pesertaKelasFeeder) {
 
 		if (detailperkuliahan != null && detailperkuliahan.getPerkuliahan() != null
 				&& detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)) {
@@ -2702,11 +2708,15 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						boolean sudahTerdaftar = false;
 						try {
 							long t0 = System.currentTimeMillis();
-							String filter = "id_kelas_kuliah='" + id_kelas_kuliah
-									+ "' AND id_registrasi_mahasiswa='" + id_registrasi_mahasiswa + "'";
-							JSONArray dataPesertaKelasKuliah = feederConnector.getData("GetPesertaKelasKuliah", token,
-									filter, "", "1", "");
-							sudahTerdaftar = dataPesertaKelasKuliah != null && dataPesertaKelasKuliah.length() > 0;
+							if (pesertaKelasFeeder != null) {
+								sudahTerdaftar = pesertaKelasFeeder.contains(id_registrasi_mahasiswa);
+							} else {
+								String filter = "id_kelas_kuliah='" + id_kelas_kuliah
+										+ "' AND id_registrasi_mahasiswa='" + id_registrasi_mahasiswa + "'";
+								JSONArray dataPesertaKelasKuliah = feederConnector.getData("GetPesertaKelasKuliah",
+										token, filter, "", "1", "");
+								sudahTerdaftar = dataPesertaKelasKuliah != null && dataPesertaKelasKuliah.length() > 0;
+							}
 							cekBerhasil = true;
 							logLangkahFeeder("[" + konteks + "] LANGKAH 2/4 cek peserta SELESAI (status="
 									+ (sudahTerdaftar ? "sudah terdaftar" : "belum terdaftar") + ", "
@@ -2730,8 +2740,15 @@ public class PerkuliahanAction extends GenericAutowireComposer
 								// FIX: sebelumnya error di sini dibuang ke List lokal yang tidak pernah
 								// dibaca (silent). Sekarang ditulis ke errorLog yang sama, sehingga
 								// terlihat oleh pengguna & ikut berkas unduhan error.
-								feederConnector.insertOrUpdateRecordBaru(token, null, "InsertPesertaKelasKuliah",
-										record, errorLog, detailperkuliahan);
+								JSONObject hasilInsertPeserta = feederConnector.insertOrUpdateRecordBaru(token, null,
+										"InsertPesertaKelasKuliah", record, errorLog, detailperkuliahan);
+								if (pesertaKelasFeeder != null && (hasilInsertPeserta == null
+										|| hasilInsertPeserta.isNull("error_desc")
+										|| hasilInsertPeserta.optString("error_desc").trim().isEmpty()
+										|| FeederConnector.isInsertSudahAda(hasilInsertPeserta,
+												"InsertPesertaKelasKuliah"))) {
+									pesertaKelasFeeder.add(id_registrasi_mahasiswa);
+								}
 								logLangkahFeeder("[" + konteks + "] LANGKAH 3/4 daftarkan peserta SELESAI ("
 										+ (System.currentTimeMillis() - t0) + " ms)");
 							} catch (Exception e) {
@@ -2817,6 +2834,35 @@ public class PerkuliahanAction extends GenericAutowireComposer
 		}
 	}
 
+	private static java.util.Set<String> ambilPesertaKelasFeeder(FeederConnector feederConnector, String token,
+			String idKelasKuliah, List<String> errorLog, String labelKelas) {
+		java.util.Set<String> peserta = new java.util.HashSet<String>();
+		try {
+			long t0 = System.currentTimeMillis();
+			String filter = "id_kelas_kuliah='" + idKelasKuliah + "'";
+			JSONArray dataPesertaKelasKuliah = feederConnector.getData("GetPesertaKelasKuliah", token, filter, "",
+					"10000", "");
+			if (dataPesertaKelasKuliah != null) {
+				for (int i = 0; i < dataPesertaKelasKuliah.length(); i++) {
+					JSONObject data = dataPesertaKelasKuliah.getJSONObject(i);
+					String idReg = data.optString("id_registrasi_mahasiswa", "").trim();
+					if (!idReg.isEmpty()) {
+						peserta.add(idReg);
+					}
+				}
+			}
+			logLangkahFeeder(labelKelas + " - cache peserta Feeder: " + peserta.size() + " peserta ("
+					+ (System.currentTimeMillis() - t0) + " ms)");
+			return peserta;
+		} catch (Exception e) {
+			String pesan = "[" + labelKelas + "] Gagal mengambil daftar peserta kelas dari Feeder: " + e.getMessage();
+			errorLog.add(pesan);
+			logLangkahFeeder(pesan);
+			ais.common.Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
 	public static void kirimKeFeeder(FeederExporter feederImporter, Perkuliahan perkuliahan,
 			FeederConnector feederConnector, String token, Mahasiswa mahasiswa, List<String> errorLog) {
 		kirimKeFeeder(feederImporter, perkuliahan, feederConnector, token, mahasiswa, errorLog, null, 1, 1);
@@ -2857,6 +2903,8 @@ public class PerkuliahanAction extends GenericAutowireComposer
 		}
 
 		if (perkuliahan.getFeeder() != null) {
+			java.util.Set<String> pesertaKelasFeeder = ambilPesertaKelasFeeder(feederConnector, token,
+					perkuliahan.getFeeder(), errorLog, labelKelas);
 			java.util.Collection<Long> ids = perkuliahan.ambilDetailperkuliahan();
 			int totalMhs = ids == null ? 0 : ids.size();
 			int idxMhs = 1;
@@ -2875,7 +2923,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 					long tMhs = System.currentTimeMillis();
 					try {
 						kirimKeFeeder(feederImporter, detailperkuliahan, feederConnector, token, mahasiswa,
-								errorLog, true);
+								errorLog, true, pesertaKelasFeeder);
 						logLangkahFeeder(labelKelas + " | Mahasiswa " + idxMhs + "/" + totalMhs + " (" + namaMhs
 								+ ") SELESAI (" + (System.currentTimeMillis() - tMhs) + " ms)");
 					} catch (Exception e) {
