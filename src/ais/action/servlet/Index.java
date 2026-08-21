@@ -27,9 +27,10 @@ import ais.database.model.sirs.RumahSakit;
  * Urutan tampilan publik:
  * 1. Pilihan domain "baru" -> Home V3 (atau home lama bila feature flag dimatikan).
  * 2. Pilihan domain "klasik" -> index/login klasik.
- * 3. Landing page khusus eBisnis/ERP sesuai konfigurasi.
- * 4. default_home_versi_baru -> Home V3 dengan fallback aman.
- * 5. Login baru, index/login klasik, lalu redirect /login.
+ * 3. Untuk pilihan "default", skin /WEB-INF/j/index.jsp didahulukan.
+ * 4. Landing page khusus eBisnis/ERP sesuai konfigurasi.
+ * 5. default_home_versi_baru -> Home V3 hanya bila tidak ada skin.
+ * 6. Login baru, index/login klasik, lalu redirect /login.
  *
  * Enhancement aman:
  * - Null-safe untuk Konfigurasi.
@@ -82,6 +83,16 @@ public class Index extends HttpServlet {
             } else {
                 forward(request, response, "/WEB-INF/j/login.jsp");
             }
+            return;
+        }
+
+        // Skin tenant adalah tampilan default yang paling spesifik. Jangan ditimpa
+        // konfigurasi home global; hanya pilihan domain "baru" di atas yang sengaja
+        // mengalihkan tenant dari skin ke Home V3.
+        String skinIndex = request.getRealPath("/WEB-INF/j/index.jsp");
+        if (fileExists(skinIndex)) {
+            request.setAttribute("homeUiEntry", "skin");
+            forward(request, response, "/WEB-INF/j/index.jsp");
             return;
         }
 
@@ -178,10 +189,7 @@ public class Index extends HttpServlet {
     private String getPilihanTampilanDomain(HttpServletRequest request) {
         try {
             RumahSakit rumahSakit = RumahSakitUtil.getRumahSakit(request);
-            if (rumahSakit != null) {
-                String pilihan = rumahSakit.getPiilhanTampilan();
-                return RumahSakit.TAMPILAN_DEFAULT.equals(pilihan) ? RumahSakit.TAMPILAN_BARU : pilihan;
-            }
+            if (rumahSakit != null && rumahSakit.getId() != null) return rumahSakit.getPiilhanTampilan();
             boolean[] ptAtauSekolah = Common.chekPtAtauSekolah();
             boolean ya = ptAtauSekolah != null && ptAtauSekolah.length > 1 && ptAtauSekolah[1];
             Sekolah sekolah = SekolahUtil.getSekolah(request);

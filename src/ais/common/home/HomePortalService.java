@@ -14,7 +14,7 @@ public class HomePortalService {
         vm.contextPath = request.getContextPath();
         vm.language = Common.kodeBahasaAktif();
         vm.direction = "ar".equals(vm.language) ? "rtl" : "ltr";
-        vm.assetVersion = config.value("home_v3_asset_version", "3.0.0");
+        vm.assetVersion = config.value("home_v3_asset_version", "3.1.0");
         vm.institution = new HomePortalInstitutionResolver().resolve(request);
         resolveTerminology(vm);
         resolveDigitalPortal(vm);
