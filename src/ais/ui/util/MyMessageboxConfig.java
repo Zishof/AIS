@@ -165,16 +165,73 @@ public class MyMessageboxConfig {
 		return sw.toString();
 	}
 
-	private static String susunDetail(String pesan, String title, String icon, Throwable throwable,
+	private static int indexPenandaDetail(String pesan) {
+		if (pesan == null) {
+			return -1;
+		}
+		String lower = pesan.toLowerCase();
+		String[] penanda = new String[] { "langkah yang dapat dilakukan:", "langkah perbaikan:",
+				"detail error", "info teknis", "informasi teknis", "java exception", "stack trace" };
+		int hasil = -1;
+		for (int i = 0; i < penanda.length; i++) {
+			int idx = lower.indexOf(penanda[i]);
+			if (idx >= 0 && (hasil < 0 || idx < hasil)) {
+				hasil = idx;
+			}
+		}
+		return hasil;
+	}
+
+	private static String ringkasPesanAwal(String pesan) {
+		if (pesan == null) {
+			return "";
+		}
+		String value = pesan.trim();
+		int idx = indexPenandaDetail(value);
+		if (idx > 0) {
+			value = value.substring(0, idx).trim();
+		}
+		int newline = value.indexOf('\n');
+		if (newline > 0) {
+			value = value.substring(0, newline).trim();
+		}
+		if (value.length() > 260) {
+			int titik = value.lastIndexOf('.', 260);
+			value = value.substring(0, titik > 80 ? titik + 1 : 260).trim();
+		}
+		return value.length() == 0 ? pesan.trim() : value;
+	}
+
+	private static String ambilDetailDariPesan(String pesan) {
+		if (pesan == null) {
+			return "";
+		}
+		String value = pesan.trim();
+		int idx = indexPenandaDetail(value);
+		if (idx > 0 && idx < value.length()) {
+			return value.substring(idx).trim();
+		}
+		if (value.indexOf('\n') >= 0 || value.length() > 260) {
+			return value;
+		}
+		return "";
+	}
+
+	private static String susunDetail(String pesan, String pesanTampilan, String title, String icon, Throwable throwable,
 			String detailTambahan) {
 		StringBuilder detail = new StringBuilder();
 		detail.append("Waktu : ")
 				.append(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date())).append("\n");
 		detail.append("Judul : ").append(title == null ? "" : title).append("\n");
 		detail.append("Jenis : ").append(icon == null ? "" : icon).append("\n\n");
-		detail.append("Pesan Pengguna:\n").append(pesan == null ? "" : pesan).append("\n\n");
+		detail.append("Pesan Singkat yang Ditampilkan:\n").append(pesanTampilan == null ? "" : pesanTampilan)
+				.append("\n\n");
+		detail.append("Pesan Lengkap:\n").append(pesan == null ? "" : pesan).append("\n\n");
+		String detailDariPesan = ambilDetailDariPesan(pesan);
 		if (detailTambahan != null && detailTambahan.trim().length() > 0) {
 			detail.append("Detail/Saran:\n").append(detailTambahan.trim()).append("\n\n");
+		} else if (detailDariPesan.length() > 0) {
+			detail.append("Detail/Saran dari pesan:\n").append(detailDariPesan).append("\n\n");
 		} else {
 			detail.append("Saran umum:\n");
 			detail.append("1. Periksa kembali data/filter/input pada form yang sedang diproses.\n");
@@ -197,7 +254,8 @@ public class MyMessageboxConfig {
 		}
 
 		try {
-			final String detail = susunDetail(pesan, title, icon, throwable, detailTambahan);
+			String pesanSingkat = ringkasPesanAwal(pesan);
+			final String detail = susunDetail(pesan, pesanSingkat, title, icon, throwable, detailTambahan);
 			final Window win = new Window();
 			win.setTitle("");
 			win.setBorder("none");
@@ -247,7 +305,7 @@ public class MyMessageboxConfig {
 			content.setStyle("box-sizing:border-box;padding:18px 20px 14px;");
 			content.setParent(body);
 
-			Label msg = new Label(pesan == null ? "" : pesan);
+			Label msg = new Label(pesanSingkat == null ? "" : pesanSingkat);
 			msg.setMultiline(true);
 			msg.setStyle("font-size:13px;line-height:1.55;color:#1f2937;");
 			msg.setParent(content);
@@ -287,6 +345,7 @@ public class MyMessageboxConfig {
 							+ "else{var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);"
 							+ "a.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(a);}"
 							+ "})( " + quoted + " );");
+					copy.setLabel("Tersalin");
 				}
 			});
 
@@ -383,7 +442,8 @@ public class MyMessageboxConfig {
 			Throwable throwable, String detailTambahan) throws InterruptedException {
 		String pesan = terjemah(messageCode);
 		if (HeadlessActionContext.isActive()) {
-			HeadlessActionContext.record(pesan + "\n" + susunDetail(pesan, titleCode, icon, throwable, detailTambahan));
+			HeadlessActionContext.record(ringkasPesanAwal(pesan) + "\n"
+					+ susunDetail(pesan, ringkasPesanAwal(pesan), titleCode, icon, throwable, detailTambahan));
 			return OK;
 		}
 		if (isZkEnvironment()) {
