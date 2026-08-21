@@ -26,7 +26,7 @@ import ais.database.model.Konfigurasi;
  * "Download detail error", dan tombol itu hanya muncul bila berkas detail sempat ditulis ke disk
  * — pada banyak kegagalan berkas tersebut tidak ada, sehingga tidak ada jejak sama sekali.</p>
  *
- * <p>Helper ini menambahkan satu tombol <b>"Detail Informasi Teknis"</b> di bawah pesan ramah
+ * <p>Helper ini menambahkan satu tombol <b>"Lihat Detail Error"</b> di bawah pesan ramah
  * tersebut. Saat ditekan, panel terbuka dan menampilkan rincian exception di dalam kotak teks
  * yang dapat diseleksi, lengkap dengan tombol <b>Salin</b> agar pengguna tinggal menempelkannya
  * ke pesan/e-mail untuk pengembang.</p>
@@ -66,7 +66,7 @@ public final class DetailTeknisHelper {
 	private DetailTeknisHelper() {
 	}
 
-	/** Konfigurasi: tampilkan tombol "Detail Informasi Teknis" atau tidak. */
+	/** Konfigurasi: tampilkan tombol "Lihat Detail Error" atau tidak. */
 	public static final String KONFIG_TOMBOL = "report_error_tombol_detail_teknis";
 
 	/** Konfigurasi: sertakan stack trace penuh pada detail teknis (dipakai bersama Report). */
@@ -308,7 +308,7 @@ public final class DetailTeknisHelper {
 	// =========================================================
 
 	/**
-	 * Pasang tombol "Detail Informasi Teknis" beserta panelnya ke {@code induk}.
+	 * Pasang tombol "Lihat Detail Error" beserta panelnya ke {@code induk}.
 	 *
 	 * @return {@link Hbox} berisi tombol-tombol, agar pemanggil dapat menambahkan tombol lain
 	 *         (mis. "Download detail error") ke baris yang sama; {@code null} bila tombol tidak
@@ -334,17 +334,17 @@ public final class DetailTeknisHelper {
 			panel.setVisible(false);
 			panel.setStyle("margin-top:10px;");
 
-			final Button tombol = new Button(t("Detail Informasi Teknis"));
+			final Button tombol = new Button(t("Lihat Detail Error"));
 			tombol.setStyle(GAYA_TOMBOL);
-			tombol.setTooltiptext(t("Tampilkan rincian teknis kesalahan ini untuk dikirim ke pengembang"));
+			tombol.setTooltiptext(t("Tampilkan rincian teknis kesalahan ini untuk dikirim ke admin"));
 			tombol.setParent(baris);
 			tombol.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 					boolean buka = !panel.isVisible();
 					panel.setVisible(buka);
-					tombol.setLabel(buka ? t("Sembunyikan Detail Informasi Teknis")
-							: t("Detail Informasi Teknis"));
+					tombol.setLabel(buka ? t("Sembunyikan Detail Error")
+							: t("Lihat Detail Error"));
 				}
 			});
 
@@ -370,10 +370,10 @@ public final class DetailTeknisHelper {
 			barisSalin.setStyle("margin-top:8px;");
 			barisSalin.setParent(panel);
 
-			Button salin = new Button(t("Salin"));
+			Button salin = new Button(t("Copy Error untuk Admin"));
 			salin.setStyle("padding:6px 12px;border-radius:999px;border:1px solid #fb923c;"
 					+ "background:#ea580c;color:#ffffff;font-size:12px;font-weight:bold;cursor:pointer;");
-			salin.setTooltiptext(t("Salin detail teknis ke papan klip"));
+			salin.setTooltiptext(t("Salin detail teknis ke papan klip untuk dikirim ke admin"));
 			salin.setParent(barisSalin);
 			salin.addEventListener("onClick", new EventListener() {
 				@Override

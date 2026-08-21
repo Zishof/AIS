@@ -251,13 +251,15 @@ public final class PesanFormalHelper {
                 }
             }
             data.put("solusi", solusi);
-            data.put("teknis", DetailTeknisHelper.teksTeknis(aktivitas, exception, null, kode));
+            String teknis = DetailTeknisHelper.teksTeknis(aktivitas, exception, null, kode);
+            data.put("teknis", teknis);
             data.put("referensi", kode);
             org.zkoss.zk.ui.util.Clients.evalJavaScript(
                     "if(typeof tampilkanPesanGagalFormal==='function'){tampilkanPesanGagalFormal("
                     + org.json.JSONObject.quote(kosongKe(aktivitas, "pembuatan laporan")) + ","
                     + data.toString() + ");}else{"
-                    + jsToast("Laporan belum siap ditampilkan", pesan + " Kode rujukan: " + kode + ".")
+                    + jsDialogDetail("Laporan belum siap ditampilkan",
+                            pesan + " Kode rujukan: " + kode + ".", aktivitas, teknis, kode)
                     + "}");
             return true;
         } catch (Throwable t) {
@@ -289,13 +291,15 @@ public final class PesanFormalHelper {
                 }
             }
             data.put("solusi", solusi);
-            data.put("teknis", detailTeknis(exception));
-            data.put("referensi", "ZK-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase());
+            String kode = "ZK-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase();
+            String teknis = DetailTeknisHelper.teksTeknis(aktivitas, exception, null, kode);
+            data.put("teknis", teknis);
+            data.put("referensi", kode);
             org.zkoss.zk.ui.util.Clients.evalJavaScript(
                     "if(typeof tampilkanPesanGagalFormal==='function'){tampilkanPesanGagalFormal("
                     + org.json.JSONObject.quote(kosongKe(aktivitas, "proses aplikasi")) + ","
                     + data.toString() + ");}else{"
-                    + jsToast("Ada kendala", pesanGagalRingkas(penjelasanBisnis))
+                    + jsDialogDetail("Ada kendala", pesanGagalRingkas(penjelasanBisnis), aktivitas, teknis, kode)
                     + "}");
         } catch (Throwable t) {
             ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalDenganDetail");
@@ -349,7 +353,7 @@ public final class PesanFormalHelper {
                 sb.append(" ").append(tambahan);
             }
         }
-        sb.append(" Jika tetap gagal, kirim screenshot halaman ini ke admin.");
+        sb.append(" Jika tetap gagal, klik Lihat Detail Error lalu copy error tersebut untuk dikirim ke admin.");
         return sb.toString();
     }
 

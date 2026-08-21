@@ -1,21 +1,34 @@
 package ais.action.master.helper;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Messagebox;
+import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
+import ais.action.report.Report;
+import ais.action.report.helper.CommonReport;
 import ais.common.Common;
 import ais.database.model.Dosen;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.ui.util.MyHtml;
 import ais.ui.util.MyThemeProvider;
+import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
@@ -138,6 +151,18 @@ public final class DaftarBimbinganPerDosenHelper {
 			wadah.setStyle("padding:4px;");
 			wadah.setParent(window);
 
+			final List<Map> mapsCetak = bangunMapsCetak(daftar);
+			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak PDF", "/img/print.png");
+			cetak.setTooltiptext("Cetak daftar bimbingan akademik per Dosen PA sesuai filter yang sedang tampil");
+			cetak.setDisabled(mapsCetak.isEmpty());
+			cetak.setParent(wadah);
+			cetak.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					tampilkanCetak(mapsCetak);
+				}
+			});
+
 			MyHtml html = new MyHtml(bangunHtml(grup));
 			html.setParent(wadah);
 
@@ -149,6 +174,101 @@ public final class DaftarBimbinganPerDosenHelper {
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static List<Map> bangunMapsCetak(List<KrsMahasiswa> daftar) {
+		Map<Long, KrsMahasiswa> unik = new LinkedHashMap<Long, KrsMahasiswa>();
+		if (daftar != null) {
+			for (KrsMahasiswa krs : daftar) {
+				if (krs == null || krs.getMahasiswa() == null) {
+					continue;
+				}
+				Mahasiswa mahasiswa = krs.getMahasiswa();
+				Long kunci = mahasiswa.getId() == null ? Long.valueOf((long) System.identityHashCode(mahasiswa))
+						: Long.valueOf(mahasiswa.getId().longValue());
+				if (!unik.containsKey(kunci)) {
+					unik.put(kunci, krs);
+				}
+			}
+		}
+
+		List<Map> maps = new ArrayList<Map>();
+		for (KrsMahasiswa krs : unik.values()) {
+			Mahasiswa mahasiswa = krs.getMahasiswa();
+			Dosen dosen = null;
+			Jurusan jurusan = null;
+			Fakultas fakultas = null;
+			try {
+				dosen = krs.getDosenPa();
+			} catch (Exception e) {
+				dosen = null;
+			}
+			try {
+				jurusan = mahasiswa.getJurusan();
+			} catch (Exception e) {
+				jurusan = null;
+			}
+			try {
+				fakultas = jurusan == null ? null : jurusan.getFakultas();
+			} catch (Exception e) {
+				fakultas = null;
+			}
+
+			Map map = new HashMap();
+			map.put("dosen_id", dosen == null || dosen.getId() == null ? Long.valueOf(-1L) : dosen.getId());
+			map.put("nim", mahasiswa.getNim() == null ? "" : mahasiswa.getNim());
+			map.put("nama", mahasiswa.getNama() == null ? "" : mahasiswa.getNama());
+			map.put("dosen", dosen == null || dosen.getNama() == null ? "" : dosen.getNama());
+			map.put("jur", jurusan == null || jurusan.getNama() == null ? "" : jurusan.getNama());
+			map.put("fak", fakultas == null || fakultas.getNama() == null ? "" : fakultas.getNama());
+			map.put("tahunangkatan", mahasiswa.getTahunangkatan());
+			map.put("status_mahasiswa",
+					mahasiswa.getKelompokStatusMahasiswa() == null ? "" : mahasiswa.getKelompokStatusMahasiswa().getNama());
+			map.put("kelamin", mahasiswa.getKelamin() == null ? "" : mahasiswa.getKelamin());
+			map.put("code", dosen == null || dosen.getCode() == null ? "" : dosen.getCode());
+			map.put("mycode", dosen == null || dosen.getMycode() == null ? "" : dosen.getMycode());
+			map.put("nidn", dosen == null || dosen.getNidn() == null ? "" : dosen.getNidn());
+			map.put("fakultas", fakultas == null || fakultas.getId() == null ? Long.valueOf(-1L) : fakultas.getId());
+			map.put("kaprodi_nama", jurusan == null || jurusan.getKaprodi() == null ? "" : jurusan.getKaprodi().getNama());
+			map.put("nip_kaprodi", jurusan == null || jurusan.getKaprodi() == null ? "" : jurusan.getKaprodi().getCode());
+			map.put("nidn_kaprodi", jurusan == null || jurusan.getKaprodi() == null ? "" : jurusan.getKaprodi().getNidn());
+			map.put("dekan_nama", fakultas == null || fakultas.getDekan() == null ? "" : fakultas.getDekan().getNama());
+			map.put("nip_dekan", fakultas == null || fakultas.getDekan() == null ? "" : fakultas.getDekan().getCode());
+			map.put("nidn_dekan", fakultas == null || fakultas.getDekan() == null ? "" : fakultas.getDekan().getNidn());
+			maps.add(map);
+		}
+		return maps;
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static void tampilkanCetak(List<Map> maps) throws Exception {
+		if (maps == null || maps.isEmpty()) {
+			Messagebox.show("Belum ada data mahasiswa bimbingan untuk dicetak.");
+			return;
+		}
+
+		MyWindow window = new MyWindow("Cetak Daftar Bimbingan Akademik PA", "normal", true);
+		window.setWidth("95%");
+		window.setHeight("92%");
+		window.setMaximizable(true);
+		window.setSizable(true);
+		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+		Borderlayout borderlayout = new Borderlayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
+		borderlayout.setParent(window);
+
+		Center center = new Center();
+		center.setParent(borderlayout);
+
+		Map parameters = ais.common.HashMapGenerator.getRand();
+		parameters.put("maps", maps);
+		File file = Report.generateFileReport(Report.PDF, parameters, "Rekap_dosen_pa",
+				ais.ui.util.WaktuUtil.getDate(), (Toolbar) null);
+		CommonReport.tampilkanReportPDF(center, file);
+		window.onModal();
 	}
 
 	/**
