@@ -104,6 +104,19 @@ import org.hibernate.criterion.Disjunction;
 public class PosApi extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Rute modul <b>"Pengajuan Anda" (Workflow / Proses SOP)</b>.
+	 *
+	 * <p>Sengaja MEMAKAI ULANG {@link ApiRouteRegistry#createDefaultRoutes()} -- peta yang
+	 * sama persis dipakai {@code Api.java} -- supaya POS Desktop/Android dan klien lain
+	 * tidak pernah bisa menyimpang rutenya. Seluruh logika dasbor, daftar, detail alur,
+	 * disposisi, pembatalan, cetak, dan pengajuan baru ada di {@code SopService}, yang
+	 * merupakan port resmi {@code DasboardSop.java} + {@code TampilanAlurSopAction.java}.
+	 * Di sini TIDAK ada satu pun logika yang disalin ulang.</p>
+	 */
+	private static final Map<String, ais.action.servlet.api.ApiRoute> RUTE_SOP =
+		ais.action.servlet.api.ApiRouteRegistry.createDefaultRoutes();
+
 	@Override
 	protected void doOptions(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -360,6 +373,12 @@ public class PosApi extends HttpServlet {
 			} else if ("toko_profil_simpan".equals(action)) {
 				KantinHelper.tokoProfilSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "toko_profil_simpan");
+			} else if (action.startsWith("sop_")) {
+				// Modul "Pengajuan Anda" (Workflow / Proses SOP). Gerbang menu-nya
+				// (Tbmrole.workflow) sudah ditegakkan di bolehAksesActionKantin; otorisasi
+				// per-baris (pengaju vs aktor/petugas) ditegakkan lagi di dalam SopService,
+				// jadi tetap dua lapis seperti modul lain.
+				prosesSop(request, action, payload, hasil);
 			} else if (action.startsWith("pengadaan_")) {
 				// Modul Pengadaan POS (PR dulu; PO/BAST/Tagihan/Bayar menyusul). Helper
 				// self-guard kunci menu pengadaan_pr + aksi granular, jadi tidak perlu
@@ -1457,6 +1476,12 @@ public class PosApi extends HttpServlet {
 		for (String kunciVarian : ais.common.EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF) {
 			aksesMenu.put(kunciVarian, admin || menuTersimpan.optBoolean(kunciVarian, false));
 		}
+		// Menu "Pengajuan Anda" (Workflow / Proses SOP) -- sumbernya Tbmrole.workflow,
+		// BUKAN ebisnisMenu, agar sama dengan gerbang di bolehAksesActionKantin dan dengan
+		// versi ZKoss. Flag ini murni untuk menampilkan/menyembunyikan tombolnya di Flutter;
+		// gerbang sebenarnya tetap di server.
+		aksesMenu.put("pengajuan_anda", admin || roleAksesMenu == null
+			|| Boolean.TRUE.equals(roleAksesMenu.getWorkflow()));
 		hasil.put("aksesMenu", aksesMenu);
 		JSONObject aksesMenuCrud = new JSONObject();
 		JSONObject crudTersimpan = ebisnisMenuRole.optJSONObject("crud");
@@ -1796,6 +1821,36 @@ public class PosApi extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Meneruskan aksi {@code sop_*} ke {@link ais.action.servlet.api.SopService} lewat peta
+	 * rute bersama, lalu menyalin seluruh isi balasannya ke {@code hasil}.
+	 *
+	 * <p>Balasan SopService sudah memakai amplop yang sama dengan POS
+	 * ({@code status}/{@code message} via {@code ApiHelperSupport}), jadi tidak perlu
+	 * dinormalisasi ulang. Parameter {@code PerguruanTinggi} pada kontrak
+	 * {@code ApiRoute} tidak dipakai oleh rute SOP mana pun, sehingga aman dikirim null.</p>
+	 */
+	private void prosesSop(HttpServletRequest request, String action, JSONObject payload,
+			JSONObject hasil) throws Exception {
+		ais.action.servlet.api.ApiRoute rute = RUTE_SOP.get(action);
+		if (rute == null) {
+			hasil.put("status", "91");
+			hasil.put("message", "Aksi tidak dikenali: " + action);
+			return;
+		}
+		JSONObject balasan = rute.execute(request, payload, null);
+		if (balasan == null) {
+			hasil.put("status", "99");
+			hasil.put("message", "Tidak ada balasan dari layanan SOP");
+			return;
+		}
+		java.util.Iterator<?> kunci = balasan.keys();
+		while (kunci.hasNext()) {
+			String k = String.valueOf(kunci.next());
+			hasil.put(k, balasan.get(k));
+		}
+	}
+
 	private static boolean bolehAksesActionKantin(Tbmuser tbmuser, String action) {
 		if (action == null || action.length() == 0) return true;
 		// Administrator resmi selalu boleh mengakses seluruh permukaan menu/API,
@@ -1808,6 +1863,19 @@ public class PosApi extends HttpServlet {
 		org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
 		org.json.JSONObject menu = ebisnisMenuRole.optJSONObject("menu");
 		ais.database.model.inventory.Pedagang pedagang = tbmuser.getPedagang();
+		if (action.startsWith("sop_")) {
+			// Menu "Pengajuan Anda" TIDAK memakai kunci ebisnisMenu, melainkan
+			// Tbmrole.workflow -- kolom yang SAMA dipakai versi ZKoss (MainAction2
+			// eWorkflowButton dan NewUiModuleShortcutService). Dengan begitu satu
+			// pengaturan hak akses berlaku untuk ZKoss, JSP, Desktop, dan Android.
+			// getWorkflow() mengembalikan true bila kolomnya masih null, jadi perilaku
+			// default-nya identik dengan versi ZKoss.
+			//
+			// Diperiksa SEBELUM jalan pintas supervisor: bila admin sengaja mematikan
+			// workflow untuk sebuah role, menu ini harus benar-benar tertutup, bukan
+			// terbuka kembali hanya karena role itu kebetulan supervisor toko.
+			return Boolean.TRUE.equals(role.getWorkflow());
+		}
 		if (ebisnisMenuRole.optBoolean("supervisor", false)
 				|| (pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor()))) return true;
 		if ("konfigurasi".equals(action) || "daftar_toko_saya".equals(action)
