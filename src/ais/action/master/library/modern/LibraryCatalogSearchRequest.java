@@ -8,7 +8,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class LibraryCatalogSearchRequest {
 
-    public static final int DEFAULT_PAGE_SIZE = 20;
+    public static final int DEFAULT_PAGE_SIZE = 10;
     public static final int MAX_PAGE_SIZE = 50;
 
     private String query;
@@ -34,6 +34,7 @@ public class LibraryCatalogSearchRequest {
     private Long studyProgramId;
     private Integer yearFrom;
     private Integer yearTo;
+    private Integer year;
     private int page = 1;
     private int pageSize = DEFAULT_PAGE_SIZE;
     private String sort = "NEWEST";
@@ -63,6 +64,7 @@ public class LibraryCatalogSearchRequest {
         value.studyProgramId = positiveLong(request.getParameter("studyProgramId"));
         value.yearFrom = year(request.getParameter("yearFrom"));
         value.yearTo = year(request.getParameter("yearTo"));
+        value.year = year(request.getParameter("year"));
         value.page = boundedInt(request.getParameter("page"), 1, 100000, 1);
         value.pageSize = boundedInt(request.getParameter("pageSize"), 1, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE);
         value.sort = allowedSort(request.getParameter("sort"));
@@ -148,6 +150,7 @@ public class LibraryCatalogSearchRequest {
     public Long getStudyProgramId() { return studyProgramId; }
     public Integer getYearFrom() { return yearFrom; }
     public Integer getYearTo() { return yearTo; }
+    public Integer getYear() { return year; }
     public int getPage() { return page; }
     public int getPageSize() { return pageSize; }
     public String getSort() { return sort; }

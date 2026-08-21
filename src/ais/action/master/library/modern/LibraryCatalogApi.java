@@ -22,6 +22,10 @@ public final class LibraryCatalogApi {
         LibraryCatalogSearchService service = new LibraryCatalogSearchService();
         if ("references".equals(action)) return service.references();
         if ("suggestions".equals(action)) return suggestions(request);
+        if ("recommendations".equals(action)) {
+            Long itemId = positiveLong(request.getParameter("itemId"));
+            return new JSONObject().put("ok", true).put("items", service.recommendations(itemId, 6));
+        }
         if ("search".equals(action) || "latest".equals(action)) {
             JSONObject result = service.search(LibraryCatalogSearchRequest.from(request)).toJson();
             JSONObject allowed = capabilities(request);
@@ -34,6 +38,11 @@ public final class LibraryCatalogApi {
             return result;
         }
         return new JSONObject().put("ok", false).put("error", "Operasi katalog tidak dikenal.");
+    }
+
+    private static Long positiveLong(String raw) {
+        try { long value=Long.parseLong(raw == null ? "" : raw.trim()); return value>0?Long.valueOf(value):null; }
+        catch (Exception ignored) { return null; }
     }
 
     private static JSONObject suggestions(HttpServletRequest request) throws JSONException {

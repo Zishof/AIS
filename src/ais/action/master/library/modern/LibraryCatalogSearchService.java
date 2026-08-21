@@ -85,6 +85,39 @@ public class LibraryCatalogSearchService {
         }
     }
 
+    /** Related public titles for the detail page, evaluated on the server. */
+    @SuppressWarnings("unchecked")
+    public JSONArray recommendations(Long itemId, int limit) throws JSONException {
+        JSONArray result = new JSONArray();
+        if (itemId == null || itemId.longValue() <= 0L) return result;
+        Session session = null;
+        try {
+            session = HibernateUtil.openSession();
+            Item source = (Item) session.get(Item.class, itemId);
+            if (source == null) return result;
+            LibraryCatalogSearchRequest request = new LibraryCatalogSearchRequest();
+            Criteria criteria = createCriteria(session, request);
+            criteria.add(Restrictions.ne("id", itemId));
+            Criterion related = null;
+            String subject = firstToken(source.getKategories() == null ? source.getTema() : source.getKategories());
+            if (subject != null) related = Restrictions.or(
+                    Restrictions.ilike("kategories", subject, MatchMode.ANYWHERE),
+                    Restrictions.ilike("tema", subject, MatchMode.ANYWHERE));
+            String author = firstToken(source.getPengarangs());
+            if (author != null) {
+                Criterion sameAuthor = Restrictions.ilike("pengarangs", author, MatchMode.ANYWHERE);
+                related = related == null ? sameAuthor : Restrictions.or(related, sameAuthor);
+            }
+            if (related != null) criteria.add(related);
+            else if (source.getJenisItem() != null) criteria.add(Restrictions.eq("jenisItem.id", source.getJenisItem().getId()));
+            criteria.addOrder(Order.desc("jumlahDilihat")).addOrder(Order.desc("id"));
+            List<Item> entities = criteria.setMaxResults(Math.max(1, Math.min(limit, 12))).list();
+            Map<Long, List<LibraryHoldingDto>> holdings = loadHoldings(session, entities);
+            for (Item item : entities) result.put(toDto(item, holdings).toJson());
+            return result;
+        } finally { HibernateUtil.closeSessionQuietly(session); }
+    }
+
     Criteria createCriteria(Session session, LibraryCatalogSearchRequest request) {
         Criteria criteria = session.createCriteria(Item.class, "item");
         criteria.setFetchMode("penerbit", FetchMode.JOIN).setFetchMode("jenisItem", FetchMode.JOIN)
@@ -147,6 +180,7 @@ public class LibraryCatalogSearchService {
         if (request.getStudyProgramId() != null) criteria.add(Restrictions.eq("jurusan.id", request.getStudyProgramId()));
         if (request.getYearFrom() != null) criteria.add(Restrictions.ge("tahun", request.getYearFrom()));
         if (request.getYearTo() != null) criteria.add(Restrictions.le("tahun", request.getYearTo()));
+        if (request.getYear() != null) criteria.add(Restrictions.eq("tahun", request.getYear()));
 
         if (request.getLibraryId() != null) {
             criteria.add(Restrictions.sqlRestriction(
@@ -198,8 +232,8 @@ public class LibraryCatalogSearchService {
         Query query = session.createSQLQuery(
                 "select b.item,p.id,coalesce(p.nama,'Lokasi belum ditentukan'),count(b.id),"
                 + "sum(case when loan.item_punya_barcode is null then 1 else 0 end),"
-                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),'') "
-                + "from library.item_punya_barcode b left join library.perpustakaan p on p.id=b.perpustakaan "
+                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce(max(i.callnumber),'') "
+                + "from library.item_punya_barcode b join library.item i on i.id=b.item left join library.perpustakaan p on p.id=b.perpustakaan "
                 + "left join (select item_punya_barcode,max(batas_waktu_pengembalian) due_date "
                 + "from library.peminjaman_pengadaan_item_detail where kembali_pengadaan_item_detail is null "
                 + "group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
@@ -215,7 +249,8 @@ public class LibraryCatalogSearchService {
             List<LibraryHoldingDto> itemHoldings = result.get(itemId);
             if (itemHoldings == null) { itemHoldings = new ArrayList<LibraryHoldingDto>(); result.put(itemId, itemHoldings); }
             itemHoldings.add(new LibraryHoldingDto(libraryId, row[2] == null ? null : String.valueOf(row[2]),
-                    total, available, row[5] == null ? null : String.valueOf(row[5]), null));
+                    total, available, row[5] == null ? null : String.valueOf(row[5]),
+                    row[6] == null ? null : String.valueOf(row[6])));
         }
         return result;
     }
@@ -253,6 +288,15 @@ public class LibraryCatalogSearchService {
         if (value == null) return null;
         value = value.trim();
         return value.startsWith("https://") || value.startsWith("http://") || value.startsWith("/") ? value : null;
+    }
+
+    private String firstToken(String value) {
+        if (value == null) return null;
+        value = value.trim();
+        if (value.length() == 0) return null;
+        String[] parts = value.split("[,;|]");
+        String token = parts.length == 0 ? value : parts[0].trim();
+        return token.length() > 80 ? token.substring(0, 80) : token;
     }
 
     @SuppressWarnings("unchecked")

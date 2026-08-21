@@ -61,6 +61,8 @@ public final class LibraryWorkspaceApi {
             JSONObject result = new JSONObject().put("ok", true).put("scope", context.scope()).put("counts", counts);
             result.put("visitTrend", visitTrend(session, context));
             result.put("topSubjects", topSubjects(session));
+            result.put("popularQueries", popularQueries(session));
+            result.put("popularTitles", popularTitles(session));
             return result;
         } finally {
             HibernateUtil.closeSessionQuietly(session);
@@ -86,6 +88,22 @@ public final class LibraryWorkspaceApi {
         List<Object[]> rows = session.createSQLQuery("select kategories,count(id) from library.item where aktif=true and trim(coalesce(kategories,''))<>'' group by kategories order by count(id) desc limit 8").list();
         JSONArray result = new JSONArray();
         for (Object[] row : rows) result.put(new JSONObject().put("name", string(row[0])).put("count", number(row[1])));
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static JSONArray popularQueries(Session session) throws JSONException {
+        List<Object[]> rows = session.createSQLQuery("select trim(text_query),count(id) from library.search_history where trim(coalesce(text_query,''))<>'' and coalesce(text_result,'') not like '[REMOVED]%' group by trim(text_query) order by count(id) desc limit 8").list();
+        JSONArray result = new JSONArray();
+        for (Object[] row : rows) result.put(new JSONObject().put("name", string(row[0])).put("count", number(row[1])));
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static JSONArray popularTitles(Session session) throws JSONException {
+        List<Object[]> rows = session.createSQLQuery("select id,coalesce(nama,'-'),coalesce(jumlahDilihat,0) from library.item where (aktif is null or aktif=true) and status_terbit_item in (select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published')) order by coalesce(jumlahDilihat,0) desc,id desc limit 8").list();
+        JSONArray result = new JSONArray();
+        for (Object[] row : rows) result.put(new JSONObject().put("id", number(row[0])).put("name", string(row[1])).put("count", number(row[2])));
         return result;
     }
 

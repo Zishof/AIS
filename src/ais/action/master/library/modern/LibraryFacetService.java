@@ -25,8 +25,12 @@ public final class LibraryFacetService {
             result.put("materialTypes", entityFacet(session, request, "tipeItem", "facetMaterialType"));
             result.put("libraries", libraryFacet(session));
             result.put("languages", scalarFacet(session, request, "bahasa"));
+            result.put("authors", scalarFacet(session, request, "pengarangs"));
             result.put("publishers", entityFacet(session, request, "penerbit", "facetPublisher"));
             result.put("subjects", scalarFacet(session, request, "kategories"));
+            result.put("years", scalarFacet(session, request, "tahun"));
+            result.put("schools", entityFacet(session, request, "sekolah", "facetSchool"));
+            result.put("studyPrograms", entityFacet(session, request, "jurusan", "facetStudyProgram"));
             result.put("stats", statistics(session, request));
             return result;
         } catch (Exception error) {
