@@ -99,7 +99,9 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
                     + "<div style='color:#64748b;line-height:1.7'>Penulis: " + html(orDash(item.getAuthors()))
                     + "<br/>Penerbit: " + html(orDash(item.getPublisher()))
                     + "<br/>Tahun: " + html(item.getYear() == null ? "-" : item.getYear().toString())
-                    + " · Bahasa: " + html(orDash(item.getLanguage())) + "</div>"
+                    + " · Bahasa: " + html(orDash(item.getLanguage()))
+                    + "<br/>Edisi: " + html(orDash(item.getEdition())) + " · Halaman: "
+                    + html(item.getPages() == null || item.getPages().intValue() <= 0 ? "-" : item.getPages().toString()) + "</div>"
                     + "<div style='margin-top:8px;color:" + (item.getAvailableCount() > 0 ? "#047857" : "#b45309") + ";font-weight:bold'>● "
                     + item.getAvailableCount() + " dari " + item.getCopyCount() + " tersedia</div></div>";
             new ais.ui.util.MyHtml(metadata).setParent(row);
@@ -142,7 +144,8 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
 
             if (item.isDigital() && hasText(item.getDigitalUrl())) {
                 MyToolbarbuttonConfig digital = new MyToolbarbuttonConfig("Baca Online", "/img/svg/book.svg");
-                digital.setHref(item.getDigitalUrl());
+                digital.setTooltiptext("Buka reader koleksi digital sesuai policy akses");
+                digital.setHref(Common.ROOT + "/pustaka?s=reader&id=" + item.getId());
                 digital.setTarget("_blank");
                 digital.setParent(toolbar);
             }

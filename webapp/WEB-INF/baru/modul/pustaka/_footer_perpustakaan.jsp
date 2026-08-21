@@ -99,6 +99,7 @@
         </div>
     </div>
 </footer>
+<a class="library-ask-button" href="<%=Common.ROOT%>/pustaka?s=<%=Common.getCurrentUser(request)==null?"login_pustaka":"layanan_anggota"%>" title="<%=Common.getBahasaConfig("Bantuan pencarian referensi, sitasi, dan penelitian")%>"><i class="fas fa-comments" aria-hidden="true"></i><span><%=Common.getBahasaConfig("Tanya Pustakawan")%></span></a>
 
 <script>
     /**

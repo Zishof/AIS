@@ -146,20 +146,21 @@
             </header>
             
             <div class="modal-body p-4 p-md-5 pt-4">
-                <div class="row g-4 g-lg-5">
+                <nav class="library-detail-tabs mb-4" aria-label="<%=Common.getBahasaConfig("Bagian detail koleksi")%>"><a href="#detailSummary<%=modalId%>"><%=Common.getBahasaConfig("Ringkasan")%></a><a href="#detailAvailability<%=modalId%>"><%=Common.getBahasaConfig("Ketersediaan")%></a><a href="#detailFiles<%=modalId%>"><%=Common.getBahasaConfig("Isi & Lampiran")%></a><a href="#detailMetadata<%=modalId%>"><%=Common.getBahasaConfig("Metadata Lengkap")%></a><a href="#detailReview<%=modalId%>"><%=Common.getBahasaConfig("Ulasan")%></a><a href="#detailRelated<%=modalId%>"><%=Common.getBahasaConfig("Koleksi Terkait")%></a></nav>
+                <div class="row g-4 g-lg-5" id="detailSummary<%=modalId%>">
                     
-                    <div class="col-md-5 col-lg-4 text-center">
+                    <div class="col-md-5 col-lg-4 text-center" id="detailFiles<%=modalId%>">
                         <div class="p-3 rounded-4 shadow-sm mb-4 border" style="background-color: #ffffff;">
                             <% if (punyaCoverAsli) { %><img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
                             <% } %><div <%=punyaCoverAsli ? "hidden" : ""%> role="img" aria-label="<%=Common.getBahasaConfig("Sampul dibuat otomatis untuk")%> <%=judul%>" style="width:min(100%,260px);height:360px;margin:auto;padding:28px 22px;border-radius:16px;text-align:left;font-weight:800;background:linear-gradient(150deg,hsl(<%=coverHue%>,72%,88%),hsl(<%=coverHue%>,55%,58%));color:hsl(<%=coverHue%>,70%,22%);box-shadow:0 14px 30px rgba(30,64,175,.16);"><div style="font-size:1.35rem;line-height:1.25"><%=coverMark%></div><div style="margin-top:220px;font-size:.9rem"><%=tahun%></div></div>
                         </div>
                         
                         <% if (urlLampiran != null && !urlLampiran.trim().isEmpty()) { %>
-                            <a href="<%=urlLampiran%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                            <a href="<%=Common.ROOT%>/pustaka?s=reader&id=<%=item.getId()%>" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-file-download me-2"></i><%=Common.getBahasaConfig("Unduh / Baca Lampiran Buku")%>
                             </a>
                         <% } else if (bolehAksesDigital && item.getEbookUrl() != null) { %>
-                            <a href="<%=item.getEbookUrl()%>" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                            <a href="<%=Common.ROOT%>/pustaka?s=reader&id=<%=item.getId()%>" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
                                 <i class="fas fa-external-link-alt me-2"></i><%=Common.getBahasaConfig("Buka Tautan E-Book Eksternal")%>
                             </a>
                         <% } else { %>
@@ -177,7 +178,7 @@
                     <div class="col-md-7 col-lg-8">
                         <h1 class="h3 fw-bold text-dark mb-4 lh-base"><%=judul%></h1>
 
-                        <div class="p-4 rounded-4 mb-4 shadow-sm border border-light" style="background-color: rgba(248, 249, 252, 0.9);">
+                        <div class="p-4 rounded-4 mb-4 shadow-sm border border-light" id="detailMetadata<%=modalId%>" style="background-color: rgba(248, 249, 252, 0.9);">
                             <table class="table table-borderless table-sm mb-0 align-middle" style="background-color: transparent; font-size: 0.95rem;">
                                 <tbody>
                                     <tr>
@@ -322,7 +323,7 @@
                                         </td>
                                     </tr>
                                     
-                                    <tr>
+                                    <tr id="detailAvailability<%=modalId%>">
                                         <td class="text-secondary pb-1" style="vertical-align: top;">
                                             <div class="d-flex flex-column align-items-start mt-2">
                                                 <i class="fas fa-boxes text-primary mb-1" style="font-size: 1.1rem;"></i>
@@ -345,6 +346,8 @@
                                                             <div class="px-3 py-1 shadow-sm rounded-1" style="background-color: <%=ipb.isAvailable() ? "#ecfdf5" : "#fff7ed"%>; color: <%=ipb.isAvailable() ? "#047857" : "#b45309"%>; font-size: 0.9rem; font-weight: bold;">
                                                                 <%=ipb.isAvailable() ? Common.getBahasaConfig("Tersedia di") : Common.getBahasaConfig("Sedang dipinjam di")%> <%=perpusName.toUpperCase()%>
                                                                 <%=!ipb.isAvailable() && !ipb.getDueDate().isEmpty() ? " · " + Common.getBahasaConfig("Jatuh tempo") + " " + ipb.getDueDate() : ""%>
+                                                                <%=!ipb.getShelf().isEmpty() ? " · " + Common.getBahasaConfig("Rak") + " " + StringEscapeUtils.escapeHtml(ipb.getShelf()) : ""%>
+                                                                <%=ipb.getQueue()>0 ? " · " + Common.getBahasaConfig("Antrean") + " " + ipb.getQueue() : ""%>
                                                             </div>
                                                             <% if (ipb.getLibraryId() != null) { %><button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="holdDetail<%=modalId%>(<%=ipb.getLibraryId()%>,this)"><%=Common.getBahasaConfig("Reservasi")%></button><% } %>
                                                         </div>
@@ -370,11 +373,11 @@
 
                     </div>
                 </div>
-                <section class="mt-5" aria-labelledby="detailRelatedTitle<%=modalId%>">
+                <section class="mt-5" id="detailRelated<%=modalId%>" aria-labelledby="detailRelatedTitle<%=modalId%>">
                     <h2 class="h5 fw-bold" id="detailRelatedTitle<%=modalId%>"><i class="fas fa-lightbulb text-primary me-2"></i><%=Common.getBahasaConfig("Rekomendasi koleksi terkait")%></h2>
                     <div class="row g-3" id="detailRecommendations<%=modalId%>"><div class="text-secondary"><%=Common.getBahasaConfig("Menyiapkan rekomendasi...")%></div></div>
                 </section>
-                <section class="mt-5" aria-labelledby="detailReviewTitle<%=modalId%>">
+                <section class="mt-5" id="detailReview<%=modalId%>" aria-labelledby="detailReviewTitle<%=modalId%>">
                     <h2 class="h5 fw-bold" id="detailReviewTitle<%=modalId%>"><i class="fas fa-star text-warning me-2"></i><%=Common.getBahasaConfig("Rating dan ulasan anggota")%></h2>
                     <div id="detailRatingSummary<%=modalId%>" class="text-secondary mb-3" aria-live="polite"></div>
                     <div id="detailReviews<%=modalId%>" class="d-grid gap-2"></div>

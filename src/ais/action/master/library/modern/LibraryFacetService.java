@@ -3,6 +3,7 @@ package ais.action.master.library.modern;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.hibernate.Criteria;
 import org.hibernate.Hibernate;
@@ -18,9 +19,13 @@ import org.json.JSONObject;
 /** Server-side discovery facets and bounded suggestions for the public catalog. */
 public final class LibraryFacetService {
     private static final int FACET_LIMIT = 12;
+    private static final long CACHE_MILLIS = 30000L;
+    private static final ConcurrentHashMap<String, CacheEntry> CACHE = new ConcurrentHashMap<String, CacheEntry>();
 
     public JSONObject facets(Session session, LibraryCatalogSearchRequest request) {
         try {
+            String cacheKey=cacheKey(request);CacheEntry cached=CACHE.get(cacheKey);long now=System.currentTimeMillis();
+            if(cached!=null&&now-cached.created<CACHE_MILLIS)return new JSONObject(cached.json);
             JSONObject result = new JSONObject();
             result.put("availability", availability(session, request));
             result.put("itemTypes", entityFacet(session, request, "jenisItem", "facetItemType"));
@@ -35,12 +40,16 @@ public final class LibraryFacetService {
             result.put("studyPrograms", entityFacet(session, request, "jurusan", "facetStudyProgram"));
             result.put("popularSearches", scalarFacet(session, new LibraryCatalogSearchRequest(), "kategories"));
             result.put("stats", statistics(session, request));
+            if(CACHE.size()>200)CACHE.clear();CACHE.put(cacheKey,new CacheEntry(now,result.toString()));
             return result;
         } catch (Exception error) {
             ais.common.Common.tampilErrorJikaAdmin(error);
             return new JSONObject();
         }
     }
+
+    private String cacheKey(LibraryCatalogSearchRequest r){ais.database.model.library.Perpustakaan p=ais.common.Common.getCurrentPerpustakaan();return (p==null?"*":String.valueOf(p.getId()))+'|'+safe(r.getQuery())+'|'+safe(r.getSearchField())+'|'+safe(r.getMatchMode())+'|'+safe(r.getTitle())+'|'+safe(r.getAuthor())+'|'+safe(r.getPublisher())+'|'+safe(r.getSubject())+'|'+safe(r.getNotes())+'|'+safe(r.getExclude())+'|'+safe(r.getLanguage())+'|'+safe(r.getAvailability())+'|'+safe(r.getLibraryId())+'|'+safe(r.getItemTypeId())+'|'+safe(r.getMaterialTypeId())+'|'+safe(r.getSchoolId())+'|'+safe(r.getStudyProgramId())+'|'+safe(r.getYearFrom())+'|'+safe(r.getYearTo());}
+    private static final class CacheEntry{private final long created;private final String json;private CacheEntry(long created,String json){this.created=created;this.json=json;}}
 
     @SuppressWarnings("unchecked")
     public JSONArray suggestions(Session session, String keyword) throws JSONException {
@@ -58,7 +67,9 @@ public final class LibraryFacetService {
         Set<String> seen = new LinkedHashSet<String>();
         JSONArray titles = new JSONArray(), authors = new JSONArray(), subjects = new JSONArray();
         JSONArray callNumbers = new JSONArray(), identifiers = new JSONArray();
-        for (Object[] row : (List<Object[]>) criteria.setMaxResults(16).list()) {
+        List<Object[]> rows=(List<Object[]>) criteria.setMaxResults(16).list();
+        if(rows.isEmpty()&&needle.length()>3){request.setQuery(needle.substring(0,3));criteria=new LibraryCatalogSearchService().createCriteria(session,request);criteria.setProjection(Projections.projectionList().add(Projections.property("id")).add(Projections.property("nama")).add(Projections.property("pengarangs")).add(Projections.property("kategories")).add(Projections.property("callnumber")).add(Projections.property("isbn")));rows=(List<Object[]>)criteria.setMaxResults(24).list();}
+        for (Object[] row : rows) {
             addSuggestion(titles, seen, "TITLE", safe(row[1]), safe(row[2]), row[0], needle);
             addSuggestion(authors, seen, "AUTHOR", safe(row[2]), "Penulis / pengarang", row[0], needle);
             addSuggestion(subjects, seen, "SUBJECT", firstValue(row[3]), "Subjek", row[0], needle);
@@ -76,12 +87,15 @@ public final class LibraryFacetService {
 
     private void addSuggestion(JSONArray result, Set<String> seen, String type, String value,
             String meta, Object id, String needle) throws JSONException {
-        if (result.length() >= 12 || blank(value) || value.toLowerCase().indexOf(needle) < 0) return;
+        if (result.length() >= 12 || blank(value) || !matches(value,needle)) return;
         String key = type + ":" + value.toLowerCase();
         if (!seen.add(key)) return;
         result.put(new JSONObject().put("id", id).put("type", type).put("value", value)
                 .put("title", value).put("meta", meta).put("authors", meta));
     }
+
+    private static boolean matches(String value,String needle){String lower=value.toLowerCase();if(lower.indexOf(needle)>=0)return true;for(String word:lower.split("[^a-z0-9]+"))if(word.length()>2&&distance(word,needle)<=2)return true;return false;}
+    private static int distance(String a,String b){int[] previous=new int[b.length()+1];for(int j=0;j<=b.length();j++)previous[j]=j;for(int i=1;i<=a.length();i++){int[] current=new int[b.length()+1];current[0]=i;for(int j=1;j<=b.length();j++)current[j]=Math.min(Math.min(current[j-1]+1,previous[j]+1),previous[j-1]+(a.charAt(i-1)==b.charAt(j-1)?0:1));previous=current;}return previous[b.length()];}
 
     private static String firstValue(Object raw) {
         String value = safe(raw);

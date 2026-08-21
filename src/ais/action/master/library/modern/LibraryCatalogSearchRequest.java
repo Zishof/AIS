@@ -22,6 +22,7 @@ public class LibraryCatalogSearchRequest {
     private String notes;
     private String exclude;
     private String searchField;
+    private String matchMode = "ALL";
     private String subject;
     private String callNumber;
     private String barcode;
@@ -53,6 +54,7 @@ public class LibraryCatalogSearchRequest {
         value.notes = text(request.getParameter("notes"), 160);
         value.exclude = text(request.getParameter("exclude"), 160);
         value.searchField = allowedSearchField(request.getParameter("searchField"));
+        value.matchMode = "ANY".equals(request.getParameter("matchMode")) ? "ANY" : "ALL";
         value.subject = text(request.getParameter("subject"), 120);
         value.callNumber = text(request.getParameter("callNumber"), 80);
         value.barcode = text(request.getParameter("barcode"), 80);
@@ -140,6 +142,7 @@ public class LibraryCatalogSearchRequest {
     public String getNotes() { return notes; }
     public String getExclude() { return exclude; }
     public String getSearchField() { return searchField; }
+    public String getMatchMode() { return matchMode; }
     public String getSubject() { return subject; }
     public String getCallNumber() { return callNumber; }
     public String getBarcode() { return barcode; }
@@ -168,6 +171,7 @@ public class LibraryCatalogSearchRequest {
     public void setNotes(String notes) { this.notes = text(notes, 160); }
     public void setExclude(String exclude) { this.exclude = text(exclude, 160); }
     public void setSearchField(String searchField) { this.searchField = allowedSearchField(searchField); }
+    public void setMatchMode(String matchMode) { this.matchMode = "ANY".equals(matchMode) ? "ANY" : "ALL"; }
     public void setSubject(String subject) { this.subject = text(subject, 120); }
     public void setCallNumber(String callNumber) { this.callNumber = text(callNumber, 80); }
     public void setBarcode(String barcode) { this.barcode = text(barcode, 80); }

@@ -30,6 +30,7 @@ import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
+import ais.common.Common;
 
 /**
  * Server-side catalog query service shared by JSP and ZK views.
@@ -141,26 +142,30 @@ public class LibraryCatalogSearchService {
             else if ("CALL_NUMBER".equals(field)) criteria.add(Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
             else if ("BARCODE".equals(field)) criteria.add(Restrictions.sqlRestriction("{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)", "%" + value.toLowerCase() + "%", Hibernate.STRING));
             else {
-                Criterion keyword = Restrictions.ilike("nama", value, MatchMode.ANYWHERE);
-                keyword = Restrictions.or(keyword, Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("kategories", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("abstrak", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("kewords", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("isbn", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("issn", value, MatchMode.ANYWHERE));
-                keyword = Restrictions.or(keyword, Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
+                Criterion keyword = null;
+                for(String term:searchTerms(value))keyword=or(keyword,keywordCriterion(term));
                 criteria.add(keyword);
             }
         }
-        if (request.getTitle() != null) criteria.add(Restrictions.ilike("nama", request.getTitle(), MatchMode.ANYWHERE));
+        if ("ANY".equals(request.getMatchMode())) {
+            Criterion any = null;
+            if (request.getTitle() != null) any = or(any, Restrictions.ilike("nama", request.getTitle(), MatchMode.ANYWHERE));
+            if (request.getAuthor() != null) any = or(any, Restrictions.ilike("pengarangs", request.getAuthor(), MatchMode.ANYWHERE));
+            if (request.getPublisher() != null) { criteria.createAlias("penerbit", "anyPublisher", Criteria.LEFT_JOIN); any = or(any, Restrictions.ilike("anyPublisher.nama", request.getPublisher(), MatchMode.ANYWHERE)); }
+            if (request.getSubject() != null) any = or(any, Restrictions.or(Restrictions.ilike("kategories", request.getSubject(), MatchMode.ANYWHERE), Restrictions.ilike("tema", request.getSubject(), MatchMode.ANYWHERE)));
+            if (request.getNotes() != null) any = or(any, Restrictions.or(Restrictions.ilike("abstrak", request.getNotes(), MatchMode.ANYWHERE), Restrictions.ilike("kewords", request.getNotes(), MatchMode.ANYWHERE)));
+            if (request.getCallNumber() != null) any = or(any, Restrictions.ilike("callnumber", request.getCallNumber(), MatchMode.ANYWHERE));
+            if (any != null) criteria.add(any);
+        }
+        if (!"ANY".equals(request.getMatchMode()) && request.getTitle() != null) criteria.add(Restrictions.ilike("nama", request.getTitle(), MatchMode.ANYWHERE));
         if (request.getIsbn() != null) {
             criteria.add(Restrictions.or(Restrictions.eq("isbn", request.getIsbn()), Restrictions.eq("isbn10", request.getIsbn())));
         }
         if (request.getIssn() != null) criteria.add(Restrictions.eq("issn", request.getIssn()));
-        if (request.getAuthor() != null) criteria.add(Restrictions.ilike("pengarangs", request.getAuthor(), MatchMode.ANYWHERE));
+        if (!"ANY".equals(request.getMatchMode()) && request.getAuthor() != null) criteria.add(Restrictions.ilike("pengarangs", request.getAuthor(), MatchMode.ANYWHERE));
         if (request.getLanguage() != null) criteria.add(Restrictions.ilike("bahasa", request.getLanguage(), MatchMode.ANYWHERE));
         if (request.getEdition() != null) criteria.add(Restrictions.ilike("edisi", request.getEdition(), MatchMode.ANYWHERE));
-        if (request.getNotes() != null) {
+        if (!"ANY".equals(request.getMatchMode()) && request.getNotes() != null) {
             Criterion notes = Restrictions.ilike("abstrak", request.getNotes(), MatchMode.ANYWHERE);
             notes = Restrictions.or(notes, Restrictions.ilike("catatan", request.getNotes(), MatchMode.ANYWHERE));
             notes = Restrictions.or(notes, Restrictions.ilike("kewords", request.getNotes(), MatchMode.ANYWHERE));
@@ -175,14 +180,14 @@ public class LibraryCatalogSearchService {
             excluded = Restrictions.or(excluded, Restrictions.ilike("kewords", value, MatchMode.ANYWHERE));
             criteria.add(Restrictions.not(excluded));
         }
-        if (request.getSubject() != null) criteria.add(Restrictions.or(
+        if (!"ANY".equals(request.getMatchMode()) && request.getSubject() != null) criteria.add(Restrictions.or(
                 Restrictions.ilike("kategories", request.getSubject(), MatchMode.ANYWHERE),
                 Restrictions.ilike("tema", request.getSubject(), MatchMode.ANYWHERE)));
-        if (request.getCallNumber() != null) criteria.add(Restrictions.ilike("callnumber", request.getCallNumber(), MatchMode.ANYWHERE));
+        if (!"ANY".equals(request.getMatchMode()) && request.getCallNumber() != null) criteria.add(Restrictions.ilike("callnumber", request.getCallNumber(), MatchMode.ANYWHERE));
         if (request.getBarcode() != null) criteria.add(Restrictions.sqlRestriction(
                 "{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)",
                 "%" + request.getBarcode().toLowerCase() + "%", Hibernate.STRING));
-        if (request.getPublisher() != null) {
+        if (!"ANY".equals(request.getMatchMode()) && request.getPublisher() != null) {
             criteria.createAlias("penerbit", "publisher", Criteria.LEFT_JOIN);
             criteria.add(Restrictions.ilike("publisher.nama", request.getPublisher(), MatchMode.ANYWHERE));
         }
@@ -225,6 +230,11 @@ public class LibraryCatalogSearchService {
         return Restrictions.and(Restrictions.isNotNull(property), Restrictions.ne(property, ""));
     }
 
+    private Criterion or(Criterion left, Criterion right) { return left == null ? right : Restrictions.or(left, right); }
+
+    private Criterion keywordCriterion(String value){Criterion keyword=Restrictions.ilike("nama",value,MatchMode.ANYWHERE);keyword=Restrictions.or(keyword,Restrictions.ilike("pengarangs",value,MatchMode.ANYWHERE));keyword=Restrictions.or(keyword,Restrictions.ilike("kategories",value,MatchMode.ANYWHERE));keyword=Restrictions.or(keyword,Restrictions.ilike("abstrak",value,MatchMode.ANYWHERE));keyword=Restrictions.or(keyword,Restrictions.ilike("kewords",value,MatchMode.ANYWHERE));keyword=Restrictions.or(keyword,Restrictions.ilike("isbn",value,MatchMode.ANYWHERE));keyword=Restrictions.or(keyword,Restrictions.ilike("issn",value,MatchMode.ANYWHERE));return Restrictions.or(keyword,Restrictions.ilike("callnumber",value,MatchMode.ANYWHERE));}
+    private List<String> searchTerms(String value){List<String> result=new ArrayList<String>();result.add(value);try{String config=Common.getKonfigurasi("library_search_synonyms","").getNilai();String lower=value.toLowerCase();for(String group:config.split(";")){String[] pair=group.split("=",2);if(pair.length!=2)continue;List<String> words=new ArrayList<String>();words.add(pair[0].trim());for(String x:pair[1].split(","))words.add(x.trim());boolean match=false;for(String x:words)if(x.equalsIgnoreCase(lower)){match=true;break;}if(match)for(String x:words)if(x.length()>1&&!result.contains(x)&&result.size()<6)result.add(x);}}catch(Exception ignored){}return result;}
+
     private void applySort(Criteria criteria, String sort) {
         if ("TITLE_ASC".equals(sort)) {
             criteria.addOrder(Order.asc("nama")).addOrder(Order.desc("id"));
@@ -250,7 +260,7 @@ public class LibraryCatalogSearchService {
         Query query = session.createSQLQuery(
                 "select b.item,p.id,coalesce(p.nama,'Lokasi belum ditentukan'),count(b.id),"
                 + "sum(case when loan.item_punya_barcode is null then 1 else 0 end),"
-                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce(max(i.callnumber),''),"
+                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce((select max(r.nama) from library.rak_detail rd join library.rak r on r.id=rd.rak where rd.item=b.item and (r.perpustakaan=p.id or r.perpustakaan is null)),''),"
                 + "coalesce((select max(s.status) from library.item_has_status s where s.item=b.item and (s.perpustakaan=p.id or s.perpustakaan is null) and current_date between coalesce(s.mulai,current_date) and coalesce(s.sampai,current_date)),'') "
                 + "from library.item_punya_barcode b join library.item i on i.id=b.item left join library.perpustakaan p on p.id=b.perpustakaan "
                 + "left join (select item_punya_barcode,max(batas_waktu_pengembalian) due_date "
@@ -300,9 +310,9 @@ public class LibraryCatalogSearchService {
         dto.setHoldings(holdings);
         dto.setItemType(item.getJenisItem() == null ? null : item.getJenisItem().getNama());
         dto.setMaterialType(item.getTipeItem() == null ? null : item.getTipeItem().getNama());
-        String ebook = safeUrl(item.getEbooksLink());
-        if (ebook == null) ebook = safeUrl(item.getEbooksLinkPdf());
-        dto.setDigital(Boolean.TRUE.equals(item.getBolehDiDownload()) || ebook != null);
+        String ebook = Boolean.TRUE.equals(item.getBolehDiDownload()) ? safeUrl(item.getEbooksLink()) : null;
+        if (ebook == null && Boolean.TRUE.equals(item.getBolehDiDownload())) ebook = safeUrl(item.getEbooksLinkPdf());
+        dto.setDigital(Boolean.TRUE.equals(item.getBolehDiDownload()) && (ebook != null || hasText(item.getLampiranPath())));
         dto.setDigitalUrl(ebook);
         return dto;
     }
@@ -312,6 +322,8 @@ public class LibraryCatalogSearchService {
         value = value.trim();
         return value.startsWith("https://") || value.startsWith("http://") || value.startsWith("/") ? value : null;
     }
+
+    private boolean hasText(String value) { return value != null && value.trim().length() > 0; }
 
     private String firstToken(String value) {
         if (value == null) return null;

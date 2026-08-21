@@ -31,7 +31,7 @@ public final class LibraryItemDetailService {
                 LampiranLain attachment = LampiranLain.ambil(item.getId(), LampiranLain.ITEM);
                 if (attachment != null) digitalUrl = safeUrl(attachment.createLinkUri());
             }
-            String ebookUrl = safeUrl(item.getEbooksLink());
+            String ebookUrl = Boolean.TRUE.equals(item.getBolehDiDownload()) ? safeUrl(item.getEbooksLink()) : null;
             List<Holding> holdings = loadHoldings(session, itemId);
             return new Detail(item.getId(), item.getImageUrl(), item.getNama(), item.getPengarangs(), publisher,
                     item.getKategories(), item.getDeweyDecimalClass(), item.getTema(), item.getIsbn(), item.getIssn(),
@@ -58,16 +58,18 @@ public final class LibraryItemDetailService {
 
     public static final class Holding {
         private final String barcode; private final Long libraryId; private final String libraryName;
-        private final boolean available; private final String dueDate;
-        private Holding(String barcode, Long libraryId, String libraryName, boolean available, String dueDate) {
+        private final boolean available; private final String dueDate; private final String shelf; private final long queue;
+        private Holding(String barcode, Long libraryId, String libraryName, boolean available, String dueDate,String shelf,long queue) {
             this.barcode = barcode; this.libraryId = libraryId; this.libraryName = libraryName;
-            this.available = available; this.dueDate = dueDate;
+            this.available = available; this.dueDate = dueDate;this.shelf=shelf;this.queue=queue;
         }
         public String getBarcode() { return barcode == null ? "-" : barcode; }
         public Long getLibraryId() { return libraryId; }
         public String getLibraryName() { return libraryName; }
         public boolean isAvailable() { return available; }
         public String getDueDate() { return dueDate == null ? "" : dueDate; }
+        public String getShelf() { return shelf == null ? "" : shelf; }
+        public long getQueue() { return queue; }
     }
 
     public static final class Detail {
@@ -93,7 +95,8 @@ public final class LibraryItemDetailService {
         if(allowed!=null&&allowed.isEmpty())return result;
         Query query = session.createSQLQuery("select b.barcode,p.id,coalesce(p.nama,'Lokasi tidak diketahui'),"
                 + "case when loan.item_punya_barcode is null then true else false end,"
-                + "coalesce(to_char(loan.due_date,'DD-MM-YYYY'),'') from library.item_punya_barcode b "
+                + "coalesce(to_char(loan.due_date,'DD-MM-YYYY'),''),coalesce((select max(r.nama) from library.rak_detail rd join library.rak r on r.id=rd.rak where rd.item=b.item and (r.perpustakaan=p.id or r.perpustakaan is null)),''),"
+                + "(select count(h.id) from library.pesanan_anggota h where h.item=b.item and (h.perpustakaan=p.id or h.perpustakaan is null) and lower(coalesce(h.status,'')) not in ('batal','selesai','diambil') and h.kadaluarsa>=current_timestamp) from library.item_punya_barcode b "
                 + "left join library.perpustakaan p on p.id=b.perpustakaan left join "
                 + "(select item_punya_barcode,max(batas_waktu_pengembalian) due_date from library.peminjaman_pengadaan_item_detail "
                 + "where kembali_pengadaan_item_detail is null group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
@@ -104,7 +107,7 @@ public final class LibraryItemDetailService {
             Long libraryId = row[1] instanceof Number ? Long.valueOf(((Number) row[1]).longValue()) : null;
             result.add(new Holding(row[0] == null ? null : String.valueOf(row[0]), libraryId,
                     row[2] == null ? null : String.valueOf(row[2]), Boolean.TRUE.equals(row[3]),
-                    row[4] == null ? null : String.valueOf(row[4])));
+                    row[4] == null ? null : String.valueOf(row[4]),row[5] == null ? null : String.valueOf(row[5]),row[6] instanceof Number?((Number)row[6]).longValue():0L));
         }
         return result;
     }
