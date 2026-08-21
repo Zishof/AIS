@@ -15,7 +15,7 @@
             <div class="home-hero-media" aria-hidden="true">
                 <img src="<%=h(vm.institution.heroUrl)%>" width="720" height="620" alt="" fetchpriority="high">
                 <div class="home-hero-media-overlay"></div>
-                <div class="home-float-card"><i class="fas fa-university" aria-hidden="true"></i><span><strong><%=h(vm.terminology.institutionLabel)%> Digital</strong><small>Akademik, pustaka, repository</small></span></div>
+                <div class="home-float-card"><i class="fas <%=vm.institution.healthcare ? "fa-building" : "fa-university"%>" aria-hidden="true"></i><span><strong><%=h(vm.terminology.institutionLabel)%> Digital</strong><small><%=vm.institution.healthcare ? "Pendaftaran, jadwal, rekam medis" : "Akademik, pustaka, repository"%></small></span></div>
             </div>
             <% if (!vm.statistics.isEmpty()) { %>
             <dl class="home-stats">

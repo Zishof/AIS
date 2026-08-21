@@ -25,6 +25,7 @@ public class HomePortalContentService {
 
     @SuppressWarnings("unchecked")
     public void loadPrograms(HomePortalViewModel vm, HomePortalSectionResolver config) {
+        if (vm.institution.healthcare) return;
         if (!vm.institution.college || vm.institution.id == null) return;
         Session session = null;
         try {
@@ -51,6 +52,7 @@ public class HomePortalContentService {
 
     @SuppressWarnings("unchecked")
     public void loadNews(HomePortalViewModel vm, HomePortalSectionResolver config) {
+        if (vm.institution.healthcare) return;
         Session session = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession();
@@ -83,6 +85,16 @@ public class HomePortalContentService {
 
     @SuppressWarnings("unchecked")
     public void loadAdmission(HomePortalViewModel vm, HomePortalSectionResolver config) {
+        if (vm.institution.healthcare) {
+            HomePortalViewModel.Admission a = new HomePortalViewModel.Admission();
+            a.period = config.value("home_v3_patient_registration_period", "Pendaftaran layanan tersedia");
+            a.label = config.value("home_v3_primary_cta_label", "Daftar Pasien");
+            a.description = config.value("home_v3_admission_description", "Daftarkan pasien, pilih layanan, dan ikuti petunjuk konfirmasi melalui portal resmi.");
+            a.open = config.enabled("home_v3_patient_registration_open", true);
+            copyLink(a, links.resolve(config.value("home_v3_primary_cta_url", "/login"), "/login"));
+            vm.admission = a;
+            return;
+        }
         Session session = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession();
@@ -124,6 +136,7 @@ public class HomePortalContentService {
 
     @SuppressWarnings("unchecked")
     public void loadAgenda(HomePortalViewModel vm, HomePortalSectionResolver config) {
+        if (vm.institution.healthcare) return;
         Session session = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession();

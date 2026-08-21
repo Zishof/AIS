@@ -17,18 +17,25 @@ public class HomePortalService {
         vm.assetVersion = config.value("home_v3_asset_version", "3.0.0");
         vm.institution = new HomePortalInstitutionResolver().resolve(request);
         resolveTerminology(vm);
-        vm.eyebrow = config.value("judul_kecil_home_portal", "Enterprise Education Portal");
-        vm.headline = config.value("home_v3_headline", vm.institution.college
+        vm.eyebrow = config.value("judul_kecil_home_portal", vm.institution.healthcare
+                ? "Portal Layanan Kesehatan" : "Enterprise Education Portal");
+        vm.headline = config.value("home_v3_headline", vm.institution.healthcare
+                ? "Pelayanan kesehatan tepercaya, mudah diakses, dan berpusat pada pasien"
+                : vm.institution.college
                 ? "Membentuk generasi unggul, adaptif, dan berdampak"
                 : "Menumbuhkan generasi berkarakter, berprestasi, dan siap masa depan");
-        vm.description = config.value("home_v3_description", "Satu pintu untuk mengenal " + vm.terminology.institutionLabel.toLowerCase()
+        vm.description = config.value("home_v3_description", vm.institution.healthcare
+                ? "Satu pintu untuk mengenal " + vm.institution.name + ", melihat layanan kesehatan, jadwal, informasi pasien, dan akses layanan digital."
+                : "Satu pintu untuk mengenal " + vm.terminology.institutionLabel.toLowerCase()
                 + ", menemukan " + vm.terminology.programLabel.toLowerCase() + ", mengikuti penerimaan, dan mengakses seluruh layanan digital.");
-        HomePortalViewModel.LinkItem login = links.resolve(config.value("link_modul_login_ecampus", "/login"), "/login");
+        String loginKey = vm.institution.healthcare ? "link_modul_login_emedic" : "link_modul_login_ecampus";
+        HomePortalViewModel.LinkItem login = links.resolve(config.value(loginKey, "/login"), "/login");
         vm.loginUrl = login.url; vm.loginTarget = login.target; vm.loginRel = login.rel;
-        HomePortalViewModel.LinkItem primary = links.resolve(config.value("home_v3_primary_cta_url", vm.institution.college ? "/pmb" : "/ppdb"), vm.institution.college ? "/pmb" : "/ppdb");
+        String primaryFallback = vm.institution.healthcare ? "/login" : (vm.institution.college ? "/pmb" : "/ppdb");
+        HomePortalViewModel.LinkItem primary = links.resolve(config.value("home_v3_primary_cta_url", primaryFallback), primaryFallback);
         vm.primaryLabel = config.value("home_v3_primary_cta_label", vm.terminology.admissionLabel);
         vm.primaryUrl = primary.url; vm.primaryTarget = primary.target; vm.primaryRel = primary.rel;
-        HomePortalViewModel.LinkItem secondary = links.resolve(config.value("home_v3_secondary_cta_url", "#program"), "#program");
+        HomePortalViewModel.LinkItem secondary = links.resolve(config.value("home_v3_secondary_cta_url", vm.institution.healthcare ? "#layanan" : "#program"), vm.institution.healthcare ? "#layanan" : "#program");
         vm.secondaryLabel = config.value("home_v3_secondary_cta_label", "Jelajahi " + vm.terminology.programLabel);
         vm.secondaryUrl = secondary.url; vm.secondaryTarget = secondary.target; vm.secondaryRel = secondary.rel;
         configureAnnouncement(vm);
@@ -51,7 +58,11 @@ public class HomePortalService {
     }
 
     private void resolveTerminology(HomePortalViewModel vm) {
-        if (vm.institution.college) {
+        if (vm.institution.healthcare) {
+            vm.terminology.learnerPlural = "Pasien"; vm.terminology.teacherPlural = "Tenaga Kesehatan";
+            vm.terminology.admissionLabel = "Pendaftaran Pasien"; vm.terminology.programLabel = "Layanan Kesehatan";
+            vm.terminology.institutionLabel = vm.institution.category.length() > 0 ? vm.institution.category : "Fasilitas Kesehatan";
+        } else if (vm.institution.college) {
             vm.terminology.learnerPlural = "Mahasiswa"; vm.terminology.teacherPlural = "Dosen";
             vm.terminology.admissionLabel = "Penerimaan Mahasiswa Baru"; vm.terminology.programLabel = "Program Studi";
             vm.terminology.institutionLabel = "Kampus";
@@ -70,6 +81,18 @@ public class HomePortalService {
     }
 
     private void configureSections(HomePortalViewModel vm) {
+        if (vm.institution.healthcare) {
+            vm.showPrograms = config.enabled("home_v3_show_health_services", true);
+            vm.showAdmission = config.enabled("home_v3_show_patient_registration", true);
+            vm.showNews = config.enabled("home_v3_show_health_news", false);
+            vm.showAgenda = config.enabled("home_v3_show_health_agenda", false);
+            vm.showImpact = config.enabled("home_v3_show_health_quality", true)
+                    || config.enabled("home_v3_show_health_facilities", true);
+            vm.showPartners = config.enabled("home_v3_show_partners", false);
+            vm.showSearch = config.enabled("home_v3_show_site_search", false);
+            vm.showLanguage = config.enabled("home_v3_show_language_switcher", true);
+            return;
+        }
         vm.showPrograms = config.enabled("home_v3_show_programs", true);
         vm.showAdmission = config.enabled("home_v3_show_admission", true);
         vm.showNews = config.enabled("home_v3_show_news", true);
@@ -81,7 +104,15 @@ public class HomePortalService {
     }
 
     private void addServices(HomePortalViewModel vm) {
-        if (vm.institution.college) {
+        if (vm.institution.healthcare) {
+            service(vm, "tampilkan_modul_emedic", true, "Portal eMedic", "Akses sistem informasi dan layanan operasional fasilitas kesehatan.", "fa-sign-in-alt", "link_modul_login_emedic", "/login", "kesehatan");
+            service(vm, "tampilkan_modul_pendaftaran_pasien", true, "Pendaftaran Pasien", "Pendaftaran dan akses layanan pasien secara daring.", "fa-id-card", "link_modul_pendaftaran_pasien", "/login", "pasien");
+            service(vm, "tampilkan_modul_jadwal_dokter", true, "Jadwal Tenaga Kesehatan", "Temukan jadwal dokter dan tenaga kesehatan.", "fa-user-clock", "link_modul_jadwal_dokter", "/login", "pasien");
+            service(vm, "tampilkan_modul_rekam_medis", true, "Rekam Medis", "Akses informasi rekam medis sesuai hak pengguna.", "fa-file-alt", "link_modul_rekam_medis", "/login", "pasien");
+            service(vm, "tampilkan_modul_farmasi", true, "Farmasi", "Informasi dan layanan farmasi fasilitas kesehatan.", "fa-store", "link_modul_farmasi", "/login", "kesehatan");
+            service(vm, "tampilkan_modul_anjungan", true, "Anjungan Mandiri", "Akses informasi dan layanan mandiri pasien.", "fa-desktop", "link_modul_anjungan", "/anjungan", "pendukung");
+            service(vm, "tampilkan_modul_buku_tamu", true, "Buku Tamu", "Pencatatan tamu dan kunjungan digital.", "fa-address-book", "link_modul_buku_tamu", "/tamu", "pendukung");
+        } else if (vm.institution.college) {
             service(vm, "tampilkan_modul_login_ecampus", true, "Login eCampus", "Akses akademik untuk mahasiswa, dosen, pegawai, pimpinan, dan operator.", "fa-sign-in-alt", "link_modul_login_ecampus", "/login", "akademik");
             service(vm, "tampilkan_modul_pmb", true, "Penerimaan Mahasiswa", "Informasi jalur, formulir, seleksi, dan registrasi online.", "fa-graduation-cap", "link_modul_pmb", "/pmb", "penerimaan");
             service(vm, "tampilkan_modul_pustaka", true, "Perpustakaan Digital", "Katalog, sirkulasi, dan akses layanan perpustakaan.", "fa-book-open", "link_modul_pustaka", "/pustaka", "publik");
@@ -98,11 +129,13 @@ public class HomePortalService {
             service(vm, "tampilkan_modul_login_siswa_wali", true, "Login Siswa / Wali", "Akademik, pembayaran, dan layanan siswa/wali.", "fa-users", "link_modul_login_siswa_wali", "/login", "akademik");
             service(vm, "tampilkan_modul_absen_siswa", true, "Absensi Siswa", "Akses cepat layanan presensi siswa.", "fa-user-clock", "link_modul_absen_siswa", "/welsis", "akademik");
         }
-        service(vm, "tampilkan_modul_e_kantin", true, "eKantin", "Transaksi kantin dan unit usaha institusi.", "fa-store", "link_modul_e_kantin", "/kantin", "pendukung");
-        service(vm, "tampilkan_modul_anjungan", true, "Anjungan Mandiri", "Akses informasi dan layanan mandiri.", "fa-desktop", "link_modul_anjungan", "/anjungan", "pendukung");
-        service(vm, "tampilkan_modul_karir", true, "Karier", "Lowongan, seleksi, dan informasi karier.", "fa-briefcase", "link_modul_karir", "/karir", "pendukung");
-        service(vm, "tampilkan_modul_buku_tamu", true, "Buku Tamu", "Pencatatan tamu dan kunjungan digital.", "fa-address-book", "link_modul_buku_tamu", "/tamu", "pendukung");
-        service(vm, "tampilkan_modul_portal_rekanan", true, "Portal Rekanan", "Layanan rekanan dan vendor institusi.", "fa-truck", "link_modul_portal_rekanan", "/vendor", "pendukung");
+        if (!vm.institution.healthcare) {
+            service(vm, "tampilkan_modul_e_kantin", true, "eKantin", "Transaksi kantin dan unit usaha institusi.", "fa-store", "link_modul_e_kantin", "/kantin", "pendukung");
+            service(vm, "tampilkan_modul_anjungan", true, "Anjungan Mandiri", "Akses informasi dan layanan mandiri.", "fa-desktop", "link_modul_anjungan", "/anjungan", "pendukung");
+            service(vm, "tampilkan_modul_karir", true, "Karier", "Lowongan, seleksi, dan informasi karier.", "fa-briefcase", "link_modul_karir", "/karir", "pendukung");
+            service(vm, "tampilkan_modul_buku_tamu", true, "Buku Tamu", "Pencatatan tamu dan kunjungan digital.", "fa-address-book", "link_modul_buku_tamu", "/tamu", "pendukung");
+            service(vm, "tampilkan_modul_portal_rekanan", true, "Portal Rekanan", "Layanan rekanan dan vendor institusi.", "fa-truck", "link_modul_portal_rekanan", "/vendor", "pendukung");
+        }
         for (int n = 1; n <= 10; n++) {
             String no = n < 10 ? "0" + n : String.valueOf(n);
             String label = config.value("label_button_tambahan_home_" + no, "");
@@ -123,6 +156,16 @@ public class HomePortalService {
 
     private void addImpacts(HomePortalViewModel vm) {
         if (!vm.showImpact) return;
+        if (vm.institution.healthcare) {
+            if (config.enabled("home_v3_show_health_quality", true)) {
+                impact(vm, "Mutu & Keselamatan", "Pelayanan yang mengutamakan mutu, keselamatan, dan kebutuhan pasien.", "fa-award", config.value("home_v3_health_quality_url", "#layanan"));
+                impact(vm, "Tenaga Kesehatan", "Informasi layanan dokter dan tenaga kesehatan profesional.", "fa-users", config.value("home_v3_health_staff_url", "#layanan"));
+            }
+            if (config.enabled("home_v3_show_health_facilities", true)) impact(vm, "Fasilitas", "Sarana layanan kesehatan yang mudah dijangkau masyarakat.", "fa-building", config.value("home_v3_health_facilities_url", "#kontak"));
+            impact(vm, "Informasi Publik", "Informasi resmi, edukasi kesehatan, dan kontak layanan.", "fa-file-alt", config.value("home_v3_health_information_url", "#informasi"));
+            vm.showImpact = !vm.impacts.isEmpty();
+            return;
+        }
         if (config.enabled("home_v3_show_research", true)) impact(vm, "Riset & Inovasi", "Publikasi, proyek terapan, dan inovasi civitas akademika.", "fa-flask", config.value("home_v3_research_url", "#layanan"));
         if (config.enabled("tampilkan_modul_karir", true)) impact(vm, "Karier", "Tracer study, lowongan, magang, dan pengembangan alumni.", "fa-briefcase", config.value("link_modul_karir", "/karir"));
         if (config.enabled("home_v3_show_achievements", true)) impact(vm, "Prestasi", "Pencapaian peserta didik dan tenaga pendidik.", "fa-trophy", config.value("home_v3_achievements_url", "#informasi"));

@@ -4,26 +4,31 @@ import javax.servlet.http.HttpServletRequest;
 
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
+import ais.action.master.sirs.util.RumahSakitUtil;
 import ais.common.Common;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
+import ais.database.model.sirs.RumahSakit;
 
 /** Resolves website identity separately from the authenticated application shell. */
 public class HomePortalInstitutionResolver {
     public HomePortalViewModel.Institution resolve(HttpServletRequest request) {
         HomePortalViewModel.Institution institution = new HomePortalViewModel.Institution();
         boolean ya = schoolOrFoundationMode();
+        RumahSakit hospital = getHospital(request);
         Sekolah school = getSchool(request);
         Yayasan foundation = getFoundation(request);
         PerguruanTinggi college = getCollege(request);
 
-        // Required priority: Sekolah, active Yayasan context, then PerguruanTinggi.
-        if (school != null) {
+        // Health domain is independent; education priority remains School -> Foundation -> College.
+        if (hospital != null && hospital.getId() != null) {
+            applyHealthcare(institution, request, hospital);
+        } else if (school != null && school.getId() != null) {
             applySchool(institution, request, school);
-        } else if (ya && foundation != null) {
+        } else if (ya && foundation != null && foundation.getId() != null) {
             applyFoundation(institution, request, foundation);
-        } else if (college != null) {
+        } else if (college != null && college.getId() != null) {
             applyCollege(institution, request, college);
         } else {
             applyFallback(institution);
@@ -33,8 +38,27 @@ public class HomePortalInstitutionResolver {
         return institution;
     }
 
+    private void applyHealthcare(HomePortalViewModel.Institution i, HttpServletRequest request, RumahSakit hospital) {
+        i.type = "healthcare";
+        i.healthcare = true;
+        i.college = false;
+        i.hospitalId = hospital.getId();
+        i.category = hospital.getLabelJenisFasilitas();
+        i.name = text(hospital.getNama(), i.category);
+        i.motto = text(hospital.getMotto(), hospital.getDeskripsi());
+        i.address = text(hospital.getAlamat(), "");
+        i.phone = text(hospital.getTelepon(), hospital.getWhatsapp());
+        i.email = text(hospital.getEmail(), "");
+        i.themeCss = theme(hospital.getCss());
+        i.themePrimary = color(hospital.getWarna());
+        i.themePrimaryDark = darken(i.themePrimary);
+        i.logoUrl = RumahSakitUtil.getRumahSakitMedia(request, "logo_rumah_sakit_", hospital);
+        i.heroUrl = RumahSakitUtil.getRumahSakitMedia(request, "background_rumah_sakit_", hospital);
+    }
+
     private void applySchool(HomePortalViewModel.Institution i, HttpServletRequest request, Sekolah school) {
         i.type = "school";
+        i.healthcare = false;
         i.college = false;
         i.schoolId = school.getId();
         i.name = text(school.getNama(), "Sekolah");
@@ -49,6 +73,7 @@ public class HomePortalInstitutionResolver {
 
     private void applyFoundation(HomePortalViewModel.Institution i, HttpServletRequest request, Yayasan foundation) {
         i.type = "foundation";
+        i.healthcare = false;
         i.college = false;
         i.foundationId = foundation.getId();
         i.name = text(foundation.getNama(), "Yayasan Pendidikan");
@@ -65,6 +90,7 @@ public class HomePortalInstitutionResolver {
 
     private void applyCollege(HomePortalViewModel.Institution i, HttpServletRequest request, PerguruanTinggi college) {
         i.type = "college";
+        i.healthcare = false;
         i.college = true;
         i.id = college.getId();
         i.name = text(college.getNama(), "Perguruan Tinggi");
@@ -79,6 +105,7 @@ public class HomePortalInstitutionResolver {
 
     private void applyFallback(HomePortalViewModel.Institution i) {
         i.type = "college";
+        i.healthcare = false;
         i.college = true;
         i.name = "Institusi Pendidikan";
         i.motto = "";
@@ -97,6 +124,7 @@ public class HomePortalInstitutionResolver {
         if (i.themeCss == null) i.themeCss = "";
         if (i.themePrimary == null) i.themePrimary = "";
         if (i.themePrimaryDark == null) i.themePrimaryDark = "";
+        if (i.category == null) i.category = "";
     }
 
     private boolean schoolOrFoundationMode() {
@@ -112,6 +140,11 @@ public class HomePortalInstitutionResolver {
     private Sekolah getSchool(HttpServletRequest request) {
         try { return SekolahUtil.getSekolah(request); }
         catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.school"); return null; }
+    }
+
+    private RumahSakit getHospital(HttpServletRequest request) {
+        try { return RumahSakitUtil.getRumahSakit(request); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.healthcare"); return null; }
     }
 
     private Yayasan getFoundation(HttpServletRequest request) {

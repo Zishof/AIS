@@ -51,6 +51,7 @@ public class HomePortalViewModel {
 
     public static class Institution {
         public Long id;
+        public Long hospitalId;
         public Long schoolId;
         public Long foundationId;
         public String type;
@@ -65,7 +66,9 @@ public class HomePortalViewModel {
         public String themeCss;
         public String themePrimary;
         public String themePrimaryDark;
+        public String category;
         public boolean college;
+        public boolean healthcare;
     }
 
     public static class Terminology {

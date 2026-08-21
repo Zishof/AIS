@@ -1,7 +1,7 @@
 <% if (vm.showPrograms) { %>
 <section class="home-section home-program-section" id="program" aria-labelledby="program-title">
     <div class="home-shell">
-        <div class="home-section-heading"><div><p class="home-kicker">Akademik</p><h2 id="program-title"><%=h(vm.terminology.programLabel)%> untuk masa depan</h2><p>Daftar berikut berasal dari data aktif institusi.</p></div></div>
+        <div class="home-section-heading"><div><p class="home-kicker"><%=vm.institution.healthcare ? "Layanan" : "Akademik"%></p><h2 id="program-title"><%=h(vm.terminology.programLabel)%><%=vm.institution.healthcare ? " untuk kebutuhan Anda" : " untuk masa depan"%></h2><p><%=vm.institution.healthcare ? "Informasi layanan aktif fasilitas kesehatan." : "Daftar berikut berasal dari data aktif institusi."%></p></div></div>
         <div class="home-program-grid">
             <% int programIndex = 0; for (HomePortalViewModel.ProgramItem item : vm.programs) { programIndex++; %>
             <article class="home-program-card home-program-<%=((programIndex - 1) % 3) + 1%>">

@@ -12,12 +12,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
+import ais.action.master.sirs.util.RumahSakitUtil;
 import ais.common.Common;
 import ais.common.home.HomePortalService;
 import ais.database.model.Konfigurasi;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
+import ais.database.model.sirs.RumahSakit;
 
 /**
  * Servlet halaman index/home.
@@ -175,16 +177,21 @@ public class Index extends HttpServlet {
 
     private String getPilihanTampilanDomain(HttpServletRequest request) {
         try {
+            RumahSakit rumahSakit = RumahSakitUtil.getRumahSakit(request);
+            if (rumahSakit != null) {
+                String pilihan = rumahSakit.getPiilhanTampilan();
+                return RumahSakit.TAMPILAN_DEFAULT.equals(pilihan) ? RumahSakit.TAMPILAN_BARU : pilihan;
+            }
             boolean[] ptAtauSekolah = Common.chekPtAtauSekolah();
             boolean ya = ptAtauSekolah != null && ptAtauSekolah.length > 1 && ptAtauSekolah[1];
             Sekolah sekolah = SekolahUtil.getSekolah(request);
-            if (sekolah != null) return sekolah.getPiilhanTampilan();
+            if (sekolah != null && sekolah.getId() != null) return sekolah.getPiilhanTampilan();
 
             Yayasan yayasan = SekolahUtil.getYayasan(request);
-            if (ya && yayasan != null) return yayasan.getPiilhanTampilan();
+            if (ya && yayasan != null && yayasan.getId() != null) return yayasan.getPiilhanTampilan();
 
             PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
-            if (pt != null) return pt.getPiilhanTampilan();
+            if (pt != null && pt.getId() != null) return pt.getPiilhanTampilan();
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "Index resolve public display choice");
         }

@@ -7,7 +7,8 @@ public class HomePortalSeoService {
         seo.description = config.value("home_v3_meta_description", vm.description);
         seo.canonical = requestUrl == null ? "" : requestUrl;
         seo.image = config.value("home_v3_og_image", vm.institution.heroUrl);
-        String type = vm.institution.college ? "CollegeOrUniversity" : "School";
+        String type = vm.institution.healthcare ? "MedicalOrganization"
+                : (vm.institution.college ? "CollegeOrUniversity" : "School");
         StringBuilder json = new StringBuilder();
         json.append("{\"@context\":\"https://schema.org\",\"@type\":\"").append(type).append("\"");
         add(json, "name", vm.institution.name);

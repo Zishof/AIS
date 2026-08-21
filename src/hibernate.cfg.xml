@@ -1825,6 +1825,9 @@
 
 		<!--// TABEL YANG TERDAPAT PADA SCHEMA sirs -->
 
+		<!-- Profil tenant fasilitas kesehatan: RS/Puskesmas/Posyandu/Klinik/dll. -->
+		<mapping class="ais.database.model.sirs.RumahSakit" />
+
 		<mapping class="ais.database.model.sirs.JenisBiayaLain" />
 
 		<mapping
