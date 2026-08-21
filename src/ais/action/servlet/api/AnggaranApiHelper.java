@@ -84,6 +84,27 @@ public final class AnggaranApiHelper {
 		return id == 0L;
 	}
 
+	/**
+	 * Membaca id dari permintaan, mendahulukan bentuk TEKS ({@code <nama>Teks}) bila ada.
+	 * Kanal JSP mengirimkannya sebagai teks karena angka JavaScript membulatkan diam-diam
+	 * di atas 2^53, sedangkan id anggaran berkisar -9,1e18. Klien Dart tetap boleh mengirim
+	 * angka biasa -- keduanya diterima, jadi tidak ada klien lama yang patah.
+	 */
+	private static long idDari(JSONObject request, String nama) {
+		if (request == null) {
+			return 0L;
+		}
+		String teks = request.optString(nama + "Teks", "").trim();
+		if (teks.length() > 0) {
+			try {
+				return Long.parseLong(teks);
+			} catch (NumberFormatException e) {
+				return 0L;
+			}
+		}
+		return request.optLong(nama, 0);
+	}
+
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
 		hasil.put("status", "91");
 		hasil.put("description", pesan);
@@ -470,7 +491,7 @@ public final class AnggaranApiHelper {
 	 * tidak pernah berbeda dengan rinciannya, lalu agregat induk diperbarui sampai akar.
 	 */
 	public static void itemSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		long id = request == null ? 0 : request.optLong("id", 0);
+		long id = idDari(request, "id");
 		boolean baru = idKosong(id);
 		if (!bolehAksi(tbmuser, baru ? "create" : "update")) {
 			tolak(hasil, baru ? "Anda tidak memiliki hak menambah item anggaran."
@@ -501,7 +522,7 @@ public final class AnggaranApiHelper {
 				return;
 			}
 			Long indukLama = baru ? null : w.getParentId();
-			long parentId = request.optLong("parentId", 0);
+			long parentId = idDari(request, "parentId");
 			if (!baru && parentId == id) {
 				tolak(hasil, "Induk tidak boleh item itu sendiri.");
 				return;
@@ -616,7 +637,7 @@ public final class AnggaranApiHelper {
 			tolak(hasil, "Anda tidak memiliki hak menghapus item anggaran.");
 			return;
 		}
-		long id = request == null ? 0 : request.optLong("id", 0);
+		long id = idDari(request, "id");
 		if (idKosong(id)) {
 			tolak(hasil, "Item yang dihapus belum dipilih.");
 			return;
@@ -995,7 +1016,7 @@ public final class AnggaranApiHelper {
 	 */
 	@SuppressWarnings("unchecked")
 	public static void penggunaanList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		long workspaceId = request == null ? 0 : request.optLong("workspaceId", 0);
+		long workspaceId = idDari(request, "workspaceId");
 		int tahun = request == null ? 0 : request.optInt("tahun", 0);
 		long satkerId = request == null ? 0 : request.optLong("satkerId", 0);
 		int revisi = request == null ? 0 : request.optInt("revisi", 0);
@@ -1129,7 +1150,7 @@ public final class AnggaranApiHelper {
 
 	/** Simpan entri penggunaan anggaran MANUAL (tanpa dokumen sumber). */
 	public static void penggunaanSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		long id = request == null ? 0 : request.optLong("id", 0);
+		long id = idDari(request, "id");
 		boolean baru = idKosong(id);
 		if (!bolehAksi(tbmuser, baru ? "create" : "update")) {
 			tolak(hasil, baru ? "Anda tidak memiliki hak menambah penggunaan anggaran."
@@ -1146,7 +1167,7 @@ public final class AnggaranApiHelper {
 			tolak(hasil, "Nilai penggunaan harus lebih dari 0.");
 			return;
 		}
-		long workspaceId = request.optLong("workspaceId", 0);
+		long workspaceId = idDari(request, "workspaceId");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			PenggunaanAnggaran p = baru ? new PenggunaanAnggaran()
