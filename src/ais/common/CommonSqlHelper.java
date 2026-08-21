@@ -566,6 +566,26 @@ public class CommonSqlHelper extends Common {
 
 
 
+	/**
+	 * Apakah SQL ini harus dijalankan lewat JDBC langsung, bukan Hibernate?
+	 *
+	 * <p>Benar untuk pernyataan yang memuat blok dollar-quoted PostgreSQL --
+	 * {@code $$ ... $$} atau {@code $tag$ ... $tag$} -- karena badan blok
+	 * mengandung {@code :=} dan tanda titik dua lain yang oleh parser Hibernate
+	 * dikira parameter bernama. Contoh nyata: skrip pembuat index audit Envers
+	 * yang gagal dgn "Space is not allowed after parameter prefix ':'".</p>
+	 */
+	static boolean perluJdbcLangsung(String sql) {
+		if (sql == null) {
+			return false;
+		}
+		if (sql.indexOf("$$") >= 0) {
+			return true;
+		}
+		return java.util.regex.Pattern.compile("[$][A-Za-z_][A-Za-z0-9_]*[$]")
+				.matcher(sql).find();
+	}
+
 	public static int updateSql(String sql, int timeout) {
 		return updateSql(sql, timeout, false);
 	}
@@ -605,8 +625,32 @@ public class CommonSqlHelper extends Common {
 					}
 				}
 
-				// 3. Eksekusi query utama
-				hasil = session.createSQLQuery(sql).executeUpdate();
+				// 3. Eksekusi query utama.
+				//
+				// Blok dollar-quoted PostgreSQL (DO $$ ... $$) TIDAK boleh lewat
+				// Hibernate: createSQLQuery memindai ':' sbg penanda parameter
+				// bernama, sedangkan badan blok memakai ':=' dan ': ' sehingga
+				// gagal dgn "Space is not allowed after parameter prefix ':'"
+				// bahkan sebelum menyentuh database. Untuk kasus itu dipakai
+				// JDBC langsung pada koneksi sesi yang SAMA, sehingga transaksi,
+				// SET LOCAL timeout, dan rollback di bawah tetap berlaku.
+				if (perluJdbcLangsung(sql)) {
+					java.sql.Statement pernyataan = session.connection().createStatement();
+					try {
+						pernyataan.execute(sql);
+						int terdampak = pernyataan.getUpdateCount();
+						hasil = terdampak < 0 ? 0 : terdampak;
+					} finally {
+						try {
+							pernyataan.close();
+						} catch (Exception eTutup) {
+							ais.common.ErrorAuditUtil.record(eTutup,
+									"CommonSqlHelper.updateSql: gagal menutup statement JDBC");
+						}
+					}
+				} else {
+					hasil = session.createSQLQuery(sql).executeUpdate();
+				}
 			}
 
 			// 4. Commit transaksi jika semuanya lancar

@@ -633,12 +633,7 @@ public class KantinHelper {
 					hasil.put("description", "Alasan input atau pemulihan supervisor minimal 5 karakter.");
 					return;
 				}
-				Date currentWaktu = WaktuUtil.getDate();
-				try {
-					currentWaktu = Common.dateFormat3.get().parse((jsonObject.get("waktu") + "").trim());
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:44");
-					// TODO: handle exception
-				}
+				Date currentWaktu = waktuTransaksiDariPayload(jsonObject, WaktuUtil.getDate());
 				AnggotaKoperasi anggotaKoperasi = (AnggotaKoperasi) (jsonObject.isNull("id_member") ? null
 						: GeneralValueObject.ambilData(AnggotaKoperasi.class,
 								(jsonObject.get("id_member") + "").trim()));
@@ -1572,12 +1567,7 @@ public class KantinHelper {
 					.ambilData(CaraPembayaranKoperasi.class, (jsonObject.get("caraBayar") + "").trim());
 			if (toko != null) {
 				String kodeUnik = (jsonObject.get("kodeUnik") + "").trim();
-				Date currentWaktu = WaktuUtil.getDate();
-				try {
-					currentWaktu = Common.dateFormat3.get().parse((jsonObject.get("waktu") + "").trim());
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:244");
-					// TODO: handle exception
-				}
+				Date currentWaktu = waktuTransaksiDariPayload(jsonObject, WaktuUtil.getDate());
 				AnggotaKoperasi anggotaKoperasi = (AnggotaKoperasi) (jsonObject.isNull("id_member") ? null
 						: GeneralValueObject.ambilData(AnggotaKoperasi.class,
 								(jsonObject.get("id_member") + "").trim()));
@@ -5221,6 +5211,71 @@ public class KantinHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Baca waktu transaksi dari payload dgn TOLERAN terhadap bentuk nilainya.
+	 *
+	 * <p>Sebelumnya nilai selalu dianggap berformat {@code dd-MM-yyyy HH:mm:ss}.
+	 * Pemanggil dari dalam JVM (mis. {@code OtomatisPesananScheduler}) menaruh
+	 * objek {@link java.util.Date} apa adanya, sehingga yang terbaca adalah
+	 * {@code Date.toString()} spt "Fri Aug 21 05:46:58 WIB 2026" -- parse GAGAL
+	 * setiap siklus dan membanjiri log error, walau hasil akhirnya kebetulan
+	 * benar karena jatuh ke waktu sekarang.</p>
+	 *
+	 * <p>Bentuk yang diterima: objek Date, epoch milidetik, {@code dd-MM-yyyy
+	 * HH:mm:ss}, {@code yyyy-MM-dd HH:mm:ss}, dan {@code Date.toString()}. Nilai
+	 * kosong atau tidak ada BUKAN kesalahan -- diam-diam memakai {@code bawaan}.
+	 * Hanya nilai yang benar-benar tak dikenali yang dicatat, supaya log error
+	 * kembali berisi hal yang perlu ditindaklanjuti.</p>
+	 */
+	static Date waktuTransaksiDariPayload(JSONObject payload, Date bawaan) {
+		if (payload == null || !payload.has("waktu") || payload.isNull("waktu")) {
+			return bawaan;
+		}
+		Object nilai;
+		try {
+			nilai = payload.get("waktu");
+		} catch (Exception e) {
+			return bawaan;
+		}
+		if (nilai instanceof Date) {
+			return (Date) nilai;
+		}
+		if (nilai instanceof Number) {
+			return new Date(((Number) nilai).longValue());
+		}
+		String teks = String.valueOf(nilai).trim();
+		if (teks.length() == 0) {
+			return bawaan;
+		}
+		if (teks.matches("^[0-9]{10,}$")) {
+			try {
+				return new Date(Long.parseLong(teks));
+			} catch (Exception abaikan) {
+				ais.common.ErrorAuditUtil.record(abaikan,
+						"KantinHelper.waktuTransaksiDariPayload: epoch tidak terbaca");
+			}
+		}
+		String[] pola = new String[] { "dd-MM-yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss",
+				"dd-MM-yyyy HH:mm", "yyyy-MM-dd'T'HH:mm:ss" };
+		for (int i = 0; i < pola.length; i++) {
+			try {
+				return new java.text.SimpleDateFormat(pola[i], Common.LOCALE_ID).parse(teks);
+			} catch (Exception abaikan) {
+				// coba pola berikutnya
+			}
+		}
+		try {
+			return new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy",
+					java.util.Locale.ENGLISH).parse(teks);
+		} catch (Exception abaikan) {
+			// benar-benar tak dikenali -- dicatat di bawah
+		}
+		ais.common.ErrorAuditUtil.record(
+				new java.text.ParseException("Format waktu transaksi tidak dikenali: " + teks, 0),
+				"KantinHelper.waktuTransaksiDariPayload: memakai waktu sekarang sbg pengganti");
+		return bawaan;
 	}
 
 	public static void hakAksesList(JSONObject request, JSONObject hasil) throws Exception {

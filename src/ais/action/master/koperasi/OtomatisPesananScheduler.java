@@ -331,7 +331,12 @@ public final class OtomatisPesananScheduler {
 		JSONObject payload = new JSONObject();
 		payload.put("kodeUnik", "AUTO-" + System.currentTimeMillis() + "-" + draftId);
 		payload.put("idToko", tokoId);
-		payload.put("waktu", ais.ui.util.WaktuUtil.getDate());
+		// Kirim sbg TEKS berformat baku, bukan objek Date: JSONObject menyimpan
+		// objeknya apa adanya sehingga pembaca menerima Date.toString() yang tidak
+		// dikenali parser. Penerima kini toleran, tetapi sumbernya tetap dibetulkan
+		// supaya kontrak payload sama dgn pemanggil dari klien POS.
+		payload.put("waktu",
+				ais.common.Common.dateFormat3.get().format(ais.ui.util.WaktuUtil.getDate()));
 		payload.put("kanalCheckout", "otomatis_jadwal");
 		if (caraBayar != null && caraBayar.longValue() > 0) {
 			payload.put("caraBayar", caraBayar);
