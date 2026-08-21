@@ -419,6 +419,9 @@ public final class PenggantianKasKecilApiHelper {
 			session.saveOrUpdate(pg);
 			// Rincian & nilai dokumen kas kecil ikut diperbarui, lalu ditautkan balik.
 			if (rincian != null) {
+				// Rincian yang disunting di sini adalah rincian kas kecil induknya, jadi
+				// anggarannya dilengkapi memakai TANGGAL dokumen induk itu.
+				AnggaranKeuanganUtil.lengkapiRincian(session, rincian, kk.getTanggal(), false);
 				kk.setFormula(rincian.toString());
 				kk.setNilai(Double.valueOf(nilai));
 			}
@@ -606,6 +609,14 @@ public final class PenggantianKasKecilApiHelper {
 		}
 		if ("penggantian_kas_kecil_cari_kas_kecil".equals(action)) {
 			cariKasKecil(tbmuser, request, hasil);
+			return true;
+		}
+		if ("penggantian_kas_kecil_cari_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.cari(request, hasil);
+			return true;
+		}
+		if ("penggantian_kas_kecil_saldo_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.saldo(request, hasil);
 			return true;
 		}
 		if ("penggantian_kas_kecil_simpan".equals(action)) {

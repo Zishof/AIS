@@ -430,6 +430,9 @@ public final class KasBesarApiHelper {
 			kb.setNilai(Double.valueOf(nilai));
 			kb.setKeterangan(request.optString("keterangan", "").trim());
 			kb.setTanggal(tgl);
+			// Sama seperti Kas Kecil, hanya saja Kas Besar juga menerima anggaran luncuran
+			// (carryOver) -- mengikuti PenggunaanAnggaran.prosesKasBesar.
+			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, true);
 			kb.setFormula(rincian == null ? "[]" : rincian.toString());
 			if (kb.getDibuatOleh() == null) {
 				kb.setDibuatOleh(tbmuser);
@@ -641,6 +644,14 @@ public final class KasBesarApiHelper {
 		}
 		if ("kas_besar_hitung".equals(action)) {
 			hitungPratinjau(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kas_besar_cari_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.cari(request, hasil);
+			return true;
+		}
+		if ("kas_besar_saldo_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.saldo(request, hasil);
 			return true;
 		}
 		if ("kas_besar_simpan".equals(action)) {

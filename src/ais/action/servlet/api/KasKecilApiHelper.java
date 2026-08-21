@@ -464,6 +464,10 @@ public final class KasKecilApiHelper {
 			kk.setSisa(Double.valueOf(saldoD - nilai));
 			kk.setKeterangan(request.optString("keterangan", "").trim());
 			kk.setTanggal(tgl);
+			// Tiap baris rincian dilengkapi anggarannya SEBELUM formula disimpan. Tanpa field
+			// `workspace`, PenggunaanAnggaran.prosesKasKecil melewati baris itu dan anggaran
+			// tidak pernah terpotong -- persis celah yang ditutup banbox anggaran di layar ZK.
+			AnggaranKeuanganUtil.lengkapiRincian(session, rincian, tgl, false);
 			kk.setFormula(rincian == null ? "[]" : rincian.toString());
 			kk.setTampilkanAnggaran(Boolean.valueOf(request.optBoolean("tampilkanAnggaran", false)));
 			if (kk.getDibuatOleh() == null) {
@@ -678,6 +682,14 @@ public final class KasKecilApiHelper {
 		}
 		if ("kas_kecil_hitung".equals(action)) {
 			hitungPratinjau(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kas_kecil_cari_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.cari(request, hasil);
+			return true;
+		}
+		if ("kas_kecil_saldo_anggaran".equals(action)) {
+			AnggaranKeuanganUtil.saldo(request, hasil);
 			return true;
 		}
 		if ("kas_kecil_simpan".equals(action)) {

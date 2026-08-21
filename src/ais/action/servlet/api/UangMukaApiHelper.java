@@ -702,55 +702,9 @@ public final class UangMukaApiHelper {
 	 * cuma pengelompok. Hasilnya dibatasi agar aman dipakai perangkat lapangan.
 	 */
 	public static void cariAnggaran(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		String cari = request == null ? "" : request.optString("cari", "").trim();
-		int tahun = request == null ? 0 : request.optInt("tahun", 0);
-		Session session = HibernateUtil.getSessionFactory().openSession();
-		try {
-			Connection conn = session.connection();
-			StringBuilder sql = new StringBuilder(
-					"SELECT w.id, COALESCE(w.kode,''), COALESCE(w.nama,''), COALESCE(w.harga_total,0),"
-							+ " COALESCE(w.realisasi_total,0), COALESCE(w.tahun_workspace,0),"
-							+ " COALESCE(sk.nama,'')"
-							+ " FROM rab.workspace w"
-							+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = w.satuan_kerja"
-							+ " WHERE COALESCE(w.aktif,true) = true AND COALESCE(w.leaf,false) = true");
-			if (!cari.isEmpty()) {
-				sql.append(" AND (w.nama ILIKE ? OR COALESCE(w.kode,'') ILIKE ?)");
-			}
-			if (tahun > 0) {
-				sql.append(" AND COALESCE(w.tahun_workspace,0) = ?");
-			}
-			sql.append(" ORDER BY w.nama LIMIT 100");
-			PreparedStatement ps = conn.prepareStatement(sql.toString());
-			int i = 1;
-			if (!cari.isEmpty()) {
-				String kw = "%" + cari + "%";
-				ps.setString(i++, kw);
-				ps.setString(i++, kw);
-			}
-			if (tahun > 0) {
-				ps.setInt(i++, tahun);
-			}
-			ResultSet rs = ps.executeQuery();
-			JSONArray arr = new JSONArray();
-			while (rs.next()) {
-				JSONObject j = new JSONObject();
-				j.put("id", rs.getLong(1));
-				j.put("kode", rs.getString(2));
-				j.put("nama", rs.getString(3));
-				j.put("pagu", rs.getDouble(4));
-				j.put("realisasi", rs.getDouble(5));
-				j.put("tahun", rs.getInt(6));
-				j.put("satuanKerja", rs.getString(7));
-				arr.put(j);
-			}
-			rs.close();
-			ps.close();
-			hasil.put("status", "00");
-			hasil.put("data", arr);
-		} finally {
-			HibernateUtil.closeSessionQuietly(session);
-		}
+		// Satu sumber pencarian anggaran untuk seluruh grup Keuangan, supaya daftar yang
+		// dilihat pengguna di Uang Muka dan di rincian kas benar-benar sama.
+		AnggaranKeuanganUtil.cari(request, hasil);
 	}
 
 	// ==================================================================== dispatcher
