@@ -882,9 +882,13 @@ public class KantinHelper {
 					// katalognya belum segar. Nilai dari klien tidak dijadikan sumber kebenaran.
 					// currentWaktu = waktu TERJADINYA transaksi (dari payload), sehingga
 					// kuota diskon harian diukur pada hari kejadian, bukan hari sinkron.
+					// Pengiriman transaksi yang sudah terjadi (POS lokal-dulu) dicatat
+					// sebesar yang dibayar pelanggan; promo server hanya jadi batas atas.
+					// Kanal langsung (JSP/ZK) tidak mengirim penanda ini, sehingga tetap
+					// memakai hitungan server sepenuhnya seperti semula.
 					terapkanEvaluasiDiskonServer(session.connection(), toko.getId(),
 							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi,
-							currentWaktu);
+							currentWaktu, jsonObject.optBoolean("pengiriman_pending", false));
 					// Gap-closure "Produk Ekstra" -- versi RATA dipakai oleh SEMUA logic generic per-baris
 					// di bawah (cek kadaluarsa, lock stok, hitung total, konsumsi bahan baku, recompute
 					// stok) supaya ekstra ikut tervalidasi/terhitung/terdekremen persis spt baris biasa
@@ -16137,8 +16141,15 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * @param batasiKeNilaiKlien bila true, diskon hasil hitung server tidak boleh
+	 *        MELEBIHI diskon yang benar-benar diterapkan kasir. Dipakai untuk
+	 *        pengiriman transaksi yang sudah terjadi (offline/tertunda) -- lihat
+	 *        catatan di badan method.
+	 */
 	private static void terapkanEvaluasiDiskonServer(java.sql.Connection conn, Long tokoId, Long memberId,
-			JSONArray transaksi, java.util.Date waktuTransaksi) throws Exception {
+			JSONArray transaksi, java.util.Date waktuTransaksi, boolean batasiKeNilaiKlien)
+			throws Exception {
 		JSONArray input=new JSONArray();
 		for(int i=0;i<transaksi.length();i++){
 			JSONObject asal=transaksi.getJSONObject(i), item=new JSONObject();
@@ -16165,8 +16176,35 @@ public class KantinHelper {
 				asal.put("grupAturanDiskon", JSONObject.NULL); asal.put("namaPromo", "Diskon Bebas");
 				continue;
 			}
-			asal.put("diskon",hitung.optDouble("diskon",0));
-			asal.put("cashback",hitung.optDouble("cashback",0));
+			/* KEBIJAKAN (keputusan pemilik sistem, 21-08-2026): transaksi yang SUDAH
+			 * TERJADI dicatat sebesar yang BENAR-BENAR DIBAYAR pelanggan.
+			 *
+			 * Latar belakangnya: POS bekerja lokal-dulu. Saat perangkat offline,
+			 * evaluasi promo di kasir tidak dapat menghubungi server, sehingga
+			 * pelanggan membayar harga penuh dan struk tercetak harga penuh. Bila
+			 * server kemudian menerapkan promonya saat transaksi itu akhirnya
+			 * terkirim, catatan menjadi lebih kecil daripada uang yang benar-benar
+			 * masuk -- laci dan setoran QRIS selalu lebih besar daripada omzet
+			 * sistem, dan selisihnya harus dicari manual setiap hari (kasus nota
+			 * AB31908202600023: kasir 100.500, tercatat 100.025).
+			 *
+			 * Karena itu untuk pengiriman semacam ini diskon server dipakai sebagai
+			 * BATAS ATAS, bukan sebagai nilai yang dipaksakan. Konsekuensinya
+			 * disadari dan diterima: pelanggan yang sebetulnya berhak diskon tidak
+			 * menerimanya -- tetapi itu memang sudah terjadi di kasir, dan mencatat
+			 * angka yang berbeda dari yang dibayar tidak memperbaikinya.
+			 *
+			 * Batas ATAS-nya tetap milik server, jadi klien TIDAK bisa mengarang
+			 * diskon yang lebih besar daripada haknya. Inilah sebabnya memakai
+			 * Math.min, bukan sekadar mempercayai nilai klien. */
+			double diskonServer = hitung.optDouble("diskon", 0);
+			double cashbackServer = hitung.optDouble("cashback", 0);
+			if (batasiKeNilaiKlien) {
+				diskonServer = Math.min(diskonServer, Math.max(0, asal.optDouble("diskon", 0)));
+				cashbackServer = Math.min(cashbackServer, Math.max(0, asal.optDouble("cashback", 0)));
+			}
+			asal.put("diskon", diskonServer);
+			asal.put("cashback", cashbackServer);
 			asal.put("aturanDiskon",hitung.isNull("aturanDiskon")?JSONObject.NULL:hitung.get("aturanDiskon"));
 			asal.put("grupAturanDiskon",hitung.isNull("grupAturanDiskon")?JSONObject.NULL:hitung.get("grupAturanDiskon"));
 			asal.put("namaPromo",hitung.optString("namaPromo",""));
