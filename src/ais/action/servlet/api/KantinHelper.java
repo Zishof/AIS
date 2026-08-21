@@ -880,8 +880,11 @@ public class KantinHelper {
 					// Desktop, Android, JSP, ZK dan pemanggil API lain memperoleh aturan grup,
 					// potongan, serta cashback yang sama walaupun versi UI berbeda atau cache
 					// katalognya belum segar. Nilai dari klien tidak dijadikan sumber kebenaran.
+					// currentWaktu = waktu TERJADINYA transaksi (dari payload), sehingga
+					// kuota diskon harian diukur pada hari kejadian, bukan hari sinkron.
 					terapkanEvaluasiDiskonServer(session.connection(), toko.getId(),
-							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi);
+							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi,
+							currentWaktu);
 					// Gap-closure "Produk Ekstra" -- versi RATA dipakai oleh SEMUA logic generic per-baris
 					// di bawah (cek kadaluarsa, lock stok, hitung total, konsumsi bahan baku, recompute
 					// stok) supaya ekstra ikut tervalidasi/terhitung/terdekremen persis spt baris biasa
@@ -15392,7 +15395,8 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
-			JSONArray outArr = evaluasiDiskonItems(conn, tokoId, memberId, items, hanyaAturanId);
+			// Pemeriksaan keranjang: menilai keadaan SAAT INI, jadi tanpa waktu transaksi.
+			JSONArray outArr = evaluasiDiskonItems(conn, tokoId, memberId, items, hanyaAturanId, null);
 			hasil.put("status", "00");
 			hasil.put("items", outArr);
 		} finally {
@@ -15575,7 +15579,7 @@ public class KantinHelper {
 
 			session.beginTransaction();
 			java.sql.Connection conn = session.connection();
-			JSONArray hasilEvaluasi = evaluasiDiskonItems(conn, tokoId, memberId, itemsPayload, null);
+			JSONArray hasilEvaluasi = evaluasiDiskonItems(conn, tokoId, memberId, itemsPayload, null, null);
 
 			// produkId -> {diskon, cashback, aturanDiskonId(-1 bila null)} -- dipakai ULANG utk
 			// mencerminkan ke baris "pembelian" (sudah lunas) di bawah, dicocokkan per PRODUK (SAMA
@@ -15928,8 +15932,14 @@ public class KantinHelper {
 	 *                      flag {@code aktivasiManual}-nya), pakai mesin hitung yang SAMA PERSIS
 	 *                      (persentase/nominal/batas maksimal/kumulatif per-hari).
 	 */
+	/**
+	 * @param waktuTransaksi waktu TERJADINYA transaksi, bukan waktu pemrosesan.
+	 *        Dipakai mengukur kuota diskon harian. Boleh null untuk pemeriksaan
+	 *        di keranjang (aksi {@code diskon_evaluasi}) yang memang menilai
+	 *        keadaan saat ini.
+	 */
 	private static JSONArray evaluasiDiskonItems(java.sql.Connection conn, Long tokoId, Long memberId,
-			JSONArray items, Long hanyaAturanIdDefault) throws Exception {
+			JSONArray items, Long hanyaAturanIdDefault, java.util.Date waktuTransaksi) throws Exception {
 		{
 			java.util.LinkedHashSet<Long> produkIdSet = new java.util.LinkedHashSet<Long>();
 			for (int i = 0; i < items.length(); i++) {
@@ -15969,18 +15979,29 @@ public class KantinHelper {
 							"SELECT COALESCE(SUM(terpakai),0) FROM ("
 									+ "SELECT COALESCE(SUM(COALESCE(p.diskon,0)+COALESCE(p.cashback,0)),0) as terpakai "
 									+ "FROM koperasi.pembelian p LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON p.pembelian_anggota_koperasi = pak.id "
-									+ "WHERE p.aturan_diskon = ? AND p.toko = ? AND pak.anggota_koperasi = ? AND DATE(pak.tanggal_pembayaran) = CURRENT_DATE "
+									+ "WHERE p.aturan_diskon = ? AND p.toko = ? AND pak.anggota_koperasi = ? AND DATE(pak.tanggal_pembayaran) = ? "
 									+ "UNION ALL "
 									+ "SELECT COALESCE(SUM(COALESCE(dp.diskon,0)+COALESCE(dp.cashback,0)),0) as terpakai "
 									+ "FROM koperasi.draft_pembelian dp LEFT JOIN koperasi.draft_pembelian_anggota_koperasi dpak ON dp.draft_pembelian_anggota_koperasi = dpak.id "
-									+ "WHERE dp.aturan_diskon = ? AND dp.toko = ? AND dpak.anggota_koperasi = ? AND DATE(dpak.tanggal_pembayaran) = CURRENT_DATE AND dpak.lunas IS NULL"
+									+ "WHERE dp.aturan_diskon = ? AND dp.toko = ? AND dpak.anggota_koperasi = ? AND DATE(dpak.tanggal_pembayaran) = ? AND dpak.lunas IS NULL"
 									+ ") gabungan");
+					/* KE-FIX: kuota harian DAHULU diukur dengan CURRENT_DATE, yaitu tanggal
+					 * SERVER saat transaksi diproses. Pada POS lokal-dulu, transaksi bisa
+					 * baru terkirim beberapa hari kemudian, sehingga penjualan 19 Agustus
+					 * dinilai terhadap pemakaian kuota 21 Agustus: member yang kuotanya
+					 * sudah habis pada hari kejadian bisa memperoleh diskon lagi, dan
+					 * sebaliknya. Kuota harian hanya bermakna bila diukur pada HARI
+					 * TRANSAKSINYA. */
+					java.sql.Date tanggalUkur = new java.sql.Date(
+							(waktuTransaksi == null ? new java.util.Date() : waktuTransaksi).getTime());
 					psU.setLong(1, ruleId);
 					psU.setLong(2, tokoId.longValue());
 					psU.setLong(3, memberId.longValue());
-					psU.setLong(4, ruleId);
-					psU.setLong(5, tokoId.longValue());
-					psU.setLong(6, memberId.longValue());
+					psU.setDate(4, tanggalUkur);
+					psU.setLong(5, ruleId);
+					psU.setLong(6, tokoId.longValue());
+					psU.setLong(7, memberId.longValue());
+					psU.setDate(8, tanggalUkur);
 					java.sql.ResultSet rsU = psU.executeQuery();
 					if (rsU.next()) {
 						r.put("terpakaiHariIni", Double.valueOf(rsU.getDouble(1)));
@@ -16117,7 +16138,7 @@ public class KantinHelper {
 	}
 
 	private static void terapkanEvaluasiDiskonServer(java.sql.Connection conn, Long tokoId, Long memberId,
-			JSONArray transaksi) throws Exception {
+			JSONArray transaksi, java.util.Date waktuTransaksi) throws Exception {
 		JSONArray input=new JSONArray();
 		for(int i=0;i<transaksi.length();i++){
 			JSONObject asal=transaksi.getJSONObject(i), item=new JSONObject();
@@ -16128,7 +16149,7 @@ public class KantinHelper {
 			if (Common.isNumber(aturanRaw)) item.put("hanya_aturan_id", aturanRaw);
 			input.put(item);
 		}
-		JSONArray hasil=evaluasiDiskonItems(conn,tokoId,memberId,input,null);
+		JSONArray hasil=evaluasiDiskonItems(conn,tokoId,memberId,input,null,waktuTransaksi);
 		for(int i=0;i<transaksi.length()&&i<hasil.length();i++){
 			JSONObject asal=transaksi.getJSONObject(i), hitung=hasil.getJSONObject(i);
 			if (asal.optBoolean("diskon_bebas", false)) {
