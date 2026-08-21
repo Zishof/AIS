@@ -2646,6 +2646,10 @@ public final class PengadaanPosApiHelper {
 			tolak(hasil, "Alasan wajib diisi -- keputusan menutup sisa pesanan harus dapat ditelusuri.");
 			return;
 		}
+		/* Penerimaan yang memicu keputusan ini. Opsional: pemanggil lama (ZKoss/JSP) tidak
+		 * mengirimnya, dan untuk mereka SEMUA penerimaan draf atas pesanan ini yang diselesaikan. */
+		Long bastIdPemicu = (request == null || request.isNull("bast_id")) ? null
+				: Long.valueOf((request.get("bast_id") + "").trim());
 		String tindakan = request.optString("tindakan", "pesan_kembali").trim().toLowerCase();
 		if (!"pesan_kembali".equals(tindakan) && !"tutup_saja".equals(tindakan)) {
 			tolak(hasil, "Tindakan hanya boleh pesan_kembali atau tutup_saja.");
@@ -2868,6 +2872,42 @@ public final class PengadaanPosApiHelper {
 				baru.setNilai(Double.valueOf(nilaiBaru));
 				session.saveOrUpdate(baru);
 			}
+			List<String> bastDisetujui = new java.util.ArrayList<String>();
+			/* Langkah terakhir -- penerimaan yang memicu Back Order ikut DISETUJUI.
+			 *
+			 * <p><b>Mengapa.</b> Sesudah sisa pesanan ditutup, tidak ada lagi barang yang akan
+			 * menyusul ke penerimaan itu: isinya sudah final. Membiarkannya DRAF memaksa petugas
+			 * menyetujui sekali lagi dokumen yang keputusannya baru saja ia ambil, dan bila lupa,
+			 * penerimaan yang sah menggantung sebagai draf sementara pesanannya sudah tertutup.</p>
+			 *
+			 * <p><b>Tetap dijaga hak akses.</b> Hanya dijalankan bila pengguna memang berhak
+			 * menyetujui penerimaan. Petugas gudang yang tidak berhak TIDAK menyetujui dokumennya
+			 * sendiri lewat jalan belakang ini -- baginya dokumen tetap DRAF menunggu atasan,
+			 * persis seperti sebelumnya. JANGAN hilangkan penjagaan ini.</p>
+			 *
+			 * <p>Penerimaan yang sudah disetujui tidak disentuh, sehingga tanggal dan penyetuju
+			 * aslinya tidak tertimpa ketika keputusan Back Order direvisi.</p> */
+			if (bolehAksi(tbmuser, KUNCI_BAST, "approve")) {
+				@SuppressWarnings("unchecked")
+				List<PenerimaanPengadaanMasterAsset> bastPesanan = session
+						.createCriteria(PenerimaanPengadaanMasterAsset.class)
+						.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", po.getId())).list();
+				for (PenerimaanPengadaanMasterAsset satuBast : bastPesanan) {
+					if (satuBast == null || Boolean.FALSE.equals(satuBast.getAktif())
+							|| satuBast.getTanggalPersetujuan() != null) {
+						continue;
+					}
+					if (bastIdPemicu != null && !bastIdPemicu.equals(satuBast.getId())) {
+						continue;
+					}
+					satuBast.setTanggalPersetujuan(ais.ui.util.WaktuUtil.getDate());
+					satuBast.setDisetujuiOleh(tbmuser);
+					satuBast.setOleh(tbmuser.getUserNama());
+					satuBast.setOlehId(tbmuser.getUserId());
+					session.saveOrUpdate(satuBast);
+					bastDisetujui.add(satuBast.getKode() == null ? (satuBast.getId() + "") : satuBast.getKode());
+				}
+			}
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -2875,6 +2915,7 @@ public final class PengadaanPosApiHelper {
 			hasil.put("po", po.getKode() == null ? "" : po.getKode());
 			hasil.put("tindakan", tindakan);
 			hasil.put("ditutup", true);
+			hasil.put("bastDisetujui", new JSONArray(bastDisetujui));
 			hasil.put("nilaiDisesuaikan", nilaiDisesuaikan);
 			hasil.put("nilaiSetelahTutup", nilaiDisesuaikan ? nilaiDiterima
 					: (po.getNilai() == null ? 0 : po.getNilai().doubleValue()));
