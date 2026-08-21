@@ -2549,6 +2549,47 @@ public final class PengadaanPosApiHelper {
 			hasil.put("penyedia", po.getPenyedia() == null ? "" : po.getPenyedia().getNama());
 			hasil.put("tutup", Boolean.TRUE.equals(po.getTutup()));
 			hasil.put("alasanTutup", po.getAlasanTutup() == null ? "" : po.getAlasanTutup());
+
+			/* Pesanan susulan yang MASIH HIDUP disertakan supaya layar dapat membuka
+			 * kembali keputusan Back Order untuk DIREVISI, bukan menampilkan alert
+			 * buntu "sudah ditutup". Yang sudah ditolak sengaja tidak dihitung: ia
+			 * bukan lagi pesanan yang berlaku, dan induknya pun sudah dibuka kembali. */
+			{
+				@SuppressWarnings("unchecked")
+				java.util.List<PemesananPengadaanMasterAsset> susulanList = session
+						.createCriteria(PemesananPengadaanMasterAsset.class)
+						.add(Restrictions.eq("poInduk.id", po.getId()))
+						.add(Restrictions.isNull("tanggalDitolak"))
+						.addOrder(Order.desc("id")).setMaxResults(1).list();
+				if (!susulanList.isEmpty()) {
+					PemesananPengadaanMasterAsset sus = susulanList.get(0);
+					JSONObject js = new JSONObject();
+					js.put("id", sus.getId());
+					js.put("kode", sus.getKode() == null ? "" : sus.getKode());
+					js.put("status", statusPo(sus));
+					js.put("penyedia_id", sus.getPenyedia() == null ? JSONObject.NULL
+							: sus.getPenyedia().getId());
+					js.put("penyedia", sus.getPenyedia() == null ? "" : sus.getPenyedia().getNama());
+					js.put("keterangan", sus.getKeterangan() == null ? "" : sus.getKeterangan());
+					js.put("pengirimanPalingLambat", sus.getPengirimanPalingLambat() == null ? ""
+							: Common.dateFormat.get().format(sus.getPengirimanPalingLambat()));
+					@SuppressWarnings("unchecked")
+					java.util.List<PemesananPengadaanMasterAssetDetail> barisSus = session
+							.createCriteria(PemesananPengadaanMasterAssetDetail.class)
+							.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", sus.getId()))
+							.list();
+					JSONArray arrSus = new JSONArray();
+					for (PemesananPengadaanMasterAssetDetail ds : barisSus) {
+						JSONObject od = new JSONObject();
+						od.put("master_asset_id", ds.getMasterAsset() == null ? JSONObject.NULL
+								: ds.getMasterAsset().getId());
+						od.put("jumlah", ds.getJumlah() == null ? 0 : ds.getJumlah().doubleValue());
+						arrSus.put(od);
+					}
+					js.put("detail", arrSus);
+					hasil.put("susulan", js);
+				}
+			}
 			hasil.put("detail", arr);
 			hasil.put("nilaiKurang", nilaiKurang);
 			hasil.put("adaKekurangan", nilaiKurang > 0);
@@ -2623,10 +2664,59 @@ public final class PengadaanPosApiHelper {
 				tolak(hasil, "Pemesanan Pembelian ini milik toko lain.");
 				return;
 			}
+			/* REVISI. Keputusan Back Order kerap perlu diperbaiki -- jumlah salah
+			 * ketik, penyedia berubah, batas kirim bergeser. Sebelumnya tidak ada
+			 * jalan sama sekali: pesanan sudah tertutup dan permintaan kedua ditolak,
+			 * sehingga satu-satunya pilihan adalah menolak pesanan susulannya lalu
+			 * mengulang dari awal -- itu pun baru mungkin setelah r77947.
+			 *
+			 * Dengan `revisi`, pesanan susulan yang masih hidup DIBATALKAN lebih dulu
+			 * (ditandai ditolak, bukan dihapus -- jejaknya harus tetap ada), lalu
+			 * keputusan baru diterbitkan seperti biasa. Pesanan susulan yang sudah
+			 * menerima barang TIDAK boleh dibatalkan begitu saja. */
+			boolean revisi = request.optBoolean("revisi", false);
 			if (Boolean.TRUE.equals(po.getTutup())) {
-				tolak(hasil, "Sisa Pemesanan Pembelian " + (po.getKode() == null ? "" : po.getKode())
-						+ " sudah pernah ditutup.");
-				return;
+				if (!revisi) {
+					tolak(hasil, "Sisa Pemesanan Pembelian " + (po.getKode() == null ? "" : po.getKode())
+							+ " sudah pernah ditutup.");
+					return;
+				}
+				@SuppressWarnings("unchecked")
+				java.util.List<PemesananPengadaanMasterAsset> hidup = session
+						.createCriteria(PemesananPengadaanMasterAsset.class)
+						.add(Restrictions.eq("poInduk.id", po.getId()))
+						.add(Restrictions.isNull("tanggalDitolak")).list();
+				session.beginTransaction();
+				for (int i = 0; i < hidup.size(); i++) {
+					PemesananPengadaanMasterAsset lamaSus = hidup.get(i);
+					// Susulan yang sudah menerima barang tidak boleh dibatalkan begitu saja:
+					// penerimaannya akan menggantung tanpa pesanan yang sah.
+					Number jmlBast = (Number) session
+							.createCriteria(PenerimaanPengadaanMasterAsset.class)
+							.add(Restrictions.eq("pemesananPengadaanMasterAsset.id", lamaSus.getId()))
+							.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+					if (jmlBast != null && jmlBast.intValue() > 0) {
+						try { session.getTransaction().rollback(); } catch (Exception abaikan) {
+							ais.common.ErrorAuditUtil.record(abaikan,
+									"auto-audit(empty-catch) PengadaanPosApiHelper.poBackOrder:revisi-rollback");
+						}
+						tolak(hasil, "Pesanan susulan " + (lamaSus.getKode() == null ? "" : lamaSus.getKode())
+								+ " sudah menerima barang, sehingga keputusan Back Order tidak dapat direvisi."
+								+ " Buat penerimaan atau retur pada pesanan tersebut.");
+						return;
+					}
+					lamaSus.setTanggalDitolak(ais.ui.util.WaktuUtil.getDate());
+					lamaSus.setDitolakOleh(tbmuser);
+					lamaSus.setAlasanDitolak("Dibatalkan karena keputusan Back Order direvisi.");
+					lamaSus.setTanggalPersetujuan(null);
+					lamaSus.setDisetujuiOleh(null);
+					session.saveOrUpdate(lamaSus);
+				}
+				po.setTutup(Boolean.FALSE);
+				session.saveOrUpdate(po);
+				session.flush();
+				session.getTransaction().commit();
+				hasil.put("revisiDariSusulan", hidup.size());
 			}
 			if (po.getTanggalPersetujuan() == null) {
 				tolak(hasil, "Pemesanan Pembelian yang belum disetujui tidak perlu di-back order; "
