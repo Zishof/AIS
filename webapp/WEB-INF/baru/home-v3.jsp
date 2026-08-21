@@ -29,6 +29,7 @@ if (vm == null) { response.sendRedirect(request.getContextPath() + "/"); return;
     <link rel="preload" as="image" href="<%=h(vm.institution.heroUrl)%>" fetchpriority="high">
     <link rel="stylesheet" href="<%=h(vm.contextPath)%>/css/baru/home-v3-icons.css?v=<%=h(vm.assetVersion)%>">
     <% if (vm.institution.themeCss != null && vm.institution.themeCss.length() > 0) { %><link rel="stylesheet" href="<%=h(vm.contextPath + vm.institution.themeCss)%>?v=<%=h(vm.assetVersion)%>"><% } %>
+    <% if (vm.institution.themePrimary != null && vm.institution.themePrimary.length() > 0) { %><style>:root{--theme-primary:<%=h(vm.institution.themePrimary)%>;<% if (vm.institution.themePrimaryDark != null && vm.institution.themePrimaryDark.length() > 0) { %>--theme-primary-dark:<%=h(vm.institution.themePrimaryDark)%>;<% } %>}</style><% } %>
     <link rel="stylesheet" href="<%=h(vm.contextPath)%>/css/baru/home-v3.css?v=<%=h(vm.assetVersion)%>">
     <script type="application/ld+json"><%=vm.seo.jsonLd%></script>
 </head>

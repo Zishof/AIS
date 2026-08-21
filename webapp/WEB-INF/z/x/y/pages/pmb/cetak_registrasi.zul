@@ -130,8 +130,8 @@
 										<label use="ais.ui.util.MyLabelConfig" value="Sts Awal"/>
 										<hbox spacing="3px" style="width:95%">
 											<combobox forward="onChange=onSearchDefault" id="searchStatusAwalMahasiswa" width="80px"/>
-											<label use="ais.ui.util.MyLabelConfig" value="Kota"/>
-											<textbox forward="onOK=onSearchDefault" id="searchkabkota" width="80px"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Jenjang"/>
+											<combobox forward="onChange=onSearchDefault" id="searchJenjang" width="80px"/>
 										</hbox>
 										<label use="ais.ui.util.MyLabelConfig" value="Paket"/>
 										<hbox spacing="3px" style="width:95%">
@@ -166,6 +166,16 @@
 											<checkbox use="ais.ui.util.MyCheckboxConfig" label="Pembayaran pendaftaran" forward="onCheck=onSearchDefault" id="tampilkanTidakAdaTagihanReg"/>
 											<checkbox use="ais.ui.util.MyCheckboxConfig" label="Pembayaran daftar ulang" forward="onCheck=onSearchDefault" id="tampilkanTidakAdaTagihanDaftarUlang"/>
 										</vbox>
+									</row>
+									<row>
+										<label use="ais.ui.util.MyLabelConfig" value="Kota"/>
+										<textbox forward="onOK=onSearchDefault" id="searchkabkota" width="95%"/>
+										<label value=""/>
+										<label value=""/>
+										<label value=""/>
+										<label value=""/>
+										<label value=""/>
+										<label value=""/>
 									</row>
 									<row spans="8">
 										<div style="display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:4px 2px">

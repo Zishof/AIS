@@ -175,24 +175,18 @@ public class Index extends HttpServlet {
 
     private String getPilihanTampilanDomain(HttpServletRequest request) {
         try {
-            PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
-            if (pt != null && !PerguruanTinggi.TAMPILAN_DEFAULT.equals(pt.getPiilhanTampilan())) {
-                return pt.getPiilhanTampilan();
-            }
             boolean[] ptAtauSekolah = Common.chekPtAtauSekolah();
-            boolean sekolahMode = ptAtauSekolah != null && ptAtauSekolah.length > 1 && ptAtauSekolah[1];
-            if (sekolahMode) {
-                Sekolah sekolah = SekolahUtil.getSekolah(request);
-                if (sekolah != null && !Sekolah.TAMPILAN_DEFAULT.equals(sekolah.getPiilhanTampilan())) {
-                    return sekolah.getPiilhanTampilan();
-                }
-                Yayasan yayasan = SekolahUtil.getYayasan(request);
-                if (yayasan != null && !Yayasan.TAMPILAN_DEFAULT.equals(yayasan.getPiilhanTampilan())) {
-                    return yayasan.getPiilhanTampilan();
-                }
-            }
+            boolean ya = ptAtauSekolah != null && ptAtauSekolah.length > 1 && ptAtauSekolah[1];
+            Sekolah sekolah = SekolahUtil.getSekolah(request);
+            if (sekolah != null) return sekolah.getPiilhanTampilan();
+
+            Yayasan yayasan = SekolahUtil.getYayasan(request);
+            if (ya && yayasan != null) return yayasan.getPiilhanTampilan();
+
+            PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
+            if (pt != null) return pt.getPiilhanTampilan();
         } catch (Exception e) {
-            // ignore, fall through
+            ais.common.ErrorAuditUtil.record(e, "Index resolve public display choice");
         }
         return PerguruanTinggi.TAMPILAN_DEFAULT;
     }

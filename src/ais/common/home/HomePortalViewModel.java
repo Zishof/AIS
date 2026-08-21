@@ -63,6 +63,8 @@ public class HomePortalViewModel {
         public String logoUrl;
         public String heroUrl;
         public String themeCss;
+        public String themePrimary;
+        public String themePrimaryDark;
         public boolean college;
     }
 

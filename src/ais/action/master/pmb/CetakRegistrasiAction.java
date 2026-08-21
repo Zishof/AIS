@@ -109,6 +109,7 @@ import ais.database.model.DiskonMahasiswa;
 import ais.database.model.GelombangPendaftaran;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.JenisKegiatan;
+import ais.database.model.Jenjang;
 import ais.database.model.JenisSekolahMahasiswaBaru;
 import ais.database.model.JenisSeleksi;
 import ais.database.model.Jurusan;
@@ -167,6 +168,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 	private Combobox searchGelombang;
 	private Combobox searchJenisSeleksi;
 	private Combobox searchSemester;
+	private Combobox searchJenjang;
 	private Combobox searchJenisSekolahMahasiswaBaru;
 	private Combobox searchJurusanSekolahMahasiswaBaru;
 	private Combobox searchPaket;
@@ -1169,6 +1171,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				.getKonfigurasi("tahunAkademikPenerimaanMahasiswaBaru", Common.getCurrentTahunAkademik()).getNilai();
 
 		Common.insertComboDanSemua(searchStatusAwalMahasiswa, "nama", StatusAwalMahasiswa.class,
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.insertComboDanSemua(searchJenjang, "nama", Jenjang.class,
 				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 
 		Common.insertComboDanSemua(searchJenisSeleksi, "nama", "deskripsi", JenisSeleksi.class,
@@ -4014,6 +4018,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 
 		Jurusan prodiLulus = (Jurusan) (searchProdiLulus.getSelectedItem() == null ? null
 				: searchProdiLulus.getSelectedItem().getValue());
+		Jenjang jenjang = (Jenjang) (searchJenjang.getSelectedItem() == null ? null
+				: searchJenjang.getSelectedItem().getValue());
 
 		criteria.add(searchProgram.getSelectedItem() == null || searchProgram.getSelectedItem().getValue() == null
 				? Restrictions.sqlRestriction("1=1")
@@ -4026,6 +4032,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 								Restrictions.isNull("gelombangPendaftaran.perguruanTinggi")))
 				.add(prodiLulus == null ? Restrictions.sqlRestriction("true")
 						: Restrictions.eq("prodiLulus", prodiLulus))
+				.add(jenjang == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("jenjang", jenjang))
 				.add(mengisiFormTambahan.isChecked() ? Restrictions.ne("parameterTambahanInds", "")
 						: Restrictions.sqlRestriction("true"))
 				.add(mundur.isChecked() ? Restrictions.eq("mundur", true) : Restrictions.sqlRestriction("true"))

@@ -17,6 +17,7 @@ public class UploadReportHelper {
     private final String namaProses;
     private int sukses = 0;
     private int gagal = 0;
+    private boolean ringkasanDitambahkan = false;
 
     public UploadReportHelper(String namaProses) {
         this.namaProses = namaProses;
@@ -66,8 +67,15 @@ public class UploadReportHelper {
         return "Berhasil: " + sukses + " baris, Gagal: " + gagal + " baris.";
     }
 
-    /** Tulis laporan ke file temp, kembalikan File-nya untuk Filedownload. */
-    public File simpanLaporan() throws IOException {
+    public String getIsiLaporan() {
+        appendRingkasanSekali();
+        return sb.toString();
+    }
+
+    private void appendRingkasanSekali() {
+        if (ringkasanDitambahkan) {
+            return;
+        }
         sb.append("\n=================================================================\n");
         sb.append("RINGKASAN\n");
         sb.append("  Total Berhasil : ").append(sukses).append(" baris\n");
@@ -80,6 +88,12 @@ public class UploadReportHelper {
             sb.append("\nSemua data berhasil diproses.\n");
         }
         sb.append("=================================================================\n");
+        ringkasanDitambahkan = true;
+    }
+
+    /** Tulis laporan ke file temp, kembalikan File-nya untuk Filedownload. */
+    public File simpanLaporan() throws IOException {
+        appendRingkasanSekali();
 
         String fileName = "laporan_upload_" + System.currentTimeMillis() + ".txt";
         File dir = new File(Common.REAL_PATH + File.separator + "tmp");

@@ -10,6 +10,7 @@ import org.hibernate.criterion.Restrictions;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 
 public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
@@ -26,15 +27,19 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 		String nim = "-";
 
 		if (calonMahasiswa.getProdiLulus() != null) {
-			Session session = HibernateUtil.currentNativeSession();
-
 			Integer tahun = calonMahasiswa.getTahun();
 
 			String digitPertama = tahun.toString().substring(2);
 			String digitKedua = calonMahasiswa.getProdiLulus().getJenjang().getKode();
-			String digitKetiga = calonMahasiswa.getProdiLulus().getKode();
+			String digitKetiga = ambilKodeProdi(calonMahasiswa.getProdiLulus());
 
 			String digitKetigaLagi = calonMahasiswa.getMerupakanPindahan() ? "2" : "1";
+			validasiKomponenNim(digitPertama, "tahun", calonMahasiswa);
+			validasiKomponenNim(digitKedua, "jenjang", calonMahasiswa);
+			validasiKomponenNim(digitKetiga, "prodi", calonMahasiswa);
+			validasiKomponenNim(digitKetigaLagi, "status", calonMahasiswa);
+
+			Session session = HibernateUtil.currentNativeSession();
 
 			Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.rowCount())
 					.add(Restrictions.eq("tahunangkatan", tahun))
@@ -63,15 +68,22 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 			System.out.println("digit ketiga (urutan) = " + digitEmpat);
 
 			nim = digitPertama + digitKedua + digitKetiga + digitKetigaLagi + digitEmpat;
+			validasiNim(nim, calonMahasiswa);
 
 			Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
 					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
+			org.hibernate.Criteria calonCriteria = session.createCriteria(BiodataCalonMahasiswa.class)
+					.add(Restrictions.eq("nim", nim)).setProjection(Projections.count("nim"));
+			if (calonMahasiswa.getId() != null) {
+				calonCriteria.add(Restrictions.ne("id", calonMahasiswa.getId()));
+			}
+			Integer countCalon = ((Number) calonCriteria.uniqueResult()).intValue();
 
 			// session.disconnect();
 			if (session.isOpen()) {session.disconnect();session.close();}
 			HibernateUtil.closeSession();
 
-			if (!count.equals(0)) {
+			if (!count.equals(0) || !countCalon.equals(0)) {
 				jumlahPengecualian.add(nim);
 				return generateNim(calonMahasiswa, jumlahPengecualian);
 			}
@@ -79,6 +91,38 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 		}
 
 		return nim;
+	}
+
+	private String ambilKodeProdi(Jurusan prodi) {
+		String kode = prodi == null ? "" : prodi.getKode();
+		if (kode != null) {
+			kode = kode.trim();
+		}
+		if (kode == null || kode.length() == 0 || kode.replace("-", "").replace("_", "").trim().length() == 0) {
+			kode = prodi == null || prodi.getId() == null ? "" : prodi.getId().toString();
+		}
+		kode = kode == null ? "" : kode.replaceAll("[^A-Za-z0-9]", "");
+		if (kode.length() == 1) {
+			kode = "0" + kode;
+		}
+		if (kode.length() == 0) {
+			throw new IllegalArgumentException("Kode prodi untuk generate NIM belum tersedia.");
+		}
+		return kode;
+	}
+
+	private void validasiNim(String nim, BiodataCalonMahasiswa calonMahasiswa) {
+		if (nim == null || nim.trim().isEmpty() || nim.indexOf('-') >= 0 || nim.indexOf('_') >= 0) {
+			throw new IllegalArgumentException("Format NIM tidak valid untuk "
+					+ (calonMahasiswa == null ? "" : calonMahasiswa.getNama()) + ": " + nim);
+		}
+	}
+
+	private void validasiKomponenNim(String nilai, String label, BiodataCalonMahasiswa calonMahasiswa) {
+		if (nilai == null || nilai.trim().isEmpty() || nilai.indexOf('-') >= 0 || nilai.indexOf('_') >= 0) {
+			throw new IllegalArgumentException("Komponen " + label + " untuk generate NIM belum valid"
+					+ (calonMahasiswa == null ? "" : " pada " + calonMahasiswa.getNama()) + ": " + nilai);
+		}
 	}
 
 }

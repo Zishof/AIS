@@ -24,13 +24,17 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.Clients;
+import org.zkoss.zul.Button;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Messagebox;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
+import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Timer;
+import org.zkoss.zul.Vbox;
+import org.zkoss.zul.Window;
 
 import ais.action.master.KonfigurasiTampilanBiodataCalonMahasiswaAction;
 import ais.action.master.helper.PembayaranUtilHelper;
@@ -225,6 +229,14 @@ public class CommonPMB {
 		return value == null || value.trim().length() == 0;
 	}
 
+	private static boolean isNimPmbValid(String nim) {
+		if (isBlankString(nim)) {
+			return false;
+		}
+		String value = nim.trim();
+		return value.indexOf("--") < 0 && value.indexOf('_') < 0 && value.indexOf('-') < 0;
+	}
+
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
 	}
@@ -273,7 +285,7 @@ public class CommonPMB {
 
 	public static String ambilNimTersimpanDariRiwayatPmb(Session sessionAktif,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Mahasiswa mahasiswa) {
-		if (mahasiswa != null && !isBlankString(mahasiswa.getNim())) {
+		if (mahasiswa != null && isNimPmbValid(mahasiswa.getNim())) {
 			return mahasiswa.getNim().trim();
 		}
 		Session session = sessionAktif;
@@ -292,17 +304,17 @@ public class CommonPMB {
 			String noUjian = biodataCalonMahasiswa == null ? "" : ambilNoUjianDariObject(biodataCalonMahasiswa);
 
 			String nim = ambilNimBiodataAktif(session, biodataId);
-			if (!isBlankString(nim)) {
+			if (isNimPmbValid(nim)) {
 				return nim.trim();
 			}
 			nim = ambilNimBiodataAudit(session, "public", "biodata_calon_mahasiswa_aud",
 					biodataId, mahasiswaId, noReg, noUjian);
-			if (!isBlankString(nim)) {
+			if (isNimPmbValid(nim)) {
 				return nim.trim();
 			}
 			nim = ambilNimBiodataAudit(session, "new_audit", "biodata_calon_mahasiswa__audit",
 					biodataId, mahasiswaId, noReg, noUjian);
-			return nim == null ? "" : nim.trim();
+			return isNimPmbValid(nim) ? nim.trim() : "";
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit CommonPMB.ambilNimTersimpanDariRiwayatPmb");
 			return "";
@@ -637,6 +649,7 @@ public class CommonPMB {
 
 		final Label label = new Label(ais.common.Common.getBahasaConfig("Proses upload data data .."));
 		final Label downloadPath = new Label("");
+		final Label isiLaporan = new Label("");
 		// FIX compile "cannot find symbol: report": report dipakai di dalam closure onTimer di
 		// bawah, jadi HARUS dideklarasikan sebelum timer.addEventListener(...) dibuat, bukan setelahnya.
 		final ais.common.UploadReportHelper report = new ais.common.UploadReportHelper("Upload Kelulusan PMB");
@@ -654,10 +667,8 @@ public class CommonPMB {
 					if (!downloadPath.getValue().isEmpty()) {
 						try { org.zkoss.zul.Filedownload.save(new java.io.File(downloadPath.getValue()), "text/plain"); } catch (Exception eD) { ais.common.ErrorAuditUtil.record(eD, "auto-audit(empty-catch) CommonPMB-uploadKelulusan download-laporan"); }
 					}
-					MyMessageboxConfig.showFormatCb(
-							"Proses unggah data kelulusan telah berhasil dilakukan, Bapak/Ibu.{V1}\n\n" + report.getRingkasan(),
-							"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener,
-							(peringatan.getValue().isEmpty() ? "" : "\n" + peringatan.getValue()));
+					tampilkanHasilUploadKelulusan(report, peringatan.getValue(), isiLaporan.getValue(),
+							downloadPath.getValue(), eventListener);
 					Clients.clearBusy();
 					timer.detach();
 				}
@@ -682,6 +693,7 @@ public class CommonPMB {
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
 						Session session = HibernateUtil.currentNativeSession();
+						String identitasBaris = "Baris " + i;
 						try {
 
 							Long code = -1L;
@@ -703,6 +715,8 @@ public class CommonPMB {
 											.add(Restrictions.eq("noRegistrasi", content))
 											.setProjection(Projections.property("id")).setMaxResults(1).uniqueResult();
 								} catch (Exception e) {
+									report.gagal(i, identitasBaris, e,
+											"Gagal membaca/mencari No. Registrasi pada baris " + i + ".");
 									continue;
 								}
 
@@ -711,6 +725,8 @@ public class CommonPMB {
 							System.out.println("code = " + code);
 
 							if (code == null || code.equals(-1L)) {
+								report.gagal(i, identitasBaris, "ID/no registrasi calon mahasiswa tidak ditemukan.",
+										"Pastikan kolom ID atau No. Registrasi pada file Excel sesuai dengan data PMB.");
 								continue;
 							}
 
@@ -735,14 +751,21 @@ public class CommonPMB {
 							}
 
 							if (!generateNimOtomatis && nim.trim().isEmpty()) {
+								report.gagal(i, identitasBaris,
+										"NIM kosong, sedangkan Generate NIM Otomatis tidak dipilih.",
+										"Isi kolom NIM atau ubah kolom Generate NIM Otomatis menjadi TRUE.");
 								continue;
 							}
 
 							BiodataCalonMahasiswa biodataCalonMahasiswa = (BiodataCalonMahasiswa) ConstantValues
 									.ambil(BiodataCalonMahasiswa.class.getName(), code);
 							if (biodataCalonMahasiswa == null) {
+								report.gagal(i, identitasBaris, "Data calon mahasiswa tidak ditemukan untuk ID " + code + ".",
+										"Pastikan ID pada file Excel masih aktif dan belum terhapus.");
 								continue;
 							}
+							identitasBaris = biodataCalonMahasiswa.getNoRegistrasi() + " - "
+									+ biodataCalonMahasiswa.getNama();
 
 							label.setValue("Upload data \"" + biodataCalonMahasiswa.getNama() + "\" ("
 									+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
@@ -789,11 +812,13 @@ public class CommonPMB {
 							if (prodiLulus != null && generateNimOtomatis
 									&& (biodataCalonMahasiswa.getMahasiswa() == null
 											|| biodataCalonMahasiswa.getMahasiswa().getNim() == null
-											|| biodataCalonMahasiswa.getMahasiswa().getNim().trim().isEmpty())) {
+											|| biodataCalonMahasiswa.getMahasiswa().getNim().trim().isEmpty()
+											|| !isNimPmbValid(biodataCalonMahasiswa.getMahasiswa().getNim()))) {
 								nim = nimGenerator.generateNim(biodataCalonMahasiswa);
 							} else if (nim.trim().isEmpty() && biodataCalonMahasiswa.getMahasiswa() != null
 									&& biodataCalonMahasiswa.getMahasiswa().getNim() != null
-									&& biodataCalonMahasiswa.getMahasiswa().getNim().trim().isEmpty()) {
+									&& !biodataCalonMahasiswa.getMahasiswa().getNim().trim().isEmpty()
+									&& isNimPmbValid(biodataCalonMahasiswa.getMahasiswa().getNim())) {
 								nim = biodataCalonMahasiswa.getMahasiswa().getNim();
 							}
 
@@ -848,7 +873,8 @@ public class CommonPMB {
 							} catch (Exception es) { ais.common.ErrorAuditUtil.record(es, "auto-audit(empty-catch) src/ais/common/CommonPMB.java:719");
 							}
 
-							report.gagal(i, String.valueOf(i), e, "Periksa data baris " + i);
+							report.gagal(i, identitasBaris, e, "Periksa data baris " + i
+									+ ", terutama Prodi Lulus, Jenjang, Kode Prodi, dan konfigurasi generate NIM.");
 							Common.tampilErrorJikaAdmin(e);
 
 						}
@@ -863,6 +889,7 @@ public class CommonPMB {
 				try {
 					java.io.File rptFile = report.simpanLaporan();
 					downloadPath.setValue(rptFile.getAbsolutePath());
+					isiLaporan.setValue(report.getIsiLaporan());
 				} catch (Exception eR) { ais.common.ErrorAuditUtil.record(eR, "auto-audit(empty-catch) CommonPMB-uploadKelulusan laporan"); }
 				label.setValue("");
 							} finally {
@@ -871,6 +898,117 @@ public class CommonPMB {
 			}
 		}).start();
 
+	}
+
+	private static void tampilkanHasilUploadKelulusan(final UploadReportHelper report, String peringatan,
+			final String isiLaporan, final String downloadPath, final EventListener eventListener) throws Exception {
+		String pesan = "Proses unggah data kelulusan telah berhasil dilakukan, Bapak/Ibu.";
+		if (peringatan != null && !peringatan.trim().isEmpty()) {
+			pesan += "\n" + peringatan;
+		}
+		pesan += "\n\n" + report.getRingkasan();
+		if (report.getGagal() <= 0) {
+			MyMessageboxConfig.show(pesan, "Pemberitahuan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION, eventListener);
+			return;
+		}
+
+		final Window win = new Window();
+		win.setTitle("Pemberitahuan");
+		win.setBorder("normal");
+		win.setClosable(true);
+		win.setWidth("430px");
+		win.setSizable(false);
+		win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+		Vbox body = new Vbox();
+		body.setSpacing("12px");
+		body.setStyle("padding:18px");
+		body.setParent(win);
+
+		Label labelPesan = new Label(pesan + "\n\nKlik Rinci untuk melihat alasan baris yang gagal.");
+		labelPesan.setMultiline(true);
+		labelPesan.setParent(body);
+
+		Hbox tombol = new Hbox();
+		tombol.setSpacing("8px");
+		tombol.setStyle("justify-content:center;width:100%;padding-top:8px");
+		tombol.setParent(body);
+
+		Button rinci = new Button("Rinci");
+		rinci.setParent(tombol);
+		rinci.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				tampilkanRincianUploadKelulusan(isiLaporan == null || isiLaporan.trim().isEmpty()
+						? report.getIsiLaporan() : isiLaporan, downloadPath);
+			}
+		});
+
+		Button ok = new Button("OK");
+		ok.setParent(tombol);
+		ok.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				win.detach();
+				if (eventListener != null) {
+					eventListener.onEvent(event);
+				}
+			}
+		});
+
+		win.doModal();
+	}
+
+	private static void tampilkanRincianUploadKelulusan(final String isiLaporan, final String downloadPath)
+			throws Exception {
+		final Window win = new Window();
+		win.setTitle("Rincian Gagal Upload Kelulusan");
+		win.setBorder("normal");
+		win.setClosable(true);
+		win.setWidth("720px");
+		win.setHeight("520px");
+		win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+		Vbox body = new Vbox();
+		body.setSpacing("8px");
+		body.setStyle("padding:12px;width:100%;height:100%");
+		body.setParent(win);
+
+		Textbox detail = new Textbox(isiLaporan == null || isiLaporan.trim().isEmpty()
+				? "Rincian belum tersedia." : isiLaporan);
+		detail.setReadonly(true);
+		detail.setMultiline(true);
+		detail.setRows(20);
+		detail.setWidth("98%");
+		detail.setHeight("400px");
+		detail.setParent(body);
+
+		Hbox tombol = new Hbox();
+		tombol.setSpacing("8px");
+		tombol.setParent(body);
+
+		Button download = new Button("Download Rincian");
+		download.setParent(tombol);
+		download.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (downloadPath != null && !downloadPath.trim().isEmpty()) {
+					Filedownload.save(new java.io.File(downloadPath), "text/plain");
+				}
+			}
+		});
+
+		Button tutup = new Button("Tutup");
+		tutup.setParent(tombol);
+		tutup.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				win.detach();
+			}
+		});
+
+		win.doModal();
 	}
 
 	public static void uploadDataCalonMahasiswa(final File file, final EventListener eventListener,
@@ -1099,6 +1237,10 @@ public class CommonPMB {
 		String nimRiwayat = ambilNimTersimpanDariRiwayatPmb(session, calonMahasiswa, mahasiswa);
 		if (!isBlankString(nimRiwayat)) {
 			nim = nimRiwayat;
+		}
+		if (!isNimPmbValid(nim)) {
+			throw new IllegalArgumentException("NIM PMB tidak valid: " + nim
+					+ ". Generate ulang NIM diperlukan karena NIM masih mengandung placeholder '-' atau '_'.");
 		}
 		if (mahasiswa == null) {
 			mahasiswa = new Mahasiswa();

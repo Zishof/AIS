@@ -9,54 +9,119 @@ import ais.database.model.PerguruanTinggi;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
+/** Resolves website identity separately from the authenticated application shell. */
 public class HomePortalInstitutionResolver {
     public HomePortalViewModel.Institution resolve(HttpServletRequest request) {
-        HomePortalViewModel.Institution i = new HomePortalViewModel.Institution();
+        HomePortalViewModel.Institution institution = new HomePortalViewModel.Institution();
+        boolean ya = schoolOrFoundationMode();
+        Sekolah school = getSchool(request);
+        Yayasan foundation = getFoundation(request);
+        PerguruanTinggi college = getCollege(request);
+
+        // Required priority: Sekolah, active Yayasan context, then PerguruanTinggi.
+        if (school != null) {
+            applySchool(institution, request, school);
+        } else if (ya && foundation != null) {
+            applyFoundation(institution, request, foundation);
+        } else if (college != null) {
+            applyCollege(institution, request, college);
+        } else {
+            applyFallback(institution);
+        }
+
+        finish(institution);
+        return institution;
+    }
+
+    private void applySchool(HomePortalViewModel.Institution i, HttpServletRequest request, Sekolah school) {
+        i.type = "school";
+        i.college = false;
+        i.schoolId = school.getId();
+        i.name = text(school.getNama(), "Sekolah");
+        i.motto = text(school.getMotto(), "");
+        i.address = text(school.getAlamat(), "");
+        i.phone = text(school.getTelp(), "");
+        i.email = text(school.getEmail(), "");
+        i.themeCss = theme(school.getCss());
+        i.logoUrl = SekolahUtil.getSekolahMedia(request, "logo_sekolah_", school);
+        i.heroUrl = SekolahUtil.getSekolahMedia(request, "background_sekolah_", school);
+    }
+
+    private void applyFoundation(HomePortalViewModel.Institution i, HttpServletRequest request, Yayasan foundation) {
+        i.type = "foundation";
+        i.college = false;
+        i.foundationId = foundation.getId();
+        i.name = text(foundation.getNama(), "Yayasan Pendidikan");
+        i.motto = text(foundation.getMotto(), "");
+        i.address = text(foundation.getAlamat(), "");
+        i.phone = text(foundation.getTelp(), "");
+        i.email = text(foundation.getEmail(), "");
+        i.themeCss = "";
+        i.themePrimary = color(foundation.getWarna());
+        i.themePrimaryDark = darken(i.themePrimary);
+        i.logoUrl = SekolahUtil.getYayasanMedia(request, "logo_yayasan_", foundation);
+        i.heroUrl = SekolahUtil.getYayasanMedia(request, "background_yayasan_", foundation);
+    }
+
+    private void applyCollege(HomePortalViewModel.Institution i, HttpServletRequest request, PerguruanTinggi college) {
         i.type = "college";
         i.college = true;
-        try {
-            boolean[] detected = Common.chekPtAtauSekolah(null);
-            i.college = detected != null && detected.length > 0 && detected[0];
-            if (!i.college && (detected == null || detected.length < 2 || !detected[1])) i.college = true;
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.detect");
-        }
-        PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
-        if (i.college && pt != null) {
-            i.id = pt.getId();
-            i.name = text(pt.getNama(), "Institusi Pendidikan");
-            i.motto = text(pt.getMotto(), "");
-            i.address = text(pt.getAlamat1(), "");
-            i.phone = text(pt.getTelepon(), "");
-            i.email = text(pt.getEmail(), "");
-            i.themeCss = theme(pt.getCss());
-        } else {
-            i.college = false;
-            i.type = "school";
-            Sekolah school = SekolahUtil.getSekolah(request);
-            Yayasan foundation = SekolahUtil.getYayasan(request);
-            if (school != null) {
-                i.schoolId = school.getId();
-                i.name = text(school.getNama(), "Institusi Pendidikan");
-                i.motto = text(school.getMotto(), "");
-                i.address = text(school.getAlamat(), "");
-                i.email = text(school.getEmail(), "");
-                i.themeCss = theme(school.getCss());
-            } else if (foundation != null) {
-                i.foundationId = foundation.getId();
-                i.name = text(foundation.getNama(), "Yayasan Pendidikan");
-                i.address = text(foundation.getAlamat(), "");
-                i.email = text(foundation.getEmail(), "");
-            }
-        }
-        if (i.name == null) i.name = "Institusi Pendidikan";
+        i.id = college.getId();
+        i.name = text(college.getNama(), "Perguruan Tinggi");
+        i.motto = text(college.getMotto(), "");
+        i.address = text(college.getAlamat1(), "");
+        i.phone = text(college.getTelepon(), "");
+        i.email = text(college.getEmail(), "");
+        i.themeCss = theme(college.getCss());
+        i.logoUrl = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_", college);
+        i.heroUrl = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_perguruanTinggi_", college);
+    }
+
+    private void applyFallback(HomePortalViewModel.Institution i) {
+        i.type = "college";
+        i.college = true;
+        i.name = "Institusi Pendidikan";
+        i.motto = "";
+        i.address = "";
+        i.phone = "";
+        i.email = "";
+        i.themeCss = "";
+    }
+
+    private void finish(HomePortalViewModel.Institution i) {
+        if (i.name == null || i.name.trim().length() == 0) i.name = "Institusi Pendidikan";
         i.shortName = i.name.length() > 44 ? i.name.substring(0, 41) + "..." : i.name;
-        i.logoUrl = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_");
-        i.heroUrl = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_perguruanTinggi_");
         String root = Common.ROOT == null ? "" : Common.ROOT;
         if (i.logoUrl == null || i.logoUrl.trim().length() == 0) i.logoUrl = root + "/img/logo.png";
         if (i.heroUrl == null || i.heroUrl.trim().length() == 0) i.heroUrl = root + "/img/pmb_bg.webp";
-        return i;
+        if (i.themeCss == null) i.themeCss = "";
+        if (i.themePrimary == null) i.themePrimary = "";
+        if (i.themePrimaryDark == null) i.themePrimaryDark = "";
+    }
+
+    private boolean schoolOrFoundationMode() {
+        try {
+            boolean[] detected = Common.chekPtAtauSekolah(null);
+            return detected != null && detected.length > 1 && detected[1];
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.mode");
+            return false;
+        }
+    }
+
+    private Sekolah getSchool(HttpServletRequest request) {
+        try { return SekolahUtil.getSekolah(request); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.school"); return null; }
+    }
+
+    private Yayasan getFoundation(HttpServletRequest request) {
+        try { return SekolahUtil.getYayasan(request); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.foundation"); return null; }
+    }
+
+    private PerguruanTinggi getCollege(HttpServletRequest request) {
+        try { return PerguruanTinggiUtil.getPerguruanTinggi(request); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "HomePortalInstitutionResolver.college"); return null; }
     }
 
     private String theme(String raw) {
@@ -64,6 +129,26 @@ public class HomePortalInstitutionResolver {
         String file = raw.replace('\\', '/');
         file = file.substring(file.lastIndexOf('/') + 1);
         return file.matches("[A-Za-z0-9._-]+\\.css") ? "/css/baru/" + file : "";
+    }
+
+    private String color(String raw) {
+        if (raw == null) return "";
+        String value = raw.trim();
+        if (value.matches("#[0-9A-Fa-f]{3}")) {
+            value = "#" + value.substring(1, 2) + value.substring(1, 2)
+                    + value.substring(2, 3) + value.substring(2, 3)
+                    + value.substring(3, 4) + value.substring(3, 4);
+        }
+        return value.matches("#[0-9A-Fa-f]{6}") ? value.toLowerCase() : "";
+    }
+
+    private String darken(String value) {
+        if (value == null || !value.matches("#[0-9A-Fa-f]{6}")) return "";
+        int red = Integer.parseInt(value.substring(1, 3), 16);
+        int green = Integer.parseInt(value.substring(3, 5), 16);
+        int blue = Integer.parseInt(value.substring(5, 7), 16);
+        return String.format("#%02x%02x%02x", Integer.valueOf(red * 45 / 100),
+                Integer.valueOf(green * 45 / 100), Integer.valueOf(blue * 45 / 100));
     }
 
     private String text(String value, String fallback) {
