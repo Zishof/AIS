@@ -19202,6 +19202,50 @@ public class Common {
 	 * @param value nilai mentah (boleh null)
 	 * @return nilai yang hanya berisi cookie-octet RFC 6265; "" bila masukannya null
 	 */
+	/**
+	 * Menyertakan sebuah halaman JSP HANYA bila berkasnya benar-benar ada di webapp.
+	 *
+	 * <p><b>KE-FIX</b> ("java.io.FileNotFoundException: The requested resource
+	 * /WEB-INF/baru/modul/home/&lt;peran&gt;/profile.jsp is not available"). Dasbor beranda
+	 * merakit dirinya dari 20-an {@code &lt;jsp:include&gt;}. Include RUNTIME melempar exception
+	 * bila satu berkas saja belum ikut ter-deploy, dan karena dilempar di tengah render,
+	 * SELURUH halaman beranda gagal -- pengguna melihat layar galat, bukan sekadar satu panel
+	 * yang kosong.</p>
+	 *
+	 * <p>Perilaku saat berkasnya ADA sama persis seperti {@code &lt;jsp:include&gt;}
+	 * ({@code pageContext.include} memakai RequestDispatcher yang sama). Yang berubah hanya
+	 * saat berkasnya TIDAK ADA atau gagal dirender: panel itu dilewati, dicatat ke audit,
+	 * dan sisa halaman tetap tampil.</p>
+	 *
+	 * @param pageContext konteks halaman pemanggil
+	 * @param path        path absolut di dalam webapp, mis. "/WEB-INF/baru/modul/home/x.jsp"
+	 * @return true bila halaman berhasil disertakan
+	 */
+	public static boolean sertakanJikaAda(javax.servlet.jsp.PageContext pageContext, String path) {
+		if (pageContext == null || path == null || path.trim().length() == 0) {
+			return false;
+		}
+		try {
+			java.net.URL sumber = pageContext.getServletContext().getResource(path);
+			if (sumber == null) {
+				ErrorAuditUtil.record(new java.io.FileNotFoundException(path),
+						"auto-audit Common.sertakanJikaAda:halaman-belum-terdeploy");
+				return false;
+			}
+		} catch (Exception gagalCek) {
+			// Beberapa container melempar untuk path yang tidak wajar; anggap tidak ada.
+			ErrorAuditUtil.record(gagalCek, "auto-audit Common.sertakanJikaAda:cek-resource");
+			return false;
+		}
+		try {
+			pageContext.include(path);
+			return true;
+		} catch (Exception gagalRender) {
+			ErrorAuditUtil.record(gagalRender, "auto-audit Common.sertakanJikaAda:" + path);
+			return false;
+		}
+	}
+
 	public static String nilaiCookieAman(String value) {
 		if (value == null) {
 			return "";
@@ -19211,7 +19255,7 @@ public class Common {
 			char c = value.charAt(i);
 			// cookie-octet RFC6265: %x21, %x23-2B, %x2D-3A, %x3C-5B, %x5D-7E
 			// (kecuali DQUOTE, koma, titik-koma, backslash, spasi, dan karakter kontrol).
-			if (c == ',' || c == ';' || c == '\' || c == '"' || c <= 0x20 || c >= 0x7F) {
+			if (c == ',' || c == ';' || c == '\\' || c == '"' || c <= 0x20 || c >= 0x7F) {
 				continue;
 			}
 			sb.append(c);

@@ -360,20 +360,9 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 	 * diset walau ada karakter tak terduga lolos dari lapisan encode di atas.
 	 */
 	private static String sanitizeCookieValue(String value) {
-		if (value == null) {
-			return "";
-		}
-		StringBuilder sb = new StringBuilder(value.length());
-		for (int i = 0; i < value.length(); i++) {
-			char c = value.charAt(i);
-			// cookie-octet RFC6265: %x21, %x23-2B, %x2D-3A, %x3C-5B, %x5D-7E
-			// (kecuali DQUOTE, koma, titik-koma, backslash, spasi, kontrol).
-			if (c == ',' || c == ';' || c == '\\' || c == '"' || c <= 0x20 || c == 0x7F) {
-				continue;
-			}
-			sb.append(c);
-		}
-		return sb.toString();
+		// Aturannya kini tinggal SATU salinan di Common.nilaiCookieAman supaya tidak ada
+		// jalur cookie lain yang memakai daftar karakter berbeda (lihat KE-FIX di sana).
+		return Common.nilaiCookieAman(value);
 	}
 
 	// =========================================================================

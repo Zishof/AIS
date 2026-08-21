@@ -802,8 +802,8 @@ public class CommonSecurityLoginHelper extends Common {
 		}
 
 		try {
-			Cookie cookieUsername = new Cookie(COOKIE_PMB_BIODATA,
-					Common.desEncrypter.get().encrypt(biodataCalonMahasiswa.getId().toString()));
+			Cookie cookieUsername = new Cookie(COOKIE_PMB_BIODATA, Common.nilaiCookieAman(
+					Common.desEncrypter.get().encrypt(biodataCalonMahasiswa.getId().toString())));
 			cookieUsername.setMaxAge(15552000);
 			cookieUsername.setPath("/");
 			cookieUsername.setSecure(request.isSecure());
@@ -811,7 +811,7 @@ public class CommonSecurityLoginHelper extends Common {
 
 			String noRegistrasi = biodataCalonMahasiswa.getNoRegistrasi() == null ? ""
 					: biodataCalonMahasiswa.getNoRegistrasi();
-			cookieUsername = new Cookie(COOKIE_PMB_USERID, noRegistrasi);
+			cookieUsername = new Cookie(COOKIE_PMB_USERID, Common.nilaiCookieAman(noRegistrasi));
 			cookieUsername.setMaxAge(15552000);
 			cookieUsername.setPath("/");
 			cookieUsername.setSecure(request.isSecure());
@@ -1036,13 +1036,13 @@ public class CommonSecurityLoginHelper extends Common {
 		}
 
 		try {
-			Cookie cookieUsername = new Cookie("calonSiswa",
-					Common.desEncrypter.get().encrypt(calonSiswa.getId().toString()));
+			Cookie cookieUsername = new Cookie("calonSiswa", Common.nilaiCookieAman(
+					Common.desEncrypter.get().encrypt(calonSiswa.getId().toString())));
 			cookieUsername.setMaxAge(15552000);
 
 			res.addCookie(cookieUsername);
 
-			cookieUsername = new Cookie("userid", calonSiswa.getNoRegistrasi());
+			cookieUsername = new Cookie("userid", Common.nilaiCookieAman(calonSiswa.getNoRegistrasi()));
 			cookieUsername.setMaxAge(15552000);
 
 			res.addCookie(cookieUsername);

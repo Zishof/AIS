@@ -124,7 +124,8 @@ public final class KarirConfigUtil {
     private static void addCookie(HttpServletRequest request, HttpServletResponse response, String name, String value,
             int maxAge, boolean httpOnly) {
         try {
-            Cookie c = new Cookie(name, URLEncoder.encode(value == null ? "" : value, "UTF-8"));
+            Cookie c = new Cookie(name,
+                    ais.common.Common.nilaiCookieAman(URLEncoder.encode(value == null ? "" : value, "UTF-8")));
             c.setPath(request.getContextPath() == null || request.getContextPath().length() == 0 ? "/"
                     : request.getContextPath());
             c.setMaxAge(maxAge);
