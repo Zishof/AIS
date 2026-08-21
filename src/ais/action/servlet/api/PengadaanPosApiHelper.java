@@ -867,11 +867,17 @@ public final class PengadaanPosApiHelper {
 		if (po.getTanggalDitolak() != null) {
 			return "DITOLAK";
 		}
-		// Sisa yang ditutup lewat Back Order ditampilkan tersendiri: dokumennya sah dan
-		// barangnya sebagian sudah diterima, tetapi tidak menunggu kiriman lagi.
-		if (Boolean.TRUE.equals(po.getTutup())) {
-			return "DITUTUP";
-		}
+		/* Pesanan yang sisanya ditutup lewat Back Order TIDAK lagi berlabel DITUTUP.
+		 *
+		 * <p>Label itu keliru menggambarkan keadaannya: dokumennya sah, sudah disetujui, dan
+		 * barangnya sebagian sudah diterima -- yang berhenti hanyalah SISA kiriman, dan sisa itu
+		 * pindah ke pesanan susulan. "DITUTUP" terbaca seperti pesanan yang dibatalkan, padahal
+		 * tidak ada yang batal. Label itu juga tidak pernah ada pada penyaring status di layar
+		 * mana pun, sehingga pesanan yang menyandangnya justru tidak dapat ditemukan lewat
+		 * penyaring.</p>
+		 *
+		 * <p>Keadaan "ditutup" tetap terkirim ke layar lewat medan {@code tutup} dan
+		 * {@code alasanTutup} yang terpisah, jadi tidak ada keterangan yang hilang.</p> */
 		if (po.getTanggalPersetujuan() != null) {
 			return "DISETUJUI";
 		}
@@ -1586,6 +1592,24 @@ public final class PengadaanPosApiHelper {
 				tolak(hasil, "Persetujuan tidak dapat dibatalkan karena Pemesanan Pembelian ini "
 						+ "sudah menerima pembayaran sebesar "
 						+ Common.numberFormat.get().format(po.getDibayar()) + ".");
+				return;
+			}
+			/* Pesanan yang sisanya sudah ditutup lewat Back Order tidak boleh dibatalkan
+			 * persetujuannya.
+			 *
+			 * <p>Sejak statusPo berhenti melaporkan DITUTUP, pesanan seperti ini tampil sebagai
+			 * DISETUJUI -- dan layar menyalakan tombol "Batalkan keputusan" untuk status itu.
+			 * Tanpa penjagaan di sini, persetujuan dapat ditarik pada pesanan yang barangnya
+			 * TELAH diterima dan yang sisanya sudah berpindah ke pesanan susulan, sehingga
+			 * penerimaan yang sah menggantung pada pesanan yang tidak lagi disetujui.</p>
+			 *
+			 * <p>Jalan yang benar adalah merevisi atau membatalkan keputusan Back Order-nya
+			 * lebih dulu; sesudah sisa pesanan terbuka kembali, persetujuan dapat ditarik
+			 * seperti biasa. JANGAN hilangkan penjagaan ini.</p> */
+			if ("BATAL".equals(keputusan) && Boolean.TRUE.equals(po.getTutup())) {
+				tolak(hasil, "Persetujuan tidak dapat dibatalkan karena sisa Pemesanan Pembelian ini "
+						+ "sudah ditutup lewat Back Order. Revisi atau batalkan dahulu keputusan "
+						+ "Back Order-nya, lalu ulangi.");
 				return;
 			}
 			session.beginTransaction();
