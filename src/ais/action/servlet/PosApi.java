@@ -967,7 +967,7 @@ public class PosApi extends HttpServlet {
 				prosesDashboardProduk(tbmuser, payload, hasil);
 			} else if ("dashboard_pelanggan".equals(action)) {
 				prosesDashboardPelanggan(tbmuser, payload, hasil);
-			} else if ("draft_jurnal_ringkasan".equals(action)) {
+			} else if ("draft_jurnal_ringkasan".equals(action) || "draft_jurnal_rincian".equals(action)) {
 				// Dasbor Draft Jurnal: angka per jenis jurnal (draft/terposting/closing) dihitung
 				// DraftJurnalRingkasanUtil, port persis dari penghitung layar ZK draft_jurnal.zul.
 				ais.action.servlet.api.DraftJurnalApiHelper.proses(action, payload, hasil);

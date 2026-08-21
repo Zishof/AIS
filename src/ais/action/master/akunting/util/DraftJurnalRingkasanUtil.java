@@ -242,7 +242,7 @@ public final class DraftJurnalRingkasanUtil {
     // ================================================================= kriteria per modul
 
     private static Criteria kriteriaJurnalUmum(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(GrupTransaksi.class).setProjection(Projections.rowCount())
+        return session.createCriteria(GrupTransaksi.class)
                 .add(Restrictions.eq("jenisJurnal", Transaksi.JURNAL_UMUM))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_transaksi", mulai, sampai)))
                 .add(Restrictions.isNull("closing"));
@@ -250,7 +250,7 @@ public final class DraftJurnalRingkasanUtil {
 
     /** disetujuiOleh ikut difilter, sama dengan PostingPertangungjawabanAction. */
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(Pertangungjawaban.class).setProjection(Projections.rowCount())
+        return session.createCriteria(Pertangungjawaban.class)
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
@@ -258,7 +258,7 @@ public final class DraftJurnalRingkasanUtil {
 
     /** disetujuiOleh ikut difilter, sama dengan PostingKasKecilAction. */
     private static Criteria kriteriaKasKecil(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(KasKecil.class).setProjection(Projections.rowCount())
+        return session.createCriteria(KasKecil.class)
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
@@ -266,21 +266,21 @@ public final class DraftJurnalRingkasanUtil {
 
     /** disetujuiOleh ikut difilter, sama dengan PostingKasBesarAction. */
     private static Criteria kriteriaKasBesar(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(KasBesar.class).setProjection(Projections.rowCount())
+        return session.createCriteria(KasBesar.class)
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
     }
 
     private static Criteria kriteriaPajak(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(Pajak.class).setProjection(Projections.rowCount())
+        return session.createCriteria(Pajak.class)
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_transaksi", mulai, sampai)));
     }
 
     private static Criteria kriteriaPenerimaanTagihanVendor(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(SaldoAwalMasterAsset.class).setProjection(Projections.rowCount())
+        return session.createCriteria(SaldoAwalMasterAsset.class)
                 .add(Restrictions.isNull("jsonTermin")).add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
@@ -288,7 +288,7 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     private static Criteria kriteriaPekerjaanVendor(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(SaldoAwalMasterAsset.class).setProjection(Projections.rowCount())
+        return session.createCriteria(SaldoAwalMasterAsset.class)
                 .add(Restrictions.isNotNull("penerimaanPengadaanMasterAsset"))
                 .add(Restrictions.isNotNull("jsonTermin")).add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -297,7 +297,7 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     private static Criteria kriteriaDpVendor(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(PemesananPengadaanMasterAsset.class).setProjection(Projections.rowCount())
+        return session.createCriteria(PemesananPengadaanMasterAsset.class)
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
                 .add(Restrictions.ne("dp", 0.0)).add(Restrictions.isNotNull("dp"))
@@ -305,7 +305,7 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     private static Criteria kriteriaDpPekerjaanVendor(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(SaldoAwalMasterAsset.class).setProjection(Projections.rowCount())
+        return session.createCriteria(SaldoAwalMasterAsset.class)
                 .add(Restrictions.isNotNull("penerimaanPengadaanMasterAsset"))
                 .add(Restrictions.ilike("jsonTermin", "\"merupakan_dp\":true", MatchMode.ANYWHERE))
                 .add(Restrictions.isNotNull("jsonTermin")).add(Restrictions.isNotNull("disetujuiOleh"))
@@ -315,7 +315,7 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     private static Criteria kriteriaJurnalBalikDpPekerjaan(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(PemesananPengadaanMasterAsset.class).setProjection(Projections.rowCount())
+        return session.createCriteria(PemesananPengadaanMasterAsset.class)
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
                 .add(Restrictions.ilike("formula", "\"setuju\":true", MatchMode.ANYWHERE))
@@ -325,7 +325,7 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     private static Criteria kriteriaPembayaranGaji(Session session, Date mulai, Date sampai) {
-        return session.createCriteria(PembayaranGaji.class).setProjection(Projections.rowCount())
+        return session.createCriteria(PembayaranGaji.class)
                 .add(Restrictions.isNotNull("standingInstruction")).add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.waktubayar", mulai, sampai)));
     }
@@ -447,6 +447,234 @@ public final class DraftJurnalRingkasanUtil {
                 hitungClosing(session, "penyusutanAsset", null, null, mulai, sampai)));
     }
 
+    // ================================================================= kriteria dokumen
+
+    /**
+     * Kriteria DOKUMEN untuk satu baris dasbor: tanpa proyeksi hitung dan tanpa saringan status.
+     *
+     * <p>Ini sumber tunggal bagi dua kebutuhan yang gampang menyimpang: ANGKA di dasbor dan DAFTAR
+     * dokumen saat angka itu diketuk. Bila keduanya dibangun terpisah, cepat atau lambat pengguna
+     * mengetuk angka 7 dan menerima daftar berisi 5 baris -- dan yang salah menjadi mustahil
+     * ditentukan. Penghitung di bawah memakai kriteria yang sama persis, hanya menambahkan
+     * proyeksi rowCount.</p>
+     *
+     * @return null bila baris itu memang tidak punya daftar dokumen (mis. Posting HPP yang
+     *         diposting per periode, bukan per dokumen).
+     */
+    public static Criteria kriteriaDokumen(Session session, String namaBaris, Date mulai, Date sampai) {
+        if ("Jurnal Umum".equals(namaBaris)) return kriteriaJurnalUmum(session, mulai, sampai);
+        if ("Uang Muka".equals(namaBaris)) return kriteriaLpj(session, mulai, sampai);
+        if ("Kas Kecil".equals(namaBaris)) return kriteriaKasKecil(session, mulai, sampai);
+        if ("Kas Besar".equals(namaBaris)) return kriteriaKasBesar(session, mulai, sampai);
+        if ("Pajak".equals(namaBaris)) return kriteriaPajak(session, mulai, sampai);
+        if ("Penerimaan Tagihan Vendor".equals(namaBaris)) {
+            return kriteriaPenerimaanTagihanVendor(session, mulai, sampai);
+        }
+        if ("Pekerjaan Vendor".equals(namaBaris)) return kriteriaPekerjaanVendor(session, mulai, sampai);
+        if ("DP Vendor".equals(namaBaris)) return kriteriaDpVendor(session, mulai, sampai);
+        if ("DP Pekerjaan Vendor".equals(namaBaris)) return kriteriaDpPekerjaanVendor(session, mulai, sampai);
+        if ("Jurnal Balik DP Pekerjaan".equals(namaBaris)) {
+            return kriteriaJurnalBalikDpPekerjaan(session, mulai, sampai);
+        }
+        if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
+
+        if ("Mahasiswa - Piutang Tagihan".equals(namaBaris)) return kriteriaDetailKegiatan(session, mulai, sampai);
+        if ("Mahasiswa - Pembayaran".equals(namaBaris)) {
+            return kriteriaByDateSql(session, CicilanPembayaran.class, "this_.tanggal",
+                    "this_.nilai is not null and this_.nilai <> 0", mulai, sampai);
+        }
+        if ("Mahasiswa - Dibayar Dimuka".equals(namaBaris)) {
+            return kriteriaByDateSql(session, CicilanPembayaran.class, "this_.tanggal_tagihan", SQL_DIMUKA_MHS,
+                    mulai, sampai);
+        }
+        if ("Mahasiswa - Tabungan/Deposit".equals(namaBaris)) {
+            return kriteriaDepositMahasiswa(session, mulai, sampai);
+        }
+        if ("Mahasiswa - Pengeluaran/Refund".equals(namaBaris)) {
+            return kriteriaPengeluaranMahasiswa(session, mulai, sampai);
+        }
+        if ("Mahasiswa - Biaya Administrasi".equals(namaBaris)) {
+            return kriteriaLogPembayaran(session, "postingHistory", mulai, sampai);
+        }
+        if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) {
+            return kriteriaLogPembayaran(session, "postingHistoryPaymentGateway", mulai, sampai);
+        }
+
+        if ("Siswa - Piutang Tagihan".equals(namaBaris)) return kriteriaTagihanSiswaPiutang(session, mulai, sampai);
+        if ("Siswa - Pembayaran".equals(namaBaris)) return kriteriaPembayaranSiswaDetail(session, mulai, sampai);
+        if ("Siswa - Dibayar Dimuka".equals(namaBaris)) {
+            return kriteriaTagihanSiswaDibayarDimuka(session, mulai, sampai);
+        }
+        if ("Siswa - Deposit".equals(namaBaris)) {
+            return kriteriaByDateSql(session, DepositSiswa.class, "tanggal_bayar", null, mulai, sampai);
+        }
+        if ("Siswa - Piutang Denda".equals(namaBaris)) {
+            return kriteriaTagihanSiswaPiutangDenda(session, mulai, sampai);
+        }
+        if ("Siswa - Utang Diskon".equals(namaBaris)) {
+            return kriteriaTagihanSiswaUtangDiskon(session, mulai, sampai);
+        }
+
+        if ("Fix Aset (Jurnal Saat BAST)".equals(namaBaris)) {
+            return kriteriaPenerimaanBast(session, "fixasset", mulai, sampai);
+        }
+        if ("Aset dalam Pekerjaan (Jurnal Saat BAST)".equals(namaBaris)) {
+            return kriteriaPenerimaanBast(session, "pekerjaan", mulai, sampai);
+        }
+        if ("Jurnal Penyusutan".equals(namaBaris)) return kriteriaPenyusutan(session, mulai, sampai);
+        if ("Jurnal Pengajuan Transfer".equals(namaBaris)) {
+            return kriteriaPengajuanTransfer(session, mulai, sampai);
+        }
+        if ("Transitori".equals(namaBaris)) return kriteriaTransitori(session, mulai, sampai);
+        if ("Closing".equals(namaBaris)) return kriteriaGrupTransaksiSemua(session, mulai, sampai);
+        // "Posting HPP" diposting per PERIODE, bukan per dokumen -- tidak ada daftar yang jujur
+        // bisa ditampilkan di sini.
+        return null;
+    }
+
+    /**
+     * Properti posting history milik satu baris, atau null bila baris itu memakai pola JOIN
+     * ({@code PostingJurnalHelper.terapkanStatusPostingHistory}) alih-alih restriksi properti.
+     */
+    private static String propertiPosting(String namaBaris) {
+        if ("Mahasiswa - Dibayar Dimuka".equals(namaBaris)) return "postingHistoryDimuka";
+        if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) return "postingHistoryPaymentGateway";
+        if ("Siswa - Dibayar Dimuka".equals(namaBaris)) return "postingHistoryUangMuka";
+        if ("Siswa - Piutang Denda".equals(namaBaris)) return "postingHistoryDenda";
+        if ("Siswa - Utang Diskon".equals(namaBaris)) return "postingHistoryDiskon";
+        if (namaBaris != null && (namaBaris.startsWith("Mahasiswa - ") || namaBaris.startsWith("Siswa - ")
+                || namaBaris.startsWith("Fix Aset") || namaBaris.startsWith("Aset dalam Pekerjaan")
+                || "Jurnal Penyusutan".equals(namaBaris) || "Jurnal Pengajuan Transfer".equals(namaBaris)
+                || "Transitori".equals(namaBaris))) {
+            return "postingHistory";
+        }
+        return null;
+    }
+
+    /** Saringan status pada kriteria dokumen: {@code draft}, {@code posting}, atau {@code closing}. */
+    private static void terapkanStatus(Criteria criteria, String namaBaris, String status) {
+        boolean sudahPosting = "posting".equals(status) || "closing".equals(status);
+        if ("Jurnal Umum".equals(namaBaris) || "Closing".equals(namaBaris)) {
+            // Dua baris ini berbicara tentang GrupTransaksi itu sendiri: statusnya dibaca dari
+            // kolom closing, bukan dari posting history dokumen sumber.
+            if ("closing".equals(status)) {
+                criteria.add(Restrictions.isNotNull("closing"));
+            } else if ("Closing".equals(namaBaris)) {
+                criteria.add(Restrictions.isNull("closing"));
+            } else {
+                criteria.add(Restrictions.isNull("closing"));
+                PostingJurnalHelper.terapkanStatusPostingHistory(criteria, "posting".equals(status));
+            }
+            return;
+        }
+        String properti = propertiPosting(namaBaris);
+        if (properti == null) {
+            PostingJurnalHelper.terapkanStatusPostingHistory(criteria, sudahPosting);
+        } else {
+            criteria.add(PostingJurnalHelper.restriksiPosting(properti, Boolean.valueOf(sudahPosting)));
+        }
+    }
+
+    /** Satu dokumen pada daftar rincian: sengaja generik supaya satu tampilan melayani semua modul. */
+    public static final class Dokumen {
+        private final String id;
+        private final String tanggal;
+        private final String uraian;
+        private final double nilai;
+
+        public Dokumen(String id, String tanggal, String uraian, double nilai) {
+            this.id = id;
+            this.tanggal = tanggal;
+            this.uraian = uraian;
+            this.nilai = nilai;
+        }
+
+        public String getId() { return id; }
+
+        public String getTanggal() { return tanggal; }
+
+        public String getUraian() { return uraian; }
+
+        public double getNilai() { return nilai; }
+    }
+
+    /**
+     * Daftar dokumen di balik satu angka dasbor. Mengembalikan list kosong bila baris itu memang
+     * tidak punya daftar dokumen; pemanggil membedakannya lewat {@link #punyaRincian(String)}.
+     */
+    public static List<Dokumen> rincian(Session session, String namaBaris, String status, Date mulai,
+            Date sampai, int batas) {
+        List<Dokumen> hasil = new ArrayList<Dokumen>();
+        try {
+            Criteria criteria = kriteriaDokumen(session, namaBaris, mulai, sampai);
+            if (criteria == null) return hasil;
+            terapkanStatus(criteria, namaBaris, status);
+            criteria.setMaxResults(batas < 1 ? 100 : Math.min(500, batas));
+            List<?> baris = criteria.list();
+            for (int i = 0; i < baris.size(); i++) {
+                hasil.add(petaDokumen(session, baris.get(i)));
+            }
+        } catch (Exception e) {
+            gagal(session, e);
+        }
+        return hasil;
+    }
+
+    public static boolean punyaRincian(String namaBaris) {
+        return !"Posting HPP".equals(namaBaris);
+    }
+
+    /**
+     * Memetakan entity apa pun menjadi {@link Dokumen} lewat nama getter yang lazim dipakai model
+     * AIS. Sengaja berbasis refleksi: dasbor ini menyentuh 20-an entity dari empat modul berbeda,
+     * dan menulis pemeta khusus untuk masing-masing berarti 20 tempat yang harus diingat setiap
+     * kali sebuah entity berubah. Yang dibutuhkan daftar rincian hanya tiga hal -- kapan, apa, dan
+     * berapa -- sehingga pencarian berurutan atas nama-nama yang sudah baku sudah memadai.
+     */
+    private static Dokumen petaDokumen(Session session, Object entity) {
+        String id = "";
+        try {
+            Object nilaiId = session.getSessionFactory()
+                    .getClassMetadata(org.hibernate.proxy.HibernateProxyHelper.getClassWithoutInitializingProxy(entity))
+                    .getIdentifier(entity, (org.hibernate.engine.SessionImplementor) session);
+            if (nilaiId != null) id = String.valueOf(nilaiId);
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) DraftJurnalRingkasanUtil.petaDokumen-id");
+        }
+        Object tanggal = bacaPertama(entity, new String[] { "getTanggal", "getTanggalPersetujuan",
+                "getTanggalTransaksi", "getTanggalTagihan", "getTanggalBayar", "getWaktu", "getWaktubayar",
+                "getPertanggal", "getTanggalRealisasikan" });
+        Object nilai = bacaPertama(entity, new String[] { "getNilai", "getNominal", "getBiaya", "getDp",
+                "getNilaiPenyusutan", "getDenda", "getDiskonTidakLangsung", "getBiayaAdministrasi",
+                "getBiayaPaymentGateway", "getTotal" });
+        Object uraian = bacaPertama(entity, new String[] { "getKeterangan", "getUraian", "getKode", "getNama",
+                "getNomor", "getNoBukti", "getDeskripsi" });
+        String teksTanggal = "";
+        if (tanggal instanceof Date) {
+            teksTanggal = new java.text.SimpleDateFormat("yyyy-MM-dd").format((Date) tanggal);
+        } else if (tanggal != null) {
+            teksTanggal = String.valueOf(tanggal);
+        }
+        double angka = 0;
+        if (nilai instanceof Number) angka = ((Number) nilai).doubleValue();
+        return new Dokumen(id, teksTanggal, uraian == null ? "" : String.valueOf(uraian), angka);
+    }
+
+    private static Object bacaPertama(Object entity, String[] namaGetter) {
+        for (int i = 0; i < namaGetter.length; i++) {
+            try {
+                java.lang.reflect.Method m = entity.getClass().getMethod(namaGetter[i], new Class[0]);
+                Object v = m.invoke(entity, new Object[0]);
+                if (v != null) return v;
+            } catch (NoSuchMethodException e) {
+                continue;
+            } catch (Exception e) {
+                continue;
+            }
+        }
+        return null;
+    }
+
     // ================================================================= penghitung
 
     /** EXISTS CIP: BAST punya detail-aset yang kelompoknya "pekerjaan dalam pelaksanaan" (CIP). */
@@ -456,21 +684,47 @@ public final class DraftJurnalRingkasanUtil {
             + "where d.penerimaan_pengadaan_master_asset = this_.id "
             + "and coalesce(k.merupakanpekerjaandalampelaksanaan, false) = true)";
 
+    private static final String SQL_DIMUKA_MHS = "date(this_.tanggal)<date(this_.tanggal_tagihan) "
+            + "and this_.nilai is not null and this_.nilai <> 0";
+
+    /**
+     * Hitung dari kriteria dokumen: proyeksi rowCount ditambahkan DI SINI, bukan di pembangun
+     * kriterianya, supaya kriteria yang sama dapat dipakai ulang untuk daftar rincian.
+     */
+    private static int hitungDgnStatus(Session session, String namaBaris, boolean posted, Date mulai,
+            Date sampai) {
+        try {
+            Criteria criteria = kriteriaDokumen(session, namaBaris, mulai, sampai);
+            if (criteria == null) return 0;
+            criteria.setProjection(Projections.rowCount());
+            terapkanStatus(criteria, namaBaris, posted ? "posting" : "draft");
+            return PostingJurnalHelper.hitung(criteria);
+        } catch (Exception e) {
+            return gagal(session, e);
+        }
+    }
+
+    private static Criteria kriteriaPenerimaanBast(Session session, String filterKelompok, Date mulai,
+            Date sampai) {
+        Criteria c = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+                .createAlias("pemesananPengadaanMasterAsset", "pemesananPengadaanMasterAsset")
+                .add(Restrictions.isNotNull("disetujuiOleh")).add(Restrictions.ne("nilai", 0.0))
+                .add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+        if ("pekerjaan".equals(filterKelompok)) {
+            c.add(Restrictions.sqlRestriction(SQL_EXISTS_KELOMPOK_CIP));
+        } else if ("fixasset".equals(filterKelompok)) {
+            c.add(Restrictions.sqlRestriction("not " + SQL_EXISTS_KELOMPOK_CIP));
+        }
+        return c;
+    }
+
     private static int countPenerimaanBast(Session session, boolean posted, String filterKelompok, Date mulai,
             Date sampai) {
         try {
-            Criteria c = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+            Criteria c = kriteriaPenerimaanBast(session, filterKelompok, mulai, sampai)
                     .setProjection(Projections.rowCount())
-                    .createAlias("pemesananPengadaanMasterAsset", "pemesananPengadaanMasterAsset")
-                    .add(Restrictions.isNotNull("disetujuiOleh")).add(Restrictions.ne("nilai", 0.0))
-                    .add(Restrictions.isNotNull("nilai"))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)))
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
-            if ("pekerjaan".equals(filterKelompok)) {
-                c.add(Restrictions.sqlRestriction(SQL_EXISTS_KELOMPOK_CIP));
-            } else if ("fixasset".equals(filterKelompok)) {
-                c.add(Restrictions.sqlRestriction("not " + SQL_EXISTS_KELOMPOK_CIP));
-            }
             return PostingJurnalHelper.hitung(c);
         } catch (Exception e) {
             return gagal(session, e);
@@ -479,6 +733,7 @@ public final class DraftJurnalRingkasanUtil {
 
     private static int hitungPostingHistory(Session session, Criteria criteria, boolean sudahPosting) {
         try {
+            criteria.setProjection(Projections.rowCount());
             PostingJurnalHelper.terapkanStatusPostingHistory(criteria, sudahPosting);
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -488,7 +743,7 @@ public final class DraftJurnalRingkasanUtil {
 
     private static int hitung(Session session, Criteria criteria) {
         try {
-            return PostingJurnalHelper.hitung(criteria);
+            return PostingJurnalHelper.hitung(criteria.setProjection(Projections.rowCount()));
         } catch (Exception e) {
             return gagal(session, e);
         }
@@ -500,47 +755,64 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     @SuppressWarnings("rawtypes")
+    private static Criteria kriteriaByDateSql(Session session, Class clazz, String dateColumn, String extraSql,
+            Date mulai, Date sampai) {
+        Criteria criteria = session.createCriteria(clazz)
+                .add(Restrictions.sqlRestriction(dateSql(dateColumn, mulai, sampai)));
+        if (extraSql != null && extraSql.trim().length() > 0) {
+            criteria.add(Restrictions.sqlRestriction(extraSql));
+        }
+        return criteria;
+    }
+
+    @SuppressWarnings("rawtypes")
     private static int countPostingByDateSql(Session session, Class clazz, String postingField, String dateColumn,
             String extraSql, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(clazz).setProjection(Projections.rowCount())
-                    .add(Restrictions.sqlRestriction(dateSql(dateColumn, mulai, sampai)));
-            if (extraSql != null && extraSql.trim().length() > 0) {
-                criteria.add(Restrictions.sqlRestriction(extraSql));
-            }
-            criteria.add(PostingJurnalHelper.restriksiPosting(postingField, Boolean.valueOf(posted)));
+            Criteria criteria = kriteriaByDateSql(session, clazz, dateColumn, extraSql, mulai, sampai)
+                    .setProjection(Projections.rowCount())
+                    .add(PostingJurnalHelper.restriksiPosting(postingField, Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaDetailKegiatan(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(DetailKegiatan.class)
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .add(Restrictions.sqlRestriction("this_.item_biaya in (select item_biaya from item_biaya_punya_piutang where akun is not null and item_biaya is not null group by item_biaya)"))
+                .add(Restrictions.isNotNull("tanggal"))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("biaya", 0.0)))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.isNotNull("biaya")))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)));
     }
 
     private static int countDetailKegiatan(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(DetailKegiatan.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-                    .add(Restrictions.sqlRestriction("this_.item_biaya in (select item_biaya from item_biaya_punya_piutang where akun is not null and item_biaya is not null group by item_biaya)"))
-                    .add(Restrictions.isNotNull("tanggal"))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("biaya", 0.0)))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.isNotNull("biaya")))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)))
+            Criteria criteria = kriteriaDetailKegiatan(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaDepositMahasiswa(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Deposit.class)
+                .add(Restrictions.or(Restrictions.isNotNull("mahasiswa"),
+                        Restrictions.isNotNull("biodataCalonMahasiswa")))
+                .add(Restrictions.isNotNull("waktu"))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("nominal", 0.0)))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.isNotNull("nominal")))
+                .add(Restrictions.sqlRestriction(dateSql("this_.waktu", mulai, sampai)));
     }
 
     private static int countDepositMahasiswa(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Deposit.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.or(Restrictions.isNotNull("mahasiswa"),
-                            Restrictions.isNotNull("biodataCalonMahasiswa")))
-                    .add(Restrictions.isNotNull("waktu"))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("nominal", 0.0)))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
-                            Restrictions.isNotNull("nominal")))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.waktu", mulai, sampai)))
+            Criteria criteria = kriteriaDepositMahasiswa(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -548,65 +820,82 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaPengeluaranMahasiswa(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(PengeluaranMahasiswa.class).add(Restrictions.isNotNull("waktu"))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("nominal", 0.0)))
+                .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.isNotNull("nominal")))
+                .add(Restrictions.sqlRestriction(dateSql("this_.waktu", mulai, sampai)));
+    }
+
     private static int countPengeluaranMahasiswa(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(PengeluaranMahasiswa.class)
-                    .setProjection(Projections.rowCount()).add(Restrictions.isNotNull("waktu"))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("nominal", 0.0)))
-                    .add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
-                            Restrictions.isNotNull("nominal")))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.waktu", mulai, sampai)))
+            Criteria criteria = kriteriaPengeluaranMahasiswa(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaLogPembayaran(Session session, String postingField, Date mulai, Date sampai) {
+        Criteria criteria = session.createCriteria(LogPembayaran.class)
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)));
+        if ("postingHistoryPaymentGateway".equals(postingField)) {
+            criteria.add(Restrictions.gt("biayaPaymentGateway", 0.1));
+        } else {
+            criteria.add(Restrictions.gt("biayaAdministrasi", 0.1));
+        }
+        return criteria;
     }
 
     private static int countLogPembayaran(Session session, String postingField, boolean posted, Date mulai,
             Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(LogPembayaran.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)))
+            Criteria criteria = kriteriaLogPembayaran(session, postingField, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting(postingField, Boolean.valueOf(posted)));
-            if ("postingHistoryPaymentGateway".equals(postingField)) {
-                criteria.add(Restrictions.gt("biayaPaymentGateway", 0.1));
-            } else {
-                criteria.add(Restrictions.gt("biayaAdministrasi", 0.1));
-            }
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaPembayaranSiswaDetail(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(PembayaranSiswaDetail.class)
+                .createAlias("pembayaranSiswa", "pembayaranSiswa").createAlias("tagihan", "tagihan")
+                .add(Restrictions.between("pembayaranSiswa.tanggalBayar", mulai, sampai));
     }
 
     private static int countPembayaranSiswaDetail(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(PembayaranSiswaDetail.class)
-                    .setProjection(Projections.rowCount()).createAlias("pembayaranSiswa", "pembayaranSiswa")
-                    .createAlias("tagihan", "tagihan")
-                    .add(Restrictions.between("pembayaranSiswa.tanggalBayar", mulai, sampai))
+            Criteria criteria = kriteriaPembayaranSiswaDetail(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaTagihanSiswaPiutang(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Tagihan.class).createAlias("itemBiayaSekolah", "itemBiayaSekolah")
+                .add(Restrictions.eq("itemBiayaSekolah.aktif", true))
+                .add(Restrictions.isNotNull("itemBiayaSekolah.akunPiutang"))
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .createAlias("nominalBiaya", "nominalBiaya")
+                .createAlias("nominalBiaya.pengaturanBiaya", "pengaturanBiaya")
+                .createAlias("pengaturanBiaya.jenisBiayaSekolah", "jenisBiayaSekolah")
+                .add(Restrictions.or(Restrictions.eq("jenisBiayaSekolah.periode", "Bulanan"),
+                        Restrictions.and(Restrictions.eq("bayarKe", 1),
+                                Restrictions.eq("jenisBiayaSekolah.periode", "Insidentil"))))
+                .add(Restrictions.sqlRestriction(dateSql("tanggal_tagihan", mulai, sampai)));
     }
 
     private static int countTagihanSiswaPiutang(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Tagihan.class).setProjection(Projections.rowCount())
-                    .createAlias("itemBiayaSekolah", "itemBiayaSekolah")
-                    .add(Restrictions.eq("itemBiayaSekolah.aktif", true))
-                    .add(Restrictions.isNotNull("itemBiayaSekolah.akunPiutang"))
-                    .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-                    .createAlias("nominalBiaya", "nominalBiaya")
-                    .createAlias("nominalBiaya.pengaturanBiaya", "pengaturanBiaya")
-                    .createAlias("pengaturanBiaya.jenisBiayaSekolah", "jenisBiayaSekolah")
-                    .add(Restrictions.or(Restrictions.eq("jenisBiayaSekolah.periode", "Bulanan"),
-                            Restrictions.and(Restrictions.eq("bayarKe", 1),
-                                    Restrictions.eq("jenisBiayaSekolah.periode", "Insidentil"))))
-                    .add(Restrictions.sqlRestriction(dateSql("tanggal_tagihan", mulai, sampai)))
+            Criteria criteria = kriteriaTagihanSiswaPiutang(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -614,14 +903,19 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaTagihanSiswaDibayarDimuka(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Tagihan.class)
+                .createAlias("pembayaranSiswaDetail", "pembayaranSiswaDetail")
+                .createAlias("pembayaranSiswaDetail.pembayaranSiswa", "pembayaranSiswa")
+                .add(Restrictions.gt("pembayaranSiswaDetail.nominal", 0.1))
+                .add(Restrictions.sqlRestriction("date(tanggal_bayar)<date(tanggal_tagihan)"))
+                .add(Restrictions.sqlRestriction(dateSql("tanggal_bayar", mulai, sampai)));
+    }
+
     private static int countTagihanSiswaDibayarDimuka(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Tagihan.class).setProjection(Projections.rowCount())
-                    .createAlias("pembayaranSiswaDetail", "pembayaranSiswaDetail")
-                    .createAlias("pembayaranSiswaDetail.pembayaranSiswa", "pembayaranSiswa")
-                    .add(Restrictions.gt("pembayaranSiswaDetail.nominal", 0.1))
-                    .add(Restrictions.sqlRestriction("date(tanggal_bayar)<date(tanggal_tagihan)"))
-                    .add(Restrictions.sqlRestriction(dateSql("tanggal_bayar", mulai, sampai)))
+            Criteria criteria = kriteriaTagihanSiswaDibayarDimuka(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistoryUangMuka", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -629,11 +923,16 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaTagihanSiswaPiutangDenda(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Tagihan.class).add(Restrictions.isNotNull("tanggalDeadline"))
+                .add(Restrictions.gt("denda", 0.1))
+                .add(Restrictions.sqlRestriction(dateSql("tanggal_tagihan", mulai, sampai)));
+    }
+
     private static int countTagihanSiswaPiutangDenda(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Tagihan.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.isNotNull("tanggalDeadline")).add(Restrictions.gt("denda", 0.1))
-                    .add(Restrictions.sqlRestriction(dateSql("tanggal_tagihan", mulai, sampai)))
+            Criteria criteria = kriteriaTagihanSiswaPiutangDenda(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistoryDenda", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -641,13 +940,17 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaTagihanSiswaUtangDiskon(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Tagihan.class).createAlias("diskonSiswa", "diskonSiswa")
+                .add(Restrictions.eq("diskonSiswa.memotongTagihan", false))
+                .add(Restrictions.isNotNull("tanggalBayar")).add(Restrictions.gt("diskonTidakLangsung", 0.1))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggalbayar", mulai, sampai)));
+    }
+
     private static int countTagihanSiswaUtangDiskon(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Tagihan.class).setProjection(Projections.rowCount())
-                    .createAlias("diskonSiswa", "diskonSiswa")
-                    .add(Restrictions.eq("diskonSiswa.memotongTagihan", false))
-                    .add(Restrictions.isNotNull("tanggalBayar")).add(Restrictions.gt("diskonTidakLangsung", 0.1))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.tanggalbayar", mulai, sampai)))
+            Criteria criteria = kriteriaTagihanSiswaUtangDiskon(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistoryDiskon", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -655,48 +958,61 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaPenyusutan(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(PenyusutanAsset.class).add(Restrictions.ne("nilaiPenyusutan", 0.0))
+                .add(Restrictions.isNotNull("nilaiPenyusutan"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.pertanggal", mulai, sampai)));
+    }
+
     private static int countPenyusutan(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(PenyusutanAsset.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.ne("nilaiPenyusutan", 0.0)).add(Restrictions.isNotNull("nilaiPenyusutan"))
-                    .add(Restrictions.sqlRestriction(dateSql("this_.pertanggal", mulai, sampai)))
+            Criteria criteria = kriteriaPenyusutan(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaPengajuanTransfer(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(DaftarPengajuanTransfer.class)
+                .createAlias("disposisiSop", "disposisiSop", Criteria.LEFT_JOIN)
+                .createAlias("prosesTransfer", "prosesTransfer")
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
+                        Restrictions.eq("disposisiSop.aktif", true)))
+                .add(Restrictions.isNotNull("prosesTransfer.realisasikanOleh"))
+                .add(Restrictions.isNotNull("prosesTransfer.disetujuiOleh"))
+                .add(Restrictions.ne("nominal", 0.0)).add(Restrictions.isNotNull("nominal"))
+                .add(Restrictions.between("prosesTransfer.tanggalRealisasikan", mulai, sampai));
     }
 
     private static int countPengajuanTransfer(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(DaftarPengajuanTransfer.class)
+            Criteria criteria = kriteriaPengajuanTransfer(session, mulai, sampai)
                     .setProjection(Projections.rowCount())
-                    .createAlias("disposisiSop", "disposisiSop", Criteria.LEFT_JOIN)
-                    .createAlias("prosesTransfer", "prosesTransfer")
-                    .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-                    .add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
-                            Restrictions.eq("disposisiSop.aktif", true)))
-                    .add(Restrictions.isNotNull("prosesTransfer.realisasikanOleh"))
-                    .add(Restrictions.isNotNull("prosesTransfer.disetujuiOleh"))
-                    .add(Restrictions.ne("nominal", 0.0)).add(Restrictions.isNotNull("nominal"))
-                    .add(Restrictions.between("prosesTransfer.tanggalRealisasikan", mulai, sampai))
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    private static Criteria kriteriaTransitori(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Transitori.class).createAlias("prosesTransitori", "prosesTransitori")
+                .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+                .add(Restrictions.isNotNull("prosesTransitori.disetujuiOleh"))
+                .add(Restrictions.ne("daftarPengajuanTransfer.nominal", 0.0))
+                .add(Restrictions.isNotNull("daftarPengajuanTransfer.nominal"))
+                .add(Restrictions.between("prosesTransitori.tanggalPersetujuan", mulai, sampai))
+                .add(Restrictions.eq("transfer", true));
     }
 
     private static int countTransitori(Session session, boolean posted, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(Transitori.class).setProjection(Projections.rowCount())
-                    .createAlias("prosesTransitori", "prosesTransitori")
-                    .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
-                    .add(Restrictions.isNotNull("prosesTransitori.disetujuiOleh"))
-                    .add(Restrictions.ne("daftarPengajuanTransfer.nominal", 0.0))
-                    .add(Restrictions.isNotNull("daftarPengajuanTransfer.nominal"))
-                    .add(Restrictions.between("prosesTransitori.tanggalPersetujuan", mulai, sampai))
-                    .add(Restrictions.eq("transfer", true))
+            Criteria criteria = kriteriaTransitori(session, mulai, sampai)
+                    .setProjection(Projections.rowCount())
                     .add(PostingJurnalHelper.restriksiPosting("postingHistory", Boolean.valueOf(posted)));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {
@@ -704,10 +1020,15 @@ public final class DraftJurnalRingkasanUtil {
         }
     }
 
+    private static Criteria kriteriaGrupTransaksiSemua(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(GrupTransaksi.class)
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_transaksi", mulai, sampai)));
+    }
+
     private static int countGrupTransaksiClosing(Session session, boolean sudahClosing, Date mulai, Date sampai) {
         try {
-            Criteria criteria = session.createCriteria(GrupTransaksi.class).setProjection(Projections.rowCount())
-                    .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_transaksi", mulai, sampai)));
+            Criteria criteria = kriteriaGrupTransaksiSemua(session, mulai, sampai)
+                    .setProjection(Projections.rowCount());
             criteria.add(sudahClosing ? Restrictions.isNotNull("closing") : Restrictions.isNull("closing"));
             return PostingJurnalHelper.hitung(criteria);
         } catch (Exception e) {

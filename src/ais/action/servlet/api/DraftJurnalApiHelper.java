@@ -37,6 +37,8 @@ public final class DraftJurnalApiHelper {
     public static void proses(String action, JSONObject payload, JSONObject hasil) throws Exception {
         if ("draft_jurnal_ringkasan".equals(action)) {
             ringkasan(payload, hasil);
+        } else if ("draft_jurnal_rincian".equals(action)) {
+            rincian(payload, hasil);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Aksi draft jurnal tidak dikenal: " + action);
@@ -101,6 +103,64 @@ public final class DraftJurnalApiHelper {
             hasil.put("posting", totalPosting);
             hasil.put("closing", totalClosing);
             hasil.put("total", totalDraft + totalPosting + totalClosing);
+            hasil.put("data", data);
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
+    }
+
+    /**
+     * Daftar dokumen di balik satu angka dasbor -- inilah yang dibuka ketika angka Draft,
+     * Terposting, atau Closing diketuk.
+     *
+     * <p>Daftarnya dibangun dari KRITERIA YANG SAMA dengan angkanya (lihat
+     * {@code DraftJurnalRingkasanUtil.kriteriaDokumen}), jadi jumlah baris yang tampil tidak
+     * mungkin berselisih dengan angka yang barusan diketuk pengguna.</p>
+     */
+    private static void rincian(JSONObject payload, JSONObject hasil) throws Exception {
+        String nama = payload == null ? "" : payload.optString("nama", "").trim();
+        if (nama.length() == 0) {
+            hasil.put("status", "91");
+            hasil.put("description", "Jenis jurnal wajib dipilih.");
+            return;
+        }
+        String status = payload.optString("status", "draft").trim();
+        if (!"draft".equals(status) && !"posting".equals(status) && !"closing".equals(status)) {
+            hasil.put("status", "91");
+            hasil.put("description", "Status rincian hanya boleh draft, posting, atau closing.");
+            return;
+        }
+        if (!DraftJurnalRingkasanUtil.punyaRincian(nama)) {
+            hasil.put("status", "91");
+            hasil.put("description", "\"" + nama + "\" diposting per periode, bukan per dokumen, "
+                    + "sehingga tidak memiliki daftar dokumen yang dapat dirinci.");
+            return;
+        }
+
+        Date mulai = tanggal(payload, "mulai", awalBawaan());
+        Date sampai = tanggal(payload, "sampai", akhirBawaan());
+        int batas = payload.optInt("limit", 100);
+
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        try {
+            List<DraftJurnalRingkasanUtil.Dokumen> dokumen = DraftJurnalRingkasanUtil.rincian(session, nama,
+                    status, mulai, sampai, batas);
+            JSONArray data = new JSONArray();
+            for (int i = 0; i < dokumen.size(); i++) {
+                DraftJurnalRingkasanUtil.Dokumen d = dokumen.get(i);
+                JSONObject j = new JSONObject();
+                j.put("id", d.getId());
+                j.put("tanggal", d.getTanggal());
+                j.put("uraian", d.getUraian());
+                j.put("nilai", d.getNilai());
+                data.put(j);
+            }
+            hasil.put("status", "00");
+            hasil.put("nama", nama);
+            hasil.put("statusRincian", status);
+            hasil.put("mulai", iso().format(mulai));
+            hasil.put("sampai", iso().format(sampai));
+            hasil.put("jumlah", dokumen.size());
             hasil.put("data", data);
         } finally {
             HibernateUtil.closeSessionQuietly(session);
