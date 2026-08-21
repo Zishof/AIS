@@ -158,7 +158,7 @@ public final class JenisProdukApiHelper {
 			hasil.put("description", "Nama jenis produk wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {

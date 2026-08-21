@@ -376,8 +376,7 @@ public final class SalesInventoryHargaHelper {
 		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
 		int size = Math.min(100, Math.max(1, request == null ? 20 : request.optInt("page_size", 20)));
 		Long tokoId = ctx.admin
-				? (request == null || request.isNull("toko_id") ? null
-						: Long.valueOf((request.get("toko_id") + "").trim()))
+				? (request == null || ais.common.Common.angkaAtauNull(request, "toko_id"))
 				: ctx.tokoId;
 
 		Session session = HibernateUtil.getSessionFactory().openSession();

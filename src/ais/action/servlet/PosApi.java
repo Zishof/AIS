@@ -1049,8 +1049,7 @@ public class PosApi extends HttpServlet {
 		int page = Math.max(1, payload.optInt("page", 1));
 		int pageSize = Math.min(100, Math.max(1, payload.optInt("page_size", 100)));
 		boolean berpaginasi = payload.has("page") || payload.has("page_size");
-		Long kategoriId = payload.isNull("kategori_id") ? null
-				: Long.valueOf((payload.get("kategori_id") + "").trim());
+		Long kategoriId = ais.common.Common.angkaAtauNull(payload, "kategori_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -2236,7 +2235,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesCariMember(JSONObject payload, JSONObject hasil) throws Exception {
 		String keyword = payload.optString("keyword", "").trim();
-		Long idExact = payload.isNull("id") ? null : Long.valueOf((payload.get("id") + "").trim());
+		Long idExact = ais.common.Common.angkaAtauNull(payload, "id");
 		if (keyword.isEmpty() && idExact == null) {
 			hasil.put("status", "success");
 			hasil.put("member", new JSONArray());
@@ -2291,7 +2290,7 @@ public class PosApi extends HttpServlet {
 	 * @param hasil   diisi {@code status="success"}, {@code caraBayar} (array {@code {id, nama, manual}}).
 	 */
 	private void prosesCaraBayarList(JSONObject payload, JSONObject hasil) throws Exception {
-		Long idMember = payload.isNull("id_member") ? null : Long.valueOf((payload.get("id_member") + "").trim());
+		Long idMember = ais.common.Common.angkaAtauNull(payload, "id_member");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Long idJenisAnggota = null;

@@ -2796,7 +2796,7 @@ public class KantinHelper {
 			// toko_id toko lain.
 			tokoId = pedagangPembuat.getToko() == null ? null : pedagangPembuat.getToko().getId();
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 		}
 		if (userid.isEmpty() || password.isEmpty() || nama.isEmpty() || tokoId == null) {
 			hasil.put("status", "91");
@@ -2864,7 +2864,7 @@ public class KantinHelper {
 		if (pemanggil != null) {
 			tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 		}
 		if (tokoId == null) {
 			hasil.put("status", "91");
@@ -2965,7 +2965,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengubah akun pedagang.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Akun pedagang tidak ditemukan.");
@@ -3057,7 +3057,7 @@ public class KantinHelper {
 			hasil.put("description", "Kode dan nama produk wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		String barcodeUntukKunci = request.optString("barcode", "").trim();
 		// Gap-closure permintaan user eksplisit: tolak kalau Kode, Barcode, DAN Nama SEKALIGUS kosong
 		// (lihat JavaDoc ProdukKunciUnikUtil.adaIdentitasProduk) -- SUDAH tertutup lewat gerbang
@@ -3077,7 +3077,7 @@ public class KantinHelper {
 				if (supervisor) {
 					tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
 				} else {
-					tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+					tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 				}
 				if (tokoId == null) {
 					hasil.put("status", "91");
@@ -3577,7 +3577,7 @@ public class KantinHelper {
 		if (supervisor) {
 			tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 		}
 		if (tokoId == null) {
 			hasil.put("status", "91");
@@ -3904,7 +3904,7 @@ public class KantinHelper {
 		if (supervisor) {
 			tokoId = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
 		} else {
-			tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+			tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 		}
 		if (tokoId == null) {
 			hasil.put("status", "91");
@@ -5430,8 +5430,7 @@ public class KantinHelper {
 		boolean adminGlobal = Common.getApakahAdminLain(tbmuser);
 		Long tokoPemanggil = (pemanggil == null || pemanggil.getToko() == null)
 				? null : pemanggil.getToko().getId();
-		Long tokoDiminta = request.isNull("toko_id")
-				? null : Long.valueOf((request.get("toko_id") + "").trim());
+		Long tokoDiminta = ais.common.Common.angkaAtauNull(request, "toko_id");
 		// Urutan ini HARUS sama persis dengan tokoProfilSimpan. Sebelumnya berbeda:
 		// membaca selalu memakai toko milik Pedagang, sedangkan menyimpan
 		// mengizinkan admin menyebut toko lain. Akibatnya seorang admin yang juga
@@ -5555,8 +5554,7 @@ public class KantinHelper {
 		if (!adminGlobal && supervisor) {
 			tokoId = tokoPemanggil;
 		} else {
-			Long diminta = request.isNull("toko_id")
-					? null : Long.valueOf((request.get("toko_id") + "").trim());
+			Long diminta = ais.common.Common.angkaAtauNull(request, "toko_id");
 			tokoId = diminta != null ? diminta : tokoPemanggil;
 		}
 		if (tokoId == null) {
@@ -5696,9 +5694,8 @@ public class KantinHelper {
 			hasil.put("description", "Nama member wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
-		Long idJenis = request.isNull("jenis_anggota_koperasi_id") ? null
-				: Long.valueOf((request.get("jenis_anggota_koperasi_id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
+		Long idJenis = ais.common.Common.angkaAtauNull(request, "jenis_anggota_koperasi_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -6155,7 +6152,7 @@ public class KantinHelper {
 			hasil.put("description", "Nama cara pembayaran wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.koperasi.CaraPembayaranKoperasi cara;
@@ -6214,7 +6211,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Cara Pembayaran.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID cara pembayaran wajib diisi.");
@@ -6318,7 +6315,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus data Customer/Anggota.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID member wajib diisi.");
@@ -6459,7 +6456,7 @@ public class KantinHelper {
 			hasil.put("description", "Nama jenis member wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			JenisAnggotaKoperasi jenis;
@@ -6511,7 +6508,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Jenis Member.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID jenis member wajib diisi.");
@@ -6636,7 +6633,7 @@ public class KantinHelper {
 			hasil.put("description", "Nama tipe member wajib diisi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.koperasi.TipeAnggotaKoperasi tipe;
@@ -6688,7 +6685,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Tipe Member.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID tipe member wajib diisi.");
@@ -6734,7 +6731,7 @@ public class KantinHelper {
 	 *                (def:1), {@code page_size} (def:20, maks 100).
 	 */
 	public static void depositList(JSONObject request, JSONObject hasil) throws Exception {
-		Long idMember = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		Long idMember = ais.common.Common.angkaAtauNull(request, "id_member");
 		String keyword = request.optString("keyword", "").trim();
 		String dari = request.optString("dari", "").trim();
 		String sampai = request.optString("sampai", "").trim();
@@ -6827,7 +6824,7 @@ public class KantinHelper {
 			hasil.put("description", "Anda tidak memiliki hak akses untuk mengubah entri topup.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID topup wajib diisi.");
@@ -6900,7 +6897,7 @@ public class KantinHelper {
 			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri topup.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID topup wajib diisi.");
@@ -6943,7 +6940,7 @@ public class KantinHelper {
 			hasil.put("description", "Tanggal Mulai dan Tanggal Akhir wajib diisi.");
 			return;
 		}
-		Long idAnggota = request.isNull("id_anggota") ? null : Long.valueOf((request.get("id_anggota") + "").trim());
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_anggota");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -7040,7 +7037,7 @@ public class KantinHelper {
 			hasil.put("description", "Tanggal Mulai dan Tanggal Akhir wajib diisi.");
 			return;
 		}
-		Long idAnggota = request.isNull("id_anggota") ? null : Long.valueOf((request.get("id_anggota") + "").trim());
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_anggota");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -7171,7 +7168,7 @@ public class KantinHelper {
 			hasil.put("description", "Anda tidak memiliki hak akses untuk mencatat pembayaran hutang.");
 			return;
 		}
-		Long idAnggota = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_member");
 		if (idAnggota == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Anggota wajib dipilih.");
@@ -7183,7 +7180,7 @@ public class KantinHelper {
 			hasil.put("description", "Nominal pembayaran harus lebih dari 0.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.koperasi.PembayaranHutang bayar;
@@ -7233,7 +7230,7 @@ public class KantinHelper {
 			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri pembayaran hutang.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID pembayaran hutang wajib diisi.");
@@ -7354,7 +7351,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin yang dapat menghapus log Notifikasi.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID notifikasi wajib diisi.");
@@ -7388,7 +7385,7 @@ public class KantinHelper {
 	 */
 	public static void sinkronReferensi(JSONObject request, JSONObject hasil) throws Exception {
 		String tipe = request.optString("tipe", "").trim();
-		Long indukId = request.isNull("induk_id") ? null : Long.valueOf((request.get("induk_id") + "").trim());
+		Long indukId = ais.common.Common.angkaAtauNull(request, "induk_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			JSONArray arr = new JSONArray();
@@ -7485,8 +7482,8 @@ public class KantinHelper {
 		}
 		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
 		Integer tahun = Integer.valueOf((request.get("tahun") + "").trim());
-		Long fakultasId = request.isNull("fakultas_id") ? null : Long.valueOf((request.get("fakultas_id") + "").trim());
-		Long jurusanId = request.isNull("jurusan_id") ? null : Long.valueOf((request.get("jurusan_id") + "").trim());
+		Long fakultasId = ais.common.Common.angkaAtauNull(request, "fakultas_id");
+		Long jurusanId = ais.common.Common.angkaAtauNull(request, "jurusan_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -7553,8 +7550,8 @@ public class KantinHelper {
 		}
 		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
 		Integer tahun = Integer.valueOf((request.get("tahun") + "").trim());
-		Long yayasanId = request.isNull("yayasan_id") ? null : Long.valueOf((request.get("yayasan_id") + "").trim());
-		Long sekolahId = request.isNull("sekolah_id") ? null : Long.valueOf((request.get("sekolah_id") + "").trim());
+		Long yayasanId = ais.common.Common.angkaAtauNull(request, "yayasan_id");
+		Long sekolahId = ais.common.Common.angkaAtauNull(request, "sekolah_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -7621,8 +7618,8 @@ public class KantinHelper {
 			return;
 		}
 		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
-		Long fakultasId = request.isNull("fakultas_id") ? null : Long.valueOf((request.get("fakultas_id") + "").trim());
-		Long jurusanId = request.isNull("jurusan_id") ? null : Long.valueOf((request.get("jurusan_id") + "").trim());
+		Long fakultasId = ais.common.Common.angkaAtauNull(request, "fakultas_id");
+		Long jurusanId = ais.common.Common.angkaAtauNull(request, "jurusan_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -7687,8 +7684,8 @@ public class KantinHelper {
 			return;
 		}
 		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
-		Long yayasanId = request.isNull("yayasan_id") ? null : Long.valueOf((request.get("yayasan_id") + "").trim());
-		Long sekolahId = request.isNull("sekolah_id") ? null : Long.valueOf((request.get("sekolah_id") + "").trim());
+		Long yayasanId = ais.common.Common.angkaAtauNull(request, "yayasan_id");
+		Long sekolahId = ais.common.Common.angkaAtauNull(request, "sekolah_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -8313,9 +8310,9 @@ public class KantinHelper {
 		}
 
 		ais.database.model.inventory.Pedagang pedagangPembuat = tbmuser == null ? null : tbmuser.getPedagang();
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
-		Long idJenis = request.isNull("jenis_anggota_id") ? null : Long.valueOf((request.get("jenis_anggota_id") + "").trim());
-		Long idTipe = request.isNull("tipe_anggota_id") ? null : Long.valueOf((request.get("tipe_anggota_id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
+		Long idJenis = ais.common.Common.angkaAtauNull(request, "jenis_anggota_id");
+		Long idTipe = ais.common.Common.angkaAtauNull(request, "tipe_anggota_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -8528,14 +8525,13 @@ public class KantinHelper {
 
 	/** <h3>Pencairan Diskon -- helper cek sisa saldo member (dipakai form Flutter, live saat memilih anggota).</h3> */
 	public static void pencairanDiskonSaldoMember(JSONObject request, JSONObject hasil) throws Exception {
-		Long anggotaId = request.isNull("anggota_koperasi_id") ? null
-				: Long.valueOf((request.get("anggota_koperasi_id") + "").trim());
+		Long anggotaId = ais.common.Common.angkaAtauNull(request, "anggota_koperasi_id");
 		if (anggotaId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Anggota koperasi wajib dipilih.");
 			return;
 		}
-		Long exceptId = request.isNull("except_id") ? null : Long.valueOf((request.get("except_id") + "").trim());
+		Long exceptId = ais.common.Common.angkaAtauNull(request, "except_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			double sisa = pencairanDiskonSisaSaldo(session, anggotaId, exceptId);
@@ -8568,15 +8564,13 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola Pencairan Diskon.");
 			return;
 		}
-		Long anggotaId = request.isNull("anggota_koperasi_id") ? null
-				: Long.valueOf((request.get("anggota_koperasi_id") + "").trim());
+		Long anggotaId = ais.common.Common.angkaAtauNull(request, "anggota_koperasi_id");
 		if (anggotaId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Anggota koperasi wajib dipilih.");
 			return;
 		}
-		Long caraBayarId = request.isNull("cara_pembayaran_id") ? null
-				: Long.valueOf((request.get("cara_pembayaran_id") + "").trim());
+		Long caraBayarId = ais.common.Common.angkaAtauNull(request, "cara_pembayaran_id");
 		if (caraBayarId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Cara pencairan wajib dipilih.");
@@ -8596,7 +8590,7 @@ public class KantinHelper {
 		}
 		String status = request.optString("status", "PENDING").trim();
 		if (status.isEmpty()) status = "PENDING";
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -8696,7 +8690,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Pencairan Diskon.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID pencairan wajib diisi.");
@@ -8835,7 +8829,7 @@ public class KantinHelper {
 			// tokoAktifMultiToko (diisi lewat sesi_kas_buka) baru relevan di sini.
 			return tbmuser.getTokoAktifMultiToko();
 		}
-		return request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+		return ais.common.Common.angkaAtauNull(request, "toko_id");
 	}
 
 	/**
@@ -9340,7 +9334,7 @@ public class KantinHelper {
 	 *                (opsional, catatan penutup/berita acara ringkas).
 	 */
 	public static void soSesiSelesai(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Sesi tidak ditemukan.");
@@ -9473,7 +9467,7 @@ public class KantinHelper {
 			hasil.put("description", "Toko tidak diketahui.");
 			return;
 		}
-		Long produkId = request.isNull("produk_id") ? null : Long.valueOf((request.get("produk_id") + "").trim());
+		Long produkId = ais.common.Common.angkaAtauNull(request, "produk_id");
 		if (produkId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Produk tidak ditemukan.");
@@ -9794,8 +9788,8 @@ public class KantinHelper {
 			hasil.put("description", "Toko asal tidak diketahui.");
 			return;
 		}
-		Long produkAsalId = request.isNull("produk_asal_id") ? null : Long.valueOf((request.get("produk_asal_id") + "").trim());
-		Long tokoTujuanId = request.isNull("toko_tujuan_id") ? null : Long.valueOf((request.get("toko_tujuan_id") + "").trim());
+		Long produkAsalId = ais.common.Common.angkaAtauNull(request, "produk_asal_id");
+		Long tokoTujuanId = ais.common.Common.angkaAtauNull(request, "toko_tujuan_id");
 		if (produkAsalId == null || tokoTujuanId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Produk asal dan toko tujuan wajib diisi.");
@@ -9836,7 +9830,7 @@ public class KantinHelper {
 			}
 
 			Produk produkTujuan;
-			Long produkTujuanIdEksplisit = request.isNull("produk_tujuan_id") ? null : Long.valueOf((request.get("produk_tujuan_id") + "").trim());
+			Long produkTujuanIdEksplisit = ais.common.Common.angkaAtauNull(request, "produk_tujuan_id");
 			if (produkTujuanIdEksplisit != null) {
 				produkTujuan = (Produk) session.get(Produk.class, produkTujuanIdEksplisit);
 				if (produkTujuan == null || produkTujuan.getToko() == null || !produkTujuan.getToko().getId().equals(tokoTujuanId)) {
@@ -10098,8 +10092,7 @@ public class KantinHelper {
 		int page = Math.max(1, request.optInt("page", 1));
 		int pageSize = Math.min(500, Math.max(1, request.optInt("page_size", 15)));
 		String keyword = request.optString("keyword", "").trim();
-		Long kategoriId = request.isNull("kategori_id") ? null
-				: Long.valueOf((request.get("kategori_id") + "").trim());
+		Long kategoriId = ais.common.Common.angkaAtauNull(request, "kategori_id");
 
 		String tid = tokoId.toString();
 		String sql = "WITH u AS ("
@@ -10312,7 +10305,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat memakai Mutasi Stok Antar Outlet.");
 			return;
 		}
-		Long tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+		Long tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
 		if (tokoId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Toko wajib diisi.");
@@ -10387,8 +10380,7 @@ public class KantinHelper {
 		int page = Math.max(1, request.optInt("page", 1));
 		int pageSize = Math.min(5000, Math.max(1, request.optInt("page_size", 15)));
 		String q = request.optString("q", "").trim().toLowerCase();
-		Long idAnggota = request.isNull("id_anggota") ? null
-				: Long.valueOf((request.get("id_anggota") + "").trim());
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_anggota");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -11734,7 +11726,7 @@ public class KantinHelper {
 			java.sql.Connection conn = session.connection();
 			ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 			Long tokoId = pemanggil != null ? (pemanggil.getToko() == null ? null : pemanggil.getToko().getId())
-					: (request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim()));
+					: (ais.common.Common.angkaAtauNull(request, "toko_id"));
 			boolean semuaToko = (tokoId == null);
 
 			String tglMulai = request.optString("tglMulai", "");
@@ -12134,8 +12126,7 @@ public class KantinHelper {
 		// kompatibilitas mundur dgn pemanggil lama yg tak pernah mengirim parameter ini.
 		String periode = request.optString("periode", "last30").trim();
 		if (periode.isEmpty()) periode = "last30";
-		Long jenisAnggotaId = request.isNull("jenis_anggota_id") ? null
-				: Long.valueOf((request.get("jenis_anggota_id") + "").trim());
+		Long jenisAnggotaId = ais.common.Common.angkaAtauNull(request, "jenis_anggota_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
@@ -13052,7 +13043,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mencatat Kulakan (Harga Beli).");
 			return;
 		}
-		Long produkId = request.isNull("produk_id") ? null : Long.valueOf((request.get("produk_id") + "").trim());
+		Long produkId = ais.common.Common.angkaAtauNull(request, "produk_id");
 		if (produkId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Produk belum dipilih.");
@@ -13264,13 +13255,11 @@ public class KantinHelper {
 			hasil.put("description", "Belum ada barang yang dipilih untuk diretur.");
 			return;
 		}
-		Long pembelianAnggotaKoperasiId = request.isNull("pembelian_anggota_koperasi_id") ? null
-				: Long.valueOf((request.get("pembelian_anggota_koperasi_id") + "").trim());
+		Long pembelianAnggotaKoperasiId = ais.common.Common.angkaAtauNull(request, "pembelian_anggota_koperasi_id");
 		String kodeTransaksiAsal = request.optString("kode_transaksi_asal", "");
 		String namaPembeli = request.optString("nama_pembeli", "");
 		String metodePengembalian = request.optString("metode_pengembalian", "");
-		Long idAnggota = request.isNull("id_anggota_koperasi") ? null
-				: Long.valueOf((request.get("id_anggota_koperasi") + "").trim());
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_anggota_koperasi");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -13281,7 +13270,7 @@ public class KantinHelper {
 			double totalNilaiRetur = 0;
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				Long produkId = it.isNull("produk_id") ? null : Long.valueOf((it.get("produk_id") + "").trim());
+				Long produkId = ais.common.Common.angkaAtauNull(it, "produk_id");
 				if (produkId == null) {
 					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
 				}
@@ -13370,7 +13359,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengubah Retur Penjualan.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID retur wajib diisi.");
@@ -13447,7 +13436,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Retur Penjualan.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID retur wajib diisi.");
@@ -13564,7 +13553,7 @@ public class KantinHelper {
 			hasil.put("description", "Belum ada barang yang dimasukkan untuk faktur ini.");
 			return;
 		}
-		Long supplierId = request.isNull("supplier_id") ? null : Long.valueOf((request.get("supplier_id") + "").trim());
+		Long supplierId = ais.common.Common.angkaAtauNull(request, "supplier_id");
 		Double totalManual = request.isNull("total_faktur_manual") ? null : request.getDouble("total_faktur_manual");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -13604,7 +13593,7 @@ public class KantinHelper {
 			String oleh = tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId();
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				Long produkId = it.isNull("produk_id") ? null : Long.valueOf((it.get("produk_id") + "").trim());
+				Long produkId = ais.common.Common.angkaAtauNull(it, "produk_id");
 				if (produkId == null) {
 					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
 				}
@@ -13691,8 +13680,7 @@ public class KantinHelper {
 					"Hanya supervisor atau pemegang hak akses hapus Kulakan yang dapat membatalkan faktur.");
 			return;
 		}
-		Long fakturId = request.isNull("faktur_id") ? null
-				: Long.valueOf((request.get("faktur_id") + "").trim());
+		Long fakturId = ais.common.Common.angkaAtauNull(request, "faktur_id");
 		if (fakturId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Parameter faktur_id wajib diisi.");
@@ -13863,7 +13851,7 @@ public class KantinHelper {
 
 	/** <h3>Kulakan per-Faktur -- detail SATU header (dipakai layar detail/tap-riwayat).</h3> */
 	public static void kulakanFakturDetail(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		Long fakturId = request.isNull("faktur_id") ? null : Long.valueOf((request.get("faktur_id") + "").trim());
+		Long fakturId = ais.common.Common.angkaAtauNull(request, "faktur_id");
 		if (fakturId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID faktur wajib diisi.");
@@ -13984,7 +13972,7 @@ public class KantinHelper {
 		// Gap-closure layar "Supplier (Penyedia)" CRUD -- `id` hadir = ubah, kosong/tak ada = tambah
 		// (perilaku LAMA dipertahankan apa adanya, ini murni tambahan opsional supaya picker cepat-
 		// tambah dari Kulakan tetap jalan tanpa berubah, lihat JavaDoc method ini).
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.library.Penyedia p;
@@ -14111,7 +14099,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Supplier.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID supplier wajib diisi.");
@@ -14169,10 +14157,9 @@ public class KantinHelper {
 			hasil.put("description", "Belum ada barang yang dipilih untuk diretur.");
 			return;
 		}
-		Long fakturPengadaanId = request.isNull("faktur_pengadaan_id") ? null
-				: Long.valueOf((request.get("faktur_pengadaan_id") + "").trim());
+		Long fakturPengadaanId = ais.common.Common.angkaAtauNull(request, "faktur_pengadaan_id");
 		String kodeFakturAsal = request.optString("kode_faktur_asal", "");
-		Long supplierId = request.isNull("supplier_id") ? null : Long.valueOf((request.get("supplier_id") + "").trim());
+		Long supplierId = ais.common.Common.angkaAtauNull(request, "supplier_id");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -14192,7 +14179,7 @@ public class KantinHelper {
 			double totalNilaiRetur = 0;
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				Long produkId = it.isNull("produk_id") ? null : Long.valueOf((it.get("produk_id") + "").trim());
+				Long produkId = ais.common.Common.angkaAtauNull(it, "produk_id");
 				if (produkId == null) {
 					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
 				}
@@ -14346,7 +14333,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Retur Pembelian.");
 			return;
 		}
-		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		if (id == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID retur wajib diisi.");
@@ -14443,7 +14430,7 @@ public class KantinHelper {
 			hasil.put("description", "Alasan pembatalan wajib diisi.");
 			return;
 		}
-		Long idTransaksi = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Long idTransaksi = ais.common.Common.angkaAtauNull(request, "id");
 		if (idTransaksi == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "ID transaksi wajib diisi.");
@@ -15224,9 +15211,8 @@ public class KantinHelper {
 			hasil.put("description", "Toko tidak diketahui.");
 			return;
 		}
-		Long memberId = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
-		Long hanyaAturanId = request.isNull("hanya_aturan_id") ? null
-				: Long.valueOf((request.get("hanya_aturan_id") + "").trim());
+		Long memberId = ais.common.Common.angkaAtauNull(request, "id_member");
+		Long hanyaAturanId = ais.common.Common.angkaAtauNull(request, "hanya_aturan_id");
 		JSONArray items = request.optJSONArray("items");
 		if (items == null) {
 			items = new JSONArray();
@@ -15267,7 +15253,7 @@ public class KantinHelper {
 			hasil.put("description", "Toko tidak diketahui.");
 			return;
 		}
-		Long memberId = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		Long memberId = ais.common.Common.angkaAtauNull(request, "id_member");
 		JSONArray items = request.optJSONArray("items");
 		if (items == null) {
 			items = new JSONArray();
@@ -15281,7 +15267,7 @@ public class KantinHelper {
 			java.util.List<Long> produkIdPerItem = new java.util.ArrayList<Long>();
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				Long pid = it.isNull("id") ? null : Long.valueOf((it.get("id") + "").trim());
+				Long pid = ais.common.Common.angkaAtauNull(it, "id");
 				produkIdPerItem.add(pid);
 				if (pid != null) {
 					produkIdSet.add(pid);
@@ -15375,7 +15361,7 @@ public class KantinHelper {
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghitung ulang pesanan.");
 			return;
 		}
-		Long draftId = request.isNull("draft_id") ? null : Long.valueOf((request.get("draft_id") + "").trim());
+		Long draftId = ais.common.Common.angkaAtauNull(request, "draft_id");
 		if (draftId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "Pesanan tidak diketahui.");

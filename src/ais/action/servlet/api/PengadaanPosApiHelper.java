@@ -1911,6 +1911,13 @@ public final class PengadaanPosApiHelper {
 	/** Awalan {@code jenis} pada LampiranLain untuk dokumen tagihan pengadaan. */
 	private static final String JENIS_LAMPIRAN_TAGIHAN = "Dokumen Tagihan Pengadaan - ";
 
+	/**
+	 * Templat bukti setor pajak. BARU (2026-08-21) -- versi ZKoss tidak memiliki dokumen
+	 * per-baris untuk pajak, hanya ekspor daftar. Nama templatnya diletakkan di sini agar
+	 * POS dan ZKoss merujuk berkas yang sama.
+	 */
+	public static final String TEMPLAT_BUKTI_SETOR_PAJAK = "asset/bukti_setor_pajak";
+
 	/** Batas isi PDF cetak yang ikut dikirim sebagai base64 (8 MB). */
 	private static final long MAKS_BYTE_CETAK = 8L * 1024 * 1024;
 
@@ -3565,7 +3572,7 @@ public final class PengadaanPosApiHelper {
 					return;
 				}
 				parameter = parameterCetakPajak(d, tbmuser);
-				templat = "asset/bukti_setor_pajak";
+				templat = TEMPLAT_BUKTI_SETOR_PAJAK;
 				tanggal = d.getTanggalStor() == null ? d.getTanggal() : d.getTanggalStor();
 				kode = d.getKode() == null ? "" : d.getKode();
 			} else {
@@ -3629,7 +3636,9 @@ public final class PengadaanPosApiHelper {
 	 * per baris. Karena itu templatnya baru ({@code asset/bukti_setor_pajak.jrxml})
 	 * dan pembangun parameternya ada di sini, bukan dipinjam dari aksi ZKoss.</p>
 	 */
-	private static java.util.Map<String, Object> parameterCetakPajak(
+	// Akses publik: dipakai juga oleh tombol cetak pada layar Pertanggungjawaban Pajak
+	// versi ZKoss, supaya bukti setor yang tercetak dari kedua versi benar-benar sama.
+	public static java.util.Map<String, Object> parameterCetakPajak(
 			ais.database.model.akunting.Pajak p, Tbmuser tbmuser) {
 		java.util.Map<String, Object> m = new java.util.HashMap<String, Object>();
 		m.put("judul", "BUKTI SETOR PAJAK");
@@ -6102,8 +6111,7 @@ public final class PengadaanPosApiHelper {
 			ais.database.model.inventory.PengadaanFaktur faktur = null;
 			// Kulakan mengembalikan kunci "fakturId"; dibaca apa adanya agar penandaan
 			// tidak bergantung pada pencarian nomor faktur yang bisa saja kembar.
-			Long fakturId = hasilKulakan.isNull("fakturId") ? null
-					: Long.valueOf((hasilKulakan.get("fakturId") + "").trim());
+			Long fakturId = ais.common.Common.angkaAtauNull(hasilKulakan, "fakturId");
 			if (fakturId != null) {
 				faktur = (ais.database.model.inventory.PengadaanFaktur) tandai
 						.get(ais.database.model.inventory.PengadaanFaktur.class, fakturId);

@@ -768,7 +768,7 @@ public class PertangungjawabanPajakAction extends GenericAutowireComposer implem
 			hbx.setParent(arg0);
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
-			button.setTooltiptext("Cetak");
+			button.setTooltiptext("Cetak bukti setor / dokumen sumber");
 			button.setOrient("vertical");
 			button.addEventListener("onClick", new EventListener() {
 				@SuppressWarnings({})
@@ -779,6 +779,18 @@ public class PertangungjawabanPajakAction extends GenericAutowireComposer implem
 					} else if (pajak.getSaldoAwalMasterAssetDetail() != null
 							&& pajak.getSaldoAwalMasterAssetDetail().getSaldoAwal() != null) {
 						SaldoAwalMasterAssetAction.cetak(pajak.getSaldoAwalMasterAssetDetail().getSaldoAwal());
+					} else {
+						// Pajak yang lahir dari alur PENGADAAN tidak menempel pada
+						// Pertanggungjawaban maupun Saldo Awal, sehingga sebelumnya tombol ini
+						// tidak menghasilkan apa pun. Dicetak sebagai Bukti Setor Pajak memakai
+						// templat dan pembangun parameter YANG SAMA dengan versi POS, supaya
+						// dokumen dari kedua versi tidak mungkin berbeda isinya.
+						ais.action.report.Report.generatePDFReport(
+								ais.action.report.Report.PDF,
+								ais.action.servlet.api.PengadaanPosApiHelper.parameterCetakPajak(
+										pajak, Common.getCurrentUser()),
+								ais.action.servlet.api.PengadaanPosApiHelper.TEMPLAT_BUKTI_SETOR_PAJAK,
+								pajak.getTanggalStor() == null ? pajak.getTanggal() : pajak.getTanggalStor());
 					}
 				}
 			});

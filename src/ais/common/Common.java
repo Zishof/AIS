@@ -19163,6 +19163,61 @@ public class Common {
 	 * broken pipe). Dipakai agar log admin tidak dibanjiri error sementara yang
 	 * sebenarnya sudah ditangani (rollback + hasil kosong). Menelusuri rantai cause.
 	 */
+	/**
+	 * Membaca nilai id/angka dari payload JSON secara TOLERAN.
+	 *
+	 * <p><b>KE-FIX</b> ("java.lang.NumberFormatException: For input string: &quot;&quot;").
+	 * Pola lama di seluruh helper API berbentuk:</p>
+	 *
+	 * <pre>request.isNull("x") ? null : Long.valueOf((request.get("x") + "").trim())</pre>
+	 *
+	 * <p>Formulir HTML dan klien Flutter mengirim field kosong sebagai string KOSONG
+	 * ({@code "x": ""}), BUKAN JSON null. {@code JSONObject.isNull} bernilai false untuk string
+	 * kosong sehingga {@code Long.valueOf("")} tetap dijalankan dan melempar
+	 * NumberFormatException -- pengguna melihat layar galat "For input string:" pada aksi yang
+	 * sebenarnya sah (mis. retur penjualan tanpa nota asal).</p>
+	 *
+	 * <p>Karena pola lamanya sendiri sudah membolehkan hasil {@code null} (cabang isNull),
+	 * memulangkan {@code null} untuk nilai kosong/bukan angka TIDAK mengubah kontrak pemanggil:
+	 * nilainya tetap salah satu dari "ada angkanya" atau "tidak diisi".</p>
+	 *
+	 * @param request payload JSON (boleh null)
+	 * @param kunci   nama field
+	 * @return nilai Long, atau null bila tidak ada / kosong / bukan angka
+	 */
+	public static Long angkaAtauNull(JSONObject request, String kunci) {
+		if (request == null || kunci == null) {
+			return null;
+		}
+		Object mentah = request.opt(kunci);
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		if (mentah instanceof Number) {
+			return Long.valueOf(((Number) mentah).longValue());
+		}
+		String teks = String.valueOf(mentah).trim();
+		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "undefined".equalsIgnoreCase(teks)) {
+			return null;
+		}
+		try {
+			return Long.valueOf(teks);
+		} catch (NumberFormatException bukanBulat) {
+			try {
+				// Klien JavaScript kerap mengirim id sebagai desimal ("12.0"); ambil bagian bulatnya.
+				return Long.valueOf(new java.math.BigDecimal(teks).longValue());
+			} catch (NumberFormatException tetapBukanAngka) {
+				return null;
+			}
+		}
+	}
+
+	/** Sama seperti {@link #angkaAtauNull(JSONObject, String)} untuk elemen JSONArray berisi objek. */
+	public static Integer angkaBulatAtauNull(JSONObject request, String kunci) {
+		Long nilai = angkaAtauNull(request, kunci);
+		return nilai == null ? null : Integer.valueOf(nilai.intValue());
+	}
+
 	public static boolean isTransientKoneksiError(Throwable t) {
 		Throwable cur = t;
 		int guard = 0;
