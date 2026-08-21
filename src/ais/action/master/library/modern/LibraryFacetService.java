@@ -1,6 +1,8 @@
 package ais.action.master.library.modern;
 
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Hibernate;
@@ -31,6 +33,7 @@ public final class LibraryFacetService {
             result.put("years", scalarFacet(session, request, "tahun"));
             result.put("schools", entityFacet(session, request, "sekolah", "facetSchool"));
             result.put("studyPrograms", entityFacet(session, request, "jurusan", "facetStudyProgram"));
+            result.put("popularSearches", scalarFacet(session, new LibraryCatalogSearchRequest(), "kategories"));
             result.put("stats", statistics(session, request));
             return result;
         } catch (Exception error) {
@@ -48,11 +51,45 @@ public final class LibraryFacetService {
         LibraryScopeResolver.apply(request);
         Criteria criteria = new LibraryCatalogSearchService().createCriteria(session, request);
         criteria.setProjection(Projections.projectionList().add(Projections.property("id"))
-                .add(Projections.property("nama")).add(Projections.property("pengarangs")));
-        for (Object[] row : (List<Object[]>) criteria.setMaxResults(8).list()) {
-            result.put(new JSONObject().put("id", row[0]).put("title", safe(row[1])).put("authors", safe(row[2])));
+                .add(Projections.property("nama")).add(Projections.property("pengarangs"))
+                .add(Projections.property("kategories")).add(Projections.property("callnumber"))
+                .add(Projections.property("isbn")));
+        String needle = keyword.trim().toLowerCase();
+        Set<String> seen = new LinkedHashSet<String>();
+        JSONArray titles = new JSONArray(), authors = new JSONArray(), subjects = new JSONArray();
+        JSONArray callNumbers = new JSONArray(), identifiers = new JSONArray();
+        for (Object[] row : (List<Object[]>) criteria.setMaxResults(16).list()) {
+            addSuggestion(titles, seen, "TITLE", safe(row[1]), safe(row[2]), row[0], needle);
+            addSuggestion(authors, seen, "AUTHOR", safe(row[2]), "Penulis / pengarang", row[0], needle);
+            addSuggestion(subjects, seen, "SUBJECT", firstValue(row[3]), "Subjek", row[0], needle);
+            addSuggestion(callNumbers, seen, "CALL_NUMBER", safe(row[4]), "Nomor panggil", row[0], needle);
+            addSuggestion(identifiers, seen, "ISBN", safe(row[5]), "ISBN", row[0], needle);
         }
+        append(result, titles, 5); append(result, authors, 3); append(result, subjects, 2);
+        append(result, callNumbers, 1); append(result, identifiers, 1);
         return result;
+    }
+
+    private void append(JSONArray target, JSONArray source, int maximum) throws JSONException {
+        for (int i = 0; i < source.length() && i < maximum && target.length() < 12; i++) target.put(source.getJSONObject(i));
+    }
+
+    private void addSuggestion(JSONArray result, Set<String> seen, String type, String value,
+            String meta, Object id, String needle) throws JSONException {
+        if (result.length() >= 12 || blank(value) || value.toLowerCase().indexOf(needle) < 0) return;
+        String key = type + ":" + value.toLowerCase();
+        if (!seen.add(key)) return;
+        result.put(new JSONObject().put("id", id).put("type", type).put("value", value)
+                .put("title", value).put("meta", meta).put("authors", meta));
+    }
+
+    private static String firstValue(Object raw) {
+        String value = safe(raw);
+        if (value.length() == 0) return value;
+        int comma = value.indexOf(',');
+        int semicolon = value.indexOf(';');
+        int split = comma < 0 ? semicolon : semicolon < 0 ? comma : Math.min(comma, semicolon);
+        return split < 0 ? value : value.substring(0, split).trim();
     }
 
     @SuppressWarnings("unchecked")
@@ -133,18 +170,33 @@ public final class LibraryFacetService {
 
     private long digitalCount(Session session, LibraryCatalogSearchRequest request) {
         Criteria criteria = new LibraryCatalogSearchService().createCriteria(session, request);
-        criteria.add(Restrictions.or(Restrictions.eq("bolehDiDownload", Boolean.TRUE),
-                Restrictions.or(Restrictions.isNotNull("ebooksLink"), Restrictions.isNotNull("ebooksLinkPdf"))));
+        criteria.add(Restrictions.and(Restrictions.eq("bolehDiDownload", Boolean.TRUE),
+                Restrictions.or(nonBlank("ebooksLink"), Restrictions.or(nonBlank("ebooksLinkPdf"), nonBlank("lampiranPath")))));
         return number(criteria.setProjection(Projections.rowCount()).uniqueResult());
+    }
+
+    private org.hibernate.criterion.Criterion nonBlank(String property) {
+        return Restrictions.and(Restrictions.isNotNull(property), Restrictions.ne(property, ""));
     }
 
     private JSONObject statistics(Session session, LibraryCatalogSearchRequest request) throws JSONException {
         long titles = number(new LibraryCatalogSearchService().createCriteria(session, request)
                 .setProjection(Projections.rowCount()).uniqueResult());
-        long copies = number(session.createSQLQuery("select count(b.id) from library.item_punya_barcode b join library.item i on i.id=b.item "
+        List<Long> allowed = LibraryScopeResolver.allowedLibraryIds(session);
+        Query copiesQuery = session.createSQLQuery("select count(b.id) from library.item_punya_barcode b join library.item i on i.id=b.item "
                 + "where (i.aktif is null or i.aktif=true) and i.status_terbit_item in "
-                + "(select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published')) ").uniqueResult());
-        long branches = number(session.createSQLQuery("select count(id) from library.perpustakaan where aktif is null or aktif=true").uniqueResult());
+                + "(select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published')) "
+                + (allowed == null ? "" : "and b.perpustakaan in (:allowedLibraries)"));
+        Query branchesQuery = session.createSQLQuery("select count(id) from library.perpustakaan where (aktif is null or aktif=true) "
+                + (allowed == null ? "" : "and id in (:allowedLibraries)"));
+        if (allowed != null) {
+            if (allowed.isEmpty()) return new JSONObject().put("titles", titles).put("copies", 0).put("branches", 0)
+                    .put("digital", digitalCount(session, request));
+            copiesQuery.setParameterList("allowedLibraries", allowed);
+            branchesQuery.setParameterList("allowedLibraries", allowed);
+        }
+        long copies = number(copiesQuery.uniqueResult());
+        long branches = number(branchesQuery.uniqueResult());
         return new JSONObject().put("titles", titles).put("copies", copies).put("branches", branches)
                 .put("digital", digitalCount(session, request));
     }

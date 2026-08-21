@@ -1,6 +1,7 @@
 package ais.action.master.library.modern;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -21,12 +22,18 @@ public final class LibraryCatalogApi {
         String action = request.getParameter("action");
         LibraryCatalogSearchService service = new LibraryCatalogSearchService();
         if ("references".equals(action)) return service.references();
-        if ("suggestions".equals(action)) return suggestions(request);
+        if ("suggestions".equals(action)) {
+            if (!allow(request.getSession(), "catalog-suggest", 40, 60000L))
+                return new JSONObject().put("ok", false).put("error", "Terlalu banyak permintaan saran. Coba lagi sebentar.");
+            return suggestions(request);
+        }
         if ("recommendations".equals(action)) {
             Long itemId = positiveLong(request.getParameter("itemId"));
             return new JSONObject().put("ok", true).put("items", service.recommendations(itemId, 6));
         }
         if ("search".equals(action) || "latest".equals(action)) {
+            if (!allow(request.getSession(), "catalog-search", 90, 60000L))
+                return new JSONObject().put("ok", false).put("error", "Terlalu banyak pencarian. Coba lagi sebentar.");
             LibraryCatalogSearchRequest searchRequest=LibraryCatalogSearchRequest.from(request);
             LibraryScopeResolver.apply(searchRequest);
             JSONObject result = service.search(searchRequest).toJson();
@@ -40,6 +47,24 @@ public final class LibraryCatalogApi {
             return result;
         }
         return new JSONObject().put("ok", false).put("error", "Operasi katalog tidak dikenal.");
+    }
+
+    private static boolean allow(HttpSession session, String key, int limit, long windowMillis) {
+        long now = System.currentTimeMillis();
+        String startKey = key + "-start";
+        String countKey = key + "-count";
+        synchronized (session) {
+            Long start = (Long) session.getAttribute(startKey);
+            Integer count = (Integer) session.getAttribute(countKey);
+            if (start == null || now - start.longValue() >= windowMillis) {
+                session.setAttribute(startKey, Long.valueOf(now));
+                session.setAttribute(countKey, Integer.valueOf(1));
+                return true;
+            }
+            int next = count == null ? 1 : count.intValue() + 1;
+            session.setAttribute(countKey, Integer.valueOf(next));
+            return next <= limit;
+        }
     }
 
     private static Long positiveLong(String raw) {

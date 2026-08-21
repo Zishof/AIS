@@ -2,7 +2,9 @@
 response.setHeader("Cache-Control", "no-store");
 response.setHeader("X-Content-Type-Options", "nosniff");
 try {
-    out.print(LibraryCatalogApi.handle(request).toString());
+    JSONObject result = LibraryCatalogApi.handle(request);
+    if (!result.optBoolean("ok", true) && result.optString("error").startsWith("Terlalu banyak")) response.setStatus(429);
+    out.print(result.toString());
 } catch (Exception error) {
     ais.common.ErrorAuditUtil.record(error, "library typed catalog API");
     response.setStatus(500);

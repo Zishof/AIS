@@ -166,6 +166,15 @@ public class LibraryCatalogSearchService {
             notes = Restrictions.or(notes, Restrictions.ilike("kewords", request.getNotes(), MatchMode.ANYWHERE));
             criteria.add(notes);
         }
+        if (request.getExclude() != null) {
+            String value = request.getExclude();
+            Criterion excluded = Restrictions.ilike("nama", value, MatchMode.ANYWHERE);
+            excluded = Restrictions.or(excluded, Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
+            excluded = Restrictions.or(excluded, Restrictions.ilike("kategories", value, MatchMode.ANYWHERE));
+            excluded = Restrictions.or(excluded, Restrictions.ilike("abstrak", value, MatchMode.ANYWHERE));
+            excluded = Restrictions.or(excluded, Restrictions.ilike("kewords", value, MatchMode.ANYWHERE));
+            criteria.add(Restrictions.not(excluded));
+        }
         if (request.getSubject() != null) criteria.add(Restrictions.or(
                 Restrictions.ilike("kategories", request.getSubject(), MatchMode.ANYWHERE),
                 Restrictions.ilike("tema", request.getSubject(), MatchMode.ANYWHERE)));
@@ -206,10 +215,14 @@ public class LibraryCatalogSearchService {
         else if ("LOANED".equals(request.getAvailability())) criteria.add(Restrictions.sqlRestriction(
                 "exists (select 1 from library.item_punya_barcode b join library.peminjaman_pengadaan_item_detail d "
                 + "on d.item_punya_barcode=b.id where b.item={alias}.id and d.kembali_pengadaan_item_detail is null)"));
-        else if ("DIGITAL".equals(request.getAvailability())) criteria.add(Restrictions.or(
-                Restrictions.eq("bolehDiDownload", Boolean.TRUE),
-                Restrictions.or(Restrictions.isNotNull("ebooksLink"), Restrictions.isNotNull("ebooksLinkPdf"))));
+        else if ("DIGITAL".equals(request.getAvailability())) criteria.add(Restrictions.and(
+                Restrictions.eq("bolehDiDownload", Boolean.TRUE), Restrictions.or(
+                nonBlank("ebooksLink"), Restrictions.or(nonBlank("ebooksLinkPdf"), nonBlank("lampiranPath")))));
         return criteria;
+    }
+
+    private Criterion nonBlank(String property) {
+        return Restrictions.and(Restrictions.isNotNull(property), Restrictions.ne(property, ""));
     }
 
     private void applySort(Criteria criteria, String sort) {

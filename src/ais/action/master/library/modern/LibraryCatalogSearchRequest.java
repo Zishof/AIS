@@ -20,6 +20,7 @@ public class LibraryCatalogSearchRequest {
     private String language;
     private String edition;
     private String notes;
+    private String exclude;
     private String searchField;
     private String subject;
     private String callNumber;
@@ -50,6 +51,7 @@ public class LibraryCatalogSearchRequest {
         value.language = text(request.getParameter("language"), 60);
         value.edition = text(request.getParameter("edition"), 80);
         value.notes = text(request.getParameter("notes"), 160);
+        value.exclude = text(request.getParameter("exclude"), 160);
         value.searchField = allowedSearchField(request.getParameter("searchField"));
         value.subject = text(request.getParameter("subject"), 120);
         value.callNumber = text(request.getParameter("callNumber"), 80);
@@ -136,6 +138,7 @@ public class LibraryCatalogSearchRequest {
     public String getLanguage() { return language; }
     public String getEdition() { return edition; }
     public String getNotes() { return notes; }
+    public String getExclude() { return exclude; }
     public String getSearchField() { return searchField; }
     public String getSubject() { return subject; }
     public String getCallNumber() { return callNumber; }
@@ -163,6 +166,7 @@ public class LibraryCatalogSearchRequest {
     public void setLanguage(String language) { this.language = text(language, 60); }
     public void setEdition(String edition) { this.edition = text(edition, 80); }
     public void setNotes(String notes) { this.notes = text(notes, 160); }
+    public void setExclude(String exclude) { this.exclude = text(exclude, 160); }
     public void setSearchField(String searchField) { this.searchField = allowedSearchField(searchField); }
     public void setSubject(String subject) { this.subject = text(subject, 120); }
     public void setCallNumber(String callNumber) { this.callNumber = text(callNumber, 80); }
