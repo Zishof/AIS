@@ -338,6 +338,8 @@ public class PosApi extends HttpServlet {
 				normalisasiStatusKantinHelper(hasil, "satuan_kerja_anggota_simpan");
 			} else if ("laporan_rincian_transaksi".equals(action)) {
 				prosesLaporanRincianTransaksi(tbmuser, payload, hasil);
+			} else if ("error_log_health".equals(action)) {
+				prosesErrorLogHealth(hasil);
 			} else if ("hak_akses_list".equals(action)) {
 				KantinHelper.hakAksesList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "hak_akses_list");
@@ -4083,6 +4085,110 @@ public class PosApi extends HttpServlet {
 	 * <p>Laporan yang TIDAK berbasis transaksi (stok, master data) tidak memakai
 	 * aksi ini -- klien tetap menampilkan rincian baris apa adanya.</p>
 	 */
+	/**
+	 * <h3>Kesehatan server &amp; database untuk panel Log Error di POS.</h3>
+	 *
+	 * <p>Aksi ini SEBELUMNYA tidak pernah ada, sehingga panel "Kesehatan Server &amp;
+	 * Database" di POS Desktop/Android selalu memerahkan pesan "Aksi tidak dikenal:
+	 * error_log_health". Padahal panel itulah tempat pertama yang dilihat kasir ketika
+	 * pengiriman transaksi melambat.</p>
+	 *
+	 * <p>Isinya sengaja diarahkan ke pertanyaan "kenapa lambat": latensi kueri paling
+	 * sederhana, jumlah koneksi yang sedang dipakai dibanding batasnya, kueri yang
+	 * berjalan paling lama, serta pemakaian memori JVM. Seluruhnya HANYA MEMBACA.</p>
+	 *
+	 * <p>Setiap bagian dibungkus try masing-masing: instalasi yang role-nya tidak boleh
+	 * membaca pg_stat_activity tetap memperoleh bagian lain, bukan satu galat besar.</p>
+	 */
+	private static void prosesErrorLogHealth(JSONObject hasil) throws Exception {
+		Session session = null;
+		try {
+			hasil.put("waktuServer",
+					ais.common.Common.dateFormat3.get().format(ais.ui.util.WaktuUtil.getDate()));
+
+			Runtime rt = Runtime.getRuntime();
+			JSONObject memori = new JSONObject();
+			memori.put("dipakaiMb", (rt.totalMemory() - rt.freeMemory()) / (1024L * 1024L));
+			memori.put("totalMb", rt.totalMemory() / (1024L * 1024L));
+			memori.put("maksimalMb", rt.maxMemory() / (1024L * 1024L));
+			hasil.put("memoriJvm", memori);
+
+			session = HibernateUtil.openSession();
+
+			long mulai = System.currentTimeMillis();
+			Object satu = session.createSQLQuery("select 1").uniqueResult();
+			long latensi = System.currentTimeMillis() - mulai;
+			hasil.put("databaseTerhubung", satu != null);
+			hasil.put("latensiKueriMs", latensi);
+
+			try {
+				Object versi = session.createSQLQuery("select version()").uniqueResult();
+				hasil.put("versiDatabase", versi == null ? "" : String.valueOf(versi));
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.errorLogHealth:versi");
+			}
+
+			try {
+				Object dipakai = session
+						.createSQLQuery("select count(*) from pg_stat_activity").uniqueResult();
+				Object batas = session
+						.createSQLQuery("select setting from pg_settings where name = 'max_connections'")
+						.uniqueResult();
+				JSONObject koneksi = new JSONObject();
+				koneksi.put("dipakai", dipakai == null ? 0 : Integer.parseInt(String.valueOf(dipakai)));
+				koneksi.put("maksimal", batas == null ? 0 : Integer.parseInt(String.valueOf(batas)));
+				hasil.put("koneksiDatabase", koneksi);
+			} catch (Exception e) {
+				// Role aplikasi boleh saja tidak diberi hak baca pg_stat_activity.
+				ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.errorLogHealth:koneksi");
+			}
+
+			try {
+				/* Kueri yang sedang berjalan paling lama. Inilah petunjuk paling langsung
+				 * ketika aksi bayar mulai melewati batas waktu 30 detik milik POS. */
+				java.util.List<?> lama = session.createSQLQuery(
+						"select round(extract(epoch from (now() - query_start)))::int as detik, state, "
+								+ "left(coalesce(query,''), 200) as kueri "
+								+ "from pg_stat_activity where state <> 'idle' and query_start is not null "
+								+ "order by query_start asc limit 5").list();
+				JSONArray daftar = new JSONArray();
+				for (int i = 0; i < lama.size(); i++) {
+					Object[] baris = (Object[]) lama.get(i);
+					JSONObject item = new JSONObject();
+					item.put("detikBerjalan", baris[0] == null ? 0 : baris[0]);
+					item.put("status", baris[1] == null ? "" : String.valueOf(baris[1]));
+					item.put("kueri", baris[2] == null ? "" : String.valueOf(baris[2]));
+					daftar.put(item);
+				}
+				hasil.put("kueriTerlama", daftar);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.errorLogHealth:kueri-lama");
+			}
+
+			hasil.put("status", "00");
+			hasil.put("description", "Server dan database dapat dihubungi.");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.errorLogHealth");
+			hasil.put("status", "91");
+			hasil.put("databaseTerhubung", false);
+			hasil.put("description",
+					"Server menjawab, tetapi database belum dapat dihubungi: " + e.getMessage());
+		} finally {
+			if (session != null) {
+				try {
+					if (session.isOpen()) {
+						session.clear();
+						session.disconnect();
+						session.close();
+					}
+				} catch (Exception tutupEx) {
+					ais.common.ErrorAuditUtil.record(tutupEx,
+							"auto-audit(empty-catch) PosApi.errorLogHealth:tutup-session");
+				}
+			}
+		}
+	}
+
 	private void prosesLaporanRincianTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
