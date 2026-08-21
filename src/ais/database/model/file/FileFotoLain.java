@@ -170,7 +170,8 @@ public abstract class FileFotoLain extends FileFoto {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/file/FileFotoLain.java:173");
+			// Berkas fisik bisa hilang/berupa link lama. Link lampiran tetap dibangun
+			// lewat metadata agar halaman tidak gagal hanya karena cache file tidak ada.
 		}
 
 		String uri = LampiranLain.ambilLinkLampiranLain(this, false, true, ambilClazz(), ketemu, relative);
@@ -257,15 +258,19 @@ public abstract class FileFotoLain extends FileFoto {
 				return (relative ? Common.ROOT : Common.getRequestHostWithProtocol()) + "/img/" + iconNggakAda(clazz);
 			}
 
+			String namaAsli = fileFoto.getNama();
+			if (namaAsli == null || namaAsli.trim().length() == 0) {
+				namaAsli = "lampiran";
+			}
 			String namaFile = StringUtils.replace(
-					StringUtils.replace(StringUtils.replace(fileFoto.getNama(), " ", "_"), "%", "_"), "#", "_");
+					StringUtils.replace(StringUtils.replace(namaAsli, " ", "_"), "%", "_"), "#", "_");
 //			boolean isImage = namaFile.toLowerCase().matches(".*\\.(jpg|jpeg|png|gif)$");
 //			boolean resi = rezise && isImage;
 
 			String link = ambilLinkLampiranLainLink(fileFoto.ambilRef(), fileFoto.getJenis(), usingId, download, clazz,
 					relative, rezise);
 
-			if ("Berupa link file".equalsIgnoreCase(fileFoto.getNama())) {
+			if ("Berupa link file".equalsIgnoreCase(namaAsli)) {
 				link = fileFoto.getLink();
 			} else if (fileFoto.getGdrive() != null && !fileFoto.getGdrive().isEmpty()) {
 				link = "https://drive.google.com/file/d/" + fileFoto.getGdrive() + "/preview";

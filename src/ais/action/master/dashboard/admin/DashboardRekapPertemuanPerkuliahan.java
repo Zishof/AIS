@@ -1747,7 +1747,8 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 			// dari titik berbeda. Cukup catat & lewati -- render akan tertunda sampai desktop kembali
 			// bisa dijadwalkan (mis. pemanggilan safeRenderRekap berikutnya), bukan memaksa akses ZK
 			// yang tidak aman.
-			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardRekapPertemuanPerkuliahan.java:1714");
+			// Desktop/tab bisa sudah ditutup atau server-push belum tersedia. Ini bukan
+			// error data; rendering akan dicoba lagi pada siklus berikutnya.
 		}
 	}
 
@@ -1762,7 +1763,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				}
 			}, new Event("onUpdateLabel"));
 		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/DashboardRekapPertemuanPerkuliahan.java:schedule-label");
+			// Abaikan update status bila desktop sudah tidak dapat dijadwalkan.
 		}
 	}
 }

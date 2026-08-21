@@ -52,6 +52,12 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 		try {
 			init();
 		} catch (Exception e) {
+			Common.clear(this);
+			Label error = new Label("Menu Matakuliah belum dapat ditampilkan. Silakan refresh halaman atau hubungi Administrator. Detail: "
+					+ (e.getMessage() == null ? e.getClass().getName() : e.getMessage()));
+			error.setMultiline(true);
+			error.setStyle("display:block;padding:14px;color:#b91c1c;font-weight:bold;");
+			error.setParent(this);
 			Common.tampilErrorJikaAdmin(e);
 		}
 	}
@@ -66,6 +72,8 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 
 	private void init() throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
 		borderlayout.setParent(this);
 
 		North west = new North();

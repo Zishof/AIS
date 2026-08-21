@@ -1554,6 +1554,9 @@ public class TagihanUIBuilder {
 												try {
 													boolean adaInfopmbayaranB = false;
 													for (Future<Map<String, Object>> future : futures) {
+														if (Thread.currentThread().isInterrupted()) {
+															break;
+														}
 														Map<String, Object> res = future.get();
 														if (res != null && !res.isEmpty()) {
 															Div localUi = (Div) res.get("ui");
@@ -1581,8 +1584,10 @@ public class TagihanUIBuilder {
 												} finally {
 													org.zkoss.zk.ui.Executions.deactivate(desktop);
 												}
-											} catch (org.zkoss.zk.ui.DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:1537");
+											} catch (org.zkoss.zk.ui.DesktopUnavailableException due) {
 												// Tab keburu diclose
+											} catch (InterruptedException e) {
+												Thread.currentThread().interrupt();
 											} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:1539");
 											}
 										}

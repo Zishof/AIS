@@ -103,9 +103,16 @@ public class CommonMedia {
 
 	public static void resizeImage(File originalFile, int width, int height, File filekecil) {
 		try {
+			if (originalFile == null || width <= 0 || height <= 0) {
+				return;
+			}
 			BufferedImage image = ImageIO.read(originalFile);
 			if (image == null)
 				return;
+
+			if (image.getWidth() <= 0 || image.getHeight() <= 0) {
+				return;
+			}
 
 			java.awt.Image originalImage = image.getScaledInstance(width, height, java.awt.Image.SCALE_DEFAULT);
 
@@ -129,8 +136,10 @@ public class CommonMedia {
 				extension = fileName.substring(dotIndex + 1);
 			}
 
-			ImageIO.write(resizedImage, extension, filekecil);
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonMedia.java:133");
+			if (filekecil != null) {
+				ImageIO.write(resizedImage, extension, filekecil);
+			}
+		} catch (Exception e) {
 			// Abaikan atau log sesuai kebutuhan
 		}
 	}

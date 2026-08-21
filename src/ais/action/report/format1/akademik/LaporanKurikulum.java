@@ -261,7 +261,9 @@ public class LaporanKurikulum extends MyWindow {
 			}
 		}));
 
-		onKurikulum(null);
+		if (kurikulumJenis.getSelectedItem() != null) {
+			onKurikulum(null);
+		}
 
 	}
 
@@ -379,8 +381,20 @@ public class LaporanKurikulum extends MyWindow {
 
 		try {
 
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), "Kurikulum",
+			Map parameters = generateParameter();
+			if (parameters == null) {
+				if (event != null) {
+					MyMessageboxConfig.show("Pilih salah satu kurikulum", "Peringatan", MyMessageboxConfig.OK,
+							MyMessageboxConfig.INFORMATION);
+				}
+				return;
+			}
+
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameters, "Kurikulum",
 					ais.ui.util.WaktuUtil.getDate(), toolbar);
+			if (file == null) {
+				return;
+			}
 			CommonReport.tampilkanReportPDF(center, file);
 
 		} catch (Exception e) {

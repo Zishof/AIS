@@ -1005,7 +1005,9 @@ public class Report extends GenericAutowireComposer {
 				String mime = "image/png";
 				try {
 					mime = net.sf.jasperreports.engine.util.JRTypeSniffer.getImageTypeValue(data).getMimeType();
-				} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/report/Report.java:858");
+				} catch (Throwable t) {
+					// Beberapa Jasper element bukan image biner valid. Untuk HTML preview,
+					// fallback PNG cukup; jangan jadikan ini error aplikasi.
 				}
 				petaGambar.put(id, "data:" + mime + ";base64,"
 						+ org.apache.commons.codec.binary.Base64.encodeBase64String(data));
@@ -1187,10 +1189,11 @@ public class Report extends GenericAutowireComposer {
 				if (jasperPrint.getPages() != null && jasperPrint.getPages().size() > 300) {
 					return; // laporan sangat besar: lewati agar pratinjau tetap ringan
 				}
-			} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/report/Report.java:949");
+			} catch (Throwable t) {
+				return;
 			}
 			exportJasperPrintToHtmlMandiri(jasperPrint, berkasHtmlPendamping(pdfFile));
-		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/report/Report.java:952");
+		} catch (Throwable t) {
 			// best-effort — abaikan, pratinjau akan jatuh-balik ke PDF
 		}
 	}
@@ -2086,14 +2089,8 @@ public class Report extends GenericAutowireComposer {
 	public static File generateFileReportCore(String formatLaporan, Map parameters, String fileD, Date t, List maps,
 			String bar, Locale locale) throws Exception {
 		if (parameters == null) {
-			// Diagnostik: sebelumnya method ini diam-diam mengembalikan null tanpa
-			// jejak apapun -- caller (generateDownloadReport) hanya melihat "Berkas
-			// hasil laporan tidak ditemukan" tanpa tahu ini sebabnya. Catat agar
-			// audit/log punya konteks nama laporan yang diminta.
-			ais.common.ErrorAuditUtil.record(
-					new IllegalArgumentException("parameters null saat generateFileReportCore, laporan=" + fileD
-							+ ", format=" + formatLaporan),
-					"auto-audit(parameters null, laporan tidak dibuat) src/ais/action/report/Report.java:generateFileReportCore");
+			// Kondisi normal untuk layar report yang belum lengkap filternya. Caller
+			// yang butuh pesan pengguna menangani null ini di level UI.
 			return null;
 		}
 

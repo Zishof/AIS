@@ -341,15 +341,15 @@ public class SyaratUjian extends GeneralValueObject {
 			try {
 				String[] subS = StringUtils.split(s, "<>");
 				String n = subS.length > 0 ? subS[0].trim() : "";
-				Double persen = subS.length > 1 ? Double.parseDouble(subS[1].trim()) : 0.0;
+				Double persen = subS.length > 1 ? parseAngkaAman(subS[1], 0.0) : 0.0;
 				String keterangan = subS.length > 2 ? subS[2].trim() : "";
 				Boolean atau = subS.length > 3 ? Boolean.parseBoolean(subS[3].trim()) : false;
 				String bulan = subS.length > 4 ? subS[4].trim() : "";
 				String item = subS.length > 5 ? subS[5].trim() : "";
 				Integer smt = 0;
 				try {
-					smt = subS.length > 6 ? Integer.parseInt(subS[6].trim()) : 0;
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/SyaratUjian.java:352");
+					smt = subS.length > 6 ? Integer.valueOf(parseAngkaAman(subS[6], 0.0).intValue()) : 0;
+				} catch (Exception e) {
 //					e.printStackTrace();
 				}
 
@@ -357,7 +357,7 @@ public class SyaratUjian extends GeneralValueObject {
 
 				list.add(new Object[] { n, persen, keterangan, atau, bulan.equals("0") ? "" : bulan,
 						item.equals("0") ? "" : item, smt });
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/SyaratUjian.java:360");
+			} catch (Exception e) {
 //				e.printStackTrace();
 			}
 		}
@@ -372,11 +372,11 @@ public class SyaratUjian extends GeneralValueObject {
 				String[] subS = StringUtils.split(s, "<>");
 				String n = subS.length > 0 ? subS[0].trim() : "";
 				if (n.equalsIgnoreCase(nama.trim())) {
-					persen = subS.length > 1 ? Double.parseDouble(subS[1].trim()) : 0.0;
+					persen = subS.length > 1 ? parseAngkaAman(subS[1], 0.0) : 0.0;
 					return persen;
 				}
 			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/SyaratUjian.java:379");
+				return 0.0;
 			}
 		}
 		return persen;
@@ -390,14 +390,46 @@ public class SyaratUjian extends GeneralValueObject {
 				String[] subS = StringUtils.split(s, "<>");
 				String n = subS.length > 0 ? subS[0].trim() : "";
 				if (n.equalsIgnoreCase(nama.trim())) {
-					smt = subS.length > 6 ? Integer.parseInt(subS[6].trim()) : 0;
+					smt = subS.length > 6 ? Integer.valueOf(parseAngkaAman(subS[6], 0.0).intValue()) : 0;
 					return smt;
 				}
 			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/SyaratUjian.java:397");
+				return 0;
 			}
 		}
 		return smt;
+	}
+
+	private static Double parseAngkaAman(String nilai, Double defaultValue) {
+		if (nilai == null) {
+			return defaultValue;
+		}
+		String teks = nilai.trim().replace(',', '.');
+		StringBuilder angka = new StringBuilder();
+		boolean sudahTitik = false;
+		boolean sudahAngka = false;
+		for (int i = 0; i < teks.length(); i++) {
+			char c = teks.charAt(i);
+			if ((c == '-' || c == '+') && angka.length() == 0) {
+				angka.append(c);
+			} else if (c >= '0' && c <= '9') {
+				angka.append(c);
+				sudahAngka = true;
+			} else if (c == '.' && !sudahTitik) {
+				angka.append(c);
+				sudahTitik = true;
+			} else if (sudahAngka) {
+				break;
+			}
+		}
+		if (!sudahAngka) {
+			return defaultValue;
+		}
+		try {
+			return Double.valueOf(angka.toString());
+		} catch (Exception e) {
+			return defaultValue;
+		}
 	}
 
 	public String ambilBulan(String nama) {

@@ -181,11 +181,30 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 	private Tabpanel manajemenKurikulum;
 
 	public void onKurikulum(Event event) {
-		if (manajemenKurikulum.getChildren().size() == 0) {
-			MatakuliahVsKurikulumAction laporan = new MatakuliahVsKurikulumAction();
-			laporan.setHeight("100%");
-			laporan.setWidth("100%");
-			laporan.setParent(manajemenKurikulum);
+		try {
+			if (manajemenKurikulum == null) {
+				return;
+			}
+			boolean perluBangun = manajemenKurikulum.getChildren().size() == 0;
+			if (!perluBangun && manajemenKurikulum.getFirstChild() instanceof MatakuliahVsKurikulumAction
+					&& manajemenKurikulum.getFirstChild().getChildren().isEmpty()) {
+				perluBangun = true;
+				Common.clear(manajemenKurikulum);
+			}
+			if (perluBangun) {
+				MatakuliahVsKurikulumAction laporan = new MatakuliahVsKurikulumAction();
+				laporan.setHeight("100%");
+				laporan.setWidth("100%");
+				laporan.setParent(manajemenKurikulum);
+			}
+		} catch (Exception e) {
+			Common.clear(manajemenKurikulum);
+			Label error = new Label("Menu Matakuliah belum dapat ditampilkan. Detail: "
+					+ (e.getMessage() == null ? e.getClass().getName() : e.getMessage()));
+			error.setMultiline(true);
+			error.setStyle("display:block;padding:14px;color:#b91c1c;font-weight:bold;");
+			error.setParent(manajemenKurikulum);
+			Common.tampilErrorJikaAdmin(e);
 		}
 	}
 
