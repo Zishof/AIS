@@ -209,11 +209,16 @@ public class Repository extends HttpServlet {
         q.programStudy = clean(request.getParameter("program"));
         q.searchScope = clean(request.getParameter("scope"));
         q.fullText = clean(request.getParameter("fullText"));
+        q.exactPhrase = clean(request.getParameter("exact"));
+        q.anyWords = clean(request.getParameter("any"));
+        q.withoutWords = clean(request.getParameter("without"));
         q.collectionId = request.getAttribute("repoRouteCollectionId") instanceof Long
                 ? (Long)request.getAttribute("repoRouteCollectionId") : parseLong(request.getParameter("collection"));
         q.documentType = clean(request.getParameter("type"));
         q.accessPolicy = clean(request.getParameter("access"));
         q.year = parseInteger(request.getParameter("year"));
+        q.yearFrom = parseInteger(request.getParameter("yearFrom"));
+        q.yearUntil = parseInteger(request.getParameter("yearUntil"));
         q.sort = clean(request.getParameter("sort"));
         Integer page = parseInteger(request.getParameter("page"));
         Integer size = parseInteger(request.getParameter("size"));

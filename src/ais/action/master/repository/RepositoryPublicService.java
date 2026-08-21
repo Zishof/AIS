@@ -58,10 +58,15 @@ public class RepositoryPublicService {
         public String searchScope = "all";
         /** WITH_FILE atau METADATA_ONLY. Kosong berarti keduanya. */
         public String fullText = "";
+        public String exactPhrase = "";
+        public String anyWords = "";
+        public String withoutWords = "";
         public Long collectionId;
         public String documentType = "";
         public String accessPolicy = "";
         public Integer year;
+        public Integer yearFrom;
+        public Integer yearUntil;
         public Date modifiedFrom;
         public Date modifiedUntil;
         public String sort = "newest";
@@ -181,6 +186,8 @@ public class RepositoryPublicService {
         public Map<String, Long> licenseFacets = new LinkedHashMap<String, Long>();
         public Map<String, Long> fullTextFacets = new LinkedHashMap<String, Long>();
         public List<CollectionView> collections = new ArrayList<CollectionView>();
+        public String didYouMean = "";
+        public boolean synonymExpanded;
     }
 
     public Session session() {
@@ -202,6 +209,9 @@ public class RepositoryPublicService {
         q.programStudy = limit(clean(q.programStudy), 200);
         q.searchScope = "metadata".equalsIgnoreCase(clean(q.searchScope)) ? "metadata" : "all";
         q.fullText = normalizeFullText(q.fullText);
+        q.exactPhrase = limit(clean(q.exactPhrase), 200);
+        q.anyWords = limit(clean(q.anyWords), 200);
+        q.withoutWords = limit(clean(q.withoutWords), 200);
         q.documentType = limit(clean(q.documentType), 80);
         q.accessPolicy = normalizeAccess(clean(q.accessPolicy));
         q.sort = normalizeSort(q.sort);
@@ -209,6 +219,11 @@ public class RepositoryPublicService {
         if (q.pageSize < 1) q.pageSize = DEFAULT_PAGE_SIZE;
         if (q.pageSize > MAX_PAGE_SIZE) q.pageSize = MAX_PAGE_SIZE;
         if (q.year != null && (q.year.intValue() < 1000 || q.year.intValue() > 3000)) q.year = null;
+        if (q.yearFrom != null && (q.yearFrom.intValue() < 1000 || q.yearFrom.intValue() > 3000)) q.yearFrom = null;
+        if (q.yearUntil != null && (q.yearUntil.intValue() < 1000 || q.yearUntil.intValue() > 3000)) q.yearUntil = null;
+        if (q.yearFrom != null && q.yearUntil != null && q.yearFrom.intValue() > q.yearUntil.intValue()) {
+            Integer swap = q.yearFrom; q.yearFrom = q.yearUntil; q.yearUntil = swap;
+        }
         if (q.collectionId != null && q.collectionId.longValue() <= 0L) q.collectionId = null;
         return q;
     }
@@ -250,6 +265,8 @@ public class RepositoryPublicService {
         SearchResult result = new SearchResult();
         result.query = q;
         result.total = count(searchCriteria(session, q));
+        result.synonymExpanded = synonymTerms(q.keyword).size() > 1;
+        if (result.total == 0L && q.keyword.length() >= 3) result.didYouMean = suggestCorrection(session, q.keyword);
         result.totalPages = result.total == 0L ? 0 : (int) ((result.total + q.pageSize - 1L) / q.pageSize);
         if (result.totalPages > 0 && q.page > result.totalPages) q.page = result.totalPages;
 
@@ -628,7 +645,9 @@ public class RepositoryPublicService {
         if (q.collectionId != null) criteria.add(Restrictions.eq("collectionId", q.collectionId));
         if (q.documentType.length() > 0) criteria.add(Restrictions.eq("documentType", q.documentType));
         if (q.accessPolicy.length() > 0) criteria.add(Restrictions.eq("accessPolicy", q.accessPolicy));
-        if (q.author.length() > 0) criteria.add(Restrictions.ilike("authors", q.author, MatchMode.ANYWHERE));
+        if (q.author.length() > 0) criteria.add(Restrictions.or(
+                Restrictions.ilike("authors", q.author, MatchMode.ANYWHERE),
+                Restrictions.ilike("authors", reversedName(q.author), MatchMode.ANYWHERE)));
         if (q.subject.length() > 0) criteria.add(Restrictions.ilike("subjects", q.subject, MatchMode.ANYWHERE));
         if (q.language.length() > 0) criteria.add(Restrictions.eq("language", q.language));
         if (q.identifier.length() > 0) criteria.add(Restrictions.or(
@@ -651,6 +670,14 @@ public class RepositoryPublicService {
             criteria.add(Restrictions.ge("issuedAt", from.getTime()));
             criteria.add(Restrictions.lt("issuedAt", until.getTime()));
         }
+        if (q.yearFrom != null) {
+            Calendar from = Calendar.getInstance(); from.clear(); from.set(Calendar.YEAR, q.yearFrom.intValue());
+            criteria.add(Restrictions.ge("issuedAt", from.getTime()));
+        }
+        if (q.yearUntil != null) {
+            Calendar until = Calendar.getInstance(); until.clear(); until.set(Calendar.YEAR, q.yearUntil.intValue() + 1);
+            criteria.add(Restrictions.lt("issuedAt", until.getTime()));
+        }
         if (q.modifiedFrom != null) criteria.add(Restrictions.sqlRestriction(
                 "coalesce({alias}.last_sync_at,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) >= ?",
                 q.modifiedFrom, Hibernate.TIMESTAMP));
@@ -659,7 +686,9 @@ public class RepositoryPublicService {
                 q.modifiedUntil, Hibernate.TIMESTAMP));
         if (q.keyword.length() > 0) {
             if ("title".equals(q.searchField)) criteria.add(Restrictions.ilike("title", q.keyword, MatchMode.ANYWHERE));
-            else if ("author".equals(q.searchField)) criteria.add(Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE));
+            else if ("author".equals(q.searchField)) criteria.add(Restrictions.or(
+                    Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE),
+                    Restrictions.ilike("authors", reversedName(q.keyword), MatchMode.ANYWHERE)));
             else if ("subject".equals(q.searchField)) criteria.add(Restrictions.ilike("subjects", q.keyword, MatchMode.ANYWHERE));
             else if ("abstract".equals(q.searchField)) criteria.add(Restrictions.ilike("abstractText", q.keyword, MatchMode.ANYWHERE));
             else if ("fulltext".equals(q.searchField)) criteria.add(Restrictions.ilike("extractedText", q.keyword, MatchMode.ANYWHERE));
@@ -677,17 +706,33 @@ public class RepositoryPublicService {
                 String indexedText = "metadata".equals(q.searchScope)
                         ? "coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'')"
                         : "coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')";
-                org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
-                        "to_tsvector('simple', " + indexedText + ") @@ plainto_tsquery('simple', ?)",
-                        q.keyword, Hibernate.STRING);
+                org.hibernate.criterion.Disjunction ftsTerms = Restrictions.disjunction();
+                for (String term : synonymTerms(q.keyword)) ftsTerms.add(Restrictions.sqlRestriction(
+                        "to_tsvector('simple', " + indexedText + ") @@ plainto_tsquery('simple', ?)", term, Hibernate.STRING));
                 org.hibernate.criterion.Criterion eav=Restrictions.sqlRestriction(
                         "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and coalesce(rpm.aktif,true)=true and lower(rpm.metadata_value) like lower(?))",
                         "%"+q.keyword+"%",Hibernate.STRING);
-                criteria.add(Restrictions.or(fts, Restrictions.or(eav, Restrictions.or(
+                criteria.add(Restrictions.or(ftsTerms, Restrictions.or(eav, Restrictions.or(
                         Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
                         Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE)))));
             }
         }
+        if (q.exactPhrase.length() > 0) criteria.add(Restrictions.or(
+                Restrictions.ilike("title", q.exactPhrase, MatchMode.ANYWHERE), Restrictions.or(
+                Restrictions.ilike("abstractText", q.exactPhrase, MatchMode.ANYWHERE),
+                Restrictions.ilike("extractedText", q.exactPhrase, MatchMode.ANYWHERE))));
+        if (q.anyWords.length() > 0) {
+            org.hibernate.criterion.Disjunction any = Restrictions.disjunction();
+            for (String word : q.anyWords.split("\\s+")) if (clean(word).length() > 1) any.add(Restrictions.or(
+                    Restrictions.ilike("title", clean(word), MatchMode.ANYWHERE), Restrictions.or(
+                    Restrictions.ilike("subjects", clean(word), MatchMode.ANYWHERE),
+                    Restrictions.ilike("abstractText", clean(word), MatchMode.ANYWHERE))));
+            criteria.add(any);
+        }
+        if (q.withoutWords.length() > 0) for (String word : q.withoutWords.split("\\s+")) if (clean(word).length() > 1)
+            criteria.add(Restrictions.not(Restrictions.or(Restrictions.ilike("title", clean(word), MatchMode.ANYWHERE),
+                    Restrictions.or(Restrictions.ilike("subjects", clean(word), MatchMode.ANYWHERE),
+                    Restrictions.ilike("abstractText", clean(word), MatchMode.ANYWHERE)))));
         return criteria;
     }
 
@@ -970,6 +1015,66 @@ public class RepositoryPublicService {
     private String normalizeFullText(String value) {
         String fullText = clean(value).toUpperCase();
         return "WITH_FILE".equals(fullText) || "METADATA_ONLY".equals(fullText) ? fullText : "";
+    }
+
+    private List<String> synonymTerms(String keyword) {
+        List<String> result = new ArrayList<String>(); String original = clean(keyword);
+        if (original.length() == 0) return result; result.add(original);
+        String configured = System.getProperty("ais.repository.searchSynonyms",
+                "umkm=usaha mikro kecil menengah|usaha kecil;skripsi=tugas akhir|thesis;dosen=tenaga pengajar;mahasiswa=pelajar|peserta didik");
+        String lower = original.toLowerCase();
+        for (String group : configured.split(";")) {
+            int equals = group.indexOf('='); if (equals <= 0) continue;
+            String key = clean(group.substring(0, equals)).toLowerCase();
+            if (key.length() == 0 || lower.indexOf(key) < 0) continue;
+            for (String replacement : group.substring(equals + 1).split("\\|")) {
+                String expanded = clean(lower.replace(key, clean(replacement).toLowerCase()));
+                if (expanded.length() > 0 && !result.contains(expanded)) result.add(expanded);
+            }
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String suggestCorrection(Session session, String keyword) {
+        List<Object[]> rows = session.createCriteria(RepoItem.class).add(publicVisibilityRestriction()).add(tenantRestriction())
+                .setProjection(Projections.projectionList().add(Projections.property("title"))
+                        .add(Projections.property("authors")).add(Projections.property("subjects")))
+                .setMaxResults(1500).list();
+        Map<String, Boolean> vocabulary = new LinkedHashMap<String, Boolean>();
+        for (Object[] row : rows) for (Object value : row) for (String token : safe(value == null ? "" : String.valueOf(value)).split("[^\\p{L}\\p{N}]+"))
+            if (token.length() >= 3 && vocabulary.size() < 12000) vocabulary.put(token.toLowerCase(), Boolean.TRUE);
+        String[] input = clean(keyword).toLowerCase().split("\\s+"); boolean changed = false;
+        for (int i = 0; i < input.length; i++) {
+            if (input[i].length() < 3 || vocabulary.containsKey(input[i])) continue;
+            String best = input[i]; int bestDistance = Math.min(3, Math.max(1, input[i].length() / 3));
+            for (String candidate : vocabulary.keySet()) {
+                if (Math.abs(candidate.length() - input[i].length()) > bestDistance) continue;
+                int distance = editDistance(input[i], candidate, bestDistance);
+                if (distance < bestDistance) { best = candidate; bestDistance = distance; if (distance == 1) break; }
+            }
+            if (!best.equals(input[i])) { input[i] = best; changed = true; }
+        }
+        if (!changed) return ""; StringBuilder corrected = new StringBuilder();
+        for (String token : input) { if (corrected.length() > 0) corrected.append(' '); corrected.append(token); }
+        return corrected.toString();
+    }
+
+    private int editDistance(String left, String right, int stopAfter) {
+        int[] previous = new int[right.length() + 1]; for (int j = 0; j <= right.length(); j++) previous[j] = j;
+        for (int i = 1; i <= left.length(); i++) {
+            int[] current = new int[right.length() + 1]; current[0] = i; int rowMin = current[0];
+            for (int j = 1; j <= right.length(); j++) { int cost = left.charAt(i - 1) == right.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(Math.min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost); rowMin = Math.min(rowMin, current[j]); }
+            if (rowMin > stopAfter) return rowMin; previous = current;
+        }
+        return previous[right.length()];
+    }
+
+    private String reversedName(String value) {
+        String name = clean(value); int comma = name.indexOf(',');
+        if (comma > 0) return clean(name.substring(comma + 1)) + " " + clean(name.substring(0, comma));
+        int space = name.lastIndexOf(' '); return space > 0 ? clean(name.substring(space + 1)) + ", " + clean(name.substring(0, space)) : name;
     }
 
     private String normalizePreferenceType(String value) {
