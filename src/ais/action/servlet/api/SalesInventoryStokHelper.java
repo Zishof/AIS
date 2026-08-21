@@ -75,7 +75,7 @@ public final class SalesInventoryStokHelper {
 				.format(new java.util.Date(System.currentTimeMillis() - 30L * 24 * 3600 * 1000));
 		if (sampai.isEmpty()) sampai = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
 		Long tokoId = ctx.admin
-				? (request == null || ais.common.Common.angkaAtauNull(request, "toko_id"))
+				? ais.common.Common.angkaAtauNull(request, "toko_id")
 				: ctx.tokoId;
 		boolean hanyaMinimum = request != null && request.optBoolean("hanya_minimum", false);
 		boolean hanyaNegatif = request != null && request.optBoolean("hanya_negatif", false);
@@ -189,7 +189,7 @@ public final class SalesInventoryStokHelper {
 	 */
 	public static void inventoryLedger(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
-		Long produkId = request == null || ais.common.Common.angkaAtauNull(request, "produk_id");
+		Long produkId = ais.common.Common.angkaAtauNull(request, "produk_id");
 		if (produkId == null) {
 			hasil.put("status", "91");
 			hasil.put("description", "produk_id wajib diisi.");

@@ -19185,6 +19185,40 @@ public class Common {
 	 * @param kunci   nama field
 	 * @return nilai Long, atau null bila tidak ada / kosong / bukan angka
 	 */
+	/**
+	 * Menyaring sebuah String agar aman dipakai sebagai <b>value</b> {@link javax.servlet.http.Cookie}.
+	 *
+	 * <p><b>KE-FIX</b> ("java.lang.IllegalArgumentException: An invalid character [32] was present
+	 * in the Cookie value"). Tomcat 8+ memvalidasi value cookie menurut RFC 6265 saat header
+	 * dibentuk, dan menolak spasi (32), koma (44), titik-koma (59), petik ganda, backslash, serta
+	 * karakter kontrol. Beberapa cookie diisi LANGSUNG dari data pengguna -- mis. nomor registrasi
+	 * calon mahasiswa/siswa yang boleh mengandung spasi -- sehingga login PMB gagal dengan layar
+	 * galat, bukan karena kredensialnya salah.</p>
+	 *
+	 * <p>Karakter yang tidak sah DIBUANG, bukan diganti, supaya nilai yang selama ini sudah aman
+	 * (hasil {@code URLEncoder.encode} atau Base64) tetap identik byte-per-byte -- cookie lama
+	 * yang sudah tersimpan di peramban pengguna tetap terbaca seperti biasa.</p>
+	 *
+	 * @param value nilai mentah (boleh null)
+	 * @return nilai yang hanya berisi cookie-octet RFC 6265; "" bila masukannya null
+	 */
+	public static String nilaiCookieAman(String value) {
+		if (value == null) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(value.length());
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			// cookie-octet RFC6265: %x21, %x23-2B, %x2D-3A, %x3C-5B, %x5D-7E
+			// (kecuali DQUOTE, koma, titik-koma, backslash, spasi, dan karakter kontrol).
+			if (c == ',' || c == ';' || c == '\' || c == '"' || c <= 0x20 || c >= 0x7F) {
+				continue;
+			}
+			sb.append(c);
+		}
+		return sb.toString();
+	}
+
 	public static Long angkaAtauNull(JSONObject request, String kunci) {
 		if (request == null || kunci == null) {
 			return null;
