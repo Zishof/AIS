@@ -116,6 +116,7 @@ public class RepositoryPublicService {
         public String programStudy = "";
         public int publicFileCount;
         public boolean pdfAvailable;
+        public boolean superseded;
     }
 
     public static class Suggestion {
@@ -796,6 +797,7 @@ public class RepositoryPublicService {
         target.programStudy = source.programStudy;
         target.publicFileCount = source.publicFileCount;
         target.pdfAvailable = source.pdfAvailable;
+        target.superseded = source.superseded;
     }
 
     @SuppressWarnings("unchecked")
@@ -841,6 +843,9 @@ public class RepositoryPublicService {
             String mime = safe(file.getMimeType()).toLowerCase(); String name = safe(file.getNamaFile()).toLowerCase();
             if (mime.indexOf("pdf") >= 0 || name.endsWith(".pdf")) card.pdfAvailable = true;
         }
+        List<Object> replaced=session.createCriteria(RepoItem.class).add(tenantRestriction()).add(publicVisibilityRestriction())
+                .add(Restrictions.in("previousVersionId",ids)).setProjection(Projections.distinct(Projections.property("previousVersionId"))).list();
+        for(Object id:replaced)if(id instanceof Long&&byId.get((Long)id)!=null)byId.get((Long)id).superseded=true;
     }
     private static String firstToken(String value){String[]v=safe(value).split("[;,]");return v.length==0?"":clean(v[0]);}
     private static void increment(Map<String,Long> map,String key){Long n=map.get(key);map.put(key,Long.valueOf(n==null?1L:n.longValue()+1L));}

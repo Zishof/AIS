@@ -697,7 +697,7 @@ public class RepositorySyncService {
 
 	private static RepoCollection ensureCollection(Session session, SourceDescriptor source) {
 		RepoCollection collection = (RepoCollection) session.createCriteria(RepoCollection.class)
-				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("kode", source.collectionCode)).setMaxResults(1).uniqueResult();
+				.add(Restrictions.or(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()),Restrictions.or(Restrictions.isNull("tenantKey"),Restrictions.eq("tenantKey","")))).add(Restrictions.eq("kode", source.collectionCode)).setMaxResults(1).uniqueResult();
 		if (collection == null) {
 			collection = new RepoCollection();
 			collection.setTenantKey(RepositoryTenantScope.currentKey());
@@ -722,7 +722,7 @@ public class RepositorySyncService {
 		 * yang memilih baris ber-oai KOSONG akan mengisi identifier milik baris saudaranya
 		 * lalu gagal saat flush. Urutkan berdasarkan id agar pilihan selalu konsisten. */
 		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
-				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
+				.add(Restrictions.or(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()),Restrictions.or(Restrictions.isNull("tenantKey"),Restrictions.eq("tenantKey",""))))
 				.add(Restrictions.eq("sourceClass", sourceClass)).add(Restrictions.eq("sourceId", sourceId))
 				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
 		return (RepoItem) jadikanWritable(session, item);
@@ -735,7 +735,7 @@ public class RepositorySyncService {
 			return null;
 		}
 		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
-				.add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
+				.add(Restrictions.or(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()),Restrictions.or(Restrictions.isNull("tenantKey"),Restrictions.eq("tenantKey",""))))
 				.add(Restrictions.eq("oaiIdentifier", kunci)).setMaxResults(1).uniqueResult();
 		return (RepoItem) jadikanWritable(session, item);
 	}

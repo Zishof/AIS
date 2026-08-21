@@ -20700,8 +20700,12 @@ public class Common {
 			}
 			ais.database.model.Tbmuser pengguna = getCurrentUser();
 			String roleId = "";
+			String kodeRole = "";
 			if (pengguna != null && pengguna.hakAkses() != null && pengguna.hakAkses().getRoleId() != null) {
 				roleId = pengguna.hakAkses().getRoleId().trim();
+			}
+			if (pengguna != null && pengguna.hakAkses() != null && pengguna.hakAkses().getKode() != null) {
+				kodeRole = pengguna.hakAkses().getKode().trim();
 			}
 			String daftarRole = defaultRole;
 			try {
@@ -20719,7 +20723,7 @@ public class Common {
 					continue;
 				}
 				if ("*".equals(r) || "semua".equalsIgnoreCase(r) || "all".equalsIgnoreCase(r)
-						|| r.equalsIgnoreCase(roleId)) {
+						|| r.equalsIgnoreCase(roleId) || r.equalsIgnoreCase(kodeRole)) {
 					return true;
 				}
 			}

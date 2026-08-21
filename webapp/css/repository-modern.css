@@ -148,6 +148,7 @@
 .repo-saved-searches strong,.repo-saved-searches small { display:block; }
 .repo-saved-searches small { color:var(--repo-muted); }
 .repo-search-skeleton { grid-column:1/-1; display:grid; gap:10px; }
+.repo-search-skeleton[hidden] { display:none; }
 .repo-search-skeleton i { display:block; height:135px; border-radius:14px; background:linear-gradient(90deg,#edf2f6 20%,#f8fafc 40%,#edf2f6 60%); background-size:300% 100%; animation:repo-shimmer 1.15s infinite linear; }
 @keyframes repo-shimmer { to { background-position:-150% 0; } }
 .repo-result-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
@@ -236,6 +237,8 @@
 .repo-browse-grid-v2 { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .repo-browse-grid-v2 .repo-browse-card { min-height:112px; display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:start; }
 .repo-browse-grid-v2 .repo-browse-icon { margin:0; }
+.repo-browse-grid-v2 .repo-browse-icon { font-size:0; }.repo-browse-grid-v2 .repo-browse-icon:before { font-size:20px; }
+.repo-browse-grid-v2 a:nth-child(1) .repo-browse-icon:before { content:"🗂"; }.repo-browse-grid-v2 a:nth-child(2) .repo-browse-icon:before { content:"👤"; }.repo-browse-grid-v2 a:nth-child(3) .repo-browse-icon:before { content:"📅"; }.repo-browse-grid-v2 a:nth-child(4) .repo-browse-icon:before { content:"🏷"; }.repo-browse-grid-v2 a:nth-child(5) .repo-browse-icon:before { content:"📄"; }.repo-browse-grid-v2 a:nth-child(6) .repo-browse-icon:before { content:"🔓"; }
 .repo-browse-grid-v2 .repo-browse-card strong { margin:0; }
 .repo-browse-grid-v2 .repo-browse-card b { display:block; color:var(--repo-primary); font-size:18px; margin:2px 0; overflow-wrap:anywhere; }
 .repo-browse-grid-v2 .repo-browse-card i { align-self:center; color:var(--repo-secondary); font-size:18px; font-style:normal; }

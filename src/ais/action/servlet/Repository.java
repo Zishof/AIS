@@ -245,6 +245,7 @@ public class Repository extends HttpServlet {
             row.put("programStudy", item.programStudy);
             row.put("publicFileCount", item.publicFileCount);
             row.put("pdfAvailable", item.pdfAvailable);
+            row.put("superseded",item.superseded);
             row.put("viewCount", item.viewCount);
             row.put("downloadCount", item.downloadCount);
             items.put(row);

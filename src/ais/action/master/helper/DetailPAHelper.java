@@ -96,34 +96,9 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		});
 	}
 
-	private boolean bolehKelolaDosenDalamLingkup(Dosen dosen) {
-		// Tombol Ambil Mahasiswa dikendalikan oleh daftar tbmrole.roleid pada
-		// konfigurasi. Daftar dipisahkan koma dan dibandingkan tanpa membedakan
-		// huruf besar/kecil. Pemeriksaan lingkup di bawah tetap dipertahankan agar
-		// role fakultas/prodi tidak dapat mengubah Dosen PA di luar unitnya.
-		if (!Common.bolehUploadDataKonfigurasi(KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA,
-				DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA)) {
-			return false;
-		}
-		if (create || update) {
-			return true;
-		}
-		try {
-			ais.database.model.Tbmuser pengguna = Common.getCurrentUser();
-			ais.database.model.Tbmrole peran = pengguna == null ? null : pengguna.hakAkses();
-			if (pengguna == null || peran == null || dosen == null) {
-				return false;
-			}
-			if (peran.getJurusan() != null && dosen.getJurusan() != null
-					&& peran.getJurusan().getId().equals(dosen.getJurusan().getId())) {
-				return true;
-			}
-			return peran.getFakultas() != null && dosen.getFakultas() != null
-					&& peran.getFakultas().getId().equals(dosen.getFakultas().getId());
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "DetailPAHelper.bolehKelolaDosenDalamLingkup");
-			return false;
-		}
+	private boolean bolehAmbilMahasiswaDosenPA() {
+		return Common.bolehUploadDataKonfigurasi(KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA,
+				DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA);
 	}
 
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
@@ -322,16 +297,15 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Ambil Mahasiswa", "/img/new.gif");
-		button.setVisible(bolehKelolaDosenDalamLingkup(dosen));
+		button.setVisible(bolehAmbilMahasiswaDosenPA());
 		button.addEventListener("onClick", new EventListener() {
 
 			private AmbilDataMahasiswaForDosenPAHelper dataMahasiswaHelper = new AmbilDataMahasiswaForDosenPAHelper();
 
 			@Override
 			public void onEvent(Event event) throws Exception {
-				if (!bolehKelolaDosenDalamLingkup(dosen)) {
-					MyMessageboxConfig.show("Role Anda tidak diizinkan mengambil mahasiswa untuk Dosen PA ini, "
-							+ "atau Dosen PA berada di luar lingkup fakultas/prodi Anda.",
+				if (!bolehAmbilMahasiswaDosenPA()) {
+					MyMessageboxConfig.show("Role Anda tidak diizinkan mengambil mahasiswa untuk Dosen PA ini.",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					return;
 				}
