@@ -26,9 +26,8 @@ if (vm == null) { response.sendRedirect(request.getContextPath() + "/"); return;
     <meta property="og:image" content="<%=h(vm.seo.image)%>">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="<%=h(vm.institution.logoUrl)%>">
-    <link rel="stylesheet" href="<%=h(vm.contextPath)%>/css/bootstrap.min.css?v=<%=h(vm.assetVersion)%>">
-    <link rel="stylesheet" href="<%=h(vm.contextPath)%>/component/assets/plugins/global/fontawesome/css/fontawesome.min.css?v=<%=h(vm.assetVersion)%>">
-    <link rel="stylesheet" href="<%=h(vm.contextPath)%>/component/assets/plugins/global/fontawesome/css/solid.min.css?v=<%=h(vm.assetVersion)%>">
+    <link rel="preload" as="image" href="<%=h(vm.institution.heroUrl)%>" fetchpriority="high">
+    <link rel="stylesheet" href="<%=h(vm.contextPath)%>/css/baru/home-v3-icons.css?v=<%=h(vm.assetVersion)%>">
     <% if (vm.institution.themeCss != null && vm.institution.themeCss.length() > 0) { %><link rel="stylesheet" href="<%=h(vm.contextPath + vm.institution.themeCss)%>?v=<%=h(vm.assetVersion)%>"><% } %>
     <link rel="stylesheet" href="<%=h(vm.contextPath)%>/css/baru/home-v3.css?v=<%=h(vm.assetVersion)%>">
     <script type="application/ld+json"><%=vm.seo.jsonLd%></script>
@@ -45,7 +44,6 @@ if (vm == null) { response.sendRedirect(request.getContextPath() + "/"); return;
         <%@ include file="home/_impact.jsp" %>
     </main>
     <%@ include file="home/_footer.jsp" %>
-    <script src="<%=h(vm.contextPath)%>/component/uiux/vendors/bootstrap/bootstrap.min.js?v=<%=h(vm.assetVersion)%>" defer></script>
     <script src="<%=h(vm.contextPath)%>/js/baru/home-v3.js?v=<%=h(vm.assetVersion)%>" defer></script>
     <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp" />
 </body>

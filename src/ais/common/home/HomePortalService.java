@@ -142,7 +142,8 @@ public class HomePortalService {
         if ("fa-box-archive".equals(cleaned)) return "fa-archive";
         if ("fa-file-lines".equals(cleaned)) return "fa-file-alt";
         if ("fa-building-columns".equals(cleaned)) return "fa-university";
-        return cleaned.matches("fa-[a-z0-9-]+") ? cleaned : "fa-link";
+        String supported = "|fa-address-book|fa-archive|fa-award|fa-book-open|fa-briefcase|fa-building|fa-chart-line|fa-desktop|fa-file-alt|fa-flask|fa-globe|fa-graduation-cap|fa-id-card|fa-link|fa-newspaper|fa-school|fa-sign-in-alt|fa-store|fa-trophy|fa-truck|fa-university|fa-user-clock|fa-user-graduate|fa-users|";
+        return supported.contains("|" + cleaned + "|") ? cleaned : "fa-link";
     }
 
     private void apply(HomePortalViewModel.LinkItem item, HomePortalViewModel.LinkItem link) { item.url = link.url; item.target = link.target; item.rel = link.rel; }

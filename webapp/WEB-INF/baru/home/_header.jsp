@@ -5,7 +5,7 @@
 <% } %>
 <header class="home-header" id="beranda">
     <div class="home-shell home-header-inner">
-        <a class="home-brand" href="#beranda" aria-label="Beranda <%=h(vm.institution.name)%>">
+        <a class="home-brand" href="#beranda">
             <img src="<%=h(vm.institution.logoUrl)%>" width="54" height="54" alt="Logo <%=h(vm.institution.name)%>">
             <span><strong><%=h(vm.institution.shortName)%></strong><small>Website resmi dan layanan digital terpadu</small></span>
         </a>
@@ -18,7 +18,7 @@
             <a href="#layanan">Layanan Digital</a>
         </nav>
         <div class="home-header-actions">
-            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa"><i class="fas fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar">العربية</a><a href="?lang=zh" lang="zh">中文</a></div></details><% } %>
+            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa: <%=h(vm.language.toUpperCase())%>"><i class="fas fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar">العربية</a><a href="?lang=zh" lang="zh">中文</a></div></details><% } %>
             <a class="home-btn home-btn-login" href="<%=h(vm.loginUrl)%>" target="<%=h(vm.loginTarget)%>" rel="<%=h(vm.loginRel)%>">Masuk Sistem</a>
             <button class="home-menu-button" type="button" aria-expanded="false" aria-controls="home-mobile-nav" aria-label="Buka menu"><span></span><span></span><span></span></button>
         </div>

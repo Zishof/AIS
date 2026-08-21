@@ -22,18 +22,21 @@ import ais.database.model.sekolah.Yayasan;
 /**
  * Servlet halaman index/home.
  *
- * Logika utama dikembalikan seperti baseline:
- * 1. Jika default_login_ke_ebisnis aktif -> /WEB-INF/baru/ebisnis.jsp (landing page publik ebisnis.id)
- * 2. Jika default_login_ke_erp aktif -> /WEB-INF/baru/erp.jsp
- * 3. Jika default_home_versi_baru aktif -> /WEB-INF/baru/home.jsp
- * 4. Jika default_home_login_versi_baru aktif -> /WEB-INF/baru/login2.jsp
- * 5. Fallback ke /WEB-INF/j/index.jsp, /WEB-INF/j/login.jsp, lalu redirect /login
+ * Urutan tampilan publik:
+ * 1. Pilihan domain "baru" -> Home V3 (atau home lama bila feature flag dimatikan).
+ * 2. Pilihan domain "klasik" -> index/login klasik.
+ * 3. Landing page khusus eBisnis/ERP sesuai konfigurasi.
+ * 4. default_home_versi_baru -> Home V3 dengan fallback aman.
+ * 5. Login baru, index/login klasik, lalu redirect /login.
  *
  * Enhancement aman:
  * - Null-safe untuk Konfigurasi.
  * - File check aman jika path null.
  * - Forward/redirect tidak dilakukan jika response sudah committed.
- * - Kompatibel Java 1.7.
+ * - Shell `/WEB-INF/new/index.jsp` tidak dipakai untuk halaman publik karena
+ *   membutuhkan session `mytbmuser`; shell tersebut tetap digunakan oleh `/new`
+ *   dan alur aplikasi setelah login.
+ * - Kompatibel source/target Java 8 proyek.
  */
 public class Index extends HttpServlet {
 
@@ -66,12 +69,11 @@ public class Index extends HttpServlet {
         initCommonContext(request);
 
         // Cek pilihan tampilan dari entitas domain (prioritas tertinggi)
-        String piilhan = getPiilhanTampilanDomain(request);
-        if (PerguruanTinggi.TAMPILAN_BARU.equals(piilhan)) {
-            request.setAttribute("new_context", "index");
-            forward(request, response, "/WEB-INF/new/index.jsp");
+        String pilihan = getPilihanTampilanDomain(request);
+        if (PerguruanTinggi.TAMPILAN_BARU.equals(pilihan)) {
+            forwardModernPublicHome(request, response, "domain");
             return;
-        } else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(piilhan)) {
+        } else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(pilihan)) {
             String filePath = request.getRealPath("/WEB-INF/j/index.jsp");
             if (fileExists(filePath)) {
                 forward(request, response, "/WEB-INF/j/index.jsp");
@@ -95,22 +97,7 @@ public class Index extends HttpServlet {
 
         config = Common.getKonfigurasi("default_home_versi_baru", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
-            Konfigurasi homeV3 = Common.getKonfigurasi("home_ui_v3", Konfigurasi.AKTIF);
-            if (isAktif(homeV3)) {
-                try {
-                    String requestedLanguage = request.getParameter("lang");
-                    if (requestedLanguage != null && requestedLanguage.trim().length() > 0) {
-                        Common.initBahasaParameter(requestedLanguage.trim());
-                    }
-                    request.setAttribute("homePortal", new HomePortalService().build(request));
-                    forward(request, response, "/WEB-INF/baru/home-v3.jsp");
-                } catch (Exception e) {
-                    ais.common.ErrorAuditUtil.record(e, "Index public home V3 fallback");
-                    forward(request, response, "/WEB-INF/baru/home.jsp");
-                }
-            } else {
-                forward(request, response, "/WEB-INF/baru/home.jsp");
-            }
+            forwardModernPublicHome(request, response, "configuration");
             return;
         }
 
@@ -160,7 +147,33 @@ public class Index extends HttpServlet {
         return config != null && config.getNilai() != null && Konfigurasi.AKTIF.equalsIgnoreCase(config.getNilai().trim());
     }
 
-    private String getPiilhanTampilanDomain(HttpServletRequest request) {
+    private void forwardModernPublicHome(HttpServletRequest request, HttpServletResponse response, String source)
+            throws ServletException, IOException {
+        Konfigurasi homeV3 = Common.getKonfigurasi("home_ui_v3", Konfigurasi.AKTIF);
+        if (!isAktif(homeV3)) {
+            request.setAttribute("homeUiEntry", source + ":legacy");
+            forward(request, response, "/WEB-INF/baru/home.jsp");
+            return;
+        }
+
+        try {
+            String requestedLanguage = request.getParameter("lang");
+            if (requestedLanguage != null && requestedLanguage.trim().length() > 0) {
+                Common.initBahasaParameter(requestedLanguage.trim());
+            }
+            request.setAttribute("homeUiEntry", source + ":v3");
+            request.setAttribute("homePortal", new HomePortalService().build(request));
+            forward(request, response, "/WEB-INF/baru/home-v3.jsp");
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "Index public home V3 fallback (" + source + ")");
+            if (!response.isCommitted()) {
+                request.setAttribute("homeUiEntry", source + ":fallback");
+                forward(request, response, "/WEB-INF/baru/home.jsp");
+            }
+        }
+    }
+
+    private String getPilihanTampilanDomain(HttpServletRequest request) {
         try {
             PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
             if (pt != null && !PerguruanTinggi.TAMPILAN_DEFAULT.equals(pt.getPiilhanTampilan())) {

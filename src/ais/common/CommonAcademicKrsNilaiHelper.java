@@ -748,14 +748,14 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 					jenisNilaiHuruf);
 		}
 
-	private static boolean cocokKodeMkNilaiHuruf(NilaiHuruf nilaiHuruf, String kodemk, boolean semuaKodeMk) {
+	private static boolean cocokKodeMkNilaiHuruf(NilaiHuruf nilaiHuruf, String kodemk) {
 			if (nilaiHuruf == null) {
 				return false;
 			}
 			String kodeDicari = kodemk == null ? "" : kodemk.trim().toLowerCase();
 			String kodeSetup = nilaiHuruf.getKodeMk() == null ? "" : nilaiHuruf.getKodeMk().trim().toLowerCase();
 			if (kodeDicari.isEmpty()) {
-				return kodeSetup.isEmpty() || semuaKodeMk;
+				return kodeSetup.isEmpty();
 			}
 			if (kodeSetup.isEmpty()) {
 				return true;
@@ -813,7 +813,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 								&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-								&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+								&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 							huruf = nilaiHuruf;
 							// System.out.println("Step 1 : nilai huruf " +
 							// huruf.toString());
@@ -847,7 +847,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 1.1 : nilai huruf " +
 								// huruf.toString());
@@ -882,7 +882,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 2 : nilai huruf " +
 								// huruf.toString());
@@ -918,7 +918,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 2.1 : nilai huruf " +
 								// huruf.toString());
@@ -953,7 +953,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 3 : nilai huruf " +
 								// huruf.toString());
@@ -988,7 +988,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 3.1 : nilai huruf " +
 								// huruf.toString());
@@ -1021,7 +1021,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& nilai <= nilaiHuruf.getSampai()
 
-									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 4 : nilai huruf " +
 								// huruf.toString());

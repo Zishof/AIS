@@ -55,7 +55,7 @@ public class HomePortalInstitutionResolver {
         i.heroUrl = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_perguruanTinggi_");
         String root = Common.ROOT == null ? "" : Common.ROOT;
         if (i.logoUrl == null || i.logoUrl.trim().length() == 0) i.logoUrl = root + "/img/logo.png";
-        if (i.heroUrl == null || i.heroUrl.trim().length() == 0) i.heroUrl = root + "/img/pmb_bg.jpg";
+        if (i.heroUrl == null || i.heroUrl.trim().length() == 0) i.heroUrl = root + "/img/pmb_bg.webp";
         return i;
     }
 
