@@ -925,6 +925,7 @@ public final class MenuSnapshotData {
             "77727|77720032|2003202|Jenis Pasien|/pages/master/sirs/jenis_pasien.zul||0",
             "7771889|77720032|2003208|Kelas Perawatan|/pages/master/sirs/kelas_perawatan.zul||0",
             "77718891|77720032|2003209|Asuransi|/pages/master/sirs/asuransi.zul||0",
+            "777188913|77720032|2003211|Profil Fasilitas Kesehatan|/pages/master/sirs/rumah_sakit.zul|/img/medical-bag-icon.png|0",
             "777188912|77720032|2003210|Shift|/pages/master/sirs/shift.zul||0",
             "19213742|400000000|43000012|Jenis Akun Barang / Jasa|/pages/master/asset/jenis_pemesanan_pengadaan_asset.zul|/img/svg/money-bills.svg|0",
             "19213741|400000000|43000013|Jenis Penerimaan Barang / Jasa|/pages/master/asset/jenis_penerimaan_barang.zul|/img/svg/money-bills.svg|0",

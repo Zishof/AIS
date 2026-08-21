@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS sirs.rumah_sakit (
     pilihan_tampilan varchar(30) DEFAULT 'baru',
     aktif boolean DEFAULT true,
     dikunci varchar(50),
+    disposisi_sop bigint,
     oleh varchar(255),
     oleh_id varchar(255),
     tanggal_dirubah timestamp without time zone DEFAULT CURRENT_TIMESTAMP

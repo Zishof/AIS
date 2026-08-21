@@ -18,6 +18,7 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.VoKunci;
 import ais.database.model.Tbmuser;
+import ais.database.model.sop.DisposisiSop;
 
 /**
  * Profil tenant fasilitas kesehatan untuk website dan branding eMedic.
@@ -66,6 +67,7 @@ public class RumahSakit extends VoKunci {
     private String olehId;
     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
     private Tbmuser dikunci;
+    private DisposisiSop disposisiSop;
 
     @Id
     @GeneratedValue(strategy = IDENTITY)
@@ -165,6 +167,15 @@ public class RumahSakit extends VoKunci {
         return dikunci;
     }
     public void setDikunci(Tbmuser dikunci) { this.dikunci = dikunci; }
+
+    @ManyToOne(fetch = javax.persistence.FetchType.LAZY,
+            cascade = { javax.persistence.CascadeType.PERSIST, javax.persistence.CascadeType.MERGE })
+    @JoinColumn(name = "disposisi_sop")
+    public DisposisiSop getDisposisiSop() {
+        disposisiSop = check(disposisiSop);
+        return disposisiSop;
+    }
+    public void setDisposisiSop(DisposisiSop disposisiSop) { this.disposisiSop = disposisiSop; }
 
     @javax.persistence.PreUpdate
     protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this); }
