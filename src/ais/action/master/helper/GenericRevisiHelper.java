@@ -11,6 +11,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -174,6 +175,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     protected final EventListener callback;
     protected final String[] searchProperties;
     protected final QueryCustomizer[] customizers;
+
+    /*
+     * Object audit yang sama diteruskan dari renderer, form restore, sampai thread
+     * restore. Simpan nomor revisinya berdasarkan identity agar subclass dapat
+     * memulihkan tabel detail dari snapshot yang tepat, bukan menebak revisi terbaru.
+     */
+    private final Map<Object, Integer> restoreRevisionNumbers = java.util.Collections
+            .synchronizedMap(new IdentityHashMap<Object, Integer>());
 
     protected MyGrid grid;
     protected Textbox keyword;
@@ -1728,6 +1737,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             final Serializable revisionObject = (Serializable) entity;
             final Object revEntity = extractRevisionEntity(data);
             final RevisionType revType = extractRevisionType(data);
+            final Integer revisionNumber = extractRevisionNumberAsInteger(revEntity);
 
             MyDetail detail = new MyDetail();
             detail.setParent(row);
@@ -1760,6 +1770,9 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             restore.setParent(box);
             restore.addEventListener(Events.ON_CLICK, new EventListener() {
                 public void onEvent(Event event) throws Exception {
+                    if (revisionNumber != null) {
+                        restoreRevisionNumbers.put(revisionObject, revisionNumber);
+                    }
                     bukaFormEditRestore(revisionObject);
                 }
             });
@@ -3355,6 +3368,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             ais.ui.util.ZkCompat.setSpans(r, "4");
             r.appendChild(new Label("Gagal menampilkan detail revisi: " + e.getMessage()));
         } finally {
+            restoreRevisionNumbers.remove(revisionObject);
             closeSession(session);
         }
     }
@@ -4691,6 +4705,11 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
      * Sesi masih terbuka dan transaksi masih aktif sehingga saveOrUpdate dapat dilakukan.
      */
     protected void afterRestoreInTransaction(Session session, AuditReader reader, Object entity) throws Exception {
+    }
+
+    /** Nomor revisi yang dipilih pengguna untuk object yang sedang direstore. */
+    protected Integer getSelectedRestoreRevisionNumber(Object entity) {
+        return entity == null ? null : restoreRevisionNumbers.get(entity);
     }
 
     private void restoreDependenciesRecursively(Session session, AuditReader reader, Object entityObj, Set<String> processedIds) {
