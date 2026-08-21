@@ -2077,15 +2077,28 @@ public class InitIndex {
 			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
 			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
 			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
+			// Penambahan constraint dibuat IDEMPOTEN di sisi database.
+			//
+			// Pemeriksaan Java sebelumnya tetap dipertahankan sbg jalan pintas, tetapi
+			// TIDAK cukup: dua thread startup (AIS-Init-Data dan init-index-startup)
+			// menjalankan method ini nyaris bersamaan, sehingga keduanya lolos
+			// pemeriksaan lalu salah satu gagal dgn "constraint ... already exists".
+			// Kegagalan itu memang ditelan pemanggil, tetapi CommonSqlHelper.updateSql
+			// sudah terlanjur mencatatnya sbg error -- log jadi penuh kejadian yang
+			// sebenarnya wajar. Dgn blok DO, cek dan ALTER terjadi dalam satu
+			// pernyataan atomik sehingga tidak pernah melempar exception.
 			if (!constraintKebijakanReturSudahAda()) {
-				try {
-					ais.common.Common.updateSql(
-							"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
-				} catch (Exception eAlter) {
-					if (!constraintKebijakanReturSudahAda(eAlter)) {
-						throw eAlter;
-					}
-				}
+				ais.common.Common.updateSql(
+						"DO $ais$ BEGIN"
+						+ " IF NOT EXISTS (SELECT 1 FROM pg_constraint c"
+						+ "   JOIN pg_class t ON t.oid = c.conrelid"
+						+ "   JOIN pg_namespace n ON n.oid = t.relnamespace"
+						+ "   WHERE c.conname = 'produk_kebijakan_retur_fk'"
+						+ "     AND n.nspname = 'koperasi' AND t.relname = 'produk') THEN"
+						+ "   ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk"
+						+ "     FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id);"
+						+ " END IF;"
+						+ " END $ais$;");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
