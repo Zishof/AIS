@@ -56,6 +56,7 @@ boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.reposit
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="<%=repoHtml(seoItem == null ? "Repositori karya ilmiah, publikasi, bahan ajar, dan pengetahuan institusi." : seoItem.abstractText)%>">
   <link rel="canonical" href="<%=repoHtml(canonical)%>">
+  <% if (seoItem != null && seoItem.withdrawn) { %><meta name="robots" content="noindex,follow"><% } %>
   <% if (logo != null && logo.trim().length() > 0) { %><link rel="icon" href="<%=repoHtml(logo)%>"><% } %>
   <title><%=repoHtml(pageTitle)%></title>
   <% if (seoItem != null) { %>
@@ -66,15 +67,19 @@ boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.reposit
   <% }} %>
   <meta name="citation_publication_date" content="<%=repoHtml(seoItem.year)%>">
   <meta name="citation_language" content="<%=repoHtml(seoItem.language)%>">
+  <meta name="citation_dissertation_institution" content="<%=repoHtml(institution)%>">
+  <% if (seoItem.abstractText != null && seoItem.abstractText.length() > 0) { %><meta name="citation_abstract" content="<%=repoHtml(seoItem.abstractText)%>"><% } %>
+  <% if (seoItem.subjects != null && seoItem.subjects.length() > 0) { %><meta name="citation_keywords" content="<%=repoHtml(seoItem.subjects)%>"><% } %>
   <% if (seoItem.doi != null && seoItem.doi.length() > 0) { %><meta name="citation_doi" content="<%=repoHtml(seoItem.doi)%>"><% } %>
-  <% if (!seoItem.files.isEmpty()) { %><meta name="citation_pdf_url" content="<%=repoHtml(request.getRequestURL().toString() + "?action=download&id=" + seoItem.files.get(0).id)%>"><% } %>
+  <% ais.action.master.repository.RepositoryPublicService.BitstreamView scholarPdf=null;for(ais.action.master.repository.RepositoryPublicService.BitstreamView seoFile:seoItem.files){if("application/pdf".equalsIgnoreCase(seoFile.mimeType)){scholarPdf=seoFile;break;}} if (scholarPdf != null) { %><meta name="citation_pdf_url" content="<%=repoHtml(origin + context + "/repository?action=download&id=" + scholarPdf.id)%>"><meta name="citation_fulltext_world_readable" content="true"><% } else { %><meta name="citation_fulltext_world_readable" content="false"><% } %>
+  <% if (seoItem.licenseUri != null && seoItem.licenseUri.length() > 0) { %><meta name="DC.rights" content="<%=repoHtml(seoItem.licenseUri)%>"><% } %>
   <meta name="DC.identifier" content="<%=repoHtml(seoItem.oaiIdentifier)%>">
   <meta property="og:type" content="article">
   <meta property="og:title" content="<%=repoHtml(seoItem.title)%>">
   <meta property="og:description" content="<%=repoHtml(seoItem.abstractText)%>">
   <meta property="og:url" content="<%=repoHtml(canonical)%>">
   <meta property="og:site_name" content="<%=repoHtml(institution)%>"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="<%=repoHtml(seoItem.title)%>"><meta name="twitter:description" content="<%=repoHtml(seoItem.abstractText)%>">
-  <% String schemaType="ScholarlyArticle";if("Book".equalsIgnoreCase(seoItem.documentType))schemaType="Book";else if(seoItem.documentType.toLowerCase().contains("thesis"))schemaType="Thesis";else if(seoItem.documentType.toLowerCase().contains("dataset"))schemaType="Dataset";JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type",schemaType);ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
+  <% String schemaType="ScholarlyArticle";if("Book".equalsIgnoreCase(seoItem.documentType))schemaType="Book";else if(seoItem.documentType.toLowerCase().contains("thesis"))schemaType="Thesis";else if(seoItem.documentType.toLowerCase().contains("dataset"))schemaType="Dataset";JSONObject ld=new JSONObject();ld.put("@context","https://schema.org");ld.put("@type",schemaType);ld.put("name",seoItem.title);ld.put("abstract",seoItem.abstractText);ld.put("datePublished",seoItem.year);ld.put("inLanguage",seoItem.language);ld.put("identifier",seoItem.doi.length()>0?seoItem.doi:seoItem.oaiIdentifier);ld.put("url",canonical);if(seoItem.licenseUri.length()>0)ld.put("license",seoItem.licenseUri);if(scholarPdf!=null)ld.put("encoding",new JSONObject().put("@type","MediaObject").put("contentUrl",origin+context+"/repository?action=download&id="+scholarPdf.id).put("encodingFormat","application/pdf"));JSONArray ldAuthors=new JSONArray();for(String author:seoAuthors)if(author.trim().length()>0)ldAuthors.put(new JSONObject().put("@type","Person").put("name",author.trim()));ld.put("author",ldAuthors); %>
   <script type="application/ld+json"><%=ld.toString().replace("</","<\\/")%></script>
   <% } %>
   <jsp:include page="/WEB-INF/baru/modul/repository/_repository_theme.jsp" />

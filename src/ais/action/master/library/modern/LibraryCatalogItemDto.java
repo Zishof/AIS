@@ -21,6 +21,8 @@ public class LibraryCatalogItemDto {
     private String language;
     private String callNumber;
     private Integer year;
+    private String edition;
+    private Integer pages;
     private int copyCount;
     private int availableCount;
     private String itemType;
@@ -44,6 +46,8 @@ public class LibraryCatalogItemDto {
         json.put("bahasa", safe(language));
         json.put("callNumber", safe(callNumber));
         json.put("tahun", year == null ? JSONObject.NULL : year);
+        json.put("edisi", safe(edition));
+        json.put("halaman", pages == null ? JSONObject.NULL : pages);
         json.put("jumlahEksemplar", copyCount);
         json.put("jumlahTersedia", availableCount);
         json.put("jenisKoleksi", safe(itemType));
@@ -82,6 +86,10 @@ public class LibraryCatalogItemDto {
     public void setCallNumber(String callNumber) { this.callNumber = callNumber; }
     public Integer getYear() { return year; }
     public void setYear(Integer year) { this.year = year; }
+    public String getEdition() { return edition; }
+    public void setEdition(String edition) { this.edition = edition; }
+    public Integer getPages() { return pages; }
+    public void setPages(Integer pages) { this.pages = pages; }
     public int getCopyCount() { return copyCount; }
     public void setCopyCount(int copyCount) { this.copyCount = copyCount; }
     public int getAvailableCount() { return availableCount; }

@@ -54,10 +54,16 @@ public class RepositoryPublicService {
         public String language = "";
         public String identifier = "";
         public String programStudy = "";
+        /** metadata = metadata bibliografis saja; all = metadata dan teks hasil ekstraksi. */
+        public String searchScope = "all";
+        /** WITH_FILE atau METADATA_ONLY. Kosong berarti keduanya. */
+        public String fullText = "";
         public Long collectionId;
         public String documentType = "";
         public String accessPolicy = "";
         public Integer year;
+        public Date modifiedFrom;
+        public Date modifiedUntil;
         public String sort = "newest";
         public int page = 1;
         public int pageSize = DEFAULT_PAGE_SIZE;
@@ -68,6 +74,8 @@ public class RepositoryPublicService {
         public long totalCollections;
         public long openAccess;
         public long metadataOnly;
+        public long restrictedItems;
+        public long embargoedItems;
         public long authorCount;
         public long subjectCount;
         public long documentTypeCount;
@@ -108,6 +116,7 @@ public class RepositoryPublicService {
         public String withdrawalReason;
         public Date withdrawnAt;
         public Date issuedAt;
+        public Date datestamp;
         public String year;
         public Long collectionId;
         public String collectionName;
@@ -191,6 +200,8 @@ public class RepositoryPublicService {
         q.language = limit(clean(q.language).toLowerCase(), 20);
         q.identifier = limit(clean(q.identifier), 255);
         q.programStudy = limit(clean(q.programStudy), 200);
+        q.searchScope = "metadata".equalsIgnoreCase(clean(q.searchScope)) ? "metadata" : "all";
+        q.fullText = normalizeFullText(q.fullText);
         q.documentType = limit(clean(q.documentType), 80);
         q.accessPolicy = normalizeAccess(clean(q.accessPolicy));
         q.sort = normalizeSort(q.sort);
@@ -212,6 +223,10 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")));
         summary.metadataOnly = count(publicCriteria(session, null)
                 .add(Restrictions.eq("accessPolicy", "METADATA_ONLY")));
+        summary.restrictedItems = count(publicCriteria(session, null)
+                .add(Restrictions.in("accessPolicy", new String[] { "RESTRICTED", "INSTITUTION_ONLY", "AUTHENTICATED" })));
+        summary.embargoedItems = count(publicCriteria(session, null)
+                .add(Restrictions.eq("accessPolicy", "EMBARGOED")));
         summary.authorCount = distinctTokenCount(session, "authors");
         summary.subjectCount = distinctTokenCount(session, "subjects");
         Object typeCount = publicCriteria(session, null).setProjection(Projections.countDistinct("documentType")).uniqueResult();
@@ -352,12 +367,17 @@ public class RepositoryPublicService {
         Map<String, Boolean> seen = new LinkedHashMap<String, Boolean>();
         for (RepoItem row : rows) {
             String[] candidates;
-            String type;
-            if ("author".equals(q.searchField)) { candidates = safe(row.getAuthors()).split("[;,]"); type = "author"; }
-            else if ("subject".equals(q.searchField)) { candidates = safe(row.getSubjects()).split("[;,]"); type = "subject"; }
-            else if ("identifier".equals(q.searchField)) { candidates = new String[] { safe(row.getDoi()), safe(row.getOaiIdentifier()), safe(row.getDspaceHandle()) }; type = "identifier"; }
-            else { candidates = new String[] { safe(row.getTitle()) }; type = "item"; }
-            for (String candidate : candidates) {
+            String[] types;
+            if ("author".equals(q.searchField)) { candidates = safe(row.getAuthors()).split("[;,]"); types = repeatedType(candidates.length, "author"); }
+            else if ("subject".equals(q.searchField)) { candidates = safe(row.getSubjects()).split("[;,]"); types = repeatedType(candidates.length, "subject"); }
+            else if ("identifier".equals(q.searchField)) { candidates = new String[] { safe(row.getDoi()), safe(row.getOaiIdentifier()), safe(row.getDspaceHandle()) }; types = repeatedType(candidates.length, "identifier"); }
+            else if ("all".equals(q.searchField)) {
+                String firstAuthor = firstToken(row.getAuthors()); String firstSubject = firstToken(row.getSubjects());
+                candidates = new String[] { safe(row.getTitle()), firstAuthor, firstSubject, safe(row.getDoi()), safe(row.getOaiIdentifier()) };
+                types = new String[] { "title", "author", "subject", "identifier", "identifier" };
+            } else { candidates = new String[] { safe(row.getTitle()) }; types = repeatedType(1, q.searchField); }
+            for (int candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+                String candidate = candidates[candidateIndex]; String type = types[candidateIndex];
                 String value = clean(candidate);
                 if (value.length() == 0 || value.toLowerCase().indexOf(q.keyword.toLowerCase()) < 0 || seen.containsKey(value.toLowerCase())) continue;
                 Suggestion suggestion = new Suggestion(); suggestion.type = type; suggestion.label = value;
@@ -366,6 +386,12 @@ public class RepositoryPublicService {
                 if (result.size() >= limit) return result;
             }
         }
+        return result;
+    }
+
+    private String[] repeatedType(int size, String type) {
+        String[] result = new String[Math.max(0, size)];
+        for (int i = 0; i < result.length; i++) result[i] = type;
         return result;
     }
 
@@ -482,6 +508,18 @@ public class RepositoryPublicService {
         return item == null ? null : findPublicItem(item.getId());
     }
 
+    /** Record OAI dapat berupa record publik atau tombstone yang telah ditarik. */
+    public ItemDetail findOaiItemByIdentifier(String identifier) {
+        String value = limit(clean(identifier), 255);
+        if (value.length() == 0) return null;
+        RepoItem item = (RepoItem) session().createCriteria(RepoItem.class)
+                .add(Restrictions.eq("oaiIdentifier", value)).add(activeRestriction()).add(tenantRestriction())
+                .uniqueResult();
+        if (item == null) return null;
+        ItemDetail published = findPublicItem(item.getId());
+        return published != null ? published : findTombstone(item.getId());
+    }
+
     public ItemDetail findTombstone(Long id) {
         if(id==null)return null;Session session=session();RepoItem entity=(RepoItem)session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id",id)).add(activeRestriction()).add(tenantRestriction()).add(Restrictions.eq("isWithdrawn",Boolean.TRUE)).uniqueResult();
@@ -574,6 +612,8 @@ public class RepositoryPublicService {
         }
         if ("apa".equals(type)) return safe(item.authors)+" ("+year+"). "+safe(item.title)+". "+safe(item.publisher)+". "+safe(item.doi);
         if ("ieee".equals(type)) return safe(item.authors)+", “"+safe(item.title)+",” "+safe(item.publisher)+", "+year+". "+safe(item.doi);
+        if ("harvard".equals(type)) return safe(item.authors)+" ("+year+") ‘"+safe(item.title)+"’, "+safe(item.publisher)+". "+citationIdentifier(item);
+        if ("vancouver".equals(type)) return safe(item.authors)+". "+safe(item.title)+". "+safe(item.publisher)+"; "+year+". "+citationIdentifier(item);
         if ("chicago".equals(type)) return safe(item.authors)+". “"+safe(item.title)+".” "+safe(item.publisher)+", "+year+". "+safe(item.doi);
         return safe(item.authors) + " (" + year + "). " + safe(item.title) + ". "
                 + safe(item.publisher) + ". " + safe(item.oaiIdentifier);
@@ -597,6 +637,10 @@ public class RepositoryPublicService {
         if(q.programStudy.length()>0)criteria.add(Restrictions.sqlRestriction(
                 "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and rpm.metadata_field='repository.programStudy' and lower(rpm.metadata_value) like lower(?))",
                 "%"+q.programStudy+"%",Hibernate.STRING));
+        if ("WITH_FILE".equals(q.fullText)) criteria.add(Restrictions.sqlRestriction(
+                "{alias}.access_policy='OPEN_ACCESS' and exists (select 1 from repo_bitstream rb where rb.item_id={alias}.id and coalesce(rb.aktif,true)=true and rb.access_policy='OPEN_ACCESS')"));
+        else if ("METADATA_ONLY".equals(q.fullText)) criteria.add(Restrictions.sqlRestriction(
+                "not (coalesce({alias}.access_policy,'METADATA_ONLY')='OPEN_ACCESS' and exists (select 1 from repo_bitstream rb where rb.item_id={alias}.id and coalesce(rb.aktif,true)=true and rb.access_policy='OPEN_ACCESS'))"));
         if (q.year != null) {
             Calendar from = Calendar.getInstance();
             from.clear();
@@ -607,17 +651,34 @@ public class RepositoryPublicService {
             criteria.add(Restrictions.ge("issuedAt", from.getTime()));
             criteria.add(Restrictions.lt("issuedAt", until.getTime()));
         }
+        if (q.modifiedFrom != null) criteria.add(Restrictions.sqlRestriction(
+                "coalesce({alias}.last_sync_at,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) >= ?",
+                q.modifiedFrom, Hibernate.TIMESTAMP));
+        if (q.modifiedUntil != null) criteria.add(Restrictions.sqlRestriction(
+                "coalesce({alias}.last_sync_at,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) <= ?",
+                q.modifiedUntil, Hibernate.TIMESTAMP));
         if (q.keyword.length() > 0) {
             if ("title".equals(q.searchField)) criteria.add(Restrictions.ilike("title", q.keyword, MatchMode.ANYWHERE));
             else if ("author".equals(q.searchField)) criteria.add(Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE));
             else if ("subject".equals(q.searchField)) criteria.add(Restrictions.ilike("subjects", q.keyword, MatchMode.ANYWHERE));
+            else if ("abstract".equals(q.searchField)) criteria.add(Restrictions.ilike("abstractText", q.keyword, MatchMode.ANYWHERE));
+            else if ("fulltext".equals(q.searchField)) criteria.add(Restrictions.ilike("extractedText", q.keyword, MatchMode.ANYWHERE));
+            else if ("program".equals(q.searchField)) criteria.add(Restrictions.sqlRestriction(
+                    "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and rpm.metadata_field='repository.programStudy' and lower(rpm.metadata_value) like lower(?))",
+                    "%" + q.keyword + "%", Hibernate.STRING));
+            else if ("advisor".equals(q.searchField)) criteria.add(Restrictions.sqlRestriction(
+                    "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and rpm.metadata_field in ('dc.contributor.advisor','dc.contributor.editor','repository.advisor') and lower(rpm.metadata_value) like lower(?))",
+                    "%" + q.keyword + "%", Hibernate.STRING));
             else if ("identifier".equals(q.searchField)) criteria.add(Restrictions.or(
                     Restrictions.ilike("doi", q.keyword, MatchMode.ANYWHERE), Restrictions.or(
                     Restrictions.ilike("oaiIdentifier", q.keyword, MatchMode.ANYWHERE),
                     Restrictions.ilike("dspaceHandle", q.keyword, MatchMode.ANYWHERE))));
             else {
+                String indexedText = "metadata".equals(q.searchScope)
+                        ? "coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'')"
+                        : "coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')";
                 org.hibernate.criterion.Criterion fts = Restrictions.sqlRestriction(
-                        "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(authors,'') || ' ' || coalesce(subjects,'') || ' ' || coalesce(abstract_text,'') || ' ' || coalesce(extracted_text,'')) @@ plainto_tsquery('simple', ?)",
+                        "to_tsvector('simple', " + indexedText + ") @@ plainto_tsquery('simple', ?)",
                         q.keyword, Hibernate.STRING);
                 org.hibernate.criterion.Criterion eav=Restrictions.sqlRestriction(
                         "exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and coalesce(rpm.aktif,true)=true and lower(rpm.metadata_value) like lower(?))",
@@ -691,7 +752,7 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant group by m.metadata_value order by count(*) desc limit 30").setString("tenant",RepositoryTenantScope.currentKey()).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
     @SuppressWarnings("unchecked")
-    private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
+    private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)if("OPEN_ACCESS".equals(i.getAccessPolicy()))ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
     private static Map<String,Long> top(Map<String,Long> source,int maximum){List<Map.Entry<String,Long>> rows=new ArrayList<Map.Entry<String,Long>>(source.entrySet());Collections.sort(rows,new java.util.Comparator<Map.Entry<String,Long>>(){public int compare(Map.Entry<String,Long>a,Map.Entry<String,Long>b){return b.getValue().compareTo(a.getValue());}});Map<String,Long> out=new LinkedHashMap<String,Long>();for(int i=0;i<rows.size()&&i<maximum;i++)out.put(rows.get(i).getKey(),rows.get(i).getValue());return out;}
 
     private long distinctTokenCount(Session session, String property) {
@@ -760,6 +821,9 @@ public class RepositoryPublicService {
         card.doi = safe(entity.getDoi());
         card.licenseUri = safe(entity.getLicenseUri());
         card.embargoUntil = entity.getEmbargoUntil();
+        card.datestamp = entity.getLastSyncAt() != null ? entity.getLastSyncAt()
+                : (entity.getPublishedAt() != null ? entity.getPublishedAt()
+                : (entity.getIssuedAt() != null ? entity.getIssuedAt() : entity.getSubmittedAt()));
         card.viewCount = entity.getViewCount() == null ? 0L : entity.getViewCount().longValue();
         card.downloadCount = entity.getDownloadCount() == null ? 0L : entity.getDownloadCount().longValue();
         card.withdrawn = Boolean.TRUE.equals(entity.getIsWithdrawn()); card.withdrawalReason=safe(entity.getWithdrawalReason()); card.withdrawnAt=entity.getWithdrawnAt();
@@ -783,7 +847,7 @@ public class RepositoryPublicService {
         target.accessPolicy = source.accessPolicy;
         target.language = source.language;
         target.publisher = source.publisher;
-        target.doi = source.doi; target.licenseUri=source.licenseUri; target.embargoUntil=source.embargoUntil;
+        target.doi = source.doi; target.licenseUri=source.licenseUri; target.embargoUntil=source.embargoUntil; target.datestamp=source.datestamp;
         target.viewCount=source.viewCount; target.downloadCount=source.downloadCount;
         target.withdrawn=source.withdrawn;target.withdrawalReason=source.withdrawalReason;target.withdrawnAt=source.withdrawnAt;
         target.issuedAt = source.issuedAt;
@@ -899,7 +963,13 @@ public class RepositoryPublicService {
     private String normalizeSearchField(String value) {
         String field = clean(value).toLowerCase();
         return "title".equals(field) || "author".equals(field) || "subject".equals(field)
-                || "identifier".equals(field) ? field : "all";
+                || "abstract".equals(field) || "program".equals(field) || "advisor".equals(field)
+                || "fulltext".equals(field) || "identifier".equals(field) ? field : "all";
+    }
+
+    private String normalizeFullText(String value) {
+        String fullText = clean(value).toUpperCase();
+        return "WITH_FILE".equals(fullText) || "METADATA_ONLY".equals(fullText) ? fullText : "";
     }
 
     private String normalizePreferenceType(String value) {
@@ -913,6 +983,10 @@ public class RepositoryPublicService {
 
     private String citationEscape(String value) {
         return safe(value).replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}");
+    }
+    private String citationIdentifier(ItemDetail item) {
+        return clean(item.doi).length() > 0 ? "https://doi.org/" + clean(item.doi)
+                : (clean(item.dspaceHandle).length() > 0 ? item.dspaceHandle : item.oaiIdentifier);
     }
     private static String xmlEscape(String value){return safe(value).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
 

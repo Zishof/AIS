@@ -207,6 +207,8 @@ public class Repository extends HttpServlet {
         q.language = clean(request.getParameter("language"));
         q.identifier = clean(request.getParameter("identifier"));
         q.programStudy = clean(request.getParameter("program"));
+        q.searchScope = clean(request.getParameter("scope"));
+        q.fullText = clean(request.getParameter("fullText"));
         q.collectionId = request.getAttribute("repoRouteCollectionId") instanceof Long
                 ? (Long)request.getAttribute("repoRouteCollectionId") : parseLong(request.getParameter("collection"));
         q.documentType = clean(request.getParameter("type"));
@@ -286,7 +288,8 @@ public class Repository extends HttpServlet {
         String format = clean(request.getParameter("format")).toLowerCase();
         if (!"ris".equals(format) && !"bibtex".equals(format) && !"endnote".equals(format)
                 && !"csl".equals(format) && !"dcxml".equals(format) && !"apa".equals(format)
-                && !"ieee".equals(format) && !"chicago".equals(format) && !"text".equals(format)) format = "text";
+                && !"ieee".equals(format) && !"harvard".equals(format) && !"vancouver".equals(format)
+                && !"chicago".equals(format) && !"text".equals(format)) format = "text";
         String body = service.citation(item, format);
         String extension = "bibtex".equals(format) ? "bib" : ("ris".equals(format) ? "ris"
                 : ("endnote".equals(format) ? "enw" : ("csl".equals(format) ? "json" : ("dcxml".equals(format)?"xml":"txt"))));
@@ -339,7 +342,8 @@ public class Repository extends HttpServlet {
         if (verb.length() == 0 && token.length() > 0) verb = clean(request.getParameter("oaiVerb"));
         response.setContentType("text/xml;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        String base = request.getRequestURL().toString() + "?action=oai";
+        String requestUrl = request.getRequestURL().toString();
+        String base = requestUrl.endsWith("/oai") ? requestUrl : requestUrl + "?action=oai";
         out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         out.print("<OAI-PMH xmlns=\"http://www.openarchives.org/OAI/2.0/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd\">");
         out.print("<responseDate>" + xmlDate(new Date()) + "</responseDate><request verb=\"" + xml(verb) + "\">" + xml(base) + "</request>");
@@ -366,7 +370,7 @@ public class Repository extends HttpServlet {
             if (!validOaiPrefix(request.getParameter("metadataPrefix"))) {
                 oaiError(out, "cannotDisseminateFormat", "Metadata prefix harus oai_dc.");
             } else {
-                ItemDetail item = service.findPublicItemByOai(request.getParameter("identifier"));
+                ItemDetail item = service.findOaiItemByIdentifier(request.getParameter("identifier"));
                 if (item == null) oaiError(out, "idDoesNotExist", "Identifier tidak ditemukan.");
                 else {
                     out.print("<GetRecord>");
@@ -385,25 +389,33 @@ public class Repository extends HttpServlet {
                     Query q = new Query();
                     q.page = page;
                     q.pageSize = 50;
-                    Long setId = parseSet(request.getParameter("set"));
-                    if (token.length() == 0) q.collectionId = setId;
-                    SearchResult result = service.search(q);
-                    if (result.items.isEmpty() && page == 1) {
-                        oaiError(out, "noRecordsMatch", "Tidak ada record publik yang sesuai.");
+                    Long setId = token.length() == 0 ? parseSet(request.getParameter("set")) : parseOaiTokenLong(token, "s");
+                    Date from = token.length() == 0 ? parseOaiDate(request.getParameter("from"), false) : parseOaiTokenDate(token, "f");
+                    Date until = token.length() == 0 ? parseOaiDate(request.getParameter("until"), true) : parseOaiTokenDate(token, "u");
+                    boolean invalidSet = token.length() == 0 && clean(request.getParameter("set")).length() > 0 && setId == null;
+                    boolean invalidFrom = token.length() == 0 && clean(request.getParameter("from")).length() > 0 && from == null;
+                    boolean invalidUntil = token.length() == 0 && clean(request.getParameter("until")).length() > 0 && until == null;
+                    if (invalidSet || invalidFrom || invalidUntil || (from != null && until != null && from.after(until))) {
+                        oaiError(out, "badArgument", "Parameter set/from/until tidak valid.");
                     } else {
-                        out.print("<" + verb + ">");
-                        for (int i = 0; i < result.items.size(); i++) {
-                            ItemDetail item = service.findPublicItem(result.items.get(i).id);
-                            writeOaiRecord(out, item, "ListRecords".equals(verb));
-                        }
-                        if (page < result.totalPages) {
-                            out.print("<resumptionToken completeListSize=\"" + result.total + "\" cursor=\""
-                                    + ((page - 1) * q.pageSize) + "\">p" + (page + 1) + "</resumptionToken>");
+                        q.collectionId = setId;
+                        q.modifiedFrom = from;
+                        q.modifiedUntil = until;
+                        SearchResult result = service.search(q);
+                        if (result.items.isEmpty() && page == 1) {
+                            oaiError(out, "noRecordsMatch", "Tidak ada record publik yang sesuai.");
                         } else {
+                            out.print("<" + verb + ">");
+                            for (int i = 0; i < result.items.size(); i++) {
+                                ItemDetail item = service.findPublicItem(result.items.get(i).id);
+                                writeOaiRecord(out, item, "ListRecords".equals(verb));
+                            }
+                            String nextToken = page < result.totalPages
+                                    ? buildOaiToken(page + 1, setId, from, until) : "";
                             out.print("<resumptionToken completeListSize=\"" + result.total + "\" cursor=\""
-                                    + ((page - 1) * q.pageSize) + "\"></resumptionToken>");
+                                    + ((page - 1) * q.pageSize) + "\">" + xml(nextToken) + "</resumptionToken>");
+                            out.print("</" + verb + ">");
                         }
-                        out.print("</" + verb + ">");
                     }
                 }
             }
@@ -417,10 +429,10 @@ public class Repository extends HttpServlet {
     private void writeOaiRecord(PrintWriter out, ItemDetail item, boolean includeMetadata) {
         if (item == null) return;
         if (includeMetadata) out.print("<record>");
-        out.print("<header><identifier>" + xml(item.oaiIdentifier) + "</identifier><datestamp>"
-                + xmlDate(item.issuedAt == null ? new Date(0L) : item.issuedAt) + "</datestamp>"
+        out.print("<header" + (item.withdrawn ? " status=\"deleted\"" : "") + "><identifier>" + xml(item.oaiIdentifier) + "</identifier><datestamp>"
+                + xmlDate(item.datestamp == null ? new Date(0L) : item.datestamp) + "</datestamp>"
                 + "<setSpec>collection:" + item.collectionId + "</setSpec></header>");
-        if (includeMetadata) {
+        if (includeMetadata && !item.withdrawn) {
             out.print("<metadata><oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd\">");
             out.print("<dc:title>" + xml(item.title) + "</dc:title>");
             String[] authors = item.authors == null ? new String[0] : item.authors.split(";");
@@ -507,8 +519,46 @@ public class Repository extends HttpServlet {
 
     private int parseOaiPage(String token) {
         if (token == null || token.length() == 0) return 1;
-        if (!token.matches("p[1-9][0-9]*")) return -1;
-        try { return Integer.parseInt(token.substring(1)); } catch (Exception e) { return -1; }
+        if (token.indexOf(';') >= 0 && !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+")) return -1;
+        String pageToken = token.indexOf(';') < 0 ? token : token.substring(0, token.indexOf(';'));
+        if (!pageToken.matches("p[1-9][0-9]*")) return -1;
+        try { return Integer.parseInt(pageToken.substring(1)); } catch (Exception e) { return -1; }
+    }
+
+    private String buildOaiToken(int page, Long setId, Date from, Date until) {
+        return "p" + page + ";s" + (setId == null ? 0L : setId.longValue())
+                + ";f" + (from == null ? 0L : from.getTime())
+                + ";u" + (until == null ? 0L : until.getTime());
+    }
+
+    private Long parseOaiTokenLong(String token, String key) {
+        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+")) return null;
+        String[] parts = token.split(";");
+        for (int i = 1; i < parts.length; i++) if (parts[i].startsWith(key)) {
+            try { long value = Long.parseLong(parts[i].substring(1)); return value <= 0L ? null : Long.valueOf(value); }
+            catch (Exception ignored) { return null; }
+        }
+        return null;
+    }
+
+    private Date parseOaiTokenDate(String token, String key) {
+        Long value = parseOaiTokenLong(token, key);
+        return value == null ? null : new Date(value.longValue());
+    }
+
+    private Date parseOaiDate(String value, boolean endOfDay) {
+        String text = clean(value);
+        if (text.length() == 0) return null;
+        String pattern = text.length() == 10 ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm:ss'Z'";
+        try {
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setLenient(false);
+            format.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Date parsed = format.parse(text);
+            return endOfDay && text.length() == 10 ? new Date(parsed.getTime() + 86399999L) : parsed;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private Long parseSet(String set) {

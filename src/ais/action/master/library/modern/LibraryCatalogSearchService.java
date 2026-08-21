@@ -290,6 +290,8 @@ public class LibraryCatalogSearchService {
         dto.setLanguage(item.getBahasa());
         dto.setCallNumber(item.getCallnumber());
         dto.setYear(item.getTahun());
+        dto.setEdition(item.getEdisi());
+        dto.setPages(item.getHalaman());
         List<LibraryHoldingDto> holdings = holdingMap.get(item.getId());
         int copies = 0, available = 0;
         if (holdings != null) for (LibraryHoldingDto holding : holdings) { copies += holding.getTotal(); available += holding.getAvailable(); }

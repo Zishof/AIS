@@ -54,7 +54,8 @@
           var row = rows[i], button = document.createElement('button');
           button.type = 'button'; button.className = 'repo-suggestion'; button.id = panel.id + '-option-' + i;
           button.setAttribute('role', 'option'); button.setAttribute('data-value', row.value || row.label || '');
-          var type = document.createElement('span'); type.className = 'repo-suggestion-type'; type.textContent = row.type || 'item';
+          var typeLabels = { title: 'Judul', item: 'Judul', author: 'Penulis', subject: 'Subjek', identifier: 'Identifier', abstract: 'Abstrak', program: 'Program studi', advisor: 'Pembimbing', fulltext: 'Isi dokumen' };
+          var type = document.createElement('span'); type.className = 'repo-suggestion-type'; type.textContent = typeLabels[row.type] || row.type || 'Judul';
           var text = document.createElement('span'), label = document.createElement('strong'), detail = document.createElement('small');
           label.textContent = row.label || ''; detail.textContent = row.detail || ''; text.appendChild(label); if (row.detail) text.appendChild(detail);
           button.appendChild(type); button.appendChild(text); button.addEventListener('click', function () { choose(this); }); panel.appendChild(button); options.push(button);

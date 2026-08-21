@@ -232,6 +232,17 @@
 .repo-quality progress::-webkit-progress-bar { background:rgba(255,255,255,.18); }
 .repo-quality progress::-webkit-progress-value { background:#fff; }
 .repo-quality progress::-moz-progress-bar { background:#fff; }
+.repo-access-breakdown { display:grid; gap:5px; }
+.repo-access-breakdown small { color:var(--repo-on-primary); opacity:.82; line-height:1.45; }
+.repo-search-scope { display:flex; align-items:center; gap:14px; grid-column:1 / -1; margin:8px 0 0; padding:8px 0 0; border:0; border-top:1px solid var(--repo-line); }
+.repo-search-scope legend { float:left; margin:0 8px 0 0; color:var(--repo-muted); font-size:12px; font-weight:700; }
+.repo-search-scope label { display:inline-flex; align-items:center; gap:5px; color:var(--repo-ink); font-size:12px; }
+.repo-citation-menu { position:relative; }
+.repo-citation-menu summary { list-style:none; cursor:pointer; }
+.repo-citation-menu summary::-webkit-details-marker { display:none; }
+.repo-citation-menu > div { position:absolute; z-index:20; top:calc(100% + 6px); left:0; min-width:150px; padding:6px; border:1px solid var(--repo-line); border-radius:10px; background:#fff; box-shadow:0 12px 30px rgba(20,44,72,.16); }
+.repo-citation-menu > div a { display:block; padding:8px 10px; border-radius:7px; color:var(--repo-ink); text-decoration:none; }
+.repo-citation-menu > div a:hover,.repo-citation-menu > div a:focus-visible { background:var(--repo-theme-light); color:var(--repo-primary); }
 .repo-insight-empty { color:var(--repo-on-primary); padding:20px 4px; }
 .repo-insight-empty p { color:var(--repo-on-primary); opacity:.8; margin-bottom:0; }
 .repo-browse-grid-v2 { grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -423,3 +434,4 @@
 }
 @media (max-width: 1000px) { .repo-workspace-grid { grid-template-columns: 1fr; }.repo-workspace-side { position: static; max-height: none; }.repo-upload-form { grid-template-columns: 1fr 1fr; }.repo-admin-cards { grid-template-columns: 1fr 1fr; }.repo-admin-layout { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .repo-topbar .repo-nav { width: calc(100% - 24px); }.repo-topbar .repo-links { display: flex; overflow-x: auto; gap: 12px; }.repo-topbar .repo-brand small { display: none; }.repo-form-grid,.repo-upload-form,.repo-admin-cards,.repo-health-grid { grid-template-columns: 1fr; }.repo-field-full { grid-column: auto; }.repo-stepper { overflow-x: auto; grid-template-columns: repeat(5,minmax(110px,1fr)); }.repo-card-pad { padding: 17px; } }
+@media (max-width: 680px) { .repo-search-scope { align-items:flex-start; flex-wrap:wrap; gap:8px 14px; }.repo-search-scope legend { width:100%; }.repo-citation-menu > div { position:fixed; left:14px; right:14px; top:auto; bottom:70px; } }
