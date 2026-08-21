@@ -370,6 +370,16 @@
 
                     </div>
                 </div>
+                <section class="mt-5" aria-labelledby="detailRelatedTitle<%=modalId%>">
+                    <h2 class="h5 fw-bold" id="detailRelatedTitle<%=modalId%>"><i class="fas fa-lightbulb text-primary me-2"></i><%=Common.getBahasaConfig("Rekomendasi koleksi terkait")%></h2>
+                    <div class="row g-3" id="detailRecommendations<%=modalId%>"><div class="text-secondary"><%=Common.getBahasaConfig("Menyiapkan rekomendasi...")%></div></div>
+                </section>
+                <section class="mt-5" aria-labelledby="detailReviewTitle<%=modalId%>">
+                    <h2 class="h5 fw-bold" id="detailReviewTitle<%=modalId%>"><i class="fas fa-star text-warning me-2"></i><%=Common.getBahasaConfig("Rating dan ulasan anggota")%></h2>
+                    <div id="detailRatingSummary<%=modalId%>" class="text-secondary mb-3" aria-live="polite"></div>
+                    <div id="detailReviews<%=modalId%>" class="d-grid gap-2"></div>
+                    <% if (bolehAksesDigital) { %><form class="mt-3 p-3 border rounded-4 bg-white" id="detailReviewForm<%=modalId%>"><label class="form-label fw-bold" for="detailRating<%=modalId%>"><%=Common.getBahasaConfig("Rating")%></label><select class="form-select mb-2" id="detailRating<%=modalId%>" required><option value="5">5 — Sangat baik</option><option value="4">4 — Baik</option><option value="3">3 — Cukup</option><option value="2">2 — Kurang</option><option value="1">1 — Buruk</option></select><label class="form-label fw-bold" for="detailComment<%=modalId%>"><%=Common.getBahasaConfig("Ulasan")%></label><textarea class="form-control" id="detailComment<%=modalId%>" maxlength="240" rows="3" required></textarea><button class="btn btn-outline-primary rounded-pill mt-2" type="submit"><%=Common.getBahasaConfig("Kirim untuk moderasi")%></button></form><% } else { %><a class="btn btn-outline-primary rounded-pill mt-2" href="<%=Common.ROOT%>/pustaka?s=login_pustaka"><%=Common.getBahasaConfig("Masuk untuk menulis ulasan")%></a><% } %>
+                </section>
             </div>
         </div>
     </div>
@@ -377,6 +387,8 @@
 
 <script>
     var detailApi<%=modalId%> = '<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_beranda_anggota_service';
+    var detailCatalogApi<%=modalId%> = '<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_catalog_api';
+    var detailOperationsApi<%=modalId%> = '<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_operations_api';
     var detailCsrf<%=modalId%> = '<%=detailCsrf%>';
     function detailMutation<%=modalId%>(action, data, button) {
         var status = document.getElementById('detailActionStatus<%=modalId%>');
@@ -391,6 +403,15 @@
     }
     function toggleFavoriteDetail<%=modalId%>(button) { detailMutation<%=modalId%>('favorite_toggle', {itemId:'<%=item.getId()%>'}, button); }
     function holdDetail<%=modalId%>(libraryId, button) { detailMutation<%=modalId%>('hold', {itemId:'<%=item.getId()%>', libraryId:String(libraryId)}, button); }
+    function detailEscape<%=modalId%>(value) { var node=document.createElement('span');node.textContent=value==null?'':String(value);return node.innerHTML; }
+    function loadRecommendations<%=modalId%>() {
+        fetch(detailCatalogApi<%=modalId%>+'&action=recommendations&itemId=<%=item.getId()%>',{credentials:'same-origin',headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(data){var box=document.getElementById('detailRecommendations<%=modalId%>'),rows=data.items||[];box.innerHTML=rows.length?rows.map(function(x){return '<div class="col-md-6 col-xl-4"><a class="d-block h-100 p-3 border rounded-4 bg-white text-decoration-none text-dark" href="<%=Common.ROOT%>/pustaka?id='+encodeURIComponent(x.id)+'"><small class="text-primary fw-bold">'+detailEscape<%=modalId%>(x.jenisKoleksi||'Koleksi')+'</small><strong class="d-block mt-1">'+detailEscape<%=modalId%>(x.nama)+'</strong><span class="small text-secondary">'+detailEscape<%=modalId%>(x.pengarangs||'-')+' · '+detailEscape<%=modalId%>(x.tahun||'-')+'</span></a></div>';}).join(''):'<div class="text-secondary"><%=Common.getBahasaConfigJS("Belum ada rekomendasi terkait.")%></div>';}).catch(function(){document.getElementById('detailRecommendations<%=modalId%>').innerHTML='<div class="text-secondary"><%=Common.getBahasaConfigJS("Rekomendasi belum dapat dimuat.")%></div>';});
+    }
+    function loadReviews<%=modalId%>() {
+        fetch(detailOperationsApi<%=modalId%>+'&action=comment_list&itemId=<%=item.getId()%>',{credentials:'same-origin',headers:{'Accept':'application/json'}}).then(function(r){return r.json();}).then(function(data){detailCsrf<%=modalId%>=data.csrf||detailCsrf<%=modalId%>;var rating=data.rating||{},rows=data.data||[];document.getElementById('detailRatingSummary<%=modalId%>').textContent=rating.count?(rating.average+' / 5 · '+rating.count+' ulasan terbit'):'<%=Common.getBahasaConfigJS("Belum ada ulasan terbit.")%>';document.getElementById('detailReviews<%=modalId%>').innerHTML=rows.map(function(x){return '<article class="p-3 border rounded-4 bg-white"><div class="text-warning" aria-label="Rating '+x.rating+' dari 5">'+('★★★★★'.slice(0,x.rating))+'<span class="text-secondary">'+('★★★★★'.slice(x.rating))+'</span></div><p class="mb-1">'+detailEscape<%=modalId%>(x.comment)+'</p><small class="text-secondary">'+detailEscape<%=modalId%>(x.author)+'</small></article>';}).join('');});
+    }
+    <% if (bolehAksesDigital) { %>document.getElementById('detailReviewForm<%=modalId%>').addEventListener('submit',function(event){event.preventDefault();var button=this.querySelector('button');button.disabled=true;var form=new URLSearchParams({action:'comment_add',itemId:'<%=item.getId()%>',rating:document.getElementById('detailRating<%=modalId%>').value,comment:document.getElementById('detailComment<%=modalId%>').value,nui_csrf:detailCsrf<%=modalId%>});fetch(detailOperationsApi<%=modalId%>,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-NUI-CSRF':detailCsrf<%=modalId%>,'Accept':'application/json'},body:form.toString()}).then(function(r){return r.json();}).then(function(data){detailCsrf<%=modalId%>=data.csrf||detailCsrf<%=modalId%>;if(!data.ok)throw new Error(data.error||data.message);document.getElementById('detailComment<%=modalId%>').value='';document.getElementById('detailActionStatus<%=modalId%>').textContent=data.message;button.disabled=false;}).catch(function(error){document.getElementById('detailActionStatus<%=modalId%>').textContent=error.message;button.disabled=false;});});<% } %>
+    loadRecommendations<%=modalId%>();loadReviews<%=modalId%>();
 
     var currentUrl = window.location.href;
     if (currentUrl.indexOf('pustaka?id=') > -1 || currentUrl.indexOf('/main/item/') > -1) {

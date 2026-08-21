@@ -37,7 +37,7 @@ public final class LibraryOperationsApi {
     public static JSONObject handle(HttpServletRequest request) throws Exception {
         Tbmuser user=Common.getCurrentUser(request);String action=text(request.getParameter("action"),40);
         if(user==null&&!"comment_list".equals(action))return error("Silakan masuk terlebih dahulu.");
-        boolean admin=user!=null&&Common.getApakahAdmin();
+        boolean admin=LibraryPermissionGuard.isStaff(request);
         boolean mutation="serial_claim".equals(action)||"serial_resolve".equals(action)
                 ||"inventory_create".equals(action)||"inventory_scan".equals(action)||"inventory_close".equals(action)
                 ||"comment_add".equals(action)||"comment_moderate".equals(action)
@@ -122,7 +122,7 @@ public final class LibraryOperationsApi {
     private static JSONObject commentModerate(HttpServletRequest r)throws Exception{Long id=positiveLong(r.getParameter("id"));String status=text(r.getParameter("status"),20);if(!"APPROVED".equals(status)&&!"REJECTED".equals(status))return error("Status moderasi tidak valid.");Session s=null;Transaction tx=null;try{s=HibernateUtil.openSession();ItemKomentar x=id==null?null:(ItemKomentar)s.get(ItemKomentar.class,id);if(x==null)return error("Komentar tidak ditemukan.");tx=s.beginTransaction();x.setKontak(status);s.update(x);tx.commit();return ok().put("message","Moderasi disimpan.");}catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(s);}}
 
     private static void advance(Calendar c,String p){String v=safe(p).toLowerCase();if(v.contains("hari")||v.contains("daily"))c.add(Calendar.DATE,1);else if(v.contains("minggu")||v.contains("week"))c.add(Calendar.DATE,7);else if(v.contains("triwulan")||v.contains("quarter"))c.add(Calendar.MONTH,3);else if(v.contains("semester")||v.contains("semi"))c.add(Calendar.MONTH,6);else if(v.contains("tahun")||v.contains("annual"))c.add(Calendar.YEAR,1);else c.add(Calendar.MONTH,1);}
-    private static long countPublicSearch(Session s,String query){LibraryCatalogSearchRequest request=new LibraryCatalogSearchRequest();request.setQuery(text(query,160));Object value=new LibraryCatalogSearchService().createCriteria(s,request).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();return number(value);}
+    private static long countPublicSearch(Session s,String query){LibraryCatalogSearchRequest request=new LibraryCatalogSearchRequest();if(!"__ALL__".equals(query))request.setQuery(text(query,160));Object value=new LibraryCatalogSearchService().createCriteria(s,request).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();return number(value);}
     private static int rating(String body){if(body==null||!body.startsWith("[RATING="))return 0;try{int end=body.indexOf(']');return boundedInt(body.substring(8,end),1,5,0);}catch(Exception e){return 0;}}
     private static String commentBody(String body){if(body==null)return "";if(body.startsWith("[RATING=")){int end=body.indexOf(']');if(end>=0)return body.substring(end+1).trim();}return body;}
     private static String append(String old,String event,int max){String v=(safe(old).trim()+"\n"+event).trim();return v.length()>max?v.substring(v.length()-max):v;}

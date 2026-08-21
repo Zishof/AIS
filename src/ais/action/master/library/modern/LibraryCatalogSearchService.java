@@ -96,6 +96,7 @@ public class LibraryCatalogSearchService {
             Item source = (Item) session.get(Item.class, itemId);
             if (source == null) return result;
             LibraryCatalogSearchRequest request = new LibraryCatalogSearchRequest();
+            LibraryScopeResolver.apply(request);
             Criteria criteria = createCriteria(session, request);
             criteria.add(Restrictions.ne("id", itemId));
             Criterion related = null;
@@ -120,12 +121,14 @@ public class LibraryCatalogSearchService {
 
     Criteria createCriteria(Session session, LibraryCatalogSearchRequest request) {
         Criteria criteria = session.createCriteria(Item.class, "item");
+        criteria.setTimeout(15);
         criteria.setFetchMode("penerbit", FetchMode.JOIN).setFetchMode("jenisItem", FetchMode.JOIN)
                 .setFetchMode("tipeItem", FetchMode.JOIN);
         criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
         criteria.add(Restrictions.sqlRestriction(
                 "{alias}.status_terbit_item in (select id from library.status_terbit_item "
                 + "where lower(trim(nama)) in ('terbit','publish','published'))"));
+        LibraryScopeResolver.restrict(criteria);
 
         if (request.getQuery() != null) {
             String value = request.getQuery();
@@ -229,16 +232,21 @@ public class LibraryCatalogSearchService {
         if (entities == null || entities.isEmpty()) return result;
         List<Long> ids = new ArrayList<Long>();
         for (Item item : entities) ids.add(item.getId());
+        List<Long> allowedLibraries=LibraryScopeResolver.allowedLibraryIds(session);
+        if(allowedLibraries!=null&&allowedLibraries.isEmpty())return result;
         Query query = session.createSQLQuery(
                 "select b.item,p.id,coalesce(p.nama,'Lokasi belum ditentukan'),count(b.id),"
                 + "sum(case when loan.item_punya_barcode is null then 1 else 0 end),"
-                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce(max(i.callnumber),'') "
+                + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce(max(i.callnumber),''),"
+                + "coalesce((select max(s.status) from library.item_has_status s where s.item=b.item and (s.perpustakaan=p.id or s.perpustakaan is null) and current_date between coalesce(s.mulai,current_date) and coalesce(s.sampai,current_date)),'') "
                 + "from library.item_punya_barcode b join library.item i on i.id=b.item left join library.perpustakaan p on p.id=b.perpustakaan "
                 + "left join (select item_punya_barcode,max(batas_waktu_pengembalian) due_date "
                 + "from library.peminjaman_pengadaan_item_detail where kembali_pengadaan_item_detail is null "
                 + "group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
-                + "where b.item in (:ids) group by b.item,p.id,p.nama order by p.nama");
+                + "where b.item in (:ids) "+(allowedLibraries==null?"":"and p.id in (:allowedLibraries) ")+"group by b.item,p.id,p.nama order by p.nama");
+        query.setTimeout(15);
         query.setParameterList("ids", ids);
+        if(allowedLibraries!=null)query.setParameterList("allowedLibraries",allowedLibraries);
         List<Object[]> rows = query.list();
         for (Object[] row : rows) {
             if (!(row[0] instanceof Number)) continue;
@@ -250,7 +258,7 @@ public class LibraryCatalogSearchService {
             if (itemHoldings == null) { itemHoldings = new ArrayList<LibraryHoldingDto>(); result.put(itemId, itemHoldings); }
             itemHoldings.add(new LibraryHoldingDto(libraryId, row[2] == null ? null : String.valueOf(row[2]),
                     total, available, row[5] == null ? null : String.valueOf(row[5]),
-                    row[6] == null ? null : String.valueOf(row[6])));
+                    row[6] == null ? null : String.valueOf(row[6]),normalizeHoldingStatus(row[7],available,total)));
         }
         return result;
     }
@@ -299,9 +307,17 @@ public class LibraryCatalogSearchService {
         return token.length() > 80 ? token.substring(0, 80) : token;
     }
 
+    private String normalizeHoldingStatus(Object value,int available,int total){String status=value==null?"":String.valueOf(value).trim().toLowerCase();if(status.contains("tidak boleh")||status.contains("baca di tempat"))return "READ_ONLY";if(status.contains("hilang"))return "LOST";if(status.contains("rusak"))return "DAMAGED";if(status.contains("olah")||status.contains("proses"))return "PROCESSING";if(status.contains("reserv"))return "RESERVED";return available>0?"AVAILABLE":total>0?"LOANED":"NO_HOLDINGS";}
+
     @SuppressWarnings("unchecked")
     private JSONArray referenceList(Session session, Class<?> type) throws JSONException {
         Criteria criteria = session.createCriteria(type);
+        Perpustakaan scope=ais.common.Common.getCurrentPerpustakaan();
+        if(type==Perpustakaan.class){List<Long> allowed=LibraryScopeResolver.allowedLibraryIds(session);if(allowed!=null){if(allowed.isEmpty())return new JSONArray();criteria.add(Restrictions.in("id",allowed));}}
+        else if(scope!=null&&type==Yayasan.class&&scope.getYayasan()!=null)criteria.add(Restrictions.eq("id",scope.getYayasan().getId()));
+        else if(scope!=null&&type==Sekolah.class&&scope.getSekolah()!=null)criteria.add(Restrictions.eq("id",scope.getSekolah().getId()));
+        else if(scope!=null&&type==Fakultas.class&&scope.getFakultas()!=null)criteria.add(Restrictions.eq("id",scope.getFakultas().getId()));
+        else if(scope!=null&&type==Jurusan.class&&scope.getJurusan()!=null)criteria.add(Restrictions.eq("id",scope.getJurusan().getId()));
         if (hasProperty(session, type, "aktif")) {
             criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
         }

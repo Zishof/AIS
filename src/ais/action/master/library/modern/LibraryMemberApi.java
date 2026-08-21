@@ -26,6 +26,7 @@ import ais.database.model.library.ItemFavoritAnggota;
 import ais.database.model.library.PeminjamanPengadaanItemDetail;
 import ais.database.model.library.Perpustakaan;
 import ais.database.model.library.PesananAnggota;
+import ais.database.model.library.SearchHistory;
 
 /** Typed, member-scoped API for the self-service library portal. */
 public final class LibraryMemberApi {
@@ -71,10 +72,11 @@ public final class LibraryMemberApi {
             long favorites = count(session, "select count(id) from library.item_favorit_anggota where anggota=:member", context.id);
             long visits = count(session, "select count(id) from library.kunjungan_anggota where anggota=:member", context.id);
             long history = count(session, "select count(id) from library.peminjaman_pengadaan_item where anggota=:member", context.id);
+            long searchAlerts = savedSearchAlerts(session,context.member);
             double assessedFine = decimal(session.createSQLQuery("select coalesce(sum(coalesce(r.denda,0)),0) from library.kembali_pengadaan_item_detail r join library.peminjaman_pengadaan_item_detail d on d.id=r.peminjaman_pengadaan_item_detail join library.peminjaman_pengadaan_item p on p.id=d.peminjaman_pengadaan_item where p.anggota=:member").setLong("member", context.id).uniqueResult());
             JSONObject data = new JSONObject().put("activeLoans", active).put("dueSoon", dueSoon).put("overdue", overdue)
                     .put("activeHolds", holds).put("favorites", favorites).put("visits", visits).put("loanHistory", history)
-                    .put("assessedFine", assessedFine).put("notifications", dueSoon + overdue + holds)
+                    .put("assessedFine", assessedFine).put("savedSearchAlerts",searchAlerts).put("notifications", dueSoon + overdue + holds + searchAlerts)
                     .put("pinjam", history).put("kembali", history - active).put("pesan", holds).put("kunjung", visits);
             data.put("member", new JSONObject().put("id", context.id).put("code", safe(context.member.getKode()))
                     .put("name", safe(context.member.getNama())).put("active", !Boolean.FALSE.equals(context.member.getAktif())));
@@ -162,6 +164,8 @@ public final class LibraryMemberApi {
         if(itemId==null||libraryId==null)return error("Koleksi dan perpustakaan wajib dipilih.");if(Boolean.FALSE.equals(context.member.getAktif()))return error("Keanggotaan tidak aktif.");
         Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);Perpustakaan library=(Perpustakaan)session.get(Perpustakaan.class,libraryId);
             if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");if(library==null||Boolean.FALSE.equals(library.getAktif()))return error("Perpustakaan tidak ditemukan.");
+            List<Long> allowedLibraries=LibraryScopeResolver.allowedLibraryIds(session);if(allowedLibraries!=null&&!allowedLibraries.contains(libraryId))return error("Perpustakaan berada di luar scope institusi aktif.");
+            long readOnly=number(session.createSQLQuery("select count(id) from library.item_has_status where item=:item and (perpustakaan=:library or perpustakaan is null) and lower(coalesce(status,'')) like '%tidak boleh%' and current_date between coalesce(mulai,current_date) and coalesce(sampai,current_date)").setLong("item",itemId).setLong("library",libraryId).uniqueResult());if(readOnly>0)return error("Koleksi ini hanya dapat dibaca di tempat dan tidak dapat direservasi.");
             long stock=number(session.createSQLQuery("select coalesce(sum((coalesce(d.qty,0)+coalesce(d.qtybonus,0))*k.jenis),0) from library.detail_transaksi d join library.kode_transaksi k on k.id=d.kode_transaksi where d.item=:item and d.perpustakaan=:library").setLong("item",itemId).setLong("library",libraryId).uniqueResult());
             if(stock<1)return error("Koleksi tidak tersedia pada perpustakaan yang dipilih.");
             long duplicate=count(session,"select count(id) from library.pesanan_anggota where anggota=:member and item=:item and perpustakaan=:library and status=:status and kadaluarsa>=current_timestamp",context.id,itemId,libraryId,PesananAnggota.PESAN);if(duplicate>0)return error("Koleksi ini sudah Anda reservasi.");
@@ -179,7 +183,7 @@ public final class LibraryMemberApi {
     }
 
     private static JSONObject toggleFavorite(MemberContext context,Long itemId)throws Exception{
-        if(itemId==null)return error("Koleksi tidak valid.");Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");
+        if(itemId==null)return error("Koleksi tidak valid.");Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item)||!inScope(session,itemId))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");
             ItemFavoritAnggota f=(ItemFavoritAnggota)session.createCriteria(ItemFavoritAnggota.class).add(Restrictions.eq("anggota.id",context.id)).add(Restrictions.eq("item.id",itemId)).setMaxResults(1).uniqueResult();tx=session.beginTransaction();boolean favorite;
             if(f==null){f=new ItemFavoritAnggota();f.setAnggota((Anggota)session.get(Anggota.class,context.id));f.setItem(item);f.setTanggal(new Date());f.setTgl(new Date());f.setKeterangan("Favorit portal anggota");session.save(f);favorite=true;}else{session.delete(f);favorite=false;}tx.commit();return ok().put("message",favorite?"Ditambahkan ke favorit.":"Dihapus dari favorit.").put("favorite",favorite);
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
@@ -187,6 +191,8 @@ public final class LibraryMemberApi {
 
     private static MemberContext member(HttpServletRequest request){Tbmuser user=Common.getCurrentUser(request);if(user==null)return null;Anggota a=Anggota.buatAtauAmbilAnggota(user,false);return a==null||a.getId()==null?null:new MemberContext(a);}
     private static boolean isPublic(Item item){if(item==null||item.getStatusTerbitItem()==null||item.getStatusTerbitItem().getNama()==null)return false;String status=item.getStatusTerbitItem().getNama().trim().toLowerCase();return "terbit".equals(status)||"publish".equals(status)||"published".equals(status);}
+    @SuppressWarnings("unchecked") private static long savedSearchAlerts(Session session,Anggota member){try{if(member==null||member.getTbmuser()==null)return 0;String userId=member.getTbmuser().getUserId();long alerts=0;for(SearchHistory x:(List<SearchHistory>)session.createCriteria(SearchHistory.class).add(Restrictions.eq("olehId",userId)).add(Restrictions.eq("start",1)).add(Restrictions.ge("banyak",0)).setMaxResults(30).list()){LibraryCatalogSearchRequest request=new LibraryCatalogSearchRequest();if(!"__ALL__".equals(x.getQuer()))request.setQuery(x.getQuer());long current=number(new LibraryCatalogSearchService().createCriteria(session,request).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult());if(current>(x.getBanyak()==null?0:x.getBanyak()))alerts++;}return alerts;}catch(Exception ignored){return 0;}}
+    private static boolean inScope(Session session,Long itemId){LibraryCatalogSearchRequest request=new LibraryCatalogSearchRequest();return number(new LibraryCatalogSearchService().createCriteria(session,request).add(Restrictions.eq("id",itemId)).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult())>0;}
     private static JSONObject ok()throws JSONException{return new JSONObject().put("ok",true).put("status","success");}
     private static JSONObject error(String message)throws JSONException{return new JSONObject().put("ok",false).put("status","error").put("error",message).put("message",message);}
     private static JSONObject paged(JSONArray data,long total,Page page)throws JSONException{return ok().put("data",data).put("total",total).put("total_data",total).put("page",page.number).put("pageSize",page.size);}

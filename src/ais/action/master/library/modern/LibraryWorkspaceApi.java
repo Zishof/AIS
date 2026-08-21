@@ -61,7 +61,7 @@ public final class LibraryWorkspaceApi {
             JSONObject result = new JSONObject().put("ok", true).put("scope", context.scope()).put("counts", counts);
             result.put("visitTrend", visitTrend(session, context));
             result.put("topSubjects", topSubjects(session));
-            result.put("popularQueries", popularQueries(session));
+            result.put("popularQueries", context.admin ? popularQueries(session) : new JSONArray());
             result.put("popularTitles", popularTitles(session));
             return result;
         } finally {
@@ -93,7 +93,7 @@ public final class LibraryWorkspaceApi {
 
     @SuppressWarnings("unchecked")
     private static JSONArray popularQueries(Session session) throws JSONException {
-        List<Object[]> rows = session.createSQLQuery("select trim(text_query),count(id) from library.search_history where trim(coalesce(text_query,''))<>'' and coalesce(text_result,'') not like '[REMOVED]%' group by trim(text_query) order by count(id) desc limit 8").list();
+        List<Object[]> rows = session.createSQLQuery("select trim(text_query),count(id) from library.search_history where trim(coalesce(text_query,''))<>'' and trim(text_query)<>'__ALL__' and coalesce(text_result,'') not like '[REMOVED]%' group by trim(text_query) order by count(id) desc limit 8").list();
         JSONArray result = new JSONArray();
         for (Object[] row : rows) result.put(new JSONObject().put("name", string(row[0])).put("count", number(row[1])));
         return result;
@@ -195,7 +195,7 @@ public final class LibraryWorkspaceApi {
 
     private static Context context(HttpServletRequest request) {
         Tbmuser user = Common.getCurrentUser(request);
-        boolean admin = user != null && Common.getApakahAdmin();
+        boolean admin = LibraryPermissionGuard.isStaff(request);
         Long memberId = null;
         Session session = null;
         try {

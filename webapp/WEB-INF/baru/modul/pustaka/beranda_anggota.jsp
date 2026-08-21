@@ -5,7 +5,7 @@
     String memberCsrf = NewUiCsrfUtil.getToken(request.getSession());
     String memberRnd = Common.getGeneratedBarCode(7);
 %>
-<link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821b"><script src="<%=Common.ROOT%>/assets/library-modern/library.js"></script>
+<link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821d"><script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821d"></script>
 <section class="library-modern" id="memberPortal<%=memberRnd%>">
   <div class="library-container library-page">
     <header class="library-page-head">
@@ -41,7 +41,7 @@
 (function () {
   var root = '<%=Common.ROOT%>';
   var endpoint = root + '/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_beranda_anggota_service';
-  var csrf = '<%=memberCsrf%>', tab = 'loans', page = 1, total = 0, pageSize = 10;
+  var csrf = '<%=memberCsrf%>', requestedTab = new URLSearchParams(location.search).get('tab'), tab = ['loans','holds','favorites','visits'].indexOf(requestedTab)>=0?requestedTab:'loans', page = 1, total = 0, pageSize = 10;
   var esc = window.LibraryModern ? LibraryModern.escapeHtml : function(v){return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
   var body = document.getElementById('memberBody<%=memberRnd%>'), head = document.getElementById('memberHead<%=memberRnd%>'), notice = document.getElementById('memberNotice<%=memberRnd%>');
   function url(action, extra){ var p = new URLSearchParams(Object.assign({action:action,page:page,pageSize:pageSize,keyword:document.getElementById('memberKeyword<%=memberRnd%>').value},extra||{})); return endpoint + '&' + p.toString(); }
@@ -57,7 +57,7 @@
     if(!rows.length)body.innerHTML='<tr><td colspan="4" class="library-state">Belum ada data pada bagian ini.</td></tr>';
   }
   function load(){body.innerHTML='<tr><td colspan="4" class="library-state">Memuat data…</td></tr>';get(tab).then(function(r){if(!r.ok)throw new Error(r.error);csrf=r.csrf||csrf;total=r.total||0;renderRows(r.data||[]);document.getElementById('memberPage<%=memberRnd%>').textContent='Halaman '+page+' dari '+Math.max(1,Math.ceil(total/pageSize));document.getElementById('memberPrev<%=memberRnd%>').disabled=page<=1;document.getElementById('memberNext<%=memberRnd%>').disabled=page*pageSize>=total;}).catch(function(e){body.innerHTML='<tr><td colspan="4" class="library-state">'+esc(e.message)+'</td></tr>';});}
-  document.querySelectorAll('#memberPortal<%=memberRnd%> [data-member-tab]').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#memberPortal<%=memberRnd%> [data-member-tab]').forEach(function(x){x.classList.remove('library-button-primary');});b.classList.add('library-button-primary');tab=b.getAttribute('data-member-tab');page=1;load();});});
+  document.querySelectorAll('#memberPortal<%=memberRnd%> [data-member-tab]').forEach(function(b){b.classList.toggle('library-button-primary',b.getAttribute('data-member-tab')===tab);b.addEventListener('click',function(){document.querySelectorAll('#memberPortal<%=memberRnd%> [data-member-tab]').forEach(function(x){x.classList.remove('library-button-primary');});b.classList.add('library-button-primary');tab=b.getAttribute('data-member-tab');page=1;load();});});
   body.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var action,data;if(b.hasAttribute('data-renew')){action='renew';data={detailId:b.getAttribute('data-renew')};}if(b.hasAttribute('data-cancel')){action='hold_cancel';data={holdId:b.getAttribute('data-cancel')};}if(b.hasAttribute('data-favorite')){action='favorite_toggle';data={itemId:b.getAttribute('data-favorite')};}if(!action)return;b.disabled=true;mutate(action,data).then(function(r){if(!r.ok)throw new Error(r.error);csrf=r.csrf||csrf;message(r.message,false);summary();load();}).catch(function(err){message(err.message,true);b.disabled=false;});});
   document.getElementById('memberSearch<%=memberRnd%>').onclick=function(){page=1;load();};document.getElementById('memberPrev<%=memberRnd%>').onclick=function(){if(page>1){page--;load();}};document.getElementById('memberNext<%=memberRnd%>').onclick=function(){if(page*pageSize<total){page++;load();}};
   summary();load();

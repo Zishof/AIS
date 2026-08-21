@@ -24,7 +24,7 @@ public final class LibraryItemDetailService {
         try {
             session = HibernateUtil.openSession();
             Item item = (Item) session.get(Item.class, itemId);
-            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item)) return null;
+            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item) || !inScope(session,itemId)) return null;
             String publisher = item.getPenerbit() == null ? null : item.getPenerbit().getNama();
             String digitalUrl = null;
             if (Boolean.TRUE.equals(item.getBolehDiDownload())) {
@@ -51,7 +51,7 @@ public final class LibraryItemDetailService {
         try {
             session = HibernateUtil.openSession();
             Item item = (Item) session.get(Item.class, itemId);
-            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item)) return result;
+            if (item == null || Boolean.FALSE.equals(item.getAktif()) || !isPublic(item) || !inScope(session,itemId)) return result;
             return loadHoldings(session, itemId);
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }
@@ -89,14 +89,17 @@ public final class LibraryItemDetailService {
     @SuppressWarnings("unchecked")
     private static List<Holding> loadHoldings(Session session, Long itemId) {
         List<Holding> result = new ArrayList<Holding>();
+        List<Long> allowed=LibraryScopeResolver.allowedLibraryIds(session);
+        if(allowed!=null&&allowed.isEmpty())return result;
         Query query = session.createSQLQuery("select b.barcode,p.id,coalesce(p.nama,'Lokasi tidak diketahui'),"
                 + "case when loan.item_punya_barcode is null then true else false end,"
                 + "coalesce(to_char(loan.due_date,'DD-MM-YYYY'),'') from library.item_punya_barcode b "
                 + "left join library.perpustakaan p on p.id=b.perpustakaan left join "
                 + "(select item_punya_barcode,max(batas_waktu_pengembalian) due_date from library.peminjaman_pengadaan_item_detail "
                 + "where kembali_pengadaan_item_detail is null group by item_punya_barcode) loan on loan.item_punya_barcode=b.id "
-                + "where b.item=:item order by p.nama,b.barcode");
+                + "where b.item=:item "+(allowed==null?"":"and p.id in (:allowedLibraries) ")+"order by p.nama,b.barcode");
         query.setLong("item", itemId.longValue());
+        if(allowed!=null)query.setParameterList("allowedLibraries",allowed);
         for (Object[] row : (List<Object[]>) query.list()) {
             Long libraryId = row[1] instanceof Number ? Long.valueOf(((Number) row[1]).longValue()) : null;
             result.add(new Holding(row[0] == null ? null : String.valueOf(row[0]), libraryId,
@@ -105,4 +108,6 @@ public final class LibraryItemDetailService {
         }
         return result;
     }
+
+    private static boolean inScope(Session session,Long itemId){LibraryCatalogSearchRequest request=new LibraryCatalogSearchRequest();return ((Number)new LibraryCatalogSearchService().createCriteria(session,request).add(Restrictions.eq("id",itemId)).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult()).longValue()>0L;}
 }

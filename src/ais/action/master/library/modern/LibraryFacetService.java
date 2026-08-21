@@ -45,6 +45,7 @@ public final class LibraryFacetService {
         if (keyword == null || keyword.trim().length() < 2) return result;
         LibraryCatalogSearchRequest request = new LibraryCatalogSearchRequest();
         request.setQuery(keyword.trim());
+        LibraryScopeResolver.apply(request);
         Criteria criteria = new LibraryCatalogSearchService().createCriteria(session, request);
         criteria.setProjection(Projections.projectionList().add(Projections.property("id"))
                 .add(Projections.property("nama")).add(Projections.property("pengarangs")));
@@ -97,9 +98,12 @@ public final class LibraryFacetService {
     private JSONArray libraryFacet(Session session) throws JSONException {
         String publicItem = "(i.aktif is null or i.aktif=true) and i.status_terbit_item in "
                 + "(select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published'))";
+        List<Long> allowed=LibraryScopeResolver.allowedLibraryIds(session);
+        if(allowed!=null&&allowed.isEmpty())return new JSONArray();
         Query query = session.createSQLQuery("select p.id,p.nama,count(distinct b.item) from library.item_punya_barcode b "
                 + "join library.item i on i.id=b.item left join library.perpustakaan p on p.id=b.perpustakaan "
-                + "where " + publicItem + " group by p.id,p.nama order by count(distinct b.item) desc");
+                + "where " + publicItem +(allowed==null?"":" and p.id in (:allowedLibraries)")+ " group by p.id,p.nama order by count(distinct b.item) desc");
+        if(allowed!=null)query.setParameterList("allowedLibraries",allowed);
         query.setMaxResults(FACET_LIMIT);
         JSONArray result = new JSONArray();
         for (Object[] row : (List<Object[]>) query.list()) {

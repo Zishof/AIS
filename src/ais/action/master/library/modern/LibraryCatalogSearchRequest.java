@@ -170,6 +170,11 @@ public class LibraryCatalogSearchRequest {
     public void setAvailability(String availability) { this.availability = allowedAvailability(availability); }
     public void setItemTypeId(Long itemTypeId) { this.itemTypeId = itemTypeId; }
     public void setMaterialTypeId(Long materialTypeId) { this.materialTypeId = materialTypeId; }
+    public void setLibraryId(Long libraryId) { this.libraryId = libraryId; }
+    public void setFoundationId(Long foundationId) { this.foundationId = foundationId; }
+    public void setSchoolId(Long schoolId) { this.schoolId = schoolId; }
+    public void setFacultyId(Long facultyId) { this.facultyId = facultyId; }
+    public void setStudyProgramId(Long studyProgramId) { this.studyProgramId = studyProgramId; }
     public void setPage(int page) { this.page = page < 1 ? 1 : page; }
     public void setPageSize(int pageSize) { this.pageSize = pageSize < 1 ? DEFAULT_PAGE_SIZE : Math.min(pageSize, MAX_PAGE_SIZE); }
     public void setSort(String sort) { this.sort = allowedSort(sort); }

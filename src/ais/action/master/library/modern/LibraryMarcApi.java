@@ -34,7 +34,7 @@ public final class LibraryMarcApi {
 
     public static JSONObject handle(HttpServletRequest request) throws Exception {
         Tbmuser user = Common.getCurrentUser(request);
-        if (user == null || !Common.getApakahAdmin()) return error("Hak kataloger/administrator diperlukan.");
+        if (user == null || !LibraryPermissionGuard.isStaff(request)) return error("Hak kataloger/administrator diperlukan.");
         String action = text(request.getParameter("action"), 40);
         if ("status".equals(action)) return ok(request).put("maxRecords", MAX_RECORDS).put("maxBytes", MAX_XML);
         if ("export".equals(action)) return exportRecord(positiveLong(request.getParameter("itemId")));

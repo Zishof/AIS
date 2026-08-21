@@ -27,7 +27,9 @@ public final class LibraryCatalogApi {
             return new JSONObject().put("ok", true).put("items", service.recommendations(itemId, 6));
         }
         if ("search".equals(action) || "latest".equals(action)) {
-            JSONObject result = service.search(LibraryCatalogSearchRequest.from(request)).toJson();
+            LibraryCatalogSearchRequest searchRequest=LibraryCatalogSearchRequest.from(request);
+            LibraryScopeResolver.apply(searchRequest);
+            JSONObject result = service.search(searchRequest).toJson();
             JSONObject allowed = capabilities(request);
             result.put("capabilities", allowed);
             if (!allowed.optBoolean("digital", false)) {

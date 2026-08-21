@@ -29,9 +29,11 @@ public final class LibraryIntegrationGateway {
         if (user == null || !Common.getApakahAdmin()) return fail("Hak administrator perpustakaan diperlukan.");
         String action = text(request.getParameter("action"), 40);
         if (action == null || "status".equals(action)) return status(request);
-        if (!"execute".equals(action)) return fail("Operasi integrasi tidak dikenal.");
+        if (!"execute".equals(action) && !"self_check".equals(action)) return fail("Operasi integrasi tidak dikenal.");
         if (!"POST".equalsIgnoreCase(request.getMethod())) return fail("Eksekusi integrasi hanya melalui POST.");
         if (!NewUiCsrfUtil.isValid(request)) return fail("Token keamanan tidak valid.");
+
+        if ("self_check".equals(action)) return selfCheck(request);
 
         String adapter = text(request.getParameter("adapter"), 30);
         String payload = text(request.getParameter("payload"), 65536);
@@ -41,6 +43,20 @@ public final class LibraryIntegrationGateway {
         if ("rfid".equals(adapter)) return httpJson("rfid", payload);
         if ("sushi".equals(adapter)) return sushi(payload);
         return fail("Adapter tidak dikenal.");
+    }
+
+    /** Typed RFID self-check command; the browser cannot choose endpoint or inject protocol fields. */
+    private static JSONObject selfCheck(HttpServletRequest request) throws Exception {
+        String operation=text(request.getParameter("operation"),20);
+        if(!"checkout".equals(operation)&&!"checkin".equals(operation))return fail("Operasi self-check tidak valid.");
+        String barcode=text(request.getParameter("barcode"),100);
+        String member=text(request.getParameter("memberCode"),100);
+        if(barcode==null||("checkout".equals(operation)&&member==null))return fail("Barcode dan kode anggota wajib diisi untuk peminjaman mandiri.");
+        JSONObject command=new JSONObject().put("operation",operation).put("barcode",barcode);
+        if(member!=null)command.put("memberCode",member);
+        JSONObject response=httpJson("rfid",command.toString());
+        response.put("message","Perintah self-check diterima oleh bridge RFID.");
+        return response;
     }
 
     private static JSONObject status(HttpServletRequest request) throws Exception {

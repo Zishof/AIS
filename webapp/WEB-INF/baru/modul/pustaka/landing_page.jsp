@@ -9,8 +9,8 @@
 %>
 
 <head>
-    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821c">
-    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821c"></script>
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260821d">
+    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260821d"></script>
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
