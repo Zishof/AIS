@@ -2041,14 +2041,27 @@ public final class PengadaanPosApiHelper {
 
 	/** Benar bila penyimpanan berkas dapat dipakai. Dipanggil sebelum aksi lampiran
 	 *  supaya kegagalannya menjadi pesan yang jelas, bukan galat mentah. */
+	/**
+	 * Hasil pemeriksaan disimpan setelah percobaan pertama. Membuka lalu menutup sesi
+	 * pada SETIAP aksi lampiran bukan sekadar boros -- pemeriksaan itu menginisialisasi
+	 * pabrik sesi kedua beserta benang cache-nya. Sekali per proses sudah cukup.
+	 */
+	private static volatile Boolean berkasSiapTersimpan = null;
+
 	private static boolean berkasSiap() {
+		Boolean tersimpan = berkasSiapTersimpan;
+		if (tersimpan != null) {
+			return tersimpan.booleanValue();
+		}
 		Session s = null;
 		try {
 			s = sesiBerkas();
+			berkasSiapTersimpan = Boolean.valueOf(s != null);
 			return s != null;
 		} catch (Throwable e) {
 			ais.common.ErrorAuditUtil.record(e instanceof Exception ? (Exception) e
 					: new Exception(e), "PengadaanPosApiHelper.berkasSiap");
+			berkasSiapTersimpan = Boolean.FALSE;
 			return false;
 		} finally {
 			HibernateUtil.closeSessionQuietly(s);
@@ -5534,24 +5547,21 @@ public final class PengadaanPosApiHelper {
 			boolean ajukanTransfer = request.optBoolean("ajukanTransfer", false);
 			int transferDibuat = 0;
 			int transferDitarik = 0;
-			// Cara transfer diminta pada PERSETUJUAN, bukan saat draf disimpan: di titik
-			// inilah uang benar-benar bergerak dan jurnal dibentuk dari akun yang melekat
-			// pada cara transfer. Versi ZKoss pun memperlakukannya begitu -- pada
-			// ProsesTransferAction combo Cara Transfer berubah menjadi label mati begitu
-			// dokumennya disetujui. Syaratnya dilewati bila master Cara Transfer memang
-			// belum terisi, supaya alur pembayaran tidak terkunci oleh syarat yang mustahil.
+			// Cara transfer TIDAK memblokir persetujuan.
+			//
+			// Semula syarat ini ditegakkan keras -- mula-mula saat menyimpan draf, lalu
+			// dipindah ke persetujuan. Keduanya mengunci alur pembayaran yang sudah
+			// berjalan: dokumen lama tidak punya cara transfer, dan setiap persetujuan
+			// langsung ditolak. Yang dibutuhkan pemilik produk adalah cara transfer
+			// TERCATAT untuk pembentukan jurnal, bukan pintu yang menutup pekerjaan
+			// hari ini. Karena itu di sini hanya diterbitkan PERINGATAN yang dibawa
+			// balasan, dan layar menampilkannya; penegakan keras layak ditambahkan
+			// nanti di titik jurnal benar-benar dibentuk, ketika akun yang kosong
+			// memang membuat pekerjaan mustahil diselesaikan.
+			String peringatanCaraTransfer = null;
 			if ("SETUJUI".equals(keputusan) && bayar.getCaraPembayaranTransfer() == null) {
-				long caraTersedia = ((Number) session
-						.createCriteria(ais.database.model.akunting.CaraPembayaranTransfer.class)
-						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-						.add(Restrictions.isNotNull("akun"))
-						.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult())
-								.longValue();
-				if (caraTersedia > 0) {
-					tolak(hasil, "Cara transfer wajib dipilih sebelum pembayaran disetujui, "
-							+ "karena akun pada cara transfer itulah yang dipakai membentuk jurnal.");
-					return;
-				}
+				peringatanCaraTransfer = "Pembayaran disetujui tanpa cara transfer. "
+						+ "Lengkapi cara transfernya agar pembayaran ini dapat dijurnal.";
 			}
 			session.beginTransaction();
 			if ("SETUJUI".equals(keputusan)) {
@@ -5577,6 +5587,9 @@ public final class PengadaanPosApiHelper {
 			hasil.put("status", "00");
 			hasil.put("id", bayar.getId());
 			hasil.put("statusDokumen", statusBayar(bayar));
+			if (peringatanCaraTransfer != null) {
+				hasil.put("peringatan", peringatanCaraTransfer);
+			}
 			hasil.put("transferDibuat", transferDibuat);
 			hasil.put("transferDitarik", transferDitarik);
 		} catch (Exception e) {

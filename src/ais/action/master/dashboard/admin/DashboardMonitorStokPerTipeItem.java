@@ -108,7 +108,11 @@ public class DashboardMonitorStokPerTipeItem extends MyWindow {
 		// layar sejenis yang sudah benar (DownloadMahasiswa, DownloadKrs, DownloadNilai):
 		// flex dimatikan + tinggi eksplisit. Autoscroll sebagai pengaman bila isi bertambah.
 		ais.ui.util.ZkCompat.setFlex(north, false);
-		north.setHeight("160px");
+		/* FIX 21-08-2026: tinggi panel filter kurang 52px sehingga baris toolbar
+		 * (Proses/Download) terpotong di bagian bawah. Ditambah satu tinggi baris
+		 * toolbar ZK. Autoscroll tetap aktif sebagai pengaman bila isi filter
+		 * bertambah di kemudian hari. */
+		north.setHeight("212px");
 		north.setAutoscroll(true);
 
 		Vbox div = new Vbox();

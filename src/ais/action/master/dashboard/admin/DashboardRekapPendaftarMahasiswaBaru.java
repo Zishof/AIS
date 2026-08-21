@@ -83,7 +83,11 @@ public class DashboardRekapPendaftarMahasiswaBaru extends MyWindow {
 		North north = new North();
 		north.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(north, false);
-		north.setHeight("160px");
+		/* FIX 21-08-2026: tinggi panel filter kurang 52px sehingga baris toolbar
+		 * (Proses/Download) terpotong di bagian bawah. Ditambah satu tinggi baris
+		 * toolbar ZK. Autoscroll tetap aktif sebagai pengaman bila isi filter
+		 * bertambah di kemudian hari. */
+		north.setHeight("212px");
 		north.setAutoscroll(true);
 
 		MyGrid grid = new MyGrid();

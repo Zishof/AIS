@@ -252,8 +252,20 @@ public class RekapHasilMahasiswa extends MyWindow {
 		final Html chartPanel = new Html();
 		chartPanel.setParent(centerBox);
 
+		/* UBAH 21-08-2026: tabel rincian sebelumnya hanya sebuah Div polos tanpa penanda apa pun,
+		 * sehingga setelah panel grafik yang tinggi (kartu KPI + donut) ia terdorong ke bawah lipatan
+		 * dan terlihat seolah hilang. Kini diberi judul bagian dan tinggi minimum supaya jelas bahwa
+		 * rincian datanya ada di bawah grafik. Isinya tetap Grid ZK biasa -- widget Excel dirender
+		 * lalu diganti Grid oleh PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(). */
+		final org.zkoss.zul.Html judulRincian = new org.zkoss.zul.Html(
+				"<div style='margin:14px 2px 6px;font-size:14px;font-weight:700;color:#0f172a;'>"
+				+ "Rincian Data</div>"
+				+ "<div style='margin:0 2px 8px;font-size:12px;color:#64748b;'>"
+				+ "Tabel lengkap di bawah ini memuat data yang meringkas grafik di atas.</div>");
+		judulRincian.setParent(centerBox);
+
 		final Div gridHost = new Div();
-		gridHost.setStyle("width:100%;");
+		gridHost.setStyle("width:100%;min-height:220px;");
 		gridHost.setParent(centerBox);
 
 		final Intbox sizedata = new Intbox(30);
