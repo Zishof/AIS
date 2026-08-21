@@ -250,8 +250,8 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	 * {@code bottom:78px}, sehingga kolomnya membentang sampai sekitar 199px. Tombol
 	 * mengambang lain di aplikasi ini menempati sudut yang sama -- {@code TicketFabHook}
 	 * ada di {@code bottom:138px}, tepat di tengah kolom itu -- sehingga keduanya
-	 * bertindih. Dengan satu tombol bulat 48px pada {@code bottom:78px} (tepi atas 126px),
-	 * sudut kanan-bawah hanya terpakai satu slot dan tumpang tindih itu hilang.</p>
+	 * bertindih. Dengan satu tombol bulat 48px pada sudut kanan-bawah, sudut layar
+	 * hanya terpakai satu slot dan tumpang tindih itu hilang.</p>
 	 *
 	 * <p>Panel menunya komponen ZK biasa yang disembunyikan/ditampilkan lewat
 	 * {@code setVisible}, BUKAN JavaScript: isi yang disisipkan ZK lewat innerHTML tidak
@@ -273,7 +273,8 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			final EventListener aksiBantuanHalaman) {
 		final Div wrapper = new Div();
 		wrapper.setSclass("kb-fab-global");
-		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;"
+		wrapper.setStyle("position:fixed !important;right:22px !important;bottom:22px !important;"
+				+ "z-index:99990 !important;width:48px;height:48px;overflow:visible;"
 				+ "font-family:'Segoe UI',Arial,sans-serif;");
 
 		// Panel menu, tersembunyi sampai tombol ditekan. Diposisikan absolut TERHADAP
