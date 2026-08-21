@@ -77,6 +77,7 @@ import it.businesslogic.ireport.export.JRTxtExporter;
 import net.sf.jasperreports.engine.DefaultJasperReportsContext;
 import net.sf.jasperreports.engine.JRAbstractExporter;
 import net.sf.jasperreports.engine.JRExporterParameter;
+import net.sf.jasperreports.engine.JRParameter;
 import net.sf.jasperreports.engine.JRPropertiesUtil;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -93,6 +94,7 @@ import net.sf.jasperreports.engine.export.oasis.JROdsExporter;
 import net.sf.jasperreports.engine.export.oasis.JROdtExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRDocxExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRPptxExporter;
+import net.sf.jasperreports.engine.util.FileResolver;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sourceforge.barbecue.Barcode;
@@ -1476,6 +1478,9 @@ public class Report extends GenericAutowireComposer {
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static JasperPrint fillJasperReportSekali(File fileJasper, Map parameters, List maps) throws Exception {
+		if (parameters == null) {
+			parameters = new HashMap();
+		}
 		JasperPrint jp = null;
 		Connection conn = null;
 		Session session = openNativeSession();
@@ -1497,6 +1502,7 @@ public class Report extends GenericAutowireComposer {
 				// bukan cuma reaktif menunggu UnsupportedClassVersionError seperti di bawah.
 				recompileJasperJikaJrxmlLebihBaru(fileJasper);
 				conn = session.connection();
+				pasangFileResolverReport(parameters, fileJasper);
 				normalisasiDataJasper(parameters, maps);
 				try {
 					if (maps != null) {
@@ -1564,6 +1570,46 @@ public class Report extends GenericAutowireComposer {
 			closeNativeSession(session);
 		}
 		return jp;
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static void pasangFileResolverReport(final Map parameters, final File fileJasper) {
+		if (parameters == null || parameters.get(JRParameter.REPORT_FILE_RESOLVER) != null) {
+			return;
+		}
+		parameters.put(JRParameter.REPORT_FILE_RESOLVER, new FileResolver() {
+			public File resolveFile(String fileName) {
+				if (fileName == null || fileName.trim().length() == 0) {
+					return null;
+				}
+				File langsung = new File(fileName);
+				if (langsung.exists()) {
+					return langsung;
+				}
+				File file = cariFileReport(fileJasper == null ? null : fileJasper.getParentFile(), fileName);
+				if (file != null) {
+					return file;
+				}
+				file = cariFileReport(new File(Common.REAL_PATH, "img"), fileName);
+				if (file != null) {
+					return file;
+				}
+				File reportDir = new File(Common.ambilREAL_PATH_REPORT());
+				file = cariFileReport(reportDir, fileName);
+				if (file != null) {
+					return file;
+				}
+				return cariFileReport(reportDir.getParentFile(), fileName);
+			}
+		});
+	}
+
+	private static File cariFileReport(File folder, String fileName) {
+		if (folder == null || fileName == null) {
+			return null;
+		}
+		File file = new File(folder, fileName);
+		return file.exists() ? file : null;
 	}
 
 	/**

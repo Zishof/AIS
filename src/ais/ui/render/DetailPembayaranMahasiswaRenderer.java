@@ -96,6 +96,16 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 	public List<Long> bul = new ArrayList<Long>();
 	public List<Long> det = new ArrayList<Long>();
 
+	private boolean abaikanNilaiMinus() {
+		return kegiatan != null && kegiatan.getJenisKegiatan() != null
+				&& Boolean.TRUE.equals(kegiatan.getJenisKegiatan().getAbaikanNilaiMinus());
+	}
+
+	private boolean tidakBolehMengangsur() {
+		return jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
+				&& Boolean.TRUE.equals(jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur());
+	}
+
 	public DetailPembayaranMahasiswaRenderer(Kegiatan kegiatan, JadwalPembayaran jadwalPembayaran,
 			Label labelFooterTagihan, Label labelFooterDibayar, Label labelFooterKekurangan, Label terbilang,
 			Label terbilangTagihan, Label terbilangSisa, Label terbilangSisaPersen, List<MyDoubleboxMin> pengurangan,
@@ -547,14 +557,15 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 													&& (nilai.intValue() >= hasilDenda.intValue()
 															|| nilai.intValue() == hasilDenda.intValue());
 
-											// FIX NPE rutin: jadwalPembayaran nullable, lihat penjelasan di hitungUlang().
-											toolbarbutton.setVisible(jadwalPembayaran == null
-													|| jadwalPembayaran.getJenisKegiatan() == null
-													|| !jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur());
+											if (toolbarbutton != null) {
+												toolbarbutton.setVisible(!tidakBolehMengangsur());
+											}
 											if (benar) {
 												//row.setStyle("background-color: #f1f5f9;");
 												//row.setSclass("ais-status-lunas");
-												toolbarbutton.setVisible(false);
+												if (toolbarbutton != null) {
+													toolbarbutton.setVisible(false);
+												}
 												map.remove(pengaturanPembayaranBulanan.getId());
 											} else if (nilai != null && hasilDenda != null && hasilDenda > 0.1
 													&& (nilai < -0.1 || nilai > 0.1)
@@ -670,10 +681,9 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 												}
 											}
 
-										// FIX NPE rutin: jadwalPembayaran nullable, lihat penjelasan di hitungUlang().
-										toolbarbutton.setVisible(jadwalPembayaran == null
-												|| jadwalPembayaran.getJenisKegiatan() == null
-												|| !jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur());
+										if (toolbarbutton != null) {
+											toolbarbutton.setVisible(!tidakBolehMengangsur());
+										}
 										Double jumlah = Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 										jumlah = ambilJumlahDetailBiayaTanpaDendaCustom(detailKegiatan, detailBiaya,
 												jumlah);
@@ -2374,15 +2384,13 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 							Label myLabel = (Label) component;
 							nilaiBiayas = myLabel.getValue() == null || myLabel.getValue().trim().isEmpty() ? 0.0
 									: Common.numberFormat.get().parse(myLabel.getValue()).doubleValue();
-							if (nilaiBiayas > 0.0
-									|| (kegiatan == null || !kegiatan.getJenisKegiatan().getAbaikanNilaiMinus())) {
+							if (nilaiBiayas > 0.0 || !abaikanNilaiMinus()) {
 								nilaiBiayaHarusDiBayars += nilaiBiayas;
 							}
 						} else if (component instanceof Doublebox) {
 							Doublebox myLabel = (Doublebox) component;
 							nilaiBiayas = (myLabel.getValue() == null ? 0.0 : (myLabel.getValue()));
-							if (nilaiBiayas > 0.0
-									|| (kegiatan == null || !kegiatan.getJenisKegiatan().getAbaikanNilaiMinus())) {
+							if (nilaiBiayas > 0.0 || !abaikanNilaiMinus()) {
 								nilaiBiayaHarusDiBayars += nilaiBiayas;
 							}
 						}
@@ -2394,8 +2402,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 					Label myLabel = (Label) myRow.getAttribute("dibayar");
 					nilaiDibayar = myLabel.getValue() == null || myLabel.getValue().trim().isEmpty() ? 0.0
 							: Common.numberFormat.get().parse(myLabel.getValue()).doubleValue();
-					if (nilaiBiayas > 0.0
-							|| (kegiatan == null || !kegiatan.getJenisKegiatan().getAbaikanNilaiMinus())) {
+					if (nilaiBiayas > 0.0 || !abaikanNilaiMinus()) {
 						telahDibayar += nilaiDibayar;
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/ui/render/DetailPembayaranMahasiswaRenderer.java:2201");
@@ -2409,9 +2416,12 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 					// di sini tanpa guard MEMBATALKAN sisa blok (kurang.setValue + status warna)
 					// utk baris ini setiap kali jadwalPembayaran null. null diperlakukan sbg
 					// "tak ada pembatasan" (default visible), selaras pola kegiatan==null di atas.
-					toolbarbutton.setVisible(jadwalPembayaran == null || jadwalPembayaran.getJenisKegiatan() == null
-							|| !jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur());
-					kurang.setValue(Common.numberFormat.get().format(nilaiBiayas - nilaiDibayar));
+					if (toolbarbutton != null) {
+						toolbarbutton.setVisible(!tidakBolehMengangsur());
+					}
+					if (kurang != null) {
+						kurang.setValue(Common.numberFormat.get().format(nilaiBiayas - nilaiDibayar));
+					}
 
 					if (nilaiBiayas > 0.1) {
 						boolean benar = (nilaiDibayar < -0.1 || nilaiDibayar > 0.1)
@@ -2425,7 +2435,9 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 							 * CSS .ais-status-lunas memberi warna RATA (#f1f5f9) + aksen. */
 							//myRow.setStyle("background-color: #f1f5f9;");
 							//myRow.setSclass("ais-status-lunas");
-							toolbarbutton.setVisible(false);
+							if (toolbarbutton != null) {
+								toolbarbutton.setVisible(false);
+							}
 						} else if (nilaiDibayar != null && nilaiBiayas != null && nilaiBiayas > 0.1
 								&& (nilaiDibayar < -0.1 || nilaiDibayar > 0.1)
 								&& nilaiDibayar.intValue() < nilaiBiayas.intValue()) {
@@ -2464,8 +2476,8 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 					+ Common.kapitalAwalKata(IndonesianNumberToWords.convert(Math.abs(sisa.longValue())) + " rupiah"));
 		}
 
-		Double persen = ((telahDibayar == null ? 0.0 : telahDibayar) * 100.0)
-				/ (nilaiBiayaHarusDiBayars == null ? 0.0 : nilaiBiayaHarusDiBayars);
+		Double persen = nilaiBiayaHarusDiBayars == null || nilaiBiayaHarusDiBayars.doubleValue() == 0.0 ? 0.0
+				: ((telahDibayar == null ? 0.0 : telahDibayar) * 100.0) / nilaiBiayaHarusDiBayars;
 		terbilangSisaPersen.setStyle("text-align: right;color:brown;font-weight: bolder;");
 		terbilangSisaPersen.setValue("Persen dibayar :  " + Common.numberFormat.get().format(persen) + "%");
 
@@ -2524,8 +2536,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 						&& !detailBiaya.getItemBiaya().getAdminBolehMencicilkan());
 
 		// FIX NPE rutin: jadwalPembayaran nullable, lihat penjelasan di hitungUlang().
-		if (jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
-				&& jadwalPembayaran.getJenisKegiatan().getTidakBolehMengangsur()) {
+		if (tidakBolehMengangsur()) {
 			tidakBolehUbah = true;
 		}
 

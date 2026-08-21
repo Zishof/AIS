@@ -19818,14 +19818,23 @@ public class Common {
 	 * event ZK, memastikan operasi UI aman.</p>
 	 */
 	public static void goLogoff() {
-		Clients.confirmClose(null);
-		Common.createDefaultTimer(new EventListener() {
-
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				ExecutionsCtrl.getCurrent().sendRedirect("/logoff");
+		try {
+			if (ExecutionsCtrl.getCurrent() == null) {
+				return;
 			}
-		});
+			Clients.confirmClose(null);
+			Common.createDefaultTimer(new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					if (ExecutionsCtrl.getCurrent() != null) {
+						ExecutionsCtrl.getCurrent().sendRedirect("/logoff");
+					}
+				}
+			});
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit Common.goLogoff");
+		}
 	}
 
 	/**

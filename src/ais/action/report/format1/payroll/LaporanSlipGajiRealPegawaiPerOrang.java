@@ -557,7 +557,11 @@ public class LaporanSlipGajiRealPegawaiPerOrang extends MyWindow {
 				CommonReport.tampilkanReportPDF(center, myFile);
 			} else {
 				toolbar.getParent().setVisible(true);
-				File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), "payroll/SlipGajiReal",
+				Map parameters = generateParameter();
+				if (parameters == null) {
+					return;
+				}
+				File file = Report.generateFileReportWithProgress(Report.PDF, parameters, "payroll/SlipGajiReal",
 						ais.ui.util.WaktuUtil.getDate(), toolbar);
 				CommonReport.tampilkanReportPDF(center, file);
 			}

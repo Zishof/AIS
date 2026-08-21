@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -484,13 +485,18 @@ public class AssetDetailAction extends GenericAutowireComposer implements DataCr
 								Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 								calendar.setTime(tahunMulai.getValue());
 
-								Session session = HibernateUtil.currentNativeSession();
-								List<AssetDetail> ids = session.createCriteria(AssetDetail.class)
-										.add(Restrictions.gt("hargaBeli", 0.1))
-										.add(Restrictions.gt("nilaiMinimal", 0.1))
-										.add(Restrictions.isNotNull("tanggalBeli"))
-										.add(Restrictions.gt("umurEkonomis", 0.1)).list();
-								HibernateUtil.closeSession();
+								Session session = null;
+								List<AssetDetail> ids = null;
+								try {
+									session = HibernateUtil.openSession();
+									ids = session.createCriteria(AssetDetail.class)
+											.add(Restrictions.gt("hargaBeli", 0.1))
+											.add(Restrictions.gt("nilaiMinimal", 0.1))
+											.add(Restrictions.isNotNull("tanggalBeli"))
+											.add(Restrictions.gt("umurEkonomis", 0.1)).list();
+								} finally {
+									Common.closeNativeSessionQuietly(session);
+								}
 								int i = 1;
 								for (AssetDetail assetDetail : ids) {
 									label.setValue("Singkronkan penyusutan aset " + assetDetail + " ("
@@ -506,24 +512,37 @@ public class AssetDetailAction extends GenericAutowireComposer implements DataCr
 
 									int selisih = (int) monthsBetween;
 									if (selisih >= 0) {
-										session = HibernateUtil.currentNativeSession();
-										for (int j = 0; j <= selisih; j++) {
+										synchronized (AssetDetailAction.class) {
+											Session sessionSinkron = null;
+											Transaction txSinkron = null;
+											try {
+												sessionSinkron = HibernateUtil.openSession();
+												txSinkron = sessionSinkron.beginTransaction();
+												AssetDetail assetDetailSinkron = (AssetDetail) sessionSinkron
+														.get(AssetDetail.class, assetDetail.getId());
+												for (int j = 0; j <= selisih; j++) {
 
-											PenyusutanAsset penyusutanAsset = (PenyusutanAsset) session
-													.createCriteria(PenyusutanAsset.class)
-													.add(Restrictions.eq("assetDetail", assetDetail))
-													.add(Restrictions.eq("tahunKe", j)).setMaxResults(1).uniqueResult();
-											if (penyusutanAsset == null) {
-												penyusutanAsset = new PenyusutanAsset();
+													PenyusutanAsset penyusutanAsset = (PenyusutanAsset) sessionSinkron
+															.createCriteria(PenyusutanAsset.class)
+															.add(Restrictions.eq("assetDetail", assetDetailSinkron))
+															.add(Restrictions.eq("tahunKe", j)).setMaxResults(1)
+															.uniqueResult();
+													if (penyusutanAsset == null) {
+														penyusutanAsset = new PenyusutanAsset();
+													}
+													penyusutanAsset.setAssetDetail(assetDetailSinkron);
+													penyusutanAsset.setTahunKe(j);
+
+													sessionSinkron.saveOrUpdate(penyusutanAsset);
+												}
+												txSinkron.commit();
+											} catch (Exception eSinkron) {
+												Common.rollbackQuietly(txSinkron);
+												throw eSinkron;
+											} finally {
+												Common.closeNativeSessionQuietly(sessionSinkron);
 											}
-											penyusutanAsset.setAssetDetail(assetDetail);
-											penyusutanAsset.setTahunKe(j);
-
-											session.getTransaction().begin();
-											session.saveOrUpdate(penyusutanAsset);
-											session.getTransaction().commit();
 										}
-										HibernateUtil.closeSession();
 									}
 									laporan.catatBerhasil(i - 1, kunciAsset, "Sinkronisasi penyusutan berhasil ("
 											+ (selisih + 1) + " periode)");

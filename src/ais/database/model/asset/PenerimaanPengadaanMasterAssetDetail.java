@@ -452,7 +452,9 @@ public class PenerimaanPengadaanMasterAssetDetail extends GeneralValueObject {
 				&& getPenerimaanPengadaanMasterAsset() != null
 				&& getPenerimaanPengadaanMasterAsset().getId() != null) {
 			String base = getMasterAsset().getId() + "_" + getPenerimaanPengadaanMasterAsset().getId();
-			if (getPemesananPengadaanMasterAssetDetail() != null && getPemesananPengadaanMasterAssetDetail()
+			if (getPermintaanPengadaanMasterAsset() != null && getPermintaanPengadaanMasterAsset().getId() != null) {
+				kodeUnik = base + "_" + getPermintaanPengadaanMasterAsset().getId();
+			} else if (getPemesananPengadaanMasterAssetDetail() != null && getPemesananPengadaanMasterAssetDetail()
 					.getPermintaanPengadaanMasterAssetDetail() != null) {
 				kodeUnik = base + "_" + getPemesananPengadaanMasterAssetDetail()
 						.getPermintaanPengadaanMasterAssetDetail().getId();

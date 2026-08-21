@@ -1267,6 +1267,21 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 	 * konsisten. Query termin menggunakan LEFT_JOIN alias yang harus konsisten dengan mapping Hibernate.
 	 */
 	@SuppressWarnings("unchecked")
+	private PenerimaanPengadaanMasterAssetDetail cariDetailPenerimaanDenganKodeUnik(Session session,
+			PenerimaanPengadaanMasterAssetDetail detail) {
+		if (session == null || detail == null) {
+			return null;
+		}
+		String kodeUnik = detail.getKodeUnik();
+		if (kodeUnik == null || kodeUnik.trim().isEmpty()) {
+			return null;
+		}
+		return (PenerimaanPengadaanMasterAssetDetail) session
+				.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
+				.add(Restrictions.eq("kodeUnik", kodeUnik)).setMaxResults(1).uniqueResult();
+	}
+
+	@SuppressWarnings("unchecked")
 	public void generateDetail(PemesananPengadaanMasterAsset mypemesananPengadaanMasterAsset, UangMuka uangMuka,
 			String kodeTermin, JSONObject jsonObject) {
 
@@ -1349,8 +1364,14 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 										permintaanPengadaanMasterAssetDetail))
 								.setProjection(Projections.rowCount()).uniqueResult();
 						if (sudahAda == null || sudahAda.longValue() == 0L) {
-							session.save(penerimaanPengadaanMasterAssetDetail);
-							session.flush();
+							PenerimaanPengadaanMasterAssetDetail detailSudahAda = cariDetailPenerimaanDenganKodeUnik(
+									session, penerimaanPengadaanMasterAssetDetail);
+							if (detailSudahAda != null) {
+								penerimaanPengadaanMasterAssetDetail = detailSudahAda;
+							} else {
+								session.save(penerimaanPengadaanMasterAssetDetail);
+								session.flush();
+							}
 						}
 					}
 				}
@@ -1438,8 +1459,14 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 										pemesananPengadaanMasterAssetDetail))
 								.setProjection(Projections.rowCount()).uniqueResult();
 						if (sudahAda == null || sudahAda.longValue() == 0L) {
-							session.save(penerimaanPengadaanMasterAssetDetail);
-							session.flush();
+							PenerimaanPengadaanMasterAssetDetail detailSudahAda = cariDetailPenerimaanDenganKodeUnik(
+									session, penerimaanPengadaanMasterAssetDetail);
+							if (detailSudahAda != null) {
+								penerimaanPengadaanMasterAssetDetail = detailSudahAda;
+							} else {
+								session.save(penerimaanPengadaanMasterAssetDetail);
+								session.flush();
+							}
 						}
 					}
 				}

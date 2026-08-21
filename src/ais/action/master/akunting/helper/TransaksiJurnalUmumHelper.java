@@ -926,6 +926,14 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 					transaksi.setKeterangan(potongTextDb(transaksi.getKeterangan(), 250));
 				}
 				tx = session.beginTransaction();
+				if (grupTransaksi != null) {
+					if (grupTransaksi.getId() == null) {
+						session.saveOrUpdate(grupTransaksi);
+					} else {
+						grupTransaksi = (GrupTransaksi) session.merge(grupTransaksi);
+					}
+					transaksi.setGrupTransaksi(grupTransaksi);
+				}
 				if (transaksi.getId() != null) {
 					session.update(transaksi);
 				} else {
