@@ -148,7 +148,7 @@ public class RumahSakitAction extends GenericCrudAction<RumahSakit> {
         if (box.getSelectedItem() == null && !box.getItems().isEmpty()) box.setSelectedIndex(0); return box;
     }
     private String selected(Combobox box) { return box.getSelectedItem() == null ? "" : String.valueOf(box.getSelectedItem().getValue()); }
-    private void warning(String message) { MyMessageboxConfig.show(message, "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION); }
+    private void warning(String message) throws Exception { MyMessageboxConfig.show(message, "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION); }
 
     class RumahSakitRenderer extends MyRowRenderer {
         @Override public void render(Row row, Object data) throws Exception {
