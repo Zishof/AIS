@@ -378,7 +378,7 @@ public class PosApi extends HttpServlet {
 				// (Tbmrole.workflow) sudah ditegakkan di bolehAksesActionKantin; otorisasi
 				// per-baris (pengaju vs aktor/petugas) ditegakkan lagi di dalam SopService,
 				// jadi tetap dua lapis seperti modul lain.
-				prosesSop(request, action, payload, hasil);
+				prosesSop(request, tbmuser, action, payload, hasil);
 			} else if (action.startsWith("pengadaan_")) {
 				// Modul Pengadaan POS (PR dulu; PO/BAST/Tagihan/Bayar menyusul). Helper
 				// self-guard kunci menu pengadaan_pr + aksi granular, jadi tidak perlu
@@ -1829,16 +1829,40 @@ public class PosApi extends HttpServlet {
 	 * ({@code status}/{@code message} via {@code ApiHelperSupport}), jadi tidak perlu
 	 * dinormalisasi ulang. Parameter {@code PerguruanTinggi} pada kontrak
 	 * {@code ApiRoute} tidak dipakai oleh rute SOP mana pun, sehingga aman dikirim null.</p>
+	 *
+	 * <p><b>Jembatan identitas.</b> {@code SopService} memanggil
+	 * {@code ApiUtil.currentUser(json, req)}, yang mencari pengguna dari SESI HTTP lebih
+	 * dulu lalu jatuh ke field {@code token} pada BODY JSON. POS mengirim tokennya di
+	 * header {@code Authorization} dan sudah menyelesaikannya sendiri menjadi
+	 * {@link Tbmuser}, sehingga tanpa jembatan ini seluruh aksi {@code sop_*} akan
+	 * dibalas "Token tidak sesuai". Nilai {@code mytbmuser} dipasang sesaat lalu
+	 * DIKEMBALIKAN seperti semula -- pola yang sama dipakai
+	 * {@link #prosesLaporanJalankan} pada berkas ini.</p>
 	 */
-	private void prosesSop(HttpServletRequest request, String action, JSONObject payload,
-			JSONObject hasil) throws Exception {
-		ais.action.servlet.api.ApiRoute rute = RUTE_SOP.get(action);
+	private void prosesSop(HttpServletRequest request, Tbmuser tbmuser, String action,
+			JSONObject payload, JSONObject hasil) throws Exception {
+		// Kunci peta rute disimpan huruf kecil oleh ApiRouteRegistry.register --
+		// dicari dengan cara yang SAMA seperti Api.java agar keduanya sepakat.
+		ais.action.servlet.api.ApiRoute rute =
+				RUTE_SOP.get(action.trim().toLowerCase(java.util.Locale.ENGLISH));
 		if (rute == null) {
 			hasil.put("status", "91");
 			hasil.put("message", "Aksi tidak dikenali: " + action);
 			return;
 		}
-		JSONObject balasan = rute.execute(request, payload, null);
+		javax.servlet.http.HttpSession sesiHttp = request.getSession(true);
+		Object penggunaSebelumnya = sesiHttp.getAttribute("mytbmuser");
+		sesiHttp.setAttribute("mytbmuser", tbmuser);
+		JSONObject balasan;
+		try {
+			balasan = rute.execute(request, payload, null);
+		} finally {
+			if (penggunaSebelumnya == null) {
+				sesiHttp.removeAttribute("mytbmuser");
+			} else {
+				sesiHttp.setAttribute("mytbmuser", penggunaSebelumnya);
+			}
+		}
 		if (balasan == null) {
 			hasil.put("status", "99");
 			hasil.put("message", "Tidak ada balasan dari layanan SOP");
