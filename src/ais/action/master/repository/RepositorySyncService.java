@@ -741,6 +741,19 @@ public class RepositorySyncService {
 	}
 
 	/**
+	 * Lookup global khusus pemeriksaan constraint UNIQUE. Hasilnya hanya boleh dibaca untuk
+	 * mendeteksi bentrok; jangan dipakai untuk mengambil alih item milik tenant lain.
+	 */
+	private static RepoItem findAnyRepoItemByOai(Session session, String oaiIdentifier) {
+		String kunci = firstNotEmpty(oaiIdentifier);
+		if (kunci.length() == 0) {
+			return null;
+		}
+		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("oaiIdentifier", kunci))
+				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
+	}
+
+	/**
 	 * Kembalikan entitas milik REPOSITORY menjadi writable.
 	 *
 	 * <p>Sesi sinkronisasi berjalan dengan {@code setDefaultReadOnly(true)} agar tabel SUMBER tidak
@@ -767,7 +780,7 @@ public class RepositorySyncService {
 	 * siklus sinkronisasi berhenti.
 	 */
 	private static boolean oaiIdentifierDipakaiLain(Session session, String oaiIdentifier, RepoItem item) {
-		RepoItem pemilik = findRepoItemByOai(session, oaiIdentifier);
+		RepoItem pemilik = findAnyRepoItemByOai(session, oaiIdentifier);
 		if (pemilik == null) {
 			return false;
 		}
@@ -779,14 +792,23 @@ public class RepositorySyncService {
 
 	/**
 	 * Kembalikan oai_identifier yang dijamin tidak bentrok. Bila nilai dasar sudah dipakai
-	 * baris lain (duplikat historis), tambahkan sufiks nama kelas sumber lalu urutan angka
-	 * sampai bebas. Identifier milik baris lain TIDAK diubah agar tautan OAI yang sudah
-	 * terpublikasi tetap valid.
+	 * baris lain (termasuk milik tenant lain), tambahkan tenant, nama kelas sumber, lalu
+	 * urutan angka sampai bebas. Identifier milik baris lain TIDAK diubah agar tautan OAI
+	 * yang sudah terpublikasi tetap valid.
 	 */
 	private static String oaiIdentifierBebasBentrok(Session session, String dasar, RepoItem item) {
 		String kandidat = firstNotEmpty(dasar);
 		if (kandidat.length() == 0 || !oaiIdentifierDipakaiLain(session, kandidat, item)) {
 			return kandidat;
+		}
+		String tenant = RepositoryTenantScope.currentKey().toLowerCase().replaceAll("[^a-z0-9]+", "-")
+				.replaceAll("(^-|-$)", "");
+		if (tenant.length() > 0) {
+			String alternatif = kandidat + ":" + tenant;
+			if (!oaiIdentifierDipakaiLain(session, alternatif, item)) {
+				return alternatif;
+			}
+			kandidat = alternatif;
 		}
 		String kelas = firstNotEmpty(item == null ? null : item.getSourceClass());
 		if (kelas.length() > 0) {

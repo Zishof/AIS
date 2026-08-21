@@ -45,7 +45,6 @@ public class RepositoryPublicService {
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
     private static final String[] PUBLIC_STATUSES = new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
-    private static final Map<String,Boolean> CLAIMED_TENANTS=Collections.synchronizedMap(new HashMap<String,Boolean>());
 
     public static class Query {
         public String keyword = "";
@@ -180,7 +179,6 @@ public class RepositoryPublicService {
         if (session == null || !session.isOpen()) {
             session = HibernateUtil.currentNativeSession();
         }
-        ensureTenantScope(session);
         return session;
     }
 
@@ -644,7 +642,6 @@ public class RepositoryPublicService {
 
     private org.hibernate.criterion.Criterion tenantRestriction(){return Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey());}
 
-    private void ensureTenantScope(Session session){String key=RepositoryTenantScope.currentKey();if(CLAIMED_TENANTS.containsKey(key))return;synchronized(CLAIMED_TENANTS){if(CLAIMED_TENANTS.containsKey(key))return;org.hibernate.Transaction tx=null;try{tx=session.beginTransaction();session.createQuery("update RepoItem set tenantKey=:tenant where tenantKey is null or tenantKey=''").setString("tenant",key).executeUpdate();session.createQuery("update RepoCollection set tenantKey=:tenant where tenantKey is null or tenantKey=''").setString("tenant",key).executeUpdate();tx.commit();CLAIMED_TENANTS.put(key,Boolean.TRUE);}catch(Exception e){if(tx!=null&&tx.isActive())tx.rollback();throw new IllegalStateException("Scope tenant repository tidak dapat disiapkan.",e);}}}
 
     private long count(Criteria criteria) {
         Object value = criteria.setProjection(Projections.rowCount()).uniqueResult();
