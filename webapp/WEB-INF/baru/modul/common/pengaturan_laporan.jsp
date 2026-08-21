@@ -509,10 +509,10 @@ String rnd = Common.getGeneratedBarCode(7);
                             '<td class="text-start fw-bold text-primary">' + kode + '</td>' +
                             '<td class="text-start text-muted small" title="' + ket.replace(/"/g, '&quot;') + '">' + shortKet + '</td>' +
                             '<td class="text-center align-middle">' + statusBadge + '</td>' +
-                            '<td class="text-center text-nowrap no-export">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editReport<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Edit Laporan / Upload JRXML")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusReport<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>' +
+                            '<td class="text-center text-nowrap no-export">' + aksiBarisMenu([
+                                { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Edit Laporan / Upload JRXML")%>', onclick: 'editReport<%=rnd%>(' + row.id + ')' },
+                                { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusReport<%=rnd%>(' + row.id + ')', merusak: true }
+                            ]) + '</td>' +
                         '</tr>';
                 });
             }

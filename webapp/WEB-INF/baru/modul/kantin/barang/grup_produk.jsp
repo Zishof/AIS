@@ -141,10 +141,10 @@ String rnd = Common.getGeneratedBarCode(7);
                 '<td class="text-end px-3">' + fmtRpGrup<%=rnd%>(g.harga_jual) + '</td>' +
                 '<td class="text-center px-3"><span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2">' + g.jumlah_anggota + '</span></td>' +
                 '<td class="text-center px-3">' + badge + '</td>' +
-                '<td class="text-center text-nowrap px-3">' +
-                    '<button class="btn btn-sm btn-outline-warning text-dark px-2 me-1" onclick="bukaFormGrup<%=rnd%>(' + g.id + ')" title="<%=Common.getBahasaConfigJS("Ubah")%>"><i class="fas fa-edit"></i></button>' +
-                    '<button class="btn btn-sm btn-outline-danger px-2" onclick="hapusGrup<%=rnd%>(' + g.id + ', \'' + (g.nama || '').replace(/'/g, "\\'") + '\')" title="<%=Common.getBahasaConfigJS("Hapus")%>"><i class="fas fa-trash-alt"></i></button>' +
-                '</td></tr>';
+                '<td class="text-center text-nowrap px-3">' + aksiBarisMenu([
+                    { ikon: 'fa-edit', label: '<%=Common.getBahasaConfigJS("Ubah")%>', onclick: 'bukaFormGrup<%=rnd%>(' + g.id + ')' },
+                    { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfigJS("Hapus")%>', onclick: 'hapusGrup<%=rnd%>(' + g.id + ', \'' + (g.nama || '').replace(/'/g, "\\'") + '\')', merusak: true }
+                ]) + '</td></tr>';
         });
         tbody.innerHTML = html;
     };

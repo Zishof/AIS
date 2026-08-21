@@ -176,10 +176,10 @@
                     '<td class="align-middle">' + (row["jurusan.nama"] || (row.jurusan ? row.jurusan.nama : '-')) + '</td>' +
                     '<td class="align-middle text-center">' + (row.tahunangkatan || '-') + '</td>' +
                     '<td class="align-middle text-center">' + badge + '</td>' +
-                    '<td class="align-middle text-end pe-4 text-nowrap">' +
-                        '<button class="btn btn-sm btn-falcon-default text-warning me-1" onclick="editData<%=rnd%>(' + row.id + ')" title="Edit"><i class="fas fa-edit"></i></button>' +
-                        '<button class="btn btn-sm btn-falcon-default text-danger" onclick="hapusData<%=rnd%>(' + row.id + ')" title="Hapus"><i class="fas fa-trash"></i></button>' +
-                    '</td>' +
+                    '<td class="align-middle text-end pe-4 text-nowrap">' + aksiBarisMenu([
+                        { ikon: 'fa-edit', label: 'Edit', onclick: 'editData<%=rnd%>(' + row.id + ')' },
+                        { ikon: 'fa-trash', label: 'Hapus', onclick: 'hapusData<%=rnd%>(' + row.id + ')', merusak: true }
+                    ]) + '</td>' +
                 '</tr>';
             });
             tbody.innerHTML = html || '<tr><td colspan="10" class="text-center py-4 text-muted">Data tidak ditemukan.</td></tr>';

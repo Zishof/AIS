@@ -579,10 +579,10 @@ String rnd = Common.getGeneratedBarCode(7);
 
                 let actBtn = '';
                 if (canEdit<%=rnd%>) {
-                    actBtn = '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editTopup<%=rnd%>(' + row.id + ', \'' + isoWaktu + '\', \'' + row.nominal + '\', \'' + safeKet + '\', \'' + idAnggota + '\', \'' + namaAnggotaStr.replace(/'/g, "\\'") + '\', \'' + (row.jenis_pembayaran||'') + '\', \'' + (row.jenis_tabungan||'') + '\', \'' + tglExpiredInput + '\')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 mb-1 fw-bold" onclick="hapusTopup<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>';
+                    actBtn = '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                        { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data")%>', onclick: 'editTopup<%=rnd%>(' + row.id + ', \'' + isoWaktu + '\', \'' + row.nominal + '\', \'' + safeKet + '\', \'' + idAnggota + '\', \'' + namaAnggotaStr.replace(/'/g, "\\'") + '\', \'' + (row.jenis_pembayaran||'') + '\', \'' + (row.jenis_tabungan||'') + '\', \'' + tglExpiredInput + '\')' },
+                        { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusTopup<%=rnd%>(' + row.id + ')', merusak: true }
+                    ]) + '</td>';
                 }
 
                 htmlList += '<tr class="border-bottom" id="row-topup-<%=rnd%>-' + row.id + '">' +

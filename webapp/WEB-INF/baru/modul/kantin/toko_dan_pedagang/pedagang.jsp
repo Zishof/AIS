@@ -445,10 +445,10 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                             
                     htmlList += '<td class="text-start text-muted small">' + (row.keterangan || '-') + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>' +
-                            '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editPedagang<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Ubah Data & Foto")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusPedagang<%=rnd%>(' + row.id + ', \'' + (row.userid || '') + '\')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>' +
+                            '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data & Foto")%>', onclick: 'editPedagang<%=rnd%>(' + row.id + ')' },
+                                { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusPedagang<%=rnd%>(' + row.id + ', \'' + (row.userid || '') + '\')', merusak: true }
+                            ]) + '</td>' +
                         '</tr>';
                 });
             }

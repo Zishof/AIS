@@ -372,11 +372,11 @@ String rnd = Common.getGeneratedBarCode(7);
                             '<td class="fw-bold text-dark">' + (row.nama || '-') + '</td>' +
                             '<td class="text-muted small">' + (row.keterangan || '-') + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>' +
-                            '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editMeja<%=rnd%>(' + row.id + ', \'' + safeKode + '\', \'' + safeNama + '\', \'' + safeKet + '\', ' + isAktif + ')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-info shadow-sm px-2 me-1 mb-1 fw-bold" onclick="cetakQRSingle<%=rnd%>(\'' + safeKode + '\', \'' + safeNama + '\')" title="<%=Common.getBahasaConfig("Cetak QR Code Ini")%>"><i class="fas fa-print"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 mb-1 fw-bold" onclick="hapusMeja<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>' +
+                            '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data")%>', onclick: 'editMeja<%=rnd%>(' + row.id + ', \'' + safeKode + '\', \'' + safeNama + '\', \'' + safeKet + '\', ' + isAktif + ')' },
+                                { ikon: 'fa-print', label: '<%=Common.getBahasaConfig("Cetak QR Code Ini")%>', onclick: 'cetakQRSingle<%=rnd%>(\'' + safeKode + '\', \'' + safeNama + '\')' },
+                                { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusMeja<%=rnd%>(' + row.id + ')', merusak: true }
+                            ]) + '</td>' +
                         '</tr>';
                 });
             }

@@ -386,10 +386,10 @@ boolean isAdmin = (toko == null);
                     
                     // Render kolom aksi hanya jika user adalah admin
                     if (isAdmin<%=rnd%>) {
-                        htmlList += '<td class="text-center text-nowrap">' +
-                                        '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editCaraBayar<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
-                                        '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusCaraBayar<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                                    '</td>';
+                        htmlList += '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                            { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data")%>', onclick: 'editCaraBayar<%=rnd%>(' + row.id + ')' },
+                            { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusCaraBayar<%=rnd%>(' + row.id + ')', merusak: true }
+                        ]) + '</td>';
                     }
                             
                     htmlList += '</tr>';

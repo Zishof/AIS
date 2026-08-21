@@ -477,10 +477,10 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                     htmlList += '<td class="text-start text-dark fw-medium">' + (row.nama_carabayar || '-') + infoExpired + '</td>' +
                             '<td class="text-end fw-bold text-success fs-6">' + formatRp<%=rnd%>(row.nominal_cair) + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>' +
-                            '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editPencairan<%=rnd%>(' + row.id + ', \'' + safeNoRef + '\', \'' + row.w_raw + '\', ' + (row.id_toko || 'null') + ', ' + (row.id_anggota || 'null') + ', \'' + safeLabelAnggota + '\', ' + (row.id_carabayar || 'null') + ', ' + (row.nominal_cair || 0) + ', \'' + (row.status || 'PENDING') + '\', \'' + safeKet + '\', \'' + (row.tgl_expired || '') + '\')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
-                                '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusPencairan<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
-                            '</td>' +
+                            '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                                { ikon: 'fa-edit', label: '<%=Common.getBahasaConfig("Ubah Data")%>', onclick: 'editPencairan<%=rnd%>(' + row.id + ', \'' + safeNoRef + '\', \'' + row.w_raw + '\', ' + (row.id_toko || 'null') + ', ' + (row.id_anggota || 'null') + ', \'' + safeLabelAnggota + '\', ' + (row.id_carabayar || 'null') + ', ' + (row.nominal_cair || 0) + ', \'' + (row.status || 'PENDING') + '\', \'' + safeKet + '\', \'' + (row.tgl_expired || '') + '\')' },
+                                { ikon: 'fa-trash-alt', label: '<%=Common.getBahasaConfig("Hapus Data")%>', onclick: 'hapusPencairan<%=rnd%>(' + row.id + ')', merusak: true }
+                            ]) + '</td>' +
                         '</tr>';
                 });
             }

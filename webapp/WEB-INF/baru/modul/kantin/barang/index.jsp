@@ -875,10 +875,10 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                     const izinkanMinusJs = (row.izinkan_jual_minus_stok === true) ? 'true' : ((row.izinkan_jual_minus_stok === false) ? 'false' : 'null');
 
                     const safeBarcode = (row.barcode || '').replace(/'/g, "\\'");
-                    htmlTbody += '<td class="text-center text-nowrap">' +
-                                    '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm me-1" onclick="showEditModal<%=rnd%>(' + row.id + ', \'' + (row.kode || '') + '\', \'' + safeName + '\', ' + (row.id_jenis || 'null') + ', ' + (row.id_toko || 'null') + ', ' + (row.hargabeli || 0) + ', ' + (row.hargajual || 0) + ', ' + stok + ', \'' + safeKet + '\', ' + isAktif + ', ' + izinkanMinusJs + ', \'' + safeBarcode + '\', \'' + jenisItemRow + '\')" title="Edit Produk & Gambar"><i class="fas fa-edit"></i></button>' +
-                                    '<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="deleteProduk<%=rnd%>(' + row.id + ')" title="Hapus Produk"><i class="fas fa-trash-alt"></i></button>' +
-                                 '</td>';
+                    htmlTbody += '<td class="text-center text-nowrap">' + aksiBarisMenu([
+                        { ikon: 'fa-edit', label: 'Edit Produk & Gambar', onclick: 'showEditModal<%=rnd%>(' + row.id + ', \'' + (row.kode || '') + '\', \'' + safeName + '\', ' + (row.id_jenis || 'null') + ', ' + (row.id_toko || 'null') + ', ' + (row.hargabeli || 0) + ', ' + (row.hargajual || 0) + ', ' + stok + ', \'' + safeKet + '\', ' + isAktif + ', ' + izinkanMinusJs + ', \'' + safeBarcode + '\', \'' + jenisItemRow + '\')' },
+                        { ikon: 'fa-trash-alt', label: 'Hapus Produk', onclick: 'deleteProduk<%=rnd%>(' + row.id + ')', merusak: true }
+                    ]) + '</td>';
                     htmlTbody += '</tr>';
                 });
             }
