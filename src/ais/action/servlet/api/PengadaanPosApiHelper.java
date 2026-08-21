@@ -4916,6 +4916,238 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+	/**
+	 * <h3>Daftar transitori pembayaran pengadaan</h3>
+	 *
+	 * <p>Transitori adalah pembayaran yang uangnya TIDAK langsung ditransfer ke penyedia,
+	 * melainkan ditampung dahulu pada akun perantara. Baris yang ditandai transitori
+	 * memperoleh satu record {@code Transitori}; record itulah yang dikumpulkan di sini
+	 * untuk kemudian direalisasikan.</p>
+	 *
+	 * <p>Penyaring status: MENUNGGU (belum masuk batch), DIREALISASIKAN (batchnya sudah
+	 * disetujui), atau kosong untuk semuanya. Bawaannya menunggu, karena itulah yang perlu
+	 * ditindaklanjuti.</p>
+	 */
+	public static void transitoriDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser, KUNCI_DPC)) {
+			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		String status = request == null ? "" : request.optString("status", "MENUNGGU").trim().toUpperCase();
+		String cari = request == null ? "" : request.optString("cari", "").trim().toLowerCase();
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(5, request == null ? 20 : request.optInt("pageSize", 20)));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.akunting.Transitori> semua = session
+					.createCriteria(ais.database.model.akunting.Transitori.class)
+					.addOrder(Order.desc("id")).list();
+			JSONArray arr = new JSONArray();
+			int cocok = 0;
+			int mulai = (page - 1) * pageSize;
+			double totalMenunggu = 0;
+			for (ais.database.model.akunting.Transitori tr : semua) {
+				if (tr == null || Boolean.FALSE.equals(tr.getAktif())) {
+					continue;
+				}
+				ais.database.model.akunting.DaftarPengajuanTransfer dpt = tr.getDaftarPengajuanTransfer();
+				if (dpt == null) {
+					continue;
+				}
+				PembayaranTerminMasterAssetDetail detail = dpt.getPembayaranTerminMasterAssetDetail();
+				PembayaranTerminMasterAsset bayar = detail == null ? null
+						: detail.getPembayaranTerminMasterAsset();
+				/* Hanya transitori milik pembayaran pengadaan POS yang ditampilkan. Transitori
+				 * dari modul lain (uang muka, kas kecil, reimbursement) memang berbagi tabel
+				 * yang sama, tetapi bukan urusan layar ini dan alur persetujuannya berbeda. */
+				if (bayar == null) {
+					continue;
+				}
+				if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+					continue;
+				}
+				ais.database.model.akunting.ProsesTransitori batch = tr.getProsesTransitori();
+				boolean direalisasikan = batch != null && batch.getDisetujuiOleh() != null;
+				String st = direalisasikan ? "DIREALISASIKAN" : "MENUNGGU";
+				if (status.length() > 0 && !status.equals(st)) {
+					continue;
+				}
+				String judul = (bayar.getKode() == null ? "" : bayar.getKode()) + " "
+						+ (dpt.getNama() == null ? "" : dpt.getNama());
+				if (cari.length() > 0 && judul.toLowerCase().indexOf(cari) < 0) {
+					continue;
+				}
+				double nominal = dpt.getNominal() == null ? 0 : dpt.getNominal().doubleValue();
+				if (!direalisasikan) {
+					totalMenunggu += nominal;
+				}
+				cocok++;
+				if (cocok <= mulai || arr.length() >= pageSize) {
+					continue;
+				}
+				JSONObject o = new JSONObject();
+				o.put("id", tr.getId());
+				o.put("nama", dpt.getNama() == null ? "" : dpt.getNama());
+				o.put("nominal", nominal);
+				o.put("bayar_id", bayar.getId());
+				o.put("bayarKode", bayar.getKode() == null ? "" : bayar.getKode());
+				o.put("penyedia", bayar.getPenyedia() == null ? "" : bayar.getPenyedia().getNama());
+				o.put("caraBayar", bayar.getCaraPembayaranTransfer() == null ? ""
+						: bayar.getCaraPembayaranTransfer().getNama());
+				o.put("tanggalBayar", bayar.getTanggalPembuatan() == null ? ""
+						: Common.dateFormat3.get().format(bayar.getTanggalPembuatan()));
+				o.put("po", detail.getPemesananPengadaanMasterAsset() == null
+						|| detail.getPemesananPengadaanMasterAsset().getKode() == null ? ""
+								: detail.getPemesananPengadaanMasterAsset().getKode());
+				o.put("statusBayar", statusBayar(bayar));
+				o.put("status", st);
+				o.put("batch", batch == null || batch.getNama() == null ? "" : batch.getNama());
+				o.put("tanggalRealisasi", batch == null || batch.getTanggalPersetujuan() == null ? ""
+						: Common.dateFormat3.get().format(batch.getTanggalPersetujuan()));
+				o.put("direalisasikanOleh", batch == null || batch.getDisetujuiOleh() == null ? ""
+						: batch.getDisetujuiOleh().getUserNama());
+				o.put("sudahDiposting", tr.getPostingHistory() != null);
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", cocok);
+			hasil.put("nilaiMenunggu", totalMenunggu);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * <h3>Realisasi transitori</h3>
+	 *
+	 * <p>Mengikuti {@code ProsesTransitoriAction} versi ZKoss: beberapa transitori
+	 * dikumpulkan ke dalam satu {@code ProsesTransitori}, nilainya dijumlahkan, lalu batch
+	 * itu disetujui (disetujuiOleh + tanggalPersetujuan). Itulah yang dimaksud realisasi.</p>
+	 *
+	 * <p><b>Realisasi BUKAN posting jurnal.</b> Di ZKoss keduanya memang dua langkah
+	 * terpisah: jurnalnya diterbitkan belakangan lewat layar Posting Proses Transitori,
+	 * yang membaca batch yang sudah disetujui, dan pembatalan posting pun dikerjakan di
+	 * sana. Metode ini SENGAJA tidak menerbitkan jurnal sendiri. Menerbitkannya di sini
+	 * akan melahirkan jurnal kedua yang lambat laun berbeda dari versi ZKoss tanpa ada
+	 * yang menyadarinya, sekaligus melewati layar pembatalan posting yang sudah ada.
+	 * JANGAN tambahkan posting jurnal di sini.</p>
+	 *
+	 * @param request {@code ids} (wajib, array id transitori), {@code nama}, {@code keterangan}.
+	 */
+	public static void transitoriRealisasi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_DPC, "approve")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak merealisasikan transitori.");
+			return;
+		}
+		if (tbmuser == null) {
+			tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+			return;
+		}
+		JSONArray ids = (request == null || request.isNull("ids")) ? null : request.getJSONArray("ids");
+		if (ids == null || ids.length() == 0) {
+			tolak(hasil, "Pilih minimal satu transitori yang akan direalisasikan.");
+			return;
+		}
+		Long tokoId = tokoLingkup(tbmuser, request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.beginTransaction();
+			ais.database.model.akunting.ProsesTransitori batch = new ais.database.model.akunting.ProsesTransitori();
+			String namaBatch = request.optString("nama", "").trim();
+			batch.setNama(namaBatch.isEmpty()
+					? ("Realisasi transitori " + Common.dateFormat3.get().format(ais.ui.util.WaktuUtil.getDate()))
+					: namaBatch);
+			batch.setKeterangan(request.optString("keterangan", "").trim());
+			batch.setTanggalPembuatan(ais.ui.util.WaktuUtil.getDate());
+			batch.setAktif(Boolean.TRUE);
+			batch.setDisetujuiOleh(tbmuser);
+			batch.setTanggalPersetujuan(ais.ui.util.WaktuUtil.getDate());
+			batch.setOleh(tbmuser.getUserNama());
+			batch.setOlehId(tbmuser.getUserId());
+			session.save(batch);
+			session.flush();
+
+			double total = 0;
+			int jumlah = 0;
+			for (int i = 0; i < ids.length(); i++) {
+				Long id = Long.valueOf((ids.get(i) + "").trim());
+				ais.database.model.akunting.Transitori tr = (ais.database.model.akunting.Transitori) session
+						.get(ais.database.model.akunting.Transitori.class, id);
+				if (tr == null) {
+					continue;
+				}
+				if (tr.getProsesTransitori() != null) {
+					tolak(hasil, "Transitori " + (tr.getNama() == null ? (id + "") : tr.getNama())
+							+ " sudah pernah direalisasikan.");
+					session.getTransaction().rollback();
+					return;
+				}
+				ais.database.model.akunting.DaftarPengajuanTransfer dpt = tr.getDaftarPengajuanTransfer();
+				PembayaranTerminMasterAssetDetail detail = dpt == null ? null
+						: dpt.getPembayaranTerminMasterAssetDetail();
+				PembayaranTerminMasterAsset bayar = detail == null ? null
+						: detail.getPembayaranTerminMasterAsset();
+				if (bayar == null) {
+					tolak(hasil, "Transitori ini bukan milik pembayaran pengadaan; "
+							+ "realisasinya dikerjakan pada modulnya sendiri.");
+					session.getTransaction().rollback();
+					return;
+				}
+				if (tokoId != null && bayar.getToko() != null && !tokoId.equals(bayar.getToko().getId())) {
+					tolak(hasil, "Transitori " + (tr.getNama() == null ? "" : tr.getNama()) + " milik toko lain.");
+					session.getTransaction().rollback();
+					return;
+				}
+				/* Pembayarannya harus sudah disetujui. Merealisasikan uang atas dokumen yang
+				 * masih draf berarti mencairkan sesuatu yang belum sah, dan dokumen draf
+				 * masih dapat disunting sehingga barisnya bisa berubah setelah dicairkan. */
+				if (bayar.getTanggalPersetujuan() == null) {
+					tolak(hasil, "Pembayaran " + (bayar.getKode() == null ? "" : bayar.getKode())
+							+ " belum disetujui, jadi transitorinya belum dapat direalisasikan.");
+					session.getTransaction().rollback();
+					return;
+				}
+				tr.setProsesTransitori(batch);
+				tr.setOleh(tbmuser.getUserNama());
+				tr.setOlehId(tbmuser.getUserId());
+				session.saveOrUpdate(tr);
+				total += dpt.getNominal() == null ? 0 : dpt.getNominal().doubleValue();
+				jumlah++;
+			}
+			if (jumlah == 0) {
+				tolak(hasil, "Tidak ada transitori yang dapat direalisasikan dari pilihan itu.");
+				session.getTransaction().rollback();
+				return;
+			}
+			batch.setNilai(Double.valueOf(total));
+			session.saveOrUpdate(batch);
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("id", batch.getId());
+			hasil.put("nama", batch.getNama());
+			hasil.put("jumlah", jumlah);
+			hasil.put("nilai", total);
+			hasil.put("description", jumlah + " transitori direalisasikan senilai "
+					+ Common.numberFormat.get().format(total)
+					+ ". Jurnalnya diterbitkan lewat Posting Proses Transitori.");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "PengadaanPosApiHelper.transitoriRealisasi rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Sebuah BAST dianggap sudah ditagihkan bila nomor DAN tanggal fakturnya lengkap. */
 	private static boolean sudahDitagih(PenerimaanPengadaanMasterAsset bast) {
 		return bast.getKodeTagihan() != null && !bast.getKodeTagihan().trim().isEmpty()
@@ -5794,6 +6026,23 @@ public final class PengadaanPosApiHelper {
 			List<PembayaranTerminMasterAssetDetail> lama = session
 					.createCriteria(PembayaranTerminMasterAssetDetail.class)
 					.add(Restrictions.eq("pembayaranTerminMasterAsset.id", bayar.getId())).list();
+
+			/* Menyunting dokumen berarti membuang seluruh barisnya lalu membuatnya ulang.
+			 * Itu tidak boleh dilakukan bila salah satu barisnya sudah masuk batch
+			 * realisasi transitori: record transitorinya sudah punya arti akuntansi, dan
+			 * membuangnya akan meninggalkan batch yang menunjuk baris yang tidak ada.
+			 * Ditolak di muka dengan pesan yang jelas, BUKAN dilewati diam-diam --
+			 * melewatinya akan menyisakan baris pengajuan yang menunjuk detail terhapus. */
+			for (PembayaranTerminMasterAssetDetail dCek : lama) {
+				ais.database.model.akunting.DaftarPengajuanTransfer cek = dCek.getDaftarPengajuanTransfer();
+				if (cek != null && cek.getTransitoriData() != null
+						&& cek.getTransitoriData().getProsesTransitori() != null) {
+					tolak(hasil, "Dokumen ini tidak dapat diubah karena salah satu barisnya "
+							+ "sudah masuk batch realisasi transitori. Batalkan dahulu "
+							+ "realisasinya, lalu ulangi.");
+					return;
+				}
+			}
 			java.util.Set<Long> poTersentuh = new java.util.HashSet<Long>();
 			for (PembayaranTerminMasterAssetDetail d : lama) {
 				if (d.getPemesananPengadaanMasterAsset() != null) {
@@ -5808,8 +6057,17 @@ public final class PengadaanPosApiHelper {
 				ais.database.model.akunting.DaftarPengajuanTransfer pengajuanLama = d.getDaftarPengajuanTransfer();
 				session.delete(d);
 				if (pengajuanLama != null && pengajuanLama.getProsesTransfer() == null
-						&& pengajuanLama.getTransitoriData() == null
 						&& pengajuanLama.getPostingHistory() == null) {
+					/* Record transitori miliknya ikut dibuang, KECUALI bila sudah masuk
+					 * batch realisasi -- yang begitu sudah punya arti akuntansi dan tidak
+					 * boleh lenyap hanya karena dokumennya disunting ulang. */
+					ais.database.model.akunting.Transitori trLama = pengajuanLama.getTransitoriData();
+					if (trLama != null) {
+						pengajuanLama.setTransitoriData(null);
+						session.saveOrUpdate(pengajuanLama);
+						session.flush();
+						session.delete(trLama);
+					}
 					session.delete(pengajuanLama);
 				}
 			}
@@ -5876,6 +6134,27 @@ public final class PengadaanPosApiHelper {
 				d.setDaftarPengajuanTransfer(pengajuan);
 				session.saveOrUpdate(d);
 				session.flush();
+
+				/* Menandai transitori TIDAK cukup dengan menyetel flag-nya. Versi ZKoss
+				 * (ProsesTransferAction) juga menerbitkan satu record Transitori
+				 * berpasangan, ditaut dua arah, dan menghapusnya kembali ketika tandanya
+				 * dilepas. Record itulah yang muncul pada daftar realisasi; tanpa dia,
+				 * baris yang ditandai transitori tidak akan pernah dapat direalisasikan
+				 * dan uangnya menggantung di akun transitori selamanya. */
+				if (transitoriBaris) {
+					ais.database.model.akunting.Transitori tr = new ais.database.model.akunting.Transitori();
+					tr.setDaftarPengajuanTransfer(pengajuan);
+					tr.setNama(pengajuan.getNama());
+					tr.setKode(pengajuan.getKode());
+					tr.setAktif(Boolean.TRUE);
+					tr.setOleh(tbmuser.getUserNama());
+					tr.setOlehId(tbmuser.getUserId());
+					session.save(tr);
+					session.flush();
+					pengajuan.setTransitoriData(tr);
+					session.saveOrUpdate(pengajuan);
+					session.flush();
+				}
 
 				detailBaru.add(d.getId());
 				poTersentuh.add(po.getId());
@@ -7489,6 +7768,14 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_bayar_hapus".equals(action)) {
 			bayarHapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_transitori_daftar".equals(action) || "pengadaan_transitori_list".equals(action)) {
+			transitoriDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_transitori_realisasi".equals(action)) {
+			transitoriRealisasi(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_bayar_tagihan_terbuka".equals(action)) {

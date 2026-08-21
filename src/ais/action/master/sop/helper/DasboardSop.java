@@ -514,6 +514,38 @@ public class DasboardSop extends MyPortallayout {
 		DashboardCacheUtil.invalidateL3(key);
 	}
 
+	/**
+	 * Kriteria "proses yang dipantau pengguna ini" -- sebagai pengaju, petugas, atau
+	 * subjek pengajuan.
+	 *
+	 * <p>Dipisah menjadi metode sendiri supaya bentuknya PERSIS SAMA antara sampel
+	 * analitik dan hitungan tepat "Proses Dipantau". Bila keduanya disusun terpisah,
+	 * keduanya bisa menyimpang tanpa ketahuan.</p>
+	 */
+	private Criteria createDipantauCriteria(Session session) {
+		Criteria criteria = createCriteria(session, DisposisiAlurSop.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.isNotNull("alurSop")).createAlias("alurSop", "alurSop")
+				.add(Restrictions.isNotNull("alurSop.sop"))
+				.createAlias("alurSop.aktorSop", "aktorSop", Criteria.LEFT_JOIN)
+				.createAlias("disposisiSop", "disposisiSop")
+				.createAlias("sebelumnya", "sebelumnya", Criteria.LEFT_JOIN)
+				.add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
+					Restrictions.eq("disposisiSop.aktif", true)));
+
+		try {
+			Criterion pengaju = getUserRestriction(tbmuser, "disposisiSop");
+			Criterion petugas = getAktorRestriction(criteria);
+			Criterion rootUser = getUserRestriction(tbmuser, "");
+			criteria.add(Restrictions.or(pengaju, Restrictions.or(petugas, rootUser)));
+		} catch (Exception e) {
+			criteria.add(getUserRestriction(tbmuser, "disposisiSop"));
+		}
+
+		applyGlobalDisposisiFilter(criteria);
+		return criteria;
+	}
+
 	private SopDashboardData loadSopDashboardData() {
 		SopDashboardData d = new SopDashboardData();
 		updateLoadingDashboardSop("Mengambil jumlah data pengajuan Anda...", 28);
@@ -532,26 +564,7 @@ public class DasboardSop extends MyPortallayout {
 		try {
 			updateLoadingDashboardSop("Mengambil sampel data alur kerja SOP untuk analitik sebaran, petugas, dan batas waktu...", 48);
 			session = HibernateUtil.openSession();
-			Criteria criteria = createCriteria(session, DisposisiAlurSop.class)
-					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-					.add(Restrictions.isNotNull("alurSop")).createAlias("alurSop", "alurSop")
-					.add(Restrictions.isNotNull("alurSop.sop"))
-					.createAlias("alurSop.aktorSop", "aktorSop", Criteria.LEFT_JOIN)
-					.createAlias("disposisiSop", "disposisiSop")
-					.createAlias("sebelumnya", "sebelumnya", Criteria.LEFT_JOIN)
-					.add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
-							Restrictions.eq("disposisiSop.aktif", true)));
-
-			try {
-				Criterion pengaju = getUserRestriction(tbmuser, "disposisiSop");
-				Criterion petugas = getAktorRestriction(criteria);
-				Criterion rootUser = getUserRestriction(tbmuser, "");
-				criteria.add(Restrictions.or(pengaju, Restrictions.or(petugas, rootUser)));
-			} catch (Exception e) {
-				criteria.add(getUserRestriction(tbmuser, "disposisiSop"));
-			}
-
-			applyGlobalDisposisiFilter(criteria);
+			Criteria criteria = createDipantauCriteria(session);
 
 			criteria.addOrder(Order.desc("id"));
 			criteria.setMaxResults(DASHBOARD_SAMPLE_LIMIT);
@@ -560,6 +573,21 @@ public class DasboardSop extends MyPortallayout {
 			List<DisposisiAlurSop> rows = criteria.list();
 			updateLoadingDashboardSop("Menganalisis data alur kerja SOP: SOP dominan, petugas padat, kelengkapan data, dan batas waktu...", 55);
 			analyzeDashboardRows(d, rows);
+			// "Proses Dipantau" adalah angka utama pada hero, jadi dihitung TEPAT lewat
+			// COUNT DISTINCT -- BUKAN dari sampel DASHBOARD_SAMPLE_LIMIT di atas. Dari sampel,
+			// angkanya JENUH begitu data melewati batas sampel, sehingga instalasi sibuk
+			// selalu melihat angka yang sama dan keliru. Sampel tetap dipakai untuk analitik
+			// SEBARAN (per SOP, per petugas, batas waktu) karena di sana sampel memang sah.
+			try {
+				Object jumlahDipantau = createDipantauCriteria(session)
+						.setProjection(Projections.countDistinct("disposisiSop.id")).uniqueResult();
+				if (jumlahDipantau != null) {
+					d.totalDipantau = ((Number) jumlahDipantau).intValue();
+				}
+			} catch (Exception eHitungDipantau) {
+				// Gagal menghitung tepat -> biarkan angka sampel yang dipakai.
+				printDebug(eHitungDipantau);
+			}
 		} catch (Exception e) {
 			// Biarkan kartu utama tetap tampil dari count-count yang sudah aman.
 			printDebug(e);

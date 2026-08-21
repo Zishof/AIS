@@ -114,19 +114,21 @@ public final class SopService {
             data.put("totalAntrian", totalAntrian);
             data.put("totalAktivitas", totalAktivitas);
 
-            Criteria sample = baseDisposisiAlurCriteria(session);
-            Criterion pengaju = AktorSop.buatCriterionPengaju(tbmuser, "disposisiSop");
-            Criterion petugas = aktorRestriction(tbmuser, sample);
-            Criterion rootUser = AktorSop.buatCriterionPengaju(tbmuser, "");
-            sample.add(Restrictions.or(pengaju, Restrictions.or(petugas, rootUser)));
-            applyGlobalDisposisiFilter(sample, mulai, sampai, keyword);
+            Criteria sample = criteriaDipantau(session, tbmuser, mulai, sampai, keyword);
             sample.addOrder(Order.desc("id"));
             sample.setMaxResults(SAMPLE_LIMIT);
 
             @SuppressWarnings("unchecked")
             List<DisposisiAlurSop> rows = sample.list();
             JSONObject analytic = analyzeDashboardRows(rows);
-            int totalDipantau = analytic.getInt("totalDipantau");
+            // "Proses Dipantau" adalah angka utama, jadi dihitung TEPAT lewat COUNT
+            // DISTINCT -- bukan dari sampel 500 baris yang dipakai analitik sebaran.
+            // Dari sampel, angkanya jenuh di batas sampel begitu data melewatinya, sehingga
+            // instalasi sibuk selalu melihat angka yang sama dan keliru.
+            int totalDipantau = hitungDipantauTepat(session, tbmuser, mulai, sampai, keyword);
+            if (totalDipantau <= 0) {
+                totalDipantau = analytic.getInt("totalDipantau");
+            }
             data.put("totalDipantau", totalDipantau > 0 ? totalDipantau : totalAktivitas);
             data.put("deadline", analytic.getJSONObject("deadline"));
             data.put("metadataQuality", analytic.getJSONObject("metadataQuality"));
@@ -1563,6 +1565,39 @@ public final class SopService {
     // Criteria builder — port DasboardSop.java (count/panel) & sesuai kategori dasbor
     // ════════════════════════════════════════════════════════════════════════
 
+    /**
+     * Kriteria "proses yang dipantau pengguna ini" -- pengaju, petugas, atau subjek
+     * pengajuan. Dipisah menjadi metode sendiri supaya bentuknya PERSIS SAMA antara
+     * sampel analitik dan hitungan tepat {@link #hitungDipantauTepat}; kalau keduanya
+     * disusun terpisah, keduanya bisa menyimpang tanpa ketahuan.
+     */
+    private static Criteria criteriaDipantau(Session session, Tbmuser tbmuser, Date mulai, Date sampai,
+            String keyword) {
+        Criteria c = baseDisposisiAlurCriteria(session);
+        Criterion pengaju = AktorSop.buatCriterionPengaju(tbmuser, "disposisiSop");
+        Criterion petugas = aktorRestriction(tbmuser, c);
+        Criterion rootUser = AktorSop.buatCriterionPengaju(tbmuser, "");
+        c.add(Restrictions.or(pengaju, Restrictions.or(petugas, rootUser)));
+        applyGlobalDisposisiFilter(c, mulai, sampai, keyword);
+        return c;
+    }
+
+    /**
+     * Jumlah pengajuan (bukan langkah) yang benar-benar dipantau pengguna ini.
+     * Mengembalikan 0 bila gagal, supaya pemanggil dapat jatuh ke angka sampel.
+     */
+    private static int hitungDipantauTepat(Session session, Tbmuser tbmuser, Date mulai, Date sampai,
+            String keyword) {
+        try {
+            Object n = criteriaDipantau(session, tbmuser, mulai, sampai, keyword)
+                    .setProjection(Projections.countDistinct("disposisiSop.id")).uniqueResult();
+            return n == null ? 0 : ((Number) n).intValue();
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SopService.hitungDipantauTepat");
+            return 0;
+        }
+    }
+
     private static Criteria baseDisposisiAlurCriteria(Session session) {
         return session.createCriteria(DisposisiAlurSop.class)
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -1582,6 +1617,9 @@ public final class SopService {
     private static Criteria criteriaMenungguSaya(Session session, Tbmuser tbmuser, Date mulai, Date sampai,
             String keyword, boolean hanyaLewatDeadline) {
         Criteria c = baseDisposisiAlurCriteria(session);
+        // Sejajar DasboardSop.createMenungguSayaSesuaiPanelCriteria dan versi JSP:
+        // langkah yang sudah ditandai selesai tidak lagi menunggu siapa pun.
+        c.add(Restrictions.or(Restrictions.isNull("selesai"), Restrictions.eq("selesai", false)));
         c.add(aktorRestriction(tbmuser, c));
         c.add(Restrictions.isNull("diajukanOleh"));
         c.add(Restrictions.isNull("siswa"));
@@ -1603,7 +1641,13 @@ public final class SopService {
                 .add(Restrictions.isNotNull("alurSop")).createAlias("alurSop", "alurSop")
                 .add(Restrictions.isNotNull("alurSop.sop")).add(Restrictions.eq("alurSop.start", false))
                 .add(Restrictions.isNotNull("waktu")).createAlias("disposisiSop", "disposisiSop")
-                .add(AktorSop.buatCriterionPengaju(tbmuser, ""));
+                .add(AktorSop.buatCriterionPengaju(tbmuser, ""))
+                // Sejajar DasboardSop.getCountDisposisi dan PengajuanAndaSopUtil (JSP): langkah
+                // yang INDUK pengajuannya sudah dinonaktifkan/dibatalkan tidak boleh ikut
+                // terhitung. Tanpa baris ini angka "Sudah Disposisi" di POS/mobile lebih
+                // besar daripada versi ZKoss dan JSP untuk data yang sama.
+                .add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
+                        Restrictions.eq("disposisiSop.aktif", true)));
         applyGlobalDisposisiFilter(c, mulai, sampai, keyword);
         return c;
     }
