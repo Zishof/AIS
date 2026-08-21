@@ -758,6 +758,28 @@ public class KantinHelper {
 							if (pengirimanPending) {
 								SesiKasKasir sesiAsal = ais.action.master.koperasi.helper.SesiKasUtil
 										.cariByKode(session, kodeSesiDiminta);
+								if (sesiAsal == null) {
+									/* KE-FIX: kode sesi yang TIDAK DIKENAL sama sekali tidak boleh
+									 * diperlakukan lebih curiga daripada payload yang tidak mengirim
+									 * kode sesi sama sekali -- padahal payload tanpa kode sesi lolos
+									 * gerbang ini tanpa syarat. Kode asing tidak membawa informasi
+									 * apa pun, jadi menolaknya tidak menambah pengamanan; siapa pun
+									 * yang hendak menyalahgunakan cukup menghilangkan fieldnya.
+									 *
+									 * Yang terjadi nyata justru sebaliknya: POS versi lama menyimpan
+									 * kode karangan 'sesi-<tokoId>' ketika status kas datang dari
+									 * server, sehingga SELURUH penjualan sesudahnya ditolak permanen
+									 * (61 transaksi di Toko Al Bahjah, 21-08-2026). Transaksi seperti
+									 * itu tetap harus dapat masuk; ia diikat ke sesi yang sedang
+									 * terbuka, persis seperti payload tanpa kode sesi. */
+									sesiAsalSah = true;
+									hasil.put("sesi_kas_tidak_dikenal", kodeSesiDiminta);
+									ais.common.ErrorAuditUtil.record(
+											new IllegalStateException("Transaksi " + kodeUnik
+													+ " membawa kode sesi kas '" + kodeSesiDiminta
+													+ "' yang tidak ada di server; diikat ke sesi yang sedang terbuka."),
+											"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-sesi-kas-tidak-dikenal");
+								}
 								if (sesiAsal != null) {
 									boolean tokoSama = sesiAsal.getToko() != null && sesiAsal.getToko().getId() != null
 											&& sesiAsal.getToko().getId().equals(toko.getId());
