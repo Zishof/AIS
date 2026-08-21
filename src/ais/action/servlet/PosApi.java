@@ -769,6 +769,12 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("penggantian_kas_kecil_")) {
+				// Grup "Keuangan": penggantian (reimbursement) kas kecil -- dipindahkan dari
+				// layar ZK PenggantianKasKecilAction. Didahulukan sebelum "kas_kecil_" supaya
+				// awalannya tidak tertelan.
+				ais.action.servlet.api.PenggantianKasKecilApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("kas_kecil_")) {
 				// Grup "Keuangan": pengeluaran kas kecil -- dipindahkan dari layar ZK KasKecilAction.
 				ais.action.servlet.api.KasKecilApiHelper.proses(action, tbmuser, payload, hasil);
