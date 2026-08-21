@@ -36,6 +36,7 @@ public final class KeuanganApiHelper {
 			{ "uang_muka", "uang_muka" },
 			{ "pj_uang_muka", "pj_uang_muka" },
 			{ "kas_besar", "kas_besar" },
+			{ "pj_kas_besar", "pj_kas_besar" },
 	};
 
 	private KeuanganApiHelper() {
@@ -116,7 +117,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar.");
+			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -133,6 +134,8 @@ public final class KeuanganApiHelper {
 				dasborUangMuka(session, bulan, hasil);
 			} else if ("kas_besar".equals(modul)) {
 				dasborKasBesar(session, bulan, hasil);
+			} else if ("pj_kas_besar".equals(modul)) {
+				dasborPjKasBesar(session, bulan, hasil);
 			} else {
 				dasborPj(session, bulan, hasil);
 			}
@@ -430,7 +433,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar.");
+			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
