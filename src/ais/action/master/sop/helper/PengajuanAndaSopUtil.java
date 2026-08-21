@@ -168,6 +168,53 @@ public final class PengajuanAndaSopUtil {
 						Restrictions.eq("disposisiSop.aktif", true)));
 	}
 
+	/**
+	 * Kriteria <b>"Proses Dipantau"</b> -- port dari blok sampel analitik pada
+	 * {@code DasboardSop.loadSopDashboardData}: seluruh langkah alur yang berkaitan dengan
+	 * pengguna ini, baik sebagai <i>pengaju</i>, sebagai <i>petugas/aktor</i>, maupun sebagai
+	 * <i>subjek</i> pengajuan.
+	 *
+	 * <p>Perhatikan bahwa artinya BUKAN "jumlah pengajuan saya". Seorang petugas yang
+	 * tidak pernah mengajukan apa pun tetap memantau banyak proses.</p>
+	 */
+	public static Criteria criteriaDipantau(Session session, Tbmuser user) {
+		Criteria criteria = session.createCriteria(DisposisiAlurSop.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.isNotNull("alurSop")).createAlias("alurSop", "alurSop")
+				.add(Restrictions.isNotNull("alurSop.sop"))
+				.createAlias("alurSop.aktorSop", "aktorSop", Criteria.LEFT_JOIN)
+				.createAlias("disposisiSop", "disposisiSop")
+				.createAlias("sebelumnya", "sebelumnya", Criteria.LEFT_JOIN)
+				.add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
+						Restrictions.eq("disposisiSop.aktif", true)));
+		try {
+			Criterion pengaju = userRestriction(user, "disposisiSop");
+			Criterion petugas = AktorSop.buatCriterion(user, true, criteria);
+			Criterion subjek = userRestriction(user, "");
+			criteria.add(Restrictions.or(pengaju, Restrictions.or(petugas, subjek)));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PengajuanAndaSopUtil.criteriaDipantau");
+			criteria.add(userRestriction(user, "disposisiSop"));
+		}
+		return criteria;
+	}
+
+	/**
+	 * Jumlah PENGAJUAN (bukan langkah) yang dipantau pengguna ini -- dihitung tepat dengan
+	 * {@code COUNT DISTINCT}. Mengembalikan 0 bila gagal, supaya pemanggil dapat memakai
+	 * angka cadangan.
+	 */
+	public static int hitungProsesDipantau(Session session, Tbmuser user) {
+		try {
+			Object n = criteriaDipantau(session, user)
+					.setProjection(Projections.countDistinct("disposisiSop.id")).uniqueResult();
+			return n == null ? 0 : ((Number) n).intValue();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PengajuanAndaSopUtil.hitungProsesDipantau");
+			return 0;
+		}
+	}
+
 	/** Hitung jumlah baris suatu kriteria (memasang projeksi rowCount). */
 	public static int hitung(Criteria criteria) {
 		if (criteria == null) {
@@ -186,8 +233,23 @@ public final class PengajuanAndaSopUtil {
 		try { r.selesai = hitung(criteriaSelesai(session, user)); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/PengajuanAndaSopUtil.java:186"); }
 		try { r.menungguPetugas = hitung(criteriaMenungguAktor(session, user)); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/PengajuanAndaSopUtil.java:187"); }
 		try { r.lewatBatas = hitung(criteriaMenungguSaya(session, user, true)); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/PengajuanAndaSopUtil.java:188"); }
-		r.prosesDipantau = r.pengajuanAnda;
 		r.totalAntrian = r.menungguSaya + r.menungguPetugas;
+		// Padanan DasboardSop: totalAktivitas dipakai sebagai angka CADANGAN bila
+		// hitungan tepat gagal, persis seperti "if (d.totalDipantau <= 0)" di sana.
+		r.totalAktivitas = r.pengajuanAnda + r.menungguSaya + r.sudahDisposisi + r.selesai
+			+ r.menungguPetugas;
+		// SEBELUMNYA: r.prosesDipantau = r.pengajuanAnda -- yaitu jumlah pengajuan MILIK
+		// SENDIRI, yang bukan arti "Proses Dipantau" pada versi ZKoss. Petugas yang tidak
+		// pernah mengajukan apa pun tetap memantau banyak proses, sehingga banner JSP
+		// menampilkan angka yang lebih kecil dan berbeda arti dari dasbor ZKoss.
+		try {
+			r.prosesDipantau = hitungProsesDipantau(session, user);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PengajuanAndaSopUtil.hitungRingkasan.prosesDipantau");
+		}
+		if (r.prosesDipantau <= 0) {
+			r.prosesDipantau = r.totalAktivitas;
+		}
 		return r;
 	}
 
@@ -201,5 +263,7 @@ public final class PengajuanAndaSopUtil {
 		public int lewatBatas;
 		public int prosesDipantau;
 		public int totalAntrian;
+		/** Cadangan bila hitungan tepat gagal -- padanan {@code totalAktivitas} di ZKoss. */
+		public int totalAktivitas;
 	}
 }

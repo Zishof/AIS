@@ -515,12 +515,12 @@ public class DasboardSop extends MyPortallayout {
 	}
 
 	/**
-	 * Kriteria "proses yang dipantau pengguna ini" -- sebagai pengaju, petugas, atau
-	 * subjek pengajuan.
+	 * Kriteria "proses yang dipantau pengguna ini" -- sebagai pengaju, petugas,
+	 * atau subjek pengajuan.
 	 *
 	 * <p>Dipisah menjadi metode sendiri supaya bentuknya PERSIS SAMA antara sampel
-	 * analitik dan hitungan tepat "Proses Dipantau". Bila keduanya disusun terpisah,
-	 * keduanya bisa menyimpang tanpa ketahuan.</p>
+	 * analitik dan hitungan tepat "Proses Dipantau". Bila keduanya disusun
+	 * terpisah, keduanya bisa menyimpang tanpa ketahuan.</p>
 	 */
 	private Criteria createDipantauCriteria(Session session) {
 		Criteria criteria = createCriteria(session, DisposisiAlurSop.class)
@@ -531,7 +531,7 @@ public class DasboardSop extends MyPortallayout {
 				.createAlias("disposisiSop", "disposisiSop")
 				.createAlias("sebelumnya", "sebelumnya", Criteria.LEFT_JOIN)
 				.add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
-					Restrictions.eq("disposisiSop.aktif", true)));
+						Restrictions.eq("disposisiSop.aktif", true)));
 
 		try {
 			Criterion pengaju = getUserRestriction(tbmuser, "disposisiSop");
@@ -574,10 +574,11 @@ public class DasboardSop extends MyPortallayout {
 			updateLoadingDashboardSop("Menganalisis data alur kerja SOP: SOP dominan, petugas padat, kelengkapan data, dan batas waktu...", 55);
 			analyzeDashboardRows(d, rows);
 			// "Proses Dipantau" adalah angka utama pada hero, jadi dihitung TEPAT lewat
-			// COUNT DISTINCT -- BUKAN dari sampel DASHBOARD_SAMPLE_LIMIT di atas. Dari sampel,
-			// angkanya JENUH begitu data melewati batas sampel, sehingga instalasi sibuk
-			// selalu melihat angka yang sama dan keliru. Sampel tetap dipakai untuk analitik
-			// SEBARAN (per SOP, per petugas, batas waktu) karena di sana sampel memang sah.
+			// COUNT DISTINCT -- BUKAN dari sampel DASHBOARD_SAMPLE_LIMIT di atas. Dari
+			// sampel, angkanya JENUH begitu data melewati batas sampel, sehingga instalasi
+			// sibuk selalu melihat angka yang sama dan keliru. Sampel tetap dipakai untuk
+			// analitik SEBARAN (per SOP, per petugas, batas waktu) karena di sana sampel
+			// memang sah.
 			try {
 				Object jumlahDipantau = createDipantauCriteria(session)
 						.setProjection(Projections.countDistinct("disposisiSop.id")).uniqueResult();
