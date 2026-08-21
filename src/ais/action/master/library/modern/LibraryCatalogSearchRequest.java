@@ -183,7 +183,11 @@ public class LibraryCatalogSearchRequest {
     public void setSchoolId(Long schoolId) { this.schoolId = schoolId; }
     public void setFacultyId(Long facultyId) { this.facultyId = facultyId; }
     public void setStudyProgramId(Long studyProgramId) { this.studyProgramId = studyProgramId; }
+    public void setYear(Integer year) { this.year = validYear(year); }
+    public void setYearFrom(Integer yearFrom) { this.yearFrom = validYear(yearFrom); }
+    public void setYearTo(Integer yearTo) { this.yearTo = validYear(yearTo); }
     public void setPage(int page) { this.page = page < 1 ? 1 : page; }
     public void setPageSize(int pageSize) { this.pageSize = pageSize < 1 ? DEFAULT_PAGE_SIZE : Math.min(pageSize, MAX_PAGE_SIZE); }
     public void setSort(String sort) { this.sort = allowedSort(sort); }
+    private static Integer validYear(Integer value) { return value != null && value.intValue() >= 1000 && value.intValue() <= 2200 ? value : null; }
 }

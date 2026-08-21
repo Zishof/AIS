@@ -9,7 +9,7 @@
                 <h3><%=h(item.label)%></h3><% if (item.unit.length() > 0) { %><small><%=h(item.unit)%></small><% } %>
                 <% if (item.description.length() > 0) { %><div><%=h(item.description)%></div><% } %>
                 <% if (item.accreditation.length() > 0) { %><span class="home-program-badge"><%=h(item.accreditation)%></span><% } %>
-                <a href="<%=h(item.url)%>" target="<%=h(item.target)%>" rel="<%=h(item.rel)%>">Lihat informasi <span aria-hidden="true">→</span></a>
+                <a href="<%=h(item.url)%>" target="<%=h(item.target)%>" rel="<%=h(item.rel)%>">Lihat informasi <span aria-hidden="true">&rarr;</span></a>
             </article>
             <% } %>
         </div>

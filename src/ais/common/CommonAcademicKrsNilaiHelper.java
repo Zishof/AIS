@@ -748,6 +748,23 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 					jenisNilaiHuruf);
 		}
 
+	private static boolean cocokKodeMkNilaiHuruf(NilaiHuruf nilaiHuruf, String kodemk, boolean semuaKodeMk) {
+			if (nilaiHuruf == null) {
+				return false;
+			}
+			String kodeDicari = kodemk == null ? "" : kodemk.trim().toLowerCase();
+			String kodeSetup = nilaiHuruf.getKodeMk() == null ? "" : nilaiHuruf.getKodeMk().trim().toLowerCase();
+			if (kodeDicari.isEmpty()) {
+				return kodeSetup.isEmpty() || semuaKodeMk;
+			}
+			if (kodeSetup.isEmpty()) {
+				return true;
+			}
+			String daftarKode = "," + kodeSetup.replace(" ", "") + ",";
+			String kode = kodeDicari.replace(" ", "");
+			return daftarKode.contains("," + kode + ",") || kodeSetup.equals(kodeDicari);
+		}
+
 	public static NilaiHuruf getNilaiHuruf(Double nilai, Integer tahunAngkatan, Jurusan jurusan, Fakultas fakultas,
 				String tahunAkademik, String semester, String kodemk, boolean coba, boolean semuaKodeMk,
 				JenisNilaiHurufMatakuliah jenisNilaiHuruf) {
@@ -796,8 +813,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 								&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-								&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf.getKodeMk()
-										.toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+								&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 							huruf = nilaiHuruf;
 							// System.out.println("Step 1 : nilai huruf " +
 							// huruf.toString());
@@ -831,8 +847,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 1.1 : nilai huruf " +
 								// huruf.toString());
@@ -867,8 +882,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 2 : nilai huruf " +
 								// huruf.toString());
@@ -904,8 +918,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 2.1 : nilai huruf " +
 								// huruf.toString());
@@ -940,8 +953,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan.equals(nilaiHuruf.getTahunAngkatan())
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 3 : nilai huruf " +
 								// huruf.toString());
@@ -976,8 +988,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& tahunAngkatan >= nilaiHuruf.getTahunAngkatan()
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 3.1 : nilai huruf " +
 								// huruf.toString());
@@ -1010,8 +1021,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 									&& nilai <= nilaiHuruf.getSampai()
 
-									&& ((kodemk == null || kodemk.trim().isEmpty()) || (semuaKodeMk || nilaiHuruf
-											.getKodeMk().toLowerCase().contains("," + kodemk.toLowerCase() + ",")))) {
+									&& cocokKodeMkNilaiHuruf(nilaiHuruf, kodemk, semuaKodeMk)) {
 								huruf = nilaiHuruf;
 								// System.out.println("Step 4 : nilai huruf " +
 								// huruf.toString());
@@ -1026,6 +1036,11 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
+			}
+
+			if (huruf == null && jenisNilaiHuruf != null) {
+				huruf = getNilaiHuruf(nilai, tahunAngkatan, jurusan, fakultas, tahunAkademik, semester, kodemk, false,
+						semuaKodeMk, null);
 			}
 
 			if (huruf == null & !semuaKodeMk) {

@@ -21,6 +21,7 @@ import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Html;
@@ -163,6 +164,10 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 	protected MyToolbarbuttonConfig tutup;
 	/** Khusus admin: tombol aktif/non-aktifkan penilaian untuk TA &amp; Jenis Smt terpilih (mendukung SP). */
 	protected MyToolbarbuttonConfig toggleAktifPenilaian;
+	/** Pemberitahuan tetap saat periode nilai ditutup dan belum ada izin pengecualian. */
+	protected Div infoMasaPenilaian;
+	protected Html infoMasaPenilaianIsi;
+	protected MyToolbarbuttonConfig ajukanIzinPenilaian;
 
 	protected MyToolbarbuttonConfig optimize;
 	protected MyToolbarbuttonConfig optimizeSekarang;
@@ -521,6 +526,20 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 	public void onPengecualianJadwalPenilaianTbmuser(Event event) throws Exception {
 		PengecualianJadwalPenilaianAdminHelper pengecualianJadwalPenilaianAdminHelper = new PengecualianJadwalPenilaianAdminHelper();
 		pengecualianJadwalPenilaianAdminHelper.display();
+	}
+
+	/**
+	 * Membuka form pengajuan yang sesuai dengan jenis pengguna. Informasi pada layar
+	 * sengaja tetap terlihat sebelum form dibuka agar pengguna memahami bahwa nilai
+	 * tidak boleh diubah langsung setelah masa penilaian berakhir.
+	 */
+	public void onAjukanIzinPenilaian(Event event) throws Exception {
+		if (tbmuser != null && tbmuser.ambilDosen() != null && tbmuser.hakAkses() != null
+				&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId())) {
+			onPengecualianJadwalPenilaianDosen(event);
+		} else {
+			onPengecualianJadwalPenilaianTbmuser(event);
+		}
 	}
 
 	protected Dosen dosen;
@@ -1730,6 +1749,67 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 		System.out.println("aktifPenilaian = " + aktifPenilaian);
 	}
 
+	/**
+	 * Menjelaskan alasan kolom nilai terkunci dan langkah yang harus dilakukan. Kolom
+	 * tetap terbuka jika konfigurasi periode aktif atau pengguna memiliki izin
+	 * pengecualian yang disetujui dan tanggalnya masih berlaku.
+	 */
+	private void perbaruiInformasiMasaPenilaian(String tahunAkademik, String jenisSemester) {
+		if (infoMasaPenilaian == null) {
+			return;
+		}
+		if (tahunAkademik == null || tahunAkademik.trim().isEmpty() || jenisSemester == null
+				|| jenisSemester.trim().isEmpty()) {
+			infoMasaPenilaian.setVisible(false);
+			return;
+		}
+
+		Integer statusSemesterPendek = Perkuliahan.SP.equals(jenisSemester)
+				? Perkuliahan.SEMESTER_PENDEK : null;
+		Konfigurasi konfigurasi = CommonPenilaian.getKonfigurasi(tahunAkademik, jenisSemester,
+				statusSemesterPendek);
+		boolean konfigurasiAktif = konfigurasi != null
+				&& Konfigurasi.AKTIF.equals(konfigurasi.getNilai());
+		boolean bolehMenilai = konfigurasiAktif || Boolean.TRUE.equals(aktifPenilaian);
+		infoMasaPenilaian.setVisible(!bolehMenilai);
+		if (bolehMenilai || infoMasaPenilaianIsi == null) {
+			return;
+		}
+
+		boolean penggunaDosen = tbmuser != null && tbmuser.ambilDosen() != null
+				&& tbmuser.hakAkses() != null
+				&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId());
+		String tujuan = penggunaDosen
+				? "Ajukan izin pembukaan penilaian, isi tanggal berlaku dan alasan perubahan, lalu tunggu persetujuan admin."
+				: "Buat atau aktifkan izin pembukaan penilaian untuk petugas yang akan mengubah nilai, lengkap dengan tanggal berlaku dan alasannya.";
+		String isi = "<div style='color:#7c2d12;line-height:1.5;'>"
+				+ "Input dan perubahan nilai untuk <b>Tahun Akademik " + escapeHtml(tahunAkademik)
+				+ "</b>, semester <b>" + escapeHtml(labelJenisSemester(jenisSemester))
+				+ "</b> sudah ditutup berdasarkan pengaturan periode penilaian pada Konfigurasi/Kalender Akademik. "
+				+ escapeHtml(tujuan)
+				+ " Setelah izin disetujui dan masih berada dalam rentang tanggal izin, muat ulang halaman ini."
+				+ "</div>";
+		infoMasaPenilaianIsi.setContent(isi);
+		if (ajukanIzinPenilaian != null) {
+			ajukanIzinPenilaian.setLabel(penggunaDosen ? "Ajukan Izin Buka Penilaian" : "Kelola Izin Buka Penilaian");
+		}
+	}
+
+	private String labelJenisSemester(String jenisSemester) {
+		if (Perkuliahan.SP.equals(jenisSemester)) {
+			return "Semester Pendek";
+		}
+		return jenisSemester;
+	}
+
+	private String escapeHtml(String nilai) {
+		if (nilai == null) {
+			return "";
+		}
+		return nilai.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+				.replace("\"", "&quot;").replace("'", "&#39;");
+	}
+
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		return initCriteria(session, order);
@@ -1988,6 +2068,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 							+ "pada periode tersebut. Terima kasih atas perhatian Bapak/Ibu.",
 					"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, ta, sem);
 		}
+		onSearchDefault(new Event("cari"));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -2024,6 +2105,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 				perkuliahans = (List<Perkuliahan>) objects[0];
 				int totalSize = (Integer) objects[1];
 				initAktivasiPenilaianDosen(tahunAkademik, jenisSemester);
+				perbaruiInformasiMasaPenilaian(tahunAkademik, jenisSemester);
 				if (paging != null) {
 					paging.setPageSize(jumlahDataDalamSatuHalamanElearning);
 					paging.setMold("os");
@@ -2039,6 +2121,13 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 				}
 			} else {
 				initAktivasiPenilaianDosen();
+				String taFilter = searchTahunAjaran != null && searchTahunAjaran.getSelectedItem() != null
+						&& searchTahunAjaran.getSelectedItem().getValue() != null
+						? searchTahunAjaran.getSelectedItem().getValue().toString() : null;
+				String semesterFilter = searchJenisSemester != null && searchJenisSemester.getSelectedItem() != null
+						&& searchJenisSemester.getSelectedItem().getValue() != null
+						? searchJenisSemester.getSelectedItem().getValue().toString() : null;
+				perbaruiInformasiMasaPenilaian(taFilter, semesterFilter);
 				Common.initPaging(initCriteria(false), paging);
 				perkuliahans = ConstantValues.simpleList(
 						initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)

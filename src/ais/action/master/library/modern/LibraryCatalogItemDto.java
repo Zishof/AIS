@@ -48,6 +48,8 @@ public class LibraryCatalogItemDto {
         json.put("tahun", year == null ? JSONObject.NULL : year);
         json.put("edisi", safe(edition));
         json.put("halaman", pages == null ? JSONObject.NULL : pages);
+        json.put("edition", safe(edition));
+        json.put("pages", pages == null ? JSONObject.NULL : pages);
         json.put("jumlahEksemplar", copyCount);
         json.put("jumlahTersedia", availableCount);
         json.put("jenisKoleksi", safe(itemType));

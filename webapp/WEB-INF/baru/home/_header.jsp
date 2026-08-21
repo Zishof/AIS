@@ -1,6 +1,6 @@
 <% if (vm.showAnnouncement) { %>
 <aside class="home-announcement" aria-label="Pengumuman penting">
-    <div class="home-shell"><strong><%=h(vm.announcementText)%></strong><a href="<%=h(vm.announcementUrl)%>" target="<%=h(vm.announcementTarget)%>" rel="<%=h(vm.announcementRel)%>">Lihat informasi <span aria-hidden="true">→</span></a></div>
+    <div class="home-shell"><strong><%=h(vm.announcementText)%></strong><a href="<%=h(vm.announcementUrl)%>" target="<%=h(vm.announcementTarget)%>" rel="<%=h(vm.announcementRel)%>">Lihat informasi <span aria-hidden="true">&rarr;</span></a></div>
 </aside>
 <% } %>
 <header class="home-header" id="beranda">
@@ -18,7 +18,7 @@
             <a href="#layanan">Layanan Digital</a>
         </nav>
         <div class="home-header-actions">
-            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa"><i class="fa-solid fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar">العربية</a><a href="?lang=zh" lang="zh">中文</a></div></details><% } %>
+            <% if (vm.showLanguage) { %><details class="home-language"><summary aria-label="Pilih bahasa"><i class="fas fa-globe" aria-hidden="true"></i><span><%=h(vm.language.toUpperCase())%></span></summary><div><a href="?lang=id" lang="id">Indonesia</a><a href="?lang=en" lang="en">English</a><a href="?lang=ar" lang="ar">العربية</a><a href="?lang=zh" lang="zh">中文</a></div></details><% } %>
             <a class="home-btn home-btn-login" href="<%=h(vm.loginUrl)%>" target="<%=h(vm.loginTarget)%>" rel="<%=h(vm.loginRel)%>">Masuk Sistem</a>
             <button class="home-menu-button" type="button" aria-expanded="false" aria-controls="home-mobile-nav" aria-label="Buka menu"><span></span><span></span><span></span></button>
         </div>

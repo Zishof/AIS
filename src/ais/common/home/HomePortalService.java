@@ -82,12 +82,12 @@ public class HomePortalService {
 
     private void addServices(HomePortalViewModel vm) {
         if (vm.institution.college) {
-            service(vm, "tampilkan_modul_login_ecampus", true, "Login eCampus", "Akses akademik untuk mahasiswa, dosen, pegawai, pimpinan, dan operator.", "fa-right-to-bracket", "link_modul_login_ecampus", "/login", "akademik");
+            service(vm, "tampilkan_modul_login_ecampus", true, "Login eCampus", "Akses akademik untuk mahasiswa, dosen, pegawai, pimpinan, dan operator.", "fa-sign-in-alt", "link_modul_login_ecampus", "/login", "akademik");
             service(vm, "tampilkan_modul_pmb", true, "Penerimaan Mahasiswa", "Informasi jalur, formulir, seleksi, dan registrasi online.", "fa-graduation-cap", "link_modul_pmb", "/pmb", "penerimaan");
             service(vm, "tampilkan_modul_pustaka", true, "Perpustakaan Digital", "Katalog, sirkulasi, dan akses layanan perpustakaan.", "fa-book-open", "link_modul_pustaka", "/pustaka", "publik");
-            service(vm, "tampilkan_modul_repository", true, "Repository Institusi", "Karya ilmiah, publikasi, dan dokumen akademik.", "fa-box-archive", "link_modul_repository", "/repository", "publik");
+            service(vm, "tampilkan_modul_repository", true, "Repository Institusi", "Karya ilmiah, publikasi, dan dokumen akademik.", "fa-archive", "link_modul_repository", "/repository", "publik");
             service(vm, "tampilkan_modul_alumni", true, "Tracer Study", "Pendataan alumni dan umpan balik dunia kerja.", "fa-user-graduate", "link_modul_alumni", "/alumni", "publik");
-            service(vm, "tampilkan_modul_dokumen", true, "Dokumen Publik", "Pedoman, regulasi, formulir, dan arsip resmi.", "fa-file-lines", "link_modul_dokumen", "/document", "publik");
+            service(vm, "tampilkan_modul_dokumen", true, "Dokumen Publik", "Pedoman, regulasi, formulir, dan arsip resmi.", "fa-file-alt", "link_modul_dokumen", "/document", "publik");
             service(vm, "tampilkan_modul_dashboard_pimpinan", true, "Dashboard Pimpinan", "Ringkasan data strategis institusi.", "fa-chart-line", "link_modul_dashboard_pimpinan", "/dsh", "pendukung");
             service(vm, "tampilkan_modul_ejournal", false, "E-Journal", "Publikasi jurnal dan artikel ilmiah.", "fa-newspaper", "link_modul_ejournal", "/login", "publik");
             service(vm, "tampilkan_modul_akreditasi", false, "Akreditasi", "Informasi mutu dan dokumen pendukung.", "fa-award", "link_modul_akreditasi", "/login", "pendukung");
@@ -138,6 +138,10 @@ public class HomePortalService {
     private String icon(String value) {
         if (value == null) return "fa-link";
         String cleaned = value.replace("fas ", "").replace("far ", "").replace("fab ", "").replace("fa-solid ", "").trim();
+        if ("fa-right-to-bracket".equals(cleaned)) return "fa-sign-in-alt";
+        if ("fa-box-archive".equals(cleaned)) return "fa-archive";
+        if ("fa-file-lines".equals(cleaned)) return "fa-file-alt";
+        if ("fa-building-columns".equals(cleaned)) return "fa-university";
         return cleaned.matches("fa-[a-z0-9-]+") ? cleaned : "fa-link";
     }
 

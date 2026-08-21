@@ -5,7 +5,7 @@
         <div class="home-service-grid">
             <% for (HomePortalViewModel.ServiceItem item : vm.services) { %>
             <a class="home-service-card" href="<%=h(item.url)%>" target="<%=h(item.target)%>" rel="<%=h(item.rel)%>">
-                <span class="home-service-icon"><i class="fa-solid <%=h(item.icon)%>" aria-hidden="true"></i></span><span class="home-card-arrow" aria-hidden="true">↗</span>
+                <span class="home-service-icon"><i class="fas <%=h(item.icon)%>" aria-hidden="true"></i></span><span class="home-card-arrow" aria-hidden="true">&nearr;</span>
                 <strong><%=h(item.label)%></strong><small><%=h(item.description)%></small>
             </a>
             <% } %>

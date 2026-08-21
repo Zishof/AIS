@@ -103,7 +103,7 @@ public class HomePortalContentService {
                 Date end;
                 if (row instanceof GelombangPendaftaran) {
                     GelombangPendaftaran g = (GelombangPendaftaran) row;
-                    a.period = clean(g.getNama()) + (g.getTahunAkademik() == null ? "" : " · " + clean(g.getTahunAkademik()));
+                    a.period = clean(g.getNama()) + (g.getTahunAkademik() == null ? "" : " - " + clean(g.getTahunAkademik()));
                     start = g.getMulai(); end = g.getSampai();
                 } else {
                     GelombangPendaftaranPsb g = (GelombangPendaftaranPsb) row;
