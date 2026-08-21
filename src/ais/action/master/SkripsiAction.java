@@ -4175,7 +4175,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	private boolean mahasiswaBolehUbahDataPersetujuan() {
-		return mahasiswaLoginPemilikSkripsi() && skripsi != null && skripsi.getSetujuiSidang()
+		return mahasiswaLoginPemilikSkripsi() && skripsi != null
+				&& Boolean.TRUE.equals(skripsi.getSetujuiSidang())
 				&& !this.persetujuan;
 	}
 
@@ -5165,7 +5166,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		skripsi.setTahunAkademik((String) tahunAkademik.getSelectedItem().getValue());
 		skripsi.setSemester((Integer) this.semester.getSelectedItem().getValue());
 		boolean mahasiswaLogin = loginSebagaiMahasiswa();
-		boolean mahasiswaBolehUbahPersetujuan = mahasiswaLoginPemilik(mahasiswa) && skripsi.getSetujuiSidang();
+		boolean mahasiswaBolehUbahPersetujuan = mahasiswaLoginPemilik(mahasiswa)
+				&& Boolean.TRUE.equals(skripsi.getSetujuiSidang());
 		if (!mahasiswaLogin) {
 			skripsi.setSetujuiSidang(setujuiSidang.isChecked());
 		}

@@ -395,6 +395,19 @@ public class AktifitasKrsMahasiswaHelper {
 		AktifitasKrsMahasiswaHelper aktifitasKrsMahasiswaHelper = new AktifitasKrsMahasiswaHelper();
 		aktifitasKrsMahasiswaHelper.initCetak(tabbox, krsMahasiswa);
 
+		// Jalur modal detail PA sebelumnya masih memakai Tabbox native. Pada ZK 5,
+		// memilih tab laporan tidak selalu memicu onClick sehingga panel cetak tampak
+		// kosong. Konversi dilakukan setelah seluruh tab dan pemuat lazy terpasang;
+		// MyButtonTabbox akan meneruskan klik ke handler lama lalu memindahkan hasilnya
+		// ke panel yang benar-benar terlihat. Tab pertama langsung aktif dan terisi.
+		ais.ui.util.MyButtonTabbox tombolTabbox = ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox,
+				new int[] { 1 });
+		if (tombolTabbox != null) {
+			// Pastikan tab paling depan langsung aktif dan event pemuat kontennya
+			// dijalankan ketika popup dibuka, tanpa menunggu klik pengguna.
+			tombolTabbox.pilihPertama();
+		}
+
 	}
 
 	private Toolbar toolbar;
