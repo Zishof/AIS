@@ -144,7 +144,7 @@ public class JamPerkuliahanAction extends GenericAutowireComposer
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 
 		MyToolbarbuttonConfig upload = Common.uploadData(this, JamPerkuliahan.class, contents);
-		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit && delete); }
+		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit); }
 		Common.appendKeToolbar(upload, add, comp);
 	        FilterLanjutHelper.setup(comp);
 }
