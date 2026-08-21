@@ -543,7 +543,8 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 	private void onPosting() throws Exception {
 		if (!bolehMemposting()) {
-			MyMessagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.");
+			org.zkoss.zul.Messagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
+					org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.INFORMATION);
 			return;
 		}
 		Date mulai = dpMulai == null ? null : dpMulai.getValue();
@@ -926,7 +927,8 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		// onPosting(). Penjagaannya karena itu wajib ada di sini juga -- kalau hanya
 		// di onPosting(), tombol per baris menjadi jalan pintas yang melewatinya.
 		if (!bolehMemposting()) {
-			MyMessagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.");
+			org.zkoss.zul.Messagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
+					org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.INFORMATION);
 			return;
 		}
 		Long id = baris.isNull("id") ? null : Long.valueOf(baris.get("id").toString());
