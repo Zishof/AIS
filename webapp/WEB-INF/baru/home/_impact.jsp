@@ -1,0 +1,3 @@
+<% if (vm.showImpact) { %>
+<section class="home-section home-impact-section" id="dampak" aria-labelledby="impact-title"><div class="home-shell"><div class="home-section-heading"><div><p class="home-kicker">Dampak institusi</p><h2 id="impact-title">Bertumbuh bersama masyarakat dan dunia kerja</h2></div></div><div class="home-impact-grid"><% for (HomePortalViewModel.ImpactItem item : vm.impacts) { %><a href="<%=h(item.url)%>" target="<%=h(item.target)%>" rel="<%=h(item.rel)%>"><i class="fa-solid <%=h(item.icon)%>" aria-hidden="true"></i><strong><%=h(item.label)%></strong><small><%=h(item.description)%></small></a><% } %></div></div></section>
+<% } %>
