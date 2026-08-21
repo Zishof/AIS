@@ -196,6 +196,38 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 				ambilDataMatakuliahBanyak.onModal();
 			}
 		});
+
+		Kurikulum kurikulumDefault = ambilKurikulumDefault();
+		if (kurikulumDefault != null) {
+			searchkurikulum.setAttribute("kurikulum", kurikulumDefault);
+			searchkurikulum.setValue(kurikulumDefault.toString());
+			onKHS(null);
+		} else {
+			tampilkanInfoAwal("Pilih kurikulum terlebih dahulu, lalu klik Refresh untuk menampilkan daftar matakuliah.");
+		}
+	}
+
+	private Kurikulum ambilKurikulumDefault() {
+		try {
+			List list = HibernateUtil.currentSession().createCriteria(Kurikulum.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.addOrder(Order.desc("tahun"))
+					.addOrder(Order.desc("id"))
+					.setMaxResults(1)
+					.list();
+			return list == null || list.isEmpty() ? null : (Kurikulum) list.get(0);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
+	private void tampilkanInfoAwal(String pesan) {
+		Common.clear(center);
+		Label info = new Label(pesan);
+		info.setMultiline(true);
+		info.setStyle("display:block;padding:14px;color:#1f3f7a;font-weight:bold;");
+		info.setParent(center);
 	}
 
 	@SuppressWarnings({})
@@ -210,8 +242,11 @@ public class MatakuliahVsKurikulumAction extends MyWindow {
 					Common.clear(center);
 					Kurikulum kurikulum = (Kurikulum) searchkurikulum.getAttribute("kurikulum");
 					if (kurikulum == null) {
-						MyMessageboxConfig.show("Pilih " + "Kurikulum", "Peringatan", MyMessageboxConfig.OK,
-								MyMessageboxConfig.INFORMATION);
+						tampilkanInfoAwal("Pilih kurikulum terlebih dahulu, lalu klik Refresh untuk menampilkan daftar matakuliah.");
+						if (arg0 != null) {
+							MyMessageboxConfig.show("Pilih " + "Kurikulum", "Peringatan", MyMessageboxConfig.OK,
+									MyMessageboxConfig.INFORMATION);
+						}
 						return;
 					}
 

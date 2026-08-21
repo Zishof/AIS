@@ -27,6 +27,24 @@ public class RepositorySyncService {
 	private static final int DEFAULT_BATCH_SIZE = 25;
 	private static final long REPOSITORY_SYNC_LOCK_ID = 130720260819L;
 
+	/**
+	 * KE-FIX ("ERROR: permission denied for schema library"). Galat IZIN adalah masalah
+	 * KONFIGURASI database (role aplikasi belum diberi GRANT USAGE pada schema tsb), bukan
+	 * galat sesaat. Tanpa penanda, siklus scheduler yang berjalan tiap beberapa menit akan
+	 * mengulang kegagalan yang sama selamanya dan membanjiri audit error dengan stack trace
+	 * identik sehingga galat lain yang benar-benar baru jadi tenggelam.
+	 *
+	 * <p>Sumber yang gagal karena izin ditunda selama {@link #JEDA_IZIN_DITOLAK_MS} lalu
+	 * DICOBA LAGI otomatis -- jadi begitu administrator menjalankan GRANT-nya, sinkronisasi
+	 * pulih sendiri tanpa perlu restart aplikasi. Sumber LAIN pada siklus yang sama tetap
+	 * diproses seperti biasa.</p>
+	 */
+	private static final long JEDA_IZIN_DITOLAK_MS = 6L * 60L * 60L * 1000L;
+
+	/** kunci sumber -> epoch milidetik paling awal sumber itu boleh dicoba lagi. */
+	private static final java.util.Map<String, Long> SUMBER_DITUNDA_IZIN =
+			java.util.Collections.synchronizedMap(new java.util.HashMap<String, Long>());
+
 	private static class SourceDescriptor {
 		private String label;
 		private String collectionCode;
@@ -241,9 +259,76 @@ public class RepositorySyncService {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mendeteksi galat IZIN database (PostgreSQL SQLSTATE 42501 / pesan "permission denied").
+	 * Ditelusuri sampai ke akar penyebab karena Hibernate membungkusnya berlapis
+	 * (GenericJDBCException -&gt; PSQLException).
+	 *
+	 * @return pesan akar penyebabnya bila memang galat izin, atau null bila bukan.
+	 */
+	private static String pesanIzinDitolak(Throwable e) {
+		Throwable cursor = e;
+		int pengaman = 0;
+		while (cursor != null && pengaman++ < 20) {
+			if (cursor instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) cursor).getSQLState();
+				if ("42501".equals(state)) {
+					return String.valueOf(cursor.getMessage());
+				}
+			}
+			String pesan = cursor.getMessage();
+			if (pesan != null && pesan.toLowerCase().indexOf("permission denied") >= 0) {
+				return pesan;
+			}
+			Throwable berikut = cursor.getCause();
+			if (berikut == null && cursor instanceof java.sql.SQLException) {
+				berikut = ((java.sql.SQLException) cursor).getNextException();
+			}
+			if (berikut == cursor) {
+				break;
+			}
+			cursor = berikut;
+		}
+		return null;
+	}
+
+	/** Kunci penundaan per sumber. */
+	private static String kunciSumber(SourceDescriptor source) {
+		return source == null ? "?" : String.valueOf(source.modelClassName);
+	}
+
+	/**
+	 * @return sisa milidetik penundaan bila sumber ini sedang ditunda karena galat izin,
+	 *         atau 0 bila boleh diproses.
+	 */
+	private static long sisaPenundaanIzin(SourceDescriptor source) {
+		Long sampai = SUMBER_DITUNDA_IZIN.get(kunciSumber(source));
+		if (sampai == null) {
+			return 0L;
+		}
+		long sisa = sampai.longValue() - System.currentTimeMillis();
+		if (sisa <= 0L) {
+			// Masa tunda habis: buang penandanya supaya percobaan berikutnya bersih.
+			SUMBER_DITUNDA_IZIN.remove(kunciSumber(source));
+			return 0L;
+		}
+		return sisa;
+	}
+
 	private static SyncSummary synchronizeSource(Session session, SourceDescriptor source, String cookie, boolean pushToDspace,
 			boolean updateDspace, ais.common.LaporanUpload laporan, int[] baris) {
 		SyncSummary summary = new SyncSummary();
+		long sisaTunda = sisaPenundaanIzin(source);
+		if (sisaTunda > 0L) {
+			// Sudah pernah gagal karena izin database; jangan ulangi tiap siklus. Sumber lain
+			// tetap diproses oleh pemanggil karena summary ini TIDAK menandai connectionLost.
+			summary.message = "Sumber " + source.label + " dilewati sementara: menunggu perbaikan hak akses"
+					+ " database (dicoba lagi dalam " + ((sisaTunda / 60000L) + 1L) + " menit).";
+			if (laporan != null) {
+				laporan.tambahCatatan(summary.message);
+			}
+			return summary;
+		}
 		try {
 			Class<?> modelClass = Class.forName(source.modelClassName);
 			Long collectionId = ensureCollection(session, source).getId();
@@ -423,7 +508,26 @@ public class RepositorySyncService {
 			}
 		} catch (Exception e) {
 			summary.message = source.label + " gagal diproses: " + e.getMessage();
-			if (isConnectionDead(e)) {
+			String izin = pesanIzinDitolak(e);
+			if (izin != null) {
+				/* KE-FIX: galat HAK AKSES database. Rollback/clear/beginTransaction di bawah TETAP
+				 * dijalankan -- pada PostgreSQL transaksi sudah masuk status aborted sehingga tanpa
+				 * rollback SEMUA sumber sesudahnya ikut gagal dengan "current transaction is aborted".
+				 * Yang ditambahkan di sini hanya: pesan yang bisa ditindaklanjuti + penundaan agar
+				 * kegagalan yang sama tidak dicatat berulang tiap siklus. */
+				SUMBER_DITUNDA_IZIN.put(kunciSumber(source),
+						Long.valueOf(System.currentTimeMillis() + JEDA_IZIN_DITOLAK_MS));
+				summary.message = "Sumber " + source.label + " tidak dapat dibaca karena hak akses database:"
+						+ " " + izin + ". Berikan hak baca pada role aplikasi (mis. GRANT USAGE ON SCHEMA ..."
+						+ " dan GRANT SELECT ON ALL TABLES IN SCHEMA ...), lalu sinkronisasi akan pulih"
+						+ " otomatis. Sumber lain tetap diproses.";
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit src/ais/action/master/repository/RepositorySyncService.java:izin-ditolak-"
+								+ source.collectionCode);
+				if (laporan != null) {
+					laporan.tambahCatatan(summary.message);
+				}
+			} else if (isConnectionDead(e)) {
 				// KE-FIX: koneksi fisik sudah mati -- rollback/clear/beginTransaction() di bawah
 				// ini akan gagal lagi memakai koneksi yg sama (lihat javadoc SyncSummary.connectionLost).
 				// Catat SEKALI saja dan hentikan source ini.
@@ -436,8 +540,10 @@ public class RepositorySyncService {
 				summary.connectionLost = true;
 				return summary;
 			}
-			Common.tampilErrorJikaAdmin(e);
-			if (laporan != null) {
+			if (izin == null) {
+				Common.tampilErrorJikaAdmin(e);
+			}
+			if (izin == null && laporan != null) {
 				laporan.tambahCatatan("Sumber " + source.label + " gagal diproses total: "
 						+ ais.common.LaporanUpload.detailTeknisException(e));
 			}

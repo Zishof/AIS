@@ -19170,6 +19170,23 @@ public class Common {
 			if (cur instanceof org.hibernate.exception.JDBCConnectionException) {
 				return true;
 			}
+			/* KE-FIX ("An I/O error occurred while sending to the backend" / EOFException dari
+			 * PostgreSQL JDBC): kegagalan socket seperti ini TIDAK selalu dibungkus
+			 * JDBCConnectionException dan kalimatnya tidak cocok dengan daftar teks di bawah,
+			 * sehingga sebelumnya dianggap galat biasa -- pemanggil lalu mencoba rollback pada
+			 * koneksi yang sudah mati dan menghasilkan exception sekunder yang membanjiri log.
+			 * SQLState kelas "08" adalah kelas standar SQL untuk connection exception, jadi ini
+			 * menutup seluruh ragamnya sekaligus (08000/08003/08006/08001/08004/08007). */
+			if (cur instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) cur).getSQLState();
+				if (state != null && state.length() >= 2 && state.startsWith("08")) {
+					return true;
+				}
+			}
+			if (cur instanceof java.io.EOFException || cur instanceof java.net.SocketException
+					|| cur instanceof java.net.SocketTimeoutException) {
+				return true;
+			}
 			String m = cur.getMessage();
 			if (m != null) {
 				String lm = m.toLowerCase();
@@ -19182,11 +19199,23 @@ public class Common {
 						|| lm.indexOf("connection reset") >= 0
 						|| lm.indexOf("broken pipe") >= 0
 						|| lm.indexOf("administrator command") >= 0
-						|| lm.indexOf("connection attempt failed") >= 0) {
+						|| lm.indexOf("connection attempt failed") >= 0
+						|| lm.indexOf("i/o error occurred while sending to the backend") >= 0
+						|| lm.indexOf("an i/o error occurred") >= 0
+						|| lm.indexOf("socket is closed") >= 0
+						|| lm.indexOf("connection refused") >= 0) {
 					return true;
 				}
 			}
-			cur = cur.getCause();
+			Throwable berikut = cur.getCause();
+			if (berikut == null && cur instanceof java.sql.SQLException) {
+				// PostgreSQL JDBC merantai penyebab aslinya di getNextException, bukan getCause.
+				berikut = ((java.sql.SQLException) cur).getNextException();
+			}
+			if (berikut == cur) {
+				break;
+			}
+			cur = berikut;
 		}
 		return false;
 	}

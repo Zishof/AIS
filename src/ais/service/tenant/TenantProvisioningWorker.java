@@ -147,17 +147,50 @@ public final class TenantProvisioningWorker {
 			// melihat gangguan berulang, tapi worker TETAP tidak berhenti (return null, tick berikut
 			// membuka session/koneksi baru dari pool seperti biasa -- tidak ada perubahan perilaku
 			// pemulihan, hanya visibilitas).
-			ais.common.ErrorAuditUtil.record(e, "auto-audit TenantProvisioningWorker.klaimSatuJob");
-			try {
-				if (session.getTransaction() != null && session.getTransaction().isActive()) {
-					session.getTransaction().rollback();
+			/* KE-FIX ("An I/O error occurred while sending to the backend" berulang tiap tick).
+			 * Dua masalah pada koneksi yang sudah MATI:
+			 *   1) rollback() di bawah memakai koneksi yang sama sehingga gagal lagi dan
+			 *      menambah exception SEKUNDER yang tidak informatif;
+			 *   2) worker berjalan tiap beberapa detik, jadi gangguan koneksi yang berlangsung
+			 *      beberapa menit menghasilkan ratusan baris audit identik yang menenggelamkan
+			 *      galat lain.
+			 * Perilaku pemulihan TIDAK berubah: tetap return null dan tick berikutnya membuka
+			 * session/koneksi baru dari pool. Yang berubah hanya kebisingannya. */
+			boolean koneksiMati = ais.common.Common.isTransientKoneksiError(e);
+			if (!koneksiMati || bolehCatatKoneksiMati()) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit TenantProvisioningWorker.klaimSatuJob");
+			}
+			if (!koneksiMati) {
+				try {
+					if (session.getTransaction() != null && session.getTransaction().isActive()) {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception rollbackEx) { ais.common.ErrorAuditUtil.record(rollbackEx, "auto-audit(empty-catch) TenantProvisioningWorker.klaim.rollback");
 				}
-			} catch (Exception rollbackEx) { ais.common.ErrorAuditUtil.record(rollbackEx, "auto-audit(empty-catch) TenantProvisioningWorker.klaim.rollback");
 			}
 			return null;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/** Jeda minimal antar-catatan audit untuk gangguan koneksi yang sama. */
+	private static final long JEDA_AUDIT_KONEKSI_MS = 10L * 60L * 1000L;
+
+	/** Epoch milidetik audit koneksi-mati terakhir; 0 berarti belum pernah. */
+	private static volatile long auditKoneksiTerakhirMs = 0L;
+
+	/**
+	 * @return true bila gangguan koneksi kali ini layak dicatat (catatan pertama, atau sudah
+	 *         lewat {@link #JEDA_AUDIT_KONEKSI_MS} sejak catatan terakhir).
+	 */
+	private static synchronized boolean bolehCatatKoneksiMati() {
+		long sekarang = System.currentTimeMillis();
+		if (auditKoneksiTerakhirMs == 0L || sekarang - auditKoneksiTerakhirMs >= JEDA_AUDIT_KONEKSI_MS) {
+			auditKoneksiTerakhirMs = sekarang;
+			return true;
+		}
+		return false;
 	}
 
 	private static String identitasNode() {

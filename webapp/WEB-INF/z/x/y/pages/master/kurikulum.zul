@@ -21,35 +21,35 @@
 					Kurikulum
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onRps">
+					forward="onSelect=onRps">
 					RPS OBE
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onKurikulum">
+					forward="onSelect=onKurikulum">
 					Matakuliah
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onTampilKurikulum">
+					forward="onSelect=onTampilKurikulum">
 					Laporan Kurikulum
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onTampilKurikulumMahasiswa">
+					forward="onSelect=onTampilKurikulumMahasiswa">
 					Laporan Kurikulum Mahasiswa
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onTampilRekapKurikulum">
+					forward="onSelect=onTampilRekapKurikulum">
 					Rekap Kurikulum
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onRekapPertemuanPerkuliahan">
+					forward="onSelect=onRekapPertemuanPerkuliahan">
 					Rekap Silabus
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onStatistik">
+					forward="onSelect=onStatistik">
 					Statistik
 				</tab>
 				<tab use="ais.ui.util.MyTabConfig"
-					forward="onClick=onPikobe">
+					forward="onSelect=onPikobe">
 					OBE
 				</tab>
 			</tabs>

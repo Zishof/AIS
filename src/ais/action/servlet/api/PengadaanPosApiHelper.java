@@ -3499,9 +3499,10 @@ public final class PengadaanPosApiHelper {
 				: "po".equals(tahap) ? KUNCI_PO
 				: "bast".equals(tahap) ? KUNCI_BAST
 				: "tagihan".equals(tahap) ? KUNCI_TAGIHAN
-				: "dpc".equals(tahap) ? KUNCI_DPC : null;
+				: "dpc".equals(tahap) ? KUNCI_DPC
+				: "pajak".equals(tahap) ? KUNCI_PAJAK : null;
 		if (kunciMenu == null) {
-			tolak(hasil, "Tahap cetak tidak dikenali. Pilih salah satu: pr, po, bast, tagihan, dpc.");
+			tolak(hasil, "Tahap cetak tidak dikenali. Pilih salah satu: pr, po, bast, tagihan, dpc, pajak.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunciMenu)) {
@@ -3557,6 +3558,16 @@ public final class PengadaanPosApiHelper {
 						? (d.getKodeTagihan() == null || d.getKodeTagihan().trim().isEmpty()
 								? (d.getKode() == null ? "" : d.getKode()) : d.getKodeTagihan())
 						: (d.getKode() == null ? "" : d.getKode());
+			} else if ("pajak".equals(tahap)) {
+				ais.database.model.akunting.Pajak d = (ais.database.model.akunting.Pajak) session
+						.get(ais.database.model.akunting.Pajak.class, id);
+				if (!milikToko(hasil, null, null, d == null)) {
+					return;
+				}
+				parameter = parameterCetakPajak(d, tbmuser);
+				templat = "asset/bukti_setor_pajak";
+				tanggal = d.getTanggalStor() == null ? d.getTanggal() : d.getTanggalStor();
+				kode = d.getKode() == null ? "" : d.getKode();
 			} else {
 				PembayaranTerminMasterAsset d = (PembayaranTerminMasterAsset) session
 						.get(PembayaranTerminMasterAsset.class, id);
@@ -3608,6 +3619,38 @@ public final class PengadaanPosApiHelper {
 			ais.common.ErrorAuditUtil.record(eBaca,
 					"PengadaanPosApiHelper.cetakDokumen baca=" + berkas.getName());
 		}
+	}
+
+	/**
+	 * Parameter cetak Bukti Setor Pajak.
+	 *
+	 * <p>Berbeda dengan lima dokumen pengadaan lain, tahap ini TIDAK memiliki padanan
+	 * di versi ZKoss -- di sana pencetakan pajak berupa ekspor daftar, bukan dokumen
+	 * per baris. Karena itu templatnya baru ({@code asset/bukti_setor_pajak.jrxml})
+	 * dan pembangun parameternya ada di sini, bukan dipinjam dari aksi ZKoss.</p>
+	 */
+	private static java.util.Map<String, Object> parameterCetakPajak(
+			ais.database.model.akunting.Pajak p, Tbmuser tbmuser) {
+		java.util.Map<String, Object> m = new java.util.HashMap<String, Object>();
+		m.put("judul", "BUKTI SETOR PAJAK");
+		m.put("nama_instansi", Common.getBahasaConfig("Nama Instansi"));
+		m.put("kode", p.getKode() == null ? "-" : p.getKode());
+		m.put("nama", p.getNama() == null ? "-" : p.getNama());
+		String jenis = p.getJenisPajakBarang() != null && p.getJenisPajakBarang().getNama() != null
+				? p.getJenisPajakBarang().getNama()
+				: (p.getJenisPajakPpn() != null ? "PPN" : "-");
+		m.put("jenis_pajak", jenis);
+		m.put("ntpn", p.getNtpn() == null || p.getNtpn().trim().isEmpty() ? "-" : p.getNtpn());
+		m.put("npwp", p.getNpwp() == null || p.getNpwp().trim().isEmpty() ? "-" : p.getNpwp());
+		m.put("nama_wp", p.getNamaWp() == null || p.getNamaWp().trim().isEmpty() ? "-" : p.getNamaWp());
+		m.put("tanggal_setor", p.getTanggalStor() == null ? "-"
+				: Common.dateFormat1.get().format(p.getTanggalStor()));
+		m.put("dpp", Common.numberFormat.get().format(p.getDpp() == null ? 0 : p.getDpp().doubleValue()));
+		m.put("nilai", Common.numberFormat.get().format(p.getNilai() == null ? 0 : p.getNilai().doubleValue()));
+		m.put("keterangan", p.getKeterangan() == null ? "" : p.getKeterangan());
+		m.put("dicetak_oleh", tbmuser == null || tbmuser.getUserNama() == null ? "" : tbmuser.getUserNama());
+		m.put("dicetak_pada", Common.dateFormat1.get().format(ais.ui.util.WaktuUtil.getDate()));
+		return m;
 	}
 
 	/** Pagar kepemilikan toko yang dipakai bersama seluruh cabang {@link #cetakDokumen}. */
