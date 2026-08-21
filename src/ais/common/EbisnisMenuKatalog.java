@@ -136,6 +136,16 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android"));
+		// Grup "Keuangan" (2026-08-21): enam modul alur kas yang dipindahkan dari layar ZK
+		// akunting (UangMukaAction, PertangungjawabanAction, KasBesarAction,
+		// PertangungjawabanKasBesarAction, KasKecilAction, PenggantianKasKecilAction).
+		// Semuanya ber-CRUD supaya hak Tambah/Ubah/Hapus dapat diatur per peran.
+		DAFTAR.add(new Entri(MODUL_POS, "uang_muka", "Keuangan: Uang Muka (Cash Advance)", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "pj_uang_muka", "Keuangan: Pertanggungjawaban Uang Muka", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "kas_besar", "Keuangan: Kas Besar", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "pj_kas_besar", "Keuangan: Pertanggungjawaban Kas Besar", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "kas_kecil", "Keuangan: Kas Kecil", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "penggantian_kas_kecil", "Keuangan: Penggantian Kas Kecil (Reimbursement)", "desktop", "android"));
 		// Retur beli/jual, stok opname, dan mutasi antar toko dijurnal lewat satu layar yang
 		// tampil sebagai tab pada Katalog Laporan -- kuncinya dipisah supaya kewenangan
 		// memposting penyesuaian dapat dibatasi tersendiri.
@@ -244,7 +254,9 @@ public final class EbisnisMenuKatalog {
 			"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian"));
+			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
+			// Grup "Keuangan": dokumen pencairan dana -- fail-closed, dinyalakan admin per peran.
+			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil"));
 
 	/**
 	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
@@ -261,7 +273,8 @@ public final class EbisnisMenuKatalog {
 					"laporankeuangan", "jurnal_umum", "posting_hpp", "posting_penjualan",
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
-					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian"));
+					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
+					"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil"));
 
 	/**
 	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
@@ -387,6 +400,9 @@ public final class EbisnisMenuKatalog {
 			// dipisah dari sekadar boleh melihat drafnya.
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "posting_penyesuaian",
+			// Grup "Keuangan": dokumen pencairan dana, hak per-aksi WAJIB dapat dibatasi
+			// (mis. staf boleh mengajukan tetapi tidak boleh menghapus atau menyetujui).
+			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",
