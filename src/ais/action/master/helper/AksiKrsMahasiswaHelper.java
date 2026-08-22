@@ -636,7 +636,9 @@ public final class AksiKrsMahasiswaHelper {
 	 */
 	private static final String GAYA_CSS =
 			"<style>"
-			+ ".ais-krs-aksi{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:104px;}"
+			+ ".ais-krs-aksi{display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0;"
+			+ "width:100%;max-width:100%;overflow:visible;}"
+			+ ".ais-krs-aksi .ais-row-actions{width:100%;}"
 			+ ".ais-krs-btn{border:0;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;"
 			+ "cursor:pointer;color:#fff;line-height:1.2;transition:filter .15s ease,transform .05s ease;"
 			+ "white-space:nowrap;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.12);}"
@@ -660,9 +662,10 @@ public final class AksiKrsMahasiswaHelper {
 			+ ".ais-komentar-teks{color:#1e293b;font-size:13.5px;line-height:1.5;word-break:break-word;}"
 			+ ".ais-komentar-meta{margin-top:6px;color:#94a3b8;font-size:11.5px;}"
 			// Badge ringkasan KRS (chip disetujui/belum/SP) di sel Aksi.
-			+ ".ais-krs-badge{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:2px;}"
+			+ ".ais-krs-badge{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:2px;"
+			+ "max-width:100%;overflow:hidden;}"
 			+ ".ais-krs-chip{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 7px;line-height:1.5;"
-			+ "white-space:nowrap;}"
+			+ "white-space:nowrap;max-width:84px;overflow:hidden;text-overflow:ellipsis;}"
 			+ ".ais-krs-chip--ok{background:#dcfce7;color:#166534;border:1px solid #86efac;}"
 			+ ".ais-krs-chip--wait{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;}"
 			+ ".ais-krs-chip--sp{background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;}"

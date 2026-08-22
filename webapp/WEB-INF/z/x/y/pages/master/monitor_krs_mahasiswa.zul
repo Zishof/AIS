@@ -233,11 +233,11 @@
 									label="Status/Awal" />
 
 									<column
-									use="ais.ui.util.MyColumnConfig" width="20%"
+									use="ais.ui.util.MyColumnConfig" width="18%"
 									label="Keterangan" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="56px"
-									label="" align="center" />
+									use="ais.ui.util.MyColumnConfig" width="92px"
+									label="Aksi" align="center" />
 
 								</columns>
 							</grid>

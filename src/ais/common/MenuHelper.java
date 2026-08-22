@@ -1504,7 +1504,16 @@ public class MenuHelper {
             return true;
         } catch (Exception e) {
             System.err.println("[MenuHelper] ensurePrivilege gagal menu=" + menu.getId() + " role=" + roleId + ": " + e.getMessage());
-            return !transaksiPostgresRusak(e);
+            // FIX (ID 11176, MenuHelper.java:394): sebelumnya hanya transaksi PG aborted (25P02)
+            // yang menghentikan loop pemanggil; SessionException "Session is closed!" (mis. koneksi
+            // native dimatikan paksa oleh pool/DB di tengah startup) tidak dikenali di sini, sehingga
+            // loop pemanggil (outerJobs/outerJobsPegawai di ensureKantinMenus) terus memanggil
+            // ensurePrivilege berkali-kali memakai session yang sudah pasti mati -- tiap panggilan
+            // gagal lagi (noise log berulang) sampai akhirnya tx2.commit()/tx2.isActive() ikut
+            // melempar SessionException yang baru tertangkap di catch terluar. Session sudah tertutup
+            // = sinyal yang sama kuatnya dgn transaksi PG rusak: berhenti SEKARANG, biar startup
+            // berikutnya yang mencoba ulang (lihat komentar tx2Rusak di ensureKantinMenus).
+            return !transaksiPostgresRusak(e) && session.isOpen();
         }
     }
 
