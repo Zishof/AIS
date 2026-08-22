@@ -128,26 +128,33 @@ public final class MasterKeuanganApiHelper {
 		return "Cara Pembayaran Transfer";
 	}
 
-	/** Kolom akun yang berarti untuk tiap tipe, beserta labelnya di layar. */
+	/**
+	 * Kolom akun yang berarti untuk tiap tipe, beserta labelnya di layar.
+	 *
+	 * <p>Kuncinya SENGAJA posisional ({@code akunId}, {@code akunKeduaId},
+	 * {@code akunKetigaId}) dan sama persis dengan kunci pada daftar maupun simpan,
+	 * sehingga layar cukup menggambar medan yang disebutkan di sini tanpa memetakan
+	 * nama semantik per tipe. Yang berbeda antar tipe hanya LABEL-nya.</p>
+	 */
 	private static JSONArray kolomAkun(String tipe) throws Exception {
 		JSONArray a = new JSONArray();
 		if ("jenis_uang_muka".equals(tipe)) {
 			a.put(medan("akunId", "Akun Penerima", true));
-			a.put(medan("akunKelebihanId", "Akun Kelebihan", true));
-			a.put(medan("akunSponsorId", "Akun Sponsor", false));
+			a.put(medan("akunKeduaId", "Akun Kelebihan", true));
+			a.put(medan("akunKetigaId", "Akun Sponsor", false));
 		} else if ("jenis_kas_kecil".equals(tipe)) {
 			a.put(medan("akunId", "Akun Kas Kecil", true));
-			a.put(medan("akunPenutupId", "Akun Penutup Kas Kecil", false));
+			a.put(medan("akunKeduaId", "Akun Penutup Kas Kecil", false));
 		} else if ("jenis_kas_besar".equals(tipe)) {
 			a.put(medan("akunId", "Akun Kas Besar", true));
-			a.put(medan("akunPenerimaId", "Akun Penerima", true));
+			a.put(medan("akunKeduaId", "Akun Penerima", true));
 		} else if ("jenis_reimbursement".equals(tipe)) {
 			a.put(medan("akunId", "Akun Biaya", false));
 		} else if ("jenis_pengeluaran".equals(tipe)) {
 			a.put(medan("akunId", "Akun Biaya", true));
 		} else {
 			a.put(medan("akunId", "Akun Kas/Bank", true));
-			a.put(medan("akunTransitoriId", "Akun Transitori", false));
+			a.put(medan("akunKeduaId", "Akun Transitori", false));
 		}
 		return a;
 	}
@@ -181,34 +188,34 @@ public final class MasterKeuanganApiHelper {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, m.akun_kelebihan, m.akun_sponsor, NULL::bigint,"
 						+ " (SELECT count(*) FROM public.uang_muka x WHERE x.jenis_uang_muka = m.id)"
-						+ " FROM public.jenis_uang_muka m";
+						+ " , m.satuan_kerja FROM public.jenis_uang_muka m";
 			} else if ("jenis_kas_kecil".equals(tipe)) {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, m.akun_penutup_kas_kecil, NULL::bigint, NULL::bigint,"
 						+ " (SELECT count(*) FROM akunting.kas_kecil x WHERE x.jenis_kas_kecil = m.id)"
-						+ " FROM public.jenis_kas_kecil m";
+						+ " , m.satuan_kerja FROM public.jenis_kas_kecil m";
 			} else if ("jenis_kas_besar".equals(tipe)) {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, m.akun_penerima, NULL::bigint, NULL::bigint,"
 						+ " (SELECT count(*) FROM akunting.kas_besar x WHERE x.jenis_kas_besar = m.id)"
-						+ " FROM public.jenis_kas_besar m";
+						+ " , m.satuan_kerja FROM public.jenis_kas_besar m";
 			} else if ("jenis_reimbursement".equals(tipe)) {
 				sql = "SELECT m.id, '' AS kode, COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, NULL::bigint, NULL::bigint,"
 						+ " CASE WHEN COALESCE(m.menggunakan_anggaran,false) THEN 1 ELSE 0 END::bigint,"
 						+ " (SELECT count(*) FROM akunting.reimbursement_pegawai x"
 						+ "  WHERE x.jenis_reimbursement = m.id)"
-						+ " FROM akunting.jenis_reimbursement m";
+						+ " , m.satuan_kerja FROM akunting.jenis_reimbursement m";
 			} else if ("jenis_pengeluaran".equals(tipe)) {
 				sql = "SELECT m.id, '' AS kode, COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, NULL::bigint, NULL::bigint, NULL::bigint,"
-						+ " 0::bigint FROM akunting.jenis_pengeluaran m";
+						+ " 0::bigint, NULL::bigint FROM akunting.jenis_pengeluaran m";
 			} else {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, m.akun_transitori, NULL::bigint, NULL::bigint,"
 						+ " (SELECT count(*) FROM akunting.proses_transfer x"
 						+ "  WHERE x.cara_pembayaran_transfer = m.id)"
-						+ " FROM akunting.cara_pembayaran_transfer m";
+						+ " , m.satuan_kerja FROM akunting.cara_pembayaran_transfer m";
 			}
 			StringBuilder b = new StringBuilder(sql).append(" WHERE 1 = 1");
 			if (!cari.isEmpty()) {
@@ -239,6 +246,7 @@ public final class MasterKeuanganApiHelper {
 				long flag = rs.getLong(9);
 				j.put("menggunakanAnggaran", !rs.wasNull() && flag == 1);
 				j.put("dipakai", rs.getLong(10));
+				j.put("satuanKerjaId", nilaiId(rs, 11));
 
 				// Akun "wajib untuk jurnal" yang masih kosong ditandai di sini, bukan
 				// dibiarkan ketahuan saat dokumen gagal terjurnal.
@@ -308,6 +316,8 @@ public final class MasterKeuanganApiHelper {
 				j.put("punyaKode", !"jenis_reimbursement".equals(semua[i])
 						&& !"jenis_pengeluaran".equals(semua[i]));
 				j.put("punyaAnggaran", "jenis_reimbursement".equals(semua[i]));
+				// jenis_pengeluaran satu-satunya yang tidak bertautan satuan kerja.
+				j.put("punyaSatuanKerja", !"jenis_pengeluaran".equals(semua[i]));
 				tipe.put(j);
 			}
 
