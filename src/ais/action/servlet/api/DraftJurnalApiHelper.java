@@ -67,6 +67,7 @@ public final class DraftJurnalApiHelper {
         if ("Pertanggungjawaban Uang Muka".equals(namaBaris)) return "pj_uang_muka";
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
         if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
+        if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "pengajuan_transfer";
         return null;
     }
 
@@ -157,6 +158,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingPenggantianKasKecilAction.postingSemua(mulai, sampai,
                             tbmuser, new Date())
                     : ais.action.master.akunting.PostingPenggantianKasKecilAction.batalkanPostingSemua(mulai,
+                            sampai);
+        } else if ("Jurnal Pengajuan Transfer".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingProsesTransferAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.akunting.PostingProsesTransferAction.batalkanPostingSemua(mulai,
                             sampai);
         } else {
             hasil.put("status", "91");
