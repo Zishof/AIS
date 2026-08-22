@@ -22,6 +22,7 @@ import ais.database.model.akunting.CaraPembayaranTransfer;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.akunting.ProsesTransfer;
+import ais.database.model.akunting.Transitori;
 import ais.database.model.surat.NomorSurat;
 import ais.ui.util.WaktuUtil;
 
@@ -648,6 +649,7 @@ public final class ProsesTransferApiHelper {
 					d.setTransfer(Boolean.FALSE);
 					d.setTransitori(Boolean.FALSE);
 					session.update(d);
+					selaraskanCatatanTransitori(session, d, false);
 				}
 			}
 			for (java.util.Iterator<Long> it = pilih.iterator(); it.hasNext();) {
@@ -774,6 +776,7 @@ public final class ProsesTransferApiHelper {
 				d.setTransfer(Boolean.FALSE);
 				d.setTransitori(Boolean.FALSE);
 				session.update(d);
+				selaraskanCatatanTransitori(session, d, false);
 			}
 			session.flush();
 			String kode = pt.getKode();
@@ -874,6 +877,7 @@ public final class ProsesTransferApiHelper {
 				d.setTransfer(Boolean.FALSE);
 				d.setTransitori(Boolean.FALSE);
 				session.update(d);
+				selaraskanCatatanTransitori(session, d, false);
 			}
 			pt.setNilai(Double.valueOf(0));
 			session.update(pt);
@@ -1039,6 +1043,7 @@ public final class ProsesTransferApiHelper {
 			d.setTransfer(Boolean.valueOf("transfer".equals(mode)));
 			d.setTransitori(Boolean.valueOf("transitori".equals(mode)));
 			session.update(d);
+			selaraskanCatatanTransitori(session, d, "transitori".equals(mode));
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -1052,6 +1057,51 @@ public final class ProsesTransferApiHelper {
 			hasil.put("teknis", e.toString());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Menyelaraskan CATATAN {@link Transitori} dengan bendera transitori pada barisnya.
+	 *
+	 * <p>Ini bukan pelengkap: baris {@code akunting.transitori} itulah yang menjadi
+	 * kandidat modul Proses Transitori. Tanpa catatan itu, dana yang sudah masuk
+	 * rekening transitori tidak punya jalan keluar sama sekali. Layar ZK membuatnya
+	 * pada listener kotak centang "Transitori" dan menghapusnya saat centangnya
+	 * dilepas; perilaku itu ditiru persis di sini.</p>
+	 *
+	 * <p>Catatan yang SUDAH masuk satu Proses Transitori tidak dihapus — dananya sudah
+	 * diproses keluar, dan menghapusnya akan memutus riwayat batch itu. Dalam keadaan
+	 * itu bendera barisnya pun memang tidak seharusnya diubah lagi.</p>
+	 */
+	private static void selaraskanCatatanTransitori(Session session,
+			DaftarPengajuanTransfer d, boolean transitori) {
+		Transitori tr = (Transitori) session.createCriteria(Transitori.class)
+			.add(Restrictions.eq("daftarPengajuanTransfer", d)).setMaxResults(1).uniqueResult();
+		if (transitori) {
+			if (tr == null) {
+				tr = new Transitori();
+				tr.setDaftarPengajuanTransfer(d);
+				tr.setNama(d.getNama());
+				tr.setKode(d.getKode());
+				tr.setAktif(Boolean.TRUE);
+				session.save(tr);
+				session.flush();
+			}
+			if (d.getTransitoriData() == null) {
+				d.setTransitoriData(tr);
+				session.update(d);
+			}
+		} else if (tr != null) {
+			if (tr.getProsesTransitori() != null) {
+				return;
+			}
+			if (d.getTransitoriData() != null) {
+				d.setTransitoriData(null);
+				session.update(d);
+				session.flush();
+			}
+			session.delete(tr);
+			session.flush();
 		}
 	}
 
@@ -1081,6 +1131,7 @@ public final class ProsesTransferApiHelper {
 			d.setTransfer(Boolean.FALSE);
 			d.setTransitori(Boolean.FALSE);
 			session.update(d);
+			selaraskanCatatanTransitori(session, d, false);
 			session.flush();
 			double sisa = 0;
 			@SuppressWarnings("unchecked")
