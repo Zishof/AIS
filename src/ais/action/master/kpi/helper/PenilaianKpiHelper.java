@@ -299,7 +299,6 @@ public class PenilaianKpiHelper {
 		groupbox.appendChild(new MyCaptionStyled("Daftar Pegawai"));
 
 		Toolbar toolbar = new Toolbar();
-		ais.ui.util.MenuAksiBaris.pasang(toolbar);
 		toolbar.setParent(groupbox);
 		if (!persetujuan && currentPegawai == null) {
 			Toolbarbutton button = new MyToolbarbuttonConfig("Ambil Data Pegawai", "/img/add_item.png");

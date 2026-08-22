@@ -6552,8 +6552,6 @@ public class RpsObeAction extends GenericAutowireComposer {
 			row.setParent(rows);
 			try {
 				Hbox hbox = new Hbox();
-				ais.ui.util.MenuAksiBaris.pasang(hbox);
-				ais.ui.util.MenuAksiBaris.pasang(hbox);
 				hbox.setParent(row);
 				hbox.setAlign("center");
 				hbox.setPack("center");
@@ -6738,9 +6736,6 @@ public class RpsObeAction extends GenericAutowireComposer {
 			}
 
 			if (pertemuan.getId() != null) {
-				ais.ui.util.MenuAksiBaris.pasang(hboxdata);
-				ais.ui.util.MenuAksiBaris.pasang(hboxdata);
-				ais.ui.util.MenuAksiBaris.pasang(hboxdata);
 				if (edit && (kurikulumPunyaMatakuliah != null && kurikulumPunyaMatakuliah.getDikunci() == null)) {
 					Hbox hboxdata = new Hbox();
 					hboxdata.setParent(pertemuanBox);
@@ -7984,7 +7979,6 @@ public class RpsObeAction extends GenericAutowireComposer {
 		MyGrid g = new MyGrid();
 		g.setSclass("fgrid");
 		g.setWidth("100%");
-		ais.ui.util.MenuAksiBaris.pasang(r);
 		Columns columns = new Columns();
 		columns.setParent(g);
 		MyColumnConfig c1 = new MyColumnConfig();
