@@ -30,7 +30,7 @@ public final class JurnalEmailService {
 
     public TemplateEmailJurnal save(Long journalId, String tenant, String key, String locale,
             String subject, String body, Set<String> variables, Tbmuser actor) {
-        auth.requireCrud(actor, "emailNotifikasi", "update");
+        auth.requireCrud(actor, "communications", "update");
         if (!JurnalEmailTemplateCatalog.contains(key))
             throw new IllegalArgumentException("Key template tidak dikenal.");
         String normalizedLocale = locale(locale);
@@ -79,7 +79,7 @@ public final class JurnalEmailService {
     /** Seeds exactly 73 keys x two locales, without overwriting configured versions. */
     @SuppressWarnings("unchecked")
     public int seedDefaults(Long journalId,String tenant,Tbmuser actor){
-        auth.requireCrud(actor,"emailNotifikasi","create");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();int created=0;
+        auth.requireCrud(actor,"communications","create");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();int created=0;
         try{if(own)tx.begin();auth.requireJournalScope(s,actor,journalId,null,null,false,"JOURNAL");
             Set<String> active=new HashSet<String>();for(Object[] row:(java.util.List<Object[]>)s.createQuery("select templateKey,locale from TemplateEmailJurnal where jurnalPenelitianId=:j and aktif=true").setLong("j",journalId).list())active.add(row[0]+"|"+row[1]);
             Map<String,Integer> versions=new HashMap<String,Integer>();for(Object[] row:(java.util.List<Object[]>)s.createQuery("select templateKey,locale,max(versionNumber) from TemplateEmailJurnal where jurnalPenelitianId=:j group by templateKey,locale").setLong("j",journalId).list())versions.put(row[0]+"|"+row[1],row[2]==null?Integer.valueOf(0):Integer.valueOf(((Number)row[2]).intValue()));

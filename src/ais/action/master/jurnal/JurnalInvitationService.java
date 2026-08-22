@@ -21,7 +21,7 @@ public final class JurnalInvitationService {
 
     public Issued issue(Long journalId, String ignoredTenant, String email, String roleKey, String scopeType,
             String scopeKey, long ttlMillis, Tbmuser actor) {
-        auth.requireCrud(actor, "penggunaPeran", "create"); String targetEmail = email(email);
+        auth.requireCrud(actor, "people", "create"); String targetEmail = email(email);
         String role = role(roleKey); String stage = stage(scopeType);
         if (ttlMillis < 60000 || ttlMillis > 2592000000L) throw new IllegalArgumentException("Masa berlaku undangan tidak valid.");
         byte[] bytes = new byte[32]; random.nextBytes(bytes); String token = hex(bytes); String hash = sha256(token);
@@ -65,7 +65,7 @@ public final class JurnalInvitationService {
     }
 
     public void revoke(Long id, Tbmuser actor) {
-        auth.requireCrud(actor, "penggunaPeran", "delete"); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
+        auth.requireCrud(actor, "people", "delete"); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
         try { if (own) tx.begin(); UndanganPeranJurnal invitation = (UndanganPeranJurnal) s.get(UndanganPeranJurnal.class, id);
             if (invitation == null) throw new IllegalArgumentException("Undangan tidak ditemukan.");
             auth.requireJournalScope(s, actor, invitation.getJurnalPenelitianId(), null, null, false, "JOURNAL");

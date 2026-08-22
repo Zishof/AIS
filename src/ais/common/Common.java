@@ -21376,4 +21376,87 @@ public class Common {
 				searchjurusan);
 	}
 
+	/**
+	 * Sertakan (include) satu fragmen JSP <b>hanya bila berkasnya benar-benar ada</b>, dan
+	 * jangan pernah melempar exception ke halaman pemanggil.
+	 *
+	 * <h3>Kenapa diperlukan</h3>
+	 * <p>Dasbor beranda ({@code /WEB-INF/baru/modul/home/index.jsp}) disusun dari banyak
+	 * fragmen kecil per peran: info mahasiswa, tombol dosen, profil admin, pengumuman,
+	 * kalender akademik, dan seterusnya. Tidak semua instalasi memiliki seluruh fragmen itu —
+	 * instalasi tanpa modul sekolah tidak punya fragmen guru/siswa, misalnya. Dengan
+	 * {@code <jsp:include>} biasa, satu fragmen yang tidak ada langsung membuat SELURUH
+	 * dasbor gagal dirender. Method ini membuat fragmen bersifat opsional: yang ada
+	 * ditampilkan, yang tidak ada dilewati diam-diam.</p>
+	 *
+	 * <h3>Kenapa kegagalan render pun ditelan</h3>
+	 * <p>Bila fragmennya ADA tetapi gagal dijalankan (mis. datanya belum lengkap), kegagalan
+	 * itu dicatat ke audit lalu dilewati. Alasannya sama: satu kartu dasbor yang bermasalah
+	 * tidak boleh membuat pengguna kehilangan seluruh halaman beranda. Jejaknya tetap ada di
+	 * audit sehingga penyebabnya tetap bisa ditelusuri pengembang.</p>
+	 *
+	 * <h3>Catatan teknis</h3>
+	 * <p>Keberadaan berkas diperiksa lewat {@code getRealPath} lebih dulu (murah, tanpa I/O
+	 * jaringan); bila aplikasi dijalankan dari WAR yang tidak diekstrak, {@code getRealPath}
+	 * mengembalikan null sehingga dicoba ulang lewat {@code getResource}.</p>
+	 *
+	 * <p>Penyertaan memakai {@code PageContext.include(String)}, BUKAN varian dua argumen
+	 * yang dapat menahan flush: {@code servlet_.jar} yang dipaketkan aplikasi ini masih
+	 * API JSP 1.2 dan hanya memiliki bentuk satu argumen. Konsekuensinya buffer
+	 * {@code JspWriter} induk ikut di-flush sebelum tiap fragmen disertakan — persis
+	 * seperti {@code <jsp:include flush="true">} yang sudah dipakai di seluruh JSP
+	 * aplikasi ini — sehingga respons ter-commit sejak fragmen pertama dan header tidak
+	 * lagi dapat diubah setelah titik itu. Untuk dasbor beranda yang memang dirender di
+	 * akhir alur, perilakunya sama dengan halaman-halaman lain yang sudah ada.</p>
+	 *
+	 * @param pageContext konteks halaman JSP pemanggil; diabaikan bila null
+	 * @param path        path absolut fragmen relatif terhadap context root, mis.
+	 *                    {@code "/WEB-INF/baru/modul/home/pengumuman.jsp"}
+	 */
+	public static void sertakanJikaAda(javax.servlet.jsp.PageContext pageContext, String path) {
+		if (pageContext == null || path == null || path.trim().length() == 0) {
+			return;
+		}
+		String berkas = path.trim();
+		try {
+			javax.servlet.ServletContext konteks = pageContext.getServletContext();
+			if (konteks == null) {
+				return;
+			}
+			if (!berkasAda(konteks, berkas)) {
+				return;
+			}
+			/* FIX 21-08-2026: overload include(String, boolean) baru ada pada JSP 2.0+, sedangkan
+			 * jsp-api pada classpath proyek ini belum memilikinya -- Common.java jadi GAGAL
+			 * dikompilasi, sehingga Common.class yang ter-deploy tidak memuat method ini dan
+			 * seluruh halaman beranda gagal dengan JasperException "method sertakanJikaAda
+			 * is undefined for the type Common". Dipakai overload satu-argumen yang tersedia. */
+			pageContext.include(berkas);
+		} catch (Throwable gagal) {
+			try {
+				ErrorAuditUtil.record(gagal, "Common.sertakanJikaAda: fragmen dilewati -- " + berkas);
+			} catch (Throwable abaikan) {
+				// pencatatan audit tidak boleh ikut menggagalkan render halaman
+			}
+		}
+	}
+
+	/** Apakah sebuah resource web benar-benar ada. Lihat {@link #sertakanJikaAda}. */
+	private static boolean berkasAda(javax.servlet.ServletContext konteks, String path) {
+		try {
+			String nyata = konteks.getRealPath(path);
+			if (nyata != null) {
+				return new java.io.File(nyata).isFile();
+			}
+		} catch (Throwable abaikan) {
+			// lanjut ke pemeriksaan berbasis getResource di bawah
+		}
+		try {
+			// WAR yang tidak diekstrak: getRealPath null, resource tetap dapat diperiksa.
+			return konteks.getResource(path) != null;
+		} catch (Throwable abaikan) {
+			return false;
+		}
+	}
+
 }

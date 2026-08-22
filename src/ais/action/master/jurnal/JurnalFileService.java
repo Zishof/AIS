@@ -43,8 +43,8 @@ public final class JurnalFileService {
         String normalizedStage = validStage(stage);
         String normalizedMime = validMime(mimeType);
         if ("PRODUCTION".equals(normalizedStage) || "PROOF".equals(normalizedStage)
-                || "PUBLICATION".equals(normalizedStage)) auth.requireCrud(actor, "produksiGalley", "create");
-        else auth.requireCrud(actor, "submission", "update");
+                || "PUBLICATION".equals(normalizedStage)) auth.requireCrud(actor, "production", "create");
+        else auth.requireCrud(actor, "submissions", "update");
         RepoBitstream meta = createPending(itemId, fileName, normalizedMime, normalizedStage,
                 validGenre(genre), round, declaredSize, actor);
         StreamingHibernateUtil streaming = StreamingHibernateUtil.getInstance();
@@ -169,7 +169,7 @@ public final class JurnalFileService {
 
     /** Repairs a metadata/blob link after a cross-database partial failure. */
     public RepoBitstream reconcile(Long bitstreamId, Tbmuser actor) {
-        auth.requireCrud(actor, "produksiGalley", "update");
+        auth.requireCrud(actor, "production", "update");
         Session main = HibernateUtil.currentSession();
         RepoBitstream bitstream = (RepoBitstream) main.get(RepoBitstream.class, bitstreamId);
         if (bitstream == null) throw new IllegalArgumentException("Metadata file tidak ditemukan.");

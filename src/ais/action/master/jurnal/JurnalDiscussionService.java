@@ -18,7 +18,7 @@ public final class JurnalDiscussionService {
 
     public Diskusi create(Long journalId, Long itemId, String stage, String title, String description,
             String visibility, String anonymity, Tbmuser actor) {
-        auth.requireCrud(actor, "prosesReview", "create"); required(title, "Judul diskusi wajib diisi.");
+        auth.requireCrud(actor, "discussions", "create"); required(title, "Judul diskusi wajib diisi.");
         String normalizedStage = validStage(stage); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
         try { if (own) tx.begin(); JurnalPenelitian journal = (JurnalPenelitian) s.get(JurnalPenelitian.class, journalId); RepoItem item = (RepoItem) s.get(RepoItem.class, itemId);
             if (journal == null || item == null || journal.getRepoCollectionId() == null || !journal.getRepoCollectionId().equals(item.getCollectionId()))
@@ -35,7 +35,7 @@ public final class JurnalDiscussionService {
     }
 
     public PesertaDiskusiJurnal addParticipant(Long discussionId, String userId, String role, Tbmuser actor) {
-        auth.requireCrud(actor, "prosesReview", "update"); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
+        auth.requireCrud(actor, "discussions", "update"); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
         try { if (own) tx.begin(); Diskusi discussion = discussion(s, discussionId); JurnalPenelitian journal = (JurnalPenelitian) s.get(JurnalPenelitian.class, discussion.getJurnalPenelitianId()); RepoItem item = (RepoItem) s.get(RepoItem.class, discussion.getRepoItemId());
             if (journal == null || item == null) throw new IllegalArgumentException("Scope diskusi jurnal tidak ditemukan.");
             auth.requireJournalScope(s, actor, journal.getId(), item.getId(), item.getOwnerId(), false, discussion.getStageKey());

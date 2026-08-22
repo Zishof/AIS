@@ -49,7 +49,7 @@ public final class JurnalIntegrationService {
         return begin(failed.getItemId(), failed.getTenantKey(), failed.getServiceName(), failed.getActionName(), newRequestId, failed.getRequestPayload(), actor);
     }
 
-    private void authorize(Tbmuser actor, String service, String action) { String s = upper(service); if ("CROSSREF".equals(s) || "DATACITE".equals(s) || "DOI".equals(s) || "URN".equals(s)) auth.requireWorkflow(actor, "manageIdentifier"); else auth.requireCrud(actor, "pluginIntegrasi", "update"); }
+    private void authorize(Tbmuser actor, String service, String action) { String s = upper(service); if ("CROSSREF".equals(s) || "DATACITE".equals(s) || "DOI".equals(s) || "URN".equals(s)) auth.requireWorkflow(actor, "manageIdentifier"); else auth.requireCrud(actor, "integrations", "update"); }
     private static RepoItem item(Session s, Long id) { RepoItem item = (RepoItem) s.get(RepoItem.class, id); if (item == null || !Boolean.TRUE.equals(item.getAktif()) || !("JOURNAL_SUBMISSION".equals(item.getDocumentType()) || "JOURNAL_ISSUE".equals(item.getDocumentType()))) throw new IllegalArgumentException("Item jurnal tidak ditemukan."); return item; }
     private static String stage(String service) { String s = upper(service); return ("CROSSREF".equals(s) || "DATACITE".equals(s) || "DOI".equals(s) || "URN".equals(s)) ? "PUBLICATION" : "JOURNAL"; }
     private static String upper(String v) { String x = clean(v).toUpperCase(Locale.ENGLISH); if (!x.matches("[A-Z0-9_.-]{2,80}")) throw new IllegalArgumentException("Nama integrasi tidak valid."); return x; }

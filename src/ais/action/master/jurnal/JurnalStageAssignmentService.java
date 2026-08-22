@@ -55,7 +55,7 @@ public final class JurnalStageAssignmentService {
         } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
     }
 
-    private void authorize(String stage, Tbmuser actor) { String s = stage(stage); if ("COPYEDITING".equals(s)) auth.requireCrud(actor, "copyediting", "update"); else if ("PRODUCTION".equals(s) || "PROOF".equals(s)) auth.requireCrud(actor, "produksiGalley", "update"); else auth.requireWorkflow(actor, "assignEditor"); }
+    private void authorize(String stage, Tbmuser actor) { String s = stage(stage); if ("COPYEDITING".equals(s)) auth.requireCrud(actor, "copyediting", "update"); else if ("PRODUCTION".equals(s) || "PROOF".equals(s)) auth.requireCrud(actor, "production", "update"); else auth.requireWorkflow(actor, "assignEditor"); }
     private static String stage(String v) { String x = clean(v).toUpperCase(Locale.ENGLISH); if (!x.matches("JOURNAL|SECTION|SUBMISSION|REVIEW|COPYEDITING|PRODUCTION|PROOF")) throw new IllegalArgumentException("Tahap penugasan tidak valid."); return x; }
     private static String role(String v) { String x = clean(v).toUpperCase(Locale.ENGLISH); if (!x.matches("MANAGER|EDITOR|SECTION_EDITOR|COPYEDITOR|PRODUCTION|PROOFREADER")) throw new IllegalArgumentException("Peran penugasan tidak valid."); return x; }
     private static String validateJson(String v) { if (blank(v)) return "{\"schemaVersion\":1}"; if (v.length() > 65536) throw new IllegalArgumentException("Provenance terlalu besar."); try { org.json.JSONObject o = new org.json.JSONObject(v); if (o.optInt("schemaVersion", 0) != 1) throw new Exception(); return o.toString(); } catch (Exception e) { throw new IllegalArgumentException("Provenance penugasan tidak valid.", e); } }

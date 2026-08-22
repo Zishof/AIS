@@ -3593,19 +3593,46 @@ public class PosApi extends HttpServlet {
 	 * pembanding periode sebelumnya yang panjang harinya sama. Rentang dibatasi
 	 * maksimum 366 hari agar grafik tetap responsif dan aman utk database toko.
 	 */
-	private static JSONObject hitungAnalitikLabaKotor(java.sql.Connection conn,
-			java.util.Map<Long, Double> petaHpp, Long tokoId, String mulai, String sampai,
+	/**
+	 * Analitik laba kotor untuk satu rentang tanggal.
+	 *
+	 * <p><b>AKAR MASALAH (NullPointerException di jalur Laporan Riwayat Penjualan Analitik).</b>
+	 * {@code tokoId} yang bernilai null adalah kondisi SAH, artinya "semua toko" — lihat
+	 * {@code prosesLaporanRiwayatPenjualanAnalitik}, yang hanya menolak null bagi akun
+	 * pedagang yang tidak boleh melihat lintas toko. Seluruh kueri saudara di method itu
+	 * sudah memakai {@link #kondisiToko(String, Long)} + {@link #isiParamToko}, yang
+	 * menangani null lewat {@code setNull(BIGINT)}. Hanya method ini yang tertinggal
+	 * memakai {@code a.toko=?} dengan {@code tokoId.longValue()} langsung, sehingga admin
+	 * lintas-toko selalu memicu NPE dan seluruh laporan analitik gagal.</p>
+	 *
+	 * <p><b>Cacat kedua yang ikut diperbaiki.</b> {@code a.toko=?} juga TIDAK membawa
+	 * pembatas tenant, berbeda dari kueri saudaranya. Seandainya null ditangani apa adanya
+	 * tanpa perbaikan ini, angka laba kotor akan mencakup toko milik tenant LAIN — tidak
+	 * konsisten dengan KPI, tren, dan rincian produk di laporan yang sama. Memakai
+	 * {@code kondisiToko()} menyeragamkan cakupannya sekaligus menutup kebocoran itu.</p>
+	 *
+	 * <p>Jumlah dan urutan parameter SQL tidak berubah: {@code kondisiToko()} sengaja
+	 * memakai tepat satu parameter dan menyisipkan pembatas pendaftar sebagai literal.</p>
+	 */
+	private JSONObject hitungAnalitikLabaKotor(java.sql.Connection conn,
+			java.util.Map<Long, Double> petaHpp, Long tokoId, Long pendaftarLingkup, String mulai, String sampai,
 			String batasKasir, boolean bolehSemuaKasir, String namaKasirLogin, boolean sertakanRincian)
 			throws Exception {
+		// Peta HPP kosong berarti "belum ada harga pokok" -- itu kondisi wajar yang sudah
+		// ditangani di bawah (dihitung sebagai produk tanpa HPP), bukan alasan untuk gagal.
+		if (petaHpp == null) {
+			petaHpp = new java.util.HashMap<Long, Double>();
+		}
 		String sql = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id),DATE(a.waktu),MAX(a.waktu),"
 				+ "a.produk,COALESCE(NULLIF(TRIM(MAX(a.nama)),''),NULLIF(TRIM(MAX(p.nama)),''),'Produk tanpa nama'),"
 				+ "COALESCE(SUM(a.qty),0),COALESCE(SUM(a.total),0) FROM koperasi.pembelian a "
 				+ "LEFT JOIN koperasi.produk p ON p.id=a.produk LEFT JOIN koperasi.pembelian_anggota_koperasi pak "
-				+ "ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND COALESCE(a.aktif,true)=true "
+				+ "ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup)
+				+ " AND COALESCE(a.aktif,true)=true "
 				+ "AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
 				+ " GROUP BY 1,2,a.produk ORDER BY 2,3,1";
 		java.sql.PreparedStatement ps = conn.prepareStatement(sql);
-		ps.setLong(1, tokoId.longValue()); ps.setString(2, mulai); ps.setString(3, sampai);
+		isiParamToko(ps, 1, tokoId); ps.setString(2, mulai); ps.setString(3, sampai);
 		if (!bolehSemuaKasir) ps.setString(4, namaKasirLogin);
 		java.sql.ResultSet rs = ps.executeQuery();
 		java.util.Map<String, double[]> perHari = new java.util.TreeMap<String, double[]>();
@@ -4038,10 +4065,10 @@ public class PosApi extends HttpServlet {
 			java.sql.ResultSet rRetur = pRetur.executeQuery(); JSONObject retur = new JSONObject();
 			if (rRetur.next()) { retur.put("transaksi", rRetur.getLong(1)); retur.put("qty", rRetur.getDouble(2)); retur.put("nilai", rRetur.getDouble(3)); }
 			rRetur.close(); pRetur.close();
-			JSONObject labaKotor = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, mulai, sampai,
-					batasKasir, bolehSemuaKasir, namaKasirLogin, true);
-			JSONObject labaKotorLalu = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, mulaiLalu, sampaiLalu,
-					batasKasir, bolehSemuaKasir, namaKasirLogin, false);
+			JSONObject labaKotor = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, pendaftarLingkup,
+					mulai, sampai, batasKasir, bolehSemuaKasir, namaKasirLogin, true);
+			JSONObject labaKotorLalu = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, pendaftarLingkup,
+					mulaiLalu, sampaiLalu, batasKasir, bolehSemuaKasir, namaKasirLogin, false);
 
 			hasil.put("status", "success"); hasil.put("tglMulai", mulai); hasil.put("tglSampai", sampai);
 			hasil.put("tglMulaiPembanding", mulaiLalu); hasil.put("tglSampaiPembanding", sampaiLalu);

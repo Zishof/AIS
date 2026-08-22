@@ -21,7 +21,7 @@ public final class JurnalWorkflowService {
 
     public RepoItem createDraft(final Long collectionId,final String title,final String abstractText,
             final String language,final Tbmuser actor,final String requestId){
-        auth.requireCrud(actor,"submission","create");required(title,"Judul wajib diisi.");
+        auth.requireCrud(actor,"submissions","create");required(title,"Judul wajib diisi.");
         return write(new Work<RepoItem>(){public RepoItem run(Session s){
             JournalContext journal=journal(s,collectionId);auth.requireJournalScope(s,actor,journal.id,null,null,false,null);RepoItem item=new RepoItem();item.setCollectionId(collectionId);
             item.setTenantKey(journal.tenant);item.setDocumentType("JOURNAL_SUBMISSION");item.setWorkflowStatus(DRAFT);
@@ -35,7 +35,7 @@ public final class JurnalWorkflowService {
     public RepoItem transition(final Long itemId,final Long expectedVersion,final String target,final String action,
             final String comment,final Tbmuser actor,final String requestId){
         String capability=capability(target);if(capability!=null)auth.requireWorkflow(actor,capability);
-        else auth.requireCrud(actor,"submission","update");
+        else auth.requireCrud(actor,"submissions","update");
         return write(new Work<RepoItem>(){public RepoItem run(Session s){RepoItem item=item(s,itemId);JournalContext journal=journal(s,item.getCollectionId());boolean ownerTransition=SUBMITTED.equals(target)||WITHDRAWN.equals(target);auth.requireJournalScope(s,actor,journal.id,item.getId(),item.getOwnerId(),ownerTransition,null);
             if(expectedVersion!=null&&!expectedVersion.equals(item.getLockVersion()))throw new IllegalStateException("Naskah telah berubah; muat ulang.");
             String from=item.getWorkflowStatus();Set<String> allowed=TRANSITIONS.get(from);if(allowed==null||!allowed.contains(target))throw new IllegalStateException("Transisi "+from+" ke "+target+" tidak diizinkan.");
@@ -68,7 +68,7 @@ public final class JurnalWorkflowService {
 
     public PenugasanReviewerJurnal submitReview(final Long assignmentId,final String responseJson,
             final String recommendation,final Tbmuser actor,final String requestId){
-        auth.requireCrud(actor,"prosesReview","update");
+        auth.requireCrud(actor,"review-assignments","update");
         return write(new Work<PenugasanReviewerJurnal>(){public PenugasanReviewerJurnal run(Session s){PenugasanReviewerJurnal a=assignment(s,assignmentId,actor);
             if(!"ACCEPTED".equals(a.getStatus()))throw new IllegalStateException("Penugasan belum diterima atau sudah selesai.");
             if(responseJson==null||responseJson.length()>262144)throw new IllegalArgumentException("Respons review tidak valid.");

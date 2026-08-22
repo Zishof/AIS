@@ -107,7 +107,7 @@ public final class JurnalWorkflowPublicationSelfTest {
         JSONObject json = JurnalAksesKatalog.modelUntukEditor(null);
         HashSet<Menu> menus = new HashSet<Menu>();
         for (JurnalAksesKatalog.Entri entry : JurnalAksesKatalog.DAFTAR) {
-            boolean grant = all || "prosesReview".equals(entry.kunci);
+            boolean grant = all || "review-assignments".equals(entry.kunci);
             json.getJSONObject("menu").put(entry.kunci, grant);
             for (String action : JurnalAksesKatalog.AKSI_CRUD)
                 json.getJSONObject("crud").getJSONObject(entry.kunci).put(action, grant);

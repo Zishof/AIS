@@ -13,14 +13,14 @@ public final class JurnalUsageAggregationService {
 
     /** Site-wide rebuild is deliberately administrator-only. */
     public int rebuildDaily(Date fromInclusive, Date toExclusive, Tbmuser actor) {
-        auth.requireCrud(actor, "statistik", "update");
+        auth.requireCrud(actor, "statistics", "update");
         auth.requireAdministrator(actor);
         return rebuild(null, fromInclusive, toExclusive, actor);
     }
 
     /** Journal-scoped rebuild may be delegated through an active assignment. */
     public int rebuildDaily(Long journalId, Date fromInclusive, Date toExclusive, Tbmuser actor) {
-        auth.requireCrud(actor, "statistik", "update");
+        auth.requireCrud(actor, "statistics", "update");
         if (journalId == null) throw new IllegalArgumentException("Jurnal wajib diisi.");
         return rebuild(journalId, fromInclusive, toExclusive, actor);
     }

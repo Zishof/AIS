@@ -28,7 +28,7 @@ public final class JurnalDemoDataService {
 
     public Result generate(int journalCount, int articlesPerJournal, Long authorId, String fallbackAuthor,
             String idempotencyKey, String confirmation, Tbmuser actor) {
-        auth.requireCrud(actor, "masterJurnal", "create");
+        auth.requireCrud(actor, "journals", "create");
         auth.requireAdministrator(actor);
         requireEnabled();
         if (!CONFIRMATION.equals(confirmation)) throw new IllegalArgumentException("Konfirmasi generator demo tidak sesuai.");

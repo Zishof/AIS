@@ -1074,14 +1074,29 @@ public class MainHelper {
 		save.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				if (checkboxConfig.isChecked()) {
-					hapusCookieRememberMe();
-				}
+				final boolean lupakanAkun = checkboxConfig.isChecked();
 				try {
 					myWindow.detach();
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/MainHelper.java:1075");
 				}
-				logoutSekarang();
+				/* FIX 21-08-2026 -- CENTANG "LUPAKAN AKUN" TIDAK BERPENGARUH.
+				 *
+				 * Sebelumnya centang ini memanggil hapusCookieRememberMe(), yang menaruh header
+				 * Set-Cookie pada respons AU (AJAX) milik ZK. Header itu tidak dapat diandalkan:
+				 * kepindahan halaman TIDAK terjadi pada respons yang sama, melainkan lewat
+				 * Executions.sendRedirect("/logoff") yang dijadwalkan timer pada permintaan AU
+				 * BERIKUTNYA. Akibatnya cookie "userinfo" selamat, dan login2.jsp tetap
+				 * mengenali browser lalu masuk otomatis.
+				 *
+				 * Kini alurnya disamakan dengan dialog keluar versi JSP: diarahkan ke
+				 * /clear-cookie, sebuah permintaan HTTP penuh yang header Set-Cookie-nya pasti
+				 * dihormati peramban, dan servlet itu sendiri yang meneruskan ke /logoff. */
+				if (lupakanAkun) {
+					hapusCookieRememberMe();
+					goBersihkanCookie();
+				} else {
+					logoutSekarang();
+				}
 			}
 		});
 		save.setParent(toolbar);
@@ -1120,7 +1135,10 @@ public class MainHelper {
 			return false;
 		}
 		String n = name.trim().toLowerCase();
-		return "userinfo".equals(n) || "rememberme".equals(n) || "remember_me".equals(n);
+		// "userid" ikut ditulis login2.jsp berdampingan dengan "userinfo"; tanpa ini sisa
+		// nama pengguna masih tertinggal di peramban meski sesi sudah dilupakan.
+		return "userinfo".equals(n) || "userid".equals(n) || "rememberme".equals(n)
+				|| "remember_me".equals(n);
 	}
 
 	private static void expireCookie(HttpServletResponse response, String name, String path) {
@@ -1131,6 +1149,39 @@ public class MainHelper {
 			response.addCookie(cookie);
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainHelper.java:1126");
+		}
+	}
+
+	/**
+	 * Keluar aplikasi SEKALIGUS melupakan akun: arahkan peramban ke {@code /clear-cookie}.
+	 *
+	 * <p>Servlet tersebut menghapus seluruh cookie, meng-invalidate sesi, lalu meneruskan ke
+	 * {@code /logoff}. Pengalihan sengaja dilakukan sebagai permintaan HTTP penuh -- bukan
+	 * menaruh Set-Cookie pada respons AU ZK -- agar peramban benar-benar menghapus cookie
+	 * "userinfo" yang dipakai login2.jsp untuk mengenali pengguna.</p>
+	 */
+	private static void goBersihkanCookie() {
+		try {
+			try {
+				Executions.getCurrent().getSession().removeAttribute("usersTemp");
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "MainHelper.goBersihkanCookie:usersTemp");
+			}
+			if (ExecutionsCtrl.getCurrent() == null) {
+				return;
+			}
+			org.zkoss.zk.ui.util.Clients.confirmClose(null);
+			Common.createDefaultTimer(new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					if (ExecutionsCtrl.getCurrent() != null) {
+						ExecutionsCtrl.getCurrent().sendRedirect("/clear-cookie");
+					}
+				}
+			});
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "MainHelper.goBersihkanCookie");
+			logoutSekarang();
 		}
 	}
 
