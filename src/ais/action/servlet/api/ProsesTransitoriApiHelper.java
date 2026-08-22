@@ -261,14 +261,17 @@ public final class ProsesTransitoriApiHelper {
 						+ " pt.realisasikan_oleh, pt.disetujui_oleh, s.nama,"
 						+ " t.posting_history, COALESCE(c.nama,''), ka.kode, ka.nama"
 						+ " FROM akunting.transitori t"
-						+ " LEFT JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer"
+						+ " LEFT JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer_id"
 						+ " LEFT JOIN akunting.proses_transfer pt ON pt.id = d.proses_transfer"
 						+ " LEFT JOIN akunting.cara_pembayaran_transfer c ON c.id = pt.cara_pembayaran_transfer"
 						+ " LEFT JOIN akunting.akun ka ON ka.id = c.akun_transitori"
 						+ " LEFT JOIN rab.satuan_kerja s ON s.id = d.satuan_kerja"
 						+ " WHERE COALESCE(t.aktif,true) AND" + syarat
 						+ " ORDER BY t.id DESC LIMIT 500");
-		ps.setLong(1, param.longValue());
+		// param null berarti syaratnya memang tidak berparameter (daftar kandidat).
+		if (param != null) {
+			ps.setLong(1, param.longValue());
+		}
 		ResultSet rs = ps.executeQuery();
 		JSONArray arr = new JSONArray();
 		while (rs.next()) {
@@ -314,9 +317,7 @@ public final class ProsesTransitoriApiHelper {
 	public static void kandidat(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			// Parameter 1 dipakai sebagai penampung agar bentuk kuerinya sama dengan detail;
-			// syaratnya sendiri tidak memakainya.
-			JSONArray arr = baris(session, " t.proses_transitori IS NULL AND ? = ?", Long.valueOf(1));
+			JSONArray arr = baris(session, " t.proses_transitori IS NULL", null);
 			String cari = request == null ? "" : request.optString("cari", "").trim().toLowerCase();
 			boolean hanyaSiap = request != null && request.optBoolean("hanyaSiap", false);
 			JSONArray saring = new JSONArray();
@@ -715,13 +716,13 @@ public final class ProsesTransitoriApiHelper {
 			JSONArray komposisi = new JSONArray();
 			komposisi.put(titik(conn, "Siap diproses",
 					"SELECT count(*) FROM akunting.transitori t"
-							+ " JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer"
+							+ " JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer_id"
 							+ " JOIN akunting.proses_transfer pt ON pt.id = d.proses_transfer"
 							+ " WHERE COALESCE(t.aktif,true) AND t.proses_transitori IS NULL"
 							+ " AND pt.realisasikan_oleh IS NOT NULL"));
 			komposisi.put(titik(conn, "Menunggu transfer cair",
 					"SELECT count(*) FROM akunting.transitori t"
-							+ " LEFT JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer"
+							+ " LEFT JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer_id"
 							+ " LEFT JOIN akunting.proses_transfer pt ON pt.id = d.proses_transfer"
 							+ " WHERE COALESCE(t.aktif,true) AND t.proses_transitori IS NULL"
 							+ " AND (pt.id IS NULL OR pt.realisasikan_oleh IS NULL)"));
@@ -731,7 +732,7 @@ public final class ProsesTransitoriApiHelper {
 					"SELECT COALESCE(t.kode,''), COALESCE(t.nama,''),"
 							+ " COALESCE(date_part('day', now() - pt.tanggal_realisasikan),0)"
 							+ " FROM akunting.transitori t"
-							+ " JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer"
+							+ " JOIN akunting.daftar_pengajuan_transfer d ON d.id = t.daftar_pengajuan_transfer_id"
 							+ " JOIN akunting.proses_transfer pt ON pt.id = d.proses_transfer"
 							+ " WHERE COALESCE(t.aktif,true) AND t.proses_transitori IS NULL"
 							+ " AND pt.realisasikan_oleh IS NOT NULL"
