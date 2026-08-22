@@ -155,6 +155,18 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaKasBesar(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaKasBesar(session, mulai, sampai), true),
                     hitungClosing(session, "kasBesar", null, null, mulai, sampai)));
+        } else if ("pj_kas_besar".equals(kunci)) {
+            out.add(new Baris(kunci, "Pertanggungjawaban Kas Besar",
+                    "Pertanggungjawaban kas besar yang disetujui dipastikan menjadi jurnal.",
+                    hitungPostingHistory(session, kriteriaPjKasBesar(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaPjKasBesar(session, mulai, sampai), true),
+                    hitungClosing(session, "pertangungjawabanKasBesar", null, null, mulai, sampai)));
+        } else if ("penggantian_kas_kecil".equals(kunci)) {
+            out.add(new Baris(kunci, "Penggantian Kas Kecil",
+                    "Penggantian kas kecil yang transfernya sudah diproses dipastikan menjadi jurnal.",
+                    hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), true),
+                    hitungClosing(session, "penggantianKasKecil", null, null, mulai, sampai)));
         } else if ("pajak".equals(kunci)) {
             out.add(new Baris(kunci, "Pajak",
                     "Setoran pajak yang tercatat dipastikan sudah memiliki jurnal pajak.",
@@ -267,6 +279,29 @@ public final class DraftJurnalRingkasanUtil {
     /** disetujuiOleh ikut difilter, sama dengan PostingKasBesarAction. */
     private static Criteria kriteriaKasBesar(Session session, Date mulai, Date sampai) {
         return session.createCriteria(KasBesar.class)
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /** Sejalan dengan PostingPertangungjawabanKasBesarAction: cukup disetujui & bernilai. */
+    private static Criteria kriteriaPjKasBesar(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.akunting.PertangungjawabanKasBesar.class)
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /**
+     * Penggantian kas kecil hanya bisa dijurnal setelah TRANSFERNYA diproses -- akun
+     * kreditnya diambil dari cara pembayaran pada proses transfer. Syarat itu ikut
+     * disaring di sini supaya angka pada dasbor tidak menjanjikan dokumen yang justru
+     * dilewati mesin postingnya.
+     */
+    private static Criteria kriteriaPenggantianKasKecil(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.akunting.PenggantianKasKecil.class)
+                .createAlias("daftarPengajuanTransfer", "dpt")
+                .add(Restrictions.isNotNull("dpt.prosesTransfer"))
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
@@ -466,6 +501,12 @@ public final class DraftJurnalRingkasanUtil {
         if ("Uang Muka".equals(namaBaris)) return kriteriaLpj(session, mulai, sampai);
         if ("Kas Kecil".equals(namaBaris)) return kriteriaKasKecil(session, mulai, sampai);
         if ("Kas Besar".equals(namaBaris)) return kriteriaKasBesar(session, mulai, sampai);
+        if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) {
+            return kriteriaPjKasBesar(session, mulai, sampai);
+        }
+        if ("Penggantian Kas Kecil".equals(namaBaris)) {
+            return kriteriaPenggantianKasKecil(session, mulai, sampai);
+        }
         if ("Pajak".equals(namaBaris)) return kriteriaPajak(session, mulai, sampai);
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) {
             return kriteriaPenerimaanTagihanVendor(session, mulai, sampai);

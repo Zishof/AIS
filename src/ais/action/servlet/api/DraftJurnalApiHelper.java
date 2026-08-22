@@ -63,6 +63,12 @@ public final class DraftJurnalApiHelper {
     private static String modulPosting(String namaBaris) {
         if ("Kas Kecil".equals(namaBaris)) return "kas_kecil";
         if ("Kas Besar".equals(namaBaris)) return "kas_besar";
+        // Baris "Uang Muka" pada dasbor memakai kriteriaLpj -- isinya dokumen
+        // PERTANGGUNGJAWABAN uang muka, sehingga hak yang diperiksa adalah hak modul
+        // pj_uang_muka, bukan uang_muka.
+        if ("Uang Muka".equals(namaBaris)) return "pj_uang_muka";
+        if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
+        if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
         return null;
     }
 
@@ -131,6 +137,27 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingKasBesarAction.postingSemua(mulai, sampai, tbmuser,
                             new Date())
                     : ais.action.master.akunting.PostingKasBesarAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Uang Muka".equals(nama)) {
+            // Baris "Uang Muka" pada dasbor memakai kriteriaLpj: isinya dokumen
+            // PERTANGGUNGJAWABAN uang muka, bukan uang mukanya sendiri. Karena itu
+            // mesinnya PostingPertangungjawabanAction, bukan PostingUangMukaAction.
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPertangungjawabanAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPertangungjawabanAction.batalkanPostingSemua(mulai,
+                            sampai);
+        } else if ("Pertanggungjawaban Kas Besar".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPertangungjawabanKasBesarAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPertangungjawabanKasBesarAction
+                            .batalkanPostingSemua(mulai, sampai);
+        } else if ("Penggantian Kas Kecil".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPenggantianKasKecilAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPenggantianKasKecilAction.batalkanPostingSemua(mulai,
+                            sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

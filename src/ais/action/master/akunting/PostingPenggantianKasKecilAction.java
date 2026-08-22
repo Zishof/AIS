@@ -1155,4 +1155,158 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================ mesin posting massal
+
+	/**
+	 * Akun kredit diambil dari cara pembayaran pada proses transfernya: akun transitori
+	 * bila pengajuannya bersifat transitori, akun biasa bila berupa transfer. Rantainya
+	 * dibaca bertahap supaya dokumen yang belum lengkap menghasilkan null, bukan
+	 * NullPointerException.
+	 */
+	private static Akun akunKreditTransfer(ais.database.model.akunting.DaftarPengajuanTransfer dpt) {
+		if (dpt == null || dpt.getProsesTransfer() == null
+				|| dpt.getProsesTransfer().getCaraPembayaranTransfer() == null) {
+			return null;
+		}
+		if (Boolean.TRUE.equals(dpt.getTransitori())) {
+			return dpt.getProsesTransfer().getCaraPembayaranTransfer().getAkunTransitori();
+		}
+		if (Boolean.TRUE.equals(dpt.getTransfer())) {
+			return dpt.getProsesTransfer().getCaraPembayaranTransfer().getAkun();
+		}
+		return null;
+	}
+
+	/**
+	 * Penyaring dokumen yang layak diposting: sudah disetujui, nilainya tidak nol,
+	 * transfernya sudah diproses, dan berada dalam rentang tanggal persetujuan.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		Criteria c = session.createCriteria(PenggantianKasKecil.class)
+				.createAlias("daftarPengajuanTransfer", "dpt")
+				.add(Restrictions.isNotNull("dpt.prosesTransfer"))
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA penggantian kas kecil terposting dalam rentang: hapus jurnal yang belum
+	 * closing, lalu lepas penanda postingnya. Transaksinya dibuka sendiri karena dipanggil
+	 * dari API, di mana tidak ada kerangka ZK yang meng-commit-kan sesi berjalan.
+	 *
+	 * @return jumlah dokumen yang berhasil dibatalkan postingnya.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<PenggantianKasKecil> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (PenggantianKasKecil dok : daftar) {
+				try {
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where penggantian_kas_kecil=" + dok.getId()
+							+ "  and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where penggantian_kas_kecil="
+							+ dok.getId() + " and closing is null").executeUpdate();
+					dok.setPostingHistory(null);
+					session.update(dok);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA penggantian kas kecil yang belum diposting dalam rentang. Pasangan akunnya sama
+	 * dengan layar: debet ke akun jenis kas kecil induknya, kredit ke akun cara pembayaran transfernya.
+	 *
+	 * @return jumlah dokumen yang berhasil diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGGANTIAN_KAS_KECIL);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal penggantian kas kecil dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			List<PenggantianKasKecil> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+
+			for (PenggantianKasKecil dok : daftar) {
+				if (dok == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = dok.getKasKecil() == null || dok.getKasKecil().getJenisKasKecil() == null ? null
+							: dok.getKasKecil().getJenisKasKecil().getAkun();
+					Akun akunKredit = akunKreditTransfer(dok.getDaftarPengajuanTransfer());
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+					Double nilai = dok.getNilai();
+					if (nilai == null || nilai <= 0.1) {
+						continue;
+					}
+
+					String ket = "Penggantian kas kecil \"" + dok.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+
+					session.getTransaction().begin();
+					CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory, true, ket,
+							dok.getTanggalPersetujuan(), nilai, 0.0, dok, dok.getSatuanKerja(), session);
+					dok.setPostingHistory(postingHistory);
+					session.update(dok);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+
 }

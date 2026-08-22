@@ -1058,6 +1058,196 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 		}
 	}
 
+
+	// ================================================================ mesin posting massal
+
+	/**
+	 * Penyaring dokumen yang layak diposting, disamakan dengan {@link #initCriteria}:
+	 * sudah disetujui, nilainya tidak nol, dan berada dalam rentang tanggal persetujuan.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		Criteria c = session.createCriteria(Pertangungjawaban.class)
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA pertanggungjawaban terposting dalam rentang. Mengikuti tombol
+	 * lama: hapus baris grup_transaksi yang BELUM closing dan tanpa {@code ref}, lalu
+	 * kosongkan postingHistory. Jurnal yang sudah closing sengaja TIDAK disentuh.
+	 *
+	 * @return jumlah dokumen yang berhasil dibatalkan postingnya.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		// Transaksi dibuka sendiri: dipanggil dari API tidak ada kerangka ZK yang
+		// meng-commit-kan currentSession, sehingga pembatalan hanya akan tampak berhasil.
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Pertangungjawaban> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Pertangungjawaban pj : daftar) {
+				try {
+					session.getTransaction().begin();
+					// Jurnal dihapus lebih dulu, baru penandanya dilepas -- urutan yang sama
+					// dengan tombol di layar. Baris yang sudah closing sengaja tidak disentuh.
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where ref is null"
+							+ "  and pertangungjawaban=" + pj.getId() + " and closing is null)")
+							.executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where ref is null"
+							+ " and pertangungjawaban=" + pj.getId() + " and closing is null").executeUpdate();
+					pj.setPostingHistory(null);
+					session.update(pj);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: biarkan, kegagalan aslinya yang dilaporkan
+					}
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA pertanggungjawaban yang belum diposting dalam rentang. Perhitungan
+	 * nilai dan penyusunan jurnalnya IDENTIK dengan tombol "Posting Semua" pada layar:
+	 * nilai dihitung ulang dari rincian ({@code jumlah + PPN% - PPh%} bila konfigurasi
+	 * {@code pph_mengurangi_lpj} menyala), akun pajak per baris ikut dikreditkan, dan
+	 * selisih terhadap uang mukanya masuk ke akun kelebihan.
+	 *
+	 * @return jumlah dokumen yang berhasil diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		boolean pphMengurangi = Common.bolehKonfigurasi("pph_mengurangi_lpj");
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PERTANGGUNGJAWABAN_UANG_MUKA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal pertanggungjawaban uang muka dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			List<Pertangungjawaban> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+
+			for (Pertangungjawaban pj : daftar) {
+				if (pj == null || pj.getUangMuka() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = pj.getUangMuka().getAkun();
+					Akun akunKredit = pj.getUangMuka().getJenisUangMuka() == null ? null
+							: pj.getUangMuka().getJenisUangMuka().getAkun();
+					Akun akunKelebihan = pj.getUangMuka().getJenisUangMuka() == null ? null
+							: pj.getUangMuka().getJenisUangMuka().getAkunKelebihan();
+					if (akunDebet == null || akunKredit == null || akunKelebihan == null) {
+						continue;
+					}
+
+					// Nilai dihitung ULANG dari rincian, sama seperti layar: rincian bisa
+					// berubah setelah dokumen disetujui, dan jurnal harus mengikuti isinya.
+					List<Akun> akunPajak = new ArrayList<Akun>();
+					List<Double> nilaiPajak = new ArrayList<Double>();
+					Double nilai = 0.0;
+					JSONArray array = new JSONArray(pj.getFormula());
+					for (int i = 0; i < array.length(); i++) {
+						JSONObject jsonObject = array.getJSONObject(i);
+						Double jumlah = jsonObject.isNull("jumlah") ? 0.0 : jsonObject.getDouble("jumlah");
+						Double ppn = jsonObject.isNull("ppn") ? 0.0 : jsonObject.getDouble("ppn");
+						JenisPajakBarang barang = jsonObject.isNull("pajak") ? null
+								: (JenisPajakBarang) ConstantValues.ambil(JenisPajakBarang.class.getName(),
+										Long.parseLong(jsonObject.get("pajak") + ""));
+						Double pajak = barang == null ? 0.0 : ((barang.getPersen() / 100.0) * jumlah);
+						nilai += (jumlah + ((ppn / 100.0) * jumlah)) - (pphMengurangi ? pajak : 0.0);
+						if (barang != null && barang.getId() != null && barang.getAkun() != null) {
+							akunPajak.add(barang.getAkun());
+							nilaiPajak.add(pajak);
+						}
+					}
+					pj.setNilai(nilai);
+
+					Double nilaiPengajuan = pj.getUangMuka().getNilai();
+					Double selisih = nilaiPengajuan - nilai;
+					Akun akunSponsor = pj.getUangMuka().getJenisUangMuka() == null ? null
+							: pj.getUangMuka().getJenisUangMuka().getAkunSponsor();
+					Double sponsor = pj.getDariSponsor();
+
+					String ket = "Laporan pertanggungjawaban uang muka \"" + pj.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Laporan pertanggungjawaban penggunaan anggaran \""
+								+ pj.getUangMuka().getWorkspace().getKode() + " "
+								+ pj.getUangMuka().getWorkspace().getNama() + "\" senilai "
+								+ Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Anggarannya boleh kosong (mis. uang muka berbasis PR); keterangan
+						// tetap terbentuk dari kode dokumennya.
+					}
+
+					List<Akun> akunsDebets = new ArrayList<Akun>();
+					List<Akun> akunsKredits = new ArrayList<Akun>();
+					List<Double> nilaiDebets = new ArrayList<Double>();
+					List<Double> nilaiKredits = new ArrayList<Double>();
+					populateAkun(akunsDebets, nilaiDebets, akunsKredits, nilaiKredits, akunSponsor, selisih,
+							akunDebet, akunKredit, sponsor, nilai, akunKelebihan, nilaiPengajuan, akunPajak,
+							nilaiPajak);
+
+					SatuanKerja satuanKerja = pj.getSatuanKerja();
+
+					session.getTransaction().begin();
+					CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
+							akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
+							pj.getTanggalPersetujuan(), nilaiDebets.toArray(new Double[] {}),
+							nilaiKredits.toArray(new Double[] {}), 0.0, pj, satuanKerja, session);
+					pj.setPostingHistory(postingHistory);
+					session.update(pj);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					// Kegagalan satu dokumen tidak menghentikan sisanya -- perilaku yang sama
+					// dengan tombol massal pada layar.
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak boleh menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
 	/**
 	 * Menyusun daftar akun debet dan kredit untuk jurnal pertanggungjawaban uang muka,
 	 * mempertimbangkan pajak, selisih pengembalian, dan dana dari sponsor.
@@ -1112,7 +1302,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 	 * @param akunPajak      Daftar akun pajak PPh yang harus dikreditkan.
 	 * @param nilaiPajak     Daftar nilai pajak yang sesuai posisi dengan akunPajak.
 	 */
-	private void populateAkun(List<Akun> akunsDebets, List<Double> nilaiDebets, List<Akun> akunsKredits,
+	private static void populateAkun(List<Akun> akunsDebets, List<Double> nilaiDebets, List<Akun> akunsKredits,
 			List<Double> nilaiKredits, Akun akunSponsor, Double selisih, Akun akunDebet, Akun akunKredit,
 			Double sponsor, Double nilai, Akun akunKelebihan, Double nilaiPengajuan, List<Akun> akunPajak,
 			List<Double> nilaiPajak) {

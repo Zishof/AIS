@@ -726,18 +726,41 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 	@SuppressWarnings("unchecked")
 	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
 		int n = 0;
-		Session session = HibernateUtil.currentSession();
-		List<KasKecil> kasKecils = kriteriaPostingStatic(session, mulai, sampai)
-				.add(Restrictions.isNotNull("postingHistory")).list();
-		for (KasKecil kasKecil : kasKecils) {
+		// Transaksi dibuka sendiri. Memakai currentSession() seperti tombol di layar hanya
+		// berhasil di dalam permintaan ZK, yang kerangkanya meng-commit sesi berjalan;
+		// dipanggil dari API perubahannya tidak pernah tersimpan sehingga pembatalan
+		// melaporkan sukses padahal jurnalnya masih utuh.
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<KasKecil> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (KasKecil dok : daftar) {
+				try {
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where kas_kecil=" + dok.getId()
+							+ "  and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where kas_kecil="
+							+ dok.getId() + " and closing is null").executeUpdate();
+					dok.setPostingHistory(null);
+					session.update(dok);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
 			try {
-				kasKecil.setPostingHistory(null);
-				Common.refreshSaveOrUpdate(kasKecil);
-				session.createSQLQuery("delete from akunting.grup_transaksi where kas_kecil=" + kasKecil.getId()
-						+ " and closing is null").executeUpdate();
-				n++;
+				session.disconnect();
+				HibernateUtil.closeSession();
 			} catch (Exception e) {
-				Common.tampilErrorJikaAdmin(e);
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
 			}
 		}
 		return n;
