@@ -148,7 +148,34 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 									org.zkoss.zk.ui.event.Events.ON_CLICK, MyToolbarbuttonConfig.this));
 						}
 					});
-			fab.setParent(induk);
+			/* FIX 21-08-2026 -- POSISI TOMBOL SALAH.
+			 * Sebelumnya FAB dipasang ke induk tombol inline, yaitu toolbar DI DALAM panel filter.
+			 * Panel itu memakai autoscroll (overflow), sehingga tombol yang position:fixed ikut
+			 * terpotong wadahnya dan tampak menempel di pojok panel, bukan mengambang di sudut
+			 * layar. Karena itu FAB dipasang setinggi mungkin di pohon komponen namun TETAP di
+			 * dalam tab: wadah tab lebih dulu, lalu halaman, dan induk tombol hanya sebagai
+			 * pilihan terakhir. Urutan ini juga menjaga sifat per-tab yang memperbaiki bug
+			 * "bantuan tidak sesuai halaman". */
+			boolean terpasang = false;
+			if (wadahTab != null) {
+				try {
+					fab.setParent(wadahTab);
+					terpasang = true;
+				} catch (Throwable wadahMenolak) {
+					terpasang = false;
+				}
+			}
+			if (!terpasang && getPage() != null) {
+				try {
+					fab.setPage(getPage());
+					terpasang = true;
+				} catch (Throwable halamanMenolak) {
+					terpasang = false;
+				}
+			}
+			if (!terpasang) {
+				fab.setParent(induk);
+			}
 			setVisible(false);
 			return true;
 		} catch (Throwable t) {
