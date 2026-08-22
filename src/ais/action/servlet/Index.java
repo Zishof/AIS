@@ -17,12 +17,13 @@ import ais.database.model.Konfigurasi;
  * Servlet halaman index/home.
  *
  * Urutan tampilan publik (kompatibel dengan routing lama):
- * 1. default_login_ke_ebisnis -> ebisnis.jsp.
- * 2. default_login_ke_erp -> erp.jsp.
- * 3. default_home_versi_baru -> home.jsp.
- * 4. default_home_login_versi_baru -> login2.jsp.
- * 5. Skin hasil upload (/WEB-INF/j/index.jsp).
- * 6. Bila skin tidak tersedia -> home.jsp.
+ * 1. Bila paksa_halaman_utama_menggunakan_skin aktif, wajib memakai skin.
+ * 2. default_login_ke_ebisnis -> ebisnis.jsp.
+ * 3. default_login_ke_erp -> erp.jsp.
+ * 4. default_home_versi_baru -> home.jsp.
+ * 5. default_home_login_versi_baru -> login2.jsp.
+ * 6. Skin hasil upload (/WEB-INF/j/index.jsp).
+ * 7. Bila skin tidak tersedia -> home.jsp.
  *
  * Enhancement aman:
  * - Null-safe untuk Konfigurasi.
@@ -36,6 +37,8 @@ import ais.database.model.Konfigurasi;
 public class Index extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
+    private static final String KONFIGURASI_PAKSA_SKIN = "paksa_halaman_utama_menggunakan_skin";
+    private static final String HALAMAN_UTAMA_SKIN = "/WEB-INF/j/index.jsp";
 
     public Index() {
         super();
@@ -63,7 +66,20 @@ public class Index extends HttpServlet {
     private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
         initCommonContext(request);
 
-        Konfigurasi config = Common.getKonfigurasi("default_login_ke_ebisnis", Konfigurasi.TIDAK_AKTIF);
+        Konfigurasi config = Common.getKonfigurasi(KONFIGURASI_PAKSA_SKIN, Konfigurasi.TIDAK_AKTIF);
+        if (isAktif(config)) {
+            String fileSkin = request.getRealPath(HALAMAN_UTAMA_SKIN);
+            if (fileExists(fileSkin)) {
+                request.setAttribute("homeUiEntry", "skin:forced");
+                forward(request, response, HALAMAN_UTAMA_SKIN);
+            } else if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                        "Skin halaman utama belum tersedia. Unggah skin ZIP yang memiliki file index.jsp atau nonaktifkan konfigurasi paksa skin.");
+            }
+            return;
+        }
+
+        config = Common.getKonfigurasi("default_login_ke_ebisnis", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
             forward(request, response, "/WEB-INF/baru/ebisnis.jsp");
             return;
@@ -88,10 +104,10 @@ public class Index extends HttpServlet {
             return;
         }
 
-        String fileDiMedia = request.getRealPath("/WEB-INF/j/index.jsp");
+        String fileDiMedia = request.getRealPath(HALAMAN_UTAMA_SKIN);
         if (fileExists(fileDiMedia)) {
             request.setAttribute("homeUiEntry", "skin");
-            forward(request, response, "/WEB-INF/j/index.jsp");
+            forward(request, response, HALAMAN_UTAMA_SKIN);
             return;
         }
 

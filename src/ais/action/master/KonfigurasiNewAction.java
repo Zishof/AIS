@@ -6676,6 +6676,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 			ais.common.ErrorAuditUtil.record(eSkin, "auto-audit(blank-fix) KonfigurasiNewAction.initTabTampilanSistem-skin");
 		}
 
+		rows.appendChild(createRowActiveDefault("Paksa halaman utama menggunakan skin yang diunggah",
+				"paksa_halaman_utama_menggunakan_skin", Konfigurasi.TIDAK_AKTIF));
+
 		rows.appendChild(createRowActiveDefault("Menu dapat tertutup otomatis jika halaman telah terbuka",
 				"otomatis_tertutup_menu_jika_buka_halaman", Konfigurasi.AKTIF));
 	}
