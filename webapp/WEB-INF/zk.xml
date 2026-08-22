@@ -119,6 +119,16 @@
         <extension>xul</extension>
     </language-mapping>
 
+    <!--
+        Kompatibilitas markup lama/generated: beberapa ZUL memakai
+        <hbox valign="top">, sementara org.zkoss.zul.Hbox pada runtime ZK ini
+        tidak punya setValign(...). Add-on ini mengganti kelas default hbox
+        dengan subclass kecil yang menerima properti tersebut.
+    -->
+    <language-config>
+        <addon-uri>/WEB-INF/zk-lang-addon.xml</addon-uri>
+    </language-config>
+
     <!-- ========================================================== -->
     <!-- AJAX device                                               -->
     <!-- ========================================================== -->
@@ -187,3 +197,4 @@
     </error-page>
 
 </zk>
+

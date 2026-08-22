@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language-addon>
+    <addon-name>ais-zul-compat</addon-name>
+    <language-name>xul/html</language-name>
+
+    <component>
+        <component-name>hbox</component-name>
+        <extends>hbox</extends>
+        <component-class>ais.ui.util.CompatibleHbox</component-class>
+    </component>
+</language-addon>
