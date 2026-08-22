@@ -785,6 +785,14 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 			public void onEvent(Event arg0) throws Exception {
 				// TODO Auto-generated method stub
 
+				// Verifikasi dulu bhw referensi pendaftaranWisuda yg dipegang layar ini
+				// (bisa jadi proxy basi kalau barisnya sudah dihapus proses/pengguna lain
+				// sejak halaman dimuat) masih ada di DB, sebelum getId()/getNoKursi()/dsb
+				// dipanggil (bisa memicu ObjectNotFoundException atau NPE saat lazy-init).
+				if (!pastikanPendaftaranWisudaMasihAda(HibernateUtil.currentSession())) {
+					return;
+				}
+
 				if (PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getId() == null) {
 					MyMessageboxConfig.show("Mohon maaf, bukti pendaftaran belum dapat dicetak karena data pendaftaran wisuda belum tersimpan. Bapak/Ibu diharapkan menekan tombol \"Simpan / Daftar Wisuda\" terlebih dahulu, kemudian mencetak bukti pendaftaran.",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
@@ -1263,6 +1271,56 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 			MyMessageboxConfig.show("Mohon maaf, data pendaftaran wisuda gagal disimpan. Langkah yang dapat dilakukan: (1) Periksa kembali kelengkapan seluruh isian yang diperlukan; (2) Ulangi proses penyimpanan; (3) Apabila kendala masih berlanjut, mohon menghubungi administrator sistem.");
+		}
+	}
+
+	/**
+	 * Memastikan referensi {@link #pendaftaranWisuda} yang dipegang layar ini (field kelas,
+	 * bertahan sepanjang umur layar/konversasi ZK) masih benar-benar ada di database sebelum
+	 * dipakai. Field ini bisa menjadi proxy Hibernate basi (stale) jika baris PendaftaranWisuda
+	 * yang bersangkutan sudah dihapus oleh proses/pengguna lain di antara saat layar dimuat dan
+	 * saat aksi ini dijalankan (mis. tombol "Batal" dari sesi/tab lain). Memanggil setter/getter
+	 * apa pun (termasuk getId()) pada proxy basi tsb dapat memicu inisialisasi lazy yang gagal:
+	 * {@link org.hibernate.ObjectNotFoundException} bila baris memang sudah tidak ada, atau
+	 * {@link NullPointerException} bila proxy tsb sudah tidak lagi terhubung ke sesi Hibernate
+	 * yang membuatnya. Dipakai get() (bukan load()) agar hasilnya null bila tak ditemukan,
+	 * sehingga dapat dideteksi dgn aman tanpa membiarkan exception tsb terlempar ke pengguna.
+	 *
+	 * @param session sesi Hibernate aktif yang dipakai untuk memuat ulang data.
+	 * @return {@code true} bila data masih ada (atau memang belum pernah tersimpan / id null,
+	 *         sehingga tidak perlu diverifikasi) dan {@link #pendaftaranWisuda} sudah diperbarui
+	 *         dgn hasil segar dari database; {@code false} bila data sudah tidak tersedia lagi
+	 *         (pesan peringatan sudah ditampilkan ke pengguna, pemanggil wajib menghentikan proses).
+	 * @throws InterruptedException diteruskan dari {@code MyMessageboxConfig.show(...)}.
+	 */
+	private boolean pastikanPendaftaranWisudaMasihAda(Session session) throws InterruptedException {
+		try {
+			if (pendaftaranWisuda == null || pendaftaranWisuda.getId() == null) {
+				return true;
+			}
+
+			PendaftaranWisuda segar = (PendaftaranWisuda) session.get(PendaftaranWisuda.class,
+					pendaftaranWisuda.getId());
+			if (segar == null) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, data pendaftaran wisuda ini sudah tidak tersedia di database (mungkin telah dihapus oleh proses/pengguna lain). Silakan tutup formulir ini lalu buka kembali sebelum melanjutkan.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				return false;
+			}
+
+			pendaftaranWisuda = segar;
+			return true;
+		} catch (InterruptedException ie) {
+			throw ie;
+		} catch (Exception e) {
+			// Proxy basi (mis. NPE dari AbstractLazyInitializer krn sesi lama yg membuat
+			// proxy ini sudah tertutup) ditangkap di sini agar pengguna mendapat pesan yang
+			// jelas alih-alih layar error teknis.
+			Common.tampilErrorJikaAdmin(e);
+			MyMessageboxConfig.show(
+					"Mohon maaf, data pendaftaran wisuda ini sudah tidak tersedia atau tidak dapat dimuat ulang. Silakan tutup formulir ini lalu buka kembali sebelum melanjutkan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
 		}
 	}
 }

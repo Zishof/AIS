@@ -407,6 +407,7 @@ public class KegiatanHelper {
 						|| low.indexOf("canceling statement due to lock") >= 0
 						|| low.indexOf("statement timeout") >= 0
 						|| low.indexOf("canceling statement due to statement timeout") >= 0
+						|| low.indexOf("canceling statement due to user request") >= 0
 						|| low.indexOf("deadlock detected") >= 0
 						|| low.indexOf("55p03") >= 0
 						|| low.indexOf("57014") >= 0
@@ -417,6 +418,18 @@ public class KegiatanHelper {
 						|| low.indexOf("i/o error") >= 0
 						|| low.indexOf("connection is closed") >= 0
 						|| low.indexOf("connection has been closed") >= 0
+						// KE-FIX (GenericJDBCException "could not update: [Kegiatan#...]" <-
+						// PSQLException "This statement has been closed."): terjadi pada isoSession
+						// TERISOLASI yang BARU dibuka (lihat cabang recovery NonUniqueObjectException/
+						// SessionException di updateEntitySafe) -- bukan error data, melainkan resource
+						// JDBC (PreparedStatement/koneksi) yang sudah tak berlaku begitu dipakai (mis.
+						// koneksi dari pool c3p0 yang sudah basi/di-reclaim). Tanpa dikenali di sini,
+						// exception ini LOLOS dari cabang retry (attempt<3 && transaksiMati) dan langsung
+						// dilempar ke checkKegiatanCalonMahasiswa alih-alih dicoba ulang di sesi bersih
+						// seperti pola "connection is closed" di atas.
+						|| low.indexOf("statement has been closed") >= 0
+						|| low.indexOf("statement is closed") >= 0
+						|| low.indexOf("statement already closed") >= 0
 						|| low.indexOf("08006") >= 0 || low.indexOf("08003") >= 0
 						|| low.indexOf("08000") >= 0) {
 					return true;
