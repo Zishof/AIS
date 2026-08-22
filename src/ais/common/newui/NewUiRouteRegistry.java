@@ -46,6 +46,35 @@ public final class NewUiRouteRegistry {
         register(121122L, "/pages/master/kkn/kelompok_kkn.zul", "kkn", "kelompok_kkn");
         register(924987L, "/pages/master/kkn/kkn_utk_mhs.zul", "kkn", "kkn_untuk_mahasiswa");
         register(100000007L, "/pages/master/agama.zul", "root", "agama");
+        register(2000460500L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
+        register(2000460501L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
+        register(2000460502L, "/jurnal/admin/masterJurnal", "jurnal", "masterJurnal");
+        register(2000460503L, "/jurnal/admin/bagianKategori", "jurnal", "bagianKategori");
+        register(2000460504L, "/jurnal/admin/edisiDaftarIsi", "jurnal", "edisiDaftarIsi");
+        register(2000460505L, "/jurnal/admin/submission", "jurnal", "submission");
+        register(2000460506L, "/jurnal/admin/penugasanEditor", "jurnal", "penugasanEditor");
+        register(2000460507L, "/jurnal/admin/reviewerKeahlian", "jurnal", "reviewerKeahlian");
+        register(2000460508L, "/jurnal/admin/prosesReview", "jurnal", "prosesReview");
+        register(2000460509L, "/jurnal/admin/copyediting", "jurnal", "copyediting");
+        register(2000460510L, "/jurnal/admin/produksiGalley", "jurnal", "produksiGalley");
+        register(2000460511L, "/jurnal/admin/publikasi", "jurnal", "publikasi");
+        register(2000460512L, "/jurnal/admin/identifier", "jurnal", "identifier");
+        register(2000460513L, "/jurnal/admin/penggunaPeran", "jurnal", "penggunaPeran");
+        register(2000460514L, "/jurnal/admin/pengumuman", "jurnal", "pengumuman");
+        register(2000460515L, "/jurnal/admin/situsNavigasi", "jurnal", "situsNavigasi");
+        register(2000460516L, "/jurnal/admin/emailNotifikasi", "jurnal", "emailNotifikasi");
+        register(2000460517L, "/jurnal/admin/langganan", "jurnal", "langganan");
+        register(2000460518L, "/jurnal/admin/pembayaran", "jurnal", "pembayaran");
+        register(2000460519L, "/jurnal/admin/statistik", "jurnal", "statistik");
+        register(2000460520L, "/jurnal/admin/pluginIntegrasi", "jurnal", "pluginIntegrasi");
+        register(2000460521L, "/jurnal/admin/importOjs", "jurnal", "importOjs");
+        register(2000460522L, "/jurnal/admin/rekonsiliasiImport", "jurnal", "rekonsiliasiImport");
+        register(2000460523L, "/jurnal/admin/laporan", "jurnal", "laporan");
+        register(2000460524L, "/jurnal/admin/workflow", "jurnal", "workflow");
+        register(2000460525L, "/jurnal/admin/templateKosakata", "jurnal", "templateKosakata");
+        register(2000460526L, "/jurnal/admin/jobIntegrasi", "jurnal", "jobIntegrasi");
+        register(2000460527L, "/jurnal/admin/audit", "jurnal", "audit");
+        register(2000460528L, "/jurnal/admin/sistem", "jurnal", "sistem");
     }
 
     private NewUiRouteRegistry() {

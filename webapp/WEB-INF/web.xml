@@ -576,6 +576,12 @@
 		<servlet-class>ais.action.servlet.RepositoryWorkspace</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Integrated scientific journal public portal and protected administration</description>
+		<display-name>Jurnal Terpadu</display-name>
+		<servlet-name>jurnal</servlet-name>
+		<servlet-class>ais.action.servlet.Jurnal</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>login2</display-name>
@@ -1454,6 +1460,14 @@
 	<servlet-mapping>
 		<servlet-name>repositoryWorkspace</servlet-name>
 		<url-pattern>/repository-workspace</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal</servlet-name>
+		<url-pattern>/jurnal</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal</servlet-name>
+		<url-pattern>/jurnal/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login2</servlet-name>

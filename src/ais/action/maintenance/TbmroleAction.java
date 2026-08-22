@@ -198,6 +198,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig inventorySalesLandingPage;
 	private MyCheckboxConfig bolehLihatSemuaToko;
 	private Map<Long, MyCheckboxConfig> tokoAksesCheckboxMap;
+	private Map<String, MyCheckboxConfig> jurnalAksesCheckboxMap;
+	private String jurnalAksesJsonAwal;
 	/**
 	 * Checkbox grid Create/Update/Delete/Approve/Reject per menu {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD}
 	 * -- kunci peta {@code "<kunci>_<aksi>"} (mis. {@code "produk_create"}), lihat {@link #appendBarisAksesCrud}.
@@ -1784,6 +1786,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		org.zkoss.zul.Div panelPenamaan = btnTabRole.tambahTab(0, "Penamaan Hak Akses", "/img/svg/key.svg");
 		org.zkoss.zul.Div panelDashboard = btnTabRole.tambahTab(1, "Dashboard & Menu", "/img/svg/dashboard-chart.svg");
 		org.zkoss.zul.Div panelPedagang = btnTabRole.tambahTab(2, "Hak Akses Pedagang", "/img/svg/user-business.svg");
+		org.zkoss.zul.Div panelJurnal = btnTabRole.tambahTab(3, "Hak Akses Pengelolaan Jurnal", "/img/svg/book.svg");
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
@@ -1832,6 +1835,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		columnPedagang.setParent(columnsPedagang);
 		final Rows rowsPedagang = new Rows();
 		rowsPedagang.setParent(gridPedagang);
+		bangunPanelHakAksesJurnal(panelJurnal, tbmrole);
 
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
@@ -2565,6 +2569,102 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		return hasil;
 	}
 
+	/** Membentuk tab jurnal dari katalog tunggal; default selalu tidak dicentang. */
+	private void bangunPanelHakAksesJurnal(org.zkoss.zul.Div panel, Tbmrole role) {
+		jurnalAksesJsonAwal = role == null ? null : role.getJurnalAksesJson();
+		jurnalAksesCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		MyGrid grid = new MyGrid();
+		grid.setWidth("100%");
+		grid.setParent(panel);
+		Columns columns = new Columns();
+		columns.setParent(grid);
+		MyColumnConfig labelColumn = new MyColumnConfig();
+		labelColumn.setWidth("28%");
+		labelColumn.setParent(columns);
+		new MyColumnConfig().setParent(columns);
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		for (ais.common.JurnalAksesKatalog.Entri entri : ais.common.JurnalAksesKatalog.DAFTAR) {
+			MyFormRow row = new MyFormRow();
+			row.setValign("top");
+			row.setParent(rows);
+			row.appendChild(new ais.ui.util.MyLabelConfig(entri.child + " - " + entri.label));
+			org.zkoss.zul.Hbox actions = new org.zkoss.zul.Hbox();
+			actions.setSpacing("8px");
+			actions.setParent(row);
+			tambahCheckboxJurnal(actions, "menu:" + entri.kunci, "Buka",
+					ais.common.JurnalAksesKatalog.bolehMenu(jurnalAksesJsonAwal, entri.kunci));
+			for (String aksi : ais.common.JurnalAksesKatalog.AKSI_CRUD) {
+				tambahCheckboxJurnal(actions, "crud:" + entri.kunci + ":" + aksi,
+						labelAksiJurnal(aksi), ais.common.JurnalAksesKatalog.bolehCrud(jurnalAksesJsonAwal, entri.kunci, aksi));
+			}
+			final String prefix = "crud:" + entri.kunci + ":";
+			final MyCheckboxConfig semua = new MyCheckboxConfig("Semua");
+			semua.setParent(actions);
+			semua.addEventListener("onCheck", new EventListener() {
+				@Override public void onEvent(Event event) {
+					for (String aksi : ais.common.JurnalAksesKatalog.AKSI_CRUD) {
+						MyCheckboxConfig checkbox = jurnalAksesCheckboxMap.get(prefix + aksi);
+						if (checkbox != null) checkbox.setChecked(semua.isChecked());
+					}
+				}
+			});
+		}
+
+		MyFormRow header = new MyFormRow();
+		header.setParent(rows);
+		header.appendChild(new ais.ui.util.MyLabelConfig("Operasi workflow khusus"));
+		header.appendChild(new ais.ui.util.MyLabelConfig("Izin ini tetap dipotong scope jurnal, penugasan, status, dan anonimitas."));
+		for (String aksi : ais.common.JurnalAksesKatalog.AKSI_WORKFLOW) {
+			MyFormRow row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new ais.ui.util.MyLabelConfig(aksi));
+			org.zkoss.zul.Hbox box = new org.zkoss.zul.Hbox();
+			box.setParent(row);
+			tambahCheckboxJurnal(box, "workflow:" + aksi, "Izinkan",
+					ais.common.JurnalAksesKatalog.bolehWorkflow(jurnalAksesJsonAwal, aksi));
+		}
+	}
+
+	private void tambahCheckboxJurnal(org.zkoss.zul.Hbox parent, String key, String label, boolean checked) {
+		MyCheckboxConfig checkbox = new MyCheckboxConfig(label);
+		checkbox.setChecked(checked);
+		checkbox.setParent(parent);
+		jurnalAksesCheckboxMap.put(key, checkbox);
+	}
+
+	private String labelAksiJurnal(String aksi) {
+		if ("read".equals(aksi)) return "Read";
+		if ("create".equals(aksi)) return "Create";
+		if ("update".equals(aksi)) return "Update";
+		if ("delete".equals(aksi)) return "Delete";
+		if ("approve".equals(aksi)) return "Approve";
+		return "Reject";
+	}
+
+	private String buildJurnalAksesJson() throws org.json.JSONException {
+		JSONObject root = ais.common.JurnalAksesKatalog.modelUntukEditor(jurnalAksesJsonAwal);
+		JSONObject menu = root.getJSONObject("menu");
+		JSONObject crud = root.getJSONObject("crud");
+		JSONObject workflow = root.getJSONObject("workflow");
+		for (ais.common.JurnalAksesKatalog.Entri entri : ais.common.JurnalAksesKatalog.DAFTAR) {
+			menu.put(entri.kunci, jurnalChecked("menu:" + entri.kunci));
+			JSONObject perResource = crud.getJSONObject(entri.kunci);
+			for (String aksi : ais.common.JurnalAksesKatalog.AKSI_CRUD)
+				perResource.put(aksi, jurnalChecked("crud:" + entri.kunci + ":" + aksi));
+		}
+		for (String aksi : ais.common.JurnalAksesKatalog.AKSI_WORKFLOW)
+			workflow.put(aksi, jurnalChecked("workflow:" + aksi));
+		ais.common.JurnalAksesKatalog.validasiUntukSimpan(root.toString());
+		return root.toString();
+	}
+
+	private boolean jurnalChecked(String key) {
+		MyCheckboxConfig checkbox = jurnalAksesCheckboxMap == null ? null : jurnalAksesCheckboxMap.get(key);
+		return checkbox != null && checkbox.isChecked();
+	}
+
 	/** Lebar tetap tiap kolom checkbox CRUD -- dipakai SAMA di header ({@link #tambahHeaderKolomCrud})
 	 * &amp; tiap baris ({@link #appendBarisAksesCrud}) supaya kolomnya lurus, dan cukup sempit (tanpa
 	 * label teks per-checkbox) supaya 6 kolom muat satu baris di panel modal yang sempit -- checkbox
@@ -2918,6 +3018,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setDashboardKoperasi(dashboardKoperasi.isChecked());
 		tbmrole.setEbisnisMenu(buildEbisnisMenuJson());
 		tbmrole.setTokoAksesJson(buildTokoAksesJson());
+		tbmrole.setJurnalAksesJson(buildJurnalAksesJson());
 		tbmrole.setBolehLihatSemuaToko(Boolean.valueOf(
 				bolehLihatSemuaToko != null && bolehLihatSemuaToko.isChecked()));
 		tbmrole.setMengajukanPengajuanPegawaiLain(mengajukanPengajuanPegawaiLain.isChecked());

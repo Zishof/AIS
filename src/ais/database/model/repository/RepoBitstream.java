@@ -39,6 +39,11 @@ public class RepoBitstream extends GeneralValueObject {
     private Date virusScannedAt;
     private Boolean signatureValid;
     private Long fileVersion;
+    private String journalStage;
+    private String journalGenre;
+    private Integer reviewRound;
+    private String storageState;
+    private Long contentRef;
     
     // Audit & Default Fields
     private String oleh;
@@ -132,6 +137,12 @@ public class RepoBitstream extends GeneralValueObject {
     @Column(name = "file_version")
     public Long getFileVersion() { return fileVersion == null ? Long.valueOf(1L) : fileVersion; }
     public void setFileVersion(Long fileVersion) { this.fileVersion = fileVersion; }
+
+    @Column(name="journal_stage",length=60) public String getJournalStage(){return journalStage;} public void setJournalStage(String v){journalStage=v;}
+    @Column(name="journal_genre",length=80) public String getJournalGenre(){return journalGenre;} public void setJournalGenre(String v){journalGenre=v;}
+    @Column(name="review_round") public Integer getReviewRound(){return reviewRound;} public void setReviewRound(Integer v){reviewRound=v;}
+    @Column(name="storage_state",length=40) public String getStorageState(){return storageState==null?"PENDING_CONTENT":storageState;} public void setStorageState(String v){storageState=v;}
+    @Column(name="content_ref") public Long getContentRef(){return contentRef;} public void setContentRef(Long v){contentRef=v;}
 
     // --- Audit Methods ---
     public String getOlehId() { return olehId; }

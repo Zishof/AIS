@@ -81,6 +81,11 @@ public class Diskusi extends GeneralValueObject {
 
 	private Jurusan jurusan;
 	private Fakultas fakultas;
+	private Long jurnalPenelitianId;
+	private Long repoItemId;
+	private String stageKey;
+	private String visibility;
+	private String anonymityMode;
 
 	public Diskusi() {
 	}
@@ -177,5 +182,16 @@ public class Diskusi extends GeneralValueObject {
 	public Date getTanggal() {
 		return tanggal;
 	}
+
+	@Column(name="jurnal_penelitian_id") public Long getJurnalPenelitianId(){return jurnalPenelitianId;}
+	public void setJurnalPenelitianId(Long v){jurnalPenelitianId=v;}
+	@Column(name="repo_item_id") public Long getRepoItemId(){return repoItemId;}
+	public void setRepoItemId(Long v){repoItemId=v;}
+	@Column(name="stage_key",length=80) public String getStageKey(){return stageKey;}
+	public void setStageKey(String v){stageKey=v;}
+	@Column(name="visibility",length=40) public String getVisibility(){return visibility;}
+	public void setVisibility(String v){visibility=v;}
+	@Column(name="anonymity_mode",length=30) public String getAnonymityMode(){return anonymityMode;}
+	public void setAnonymityMode(String v){anonymityMode=v;}
 
 }

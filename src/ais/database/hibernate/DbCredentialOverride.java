@@ -65,6 +65,10 @@ public final class DbCredentialOverride {
 			if (configuration == null || prefix == null) {
 				return;
 			}
+			if (terapkanEnvironmentJurnal(configuration, prefix)) {
+				System.out.println("DbCredentialOverride: override environment jurnal diterapkan untuk factory '" + prefix + "'");
+				return;
+			}
 			Properties eksternal = muatBerkas();
 			if (eksternal == null || eksternal.isEmpty()) {
 				return;
@@ -85,6 +89,26 @@ public final class DbCredentialOverride {
 			}
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "DbCredentialOverride.terapkan:" + prefix);
 		}
+	}
+
+	/** Kontrak environment SIT/UAT; nilai secret tidak pernah dicetak. */
+	private static boolean terapkanEnvironmentJurnal(Configuration configuration, String prefix) {
+		if (!"utama".equals(prefix)) return false;
+		String name = System.getenv("AIS_JURNAL_DB_NAME");
+		String user = System.getenv("AIS_JURNAL_DB_USER");
+		String password = System.getenv("AIS_JURNAL_DB_PASSWORD");
+		if (name == null || name.trim().isEmpty() || user == null || user.trim().isEmpty()
+				|| password == null || password.isEmpty()) return false;
+		String host = System.getenv("AIS_JURNAL_DB_HOST");
+		String port = System.getenv("AIS_JURNAL_DB_PORT");
+		if (host == null || host.trim().isEmpty()) host = "localhost";
+		if (port == null || !port.matches("[0-9]{1,5}")) port = "5432";
+		if (!name.matches("[A-Za-z0-9_]+") || !host.matches("[A-Za-z0-9_.:-]+"))
+			throw new IllegalArgumentException("Konfigurasi database jurnal tidak valid");
+		configuration.setProperty("hibernate.connection.url", "jdbc:postgresql://" + host + ":" + port + "/" + name);
+		configuration.setProperty("hibernate.connection.username", user);
+		configuration.setProperty("hibernate.connection.password", password);
+		return true;
 	}
 
 	private static Properties muatBerkas() {

@@ -43,6 +43,7 @@ import ais.database.model.Tbmuser;
 
 
 public class AnggotaArtikel extends GeneralValueObject {
+	private Long repoContributorId;
 
 	/**
 	 * 
@@ -81,6 +82,8 @@ public class AnggotaArtikel extends GeneralValueObject {
 
 	public AnggotaArtikel() {
 	}
+	@Column(name="repo_contributor_id") public Long getRepoContributorId(){return repoContributorId;}
+	public void setRepoContributorId(Long v){repoContributorId=v;}
 
 	@Id
 	@GeneratedValue(strategy = IDENTITY)

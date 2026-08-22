@@ -221,6 +221,18 @@
 		<mapping class="ais.database.model.repository.RepoAuthorAuthority" />
 		<mapping class="ais.database.model.repository.RepoItemContributor" />
 		<mapping class="ais.database.model.repository.RepoIntegrationEvent" />
+		<mapping class="ais.database.model.jurnal.TemplateEmailJurnal" />
+		<mapping class="ais.database.model.jurnal.LanggananJurnal" />
+		<mapping class="ais.database.model.jurnal.UndanganPeranJurnal" />
+		<mapping class="ais.database.model.jurnal.PesertaDiskusiJurnal" />
+		<mapping class="ais.database.model.jurnal.PenugasanTahapJurnal" />
+		<mapping class="ais.database.model.jurnal.PenugasanReviewerJurnal" />
+		<mapping class="ais.database.model.jurnal.AgregatPenggunaanJurnal" />
+		<mapping class="ais.database.model.jurnal.RentangIpLanggananJurnal" />
+		<mapping class="ais.database.model.jurnal.ImportSumberOjs" />
+		<mapping class="ais.database.model.jurnal.ImportJobOjs" />
+		<mapping class="ais.database.model.jurnal.ImportCheckpointOjs" />
+		<mapping class="ais.database.model.jurnal.ImportMappingOjs" />
 
 
 

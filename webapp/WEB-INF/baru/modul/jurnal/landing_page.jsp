@@ -1,0 +1,9 @@
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jurnal Ilmiah eCampus</title><meta name="description" content="Portal jurnal ilmiah terpadu eCampus">
+<style>body{font-family:Arial,sans-serif;margin:0;color:#17233b;background:#f5f7fb}header,main,footer{max-width:1120px;margin:auto;padding:24px}.hero{background:#173a69;color:white}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.card{background:white;border:1px solid #dfe5ef;border-radius:12px;padding:18px}a{color:#174ea6}.muted{color:#60708a}</style></head><body>
+<header class="hero"><h1>Jurnal Ilmiah eCampus</h1><p>Pengajuan, review, penerbitan, dan diseminasi ilmiah dalam satu portal.</p></header><main>
+<c:choose><c:when test="${jurnalView == 'article'}"><article class="card"><h1><c:out value="${jurnalArticle.title}"/></h1><p><c:out value="${jurnalArticle.authors}"/></p><p><c:out value="${jurnalArticle.abstractText}"/></p><c:if test="${not empty jurnalArticle.doi}"><p>DOI: <c:out value="${jurnalArticle.doi}"/></p></c:if></article></c:when>
+<c:otherwise><h2>Jurnal</h2><div class="grid"><c:forEach items="${jurnalHome.journals}" var="j"><section class="card"><h3><c:out value="${j.name}"/></h3><p class="muted"><c:out value="${j.description}"/></p></section></c:forEach></div>
+<h2>Artikel terbaru</h2><div class="grid"><c:forEach items="${jurnalHome.latest}" var="a"><article class="card"><h3><a href="${pageContext.request.contextPath}/jurnal/article/${a.id}"><c:out value="${a.title}"/></a></h3><p><c:out value="${a.authors}"/></p></article></c:forEach></div></c:otherwise></c:choose></main><footer>eCampus Integrated Journal</footer></body></html>

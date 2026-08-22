@@ -27,6 +27,7 @@ public class RepoWorkflowEvent implements Serializable {
     private String actorName;
     private String requestId;
     private Date createdAt;
+    private Integer roundNumber;
 
     @Id @GeneratedValue(strategy = IDENTITY)
     @Column(name = "id", insertable = false, nullable = false, unique = true)
@@ -59,4 +60,6 @@ public class RepoWorkflowEvent implements Serializable {
     @Temporal(TemporalType.TIMESTAMP) @Column(name = "created_at", nullable = false)
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+    @Column(name="round_number") public Integer getRoundNumber(){return roundNumber;}
+    public void setRoundNumber(Integer v){roundNumber=v;}
 }

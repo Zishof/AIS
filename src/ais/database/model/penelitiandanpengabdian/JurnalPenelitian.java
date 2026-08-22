@@ -83,6 +83,9 @@ public class JurnalPenelitian extends GeneralValueObject {
 	private Long journalId;
 	private String korespondensi;
 	private String korespondensiGrupPengguna;
+	private Long repoCollectionId;
+	private String tenantKey;
+	private String defaultLocale;
 
 	public JurnalPenelitian() {
 	}
@@ -154,5 +157,12 @@ public class JurnalPenelitian extends GeneralValueObject {
 	public void setKorespondensiGrupPengguna(String korespondensiGrupPengguna) {
 		this.korespondensiGrupPengguna = korespondensiGrupPengguna;
 	}
+
+	@Column(name="repo_collection_id") public Long getRepoCollectionId(){return repoCollectionId;}
+	public void setRepoCollectionId(Long v){repoCollectionId=v;}
+	@Column(name="tenant_key",length=120) public String getTenantKey(){return tenantKey;}
+	public void setTenantKey(String v){tenantKey=v;}
+	@Column(name="default_locale",length=20) public String getDefaultLocale(){return defaultLocale==null?"id_ID":defaultLocale;}
+	public void setDefaultLocale(String v){defaultLocale=v;}
 
 }

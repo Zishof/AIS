@@ -42,6 +42,7 @@ import ais.common.Common;
 @Audited
 @Table(schema = "public", name = "lampiran_lain")
 public class LampiranLain extends FileFotoLain {
+	public static final String JURNAL_REPO_BITSTREAM = "JURNAL_REPO_BITSTREAM";
 	private String lokasiSimpan;
 
 	public String getLokasiSimpan() {

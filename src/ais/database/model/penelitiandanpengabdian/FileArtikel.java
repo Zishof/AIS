@@ -40,6 +40,7 @@ import ais.database.model.GeneralValueObject;
 
 
 public class FileArtikel extends GeneralValueObject {
+	private Long repoBitstreamId;
 
 	/**
 	 * 
@@ -89,6 +90,8 @@ public class FileArtikel extends GeneralValueObject {
 
 	public FileArtikel() {
 	}
+	@Column(name="repo_bitstream_id") public Long getRepoBitstreamId(){return repoBitstreamId;}
+	public void setRepoBitstreamId(Long v){repoBitstreamId=v;}
 
 	@Id
 	@GeneratedValue(strategy = IDENTITY)

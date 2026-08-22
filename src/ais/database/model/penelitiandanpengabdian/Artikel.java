@@ -144,6 +144,7 @@ public class Artikel extends DataSop {
 
 	private ScholarArticle scholarArticle;
 	private Date setujuiTanggal;
+	private Long repoItemId;
 	private Tbmuser disetujiOleh;
 	private Tbmuser diajukanOleh;
 	private DisposisiSop disposisiSop;
@@ -645,6 +646,9 @@ public class Artikel extends DataSop {
 	public void setSetujuiTanggal(Date setujuiTanggal) {
 		this.setujuiTanggal = setujuiTanggal;
 	}
+
+	@Column(name="repo_item_id") public Long getRepoItemId(){return repoItemId;}
+	public void setRepoItemId(Long v){repoItemId=v;}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diajukan_oleh", nullable = true)

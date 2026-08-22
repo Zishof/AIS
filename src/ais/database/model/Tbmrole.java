@@ -221,6 +221,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 */
 	private String ebisnisMenu;
 	private String tokoAksesJson;
+	private String jurnalAksesJson;
 	private Boolean bolehLihatSemuaToko;
 	private SatuanKerja satuanKerja;
 
@@ -978,6 +979,16 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	public void setTokoAksesJson(String tokoAksesJson) {
 		this.tokoAksesJson = tokoAksesJson;
+	}
+
+	/** Hak akses jurnal ilmiah; interpretasi hanya melalui JurnalAksesKatalog. */
+	@Column(name = "jurnal_akses_json", columnDefinition = "text")
+	public String getJurnalAksesJson() {
+		return jurnalAksesJson == null || jurnalAksesJson.trim().isEmpty() ? null : jurnalAksesJson.trim();
+	}
+
+	public void setJurnalAksesJson(String jurnalAksesJson) {
+		this.jurnalAksesJson = jurnalAksesJson;
 	}
 
 	/**
