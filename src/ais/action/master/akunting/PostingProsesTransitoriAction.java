@@ -1175,4 +1175,229 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 		});
 	}
 
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Kembaran non-ZK dari tombol "Posting Semua" dan "Batalkan Posting Semua" di
+	// halaman ini: tanpa dialog, tanpa label progress, tanpa thread sendiri, dan
+	// rentang tanggalnya datang sebagai parameter -- bukan dari datebox layar.
+	// Pola sama dgn PostingKasKecilAction/PostingKasBesarAction/PostingProsesTransferAction.
+	//
+	// PEMELIHARAAN: logika per-dokumen di sini HARUS tetap identik dengan
+	// {@link #onPostingSemua}. Bila penentuan akun debet/kredit transitori berubah,
+	// ubah di KEDUA tempat.
+	// =====================================================================
+
+	/**
+	 * Kriteria transitori yang layak diposting pada rentang tanggal, tanpa bergantung pada
+	 * komponen layar. Sama dengan bagian {@link #initCriteria(boolean)} yang tidak berhubungan
+	 * dgn kotak pencarian, dan sama pula dgn kriteria baris "Transitori" pada dasbor Draft
+	 * Jurnal -- termasuk saringan {@code transfer = true} yang membatasi transitori ke jenis
+	 * yang memang berpasangan dgn pengajuan transfer.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		Criteria c = session.createCriteria(Transitori.class)
+				.createAlias("prosesTransitori", "prosesTransitori")
+				.createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+				.add(Restrictions.isNotNull("prosesTransitori.disetujuiOleh"))
+				.add(Restrictions.ne("daftarPengajuanTransfer.nominal", 0.0))
+				.add(Restrictions.isNotNull("daftarPengajuanTransfer.nominal"))
+				.add(Restrictions.eq("transfer", true));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.between("prosesTransitori.tanggalPersetujuan", mulai, sampai));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA transitori terposting dalam rentang.
+	 *
+	 * <p>Dijalankan pada {@code currentNativeSession()} dengan transaksi eksplisit per dokumen.
+	 * Memakai {@code currentSession()} seperti tombol di layar hanya berhasil di dalam permintaan
+	 * ZK, yang kerangkanya meng-commit sesi berjalan; dipanggil dari API perubahannya tidak
+	 * pernah tersimpan sehingga pembatalan melaporkan sukses padahal jurnal dan penanda
+	 * postingnya masih utuh.</p>
+	 *
+	 * <p>Baris {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi}
+	 * adalah induknya; jurnal yang SUDAH closing tidak ikut dihapus.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Transitori> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Transitori transitori : daftar) {
+				try {
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where transitori=" + transitori.getId()
+							+ " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where transitori="
+							+ transitori.getId() + " and closing is null").executeUpdate();
+					transitori.setPostingHistory(null);
+					session.update(transitori);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA transitori yang belum diposting dalam rentang. Logika per-dokumen IDENTIK
+	 * dengan {@link #onPostingSemua}:
+	 *
+	 * <ul>
+	 *   <li>tanggal jurnal = tanggal persetujuan proses transitori;</li>
+	 *   <li>akun debet = akun pengajuan transfer yang berpasangan;</li>
+	 *   <li>akun kredit = akun transitori milik cara pembayaran transfer;</li>
+	 *   <li>nominal diambil dari pengajuan transfer, dan bila &le; 0,1 posisi debet/kredit
+	 *       ditukar -- sama seperti layar;</li>
+	 *   <li>bila pengajuan transfer belum menunjuk balik ke transitori ini
+	 *       ({@code transitoriData} kosong), tautannya dilengkapi lebih dulu. Langkah ini ada
+	 *       di layar dan dipertahankan: tanpa tautan itu pembatalan dan penelusuran jurnal
+	 *       kehilangan jejak pasangannya.</li>
+	 * </ul>
+	 *
+	 * <p><b>Satuan kerja.</b> Layar memakai satuan kerja PENGGUNA yang sedang login
+	 * ({@code Common.getSatuanKerja()}, dari konteks sesi ZK). Dari API konteks itu biasanya
+	 * kosong; entitas Transitori sendiri tidak menyimpan satuan kerja, jadi dipakai satuan kerja
+	 * pengguna bila tersedia dan satuan kerja PENGAJUAN TRANSFER pasangannya sebagai cadangan --
+	 * lebih baik daripada jurnal tanpa satuan kerja, yang membuat laporan per unit kehilangan
+	 * barisnya.</p>
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).setProjection(Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.PENGAJUAN_TRANSITORI);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal transitori dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			SatuanKerja satuanKerjaPengguna = null;
+			try {
+				satuanKerjaPengguna = Common.getSatuanKerja();
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) PostingProsesTransitoriAction.postingSemua-satuanKerja");
+			}
+
+			for (Long id : ids) {
+				try {
+					Transitori transitori = (Transitori) session.createCriteria(Transitori.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (transitori == null || transitori.getDaftarPengajuanTransfer() == null) {
+						continue;
+					}
+					DaftarPengajuanTransfer dpt = transitori.getDaftarPengajuanTransfer();
+
+					// Lengkapi tautan balik pengajuan -> transitori, sama seperti layar.
+					if (dpt.getTransitoriData() == null) {
+						try {
+							session.refresh(dpt);
+							dpt.setTransitoriData(transitori);
+							session.getTransaction().begin();
+							Common.refreshUpdate(session, dpt);
+							session.getTransaction().commit();
+						} catch (Exception e) {
+							try {
+								session.getTransaction().rollback();
+							} catch (Exception ex) {
+								// rollback gagal: kegagalan aslinya yang dilaporkan
+							}
+							Common.tampilErrorJikaAdmin(e);
+						}
+					}
+
+					java.util.Date tgl = transitori.getProsesTransitori().getTanggalPersetujuan();
+					Akun akunDebet = dpt.getAkun();
+					Akun akunKredit = dpt.getProsesTransfer() == null ? null
+							: (dpt.getProsesTransfer().getCaraPembayaranTransfer() == null ? null
+									: dpt.getProsesTransfer().getCaraPembayaranTransfer().getAkunTransitori());
+					if (akunDebet == null || akunKredit == null) {
+						// Jurnalnya tidak lengkap: dilewati, sama seperti layar yang tidak
+						// menampilkan tombol posting untuk baris berjurnal tidak valid.
+						continue;
+					}
+
+					Double nominal = dpt.getNominal();
+					String ket = "";
+					try {
+						ket = "Pengajuan transitori \"" + transitori.getNama() + "\" senilai "
+								+ Common.numberFormat.get().format(nominal);
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+					}
+
+					SatuanKerja satuanKerja = satuanKerjaPengguna != null ? satuanKerjaPengguna
+							: dpt.getSatuanKerja();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nominal > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									Boolean.TRUE, ket, tgl, nominal, Double.valueOf(0.0), transitori, satuanKerja,
+									session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									Boolean.TRUE, ket, tgl, nominal, Double.valueOf(0.0), transitori, satuanKerja,
+									session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+					}
+
+					if (tersimpan) {
+						// Penanda posting hanya dipasang bila jurnalnya BENAR-BENAR tersimpan.
+						transitori.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(transitori);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingProsesTransitoriAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransitoriAction.postingSemua-disconnect"); }
+			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransitoriAction.postingSemua-close"); }
+		}
+		return n;
+	}
 }
