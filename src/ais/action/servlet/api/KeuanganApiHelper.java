@@ -40,6 +40,7 @@ public final class KeuanganApiHelper {
 			{ "kas_kecil", "kas_kecil" },
 			{ "penggantian_kas_kecil", "penggantian_kas_kecil" },
 			{ "dana_talangan", "dana_talangan" },
+			{ "reimbursement", "reimbursement" },
 	};
 
 	private KeuanganApiHelper() {
@@ -120,7 +121,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil, dana_talangan.");
+			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil, dana_talangan, reimbursement.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -145,6 +146,8 @@ public final class KeuanganApiHelper {
 				dasborPenggantianKasKecil(session, bulan, hasil);
 			} else if ("dana_talangan".equals(modul)) {
 				dasborDanaTalangan(session, bulan, hasil);
+			} else if ("reimbursement".equals(modul)) {
+				dasborReimbursement(session, bulan, hasil);
 			} else {
 				dasborPj(session, bulan, hasil);
 			}
@@ -626,6 +629,99 @@ public final class KeuanganApiHelper {
 	 * yang sudah disetujui tetapi belum dijurnal. Selama belum disetujui, dana yang
 	 * menjembatani uang muka itu belum dapat dicairkan.
 	 */
+	/**
+	 * Dasbor Reimbursement Pegawai. Modul ini SUDAH diminta layarnya sejak awal
+	 * ({@code tahap: 'reimbursement'}) tetapi belum pernah terdaftar di sini, sehingga
+	 * tab Dasbor-nya dijawab "Modul dasbor tidak dikenali".
+	 *
+	 * <p>Angka yang paling sering ditanyakan: berapa yang menunggu keputusan, berapa yang
+	 * DIKEMBALIKAN untuk direvisi (status khas modul ini), dan berapa yang sudah disetujui
+	 * tetapi belum dibayarkan.</p>
+	 */
+	private static void dasborReimbursement(Session session, int bulan, JSONObject hasil)
+			throws Exception {
+		Connection conn = session.connection();
+		java.sql.Timestamp sejak = awalPeriode(bulan);
+		// Tanggalnya diambil berjenjang: pengajuan -> pengeluaran -> terakhir dirubah,
+		// karena dokumen lama tidak selalu punya tanggal pengajuan.
+		String tgl = "COALESCE(tanggal_pengajuan, tanggal_pengeluaran, tanggal_dirubah)";
+
+		PreparedStatement ps = conn.prepareStatement(
+			"SELECT COALESCE(status,''), count(*), COALESCE(SUM(nominal),0)"
+				+ " FROM akunting.reimbursement_pegawai WHERE " + tgl + " >= ?"
+				+ " GROUP BY COALESCE(status,'')");
+		ps.setTimestamp(1, sejak);
+		ResultSet rs = ps.executeQuery();
+		JSONArray komposisi = new JSONArray();
+		long total = 0;
+		double nilaiTotal = 0, menunggu = 0, revisi = 0, belumBayar = 0;
+		while (rs.next()) {
+			String st = rs.getString(1);
+			long jml = rs.getLong(2);
+			double nilai = rs.getDouble(3);
+			total += jml;
+			nilaiTotal += nilai;
+			if (ais.database.model.akunting.ReimbursementPegawai.DIAJUKAN.equals(st)) {
+				menunggu += nilai;
+			}
+			if (ais.database.model.akunting.ReimbursementPegawai.REVISI.equals(st)) {
+				revisi += nilai;
+			}
+			if (ais.database.model.akunting.ReimbursementPegawai.DISETUJUI.equals(st)) {
+				belumBayar += nilai;
+			}
+			komposisi.put(titik(st.isEmpty() ? "(tanpa status)" : st, jml));
+		}
+		rs.close();
+		ps.close();
+
+		JSONArray kpi = new JSONArray();
+		kpi.put(kartu("Jumlah Pengajuan", String.valueOf(total)));
+		kpi.put(kartu("Nilai Pengajuan", rupiah(nilaiTotal)));
+		kpi.put(kartu("Menunggu Keputusan", rupiah(menunggu)));
+		kpi.put(kartu("Dikembalikan (Revisi)", rupiah(revisi)));
+		kpi.put(kartu("Disetujui, Belum Dibayar", rupiah(belumBayar)));
+
+		hasil.put("kpi", kpi);
+		hasil.put("komposisi", komposisi);
+		hasil.put("komposisiJudul", "Komposisi Status Reimbursement");
+		hasil.put("tren", trenBulanan(conn,
+			"SELECT to_char(" + tgl + ",'YYYY-MM'), COALESCE(SUM(nominal),0), count(*)"
+				+ " FROM akunting.reimbursement_pegawai WHERE " + tgl + " >= ? GROUP BY 1",
+			sejak, bulan));
+		hasil.put("trenJudul", "Tren Nilai Reimbursement per Bulan");
+		hasil.put("peringkat", peringkat(conn,
+			"SELECT COALESCE(j.nama,'(tanpa jenis)'), COALESCE(SUM(r.nominal),0)"
+				+ " FROM akunting.reimbursement_pegawai r"
+				+ " LEFT JOIN akunting.jenis_reimbursement j ON j.id = r.jenis_reimbursement"
+				+ " WHERE COALESCE(r.tanggal_pengajuan, r.tanggal_pengeluaran, r.tanggal_dirubah) >= ?"
+				+ " GROUP BY 1 ORDER BY 2 DESC LIMIT 8", sejak));
+		hasil.put("peringkatJudul", "Jenis Reimbursement Terbesar");
+
+		ps = conn.prepareStatement(
+			"SELECT COALESCE(kode,''), COALESCE(nama,''), COALESCE(nominal,0),"
+				+ " GREATEST(0, DATE_PART('day', now() - " + tgl + "))"
+				+ " FROM akunting.reimbursement_pegawai"
+				+ " WHERE COALESCE(status,'') IN (?, ?)"
+				+ " ORDER BY " + tgl + " ASC LIMIT 15");
+		ps.setString(1, ais.database.model.akunting.ReimbursementPegawai.DIAJUKAN);
+		ps.setString(2, ais.database.model.akunting.ReimbursementPegawai.REVISI);
+		rs = ps.executeQuery();
+		JSONArray daftar = new JSONArray();
+		while (rs.next()) {
+			JSONObject j = new JSONObject();
+			j.put("kode", rs.getString(1));
+			j.put("keterangan", rs.getString(2) + " \u2014 " + rupiah(rs.getDouble(3)));
+			j.put("umurHari", (int) rs.getDouble(4));
+			daftar.put(j);
+		}
+		rs.close();
+		ps.close();
+		hasil.put("daftar", daftar);
+		hasil.put("daftarJudul", "Menunggu Keputusan / Perlu Direvisi");
+		hasil.put("catatanKosong", "Belum ada pengajuan reimbursement pada periode ini.");
+	}
+
 	private static void dasborDanaTalangan(Session session, int bulan, JSONObject hasil) throws Exception {
 		Connection conn = session.connection();
 		java.sql.Timestamp sejak = awalPeriode(bulan);
@@ -757,7 +853,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil, dana_talangan.");
+			tolak(hasil, "Modul cetak tidak dikenali. Yang dapat dicetak dari POS: uang_muka, pj_uang_muka.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -773,6 +869,10 @@ public final class KeuanganApiHelper {
 		try {
 			java.io.File berkas = null;
 			String kode = "";
+			// Tiap modul disebut EKSPLISIT. Dulu hanya uang_muka yang punya cabang dan
+			// sisanya jatuh ke else yang memuat Pertangungjawaban -- sehingga mencetak
+			// Kas Besar/Kas Kecil/Penggantian/Dana Talangan bukan sekadar gagal, tetapi
+			// dapat mencetak DOKUMEN LAIN yang kebetulan ber-id sama.
 			if ("uang_muka".equals(modul)) {
 				UangMuka d = (UangMuka) session.get(UangMuka.class, Long.valueOf(id));
 				if (d == null) {
@@ -781,7 +881,7 @@ public final class KeuanganApiHelper {
 				}
 				kode = d.getKode() == null ? "" : d.getKode();
 				berkas = ais.action.report.format1.akunting.LaporanUangMuka.cetakPdf(d);
-			} else {
+			} else if ("pj_uang_muka".equals(modul)) {
 				Pertangungjawaban d = (Pertangungjawaban) session.get(Pertangungjawaban.class, Long.valueOf(id));
 				if (d == null) {
 					tolak(hasil, "Dokumen tidak ditemukan.");
@@ -789,6 +889,15 @@ public final class KeuanganApiHelper {
 				}
 				kode = d.getKode() == null ? "" : d.getKode();
 				berkas = ais.action.report.format1.akunting.LaporanPertangungjawaban.cetakPdf(d);
+			} else {
+				// LaporanKasBesar, LaporanKasKecil, LaporanPenggantianKasKecil,
+				// LaporanPertangungjawabanKasBesar, dan LaporanDanaTalangan hanya punya
+				// jalur render ZK (konstruktor + generateParameter), belum ada
+				// cetakPdf() headless seperti dua kelas di atas. Menolak dengan jujur jauh
+				// lebih baik daripada menyodorkan berkas dokumen lain.
+				tolak(hasil, "Cetak PDF untuk modul ini belum tersedia di POS; "
+					+ "templat headless-nya belum ada. Sementara ini cetak dari layar ZK.");
+				return;
 			}
 			if (berkas == null || !berkas.exists()) {
 				tolak(hasil, "Dokumen gagal dicetak: templat laporannya belum tersedia di server ini.");
