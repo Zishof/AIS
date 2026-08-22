@@ -23,7 +23,7 @@ public final class JurnalWorkflowService {
             final String language,final Tbmuser actor,final String requestId){
         auth.requireCrud(actor,"submission","create");required(title,"Judul wajib diisi.");
         return write(new Work<RepoItem>(){public RepoItem run(Session s){
-            JournalContext journal=journal(s,collectionId);RepoItem item=new RepoItem();item.setCollectionId(collectionId);
+            JournalContext journal=journal(s,collectionId);auth.requireJournalScope(s,actor,journal.id,null,null,false,null);RepoItem item=new RepoItem();item.setCollectionId(collectionId);
             item.setTenantKey(journal.tenant);item.setDocumentType("JOURNAL_SUBMISSION");item.setWorkflowStatus(DRAFT);
             item.setSyncStatus(DRAFT);item.setTitle(clean(title));item.setAbstractText(clean(abstractText));
             item.setLanguage(blank(language)?"id":clean(language));item.setOwnerId(actor.getUserId());item.setSubmittedAt(new Date());
@@ -36,7 +36,7 @@ public final class JurnalWorkflowService {
             final String comment,final Tbmuser actor,final String requestId){
         String capability=capability(target);if(capability!=null)auth.requireWorkflow(actor,capability);
         else auth.requireCrud(actor,"submission","update");
-        return write(new Work<RepoItem>(){public RepoItem run(Session s){RepoItem item=item(s,itemId);journal(s,item.getCollectionId());
+        return write(new Work<RepoItem>(){public RepoItem run(Session s){RepoItem item=item(s,itemId);JournalContext journal=journal(s,item.getCollectionId());boolean ownerTransition=SUBMITTED.equals(target)||WITHDRAWN.equals(target);auth.requireJournalScope(s,actor,journal.id,item.getId(),item.getOwnerId(),ownerTransition,null);
             if(expectedVersion!=null&&!expectedVersion.equals(item.getLockVersion()))throw new IllegalStateException("Naskah telah berubah; muat ulang.");
             String from=item.getWorkflowStatus();Set<String> allowed=TRANSITIONS.get(from);if(allowed==null||!allowed.contains(target))throw new IllegalStateException("Transisi "+from+" ke "+target+" tidak diizinkan.");
             if((REJECTED.equals(target)||WITHDRAWN.equals(target)||RETRACTED.equals(target))&&blank(comment))throw new IllegalArgumentException("Alasan wajib diisi.");
@@ -50,7 +50,7 @@ public final class JurnalWorkflowService {
             final String anonymity,final Date responseDue,final Date reviewDue,final String formVersion,
             final Tbmuser actor,final String requestId){
         auth.requireWorkflow(actor,"assignReviewer");required(reviewerId,"Reviewer wajib diisi.");if(round<1)throw new IllegalArgumentException("Putaran review tidak valid.");
-        return write(new Work<PenugasanReviewerJurnal>(){public PenugasanReviewerJurnal run(Session s){RepoItem item=item(s,itemId);JournalContext journal=journal(s,item.getCollectionId());
+        return write(new Work<PenugasanReviewerJurnal>(){public PenugasanReviewerJurnal run(Session s){RepoItem item=item(s,itemId);JournalContext journal=journal(s,item.getCollectionId());auth.requireJournalScope(s,actor,journal.id,item.getId(),item.getOwnerId(),false,"REVIEW");
             if(reviewerId.equals(item.getOwnerId()))throw new IllegalArgumentException("Penulis tidak boleh mereview naskahnya sendiri.");
             PenugasanReviewerJurnal a=new PenugasanReviewerJurnal();base(a,journal,actor);a.setItemId(itemId);a.setReviewerId(reviewerId);a.setRoundNumber(round);a.setStatus("INVITED");
             a.setAnonymityMode(validAnonymity(anonymity));a.setInvitedAt(new Date());a.setResponseDueAt(responseDue);a.setReviewDueAt(reviewDue);a.setFormVersionKey(clean(formVersion));s.save(a);

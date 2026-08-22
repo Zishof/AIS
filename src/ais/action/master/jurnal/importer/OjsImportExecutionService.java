@@ -20,6 +20,7 @@ import ais.action.master.jurnal.JurnalAuthorizationService;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.jurnal.*;
+import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
 
 /**
  * Version-aware staging importer. Source access is JDBC read-only; this class never
@@ -38,9 +39,13 @@ public final class OjsImportExecutionService {
         if (p.foundTables == 0) throw new IllegalArgumentException("Tidak ada tabel OJS yang dikenali.");
         Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();
         try { if(own)tx.begin();
+            auth.requireJournalScope(s,actor,journalId,null,null,false,"JOURNAL");
+            JurnalPenelitian journal=(JurnalPenelitian)s.get(JurnalPenelitian.class,journalId);
+            if(journal==null||!Boolean.TRUE.equals(journal.getAktif()))throw new IllegalArgumentException("Jurnal tidak ditemukan.");
+            String scopedTenant=blank(journal.getTenantKey())?"default":clean(journal.getTenantKey());
             Query q=s.createQuery("from ImportSumberOjs where tenantKey=:t and sourceKey=:k and aktif=true");
-            q.setString("t",clean(tenant));q.setString("k",clean(sourceKey));q.setMaxResults(1);
-            ImportSumberOjs x=(ImportSumberOjs)q.uniqueResult();if(x==null){x=new ImportSumberOjs();base(x,journalId,tenant,actor);x.setSourceKey(clean(sourceKey));}
+            q.setString("t",scopedTenant);q.setString("k",clean(sourceKey));q.setMaxResults(1);
+            ImportSumberOjs x=(ImportSumberOjs)q.uniqueResult();if(x==null){x=new ImportSumberOjs();base(x,journalId,scopedTenant,actor);x.setSourceKey(clean(sourceKey));}
             x.setDisplayName(clean(displayName));x.setConnectionReference(clean(connectionReference));x.setDialect(p.dialect);
             x.setOjsVersion(p.version);x.setSchemaSignature(p.schemaSignature);x.setStatus(p.missing.isEmpty()?"READY":"READY_WITH_GAPS");
             if(x.getId()==null)s.save(x);else s.update(x);if(own)tx.commit();return x;
@@ -51,7 +56,7 @@ public final class OjsImportExecutionService {
             OjsImportPreflightService.Config config,int requestedBatch,Tbmuser actor) throws Exception {
         auth.requireWorkflow(actor,"manageImport");
         final int batch=requestedBatch<1?DEFAULT_BATCH:Math.min(requestedBatch,1000);
-        ImportSumberOjs source=loadSource(sourceId);ImportJobOjs job=createJob(source,dryRun,idempotencyKey,actor);
+        ImportSumberOjs source=loadSource(sourceId);auth.requireJournalScope(HibernateUtil.currentSession(),actor,source.getJurnalPenelitianId(),null,null,false,"JOURNAL");ImportJobOjs job=createJob(source,dryRun,idempotencyKey,actor);
         Connection external=null;
         try {
             external=openReadOnly(config);
@@ -65,7 +70,7 @@ public final class OjsImportExecutionService {
         return reloadJob(job.getId());
     }
 
-    public void cancel(Long jobId,Tbmuser actor){auth.requireWorkflow(actor,"manageImport");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();ImportJobOjs j=(ImportJobOjs)s.get(ImportJobOjs.class,jobId);if(j==null)throw new IllegalArgumentException("Job tidak ditemukan.");if("RUNNING".equals(j.getStatus())){j.setStatus("CANCEL_REQUESTED");j.setUpdatedAt(new Date());s.update(j);}if(own)tx.commit();}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
+    public void cancel(Long jobId,Tbmuser actor){auth.requireWorkflow(actor,"manageImport");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();ImportJobOjs j=(ImportJobOjs)s.get(ImportJobOjs.class,jobId);if(j==null)throw new IllegalArgumentException("Job tidak ditemukan.");auth.requireJournalScope(s,actor,j.getJurnalPenelitianId(),null,null,false,"JOURNAL");if("RUNNING".equals(j.getStatus())){j.setStatus("CANCEL_REQUESTED");j.setUpdatedAt(new Date());s.update(j);}if(own)tx.commit();}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
 
     private void importTable(Connection c,OjsImportPreflightService.Config cfg,ImportSumberOjs source,
             ImportJobOjs job,String table,int batch,Tbmuser actor)throws Exception{

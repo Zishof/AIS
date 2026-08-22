@@ -116,6 +116,10 @@ public final class DbCredentialOverride {
 		configuration.setProperty("hibernate.connection.url", "jdbc:postgresql://" + host + ":" + port + "/" + name);
 		configuration.setProperty("hibernate.connection.username", user);
 		configuration.setProperty("hibernate.connection.password", password);
+		// SIT/UAT memakai migration SQL dan gate schema eksplisit. SessionFactory
+		// legacy memetakan banyak modul di luar jurnal, jadi auto-DDL maupun validasi
+		// global tidak boleh mengubah/menggagalkan clone hanya karena modul lain.
+		configuration.setProperty("hibernate.hbm2ddl.auto", "none");
 		return true;
 	}
 

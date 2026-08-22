@@ -33,7 +33,7 @@ public final class Jurnal extends HttpServlet {
             if(path.startsWith("/admin")){admin(req,res,path);return;}
             if("/feed".equals(path)||"/feed.xml".equals(path)){feed(req,res);return;}
             if("/sitemap.xml".equals(path)){sitemap(req,res);return;}
-            if("/oai".equals(path)){oai(req,res);return;}
+            if("/oai".equals(path)){req.getRequestDispatcher("/oai").forward(req,res);return;}
             if(path.startsWith("/citation/")){citation(req,res,path);return;}
             if(path.startsWith("/article/")){Long id=parseLong(path.substring("/article/".length()));JurnalPublicService.ArticleCard item=publicService.article(id);if(item==null){res.sendError(404);return;}req.setAttribute("jurnalView","article");req.setAttribute("jurnalArticle",item);}
             else if(path.startsWith("/issue/")){JurnalPublicService.IssueCard issue=publicService.issue(parseLong(path.substring(7)));if(issue==null){res.sendError(404);return;}req.setAttribute("jurnalView","issue");req.setAttribute("jurnalIssue",issue);}

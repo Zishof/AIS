@@ -582,6 +582,15 @@
 		<servlet-class>ais.action.servlet.Jurnal</servlet-class>
 	</servlet>
 	<servlet>
+		<servlet-name>jurnal-admin-api</servlet-name>
+		<servlet-class>ais.action.servlet.JurnalAdminApi</servlet-class>
+	</servlet>
+	<servlet>
+		<description>Bounded upload and authorized download for integrated journal files</description>
+		<servlet-name>jurnal-file</servlet-name>
+		<servlet-class>ais.action.servlet.JurnalFile</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>login2</display-name>
@@ -1468,6 +1477,14 @@
 	<servlet-mapping>
 		<servlet-name>jurnal</servlet-name>
 		<url-pattern>/jurnal/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal-admin-api</servlet-name>
+		<url-pattern>/jurnal-api/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal-file</servlet-name>
+		<url-pattern>/jurnal-file/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login2</servlet-name>

@@ -16,6 +16,7 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
+import org.zkoss.zul.A;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Group;
@@ -25,7 +26,6 @@ import org.zkoss.zul.Rows;
 import org.zkoss.zul.Tabpanels;
 import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Textbox;
-import org.zkoss.zul.Toolbarbutton;
 import org.zkoss.zul.West;
 
 import ais.action.master.TampilanPengumumanAkademisAction;
@@ -97,24 +97,32 @@ public class TampilanPengumumanPSBAction extends GenericAutowireComposer {
 			searchsampai.setValue(calendar.getTime());
 		}
 
+		size = ((Number) initCriteria(false).setProjection(Projections.rowCount()).uniqueResult()).intValue();
+
 		String desktopWidth = execution.getParameter("desktopWidth");
 		boolean mobile = Common.isMobile() || (desktopWidth != null
 				&& Integer.parseInt(desktopWidth.replaceAll("px", "")) < ConstantValues.UKURAN_BATAS_MOBILE);
 		if (mobile) {
 			menu = new North();
-			((North) menu).setHeight("100%");
+			((North) menu).setHeight(size > 1 ? "280px" : "0px");
 			layoutUtama.appendChild(menu);
 			if (desktopWidth != null) {
 				window.setWidth(desktopWidth);
 			}
 		} else {
 			menu = new West();
-			((West) menu).setWidth("200px");
+			((West) menu).setWidth(size > 1 ? "280px" : "0px");
 			layoutUtama.appendChild(menu);
 		}
 
-		size = ((Number) initCriteria(false).setProjection(Projections.rowCount()).uniqueResult()).intValue();
-		if (menu != null) { menu.setVisible(size > 1); }
+		if (menu != null) {
+			if (menu instanceof North) {
+				((North) menu).setSclass("psb-announcement-menu");
+			} else if (menu instanceof West) {
+				((West) menu).setSclass("psb-announcement-menu");
+			}
+			menu.setVisible(size > 1);
+		}
 		loadMenu();
 
 		if (size <= 5 || !mobile) {
@@ -141,23 +149,27 @@ public class TampilanPengumumanPSBAction extends GenericAutowireComposer {
 
 		North subsubNorth = new North();
 		subsubNorth.setParent(subBorderlayout);
-		subsubNorth.setHeight(size > 1 ? "28px" : "0px");
+		subsubNorth.setHeight(size > 1 ? "48px" : "0px");
 		subsubNorth.setBorder("none");
+		subsubNorth.setSclass("psb-announcement-search");
 
 		Borderlayout subSubBorderlayout = new Borderlayout();
 		subSubBorderlayout.setParent(subsubNorth);
 
 		West subSubwest = new West();
 		subSubwest.setParent(subSubBorderlayout);
-		subSubwest.setWidth("80%");
+		subSubwest.setWidth("70%");
 		subSubwest.setBorder("none");
 
 		cari = new Textbox();
-		cari.setWidth("90%");
+		cari.setWidth("100%");
+		cari.setTooltiptext("Cari judul pengumuman");
 		cari.setParent(subSubwest);
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/search.svg");
-		button.setWidth("90%");
+		button.setWidth("34px");
+		button.setSclass("psb-announcement-search-button");
+		button.setTooltiptext("Cari pengumuman");
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -189,6 +201,7 @@ public class TampilanPengumumanPSBAction extends GenericAutowireComposer {
 		grid.setParent(subcenter);
 		grid.setWidth("100%");
 		grid.setHeight("100%");
+		grid.setSclass("psb-announcement-list");
 
 		rows = new Rows();
 		rows.setParent(grid);
@@ -259,10 +272,13 @@ public class TampilanPengumumanPSBAction extends GenericAutowireComposer {
 				text = pengumumanAkademis.getJudulEn();
 			}
 
+			text = text == null || text.trim().isEmpty() ? "Pengumuman" : text.trim();
 			text = text.length() > 255 ? text.substring(0, 254) + ".." : text;
 
-			final Toolbarbutton toolbarbutton = new ais.ui.util.MyToolbarbuttonConfig(text);
-			toolbarbutton.setStyle("font-size: x-small;");
+			final A toolbarbutton = new A(text);
+			toolbarbutton.setSclass("psb-announcement-link");
+			toolbarbutton.setTooltiptext(text);
+			row.setSclass("psb-announcement-row");
 
 			row.appendChild(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
@@ -277,7 +293,8 @@ public class TampilanPengumumanPSBAction extends GenericAutowireComposer {
 
 		}
 		if (menu instanceof North) {
-			((North) menu).setHeight(((pengumumanAkademises.size() + jumlahkategori) * 30) + "px");
+			int tinggiMenu = (pengumumanAkademises.size() + jumlahkategori) * 44;
+			((North) menu).setHeight(Math.min(Math.max(tinggiMenu, 96), 300) + "px");
 		}
 		pengumumanAkademises = null;
 	}

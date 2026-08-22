@@ -101,18 +101,25 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 				&& Integer.parseInt(desktopWidth.replaceAll("px", "")) < ConstantValues.UKURAN_BATAS_MOBILE);
 		if (mobile) {
 			menu = new North();
-			((North) menu).setHeight(size > 1 ? "100%" : "0px");
+			((North) menu).setHeight(size > 1 ? "280px" : "0px");
 			layoutUtama.appendChild(menu);
 			if (desktopWidth != null) {
 				window.setWidth(desktopWidth);
 			}
 		} else {
 			menu = new West();
-			((West) menu).setWidth(size > 1 ? "200px" : "0px");
+			((West) menu).setWidth(size > 1 ? "280px" : "0px");
 			layoutUtama.appendChild(menu);
 		}
 
-		if (menu != null) { menu.setVisible(size > 1); }
+		if (menu != null) {
+			if (menu instanceof North) {
+				((North) menu).setSclass("pmb-announcement-menu");
+			} else if (menu instanceof West) {
+				((West) menu).setSclass("pmb-announcement-menu");
+			}
+			menu.setVisible(size > 1);
+		}
 
 		loadMenu();
 
@@ -139,8 +146,9 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 
 		North subsubNorth = new North();
 		subsubNorth.setParent(subBorderlayout);
-		subsubNorth.setHeight(size > 1 ? "28px" : "0px");
+		subsubNorth.setHeight(size > 1 ? "48px" : "0px");
 		subsubNorth.setBorder("none");
+		subsubNorth.setSclass("pmb-announcement-search");
 
 		Borderlayout subSubBorderlayout = new Borderlayout();
 		subSubBorderlayout.setParent(subsubNorth);
@@ -151,11 +159,14 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 		subSubwest.setBorder("none");
 
 		cari = new Textbox();
-		cari.setWidth("90%");
+		cari.setWidth("100%");
+		cari.setTooltiptext("Cari judul pengumuman");
 		cari.setParent(subSubwest);
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/search.svg");
-		button.setWidth("90%");
+		button.setWidth("34px");
+		button.setSclass("pmb-announcement-search-button");
+		button.setTooltiptext("Cari pengumuman");
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -187,6 +198,7 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 		grid.setParent(subcenter);
 		grid.setWidth("100%");
 		grid.setHeight("100%");
+		grid.setSclass("pmb-announcement-list");
 
 		rows = new Rows();
 		rows.setParent(grid);
@@ -255,10 +267,13 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 				text = pengumumanAkademis.getJudulEn();
 			}
 
+			text = text == null || text.trim().isEmpty() ? "Pengumuman" : text.trim();
 			text = text.length() > 255 ? text.substring(0, 254) + ".." : text;
 
 			final A toolbarbutton = new A(text);
-			toolbarbutton.setStyle("font-size: x-small;");
+			toolbarbutton.setSclass("pmb-announcement-link");
+			toolbarbutton.setTooltiptext(text);
+			row.setSclass("pmb-announcement-row");
 
 			row.appendChild(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
@@ -273,7 +288,8 @@ public class TampilanPengumumanPMBAction extends GenericAutowireComposer {
 
 		}
 		if (menu instanceof North) {
-			((North) menu).setHeight(((pengumumanAkademises.size() + jumlahkategori) * 40) + "px");
+			int tinggiMenu = (pengumumanAkademises.size() + jumlahkategori) * 44;
+			((North) menu).setHeight(Math.min(Math.max(tinggiMenu, 96), 300) + "px");
 		}
 		pengumumanAkademises = null;
 	}

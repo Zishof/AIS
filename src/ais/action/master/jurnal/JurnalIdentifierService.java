@@ -12,9 +12,46 @@ import ais.database.model.repository.RepoItemMetadata;
 
 /** DOI/URN assignment and state tracking; network deposits use JurnalIntegrationService. */
 public final class JurnalIdentifierService {
-    private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
-    public RepoItem assignDoi(Long itemId,String raw,Tbmuser actor){auth.requireWorkflow(actor,"manageIdentifier");String doi=doi(raw);Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();RepoItem item=item(s,itemId);Number n=(Number)s.createQuery("select count(*) from RepoItem where lower(doi)=:d and id<>:i and aktif=true").setString("d",doi).setLong("i",itemId).uniqueResult();if(n.longValue()>0)throw new IllegalArgumentException("DOI sudah dipakai.");if("PUBLISHED".equals(item.getDoiState())&&!doi.equalsIgnoreCase(item.getDoi()))throw new IllegalStateException("DOI terbit tidak boleh diganti.");item.setDoi(doi);item.setDoiState("ASSIGNED");item.setDoiUpdatedAt(new Date());item.setOlehId(actor.getUserId());s.update(item);if(own)tx.commit();return item;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
-    public String assignUrn(Long itemId,String raw,Tbmuser actor){auth.requireWorkflow(actor,"manageIdentifier");String urn=urn(raw);Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();item(s,itemId);Number n=(Number)s.createQuery("select count(*) from RepoItemMetadata where metadataField='identifier.urn' and lower(metadataValue)=:u and itemId<>:i and aktif=true").setString("u",urn).setLong("i",itemId).uniqueResult();if(n.longValue()>0)throw new IllegalArgumentException("URN sudah dipakai.");Query q=s.createQuery("from RepoItemMetadata where itemId=:i and metadataField='identifier.urn' and aktif=true");q.setLong("i",itemId);q.setMaxResults(1);RepoItemMetadata m=(RepoItemMetadata)q.uniqueResult();if(m==null){m=new RepoItemMetadata();m.setItemId(itemId);m.setMetadataField("identifier.urn");m.setLanguage("*");m.setPlace(0);m.setAktif(Boolean.TRUE);m.setOlehId(actor.getUserId());}else if("PUBLISHED".equals(item(s,itemId).getWorkflowStatus())&&!urn.equalsIgnoreCase(m.getMetadataValue()))throw new IllegalStateException("URN terbit tidak boleh diganti.");m.setMetadataValue(urn);if(m.getId()==null)s.save(m);else s.update(m);if(own)tx.commit();return urn;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
-    public RepoItem markDoiDeposit(Long itemId,boolean success,Tbmuser actor){auth.requireWorkflow(actor,"manageIdentifier");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();RepoItem i=item(s,itemId);if(blank(i.getDoi()))throw new IllegalStateException("DOI belum ditetapkan.");i.setDoiState(success?"REGISTERED":"FAILED");i.setDoiUpdatedAt(new Date());i.setOlehId(actor.getUserId());s.update(i);if(own)tx.commit();return i;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
-    private static RepoItem item(Session s,Long id){RepoItem i=(RepoItem)s.get(RepoItem.class,id);if(i==null||!Boolean.TRUE.equals(i.getAktif())||!("JOURNAL_SUBMISSION".equals(i.getDocumentType())||"JOURNAL_ISSUE".equals(i.getDocumentType())))throw new IllegalArgumentException("Item jurnal tidak ditemukan.");return i;}private static String doi(String v){String x=clean(v).toLowerCase(Locale.ENGLISH).replace("https://doi.org/","").replace("http://dx.doi.org/","").replace("doi:","");if(!x.matches("10\\.[0-9]{4,9}/[-._;()/:a-z0-9]+"))throw new IllegalArgumentException("DOI tidak valid.");return x;}private static String urn(String v){String x=clean(v).toLowerCase(Locale.ENGLISH);if(!x.matches("urn:[a-z0-9][a-z0-9-]{1,31}:[a-z0-9()+,.:=@;$_!*'%/?#-]+"))throw new IllegalArgumentException("URN tidak valid.");return x;}private static boolean blank(String v){return clean(v).length()==0;}private static String clean(String v){return v==null?"":v.trim();}
+    private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
+
+    public RepoItem assignDoi(Long itemId, String raw, Tbmuser actor) {
+        auth.requireWorkflow(actor, "manageIdentifier");
+        String doi = doi(raw); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
+        try { if (own) tx.begin(); RepoItem item = item(s, itemId); auth.requireItemScope(s, actor, item, false, "PUBLICATION");
+            Number n = (Number) s.createQuery("select count(*) from RepoItem where lower(doi)=:d and id<>:i and aktif=true").setString("d", doi).setLong("i", itemId).uniqueResult();
+            if (n.longValue() > 0) throw new IllegalArgumentException("DOI sudah dipakai.");
+            if ("PUBLISHED".equals(item.getDoiState()) && !doi.equalsIgnoreCase(item.getDoi())) throw new IllegalStateException("DOI terbit tidak boleh diganti.");
+            item.setDoi(doi); item.setDoiState("ASSIGNED"); item.setDoiUpdatedAt(new Date()); item.setOlehId(actor.getUserId()); s.update(item);
+            if (own) tx.commit(); return item;
+        } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
+    }
+
+    public String assignUrn(Long itemId, String raw, Tbmuser actor) {
+        auth.requireWorkflow(actor, "manageIdentifier");
+        String urn = urn(raw); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
+        try { if (own) tx.begin(); RepoItem item = item(s, itemId); auth.requireItemScope(s, actor, item, false, "PUBLICATION");
+            Number n = (Number) s.createQuery("select count(*) from RepoItemMetadata where metadataField='identifier.urn' and lower(metadataValue)=:u and itemId<>:i and aktif=true").setString("u", urn).setLong("i", itemId).uniqueResult();
+            if (n.longValue() > 0) throw new IllegalArgumentException("URN sudah dipakai.");
+            Query q = s.createQuery("from RepoItemMetadata where itemId=:i and metadataField='identifier.urn' and aktif=true"); q.setLong("i", itemId); q.setMaxResults(1);
+            RepoItemMetadata m = (RepoItemMetadata) q.uniqueResult();
+            if (m == null) { m = new RepoItemMetadata(); m.setItemId(itemId); m.setMetadataField("identifier.urn"); m.setLanguage("*"); m.setPlace(0); m.setAktif(Boolean.TRUE); m.setOlehId(actor.getUserId()); }
+            else if ("PUBLISHED".equals(item.getWorkflowStatus()) && !urn.equalsIgnoreCase(m.getMetadataValue())) throw new IllegalStateException("URN terbit tidak boleh diganti.");
+            m.setMetadataValue(urn); if (m.getId() == null) s.save(m); else s.update(m); if (own) tx.commit(); return urn;
+        } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
+    }
+
+    public RepoItem markDoiDeposit(Long itemId, boolean success, Tbmuser actor) {
+        auth.requireWorkflow(actor, "manageIdentifier"); Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
+        try { if (own) tx.begin(); RepoItem item = item(s, itemId); auth.requireItemScope(s, actor, item, false, "PUBLICATION");
+            if (blank(item.getDoi())) throw new IllegalStateException("DOI belum ditetapkan.");
+            item.setDoiState(success ? "REGISTERED" : "FAILED"); item.setDoiUpdatedAt(new Date()); item.setOlehId(actor.getUserId()); s.update(item);
+            if (own) tx.commit(); return item;
+        } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
+    }
+
+    private static RepoItem item(Session s, Long id) { RepoItem i = (RepoItem) s.get(RepoItem.class, id); if (i == null || !Boolean.TRUE.equals(i.getAktif()) || !("JOURNAL_SUBMISSION".equals(i.getDocumentType()) || "JOURNAL_ISSUE".equals(i.getDocumentType()))) throw new IllegalArgumentException("Item jurnal tidak ditemukan."); return i; }
+    private static String doi(String v) { String x = clean(v).toLowerCase(Locale.ENGLISH).replace("https://doi.org/", "").replace("http://dx.doi.org/", "").replace("doi:", ""); if (!x.matches("10\\.[0-9]{4,9}/[-._;()/:a-z0-9]+")) throw new IllegalArgumentException("DOI tidak valid."); return x; }
+    private static String urn(String v) { String x = clean(v).toLowerCase(Locale.ENGLISH); if (!x.matches("urn:[a-z0-9][a-z0-9-]{1,31}:[a-z0-9()+,.:=@;$_!*'%/?#-]+")) throw new IllegalArgumentException("URN tidak valid."); return x; }
+    private static boolean blank(String v) { return clean(v).length() == 0; }
+    private static String clean(String v) { return v == null ? "" : v.trim(); }
 }
