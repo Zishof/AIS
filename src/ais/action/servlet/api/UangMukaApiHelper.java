@@ -23,6 +23,7 @@ import ais.database.model.akunting.JenisUangMuka;
 import ais.database.model.surat.NomorSurat;
 import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.akunting.UangMuka;
+import ais.database.model.asset.PermintaanPengadaanMasterAssetDetail;
 import ais.database.model.rab.SatuanKerja;
 import ais.database.model.rab.Workspace;
 import ais.ui.util.WaktuUtil;
@@ -166,7 +167,7 @@ public final class UangMukaApiHelper {
 							+ " m.akun, COALESCE(a.kode,''), COALESCE(a.nama,''),"
 							+ " COALESCE(m.dibuat_oleh,''), COALESCE(m.disetujui_oleh,''),"
 							+ " m.pertangungjawaban, m.posting_history, m.daftar_pengajuan_transfer,"
-							+ " COALESCE(m.tahun,0)"
+							+ " COALESCE(m.tahun,0), COALESCE(m.permintaanpengadaanmasterassets,'')"
 							+ " FROM public.uang_muka m"
 							+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = m.satuan_kerja"
 							+ " LEFT JOIN public.jenis_uang_muka ju ON ju.id = m.jenis_uang_muka"
@@ -263,6 +264,9 @@ public final class UangMukaApiHelper {
 				rs.getLong(28);
 				j.put("punyaTransfer", !rs.wasNull());
 				j.put("tahun", rs.getInt(29));
+				// Baris PR yang menjadi sumber dokumen ini, supaya formulir dapat
+				// memuat ulang pilihannya saat disunting.
+				j.put("prDetailIds", idPr(rs.getString(30)));
 				arr.put(j);
 			}
 			rs.close();
@@ -369,6 +373,224 @@ public final class UangMukaApiHelper {
 		}
 	}
 
+	// ==================================================================== dari PR
+
+	/**
+	 * Memecah kolom {@code permintaanpengadaanmasterassets} (id baris PR dipisah koma)
+	 * menjadi larik angka. Kolomnya memang berupa TEKS di basis data -- bukan relasi --
+	 * sehingga bentuk penyimpanannya dipertahankan apa adanya agar dokumen yang dibuat
+	 * dari Desktop/Android tetap terbaca oleh layar ZK.
+	 */
+	private static JSONArray idPr(String teks) throws Exception {
+		JSONArray arr = new JSONArray();
+		if (teks == null) {
+			return arr;
+		}
+		String[] bagian = teks.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			String t = bagian[i].trim();
+			if (t.isEmpty()) {
+				continue;
+			}
+			try {
+				arr.put(Long.parseLong(t));
+			} catch (NumberFormatException e) {
+				// baris rusak dilewati, bukan alasan menggagalkan pembacaan
+			}
+		}
+		return arr;
+	}
+
+	/**
+	 * Daftar Permintaan Pengadaan (PR) beserta baris-barisnya, untuk pemilih pada
+	 * formulir uang muka. Penyaringnya sama dengan pemilih di layar ZK
+	 * ({@code AmbilDataPermintaanPengadaanMasterAssetBanyak}): PR yang aktif, belum
+	 * ditutup, dan SUDAH DISETUJUI.
+	 *
+	 * <p>Tiap baris membawa {@code bolehPilih}. Baris yang barangnya sudah diterima
+	 * penuh (qty BAST &gt;= jumlah) tidak dapat dipilih -- aturan yang sama dengan ZK,
+	 * yang menampilkannya sebagai label biasa tanpa kotak centang. Baris yang sudah
+	 * tertaut ke uang muka LAIN tetap dapat dipilih (juga seperti ZK), tetapi kode uang
+	 * muka itu ikut dikirim lewat {@code uangMukaKode} supaya layar bisa memperingatkan
+	 * bahwa memilihnya berarti memindahkan tautannya.</p>
+	 */
+	public static void cariPr(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		String cari = request == null ? "" : request.optString("cari", "").trim();
+		long satkerId = request == null ? 0 : request.optLong("satuanKerjaId", 0);
+		long idDokumen = request == null ? 0 : request.optLong("id", 0);
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Connection conn = session.connection();
+			StringBuilder sql = new StringBuilder(
+					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.keterangan,''),"
+							+ " COALESCE(sk.nama,''), COALESCE(w.nama,''), p.workspace,"
+							+ " p.tanggal_persetujuan,"
+							+ " d.id, COALESCE(ma.kode,''), COALESCE(ma.nama,''),"
+							+ " COALESCE(d.jumlah,0), COALESCE(d.hargabeli,0), COALESCE(d.jumlahdatang,0),"
+							+ " d.uang_muka, COALESCE(um.kode,'')"
+							+ " FROM asset.permintaan_pengadaan_master_asset p"
+							+ " JOIN asset.permintaan_pengadaan_master_asset_detail d"
+							+ "   ON d.permintaan_pengadaan_master_asset = p.id"
+							+ " LEFT JOIN asset.master_asset ma ON ma.id = d.masterasset"
+							+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = p.satuan_kerja"
+							+ " LEFT JOIN rab.workspace w ON w.id = p.workspace"
+							+ " LEFT JOIN public.uang_muka um ON um.id = d.uang_muka"
+							+ " WHERE COALESCE(p.aktif,true) = true AND COALESCE(p.tutup,false) = false"
+							+ "   AND p.disetujui_oleh IS NOT NULL");
+			if (!cari.isEmpty()) {
+				sql.append(" AND (p.kode ILIKE ? OR COALESCE(p.keterangan,'') ILIKE ?)");
+			}
+			if (satkerId > 0) {
+				sql.append(" AND (p.satuan_kerja IS NULL OR p.satuan_kerja = ?)");
+			}
+			sql.append(" ORDER BY p.id DESC, ma.nama ASC LIMIT 400");
+
+			PreparedStatement ps = conn.prepareStatement(sql.toString());
+			int i = 1;
+			if (!cari.isEmpty()) {
+				String kw = "%" + cari + "%";
+				ps.setString(i++, kw);
+				ps.setString(i++, kw);
+			}
+			if (satkerId > 0) {
+				ps.setLong(i++, satkerId);
+			}
+			ResultSet rs = ps.executeQuery();
+
+			// Baris dikelompokkan per PR supaya layar dapat menampilkannya bertingkat,
+			// sama seperti grid bertingkat pada pemilih ZK.
+			JSONArray arr = new JSONArray();
+			JSONObject pr = null;
+			long prSekarang = 0;
+			while (rs.next()) {
+				long idPrBaris = rs.getLong(1);
+				if (pr == null || idPrBaris != prSekarang) {
+					pr = new JSONObject();
+					pr.put("id", idPrBaris);
+					pr.put("kode", rs.getString(2));
+					pr.put("keterangan", rs.getString(3));
+					pr.put("satuanKerja", rs.getString(4));
+					pr.put("anggaran", rs.getString(5));
+					long ws = rs.getLong(6);
+					pr.put("workspaceId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(ws));
+					pr.put("tanggalPersetujuan", teksTanggal(rs.getTimestamp(7)));
+					pr.put("baris", new JSONArray());
+					arr.put(pr);
+					prSekarang = idPrBaris;
+				}
+
+				double jumlah = rs.getDouble(11);
+				double harga = rs.getDouble(12);
+				double datang = rs.getDouble(13);
+				long umId = rs.getLong(14);
+				boolean adaUm = !rs.wasNull();
+
+				JSONObject b = new JSONObject();
+				b.put("id", rs.getLong(8));
+				b.put("kodeAsset", rs.getString(9));
+				b.put("namaAsset", rs.getString(10));
+				b.put("jumlah", jumlah);
+				b.put("hargaBeli", harga);
+				b.put("total", jumlah * harga);
+				b.put("qtyDatang", datang);
+				b.put("uangMukaKode", adaUm ? rs.getString(15) : "");
+				// Sudah diterima penuh -> uang mukanya tidak perlu diajukan lagi.
+				boolean penuh = datang >= jumlah;
+				b.put("bolehPilih", !penuh);
+				b.put("alasanTerkunci", penuh ? "Barangnya sudah diterima penuh." : "");
+				// Baris milik dokumen yang sedang disunting tetap tercentang.
+				b.put("milikDokumenIni", adaUm && idDokumen != 0 && umId == idDokumen);
+				pr.getJSONArray("baris").put(b);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Hasil pembacaan baris PR terpilih. */
+	private static class RingkasanPr {
+		double total;
+		String idBaris = "";
+		String idAnggaran = "";
+		int jumlahBaris;
+	}
+
+	/**
+	 * Menjumlahkan nilai baris PR terpilih dengan rumus yang sama seperti
+	 * {@code UangMukaAction}: {@code jumlah x hargaBeli}. Sekaligus menyusun dua kolom
+	 * teks yang disimpan pada dokumen: id baris PR, dan id anggaran milik PR induknya.
+	 */
+	private static RingkasanPr ringkasPr(Session session, JSONArray prDetail) throws Exception {
+		RingkasanPr r = new RingkasanPr();
+		if (prDetail == null) {
+			return r;
+		}
+		for (int i = 0; i < prDetail.length(); i++) {
+			long idBaris = prDetail.optLong(i, 0);
+			if (idBaris == 0) {
+				continue;
+			}
+			PermintaanPengadaanMasterAssetDetail d = (PermintaanPengadaanMasterAssetDetail) session
+					.get(PermintaanPengadaanMasterAssetDetail.class, Long.valueOf(idBaris));
+			if (d == null) {
+				continue;
+			}
+			double jumlah = d.getJumlah() == null ? 0 : d.getJumlah().doubleValue();
+			double harga = d.getHargaBeli() == null ? 0 : d.getHargaBeli().doubleValue();
+			r.total += jumlah * harga;
+			r.jumlahBaris++;
+			r.idBaris += r.idBaris.isEmpty() ? String.valueOf(idBaris) : "," + idBaris;
+			if (d.getPermintaanPengadaanMasterAsset() != null
+					&& d.getPermintaanPengadaanMasterAsset().getWorkspace() != null) {
+				String ws = String.valueOf(d.getPermintaanPengadaanMasterAsset().getWorkspace().getId());
+				r.idAnggaran += r.idAnggaran.isEmpty() ? ws : "," + ws;
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * Menautkan baris PR terpilih ke dokumen ini dan MELEPAS baris yang tidak lagi
+	 * dipilih. Layar ZK menautkan lewat {@code assetDetail.setUangMuka(uangMuka)};
+	 * pelepasannya ditambahkan di sini karena tanpa itu baris yang dibuang dari
+	 * formulir akan tetap tercatat sebagai milik dokumen ini selamanya.
+	 */
+	private static void tautkanPr(Session session, UangMuka um, JSONArray prDetail) throws Exception {
+		java.util.HashSet<Long> dipilih = new java.util.HashSet<Long>();
+		for (int i = 0; prDetail != null && i < prDetail.length(); i++) {
+			long v = prDetail.optLong(i, 0);
+			if (v != 0) {
+				dipilih.add(Long.valueOf(v));
+			}
+		}
+
+		java.util.List<?> lama = session.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
+				.add(Restrictions.eq("uangMuka", um)).list();
+		for (int i = 0; i < lama.size(); i++) {
+			PermintaanPengadaanMasterAssetDetail d = (PermintaanPengadaanMasterAssetDetail) lama.get(i);
+			if (!dipilih.contains(d.getId())) {
+				d.setUangMuka(null);
+				session.update(d);
+			}
+		}
+
+		java.util.Iterator<Long> it = dipilih.iterator();
+		while (it.hasNext()) {
+			PermintaanPengadaanMasterAssetDetail d = (PermintaanPengadaanMasterAssetDetail) session
+					.get(PermintaanPengadaanMasterAssetDetail.class, it.next());
+			if (d != null) {
+				d.setUangMuka(um);
+				session.update(d);
+			}
+		}
+	}
+
 	// ==================================================================== simpan
 
 	/**
@@ -394,6 +616,7 @@ public final class UangMukaApiHelper {
 		Date sampai = tanggal(request, "sampai");
 		Date selesai = tanggal(request, "selesai");
 		double nilai = request.optDouble("nilai", 0);
+		JSONArray prDetail = request.optJSONArray("prDetailIds");
 		String statusDokumen = request.optString("statusDokumen", UangMuka.PENGAJUAN).trim();
 
 		// --- urutan validasi disamakan dengan layar ZK
@@ -405,7 +628,9 @@ public final class UangMukaApiHelper {
 			tolak(hasil, "Judul Pengajuan belum diisi.");
 			return;
 		}
-		if (akunId <= 0 && tanpaAnggaran) {
+		// Akun hanya wajib pada pengajuan TANPA anggaran yang bukan dari PR -- di layar
+		// ZK baris akun memang hanya tampil ketika tanpaAnggaran && !ambilDariPr.
+		if (akunId == 0 && tanpaAnggaran && !ambilDariPr) {
 			tolak(hasil, "Akun belum dipilih.");
 			return;
 		}
@@ -425,8 +650,19 @@ public final class UangMukaApiHelper {
 			tolak(hasil, "Tanggal Laporan belum diisi.");
 			return;
 		}
-		if (nilai <= 0) {
+		// Pengajuan berbasis PR mengambil nilainya DARI baris PR yang dipilih, sama
+		// seperti layar ZK yang mengisi kolom Nilai begitu PR-nya dipilih. Jadi
+		// pemeriksaan "nilai belum diisi" hanya berlaku untuk pengajuan biasa.
+		if (nilai <= 0 && !ambilDariPr) {
 			tolak(hasil, "Nilai belum diisi.");
+			return;
+		}
+		if (ambilDariPr && (prDetail == null || prDetail.length() == 0)) {
+			tolak(hasil, "Mohon maaf, Permintaan Pengadaan barang/jasa belum dipilih."
+					+ " Langkah yang dapat dilakukan: (1) Pilih Permintaan Pengadaan dari daftar"
+					+ " yang tersedia; (2) Pastikan permintaan pengadaan sudah diajukan dan"
+					+ " disetujui; (3) ulangi proses simpan. Jika masih mengalami kendala,"
+					+ " hubungi Administrator atau tim teknis.");
 			return;
 		}
 		if (UangMuka.DISETUJU.equals(statusDokumen) && !bolehAksi(tbmuser, "approve")) {
@@ -471,16 +707,41 @@ public final class UangMukaApiHelper {
 				um.setSaldo(Double.valueOf(sisaD));
 			}
 
+			// --- pengajuan berbasis PR
+			RingkasanPr ringkas = ambilDariPr ? ringkasPr(session, prDetail) : null;
+			if (ambilDariPr) {
+				if (ringkas.jumlahBaris == 0) {
+					tolak(hasil, "Baris Permintaan Pengadaan yang dipilih tidak ditemukan lagi."
+							+ " Muat ulang daftarnya lalu pilih kembali.");
+					return;
+				}
+				// Nilai diambil dari baris PR-nya, sama seperti layar ZK yang mengisi
+				// kolom Nilai begitu PR dipilih. Nilai kiriman hanya dipakai bila
+				// pengguna sengaja mengubahnya pada dokumen yang sudah ada.
+				if (nilai <= 0 || baru) {
+					nilai = ringkas.total;
+				}
+			}
+
 			um.setTanpaAnggaran(Boolean.valueOf(tanpaAnggaran));
 			um.setAmbilDariPr(Boolean.valueOf(ambilDariPr));
-			um.setWorkspace(tanpaAnggaran ? null : workspace);
+			// Uang muka berbasis PR tidak MEMILIH anggaran sendiri: yang disimpan adalah
+			// jejak id anggaran milik PR pada kolom `angarans`. Kolom workspace-nya tetap
+			// terisi, tetapi bukan oleh baris ini -- getter terhitung UangMuka.getWorkspace()
+			// mencerminkannya dari `angarans`, dan getAkun() menurunkan akun dari sana.
+			// Pemotongan gandanya dicegah di PenggunaanAnggaran, yang sengaja mengecualikan
+			// uang muka berbasis PR karena anggarannya sudah dipotong saat PR diajukan.
+			um.setWorkspace(tanpaAnggaran || ambilDariPr ? null : workspace);
+			um.setPermintaanPengadaanMasterAssets(ambilDariPr ? ringkas.idBaris : "");
+			um.setAngarans(ambilDariPr ? ringkas.idAnggaran : "");
 			um.setNama(nama);
 			um.setKeterangan(request.optString("keterangan", "").trim());
 			um.setNilai(Double.valueOf(nilai));
 			um.setMulai(mulai);
 			um.setSampai(sampai);
 			um.setSelesai(selesai);
-			um.setAkun(akunId > 0 ? (Akun) session.get(Akun.class, Long.valueOf(akunId)) : null);
+			um.setAkun(!ambilDariPr && akunId != 0
+					? (Akun) session.get(Akun.class, Long.valueOf(akunId)) : null);
 			um.setSatuanKerja(satkerId > 0
 					? (SatuanKerja) session.get(SatuanKerja.class, Long.valueOf(satkerId)) : null);
 			long jenisId = request.optLong("jenisUangMukaId", 0);
@@ -520,11 +781,18 @@ public final class UangMukaApiHelper {
 				um.setKode(buatKode(session));
 			}
 			session.saveOrUpdate(um);
+			// Baris PR ditautkan ke dokumen ini (dan yang dibuang dilepas) di dalam
+			// transaksi yang sama, supaya tidak ada keadaan setengah jadi bila gagal.
+			tautkanPr(session, um, ambilDariPr ? prDetail : null);
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
 			hasil.put("id", um.getId());
 			hasil.put("kode", um.getKode());
+			hasil.put("nilai", nilai);
+			if (ambilDariPr) {
+				hasil.put("jumlahBarisPr", ringkas.jumlahBaris);
+			}
 			hasil.put("message", baru ? "Pengajuan uang muka " + um.getKode() + " dibuat."
 					: "Pengajuan uang muka diperbarui.");
 		} catch (Exception e) {
@@ -633,6 +901,9 @@ public final class UangMukaApiHelper {
 			// Anggaran yang sempat terpotong dokumen ini dikembalikan lebih dulu; FK-nya
 			// tidak ber-ON DELETE CASCADE sehingga penghapusan akan ditolak bila dilewati.
 			AnggaranKeuanganUtil.lepaskan(session, "uang_muka", um.getId());
+			// Baris PR menunjuk dokumen ini lewat kolom uang_muka; tanpa dilepas,
+			// basis data menolak penghapusannya.
+			tautkanPr(session, um, null);
 			session.delete(um);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
@@ -725,6 +996,10 @@ public final class UangMukaApiHelper {
 		}
 		if ("uang_muka_opsi".equals(action)) {
 			opsi(tbmuser, request, hasil);
+			return true;
+		}
+		if ("uang_muka_cari_pr".equals(action)) {
+			cariPr(tbmuser, request, hasil);
 			return true;
 		}
 		if ("uang_muka_cari_anggaran".equals(action)) {
