@@ -26,7 +26,7 @@ public final class JurnalAccessIpSelfTest {
         if (target == null || target.trim().length() == 0 || "ais".equalsIgnoreCase(target.trim()))
             throw new IllegalStateException("Test wajib diarahkan ke clone main SIT/UAT.");
         System.setProperty("javax.persistence.validation.mode", "none");
-        Tbmuser actor = admin(); Session session = HibernateUtil.currentSession(); Transaction tx = session.beginTransaction();
+        final Tbmuser actor = admin(); Session session = HibernateUtil.currentSession(); Transaction tx = session.beginTransaction();
         try {
             JurnalPenelitian journal = new JurnalAdministrationService().create("self-test", "Access Self Test",
                     "access-self-test", "id_ID", actor);
@@ -35,10 +35,10 @@ public final class JurnalAccessIpSelfTest {
             session.update(collection);
             RepoItem item = item(collection, actor); session.save(item); session.flush();
             Date start = new Date(System.currentTimeMillis() - 60000L), end = new Date(System.currentTimeMillis() + 86400000L);
-            JurnalAccessService access = new JurnalAccessService();
+            final JurnalAccessService access = new JurnalAccessService();
             access.activate(journal.getId(), collection.getId(), "subscriber", "reader-self-test", null, null,
                     start, end, null, "ignored", actor);
-            LanggananJurnal institution = access.activate(journal.getId(), collection.getId(), "institution", null,
+            final LanggananJurnal institution = access.activate(journal.getId(), collection.getId(), "institution", null,
                     "PERGURUAN_TINGGI", Long.valueOf(1L), start, end, null, "ignored", actor);
             access.addRange(institution.getId(), "10.10.10.10", "10.10.10.20", "Campus", actor);
             access.addRange(institution.getId(), "2001:db8::10", "2001:db8::20", "Campus IPv6", actor);
