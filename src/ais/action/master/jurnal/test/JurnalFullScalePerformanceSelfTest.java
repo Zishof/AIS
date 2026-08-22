@@ -32,10 +32,11 @@ public final class JurnalFullScalePerformanceSelfTest {
     private static final String ANALYTIC="select event_type,country_code,count(*) from jurnal_perf.usage_event where occurred_at>=? and user_agent_class<>'BOT' group by event_type,country_code";
 
     public static void main(String[]args)throws Exception{
-        String db=env("AIS_JURNAL_DB_NAME"),host=env("AIS_JURNAL_DB_HOST"),port=env("AIS_JURNAL_DB_PORT"),user=env("AIS_JURNAL_DB_USER"),password=env("AIS_JURNAL_DB_PASSWORD");
+        String db=env("AIS_JURNAL_DB_NAME"),host=env("AIS_JURNAL_DB_HOST"),port=env("AIS_JURNAL_DB_PORT");
+        final String user=env("AIS_JURNAL_DB_USER"),password=env("AIS_JURNAL_DB_PASSWORD");
         if(!"ais_jurnal_sit".equals(db))throw new IllegalStateException("Full performance test hanya boleh pada ais_jurnal_sit.");
         int seconds=args.length>0?Integer.parseInt(args[0]):300;if(seconds<60||seconds>3600)throw new IllegalArgumentException("Soak harus 60..3600 detik.");
-        Class.forName("org.postgresql.Driver");String url="jdbc:postgresql://"+host+":"+port+"/"+db+"?ApplicationName=JurnalFullScalePerformanceSelfTest";
+        Class.forName("org.postgresql.Driver");final String url="jdbc:postgresql://"+host+":"+port+"/"+db+"?ApplicationName=JurnalFullScalePerformanceSelfTest";
         Connection c=open(url,user,password);try{
             checkDatabase(c);verifyCounts(c);
             long coldStart=System.nanoTime();runOltp(c,0,1);double coldMs=ms(System.nanoTime()-coldStart);
