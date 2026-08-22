@@ -564,7 +564,7 @@ public class MatakuliahEkivalenAction extends GenericAutowireComposer implements
 															.setCellValue(detailperkuliahan.getPerkuliahan() != null
 																	? detailperkuliahan.getPerkuliahan().populateDosen()
 																			.values().toString()
-																										: "");
+																									: "");
 											if (akanDihapus) {
 												for (int cellIndex = 0; cellIndex <= 7; cellIndex++) {
 													row.getCell(cellIndex).setCellStyle(lockedNumericStyle);

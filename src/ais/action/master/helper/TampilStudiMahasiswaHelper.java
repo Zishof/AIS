@@ -3213,25 +3213,25 @@ public class TampilStudiMahasiswaHelper {
 										}
 										index++;
 
-											label.setValue("Sedang memproses data " + dp + " ");
-											cell0.setCellValue(dp.getId());
-											row.createCell(1).setCellValue(
-													dp.getMahasiswa() == null ? "" : dp.getMahasiswa().toString());
+										label.setValue("Sedang memproses data " + dp + " ");
+										cell0.setCellValue(dp.getId());
+										row.createCell(1).setCellValue(
+												dp.getMahasiswa() == null ? "" : dp.getMahasiswa().toString());
 
-											String mkVal = dp.getPerkuliahan() == null
-													? (dp.getMatakuliahKonversi() == null ? ""
-															: dp.getMatakuliahKonversi().toString())
-													: dp.getPerkuliahan().toString();
+										String mkVal = dp.getPerkuliahan() == null
+												? (dp.getMatakuliahKonversi() == null ? ""
+														: dp.getMatakuliahKonversi().toString())
+												: dp.getPerkuliahan().toString();
 
-											row.createCell(2).setCellValue(mkVal);
-											row.createCell(3).setCellValue(dp.getTahunAkademik());
-											row.createCell(4).setCellValue(dp.getSemester());
-											row.createCell(5).setCellValue(dp.getTotalNilai());
-											row.createCell(6).setCellValue(dp.getNilaiHuruf());
-											row.createCell(7)
-													.setCellValue(dp.getPerkuliahan() != null
-																	? dp.getPerkuliahan().populateDosen().values().toString()
-																	: "");
+										row.createCell(2).setCellValue(mkVal);
+										row.createCell(3).setCellValue(dp.getTahunAkademik());
+										row.createCell(4).setCellValue(dp.getSemester());
+										row.createCell(5).setCellValue(dp.getTotalNilai());
+										row.createCell(6).setCellValue(dp.getNilaiHuruf());
+										row.createCell(7)
+												.setCellValue(dp.getPerkuliahan() != null
+															? dp.getPerkuliahan().populateDosen().values().toString()
+															: "");
 										if (akanDihapus) {
 											for (int cellIndex = 0; cellIndex <= 7; cellIndex++) {
 												row.getCell(cellIndex).setCellStyle(lockedNumericStyle);
