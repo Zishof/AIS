@@ -1189,6 +1189,7 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

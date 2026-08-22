@@ -300,6 +300,7 @@ public class AlatMedisTempatTidurAction extends GenericAutowireComposer implemen
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 
@@ -940,6 +941,7 @@ public class AlatMedisTempatTidurAction extends GenericAutowireComposer implemen
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}
@@ -1209,6 +1211,7 @@ public class AlatMedisTempatTidurAction extends GenericAutowireComposer implemen
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}

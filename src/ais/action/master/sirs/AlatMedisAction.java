@@ -307,6 +307,7 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 
@@ -884,6 +885,7 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}
@@ -1155,6 +1157,7 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}

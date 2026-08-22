@@ -167,6 +167,7 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 			});
 			button.setParent(toolbar);
 
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 		}
 	}

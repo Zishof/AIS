@@ -1193,6 +1193,7 @@ public class DetailUjianHelper implements DataLoader {
 
 				org.zkoss.zul.Hbox hbox = new org.zkoss.zul.Hbox();
 				hbox.setStyle("align-items:center;gap:10px;");
+				ais.ui.util.MenuAksiBaris.pasang(hbox);
 				hbox.setParent(rowDiv);
 
 				new org.zkoss.zul.Label(fn.getNama() + ":").setParent(hbox);

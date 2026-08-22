@@ -875,6 +875,7 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 			Vbox vbox1 = new Vbox();
 			vbox1.setParent(arg0);
 
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(vbox1);
 
 			myHbox.setParent(vbox1);

@@ -222,6 +222,7 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(arg0);
 			}
 		}

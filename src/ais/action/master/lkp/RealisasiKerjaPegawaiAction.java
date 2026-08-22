@@ -246,6 +246,7 @@ public class RealisasiKerjaPegawaiAction extends GenericAutowireComposer impleme
 		new MyLabelAgakKecil(Common.numberFormat.get().format(targetKerjaPegawai.getKegiatanTugasJabatan().getNoUrut()) + ". "
 				+ targetKerjaPegawai.getKegiatanTugasJabatan().getNama()).setParent(arg0);
 
+		ais.ui.util.MenuAksiBaris.pasang(hboxSatuan);
 		hboxSatuan.setParent(arg0);
 
 		Hbox hbox = new Hbox();
@@ -283,6 +284,7 @@ public class RealisasiKerjaPegawaiAction extends GenericAutowireComposer impleme
 
 		labelKualitas.setParent(hbox);
 
+		ais.ui.util.MenuAksiBaris.pasang(hboxWaktu);
 		hboxWaktu.setParent(arg0);
 
 		if (merupakanAsesor) {

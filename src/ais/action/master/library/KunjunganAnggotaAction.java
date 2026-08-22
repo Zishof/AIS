@@ -235,6 +235,7 @@ public class KunjunganAnggotaAction extends GenericAutowireComposer implements D
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

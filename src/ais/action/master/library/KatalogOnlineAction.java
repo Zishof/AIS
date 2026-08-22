@@ -149,6 +149,7 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
                 digital.setTarget("_blank");
                 digital.setParent(toolbar);
             }
+            ais.ui.util.MenuAksiBaris.pasang(toolbar);
             toolbar.setParent(row);
         }
     }

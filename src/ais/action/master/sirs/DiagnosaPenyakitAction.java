@@ -296,6 +296,7 @@ public class DiagnosaPenyakitAction extends GenericAutowireComposer implements O
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

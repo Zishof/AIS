@@ -212,6 +212,7 @@ public class SertifikatAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 
@@ -508,6 +509,7 @@ public class SertifikatAction extends GenericAutowireComposer {
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("File Sertifikat (jrxml atau jasper)"));
 		Hbox hbox = new Hbox();
+		ais.ui.util.MenuAksiBaris.pasang(hbox);
 		hbox.setParent(row);
 		LampiranLain.createDownloadUploadFileLain(hbox, sertifikat.getId(), LampiranLain.FILE_JRXML_LAYOUT_SERTIFIKAT,
 				"File jrxml", false, new EventListener() {

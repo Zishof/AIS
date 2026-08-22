@@ -328,6 +328,7 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
                 }
             });
             button.setParent(toolbar);
+            ais.ui.util.MenuAksiBaris.pasang(toolbar);
             toolbar.setParent(arg0);
         }
     }

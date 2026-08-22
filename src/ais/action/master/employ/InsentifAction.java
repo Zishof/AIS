@@ -212,6 +212,7 @@ public class InsentifAction extends GenericAutowireComposer implements DataCrite
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

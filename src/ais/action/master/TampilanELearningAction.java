@@ -9756,6 +9756,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 						myRow.appendChild(new Label(Common.numberFormat.get().format(pertemuan.getPertemuanKe())));
 
 						Hbox hbox = new Hbox();
+						ais.ui.util.MenuAksiBaris.pasang(hbox);
+						ais.ui.util.MenuAksiBaris.pasang(hbox);
 						hbox.setParent(myRow);
 						try {
 

@@ -289,6 +289,7 @@ public class TransferItemDetailAction extends MyDetail {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 
 		}

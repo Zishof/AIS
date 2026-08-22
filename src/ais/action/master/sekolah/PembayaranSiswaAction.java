@@ -1138,6 +1138,7 @@ public class PembayaranSiswaAction extends GenericAutowireComposer
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/clock-history.svg");

@@ -235,6 +235,7 @@ public class DomainPenelitianAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

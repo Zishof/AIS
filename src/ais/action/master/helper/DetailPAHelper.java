@@ -212,6 +212,7 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 
 		}

@@ -275,6 +275,7 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
                 }
             });
             button.setParent(toolbar);
+            ais.ui.util.MenuAksiBaris.pasang(toolbar);
             toolbar.setParent(arg0);
         }
     }

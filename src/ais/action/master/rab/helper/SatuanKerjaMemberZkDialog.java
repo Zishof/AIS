@@ -130,6 +130,7 @@ public final class SatuanKerjaMemberZkDialog {
 					sub.setStyle("font-size:11px;color:#64748b");
 					sub.setParent(teks);
 					teks.setParent(baris);
+					ais.ui.util.MenuAksiBaris.pasang(baris);
 					baris.setParent(wadah);
 				}
 				perbarui(ringkas, terpilih);

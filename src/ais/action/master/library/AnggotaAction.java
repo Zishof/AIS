@@ -1218,6 +1218,7 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

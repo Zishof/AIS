@@ -1528,6 +1528,7 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 			row.setParent(rows);
 
 			Hbox hbox = new Hbox();
+			ais.ui.util.MenuAksiBaris.pasang(hbox);
 			hbox.setParent(row);
 			LampiranLain.createDownloadUploadFileLain(hbox, pertemuanPunyaDiskusi.getId(), LampiranLain.DISKUSI, "Lampiran", false, new EventListener() {
 				@Override

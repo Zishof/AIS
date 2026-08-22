@@ -413,6 +413,7 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
                 }
             });
             btnDelete.setParent(toolbar);
+            ais.ui.util.MenuAksiBaris.pasang(toolbar);
             toolbar.setParent(arg0);
         }
     }

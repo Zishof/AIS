@@ -179,6 +179,7 @@ public class PengarangAction extends GenericAutowireComposer implements DataCrit
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

@@ -181,6 +181,7 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 
 		}

@@ -162,6 +162,7 @@ public class KadaluarsaAction extends MyDetail {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

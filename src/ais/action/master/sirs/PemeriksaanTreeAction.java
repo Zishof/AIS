@@ -559,6 +559,7 @@ public class PemeriksaanTreeAction extends GenericAutowireComposer {
 						}
 					});
 					button.setParent(toolbar);
+					ais.ui.util.MenuAksiBaris.pasang(toolbar);
 					toolbar.setParent(arg0);
 				} catch (Exception e) {
 					ais.common.Common.tampilErrorJikaAdmin(e);

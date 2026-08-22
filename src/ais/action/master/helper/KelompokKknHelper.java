@@ -207,6 +207,7 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 					&& tbmuser.getMahasiswa().getId().equals(mahasiswa.getId())) {
 				cetakToolbarbuttonSertifikat.setParent(row);
 			} else {
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 			}
 		}

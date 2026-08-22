@@ -235,6 +235,7 @@ public class ParameterTambahanCatatanPegawaiAction extends GenericAutowireCompos
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

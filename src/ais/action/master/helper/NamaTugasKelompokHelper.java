@@ -425,6 +425,7 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 
 		}

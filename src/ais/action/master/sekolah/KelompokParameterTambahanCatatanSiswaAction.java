@@ -211,6 +211,7 @@ public class KelompokParameterTambahanCatatanSiswaAction extends GenericAutowire
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

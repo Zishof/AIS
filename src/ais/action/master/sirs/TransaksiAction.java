@@ -305,6 +305,7 @@ public class TransaksiAction extends GenericAutowireComposer implements GetTrans
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

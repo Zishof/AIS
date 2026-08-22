@@ -182,6 +182,7 @@ public class KelompokParameterTambahanCatatanAdministrasiAction extends GenericA
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

@@ -235,6 +235,7 @@ public class KelompokParameterTambahanPertemuanAction extends GenericAutowireCom
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

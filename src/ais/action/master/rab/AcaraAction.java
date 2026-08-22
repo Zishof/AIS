@@ -228,6 +228,7 @@ public class AcaraAction extends GenericAutowireComposer implements WorkspaceSel
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

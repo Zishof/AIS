@@ -385,6 +385,7 @@ public class JenisAssetAction extends GenericAutowireComposer implements DataCri
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

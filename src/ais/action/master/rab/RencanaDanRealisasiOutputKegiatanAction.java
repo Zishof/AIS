@@ -438,6 +438,7 @@ public class RencanaDanRealisasiOutputKegiatanAction extends GenericAutowireComp
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

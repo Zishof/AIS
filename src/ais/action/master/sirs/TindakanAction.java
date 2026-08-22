@@ -306,6 +306,7 @@ public class TindakanAction extends GenericAutowireComposer implements OnSave {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 
@@ -712,6 +713,7 @@ public class TindakanAction extends GenericAutowireComposer implements OnSave {
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}
@@ -984,6 +986,7 @@ public class TindakanAction extends GenericAutowireComposer implements OnSave {
 					}
 				});
 				button.setParent(toolbar);
+				ais.ui.util.MenuAksiBaris.pasang(toolbar);
 				toolbar.setParent(row);
 
 			}

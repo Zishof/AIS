@@ -148,6 +148,7 @@ public final class RiwayatRevisiZkDialog {
 						}
 					});
 					pulih.setParent(baris);
+					ais.ui.util.MenuAksiBaris.pasang(baris);
 					baris.setParent(wadah);
 				}
 			}

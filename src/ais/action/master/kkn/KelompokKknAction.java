@@ -1330,6 +1330,7 @@ public class KelompokKknAction extends GenericAutowireComposer implements DataSe
 		myvbox.setParent(a);
 
 		Hbox hbox = new Hbox();
+		ais.ui.util.MenuAksiBaris.pasang(hbox);
 		hbox.setParent(myvbox);
 		LampiranLain.createDownloadUploadFileLain(hbox, kelompokKkn.getId(), KelompokKkn.class.getName(), "Lampiran SK",
 				false, null, null, false, false, false, false);

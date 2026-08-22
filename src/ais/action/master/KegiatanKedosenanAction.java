@@ -835,6 +835,7 @@ public class KegiatanKedosenanAction extends GenericAutowireComposer implements 
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 
 			if (tbmuser != null && ((tbmuser.ambilFakultas() != null && kegiatanKedosenan.getFakultas() == null)

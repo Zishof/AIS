@@ -555,6 +555,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 				});
 				ubahDosen.setParent(dosenCell);
 			}
+			ais.ui.util.MenuAksiBaris.pasang(dosenCell);
 			dosenCell.setParent(row);
 			new Label(commonVO.getName()).setParent(row);
 

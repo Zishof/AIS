@@ -2671,6 +2671,7 @@ public class TugasKelompokHelper implements DataLoader {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(vbox);
 
 			if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null

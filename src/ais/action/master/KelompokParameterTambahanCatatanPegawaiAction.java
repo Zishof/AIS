@@ -194,6 +194,7 @@ public class KelompokParameterTambahanCatatanPegawaiAction extends GenericAutowi
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

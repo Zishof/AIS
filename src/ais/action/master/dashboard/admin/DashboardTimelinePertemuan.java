@@ -7417,6 +7417,8 @@ public class DashboardTimelinePertemuan extends MyWindow {
 			}
 			urls = null;
 
+			ais.ui.util.MenuAksiBaris.pasang(hbox);
+			ais.ui.util.MenuAksiBaris.pasang(hbox);
 			hbox.setParent(vboxUtama);
 
 		} else {
@@ -7689,6 +7691,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 				}
 			}
 			urls = null;
+			ais.ui.util.MenuAksiBaris.pasang(hbox);
 			hbox.setParent(vboxUtama);
 		}
 	}

@@ -162,6 +162,7 @@ public class RiwayatPendidikanPegawaiHelper {
 			button.setParent(toolbar);
 			button.setDisabled(editable == false);
 
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 		}
 	}

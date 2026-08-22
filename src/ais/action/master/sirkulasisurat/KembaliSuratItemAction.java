@@ -417,6 +417,7 @@ public class KembaliSuratItemAction extends GenericAutowireComposer implements F
 				}
 			});
 			hapus.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 
 			PeminjamanSuratItem p = peminjamanSuratItem;

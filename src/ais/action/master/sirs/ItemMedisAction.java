@@ -260,6 +260,7 @@ public class ItemMedisAction extends GenericAutowireComposer implements OnSave {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

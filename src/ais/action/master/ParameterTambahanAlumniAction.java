@@ -294,6 +294,7 @@ public class ParameterTambahanAlumniAction extends GenericAutowireComposer imple
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

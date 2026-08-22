@@ -367,6 +367,7 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DiskusiPengumumanAkademisHelper.java:366");
 			}
 
+			ais.ui.util.MenuAksiBaris.pasang(hboxUtama);
 			hboxUtama.setParent(row);
 			Vbox vbox = new Vbox();
 			vbox.setParent(hboxUtama);

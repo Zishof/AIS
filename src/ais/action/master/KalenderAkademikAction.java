@@ -476,6 +476,7 @@ public class KalenderAkademikAction extends GenericAutowireComposer implements D
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

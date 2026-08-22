@@ -363,6 +363,7 @@ public class RealisasiKerjaPegawaiDetailAction extends MyDetail implements DataC
 				button.addEventListener("onClick", hapusListener);
 				button.setParent(toolbar);
 			}
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 		}
 	}

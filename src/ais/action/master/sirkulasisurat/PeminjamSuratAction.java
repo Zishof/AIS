@@ -868,6 +868,7 @@ public class PeminjamSuratAction extends GenericAutowireComposer implements Data
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

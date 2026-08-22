@@ -180,6 +180,7 @@ public class KelompokParameterTambahanPengajuanTransaksiPegawaiAction extends Ge
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 

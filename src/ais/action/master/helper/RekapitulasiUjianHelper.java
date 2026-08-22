@@ -672,6 +672,7 @@ public class RekapitulasiUjianHelper {
 					rowTambah.appendChild(new ais.ui.util.MyLabelConfig(""));
 					rowTambah.setParent(rows);
 
+					ais.ui.util.MenuAksiBaris.pasang(hbox);
 					hbox.setParent(rowTambah);
 
 				}

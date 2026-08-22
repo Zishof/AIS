@@ -213,6 +213,7 @@ public class DataDdcItemAction extends GenericAutowireComposer {
 				}
 			});
 			hapus.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 	}

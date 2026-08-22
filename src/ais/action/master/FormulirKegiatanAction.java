@@ -686,6 +686,7 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 
 							}
 						});
+				ais.ui.util.MenuAksiBaris.pasang(hbox);
 				hbox.setParent(vbox);
 			}
 

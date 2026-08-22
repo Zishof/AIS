@@ -318,6 +318,7 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 
 			});
 			deleteButton.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(row);
 
 		}
