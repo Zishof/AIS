@@ -1329,6 +1329,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (DaftarPengajuanTransfer dpt : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					// Baris transaksi dihapus lebih dulu -- grup_transaksi adalah induknya.
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
@@ -1346,7 +1347,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 				}
 			}
 		} finally {
@@ -1396,6 +1397,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal pengajuan transfer dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1442,7 +1444,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 						ket = "Daftar pengajuan transfer \"" + dpt.getNama() + "\" senominal "
 								+ Common.numberFormat.get().format(dpt.getNominal());
 					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 					}
 
 					List<Akun> akunsDebets = new ArrayList<Akun>();
@@ -1476,6 +1478,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 
 					boolean tersimpan = false;
 					try {
+						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
 						if (nominal > 0.1) {
 							CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
@@ -1493,7 +1496,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 						session.getTransaction().commit();
 						tersimpan = true;
 					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 					}
 
 					if (tersimpan) {
@@ -1501,6 +1504,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 						// Layar lama memasangnya di luar blok penyimpanan, sehingga dokumen yang
 						// jurnalnya gagal tetap hilang dari daftar draft tanpa punya jurnal.
 						dpt.setPostingHistory(postingHistory);
+						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
 						session.update(dpt);
 						session.getTransaction().commit();
@@ -1511,7 +1515,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 				}
 			}
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
+			ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 		} finally {
 			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-disconnect"); }
 			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-close"); }

@@ -1256,6 +1256,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (UangMuka dok : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi where uang_muka=" + dok.getId()
@@ -1272,7 +1273,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingUangMukaAction jalur API");
 				}
 			}
 		} finally {
@@ -1304,6 +1305,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal uang muka dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1329,6 +1331,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 					String ket = "Persetujuan uang muka \"" + dok.getKode() + "\" senilai "
 							+ Common.numberFormat.get().format(nilai);
 
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory, true, ket,
 							dok.getTanggalPersetujuan(), nilai, 0.0, dok, dok.getSatuanKerja(), session);
@@ -1337,7 +1340,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingUangMukaAction jalur API");
 				}
 			}
 		} finally {

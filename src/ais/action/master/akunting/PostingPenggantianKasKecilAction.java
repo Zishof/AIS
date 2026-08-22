@@ -1212,6 +1212,7 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (PenggantianKasKecil dok : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi where penggantian_kas_kecil=" + dok.getId()
@@ -1228,7 +1229,7 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPenggantianKasKecilAction jalur API");
 				}
 			}
 		} finally {
@@ -1260,6 +1261,7 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal penggantian kas kecil dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1286,6 +1288,7 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 					String ket = "Penggantian kas kecil \"" + dok.getKode() + "\" senilai "
 							+ Common.numberFormat.get().format(nilai);
 
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory, true, ket,
 							dok.getTanggalPersetujuan(), nilai, 0.0, dok, dok.getSatuanKerja(), session);
@@ -1294,7 +1297,7 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPenggantianKasKecilAction jalur API");
 				}
 			}
 		} finally {

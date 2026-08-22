@@ -1525,4 +1525,322 @@ public class PostingPengadaanAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Kembaran non-ZK dari tombol "Posting Semua" dan "Batalkan Posting Semua" di
+	// halaman ini: tanpa jendela modal, tanpa label progress, tanpa thread sendiri,
+	// dan rentang tanggalnya datang sebagai parameter -- bukan dari datebox layar.
+	// Pola sama dgn PostingKasKecilAction/PostingKasBesarAction/
+	// PostingProsesTransferAction/PostingProsesTransitoriAction.
+	//
+	// PEMELIHARAAN: penentuan akun debet/kredit di sini HARUS tetap identik dengan
+	// {@link #onPostingSemua} DAN dengan pratinjau jurnal pada renderer baris. Bila
+	// aturan akunnya berubah, ubah di KETIGA tempat.
+	// =====================================================================
+
+	/**
+	 * Kriteria tagihan vendor non-termin yang layak diposting pada rentang tanggal, tanpa
+	 * bergantung pada komponen layar. Sama dengan bagian {@link #initCriteria(boolean)} yang
+	 * tidak berhubungan dgn kotak pencarian, dan sama pula dgn kriteria baris "Penerimaan
+	 * Tagihan Vendor" pada dasbor Draft Jurnal.
+	 *
+	 * <p>Saringan {@code jsonTermin is null} itulah yang memisahkan modul ini dari "Pekerjaan
+	 * Vendor": dokumennya satu tabel, tetapi yang bertermin ditangani layar lain.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(SaldoAwalMasterAsset.class)
+				.add(Restrictions.isNull("jsonTermin"))
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA tagihan vendor terposting dalam rentang.
+	 *
+	 * <p>Dijalankan pada {@code currentNativeSession()} dengan transaksi eksplisit per dokumen.
+	 * Memakai {@code currentSession()} seperti tombol di layar hanya berhasil di dalam permintaan
+	 * ZK, yang kerangkanya meng-commit sesi berjalan; dipanggil dari API perubahannya tidak
+	 * pernah tersimpan sehingga pembatalan melaporkan sukses padahal jurnal dan penanda
+	 * postingnya masih utuh.</p>
+	 *
+	 * <p>Baris {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi}
+	 * adalah induknya; layar hanya menghapus grup_transaksi dan meninggalkan barisnya. Jurnal
+	 * yang SUDAH closing tidak ikut dihapus.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<SaldoAwalMasterAsset> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (SaldoAwalMasterAsset saldoAwal : daftar) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where saldo_awal_master_asset="
+							+ saldoAwal.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where saldo_awal_master_asset="
+							+ saldoAwal.getId() + " and closing is null").executeUpdate();
+					saldoAwal.setPostingHistory(null);
+					session.update(saldoAwal);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPengadaanAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA tagihan vendor yang belum diposting dalam rentang. Penentuan akun per
+	 * dokumen IDENTIK dengan {@link #onPostingSemua}:
+	 *
+	 * <ul>
+	 *   <li><b>Debet</b>: satu baris per akun, dijumlahkan dari {@code hargaTotal} tiap detail.
+	 *       Akunnya {@code akunBiayaPenyusutan} bila kelompok asetnya BUKAN aset tetap, selain
+	 *       itu {@code akunTransaksi} -- keduanya lewat {@code AssetUtil.ambilDataAkun} supaya
+	 *       akun per satuan kerja yang terpakai.</li>
+	 *   <li><b>Kredit PPh</b>: tiap detail yang jenis pajak barangnya punya akun menambah satu
+	 *       baris senilai {@code persenPph/100 x (jumlah x harga)}.</li>
+	 *   <li><b>Kredit utang</b>: {@code penyedia.akunUtang} bila ada, selain itu
+	 *       {@code penerimaan.jenisPenerimaanBarang.akunHutangPenyedia}.</li>
+	 *   <li><b>Bila pemesanannya ber-DP</b> ({@code dptotal > 0,1}): sisa nilai di luar DP masuk
+	 *       ke akun utang, dan DP-nya sendiri masuk ke
+	 *       {@code jenisPemesananPengadaanAsset.akunDp} senilai {@code dptotal - totalPph}.
+	 *       Tanpa DP: akun utang menerima {@code nilai - totalPph}.</li>
+	 *   <li>bila {@code nilai} &le; 0,1 posisi debet/kredit ditukar -- sama seperti layar;</li>
+	 *   <li>tanggal jurnal = {@code tanggalPersetujuan}, satuan kerja = milik dokumen.</li>
+	 * </ul>
+	 *
+	 * <p><b>Dokumen yang jurnalnya belum lengkap dilewati.</b> Layar juga melewatinya bila peta
+	 * akun debet atau daftar akun kredit kosong; di sini pemeriksaannya diperluas ke akun kredit
+	 * yang bernilai null, karena {@code saveTransaksi} akan menerima larik berisi null dan
+	 * jurnalnya jadi cacat.</p>
+	 *
+	 * <p><b>Penanda posting hanya dipasang bila jurnalnya benar-benar tersimpan.</b> Layar
+	 * memasang {@code postingHistory} di luar blok penyimpanan, sehingga dokumen yang gagal
+	 * dijurnal tetap hilang dari daftar draft dan tidak pernah diulang. Di sini urutannya
+	 * dibalik supaya kegagalan tetap terlihat sebagai pekerjaan yang belum selesai.</p>
+	 *
+	 * <p><b>Yang TIDAK ikut diambil.</b> Dokumen yang sudah punya baris {@code postingHistory}
+	 * dengan {@code posting=false} tetap terhitung sebagai draft di dasbor tetapi TIDAK diposting
+	 * di sini -- persis seperti layar, yang juga menyembunyikan tombol posting barisnya. Selisih
+	 * ini tertangkap penjaga kedua di API ("ada dokumen tetapi nol terproses" -&gt; penolakan).</p>
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).setProjection(Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PENERIMAAN_TAGIHAN_BARANG_JASA);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal penerimaan tagihan vendor dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					SaldoAwalMasterAsset saldoAwal = (SaldoAwalMasterAsset) session
+							.createCriteria(SaldoAwalMasterAsset.class).add(Restrictions.idEq(id)).uniqueResult();
+					if (saldoAwal == null) {
+						continue;
+					}
+					SatuanKerja satuanKerja = saldoAwal.getSatuanKerja();
+
+					List<SaldoAwalMasterAssetDetail> details = session
+							.createCriteria(SaldoAwalMasterAssetDetail.class)
+							.add(Restrictions.eq("saldoAwal", saldoAwal)).list();
+
+					Map<Long, Double> akunsDebetsMap = new HashMap<Long, Double>();
+					List<Akun> akunKredit = new ArrayList<Akun>();
+					List<Double> nilais = new ArrayList<Double>();
+					Double totalPph = 0.0;
+					for (SaldoAwalMasterAssetDetail detail : details) {
+						Akun akunDebet;
+						if (detail.getMasterAsset().getKelompokAsset() != null
+								&& !detail.getMasterAsset().getKelompokAsset().getMerupakanAssetFix()) {
+							akunDebet = AssetUtil.ambilDataAkun(detail.getMasterAsset().getAkunBiayaPenyusutan(),
+									satuanKerja);
+						} else {
+							akunDebet = AssetUtil.ambilDataAkun(detail.getMasterAsset().getAkunTransaksi(),
+									satuanKerja);
+						}
+						if (akunDebet != null) {
+							Double sudah = akunsDebetsMap.get(akunDebet.getId());
+							if (sudah == null) {
+								sudah = 0.0;
+							}
+							sudah += detail.getHargaTotal();
+							akunsDebetsMap.put(akunDebet.getId(), sudah);
+						}
+						if (detail.getJenisPajakBarang() != null && detail.getJenisPajakBarang().getAkun() != null) {
+							Double dpp = detail.getJumlah() * detail.getHarga();
+							Double pph = (detail.getPersenPph() / 100.0) * dpp;
+							akunKredit.add(detail.getJenisPajakBarang().getAkun());
+							nilais.add(pph);
+							totalPph += pph;
+						}
+					}
+
+					Akun akunUtang = saldoAwal.getPenerimaanPengadaanMasterAsset() == null
+							|| saldoAwal.getPenerimaanPengadaanMasterAsset().getJenisPenerimaanBarang() == null ? null
+									: saldoAwal.getPenerimaanPengadaanMasterAsset().getJenisPenerimaanBarang()
+											.getAkunHutangPenyedia();
+					if (saldoAwal.getPenyedia() != null && saldoAwal.getPenyedia().getAkunUtang() != null) {
+						akunUtang = saldoAwal.getPenyedia().getAkunUtang();
+					}
+
+					Double nilai = saldoAwal.getNilai();
+					boolean lengkap = true;
+
+					if (saldoAwal.getPenerimaanPengadaanMasterAsset() != null
+							&& saldoAwal.getPenerimaanPengadaanMasterAsset()
+									.getPemesananPengadaanMasterAsset() != null
+							&& saldoAwal.getPenerimaanPengadaanMasterAsset().getPemesananPengadaanMasterAsset()
+									.getJenisPemesananPengadaanAsset() != null
+							&& saldoAwal.getPenerimaanPengadaanMasterAsset().getPemesananPengadaanMasterAsset()
+									.getDptotal() > 0.1) {
+						Double dptotal = saldoAwal.getPenerimaanPengadaanMasterAsset()
+								.getPemesananPengadaanMasterAsset().getDptotal();
+						Double sisa = nilai - dptotal;
+						if (sisa > 0.1) {
+							if (akunUtang == null) {
+								lengkap = false;
+							} else {
+								akunKredit.add(akunUtang);
+								nilais.add(sisa);
+							}
+						}
+						Akun akunDp = saldoAwal.getPenerimaanPengadaanMasterAsset()
+								.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset().getAkunDp();
+						if (akunDp == null) {
+							lengkap = false;
+						} else {
+							akunKredit.add(akunDp);
+							nilais.add(dptotal - totalPph);
+						}
+					} else if (nilai > 0.1) {
+						if (akunUtang == null) {
+							lengkap = false;
+						} else {
+							akunKredit.add(akunUtang);
+							nilais.add(nilai - totalPph);
+						}
+					}
+
+					if (!lengkap || akunsDebetsMap.isEmpty() || akunKredit.isEmpty()) {
+						// Jurnalnya tidak lengkap: dilewati, sama seperti layar yang tidak
+						// menampilkan tombol posting untuk baris berjurnal tidak valid.
+						continue;
+					}
+
+					List<Akun> akunDebets = new ArrayList<Akun>();
+					List<Double> nilaiDebets = new ArrayList<Double>();
+					for (Long kunciAkun : akunsDebetsMap.keySet()) {
+						Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), kunciAkun);
+						if (akun != null) {
+							akunDebets.add(akun);
+							nilaiDebets.add(akunsDebetsMap.get(kunciAkun));
+						}
+					}
+					if (akunDebets.isEmpty()) {
+						continue;
+					}
+
+					String ket = "";
+					try {
+						ket = saldoAwal.getKode() + saldoAwal.getKeterangan();
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e, "PostingPengadaanAction jalur API");
+					}
+
+					boolean tersimpan = false;
+					try {
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebets.toArray(new Akun[] {}),
+									akunKredit.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
+									saldoAwal.getTanggalPersetujuan(), nilaiDebets.toArray(new Double[] {}),
+									nilais.toArray(new Double[] {}), Double.valueOf(0.0), saldoAwal, satuanKerja,
+									session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit.toArray(new Akun[] {}),
+									akunDebets.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
+									saldoAwal.getTanggalPersetujuan(), nilais.toArray(new Double[] {}),
+									nilaiDebets.toArray(new Double[] {}), Double.valueOf(0.0), saldoAwal,
+									satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPengadaanAction jalur API");
+					}
+
+					if (tersimpan) {
+						// Penanda posting hanya dipasang bila jurnalnya BENAR-BENAR tersimpan.
+						saldoAwal.setPostingHistory(postingHistory);
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						session.update(saldoAwal);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPengadaanAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPengadaanAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

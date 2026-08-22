@@ -1095,6 +1095,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (Pertangungjawaban pj : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					// Jurnal dihapus lebih dulu, baru penandanya dilepas -- urutan yang sama
 					// dengan tombol di layar. Baris yang sudah closing sengaja tidak disentuh.
@@ -1114,7 +1115,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: biarkan, kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPertangungjawabanAction jalur API");
 				}
 			}
 		} finally {
@@ -1151,6 +1152,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal pertanggungjawaban uang muka dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1222,6 +1224,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 
 					SatuanKerja satuanKerja = pj.getSatuanKerja();
 
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
 							akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
@@ -1234,7 +1237,7 @@ public class PostingPertangungjawabanAction extends GenericAutowireComposer {
 				} catch (Exception e) {
 					// Kegagalan satu dokumen tidak menghentikan sisanya -- perilaku yang sama
 					// dengan tombol massal pada layar.
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPertangungjawabanAction jalur API");
 				}
 			}
 		} finally {

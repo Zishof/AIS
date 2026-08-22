@@ -736,6 +736,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (KasKecil dok : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi where kas_kecil=" + dok.getId()
@@ -752,7 +753,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingKasKecilAction jalur API");
 				}
 			}
 		} finally {
@@ -783,6 +784,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal kas kecil dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -841,7 +843,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 									+ (rincianSb.length() > 0 ? ": " + rincianSb.toString()
 										: " senilai " + Common.numberFormat.get().format(kasKecil.getNilai()));
 						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
+							ais.common.ErrorAuditUtil.record(e, "PostingKasKecilAction jalur API");
 						}
 
 						Double nilai = kasKecil.getNilai();
@@ -853,6 +855,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 							Akun akunDenda = null;
 							Akun akunPiutangDenda = null;
 							Double denda = 0.0;
+							session = HibernateUtil.currentNativeSession();
 							session.getTransaction().begin();
 							if (nilai > 0.1) {
 								CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}),
@@ -868,10 +871,11 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 							}
 							session.getTransaction().commit();
 						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
+							ais.common.ErrorAuditUtil.record(e, "PostingKasKecilAction jalur API");
 						}
 
 						kasKecil.setPostingHistory(postingHistory);
+						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
 						session.update(kasKecil);
 						session.getTransaction().commit();
@@ -882,7 +886,7 @@ public class PostingKasKecilAction extends GenericAutowireComposer {
 				}
 			}
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
+			ais.common.ErrorAuditUtil.record(e, "PostingKasKecilAction jalur API");
 		} finally {
 			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/PostingKasKecilAction.java:864");}
 			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/PostingKasKecilAction.java:865");}

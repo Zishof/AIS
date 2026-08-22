@@ -1230,6 +1230,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (Transitori transitori : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi where transitori=" + transitori.getId()
@@ -1246,7 +1247,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingProsesTransitoriAction jalur API");
 				}
 			}
 		} finally {
@@ -1300,6 +1301,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal transitori dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1326,6 +1328,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 						try {
 							session.refresh(dpt);
 							dpt.setTransitoriData(transitori);
+							session = HibernateUtil.currentNativeSession();
 							session.getTransaction().begin();
 							Common.refreshUpdate(session, dpt);
 							session.getTransaction().commit();
@@ -1335,7 +1338,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 							} catch (Exception ex) {
 								// rollback gagal: kegagalan aslinya yang dilaporkan
 							}
-							Common.tampilErrorJikaAdmin(e);
+							ais.common.ErrorAuditUtil.record(e, "PostingProsesTransitoriAction jalur API");
 						}
 					}
 
@@ -1356,7 +1359,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 						ket = "Pengajuan transitori \"" + transitori.getNama() + "\" senilai "
 								+ Common.numberFormat.get().format(nominal);
 					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(e, "PostingProsesTransitoriAction jalur API");
 					}
 
 					SatuanKerja satuanKerja = satuanKerjaPengguna != null ? satuanKerjaPengguna
@@ -1364,6 +1367,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 
 					boolean tersimpan = false;
 					try {
+						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
 						if (nominal > 0.1) {
 							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
@@ -1377,12 +1381,13 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 						session.getTransaction().commit();
 						tersimpan = true;
 					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(e, "PostingProsesTransitoriAction jalur API");
 					}
 
 					if (tersimpan) {
 						// Penanda posting hanya dipasang bila jurnalnya BENAR-BENAR tersimpan.
 						transitori.setPostingHistory(postingHistory);
+						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
 						session.update(transitori);
 						session.getTransaction().commit();
@@ -1393,7 +1398,7 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 				}
 			}
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
+			ais.common.ErrorAuditUtil.record(e, "PostingProsesTransitoriAction jalur API");
 		} finally {
 			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransitoriAction.postingSemua-disconnect"); }
 			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransitoriAction.postingSemua-close"); }

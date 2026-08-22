@@ -1012,6 +1012,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (PertangungjawabanKasBesar pj : daftar) {
 				try {
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi"
@@ -1030,7 +1031,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPertangungjawabanKasBesarAction jalur API");
 				}
 			}
 		} finally {
@@ -1065,6 +1066,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 			postingHistory.setKeterangan("Posting massal pertanggungjawaban kas besar dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1112,6 +1114,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 							+ pj.getKasBesar().getKode() + " " + pj.getKasBesar().getNama() + "\" senilai "
 							+ Common.numberFormat.get().format(pj.getNilai());
 
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
 							akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
@@ -1122,7 +1125,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e, "PostingPertangungjawabanKasBesarAction jalur API");
 				}
 			}
 		} finally {
@@ -1191,7 +1194,7 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 						: ConstantValues.ambil(Workspace.class.getName(),
 								new BigDecimal(jsonObject.get("workspace") + "").longValue()));
 			} catch (Exception e) {
-			ais.common.Common.tampilErrorJikaAdmin(e);
+			ais.common.ErrorAuditUtil.record(e, "PostingPertangungjawabanKasBesarAction jalur API");
 		}
 		}
 
