@@ -163,6 +163,11 @@ public final class EbisnisMenuKatalog {
 		// berhenti, padahal mesin posting menuntut prosesTransfer tidak null. Hak approve
 		// dipakai untuk menyetujui DAN merealisasikan; reject untuk membatalkan keduanya.
 		DAFTAR.add(new Entri(MODUL_POS, "proses_transfer", "Keuangan: Proses Transfer (pencairan DPC)", "desktop", "android"));
+		// Proses Transitori (2026-08-23): jalan KELUAR dari rekening transitori. Baris
+		// DPC yang ditandai Transitori pada Proses Transfer melahirkan satu catatan
+		// akunting.transitori; batch di sini yang mengeluarkannya, dan persetujuan
+		// batch itulah gerbang yang dituntut PostingProsesTransitoriAction.
+		DAFTAR.add(new Entri(MODUL_POS, "proses_transitori", "Keuangan: Proses Transitori", "desktop", "android"));
 		// Retur beli/jual, stok opname, dan mutasi antar toko dijurnal lewat satu layar yang
 		// tampil sebagai tab pada Katalog Laporan -- kuncinya dipisah supaya kewenangan
 		// memposting penyesuaian dapat dibatasi tersendiri.
@@ -274,7 +279,8 @@ public final class EbisnisMenuKatalog {
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
 			// Grup "Keuangan": dokumen pencairan dana -- fail-closed, dinyalakan admin per peran.
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
-			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer"));
+			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
+			"proses_transitori"));
 
 	/**
 	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
@@ -293,7 +299,8 @@ public final class EbisnisMenuKatalog {
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
 					"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
-					"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer"));
+					"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
+					"proses_transitori"));
 
 	/**
 	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
@@ -438,6 +445,7 @@ public final class EbisnisMenuKatalog {
 			// (mis. staf boleh mengajukan tetapi tidak boleh menghapus atau menyetujui).
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
+			"proses_transitori",
 			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",

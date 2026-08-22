@@ -769,6 +769,12 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("proses_transitori_")) {
+				// Grup "Keuangan": jalan KELUAR dari rekening transitori. Awalannya tidak
+				// bertabrakan dengan "proses_transfer_", tetapi diletakkan berdampingan
+				// supaya kedua tahap pencairan terbaca sebagai satu rangkaian.
+				ais.action.servlet.api.ProsesTransitoriApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("proses_transfer_")) {
 				// Grup "Keuangan": pencairan baris DPC -- dipindahkan dari layar ZK
 				// ProsesTransferAction. Inilah mata rantai yang membuat dokumen Keuangan
