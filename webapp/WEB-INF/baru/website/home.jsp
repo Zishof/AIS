@@ -39,7 +39,6 @@ if (vm == null) {
 String root = request.getContextPath();
 String primary = text(vm.institution.themePrimary, "#163d78");
 String primaryDark = text(vm.institution.themePrimaryDark, "#0d2855");
-String heroImage = esc(vm.institution.heroUrl);
 String institutionType = vm.institution.healthcare ? "Website Resmi Fasilitas Kesehatan" : "Website Resmi Institusi";
 String activeLearner = vm.institution.healthcare ? "Pasien & keluarga" : vm.terminology.learnerPlural + " aktif";
 String candidate = vm.institution.healthcare ? "Pasien" : "Calon " + vm.terminology.learnerPlural.toLowerCase();
@@ -147,16 +146,6 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
                     <span><i aria-hidden="true">✓</i> Layanan terpadu</span>
                     <span><i aria-hidden="true">✓</i> Responsif &amp; aksesibel</span>
                 </div>
-            </div>
-            <div class="hero-visual">
-                <div class="hero-photo"><img src="<%=heroImage%>" alt="Lingkungan <%=esc(vm.institution.name)%>" fetchpriority="high"></div>
-                <% if (vm.admission != null) { %>
-                <a class="float-card float-card--admission" href="<%=esc(vm.admission.url)%>"<%=attrs(vm.admission)%>><small>Penerimaan</small><strong><%=esc(text(vm.admission.period, vm.admission.label))%></strong><span><%=esc(vm.admission.open ? "Pendaftaran tersedia" : "Lihat informasi")%></span></a>
-                <% } %>
-                <a class="float-card float-card--portal" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>"><small>Portal digital</small><strong><%=esc(vm.digitalPortalTitle)%></strong><span><%=esc(vm.digitalPortalSummary)%></span></a>
-                <% if (!vm.agenda.isEmpty()) { HomePortalViewModel.AgendaItem agendaHero = vm.agenda.get(0); %>
-                <% if (sectionOnly(agendaHero.url, "#informasi")) { %><div class="float-card float-card--agenda"><small>Agenda</small><strong><%=esc(agendaHero.label)%></strong><span><%=esc(agendaHero.date)%></span></div><% } else { %><a class="float-card float-card--agenda" href="<%=esc(agendaHero.url)%>"<%=attrs(agendaHero)%>><small>Agenda</small><strong><%=esc(agendaHero.label)%></strong><span><%=esc(agendaHero.date)%></span></a><% } %>
-                <% } %>
             </div>
         </div>
     </section>

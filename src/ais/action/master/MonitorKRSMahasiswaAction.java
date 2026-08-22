@@ -91,6 +91,7 @@ import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
+import ais.common.PesanFormalHelper;
 import ais.common.listener.DataLoader;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Detailperkuliahan;
@@ -2733,16 +2734,47 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 														MyMessageboxConfig.QUESTION, new EventListener() {
 															@Override
 															public void onEvent(Event ev) throws Exception {
-																if (!"onYes".equals(ev.getName())) {
-																	return;
+																try {
+																	if (!"onYes".equals(ev.getName())) {
+																		return;
+																	}
+																	if (daftarId.isEmpty()) {
+																		return;
+																	}
+																	String sql = "delete from detailperkuliahan dp where dp.id in (" + daftarId + ")"
+																			+ " and not exists (select 1 from mahasiswa_dapat_kelompok_kelompok_kkn kkn"
+																			+ " where kkn.detailperkuliahan_id = dp.id)"
+																			+ " and not exists (select 1 from mahasiswa_dapat_kelompok_kelompok_pkl pkl"
+																			+ " where pkl.detailperkuliahan_id = dp.id)";
+																	int dihapus = HibernateUtil.currentSession().createSQLQuery(sql).executeUpdate();
+																	int dilewati = jumlahDouble - dihapus;
+																	if (dilewati > 0) {
+																		MyMessageboxConfig.show("Pembersihan data double selesai.\n\n"
+																				+ "Data KRS yang berhasil dihapus: " + dihapus + " baris.\n"
+																				+ "Data KRS yang dilewati: " + dilewati + " baris.\n\n"
+																				+ "Data yang dilewati masih dipakai pada kelompok KKN/PKL, sehingga tidak boleh dihapus langsung agar data bimbingan/kelompok tetap aman.",
+																				"Informasi Pembersihan Data Double",
+																				MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+																	} else {
+																		MyMessageboxConfig.show("Pembersihan data double selesai. "
+																				+ dihapus + " baris data KRS berhasil dihapus.",
+																				"Informasi Pembersihan Data Double",
+																				MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+																	}
+																	onSearchDefault(ev);
+																	window.detach();
+																} catch (Exception e) {
+																	Common.tampilErrorJikaAdmin(e);
+																	PesanFormalHelper.tampilkanGagalException(
+																			"pembersihan data KRS ganda",
+																			"Sebagian data KRS ganda tidak dapat dihapus karena masih memiliki relasi dengan data akademik lain, misalnya kelompok KKN/PKL. Sistem menjaga data tersebut agar tidak rusak.",
+																			e,
+																			new String[] {
+																					"Unduh data terlebih dahulu dari tombol Download Data untuk melihat ID KRS yang terdeteksi ganda.",
+																					"Periksa data KKN/PKL atau relasi akademik lain yang masih memakai ID detailperkuliahan tersebut.",
+																					"Jika data benar-benar harus dibersihkan, lepaskan atau pindahkan relasinya terlebih dahulu, lalu ulangi proses pembersihan."
+																			});
 																}
-																if (daftarId.isEmpty()) {
-																	return;
-																}
-																String sql = "delete from detailperkuliahan where id in (" + daftarId + ")";
-																HibernateUtil.currentSession().createSQLQuery(sql).executeUpdate();
-																onSearchDefault(ev);
-																window.detach();
 															}
 														});
 											}
@@ -2872,16 +2904,16 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 														+ ", detailperkuliahans = " + detailperkuliahans.size());
 
 												int index = 0;
-												for (Detailperkuliahan detailperkuliahan : detailperkuliahans) {
+											for (Detailperkuliahan detailperkuliahan : detailperkuliahans) {
 
-													rowIndex++;
-													XSSFRow row = sheet.createRow(rowIndex);
-													XSSFCell cell0 = row.createCell(0);
-													if (index < detailperkuliahans.size() - 1) {
-														dataDihapus.add(detailperkuliahan.getId());
-														cell0.setCellStyle(lockedNumericStyle);
-													}
-													index++;
+												rowIndex++;
+												XSSFRow row = sheet.createRow(rowIndex);
+												XSSFCell cell0 = row.createCell(0);
+												boolean akanDihapus = index < detailperkuliahans.size() - 1;
+												if (akanDihapus) {
+													dataDihapus.add(detailperkuliahan.getId());
+												}
+												index++;
 
 													label.setValue("Sedang memproses data " + detailperkuliahan + " ");
 
@@ -2906,8 +2938,13 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 															.setCellValue(detailperkuliahan.getPerkuliahan() != null
 																	? detailperkuliahan.getPerkuliahan().populateDosen()
 																			.values().toString()
-																	: "");
+																											: "");
+												if (akanDihapus) {
+													for (int cellIndex = 0; cellIndex <= 7; cellIndex++) {
+														row.getCell(cellIndex).setCellStyle(lockedNumericStyle);
+													}
 												}
+											}
 
 											} catch (Exception e) {
 												Common.tampilErrorJikaAdmin(e);
@@ -3338,8 +3375,6 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 												XSSFRow row = sheet.createRow(rowIndex);
 												XSSFCell cell0 = row.createCell(0);
 												dataDihapus.add(mhsId);
-												cell0.setCellStyle(lockedNumericStyle);
-
 												label.setValue("Sedang memproses data " + mahasiswa + " ");
 
 												cell0.setCellValue(mhsId);
@@ -3354,8 +3389,11 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 												row.createCell(6).setCellValue(tahunakademikDiambil);
 												row.createCell(7).setCellValue(o[7] == null ? "" : o[7].toString());
 												row.createCell(8).setCellValue(o[8] == null ? "" : o[8].toString());
+												for (int cellIndex = 0; cellIndex <= 8; cellIndex++) {
+													row.getCell(cellIndex).setCellStyle(lockedNumericStyle);
+												}
 
-											} catch (Exception e) {
+										} catch (Exception e) {
 												Common.tampilErrorJikaAdmin(e);
 											}
 										}
@@ -3372,7 +3410,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 										data.clear();
 										data = null;
 										label.setValue("");
-									} catch (Exception e) {
+											} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);
 										label.setValue("-");
 									}

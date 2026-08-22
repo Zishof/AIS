@@ -532,14 +532,14 @@ public class MatakuliahEkivalenAction extends GenericAutowireComposer implements
 													System.out.println("det = " + det + ", detailperkuliahans = "
 															+ detailperkuliahan);
 
-													rowIndex++;
-													XSSFRow row = sheet.createRow(rowIndex);
-													XSSFCell cell0 = row.createCell(0);
-													if (indexKe == 0) {
-														dataDihapus.add(detailperkuliahan.getId());
-														cell0.setCellStyle(lockedNumericStyle);
-													}
-													indexKe++;
+											rowIndex++;
+											XSSFRow row = sheet.createRow(rowIndex);
+											XSSFCell cell0 = row.createCell(0);
+											boolean akanDihapus = indexKe == 0;
+											if (akanDihapus) {
+												dataDihapus.add(detailperkuliahan.getId());
+											}
+										indexKe++;
 
 													label.setValue("Sedang memproses data " + detailperkuliahan + " ");
 
@@ -564,9 +564,14 @@ public class MatakuliahEkivalenAction extends GenericAutowireComposer implements
 															.setCellValue(detailperkuliahan.getPerkuliahan() != null
 																	? detailperkuliahan.getPerkuliahan().populateDosen()
 																			.values().toString()
-																	: "");
+																										: "");
+											if (akanDihapus) {
+												for (int cellIndex = 0; cellIndex <= 7; cellIndex++) {
+													row.getCell(cellIndex).setCellStyle(lockedNumericStyle);
+												}
+											}
 
-												} catch (Exception e) {
+										} catch (Exception e) {
 													Common.tampilErrorJikaAdmin(e);
 												}
 											}

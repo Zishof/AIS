@@ -3202,16 +3202,16 @@ public class TampilStudiMahasiswaHelper {
 												.addOrder(Order.asc("totalNilai"))
 												.addOrder(Order.desc("perkuliahan.dosen1")).list();
 
-										int index = 0;
-										for (Detailperkuliahan dp : detailperkuliahans) {
-											rowIndex++;
-											XSSFRow row = sheet.createRow(rowIndex);
-											XSSFCell cell0 = row.createCell(0);
-											if (index < detailperkuliahans.size() - 1) {
-												dataDihapus.add(dp.getId());
-												cell0.setCellStyle(lockedNumericStyle);
-											}
-											index++;
+									int index = 0;
+									for (Detailperkuliahan dp : detailperkuliahans) {
+										rowIndex++;
+										XSSFRow row = sheet.createRow(rowIndex);
+										XSSFCell cell0 = row.createCell(0);
+										boolean akanDihapus = index < detailperkuliahans.size() - 1;
+										if (akanDihapus) {
+											dataDihapus.add(dp.getId());
+										}
+										index++;
 
 											label.setValue("Sedang memproses data " + dp + " ");
 											cell0.setCellValue(dp.getId());
@@ -3230,9 +3230,14 @@ public class TampilStudiMahasiswaHelper {
 											row.createCell(6).setCellValue(dp.getNilaiHuruf());
 											row.createCell(7)
 													.setCellValue(dp.getPerkuliahan() != null
-															? dp.getPerkuliahan().populateDosen().values().toString()
-															: "");
+																	? dp.getPerkuliahan().populateDosen().values().toString()
+																	: "");
+										if (akanDihapus) {
+											for (int cellIndex = 0; cellIndex <= 7; cellIndex++) {
+												row.getCell(cellIndex).setCellStyle(lockedNumericStyle);
+											}
 										}
+									}
 										session.clear();
 									} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);
