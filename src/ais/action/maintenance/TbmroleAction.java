@@ -204,6 +204,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	 * "Read" TIDAK di sini -- tetap pakai field akses* yg sudah ada (jadi tidak perlu 16 field checkbox baru).
 	 */
 	private Map<String, MyCheckboxConfig> crudCheckboxMap;
+	/** Checkbox Read untuk baris yang DIBANGKITKAN dari katalog (lihat
+	 *  {@link #appendBarisKatalogSisanya}); baris tulis tangan tetap memakai field sendiri. */
+	private Map<String, MyCheckboxConfig> menuCheckboxMap;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -2263,6 +2266,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		rows = rowsPedagang;
 		tokoAksesCheckboxMap = new java.util.LinkedHashMap<Long, MyCheckboxConfig>();
 		crudCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		menuCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
 
 		// Semua checkbox "Hak Akses Pedagang" (eBisnis) di bawah ini SEKARANG dibaca dari SATU kolom
 		// JSON Tbmrole.ebisnisMenu (bukan lagi 26 kolom Boolean terpisah -- lihat JavaDoc
@@ -2440,6 +2444,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		aksesReturPenjualan.setChecked(ebisnisMenuMap.optBoolean("returpenjualan", true));
 		appendBarisAksesCrud(rows, "Retur Penjualan", "returpenjualan", aksesReturPenjualan, ebisnisMenuTersimpan);
 
+		appendBarisKatalogSisanya(rows, ebisnisMenuMap, ebisnisMenuTersimpan);
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
@@ -2571,6 +2577,96 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	 * saja tepat sebelum baris ber-CRUD {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD} PERTAMA muncul,
 	 * bukan diulang tiap baris (itu yg bikin tiap baris jadi lebar & melebar ke baris baru sebelumnya).
 	 */
+	/**
+	 * Kunci menu yang barisnya SUDAH ditulis tangan di atas. Dipakai
+	 * {@link #appendBarisKatalogSisanya} supaya tidak menggandakannya.
+	 *
+	 * <p>Sengaja daftar eksplisit, bukan diturunkan dari field: baris tangan itu memakai nama
+	 * label sendiri ("Barang" untuk {@code produk}, "Vendor" untuk {@code penyedia}) dan
+	 * urutannya sudah dikenal pengguna lama. Yang dibangkitkan hanyalah SISANYA.</p>
+	 */
+	private static final java.util.Set<String> KUNCI_BARIS_TANGAN =
+			new java.util.HashSet<String>(java.util.Arrays.asList(
+					"kasir", "ringkasan", "pesanan", "konfigurasi", "anggota", "produk", "kulakan",
+					"diskon", "pembayaran", "pedagang", "stokopname", "meja", "penyedia", "kaskasir",
+					"setorantenant", "jadwalopname", "stokexpired", "limitkredit", "mutasirekening",
+					"produksi", "laporan", "laporankeuangan", "laporantransaksi", "pengaturanlaporan",
+					"riwayatsinkronisasi", "logerror", "riwayatpenjualan", "returpenjualan"));
+
+	/**
+	 * Baris hak akses untuk SELURUH menu katalog yang belum ditulis tangan di atas -- Akuntansi,
+	 * Pengadaan, Keuangan, Inventory &amp; Sales, Apotik, eMedik, dan MitraInap.
+	 *
+	 * <p><b>Mengapa dibangkitkan, bukan ditulis satu per satu.</b> Tab ini dahulu hanya memuat
+	 * menu e-Kantin generasi pertama; setiap modul yang lahir sesudahnya tidak pernah muncul di
+	 * sini, sehingga haknya tidak dapat diatur sama sekali walaupun menunya sudah ada di POS.
+	 * Menuliskannya satu per satu berarti masalah yang sama terulang pada modul berikutnya --
+	 * seseorang harus ingat menyunting berkas ini, dan yang lupa tidak akan ketahuan sampai ada
+	 * yang mencari kotak centangnya. Dengan dibangkitkan dari {@code EbisnisMenuKatalog.DAFTAR},
+	 * menu baru muncul di sini dengan sendirinya.</p>
+	 *
+	 * <p>Menu yang terdaftar pada {@code KUNCI_CRUD} memperoleh grid Read/Create/Update/Delete/
+	 * Approve/Reject seperti baris tangan; sisanya cukup satu kotak Read, sebab memang tidak ada
+	 * aksi mutasi yang berarti di sana (laporan, dasbor, monitor).</p>
+	 */
+	private void appendBarisKatalogSisanya(Rows rows, JSONObject ebisnisMenuMap,
+			JSONObject ebisnisMenuTersimpan) {
+		/* Dikelompokkan LEBIH DAHULU, baru dicetak. Mengelompokkan sambil berjalan --
+		 * "cetak judul bila berbeda dari baris sebelumnya" -- menghasilkan judul yang
+		 * sama muncul dua kali, sebab urutan deklarasi katalog tidak selalu menyatukan
+		 * satu kelompok (mis. Anggaran dideklarasikan setelah blok Keuangan). */
+		java.util.LinkedHashMap<String, java.util.List<ais.common.EbisnisMenuKatalog.Entri>> grup =
+			new java.util.LinkedHashMap<String, java.util.List<ais.common.EbisnisMenuKatalog.Entri>>();
+		for (ais.common.EbisnisMenuKatalog.Entri e : ais.common.EbisnisMenuKatalog.DAFTAR) {
+			if (e == null || KUNCI_BARIS_TANGAN.contains(e.kunci)) {
+				continue;
+			}
+			/* Sub-judul memakai awalan label sebelum titik dua ("Pengadaan: ...",
+			 * "Akuntansi: ...", "Keuangan: ..."). Tanpa itu, 31 menu POS tumpah menjadi
+			 * satu daftar panjang yang harus dibaca satu per satu. */
+			int pisah = e.label == null ? -1 : e.label.indexOf(": ");
+			String kelompok = pisah > 0 ? (e.modul + " – " + e.label.substring(0, pisah)) : e.modul;
+			java.util.List<ais.common.EbisnisMenuKatalog.Entri> isi = grup.get(kelompok);
+			if (isi == null) {
+				isi = new java.util.ArrayList<ais.common.EbisnisMenuKatalog.Entri>();
+				grup.put(kelompok, isi);
+			}
+			isi.add(e);
+		}
+		for (java.util.Map.Entry<String, java.util.List<ais.common.EbisnisMenuKatalog.Entri>> g
+				: grup.entrySet()) {
+			MyFormRow judul = new MyFormRow();
+			judul.setParent(rows);
+			judul.appendChild(new ais.ui.util.MyLabelConfig(""));
+			Label l = new Label(g.getKey());
+			l.setStyle("font-weight:700;color:#334155;font-size:11px;");
+			judul.appendChild(l);
+			for (ais.common.EbisnisMenuKatalog.Entri e : g.getValue()) {
+				int pisah = e.label == null ? -1 : e.label.indexOf(": ");
+				String labelBaris = pisah > 0 ? e.label.substring(pisah + 2) : e.label;
+				MyCheckboxConfig read = new MyCheckboxConfig("");
+				read.setChecked(ebisnisMenuMap.optBoolean(e.kunci, true));
+				menuCheckboxMap.put(e.kunci, read);
+				if (ais.common.EbisnisMenuKatalog.KUNCI_CRUD.contains(e.kunci)) {
+					appendBarisAksesCrud(rows, labelBaris, e.kunci, read, ebisnisMenuTersimpan);
+				} else {
+					// Tanpa aksi mutasi: cukup satu kotak Read, diletakkan pada kolom yang
+					// sama dengan kolom Read baris ber-CRUD supaya tetap sebaris rapi.
+					MyFormRow row = new MyFormRow();
+					row.setParent(rows);
+					row.appendChild(new ais.ui.util.MyLabelConfig(labelBaris));
+					Hbox box = new Hbox();
+					box.setSpacing("4px");
+					box.setAlign("center");
+					row.appendChild(box);
+					read.setStyle("display:inline-block;width:" + LEBAR_KOLOM_CRUD + ";text-align:center;");
+					box.appendChild(read);
+				}
+			}
+		}
+	}
+
+
 	private void tambahHeaderKolomCrud(Rows rows) {
 		MyFormRow row = new MyFormRow();
 		row.setParent(rows);
@@ -2708,6 +2804,14 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		menu.put("logerror", aksesLogError == null || aksesLogError.isChecked());
 		menu.put("riwayatpenjualan", aksesRiwayatPenjualan == null || aksesRiwayatPenjualan.isChecked());
 		menu.put("returpenjualan", aksesReturPenjualan == null || aksesReturPenjualan.isChecked());
+		// Baris yang dibangkitkan dari katalog. Ditulis SESUDAH baris tangan supaya bila
+		// suatu kunci kebetulan muncul di keduanya, nilai dari kotak yang benar-benar
+		// ditampilkan pada tab inilah yang menang.
+		if (menuCheckboxMap != null) {
+			for (Map.Entry<String, MyCheckboxConfig> en : menuCheckboxMap.entrySet()) {
+				menu.put(en.getKey(), en.getValue() == null || en.getValue().isChecked());
+			}
+		}
 		obj.put("menu", menu);
 
 		JSONObject crud = new JSONObject();
