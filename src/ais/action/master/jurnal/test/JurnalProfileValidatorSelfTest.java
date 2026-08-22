@@ -1,7 +1,64 @@
 package ais.action.master.jurnal.test;
+
 import ais.action.master.jurnal.JurnalProfileValidator;
-public final class JurnalProfileValidatorSelfTest{
- private JurnalProfileValidatorSelfTest(){}
- public static void main(String[]a){String old="{\"schemaVersion\":1,\"reviewForms\":[{\"formKey\":\"standard\",\"version\":1,\"status\":\"PUBLISHED\",\"elements\":[{\"elementKey\":\"quality\",\"type\":\"SCALE\"}]}]}";check(JurnalProfileValidator.workflow(old,null).length()>0,"valid workflow");deny(new Runnable(){public void run(){JurnalProfileValidator.workflow("{\"schemaVersion\":1,\"reviewForms\":[]}",old);}},"published immutable");deny(new Runnable(){public void run(){JurnalProfileValidator.access("{\"schemaVersion\":1,\"policies\":[{\"policyKey\":\"paid\",\"format\":\"SUBSCRIPTION\",\"price\":-1}]}");}},"negative price");check(JurnalProfileValidator.access("{\"schemaVersion\":1,\"policies\":[{\"policyKey\":\"open\",\"format\":\"OPEN\"}]}").length()>0,"valid access");String metadata="{\"schemaVersion\":1,\"locales\":[\"id_ID\"],\"publicUi\":{\"allowSubmissions\":true,\"information\":{\"reader\":\"Info\"},\"customBlocks\":[{\"key\":\"about\",\"title\":\"Tentang\",\"bodyText\":\"Isi\"}],\"analytics\":{\"provider\":\"GA4\",\"measurementId\":\"G-ABCDEF12\"}},\"publicPages\":[{\"slug\":\"ethics\",\"title\":\"Etik\",\"bodyText\":\"Isi\"}]}";check(JurnalProfileValidator.metadata(metadata).length()>0,"valid metadata UI");deny(new Runnable(){public void run(){JurnalProfileValidator.metadata("{\"schemaVersion\":1,\"publicUi\":{\"customBlocks\":[{\"key\":\"x\",\"title\":\"A\",\"bodyText\":\"A\"},{\"key\":\"x\",\"title\":\"B\",\"bodyText\":\"B\"}]}}");}},"duplicate custom block");deny(new Runnable(){public void run(){JurnalProfileValidator.metadata("{\"schemaVersion\":1,\"publicUi\":{\"analytics\":{\"provider\":\"GA4\",\"measurementId\":\"bad\"}}}");}},"invalid analytics");System.out.println("JurnalProfileValidatorSelfTest OK workflow access public-ui bounded");}
- private static void deny(Runnable r,String m){boolean denied=false;try{r.run();}catch(IllegalArgumentException e){denied=true;}check(denied,m);}private static void check(boolean v,String m){if(!v)throw new IllegalStateException(m);}
+
+public final class JurnalProfileValidatorSelfTest {
+    private JurnalProfileValidatorSelfTest() {}
+
+    public static void main(String[] args) {
+        final String old = "{\"schemaVersion\":1,\"reviewForms\":[{\"formKey\":\"standard\","
+                + "\"version\":1,\"status\":\"PUBLISHED\",\"elements\":[{\"elementKey\":\"quality\","
+                + "\"type\":\"SCALE\"}]}]}";
+        check(JurnalProfileValidator.workflow(old, null).length() > 0, "valid workflow");
+        deny(new Runnable() {
+            public void run() {
+                JurnalProfileValidator.workflow("{\"schemaVersion\":1,\"reviewForms\":[]}", old);
+            }
+        }, "published immutable");
+        deny(new Runnable() {
+            public void run() {
+                JurnalProfileValidator.access("{\"schemaVersion\":1,\"policies\":[{\"policyKey\":\"paid\","
+                        + "\"format\":\"SUBSCRIPTION\",\"price\":-1}]}");
+            }
+        }, "negative price");
+        check(JurnalProfileValidator.access("{\"schemaVersion\":1,\"policies\":[{\"policyKey\":\"open\","
+                + "\"format\":\"OPEN\"}]}").length() > 0, "valid access");
+
+        String metadata = "{\"schemaVersion\":1,\"locales\":[\"id_ID\"],\"publicUi\":{"
+                + "\"allowSubmissions\":true,\"information\":{\"reader\":\"Info\"},"
+                + "\"customBlocks\":[{\"key\":\"about\",\"title\":\"Tentang\",\"bodyText\":\"Isi\"}],"
+                + "\"analytics\":{\"provider\":\"GA4\",\"measurementId\":\"G-ABCDEF12\"}},"
+                + "\"publicPages\":[{\"slug\":\"ethics\",\"title\":\"Etik\",\"bodyText\":\"Isi\"}]}";
+        check(JurnalProfileValidator.metadata(metadata).length() > 0, "valid metadata UI");
+        deny(new Runnable() {
+            public void run() {
+                JurnalProfileValidator.metadata("{\"schemaVersion\":1,\"publicUi\":{\"customBlocks\":["
+                        + "{\"key\":\"x\",\"title\":\"A\",\"bodyText\":\"A\"},"
+                        + "{\"key\":\"x\",\"title\":\"B\",\"bodyText\":\"B\"}]}}");
+            }
+        }, "duplicate custom block");
+        deny(new Runnable() {
+            public void run() {
+                JurnalProfileValidator.metadata("{\"schemaVersion\":1,\"publicUi\":{\"analytics\":{"
+                        + "\"provider\":\"GA4\",\"measurementId\":\"bad\"}}}");
+            }
+        }, "invalid analytics");
+        System.out.println("JurnalProfileValidatorSelfTest OK workflow access public-ui bounded");
+    }
+
+    private static void deny(Runnable action, String message) {
+        boolean denied = false;
+        try {
+            action.run();
+        } catch (IllegalArgumentException expected) {
+            denied = true;
+        }
+        check(denied, message);
+    }
+
+    private static void check(boolean valid, String message) {
+        if (!valid) {
+            throw new IllegalStateException(message);
+        }
+    }
 }
