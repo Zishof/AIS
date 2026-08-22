@@ -68,8 +68,13 @@ public final class DraftJurnalApiHelper {
         if ("Dana Talangan".equals(namaBaris)) return "dana_talangan";
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
         if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
-        if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "pengajuan_transfer";
-        if ("Transitori".equals(namaBaris)) return "transitori";
+        // PERBAIKAN: dua baris ini dulu mengembalikan "pengajuan_transfer" dan "transitori",
+        // yang BUKAN kunci menu -- EbisnisMenuKatalog.bolehAksi mengembalikan true untuk kunci
+        // di luar KUNCI_CRUD, sehingga keduanya FAIL-OPEN: siapa pun yang dapat membuka Draft
+        // Jurnal boleh memposting maupun membatalkan jurnal pergerakan dana, tanpa gerbang per
+        // peran. Kini menunjuk kunci menu modulnya sendiri, sama seperti baris lain di sini.
+        if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "proses_transfer";
+        if ("Transitori".equals(namaBaris)) return "proses_transitori";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         return null;

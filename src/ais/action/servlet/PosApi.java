@@ -769,6 +769,12 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("nomor_surat_keuangan_")) {
+				// Penomoran dokumen Keuangan: memasangkan tiap alur dokumen dengan templat
+				// nomornya. Tanpa ini, alur yang belum dipasangi templat menerbitkan kode
+				// barcode dan hanya dapat diperbaiki dari layar ZK.
+				ais.action.servlet.api.NomorSuratKeuanganApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("proses_transitori_")) {
 				// Grup "Keuangan": jalan KELUAR dari rekening transitori. Awalannya tidak
 				// bertabrakan dengan "proses_transfer_", tetapi diletakkan berdampingan

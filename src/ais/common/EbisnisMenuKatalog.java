@@ -168,6 +168,11 @@ public final class EbisnisMenuKatalog {
 		// akunting.transitori; batch di sini yang mengeluarkannya, dan persetujuan
 		// batch itulah gerbang yang dituntut PostingProsesTransitoriAction.
 		DAFTAR.add(new Entri(MODUL_POS, "proses_transitori", "Keuangan: Proses Transitori", "desktop", "android"));
+		// Penomoran dokumen Keuangan (2026-08-23): memasangkan tiap alur dokumen dengan
+		// templat nomornya. Alur tanpa templat membuat dokumennya terbit berkode BARCODE
+		// (Common.getGeneratedBarCode) alih-alih nomor yang dapat dibaca -- dan pada basis
+		// data uji baru satu dari sepuluh alur yang terpasang.
+		DAFTAR.add(new Entri(MODUL_POS, "nomor_surat_keuangan", "Keuangan: Penomoran Dokumen", "desktop", "android"));
 		// Retur beli/jual, stok opname, dan mutasi antar toko dijurnal lewat satu layar yang
 		// tampil sebagai tab pada Katalog Laporan -- kuncinya dipisah supaya kewenangan
 		// memposting penyesuaian dapat dibatasi tersendiri.
@@ -280,7 +285,7 @@ public final class EbisnisMenuKatalog {
 			// Grup "Keuangan": dokumen pencairan dana -- fail-closed, dinyalakan admin per peran.
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
-			"proses_transitori"));
+			"proses_transitori", "nomor_surat_keuangan"));
 
 	/**
 	 * Peran yang secara BAWAAN melihat grup menu "Akuntansi" tanpa perlu diatur admin lebih dulu:
@@ -300,7 +305,7 @@ public final class EbisnisMenuKatalog {
 					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
 					"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 					"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
-					"proses_transitori"));
+					"proses_transitori", "nomor_surat_keuangan"));
 
 	/**
 	 * Apakah peran ini secara bawaan boleh melihat menu Akuntansi.
@@ -445,7 +450,7 @@ public final class EbisnisMenuKatalog {
 			// (mis. staf boleh mengajukan tetapi tidak boleh menghapus atau menyetujui).
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
-			"proses_transitori",
+			"proses_transitori", "nomor_surat_keuangan",
 			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",
