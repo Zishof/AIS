@@ -53,6 +53,7 @@ public final class JurnalFileService {
             blobSession = streaming.currentSession(); blobTx = blobSession.beginTransaction();
             BufferedInputStream buffered = new BufferedInputStream(content, 8192);
             String detectedMime = sniffMime(buffered, normalizedMime);
+            requireSniffCompatible(normalizedMime, detectedMime);
             DigestInputStream bounded = new DigestInputStream(buffered, MAX_UPLOAD_BYTES);
             LampiranJurnal lampiran = newLampiran(meta, safeName(fileName), normalizedMime,
                     detectedMime, normalizedStage, declaredSize, actor, "UPLOAD");
@@ -100,8 +101,9 @@ public final class JurnalFileService {
             BufferedInputStream buffered = new BufferedInputStream(content, 8192);
             String declaredMime = validMime(meta.getMimeType());
             DigestInputStream bounded = new DigestInputStream(buffered, MAX_UPLOAD_BYTES);
+            String detectedMime=sniffMime(buffered,declaredMime);requireSniffCompatible(declaredMime,detectedMime);
             LampiranJurnal lampiran = newLampiran(meta, safeName(meta.getNamaFile()), declaredMime,
-                    sniffMime(buffered, declaredMime), validStage(meta.getJournalStage()), declaredSize, actor, "OJS_IMPORT");
+                    detectedMime, validStage(meta.getJournalStage()), declaredSize, actor, "OJS_IMPORT");
             lampiran.setContent(org.hibernate.Hibernate.createBlob(bounded)); blobSession.save(lampiran); blobSession.flush();
             lampiran.setStorageState("CONTENT_STORED");
             if (bounded.count != declaredSize) throw new IOException("Ukuran aktual file import tidak sesuai manifest.");
@@ -296,10 +298,16 @@ public final class JurnalFileService {
             return "image/tiff";
         if (count >= 4 && head[0] == 'P' && head[1] == 'K' && head[2] == 3 && head[3] == 4)
             return declaredMime;
+        if (count >= 8 && (head[0]&255)==208 && (head[1]&255)==207 && (head[2]&255)==17 && (head[3]&255)==224
+                && (head[4]&255)==161 && (head[5]&255)==177 && (head[6]&255)==26 && (head[7]&255)==225)
+            return "application/msword";
         if (count >= 5 && head[0] == '{' && head[1] == '\\' && head[2] == 'r' && head[3] == 't' && head[4] == 'f')
             return "application/rtf";
         return declaredMime.startsWith("text/") || declaredMime.indexOf("xml") >= 0
                 ? declaredMime : "application/octet-stream";
+    }
+    private static void requireSniffCompatible(String declared,String detected){
+        if(!declared.equals(detected))throw new IllegalArgumentException("Isi file tidak sesuai MIME yang dideklarasikan.");
     }
 
     private static String validStage(String value) { String x = clean(value).toUpperCase(Locale.ENGLISH); if (!STAGES.contains(x)) throw new IllegalArgumentException("Tahap file jurnal tidak valid."); return x; }
