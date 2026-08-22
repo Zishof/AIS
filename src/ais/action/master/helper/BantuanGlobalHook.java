@@ -228,8 +228,17 @@ public class BantuanGlobalHook implements UiLifeCycle {
 
 	/** Gaya satu baris menu di dalam panel kebab. */
 	private static final String GAYA_ITEM =
-			"cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:#0f172a;"
-			+ "display:flex;align-items:center;white-space:nowrap;";
+			"cursor:pointer !important;padding:11px 14px;font-size:13px;font-weight:600;color:#0f172a;"
+			+ "display:flex;align-items:center;white-space:nowrap;pointer-events:auto !important;";
+
+	private static final String GAYA_WRAPPER_FAB =
+			"position:fixed !important;right:22px !important;bottom:78px !important;"
+			+ "left:auto !important;top:auto !important;z-index:2147483000 !important;"
+			+ "width:48px !important;height:48px !important;min-width:48px !important;"
+			+ "min-height:48px !important;max-width:48px !important;max-height:48px !important;"
+			+ "margin:0 !important;padding:0 !important;overflow:visible !important;"
+			+ "display:block !important;box-sizing:border-box !important;"
+			+ "font-family:'Segoe UI',Arial,sans-serif;pointer-events:auto !important;";
 
 	/** Satu baris menu: ikon, label, dan aksinya. */
 	private static Div itemMenu(Div panel, String ikon, String label, String tooltip, EventListener aksi) {
@@ -273,9 +282,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			final EventListener aksiBantuanHalaman) {
 		final Div wrapper = new Div();
 		wrapper.setSclass("kb-fab-global");
-		wrapper.setStyle("position:fixed !important;right:22px !important;bottom:22px !important;"
-				+ "z-index:99990 !important;width:48px;height:48px;overflow:visible;"
-				+ "font-family:'Segoe UI',Arial,sans-serif;");
+		wrapper.setStyle(GAYA_WRAPPER_FAB);
 
 		// Panel menu, tersembunyi sampai tombol ditekan. Diposisikan absolut TERHADAP
 		// wrapper sehingga tidak menambah tinggi slot saat tertutup.
@@ -283,7 +290,8 @@ public class BantuanGlobalHook implements UiLifeCycle {
 		panel.setVisible(false);
 		panel.setStyle("position:absolute;right:0;bottom:60px;min-width:224px;background:#ffffff;"
 				+ "border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;"
-				+ "box-shadow:0 14px 38px rgba(15,23,42,.20);");
+				+ "box-shadow:0 14px 38px rgba(15,23,42,.20);"
+				+ "z-index:2147483001 !important;pointer-events:auto !important;");
 		panel.setParent(wrapper);
 
 		new Html("<div style='padding:9px 14px 7px;font-size:11px;letter-spacing:.06em;"
@@ -329,9 +337,12 @@ public class BantuanGlobalHook implements UiLifeCycle {
 				});
 
 		final Div tombol = new Div();
-		tombol.setStyle("width:48px;height:48px;border-radius:50%;cursor:pointer;background:#1d4ed8;"
+		tombol.setStyle("width:48px !important;height:48px !important;border-radius:50%;"
+				+ "cursor:pointer !important;background:#1d4ed8;"
 				+ "color:#ffffff;font-size:20px;font-weight:700;line-height:48px;text-align:center;"
-				+ "box-shadow:0 6px 18px rgba(29,78,216,.38);");
+				+ "box-shadow:0 6px 18px rgba(29,78,216,.38);"
+				+ "position:relative !important;z-index:2147483002 !important;"
+				+ "pointer-events:auto !important;box-sizing:border-box !important;");
 		tombol.setTooltiptext("Bantuan");
 		new Html("?").setParent(tombol);
 		tombol.addEventListener("onClick", new EventListener() {

@@ -13296,7 +13296,9 @@ a.z-toolbarbutton.kb-fab-inline,
 	position: fixed !important;
 	right: 16px !important;
 	bottom: 78px !important;
-	z-index: 99990 !important;
+	left: auto !important;
+	top: auto !important;
+	z-index: 2147483000 !important;
 	background: #1d4ed8 !important;
 	background-image: none !important;
 	border: none !important;
@@ -13305,18 +13307,45 @@ a.z-toolbarbutton.kb-fab-inline,
 	   seluruh halaman memakai satu wujud tombol bantuan. */
 	width: 48px !important;
 	height: 48px !important;
+	min-width: 48px !important;
+	min-height: 48px !important;
+	max-width: 48px !important;
+	max-height: 48px !important;
 	border-radius: 50% !important;
 	padding: 0 !important;
-	min-height: 0 !important;
+	margin: 0 !important;
 	line-height: 48px !important;
 	text-align: center !important;
 	overflow: hidden !important;
+	display: block !important;
+	box-sizing: border-box !important;
 	box-shadow: 0 4px 14px rgba(29, 78, 216, .35) !important;
 	color: #ffffff !important;
 	font-weight: 600 !important;
 	font-size: 13px !important;
 	cursor: pointer !important;
+	pointer-events: auto !important;
 	white-space: nowrap !important;
+}
+.kb-fab-global {
+	position: fixed !important;
+	right: 22px !important;
+	bottom: 78px !important;
+	left: auto !important;
+	top: auto !important;
+	z-index: 2147483000 !important;
+	width: 48px !important;
+	height: 48px !important;
+	min-width: 48px !important;
+	min-height: 48px !important;
+	max-width: 48px !important;
+	max-height: 48px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: visible !important;
+	display: block !important;
+	box-sizing: border-box !important;
+	pointer-events: auto !important;
 }
 .kb-fab-inline .z-toolbarbutton-cnt,
 .kb-fab-inline .z-toolbarbutton-cnt * {
@@ -13341,6 +13370,7 @@ a.z-toolbarbutton.kb-fab-inline,
 	display: block !important;
 	width: 48px !important;
 	text-align: center !important;
+	pointer-events: auto !important;
 }
 .kb-fab-inline .z-toolbarbutton-cnt::before {
 	content: "?";
