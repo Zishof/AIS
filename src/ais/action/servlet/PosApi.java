@@ -775,6 +775,21 @@ public class PosApi extends HttpServlet {
 				// buatan POS akhirnya dapat dijurnal.
 				ais.action.servlet.api.ProsesTransferApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("keuangan_")) {
+				// Dasbor & cetak lintas modul grup "Keuangan" (keuangan_dasbor,
+				// keuangan_cetak). Cabang ini SEMPAT TIDAK ADA: KeuanganApiHelper sudah
+				// lengkap tetapi tidak pernah dirujuk dispatcher mana pun, sehingga tab
+				// Dasbor keenam layar Keuangan dan tombol Cetak-nya selalu dijawab "Aksi
+				// tidak dikenal". Didahulukan sebelum "master_keuangan_" tidak perlu --
+				// awalannya memang tidak bertabrakan -- tetapi diletakkan berdampingan
+				// supaya keduanya terbaca sebagai satu keluarga.
+				if (!ais.action.servlet.api.KeuanganApiHelper.proses(action, tbmuser, payload, hasil)) {
+					// Jangan diam: balasan kosong untuk aksi keuangan_* yang belum dikenal
+					// persis seperti cacat yang menyembunyikan bug ini selama berhari-hari.
+					hasil.put("status", "91");
+					hasil.put("description", "Aksi Keuangan tidak dikenal: " + action);
+				}
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("master_keuangan_")) {
 				// Master data grup "Keuangan": jenis uang muka, jenis kas kecil/besar, jenis
 				// reimbursement, jenis pengeluaran, dan cara pembayaran transfer. Selama ini

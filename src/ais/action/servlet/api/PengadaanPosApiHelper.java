@@ -4882,12 +4882,24 @@ public final class PengadaanPosApiHelper {
 					.createCriteria(ais.database.model.file.LampiranLain.class)
 					.add(Restrictions.in("ref", idBast))
 					.add(Restrictions.in("jenis", jenis)).list();
+			// Berkasnya sendiri disimpan juga, dikunci jenis, supaya rinciannya dapat
+			// dikirim tanpa kueri kedua. Kuerinya sudah menarik baris ini seluruhnya.
+			java.util.Map<Long, java.util.Map<String, ais.database.model.file.LampiranLain>> petaBerkas
+					= new java.util.HashMap<Long, java.util.Map<String, ais.database.model.file.LampiranLain>>();
 			java.util.Map<Long, java.util.List<String>> peta = new java.util.HashMap<Long, java.util.List<String>>();
 			for (ais.database.model.file.LampiranLain b : berkas) {
 				if (b == null || b.getRef() == null) {
 					continue;
 				}
 				Long ref = Long.valueOf(b.getRef() + "");
+				java.util.Map<String, ais.database.model.file.LampiranLain> perSlot = petaBerkas.get(ref);
+				if (perSlot == null) {
+					perSlot = new java.util.HashMap<String, ais.database.model.file.LampiranLain>();
+					petaBerkas.put(ref, perSlot);
+				}
+				if (b.getJenis() != null) {
+					perSlot.put(b.getJenis(), b);
+				}
 				java.util.List<String> daftar = peta.get(ref);
 				if (daftar == null) {
 					daftar = new java.util.ArrayList<String>();
@@ -4906,6 +4918,27 @@ public final class PengadaanPosApiHelper {
 				if (daftar == null) {
 					daftar = new java.util.ArrayList<String>();
 				}
+				java.util.Map<String, ais.database.model.file.LampiranLain> berkasBaris = (id instanceof Number)
+						? petaBerkas.get(Long.valueOf(((Number) id).longValue())) : null;
+				JSONArray rinci = new JSONArray();
+				if (berkasBaris != null) {
+					for (int s = 0; s < SLOT_LAMPIRAN_TAGIHAN.length; s++) {
+						ais.database.model.file.LampiranLain lb = berkasBaris
+								.get(JENIS_LAMPIRAN_TAGIHAN + SLOT_LAMPIRAN_TAGIHAN[s][0]);
+						if (lb == null) {
+							continue;
+						}
+						JSONObject l = new JSONObject();
+						l.put("lampiran_id", lb.getId());
+						l.put("kunci", SLOT_LAMPIRAN_TAGIHAN[s][0]);
+						l.put("nama", SLOT_LAMPIRAN_TAGIHAN[s][1]);
+						l.put("namaFile", lb.getNama() == null ? "" : lb.getNama());
+						l.put("tipe", lb.getDeskripsi() == null ? "" : lb.getDeskripsi());
+						rinci.put(l);
+					}
+				}
+				// Dipakai layar daftar untuk mengunduh berkas tanpa membuka dialog ubah.
+				o.put("lampiranRinci", rinci);
 				o.put("lampiran", new JSONArray(daftar));
 				o.put("lampiranTerisi", daftar.size());
 				o.put("lampiranTotal", SLOT_LAMPIRAN_TAGIHAN.length);
