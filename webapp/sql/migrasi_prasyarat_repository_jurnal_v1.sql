@@ -18,6 +18,7 @@ ALTER TABLE public.repo_usage_event ADD COLUMN IF NOT EXISTS country_code varcha
 ALTER TABLE public.repo_usage_event ADD COLUMN IF NOT EXISTS referrer_host varchar(255);
 
 ALTER TABLE public.repo_workflow_event ADD COLUMN IF NOT EXISTS round_number integer;
+ALTER TABLE public.repo_item_relation ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0;
 ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS journal_stage varchar(60);
 ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS journal_genre varchar(80);
 ALTER TABLE public.repo_bitstream ADD COLUMN IF NOT EXISTS review_round integer;
@@ -28,6 +29,13 @@ ALTER TABLE public.diskusi ADD COLUMN IF NOT EXISTS repo_item_id bigint;
 ALTER TABLE public.diskusi ADD COLUMN IF NOT EXISTS stage_key varchar(80);
 ALTER TABLE public.diskusi ADD COLUMN IF NOT EXISTS visibility varchar(40);
 ALTER TABLE public.diskusi ADD COLUMN IF NOT EXISTS anonymity_mode varchar(30);
+ALTER TABLE public.diskusi_komentar ALTER COLUMN keterangan TYPE text;
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_penelitian_id bigint;
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_template_key varchar(160);
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_template_version integer;
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_idempotency_key varchar(180);
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_correlation_id varchar(180);
+ALTER TABLE public.notifikasi ADD COLUMN IF NOT EXISTS jurnal_snapshot_json text;
 ALTER TABLE IF EXISTS new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS journal_stage varchar(60);
 ALTER TABLE IF EXISTS new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS journal_genre varchar(80);
 ALTER TABLE IF EXISTS new_audit.repo_bitstream__audit ADD COLUMN IF NOT EXISTS review_round integer;
@@ -38,6 +46,13 @@ ALTER TABLE IF EXISTS new_audit.diskusi__audit ADD COLUMN IF NOT EXISTS repo_ite
 ALTER TABLE IF EXISTS new_audit.diskusi__audit ADD COLUMN IF NOT EXISTS stage_key varchar(80);
 ALTER TABLE IF EXISTS new_audit.diskusi__audit ADD COLUMN IF NOT EXISTS visibility varchar(40);
 ALTER TABLE IF EXISTS new_audit.diskusi__audit ADD COLUMN IF NOT EXISTS anonymity_mode varchar(30);
+ALTER TABLE IF EXISTS new_audit.diskusi_komentar__audit ALTER COLUMN keterangan TYPE text;
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_penelitian_id bigint;
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_template_key varchar(160);
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_template_version integer;
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_idempotency_key varchar(180);
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_correlation_id varchar(180);
+ALTER TABLE IF EXISTS new_audit.notifikasi__audit ADD COLUMN IF NOT EXISTS jurnal_snapshot_json text;
 
 CREATE TABLE IF NOT EXISTS public.repo_author_authority (
  id bigserial PRIMARY KEY, tenant_key varchar(120) NOT NULL, canonical_name varchar(255) NOT NULL,
@@ -47,6 +62,8 @@ CREATE TABLE IF NOT EXISTS public.repo_author_authority (
  created_at timestamp NOT NULL DEFAULT now(), updated_at timestamp NOT NULL DEFAULT now(),
  CONSTRAINT uq_repo_author_name UNIQUE(tenant_key,normalized_name)
 );
+ALTER TABLE public.repo_author_authority ADD COLUMN IF NOT EXISTS user_ref_id varchar(255);
+ALTER TABLE public.repo_author_authority ADD COLUMN IF NOT EXISTS mahasiswa_ref_id bigint;
 
 CREATE TABLE IF NOT EXISTS public.repo_item_contributor (
  id bigserial PRIMARY KEY, item_id bigint NOT NULL, authority_id bigint NOT NULL,
@@ -74,8 +91,14 @@ CREATE TABLE IF NOT EXISTS public.repo_integration_event (
 
 CREATE INDEX IF NOT EXISTS ix_repo_item_tenant_type ON public.repo_item(tenant_key,collection_id,document_type,workflow_status);
 CREATE INDEX IF NOT EXISTS ix_repo_author_orcid ON public.repo_author_authority(tenant_key,orcid);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_author_user ON public.repo_author_authority(tenant_key,user_ref_id) WHERE user_ref_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_author_mahasiswa ON public.repo_author_authority(tenant_key,mahasiswa_ref_id) WHERE mahasiswa_ref_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_author_email ON public.repo_author_authority(tenant_key,lower(institutional_email)) WHERE institutional_email IS NOT NULL AND institutional_email<>'';
 CREATE INDEX IF NOT EXISTS ix_repo_contributor_item ON public.repo_item_contributor(item_id,sequence_number);
 CREATE INDEX IF NOT EXISTS ix_repo_preference_user ON public.repo_user_preference(tenant_key,user_id,preference_type);
 CREATE INDEX IF NOT EXISTS ix_repo_integration_retry ON public.repo_integration_event(tenant_key,service_name,status,created_at);
+CREATE INDEX IF NOT EXISTS ix_repo_relation_toc ON public.repo_item_relation(item_id,relation_type,sort_order) WHERE aktif=true;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notifikasi_jurnal_idempotency ON public.notifikasi(jurnal_idempotency_key) WHERE jurnal_idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_notifikasi_jurnal_correlation ON public.notifikasi(jurnal_penelitian_id,jurnal_correlation_id,waktu);
 
 COMMIT;

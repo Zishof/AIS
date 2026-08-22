@@ -12,10 +12,12 @@ import javax.persistence.*;
         uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","normalized_name"}))
 public class RepoAuthorAuthority implements Serializable {
     private static final long serialVersionUID=1L;
-    private Long id; private String tenantKey,canonicalName,normalizedName,nameVariants,orcid,nidn,nip,nim,
+    private Long id,mahasiswaRefId; private String userRefId,tenantKey,canonicalName,normalizedName,nameVariants,orcid,nidn,nip,nim,
             affiliation,rorId,institutionalEmail,topics; private Boolean verified,aktif; private Date createdAt,updatedAt;
     @Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",insertable=false,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}
     @Column(name="tenant_key",nullable=false,length=120) public String getTenantKey(){return tenantKey;} public void setTenantKey(String v){tenantKey=v;}
+    @Column(name="user_ref_id",length=255) public String getUserRefId(){return userRefId;} public void setUserRefId(String v){userRefId=v;}
+    @Column(name="mahasiswa_ref_id") public Long getMahasiswaRefId(){return mahasiswaRefId;} public void setMahasiswaRefId(Long v){mahasiswaRefId=v;}
     @Column(name="canonical_name",nullable=false,length=255) public String getCanonicalName(){return canonicalName==null?"":canonicalName;} public void setCanonicalName(String v){canonicalName=v;}
     @Column(name="normalized_name",nullable=false,length=255) public String getNormalizedName(){return normalizedName==null?"":normalizedName;} public void setNormalizedName(String v){normalizedName=v;}
     @Column(name="name_variants",columnDefinition="TEXT") public String getNameVariants(){return nameVariants==null?"":nameVariants;} public void setNameVariants(String v){nameVariants=v;}

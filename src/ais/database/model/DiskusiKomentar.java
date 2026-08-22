@@ -109,7 +109,7 @@ public class DiskusiKomentar extends GeneralValueObject {
 		this.nama = nama;
 	}
 
-	@Column(name = "keterangan", length = 1000, nullable = true)
+	@Column(name = "keterangan", columnDefinition = "text", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}

@@ -1,0 +1,30 @@
+package ais.action.master.jurnal;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Tbmuser;
+import ais.database.model.repository.RepoAuthorAuthority;
+import ais.database.model.repository.RepoItem;
+import ais.database.model.repository.RepoItemContributor;
+
+/** Contributor/authority linking with explicit identifiers; people are never merged by name alone. */
+public final class JurnalContributorService {
+    private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
+
+    public RepoItemContributor addInternal(Long itemId,String userRefId,String displayName,String role,int sequence,
+            boolean corresponding,Tbmuser actor){RepoItem item=item(itemId);authorize(item,actor);Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();Query q=s.createQuery("from RepoAuthorAuthority where tenantKey=:t and userRefId=:u and aktif=true");q.setString("t",item.getTenantKey());q.setString("u",clean(userRefId));q.setMaxResults(1);RepoAuthorAuthority a=(RepoAuthorAuthority)q.uniqueResult();if(a==null){a=authority(item.getTenantKey(),displayName);a.setUserRefId(clean(userRefId));a.setVerified(Boolean.TRUE);s.save(a);s.flush();}RepoItemContributor c=link(s,item,a,displayName,role,sequence,corresponding);if(own)tx.commit();return c;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
+
+    public RepoItemContributor addExternal(Long itemId,String displayName,String email,String orcid,String affiliation,
+            String rorId,String role,int sequence,boolean corresponding,Tbmuser actor){RepoItem item=item(itemId);authorize(item,actor);String normalizedOrcid=orcid(orcid);String normalizedEmail=email(email);if(blank(normalizedOrcid)&&blank(normalizedEmail))throw new IllegalArgumentException("Kontributor eksternal memerlukan email atau ORCID.");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();String hql=!blank(normalizedOrcid)?"from RepoAuthorAuthority where tenantKey=:t and orcid=:v and aktif=true":"from RepoAuthorAuthority where tenantKey=:t and lower(institutionalEmail)=:v and aktif=true";Query q=s.createQuery(hql);q.setString("t",item.getTenantKey());q.setString("v",!blank(normalizedOrcid)?normalizedOrcid:normalizedEmail);q.setMaxResults(2);List rows=q.list();if(rows.size()>1)throw new IllegalStateException("Identifier kontributor ambigu; perlu rekonsiliasi manual.");RepoAuthorAuthority a=rows.isEmpty()?authority(item.getTenantKey(),displayName):(RepoAuthorAuthority)rows.get(0);if(a.getId()==null){a.setOrcid(blank(normalizedOrcid)?null:normalizedOrcid);a.setInstitutionalEmail(normalizedEmail);a.setAffiliation(clean(affiliation));a.setRorId(clean(rorId));a.setVerified(Boolean.FALSE);s.save(a);s.flush();}RepoItemContributor c=link(s,item,a,displayName,role,sequence,corresponding);if(own)tx.commit();return c;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}}
+
+    private void authorize(RepoItem item,Tbmuser actor){if(actor==null)throw new SecurityException("Login diperlukan.");if(!actor.getUserId().equals(item.getOwnerId()))auth.requireCrud(actor,"submission","update");}
+    private RepoItemContributor link(Session s,RepoItem item,RepoAuthorAuthority a,String name,String role,int sequence,boolean corresponding){if(sequence<0)throw new IllegalArgumentException("Urutan kontributor tidak valid.");String r=clean(role).toUpperCase(Locale.ENGLISH);if(!r.matches("AUTHOR|EDITOR|TRANSLATOR|DATA_CURATOR|CONCEPTUALIZATION|METHODOLOGY|SOFTWARE|VALIDATION|FORMAL_ANALYSIS|INVESTIGATION|RESOURCES|WRITING|SUPERVISION|FUNDING_ACQUISITION"))throw new IllegalArgumentException("Peran kontributor tidak valid.");Query q=s.createQuery("from RepoItemContributor where itemId=:i and authorityId=:a and contributorRole=:r and aktif=true");q.setLong("i",item.getId());q.setLong("a",a.getId());q.setString("r",r);q.setMaxResults(1);RepoItemContributor c=(RepoItemContributor)q.uniqueResult();if(c==null){c=new RepoItemContributor();c.setItemId(item.getId());c.setAuthorityId(a.getId());c.setContributorRole(r);c.setCreatedAt(new Date());c.setAktif(Boolean.TRUE);}c.setDisplayName(clean(name));c.setSequenceNumber(Integer.valueOf(sequence));c.setCorresponding(Boolean.valueOf(corresponding));if(c.getId()==null)s.save(c);else s.update(c);return c;}
+    private static RepoAuthorAuthority authority(String tenant,String name){required(name,"Nama kontributor wajib diisi.");RepoAuthorAuthority a=new RepoAuthorAuthority();a.setTenantKey(tenant);a.setCanonicalName(clean(name));a.setNormalizedName(clean(name).toLowerCase(Locale.ENGLISH).replaceAll("[^\\p{L}\\p{N}]+"," ").trim());a.setNameVariants("[]");a.setCreatedAt(new Date());a.setUpdatedAt(new Date());a.setAktif(Boolean.TRUE);return a;}
+    private static RepoItem item(Long id){Session s=HibernateUtil.currentSession();RepoItem i=(RepoItem)s.get(RepoItem.class,id);if(i==null||!Boolean.TRUE.equals(i.getAktif())||!"JOURNAL_SUBMISSION".equals(i.getDocumentType()))throw new IllegalArgumentException("Naskah tidak ditemukan.");return i;}
+    private static String orcid(String v){String x=clean(v).replace("https://orcid.org/","");if(blank(x))return"";if(!x.matches("[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9X]{4}"))throw new IllegalArgumentException("ORCID tidak valid.");return x;}private static String email(String v){String x=clean(v).toLowerCase(Locale.ENGLISH);if(blank(x))return"";if(!x.matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+"))throw new IllegalArgumentException("Email tidak valid.");return x;}private static void required(String v,String m){if(blank(v))throw new IllegalArgumentException(m);}private static boolean blank(String v){return clean(v).length()==0;}private static String clean(String v){return v==null?"":v.trim();}
+}

@@ -273,7 +273,7 @@ public class HibernateUtil {
         // cakupan interceptor ke session ZK, jadi instance kanonik bisa dipakai bersama antara session ZK
         // & native dalam 1 request -> potensi "two open sessions". Bila error itu muncul di log, set
         // -Dais.zk.factory_interceptor=false + restart (rollback instan tanpa recompile).
-        if (pasangInterceptorDiFactory()) {
+        if (pasangInterceptorDiFactory() || DbCredentialOverride.adaEnvironmentJurnal()) {
             // CATATAN (soal "sf dibuat static final saja?"): TIDAK perlu & TIDAK bisa.
             // (1) `sf` adalah variabel LOKAL; `static` hanya untuk field, jadi `static final` di sini
             //     tak akan meng-compile.

@@ -111,6 +111,20 @@ public final class DbCredentialOverride {
 		return true;
 	}
 
+	/**
+	 * Menandai bahwa proses ini secara eksplisit diisolasi ke database jurnal SIT/UAT.
+	 * HibernateUtil memakai sinyal ini untuk tidak mewarisi SessionFactory zkplus yang
+	 * mungkin sudah dibangun dari konfigurasi deployment lama.
+	 */
+	static boolean adaEnvironmentJurnal() {
+		String name = System.getenv("AIS_JURNAL_DB_NAME");
+		String user = System.getenv("AIS_JURNAL_DB_USER");
+		String password = System.getenv("AIS_JURNAL_DB_PASSWORD");
+		return name != null && !name.trim().isEmpty()
+				&& user != null && !user.trim().isEmpty()
+				&& password != null && !password.isEmpty();
+	}
+
 	private static Properties muatBerkas() {
 		Properties hasil = cache;
 		if (hasil != null) {

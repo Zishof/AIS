@@ -87,6 +87,12 @@ public class Notifikasi extends GeneralValueObject {
 	private Date waktu;
 	private String statusNotif;
 	private Boolean buka;
+	private Long jurnalPenelitianId;
+	private String jurnalTemplateKey;
+	private Integer jurnalTemplateVersion;
+	private String jurnalIdempotencyKey;
+	private String jurnalCorrelationId;
+	private String jurnalSnapshotJson;
 
 	/**
 	 * URL/halaman yang dibuka ketika notifikasi ini diklik pada antarmuka berbasis
@@ -199,6 +205,19 @@ public class Notifikasi extends GeneralValueObject {
 	public void setBuka(Boolean buka) {
 		this.buka = buka;
 	}
+
+	@Column(name="jurnal_penelitian_id") public Long getJurnalPenelitianId(){return jurnalPenelitianId;}
+	public void setJurnalPenelitianId(Long v){jurnalPenelitianId=v;}
+	@Column(name="jurnal_template_key",length=160) public String getJurnalTemplateKey(){return jurnalTemplateKey;}
+	public void setJurnalTemplateKey(String v){jurnalTemplateKey=v;}
+	@Column(name="jurnal_template_version") public Integer getJurnalTemplateVersion(){return jurnalTemplateVersion;}
+	public void setJurnalTemplateVersion(Integer v){jurnalTemplateVersion=v;}
+	@Column(name="jurnal_idempotency_key",length=180) public String getJurnalIdempotencyKey(){return jurnalIdempotencyKey;}
+	public void setJurnalIdempotencyKey(String v){jurnalIdempotencyKey=v;}
+	@Column(name="jurnal_correlation_id",length=180) public String getJurnalCorrelationId(){return jurnalCorrelationId;}
+	public void setJurnalCorrelationId(String v){jurnalCorrelationId=v;}
+	@Column(name="jurnal_snapshot_json",columnDefinition="text") public String getJurnalSnapshotJson(){return jurnalSnapshotJson;}
+	public void setJurnalSnapshotJson(String v){jurnalSnapshotJson=v;}
 
 	@Column(name = "status_notif", nullable = true)
 	public String getStatusNotif() {
