@@ -69,7 +69,8 @@ public final class Jurnal extends HttpServlet {
         Tbmuser user=Common.getCurrentUser(req);if(user==null){res.sendRedirect(req.getContextPath()+"/login2?returnTo="+req.getContextPath()+"/jurnal"+path);return;}
         if("POST".equalsIgnoreCase(req.getMethod())&&!NewUiCsrfUtil.isValid(req))throw new SecurityException("Token CSRF jurnal tidak valid.");
         String key=path.length()>7?clean(path.substring(7)):"dashboard";if(key.indexOf('/')>=0)key=key.substring(0,key.indexOf('/'));
-        if(!JurnalAksesKatalog.dikenal(key)) {res.sendError(404);return;}
+        String canonical=JurnalAksesKatalog.canonical(key);if(canonical==null){res.sendError(404);return;}
+        if(!canonical.equals(key)){if(!"GET".equalsIgnoreCase(req.getMethod())){res.sendError(409,"Gunakan route jurnal canonical.");return;}res.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);res.setHeader("Location",req.getContextPath()+"/jurnal/admin/"+canonical);return;}key=canonical;
         auth.requireRead(user,key);req.setAttribute("jurnalAdminKey",key);req.setAttribute("jurnalCsrf",NewUiCsrfUtil.getToken(req.getSession(true)));
         for(JurnalAksesKatalog.Entri e:JurnalAksesKatalog.DAFTAR)if(e.kunci.equals(key)){req.setAttribute("jurnalAdminTitle",e.label);break;}
         req.setAttribute("jurnalAdminEntries",JurnalAksesKatalog.DAFTAR);req.getRequestDispatcher(ADMIN_JSP).forward(req,res);

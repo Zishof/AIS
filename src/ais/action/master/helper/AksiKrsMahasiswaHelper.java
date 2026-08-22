@@ -128,22 +128,8 @@ public final class AksiKrsMahasiswaHelper {
 			return wadah;
 		}
 
-		// Ringkasan KRS per semester (disetujui vs belum, termasuk SP) di atas tombol. Badge dapat
-		// diklik = sama dengan menekan "Daftar KRS" (langsung ke tab KRS).
-		org.zkoss.zul.Div badge = buatBadgeRingkasKrs(mahasiswa);
-		if (badge != null) {
-			badge.setParent(wadah);
-			badge.addEventListener("onClick", new EventListener() {
-				@Override
-				public void onEvent(Event event) throws Exception {
-					bukaDaftarKrs(mahasiswa, semesterPendek, ekstrakurikuler, semesterKrs, edit, dataLoader);
-				}
-			});
-		}
-
-		// Kolom aksi rapi (pola MahasiswaAction): badge ringkasan TETAP tampil di sel,
-		// seluruh tombol aksi dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi
-		// sehingga kolom Aksi menjadi kecil.
+		// Kolom aksi hanya menampilkan kebab popup (⋯). Ringkasan jumlah KRS disetujui/belum
+		// sengaja tidak ditampilkan lagi agar sel tetap ringkas dan tinggi setiap baris seragam.
 		final java.util.List<Component> aksiButtons = new java.util.ArrayList<Component>();
 
 		// Aksi PERSETUJUAN cepat untuk dosen wali/admin: menyetujui SELURUH KRS mahasiswa ini pada

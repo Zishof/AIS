@@ -119,7 +119,10 @@ public final class DbCredentialOverride {
 		// SIT/UAT memakai migration SQL dan gate schema eksplisit. SessionFactory
 		// legacy memetakan banyak modul di luar jurnal, jadi auto-DDL maupun validasi
 		// global tidak boleh mengubah/menggagalkan clone hanya karena modul lain.
-		configuration.setProperty("hibernate.hbm2ddl.auto", "none");
+        boolean streamingCloneUpdate = streaming
+                && "true".equalsIgnoreCase(System.getenv("AIS_JURNAL_STREAMING_SCHEMA_UPDATE"))
+                && name.toLowerCase().matches(".*(_sit|_uat|_demo|_fixture)(_[a-z0-9]+)?$");
+        configuration.setProperty("hibernate.hbm2ddl.auto", streamingCloneUpdate ? "update" : "none");
 		return true;
 	}
 

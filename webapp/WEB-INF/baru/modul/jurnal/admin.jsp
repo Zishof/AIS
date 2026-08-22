@@ -7,20 +7,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><c:out value="${jurnalAdminTitle}"/></title>
   <style>
-    :root{--nav:#183a68;--ink:#17233b;--muted:#65738b;--line:#dfe5ef;--bg:#f5f7fb;--accent:#1769e0}
-    *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+    :root{--primary:#3347b0;--accent:#087f78;--nav:#172554;--ink:#17233b;--muted:#65738b;--line:#dfe5ef;--bg:#f5f7fb;--focus:#f59e0b;--danger:#a11616}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5;margin:0;background:var(--bg);color:var(--ink)}
+    .skip-link{position:fixed;left:12px;top:-80px;z-index:100;background:#fff;color:#111;padding:12px;border:3px solid var(--focus)}.skip-link:focus{top:12px}
     .layout{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh}nav{background:var(--nav);color:#fff;padding:20px;overflow:auto}
     nav h2{margin-top:0}nav a{display:block;color:#eaf1ff;padding:9px 10px;text-decoration:none;border-radius:7px}nav a:hover,nav a[aria-current="page"]{background:#28538c;color:#fff}
     main{padding:28px;min-width:0}.toolbar,.cards{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.toolbar{margin-bottom:16px}
-    select,button,input,textarea{font:inherit;padding:9px 12px;border:1px solid #b8c4d7;border-radius:7px;background:#fff}button{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer}
+    select,button,input,textarea{font:inherit;min-height:44px;padding:9px 12px;border:1px solid #b8c4d7;border-radius:8px;background:#fff}button{background:var(--primary);color:#fff;border-color:var(--primary);cursor:pointer}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .command{margin-top:18px}.command-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:12px}.field{display:flex;flex-direction:column;gap:5px}.field textarea{min-height:110px;resize:vertical}.command-actions{margin-top:14px}.result{white-space:pre-wrap;overflow:auto;max-height:240px;background:#f7f9fc;padding:10px;border-radius:7px}
     .panel,.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}.card{min-width:150px}.card strong{display:block;font-size:25px}.card span,.muted{color:var(--muted)}
     .status{min-height:24px;margin:12px 0;color:var(--muted)}.status.error{color:#a11616}.table-wrap{overflow:auto;margin-top:18px}table{width:100%;border-collapse:collapse;min-width:680px}
     th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}th{font-size:13px;color:var(--muted);background:#fafbfd}.empty{text-align:center;color:var(--muted);padding:30px}
-    @media(max-width:850px){.layout{grid-template-columns:1fr}nav{max-height:270px}main{padding:16px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+    @media(max-width:850px){.layout{grid-template-columns:1fr}nav{max-height:270px}main{padding:16px}.table-wrap{overflow:visible}table,thead,tbody,tr,th,td{display:block}thead{position:absolute;clip:rect(0 0 0 0)}table{min-width:0}tr{background:#fff;border:1px solid var(--line);border-radius:12px;margin:12px 0;padding:10px}td{border:0;padding:5px 8px;overflow-wrap:anywhere}td:before{font-weight:700;color:var(--muted);margin-right:8px}td:nth-child(1):before{content:"ID: "}td:nth-child(2):before{content:"Tipe: "}td:nth-child(3):before{content:"Judul: "}td:nth-child(4):before{content:"Status: "}td:nth-child(5):before{content:"Pemilik: "}}
   </style>
 </head>
-<body>
+<body><a class="skip-link" href="#main-content">Lewati ke konten utama</a>
 <div class="layout">
   <nav aria-label="Modul pengelolaan jurnal">
     <h2>Pengelolaan Jurnal</h2>
@@ -28,7 +30,7 @@
       <a href="${pageContext.request.contextPath}/jurnal/admin/${e.kunci}" <c:if test="${e.kunci == jurnalAdminKey}">aria-current="page"</c:if>><c:out value="${e.label}"/></a>
     </c:forEach>
   </nav>
-  <main>
+  <main id="main-content" tabindex="-1">
     <h1><c:out value="${jurnalAdminTitle}"/></h1>
     <section id="workspace" class="panel" data-module="<c:out value='${jurnalAdminKey}'/>"
       data-api="${pageContext.request.contextPath}/jurnal-api" data-csrf="<c:out value='${jurnalCsrf}'/>">
@@ -95,6 +97,11 @@
     pluginIntegrasi:[['beginIntegration','Mulai attempt',[['itemId','Item ID'],['service','Service'],['integrationAction','Aksi'],['requestId','Request ID'],['payload','Payload aman','textarea']]],['finishIntegration','Selesaikan attempt',[['eventId','Event ID'],['success','Berhasil','true'],['response','Respons aman','textarea'],['error','Error']]],['retryIntegration','Ulang attempt',[['eventId','Event ID'],['requestId','Request ID baru']]]],
     importOjs:[['preflightOjs','Periksa sumber',[['connectionReference','Connection reference']]],['registerOjsSource','Daftarkan sumber',[['journalId','Jurnal ID'],['tenant','Tenant'],['sourceKey','Source key'],['displayName','Nama sumber'],['connectionReference','Connection reference']]],['startImportDryRun','Dry-run',[['sourceId','Source ID'],['idempotencyKey','Idempotency key'],['batchSize','Batch size','250']]],['startImportExecute','Eksekusi import',[['sourceId','Source ID'],['idempotencyKey','Idempotency key'],['batchSize','Batch size','250']]],['resumeImport','Lanjutkan job',[['jobId','Job ID'],['batchSize','Batch size','250']]],['finalizeImport','Rekonsiliasi final',[['jobId','Job ID']]],['cancelImport','Batalkan import',[['jobId','Job ID']]]]
   };
+  specs.journals=specs.masterJurnal;specs.submissions=specs.submission;specs.people=specs.penggunaPeran;
+  specs['editor-assignments']=specs.penugasanEditor;specs['review-assignments']=specs.prosesReview;
+  specs.production=specs.produksiGalley;specs.issues=specs.edisiDaftarIsi;specs.publications=specs.publikasi;
+  specs.identifiers=specs.identifier;specs.communications=specs.emailNotifikasi;specs.subscriptions=specs.langganan;
+  specs.payments=specs.pembayaran;specs.statistics=specs.statistik;specs.integrations=specs.pluginIntegrasi;specs['import-ojs']=specs.importOjs;
   var operations=document.getElementById('operation'),commandFields=document.getElementById('commandFields'),execute=document.getElementById('execute'),commandResult=document.getElementById('commandResult'),active=[];
   (specs[module]||[]).forEach(function(s){var o=document.createElement('option');o.value=s[0];o.textContent=s[1];operations.appendChild(o);});
   operations.addEventListener('change',function(){commandFields.textContent='';active=[];var list=specs[module]||[],spec=null;list.forEach(function(x){if(x[0]===operations.value)spec=x;});execute.hidden=!spec;if(!spec)return;active=spec[2];active.forEach(function(f){var wrap=document.createElement('label');wrap.className='field';var text=document.createElement('span');text.textContent=f[1];var input=f[2]==='textarea'?document.createElement('textarea'):document.createElement('input');input.name=f[0];if(f[2]&&f[2]!=='textarea')input.value=f[2];wrap.appendChild(text);wrap.appendChild(input);commandFields.appendChild(wrap);});});
