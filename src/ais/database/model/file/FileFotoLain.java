@@ -978,6 +978,23 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membaca isi Large Object satu berkas DENGAN AMAN, untuk pemanggil di luar kelas ini.
+	 *
+	 * <p>Kolom foto memakai PostgreSQL Large Object (oid). Membacanya lewat
+	 * {@code getFoto().getBinaryStream()} begitu saja akan gagal dengan
+	 * <i>"Large Objects may not be used in auto-commit mode"</i>, karena koneksi
+	 * harus berada DI DALAM transaksi. Aturan itu mudah terlewat -- dan memang pernah
+	 * terlewat pada aksi unduh lampiran Pengadaan (2026-08-22). Metode ini menyediakan
+	 * satu jalan masuk yang benar supaya tidak perlu diulang-ulang di tiap pemanggil.</p>
+	 *
+	 * @return isi berkas, atau {@code null} bila berkasnya disimpan di Google Drive
+	 *         (isinya tidak ada di basis data) atau tidak dapat dibaca.
+	 */
+	public static byte[] ambilIsiBlob(FileFotoLain berkas) throws Exception {
+		return readSourceBlobBytes(berkas);
+	}
+
 	private static byte[] readSourceBlobBytes(FileFotoLain source) throws Exception {
 		if (source == null) {
 			return null;

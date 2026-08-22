@@ -2350,19 +2350,22 @@ public final class PengadaanPosApiHelper {
 				tolak(hasil, "Lampiran tidak ditemukan.");
 				return;
 			}
-			java.io.InputStream masuk = berkas.getFoto().getBinaryStream();
-			java.io.ByteArrayOutputStream keluar = new java.io.ByteArrayOutputStream();
-			byte[] penyangga = new byte[8192];
-			int n;
-			while ((n = masuk.read(penyangga)) > 0) {
-				keluar.write(penyangga, 0, n);
+			// Kolom foto memakai PostgreSQL Large Object (oid), yang HANYA boleh dibaca
+			// di dalam transaksi. Memanggil getFoto().getBinaryStream() langsung -- yang
+			// dilakukan versi sebelumnya -- selalu gagal dengan "Large Objects may not be
+			// used in auto-commit mode", sehingga tombol Lihat lampiran tidak pernah
+			// berfungsi. Aturannya sudah dipecahkan di FileFotoLain; dipakai ulang lewat
+			// ambilIsiBlob supaya tidak ada dua salinan aturan yang bisa menyimpang.
+			byte[] isi = ais.database.model.file.FileFotoLain.ambilIsiBlob(berkas);
+			if (isi == null) {
+				tolak(hasil, "Isi lampiran tidak dapat dibaca dari penyimpanan berkas.");
+				return;
 			}
-			masuk.close();
 			hasil.put("status", "00");
 			hasil.put("lampiran_id", id);
 			hasil.put("namaFile", berkas.getNama() == null ? "" : berkas.getNama());
 			hasil.put("tipe", berkas.getDeskripsi() == null ? "" : berkas.getDeskripsi());
-			hasil.put("fileBase64", java.util.Base64.getEncoder().encodeToString(keluar.toByteArray()));
+			hasil.put("fileBase64", java.util.Base64.getEncoder().encodeToString(isi));
 		} finally {
 			HibernateUtil.closeSessionQuietly(sesi);
 		}

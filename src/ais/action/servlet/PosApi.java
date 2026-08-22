@@ -1948,6 +1948,43 @@ public class PosApi extends HttpServlet {
 			String k = String.valueOf(kunci.next());
 			hasil.put(k, balasan.get(k));
 		}
+		selaraskanAmplopSop(action, hasil);
+	}
+
+	/**
+	 * Menyelaraskan amplop balasan SopService dengan yang dituntut klien POS.
+	 *
+	 * <p>SopService memakai konvensi AIS: {@code "00"} sukses, {@code "99"} kosong /
+	 * tidak ditemukan. Klien POS (ApiClient.aksi) MELEMPAR untuk status apa pun
+	 * selain {@code "success"}. Tanpa penyelarasan ini SELURUH aksi {@code sop_*}
+	 * tampil sebagai galat di Desktop/Android -- termasuk yang server jawab OK,
+	 * sehingga layarnya memperlihatkan pesan sukses "OK" sebagai pesan kesalahan.
+	 * Modul lain memakai {@code normalisasiStatusKantinHelper}; SOP tidak dapat
+	 * memakainya karena teks solusinya dikarang untuk konteks kasir/kantin.
+	 */
+	private static void selaraskanAmplopSop(String action, JSONObject hasil) throws Exception {
+		String asli = hasil.optString("status", "");
+		hasil.put("statusAsli", asli);
+		if ("00".equals(asli)) {
+			hasil.put("status", "success");
+			return;
+		}
+		// "99" pada aksi berbentuk DAFTAR berarti "belum ada data": keadaan kosong
+		// yang sah, bukan kegagalan. Muatannya sudah membawa daftar kosong dan layar
+		// menampilkan keadaan kosongnya sendiri. Pada aksi non-daftar, "99" tetap
+		// berarti tidak ditemukan dan memang harus terasa sebagai galat.
+		if ("99".equals(asli) && aksiDaftarSop(action)) {
+			hasil.put("status", "success");
+			return;
+		}
+		// Sisanya penolakan sungguhan -- biarkan pesan dari server yang tampil.
+		hasil.put("status", "error");
+	}
+
+	/** Aksi SOP yang balasannya berupa DAFTAR, sehingga hasil kosong itu wajar. */
+	private static boolean aksiDaftarSop(String action) {
+		return "sop_daftar".equals(action) || "sop_jenis".equals(action)
+			|| "sop_cari".equals(action) || "sop_cari_entitas".equals(action);
 	}
 
 	private static boolean bolehAksesActionKantin(Tbmuser tbmuser, String action) {
