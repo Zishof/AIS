@@ -301,7 +301,11 @@ public class GenerateKRSPaketMahasiswaOtomatisWindow extends MyWindow {
 			detailperkuliahan.setMahasiswa(mahasiswa);
 			detailperkuliahan.setPerkuliahan(perkuliahan);
 			detailperkuliahan.setSemester(semester.getValue());
-			session.saveOrUpdate(detailperkuliahan);
+			if (detailperkuliahan.getId() == null) {
+				KrsUtilHelper.simpanKrsJikaBelumAda(session, detailperkuliahan);
+			} else {
+				session.update(detailperkuliahan);
+			}
 
 		}
 		if (!peringatanKapasitasRuangan.trim().equals("")) {

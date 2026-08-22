@@ -292,7 +292,7 @@
                     dp.setPerkuliahan(perkuliahan); dp.setTahap(tahapan); dp.setSemester(semester);
                     dp.setPersetujuan(Detailperkuliahan.DISETUJUI); // KRS Paket langsung disetujui
                     
-                    Common.refreshSaveOrUpdate(sess, dp);
+					KrsUtilHelper.simpanKrsJikaBelumAda(sess, dp);
                 }
             }
             tx.commit();

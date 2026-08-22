@@ -550,7 +550,7 @@ public class AmbilDataPerkuliahanHelper {
 						detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
 					}
 					mySession.getTransaction().begin();
-					Common.refreshSaveOrUpdate(mySession, detailperkuliahan);
+					KrsUtilHelper.simpanKrsJikaBelumAda(mySession, detailperkuliahan);
 					mySession.getTransaction().commit();
 				}
 				// mySession.disconnect();

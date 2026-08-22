@@ -406,7 +406,11 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 					if (Common.bolehKonfigurasi("saat_ambil_krs_langsung_disetujui", Konfigurasi.TIDAK_AKTIF)) {
 						detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
 					}
-					session.saveOrUpdate(detailperkuliahan);
+					if (detailperkuliahan.getId() == null) {
+						KrsUtilHelper.simpanKrsJikaBelumAda(session, detailperkuliahan);
+					} else {
+						session.update(detailperkuliahan);
+					}
 
 				}
 			} catch (Exception e) {

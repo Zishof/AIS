@@ -361,7 +361,7 @@ public class AmbilDataPaketPerkuliahanHelper {
                     detailperkuliahan.setSemester(AmbilDataPaketPerkuliahanHelper.this.semester);
                     detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
 
-                    Common.refreshSaveOrUpdate(mySession, detailperkuliahan);
+					KrsUtilHelper.simpanKrsJikaBelumAda(mySession, detailperkuliahan);
                 }
             }
 

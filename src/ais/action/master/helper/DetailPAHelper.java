@@ -96,6 +96,51 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/**
+	 * Melepas PA dari sumber utama mahasiswa dan seluruh riwayat KRS yang masih
+	 * menunjuk dosen tersebut. Native update dipakai sengaja agar data lama yang
+	 * tidak konsisten tetap dapat diperbaiki dalam satu operasi, kemudian entitas
+	 * layar dikeluarkan dari first-level cache agar pencarian berikutnya membaca DB.
+	 */
+	private void lepaskanDosenPa(Mahasiswa mahasiswa) {
+		if (mahasiswa == null || mahasiswa.getId() == null || dosen == null || dosen.getId() == null) {
+			return;
+		}
+
+		Session session = HibernateUtil.currentSession();
+		session.flush();
+		session.createSQLQuery("update krs_mahasiswa set dosen_pa=null "
+				+ "where mahasiswa=:mahasiswa and dosen_pa=:dosen")
+				.setLong("mahasiswa", mahasiswa.getId())
+				.setLong("dosen", dosen.getId()).executeUpdate();
+		session.createSQLQuery("update mahasiswa set dosen=null "
+				+ "where id=:mahasiswa and dosen=:dosen")
+				.setLong("mahasiswa", mahasiswa.getId())
+				.setLong("dosen", dosen.getId()).executeUpdate();
+
+		// Sinkronkan mirror/cache legacy yang masih dibaca oleh getDosen().
+		mahasiswa.setDosen(null);
+		mahasiswa.put("", "dosen");
+		if (session.contains(mahasiswa)) {
+			session.evict(mahasiswa);
+		}
+	}
+
+	private void lepaskanSemuaDosenPa() {
+		if (dosen == null || dosen.getId() == null) {
+			return;
+		}
+		Session session = HibernateUtil.currentSession();
+		session.flush();
+		session.createSQLQuery("update krs_mahasiswa set dosen_pa=null where dosen_pa=:dosen")
+				.setLong("dosen", dosen.getId()).executeUpdate();
+		session.createSQLQuery("update mahasiswa set dosen=null where dosen=:dosen")
+				.setLong("dosen", dosen.getId()).executeUpdate();
+		// Bulk native update melewati persistence context; kosongkan agar jumlah dan
+		// daftar detail tidak memakai objek Mahasiswa/KRS yang masih lama.
+		session.clear();
+	}
+
 	private boolean bolehAmbilMahasiswaDosenPA() {
 		return Common.bolehUploadDataKonfigurasi(KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA,
 				DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA);
@@ -164,22 +209,8 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 									if (i == MyMessageboxConfig.OK) {
 										try {
 
-											mahasiswa.setDosen(null);
-											mahasiswa.put("", "dosen");
-											Common.refreshUpdate(mahasiswa);
-
-											Common.createDefaultTimer(new EventListener() {
-
-												@Override
-												public void onEvent(Event arg0) throws Exception {
-													KrsMahasiswa krsMahasiswa = Common
-															.singkronkanKrsMahasiswa(mahasiswa);
-													krsMahasiswa.setDosenPa(null);
-													Common.refreshSaveOrUpdate(krsMahasiswa);
-
-													loadData(null);
-												}
-											});
+											lepaskanDosenPa(mahasiswa);
+											loadData(null);
 
 										} catch (Exception e) {
 											Common.tampilErrorJikaAdmin(e);
@@ -333,24 +364,8 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 								if (i == MyMessageboxConfig.OK) {
 									try {
 
-										List<Mahasiswa> mahasiswas = ConstantValues.simpleList(initCriteria(true),
-												Mahasiswa.class);
-										for (Mahasiswa mahasiswa : mahasiswas) {
-											mahasiswa.setDosen(null);
-											mahasiswa.put("", "dosen");
-										}
-										mahasiswas = null;
-
-										String sql = "update mahasiswa set dosen=null where dosen=" + dosen.getId();
-										HibernateUtil.currentSession().createSQLQuery(sql).executeUpdate();
-
-										Common.createDefaultTimer(new EventListener() {
-
-											@Override
-											public void onEvent(Event arg0) throws Exception {
-												loadData(null);
-											}
-										});
+										lepaskanSemuaDosenPa();
+										loadData(null);
 
 									} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);

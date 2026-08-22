@@ -123,7 +123,7 @@ public class AmbilDataKurikulumPerkuliahanHelper {
 					detailperkuliahan.setMatakuliahKonversi(kurikulumPunyaMatakuliah.getMatakuliah());
 					detailperkuliahan.setSemester(AmbilDataKurikulumPerkuliahanHelper.this.semester);
 					mySession.getTransaction().begin();
-					Common.refreshSaveOrUpdate(mySession, detailperkuliahan);
+					KrsUtilHelper.simpanKrsJikaBelumAda(mySession, detailperkuliahan);
 					mySession.getTransaction().commit();
 				}
 

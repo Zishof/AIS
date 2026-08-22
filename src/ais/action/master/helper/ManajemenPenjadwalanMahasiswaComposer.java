@@ -1030,7 +1030,8 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 																			penjadwalanMahasiswa.getSemester()))
 																	.setMaxResults(1).uniqueResult();
 
-															if (detailperkuliahan == null) {
+															boolean dataBaru = detailperkuliahan == null;
+															if (dataBaru) {
 																detailperkuliahan = new Detailperkuliahan(tbmuser,
 																		ManajemenPenjadwalanMahasiswaComposer.class);
 															}
@@ -1042,8 +1043,14 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 															detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
 
 															session.getTransaction().begin();
-															if (detailperkuliahan.getId() == null) {
-																session.save(detailperkuliahan);
+															if (dataBaru) {
+																if (!KrsUtilHelper.simpanKrsJikaBelumAda(session, detailperkuliahan)) {
+																	session.getTransaction().commit();
+																	warnings.append("DILEWATI : NIM ").append(mahasiswa.getNim())
+																			.append(" matakuliah ").append(perkuliahan.getMatakuliah())
+																			.append(" sudah ada di KRS dan tidak ditambahkan lagi\n\n");
+																	continue;
+																}
 															} else {
 																session.update(detailperkuliahan);
 															}

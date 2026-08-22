@@ -312,7 +312,11 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 			detailperkuliahan.setMahasiswa(mahasiswa);
 			detailperkuliahan.setPerkuliahan(perkuliahan);
 			detailperkuliahan.setSemester(AmbilDataMahasiswaForPaketPerkuliahanHelper.this.semester);
-			session.saveOrUpdate(detailperkuliahan);
+			if (detailperkuliahan.getId() == null) {
+				KrsUtilHelper.simpanKrsJikaBelumAda(session, detailperkuliahan);
+			} else {
+				session.update(detailperkuliahan);
+			}
 
 		}
 		System.out.println("peringatanKapasitasRuangan = " + peringatanKapasitasRuangan);

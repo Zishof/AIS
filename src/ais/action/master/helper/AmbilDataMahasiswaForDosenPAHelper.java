@@ -385,6 +385,10 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Mahasiswa.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				// Mahasiswa yang masih dimiliki PA lain tidak boleh tampil sebagai kandidat.
+				// Setelah dilepas dari PA lama, nilai ini menjadi null dan mahasiswa langsung
+				// dapat dicari/dipilih pada dosen tujuan.
+				.add(Restrictions.or(Restrictions.isNull("dosen"), Restrictions.eq("dosen", 0L)))
 
 				.add(kelas != null && !kelas.getNama().trim().isEmpty()
 						? Restrictions.ilike("kelas", kelas.getNama().trim(), MatchMode.EXACT)

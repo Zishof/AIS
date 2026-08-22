@@ -270,7 +270,7 @@ public class AmbilDataMahasiswaHelper {
 			try {
 				session = HibernateUtil.currentNativeSession();
 				session.getTransaction().begin();
-				session.save(detailperkuliahan);
+				KrsUtilHelper.simpanKrsJikaBelumAda(session, detailperkuliahan);
 				session.getTransaction().commit();
 				// session.disconnect();
 				if (session.isOpen()) {session.disconnect();session.close();}

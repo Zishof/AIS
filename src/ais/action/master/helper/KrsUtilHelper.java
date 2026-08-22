@@ -22,6 +22,92 @@ import ais.database.model.Perkuliahan;
 
 public class KrsUtilHelper {
 
+	/**
+	 * Menyimpan satu baris KRS hanya bila mata kuliah yang sama belum dimiliki mahasiswa pada
+	 * semester, tahun akademik, dan jenis semester yang sama.
+	 *
+	 * <p>Pemeriksaan lama pada beberapa layar hanya memakai ID {@link Perkuliahan}. Akibatnya satu
+	 * mata kuliah yang mempunyai beberapa jadwal/paralel dapat masuk berkali-kali. Pemeriksaan
+	 * biasa juga masih mempunyai celah balapan ketika tombol sinkronisasi dijalankan hampir
+	 * bersamaan. Karena itu method ini memakai advisory lock PostgreSQL selama transaksi aktif,
+	 * lalu memeriksa kembali berdasarkan mata kuliah (ID maupun kode) sebelum INSERT.</p>
+	 *
+	 * @return {@code true} bila data baru disimpan, {@code false} bila KRS yang sama sudah ada
+	 */
+	public static boolean simpanKrsJikaBelumAda(Session session, Detailperkuliahan detailperkuliahan) {
+		if (session == null || detailperkuliahan == null || detailperkuliahan.getMahasiswa() == null
+				|| detailperkuliahan.getMahasiswa().getId() == null) {
+			throw new IllegalArgumentException("Session, detail KRS, dan mahasiswa wajib diisi");
+		}
+		if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+			throw new IllegalStateException("Pencegahan KRS double wajib dijalankan di dalam transaksi aktif");
+		}
+
+		Perkuliahan perkuliahan = detailperkuliahan.getPerkuliahan();
+		Matakuliah matakuliah = perkuliahan == null ? detailperkuliahan.getMatakuliahKonversi()
+				: perkuliahan.getMatakuliah();
+		if (matakuliah == null || matakuliah.getId() == null) {
+			throw new IllegalArgumentException("Mata kuliah pada detail KRS wajib diisi");
+		}
+
+		Integer semester = detailperkuliahan.getSemester();
+		String tahunAkademik = detailperkuliahan.getTahunAkademik();
+		Integer semesterPendek = perkuliahan == null ? null : perkuliahan.getStatusSemesterPendek();
+		String kode = matakuliah.getKode() == null ? "" : matakuliah.getKode().trim().toLowerCase();
+
+		/* Satu kunci logis untuk mahasiswa + periode + mata kuliah. Collision hash hanya membuat
+		 * transaksi lain menunggu sedikit lebih lama; tidak dapat menyebabkan data salah. */
+		long kunci = 17L;
+		kunci = (31L * kunci) + detailperkuliahan.getMahasiswa().getId().longValue();
+		kunci = (31L * kunci) + (semester == null ? 0L : semester.longValue());
+		kunci = (31L * kunci) + (tahunAkademik == null ? 0L : tahunAkademik.hashCode());
+		kunci = (31L * kunci) + (semesterPendek == null ? 0L : semesterPendek.longValue());
+		kunci = (31L * kunci) + (kode.isEmpty() ? matakuliah.getId().longValue() : kode.hashCode());
+		session.createSQLQuery("select pg_advisory_xact_lock(:kunci)").setLong("kunci", kunci).uniqueResult();
+
+		StringBuilder sql = new StringBuilder();
+		sql.append("select count(d.id) from detailperkuliahan d ");
+		sql.append("left join perkuliahan p on p.id=d.perkuliahan ");
+		sql.append("left join matakuliah m on m.id=coalesce(d.matakuliah_konversi,p.matakuliah) ");
+		sql.append("where d.mahasiswa=:mahasiswa and d.semester=:semester ");
+		sql.append("and coalesce(d.tahunakademik,p.tahunajaran,'')=:tahunAkademik ");
+		sql.append("and (m.id=:matakuliah");
+		if (!kode.isEmpty()) {
+			sql.append(" or lower(trim(m.kode))=:kode");
+		}
+		sql.append(") ");
+		if (semesterPendek == null) {
+			sql.append("and p.status_semesterpendek is null ");
+		} else {
+			sql.append("and p.status_semesterpendek=:semesterPendek ");
+		}
+		if (detailperkuliahan.getId() != null) {
+			sql.append("and d.id<>:id ");
+		}
+
+		org.hibernate.SQLQuery query = session.createSQLQuery(sql.toString());
+		query.setLong("mahasiswa", detailperkuliahan.getMahasiswa().getId());
+		query.setInteger("semester", semester == null ? 0 : semester.intValue());
+		query.setString("tahunAkademik", tahunAkademik == null ? "" : tahunAkademik);
+		query.setLong("matakuliah", matakuliah.getId());
+		if (!kode.isEmpty()) {
+			query.setString("kode", kode);
+		}
+		if (semesterPendek != null) {
+			query.setInteger("semesterPendek", semesterPendek);
+		}
+		if (detailperkuliahan.getId() != null) {
+			query.setLong("id", detailperkuliahan.getId());
+		}
+
+		Number jumlah = (Number) query.uniqueResult();
+		if (jumlah != null && jumlah.longValue() > 0L) {
+			return false;
+		}
+		session.save(detailperkuliahan);
+		return true;
+	}
+
 	public static PembagianKuotaPerkuliahanBerdasarkantahunAngkatan ambilPembagianKuotaPerkuliahanBerdasarkantahunAngkatan(
 			Session session, Perkuliahan perkuliahan, Integer tahunangkatan, Boolean reload) {
 

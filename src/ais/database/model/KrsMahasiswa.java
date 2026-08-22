@@ -479,6 +479,12 @@ public class KrsMahasiswa extends VOPembelajaran implements VOPesertaPembelajara
 		if (dosenPa != null && dosenPa.getId() != null) {
 			put(dosenPa.getId().toString(), "dosen");
 			this.dosenPa = dosenPa;
+		} else {
+			// Nilai null adalah operasi pelepasan PA yang sah. Implementasi lama
+			// mengabaikannya sehingga kolom dosen_pa dan mirror "dosen" tetap berisi
+			// dosen sebelumnya walaupun layar sudah menekan tombol Hapus.
+			put("", "dosen");
+			this.dosenPa = null;
 		}
 	}
 

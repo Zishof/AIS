@@ -414,7 +414,7 @@
                     dp.setNilaiHuruf(""); dp.setTotalNilai(0.0); dp.setMahasiswa(mahasiswa);
                     dp.setPerkuliahan(perkuliahan); dp.setTahap(tahapan); dp.setSemester(semester);
                     
-                    sess.saveOrUpdate(dp);
+					KrsUtilHelper.simpanKrsJikaBelumAda(sess, dp);
                 }
             }
             txStore.commit();
