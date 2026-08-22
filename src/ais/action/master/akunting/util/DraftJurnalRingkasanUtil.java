@@ -95,7 +95,8 @@ public final class DraftJurnalRingkasanUtil {
      * Kunci modul, dalam URUTAN TAMPIL dasbor. Satu kunci dapat menghasilkan lebih dari satu baris
      * (mis. {@code mahasiswa} dan {@code siswa}).
      */
-    public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "kas_kecil", "kas_besar", "pajak",
+    public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "kas_kecil",
+            "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp" };
@@ -139,6 +140,12 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaJurnalUmum(session, mulai, sampai), true), closing));
         } else if ("uang_muka".equals(kunci)) {
             out.add(new Baris(kunci, "Uang Muka",
+                    "Uang muka disetujui yang transfernya sudah diproses dipastikan menjadi jurnal.",
+                    hitungPostingHistory(session, kriteriaUangMuka(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaUangMuka(session, mulai, sampai), true),
+                    hitungClosing(session, "uangMuka", null, null, mulai, sampai)));
+        } else if ("pj_uang_muka".equals(kunci)) {
+            out.add(new Baris(kunci, "Pertanggungjawaban Uang Muka",
                     "Pertanggungjawaban uang muka yang disetujui dipastikan menjadi jurnal.",
                     hitungPostingHistory(session, kriteriaLpj(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaLpj(session, mulai, sampai), true),
@@ -279,6 +286,20 @@ public final class DraftJurnalRingkasanUtil {
     /** disetujuiOleh ikut difilter, sama dengan PostingKasBesarAction. */
     private static Criteria kriteriaKasBesar(Session session, Date mulai, Date sampai) {
         return session.createCriteria(KasBesar.class)
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /**
+     * Uang muka baru bisa dijurnal setelah TRANSFERNYA diproses -- akun kreditnya diambil dari
+     * cara pembayaran pada proses transfer. Syarat itu ikut disaring supaya angka pada dasbor
+     * tidak menjanjikan dokumen yang justru dilewati mesin postingnya.
+     */
+    private static Criteria kriteriaUangMuka(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.akunting.UangMuka.class)
+                .createAlias("daftarPengajuanTransfer", "dptUm")
+                .add(Restrictions.isNotNull("dptUm.prosesTransfer"))
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
@@ -498,7 +519,8 @@ public final class DraftJurnalRingkasanUtil {
      */
     public static Criteria kriteriaDokumen(Session session, String namaBaris, Date mulai, Date sampai) {
         if ("Jurnal Umum".equals(namaBaris)) return kriteriaJurnalUmum(session, mulai, sampai);
-        if ("Uang Muka".equals(namaBaris)) return kriteriaLpj(session, mulai, sampai);
+        if ("Uang Muka".equals(namaBaris)) return kriteriaUangMuka(session, mulai, sampai);
+        if ("Pertanggungjawaban Uang Muka".equals(namaBaris)) return kriteriaLpj(session, mulai, sampai);
         if ("Kas Kecil".equals(namaBaris)) return kriteriaKasKecil(session, mulai, sampai);
         if ("Kas Besar".equals(namaBaris)) return kriteriaKasBesar(session, mulai, sampai);
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) {
