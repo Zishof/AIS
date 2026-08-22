@@ -52,6 +52,15 @@ import ais.ui.util.WaktuUtil;
  * {@code caraPembayaranTransfer.akun}. Keduanya saling meniadakan — satu baris tidak
  * mungkin keduanya sekaligus.</p>
  *
+ * <p><b>Jebakan pada penandanya.</b> {@code DaftarPengajuanTransfer.getTransfer()} dan
+ * {@code getTransitori()} adalah getter TERHITUNG yang tidak pernah mengembalikan null
+ * (null dipetakan ke {@code false}), dan {@code getTransfer()} bahkan menyetel dirinya
+ * sendiri menjadi true bila proses transfernya sudah direalisasi. Karena Hibernate
+ * menyimpan nilai GETTER-nya, {@code setTransfer(null)} tidak pernah menghasilkan NULL
+ * di basis data — hasilnya {@code false}. Layar ZK menulis null di jalur
+ * pembatalannya; di sini ditulis {@code Boolean.FALSE} terang-terangan supaya kodenya
+ * menyatakan apa yang sungguh tersimpan. Hasil akhirnya identik.</p>
+ *
  * <p><b>Satu penyimpangan sadar dari layar ZK.</b> Penyaring kategori di ZK berpola
  * <i>daftar putih per kolom sumber</i>: kolom yang belum punya cabangnya membuat barisnya
  * TIDAK PERNAH tampil di penyaring mana pun. Cacat itu sudah pernah terjadi pada
@@ -636,8 +645,8 @@ public final class ProsesTransferApiHelper {
 				DaftarPengajuanTransfer d = terpasang.get(i);
 				if (!pilih.contains(d.getId())) {
 					d.setProsesTransfer(null);
-					d.setTransfer(null);
-					d.setTransitori(null);
+					d.setTransfer(Boolean.FALSE);
+					d.setTransitori(Boolean.FALSE);
 					session.update(d);
 				}
 			}
@@ -762,8 +771,8 @@ public final class ProsesTransferApiHelper {
 			for (int i = 0; i < nempel.size(); i++) {
 				DaftarPengajuanTransfer d = nempel.get(i);
 				d.setProsesTransfer(null);
-				d.setTransfer(null);
-				d.setTransitori(null);
+				d.setTransfer(Boolean.FALSE);
+				d.setTransitori(Boolean.FALSE);
 				session.update(d);
 			}
 			session.flush();
@@ -862,8 +871,8 @@ public final class ProsesTransferApiHelper {
 			for (int i = 0; i < nempel.size(); i++) {
 				DaftarPengajuanTransfer d = nempel.get(i);
 				d.setProsesTransfer(null);
-				d.setTransfer(null);
-				d.setTransitori(null);
+				d.setTransfer(Boolean.FALSE);
+				d.setTransitori(Boolean.FALSE);
 				session.update(d);
 			}
 			pt.setNilai(Double.valueOf(0));
@@ -1069,8 +1078,8 @@ public final class ProsesTransferApiHelper {
 			}
 			session.beginTransaction();
 			d.setProsesTransfer(null);
-			d.setTransfer(null);
-			d.setTransitori(null);
+			d.setTransfer(Boolean.FALSE);
+			d.setTransitori(Boolean.FALSE);
 			session.update(d);
 			session.flush();
 			double sisa = 0;
