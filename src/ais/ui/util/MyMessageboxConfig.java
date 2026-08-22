@@ -445,8 +445,30 @@ public class MyMessageboxConfig {
 			win.detach();
 		}
 		if (eventListener != null) {
-			eventListener.onEvent(new Event("onClose", win, Integer.valueOf(kode)));
+			eventListener.onEvent(new Event(namaEventTombol(kode), win, Integer.valueOf(kode)));
 		}
+	}
+
+	private static String namaEventTombol(int kode) {
+		if (kode == Messagebox.YES) {
+			return "onYes";
+		}
+		if (kode == Messagebox.NO) {
+			return "onNo";
+		}
+		if (kode == Messagebox.CANCEL) {
+			return "onCancel";
+		}
+		if (kode == Messagebox.RETRY) {
+			return "onRetry";
+		}
+		if (kode == Messagebox.ABORT) {
+			return "onAbort";
+		}
+		if (kode == Messagebox.IGNORE) {
+			return "onIgnore";
+		}
+		return "onOK";
 	}
 
 	private static void tambahTombol(Hbox footer, final Window win, final EventListener eventListener, String label,

@@ -529,7 +529,7 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 					for (Row row : rows) {
 						try {
 							Radio checkbox = (Radio) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								GeneralValueObject myTemplatePembelajaran = (GeneralValueObject) row
 										.getAttribute("templatePembelajaran");
 								templatePembelajarans.add(myTemplatePembelajaran);

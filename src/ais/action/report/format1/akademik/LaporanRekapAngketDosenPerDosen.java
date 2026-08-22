@@ -573,6 +573,14 @@ public class LaporanRekapAngketDosenPerDosen extends MyWindow {
 
 //						System.out.println("Tampilkan data --> " + datas);
 
+						// FIX race "Only one child is allowed: <Center>": hentikan & lepas Timer SEGERA
+						// (bukan di akhir) sebelum membangun/memasang spreadsheet. Membangun spreadsheet +
+						// grid pratinjau bisa memakan waktu > interval Timer (1000ms); bila Timer baru
+						// dihentikan di akhir, klien bisa sudah mengirim tick "onTimer" berikutnya sebelum
+						// menerima sinyal stop, sehingga blok ini terpanggil DUA KALI untuk 'center' yang
+						// sama (percobaan attach kedua menabrak anak dari percobaan pertama).
+						ais.action.report.helper.LoadingReportUtil.stopAndDetach(timer);
+
 						ais.action.report.helper.LoadingReportUtil.clearBusy();
 						excelku = new ais.ui.util.MySpreadsheet();
 						Common.clear(center);
@@ -582,8 +590,6 @@ public class LaporanRekapAngketDosenPerDosen extends MyWindow {
 						ais.ui.util.PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(excelku);
 
 						printAmbil.setVisible(true);
-
-						ais.action.report.helper.LoadingReportUtil.stopAndDetach(timer);
 					}
 
 				}

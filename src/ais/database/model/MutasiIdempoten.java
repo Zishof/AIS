@@ -1,5 +1,6 @@
 package ais.database.model;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import javax.persistence.Column;
@@ -27,7 +28,9 @@ import javax.persistence.UniqueConstraint;
 @Table(name = "mutasi_idempoten", uniqueConstraints = @UniqueConstraint(
 		name = "uk_mutasi_idempoten_kunci",
 		columnNames = { "pengguna", "aksi", "client_mutation_id" }))
-public class MutasiIdempoten {
+public class MutasiIdempoten implements Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	private Long id;
 	private String pengguna;

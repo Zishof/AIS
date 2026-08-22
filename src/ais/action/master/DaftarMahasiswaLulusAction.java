@@ -1342,7 +1342,9 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 			paging.setTotalSize(size);
 			paging.setVisible(size > Common.ROWS_COUNT_ON_PAGE);
 			try {
-				((South) paging.getParent()).setHeight(size > Common.ROWS_COUNT_ON_PAGE ? "30px" : "0px");
+				if (paging.getParent() instanceof South) {
+					((South) paging.getParent()).setHeight(size > Common.ROWS_COUNT_ON_PAGE ? "30px" : "0px");
+				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/DaftarMahasiswaLulusAction.java:1322");
 				// Common.tampilErrorJikaAdmin(e);
 			}

@@ -260,7 +260,7 @@
 						     dan pengguna belum memiliki izin pengecualian yang masih berlaku. -->
 						<div id="infoMasaPenilaian" visible="false" width="100%"
 							style="box-sizing:border-box;margin:8px 0;padding:12px 14px;background:#fff7ed;border:1px solid #fdba74;border-left:5px solid #ea580c;border-radius:6px;">
-							<hbox width="100%" valign="middle" spacing="12px">
+							<hbox width="100%" align="middle" spacing="12px">
 								<image src="/img/help.gif" width="24px" height="24px"/>
 								<vbox hflex="1" spacing="3px">
 									<label value="Masa input nilai sudah ditutup" style="font-weight:bold;color:#9a3412;font-size:13px;"/>

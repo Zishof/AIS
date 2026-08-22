@@ -1200,9 +1200,12 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 				return;
 			}
 
-			if (pendaftaranWisuda.getId() != null) {
-				pendaftaranWisuda = (PendaftaranWisuda) session.load(PendaftaranWisuda.class,
-						pendaftaranWisuda.getId());
+			// Pakai pastikanPendaftaranWisudaMasihAda() (get(), bukan load()) SEBELUM
+			// setSkripsi()/dsb memakai pendaftaranWisuda: load() menghasilkan lazy proxy
+			// yang baru gagal (ObjectNotFoundException) saat properti diakses nanti kalau
+			// baris sudah dihapus dari DB sementara layar ini masih memegang referensi lama.
+			if (!pastikanPendaftaranWisudaMasihAda(session)) {
+				return;
 			}
 
 			mahasiswa = (Mahasiswa) bandboxMahasiswa.getAttribute("mahasiswa");

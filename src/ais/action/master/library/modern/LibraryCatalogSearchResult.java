@@ -17,12 +17,16 @@ public class LibraryCatalogSearchResult {
     public JSONObject toJson() throws JSONException {
         JSONArray data = new JSONArray();
         for (LibraryCatalogItemDto item : items) data.put(item.toJson());
+        // put(String, Object) dipakai untuk "total"/"count" (bukan overload put(String, long))
+        // karena WEB-INF/lib memuat beberapa jar org.json berbeda (mis. json-rpc-1.0.jar
+        // membawa org.json.JSONObject versi lama tanpa overload put(String, long)); boxing
+        // ke Long memastikan resolusi ke overload put(String, Object) yang ada di semua versi.
         return new JSONObject()
                 .put("ok", true)
                 .put("page", page)
                 .put("pageSize", pageSize)
-                .put("count", total)
-                .put("total", total)
+                .put("count", Long.valueOf(total))
+                .put("total", Long.valueOf(total))
                 .put("facets", facets)
                 .put("data", data)
                 .put("items", data);

@@ -11009,6 +11009,7 @@ public class CommonReportHelper {
 
 					try {
 						Dosen mahasiswa = dosen;
+						if (mahasiswa.getJurusan() != null) {
 						map.put("id_pejabat_prodi_1", mahasiswa.getJurusan().getPegawai1() == null ? -1L
 								: mahasiswa.getJurusan().getPegawai1().getId());
 						map.put("periode", perkuliahan == null ? "SP" : perkuliahan.getGanjilGenap());
@@ -11067,6 +11068,7 @@ public class CommonReportHelper {
 						map.put("nip_pejabat_fakultas_3",
 								mahasiswa.getJurusan().getFakultas().getPegawai3() == null ? ""
 										: mahasiswa.getJurusan().getFakultas().getPegawai3().getCode());
+						}
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10298");
 					}
 

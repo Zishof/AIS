@@ -72,12 +72,22 @@ public class StrukM extends HttpServlet {
 
 		System.out.println("myid = " + myid);
 
+		// FIX NumberFormatException "For input string: \"\"": parameter "id" boleh kosong/hilang
+		// (mis. tautan struk lama/rusak), atau dekripsi "EE..." di atas gagal diam-diam sehingga
+		// myid tersisa bukan angka. JANGAN Long.parseLong mentah -- guard dulu (pola sama dgn
+		// Document.java#parseLong / #downloadDocument) dan balas 400, jangan sampai servlet crash.
+		Long idKegiatan = parseLong(myid);
+		if (idKegiatan == null) {
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "ID struk tidak valid.");
+			return;
+		}
+
 		Kegiatan pembayaranSiswa = null;
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 			pembayaranSiswa = (Kegiatan) session.createCriteria(Kegiatan.class)
-					.add(Restrictions.idEq(Long.parseLong(myid))).uniqueResult();
+					.add(Restrictions.idEq(idKegiatan)).uniqueResult();
 		} finally {
 			if (session != null) {
 				try { session.clear(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/StrukM.java:83");}
@@ -104,6 +114,15 @@ public class StrukM extends HttpServlet {
 
 		in.close();
 		out.flush();
+	}
+
+	/** Parse aman: null (bukan exception) bila value kosong/tidak berupa angka. */
+	private static Long parseLong(String value) {
+		try {
+			return value == null || value.trim().length() == 0 ? null : Long.valueOf(value.trim());
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 }

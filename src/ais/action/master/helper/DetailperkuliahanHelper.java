@@ -285,10 +285,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 					detailperkuliahan.getPerkuliahan() == null ? null
 							: detailperkuliahan.getPerkuliahan().getStatusSemesterPendek());
 
-			StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa).getStatusMahasiswa();
+			ais.database.model.HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa);
+			StatusMahasiswa statusMahasiswa = historyStatusMahasiswa == null ? null : historyStatusMahasiswa.getStatusMahasiswa();
 			new Label((detailperkuliahan.getMahasiswa().getStatusAwalMahasiswa() == null ? ""
 					: detailperkuliahan.getMahasiswa().getStatusAwalMahasiswa().getNama()) + " / "
-					+ statusMahasiswa.getNama()).setParent(row);
+					+ (statusMahasiswa == null ? "" : statusMahasiswa.getNama())).setParent(row);
 
 			new Label(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
 					: Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("

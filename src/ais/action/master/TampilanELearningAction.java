@@ -1956,7 +1956,13 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					.add(tahunAjaran == null ? Restrictions.sqlRestriction("true")
 							: Restrictions.eq("tahunAkademik", tahunAjaran))
 
-					.add(semester == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("semester", semester));
+					// "semester" di sini adalah label Ganjil/Genap (String), sedangkan kolom
+					// MahasiswaRequestTugasAkhir.semester bertipe Integer (nomor semester) — samakan
+					// lewat modulo genap/ganjil, bukan Restrictions.eq langsung (ClassCastException
+					// String->Integer saat binding).
+					.add(semester == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.sqlRestriction(
+									"this_.semester % 2 = " + (semester.equals(Perkuliahan.GANJIL) ? "1" : "0")));
 
 			if (order) {
 				criteria.add(Restrictions.sqlRestriction(
@@ -2008,7 +2014,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					.add(tahunAjaran == null ? Restrictions.sqlRestriction("true")
 							: Restrictions.eq("kkn.tahunAkademik", tahunAjaran))
 
-					.add(semester == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("semester", semester));
+					// KelompokKkn tidak punya properti "semester" sendiri (hanya lewat relasi ke
+					// Kkn.semester via alias "kkn") — bare "semester" gagal diresolusi Hibernate.
+					.add(semester == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.eq("kkn.semester", semester));
 
 			if (order) {
 				criteria.addOrder(Order.desc("kkn.tahunAkademik")).addOrder(Order.desc("kkn.semester"))

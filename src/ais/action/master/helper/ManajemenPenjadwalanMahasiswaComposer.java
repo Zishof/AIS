@@ -573,11 +573,12 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 			return;
 		}
 
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik, perkuliahan.getGanjilGenap(),
+		String ganjilGenap = perkuliahan == null ? null : perkuliahan.getGanjilGenap();
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik, ganjilGenap,
 				semesterPendek, fakultas, jurusan, program)) {
 			MyMessageboxConfig.show(
 					"Penjadwalan tahun akademik \"" + tahunAkademik + "\" semester \""
-							+ (perkuliahan.getGanjilGenap()) + "\" tidak diaktifkan",
+							+ ganjilGenap + "\" tidak diaktifkan",
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			return;
 		}

@@ -729,11 +729,36 @@ public class Bniresponse extends HttpServlet {
 									cicilanPembayaran.setDenda(bniRequestDetail.getDenda());
 									cicilanPembayaran.setNilaiAsli(bniRequestDetail.getNilaiAsli());
 									session.getTransaction().begin();
-									if (cicilanPembayaran.getId() == null)
-										session.save(cicilanPembayaran);
-									else
-										Common.refreshUpdate(session, cicilanPembayaran);
-									session.getTransaction().commit();
+									try {
+										if (cicilanPembayaran.getId() == null)
+											session.save(cicilanPembayaran);
+										else
+											Common.refreshUpdate(session, cicilanPembayaran);
+										session.getTransaction().commit();
+									} catch (org.hibernate.exception.ConstraintViolationException eDup) {
+										// Idempotensi webhook BNI: notifikasi yang SAMA dapat dikirim berulang
+										// oleh bank (perilaku umum payment-gateway, bukan kasus langka). Cek-lalu-
+										// insert di atas (createCriteria ref=...) rentan race TOCTOU: dua
+										// pemrosesan notifikasi yang sama-sama lolos cek "belum ada" sebelum
+										// salah satunya commit -> yang kedua menabrak unique constraint
+										// cicilan_pembayaran_ref_key. Tangani sbg sudah-diproses (idempoten),
+										// bukan error: rollback, lalu ambil ulang baris pemenang via ref yang sama
+										// (pola sama dgn idempotensi race sesi kas di KantinHelper.bukaSesiKas).
+										try {
+											if (session.getTransaction() != null
+													&& session.getTransaction().isActive()) {
+												session.getTransaction().rollback();
+											}
+										} catch (Exception eRb) { ais.common.ErrorAuditUtil.record(eRb, "auto-audit(empty-catch) src/ais/action/servlet/Bniresponse.java:doProses-rollback-dup"); }
+
+										CicilanPembayaran menang = (CicilanPembayaran) session
+												.createCriteria(CicilanPembayaran.class)
+												.add(Restrictions.eq("ref", ref)).setMaxResults(1).uniqueResult();
+										if (menang == null) {
+											throw eDup;
+										}
+										cicilanPembayaran = menang;
+									}
 
 									bniRequestDetail.setCicilanref(cicilanPembayaran.getId());
 									session.getTransaction().begin();

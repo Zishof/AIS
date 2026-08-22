@@ -1668,7 +1668,22 @@ public class Report extends GenericAutowireComposer {
 
 	private static void compileJasperAtomically(File jrxml, File jasper) throws Exception {
 		CommonFileUtil.ensureWritableFile(jasper, 20L * 1024L * 1024L);
-		File temp = new File(jasper.getAbsolutePath() + ".tmp");
+		// FIX RACE CONDITION (akar NoClassDefFoundError "wrong name" & FileNotFoundException
+		// pada .jasper.tmp): sebelumnya nama file sementara hanya "<jasper>.tmp" -- SAMA untuk
+		// SEMUA thread yang kebetulan mengompilasi target .jasper yang SAMA secara bersamaan
+		// (mis. subreport bersama dipicu oleh beberapa permintaan cetak paralel yang belum
+		// terkunci, lihat pemanggil TANPA ambilLockJasper() di initDefaultParameter). Dua thread
+		// menulis/menghapus file sementara yang SAMA menghasilkan: hasil kompilasi terbaca kosong
+		// (temp.length()<=0, ditimpa thread lain baru mulai menulis), file sumber rename hilang
+		// diambil/dihapus thread lain lebih dulu (FileNotFoundException di FileUtils.copyFile),
+		// atau -- paling parah -- isi .jasper akhir tercampur (nama kelas hasil kompilasi yang
+		// tertanam di bytecode berasal dari SATU thread sementara metadata JasperReport di
+		// sekitarnya dari thread LAIN) yang memicu NoClassDefFoundError "wrong name" saat
+		// subreport dimuat. Perbaikan: setiap PEMANGGILAN memakai nama file sementara UNIK
+		// (thread id + nanoTime), sehingga kompilasi paralel utk target yang SAMA tidak pernah
+		// lagi berbagi file sementara -- rename akhir ke path FINAL tetap "atomic" per-thread
+		// (last-writer-wins yang aman, karena sumbernya .jrxml yang sama).
+		File temp = new File(jasper.getAbsolutePath() + ".tmp" + Thread.currentThread().getId() + "_" + System.nanoTime());
 		try {
 			JasperCompileManager.compileReportToFile(jrxml.getAbsolutePath(), temp.getAbsolutePath());
 			if (!temp.isFile() || temp.length() <= 0L) {
@@ -2270,7 +2285,12 @@ public class Report extends GenericAutowireComposer {
 					File fileJasper = new File(fileD.replaceAll(".jrxml", "") + ".jasper");
 					if (fileJrxml.exists()) {
 						try {
-							compileJasperAtomically(fileJrxml, fileJasper);
+							// FIX RACE CONDITION: dikunci per-nama-file .jasper (pola sama dengan
+							// fillJasperReportSekali/ambilLockJasper) supaya permintaan cetak PARALEL
+							// yang menunjuk ke .jrxml/.jasper yang SAMA tidak saling tabrakan kompilasi.
+							synchronized (ambilLockJasper(fileJasper)) {
+								compileJasperAtomically(fileJrxml, fileJasper);
+							}
 							fileD = fileJasper.getAbsolutePath();
 						} catch (Exception e) {
 							if (isReportErrorLogConsoleEnabled()) {
@@ -2508,8 +2528,23 @@ public class Report extends GenericAutowireComposer {
 							File fileJasper = new File(
 									fileJrxml.getAbsolutePath().replaceAll(".jrxml", "") + ".jasper");
 							if (!fileJasper.exists()) {
-								fileJasper.getParentFile().mkdirs();
-								compileJasperAtomically(fileJrxml, fileJasper);
+								// FIX RACE CONDITION (akar NoClassDefFoundError "wrong name" pada
+								// subreport bersama, mis. Rekaman_Nilai_Kelompok_type_2_subreport1 dipakai
+								// Transkrip_Akademik): subreport ini DIPAKAI BERSAMA oleh banyak laporan,
+								// dan method ini dipanggil di AWAL SETIAP generateFileReportCore -- kalau
+								// beberapa permintaan cetak PARALEL sama-sama menemui fileJasper belum ada
+								// (cache dingin), semuanya lolos cek exists() di atas dan tanpa lock di
+								// bawah ini akan sama-sama menulis file .jasper TARGET yang SAMA secara
+								// bersamaan. Dikunci per-nama-file .jasper (pola sama dengan
+								// fillJasperReportSekali/ambilLockJasper), dengan cek ulang exists() di
+								// dalam lock supaya thread yang menunggu tidak lagi mengompilasi ulang
+								// begitu thread pertama selesai.
+								synchronized (ambilLockJasper(fileJasper)) {
+									if (!fileJasper.exists()) {
+										fileJasper.getParentFile().mkdirs();
+										compileJasperAtomically(fileJrxml, fileJasper);
+									}
+								}
 							}
 							parameters.put(subReport.getKode(), fileJasper.getAbsolutePath());
 						}

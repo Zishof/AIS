@@ -1144,6 +1144,9 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 	 * kolom Grup pada setup Daftar Pegawai Pada Disposisi Surat.
 	 */
 	public static String infoDisposisiBagan(SuratKeluar suratKeluar) {
+		if (suratKeluar == null) {
+			return buatHtmlDisposisiKeluarBergrup(new LinkedHashMap<String, List<DisposisiKeluarChip>>());
+		}
 		Session session = HibernateUtil.currentSession();
 		List<AlurPersetujuanSuratKeluarStatus> list = session.createCriteria(AlurPersetujuanSuratKeluarStatus.class)
 				.add(Restrictions.isNotNull("kodeUnik")).add(Restrictions.eq("suratKeluar", suratKeluar))

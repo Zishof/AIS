@@ -315,7 +315,7 @@ public class DashboardPrestasiDosenUmum extends MyWindow {
 						.add(Restrictions.isNotNull("dosen.jurusan"))
 						.add(Restrictions.isNotNull("dosen.fakultas"))
 
-						.addOrder(Order.asc("jurusan.fakultas")).addOrder(Order.asc("dosen.jurusan"))
+						.addOrder(Order.asc("dosen.fakultas")).addOrder(Order.asc("dosen.jurusan"))
 						.addOrder(Order.asc("cabangPrestasiDosen")).addOrder(Order.asc("kategoriPrestasiDosen"))
 						.addOrder(Order.asc("tahunAkademik"))
 
