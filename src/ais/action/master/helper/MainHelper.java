@@ -1093,6 +1093,7 @@ public class MainHelper {
 				 * dihormati peramban, dan servlet itu sendiri yang meneruskan ke /logoff. */
 				if (lupakanAkun) {
 					hapusCookieRememberMe();
+					hapusCookieDiPeramban();
 					goBersihkanCookie();
 				} else {
 					logoutSekarang();
@@ -1160,6 +1161,56 @@ public class MainHelper {
 	 * menaruh Set-Cookie pada respons AU ZK -- agar peramban benar-benar menghapus cookie
 	 * "userinfo" yang dipakai login2.jsp untuk mengenali pengguna.</p>
 	 */
+	/**
+	 * Hapus cookie ingat-akun LANGSUNG DI PERAMBAN lewat JavaScript.
+	 *
+	 * <p><b>Kenapa perlu, padahal sudah ada penghapusan di sisi server.</b> Cookie
+	 * {@code userinfo} dan {@code userid} DIBUAT oleh JavaScript di login2.jsp
+	 * ({@code document.cookie = 'userinfo=...; path=/'}). Menghapusnya lewat JavaScript dengan
+	 * path yang sama karena itu simetris dan pasti berhasil, tanpa bergantung pada apakah
+	 * header {@code Set-Cookie} sempat terkirim dan dihormati -- hal yang tidak dapat
+	 * diandalkan pada respons AU (AJAX) milik ZK.</p>
+	 *
+	 * <p>Dijalankan lebih dulu, sebelum pengalihan ke {@code /clear-cookie}, sehingga cookie
+	 * sudah lenyap bahkan bila pengalihan itu gagal. Path context juga disertakan karena
+	 * cookie lama mungkin pernah ditulis dengan path tersebut.</p>
+	 */
+	private static void hapusCookieDiPeramban() {
+		try {
+			String contextPath = "";
+			try {
+				HttpServletRequest request = (HttpServletRequest) Executions.getCurrent().getNativeRequest();
+				if (request != null && request.getContextPath() != null) {
+					contextPath = request.getContextPath().trim();
+				}
+			} catch (Exception e) {
+				contextPath = "";
+			}
+			String[] nama = { "userinfo", "userid", "rememberme", "remember_me" };
+			StringBuilder js = new StringBuilder();
+			js.append("(function(){var kadaluarsa='=; expires=Thu, 01 Jan 1970 00:00:00 GMT';");
+			js.append("var jalur=['/'");
+			if (contextPath.length() > 0 && !"/".equals(contextPath)) {
+				js.append(",'").append(contextPath).append("'");
+			}
+			js.append("];");
+			js.append("var nama=[");
+			for (int i = 0; i < nama.length; i++) {
+				if (i > 0) {
+					js.append(",");
+				}
+				js.append("'").append(nama[i]).append("'");
+			}
+			js.append("];");
+			js.append("for(var i=0;i<nama.length;i++){for(var j=0;j<jalur.length;j++){");
+			js.append("document.cookie=nama[i]+kadaluarsa+'; path='+jalur[j];}}");
+			js.append("})();");
+			org.zkoss.zk.ui.util.Clients.evalJavaScript(js.toString());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "MainHelper.hapusCookieDiPeramban");
+		}
+	}
+
 	private static void goBersihkanCookie() {
 		try {
 			try {
