@@ -18,7 +18,6 @@ import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.Menu;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
-import ais.database.model.file.LampiranLain;
 import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
@@ -79,9 +78,8 @@ public final class JurnalFileEndToEndSelfTest {
         ResultSet result = null;
         try {
             Connection c = session.connection();
-            find = c.prepareStatement("select id,foto from public.lampiran_lain where ref=? and jenis=? for update");
+            find = c.prepareStatement("select id,file_content from public.lampiran_jurnal where repo_bitstream_id=? for update");
             find.setLong(1, bitstreamId);
-            find.setString(2, LampiranLain.JURNAL_REPO_BITSTREAM);
             result = find.executeQuery();
             int rows = 0;
             while (result.next()) {
@@ -91,7 +89,7 @@ public final class JurnalFileEndToEndSelfTest {
                 unlink.setLong(1, oid);
                 unlink.execute();
                 unlink.close(); unlink = null;
-                delete = c.prepareStatement("delete from public.lampiran_lain where id=?");
+                delete = c.prepareStatement("delete from public.lampiran_jurnal where id=?");
                 delete.setLong(1, id);
                 delete.executeUpdate();
                 delete.close(); delete = null;

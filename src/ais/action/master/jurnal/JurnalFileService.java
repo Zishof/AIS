@@ -2,6 +2,7 @@ package ais.action.master.jurnal;
 
 import java.io.FileNotFoundException;
 import java.io.FilterInputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -12,14 +13,13 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
-import org.hibernate.Hibernate;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.Tbmuser;
-import ais.database.model.file.LampiranLain;
+import ais.database.model.file.LampiranJurnal;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoItem;
 
@@ -51,16 +51,25 @@ public final class JurnalFileService {
         Session blobSession = null; Transaction blobTx = null;
         try {
             blobSession = streaming.currentSession(); blobTx = blobSession.beginTransaction();
-            DigestInputStream bounded = new DigestInputStream(content, MAX_UPLOAD_BYTES);
-            LampiranLain lampiran = new LampiranLain();
-            lampiran.setRef(meta.getId()); lampiran.setJenis(LampiranLain.JURNAL_REPO_BITSTREAM);
-            lampiran.setNama(safeName(fileName)); lampiran.setKeterangan("RepoBitstream:" + meta.getId());
-            lampiran.setOlehId(actor.getUserId()); lampiran.setOleh(actor.getUserId()); lampiran.setTanggal_dirubah(new Date());
-            lampiran.setFoto(Hibernate.createBlob(bounded)); blobSession.save(lampiran); blobSession.flush();
+            BufferedInputStream buffered = new BufferedInputStream(content, 8192);
+            String detectedMime = sniffMime(buffered, normalizedMime);
+            DigestInputStream bounded = new DigestInputStream(buffered, MAX_UPLOAD_BYTES);
+            LampiranJurnal lampiran = newLampiran(meta, safeName(fileName), normalizedMime,
+                    detectedMime, normalizedStage, declaredSize, actor, "UPLOAD");
+            lampiran.setContent(org.hibernate.Hibernate.createBlob(bounded));
+            blobSession.save(lampiran); blobSession.flush();
+            lampiran.setStorageState("CONTENT_STORED");
             if (bounded.count != declaredSize)
                 throw new IOException("Ukuran aktual file tidak sesuai Content-Length.");
+            lampiran.setActualSize(Long.valueOf(bounded.count));
+            lampiran.setChecksumSha256(bounded.hex());
+            lampiran.setStorageState("VERIFIED");
+            lampiran.setUpdatedAt(new Date());
+            blobSession.update(lampiran);
             blobTx.commit();
-            return markLinked(meta.getId(), lampiran.getId(), bounded.hex(), bounded.count, actor);
+            RepoBitstream linked = markLinked(meta.getId(), lampiran.getId(), lampiran.getChecksumSha256(), bounded.count, actor);
+            markAvailable(lampiran.getId(), actor);
+            return linked;
         } catch (Exception e) {
             if (blobTx != null && blobTx.isActive()) blobTx.rollback();
             markFailed(meta.getId(), actor);
@@ -85,16 +94,21 @@ public final class JurnalFileService {
         StreamingHibernateUtil streaming = StreamingHibernateUtil.getInstance(); Session blobSession = null; Transaction blobTx = null;
         try {
             blobSession = streaming.currentSession(); blobTx = blobSession.beginTransaction();
-            Query existing = blobSession.createQuery("from LampiranLain where ref=:r and jenis=:j");
-            existing.setLong("r", bitstreamId); existing.setString("j", LampiranLain.JURNAL_REPO_BITSTREAM); existing.setMaxResults(2);
+            Query existing = blobSession.createQuery("from LampiranJurnal where repoBitstreamId=:r");
+            existing.setLong("r", bitstreamId); existing.setMaxResults(2);
             if (!existing.list().isEmpty()) throw new IllegalStateException("Content import sudah ada atau ambigu; jalankan rekonsiliasi.");
-            DigestInputStream bounded = new DigestInputStream(content, MAX_UPLOAD_BYTES);
-            LampiranLain lampiran = new LampiranLain(); lampiran.setRef(bitstreamId); lampiran.setJenis(LampiranLain.JURNAL_REPO_BITSTREAM);
-            lampiran.setNama(meta.getNamaFile()); lampiran.setKeterangan("OJS Import RepoBitstream:"+bitstreamId);
-            lampiran.setOlehId(actor.getUserId()); lampiran.setOleh(actor.getUserId()); lampiran.setTanggal_dirubah(new Date());
-            lampiran.setFoto(Hibernate.createBlob(bounded)); blobSession.save(lampiran); blobSession.flush();
+            BufferedInputStream buffered = new BufferedInputStream(content, 8192);
+            String declaredMime = validMime(meta.getMimeType());
+            DigestInputStream bounded = new DigestInputStream(buffered, MAX_UPLOAD_BYTES);
+            LampiranJurnal lampiran = newLampiran(meta, safeName(meta.getNamaFile()), declaredMime,
+                    sniffMime(buffered, declaredMime), validStage(meta.getJournalStage()), declaredSize, actor, "OJS_IMPORT");
+            lampiran.setContent(org.hibernate.Hibernate.createBlob(bounded)); blobSession.save(lampiran); blobSession.flush();
+            lampiran.setStorageState("CONTENT_STORED");
             if (bounded.count != declaredSize) throw new IOException("Ukuran aktual file import tidak sesuai manifest.");
-            blobTx.commit(); return markLinked(bitstreamId,lampiran.getId(),bounded.hex(),bounded.count,actor);
+            lampiran.setActualSize(Long.valueOf(bounded.count)); lampiran.setChecksumSha256(bounded.hex());
+            lampiran.setStorageState("VERIFIED"); lampiran.setUpdatedAt(new Date()); blobSession.update(lampiran);
+            blobTx.commit(); RepoBitstream linked=markLinked(bitstreamId,lampiran.getId(),lampiran.getChecksumSha256(),bounded.count,actor);
+            markAvailable(lampiran.getId(),actor); return linked;
         } catch(Exception e) {
             if(blobTx!=null&&blobTx.isActive())blobTx.rollback(); markFailed(bitstreamId,actor);
             throw new IllegalStateException("Penyimpanan content import OJS gagal.",e);
@@ -118,11 +132,12 @@ public final class JurnalFileService {
         try {
             Session session = streaming.currentSession();
             streamingTx = session.beginTransaction();
-            LampiranLain lampiran = (LampiranLain) session.get(LampiranLain.class, bitstream.getContentRef());
-            if (lampiran == null || !bitstreamId.equals(lampiran.getRef())
-                    || !LampiranLain.JURNAL_REPO_BITSTREAM.equals(lampiran.getJenis()) || lampiran.getFoto() == null)
+            LampiranJurnal lampiran = (LampiranJurnal) session.get(LampiranJurnal.class, bitstream.getContentRef());
+            if (lampiran == null || !bitstreamId.equals(lampiran.getRepoBitstreamId())
+                    || !("VERIFIED".equals(lampiran.getStorageState()) || "LINKED".equals(lampiran.getStorageState())
+                    || "AVAILABLE".equals(lampiran.getStorageState())) || lampiran.getContent() == null)
                 throw new FileNotFoundException();
-            Blob blob = lampiran.getFoto();
+            Blob blob = lampiran.getContent();
             if (blob.length() < 1 || blob.length() > MAX_UPLOAD_BYTES || blob.length() != bitstream.getUkuranByte().longValue())
                 throw new IOException("Ukuran file jurnal tidak konsisten.");
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); InputStream in = blob.getBinaryStream();
@@ -164,16 +179,15 @@ public final class JurnalFileService {
         try {
             Session blobSession = streaming.currentSession();
             streamingTx = blobSession.beginTransaction();
-            Query q = blobSession.createQuery("from LampiranLain where ref=:r and jenis=:j order by id desc");
+            Query q = blobSession.createQuery("from LampiranJurnal where repoBitstreamId=:r order by id desc");
             q.setLong("r", bitstreamId);
-            q.setString("j", LampiranLain.JURNAL_REPO_BITSTREAM);
             q.setMaxResults(2);
-            @SuppressWarnings("unchecked") java.util.List<LampiranLain> candidates = q.list();
-            if (candidates.size() != 1 || candidates.get(0).getFoto() == null)
+            @SuppressWarnings("unchecked") java.util.List<LampiranJurnal> candidates = q.list();
+            if (candidates.size() != 1 || candidates.get(0).getContent() == null)
                 throw new IllegalStateException(candidates.isEmpty()
                         ? "BLOB pasangan tidak ditemukan." : "BLOB pasangan ambigu; perlu rekonsiliasi manual.");
-            LampiranLain lampiran = candidates.get(0);
-            Blob blob = lampiran.getFoto();
+            LampiranJurnal lampiran = candidates.get(0);
+            Blob blob = lampiran.getContent();
             long size = blob.length();
             if (size < 1 || size > MAX_UPLOAD_BYTES)
                 throw new IllegalStateException("Ukuran BLOB tidak valid.");
@@ -184,7 +198,8 @@ public final class JurnalFileService {
             String checksum = hex(digest.digest());
             Long contentRef = lampiran.getId();
             streamingTx.commit();
-            return markLinked(bitstreamId, contentRef, checksum, size, actor);
+            RepoBitstream linked=markLinked(bitstreamId, contentRef, checksum, size, actor);
+            markAvailable(contentRef,actor); return linked;
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
@@ -223,6 +238,68 @@ public final class JurnalFileService {
             RepoBitstream b = (RepoBitstream) s.get(RepoBitstream.class, id); if (b != null) { b.setStorageState("FAILED"); b.setOlehId(actor.getUserId()); s.update(b); }
             if (own) tx.commit();
         } catch (Exception ignored) { try { ais.common.ErrorAuditUtil.record(ignored, "JurnalFileService.markFailed"); } catch (Exception ignored2) {} }
+    }
+
+    private static LampiranJurnal newLampiran(RepoBitstream meta, String fileName, String declaredMime,
+            String detectedMime, String stage, long declaredSize, Tbmuser actor, String source) {
+        Date now = new Date();
+        LampiranJurnal value = new LampiranJurnal();
+        value.setRepoBitstreamId(meta.getId());
+        value.setOriginalFileName(fileName);
+        value.setDeclaredMimeType(declaredMime);
+        value.setDetectedMimeType(detectedMime);
+        value.setDeclaredSize(Long.valueOf(declaredSize));
+        value.setJournalStage(stage);
+        value.setFileVersion(meta.getFileVersion());
+        value.setStorageState("PENDING_CONTENT");
+        value.setScanState("NOT_CONFIGURED");
+        value.setQuarantineState("RELEASED_BY_POLICY");
+        value.setIdempotencyKey(source + ":REPO_BITSTREAM:" + meta.getId());
+        value.setCreatedBy(actor.getUserId());
+        value.setUpdatedBy(actor.getUserId());
+        value.setCreatedAt(now);
+        value.setUpdatedAt(now);
+        return value;
+    }
+
+    private static void markAvailable(Long lampiranId, Tbmuser actor) {
+        StreamingHibernateUtil streaming = StreamingHibernateUtil.getInstance();
+        Session session = null; Transaction tx = null;
+        try {
+            session = streaming.currentSession(); tx = session.beginTransaction();
+            LampiranJurnal value = (LampiranJurnal) session.get(LampiranJurnal.class, lampiranId);
+            if (value == null || !("VERIFIED".equals(value.getStorageState()) || "LINKED".equals(value.getStorageState())))
+                throw new IllegalStateException("Konten streaming belum terverifikasi.");
+            value.setStorageState("LINKED"); session.flush();
+            value.setStorageState("AVAILABLE"); value.setUpdatedBy(actor.getUserId()); value.setUpdatedAt(new Date());
+            session.update(value); tx.commit();
+        } finally {
+            if (tx != null && tx.isActive()) tx.rollback();
+            try { streaming.closeSession(); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Minimal magic-byte sniffing; hasil dicatat terpisah dari MIME yang dideklarasikan. */
+    private static String sniffMime(BufferedInputStream input, String declaredMime) throws IOException {
+        input.mark(32);
+        byte[] head = new byte[16];
+        int count = input.read(head);
+        input.reset();
+        if (count >= 5 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F' && head[4] == '-')
+            return "application/pdf";
+        if (count >= 8 && (head[0] & 255) == 137 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G')
+            return "image/png";
+        if (count >= 3 && (head[0] & 255) == 255 && (head[1] & 255) == 216 && (head[2] & 255) == 255)
+            return "image/jpeg";
+        if (count >= 4 && ((head[0] == 'I' && head[1] == 'I' && head[2] == 42 && head[3] == 0)
+                || (head[0] == 'M' && head[1] == 'M' && head[2] == 0 && head[3] == 42)))
+            return "image/tiff";
+        if (count >= 4 && head[0] == 'P' && head[1] == 'K' && head[2] == 3 && head[3] == 4)
+            return declaredMime;
+        if (count >= 5 && head[0] == '{' && head[1] == '\\' && head[2] == 'r' && head[3] == 't' && head[4] == 'f')
+            return "application/rtf";
+        return declaredMime.startsWith("text/") || declaredMime.indexOf("xml") >= 0
+                ? declaredMime : "application/octet-stream";
     }
 
     private static String validStage(String value) { String x = clean(value).toUpperCase(Locale.ENGLISH); if (!STAGES.contains(x)) throw new IllegalArgumentException("Tahap file jurnal tidak valid."); return x; }

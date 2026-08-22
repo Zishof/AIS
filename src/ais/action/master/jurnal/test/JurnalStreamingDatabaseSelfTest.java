@@ -35,7 +35,7 @@ public final class JurnalStreamingDatabaseSelfTest {
         try {
             session = util.currentSession();
             Connection connection = session.connection();
-            statement = connection.prepareStatement("select current_database(), count(*) from public.lampiran_lain");
+            statement = connection.prepareStatement("select current_database(), count(*) from public.lampiran_jurnal");
             result = statement.executeQuery();
             if (!result.next() || !expected.equals(result.getString(1))) {
                 throw new IllegalStateException("Database streaming target tidak sesuai environment.");
@@ -49,19 +49,31 @@ public final class JurnalStreamingDatabaseSelfTest {
             transaction = session.beginTransaction();
             byte[] payload = "ais-jurnal-streaming-self-test".getBytes(Charset.forName("UTF-8"));
             statement = connection.prepareStatement(
-                    "insert into public.lampiran_lain "
-                    + "(ref,jenis,nama,keterangan,olehid,oleh,tanggal_dirubah,foto) "
-                    + "values (?,?,?,?,?,?,current_timestamp,lo_from_bytea(0,?)) returning id,foto");
+                    "insert into public.lampiran_jurnal "
+                    + "(repo_bitstream_id,original_file_name,declared_mime_type,detected_mime_type,"
+                    + "declared_size,actual_size,checksum_sha256,journal_stage,file_version,storage_state,"
+                    + "scan_state,quarantine_state,idempotency_key,created_by,updated_by,created_at,updated_at,file_content) "
+                    + "values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,current_timestamp,current_timestamp,lo_from_bytea(0,?)) "
+                    + "returning id,file_content");
             statement.setLong(1, -91919L);
-            statement.setString(2, "JURNAL_REPO_BITSTREAM");
-            statement.setString(3, "jurnal-streaming-self-test.txt");
-            statement.setString(4, "rollback-only");
-            statement.setString(5, "SELF_TEST");
-            statement.setString(6, "SELF_TEST");
-            statement.setBytes(7, payload);
+            statement.setString(2, "jurnal-streaming-self-test.txt");
+            statement.setString(3, "text/plain");
+            statement.setString(4, "text/plain");
+            statement.setLong(5, payload.length);
+            statement.setLong(6, payload.length);
+            statement.setString(7, "8f0a95b04670bec92a073965f2a9b86e7be9479648f8d8b7bdc9c5f095283a4f");
+            statement.setString(8, "SUBMISSION");
+            statement.setLong(9, 1L);
+            statement.setString(10, "AVAILABLE");
+            statement.setString(11, "NOT_CONFIGURED");
+            statement.setString(12, "RELEASED_BY_POLICY");
+            statement.setString(13, "SELF_TEST:-91919");
+            statement.setString(14, "SELF_TEST");
+            statement.setString(15, "SELF_TEST");
+            statement.setBytes(16, payload);
             result = statement.executeQuery();
             if (!result.next() || result.getLong(1) < 1L || result.getLong(2) < 1L) {
-                throw new IllegalStateException("Round-trip BLOB lampiran_lain gagal.");
+                throw new IllegalStateException("Round-trip BLOB lampiran_jurnal gagal.");
             }
             long oid = result.getLong(2);
             result.close();
@@ -71,7 +83,7 @@ public final class JurnalStreamingDatabaseSelfTest {
             statement.setLong(1, oid);
             result = statement.executeQuery();
             if (!result.next() || result.getLong(1) != payload.length) {
-                throw new IllegalStateException("Isi BLOB lampiran_lain tidak sesuai.");
+                throw new IllegalStateException("Isi BLOB lampiran_jurnal tidak sesuai.");
             }
             result.close();
             statement.close();
@@ -80,10 +92,10 @@ public final class JurnalStreamingDatabaseSelfTest {
             transaction.rollback();
             transaction = null;
 
-            statement = connection.prepareStatement("select count(*) from public.lampiran_lain");
+            statement = connection.prepareStatement("select count(*) from public.lampiran_jurnal");
             result = statement.executeQuery();
             if (!result.next() || result.getLong(1) != before) {
-                throw new IllegalStateException("Rollback test meninggalkan data pada lampiran_lain.");
+                throw new IllegalStateException("Rollback test meninggalkan data pada lampiran_jurnal.");
             }
             System.out.println("JurnalStreamingDatabaseSelfTest OK database=clone rows=" + before);
         } finally {

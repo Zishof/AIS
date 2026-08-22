@@ -769,6 +769,12 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("proses_transfer_")) {
+				// Grup "Keuangan": pencairan baris DPC -- dipindahkan dari layar ZK
+				// ProsesTransferAction. Inilah mata rantai yang membuat dokumen Keuangan
+				// buatan POS akhirnya dapat dijurnal.
+				ais.action.servlet.api.ProsesTransferApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("master_keuangan_")) {
 				// Master data grup "Keuangan": jenis uang muka, jenis kas kecil/besar, jenis
 				// reimbursement, jenis pengeluaran, dan cara pembayaran transfer. Selama ini
