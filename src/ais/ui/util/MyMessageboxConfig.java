@@ -259,7 +259,7 @@ public class MyMessageboxConfig {
 			final Window win = new Window();
 			win.setTitle("");
 			win.setBorder("none");
-			win.setClosable(false);
+			win.setClosable(true);
 			win.setSizable(false);
 			win.setWidth("520px");
 			win.setStyle("border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.28);"
@@ -288,6 +288,7 @@ public class MyMessageboxConfig {
 
 			Vbox headerText = new Vbox();
 			headerText.setSpacing("2px");
+			headerText.setHflex("1");
 			headerText.setStyle("min-width:0;");
 			headerText.setParent(header);
 
@@ -298,6 +299,25 @@ public class MyMessageboxConfig {
 			Label subTitle = new Label("Klik Detail untuk melihat informasi teknis dan saran perbaikan.");
 			subTitle.setStyle("font-size:11px;color:rgba(255,255,255,.86);");
 			subTitle.setParent(headerText);
+
+			Button closeHeader = new Button("X");
+			closeHeader.setTooltiptext("Tutup");
+			closeHeader.setStyle("border:1px solid rgba(255,255,255,.55);background:rgba(15,23,42,.22);"
+					+ "color:#fff;border-radius:8px;width:38px;height:38px;padding:0;"
+					+ "font-size:16px;font-weight:900;cursor:pointer;");
+			closeHeader.setParent(header);
+			closeHeader.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					tutupDialog(win, eventListener, Messagebox.CANCEL);
+				}
+			});
+			win.addEventListener("onCancel", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					tutupDialog(win, eventListener, Messagebox.CANCEL);
+				}
+			});
 
 			Vbox content = new Vbox();
 			content.setWidth("100%");
@@ -395,7 +415,8 @@ public class MyMessageboxConfig {
 			ada = true;
 		}
 		if ((mask & Messagebox.OK) != 0) {
-			tambahTombol(footer, win, eventListener, "OK", Messagebox.OK, warna, true);
+			tambahTombol(footer, win, eventListener, mask == Messagebox.OK ? "Tutup" : "OK",
+					Messagebox.OK, warna, true);
 			ada = true;
 		}
 		if ((mask & Messagebox.CANCEL) != 0) {
@@ -415,7 +436,16 @@ public class MyMessageboxConfig {
 			ada = true;
 		}
 		if (!ada) {
-			tambahTombol(footer, win, eventListener, "OK", Messagebox.OK, warna, true);
+			tambahTombol(footer, win, eventListener, "Tutup", Messagebox.OK, warna, true);
+		}
+	}
+
+	private static void tutupDialog(Window win, EventListener eventListener, int kode) throws Exception {
+		if (win != null && win.getParent() != null) {
+			win.detach();
+		}
+		if (eventListener != null) {
+			eventListener.onEvent(new Event("onClose", win, Integer.valueOf(kode)));
 		}
 	}
 
@@ -430,10 +460,7 @@ public class MyMessageboxConfig {
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				win.detach();
-				if (eventListener != null) {
-					eventListener.onEvent(new Event(event.getName(), event.getTarget(), Integer.valueOf(kode)));
-				}
+				tutupDialog(win, eventListener, kode);
 			}
 		});
 	}
