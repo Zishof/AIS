@@ -256,6 +256,31 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 		return value == null ? 0.0 : value.doubleValue();
 	}
 
+	private static boolean pembayaranDaftarUlangSudahLunas(Kegiatan kegiatanDaftarUlang,
+			Double totalDaftarUlangSetting) {
+		if (kegiatanDaftarUlang == null) {
+			return totalDaftarUlangSetting != null && totalDaftarUlangSetting.doubleValue() < 0.01;
+		}
+		double dibayar = safeDouble(kegiatanDaftarUlang.getAmount());
+		double persentase = safeDouble(kegiatanDaftarUlang.getPersentaseLunas());
+		if (persentase >= 99.99) {
+			return true;
+		}
+		if (totalDaftarUlangSetting != null) {
+			return totalDaftarUlangSetting.doubleValue() < 0.01
+					|| dibayar + 0.01 >= totalDaftarUlangSetting.doubleValue();
+		}
+
+		/*
+		 * Pada beberapa data PMB, pembayaran daftar ulang sudah masuk dari host-to-host
+		 * tetapi setting tagihan prodi tidak ditemukan. Jangan membuat step "Daftar
+		 * Ulang" tetap abu-abu hanya karena setting tidak ada; pakai tagihan kegiatan
+		 * yang tercatat sebagai fallback.
+		 */
+		double tagihanKegiatan = safeDouble(kegiatanDaftarUlang.getTagihan());
+		return tagihanKegiatan > 0.01 && dibayar + 0.01 >= tagihanKegiatan;
+	}
+
 	private static double hitungBiayaRegistrasiCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (biodataCalonMahasiswa == null) {
 			return 0.0;
@@ -1930,10 +1955,17 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 					} else if (totalDaftarUlangSetting == null) {
 						double sudahDibayar = kegiatanDaftarUlang == null ? 0.0
 								: safeDouble(kegiatanDaftarUlang.getAmount());
-						teksBayarDaftarUlang = sudahDibayar < 0.01 ? "Belum ada tagihan untuk prodi ini"
-								: "Pembayaran tercatat " + Common.numberFormat.get().format(sudahDibayar)
-										+ ", tetapi setting tagihan prodi tidak ditemukan";
-						teksBayarDU2 = "<span style='color:#64748b;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
+						if (pembayaranDaftarUlangSudahLunas(kegiatanDaftarUlang, totalDaftarUlangSetting)) {
+							teksBayarDaftarUlang = "Lunas " + Common.numberFormat.get().format(sudahDibayar)
+									+ " (setting tagihan prodi tidak ditemukan)";
+							teksBayarDU2 = "<span style='color:#16a34a;'>&#10003; "
+									+ htmlEscape(teksBayarDaftarUlang) + "</span>";
+						} else {
+							teksBayarDaftarUlang = sudahDibayar < 0.01 ? "Belum ada tagihan untuk prodi ini"
+									: "Pembayaran tercatat " + Common.numberFormat.get().format(sudahDibayar)
+											+ ", tetapi setting tagihan prodi tidak ditemukan";
+							teksBayarDU2 = "<span style='color:#64748b;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
+						}
 					} else if (totalDaftarUlangSetting.doubleValue() < 0.01) {
 						teksBayarDaftarUlang = Common.getBahasaConfig("Bebas") + " "
 								+ Common.getBahasaConfig("Pembayaran Daftar Ulang") + " "
@@ -2072,10 +2104,8 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 						&& kegiatan.getPersentaseLunas() >= 100;
 				boolean sudahSeleksiPrg = biodataCalonMahasiswa.getProdiLulus() != null
 						|| biodataCalonMahasiswa.getDitolak() || biodataCalonMahasiswa.getMundur();
-				boolean sudahDaftarUlangPrg = totalDaftarUlangSetting != null
-						&& (totalDaftarUlangSetting.doubleValue() < 0.01
-								|| (kegiatanDaftarUlang != null && safeDouble(kegiatanDaftarUlang.getAmount()) + 0.01
-										>= totalDaftarUlangSetting.doubleValue()));
+				boolean sudahDaftarUlangPrg = pembayaranDaftarUlangSudahLunas(kegiatanDaftarUlang,
+						totalDaftarUlangSetting);
 				htmlBuilder.append(buildProgressTrackerPmb(true, sudahBayarPrg, sudahSeleksiPrg, sudahDaftarUlangPrg));
 				htmlBuilder.append("</div>"); // tutup div wrapper font-family
 				groupboxStyled.appendChild(new Html(htmlBuilder.toString()));

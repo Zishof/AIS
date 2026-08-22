@@ -719,11 +719,38 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		}
 	}
 
+	private java.util.Set<Long> ambilItemBiayaIdTagihanYangTampil() {
+		java.util.Set<Long> hasil = new java.util.HashSet<Long>();
+		if (dataTagihanData == null) {
+			return hasil;
+		}
+
+		for (Object data : dataTagihanData) {
+			try {
+				DetailBiaya detailBiaya = null;
+				if (data instanceof PengaturanPembayaranBulanan) {
+					detailBiaya = ((PengaturanPembayaranBulanan) data).getDetailBiaya();
+				} else if (data instanceof DetailBiaya) {
+					detailBiaya = (DetailBiaya) data;
+				}
+
+				if (detailBiaya != null && detailBiaya.getItemBiaya() != null
+						&& detailBiaya.getItemBiaya().getId() != null) {
+					hasil.add(detailBiaya.getItemBiaya().getId());
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"DaftarUlangMahasiswaBaruAction: membaca item tagihan aktif");
+			}
+		}
+		return hasil;
+	}
+
 	@SuppressWarnings({ "unchecked" })
 	public void listCicilan(final Kegiatan kegiatan, final boolean refresh) throws Exception {
 		Common.clear(panelMencicil);
 		if (panelMencicil instanceof East)
-			((East) panelMencicil).setTitle("Daftar Pembayaran / Angsuran");
+			((East) panelMencicil).setTitle("Riwayat Pembayaran / Angsuran");
 
 		Integer jumlah = 40;
 		cicilanPembayarans = new ArrayList<CicilanPembayaran>();
@@ -740,14 +767,19 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		// beda, contoh kasus: item beasiswa "Gratis Pol" hilang berganti item SPP reguler),
 		// tampilkan keterangan mencolok/merah di panel riwayat pembayaran agar staf langsung
 		// sadar sebelum melanjutkan proses entry pembayaran/pelunasan.
-		if (kegiatan != null && kegiatan.getId() != null && itemBiayas != null) {
+		if (kegiatan != null && kegiatan.getId() != null) {
+			ais.ui.util.MyDiv informasiRiwayat = new ais.ui.util.MyDiv();
+			informasiRiwayat.setStyle(
+					"background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;"
+							+ "padding:8px 10px;margin:4px 0 8px 0;border-radius:4px;line-height:1.45;");
+			new Label("Tagihan aktif ditampilkan di panel kiri berdasarkan pengaturan biaya saat ini. "
+					+ "Daftar di bawah merupakan seluruh riwayat pembayaran mahasiswa pada jenis pembayaran dan "
+					+ "semester yang sama. Riwayat tetap disimpan walaupun pengaturan atau item tagihan berubah.")
+							.setParent(informasiRiwayat);
+			informasiRiwayat.setParent(panelMencicil);
+
 			java.util.Map<Long, String> namaItemHilang = new java.util.LinkedHashMap<Long, String>();
-			java.util.Set<Long> itemBiayaIdSaatIni = new java.util.HashSet<Long>();
-			for (DetailBiaya db : itemBiayas.values()) {
-				if (db != null && db.getItemBiaya() != null && db.getItemBiaya().getId() != null) {
-					itemBiayaIdSaatIni.add(db.getItemBiaya().getId());
-				}
-			}
+			java.util.Set<Long> itemBiayaIdSaatIni = ambilItemBiayaIdTagihanYangTampil();
 			for (CicilanPembayaran riwayat : cicilanPembayarans) {
 				if (riwayat == null || riwayat.getNilai() == null || Math.abs(riwayat.getNilai()) < 0.1
 						|| riwayat.getItemBiaya() == null || riwayat.getItemBiaya().getId() == null) {
@@ -764,11 +796,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						"background:#fee2e2;border:1px solid #dc2626;color:#991b1b;font-weight:700;"
 								+ "padding:8px 10px;margin:4px 0 8px 0;border-radius:4px;");
 				StringBuilder pesanItemHilang = new StringBuilder(
-						"⚠ Perhatian: item biaya berikut PERNAH dibayar/ditagih sebelumnya untuk kegiatan ini, "
-								+ "tetapi TIDAK muncul lagi di tagihan yang sedang tampil saat ini. Ini bisa menandakan "
-								+ "tagihan ter-generate ulang dari Setting Biaya yang berbeda (mis. beasiswa berubah "
-								+ "menjadi reguler). Mohon periksa kembali Paket/Jenis Seleksi/Setting Biaya mahasiswa "
-								+ "ini sebelum melanjutkan entry pembayaran:");
+						"Perhatian: riwayat di bawah memuat item yang pernah dibayar, tetapi item tersebut "
+								+ "tidak ada pada tagihan aktif di panel kiri. Hal ini biasanya terjadi karena setting "
+								+ "biaya, paket, jenis seleksi, atau status beasiswa mahasiswa pernah berubah. "
+								+ "Periksa pengaturannya sebelum menambah atau mengubah pembayaran:");
 				for (String namaItem : namaItemHilang.values()) {
 					pesanItemHilang.append("\n- ").append(namaItem);
 				}
