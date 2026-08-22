@@ -29,6 +29,7 @@ import org.zkoss.poi.xssf.usermodel.XSSFColor;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
+import org.zkoss.poi.ss.usermodel.IndexedColors;
 import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Sessions;
@@ -2813,7 +2814,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 										sheet.setDefaultColumnWidth(20);
 										XSSFCellStyle lockedNumericStyle = workbook.createCellStyle();
 										lockedNumericStyle.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
-										lockedNumericStyle.setFillForegroundColor(new XSSFColor(Color.RED));
+										lockedNumericStyle.setFillForegroundColor(IndexedColors.RED.getIndex());
 										lockedNumericStyle.setLocked(true);
 
 										Session session = HibernateUtil.currentNativeSession();
@@ -3319,7 +3320,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 										sheet.setDefaultColumnWidth(20);
 										XSSFCellStyle lockedNumericStyle = workbook.createCellStyle();
 										lockedNumericStyle.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
-										lockedNumericStyle.setFillForegroundColor(new XSSFColor(Color.RED));
+										lockedNumericStyle.setFillForegroundColor(IndexedColors.RED.getIndex());
 										lockedNumericStyle.setLocked(true);
 
 										Session session = HibernateUtil.currentNativeSession();
