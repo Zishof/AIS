@@ -87,20 +87,28 @@ public final class DbCredentialOverride {
 				System.out.println("DbCredentialOverride: override eksternal diterapkan untuk factory '" + prefix
 						+ "' (" + laporan.toString().trim() + ")");
 			}
+		} catch (SecurityException wajibGagal) {
+			throw wajibGagal;
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "DbCredentialOverride.terapkan:" + prefix);
 		}
 	}
 
 	/** Kontrak environment SIT/UAT; nilai secret tidak pernah dicetak. */
 	private static boolean terapkanEnvironmentJurnal(Configuration configuration, String prefix) {
-		if (!"utama".equals(prefix)) return false;
-		String name = System.getenv("AIS_JURNAL_DB_NAME");
-		String user = System.getenv("AIS_JURNAL_DB_USER");
-		String password = System.getenv("AIS_JURNAL_DB_PASSWORD");
+		boolean main = "utama".equals(prefix);
+		boolean streaming = "streaming".equals(prefix);
+		if (!main && !streaming) return false;
+		String envPrefix = main ? "AIS_JURNAL_DB_" : "AIS_JURNAL_STREAMING_DB_";
+		String name = System.getenv(envPrefix + "NAME");
+		String user = System.getenv(envPrefix + "USER");
+		String password = System.getenv(envPrefix + "PASSWORD");
+		if (streaming && adaEnvironmentJurnal() && (name == null || name.trim().isEmpty()
+				|| user == null || user.trim().isEmpty() || password == null || password.isEmpty()))
+			throw new SecurityException("Mode jurnal SIT/UAT memerlukan database streaming terisolasi.");
 		if (name == null || name.trim().isEmpty() || user == null || user.trim().isEmpty()
 				|| password == null || password.isEmpty()) return false;
-		String host = System.getenv("AIS_JURNAL_DB_HOST");
-		String port = System.getenv("AIS_JURNAL_DB_PORT");
+		String host = System.getenv(envPrefix + "HOST");
+		String port = System.getenv(envPrefix + "PORT");
 		if (host == null || host.trim().isEmpty()) host = "localhost";
 		if (port == null || !port.matches("[0-9]{1,5}")) port = "5432";
 		if (!name.matches("[A-Za-z0-9_]+") || !host.matches("[A-Za-z0-9_.:-]+"))
