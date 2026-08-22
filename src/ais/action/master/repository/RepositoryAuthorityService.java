@@ -2,7 +2,9 @@ package ais.action.master.repository;
 
 import java.text.Normalizer;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -25,12 +27,17 @@ public final class RepositoryAuthorityService {
         List<RepoItemMetadata> metadata = session.createCriteria(RepoItemMetadata.class)
                 .add(Restrictions.eq("itemId", item.getId())).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE)))
                 .addOrder(Order.asc("place")).addOrder(Order.asc("id")).list();
+        Set<Long> linkedAuthorities = new HashSet<Long>();
         for (int i=0;i<authors.length;i++) {
             String name=clean(authors[i]); if(name.length()==0)continue;
             String orcid=metadataAt(metadata,"repository.author.orcid",i);
             String affiliation=metadataAt(metadata,"repository.author.affiliation",i);
             String ror=metadataAt(metadata,"repository.author.ror",i);
             RepoAuthorAuthority authority=findOrCreate(session,name,orcid,affiliation,ror);
+            // Satu authority hanya boleh memiliki satu relasi AUTHOR pada item yang
+            // sama. Data legacy kadang mengulang nama atau memakai dua variasi nama
+            // yang sudah dinormalisasi menjadi authority yang sama.
+            if (!linkedAuthorities.add(authority.getId())) continue;
             RepoItemContributor link=findLink(old,authority.getId());
             if(link==null){link=new RepoItemContributor();link.setItemId(item.getId());link.setAuthorityId(authority.getId());link.setContributorRole("AUTHOR");link.setCreatedAt(new Date());}
             link.setDisplayName(name);link.setSequenceNumber(Integer.valueOf(i));link.setCorresponding(Boolean.valueOf(i==0));link.setAktif(Boolean.TRUE);session.saveOrUpdate(link);

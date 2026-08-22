@@ -11,21 +11,20 @@ import java.util.TreeSet;
 
 import org.hibernate.Session;
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.HtmlBasedComponent;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.A;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Groupbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
-import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
-import org.zkoss.zul.Tabpanels;
-import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
@@ -49,10 +48,10 @@ import ais.database.model.Pertemuan;
 import ais.database.model.Skripsi;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyCaptionStyled;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyDiv;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyInclude;
-import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
@@ -162,54 +161,10 @@ public class AktifitasSkripsiHelper {
 		groupbox.setStyle("border:none;height:72vh;min-height:520px;overflow-y:auto;overflow-x:hidden;");
 		Common.clear(groupbox);
 
-		final Tabbox tabbox = new Tabbox();
-		tabbox.setSclass("ais-aktifitas-tabbox");
-		tabbox.setParent(groupbox);
-		tabbox.setWidth("100%");
-		tabbox.setHeight("3000px");
-		tabbox.setStyle("min-height:3000px;overflow-y:auto;overflow-x:hidden;");
+		final MyButtonTabbox tabbox = MyButtonTabbox.buat(groupbox, "3000px", new int[] { 1 });
 
-		Tabs tabs = new Tabs();
-		tabs.setParent(tabbox);
-
-		MyTabConfig tab = new MyTabConfig("Agenda Revisi Skripsi atau Tugas Akhir");
-		tab.setParent(tabs);
-		tab.addEventListener("onClick", new EventListener() {
-
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				try {
-					initDetail(skripsi, groupbox);
-				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
-				}
-			}
-		});
-
-		// FIX konten tab kosong: klik tab hanya memicu onSelect Tabbox, sedangkan mount konten
-		// dipasang pada onClick MASING-MASING Tab -> kadang tak ter-trigger sehingga panel kosong.
-		// Pasang onSelect di Tabbox yang me-RE-DISPATCH onClick ke tab terpilih (mount andal &
-		// idempoten karena tiap handler cek getChildren().size()==0). Tab pertama (Agenda) DIKECUALIKAN
-		// karena onClick-nya membangun-ulang seluruh tabbox (mencegah loop tak berujung).
-		final org.zkoss.zul.Tab tabPertamaAgenda = tab;
-		tabbox.addEventListener(org.zkoss.zk.ui.event.Events.ON_SELECT, new EventListener() {
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				org.zkoss.zul.Tab terpilih = tabbox.getSelectedTab();
-				if (terpilih != null && terpilih != tabPertamaAgenda) {
-					org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", terpilih));
-				}
-			}
-		});
-
-		Tabpanels tabpanels = new Tabpanels();
-		tabpanels.setParent(tabbox);
-		tabpanels.setHeight("3000px");
-		tabpanels.setStyle("min-height:3000px;overflow-y:auto;overflow-x:hidden;");
-
-		Tabpanel tabpanel = new ais.ui.util.MyTabpanel();
-		tabpanel.setParent(tabpanels);
-		tabpanel.setStyle("min-height: 500px;");
+		Div tabpanel = tabbox.tambahTab(1, "Agenda Revisi Skripsi atau Tugas Akhir");
+		tabpanel.setStyle("min-height:500px;overflow:auto;");
 
 		ais.ui.util.MyDiv myGroupbox = new ais.ui.util.MyDiv();
 		myGroupbox.setStyle("min-height: 500px;");
@@ -395,45 +350,16 @@ public class AktifitasSkripsiHelper {
 			}
 		}
 
-		final MyTabConfig tabReferensi = new MyTabConfig("Referensi");
-		tabReferensi.setParent(tabs);
-
-		final Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
-		setPanelDetailTinggi(tabpanelReferensi);
-		tabpanelReferensi.setParent(tabpanels);
-		addTabLoadListener(tabReferensi, new EventListener() {
-
+		final Div tabpanelReferensi = tabbox.tambahTabLazy(2, "Referensi", new MyButtonTabbox.PemuatTab() {
 			@Override
-			public void onEvent(Event arg0) throws Exception {
-				if (tabpanelReferensi.getChildren().size() == 0) {
+			public void muat(Div panelReferensi) throws Exception {
+				if (panelReferensi.getChildren().size() == 0) {
 
-					final Tabbox tabbox = new Tabbox();
-					tabbox.setSclass("ais-aktifitas-tabbox");
-					tabbox.setParent(tabpanelReferensi);
-					tabbox.setWidth("100%");
-					tabbox.setHeight("100%");
+					final MyButtonTabbox tabboxReferensi = MyButtonTabbox.buat(panelReferensi, "100%",
+							new int[] { 1 });
 
-					Tabs tabs = new Tabs();
-					tabs.setParent(tabbox);
-
-					final MyTabConfig tabReferensiDiajukan = new MyTabConfig("Referensi");
-					tabReferensiDiajukan.setParent(tabs);
-
-					final MyTabConfig tabReferensi = new MyTabConfig("Ref. Buku");
-					tabReferensi.setParent(tabs);
-
-					final MyTabConfig tabBukuAjar = new MyTabConfig("Ref. Bahan Ajar");
-					tabBukuAjar.setParent(tabs);
-
-					final MyTabConfig tabArtikel = new MyTabConfig("Ref. Artikel");
-					tabArtikel.setParent(tabs);
-
-					Tabpanels tabpanels = new Tabpanels();
-					tabpanels.setParent(tabbox);
-
-					Tabpanel tabpanelReferensiDiajukan = new ais.ui.util.MyTabpanel();
+					Div tabpanelReferensiDiajukan = tabboxReferensi.tambahTab(1, "Referensi");
 					setPanelDetailTinggi(tabpanelReferensiDiajukan);
-					tabpanelReferensiDiajukan.setParent(tabpanels);
 
 					Grid gridref = SkripsiAction.initReferensi(skripsi, new EventListener() {
 
@@ -444,110 +370,94 @@ public class AktifitasSkripsiHelper {
 					});
 					gridref.setParent(Common.tampilanScroll(tabpanelReferensiDiajukan));
 
+					Div panelReferensiBuku = tabboxReferensi.tambahTab(2, "Ref. Buku");
 					Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
 					setPanelDetailTinggi(tabpanelReferensi);
-					tabpanelReferensi.setParent(tabpanels);
+					tabpanelReferensi.setParent(panelReferensiBuku);
 
 					DataPunyaItemHelper dataPunyaItemHelper = new DataPunyaItemHelper();
 					dataPunyaItemHelper.display(skripsi, null, null, null, null, tabpanelReferensi);
 
-					final Tabpanel tabpanelBukuAjar = new ais.ui.util.MyTabpanel();
-					tabpanelBukuAjar.setParent(tabpanels);
+					final Div tabpanelBukuAjar = tabboxReferensi.tambahTabLazy(3, "Ref. Bahan Ajar",
+							new MyButtonTabbox.PemuatTab() {
+								@Override
+								public void muat(Div panel) throws Exception {
+									if (panel.getChildren().size() == 0) {
+
+										Tabpanel panelBukuAjar = new ais.ui.util.MyTabpanel();
+										setPanelDetailTinggi(panelBukuAjar);
+										panelBukuAjar.setParent(panel);
+										DataPunyaBukuAjarHelper dataPunyaBukuAjarHelper = new DataPunyaBukuAjarHelper();
+										dataPunyaBukuAjarHelper.display(skripsi, null, null, null, null,
+												panelBukuAjar);
+									}
+								}
+							});
 					setPanelDetailTinggi(tabpanelBukuAjar);
-					addTabLoadListener(tabBukuAjar, new EventListener() {
 
-						@Override
-						public void onEvent(Event arg0) throws Exception {
-							if (tabpanelBukuAjar.getChildren().size() == 0) {
+					final Div tabpanelArtikel = tabboxReferensi.tambahTabLazy(4, "Ref. Artikel",
+							new MyButtonTabbox.PemuatTab() {
+								@Override
+								public void muat(Div panel) throws Exception {
+									if (panel.getChildren().size() == 0) {
 
-								DataPunyaBukuAjarHelper dataPunyaBukuAjarHelper = new DataPunyaBukuAjarHelper();
-								dataPunyaBukuAjarHelper.display(skripsi, null, null, null, null, tabpanelBukuAjar);
-							}
-						}
-					});
-
-					final Tabpanel tabpanelArtikel = new ais.ui.util.MyTabpanel();
-					tabpanelArtikel.setParent(tabpanels);
+										DataPunyaArtikelHelper dataPunyaArtikelHelper = new DataPunyaArtikelHelper();
+										dataPunyaArtikelHelper.display(skripsi, null, null, null, null, null, null,
+												panel);
+									}
+								}
+							});
 					setPanelDetailTinggi(tabpanelArtikel);
-					addTabLoadListener(tabArtikel, new EventListener() {
-
-						@Override
-						public void onEvent(Event arg0) throws Exception {
-							if (tabpanelArtikel.getChildren().size() == 0) {
-
-								DataPunyaArtikelHelper dataPunyaArtikelHelper = new DataPunyaArtikelHelper();
-								dataPunyaArtikelHelper.display(skripsi, null, null, null, null, null, null,
-										tabpanelArtikel);
-							}
-						}
-					});
+					tabboxReferensi.pilihPertama();
 				}
 			}
 		});
 
-		final MyTabConfig tabPenilaian = new MyTabConfig("Penilaian");
-		tabPenilaian.setVisible(skripsi.getSetujuiSidang());
-		tabPenilaian.setParent(tabs);
-
-		final Tabpanel tabpanelPenilaian = new ais.ui.util.MyTabpanel();
-		tabpanelPenilaian.setVisible(skripsi.getSetujuiSidang());
-		tabpanelPenilaian.setParent(tabpanels);
-		setPanelDetailTinggi(tabpanelPenilaian);
-		addTabLoadListener(tabPenilaian, new EventListener() {
-
+		final Div tabpanelPenilaian = tabbox.tambahTabLazy(3, "Penilaian", new MyButtonTabbox.PemuatTab() {
 			@Override
-			public void onEvent(Event arg0) throws Exception {
-				if (tabpanelPenilaian.getChildren().size() == 0) {
+			public void muat(Div panel) throws Exception {
+				if (panel.getChildren().size() == 0) {
 
 					PenilaianSkripsiHelper penilaianSkripsiHelper = new PenilaianSkripsiHelper();
-					penilaianSkripsiHelper.display(skripsi, tabpanelPenilaian, null);
+					penilaianSkripsiHelper.display(skripsi, panel, null);
 				}
 			}
 		});
+		setPanelDetailTinggi(tabpanelPenilaian);
+		tabbox.setVisiblePanel(tabpanelPenilaian, skripsi.getSetujuiSidang());
 
 		initCetak(tabbox, skripsi);
 
-		final MyTabConfig tabPengajuanWisuda = new MyTabConfig("Pengajuan Wisuda");
-		tabPengajuanWisuda.setVisible(skripsi.getSetujuiSidang());
-		tabPengajuanWisuda.setParent(tabs);
+		final Div tabpanelPengajuanWisuda = tabbox.tambahTabLazy(5, "Pengajuan Wisuda",
+				new MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div panel) throws Exception {
+						if (panel.getChildren().size() == 0) {
 
-		final Tabpanel tabpanelPengajuanWisuda = new ais.ui.util.MyTabpanel();
-		tabpanelPengajuanWisuda.setVisible(skripsi.getSetujuiSidang());
-		tabpanelPengajuanWisuda.setParent(tabpanels);
+							Borderlayout borderlayout = new Borderlayout();
+							borderlayout.setParent(panel);
+							borderlayout.setStyle("min-height:360px");
+							Center center = new Center();
+							center.setParent(borderlayout);
+							center.appendChild(new MyInclude("/pages/master/pendaftaran_wisuda_mahasiswa.zul?mahasiswa="
+									+ skripsi.getMahasiswa().getId()));
+						}
+					}
+				});
 		setPanelDetailTinggi(tabpanelPengajuanWisuda);
-		addTabLoadListener(tabPengajuanWisuda, new EventListener() {
-
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				if (tabpanelPengajuanWisuda.getChildren().size() == 0) {
-
-					Borderlayout borderlayout = new Borderlayout();
-					borderlayout.setParent(tabpanelPengajuanWisuda);
-					borderlayout.setStyle("min-height:360px");
-					Center center = new Center();
-					center.setParent(borderlayout);
-					center.appendChild(new MyInclude("/pages/master/pendaftaran_wisuda_mahasiswa.zul?mahasiswa="
-							+ skripsi.getMahasiswa().getId()));
-				}
-			}
-		});
+		tabbox.setVisiblePanel(tabpanelPengajuanWisuda, skripsi.getSetujuiSidang());
+		tabbox.pilihPertama();
 
 	}
 
 	private Toolbar toolbar;
 
-	public void initCetak(Tabbox tabbox, final Skripsi skripsi) {
-		final MyTabConfig tabMonitor = new MyTabConfig("Laporan");
-		tabMonitor.setParent(tabbox.getTabs());
-		final Tabpanel tabpanelMonitor = new ais.ui.util.MyTabpanel();
-		setPanelDetailTinggi(tabpanelMonitor);
-		tabpanelMonitor.setParent(tabbox.getTabpanels());
-		addTabLoadListener(tabMonitor, new EventListener() {
-
+	public void initCetak(MyButtonTabbox tabbox, final Skripsi skripsi) {
+		final Div tabpanelMonitor = tabbox.tambahTabLazy(4, "Laporan", new MyButtonTabbox.PemuatTab() {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			@Override
-			public void onEvent(Event arg0) throws Exception {
-				Common.clear(tabpanelMonitor);
+			public void muat(Div panel) throws Exception {
+				Common.clear(panel);
 				final Map parameters = ais.common.HashMapGenerator.getRand();
 
 				parameters.put("perkuliahan", skripsi == null || skripsi.getId() == null ? -1L : skripsi.getId());
@@ -561,7 +471,7 @@ public class AktifitasSkripsiHelper {
 				Common.insertProperty(Skripsi.class, skripsi, parameters, "", 2);
 
 				Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
-				borderlayout.setParent(tabpanelMonitor);
+				borderlayout.setParent(panel);
 				borderlayout.setHeight("700px");
 
 				final Center center = new Center();
@@ -592,34 +502,18 @@ public class AktifitasSkripsiHelper {
 				eventListener.onEvent(null);
 			}
 		});
+		setPanelDetailTinggi(tabpanelMonitor);
 	}
 
-	private void addTabLoadListener(MyTabConfig tab, final EventListener listener) {
-		if (tab == null || listener == null) {
-			return;
-		}
-		final long[] lastRun = new long[] { 0L };
-		EventListener delegatingListener = new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				long now = System.currentTimeMillis();
-				if (now - lastRun[0] < 120L) {
-					return;
-				}
-				lastRun[0] = now;
-				listener.onEvent(event);
-			}
-		};
-		tab.addEventListener("onClick", delegatingListener);
-		tab.addEventListener(org.zkoss.zk.ui.event.Events.ON_SELECT, delegatingListener);
-	}
-
-	private void setPanelDetailTinggi(Tabpanel tabpanel) {
+	private void setPanelDetailTinggi(Component tabpanel) {
 		if (tabpanel == null) {
 			return;
 		}
-		tabpanel.setHeight("3000px");
-		tabpanel.setStyle("height:3000px;min-height:3000px;overflow-y:auto;overflow-x:hidden;");
+		if (tabpanel instanceof HtmlBasedComponent) {
+			HtmlBasedComponent html = (HtmlBasedComponent) tabpanel;
+			html.setHeight("3000px");
+			html.setStyle("height:3000px;min-height:3000px;overflow-y:auto;overflow-x:hidden;");
+		}
 	}
 
 }
