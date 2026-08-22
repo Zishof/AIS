@@ -769,6 +769,11 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("reimbursement_")) {
+				// Grup "Keuangan": reimbursement pegawai -- dipindahkan dari layar ZK
+				// ReimbursementPegawaiAction. Punya status Revisi, tidak hanya setuju/tolak.
+				ais.action.servlet.api.ReimbursementApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("dana_talangan_")) {
 				// Grup "Keuangan": dana talangan atas satu uang muka yang transfernya sudah
 				// terealisasi -- dipindahkan dari layar ZK DanaTalanganAction.

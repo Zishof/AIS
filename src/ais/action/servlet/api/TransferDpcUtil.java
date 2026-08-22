@@ -65,6 +65,9 @@ public final class TransferDpcUtil {
 		if ("dana_talangan".equals(modul)) {
 			return "dana_talangan";
 		}
+		if ("reimbursement".equals(modul)) {
+			return "reimbursement_pegawai";
+		}
 		return null;
 	}
 
@@ -147,6 +150,19 @@ public final class TransferDpcUtil {
 					masalah = "Penggantian kas kecil baru bisa diajukan setelah disetujui.";
 				} else {
 					DaftarPengajuanTransfer.simpanPenggantianKasKecil(e);
+					dpc = e.getDaftarPengajuanTransfer();
+				}
+			} else if ("reimbursement".equals(modul)) {
+				ais.database.model.akunting.ReimbursementPegawai e = (ais.database.model.akunting.ReimbursementPegawai) session
+						.get(ais.database.model.akunting.ReimbursementPegawai.class, Long.valueOf(id));
+				if (e == null) {
+					masalah = "Pengajuan reimbursement tidak ditemukan.";
+				} else if (e.getDaftarPengajuanTransfer() != null) {
+					dpc = e.getDaftarPengajuanTransfer();
+				} else if (!ais.database.model.akunting.ReimbursementPegawai.DISETUJUI.equals(e.getStatus())) {
+					masalah = "Reimbursement baru bisa diajukan ke proses transfer setelah disetujui.";
+				} else {
+					DaftarPengajuanTransfer.simpanReimbursement(e);
 					dpc = e.getDaftarPengajuanTransfer();
 				}
 			} else if ("dana_talangan".equals(modul)) {
