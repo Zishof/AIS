@@ -94,8 +94,51 @@ public class MySpreadsheet extends Spreadsheet {
 		Component parent = pendingParent;
 		if (parent == null) return;
 		pendingParent = null;
-		super.setParent(parent);
+		/* FIX 21-08-2026 -- UiException "Only one child is allowed: <Center ...>".
+		 *
+		 * Induk tertunda bisa berupa REGION Borderlayout (Center/North/South/East/West) yang
+		 * hanya boleh beranak tunggal, sementara slot itu sudah terisi komponen lain (mis. hasil
+		 * render sebelumnya atau indikator proses). Pemasangan langsung karena itu melempar
+		 * UiException dan seluruh laporan gagal tampil -- terlihat pada
+		 * LaporanRekapAngketDosenPerMahasiswa lewat PratinjauXlsxHelper.gantiSpreadsheetDenganGrid.
+		 *
+		 * Penanganannya: bila slotnya sudah terpakai, isi lama DIPINDAHKAN ke dalam satu Div
+		 * (bukan dibuang, agar tidak ada komponen yang hilang), Div itu menjadi anak tunggal
+		 * region, lalu spreadsheet menyusul ke dalam Div yang sama. */
+		try {
+			if (parent instanceof org.zkoss.zul.LayoutRegion && !parent.getChildren().isEmpty()) {
+				parent = bungkusIsiRegion((org.zkoss.zul.LayoutRegion) parent);
+			}
+			super.setParent(parent);
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t, "MySpreadsheet.pasangSekarangJikaTertunda");
+			return;
+		}
 		aturTinggi(maxRowsDiminta);
+	}
+
+	/**
+	 * Pindahkan seluruh isi sebuah region Borderlayout ke dalam satu {@link org.zkoss.zul.Div},
+	 * lalu jadikan Div itu anak tunggal region. Mengembalikan Div tersebut sebagai wadah baru.
+	 *
+	 * <p>Bila region sudah berisi tepat satu Div hasil pembungkusan sebelumnya, Div itu langsung
+	 * dipakai ulang supaya tidak menumpuk pembungkus setiap kali laporan dijalankan.</p>
+	 */
+	private static Component bungkusIsiRegion(org.zkoss.zul.LayoutRegion region) {
+		java.util.List<Object> isi = new java.util.ArrayList<Object>(region.getChildren());
+		if (isi.size() == 1 && isi.get(0) instanceof org.zkoss.zul.Div
+				&& "kb-wadah-region".equals(((org.zkoss.zul.Div) isi.get(0)).getSclass())) {
+			return (Component) isi.get(0);
+		}
+		org.zkoss.zul.Div wadah = new org.zkoss.zul.Div();
+		wadah.setSclass("kb-wadah-region");
+		wadah.setWidth("100%");
+		wadah.setStyle("height:100%;overflow:auto;");
+		for (int i = 0; i < isi.size(); i++) {
+			((Component) isi.get(i)).setParent(wadah);
+		}
+		wadah.setParent(region);
+		return wadah;
 	}
 
 	public void setMaxcolumns(int columns) {
