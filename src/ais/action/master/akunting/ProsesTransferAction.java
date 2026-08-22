@@ -1435,10 +1435,24 @@ public class ProsesTransferAction extends GenericAutowireComposer
 		}
 		String kataKunci = cari == null ? "" : cari.trim();
 
-		Criterion criterion = uangMuka ? Restrictions.isNotNull("uangMuka") : Restrictions.isNull("uangMuka");
+		// FIX: kotak "Uang Muka" kini mencakup DANA TALANGAN juga. Penyaring ini berpola
+		// daftar putih per kolom sumber, sehingga kolom yang belum punya cabangnya
+		// membuat barisnya tidak pernah tampil di penyaring mana pun -- persis cacat
+		// yang dulu menimpa Reimbursement Pegawai. Dana talangan SELALU menunjuk satu
+		// uang muka, jadi ia ikut kotak yang sama (pola yang sama dipakai "Kas Kecil"
+		// yang mencakup jenisKasKecil dan penggantianKasKecil sekaligus).
+		Criterion criterion = uangMuka
+			? Restrictions.or(Restrictions.isNotNull("uangMuka"), Restrictions.isNotNull("danaTalangan"))
+			: Restrictions.and(Restrictions.isNull("uangMuka"), Restrictions.isNull("danaTalangan"));
 
-		criterion = lpj ? Restrictions.or(criterion, Restrictions.isNotNull("pertangungjawaban"))
-				: Restrictions.and(criterion, Restrictions.isNull("pertangungjawaban"));
+		// FIX: kotak "LPJ" kini mencakup PERTANGGUNGJAWABAN KAS BESAR juga; tanpa ini
+		// barisnya tersaring pada setiap kombinasi penyaring, sama seperti kasus
+		// dana talangan di atas.
+		criterion = lpj
+			? Restrictions.or(criterion, Restrictions.or(Restrictions.isNotNull("pertangungjawaban"),
+					Restrictions.isNotNull("pertangungjawabanKasBesar")))
+			: Restrictions.and(criterion, Restrictions.and(Restrictions.isNull("pertangungjawaban"),
+					Restrictions.isNull("pertangungjawabanKasBesar")));
 
 		criterion = kasBesar ? Restrictions.or(criterion, Restrictions.isNotNull("kasBesar"))
 				: Restrictions.and(criterion, Restrictions.isNull("kasBesar"));
