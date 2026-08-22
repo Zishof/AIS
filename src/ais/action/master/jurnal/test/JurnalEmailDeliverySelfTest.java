@@ -31,13 +31,13 @@ public final class JurnalEmailDeliverySelfTest {
         if ("SMTP".equalsIgnoreCase(System.getenv("AIS_JURNAL_EMAIL_MODE")))
             throw new IllegalStateException("Self-test tidak boleh memakai mode SMTP.");
         System.setProperty("javax.persistence.validation.mode", "none");
-        Tbmuser actor = admin();
+        final Tbmuser actor = admin();
         Session session = HibernateUtil.currentSession();
         Transaction tx = session.beginTransaction();
         try {
-            JurnalPenelitian journal = new JurnalAdministrationService().create("self-test",
+            final JurnalPenelitian journal = new JurnalAdministrationService().create("self-test",
                     "Journal Email Self Test", "journal-email-self-test", "id_ID", actor);
-            JurnalEmailService templates = new JurnalEmailService();
+            final JurnalEmailService templates = new JurnalEmailService();
             HashSet<String> allowed = new HashSet<String>(Arrays.asList("authorName", "submissionTitle"));
             templates.save(journal.getId(), journal.getTenantKey(), "SUBMISSION_ACK", "id_ID",
                     "Naskah {{submissionTitle}} diterima", "<p>Halo {{authorName}}</p>", allowed, actor);
@@ -51,7 +51,7 @@ public final class JurnalEmailDeliverySelfTest {
                 templates.save(journal.getId(), journal.getTenantKey(), "SUBMISSION_ACK", "id_ID",
                         "Unsafe", "<script>alert(1)</script>", Collections.<String>emptySet(), actor);
             }});
-            Map<String,String> values = new HashMap<String,String>();
+            final Map<String,String> values = new HashMap<String,String>();
             values.put("authorName", "Penulis Uji"); values.put("submissionTitle", "Artikel Uji");
             expectInvalid(new Runnable() { public void run() {
                 Map<String,String> bad = new HashMap<String,String>(values); bad.put("unknown", "x");

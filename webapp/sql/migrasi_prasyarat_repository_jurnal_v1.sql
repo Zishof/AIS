@@ -2,6 +2,47 @@
 -- pada baseline deployment. Tabel ini bukan bagian dari budget 12 tabel domain jurnal.
 BEGIN;
 
+-- Baseline lama hanya mempunyai repo_collection/repo_item/repo_item_metadata/
+-- repo_bitstream. Empat tabel repository modern berikut sebelumnya bergantung
+-- pada hbm2ddl.auto=update, sedangkan deployment jurnal wajib memakai
+-- hbm2ddl.auto=none. Bootstrap eksplisit ini membuat migration dapat dijalankan
+-- pada baseline lama maupun baseline yang tabelnya sudah tersedia.
+CREATE TABLE IF NOT EXISTS public.repo_workflow_event (
+ id bigserial PRIMARY KEY, item_id bigint NOT NULL, from_status varchar(40),
+ to_status varchar(40) NOT NULL, action varchar(40) NOT NULL, comment_text text,
+ actor_id varchar(255) NOT NULL, actor_name varchar(500), request_id varchar(100),
+ created_at timestamp NOT NULL, round_number integer
+);
+
+CREATE TABLE IF NOT EXISTS public.repo_item_relation (
+ id bigserial PRIMARY KEY, item_id bigint NOT NULL, related_item_id bigint NOT NULL,
+ relation_type varchar(60) NOT NULL, actor_id varchar(255),
+ sort_order integer NOT NULL DEFAULT 0, created_at timestamp NOT NULL,
+ aktif boolean NOT NULL DEFAULT true
+);
+
+CREATE TABLE IF NOT EXISTS public.repo_usage_event (
+ id bigserial PRIMARY KEY, item_id bigint NOT NULL, bitstream_id bigint,
+ event_type varchar(20) NOT NULL, visitor_hash varchar(64), actor_id varchar(255),
+ user_agent_class varchar(40), country_code varchar(3), referrer_host varchar(255),
+ occurred_at timestamp NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.repo_notification (
+ id bigserial PRIMARY KEY, item_id bigint NOT NULL, recipient_id varchar(255),
+ recipient_role varchar(60), type varchar(40) NOT NULL,
+ message varchar(1000) NOT NULL, read_at timestamp, created_at timestamp NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_repo_workflow_item_created
+ ON public.repo_workflow_event(item_id,created_at);
+CREATE INDEX IF NOT EXISTS ix_repo_relation_related
+ ON public.repo_item_relation(related_item_id,relation_type);
+CREATE INDEX IF NOT EXISTS ix_repo_usage_item_occurred
+ ON public.repo_usage_event(item_id,occurred_at);
+CREATE INDEX IF NOT EXISTS ix_repo_notification_recipient
+ ON public.repo_notification(recipient_id,read_at,created_at);
+
 ALTER TABLE public.repo_collection ADD COLUMN IF NOT EXISTS tenant_key varchar(120);
 UPDATE public.repo_collection SET tenant_key='default' WHERE tenant_key IS NULL;
 ALTER TABLE public.repo_collection ALTER COLUMN tenant_key SET NOT NULL;

@@ -31,23 +31,23 @@ public final class JurnalInvitationDiscussionSelfTest {
             throw new IllegalStateException("Test wajib diarahkan ke clone main SIT/UAT.");
         System.setProperty("javax.persistence.validation.mode", "none");
         Tbmuser manager = user("JRN_INVITE_MANAGER", "manager@example.invalid", true);
-        Tbmuser invited = user("JRN_INVITED_REVIEWER", "reviewer@example.invalid", false);
-        Tbmuser wrong = user("JRN_WRONG_INVITEE", "wrong@example.invalid", false);
+        final Tbmuser invited = user("JRN_INVITED_REVIEWER", "reviewer@example.invalid", false);
+        final Tbmuser wrong = user("JRN_WRONG_INVITEE", "wrong@example.invalid", false);
         Session session = HibernateUtil.currentSession(); Transaction tx = session.beginTransaction();
         try {
             JurnalPenelitian journal = new JurnalAdministrationService().create("self-test",
                     "Invitation Discussion Self Test", "invitation-discussion-self-test", "id_ID", manager);
             RepoItem item = new JurnalWorkflowService().createDraft(journal.getRepoCollectionId(),
                     "Invitation discussion article", "", "id", manager, "invite-discussion-self-test");
-            JurnalInvitationService invitations = new JurnalInvitationService();
-            JurnalInvitationService.Issued issued = invitations.issue(journal.getId(), "ignored",
+            final JurnalInvitationService invitations = new JurnalInvitationService();
+            final JurnalInvitationService.Issued issued = invitations.issue(journal.getId(), "ignored",
                     invited.getEmail(), "REVIEWER", "REVIEW", "", 3600000L, manager);
             expectSecurity(new Runnable() { public void run() { invitations.accept(issued.token, wrong); }});
             PenugasanTahapJurnal assignment = invitations.accept(issued.token, invited);
             if (!"ACTIVE".equals(assignment.getStatus()) || !"REVIEW".equals(assignment.getStageKey()))
                 throw new IllegalStateException("Assignment undangan tidak konsisten.");
             expectSecurity(new Runnable() { public void run() { invitations.accept(issued.token, invited); }});
-            JurnalInvitationService.Issued revoked = invitations.issue(journal.getId(), "ignored",
+            final JurnalInvitationService.Issued revoked = invitations.issue(journal.getId(), "ignored",
                     invited.getEmail(), "COPYEDITOR", "COPYEDITING", "", 3600000L, manager);
             invitations.revoke(revoked.id, manager);
             expectSecurity(new Runnable() { public void run() { invitations.accept(revoked.token, invited); }});

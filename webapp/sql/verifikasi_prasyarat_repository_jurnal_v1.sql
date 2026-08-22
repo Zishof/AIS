@@ -28,12 +28,15 @@ BEGIN
  ) THEN RAISE EXCEPTION 'Journal-scoped notification idempotency index missing or invalid'; END IF;
  IF to_regclass('public.repo_author_authority') IS NULL OR to_regclass('public.repo_item_contributor') IS NULL
     OR to_regclass('public.repo_user_preference') IS NULL OR to_regclass('public.repo_integration_event') IS NULL
+    OR to_regclass('public.repo_workflow_event') IS NULL OR to_regclass('public.repo_item_relation') IS NULL
+    OR to_regclass('public.repo_usage_event') IS NULL OR to_regclass('public.repo_notification') IS NULL
  THEN RAISE EXCEPTION 'Repository prerequisite table missing'; END IF;
 END $$;
 SELECT table_name,count(*) AS columns
 FROM information_schema.columns
 WHERE table_schema='public' AND table_name IN
- ('repo_collection','repo_item','repo_usage_event','repo_author_authority','repo_item_contributor','repo_user_preference','repo_integration_event')
+ ('repo_collection','repo_item','repo_workflow_event','repo_item_relation','repo_usage_event','repo_notification',
+  'repo_author_authority','repo_item_contributor','repo_user_preference','repo_integration_event')
 GROUP BY table_name ORDER BY table_name;
 SELECT to_regclass('public.repo_author_authority') IS NOT NULL AS authority,
        to_regclass('public.repo_item_contributor') IS NOT NULL AS contributor,

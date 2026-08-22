@@ -27,7 +27,7 @@ public final class JurnalPaymentSelfTest {
         if (target == null || target.trim().length() == 0 || "ais".equalsIgnoreCase(target.trim()))
             throw new IllegalStateException("Test wajib diarahkan ke clone main SIT/UAT.");
         System.setProperty("javax.persistence.validation.mode", "none");
-        Tbmuser actor = admin();
+        final Tbmuser actor = admin();
         Session session = HibernateUtil.currentSession();
         Transaction tx = session.beginTransaction();
         try {
@@ -37,12 +37,12 @@ public final class JurnalPaymentSelfTest {
             RepoCollection collection = collection(actor);
             session.save(collection); session.flush();
             journal.setRepoCollectionId(collection.getId()); journal.setTenantKey("self-test"); session.update(journal);
-            LanggananJurnal subscription = subscription(journal, collection, actor);
+            final LanggananJurnal subscription = subscription(journal, collection, actor);
             session.save(subscription); session.flush();
 
-            JurnalPaymentService payments = new JurnalPaymentService();
-            String external = "JRN-PAYMENT-SELF-TEST";
-            String providerRef = "PROVIDER-PAYMENT-SELF-TEST";
+            final JurnalPaymentService payments = new JurnalPaymentService();
+            final String external = "JRN-PAYMENT-SELF-TEST";
+            final String providerRef = "PROVIDER-PAYMENT-SELF-TEST";
             payments.prepare(subscription.getId(), external, actor);
             expectDenied(new Runnable() { public void run() {
                 payments.settle(subscription.getId(), "WRONG-REFERENCE", new BigDecimal("125000.00"),
@@ -63,7 +63,7 @@ public final class JurnalPaymentSelfTest {
                 payments.markFailed(subscription.getId(), "late failure", actor);
             }});
 
-            LanggananJurnal callbackSubscription = subscription(journal, collection, actor);
+            final LanggananJurnal callbackSubscription = subscription(journal, collection, actor);
             session.save(callbackSubscription); session.flush();
             final String callbackExternal="JRN-PAYMENT-CALLBACK-SELF-TEST";
             final String callbackReference="PROVIDER-CALLBACK-SELF-TEST";
