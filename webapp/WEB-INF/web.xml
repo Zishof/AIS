@@ -591,6 +591,21 @@
 		<servlet-class>ais.action.servlet.JurnalFile</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Entitlement-aware safe HTML, JATS and PDF galley viewer</description>
+		<servlet-name>jurnal-galley</servlet-name>
+		<servlet-class>ais.action.servlet.JurnalGalley</servlet-class>
+	</servlet>
+	<servlet>
+		<description>Authorized bounded reports for integrated journal</description>
+		<servlet-name>jurnal-report</servlet-name>
+		<servlet-class>ais.action.servlet.JurnalReport</servlet-class>
+	</servlet>
+	<servlet>
+		<description>HMAC-authenticated provider callback for journal payments</description>
+		<servlet-name>jurnal-payment-callback</servlet-name>
+		<servlet-class>ais.action.servlet.JurnalPaymentCallback</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>login2</display-name>
@@ -1485,6 +1500,18 @@
 	<servlet-mapping>
 		<servlet-name>jurnal-file</servlet-name>
 		<url-pattern>/jurnal-file/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal-galley</servlet-name>
+		<url-pattern>/jurnal-galley/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal-report</servlet-name>
+		<url-pattern>/jurnal-report</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>jurnal-payment-callback</servlet-name>
+		<url-pattern>/jurnal-payment-callback</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login2</servlet-name>

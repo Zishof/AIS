@@ -68,20 +68,51 @@ public final class JurnalFileService {
         } finally { try { streaming.closeSession(); } catch (Exception ignored) {} }
     }
 
-    public void stream(Long bitstreamId, Tbmuser actor, OutputStream output) throws Exception {
+    /** Attach bytes to a manifest created by the OJS importer, without creating duplicate metadata. */
+    public RepoBitstream attachImportedContent(Long bitstreamId, InputStream content, long declaredSize, Tbmuser actor) {
+        auth.requireWorkflow(actor, "manageImport");
+        if (content == null || declaredSize < 1 || declaredSize > MAX_UPLOAD_BYTES)
+            throw new IllegalArgumentException("Ukuran file import tidak diizinkan.");
+        Session main = HibernateUtil.currentSession();
+        RepoBitstream meta = (RepoBitstream) main.get(RepoBitstream.class, bitstreamId);
+        if (meta == null || meta.getSourceClass() == null || !meta.getSourceClass().startsWith("OJS_IMPORT:"))
+            throw new IllegalArgumentException("Manifest file OJS tidak ditemukan.");
+        RepoItem item = (RepoItem) main.get(RepoItem.class, meta.getItemId());
+        auth.requireItemScope(main, actor, item, false, meta.getJournalStage());
+        if ("LINKED".equals(meta.getStorageState()) && meta.getContentRef() != null) return meta;
+        if (!("PENDING_CONTENT".equals(meta.getStorageState()) || "FAILED".equals(meta.getStorageState())))
+            throw new IllegalStateException("State manifest tidak dapat menerima content.");
+        StreamingHibernateUtil streaming = StreamingHibernateUtil.getInstance(); Session blobSession = null; Transaction blobTx = null;
+        try {
+            blobSession = streaming.currentSession(); blobTx = blobSession.beginTransaction();
+            Query existing = blobSession.createQuery("from LampiranLain where ref=:r and jenis=:j");
+            existing.setLong("r", bitstreamId); existing.setString("j", LampiranLain.JURNAL_REPO_BITSTREAM); existing.setMaxResults(2);
+            if (!existing.list().isEmpty()) throw new IllegalStateException("Content import sudah ada atau ambigu; jalankan rekonsiliasi.");
+            DigestInputStream bounded = new DigestInputStream(content, MAX_UPLOAD_BYTES);
+            LampiranLain lampiran = new LampiranLain(); lampiran.setRef(bitstreamId); lampiran.setJenis(LampiranLain.JURNAL_REPO_BITSTREAM);
+            lampiran.setNama(meta.getNamaFile()); lampiran.setKeterangan("OJS Import RepoBitstream:"+bitstreamId);
+            lampiran.setOlehId(actor.getUserId()); lampiran.setOleh(actor.getUserId()); lampiran.setTanggal_dirubah(new Date());
+            lampiran.setFoto(Hibernate.createBlob(bounded)); blobSession.save(lampiran); blobSession.flush();
+            if (bounded.count != declaredSize) throw new IOException("Ukuran aktual file import tidak sesuai manifest.");
+            blobTx.commit(); return markLinked(bitstreamId,lampiran.getId(),bounded.hex(),bounded.count,actor);
+        } catch(Exception e) {
+            if(blobTx!=null&&blobTx.isActive())blobTx.rollback(); markFailed(bitstreamId,actor);
+            throw new IllegalStateException("Penyimpanan content import OJS gagal.",e);
+        } finally { try{streaming.closeSession();}catch(Exception ignored){} }
+    }
+
+    public void stream(Long bitstreamId, Tbmuser actor, OutputStream output) throws Exception { stream(bitstreamId,actor,null,output); }
+
+    /** Authorizes before HTTP metadata headers are exposed. */
+    public RepoBitstream metadataForDownload(Long bitstreamId,Tbmuser actor,String remoteIp)throws FileNotFoundException{
+        RepoBitstream bitstream=(RepoBitstream)HibernateUtil.currentSession().get(RepoBitstream.class,bitstreamId);
+        if(bitstream==null||!"LINKED".equals(bitstream.getStorageState())||bitstream.getContentRef()==null)throw new FileNotFoundException();
+        requireDownloadAccess(bitstream,actor,remoteIp);return bitstream;
+    }
+
+    public void stream(Long bitstreamId, Tbmuser actor, String remoteIp, OutputStream output) throws Exception {
         if (output == null) throw new IllegalArgumentException("Output stream wajib tersedia.");
-        RepoBitstream bitstream = (RepoBitstream) HibernateUtil.currentSession().get(RepoBitstream.class, bitstreamId);
-        if (bitstream == null || !"LINKED".equals(bitstream.getStorageState()) || bitstream.getContentRef() == null)
-            throw new FileNotFoundException();
-        RepoItem item = (RepoItem) HibernateUtil.currentSession().get(RepoItem.class, bitstream.getItemId());
-        boolean publicFile = item != null && "PUBLISHED".equals(item.getWorkflowStatus())
-                && !Boolean.TRUE.equals(item.getIsWithdrawn()) && "OPEN_ACCESS".equals(bitstream.getAccessPolicy());
-        if (!publicFile) {
-            if (actor == null) throw new SecurityException("Login diperlukan.");
-            if (!auth.canRead(actor, "submission") && !auth.canRead(actor, "produksiGalley"))
-                throw new SecurityException("Hak baca file tidak tersedia.");
-            auth.requireItemScope(HibernateUtil.currentSession(), actor, item, true, bitstream.getJournalStage());
-        }
+        RepoBitstream bitstream = metadataForDownload(bitstreamId,actor,remoteIp);
         StreamingHibernateUtil streaming = StreamingHibernateUtil.getInstance();
         Transaction streamingTx = null;
         try {
@@ -103,6 +134,19 @@ public final class JurnalFileService {
         } finally {
             if (streamingTx != null && streamingTx.isActive()) streamingTx.rollback();
             streaming.closeSession();
+        }
+    }
+
+    private void requireDownloadAccess(RepoBitstream bitstream,Tbmuser actor,String remoteIp){
+        RepoItem item = (RepoItem) HibernateUtil.currentSession().get(RepoItem.class, bitstream.getItemId());
+        boolean published = item != null && "PUBLISHED".equals(item.getWorkflowStatus()) && !Boolean.TRUE.equals(item.getIsWithdrawn());
+        boolean distributable = "PUBLICATION".equals(bitstream.getJournalStage()) || ("GALLEY".equals(bitstream.getJournalGenre()) && Boolean.TRUE.equals(bitstream.getPrimaryFile()));
+        boolean entitled = published && distributable && new JurnalAccessService().evaluate(item,actor==null?null:actor.getUserId(),null,remoteIp,new Date()).allowed;
+        if (!entitled) {
+            if (actor == null) throw new SecurityException("Login diperlukan.");
+            if (!auth.canRead(actor, "submission") && !auth.canRead(actor, "produksiGalley"))
+                throw new SecurityException("Hak baca file tidak tersedia.");
+            auth.requireItemScope(HibernateUtil.currentSession(), actor, item, true, bitstream.getJournalStage());
         }
     }
 

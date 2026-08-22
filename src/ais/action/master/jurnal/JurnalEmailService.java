@@ -1,6 +1,7 @@
 package ais.action.master.jurnal;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -73,6 +74,18 @@ public final class JurnalEmailService {
             if (own && tx.isActive()) tx.rollback();
             throw new IllegalArgumentException("Template email tidak valid.", e);
         }
+    }
+
+    /** Seeds exactly 73 keys x two locales, without overwriting configured versions. */
+    @SuppressWarnings("unchecked")
+    public int seedDefaults(Long journalId,String tenant,Tbmuser actor){
+        auth.requireCrud(actor,"emailNotifikasi","create");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();int created=0;
+        try{if(own)tx.begin();auth.requireJournalScope(s,actor,journalId,null,null,false,"JOURNAL");
+            Set<String> active=new HashSet<String>();for(Object[] row:(java.util.List<Object[]>)s.createQuery("select templateKey,locale from TemplateEmailJurnal where jurnalPenelitianId=:j and aktif=true").setLong("j",journalId).list())active.add(row[0]+"|"+row[1]);
+            Map<String,Integer> versions=new HashMap<String,Integer>();for(Object[] row:(java.util.List<Object[]>)s.createQuery("select templateKey,locale,max(versionNumber) from TemplateEmailJurnal where jurnalPenelitianId=:j group by templateKey,locale").setLong("j",journalId).list())versions.put(row[0]+"|"+row[1],row[2]==null?Integer.valueOf(0):Integer.valueOf(((Number)row[2]).intValue()));
+            JSONObject policy=new JSONObject();JSONArray allowed=new JSONArray();for(String v:JurnalEmailTemplateCatalog.STANDARD_VARIABLES)allowed.put(v);policy.put("schemaVersion",1).put("allowed",allowed);String policyJson=policy.toString();Date now=new Date();
+            for(JurnalEmailTemplateCatalog.Definition d:JurnalEmailTemplateCatalog.definitions()){String composite=d.key+"|"+d.locale;if(active.contains(composite))continue;validateVariables(d.subject,d.body,JurnalEmailTemplateCatalog.STANDARD_VARIABLES);TemplateEmailJurnal t=new TemplateEmailJurnal();t.setTenantKey(clean(tenant).length()==0?"default":clean(tenant));t.setJurnalPenelitianId(journalId);t.setTemplateKey(d.key);t.setLocale(d.locale);t.setSubjectTemplate(d.subject);t.setBodyTemplate(d.body);t.setVariablePolicyJson(policyJson);t.setVersionNumber((versions.containsKey(composite)?versions.get(composite).intValue():0)+1);t.setCreatedBy(actor.getUserId());t.setCreatedAt(now);t.setUpdatedAt(now);t.setAktif(Boolean.TRUE);s.save(t);active.add(composite);created++;if(created%50==0)s.flush();}
+            if(own)tx.commit();return created;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}catch(Exception e){if(own&&tx.isActive())tx.rollback();throw new IllegalArgumentException("Seed template email gagal.",e);}
     }
 
     public Rendered render(Long journalId, String key, String locale, Map<String, String> values) {

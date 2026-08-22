@@ -14,6 +14,15 @@ ALTER TABLE public.repo_item ADD COLUMN IF NOT EXISTS doi_updated_at timestamp;
 UPDATE public.repo_item SET tenant_key='default' WHERE tenant_key IS NULL;
 ALTER TABLE public.repo_item ALTER COLUMN tenant_key SET NOT NULL;
 
+-- RepoCollection/RepoItem are Envers audited. Every new mapped column must
+-- exist on the audit table before a committed transaction can complete.
+ALTER TABLE IF EXISTS new_audit.repo_collection__audit ADD COLUMN IF NOT EXISTS tenant_key varchar(120);
+ALTER TABLE IF EXISTS new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS tenant_key varchar(120);
+ALTER TABLE IF EXISTS new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS featured boolean;
+ALTER TABLE IF EXISTS new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS featured_at timestamp;
+ALTER TABLE IF EXISTS new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS doi_state varchar(30);
+ALTER TABLE IF EXISTS new_audit.repo_item__audit ADD COLUMN IF NOT EXISTS doi_updated_at timestamp;
+
 ALTER TABLE public.repo_usage_event ADD COLUMN IF NOT EXISTS country_code varchar(3);
 ALTER TABLE public.repo_usage_event ADD COLUMN IF NOT EXISTS referrer_host varchar(255);
 
@@ -96,9 +105,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_author_mahasiswa ON public.repo_author
 CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_author_email ON public.repo_author_authority(tenant_key,lower(institutional_email)) WHERE institutional_email IS NOT NULL AND institutional_email<>'';
 CREATE INDEX IF NOT EXISTS ix_repo_contributor_item ON public.repo_item_contributor(item_id,sequence_number);
 CREATE INDEX IF NOT EXISTS ix_repo_preference_user ON public.repo_user_preference(tenant_key,user_id,preference_type);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_repo_preference_user_label ON public.repo_user_preference(tenant_key,user_id,preference_type,label) WHERE aktif=true;
 CREATE INDEX IF NOT EXISTS ix_repo_integration_retry ON public.repo_integration_event(tenant_key,service_name,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_repo_relation_toc ON public.repo_item_relation(item_id,relation_type,sort_order) WHERE aktif=true;
-CREATE UNIQUE INDEX IF NOT EXISTS uq_notifikasi_jurnal_idempotency ON public.notifikasi(jurnal_idempotency_key) WHERE jurnal_idempotency_key IS NOT NULL;
+-- Idempotency is journal-scoped. Replace the earlier global-key draft index
+-- idempotently so two journals may use the same workflow request key.
+DROP INDEX IF EXISTS public.uq_notifikasi_jurnal_idempotency;
+CREATE UNIQUE INDEX uq_notifikasi_jurnal_idempotency
+ ON public.notifikasi(jurnal_penelitian_id,jurnal_idempotency_key)
+ WHERE jurnal_penelitian_id IS NOT NULL AND jurnal_idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_notifikasi_jurnal_correlation ON public.notifikasi(jurnal_penelitian_id,jurnal_correlation_id,waktu);
 
 COMMIT;

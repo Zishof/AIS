@@ -75,19 +75,26 @@ public final class JurnalAccessService {
     public RentangIpLanggananJurnal addRange(Long subscriptionId, String start, String end, String label, Tbmuser actor) {
         auth.requireWorkflow(actor, "manageSubscription");
         Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
-        try { if (own) tx.begin(); InetAddress first = InetAddress.getByName(clean(start)); InetAddress last = InetAddress.getByName(clean(end));
+        try { if (own) tx.begin(); InetAddress first = literalAddress(start); InetAddress last = literalAddress(end);
             if (first.getAddress().length != last.getAddress().length || unsigned(first).compareTo(unsigned(last)) > 0)
                 throw new IllegalArgumentException("Rentang IP tidak valid.");
             LanggananJurnal subscription = (LanggananJurnal) s.get(LanggananJurnal.class, subscriptionId);
             if (subscription == null || !Boolean.TRUE.equals(subscription.getAktif())) throw new IllegalArgumentException("Langganan tidak ditemukan.");
             auth.requireJournalScope(s, actor, subscription.getJurnalPenelitianId(), null, null, false, "SUBSCRIPTION");
-            Number overlap = (Number) s.createQuery("select count(*) from RentangIpLanggananJurnal where langgananId=:l and addressFamily=:f and aktif=true and startAddress=:a and endAddress=:b")
-                    .setLong("l", subscriptionId).setInteger("f", first.getAddress().length == 4 ? 4 : 6)
-                    .setString("a", first.getHostAddress()).setString("b", last.getHostAddress()).uniqueResult();
-            if (overlap.longValue() > 0) throw new IllegalArgumentException("Rentang IP sudah terdaftar.");
+            int family = first.getAddress().length == 4 ? 4 : 6;
+            @SuppressWarnings("unchecked") List<RentangIpLanggananJurnal> existing = s.createQuery(
+                    "from RentangIpLanggananJurnal where jurnalPenelitianId=:j and addressFamily=:f and aktif=true")
+                    .setLong("j", subscription.getJurnalPenelitianId()).setInteger("f", family).list();
+            BigInteger newStart = unsigned(first), newEnd = unsigned(last);
+            for (RentangIpLanggananJurnal range : existing) {
+                BigInteger oldStart = unsigned(literalAddress(range.getStartAddress()));
+                BigInteger oldEnd = unsigned(literalAddress(range.getEndAddress()));
+                if (newStart.compareTo(oldEnd) <= 0 && newEnd.compareTo(oldStart) >= 0)
+                    throw new IllegalArgumentException("Rentang IP bertumpang tindih dengan rentang aktif jurnal.");
+            }
             RentangIpLanggananJurnal range = new RentangIpLanggananJurnal(); range.setTenantKey(subscription.getTenantKey());
             range.setJurnalPenelitianId(subscription.getJurnalPenelitianId()); range.setLanggananId(subscriptionId);
-            range.setAddressFamily(first.getAddress().length == 4 ? 4 : 6); range.setStartAddress(first.getHostAddress()); range.setEndAddress(last.getHostAddress());
+            range.setAddressFamily(family); range.setStartAddress(first.getHostAddress()); range.setEndAddress(last.getHostAddress());
             range.setLabel(clean(label)); range.setCreatedBy(actor.getUserId()); range.setCreatedAt(new Date()); range.setUpdatedAt(new Date()); range.setAktif(Boolean.TRUE);
             s.save(range); if (own) tx.commit(); return range;
         } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
@@ -96,7 +103,8 @@ public final class JurnalAccessService {
 
     private static JSONObject findPolicy(String raw, String key) throws Exception { JSONObject root = new JSONObject(raw); if (root.optInt("schemaVersion", 0) != 1) throw new Exception(); JSONArray policies = root.getJSONArray("policies"); for (int i = 0; i < policies.length(); i++) { JSONObject p = policies.getJSONObject(i); if (key.equals(p.optString("policyKey")) && p.optBoolean("active", false)) return new JSONObject(p.toString()); } throw new IllegalArgumentException("Policy langganan tidak ditemukan."); }
     private static boolean paymentRequired(JSONObject p) { return p.optDouble("price", 0) > 0; }
-    private static boolean inRange(String ip, String start, String end, Integer family) { try { InetAddress a = InetAddress.getByName(ip); if ((a.getAddress().length == 4 ? 4 : 6) != (family == null ? 0 : family.intValue())) return false; BigInteger v = unsigned(a); return v.compareTo(unsigned(InetAddress.getByName(start))) >= 0 && v.compareTo(unsigned(InetAddress.getByName(end))) <= 0; } catch (Exception e) { return false; } }
+    private static boolean inRange(String ip, String start, String end, Integer family) { try { InetAddress a = literalAddress(ip); if ((a.getAddress().length == 4 ? 4 : 6) != (family == null ? 0 : family.intValue())) return false; BigInteger v = unsigned(a); return v.compareTo(unsigned(literalAddress(start))) >= 0 && v.compareTo(unsigned(literalAddress(end))) <= 0; } catch (Exception e) { return false; } }
+    private static InetAddress literalAddress(String value) throws Exception { String x=clean(value); if(x.length()==0||x.indexOf('%')>=0||!(x.matches("[0-9]{1,3}(?:\\.[0-9]{1,3}){3}")||x.matches("[0-9A-Fa-f:]+"))) throw new IllegalArgumentException("Alamat IP literal tidak valid."); InetAddress a=InetAddress.getByName(x); if(a.getHostAddress()==null)throw new IllegalArgumentException("Alamat IP tidak valid."); return a; }
     private static BigInteger unsigned(InetAddress a) { return new BigInteger(1, a.getAddress()); }
     private static boolean blank(String v) { return clean(v).length() == 0; }
     private static String cleanNull(String v) { return blank(v) ? null : clean(v); }

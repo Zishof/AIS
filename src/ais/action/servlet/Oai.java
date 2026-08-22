@@ -11,6 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -24,6 +28,8 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
+import ais.action.master.jurnal.JurnalMetadataFormatService;
+import ais.action.master.jurnal.JurnalRateLimiter;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
@@ -43,6 +49,8 @@ public class Oai extends HttpServlet {
 
     /** Records returned per page for ListIdentifiers / ListRecords. */
     private static final int PAGE_SIZE = 100;
+    private static final long TOKEN_MAX_AGE_MILLIS = 86400000L;
+    private static final byte[] TOKEN_SECRET = tokenSecret();
     private static final String[] PUBLIC_STATUSES =
         new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
 
@@ -56,6 +64,7 @@ public class Oai extends HttpServlet {
         "http://www.openarchives.org/OAI/2.0/oai_dc/";
     private static final String OAI_DC_SCHEMA =
         "http://www.openarchives.org/OAI/2.0/oai_dc.xsd";
+    private final JurnalMetadataFormatService metadataFormats = new JurnalMetadataFormatService();
 
     private static final String FMT_FULL = "yyyy-MM-dd'T'HH:mm:ss'Z'";
     private static final String FMT_DAY  = "yyyy-MM-dd";
@@ -94,12 +103,18 @@ public class Oai extends HttpServlet {
     private void process(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
+        if(!JurnalRateLimiter.allow("oai",request.getRemoteAddr(),600,60000L)){response.sendError(429,"Too many OAI requests.");return;}
+
         /* setCharacterEncoding tidak ada di Servlet API lama (build server);
          * charset sudah ditetapkan lewat setContentType di bawah. */
         response.setContentType("text/xml; charset=UTF-8");
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+        response.setHeader("Referrer-Policy", "no-referrer");
 
         PrintWriter out = response.getWriter();
 
@@ -195,11 +210,13 @@ public class Oai extends HttpServlet {
             }
         }
         out.println("  <ListMetadataFormats>");
-        out.println("    <metadataFormat>");
-        out.println("      <metadataPrefix>oai_dc</metadataPrefix>");
-        out.println("      <schema>" + OAI_DC_SCHEMA + "</schema>");
-        out.println("      <metadataNamespace>" + OAI_DC_NS + "</metadataNamespace>");
-        out.println("    </metadataFormat>");
+        for (JurnalMetadataFormatService.Format format : metadataFormats.formats()) {
+            out.println("    <metadataFormat>");
+            out.println("      <metadataPrefix>" + escXml(format.prefix) + "</metadataPrefix>");
+            out.println("      <schema>" + escXml(format.schema) + "</schema>");
+            out.println("      <metadataNamespace>" + escXml(format.namespace) + "</metadataNamespace>");
+            out.println("    </metadataFormat>");
+        }
         out.println("  </ListMetadataFormats>");
     }
 
@@ -251,7 +268,7 @@ public class Oai extends HttpServlet {
             writeError(out, "badArgument", "Missing argument: metadataPrefix.");
             return;
         }
-        if (!"oai_dc".equals(metadataPrefix)) {
+        if (!metadataFormats.supports(metadataPrefix)) {
             writeError(out, "cannotDisseminateFormat",
                 "Metadata format not supported: " + escXml(metadataPrefix));
             return;
@@ -271,7 +288,7 @@ public class Oai extends HttpServlet {
             String setSpec = "col_" + item.getCollectionId();
 
             out.println("  <GetRecord>");
-            writeRecord(out, session, item, metas, setSpec);
+            writeRecord(out, session, item, metas, setSpec, metadataPrefix);
             out.println("  </GetRecord>");
         } catch (Exception e) {
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Oai.java:294");
@@ -345,7 +362,7 @@ public class Oai extends HttpServlet {
             for (RepoItem item : items) {
                 String setSpec = "col_" + item.getCollectionId();
                 List<RepoItemMetadata> metas = loadMetadata(session, item.getId());
-                writeRecord(out, session, item, metas, setSpec);
+                writeRecord(out, session, item, metas, setSpec, q.metadataPrefix);
             }
             writeResumptionToken(out, q, total, items.size());
             out.println("  </ListRecords>");
@@ -360,7 +377,8 @@ public class Oai extends HttpServlet {
     // ── Record XML writer ─────────────────────────────────────────────────────
 
     private void writeRecord(PrintWriter out, Session session, RepoItem item,
-                              List<RepoItemMetadata> metas, String setSpec) {
+                              List<RepoItemMetadata> metas, String setSpec,
+                              String metadataPrefix) {
         String datestamp = itemDatestamp(item);
         boolean deleted  = Boolean.TRUE.equals(item.getIsWithdrawn());
 
@@ -373,23 +391,7 @@ public class Oai extends HttpServlet {
 
         if (!deleted) {
             out.println("      <metadata>");
-            out.println("        <oai_dc:dc");
-            out.println("          xmlns:oai_dc=\"" + OAI_DC_NS + "\"");
-            out.println("          xmlns:dc=\"" + DC_NS + "\"");
-            out.println("          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
-            out.println("          xsi:schemaLocation=\"" + OAI_DC_NS + " " + OAI_DC_SCHEMA + "\">");
-
-            Map<String, List<String>> dc = buildDublinCore(item, metas);
-            for (Map.Entry<String, List<String>> entry : dc.entrySet()) {
-                String element = entry.getKey();
-                for (String val : entry.getValue()) {
-                    if (val != null && !val.trim().isEmpty()) {
-                        out.println("          <dc:" + element + ">" + escXml(val.trim()) + "</dc:" + element + ">");
-                    }
-                }
-            }
-
-            out.println("        </oai_dc:dc>");
+            out.println("        " + metadataFormats.serialize(metadataPrefix, item, metas));
             out.println("      </metadata>");
         }
         out.println("    </record>");
@@ -586,7 +588,7 @@ public class Oai extends HttpServlet {
         boolean hasMore = nextOffset < total;
 
         if (hasMore) {
-            String token = encodeToken(q.from, q.until, q.setSpec, nextOffset, total);
+            String token = encodeToken(q.from, q.until, q.setSpec, nextOffset, total, q.metadataPrefix);
             out.println("    <resumptionToken completeListSize=\"" + total + "\""
                 + " cursor=\"" + q.offset + "\">" + token + "</resumptionToken>");
         } else if (q.offset > 0) {
@@ -601,14 +603,15 @@ public class Oai extends HttpServlet {
      * Missing values are encoded as empty string.
      */
     private String encodeToken(Date from, Date until, String set,
-                                 int offset, long total) {
+                                 int offset, long total, String metadataPrefix) {
         SimpleDateFormat _f = fullFmt();
         String f = from  != null ? _f.format(from)  : "";
         String u = until != null ? _f.format(until) : "";
         String s = set   != null ? set : "";
-        String raw = f + "|" + u + "|" + s + "|" + offset + "|" + total;
+        String raw = f + "|" + u + "|" + s + "|" + offset + "|" + total + "|" + metadataPrefix + "|" + System.currentTimeMillis();
+        String signed = raw + "|" + hex(hmac(raw));
         return Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            .encodeToString(signed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private ListQuery decodeToken(String token) {
@@ -616,14 +619,20 @@ public class Oai extends HttpServlet {
             byte[] decoded = Base64.getUrlDecoder().decode(token);
             String raw = new String(decoded, java.nio.charset.StandardCharsets.UTF_8);
             String[] parts = raw.split("\\|", -1);
-            if (parts.length < 5) return null;
+            if (parts.length != 8) return null;
+            String unsigned = raw.substring(0, raw.lastIndexOf('|'));
+            if (!MessageDigest.isEqual(hmac(unsigned), unhex(parts[7]))) return null;
+            long issuedAt=Long.parseLong(parts[6]);
+            if (issuedAt > System.currentTimeMillis()+60000L || System.currentTimeMillis()-issuedAt > TOKEN_MAX_AGE_MILLIS) return null;
 
             ListQuery q = new ListQuery();
             q.from   = parts[0].isEmpty() ? null : parseDateFlexible(parts[0]);
             q.until  = parts[1].isEmpty() ? null : parseDateFlexible(parts[1]);
             q.setSpec = parts[2].isEmpty() ? null : parts[2];
             q.offset = Integer.parseInt(parts[3]);
-            q.metadataPrefix = "oai_dc";
+            long total=Long.parseLong(parts[4]);
+            if(q.offset<0||q.offset>1000000||total<0||total>1000000000L||q.offset>total)return null;
+            q.metadataPrefix = parts.length > 5 && metadataFormats.supports(parts[5]) ? parts[5] : "oai_dc";
             return q;
         } catch (Exception e) {
             return null;
@@ -660,7 +669,7 @@ public class Oai extends HttpServlet {
             q.error = "Missing required argument: metadataPrefix.";
             return q;
         }
-        if (!"oai_dc".equals(q.metadataPrefix.trim())) {
+        if (!metadataFormats.supports(q.metadataPrefix.trim())) {
             q.errorCode = "cannotDisseminateFormat";
             q.error = "Metadata format not supported: " + escXml(q.metadataPrefix);
             return q;
@@ -818,6 +827,11 @@ public class Oai extends HttpServlet {
     private Session openSession() {
         return HibernateUtil.openSession();
     }
+
+    private static byte[] tokenSecret(){String configured=System.getenv("AIS_JURNAL_OAI_TOKEN_SECRET");if(configured!=null&&configured.length()>=32)return configured.getBytes(java.nio.charset.StandardCharsets.UTF_8);byte[] random=new byte[32];new SecureRandom().nextBytes(random);return random;}
+    private static byte[] hmac(String value){try{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));}catch(Exception e){throw new IllegalStateException(e);}}
+    private static String hex(byte[] value){StringBuilder b=new StringBuilder();for(byte x:value)b.append(String.format("%02x",x&255));return b.toString();}
+    private static byte[] unhex(String value){if(value==null||!value.matches("(?i)[0-9a-f]{64}"))return new byte[0];byte[]out=new byte[32];for(int i=0;i<32;i++)out[i]=(byte)Integer.parseInt(value.substring(i*2,i*2+2),16);return out;}
 
     private void closeSession(Session session) {
         HibernateUtil.closeSessionQuietly(session);

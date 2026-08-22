@@ -3,6 +3,8 @@ package ais.action.master.penelitiandanpengabdian;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -10,6 +12,7 @@ import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
@@ -38,16 +41,10 @@ import ais.action.master.helper.generic.AmbilDataTbmuserBanyak;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
-import ais.database.hibernate.OjsHibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.database.model.PengumumanAkademis;
 import ais.database.model.Tbmuser;
-import ais.database.model.ojs.Articles;
-import ais.database.model.ojs.Issues;
-import ais.database.model.ojs.Journals;
-import ais.database.model.ojs.PublishedArticles;
-import ais.database.model.ojs.Users;
 import ais.database.model.penelitiandanpengabdian.Artikel;
 import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
 import ais.ui.util.DataCriteria;
@@ -122,48 +119,9 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		Common.appendKeToolbar(exportKeOjs, add, comp);
 		if (exportKeOjs != null) { exportKeOjs.setVisible(terhubungKeOjs); }
 		exportKeOjs.addEventListener("onClick", new EventListener() {
-
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				Common.createDefaultTimer(new EventListener() {
-
-					@SuppressWarnings("unchecked")
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						Session session = HibernateUtil.currentSession();
-
-						Session ojSession = OjsHibernateUtil.getInstance().currentSession();
-						List<Journals> journals = ojSession.createCriteria(Journals.class).list();
-						for (Journals journal : journals) {
-							String sql = "select setting_value from journal_settings where journal_id="
-									+ journal.getJournalId() + " and setting_name='title' and locale='"
-									+ journal.getPrimaryLocale() + "' limit 1;";
-							Object judul = ojSession.createSQLQuery(sql).uniqueResult();
-							System.out.println("judul => " + judul + ", sql = " + sql);
-							JurnalPenelitian jurnalPenelitian = (JurnalPenelitian) session
-									.createCriteria(JurnalPenelitian.class)
-									.add(Restrictions.eq("path", journal.getPath())).setMaxResults(1).uniqueResult();
-							if (jurnalPenelitian == null) {
-								jurnalPenelitian = new JurnalPenelitian();
-							}
-							jurnalPenelitian.setJournalId(journal.getJournalId());
-							jurnalPenelitian.setJudul(judul == null ? "" : judul.toString());
-							jurnalPenelitian.setPath(journal.getPath());
-							Common.refreshSaveOrUpdate(session, jurnalPenelitian);
-						}
-						OjsHibernateUtil.getInstance().closeSession();
-
-						MyMessageboxConfig.show("Import Jurnal dari OJS berhasil dilakukan", "Informasi",
-								MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
-
-									@Override
-									public void onEvent(Event arg0) throws Exception {
-										onSearchDefault(arg0);
-									}
-								});
-
-					}
-				});
+				redirectToIntegratedImporter();
 			}
 		});
 
@@ -197,166 +155,11 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 
 	public static void singkronkanArtikel(final JurnalPenelitian jurnalPenelitianData,
 			final EventListener eventListener) {
-
-		Common.createDefaultTimer(new EventListener() {
-
-			@SuppressWarnings("unchecked")
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				String alamatUrlOjs = Common.getKonfigurasi("alamat_url_ojs", "http://ojs.ecampus.id").getNilai();
-
-				Session session = HibernateUtil.currentSession();
-
-				Session ojSession = OjsHibernateUtil.getInstance().currentSession();
-				List<PublishedArticles> publishedArticles = ojSession.createCriteria(PublishedArticles.class).list();
-				System.out.println("publishedArticles => " + publishedArticles.size());
-				for (PublishedArticles publishedArticle : publishedArticles) {
-					System.out.println("ArticleId => " + publishedArticle.getArticleId() + ", IssueId => "
-							+ publishedArticle.getIssueId());
-					Articles articles = (Articles) ojSession.createCriteria(Articles.class)
-							.add(jurnalPenelitianData == null || jurnalPenelitianData.getJournalId() == null
-									? Restrictions.sqlRestriction("true")
-									: Restrictions.eq("journalId", jurnalPenelitianData.getJournalId()))
-							.add(Restrictions.eq("articleId", publishedArticle.getArticleId())).setMaxResults(1)
-							.uniqueResult();
-
-					System.out.println("articles => " + articles);
-
-					if (articles != null) {
-
-						Issues issues = (Issues) ojSession.createCriteria(Issues.class)
-								.add(Restrictions.eq("issueId", publishedArticle.getIssueId())).setMaxResults(1)
-								.uniqueResult();
-						System.out.println("issues => " + issues);
-
-						if (issues != null) {
-
-							System.out.println("articles.getJournalId() => " + articles.getJournalId());
-							JurnalPenelitian jurnalPenelitian = (JurnalPenelitian) session
-									.createCriteria(JurnalPenelitian.class)
-									.add(Restrictions.eq("journalId", articles.getJournalId())).setMaxResults(1)
-									.uniqueResult();
-
-							String path = alamatUrlOjs + "/"
-									+ (jurnalPenelitian == null ? "-" : jurnalPenelitian.getPath()) + "/article/view/"
-									+ publishedArticle.getArticleId();
-
-							Users users = (Users) ojSession.createCriteria(Users.class)
-									.add(Restrictions.idEq(articles.getUserId())).uniqueResult();
-
-							Tbmuser tbmuser = (Tbmuser) (users == null ? null
-									: session.createCriteria(Tbmuser.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-											.add(Restrictions.eq("usernameOjs", users.getUsername())).uniqueResult());
-
-							// if (tbmuser == null || tbmuser.getUserId() == null) {
-							// tbmuser = (Tbmuser) (users == null ? null
-							// : session.createCriteria(Tbmuser.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-							// .add(Restrictions.idEq(users.getUsername())).uniqueResult());
-							// }
-
-							Mahasiswa mahasiswa = null;
-							if (tbmuser == null || tbmuser.getUserId() == null) {
-								mahasiswa = (Mahasiswa) (users == null ? null
-										: session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-												.add(Restrictions.eq("usernameOjs", users.getUsername()))
-												.setMaxResults(1).uniqueResult());
-							}
-
-							String sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='title' and locale='"
-									+ articles.getLocale() + "' limit 1;";
-							Object judul = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("judul => " + judul + ", sql = " + sql);
-
-							sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='abstract' and locale='"
-									+ articles.getLocale() + "' limit 1;";
-							Object abstrak = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("abstrak => " + abstrak + ", sql = " + sql);
-
-							sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='licenseURL' limit 1;";
-							Object licenseURL = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("licenseURL => " + licenseURL + ", sql = " + sql);
-
-							sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='copyrightYear' limit 1;";
-							Object copyrightYear = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("copyrightYear => " + copyrightYear + ", sql = " + sql);
-
-							sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='copyrightHolder' and locale='"
-									+ articles.getLocale() + "' limit 1;";
-							Object copyrightHolder = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("copyrightHolder => " + copyrightHolder + ", sql = " + sql);
-
-							sql = "select setting_value from article_settings where article_id="
-									+ articles.getArticleId() + " and setting_name='sponsor' and locale='"
-									+ articles.getLocale() + "' limit 1;";
-							Object sponsor = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("sponsor => " + sponsor + ", sql = " + sql);
-
-							sql = "select setting_value from journal_settings where journal_id="
-									+ articles.getJournalId() + " and setting_name='printIssn' limit 1;";
-							Object issn = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("issn => " + issn + ", sql = " + sql);
-
-							sql = "select setting_value from journal_settings where journal_id="
-									+ articles.getJournalId() + " and setting_name='onlineIssn' limit 1;";
-							Object onlineIssn = ojSession.createSQLQuery(sql).uniqueResult();
-
-							System.out.println("onlineIssn => " + issn + ", sql = " + sql);
-
-							Artikel artikel = (Artikel) session.createCriteria(Artikel.class)
-									.add(Restrictions.eq("articleId", publishedArticle.getArticleId())).setMaxResults(1)
-									.uniqueResult();
-							if (artikel == null) {
-								artikel = new Artikel();
-							}
-							artikel.setPathUrl(path);
-							artikel.setPath(path);
-							artikel.setJudul(judul == null ? "" : judul.toString());
-							artikel.setArticleId(publishedArticle.getArticleId());
-							artikel.setLicenseURL(licenseURL == null ? "" : licenseURL.toString());
-							artikel.setAbstrak(abstrak == null ? "" : abstrak.toString());
-							artikel.setIssn(issn == null ? "" : issn.toString());
-							artikel.seteIssn(onlineIssn == null ? "" : onlineIssn.toString());
-							artikel.setCopyrightHolder(copyrightHolder == null ? "" : copyrightHolder.toString());
-							try {
-								artikel.setCopyrightYear(copyrightYear == null ? null
-										: Integer.parseInt(copyrightYear.toString().trim()));
-							} catch (Exception e) {
-			ais.common.Common.tampilErrorJikaAdmin(e);
-		}
-							artikel.setSponsor(sponsor == null ? null : sponsor.toString());
-							artikel.setReferensi(articles.getCitations());
-							artikel.setTahun(issues.getYear());
-							artikel.setVol(issues.getVolume());
-							artikel.setNomor(issues.getNumber());
-
-							artikel.setTbmuser(tbmuser);
-							artikel.setMahasiswa(mahasiswa);
-
-							artikel.setJurnalPenelitian(jurnalPenelitian);
-
-							Common.refreshSaveOrUpdate(session, artikel);
-						}
-					}
-				}
-				OjsHibernateUtil.getInstance().closeSession();
-
-				MyMessageboxConfig.show("Import Artikel dari OJS berhasil dilakukan", "Informasi",
-						MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener);
-
-			}
-		}, "harap tunggu, sedang meng-singkronkan artikel, mungkin membutuhkan waktu lama..");
+		redirectToIntegratedImporter();
+	}
+	private static void redirectToIntegratedImporter() {
+		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
+		Executions.sendRedirect(request.getContextPath() + "/jurnal/admin/importOjs");
 	}
 
 	class JurnalPenelitianRenderer extends ais.ui.util.MyRowRenderer {

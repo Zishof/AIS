@@ -6,6 +6,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
 import ais.action.master.jurnal.JurnalFileService;
+import ais.action.master.jurnal.JurnalUsageEventService;
 import ais.common.Common;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.database.hibernate.HibernateUtil;
@@ -23,12 +24,16 @@ public final class JurnalFile extends HttpServlet {
         try {
             Long id = pathId(req);
             Tbmuser actor = Common.getCurrentUser(req);
-            RepoBitstream meta = (RepoBitstream) HibernateUtil.currentSession().get(RepoBitstream.class, id);
-            if (meta == null) { res.sendError(404); return; }
-            res.setContentType(safeMime(meta.getMimeType()));
-            res.setHeader("Content-Disposition", "inline; filename=\"" + headerFileName(meta.getNamaFile()) + "\"");
+            RepoBitstream meta = files.metadataForDownload(id,actor,req.getRemoteAddr());
+            String mime = safeMime(meta.getMimeType());
+            res.setContentType(mime);
+            boolean activeContent = mime.startsWith("text/html") || mime.indexOf("xml") >= 0 || mime.indexOf("svg") >= 0;
+            res.setHeader("Content-Disposition", (activeContent ? "attachment" : "inline") + "; filename=\"" + headerFileName(meta.getNamaFile()) + "\"");
+            if (activeContent) res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
             res.setHeader("Content-Length", String.valueOf(meta.getUkuranByte()));
-            files.stream(id, actor, res.getOutputStream());
+            files.stream(id, actor, req.getRemoteAddr(), res.getOutputStream());
+            try { new JurnalUsageEventService().record(meta.getItemId(),meta.getId(),"DOWNLOAD",actor,req); }
+            catch (Exception usageError) { ais.common.ErrorAuditUtil.record(usageError,"JurnalFile usage DOWNLOAD:"+requestId); }
         } catch (SecurityException e) {
             if (!res.isCommitted()) res.sendError(403, "Hak akses file jurnal tidak tersedia.");
         } catch (java.io.FileNotFoundException e) {

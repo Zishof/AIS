@@ -13,6 +13,19 @@ BEGIN
   ('notifikasi','jurnal_idempotency_key'),('notifikasi','jurnal_snapshot_json')) v(table_name,column_name)
  WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns c WHERE c.table_schema='public' AND c.table_name=v.table_name AND c.column_name=v.column_name);
  IF missing IS NOT NULL THEN RAISE EXCEPTION 'Missing prerequisite columns: %',missing; END IF;
+ SELECT string_agg(v.table_name||'.'||v.column_name,', ') INTO missing
+ FROM (VALUES
+  ('repo_collection__audit','tenant_key'),
+  ('repo_item__audit','tenant_key'),('repo_item__audit','featured'),('repo_item__audit','featured_at'),
+  ('repo_item__audit','doi_state'),('repo_item__audit','doi_updated_at')) v(table_name,column_name)
+ WHERE to_regclass('new_audit.'||v.table_name) IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM information_schema.columns c WHERE c.table_schema='new_audit' AND c.table_name=v.table_name AND c.column_name=v.column_name);
+ IF missing IS NOT NULL THEN RAISE EXCEPTION 'Missing Envers prerequisite columns: %',missing; END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM pg_indexes
+   WHERE schemaname='public' AND indexname='uq_notifikasi_jurnal_idempotency'
+     AND indexdef LIKE '%(jurnal_penelitian_id, jurnal_idempotency_key)%'
+ ) THEN RAISE EXCEPTION 'Journal-scoped notification idempotency index missing or invalid'; END IF;
  IF to_regclass('public.repo_author_authority') IS NULL OR to_regclass('public.repo_item_contributor') IS NULL
     OR to_regclass('public.repo_user_preference') IS NULL OR to_regclass('public.repo_integration_event') IS NULL
  THEN RAISE EXCEPTION 'Repository prerequisite table missing'; END IF;

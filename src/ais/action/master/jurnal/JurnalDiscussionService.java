@@ -27,7 +27,9 @@ public final class JurnalDiscussionService {
             Diskusi discussion = new Diskusi(); discussion.setJurnalPenelitianId(journalId); discussion.setRepoItemId(itemId);
             discussion.setStageKey(normalizedStage); discussion.setNama(clean(title)); discussion.setKeterangan(limit(description, 1000));
             discussion.setVisibility(validVisibility(visibility)); discussion.setAnonymityMode(validAnonymity(anonymity));
-            discussion.setTbmuser(actor); discussion.setTanggal(new Date()); discussion.setOlehId(actor.getUserId()); s.save(discussion); s.flush();
+            // Scalar actor identity is canonical for this journal path. Avoid a
+            // fragile ORM association to the very broad legacy Tbmuser mapping.
+            discussion.setTanggal(new Date()); discussion.setOlehId(actor.getUserId()); s.save(discussion); s.flush();
             participant(s, discussion, journal, item, actor.getUserId(), "CREATOR", actor); if (own) tx.commit(); return discussion;
         } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
     }
@@ -57,7 +59,7 @@ public final class JurnalDiscussionService {
             }
             DiskusiKomentar comment = new DiskusiKomentar(); comment.setDiskusi(discussion);
             comment.setNama(blank(subject) ? "Komentar" : limit(clean(subject), 255)); comment.setKeterangan(limit(clean(body), 262144));
-            comment.setTbmuser(actor); comment.setTanggal(new Date()); comment.setOlehId(actor.getUserId()); s.save(comment);
+            comment.setTanggal(new Date()); comment.setOlehId(actor.getUserId()); s.save(comment);
             if (own) tx.commit(); return comment;
         } catch (RuntimeException e) { if (own && tx.isActive()) tx.rollback(); throw e; }
     }

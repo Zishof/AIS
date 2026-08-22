@@ -40,12 +40,28 @@ public final class JurnalPaymentService {
     public LogPembayaran settle(Long subscriptionId, String externalReference, BigDecimal amount,
             String currency, String provider, String providerReference, Tbmuser actor) {
         auth.requireWorkflow(actor, "managePayment");
+        return settleInternal(subscriptionId, externalReference, amount, currency, provider,
+                providerReference, actor.getUserId(), actor, true);
+    }
+
+    /** Entry point reserved for a callback that has already passed provider authentication. */
+    LogPembayaran settleVerified(Long subscriptionId, String externalReference, BigDecimal amount,
+            String currency, String provider, String providerReference, String callbackAuditActor) {
+        return settleInternal(subscriptionId, externalReference, amount, currency, provider,
+                providerReference, callbackAuditActor, null, false);
+    }
+
+    private LogPembayaran settleInternal(Long subscriptionId, String externalReference, BigDecimal amount,
+            String currency, String provider, String providerReference, String auditActor,
+            Tbmuser actor, boolean requireHumanAuthorization) {
         if (amount == null || amount.signum() < 0 || amount.scale() > 2) throw new IllegalArgumentException("Nominal pembayaran tidak valid.");
+        if (blank(auditActor)) throw new SecurityException("Identitas audit pembayaran tidak valid.");
         String normalizedCurrency = currency(currency); String normalizedProvider = token(provider, 80, "Provider pembayaran tidak valid.");
         String normalizedProviderReference = token(providerReference, 255, "Referensi provider tidak valid.");
         Session s = HibernateUtil.currentSession(); Transaction tx = s.getTransaction(); boolean own = !tx.isActive();
         try { if (own) tx.begin(); LanggananJurnal subscription = subscription(s, subscriptionId);
-            auth.requireJournalScope(s, actor, subscription.getJurnalPenelitianId(), null, null, false, "SUBSCRIPTION");
+            if (requireHumanAuthorization)
+                auth.requireJournalScope(s, actor, subscription.getJurnalPenelitianId(), null, null, false, "SUBSCRIPTION");
             String expectedReference = reference(externalReference);
             if (!expectedReference.equals(subscription.getExternalReference())) throw new SecurityException("Referensi pembayaran tidak sesuai.");
             if (subscription.getPaymentId() != null) {
@@ -64,7 +80,7 @@ public final class JurnalPaymentService {
             if (payment == null) {
                 payment = new LogPembayaran(); payment.setNominal(amount.doubleValue()); payment.setValidator(normalizedProvider);
                 payment.setKeterangan(evidence(subscription, expectedReference, normalizedProviderReference, normalizedCurrency)); payment.setTanggal(new Date()); payment.setTanggal_dirubah(new Date());
-                payment.setOlehId(actor.getUserId()); payment.setOleh(actor.getUserId()); s.save(payment); s.flush();
+                payment.setOlehId(auditActor); payment.setOleh(auditActor); s.save(payment); s.flush();
             } else if (money(payment.getNominal()).compareTo(amount) != 0) throw new IllegalStateException("Referensi provider mempunyai nominal berbeda.");
             subscription.setPaymentId(payment.getId()); subscription.setStatus("ACTIVE"); subscription.setUpdatedAt(new Date()); s.update(subscription);
             if (own) tx.commit(); return payment;

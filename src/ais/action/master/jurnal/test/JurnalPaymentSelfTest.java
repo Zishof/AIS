@@ -7,6 +7,7 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.json.JSONObject;
 import ais.action.master.jurnal.JurnalPaymentService;
+import ais.action.master.jurnal.JurnalPaymentCallbackService;
 import ais.common.JurnalAksesKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.LogPembayaran;
@@ -61,7 +62,35 @@ public final class JurnalPaymentSelfTest {
             expectInvalid(new Runnable() { public void run() {
                 payments.markFailed(subscription.getId(), "late failure", actor);
             }});
-            System.out.println("JurnalPaymentSelfTest OK mismatch-denied settlement-idempotent rollback");
+
+            LanggananJurnal callbackSubscription = subscription(journal, collection, actor);
+            session.save(callbackSubscription); session.flush();
+            final String callbackExternal="JRN-PAYMENT-CALLBACK-SELF-TEST";
+            final String callbackReference="PROVIDER-CALLBACK-SELF-TEST";
+            payments.prepare(callbackSubscription.getId(), callbackExternal, actor);
+            final String secret="journal-payment-self-test-secret-32-bytes-minimum";
+            JurnalPaymentCallbackService.SecretResolver resolver=new JurnalPaymentCallbackService.SecretResolver(){
+                public String get(String provider){return secret;}
+                public String allowedProviders(){return "SANDBOX";}
+            };
+            final JurnalPaymentCallbackService callbacks=new JurnalPaymentCallbackService(resolver,300000L);
+            final long now=System.currentTimeMillis();
+            final String signature=JurnalPaymentCallbackService.signForTest(secret,now,"SANDBOX",callbackSubscription.getId(),
+                    callbackExternal,new BigDecimal("125000.00"),"IDR",callbackReference);
+            expectDenied(new Runnable(){public void run(){callbacks.settle(now,"00"+signature.substring(2),callbackSubscription.getId(),
+                    callbackExternal,new BigDecimal("125000.00"),"IDR","SANDBOX",callbackReference);}});
+            final long stale=now-600000L;
+            final String staleSignature=JurnalPaymentCallbackService.signForTest(secret,stale,"SANDBOX",callbackSubscription.getId(),
+                    callbackExternal,new BigDecimal("125000.00"),"IDR",callbackReference);
+            expectDenied(new Runnable(){public void run(){callbacks.settle(stale,staleSignature,callbackSubscription.getId(),
+                    callbackExternal,new BigDecimal("125000.00"),"IDR","SANDBOX",callbackReference);}});
+            LogPembayaran callbackFirst=callbacks.settle(now,signature,callbackSubscription.getId(),callbackExternal,
+                    new BigDecimal("125000.00"),"IDR","SANDBOX",callbackReference);
+            LogPembayaran callbackSecond=callbacks.settle(now,signature,callbackSubscription.getId(),callbackExternal,
+                    new BigDecimal("125000.00"),"IDR","SANDBOX",callbackReference);
+            if(callbackFirst.getId()==null||!callbackFirst.getId().equals(callbackSecond.getId())
+                    ||!"ACTIVE".equals(callbackSubscription.getStatus()))throw new IllegalStateException("Callback idempoten tidak konsisten.");
+            System.out.println("JurnalPaymentSelfTest OK mismatch-denied settlement-idempotent HMAC stale-replay-denied callback-idempotent rollback");
         } finally {
             if (tx.isActive()) tx.rollback();
             HibernateUtil.closeSession();

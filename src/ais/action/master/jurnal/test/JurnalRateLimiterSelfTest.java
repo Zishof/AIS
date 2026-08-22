@@ -1,0 +1,3 @@
+package ais.action.master.jurnal.test;
+import ais.action.master.jurnal.JurnalRateLimiter;
+public final class JurnalRateLimiterSelfTest{private JurnalRateLimiterSelfTest(){}public static void main(String[]a){for(int i=0;i<3;i++)if(!JurnalRateLimiter.allow("test","127.0.0.1",3,60000L))throw new IllegalStateException("Request valid ditolak.");if(JurnalRateLimiter.allow("test","127.0.0.1",3,60000L))throw new IllegalStateException("Limit tidak diterapkan.");if(!JurnalRateLimiter.allow("test","::1",3,60000L))throw new IllegalStateException("Key remote tidak terisolasi.");if(JurnalRateLimiter.allow("bad space","x",1,1000L))throw new IllegalStateException("Namespace invalid diterima.");System.out.println("JurnalRateLimiterSelfTest OK bounded per-remote fail-closed");}}

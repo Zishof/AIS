@@ -1,0 +1,27 @@
+package ais.action.master.jurnal.test;
+
+import java.util.HashSet;
+import org.hibernate.Session;
+import org.json.JSONObject;
+import ais.action.master.jurnal.JurnalAdministrationService;
+import ais.action.master.jurnal.importer.OjsImportExecutionService;
+import ais.action.master.jurnal.importer.OjsImportPreflightService;
+import ais.common.JurnalAksesKatalog;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Menu;
+import ais.database.model.Tbmrole;
+import ais.database.model.Tbmuser;
+import ais.database.model.jurnal.ImportJobOjs;
+import ais.database.model.jurnal.ImportSumberOjs;
+import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
+
+/** Proves a real in-flight cancellation and checkpoint resume on a disposable fixture. */
+public final class OjsImportCancelResumeSelfTest {
+    public static void main(String[]args)throws Exception{
+        String db=System.getenv("AIS_JURNAL_DB_NAME"),jdbc=System.getenv("AIS_JURNAL_OJS_FIXTURE_JDBC"),password=System.getenv("AIS_JURNAL_OJS_FIXTURE_PASSWORD");if(!"ais_jurnal_import_fixture".equals(db)||jdbc==null||!jdbc.contains("ojs_jurnal_fixture_3505")||password==null)throw new IllegalStateException("Test cancel hanya boleh memakai fixture importer disposable.");System.setProperty("javax.persistence.validation.mode","none");final Tbmuser actor=admin();int exit=0;
+        try{final String suffix=String.valueOf(System.currentTimeMillis());final OjsImportPreflightService.Config cfg=new OjsImportPreflightService.Config();cfg.jdbcUrl=jdbc;cfg.user=System.getenv("AIS_JURNAL_OJS_FIXTURE_USER");cfg.password=password;cfg.schema="public";JurnalPenelitian journal=new JurnalAdministrationService().create("cancel-import-"+suffix,"Cancel Import Self Test","cancel-import-"+suffix,"id_ID",actor);final OjsImportExecutionService importer=new OjsImportExecutionService();final ImportSumberOjs source=importer.registerSource(journal.getId(),null,"cancel-"+suffix,"OJS cancel fixture","env:fixture",cfg,actor);HibernateUtil.closeSession();final String key="cancel-resume-"+suffix;final Throwable[]workerError=new Throwable[1];
+            Thread worker=new Thread(new Runnable(){public void run(){try{importer.start(source.getId(),true,key,cfg,1,actor);}catch(Throwable e){workerError[0]=e;}finally{HibernateUtil.closeSession();}}},"ojs-import-cancel-self-test");worker.start();Long jobId=null;long observedCheckpoints=0;for(int i=0;i<400&&observedCheckpoints==0;i++){Session probe=HibernateUtil.openSession();try{ImportJobOjs j=(ImportJobOjs)probe.createQuery("from ImportJobOjs where idempotencyKey=:k and aktif=true").setString("k",key).setMaxResults(1).uniqueResult();if(j!=null&&"RUNNING".equals(j.getStatus())){jobId=j.getId();observedCheckpoints=((Number)probe.createQuery("select count(*) from ImportCheckpointOjs where jobId=:j and aktif=true").setLong("j",jobId).uniqueResult()).longValue();}}finally{HibernateUtil.closeSessionQuietly(probe);}if(observedCheckpoints==0)Thread.sleep(25L);}check(jobId!=null&&observedCheckpoints>0,"Job RUNNING dengan committed checkpoint tidak teramati.");importer.cancel(jobId,actor);HibernateUtil.closeSession();worker.join(120000L);check(!worker.isAlive(),"Worker import tidak berhenti setelah cancel.");if(workerError[0]!=null)throw new IllegalStateException("Worker import gagal",workerError[0]);Session verify=HibernateUtil.openSession();ImportJobOjs cancelled;long checkpoints;try{cancelled=(ImportJobOjs)verify.get(ImportJobOjs.class,jobId);checkpoints=((Number)verify.createQuery("select count(*) from ImportCheckpointOjs where jobId=:j and aktif=true").setLong("j",jobId).uniqueResult()).longValue();}finally{HibernateUtil.closeSessionQuietly(verify);}check("CANCELLED".equals(cancelled.getStatus()),"Status akhir bukan CANCELLED: "+cancelled.getStatus());check(checkpoints>0&&checkpoints<134,"Cancel tidak berada di tengah committed checkpoint: "+checkpoints);ImportJobOjs resumed=importer.resume(jobId,cfg,1,actor);check("STAGING_COMPLETED".equals(resumed.getStatus()),"Resume dry-run tidak selesai: "+resumed.getStatus());Session done=HibernateUtil.currentSession();long tables=((Number)done.createQuery("select count(distinct sourceTable) from ImportMappingOjs where sourceId=:s and aktif=true").setLong("s",source.getId()).uniqueResult()).longValue();check(tables==134,"Resume checkpoint tidak menutup 134 tabel: "+tables);System.out.println("OjsImportCancelResumeSelfTest OK cancelled-checkpoints="+checkpoints+" resumed-tables=134");
+        }catch(Throwable e){exit=1;e.printStackTrace();}finally{HibernateUtil.closeSession();Tbmuser.getUserRoleYgDipakai.remove(actor.getUserId());}System.exit(exit);
+    }
+    private static void check(boolean x,String m){if(!x)throw new IllegalStateException(m);}private static Tbmuser admin()throws Exception{Tbmrole r=new Tbmrole();r.setRoleId(Tbmrole.ADMINISTRATOR);JSONObject j=JurnalAksesKatalog.modelUntukEditor(null);HashSet<Menu>ms=new HashSet<Menu>();for(JurnalAksesKatalog.Entri e:JurnalAksesKatalog.DAFTAR){j.getJSONObject("menu").put(e.kunci,true);for(String a:JurnalAksesKatalog.AKSI_CRUD)j.getJSONObject("crud").getJSONObject(e.kunci).put(a,true);Menu m=new Menu();m.setId(Long.valueOf(2000000000L+e.child));ms.add(m);}j.getJSONObject("workflow").put("manageImport",true);r.setJurnalAksesJson(j.toString());r.setMenus(ms);Tbmuser u=new Tbmuser();u.setUserId("JRN_OJS_CANCEL_SELF_TEST");u.setUserRole(r);Tbmuser.getUserRoleYgDipakai.put(u.getUserId(),r);return u;}
+}
