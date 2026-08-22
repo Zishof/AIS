@@ -530,6 +530,27 @@ public class RepositoryPublicService {
         return detail;
     }
 
+    /**
+     * Lookup ringan untuk ekspor sitasi. Sitasi hanya membutuhkan metadata inti
+     * RepoItem, sehingga tidak perlu memuat bitstream, metadata tambahan,
+     * relasi, dan seluruh riwayat versi seperti halaman detail publikasi.
+     */
+    public ItemDetail findPublicCitationItem(Long id) {
+        if (id == null || id.longValue() <= 0L) return null;
+        Session session = session();
+        RepoItem entity = (RepoItem) session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("id", id))
+                .add(publicVisibilityRestriction())
+                .add(tenantRestriction())
+                .uniqueResult();
+        if (entity == null) return null;
+        RepoCollection collection = (RepoCollection) session.get(RepoCollection.class, entity.getCollectionId());
+        if (collection != null && !RepositoryTenantScope.currentKey().equals(collection.getTenantKey())) collection = null;
+        ItemDetail detail = new ItemDetail();
+        copyCard(toCard(entity, collection), detail);
+        return detail;
+    }
+
     public CollectionView findCollection(Long id) {
         if (id == null) return null;
         RepoCollection row = (RepoCollection) session().createCriteria(RepoCollection.class)
@@ -954,7 +975,8 @@ public class RepositoryPublicService {
                 .add(Restrictions.or(Restrictions.eq("itemId",item.getId()),Restrictions.eq("relatedItemId",item.getId())))
                 .setMaxResults(maximum*2).list(); List<Long> ids=new ArrayList<Long>();
         for(RepoItemRelation relation:relations){Long id=item.getId().equals(relation.getItemId())?relation.getRelatedItemId():relation.getItemId();if(id!=null&&!ids.contains(id))ids.add(id);}
-        if(ids.isEmpty()&&item.getSubjects().length()>0){List<RepoItem> candidates=publicCriteria(session,null).add(Restrictions.ne("id",item.getId())).add(Restrictions.ilike("subjects",firstToken(item.getSubjects()),MatchMode.ANYWHERE)).setMaxResults(maximum).list();return cards(session,candidates);}
+        String subjects=safe(item.getSubjects());
+        if(ids.isEmpty()&&subjects.length()>0){List<RepoItem> candidates=publicCriteria(session,null).add(Restrictions.ne("id",item.getId())).add(Restrictions.ilike("subjects",firstToken(subjects),MatchMode.ANYWHERE)).setMaxResults(maximum).list();return cards(session,candidates);}
         if(ids.isEmpty())return new ArrayList<ItemCard>(); List<RepoItem> rows=publicCriteria(session,null).add(Restrictions.in("id",ids)).setMaxResults(maximum).list();return cards(session,rows);
     }
 

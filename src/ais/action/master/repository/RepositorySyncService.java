@@ -80,6 +80,8 @@ public class RepositorySyncService {
 		// synchronizeAll utk berhenti lebih awal begitu insiden ini terdeteksi, drpd terus memaksa
 		// sumber berikutnya memakai sesi yg sudah pasti rusak.
 		private boolean connectionLost;
+		/* Sinkronisasi dihentikan secara normal karena lock batch diambil proses lain. */
+		private boolean stopped;
 
 		public int getScanned() { return scanned; }
 		public int getSynced() { return synced; }
@@ -220,6 +222,20 @@ public class RepositorySyncService {
 	 */
 	public static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
 			 ais.common.LaporanUpload laporan) {
+		return synchronizeAll(session, pushToDspace, updateDspace, laporan, false);
+	}
+
+	/**
+	 * Jalur khusus pekerjaan latar. Transaksi di-commit per batch dan koneksi dilepas ke pool,
+	 * sehingga pemindaian ribuan item tidak melewati unreturnedConnectionTimeout c3p0.
+	 */
+	public static SyncSummary synchronizeAllBackground(Session session, boolean pushToDspace, boolean updateDspace,
+			 ais.common.LaporanUpload laporan) {
+		return synchronizeAll(session, pushToDspace, updateDspace, laporan, true);
+	}
+
+	private static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
+			 ais.common.LaporanUpload laporan, boolean commitPerBatch) {
 		boolean readOnlySebelumnya = false;
 		boolean readOnlyDiubah = false;
 		try {
@@ -230,7 +246,7 @@ public class RepositorySyncService {
 			ais.common.ErrorAuditUtil.record(abaikan, "RepositorySyncService.setDefaultReadOnly");
 		}
 		try {
-			return synchronizeAllInternal(session, pushToDspace, updateDspace, laporan);
+			return synchronizeAllInternal(session, pushToDspace, updateDspace, laporan, commitPerBatch);
 		} finally {
 			if (readOnlyDiubah) {
 				try {
@@ -243,7 +259,7 @@ public class RepositorySyncService {
 	}
 
 	private static SyncSummary synchronizeAllInternal(Session session, boolean pushToDspace, boolean updateDspace,
-			 ais.common.LaporanUpload laporan) {
+			 ais.common.LaporanUpload laporan, boolean commitPerBatch) {
 		SyncSummary summary = new SyncSummary();
 		if (!cobaKunciSinkronisasi(session)) {
 			summary.message = "Sinkronisasi repository lain masih berjalan; permintaan ini dilewati dan akan dicoba pada siklus berikutnya.";
@@ -271,7 +287,8 @@ public class RepositorySyncService {
 		int[] baris = new int[] { 0 };
 		List<SourceDescriptor> sources = getDefaultSources();
 		for (SourceDescriptor source : sources) {
-			SyncSummary part = synchronizeSource(session, source, cookie, pushToDspace, updateDspace, laporan, baris);
+			SyncSummary part = synchronizeSource(session, source, cookie, pushToDspace, updateDspace, laporan, baris,
+					commitPerBatch);
 			summary.scanned += part.scanned;
 			summary.synced += part.synced;
 			summary.failed += part.failed;
@@ -285,6 +302,10 @@ public class RepositorySyncService {
 				// RepositorySyncScheduler.jalankanSekali).
 				summary.connectionLost = true;
 				summary.message += (summary.message.length() == 0 ? "" : "\n") + "Koneksi database terputus, sisa sumber pada siklus ini dilewati (akan dicoba lagi di siklus berikutnya).";
+				break;
+			}
+			if (part.stopped) {
+				summary.stopped = true;
 				break;
 			}
 		}
@@ -349,7 +370,7 @@ public class RepositorySyncService {
 	}
 
 	private static SyncSummary synchronizeSource(Session session, SourceDescriptor source, String cookie, boolean pushToDspace,
-			boolean updateDspace, ais.common.LaporanUpload laporan, int[] baris) {
+			boolean updateDspace, ais.common.LaporanUpload laporan, int[] baris, boolean commitPerBatch) {
 		SyncSummary summary = new SyncSummary();
 		long sisaTunda = sisaPenundaanIzin(source);
 		if (sisaTunda > 0L) {
@@ -474,9 +495,50 @@ public class RepositorySyncService {
 					}
 					baris[0]++;
 				}
+				boolean batchSudahCommit = false;
 				try {
 					session.flush();
-					session.clear();
+					if (commitPerBatch) {
+						/* Scheduler dapat memindai ribuan item. Menahan satu checkout koneksi dan satu
+						 * transaksi sampai seluruh sumber selesai membuat c3p0 merebut koneksi setelah
+						 * unreturnedConnectionTimeout (30 menit), lalu SELURUH hasil ikut rollback.
+						 * Commit per batch membuat progres durable dan melepas koneksi lama ke pool. */
+						org.hibernate.Transaction tx = session.getTransaction();
+						if (tx != null && tx.isActive()) {
+							tx.commit();
+						}
+						batchSudahCommit = true;
+						session.clear();
+
+						/* Paksa rotasi checkout. Ini tidak diterapkan pada sinkronisasi dari UI karena
+						 * session request dan batas transaksinya dimiliki ZK. */
+						java.sql.Connection lama = null;
+						try {
+							if (session.isConnected()) {
+								lama = session.disconnect();
+							}
+						} finally {
+							if (lama != null) {
+								try { lama.close(); } catch (Exception abaikan) {
+									ais.common.ErrorAuditUtil.record(abaikan,
+											"auto-audit(empty-catch) RepositorySyncService.batch-close-connection");
+								}
+							}
+						}
+						session.reconnect();
+						session.beginTransaction();
+						terapkanLockTimeout(session);
+						/* Advisory lock awal bersifat transaction-level, jadi wajib direbut kembali
+						 * setelah commit. Jika proses/node lain menang di sela batch, proses ini berhenti
+						 * secara normal agar tidak ada dua sinkronisasi berjalan bersamaan. */
+						if (!cobaKunciSinkronisasi(session)) {
+							summary.stopped = true;
+							summary.message = "Sinkronisasi repository lain mengambil giliran; proses ini berhenti setelah batch tersimpan.";
+							return summary;
+						}
+					} else {
+						session.clear();
+					}
 				} catch (Exception flushEx) {
 					// KE-FIX: satu batch yang gagal flush (mis. getter entity yang melempar
 					// exception saat Hibernate dirty-check, koneksi/statement sudah tertutup,
@@ -487,7 +549,11 @@ public class RepositorySyncService {
 					// Pulihkan session di sini (rollback + clear + transaksi baru) supaya source
 					// lain tetap bisa disinkron; batch yang gagal ini dicoba ulang siklus
 					// berikutnya (item-nya belum berubah statusnya di DB).
-					summary.failed += data.size();
+					/* Bila commit batch sudah berhasil, datanya tidak gagal; yang gagal hanya
+					 * pembukaan koneksi/transaksi untuk batch berikutnya. */
+					if (!batchSudahCommit) {
+						summary.failed += data.size();
+					}
 					if (isConnectionDead(flushEx)) {
 						// KE-FIX: koneksi fisik sudah mati -- rollback/clear/beginTransaction() di
 						// bawah ini akan gagal lagi memakai koneksi yg sama (lihat javadoc

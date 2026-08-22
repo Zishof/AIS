@@ -65,7 +65,7 @@ public final class RepositorySyncScheduler {
 		try {
 			session = HibernateUtil.openSession();
 			session.beginTransaction();
-			RepositorySyncService.SyncSummary summary = RepositorySyncService.synchronizeAll(session, false, true, null);
+			RepositorySyncService.SyncSummary summary = RepositorySyncService.synchronizeAllBackground(session, false, true, null);
 			/* synchronizeAll dapat me-rollback transaksi per item lalu membuka transaksi
 			 * pengganti. Selalu commit transaksi AKTIF milik session saat ini. */
 			// KE-FIX: bila summary.isConnectionLost() true, session/koneksi sudah terbukti tidak

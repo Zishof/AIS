@@ -77,6 +77,9 @@ public class Repository extends HttpServlet {
                 if (isJsonRequest(request)) {
                     writeJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                             "INTERNAL_ERROR", "Repository belum dapat melayani permintaan ini.", requestId);
+                } else if ("citation".equalsIgnoreCase(clean(request.getParameter("action")))) {
+                    writePlainError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "Sitasi belum dapat dibuat. Silakan coba kembali. ID: " + requestId);
                 } else {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                             "Repository belum dapat melayani permintaan ini. ID: " + requestId);
@@ -291,7 +294,7 @@ public class Repository extends HttpServlet {
     private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));request.getRequestDispatcher(JSP).forward(request,response);}
 
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        ItemDetail item = service.findPublicItem(parseLong(request.getParameter("id")));
+        ItemDetail item = service.findPublicCitationItem(parseLong(request.getParameter("id")));
         if (item == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan.");
             return;
@@ -308,6 +311,14 @@ public class Repository extends HttpServlet {
                 ? "application/vnd.citationstyles.csl+json;charset=UTF-8" : ("dcxml".equals(format)?"application/xml;charset=UTF-8":"text/plain;charset=UTF-8"));
         response.setHeader("Content-Disposition", "attachment; filename=repository-" + item.id + "." + extension);
         response.getWriter().write(body);
+    }
+
+    private void writePlainError(HttpServletResponse response, int status, String message) throws IOException {
+        response.resetBuffer();
+        response.setStatus(status);
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write(message);
     }
 
     private void download(HttpServletRequest request, HttpServletResponse response) throws Exception {
