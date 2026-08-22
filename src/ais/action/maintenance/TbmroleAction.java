@@ -2644,6 +2644,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	private String buildJurnalAksesJson() throws org.json.JSONException {
+		validasiTidakMenaikkanHakSendiri();
 		JSONObject root = ais.common.JurnalAksesKatalog.modelUntukEditor(jurnalAksesJsonAwal);
 		JSONObject menu = root.getJSONObject("menu");
 		JSONObject crud = root.getJSONObject("crud");
@@ -2658,6 +2659,26 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			workflow.put(aksi, jurnalChecked("workflow:" + aksi));
 		ais.common.JurnalAksesKatalog.validasiUntukSimpan(root.toString());
 		return root.toString();
+	}
+
+	/** Editor role biasa tidak boleh memberikan capability yang tidak ia miliki sendiri. */
+	private void validasiTidakMenaikkanHakSendiri() {
+		if (Common.getApakahAdmin()) return;
+		Tbmuser current = Common.getCurrentUser();
+		String own = null;
+		try { own = current == null || current.hakAkses() == null ? null : current.hakAkses().getJurnalAksesJson(); }
+		catch (Exception e) { throw new SecurityException("Role aktif tidak dapat diverifikasi."); }
+		for (ais.common.JurnalAksesKatalog.Entri entri : ais.common.JurnalAksesKatalog.DAFTAR) {
+			if (jurnalChecked("menu:" + entri.kunci) && !ais.common.JurnalAksesKatalog.bolehMenu(own, entri.kunci))
+				throw new SecurityException("Tidak boleh memberikan akses jurnal yang tidak dimiliki: " + entri.label);
+			for (String aksi : ais.common.JurnalAksesKatalog.AKSI_CRUD)
+				if (jurnalChecked("crud:" + entri.kunci + ":" + aksi)
+						&& !ais.common.JurnalAksesKatalog.bolehCrud(own, entri.kunci, aksi))
+					throw new SecurityException("Tidak boleh memberikan capability jurnal yang tidak dimiliki.");
+		}
+		for (String aksi : ais.common.JurnalAksesKatalog.AKSI_WORKFLOW)
+			if (jurnalChecked("workflow:" + aksi) && !ais.common.JurnalAksesKatalog.bolehWorkflow(own, aksi))
+				throw new SecurityException("Tidak boleh memberikan operasi workflow yang tidak dimiliki: " + aksi);
 	}
 
 	private boolean jurnalChecked(String key) {
@@ -2972,7 +2993,13 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		Session session = HibernateUtil.currentSession();
 		if (tbmrole.getRoleId() != null) {
 			tbmrole = (Tbmrole) session.load(Tbmrole.class, tbmrole.getRoleId());
-
+			String currentJurnalJson = tbmrole.getJurnalAksesJson();
+			String initialJurnalJson = jurnalAksesJsonAwal;
+			if (currentJurnalJson == null ? initialJurnalJson != null : !currentJurnalJson.equals(initialJurnalJson)) {
+				MyMessageboxConfig.show("Hak akses jurnal telah diubah pengguna lain. Muat ulang data sebelum menyimpan.",
+						"Konflik Perubahan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
 		}
 		tbmrole.setDasboardAntarJemput(antarJemput.isChecked());
 		tbmrole.setDasborRepository(repository.isChecked());
