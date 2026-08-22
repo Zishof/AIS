@@ -70,6 +70,7 @@ public final class DraftJurnalApiHelper {
         if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "pengajuan_transfer";
         if ("Transitori".equals(namaBaris)) return "transitori";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
+        if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         return null;
     }
 
@@ -178,6 +179,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.asset.PostingPengadaanAction.postingSemua(mulai, sampai, tbmuser,
                             new Date())
                     : ais.action.master.asset.PostingPengadaanAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Pekerjaan Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPemesananPekerjaanAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.asset.PostingPemesananPekerjaanAction.batalkanPostingSemua(mulai,
+                            sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");
