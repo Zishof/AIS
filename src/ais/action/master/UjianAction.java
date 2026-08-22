@@ -398,6 +398,9 @@ public class UjianAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
+			// Deretan ikon diringkas menjadi satu tombol "..." berisi ikon DAN label.
+			// Tombol aslinya tetap hidup di balik menu, jadi listener di atas tidak berubah.
+			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(arg0);
 		}
 
