@@ -22,6 +22,13 @@ import ais.database.model.sekolah.Yayasan;
 
 public class KonfigurasiManager {
 
+	/**
+	 * Nama konfigurasi yang bentrok id-nya dan SUDAH dicatat ke audit. Dipakai agar
+	 * kegagalan sequence hanya dilaporkan sekali per nama, bukan tiap pemanggilan.
+	 */
+	private static final java.util.Set<String> BENTROK_ID_TERCATAT =
+		java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+
 	public static Konfigurasi konfigurasiKosong = new Konfigurasi("", "");
 
 	// --- Public Methods ---
@@ -86,6 +93,46 @@ public class KonfigurasiManager {
 					konfigurasi.setInfo3(info3);
 					Common.refreshSaveOrUpdate(session, konfigurasi);
 					tx.commit();
+				} catch (org.hibernate.exception.ConstraintViolationException cve) {
+					// AKAR MASALAH: yang bentrok adalah PRIMARY KEY (konfigurasi_pkey), BUKAN
+					// kolom nama. Ada dua sebab yang mungkin:
+					//
+					//   (a) Thread lain menyisipkan konfigurasi yang sama lebih dulu -- lazim
+					//       karena getKonfigurasi dipanggil dari thread web DAN dari pembangun
+					//       ringkasan di latar. Di sini cukup MEMBACA ULANG hasil thread itu.
+					//   (b) Sequence id tabel konfigurasi TERTINGGAL di belakang max(id) --
+					//       lazim setelah impor/restore data -- sehingga nextval mengembalikan
+					//       id yang sudah terpakai. Ini TIDAK dapat diperbaiki dari kode;
+					//       perlu setval pada sequence-nya oleh administrator basis data.
+					//
+					// Untuk kedua sebab, yang benar adalah TIDAK menjatuhkan pemanggil: sebelum
+					// ini exception-nya dilempar ke atas dan membuat seluruh pembangunan
+					// ringkasan kampus gagal hanya karena satu baris konfigurasi.
+					if (tx != null && tx.isActive()) {
+						tx.rollback();
+					}
+					Konfigurasi hasilThreadLain = null;
+					try {
+						session.clear();
+						hasilThreadLain = (Konfigurasi) ConstantValues.simpleObject(
+								session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
+										.add(Restrictions.eq("nama", nama)).setMaxResults(1),
+								Konfigurasi.class);
+					} catch (Exception eBacaUlang) {
+						ais.common.ErrorAuditUtil.record(eBacaUlang, "KonfigurasiManager.bacaUlangSetelahBentrok");
+					}
+					if (hasilThreadLain != null) {
+						konfigurasi = hasilThreadLain;
+					} else {
+						// Sebab (b): dicatat SEKALI per nama supaya audit tidak dibanjiri --
+						// getKonfigurasi termasuk jalur yang sangat sering dipanggil.
+						if (BENTROK_ID_TERCATAT.add(nama)) {
+							ais.common.ErrorAuditUtil.record(cve,
+									"KonfigurasiManager: id konfigurasi bentrok utk '" + nama
+										+ "'. Periksa sequence id tabel konfigurasi (kemungkinan tertinggal di belakang max(id)).");
+						}
+						konfigurasi = konfigurasiKosong;
+					}
 				} catch (Exception txEx) {
 					if (tx != null && tx.isActive()) {
 						tx.rollback();

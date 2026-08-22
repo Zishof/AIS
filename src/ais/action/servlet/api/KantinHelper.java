@@ -9182,7 +9182,15 @@ public class KantinHelper {
 	 * #produkDuplikatHapus}).</p>
 	 */
 	public static void ebisnisRoleList(Tbmuser tbmuser, JSONObject hasil) throws Exception {
-		if (tbmuser != null && tbmuser.getPedagang() != null) {
+		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
+		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
+		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
+		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
+		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
+		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
+		// supervisor toko tetap tertutup.
+		if (tbmuser != null && tbmuser.getPedagang() != null
+			&& !Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;
@@ -9217,7 +9225,15 @@ public class KantinHelper {
 	 * Gerbang admin SAMA dgn {@link #ebisnisRoleList}.
 	 */
 	public static void ebisnisRoleMenuAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (tbmuser != null && tbmuser.getPedagang() != null) {
+		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
+		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
+		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
+		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
+		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
+		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
+		// supervisor toko tetap tertutup.
+		if (tbmuser != null && tbmuser.getPedagang() != null
+			&& !Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;
@@ -9281,7 +9297,15 @@ public class KantinHelper {
 	 * hanya kunci yg dikirim yg diubah).
 	 */
 	public static void ebisnisRoleMenuSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (tbmuser != null && tbmuser.getPedagang() != null) {
+		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
+		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
+		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
+		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
+		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
+		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
+		// supervisor toko tetap tertutup.
+		if (tbmuser != null && tbmuser.getPedagang() != null
+			&& !Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;

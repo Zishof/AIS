@@ -541,7 +541,24 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 			final String ta = (String) tahunAkademik.getSelectedItem().getValue();
 
-			if (ta != null && tanggalLahir.getValue() != null && !nama.getValue().trim().isEmpty()
+			// Datebox.getValue() MELEMPAR WrongValueException bila isinya belum berupa
+			// tanggal yang sah -- dan listener ini berjalan setiap kali field berubah,
+			// termasuk saat pengguna baru mengetik separuh tanggal. Perbaikan sejenis
+			// sudah dipasang di setdata(), tetapi jalur pemeriksaan duplikat ini masih
+			// telanjang. Tanggal yang belum sah diperlakukan SAMA dengan tanggal kosong:
+			// pemeriksaan duplikat dilewati, tanpa memunculkan galat ZK ke pengguna.
+			java.util.Date tglLahirCek = null;
+			try {
+				tglLahirCek = tanggalLahir.getValue();
+			} catch (WrongValueException eTgl) {
+				try {
+					tanggalLahir.clearErrorMessage();
+				} catch (Exception ce) {
+					ais.common.ErrorAuditUtil.record(ce, "BiodataCalonMahasiswaAction.cekDuplikat.clearErrorMessage");
+				}
+				return;
+			}
+			if (ta != null && tglLahirCek != null && !nama.getValue().trim().isEmpty()
 					&& !namaIbu.getValue().trim().isEmpty()) {
 				Session session = HibernateUtil.currentSession();
 				int count = ((Number) session.createCriteria(BiodataCalonMahasiswa.class)

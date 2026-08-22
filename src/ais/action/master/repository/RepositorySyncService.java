@@ -114,6 +114,38 @@ public class RepositorySyncService {
 	 * PostgreSQL / tanpa transaksi aktif -- pola sama seperti
 	 * KunciEntityHelper.pasangStatementTimeout / KegiatanHelper.terapkanLockTimeout.
 	 */
+	/**
+	 * Mengisi {@code repo_item.lock_version} yang masih NULL dengan 0.
+	 *
+	 * <p>AKAR MASALAH (NullPointerException di
+	 * {@code Versioning.increment} / {@code LongType.next}): kolom itu dipetakan
+	 * sebagai {@code @Version}. Getter-nya SUDAH berjaga terhadap null, tetapi
+	 * Hibernate TIDAK memakai getter saat menaikkan versi --
+	 * {@code DefaultFlushEntityEventListener.getNextVersion} membaca
+	 * {@code entry.getVersion()}, yaitu nilai yang DIMUAT dari basis data. Baris
+	 * warisan yang kolomnya NULL karena itu tetap membuat {@code increment(null)}
+	 * dan menggagalkan seluruh siklus sinkronisasi, baik saat flush eksplisit
+	 * maupun saat auto-flush sebelum query.</p>
+	 *
+	 * <p>Nilainya murni penanda kunci optimistis milik Hibernate, bukan data
+	 * bisnis, sehingga mengisinya dengan 0 tidak mengubah arti data mana pun.
+	 * Dijalankan sekali di awal tiap siklus, idempoten, dan aman diulang.</p>
+	 */
+	private static void perbaikiLockVersionKosong(Session session) {
+		try {
+			int diperbaiki = session
+					.createSQLQuery("update repo_item set lock_version = 0 where lock_version is null")
+					.executeUpdate();
+			if (diperbaiki > 0) {
+				System.out.println("[RepositorySync] lock_version NULL diperbaiki: " + diperbaiki + " baris");
+			}
+		} catch (Exception e) {
+			// Gagal memperbaiki TIDAK boleh menghentikan sinkronisasi: siklus tetap
+			// dicoba, dan baris yang bermasalah akan tertangkap penanganan per-batch.
+			ais.common.ErrorAuditUtil.record(e, "RepositorySyncService.perbaikiLockVersionKosong");
+		}
+	}
+
 	private static void terapkanLockTimeout(Session session) {
 		try {
 			session.createSQLQuery("SET LOCAL lock_timeout = '3s'").executeUpdate();
@@ -235,6 +267,7 @@ public class RepositorySyncService {
 		// scheduler dgn transaksi yg sudah dibuka sebelum synchronizeAll dipanggil, SET LOCAL
 		// perlu dipasang ulang di sini krn baru berlaku pada transaksi yg SEDANG aktif.
 		terapkanLockTimeout(session);
+		perbaikiLockVersionKosong(session);
 		int[] baris = new int[] { 0 };
 		List<SourceDescriptor> sources = getDefaultSources();
 		for (SourceDescriptor source : sources) {

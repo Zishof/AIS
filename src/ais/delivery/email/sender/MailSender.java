@@ -59,6 +59,13 @@ import ais.ui.util.MyMessageboxConfig;
 
 public class MailSender {
 
+	/** Selang minimum antar-laporan kegagalan autentikasi SMTP ke audit. */
+	private static final long JEDA_LAPOR_AUTH_MS = 15L * 60L * 1000L;
+
+	/** Waktu terakhir kegagalan autentikasi SMTP dilaporkan penuh ke audit. */
+	private static final java.util.concurrent.atomic.AtomicLong AUTH_GAGAL_TERAKHIR =
+		new java.util.concurrent.atomic.AtomicLong(0L);
+
 	// Pembatas konkurensi kirim email/notifikasi. DULU tiap kirim = `new Thread(...).start()` (tak
 	// terbatas) → di beban tinggi ribuan raw-thread lahir (snapshot: "total dimulai" belasan ribu,
 	// puluhan Thread-#### di MailSender$4.run), masing-masing buka Session+transaksi+koneksi c3p0+audit
@@ -1370,6 +1377,22 @@ public class MailSender {
 							if (out != null) {
 								e.printStackTrace(out);
 							} else {
+								// Kegagalan AUTENTIKASI (535 5.7.3) adalah masalah KONFIGURASI, bukan
+								// masalah pesan ini: ia gagal identik untuk setiap pesan sampai kredensial
+								// atau metode autentikasinya dibetulkan. Mencatat stack penuh per pesan
+								// membanjiri audit dan menenggelamkan galat lain. Tetap DILAPORKAN, hanya
+								// diredam jadi sekali per selang waktu; pengiriman tetap dihitung gagal.
+								if (e instanceof javax.mail.AuthenticationFailedException) {
+									long sekarang = System.currentTimeMillis();
+									long terakhir = AUTH_GAGAL_TERAKHIR.get();
+									if (sekarang - terakhir > JEDA_LAPOR_AUTH_MS
+											&& AUTH_GAGAL_TERAKHIR.compareAndSet(terakhir, sekarang)) {
+										Common.tampilErrorJikaAdmin(e);
+									} else {
+										System.err.println("[MailSender] SMTP menolak autentikasi (diredam) ke "
+												+ recipients + ": " + e.getMessage());
+									}
+								} else {
 								boolean isTransient = (e instanceof javax.mail.MessagingException
 										&& (e.getMessage() != null && (e.getMessage().contains("connect") || e.getMessage().contains("UnknownHost"))))
 										|| (e instanceof com.sun.mail.smtp.SMTPSendFailedException);
@@ -1377,6 +1400,7 @@ public class MailSender {
 									Common.tampilErrorJikaAdmin(e);
 								} else {
 									System.err.println("[MailSender] SMTP gagal ke " + recipients + ": " + e.getMessage());
+								}
 								}
 							}
 						}

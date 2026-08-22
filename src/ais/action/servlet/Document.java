@@ -797,9 +797,35 @@ public class Document extends HttpServlet {
         return null;
     }
 
+    /**
+     * Mengambil kode role pengguna.
+     *
+     * <p>AKAR MASALAH (NoSuchMethodException Tbmuser.getRoleId): ketika
+     * {@code hakAkses()} mengembalikan null -- normal untuk pengguna tanpa role,
+     * mis. Calon Mahasiswa -- blok pertama selesai TANPA return, lalu jatuh ke
+     * blok kedua yang merefleksi {@code getRoleId()} pada Tbmuser. Method itu
+     * memang tidak pernah ada, sehingga setiap pemuatan halaman meninggalkan satu
+     * catatan error palsu di audit. Perbaikannya: pakai API bertipe untuk Tbmuser
+     * (tanpa refleksi sama sekali), dan pada jalur refleksi untuk tipe lain,
+     * NoSuchMethodException diperlakukan sebagai keadaan WAJAR -- bukan error --
+     * sejalan dengan idiom yang sudah dipakai di kelas ini.
+     */
     private String getRoleId(Object user) {
         if (user == null) {
             return "";
+        }
+        // Jalur bertipe: Tbmuser tanpa role bukan kesalahan, cukup kembalikan kosong.
+        if (user instanceof ais.database.model.Tbmuser) {
+            try {
+                ais.database.model.Tbmrole role = ((ais.database.model.Tbmuser) user).hakAkses();
+                if (role == null || role.getRoleId() == null) {
+                    return "";
+                }
+                return role.getRoleId().trim();
+            } catch (Exception e) {
+                ais.common.ErrorAuditUtil.record(e, "Document.getRoleId(Tbmuser)");
+                return "";
+            }
         }
         try {
             Method hakAkses = user.getClass().getMethod("hakAkses", new Class[0]);
@@ -809,12 +835,16 @@ public class Document extends HttpServlet {
                 Object value = getRoleId.invoke(role, new Object[0]);
                 return value == null ? "" : String.valueOf(value).trim();
             }
+        } catch (NoSuchMethodException wajar) {
+            // Tipe ini memang tidak punya method tsb -- keadaan wajar, bukan error.
         } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Document.java:758");
         }
         try {
             Method getRoleId = user.getClass().getMethod("getRoleId", new Class[0]);
             Object value = getRoleId.invoke(user, new Object[0]);
             return value == null ? "" : String.valueOf(value).trim();
+        } catch (NoSuchMethodException wajar) {
+            // Tipe ini memang tidak punya method tsb -- keadaan wajar, bukan error.
         } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/servlet/Document.java:764");
         }
         return "";
