@@ -710,6 +710,28 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		createSpan("Pengaturan Umum Website Kampus", rows);
 		rows.appendChild(createRowActiveDefault("Aktifkan website kampus publik pada alamat /web",
 				"website_kampus_aktif", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Gunakan tampilan Website Institusi V4 pada alamat /web",
+				"website_ui_v4", Konfigurasi.AKTIF));
+		rows.appendChild(createRowNilai("Judul kecil Website Institusi V4", "website_v4_eyebrow",
+				"Website Resmi Institusi"));
+		rows.appendChild(createRowNilai("Headline utama Website Institusi V4", "website_v4_headline",
+				"Informasi resmi, layanan terpadu, dan dampak nyata", 3, null));
+		rows.appendChild(createRowNilai("Deskripsi singkat Website Institusi V4", "website_v4_description",
+				"Temukan informasi, layanan, berita, agenda, dan akses digital institusi melalui website resmi yang mudah digunakan.",
+				3, null));
+		rows.appendChild(createRowActiveDefault("Tampilkan bar pengumuman Website Institusi V4",
+				"website_v4_announcement_enabled", Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(createRowNilai("Isi bar pengumuman Website Institusi V4", "website_v4_announcement_text", ""));
+		rows.appendChild(createRowNilai("Judul SEO Website Institusi V4", "website_v4_meta_title", ""));
+		rows.appendChild(createRowNilai("Deskripsi SEO Website Institusi V4", "website_v4_meta_description", "", 3, null));
+		rows.appendChild(createRowActiveDefault("Tampilkan program pendidikan pada Website Institusi V4",
+				"website_v4_show_programs", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan penerimaan pada Website Institusi V4",
+				"website_v4_show_admission", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan berita pada Website Institusi V4",
+				"website_v4_show_news", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan agenda pada Website Institusi V4",
+				"website_v4_show_agenda", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Judul kecil website kampus", "website_eyebrow", "Website Resmi Kampus"));
 		rows.appendChild(createRowNilai("Tagline hero website kampus", "website_tagline",
 				"Pusat informasi resmi kampus untuk akademik, kemahasiswaan, layanan digital, prestasi, program studi, beasiswa, dan komunikasi publik institusi.",

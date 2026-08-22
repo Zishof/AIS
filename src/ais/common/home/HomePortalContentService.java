@@ -12,6 +12,7 @@ import ais.database.model.GelombangPendaftaran;
 import ais.database.model.Jurusan;
 import ais.database.model.KalenderAkademik;
 import ais.database.model.PengumumanAkademis;
+import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.GelombangPendaftaranPsb;
 
 /** Read-only, bounded public content queries. Failures hide a section instead of breaking home. */
@@ -24,24 +25,36 @@ public class HomePortalContentService {
     }
 
     @SuppressWarnings("unchecked")
-    public void loadPrograms(HomePortalViewModel vm, HomePortalSectionResolver config) {
+    public void loadPrograms(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         if (vm.institution.healthcare) return;
-        if (!vm.institution.college || vm.institution.id == null) return;
         Session session = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession();
-            List<Jurusan> rows = session.createQuery("select distinct j from Jurusan j left join fetch j.jenjang left join fetch j.fakultas where j.aktif = true and j.fakultas.perguruanTinggi.id = :pt order by j.nama")
-                    .setParameter("pt", vm.institution.id).setMaxResults(6).list();
-            String detailUrl = config.value("home_v3_programs_url", "#program");
-            for (Jurusan row : rows) {
-                HomePortalViewModel.ProgramItem item = new HomePortalViewModel.ProgramItem();
-                item.label = clean(row.getNama());
-                item.level = row.getJenjang() == null ? "" : clean(row.getJenjang().getNama());
-                item.unit = row.getFakultas() == null ? "" : clean(row.getFakultas().getNama());
-                item.accreditation = clean(row.getPeringkatAkreditasi());
-                item.description = compact(first(row.getDeskripsi(), row.getProfil()), 180);
-                copyLink(item, links.resolve(detailUrl, "#program"));
-                if (item.label.length() > 0) vm.programs.add(item);
+            String detailUrl = config.value(prefix + "_programs_url", "#program");
+            if (vm.institution.college && vm.institution.id != null) {
+                List<Jurusan> rows = session.createQuery("select distinct j from Jurusan j left join fetch j.jenjang left join fetch j.fakultas where j.aktif = true and j.fakultas.perguruanTinggi.id = :pt order by j.nama")
+                        .setParameter("pt", vm.institution.id).setMaxResults(6).list();
+                for (Jurusan row : rows) {
+                    HomePortalViewModel.ProgramItem item = new HomePortalViewModel.ProgramItem();
+                    item.label = clean(row.getNama());
+                    item.level = row.getJenjang() == null ? "" : clean(row.getJenjang().getNama());
+                    item.unit = row.getFakultas() == null ? "" : clean(row.getFakultas().getNama());
+                    item.accreditation = clean(row.getPeringkatAkreditasi());
+                    item.description = compact(first(row.getDeskripsi(), row.getProfil()), 180);
+                    copyLink(item, links.resolve(detailUrl, "#program"));
+                    if (item.label.length() > 0) vm.programs.add(item);
+                }
+            } else if (vm.institution.schoolId != null) {
+                List<KelasSiswa> rows = session.createQuery("from KelasSiswa k where k.aktif = true and k.sekolah.id = :school order by k.tingkat, k.nama")
+                        .setParameter("school", vm.institution.schoolId).setMaxResults(6).list();
+                for (KelasSiswa row : rows) {
+                    HomePortalViewModel.ProgramItem item = new HomePortalViewModel.ProgramItem();
+                    item.label = clean(row.getNama());
+                    item.level = row.getTingkat() == null || row.getTingkat().intValue() <= 0 ? "" : "Tingkat " + row.getTingkat();
+                    item.description = compact(row.getKeterangan(), 180);
+                    copyLink(item, links.resolve(detailUrl, "#program"));
+                    if (item.label.length() > 0) vm.programs.add(item);
+                }
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadPrograms");
@@ -51,7 +64,7 @@ public class HomePortalContentService {
     }
 
     @SuppressWarnings("unchecked")
-    public void loadNews(HomePortalViewModel vm, HomePortalSectionResolver config) {
+    public void loadNews(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         if (vm.institution.healthcare) return;
         Session session = null;
         try {
@@ -66,7 +79,7 @@ public class HomePortalContentService {
                     .setParameter("tenant", vm.institution.college ? vm.institution.id : (vm.institution.schoolId != null ? vm.institution.schoolId : vm.institution.foundationId))
                     .setMaxResults(3);
             List<PengumumanAkademis> rows = query.list();
-            String url = config.value("home_v3_news_url", "#informasi");
+            String url = config.value(prefix + "_news_url", "#informasi");
             for (PengumumanAkademis row : rows) {
                 HomePortalViewModel.NewsItem item = new HomePortalViewModel.NewsItem();
                 item.label = clean(row.getJudul());
@@ -84,14 +97,14 @@ public class HomePortalContentService {
     }
 
     @SuppressWarnings("unchecked")
-    public void loadAdmission(HomePortalViewModel vm, HomePortalSectionResolver config) {
+    public void loadAdmission(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         if (vm.institution.healthcare) {
             HomePortalViewModel.Admission a = new HomePortalViewModel.Admission();
-            a.period = config.value("home_v3_patient_registration_period", "Pendaftaran layanan tersedia");
-            a.label = config.value("home_v3_primary_cta_label", "Daftar Pasien");
-            a.description = config.value("home_v3_admission_description", "Daftarkan pasien, pilih layanan, dan ikuti petunjuk konfirmasi melalui portal resmi.");
-            a.open = config.enabled("home_v3_patient_registration_open", true);
-            copyLink(a, links.resolve(config.value("home_v3_primary_cta_url", "/login"), "/login"));
+            a.period = config.value(prefix + "_patient_registration_period", "Pendaftaran layanan tersedia");
+            a.label = config.value(prefix + "_primary_cta_label", "Daftar Pasien");
+            a.description = config.value(prefix + "_admission_description", "Daftarkan pasien, pilih layanan, dan ikuti petunjuk konfirmasi melalui portal resmi.");
+            a.open = config.enabled(prefix + "_patient_registration_open", true);
+            copyLink(a, links.resolve(config.value(prefix + "_primary_cta_url", "/login"), "/login"));
             vm.admission = a;
             return;
         }
@@ -122,9 +135,9 @@ public class HomePortalContentService {
                     a.period = clean(g.getNama()); start = g.getMulai(); end = g.getSampai();
                 }
                 a.startDate = format(start); a.endDate = format(end); a.open = end == null || !end.before(now);
-                a.label = config.value("home_v3_primary_cta_label", "Daftar Sekarang");
-                a.description = config.value("home_v3_admission_description", "Temukan jadwal, persyaratan, dan proses penerimaan melalui portal resmi.");
-                copyLink(a, links.resolve(config.value("home_v3_primary_cta_url", vm.institution.college ? "/pmb" : "/ppdb"), vm.institution.college ? "/pmb" : "/ppdb"));
+                a.label = config.value(prefix + "_primary_cta_label", "Daftar Sekarang");
+                a.description = config.value(prefix + "_admission_description", "Temukan jadwal, persyaratan, dan proses penerimaan melalui portal resmi.");
+                copyLink(a, links.resolve(config.value(prefix + "_primary_cta_url", vm.institution.college ? "/pmb" : "/ppdb"), vm.institution.college ? "/pmb" : "/ppdb"));
                 vm.admission = a;
             }
         } catch (Exception e) {
@@ -135,7 +148,7 @@ public class HomePortalContentService {
     }
 
     @SuppressWarnings("unchecked")
-    public void loadAgenda(HomePortalViewModel vm, HomePortalSectionResolver config) {
+    public void loadAgenda(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         if (vm.institution.healthcare) return;
         Session session = null;
         try {
@@ -149,7 +162,7 @@ public class HomePortalContentService {
                 query.setParameter("tenant", vm.institution.schoolId != null ? vm.institution.schoolId : vm.institution.foundationId);
             }
             List<KalenderAkademik> rows = query.list();
-            String url = config.value("home_v3_agenda_url", "#informasi");
+            String url = config.value(prefix + "_agenda_url", "#informasi");
             SimpleDateFormat dayFormat = new SimpleDateFormat("dd", new Locale("id", "ID"));
             SimpleDateFormat monthFormat = new SimpleDateFormat("MMM", new Locale("id", "ID"));
             SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -171,23 +184,23 @@ public class HomePortalContentService {
         }
     }
 
-    public void loadConfiguredContent(HomePortalViewModel vm, HomePortalSectionResolver config) {
+    public void loadConfiguredContent(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         for (int n = 1; n <= 6; n++) {
-            String value = config.value("home_v3_stat_" + n + "_value", "");
-            String label = config.value("home_v3_stat_" + n + "_label", "");
+            String value = config.value(prefix + "_stat_" + n + "_value", "");
+            String label = config.value(prefix + "_stat_" + n + "_label", "");
             if (value.length() > 0 && label.length() > 0) {
                 HomePortalViewModel.StatItem item = new HomePortalViewModel.StatItem(); item.value = value; item.label = label; vm.statistics.add(item);
             }
         }
         if (vm.programs.isEmpty()) {
             for (int n = 1; n <= 6; n++) {
-                String name = config.value("home_v3_program_" + n + "_name", "");
+                String name = config.value(prefix + "_program_" + n + "_name", "");
                 if (name.length() == 0) continue;
                 HomePortalViewModel.ProgramItem item = new HomePortalViewModel.ProgramItem();
-                item.label = name; item.level = config.value("home_v3_program_" + n + "_level", "");
-                item.accreditation = config.value("home_v3_program_" + n + "_accreditation", "");
-                item.description = config.value("home_v3_program_" + n + "_description", "");
-                copyLink(item, links.resolve(config.value("home_v3_program_" + n + "_url", "#program"), "#program"));
+                item.label = name; item.level = config.value(prefix + "_program_" + n + "_level", "");
+                item.accreditation = config.value(prefix + "_program_" + n + "_accreditation", "");
+                item.description = config.value(prefix + "_program_" + n + "_description", "");
+                copyLink(item, links.resolve(config.value(prefix + "_program_" + n + "_url", "#program"), "#program"));
                 vm.programs.add(item);
             }
         }

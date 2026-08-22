@@ -10,55 +10,66 @@ public class HomePortalService {
     private final HomePortalContentService content = new HomePortalContentService(links);
 
     public HomePortalViewModel build(HttpServletRequest request) {
+        return build(request, "home_v3", false);
+    }
+
+    /** Builds the official institution website without sharing its presentation settings with the app home. */
+    public HomePortalViewModel buildWebsite(HttpServletRequest request) {
+        return build(request, "website_v4", true);
+    }
+
+    private HomePortalViewModel build(HttpServletRequest request, String prefix, boolean website) {
         HomePortalViewModel vm = new HomePortalViewModel();
         vm.contextPath = request.getContextPath();
         vm.language = Common.kodeBahasaAktif();
         vm.direction = "ar".equals(vm.language) ? "rtl" : "ltr";
-        vm.assetVersion = config.value("home_v3_asset_version", "3.1.0");
+        vm.assetVersion = config.value(prefix + "_asset_version", website ? "4.0.0" : "3.1.0");
         vm.institution = new HomePortalInstitutionResolver().resolve(request);
         resolveTerminology(vm);
         resolveDigitalPortal(vm);
-        vm.eyebrow = config.value("judul_kecil_home_portal", vm.institution.healthcare
-                ? "Portal Layanan Kesehatan" : "Enterprise Education Portal");
-        vm.headline = config.value("home_v3_headline", vm.institution.healthcare
+        vm.eyebrow = config.value(website ? "website_v4_eyebrow" : "judul_kecil_home_portal", vm.institution.healthcare
+                ? "Website Resmi Fasilitas Kesehatan" : "Website Resmi Institusi");
+        vm.headline = config.value(prefix + "_headline", vm.institution.healthcare
                 ? "Pelayanan kesehatan tepercaya, mudah diakses, dan berpusat pada pasien"
                 : vm.institution.college
                 ? "Membentuk generasi unggul, adaptif, dan berdampak"
                 : "Menumbuhkan generasi berkarakter, berprestasi, dan siap masa depan");
-        vm.description = config.value("home_v3_description", vm.institution.healthcare
+        String descriptionFallback = vm.institution.healthcare
                 ? "Satu pintu untuk mengenal " + vm.institution.name + ", melihat layanan kesehatan, jadwal, informasi pasien, dan akses layanan digital."
                 : "Satu pintu untuk mengenal " + vm.terminology.institutionLabel.toLowerCase()
-                + ", menemukan " + vm.terminology.programLabel.toLowerCase() + ", mengikuti penerimaan, dan mengakses seluruh layanan digital.");
+                + ", menemukan " + vm.terminology.programLabel.toLowerCase() + ", mengikuti penerimaan, dan mengakses seluruh layanan digital.";
+        if (website) descriptionFallback = config.value("website_tagline", descriptionFallback);
+        vm.description = config.value(prefix + "_description", descriptionFallback);
         String loginKey = vm.institution.healthcare ? "link_modul_login_emedic" : "link_modul_login_ecampus";
         HomePortalViewModel.LinkItem login = links.resolve(config.value(loginKey, "/login"), "/login");
         vm.loginUrl = login.url; vm.loginTarget = login.target; vm.loginRel = login.rel;
         String primaryFallback = vm.institution.healthcare ? "/login" : (vm.institution.college ? "/pmb" : "/ppdb");
-        HomePortalViewModel.LinkItem primary = links.resolve(config.value("home_v3_primary_cta_url", primaryFallback), primaryFallback);
-        vm.primaryLabel = config.value("home_v3_primary_cta_label", vm.terminology.admissionLabel);
+        HomePortalViewModel.LinkItem primary = links.resolve(config.value(prefix + "_primary_cta_url", primaryFallback), primaryFallback);
+        vm.primaryLabel = config.value(prefix + "_primary_cta_label", vm.terminology.admissionLabel);
         vm.primaryUrl = primary.url; vm.primaryTarget = primary.target; vm.primaryRel = primary.rel;
-        HomePortalViewModel.LinkItem secondary = links.resolve(config.value("home_v3_secondary_cta_url", vm.institution.healthcare ? "#layanan" : "#program"), vm.institution.healthcare ? "#layanan" : "#program");
-        vm.secondaryLabel = config.value("home_v3_secondary_cta_label", "Jelajahi " + vm.terminology.programLabel);
+        HomePortalViewModel.LinkItem secondary = links.resolve(config.value(prefix + "_secondary_cta_url", vm.institution.healthcare ? "#layanan" : "#program"), vm.institution.healthcare ? "#layanan" : "#program");
+        vm.secondaryLabel = config.value(prefix + "_secondary_cta_label", "Jelajahi " + vm.terminology.programLabel);
         vm.secondaryUrl = secondary.url; vm.secondaryTarget = secondary.target; vm.secondaryRel = secondary.rel;
-        configureAnnouncement(vm);
-        configureSections(vm);
+        configureAnnouncement(vm, prefix);
+        configureSections(vm, prefix);
         addServices(vm);
-        if (vm.showPrograms) content.loadPrograms(vm, config);
-        if (vm.showAdmission) content.loadAdmission(vm, config);
-        if (vm.showNews) content.loadNews(vm, config);
-        if (vm.showAgenda) content.loadAgenda(vm, config);
-        content.loadConfiguredContent(vm, config);
-        addImpacts(vm);
+        if (vm.showPrograms) content.loadPrograms(vm, config, prefix);
+        if (vm.showAdmission) content.loadAdmission(vm, config, prefix);
+        if (vm.showNews) content.loadNews(vm, config, prefix);
+        if (vm.showAgenda) content.loadAgenda(vm, config, prefix);
+        content.loadConfiguredContent(vm, config, prefix);
+        addImpacts(vm, prefix);
         vm.showPrograms = vm.showPrograms && !vm.programs.isEmpty();
         vm.showAdmission = vm.showAdmission && vm.admission != null;
         vm.showNews = vm.showNews && !vm.news.isEmpty();
         vm.showAgenda = vm.showAgenda && !vm.agenda.isEmpty();
-        vm.androidUrl = safeAppUrl(config.value("home_v3_mobile_app_android_url",
+        vm.androidUrl = safeAppUrl(config.value(prefix + "_mobile_app_android_url",
                 "https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
-        vm.iosUrl = safeAppUrl(config.value("home_v3_mobile_app_ios_url",
+        vm.iosUrl = safeAppUrl(config.value(prefix + "_mobile_app_ios_url",
                 "https://apps.apple.com/id/app/ecampus/id6503487876?l=id"));
-        vm.desktopUrl = safeAppUrl(config.value("home_v3_desktop_app_url",
+        vm.desktopUrl = safeAppUrl(config.value(prefix + "_desktop_app_url",
                 "https://github.com/Zishof/ecampus-eschool-releases/releases/latest"));
-        vm.seo = new HomePortalSeoService().build(vm, config, request.getRequestURL().toString());
+        vm.seo = new HomePortalSeoService().build(vm, config, request.getRequestURL().toString(), prefix);
         return vm;
     }
 
@@ -94,34 +105,34 @@ public class HomePortalService {
         }
     }
 
-    private void configureAnnouncement(HomePortalViewModel vm) {
-        vm.announcementText = config.value("home_v3_announcement_text", "");
-        HomePortalViewModel.LinkItem link = links.resolve(config.value("home_v3_announcement_url", vm.primaryUrl), vm.primaryUrl);
+    private void configureAnnouncement(HomePortalViewModel vm, String prefix) {
+        vm.announcementText = config.value(prefix + "_announcement_text", "");
+        HomePortalViewModel.LinkItem link = links.resolve(config.value(prefix + "_announcement_url", vm.primaryUrl), vm.primaryUrl);
         vm.announcementUrl = link.url; vm.announcementTarget = link.target; vm.announcementRel = link.rel;
-        vm.showAnnouncement = config.enabled("home_v3_announcement_enabled", false) && vm.announcementText.length() > 0;
+        vm.showAnnouncement = config.enabled(prefix + "_announcement_enabled", false) && vm.announcementText.length() > 0;
     }
 
-    private void configureSections(HomePortalViewModel vm) {
+    private void configureSections(HomePortalViewModel vm, String prefix) {
         if (vm.institution.healthcare) {
-            vm.showPrograms = config.enabled("home_v3_show_health_services", true);
-            vm.showAdmission = config.enabled("home_v3_show_patient_registration", true);
-            vm.showNews = config.enabled("home_v3_show_health_news", false);
-            vm.showAgenda = config.enabled("home_v3_show_health_agenda", false);
-            vm.showImpact = config.enabled("home_v3_show_health_quality", true)
-                    || config.enabled("home_v3_show_health_facilities", true);
-            vm.showPartners = config.enabled("home_v3_show_partners", false);
-            vm.showSearch = config.enabled("home_v3_show_site_search", false);
-            vm.showLanguage = config.enabled("home_v3_show_language_switcher", true);
+            vm.showPrograms = config.enabled(prefix + "_show_health_services", true);
+            vm.showAdmission = config.enabled(prefix + "_show_patient_registration", true);
+            vm.showNews = config.enabled(prefix + "_show_health_news", false);
+            vm.showAgenda = config.enabled(prefix + "_show_health_agenda", false);
+            vm.showImpact = config.enabled(prefix + "_show_health_quality", true)
+                    || config.enabled(prefix + "_show_health_facilities", true);
+            vm.showPartners = config.enabled(prefix + "_show_partners", false);
+            vm.showSearch = config.enabled(prefix + "_show_site_search", false);
+            vm.showLanguage = config.enabled(prefix + "_show_language_switcher", true);
             return;
         }
-        vm.showPrograms = config.enabled("home_v3_show_programs", true);
-        vm.showAdmission = config.enabled("home_v3_show_admission", true);
-        vm.showNews = config.enabled("home_v3_show_news", true);
-        vm.showAgenda = config.enabled("home_v3_show_agenda", true);
-        vm.showImpact = config.enabled("home_v3_show_research", true) || config.enabled("home_v3_show_achievements", true);
-        vm.showPartners = config.enabled("home_v3_show_partners", false);
-        vm.showSearch = config.enabled("home_v3_show_site_search", false);
-        vm.showLanguage = config.enabled("home_v3_show_language_switcher", true);
+        vm.showPrograms = config.enabled(prefix + "_show_programs", true);
+        vm.showAdmission = config.enabled(prefix + "_show_admission", true);
+        vm.showNews = config.enabled(prefix + "_show_news", true);
+        vm.showAgenda = config.enabled(prefix + "_show_agenda", true);
+        vm.showImpact = config.enabled(prefix + "_show_research", true) || config.enabled(prefix + "_show_achievements", true);
+        vm.showPartners = config.enabled(prefix + "_show_partners", false);
+        vm.showSearch = config.enabled(prefix + "_show_site_search", false);
+        vm.showLanguage = config.enabled(prefix + "_show_language_switcher", true);
     }
 
     private void addServices(HomePortalViewModel vm) {
@@ -175,22 +186,22 @@ public class HomePortalService {
         apply(item, links.resolve(config.value(linkKey, fallback), fallback)); vm.services.add(item);
     }
 
-    private void addImpacts(HomePortalViewModel vm) {
+    private void addImpacts(HomePortalViewModel vm, String prefix) {
         if (!vm.showImpact) return;
         if (vm.institution.healthcare) {
-            if (config.enabled("home_v3_show_health_quality", true)) {
-                impact(vm, "Mutu & Keselamatan", "Pelayanan yang mengutamakan mutu, keselamatan, dan kebutuhan pasien.", "fa-award", config.value("home_v3_health_quality_url", "#layanan"));
-                impact(vm, "Tenaga Kesehatan", "Informasi layanan dokter dan tenaga kesehatan profesional.", "fa-users", config.value("home_v3_health_staff_url", "#layanan"));
+            if (config.enabled(prefix + "_show_health_quality", true)) {
+                impact(vm, "Mutu & Keselamatan", "Pelayanan yang mengutamakan mutu, keselamatan, dan kebutuhan pasien.", "fa-award", config.value(prefix + "_health_quality_url", "#layanan"));
+                impact(vm, "Tenaga Kesehatan", "Informasi layanan dokter dan tenaga kesehatan profesional.", "fa-users", config.value(prefix + "_health_staff_url", "#layanan"));
             }
-            if (config.enabled("home_v3_show_health_facilities", true)) impact(vm, "Fasilitas", "Sarana layanan kesehatan yang mudah dijangkau masyarakat.", "fa-building", config.value("home_v3_health_facilities_url", "#kontak"));
-            impact(vm, "Informasi Publik", "Informasi resmi, edukasi kesehatan, dan kontak layanan.", "fa-file-alt", config.value("home_v3_health_information_url", "#informasi"));
+            if (config.enabled(prefix + "_show_health_facilities", true)) impact(vm, "Fasilitas", "Sarana layanan kesehatan yang mudah dijangkau masyarakat.", "fa-building", config.value(prefix + "_health_facilities_url", "#kontak"));
+            impact(vm, "Informasi Publik", "Informasi resmi, edukasi kesehatan, dan kontak layanan.", "fa-file-alt", config.value(prefix + "_health_information_url", "#kontak"));
             vm.showImpact = !vm.impacts.isEmpty();
             return;
         }
-        if (config.enabled("home_v3_show_research", true)) impact(vm, "Riset & Inovasi", "Publikasi, proyek terapan, dan inovasi civitas akademika.", "fa-flask", config.value("home_v3_research_url", "#layanan"));
+        if (config.enabled(prefix + "_show_research", true)) impact(vm, "Riset & Inovasi", "Publikasi, proyek terapan, dan inovasi civitas akademika.", "fa-flask", config.value(prefix + "_research_url", "#layanan"));
         if (config.enabled("tampilkan_modul_karir", true)) impact(vm, "Karier", "Tracer study, lowongan, magang, dan pengembangan alumni.", "fa-briefcase", config.value("link_modul_karir", "/karir"));
-        if (config.enabled("home_v3_show_achievements", true)) impact(vm, "Prestasi", "Pencapaian peserta didik dan tenaga pendidik.", "fa-trophy", config.value("home_v3_achievements_url", "#informasi"));
-        if (config.enabled("home_v3_show_facilities", false)) impact(vm, "Fasilitas", "Ruang belajar dan fasilitas pendukung institusi.", "fa-building", config.value("home_v3_facilities_url", "#kontak"));
+        if (config.enabled(prefix + "_show_achievements", true)) impact(vm, "Prestasi", "Pencapaian peserta didik dan tenaga pendidik.", "fa-trophy", config.value(prefix + "_achievements_url", "#layanan"));
+        if (config.enabled(prefix + "_show_facilities", false)) impact(vm, "Fasilitas", "Ruang belajar dan fasilitas pendukung institusi.", "fa-building", config.value(prefix + "_facilities_url", "#kontak"));
         vm.showImpact = !vm.impacts.isEmpty();
     }
 

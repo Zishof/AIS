@@ -2,11 +2,16 @@ package ais.common.home;
 
 public class HomePortalSeoService {
     public HomePortalViewModel.Seo build(HomePortalViewModel vm, HomePortalSectionResolver config, String requestUrl) {
+        return build(vm, config, requestUrl, "home_v3");
+    }
+
+    public HomePortalViewModel.Seo build(HomePortalViewModel vm, HomePortalSectionResolver config,
+            String requestUrl, String prefix) {
         HomePortalViewModel.Seo seo = new HomePortalViewModel.Seo();
-        seo.title = config.value("home_v3_meta_title", vm.institution.name + " - Website Resmi");
-        seo.description = config.value("home_v3_meta_description", vm.description);
+        seo.title = nonEmpty(config.value(prefix + "_meta_title", ""), vm.institution.name + " - Website Resmi");
+        seo.description = nonEmpty(config.value(prefix + "_meta_description", ""), vm.description);
         seo.canonical = requestUrl == null ? "" : requestUrl;
-        seo.image = config.value("home_v3_og_image", vm.institution.heroUrl);
+        seo.image = nonEmpty(config.value(prefix + "_og_image", ""), vm.institution.heroUrl);
         String type = vm.institution.healthcare ? "MedicalOrganization"
                 : (vm.institution.college ? "CollegeOrUniversity" : "School");
         StringBuilder json = new StringBuilder();
@@ -28,6 +33,10 @@ public class HomePortalSeoService {
 
     private void add(StringBuilder json, String key, String value) {
         if (value != null && value.trim().length() > 0) json.append(",\"").append(key).append("\":\"").append(escape(value)).append("\"");
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return value == null || value.trim().length() == 0 ? fallback : value.trim();
     }
 
     private String escape(String value) {

@@ -50,7 +50,7 @@ public class Web extends HttpServlet {
 		}
 
 		try {
-			request.setAttribute("website", new HomePortalService().build(request));
+			request.setAttribute("website", new HomePortalService().buildWebsite(request));
 			request.getRequestDispatcher("/WEB-INF/baru/website/home.jsp").forward(request, response);
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "Web website V4 fallback");

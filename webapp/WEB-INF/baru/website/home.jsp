@@ -26,6 +26,9 @@ private String initials(String name) {
     }
     return value.toString();
 }
+private boolean sectionOnly(String url, String section) {
+    return url == null || url.trim().length() == 0 || section.equals(url.trim());
+}
 %>
 <%
 HomePortalViewModel vm = (HomePortalViewModel) request.getAttribute("website");
@@ -44,6 +47,8 @@ String parent = vm.institution.healthcare ? "Keluarga pasien" : "Orang tua / wal
 String alumni = vm.institution.healthcare ? "Mitra layanan" : "Alumni";
 String impactAudience = vm.institution.healthcare ? "Tenaga kesehatan" : "Mitra industri";
 String media = "Media & masyarakat";
+String impactAnchor = vm.showImpact ? "#dampak" : "#layanan";
+String informationAnchor = (vm.showNews || vm.showAgenda) ? "#informasi" : "#kontak";
 String version = esc(text(vm.assetVersion, "4.0.0"));
 %>
 <!doctype html>
@@ -100,7 +105,6 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
             <a href="#layanan">Layanan</a>
         </nav>
         <div class="header-actions">
-            <% if (vm.showSearch) { %><a class="button button--quiet desktop-action" href="#pencarian">Cari</a><% } %>
             <a class="button button--quiet desktop-action" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Masuk Portal</a>
             <a class="button button--primary desktop-action" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><%=esc(vm.primaryLabel)%></a>
             <button class="menu-button" type="button" data-menu-open aria-controls="mobile-menu" aria-expanded="false"><span>Menu</span><span aria-hidden="true">☰</span></button>
@@ -120,8 +124,8 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
         <a href="#layanan">Layanan</a><a href="#kontak">Kontak</a>
     </nav>
     <div class="mobile-menu__actions">
-        <a class="button button--primary" href="<%=esc(vm.primaryUrl)%>"><%=esc(vm.primaryLabel)%></a>
-        <a class="button" href="<%=esc(vm.loginUrl)%>">Masuk Portal</a>
+        <a class="button button--primary" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><%=esc(vm.primaryLabel)%></a>
+        <a class="button" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Masuk Portal</a>
     </div>
 </aside>
 
@@ -151,7 +155,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
                 <% } %>
                 <a class="float-card float-card--portal" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>"><small>Portal digital</small><strong><%=esc(vm.digitalPortalTitle)%></strong><span><%=esc(vm.digitalPortalSummary)%></span></a>
                 <% if (!vm.agenda.isEmpty()) { HomePortalViewModel.AgendaItem agendaHero = vm.agenda.get(0); %>
-                <a class="float-card float-card--agenda" href="<%=esc(agendaHero.url)%>"<%=attrs(agendaHero)%>><small>Agenda</small><strong><%=esc(agendaHero.label)%></strong><span><%=esc(agendaHero.date)%></span></a>
+                <% if (sectionOnly(agendaHero.url, "#informasi")) { %><div class="float-card float-card--agenda"><small>Agenda</small><strong><%=esc(agendaHero.label)%></strong><span><%=esc(agendaHero.date)%></span></div><% } else { %><a class="float-card float-card--agenda" href="<%=esc(agendaHero.url)%>"<%=attrs(agendaHero)%>><small>Agenda</small><strong><%=esc(agendaHero.label)%></strong><span><%=esc(agendaHero.date)%></span></a><% } %>
                 <% } %>
             </div>
         </div>
@@ -170,8 +174,8 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
             <a class="persona" href="<%=esc(vm.loginUrl)%>"><span>02</span><strong><%=esc(activeLearner)%></strong><small>Portal, informasi, dan layanan digital.</small></a>
             <a class="persona" href="#kontak"><span>03</span><strong><%=esc(parent)%></strong><small>Informasi resmi dan kanal komunikasi.</small></a>
             <a class="persona" href="#layanan"><span>04</span><strong><%=esc(alumni)%></strong><small>Jejaring, karier, dan layanan terkait.</small></a>
-            <a class="persona" href="#dampak"><span>05</span><strong><%=esc(impactAudience)%></strong><small>Kolaborasi, mutu, riset, dan dampak.</small></a>
-            <a class="persona" href="#informasi"><span>06</span><strong><%=esc(media)%></strong><small>Berita, agenda, dokumen, dan kontak.</small></a>
+            <a class="persona" href="<%=impactAnchor%>"><span>05</span><strong><%=esc(impactAudience)%></strong><small>Kolaborasi, mutu, riset, dan dampak.</small></a>
+            <a class="persona" href="<%=informationAnchor%>"><span>06</span><strong><%=esc(media)%></strong><small>Berita, agenda, dokumen, dan kontak.</small></a>
         </div></div>
     </section>
 
@@ -184,7 +188,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
                 <div class="chips"><% if (item.level != null && item.level.length() > 0) { %><span><%=esc(item.level)%></span><% } %><% if (item.accreditation != null && item.accreditation.length() > 0) { %><span>Akreditasi <%=esc(item.accreditation)%></span><% } %></div>
                 <h3><%=esc(item.label)%></h3><% if (item.unit != null && item.unit.length() > 0) { %><small class="unit"><%=esc(item.unit)%></small><% } %>
                 <% if (item.description != null && item.description.length() > 0) { %><p><%=esc(item.description)%></p><% } %>
-                <div class="card-actions"><a class="button" href="<%=esc(item.url)%>"<%=attrs(item)%>>Pelajari program</a><a class="button button--primary" href="<%=esc(vm.primaryUrl)%>">Daftar</a></div>
+                <div class="card-actions"><% if (!sectionOnly(item.url, "#program")) { %><a class="button" href="<%=esc(item.url)%>"<%=attrs(item)%>>Pelajari program</a><% } %><a class="button button--primary" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>">Daftar</a></div>
             </article>
         <% } %>
         </div>
@@ -206,11 +210,11 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
                 <% for (int i = 0; i < vm.news.size(); i++) { HomePortalViewModel.NewsItem item = vm.news.get(i); %>
                 <article class="news-card <%=i == 0 ? "news-card--featured" : ""%>">
                     <% if (item.imageUrl != null && item.imageUrl.length() > 0) { %><img src="<%=esc(item.imageUrl)%>" alt="" loading="lazy"><% } %>
-                    <div><span class="kicker"><%=esc(text(item.category, "Informasi"))%> <% if (item.date != null && item.date.length() > 0) { %>• <%=esc(item.date)%><% } %></span><h3><%=esc(item.label)%></h3><% if (item.summary != null && item.summary.length() > 0) { %><p><%=esc(item.summary)%></p><% } %><a class="text-link" href="<%=esc(item.url)%>"<%=attrs(item)%>>Baca selengkapnya <span aria-hidden="true">→</span></a></div>
+                    <div><span class="kicker"><%=esc(text(item.category, "Informasi"))%> <% if (item.date != null && item.date.length() > 0) { %>• <%=esc(item.date)%><% } %></span><h3><%=esc(item.label)%></h3><% if (item.summary != null && item.summary.length() > 0) { %><p><%=esc(item.summary)%></p><% } %><% if (!sectionOnly(item.url, "#informasi")) { %><a class="text-link" href="<%=esc(item.url)%>"<%=attrs(item)%>>Baca selengkapnya <span aria-hidden="true">→</span></a><% } %></div>
                 </article><% } %>
             </div><% } %>
             <% if (vm.showAgenda) { %><aside class="agenda-panel"><span class="kicker">Agenda mendatang</span><h3>Jadwal kegiatan</h3>
-                <% for (HomePortalViewModel.AgendaItem item : vm.agenda) { %><a class="agenda-item" href="<%=esc(item.url)%>"<%=attrs(item)%>><span class="agenda-date"><strong><%=esc(item.day)%></strong><small><%=esc(item.month)%></small></span><span><strong><%=esc(item.label)%></strong><small><%=esc(text(item.description, item.date))%></small></span></a><% } %>
+                <% for (HomePortalViewModel.AgendaItem item : vm.agenda) { %><% if (sectionOnly(item.url, "#informasi")) { %><div class="agenda-item"><span class="agenda-date"><strong><%=esc(item.day)%></strong><small><%=esc(item.month)%></small></span><span><strong><%=esc(item.label)%></strong><small><%=esc(text(item.description, item.date))%></small></span></div><% } else { %><a class="agenda-item" href="<%=esc(item.url)%>"<%=attrs(item)%>><span class="agenda-date"><strong><%=esc(item.day)%></strong><small><%=esc(item.month)%></small></span><span><strong><%=esc(item.label)%></strong><small><%=esc(text(item.description, item.date))%></small></span></a><% } %><% } %>
             </aside><% } %>
         </div>
     </div></section>
@@ -233,7 +237,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     </address></div></section>
 </main>
 
-<footer class="site-footer"><div class="wrap footer-grid"><div class="footer-brand"><div class="brand brand--footer"><span class="brand-logo"><img src="<%=esc(vm.institution.logoUrl)%>" alt="" width="52" height="52"></span><span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small>Informasi institusi dan layanan digital resmi</small></span></div><p><%=esc(text(vm.institution.motto, vm.institution.address))%></p></div><div><h2>Tentang</h2><a href="#beranda">Beranda</a><a href="#tentang">Profil ringkas</a><a href="#kontak">Kontak</a></div><div><h2>Informasi</h2><% if (vm.showPrograms) { %><a href="#program"><%=esc(vm.terminology.programLabel)%></a><% } %><% if (vm.showAdmission) { %><a href="#penerimaan">Penerimaan</a><% } %><a href="#informasi">Berita &amp; agenda</a></div><div><h2>Layanan</h2><a href="<%=esc(vm.loginUrl)%>">Portal digital</a><a href="#layanan">Seluruh layanan</a><a href="#kontak">Bantuan</a></div></div><div class="wrap footer-bottom"><span>© <%=Calendar.getInstance().get(Calendar.YEAR)%> <%=esc(vm.institution.name)%>. Seluruh hak dilindungi.</span><a href="#konten-utama">Kembali ke atas ↑</a></div></footer>
+<footer class="site-footer"><div class="wrap footer-grid"><div class="footer-brand"><div class="brand brand--footer"><span class="brand-logo"><img src="<%=esc(vm.institution.logoUrl)%>" alt="" width="52" height="52"></span><span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small>Informasi institusi dan layanan digital resmi</small></span></div><p><%=esc(text(vm.institution.motto, vm.institution.address))%></p></div><div><h2>Tentang</h2><a href="#beranda">Beranda</a><a href="#tentang">Profil ringkas</a><a href="#kontak">Kontak</a></div><div><h2>Informasi</h2><% if (vm.showPrograms) { %><a href="#program"><%=esc(vm.terminology.programLabel)%></a><% } %><% if (vm.showAdmission) { %><a href="#penerimaan">Penerimaan</a><% } %><% if (vm.showNews || vm.showAgenda) { %><a href="#informasi">Berita &amp; agenda</a><% } %></div><div><h2>Layanan</h2><a href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Portal digital</a><a href="#layanan">Seluruh layanan</a><a href="#kontak">Bantuan</a></div></div><div class="wrap footer-bottom"><span>© <%=Calendar.getInstance().get(Calendar.YEAR)%> <%=esc(vm.institution.name)%>. Seluruh hak dilindungi.</span><a href="#konten-utama">Kembali ke atas ↑</a></div></footer>
 <script src="<%=root%>/js/baru/website-v4.js?v=<%=version%>" defer></script>
 </body>
 </html>
