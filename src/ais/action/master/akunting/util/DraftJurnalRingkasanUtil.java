@@ -96,7 +96,7 @@ public final class DraftJurnalRingkasanUtil {
      * (mis. {@code mahasiswa} dan {@code siswa}).
      */
     public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "kas_kecil",
-            "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "pajak",
+            "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp" };
@@ -174,6 +174,12 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), true),
                     hitungClosing(session, "penggantianKasKecil", null, null, mulai, sampai)));
+        } else if ("dana_talangan".equals(kunci)) {
+            out.add(new Baris(kunci, "Dana Talangan",
+                    "Dana talangan yang disetujui dipastikan menjadi jurnal.",
+                    hitungPostingHistory(session, kriteriaDanaTalangan(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaDanaTalangan(session, mulai, sampai), true),
+                    hitungClosing(session, "danaTalangan", null, null, mulai, sampai)));
         } else if ("pajak".equals(kunci)) {
             out.add(new Baris(kunci, "Pajak",
                     "Setoran pajak yang tercatat dipastikan sudah memiliki jurnal pajak.",
@@ -323,6 +329,14 @@ public final class DraftJurnalRingkasanUtil {
         return session.createCriteria(ais.database.model.akunting.PenggantianKasKecil.class)
                 .createAlias("daftarPengajuanTransfer", "dpt")
                 .add(Restrictions.isNotNull("dpt.prosesTransfer"))
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /** Sejalan dengan PostingDanaTalanganAction: cukup disetujui & bernilai. */
+    private static Criteria kriteriaDanaTalangan(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.akunting.DanaTalangan.class)
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
@@ -529,6 +543,7 @@ public final class DraftJurnalRingkasanUtil {
         if ("Penggantian Kas Kecil".equals(namaBaris)) {
             return kriteriaPenggantianKasKecil(session, mulai, sampai);
         }
+        if ("Dana Talangan".equals(namaBaris)) return kriteriaDanaTalangan(session, mulai, sampai);
         if ("Pajak".equals(namaBaris)) return kriteriaPajak(session, mulai, sampai);
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) {
             return kriteriaPenerimaanTagihanVendor(session, mulai, sampai);

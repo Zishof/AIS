@@ -62,6 +62,9 @@ public final class TransferDpcUtil {
 		if ("penggantian_kas_kecil".equals(modul)) {
 			return "penggantian_kas_kecil";
 		}
+		if ("dana_talangan".equals(modul)) {
+			return "dana_talangan";
+		}
 		return null;
 	}
 
@@ -144,6 +147,20 @@ public final class TransferDpcUtil {
 					masalah = "Penggantian kas kecil baru bisa diajukan setelah disetujui.";
 				} else {
 					DaftarPengajuanTransfer.simpanPenggantianKasKecil(e);
+					dpc = e.getDaftarPengajuanTransfer();
+				}
+			} else if ("dana_talangan".equals(modul)) {
+				ais.database.model.akunting.DanaTalangan e = (ais.database.model.akunting.DanaTalangan) session
+						.get(ais.database.model.akunting.DanaTalangan.class, Long.valueOf(id));
+				if (e == null) {
+					masalah = "Dana talangan tidak ditemukan.";
+				} else if (e.getDaftarPengajuanTransfer() != null) {
+					dpc = e.getDaftarPengajuanTransfer();
+				} else if (e.getDisetujuiOleh() == null
+						|| !ais.database.model.akunting.DanaTalangan.DISETUJU.equals(e.getStatus())) {
+					masalah = "Dana talangan baru bisa diajukan ke proses transfer setelah disetujui.";
+				} else {
+					DaftarPengajuanTransfer.simpanDanaTalangan(e);
 					dpc = e.getDaftarPengajuanTransfer();
 				}
 			} else if ("pj_uang_muka".equals(modul)) {

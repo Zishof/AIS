@@ -39,6 +39,7 @@ public final class KeuanganApiHelper {
 			{ "pj_kas_besar", "pj_kas_besar" },
 			{ "kas_kecil", "kas_kecil" },
 			{ "penggantian_kas_kecil", "penggantian_kas_kecil" },
+			{ "dana_talangan", "dana_talangan" },
 	};
 
 	private KeuanganApiHelper() {
@@ -119,7 +120,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil.");
+			tolak(hasil, "Modul dasbor tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil, dana_talangan.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -142,6 +143,8 @@ public final class KeuanganApiHelper {
 				dasborKasKecil(session, bulan, hasil);
 			} else if ("penggantian_kas_kecil".equals(modul)) {
 				dasborPenggantianKasKecil(session, bulan, hasil);
+			} else if ("dana_talangan".equals(modul)) {
+				dasborDanaTalangan(session, bulan, hasil);
 			} else {
 				dasborPj(session, bulan, hasil);
 			}
@@ -618,6 +621,86 @@ public final class KeuanganApiHelper {
 		hasil.put("catatanKosong", "Belum ada penggantian kas kecil pada periode ini.");
 	}
 
+	/**
+	 * Dasbor Dana Talangan: berapa talangan yang masih menunggu persetujuan, dan berapa
+	 * yang sudah disetujui tetapi belum dijurnal. Selama belum disetujui, dana yang
+	 * menjembatani uang muka itu belum dapat dicairkan.
+	 */
+	private static void dasborDanaTalangan(Session session, int bulan, JSONObject hasil) throws Exception {
+		Connection conn = session.connection();
+		java.sql.Timestamp sejak = awalPeriode(bulan);
+
+		PreparedStatement ps = conn.prepareStatement(
+				"SELECT COALESCE(status,''), count(*), COALESCE(SUM(nilai),0),"
+						+ " COALESCE(SUM(CASE WHEN posting_history IS NULL THEN nilai ELSE 0 END),0)"
+						+ " FROM public.dana_talangan WHERE tanggal_pembuatan >= ?"
+						+ " GROUP BY COALESCE(status,'')");
+		ps.setTimestamp(1, sejak);
+		ResultSet rs = ps.executeQuery();
+		JSONArray komposisi = new JSONArray();
+		long total = 0;
+		double nilaiTotal = 0, nilaiMenunggu = 0, belumJurnal = 0;
+		while (rs.next()) {
+			String st = rs.getString(1);
+			long jml = rs.getLong(2);
+			double nilai = rs.getDouble(3);
+			total += jml;
+			nilaiTotal += nilai;
+			if (ais.database.model.akunting.DanaTalangan.PENGAJUAN.equals(st)) {
+				nilaiMenunggu += nilai;
+			}
+			if (ais.database.model.akunting.DanaTalangan.DISETUJU.equals(st)) {
+				belumJurnal += rs.getDouble(4);
+			}
+			komposisi.put(titik(st.isEmpty() ? "(tanpa status)" : st, jml));
+		}
+		rs.close();
+		ps.close();
+
+		JSONArray kpi = new JSONArray();
+		kpi.put(kartu("Jumlah Talangan", String.valueOf(total)));
+		kpi.put(kartu("Nilai Talangan", rupiah(nilaiTotal)));
+		kpi.put(kartu("Menunggu Persetujuan", rupiah(nilaiMenunggu)));
+		kpi.put(kartu("Disetujui, Belum Dijurnal", rupiah(belumJurnal)));
+
+		hasil.put("kpi", kpi);
+		hasil.put("komposisi", komposisi);
+		hasil.put("komposisiJudul", "Komposisi Status Dana Talangan");
+		hasil.put("tren", trenBulanan(conn,
+				"SELECT to_char(tanggal_pembuatan,'YYYY-MM'), COALESCE(SUM(nilai),0), count(*)"
+						+ " FROM public.dana_talangan WHERE tanggal_pembuatan >= ? GROUP BY 1",
+				sejak, bulan));
+		hasil.put("trenJudul", "Tren Nilai Dana Talangan per Bulan");
+		hasil.put("peringkat", peringkat(conn,
+				"SELECT COALESCE(j.nama,'(tanpa sumber)'), COALESCE(SUM(d.nilai),0)"
+						+ " FROM public.dana_talangan d"
+						+ " LEFT JOIN public.jenis_uang_muka j ON j.id = d.jenis_uang_muka"
+						+ " WHERE d.tanggal_pembuatan >= ? GROUP BY 1 ORDER BY 2 DESC LIMIT 8", sejak));
+		hasil.put("peringkatJudul", "Sumber Dana Talangan Terbesar");
+
+		ps = conn.prepareStatement(
+				"SELECT COALESCE(kode,''), COALESCE(nama,''), COALESCE(nilai,0),"
+						+ " GREATEST(0, DATE_PART('day', now() - tanggal_pembuatan))"
+						+ " FROM public.dana_talangan"
+						+ " WHERE COALESCE(status,'') = ?"
+						+ " ORDER BY tanggal_pembuatan ASC LIMIT 15");
+		ps.setString(1, ais.database.model.akunting.DanaTalangan.PENGAJUAN);
+		rs = ps.executeQuery();
+		JSONArray daftar = new JSONArray();
+		while (rs.next()) {
+			JSONObject j = new JSONObject();
+			j.put("kode", rs.getString(1));
+			j.put("keterangan", rs.getString(2) + " \u2014 " + rupiah(rs.getDouble(3)));
+			j.put("umurHari", (int) rs.getDouble(4));
+			daftar.put(j);
+		}
+		rs.close();
+		ps.close();
+		hasil.put("daftar", daftar);
+		hasil.put("daftarJudul", "Menunggu Persetujuan Paling Lama");
+		hasil.put("catatanKosong", "Belum ada dana talangan pada periode ini.");
+	}
+
 	/** Tren per bulan dalam kerangka penuh supaya bulan tanpa data tetap tampil sebagai 0. */
 	private static JSONArray trenBulanan(Connection conn, String sql, java.sql.Timestamp sejak, int bulan)
 			throws Exception {
@@ -674,7 +757,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil.");
+			tolak(hasil, "Modul cetak tidak dikenali. Pilih salah satu: uang_muka, pj_uang_muka, kas_besar, pj_kas_besar, kas_kecil, penggantian_kas_kecil, dana_talangan.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {

@@ -65,6 +65,7 @@ public final class DraftJurnalApiHelper {
         if ("Kas Besar".equals(namaBaris)) return "kas_besar";
         if ("Uang Muka".equals(namaBaris)) return "uang_muka";
         if ("Pertanggungjawaban Uang Muka".equals(namaBaris)) return "pj_uang_muka";
+        if ("Dana Talangan".equals(namaBaris)) return "dana_talangan";
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
         if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
         if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "pengajuan_transfer";
@@ -185,6 +186,11 @@ public final class DraftJurnalApiHelper {
                             tbmuser, new Date())
                     : ais.action.master.asset.PostingPemesananPekerjaanAction.batalkanPostingSemua(mulai,
                             sampai);
+        } else if ("Dana Talangan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingDanaTalanganAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.akunting.PostingDanaTalanganAction.batalkanPostingSemua(mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

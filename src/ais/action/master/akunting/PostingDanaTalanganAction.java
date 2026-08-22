@@ -1127,4 +1127,137 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================ mesin posting massal
+
+	/**
+	 * Penyaring dokumen yang layak diposting, disamakan dengan {@link #initCriteria}:
+	 * sudah disetujui, nilainya tidak nol, dan berada dalam rentang tanggal persetujuan.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		Criteria c = session.createCriteria(DanaTalangan.class)
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA dana talangan terposting dalam rentang: hapus jurnal yang belum
+	 * closing, lalu lepas penanda postingnya. Transaksinya dibuka sendiri karena dipanggil
+	 * dari API, di mana tidak ada kerangka ZK yang meng-commit-kan sesi berjalan.
+	 *
+	 * @return jumlah dokumen yang berhasil dibatalkan postingnya.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<DanaTalangan> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (DanaTalangan dok : daftar) {
+				try {
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where dana_talangan=" + dok.getId()
+							+ "  and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where dana_talangan="
+							+ dok.getId() + " and closing is null").executeUpdate();
+					dok.setPostingHistory(null);
+					session.update(dok);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA dana talangan yang belum diposting dalam rentang. Pasangan akunnya sama
+	 * dengan layar: debet ke akun jenis uang muka milik uang muka yang ditalangi, kredit ke
+	 * akun kelebihan pada sumber dana talangannya.
+	 *
+	 * @return jumlah dokumen yang berhasil diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PERSETUJUAN_UANG_MUKA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal dana talangan dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			List<DanaTalangan> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+
+			for (DanaTalangan dok : daftar) {
+				if (dok == null || dok.getUangMuka() == null || dok.getJenisUangMuka() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = dok.getUangMuka().getJenisUangMuka() == null ? null
+							: dok.getUangMuka().getJenisUangMuka().getAkun();
+					Akun akunKredit = dok.getJenisUangMuka().getAkunKelebihan();
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+					Double nilai = dok.getNilai();
+					if (nilai == null || nilai <= 0.1) {
+						continue;
+					}
+
+					String ket = "Persetujuan dana talangan \"" + dok.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+
+					session.getTransaction().begin();
+					CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory, true, ket,
+							dok.getTanggalPersetujuan(), nilai, 0.0, dok, dok.getSatuanKerja(), session);
+					dok.setPostingHistory(postingHistory);
+					session.update(dok);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+
 }
