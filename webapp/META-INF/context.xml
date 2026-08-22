@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Context path="/ais">
     <Resource auth="Container" driverClassName="org.postgresql.Driver" maxActive="200" maxIdle="10" maxWait="-1" name="jdbc/aisDB"
-              password="root123" type="javax.sql.DataSource" url="jdbc:postgresql://localhost:5433/ais" username="root"/>
+              password="${AIS_DB_PASSWORD}" type="javax.sql.DataSource" url="jdbc:postgresql://localhost:5433/ais" username="root"/>
     <ResourceLink global="jdbc/aisDB" name="jdbc/aisDB" type="javax.sql.DataSource"/>
 </Context>

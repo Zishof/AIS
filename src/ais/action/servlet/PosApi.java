@@ -769,6 +769,13 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("master_keuangan_")) {
+				// Master data grup "Keuangan": jenis uang muka, jenis kas kecil/besar, jenis
+				// reimbursement, jenis pengeluaran, dan cara pembayaran transfer. Selama ini
+				// hanya dapat dipelihara di layar ZK, padahal pemetaan akun di sanalah yang
+				// menentukan apakah dokumen Keuangan bisa terjurnal.
+				ais.action.servlet.api.MasterKeuanganApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("reimbursement_")) {
 				// Grup "Keuangan": reimbursement pegawai -- dipindahkan dari layar ZK
 				// ReimbursementPegawaiAction. Punya status Revisi, tidak hanya setuju/tolak.
