@@ -638,11 +638,21 @@ public class BMS extends HttpServlet {
 													}
 
 												} else if (idPemBul != null && idPemBul.startsWith("Item-")) {
+													String[] dataItem = idPemBul.split("-");
+													if (dataItem.length < 5 || dataItem[1] == null
+															|| dataItem[1].trim().length() == 0
+															|| dataItem[2] == null || dataItem[2].trim().length() == 0
+															|| dataItem[4] == null || dataItem[4].trim().length() == 0) {
+														ais.common.ErrorAuditUtil.record(new IllegalArgumentException(
+																"Format item pembayaran bank NTT tidak lengkap: " + idPemBul),
+																"BMS.doProcess:skip-item-format-tidak-valid");
+														continue;
+													}
 													ItemBiaya itemBiaya = (ItemBiaya) ConstantValues
 															.simpleObject(
 																	session.createCriteria(ItemBiaya.class)
 																			.add(Restrictions.idEq(Long.parseLong(
-																					idPemBul.split("-")[1]))),
+																					dataItem[1].trim()))),
 																	ItemBiaya.class);
 
 													if (itemBiaya != null) {
@@ -650,15 +660,13 @@ public class BMS extends HttpServlet {
 																+ virtualAccountBankNtt.getId();
 														Double subtotal = 0.0;
 														try {
-															String[] spl = idPemBul.split("-");
-															subtotal = Double.parseDouble(spl[2]);
+															subtotal = Double.parseDouble(dataItem[2].trim());
 														} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BMS.java:650");
 														}
 
 														Long detailBiayaId = null;
 														try {
-															String[] spl = idPemBul.split("-");
-															detailBiayaId = Long.parseLong(spl[4]);
+															detailBiayaId = Long.parseLong(dataItem[4].trim());
 														} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BMS.java:657");
 														}
 

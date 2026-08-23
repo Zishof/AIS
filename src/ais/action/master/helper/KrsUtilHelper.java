@@ -69,7 +69,7 @@ public class KrsUtilHelper {
 				.setLong("kunci", kunci).uniqueResult();
 
 		StringBuilder sql = new StringBuilder();
-		sql.append("select count(d.id) from detailperkuliahan d ");
+		sql.append("select count(d.id) as jumlah from detailperkuliahan d ");
 		sql.append("left join perkuliahan p on p.id=d.perkuliahan ");
 		sql.append("left join matakuliah m on m.id=coalesce(d.matakuliah_konversi,p.matakuliah) ");
 		sql.append("where d.mahasiswa=:mahasiswa and d.semester=:semester ");
@@ -88,7 +88,8 @@ public class KrsUtilHelper {
 			sql.append("and d.id<>:id ");
 		}
 
-		org.hibernate.SQLQuery query = session.createSQLQuery(sql.toString());
+		org.hibernate.SQLQuery query = session.createSQLQuery(sql.toString())
+				.addScalar("jumlah", org.hibernate.Hibernate.LONG);
 		query.setLong("mahasiswa", detailperkuliahan.getMahasiswa().getId());
 		query.setInteger("semester", semester == null ? 0 : semester.intValue());
 		query.setString("tahunAkademik", tahunAkademik == null ? "" : tahunAkademik);

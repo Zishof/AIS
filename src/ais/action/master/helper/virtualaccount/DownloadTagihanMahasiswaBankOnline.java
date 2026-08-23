@@ -238,9 +238,12 @@ public class DownloadTagihanMahasiswaBankOnline {
 
 				int jml_digit_prefix_va_bank_online = 10;
 				try {
-					jml_digit_prefix_va_bank_online = Integer.parseInt(Common
+					String nilaiDigitPrefix = Common
 							.getKonfigurasi("jml_digit_prefix_va_bank_online", jml_digit_prefix_va_bank_online + "")
-							.getNilai());
+							.getNilai();
+					if (nilaiDigitPrefix != null && nilaiDigitPrefix.trim().length() > 0) {
+						jml_digit_prefix_va_bank_online = Integer.parseInt(nilaiDigitPrefix.trim());
+					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/virtualaccount/DownloadTagihanMahasiswaBankOnline.java:244");
 					// TODO: handle exception
 				}
