@@ -1438,6 +1438,12 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 							ps.close();
 						}
 						session.getTransaction().commit();
+						
+						// Entitasnya dikeluarkan dari sesi. Kolom penandanya baru saja diubah lewat
+						// SQL, sedangkan salinan di sesi masih memegang postingHistory null -- dan
+						// pembacaan getter tadi sudah membuatnya kotor, sehingga flush pada dokumen
+						// BERIKUTNYA akan menulis balik null dan menghapus penanda yang baru dipasang.
+						session.evict(pajak);
 						n++;
 					}
 				} catch (Exception e) {

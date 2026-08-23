@@ -228,10 +228,16 @@ public final class DraftJurnalApiHelper {
         // Sebagian dokumen dapat dilewati mesin: akun jurnalnya belum lengkap, atau
         // penyimpanannya gagal. Selisihnya DISEBUTKAN -- tanpa itu angkanya hanya terasa
         // kurang, dan sisa yang tidak pernah turun ke nol tampak seperti cacat hitungan.
-        String sisa = jumlah < tersedia
-                ? " " + (tersedia - jumlah) + " dokumen lain dilewati: jurnalnya belum lengkap"
-                        + " (akun belum diisi pada masternya) atau gagal disimpan. Periksa Error Log."
-                : "";
+        String sisa = "";
+        if (jumlah < tersedia) {
+            // Alasannya berbeda menurut arah: memposting dapat gagal karena akun jurnalnya
+            // belum lengkap, sedangkan membatalkan tidak pernah gagal karena itu.
+            sisa = " " + (tersedia - jumlah) + " dokumen lain dilewati: "
+                    + (posting
+                        ? "jurnalnya belum lengkap (akun belum diisi pada masternya) atau gagal disimpan."
+                        : "pembatalannya gagal.")
+                    + " Periksa Error Log.";
+        }
         hasil.put("status", "00");
         hasil.put("nama", nama);
         hasil.put("jumlah", jumlah);
