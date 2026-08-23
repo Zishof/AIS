@@ -2885,6 +2885,77 @@ public class KantinHelper {
 	 * @param hasil   diisi {@code status="00"} bila berhasil; {@code status="91"} + {@code description}
 	 *                bila kata sandi lama salah, input tidak lengkap, atau akun bukan tipe Pedagang.
 	 */
+	/**
+	 * <h3>Kata sandi Pedagang: satu skema, sama dengan pemeriksa login.</h3>
+	 *
+	 * <p>Pemeriksa login ({@code FilterLoginAis.doingFilter}) tidak pernah mendekripsi
+	 * apa pun. Ia meng-ENKRIPSI kata sandi yang diketik lalu membandingkannya dengan
+	 * nilai tersimpan:</p>
+	 *
+	 * <pre>users.getUserPassword().equals(Common.desEncrypter.get().encrypt(diketik))</pre>
+	 *
+	 * <p>Karena itu nilai tersimpan WAJIB berupa hasil enkripsi. Membandingkan nilai
+	 * tersimpan langsung dengan teks yang diketik tidak akan pernah cocok, dan
+	 * menyimpan teks apa adanya membuat pemiliknya tidak bisa login lagi.</p>
+	 */
+	private static boolean sandiPedagangCocok(ais.database.model.inventory.Pedagang p, String diketik) {
+		if (p == null || p.getPass() == null || diketik == null || diketik.isEmpty()) return false;
+		String tersimpan = p.getPass().trim();
+		String terenkripsi = null;
+		try {
+			terenkripsi = Common.desEncrypter.get().encrypt(diketik);
+		} catch (Throwable gagalEnkripsi) {
+			ais.common.ErrorAuditUtil.record(gagalEnkripsi, "sandiPedagangCocok: enkripsi gagal");
+		}
+		if (terenkripsi != null && tersimpan.equals(terenkripsi)) return true;
+
+		// Cadangan untuk akun warisan yang sandinya TERSIMPAN APA ADANYA -- akun seperti
+		// itu memang tidak bisa login (login membandingkan dgn hasil enkripsi), jadi
+		// menerimanya di sini bukan pelonggaran: pemiliknya tetap harus tahu sandinya,
+		// dan penyimpanan berikutnya sekalian membetulkan barisnya.
+		//
+		// Hanya berlaku bila nilai tersimpan memang BUKAN ciphertext yang sah. Tanpa
+		// syarat itu, seseorang yang sempat melihat isi kolomnya bisa memakai ciphertext
+		// itu sendiri sebagai "kata sandi lama".
+		String hasilDekripsi = null;
+		try {
+			hasilDekripsi = Common.desEncrypter.get().decrypt(tersimpan);
+		} catch (Throwable bukanCiphertext) {
+			hasilDekripsi = null;
+		}
+		if (hasilDekripsi == null || hasilDekripsi.trim().isEmpty()) {
+			return tersimpan.equals(diketik);
+		}
+		return false;
+	}
+
+	/**
+	 * Menyimpan kata sandi Pedagang dalam bentuk terenkripsi, DAN menyelaraskan baris
+	 * {@link Tbmuser} yang dipakai login.
+	 *
+	 * <p>Login membaca {@code Tbmuser.userPassword}, bukan {@code pedagang.pass}. Baris
+	 * Tbmuser itu hanya pernah diisi sekali saat akun dibuat; kalau di sini hanya
+	 * {@code pedagang.pass} yang diubah, kata sandi lamanya tetap berlaku untuk masuk --
+	 * kegagalan paling buruk yang mungkin terjadi pada fitur ganti kata sandi, karena
+	 * layarnya menyatakan berhasil sementara sandi lama masih hidup.</p>
+	 */
+	private static void simpanSandiPedagang(Session session,
+			ais.database.model.inventory.Pedagang p, String sandiBaru) throws Exception {
+		String terenkripsi = Common.desEncrypter.get().encrypt(sandiBaru);
+		if (terenkripsi == null || terenkripsi.trim().isEmpty()) {
+			throw new IllegalStateException("Enkripsi kata sandi gagal; perubahan dibatalkan.");
+		}
+		p.setPass(terenkripsi);
+		session.saveOrUpdate(p);
+		if (p.getUserid() != null && p.getUserid().trim().length() > 0) {
+			Tbmuser akunLogin = (Tbmuser) session.get(Tbmuser.class, p.getUserid().trim());
+			if (akunLogin != null) {
+				akunLogin.setUserPassword(terenkripsi);
+				session.saveOrUpdate(akunLogin);
+			}
+		}
+	}
+
 	public static void gantiPasswordSendiri(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
 		if (pedagang == null) {
@@ -2908,14 +2979,19 @@ public class KantinHelper {
 		try {
 			ais.database.model.inventory.Pedagang p = (ais.database.model.inventory.Pedagang) session
 					.get(ais.database.model.inventory.Pedagang.class, pedagang.getId());
-			if (p == null || p.getPass() == null || !p.getPass().equals(passwordLama)) {
+			if (p == null || p.getPass() == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Akun ini belum memiliki kata sandi tersimpan. "
+						+ "Minta admin menyetelnya lebih dulu lewat menu Akun Pedagang.");
+				return;
+			}
+			if (!sandiPedagangCocok(p, passwordLama)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Kata sandi lama tidak cocok.");
 				return;
 			}
 			session.beginTransaction();
-			p.setPass(passwordBaru);
-			session.saveOrUpdate(p);
+			simpanSandiPedagang(session, p, passwordBaru);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {
@@ -3004,7 +3080,10 @@ public class KantinHelper {
 			}
 			ais.database.model.inventory.Pedagang p = new ais.database.model.inventory.Pedagang();
 			p.setUserid(userid);
-			p.setPass(password);
+			// Terenkripsi, skema yang sama dgn pemeriksa login. Menyimpan apa adanya
+			// membuat akun kasir yang baru dibuat TIDAK PERNAH bisa login, dan gejalanya
+			// muncul jauh dari sini -- di layar login, sbg "kata sandi tidak valid".
+			p.setPass(Common.desEncrypter.get().encrypt(password));
 			p.setNama(nama);
 			p.setToko(toko);
 			p.setAktif(true);
@@ -3178,16 +3257,21 @@ public class KantinHelper {
 				p.setSupervisor(request.optBoolean("supervisor", false));
 			}
 			String passwordBaru = request.optString("password_baru", "");
+			String sandiBaru = null;
 			if (!passwordBaru.isEmpty()) {
 				if (passwordBaru.length() < 6) {
 					hasil.put("status", "91");
 					hasil.put("description", "Kata sandi baru minimal 6 karakter.");
 					return;
 				}
-				p.setPass(passwordBaru);
+				sandiBaru = passwordBaru;
 			}
 			session.beginTransaction();
 			session.saveOrUpdate(p);
+			// Sesudah saveOrUpdate: helper ini ikut menyelaraskan baris Tbmuser yang
+			// dipakai login. Tanpa itu kata sandi lama tetap berlaku untuk masuk,
+			// walau layar sudah menyatakan perubahan berhasil.
+			if (sandiBaru != null) simpanSandiPedagang(session, p, sandiBaru);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {
