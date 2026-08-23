@@ -3378,6 +3378,13 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Membatasi nilai mirror ke panjang kolom legacy tanpa mengubah data lengkap di BiodataMahasiswa. */
+	private static String batasiTeksKolom(String nilai, int maksimum) {
+		if (nilai == null || maksimum < 1) return nilai;
+		String hasil = nilai.trim();
+		return hasil.length() <= maksimum ? hasil : hasil.substring(0, maksimum);
+	}
+
 	@SuppressWarnings("unchecked")
 	public boolean onSave(final Mahasiswa mahasiswa, boolean simpanUlangMahasiswa, String emailAtasan,
 			ParameterTambahanAlumniListener parameterTambahanAlumniListener) throws InterruptedException {
@@ -3545,8 +3552,7 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 						// biarkan tertangkap oleh catch(WrongValueException) umum di bawah yang
 						// pesannya tentang format tanggal -- akan menyesatkan user) dan hentikan simpan
 						// agar data tidak valid tidak ikut tersimpan.
-						try { bersaudara.clearErrorMessage(); } catch (Exception ce) { ais.common.ErrorAuditUtil.record(ce, "auto-audit(empty-catch) src/ais/action/master/BiodataMahasiswaAction.java:bersaudara"); }
-						ais.common.Common.tampilErrorJikaAdmin(e);
+						try { bersaudara.clearErrorMessage(); } catch (Exception ce) {}
 						MyMessageboxConfig.show(
 								"Format tidak valid, harap isi hanya angka pada jumlah bersaudara. (" + e.getMessage() + ")",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
@@ -3607,12 +3613,10 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 			} catch (Exception e) {
 				ais.common.Common.tampilErrorJikaAdmin(e);
 			} finally {
-				// session adalah currentNativeSession() -- jangan ditutup manual
-				// (dikelola oleh framework ZK/Hibernate; menutup manual menyebabkan double-close)
-				try { session.clear(); } catch (Exception ignored) {}
+				// currentNativeSession adalah sesi native ThreadLocal milik aplikasi, bukan
+				// currentSession ZK. Lepaskan secara tuntas dari koneksi dan ThreadLocal.
+				HibernateUtil.closeSessionQuietly(session);
 			}
-
-			HibernateUtil.closeSession();
 
 			// Guard: bila penyimpanan gagal (mis. nilai melebihi panjang kolom), biodataMahasiswadata
 			// bisa null sehingga println debug ini melempar NullPointerException dan menutupi pesan asli.
@@ -3651,8 +3655,8 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 						}
 
 						mahasiswa.setPin(pin.getValue() == null ? null : pin.getValue().longValue());
-						mahasiswa.setEmail(email.getValue());
-						mahasiswa.setAlamat(alamat.getValue());
+						mahasiswa.setEmail(batasiTeksKolom(email.getValue(), 255));
+						mahasiswa.setAlamat(batasiTeksKolom(alamat.getValue(), 255));
 						mahasiswa.setTinggi_badan(ambilIntDecimalboxAman(tinggiBadan, 0));
 						mahasiswa.setBerat_badan(ambilIntDecimalboxAman(beratBadan, 0));
 						mahasiswa.setGolongan_darah(golonganDarah.getValue());
@@ -3662,7 +3666,7 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 						if (tanggallahirAman != null) {
 							mahasiswa.setTanggallahir(tanggallahirAman);
 						}
-						mahasiswa.setTempatlahir(tempatlahir.getValue());
+						mahasiswa.setTempatlahir(batasiTeksKolom(tempatlahir.getValue(), 150));
 						mahasiswa.setAgama(
 								(Agama) (agama.getSelectedItem() == null ? null : agama.getSelectedItem().getValue()));
 						// Guard sama seperti baris ~3578: biodataMahasiswadata bisa null bila
@@ -3672,13 +3676,13 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 							mahasiswa.setTelp(biodataMahasiswadata.getHp());
 							mahasiswa.setKtp(biodataMahasiswadata.getNoIdentitas());
 						}
-						mahasiswa.setBahasa((String) bahasa.getSelectedItem().getValue());
+						mahasiswa.setBahasa(batasiTeksKolom((String) bahasa.getSelectedItem().getValue(), 255));
 
-						mahasiswa.setNamaArab(namaArab.getValue());
-						mahasiswa.setNamaTionghoa(namaTionghoa.getValue());
+						mahasiswa.setNamaArab(batasiTeksKolom(namaArab.getValue(), 255));
+						mahasiswa.setNamaTionghoa(batasiTeksKolom(namaTionghoa.getValue(), 255));
 
 						if (tanggallahirManual != null) {
-							mahasiswa.setTanggallahirManual(tanggallahirManual.getValue());
+							mahasiswa.setTanggallahirManual(batasiTeksKolom(tanggallahirManual.getValue(), 255));
 						}
 
 						if (BiodataMahasiswaAction.this.dosen != null

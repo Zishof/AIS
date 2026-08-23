@@ -204,21 +204,16 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			try {
 				buatFab(key, true).setParent(induk);
 			} catch (Throwable takBolehBeranakBanyak) {
-				ais.common.ErrorAuditUtil.record(takBolehBeranakBanyak,
-						"BantuanGlobalHook: wadah tab menolak FAB, key=" + key);
+				// Wadah ZK tertentu membatasi jumlah anak. Tombol bantuan adalah pelengkap;
+				// penolakannya tidak boleh mengganggu render maupun memenuhi audit error.
 			}
-		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:196");
+		} catch (Throwable ignore) {
 			// JANGAN pernah mengganggu render halaman
 		}
 	}
 
 	private static boolean wadahHanyaMenerimaSatuAnak(Component component) {
-		String namaClass = component.getClass().getName();
-		return "org.zkoss.zul.Center".equals(namaClass)
-				|| "org.zkoss.zul.North".equals(namaClass)
-				|| "org.zkoss.zul.South".equals(namaClass)
-				|| "org.zkoss.zul.East".equals(namaClass)
-				|| "org.zkoss.zul.West".equals(namaClass);
+		return component instanceof org.zkoss.zul.LayoutRegion;
 	}
 
 	/** Apakah wadah sudah memuat tombol Bantuan mengambang (langsung sebagai anak). */

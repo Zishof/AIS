@@ -773,7 +773,11 @@ public class DataUtil {
 					GeneralValueObject data = dataYangTerambilBerdasarkanId.get(key);
 					if (data != null) {
 						try {
+							if (obj instanceof HasilUjianMahasiswaDetail) {
+								dataYangTerambilBerdasarkanId.put(key, obj);
+							} else {
 							BeanUtilsBean.getInstance().copyProperties(data, obj);
+							}
 						} catch (Exception e) {
 							try { dataYangTerambilBerdasarkanId.put(key, obj); } catch (Throwable oom) { ais.common.ErrorAuditUtil.record(oom, "auto-audit(empty-catch) src/ais/common/DataUtil.java:778"); /* MapDB mmap OOM, abaikan cache */ }
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataUtil.java:779");
@@ -903,7 +907,11 @@ public class DataUtil {
 
 					if (data != null) {
 						try {
-							BeanUtilsBean.getInstance().copyProperties(data, obj);
+							if (obj instanceof HasilUjianMahasiswaDetail) {
+								dataYangTerambilBerdasarkanId.put(key, obj);
+							} else {
+								BeanUtilsBean.getInstance().copyProperties(data, obj);
+							}
 						} catch (Exception e) {
 							try { dataYangTerambilBerdasarkanId.put(key, obj); } catch (Throwable oom) { ais.common.ErrorAuditUtil.record(oom, "auto-audit(empty-catch) src/ais/common/DataUtil.java:902"); /* MapDB mmap OOM, abaikan cache */ }
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataUtil.java:903");

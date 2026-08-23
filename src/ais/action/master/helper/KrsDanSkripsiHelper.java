@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.hibernate.Session;
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import ais.action.ws.util.CommonUtil;
 import ais.common.Common;
@@ -64,12 +65,13 @@ public class KrsDanSkripsiHelper {
 			try {
 				JSONArray array = CommonUtil.ambilTemporary(key);
 				if (array != null && array.length() > 0) {
-					String d = array.get(0).toString();
+					Object cachePertama = array.opt(0);
+					String d = cachePertama == null ? "" : cachePertama.toString();
 					KrsMahasiswa k = null;
 					if (Common.isNumber(d)) {
 						k = (KrsMahasiswa) GeneralValueObject.ambilData(KrsMahasiswa.class, d, true);
-					} else {
-						k = (KrsMahasiswa) Common.convertToObject(array.getJSONObject(0));
+					} else if (cachePertama instanceof JSONObject) {
+						k = (KrsMahasiswa) Common.convertToObject((JSONObject) cachePertama);
 					}
 
 					if (k != null) {
@@ -80,8 +82,9 @@ public class KrsDanSkripsiHelper {
 						return k;
 					}
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KrsDanSkripsiHelper.java:83");
-				// Biarkan lolos untuk eksekusi ke database
+			} catch (Exception e) {
+				// Cache lama boleh berisi scalar/string yang bukan JSON. Anggap cache miss dan
+				// lanjutkan ke database; ini bukan error aplikasi yang perlu masuk audit.
 			}
 		}
 

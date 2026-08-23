@@ -729,7 +729,9 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 							hasilUjianMahasiswaDetail = (HasilUjianMahasiswaDetail) session
 									.createCriteria(HasilUjianMahasiswaDetail.class).add(Restrictions.idEq(id))
 									.uniqueResult();
-							GeneralValueObject.masukkanData(HasilUjianMahasiswaDetail.class, hasilUjianMahasiswaDetail);
+							if (hasilUjianMahasiswaDetail != null) {
+								GeneralValueObject.masukkanData(HasilUjianMahasiswaDetail.class, hasilUjianMahasiswaDetail);
+							}
 						}
 					}
 
@@ -737,12 +739,14 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 						HasilUjianMahasiswa.ygSudahDiambils.put(this.getId(), hasil);
 					}
 					dataCache = hasil;
-					// session.disconnect();
-					if (session.isOpen()) {session.disconnect();session.close();}
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
+				} finally {
+					try { if (session != null && session.isOpen()) session.clear(); } catch (Exception e) { }
+					try { if (session != null && session.isOpen()) session.disconnect(); } catch (Exception e) { }
+					try { if (session != null && session.isOpen()) session.close(); } catch (Exception e) { }
+					HibernateUtil.closeSession();
 				}
-				HibernateUtil.closeSession();
 			}
 
 			// Kembalikan SALINAN: cegah pemanggil memutasi (mis. .clear()) list yang

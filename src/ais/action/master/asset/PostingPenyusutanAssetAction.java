@@ -1069,4 +1069,177 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK: baris "Jurnal Penyusutan" pada dasbor Draft Jurnal
+	// PEMELIHARAAN: akun & nilai HARUS tetap identik dengan {@link #onPostingSemua}.
+	// =====================================================================
+
+	/**
+	 * Kriteria penyusutan aset yang layak dijurnal -- sama dengan penghitung baris
+	 * "Jurnal Penyusutan" pada dasbor: nilai penyusutan bukan nol dan
+	 * {@code date(pertanggal)} di dalam rentang.
+	 */
+	private static Criteria kriteriaPostingPenyusutanStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(PenyusutanAsset.class)
+				.add(Restrictions.ne("nilaiPenyusutan", 0.0))
+				.add(Restrictions.isNotNull("nilaiPenyusutan"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.pertanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/** Batalkan posting SEMUA jurnal penyusutan dalam rentang. */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemuaPenyusutan(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<PenyusutanAsset> daftar = kriteriaPostingPenyusutanStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (PenyusutanAsset susut : daftar) {
+				try {
+					String syarat = "penyusutan_asset=" + susut.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					susut.setPostingHistory(null);
+					session.update(susut);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA jurnal penyusutan yang belum dibuat dalam rentang.
+	 *
+	 * <p>Debet = {@code masterAsset.akunBiayaPenyusutan} (bebannya), kredit =
+	 * {@code masterAsset.akunPenyusutan} (akumulasi penyusutannya) -- keduanya lewat
+	 * {@code AssetUtil.ambilDataAkun} dengan satuan kerja detail asetnya, supaya akun per
+	 * satuan kerja yang terpakai. Nilai dari {@code nilaiPenyusutan}, tanggal jurnal dari
+	 * {@code perTanggal}; bila nilainya &le; 0,1 posisi ditukar.</p>
+	 *
+	 * <p><b>Dua penyimpangan sadar:</b> dokumen berakun tidak lengkap dilewati, dan penanda
+	 * posting hanya dipasang bila jurnalnya benar-benar tersimpan.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemuaPenyusutan(java.util.Date mulai, java.util.Date sampai,
+			Tbmuser oleh, java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingPenyusutanStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENYUSUTAN_ASET);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal jurnal penyusutan dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PenyusutanAsset susut = (PenyusutanAsset) session
+							.createCriteria(PenyusutanAsset.class).add(Restrictions.idEq(id)).uniqueResult();
+					if (susut == null || susut.getAssetDetail() == null
+							|| susut.getAssetDetail().getAsset() == null
+							|| susut.getAssetDetail().getAsset().getMasterAsset() == null) {
+						continue;
+					}
+					Akun akunDebet = AssetUtil.ambilDataAkun(
+							susut.getAssetDetail().getAsset().getMasterAsset().getAkunBiayaPenyusutan(),
+							susut.getAssetDetail().getSatuanKerja());
+					Akun akunKredit = AssetUtil.ambilDataAkun(
+							susut.getAssetDetail().getAsset().getMasterAsset().getAkunPenyusutan(),
+							susut.getAssetDetail().getSatuanKerja());
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+
+					String ket = "Penyusutan \"" + susut.getAssetDetail().getBarcode() + "-"
+							+ susut.getAssetDetail().getNama() + "\" bulan ke "
+							+ Common.numberFormat.get().format(susut.getTahunKe()) + " dari sebanyak "
+							+ Common.numberFormat.get().format(susut.getAssetDetail().getUmurEkonomis())
+							+ " bulan nilai buku "
+							+ Common.numberFormat.get().format(susut.getNilaiBuku()) + " "
+							+ susut.getKeterangan() + " " + susut.getAssetDetail().getKeterangan();
+					Double nilai = susut.getNilaiPenyusutan();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									true, ket, susut.getPerTanggal(), nilai, Double.valueOf(0.0), susut,
+									susut.getAssetDetail().getSatuanKerja(), session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									true, ket, susut.getPerTanggal(), nilai, Double.valueOf(0.0), susut,
+									susut.getAssetDetail().getSatuanKerja(), session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction jalur API");
+					}
+
+					if (tersimpan) {
+						susut.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(susut);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

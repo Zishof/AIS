@@ -597,6 +597,23 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * Membaca pemenang race kodeunik melalui sesi baru. Sesi pemanggil dapat sudah berada
+	 * dalam transaksi PostgreSQL yang abort setelah pelanggaran unique constraint.
+	 */
+	private static Kegiatan ambilKegiatanKodeunikTerisolasi(String kodeunik) {
+		if (kodeunik == null || kodeunik.trim().isEmpty()) return null;
+		Session localSession = null;
+		try {
+			localSession = openIsolatedSession();
+			return (Kegiatan) localSession.createCriteria(Kegiatan.class)
+					.add(Restrictions.eq("kodeunik", kodeunik)).setMaxResults(1)
+					.addOrder(Order.asc("id")).uniqueResult();
+		} finally {
+			closeLocalSessionSafely(localSession);
+		}
+	}
+
 	// ===================================================================================
 	// PUBLIC BUSINESS LOGIC METHODS
 	// ===================================================================================
@@ -736,9 +753,7 @@ public class KegiatanHelper {
 					try {
 						String kodeunikRetry = Kegiatan.generateKodeUnik(null, biodataCalonMahasiswa, jenisKegiatan,
 								smt, "", null);
-						Kegiatan kegiatanSudahAda = (Kegiatan) session.createCriteria(Kegiatan.class)
-								.add(Restrictions.eq("kodeunik", kodeunikRetry)).setMaxResults(1)
-								.addOrder(Order.asc("id")).uniqueResult();
+						Kegiatan kegiatanSudahAda = ambilKegiatanKodeunikTerisolasi(kodeunikRetry);
 						if (kegiatanSudahAda != null) {
 							kegiatan = kegiatanSudahAda;
 						} else {
@@ -1025,10 +1040,7 @@ public class KegiatanHelper {
 					try {
 						String kodeunikRetry = Kegiatan.generateKodeUnik(mahasiswa, null, jenisKegiatan, smt, "",
 								null);
-						session = HibernateUtil.ensureOpenSession(session);
-						Kegiatan kegiatanSudahAda = (Kegiatan) session.createCriteria(Kegiatan.class)
-								.add(Restrictions.eq("kodeunik", kodeunikRetry)).setMaxResults(1)
-								.addOrder(Order.asc("id")).uniqueResult();
+						Kegiatan kegiatanSudahAda = ambilKegiatanKodeunikTerisolasi(kodeunikRetry);
 						if (kegiatanSudahAda != null) {
 							kegiatan = kegiatanSudahAda;
 						} else {

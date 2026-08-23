@@ -349,8 +349,22 @@ public class RepositoryPublicService {
     }
 
     public boolean hasDepositCollection() {
-        return count(session().createCriteria(RepoCollection.class).add(activeRestriction())
-                .add(tenantRestriction()).add(Restrictions.or(Restrictions.isNull("depositEnabled"), Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
+        Session localSession = null;
+        try {
+            localSession = HibernateUtil.getSessionFactory().openSession();
+            return count(localSession.createCriteria(RepoCollection.class).add(activeRestriction())
+                    .add(tenantRestriction()).add(Restrictions.or(Restrictions.isNull("depositEnabled"),
+                            Restrictions.eq("depositEnabled", Boolean.TRUE)))) > 0L;
+        } finally {
+            closeLocalSession(localSession);
+        }
+    }
+
+    private void closeLocalSession(Session localSession) {
+        if (localSession == null) return;
+        try { localSession.clear(); } catch (Exception ignored) {}
+        try { localSession.disconnect(); } catch (Exception ignored) {}
+        try { if (localSession.isOpen()) localSession.close(); } catch (Exception ignored) {}
     }
 
     @SuppressWarnings("unchecked")

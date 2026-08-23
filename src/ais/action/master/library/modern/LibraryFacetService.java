@@ -120,7 +120,8 @@ public final class LibraryFacetService {
         int added = 0;
         for (Object[] row : (List<Object[]>) criteria.list()) {
             if (row[0] == null || blank(row[1]) || added >= FACET_LIMIT) continue;
-            result.put(new JSONObject().put("id", row[0]).put("name", safe(row[1])).put("count", number(row[2])));
+            result.put(new JSONObject().put("id", row[0]).put("name", safe(row[1]))
+                    .put("count", Long.valueOf(number(row[2]))));
             added++;
         }
         return result;
@@ -139,7 +140,8 @@ public final class LibraryFacetService {
             if (blank(row[0]) || added >= FACET_LIMIT) continue;
             String name = safe(row[0]);
             if (name.indexOf(',') >= 0) name = name.substring(0, name.indexOf(',')).trim();
-            result.put(new JSONObject().put("value", name).put("name", name).put("count", number(row[1])));
+            result.put(new JSONObject().put("value", name).put("name", name)
+                    .put("count", Long.valueOf(number(row[1]))));
             added++;
         }
         return result;
@@ -158,7 +160,8 @@ public final class LibraryFacetService {
         query.setMaxResults(FACET_LIMIT);
         JSONArray result = new JSONArray();
         for (Object[] row : (List<Object[]>) query.list()) {
-            if (row[0] != null) result.put(new JSONObject().put("id", row[0]).put("name", safe(row[1])).put("count", number(row[2])));
+            if (row[0] != null) result.put(new JSONObject().put("id", row[0]).put("name", safe(row[1]))
+                    .put("count", Long.valueOf(number(row[2]))));
         }
         return result;
     }
@@ -204,19 +207,21 @@ public final class LibraryFacetService {
         Query branchesQuery = session.createSQLQuery("select count(id) from library.perpustakaan where (aktif is null or aktif=true) "
                 + (allowed == null ? "" : "and id in (:allowedLibraries)"));
         if (allowed != null) {
-            if (allowed.isEmpty()) return new JSONObject().put("titles", titles).put("copies", 0).put("branches", 0)
-                    .put("digital", digitalCount(session, request));
+            if (allowed.isEmpty()) return new JSONObject().put("titles", Long.valueOf(titles))
+                    .put("copies", Integer.valueOf(0)).put("branches", Integer.valueOf(0))
+                    .put("digital", Long.valueOf(digitalCount(session, request)));
             copiesQuery.setParameterList("allowedLibraries", allowed);
             branchesQuery.setParameterList("allowedLibraries", allowed);
         }
         long copies = number(copiesQuery.uniqueResult());
         long branches = number(branchesQuery.uniqueResult());
-        return new JSONObject().put("titles", titles).put("copies", copies).put("branches", branches)
-                .put("digital", digitalCount(session, request));
+        return new JSONObject().put("titles", Long.valueOf(titles)).put("copies", Long.valueOf(copies))
+                .put("branches", Long.valueOf(branches))
+                .put("digital", Long.valueOf(digitalCount(session, request)));
     }
 
     private JSONObject option(String value, String name, long count) throws JSONException {
-        return new JSONObject().put("value", value).put("name", name).put("count", count);
+        return new JSONObject().put("value", value).put("name", name).put("count", Long.valueOf(count));
     }
 
     private static boolean blank(Object value) { return value == null || String.valueOf(value).trim().length() == 0; }

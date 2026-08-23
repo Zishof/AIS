@@ -1299,4 +1299,231 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	// PEMELIHARAAN: akun & nilai HARUS tetap identik dengan {@link #onPostingSemua}
+	// cabang RINGKAS (checkbox "rinci" tidak dicentang).
+	// =====================================================================
+
+	/**
+	 * Kriteria pembayaran gaji yang layak dijurnal -- sama dengan penghitung baris "Gaji" pada
+	 * dasbor: sudah punya standing instruction, sudah disetujui, dan waktu bayarnya di dalam
+	 * rentang.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(PembayaranGaji.class)
+				.add(Restrictions.isNotNull("standingInstruction"))
+				.add(Restrictions.isNotNull("disetujuiOleh"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.waktubayar) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/** Batalkan posting SEMUA pembayaran gaji terposting dalam rentang. */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<PembayaranGaji> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (PembayaranGaji gaji : daftar) {
+				try {
+					String syarat = "pembayaran_gaji=" + gaji.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					gaji.setPostingHistory(null);
+					session.update(gaji);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPembayaranGajiAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA pembayaran gaji yang belum dijurnal dalam rentang.
+	 *
+	 * <p><b>Bentuk jurnalnya RINGKAS.</b> Layar menyediakan centang "rinci" yang menentukan
+	 * satu baris jurnal per item gaji per pegawai, atau satu baris per AKUN dengan nilai yang
+	 * sudah dijumlahkan. Dari API tidak ada centang itu, dan yang dipakai adalah bentuk
+	 * RINGKAS: satu pembayaran gaji satu bulan bisa memuat ribuan item, dan jurnal sepanjang
+	 * itu tidak terbaca di buku besar. Nilai totalnya sama persis.</p>
+	 *
+	 * <ul>
+	 *   <li>kredit: akun tiap {@code PembayaranItemGajiPegawai} yang bernilai &gt; 0,1,
+	 *       dijumlahkan per akun;</li>
+	 *   <li>debet: akun debet tiap item, dijumlahkan per akun;</li>
+	 *   <li>kredit tambahan: akun BANK pegawai bila ada -- selain itu akun cara pembayaran gaji;
+	 *       itulah kas yang benar-benar keluar;</li>
+	 *   <li>tanggal jurnal = {@code waktuBayar}, satuan kerja = milik dokumen gaji.</li>
+	 * </ul>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGGAJIAN);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal pembayaran gaji dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PembayaranGaji gaji = (PembayaranGaji) session.createCriteria(PembayaranGaji.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (gaji == null) {
+						continue;
+					}
+					List<PembayaranGajiPunyaPegawai> perPegawai = session
+							.createCriteria(PembayaranGajiPunyaPegawai.class)
+							.add(Restrictions.eq("pembayaranGaji", gaji)).list();
+
+					java.util.Map<Long, Double> petaDebet = new java.util.HashMap<Long, Double>();
+					java.util.Map<Long, Double> petaKredit = new java.util.HashMap<Long, Double>();
+					for (PembayaranGajiPunyaPegawai baris : perPegawai) {
+						List<PembayaranItemGajiPegawai> item = session
+								.createCriteria(PembayaranItemGajiPegawai.class)
+								.add(Restrictions.gt("nilai", 0.1))
+								.add(Restrictions.or(Restrictions.isNotNull("akun"),
+										Restrictions.isNotNull("akunDebet")))
+								.add(Restrictions.eq("pembayaranGajiPunyaPegawai", baris)).list();
+						for (PembayaranItemGajiPegawai it : item) {
+							if (it.getAkun() != null) {
+								tambah(petaKredit, it.getAkun().getId(), it.getNilai());
+							}
+							if (it.getAkunDebet() != null) {
+								tambah(petaDebet, it.getAkunDebet().getId(), it.getNilai());
+							}
+						}
+						Pegawai pegawai = baris.getPegawai();
+						Bank bank = pegawai == null ? null : pegawai.ambilBank(baris.getFormatItemGaji());
+						if (bank != null && bank.getAkun() != null) {
+							tambah(petaKredit, bank.getAkun().getId(), baris.getNilai());
+						} else if (gaji.getCaraPembayaranGaji() != null
+								&& gaji.getCaraPembayaranGaji().getAkun() != null) {
+							tambah(petaKredit, gaji.getCaraPembayaranGaji().getAkun().getId(),
+									baris.getNilai());
+						}
+					}
+					if (petaDebet.isEmpty() || petaKredit.isEmpty()) {
+						// Akun item gajinya belum diatur: dilewati, bukan ditandai terposting.
+						continue;
+					}
+
+					List<Akun> akunDebet = new java.util.ArrayList<Akun>();
+					List<Double> nilaiDebet = new java.util.ArrayList<Double>();
+					isiAkun(petaDebet, akunDebet, nilaiDebet);
+					List<Akun> akunKredit = new java.util.ArrayList<Akun>();
+					List<Double> nilaiKredit = new java.util.ArrayList<Double>();
+					isiAkun(petaKredit, akunKredit, nilaiKredit);
+					if (akunDebet.isEmpty() || akunKredit.isEmpty()) {
+						continue;
+					}
+
+					String ket = "Pembayaran gaji "
+							+ (gaji.getSatuanKerja() == null ? "" : gaji.getSatuanKerja().getNama())
+							+ " bulan " + gaji.getBulan() + " tahun " + gaji.getTahun();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}),
+								akunKredit.toArray(new Akun[] {}), null, null, postingHistory, true, ket,
+								gaji.getWaktuBayar(), nilaiDebet.toArray(new Double[] {}),
+								nilaiKredit.toArray(new Double[] {}), Double.valueOf(0.0), gaji,
+								gaji.getSatuanKerja(), session);
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e,
+								"PostingTransaksiPembayaranGajiAction jalur API");
+					}
+
+					if (tersimpan) {
+						gaji.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(gaji);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPembayaranGajiAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPembayaranGajiAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/** Menjumlahkan nilai ke peta akun -> total. */
+	private static void tambah(java.util.Map<Long, Double> peta, Long idAkun, Double nilai) {
+		if (idAkun == null) {
+			return;
+		}
+		Double n = peta.get(idAkun);
+		peta.put(idAkun, (n == null ? 0.0 : n) + (nilai == null ? 0.0 : nilai));
+	}
+
+	/** Menerjemahkan peta akun -> total menjadi sepasang daftar akun & nilai. */
+	private static void isiAkun(java.util.Map<Long, Double> peta, List<Akun> akunKe,
+			List<Double> nilaiKe) {
+		for (Long kunci : peta.keySet()) {
+			Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), kunci);
+			if (akun != null) {
+				akunKe.add(akun);
+				nilaiKe.add(peta.get(kunci));
+			}
+		}
+	}
 }
