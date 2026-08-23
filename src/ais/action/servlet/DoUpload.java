@@ -263,6 +263,51 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Tegakkan batas lampiran gambar POS pada berkas yang sudah tersimpan sementara.
+	 *
+	 * <p>Hanya <b>dua belas byte pertama</b> yang dibaca untuk mengenali formatnya, dan
+	 * ukurannya diambil dari metadata berkas -- muatannya tidak pernah dimuat ke memori.</p>
+	 *
+	 * @return {@code null} bila lolos, atau pesan penolakan.
+	 */
+	private String periksaLampiranPos(File file) {
+		byte[] awal = new byte[12];
+		int terbaca;
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(file);
+			terbaca = in.read(awal);
+		} catch (IOException e) {
+			// Tidak dapat dibaca di sini bukan alasan menolak -- pemrosesan di hilir yang
+			// akan gagal dengan pesannya sendiri bila berkasnya memang bermasalah.
+			return null;
+		} finally {
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException abaikan) {
+					// berkas sementara; kegagalan menutup tidak mengubah keputusan apa pun
+				}
+			}
+		}
+		if (terbaca < 12) {
+			return null;
+		}
+		if (!ais.common.PenjagaLampiranGambar.tampaknyaGambar(awal)) {
+			return null; // bukan gambar -- batas 500 KB tidak berlaku
+		}
+		long ukuran = file.length();
+		if (ukuran > ais.common.PenjagaLampiranGambar.MAKS_GAMBAR_BYTES) {
+			return "Ukuran gambar " + ais.common.PenjagaLampiranGambar.ringkasUkuran(ukuran)
+					+ " melebihi batas "
+					+ ais.common.PenjagaLampiranGambar
+							.ringkasUkuran(ais.common.PenjagaLampiranGambar.MAKS_GAMBAR_BYTES)
+					+ ". Perbarui aplikasi POS Anda -- versi terbaru mengecilkannya otomatis.";
+		}
+		return null;
+	}
+
 	private void handleUserProfileUpload(HttpServletRequest request, JSONObject jsonObject, Map<String, String> fields,
 			File file) throws Exception {
 		for (Map.Entry<String, String> entry : fields.entrySet())
@@ -278,6 +323,23 @@ public class DoUpload extends HttpServlet {
 		if (file == null || !file.exists()) {
 			jsonObject.put("status", "Gagal");
 			return;
+		}
+		// Batas lampiran gambar POS (500 KB) ditegakkan HANYA untuk pemanggil POS.
+		//
+		// Servlet ini melayani seluruh AIS -- 19 layar JSP/ZUL, foto mahasiswa, bukti
+		// pembayaran, dokumen pindaian. Memberlakukan batas POS ke semuanya akan memutus
+		// unggahan yang sah dan sama sekali di luar cakupan aturan itu: pindaian 300 DPI
+		// rutin melampaui 500 KB.
+		//
+		// Pembedanya medan form `token`: hanya klien POS yang mengirimkannya (lihat
+		// UnggahLampiranSop); layar ZK/JSP memakai sesi lewat Common.getCurrentUser.
+		if (token != null && !token.trim().isEmpty()) {
+			String tolak = periksaLampiranPos(file);
+			if (tolak != null) {
+				jsonObject.put("status", "Gagal");
+				jsonObject.put("description", tolak);
+				return;
+			}
 		}
 		processHibernateTransaction(request, tbmuser, fields, file, jsonObject);
 	}

@@ -2222,6 +2222,14 @@ public final class PengadaanPosApiHelper {
 			tolak(hasil, "Berkas lampiran wajib diisi.");
 			return;
 		}
+		// Panjang diperiksa SEBELUM didekode -- mendekode dulu berarti muatan sebesar apa pun
+		// sudah terlanjur dialokasikan di memori sebelum ditolak.
+		String tolakPanjang = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(base64,
+				MAKS_BYTE_LAMPIRAN);
+		if (tolakPanjang != null) {
+			tolak(hasil, tolakPanjang);
+			return;
+		}
 		byte[] isi;
 		try {
 			isi = java.util.Base64.getDecoder().decode(base64);
@@ -2243,6 +2251,14 @@ public final class PengadaanPosApiHelper {
 			tolak(hasil, slot[1] + " harus berupa gambar (JPG, PNG, GIF, BMP, atau WebP). "
 					+ (tipe.isEmpty() ? "Berkas yang dikirim tidak dikenali sebagai gambar."
 							: "Berkas yang dikirim bertipe " + tipe + "."));
+			return;
+		}
+		// Batas 5 MB di atas berlaku untuk lampiran apa pun. Yang berupa GAMBAR dibatasi lebih
+		// ketat: 500 KB, sama dengan yang dikecilkan klien. Slot "bebas" pun ikut -- foto yang
+		// dikirim sebagai Surat Jalan tidak lebih pantas besar daripada foto Invoice.
+		String tolakGambar = ais.common.PenjagaLampiranGambar.periksaBilaGambar(isi);
+		if (tolakGambar != null) {
+			tolak(hasil, tolakGambar);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();

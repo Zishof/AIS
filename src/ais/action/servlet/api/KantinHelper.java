@@ -3727,12 +3727,30 @@ public class KantinHelper {
 			hasil.put("description", "Berkas gambar wajib diisi.");
 			return;
 		}
+		// Panjang diperiksa SEBELUM didekode: mendekode dulu berarti muatan sebesar apa pun
+		// sudah terlanjur dialokasikan di memori sebelum ditolak.
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(base64,
+				ais.common.PenjagaLampiranGambar.MAKS_GAMBAR_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
+			return;
+		}
 		byte[] bytes;
 		try {
 			bytes = java.util.Base64.getDecoder().decode(base64);
 		} catch (IllegalArgumentException eb64) {
 			hasil.put("status", "91");
 			hasil.put("description", "Data gambar tidak valid (base64 gagal diurai).");
+			return;
+		}
+		// Klien sudah mengecilkan ke bawah 500 KB, tetapi batas itu baru menjadi JAMINAN
+		// bila ditegakkan di sini juga: klien lama maupun pemanggil API langsung tidak
+		// melewati gerbang klien. Diperiksa dari ISI berkas, bukan nama/ekstensinya.
+		String tolakGambar = ais.common.PenjagaLampiranGambar.periksaGambarWajib(bytes);
+		if (tolakGambar != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakGambar);
 			return;
 		}
 
@@ -8291,12 +8309,29 @@ public class KantinHelper {
 		String idMesin = request.optString("id_mesin", "").trim();
 		Integer urutan = request.isNull("urutan") ? null : request.optInt("urutan", 0);
 
+		// Panjang diperiksa sebelum dekode. Satu toko dapat mengunggah puluhan slide
+		// sekaligus; tanpa pagar ini, satu permintaan berisi foto kamera mentah cukup untuk
+		// membebani memori kontainer yang dipakai bersama seluruh toko.
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(base64,
+				ais.common.PenjagaLampiranGambar.MAKS_GAMBAR_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
+			return;
+		}
+
 		byte[] bytes;
 		try {
 			bytes = java.util.Base64.getDecoder().decode(base64);
 		} catch (IllegalArgumentException eb64) {
 			hasil.put("status", "91");
 			hasil.put("description", "Data gambar tidak valid (base64 gagal diurai).");
+			return;
+		}
+		String tolakGambar = ais.common.PenjagaLampiranGambar.periksaGambarWajib(bytes);
+		if (tolakGambar != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakGambar);
 			return;
 		}
 
