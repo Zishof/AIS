@@ -3923,6 +3923,16 @@ public class ProsesUjianHelper extends MyWindow {
 	 */
 	@SuppressWarnings({})
 	private void doProcessUjian(int a, boolean refresh) {
+		/* Daftar soal dapat kosong ketika relasi soal dihapus dari proses lain atau cache
+		 * belum selesai dimuat. Versi lama menghitung index = size - 1 (-1), lalu tetap
+		 * membaca list dan mengubah komponen navigasi. Hentikan render secara aman. */
+		if (ujianPunyaSoals == null || ujianPunyaSoals.isEmpty()) {
+			ProsesUjianHelper.this.index = 0;
+			if (back != null) back.setDisabled(true);
+			if (next != null) next.setDisabled(true);
+			if (gridSoal != null) Common.clear(gridSoal);
+			return;
+		}
 		final int index;
 		if (a < 0) {
 			index = 0;
@@ -3968,11 +3978,14 @@ public class ProsesUjianHelper extends MyWindow {
 
 		boolean mobile = Common.isMobile();
 		final int total = ujianPunyaSoals.size();
-		for (int i = ProsesUjianHelper.this.index; i < ProsesUjianHelper.this.index + jumlahSoalPerHalaman; i++) {
+		for (int i = ProsesUjianHelper.this.index;
+				i < ProsesUjianHelper.this.index + jumlahSoalPerHalaman && i < ujianPunyaSoals.size(); i++) {
 
 			Long aujianPunyaSoalid = null;
 			try {
-				aujianPunyaSoalid = ujianPunyaSoals.get(index);
+				/* Gunakan indeks loop, bukan indeks halaman pertama. Pemakaian get(index)
+				 * membuat soal pertama dirender berulang untuk seluruh slot halaman. */
+				aujianPunyaSoalid = ujianPunyaSoals.get(i);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/ProsesUjianHelper.java:3887");
 			}
 			if (aujianPunyaSoalid == null) {

@@ -3376,6 +3376,9 @@ public class Pertemuan extends Tugas {
 	}
 
 	public static void removeVideoPertemuan(Serializable id) {
+		if (id == null) {
+			return;
+		}
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiVideoPertemuan(id));
 			c.put(id.toString(), "");
@@ -3443,6 +3446,10 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, VideoPertemuan> ambilVideoPertemuanTotal() {
+		TreeMap<Long, VideoPertemuan> videoPertemuansa = new TreeMap<Long, VideoPertemuan>(Collections.reverseOrder());
+		if (getId() == null) {
+			return videoPertemuansa;
+		}
 		if (!udah("video_pertemuan")) {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 			try {
@@ -3453,7 +3460,6 @@ public class Pertemuan extends Tugas {
 			}
 			StreamingHibernateUtil.getInstance().closeSession();
 		}
-		TreeMap<Long, VideoPertemuan> videoPertemuansa = new TreeMap<Long, VideoPertemuan>(Collections.reverseOrder());
 		try {
 			JSONObject c = jsonObjekAtauKosong(ambilLokasiVideoPertemuan(getId()));
 			Iterator<String> keys = c.keys();
@@ -3468,7 +3474,7 @@ public class Pertemuan extends Tugas {
 							VideoPertemuan videoPertemuan = (VideoPertemuan) generalValueObject;
 							videoPertemuan.setPertemuan(this.getId());
 
-							if (videoPertemuan.getNama().equalsIgnoreCase("link") && videoPertemuan.getLink() == null
+							if ("link".equalsIgnoreCase(videoPertemuan.getNama()) && videoPertemuan.getLink() == null
 									&& videoPertemuan.getFoto() != null) {
 								File fileData = videoPertemuan.ambilFile();
 								if (fileData != null && fileData.exists()) {
@@ -3480,7 +3486,7 @@ public class Pertemuan extends Tugas {
 //									System.out.println("link video " + videoPertemuan + " tidak valid dan file "
 //											+ fileData.getAbsolutePath() + " tidak ada");
 								}
-							} else if (videoPertemuan.getNama().equalsIgnoreCase("link")
+							} else if ("link".equalsIgnoreCase(videoPertemuan.getNama())
 									&& videoPertemuan.getLink() == null && videoPertemuan.getFoto() == null) {
 //								System.out.println("link video " + videoPertemuan + " tidak valid");
 							} else {
@@ -3502,7 +3508,7 @@ public class Pertemuan extends Tugas {
 										isiBerkas, VideoPertemuan.class);
 								videoPertemuan.setPertemuan(this.getId());
 
-								if (videoPertemuan.getNama().equalsIgnoreCase("link")
+								if ("link".equalsIgnoreCase(videoPertemuan.getNama())
 										&& videoPertemuan.getLink() == null && videoPertemuan.getFoto() != null) {
 									File fileData = videoPertemuan.ambilFile();
 									if (fileData != null && fileData.exists()) {
@@ -3514,7 +3520,7 @@ public class Pertemuan extends Tugas {
 //										System.out.println("link video " + videoPertemuan + " tidak valid dan file "
 //												+ fileData.getAbsolutePath() + " tidak ada");
 									}
-								} else if (videoPertemuan.getNama().equalsIgnoreCase("link")
+								} else if ("link".equalsIgnoreCase(videoPertemuan.getNama())
 										&& videoPertemuan.getLink() == null && videoPertemuan.getFoto() == null) {
 //									System.out.println("link video " + videoPertemuan + " tidak valid");
 								} else {

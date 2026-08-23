@@ -3800,6 +3800,12 @@ public class DetailUjianHelper implements DataLoader {
 			for (List<String> strings : objects) {
 
 				try {
+					/* Baris kosong/pendek sah muncul pada template Excel. Dua kolom pertama
+					 * dibaca sebelum validasi ukuran pada versi lama sehingga baris tersebut
+					 * menghasilkan IndexOutOfBoundsException. */
+					if (strings == null || strings.size() < 2) {
+						continue;
+					}
 					String id = strings.get(0);
 					String soal = strings.get(1);
 

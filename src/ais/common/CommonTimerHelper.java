@@ -345,7 +345,13 @@ public final class CommonTimerHelper {
 				timer.setParent(root);
 			}
 		} catch (Exception e) {
-			throw new RuntimeException(e);
+			/* Desktop/page dapat dihancurkan saat timer async hendak ditempel. Ini kondisi
+			 * lifecycle normal; meneruskannya sebagai RuntimeException hanya membuat audit
+			 * sekunder dan tidak dapat memulihkan UI yang sudah ditutup. */
+			if (timer.getParent() != null || timer.getPage() != null) {
+				return;
+			}
+			ais.common.ErrorAuditUtil.record(e, "CommonTimerHelper.attachTimer-desktop-tidak-tersedia");
 		}
 	}
 

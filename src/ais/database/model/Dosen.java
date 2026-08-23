@@ -1401,6 +1401,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 			Integer ditampilkanHanya, int mulai, int banyak, boolean keywordJadiPembatas,
 			JenisFormulirKegiatan jenisFormulirKegiatan) {
 
+		/* Parameter ini berasal dari pilihan tab UI dan pada request lama dapat belum
+		 * terisi. Semua cabang di bawah memanggil equals()/trim() secara langsung. */
+		if (ditampilkanHanya == null) {
+			return new Object[] { new ArrayList<VOPembelajaran>(), Integer.valueOf(0),
+					new ArrayList<VOPembelajaran>() };
+		}
+		if (keyword == null) {
+			keyword = "";
+		}
 		int max = banyak + (mulai * banyak);
 		max = max + 1;
 		List<VOPembelajaran> dataDiambil = new ArrayList<VOPembelajaran>();
@@ -1570,7 +1579,7 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 			for (MahasiswaDapatKelompokPkl mahasiswaDapatKelompokPkl : mahasiswaDapatKelompokPkls) {
 				if (mahasiswaDapatKelompokPkl != null) {
 					KelompokPkl kelompokPkl = mahasiswaDapatKelompokPkl.getKelompokPkl();
-					if (!pklIds.contains(kelompokPkl.getId())) {
+					if (kelompokPkl != null && kelompokPkl.getId() != null && !pklIds.contains(kelompokPkl.getId())) {
 //						System.out.println("kelompokPkl -> " + kelompokPkl);
 						pklIds.add(kelompokPkl.getId());
 						dataDiambil.add(kelompokPkl);
@@ -1612,7 +1621,9 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 					krsMahasiswaIdsData);
 			for (KrsMahasiswa krsMahasiswa : krsMahasiswas) {
 				try {
-				if (krsMahasiswa != null && krsMahasiswa.getTahunAkademik() != null && krsMahasiswa.getSemester() > 0
+				if (krsMahasiswa != null && krsMahasiswa.getTahunAkademik() != null
+						&& krsMahasiswa.getSemester() != null && krsMahasiswa.getSemester() > 0
+						&& krsMahasiswa.getMahasiswa() != null
 						&& krsMahasiswa.getMahasiswa().getStatusKeluar() == null) {
 
 					if ((tahunAkademik == null || tahunAkademik.equals(krsMahasiswa.getTahunAkademik()))

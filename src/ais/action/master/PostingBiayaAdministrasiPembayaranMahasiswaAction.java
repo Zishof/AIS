@@ -435,7 +435,9 @@ public class PostingBiayaAdministrasiPembayaranMahasiswaAction extends GenericAu
 		addWindow.onModal();
 	}
 
-	private Akun[] populateAkun(Session session, LogPembayaran logPembayaran) {
+	// Dipakai BERSAMA oleh tombol layar ZK dan mesin non-ZK di bawah; hanya
+	// memakai parameternya sendiri, jadi aman dijadikan static.
+	static Akun[] populateAkun(Session session, LogPembayaran logPembayaran) {
 		Akun akunDebet = null;
 		Akun akunKredit = null;
 
@@ -798,4 +800,175 @@ public class PostingBiayaAdministrasiPembayaranMahasiswaAction extends GenericAu
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Pemilihan akun per kanal pembayaran TIDAK disalin: {@link #populateAkun}
+	// dipakai bersama dengan tombol di layar.
+	// =====================================================================
+
+	/**
+	 * Kriteria log pembayaran ber-biaya administrasi pembayaran mahasiswa pada rentang tanggal -- sama dengan penghitung
+	 * baris "Mahasiswa - Biaya Administrasi" pada dasbor
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaLogPembayaran}).
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(LogPembayaran.class)
+				.add(Restrictions.gt("biayaAdministrasi", 0.1));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA biaya administrasi pembayaran mahasiswa dalam rentang.
+	 *
+	 * <p>Layar hanya melepas penandanya tanpa menghapus jurnal apa pun. Di sini jurnalnya
+	 * IKUT dihapus ({@code akunting.transaksi} lebih dulu, lalu {@code grup_transaksi} yang
+	 * merujuk log pembayaran ini dan belum closing) -- membatalkan posting tetapi meninggalkan
+	 * jurnalnya membuat buku besar tidak lagi cocok dengan daftar draft.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<LogPembayaran> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (LogPembayaran log : daftar) {
+				try {
+					String syarat = "log_pembayaran=" + log.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					log.setPostingHistory(null);
+					session.update(log);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingBiayaAdministrasiPembayaranMahasiswaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA biaya administrasi pembayaran mahasiswa yang belum dijurnal dalam rentang.
+	 *
+	 * <p>Akun debet/kredit ditentukan {@link #populateAkun} menurut kanal pembayarannya
+	 * (Faspay, BNI, Jatelindo, dst.) lewat konfigurasi kode akun -- method yang SAMA dengan
+	 * yang dipakai tombol di layar.</p>
+	 *
+	 * <p><b>Satuan kerja.</b> Layar mengambilnya dari komponen penyaring di halaman; dari API
+	 * komponen itu tidak ada, jadi dipakai satuan kerja PENGGUNA yang memposting -- sumber yang
+	 * sama dengan tombol posting per-baris di layar ini.</p>
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_MAHASISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal biaya administrasi pembayaran mahasiswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			SatuanKerja satuanKerjaPengguna = oleh == null ? null : oleh.ambilSatuanKerja();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					LogPembayaran log = (LogPembayaran) session.createCriteria(LogPembayaran.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (log == null || log.getKegiatan() == null) {
+						continue;
+					}
+					Akun[] akuns = populateAkun(session, log);
+					if (akuns == null || akuns[0] == null || akuns[1] == null) {
+						// Kode akun kanal pembayarannya belum diatur: dilewati, bukan ditandai.
+						continue;
+					}
+					String ket = "Biaya administrasi "
+							+ (log.getKegiatan().getMahasiswa() == null ? log.getKegiatan().getCalonMahasiswa()
+									: log.getKegiatan().getMahasiswa())
+							+ " untuk pembayaran "
+							+ (log.getKegiatan().getJenisKegiatan() == null ? ""
+									: log.getKegiatan().getJenisKegiatan().getNamaKegiatan())
+							+ " pada waktu " + Common.dateFormat3.get().format(log.getTanggal());
+					Double nilai = log.getBiayaAdministrasi();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						CommonAkunting.saveTransaksi(akuns[0], akuns[1], null, null, postingHistory, true,
+								ket, log.getTanggal(), nilai, Double.valueOf(0.0), log, satuanKerjaPengguna,
+								session);
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingBiayaAdministrasiPembayaranMahasiswaAction jalur API");
+					}
+
+					if (tersimpan) {
+						log.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(log);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingBiayaAdministrasiPembayaranMahasiswaAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingBiayaAdministrasiPembayaranMahasiswaAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

@@ -46,6 +46,12 @@ public class EcampusUtil {
 
 	@SuppressWarnings("rawtypes")
 	public static void tampilkan(List<List> datas, Spreadsheet excelku, boolean auto) throws Exception {
+		if (excelku == null) {
+			throw new IllegalArgumentException("Komponen spreadsheet belum tersedia");
+		}
+		if (datas == null) {
+			datas = new java.util.ArrayList<List>();
+		}
 
 		String fn = Common.REAL_PATH + "/tmp/rekap_"
 				+ URLEncoder.encode(Common.datetimeFormat2s.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8") + ".xlsx";
@@ -54,6 +60,9 @@ public class EcampusUtil {
 		int lebar = 1;
 		for (int rowIndex = mulaiRow; rowIndex < datas.size() + mulaiRow; rowIndex++) {
 			List sub = datas.get(rowIndex - mulaiRow);
+			if (sub == null) {
+				continue;
+			}
 			if (sub.size() > lebar) {
 				lebar = sub.size();
 			}
@@ -103,6 +112,9 @@ public class EcampusUtil {
 		for (int rowIndex = mulaiRow; rowIndex < datas.size() + mulaiRow; rowIndex++) {
 
 			List sub = datas.get(rowIndex - mulaiRow);
+			if (sub == null) {
+				continue;
+			}
 			boolean blank = true;
 			for (int colIndex = 0; colIndex < sub.size(); colIndex++) {
 
@@ -157,8 +169,14 @@ public class EcampusUtil {
 
 		if (!kop.isEmpty()) {
 
-			InputStream inputStream1 = new FileInputStream(kop);
-			byte[] inputImageBytes1 = IOUtils.toByteArray(inputStream1);
+			InputStream inputStream1 = null;
+			byte[] inputImageBytes1;
+			try {
+				inputStream1 = new FileInputStream(kop);
+				inputImageBytes1 = IOUtils.toByteArray(inputStream1);
+			} finally {
+				if (inputStream1 != null) try { inputStream1.close(); } catch (IOException ignore) { }
+			}
 
 			int inputImagePictureID1 = workbook.addPicture(inputImageBytes1, Workbook.PICTURE_TYPE_JPEG);
 			XSSFDrawing drawing = (XSSFDrawing) sheet.createDrawingPatriarch();
@@ -173,13 +191,15 @@ public class EcampusUtil {
 
 		File file = new File(fn);
 
+		FileOutputStream fileOut = null;
 		try {
-			FileOutputStream fileOut = new FileOutputStream(file);
+			fileOut = new FileOutputStream(file);
 			workbook.write(fileOut);
-			fileOut.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (fileOut != null) try { fileOut.close(); } catch (IOException ignore) { }
 		}
 
 		excelku.setSrc("../../tmp/" + file.getName());

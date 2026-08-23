@@ -3937,15 +3937,24 @@ public class ElearningApiUtil {
 				result.put("description", "Data tidak ditemukan");
 				return result;
 			}
-			if (!dp.getMahasiswa().getId().equals(tbmuser.getMahasiswa().getId())) {
+			if (dp.getMahasiswa() == null || dp.getMahasiswa().getId() == null
+					|| tbmuser.getMahasiswa().getId() == null
+					|| !dp.getMahasiswa().getId().equals(tbmuser.getMahasiswa().getId())) {
 				result.put("status", "97");
 				result.put("description", "Akses ditolak");
+				return result;
+			}
+			if (dp.getPerkuliahan() == null) {
+				result.put("status", "99");
+				result.put("description", "Data perkuliahan tidak ditemukan");
 				return result;
 			}
 			boolean sembunyikan = Boolean.TRUE.equals(dp.getPerkuliahan().getSembunyikanNilaiJikaBelumDiverifikasi());
 			List<FormatNilai> formatNilais = dp.getPerkuliahan().ambilFormatNilai(session);
 			JSONArray komponens = new JSONArray();
+			if (formatNilais == null) formatNilais = new java.util.ArrayList<FormatNilai>();
 			for (FormatNilai fn : formatNilais) {
+				if (fn == null) continue;
 				JSONObject komp = new JSONObject();
 				Boolean verified = dp.retreiveDetailVerifikasiNilai(fn);
 				boolean isVerified = Boolean.TRUE.equals(verified);

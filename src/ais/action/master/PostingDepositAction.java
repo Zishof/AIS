@@ -843,4 +843,193 @@ public class PostingDepositAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	// PEMELIHARAAN: akun & nilai HARUS tetap identik dengan {@link #onPostingSemua}.
+	// =====================================================================
+
+	/**
+	 * Kriteria tabungan/deposit mahasiswa pada rentang tanggal -- sama dengan penghitung baris
+	 * "Mahasiswa - Tabungan/Deposit" pada dasbor
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaDepositMahasiswa}).
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(Deposit.class)
+				.add(Restrictions.or(Restrictions.isNotNull("mahasiswa"),
+						Restrictions.isNotNull("biodataCalonMahasiswa")))
+				.add(Restrictions.isNotNull("waktu"))
+				.add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
+						Restrictions.ne("nominal", 0.0)))
+				.add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
+						Restrictions.isNotNull("nominal")));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.waktu) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/** Batalkan posting SEMUA tabungan/deposit mahasiswa terposting dalam rentang. */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Deposit> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Deposit deposit : daftar) {
+				try {
+					String syarat = "deposit=" + deposit.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					deposit.setPostingHistory(null);
+					session.update(deposit);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingDepositAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA tabungan/deposit mahasiswa yang belum dijurnal dalam rentang.
+	 *
+	 * <p>Debet = akun jenis pembayaran (kas/bank yang menerima), kredit = akun jenis tabungan
+	 * (titipan mahasiswa). Nilai dari {@code nominal}, tanggal jurnal dari {@code waktu}; bila
+	 * nilainya &le; 0,1 posisi ditukar.</p>
+	 *
+	 * <p><b>Satuan kerja.</b> Layar memakai penyaring di halaman bila diisi, dan fakultas
+	 * mahasiswanya bila tidak. Dari API penyaring itu tidak ada, jadi urutannya: satuan kerja
+	 * FAKULTAS mahasiswa, lalu satuan kerja pengguna yang memposting sebagai cadangan.</p>
+	 *
+	 * <p><b>Dua penyimpangan sadar:</b> dokumen berakun tidak lengkap dilewati, dan penanda
+	 * posting hanya dipasang bila jurnalnya benar-benar tersimpan.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_MAHASISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal tabungan mahasiswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			SatuanKerja satuanKerjaPengguna = oleh == null ? null : oleh.ambilSatuanKerja();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					Deposit deposit = (Deposit) session.createCriteria(Deposit.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (deposit == null || deposit.getJenisTabungan() == null
+							|| deposit.getJenisPembayaran() == null) {
+						continue;
+					}
+					Akun akunKredit = deposit.getJenisTabungan().getAkun();
+					Akun akunDebet = deposit.getJenisPembayaran().getAkun();
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+					SatuanKerja satuanKerja = deposit.getMahasiswa() != null
+							&& deposit.getMahasiswa().getJurusan() != null
+							&& deposit.getMahasiswa().getJurusan().getFakultas() != null
+							&& deposit.getMahasiswa().getJurusan().getFakultas().getSatuanKerja() != null
+									? deposit.getMahasiswa().getJurusan().getFakultas().getSatuanKerja()
+									: satuanKerjaPengguna;
+
+					String ket;
+					if (deposit.getMahasiswa() != null) {
+						ket = "Tabungan " + deposit.getMahasiswa().getNim() + "-"
+								+ deposit.getMahasiswa().getNama() + " - "
+								+ deposit.getJenisTabungan().getNama() + " - " + deposit.getKeterangan();
+					} else if (deposit.getBiodataCalonMahasiswa() != null) {
+						ket = "Tabungan " + deposit.getBiodataCalonMahasiswa().getNoRegistrasi() + "-"
+								+ deposit.getBiodataCalonMahasiswa().getNama() + " - "
+								+ deposit.getJenisTabungan().getNama() + " - " + deposit.getKeterangan();
+					} else {
+						ket = "Tabungan - " + deposit.getJenisTabungan().getNama() + " - "
+								+ deposit.getKeterangan();
+					}
+					Double nilai = deposit.getNominal();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									true, ket, deposit.getWaktu(), nilai, Double.valueOf(0.0), deposit,
+									satuanKerja, session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									true, ket, deposit.getWaktu(), nilai, Double.valueOf(0.0), deposit,
+									satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingDepositAction jalur API");
+					}
+
+					if (tersimpan) {
+						deposit.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(deposit);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingDepositAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingDepositAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

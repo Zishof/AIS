@@ -280,7 +280,13 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
     }
 
     public static void refreshUpdate(Session session, GeneralValueObject o, boolean flush) {
+		if (o == null) {
+			return;
+		}
         session = getSafeSession(session);
+		if (session == null || !session.isOpen()) {
+			return;
+		}
 
         // Logika penentuan Save atau Update
         try {
@@ -322,7 +328,13 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
     }
 
     public static void refresh(GeneralValueObject o) {
+		if (o == null) {
+			return;
+		}
         Session session = getSafeSession(HibernateUtil.currentSession());
+		if (session == null || !session.isOpen()) {
+			return;
+		}
         try {
             session.refresh(o);
         } catch (Exception e) {

@@ -1290,44 +1290,74 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 			for (Long id : ids) {
 				try {
 					session = HibernateUtil.currentNativeSession();
+					// FASE 1 -- mengumpulkan bahan. Blok ini memanggil AssetUtil.ambilDataAkun,
+					// yang lewat ConstantValues.ambil membuka dan MENUTUP sesinya sendiri. Karena
+					// itu tidak boleh ada satu pun referensi entitas dari sini yang dipakai untuk
+					// menulis jurnal: yang dibawa keluar hanya id dan angka.
 					PenerimaanPengadaanMasterAsset bast = (PenerimaanPengadaanMasterAsset) session
 						.get(PenerimaanPengadaanMasterAsset.class, id);
-					if (bast == null) {
+					if (bast == null || bast.getJenisPenerimaanBarang() == null
+						|| bast.getJenisPenerimaanBarang().getAkun() == null
+						|| bast.getJenisPenerimaanBarang().getAkun().getId() == null) {
 						continue;
 					}
+					Long akunKreditId = bast.getJenisPenerimaanBarang().getAkun().getId();
+					Long satuanKerjaId = bast.getSatuanKerja() == null ? null : bast.getSatuanKerja().getId();
+					String ket = bast.getKode() + " " + bast.getKeterangan();
+					Date tanggal = bast.getTanggalPersetujuan();
 
-					Akun akunKredit = bast.getJenisPenerimaanBarang() == null ? null
-						: bast.getJenisPenerimaanBarang().getAkun();
-					if (akunKredit == null) {
-						continue;
-					}
-
-					SatuanKerja satuanKerja = bast.getSatuanKerja();
 					List<PenerimaanPengadaanMasterAssetDetail> detail = session
 						.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
 						.add(Restrictions.eq("penerimaanPengadaanMasterAsset", bast))
 						.addOrder(Order.asc("id")).list();
 
-					List<Akun> akunsDebet = new ArrayList<Akun>();
+					List<Long> akunDebetIds = new ArrayList<Long>();
 					List<Double> nilaiDebet = new ArrayList<Double>();
 					double total = 0.0;
 					boolean lengkap = true;
+					SatuanKerja satuanKerjaFase1 = bast.getSatuanKerja();
 					for (PenerimaanPengadaanMasterAssetDetail d : detail) {
-						Akun akunDebet = akunDebetDetail(d, satuanKerja);
-						if (akunDebet == null) {
+						Akun akunDebet = akunDebetDetail(d, satuanKerjaFase1);
+						if (akunDebet == null || akunDebet.getId() == null) {
 							lengkap = false;
 							break;
 						}
 						Double harga = d.getHargaTotal();
-						akunsDebet.add(akunDebet);
+						akunDebetIds.add(akunDebet.getId());
 						nilaiDebet.add(harga);
 						total += (harga == null ? 0.0 : harga.doubleValue());
 					}
-					if (!lengkap || akunsDebet.isEmpty()) {
+					if (!lengkap || akunDebetIds.isEmpty()) {
 						continue;
 					}
 
-					String ket = bast.getKode() + " " + bast.getKeterangan();
+					// FASE 2 -- sesi diambil ULANG dan seluruh entitas dimuat kembali di dalamnya.
+					// Memakai objek dari fase 1 di sini berakhir "Session is closed!" atau, lebih
+					// buruk, NonUniqueObjectException karena entitas yang sama masuk dua kali.
+					session = HibernateUtil.currentNativeSession();
+					bast = (PenerimaanPengadaanMasterAsset) session
+						.get(PenerimaanPengadaanMasterAsset.class, id);
+					PostingHistory riwayat = (PostingHistory) session.get(PostingHistory.class,
+						postingHistory.getId());
+					Akun akunKredit = (Akun) session.get(Akun.class, akunKreditId);
+					SatuanKerja satuanKerja = satuanKerjaId == null ? null
+						: (SatuanKerja) session.get(SatuanKerja.class, satuanKerjaId);
+					if (bast == null || riwayat == null || akunKredit == null) {
+						continue;
+					}
+					List<Akun> akunsDebet = new ArrayList<Akun>();
+					for (Long akunId : akunDebetIds) {
+						Akun akun = (Akun) session.get(Akun.class, akunId);
+						if (akun == null) {
+							akunsDebet.clear();
+							break;
+						}
+						akunsDebet.add(akun);
+					}
+					if (akunsDebet.size() != akunDebetIds.size()) {
+						continue;
+					}
+
 					List<Akun> akunsKredit = new ArrayList<Akun>();
 					akunsKredit.add(akunKredit);
 					List<Double> nilaiKredit = new ArrayList<Double>();
@@ -1336,8 +1366,8 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 					boolean tersimpan = false;
 					try {
 						session.getTransaction().begin();
-						CommonAkunting.saveTransaksi(akunsDebet, akunsKredit, null, null, postingHistory,
-							Boolean.TRUE, ket, bast.getTanggalPersetujuan(), nilaiDebet, nilaiKredit,
+						CommonAkunting.saveTransaksi(akunsDebet, akunsKredit, null, null, riwayat,
+							Boolean.TRUE, ket, tanggal, nilaiDebet, nilaiKredit,
 							Double.valueOf(0.0), bast, satuanKerja, session);
 						session.getTransaction().commit();
 						tersimpan = true;
