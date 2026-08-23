@@ -1248,14 +1248,17 @@ public class TugasMandiriHelper {
 		/* Portal 2 kolom responsif (menumpuk di HP) menggantikan Borderlayout West+Center.
 		 * Kiri = detail/instruksi tugas (40%), kanan = pengumpulan & rekap (60%). */
 		ais.ui.util.MyPortallayout borderlayout = new ais.ui.util.MyPortallayout();
+		borderlayout.setSclass("ais-tugas-equal-height-portal");
 		borderlayout.setWidth("100%");
 		borderlayout.setParent(tabpanelFileTugasPertemuan);
 
 		ais.ui.util.MyPortalchildren west = new ais.ui.util.MyPortalchildren();
+		west.setSclass("ais-tugas-equal-height-column ais-tugas-instruksi-column");
 		west.setWidth("40%");
 		west.setParent(borderlayout);
 
 		ais.ui.util.MyPortalchildren center = new ais.ui.util.MyPortalchildren();
+		center.setSclass("ais-tugas-equal-height-column ais-tugas-jawaban-column");
 		center.setWidth("60%");
 		center.setParent(borderlayout);
 
@@ -2211,50 +2214,12 @@ public class TugasMandiriHelper {
 		});
 
 		Borderlayout myborderlayout = new Borderlayout();
+		myborderlayout.setSclass("ais-tugas-jawaban-layout");
 		myborderlayout.setParent(center);
-		/* Tinggi konkret awal (fallback): tabbox di dalamnya height:100% — di kolom portal (Div
-		 * natural-height) Borderlayout tanpa tinggi pasti kolaps. 74vh dipakai sebelum skrip "ikuti
-		 * parent" di bawah menyempurnakannya, dan sebagai cadangan bila skrip gagal. */
-		myborderlayout.setHeight("74vh");
-		myborderlayout.setStyle("min-height:480px;");
-		/*
-		 * SCROLL IKUTI PARENT (dinamis, bukan 74vh tetap): tinggi Borderlayout disetel mengikuti tinggi
-		 * WADAH INDUK-nya — dari sisi atas Borderlayout sampai bawah leluhur ber-scroll terdekat (kolom
-		 * portal / area e-Learning), atau viewport bila tak ada — DIKURANGI tinggi elemen setelahnya
-		 * (mis. footer "Selesai") agar tidak menimpanya. Karena ZK 5.0.13 Borderlayout tidak otomatis
-		 * mengikuti perubahan tinggi CSS, setelah menyetel tinggi kita PICU relayout ZK lewat event
-		 * 'resize' (dengan pengaman anti-loop __busy). Dijalankan saat bind, beberapa kali agar layout
-		 * stabil, dan setiap jendela di-resize -> region Center + grid di dalamnya selalu pas ke induk.
-		 */
-		myborderlayout.setWidgetListener("onBind", ""
-				+ "var el=this.$n?this.$n():null;if(!el){return;}"
-				+ "var atur=function(){try{"
-				+ "  if(el.__busy){return;}"
-				+ "  var p=el.parentNode,host=null;"
-				+ "  while(p&&p.nodeType===1&&p!==document.body){"
-				+ "    var cs=window.getComputedStyle(p);"
-				+ "    if(p.clientHeight>0&&(cs.overflowY==='auto'||cs.overflowY==='scroll'||cs.overflowY==='hidden')){host=p;break;}"
-				+ "    p=p.parentNode;"
-				+ "  }"
-				+ "  var er=el.getBoundingClientRect();"
-				+ "  var bottom=host?(host.getBoundingClientRect().top+host.clientHeight):(window.innerHeight||document.documentElement.clientHeight);"
-				+ "  var trailing=0,node=el;"
-				+ "  while(node&&node!==host&&node!==document.body){"
-				+ "    var s=node.nextElementSibling;"
-				+ "    while(s){trailing+=(s.offsetHeight||0);s=s.nextElementSibling;}"
-				+ "    node=node.parentNode;"
-				+ "  }"
-				+ "  var h=Math.floor(bottom-er.top-trailing-8);"
-				+ "  if(h>200&&el.__lastH!==h){"
-				+ "    el.__lastH=h;"
-				+ "    el.style.setProperty('height',h+'px','important');"
-				+ "    el.__busy=true;"
-				+ "    try{if(document.createEvent){var ev=document.createEvent('HTMLEvents');ev.initEvent('resize',true,false);window.dispatchEvent(ev);}else if(window.dispatchEvent){window.dispatchEvent(new Event('resize'));}}catch(e2){}"
-				+ "    el.__busy=false;"
-				+ "  }"
-				+ "}catch(e){}};"
-				+ "setTimeout(atur,90);setTimeout(atur,400);setTimeout(atur,900);"
-				+ "if(window.addEventListener){window.addEventListener('resize',function(){if(el.__busy){return;}el.__lastH=null;setTimeout(atur,50);});}");
+		// Tinggi mengikuti kolom parent yang diregangkan oleh flex portal. Minimum
+		// 200px menjaga panel tetap dapat digunakan ketika instruksi tugas sangat pendek.
+		myborderlayout.setHeight("100%");
+		myborderlayout.setStyle("min-height:200px;flex:1 1 auto;");
 
 		vbox.appendChild(upload);
 		vbox.appendChild(download);
