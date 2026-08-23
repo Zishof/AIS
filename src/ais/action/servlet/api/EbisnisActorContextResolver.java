@@ -69,6 +69,29 @@ public final class EbisnisActorContextResolver {
 		/** Hasil {@link EbisnisMenuKatalog#urai(String)} utk role aktif -- selalu non-null. */
 		public JSONObject permissions;
 
+		// -- Tenant (P2). Data PUBLIK saja: nama schema TIDAK boleh masuk ke sini maupun ke
+		// toJson(), sesuai dokumen master 4.7 dan 7.2. Kosong bila request tidak ber-tenant
+		// (jalur legacy/LEGACY mode) -- klien memperlakukan null sebagai "tanpa tenant".
+		public Long tenantId;
+		public String tenantCode;
+		public String tenantName;
+		public String membershipRole;
+
+		/**
+		 * Salin bagian publik {@link ais.service.tenant.TenantContext} ke aktor ini.
+		 * Sengaja menyalin empat medan saja, bukan menyimpan rujukan ke TenantContext:
+		 * rujukan membuat nama schema ikut terbawa ke mana pun aktor dioper.
+		 */
+		public void isiTenant(ais.service.tenant.TenantContext ctx) {
+			if (ctx == null) {
+				return;
+			}
+			this.tenantId = ctx.getTenantId();
+			this.tenantCode = ctx.getTenantCode();
+			this.tenantName = ctx.getTenantName();
+			this.membershipRole = ctx.getMembershipRole();
+		}
+
 		public boolean bolehMenu(String kunci) {
 			if (admin || supervisor) {
 				return true;
@@ -114,6 +137,11 @@ public final class EbisnisActorContextResolver {
 				fitur.put("inventory_sales");
 			}
 			j.put("featureProfile", fitur);
+			// Tenant (P2) -- publik saja; schemaName/auditSchemaName sengaja TIDAK ada.
+			j.put("tenantId", tenantId == null ? JSONObject.NULL : tenantId);
+			j.put("tenantCode", tenantCode == null ? "" : tenantCode);
+			j.put("tenantName", tenantName == null ? "" : tenantName);
+			j.put("membershipRole", membershipRole == null ? "" : membershipRole);
 			return j;
 		}
 	}

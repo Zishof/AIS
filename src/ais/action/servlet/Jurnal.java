@@ -12,6 +12,7 @@ import java.util.Base64;
 import javax.servlet.ServletException;
 import javax.servlet.http.*;
 import ais.action.master.jurnal.JurnalAuthorizationService;
+import ais.action.master.jurnal.JurnalDemoDataService;
 import ais.action.master.jurnal.JurnalPublicService;
 import ais.action.master.jurnal.JurnalNotificationPreferenceService;
 import ais.action.master.jurnal.JurnalPluginParityService;
@@ -44,6 +45,7 @@ public final class Jurnal extends HttpServlet {
             if(("/search".equals(path)||path.startsWith("/recommend/"))&&!JurnalRateLimiter.allow("public-query",req.getRemoteAddr(),120,60000L)){res.sendError(429,"Terlalu banyak permintaan.");return;}
             if(path.startsWith("/admin")){admin(req,res,path);return;}
             if("/login".equals(path)){login(req,res);return;}
+            if("/demo-sample".equals(path)){demoSample(req,res);return;}
             if("/preferences".equals(path)){preferences(req,res);return;}
             if("/analytics-consent".equals(path)){analyticsConsent(req,res);return;}
             if("/feed".equals(path)||"/feed.xml".equals(path)){feed(req,res);return;}
@@ -76,7 +78,21 @@ public final class Jurnal extends HttpServlet {
         req.setAttribute("jurnalView","home");req.setAttribute("jurnalHome",publicService.home());preparePortalIdentity(req);
         req.getRequestDispatcher(PUBLIC_JSP).forward(req,res);
     }
-    private void preparePortalIdentity(HttpServletRequest req){Tbmuser user=Common.getCurrentUser(req);if(user==null){req.setAttribute("jurnalLoginCsrf",NewUiCsrfUtil.getToken(req.getSession(true)));return;}req.setAttribute("jurnalAuthenticated",Boolean.TRUE);req.setAttribute("jurnalCurrentUserName",clean(user.getUserNama()).length()==0?user.getUserId():user.getUserNama());}
+    private void demoSample(HttpServletRequest req,HttpServletResponse res)throws Exception{
+        Tbmuser user=Common.getCurrentUser(req);if(user==null){res.sendError(401,"Login diperlukan.");return;}
+        if(!Common.getApakahAdmin()){res.sendError(403,"Hanya administrator yang boleh mengelola data sample.");return;}
+        if(!"POST".equalsIgnoreCase(req.getMethod())){res.setStatus(HttpServletResponse.SC_SEE_OTHER);res.setHeader("Location",req.getContextPath()+"/jurnal");return;}
+        if(!NewUiCsrfUtil.isValid(req))throw new SecurityException("Token CSRF jurnal tidak valid.");
+        HttpSession session=req.getSession(true);String action=clean(req.getParameter("sampleAction"));
+        try{
+            JurnalDemoDataService service=new JurnalDemoDataService();
+            if("generate".equals(action)&&"generate-50x100".equals(req.getParameter("confirmed"))){JurnalDemoDataService.Result x=service.generate(50,100,Long.valueOf(245L),JurnalDemoDataService.DEFAULT_AUTHOR,"sample-50x100",JurnalDemoDataService.SAMPLE_CONFIRMATION,user);session.setAttribute("jurnalSampleFlash","Data sample siap: 50 jurnal × 100 artikel; jurnal baru "+x.journalsCreated+", artikel baru "+x.articlesCreated+".");}
+            else if("delete".equals(action)&&"delete-50x100".equals(req.getParameter("confirmed"))){JurnalDemoDataService.RemoveResult x=service.removeSample("sample-50x100",JurnalDemoDataService.DELETE_SAMPLE_CONFIRMATION,user);session.setAttribute("jurnalSampleFlash","Data sample dihapus: "+x.journalsRemoved+" jurnal, "+x.articlesRemoved+" artikel.");}
+            else throw new IllegalArgumentException("Konfirmasi pengelolaan data sample wajib dipilih.");
+        }catch(RuntimeException e){session.setAttribute("jurnalSampleFlash","Data sample gagal: "+e.getMessage());session.setAttribute("jurnalSampleFlashError",Boolean.TRUE);}
+        res.setStatus(HttpServletResponse.SC_SEE_OTHER);res.setHeader("Location",req.getContextPath()+"/jurnal");
+    }
+    private void preparePortalIdentity(HttpServletRequest req){HttpSession session=req.getSession(true);req.setAttribute("jurnalPortalCsrf",NewUiCsrfUtil.getToken(session));Object flash=session.getAttribute("jurnalSampleFlash");if(flash!=null){req.setAttribute("jurnalSampleFlash",flash);req.setAttribute("jurnalSampleFlashError",session.getAttribute("jurnalSampleFlashError"));session.removeAttribute("jurnalSampleFlash");session.removeAttribute("jurnalSampleFlashError");}Tbmuser user=Common.getCurrentUser(req);if(user==null)return;req.setAttribute("jurnalAuthenticated",Boolean.TRUE);req.setAttribute("jurnalCurrentUserName",clean(user.getUserNama()).length()==0?user.getUserId():user.getUserNama());try{if(Common.getApakahAdmin())req.setAttribute("jurnalAdmin",Boolean.TRUE);}catch(Exception ignored){req.removeAttribute("jurnalAdmin");}}
     private void admin(HttpServletRequest req,HttpServletResponse res,String path)throws Exception{
         Tbmuser user=Common.getCurrentUser(req);if(user==null){res.sendRedirect(req.getContextPath()+"/login2?returnTo="+req.getContextPath()+"/jurnal"+path);return;}
         if("POST".equalsIgnoreCase(req.getMethod())&&!NewUiCsrfUtil.isValid(req))throw new SecurityException("Token CSRF jurnal tidak valid.");

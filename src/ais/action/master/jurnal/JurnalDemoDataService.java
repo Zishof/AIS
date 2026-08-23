@@ -15,8 +15,10 @@ import ais.database.model.repository.RepoCollection;
 /** Admin-only, explicitly enabled generator for disposable demo/SIT/UAT data. */
 public final class JurnalDemoDataService {
     public static final String CONFIRMATION = "GENERATE-DEMO-500X100";
+    public static final String SAMPLE_CONFIRMATION = "GENERATE-SAMPLE-50X100";
+    public static final String DELETE_SAMPLE_CONFIRMATION = "DELETE-SAMPLE-50X100";
     public static final String DEFAULT_AUTHOR = "Prof. Dr. ASROFI RIDHO S.AG., M.SI., M.H, M.Pd, M.Psi";
-    private static final int MIN_JOURNALS = 500, MAX_JOURNALS = 500;
+    private static final int MIN_JOURNALS = 50, MAX_JOURNALS = 500;
     private static final int MIN_ARTICLES = 100, MAX_ARTICLES = 200;
     private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
 
@@ -25,15 +27,20 @@ public final class JurnalDemoDataService {
         public int journalsRequested, journalsCreated, articlesPerJournal, articlesCreated, contributorsCreated;
         public long elapsedMillis;
     }
+    public static final class RemoveResult {
+        public String key;
+        public int journalsRemoved, articlesRemoved, contributorsRemoved;
+    }
 
     public Result generate(int journalCount, int articlesPerJournal, Long authorId, String fallbackAuthor,
             String idempotencyKey, String confirmation, Tbmuser actor) {
         auth.requireCrud(actor, "journals", "create");
         auth.requireAdministrator(actor);
         requireEnabled();
-        if (!CONFIRMATION.equals(confirmation)) throw new IllegalArgumentException("Konfirmasi generator demo tidak sesuai.");
+        if (!CONFIRMATION.equals(confirmation) && !SAMPLE_CONFIRMATION.equals(confirmation))
+            throw new IllegalArgumentException("Konfirmasi generator demo tidak sesuai.");
         if (journalCount < MIN_JOURNALS || journalCount > MAX_JOURNALS)
-            throw new IllegalArgumentException("Jumlah jurnal demo harus tepat 500.");
+            throw new IllegalArgumentException("Jumlah jurnal demo harus 50 sampai 500.");
         if (articlesPerJournal < MIN_ARTICLES || articlesPerJournal > MAX_ARTICLES)
             throw new IllegalArgumentException("Artikel per jurnal harus 100 sampai 200.");
         String key = key(idempotencyKey);
@@ -84,6 +91,47 @@ public final class JurnalDemoDataService {
         out.elapsedMillis=System.currentTimeMillis()-started;
         return out;
     }
+
+    public RemoveResult removeSample(String idempotencyKey, String confirmation, Tbmuser actor) {
+        auth.requireCrud(actor, "journals", "delete");
+        auth.requireAdministrator(actor);
+        requireEnabled();
+        if (!DELETE_SAMPLE_CONFIRMATION.equals(confirmation))
+            throw new IllegalArgumentException("Konfirmasi penghapusan sample tidak sesuai.");
+        String key=key(idempotencyKey);
+        String sourceClass="AIS_JOURNAL_DEMO:"+key;
+        String collectionPattern="demo-"+key+"-%";
+        Session session=HibernateUtil.currentSession();
+        Transaction tx=session.getTransaction();
+        boolean own=!tx.isActive();
+        try {
+            if(own)tx.begin();
+            long dependent=0L;
+            dependent+=count(session,"select count(*) from penelitiandanpengabdian.penugasan_reviewer_jurnal x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from penelitiandanpengabdian.penugasan_tahap_jurnal x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from penelitiandanpengabdian.artikel x where x.repo_item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.diskusi x where x.repo_item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_bitstream x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_integration_event x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_item_metadata x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_item_relation x where x.item_id in (select id from public.repo_item where source_class=:sourceClass) or x.related_item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_notification x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_usage_event x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_user_preference x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=count(session,"select count(*) from public.repo_workflow_event x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
+            dependent+=countCollection(session,"select count(*) from penelitiandanpengabdian.langganan_jurnal x where x.collection_id in (select id from public.repo_collection where kode like :collectionPattern and tipe='JOURNAL')",collectionPattern);
+            if(dependent>0L)throw new IllegalStateException("Data sample sudah memiliki aktivitas/dependensi ("+dependent+") dan tidak dihapus otomatis.");
+            RemoveResult out=new RemoveResult();out.key=key;
+            out.contributorsRemoved=session.createSQLQuery("delete from public.repo_item_contributor where item_id in (select id from public.repo_item where source_class=:sourceClass)").setString("sourceClass",sourceClass).executeUpdate();
+            out.articlesRemoved=session.createSQLQuery("delete from public.repo_item where source_class=:sourceClass").setString("sourceClass",sourceClass).executeUpdate();
+            session.createSQLQuery("delete from penelitiandanpengabdian.jurnal_penelitian where repo_collection_id in (select id from public.repo_collection where kode like :collectionPattern and tipe='JOURNAL')").setString("collectionPattern",collectionPattern).executeUpdate();
+            out.journalsRemoved=session.createSQLQuery("delete from public.repo_collection where kode like :collectionPattern and tipe='JOURNAL'").setString("collectionPattern",collectionPattern).executeUpdate();
+            if(own)tx.commit();session.clear();return out;
+        } catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}
+    }
+
+    private static long count(Session session,String sql,String sourceClass){Number n=(Number)session.createSQLQuery(sql).setString("sourceClass",sourceClass).uniqueResult();return n==null?0L:n.longValue();}
+    private static long countCollection(Session session,String sql,String pattern){Number n=(Number)session.createSQLQuery(sql).setString("collectionPattern",pattern).uniqueResult();return n==null?0L:n.longValue();}
 
     private static Author author(Session session,Long requestedId,String fallback,Tbmuser actor){
         Long id=requestedId==null?Long.valueOf(245L):requestedId;String name=null;boolean existingPerson=false;
