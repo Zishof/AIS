@@ -734,7 +734,30 @@ public class GDriveUtilPerPengguna {
 			query += " and '" + parentId + "' in parents";
 		}
 
-		FileList files = drive.files().list().setQ(query).execute();
+		FileList files = null;
+		IOException gagalTerakhir = null;
+		for (int i = 0; i < 3; i++) {
+			try {
+				files = drive.files().list().setQ(query).execute();
+				gagalTerakhir = null;
+				break;
+			} catch (IOException e) {
+				gagalTerakhir = e;
+				ais.common.ErrorAuditUtil.record(e,
+						"GDriveUtilPerPengguna.getOrCreateDriveFolder:list-retry-" + (i + 1) + ", folder=" + folderName);
+				if (i < 2) {
+					try {
+						Thread.sleep(1000L * (i + 1));
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						throw e;
+					}
+				}
+			}
+		}
+		if (gagalTerakhir != null) {
+			throw gagalTerakhir;
+		}
 		List<com.google.api.services.drive.model.File> folders = files.getFiles();
 
 		if (folders.isEmpty()) {
@@ -744,7 +767,25 @@ public class GDriveUtilPerPengguna {
 			if (parentId != null && !parentId.isEmpty()) {
 				fileMetadata.setParents(Collections.singletonList(parentId));
 			}
-			return drive.files().create(fileMetadata).setFields("id").execute();
+			gagalTerakhir = null;
+			for (int i = 0; i < 3; i++) {
+				try {
+					return drive.files().create(fileMetadata).setFields("id").execute();
+				} catch (IOException e) {
+					gagalTerakhir = e;
+					ais.common.ErrorAuditUtil.record(e,
+							"GDriveUtilPerPengguna.getOrCreateDriveFolder:create-retry-" + (i + 1) + ", folder=" + folderName);
+					if (i < 2) {
+						try {
+							Thread.sleep(1000L * (i + 1));
+						} catch (InterruptedException interrupted) {
+							Thread.currentThread().interrupt();
+							throw e;
+						}
+					}
+				}
+			}
+			throw gagalTerakhir;
 		} else {
 			return folders.get(0);
 		}

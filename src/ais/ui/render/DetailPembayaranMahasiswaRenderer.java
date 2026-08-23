@@ -176,7 +176,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		Session session = null;
 		Transaction tx = null;
 		try {
-			session = HibernateUtil.currentNativeSession();
+			session = HibernateUtil.openSession();
 			tx = session.beginTransaction();
 			session.save(entity);
 			tx.commit();
