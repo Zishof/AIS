@@ -355,6 +355,76 @@ public class KantinHelper {
 	 * makin gemuk dan supaya validasi "total semua slot != totalBiaya" hanya ditulis SEKALI, dipakai
 	 * di kedua cabang if/else (draft vs baru) yang sebelumnya duplikat identik.
 	 */
+	/**
+	 * <h3>Jaring pengaman: isi nilai bayar yang tidak pernah ditulis klien.</h3>
+	 *
+	 * <p>Aksi {@code bayar} selalu menghitung {@code bayar_tunai}/{@code bayar_non_tunai}
+	 * sendiri dari tanda metode ({@link SplitPembayaran#terapkanKe}), jadi transaksi yang
+	 * lewat sana selalu benar. Tetapi transaksi juga bisa masuk lewat jalur SIMPAN GENERIK
+	 * ({@code /Data} → {@code simpanDataRinci}), yang tidak punya logika bisnis apa pun: ia
+	 * menyimpan persis field yang dikirim. Klien yang tidak mengirim kedua kolom itu
+	 * menghasilkan nota "lunas" bernilai bayar NOL.</p>
+	 *
+	 * <p>Akibatnya nyata dan sudah terjadi: pada satu toko, 80 nota bernilai Rp 1,9 juta
+	 * dari jalur sinkronisasi luring berakhir di laporan Saldo Piutang sebagai tagihan
+	 * "Umum / Non-Anggota" -- padahal uangnya sudah diterima. Laporan itu memang menyimpulkan
+	 * piutang dari selisih {@code total_biaya - bayar}, jadi kolom yang kosong terbaca sebagai
+	 * utang.</p>
+	 *
+	 * <p><b>Syaratnya sengaja dibuat sesempit mungkin.</b> Nilai hanya diisi bila yang
+	 * tercatat benar-benar NOL <i>dan</i> tanda metodenya memang menunjukkan ada uang masuk.
+	 * Konsekuensinya:</p>
+	 * <ul>
+	 *   <li>piutang yang SAH (metode bertanda "masuk sebagai hutang") tetap nol -- perhitungan
+	 *       untuk metode seperti itu juga menghasilkan nol, jadi tidak ada yang diubah;</li>
+	 *   <li>nota yang dibayar sebagian tidak disentuh sama sekali, karena tercatatnya bukan nol;</li>
+	 *   <li>nota yang sudah benar tidak berubah.</li>
+	 * </ul>
+	 * <p>Dengan begitu method ini tidak pernah bisa "menghapus" piutang yang sungguhan --
+	 * batas yang penting, karena memperbaiki data secara otomatis di jalur tulis adalah
+	 * tindakan yang tidak terlihat oleh siapa pun saat terjadi.</p>
+	 *
+	 * @return true bila ada nilai yang diperbaiki (dipakai pemanggil untuk mencatat jejak).
+	 */
+	public static boolean normalkanNilaiBayar(PembelianAnggotaKoperasi p) {
+		if (p == null) return false;
+		double tercatat = nolBila(p.getBayarTunai()) + nolBila(p.getBayarNonTunai());
+		if (tercatat > 0.0) return false; // sudah ada nilainya -- jangan disentuh.
+
+		double total = nolBila(p.getTotalBiaya());
+		if (total <= 0.0) return false;
+
+		double n2 = Math.max(0.0, nolBila(p.getNominalBayar2()));
+		double n3 = Math.max(0.0, nolBila(p.getNominalBayar3()));
+		double n4 = Math.max(0.0, nolBila(p.getNominalBayar4()));
+		double n5 = Math.max(0.0, nolBila(p.getNominalBayar5()));
+		double n1 = Math.max(0.0, total - n2 - n3 - n4 - n5);
+
+		// Memakai penghitung yang SAMA dengan jalur bayar, bukan salinannya: kalau aturan
+		// "metode mana masuk tunai / non-tunai" berubah suatu saat, kedua jalur ikut berubah
+		// bersama-sama.
+		double tunai = SplitPembayaran.nominalTunai(p.getCaraPembayaranKoperasi(), n1)
+				+ SplitPembayaran.nominalTunai(p.getCaraPembayaranKoperasi2(), n2)
+				+ SplitPembayaran.nominalTunai(p.getCaraPembayaranKoperasi3(), n3)
+				+ SplitPembayaran.nominalTunai(p.getCaraPembayaranKoperasi4(), n4)
+				+ SplitPembayaran.nominalTunai(p.getCaraPembayaranKoperasi5(), n5);
+		double nonTunai = SplitPembayaran.nominalNonTunai(p.getCaraPembayaranKoperasi(), n1)
+				+ SplitPembayaran.nominalNonTunai(p.getCaraPembayaranKoperasi2(), n2)
+				+ SplitPembayaran.nominalNonTunai(p.getCaraPembayaranKoperasi3(), n3)
+				+ SplitPembayaran.nominalNonTunai(p.getCaraPembayaranKoperasi4(), n4)
+				+ SplitPembayaran.nominalNonTunai(p.getCaraPembayaranKoperasi5(), n5);
+
+		if (tunai + nonTunai <= 0.0) return false; // memang piutang / tanpa metode -- biarkan.
+
+		p.setBayarTunai(Double.valueOf(tunai));
+		p.setBayarNonTunai(Double.valueOf(nonTunai));
+		return true;
+	}
+
+	private static double nolBila(Double nilai) {
+		return nilai == null ? 0.0 : nilai.doubleValue();
+	}
+
 	private static class SplitPembayaran {
 		CaraPembayaranKoperasi cara2, cara3, cara4, cara5;
 		Double nominal2 = 0.0, nominal3 = 0.0, nominal4 = 0.0, nominal5 = 0.0;

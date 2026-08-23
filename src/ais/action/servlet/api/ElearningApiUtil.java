@@ -2382,6 +2382,31 @@ public class ElearningApiUtil {
 					}
 				}
 
+				// Jalur simpan generik ini tidak punya logika bisnis: ia menyimpan persis
+				// field yang dikirim klien. Klien yang tidak mengirim bayar_tunai/bayar_non_tunai
+				// menghasilkan nota "lunas" bernilai bayar NOL, yang kemudian terbaca sebagai
+				// PIUTANG oleh laporan Saldo Piutang. Sudah terjadi: 80 nota Rp 1,9 juta dari
+				// sinkronisasi luring. Diperbaiki di sini karena di sinilah satu-satunya titik
+				// yang dilalui SEMUA klien jalur ini, termasuk klien yang sumbernya tidak ada
+				// di repositori ini.
+				if (clazz.getName().equalsIgnoreCase(
+						ais.database.model.koperasi.PembelianAnggotaKoperasi.class.getName())) {
+					try {
+						if (ais.action.servlet.api.KantinHelper.normalkanNilaiBayar(
+								(ais.database.model.koperasi.PembelianAnggotaKoperasi) generalValueObject)) {
+							ais.common.ErrorAuditUtil.record(
+									new IllegalStateException("nilai bayar kosong dilengkapi dari tanda metode"),
+									"simpanDataRinci: PembelianAnggotaKoperasi tanpa nilai bayar");
+						}
+					} catch (Exception eNormalisasi) {
+						// Gagal melengkapi TIDAK boleh menggagalkan simpan: nota yang tersimpan
+						// dengan nilai bayar kosong masih bisa dikoreksi belakangan, sedangkan
+						// transaksi yang gagal tersimpan hilang bersama uangnya.
+						ais.common.ErrorAuditUtil.record(eNormalisasi,
+								"simpanDataRinci: normalkanNilaiBayar gagal");
+					}
+				}
+
 				Tbmuser tbmuserAnggota = null;
 				if (clazz.getName().equalsIgnoreCase(AnggotaKoperasi.class.getName())) {
 					AnggotaKoperasi anggotaKoperasi = (AnggotaKoperasi) generalValueObject;
