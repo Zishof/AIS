@@ -20,6 +20,7 @@ import ais.action.master.jurnal.JurnalUsageEventService;
 import ais.common.Common;
 import ais.common.JurnalAksesKatalog;
 import ais.common.newui.NewUiCsrfUtil;
+import ais.common.newui.PortalLoginApi;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import org.json.JSONArray;
@@ -42,6 +43,7 @@ public final class Jurnal extends HttpServlet {
             req.setCharacterEncoding("UTF-8");String path=clean(req.getPathInfo());
             if(("/search".equals(path)||path.startsWith("/recommend/"))&&!JurnalRateLimiter.allow("public-query",req.getRemoteAddr(),120,60000L)){res.sendError(429,"Terlalu banyak permintaan.");return;}
             if(path.startsWith("/admin")){admin(req,res,path);return;}
+            if("/login".equals(path)){login(req,res);return;}
             if("/preferences".equals(path)){preferences(req,res);return;}
             if("/analytics-consent".equals(path)){analyticsConsent(req,res);return;}
             if("/feed".equals(path)||"/feed.xml".equals(path)){feed(req,res);return;}
@@ -59,12 +61,22 @@ public final class Jurnal extends HttpServlet {
             else if(path.startsWith("/journal/")||path.startsWith("/archive/")){String slug=path.substring(path.indexOf('/',1)+1);JurnalPublicService.JournalCard journal=publicService.journal(slug);if(journal==null){res.sendError(404);return;}req.setAttribute("jurnalView","journal");req.setAttribute("jurnalJournal",journal);req.setAttribute("jurnalIssues",publicService.issues(journal.id,page(req),20));configureAnalytics(req,res,journal);}
             else if("/search".equals(path)){req.setAttribute("jurnalView","search");req.setAttribute("jurnalSearchTerm",clean(req.getParameter("q")));req.setAttribute("jurnalSearch",publicService.search(req.getParameter("q"),parseLong(req.getParameter("journal")),page(req),20));}
             else{req.setAttribute("jurnalView","home");req.setAttribute("jurnalHome",publicService.home());}
-            req.getRequestDispatcher(PUBLIC_JSP).forward(req,res);
+            preparePortalIdentity(req);req.getRequestDispatcher(PUBLIC_JSP).forward(req,res);
         }catch(SecurityException e){if(!res.isCommitted())res.sendError(403,"Hak akses jurnal tidak tersedia.");}
         catch(IllegalArgumentException e){if(!res.isCommitted())res.sendError(422,e.getMessage());}
         catch(Exception e){ais.common.ErrorAuditUtil.recordVisibleFailure(e,"Jurnal servlet",req,requestId);if(!res.isCommitted())res.sendError(500,"Modul jurnal belum dapat melayani permintaan. ID: "+requestId);}
         finally{HibernateUtil.closeSession();}
     }
+    private void login(HttpServletRequest req,HttpServletResponse res)throws Exception{
+        res.setHeader("Cache-Control","no-store");
+        if(!"POST".equalsIgnoreCase(req.getMethod())){res.setStatus(HttpServletResponse.SC_SEE_OTHER);res.setHeader("Location",req.getContextPath()+"/jurnal#jurnal-login");return;}
+        JSONObject result=PortalLoginApi.handle(req,res,"jurnal");
+        if(result.optBoolean("ok")){res.setStatus(HttpServletResponse.SC_SEE_OTHER);res.setHeader("Location",req.getContextPath()+"/jurnal");return;}
+        req.setAttribute("jurnalLoginError",result.optString("message","Otentikasi gagal."));
+        req.setAttribute("jurnalView","home");req.setAttribute("jurnalHome",publicService.home());preparePortalIdentity(req);
+        req.getRequestDispatcher(PUBLIC_JSP).forward(req,res);
+    }
+    private void preparePortalIdentity(HttpServletRequest req){Tbmuser user=Common.getCurrentUser(req);if(user==null){req.setAttribute("jurnalLoginCsrf",NewUiCsrfUtil.getToken(req.getSession(true)));return;}req.setAttribute("jurnalAuthenticated",Boolean.TRUE);req.setAttribute("jurnalCurrentUserName",clean(user.getUserNama()).length()==0?user.getUserId():user.getUserNama());}
     private void admin(HttpServletRequest req,HttpServletResponse res,String path)throws Exception{
         Tbmuser user=Common.getCurrentUser(req);if(user==null){res.sendRedirect(req.getContextPath()+"/login2?returnTo="+req.getContextPath()+"/jurnal"+path);return;}
         if("POST".equalsIgnoreCase(req.getMethod())&&!NewUiCsrfUtil.isValid(req))throw new SecurityException("Token CSRF jurnal tidak valid.");

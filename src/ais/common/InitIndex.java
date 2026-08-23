@@ -2077,29 +2077,7 @@ public class InitIndex {
 			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
 			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
 			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
-			// Penambahan constraint dibuat IDEMPOTEN di sisi database.
-			//
-			// Pemeriksaan Java sebelumnya tetap dipertahankan sbg jalan pintas, tetapi
-			// TIDAK cukup: dua thread startup (AIS-Init-Data dan init-index-startup)
-			// menjalankan method ini nyaris bersamaan, sehingga keduanya lolos
-			// pemeriksaan lalu salah satu gagal dgn "constraint ... already exists".
-			// Kegagalan itu memang ditelan pemanggil, tetapi CommonSqlHelper.updateSql
-			// sudah terlanjur mencatatnya sbg error -- log jadi penuh kejadian yang
-			// sebenarnya wajar. Dgn blok DO, cek dan ALTER terjadi dalam satu
-			// pernyataan atomik sehingga tidak pernah melempar exception.
-			if (!constraintKebijakanReturSudahAda()) {
-				ais.common.Common.updateSql(
-						"DO $ais$ BEGIN"
-						+ " IF NOT EXISTS (SELECT 1 FROM pg_constraint c"
-						+ "   JOIN pg_class t ON t.oid = c.conrelid"
-						+ "   JOIN pg_namespace n ON n.oid = t.relnamespace"
-						+ "   WHERE c.conname = 'produk_kebijakan_retur_fk'"
-						+ "     AND n.nspname = 'koperasi' AND t.relname = 'produk') THEN"
-						+ "   ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk"
-						+ "     FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id);"
-						+ " END IF;"
-						+ " END $ais$;");
-			}
+			tambahkanConstraintKebijakanReturJikaBelumAda();
 		} catch (Exception e) {
 			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
@@ -2128,6 +2106,74 @@ public class InitIndex {
 			t = t.getCause();
 		}
 		return false;
+	}
+
+	private static void tambahkanConstraintKebijakanReturJikaBelumAda() throws Exception {
+		synchronized (KEBIJAKAN_RETUR_PRODUK_LOCK) {
+			org.hibernate.Session session = null;
+			org.hibernate.Transaction transaction = null;
+			java.sql.Statement statement = null;
+			java.sql.ResultSet result = null;
+			try {
+				session = HibernateUtil.getSessionFactory().openSession();
+				transaction = session.beginTransaction();
+				statement = session.connection().createStatement();
+				result = statement.executeQuery("SELECT pg_advisory_xact_lock(hashtext('init:koperasi.produk:kebijakan_retur'))");
+				if (result != null) {
+					result.close();
+					result = null;
+				}
+				result = statement.executeQuery("SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass");
+				boolean sudahAda = result != null && result.next();
+				if (result != null) {
+					result.close();
+					result = null;
+				}
+				if (!sudahAda) {
+					statement.executeUpdate("ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+				}
+				transaction.commit();
+			} catch (Exception e) {
+				if (transaction != null) {
+					try {
+						transaction.rollback();
+					} catch (Exception rollbackError) {
+						ais.common.ErrorAuditUtil.record(rollbackError,
+								"auto-audit InitIndex.tambahkanConstraintKebijakanRetur-rollback");
+					}
+				}
+				if (!constraintKebijakanReturSudahAda(e)) {
+					throw e;
+				}
+			} finally {
+				if (result != null) {
+					try {
+						result.close();
+					} catch (Exception closeError) {
+						ais.common.ErrorAuditUtil.record(closeError,
+								"auto-audit InitIndex.tambahkanConstraintKebijakanRetur-result-close");
+					}
+				}
+				if (statement != null) {
+					try {
+						statement.close();
+					} catch (Exception closeError) {
+						ais.common.ErrorAuditUtil.record(closeError,
+								"auto-audit InitIndex.tambahkanConstraintKebijakanRetur-statement-close");
+					}
+				}
+				if (session != null && session.isOpen()) {
+					try {
+						session.clear();
+						session.disconnect();
+						session.close();
+					} catch (Exception closeError) {
+						ais.common.ErrorAuditUtil.record(closeError,
+								"auto-audit InitIndex.tambahkanConstraintKebijakanRetur-session-close");
+					}
+				}
+			}
+		}
 	}
 
 	/**

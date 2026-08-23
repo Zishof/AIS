@@ -70,7 +70,7 @@ public class KrsUtilHelper {
 		sql.append("left join perkuliahan p on p.id=d.perkuliahan ");
 		sql.append("left join matakuliah m on m.id=coalesce(d.matakuliah_konversi,p.matakuliah) ");
 		sql.append("where d.mahasiswa=:mahasiswa and d.semester=:semester ");
-		sql.append("and coalesce(d.tahunakademik,p.tahunajaran,'')=:tahunAkademik ");
+		sql.append("and coalesce(d.tahunakademik,p.tahun_ajaran,'')=:tahunAkademik ");
 		sql.append("and (m.id=:matakuliah");
 		if (kode.length() > 0) {
 			sql.append(" or lower(trim(m.kode))=:kode");
