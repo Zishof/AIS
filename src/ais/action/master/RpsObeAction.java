@@ -6013,7 +6013,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			for (final String idStr : idsFromMk.split(",")) {
+			for (final String idStr : idsFromMk.split("[,|;]")) {
 				try {
 					if (!idStr.trim().isEmpty()) {
 						final Object entity = ConstantValues.ambil(clazz.getName(), Long.parseLong(idStr.trim()));

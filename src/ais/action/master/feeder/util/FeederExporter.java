@@ -177,8 +177,7 @@ public class FeederExporter {
 				JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertKurikulum", jsonObject,
 						errorLog, kurikulum);
 
-				String id_kurikulum = a.isNull("data") ? null
-						: a.getJSONObject("data").getString("id_kurikulum").trim();
+				String id_kurikulum = ambilNilaiData(a, "id_kurikulum");
 				System.out.println("id_kurikulum = " + id_kurikulum);
 
 				if (id_kurikulum != null && !id_kurikulum.isEmpty()) {
@@ -501,7 +500,7 @@ public class FeederExporter {
 				JSONObject jsonObject = FeederExporterGenerator.matakuliah(matakuliah);
 				JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertMataKuliah", jsonObject,
 						errorLog, matakuliah);
-				String id_matkul_baru = a.isNull("data") ? null : a.getJSONObject("data").getString("id_matkul").trim();
+				String id_matkul_baru = ambilNilaiData(a, "id_matkul");
 				if (id_matkul_baru != null && !id_matkul_baru.isEmpty()) {
 					Session session = HibernateUtil.currentNativeSession();
 					try {
@@ -2074,8 +2073,7 @@ public class FeederExporter {
 			} else {
 				JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertKelasKuliah", jsonObject,
 						errorLog, perkuliahan);
-				String id_kelas_kuliah = a.isNull("data") ? null
-						: a.getJSONObject("data").getString("id_kelas_kuliah").trim();
+				String id_kelas_kuliah = ambilNilaiData(a, "id_kelas_kuliah");
 				System.out.println("id_kelas_kuliah = " + id_kelas_kuliah);
 				if (id_kelas_kuliah != null && !id_kelas_kuliah.isEmpty()) {
 					perkuliahan.setFeeder(id_kelas_kuliah);
@@ -2236,8 +2234,7 @@ public class FeederExporter {
 								List<String> errorLogTemp = new ArrayList<String>();
 								JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null,
 										"InsertKomponenEvaluasiKelas", jsonObject, errorLogTemp, formatNilai);
-								id_komponen_evaluasi = a.isNull("data") ? null
-										: a.getJSONObject("data").getString("id_komponen_evaluasi").trim();
+								id_komponen_evaluasi = ambilNilaiData(a, "id_komponen_evaluasi");
 
 								if (id_komponen_evaluasi != null && !id_komponen_evaluasi.isEmpty()) {
 									formatNilai.setFeeder(id_komponen_evaluasi);
@@ -2253,8 +2250,7 @@ public class FeederExporter {
 									jsonObject.put("bobot_evaluasi", "0.0");
 									feederConnector.insertOrUpdateRecordBaru(token, null, "InsertKomponenEvaluasiKelas",
 											jsonObject, errorLogTemp, formatNilai);
-									id_komponen_evaluasi = a.isNull("data") ? null
-											: a.getJSONObject("data").getString("id_komponen_evaluasi").trim();
+									id_komponen_evaluasi = ambilNilaiData(a, "id_komponen_evaluasi");
 
 									if (id_komponen_evaluasi != null && !id_komponen_evaluasi.isEmpty()) {
 										formatNilai.setFeeder(id_komponen_evaluasi);
@@ -2421,8 +2417,7 @@ public class FeederExporter {
 				JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertBiodataMahasiswa",
 						jsonObjectq, errorLog, mahasiswa);
 
-				String id_mahasiswa = a.isNull("data") ? null
-						: a.getJSONObject("data").getString("id_mahasiswa").trim();
+				String id_mahasiswa = ambilNilaiData(a, "id_mahasiswa");
 				System.out.println("id_mahasiswa = " + id_mahasiswa);
 				if (id_mahasiswa != null && !id_mahasiswa.isEmpty()) {
 					mahasiswa.setFeeder(id_mahasiswa);

@@ -17,7 +17,6 @@ import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
-import org.zkoss.zul.Decimalbox;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
@@ -92,7 +91,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 	private Textbox nama;
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
-	private Decimalbox searchtahun = new Decimalbox();
+	private Textbox searchtahun = new Textbox();
 
 	class KelasRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -283,6 +282,7 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 	}
 
 	public Criteria initCriteria(Session session, boolean order) {
+		Integer tahunAngkatan = ambilTahunAngkatanFilter();
 		Criteria criteria = session.createCriteria(Kelas.class)
 				.createAlias("jurusan", "jurusanAlias", Criteria.LEFT_JOIN)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -294,9 +294,9 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 								: Restrictions.or(Restrictions.isNull("jurusan"),
 										CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false)))
 
-				.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("1=1")
+				.add(tahunAngkatan == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.or(Restrictions.eq("tahunAngkatan", 0),
-								Restrictions.eq("tahunAngkatan", searchtahun.getValue().intValue())))
+								Restrictions.eq("tahunAngkatan", tahunAngkatan)))
 
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
@@ -309,6 +309,25 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 			criteria.addOrder(Order.asc("jurusan")).addOrder(Order.asc("tahunAngkatan")).addOrder(Order.asc("nama"));
 		}
 		return criteria;
+	}
+
+	private Integer ambilTahunAngkatanFilter() {
+		String value = searchtahun == null ? null : searchtahun.getValue();
+		if (value == null) {
+			return null;
+		}
+		value = value.trim();
+		if (value.length() == 0 || "all".equalsIgnoreCase(value) || "semua".equalsIgnoreCase(value)) {
+			return null;
+		}
+		if (!value.matches("\\d+")) {
+			return null;
+		}
+		try {
+			return Integer.valueOf(value);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	@SuppressWarnings("unchecked")

@@ -116,12 +116,12 @@ public final class JurnalDemoDataService {
             dependent+=count(session,"select count(*) from public.repo_item_metadata x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
             dependent+=count(session,"select count(*) from public.repo_item_relation x where x.item_id in (select id from public.repo_item where source_class=:sourceClass) or x.related_item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
             dependent+=count(session,"select count(*) from public.repo_notification x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
-            dependent+=count(session,"select count(*) from public.repo_usage_event x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
             dependent+=count(session,"select count(*) from public.repo_user_preference x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
             dependent+=count(session,"select count(*) from public.repo_workflow_event x where x.item_id in (select id from public.repo_item where source_class=:sourceClass)",sourceClass);
             dependent+=countCollection(session,"select count(*) from penelitiandanpengabdian.langganan_jurnal x where x.collection_id in (select id from public.repo_collection where kode like :collectionPattern and tipe='JOURNAL')",collectionPattern);
             if(dependent>0L)throw new IllegalStateException("Data sample sudah memiliki aktivitas/dependensi ("+dependent+") dan tidak dihapus otomatis.");
             RemoveResult out=new RemoveResult();out.key=key;
+            session.createSQLQuery("delete from public.repo_usage_event where item_id in (select id from public.repo_item where source_class=:sourceClass)").setString("sourceClass",sourceClass).executeUpdate();
             out.contributorsRemoved=session.createSQLQuery("delete from public.repo_item_contributor where item_id in (select id from public.repo_item where source_class=:sourceClass)").setString("sourceClass",sourceClass).executeUpdate();
             out.articlesRemoved=session.createSQLQuery("delete from public.repo_item where source_class=:sourceClass").setString("sourceClass",sourceClass).executeUpdate();
             session.createSQLQuery("delete from penelitiandanpengabdian.jurnal_penelitian where repo_collection_id in (select id from public.repo_collection where kode like :collectionPattern and tipe='JOURNAL')").setString("collectionPattern",collectionPattern).executeUpdate();

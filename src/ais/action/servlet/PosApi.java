@@ -769,6 +769,11 @@ public class PosApi extends HttpServlet {
 				// realisasi_bulanan/penggunaan_anggaran ke Desktop/Android.
 				ais.action.servlet.api.AnggaranApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("closing_")) {
+				// Penutupan periode akuntansi. Didahulukan sebelum awalan lain yang lebih
+				// panjang tidak perlu -- tidak ada aksi lain berawalan "closing_".
+				ais.action.servlet.api.ClosingApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("nomor_surat_keuangan_")) {
 				// Penomoran dokumen Keuangan: memasangkan tiap alur dokumen dengan templat
 				// nomornya. Tanpa ini, alur yang belum dipasangi templat menerbitkan kode

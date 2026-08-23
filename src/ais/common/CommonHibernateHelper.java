@@ -297,7 +297,7 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
                     session.update(o);
                 } catch (Exception e) {
                     if (isStaleOrMissingRow(e)) {
-                        try { if (session != null && session.isOpen()) session.evict(o); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/CommonHibernateHelper.java:198");}
+                        try { if (session != null && session.isOpen() && session.getTransaction() != null && session.getTransaction().isActive()) session.evict(o); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/CommonHibernateHelper.java:198");}
                         return;
                     }
                     // Jika update gagal, coba recover
@@ -306,7 +306,7 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
             }
         } catch (Exception e) {
             if (isStaleOrMissingRow(e)) {
-                try { if (session != null && session.isOpen()) session.evict(o); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/CommonHibernateHelper.java:207");}
+                try { if (session != null && session.isOpen() && session.getTransaction() != null && session.getTransaction().isActive()) session.evict(o); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/CommonHibernateHelper.java:207");}
                 return;
             }
             Common.tampilErrorJikaAdmin(e);

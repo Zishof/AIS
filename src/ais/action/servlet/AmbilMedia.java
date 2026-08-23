@@ -215,6 +215,17 @@ public class AmbilMedia extends HttpServlet {
 			return null;
 		}
 
+		if (strid == null || strid.trim().length() == 0 || "null".equalsIgnoreCase(strid.trim())) {
+			try {
+				resp.sendError(HttpServletResponse.SC_BAD_REQUEST,
+						"Parameter 'id' tidak ditemukan atau tidak valid pada request AmbilMedia.");
+			} catch (Exception ex) {
+				ais.common.ErrorAuditUtil.record(ex,
+						"auto-audit(empty-catch) src/ais/action/servlet/AmbilMedia.java:id-null-guard");
+			}
+			return null;
+		}
+
 		Class myClass = Class.forName(clazz);
 
 		ClassMetadata classMetadata = StreamingHibernateUtil.getInstance().getClassMetadata(myClass);
