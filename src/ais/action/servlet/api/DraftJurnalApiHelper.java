@@ -88,6 +88,13 @@ public final class DraftJurnalApiHelper {
         if ("Siswa - Deposit".equals(namaBaris)) return "siswa_deposit";
         if ("Siswa - Piutang Denda".equals(namaBaris)) return "siswa_denda";
         if ("Siswa - Utang Diskon".equals(namaBaris)) return "siswa_diskon";
+        if ("Mahasiswa - Piutang Tagihan".equals(namaBaris)) return "mahasiswa_piutang";
+        if ("Mahasiswa - Pembayaran".equals(namaBaris)) return "mahasiswa_pembayaran";
+        if ("Mahasiswa - Dibayar Dimuka".equals(namaBaris)) return "mahasiswa_dibayar_dimuka";
+        if ("Mahasiswa - Tabungan/Deposit".equals(namaBaris)) return "mahasiswa_tabungan";
+        if ("Mahasiswa - Pengeluaran/Refund".equals(namaBaris)) return "mahasiswa_pengeluaran";
+        if ("Mahasiswa - Biaya Administrasi".equals(namaBaris)) return "mahasiswa_biaya_adm";
+        if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) return "mahasiswa_biaya_pg";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
@@ -302,6 +309,34 @@ public final class DraftJurnalApiHelper {
                             sampai, tbmuser, new Date())
                     : ais.action.master.sekolah.PostingUtangDiskonSiswaAction.batalkanPostingSemua(
                             mulai, sampai);
+        } else if ("Mahasiswa - Piutang Tagihan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingDetailKegiatanAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingDetailKegiatanAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Pembayaran".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingCicilanMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingCicilanMahasiswaAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Dibayar Dimuka".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingCicilanDibayarDimukaMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingCicilanDibayarDimukaMahasiswaAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Tabungan/Deposit".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingDepositAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingDepositAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Pengeluaran/Refund".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingPengeluaranMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingPengeluaranMahasiswaAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Biaya Administrasi".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingBiayaAdministrasiPembayaranMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingBiayaAdministrasiPembayaranMahasiswaAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Mahasiswa - Biaya Payment Gateway".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.PostingBiayaPaymentGatewayPembayaranMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.PostingBiayaPaymentGatewayPembayaranMahasiswaAction.batalkanPostingSemua(mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

@@ -1085,4 +1085,197 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	// PEMELIHARAAN: akun & nilai HARUS tetap identik dengan {@link #onPostingSemua}.
+	// =====================================================================
+
+	/**
+	 * Kriteria cicilan pembayaran yang dijurnal "dibayar di muka" -- sama dengan penghitung
+	 * baris "Mahasiswa - Dibayar Dimuka" pada dasbor.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(CicilanPembayaran.class);
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA jurnal "dibayar di muka" dalam rentang.
+	 *
+	 * <p>Hanya grup transaksi ber-{@code ref = 'dimuka'} yang dihapus; jurnal pembayaran biasa
+	 * pada cicilan yang sama tidak tersentuh.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<CicilanPembayaran> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistoryDimuka")).list();
+			for (CicilanPembayaran cicilan : daftar) {
+				try {
+					String syarat = "cicilan_pembayaran=" + cicilan.getId()
+							+ " and ref='dimuka' and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					cicilan.setPostingHistoryDimuka(null);
+					session.update(cicilan);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingCicilanDibayarDimukaMahasiswaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA jurnal "dibayar di muka" yang belum dibuat dalam rentang.
+	 *
+	 * <p>Debet = akun "dibayar di muka" item biaya, kredit = akun piutangnya bila ada, selain
+	 * itu akun pendapatannya. Tanggal jurnal = {@code tanggalTagihan} (bukan tanggal bayar --
+	 * inilah saat kewajibannya berubah menjadi pendapatan). Grup transaksinya ditandai
+	 * {@code ref = "dimuka"} supaya terpisah dari jurnal pembayaran biasa.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistoryDimuka"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_MAHASISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal pembayaran dimuka mahasiswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			SatuanKerja satuanKerjaPengguna = oleh == null ? null : oleh.ambilSatuanKerja();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					CicilanPembayaran cicilan = (CicilanPembayaran) session
+							.createCriteria(CicilanPembayaran.class).add(Restrictions.idEq(id)).uniqueResult();
+					if (cicilan == null || cicilan.getItemBiaya() == null || cicilan.getKegiatan() == null) {
+						continue;
+					}
+					Akun akunDebet = cicilan.getItemBiaya().ambilDibayarDimuka(cicilan.getKegiatan());
+					Akun akunPiutang = cicilan.getItemBiaya().ambilPiutang(cicilan.getKegiatan());
+					Akun akunKredit = akunPiutang != null ? akunPiutang
+							: cicilan.getItemBiaya().ambilAkun(cicilan.getKegiatan());
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+
+					SatuanKerja satuanKerja = satuanKerjaPengguna;
+					try {
+						if (cicilan.getKegiatan().getMahasiswa() != null
+								&& cicilan.getKegiatan().getMahasiswa().getJurusan() != null
+								&& cicilan.getKegiatan().getMahasiswa().getJurusan().getFakultas() != null
+								&& cicilan.getKegiatan().getMahasiswa().getJurusan().getFakultas()
+										.getSatuanKerja() != null) {
+							satuanKerja = cicilan.getKegiatan().getMahasiswa().getJurusan().getFakultas()
+									.getSatuanKerja();
+						} else if (cicilan.getKegiatan().getCalonMahasiswa() != null
+								&& cicilan.getKegiatan().getCalonMahasiswa().getProdi1() != null
+								&& cicilan.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas() != null
+								&& cicilan.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas()
+										.getSatuanKerja() != null) {
+							satuanKerja = cicilan.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas()
+									.getSatuanKerja();
+						}
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e,
+								"PostingCicilanDibayarDimukaMahasiswaAction jalur API");
+					}
+
+					Object siapa = cicilan.getKegiatan().getMahasiswa() == null
+							? cicilan.getKegiatan().getCalonMahasiswa()
+							: cicilan.getKegiatan().getMahasiswa();
+					String ket = "Pembayaran dimuka " + siapa + " ke " + cicilan.getKe() + " - "
+							+ cicilan.getItemBiaya().getNama() + " - " + cicilan.getKeterangan();
+					Double nilai = cicilan.getNilai();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, akunPiutang,
+									postingHistory, true, ket, cicilan.getTanggalTagihan(), nilai,
+									Double.valueOf(0.0), cicilan, satuanKerja, "dimuka", session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, akunPiutang,
+									postingHistory, true, ket, cicilan.getTanggalTagihan(), nilai,
+									Double.valueOf(0.0), cicilan, satuanKerja, "dimuka", session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e,
+								"PostingCicilanDibayarDimukaMahasiswaAction jalur API");
+					}
+
+					if (tersimpan) {
+						cicilan.setPostingHistoryDimuka(postingHistory);
+						session.getTransaction().begin();
+						session.update(cicilan);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingCicilanDibayarDimukaMahasiswaAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingCicilanDibayarDimukaMahasiswaAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

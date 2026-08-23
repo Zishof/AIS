@@ -142,6 +142,20 @@ public class CommonUiFactoryHelper extends Common {
 		}
 	}
 
+	private static boolean merupakanConstraintReferensi(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			if (current instanceof org.hibernate.exception.ConstraintViolationException) return true;
+			String nama = current.getClass().getName();
+			String pesan = current.getMessage();
+			if ((nama != null && nama.indexOf("ConstraintViolation") >= 0)
+					|| (pesan != null && (pesan.indexOf("violates foreign key constraint") >= 0
+							|| pesan.indexOf("still referenced") >= 0))) return true;
+			current = current.getCause();
+		}
+		return false;
+	}
+
 
 
 
@@ -1780,8 +1794,18 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 												}
 											});
 										} catch (Exception e) {
-											tampilCrudError(e,
+											if (merupakanConstraintReferensi(e)) {
+												try {
+													MyMessageboxConfig.show("Data tidak dapat dihapus karena masih dipakai oleh data lain. "
+															+ "Hapus atau ubah data yang memakainya terlebih dahulu.");
+												} catch (Exception ePesan) {
+													ais.common.ErrorAuditUtil.record(ePesan,
+															"auto-audit CommonUiFactoryHelper:pesan-constraint-hapus");
+												}
+											} else {
+												tampilCrudError(e,
 													"Data ini tidak dapat dihapus, karena kemungkinan masih berelasi dengan data lainnya.");
+											}
 										}
 
 									}

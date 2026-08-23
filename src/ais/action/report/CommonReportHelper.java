@@ -12070,80 +12070,37 @@ public class CommonReportHelper {
 										map.put("nomor_ujian", krsMahasiswa.getNoUas());
 									}
 
-									map.put("nim", detailperkuliahan.getMahasiswa().getNim());
-									map.put("nama", detailperkuliahan.getMahasiswa().getNama().toUpperCase());
-									map.put("kode_matakuliah",
-											detailperkuliahan.getPerkuliahan().getMatakuliah().getKode());
+									map.put("nim", detailperkuliahan.getMahasiswa().getNim() == null ? ""
+											: detailperkuliahan.getMahasiswa().getNim());
+									map.put("nama", detailperkuliahan.getMahasiswa().getNama() == null ? ""
+											: detailperkuliahan.getMahasiswa().getNama().toUpperCase());
+									map.put("kode_matakuliah", detailperkuliahan.getPerkuliahan() == null
+											|| detailperkuliahan.getPerkuliahan().getMatakuliah() == null
+											|| detailperkuliahan.getPerkuliahan().getMatakuliah().getKode() == null ? ""
+													: detailperkuliahan.getPerkuliahan().getMatakuliah().getKode());
 
 									for (FormatNilai formatNilai : formatNilais) {
+										if (formatNilai == null) continue;
 										Double nilai = detailperkuliahan.retreiveDetailNilai(formatNilai);
-										if (formatNilai != null
-												&& formatNilai.getNama().toLowerCase().contains(ujian.toLowerCase())
-												&& nilai > 0.1) {
+										String namaFormat = formatNilai.getNama() == null ? "" : formatNilai.getNama();
+										if (namaFormat.toLowerCase().contains(ujian.toLowerCase())
+												&& nilai != null && nilai.doubleValue() > 0.1) {
 											map.put("nilai", nilai);
 										}
-										map.put("nilai_" + formatNilai.getNama(), nilai);
+										map.put("nilai_" + namaFormat, nilai == null ? Double.valueOf(0.0) : nilai);
 									}
 									map.put("nilai_total", detailperkuliahan.getTotalNilai());
 									map.put("nilai_huruf", detailperkuliahan.getNilaiHuruf());
 
-									try {
-										map.put("nip_kajur", detailperkuliahan.getMahasiswa().getJurusan().getFakultas()
-												.getDekan().getCode());
-									} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:11226");
-										PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-											new String[] {
-												"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-												"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-												"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-											});
-									}
-									try {
-										map.put("nama_kajur", detailperkuliahan.getMahasiswa().getJurusan()
-												.getFakultas().getDekan().getNama());
-									} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:11231");
-										PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-											new String[] {
-												"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-												"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-												"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-											});
-									}
-
-									try {
-										map.put("nip_kaprodi",
-												detailperkuliahan.getMahasiswa().getJurusan().getKaprodi().getCode());
-									} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:11237");
-										PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-											new String[] {
-												"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-												"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-												"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-											});
-									}
-									try {
-										map.put("nama_kaprodi",
-												detailperkuliahan.getMahasiswa().getJurusan().getKaprodi().getNama());
-									} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:11242");
-										PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-											new String[] {
-												"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-												"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-												"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-											});
-									}
-
-									try {
-										map.put("id_fakultas",
-												detailperkuliahan.getMahasiswa().getJurusan().getFakultas().getId());
-									} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:11248");
-										PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-											new String[] {
-												"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-												"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-												"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-											});
-									}
+									Jurusan jurusanLaporan = detailperkuliahan.getMahasiswa().getJurusan();
+									Fakultas fakultasLaporan = jurusanLaporan == null ? null : jurusanLaporan.getFakultas();
+									Dosen dekanLaporan = fakultasLaporan == null ? null : fakultasLaporan.getDekan();
+									Dosen kaprodiLaporan = jurusanLaporan == null ? null : jurusanLaporan.getKaprodi();
+									map.put("nip_kajur", dekanLaporan == null || dekanLaporan.getCode() == null ? "" : dekanLaporan.getCode());
+									map.put("nama_kajur", dekanLaporan == null || dekanLaporan.getNama() == null ? "" : dekanLaporan.getNama());
+									map.put("nip_kaprodi", kaprodiLaporan == null || kaprodiLaporan.getCode() == null ? "" : kaprodiLaporan.getCode());
+									map.put("nama_kaprodi", kaprodiLaporan == null || kaprodiLaporan.getNama() == null ? "" : kaprodiLaporan.getNama());
+									map.put("id_fakultas", fakultasLaporan == null ? null : fakultasLaporan.getId());
 
 									try {
 										map.put("keterangan",
