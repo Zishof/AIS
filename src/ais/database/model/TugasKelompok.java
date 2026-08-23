@@ -226,12 +226,8 @@ public class TugasKelompok extends Tugas {
 
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getMulai() {
-		if (mulai == null) {
-			mulai = getTanggal();
-		}
-		if (mulai == null) {
-			mulai = getTanggal_dirubah();
-		}
+		// Tidak lagi mengambil tanggal pembuatan/perubahan sebagai tanggal tugas.
+		// Nilai ini harus berasal dari pilihan eksplisit dosen pada form.
 		return mulai;
 	}
 

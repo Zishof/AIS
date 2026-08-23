@@ -52,7 +52,11 @@
         if (id != null && jenis != null) {
             if (jenis.equalsIgnoreCase(TugasPertemuan.class.getSimpleName())) {
                 tugas = (TugasPertemuan) mySession.get(TugasPertemuan.class, id);
-            } 
+            } else if (jenis.equalsIgnoreCase(TugasKelompok.class.getSimpleName())) {
+                // Form ubah tugas kelompok sebelumnya tidak pernah memuat entitasnya.
+                // Akibatnya tanggal/judul tampak kosong atau kembali ke nilai otomatis.
+                tugas = (TugasKelompok) mySession.get(TugasKelompok.class, id);
+            }
         }
     } catch (Exception e) {
         e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/modul/elearning/tugas/tugas_baru.jsp:58");
@@ -64,8 +68,12 @@
     	tugas = pertemuan;
     }
     
-    String tglMulai = (tugas != null && tugas.getMulai() != null) ? Common.dateFormatInput.get().format(tugas.getMulai()) : "";
-    String tglSelesai = (tugas != null && tugas.getSelesai() != null) ? Common.dateFormatInput.get().format(tugas.getSelesai()) : "";
+    // Tanggal hanya diisi saat benar-benar mengubah tugas yang telah tersimpan.
+    // Pada tugas baru dosen mengisi sendiri agar remedial, perubahan hari, dan dua
+    // pertemuan dalam satu hari pada semester pendek tidak ditimpa jadwal otomatis.
+    boolean sedangUbah = idStr != null && !idStr.trim().isEmpty();
+    String tglMulai = (sedangUbah && tugas != null && tugas.getMulai() != null) ? Common.dateFormatInput.get().format(tugas.getMulai()) : "";
+    String tglSelesai = (sedangUbah && tugas != null && tugas.getSelesai() != null) ? Common.dateFormatInput.get().format(tugas.getSelesai()) : "";
     String placeholder = Common.getBahasaConfig("Tuliskan detail tugas di sini...");
     String isi = tugas==null?"":tugas.getIsitugas();
     String idtugas = tugas != null && tugas.getId() != null ? tugas.getId().toString() : "";
@@ -136,16 +144,20 @@
                         <label class="form-label fw-semibold"><%= Common.getBahasaConfig("Tugas Mulai") %></label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="fa fa-calendar-plus text-success"></i></span> 
-                            <input type="datetime-local" class="form-control" id="mulai" name="mulai" value="<%= tglMulai %>">
+                            <input type="datetime-local" class="form-control" id="mulai" name="mulai" value="<%= tglMulai %>" required>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold"><%= Common.getBahasaConfig("Tugas Selesai") %></label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="fa fa-calendar-check text-danger"></i></span> 
-                            <input type="datetime-local" class="form-control" id="selesai" name="selesai"  value="<%= tglSelesai %>">
+                            <input type="datetime-local" class="form-control" id="selesai" name="selesai" value="<%= tglSelesai %>" required>
                         </div>
                     </div>
+                </div>
+                <div class="alert alert-info border-0 py-2 small mb-4">
+                    <i class="fa fa-info-circle me-1"></i>
+                    <%= Common.getBahasaConfig("Tanggal tugas diisi manual oleh dosen. Tanggal boleh berbeda dari jadwal pertemuan untuk semester pendek, remedial, atau perubahan hari kuliah.") %>
                 </div>
 
                 <div class="mb-4">
@@ -227,7 +239,7 @@
 
 	<%
 	String judulLabel = (jenis != null && TugasKelompok.class.getSimpleName().equalsIgnoreCase(jenis)) ? Common.getBahasaConfig("Judul Tugas Kelompok") : Common.getBahasaConfig("Judul Tugas Individu");
-	String d= GenCodeHelper.simpanDataHelper("form_tugas_"+rnd,clazz, tugas==null||tugas.getId()==null ? "" : tugas.getId().toString(), new Class[]{}, new String[]{}, rnd, afterSave, new String[]{"judultugas","isitugas"}, new String[]{judulLabel,Common.getBahasaConfig("Tata Cara dan Langkah Pengerjaan")});
+	String d= GenCodeHelper.simpanDataHelper("form_tugas_"+rnd,clazz, tugas==null||tugas.getId()==null ? "" : tugas.getId().toString(), new Class[]{}, new String[]{}, rnd, afterSave, new String[]{"mulai","selesai","judultugas","isitugas"}, new String[]{Common.getBahasaConfig("Tugas Mulai"),Common.getBahasaConfig("Tugas Selesai"),judulLabel,Common.getBahasaConfig("Tata Cara dan Langkah Pengerjaan")});
 	out.println(d);
 	%>
 </script>

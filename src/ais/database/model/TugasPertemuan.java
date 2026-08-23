@@ -185,7 +185,9 @@ public class TugasPertemuan extends Tugas {
 
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getMulai() {
-		return mulai == null ? WaktuUtil.getDate() : mulai;
+		// Jangan mengisi waktu saat ini secara implisit. Dosen menentukan tanggal
+		// tugas sendiri, termasuk untuk SP, remedial, dan perubahan hari kuliah.
+		return mulai;
 	}
 
 	public void setMulai(Date mulai) {

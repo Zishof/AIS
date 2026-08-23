@@ -206,7 +206,11 @@
                 tugas.currentTugasFileContent = null;
                 tugas.currentUser = null;
                 TreeMap<Long, TugasFileContent> treemapData = new TreeMap<>();
-                TreeMap<Long, TugasFileContent> resultData = tugas.ambilTugasFileContentTotal(treemapData, "", null, 500);
+                // Wajib refresh dari DB. Statistik pengumpulan dan panel peserta sebelumnya
+                // dapat berbeda karena panel ini memakai indeks file lama: angka menunjukkan
+                // sudah upload, tetapi daftar "Telah upload" kosong sehingga dosen tidak bisa
+                // membuka dan menilai jawaban.
+                TreeMap<Long, TugasFileContent> resultData = tugas.ambilTugasFileContentTotal(treemapData, "", null, 500, true);
                 
                 if (resultData != null && !resultData.isEmpty()) {
                     listTugasContent.addAll(resultData.values());
