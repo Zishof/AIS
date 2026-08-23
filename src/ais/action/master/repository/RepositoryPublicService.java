@@ -1170,9 +1170,13 @@ public class RepositoryPublicService {
     public void recordUsage(Long itemId, Long bitstreamId, String eventType, String visitor, String userAgent, String actorId,
             String countryCode,String referrer) {
         if (itemId == null || !("VIEW".equals(eventType) || "DOWNLOAD".equals(eventType))) return;
-        Session s = session();
+        /* Statistik adalah side-effect terpisah. Jangan memakai currentSession() halaman:
+         * native SQL di sana memicu auto-flush semua RepoItem managed, termasuk data lama
+         * dengan lock_version NULL, sebelum query statistik sempat berjalan. */
+        Session s = null;
         org.hibernate.Transaction tx = null;
         try {
+            s = ais.database.hibernate.HibernateUtil.openSession();
             tx = s.beginTransaction();
 
             /*
@@ -1205,6 +1209,8 @@ public class RepositoryPublicService {
         } catch (Exception ex) {
             if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception ignored) {}
             ais.common.ErrorAuditUtil.record(ex, "RepositoryPublicService.recordUsage");
+        } finally {
+            ais.database.hibernate.HibernateUtil.closeSessionQuietly(s);
         }
     }
     private static String hash(String value){try{String salt=System.getProperty("ais.repository.analyticsSalt","AIS-REPOSITORY");byte[]b=MessageDigest.getInstance("SHA-256").digest((salt+"|"+clean(value)).getBytes("UTF-8"));StringBuilder x=new StringBuilder();for(byte v:b)x.append(String.format("%02x",v&255));return x.toString();}catch(Exception e){return "";}}

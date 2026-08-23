@@ -355,6 +355,9 @@ public class LaporanDaftarNilaiWindow extends MyWindow {
 		final String color = "#000000";
 
 		Worksheet sheet = spreadsheet.getSelectedSheet();
+		if (sheet == null) {
+			throw new IllegalStateException("Template rowcolumn.xlsx tidak mempunyai worksheet aktif.");
+		}
 
 		int rowIndex = 4;
 		int colIndex = 3;
@@ -387,10 +390,12 @@ public class LaporanDaftarNilaiWindow extends MyWindow {
 					: this.tahunAkademik.getSelectedItem().getValue());
 			Integer semester = (Integer) (this.semesterAbsensi.getSelectedItem() == null ? null
 					: this.semesterAbsensi.getSelectedItem().getValue());
+			String namaFakultas = fakultas == null || fakultas.getNama() == null ? "-" : fakultas.getNama().toUpperCase();
+			String namaJurusan = jurusan == null || jurusan.getNama() == null ? "-" : jurusan.getNama().toUpperCase();
 			ais.ui.util.EcampusUtil.setCellValue(sheet, 1, 1,
 					"DAFTAR NILAI MAHASISWA\n " + "" + Common.getBahasaConfig("Fakultas") + " "
-							+ fakultas.getNama().toUpperCase() + "\n " + Common.getBahasaConfig("Jurusan") + " "
-							+ jurusan.getNama().toUpperCase() + "\n TAHUN AKADEMIK " + tahunAkademik + "\n SEMESTER "
+							+ namaFakultas + "\n " + Common.getBahasaConfig("Jurusan") + " "
+							+ namaJurusan + "\n TAHUN AKADEMIK " + tahunAkademik + "\n SEMESTER "
 							+ semester);
 			Utils.setRowHeight(sheet, 1, 100);
 			ais.ui.util.EcampusUtil.setBold(sheet, new Rect(0, 1, spreadsheet.getMaxcolumns() - 1, 1), true);

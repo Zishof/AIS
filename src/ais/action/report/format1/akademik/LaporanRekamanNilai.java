@@ -436,8 +436,11 @@ public class LaporanRekamanNilai extends MyWindow {
 	public void onTranskrip(Event event) throws Exception {
 
 		try {
-
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), "Rekaman_Nilai",
+			Map parameters = generateParameter();
+			// Method ini juga dipanggil saat window baru dibuat. Pada saat itu mahasiswa/
+			// semester dapat belum dipilih; null berarti belum siap, bukan parameter report.
+			if (parameters == null) return;
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameters, "Rekaman_Nilai",
 					ais.ui.util.WaktuUtil.getDate(), toolbar);
 			CommonReport.tampilkanReportPDF(center, file);
 

@@ -957,4 +957,215 @@ public class PostingPiutangSiswaAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Kembaran non-ZK dari tombol "Posting Semua"/"Batalkan Posting Semua".
+	// PEMELIHARAAN: penentuan akun dan nilai di sini HARUS tetap identik dengan
+	// {@link #onPostingSemua}.
+	// =====================================================================
+
+	/**
+	 * Kriteria tagihan siswa yang layak dijurnal piutang pada rentang tanggal -- sama persis
+	 * dengan penghitung baris "Siswa - Piutang Tagihan" pada dasbor
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaTagihanSiswaPiutang}).
+	 *
+	 * <p>Saringan periodenya bukan hiasan: hanya biaya <b>Bulanan</b>, atau biaya
+	 * <b>Insidentil</b> pada cicilan pertama, yang menerbitkan piutang. Tanpa itu, tiap
+	 * cicilan biaya insidentil akan membuat piutang baru untuk tagihan yang sama.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(Tagihan.class)
+				.createAlias("itemBiayaSekolah", "itemBiayaSekolah")
+				.add(Restrictions.eq("itemBiayaSekolah.aktif", true))
+				.add(Restrictions.isNotNull("itemBiayaSekolah.akunPiutang"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.createAlias("nominalBiaya", "nominalBiaya")
+				.createAlias("nominalBiaya.pengaturanBiaya", "pengaturanBiaya")
+				.createAlias("pengaturanBiaya.jenisBiayaSekolah", "jenisBiayaSekolah")
+				.add(Restrictions.or(Restrictions.eq("jenisBiayaSekolah.periode", "Bulanan"),
+						Restrictions.and(Restrictions.eq("bayarKe", 1),
+								Restrictions.eq("jenisBiayaSekolah.periode", "Insidentil"))));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(tanggal_tagihan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA piutang tagihan siswa dalam rentang.
+	 *
+	 * <p><b>Saringan {@code jenis} itu wajib.</b> Satu baris {@code tagihan} dapat memikul
+	 * BEBERAPA jurnal sekaligus -- piutang, dibayar di muka, denda, dan utang diskon. Menghapus
+	 * tanpa menyebut {@code jenis} akan ikut membatalkan jurnal saudara-saudaranya. Syaratnya
+	 * disalin apa adanya dari {@link #onBatalkanPostingSemua}.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Tagihan> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Tagihan tagihan : daftar) {
+				try {
+					String syarat = "tagihan=" + tagihan.getId() + " and jenis='"
+							+ PostingHistory.JENIS_PIUTANG_SISWA + "' and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					tagihan.setPostingHistory(null);
+					session.update(tagihan);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPiutangSiswaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA piutang tagihan siswa yang belum dijurnal dalam rentang.
+	 *
+	 * <ul>
+	 *   <li>debet = {@code itemBiayaSekolah.akunPiutang}, kredit = {@code itemBiayaSekolah.akun};</li>
+	 *   <li>bila tagihannya berdiskon ({@code diskon > 0,1}) dan akun diskonnya ada, sisi DEBET
+	 *       dipecah dua: {@code nominal - diskon} ke akun piutang dan {@code diskon} ke akun
+	 *       diskon, sementara kreditnya tetap satu baris senilai nominal penuh;</li>
+	 *   <li>bila nominalnya &le; 0,1 posisi debet/kredit ditukar -- sama seperti layar;</li>
+	 *   <li>tanggal jurnal = {@code tanggalTagihan}, satuan kerja = sekolah pemilik tagihan.</li>
+	 * </ul>
+	 *
+	 * <p><b>Dua penyimpangan sadar dari layar:</b> dokumen yang akunnya belum lengkap dilewati
+	 * (layar diam-diam melewatkan penulisan jurnal tetapi TETAP memasang penanda posting), dan
+	 * penanda posting hanya dipasang bila jurnalnya benar-benar tersimpan.</p>
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PIUTANG_SISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal piutang tagihan siswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					Tagihan tagihan = (Tagihan) session.createCriteria(Tagihan.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (tagihan == null || tagihan.getItemBiayaSekolah() == null) {
+						continue;
+					}
+					Akun akunDebet = tagihan.getItemBiayaSekolah().getAkunPiutang();
+					Akun akunKredit = tagihan.getItemBiayaSekolah().getAkun();
+					if (akunDebet == null || akunKredit == null) {
+						// Jurnalnya tidak lengkap: dilewati, bukan ditandai terposting.
+						continue;
+					}
+					ais.database.model.rab.SatuanKerja satuanKerja = tagihan.getNominalBiaya() == null
+							|| tagihan.getNominalBiaya().getPengaturanBiaya() == null
+							|| tagihan.getNominalBiaya().getPengaturanBiaya().getSekolah() == null ? null
+									: tagihan.getNominalBiaya().getPengaturanBiaya().getSekolah()
+											.getSatuanKerja();
+
+					String ket = "Piutang "
+							+ (tagihan.getSiswa() == null ? tagihan.getCalonSiswa() : tagihan.getSiswa())
+							+ (tagihan.getTahunbulan() == null ? ""
+									: " tahun/bulan " + tagihan.getTahunbulan() + " - ")
+							+ tagihan.getItemBiayaSekolah().getNama() + " - " + tagihan.getKeterangan()
+							+ (tagihan.getDiskonSiswa() != null ? " - " + tagihan.getDiskonSiswa().getNama()
+									: "");
+					Double nilai = tagihan.getNominal();
+					Double diskon = tagihan.getDiskon() == null ? Double.valueOf(0.0) : tagihan.getDiskon();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (diskon > 0.1 && tagihan.getItemBiayaSekolah().getAkunDiskon() != null) {
+							CommonAkunting.saveTransaksi(
+									new Akun[] { akunDebet, tagihan.getItemBiayaSekolah().getAkunDiskon() },
+									new Akun[] { akunKredit }, null, null, postingHistory, true, ket,
+									tagihan.getTanggalTagihan(),
+									new Double[] { nilai - diskon, diskon }, new Double[] { nilai },
+									Double.valueOf(0.0), tagihan, satuanKerja, session);
+						} else if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									true, ket, tagihan.getTanggalTagihan(), nilai, Double.valueOf(0.0),
+									tagihan, satuanKerja, session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									true, ket, tagihan.getTanggalTagihan(), nilai, Double.valueOf(0.0),
+									tagihan, satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPiutangSiswaAction jalur API");
+					}
+
+					if (tersimpan) {
+						// Penanda posting hanya dipasang bila jurnalnya BENAR-BENAR tersimpan.
+						tagihan.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(tagihan);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingPiutangSiswaAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPiutangSiswaAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

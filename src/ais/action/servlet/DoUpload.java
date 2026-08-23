@@ -81,6 +81,11 @@ public class DoUpload extends HttpServlet {
 				return t;
 			}
 		});
+	static {
+		// Daftarkan object executor, bukan callback ke kelas DoUpload. Dengan begitu
+		// contextDestroyed tidak perlu menginisialisasi ulang servlet saat classloader teardown.
+		ais.common.AppStartupListener.registerDoUploadRetryScheduler(RETRY_SCHEDULER);
+	}
 
 	/**
 	 * Menghentikan scheduler retry upload saat webapp stop/redeploy. Dipanggil dari

@@ -634,7 +634,13 @@ public class LaporanRekapAngketDosenPerMahasiswa extends MyWindow {
 						ais.action.report.helper.LoadingReportUtil.clearBusy();
 						excelku = new ais.ui.util.MySpreadsheet();
 						Common.clear(center);
-						center.appendChild(excelku);
+						// Center hanya boleh punya satu anak. Wadah stabil juga mencegah race attach
+						// tertunda milik MySpreadsheet menambah anak kedua pada region.
+						org.zkoss.zul.Div wadahLaporan = new org.zkoss.zul.Div();
+						wadahLaporan.setWidth("100%");
+						wadahLaporan.setStyle("height:100%;overflow:auto;");
+						center.appendChild(wadahLaporan);
+						excelku.setParent(wadahLaporan);
 						EcampusUtil.tampilkan(datas, excelku, false);
 						// Tampilkan sebagai grid ringan; Excel tetap utuh saat tombol Download diklik.
 						ais.ui.util.PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(excelku);

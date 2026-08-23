@@ -52,6 +52,38 @@ public class GoogleAction extends GenericAutowireComposer {
 	private OAuth20Service service;
 	private Tbmuser currentUser;
 
+	private static boolean gangguanJaringanGoogle(Throwable error) {
+		Throwable t = error;
+		while (t != null) {
+			if (t instanceof java.net.UnknownHostException || t instanceof java.net.ConnectException
+					|| t instanceof java.net.SocketTimeoutException) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	/** Coba ulang gangguan DNS/timeout singkat tanpa mengulang seluruh proses login. */
+	private Response executeGoogleUserInfo(OAuthRequest request) throws Exception {
+		Exception terakhir = null;
+		for (int i = 0; i < 3; i++) {
+			try {
+				return service.execute(request);
+			} catch (Exception e) {
+				terakhir = e;
+				if (!gangguanJaringanGoogle(e) || i == 2) {
+					throw e;
+				}
+				try { Thread.sleep(500L * (i + 1)); } catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw e;
+				}
+			}
+		}
+		throw terakhir;
+	}
+
 	/**
 	 * <p><b>Tujuan.</b> Tentukan contextPath/base-URL ASAL yang dipakai user saat MEMULAI proses
 	 * login Google (sebelum diarahkan ke accounts.google.com), supaya redirect akhir setelah
@@ -294,8 +326,9 @@ public class GoogleAction extends GenericAutowireComposer {
 							accessToken = service.getAccessToken(code);
 						} catch (Exception tokenError) {
 							System.out.println("Google OAuth token ditolak: " + tokenError.getMessage());
-							redirectLoginError(
-									"Sesi login Google tidak valid atau sudah kadaluarsa. Silakan login kembali.",
+							redirectLoginError(gangguanJaringanGoogle(tokenError)
+									? "Layanan Google sementara tidak dapat dihubungi. Silakan coba kembali beberapa saat lagi."
+									: "Sesi login Google tidak valid atau sudah kadaluarsa. Silakan login kembali.",
 									callback_url);
 							return;
 						}
@@ -305,7 +338,16 @@ public class GoogleAction extends GenericAutowireComposer {
 
 						OAuthRequest request = new OAuthRequest(Verb.GET, PROTECTED_RESOURCE_URL);
 						service.signRequest(accessToken, request);
-						Response response = service.execute(request);
+						Response response;
+						try {
+							response = executeGoogleUserInfo(request);
+						} catch (Exception profileError) {
+							System.err.println("Google OAuth: gagal mengambil profil: " + profileError.getMessage());
+							redirectLoginError(gangguanJaringanGoogle(profileError)
+									? "Layanan Google sementara tidak dapat dihubungi. Silakan coba kembali beberapa saat lagi."
+									: "Profil Google tidak dapat dibaca. Silakan ulangi proses login.", callback_url);
+							return;
+						}
 
 //						System.out.println("response.getHeaders() => " + response.getHeaders());
 

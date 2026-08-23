@@ -817,6 +817,9 @@ public class RepositorySyncService {
 	}
 
 	private static RepoItem findRepoItem(Session session, String sourceClass, Long sourceId) {
+		if (session == null || sourceClass == null || sourceClass.trim().length() == 0 || sourceId == null) {
+			return null;
+		}
 		/* KE-FIX (duplicate key "repo_item_oai_identifier_key"): bila terdapat LEBIH DARI SATU
 		 * baris RepoItem untuk sumber yang sama (duplikat historis), setMaxResults(1) TANPA
 		 * pengurutan membuat baris yang terpilih berubah-ubah antar siklus. Akibatnya siklus
@@ -831,6 +834,7 @@ public class RepositorySyncService {
 
 	/** Cari RepoItem berdasarkan oai_identifier (kolom ber-constraint UNIQUE). */
 	private static RepoItem findRepoItemByOai(Session session, String oaiIdentifier) {
+		if (session == null) return null;
 		String kunci = firstNotEmpty(oaiIdentifier);
 		if (kunci.length() == 0) {
 			return null;

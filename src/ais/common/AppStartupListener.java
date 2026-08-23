@@ -38,6 +38,16 @@ public class AppStartupListener implements ServletContextListener {
 	private static final Object LOCK_MAINTENANCE = new Object();
 	private static volatile Thread maintenanceThread = null;
 	private static volatile boolean contextStopping = false;
+	private static volatile java.util.concurrent.ScheduledExecutorService doUploadRetryScheduler;
+
+	/**
+	 * Registrasi dari DoUpload saat kelas itu memang dipakai. Listener shutdown tidak
+	 * lagi menyentuh kelas servlet yang belum pernah diinisialisasi.
+	 */
+	public static void registerDoUploadRetryScheduler(
+			java.util.concurrent.ScheduledExecutorService scheduler) {
+		doUploadRetryScheduler = scheduler;
+	}
 
 	// True selama proses bootstrap (contextInitialized). Dipakai GeneralValueObject.retreive
 	// untuk MELEWATI baca-file atribut (idfinger/googleScholar/dll) saat startup: nilai file
@@ -569,8 +579,12 @@ public class AppStartupListener implements ServletContextListener {
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopAsyncTaskManager");
 		}
 		try {
-			ais.action.servlet.DoUpload.hentikanRetryScheduler();
-		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopDoUploadRetryScheduler");
+			java.util.concurrent.ScheduledExecutorService scheduler = doUploadRetryScheduler;
+			doUploadRetryScheduler = null;
+			if (scheduler != null) scheduler.shutdownNow();
+		} catch (Throwable abaikan) {
+			// Shutdown harus best-effort dan tidak membuat audit baru saat classloader dibongkar.
+			System.err.println("Gagal menghentikan scheduler retry upload: " + abaikan.getMessage());
 		}
 	}
 

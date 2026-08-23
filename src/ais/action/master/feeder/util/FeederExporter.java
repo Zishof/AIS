@@ -118,11 +118,8 @@ public class FeederExporter {
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		} finally {
-			// session.disconnect();
-			if (session.isOpen()) {
-				session.disconnect();
-				session.close();
-			}
+			// currentNativeSession dikelola ThreadLocal; satu jalur penutupan ini
+			// melakukan clear/disconnect/close tanpa menutup dua kali object yang sama.
 			HibernateUtil.closeSession();
 		}
 	}
@@ -2976,7 +2973,23 @@ public class FeederExporter {
 	 */
 	private static String ambilNilaiData(JSONObject a, String kunci)
 			throws org.json.JSONException {
-		return a.isNull("data") ? null : a.getJSONObject("data").getString(kunci).trim();
+		if (a == null || a.isNull("data")) return null;
+		Object data = a.opt("data");
+		Object nilai = null;
+		if (data instanceof JSONObject) {
+			nilai = ((JSONObject) data).opt(kunci);
+		} else if (data instanceof org.json.JSONArray) {
+			org.json.JSONArray array = (org.json.JSONArray) data;
+			if (array.length() > 0 && array.opt(0) instanceof JSONObject) {
+				nilai = ((JSONObject) array.opt(0)).opt(kunci);
+			}
+		} else {
+			// Beberapa versi Neo Feeder mengembalikan ID langsung sebagai scalar.
+			nilai = data;
+		}
+		if (nilai == null || nilai == JSONObject.NULL) return null;
+		String hasil = String.valueOf(nilai).trim();
+		return hasil.length() == 0 || "null".equalsIgnoreCase(hasil) ? null : hasil;
 	}
 
 	private static String trimKeNull(String value) {

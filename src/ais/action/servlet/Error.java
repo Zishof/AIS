@@ -60,13 +60,14 @@ public class Error extends HttpServlet {
 				Object status = request.getAttribute("javax.servlet.error.status_code");
 				Object message = request.getAttribute("javax.servlet.error.message");
 				int statusCode = status instanceof Number ? ((Number) status).intValue() : 500;
-				if (statusCode == HttpServletResponse.SC_SERVICE_UNAVAILABLE || statusCode == 429) {
-					/* Saat server overload jangan membuat exception baru dan menulis audit DB;
-					 * hal itu menambah beban serta membuat halaman /error tampak sebagai akar
-					 * masalah. Tampilkan respons ramah dan pertahankan status HTTP aslinya. */
+				if (statusCode >= 500 || statusCode == 429) {
+					/* Bila container hanya meneruskan status tanpa exception, akar masalah sudah
+					 * dicatat oleh request asal. Jangan membuat ServletException sintetis di /error
+					 * karena hasilnya audit kedua yang menutupi stack trace pertama. */
 					response.setStatus(statusCode);
-					request.setAttribute("ais.error.content",
-							"Layanan sedang sibuk karena terlalu banyak permintaan bersamaan. Silakan tunggu beberapa saat lalu coba kembali.");
+					request.setAttribute("ais.error.content", statusCode == 429
+							? "Layanan sedang sibuk karena terlalu banyak permintaan bersamaan. Silakan tunggu beberapa saat lalu coba kembali."
+							: "Permintaan belum dapat diproses. Silakan coba kembali; bila berulang, sampaikan kode waktu kejadian kepada Administrator.");
 					request.setAttribute("ais.error.log_id", null);
 				} else {
 					throwable = new ServletException("HTTP " + status + ": " + message);

@@ -79,6 +79,11 @@ public final class DraftJurnalApiHelper {
         // akunting.Pajak yang SAMA dengan yang diposting di sini, dan pengadaan_pajak ada
         // di KUNCI_CRUD sehingga hak "create"-nya benar-benar dapat dibatasi admin.
         if ("Pajak".equals(namaBaris)) return "pengadaan_pajak";
+        // Modul Siswa/Mahasiswa belum punya kunci menu di katalog POS; kuncinya sengaja
+        // deskriptif dan ditegakkan fail-closed lewat EbisnisMenuKatalog.aksesAkuntansi,
+        // sama seperti pengajuan_transfer dan transitori.
+        if ("Siswa - Pembayaran".equals(namaBaris)) return "siswa_pembayaran";
+        if ("Siswa - Piutang Tagihan".equals(namaBaris)) return "siswa_piutang";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
@@ -252,6 +257,18 @@ public final class DraftJurnalApiHelper {
                         .postingSemua(mulai, sampai, tbmuser, new Date())
                     : ais.action.master.asset.PostingJurnalBalikDpPemesananPekerjaanAction
                         .batalkanPostingSemua(mulai, sampai);
+        } else if ("Siswa - Pembayaran".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingCicilanSiswaAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingCicilanSiswaAction.batalkanPostingSemua(mulai,
+                            sampai);
+        } else if ("Siswa - Piutang Tagihan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingPiutangSiswaAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingPiutangSiswaAction.batalkanPostingSemua(mulai,
+                            sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

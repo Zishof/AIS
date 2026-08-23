@@ -95,7 +95,7 @@ public final class LibraryMemberApi {
             if (keyword != null) from += " and (lower(coalesce(i.nama,'')) like :keyword or lower(coalesce(i.isbn,'')) like :keyword or lower(coalesce(p.kode,'')) like :keyword)";
             Query cq = session.createSQLQuery("select count(d.id)" + from); bind(cq, context.id, keyword);
             long total = number(cq.uniqueResult());
-            Query q = session.createSQLQuery("select d.id,coalesce(p.kode,'-'),i.id,coalesce(i.nama,'-'),coalesce(i.pengarangs,'-'),to_char(p.tanggal_pembuatan,'DD-MM-YYYY HH24:MI'),to_char(d.batas_waktu_pengembalian,'DD-MM-YYYY'),d.jumlah_perpanjangan,d.jumlah_max_perpanjangan,d.kembali_pengadaan_item_detail" + from + " order by p.tanggal_pembuatan desc,d.id desc");
+            Query q = session.createSQLQuery("select d.id,coalesce(p.kode,'-'),i.id,coalesce(i.nama,'-'),coalesce(i.pengarangs,'-'),to_char(p.tanggal_pembuatan,'DD-MM-YYYY HH24:MI'),to_char(d.batas_waktu_pengembalian,'DD-MM-YYYY'),d.jumlahperpanjangan,d.jumlahmaxperpanjangan,d.kembali_pengadaan_item_detail" + from + " order by p.tanggal_pembuatan desc,d.id desc");
             bind(q, context.id, keyword); q.setFirstResult(page.offset()).setMaxResults(page.size);
             JSONArray data = new JSONArray();
             for (Object[] row : (List<Object[]>) q.list()) {

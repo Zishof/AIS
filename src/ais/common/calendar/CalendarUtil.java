@@ -226,15 +226,24 @@ public class CalendarUtil {
 
 				@Override
 				public String waitForCode() throws IOException {
-					// TODO Auto-generated method stub
+					GCalendarCode gcalendarCode = null;
+					try {
+						Session session = HibernateUtil.currentNativeSession();
+						gcalendarCode = (GCalendarCode) session.createCriteria(GCalendarCode.class)
+								.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
+					} finally {
+						// currentNativeSession adalah ThreadLocal native dan wajib ditutup tuntas.
+						HibernateUtil.closeSession();
+					}
 
-					Session session = HibernateUtil.currentNativeSession();
-					GCalendarCode gcalendarCode = (GCalendarCode) session.createCriteria(GCalendarCode.class)
-							.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
-					HibernateUtil.closeSession();
-
-					return gcalendarCode != null ? gcalendarCode.getKeterangan()
-							: "4/N-D27v1qgeomdHvvJdmgcCq6NfugLlRfXhTY3LRf_tc";
+					if (gcalendarCode == null || gcalendarCode.getKeterangan() == null
+							|| gcalendarCode.getKeterangan().trim().length() == 0) {
+						// Jangan pernah memakai authorization-code contoh/hardcoded: code OAuth
+						// bersifat sekali pakai dan pasti menghasilkan invalid_grant.
+						throw new IOException("Google Calendar belum dihubungkan untuk user '" + username
+								+ "'. Silakan lakukan otorisasi Calendar terlebih dahulu.");
+					}
+					return gcalendarCode.getKeterangan().trim();
 				}
 
 				@Override

@@ -329,6 +329,11 @@ public class GDriveUtilPerPengguna {
 					// Ambil access token baru dari refresh token; false/exception = token tak berlaku.
 					berhasilRefresh = gc.refreshToken();
 				} catch (Exception e) {
+					// Timeout/DNS bukan berarti refresh token dicabut. Jangan hapus token yang
+					// masih sah hanya karena jaringan Google sedang terganggu.
+					if (merupakanGangguanJaringan(e)) {
+						throw e;
+					}
 					berhasilRefresh = false;
 				}
 				if (berhasilRefresh) {
@@ -431,6 +436,18 @@ public class GDriveUtilPerPengguna {
 		Throwable t = e;
 		while (t != null) {
 			if (t instanceof EOFException || t instanceof StreamCorruptedException) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	private boolean merupakanGangguanJaringan(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			if (t instanceof java.net.UnknownHostException || t instanceof java.net.ConnectException
+					|| t instanceof java.net.SocketTimeoutException) {
 				return true;
 			}
 			t = t.getCause();
@@ -590,7 +607,9 @@ public class GDriveUtilPerPengguna {
 				updateStatus(label, "Menerapkan hak akses publik...");
 				createPublicPermission(drive, fileUpload.getId());
 			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:453");
+				if (!merupakanGangguanJaringan(e)) {
+					ais.common.ErrorAuditUtil.record(e, "GDriveUtilPerPengguna:createPublicPermission");
+				}
 				System.err.println("Peringatan: Gagal set permission public - " + e.getMessage());
 				// Lanjut, tidak perlu menghentikan proses jika hanya gagal permission
 			}
@@ -644,6 +663,14 @@ public class GDriveUtilPerPengguna {
 			System.err.println(pesan);
 		} catch (Exception e) {
 			if (label != null) label.setValue("Error");
+			if (merupakanGangguanJaringan(e)) {
+				// Gangguan sementara: kredensial dan file lokal tetap dipertahankan. Tidak
+				// dicatat sebagai error aplikasi berulang; scheduler/manual dapat mencoba lagi.
+				System.err.println("GDrive sementara tidak dapat dihubungi untuk user '" + username
+						+ "': " + e.getMessage() + ". File lokal tetap disimpan.");
+				this.drive = null;
+				return null;
+			}
 
 			if (e instanceof IOException && e.getMessage() != null
 					&& e.getMessage().startsWith("GDrive belum terhubung")) {
@@ -674,7 +701,7 @@ public class GDriveUtilPerPengguna {
 				return null;
 			}
 
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474");
+				ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474");
 		}
 
 		return fileUpload;
@@ -743,8 +770,6 @@ public class GDriveUtilPerPengguna {
 				break;
 			} catch (IOException e) {
 				gagalTerakhir = e;
-				ais.common.ErrorAuditUtil.record(e,
-						"GDriveUtilPerPengguna.getOrCreateDriveFolder:list-retry-" + (i + 1) + ", folder=" + folderName);
 				if (i < 2) {
 					try {
 						Thread.sleep(1000L * (i + 1));
@@ -773,8 +798,6 @@ public class GDriveUtilPerPengguna {
 					return drive.files().create(fileMetadata).setFields("id").execute();
 				} catch (IOException e) {
 					gagalTerakhir = e;
-					ais.common.ErrorAuditUtil.record(e,
-							"GDriveUtilPerPengguna.getOrCreateDriveFolder:create-retry-" + (i + 1) + ", folder=" + folderName);
 					if (i < 2) {
 						try {
 							Thread.sleep(1000L * (i + 1));

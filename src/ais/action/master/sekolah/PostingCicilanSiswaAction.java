@@ -376,7 +376,9 @@ public class PostingCicilanSiswaAction extends GenericAutowireComposer {
 	}
 
 	// Method helper sentral untuk logika jurnal Debet / Kredit & Memecah nilai tabungan secara efisien
-	private void eksekusiPosting(Session session, PembayaranSiswaDetail detail, PostingHistory postingHistory, int totalDetailCount) throws Exception {
+	// Dipakai BERSAMA oleh tombol layar ZK dan mesin non-ZK di bawah; hanya memakai
+	// parameternya sendiri, jadi aman dijadikan static. Satu implementasi jurnal.
+	static void eksekusiPosting(Session session, PembayaranSiswaDetail detail, PostingHistory postingHistory, int totalDetailCount) throws Exception {
 		if (detail.getPembayaranSiswa() == null || detail.getItemBiayaSekolah() == null) return;
 
 		Akun akunKredit = detail.getItemBiayaSekolah().getAkunPiutang();
@@ -767,4 +769,154 @@ public class PostingCicilanSiswaAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Kembaran non-ZK dari tombol "Posting Semua"/"Batalkan Posting Semua".
+	// Logika jurnalnya TIDAK disalin: {@link #eksekusiPosting} dipakai bersama
+	// oleh layar ZK dan jalur ini, sehingga tidak mungkin menyimpang.
+	// =====================================================================
+
+	/**
+	 * Kriteria pembayaran siswa yang layak diposting pada rentang tanggal.
+	 * Sama persis dengan penghitung baris "Siswa - Pembayaran" pada dasbor
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaPembayaranSiswaDetail}).
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(PembayaranSiswaDetail.class)
+				.createAlias("pembayaranSiswa", "pembayaranSiswa").createAlias("tagihan", "tagihan");
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.between("pembayaranSiswa.tanggalBayar", mulai, sampai));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA pembayaran siswa terposting dalam rentang.
+	 *
+	 * <p>Memakai {@code currentNativeSession()} dengan transaksi eksplisit per dokumen; baris
+	 * {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi} adalah
+	 * induknya. Jurnal yang SUDAH closing tidak ikut dihapus.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<PembayaranSiswaDetail> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (PembayaranSiswaDetail detail : daftar) {
+				try {
+					String syarat = "pembayaran_siswa_detail=" + detail.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					detail.setPostingHistory(null);
+					session.update(detail);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingCicilanSiswaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA pembayaran siswa yang belum diposting dalam rentang.
+	 *
+	 * <p>Nilai jurnalnya dihitung {@link #eksekusiPosting} -- method yang SAMA dengan yang
+	 * dipakai tombol di layar, termasuk pemecahan nilai tabungan menurut jumlah baris detail
+	 * pada satu pembayaran dan pemindahan ke akun "dibayar di muka" bila tanggal bayarnya
+	 * mendahului tanggal tagihan.</p>
+	 *
+	 * <p><b>Penyimpangan sadar:</b> tiap dokumen dijalankan dalam transaksinya SENDIRI. Layar
+	 * membungkus seluruh batch dalam satu transaksi, sehingga satu dokumen bermasalah
+	 * membatalkan ribuan dokumen lain yang sudah benar. Di sini yang gagal hanya dirinya
+	 * sendiri, dicatat ke Error Log, dan sisanya tetap diproses.</p>
+	 *
+	 * @return jumlah dokumen yang BERHASIL diposting.
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PEMBAYARAN_SISWA);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal pembayaran siswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PembayaranSiswaDetail detail = (PembayaranSiswaDetail) session
+							.createCriteria(PembayaranSiswaDetail.class).add(Restrictions.idEq(id))
+							.uniqueResult();
+					if (detail == null || detail.getPembayaranSiswa() == null
+							|| detail.getItemBiayaSekolah() == null) {
+						continue;
+					}
+					// Nilai tabungan dibagi rata ke seluruh baris detail pada satu pembayaran --
+					// hitungannya sama dengan layar.
+					int totalDetail = 1;
+					Number jml = (Number) session.createCriteria(PembayaranSiswaDetail.class)
+							.add(Restrictions.eq("pembayaranSiswa", detail.getPembayaranSiswa()))
+							.setProjection(Projections.rowCount()).uniqueResult();
+					if (jml != null && jml.intValue() > 0) {
+						totalDetail = jml.intValue();
+					}
+
+					session.getTransaction().begin();
+					eksekusiPosting(session, detail, postingHistory, totalDetail);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingCicilanSiswaAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingCicilanSiswaAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

@@ -20,6 +20,7 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.FileUtils;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -231,6 +232,35 @@ import ais.ui.util.WaktuUtil;
  * @see ais.database.model.file.TugasFileContent
  */
 public class TugasMandiriHelper {
+
+	/**
+	 * Membersihkan referensi format nilai yatim sebelum Pertemuan dimasukkan ke
+	 * persistence-context milik request. Perbaikan memakai session terisolasi agar
+	 * query pembersihan tidak memicu auto-flush entity Pertemuan yang sudah kotor.
+	 */
+	private static void bersihkanFormatNilaiYatim(Tugas tugas) {
+		if (!(tugas instanceof Pertemuan) || tugas.getId() == null) {
+			return;
+		}
+		Session sesiPerbaikan = null;
+		Transaction transaksi = null;
+		try {
+			sesiPerbaikan = HibernateUtil.openSession();
+			transaksi = sesiPerbaikan.beginTransaction();
+			sesiPerbaikan.createSQLQuery("update pertemuan p set format_nilai=null "
+					+ "where p.id=:id and p.format_nilai is not null "
+					+ "and not exists (select 1 from formatnilai f where f.id=p.format_nilai)")
+					.setLong("id", tugas.getId().longValue()).executeUpdate();
+			transaksi.commit();
+		} catch (Exception e) {
+			if (transaksi != null && transaksi.isActive()) {
+				try { transaksi.rollback(); } catch (Exception abaikan) { }
+			}
+			throw new IllegalStateException("Gagal memperbaiki referensi format nilai Pertemuan " + tugas.getId(), e);
+		} finally {
+			HibernateUtil.closeSessionQuietly(sesiPerbaikan);
+		}
+	}
 
 	private MyGrid uploadTugasGrid;
 	private Mahasiswa mahasiswa;
@@ -899,6 +929,9 @@ public class TugasMandiriHelper {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
+				// FK lama dapat yatim setelah master FormatNilai dihapus. Perbaiki dahulu
+				// memakai session terisolasi, kemudian refresh entity pada session request.
+				bersihkanFormatNilaiYatim(tugas);
 				Session session = HibernateUtil.currentSession();
 				if (tugas.getId() != null) {
 					session.refresh(tugas);
@@ -1074,6 +1107,10 @@ public class TugasMandiriHelper {
 				if (formatNilaiPerkuliahanRef[0] != null) {
 					FormatNilai fn = (FormatNilai) (formatNilaiPerkuliahanRef[0].getSelectedItem() == null ? null
 							: formatNilaiPerkuliahanRef[0].getSelectedItem().getValue());
+					// Jangan memasang kembali object Comboitem yang sudah tidak ada di DB.
+					if (fn != null && fn.getId() != null) {
+						fn = (FormatNilai) session.get(FormatNilai.class, fn.getId());
+					}
 					tugas.setFormatNilai(fn);
 					tugas.setProsentase(prosentaseFormatNilaiRef[0] == null ? tugas.getProsentase()
 							: prosentaseFormatNilaiRef[0].getValue());
