@@ -22,18 +22,6 @@ import ais.database.model.Perkuliahan;
 
 public class KrsUtilHelper {
 
-	/**
-	 * Menyimpan satu baris KRS hanya bila mata kuliah yang sama belum dimiliki mahasiswa pada
-	 * semester, tahun akademik, dan jenis semester yang sama.
-	 *
-	 * <p>Pemeriksaan lama pada beberapa layar hanya memakai ID {@link Perkuliahan}. Akibatnya satu
-	 * mata kuliah yang mempunyai beberapa jadwal/paralel dapat masuk berkali-kali. Pemeriksaan
-	 * biasa juga masih mempunyai celah balapan ketika tombol sinkronisasi dijalankan hampir
-	 * bersamaan. Karena itu method ini memakai advisory lock PostgreSQL selama transaksi aktif,
-	 * lalu memeriksa kembali berdasarkan mata kuliah (ID maupun kode) sebelum INSERT.</p>
-	 *
-	 * @return {@code true} bila data baru disimpan, {@code false} bila KRS yang sama sudah ada
-	 */
 	public static boolean simpanKrsJikaBelumAda(Session session, Detailperkuliahan detailperkuliahan) {
 		if (session == null || detailperkuliahan == null || detailperkuliahan.getMahasiswa() == null
 				|| detailperkuliahan.getMahasiswa().getId() == null) {
@@ -55,19 +43,27 @@ public class KrsUtilHelper {
 		Integer semesterPendek = perkuliahan == null ? null : perkuliahan.getStatusSemesterPendek();
 		String kode = matakuliah.getKode() == null ? "" : matakuliah.getKode().trim().toLowerCase();
 
-		/* Satu kunci logis untuk mahasiswa + periode + mata kuliah. Collision hash hanya membuat
-		 * transaksi lain menunggu sedikit lebih lama; tidak dapat menyebabkan data salah. */
 		long kunci = 17L;
 		kunci = (31L * kunci) + detailperkuliahan.getMahasiswa().getId().longValue();
 		kunci = (31L * kunci) + (semester == null ? 0L : semester.longValue());
 		kunci = (31L * kunci) + (tahunAkademik == null ? 0L : tahunAkademik.hashCode());
 		kunci = (31L * kunci) + (semesterPendek == null ? 0L : semesterPendek.longValue());
-		kunci = (31L * kunci) + (kode.isEmpty() ? matakuliah.getId().longValue() : kode.hashCode());
-		session.createSQLQuery(
-				"with kunci_transaksi as (select pg_advisory_xact_lock(:kunci)) "
-				+ "select cast(1 as bigint) as terkunci from kunci_transaksi")
-				.addScalar("terkunci", org.hibernate.Hibernate.LONG)
-				.setLong("kunci", kunci).uniqueResult();
+		kunci = (31L * kunci) + (kode.length() == 0 ? matakuliah.getId().longValue() : kode.hashCode());
+		java.sql.PreparedStatement psLock = null;
+		try {
+			psLock = session.connection().prepareStatement("select pg_advisory_xact_lock(?)");
+			psLock.setLong(1, kunci);
+			psLock.execute();
+		} catch (java.sql.SQLException e) {
+			throw new org.hibernate.HibernateException("Gagal mengunci proses simpan KRS agar tidak double", e);
+		} finally {
+			try {
+				if (psLock != null) {
+					psLock.close();
+				}
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "KrsUtilHelper.close-advisory-lock-statement");
+			}
+		}
 
 		StringBuilder sql = new StringBuilder();
 		sql.append("select count(d.id) as jumlah from detailperkuliahan d ");
@@ -76,7 +72,7 @@ public class KrsUtilHelper {
 		sql.append("where d.mahasiswa=:mahasiswa and d.semester=:semester ");
 		sql.append("and coalesce(d.tahunakademik,p.tahunajaran,'')=:tahunAkademik ");
 		sql.append("and (m.id=:matakuliah");
-		if (!kode.isEmpty()) {
+		if (kode.length() > 0) {
 			sql.append(" or lower(trim(m.kode))=:kode");
 		}
 		sql.append(") ");
@@ -95,7 +91,7 @@ public class KrsUtilHelper {
 		query.setInteger("semester", semester == null ? 0 : semester.intValue());
 		query.setString("tahunAkademik", tahunAkademik == null ? "" : tahunAkademik);
 		query.setLong("matakuliah", matakuliah.getId());
-		if (!kode.isEmpty()) {
+		if (kode.length() > 0) {
 			query.setString("kode", kode);
 		}
 		if (semesterPendek != null) {
@@ -213,21 +209,11 @@ public class KrsUtilHelper {
 	public static Integer ambilJumlahDetailperkuliahan(Session session, Perkuliahan perkuliahan, Mahasiswa mahasiswa,
 			Boolean reload) {
 
-		// if (!perkuliahan.getUdah() || reload) {
-		// perkuliahan.reInitDetailperkuliahan(session);
-		// perkuliahan.setUdah(true);
-		// }
-
 		Long detailperkuliahan = perkuliahan.ambilDetailperkuliahan(mahasiswa);
 		return detailperkuliahan == null ? 0 : 1;
 	}
 
 	public static String[] rubahStatusPenilaian(Perkuliahan perkuliahan, Boolean reload) {
-
-		// if (!perkuliahan.getUdah() || reload) {
-		// perkuliahan.reInitDetailperkuliahan(HibernateUtil.currentSession());
-		// perkuliahan.setUdah(true);
-		// }
 
 		String status = "";
 		Integer[] s = perkuliahan.ambilStatusPenilaian();
@@ -256,5 +242,4 @@ public class KrsUtilHelper {
 
 		return new String[] { status, kode };
 	}
-
 }

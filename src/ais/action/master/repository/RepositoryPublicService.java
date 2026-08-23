@@ -206,11 +206,7 @@ public class RepositoryPublicService {
     public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
-        Session session = HibernateUtil.currentSession();
-        if (session == null || !session.isOpen()) {
-            session = HibernateUtil.currentNativeSession();
-        }
-        return session;
+        return HibernateUtil.currentNativeSession();
     }
 
     public Query normalize(Query input) {

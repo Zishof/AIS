@@ -94,8 +94,8 @@ public class WaApi {
 			// dibuat karena izin, dsb). Jangan biarkan IOException ini menggagalkan seluruh
 			// pengiriman WA -> fallback kirim payload langsung sbg argumen curl (tanpa file),
 			// via ProcessBuilder array jadi tetap aman dari shell-quoting.
-			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/WaApi.java:80 - gagal tulis "
-					+ fileOut.getAbsolutePath() + ", fallback kirim data langsung");
+			System.err.println("[WaApi] Tidak bisa menulis file payload sementara " + fileOut.getAbsolutePath()
+					+ ", kirim langsung lewat argumen curl: " + e.getMessage());
 			command = new String[] { "curl", "--request", "POST", linkPost, "--header",
 					"Content-Type: application/json", "--data", data };
 		}
