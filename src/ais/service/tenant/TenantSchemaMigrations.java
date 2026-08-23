@@ -122,10 +122,11 @@ public final class TenantSchemaMigrations {
 			new Migrasi("v6-inventory-trip-erp", TARGET_ERP, TenantSchemaMigrationsV6.ERP),
 			new Migrasi("v7-inventory-accounting-erp", TARGET_ERP, TenantSchemaMigrationsV7.ERP),
 			new Migrasi("v8-inventory-import-erp", TARGET_ERP, TenantSchemaMigrationsV8.ERP),
+			new Migrasi("v9-pos-ebisnis-erp", TARGET_ERP, TenantSchemaMigrationsV9.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v8-inventory-import";
+	public static final String VERSI_TERKINI = "v9-pos-ebisnis";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_ERP = {
@@ -156,6 +157,10 @@ public final class TenantSchemaMigrations {
 			// v8 -- idempotensi, cetak, impor legacy
 			"idempotency_record", "print_log", "legacy_import_run", "legacy_import_file",
 			"legacy_import_row", "legacy_key_map", "legacy_import_exception", "legacy_reconciliation",
+			// v9 -- tabel POS eBisnis yang tidak ada di arsip FoxPro
+			"cara_pembayaran", "jenis_customer", "customer_anggota_profile", "sesi_kas_kasir",
+			"draft_penjualan", "draft_penjualan_detail", "retur_penjualan",
+			"pemakaian_bahan_baku", "survey_kepuasan", "transaksi_backup_ack", "foto_produk",
 	};
 	public static final String[] TABEL_WAJIB_AUDIT = {
 			// v1 -- cermin kolom, dipertahankan (TenantDataPlaneService masih menulis ke sana)
