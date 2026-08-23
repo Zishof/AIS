@@ -3998,6 +3998,9 @@ public class ProsesUjianHelper extends MyWindow {
 			}
 			final UjianPunyaSoal ujianPunyaSoal = aujianPunyaSoal;
 			currentBankSoal = ujianPunyaSoal.getBankSoal();
+			if (currentBankSoal == null) {
+				continue;
+			}
 
 			MyFormRow myrowa = new MyFormRow();
 			myrowa.setParent(myrows);
