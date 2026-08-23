@@ -250,11 +250,19 @@ public final class JenisProdukApiHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Connection conn = session.connection();
-			StringBuilder sql = new StringBuilder("SELECT id, COALESCE(kode,''), COALESCE(nama,'') FROM akunting.akun");
+			// parent + leaf ikut dikirim supaya pemilih akun dapat menyusunnya sebagai POHON
+			// dan hanya membolehkan akun DAUN dipilih. Akun induk (mis. "100.000 ASET LANCAR")
+			// tidak pernah menampung transaksi; membiarkannya dapat dipilih menghasilkan
+			// jurnal yang salah tempat dan tidak terdeteksi sampai laporan dibaca.
+			// Penambahan ini murni ADITIF -- pemanggil lama yang hanya membaca id/kode/nama
+			// tidak terpengaruh.
+			StringBuilder sql = new StringBuilder("SELECT a.id, COALESCE(a.kode,''), COALESCE(a.nama,''),"
+					+ " a.parent, NOT EXISTS (SELECT 1 FROM akunting.akun b WHERE b.parent = a.id) AS daun"
+					+ " FROM akunting.akun a");
 			if (!keyword.isEmpty()) {
-				sql.append(" WHERE (nama ILIKE ? OR kode ILIKE ?)");
+				sql.append(" WHERE (a.nama ILIKE ? OR a.kode ILIKE ?)");
 			}
-			sql.append(" ORDER BY kode ASC LIMIT ?");
+			sql.append(" ORDER BY a.kode ASC LIMIT ?");
 			PreparedStatement ps = conn.prepareStatement(sql.toString());
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -271,6 +279,9 @@ public final class JenisProdukApiHelper {
 				j.put("kode", rs.getString(2));
 				j.put("nama", rs.getString(3));
 				j.put("label", labelAkun(rs.getString(2), rs.getString(3)));
+				long induk = rs.getLong(4);
+				j.put("parentId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(induk));
+				j.put("leaf", rs.getBoolean(5));
 				arr.put(j);
 			}
 			rs.close();
