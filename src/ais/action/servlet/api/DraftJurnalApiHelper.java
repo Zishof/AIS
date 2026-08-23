@@ -81,6 +81,17 @@ public final class DraftJurnalApiHelper {
         if ("Pajak".equals(namaBaris)) return "pengadaan_pajak";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
+        // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
+        // jurnalnya: DP Vendor dan jurnal baliknya melekat pada pemesanan (pengadaan_po),
+        // sedangkan DP Pekerjaan melekat pada tagihannya (pengadaan_tagihan). Keduanya
+        // ada di KUNCI_CRUD sehingga hak "create"-nya dapat dibatasi admin per peran.
+        if ("DP Vendor".equals(namaBaris)) return "pengadaan_po";
+        if ("Jurnal Balik DP Pekerjaan".equals(namaBaris)) return "pengadaan_po";
+        if ("DP Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
+        // DP dibayarkan pada tahap PEMESANAN, jadi haknya ikut kunci menu pemesanan.
+        if ("DP Vendor".equals(namaBaris)) return "pengadaan_po";
+        if ("DP Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_po";
+        if ("Pajak".equals(namaBaris)) return "pengadaan_pajak";
         return null;
     }
 
@@ -205,6 +216,41 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingPertangungjawabanPajakAction.postingSemua(
                         mulai, sampai, tbmuser, new Date())
                     : ais.action.master.akunting.PostingPertangungjawabanPajakAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("DP Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPemesananDpAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.asset.PostingPemesananDpAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("DP Pekerjaan Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingDpPemesananPekerjaanAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingDpPemesananPekerjaanAction.batalkanPostingSemua(
+                            mulai, sampai);
+        } else if ("Pajak".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPertangungjawabanPajakAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPertangungjawabanPajakAction
+                            .batalkanPostingSemua(mulai, sampai);
+        } else if ("DP Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPemesananDpAction.postingSemua(mulai, sampai,
+                        tbmuser, new Date())
+                    : ais.action.master.asset.PostingPemesananDpAction.batalkanPostingSemua(mulai,
+                        sampai);
+        } else if ("DP Pekerjaan Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingDpPemesananPekerjaanAction.postingSemua(
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingDpPemesananPekerjaanAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Jurnal Balik DP Pekerjaan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingJurnalBalikDpPemesananPekerjaanAction
+                        .postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingJurnalBalikDpPemesananPekerjaanAction
                         .batalkanPostingSemua(mulai, sampai);
         } else {
             hasil.put("status", "91");

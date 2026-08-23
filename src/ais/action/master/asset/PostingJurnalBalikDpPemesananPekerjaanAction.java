@@ -1531,4 +1531,250 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 		});
 	}
 
+
+	/** Penanda asal jurnal modul ini pada {@code akunting.grup_transaksi.ref}. */
+	public static final String REF_DP_BALIK = "DP_BALIK_PEKERJAAN";
+
+	/**
+	 * Kriteria pemesanan yang jurnal baliknya dapat diposting, TANPA komponen ZK.
+	 * Sama persis dengan {@code initCriteria()} dan dengan kriteria baris "Jurnal Balik
+	 * DP Pekerjaan" pada dasbor Draft Jurnal.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(PemesananPengadaanMasterAsset.class)
+				.add(Restrictions.ilike("formula", "\"merupakan_dp\":true", MatchMode.ANYWHERE))
+				.add(Restrictions.ilike("formula", "\"setuju\":true", MatchMode.ANYWHERE))
+				.add(Restrictions.eq("byTermin", true))
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	private static String teksJson(JSONObject o, String kunci) throws Exception {
+		return o.isNull(kunci) ? "" : (o.get(kunci) + "");
+	}
+
+	private static double angkaJson(JSONObject o, String kunci) throws Exception {
+		return o.isNull(kunci) ? 0.0 : o.getDouble(kunci);
+	}
+
+	/**
+	 * Posting SEMUA jurnal balik DP pekerjaan pada rentang tanggal, tanpa layar ZK.
+	 *
+	 * <p>Berbeda dengan dua modul DP lainnya, di sini {@code formula} adalah JSON ARRAY:
+	 * satu pemesanan dapat menghasilkan BEBERAPA jurnal, satu per termin yang disetujui,
+	 * semuanya di bawah satu PostingHistory dan satu penanda posting pada dokumennya.</p>
+	 *
+	 * <p>Jurnalnya membalik pengakuan DP: debet {@code akunUtangPekerjaan}, kredit
+	 * {@code akunUtangDp}. Bila keduanya AKUN YANG SAMA, dokumennya dilewati -- jurnal
+	 * yang debet dan kreditnya satu akun tidak mengubah apa pun selain meramaikan buku
+	 * besar. Penjagaan itu ada di layar dan dipertahankan di sini.</p>
+	 *
+	 * <p><strong>Dua perilaku layar yang disalin apa adanya, bukan diperbaiki.</strong></p>
+	 * <ol>
+	 *   <li>Perulangan terminnya hanya memeriksa {@code key} dan {@code setuju}, TIDAK
+	 *       memeriksa {@code merupakan_dp} per termin -- padahal kriteria dokumennya
+	 *       memakai penyaring itu. Akibatnya pemesanan yang punya satu termin DP akan
+	 *       membalik SELURUH termin yang disetujui, bukan hanya termin DP-nya.</li>
+	 *   <li>Penjaga duplikat per-termin mencari {@code ref = key}, sedangkan yang ditulis
+	 *       selalu {@code REF_DP_BALIK}, jadi penjaga itu tidak pernah cocok.</li>
+	 * </ol>
+	 * <p>Keduanya menentukan JUMLAH UANG yang masuk buku besar. Menebak maksudnya dari
+	 * sini akan mengubah angka pembukuan tanpa ada yang meminta, jadi perilakunya
+	 * dipertahankan dan dicatat di docs/pos supaya dapat diputuskan orang yang tahu.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_TAGIHAN_DP_BALIK_PEKERJAAN);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal jurnal balik DP pekerjaan dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+						+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PemesananPengadaanMasterAsset po = (PemesananPengadaanMasterAsset) session
+						.get(PemesananPengadaanMasterAsset.class, id);
+					if (po == null || po.getFormula() == null) {
+						continue;
+					}
+
+					Akun akunDebet = po.getJenisPemesananPengadaanAsset() == null ? null
+						: po.getJenisPemesananPengadaanAsset().getAkunUtangPekerjaan();
+					Akun akunKredit = po.getJenisPemesananPengadaanAsset() == null ? null
+						: po.getJenisPemesananPengadaanAsset().getAkunUtangDp();
+					if (akunDebet == null || akunKredit == null || akunSama(akunDebet, akunKredit)) {
+						continue;
+					}
+
+					SatuanKerja satuanKerja = po.getSatuanKerja();
+					Date tanggal = po.getTanggalPembuatan();
+					String nilaiDp = Common.numberFormat.get().format(po.getDptotal());
+					JSONArray formula = new JSONArray(po.getFormula());
+
+					int terjurnal = 0;
+					for (int i = 0; i < formula.length(); i++) {
+						try {
+							JSONObject termin = formula.getJSONObject(i);
+							String key = teksJson(termin, "key");
+							if (key.length() == 0) {
+								continue;
+							}
+							if (!Boolean.parseBoolean(teksJson(termin, "setuju"))) {
+								continue;
+							}
+
+							Number bukti = (Number) session.createCriteria(GrupTransaksi.class)
+								.add(Restrictions.eq("pemesananPengadaanMasterAsset", po))
+								.add(Restrictions.eq("ref", key))
+								.setProjection(Projections.rowCount()).uniqueResult();
+							if (bukti != null && bukti.intValue() > 0) {
+								continue;
+							}
+
+							double penagihan = angkaJson(termin, "penagihan");
+							double ppn = angkaJson(termin, "ppn");
+							double pinalti = angkaJson(termin, "pinalti");
+							double nilai = Math.abs((penagihan + ((ppn / 100.0) * penagihan)) - pinalti);
+
+							String ket = "Tagihan pekerjaan terhadap pemesanan \"" + po.getKode() + "-"
+								+ teksJson(termin, "nomor") + "-" + teksJson(termin, "nama") + " "
+								+ po.getKeterangan() + "\" sebanyak " + nilaiDp;
+
+							session.getTransaction().begin();
+							if (nilai > 0.1) {
+								CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null,
+									postingHistory, Boolean.TRUE, ket, tanggal, Double.valueOf(nilai),
+									Double.valueOf(0.0), po, satuanKerja, REF_DP_BALIK, session);
+							} else {
+								CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null,
+									postingHistory, Boolean.TRUE, ket, tanggal, Double.valueOf(nilai),
+									Double.valueOf(0.0), po, satuanKerja, REF_DP_BALIK, session);
+							}
+							session.getTransaction().commit();
+							terjurnal++;
+						} catch (Exception e) {
+							try {
+								session.getTransaction().rollback();
+							} catch (Exception ex) {
+								// rollback gagal: kegagalan aslinya yang dilaporkan
+							}
+							ais.common.ErrorAuditUtil.record(e,
+								"PostingJurnalBalikDpPemesananPekerjaanAction.postingSemua termin");
+						}
+					}
+
+					if (terjurnal > 0) {
+						// Penanda hanya dipasang bila ADA termin yang benar-benar terjurnal.
+						// Memasangnya tanpa syarat membuat dokumen yang seluruh terminnya gagal
+						// hilang dari daftar draft tanpa punya jurnal sama sekali.
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						java.sql.PreparedStatement ps = session.connection().prepareStatement(
+							"UPDATE asset.pemesanan_pengadaan_master_asset SET posting_history = ?"
+								+ " WHERE id = ?");
+						try {
+							ps.setLong(1, postingHistory.getId());
+							ps.setLong(2, id.longValue());
+							ps.executeUpdate();
+						} finally {
+							ps.close();
+						}
+						session.getTransaction().commit();
+						session.evict(po);
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+						"auto-audit PostingJurnalBalikDpPemesananPekerjaanAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+				"PostingJurnalBalikDpPemesananPekerjaanAction.postingSemua");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Batalkan posting SEMUA jurnal balik DP pekerjaan pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Saringan {@code ref = 'DP_BALIK_PEKERJAAN'} WAJIB ada: pemesanan yang sama juga
+	 * memuat jurnal DP Vendor pada tabel yang sama, yang ref-nya JUSTRU null. Tanpa
+	 * saringan itu pembatalan di sini akan ikut menghapus jurnal modul tersebut.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where"
+							+ " pemesanan_pengadaan_master_asset=" + id + " and ref = '" + REF_DP_BALIK
+							+ "' and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where"
+							+ " pemesanan_pengadaan_master_asset=" + id + " and ref = '" + REF_DP_BALIK
+							+ "' and closing is null").executeUpdate();
+					session.createSQLQuery("update asset.pemesanan_pengadaan_master_asset"
+							+ " set posting_history = null where id=" + id).executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+						"PostingJurnalBalikDpPemesananPekerjaanAction.batalkanPostingSemua");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
