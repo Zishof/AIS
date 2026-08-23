@@ -2115,7 +2115,7 @@ public class InitIndex {
 			java.sql.Statement statement = null;
 			java.sql.ResultSet result = null;
 			try {
-				session = HibernateUtil.getSessionFactory().openSession();
+				session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
 				transaction = session.beginTransaction();
 				statement = session.connection().createStatement();
 				result = statement.executeQuery("SELECT pg_advisory_xact_lock(hashtext('init:koperasi.produk:kebijakan_retur'))");
