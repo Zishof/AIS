@@ -907,14 +907,27 @@ public class MailSender {
 				ut.addSource(f);
 			}
 
+			FileOutputStream out = null;
 			try {
-				ut.setDestinationStream(new FileOutputStream(filePdfBaru));
+				out = new FileOutputStream(filePdfBaru);
+				ut.setDestinationStream(out);
 				ut.mergeDocuments();
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/delivery/email/sender/MailSender.java:907");
+			} finally {
+				try {
+					if (out != null) {
+						out.close();
+					}
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "MailSender.jadikanSatuFilePdf.close");
+				}
 			}
 
-			filesbaru.add(filePdfBaru);
+			if (filePdfBaru.exists() && filePdfBaru.length() > 0) {
+				filesbaru.add(filePdfBaru);
+			} else {
+				filesbaru.addAll(filespdf);
+			}
 		}
 
 		return filesbaru.toArray(new File[] {});

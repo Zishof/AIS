@@ -308,6 +308,9 @@ public class LaporanCutiAbsen extends MyWindow {
 		if (maps != null) {
 			parameters.put("maps", maps);
 		}
+		if (tahun == null || tahun.getSelectedItem() == null || tahun.getSelectedItem().getValue() == null) {
+			throw new IllegalArgumentException("Tahun laporan cuti/absen belum dipilih");
+		}
 		Integer selectedtahun = (Integer) tahun.getSelectedItem().getValue();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();

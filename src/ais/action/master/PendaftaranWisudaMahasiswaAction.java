@@ -800,7 +800,7 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 				}
 
 				if (PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getNoKursi() == null
-						|| !PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getNoKursi().isEmpty()) {
+						|| PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getNoKursi().isEmpty()) {
 					String noKursi = PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getId().toString();
 
 					while (noKursi.length() < 8) {

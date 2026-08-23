@@ -35,6 +35,12 @@ public class WaApi {
 	}
 
 	public static String[] watzapFormat(String from, String send, String namaFile, String url) throws Exception {
+		if (from == null || from.trim().length() == 0) {
+			throw new IllegalArgumentException("Nomor tujuan WhatsApp/Watzap kosong");
+		}
+		if (send == null) {
+			send = "";
+		}
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("api_key", Common.getKonfigurasi("watzap_api_key", "YBIYGXHPIVEVHT3G").getNilai().trim());
 

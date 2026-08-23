@@ -15495,6 +15495,7 @@ public class Common {
 	public static boolean checkSocialMediaApakahLebihDariSatu(String kolom, String id, String email,
 			final String linkProfile, final String callback_url) throws Exception {
 		Session session = HibernateUtil.currentSession();
+		boolean transaksiLokal = false;
 		String sql = "select (select count(*) from mahasiswa where " + kolom
 				+ " is not null and aktif=true and (email ilike '" + email + "%' or '" + id + "' = ANY(string_to_array("
 				+ kolom + ",',')))) +  (select count(*) from sekolah.siswa where " + kolom
@@ -15502,7 +15503,12 @@ public class Common {
 				+ "' = ANY(string_to_array(" + kolom + ",','))))  +  (select count(*) from tbmuser where " + kolom
 				+ " is not null and aktif=true and (email ilike '" + email + "%' or '" + id + "' = ANY(string_to_array("
 				+ kolom + ",',')))) as qty";
-		int count = ((Number) session.createSQLQuery(sql).uniqueResult()).intValue();
+		if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+			session.beginTransaction();
+			transaksiLokal = true;
+		}
+		int count = ((Number) session.createSQLQuery(sql).addScalar("qty", org.hibernate.Hibernate.INTEGER)
+				.uniqueResult()).intValue();
 		if (count > 1) {
 			System.out.println("[SOCIAL-LOGIN] AMBIGU (" + kolom + "=" + id + ", email=" + email + "): " + count
 					+ " akun cocok sekaligus -- menampilkan popup \"Pilih Pengguna\", menunggu pengguna memilih.");
@@ -15636,10 +15642,18 @@ public class Common {
 			});
 			cancel.setParent(toolbar);
 
+			if (transaksiLokal && session.getTransaction() != null && session.getTransaction().isActive()) {
+				session.getTransaction().commit();
+				transaksiLokal = false;
+			}
 			window.onModal();
 
 			return true;
 		} else {
+			if (transaksiLokal && session.getTransaction() != null && session.getTransaction().isActive()) {
+				session.getTransaction().commit();
+				transaksiLokal = false;
+			}
 			return false;
 		}
 	}

@@ -1262,6 +1262,12 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 						ais.common.BacaTulisUtil.tulis(fileCopy, lam.forwardGDriveUrl());
 					} else if (lam != null) {
 						File file = lam.ambilFile();
+						if (file == null || !file.exists() || !file.isFile()) {
+							ais.common.ErrorAuditUtil.record(new java.io.FileNotFoundException(
+									file == null ? "Lampiran tugas akhir tidak ditemukan" : file.getAbsolutePath()),
+									"MahasiswaRequestTugasAkhirAction.downloadLampiran:skip-file-hilang");
+							continue;
+						}
 						File fileCopy = new File(
 								fileFolderLampiran.getAbsolutePath() + "/" + mahasiswa.getMahasiswa().getNim() + "_"
 										+ mahasiswa.getMahasiswa().getNama() + "_" + file.getName());
@@ -1270,11 +1276,26 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 						if (parentDir != null && !parentDir.exists()) {
 							parentDir.mkdirs();
 						}
-						FileOutputStream fileOutputStream = new FileOutputStream(fileCopy);
-						FileInputStream fileInputStream = new FileInputStream(file);
-						IOUtils.copyLarge(fileInputStream, fileOutputStream);
-						fileInputStream.close();
-						fileOutputStream.close();
+						FileOutputStream fileOutputStream = null;
+						FileInputStream fileInputStream = null;
+						try {
+							fileOutputStream = new FileOutputStream(fileCopy);
+							fileInputStream = new FileInputStream(file);
+							IOUtils.copyLarge(fileInputStream, fileOutputStream);
+						} finally {
+							try {
+								if (fileInputStream != null) {
+									fileInputStream.close();
+								}
+							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "MahasiswaRequestTugasAkhirAction.close-input");
+							}
+							try {
+								if (fileOutputStream != null) {
+									fileOutputStream.close();
+								}
+							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "MahasiswaRequestTugasAkhirAction.close-output");
+							}
+						}
 					}
 
 				}
