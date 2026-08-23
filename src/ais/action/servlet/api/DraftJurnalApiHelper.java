@@ -96,7 +96,6 @@ public final class DraftJurnalApiHelper {
         if ("Mahasiswa - Biaya Administrasi".equals(namaBaris)) return "mahasiswa_biaya_adm";
         if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) return "mahasiswa_biaya_pg";
         if ("Gaji".equals(namaBaris)) return "gaji";
-        if ("Jurnal Penyusutan".equals(namaBaris)) return "penyusutan_aset";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
@@ -350,12 +349,6 @@ public final class DraftJurnalApiHelper {
                             mulai, sampai, tbmuser, new Date())
                     : ais.action.master.payroll.PostingTransaksiPembayaranGajiAction
                             .batalkanPostingSemua(mulai, sampai);
-        } else if ("Jurnal Penyusutan".equals(nama)) {
-            jumlah = posting
-                    ? ais.action.master.asset.PostingPenyusutanAssetAction.postingSemuaPenyusutan(
-                            mulai, sampai, tbmuser, new Date())
-                    : ais.action.master.asset.PostingPenyusutanAssetAction
-                            .batalkanPostingSemuaPenyusutan(mulai, sampai);
         } else if ("Jurnal Penyusutan".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.asset.PostingPenyusutanAssetAction.postingSemua(mulai, sampai,
