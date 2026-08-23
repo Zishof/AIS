@@ -51,7 +51,10 @@ public final class SalesInventoryApiDispatcher {
 			}
 		} catch (ais.service.tenant.TenantAccessException e) {
 			hasil.put("status", "error");
-			hasil.put("code", e.getKode());
+			// Kunci "kode", bukan "code": ApiClient Flutter membaca json['kode'] dan
+			// hanya itu. Mengirim "code" berarti kode galat baku §7.2 tidak pernah
+			// sampai ke klien, dan penanganan per-kode di sana tidak akan pernah jalan.
+			hasil.put("kode", e.getKode());
 			hasil.put("message", e.getMessage());
 			return true;
 		}

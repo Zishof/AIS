@@ -1294,4 +1294,206 @@ public class PostingPemesananDpAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	/**
+	 * Kriteria DP pemesanan yang dapat diposting, TANPA komponen ZK.
+	 *
+	 * <p>Isinya sama persis dengan {@code initCriteria()} dan dengan kriteria baris
+	 * "DP Vendor" pada dasbor Draft Jurnal, supaya angka yang ditampilkan dan dokumen
+	 * yang benar-benar dikerjakan tidak pernah berbeda.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(PemesananPengadaanMasterAsset.class)
+				.add(Restrictions.ne("dp", 0.0)).add(Restrictions.isNotNull("dp"))
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA DP pemesanan yang belum diposting pada rentang tanggal, tanpa layar ZK.
+	 *
+	 * <p>Jurnalnya satu sisi ke {@code akunDp} dan lawannya {@code akunUtangDp} pada
+	 * jenis pemesanannya, senilai {@code getDptotal()} -- yaitu DP ditambah PPN DP-nya.
+	 * Bila nilainya tidak positif, kedua sisinya DITUKAR, sama seperti layar: DP negatif
+	 * adalah koreksi, dan menulisnya di sisi yang sama akan membalik arah saldo.</p>
+	 *
+	 * <p>Riwayat posting baru dibuat setelah dipastikan ada dokumen yang perlu dikerjakan.
+	 * Layar menyimpannya lebih dulu, sehingga menekan tombol pada angka nol meninggalkan
+	 * baris PostingHistory kosong di basis data.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PEMBAYARAN_DP_PEMESANAN);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal DP vendor dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+						+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PemesananPengadaanMasterAsset po = (PemesananPengadaanMasterAsset) session
+						.get(PemesananPengadaanMasterAsset.class, id);
+					if (po == null) {
+						continue;
+					}
+
+					Akun akunDebet = po.getJenisPemesananPengadaanAsset() == null ? null
+						: po.getJenisPemesananPengadaanAsset().getAkunDp();
+					Akun akunKredit = po.getJenisPemesananPengadaanAsset() == null ? null
+						: po.getJenisPemesananPengadaanAsset().getAkunUtangDp();
+					if (akunDebet == null || akunKredit == null) {
+						// Jurnalnya tidak lengkap: akun DP atau akun Utang DP belum diisi pada
+						// master Jenis Pemesanan. Dilewati, sama seperti layar.
+						continue;
+					}
+
+					Double nilai = po.getDptotal();
+					String ket = "Hutang DP terhadap pemesanan \"" + po.getKode() + "-"
+						+ po.getKeterangan() + "\" sebanyak " + Common.numberFormat.get().format(nilai);
+
+					// Satuan kerja dokumennya sendiri. Layar menimpanya dengan satuan kerja
+					// PENGGUNA yang menekan tombol; lewat API hal itu membuat jurnal tercatat
+					// pada satuan kerja operator, bukan pada satuan kerja pemesanannya.
+					SatuanKerja satuanKerja = po.getSatuanKerja();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+								Boolean.TRUE, ket, po.getTanggalPersetujuan(), nilai, Double.valueOf(0.0),
+								po, satuanKerja, session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+								Boolean.TRUE, ket, po.getTanggalPersetujuan(), nilai, Double.valueOf(0.0),
+								po, satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPemesananDpAction.postingSemua");
+					}
+
+					if (tersimpan) {
+						// Penanda dipasang lewat SQL lalu entitasnya dikeluarkan dari sesi.
+						// getDptotal() MENULIS BALIK field dptotal saat dibaca, jadi entitasnya
+						// sudah kotor; bila dibiarkan, flush pada dokumen BERIKUTNYA akan menulis
+						// balik postingHistory null dan menghapus penanda yang baru dipasang.
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						java.sql.PreparedStatement ps = session.connection().prepareStatement(
+							"UPDATE asset.pemesanan_pengadaan_master_asset SET posting_history = ?"
+								+ " WHERE id = ?");
+						try {
+							ps.setLong(1, postingHistory.getId());
+							ps.setLong(2, id.longValue());
+							ps.executeUpdate();
+						} finally {
+							ps.close();
+						}
+						session.getTransaction().commit();
+						session.evict(po);
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPemesananDpAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPemesananDpAction.postingSemua");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Batalkan posting SEMUA DP pemesanan terposting pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Saringan {@code ref is null} WAJIB ada. Pemesanan yang sama juga memuat jurnal
+	 * modul lain pada tabel yang sama -- Jurnal Balik DP Pekerjaan memakai
+	 * {@code ref = 'DP_BALIK_PEKERJAAN'} -- dan tanpa saringan itu pembatalan di sini akan
+	 * ikut menghapus jurnal milik modul tersebut.</p>
+	 *
+	 * <p>Baris {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi}
+	 * adalah induknya; layar hanya menghapus induknya dan meninggalkan barisnya yatim.
+	 * Jurnal yang SUDAH closing tidak ikut dihapus.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where"
+							+ " pemesanan_pengadaan_master_asset=" + id
+							+ " and ref is null and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where"
+							+ " pemesanan_pengadaan_master_asset=" + id
+							+ " and ref is null and closing is null").executeUpdate();
+					session.createSQLQuery("update asset.pemesanan_pengadaan_master_asset"
+							+ " set posting_history = null where id=" + id).executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPemesananDpAction.batalkanPostingSemua");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
