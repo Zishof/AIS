@@ -298,8 +298,12 @@ public final class PertangungjawabanKasBesarApiHelper {
 		try {
 			Connection conn = session.connection();
 			StringBuilder sql = new StringBuilder(
+					// formula kas besarnya ikut dikirim supaya rincian LPJ dapat langsung terisi
+					// begitu kas besarnya dipilih -- LPJ melaporkan pemakaian atas rencana yang
+					// sudah tertulis di kas besar itu, jadi mengetik ulang seluruh barisnya hanya
+					// membuang waktu dan membuka peluang salah ketik.
 					"SELECT k.id, COALESCE(k.kode,''), COALESCE(k.nama,''), COALESCE(k.nilai,0),"
-							+ " COALESCE(sk.nama,''), k.tanggal_pengajuan"
+							+ " COALESCE(sk.nama,''), k.tanggal_pengajuan, COALESCE(k.formula,'')"
 							+ " FROM akunting.kas_besar k"
 							+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = k.satuan_kerja"
 							+ " WHERE COALESCE(k.status,'') = ?"
@@ -330,6 +334,9 @@ public final class PertangungjawabanKasBesarApiHelper {
 				j.put("nilai", rs.getDouble(4));
 				j.put("satuanKerja", rs.getString(5));
 				j.put("tanggal", teks(rs.getTimestamp(6)));
+				String formulaKb = rs.getString(7);
+				j.put("rincian", formulaKb == null || formulaKb.trim().isEmpty() ? new JSONArray()
+						: new JSONArray(formulaKb));
 				arr.put(j);
 			}
 			rs.close();
