@@ -58,6 +58,13 @@ public class ApiEBisnis extends PosApi {
 			org.json.JSONObject payload, org.json.JSONObject hasil,
 			javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
 			throws Exception {
+		// Aksi tenant_* (P2) didahulukan: TIDAK boleh melewati gerbang aktor si_, sebab
+		// tenant_list harus dapat dipanggil sebelum aktor Inventory/Sales lengkap -- pengguna
+		// perlu melihat daftar tenantnya justru untuk memilih tenant yang memberinya profil itu.
+		if (ais.action.servlet.api.TenantApiDispatcher.dispatch(action, tbmuser, payload, hasil,
+				request)) {
+			return true;
+		}
 		if (ais.action.servlet.api.SalesInventoryApiDispatcher.dispatch(action, tbmuser, payload, hasil,
 				request, response)) {
 			return true;
