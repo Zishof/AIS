@@ -75,6 +75,10 @@ public final class DraftJurnalApiHelper {
         // peran. Kini menunjuk kunci menu modulnya sendiri, sama seperti baris lain di sini.
         if ("Jurnal Pengajuan Transfer".equals(namaBaris)) return "proses_transfer";
         if ("Transitori".equals(namaBaris)) return "proses_transitori";
+        // Kunci modulnya sendiri: layar POS "Bayar Pajak (PPh/PPN)" bekerja pada entitas
+        // akunting.Pajak yang SAMA dengan yang diposting di sini, dan pengadaan_pajak ada
+        // di KUNCI_CRUD sehingga hak "create"-nya benar-benar dapat dibatasi admin.
+        if ("Pajak".equals(namaBaris)) return "pengadaan_pajak";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         return null;
@@ -196,6 +200,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingDanaTalanganAction.postingSemua(mulai, sampai,
                             tbmuser, new Date())
                     : ais.action.master.akunting.PostingDanaTalanganAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Pajak".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPertangungjawabanPajakAction.postingSemua(
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPertangungjawabanPajakAction
+                        .batalkanPostingSemua(mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");
@@ -215,12 +225,21 @@ public final class DraftJurnalApiHelper {
             return;
         }
 
+        // Sebagian dokumen dapat dilewati mesin: akun jurnalnya belum lengkap, atau
+        // penyimpanannya gagal. Selisihnya DISEBUTKAN -- tanpa itu angkanya hanya terasa
+        // kurang, dan sisa yang tidak pernah turun ke nol tampak seperti cacat hitungan.
+        String sisa = jumlah < tersedia
+                ? " " + (tersedia - jumlah) + " dokumen lain dilewati: jurnalnya belum lengkap"
+                        + " (akun belum diisi pada masternya) atau gagal disimpan. Periksa Error Log."
+                : "";
         hasil.put("status", "00");
         hasil.put("nama", nama);
         hasil.put("jumlah", jumlah);
+        hasil.put("dilewati", tersedia - jumlah);
         hasil.put("description", jumlah + " dokumen \"" + nama + "\" "
                 + (posting ? "berhasil diposting." : "posting-nya dibatalkan.")
-                + (posting ? "" : " Jurnal yang sudah closing tidak ikut dibatalkan."));
+                + (posting ? "" : " Jurnal yang sudah closing tidak ikut dibatalkan.")
+                + sisa);
     }
 
     /** Jumlah dokumen satu baris pada satu status -- dipakai penjaga sebelum menjalankan mesin. */

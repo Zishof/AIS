@@ -342,8 +342,24 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
     }
 
+    /**
+     * Baris Pajak yang layak masuk jurnal.
+     *
+     * <p>Penyaring BREAKDOWN wajib ada di sini, sama seperti pada mesin postingnya
+     * ({@code PostingPertangungjawabanPajakAction}): bila tagihan vendornya memakai
+     * breakdown, PPh yang sah diwakili baris "Bukti Potong", dan baris PPh per-item
+     * tidak pernah ikut diposting. Tanpa penyaring ini angka draft yang ditampilkan
+     * LEBIH BESAR daripada yang dapat dikerjakan, sehingga sisanya tidak akan pernah
+     * turun ke nol dan penggunanya mengira ada pekerjaan yang tertinggal.</p>
+    */
     private static Criteria kriteriaPajak(Session session, Date mulai, Date sampai) {
         return session.createCriteria(Pajak.class)
+                .createAlias("saldoAwalMasterAssetDetail", "bdDetail", Criteria.LEFT_JOIN)
+                .createAlias("bdDetail.saldoAwal", "bdTagihan", Criteria.LEFT_JOIN)
+                .add(Restrictions.disjunction()
+                        .add(Restrictions.isNull("bdDetail.id"))
+                        .add(Restrictions.isNull("bdTagihan.breakdownAktif"))
+                        .add(Restrictions.eq("bdTagihan.breakdownAktif", false)))
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_transaksi", mulai, sampai)));

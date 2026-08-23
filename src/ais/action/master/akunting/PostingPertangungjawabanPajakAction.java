@@ -168,7 +168,15 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 	 * Diskriminator ref untuk membedakan jurnal pajak dari jurnal lain.
 	 * Digunakan dalam SQL delete saat batalkan posting.
 	 */
-	private String ref = "pajak";
+	/**
+	 * Penanda asal jurnal pada {@code akunting.grup_transaksi.ref}. Jalur API memakai
+	 * konstanta yang SAMA supaya pembatalan posting menghapus tepat jurnal yang dibuat
+	 * modul ini -- bila keduanya sempat berbeda, tombol Batal akan melaporkan sukses
+	 * sambil meninggalkan jurnalnya utuh.
+	 */
+	public static final String REF_PAJAK = "pajak";
+
+	private String ref = REF_PAJAK;
 
 	/** Pengguna yang sedang login. */
 	private Tbmuser tbmuser;
@@ -1254,6 +1262,258 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 				}
 			}
 		});
+	}
+
+
+	/**
+	 * Kriteria Pajak yang dapat diposting, TANPA menyentuh komponen ZK.
+	 *
+	 * <p>Isinya sengaja menyalin penyaring {@code initCriteria()}, termasuk penyaring
+	 * BREAKDOWN: baris PPh per-item tidak boleh ikut diposting bila tagihan vendornya
+	 * memakai breakdown, karena di mode itu PPh yang sah diwakili baris "Bukti Potong".
+	 * Tanpa penyaring itu satu pajak akan berjurnal dua kali.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(Pajak.class)
+				.createAlias("saldoAwalMasterAssetDetail", "bdDetail", Criteria.LEFT_JOIN)
+				.createAlias("bdDetail.saldoAwal", "bdTagihan", Criteria.LEFT_JOIN)
+				.add(Restrictions.disjunction()
+						.add(Restrictions.isNull("bdDetail.id"))
+						.add(Restrictions.isNull("bdTagihan.breakdownAktif"))
+						.add(Restrictions.eq("bdTagihan.breakdownAktif", false)))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.ne("nilai", 0.0))
+				.add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_transaksi) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Akun lawan (sisi kredit) sebuah baris pajak.
+	 *
+	 * <p>Urutannya PENTING dan disalin apa adanya dari layar: yang belakangan menimpa
+	 * yang terdahulu, dari yang paling umum ke yang paling khusus --
+	 * jenis uang muka pada LPJ, lalu jenis penerimaan barang, lalu akun jenis pajak
+	 * barangnya, dan terakhir akun dana titipan bila ada. Dana titipan menang karena
+	 * pajak yang dipungut memang dititipkan dulu sebelum disetor.</p>
+	 */
+	private static Akun akunLawan(Pajak pajak) {
+		Akun akun = pajak.getPertangungjawaban() == null
+					|| pajak.getPertangungjawaban().getUangMuka() == null
+					|| pajak.getPertangungjawaban().getUangMuka().getJenisUangMuka() == null
+						? null
+						: pajak.getPertangungjawaban().getUangMuka().getJenisUangMuka().getAkun();
+
+		if (pajak.getSaldoAwalMasterAssetDetail() != null
+				&& pajak.getSaldoAwalMasterAssetDetail()
+					.getPenerimaanPengadaanMasterAssetDetail() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getPenerimaanPengadaanMasterAssetDetail()
+					.getPenerimaanPengadaanMasterAsset() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getPenerimaanPengadaanMasterAssetDetail()
+					.getPenerimaanPengadaanMasterAsset().getJenisPenerimaanBarang() != null) {
+			akun = pajak.getSaldoAwalMasterAssetDetail().getPenerimaanPengadaanMasterAssetDetail()
+				.getPenerimaanPengadaanMasterAsset().getJenisPenerimaanBarang().getAkun();
+		}
+		if (pajak.getSaldoAwalMasterAssetDetail() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang().getAkun() != null) {
+			akun = pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang().getAkun();
+		}
+		if (pajak.getSaldoAwalMasterAssetDetail() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang() != null
+				&& pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang()
+					.getAkunDanaTitipan() != null) {
+			akun = pajak.getSaldoAwalMasterAssetDetail().getJenisPajakBarang().getAkunDanaTitipan();
+		}
+		return akun;
+	}
+
+	/**
+	 * Posting SEMUA pajak yang belum diposting pada rentang tanggal, tanpa layar ZK.
+	 *
+	 * <p>Dipakai tombol Posting pada Draft Jurnal di POS. Nilai kembaliannya adalah
+	 * jumlah dokumen yang jurnalnya BENAR-BENAR tersimpan, bukan jumlah yang dicoba.</p>
+	 *
+	 * <p>Berbeda dengan tombol di layar, riwayat posting baru dibuat setelah dipastikan
+	 * ada dokumen yang perlu dikerjakan. Layar menyimpannya lebih dulu, sehingga menekan
+	 * tombol pada angka nol meninggalkan baris PostingHistory kosong di basis data.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, ais.database.model.Tbmuser oleh,
+			Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			Date tgl = tglPosting == null ? new Date() : tglPosting;
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PERTANGGUNGJAWABAN_PAJAK);
+			postingHistory.setTanggal(tgl);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal pajak dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+						+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					Pajak pajak = (Pajak) session.get(Pajak.class, id);
+					if (pajak == null) {
+						continue;
+					}
+
+					Akun akunKredit = akunLawan(pajak);
+					// getJenisPajakBarang() boleh null pada baris Bukti Potong (mode breakdown);
+					// layar mendereferensinya tanpa penjagaan dan mengandalkan catch di luar.
+					Akun akunDebet = pajak.getJenisPajakBarang() == null ? null
+						: pajak.getJenisPajakBarang().getAkun();
+					if (akunDebet == null || akunKredit == null) {
+						// Jurnalnya tidak lengkap. Dilewati, sama seperti layar -- akunnya harus
+						// dilengkapi dulu pada master Jenis Pajak Barang.
+						continue;
+					}
+
+					Double nilai = pajak.getNilai();
+					String ket = "Laporan pajak \"" + pajak.getKode() + " " + pajak.getNama()
+						+ "\" senilai " + Common.numberFormat.get().format(nilai);
+
+					List<Akun> akunsDebets = new ArrayList<Akun>();
+					List<Akun> akunsKredits = new ArrayList<Akun>();
+					List<Double> nilaiDebets = new ArrayList<Double>();
+					List<Double> nilaiKredits = new ArrayList<Double>();
+					akunsDebets.add(akunDebet);
+					nilaiDebets.add(nilai);
+					akunsKredits.add(akunKredit);
+					nilaiKredits.add(nilai);
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
+							akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
+							ket, tgl, nilaiDebets.toArray(new Double[] {}),
+							nilaiKredits.toArray(new Double[] {}), Double.valueOf(0.0), pajak,
+							pajak.getSatuanKerja(), REF_PAJAK, session);
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e,
+							"PostingPertangungjawabanPajakAction.postingSemua jalur API");
+					}
+
+					if (tersimpan) {
+						// Penanda posting dipasang lewat SQL, bukan session.update(pajak).
+						// getJenisPajakBarang() dan getSatuanKerja() pada entitas Pajak MENULIS
+						// balik field-nya saat dibaca, dan Hibernate memanggil keduanya ketika
+						// menyapu perubahan -- keluarga jebakan yang sama dengan Closing.getDikunci(),
+						// yang dulu memicu ConcurrentModificationException saat flush.
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						java.sql.PreparedStatement ps = session.connection().prepareStatement(
+							"UPDATE akunting.pajak SET posting_history = ? WHERE id = ?");
+						try {
+							ps.setLong(1, postingHistory.getId());
+							ps.setLong(2, id.longValue());
+							ps.executeUpdate();
+						} finally {
+							ps.close();
+						}
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+						"auto-audit PostingPertangungjawabanPajakAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+				"PostingPertangungjawabanPajakAction.postingSemua");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Batalkan posting SEMUA pajak terposting pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Mengikuti perilaku tombol lama: hanya jurnal yang BELUM masuk closing yang
+	 * dihapus, sehingga periode yang sudah ditutup tidak dapat diubah dari sini.</p>
+	 *
+	 * <p>Seluruhnya dikerjakan dengan SQL dan hanya id yang dimuat: entitas Pajak punya
+	 * getter yang menulis balik field-nya ({@code getJenisPajakBarang}, {@code getSatuanKerja}),
+	 * jadi memuatnya lalu memanggil {@code update} membuka jalur flush yang sama sekali
+	 * tidak diperlukan untuk sekadar mengosongkan satu kolom penanda.</p>
+	 *
+	 * <p>Baris {@code akunting.transaksi} dihapus lebih dulu; layar lama hanya menghapus
+	 * induknya sehingga barisnya tertinggal yatim.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where ref='" + REF_PAJAK
+							+ "' and pajak=" + id + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where ref='"
+							+ REF_PAJAK + "' and pajak=" + id + " and closing is null").executeUpdate();
+					session.createSQLQuery("update akunting.pajak set posting_history = null where id="
+							+ id).executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+						"PostingPertangungjawabanPajakAction.batalkanPostingSemua");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
 	}
 
 }
