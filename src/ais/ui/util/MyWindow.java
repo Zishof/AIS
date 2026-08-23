@@ -105,6 +105,14 @@ public class MyWindow extends Window {
 	@Override
 	public void onModal() throws InterruptedException {
 		if (headless) return;
+		if (getPage() == null && org.zkoss.zk.ui.Executions.getCurrent() != null
+				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop() != null
+				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getFirstPage() != null) {
+			setPage(org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getFirstPage());
+		}
+		if (getPage() == null) {
+			throw new IllegalStateException("Dialog belum terhubung ke halaman aktif.");
+		}
 		super.onModal();
 	}
 
