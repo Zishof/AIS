@@ -1084,6 +1084,7 @@ public class TugasMandiriHelper {
 					return;
 				}
 
+				bersihkanFormatNilaiYatim(tugas);
 				Session session = HibernateUtil.currentSession();
 				if (tugas.getId() != null) {
 					// FIX akar masalah HibernateException "refresh is not valid without active

@@ -1170,4 +1170,278 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 		});
 	}
 
+
+	/**
+	 * Penyaring kelompok "pekerjaan dalam pelaksanaan" (CIP), disalin dari
+	 * {@code DraftJurnalRingkasanUtil}. Dasbor Draft Jurnal memecah BAST menjadi DUA
+	 * baris memakai penyaring ini, sedangkan layar ZK memposting keduanya sekaligus.
+	 * Jalur API mengikuti dasbor: tiap baris hanya mengerjakan miliknya sendiri, supaya
+	 * menekan tombol pada satu baris tidak ikut memposting isi baris tetangganya.
+	 */
+	private static final String SQL_KELOMPOK_CIP = "exists (select 1 from"
+			+ " asset.penerimaan_pengadaan_master_asset_detail d"
+			+ " join asset.master_asset m on d.masterasset = m.id"
+			+ " join asset.kelompok_asset k on m.kelompok_asset = k.id"
+			+ " where d.penerimaan_pengadaan_master_asset = this_.id"
+			+ " and coalesce(k.merupakanpekerjaandalampelaksanaan, false) = true)";
+
+	/** Kelompok BAST yang dikerjakan: aset tetap saja, atau pekerjaan dalam pelaksanaan saja. */
+	public static final String KELOMPOK_FIX_ASSET = "fixasset";
+
+	/** @see #KELOMPOK_FIX_ASSET */
+	public static final String KELOMPOK_PEKERJAAN = "pekerjaan";
+
+	/**
+	 * Kriteria BAST yang dapat diposting, TANPA komponen ZK. Sama dengan
+	 * {@code initCriteria()} ditambah pemisah kelompok yang dipakai dasbor.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, String kelompok, Date mulai,
+			Date sampai) {
+		Criteria c = session.createCriteria(PenerimaanPengadaanMasterAsset.class)
+				// Alias ini WAJIB dan bukan hiasan: ia INNER JOIN, sehingga BAST tanpa
+				// pemesanan tidak ikut. Layar ZK dan dasbor Draft Jurnal keduanya memakainya;
+				// tanpa alias ini jalur API akan memposting dokumen yang tidak pernah dihitung.
+				.createAlias("pemesananPengadaanMasterAsset", "pemesananPengadaanMasterAsset")
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (KELOMPOK_PEKERJAAN.equals(kelompok)) {
+			c.add(Restrictions.sqlRestriction(SQL_KELOMPOK_CIP));
+		} else if (KELOMPOK_FIX_ASSET.equals(kelompok)) {
+			c.add(Restrictions.sqlRestriction("not " + SQL_KELOMPOK_CIP));
+		}
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Akun debet sebuah baris BAST. Urutannya disalin apa adanya dari layar, dari yang
+	 * paling khusus ke yang paling umum: akun transaksi master asetnya, lalu akun pada
+	 * permintaan pengadaannya, dan terakhir -- HANYA untuk aset yang BUKAN aset tetap --
+	 * akun biaya penyusutannya.
+	 */
+	private static Akun akunDebetDetail(PenerimaanPengadaanMasterAssetDetail d,
+			SatuanKerja satuanKerja) throws Exception {
+		Akun akun = d.getMasterAsset() == null ? null
+			: AssetUtil.ambilDataAkun(d.getMasterAsset().getAkunTransaksi(), satuanKerja);
+		if (akun == null && d.getPemesananPengadaanMasterAssetDetail() != null
+			&& d.getPemesananPengadaanMasterAssetDetail()
+				.getPermintaanPengadaanMasterAssetDetail() != null
+			&& d.getPemesananPengadaanMasterAssetDetail()
+				.getPermintaanPengadaanMasterAssetDetail()
+				.getPermintaanPengadaanMasterAsset() != null) {
+			akun = d.getPemesananPengadaanMasterAssetDetail()
+				.getPermintaanPengadaanMasterAssetDetail()
+				.getPermintaanPengadaanMasterAsset().getAkun();
+		}
+		if (akun == null && d.getMasterAsset() != null) {
+			MasterAsset m = d.getMasterAsset();
+			boolean asetTetap = m.getKelompokAsset() == null
+				|| m.getKelompokAsset().getMerupakanAssetFix();
+			if (!asetTetap) {
+				akun = AssetUtil.ambilDataAkun(m.getAkunBiayaPenyusutan(), satuanKerja);
+			}
+		}
+		return akun;
+	}
+
+	/**
+	 * Posting SEMUA BAST satu kelompok yang belum diposting pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Jurnalnya BERSISI BANYAK: satu baris debet per detail penerimaan, masing-masing
+	 * pada akunnya sendiri sebesar {@code getHargaTotal()}, dilawan SATU baris kredit ke
+	 * {@code jenisPenerimaanBarang.akun} sebesar totalnya.</p>
+	 *
+	 * <p><strong>Satu hal yang sengaja berbeda dari layar.</strong> Layar memasukkan akun
+	 * debet ke dalam larik meski nilainya null, dan hanya memeriksa larik itu TIDAK KOSONG
+	 * sebelum menjurnal. Di sini dokumen yang salah satu detailnya belum berakun DILEWATI
+	 * seluruhnya. Melewati barisnya saja tidak dapat dibenarkan: nilai kreditnya adalah
+	 * jumlah SELURUH detail, jadi menghilangkan satu debet menghasilkan jurnal yang tidak
+	 * seimbang -- kesalahan yang jauh lebih mahal daripada dokumen yang tertunda.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(String kelompok, Date mulai, Date sampai, Tbmuser oleh,
+			Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, kelompok, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PENERIMAAN_BARANG_JASA);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal BAST (" + kelompok + ") dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+						+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					PenerimaanPengadaanMasterAsset bast = (PenerimaanPengadaanMasterAsset) session
+						.get(PenerimaanPengadaanMasterAsset.class, id);
+					if (bast == null) {
+						continue;
+					}
+
+					Akun akunKredit = bast.getJenisPenerimaanBarang() == null ? null
+						: bast.getJenisPenerimaanBarang().getAkun();
+					if (akunKredit == null) {
+						continue;
+					}
+
+					SatuanKerja satuanKerja = bast.getSatuanKerja();
+					List<PenerimaanPengadaanMasterAssetDetail> detail = session
+						.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
+						.add(Restrictions.eq("penerimaanPengadaanMasterAsset", bast))
+						.addOrder(Order.asc("id")).list();
+
+					List<Akun> akunsDebet = new ArrayList<Akun>();
+					List<Double> nilaiDebet = new ArrayList<Double>();
+					double total = 0.0;
+					boolean lengkap = true;
+					for (PenerimaanPengadaanMasterAssetDetail d : detail) {
+						Akun akunDebet = akunDebetDetail(d, satuanKerja);
+						if (akunDebet == null) {
+							lengkap = false;
+							break;
+						}
+						Double harga = d.getHargaTotal();
+						akunsDebet.add(akunDebet);
+						nilaiDebet.add(harga);
+						total += (harga == null ? 0.0 : harga.doubleValue());
+					}
+					if (!lengkap || akunsDebet.isEmpty()) {
+						continue;
+					}
+
+					String ket = bast.getKode() + " " + bast.getKeterangan();
+					List<Akun> akunsKredit = new ArrayList<Akun>();
+					akunsKredit.add(akunKredit);
+					List<Double> nilaiKredit = new ArrayList<Double>();
+					nilaiKredit.add(Double.valueOf(total));
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						CommonAkunting.saveTransaksi(akunsDebet, akunsKredit, null, null, postingHistory,
+							Boolean.TRUE, ket, bast.getTanggalPersetujuan(), nilaiDebet, nilaiKredit,
+							Double.valueOf(0.0), bast, satuanKerja, session);
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e,
+							"PostingSaldoAwalMasterAssetDetailAction.postingSemua");
+					}
+
+					if (tersimpan) {
+						// Penanda lewat SQL lalu entitasnya dikeluarkan dari sesi -- pola yang sama
+						// dengan modul DP dan Pajak: getter entitas asset menulis balik field-nya
+						// saat dibaca, sehingga flush pada dokumen berikutnya dapat menimpa penanda
+						// yang baru dipasang dengan null.
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						java.sql.PreparedStatement ps = session.connection().prepareStatement(
+							"UPDATE asset.penerimaan_pengadaan_master_asset SET posting_history = ?"
+								+ " WHERE id = ?");
+						try {
+							ps.setLong(1, postingHistory.getId());
+							ps.setLong(2, id.longValue());
+							ps.executeUpdate();
+						} finally {
+							ps.close();
+						}
+						session.getTransaction().commit();
+						session.evict(bast);
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+						"auto-audit PostingSaldoAwalMasterAssetDetailAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+				"PostingSaldoAwalMasterAssetDetailAction.postingSemua");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Batalkan posting SEMUA BAST satu kelompok pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Tidak ada saringan {@code ref} di sini, dan memang tidak boleh ada: modul inilah
+	 * SATU-SATUNYA yang menulis jurnal bertaut {@code penerimaan_pengadaan_master_asset},
+	 * dan jurnalnya ber-ref null. Jurnal yang sudah closing tidak ikut dihapus, dan baris
+	 * {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi} induknya.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(String kelompok, Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, kelompok, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where"
+							+ " penerimaan_pengadaan_master_asset=" + id
+							+ " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where"
+							+ " penerimaan_pengadaan_master_asset=" + id
+							+ " and closing is null").executeUpdate();
+					session.createSQLQuery("update asset.penerimaan_pengadaan_master_asset"
+							+ " set posting_history = null where id=" + id).executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+						"PostingSaldoAwalMasterAssetDetailAction.batalkanPostingSemua");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }

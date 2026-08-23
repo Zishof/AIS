@@ -49,8 +49,8 @@
 									</columns>
 
 									<rows>
-										<row id="rowHeader"
-											valign="middle">
+									<row id="rowHeader"
+										style="vertical-align:middle;">
 
 											<hbox>
 												<space></space>

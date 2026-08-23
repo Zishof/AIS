@@ -146,7 +146,7 @@ public class TransferDataMahasiswaHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void save() throws Exception {
+	public boolean save() throws Exception {
 
 		Perkuliahan selectedPerkuliahan = (Perkuliahan) (perkuliahanTujuan.getSelectedItem() == null ? null
 				: perkuliahanTujuan.getSelectedItem().getValue());
@@ -154,7 +154,7 @@ public class TransferDataMahasiswaHelper {
 			MyMessageboxConfig.show("Jadwal perkuliahan tujuan harus dipilih", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.EXCLAMATION);
 			perkuliahanTujuan.focus();
-			return;
+			return false;
 		}
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -187,7 +187,7 @@ public class TransferDataMahasiswaHelper {
 								+ ", sedangkan anda mencoba memasukkan mahasiswa berjumlah " + jumlahUdahMasuk,
 						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 				perkuliahanTujuan.focus();
-				return;
+					return false;
 			}
 
 			for (Row row : list) {
@@ -244,11 +244,16 @@ public class TransferDataMahasiswaHelper {
 							"Muat ulang (refresh) halaman ini lalu coba proses transfer kembali.",
 							"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
 					});
+			return false;
+		} finally {
+			// currentNativeSession() adalah sesi mandiri untuk proses transfer ini.
+			// Tutup tuntas walaupun validasi, query, atau commit gagal.
+			HibernateUtil.closeSession();
 		}
-		HibernateUtil.closeSession();
 		if (!peringatan.equals("")) {
 			MyMessageboxConfig.show(peringatan, "Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 		}
+		return true;
 	}
 
 	@SuppressWarnings("deprecation")
@@ -436,7 +441,9 @@ public class TransferDataMahasiswaHelper {
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				save();
+				if (!save()) {
+					return;
+				}
 
 				Common.createDefaultTimer(new EventListener() {
 
@@ -445,10 +452,17 @@ public class TransferDataMahasiswaHelper {
 						Perkuliahan selectedPerkuliahan = (Perkuliahan) (perkuliahanTujuan.getSelectedItem() == null
 								? null
 								: perkuliahanTujuan.getSelectedItem().getValue());
-						Session session = HibernateUtil.currentNativeSession();
-						selectedPerkuliahan.singkronkan(session);
-						perkuliahan.singkronkan(session);
-						HibernateUtil.closeSession();
+						if (selectedPerkuliahan == null || perkuliahan == null) {
+							return;
+						}
+						Session session = null;
+						try {
+							session = HibernateUtil.currentNativeSession();
+							selectedPerkuliahan.singkronkan(session);
+							perkuliahan.singkronkan(session);
+						} finally {
+							HibernateUtil.closeSession();
+						}
 
 						Common.createDefaultTimer(new EventListener() {
 

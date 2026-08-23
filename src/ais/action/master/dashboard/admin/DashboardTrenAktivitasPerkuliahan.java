@@ -464,7 +464,10 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 			return;
 		}
 
-		new Thread(new Runnable() {
+		// Executions.schedule() hanya sah ketika server-push aktif. Helper ini
+		// menyalakannya sebelum worker dimulai, memakai pool berbatas, lalu melepas
+		// reference push di finally sehingga tidak bocor setelah dashboard selesai.
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 			@Override
 			public void run() {
 				Session session = null;
@@ -530,7 +533,7 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 					}
 				}
 			}
-		}).start();
+		});
 	}
 
 	private void processDashboardRows(final Desktop desktop, final List<Object[]> rows, final DashboardData dashboardData,

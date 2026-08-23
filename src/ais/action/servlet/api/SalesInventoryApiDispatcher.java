@@ -59,6 +59,17 @@ public final class SalesInventoryApiDispatcher {
 			return true;
 		}
 
+		// -- P8: kewenangan peran DI DALAM tenant (§16) ---------------------------------------
+		// Lapisan ini MENAMBAH, bukan menggantikan. Gerbang menu di PosApi dan gerbang aktor
+		// di atas tetap berlaku; ketiganya harus lolos. Pengguna tanpa tenant tidak tersentuh
+		// -- TenantRbac.boleh(null, ...) selalu true, sebab izinnya ditentukan lapisan lama.
+		if (ctx.tenant != null && !ais.service.tenant.TenantRbac.boleh(ctx.tenant, action)) {
+			hasil.put("status", "error");
+			hasil.put("kode", ais.service.tenant.TenantAccessException.TENANT_ACCESS_DENIED);
+			hasil.put("message", ais.service.tenant.TenantRbac.alasan(ctx.tenant, action));
+			return true;
+		}
+
 		if ("si_actor_context".equals(action)) {
 			SalesInventoryHelper.aktorContext(ctx, hasil);
 			normalisasi(hasil);

@@ -1624,11 +1624,34 @@ public class CommonReport {
             // berubah untuk kasus normal). Kalau TIDAK ADA, coba pulihkan lewat jalur yang
             // sama seperti nama laporan biasa di bawah (kompilasi ulang dari .jrxml
             // pendamping bernama sama, lalu fallback ke lampiran tersimpan di database).
-            File fileJasperExt = new File(fileTrim);
-            if (fileJasperExt.exists()) {
-                return fileJasperExt;
-            }
-            String basePathNoExt = fileTrim.substring(0, fileTrim.length() - ".jasper".length());
+	            File fileJasperExt = new File(fileTrim);
+	            if (fileJasperExt.exists()) {
+	                return fileJasperExt;
+	            }
+	            // Konfigurasi laporan dapat menunjuk nama hasil-hash/cache yang sudah
+	            // dibersihkan saat redeploy, sedangkan template deploy dasarnya tetap ada.
+	            // Pulihkan ke template dasar sebelum mencoba lampiran DB; ini juga menangani
+	            // contoh "nama_5D8D....jasper" dengan namaAsli="nama".
+	            if (namaAsli != null && namaAsli.trim().length() > 0) {
+	                String namaDasar = new File(namaAsli.trim()).getName();
+	                if (namaDasar.toLowerCase(Locale.ENGLISH).endsWith(".jasper")) {
+	                    namaDasar = namaDasar.substring(0, namaDasar.length() - 7);
+	                } else if (namaDasar.toLowerCase(Locale.ENGLISH).endsWith(".jrxml")) {
+	                    namaDasar = namaDasar.substring(0, namaDasar.length() - 6);
+	                }
+	                File templateDasarJasper = new File(Common.ambilREAL_PATH_REPORT(), namaDasar + ".jasper");
+	                if (templateDasarJasper.exists()) {
+	                    return templateDasarJasper;
+	                }
+	                File templateDasarJrxml = new File(Common.ambilREAL_PATH_REPORT(), namaDasar + ".jrxml");
+	                if (templateDasarJrxml.exists()) {
+	                    compileReportToFileDenganFallbackUtf8(templateDasarJrxml, templateDasarJasper);
+	                    if (templateDasarJasper.exists()) {
+	                        return templateDasarJasper;
+	                    }
+	                }
+	            }
+	            String basePathNoExt = fileTrim.substring(0, fileTrim.length() - ".jasper".length());
             File fileJrxmlExt = new File(basePathNoExt + ".jrxml");
             buatFolderJikaPerlu(fileJasperExt);
             buatFolderJikaPerlu(fileJrxmlExt);

@@ -71,6 +71,19 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 public class CalendarUtil {
+
+	private static boolean gangguanJaringanAtauBelumOtorisasi(Throwable error) {
+		Throwable t = error;
+		while (t != null) {
+			if (t instanceof java.net.UnknownHostException || t instanceof java.net.ConnectException
+					|| t instanceof java.net.SocketTimeoutException) return true;
+			String pesan = t.getMessage();
+			if (pesan != null && (pesan.indexOf("belum dihubungkan") >= 0
+					|| pesan.indexOf("timed out") >= 0)) return true;
+			t = t.getCause();
+		}
+		return false;
+	}
 	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 	private String username;
 	private FileDataStoreFactory dataStoreFactory;
@@ -644,10 +657,16 @@ public class CalendarUtil {
 			// Label HARUS tepat "Error" agar timer onTimer memicu displayLink re-otorisasi Google.
 			// Label deskriptif lain (mis. "Error: sesi...") tidak cocok dengan equals("Error").
 			try { label.setValue("Error"); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/calendar/CalendarUtil.java:637");}
-			Common.tampilErrorJikaAdmin(e);
+			System.err.println("Google Calendar meminta otorisasi ulang untuk user '" + username
+					+ "': " + e.getMessage());
 		} catch (Exception e) {
 			try { label.setValue("Error"); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/calendar/CalendarUtil.java:640");}
-			Common.tampilErrorJikaAdmin(e);
+			if (gangguanJaringanAtauBelumOtorisasi(e)) {
+				System.err.println("Google Calendar sementara belum dapat dipakai untuk user '" + username
+						+ "': " + e.getMessage());
+			} else {
+				Common.tampilErrorJikaAdmin(e);
+			}
 		}
 	}
 

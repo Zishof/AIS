@@ -84,6 +84,10 @@ public final class DraftJurnalApiHelper {
         // sama seperti pengajuan_transfer dan transitori.
         if ("Siswa - Pembayaran".equals(namaBaris)) return "siswa_pembayaran";
         if ("Siswa - Piutang Tagihan".equals(namaBaris)) return "siswa_piutang";
+        if ("Siswa - Dibayar Dimuka".equals(namaBaris)) return "siswa_dibayar_dimuka";
+        if ("Siswa - Deposit".equals(namaBaris)) return "siswa_deposit";
+        if ("Siswa - Piutang Denda".equals(namaBaris)) return "siswa_denda";
+        if ("Siswa - Utang Diskon".equals(namaBaris)) return "siswa_diskon";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
@@ -93,10 +97,10 @@ public final class DraftJurnalApiHelper {
         if ("DP Vendor".equals(namaBaris)) return "pengadaan_po";
         if ("Jurnal Balik DP Pekerjaan".equals(namaBaris)) return "pengadaan_po";
         if ("DP Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
-        // DP dibayarkan pada tahap PEMESANAN, jadi haknya ikut kunci menu pemesanan.
-        if ("DP Vendor".equals(namaBaris)) return "pengadaan_po";
-        if ("DP Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_po";
-        if ("Pajak".equals(namaBaris)) return "pengadaan_pajak";
+        // Kedua baris BAST berbagi SATU dokumen dan SATU mesin; yang memisahkannya hanya
+        // kelompok asetnya. Kuncinya pun sama, mengikuti dokumennya.
+        if ("Fix Aset (Jurnal Saat BAST)".equals(namaBaris)) return "pengadaan_bast";
+        if ("Aset dalam Pekerjaan (Jurnal Saat BAST)".equals(namaBaris)) return "pengadaan_bast";
         return null;
     }
 
@@ -225,23 +229,6 @@ public final class DraftJurnalApiHelper {
         } else if ("DP Vendor".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.asset.PostingPemesananDpAction.postingSemua(mulai, sampai,
-                            tbmuser, new Date())
-                    : ais.action.master.asset.PostingPemesananDpAction.batalkanPostingSemua(mulai, sampai);
-        } else if ("DP Pekerjaan Vendor".equals(nama)) {
-            jumlah = posting
-                    ? ais.action.master.asset.PostingDpPemesananPekerjaanAction.postingSemua(mulai,
-                            sampai, tbmuser, new Date())
-                    : ais.action.master.asset.PostingDpPemesananPekerjaanAction.batalkanPostingSemua(
-                            mulai, sampai);
-        } else if ("Pajak".equals(nama)) {
-            jumlah = posting
-                    ? ais.action.master.akunting.PostingPertangungjawabanPajakAction.postingSemua(mulai,
-                            sampai, tbmuser, new Date())
-                    : ais.action.master.akunting.PostingPertangungjawabanPajakAction
-                            .batalkanPostingSemua(mulai, sampai);
-        } else if ("DP Vendor".equals(nama)) {
-            jumlah = posting
-                    ? ais.action.master.asset.PostingPemesananDpAction.postingSemua(mulai, sampai,
                         tbmuser, new Date())
                     : ais.action.master.asset.PostingPemesananDpAction.batalkanPostingSemua(mulai,
                         sampai);
@@ -269,6 +256,52 @@ public final class DraftJurnalApiHelper {
                             tbmuser, new Date())
                     : ais.action.master.sekolah.PostingPiutangSiswaAction.batalkanPostingSemua(mulai,
                             sampai);
+        } else if ("Fix Aset (Jurnal Saat BAST)".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction.postingSemua(
+                        ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                            .KELOMPOK_FIX_ASSET,
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                        .batalkanPostingSemua(
+                            ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                                .KELOMPOK_FIX_ASSET,
+                            mulai, sampai);
+        } else if ("Aset dalam Pekerjaan (Jurnal Saat BAST)".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction.postingSemua(
+                        ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                            .KELOMPOK_PEKERJAAN,
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                        .batalkanPostingSemua(
+                            ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                                .KELOMPOK_PEKERJAAN,
+                            mulai, sampai);
+        } else if ("Siswa - Dibayar Dimuka".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingDibayarDimukaSiswaAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingDibayarDimukaSiswaAction.batalkanPostingSemua(
+                            mulai, sampai);
+        } else if ("Siswa - Deposit".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingDepositSiswaAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingDepositSiswaAction.batalkanPostingSemua(mulai,
+                            sampai);
+        } else if ("Siswa - Piutang Denda".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingPiutangDendaSiswaAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingPiutangDendaSiswaAction.batalkanPostingSemua(
+                            mulai, sampai);
+        } else if ("Siswa - Utang Diskon".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.sekolah.PostingUtangDiskonSiswaAction.postingSemua(mulai,
+                            sampai, tbmuser, new Date())
+                    : ais.action.master.sekolah.PostingUtangDiskonSiswaAction.batalkanPostingSemua(
+                            mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

@@ -764,4 +764,177 @@ public class PostingPiutangDendaSiswaAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	// PEMELIHARAAN: akun & nilai HARUS tetap identik dengan {@link #onPostingSemua}.
+	// =====================================================================
+
+	/**
+	 * Kriteria tagihan berdenda pada rentang tanggal -- sama dengan penghitung baris
+	 * "Siswa - Piutang Denda" pada dasbor: punya tanggal jatuh tempo dan denda &gt; 0,1.
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(Tagihan.class)
+				.add(Restrictions.isNotNull("tanggalDeadline"))
+				.add(Restrictions.gt("denda", 0.1));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(tanggal_tagihan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Batalkan posting SEMUA piutang denda dalam rentang.
+	 *
+	 * <p>Penandanya {@code postingHistoryDenda} dan penghapusannya menyaring
+	 * {@code jenis = PIUTANG_DENDA_SISWA} -- satu baris {@code tagihan} memikul beberapa
+	 * jurnal sekaligus.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Tagihan> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistoryDenda")).list();
+			for (Tagihan tagihan : daftar) {
+				try {
+					String syarat = "tagihan=" + tagihan.getId() + " and jenis='"
+							+ PostingHistory.JENIS_PIUTANG_DENDA_SISWA + "' and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					tagihan.setPostingHistoryDenda(null);
+					session.update(tagihan);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPiutangDendaSiswaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA piutang denda yang belum dijurnal dalam rentang.
+	 *
+	 * <p>Debet = {@code itemBiayaSekolah.akunPiutangDenda}, kredit =
+	 * {@code itemBiayaSekolah.akunDenda}, nilai = {@code tagihan.denda}, tanggal jurnal =
+	 * {@code tanggalDeadline} (tanggal jatuh tempo, bukan tanggal tagihan -- dendanya baru
+	 * lahir saat lewat tempo). Bila nilainya &le; 0,1 posisi ditukar.</p>
+	 *
+	 * <p><b>Dua penyimpangan sadar:</b> dokumen berakun tidak lengkap dilewati, dan penanda
+	 * posting hanya dipasang bila jurnalnya benar-benar tersimpan.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistoryDenda"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PIUTANG_DENDA_SISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal piutang denda siswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					Tagihan tagihan = (Tagihan) session.createCriteria(Tagihan.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (tagihan == null || tagihan.getItemBiayaSekolah() == null) {
+						continue;
+					}
+					Akun akunDebet = tagihan.getItemBiayaSekolah().getAkunPiutangDenda();
+					Akun akunKredit = tagihan.getItemBiayaSekolah().getAkunDenda();
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+					String ket = "Piutang denda "
+							+ (tagihan.getSiswa() == null ? tagihan.getCalonSiswa() : tagihan.getSiswa())
+							+ (tagihan.getTahunbulan() == null ? ""
+									: " tahun/bulan " + tagihan.getTahunbulan() + " - ")
+							+ tagihan.getItemBiayaSekolah().getNama() + " - " + tagihan.getKeterangan();
+					Double nilai = tagihan.getDenda();
+					ais.database.model.rab.SatuanKerja satuanKerja = tagihan.getPengaturanBiaya() == null
+							|| tagihan.getPengaturanBiaya().getSekolah() == null ? null
+									: tagihan.getPengaturanBiaya().getSekolah().getSatuanKerja();
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									true, ket, tagihan.getTanggalDeadline(), nilai, Double.valueOf(0.0),
+									tagihan, satuanKerja, session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									true, ket, tagihan.getTanggalDeadline(), nilai, Double.valueOf(0.0),
+									tagihan, satuanKerja, session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPiutangDendaSiswaAction jalur API");
+					}
+
+					if (tersimpan) {
+						tagihan.setPostingHistoryDenda(postingHistory);
+						session.getTransaction().begin();
+						session.update(tagihan);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingPiutangDendaSiswaAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPiutangDendaSiswaAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

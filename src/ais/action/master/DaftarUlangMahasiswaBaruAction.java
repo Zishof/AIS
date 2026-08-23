@@ -681,11 +681,16 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				rowTahunMasuk.setVisible(true);
 			}
 			Integer tahunAngkatanMhs = calonMahasiswa.getTahun();
+			if (tahunAngkatanMhs == null || tahunAngkatanMhs.intValue() <= 0) {
+				tahunAngkatanMhs = Integer.valueOf(ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR));
+			}
 			Integer semesterMulai = 0;
-			Integer tahunAkademikMulai = Common.getTahunAkademik(Integer.parseInt(semester == null
-					|| semester.getValue() == null || semester.getValue().trim().isEmpty() ? "1"
-							: semester.getValue()),
-					tahunAngkatanMhs, semesterMulai, calonMahasiswa.getSemesterMulai());
+			String awalMasuk = calonMahasiswa.getSemesterMulai();
+			if (awalMasuk == null || awalMasuk.trim().isEmpty()) {
+				awalMasuk = Perkuliahan.GANJIL;
+			}
+			Integer tahunAkademikMulai = Common.getTahunAkademik(smt,
+					tahunAngkatanMhs, semesterMulai, awalMasuk);
 			String tahunAkademik = tahunAkademikMulai + "/" + (tahunAkademikMulai + 1);
 
 			if (labelTahunAkademik != null) {

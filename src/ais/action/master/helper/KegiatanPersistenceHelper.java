@@ -1164,8 +1164,13 @@ public class KegiatanPersistenceHelper {
 				}
 
 				tx = session.beginTransaction();
+				// Query ini sering menunggu lock saat sinkronisasi pembayaran massal.
+				// Query.setTimeout(45) memakai Statement.cancel(), yang oleh PostgreSQL
+				// dilaporkan sebagai "canceling statement due to user request". Gunakan
+				// timeout transaksi server yang lebih longgar; retry/backoff di method ini
+				// tetap menjadi pengaman bila kontensi benar-benar berkepanjangan.
+				session.createSQLQuery("SET LOCAL statement_timeout = '300s'").executeUpdate();
 				Query query = session.createQuery(HQL_UPDATE_KEGIATAN);
-				query.setTimeout(45);
 				query.setParameter("nilaiBaru", kegiatanDb.getBulans());
 				query.setParameter("nilaiTagihanBaru", kegiatanDb.getTagihans());
 				query.setParameter("tagihanBaru", kegiatanDb.getTagihan());

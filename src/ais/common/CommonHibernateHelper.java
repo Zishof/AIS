@@ -469,8 +469,15 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
             // (mis. termuat lewat asosiasi), hapus instance TERKELOLA itu, bukan objek detached yang dikirim.
             Object target = o;
             if (deletedId != null) {
-                Object managed = session.get(org.hibernate.Hibernate.getClass(o), deletedId);
-                if (managed != null) {
+	                Object managed = session.get(org.hibernate.Hibernate.getClass(o), deletedId);
+	                if (managed == null) {
+	                    // Idempotent delete: baris sudah dihapus oleh request/proses lain.
+	                    // Jangan menjadwalkan DELETE/UPDATE untuk objek detached karena flush
+	                    // akan menghasilkan StaleStateException (row count 0).
+	                    EntityIdentityMap.evict(o.getClass(), deletedId);
+	                    return;
+	                }
+	                if (managed != null) {
                     target = managed;
                     /* KE-FIX StaleStateException "Batch update returned unexpected row count from
                      * update [0]; expected: 1" saat commit (lewat Envers AuditProcess ->

@@ -367,12 +367,9 @@ public class PratinjauXlsxHelper {
 	 * yang dibaca dari {@code spreadsheet.getBook()}. Dipanggil di AKHIR proses pembangunan
 	 * spreadsheet (setelah semua sel diisi) pada jendela laporan.
 	 *
-	 * <p>Widget zss DISEMBUNYIKAN ({@code setVisible(false)}) — ZK tidak merender komponen
-	 * tak-terlihat ke client sehingga tampilan menjadi ringan — TETAPI komponen tetap di pohon
-	 * dan objek Java-nya tetap dipegang field jendela, sehingga model {@code Book} tidak hilang
-	 * dan tombol Download (yang memanggil {@code spreadsheet.getBook().write(...)}) tetap
-	 * menghasilkan file Excel yang UTUH. (Sengaja TIDAK {@code setParent(null)} agar Book tak
-	 * berisiko dibersihkan saat detach — penting untuk laporan keuangan.)</p>
+	 * <p>Widget zss dilepas dari pohon komponen setelah model {@code Book} diambil agar listener
+	 * ukuran asinkronnya berhenti. Objek Java tetap dipegang field jendela, sehingga tombol
+	 * Download masih menulis {@code spreadsheet.getBook()} yang sama dan file tetap utuh.</p>
 	 *
 	 * @param spreadsheet komponen MySpreadsheet yang sudah selesai diisi datanya.
 	 */
@@ -393,26 +390,19 @@ public class PratinjauXlsxHelper {
 			} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/ui/util/PratinjauXlsxHelper.java:335");
 			}
 
-			// Sembunyikan widget berat (model Book tetap hidup; Download tetap utuh).
+			/* Ambil model dahulu, lalu DETACH widget ZSS sebelum memasang grid. Hanya
+			 * setVisible(false) masih membiarkan InnerDataListener menerima event ukuran
+			 * tertunda; setelah worksheet diganti/dibersihkan event itu membaca CTRow yang
+			 * sudah disconnected dan melempar XmlValueDisconnectedException. Field laporan
+			 * tetap memegang object spreadsheet beserta Book-nya, jadi tombol Download tetap
+			 * menghasilkan workbook yang sama walaupun widget tidak dirender. */
+			org.zkoss.poi.ss.usermodel.Workbook workbook =
+					(org.zkoss.poi.ss.usermodel.Workbook) spreadsheet.getBook();
 			spreadsheet.setVisible(false);
-
-			// FIX "Only one child is allowed: <Center>": bila parent adalah REGION Borderlayout
-			// (Center/North/South/East/West) yang HANYA boleh 1 anak, sementara Spreadsheet (yang
-			// disembunyikan, sengaja TIDAK di-detach agar Book aman) MASIH menempati anak-tunggal itu,
-			// menambah Grid akan membuat anak ke-2 -> UiException. Solusi: bungkus dengan Div —
-			// pindahkan Spreadsheet ke dalam Div (re-parent ke container HIDUP, BUKAN setParent(null),
-			// jadi Book tetap aman), jadikan Div anak-tunggal region, lalu render Grid + info ke Div.
+			spreadsheet.setParent(null);
 			Component wadah = parent;
-			if (parent instanceof org.zkoss.zul.LayoutRegion) {
-				org.zkoss.zul.Div wrap = new org.zkoss.zul.Div();
-				wrap.setWidth("100%");
-				wrap.setStyle("height:100%;overflow:auto;");
-				spreadsheet.setParent(wrap); // pindahkan (bukan null) -> region kosong
-				wrap.setParent(parent);      // Div jadi anak-tunggal region
-				wadah = wrap;
-			}
 
-			int totalBaris = renderWorkbookKeGrid(wadah, (org.zkoss.poi.ss.usermodel.Workbook) spreadsheet.getBook(),
+			int totalBaris = renderWorkbookKeGrid(wadah, workbook,
 					MAKS_BARIS_PREVIEW, fallbackCols, false);
 
 			if (totalBaris > MAKS_BARIS_PREVIEW) {

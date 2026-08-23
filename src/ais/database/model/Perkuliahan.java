@@ -2697,12 +2697,21 @@ public class Perkuliahan extends VOPembelajaran {
 	}
 
 	public void reInitJumlahMhs(int size) {
-		Perkuliahan perkuliahan = this;
-
 		Session session = null;
 		try {
+			if (getId() == null) {
+				return;
+			}
 			session = HibernateUtil.openSession();
-			session.refresh(perkuliahan);
+			// Jangan refresh objek detached secara langsung. Cache lama masih dapat
+			// memuat id perkuliahan yang sudah dihapus; refresh() atas id tersebut
+			// melempar UnresolvableObjectException. Ambil ulang baris dari DB dan
+			// hentikan normal bila baris memang sudah tidak ada.
+			Perkuliahan perkuliahan = (Perkuliahan) session.get(Perkuliahan.class, getId());
+			if (perkuliahan == null) {
+				ais.common.EntityIdentityMap.evict(Perkuliahan.class, getId());
+				return;
+			}
 			perkuliahan.setJumlahMahasiswa(size);
 			session.getTransaction().begin();
 			Common.refreshUpdate(session, perkuliahan);

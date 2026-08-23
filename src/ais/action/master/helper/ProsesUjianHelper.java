@@ -1392,9 +1392,17 @@ public class ProsesUjianHelper extends MyWindow {
 				if (hasilUjianMahasiswa != null) {
 					int kuota = 120;
 					try {
-						kuota = Integer.parseInt(Common.getKonfigurasi("kuota_ujian", kuota + "").getNilai().trim());
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/ProsesUjianHelper.java:1331");
-						// TODO: handle exception
+						String nilaiKuota = Common.getKonfigurasi("kuota_ujian", String.valueOf(kuota)).getNilai();
+						if (nilaiKuota != null && !nilaiKuota.trim().isEmpty()
+								&& !"null".equalsIgnoreCase(nilaiKuota.trim())) {
+							int hasilParse = Integer.parseInt(nilaiKuota.trim());
+							if (hasilParse > 0) {
+								kuota = hasilParse;
+							}
+						}
+					} catch (Exception e) {
+						// Konfigurasi lama dapat berisi teks "null"/nonangka. Kuota bawaan
+						// tetap dipakai agar peserta tidak gagal membuka ujian.
 					}
 
 					if (kuota <= kuotaUjian.size() && !kuotaUjian.contains(hasilUjianMahasiswa.getKeyhasil())) {
