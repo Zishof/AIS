@@ -47,6 +47,18 @@ public final class LaporanRincianTransaksiUtil {
 		public String metode;
 		public String pelanggan;
 
+		/**
+		 * Baris laporan yang pelanggannya berupa label sintetis "Umum / Non-Anggota"
+		 * -- bukan nama seseorang, melainkan penanda bahwa transaksinya TIDAK punya
+		 * anggota sama sekali. Menyaringnya sebagai nama (ILIKE) tidak akan pernah
+		 * cocok, sehingga drill-down baris itu selalu kosong dan pengguna menyimpulkan
+		 * datanya tidak ada -- padahal justru baris itu yang paling perlu ditelusuri.
+		 */
+		public boolean pelangganKosong;
+
+		/** Hanya nota yang nilai bayarnya kurang dari total (dipakai laporan piutang). */
+		public boolean hanyaBelumLunas;
+
 		private static String bersih(String v) {
 			return v == null ? "" : v.trim();
 		}
@@ -54,7 +66,7 @@ public final class LaporanRincianTransaksiUtil {
 		public boolean kosong() {
 			return bersih(kodeProduk).length() == 0 && bersih(namaProduk).length() == 0
 					&& bersih(kasir).length() == 0 && bersih(metode).length() == 0
-					&& bersih(pelanggan).length() == 0;
+					&& bersih(pelanggan).length() == 0 && !pelangganKosong && !hanyaBelumLunas;
 		}
 	}
 
@@ -98,9 +110,19 @@ public final class LaporanRincianTransaksiUtil {
 			w.append(" AND COALESCE(a.carabayar,'') ILIKE ? ");
 			prm.add("%" + d.metode.trim() + "%");
 		}
-		if (isi(d.pelanggan)) {
+		if (d.pelangganKosong) {
+			// Sengaja diperiksa dari FK-nya, bukan dari nama yang kosong: nama bisa
+			// saja terisi teks bebas di kolom member sementara anggotanya tetap null,
+			// dan yang menentukan baris masuk kelompok "Umum / Non-Anggota" di laporan
+			// adalah FK itu.
+			w.append(" AND pak.anggota_koperasi IS NULL ");
+		} else if (isi(d.pelanggan)) {
 			w.append(" AND COALESCE(ak.nama,a.member,'') ILIKE ? ");
 			prm.add("%" + d.pelanggan.trim() + "%");
+		}
+		if (d.hanyaBelumLunas) {
+			w.append(" AND (COALESCE(pak.bayar_tunai,0)+COALESCE(pak.bayar_non_tunai,0))"
+					+ " < COALESCE(pak.total_biaya,0) ");
 		}
 
 		String sql = "SELECT a.waktu, COALESCE(pak.kode,'') nota,"

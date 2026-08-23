@@ -371,6 +371,9 @@ public class PosApi extends HttpServlet {
 			} else if ("satuan_kerja_anggota_simpan".equals(action)) {
 				SatuanKerjaKantinHelper.satuanKerjaAnggotaSimpan(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "satuan_kerja_anggota_simpan");
+			} else if ("perbaiki_nilai_bayar".equals(action)) {
+				KantinHelper.perbaikiNilaiBayarKosong(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "perbaiki_nilai_bayar");
 			} else if ("laporan_rincian_transaksi".equals(action)) {
 				prosesLaporanRincianTransaksi(tbmuser, payload, hasil);
 			} else if ("error_log_health".equals(action)) {
@@ -4509,6 +4512,8 @@ public class PosApi extends HttpServlet {
 		dim.kasir = payload.optString("kasir", "");
 		dim.metode = payload.optString("metode", "");
 		dim.pelanggan = payload.optString("pelanggan", "");
+		dim.pelangganKosong = payload.optBoolean("pelangganKosong", false);
+		dim.hanyaBelumLunas = payload.optBoolean("hanyaBelumLunas", false);
 		int batas = payload.optInt("batas", 0);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();

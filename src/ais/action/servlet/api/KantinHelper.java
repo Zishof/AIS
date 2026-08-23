@@ -425,6 +425,159 @@ public class KantinHelper {
 		return nilai == null ? 0.0 : nilai.doubleValue();
 	}
 
+	/**
+	 * <h3>Perbaikan susulan: nota lama yang terlanjur tercatat bayar Rp 0.</h3>
+	 *
+	 * <p>{@link #normalkanNilaiBayar} hanya menjaga nota BARU. Nota yang sudah
+	 * terlanjur tersimpan sebelum penjagaan itu ada tetap salah, dan tetap terbaca
+	 * sebagai piutang di laporan Saldo Piutang. Aksi ini memperbaikinya secara
+	 * susulan dengan aturan yang sama persis -- bukan aturan kedua yang bisa
+	 * menyimpang.</p>
+	 *
+	 * <p><b>Bawaannya SIMULASI.</b> Pemanggil harus menyebut {@code simulasi=false}
+	 * secara sadar untuk benar-benar menulis. Perbaikan massal yang menulis secara
+	 * bawaan adalah cara termudah kehilangan data karena satu parameter yang lupa
+	 * diisi.</p>
+	 *
+	 * <p>Nota yang piutangnya SAH tidak tersentuh: perhitungan untuk metode
+	 * bertanda hutang juga menghasilkan nol, sehingga {@code normalkanNilaiBayar}
+	 * mengembalikan false dan barisnya dilewati. Itu dijamin oleh method yang sama
+	 * yang dipakai jalur tulis, bukan oleh pemeriksaan terpisah di sini.</p>
+	 *
+	 * @param request {@code dari}, {@code sampai} (wajib, yyyy-MM-dd), {@code toko}
+	 *                (opsional), {@code simulasi} (bawaan true), {@code batas}
+	 *                (bawaan 200, maksimum 1000)
+	 */
+	public static void perbaikiNilaiBayarKosong(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		if (tbmuser == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Sesi tidak dikenali.");
+			return;
+		}
+		if (!Common.getApakahAdminLain(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Perbaikan nilai bayar hanya untuk ADMINISTRATOR.");
+			return;
+		}
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		if (dari.length() == 0 || sampai.length() == 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Rentang tanggal wajib diisi. Tanpa batas tanggal, satu klik "
+					+ "keliru menyentuh seluruh riwayat transaksi.");
+			return;
+		}
+		Long tokoId = null;
+		if (!request.isNull("toko")) {
+			String t = (request.get("toko") + "").trim();
+			if (t.length() > 0 && !"null".equals(t)) tokoId = Long.valueOf(t);
+		}
+		boolean simulasi = request.optBoolean("simulasi", true);
+		int batas = Math.min(1000, Math.max(1, request.optInt("batas", 200)));
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder sql = new StringBuilder(
+					"SELECT id FROM koperasi.pembelian_anggota_koperasi"
+							+ " WHERE (COALESCE(bayar_tunai,0)+COALESCE(bayar_non_tunai,0)) <= 0"
+							+ "   AND COALESCE(total_biaya,0) > 0"
+							+ "   AND DATE(tanggal_pembayaran) >= ?::date"
+							+ "   AND DATE(tanggal_pembayaran) <= ?::date ");
+			if (tokoId != null) sql.append(" AND toko = ? ");
+			sql.append(" ORDER BY tanggal_pembayaran DESC LIMIT ").append(batas + 1);
+
+			java.util.List<Long> daftarId = new java.util.ArrayList<Long>();
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
+			try {
+				int i = 1;
+				ps.setString(i++, dari);
+				ps.setString(i++, sampai);
+				if (tokoId != null) ps.setLong(i++, tokoId.longValue());
+				java.sql.ResultSet rs = ps.executeQuery();
+				while (rs.next()) daftarId.add(Long.valueOf(rs.getLong(1)));
+				rs.close();
+			} finally {
+				ps.close();
+			}
+			boolean terpotong = daftarId.size() > batas;
+			while (daftarId.size() > batas) daftarId.remove(daftarId.size() - 1);
+
+			int diperbaiki = 0, dilewati = 0, gagal = 0;
+			JSONArray rincian = new JSONArray();
+			for (int i = 0; i < daftarId.size(); i++) {
+				Long id = daftarId.get(i);
+				JSONObject r = new JSONObject();
+				r.put("id", id);
+				try {
+					PembelianAnggotaKoperasi p = (PembelianAnggotaKoperasi)
+							session.get(PembelianAnggotaKoperasi.class, id);
+					if (p == null) { dilewati++; continue; }
+					r.put("kode", p.getKode() == null ? "" : p.getKode());
+					if (!normalkanNilaiBayar(p)) {
+						// Piutang yang sah, atau nota tanpa metode -- memang tidak boleh diubah.
+						dilewati++;
+						r.put("status", "DILEWATI");
+						rincian.put(r);
+						continue;
+					}
+					r.put("bayarTunai", p.getBayarTunai());
+					r.put("bayarNonTunai", p.getBayarNonTunai());
+					if (simulasi) {
+						// Perubahan hanya ada di memori; sesi dibersihkan supaya tidak ada
+						// yang ikut tersimpan tanpa sengaja oleh flush otomatis Hibernate.
+						session.evict(p);
+						r.put("status", "AKAN DIPERBAIKI");
+					} else {
+						session.beginTransaction();
+						session.saveOrUpdate(p);
+						session.getTransaction().commit();
+						r.put("status", "DIPERBAIKI");
+					}
+					diperbaiki++;
+					rincian.put(r);
+				} catch (Exception e) {
+					gagal++;
+					try {
+						if (session.getTransaction() != null && session.getTransaction().isActive()) {
+							session.getTransaction().rollback();
+						}
+					} catch (Exception eRollback) {
+						ais.common.ErrorAuditUtil.record(eRollback, "perbaikiNilaiBayarKosong rollback");
+					}
+					r.put("status", "GAGAL");
+					r.put("pesan", e.getMessage() == null ? e.toString() : e.getMessage());
+					rincian.put(r);
+				}
+			}
+
+			hasil.put("status", "00");
+			hasil.put("simulasi", simulasi ? Boolean.TRUE : Boolean.FALSE);
+			hasil.put("kandidat", daftarId.size());
+			hasil.put("diperbaiki", diperbaiki);
+			hasil.put("dilewati", dilewati);
+			hasil.put("gagal", gagal);
+			hasil.put("terpotong", terpotong ? Boolean.TRUE : Boolean.FALSE);
+			hasil.put("rincian", rincian);
+			StringBuffer pesan = new StringBuffer();
+			pesan.append(simulasi ? "Simulasi: " : "");
+			pesan.append(diperbaiki).append(simulasi ? " nota AKAN diperbaiki" : " nota diperbaiki");
+			if (dilewati > 0) {
+				pesan.append("; ").append(dilewati)
+						.append(" dilewati (piutang sah atau tanpa metode bayar)");
+			}
+			if (gagal > 0) pesan.append("; ").append(gagal).append(" gagal");
+			if (terpotong) {
+				pesan.append("; dihentikan pada batas ").append(batas)
+						.append(" nota -- jalankan lagi untuk sisanya");
+			}
+			pesan.append('.');
+			hasil.put("description", pesan.toString());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	private static class SplitPembayaran {
 		CaraPembayaranKoperasi cara2, cara3, cara4, cara5;
 		Double nominal2 = 0.0, nominal3 = 0.0, nominal4 = 0.0, nominal5 = 0.0;
