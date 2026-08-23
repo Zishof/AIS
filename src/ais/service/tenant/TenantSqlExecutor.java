@@ -44,7 +44,7 @@ public final class TenantSqlExecutor {
 			throw new IllegalArgumentException("Templat SQL kosong.");
 		}
 		if (ctx == null) {
-			throw new TenantAccessException(TenantAccessException.KODE_TENANT_BELUM_DIPILIH,
+			throw new TenantAccessException(TenantAccessException.TENANT_SELECTION_REQUIRED,
 					"Konteks tenant belum dibentuk.");
 		}
 		String hasil = templat;
@@ -73,7 +73,7 @@ public final class TenantSqlExecutor {
 
 	private static String kutip(String schema) {
 		if (schema == null || schema.trim().length() == 0) {
-			throw new TenantAccessException(TenantAccessException.KODE_SCHEMA_BELUM_SIAP,
+			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
 					"Kueri ini menuntut schema tenant, tetapi tenant berjalan tanpa schema.");
 		}
 		// Validasi ulang: murah, dan menutup kemungkinan konteks dibentuk lewat jalur lain.
@@ -81,7 +81,7 @@ public final class TenantSqlExecutor {
 		try {
 			aman = TenantSchemaService.pastikanAman(schema.trim());
 		} catch (IllegalArgumentException e) {
-			throw new TenantAccessException(TenantAccessException.KODE_SCHEMA_BELUM_SIAP,
+			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
 					"Konfigurasi schema tenant tidak sah.", e);
 		}
 		return "\"" + aman + "\"";

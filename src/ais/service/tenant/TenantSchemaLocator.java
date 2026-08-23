@@ -29,7 +29,7 @@ public final class TenantSchemaLocator {
 	 */
 	public static String schemaData(TenantRegistry tenant) {
 		if (tenant == null) {
-			throw new TenantAccessException(TenantAccessException.KODE_TENANT_TIDAK_DIKENAL,
+			throw new TenantAccessException(TenantAccessException.TENANT_ACCESS_DENIED,
 					"Tenant tidak dikenal.");
 		}
 		if (!butuhSchema(tenant)) {
@@ -37,14 +37,14 @@ public final class TenantSchemaLocator {
 		}
 		String nama = tenant.getSchemaName();
 		if (nama == null || nama.trim().length() == 0) {
-			throw new TenantAccessException(TenantAccessException.KODE_SCHEMA_BELUM_SIAP,
+			throw new TenantAccessException(TenantAccessException.TENANT_NOT_READY,
 					"Tenant belum selesai diprovisioning.");
 		}
 		try {
 			return TenantSchemaService.pastikanAman(nama.trim());
 		} catch (IllegalArgumentException e) {
 			// Pesan sengaja tidak memuat nama schema-nya.
-			throw new TenantAccessException(TenantAccessException.KODE_SCHEMA_BELUM_SIAP,
+			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
 					"Konfigurasi schema tenant tidak sah.", e);
 		}
 	}
@@ -90,7 +90,7 @@ public final class TenantSchemaLocator {
 			return;
 		}
 		if (!TenantSchemaService.schemaAda(session, schema)) {
-			throw new TenantAccessException(TenantAccessException.KODE_SCHEMA_BELUM_SIAP,
+			throw new TenantAccessException(TenantAccessException.TENANT_NOT_READY,
 					"Tenant belum selesai diprovisioning.");
 		}
 	}

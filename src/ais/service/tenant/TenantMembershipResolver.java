@@ -46,13 +46,13 @@ public final class TenantMembershipResolver {
 	public static Hasil resolve(Session session, TenantRegistry tenant, String tbmuserId,
 			Long pendaftarId) {
 		if (tenant == null || tenant.getId() == null) {
-			throw new TenantAccessException(TenantAccessException.KODE_TENANT_TIDAK_DIKENAL,
+			throw new TenantAccessException(TenantAccessException.TENANT_ACCESS_DENIED,
 					"Tenant tidak dikenal.");
 		}
 		boolean adaTbmuser = tbmuserId != null && tbmuserId.trim().length() > 0;
 		boolean adaPendaftar = pendaftarId != null;
 		if (!adaTbmuser && !adaPendaftar) {
-			throw new TenantAccessException(TenantAccessException.KODE_AKTOR_TIDAK_DIKENAL,
+			throw new TenantAccessException(TenantAccessException.TENANT_ACCESS_DENIED,
 					"Aktor tidak dinyatakan.");
 		}
 
@@ -74,7 +74,7 @@ public final class TenantMembershipResolver {
 			adaTetapiKedaluwarsa = true;
 		}
 		if (adaTetapiKedaluwarsa) {
-			throw new TenantAccessException(TenantAccessException.KODE_KEANGGOTAAN_KEDALUWARSA,
+			throw new TenantAccessException(TenantAccessException.TENANT_ACCESS_DENIED,
 					"Keanggotaan Anda pada tenant ini sudah tidak berlaku.");
 		}
 
@@ -83,7 +83,7 @@ public final class TenantMembershipResolver {
 			return new Hasil(null, ROLE_OWNER, pendaftarId, true, SUMBER_OWNER_REGISTRY);
 		}
 
-		throw new TenantAccessException(TenantAccessException.KODE_BUKAN_ANGGOTA,
+		throw new TenantAccessException(TenantAccessException.TENANT_ACCESS_DENIED,
 				"Anda tidak terdaftar pada tenant ini.");
 	}
 
