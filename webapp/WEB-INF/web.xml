@@ -126,11 +126,11 @@
 		kompilasi SETIAP JSP yang pernah diakses di memori tanpa batas, sehingga Metaspace
 		terus tumbuh seiring makin banyak layar dibuka, dan redeploy makin lambat.
 
-		- development=false : Tomcat TIDAK lagi mengecek perubahan berkas .jsp pada setiap
-		  request (stat file per request hilang). PERHATIAN: dengan setelan ini perubahan
-		  berkas JSP TIDAK otomatis termuat - perlu redeploy/restart. Untuk mesin
-		  pengembangan, set kembali ke true.
-		- checkInterval=0 : hanya relevan saat development=true; ditulis eksplisit.
+		- development=false : Tomcat tidak mengecek perubahan berkas .jsp pada setiap
+		  request (stat file per request hilang), sehingga tetap hemat untuk produksi.
+		- checkInterval=5 : saat development=false, Tomcat memeriksa perubahan JSP di
+		  background setiap 5 detik dan mengompilasi ulang JSP yang berubah. Dengan begitu
+		  penggantian skin dapat aktif tanpa restart setelah konfigurasi ini terpasang.
 		- mappedfile=false : Jasper tidak lagi membuat satu baris write() per baris JSP,
 		  sehingga kelas hasil kompilasi jauh lebih kecil (hemat Metaspace + waktu muat).
 		- maxLoadedJsps=500 : BATAS jumlah JSP yang ditahan di memori. Melebihi itu, JSP yang
@@ -150,7 +150,7 @@
 		</init-param>
 		<init-param>
 			<param-name>checkInterval</param-name>
-			<param-value>0</param-value>
+			<param-value>5</param-value>
 		</init-param>
 		<init-param>
 			<param-name>mappedfile</param-name>
