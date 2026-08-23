@@ -1401,7 +1401,17 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 							ps.close();
 						}
 						session.getTransaction().commit();
-						session.evict(p);
+						
+						// SELURUH konteks persistensi dikosongkan, bukan sekadar entitas ini yang
+						// dikeluarkan. PenyusutanAsset punya EMPAT getter yang menulis balik fieldnya
+						// saat dibaca -- getNama, getNilaiBuku, getKodeUnik, dan getPerTanggal -- jadi
+						// sekadar MEMBACA satu baris sudah membuatnya kotor. Fase 1 dan fase 2 dapat
+						// berakhir memegang dua instance berbeda untuk baris yang sama, dan evict pada
+						// salah satunya menyisakan yang lain untuk di-flush saat sesi ditutup --
+						// menulis balik postingHistory null dan MENGHAPUS penanda yang baru dipasang.
+						// Gejalanya: posting melaporkan sukses, jurnalnya ada, tetapi dokumennya muncul
+						// lagi sebagai draft dan pembatalan tidak menemukan apa pun untuk dibatalkan.
+						session.clear();
 						n++;
 					}
 				} catch (Exception e) {

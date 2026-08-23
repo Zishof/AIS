@@ -8141,19 +8141,19 @@ html body .ais-ce-portalchildren > .z-panel {
 /* Layar tugas: kolom instruksi dan jawaban harus sama tinggi. Aturan portal
    umum tetap flex-start untuk layar lain; hanya portal tugas yang diregangkan.
    Borderlayout jawaban mengisi seluruh tinggi kolom dengan fallback minimum
-   200px ketika isi/instruksi sangat pendek. */
+   2000px untuk menyediakan ruang kerja panjang pada daftar penilaian. */
 html body .ais-ce-portallayout.ais-tugas-equal-height-portal {
     align-items: stretch !important;
 }
 html body .ais-tugas-equal-height-portal > .ais-tugas-equal-height-column {
     align-self: stretch !important;
-    min-height: 200px !important;
+    min-height: 2000px !important;
 }
 html body .ais-tugas-jawaban-column > .ais-tugas-jawaban-layout {
     flex: 1 1 auto !important;
     width: 100% !important;
     height: 100% !important;
-    min-height: 200px !important;
+    min-height: 2000px !important;
 }
 /* Tablet: <= 1100px — lebih rapat */
 @media (max-width: 1100px) {

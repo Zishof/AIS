@@ -2217,9 +2217,9 @@ public class TugasMandiriHelper {
 		myborderlayout.setSclass("ais-tugas-jawaban-layout");
 		myborderlayout.setParent(center);
 		// Tinggi mengikuti kolom parent yang diregangkan oleh flex portal. Minimum
-		// 200px menjaga panel tetap dapat digunakan ketika instruksi tugas sangat pendek.
+		// 2000px sesuai kebutuhan ruang kerja daftar jawaban dan penilaian tugas.
 		myborderlayout.setHeight("100%");
-		myborderlayout.setStyle("min-height:200px;flex:1 1 auto;");
+		myborderlayout.setStyle("min-height:2000px;flex:1 1 auto;");
 
 		vbox.appendChild(upload);
 		vbox.appendChild(download);
