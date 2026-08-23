@@ -2959,6 +2959,26 @@ public class FeederExporter {
 		return null;
 	}
 
+	/**
+	 * Mengambil satu nilai dari objek {@code data} pada respons Neo Feeder.
+	 *
+	 * <p>Pemanggilnya diperkenalkan r78156 sebagai penyeragaman enam salinan
+	 * ekspresi yang sama persis, tetapi helper-nya sendiri tidak ikut ter-commit --
+	 * trunk karena itu tidak dapat dikompilasi sejak revisi tersebut. Badan method
+	 * ini DIPULIHKAN apa adanya dari baris yang digantikan pada diff r78156:</p>
+	 *
+	 * <pre>a.isNull("data") ? null : a.getJSONObject("data").getString(kunci).trim()</pre>
+	 *
+	 * <p>Sengaja tidak "diperbaiki" menjadi lebih toleran (mis. {@code optString}):
+	 * keenam pemanggil sebelumnya memang melempar bila kuncinya tidak ada, dan
+	 * mengubah perilaku itu sambil memulihkan kompilasi akan menyelundupkan
+	 * perubahan yang tidak diminta siapa pun ke dalam perbaikan build.</p>
+	 */
+	private static String ambilNilaiData(JSONObject a, String kunci)
+			throws org.json.JSONException {
+		return a.isNull("data") ? null : a.getJSONObject("data").getString(kunci).trim();
+	}
+
 	private static String trimKeNull(String value) {
 		if (value == null) return null;
 		value = value.trim();
