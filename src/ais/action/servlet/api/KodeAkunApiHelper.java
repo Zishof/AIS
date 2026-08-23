@@ -296,11 +296,24 @@ public final class KodeAkunApiHelper {
 					if (b.has("keterangan")) {
 						akun.setKeterangan(b.optString("keterangan", "").trim());
 					}
+					// Berkas format Accurate membawa "Tipe Akun" (BANK/AREC/.../OEXP) alih-alih
+					// kolom Posisi. Tipenya disimpan apa adanya supaya berkas yang diunduh
+					// kembali identik, dan sekaligus dipakai menyimpulkan posisi debet/kredit
+					// bila kolom Posisi memang tidak ada.
+					String tipe = b.optString("tipeAkun", "").trim().toUpperCase();
+					if (!tipe.isEmpty()) {
+						akun.setTipeAkun(tipe);
+					}
 					String posisi = b.optString("posisi", "").trim().toLowerCase();
 					if (posisi.startsWith("d")) {
 						akun.setDebetCredit(Integer.valueOf(1));
 					} else if (posisi.startsWith("c") || posisi.startsWith("k")) {
 						akun.setDebetCredit(Integer.valueOf(2));
+					} else if (!tipe.isEmpty()) {
+						Integer dc = posisiDariTipeAccurate(tipe);
+						if (dc != null) {
+							akun.setDebetCredit(dc);
+						}
 					}
 					String kodeParent = b.optString("kodeParent", "").trim();
 					if (!kodeParent.isEmpty()) {
@@ -1092,6 +1105,134 @@ public final class KodeAkunApiHelper {
 		}
 	}
 
+
+	/**
+	 * Saldo normal menurut tipe akun <b>Accurate</b>.
+	 *
+	 * <p>Dipakai hanya ketika berkas impor TIDAK membawa kolom Posisi -- berkas asli Accurate
+	 * memang tidak punya kolom itu. Perhatikan {@code DEPR} (akumulasi penyusutan): ia melekat
+	 * pada aset tetapi saldo normalnya KREDIT, karena itu tidak boleh ikut daftar debet hanya
+	 * karena "berbau aset".</p>
+	 *
+	 * @return 1 (debet), 2 (kredit), atau null bila tipenya tidak dikenal -- pemanggil
+	 *         membiarkan posisi yang sudah ada apa adanya alih-alih menebak.
+	 */
+	static Integer posisiDariTipeAccurate(String tipe) {
+		if (tipe == null) {
+			return null;
+		}
+		String t = tipe.trim().toUpperCase();
+		// Aset & beban: bertambah di DEBET.
+		if ("BANK".equals(t) || "AREC".equals(t) || "OCAS".equals(t) || "INTR".equals(t)
+				|| "FASS".equals(t) || "EXPS".equals(t) || "COGS".equals(t) || "OEXP".equals(t)) {
+			return Integer.valueOf(1);
+		}
+		// Kewajiban, ekuitas, pendapatan, dan akumulasi penyusutan: bertambah di KREDIT.
+		if ("DEPR".equals(t) || "APAY".equals(t) || "OCLY".equals(t) || "LTLY".equals(t)
+				|| "EQTY".equals(t) || "REVE".equals(t) || "OINC".equals(t)) {
+			return Integer.valueOf(2);
+		}
+		return null;
+	}
+
+	/**
+	 * <h3>Bersihkan akun yang belum terpakai (KHUSUS ADMIN)</h3>
+	 *
+	 * <p><b>Untuk apa.</b> Bagan akun dipelihara di Accurate lalu diunggah ke sini. Sesudah
+	 * beberapa kali percobaan unggah, tertinggal akun-akun yang tidak dipakai siapa pun dan
+	 * hanya membuat daftar sulit dibaca. Aksi ini menyapunya sekaligus.</p>
+	 *
+	 * <p><b>Yang TIDAK pernah dihapus.</b> Akun yang sudah dipakai baris jurnal
+	 * ({@code akunting.transaksi}), akun yang masih punya turunan, dan akun yang masih dirujuk
+	 * data lain (bank, jenis transaksi, master aset, dll.) -- yang terakhir dijaga kunci asing
+	 * basis data: kegagalannya ditangkap per akun dan akun itu dilewati, bukan membatalkan
+	 * seluruh proses.</p>
+	 *
+	 * <p><b>Selalu bisa dilihat dulu.</b> Dengan {@code praTinjau = true} tidak ada satu pun
+	 * baris dihapus; balasannya hanya daftar akun yang AKAN dihapus. Layar memakai itu untuk
+	 * menampilkan jumlah dan contohnya sebelum pengguna menekan Hapus.</p>
+	 *
+	 * <p><b>Gerbangnya admin, bukan hak menu.</b> Menghapus banyak akun sekaligus bukan
+	 * pekerjaan harian, jadi gerbangnya {@code Common.getApakahAdminLain} -- sumber kebenaran
+	 * yang sama dengan bendera {@code isAdmin} yang dikirim ke klien.</p>
+	 */
+	public static void akunBersihkan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!ais.common.Common.getApakahAdminLain(tbmuser)) {
+			tolak(hasil, "Membersihkan akun hanya untuk administrator.");
+			return;
+		}
+		boolean praTinjau = request != null && request.optBoolean("praTinjau", false);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Connection conn = session.connection();
+			// Kandidat: tidak dipakai jurnal DAN tidak punya turunan.
+			PreparedStatement ps = conn.prepareStatement(
+					"SELECT a.id, COALESCE(a.kode,''), COALESCE(a.nama,'') FROM akunting.akun a"
+							+ " WHERE NOT EXISTS (SELECT 1 FROM akunting.transaksi t WHERE t.akun = a.id)"
+							+ " AND NOT EXISTS (SELECT 1 FROM akunting.akun c WHERE c.parent = a.id)"
+							+ " ORDER BY a.kode ASC");
+			ResultSet rs = ps.executeQuery();
+			JSONArray kandidat = new JSONArray();
+			java.util.List<Long> ids = new java.util.ArrayList<Long>();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("kode", rs.getString(2));
+				j.put("nama", rs.getString(3));
+				kandidat.put(j);
+				ids.add(Long.valueOf(rs.getLong(1)));
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("kandidat", kandidat.length());
+			hasil.put("data", kandidat);
+			if (praTinjau) {
+				hasil.put("message", kandidat.length() == 0
+						? "Tidak ada akun yang dapat dibersihkan; semuanya sudah dipakai atau punya turunan."
+						: kandidat.length() + " akun belum dipakai jurnal dan tidak punya turunan.");
+				return;
+			}
+
+			int dihapus = 0;
+			int dilewati = 0;
+			JSONArray masalah = new JSONArray();
+			for (int i = 0; i < ids.size(); i++) {
+				Long id = ids.get(i);
+				try {
+					ais.database.model.akunting.Akun akun = akunById(session, id.longValue());
+					if (akun == null) {
+						continue;
+					}
+					session.beginTransaction();
+					session.delete(akun);
+					session.getTransaction().commit();
+					dihapus++;
+				} catch (Exception ex) {
+					// Kunci asing menahan akun ini (masih dirujuk bank/jenis transaksi/aset).
+					// Dilewati, bukan menggagalkan sisanya.
+					batalkan(session);
+					dilewati++;
+					if (masalah.length() < 20) {
+						masalah.put("Akun id " + id + " masih dirujuk data lain");
+					}
+				}
+			}
+			hasil.put("dihapus", dihapus);
+			hasil.put("dilewati", dilewati);
+			hasil.put("masalah", masalah);
+			hasil.put("message", dihapus + " akun dibersihkan"
+					+ (dilewati > 0 ? "; " + dilewati + " dilewati karena masih dirujuk data lain." : "."));
+		} catch (Exception e) {
+			batalkan(session);
+			tolak(hasil, "Akun gagal dibersihkan.");
+			hasil.put("teknis", e.toString());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: seluruh aksi berawalan {@code kode_akun_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -1109,6 +1250,10 @@ public final class KodeAkunApiHelper {
 		}
 		if ("kode_akun_jenis_transaksi".equals(action)) {
 			jenisTransaksiDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("kode_akun_bersihkan".equals(action)) {
+			akunBersihkan(tbmuser, request, hasil);
 			return true;
 		}
 		if ("kode_akun_impor".equals(action)) {
