@@ -410,38 +410,71 @@ public final class ClosingApiHelper {
 
 	// ============================================================ kunci / buka
 
+	/**
+	 * Mengunci / membuka kunci satu closing.
+	 *
+	 * <p><b>Sengaja memakai SQL langsung, bukan entitasnya.</b>
+	 * {@code Closing.getDikunci()} adalah getter YANG MENULIS BALIK fieldnya
+	 * ({@code dikunci = check(dikunci)}). Saat Hibernate memanggilnya di tengah flush,
+	 * penulisan itu mengubah konteks persistensi yang sedang ditelusuri, dan
+	 * {@code session.update()} atas closing meledak dengan
+	 * {@code ConcurrentModificationException} — terbukti di harness, bukan dugaan.
+	 * Kolomnya sendiri hanya FK ke {@code tbmuser}, jadi satu UPDATE menyatakan
+	 * maksudnya dengan tepat tanpa menyentuh getter itu sama sekali.</p>
+	 */
 	public static void kunci(Tbmuser tbmuser, JSONObject request, JSONObject hasil, boolean pasang)
 			throws Exception {
 		if (!bolehAksi(tbmuser, pasang ? "approve" : "reject")) {
 			tolak(hasil, pasang ? "Anda tidak memiliki hak mengunci closing."
-					: "Anda tidak memiliki hak membuka kunci closing.");
+				: "Anda tidak memiliki hak membuka kunci closing.");
 			return;
 		}
 		long id = request == null ? 0 : request.optLong("id", 0);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Closing c = id == 0 ? null : (Closing) session.get(Closing.class, Long.valueOf(id));
-			if (c == null) {
+			// Keadaannya pun dibaca lewat SQL, dengan alasan yang sama.
+			PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT COALESCE(nama,''), dikunci FROM akunting.closing WHERE id = ?");
+			ps.setLong(1, id);
+			ResultSet rs = ps.executeQuery();
+			boolean ada = rs.next();
+			String nama = ada ? rs.getString(1) : "";
+			String pemegang = ada ? rs.getString(2) : null;
+			rs.close();
+			ps.close();
+			if (!ada) {
 				tolak(hasil, "Closing tidak ditemukan.");
 				return;
 			}
-			if (pasang && c.getDikunci() != null) {
+			if (pasang && pemegang != null) {
 				tolak(hasil, "Closing ini sudah dikunci.");
 				return;
 			}
-			if (!pasang && c.getDikunci() == null) {
+			if (!pasang && pemegang == null) {
 				tolak(hasil, "Closing ini belum dikunci.");
 				return;
 			}
+			if (pasang && (tbmuser == null || tbmuser.getUserId() == null)) {
+				tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+				return;
+			}
 			session.beginTransaction();
-			c.setDikunci(pasang ? tbmuser : null);
-			session.update(c);
+			PreparedStatement up = session.connection().prepareStatement(
+					"UPDATE akunting.closing SET dikunci = ? WHERE id = ?");
+			if (pasang) {
+				up.setString(1, tbmuser.getUserId());
+			} else {
+				up.setNull(1, java.sql.Types.VARCHAR);
+			}
+			up.setLong(2, id);
+			up.executeUpdate();
+			up.close();
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
 			hasil.put("message", pasang
-					? ("Closing " + c.getNama() + " dikunci; isinya tidak dapat diubah maupun dihapus lagi.")
-					: ("Kunci closing " + c.getNama() + " dibuka."));
+				? ("Closing " + nama + " dikunci; isinya tidak dapat diubah maupun dihapus lagi.")
+				: ("Kunci closing " + nama + " dibuka."));
 		} catch (Exception e) {
 			batalkanDiam(session);
 			tolak(hasil, "Kunci closing belum dapat diubah: " + e.getMessage());

@@ -20,6 +20,9 @@ import ais.common.security.PasswordHashService;
  * {@code koperasi.pedagang}) dgn FK tenant-lokal. Audit: {@code revinfo} + tabel mirror
  * (pola Envers rev/revtype) di schema audit. Aturan menambah versi: TAMBAH entri baru di akhir
  * array (JANGAN mengubah DDL versi lama yang sudah dirilis -- checksum akan menolak).</p>
+ *
+ * <p><b>v2 ke atas</b> tinggal di kelas tersendiri ({@code TenantSchemaMigrationsV2} dst.)
+ * supaya berkas ini tetap terbaca; DDL-nya tetap kanonik dan tetap ber-checksum sama.</p>
  */
 public final class TenantSchemaMigrations {
 
@@ -111,12 +114,53 @@ public final class TenantSchemaMigrations {
 	public static final Migrasi[] SEMUA = {
 			new Migrasi("v1-core-pos-erp", TARGET_ERP, DDL_V1_ERP),
 			new Migrasi("v1-core-pos-audit", TARGET_AUDIT, DDL_V1_AUDIT),
+			new Migrasi("v2-inventory-master-erp", TARGET_ERP, TenantSchemaMigrationsV2.ERP),
+			new Migrasi("v2-inventory-master-audit", TARGET_AUDIT, TenantSchemaMigrationsV2.AUDIT),
+			new Migrasi("v3-inventory-stock-erp", TARGET_ERP, TenantSchemaMigrationsV3.ERP),
+			new Migrasi("v4-inventory-purchase-ap-erp", TARGET_ERP, TenantSchemaMigrationsV4.ERP),
+			new Migrasi("v5-inventory-sales-ar-erp", TARGET_ERP, TenantSchemaMigrationsV5.ERP),
+			new Migrasi("v6-inventory-trip-erp", TARGET_ERP, TenantSchemaMigrationsV6.ERP),
+			new Migrasi("v7-inventory-accounting-erp", TARGET_ERP, TenantSchemaMigrationsV7.ERP),
+			new Migrasi("v8-inventory-import-erp", TARGET_ERP, TenantSchemaMigrationsV8.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v1-core-pos";
+	public static final String VERSI_TERKINI = "v8-inventory-import";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
-	public static final String[] TABEL_WAJIB_ERP = { "tenant_schema_migration", "brand", "toko", "pedagang" };
-	public static final String[] TABEL_WAJIB_AUDIT = { "revinfo", "brand", "toko", "pedagang" };
+	public static final String[] TABEL_WAJIB_ERP = {
+			// v1
+			"tenant_schema_migration", "brand", "toko", "pedagang",
+			// v2 -- organisasi & akses
+			"gudang", "lokasi_stok", "role_tenant", "pengguna_tenant", "user_role_tenant",
+			"salesperson", "sales_assignment",
+			// v2 -- supplier & customer
+			"supplier", "supplier_profile", "supplier_bank_account",
+			"customer", "customer_profile", "customer_bank_account",
+			// v3 -- produk, stok, harga
+			"satuan", "kategori_produk", "produk", "produk_batch",
+			"mutasi_stok", "saldo_stok", "stok_opname", "stok_opname_detail",
+			"harga_beli_supplier", "harga_jual_customer", "price_list", "price_list_detail",
+			// v4 -- pembelian & hutang
+			"pembelian", "pembelian_detail", "hutang_supplier",
+			"pembayaran_hutang", "alokasi_pembayaran_hutang",
+			// v5 -- penjualan & piutang
+			"sales_order", "sales_order_detail", "faktur_penjualan", "faktur_penjualan_detail",
+			"piutang_customer", "penerimaan_piutang", "alokasi_penerimaan_piutang",
+			// v6 -- sales keliling
+			"surat_perintah_sales", "surat_perintah_sales_detail", "sales_trip",
+			"sales_trip_barang", "sales_trip_nota", "sales_trip_hasil", "sales_trip_biaya",
+			"sales_trip_setoran", "sales_trip_rekonsiliasi",
+			// v7 -- akuntansi tenant
+			"akun", "periode_akuntansi", "jurnal", "jurnal_detail", "posting_log", "reversal_log",
+			// v8 -- idempotensi, cetak, impor legacy
+			"idempotency_record", "print_log", "legacy_import_run", "legacy_import_file",
+			"legacy_import_row", "legacy_key_map", "legacy_import_exception", "legacy_reconciliation",
+	};
+	public static final String[] TABEL_WAJIB_AUDIT = {
+			// v1 -- cermin kolom, dipertahankan (TenantDataPlaneService masih menulis ke sana)
+			"revinfo", "brand", "toko", "pedagang",
+			// v2 -- catatan baris generik
+			"audit_baris",
+	};
 }
