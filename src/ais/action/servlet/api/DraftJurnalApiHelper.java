@@ -110,6 +110,11 @@ public final class DraftJurnalApiHelper {
         // kelompok asetnya. Kuncinya pun sama, mengikuti dokumennya.
         if ("Fix Aset (Jurnal Saat BAST)".equals(namaBaris)) return "pengadaan_bast";
         if ("Aset dalam Pekerjaan (Jurnal Saat BAST)".equals(namaBaris)) return "pengadaan_bast";
+        // Penyusutan tidak punya layar POS sendiri, jadi kuncinya berdiri sendiri --
+        // sekeluarga dengan posting_hpp dan posting_penyesuaian, dan fail-closed lewat
+        // KUNCI_DEFAULT_NONAKTIF. Memakai kunci pengadaan di sini akan keliru: yang
+        // dijurnal beban penyusutan bulanan, bukan dokumen pengadaan.
+        if ("Jurnal Penyusutan".equals(namaBaris)) return "posting_penyusutan";
         return null;
     }
 
@@ -351,6 +356,12 @@ public final class DraftJurnalApiHelper {
                             mulai, sampai, tbmuser, new Date())
                     : ais.action.master.asset.PostingPenyusutanAssetAction
                             .batalkanPostingSemuaPenyusutan(mulai, sampai);
+        } else if ("Jurnal Penyusutan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPenyusutanAssetAction.postingSemua(mulai, sampai,
+                        tbmuser, new Date())
+                    : ais.action.master.asset.PostingPenyusutanAssetAction.batalkanPostingSemua(
+                        mulai, sampai);
         } else {
             hasil.put("status", "91");
             hasil.put("description", "Mesin posting \"" + nama + "\" belum terpasang.");

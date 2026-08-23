@@ -182,6 +182,10 @@ public final class EbisnisMenuKatalog {
 		// tampil sebagai tab pada Katalog Laporan -- kuncinya dipisah supaya kewenangan
 		// memposting penyesuaian dapat dibatasi tersendiri.
 		DAFTAR.add(new Entri(MODUL_POS, "posting_penyesuaian", "Akuntansi: Posting Penyesuaian (retur, opname, mutasi)", "desktop", "android", "jsp"));
+		// Penyusutan aset: tidak ada layar POS-nya sendiri, tetapi jurnalnya dapat diposting
+		// massal dari Draft Jurnal. Kuncinya berdiri sendiri supaya hak memposting beban
+		// penyusutan dapat diberikan terpisah dari hak posting lain.
+		DAFTAR.add(new Entri(MODUL_POS, "posting_penyusutan", "Akuntansi: Posting Penyusutan Aset", "desktop", "android", "jsp"));
 		// Anggaran/RAB bulanan: rencana per bulan + revisi + realisasi. Layar ZK-nya
 		// (workspace_bulanan, workspace_revisi_bulanan, realisasi_bulanan, penggunaan_anggaran)
 		// tetap ada; kunci ini menggerbangi versi Desktop/Android-nya.
@@ -287,6 +291,7 @@ public final class EbisnisMenuKatalog {
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
+			"posting_penyusutan",
 			// Grup "Keuangan": dokumen pencairan dana -- fail-closed, dinyalakan admin per peran.
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
@@ -308,6 +313,7 @@ public final class EbisnisMenuKatalog {
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
 					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
 					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
+			"posting_penyusutan",
 					"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 					"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
 					"proses_transitori", "nomor_surat_keuangan", "closing"));

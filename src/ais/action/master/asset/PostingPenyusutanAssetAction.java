@@ -1242,4 +1242,235 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 		}
 		return n;
 	}
+
+	/**
+	 * Kriteria penyusutan yang dapat diposting, TANPA komponen ZK.
+	 *
+	 * <p>Ketiga alias di sini INNER JOIN dan menentukan isi hasilnya, bukan sekadar
+	 * jalan pintas penamaan: baris penyusutan yang rantai asetnya tidak lengkap
+	 * (detail aset, asetnya, atau master asetnya hilang) memang tidak dapat dijurnal,
+	 * karena akun biaya dan akun akumulasinya diambil dari master aset itu.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		Criteria c = session.createCriteria(PenyusutanAsset.class)
+				.createAlias("assetDetail", "assetDetail")
+				.createAlias("assetDetail.asset", "asset")
+				.createAlias("asset.masterAsset", "masterAsset")
+				.add(Restrictions.ne("nilaiPenyusutan", 0.0))
+				.add(Restrictions.isNotNull("nilaiPenyusutan"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.pertanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA penyusutan yang belum diposting pada rentang tanggal, tanpa layar ZK.
+	 *
+	 * <p>Jurnalnya membebankan penyusutan bulan itu: debet akun biaya penyusutan, kredit
+	 * akun akumulasi penyusutan, keduanya diambil dari master aset dan disaring menurut
+	 * satuan kerja detail asetnya. Nilai yang tidak positif menukar kedua sisinya, sama
+	 * seperti layar -- penyusutan negatif adalah koreksi.</p>
+	 *
+	 * <p><strong>Dua fase, dan itu WAJIB.</strong> {@link AssetUtil#ambilDataAkun} mengurai
+	 * JSON lalu memanggil {@code ConstantValues.ambil}, yang membuka DAN MENUTUP sesinya
+	 * sendiri; sesi yang dipegang pemanggil menjadi basi. Karena itu fase pertama hanya
+	 * mengumpulkan ID dan angka, lalu fase kedua mengambil sesi baru dan memuat ulang
+	 * seluruh entitas sebelum jurnalnya ditulis. Memakai objek fase pertama di fase kedua
+	 * berakhir "Session is closed!" atau NonUniqueObjectException -- keduanya sudah pernah
+	 * terjadi pada modul BAST, lihat docs/pos/25.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PENYUSUTAN_ASET);
+			postingHistory.setTanggal(tglPosting == null ? new Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal penyusutan dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+						+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Long id : ids) {
+				try {
+					// ---------- FASE 1: mengumpulkan bahan. Tidak satu pun referensi entitas
+					// dari blok ini boleh dibawa ke fase 2; hanya id dan angka.
+					session = HibernateUtil.currentNativeSession();
+					PenyusutanAsset p = (PenyusutanAsset) session.get(PenyusutanAsset.class, id);
+					if (p == null || p.getAssetDetail() == null || p.getAssetDetail().getAsset() == null
+						|| p.getAssetDetail().getAsset().getMasterAsset() == null) {
+						continue;
+					}
+
+					Double nilai = p.getNilaiPenyusutan();
+					Date tanggal = p.getPerTanggal();
+					Long satuanKerjaId = p.getAssetDetail().getSatuanKerja() == null ? null
+						: p.getAssetDetail().getSatuanKerja().getId();
+
+					// Keterangan disusun SEBELUM akunnya dicari: sesudah ambilDataAkun berjalan,
+					// membaca field lazy entitas ini dapat gagal karena sesinya sudah ditutup.
+					String ket = "Penyusutan \"" + p.getAssetDetail().getBarcode() + "-"
+						+ p.getAssetDetail().getNama() + "\" bulan ke "
+						+ Common.numberFormat.get().format(p.getTahunKe()) + " dari sebanyak "
+						+ Common.numberFormat.get().format(p.getAssetDetail().getUmurEkonomis())
+						+ " bulan nilai buku "
+						+ Common.numberFormat.get().format(p.getNilaiBuku()) + " " + p.getKeterangan()
+						+ " " + p.getAssetDetail().getKeterangan();
+
+					ais.database.model.rab.SatuanKerja satuanKerjaFase1 = p.getAssetDetail()
+						.getSatuanKerja();
+					Akun akunDebetFase1 = AssetUtil.ambilDataAkun(
+						p.getAssetDetail().getAsset().getMasterAsset().getAkunBiayaPenyusutan(),
+						satuanKerjaFase1);
+					Akun akunKreditFase1 = AssetUtil.ambilDataAkun(
+						p.getAssetDetail().getAsset().getMasterAsset().getAkunPenyusutan(),
+						satuanKerjaFase1);
+					if (akunDebetFase1 == null || akunKreditFase1 == null
+						|| akunDebetFase1.getId() == null || akunKreditFase1.getId() == null) {
+						// Akun biaya atau akun akumulasi penyusutannya belum diisi di master aset.
+						// Dilewati, sama seperti layar.
+						continue;
+					}
+					Long akunDebetId = akunDebetFase1.getId();
+					Long akunKreditId = akunKreditFase1.getId();
+
+					// ---------- FASE 2: sesi baru, seluruh entitas dimuat ulang di dalamnya.
+					session = HibernateUtil.currentNativeSession();
+					p = (PenyusutanAsset) session.get(PenyusutanAsset.class, id);
+					PostingHistory riwayat = (PostingHistory) session.get(PostingHistory.class,
+						postingHistory.getId());
+					Akun akunDebet = (Akun) session.get(Akun.class, akunDebetId);
+					Akun akunKredit = (Akun) session.get(Akun.class, akunKreditId);
+					ais.database.model.rab.SatuanKerja satuanKerja = satuanKerjaId == null ? null
+						: (ais.database.model.rab.SatuanKerja) session.get(
+							ais.database.model.rab.SatuanKerja.class, satuanKerjaId);
+					if (p == null || riwayat == null || akunDebet == null || akunKredit == null) {
+						continue;
+					}
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai.doubleValue() > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, riwayat,
+								Boolean.TRUE, ket, tanggal, nilai, Double.valueOf(0.0), p, satuanKerja,
+								session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, riwayat,
+								Boolean.TRUE, ket, tanggal, nilai, Double.valueOf(0.0), p, satuanKerja,
+								session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction.postingSemua");
+					}
+
+					if (tersimpan) {
+						// Penanda lewat SQL lalu entitasnya dikeluarkan dari sesi -- pola yang sama
+						// dengan modul Pajak, DP, dan BAST.
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+						java.sql.PreparedStatement ps = session.connection().prepareStatement(
+							"UPDATE asset.penyusutan_asset SET posting_history = ? WHERE id = ?");
+						try {
+							ps.setLong(1, riwayat.getId());
+							ps.setLong(2, id.longValue());
+							ps.executeUpdate();
+						} finally {
+							ps.close();
+						}
+						session.getTransaction().commit();
+						session.evict(p);
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+						"auto-audit PostingPenyusutanAssetAction.postingSemua");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPenyusutanAssetAction.postingSemua");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Batalkan posting SEMUA penyusutan terposting pada rentang, tanpa layar ZK.
+	 *
+	 * <p>Tidak ada saringan {@code ref}: modul inilah satu-satunya yang menulis jurnal
+	 * bertaut {@code penyusutan_asset}. Jurnal yang SUDAH closing tidak ikut dihapus, dan
+	 * baris {@code akunting.transaksi} dihapus lebih dulu karena {@code grup_transaksi}
+	 * adalah induknya -- layar hanya menghapus induknya dan meninggalkan barisnya yatim.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.distinct(Projections.property("id"))).list();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where penyusutan_asset=" + id
+							+ " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where penyusutan_asset="
+							+ id + " and closing is null").executeUpdate();
+					session.createSQLQuery("update asset.penyusutan_asset set posting_history = null"
+							+ " where id=" + id).executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+						"PostingPenyusutanAssetAction.batalkanPostingSemua");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
