@@ -1,0 +1,19 @@
+{
+  "baseUrl": "https://staging.example.invalid/albahjah",
+  "username": "smoke-supervisor",
+  "passwordEnvironmentVariable": "AIS_SMOKE_PASSWORD",
+  "memberId": 0,
+  "productId": 0,
+  "returnTransactionId": 0,
+  "importFixtureXlsx": "C:\\fixtures\\produk-smoke.xlsx",
+  "salePayload": {
+    "kodeUnik": "{{unique}}",
+    "transaksi": []
+  },
+  "returnPayload": {
+    "pembelian_anggota_koperasi_id": "{{saleId}}",
+    "kode_transaksi_asal": "{{unique}}",
+    "metode_pengembalian": "Tunai",
+    "items": []
+  }
+}

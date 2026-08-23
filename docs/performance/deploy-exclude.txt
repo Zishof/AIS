@@ -1,0 +1,42 @@
+# Daftar pengecualian artifact PRODUKSI AIS (Fase 8)
+# Format: pola rsync (--exclude-from). Baris diawali '#' = komentar.
+# Semua entri di bawah SUDAH diverifikasi TIDAK dibutuhkan runtime.
+# Ukuran perkiraan penghematan: +/- 345 MB dari 896 MB isi webapp.
+
+# --- Microsite pemasaran (0 referensi kode; berada di WEB-INF sehingga
+#     tidak pernah terjangkau browser) ~128 MB, termasuk video 77 MB
+WEB-INF/website/
+
+# --- Dokumen panduan pengguna (DOCX/PDF/PPTX) ~196 MB.
+#     Sajikan lewat portal dokumen/CDN, bukan dari dalam aplikasi.
+help/
+
+# --- Materi penawaran/proposal penjualan ~19 MB (bukan aset aplikasi)
+WEB-INF/baru/tbu_penawaran/
+
+# --- Staging upgrade ZK 9 yang belum dipakai; TIDAK ada di classpath
+#     (hanya WEB-INF/lib yang dimuat). ~6,5 MB
+WEB-INF/lib-zk9-ce/
+
+# --- Dump data pribadi pengembang (60 XLSX) ~1,3 MB
+WEB-INF/sapto/
+
+# --- Berkas cadangan template laporan
+report/*.bak
+*.bak
+
+# --- Source map front-end (hanya untuk debug di browser) ~13 MB
+*.map
+
+# --- Video demo template UI ~18 MB
+component/uiux/assets/video/
+
+# --- KEAMANAN: skrip deployment (memuat kredensial) dan dump SQL.
+#     Sudah diblokir lewat security-constraint di web.xml, tetapi paling
+#     aman bila memang tidak ikut ter-deploy sama sekali.
+*.sh
+cascade.sql
+sql/
+
+# --- Metadata VCS
+.svn/

@@ -1,0 +1,37 @@
+# =====================================================================
+# TEMPLATE kredensial database eksternal AIS (JANGAN commit berkas isian!)
+# Salin ke server sebagai:  /opt/.g/.h/db.properties   (Linux)
+#                           C:\opt\.g\.h\db.properties (Windows dev)
+# Lokasi dapat dioverride via JVM option: -Dais.db.override.file=/path/db.properties
+# Amankan permission berkas: chown tomcat, chmod 600.
+#
+# Bila berkas/kunci tidak ada, aplikasi memakai nilai lama di hibernate*.cfg.xml
+# (kompatibel penuh). Setelah berkas ini terpasang dan teruji di semua deployment,
+# nilai url/username/password di hibernate*.cfg.xml dapat dikosongkan/diganti
+# placeholder, lalu kredensial DIROTASI oleh pemilik sistem.
+#
+# CATATAN: factory UTAMA yang dibangun listener zkplus (default ZK) belum membaca
+# berkas ini — override "utama" baru efektif pada jalur build milik aplikasi
+# (ais.zk.factory_interceptor=true atau deployment tanpa zkplus). Lihat
+# OPTIMIZATION_PLAN.md P0-1 untuk langkah lanjutan listener kustom.
+# =====================================================================
+
+# --- Database utama (hibernate.cfg.xml) ---
+#utama.hibernate.connection.url=jdbc:postgresql://localhost:5432/NAMA_DB
+#utama.hibernate.connection.username=
+#utama.hibernate.connection.password=
+
+# --- Database streaming/BLOB (hibernate.streaming.cfg.xml) ---
+#streaming.hibernate.connection.url=jdbc:postgresql://localhost:5432/NAMA_DB
+#streaming.hibernate.connection.username=
+#streaming.hibernate.connection.password=
+
+# --- Database OJS (hibernate.ojs.cfg.xml) ---
+#ojs.hibernate.connection.url=jdbc:postgresql://localhost:5432/NAMA_DB_OJS
+#ojs.hibernate.connection.username=
+#ojs.hibernate.connection.password=
+
+# --- Database Radius (hibernate.radius.cfg.xml) ---
+#radius.hibernate.connection.url=jdbc:postgresql://localhost:5432/NAMA_DB_RADIUS
+#radius.hibernate.connection.username=
+#radius.hibernate.connection.password=

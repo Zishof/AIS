@@ -1,0 +1,9 @@
+# Contoh saja. Secret wajib berasal dari environment/secret store server.
+environment=staging
+base_url=https://staging.example.invalid/albahjah
+database_url=jdbc:postgresql://127.0.0.1:5432/ais_staging
+database_user=ais_staging_app
+payment_mode=sandbox
+outbound_email_enabled=false
+outbound_whatsapp_enabled=false
+visible_environment_banner=STAGING
