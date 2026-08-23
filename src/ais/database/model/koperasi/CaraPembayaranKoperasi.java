@@ -95,6 +95,7 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	private Boolean memotongDeposit;
 	private Boolean masukSebagaiHutang;
 	private Boolean adaKembalian;
+	private Boolean wajibPilihMember;
 
 	public CaraPembayaranKoperasi() {
 	}
@@ -265,5 +266,46 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 
 	public void setAdaKembalian(Boolean adaKembalian) {
 		this.adaKembalian = adaKembalian;
+	}
+
+	/**
+	 * Metode ini menuntut nama pelanggan/anggota dipilih sebelum transaksi ditulis.
+	 *
+	 * <p>Nilai MENTAH: {@code null} berarti "ikut aturan bawaan" -- lihat
+	 * {@link #wajibPilihMemberEfektif()}. Dibedakan dari {@code FALSE} secara sengaja,
+	 * supaya metode yang belum pernah disentuh admin tidak terkunci pada jawaban
+	 * yang kebetulan berlaku hari ini.</p>
+	 */
+	@Column(name = "wajib_pilih_member")
+	public Boolean getWajibPilihMember() {
+		return wajibPilihMember;
+	}
+
+	public void setWajibPilihMember(Boolean wajibPilihMember) {
+		this.wajibPilihMember = wajibPilihMember;
+	}
+
+	/**
+	 * Aturan yang benar-benar ditegakkan saat pembayaran.
+	 *
+	 * <p>Bila admin belum menentukan, jawabannya diturunkan dari sifat metode itu
+	 * sendiri: metode yang MASUK SEBAGAI HUTANG atau MEMOTONG SALDO pada dasarnya
+	 * memang tidak bermakna tanpa pemilik -- hutang tanpa pemilik tidak bisa ditagih,
+	 * dan saldo tanpa pemilik tidak bisa dipotong dari siapa pun. Penurunan ini
+	 * membuat perilaku hari ini tidak berubah sedikit pun ketika kolomnya
+	 * ditambahkan.</p>
+	 *
+	 * <p>Metode seperti "Kasbon Divisi"/"Kasbon Operasional" yang KEDUA tandanya
+	 * mati tidak tercakup penurunan itu -- justru itulah sebabnya tanda ini dibuat
+	 * dapat disetel sendiri: kasbon semacam itu tetap menyisakan tagihan, tetapi
+	 * tidak dicatat sbg hutang anggota, sehingga tanpa tanda eksplisit ia lolos
+	 * tanpa pemilik dan berakhir sebagai piutang "Umum / Non-Anggota" yang tidak
+	 * dapat ditelusuri.</p>
+	 */
+	public boolean wajibPilihMemberEfektif() {
+		if (wajibPilihMember != null) {
+			return wajibPilihMember.booleanValue();
+		}
+		return Boolean.TRUE.equals(getMasukSebagaiHutang()) || Boolean.TRUE.equals(getMemotongDeposit());
 	}
 }

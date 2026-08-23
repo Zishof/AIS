@@ -2565,7 +2565,13 @@ public class PosApi extends HttpServlet {
 			JSONArray arr = new JSONArray();
 			if (idJenisAnggota != null) {
 				java.sql.PreparedStatement ps = session.connection().prepareStatement(
-						"SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') "
+						"SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%'), "
+								// Sifat metode dikirim ke kasir supaya penolakan "wajib pilih
+								// pelanggan" muncul SAAT metode dipilih, bukan setelah seluruh
+								// keranjang selesai diisi dan tombol Bayar ditekan.
+								+ "COALESCE(cpk.masuk_sebagai_hutang,false), COALESCE(cpk.memotong_deposit,false), "
+								+ "COALESCE(cpk.wajib_pilih_member, COALESCE(cpk.masuk_sebagai_hutang,false) "
+								+ "  OR COALESCE(cpk.memotong_deposit,false)) "
 								+ "FROM koperasi.cara_pembayaran_koperasi cpk "
 								+ "WHERE cpk.aktif = true AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih "
 								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?) LIKE '%,' || cpk.id || ',%' "
@@ -2578,6 +2584,9 @@ public class PosApi extends HttpServlet {
 					j.put("nama", rs.getString(2));
 					j.put("manual", rs.getBoolean(3));
 					j.put("adaKembalian", rs.getBoolean(4));
+					j.put("masukSebagaiHutang", rs.getBoolean(5));
+					j.put("memotongDeposit", rs.getBoolean(6));
+					j.put("wajibPilihMember", rs.getBoolean(7));
 					arr.put(j);
 				}
 				rs.close();
@@ -2592,6 +2601,9 @@ public class PosApi extends HttpServlet {
 					j.put("nama", str(cb.getNama()));
 					j.put("manual", cb.getManual() != null && cb.getManual());
 					j.put("adaKembalian", cb.getAdaKembalian());
+					j.put("masukSebagaiHutang", Boolean.TRUE.equals(cb.getMasukSebagaiHutang()));
+					j.put("memotongDeposit", Boolean.TRUE.equals(cb.getMemotongDeposit()));
+					j.put("wajibPilihMember", cb.wajibPilihMemberEfektif());
 					arr.put(j);
 				}
 			}

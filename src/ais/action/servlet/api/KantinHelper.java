@@ -978,21 +978,35 @@ public class KantinHelper {
 					// sehingga hutang tercatat TANPA pemilik -- tidak bisa ditagih dan tidak
 					// terhitung pada batas hutang siapa pun.
 					if (anggotaKoperasi == null) {
-						double hutangTanpaPemilik = 0.0;
+						// DIPERLUAS dari "masuk sebagai hutang" saja menjadi tanda
+						// wajibPilihMemberEfektif(). Alasannya ditemukan pada data nyata: metode
+						// kasbon yang TIDAK ditandai hutang (mis. "Kasbon Divisi",
+						// "Kasbon Operasional") lolos penjaga lama, padahal nominalnya tidak
+						// pernah masuk bayar_tunai/bayar_non_tunai -- notanya tetap kurang bayar
+						// dan menumpuk di laporan Saldo Piutang sbg "Umum / Non-Anggota", tanpa
+						// satu pun cara mengetahui siapa yang berhutang. Di satu toko sudah
+						// terkumpul 541 nota sebelum ini ketahuan.
+						StringBuffer metodeTanpaPemilik = new StringBuffer();
 						double slot1TanpaPemilik = Math.max(0.0,
 								total.doubleValue() - split.nominal2 - split.nominal3 - split.nominal4 - split.nominal5);
 						if (caraPembayaranKoperasiOnline != null
-								&& Boolean.TRUE.equals(caraPembayaranKoperasiOnline.getMasukSebagaiHutang())) {
-							hutangTanpaPemilik += slot1TanpaPemilik;
+								&& caraPembayaranKoperasiOnline.wajibPilihMemberEfektif()
+								&& slot1TanpaPemilik > 0.0) {
+							catatMetodeWajibMember(metodeTanpaPemilik, caraPembayaranKoperasiOnline);
 						}
-						if (split.cara2 != null && Boolean.TRUE.equals(split.cara2.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal2;
-						if (split.cara3 != null && Boolean.TRUE.equals(split.cara3.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal3;
-						if (split.cara4 != null && Boolean.TRUE.equals(split.cara4.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal4;
-						if (split.cara5 != null && Boolean.TRUE.equals(split.cara5.getMasukSebagaiHutang())) hutangTanpaPemilik += split.nominal5;
-						if (hutangTanpaPemilik > 0.0) {
+						if (split.cara2 != null && split.cara2.wajibPilihMemberEfektif() && split.nominal2 > 0.0)
+							catatMetodeWajibMember(metodeTanpaPemilik, split.cara2);
+						if (split.cara3 != null && split.cara3.wajibPilihMemberEfektif() && split.nominal3 > 0.0)
+							catatMetodeWajibMember(metodeTanpaPemilik, split.cara3);
+						if (split.cara4 != null && split.cara4.wajibPilihMemberEfektif() && split.nominal4 > 0.0)
+							catatMetodeWajibMember(metodeTanpaPemilik, split.cara4);
+						if (split.cara5 != null && split.cara5.wajibPilihMemberEfektif() && split.nominal5 > 0.0)
+							catatMetodeWajibMember(metodeTanpaPemilik, split.cara5);
+						if (metodeTanpaPemilik.length() > 0) {
 							hasil.put("status", "91");
-							hasil.put("description", "Transaksi piutang wajib memilih nama pelanggan terlebih dahulu, "
-									+ "agar tagihan dapat ditelusuri dan ditagih oleh tim keuangan.");
+							hasil.put("description", "Metode pembayaran " + metodeTanpaPemilik
+									+ " wajib memilih nama pelanggan terlebih dahulu, agar tagihannya "
+									+ "dapat ditelusuri dan ditagih oleh tim keuangan.");
 							return;
 						}
 					}
@@ -6289,6 +6303,16 @@ public class KantinHelper {
 	 * Member" (tab Pelanggan) utk menyusun checklist {@code daftarCaraPembayaranYangBolehDiPilih}
 	 * itu sendiri -- perlu SEMUA opsi, bukan yg sudah tersaring.
 	 */
+	/** Merangkai nama metode utk pesan penolakan, supaya kasir tahu METODE MANA yang bermasalah. */
+	private static void catatMetodeWajibMember(StringBuffer daftar,
+			ais.database.model.koperasi.CaraPembayaranKoperasi cara) {
+		if (cara == null) return;
+		String nama = cara.getNama() == null ? "(tanpa nama)" : cara.getNama().trim();
+		if (daftar.indexOf("\"" + nama + "\"") >= 0) return;
+		if (daftar.length() > 0) daftar.append(" dan ");
+		daftar.append("\"").append(nama).append("\"");
+	}
+
 	public static void caraBayarListSemua(JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -6352,7 +6376,13 @@ public class KantinHelper {
 					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), manual, online, "
 							+ "COALESCE(memotong_deposit,false), COALESCE(masuk_sebagai_hutang,false), COALESCE(aktif,true), "
 							+ "COALESCE(ada_kembalian, nama ILIKE '%tunai%'), akun, "
-							+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = akun) "
+							+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = akun), "
+							// Dua kolom, bukan satu: yang MENTAH supaya form tahu admin belum
+							// pernah menentukan (null != false), dan yang EFEKTIF supaya tabel
+							// menampilkan aturan yang benar-benar berlaku saat ini.
+							+ "wajib_pilih_member, "
+							+ "COALESCE(wajib_pilih_member, COALESCE(masuk_sebagai_hutang,false) "
+							+ "  OR COALESCE(memotong_deposit,false)) "
 							+ "FROM koperasi.cara_pembayaran_koperasi" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -6382,6 +6412,9 @@ public class KantinHelper {
 				long akunId = rs.getLong(11);
 				j.put("akunId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(akunId));
 				j.put("akunLabel", rs.getString(12) == null ? "" : rs.getString(12));
+				boolean wajibMentah = rs.getBoolean(13);
+				j.put("wajibPilihMember", rs.wasNull() ? JSONObject.NULL : Boolean.valueOf(wajibMentah));
+				j.put("wajibPilihMemberEfektif", rs.getBoolean(14));
 				arr.put(j);
 			}
 			rs.close();
@@ -6439,6 +6472,13 @@ public class KantinHelper {
 			cara.setOnline(request.optBoolean("online", false));
 			cara.setMemotongDeposit(Boolean.valueOf(request.optBoolean("memotongDeposit", false)));
 			cara.setMasukSebagaiHutang(Boolean.valueOf(request.optBoolean("masukSebagaiHutang", false)));
+			// null = "ikut aturan bawaan" (hutang/potong saldo), BUKAN sama dengan false.
+			// Perbedaan itu yang membuat metode yang belum pernah disentuh admin tidak
+			// terkunci pada jawaban yang kebetulan berlaku hari ini.
+			if (request.has("wajibPilihMember")) {
+				cara.setWajibPilihMember(request.isNull("wajibPilihMember") ? null
+						: Boolean.valueOf(request.optBoolean("wajibPilihMember")));
+			}
 			if (request.has("adaKembalian")) {
 				cara.setAdaKembalian(request.isNull("adaKembalian") ? null : Boolean.valueOf(request.optBoolean("adaKembalian")));
 			}
