@@ -469,15 +469,20 @@ public final class LaporanKantinZkPanel {
 
 		double[] subtotal = H.grup >= 0 ? new double[H.tipe.length] : null;
 		double[] grand = H.grandTotal ? new double[H.tipe.length] : null;
+		// Baris penyusun subtotal grup berjalan -- dipakai popup "asal angka" pada
+		// baris subtotal, sama seperti data-grup di versi JSP.
+		java.util.List<Object[]> anggotaGrup = new java.util.ArrayList<Object[]>();
 		Object nilaiGrupSebelumnya = null;
 		boolean grupPertama = true;
 
 		for (Object[] row : H.baris) {
 			Object nilaiGrupIni = H.grup >= 0 && H.grup < row.length ? row[H.grup] : null;
 			if (H.grup >= 0 && !grupPertama && !samaGrup(nilaiGrupSebelumnya, nilaiGrupIni)) {
-				sb.append(barisSubtotal(H, subtotal, "Subtotal"));
+				sb.append(barisSubtotal(H, subtotal, "Subtotal", anggotaGrup));
 				subtotal = new double[H.tipe.length];
+				anggotaGrup = new java.util.ArrayList<Object[]>();
 			}
+			anggotaGrup.add(row);
 			sb.append("<tr>");
 			// Setiap angka dibuat DAPAT DIKLIK: menampilkan data penghitungannya (seluruh
 			// kolom baris ini + catatan rumus laporan) -- padanan drill-down di JSP/Desktop,
@@ -521,10 +526,10 @@ public final class LaporanKantinZkPanel {
 			grupPertama = false;
 		}
 		if (H.grup >= 0 && subtotal != null && H.baris.size() > 0) {
-			sb.append(barisSubtotal(H, subtotal, "Subtotal"));
+			sb.append(barisSubtotal(H, subtotal, "Subtotal", anggotaGrup));
 		}
 		if (grand != null) {
-			sb.append(barisSubtotal(H, grand, "Grand Total"));
+			sb.append(barisSubtotal(H, grand, "Grand Total", H.baris));
 		}
 		sb.append("</tbody></table>");
 		sb.append(skripRincianAngka(urlRincian));
@@ -742,17 +747,67 @@ public final class LaporanKantinZkPanel {
 				+ "})();</script>";
 	}
 
-	private static String barisSubtotal(LaporanKantinUtil.Hasil H, double[] nilai, String label) {
+	private static String barisSubtotal(LaporanKantinUtil.Hasil H, double[] nilai, String label,
+			java.util.List<Object[]> penyusun) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<tr style=\"background:#f8fafc;font-weight:700;\">");
 		for (int i = 0; i < H.tipe.length; i++) {
-			String isi = i == 0 ? label : ("num".equals(H.tipe[i]) ? NUM.get().format(nilai[i]) : "");
+			boolean angka = "num".equals(H.tipe[i]);
+			String isi = i == 0 ? label : (angka ? NUM.get().format(nilai[i]) : "");
 			sb.append("<td style=\"padding:5px 8px;border-top:2px solid #e2e8f0;text-align:")
-					.append("num".equals(H.tipe[i]) ? "right" : "left").append(";\">").append(esc(isi))
-					.append("</td>");
+					.append(angka ? "right" : "left").append(";\">");
+			// ANGKA SUBTOTAL/GRAND TOTAL IKUT DAPAT DIKLIK: popup memperlihatkan baris
+			// yang dijumlahkan menjadi angka itu. Tidak ada data-dim karena angka
+			// agregat tidak menunjuk satu dimensi transaksi tertentu.
+			if (angka && penyusun != null && !penyusun.isEmpty()) {
+				String labelKolom = i < H.kolom.size() ? H.kolom.get(i).label : "";
+				sb.append("<a href=\"javascript:void(0)\" class=\"lkzk-num\"")
+						.append(" style=\"text-decoration:underline dotted;cursor:pointer;color:inherit;\"")
+						.append(" title=\"Klik untuk melihat baris penyusunnya\"")
+						.append(" data-judul=\"").append(esc(label + " " + labelKolom)).append("\"")
+						.append(" data-rincian=\"").append(penyusunRingkas(H, penyusun, i, labelKolom, nilai[i]))
+						.append("\">").append(esc(isi)).append("</a>");
+			} else {
+				sb.append(esc(isi));
+			}
+			sb.append("</td>");
 		}
 		sb.append("</tr>");
 		return sb.toString();
+	}
+
+	/** Batas baris penyusun yang disisipkan ke atribut supaya HTML-nya tidak membengkak. */
+	private static final int BATAS_PENYUSUN = 200;
+
+	/**
+	 * Ringkasan baris penyusun satu angka agregat, dalam format pasangan
+	 * {@code "Label: Nilai"} yang sudah dipahami skrip popup ZK. Bagian setelah
+	 * {@code "  ||  "} menjadi catatan di bawah tabel popup.
+	 */
+	private static String penyusunRingkas(LaporanKantinUtil.Hasil H, java.util.List<Object[]> penyusun,
+			int kolAngka, String labelKolom, double total) {
+		StringBuilder isi = new StringBuilder();
+		int dipakai = 0;
+		for (int r = 0; r < penyusun.size() && dipakai < BATAS_PENYUSUN; r++) {
+			Object[] row = penyusun.get(r);
+			String labelBaris = row.length > 0 && row[0] != null ? String.valueOf(row[0]).trim() : "";
+			if (labelBaris.length() == 0) {
+				labelBaris = "(tanpa label)";
+			}
+			Object v = kolAngka < row.length ? row[kolAngka] : null;
+			if (isi.length() > 0) {
+				isi.append(" | ");
+			}
+			isi.append(labelBaris).append(": ").append(formatSel(H.tipe[kolAngka], v));
+			dipakai++;
+		}
+		StringBuilder catatan = new StringBuilder();
+		catatan.append("TOTAL (").append(labelKolom).append("): ").append(NUM.get().format(total))
+				.append(" -- ").append(penyusun.size()).append(" baris penyusun.");
+		if (penyusun.size() > dipakai) {
+			catatan.append(" Ditampilkan ").append(dipakai).append(" baris pertama.");
+		}
+		return esc(isi.toString() + "  ||  " + catatan.toString());
 	}
 
 	private static String formatSel(String tipe, Object v) {
