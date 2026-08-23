@@ -266,9 +266,20 @@ public class FeederConnector {
 		Process p = null;
 		BufferedReader reader = null;
 		try {
-			String[] command = { "curl", "-k", "-s", "-H", "Content-Type: application/json", "-X", "POST", serverURI,
+			if (serverURI == null || serverURI.trim().length() == 0) {
+				if (warnings != null) {
+					warnings.add("Alamat server Feeder belum dikonfigurasi.");
+				}
+				return "";
+			}
+			if (jsonBody == null) {
+				jsonBody = "";
+			}
+			String[] command = { "curl", "-k", "-sS", "-H", "Content-Type: application/json", "-X", "POST", serverURI,
 					"--data", "@-" };
-			p = new ProcessBuilder(command).start();
+			ProcessBuilder processBuilder = new ProcessBuilder(command);
+			processBuilder.redirectErrorStream(true);
+			p = processBuilder.start();
 
 			// Tulis body ke STDIN proses curl.
 			OutputStream os = null;
@@ -276,7 +287,11 @@ public class FeederConnector {
 				os = p.getOutputStream();
 				os.write(jsonBody.getBytes("utf-8"));
 				os.flush();
-			} catch (Exception exTulis) { ais.common.ErrorAuditUtil.record(exTulis, "auto-audit(empty-catch) src/ais/action/master/feeder/util/FeederConnector.java:270");
+			} catch (Exception exTulis) {
+				ais.common.ErrorAuditUtil.record(exTulis, "FeederConnector.httpPostJson-write");
+				if (warnings != null) {
+					warnings.add("Data permintaan ke Feeder tidak dapat dikirim: " + exTulis.getMessage());
+				}
 			} finally {
 				if (os != null) {
 					try {
@@ -294,6 +309,11 @@ public class FeederConnector {
 				builder.append(System.getProperty("line.separator"));
 			}
 			hasil = builder.toString();
+			int exitCode = p.waitFor();
+			if (exitCode != 0 && warnings != null) {
+				warnings.add("Server Feeder tidak dapat dihubungi (kode proses " + exitCode + "). Respons: "
+						+ ringkasRespons(hasil));
+			}
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/feeder/util/FeederConnector.java:289");
 			if (warnings != null) {
@@ -318,6 +338,14 @@ public class FeederConnector {
 			}
 		}
 		return hasil;
+	}
+
+	private String ringkasRespons(String respons) {
+		if (respons == null) {
+			return "";
+		}
+		String ringkas = respons.replace('\r', ' ').replace('\n', ' ').trim();
+		return ringkas.length() > 300 ? ringkas.substring(0, 300) + "..." : ringkas;
 	}
 
 	/**

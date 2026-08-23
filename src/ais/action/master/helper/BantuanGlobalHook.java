@@ -197,10 +197,10 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			 * tidak aktif. Bila wadahnya hanya boleh beranak tunggal (mis. region Borderlayout),
 			 * pemasangan dilewati -- lebih baik tanpa tombol daripada menampilkan panduan yang
 			 * keliru untuk halaman lain. */
-			Component induk = comp.getParent();
-			if (induk == null || sudahAdaFab(induk)) {
-				return;
-			}
+		Component induk = comp.getParent();
+		if (induk == null || wadahHanyaMenerimaSatuAnak(induk) || sudahAdaFab(induk)) {
+			return;
+		}
 			try {
 				buatFab(key, true).setParent(induk);
 			} catch (Throwable takBolehBeranakBanyak) {
@@ -210,6 +210,15 @@ public class BantuanGlobalHook implements UiLifeCycle {
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:196");
 			// JANGAN pernah mengganggu render halaman
 		}
+	}
+
+	private static boolean wadahHanyaMenerimaSatuAnak(Component component) {
+		String namaClass = component.getClass().getName();
+		return "org.zkoss.zul.Center".equals(namaClass)
+				|| "org.zkoss.zul.North".equals(namaClass)
+				|| "org.zkoss.zul.South".equals(namaClass)
+				|| "org.zkoss.zul.East".equals(namaClass)
+				|| "org.zkoss.zul.West".equals(namaClass);
 	}
 
 	/** Apakah wadah sudah memuat tombol Bantuan mengambang (langsung sebagai anak). */
