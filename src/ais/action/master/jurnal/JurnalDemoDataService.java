@@ -99,6 +99,8 @@ public final class JurnalDemoDataService {
         if (!DELETE_SAMPLE_CONFIRMATION.equals(confirmation))
             throw new IllegalArgumentException("Konfirmasi penghapusan sample tidak sesuai.");
         String key=key(idempotencyKey);
+        if(!key.startsWith("sample-"))
+            throw new IllegalArgumentException("Hanya namespace sample yang boleh dihapus.");
         String sourceClass="AIS_JOURNAL_DEMO:"+key;
         String collectionPattern="demo-"+key+"-%";
         Session session=HibernateUtil.currentSession();

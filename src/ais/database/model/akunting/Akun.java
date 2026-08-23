@@ -121,6 +121,7 @@ public class Akun extends GeneralValueObject {
 	private String nama;
 	private String kode;
 	private String keterangan;
+	private String tipeAkun;
 	private Integer debetCredit;
 	private GrupAkun grupAkun;
 	private Long jmlDipakai = 0L;
@@ -166,6 +167,30 @@ public class Akun extends GeneralValueObject {
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
+	}
+
+	/**
+	 * Tipe akun menurut penggolongan <b>Accurate</b> ({@code BANK}, {@code AREC}, {@code OCAS},
+	 * {@code INTR}, {@code FASS}, {@code DEPR}, {@code APAY}, {@code OCLY}, {@code LTLY},
+	 * {@code EQTY}, {@code REVE}, {@code COGS}, {@code EXPS}, {@code OINC}, {@code OEXP}).
+	 *
+	 * <p><b>Kenapa disimpan, bukan disimpulkan.</b> Bagan akun institusi ini dipelihara di
+	 * Accurate lalu dipindahkan lewat berkas Excel. Menyimpulkan kembali tipe itu dari
+	 * {@code debetCredit} + {@code grupAkun} tidak mungkin tepat -- BANK dan OCAS sama-sama
+	 * debet, APAY dan EQTY sama-sama kredit. Menyimpannya membuat berkas yang diunduh kembali
+	 * identik dengan yang diunggah, sehingga bagan akun dapat bolak-balik tanpa kehilangan
+	 * penggolongan aslinya.</p>
+	 *
+	 * <p>Kosong untuk akun yang tidak berasal dari Accurate; tidak ada satu pun perhitungan
+	 * di aplikasi ini yang bergantung padanya.</p>
+	 */
+	@Column(name = "tipe_akun", nullable = true, length = 16)
+	public String getTipeAkun() {
+		return this.tipeAkun;
+	}
+
+	public void setTipeAkun(String tipeAkun) {
+		this.tipeAkun = tipeAkun;
 	}
 
 	public void setKeterangan(String keterangan) {

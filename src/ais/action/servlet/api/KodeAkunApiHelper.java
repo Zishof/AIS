@@ -70,7 +70,7 @@ public final class KodeAkunApiHelper {
 			StringBuilder sql = new StringBuilder(
 					"SELECT a.id, COALESCE(a.kode,''), COALESCE(a.nama,''), COALESCE(a.keterangan,''),"
 							+ " COALESCE(a.debit_credit,0), a.parent, COALESCE(g.nama,''), a.grup_akun,"
-							+ " COALESCE(a.jmldipakai,0)"
+							+ " COALESCE(a.jmldipakai,0), COALESCE(a.tipe_akun,'')"
 							+ " FROM akunting.akun a"
 							+ " LEFT JOIN akunting.grup_akun g ON g.id = a.grup_akun");
 			if (!cari.isEmpty()) {
@@ -100,6 +100,8 @@ public final class KodeAkunApiHelper {
 				long gid = rs.getLong(8);
 				j.put("grupAkunId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(gid));
 				j.put("jumlahDipakai", rs.getLong(9));
+				// Penggolongan Accurate; kosong bila akun ini tidak berasal dari sana.
+				j.put("tipeAkun", rs.getString(10));
 				arr.put(j);
 			}
 			rs.close();
