@@ -780,6 +780,16 @@ public final class LaporanKantinZkPanel {
 	private static final int BATAS_PENYUSUN = 200;
 
 	/**
+	 * Membuang pemisah yang dipakai skrip popup dari teks yang berasal dari DATA
+	 * pengguna. Nama produk atau uraian boleh saja memuat {@code " | "} atau
+	 * {@code ": "}; tanpa dibersihkan, satu baris popup dapat terbelah dua atau
+	 * nilainya tampak berpindah kolom.
+	 */
+	private static String tanpaPemisah(String teks) {
+		return teks.replace(" | ", " / ").replace(": ", " - ");
+	}
+
+	/**
 	 * Ringkasan baris penyusun satu angka agregat, dalam format pasangan
 	 * {@code "Label: Nilai"} yang sudah dipahami skrip popup ZK. Bagian setelah
 	 * {@code "  ||  "} menjadi catatan di bawah tabel popup.
@@ -794,6 +804,7 @@ public final class LaporanKantinZkPanel {
 			if (labelBaris.length() == 0) {
 				labelBaris = "(tanpa label)";
 			}
+			labelBaris = tanpaPemisah(labelBaris);
 			Object v = kolAngka < row.length ? row[kolAngka] : null;
 			if (isi.length() > 0) {
 				isi.append(" | ");
