@@ -83,7 +83,20 @@ public class LaporanDanaTalangan extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Dipakai tombol ekspor pada layar ZK; isinya di {@link #parameter}. */
 	public Map generateParameter() throws Exception {
+		return parameter(danaTalangan);
+	}
+
+	/**
+	 * Parameter laporan, TANPA menyentuh komponen ZK.
+	 *
+	 * <p>Konstruktor kelas ini membangun Borderlayout/Center/Toolbar, jadi ia tidak
+	 * dapat dipakai di luar konteks halaman ZK. Isi penyusun parameternya sendiri
+	 * hanya bergantung pada entitasnya, sehingga dipisahkan ke sini supaya jalur API
+	 * (keuangan_cetak) dapat memakainya juga.</p>
+	 */
+	public static Map parameter(DanaTalangan danaTalangan) throws Exception {
 		
 		if (danaTalangan != null && danaTalangan.getId() != null) {
 			HibernateUtil.currentSession().refresh(danaTalangan);
@@ -166,6 +179,15 @@ public class LaporanDanaTalangan extends MyWindow {
 					});
 		}
 
+	}
+
+	/**
+	 * Cetak PDF tanpa layar ZK: templat dan parameternya sama persis dengan tombol
+	 * cetak pada layar ZK, sehingga lembar cetak dari Desktop/Android identik.
+	 */
+	public static java.io.File cetakPdf(DanaTalangan danaTalangan) throws Exception {
+		return Report.generateFileReport(Report.PDF, parameter(danaTalangan), "akunting/danaTalangan",
+				ais.ui.util.WaktuUtil.getDate(), null, new org.zkoss.zul.Toolbar());
 	}
 
 }

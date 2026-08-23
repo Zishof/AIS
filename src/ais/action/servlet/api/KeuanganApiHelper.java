@@ -853,7 +853,7 @@ public final class KeuanganApiHelper {
 		String modul = request == null ? "" : request.optString("modul", "").trim().toLowerCase();
 		String kunci = kunciMenu(modul);
 		if (kunci == null) {
-			tolak(hasil, "Modul cetak tidak dikenali. Yang dapat dicetak dari POS: uang_muka, pj_uang_muka.");
+			tolak(hasil, "Modul cetak tidak dikenali.");
 			return;
 		}
 		if (!bolehLihat(tbmuser, kunci)) {
@@ -889,12 +889,50 @@ public final class KeuanganApiHelper {
 				}
 				kode = d.getKode() == null ? "" : d.getKode();
 				berkas = ais.action.report.format1.akunting.LaporanPertangungjawaban.cetakPdf(d);
+			} else if ("kas_besar".equals(modul)) {
+				ais.database.model.akunting.KasBesar d = (ais.database.model.akunting.KasBesar) session.get(ais.database.model.akunting.KasBesar.class, Long.valueOf(id));
+				if (d == null) {
+					tolak(hasil, "Dokumen tidak ditemukan.");
+					return;
+				}
+				kode = d.getKode() == null ? "" : d.getKode();
+				berkas = ais.action.report.format1.akunting.LaporanKasBesar.cetakPdf(d);
+			} else if ("kas_kecil".equals(modul)) {
+				ais.database.model.akunting.KasKecil d = (ais.database.model.akunting.KasKecil) session.get(ais.database.model.akunting.KasKecil.class, Long.valueOf(id));
+				if (d == null) {
+					tolak(hasil, "Dokumen tidak ditemukan.");
+					return;
+				}
+				kode = d.getKode() == null ? "" : d.getKode();
+				berkas = ais.action.report.format1.akunting.LaporanKasKecil.cetakPdf(d);
+			} else if ("penggantian_kas_kecil".equals(modul)) {
+				ais.database.model.akunting.PenggantianKasKecil d = (ais.database.model.akunting.PenggantianKasKecil) session.get(ais.database.model.akunting.PenggantianKasKecil.class, Long.valueOf(id));
+				if (d == null) {
+					tolak(hasil, "Dokumen tidak ditemukan.");
+					return;
+				}
+				kode = d.getKode() == null ? "" : d.getKode();
+				berkas = ais.action.report.format1.akunting.LaporanPenggantianKasKecil.cetakPdf(d);
+			} else if ("pj_kas_besar".equals(modul)) {
+				ais.database.model.akunting.PertangungjawabanKasBesar d = (ais.database.model.akunting.PertangungjawabanKasBesar) session.get(ais.database.model.akunting.PertangungjawabanKasBesar.class, Long.valueOf(id));
+				if (d == null) {
+					tolak(hasil, "Dokumen tidak ditemukan.");
+					return;
+				}
+				kode = d.getKode() == null ? "" : d.getKode();
+				berkas = ais.action.report.format1.akunting.LaporanPertangungjawabanKasBesar.cetakPdf(d);
+			} else if ("dana_talangan".equals(modul)) {
+				ais.database.model.akunting.DanaTalangan d = (ais.database.model.akunting.DanaTalangan) session.get(ais.database.model.akunting.DanaTalangan.class, Long.valueOf(id));
+				if (d == null) {
+					tolak(hasil, "Dokumen tidak ditemukan.");
+					return;
+				}
+				kode = d.getKode() == null ? "" : d.getKode();
+				berkas = ais.action.report.format1.akunting.LaporanDanaTalangan.cetakPdf(d);
 			} else {
-				// LaporanKasBesar, LaporanKasKecil, LaporanPenggantianKasKecil,
-				// LaporanPertangungjawabanKasBesar, dan LaporanDanaTalangan hanya punya
-				// jalur render ZK (konstruktor + generateParameter), belum ada
-				// cetakPdf() headless seperti dua kelas di atas. Menolak dengan jujur jauh
-				// lebih baik daripada menyodorkan berkas dokumen lain.
+				// Tiap modul disebut EKSPLISIT di atas. Cabang terakhir ini TIDAK boleh
+				// memuat dokumen apa pun: dulu ia jatuh ke Pertangungjawaban sehingga id
+				// yang sama dapat mencetak dokumen milik modul lain.
 				tolak(hasil, "Cetak PDF untuk modul ini belum tersedia di POS; "
 					+ "templat headless-nya belum ada. Sementara ini cetak dari layar ZK.");
 				return;
