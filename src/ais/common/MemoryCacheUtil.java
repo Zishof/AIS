@@ -201,6 +201,23 @@ public class MemoryCacheUtil {
     }
 
     /**
+     * Melepas seluruh referensi cache saat webapp dihentikan. Method ini sengaja menjadi API
+     * publik karena {@code AppStartupListener} memanggilnya secara reflektif agar build lama yang
+     * masih memakai implementasi cache berbeda tetap kompatibel.
+     */
+    public static void shutdown() {
+        MAPS.clear();
+        lokasi_file_temporary_data = null;
+        configLoaded = false;
+        CODE = null;
+        try {
+            MemoryDbUtil.resetLocalReferences();
+        } catch (Throwable ignored) {
+            // Shutdown harus best-effort dan tidak boleh menahan proses undeploy Tomcat.
+        }
+    }
+
+    /**
      * No-op pasca-penghapusan Hazelcast. Dahulu mem-broadcast perubahan map mentah (PUT/REMOVE) ke
      * node lain dalam kluster Hazelcast untuk menjaga koherensi cache lintas-node.
      *

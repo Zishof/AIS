@@ -14,6 +14,10 @@ if(request.getParameter("s") != null && !request.getParameter("s").trim().isEmpt
 	s = request.getParameter("s").trim();
 }
 
+// Parameter ini membentuk nama JSP. Hanya izinkan nama berkas sederhana; karakter kutip dan
+// traversal path harus berakhir pada halaman tidak ditemukan, bukan diteruskan ke dispatcher.
+boolean modulValid = p.matches("[A-Za-z0-9_-]+") && s.matches("[A-Za-z0-9_-]+");
+
 
 String urlLama = "";
 if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").trim().isEmpty()){
@@ -21,21 +25,25 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && modulValid){
         	  
         	  try{
-        		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
+		          String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
+		          if (application.getResource(pg) == null) {
+		          	throw new java.io.FileNotFoundException(pg);
+		          }
                   %>
                   <jsp:include page="<%=pg %>"></jsp:include>
                   <%
-        	  }catch(Exception e){
-        		  e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/alumni.jsp:32");
- 					%>
-        		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
-        		  <%
-        	  }
-          
-    }
+		  }catch(Exception e){
+		  	e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/alumni.jsp:32");
+					%>
+		  	<jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
+		  	<%
+		  }
+	} else {
+		%><jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include><%
+	}
 } else {
 %>
 <jsp:include page="/WEB-INF/baru/include/header.jsp"></jsp:include>

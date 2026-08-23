@@ -5925,7 +5925,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 									parameters.put("kode_pembayaran", bniRequest.getVa());
 									parameters.put("kode_invoice", bniRequest.getBillNo());
-									parameters.put("tagihan", amn);
+									parameters.put("tagihan", Common.numberFormat.get().format(amn));
 									parameters.put("tagihan_format", Common.numberFormat.get().format(amn));
 									parameters.put("biaya_administrasi_format",
 											Common.numberFormat.get().format(biayaAdministrasi));
@@ -6052,7 +6052,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 											parameters.put("kode_pembayaran", virtualAccountBank.getKode());
 											parameters.put("kode_invoice", virtualAccountBank.getKode());
-											parameters.put("tagihan", amn);
+											parameters.put("tagihan", Common.numberFormat.get().format(amn));
 											parameters.put("tagihan_format", Common.numberFormat.get().format(amn));
 											parameters.put("biaya_administrasi_format",
 													Common.numberFormat.get().format(biayaAdministrasi));
@@ -6172,7 +6172,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 												parameters.put("kode_pembayaran", virtualAccountBank.getKode());
 												parameters.put("kode_invoice", virtualAccountBank.getKode());
-												parameters.put("tagihan", virtualAccountBank.getTotal());
+												parameters.put("tagihan", Common.numberFormat.get().format(virtualAccountBank.getTotal()));
 												parameters.put("tagihan_format",
 														Common.numberFormat.get().format(virtualAccountBank.getTotal()));
 												parameters.put("biaya_administrasi_format",

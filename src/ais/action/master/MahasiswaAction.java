@@ -2952,9 +2952,12 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 															filter += filter.isEmpty() ? s : " and " + s;
 														}
 
-														Integer countInteger = feederConnector.getCount(token,
-																"GetCountMahasiswa",
-																filter.replaceAll("nipd", "a.nim"));
+												Integer countInteger = feederConnector.getCount(token,
+														"GetCountMahasiswa",
+														filter.replaceAll("nipd", "a.nim"));
+												if (countInteger == null || countInteger.intValue() < 0) {
+													countInteger = Integer.valueOf(0);
+												}
 
 														System.out.println("results countInteger -> " + countInteger);
 
@@ -6407,11 +6410,14 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 		if (statusAwalMahasiswa.getSelectedItem() == null) {
 			try {
-				List<MyComboitemConfig> comboitems = statusAwalMahasiswa.getChildren();
-				for (MyComboitemConfig c : comboitems) {
-					if (c.getLabel().toLowerCase().contains("baru")) {
-						statusAwalMahasiswa.setSelectedItem(comboitem);
-						break;
+				List comboitems = statusAwalMahasiswa.getChildren();
+				for (Object item : comboitems) {
+					if (item instanceof Comboitem) {
+						Comboitem c = (Comboitem) item;
+						if (c.getLabel() != null && c.getLabel().toLowerCase().contains("baru")) {
+							statusAwalMahasiswa.setSelectedItem(c);
+							break;
+						}
 					}
 				}
 			} catch (Exception e) {
@@ -7564,13 +7570,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			}
 			Common.tampilErrorJikaAdmin(e);
 		} finally {
-			if (session != null) {
-				try {
-					session.close();
-				} catch (Exception ignored) {
-					ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) MahasiswaAction.paksaAktif.close");
-				}
-			}
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 

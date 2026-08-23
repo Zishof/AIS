@@ -174,7 +174,11 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 	}
 
 	private void tampilkanErrorCekPembayaran(Exception e) {
-		Common.tampilErrorJikaAdmin(e);
+		String pesanError = e == null || e.getMessage() == null ? "" : e.getMessage();
+		/* "Belum ada transaksi" adalah status bisnis yang sah, bukan kerusakan aplikasi. */
+		if (pesanError.indexOf("belum mencatat transaksi apa pun") < 0) {
+			Common.tampilErrorJikaAdmin(e);
+		}
 		try {
 			// Rincian teknis SEDETAIL MUNGKIN (nama kelas exception + pesan, ditelusuri
 			// sampai akar rantai cause — mis. SocketTimeoutException di balik
@@ -2279,7 +2283,8 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 
 //													System.out.println("hasil -> " + hasil);
 
-													jsonObject2 = new JSONObject(hasil);
+													jsonObject2 = ais.action.master.helper.virtualaccount.BankaltimtaraResponseUtil
+															.parseJson(hasil, "cek ulang status pembayaran");
 
 													JSONArray data = jsonObject2.getJSONArray("data");
 													for (i = 0; i < data.length(); i++) {
@@ -2429,7 +2434,9 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 												onSearchDefault(null);
 
 											} catch (Exception e) {
-												Common.tampilErrorJikaAdmin(e);
+												if (e.getMessage() == null || e.getMessage().indexOf("belum mencatat transaksi apa pun") < 0) {
+													Common.tampilErrorJikaAdmin(e);
+												}
 												MyMessageboxConfig.showFormat(
 										"Mohon maaf, data ini tidak dapat dihapus. Rincian teknis: {V1}. Langkah yang dapat dilakukan: (1) pastikan tidak ada data lain yang masih menggunakan data ini; (2) hapus terlebih dahulu data yang berkaitan; (3) apabila masih berlanjut, mohon hubungi Administrator sistem.",
 										"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, e.getMessage());

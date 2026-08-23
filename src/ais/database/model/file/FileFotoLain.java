@@ -849,6 +849,10 @@ public abstract class FileFotoLain extends FileFoto {
 		} else {
 			target.setNama(nama);
 		}
+		if (target.getNama() == null || target.getNama().trim().length() == 0) {
+			String namaDasar = jenis == null || jenis.trim().length() == 0 ? clazz.getSimpleName() : jenis.trim();
+			target.setNama(namaDasar.replace('/', '_').replace('\\', '_') + "_" + System.currentTimeMillis());
+		}
 
 		/*
 		 * Acuan sementara WAJIB negatif. Sebelumnya dipakai Math.abs(Common.randLong())
@@ -946,12 +950,7 @@ public abstract class FileFotoLain extends FileFoto {
 			throw eBlob;
 		} finally {
 			if (blobSession != null) {
-				try {
-					if (blobSession.isOpen()) {
-						blobSession.close();
-					}
-				} catch (Exception eignore) { ais.common.ErrorAuditUtil.record(eignore, "auto-audit(empty-catch) src/ais/database/model/file/FileFotoLain.java:910");
-				}
+				ais.database.hibernate.HibernateUtil.closeSessionQuietly(blobSession);
 			}
 			if (blobConn != null) {
 				try {

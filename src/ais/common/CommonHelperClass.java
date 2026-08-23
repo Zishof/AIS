@@ -1099,10 +1099,9 @@ public class CommonHelperClass {
 				return true;
 			}
 			Session session = HibernateUtil.currentNativeSession();
-
+			try {
 			Double tagihanSyaratKrs = hitungTagihanMahasiswaSebagaiSyaratKrs(session, mahasiswa, semester);
 			if (tagihanSyaratKrs < 0.01) {
-				HibernateUtil.closeSession();
 				return true;
 			}
 
@@ -1113,9 +1112,13 @@ public class CommonHelperClass {
 								persetujuan ? "batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_disetujui_krs"
 										: "batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_mengisi_krs",
 								"90")
-						.getNilai().trim());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonHelperClass.java:1102");
-
+						.getNilai().trim().replace(',', '.'));
+				if (harusLunas.doubleValue() < 0.0 || harusLunas.doubleValue() > 100.0) {
+					harusLunas = 90.0;
+				}
+			} catch (Exception e) {
+				// Nilai konfigurasi tidak valid: gunakan default historis tanpa membanjiri audit.
+				harusLunas = 90.0;
 			}
 
 			if (jenisKegiatansUntukKrs == null) {
@@ -1177,8 +1180,10 @@ public class CommonHelperClass {
 				}
 			}
 
-			HibernateUtil.closeSession();
 			return hasil;
+			} finally {
+				HibernateUtil.closeSession();
+			}
 		} else {
 			return true;
 		}

@@ -1,0 +1,5 @@
+<?page language="xul/html" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<!-- Alias kompatibilitas menu lama; implementasi kanonik tetap pada halaman berikut. -->
+	<include src="/WEB-INF/z/x/y/pages/master/dosen_pembimbing_akademik.zul"/>
+</zk>

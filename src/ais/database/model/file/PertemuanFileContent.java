@@ -180,9 +180,22 @@ public class PertemuanFileContent extends FileFotoLain {
 	}
 
 	public String getKeterangan() {
+		java.io.InputStream input = null;
 		try {
 			if ((keterangan == null || keterangan.trim().isEmpty() || keterangan.trim().equalsIgnoreCase("link"))
 					&& link != null && link.toLowerCase().startsWith("http")) {
+				String linkKecil = link.toLowerCase();
+				// URL berbagi cloud memang lazim menolak request server (403/404) dan judulnya
+				// tidak dibutuhkan untuk menyimpan materi. Jangan lakukan I/O jaringan dari getter
+				// entity yang juga dipanggil Hibernate/serialisasi JSON.
+				if (linkKecil.indexOf("drive.google.com/") >= 0) {
+					keterangan = "Google Drive";
+					return keterangan;
+				}
+				if (linkKecil.indexOf("onedrive.live.com/") >= 0 || linkKecil.indexOf("1drv.ms/") >= 0) {
+					keterangan = "OneDrive";
+					return keterangan;
+				}
 				java.net.URLConnection conn = new URL(link).openConnection();
 				conn.setConnectTimeout(3000);
 				conn.setReadTimeout(3000);
@@ -190,7 +203,8 @@ public class PertemuanFileContent extends FileFotoLain {
 				if (contentType == null || contentType.toLowerCase().startsWith("text/")
 						|| contentType.toLowerCase().indexOf("xml") >= 0
 						|| contentType.toLowerCase().indexOf("html") >= 0) {
-					Document doc = Jsoup.parse(conn.getInputStream(), "UTF-8", link);
+					input = conn.getInputStream();
+					Document doc = Jsoup.parse(input, "UTF-8", link);
 					keterangan = doc.select("title").text();
 				} else {
 					keterangan = namaFileDariLink(link);
@@ -198,7 +212,15 @@ public class PertemuanFileContent extends FileFotoLain {
 			}
 		} catch (Exception e) {
 			keterangan = "Link materi";
-			ais.common.ErrorAuditUtil.record(e, "auto-audit(link-metadata-dilewati) src/ais/database/model/file/PertemuanFileContent.java:191");
+			// Metadata tautan bersifat opsional. Tautan tetap disimpan/dapat dibuka walau
+			// host menolak bot, sedang offline, atau melewati batas waktu.
+		} finally {
+			if (input != null) {
+				try {
+					input.close();
+				} catch (Exception ignored) {
+				}
+			}
 		}
 		return keterangan == null ? "" : keterangan.trim();
 	}

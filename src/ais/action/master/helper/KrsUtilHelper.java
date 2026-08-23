@@ -32,6 +32,23 @@ public class KrsUtilHelper {
 		}
 
 		Perkuliahan perkuliahan = detailperkuliahan.getPerkuliahan();
+		if (perkuliahan != null) {
+			if (perkuliahan.getId() == null) {
+				throw new IllegalArgumentException("Perkuliahan pada detail KRS belum tersimpan");
+			}
+			/*
+			 * Daftar kelas dapat tetap terbuka ketika baris perkuliahan sudah dihapus oleh
+			 * operator lain. Jangan meneruskan object/proxy basi ke INSERT karena hasilnya
+			 * FK violation dan seluruh transaksi menjadi aborted. Muat ulang pada transaksi
+			 * yang sama; bila sudah tidak ada, anggap pilihan tidak lagi tersedia.
+			 */
+			Perkuliahan perkuliahanAktif = (Perkuliahan) session.get(Perkuliahan.class, perkuliahan.getId());
+			if (perkuliahanAktif == null) {
+				return false;
+			}
+			perkuliahan = perkuliahanAktif;
+			detailperkuliahan.setPerkuliahan(perkuliahanAktif);
+		}
 		Matakuliah matakuliah = perkuliahan == null ? detailperkuliahan.getMatakuliahKonversi()
 				: perkuliahan.getMatakuliah();
 		if (matakuliah == null || matakuliah.getId() == null) {

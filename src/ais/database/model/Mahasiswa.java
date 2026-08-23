@@ -4192,18 +4192,26 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		Integer smtSaatIni = this.currentSemester();
 		Integer sksTotal = 0;
 
-		for (Long detailperkuliahanid : saringBerdasarNilai(detailperkuliahans)) {
+		Collection<Long> detailTersaring = saringBerdasarNilai(detailperkuliahans);
+		if (detailTersaring == null) {
+			detailTersaring = new ArrayList<Long>();
+		}
+		for (Long detailperkuliahanid : detailTersaring) {
+			if (detailperkuliahanid == null) {
+				continue;
+			}
 			Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 					.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
 			if (detailperkuliahan != null) {
 
 				if (!semua && smtSaatIni != null && smtSaatIni.equals(detailperkuliahan.getSemester())
 						&& nilai_belum_verifikasi_tidak_masuk_dalam_perhitungan_ipk
-						&& detailperkuliahan.getVerify().equals(Detailperkuliahan.NOT_VERIFIED)) {
+						&& Detailperkuliahan.NOT_VERIFIED.equals(detailperkuliahan.getVerify())) {
 					continue;
 				}
 
-				if (semua || (detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)
+				if (semua || (Detailperkuliahan.DISETUJUI.equals(detailperkuliahan.getPersetujuan())
+						&& detailperkuliahan.getNilaiHuruf() != null
 						&& !detailperkuliahan.getNilaiHuruf().equalsIgnoreCase(nilaiHurufTidakMasukPerhitungan))) {
 
 					if (bukanKonversi == null || (bukanKonversi && detailperkuliahan.getMatakuliahKonversi() == null)

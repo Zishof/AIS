@@ -316,9 +316,9 @@ public class DashboardRekapPengambilanKRSPerSmt extends MyWindow {
 				List<String> tahunAkademiks = session.createCriteria(Perkuliahan.class)
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 						.setProjection(Projections.groupProperty("tahunAjaran"))
-						.add(Restrictions.sqlRestriction("to_number(split_part(tahun_ajaran,'/',1),'9999')<="
+						.add(Restrictions.sqlRestriction("case when trim(split_part(tahun_ajaran,'/',1)) ~ '^[0-9]{4}$' then cast(trim(split_part(tahun_ajaran,'/',1)) as integer) end<="
 								+ ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR)))
-						.add(Restrictions.sqlRestriction("to_number(split_part(tahun_ajaran,'/',1),'9999')>="
+						.add(Restrictions.sqlRestriction("case when trim(split_part(tahun_ajaran,'/',1)) ~ '^[0-9]{4}$' then cast(trim(split_part(tahun_ajaran,'/',1)) as integer) end>="
 								+ (ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR) - 7)))
 						.add(Restrictions.isNotNull("tahunAjaran")).addOrder(Order.asc("tahunAjaran")).list();
 				List<Object[]> jurusans = new ArrayList<Object[]>();

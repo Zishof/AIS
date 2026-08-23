@@ -305,10 +305,12 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 					public void onEvent(Event event) throws Exception {
 						addWindow.detach();
 
+						final ais.common.LaporanUpload laporan = new ais.common.LaporanUpload("Sinkronisasi Kelas dengan KRS");
 						final Label label = Common.displayLoadBar(new EventListener() {
 
 							@Override
 							public void onEvent(Event arg0) throws Exception {
+								laporan.selesaikan(null);
 								onSearchDefault(arg0);
 							}
 						});
@@ -317,7 +319,6 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 						// Laporan rinci per kelas (berhasil/gagal+penyebab teknis lengkap) - dulu
 						// hasil tiap kelas hanya dicatat ke tampilErrorJikaAdmin internal, tanpa
 						// popup akhir sama sekali.
-						final ais.common.LaporanUpload laporan = new ais.common.LaporanUpload("Sinkronisasi Kelas dengan KRS");
 						final java.util.concurrent.atomic.AtomicInteger nomorBarisLaporan = new java.util.concurrent.atomic.AtomicInteger(0);
 						new Thread(new Runnable() {
 
@@ -386,8 +387,7 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 								}
 								HibernateUtil.closeSession();
 								label.setValue("");
-								laporan.selesaikan(null);
-															} finally {
+													} finally {
 									ais.database.hibernate.HibernateUtil.closeSession();
 								}
 							}

@@ -1277,6 +1277,20 @@ public class CommonPMB {
 			throw new IllegalArgumentException("NIM PMB tidak valid: " + nim
 					+ ". Generate ulang NIM diperlukan karena NIM masih mengandung placeholder '-' atau '_'.");
 		}
+		Mahasiswa pemilikNim = (Mahasiswa) ConstantValues.simpleObject(
+				session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nimKey", nim.trim())).setMaxResults(1),
+				Mahasiswa.class);
+		if (pemilikNim != null && (mahasiswa == null || mahasiswa.getId() == null
+				|| !pemilikNim.getId().equals(mahasiswa.getId()))) {
+			Long biodataPemilik = pemilikNim.getBiodataCalonMahasiswa();
+			if (calonMahasiswa.getId() != null && calonMahasiswa.getId().equals(biodataPemilik)) {
+				// Request paralel untuk calon yang sama: gunakan baris yang sudah lebih dulu dibuat.
+				mahasiswa = pemilikNim;
+			} else {
+				throw new IllegalArgumentException("NIM " + nim
+						+ " sudah digunakan mahasiswa lain. Generate ulang NIM untuk calon mahasiswa ini.");
+			}
+		}
 		if (mahasiswa == null) {
 			mahasiswa = new Mahasiswa();
 			mahasiswa.setPass(Common.desEncrypter.get().encrypt(nim));

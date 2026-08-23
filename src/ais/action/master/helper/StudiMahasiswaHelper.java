@@ -848,7 +848,15 @@ public class StudiMahasiswaHelper implements DataLoader {
 			checkbox.setChecked(false);
 		} else {
 			Session session = HibernateUtil.currentSession();
+			if (seledtedDetailperkuliahan == null || seledtedDetailperkuliahan.getId() == null) {
+				checkbox.setChecked(false);
+				return;
+			}
 			seledtedDetailperkuliahan = (Detailperkuliahan) session.createCriteria(Detailperkuliahan.class).add(Restrictions.idEq(seledtedDetailperkuliahan.getId())).uniqueResult();
+			if (seledtedDetailperkuliahan == null) {
+				checkbox.setChecked(false);
+				return;
+			}
 			seledtedDetailperkuliahan.setPersetujuan(checkbox.isChecked() ? Detailperkuliahan.DISETUJUI : Detailperkuliahan.BELUM_DISETUJUI);
 			Common.refreshUpdate(session, seledtedDetailperkuliahan);
 

@@ -616,8 +616,8 @@ public class FeederExporter {
 				if (!errorLogAk.isEmpty() || idAkt == null) {
 					JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 							jsonObject, errorLog, kelompokPkl);
-					if (!hasil.isNull("data")) {
-						JSONObject data = hasil.getJSONObject("data");
+					JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+					if (data != null) {
 						if (!data.isNull("id_aktivitas")) {
 							idAkt = data.getString("id_aktivitas");
 							id_akt_mhss.add(idAkt);
@@ -765,8 +765,8 @@ public class FeederExporter {
 				if (!errorLogAk.isEmpty() || idAkt == null) {
 					JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 							jsonObject, errorLog, kelompokKkn);
-					if (!hasil.isNull("data")) {
-						JSONObject data = hasil.getJSONObject("data");
+					JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+					if (data != null) {
 						if (!data.isNull("id_aktivitas")) {
 							idAkt = data.getString("id_aktivitas");
 							id_akt_mhss.add(idAkt);
@@ -911,8 +911,8 @@ public class FeederExporter {
 				if (!errorLogAk.isEmpty() || idAkt == null) {
 					JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 							jsonObject, errorLog, formulirKegiatan);
-					if (!hasil.isNull("data")) {
-						JSONObject data = hasil.getJSONObject("data");
+					JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+					if (data != null) {
 						if (!data.isNull("id_aktivitas")) {
 							idAkt = data.getString("id_aktivitas");
 							id_akt_mhss.add(idAkt);
@@ -1057,8 +1057,8 @@ public class FeederExporter {
 			if (!errorLogAk.isEmpty() || idAkt == null) {
 				JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 						jsonObject, errorLog, penghargaanMahasiswa);
-				if (!hasil.isNull("data")) {
-					JSONObject data = hasil.getJSONObject("data");
+				JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+				if (data != null) {
 					if (!data.isNull("id_aktivitas")) {
 						idAkt = data.getString("id_aktivitas");
 						id_akt_mhss.add(idAkt);
@@ -1155,8 +1155,8 @@ public class FeederExporter {
 			if (!errorLogAk.isEmpty() || idAkt == null) {
 				JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 						jsonObject, errorLog, prestasiMahasiswa);
-				if (!hasil.isNull("data")) {
-					JSONObject data = hasil.getJSONObject("data");
+				JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+				if (data != null) {
 					if (!data.isNull("id_aktivitas")) {
 						idAkt = data.getString("id_aktivitas");
 						id_akt_mhss.add(idAkt);
@@ -1225,8 +1225,8 @@ public class FeederExporter {
 			if (!errorLogAk.isEmpty() || idAkt == null) {
 				JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertPrestasiMahasiswa",
 						jsonObject, errorLog, prestasiMahasiswa);
-				if (!hasil.isNull("data")) {
-					JSONObject data = hasil.getJSONObject("data");
+				JSONObject data = ambilDataObject(hasil, errorLog, "InsertPrestasiMahasiswa");
+				if (data != null) {
 					if (!data.isNull("id_prestasi")) {
 						String id_prestasi = data.getString("id_prestasi");
 						session.getTransaction().begin();
@@ -1306,8 +1306,8 @@ public class FeederExporter {
 				if (!errorLogAk.isEmpty() || idAkt == null) {
 					JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 							jsonObject, errorLog, kegiatanKemahasiswaan);
-					if (!hasil.isNull("data")) {
-						JSONObject data = hasil.getJSONObject("data");
+					JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+					if (data != null) {
 						if (!data.isNull("id_aktivitas")) {
 							idAkt = data.getString("id_aktivitas");
 							id_akt_mhss.add(idAkt);
@@ -1457,8 +1457,8 @@ public class FeederExporter {
 			} else {
 				JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 						jsonObject, errorLog, skripsi);
-				if (!hasil.isNull("data")) {
-					JSONObject data = hasil.getJSONObject("data");
+				JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+				if (data != null) {
 					if (!data.isNull("id_aktivitas")) {
 						String id_aktivitas = data.getString("id_aktivitas");
 						session.getTransaction().begin();
@@ -1661,8 +1661,8 @@ public class FeederExporter {
 			} else {
 				JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 						jsonObject, errorLog, mahasiswaRequestTugasAkhir);
-				if (!hasil.isNull("data")) {
-					JSONObject data = hasil.getJSONObject("data");
+				JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+				if (data != null) {
 					if (!data.isNull("id_aktivitas")) {
 						String id_aktivitas = data.getString("id_aktivitas");
 						session.getTransaction().begin();
@@ -1850,8 +1850,8 @@ public class FeederExporter {
 				if (!errorLogAk.isEmpty() || krsMahasiswa.getFeeder() == null) {
 					JSONObject hasil = feederConnector.insertOrUpdateRecordBaru(token, null, "InsertAktivitasMahasiswa",
 							jsonObject, errorLog, krsMahasiswa);
-					if (!hasil.isNull("data")) {
-						JSONObject data = hasil.getJSONObject("data");
+					JSONObject data = ambilDataObject(hasil, errorLog, "InsertAktivitasMahasiswa");
+					if (data != null) {
 						if (!data.isNull("id_aktivitas")) {
 							String id_aktivitas = data.getString("id_aktivitas");
 							session.getTransaction().begin();

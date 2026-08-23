@@ -109,6 +109,9 @@ public class DesEncrypter {
 	 * @return decrypted string on success
 	 */
 	public String decrypt(String str) {
+		if (str == null || str.trim().length() == 0 || dcipher == null) {
+			return "";
+		}
 		try {
 			// Decode base64 to get bytes
 			byte[] dec = Base64.decodeBase64(str.getBytes());

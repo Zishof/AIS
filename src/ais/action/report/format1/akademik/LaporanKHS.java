@@ -643,7 +643,8 @@ public class LaporanKHS extends MyWindow {
 			Double minimal = 0.1;
 			try {
 				minimal = Double.parseDouble(Common
-						.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai().trim());
+						.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai().trim()
+						.replace(',', '.'));
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanKHS.java:626");
 				PesanFormalHelper.tampilkanGagalException("pemrosesan Laporan KHS", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
 					new String[] {

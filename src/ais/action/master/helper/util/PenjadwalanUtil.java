@@ -2441,11 +2441,13 @@ public class PenjadwalanUtil {
 
 		if (perkuliahansParalel != null && !perkuliahansParalel.isEmpty()) {
 			for (Perkuliahan paralel : perkuliahansParalel) {
-				if (!paralel.getId().equals(perkuliahan.getId())) {
-					session.refresh(paralel);
-					paralel.setKelas(perkuliahan.getKelas());
-					paralel.setKelasref(perkuliahan.getKelasref());
-					Common.refreshUpdate(session, paralel);
+				if (paralel != null && paralel.getId() != null && !paralel.getId().equals(perkuliahan.getId())) {
+					Perkuliahan paralelAktif = (Perkuliahan) session.get(Perkuliahan.class, paralel.getId());
+					if (paralelAktif != null) {
+						paralelAktif.setKelas(perkuliahan.getKelas());
+						paralelAktif.setKelasref(perkuliahan.getKelasref());
+						Common.refreshUpdate(session, paralelAktif);
+					}
 				}
 			}
 		}

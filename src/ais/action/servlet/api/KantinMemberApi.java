@@ -139,6 +139,16 @@ public final class KantinMemberApi {
         try { return json.isNull(key) ? "" : (json.get(key) + "").trim(); } catch (Exception e) { return ""; }
     }
 
+    private static long safeLong(JSONObject json, String key, long def) {
+        try {
+            Object value = json == null || json.isNull(key) ? null : json.get(key);
+            if (value instanceof Number) return ((Number) value).longValue();
+            return value == null ? def : Long.parseLong(value.toString().trim());
+        } catch (Exception e) {
+            return def;
+        }
+    }
+
     // ── 1. INFO MEMBER ────────────────────────────────────────────────────────
     /**
      * Profil anggota + saldo + sisa cashback + flag konfigurasi.
@@ -191,7 +201,7 @@ public final class KantinMemberApi {
             balReq.put("id_member", anggota.getId().toString());
             JSONObject balRes = new JSONObject();
             KantinHelper.topup(balReq, balRes);
-            data.put("saldo", balRes.optLong("data", 0));
+            data.put("saldo", safeLong(balRes, "data", 0L));
 
             // Sisa cashback (total cashback dari pembelian - yang sudah dicairkan)
             @SuppressWarnings("unchecked")

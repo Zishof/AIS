@@ -206,6 +206,7 @@ public class RepositoryPublicService {
     public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
+		RepositoryTenantScope.ensureSchema();
         return HibernateUtil.currentNativeSession();
     }
 

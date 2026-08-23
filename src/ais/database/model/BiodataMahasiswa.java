@@ -1782,25 +1782,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 			Integer nomorUrut = 1;
 			try {
 				nomorUrut = value.length > 3 ? Integer.parseInt(value[3].trim()) : 1;
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/BiodataMahasiswa.java:1779");
+			} catch (Exception e) {
 
 			}
 			Long id = 1L;
 			try {
 				id = value.length > 4 ? Long.parseLong(value[4].trim()) : 1L;
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/BiodataMahasiswa.java:1785");
+			} catch (Exception e) {
 
 			}
 			Long idKel = 1L;
 			try {
 				idKel = value.length > 5 ? Long.parseLong(value[5].trim()) : 1L;
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/BiodataMahasiswa.java:1791");
+			} catch (Exception e) {
 
 			}
 			Long noIndex = 0L;
 			try {
 				noIndex = value.length > 6 ? Long.parseLong(value[6].trim()) : 0L;
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/BiodataMahasiswa.java:1797");
+			} catch (Exception e) {
 
 			}
 			commonVO.setId(id.toString());

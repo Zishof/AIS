@@ -2949,11 +2949,15 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 	private Set<Long> parseIdsToSet(String ids) {
 		Set<Long> longs = new HashSet<Long>();
 		if (ids != null && !ids.trim().isEmpty()) {
-			for (String s : ids.split(",")) {
+			// Beberapa data lama menyimpan pasangan id sebagai "formatId_detailId"
+			// (contoh 43_29462). Keduanya adalah id sah; terima pemisah lama tanpa
+			// NumberFormatException dan tanpa menghilangkan data rekap.
+			for (String s : ids.split("[,_;\\s]+")) {
 				if (!s.trim().isEmpty()) {
 					try {
 						longs.add(Long.parseLong(s.trim()));
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:2801");
+					} catch (NumberFormatException e) {
+						// Token nonnumerik bukan id dan aman dilewati.
 					}
 				}
 			}

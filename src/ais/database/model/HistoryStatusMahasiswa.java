@@ -391,16 +391,20 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 		}
 		boolean ada = false;
 		KelompokMahasiswa kelompokMahasiswa = mahasiswa.getKelompokMahasiswa();
-		if (kelompokMahasiswa != null) {
-			if (kelompokMahasiswa.getStatusAwalMahasiswa() != null && kelompokMahasiswa.getSmtMulai() <= semester
+		if (kelompokMahasiswa != null && semester != null) {
+			if (kelompokMahasiswa.getStatusAwalMahasiswa() != null
+					&& kelompokMahasiswa.getSmtMulai() != null && kelompokMahasiswa.getSmtSampai() != null
+					&& kelompokMahasiswa.getSmtMulai() <= semester
 					&& kelompokMahasiswa.getSmtSampai() >= semester) {
 				statusAwalMahasiswa = kelompokMahasiswa.getStatusAwalMahasiswa();
 				ada = true;
 			} else if (kelompokMahasiswa.getStatusAwalMahasiswa2() != null
+					&& kelompokMahasiswa.getSmtMulai2() != null && kelompokMahasiswa.getSmtSampai2() != null
 					&& kelompokMahasiswa.getSmtMulai2() <= semester && kelompokMahasiswa.getSmtSampai2() >= semester) {
 				statusAwalMahasiswa = kelompokMahasiswa.getStatusAwalMahasiswa2();
 				ada = true;
 			} else if (kelompokMahasiswa.getStatusAwalMahasiswa3() != null
+					&& kelompokMahasiswa.getSmtMulai3() != null && kelompokMahasiswa.getSmtSampai3() != null
 					&& kelompokMahasiswa.getSmtMulai3() <= semester && kelompokMahasiswa.getSmtSampai3() >= semester) {
 				statusAwalMahasiswa = kelompokMahasiswa.getStatusAwalMahasiswa3();
 				ada = true;

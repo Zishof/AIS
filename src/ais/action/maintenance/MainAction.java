@@ -332,12 +332,13 @@ public class MainAction extends GenericAutowireComposer {
 	}
 
 	private void closePopupQuietly(Popup popup) {
-		if (popup == null) {
+		if (popup == null || popup.getPage() == null || popup.getDesktop() == null) {
 			return;
 		}
 		try {
 			popup.close();
-		} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/maintenance/MainAction.java:338");
+		} catch (NullPointerException ignored) {
+			// Popup telah terlepas di antara pemeriksaan dan event AU; lifecycle normal ZK.
 		}
 	}
 

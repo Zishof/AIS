@@ -431,6 +431,13 @@ public class TagihanUIBuilder {
 											}
 										}
 									}
+									/* Parent session hanya dipakai untuk re-init di atas. Jangan tahan koneksi dan
+									 * transaksi selama seluruh child task berjalan karena gateway/query child dapat
+									 * lama dan koneksi parent keburu ditutup oleh pool sebelum commit akhir. */
+									if (isParentTransaction && parentSession.getTransaction().isActive()) {
+										parentSession.getTransaction().commit();
+										isParentTransaction = false;
+									}
 
 									int calcTotalTasks = 0;
 									for (JenisKegiatan jk : mapsJk.values()) {
@@ -1600,7 +1607,8 @@ public class TagihanUIBuilder {
 									detailKegiatansTempGlobal.clear();
 									cicilanPembayaransTemp.clear();
 
-									if (isParentTransaction) {
+									if (isParentTransaction && parentSession != null
+											&& parentSession.getTransaction().isActive()) {
 										parentSession.getTransaction().commit();
 									}
 

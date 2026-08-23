@@ -1366,7 +1366,7 @@ public class CommonReportHelper {
 			parameters.put("currentLang", calonMahasiswa.getBahasa());
 		}
 		parameters.put("info", konfigurasi.getNilai());
-		Session session = HibernateUtil.currentSession();
+		Session session = HibernateUtil.getSessionFactory().openSession();
 		UjianPMB ujianPMB;
 		try {
 			ujianPMB = (UjianPMB) session.createCriteria(RuangPaketPMB.class).createAlias("ruangPMB", "ruangPMB")
@@ -1393,6 +1393,12 @@ public class CommonReportHelper {
 						e);
 			}
 			throw e;
+		} finally {
+			if (session != null && session.isOpen()) {
+				try { session.clear(); } catch (Exception e) { }
+				try { session.disconnect(); } catch (Exception e) { }
+				try { session.close(); } catch (Exception e) { }
+			}
 		}
 		if (ujianPMB != null) {
 			parameters.put("tanggalujian1", ujianPMB.getTanggalUjian1());

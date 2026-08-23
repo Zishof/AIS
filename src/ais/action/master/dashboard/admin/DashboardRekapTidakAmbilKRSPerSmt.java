@@ -296,12 +296,12 @@ public class DashboardRekapTidakAmbilKRSPerSmt extends MyWindow {
 				List<String> tahunAkademiks = session.createCriteria(Perkuliahan.class)
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 						.setProjection(Projections.groupProperty("tahunAjaran"))
-						.add(Restrictions.sqlRestriction("to_number(split_part(tahun_ajaran,'/',1),'9999')<="
+						.add(Restrictions.sqlRestriction("case when trim(split_part(tahun_ajaran,'/',1)) ~ '^[0-9]{4}$' then cast(trim(split_part(tahun_ajaran,'/',1)) as integer) end<="
 								+ ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR)))
-						.add(Restrictions.sqlRestriction("to_number(split_part(tahun_ajaran,'/',1),'9999')>="
+						.add(Restrictions.sqlRestriction("case when trim(split_part(tahun_ajaran,'/',1)) ~ '^[0-9]{4}$' then cast(trim(split_part(tahun_ajaran,'/',1)) as integer) end>="
 								+ (ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR) - 7)))
-						.add(Restrictions
-								.sqlRestriction("to_number(split_part(tahun_ajaran,'/',1),'9999')>=" + angkatan))
+						.add(angkatan == null ? Restrictions.sqlRestriction("1=1")
+								: Restrictions.sqlRestriction("case when trim(split_part(tahun_ajaran,'/',1)) ~ '^[0-9]{4}$' then cast(trim(split_part(tahun_ajaran,'/',1)) as integer) end>=" + angkatan))
 						.add(Restrictions.isNotNull("tahunAjaran")).addOrder(Order.asc("tahunAjaran")).list();
 
 				StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatus.getSelectedItem() == null

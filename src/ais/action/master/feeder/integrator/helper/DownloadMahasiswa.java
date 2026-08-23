@@ -580,8 +580,6 @@ public class DownloadMahasiswa extends MyWindow {
 
 				System.out.println("Your excel file has been generated! " );
 
-				HibernateUtil.closeSession();
-
 				mahasiswas.clear();
 				label.setValue("");
 							} catch (Exception e) {
@@ -598,6 +596,7 @@ public class DownloadMahasiswa extends MyWindow {
 												"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
 										.replace("\n", " "));
 							} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}

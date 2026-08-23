@@ -495,14 +495,14 @@ public class InitDataHelper {
 				session.getTransaction().commit();
 			}
 
-			try {
-				ConstantValues.pembayaranSemesterGanjilMulaiDiBulan = Integer.parseInt(
-						Common.getKonfigurasi("pembayaran_semester_ganjil_mulai_di_bulan", "9").getNilai().trim());
-				ConstantValues.pembayaranSemesterGenapMulaiDiBulan = Integer.parseInt(
-						Common.getKonfigurasi("pembayaran_semester_genap_mulai_di_bulan", "3").getNilai().trim());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:503");
-
-			}
+			String bulanGanjil = Common.getKonfigurasi("pembayaran_semester_ganjil_mulai_di_bulan", "9")
+					.getNilai();
+			String bulanGenap = Common.getKonfigurasi("pembayaran_semester_genap_mulai_di_bulan", "3")
+					.getNilai();
+			ConstantValues.pembayaranSemesterGanjilMulaiDiBulan = Common.isNumber(bulanGanjil == null ? "" : bulanGanjil.trim())
+					? Integer.parseInt(bulanGanjil.trim()) : 9;
+			ConstantValues.pembayaranSemesterGenapMulaiDiBulan = Common.isNumber(bulanGenap == null ? "" : bulanGenap.trim())
+					? Integer.parseInt(bulanGenap.trim()) : 3;
 
 			ConstantValues.aktifkanTahapanKurikulum = Common.bolehKonfigurasi("aktifkan_tahapan_kurikulum_dalam_satu_tahun_akademik", Konfigurasi.TIDAK_AKTIF);
 

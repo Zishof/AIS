@@ -10,6 +10,7 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
+import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
@@ -25,7 +26,6 @@ import org.zkoss.zul.Row;
 
 import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.Space;
-import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
@@ -258,7 +258,7 @@ public class DataPunyaItemHelper implements DataLoader {
 
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
-			final Tabpanel component) {
+			final Component component) {
 		this.skripsi = skripsi;
 		this.kelompokKkn = kelompokKkn;
 		this.kelompokPkl = kelompokPkl;

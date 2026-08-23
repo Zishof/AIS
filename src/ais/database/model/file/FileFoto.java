@@ -671,7 +671,9 @@ public abstract class FileFoto extends GeneralValueObject {
 			String id = String.valueOf(baris.getId());
 			String folderKanonik = (root + "/" + baris.namaKelasBerkas() + "/" + id + "/").replace("//", "/");
 			String folderLama = (root + "/" + id + "/").replace("//", "/");
-			return path.startsWith(folderKanonik) || path.startsWith(folderLama);
+			String segmenKanonik = "/" + baris.namaKelasBerkas() + "/" + id + "/";
+			return path.startsWith(folderKanonik) || path.startsWith(folderLama)
+					|| path.indexOf(segmenKanonik) >= 0;
 		} catch (Exception e) {
 			return false;
 		}

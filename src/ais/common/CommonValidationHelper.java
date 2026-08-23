@@ -546,7 +546,6 @@ public class CommonValidationHelper extends Common {
 					}
 				}
 			} catch (Exception ex) {
-				ex.printStackTrace(); ais.common.ErrorAuditUtil.record(ex, "auto-audit src/ais/common/CommonValidationHelper.java:515");
 				result = false;
 			}
 		} else {

@@ -1402,29 +1402,18 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 											Session session = null;
 											try {
 												session = HibernateUtil.openSession();
-												Transaction tx = session.beginTransaction();
+											Transaction tx = session.beginTransaction();
 												KegiatanHelper.checkKegiatanMahasiswa(kegiatan,
 														kegiatan.getJenisKegiatan(), mahasiswa, kegiatan.getSemster(),
 														kegiatan.getTahunAkademik(), true,
 														kegiatan.getJadwalPembayaran(), true, false, null, session);
+											if (tx != null && tx.isActive() && !tx.wasCommitted() && !tx.wasRolledBack()) {
 												tx.commit();
+											}
 											} catch (Exception e) {
 												ais.common.Common.tampilErrorJikaAdmin(e);
 											} finally {
-												if (session != null && session.isOpen()) {
-													try {
-														session.clear();
-													} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/DaftarUlangMahasiswaLamaAction.java:1438");
-													}
-													try {
-														session.disconnect();
-													} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/DaftarUlangMahasiswaLamaAction.java:1442");
-													}
-													try {
-														session.close();
-													} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/DaftarUlangMahasiswaLamaAction.java:1446");
-													}
-												}
+											ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
 											}
 											refresh = true;
 											onCariMahasiswa(arg0);

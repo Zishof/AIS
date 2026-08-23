@@ -58,6 +58,9 @@ public class KrsDetailHelper {
 
 		try {
 			List<Long> detailperkuliahansTemp = mahasiswa.ambilDetailperkuliahan();
+			if (detailperkuliahansTemp == null) {
+				return detailperkuliahans;
+			}
 
 			for (Long detailperkuliahanid : detailperkuliahansTemp) {
 				Detailperkuliahan detail = (Detailperkuliahan) GeneralValueObject.ambilData(Detailperkuliahan.class,
@@ -329,6 +332,9 @@ public class KrsDetailHelper {
 
 		try {
 			Collection<Long> detailperkuliahansTemp = mahasiswa.ambilDetailperkuliahan();
+			if (detailperkuliahansTemp == null) {
+				return detailperkuliahans;
+			}
 
 			for (Long detailperkuliahanid : detailperkuliahansTemp) {
 				Detailperkuliahan detail = (Detailperkuliahan) GeneralValueObject.ambilData(Detailperkuliahan.class,

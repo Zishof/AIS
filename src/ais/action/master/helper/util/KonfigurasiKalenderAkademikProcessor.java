@@ -299,8 +299,16 @@ public class KonfigurasiKalenderAkademikProcessor extends TimerTask {
 		} catch (Exception e) {
 			rollbackQuietly(transaction);
 			clearSessionQuietly(session);
-			// Constraint bukan kontensi sementara. Mengulang transaksi rusak dengan entity
-			// yang sama justru mengulang INSERT; laporkan sekali dengan penyebab asli.
+			if (isConstraintViolation(e) && percobaanKe < MAKS_PERCOBAAN_KONFLIK) {
+				try {
+					Thread.sleep(50L * percobaanKe);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+				applyOneChangeWithRetry(session, change, fase, percobaanKe + 1);
+				return;
+			}
+			// Setelah batas retry, laporkan sekali dengan penyebab asli.
 			Common.tampilErrorJikaAdmin(new Exception("Gagal update konfigurasi kalender akademik fase " + fase
 					+ " untuk konfigurasi_id=" + (change == null ? null : change.konfigurasiId) + " setelah "
 					+ percobaanKe + " percobaan", e));

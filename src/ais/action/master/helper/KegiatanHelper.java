@@ -520,8 +520,10 @@ public class KegiatanHelper {
 				tx.rollback();
 			}
 		} catch (Exception ex) {
-			ais.common.ErrorAuditUtil.record(ex,
-					"KegiatanHelper.pulihkanTransaksiTerabort: gagal rollback transaksi ter-abort milik pemanggil");
+			if (!ais.common.Common.isTransientKoneksiError(ex)) {
+				ais.common.ErrorAuditUtil.record(ex,
+						"KegiatanHelper.pulihkanTransaksiTerabort: gagal rollback transaksi ter-abort milik pemanggil");
+			}
 		}
 		try {
 			if (isUsableSession(session)) {
@@ -539,8 +541,10 @@ public class KegiatanHelper {
 				}
 			}
 		} catch (Exception ex) {
-			ais.common.ErrorAuditUtil.record(ex,
-					"KegiatanHelper.pulihkanTransaksiTerabort: gagal membuka transaksi baru di sesi pemanggil");
+			if (!ais.common.Common.isTransientKoneksiError(ex)) {
+				ais.common.ErrorAuditUtil.record(ex,
+						"KegiatanHelper.pulihkanTransaksiTerabort: gagal membuka transaksi baru di sesi pemanggil");
+			}
 		}
 	}
 

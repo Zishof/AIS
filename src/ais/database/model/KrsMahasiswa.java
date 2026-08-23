@@ -430,19 +430,24 @@ public class KrsMahasiswa extends VOPembelajaran implements VOPesertaPembelajara
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pa", nullable = true)
 	public Dosen getDosenPa() {
-		mahasiswa = getMahasiswa();
+		try {
+			mahasiswa = getMahasiswa();
+		} catch (Exception e) {
+			mahasiswa = null;
+		}
+		boolean mahasiswaSiap = mahasiswa != null && org.hibernate.Hibernate.isInitialized(mahasiswa);
 		try {
 			// FIX NPE: mahasiswa bisa null (relasi belum diisi) -- sebelumnya sudah dipakai di
 			// baris ini (getSemesterLulus()) sebelum dicek null di kondisi if di bawah.
 			Integer jumlah_semester = null;
-			if (mahasiswa != null) {
+			if (mahasiswaSiap) {
 				jumlah_semester = mahasiswa.getSemesterLulus();
 				if (jumlah_semester == null && mahasiswa.getJurusan() != null
 						&& mahasiswa.getJurusan().getJenjang() != null) {
 					jumlah_semester = mahasiswa.getJurusan().getJenjang().getJumlahSemester();
 				}
 			}
-			if (mahasiswa != null && mahasiswa.getStatusKeluar() != null && jumlah_semester != null
+			if (mahasiswaSiap && mahasiswa.getStatusKeluar() != null && jumlah_semester != null
 					&& jumlah_semester < semester) {
 				dosenPa = null;
 				put("", "dosen");
@@ -452,20 +457,20 @@ public class KrsMahasiswa extends VOPembelajaran implements VOPesertaPembelajara
 					dosenPa = (Dosen) ConstantValues.ambil(Dosen.class.getName(), Long.parseLong(s.trim()));
 				}
 
-				if (dosenPa == null && mahasiswa != null && mahasiswa.getDosen() != null) {
+				if (dosenPa == null && mahasiswaSiap && mahasiswa.getDosen() != null) {
 					dosenPa = (Dosen) ConstantValues.ambil(Dosen.class.getName(), mahasiswa.getDosen());
 					if (dosenPa != null) {
 						put(dosenPa.getId().toString(), "dosen");
 					}
 				}
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/KrsMahasiswa.java:454");
+		} catch (Exception e) {
 //			e.printStackTrace();
 		}
 
 		dosenPa = check(dosenPa);
 
-		if (mahasiswa != null && Boolean.TRUE.equals(mahasiswa.getDosenPaSelaluSama())) {
+		if (mahasiswaSiap && Boolean.TRUE.equals(mahasiswa.getDosenPaSelaluSama())) {
 			dosenPa = (Dosen) ConstantValues.ambil(Dosen.class.getName(), mahasiswa.getDosen());
 			if (dosenPa != null) {
 				put(dosenPa.getId().toString(), "dosen");

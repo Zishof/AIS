@@ -151,6 +151,20 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 	protected Combobox searchfakultas;
 	protected Combobox searchjurusan;
 	protected Decimalbox searchtahun;
+
+	private Integer ambilTahunPencarian() {
+		Object raw = searchtahun == null ? null : searchtahun.getRawValue();
+		if (raw instanceof Number) {
+			return Integer.valueOf(((Number) raw).intValue());
+		}
+		try {
+			String nilai = raw == null ? "" : raw.toString().trim();
+			return nilai.length() == 0 ? null : Integer.valueOf(nilai);
+		} catch (Exception e) {
+			// Nilai sementara seperti "...." bukan filter tahun yang valid; abaikan filter.
+			return null;
+		}
+	}
 	protected Combobox searchstatus;
 	protected Combobox searchprogram;
 	protected Combobox searchStatusAwalMahasiswa;
@@ -1547,8 +1561,8 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 									? Restrictions.sqlRestriction("1=1")
 									: Restrictions.eq("statusAwalMahasiswa",
 											searchStatusAwalMahasiswa.getSelectedItem().getValue()))
-					.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("1=1")
-							: Restrictions.eq("tahunangkatan", searchtahun.getValue().intValue()))
+					.add(ambilTahunPencarian() == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.eq("tahunangkatan", ambilTahunPencarian()))
 
 					.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
 
@@ -2204,9 +2218,9 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 																		: Restrictions.eq("statusAwalMahasiswa",
 																				searchStatusAwalMahasiswa
 																						.getSelectedItem().getValue()))
-												.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("1=1")
+												.add(ambilTahunPencarian() == null ? Restrictions.sqlRestriction("1=1")
 														: Restrictions.eq("tahunangkatan",
-																searchtahun.getValue().intValue()))
+																ambilTahunPencarian()))
 
 												.createCriteria("jurusan", Criteria.LEFT_JOIN)
 

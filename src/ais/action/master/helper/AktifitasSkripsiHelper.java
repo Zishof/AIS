@@ -371,12 +371,10 @@ public class AktifitasSkripsiHelper {
 					gridref.setParent(Common.tampilanScroll(tabpanelReferensiDiajukan));
 
 					Div panelReferensiBuku = tabboxReferensi.tambahTab(2, "Ref. Buku");
-					Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
-					setPanelDetailTinggi(tabpanelReferensi);
-					tabpanelReferensi.setParent(panelReferensiBuku);
+					setPanelDetailTinggi(panelReferensiBuku);
 
 					DataPunyaItemHelper dataPunyaItemHelper = new DataPunyaItemHelper();
-					dataPunyaItemHelper.display(skripsi, null, null, null, null, tabpanelReferensi);
+					dataPunyaItemHelper.display(skripsi, null, null, null, null, panelReferensiBuku);
 
 					final Div tabpanelBukuAjar = tabboxReferensi.tambahTabLazy(3, "Ref. Bahan Ajar",
 							new MyButtonTabbox.PemuatTab() {

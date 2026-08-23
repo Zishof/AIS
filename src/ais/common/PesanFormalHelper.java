@@ -236,9 +236,12 @@ public final class PesanFormalHelper {
      *
      * @return {@code true} bila perintah berhasil dikirim ke klien
      */
-    private static boolean tampilkanDialogWebLaporan(String aktivitas, String pesan, Throwable exception,
-            String[] langkahSolusi, String kode) {
-        try {
+	private static boolean tampilkanDialogWebLaporan(String aktivitas, String pesan, Throwable exception,
+			String[] langkahSolusi, String kode) {
+		try {
+			if (org.zkoss.zk.ui.Executions.getCurrent() == null) {
+				return false;
+			}
             org.json.JSONObject data = new org.json.JSONObject();
             data.put("judul", "Laporan belum siap ditampilkan");
             data.put("message", pesan);

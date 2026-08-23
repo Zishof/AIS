@@ -258,8 +258,10 @@ public class HibernateUtil {
         }
         try {
             sf.close();
-        } catch (Throwable ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:248");
+        } catch (Throwable ignored) {
             // Sudah tertutup / versi beda: abaikan agar shutdown tidak gagal.
+            // Pada undeploy Tomcat classloader dapat lebih dahulu melepas JAR listener;
+            // kondisi tersebut normal dan tidak boleh dicatat sebagai error aplikasi.
         }
     }
 

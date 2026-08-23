@@ -195,8 +195,9 @@ public class StreamingHibernateUtil {
 			if (sf != null) {
 				sf.close();
 			}
-		} catch (Throwable ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/database/hibernate/StreamingHibernateUtil.java:187");
+		} catch (Throwable ignored) {
 			// Sudah tertutup / versi beda: abaikan agar shutdown tidak gagal.
+			// Classloader Tomcat mungkin sudah melepas JAR listener saat undeploy.
 		}
 	}
 }

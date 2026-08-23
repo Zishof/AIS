@@ -159,6 +159,7 @@ import de.undercouch.citeproc.csl.CSLType;
 import ais.action.master.helper.FilterLanjutHelper;
 
 public class ItemAction extends GenericAutowireComposer implements DataCriteria {
+	private static volatile boolean kolomTeksItemSudahDiperiksa;
 
 	// ============================================================================
 	// TAB PENERBITAN KATALOG PUBLIK
@@ -3267,6 +3268,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 		}
 
 		Session session = HibernateUtil.currentSession();
+		pastikanKolomTeksItemTidakTerpotong(session);
 		if (item.getId() != null) {
 			item = (Item) session.load(Item.class, item.getId());
 
@@ -3741,6 +3743,41 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 			}
 		}
 		return criteria;
+	}
+
+	/**
+	 * Hibernate hbm2ddl versi lama dapat menambah kolom tetapi tidak mengubah varchar(255)
+	 * instalasi lama menjadi TEXT sesuai anotasi entity terbaru. Akibatnya judul/abstrak/link
+	 * yang sah gagal disimpan dengan DataException. Migrasi ini idempoten dan hanya menyentuh
+	 * kolom yang di model memang dideklarasikan sebagai TEXT.
+	 */
+	@SuppressWarnings("rawtypes")
+	private static void pastikanKolomTeksItemTidakTerpotong(Session session) {
+		if (kolomTeksItemSudahDiperiksa || session == null) {
+			return;
+		}
+		synchronized (ItemAction.class) {
+			if (kolomTeksItemSudahDiperiksa) {
+				return;
+			}
+			String[] kolomTeks = new String[] { "nama", "keterangan", "link", "penaklikan", "catatan",
+					"abstrak", "kewords", "abstract_en", "kewords_en", "tema_", "kategories", "image_url",
+					"tempatterbit", "by_statement", "scan_links", "kode__unik_buku", "info_lain",
+					"text_snippet", "info_open_library", "item_url", "record_url", "classifications",
+					"subjects", "ebooks", "ebooks_link", "ebooks_link_pdf" };
+			for (int i = 0; i < kolomTeks.length; i++) {
+				List hasil = session.createSQLQuery("select count(*) from information_schema.columns "
+						+ "where table_schema='library' and table_name='item' and column_name=:kolom "
+						+ "and data_type='character varying'").setString("kolom", kolomTeks[i]).list();
+				Number jumlah = hasil == null || hasil.isEmpty() ? null : (Number) hasil.get(0);
+				if (jumlah != null && jumlah.longValue() > 0L) {
+					// Nama kolom berasal dari whitelist konstan di atas, bukan input pengguna.
+					session.createSQLQuery("alter table library.item alter column " + kolomTeks[i] + " type text")
+							.executeUpdate();
+				}
+			}
+			kolomTeksItemSudahDiperiksa = true;
+		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

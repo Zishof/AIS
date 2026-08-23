@@ -1473,6 +1473,18 @@ public class Report extends GenericAutowireComposer {
 				throw new Exception("Gagal memuat kelas hasil kompilasi Jasper untuk " + fileJasper
 						+ " walau sudah dicoba ulang (kemungkinan tabrakan kompilasi bersamaan): " + cnfe2.getMessage(), cnfe2);
 			}
+		} catch (Exception fillError) {
+			/*
+			 * Gambar pada sebagian template berupa URL AmbilLampiran internal. Jasper membuka
+			 * URL itu sebagai request server baru tanpa cookie login, sehingga endpoint yang
+			 * benar mengembalikan 401/403 dan proses fill berhenti sebelum mekanisme pembersih
+			 * gambar pada tahap export sempat berjalan. Kosongkan hanya parameter gambar lalu
+			 * ulangi fill satu kali; isi laporan lainnya tetap diterbitkan.
+			 */
+			if (isImageFormatError(fillError) && kosongkanParameterGambarTidakValid(parameters)) {
+				return fillJasperReportSekali(fileJasper, parameters, maps);
+			}
+			throw fillError;
 		}
 	}
 
@@ -1703,7 +1715,14 @@ public class Report extends GenericAutowireComposer {
 	private static boolean isImageFormatError(Throwable e) {
 		while (e != null) {
 			String msg = e.getMessage();
-			if (msg != null && msg.toLowerCase().contains("imageformat")) return true;
+			if (msg != null) {
+				String lower = msg.toLowerCase();
+				if (lower.indexOf("imageformat") >= 0
+						|| lower.indexOf("error opening input stream from url") >= 0
+						|| lower.indexOf("error loading image") >= 0) {
+					return true;
+				}
+			}
 			e = e.getCause();
 		}
 		return false;

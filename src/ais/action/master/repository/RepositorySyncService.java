@@ -237,6 +237,7 @@ public class RepositorySyncService {
 
 	private static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
 			 ais.common.LaporanUpload laporan, boolean commitPerBatch) {
+		RepositoryTenantScope.ensureSchema();
 		boolean readOnlySebelumnya = false;
 		boolean readOnlyDiubah = false;
 		try {
