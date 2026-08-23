@@ -271,14 +271,22 @@ public final class SalesInventoryApiDispatcher {
 			if (userId == null || userId.trim().length() == 0) {
 				return null;
 			}
-			// JALUR CEPAT. Gerbang ini berjalan pada SETIAP request si_*, dan mayoritas
-			// pengguna tidak akan pernah punya tenant. Memuat entitas untuk menemukan daftar
-			// kosong berarti setiap transaksi kasir membayar kueri yang hasilnya selalu sama.
-			// Dua COUNT tanpa memuat entitas, dan yang kedua hanya bila yang pertama nihil.
-			if (!punyaTenant(session, userId)) {
-				return null; // pengguna non-tenant: jalur lama, tanpa perubahan
+			// ATURAN ROUTING: tbmuser.pendaftar == null -> SELALU schema existing.
+			//
+			// Medan itu memang sudah menjadi penentu lingkup di sistem lama: pengguna yang
+			// terikat pendaftar hanya melihat toko milik pendaftar itu, sedangkan yang null
+			// adalah "admin pusat" yang melihat seluruh toko.
+			//
+			// Justru karena itu ia TIDAK BOLEH masuk ke schema tenant. Membiarkan admin pusat
+			// membaca schema tenant sama dengan menjadikan null sebagai kunci lintas tenant --
+			// persis yang §24 butir 5 larang. Mengembalikannya ke jalur lama menutup celah itu
+			// sekaligus menjaga perilaku existing tidak berubah sedikit pun.
+			//
+			// Satu kueri, dan hasilnya menentukan seluruh sisanya.
+			Long pendaftarId = pendaftarDariTbmuser(session, userId);
+			if (pendaftarId == null) {
+				return null;
 			}
-			Long pendaftarId = pendaftarDari(session, userId);
 			Long diminta = ais.service.tenant.TenantContextResolver.selaraskanTenantId(
 					angka(request == null ? null
 							: request.getHeader(TenantApiDispatcher.HEADER_TENANT)),
@@ -303,13 +311,6 @@ public final class SalesInventoryApiDispatcher {
 	/** Kode modul entitlement untuk permukaan ini. */
 	private static final String MODUL_INVENTORY_SALES = "INVENTORY_SALES";
 
-	private static Long pendaftarDari(org.hibernate.Session session, String userId) {
-		org.hibernate.Query q = session.createQuery(
-				"SELECT p.id FROM Pendaftar p WHERE p.admin.userId = :uid ORDER BY p.id");
-		q.setParameter("uid", userId.trim());
-		q.setMaxResults(1);
-		return (Long) q.uniqueResult();
-	}
 
 	private static Long angka(String v) {
 		if (v == null || v.trim().length() == 0) {
@@ -322,27 +323,23 @@ public final class SalesInventoryApiDispatcher {
 		}
 	}
 	/**
-	 * Benar bila aktor punya sangkut paut dengan tenant mana pun — lewat keanggotaan aktif,
-	 * atau sebagai pemilik terdaftar (jalur kompatibilitas untuk tenant lama yang tabel
-	 * keanggotaannya belum terisi).
+	 * Id Pendaftar tempat pengguna ini bernaung, dari {@code tbmuser.pendaftar}.
 	 *
-	 * <p>Dua {@code COUNT} tanpa memuat entitas, dan yang kedua hanya dijalankan bila yang
-	 * pertama nihil. Pengguna yang memang punya keanggotaan cukup satu kueri.</p>
+	 * <p>Ditanyakan lewat kueri, <b>bukan</b> {@code tbmuser.getPendaftar()}. Relasinya LAZY
+	 * dan objek {@code Tbmuser} datang dari Session autentikasi yang sudah ditutup, sehingga
+	 * penelusuran malas di sini akan melempar {@code LazyInitializationException} — kadang,
+	 * tergantung apakah proxy-nya sempat terinisialisasi. Kegagalan yang muncul kadang-kadang
+	 * jauh lebih mahal daripada satu kueri.</p>
+	 *
+	 * <p>{@code null} berarti pengguna tidak bernaung pada pendaftar mana pun — admin pusat
+	 * atau akun legacy — dan jalurnya adalah schema existing.</p>
 	 */
-	private static boolean punyaTenant(org.hibernate.Session session, String userId) {
-		String uid = userId.trim();
-		org.hibernate.Query q = session.createQuery("SELECT COUNT(m.id) FROM TenantMembership m"
-				+ " WHERE m.status = :st AND (m.tbmuser.userId = :uid OR m.pendaftar.admin.userId = :uid)");
-		q.setParameter("st", ais.database.model.tenant.TenantMembership.STATUS_ACTIVE);
-		q.setParameter("uid", uid);
-		Number n = (Number) q.uniqueResult();
-		if (n != null && n.longValue() > 0) {
-			return true;
-		}
-		org.hibernate.Query qo = session.createQuery("SELECT COUNT(t.id) FROM TenantRegistry t"
-				+ " WHERE t.ownerPendaftar.admin.userId = :uid");
-		qo.setParameter("uid", uid);
-		Number no = (Number) qo.uniqueResult();
-		return no != null && no.longValue() > 0;
+	private static Long pendaftarDariTbmuser(org.hibernate.Session session, String userId) {
+		org.hibernate.Query q = session.createQuery(
+				"SELECT u.pendaftar.id FROM Tbmuser u WHERE u.userId = :uid");
+		q.setParameter("uid", userId.trim());
+		q.setMaxResults(1);
+		return (Long) q.uniqueResult();
 	}
+
 }

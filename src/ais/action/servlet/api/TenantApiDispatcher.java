@@ -221,16 +221,21 @@ public final class TenantApiDispatcher {
 	}
 
 	/**
-	 * Id Pendaftar milik Tbmuser ini. Relasinya searah -- {@code Pendaftar.admin} menunjuk
-	 * Tbmuser, bukan sebaliknya -- jadi harus dicari terbalik. Tbmuser tanpa Pendaftar
-	 * (pengguna biasa) menghasilkan {@code null}, dan itu wajar.
+	 * Id Pendaftar tempat pengguna ini bernaung, dari {@code tbmuser.pendaftar}.
+	 *
+	 * <p>Ditanyakan lewat kueri, bukan lewat penelusuran malas: relasinya LAZY dan objek
+	 * {@code Tbmuser} datang dari Session autentikasi yang sudah ditutup.</p>
+	 *
+	 * <p>{@code null} berarti pengguna tidak bernaung pada pendaftar mana pun -- admin pusat
+	 * atau akun legacy. Bagi mereka daftar tenant wajar kosong, dan jalur datanya adalah
+	 * schema existing.</p>
 	 */
 	private static Long cariPendaftarId(Session session, String userId) {
 		if (userId == null || userId.trim().length() == 0) {
 			return null;
 		}
 		Query q = session.createQuery(
-				"SELECT p.id FROM Pendaftar p WHERE p.admin.userId = :uid ORDER BY p.id");
+				"SELECT u.pendaftar.id FROM Tbmuser u WHERE u.userId = :uid");
 		q.setParameter("uid", userId.trim());
 		q.setMaxResults(1);
 		return (Long) q.uniqueResult();
