@@ -6159,10 +6159,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 			FileFotoLain fotobiodataMahasiswa = FileFotoLain.ambil(mahasiswa.getId(), FotoMahasiswa.DEFAULT_JENIS,
 					FotoMahasiswa.class);
 
-			if (fotobiodataMahasiswa != null && fotobiodataMahasiswa.ambilFile() != null) {
-				parameters.put("foto", fotobiodataMahasiswa.ambilFile().getAbsolutePath());
-				parameters.put("foto_lulus", fotobiodataMahasiswa.ambilFile().getAbsolutePath());
-				parameters.put("foto_mahasiswa", fotobiodataMahasiswa.ambilFile().getAbsolutePath());
+			File fileFotoMahasiswa = fotobiodataMahasiswa == null ? null : fotobiodataMahasiswa.ambilFile();
+			if (fileFotoMahasiswa != null) {
+				parameters.put("foto", fileFotoMahasiswa.getAbsolutePath());
+				parameters.put("foto_lulus", fileFotoMahasiswa.getAbsolutePath());
+				parameters.put("foto_mahasiswa", fileFotoMahasiswa.getAbsolutePath());
 			} else
 
 			if (fotobiodataMahasiswa != null && fotobiodataMahasiswa.dropboxLinkRaw() != null

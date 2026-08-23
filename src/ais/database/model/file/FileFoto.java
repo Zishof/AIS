@@ -609,6 +609,9 @@ public abstract class FileFoto extends GeneralValueObject {
 			if (low.endsWith(".jrxml") || low.endsWith(".jasper")) {
 				return true;
 			}
+			if (beradaDiFolderBarisIni(file, this)) {
+				return true;
+			}
 			if (cocokDenganIdentitasBaris(namaBerkas, this)) {
 				return true;
 			}
@@ -631,6 +634,9 @@ public abstract class FileFoto extends GeneralValueObject {
 				sumber = null;
 			}
 			while (sumber != null && sumber.getId() != null && !dikunjungi.contains(sumber.getId())) {
+				if (beradaDiFolderBarisIni(file, sumber)) {
+					return true;
+				}
 				if (cocokDenganIdentitasBaris(namaBerkas, sumber)) {
 					return true;
 				}
@@ -645,6 +651,29 @@ public abstract class FileFoto extends GeneralValueObject {
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "berkasMilikBarisIni src/ais/database/model/file/FileFoto.java");
 			return true;
+		}
+	}
+
+	/**
+	 * Folder <media>/<NamaKelas>/<id>/... dan format lama <media>/<id>/... adalah
+	 * ruang milik baris tersebut. Beberapa data lama menyimpan nama sebagai subfolder
+	 * (contoh "1/26462201023.jpg"), sehingga validasi berbasis nama file saja terlalu
+	 * ketat dan mencatat error palsu saat cetak laporan.
+	 */
+	private static boolean beradaDiFolderBarisIni(File file, FileFoto baris) {
+		try {
+			if (file == null || baris == null || baris.getId() == null) {
+				return false;
+			}
+			String path = file.getCanonicalPath().replace('\\', '/');
+			File media = CommonMedia.getMediaDirectory();
+			String root = media == null ? "" : media.getCanonicalPath().replace('\\', '/');
+			String id = String.valueOf(baris.getId());
+			String folderKanonik = (root + "/" + baris.namaKelasBerkas() + "/" + id + "/").replace("//", "/");
+			String folderLama = (root + "/" + id + "/").replace("//", "/");
+			return path.startsWith(folderKanonik) || path.startsWith(folderLama);
+		} catch (Exception e) {
+			return false;
 		}
 	}
 

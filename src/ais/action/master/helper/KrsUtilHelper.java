@@ -63,7 +63,10 @@ public class KrsUtilHelper {
 		kunci = (31L * kunci) + (tahunAkademik == null ? 0L : tahunAkademik.hashCode());
 		kunci = (31L * kunci) + (semesterPendek == null ? 0L : semesterPendek.longValue());
 		kunci = (31L * kunci) + (kode.isEmpty() ? matakuliah.getId().longValue() : kode.hashCode());
-		session.createSQLQuery("select pg_advisory_xact_lock(:kunci)").setLong("kunci", kunci).uniqueResult();
+		session.createSQLQuery(
+				"select 1::bigint as terkunci from pg_advisory_xact_lock(:kunci)")
+				.addScalar("terkunci", org.hibernate.Hibernate.LONG)
+				.setLong("kunci", kunci).uniqueResult();
 
 		StringBuilder sql = new StringBuilder();
 		sql.append("select count(d.id) from detailperkuliahan d ");
