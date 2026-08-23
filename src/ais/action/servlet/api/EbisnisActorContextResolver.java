@@ -82,6 +82,16 @@ public final class EbisnisActorContextResolver {
 		 * Sengaja menyalin empat medan saja, bukan menyimpan rujukan ke TenantContext:
 		 * rujukan membuat nama schema ikut terbawa ke mana pun aktor dioper.
 		 */
+		/**
+		 * Konteks tenant lengkap untuk pemakaian SERVER (P4) -- termasuk nama schema, yang
+		 * dibutuhkan repository ber-SQL. Kosong bila request tidak ber-tenant.
+		 *
+		 * <p><b>Tidak pernah ikut ke {@link #toJson()}.</b> Medan publiknya disalin terpisah
+		 * lewat {@link #isiTenant}; yang ini sengaja dipisah supaya satu-satunya jalur
+		 * serialisasi tetap bersih, dan {@code TenantKonteksSelfTest} menjaganya.</p>
+		 */
+		public transient ais.service.tenant.TenantContext tenant;
+
 		public void isiTenant(ais.service.tenant.TenantContext ctx) {
 			if (ctx == null) {
 				return;
@@ -90,6 +100,7 @@ public final class EbisnisActorContextResolver {
 			this.tenantCode = ctx.getTenantCode();
 			this.tenantName = ctx.getTenantName();
 			this.membershipRole = ctx.getMembershipRole();
+			this.tenant = ctx;
 		}
 
 		public boolean bolehMenu(String kunci) {

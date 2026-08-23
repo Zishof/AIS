@@ -25,7 +25,11 @@ import javax.persistence.UniqueConstraint;
  * dinyalakan; tidak ada migrasi manual.
  */
 @Entity
-@Table(name = "mutasi_idempoten", uniqueConstraints = @UniqueConstraint(
+// schema DIEKSPLISITKAN (P4): tanpa ini tabel mengikuti search_path koneksi, dan c3p0
+// mengembalikan koneksi ke kolam beserta search_path-nya -- satu-satunya tabel di jalur
+// si_* yang punya ketergantungan itu. Tetap "public" (tidak dipindah): ini tabel LEGACY
+// lintas-tenant; idempotensi jalur tenant memakai <schema-tenant>.idempotency_record (v8).
+@Table(schema = "public", name = "mutasi_idempoten", uniqueConstraints = @UniqueConstraint(
 		name = "uk_mutasi_idempoten_kunci",
 		columnNames = { "pengguna", "aksi", "client_mutation_id" }))
 public class MutasiIdempoten implements Serializable {

@@ -49,10 +49,10 @@ public final class TenantSqlExecutor {
 		}
 		String hasil = templat;
 		if (hasil.indexOf(PENANDA_DATA) >= 0) {
-			hasil = hasil.replace(PENANDA_DATA, kutip(ctx.getSchemaName()));
+			hasil = hasil.replace(PENANDA_DATA, kutip(ctx.getSchemaName(), false));
 		}
 		if (hasil.indexOf(PENANDA_AUDIT) >= 0) {
-			hasil = hasil.replace(PENANDA_AUDIT, kutip(ctx.getAuditSchemaName()));
+			hasil = hasil.replace(PENANDA_AUDIT, kutip(ctx.getAuditSchemaName(), true));
 		}
 		return hasil;
 	}
@@ -71,7 +71,7 @@ public final class TenantSqlExecutor {
 				&& (templat.indexOf(PENANDA_DATA) >= 0 || templat.indexOf(PENANDA_AUDIT) >= 0);
 	}
 
-	private static String kutip(String schema) {
+	private static String kutip(String schema, boolean audit) {
 		if (schema == null || schema.trim().length() == 0) {
 			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
 					"Kueri ini menuntut schema tenant, tetapi tenant berjalan tanpa schema.");
@@ -79,11 +79,44 @@ public final class TenantSqlExecutor {
 		// Validasi ulang: murah, dan menutup kemungkinan konteks dibentuk lewat jalur lain.
 		String aman;
 		try {
-			aman = TenantSchemaService.pastikanAman(schema.trim());
+			// Nama audit divalidasi lewat basisnya -- pola pastikanAman membatasi 31 karakter
+			// sedangkan akhiran __audit menambah tujuh. Lihat TenantSchemaLocator.pastikanAmanAudit.
+			aman = audit ? TenantSchemaLocator.pastikanAmanAudit(schema.trim())
+					: TenantSchemaService.pastikanAman(schema.trim());
 		} catch (IllegalArgumentException e) {
 			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
 					"Konfigurasi schema tenant tidak sah.", e);
 		}
 		return "\"" + aman + "\"";
+	}
+	/**
+	 * Bentuk {@link SQLQuery} berhalaman. {@code limit} dan {@code offset} <b>tidak</b>
+	 * disambung ke teks SQL melainkan diserahkan ke {@code setMaxResults}/{@code setFirstResult}
+	 * Hibernate, sehingga tidak ada jalan angka liar masuk ke SQL.
+	 *
+	 * @param limit  maksimum baris; nilai &le; 0 diabaikan.
+	 * @param offset baris pertama; nilai &lt; 0 dianggap 0.
+	 */
+	public static SQLQuery sqlHalaman(Session session, TenantContext ctx, String templat,
+			int limit, int offset) {
+		SQLQuery q = sql(session, ctx, templat);
+		if (offset > 0) {
+			q.setFirstResult(offset);
+		}
+		if (limit > 0) {
+			q.setMaxResults(limit);
+		}
+		return q;
+	}
+
+	/**
+	 * Batas halaman yang wajar. Klien yang meminta sepuluh juta baris hampir selalu keliru,
+	 * dan melayaninya berarti satu request menghabiskan memori seluruh kontainer.
+	 */
+	public static int batasiLimit(int diminta, int bawaan, int maksimum) {
+		if (diminta <= 0) {
+			return bawaan;
+		}
+		return diminta > maksimum ? maksimum : diminta;
 	}
 }

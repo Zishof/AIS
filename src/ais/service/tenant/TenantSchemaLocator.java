@@ -58,12 +58,36 @@ public final class TenantSchemaLocator {
 		String tersimpan = tenant.getAuditSchemaName();
 		if (tersimpan != null && tersimpan.trim().length() > 0) {
 			try {
-				return TenantSchemaService.pastikanAman(tersimpan.trim());
+				return pastikanAmanAudit(tersimpan.trim());
 			} catch (IllegalArgumentException abaikan) {
 				// Baris registry lama bisa menyimpan nilai yang tidak lolos pola; turunkan saja.
 			}
 		}
 		return data + "__audit";
+	}
+
+	/** Akhiran baku schema audit, sama dengan yang dibuat {@code TenantSchemaService.buatSchema}. */
+	public static final String AKHIRAN_AUDIT = "__audit";
+
+	/**
+	 * Validasi nama schema <b>audit</b>.
+	 *
+	 * <p>Tidak boleh memakai {@code TenantSchemaService.pastikanAman} apa adanya. Pola itu
+	 * membatasi panjang 31 karakter, sedangkan nama audit adalah nama data ditambah tujuh
+	 * karakter. Akibatnya slug sepanjang 25 karakter ke atas <b>lolos</b> provisioning dan
+	 * schema auditnya benar-benar dibuat, tetapi nama turunannya ditolak saat divalidasi
+	 * ulang — setiap kueri audit tenant itu gagal padahal schema-nya ada. Contoh pada dokumen
+	 * master, {@code caruban_medika_nusantara}, hanya satu karakter di bawah batas itu.</p>
+	 *
+	 * <p>Karena itu yang divalidasi adalah <b>basisnya</b>, lalu akhirannya dipastikan.</p>
+	 */
+	public static String pastikanAmanAudit(String namaAudit) {
+		if (namaAudit == null || !namaAudit.endsWith(AKHIRAN_AUDIT)) {
+			throw new IllegalArgumentException("Nama schema audit tidak sah.");
+		}
+		String basis = namaAudit.substring(0, namaAudit.length() - AKHIRAN_AUDIT.length());
+		TenantSchemaService.pastikanAman(basis);
+		return namaAudit;
 	}
 
 	/**

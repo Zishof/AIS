@@ -39,8 +39,25 @@ public final class SalesInventoryApiDispatcher {
 			return true;
 		}
 
+		// -- P4: gerbang tenant -------------------------------------------------------------
+		// Fail-closed HANYA bagi aktor yang memang terdaftar pada tenant program. Aktor tanpa
+		// keanggotaan tenant sama sekali (seluruh pengguna existing) tetap lewat jalur lama
+		// TANPA perubahan -- itu inti rollout HYBRID §12.5. Menjadikan tenant wajib sekarang
+		// akan memutus setiap pengguna yang ada hari ini.
+		try {
+			ais.service.tenant.TenantContext tctx = konteksTenantBilaAda(tbmuser, payload, request);
+			if (tctx != null) {
+				ctx.isiTenant(tctx);
+			}
+		} catch (ais.service.tenant.TenantAccessException e) {
+			hasil.put("status", "error");
+			hasil.put("code", e.getKode());
+			hasil.put("message", e.getMessage());
+			return true;
+		}
+
 		if ("si_actor_context".equals(action)) {
-			SalesInventoryHelper.aktorContext(tbmuser, hasil);
+			SalesInventoryHelper.aktorContext(ctx, hasil);
 			normalisasi(hasil);
 			return true;
 		}
@@ -231,5 +248,101 @@ public final class SalesInventoryApiDispatcher {
 				hasil.put("message", hasil.optString("description", "Permintaan tidak dapat diproses."));
 			}
 		}
+	}
+	/**
+	 * Bentuk {@link ais.service.tenant.TenantContext} bila aktor memang punya tenant.
+	 *
+	 * <p>Mengembalikan {@code null} — bukan melempar — ketika aktor tidak terdaftar pada tenant
+	 * mana pun. Itu keadaan seluruh pengguna existing, dan mereka harus tetap dilayani jalur
+	 * lama. Yang <b>dilempar</b> hanyalah keadaan yang benar-benar salah bagi aktor yang sudah
+	 * ber-tenant: tenant dipilih tapi bukan miliknya, tenant suspended, schema belum siap,
+	 * modul tidak aktif, atau punya banyak tenant tetapi tidak memilih.</p>
+	 *
+	 * <p>Membuka Session sendiri karena helper-helper {@code si_*} saat ini juga demikian;
+	 * penyatuan menjadi satu Session per request adalah pekerjaan lanjutan §9.4 yang menuntut
+	 * perubahan tanda tangan seluruh helper.</p>
+	 */
+	private static ais.service.tenant.TenantContext konteksTenantBilaAda(Tbmuser tbmuser,
+			JSONObject payload, HttpServletRequest request) {
+		org.hibernate.Session session = ais.database.hibernate.HibernateUtil.getSessionFactory()
+				.openSession();
+		try {
+			String userId = tbmuser == null ? null : tbmuser.getUserId();
+			if (userId == null || userId.trim().length() == 0) {
+				return null;
+			}
+			// JALUR CEPAT. Gerbang ini berjalan pada SETIAP request si_*, dan mayoritas
+			// pengguna tidak akan pernah punya tenant. Memuat entitas untuk menemukan daftar
+			// kosong berarti setiap transaksi kasir membayar kueri yang hasilnya selalu sama.
+			// Dua COUNT tanpa memuat entitas, dan yang kedua hanya bila yang pertama nihil.
+			if (!punyaTenant(session, userId)) {
+				return null; // pengguna non-tenant: jalur lama, tanpa perubahan
+			}
+			Long pendaftarId = pendaftarDari(session, userId);
+			Long diminta = ais.service.tenant.TenantContextResolver.selaraskanTenantId(
+					angka(request == null ? null
+							: request.getHeader(TenantApiDispatcher.HEADER_TENANT)),
+					angka(payload == null ? null : payload.optString("tenantId", null)));
+			ais.service.tenant.TenantContext tctx = diminta == null
+					? ais.service.tenant.TenantContextResolver.resolveOtomatis(session, userId, pendaftarId)
+					: ais.service.tenant.TenantContextResolver.resolve(session, diminta, userId, pendaftarId);
+			ais.service.tenant.TenantContextResolver.pastikanModulAktif(tctx, MODUL_INVENTORY_SALES);
+			// Schema wajib benar-benar ada sebelum kueri pertama menabraknya dengan galat SQL
+			// mentah yang membocorkan namanya.
+			if (tctx.pakaiSchemaTenant()) {
+				ais.service.tenant.TenantSchemaLocator.pastikanSiap(session,
+						(ais.database.model.tenant.TenantRegistry) session.get(
+								ais.database.model.tenant.TenantRegistry.class, tctx.getTenantId()));
+			}
+			return tctx;
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Kode modul entitlement untuk permukaan ini. */
+	private static final String MODUL_INVENTORY_SALES = "INVENTORY_SALES";
+
+	private static Long pendaftarDari(org.hibernate.Session session, String userId) {
+		org.hibernate.Query q = session.createQuery(
+				"SELECT p.id FROM Pendaftar p WHERE p.admin.userId = :uid ORDER BY p.id");
+		q.setParameter("uid", userId.trim());
+		q.setMaxResults(1);
+		return (Long) q.uniqueResult();
+	}
+
+	private static Long angka(String v) {
+		if (v == null || v.trim().length() == 0) {
+			return null;
+		}
+		try {
+			return Long.valueOf(v.trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+	/**
+	 * Benar bila aktor punya sangkut paut dengan tenant mana pun — lewat keanggotaan aktif,
+	 * atau sebagai pemilik terdaftar (jalur kompatibilitas untuk tenant lama yang tabel
+	 * keanggotaannya belum terisi).
+	 *
+	 * <p>Dua {@code COUNT} tanpa memuat entitas, dan yang kedua hanya dijalankan bila yang
+	 * pertama nihil. Pengguna yang memang punya keanggotaan cukup satu kueri.</p>
+	 */
+	private static boolean punyaTenant(org.hibernate.Session session, String userId) {
+		String uid = userId.trim();
+		org.hibernate.Query q = session.createQuery("SELECT COUNT(m.id) FROM TenantMembership m"
+				+ " WHERE m.status = :st AND (m.tbmuser.userId = :uid OR m.pendaftar.admin.userId = :uid)");
+		q.setParameter("st", ais.database.model.tenant.TenantMembership.STATUS_ACTIVE);
+		q.setParameter("uid", uid);
+		Number n = (Number) q.uniqueResult();
+		if (n != null && n.longValue() > 0) {
+			return true;
+		}
+		org.hibernate.Query qo = session.createQuery("SELECT COUNT(t.id) FROM TenantRegistry t"
+				+ " WHERE t.ownerPendaftar.admin.userId = :uid");
+		qo.setParameter("uid", uid);
+		Number no = (Number) qo.uniqueResult();
+		return no != null && no.longValue() > 0;
 	}
 }

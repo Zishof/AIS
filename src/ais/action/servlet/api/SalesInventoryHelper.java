@@ -271,7 +271,19 @@ public final class SalesInventoryHelper {
 	 * pun dari klien -- selalu dari token, tidak bisa dipalsukan).
 	 */
 	public static void aktorContext(Tbmuser tbmuser, JSONObject hasil) throws Exception {
-		EbisnisActorContextResolver.ActorContext ctx = EbisnisActorContextResolver.resolve(tbmuser);
+		aktorContext(EbisnisActorContextResolver.resolve(tbmuser), hasil);
+	}
+
+	/**
+	 * Varian yang memakai {@link EbisnisActorContextResolver.ActorContext} yang SUDAH dibentuk
+	 * pemanggil.
+	 *
+	 * <p>Dispatcher sudah membentuknya sekali, lengkap dengan medan tenant (P4). Me-resolve
+	 * ulang di sini membuka Session kedua dan — lebih buruk — menghasilkan aktor <b>tanpa</b>
+	 * medan tenant, sehingga klien tidak pernah melihat tenant aktifnya.</p>
+	 */
+	public static void aktorContext(EbisnisActorContextResolver.ActorContext ctx, JSONObject hasil)
+			throws Exception {
 		hasil.put("status", "00");
 		hasil.put("aktor", ctx.toJson());
 	}
