@@ -4081,8 +4081,8 @@ public class ProsesUjianHelper extends MyWindow {
 					: details.iterator().next();
 
 			if (ujian.getJenisKoreksi().equals(PenjelasanBankSoal.KOREKSI_OTOMATIS)
-					&& (currentBankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT)
-							|| currentBankSoal.getJenisPilihanGanda().equals(BankSoal.RUMPANG))) {
+					&& (BankSoal.JAWABAN_SINGKAT.equals(currentBankSoal.getJenisPilihanGanda())
+							|| BankSoal.RUMPANG.equals(currentBankSoal.getJenisPilihanGanda()))) {
 
 				new ais.ui.util.MyHtml("<div style=\"font-size: 12px;font-family: Poppins,Helvetica,\"sans-serif\";\">"
 						+ currentBankSoal.getSoal() + "</div>").setParent(groupboxStyled);
@@ -4141,7 +4141,7 @@ public class ProsesUjianHelper extends MyWindow {
 				MyColumnConfig column = new MyColumnConfig();
 				column.setParent(columns);
 				column.setWidth(
-						currentBankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT) ? "0px" : "40px");
+						BankSoal.JAWABAN_SINGKAT.equals(currentBankSoal.getJenisPilihanGanda()) ? "0px" : "40px");
 
 				column = new MyColumnConfig();
 				column.setParent(columns);
@@ -4968,8 +4968,8 @@ public class ProsesUjianHelper extends MyWindow {
 
 						vboxJawaban = new Vbox();
 
-						if (currentBankSoal.getJenisPilihanGanda().equals(BankSoal.MULTIPLE_COICE)
-								|| currentBankSoal.getJenisPilihanGanda().equals(BankSoal.BENAR_SALAH)) {
+						if (BankSoal.MULTIPLE_COICE.equals(currentBankSoal.getJenisPilihanGanda())
+								|| BankSoal.BENAR_SALAH.equals(currentBankSoal.getJenisPilihanGanda())) {
 							Radiogroup radiogroup = new Radiogroup();
 							radiogroup.setParent(vboxSoalUjian);
 							radiogroup.setWidth("100%");
@@ -4991,9 +4991,8 @@ public class ProsesUjianHelper extends MyWindow {
 
 									if (hanyaLihat) {
 
-										if (currentBankSoal.getJenisPilihanGanda().equals(BankSoal.MULTIPLE_COICE)
-												|| currentBankSoal.getJenisPilihanGanda()
-														.equals(BankSoal.BENAR_SALAH)) {
+										if (BankSoal.MULTIPLE_COICE.equals(currentBankSoal.getJenisPilihanGanda())
+												|| BankSoal.BENAR_SALAH.equals(currentBankSoal.getJenisPilihanGanda())) {
 
 											if (myHasilUjianMahasiswaDetailid != null) {
 												HasilUjianMahasiswaDetail myHasilUjianMahasiswaDetail = (HasilUjianMahasiswaDetail) GeneralValueObject
@@ -5047,8 +5046,9 @@ public class ProsesUjianHelper extends MyWindow {
 											for (Long aaid : details) {
 												HasilUjianMahasiswaDetail aa = (HasilUjianMahasiswaDetail) GeneralValueObject
 														.ambilData(HasilUjianMahasiswaDetail.class, aaid.toString());
-												if (aa != null && aa.getBankSoalDetail().getId()
-														.equals(bankSoalDetail.getId())) {
+												if (aa != null && aa.getBankSoalDetail() != null
+														&& aa.getBankSoalDetail().getId() != null
+														&& aa.getBankSoalDetail().getId().equals(bankSoalDetail.getId())) {
 
 													String h = (pertemuanPunyaUjian.getUjian()
 															.getTampilanHurufDiPilihanJawaban()
@@ -5114,9 +5114,8 @@ public class ProsesUjianHelper extends MyWindow {
 
 									} else {
 
-										if (currentBankSoal.getJenisPilihanGanda().equals(BankSoal.MULTIPLE_COICE)
-												|| currentBankSoal.getJenisPilihanGanda()
-														.equals(BankSoal.BENAR_SALAH)) {
+										if (BankSoal.MULTIPLE_COICE.equals(currentBankSoal.getJenisPilihanGanda())
+												|| BankSoal.BENAR_SALAH.equals(currentBankSoal.getJenisPilihanGanda())) {
 
 											if (myHasilUjianMahasiswaDetailid != null) {
 

@@ -146,18 +146,23 @@ public class HasilUjianMahasiswaAction extends GenericAutowireComposer implement
 
 			Date lamaPengerjaan = null;
 			try {
-				Date sisaWaktuPengerjaan = Common.databaseDateFormat1.get().parse(yglalu);
+				Date sisaWaktuPengerjaan = null;
+				if (yglalu != null && yglalu.trim().length() > 0) {
+					sisaWaktuPengerjaan = Common.databaseDateFormat1.get().parse(yglalu.trim());
+				}
+				if (sisaWaktuPengerjaan != null && hasilUjianMahasiswa.getPertemuanPunyaUjian() != null
+						&& hasilUjianMahasiswa.getPertemuanPunyaUjian().getLama() != null) {
+					new Label(Common.timeFormat1.get().format(sisaWaktuPengerjaan)).setParent(arg0);
 
-				new Label(Common.timeFormat1.get().format(sisaWaktuPengerjaan)).setParent(arg0);
+					long durationInMillis = hasilUjianMahasiswa.getPertemuanPunyaUjian().getLama().getTime()
+							- sisaWaktuPengerjaan.getTime();
 
-				long durationInMillis = hasilUjianMahasiswa.getPertemuanPunyaUjian().getLama().getTime()
-						- sisaWaktuPengerjaan.getTime();
+					long second = (durationInMillis / 1000) % 60;
+					long minute = (durationInMillis / (1000 * 60)) % 60;
+					long hour = (durationInMillis / (1000 * 60 * 60)) % 24;
 
-				long second = (durationInMillis / 1000) % 60;
-				long minute = (durationInMillis / (1000 * 60)) % 60;
-				long hour = (durationInMillis / (1000 * 60 * 60)) % 24;
-
-				lamaPengerjaan = new GregorianCalendar(0, 0, 0, (int) hour, (int) minute, (int) second).getTime();
+					lamaPengerjaan = new GregorianCalendar(0, 0, 0, (int) hour, (int) minute, (int) second).getTime();
+				}
 
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/HasilUjianMahasiswaAction.java:162");
 				// TODO: handle exception

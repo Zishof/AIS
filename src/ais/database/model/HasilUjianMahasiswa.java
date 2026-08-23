@@ -596,12 +596,23 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 
 	public MyArrayList<Long> ambilUjianPunyaSoals(int maxSize, Label label, boolean refresh) {
 		List<Long> hasilUjianMahasiswaDetailsatemp = ambilDataAsli(null, refresh);
+		if (hasilUjianMahasiswaDetailsatemp == null) {
+			hasilUjianMahasiswaDetailsatemp = new ArrayList<Long>();
+		}
+		if (maxSize < 0) {
+			maxSize = 0;
+		}
 
 		List<Long> hasilUjianMahasiswaDetailsa = new ArrayList<Long>();
 		for (Long id : hasilUjianMahasiswaDetailsatemp) {
+			if (id == null) {
+				continue;
+			}
 			HasilUjianMahasiswaDetail ujianMahasiswaDetail = (HasilUjianMahasiswaDetail) GeneralValueObject
 					.ambilData(HasilUjianMahasiswaDetail.class, id.toString(), true);
-			if (ujianMahasiswaDetail.getBankSoalDetail() != null || !ujianMahasiswaDetail.getJawaban().isEmpty()) {
+			if (ujianMahasiswaDetail != null && (ujianMahasiswaDetail.getBankSoalDetail() != null
+					|| (ujianMahasiswaDetail.getJawaban() != null
+							&& !ujianMahasiswaDetail.getJawaban().isEmpty()))) {
 				hasilUjianMahasiswaDetailsa.add(id);
 			}
 		}
@@ -619,10 +630,14 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 
 		for (Long id : hasilUjianMahasiswaDetailsa) {
 			if (ujianPunyaSoals.size() < maxSize) {
+				if (id == null) {
+					continue;
+				}
 				HasilUjianMahasiswaDetail ujianMahasiswaDetail = (HasilUjianMahasiswaDetail) GeneralValueObject
 						.ambilData(HasilUjianMahasiswaDetail.class, id.toString(), true);
 				if (ujianMahasiswaDetail != null && (ujianMahasiswaDetail.getBankSoalDetail() != null
-						|| !ujianMahasiswaDetail.getJawaban().isEmpty())) {
+						|| (ujianMahasiswaDetail.getJawaban() != null
+								&& !ujianMahasiswaDetail.getJawaban().isEmpty()))) {
 					index++;
 					if (ujianMahasiswaDetail.getUjianPunyaSoal() != null
 							&& ujianMahasiswaDetail.getUjianPunyaSoal().getId() != null) {
@@ -638,6 +653,9 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 
 		for (Long id : hasilUjianMahasiswaDetailsa) {
 			if (ujianPunyaSoals.size() < maxSize) {
+				if (id == null) {
+					continue;
+				}
 				HasilUjianMahasiswaDetail ujianMahasiswaDetail = (HasilUjianMahasiswaDetail) GeneralValueObject
 						.ambilData(HasilUjianMahasiswaDetail.class, id.toString(), true);
 				if (ujianMahasiswaDetail != null) {

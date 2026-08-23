@@ -175,8 +175,8 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 		try {
 
 			if (bankSoal != null && bankSoal.getJenisPilihanGanda() != null
-					&& (bankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT)
-					|| bankSoal.getJenisPilihanGanda().equals(BankSoal.RUMPANG))
+					&& (BankSoal.JAWABAN_SINGKAT.equals(bankSoal.getJenisPilihanGanda())
+					|| BankSoal.RUMPANG.equals(bankSoal.getJenisPilihanGanda()))
 					&& getJawaban() != null && !getJawaban().isEmpty()) {
 
 				String jawabanJson = getJawaban().trim();
@@ -214,9 +214,9 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 				nilai = 0.0;
 			}
 
-			else if (bankSoal != null && bankSoal.getJenis().equals(BankSoal.PILIHAN_GANDA)
-					&& (bankSoal.getJenisPilihanGanda().equals(BankSoal.MULTIPLE_COICE)
-							|| bankSoal.getJenisPilihanGanda().equals(BankSoal.BENAR_SALAH))) {
+			else if (bankSoal != null && BankSoal.PILIHAN_GANDA.equals(bankSoal.getJenis())
+					&& (BankSoal.MULTIPLE_COICE.equals(bankSoal.getJenisPilihanGanda())
+							|| BankSoal.BENAR_SALAH.equals(bankSoal.getJenisPilihanGanda()))) {
 				if (bankSoalDetail != null) {
 					if (bankSoalDetail.getBetul()) {
 						nilai = bankSoal.getSkor();
@@ -229,7 +229,7 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 			}
 
 			else if (bankSoal != null && (bankSoal.getSoalMengurutkan() || bankSoal.getSoalMenjodohkan())
-					&& !getJawaban().isEmpty()) {
+					&& getJawaban() != null && !getJawaban().isEmpty()) {
 				nilai = 0.0;
 				String[] aa = getJawaban().split(",");
 				int banyak = aa.length;

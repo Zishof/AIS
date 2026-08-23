@@ -925,7 +925,9 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 		}
 	}
 
-	private Date ambilTanggalPostingPiutang(DetailKegiatan detailKegiatan, Session session) {
+	// Dipakai BERSAMA oleh tombol layar ZK dan mesin non-ZK di bawah; hanya memakai
+	// parameternya sendiri, jadi aman dijadikan static.
+	static Date ambilTanggalPostingPiutang(DetailKegiatan detailKegiatan, Session session) {
 		Date tanggal = detailKegiatan == null ? null : detailKegiatan.getTanggal();
 		if (detailKegiatan == null || detailKegiatan.getKegiatan() == null || session == null) {
 			return tanggal;
@@ -1154,4 +1156,225 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// =====================================================================
+	// JALUR NON-ZK (dasbor Draft Jurnal lewat API POS)
+	//
+	// Tanggal jurnalnya TIDAK disalin: {@link #ambilTanggalPostingPiutang} dipakai
+	// bersama dengan tombol di layar.
+	// =====================================================================
+
+	/**
+	 * Kriteria detail kegiatan yang layak dijurnal piutang -- sama dengan penghitung baris
+	 * "Mahasiswa - Piutang Tagihan" pada dasbor
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaDetailKegiatan}).
+	 *
+	 * <p>Saringan subquery {@code item_biaya_punya_piutang} itulah yang membedakan biaya yang
+	 * memang menerbitkan piutang dari biaya yang tidak.</p>
+	 */
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(DetailKegiatan.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.sqlRestriction("this_.item_biaya in (select item_biaya from"
+						+ " item_biaya_punya_piutang where akun is not null and item_biaya is not null"
+						+ " group by item_biaya)"))
+				.add(Restrictions.isNotNull("tanggal"))
+				.add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
+						Restrictions.ne("biaya", 0.0)))
+				.add(Restrictions.or(Restrictions.isNotNull("postingHistory"),
+						Restrictions.isNotNull("biaya")));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/** Batalkan posting SEMUA piutang tagihan mahasiswa terposting dalam rentang. */
+	@SuppressWarnings("unchecked")
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<DetailKegiatan> daftar = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (DetailKegiatan detail : daftar) {
+				try {
+					String syarat = "detail_kegiatan=" + detail.getId() + " and closing is null";
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where " + syarat + ")").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where " + syarat)
+							.executeUpdate();
+					detail.setPostingHistory(null);
+					session.update(detail);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingDetailKegiatanAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Posting SEMUA piutang tagihan mahasiswa yang belum dijurnal dalam rentang.
+	 *
+	 * <p>Debet = {@code itemBiaya.ambilPiutang(kegiatan)}, kredit =
+	 * {@code itemBiaya.ambilAkun(kegiatan)} -- keduanya method milik entitas, jadi aturan
+	 * pemilihan akun per kegiatan tidak disalin. Nilai dari {@code biaya}; bila &le; 0,1
+	 * posisi ditukar.</p>
+	 *
+	 * <p><b>Tanggal jurnalnya bukan tanggal tagihan.</b> {@link #ambilTanggalPostingPiutang}
+	 * mencari tanggal cicilan pembayaran PERTAMA untuk kegiatan itu; piutang yang sudah pernah
+	 * dibayar harus tercatat pada tanggal pembayarannya, bukan tanggal tagihannya. Method itu
+	 * dipakai bersama dengan layar.</p>
+	 *
+	 * <p><b>Satuan kerja.</b> Fakultas mahasiswa, atau fakultas prodi calon mahasiswa; cadangan
+	 * terakhir satuan kerja pengguna yang memposting (layar memakai penyaring halaman yang
+	 * tidak ada di jalur API).</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.property("id")).list();
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_MAHASISWA);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setKeterangan("Posting massal piutang tagihan mahasiswa dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			SatuanKerja satuanKerjaPengguna = oleh == null ? null : oleh.ambilSatuanKerja();
+
+			for (Long id : ids) {
+				try {
+					session = HibernateUtil.currentNativeSession();
+					DetailKegiatan detail = (DetailKegiatan) session.createCriteria(DetailKegiatan.class)
+							.add(Restrictions.idEq(id)).uniqueResult();
+					if (detail == null || detail.getItemBiaya() == null || detail.getKegiatan() == null) {
+						continue;
+					}
+					Akun akunDebet = detail.getItemBiaya().ambilPiutang(detail.getKegiatan());
+					Akun akunKredit = detail.getItemBiaya().ambilAkun(detail.getKegiatan());
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+
+					SatuanKerja satuanKerja = satuanKerjaPengguna;
+					try {
+						if (detail.getKegiatan().getMahasiswa() != null
+								&& detail.getKegiatan().getMahasiswa().getJurusan() != null
+								&& detail.getKegiatan().getMahasiswa().getJurusan().getFakultas() != null
+								&& detail.getKegiatan().getMahasiswa().getJurusan().getFakultas()
+										.getSatuanKerja() != null) {
+							satuanKerja = detail.getKegiatan().getMahasiswa().getJurusan().getFakultas()
+									.getSatuanKerja();
+						} else if (detail.getKegiatan().getCalonMahasiswa() != null
+								&& detail.getKegiatan().getCalonMahasiswa().getProdi1() != null
+								&& detail.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas() != null
+								&& detail.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas()
+										.getSatuanKerja() != null) {
+							satuanKerja = detail.getKegiatan().getCalonMahasiswa().getProdi1().getFakultas()
+									.getSatuanKerja();
+						}
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e, "PostingDetailKegiatanAction jalur API");
+					}
+
+					Object siapa = detail.getKegiatan().getMahasiswa() == null
+							? detail.getKegiatan().getCalonMahasiswa()
+							: detail.getKegiatan().getMahasiswa();
+					String ket;
+					if (detail.getPengaturanPembayaranBulanan() != null) {
+						String dasar = detail.getPengaturanPembayaranBulanan().getKeterangan();
+						if (dasar == null || dasar.isEmpty()) {
+							dasar = detail.getPengaturanPembayaranBulanan().getDetailBiaya() == null
+									|| detail.getPengaturanPembayaranBulanan().getDetailBiaya()
+											.getItemBiaya() == null ? ""
+													: detail.getPengaturanPembayaranBulanan().getDetailBiaya()
+															.getItemBiaya().getNama();
+						}
+						ket = "Piutang " + siapa + " " + dasar + ", bulan "
+								+ detail.getPengaturanPembayaranBulanan().getNamaBulan();
+					} else {
+						ket = "Piutang " + siapa + " - " + detail.getItemBiaya().getNama() + " - "
+								+ detail.getKeterangan();
+					}
+
+					Double nilai = detail.getBiaya();
+					java.util.Date tanggalJurnal = ambilTanggalPostingPiutang(detail, session);
+
+					boolean tersimpan = false;
+					try {
+						session.getTransaction().begin();
+						if (nilai > 0.1) {
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+									true, ket, tanggalJurnal, nilai, Double.valueOf(0.0), detail, satuanKerja,
+									session);
+						} else {
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+									true, ket, tanggalJurnal, nilai, Double.valueOf(0.0), detail, satuanKerja,
+									session);
+						}
+						session.getTransaction().commit();
+						tersimpan = true;
+					} catch (Exception e) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception ex) {
+							// rollback gagal: kegagalan aslinya yang dilaporkan
+						}
+						ais.common.ErrorAuditUtil.record(e, "PostingDetailKegiatanAction jalur API");
+					}
+
+					if (tersimpan) {
+						detail.setPostingHistory(postingHistory);
+						session.getTransaction().begin();
+						session.update(detail);
+						session.getTransaction().commit();
+						n++;
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingDetailKegiatanAction jalur API");
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingDetailKegiatanAction jalur API");
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
 }

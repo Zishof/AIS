@@ -821,11 +821,9 @@ public class KantinHelper {
 									 * terbuka, persis seperti payload tanpa kode sesi. */
 									sesiAsalSah = true;
 									hasil.put("sesi_kas_tidak_dikenal", kodeSesiDiminta);
-									ais.common.ErrorAuditUtil.record(
-											new IllegalStateException("Transaksi " + kodeUnik
-													+ " membawa kode sesi kas '" + kodeSesiDiminta
-													+ "' yang tidak ada di server; diikat ke sesi yang sedang terbuka."),
-											"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-sesi-kas-tidak-dikenal");
+									System.out.println("[POS-REKONSILIASI-SESI] Transaksi " + kodeUnik
+											+ " membawa kode sesi kas '" + kodeSesiDiminta
+											+ "' yang tidak ada; transaksi diikat ke sesi kas aktif.");
 								}
 								if (sesiAsal != null) {
 									boolean tokoSama = sesiAsal.getToko() != null && sesiAsal.getToko().getId() != null
@@ -1339,11 +1337,9 @@ public class KantinHelper {
 						double selisih = total.doubleValue() - totalKlien.doubleValue();
 						if (Math.abs(selisih) >= 1d) {
 							hasil.put("selisihTotal", selisih);
-							ais.common.ErrorAuditUtil.record(
-									new IllegalStateException("Selisih total transaksi " + kodeUnik + ": kasir "
-											+ totalKlien + ", tercatat " + total + " (diskon server " + totalDiskon
-											+ ")."),
-									"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-selisih-total");
+							System.out.println("[POS-REKONSILIASI-TOTAL] Transaksi " + kodeUnik + ": kasir "
+									+ totalKlien + ", tercatat " + total + " (diskon server " + totalDiskon
+									+ "), selisih " + selisih + ".");
 						}
 					}
 					hasil.put("status", "00");
@@ -16359,7 +16355,6 @@ public class KantinHelper {
 		}
 	}
 }
-
 
 
 

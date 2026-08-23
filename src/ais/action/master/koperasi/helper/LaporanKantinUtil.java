@@ -2291,8 +2291,9 @@ public final class LaporanKantinUtil {
                 }
                 String tkJual = kondToko("p.toko", tokoId, prm) + klausaTanggal("p.waktu", tglMulai, tglSampai, prm);
                 String tkPakai = kondToko("x.toko", tokoId, prm) + klausaTanggal("x.waktu", tglMulai, tglSampai, prm);
-                sql = "select coalesce(pr.kode,'-'), coalesce(pr.nama,'-'), coalesce(e.expected,0), coalesce(a.actual,0), (coalesce(a.actual,0)-coalesce(e.expected,0)) "
-                    + " from ( select cast(coalesce(nullif(b->>'produk',''),'0') as bigint) as bahan_id, "
+				sql = "select coalesce(pr.kode,'-'), coalesce(pr.nama,'-'), coalesce(e.expected,0), coalesce(a.actual,0), (coalesce(a.actual,0)-coalesce(e.expected,0)) "
+					+ " from ( select case when trim(coalesce(b->>'produk','')) ~ '^[0-9]+$' "
+					+ " then cast(trim(b->>'produk') as bigint) else 0 end as bahan_id, "
                     + "          sum(sold.qty * cast(coalesce(nullif(b->>'qty',''),'0') as numeric)) as expected "
                     + "        from (select p.produk as menu_id, sum(coalesce(p.qty,0)) as qty from koperasi.pembelian p where 1=1 " + tkJual + " group by p.produk) sold "
                     + "        join koperasi.produk pm on pm.id=sold.menu_id, json_array_elements(cast(pm.bahanbaku as json)) b "
