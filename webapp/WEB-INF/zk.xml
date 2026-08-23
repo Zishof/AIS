@@ -44,7 +44,7 @@
     </listener>
 
     <listener>
-        <description>ThreadLocal Variables Synchronizer</description>
+        <description>ThreadLocal synchronizer dan global ZK event error audit ke tabel ErrorLog</description>
         <listener-class>ais.common.ZkossListener</listener-class>
     </listener>
 

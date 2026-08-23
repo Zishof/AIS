@@ -55,8 +55,56 @@ public class ZkossListener extends ThreadLocalListener {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public void cleanup(Component comp, Event evt, List errs) {
-		// TODO Auto-generated method stub
-		super.cleanup(comp, evt, errs);
+		/*
+		 * Hook ini didaftarkan global melalui WEB-INF/zk.xml. ZK 5 mengirim semua
+		 * exception/error yang lolos dari event listener melalui parameter errs.
+		 * Sebelumnya daftar tersebut diabaikan, sehingga UI hanya menampilkan
+		 * "Unknown exception" tanpa jejak yang dapat dicari administrator.
+		 */
+		try {
+			if (errs != null && !errs.isEmpty()) {
+				String info = buatKonteksErrorZk(comp, evt);
+				for (Object error : errs) {
+					if (error instanceof Throwable) {
+						Throwable throwable = (Throwable) error;
+						try {
+							throwable.printStackTrace(System.err);
+						} catch (Throwable abaikanLogKonsol) {
+						}
+						ErrorAuditUtil.record(throwable, info);
+					} else if (error != null) {
+						ErrorAuditUtil.record(new RuntimeException(String.valueOf(error)), info);
+					}
+				}
+			}
+		} catch (Throwable gagalAudit) {
+			// Listener audit tidak boleh menutupi error asli milik ZK.
+			try {
+				System.err.println("Gagal mencatat error event ZK: " + gagalAudit);
+			} catch (Throwable abaikanLogKonsol) {
+			}
+		} finally {
+			super.cleanup(comp, evt, errs);
+		}
+	}
+
+	private String buatKonteksErrorZk(Component comp, Event evt) {
+		StringBuilder info = new StringBuilder("ZK global event error");
+		try {
+			if (evt != null) {
+				info.append(" | event=").append(evt.getName());
+			}
+			if (comp != null) {
+				info.append(" | component=").append(comp.getClass().getName());
+				String id = comp.getId();
+				if (id != null && !id.trim().isEmpty()) {
+					info.append("#").append(id.trim());
+				}
+			}
+		} catch (Throwable abaikanKonteks) {
+			// Konteks tambahan bersifat best effort; stack trace asli tetap dicatat.
+		}
+		return info.toString();
 	}
 
 	@Override

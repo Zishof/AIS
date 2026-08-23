@@ -351,7 +351,19 @@ public class MyButtonTabbox {
 		}
 		Div panelAktif = panelMap.get(Integer.valueOf(index));
 		if (panelAktif != null) {
-			aktifkanTabPertamaDiDalam(panelAktif, new HashSet<MyButtonTabbox>());
+			/*
+			 * Panel konten boleh menyimpan referensi ke tabbox pemiliknya (misalnya
+			 * VideoPertemuanHelper menyimpannya untuk memperbarui label tab). Tanpa
+			 * menandai tabbox ini sebagai sudah diproses, pemindaian panel menemukan
+			 * referensi tersebut lalu memanggil pilihPertama() pada tabbox yang sama:
+			 * pilih -> pindai -> pilih -> ... sampai StackOverflowError.
+			 *
+			 * Seed set dengan instance saat ini. Tabbox anak tetap akan diaktifkan,
+			 * sedangkan referensi balik ke pemilik diabaikan.
+			 */
+			Set<MyButtonTabbox> sudahDiproses = new HashSet<MyButtonTabbox>();
+			sudahDiproses.add(this);
+			aktifkanTabPertamaDiDalam(panelAktif, sudahDiproses);
 		}
 	}
 
