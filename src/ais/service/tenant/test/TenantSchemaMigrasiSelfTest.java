@@ -44,6 +44,7 @@ public final class TenantSchemaMigrasiSelfTest {
 			{ "v6-inventory-trip-erp", "ba337bc0c2f5" },
 			{ "v7-inventory-accounting-erp", "4f03b3b8dc12" },
 			{ "v8-inventory-import-erp", "7f1cacf8f3c4" },
+			{ "v9-pos-ebisnis-erp", "866f7b5e4324" },
 	};
 
 	private static int gagal;
@@ -103,7 +104,7 @@ public final class TenantSchemaMigrasiSelfTest {
 
 		Pattern pCreate = Pattern.compile("CREATE TABLE (IF NOT EXISTS )?\\{([SA])\\}\\.([a-z_]+)");
 		Pattern pRef = Pattern.compile("REFERENCES \\{([SA])\\}\\.([a-z_]+)");
-		Pattern pIdx = Pattern.compile("CREATE INDEX ([a-zA-Z0-9_{}]+) ON \\{([SA])\\}\\.([a-z_]+)");
+		Pattern pIdx = Pattern.compile("CREATE (?:UNIQUE )?INDEX ([a-zA-Z0-9_{}]+) ON \\{([SA])\\}\\.([a-z_]+)");
 		Pattern pAlter = Pattern.compile("ALTER TABLE \\{([SA])\\}\\.([a-z_]+)");
 		Pattern pSisa = Pattern.compile("\\{[^}]*\\}");
 
