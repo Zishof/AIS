@@ -64,7 +64,8 @@ public class KrsUtilHelper {
 		kunci = (31L * kunci) + (semesterPendek == null ? 0L : semesterPendek.longValue());
 		kunci = (31L * kunci) + (kode.isEmpty() ? matakuliah.getId().longValue() : kode.hashCode());
 		session.createSQLQuery(
-				"select 1::bigint as terkunci from pg_advisory_xact_lock(:kunci)")
+				"with kunci_transaksi as (select pg_advisory_xact_lock(:kunci)) "
+				+ "select cast(1 as bigint) as terkunci from kunci_transaksi")
 				.addScalar("terkunci", org.hibernate.Hibernate.LONG)
 				.setLong("kunci", kunci).uniqueResult();
 

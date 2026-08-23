@@ -164,8 +164,9 @@ public class RepositorySyncService {
 	 * menandakan koneksi sudah tidak sehat dan sinkronisasi tidak boleh dipaksakan lanjut.
 	 */
 	private static boolean cobaKunciSinkronisasi(Session session) {
-		Object result = session.createSQLQuery("select pg_try_advisory_xact_lock(" + REPOSITORY_SYNC_LOCK_ID + ")")
-				.uniqueResult();
+		Object result = session.createSQLQuery("select pg_try_advisory_xact_lock("
+				+ REPOSITORY_SYNC_LOCK_ID + ") as terkunci")
+				.addScalar("terkunci", org.hibernate.Hibernate.BOOLEAN).uniqueResult();
 		return Boolean.TRUE.equals(result) || "true".equalsIgnoreCase(String.valueOf(result));
 	}
 

@@ -493,8 +493,10 @@ public class CommonPMB {
 			// didapat, artinya pengaman race-condition nomor ujian sebenarnya MATI (tak terlihat
 			// karena tertelan try/catch). Cast ANSI "cast(... as text)" memberi hasil yang sama
 			// persis tanpa tanda ":" sehingga tidak lagi bentrok dengan sintaks parameter Hibernate.
-			session.createSQLQuery("select cast(pg_advisory_xact_lock(hashtext(:lockKey)) as text) as lock_result")
-					.addScalar("lock_result", org.hibernate.Hibernate.STRING)
+			session.createSQLQuery("with kunci_transaksi as "
+					+ "(select pg_advisory_xact_lock(hashtext(:lockKey))) "
+					+ "select cast(1 as bigint) as lock_result from kunci_transaksi")
+					.addScalar("lock_result", org.hibernate.Hibernate.LONG)
 					.setParameter("lockKey", lockKey)
 					.uniqueResult();
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonPMB.java:338");
