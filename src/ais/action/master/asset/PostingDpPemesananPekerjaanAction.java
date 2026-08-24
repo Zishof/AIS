@@ -1656,57 +1656,83 @@ public class PostingDpPemesananPekerjaanAction extends GenericAutowireComposer {
 					double total = penagihan + ((ppn / 100.0) * penagihan);
 					double nilai = Math.abs(total - pinalti);
 
-					JenisPajakBarang jenisPajakBarang = null;
+					// ---------- FASE 1: mengumpulkan bahan.
+					// ConstantValues.ambil membuka DAN MENUTUP sesinya sendiri, jadi sesudah baris
+					// itu sesi yang dipegang tidak dapat dipercaya. Yang dibawa keluar hanya id dan
+					// angka; seluruh entitas dimuat ulang di fase 2.
+					Long akunPajakId = null;
+					double persenPajak = 0.0;
 					if (!termin.isNull("pajak")) {
-						jenisPajakBarang = (JenisPajakBarang) ConstantValues.ambil(
+						JenisPajakBarang jpb = (JenisPajakBarang) ConstantValues.ambil(
 							JenisPajakBarang.class.getName(), Long.parseLong(termin.get("pajak") + ""));
+						if (jpb != null && jpb.getAkun() != null && jpb.getAkun().getId() != null) {
+							akunPajakId = jpb.getAkun().getId();
+							persenPajak = jpb.getPersen();
+						}
 					}
 
-					Akun akunDebet = null;
-					Akun akunKredit = null;
+					Long akunDebetId = null;
+					Long akunKreditId = null;
 					if (sa.getPenerimaanPengadaanMasterAsset() != null
 						&& sa.getPenerimaanPengadaanMasterAsset()
 							.getPemesananPengadaanMasterAsset() != null
 						&& sa.getPenerimaanPengadaanMasterAsset().getPemesananPengadaanMasterAsset()
 							.getJenisPemesananPengadaanAsset() != null) {
-						akunDebet = sa.getPenerimaanPengadaanMasterAsset()
+						Akun d = sa.getPenerimaanPengadaanMasterAsset()
 							.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
 							.getAkunDp();
-						akunKredit = sa.getPenerimaanPengadaanMasterAsset()
+						Akun k = sa.getPenerimaanPengadaanMasterAsset()
 							.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
 							.getAkunUtangDp();
+						akunDebetId = d == null ? null : d.getId();
+						akunKreditId = k == null ? null : k.getId();
 					}
 					if (sa.getPenyedia() != null && sa.getPenyedia().getAkunUtang() != null) {
-						akunKredit = sa.getPenyedia().getAkunUtang();
+						akunKreditId = sa.getPenyedia().getAkunUtang().getId();
 					}
-					if (akunDebet == null || akunKredit == null) {
+					if (akunDebetId == null || akunKreditId == null) {
 						continue;
 					}
 
 					String ket = "Tagihan pekerjaan terhadap pemesanan \"" + sa.getKode() + "-"
 						+ teksJson(termin, "nomor") + "-" + teksJson(termin, "nama") + " "
 						+ sa.getKeterangan() + "\" sebanyak " + Common.numberFormat.get().format(total);
-					SatuanKerja satuanKerja = sa.getSatuanKerja();
+					Long satuanKerjaId = sa.getSatuanKerja() == null ? null
+						: sa.getSatuanKerja().getId();
 					Date tanggal = sa.getTanggalPembuatan();
+
+					// ---------- FASE 2: sesi diambil ULANG, entitasnya dimuat kembali di dalamnya.
+					session = HibernateUtil.currentNativeSession();
+					sa = (SaldoAwalMasterAsset) session.get(SaldoAwalMasterAsset.class, id);
+					PostingHistory riwayat = (PostingHistory) session.get(PostingHistory.class,
+						postingHistory.getId());
+					Akun akunDebet = (Akun) session.get(Akun.class, akunDebetId);
+					Akun akunKredit = (Akun) session.get(Akun.class, akunKreditId);
+					Akun akunPajak = akunPajakId == null ? null
+						: (Akun) session.get(Akun.class, akunPajakId);
+					SatuanKerja satuanKerja = satuanKerjaId == null ? null
+						: (SatuanKerja) session.get(SatuanKerja.class, satuanKerjaId);
+					if (sa == null || riwayat == null || akunDebet == null || akunKredit == null) {
+						continue;
+					}
 
 					boolean tersimpan = false;
 					try {
 						session.getTransaction().begin();
-						if (jenisPajakBarang != null && jenisPajakBarang.getAkun() != null) {
-							Double nilaiPajak = Double.valueOf(penagihan
-									* (jenisPajakBarang.getPersen() / 100.0));
+						if (akunPajak != null) {
+							Double nilaiPajak = Double.valueOf(penagihan * (persenPajak / 100.0));
 							CommonAkunting.saveTransaksi(new Akun[] { akunDebet },
-								new Akun[] { akunKredit, jenisPajakBarang.getAkun() }, null, null,
-								postingHistory, Boolean.TRUE, ket, tanggal,
+								new Akun[] { akunKredit, akunPajak }, null, null,
+								riwayat, Boolean.TRUE, ket, tanggal,
 								new Double[] { Double.valueOf(nilai) },
 								new Double[] { Double.valueOf(nilai - nilaiPajak.doubleValue()), nilaiPajak },
 								Double.valueOf(0.0), sa, satuanKerja, REF_DP_PEKERJAAN, session);
 						} else if (nilai > 0.1) {
-							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
+							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, riwayat,
 								Boolean.TRUE, ket, tanggal, Double.valueOf(nilai), Double.valueOf(0.0), sa,
 								satuanKerja, REF_DP_PEKERJAAN, session);
 						} else {
-							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
+							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, riwayat,
 								Boolean.TRUE, ket, tanggal, Double.valueOf(nilai), Double.valueOf(0.0), sa,
 								satuanKerja, REF_DP_PEKERJAAN, session);
 						}
@@ -1728,7 +1754,7 @@ public class PostingDpPemesananPekerjaanAction extends GenericAutowireComposer {
 						java.sql.PreparedStatement ps = session.connection().prepareStatement(
 							"UPDATE asset.saldo_awal_master_asset SET posting_history = ? WHERE id = ?");
 						try {
-							ps.setLong(1, postingHistory.getId());
+							ps.setLong(1, riwayat.getId());
 							ps.setLong(2, id.longValue());
 							ps.executeUpdate();
 						} finally {
