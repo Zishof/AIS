@@ -16,26 +16,21 @@ Nilai aktif mengikuti nilai `Konfigurasi.AKTIF`. Semua default tidak aktif.
 
 Flag juga dapat disimpan dalam JSON `SocialTenantSetting.featureFlags`; nilai tenant mengungguli konfigurasi global.
 
-## Smartlink multi-credential per donasi
+## Master SosialChannel dan Smartlink
 
-Setiap transaksi menyimpan `smartlinkCredentialCode`. Kode dipilih server-side dan disalin ke payment attempt sehingga credential tidak berubah walaupun konfigurasi routing kemudian diperbarui.
+Credential tidak diisi pada donasi. Administrator mengisi satu record `SosialChannel`, kemudian setiap `JenisDanaSosial`—misalnya Zakat, Infaq, atau Shodaqoh—mereferensikan channel tersebut melalui `sosial_channel_id`. Transaksi dan payment attempt menyimpan relasi channel yang dipakai sebagai snapshot audit.
 
-- `sosial_smartlink_profiles_<tenant-slug>`: pool kode profil untuk tenant, misalnya `amil_a,amil_b`.
-- `sosial_smartlink_profiles`: fallback pool bila konfigurasi tenant tidak tersedia.
-- `sosial_smartlink_fund_<jenisDanaId>_profile`: profil tetap untuk suatu jenis dana; mengungguli pool.
-- `sosial_smartlink_profile_<code>_url`
-- `sosial_smartlink_profile_<code>_username`
-- `sosial_smartlink_profile_<code>_password`
-- `sosial_smartlink_profile_<code>_channels`, contoh `VA_CIMB,VA_BRI`
-- `sosial_smartlink_profile_<code>_fee`
-- `sosial_smartlink_profile_<code>_callback_secret`, minimal 16 karakter
-- `sosial_smartlink_profile_<code>_callback_allowed_ips`, daftar IP dipisah koma
+Kolom utama `public.sosial_channel`:
 
-Tanpa mapping jenis dana, profil dipilih secara deterministik dari hash nomor transaksi. Browser tidak boleh mengirim atau memilih kode profil. Callback mencari payment berdasarkan `order_id`, lalu memverifikasi signature dan IP menggunakan profil yang dibekukan pada payment tersebut.
+- tenant, kode, nama, keterangan, status/aktif, mode sandbox/production;
+- akun Kas/Bank, Yayasan, dan Sekolah;
+- provider dan flag aktivasi Smartlink;
+- URL, username, password terenkripsi, daftar channel pembayaran, dan biaya admin;
+- callback secret terenkripsi dan IP allow-list.
 
-Username, password, dan callback secret tidak memiliki default di source, JSP, JavaScript, atau dokumentasi operasional publik. Batasi akses tabel konfigurasi dan log; nilai secret tidak boleh ikut response atau audit payload.
+Password serta callback secret hanya ditulis melalui `SosialChannelAdminService`; nilai kosong ketika mengubah data berarti mempertahankan secret lama. Browser tidak pernah mengirim credential saat membuat donasi. Callback mencari payment berdasarkan `order_id`, mengambil `SosialChannel` milik payment tersebut, lalu menggunakan secret dan allow-list channel itu.
 
-Kode profil bersifat versioned dan immutable setelah dipakai membuat order. Untuk rotasi username, password, endpoint, atau callback secret, buat kode baru (contoh `amil_a_v2`), masukkan ke pool, hentikan routing baru ke kode lama, lalu pertahankan konfigurasi lama sampai seluruh order dan settlement-nya selesai.
+Channel yang sudah dipakai bersifat immutable untuk credential kritis. Untuk rotasi username, password, endpoint, atau callback secret, buat record channel baru (contoh `SMARTLINK_AMIL_V2`), pindahkan mapping jenis dana, dan pertahankan channel lama sampai seluruh order serta settlement selesai.
 
 ## RBAC
 

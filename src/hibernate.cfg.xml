@@ -1805,6 +1805,7 @@
 		<mapping class="ais.database.model.sosial.ProgramDonatur"></mapping>
 		<!-- Modul Sosial AIS V1: mapping domain additive. -->
 		<mapping class="ais.database.model.sosial.SocialTenantSetting" />
+		<mapping class="ais.database.model.sosial.SosialChannel" />
 		<mapping class="ais.database.model.sosial.SocialDonorIdentity" />
 		<mapping class="ais.database.model.sosial.JenisDanaSosial" />
 		<mapping class="ais.database.model.sosial.JenisZakat" />
