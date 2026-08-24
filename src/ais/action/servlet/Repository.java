@@ -460,7 +460,7 @@ public class Repository extends HttpServlet {
                 oaiError(out, "cannotDisseminateFormat", "Metadata prefix harus oai_dc.");
             } else {
                 int page = parseOaiPage(token);
-                if (page < 1 || (token.length() > 0 && !verb.equals(parseOaiTokenVerb(token)))) {
+                if (page < 1 || (token.length() > 0 && (!validOaiToken(token) || !verb.equals(parseOaiTokenVerb(token))))) {
                     oaiError(out, "badResumptionToken", "Resumption token tidak valid.");
                 } else {
                     Query q = new Query();
@@ -693,6 +693,18 @@ public class Repository extends HttpServlet {
     private String parseOaiTokenVerb(String token) {
         if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return "";
         return token.endsWith("vI") ? "ListIdentifiers" : "ListRecords";
+    }
+
+    private boolean validOaiToken(String token) {
+        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return false;
+        try {
+            String[] parts = token.split(";");
+            Integer.parseInt(parts[0].substring(1));
+            Long.parseLong(parts[1].substring(1));
+            Long.parseLong(parts[2].substring(1));
+            Long.parseLong(parts[3].substring(1));
+            return true;
+        } catch (Exception invalid) { return false; }
     }
 
     private Date parseOaiDate(String value, boolean endOfDay) {

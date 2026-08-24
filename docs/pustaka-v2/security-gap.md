@@ -11,6 +11,11 @@
 - Ownership reservasi/favorit/perpanjangan diperiksa server-side.
 - Item Draft, NULL, Ditolak, atau Disetujui tidak dapat dibaca melalui katalog/detail publik.
 - Digital URL hanya menerima HTTP(S) atau path lokal.
+- Path lokal digital menolak URL protocol-relative, backslash, CR/LF, dan traversal `..`.
+- Akses reader/digital memerlukan anggota aktif atau role petugas; pengguna login biasa tidak otomatis memperoleh URL.
+- Router `/pustaka` hanya dapat menginklusikan modul `pustaka` dan nama fragmen yang masuk allow-list.
+- Kegagalan adaptor JSON/XML tidak lagi dialihkan menjadi fallback HTML.
+- Error internal operasi petugas dicatat pada audit server tanpa mengirim pesan exception mentah ke browser.
 
 ## Batas audit
 

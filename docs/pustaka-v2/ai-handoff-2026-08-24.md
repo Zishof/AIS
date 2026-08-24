@@ -1,6 +1,6 @@
 # Handoff AI — Modernisasi Perpustakaan AIS V2
 
-Tanggal baseline: 24 Agustus 2026  
+Tanggal baseline: 24 Agustus 2026; dilanjutkan 25 Agustus 2026  
 Workspace: `C:\opt\AIS\ais\src\main`
 
 ## 1. Tujuan dan cakupan
@@ -182,7 +182,7 @@ Audit terakhir:
 - tidak ada lagi `${` pada JSP modul Pustaka;
 - struktur tag JSP utama dan `git diff --check` diperiksa secara statis.
 
-## 17. Temuan runtime/deployment yang belum selesai
+## 17. Temuan runtime/deployment dan tindak lanjut source
 
 Pada server STTIF, request endpoint katalog:
 
@@ -197,13 +197,18 @@ Kemungkinan penyebab deployment:
 - JSP API gagal compile dan router menampilkan fallback;
 - file JSP berawalan `_` tidak ikut paket deployment.
 
-Selain itu, whitelist lokal `webapp/WEB-INF/baru/pustaka.jsp` sudah memuat `_catalog_api`, tetapi belum memuat rute baru berikut:
+Gap source berikut telah ditutup pada lanjutan 25 Agustus 2026:
 
-- `reader`
-- `layanan_anggota`
-- `_engagement_api`
+- whitelist kini memuat `login_pustaka`, `reader`, `layanan_anggota`, dan `_engagement_api`;
+- parameter `p` wajib `pustaka`, sehingga router tidak dapat menginklusikan modul lain;
+- kegagalan adaptor API/OAI mempertahankan respons JSON/XML dengan HTTP 500, bukan fallback HTML;
+- navigasi login penuh telah diselaraskan dengan pemuat fragmen;
+- halaman reader tidak lagi sekaligus merender modal detail akibat parameter `id`;
+- reader dan URL digital memakai gate anggota aktif atau petugas;
+- URL digital lokal menolak protocol-relative, backslash, CR/LF, dan traversal;
+- exception internal operasi petugas tidak lagi dikirim mentah ke browser.
 
-AI/implementer berikutnya harus menyelaraskan whitelist tersebut sebelum menganggap reader dan layanan anggota dapat diroute penuh.
+Masalah endpoint katalog pada server masih memerlukan build/deployment source terbaru dan pemeriksaan log. Perubahan source tidak dapat membuktikan keadaan artefak WAR atau Tomcat yang sedang aktif.
 
 ## 18. Pekerjaan yang bergantung pada data/infrastruktur
 
@@ -237,12 +242,11 @@ Belum dilakukan sesuai instruksi pemilik:
 
 ## 20. Urutan kerja yang disarankan untuk AI berikutnya
 
-1. Perbaiki whitelist `pustaka.jsp` untuk `reader`, `layanan_anggota`, dan `_engagement_api`.
-2. Pastikan seluruh adapter JSP berawalan `_` dan class package `modern` masuk build/deployment server.
-3. Periksa log server `library-modern route adapter` dan `library typed catalog API`.
-4. Verifikasi endpoint API benar-benar JSON sebelum mengevaluasi koleksi kosong.
-5. Uji katalog desktop/mobile, detail, login anggota, reservasi, saved search, reader, dan layanan anggota.
-6. Baru lakukan review visual berbasis screenshot runtime terbaru.
+1. Pastikan seluruh adapter JSP berawalan `_` dan class package `modern` masuk build/deployment server.
+2. Periksa log server `library-modern route adapter` dan `library typed catalog API`.
+3. Verifikasi endpoint API benar-benar JSON sebelum mengevaluasi koleksi kosong.
+4. Uji katalog desktop/mobile, detail, login anggota, reservasi, saved search, reader, dan layanan anggota.
+5. Baru lakukan review visual berbasis screenshot runtime terbaru.
 
 ## 21. Prompt siap pakai untuk AI berikutnya
 
@@ -258,4 +262,3 @@ Jika diminta mengimplementasikan, pertahankan dua jalur JSP dan ZKoss, gunakan s
 
 Jangan menjalankan build WAR atau test lokal kecuali pemilik sistem memberikan instruksi baru. Laporkan secara jujur fitur yang masih membutuhkan worker, gateway, search index, master data, atau konfigurasi server.
 ```
-

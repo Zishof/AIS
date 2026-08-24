@@ -7,6 +7,7 @@
   deployment.
 - [Rollout dan rollback](ROLLOUT_ROLLBACK.md) — feature flag V1/V2, multi-tenant, keunikan OAI, dan
   prosedur rollback.
+- `validate-repository-server.sh` — smoke validation publik read-only setelah deployment.
 
 Status source tidak sama dengan status runtime. Ikuti bagian validasi server pada dokumen handoff
 sebelum menyatakan release selesai.

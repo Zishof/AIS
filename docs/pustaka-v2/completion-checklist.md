@@ -31,6 +31,9 @@
 - Advanced search: ISBN/ISSN, rentang tahun, bidang bibliografi, AND/OR, dan pengecualian NOT tersimpan pada URL/saved search.
 - Detail koleksi telah didesain ulang: header bertema, hero bibliografi, statistik ketersediaan, metadata grid, field kosong tersembunyi, holdings responsif, serta panel rekomendasi/ulasan.
 - Seluruh JSP modul Pustaka telah diaudit agar tidak mengandung urutan `${` yang menyebabkan Jasper salah memproses JavaScript sebagai EL.
+- Router telah menyertakan login, reader, layanan anggota, dan engagement API; rute di luar modul/allow-list ditolak.
+- Fallback adaptor mempertahankan JSON/XML saat terjadi error sehingga frontend tidak mencoba mem-parse halaman HTML.
+- Akses digital memakai gate anggota aktif atau petugas dan URL lokal menolak protocol-relative/traversal.
 
 ## P3
 

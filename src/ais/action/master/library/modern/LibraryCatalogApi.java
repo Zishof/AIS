@@ -87,6 +87,6 @@ public final class LibraryCatalogApi {
         boolean memberActive = member != null && member.getId() != null && !Boolean.FALSE.equals(member.getAktif());
         return new JSONObject().put("authenticated", user != null).put("member", memberActive)
                 .put("reservation", memberActive).put("favorite", memberActive)
-                .put("digital", user != null);
+                .put("digital", memberActive || LibraryPermissionGuard.isStaff(request));
     }
 }

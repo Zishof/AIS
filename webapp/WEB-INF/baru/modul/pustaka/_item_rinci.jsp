@@ -1,5 +1,7 @@
 <%@page import="ais.common.Common"%>
 <%@page import="ais.action.master.library.modern.LibraryItemDetailService"%>
+<%@page import="ais.action.master.library.modern.LibraryMemberApi"%>
+<%@page import="ais.action.master.library.modern.LibraryPermissionGuard"%>
 <%@page import="ais.common.newui.NewUiCsrfUtil"%>
 <%@page import="org.apache.commons.lang.StringEscapeUtils"%>
 <%@page import="java.util.List"%>
@@ -81,7 +83,7 @@
     deskripsi = StringEscapeUtils.escapeHtml(deskripsi);
 
     // Evaluasi Hak Akses Dokumen Digital (Unduhan Lampiran / Ebook)
-    boolean bolehAksesDigital = Common.getCurrentUser(request) != null;
+    boolean bolehAksesDigital = LibraryMemberApi.isActiveMember(request) || LibraryPermissionGuard.isStaff(request);
     String urlLampiran = bolehAksesDigital && item.getDigitalUrl() != null ? item.getDigitalUrl() : "";
 
     // Persistence access lives in a typed Java read service, not in this renderer.

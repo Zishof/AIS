@@ -32,6 +32,16 @@ import ais.database.model.library.SearchHistory;
 public final class LibraryMemberApi {
     private LibraryMemberApi() { }
 
+    /** Shared gate for member-only views such as the digital reader. */
+    public static boolean isActiveMember(HttpServletRequest request) {
+        try {
+            MemberContext context = member(request);
+            return context != null && !Boolean.FALSE.equals(context.member.getAktif());
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     public static JSONObject handle(HttpServletRequest request) throws JSONException {
         JSONObject result;
         try {

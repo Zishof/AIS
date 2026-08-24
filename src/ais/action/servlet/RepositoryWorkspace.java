@@ -46,7 +46,7 @@ public class RepositoryWorkspace extends HttpServlet {
         securityHeaders(response);
         try {
             if ("exportXlsx".equals(request.getParameter("action"))) {
-                if (!workflow.isRepositoryAdmin(user)) throw new SecurityException("Hak administrator repository diperlukan.");
+                if (!workflow.isRepositoryAdministrator(user)) throw new SecurityException("Hak administrator repository diperlukan.");
                 response.setHeader("Cache-Control", "no-store");
                 response.setHeader("Content-Disposition", "attachment; filename=repository-ais.xlsx");
                 response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -54,26 +54,33 @@ public class RepositoryWorkspace extends HttpServlet {
             }
             HttpSession httpSession = request.getSession(true);
             String getAction=clean(request.getParameter("action"));
-            if("orcidStart".equals(getAction)){if(!workflow.isRepositoryAdmin(user))throw new SecurityException("Hak administrator repository diperlukan.");Long authorityId=positiveLong(request.getParameter("authorityId"));if(authorityId==null)throw new IllegalArgumentException("Authority penulis wajib dipilih.");String state=UUID.randomUUID().toString();httpSession.setAttribute("repository.orcid.state",state);httpSession.setAttribute("repository.orcid.authority",authorityId);String target=integrations.orcidAuthorizationUrl(state);if(target.length()==0)throw new IllegalStateException("ORCID OAuth belum dikonfigurasi.");response.sendRedirect(target);return;}
+            if("orcidStart".equals(getAction)){if(!workflow.isRepositoryAdministrator(user))throw new SecurityException("Hak administrator repository diperlukan.");Long authorityId=positiveLong(request.getParameter("authorityId"));if(authorityId==null)throw new IllegalArgumentException("Authority penulis wajib dipilih.");String state=UUID.randomUUID().toString();httpSession.setAttribute("repository.orcid.state",state);httpSession.setAttribute("repository.orcid.authority",authorityId);String target=integrations.orcidAuthorizationUrl(state);if(target.length()==0)throw new IllegalStateException("ORCID OAuth belum dikonfigurasi.");response.sendRedirect(target);return;}
             if("orcidCallback".equals(getAction)){String expected=(String)httpSession.getAttribute("repository.orcid.state");String supplied=clean(request.getParameter("state"));Long authorityId=(Long)httpSession.getAttribute("repository.orcid.authority");httpSession.removeAttribute("repository.orcid.state");httpSession.removeAttribute("repository.orcid.authority");if(!constantTime(expected,supplied))throw new SecurityException("State ORCID tidak valid.");ais.action.master.repository.RepositoryIntegrationService.Result result=integrations.authenticateOrcid(authorityId,request.getParameter("code"),user,Long.toHexString(System.currentTimeMillis()));flash(httpSession,result.success?"repository.flash":"repository.flash.error",result.message);response.sendRedirect(request.getContextPath()+"/repository-workspace?view=admin");return;}
             String token = (String) httpSession.getAttribute(CSRF);
             if (token == null) { token = UUID.randomUUID().toString() + UUID.randomUUID().toString(); httpSession.setAttribute(CSRF, token); }
             request.setAttribute("repoCsrf", token);
             request.setAttribute("repoUser", user);
-            request.setAttribute("repoIsAdmin", Boolean.valueOf(workflow.isRepositoryAdmin(user)));
+            boolean canReview = workflow.isRepositoryAdmin(user);
+            boolean administrator = workflow.isRepositoryAdministrator(user);
+            request.setAttribute("repoCanReview", Boolean.valueOf(canReview));
+            request.setAttribute("repoIsAdmin", Boolean.valueOf(administrator));
             request.setAttribute("repoCollections", publicService.listCollections(500));
             request.setAttribute("repoMyDeposits", workflow.myDeposits(user, 200));
             request.setAttribute("repoNotifications", workflow.notifications(user, 20));
             String view = clean(request.getParameter("view"));
             if (view.length() == 0) view = "deposit";
-            if (("review".equals(view) || "admin".equals(view)) && !workflow.isRepositoryAdmin(user))
+            if ("review".equals(view) && !canReview)
                 throw new SecurityException("Hak reviewer repository diperlukan.");
+            if ("admin".equals(view) && !administrator)
+                throw new SecurityException("Hak administrator repository diperlukan.");
             request.setAttribute("repoWorkspaceView", view);
             Long id = positiveLong(request.getParameter("id"));
             if (id != null) {
                 RepoItem item = "review".equals(view) || "admin".equals(view)
                         ? workflow.reviewItem(id, user) : workflow.workspaceItem(id, user);
                 request.setAttribute("repoWorkspaceItem", item);
+                request.setAttribute("repoCanEditItem", Boolean.valueOf(
+                        user.getUserId().equals(item.getOwnerId()) || administrator));
                 request.setAttribute("repoWorkspaceFiles", files.list(id, user));
                 request.setAttribute("repoWorkspaceHistory", workflow.history(id, user));
                 request.setAttribute("repoAuthorOrcids", workflow.authorOrcids(id, user));
@@ -91,8 +98,8 @@ public class RepositoryWorkspace extends HttpServlet {
                 duplicateInput.title = item.getTitle(); duplicateInput.authors = item.getAuthors();
                 request.setAttribute("repoDuplicates", workflow.duplicates(duplicateInput, 10));
             }
-            if (workflow.isRepositoryAdmin(user)) {
-                request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
+            if (canReview) request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
+            if (administrator) {
                 request.setAttribute("repoAdminCollections", adminService.collections(user));
                 request.setAttribute("repoAuthorities",adminService.authorities(user,500));
                 request.setAttribute("repoAdminHealth", adminService.health(user));

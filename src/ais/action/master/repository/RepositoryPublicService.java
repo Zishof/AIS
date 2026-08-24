@@ -844,10 +844,10 @@ public class RepositoryPublicService {
             criteria.add(Restrictions.lt("issuedAt", until.getTime()));
         }
         if (q.modifiedFrom != null) criteria.add(Restrictions.sqlRestriction(
-                "coalesce({alias}.last_sync_at,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) >= ?",
+                "coalesce({alias}.withdrawn_at,{alias}.last_sync_at,{alias}.tanggal_dirubah,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) >= ?",
                 q.modifiedFrom, Hibernate.TIMESTAMP));
         if (q.modifiedUntil != null) criteria.add(Restrictions.sqlRestriction(
-                "coalesce({alias}.last_sync_at,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) <= ?",
+                "coalesce({alias}.withdrawn_at,{alias}.last_sync_at,{alias}.tanggal_dirubah,{alias}.published_at,{alias}.issued_at,{alias}.submitted_at) <= ?",
                 q.modifiedUntil, Hibernate.TIMESTAMP));
         if (q.keyword.length() > 0) {
             if ("title".equals(q.searchField)) criteria.add(Restrictions.ilike("title", q.keyword, MatchMode.ANYWHERE));
@@ -1041,8 +1041,10 @@ public class RepositoryPublicService {
         card.licenseUri = safe(entity.getLicenseUri());
         card.embargoUntil = entity.getEmbargoUntil();
         card.datestamp = entity.getLastSyncAt() != null ? entity.getLastSyncAt()
+                : (entity.getTanggal_dirubah() != null ? entity.getTanggal_dirubah()
                 : (entity.getPublishedAt() != null ? entity.getPublishedAt()
-                : (entity.getIssuedAt() != null ? entity.getIssuedAt() : entity.getSubmittedAt()));
+                : (entity.getIssuedAt() != null ? entity.getIssuedAt() : entity.getSubmittedAt())));
+        if (card.datestamp == null) card.datestamp = new Date(0L);
         card.viewCount = entity.getViewCount() == null ? 0L : entity.getViewCount().longValue();
         card.downloadCount = entity.getDownloadCount() == null ? 0L : entity.getDownloadCount().longValue();
         card.withdrawn = Boolean.TRUE.equals(entity.getIsWithdrawn()); card.withdrawalReason=safe(entity.getWithdrawalReason()); card.withdrawnAt=entity.getWithdrawnAt();

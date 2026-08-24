@@ -220,7 +220,7 @@ public class RepositoryAdminService {
     @SuppressWarnings("unchecked") private void fillUsageMap(Session session,Map<String,Long> target,String sql){List<Object[]> rows=session.createSQLQuery(sql).setString("tenant",RepositoryTenantScope.currentKey()).list();for(Object[] row:rows)target.put(String.valueOf(row[0]),Long.valueOf(number(row[1])));}
     private static long number(Object value){return value instanceof Number?((Number)value).longValue():0L;}
 
-    private void requireAdmin(Tbmuser actor) { if (!workflow.isRepositoryAdmin(actor)) throw new SecurityException("Hak administrator repository diperlukan."); }
+    private void requireAdmin(Tbmuser actor) { if (!workflow.isRepositoryAdministrator(actor)) throw new SecurityException("Hak administrator repository diperlukan."); }
     private void ensureNoCycle(Session session, Long id, Long parent) { Long p=parent; int guard=0; while(p!=null&&guard++<100){if(p.equals(id))throw new IllegalArgumentException("Hierarchy koleksi membentuk siklus.");RepoCollection c=(RepoCollection)session.get(RepoCollection.class,p);if(c==null||!RepositoryTenantScope.currentKey().equals(c.getTenantKey()))throw new IllegalArgumentException("Induk koleksi tidak ditemukan.");p=c.getParentId();} }
     private static void validateJson(String value,String label){try{new JSONObject(jsonOrEmpty(value));}catch(Exception e){throw new IllegalArgumentException("JSON "+label+" tidak valid.");}}
     private static String jsonOrEmpty(String value){return clean(value).length()==0?"{}":clean(value);}

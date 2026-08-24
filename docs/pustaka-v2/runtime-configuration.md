@@ -11,6 +11,6 @@ Fitur tidak membuat skema paralel dan memakai data AIS existing.
 - RFID/self-check tetap disabled-by-default sampai URL bridge HTTPS dan kredensial server dikonfigurasi.
 - Deployment harus membawa `WEB-INF/baru/pustaka.jsp`, seluruh `WEB-INF/baru/modul/pustaka/*.jsp` termasuk file berawalan `_`, asset `library-modern`, dan seluruh class `ais.action.master.library.modern`.
 - Endpoint dengan suffix `_api`/`_service` harus mengembalikan JSON, bukan halaman fallback HTML. Periksa log `library-modern route adapter` dan `library typed catalog API` apabila katalog menampilkan “Katalog belum dapat dimuat”.
-- Whitelist route `pustaka.jsp` harus diselaraskan dengan route di `landing_page.jsp`; baseline 24 Agustus 2026 masih perlu menambahkan `reader`, `layanan_anggota`, dan `_engagement_api`.
+- Whitelist route `pustaka.jsp` telah diselaraskan dengan `landing_page.jsp` untuk `login_pustaka`, `reader`, `layanan_anggota`, dan `_engagement_api` pada 25 Agustus 2026.
 
 Tidak ada fallback yang mengarang denah, ruang, berkas digital, atau status layanan apabila master data belum dikonfigurasi.

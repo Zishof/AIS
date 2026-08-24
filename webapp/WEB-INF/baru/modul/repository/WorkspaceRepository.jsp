@@ -18,6 +18,7 @@ private boolean editable(RepoItem item) { return item == null || "DRAFT".equals(
 <%
 String root=request.getContextPath(); String csrf=(String)request.getAttribute("repoCsrf");
 String view=(String)request.getAttribute("repoWorkspaceView"); if(view==null)view="deposit";
+boolean canReview=Boolean.TRUE.equals(request.getAttribute("repoCanReview"));
 boolean admin=Boolean.TRUE.equals(request.getAttribute("repoIsAdmin")); RepoItem item=(RepoItem)request.getAttribute("repoWorkspaceItem");
 List<CollectionView> collections=(List<CollectionView>)request.getAttribute("repoCollections"); if(collections==null)collections=Collections.emptyList();
 List<RepoItem> deposits=(List<RepoItem>)request.getAttribute("repoMyDeposits"); if(deposits==null)deposits=Collections.emptyList();
@@ -32,7 +33,8 @@ String advisors=(String)request.getAttribute("repoAdvisors");if(advisors==null)a
 String programStudy=(String)request.getAttribute("repoProgramStudy");if(programStudy==null)programStudy="";String faculty=(String)request.getAttribute("repoFaculty");if(faculty==null)faculty="";
 String funding=(String)request.getAttribute("repoFunding");if(funding==null)funding="";String rightsStatement=(String)request.getAttribute("repoRightsStatement");if(rightsStatement==null)rightsStatement="";String depositorNote=(String)request.getAttribute("repoDepositorNote");if(depositorNote==null)depositorNote="";
 String bibliography=(String)request.getAttribute("repoBibliography");if(bibliography==null)bibliography="";
-Object flash=request.getAttribute("repoFlash"), flashError=request.getAttribute("repoFlashError"); boolean canEdit=editable(item);
+Object flash=request.getAttribute("repoFlash"), flashError=request.getAttribute("repoFlashError");
+boolean canEdit=editable(item)&&Boolean.TRUE.equals(request.getAttribute("repoCanEditItem"));
 MetadataSuggestion aiSuggestion=(MetadataSuggestion)request.getAttribute("repoAiSuggestion");
 List<RepoCollection> adminCollections=(List<RepoCollection>)request.getAttribute("repoAdminCollections"); if(adminCollections==null)adminCollections=Collections.emptyList();
 List<RepoAuthorAuthority> authorities=(List<RepoAuthorAuthority>)request.getAttribute("repoAuthorities");if(authorities==null)authorities=Collections.emptyList();
@@ -45,7 +47,7 @@ Map<String,String> deploymentChecks=(Map<String,String>)request.getAttribute("re
 <title>Workspace Repository AIS</title><jsp:include page="/WEB-INF/baru/modul/repository/_repository_theme.jsp" /></head>
 <body class="repo-modern repo-workspace-body">
 <a class="repo-skip" href="#workspace-main">Lewati ke konten</a>
-<header class="repo-topbar"><div class="repo-wrap repo-nav"><a class="repo-brand" href="<%=root%>/repository"><span class="repo-brand-mark">R</span><span><strong>Repository AIS</strong><small>Workspace internal</small></span></a><nav class="repo-links" aria-label="Workspace"><a href="<%=root%>/repository">Portal publik</a><a href="<%=root%>/repository-workspace?view=deposit" <%="deposit".equals(view)?"aria-current='page'":""%>>Deposit saya</a><%if(admin){%><a href="<%=root%>/repository-workspace?view=review" <%="review".equals(view)?"aria-current='page'":""%>>Review</a><a href="<%=root%>/repository-workspace?view=admin" <%="admin".equals(view)?"aria-current='page'":""%>>Admin</a><%}%></nav></div></header>
+<header class="repo-topbar"><div class="repo-wrap repo-nav"><a class="repo-brand" href="<%=root%>/repository"><span class="repo-brand-mark">R</span><span><strong>Repository AIS</strong><small>Workspace internal</small></span></a><nav class="repo-links" aria-label="Workspace"><a href="<%=root%>/repository">Portal publik</a><a href="<%=root%>/repository-workspace?view=deposit" <%="deposit".equals(view)?"aria-current='page'":""%>>Deposit saya</a><%if(canReview){%><a href="<%=root%>/repository-workspace?view=review" <%="review".equals(view)?"aria-current='page'":""%>>Review</a><%}%><%if(admin){%><a href="<%=root%>/repository-workspace?view=admin" <%="admin".equals(view)?"aria-current='page'":""%>>Admin</a><%}%></nav></div></header>
 <main id="workspace-main" class="repo-wrap repo-workspace">
 <%if(!notifications.isEmpty()){%><details class="repo-card repo-notifications"><summary>Notifikasi repository (<%=notifications.size()%>)</summary><div><%for(RepoNotification n:notifications){%><article class="<%=n.getReadAt()==null?"is-unread":""%>"><span><strong><%=wh(n.getType())%></strong> · <%=wh(n.getMessage())%></span><small><%=ws(n.getCreatedAt())%></small><%if(n.getReadAt()==null){%><form method="post" action="<%=root%>/repository-workspace"><input type="hidden" name="csrf" value="<%=wh(csrf)%>"><input type="hidden" name="action" value="readNotification"><input type="hidden" name="notificationId" value="<%=n.getId()%>"><button class="repo-btn" type="submit">Tandai dibaca</button></form><%}%></article><%}%></div></details><%}%>
 <%if(flash!=null){%><div class="repo-alert repo-alert-success" role="status"><%=wh(String.valueOf(flash))%></div><%}%>

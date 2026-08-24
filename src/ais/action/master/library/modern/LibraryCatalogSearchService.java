@@ -320,7 +320,10 @@ public class LibraryCatalogSearchService {
     private String safeUrl(String value) {
         if (value == null) return null;
         value = value.trim();
-        return value.startsWith("https://") || value.startsWith("http://") || value.startsWith("/") ? value : null;
+        if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\\') >= 0) return null;
+        if (value.startsWith("https://") || value.startsWith("http://")) return value;
+        if (value.startsWith("/") && !value.startsWith("//") && !value.contains("/../") && !value.endsWith("/..")) return value;
+        return null;
     }
 
     private boolean hasText(String value) { return value != null && value.trim().length() > 0; }

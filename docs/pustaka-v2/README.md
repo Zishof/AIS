@@ -2,6 +2,8 @@
 
 Dokumentasi ini menjadi baseline implementasi dan handoff untuk pengembangan lanjutan modul Perpustakaan Digital AIS.
 
+Status source terakhir: 25 Agustus 2026. Sinkronisasi router, fallback API, serta gate reader/digital pada handoff sebelumnya telah diselesaikan; build dan verifikasi runtime tetap dilakukan di server.
+
 ## Mulai dari sini
 
 - [`ai-handoff-2026-08-24.md`](ai-handoff-2026-08-24.md) — ringkasan menyeluruh sesi, status aktual, pekerjaan tersisa, dan prompt untuk AI berikutnya.
@@ -17,4 +19,3 @@ Dokumentasi ini menjadi baseline implementasi dan handoff untuk pengembangan lan
 ## Batas verifikasi
 
 Sesi implementasi tidak menjalankan build WAR atau test lokal sesuai instruksi pemilik sistem. Pemeriksaan yang dilakukan hanya audit source, struktur JSP, pencarian pola bermasalah, dan `git diff --check`. Verifikasi runtime dilakukan setelah build/deployment di server.
-

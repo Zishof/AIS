@@ -44,6 +44,9 @@ public class RepositoryFileService {
             String requestId) throws Exception {
         requireLogin(actor);
         if (itemId == null || content == null) throw new IllegalArgumentException("Item dan isi berkas wajib tersedia.");
+        // Authorize before creating directories, invoking scanners, or consuming the upload.
+        // The item is checked again inside the write transaction to close state-change races.
+        authorizeEditableItem(itemId, actor);
         final String safeName = safeFileName(originalName);
         final String extension = extension(safeName);
         if (!EXTENSIONS.contains(extension)) throw new IllegalArgumentException("Jenis ekstensi berkas tidak diizinkan.");
@@ -150,17 +153,21 @@ public class RepositoryFileService {
         requireLogin(actor);
         Session session = HibernateUtil.openSession();
         Transaction tx = null;
+        File source = null;
+        File trashed = null;
+        boolean movedToTrash = false;
         try {
             tx = session.beginTransaction();
             RepoBitstream file = (RepoBitstream) session.get(RepoBitstream.class, bitstreamId);
             if (file == null || !Boolean.TRUE.equals(file.getAktif())) throw new IllegalArgumentException("Berkas tidak ditemukan.");
             RepoItem item = requiredEditableItem(session, file.getItemId(), actor);
-            File source = new File(file.getPathSistem()).getCanonicalFile();
+            source = new File(file.getPathSistem()).getCanonicalFile();
             if (source.exists() && source.isFile()) {
                 File trash = canonicalChild(storageRoot(), ".trash" + File.separator + file.getItemId());
                 if (!trash.exists()) trash.mkdirs();
-                File target = canonicalChild(trash, System.currentTimeMillis() + "-" + safeFileName(file.getNamaFile()));
-                if (!source.renameTo(target)) { copy(source, target); if (!source.delete()) throw new IllegalStateException("Berkas sumber tidak dapat dipindahkan ke trash."); }
+                trashed = canonicalChild(trash, System.currentTimeMillis() + "-" + safeFileName(file.getNamaFile()));
+                if (!source.renameTo(trashed)) { copy(source, trashed); if (!source.delete()) throw new IllegalStateException("Berkas sumber tidak dapat dipindahkan ke trash."); }
+                movedToTrash = true;
             }
             file.setAktif(Boolean.FALSE); file.setPrimaryFile(Boolean.FALSE); session.update(file);
             workflowEvent(session, item.getId(), item.getWorkflowStatus(), "FILE_REMOVE", file.getNamaFile(), actor, requestId);
@@ -168,6 +175,15 @@ public class RepositoryFileService {
         } catch (Exception e) {
             if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception ignored) {
                 ais.common.ErrorAuditUtil.record(ignored, "RepositoryFileService.remove.rollback");
+            }
+            if (movedToTrash && trashed != null && source != null && trashed.exists() && !source.exists()) {
+                try {
+                    File parent = source.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    if (!trashed.renameTo(source)) { copy(trashed, source); if (!trashed.delete()) throw new IllegalStateException("Trash tidak dapat dibersihkan setelah pemulihan."); }
+                } catch (Exception restoreFailure) {
+                    ais.common.ErrorAuditUtil.record(restoreFailure, "RepositoryFileService.remove.restore");
+                }
             }
             throw e;
         } finally { HibernateUtil.closeSessionQuietly(session); }
@@ -187,10 +203,18 @@ public class RepositoryFileService {
 
     private RepoItem requiredEditableItem(Session session, Long id, Tbmuser actor) {
         RepoItem item = requiredVisibleWorkspaceItem(session, id, actor);
+        if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryAdministrator(actor))
+            throw new SecurityException("Hanya pemilik deposit atau administrator yang dapat mengubah berkas.");
         String state = item.getWorkflowStatus();
         if (!RepositoryWorkflowService.DRAFT.equals(state) && !RepositoryWorkflowService.REVISION_REQUIRED.equals(state))
             throw new IllegalStateException("Berkas hanya dapat diubah pada draft atau revisi.");
         return item;
+    }
+
+    private void authorizeEditableItem(Long itemId, Tbmuser actor) {
+        Session session = HibernateUtil.openSession();
+        try { requiredEditableItem(session, itemId, actor); }
+        finally { HibernateUtil.closeSessionQuietly(session); }
     }
 
     private RepoItem requiredVisibleWorkspaceItem(Session session, Long id, Tbmuser actor) {

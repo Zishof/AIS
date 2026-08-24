@@ -14,4 +14,5 @@ Aturan penting:
 - Mutasi tetap diperiksa ulang oleh `LibraryMemberApi`; menyembunyikan tombol bukan mekanisme keamanan.
 - Reservasi memverifikasi anggota, item, cabang, duplikasi, metode POST, dan CSRF.
 - Detail publik menolak item nonaktif dan status selain Terbit/Publish/Published.
+- Reader dan URL digital hanya tersedia bagi anggota aktif atau petugas perpustakaan; status login saja tidak cukup.
 - Header hanya menyajikan navigasi yang relevan; service backend tetap menjadi sumber keputusan.

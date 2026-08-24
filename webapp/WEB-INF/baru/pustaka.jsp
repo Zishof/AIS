@@ -42,7 +42,10 @@ if(hanya_tampil_jsp){
             <%
         }catch(Exception e){
             ais.common.ErrorAuditUtil.record(e, "library-modern route adapter");
-            if (!response.isCommitted()) response.resetBuffer();
+            if (!response.isCommitted()) {
+                try { out.clearBuffer(); } catch (Exception ignored) { }
+                response.resetBuffer();
+            }
             response.setStatus(500);
             if (apiRoute) {
                 response.setContentType("application/json; charset=UTF-8");
@@ -70,7 +73,7 @@ if(hanya_tampil_jsp){
         
         <%
         String idBuku = request.getParameter("id");
-        if (idBuku != null && !idBuku.trim().isEmpty()) {
+        if (idBuku != null && !idBuku.trim().isEmpty() && (s == null || s.trim().isEmpty() || "katalog".equals(s))) {
         %>
             <jsp:include page="/WEB-INF/baru/modul/pustaka/_item_rinci.jsp">
                 <jsp:param name="id" value="<%=idBuku%>" />

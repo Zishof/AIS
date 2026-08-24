@@ -12,6 +12,10 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 -Dais.repository.searchSynonyms=umkm=usaha mikro kecil menengah|usaha kecil;skripsi=tugas akhir|thesis
 -Dais.repository.anonymousFullText=false
 
+-Dais.repository.oaiBaseUrl=https://repository.example/ais/oai
+-Dais.repository.oaiRepositoryName=Repository Institusi
+-Dais.repository.oaiAdminEmail=repository@example.org
+
 -Dais.repository.dataciteUrl=https://api.datacite.org
 -Dais.repository.dataciteUser=<repository-id>
 -Dais.repository.datacitePassword=<password>
@@ -48,5 +52,15 @@ dihapus; record yang ditarik menggunakan tombstone.
    `citation_pdf_url` hanya untuk PDF yang dapat dibaca publik.
 4. Unggah berkas uji untuk memastikan signature, checksum, scanner, ekstraksi teks, dan fixity.
 5. Jalankan DataCite/COAR hanya dari item uji; periksa `repo_integration_event` melalui audit.
+
+Smoke test publik yang tidak mengubah data dapat dijalankan dari server/operator:
+
+```text
+sh docs/repository-v2/validate-repository-server.sh https://HOST/ais
+```
+
+Script memeriksa portal, robots, sitemap, enam jalur OAI utama yang dapat diuji tanpa kredensial,
+well-formed XML bila `xmllint` tersedia, pengambilan satu record, dan penolakan argumen OAI ilegal.
+Pengujian role, upload, workflow, serta integrasi eksternal tetap harus memakai akun/data uji khusus.
 
 Hibernate mengelola tabel/kolom tambahan. Tidak diperlukan `ALTER TABLE` manual.
