@@ -230,3 +230,79 @@ Dikerjakan tiga langkah, masing-masing diverifikasi sebelum lanjut ke langkah be
   mekanisme yang BERBEDA (tabrakan id lintas tabel draft/transaksi final lewat fitur "Tahan
   Keranjang" di `keranjang_screen.dart`, bukan kode sesi tak dikenal) — didokumentasikan
   terpisah bila perbaikannya dikerjakan.
+
+---
+
+## 8. Verifikasi ulang produksi — 24 Agustus 2026
+
+Verifikasi ini dijalankan langsung ke database produksi secara **read-only** untuk
+membandingkan tiga sumber: transaksi live, relasi sesi kas, dan snapshot tutup kas. Tidak ada
+data yang diubah.
+
+### 8.1 Nilai live sesi Agung id 265
+
+Query berdasarkan `sesi_kas_kasir = 265` dan query independen berdasarkan rentang waktu sesi
+(`2026-08-23 13:56:06.593` s.d. `2026-08-23 21:53:37.136`) menghasilkan himpunan yang sama:
+
+| Komponen | Nilai live |
+|---|---:|
+| Jumlah transaksi | 77 |
+| Total penjualan | Rp 4.498.500 |
+| Tunai | Rp 2.714.000 |
+| Non-tunai | Rp 1.784.500 |
+| Modal awal | Rp 300.000 |
+| Kas seharusnya | Rp 3.014.000 |
+| Kas closing | Rp 2.681.500 |
+| Selisih live | **-Rp 332.500** |
+
+Rincian metode pembayaran live:
+
+| Metode | Transaksi | Nilai |
+|---|---:|---:|
+| eMoney Santri | 29 | Rp 1.035.000 |
+| QRIS BSI | 10 | Rp 690.000 |
+| Tunai | 36 | Rp 2.714.000 |
+| Voucher Pejuang | 2 | Rp 59.500 |
+
+Jumlah metode adalah 77 transaksi dan Rp 4.498.500, sehingga relasi transaksi, metode bayar,
+total master, total rincian, serta rentang waktu sesi kini konsisten.
+
+### 8.2 Mengapa struk tutup kas tetap berbeda
+
+Kolom `laporan_tutup_json` sesi 265 masih menyimpan snapshot saat tombol tutup kas dijalankan:
+
+| Komponen snapshot | Nilai pada struk lama |
+|---|---:|
+| Jumlah header transaksi | 135 |
+| Total penjualan | Rp 7.004.500 |
+| Tunai | Rp 3.792.500 |
+| Non-tunai | Rp 3.212.000 |
+| Kas seharusnya | Rp 4.092.500 |
+| Kas closing | Rp 2.681.500 |
+| Selisih snapshot | **-Rp 1.411.000** |
+
+Angka ini identik dengan foto struk. Snapshot tersebut dibuat sebelum 58 transaksi tanggal
+20 Agustus dipindahkan dari sesi 265 ke sesi 222, sehingga snapshot memang tidak lagi
+mewakili isi live sesi 265. Jumlah penerimaan per metode pada struk dapat melebihi jumlah
+header karena transaksi split payment dapat dihitung pada lebih dari satu metode.
+
+### 8.3 Mengapa tangkapan layar aplikasi juga berbeda dari live terbaru
+
+Jejak audit menunjukkan tangkapan layar aplikasi (tunai Rp 2.832.500 dan eMoney Rp 916.500)
+adalah keadaan sebelum tiga transaksi berikut dikoreksi metode pembayarannya dari Tunai ke
+eMoney Santri:
+
+| Nota | Waktu | Nilai |
+|---|---|---:|
+| AB22308202600087 | 2026-08-23 20:29:04 | Rp 39.000 |
+| AB22308202600090 | 2026-08-23 20:36:21 | Rp 49.000 |
+| AB22308202600097 | 2026-08-23 21:00:32 | Rp 30.500 |
+
+Total reklasifikasi adalah Rp 118.500. Karena itu nilai tunai turun dari Rp 2.832.500 menjadi
+Rp 2.714.000 dan eMoney naik dari Rp 916.500 menjadi Rp 1.035.000, tanpa mengubah total
+penjualan Rp 4.498.500.
+
+Kesimpulan final: **data transaksi live saat verifikasi sudah sesuai dan konsisten**. Foto
+struk merupakan arsip snapshot lama yang terkontaminasi sebelum koreksi, sedangkan tangkapan
+layar aplikasi merupakan keadaan sebelum reklasifikasi tiga metode pembayaran. Nilai live
+yang berlaku pada 24 Agustus 2026 adalah selisih kas **-Rp 332.500**.
