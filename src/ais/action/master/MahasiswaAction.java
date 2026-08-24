@@ -4451,68 +4451,123 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			return false;
 		}
-		Session session = HibernateUtil.currentSession();
-		Mahasiswa target = (Mahasiswa) session.get(Mahasiswa.class, mahasiswaId);
-		if (target == null) return false;
-		String nimLama = target.getNim() == null ? "" : target.getNim().trim();
-		if (nimBaru.equals(nimLama)) return true;
-		Number jumlahDuplikat = (Number) session.createCriteria(Mahasiswa.class)
-				.add(Restrictions.eq("nim", nimBaru))
-				.add(Restrictions.ne("id", target.getId()))
-				.setProjection(Projections.rowCount()).uniqueResult();
-		if (jumlahDuplikat != null && jumlahDuplikat.intValue() > 0) {
-			MyMessageboxConfig.showFormat(
-					"NIM \"{V1}\" sudah digunakan mahasiswa lain. Silakan gunakan NIM lain.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, nimBaru);
-			return false;
-		}
 
+		/*
+		 * Jangan memakai currentSession() halaman. Session tersebut dapat masih memuat
+		 * entity lain yang berubah lewat getter (contohnya Kegiatan); query Criteria akan
+		 * melakukan auto-flush dan ikut meng-update entity yang sama sekali tidak terkait
+		 * perubahan NIM. Session khusus membatasi flush hanya pada data di bawah ini.
+		 */
+		Session session = null;
+		org.hibernate.Transaction transaction = null;
+		Mahasiswa target = null;
+		String nimLama = "";
 		String passwordTeks = nimBaru;
+		String emailTarget = null;
 		try {
-			String passLama = target.getPass() == null ? "" : Common.desEncrypter.get().decrypt(target.getPass());
-			passwordTeks = passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)
-					? nimBaru : passLama;
-			if (passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)) {
+			session = HibernateUtil.openSession();
+			target = (Mahasiswa) session.get(Mahasiswa.class, mahasiswaId);
+			if (target == null) {
+				return false;
+			}
+			nimLama = target.getNim() == null ? "" : target.getNim().trim();
+			if (nimBaru.equals(nimLama)) {
+				return true;
+			}
+
+			Number jumlahDuplikat = (Number) session.createCriteria(Mahasiswa.class)
+					.add(Restrictions.eq("nim", nimBaru))
+					.add(Restrictions.ne("id", target.getId()))
+					.setProjection(Projections.rowCount()).uniqueResult();
+			if (jumlahDuplikat != null && jumlahDuplikat.intValue() > 0) {
+				MyMessageboxConfig.showFormat(
+						"NIM \"{V1}\" sudah digunakan mahasiswa lain. Silakan gunakan NIM lain.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, nimBaru);
+				return false;
+			}
+
+			UserAccess userLama = nimLama.isEmpty() ? null : (UserAccess) session.createCriteria(UserAccess.class)
+					.add(Restrictions.eq("username", nimLama)).setMaxResults(1).uniqueResult();
+			UserAccess userBaru = (UserAccess) session.createCriteria(UserAccess.class)
+					.add(Restrictions.eq("username", nimBaru)).setMaxResults(1).uniqueResult();
+
+			Number akunBaruMahasiswa = (Number) session.createSQLQuery(
+					"select mahasiswa from public.tbmuser where userid=:userid")
+					.setString("userid", nimBaru).setMaxResults(1).uniqueResult();
+			if (akunBaruMahasiswa != null && !target.getId().equals(Long.valueOf(akunBaruMahasiswa.longValue()))) {
+				MyMessageboxConfig.showFormat(
+						"NIM \"{V1}\" sudah digunakan akun pengguna lain. Silakan gunakan NIM lain.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, nimBaru);
+				return false;
+			}
+
+			transaction = session.beginTransaction();
+			try {
+				String passLama = target.getPass() == null ? "" : Common.desEncrypter.get().decrypt(target.getPass());
+				passwordTeks = passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)
+						? nimBaru : passLama;
+				if (passLama == null || passLama.trim().isEmpty() || passLama.trim().equals(nimLama)) {
+					target.setPass(Common.desEncrypter.get().encrypt(nimBaru));
+				}
+			} catch (Exception e) {
+				passwordTeks = nimBaru;
 				target.setPass(Common.desEncrypter.get().encrypt(nimBaru));
 			}
+
+			if (userLama != null && userBaru == null) {
+				userLama.setUsername(nimBaru);
+				userLama.setFirstName(nimBaru);
+				Common.refreshSaveOrUpdate(session, userLama);
+			}
+
+			target.setNim(nimBaru);
+			Common.refreshSaveOrUpdate(session, target);
+
+			List<BiodataCalonMahasiswa> calonTerkait = session.createCriteria(BiodataCalonMahasiswa.class)
+					.add(Restrictions.eq("mahasiswa", target)).list();
+			if (!nimLama.isEmpty()) {
+				calonTerkait.addAll(session.createCriteria(BiodataCalonMahasiswa.class)
+						.add(Restrictions.eq("nim", nimLama)).list());
+			}
+			for (BiodataCalonMahasiswa calon : calonTerkait) {
+				calon.setMahasiswa(target);
+				calon.setNim(nimBaru);
+				Common.refreshSaveOrUpdate(session, calon);
+			}
+
+			/*
+			 * userid adalah primary key Tbmuser. Mengubah setUserId() pada entity managed
+			 * membuat Hibernate melempar "identifier was altered" saat flush. Bulk SQL
+			 * mengubah hanya akun mahasiswa dengan userid lama; FK ON UPDATE CASCADE tetap
+			 * dijalankan oleh PostgreSQL.
+			 */
+			if (!nimLama.isEmpty() && akunBaruMahasiswa == null) {
+				session.createSQLQuery("update public.tbmuser set userid=:nimBaru "
+						+ "where userid=:nimLama and mahasiswa=:mahasiswaId")
+						.setString("nimBaru", nimBaru).setString("nimLama", nimLama)
+						.setLong("mahasiswaId", target.getId()).executeUpdate();
+			}
+
+			emailTarget = target.getEmail();
+			session.flush();
+			transaction.commit();
+			transaction = null;
 		} catch (Exception e) {
-			passwordTeks = nimBaru;
-			target.setPass(Common.desEncrypter.get().encrypt(nimBaru));
+			if (transaction != null) {
+				try {
+					transaction.rollback();
+				} catch (Exception rollbackException) {
+					ais.common.ErrorAuditUtil.record(rollbackException,
+							"auto-audit(empty-catch) src/ais/action/master/MahasiswaAction.java:simpanPerubahanNimRollback");
+				}
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 
-		UserAccess userLama = nimLama.isEmpty() ? null : (UserAccess) session.createCriteria(UserAccess.class)
-				.add(Restrictions.eq("username", nimLama)).setMaxResults(1).uniqueResult();
-		UserAccess userBaru = (UserAccess) session.createCriteria(UserAccess.class)
-				.add(Restrictions.eq("username", nimBaru)).setMaxResults(1).uniqueResult();
-		if (userLama != null && userBaru == null) {
-			userLama.setUsername(nimBaru);
-			userLama.setFirstName(nimBaru);
-			Common.refreshSaveOrUpdate(session, userLama);
-		}
-
-		target.setNim(nimBaru);
-		Common.refreshSaveOrUpdate(session, target);
-
-		List<BiodataCalonMahasiswa> calonTerkait = session.createCriteria(BiodataCalonMahasiswa.class)
-				.add(Restrictions.eq("mahasiswa", target)).list();
-		if (!nimLama.isEmpty()) {
-			calonTerkait.addAll(session.createCriteria(BiodataCalonMahasiswa.class)
-					.add(Restrictions.eq("nim", nimLama)).list());
-		}
-		for (BiodataCalonMahasiswa calon : calonTerkait) {
-			calon.setMahasiswa(target);
-			calon.setNim(nimBaru);
-			Common.refreshSaveOrUpdate(session, calon);
-		}
-
-		List<Tbmuser> pengguna = session.createCriteria(Tbmuser.class)
-				.add(Restrictions.eq("mahasiswa", target)).list();
-		for (Tbmuser user : pengguna) {
-			user.setUserId(nimBaru);
-			Common.refreshSaveOrUpdate(session, user);
-		}
-
-		Common.saveOrUpdateUserAccess(null, target, nimBaru, passwordTeks, target.getEmail());
+		// Helper UserAccess mempunyai session/transaksi sendiri; jalankan setelah transaksi NIM commit.
+		Common.saveOrUpdateUserAccess(null, target, nimBaru, passwordTeks, emailTarget);
 		MyMessageboxConfig.showFormat("NIM berhasil diubah dari \"{V1}\" menjadi \"{V2}\".",
 				"Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
 				nimLama.isEmpty() ? "-" : nimLama, nimBaru);

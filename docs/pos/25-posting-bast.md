@@ -44,14 +44,19 @@ Akun debet tiap detail dicari berurutan, dari yang paling khusus ke yang paling 
 
 Ini yang paling memakan waktu, dan gejalanya menyesatkan.
 
-`AssetUtil.ambilDataAkun` mengurai JSON lalu memanggil `ConstantValues.ambil`, yang **membuka
-dan menutup sesinya sendiri**. Sesi yang dipegang pemanggil menjadi basi, dan transaksi
-berikutnya gagal:
+`AssetUtil.ambilDataAkun` **membuka dan menutup sesi Hibernate sendiri**. Sesi yang dipegang
+pemanggil menjadi basi, dan transaksi berikutnya gagal:
 
 ```
 org.hibernate.SessionException: Session is closed!
 	at ...PostingSaldoAwalMasterAssetDetailAction.postingSemua
 ```
+
+> **Dikoreksi 24 Agustus 2026.** Yang menutup sesi adalah `AssetUtil.ambilDataAkun`
+> **sendiri**, bukan `ConstantValues.ambil` yang dipanggilnya. Dibuktikan langsung: setelah
+> `ambilDataAkun`, `session.isOpen()` berubah dari `true` menjadi `false`; setelah
+> `ConstantValues.ambil` sesi tetap terbuka. Perbedaannya penting — memperlakukan keduanya
+> sama menghasilkan temuan palsu, dan itu sempat terjadi pada satu pemindaian di sini.
 
 Percobaan pertama membuat satu dokumen berjurnal dan satu lagi tidak, tanpa pesan apa pun di
 layar. Kalau ini lolos ke produksi, gejalanya adalah "kadang jalan, kadang tidak" — jenis
@@ -71,7 +76,8 @@ muncul di `error_log` selama pengerjaan ini.
 > **Pelajaran yang berlaku umum:** di basis kode ini, **memanggil utilitas berarti sesi Anda
 > mungkin sudah mati sesudahnya.** Sesi yang dipegang melintasi pemanggilan utilitas tidak
 > dapat dipercaya. Pola dua fase ini layak dipakai ulang di mesin posting mana pun yang
-> memanggil `AssetUtil` atau `ConstantValues`.
+> memanggil `AssetUtil.ambilDataAkun`. Seluruh 51 kelas `Posting*` dipindai pada 24 Agustus
+> 2026 dan **tidak ada satu pun** yang memegang sesi melintasi pemanggilan itu.
 
 ---
 

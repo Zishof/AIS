@@ -11,8 +11,15 @@ Tujuh belas dari 35 baris punya mesin posting sebelum ini; sekarang **delapan be
 ## 1. Pelajaran dokumen 25 terpakai langsung
 
 Mesin ini memanggil `AssetUtil.ambilDataAkun` **dua kali per dokumen** — sekali untuk akun
-biaya, sekali untuk akun akumulasi. Utilitas itu, lewat `ConstantValues.ambil`, membuka dan
-**menutup sesinya sendiri**; sesi yang dipegang pemanggil menjadi basi.
+biaya, sekali untuk akun akumulasi. Utilitas itu **membuka dan menutup sesi Hibernate
+sendiri**, sehingga sesi yang dipegang pemanggil menjadi basi.
+
+> **Dikoreksi 24 Agustus 2026.** Yang menutup sesi adalah `AssetUtil.ambilDataAkun`
+> **sendiri**, bukan `ConstantValues.ambil` yang dipanggilnya. Dibuktikan langsung: setelah
+> `ambilDataAkun`, `session.isOpen()` berubah dari `true` menjadi `false`; setelah
+> `ConstantValues.ambil` sesi tetap terbuka. Perbedaannya penting — memperlakukan keduanya
+> sama menghasilkan temuan palsu, dan itu sempat terjadi pada satu pemindaian di sini.
+
 
 Pada modul BAST hal ini baru ketahuan dari `error_log` setelah separuh dokumen gagal tanpa
 pesan. Di sini polanya dipakai sejak baris pertama ditulis:

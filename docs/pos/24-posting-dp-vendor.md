@@ -145,7 +145,28 @@ persis jenis sampah yang kini dicegah oleh "riwayat dibuat belakangan".
 
 ---
 
-## 7. Yang masih terbuka
+## 7. Cabang berpajak: celah uji yang ditutup belakangan
+
+Ditambahkan **24 Agustus 2026**, setelah pemindaian menyeluruh atas seluruh 51 kelas
+`Posting*`.
+
+Uji semula memakai termin **tanpa** pajak, sehingga cabang berpajak pada DP Pekerjaan —
+yang memecah kredit menjadi dua dan memanggil `ConstantValues.ambil` — tidak pernah
+dilewati sama sekali. Harness lulus 31/31 tanpa menyentuhnya.
+
+Kini ada termin berpajak (persen 10) dan dua penjaga baru: jurnalnya harus punya **tiga**
+baris transaksi (satu debet, dua kredit) dan akun pajaknya harus terpakai. Harness menjadi
+**33 lulus, 0 gagal**.
+
+Kode fase-1/fase-2 pada jalur ini juga diseragamkan dengan modul BAST dan Penyusutan.
+Perlu dicatat jujur: itu **penyeragaman defensif, bukan perbaikan cacat**. Pemeriksaan
+langsung menunjukkan `ConstantValues.ambil` TIDAK menutup sesi pemanggilnya — yang menutup
+adalah `AssetUtil.ambilDataAkun`, dan jalur ini tidak memanggilnya. Yang benar-benar
+bertambah di sini adalah cakupan ujinya.
+
+---
+
+## 8. Yang masih terbuka
 
 Lima belas dari 35 baris Draft Jurnal kini punya mesin posting di POS. Tiga baris lain bukan
 pekerjaan posting massal (Jurnal Umum dan Posting HPP punya layarnya sendiri; Closing adalah

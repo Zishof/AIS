@@ -1353,9 +1353,12 @@ public final class LaporanKantinUtil {
                 if (hanyaStokTidakNol) { w.append(" "); }
                 sql = "select s.* from ( select coalesce(pr.kode,'') as kode, coalesce(pr.barcode,'') as barcode,"
                     + " pr.nama as nama, coalesce(jp.nama,'-') as kategori, coalesce(t.nama,'-') as toko,"
-                    + " coalesce(pr.satuan,'') as satuan, (" + fStok + ") as stok,"
+                    // produk.satuan adalah FK bigint. Jangan COALESCE FK tersebut dengan
+                    // string kosong; ambil nama satuan dari tabel referensinya.
+                    + " coalesce(sp.nama,'') as satuan, (" + fStok + ") as stok,"
                     + " coalesce(pr.hargabeli,0) as hargabeli, coalesce(pr.hargajual,0) as hargajual"
                     + " from koperasi.produk pr"
+                    + " left join koperasi.satuan_produk sp on sp.id = pr.satuan"
                     + " left join koperasi.jenis_produk jp on jp.id = pr.jenis_produk"
                     + " left join koperasi.toko t on t.id = pr.toko" + w + " ) s"
                     + (hanyaStokTidakNol ? " where s.stok <> 0 " : "")

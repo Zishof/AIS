@@ -74,6 +74,21 @@ public final class TenantApiDispatcher {
 			} else {
 				Long tenantId = TenantContextResolver.selaraskanTenantId(
 						angkaHeader(request, HEADER_TENANT), angkaJson(payload, "tenantId"));
+				// Instalasi legacy yang belum mengaktifkan tenancy tetap sah. Khusus
+				// tenant_context tanpa pilihan eksplisit, kembalikan konteks kosong yang
+				// sukses agar klien dapat meneruskan alur lama tanpa mencatat false error.
+				// tenant_validate/select dan tenantId eksplisit tetap melalui resolver,
+				// sehingga gerbang keamanan tenant tidak dilonggarkan.
+				if ("tenant_context".equals(action) && tenantId == null) {
+					List<TenantRegistry> tenantAktif = TenantContextResolver.daftarTenantAktif(
+							session, userId, pendaftarId);
+					if (tenantAktif == null || tenantAktif.isEmpty()) {
+						hasil.put("status", "success");
+						hasil.put("mode", "legacy");
+						hasil.put("data", JSONObject.NULL);
+						return true;
+					}
+				}
 				TenantContext ctx = tenantId == null
 						? TenantContextResolver.resolveOtomatis(session, userId, pendaftarId)
 						: TenantContextResolver.resolve(session, tenantId, userId, pendaftarId);
