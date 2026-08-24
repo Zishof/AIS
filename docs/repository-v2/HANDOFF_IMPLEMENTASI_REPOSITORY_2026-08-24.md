@@ -422,3 +422,39 @@ dan implementasi:
 
 Perubahan ini hanya diperiksa secara statis. Build, WAR, Tomcat, database, dan pengujian lokal tetap
 tidak dijalankan sesuai instruksi pemilik sistem.
+
+## 18. Paging konsisten pada daftar publik 25 Agustus 2026
+
+Menindaklanjuti evaluasi visual halaman koleksi, paging server-side kini ditampilkan konsisten di
+atas dan bawah seluruh daftar publik utama yang memakai pola publikasi:
+
+- Publikasi terbaru pada beranda;
+- hasil pencarian dan jelajah;
+- publikasi dalam koleksi; dan
+- karya pada profil penulis.
+
+Semua halaman memakai pembentuk kontrol paging bersama dengan tombol sebelumnya/berikutnya,
+halaman awal/akhir, elipsis untuk rentang besar, penanda halaman aktif, label aksesibel, serta
+anchor yang mengembalikan viewport ke daftar terkait. Parameter pencarian, filter, urutan, dan
+ukuran halaman dipertahankan. Profil penulis yang sebelumnya dibatasi satu potongan hasil kini
+memakai paging service sesungguhnya; statistik tahun dan topiknya tetap berasal dari facet seluruh
+hasil penulis, bukan hanya item pada halaman aktif.
+
+Perubahan ini diperiksa secara statis tanpa build WAR, Tomcat, database, atau pengujian lokal.
+
+## 19. Katalog 300 tanya jawab Repository 25 Agustus 2026
+
+Halaman Tanya Repository tidak lagi menampilkan empat FAQ statis. Ditambahkan katalog tepat 300
+tanya jawab publik yang dibentuk dari 20 kategori, masing-masing berisi 15 topik. Jawaban mencakup
+konteks, langkah pemeriksaan, tindakan aman, dan jalur eskalasi untuk akun, deposit, metadata,
+berkas, review, publikasi, pencarian, koleksi, akses naskah, lisensi, author authority, identifier,
+sitasi, versi, notifikasi, kendala teknis, keamanan, aksesibilitas, data penelitian, dan integrasi.
+
+Katalog tidak bergantung pada database. Pencarian teks, filter kategori, jumlah hasil, koreksi nomor
+halaman, empty state, dan paging 12 entri per halaman diproses server-side. Kontrol paging tersedia
+di atas dan bawah daftar serta mempertahankan pertanyaan sumber, filter FAQ, kategori, dan ukuran
+halaman. Tampilan responsif berubah menjadi satu kolom pada layar kecil.
+
+Validasi statis memastikan terdapat 20 blok kategori dengan 15 topik per blok (total 300), seluruh
+delimiter JSP/form/details seimbang, dan brace serta parenthesis Java seimbang. Build WAR, Tomcat,
+database, dan pengujian lokal tidak dijalankan sesuai instruksi pemilik sistem.

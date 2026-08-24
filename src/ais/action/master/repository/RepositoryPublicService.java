@@ -175,6 +175,7 @@ public class RepositoryPublicService {
 
     public static class AuthorProfile {
         public String name = "";
+        public String queryName = "";
         public String orcid = "";
         public Long authorityId;
         public String affiliation = "";
@@ -210,6 +211,17 @@ public class RepositoryPublicService {
         public boolean synonymExpanded;
     }
     public static class RepositoryAnswer { public String question="",answer="";public List<ItemCard> sources=new ArrayList<ItemCard>(); }
+    public static class FaqItem {
+        public int id;
+        public String category="",question="",answer="",keywords="";
+    }
+    public static class FaqResult {
+        public String keyword="",category="";
+        public int page=1,pageSize=12,totalPages;
+        public long total;
+        public List<FaqItem> items=new ArrayList<FaqItem>();
+        public Map<String,Long> categories=new LinkedHashMap<String,Long>();
+    }
     public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
@@ -364,7 +376,28 @@ public class RepositoryPublicService {
         for(RepoItem row:rows){String title=safe(row.getTitle()).toLowerCase(),subject=safe(row.getSubjects()).toLowerCase(),body=(safe(row.getAbstractText())+" "+safe(row.getExtractedText())).toLowerCase();int score=0;for(String term:terms){if(title.indexOf(term)>=0)score+=8;if(subject.indexOf(term)>=0)score+=5;if(body.indexOf(term)>=0)score+=2;}if(score>0)scores.put(row.getId(),Integer.valueOf(score));}
         Collections.sort(rows,new java.util.Comparator<RepoItem>(){public int compare(RepoItem a,RepoItem b){return Integer.valueOf(scores.containsKey(b.getId())?scores.get(b.getId()).intValue():0).compareTo(Integer.valueOf(scores.containsKey(a.getId())?scores.get(a.getId()).intValue():0));}});List<RepoItem> selected=new ArrayList<RepoItem>();for(RepoItem row:rows)if(scores.containsKey(row.getId())&&selected.size()<Math.max(1,Math.min(maximum,50)))selected.add(row);return cards(session(),selected);}
 
-    public RepositoryAnswer askRepository(String question){RepositoryAnswer answer=new RepositoryAnswer();answer.question=limit(clean(question),500);answer.sources=semanticSearch(answer.question,5);if(answer.sources.isEmpty()){answer.answer="Belum ditemukan karya repository yang cukup relevan. Coba gunakan istilah yang lebih spesifik.";return answer;}StringBuilder text=new StringBuilder("Berdasarkan karya yang tersedia di repository, topik ini dibahas dalam ");for(int i=0;i<answer.sources.size();i++){ItemCard source=answer.sources.get(i);if(i>0)text.append(i==answer.sources.size()-1?" dan ":", ");text.append('“').append(source.title).append('”');}text.append(". Buka sumber di bawah untuk membaca abstrak dan dokumen sesuai kebijakan akses. Jawaban ini hanya merangkum metadata repository dan tidak menggantikan pembacaan sumber.");answer.answer=text.toString();return answer;}
+    public RepositoryAnswer askRepository(String question){RepositoryAnswer answer=new RepositoryAnswer();answer.question=limit(clean(question),500);if(answer.question.length()==0)return answer;answer.sources=semanticSearch(answer.question,5);if(answer.sources.isEmpty()){answer.answer="Belum ditemukan karya repository yang cukup relevan. Coba gunakan istilah yang lebih spesifik.";return answer;}StringBuilder text=new StringBuilder("Berdasarkan karya yang tersedia di repository, topik ini dibahas dalam ");for(int i=0;i<answer.sources.size();i++){ItemCard source=answer.sources.get(i);if(i>0)text.append(i==answer.sources.size()-1?" dan ":", ");text.append('“').append(source.title).append('”');}text.append(". Buka sumber di bawah untuk membaca abstrak dan dokumen sesuai kebijakan akses. Jawaban ini hanya merangkum metadata repository dan tidak menggantikan pembacaan sumber.");answer.answer=text.toString();return answer;}
+
+    public FaqResult faqCatalog(String keyword, String category, int requestedPage, int requestedPageSize) {
+        FaqResult result=new FaqResult();
+        result.keyword=limit(clean(keyword),200);result.category=limit(clean(category),100);
+        result.page=Math.max(1,requestedPage);result.pageSize=Math.max(1,Math.min(requestedPageSize,30));
+        List<FaqItem> all=RepositoryFaqCatalog.all();
+        for(FaqItem item:all){Long count=result.categories.get(item.category);result.categories.put(item.category,Long.valueOf(count==null?1L:count.longValue()+1L));}
+        String needle=result.keyword.toLowerCase(java.util.Locale.ROOT);
+        List<FaqItem> matches=new ArrayList<FaqItem>();
+        for(FaqItem item:all){
+            if(result.category.length()>0&&!result.category.equals(item.category))continue;
+            String haystack=(item.question+" "+item.answer+" "+item.keywords+" "+item.category).toLowerCase(java.util.Locale.ROOT);
+            boolean found=true;for(String token:needle.split("\\s+"))if(token.length()>0&&haystack.indexOf(token)<0){found=false;break;}
+            if(needle.length()==0||found)matches.add(item);
+        }
+        result.total=matches.size();result.totalPages=matches.isEmpty()?0:(int)((matches.size()+result.pageSize-1)/result.pageSize);
+        if(result.totalPages>0&&result.page>result.totalPages)result.page=result.totalPages;
+        int from=(result.page-1)*result.pageSize,to=Math.min(matches.size(),from+result.pageSize);
+        if(from<to)result.items.addAll(matches.subList(from,to));
+        return result;
+    }
 
     public MetadataSuggestion suggestMetadata(String title,String abstractText){MetadataSuggestion suggestion=new MetadataSuggestion();String text=(clean(title)+" "+clean(abstractText)).toLowerCase();suggestion.language=text.matches(".*\\b(the|and|with|from|study)\\b.*")?"en":"id";suggestion.documentType=text.contains("dataset")?"Dataset":(text.contains("skripsi")||text.contains("thesis")?"Thesis":"Article");Map<String,Integer> frequency=new LinkedHashMap<String,Integer>();for(String token:text.split("[^\\p{L}\\p{N}]+"))if(token.length()>4&&!STOPWORDS.contains(token)){Integer n=frequency.get(token);frequency.put(token,Integer.valueOf(n==null?1:n.intValue()+1));}List<Map.Entry<String,Integer>> words=new ArrayList<Map.Entry<String,Integer>>(frequency.entrySet());Collections.sort(words,new java.util.Comparator<Map.Entry<String,Integer>>(){public int compare(Map.Entry<String,Integer>a,Map.Entry<String,Integer>b){return b.getValue().compareTo(a.getValue());}});for(int i=0;i<words.size()&&i<8;i++)suggestion.keywords.add(words.get(i).getKey());suggestion.abstractDraft=clean(abstractText);Query q=new Query();q.keyword=clean(title);q.searchField="title";q.pageSize=5;suggestion.possibleDuplicates=search(q).items;return suggestion;}
 
@@ -670,7 +703,7 @@ public class RepositoryPublicService {
         Query q = new Query(); q.author=author; q.sort="newest";
         q.page=Math.max(1,requestedPage);q.pageSize=Math.max(1,Math.min(requestedPageSize,MAX_PAGE_SIZE));
         SearchResult result=search(q); if(result.total==0)return null;
-        AuthorProfile profile=new AuthorProfile(); profile.name=author; profile.workCount=result.total; profile.works=result.items;
+        AuthorProfile profile=new AuthorProfile(); profile.name=author; profile.queryName=author; profile.workCount=result.total; profile.works=result.items;
         profile.currentPage=result.query.page;profile.pageSize=result.query.pageSize;profile.totalPages=result.totalPages;
         RepoAuthorAuthority authority=(RepoAuthorAuthority)session().createCriteria(RepoAuthorAuthority.class)
                 .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))

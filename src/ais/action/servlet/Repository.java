@@ -217,6 +217,10 @@ public class Repository extends HttpServlet {
             request.setAttribute("repoLatest",service.latest(8));request.setAttribute("repoCollectionFacets",catalog);
         } else if("ask".equals(view)){
             request.setAttribute("repoAnswer",service.askRepository(clean(request.getParameter("q"))));
+            Integer faqPageValue=parseInteger(request.getParameter("faqPage"));
+            Integer faqSizeValue=parseInteger(request.getParameter("faqSize"));
+            request.setAttribute("repoFaq",service.faqCatalog(request.getParameter("faq"),request.getParameter("faqCategory"),
+                    faqPageValue==null?1:faqPageValue.intValue(),faqSizeValue==null?12:faqSizeValue.intValue()));
         } else if ("policies".equals(view) || "help".equals(view)) {
             // Rendered by the allow-listed JSP view.
         } else {

@@ -4,6 +4,8 @@
 <%@page import="ais.action.master.sekolah.util.SekolahUtil"%>
 <%@page import="ais.action.master.helper.util.PerguruanTinggiUtil"%>
 <%@page import="ais.database.model.PerguruanTinggi"%>
+<%@page import="ais.common.home.HomePortalInstitutionResolver"%>
+<%@page import="ais.common.home.HomePortalViewModel"%>
 <%@page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%!
@@ -61,31 +63,26 @@ private String homeText(String key, String defaultValue) {
 %>
 
 <%
-// 1. Pengambilan Data Perguruan Tinggi
-PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
-String judul = (pt != null && pt.getNama() != null) ? pt.getNama() : homeText("home_text_institusi_pendidikan", "Institusi Pendidikan");
-String motto = (pt != null && pt.getMotto() != null) ? pt.getMotto() : "";
-String telepon = (pt != null && pt.getTelepon() != null) ? pt.getTelepon() : "-";
-String alamat1 = (pt != null && pt.getAlamat1() != null) ? pt.getAlamat1() : "-";
-String email = (pt != null && pt.getEmail() != null) ? pt.getEmail() : "-";
-
-// 2. Pengambilan Media (Logo dan Background)
-String backgroundPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_perguruanTinggi_");
-String logoPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_perguruanTinggi_");
-String bgImageFinal = (backgroundPerguruanTinggi != null && !backgroundPerguruanTinggi.isEmpty()) ? backgroundPerguruanTinggi : Common.ROOT + "/img/pmb_bg.jpg";
+// 1. Identitas publik terpisah dari shell aplikasi: RS -> Sekolah -> Yayasan -> PT.
+HomePortalViewModel.Institution institusi = new HomePortalInstitutionResolver().resolve(request);
+String judul = institusi.name;
+String motto = institusi.motto;
+String telepon = institusi.phone.length() > 0 ? institusi.phone : "-";
+String alamat1 = institusi.address.length() > 0 ? institusi.address : "-";
+String email = institusi.email.length() > 0 ? institusi.email : "-";
+String logoPerguruanTinggi = institusi.logoUrl;
+String bgImageFinal = institusi.heroUrl;
 
 // 3. Konfigurasi Header & CSS Tema
-String judulHeader = "eCampus";
-String cssTema = "";
+String judulHeaderDefault = institusi.healthcare ? "eMedic"
+        : ("foundation".equals(institusi.type) ? "Yayasan / Pesantren"
+        : ("school".equals(institusi.type) ? "eSchool" : "eCampus"));
+String judulHeader = judulHeaderDefault;
+String cssTema = institusi.themeCss;
 try {
-    judulHeader = Common.getKonfigurasi("judul_header", "eCampus").getNilai();
-    if (pt != null && pt.getCss() != null && !pt.getCss().trim().isEmpty()) {
-        String rawCss = pt.getCss();
-        String fileName = rawCss.substring(rawCss.lastIndexOf("/") + 1);
-        cssTema = "/css/baru/" + fileName;
-    }
+    judulHeader = Common.getKonfigurasi("judul_header", judulHeaderDefault).getNilai();
 } catch (Exception e) {
-    judulHeader = "eCampus";
+    judulHeader = judulHeaderDefault;
 }
 
 long vCache = System.currentTimeMillis();
@@ -99,16 +96,9 @@ boolean tampilkanRingkasanManfaatPortalHome = isKonfigurasiAktif("tampilkan_ring
 boolean tampilkanDeskripsiPortalPerguruanTinggi = isKonfigurasiAktif("tampilkan_deskripsi_portal_perguruan_tinggi_home", Konfigurasi.TIDAK_AKTIF);
 
 // 4. Deteksi tipe institusi. Fitur sekolah hanya tampil saat yaData=true, fitur PT hanya tampil saat ptData=true.
-boolean ptData = true;
-boolean yaData = true;
-try {
-    boolean[] ptYa = Common.chekPtAtauSekolah(null);
-    ptData = ptYa[0];
-    yaData = ptYa[1];
-} catch (Exception e) {
-    e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/home.jsp:109");
-} finally {
-}
+boolean healthcareData = institusi.healthcare;
+boolean ptData = institusi.college && !healthcareData;
+boolean yaData = ("school".equals(institusi.type) || "foundation".equals(institusi.type)) && !healthcareData;
 
 // 5. Konfigurasi modul yang ditampilkan pada halaman depan.
 boolean tampilkanModuleLoginEcampus = isKonfigurasiAktif("tampilkan_modul_login_ecampus", Konfigurasi.AKTIF);
@@ -128,6 +118,12 @@ boolean tampilkanModulePortalSekolah = isKonfigurasiAktif("tampilkan_modul_porta
 boolean tampilkanModulePpdbSekolah = isKonfigurasiAktif("tampilkan_modul_ppdb_sekolah", Konfigurasi.AKTIF);
 boolean tampilkanModuleLoginSiswaWali = isKonfigurasiAktif("tampilkan_modul_login_siswa_wali", Konfigurasi.AKTIF);
 boolean tampilkanModuleAbsenSiswa = isKonfigurasiAktif("tampilkan_modul_absen_siswa", Konfigurasi.AKTIF);
+
+boolean tampilkanModuleEmedic = isKonfigurasiAktif("tampilkan_modul_emedic", Konfigurasi.AKTIF);
+boolean tampilkanModulePendaftaranPasien = isKonfigurasiAktif("tampilkan_modul_pendaftaran_pasien", Konfigurasi.AKTIF);
+boolean tampilkanModuleJadwalDokter = isKonfigurasiAktif("tampilkan_modul_jadwal_dokter", Konfigurasi.AKTIF);
+boolean tampilkanModuleRekamMedis = isKonfigurasiAktif("tampilkan_modul_rekam_medis", Konfigurasi.AKTIF);
+boolean tampilkanModuleFarmasi = isKonfigurasiAktif("tampilkan_modul_farmasi", Konfigurasi.AKTIF);
 
 boolean tampilkanModuleAnjungan = isKonfigurasiAktif("tampilkan_modul_anjungan", Konfigurasi.AKTIF);
 boolean tampilkanModulePos = isKonfigurasiAktif("tampilkan_modul_pos", Konfigurasi.TIDAK_AKTIF);
@@ -156,6 +152,12 @@ String linkPortalSekolah = getModulLink("link_modul_portal_sekolah", "/login");
 String linkPpdbSekolah = getModulLink("link_modul_ppdb_sekolah", "/ppdb");
 String linkLoginSiswaWali = getModulLink("link_modul_login_siswa_wali", "/login");
 String linkAbsenSiswa = getModulLink("link_modul_absen_siswa", "/welsis");
+
+String linkEmedic = getModulLink("link_modul_login_emedic", "/login");
+String linkPendaftaranPasien = getModulLink("link_modul_pendaftaran_pasien", "/login");
+String linkJadwalDokter = getModulLink("link_modul_jadwal_dokter", "/login");
+String linkRekamMedis = getModulLink("link_modul_rekam_medis", "/login");
+String linkFarmasi = getModulLink("link_modul_farmasi", "/login");
 
 String linkAnjungan = getModulLink("link_modul_anjungan", "/anjungan");
 String linkPos = getModulLink("link_modul_pos", "/pos");
@@ -199,9 +201,13 @@ boolean adaPortalPerguruanTinggi = ptData && (tampilkanModuleLoginEcampus || tam
         || tampilkanModuleFeederEmis || tampilkanModuleAkreditasi || tampilkanModuleEjournal || tampilkanModuleSimlitabmas);
 boolean adaPortalSekolah = yaData && (tampilkanModulePortalSekolah || tampilkanModulePpdbSekolah || tampilkanModuleLoginSiswaWali
         || tampilkanModuleAbsenSiswa || tampilkanModuleBukuTamu);
-boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan || tampilkanModulePos || tampilkanModuleKursus
+boolean adaPortalKesehatan = healthcareData && (tampilkanModuleEmedic || tampilkanModulePendaftaranPasien
+        || tampilkanModuleJadwalDokter || tampilkanModuleRekamMedis || tampilkanModuleFarmasi);
+boolean adaSistemPendukung = healthcareData
+        ? (tampilkanModuleAnjungan || tampilkanModuleBukuTamu || adaButtonTambahan)
+        : (tampilkanModuleKantin || tampilkanModuleAnjungan || tampilkanModulePos || tampilkanModuleKursus
         || tampilkanModuleLes || tampilkanModuleKarir || tampilkanModulePengunjungPustaka || tampilkanModuleBukuTamu
-        || tampilkanModulePortalRekanan || (yaData && tampilkanModuleAbsenSiswa) || adaButtonTambahan;
+        || tampilkanModulePortalRekanan || (yaData && tampilkanModuleAbsenSiswa) || adaButtonTambahan);
 %>
 
 <!DOCTYPE html>
@@ -209,11 +215,13 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= homeText("home_text_enterprise_education_portal_terpadu", "Enterprise Education - Portal Terpadu") %> | <%= safeText(judul) %></title>
-    <meta name="description" content="Portal digital layanan pendidikan terpadu untuk kampus, sekolah, yayasan, pesantren, pendaftaran, perpustakaan, dokumen, repository, eKantin, karir, dan layanan pendukung institusi.">
+    <title><%= healthcareData ? "eMedic - Portal Fasilitas Kesehatan" : homeText("home_text_enterprise_education_portal_terpadu", "Enterprise Education - Portal Terpadu") %> | <%= safeText(judul) %></title>
+    <meta name="description" content="<%= healthcareData
+            ? "Portal digital resmi fasilitas kesehatan untuk pendaftaran pasien, jadwal tenaga kesehatan, rekam medis, farmasi, dan layanan eMedic."
+            : "Portal digital layanan pendidikan terpadu untuk kampus, sekolah, yayasan, pesantren, pendaftaran, perpustakaan, dokumen, repository, eKantin, karir, dan layanan pendukung institusi." %>">
     <link rel="icon" href="<%= logoPerguruanTinggi %>" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="<%=Common.ROOT%>/component/assets/plugins/global/fontawesome/css/all.min.css">
     <link href="<%=Common.ROOT%>/css/baru/base-theme.css?v=<%=vCache%>" rel="stylesheet">
     <% if(!cssTema.isEmpty()){ %>
         <link href="<%=Common.ROOT%><%=cssTema%>?v=<%=vCache%>" rel="stylesheet">
@@ -221,8 +229,8 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
     <%-- Seluruh CSS tampilan home dipusatkan di /css/baru/base-theme.css dan warna mengikuti cssTema. --%>
 </head>
 
-<body class="home-page-modern" style="--home-bg-image: url('<%= safeText(bgImageFinal) %>
-<jsp:include page="/WEB-INF/baru/include/pemilih_bahasa.jsp" />');">
+<body class="home-page-modern" style="--home-bg-image:url('<%= safeText(bgImageFinal) %>');">
+    <jsp:include page="/WEB-INF/baru/include/pemilih_bahasa.jsp" />
     <div class="bg-pattern-home"></div>
     <div class="aurora-home aurora-one"></div>
     <div class="aurora-home aurora-two"></div>
@@ -313,6 +321,23 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                         </div>
                     </div>
                     <% } %>
+                    <% } %>
+
+                    <% if (adaPortalKesehatan) { %>
+                    <section class="portal-group-section mt-4 text-start">
+                        <div class="portal-group-title"><i class="fas fa-hospital"></i>Portal Fasilitas Kesehatan</div>
+                        <div class="portal-support-copy">
+                            <i class="fas fa-heartbeat"></i>
+                            <div><strong>Layanan digital untuk pasien dan operasional fasilitas kesehatan</strong><span>Modul ditampilkan sesuai konfigurasi Rumah Sakit, Puskesmas, Posyandu, Klinik, atau fasilitas kesehatan lainnya.</span></div>
+                        </div>
+                        <div class="portal-action-grid">
+                            <% if (tampilkanModuleEmedic) { %><a href="<%= linkEmedic %>" target="_blank" rel="noopener noreferrer" class="portal-card-home dark"><span class="portal-icon-home"><i class="fas fa-right-to-bracket"></i></span><span class="portal-title-home">Portal eMedic</span><span class="portal-desc-small">Akses utama petugas, tenaga kesehatan, pimpinan, dan operator.</span></a><% } %>
+                            <% if (tampilkanModulePendaftaranPasien) { %><a href="<%= linkPendaftaranPasien %>" target="_blank" rel="noopener noreferrer" class="portal-card-home success"><span class="portal-icon-home"><i class="fas fa-id-card"></i></span><span class="portal-title-home">Pendaftaran Pasien</span><span class="portal-desc-small">Pendaftaran dan akses layanan pasien secara daring.</span></a><% } %>
+                            <% if (tampilkanModuleJadwalDokter) { %><a href="<%= linkJadwalDokter %>" target="_blank" rel="noopener noreferrer" class="portal-card-home"><span class="portal-icon-home"><i class="fas fa-user-clock"></i></span><span class="portal-title-home">Jadwal Tenaga Kesehatan</span><span class="portal-desc-small">Informasi jadwal dokter dan tenaga kesehatan.</span></a><% } %>
+                            <% if (tampilkanModuleRekamMedis) { %><a href="<%= linkRekamMedis %>" target="_blank" rel="noopener noreferrer" class="portal-card-home"><span class="portal-icon-home"><i class="fas fa-file-medical"></i></span><span class="portal-title-home">Rekam Medis</span><span class="portal-desc-small">Akses informasi rekam medis sesuai hak pengguna.</span></a><% } %>
+                            <% if (tampilkanModuleFarmasi) { %><a href="<%= linkFarmasi %>" target="_blank" rel="noopener noreferrer" class="portal-card-home"><span class="portal-icon-home"><i class="fas fa-prescription-bottle-medical"></i></span><span class="portal-title-home">Farmasi</span><span class="portal-desc-small">Informasi dan layanan farmasi fasilitas kesehatan.</span></a><% } %>
+                        </div>
+                    </section>
                     <% } %>
 
                     <% if (adaPortalPerguruanTinggi) { %>
@@ -473,7 +498,7 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                             </div>
                         </div>
                         <div class="portal-action-grid">
-                            <% if (tampilkanModuleKantin) { %>
+                            <% if (!healthcareData && tampilkanModuleKantin) { %>
                             <a href="<%= linkKantin %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-store"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_ekantin", "eKantin") %></span>
@@ -487,35 +512,35 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                                 <span class="portal-desc-small"><%= homeText("home_text_layanan_mandiri_untuk_akses_informasi_dan_transaksi_tertentu_di_area_pub", "Layanan mandiri untuk akses informasi dan transaksi tertentu di area publik institusi.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModulePos) { %>
+                            <% if (!healthcareData && tampilkanModulePos) { %>
                             <a href="<%= linkPos %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-cash-register"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_point_of_sale", "Point Of Sale") %></span>
                                 <span class="portal-desc-small"><%= homeText("home_text_pengelolaan_penjualan_transaksi_kasir_dan_unit_usaha_institusi", "Pengelolaan penjualan, transaksi kasir, dan unit usaha institusi.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModuleKursus) { %>
+                            <% if (!healthcareData && tampilkanModuleKursus) { %>
                             <a href="<%= linkKursus %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-chalkboard-teacher"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_sistem_kursus", "Sistem Kursus") %></span>
                                 <span class="portal-desc-small"><%= homeText("home_text_pengelolaan_program_kursus_kelas_tambahan_jadwal_dan_peserta", "Pengelolaan program kursus, kelas tambahan, jadwal, dan peserta.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModuleLes) { %>
+                            <% if (!healthcareData && tampilkanModuleLes) { %>
                             <a href="<%= linkLes %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-user-edit"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_sistem_les_private", "Sistem Les / Private") %></span>
                                 <span class="portal-desc-small"><%= homeText("home_text_layanan_pendampingan_belajar_private_class_dan_pengelolaan_peserta_bimbi", "Layanan pendampingan belajar, private class, dan pengelolaan peserta bimbingan.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModuleKarir) { %>
+                            <% if (!healthcareData && tampilkanModuleKarir) { %>
                             <a href="<%= linkKarir %>" target="_blank" class="portal-card-home featured">
                                 <span class="portal-icon-home"><i class="fas fa-user-tie"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_lowongan_pekerjaan_karir", "Lowongan Pekerjaan / Karir") %></span>
                                 <span class="portal-desc-small"><%= homeText("home_text_portal_rekrutmen_resmi_untuk_publikasi_lowongan_seleksi_calon_pegawai_da", "Portal rekrutmen resmi untuk publikasi lowongan, seleksi calon pegawai, dan informasi karir institusi.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModulePengunjungPustaka) { %>
+                            <% if (!healthcareData && tampilkanModulePengunjungPustaka) { %>
                             <a href="<%= linkPengunjungPustaka %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-address-book"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_pengunjung_pustaka", "Pengunjung Pustaka") %></span>
@@ -536,7 +561,7 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                                 <span class="portal-desc-small"><%= homeText("home_text_akses_cepat_pencatatan_kehadiran_siswa_untuk_kebutuhan_sekolah", "Akses cepat pencatatan kehadiran siswa untuk kebutuhan sekolah.") %></span>
                             </a>
                             <% } %>
-                            <% if (tampilkanModulePortalRekanan) { %>
+                            <% if (!healthcareData && tampilkanModulePortalRekanan) { %>
                             <a href="<%= linkPortalRekanan %>" target="_blank" class="portal-card-home accent">
                                 <span class="portal-icon-home"><i class="fas fa-truck-loading"></i></span>
                                 <span class="portal-title-home"><%= homeText("home_text_portal_rekanan", "Portal Rekanan") %></span>
@@ -574,13 +599,15 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
         <div class="container">
             <div class="row justify-content-between gy-4 text-center text-md-start">
                 <div class="col-md-5 col-lg-4">
-                    <h5 class="text-uppercase"><i class="fas fa-university me-2 contact-icon-home"></i> <%= safeText(judulHeader) %></h5>
+                    <h5 class="text-uppercase"><i class="fas <%= healthcareData ? "fa-hospital" : "fa-university" %> me-2 contact-icon-home"></i> <%= safeText(judulHeader) %></h5>
                     <p class="mt-3 pe-md-4 footer-desc-home">
-                        <%= homeText("home_text_infrastruktur_digital_terintegrasi_yang_didedikasikan_untuk_mengakselera", "Infrastruktur digital terintegrasi yang didedikasikan untuk mengakselerasi kualitas pendidikan melalui otomatisasi birokrasi, keteraturan layanan, validitas data, dan kemudahan akses di lingkungan") %>
+                        <%= healthcareData ? "Infrastruktur digital terintegrasi untuk meningkatkan mutu pelayanan kesehatan, keteraturan operasional, validitas data, dan kemudahan akses di lingkungan"
+                                : homeText("home_text_infrastruktur_digital_terintegrasi_yang_didedikasikan_untuk_mengakselera", "Infrastruktur digital terintegrasi yang didedikasikan untuk mengakselerasi kualitas pendidikan melalui otomatisasi birokrasi, keteraturan layanan, validitas data, dan kemudahan akses di lingkungan") %>
                         <strong class="text-white"><%= safeText(judul) %></strong>.
                     </p>
                 </div>
 
+                <% if (!healthcareData) { %>
                 <div class="col-md-3 col-lg-3 d-flex flex-column align-items-center align-items-md-start">
                     <h5 class="text-uppercase"><%= homeText("home_text_unduh_aplikasi_mobile", "Tersedia di Perangkat Anda") %></h5>
                     <div class="d-flex flex-column mt-3 gap-3 w-100 align-items-center align-items-md-start">
@@ -598,6 +625,7 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                         </a>
                     </div>
                 </div>
+                <% } %>
 
                 <div class="col-md-4 col-lg-4">
                     <h5 class="text-uppercase"><%= homeText("home_text_informasi_kontak", "Informasi Kontak") %></h5>
@@ -636,7 +664,7 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
          bottom:16px). Aksi login sudah tersedia jelas di tombol hero "Masuk ke Sistem"
          di bagian atas halaman, jadi duplikat mengambang ini dibuang, bukan digeser. --%>
 
-    <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script data-cfasync="false" src="<%=Common.ROOT%>/component/uiux/vendors/bootstrap/bootstrap.min.js"></script>
     <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp" />
 </body>
 </html>

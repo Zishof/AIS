@@ -1780,6 +1780,15 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Kalimat pengantar halaman depan", "deskripsi_home_portal",
 				"Satu pintu layanan digital untuk mempercepat akses informasi, pendaftaran, akademik, dokumen, perpustakaan, repository, layanan sekolah, dan sistem pendukung operasional institusi pendidikan secara lebih tertib, modern, dan mudah digunakan.",
 				4, null));
+		rows.appendChild(createRowNilai("Tautan Google Play Home V3", "home_v3_mobile_app_android_url",
+				"https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
+		rows.appendChild(createRowNilai("Tautan App Store Home V3", "home_v3_mobile_app_ios_url",
+				"https://apps.apple.com/id/app/ecampus/id6503487876?l=id"));
+		rows.appendChild(createRowNilai("Tautan aplikasi Desktop Home V3", "home_v3_desktop_app_url",
+				"https://github.com/Zishof/ecampus-eschool-releases/releases/latest"));
+		rows.appendChild(createRowNilai("Tautan Google Play eMedic Home V3", "home_v3_health_mobile_app_android_url", ""));
+		rows.appendChild(createRowNilai("Tautan App Store eMedic Home V3", "home_v3_health_mobile_app_ios_url", ""));
+		rows.appendChild(createRowNilai("Tautan aplikasi Desktop eMedic Home V3", "home_v3_health_desktop_app_url", ""));
 
 		createSpan("Pengaturan Tampilan Panel Informasi Home", rows);
 		rows.appendChild(createRowActiveDefault("Tampilkan judul kecil/eyebrow di hero halaman depan",

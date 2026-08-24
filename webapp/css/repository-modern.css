@@ -297,6 +297,19 @@
 .repo-faq summary { cursor:pointer; color:var(--repo-ink); font-weight:800; }
 .repo-faq details[open] summary { color:var(--repo-primary); }
 .repo-faq p { margin:12px 0 0; color:var(--repo-muted); }
+.repo-faq-controls { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(230px,.8fr) auto auto; gap:12px; align-items:end; padding:16px; margin:16px 0; }
+.repo-faq-controls label { display:grid; gap:6px; color:var(--repo-ink); font-size:13px; font-weight:800; }
+.repo-faq-controls input,.repo-faq-controls select { width:100%; min-height:42px; border:1px solid var(--repo-line); border-radius:10px; background:#fff; padding:9px 11px; font:inherit; }
+.repo-faq-controls .repo-btn { min-height:42px; }
+.repo-faq-status { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--repo-muted); }
+.repo-faq-status strong { color:var(--repo-ink); }
+.repo-faq-catalog details { min-width:0; }
+.repo-faq-catalog summary span { display:grid; gap:5px; }
+.repo-faq-catalog summary small { color:var(--repo-primary); font-size:11px; font-weight:850; letter-spacing:.04em; text-transform:uppercase; }
+.repo-faq-answer { padding-top:2px; }
+.repo-faq-answer p { color:var(--repo-ink); line-height:1.75; }
+.repo-faq-answer .repo-link { display:inline-block; margin-top:12px; font-size:12px; }
+.repo-faq-empty { grid-column:1 / -1; }
 .repo-policy-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
 .repo-policy-groups .repo-article:last-child { grid-column:1 / -1; }
 .repo-policy-groups ol { margin:0; padding-left:21px; }
@@ -346,6 +359,8 @@
   .repo-type-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .repo-collection-catalog,.repo-category-grid { grid-template-columns:1fr; }
   .repo-faq,.repo-policy-groups { grid-template-columns:1fr; }
+  .repo-faq-controls { grid-template-columns:1fr; }
+  .repo-faq-status { align-items:flex-start; flex-direction:column; }
   .repo-policy-groups .repo-article:last-child { grid-column:auto; }
   .repo-collection-catalog-card { grid-template-columns:36px minmax(0,1fr); }.repo-collection-catalog-card>b { grid-column:2; }
   .repo-home-grid { display: block; }
