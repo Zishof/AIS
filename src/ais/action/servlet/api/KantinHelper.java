@@ -4045,16 +4045,16 @@ public class KantinHelper {
 	 * {@link #cariIndeksKolom}) -- sengaja identik dengan format akunting umum ("Daftar Barang dan
 	 * Jasa") yang sudah dipakai user supaya file yang sudah ada bisa diunggah tanpa diubah dulu. */
 	/** Satu baris judul yang di-merge dari kolom {@code dari} sampai {@code sampai}. */
-	private static void barisJudul(XSSFSheet sheet, int baris, int dari, int sampai, String teks,
-			XSSFCellStyle gaya) {
-		XSSFRow row = sheet.createRow(baris);
-		XSSFCell cell = row.createCell(dari);
+	private static void barisJudulApache(org.apache.poi.xssf.usermodel.XSSFSheet sheet, int baris, int dari,
+			int sampai, String teks, org.apache.poi.xssf.usermodel.XSSFCellStyle gaya) {
+		org.apache.poi.xssf.usermodel.XSSFRow row = sheet.createRow(baris);
+		org.apache.poi.xssf.usermodel.XSSFCell cell = row.createCell(dari);
 		cell.setCellValue(teks);
 		cell.setCellStyle(gaya);
 		for (int c = dari + 1; c <= sampai; c++) {
 			row.createCell(c).setCellStyle(gaya);
 		}
-		sheet.addMergedRegion(new CellRangeAddress(baris, baris, dari, sampai));
+		sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(baris, baris, dari, sampai));
 	}
 
 	private static final String[] KOLOM_EXCEL_PRODUK = { "No", "Kode", "UPC/Barcode", "Kategori", "Nama Barang",
@@ -4116,8 +4116,8 @@ public class KantinHelper {
 			@SuppressWarnings("unchecked")
 			List<Produk> daftar = kriteria.addOrder(Order.asc("kode")).list();
 
-			XSSFWorkbook wb = new XSSFWorkbook();
-			XSSFSheet sheet = wb.createSheet("Daftar Barang dan Jasa");
+			org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+			org.apache.poi.xssf.usermodel.XSSFSheet sheet = wb.createSheet("Daftar Barang dan Jasa");
 			sheet.setDefaultColumnWidth(20);
 			// Kolom A/B SENGAJA dibiarkan kosong (margin) -- data ditulis mulai kolom C, PERSIS posisi yang
 			// dibaca {@link #deteksiKolomExcelProdukFormatAccurate} (fixed C..M) -- supaya Unduh Excel lalu
@@ -4130,38 +4130,38 @@ public class KantinHelper {
 			// cabang. Aman utk round-trip Unggah Excel karena baris header dicari lewat
 			// deteksi label KODE+BARCODE (lihat deteksiKolomExcelProdukFormatAccurate),
 			// BUKAN nomor baris tetap.
-			XSSFCellStyle gayaUnit = wb.createCellStyle();
-			XSSFFont fUnit = wb.createFont(); fUnit.setFontHeightInPoints((short) 12); gayaUnit.setFont(fUnit);
-			gayaUnit.setAlignment(CellStyle.ALIGN_CENTER);
-			XSSFCellStyle gayaJudul = wb.createCellStyle();
-			XSSFFont fJudul = wb.createFont(); fJudul.setBold(true); fJudul.setFontHeightInPoints((short) 18);
+			org.apache.poi.xssf.usermodel.XSSFCellStyle gayaUnit = wb.createCellStyle();
+			org.apache.poi.xssf.usermodel.XSSFFont fUnit = wb.createFont(); fUnit.setFontHeightInPoints((short) 12); gayaUnit.setFont(fUnit);
+			gayaUnit.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+			org.apache.poi.xssf.usermodel.XSSFCellStyle gayaJudul = wb.createCellStyle();
+			org.apache.poi.xssf.usermodel.XSSFFont fJudul = wb.createFont(); fJudul.setBold(true); fJudul.setFontHeightInPoints((short) 18);
 			gayaJudul.setFont(fJudul);
-			gayaJudul.setAlignment(CellStyle.ALIGN_CENTER);
-			XSSFCellStyle gayaTanggal = wb.createCellStyle();
-			gayaTanggal.setAlignment(CellStyle.ALIGN_CENTER);
-			XSSFCellStyle gayaCabang = wb.createCellStyle();
-			gayaCabang.setAlignment(CellStyle.ALIGN_RIGHT);
+			gayaJudul.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+			org.apache.poi.xssf.usermodel.XSSFCellStyle gayaTanggal = wb.createCellStyle();
+			gayaTanggal.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+			org.apache.poi.xssf.usermodel.XSSFCellStyle gayaCabang = wb.createCellStyle();
+			gayaCabang.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.RIGHT);
 
 			String namaUnit = nvl(toko.getNama());
 			if (namaUnit.trim().length() == 0) namaUnit = "Unit Usaha";
 			java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("d MMMM yyyy", new java.util.Locale("id", "ID"));
 			String perTanggal = "Per Tgl. " + fmtTgl.format(new java.util.Date());
 
-			barisJudul(sheet, 0, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, namaUnit, gayaUnit);
-			barisJudul(sheet, 1, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, "Daftar Barang dan Jasa", gayaJudul);
-			barisJudul(sheet, 2, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, perTanggal, gayaTanggal);
-			barisJudul(sheet, 3, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR,
+			barisJudulApache(sheet, 0, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, namaUnit, gayaUnit);
+			barisJudulApache(sheet, 1, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, "Daftar Barang dan Jasa", gayaJudul);
+			barisJudulApache(sheet, 2, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR, perTanggal, gayaTanggal);
+			barisJudulApache(sheet, 3, OFFSET_KOLOM_ACCURATE, KOLOM_TERAKHIR,
 					"Cabang : [" + namaUnit + "]", gayaCabang);
 
 			final int BARIS_HEADER = 4;
-			XSSFRow headerRow = sheet.createRow(BARIS_HEADER);
+			org.apache.poi.xssf.usermodel.XSSFRow headerRow = sheet.createRow(BARIS_HEADER);
 			for (int i = 0; i < KOLOM_EXCEL_PRODUK.length; i++) {
 				headerRow.createCell(i + OFFSET_KOLOM_ACCURATE).setCellValue(KOLOM_EXCEL_PRODUK[i]);
 			}
 			int r = BARIS_HEADER + 1;
 			int no = 1;
 			for (Produk p : daftar) {
-				XSSFRow row = sheet.createRow(r++);
+				org.apache.poi.xssf.usermodel.XSSFRow row = sheet.createRow(r++);
 				row.createCell(0 + OFFSET_KOLOM_ACCURATE).setCellValue(no++);
 				row.createCell(1 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getKode() == null ? "" : p.getKode());
 				row.createCell(2 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getBarcode() == null ? "" : p.getBarcode());
@@ -4179,7 +4179,7 @@ public class KantinHelper {
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			wb.write(bos);
 			hasil.put("status", "00");
-			hasil.put("fileBase64", java.util.Base64.getEncoder().encodeToString(bos.toByteArray()));
+			hasil.put("fileBase64", org.apache.commons.codec.binary.Base64.encodeBase64String(bos.toByteArray()));
 			hasil.put("namaFile", "Katalog-" + (toko.getKode() == null ? toko.getId() : toko.getKode()) + ".xlsx");
 			hasil.put("total", daftar.size());
 		} finally {
@@ -16613,7 +16613,5 @@ public class KantinHelper {
 		}
 	}
 }
-
-
 
 

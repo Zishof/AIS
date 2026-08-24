@@ -3275,13 +3275,13 @@ public final class LaporanKantinUtil {
                  .append(" (coalesce(h.total_biaya,0)-coalesce(h.nominal_bayar_2,0)-coalesce(h.nominal_bayar_3,0)")
                  .append("  -coalesce(h.nominal_bayar_4,0)-coalesce(h.nominal_bayar_5,0)) as nilai")
                  .append(" from koperasi.pembelian_anggota_koperasi h")
-                 .append(" left join koperasi.cara_pembayaran_koperasi cb on cb.id = h.cara_pembayaran_koperasi")
+				 .append(" left join koperasi.cara_pembayaran_koperasi cb on cast(cb.id as text) = nullif(trim(cast(h.cara_pembayaran_koperasi as text)),'')")
                  .append(kondisi);
                 for (int slot = 2; slot <= 5; slot++) {
                     u.append(" union all select h.id, cast(h.tanggal_pembayaran as date),")
                      .append(" coalesce(nullif(trim(cb.nama),''),'-'), coalesce(h.nominal_bayar_").append(slot).append(",0)")
                      .append(" from koperasi.pembelian_anggota_koperasi h")
-                     .append(" left join koperasi.cara_pembayaran_koperasi cb on cb.id = h.cara_pembayaran_koperasi_").append(slot)
+					 .append(" left join koperasi.cara_pembayaran_koperasi cb on cast(cb.id as text) = nullif(trim(cast(h.cara_pembayaran_koperasi_").append(slot).append(" as text)),'')")
                      .append(kondisi)
                      .append(" and coalesce(h.nominal_bayar_").append(slot).append(",0) <> 0 ");
                 }
