@@ -432,6 +432,15 @@ public final class PesanFormalHelper {
     }
 
     private static void tampilkanToastRingkas(String judul, String pesan) {
+		/*
+		 * Helper laporan juga dipanggil dari servlet/JSP. Pada jalur itu tidak ada
+		 * Execution/Desktop ZK, sehingga Clients.evalJavaScript pasti melempar NPE.
+		 * Toast hanyalah pelengkap; pesan utama tetap dicatat/dikembalikan pemanggil.
+		 */
+		org.zkoss.zk.ui.Execution execution = org.zkoss.zk.ui.Executions.getCurrent();
+		if (execution == null || execution.getDesktop() == null) {
+			return;
+		}
         try {
             org.zkoss.zk.ui.util.Clients.evalJavaScript(jsToast(judul, pesan));
         } catch (Throwable t) {

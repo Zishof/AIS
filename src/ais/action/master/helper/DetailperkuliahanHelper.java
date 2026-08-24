@@ -55,6 +55,7 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
+import ais.database.model.MahasiswaRequestTugasAkhir;
 import ais.database.model.Perkuliahan;
 import ais.database.model.StatusMahasiswa;
 import ais.database.model.Tbmuser;
@@ -487,6 +488,19 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 										try {
+											Number jumlahRequestTugasAkhir = (Number) HibernateUtil.currentSession()
+													.createCriteria(MahasiswaRequestTugasAkhir.class)
+													.setProjection(org.hibernate.criterion.Projections.rowCount())
+													.add(Restrictions.eq("detailperkuliahan", detailperkuliahan))
+													.uniqueResult();
+											if (jumlahRequestTugasAkhir != null
+													&& jumlahRequestTugasAkhir.longValue() > 0L) {
+												MyMessageboxConfig.show(
+														"Data perkuliahan tidak dapat dihapus karena masih digunakan pada pengajuan tugas akhir mahasiswa. Batalkan atau pindahkan pengajuan tugas akhir tersebut terlebih dahulu.",
+														"Peringatan", MyMessageboxConfig.OK,
+														MyMessageboxConfig.EXCLAMATION);
+												return;
+											}
 
 											if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")) {
 												if (detailperkuliahan.getPersetujuan() != null

@@ -1069,8 +1069,14 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 								mahasiswa.setNim(nim);
 								session.update(mahasiswa);
 							} else {
+								/*
+								 * Transaksi baris ini sudah dimulai dan akan di-commit oleh pemanggil.
+								 * Mode commit manual pada saveMahasiswa memulai/commit transaksi yang sama
+								 * beberapa kali, sehingga tx.commit() di bawah menerima transaksi yang sudah
+								 * selesai ("Transaction not successfully started").
+								 */
 								Mahasiswa mahasiswa = CommonPMB.saveMahasiswa(session, biodataCalonMahasiswa, nim,
-										true);
+										false);
 								if (mahasiswa != null) {
 									CommonPMB.copyLampiran(biodataCalonMahasiswa, mahasiswa);
 								}
@@ -1089,12 +1095,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 							}
 							Common.tampilErrorJikaAdmin(e);
 						} finally {
-							if (session != null && session.isOpen()) {
-								try {
-									session.close();
-								} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/pmb/CetakRegistrasiAction.java:1098");
-								}
-							}
+							/* openSession(): rollback aktif + clear/disconnect/close wajib di finally. */
+							HibernateUtil.closeSessionQuietly(session);
 						}
 					}
 

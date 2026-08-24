@@ -6,6 +6,7 @@ import java.awt.Color;
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -1700,6 +1701,20 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		Date tanggalMulaiAman;
+		Date tanggalSelesaiAman;
+		Date tanggalSkAman;
+		try {
+			tanggalMulaiAman = tanggal.getValue();
+			tanggalSelesaiAman = tanggalSelesai.getValue();
+			tanggalSkAman = tglSk.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data prestasi mahasiswa",
+					"Ada tanggal yang belum lengkap atau formatnya tidak sesuai. Gunakan format tanggal dd-MM-yyyy.",
+					new String[] { "Lengkapi atau kosongkan kembali tanggal yang belum valid.",
+							"Ulangi proses penyimpanan setelah semua tanggal berformat dd-MM-yyyy." });
+			return false;
+		}
 		if (nama.getValue().trim().equals("")) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Kejuaraan",
 					"Kolom Nama Kejuaraan belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
@@ -1709,7 +1724,7 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 					});
 			return false;
 		}
-		if (tanggal.getValue() == null) {
+		if (tanggalMulaiAman == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Mulai Kejuaraan",
 					"Kolom Tanggal Mulai Kejuaraan belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
@@ -1718,7 +1733,7 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 					});
 			return false;
 		}
-		if (tanggalSelesai.getValue() == null) {
+		if (tanggalSelesaiAman == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Selesai Kejuaraan",
 					"Kolom Tanggal Selesai Kejuaraan belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
@@ -1873,8 +1888,8 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 		prestasiMahasiswa.setUrl(url.getValue());
 
 		prestasiMahasiswa.setPrestasiLuarKampus(prestasiLuarKampus.isChecked());
-		prestasiMahasiswa.setTanggal(tanggal.getValue());
-		prestasiMahasiswa.setTanggalSelesai(tanggalSelesai.getValue());
+		prestasiMahasiswa.setTanggal(tanggalMulaiAman);
+		prestasiMahasiswa.setTanggalSelesai(tanggalSelesaiAman);
 		prestasiMahasiswa.setNama(nama.getValue());
 		prestasiMahasiswa.setNamaEn(namaEn.getValue());
 		prestasiMahasiswa.setTempat(tempat.getValue());
@@ -1883,7 +1898,7 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 		prestasiMahasiswa.setMahasiswa((Mahasiswa) mahasiswa.getAttribute("mahasiswa"));
 		prestasiMahasiswa.setKeterangan(keterangan.getValue());
 		prestasiMahasiswa.setPenyelenggara(penyelenggara.getValue());
-		prestasiMahasiswa.setTanggal(tanggal.getValue());
+		prestasiMahasiswa.setTanggal(tanggalMulaiAman);
 
 		prestasiMahasiswa.setDosenPembina1((Dosen) dosenPembina1.getAttribute("dosen"));
 		prestasiMahasiswa.setDosenPembina2((Dosen) dosenPembina2.getAttribute("dosen"));
@@ -1904,7 +1919,7 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 
 		prestasiMahasiswa.setAlamat(alamat.getValue());
 		prestasiMahasiswa.setNoSk(noSk.getValue());
-		prestasiMahasiswa.setTglSk(tglSk.getValue());
+		prestasiMahasiswa.setTglSk(tanggalSkAman);
 
 		Common.refreshSaveOrUpdate(session, prestasiMahasiswa);
 
