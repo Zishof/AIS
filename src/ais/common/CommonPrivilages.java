@@ -139,7 +139,7 @@ public class CommonPrivilages {
 						.uniqueResult();
 				schemaSession.createSQLQuery(
 						"alter table public.log_user_actifity alter column id set default "
-								+ "nextval('public.log_user_actifity_id_seq'::regclass)").executeUpdate();
+								+ "nextval('public.log_user_actifity_id_seq')").executeUpdate();
 				schemaSession.createSQLQuery(
 						"alter sequence public.log_user_actifity_id_seq owned by public.log_user_actifity.id")
 						.executeUpdate();

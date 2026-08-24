@@ -114,7 +114,7 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		if (penjadwalanjamMulai.getNilai().equals(Konfigurasi.AKTIF)) {
 			Integer mulai = 7;
 			try {
-				mulai = Integer.parseInt(penjadwalanjamMulai.getInfo1().trim());
+				mulai = parseJamKonfigurasi(penjadwalanjamMulai.getInfo1(), 7);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarPerkuliahanMahasiswa.java:118");
 			}
 			calendars.setBeginTime(mulai);
@@ -122,7 +122,7 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		if (penjadwalanjamSelesai.getNilai().equals(Konfigurasi.AKTIF)) {
 			Integer sampai = 23;
 			try {
-				sampai = Integer.parseInt(penjadwalanjamSelesai.getInfo1().trim());
+				sampai = parseJamKonfigurasi(penjadwalanjamSelesai.getInfo1(), 23);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarPerkuliahanMahasiswa.java:126");
 			}
 			calendars.setEndTime(sampai);
@@ -133,6 +133,25 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		Common.generateTahunAjaran(tahunAjaran);
 
 		onRefresh(null);
+	}
+
+	private static Integer parseJamKonfigurasi(String nilai, int nilaiDefault) {
+		if (nilai == null || nilai.trim().length() == 0) {
+			return Integer.valueOf(nilaiDefault);
+		}
+		String jamText = nilai.trim();
+		int pemisah = jamText.indexOf(':');
+		if (pemisah < 0) {
+			pemisah = jamText.indexOf('.');
+		}
+		if (pemisah > 0) {
+			jamText = jamText.substring(0, pemisah);
+		}
+		int jam = Integer.parseInt(jamText.trim());
+		if (jam < 0 || jam > 24) {
+			throw new IllegalArgumentException("Jam konfigurasi di luar rentang 0-24: " + nilai);
+		}
+		return Integer.valueOf(jam);
 	}
 
 	protected void initCalendarModel() {

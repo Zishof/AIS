@@ -1379,6 +1379,14 @@ public class CommonReportHelper {
 						.add(Restrictions.eq("gelombangPendaftaran", calonMahasiswa.getGelombangPendaftaran()))
 						.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
 			}
+			/*
+			 * Projection relasi di atas dapat menghasilkan proxy UjianPMB. Seluruh data
+			 * jadwal dipakai setelah session ditutup, sehingga proxy wajib diinisialisasi
+			 * selama session ini masih aktif.
+			 */
+			if (ujianPMB != null) {
+				org.hibernate.Hibernate.initialize(ujianPMB);
+			}
 		} catch (RuntimeException e) {
 			// Koneksi/statement DB terputus di tengah proses cetak (mis. pool c3p0 mengembalikan
 			// koneksi basi setelah proses ini berjalan lama) -> pesan jelas utk admin, bukan cuma
