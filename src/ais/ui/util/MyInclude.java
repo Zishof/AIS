@@ -22,6 +22,14 @@ public class MyInclude extends Include {
 	private void init() {
 		setHeight("100%");
 		setWidth("100%");
+		/*
+		 * Pada ZK lama Include dapat dirender sebagai elemen inline. Dalam kondisi
+		 * itu width="100%" diabaikan browser dan isi hanya memakai lebar intrinsik,
+		 * sehingga tab/popup menyisakan ruang kosong. Jadikan perilaku penuh sebagai
+		 * default seluruh MyInclude; pemanggil tetap dapat menimpa style/ukuran bila
+		 * memang membutuhkan tampilan khusus.
+		 */
+		setStyle("display:block;max-width:100%;box-sizing:border-box;");
 	}
 
 	@Override

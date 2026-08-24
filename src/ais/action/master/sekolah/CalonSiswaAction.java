@@ -939,6 +939,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 						if (panel != null && panel.getChildren().isEmpty()) {
 							Include inc = new Include();
 							inc.setSrc("/WEB-INF/z/x/y/pages/master/sekolah/dasbor_keuangan_siswa.zul");
+							inc.setWidth("100%");
+							inc.setHeight("100%");
+							inc.setStyle("display:block;max-width:100%;box-sizing:border-box;");
 							inc.setParent(panel);
 						}
 					}
