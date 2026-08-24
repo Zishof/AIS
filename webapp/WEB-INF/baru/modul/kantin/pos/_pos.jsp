@@ -981,7 +981,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(cpk.masuk_sebagai_hutang,false) AS masuk_sebagai_hutang " +
                   "FROM koperasi.cara_pembayaran_koperasi cpk " +
                   "WHERE cpk.aktif = true " +
-                  "AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = " + idJenisAnggota + ") LIKE '%,' || cpk.id || ',%' " +
+                  // JARING PENGAMAN: daftar izin KOSONG berarti belum disetel, bukan
+                  // "tidak ada yang diizinkan". Tanpa syarat pertama ini, tipe anggota
+                  // yang belum dikonfigurasi menghasilkan NOL metode dan MENGHENTIKAN
+                  // transaksi. Daftar yang berisi tapi tak cocok tetap kosong -- itu
+                  // pembatasan yang disengaja, dan pesan di bawah yang menjelaskannya.
+                  // Sama persis dgn PosApi.prosesCaraBayarList supaya web dan
+                  // Desktop/Android tidak menyimpang.
+                  "AND ( COALESCE(REPLACE((SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = " + idJenisAnggota + "), ',', ''), '') = '' OR (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = " + idJenisAnggota + ") LIKE '%,' || cpk.id || ',%' ) " +
                   "ORDER BY cpk.nama ASC";
         }
 
