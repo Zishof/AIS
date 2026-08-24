@@ -369,3 +369,25 @@ Salin prompt berikut bersama dokumen ini dan screenshot/video terbaru:
 > detail karya, profil penulis, deposit wizard, review queue, dashboard, dan UX integrasi.
 > Sertakan daftar komponen yang harus dipertahankan agar tidak dibangun ulang.
 
+## 16. Ketahanan beranda terhadap kegagalan sementara
+
+Pembaruan 25 Agustus 2026 menanggapi HTTP 500 intermiten pada `/repository` yang biasanya hilang
+setelah browser di-refresh:
+
+- paging Publikasi terbaru tidak lagi membuka session/koneksi Hibernate kedua di tengah request;
+- seluruh query beranda memakai satu native ThreadLocal session yang ditutup terpusat pada akhir
+  request;
+- lazy tenant backfill tidak lagi dijalankan dari setiap pembacaan portal publik;
+- GET beranda mendapat satu retry otomatis dengan session baru bila query inti gagal sebelum
+  response dikirim;
+- pada retry kedua, kegagalan summary/koleksi/publikasi terbaru memakai empty fallback agar halaman
+  tetap dapat dirender;
+- widget nonkritis seperti topik populer, karya unggulan, paling banyak diunduh, rekomendasi, dan
+  search alert diisolasi sehingga kegagalan satu widget tidak menjatuhkan seluruh halaman;
+- pemeriksaan ketersediaan deposit juga gagal tertutup dan tidak membuat portal publik HTTP 500;
+- response retry diberi header `X-Repository-Retry: 1`, sedangkan kegagalan komponen tetap dicatat
+  dengan nama komponen dan request ID untuk diagnosis server.
+
+Perubahan ini mencegah kegagalan sementara sebuah query berubah menjadi halaman error global.
+Kegagalan permanen tetap harus dicari di log server; fallback bukan pengganti perbaikan database,
+pool koneksi, atau query yang memang salah.

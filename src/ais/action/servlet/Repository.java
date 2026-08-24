@@ -10,6 +10,7 @@ import java.net.URLDecoder;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -44,6 +45,7 @@ public class Repository extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final String JSP = "/WEB-INF/baru/modul/repository/landing_page.jsp";
     private static final String CSRF = "repository.public.csrf";
+    private static final String TRANSIENT_RETRY = "repository.public.transientRetry";
     private final RepositoryPublicService service = new RepositoryPublicService();
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
@@ -71,7 +73,19 @@ public class Repository extends HttpServlet {
         } catch (SecurityException e) {
             if (!response.isCommitted()) renderState(request,response,HttpServletResponse.SC_FORBIDDEN,"Akses tidak diizinkan",e.getMessage(),requestId);
         } catch (Exception e) {
-            ais.common.ErrorAuditUtil.recordVisibleFailure(e,
+            Exception visibleFailure=e;
+            if(canRetryHome(request,response)){
+                ais.common.ErrorAuditUtil.record(e,"Repository home transient failure; retry otomatis "+requestId);
+                HibernateUtil.closeSession();
+                try{
+                    if(!response.isCommitted())response.resetBuffer();
+                    request.setAttribute(TRANSIENT_RETRY,Boolean.TRUE);
+                    response.setHeader("X-Repository-Retry","1");
+                    process(request,response,requestId);
+                    return;
+                }catch(Exception retryFailure){visibleFailure=retryFailure;}
+            }
+            ais.common.ErrorAuditUtil.recordVisibleFailure(visibleFailure,
                     "Repository public servlet", request, requestId);
             if (!response.isCommitted()) {
                 if (isJsonRequest(request)) {
@@ -166,7 +180,9 @@ public class Repository extends HttpServlet {
         request.setAttribute("repoPublicUser", publicUser);
         request.setAttribute("repoIsAdmin",Boolean.valueOf(workflow.isRepositoryAdministrator(publicUser)));
         request.setAttribute("repoIsReviewer", Boolean.valueOf(workflow.isRepositoryAdmin(publicUser)&&!workflow.isRepositoryAdministrator(publicUser)));
-        request.setAttribute("repoCanDeposit", Boolean.valueOf(workflow.canDeposit(publicUser) && service.hasDepositCollection()));
+        boolean canDeposit=workflow.canDeposit(publicUser);
+        if(canDeposit){try{canDeposit=service.hasDepositCollection();}catch(Exception e){logDegraded(e,"deposit-availability",requestId);canDeposit=false;}}
+        request.setAttribute("repoCanDeposit",Boolean.valueOf(canDeposit));
         request.setAttribute("repoAnonymousFullText",Boolean.valueOf(service.anonymousFullTextAllowed()));
 
         if ("item".equals(view)) {
@@ -201,20 +217,33 @@ public class Repository extends HttpServlet {
             // Rendered by the allow-listed JSP view.
         } else {
             request.setAttribute("repoView", "home");
-            request.setAttribute("repoSummary", service.loadSummary());
-            request.setAttribute("repoCollections", service.listCollections(12));
+            boolean retryMode=Boolean.TRUE.equals(request.getAttribute(TRANSIENT_RETRY));
+            try{request.setAttribute("repoSummary",service.loadSummary());}catch(Exception e){if(!retryMode)throw e;logDegraded(e,"summary",requestId);request.setAttribute("repoSummary",new RepositoryPublicService.Summary());}
+            try{request.setAttribute("repoCollections",service.listCollections(12));}catch(Exception e){if(!retryMode)throw e;logDegraded(e,"collections",requestId);request.setAttribute("repoCollections",Collections.emptyList());}
             Integer requestedLatestPage=parseInteger(request.getParameter("latestPage"));
             int latestPage=requestedLatestPage==null?1:requestedLatestPage.intValue();
-            SearchResult latestResult=service.latestPage(latestPage,6);
+            SearchResult latestResult;
+            try{latestResult=service.latestPage(latestPage,6);}catch(Exception e){if(!retryMode)throw e;logDegraded(e,"latest",requestId);latestResult=new SearchResult();latestResult.query=new Query();latestResult.query.page=1;latestResult.query.pageSize=6;}
             request.setAttribute("repoLatestPage",latestResult);
             request.setAttribute("repoLatest",latestResult.items);
-            request.setAttribute("repoPopularCollections", service.popularCollections(6));
-            request.setAttribute("repoPopularTopics", service.popularSubjects(10));
-            request.setAttribute("repoFeatured",service.featured(6));
-            request.setAttribute("repoMostDownloaded",service.mostDownloaded(clean(request.getParameter("downloadPeriod")),6));
-            if(publicUser!=null){request.setAttribute("repoRecommendations",service.recommendations(publicUser.getUserId(),4));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",10));}
+            try{request.setAttribute("repoPopularCollections",service.popularCollections(6));}catch(Exception e){logDegraded(e,"popular-collections",requestId);request.setAttribute("repoPopularCollections",Collections.emptyList());}
+            try{request.setAttribute("repoPopularTopics",service.popularSubjects(10));}catch(Exception e){logDegraded(e,"popular-topics",requestId);request.setAttribute("repoPopularTopics",Collections.emptyMap());}
+            try{request.setAttribute("repoFeatured",service.featured(6));}catch(Exception e){logDegraded(e,"featured",requestId);request.setAttribute("repoFeatured",Collections.emptyList());}
+            try{request.setAttribute("repoMostDownloaded",service.mostDownloaded(clean(request.getParameter("downloadPeriod")),6));}catch(Exception e){logDegraded(e,"most-downloaded",requestId);request.setAttribute("repoMostDownloaded",Collections.emptyList());}
+            if(publicUser!=null){try{request.setAttribute("repoRecommendations",service.recommendations(publicUser.getUserId(),4));}catch(Exception e){logDegraded(e,"recommendations",requestId);request.setAttribute("repoRecommendations",Collections.emptyList());}try{request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",10));}catch(Exception e){logDegraded(e,"search-alerts",requestId);request.setAttribute("repoSearchAlerts",Collections.emptyList());}}
         }
         request.getRequestDispatcher(JSP).forward(request, response);
+    }
+
+    private boolean canRetryHome(HttpServletRequest request,HttpServletResponse response){
+        if(response.isCommitted()||Boolean.TRUE.equals(request.getAttribute(TRANSIENT_RETRY))||!"GET".equalsIgnoreCase(request.getMethod()))return false;
+        if(clean(request.getParameter("action")).length()>0)return false;
+        String view=clean(request.getParameter("view")).toLowerCase(),path=clean(request.getPathInfo());
+        return (view.length()==0||"home".equals(view))&&(path.length()==0||"/".equals(path));
+    }
+
+    private void logDegraded(Exception failure,String component,String requestId){
+        ais.common.ErrorAuditUtil.record(failure,"Repository home degraded component="+component+" request="+requestId);
     }
 
     private Query queryFrom(HttpServletRequest request) {

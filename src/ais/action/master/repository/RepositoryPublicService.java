@@ -208,7 +208,6 @@ public class RepositoryPublicService {
     public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
-		RepositoryTenantScope.ensureSchema();
         return HibernateUtil.currentNativeSession();
     }
 
@@ -354,9 +353,8 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     public SearchResult latestPage(int requestedPage,int requestedPageSize){
         Query q=new Query();q.page=Math.max(1,requestedPage);q.pageSize=Math.max(1,Math.min(requestedPageSize,20));q.sort="newest";
-        SearchResult result=new SearchResult();result.query=q;Session session=null;
-        try{session=HibernateUtil.openSession();result.total=count(publicCriteria(session,null));result.totalPages=result.total==0L?0:(int)((result.total+q.pageSize-1L)/q.pageSize);if(result.totalPages>0&&q.page>result.totalPages)q.page=result.totalPages;Criteria rows=publicCriteria(session,null);applySort(rows,q.sort);rows.setFirstResult((q.page-1)*q.pageSize);rows.setMaxResults(q.pageSize);result.items=cards(session,rows.list());return result;}
-        finally{HibernateUtil.closeSessionQuietly(session);}
+        SearchResult result=new SearchResult();result.query=q;Session session=session();
+        result.total=count(publicCriteria(session,null));result.totalPages=result.total==0L?0:(int)((result.total+q.pageSize-1L)/q.pageSize);if(result.totalPages>0&&q.page>result.totalPages)q.page=result.totalPages;Criteria rows=publicCriteria(session,null);applySort(rows,q.sort);rows.setFirstResult((q.page-1)*q.pageSize);rows.setMaxResults(q.pageSize);result.items=cards(session,rows.list());return result;
     }
 
     @SuppressWarnings("unchecked")
