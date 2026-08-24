@@ -715,7 +715,29 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     public static boolean punyaRincian(String namaBaris) {
-        return !"Posting HPP".equals(namaBaris);
+        return alasanTanpaRincian(namaBaris) == null;
+    }
+
+    /**
+     * Kalimat alasan mengapa sebuah baris TIDAK punya daftar dokumen, atau {@code null} bila ia
+     * punya.
+     *
+     * <p>Satu kalimat, satu tempat. Kalimat ini dipakai DUA kali: dikirim bersama ringkasan supaya
+     * layar dapat menerangkan sendiri kenapa angkanya tidak dapat diketuk, dan dipakai lagi sebagai
+     * pesan penolakan bila permintaan rinciannya tetap datang. Bila keduanya ditulis terpisah,
+     * yang satu akan berubah dan yang lain tidak -- dan pengguna membaca dua penjelasan berbeda
+     * untuk hal yang sama.</p>
+     *
+     * <p>Bukan sekadar "tidak tersedia": yang membuat pengguna berhenti bertanya adalah SEBABNYA.
+     * Posting HPP diposting per periode, jadi memang tidak ada dokumen yang jujur bisa
+     * didaftar -- bukan daftar yang kebetulan kosong atau gagal dimuat.</p>
+     */
+    public static String alasanTanpaRincian(String namaBaris) {
+        if ("Posting HPP".equals(namaBaris)) {
+            return "\"" + namaBaris + "\" diposting per periode, bukan per dokumen, "
+                    + "sehingga tidak memiliki daftar dokumen yang dapat dirinci.";
+        }
+        return null;
     }
 
     /**

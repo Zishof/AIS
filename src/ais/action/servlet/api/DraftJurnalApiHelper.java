@@ -456,6 +456,11 @@ public final class DraftJurnalApiHelper {
                 // Bendera kemampuan: klien hanya menawarkan tombol yang benar-benar ada mesinnya,
                 // sehingga tidak ada tombol yang ujungnya menolak.
                 j.put("bisaRincian", DraftJurnalRingkasanUtil.punyaRincian(b.getNama()));
+                // Alasannya ikut dikirim, bukan cuma bendera "tidak bisa". Tanpa kalimat ini layar
+                // hanya dapat memadamkan angkanya, dan pengguna melihat satu baris yang diam tanpa
+                // sebab -- yang terbaca sebagai kerusakan, bukan sebagai sifat baris itu.
+                String alasanRincian = DraftJurnalRingkasanUtil.alasanTanpaRincian(b.getNama());
+                if (alasanRincian != null) j.put("alasanTanpaRincian", alasanRincian);
                 j.put("bisaPosting", modulPosting(b.getNama()) != null);
                 data.put(j);
                 totalDraft += b.getDraft();
@@ -496,10 +501,11 @@ public final class DraftJurnalApiHelper {
             hasil.put("description", "Status rincian hanya boleh draft, posting, atau closing.");
             return;
         }
-        if (!DraftJurnalRingkasanUtil.punyaRincian(nama)) {
+        String alasanTanpaRincian = DraftJurnalRingkasanUtil.alasanTanpaRincian(nama);
+        if (alasanTanpaRincian != null) {
+            // Kalimat yang SAMA dengan yang dikirim bersama ringkasan -- lihat alasanTanpaRincian().
             hasil.put("status", "91");
-            hasil.put("description", "\"" + nama + "\" diposting per periode, bukan per dokumen, "
-                    + "sehingga tidak memiliki daftar dokumen yang dapat dirinci.");
+            hasil.put("description", alasanTanpaRincian);
             return;
         }
 

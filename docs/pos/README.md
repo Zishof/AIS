@@ -51,6 +51,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [43-perbaikan-ecampus-2026-08.md](43-perbaikan-ecampus-2026-08.md) | Enam akar masalah dari dua belas laporan galat ECAMPUS |
 | [44-uji-regresi.md](44-uji-regresi.md) | Menjalankan regresi, hasil 22-08-2026, dan jebakan yang sudah memakan waktu |
 | [45-penyaring-dasbor-dan-layani-semua.md](45-penyaring-dasbor-dan-layani-semua.md) | Penyaring "Jenis pembayaran" yang tak pernah dibaca server, dan "Layani Semua" yang menyapu lebih luas daripada yang dilihat |
+| [46-angka-tanpa-rincian.md](46-angka-tanpa-rincian.md) | Bendera `bisaRincian` yang tak pernah dibaca layar, dan alasan yang ikut dikirim bersamanya |
 | [20-ikhtisar-kantin-multi-toko.md](20-ikhtisar-kantin-multi-toko.md) | Kantin, multi-toko, audit & proses otomatis |
 | [21-hak-akses-ubah-harga.md](21-hak-akses-ubah-harga.md) | Hak akses ubah harga |
 | [22-filter-toko-dan-pendaftar.md](22-filter-toko-dan-pendaftar.md) | Filter toko lintas-toko & pembatasan per pendaftar |
