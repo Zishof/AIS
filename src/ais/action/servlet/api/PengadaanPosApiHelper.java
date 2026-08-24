@@ -1,7 +1,9 @@
 package ais.action.servlet.api;
 
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -19,6 +21,7 @@ import ais.action.master.asset.SaldoAwalMasterAssetAction;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.Konfigurasi;
 import ais.database.model.asset.MasterAsset;
 import ais.database.model.asset.PembayaranTerminMasterAsset;
 import ais.database.model.asset.PembayaranTerminMasterAssetDetail;
@@ -61,8 +64,6 @@ public final class PengadaanPosApiHelper {
 	private static final String KUNCI_PO = "pengadaan_po";
 	private static final String KUNCI_BAST = "pengadaan_bast";
 	private static final String KUNCI_TAGIHAN = "pengadaan_tagihan";
-	private static final String KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB =
-			"pengadaan_tagihan_rutin_anggaran_wajib";
 	private static final String KUNCI_DPC = "pengadaan_dpc";
 	private static final String KUNCI_BDP = "pengadaan_bdp";
 	private static final String KUNCI_SINKRON = "pengadaan_sinkron";
@@ -357,7 +358,8 @@ public final class PengadaanPosApiHelper {
 		}
 
 		boolean anggaranWajib = Common.bolehKonfigurasi(
-				KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB);
+				Konfigurasi.PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB,
+				Konfigurasi.TIDAK_AKTIF);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction transaksi = null;
 		SaldoAwalMasterAsset tagihan = null;
@@ -5036,11 +5038,84 @@ public final class PengadaanPosApiHelper {
 				arr.put(o);
 			}
 			lengkapiLampiranTagihan(arr);
+
+			// Tagihan rutin (PLN, internet, sewa, dan sejenisnya) tidak mempunyai BAST.
+			// Model dan relasi anggarannya mengikuti layar ZKoss TerimaTagihanAction:
+			// satu SaldoAwalMasterAsset sebagai kepala tagihan dan Workspace pada SETIAP
+			// SaldoAwalMasterAssetDetail. Data dipisah dari daftar BAST agar aksi lama
+			// (lampiran/terima faktur berbasis penerimaan barang) tetap utuh.
+			Criteria kriteriaRutin = session.createCriteria(SaldoAwalMasterAsset.class);
+			kriteriaRutin.add(Restrictions.or(Restrictions.isNull("aktif"),
+					Restrictions.eq("aktif", Boolean.TRUE)));
+			kriteriaRutin.add(Restrictions.isNull("penerimaanPengadaanMasterAsset"));
+			if (tokoId != null) {
+				kriteriaRutin.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (cari.length() > 0) {
+				kriteriaRutin.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("keterangan", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("kodeTagihan", cari, MatchMode.ANYWHERE)));
+			}
+			kriteriaRutin.addOrder(Order.desc("id"));
+			kriteriaRutin.setMaxResults(50);
+			@SuppressWarnings("unchecked")
+			List<SaldoAwalMasterAsset> daftarRutin = kriteriaRutin.list();
+
+			Map<Long, JSONArray> rincianPerTagihan = new HashMap<Long, JSONArray>();
+			if (!daftarRutin.isEmpty()) {
+				Criteria kriteriaRincian = session.createCriteria(SaldoAwalMasterAssetDetail.class);
+				kriteriaRincian.add(Restrictions.in("saldoAwal", daftarRutin));
+				kriteriaRincian.addOrder(Order.asc("id"));
+				@SuppressWarnings("unchecked")
+				List<SaldoAwalMasterAssetDetail> daftarRincian = kriteriaRincian.list();
+				for (SaldoAwalMasterAssetDetail detail : daftarRincian) {
+					SaldoAwalMasterAsset kepala = detail.getSaldoAwal();
+					if (kepala == null || kepala.getId() == null) {
+						continue;
+					}
+					JSONArray rincian = rincianPerTagihan.get(kepala.getId());
+					if (rincian == null) {
+						rincian = new JSONArray();
+						rincianPerTagihan.put(kepala.getId(), rincian);
+					}
+					Workspace anggaran = detail.getWorkspace();
+					JSONObject d = new JSONObject();
+					d.put("keterangan", detail.getKeterangan() == null ? "" : detail.getKeterangan());
+					d.put("jumlah", detail.getJumlah() == null ? 1 : detail.getJumlah());
+					d.put("nominal", detail.getHargaTotal() == null ? 0 : detail.getHargaTotal());
+					d.put("anggaranKode", anggaran == null || anggaran.getKode() == null
+							? "" : anggaran.getKode());
+					d.put("anggaranNama", anggaran == null || anggaran.getNama() == null
+							? "" : anggaran.getNama());
+					rincian.put(d);
+				}
+			}
+
+			JSONArray arrRutin = new JSONArray();
+			for (SaldoAwalMasterAsset tagihan : daftarRutin) {
+				JSONObject o = new JSONObject();
+				o.put("id", tagihan.getId());
+				o.put("kode", tagihan.getKode() == null ? "" : tagihan.getKode());
+				o.put("kodeTagihan", tagihan.getKodeTagihan() == null ? "" : tagihan.getKodeTagihan());
+				o.put("tanggalTagihan", tagihan.getTanggalTagihan() == null ? ""
+						: Common.dateFormat1.get().format(tagihan.getTanggalTagihan()));
+				o.put("penyedia", tagihan.getPenyedia() == null || tagihan.getPenyedia().getNama() == null
+						? "" : tagihan.getPenyedia().getNama());
+				o.put("keterangan", tagihan.getKeterangan() == null ? "" : tagihan.getKeterangan());
+				o.put("nilai", tagihan.getNilai() == null ? 0 : tagihan.getNilai());
+				o.put("lunas", tagihan.getLunas() != null && tagihan.getLunas());
+				JSONArray rincian = rincianPerTagihan.get(tagihan.getId());
+				o.put("rincian", rincian == null ? new JSONArray() : rincian);
+				arrRutin.put(o);
+			}
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("dataRutin", arrRutin);
 			hasil.put("total", cocok);
 			hasil.put("anggaranWajib", Common.bolehKonfigurasi(
-					KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB));
+					Konfigurasi.PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB,
+					Konfigurasi.TIDAK_AKTIF));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

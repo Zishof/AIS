@@ -96,8 +96,22 @@ public class KrsDanSkripsiHelper {
 
 		Session session = null;
 		try {
-			session = HibernateUtil.getSessionFactory().openSession();
-			session.getTransaction().begin();
+				session = HibernateUtil.getSessionFactory().openSession();
+				session.getTransaction().begin();
+
+				// Sinkronisasi ini sering dipanggil dari worker pembayaran setelah konversi calon
+				// mahasiswa. Jangan pernah menyimpan KRS dengan referensi Mahasiswa transient/stale:
+				// Hibernate dapat mencoba cascade INSERT Mahasiswa kedua (NIM ganda), atau KRS gagal
+				// pada FK krs_mahasiswa bila baris induknya belum commit/sudah dihapus.
+				Mahasiswa mahasiswaDb = mahasiswa == null || mahasiswa.getId() == null ? null
+						: (Mahasiswa) session.get(Mahasiswa.class, mahasiswa.getId());
+				if (mahasiswaDb == null) {
+					KrsMahasiswa belumTersimpan = new KrsMahasiswa();
+					belumTersimpan.setMahasiswa(mahasiswa);
+					belumTersimpan.setSemester(semester);
+					belumTersimpan.setTahapan(tahapan);
+					return belumTersimpan;
+				}
 
 			// Karena pemanggilan mahasiswa memerlukan session yg sama jika tidak di detach,
 			// di sini diasumsikan method bawaan sudah menangani isolated session,
@@ -175,7 +189,7 @@ public class KrsDanSkripsiHelper {
 			}
 
 			krsMahasiswa.setAktif(true);
-			krsMahasiswa.setMahasiswa(mahasiswa);
+				krsMahasiswa.setMahasiswa(mahasiswaDb);
 			krsMahasiswa.setSemester(semester);
 
 			// OPTIMASI MEMORI: Menggunakan StringBuilder daripada Concatenation S +=

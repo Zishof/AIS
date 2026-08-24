@@ -1263,6 +1263,16 @@ public class Wa extends HttpServlet {
 	public static int indexPengiriman = 0;
 	public static Map<String, String> nomorKey = new HashMap<String, String>();
 
+	private static String normalisasiNomorTujuanWa(String nomor) {
+		if (nomor == null) return null;
+		String hasil = nomor.trim().replaceAll("[^0-9]", "");
+		if (hasil.startsWith("0")) hasil = "62" + hasil.substring(1);
+		// Nilai placeholder seperti "-", "null", seluruh nol, atau nomor terlalu pendek
+		// berubah menjadi kosong/tidak valid setelah normalisasi dan tidak boleh dikirim ke API.
+		if (hasil.length() < 8 || hasil.matches("0+")) return null;
+		return hasil;
+	}
+
 	public static void kirimWaViaUltramsg(final String froma, final String send, final String namaFile,
 			final String url, final String profile, final boolean ulang) throws Exception {
 
@@ -1272,11 +1282,9 @@ public class Wa extends HttpServlet {
 			public void run() {
 
 				try {
-					String from = froma;
+					String from = normalisasiNomorTujuanWa(froma);
 					String hasil = "";
-					if (from == null || from.trim().isEmpty() || send == null
-							|| "00000000000000000000".equals(from.trim())
-							|| "000000000".equals(from.trim())) {
+					if (from == null || send == null || send.trim().isEmpty()) {
 						return;
 					}
 					int l = 10000 - 1;
@@ -1295,7 +1303,7 @@ public class Wa extends HttpServlet {
 									&& !(from == null || from.toString().trim().isEmpty()
 											|| from.toString().trim().equals("00000000000000000000")
 											|| from.toString().trim().equals("000000000"))) {
-								from = from.startsWith("0") ? "62" + from.substring(1) : from;
+								// Nomor sudah dinormalisasi sekali di awal worker.
 							}
 
 							String[] command = WaApi.ultramsgFormat(from, send, namaFile, url);

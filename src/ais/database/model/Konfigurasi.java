@@ -72,6 +72,10 @@ public class Konfigurasi extends GeneralValueObject {
 	// Default AKTIF (ON). Unit yang secara operasional tidak memakai laci/shift kas dapat memilih
 	// "tidak aktif" secara eksplisit. Semua kanal membaca sakelar server yang sama.
 	public static final String KANTIN_POS_WAJIB_SESI_KAS = "kantin_pos_wajib_sesi_kas";
+	// Wajibkan setiap rincian tagihan rutin tanpa BAST menunjuk anggaran/Workspace.
+	// Default TIDAK AKTIF agar tagihan utilitas tetap dapat dicatat saat anggaran belum disiapkan.
+	public static final String PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB =
+			"pengadaan_tagihan_rutin_anggaran_wajib";
 	// Izinkan provisioning data contoh eBisnis. Fail-closed: tanpa baris konfigurasi
 	// atau bila nilainya bukan "aktif", seluruh seed data contoh harus ditolak.
 	public static final String DATA_SAMPLE_EBISNIS = "data_sample_ebisnis";

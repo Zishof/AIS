@@ -243,7 +243,10 @@ public class RepositoryPublicService {
     }
 
     public Summary loadSummary() {
-        Session session = session();
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
         Summary summary = new Summary();
         summary.totalItems = count(publicCriteria(session, null));
         summary.totalCollections = count(session.createCriteria(RepoCollection.class)
@@ -276,6 +279,9 @@ public class RepositoryPublicService {
         summary.typeStatistics.put("Laporan penelitian",Long.valueOf(countPublicByHints(session,new String[]{"laporan penelitian","research report"})));
         summary.typeStatistics.put("Prosiding",Long.valueOf(countPublicByHints(session,new String[]{"prosiding","proceeding","conference"})));
         return summary;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     private long countPublicByHints(Session session,String[] hints){
@@ -331,12 +337,18 @@ public class RepositoryPublicService {
     public MetadataSuggestion suggestMetadata(String title,String abstractText){MetadataSuggestion suggestion=new MetadataSuggestion();String text=(clean(title)+" "+clean(abstractText)).toLowerCase();suggestion.language=text.matches(".*\\b(the|and|with|from|study)\\b.*")?"en":"id";suggestion.documentType=text.contains("dataset")?"Dataset":(text.contains("skripsi")||text.contains("thesis")?"Thesis":"Article");Map<String,Integer> frequency=new LinkedHashMap<String,Integer>();for(String token:text.split("[^\\p{L}\\p{N}]+"))if(token.length()>4&&!STOPWORDS.contains(token)){Integer n=frequency.get(token);frequency.put(token,Integer.valueOf(n==null?1:n.intValue()+1));}List<Map.Entry<String,Integer>> words=new ArrayList<Map.Entry<String,Integer>>(frequency.entrySet());Collections.sort(words,new java.util.Comparator<Map.Entry<String,Integer>>(){public int compare(Map.Entry<String,Integer>a,Map.Entry<String,Integer>b){return b.getValue().compareTo(a.getValue());}});for(int i=0;i<words.size()&&i<8;i++)suggestion.keywords.add(words.get(i).getKey());suggestion.abstractDraft=clean(abstractText);Query q=new Query();q.keyword=clean(title);q.searchField="title";q.pageSize=5;suggestion.possibleDuplicates=search(q).items;return suggestion;}
 
     public List<ItemCard> latest(int maximum) {
-        Session session = session();
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
         @SuppressWarnings("unchecked")
         List<RepoItem> rows = publicCriteria(session, null)
                 .addOrder(Order.desc("issuedAt")).addOrder(Order.desc("id"))
                 .setMaxResults(maximum < 1 ? 6 : Math.min(maximum, MAX_PAGE_SIZE)).list();
         return cards(session, rows);
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -492,8 +504,16 @@ public class RepositoryPublicService {
 
     @SuppressWarnings("unchecked")
     public List<CollectionView> listCollections(int maximum) {
-        Session session = session();
-        return listCollections(session, maximum);
+        Session session = null;
+        try {
+            RepositoryTenantScope.ensureSchema();
+            session = HibernateUtil.openSession();
+            return listCollections(session, maximum);
+        } finally {
+            // Endpoint repository adalah servlet publik dan dapat berjalan tanpa lifecycle ZK.
+            // Jangan bergantung pada currentNativeSession ThreadLocal dari operasi sebelumnya.
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     @SuppressWarnings("unchecked")

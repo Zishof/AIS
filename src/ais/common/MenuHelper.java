@@ -1968,11 +1968,14 @@ public class MenuHelper {
         try {
             session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
             Menu root = ensureMenu(session,33293L,40L,600000008L,"Modul Sosial",null,"fas fa-hand-holding-heart",13,Boolean.FALSE);
-            Menu zakat = ensureMenu(session,73329301L,600000008L,60000000820L,"Zakat","/pages/master/sosial/zakat_workspace.zul","fas fa-mosque",1,Boolean.FALSE);
-            Menu infaq = ensureMenu(session,73329302L,600000008L,60000000821L,"Infaq","/pages/master/sosial/infaq_workspace.zul","fas fa-hand-holding-usd",2,Boolean.FALSE);
-            Menu shodaqoh = ensureMenu(session,73329303L,600000008L,60000000822L,"Shodaqoh","/pages/master/sosial/shodaqoh_workspace.zul","fas fa-hands-helping",3,Boolean.FALSE);
-            Menu donasi = ensureMenu(session,73329304L,600000008L,60000000823L,"Donasi","/pages/master/sosial/donasi_workspace.zul","fas fa-donate",4,Boolean.FALSE);
-            Menu channel = ensureMenu(session,73329305L,600000008L,60000000824L,"SosialChannel","/pages/master/sosial/sosial_channel.zul","fas fa-credit-card",5,Boolean.FALSE);
+	            // Kolom menu.child pada instalasi lama masih PostgreSQL int4. Nilai 60000000820
+	            // melebihi Integer.MAX_VALUE dan membuat seluruh transaksi init rollback. Pertahankan
+	            // namespace 600 juta, tetapi gunakan nomor child yang tetap unik dan valid untuk int4.
+	            Menu zakat = ensureMenu(session,73329301L,600000008L,600000820L,"Zakat","/pages/master/sosial/zakat_workspace.zul","fas fa-mosque",1,Boolean.FALSE);
+	            Menu infaq = ensureMenu(session,73329302L,600000008L,600000821L,"Infaq","/pages/master/sosial/infaq_workspace.zul","fas fa-hand-holding-usd",2,Boolean.FALSE);
+	            Menu shodaqoh = ensureMenu(session,73329303L,600000008L,600000822L,"Shodaqoh","/pages/master/sosial/shodaqoh_workspace.zul","fas fa-hands-helping",3,Boolean.FALSE);
+	            Menu donasi = ensureMenu(session,73329304L,600000008L,600000823L,"Donasi","/pages/master/sosial/donasi_workspace.zul","fas fa-donate",4,Boolean.FALSE);
+	            Menu channel = ensureMenu(session,73329305L,600000008L,600000824L,"SosialChannel","/pages/master/sosial/sosial_channel.zul","fas fa-credit-card",5,Boolean.FALSE);
             tx.commit(); tx=null;
             tx=session.beginTransaction(); Tbmrole admin=(Tbmrole)session.get(Tbmrole.class,Tbmrole.ADMINISTRATOR);
             java.util.List<Menu> menus=new java.util.ArrayList<Menu>(); menus.add(root);menus.add(zakat);menus.add(infaq);menus.add(shodaqoh);menus.add(donasi);menus.add(channel);

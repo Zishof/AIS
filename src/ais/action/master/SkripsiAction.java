@@ -3609,7 +3609,17 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 									});
 							return;
 						}
-						if (tanggal.getValue() == null) {
+							java.util.Date tanggalTerbit;
+							try {
+								tanggalTerbit = tanggal.getValue();
+							} catch (org.zkoss.zk.ui.WrongValueException e) {
+								try { tanggal.clearErrorMessage(); } catch (Exception ignored) { }
+								PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Terbit / Publikasi",
+										"Format tanggal belum valid. Gunakan format dd-MM-yyyy.",
+										new String[] { "Perbaiki tanggal, lalu ulangi proses penyimpanan." });
+								return;
+							}
+							if (tanggalTerbit == null) {
 							PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Terbit / Publikasi",
 									"Kolom Tanggal Terbit / Publikasi belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 									new String[] {
@@ -3627,7 +3637,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 						jsonObject.put("judul", nama.getValue().trim());
 						jsonObject.put("penerbit", penerbit.getValue().trim());
 						jsonObject.put("pengarang", pengarang.getValue().trim());
-						jsonObject.put("tanggal", Common.dateFormat1.get().format(tanggal.getValue()));
+							jsonObject.put("tanggal", Common.dateFormat1.get().format(tanggalTerbit));
 						jsonObject.put("isbn", isbn.getValue().trim());
 						jsonObject.put("issn", issn.getValue().trim());
 						jsonObject.put("sumber", sumber.getValue().trim());

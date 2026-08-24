@@ -459,8 +459,9 @@ public class GDriveUtilPerPengguna {
 		System.err.println("GDrive: cache credential lokal user '" + username
 				+ "' korup/kosong, cache lokal akan dibuat ulang. Penyebab: " + penyebab.getClass().getName()
 				+ " - " + penyebab.getMessage());
-		ais.common.ErrorAuditUtil.record(penyebab,
-				"auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:getDrive - recovery FileDataStore korup");
+		// EOF/StreamCorrupted di cache lokal sudah ditangani tuntas dengan membuat ulang folder.
+		// Catat ringkas di stderr untuk diagnostik startup, tetapi jangan masukkan sebagai error
+		// aplikasi karena recovery otomatis ini adalah hasil yang diharapkan.
 
 		drive = null;
 		if (file != null && file.exists()) {

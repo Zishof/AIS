@@ -1499,8 +1499,9 @@ public class TagihanUIBuilder {
 																} finally {
 																	org.zkoss.zk.ui.Executions.deactivate(desktop);
 																}
-															} catch (org.zkoss.zk.ui.DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:1448");
-																// Window/Browser sudah tertutup
+																	} catch (org.zkoss.zk.ui.DesktopUnavailableException due) {
+																		// Window/browser ditutup ketika worker masih selesai menghitung. Ini kondisi
+																		// normal, bukan error aplikasi dan tidak perlu memenuhi tabel audit.
 															} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:1450");
 															}
 														}

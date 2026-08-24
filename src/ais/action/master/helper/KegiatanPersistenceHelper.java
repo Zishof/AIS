@@ -1133,7 +1133,11 @@ public class KegiatanPersistenceHelper {
 				List<DetailKegiatan> listDetail = loadDetailKegiatanByIds(session, aktifDetail);
 
 				RekapPembayaran rekapPembayaran = bangunRekapPembayaran(listCicilan);
-				String tagihansTerbaru = bangunRekapTagihan(kegiatanDb, listDetail);
+					// Worker persistence hanya merangkum snapshot DetailKegiatan yang sudah ada.
+					// Jangan dari sini memanggil getDetailBiayaMahasiswa untuk validasi item asing:
+					// helper tersebut dapat menyinkronkan KRS/Mahasiswa lagi dan menimbulkan rantai
+					// rekursif (FK KRS, NIM ganda, serta koneksi tertutup) di thread async.
+					String tagihansTerbaru = bangunRekapTagihan(kegiatanDb, listDetail, false, false);
 
 				kegiatanDb.setBulans(rekapPembayaran.bulans);
 				kegiatanDb.setTagihans(tagihansTerbaru);
@@ -1163,13 +1167,20 @@ public class KegiatanPersistenceHelper {
 					break;
 				}
 
-				tx = session.beginTransaction();
-				// Query ini sering menunggu lock saat sinkronisasi pembayaran massal.
+					tx = session.beginTransaction();
+					// Query ini sering menunggu lock saat sinkronisasi pembayaran massal.
 				// Query.setTimeout(45) memakai Statement.cancel(), yang oleh PostgreSQL
 				// dilaporkan sebagai "canceling statement due to user request". Gunakan
 				// timeout transaksi server yang lebih longgar; retry/backoff di method ini
 				// tetap menjadi pengaman bila kontensi benar-benar berkepanjangan.
-				session.createSQLQuery("SET LOCAL statement_timeout = '300s'").executeUpdate();
+					session.createSQLQuery("SET LOCAL statement_timeout = '300s'").executeUpdate();
+					// Banyak instalasi menetapkan lock_timeout global sangat pendek. Override hanya
+					// untuk transaksi worker ini, lalu serialkan per kegiatan juga lintas node JVM.
+					// Advisory lock dilepas otomatis saat commit/rollback.
+					session.createSQLQuery("SET LOCAL lock_timeout = '120s'").executeUpdate();
+					session.createSQLQuery("SELECT pg_advisory_xact_lock(:lockKey)")
+							.setParameter("lockKey", Long.valueOf(4200000000000L + idKegiatan.longValue()))
+							.uniqueResult();
 				Query query = session.createQuery(HQL_UPDATE_KEGIATAN);
 				query.setParameter("nilaiBaru", kegiatanDb.getBulans());
 				query.setParameter("nilaiTagihanBaru", kegiatanDb.getTagihans());
@@ -1490,11 +1501,16 @@ public class KegiatanPersistenceHelper {
 	 */
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live)
 			throws JSONException {
+		return bangunRekapTagihan(kegiatan, listDetail, live, true);
+	}
+
+	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live,
+			boolean validasiItemAsing) throws JSONException {
 		JSONObject jsonTagihan = new JSONObject();
 		Map<String, Double> diskonTerbesarPerKey = kumpulkanDiskonTerbesarPerKey(kegiatan);
 		java.util.Set<Long> itemValidBerlaku = null;
 		java.util.Set<Long> itemSudahAdaBayar = null;
-		if (buangItemAsingAktif()) {
+		if (validasiItemAsing && buangItemAsingAktif()) {
 			itemValidBerlaku = kumpulkanItemBiayaBerlaku(kegiatan);
 			if (itemValidBerlaku != null) {
 				itemSudahAdaBayar = kumpulkanItemBiayaAdaPembayaran(kegiatan);

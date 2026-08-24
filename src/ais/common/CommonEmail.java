@@ -261,13 +261,19 @@ public class CommonEmail {
 					processPertemuanUsers(session, pertemuan, userIds, emailUser);
 
 					if (emailUser.length() > 0 || userIds.length() > 0) {
-						String info = pengajuanIzin.getPertemuan().getPerkuliahan().info();
+						Pertemuan pertemuanEmail = pengajuanIzin == null ? null : pengajuanIzin.getPertemuan();
+						if (pertemuanEmail == null || pertemuanEmail.getPerkuliahan() == null) {
+							// Data izin lama dapat tidak lagi mempunyai pertemuan/perkuliahan. Tidak ada
+							// alamat konteks akademik yang aman untuk dikirim, jadi lewati notifikasi.
+							return;
+						}
+						String info = pertemuanEmail.getPerkuliahan().info();
 						
 						String subject = "Informasi Akademik: Pengajuan Izin Ketidakhadiran Perkuliahan pada Topik \"" + pengajuanIzin.getPertemuan().getTopik() + "\"";
 						String body = "Yth. Bapak/Ibu Dosen dan Staf Akademik Terkait,<br><br>"
 								+ "Sistem manajemen presensi mencatat adanya sebuah formulir pengajuan izin ketidakhadiran perkuliahan yang dikirimkan oleh mahasiswa. Berikut adalah ringkasan data dari pengajuan tersebut:<br><br>"
-								+ "<b>Nama Mahasiswa:</b> " + pengajuanIzin.getMahasiswa().getNama() + "<br>"
-								+ "<b>Status Kehadiran yang Diajukan:</b> " + Common.getBahasaConfig(pengajuanIzin.getStatusabsensi().getNama()) + "<br>"
+								+ "<b>Nama Mahasiswa:</b> " + (pengajuanIzin.getMahasiswa() == null ? "-" : pengajuanIzin.getMahasiswa().getNama()) + "<br>"
+								+ "<b>Status Kehadiran yang Diajukan:</b> " + (pengajuanIzin.getStatusabsensi() == null ? "-" : Common.getBahasaConfig(pengajuanIzin.getStatusabsensi().getNama())) + "<br>"
 								+ "<b>Alasan / Keterangan:</b> " + pengajuanIzin.getKeterangan() + "<br>"
 								+ "<b>Informasi Perkuliahan:</b> " + info + "<br><br>"
 								+ "Sebagai langkah tertib administrasi, mohon perkenan Bapak/Ibu untuk meninjau, melakukan verifikasi bukti pendukung (jika ada), dan memberikan keputusan persetujuan atas pengajuan absen tersebut di dalam sistem akademik terpadu. Silakan masuk pada tautan <a href='" + Common.getRequestHostWithProtocol() + "'>" + Common.getRequestHostWithProtocol() + "</a> dan periksa secara detail pada menu <b>Aktifitas Perkuliahan</b>.<br><br>"
