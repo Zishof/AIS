@@ -216,6 +216,26 @@
 		<servlet-name>CatatanOrangTua</servlet-name>
 		<servlet-class>ais.action.servlet.CatatanOrangTuaServlet</servlet-class>
 	</servlet>
+	<servlet>
+		<display-name>Sosial AIS Portal</display-name>
+		<servlet-name>Sosial</servlet-name>
+		<servlet-class>ais.action.servlet.Sosial</servlet-class>
+	</servlet>
+	<servlet>
+		<display-name>Sosial AIS API</display-name>
+		<servlet-name>SosialApi</servlet-name>
+		<servlet-class>ais.action.servlet.SosialApi</servlet-class>
+	</servlet>
+	<servlet>
+		<display-name>Sosial AIS Smartlink Callback</display-name>
+		<servlet-name>SosialSmartlinkCallback</servlet-name>
+		<servlet-class>ais.action.servlet.SosialSmartlinkCallback</servlet-class>
+	</servlet>
+	<servlet>
+		<display-name>Sosial AIS Receipt PDF</display-name>
+		<servlet-name>SosialReceiptPdf</servlet-name>
+		<servlet-class>ais.action.servlet.SosialReceiptPdf</servlet-class>
+	</servlet>
 	<servlet-mapping>
 		<servlet-name>CatatanOrangTua</servlet-name>
 		<url-pattern>/AktiftasHarianSiswa</url-pattern>
@@ -2028,6 +2048,26 @@
 	<servlet-mapping>
 		<servlet-name>DesktopNativeApi</servlet-name>
 		<url-pattern>/desktop-native-api</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>Sosial</servlet-name>
+		<url-pattern>/sosial</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>Sosial</servlet-name>
+		<url-pattern>/sosial/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SosialApi</servlet-name>
+		<url-pattern>/sosial-api</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SosialSmartlinkCallback</servlet-name>
+		<url-pattern>/SosialSmartlinkCallback</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SosialReceiptPdf</servlet-name>
+		<url-pattern>/sosial-receipt-pdf</url-pattern>
 	</servlet-mapping>
 	<!--
 		JANGAN aktifkan kembali <distributable/> di aplikasi ini.

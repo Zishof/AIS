@@ -1,0 +1,4 @@
+package ais.action.master.sosial.helper;
+import org.hibernate.Session; import ais.database.model.sosial.*;
+/** Accounting integration boundary. Calls are prohibited while the tenant flag is off. */
+public class SocialAccountingAdapter { public void postPayment(Session s,SocialRequestContext c,TransaksiDonasi d){requireEnabled(s,c);d.setAccountingStatus("READY_TO_POST");} public void postDistribution(Session s,SocialRequestContext c,DetailPenyaluranDonasi d){requireEnabled(s,c);} public void postCorrection(Session s,SocialRequestContext c,SocialCorrectionEvent e){requireEnabled(s,c);} private void requireEnabled(Session s,SocialRequestContext c){if(!SocialFeatureFlags.enabled(s,c,SocialFeatureFlags.ACCOUNTING))throw new IllegalStateException("Integrasi akuntansi Sosial belum diaktifkan.");} }

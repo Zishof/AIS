@@ -1803,6 +1803,24 @@
 			class="ais.database.model.sosial.KategoriProgramDonatur"></mapping>
 		<mapping class="ais.database.model.sosial.PenyaluranDonasi"></mapping>
 		<mapping class="ais.database.model.sosial.ProgramDonatur"></mapping>
+		<!-- Modul Sosial AIS V1: mapping domain additive. -->
+		<mapping class="ais.database.model.sosial.SocialTenantSetting" />
+		<mapping class="ais.database.model.sosial.SocialDonorIdentity" />
+		<mapping class="ais.database.model.sosial.JenisDanaSosial" />
+		<mapping class="ais.database.model.sosial.JenisZakat" />
+		<mapping class="ais.database.model.sosial.KebijakanPerhitunganZakat" />
+		<mapping class="ais.database.model.sosial.PerhitunganZakat" />
+		<mapping class="ais.database.model.sosial.SocialProgramExtension" />
+		<mapping class="ais.database.model.sosial.TransaksiDonasi" />
+		<mapping class="ais.database.model.sosial.AlokasiDonasi" />
+		<mapping class="ais.database.model.sosial.PembayaranDonasi" />
+		<mapping class="ais.database.model.sosial.PerkembanganProgramSosial" />
+		<mapping class="ais.database.model.sosial.KategoriPenerimaManfaat" />
+		<mapping class="ais.database.model.sosial.DetailPenyaluranDonasi" />
+		<mapping class="ais.database.model.sosial.BuktiSetorSosial" />
+		<mapping class="ais.database.model.sosial.SocialPaymentReconciliation" />
+		<mapping class="ais.database.model.sosial.SocialCorrectionEvent" />
+		<mapping class="ais.database.model.sosial.SocialPrayerMessage" />
 		<!-- TABEL YANG TERDAPAT PADA SCHEMA sosial -->
 
 

@@ -1,0 +1,21 @@
+package ais.action.master.sosial.helper;
+
+import java.math.BigDecimal; import java.util.Date; import org.hibernate.LockMode; import org.hibernate.Session; import org.hibernate.Transaction; import org.hibernate.criterion.Restrictions; import org.json.JSONObject;
+import ais.database.hibernate.HibernateUtil; import ais.database.model.sosial.*;
+
+public final class SocialCallbackService {
+ public JSONObject process(String raw) throws Exception {JSONObject root=new JSONObject(raw),data=root.getJSONObject("data");String order=data.getString("order_id");BigDecimal amount=new BigDecimal(String.valueOf(data.get("amount")));String currency=data.optString("currency","IDR");String status=data.optString("status","ERROR");String callbackId=data.optString("transaction_id",data.optString("reference",order));String fingerprint=SocialSecurity.sha256(raw);Session s=null;Transaction tx=null;try{s=HibernateUtil.openSession();tx=s.beginTransaction();PembayaranDonasi p=(PembayaranDonasi)s.createCriteria(PembayaranDonasi.class).add(Restrictions.eq("gatewayOrderId",order)).setMaxResults(1).uniqueResult();if(p==null)throw new IllegalArgumentException("Order tidak dikenal.");s.lock(p,LockMode.UPGRADE);
+   if("PAID".equals(p.getPaymentStatus())){if(!fingerprint.equals(p.getCallbackFingerprint()))exception(s,p,"DUPLICATE_CALLBACK_VARIANT",p.getTotal(),amount);tx.commit();return ok(p,true);}
+   p.setCallbackTransactionId(callbackId);p.setCallbackFingerprint(fingerprint);p.setCallbackPayloadRedacted(redact(root).toString());TransaksiDonasi d=p.getTransaction();SocialRequestContext c=systemContext(p.getTenantKey());
+   if(!currency.equalsIgnoreCase(p.getCurrency())){p.setPaymentStatus("MISMATCH");p.setReconciliationStatus("EXCEPTION");p.setFailureReason("Mata uang callback tidak cocok.");exception(s,p,"CURRENCY_MISMATCH",p.getTotal(),amount);tx.commit();return ok(p,false);}
+   if(!amount.setScale(2,BigDecimal.ROUND_HALF_UP).equals(p.getTotal().setScale(2,BigDecimal.ROUND_HALF_UP))){p.setPaymentStatus("MISMATCH");p.setReconciliationStatus("EXCEPTION");p.setFailureReason("Nominal callback tidak cocok.");exception(s,p,"AMOUNT_MISMATCH",p.getTotal(),amount);tx.commit();return ok(p,false);}
+   if(!"success".equalsIgnoreCase(status)){p.setFailureReason("Callback status: "+status);tx.commit();return ok(p,false);}
+   Date now=new Date();p.setPaymentStatus("PAID");p.setPaidAt(now);p.setReconciliationStatus("PENDING_SETTLEMENT");d.setStatus("ALLOCATED");d.setPaidAt(now);d.setUpdatedBy("smartlink-callback");java.util.List rows=s.createCriteria(AlokasiDonasi.class).add(Restrictions.eq("transaction",d)).list();for(Object o:rows){AlokasiDonasi a=(AlokasiDonasi)o;a.setStatus("POSTED");a.setPostedAt(now);a.setUpdatedBy("smartlink-callback");}
+   new SocialReceiptService().createIfMissing(s,c,d);tx.commit();return ok(p,false);
+  }catch(RuntimeException e){if(tx!=null)try{tx.rollback();}catch(Exception ignored){}throw e;}finally{if(s!=null)try{s.close();}catch(Exception ignored){}}
+ }
+ private SocialRequestContext systemContext(final String tenant){return SocialRequestContext.trusted(tenant,"smartlink-callback");}
+ private JSONObject ok(PembayaranDonasi p,boolean duplicate){JSONObject o=new JSONObject();try{o.put("ok",true).put("duplicate",duplicate).put("orderId",p.getGatewayOrderId()).put("status",p.getPaymentStatus());}catch(Exception ignored){}return o;}
+ private JSONObject redact(JSONObject root){JSONObject safe=new JSONObject();try{JSONObject d=root.getJSONObject("data");safe.put("data",new JSONObject().put("order_id",d.optString("order_id")).put("amount",d.optString("amount")).put("currency",d.optString("currency","IDR")).put("status",d.optString("status")).put("transaction_id",d.optString("transaction_id")).put("transaction_time",d.optString("transaction_time")));}catch(Exception ignored){}return safe;}
+ private void exception(Session s,PembayaranDonasi p,String type,BigDecimal expected,BigDecimal received){SocialPaymentReconciliation r=new SocialPaymentReconciliation();r.setTenantKey(p.getTenantKey());r.setPayment(p);r.setGateway(p.getGatewayId());r.setExceptionType(type);r.setExpectedAmount(expected);r.setReceivedAmount(received);r.setDifference(received.subtract(expected));r.setStatus("EXCEPTION");r.setCreatedBy("smartlink-callback");s.save(r);}
+}

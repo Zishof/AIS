@@ -1,0 +1,10 @@
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page import="ais.database.model.Tbmuser" %>
+<%@ page import="ais.action.master.sosial.helper.SocialHtml" %>
+<%
+String socialBase=request.getContextPath()+"/sosial";
+Tbmuser socialUser=(Tbmuser)request.getAttribute("currentSocialUser");
+String socialCsrf=String.valueOf(request.getAttribute("csrf"));
+%>
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="social-csrf" content="<%=SocialHtml.e(socialCsrf)%>"><meta name="social-context" content="<%=SocialHtml.e(request.getContextPath())%>"><title><%=SocialHtml.e(socialTitle)%> · Sosial AIS</title><link rel="stylesheet" href="<%=request.getContextPath()%>/css/baru/sosial.css"></head>
+<body><a class="social-skip" href="#social-main">Lewati ke konten</a><header class="social-header"><div class="social-wrap social-nav"><a class="social-brand" href="<%=socialBase%>"><span class="social-mark">S</span><span>Sosial AIS<small>Zakat, Infak, Sedekah &amp; Donasi</small></span></a><button class="social-menu" type="button" aria-expanded="false" aria-controls="social-links">Menu</button><nav id="social-links" aria-label="Navigasi utama"><a href="<%=socialBase%>">Beranda</a><a href="<%=socialBase%>/zakat">Zakat</a><a href="<%=socialBase%>/program">Program</a><a href="<%=socialBase%>/kalkulator-zakat">Kalkulator</a><a href="<%=socialBase%>/transparansi">Transparansi</a><a href="<%=socialBase%>/bantuan">Bantuan</a><% if(socialUser!=null){ %><a href="<%=socialBase%>/riwayat">Riwayat Saya</a><% } %><a class="social-button small" href="<%=socialBase%>/checkout">Tunaikan Sekarang</a></nav></div></header><main id="social-main">
