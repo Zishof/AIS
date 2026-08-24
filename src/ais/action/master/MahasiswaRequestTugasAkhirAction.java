@@ -633,7 +633,17 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 									});
 							return;
 						}
-						if (tanggal.getValue() == null) {
+						Date tanggalTerbit = null;
+						try {
+							tanggalTerbit = tanggal.getValue();
+						} catch (org.zkoss.zk.ui.WrongValueException tanggalTidakValid) {
+							PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Terbit / Publikasi",
+									"Format tanggal belum benar. Gunakan format dd-MM-yyyy, misalnya 24-08-2026.",
+									new String[] { "Perbaiki nilai tanggal yang ditandai pada formulir.",
+											"Simpan kembali setelah tanggal valid." });
+							return;
+						}
+						if (tanggalTerbit == null) {
 							PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Terbit / Publikasi",
 									"Kolom Tanggal Terbit / Publikasi belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 									new String[] {
@@ -651,7 +661,7 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 						jsonObject.put("judul", nama.getValue().trim());
 						jsonObject.put("penerbit", penerbit.getValue().trim());
 						jsonObject.put("pengarang", pengarang.getValue().trim());
-						jsonObject.put("tanggal", Common.dateFormat1.get().format(tanggal.getValue()));
+						jsonObject.put("tanggal", Common.dateFormat1.get().format(tanggalTerbit));
 						jsonObject.put("isbn", isbn.getValue().trim());
 						jsonObject.put("issn", issn.getValue().trim());
 						jsonObject.put("sumber", sumber.getValue().trim());

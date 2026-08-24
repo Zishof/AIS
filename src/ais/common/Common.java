@@ -9584,12 +9584,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganBiasa(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9422");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9709,14 +9705,18 @@ public class Common {
 		}
 	}
 
-	public static Row initKeterangan(Rows rows, String keterangan) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9453");
-			// TODO: handle exception
+	/** Ambil style baris pertama tanpa menganggap Rows selalu sudah berisi Row. */
+	private static String ambilStyleBarisPertama(Rows rows) {
+		if (rows == null || rows.getChildren() == null || rows.getChildren().isEmpty()) {
+			return null;
 		}
+		Object pertama = rows.getChildren().get(0);
+		return pertama instanceof Row ? ((Row) pertama).getStyle() : null;
+	}
+
+	public static Row initKeterangan(Rows rows, String keterangan) {
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9742,13 +9742,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganMerah(Rows rows, String keterangan) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9485");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9777,12 +9772,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganHtml(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9519");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9807,14 +9798,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganSatuKolom(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			if (rows != null && rows.getChildren() != null && !rows.getChildren().isEmpty()) {
-				styled = ((Row) rows.getChildren().get(0)).getStyle();
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9549");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9845,13 +9830,8 @@ public class Common {
 	 */
 	@SuppressWarnings("deprecation")
 	public static MyCheckboxConfig tambahKeteranganRowHtml(Rows rows, String keterangan) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9586");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {

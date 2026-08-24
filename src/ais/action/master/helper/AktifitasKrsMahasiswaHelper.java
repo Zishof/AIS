@@ -230,6 +230,12 @@ public class AktifitasKrsMahasiswaHelper {
 			int selected = 0;
 			Date sekarang = WaktuUtil.getDate();
 			for (Long pertemuanid : pertemuans.values()) {
+				/* Data indeks pertemuan lama dapat menyimpan nilai null. Jangan memanggil
+				 * toString() pada nilai tersebut; lewati hanya entri indeks yang rusak agar
+				 * pertemuan lain pada agenda tetap dapat ditampilkan. */
+				if (pertemuanid == null) {
+					continue;
+				}
 				// Idem: satu pertemuan bermasalah tidak boleh menggagalkan pertemuan lain
 				// ataupun tab-tab sesudahnya.
 				try {

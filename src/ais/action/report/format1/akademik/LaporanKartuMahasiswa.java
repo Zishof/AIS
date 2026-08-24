@@ -448,17 +448,18 @@ public class LaporanKartuMahasiswa extends MyWindow {
 		}
 
 		int masaKartuMahasiswa = 4;
+		String konfigurasiMasa = Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa",
+				masaKartuMahasiswa + "").getNilai();
 		try {
-			masaKartuMahasiswa = Integer.parseInt(
-					Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", masaKartuMahasiswa + "").getNilai());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanKartuMahasiswa.java:441");
-			PesanFormalHelper.tampilkanGagalException("pemrosesan Laporan Kartu Mahasiswa", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-				new String[] {
-					"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-					"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-				});
-
+			int hasilBaca = Integer.parseInt(konfigurasiMasa == null ? "" : konfigurasiMasa.trim());
+			/* Masa kartu adalah jumlah TAHUN, bukan tanggal kalender. Batasi nilai
+			 * tidak masuk akal agar konfigurasi lama seperti "31 Desember 2025"
+			 * tidak menggagalkan seluruh proses cetak. */
+			if (hasilBaca > 0 && hasilBaca <= 20) {
+				masaKartuMahasiswa = hasilBaca;
+			}
+		} catch (NumberFormatException konfigurasiTidakValid) {
+			// Pertahankan bawaan 4 tahun; laporan tetap dapat diterbitkan.
 		}
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();

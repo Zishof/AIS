@@ -21,6 +21,7 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.Hibernate;
 import org.hibernate.envers.Audited;
 import org.json.JSONObject;
 
@@ -170,6 +171,15 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 	public Double getNilai() {
 		if (nilai == null) {
 			nilai = 0.0;
+		}
+		/* Nilai juga dibaca saat entity sudah detached (renderer koreksi ujian). Jangan
+		 * memaksa proxy BankSoal melakukan lazy-load tanpa Session. Nilai tersimpan
+		 * tetap sah; perhitungan dinamis dilakukan hanya ketika relasinya tersedia. */
+		if (bankSoal != null && !Hibernate.isInitialized(bankSoal)) {
+			return nilai;
+		}
+		if (bankSoalDetail != null && !Hibernate.isInitialized(bankSoalDetail)) {
+			return nilai;
 		}
 
 		try {

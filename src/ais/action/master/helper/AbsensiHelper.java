@@ -2662,12 +2662,25 @@ public class AbsensiHelper {
 	private TreeMap<String, Map<String, String>> reloadSejarahAbsensiOnline(Pertemuan pertemuan) {
 		String sebelumnya = pertemuan.retreive("sejarah");
 		JSONObject jsonObject = new JSONObject();
-		try {
-			if (!sebelumnya.isEmpty()) {
-				jsonObject = new JSONObject(sebelumnya);
+		if (sebelumnya != null && !sebelumnya.trim().isEmpty()) {
+			/* PostgreSQL/berkas lama pernah menghasilkan karakter NUL di tengah JSON.
+			 * org.json menolaknya sebagai unterminated string. Bersihkan karakter kontrol
+			 * yang tidak sah dan, bila ada ekor data terpotong, pertahankan objek JSON
+			 * lengkap terakhir yang masih dapat dibaca. */
+			String bersih = sebelumnya.replace('\u0000', ' ');
+			try {
+				jsonObject = new JSONObject(bersih);
+			} catch (Exception jsonRusak) {
+				int penutup = bersih.lastIndexOf('}');
+				while (penutup > 1) {
+					try {
+						jsonObject = new JSONObject(bersih.substring(0, penutup + 1));
+						break;
+					} catch (Exception belumLengkap) {
+						penutup = bersih.lastIndexOf('}', penutup - 1);
+					}
+				}
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:2650");
-			// TODO: handle exception
 		}
 
 		TreeMap<String, Map<String, String>> maps = new TreeMap<String, Map<String, String>>();
