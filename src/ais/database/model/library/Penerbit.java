@@ -26,6 +26,7 @@ import org.hibernate.envers.Audited;
 
 import ais.common.Common;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Tbmuser;
 import ais.database.model.rab.SatuanKerja;
 
 
@@ -184,15 +185,13 @@ public class Penerbit extends GeneralValueObject {
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
 		if (this.satuanKerja == null && this.id == null) {
-			try {
-				SatuanKerja satuanKerja = Common.getCurrentUser().ambilSatuanKerja();
-				Perpustakaan currentPerpustakaan = Common.getCurrentPerpustakaan();
-				if (satuanKerja == null && currentPerpustakaan != null) {
-					satuanKerja = currentPerpustakaan.getSatuanKerja();
-				}
-				this.satuanKerja = satuanKerja;
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/library/Penerbit.java:194");
+			Tbmuser pengguna = Common.getCurrentUser();
+			SatuanKerja satuanKerjaBaru = pengguna == null ? null : pengguna.ambilSatuanKerja();
+			Perpustakaan currentPerpustakaan = Common.getCurrentPerpustakaan();
+			if (satuanKerjaBaru == null && currentPerpustakaan != null) {
+				satuanKerjaBaru = currentPerpustakaan.getSatuanKerja();
 			}
+			this.satuanKerja = satuanKerjaBaru;
 		}
 		return satuanKerja;
 	}

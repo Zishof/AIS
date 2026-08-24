@@ -1,6 +1,10 @@
 # Modul Sosial AIS V1
 
-Baseline implementasi: SVN revision 78235, 24 Agustus 2026.
+Baseline awal implementasi: SVN revision 78235. Kondisi terakhir yang diverifikasi: SVN revision 78245, 24 Agustus 2026.
+
+## Mulai dari sini
+
+Untuk pengembang atau AI yang akan melanjutkan pekerjaan, baca [HANDOFF_AI_LANJUTAN.md](HANDOFF_AI_LANJUTAN.md). Dokumen tersebut memuat inventaris implementasi, status database dan build, desain Smartlink/SosialChannel, risiko, batasan, serta urutan deployment dan pengujian yang disarankan.
 
 ## Lokasi
 
@@ -40,7 +44,7 @@ Seluruh fitur mutasi uang harus tetap nonaktif sampai konfigurasi tenant, policy
 - Notification sender/worker belum dihubungkan ke email/WhatsApp existing.
 - Accounting adapter tidak memposting jurnal sebelum mapping akun disetujui dan flag diaktifkan.
 - Kontrak header callback implementasi saat ini adalah `X-Smartlink-Signature = hex(HMAC-SHA256(secret SosialChannel transaksi, rawBody))`. Kontrak ini wajib dicocokkan dengan Smartlink saat deployment; jangan melonggarkan verifikasi untuk membuat callback lolos.
-- CRUD master/workflow rinci tetap memerlukan menu/action Generic CRUD dan assignment role pada data konfigurasi AIS.
+- CRUD dan dashboard ZKoss sudah tersedia di source serta menu/hak admin lokal sudah terdaftar. Namun seluruhnya masih memerlukan verifikasi runtime setelah deployment dan login ulang.
 
 ## Build lokal
 

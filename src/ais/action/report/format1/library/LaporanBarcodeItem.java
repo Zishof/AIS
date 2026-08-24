@@ -461,7 +461,7 @@ public class LaporanBarcodeItem extends MyWindow {
 				map.put("c_code", itemPunyaBarcode.getBarcode());
 
 				Item item = itemPunyaBarcode.getItem();
-				if (item != null && item.getPengarangs().isEmpty()) {
+				if (item != null && (item.getPengarangs() == null || item.getPengarangs().isEmpty())) {
 
 					session.refresh(item);
 					List<String> strings = session.createCriteria(ItemPunyaPengarang.class)
@@ -476,15 +476,14 @@ public class LaporanBarcodeItem extends MyWindow {
 					session.flush();
 				}
 
-				try {
-					if (item.getPengarangs().length() > 3) {
-						String[] a = item.getPengarangs().split(" ");
-						map.put("pengarang_3_huruf", a[a.length - 1].substring(0, 3));
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/library/LaporanBarcodeItem.java:477");
-					// TODO: handle exception
+				if (item != null && item.getPengarangs() != null) {
+					String[] a = item.getPengarangs().trim().split(" ");
+					String namaAkhir = a.length == 0 ? "" : a[a.length - 1].trim();
+					map.put("pengarang_3_huruf", namaAkhir.length() <= 3 ? namaAkhir
+							: namaAkhir.substring(0, 3));
 				}
-				map.put("judul_1_huruf", item.getNama().length() > 1 ? item.getNama().substring(0, 1) : "");
+				String namaItem = item == null || item.getNama() == null ? "" : item.getNama();
+				map.put("judul_1_huruf", namaItem.length() > 0 ? namaItem.substring(0, 1) : "");
 
 				Common.insertProperty(Item.class, item, map, "data");
 
@@ -538,7 +537,7 @@ public class LaporanBarcodeItem extends MyWindow {
 				}
 
 				item = itemPunyaBarcode.getItem();
-				if (item != null && item.getPengarangs().isEmpty()) {
+				if (item != null && (item.getPengarangs() == null || item.getPengarangs().isEmpty())) {
 
 					session.refresh(item);
 					List<String> strings = session.createCriteria(ItemPunyaPengarang.class)
@@ -553,15 +552,14 @@ public class LaporanBarcodeItem extends MyWindow {
 					session.flush();
 				}
 
-				try {
-					if (item.getPengarangs().length() > 3) {
-						String[] a = item.getPengarangs().split(" ");
-						map.put("pengarang_3_huruf", a[a.length - 1].substring(0, 3));
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/library/LaporanBarcodeItem.java:554");
-					// TODO: handle exception
+				if (item != null && item.getPengarangs() != null) {
+					String[] a = item.getPengarangs().trim().split(" ");
+					String namaAkhir = a.length == 0 ? "" : a[a.length - 1].trim();
+					map.put("pengarang_3_huruf", namaAkhir.length() <= 3 ? namaAkhir
+							: namaAkhir.substring(0, 3));
 				}
-				map.put("judul_1_huruf", item.getNama().length() > 1 ? item.getNama().substring(0, 1) : "");
+				String namaItem = item == null || item.getNama() == null ? "" : item.getNama();
+				map.put("judul_1_huruf", namaItem.length() > 0 ? namaItem.substring(0, 1) : "");
 
 				Common.insertProperty(Item.class, item, map, "data");
 

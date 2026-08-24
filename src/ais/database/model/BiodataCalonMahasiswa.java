@@ -2068,10 +2068,11 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 
 	@Column(name = "tahun")
 	public Integer getTahun() {
-		try {
-			tahun = Integer.parseInt(StringUtils.split(getTahunAkademik(), "/")[0].trim());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/BiodataCalonMahasiswa.java:1992");
-			// Common.tampilErrorJikaAdmin(e);
+		String tahunAkademik = getTahunAkademik();
+		String[] bagianTahun = tahunAkademik == null ? null : StringUtils.split(tahunAkademik, "/");
+		if (bagianTahun != null && bagianTahun.length > 0 && bagianTahun[0] != null
+				&& bagianTahun[0].trim().matches("[0-9]+")) {
+			tahun = Integer.valueOf(bagianTahun[0].trim());
 		}
 		if (tahun == null) {
 			tahun = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);

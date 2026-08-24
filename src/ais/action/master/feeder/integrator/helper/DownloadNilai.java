@@ -678,13 +678,13 @@ public class DownloadNilai extends MyWindow {
 
 			cell = row.createCell(9);
 			cell.setCellStyle(notLocked);
-			try {
-				cell.setCellValue(detailperkuliahan.getMatakuliahKonversi() != null
-						? detailperkuliahan.getMatakuliahKonversi().getJurusan().getKodeEpsbed()
-						: detailperkuliahan.getPerkuliahan().getJurusan().getKodeEpsbed());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/feeder/integrator/helper/DownloadNilai.java:672");
-				// TODO: handle exception
-			}
+			String kodeProdi = detailperkuliahan.getMatakuliahKonversi() != null
+					&& detailperkuliahan.getMatakuliahKonversi().getJurusan() != null
+					? detailperkuliahan.getMatakuliahKonversi().getJurusan().getKodeEpsbed()
+					: detailperkuliahan.getPerkuliahan() != null
+							&& detailperkuliahan.getPerkuliahan().getJurusan() != null
+							? detailperkuliahan.getPerkuliahan().getJurusan().getKodeEpsbed() : "";
+			cell.setCellValue(kodeProdi == null ? "" : kodeProdi);
 
 			cell = row.createCell(10);
 			cell.setCellStyle(notLocked);

@@ -219,7 +219,8 @@ public class LaporanPrestasiMahasiswa extends MyWindow {
 
 		parameters.put("nama", mahasiswa.getNama());
 		parameters.put("tempatlahir", mahasiswa.getTempatlahir());
-		parameters.put("tanggallahir", mahasiswa.getTanggallahir());
+		parameters.put("tanggallahir", mahasiswa.getTanggallahir() == null ? null
+				: new java.util.Date(mahasiswa.getTanggallahir().getTime()));
 
 		parameters.put("nim", mahasiswa.getNim());
 		parameters.put("tanggal_masuk", mahasiswa.getTanggalKegiatanBelajarMengajar());

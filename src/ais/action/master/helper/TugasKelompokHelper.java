@@ -12,6 +12,7 @@ import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -166,6 +167,30 @@ import ais.ui.util.WaktuUtil;
  * @see ais.ui.util.DataLoader
  */
 public class TugasKelompokHelper implements DataLoader {
+	private static void bersihkanFormatNilaiYatim(TugasKelompok tugasKelompok) {
+		if (tugasKelompok == null || tugasKelompok.getId() == null) {
+			return;
+		}
+		Session sesiPerbaikan = null;
+		Transaction transaksi = null;
+		try {
+			sesiPerbaikan = HibernateUtil.openSession();
+			transaksi = sesiPerbaikan.beginTransaction();
+			sesiPerbaikan.createSQLQuery("update tugas_kelompok t set format_nilai=null "
+					+ "where t.id=:id and t.format_nilai is not null "
+					+ "and not exists (select 1 from formatnilai f where f.id=t.format_nilai)")
+					.setLong("id", tugasKelompok.getId().longValue()).executeUpdate();
+			transaksi.commit();
+		} catch (Exception e) {
+			if (transaksi != null && transaksi.isActive()) {
+				try { transaksi.rollback(); } catch (Exception abaikan) { }
+			}
+			throw new IllegalStateException("Gagal memperbaiki format nilai tugas kelompok "
+					+ tugasKelompok.getId(), e);
+		} finally {
+			HibernateUtil.closeSessionQuietly(sesiPerbaikan);
+		}
+	}
 
 	private MyWindow addWindow;
 	private MyGrid grid;
@@ -2038,10 +2063,14 @@ public class TugasKelompokHelper implements DataLoader {
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 
-								final FormatNilai fn = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
+								FormatNilai fn = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
 										: formatNilai.getSelectedItem().getValue());
 
+								bersihkanFormatNilaiYatim(tugasKelompok);
 								Session session = HibernateUtil.currentSession();
+								if (fn != null && fn.getId() != null) {
+									fn = (FormatNilai) session.get(FormatNilai.class, fn.getId());
+								}
 								tugasKelompok.setFormatNilai(fn);
 								Common.refreshUpdate(session, (tugasKelompok));
 
@@ -2801,7 +2830,10 @@ public class TugasKelompokHelper implements DataLoader {
 
 							@Override
 							public void onEvent(Event arg0) throws Exception {
-								List<Mahasiswa> mahasiswasTemorary = tugasKelompok.getPerkuliahan().ambilMahasiswa();
+								List<Mahasiswa> mahasiswasTemorary = tugasKelompok == null
+										|| tugasKelompok.getPerkuliahan() == null
+										? Collections.<Mahasiswa>emptyList()
+										: tugasKelompok.getPerkuliahan().ambilMahasiswa();
 								List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
 								for (Mahasiswa mahasiswa : mahasiswasTemorary) {
 									BiodataCalonMahasiswa biodataCalonMahasiswa = null;
@@ -2869,7 +2901,10 @@ public class TugasKelompokHelper implements DataLoader {
 									session.refresh(tugasKelompok);
 								}
 
-								List<Mahasiswa> mahasiswasTemorary = tugasKelompok.getPerkuliahan().ambilMahasiswa();
+								List<Mahasiswa> mahasiswasTemorary = tugasKelompok == null
+										|| tugasKelompok.getPerkuliahan() == null
+										? Collections.<Mahasiswa>emptyList()
+										: tugasKelompok.getPerkuliahan().ambilMahasiswa();
 								List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
 								for (Mahasiswa mahasiswa : mahasiswasTemorary) {
 									BiodataCalonMahasiswa biodataCalonMahasiswa = null;

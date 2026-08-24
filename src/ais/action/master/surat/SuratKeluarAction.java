@@ -2669,14 +2669,13 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 				});
 			} else if (klasifikasiSuratKeluarParemeter.getTipe().equals(Date.class.getName())) {
 				Date nilai = ais.ui.util.WaktuUtil.getDate();
-				try {
-					nilai = Common.dateFormat2.get().parse(klasifikasiSuratKeluarParemeterValue == null
-							? klasifikasiSuratKeluarParemeter.getNilai().trim()
-							: klasifikasiSuratKeluarParemeterValue.getNama().trim());
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/SuratKeluarAction.java:2493");
-					/* Nilai default sering berupa placeholder seperti
-					 * "tanggal_sekarang"/"Tanggal Sekarang"/"-" yang memang
-					 * berarti "pakai tanggal hari ini" - bukan error. */
+				String nilaiTanggal = klasifikasiSuratKeluarParemeterValue == null
+						? klasifikasiSuratKeluarParemeter.getNilai()
+						: klasifikasiSuratKeluarParemeterValue.getNama();
+				if (nilaiTanggal != null && nilaiTanggal.trim().matches("[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4}")) {
+					try {
+						nilai = Common.dateFormat2.get().parse(nilaiTanggal.trim());
+					} catch (Exception abaikan) { }
 				}
 				final Datebox isi;
 				row.appendChild(isi = new MyDatebox(nilai));

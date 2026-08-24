@@ -15,6 +15,7 @@ import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -357,9 +358,12 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 
 					@Override
 					public void run() {
-						Session session = HibernateUtil.currentNativeSession();
+						Session session = null;
+						Transaction transaksi = null;
 							List<Long> ids = null;
 							try {
+								session = HibernateUtil.openSession();
+								transaksi = session.beginTransaction();
 								ids = session.createCriteria(PeminjamanPengadaanItemDetail.class)
 
 								.createAlias("itemPunyaBarcode", "itemPunyaBarcode", Criteria.LEFT_JOIN)
@@ -394,10 +398,7 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 											.createCriteria(PeminjamanPengadaanItemDetail.class)
 											.add(Restrictions.idEq(ids.get(i))).uniqueResult();
 									if (peminjamanPengadaanItemDetail != null) {
-										session.getTransaction().begin();
 										session.update(peminjamanPengadaanItemDetail);
-										session.getTransaction().commit();
-
 									}
 
 									label.setValue("Memproses data \""
@@ -411,11 +412,19 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 									Common.tampilErrorJikaAdmin(e);
 								}
 
-							}
-						} catch (Exception e1) {
+								}
+								transaksi.commit();
+							} catch (Exception e1) {
+								if (transaksi != null && transaksi.isActive()) {
+									try { transaksi.rollback(); } catch (Exception abaikan) { }
+								}
 								e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/library/PeminjamanPengadaanItemAction.java:414");
 							} finally {
-								HibernateUtil.closeSession();
+								if (session != null) {
+									try { session.clear(); } catch (Exception abaikan) { }
+									try { session.disconnect(); } catch (Exception abaikan) { }
+									try { session.close(); } catch (Exception abaikan) { }
+								}
 							}
 							ids = null;
 

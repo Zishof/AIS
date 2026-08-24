@@ -1905,8 +1905,12 @@ public abstract class VOPembelajaran extends VoKunci {
 	}
 
 	public String toIdSmt() {
-		String id_smt = ambilTahunAjaran().split("/")[0] + (ambilMerupakanSP() != null && ambilMerupakanSP() ? "3"
-				: (ambilJenisSemester().equals(Perkuliahan.GENAP) ? "2" : "1"));
+		String tahunAjaran = ambilTahunAjaran();
+		String jenisSemester = ambilJenisSemester();
+		String tahun = tahunAjaran == null || tahunAjaran.trim().isEmpty() ? "-"
+				: tahunAjaran.split("/")[0];
+		String id_smt = tahun + (Boolean.TRUE.equals(ambilMerupakanSP()) ? "3"
+				: (Perkuliahan.GENAP.equals(jenisSemester) ? "2" : "1"));
 		return id_smt;
 	}
 
@@ -2140,10 +2144,10 @@ public abstract class VOPembelajaran extends VoKunci {
 				return perkuliahan.getTahunAjaran();
 			} else if (this instanceof KelompokKkn) {
 				KelompokKkn kelompokKkn = (KelompokKkn) this;
-				return kelompokKkn.getKkn().getTahunAkademik();
+				return kelompokKkn.getKkn() == null ? "-" : kelompokKkn.getKkn().getTahunAkademik();
 			} else if (this instanceof KelompokPkl) {
 				KelompokPkl kelompokPkl = (KelompokPkl) this;
-				return kelompokPkl.getPkl().getTahunAkademik();
+				return kelompokPkl.getPkl() == null ? "-" : kelompokPkl.getPkl().getTahunAkademik();
 			} else if (this instanceof KrsMahasiswa) {
 				KrsMahasiswa krsMahasiswa = (KrsMahasiswa) this;
 				return krsMahasiswa.getTahunAkademik();
@@ -2243,10 +2247,10 @@ public abstract class VOPembelajaran extends VoKunci {
 			return perkuliahan.getGanjilGenap();
 		} else if (this instanceof KelompokKkn) {
 			KelompokKkn kelompokKkn = (KelompokKkn) this;
-			return kelompokKkn.getKkn().getSemester();
+			return kelompokKkn.getKkn() == null ? null : kelompokKkn.getKkn().getSemester();
 		} else if (this instanceof KelompokPkl) {
 			KelompokPkl kelompokPkl = (KelompokPkl) this;
-			return kelompokPkl.getPkl().getSemester();
+			return kelompokPkl.getPkl() == null ? null : kelompokPkl.getPkl().getSemester();
 		} else if (this instanceof FormulirKegiatan) {
 			FormulirKegiatan formulirKegiatan = (FormulirKegiatan) this;
 			return formulirKegiatan.getSemester();

@@ -575,11 +575,14 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 	public static Integer getSemester(Integer tahunAngkatanMhs, String tahunAkademik, String jenisSemester,
 				Integer mulaiSemester, String masukDiSemester) {
-			if (tahunAkademik == null) {
+			if (tahunAkademik == null || !tahunAkademik.trim().matches("[0-9]{4}(/.*)?")) {
 				tahunAkademik = getCurrentTahunAkademik();
 			}
-			// Menggunakan split bawaan Java agar hemat memori tanpa dependensi eksternal
-			Integer tahun = Integer.parseInt(tahunAkademik.split("/")[0]);
+			String[] bagianTahun = tahunAkademik == null ? null : tahunAkademik.split("/");
+			if (bagianTahun == null || bagianTahun.length == 0 || !bagianTahun[0].matches("[0-9]{4}")) {
+				return 0;
+			}
+			Integer tahun = Integer.valueOf(bagianTahun[0]);
 			return getSemester(tahunAngkatanMhs, jenisSemester, mulaiSemester, tahun, masukDiSemester);
 		}
 

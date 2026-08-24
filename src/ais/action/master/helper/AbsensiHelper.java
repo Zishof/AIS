@@ -4147,7 +4147,7 @@ public class AbsensiHelper {
 		pertemuan.setBukuRujukan2(bukuRujukan2.getValue());
 
 		pertemuan.setOnlineMenggunakan(
-				(Integer) (onlineMenggunakan == null || onlineMenggunakan.getValue() == null ? null
+				(Integer) (onlineMenggunakan == null || onlineMenggunakan.getSelectedItem() == null ? null
 						: onlineMenggunakan.getSelectedItem().getValue()));
 		pertemuan.setZoomLink(zoomLink == null ? "" : zoomLink.getValue().trim());
 		pertemuan.setBbbLink(bbbLink == null ? "" : bbbLink.getValue().trim());

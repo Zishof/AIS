@@ -2140,24 +2140,34 @@ public class Common {
 
 	public static Konfigurasi checkKonfigurasiBigIcon() {
 		Session session = HibernateUtil.currentSession();
-		Konfigurasi konfigurasi = (Konfigurasi) ConstantValues
-				.simpleObject(
-						session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
-								.add(Restrictions.eq("nama", ConstantValues.BIG_ICON)).setMaxResults(1),
-						Konfigurasi.class);
-		if (konfigurasi == null) {
+		Transaction transaksi = session.getTransaction();
+		boolean transaksiLokal = transaksi == null || !transaksi.isActive();
+		Konfigurasi konfigurasi = null;
+		try {
+			if (transaksiLokal) {
+				transaksi = session.beginTransaction();
+			}
+			konfigurasi = (Konfigurasi) ConstantValues.simpleObject(
+					session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
+						.add(Restrictions.eq("nama", ConstantValues.BIG_ICON)).setMaxResults(1),
+					Konfigurasi.class);
+			if (konfigurasi == null) {
+				konfigurasi = new Konfigurasi();
+				konfigurasi.setInfo1("false");
+				konfigurasi.setNama(ConstantValues.BIG_ICON);
+				session.save(konfigurasi);
+			}
+			if (transaksiLokal && transaksi != null && transaksi.isActive()) {
+				transaksi.commit();
+			}
+		} catch (Exception e) {
+			if (transaksiLokal && transaksi != null && transaksi.isActive()) {
+				try { transaksi.rollback(); } catch (Exception abaikan) { }
+			}
+			ErrorAuditUtil.record(e, "Common.checkKonfigurasiBigIcon");
 			konfigurasi = new Konfigurasi();
 			konfigurasi.setInfo1("false");
 			konfigurasi.setNama(ConstantValues.BIG_ICON);
-			try {
-				session.save(konfigurasi);
-			} catch (Exception e) {
-				// Penyimpanan default BIG_ICON dipanggil pada SETIAP inisialisasi halaman (MainAction.initData).
-				// Bila gagal karena koneksi DB diputus admin/restart/failover (transient, mis. "terminating
-				// connection due to administrator command"), JANGAN gagalkan render halaman: kembalikan objek
-				// in-memory (info1=false) dan biarkan tersimpan pada request berikutnya saat koneksi pulih.
-				try { e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/Common.java:2081"); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/Common.java:2081");}
-			}
 		}
 		return konfigurasi;
 	}

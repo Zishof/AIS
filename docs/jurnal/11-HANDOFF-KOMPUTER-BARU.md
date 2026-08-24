@@ -2,6 +2,8 @@
 
 Tanggal snapshot informasi: **23 Agustus 2026 (Asia/Jakarta)**.
 
+> **Pembaruan wajib dibaca (24 Agustus 2026):** pekerjaan setelah snapshot ini—termasuk login landing, tombol Import OJS, generator/hapus sample 50×100, performance penuh lokal, status build terbaru, dan masalah sinkronisasi izin role—dirangkum dalam `15-HANDOFF-LANJUTAN-20260824.md`. Gunakan dokumen 15 sebagai titik masuk current; dokumen ini tetap dipertahankan sebagai handoff historis yang lebih rinci untuk implementasi awal.
+
 Dokumen ini adalah titik masuk untuk melanjutkan pekerjaan pada komputer lain. Path project harus tetap:
 
 ```text

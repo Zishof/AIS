@@ -1,6 +1,7 @@
 package ais.action.servlet;
 
 import java.io.IOException;
+import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -35,6 +36,21 @@ import ais.database.model.library.Pengarang;
 public class CheckISBN extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	public JsonFactory jsonFactory = new JacksonFactory();
+
+	private static String ambilIdentifier(Volume.VolumeInfo info, int index) {
+		if (info == null || info.getIndustryIdentifiers() == null || index < 0
+				|| index >= info.getIndustryIdentifiers().size()
+				|| info.getIndustryIdentifiers().get(index) == null
+				|| info.getIndustryIdentifiers().get(index).getIdentifier() == null) {
+			return "";
+		}
+		return info.getIndustryIdentifiers().get(index).getIdentifier();
+	}
+
+	private static String gabungkan(List<String> nilai) {
+		return nilai == null ? "" : nilai.toString().replaceAll("\\[", "").replaceAll("\\]", "")
+				.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
+	}
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -110,31 +126,14 @@ public class CheckISBN extends HttpServlet {
 		}
 	}
 
-	public static Item simpanVolume(Volume volume, Item paramItem, String kewords) {
+	public static synchronized Item simpanVolume(Volume volume, Item paramItem, String kewords) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Volume.VolumeInfo volumeInfo = volume.getVolumeInfo();
 
-			String isbn10 = "";
-			try {
-				isbn10 = volumeInfo.getIndustryIdentifiers().get(0).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:121");
-
-			}
-
-			String isbn13 = "";
-			try {
-				isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:128");
-
-			}
-
-			String lain = "";
-			try {
-				lain = volumeInfo.getIndustryIdentifiers().get(2).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:135");
-
-			}
+			String isbn10 = ambilIdentifier(volumeInfo, 0);
+			String isbn13 = ambilIdentifier(volumeInfo, 1);
+			String lain = ambilIdentifier(volumeInfo, 2);
 
 			System.out.println("isbn10 = " + isbn10 + ", isbn13 = " + isbn13 + ", lain = " + lain);
 
@@ -234,21 +233,8 @@ public class CheckISBN extends HttpServlet {
 				// TODO: handle exception
 			}
 
-			String authors = "";
-			try {
-				authors = volumeInfo.getAuthors().toString().replaceAll("\\[", "").replaceAll("\\]", "")
-						.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:241");
-
-			}
-
-			String categories = "";
-			try {
-				categories = volumeInfo.getCategories().toString().replaceAll("\\[", "").replaceAll("\\]", "")
-						.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:249");
-				// TODO: handle exception
-			}
+			String authors = gabungkan(volumeInfo == null ? null : volumeInfo.getAuthors());
+			String categories = gabungkan(volumeInfo == null ? null : volumeInfo.getCategories());
 
 			Integer tahun = 0;
 			try {
@@ -298,10 +284,10 @@ public class CheckISBN extends HttpServlet {
 			item.setInfoLain(infoLain);
 			item.setTextSnippet(textSnippet);
 
+			String kataKunciLama = item.getKewords() == null ? "" : item.getKewords();
 			if (kewords != null && !kewords.trim().isEmpty() && kewords.trim().length() > 3
-					&& !item.getKewords().toLowerCase().contains(kewords.trim().toLowerCase())) {
-				String newKey = item.getKewords().isEmpty() ? kewords.trim()
-						: item.getKewords() + ", " + kewords.trim();
+					&& !kataKunciLama.toLowerCase().contains(kewords.trim().toLowerCase())) {
+				String newKey = kataKunciLama.isEmpty() ? kewords.trim() : kataKunciLama + ", " + kewords.trim();
 				item.setKewords(newKey);
 			}
 
@@ -385,31 +371,14 @@ public class CheckISBN extends HttpServlet {
 		return simpanVolume(volume, paramItemTemporary, "");
 	}
 
-	public static ItemTemporary simpanVolume(Volume volume, ItemTemporary paramItemTemporary, String kewords) {
+	public static synchronized ItemTemporary simpanVolume(Volume volume, ItemTemporary paramItemTemporary, String kewords) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Volume.VolumeInfo volumeInfo = volume.getVolumeInfo();
 
-			String isbn10 = "";
-			try {
-				isbn10 = volumeInfo.getIndustryIdentifiers().get(0).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:389");
-
-			}
-
-			String isbn13 = "";
-			try {
-				isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:396");
-
-			}
-
-			String lain = "";
-			try {
-				lain = volumeInfo.getIndustryIdentifiers().get(2).getIdentifier();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:403");
-
-			}
+			String isbn10 = ambilIdentifier(volumeInfo, 0);
+			String isbn13 = ambilIdentifier(volumeInfo, 1);
+			String lain = ambilIdentifier(volumeInfo, 2);
 
 			System.out.println("isbn10 = " + isbn10 + ", isbn13 = " + isbn13 + ", lain = " + lain);
 
@@ -509,21 +478,8 @@ public class CheckISBN extends HttpServlet {
 				// TODO: handle exception
 			}
 
-			String authors = "";
-			try {
-				authors = volumeInfo.getAuthors().toString().replaceAll("\\[", "").replaceAll("\\]", "")
-						.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:509");
-
-			}
-
-			String categories = "";
-			try {
-				categories = volumeInfo.getCategories().toString().replaceAll("\\[", "").replaceAll("\\]", "")
-						.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:517");
-				// TODO: handle exception
-			}
+			String authors = gabungkan(volumeInfo == null ? null : volumeInfo.getAuthors());
+			String categories = gabungkan(volumeInfo == null ? null : volumeInfo.getCategories());
 
 			Integer tahun = 0;
 			try {
@@ -573,10 +529,11 @@ public class CheckISBN extends HttpServlet {
 			itemTemporary.setInfoLain(infoLain);
 			itemTemporary.setTextSnippet(textSnippet);
 
+			String kataKunciTemporary = itemTemporary.getKewords() == null ? "" : itemTemporary.getKewords();
 			if (kewords != null && !kewords.trim().isEmpty() && kewords.trim().length() > 3
-					&& !itemTemporary.getKewords().toLowerCase().contains(kewords.trim().toLowerCase())) {
-				String newKey = itemTemporary.getKewords().isEmpty() ? kewords.trim()
-						: itemTemporary.getKewords() + ", " + kewords.trim();
+					&& !kataKunciTemporary.toLowerCase().contains(kewords.trim().toLowerCase())) {
+				String newKey = kataKunciTemporary.isEmpty() ? kewords.trim()
+						: kataKunciTemporary + ", " + kewords.trim();
 				itemTemporary.setKewords(newKey);
 			}
 

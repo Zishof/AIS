@@ -456,7 +456,8 @@ public class DownloadNilaiMahasiswaFormatEpsbed extends MyWindow {
 
 				cell = row.createCell(1);
 				cell.setCellStyle(lockedNumericStyle);
-				cell.setCellValue(matakuliah.getJurusan().getKodeEpsbed());
+				cell.setCellValue(matakuliah.getJurusan() == null || matakuliah.getJurusan().getKodeEpsbed() == null
+						? "" : matakuliah.getJurusan().getKodeEpsbed());
 
 				cell = row.createCell(2);
 				cell.setCellStyle(lockedNumericStyle);

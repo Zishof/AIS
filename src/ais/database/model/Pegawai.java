@@ -3110,7 +3110,7 @@ public class Pegawai extends Karyawan {
 			} else {
 				ikatanKerjaDosen = check(ikatanKerjaDosen);
 				if (ikatanKerjaDosen == null) {
-					if (getTetap().equals(1)) {
+					if (Integer.valueOf(1).equals(getTetap())) {
 						ikatanKerjaDosen = ConstantValues.DOSEN_TETAP;
 					} else {
 						ikatanKerjaDosen = ConstantValues.DOSEN_HONORER;

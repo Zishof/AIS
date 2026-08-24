@@ -205,6 +205,9 @@ public class RekapitulasiPerkuliahanHelper {
 		refresh.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (tahunAkademik.getSelectedItem() == null || semester.getSelectedItem() == null) {
+					return;
+				}
 				String ta = (String) (tahunAkademik.getSelectedItem().getValue());
 				String smt = (String) semester.getSelectedItem().getValue();
 				reload(tbmuser, center, ta, smt, cari.getValue().trim(), true, -1, tampilStatistik, ditampilkanHanya);
@@ -219,6 +222,9 @@ public class RekapitulasiPerkuliahanHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (tahunAkademik.getSelectedItem() == null || semester.getSelectedItem() == null) {
+					return;
+				}
 				String ta = (String) (tahunAkademik.getSelectedItem().getValue());
 				String smt = (String) semester.getSelectedItem().getValue();
 				reload(tbmuser, center, ta, smt, cari.getValue().trim(), false, -1, tampilStatistik, ditampilkanHanya);

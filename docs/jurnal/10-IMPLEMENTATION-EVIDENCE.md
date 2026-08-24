@@ -2,6 +2,8 @@
 
 Dokumen ini mencatat evidence aktual selama Fase 0–19. `IMPLEMENTED_UNVERIFIED` bukan `PASS`.
 
+> **Addendum 24 Agustus 2026:** current handoff dan masalah authorization deployment demo dicatat lengkap pada `15-HANDOFF-LANJUTAN-20260824.md`. Current checkout berisi 7.130 source pada masing-masing tree canonical/mirror; `mvn -DskipTests compile` 23:52 WIB exit 0 dan empat targeted contract test login/katalog/RBAC lulus. WAR yang ditemukan berukuran 738.228.983 byte dengan SHA-256 `3A885D81A4C36D21855B5144C406EA8BDFEA79881DC56C1BEF3F8100458140F5`, tetapi belum dibangun ulang/cold-tested dalam run dokumentasi ini sehingga bukan klaim RC. Deployment demo masih menolak generator sample karena dual gate `job_has_menu` + `jurnal_akses_json`; perbaikannya belum diimplementasikan.
+
 ## Current run — 23 Agustus 2026, setelah spesifikasi 12–14
 
 | Evidence | Hasil aktual |

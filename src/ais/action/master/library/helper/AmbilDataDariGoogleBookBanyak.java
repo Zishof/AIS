@@ -73,6 +73,16 @@ public class AmbilDataDariGoogleBookBanyak extends MyWindow {
 
 	public JsonFactory jsonFactory = new JacksonFactory();
 
+	private static String ambilIdentifier(Volume.VolumeInfo info, int index) {
+		if (info == null || info.getIndustryIdentifiers() == null || index < 0
+				|| index >= info.getIndustryIdentifiers().size()
+				|| info.getIndustryIdentifiers().get(index) == null
+				|| info.getIndustryIdentifiers().get(index).getIdentifier() == null) {
+			return "";
+		}
+		return info.getIndustryIdentifiers().get(index).getIdentifier();
+	}
+
 	private Set<Volume> ids = new HashSet<Volume>();
 	private Set<String> isbn13s = new HashSet<String>();
 	private List<ItemTemporary> itemTemporaryselected = new ArrayList<ItemTemporary>();
@@ -124,28 +134,9 @@ public class AmbilDataDariGoogleBookBanyak extends MyWindow {
 
 				final Volume.VolumeInfo volumeInfo = volume.getVolumeInfo();
 
-				String isbn10 = "";
-				try {
-
-					isbn10 = volumeInfo.getIndustryIdentifiers().get(0).getIdentifier();
-
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:132");
-					// Common.tampilErrorJikaAdmin(e);
-				}
-
-				String isbn13 = "";
-				try {
-					isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:139");
-					// Common.tampilErrorJikaAdmin(e);
-				}
-
-				String lain = "";
-				try {
-					lain = volumeInfo.getIndustryIdentifiers().get(2).getIdentifier();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:146");
-
-				}
+				String isbn10 = ambilIdentifier(volumeInfo, 0);
+				String isbn13 = ambilIdentifier(volumeInfo, 1);
+				String lain = ambilIdentifier(volumeInfo, 2);
 
 				arg0.setAttribute("volume", volume);
 
@@ -159,11 +150,7 @@ public class AmbilDataDariGoogleBookBanyak extends MyWindow {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
-						String isbn13 = "";
-						try {
-							isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:162");
-						}
+						String isbn13 = ambilIdentifier(volumeInfo, 1);
 						if (checkbox.isChecked()) {
 							ids.add(volume);
 							isbn13s.add(isbn13);

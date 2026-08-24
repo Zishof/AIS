@@ -69,11 +69,11 @@ public class CommonPrivilages {
 
             LogUserActifity actifity = new LogUserActifity();
             actifity.setDetailLogLogin(detailLogLogin);
-            actifity.setKeterangan(activity);
-            actifity.setKeterangan1(keterangan1);
-            actifity.setKeterangan12(perubahan == null ? "" : perubahan);
+            actifity.setKeterangan(bersihkanKarakterDatabase(activity));
+            actifity.setKeterangan1(bersihkanKarakterDatabase(keterangan1));
+            actifity.setKeterangan12(bersihkanKarakterDatabase(perubahan == null ? "" : perubahan));
             actifity.setActivityType(activityType);
-            actifity.setClassCalled(classCalled == null ? "" : classCalled.getName());
+            actifity.setClassCalled(bersihkanKarakterDatabase(classCalled == null ? "" : classCalled.getName()));
 
             AuditTrailHelper.debug("CommonPrivilages.saveActivity mulai simpan "
                     + AuditTrailHelper.describeActivity(activityType) + " "
@@ -109,6 +109,14 @@ public class CommonPrivilages {
         }
         return false;
     }
+
+	/** PostgreSQL menolak byte NUL di seluruh kolom teks UTF-8. */
+	private static String bersihkanKarakterDatabase(String nilai) {
+		if (nilai == null || nilai.indexOf('\u0000') < 0) {
+			return nilai;
+		}
+		return nilai.replace('\u0000', ' ');
+	}
 
 	/**
 	 * Memulihkan sequence legacy LogUserActifity yang pada sebagian database lama
