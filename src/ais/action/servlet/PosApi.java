@@ -3477,29 +3477,33 @@ public class PosApi extends HttpServlet {
 			hasil.put("message", "Grup pengguna Anda tidak diizinkan menyetujui/melayani pesanan.");
 			return;
 		}
-		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		if (payload.isNull("id")) { hasil.put("status", "error"); hasil.put("message", "ID transaksi wajib diisi."); return; }
 		long idTransaksi;
 		try { idTransaksi = Long.parseLong((payload.get("id") + "").trim()); }
 		catch (Exception e) { hasil.put("status", "error"); hasil.put("message", "ID transaksi tidak valid."); return; }
+		Long tokoId = resolveTokoIdTransaksi(tbmuser, payload, idTransaksi);
+		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Transaksi tidak ditemukan pada toko yang boleh diakses akun ini."); return; }
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		java.sql.PreparedStatement ps = null;
 		try {
 			session.beginTransaction();
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+			ps = session.connection().prepareStatement(
 					"UPDATE koperasi.pembelian SET terlayani = true WHERE (pembelian_anggota_koperasi = ? OR id = ?) AND toko = ?");
 			ps.setLong(1, idTransaksi);
 			ps.setLong(2, idTransaksi);
 			ps.setLong(3, tokoId.longValue());
 			int jumlah = ps.executeUpdate();
-			ps.close();
 			session.getTransaction().commit();
 
 			hasil.put("status", "success");
 			hasil.put("jumlahBarisDiperbarui", jumlah);
+		} catch (Exception e) {
+			try { if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception ignored) {}
+			throw e;
 		} finally {
-			HibernateUtil.closeSessionQuietly(session);
+			try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+			tutupOpenSession(session, "prosesLayaniTransaksi");
 		}
 	}
 
@@ -3518,12 +3522,12 @@ public class PosApi extends HttpServlet {
 	 * tak cocok) dibalas sbg "not found" polos, bukan data toko lain.</p>
 	 */
 	private void prosesDetailTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
-		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		if (payload.isNull("id")) { hasil.put("status", "error"); hasil.put("message", "ID transaksi wajib diisi."); return; }
 		long idTransaksi;
 		try { idTransaksi = Long.parseLong((payload.get("id") + "").trim()); }
 		catch (Exception e) { hasil.put("status", "error"); hasil.put("message", "ID transaksi tidak valid."); return; }
+		Long tokoId = resolveTokoIdTransaksi(tbmuser, payload, idTransaksi);
+		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Transaksi tidak ditemukan pada toko yang boleh diakses akun ini."); return; }
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -3645,7 +3649,7 @@ public class PosApi extends HttpServlet {
 			hasil.put("bolehEditTransaksi", KantinHelper.bolehEditTransaksi(tbmuser) && punyaHeaderKelompok);
 			hasil.put("status", "success");
 		} finally {
-			HibernateUtil.closeSessionQuietly(session);
+			tutupOpenSession(session, "prosesDetailTransaksi");
 		}
 	}
 
@@ -6081,7 +6085,7 @@ public class PosApi extends HttpServlet {
 				// pendaftar ini, jadi "kosong" tidak berarti seluruh basis data.
 				return null;
 			} finally {
-				HibernateUtil.closeSessionQuietly(sesiPendaftar);
+				tutupOpenSession(sesiPendaftar, "resolveTokoId-pendaftar");
 			}
 		}
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
@@ -6098,7 +6102,7 @@ public class PosApi extends HttpServlet {
 				}
 				return daftar.isEmpty() ? null : daftar.get(0).getId();
 			} finally {
-				HibernateUtil.closeSessionQuietly(session);
+				tutupOpenSession(session, "resolveTokoId-multiToko");
 			}
 		}
 		Pedagang pedagang = tbmuser.getPedagang();
@@ -6110,6 +6114,54 @@ public class PosApi extends HttpServlet {
 		Toko toko = pedagang == null ? null : pedagang.getToko();
 		if (toko != null) return toko.getId();
 		return tokoDariPayload;
+	}
+
+	/**
+	 * Menentukan toko untuk aksi yang menunjuk satu transaksi. Pada tampilan agregat,
+	 * admin/tenant memang boleh tidak memilih toko sehingga resolveTokoId() mengembalikan
+	 * null. Untuk aksi per transaksi kita baca toko pemilik ID dari database, lalu
+	 * memvalidasinya kembali melalui aturan akses toko yang sama. Dengan demikian aksi
+	 * tetap bekerja dari tampilan agregat tanpa menghilangkan pengaman IDOR.
+	 */
+	private Long resolveTokoIdTransaksi(Tbmuser tbmuser, JSONObject payload, long idTransaksi) throws Exception {
+		Long tokoTerpilih = resolveTokoId(tbmuser, payload);
+		if (tokoTerpilih != null) return tokoTerpilih;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		java.sql.PreparedStatement ps = null;
+		java.sql.ResultSet rs = null;
+		try {
+			ps = session.connection().prepareStatement(
+					"SELECT MIN(x.toko), MAX(x.toko), COUNT(*) FROM ("
+					+ "SELECT toko FROM koperasi.pembelian_anggota_koperasi WHERE id = ? "
+					+ "UNION ALL "
+					+ "SELECT toko FROM koperasi.pembelian WHERE id = ?"
+					+ ") x");
+			ps.setLong(1, idTransaksi);
+			ps.setLong(2, idTransaksi);
+			rs = ps.executeQuery();
+			if (!rs.next() || rs.getLong(3) <= 0) return null;
+			long tokoMinimum = rs.getLong(1);
+			if (rs.wasNull()) return null;
+			long tokoMaksimum = rs.getLong(2);
+			if (tokoMinimum != tokoMaksimum) return null;
+
+			JSONObject payloadDenganToko = new JSONObject(payload == null ? "{}" : payload.toString());
+			payloadDenganToko.put("tokoId", tokoMinimum);
+			Long tokoDiizinkan = resolveTokoId(tbmuser, payloadDenganToko);
+			return tokoDiizinkan != null && tokoDiizinkan.longValue() == tokoMinimum ? tokoDiizinkan : null;
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Exception ignored) {}
+			try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+			tutupOpenSession(session, "resolveTokoIdTransaksi");
+		}
+	}
+
+	private void tutupOpenSession(Session session, String sumber) {
+		if (session == null) return;
+		try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, sumber + "-clear"); }
+		try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, sumber + "-disconnect"); }
+		try { session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, sumber + "-close"); }
 	}
 
 	private static Long ambilTokoIdPayload(JSONObject payload) {
