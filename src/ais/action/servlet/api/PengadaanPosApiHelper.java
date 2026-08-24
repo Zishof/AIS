@@ -1,9 +1,11 @@
 package ais.action.servlet.api;
 
+import java.util.Calendar;
 import java.util.List;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -13,6 +15,7 @@ import org.json.JSONObject;
 
 import ais.common.Common;
 import ais.common.EbisnisMenuKatalog;
+import ais.action.master.asset.SaldoAwalMasterAssetAction;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
@@ -24,10 +27,14 @@ import ais.database.model.asset.PemesananPengadaanMasterAssetDetail;
 import ais.database.model.asset.PenerimaanPengadaanMasterAsset;
 import ais.database.model.asset.PenerimaanPengadaanMasterAssetDetail;
 import ais.database.model.asset.PenyediaAsset;
+import ais.database.model.asset.SaldoAwalMasterAsset;
+import ais.database.model.asset.SaldoAwalMasterAssetDetail;
+import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.inventory.Produk;
 import ais.database.model.asset.PermintaanPengadaanMasterAsset;
 import ais.database.model.asset.PermintaanPengadaanMasterAssetDetail;
 import ais.database.model.inventory.Toko;
+import ais.database.model.rab.Workspace;
 
 /**
  * <h3>API JSON Modul Pengadaan POS -- tahap 1: Permintaan Pembelian (PR).</h3>
@@ -54,6 +61,8 @@ public final class PengadaanPosApiHelper {
 	private static final String KUNCI_PO = "pengadaan_po";
 	private static final String KUNCI_BAST = "pengadaan_bast";
 	private static final String KUNCI_TAGIHAN = "pengadaan_tagihan";
+	private static final String KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB =
+			"pengadaan_tagihan_rutin_anggaran_wajib";
 	private static final String KUNCI_DPC = "pengadaan_dpc";
 	private static final String KUNCI_BDP = "pengadaan_bdp";
 	private static final String KUNCI_SINKRON = "pengadaan_sinkron";
@@ -299,6 +308,184 @@ public final class PengadaanPosApiHelper {
 			hasil.put("status", "00");
 			hasil.put("data", arr);
 			hasil.put("total", cocok);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Mencatat tagihan rutin yang memang tidak mempunyai BAST, misalnya listrik,
+	 * air, internet, sewa, dan jasa berlangganan. Dokumen yang dipakai sama dengan
+	 * versi ZKoss ({@link SaldoAwalMasterAsset}): setiap rincian boleh menunjuk satu
+	 * {@link Workspace} sehingga realisasi tetap masuk ke anggaran yang tepat.
+	 *
+	 * <p>Anggaran sengaja opsional secara bawaan. Instalasi yang mewajibkannya dapat
+	 * mengaktifkan konfigurasi {@code pengadaan_tagihan_rutin_anggaran_wajib}. Pagar
+	 * ini dijalankan di server, bukan hanya di antarmuka.</p>
+	 */
+	public static void tagihanRutinSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		if (!bolehAksi(tbmuser, KUNCI_TAGIHAN, "create")) {
+			tolak(hasil, "Grup pengguna Anda tidak memiliki hak menerima tagihan rutin vendor.");
+			return;
+		}
+		if (tbmuser == null) {
+			tolak(hasil, "Sesi pengguna tidak dikenali, silakan masuk ulang.");
+			return;
+		}
+		String penyediaTeks = request == null ? "" : request.optString("penyediaId", "").trim();
+		String kodeTagihan = request == null ? "" : request.optString("kodeTagihan", "").trim();
+		String tanggalTeks = request == null ? "" : request.optString("tanggalTagihan", "").trim();
+		String keterangan = request == null ? "" : request.optString("keterangan", "").trim();
+		JSONArray rincian = request == null ? null : request.optJSONArray("rincian");
+		if (penyediaTeks.length() == 0) {
+			tolak(hasil, "Penyedia tagihan rutin wajib dipilih.");
+			return;
+		}
+		if (kodeTagihan.length() == 0) {
+			tolak(hasil, "Nomor tagihan/faktur vendor wajib diisi.");
+			return;
+		}
+		java.util.Date tanggalTagihan = tanggalKetat(tanggalTeks);
+		if (tanggalTagihan == null) {
+			tolak(hasil, "Tanggal tagihan harus berformat hh-bb-tttt, mis. 10-08-2026.");
+			return;
+		}
+		if (rincian == null || rincian.length() == 0) {
+			tolak(hasil, "Minimal satu rincian tagihan wajib diisi.");
+			return;
+		}
+
+		boolean anggaranWajib = Common.bolehKonfigurasi(
+				KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction transaksi = null;
+		SaldoAwalMasterAsset tagihan = null;
+		try {
+			Long penyediaId = Long.valueOf(penyediaTeks);
+			PenyediaAsset penyedia = (PenyediaAsset) session.get(PenyediaAsset.class, penyediaId);
+			if (penyedia == null) {
+				tolak(hasil, "Penyedia tagihan rutin tidak ditemukan.");
+				return;
+			}
+			Long tokoId = tokoLingkup(tbmuser, request);
+			Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
+			if (tokoId != null && toko == null) {
+				tolak(hasil, "Toko tagihan rutin tidak ditemukan.");
+				return;
+			}
+
+			Criteria kembar = session.createCriteria(SaldoAwalMasterAsset.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+					.add(Restrictions.eq("penyedia.id", penyediaId))
+					.add(Restrictions.eq("kodeTagihan", kodeTagihan));
+			if (tokoId != null) {
+				kembar.add(Restrictions.eq("toko.id", tokoId));
+			}
+			if (!kembar.list().isEmpty()) {
+				tolak(hasil, "Nomor tagihan " + kodeTagihan
+						+ " sudah tercatat untuk penyedia dan toko yang sama."
+						+ " Gunakan nomor faktur yang benar agar tidak terjadi tagihan ganda.");
+				return;
+			}
+
+			double total = 0;
+			for (int i = 0; i < rincian.length(); i++) {
+				JSONObject baris = rincian.getJSONObject(i);
+				String uraian = baris.optString("keterangan", "").trim();
+				double nominal = angkaAman(baris, "nominal");
+				String workspaceTeks = baris.optString("workspaceId", "").trim();
+				if (uraian.length() == 0) {
+					tolak(hasil, "Uraian rincian ke-" + (i + 1) + " wajib diisi.");
+					return;
+				}
+				if (nominal <= 0) {
+					tolak(hasil, "Nominal rincian ke-" + (i + 1) + " harus lebih besar dari nol.");
+					return;
+				}
+				if (anggaranWajib && workspaceTeks.length() == 0) {
+					tolak(hasil, "Anggaran rincian ke-" + (i + 1)
+							+ " wajib dipilih sesuai konfigurasi sistem.");
+					return;
+				}
+				if (workspaceTeks.length() > 0) {
+					Workspace workspace = (Workspace) session.get(Workspace.class,
+							Long.valueOf(workspaceTeks));
+					if (workspace == null || Boolean.FALSE.equals(workspace.getAktif())) {
+						tolak(hasil, "Anggaran rincian ke-" + (i + 1)
+								+ " tidak ditemukan atau sudah tidak aktif.");
+						return;
+					}
+				}
+				total += nominal;
+			}
+
+			transaksi = session.beginTransaction();
+			Calendar kalender = Calendar.getInstance();
+			kalender.setTime(tanggalTagihan);
+			tagihan = new SaldoAwalMasterAsset();
+			tagihan.setKodeUnik(Common.getGeneratedBarCode());
+			tagihan.setKode(SaldoAwalMasterAssetAction.generateCode(tanggalTagihan, true));
+			tagihan.setKeterangan(keterangan.length() == 0 ? kodeTagihan : keterangan);
+			tagihan.setToko(toko);
+			tagihan.setPenyedia(penyedia);
+			tagihan.setDibuatOleh(tbmuser);
+			tagihan.setDisetujuiOleh(tbmuser);
+			tagihan.setTanggalPembuatan(tanggalTagihan);
+			tagihan.setTanggalPersetujuan(tanggalTagihan);
+			tagihan.setNilai(Double.valueOf(total));
+			tagihan.setTahun(Integer.valueOf(kalender.get(Calendar.YEAR)));
+			tagihan.setBulan(Integer.valueOf(kalender.get(Calendar.MONTH) + 1));
+			tagihan.setDibayar(Double.valueOf(0));
+			tagihan.setLunas(Boolean.FALSE);
+			tagihan.setAktif(Boolean.TRUE);
+			tagihan.setKodeTagihan(kodeTagihan);
+			tagihan.setTanggalTagihan(tanggalTagihan);
+			session.save(tagihan);
+
+			for (int i = 0; i < rincian.length(); i++) {
+				JSONObject baris = rincian.getJSONObject(i);
+				double nominal = angkaAman(baris, "nominal");
+				String workspaceTeks = baris.optString("workspaceId", "").trim();
+				SaldoAwalMasterAssetDetail detail = new SaldoAwalMasterAssetDetail();
+				detail.setKodeUnik(Common.getGeneratedBarCode());
+				detail.setSaldoAwal(tagihan);
+				detail.setKeterangan(baris.optString("keterangan", "").trim());
+				detail.setJumlah(Double.valueOf(1));
+				detail.setHarga(Double.valueOf(nominal));
+				detail.setHargaTotal(Double.valueOf(nominal));
+				if (workspaceTeks.length() > 0) {
+					detail.setWorkspace((Workspace) session.get(Workspace.class,
+							Long.valueOf(workspaceTeks)));
+				}
+				session.save(detail);
+			}
+			transaksi.commit();
+
+			// Setelah transaksi utama aman, bentuk DPC melalui helper resmi versi ZKoss.
+			// Helper tersebut idempoten dan mengelola currentNativeSession-nya sendiri.
+			DaftarPengajuanTransfer.simpanSaldoAwalMasterAsset(tagihan);
+			hasil.put("status", "00");
+			hasil.put("id", tagihan.getId());
+			hasil.put("kode", tagihan.getKode());
+			hasil.put("kodeTagihan", kodeTagihan);
+			hasil.put("nilai", total);
+			hasil.put("anggaranWajib", anggaranWajib);
+		} catch (NumberFormatException e) {
+			if (transaksi != null && transaksi.isActive()) {
+				transaksi.rollback();
+			}
+			tolak(hasil, "Penyedia atau anggaran yang dipilih tidak valid.");
+		} catch (Exception e) {
+			try {
+				if (transaksi != null && transaksi.isActive()) {
+					transaksi.rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback,
+						"PengadaanPosApiHelper.tagihanRutinSimpan rollback");
+			}
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -3719,7 +3906,8 @@ public final class PengadaanPosApiHelper {
 	 * yang cepat atau lambat berbeda dengan angka pada layar Anggaran.</p>
 	 */
 	public static void cariAnggaran(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)) {
+		if (!bolehLihat(tbmuser, KUNCI_PR) && !bolehLihat(tbmuser, KUNCI_PO)
+				&& !bolehLihat(tbmuser, KUNCI_TAGIHAN)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -3976,7 +4164,8 @@ public final class PengadaanPosApiHelper {
 
 	/** Pencarian penyedia/vendor untuk pemilih pada layar PO. */
 	public static void cariPenyedia(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_BAST)) {
+		if (!bolehLihat(tbmuser, KUNCI_PO) && !bolehLihat(tbmuser, KUNCI_BAST)
+				&& !bolehLihat(tbmuser, KUNCI_TAGIHAN)) {
 			tolak(hasil, "Menu Pengadaan tidak diaktifkan untuk grup pengguna Anda.");
 			return;
 		}
@@ -4850,6 +5039,8 @@ public final class PengadaanPosApiHelper {
 			hasil.put("status", "00");
 			hasil.put("data", arr);
 			hasil.put("total", cocok);
+			hasil.put("anggaranWajib", Common.bolehKonfigurasi(
+					KONFIG_TAGIHAN_RUTIN_ANGGARAN_WAJIB));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -7792,6 +7983,10 @@ public final class PengadaanPosApiHelper {
 		}
 		if ("pengadaan_tagihan_terima".equals(action)) {
 			tagihanTerima(tbmuser, request, hasil);
+			return true;
+		}
+		if ("pengadaan_tagihan_rutin_simpan".equals(action)) {
+			tagihanRutinSimpan(tbmuser, request, hasil);
 			return true;
 		}
 		if ("pengadaan_tagihan_batal".equals(action)) {
