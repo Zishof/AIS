@@ -29,6 +29,8 @@
 - Mobile scan: ISBN/barcode melalui BarcodeDetector browser dengan fallback input manual.
 - Reservasi kontekstual: `Reservasi` untuk eksemplar tersedia dan `Masuk Antrean` jika stok cabang sedang dipinjam.
 - Advanced search: ISBN/ISSN, rentang tahun, bidang bibliografi, AND/OR, dan pengecualian NOT tersimpan pada URL/saved search.
+- Detail koleksi telah didesain ulang: header bertema, hero bibliografi, statistik ketersediaan, metadata grid, field kosong tersembunyi, holdings responsif, serta panel rekomendasi/ulasan.
+- Seluruh JSP modul Pustaka telah diaudit agar tidak mengandung urutan `${` yang menyebabkan Jasper salah memproses JavaScript sebagai EL.
 
 ## P3
 
@@ -41,3 +43,5 @@
 Tidak ada skema database baru. Fitur menggunakan model AIS yang telah tersedia (`SearchHistory`, `ItemKomentar`, `ItemHasStatus`, holdings, dan konfigurasi integrasi).
 
 Prasyarat tenant dan perilaku fallback dijelaskan pada `runtime-configuration.md`.
+
+Status deployment dan handoff terbaru dijelaskan pada `ai-handoff-2026-08-24.md`. Checklist ini tidak berarti seluruh integrasi eksternal atau routing server telah diverifikasi.

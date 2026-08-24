@@ -4,7 +4,7 @@
 
 - `webapp/WEB-INF/baru/modul/pustaka/landing_page.jsp` — shell dan pemuat fragmen berurutan.
 - `katalog.jsp` — discovery, facet, URL state, holdings, dan tindakan kontekstual.
-- `_item_rinci.jsp` — detail bibliografi dan holdings per eksemplar.
+- `_item_rinci.jsp` — detail bibliografi modern, metadata grid, holdings per eksemplar, rekomendasi, serta ulasan.
 - `_header_perpustakaan.jsp` / `_footer_perpustakaan.jsp` — navigasi, identitas, dan bantuan.
 - `beranda_anggota.jsp` — pinjaman, reservasi, favorit, dan kunjungan anggota.
 - `layanan_anggota.jsp` / `_engagement_api.jsp` — bantuan pustakawan, usulan, booking fasilitas, dan interlibrary loan.
@@ -38,3 +38,5 @@
 - `webapp/assets/library-modern/library.js`
 
 Tidak ada CDN atau framework frontend baru.
+
+Dokumen handoff utama: `docs/pustaka-v2/ai-handoff-2026-08-24.md`.
