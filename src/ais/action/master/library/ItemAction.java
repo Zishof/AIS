@@ -3752,7 +3752,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 	 * kolom yang di model memang dideklarasikan sebagai TEXT.
 	 */
 	@SuppressWarnings("rawtypes")
-	private static void pastikanKolomTeksItemTidakTerpotong(Session session) {
+	public static void pastikanKolomTeksItemTidakTerpotong(Session session) {
 		if (kolomTeksItemSudahDiperiksa || session == null) {
 			return;
 		}
@@ -3764,7 +3764,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 					"abstrak", "kewords", "abstract_en", "kewords_en", "tema_", "kategories", "image_url",
 					"tempatterbit", "by_statement", "scan_links", "kode__unik_buku", "info_lain",
 					"text_snippet", "info_open_library", "item_url", "record_url", "classifications",
-					"subjects", "ebooks", "ebooks_link", "ebooks_link_pdf" };
+					"subjects", "ebooks", "ebooks_link", "ebooks_link_pdf", "lampiran_path" };
 			for (int i = 0; i < kolomTeks.length; i++) {
 				List hasil = session.createSQLQuery("select count(*) from information_schema.columns "
 						+ "where table_schema='library' and table_name='item' and column_name=:kolom "

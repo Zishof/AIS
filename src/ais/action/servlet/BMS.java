@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -51,6 +53,8 @@ public class BMS extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
+	private static final Pattern POLA_ITEM_PEMBAYARAN = Pattern
+			.compile("^Item-([0-9]+)-(-?[0-9]+(?:\\.[0-9]+)?)-([0-9]*)-([0-9]+)$");
 
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
 		@Override
@@ -638,11 +642,8 @@ public class BMS extends HttpServlet {
 													}
 
 												} else if (idPemBul != null && idPemBul.startsWith("Item-")) {
-													String[] dataItem = idPemBul.split("-");
-													if (dataItem.length < 5 || dataItem[1] == null
-															|| dataItem[1].trim().length() == 0
-															|| dataItem[2] == null || dataItem[2].trim().length() == 0
-															|| dataItem[4] == null || dataItem[4].trim().length() == 0) {
+													Matcher dataItem = POLA_ITEM_PEMBAYARAN.matcher(idPemBul);
+													if (!dataItem.matches()) {
 														ais.common.ErrorAuditUtil.record(new IllegalArgumentException(
 																"Format item pembayaran bank NTT tidak lengkap: " + idPemBul),
 																"BMS.doProcess:skip-item-format-tidak-valid");
@@ -651,8 +652,8 @@ public class BMS extends HttpServlet {
 													ItemBiaya itemBiaya = (ItemBiaya) ConstantValues
 															.simpleObject(
 																	session.createCriteria(ItemBiaya.class)
-																			.add(Restrictions.idEq(Long.parseLong(
-																					dataItem[1].trim()))),
+																					.add(Restrictions.idEq(Long.parseLong(
+																							dataItem.group(1)))),
 																	ItemBiaya.class);
 
 													if (itemBiaya != null) {
@@ -660,13 +661,13 @@ public class BMS extends HttpServlet {
 																+ virtualAccountBankNtt.getId();
 														Double subtotal = 0.0;
 														try {
-															subtotal = Double.parseDouble(dataItem[2].trim());
+																	subtotal = Double.parseDouble(dataItem.group(2));
 														} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BMS.java:650");
 														}
 
 														Long detailBiayaId = null;
 														try {
-															detailBiayaId = Long.parseLong(dataItem[4].trim());
+																	detailBiayaId = Long.parseLong(dataItem.group(4));
 														} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BMS.java:657");
 														}
 

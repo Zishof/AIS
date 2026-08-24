@@ -7605,14 +7605,18 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					.add(Restrictions.isNull("sp"))
 					.list();
 			tx = session.beginTransaction();
+			List<Long> historyIds = new ArrayList<Long>();
 			for (HistoryStatusMahasiswa history : histories) {
 				if (history == null || statusFinalMahasiswa(history.getStatusMahasiswa())) {
 					continue;
 				}
 				if (!statusMahasiswaSama(history.getStatusMahasiswa(), ConstantValues.AKTIF)) {
-					history.setStatusMahasiswa(ConstantValues.AKTIF);
-					session.saveOrUpdate(history);
+					historyIds.add(history.getId());
 				}
+			}
+			if (!historyIds.isEmpty()) {
+				session.createQuery("update HistoryStatusMahasiswa set statusMahasiswa = :aktif where id in (:ids)")
+						.setParameter("aktif", ConstantValues.AKTIF).setParameterList("ids", historyIds).executeUpdate();
 			}
 			tx.commit();
 		} catch (Exception e) {

@@ -792,56 +792,57 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 				if (!pastikanPendaftaranWisudaMasihAda(HibernateUtil.currentSession())) {
 					return;
 				}
+				PendaftaranWisuda pendaftaranWisudaCetak = PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda;
+				Mahasiswa mahasiswaCetak = pendaftaranWisudaCetak == null ? null : pendaftaranWisudaCetak.getMahasiswa();
+				if (pendaftaranWisudaCetak == null || mahasiswaCetak == null) {
+					MyMessageboxConfig.show("Data mahasiswa pada pendaftaran wisuda tidak ditemukan. Silakan muat ulang halaman dan periksa kembali data pendaftaran.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 
-				if (PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getId() == null) {
+				if (pendaftaranWisudaCetak.getId() == null) {
 					MyMessageboxConfig.show("Mohon maaf, bukti pendaftaran belum dapat dicetak karena data pendaftaran wisuda belum tersimpan. Bapak/Ibu diharapkan menekan tombol \"Simpan / Daftar Wisuda\" terlebih dahulu, kemudian mencetak bukti pendaftaran.",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					return;
 				}
 
-				if (PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getNoKursi() == null
-						|| PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getNoKursi().isEmpty()) {
-					String noKursi = PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getId().toString();
+				if (pendaftaranWisudaCetak.getNoKursi() == null || pendaftaranWisudaCetak.getNoKursi().isEmpty()) {
+					String noKursi = pendaftaranWisudaCetak.getId().toString();
 
 					while (noKursi.length() < 8) {
 						noKursi = "0" + noKursi;
 					}
 
-					PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.setNoKursi(noKursi);
-					Common.refreshSaveOrUpdate(PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda);
+					pendaftaranWisudaCetak.setNoKursi(noKursi);
+					Common.refreshSaveOrUpdate(pendaftaranWisudaCetak);
 				}
 
 				@SuppressWarnings("rawtypes")
 				Map parameters = ais.common.HashMapGenerator.getRand();
-				parameters.put("id_mahasiswa",
-						PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getMahasiswa().getId());
-				parameters.put("id_pendaftaran_wisuda",
-						PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getId());
+				parameters.put("id_mahasiswa", mahasiswaCetak.getId());
+				parameters.put("id_pendaftaran_wisuda", pendaftaranWisudaCetak.getId());
 
-				KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(
-						PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getMahasiswa());
+				KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswaCetak);
 				Common.insertProperty(KrsMahasiswa.class, krsMahasiswa, parameters, "krs");
 
-				Judisium judisium = Common.hitungJudisium(
-						PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getMahasiswa(), krsMahasiswa);
+				Judisium judisium = Common.hitungJudisium(mahasiswaCetak, krsMahasiswa);
 				parameters.put("judisium", judisium == null ? "" : judisium.getNama());
 				parameters.put("judisium_en", judisium == null ? "" : judisium.getNamaen());
 
 				try {
-					BiodataMahasiswa biodataMahasiswa = pendaftaranWisuda.getMahasiswa().ambilBiodata();
+					BiodataMahasiswa biodataMahasiswa = mahasiswaCetak.ambilBiodata();
 					Common.insertProperty(BiodataMahasiswa.class, biodataMahasiswa, parameters, "bio");
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:825");
 					// TODO: handle exception
 				}
 				try {
-					Common.insertProperty(Mahasiswa.class,
-							PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getMahasiswa(), parameters, "mhs");
+					Common.insertProperty(Mahasiswa.class, mahasiswaCetak, parameters, "mhs");
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:831");
 					// TODO: handle exception
 				}
 				try {
 					Common.insertProperty(Skripsi.class,
-							PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda.getSkripsi(), parameters,
+							pendaftaranWisudaCetak.getSkripsi(), parameters,
 							"skripsi");
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:838");
 					// TODO: handle exception

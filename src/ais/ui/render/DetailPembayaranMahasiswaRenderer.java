@@ -2369,11 +2369,17 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 	} 
 
 	public Double hitungUlang() {
+		if (currentGrid == null) {
+			return Double.valueOf(0.0);
+		}
 		Rows rows = (Rows) currentGrid.getRows();
 		Double nilaiBiayaHarusDiBayars = 0.0;
 		Double telahDibayar = 0.0;
 		if (rows != null && rows.getChildren() != null) {
 			for (int i = 0; i < rows.getChildren().size(); i++) {
+				if (!(rows.getChildren().get(i) instanceof Row)) {
+					continue;
+				}
 				Row myRow = (Row) rows.getChildren().get(i);
 				Double nilaiBiayas = 0.0;
 				Double nilaiDibayar = 0.0;
@@ -2400,7 +2406,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 
 				try {
 					Label myLabel = (Label) myRow.getAttribute("dibayar");
-					nilaiDibayar = myLabel.getValue() == null || myLabel.getValue().trim().isEmpty() ? 0.0
+					nilaiDibayar = myLabel == null || myLabel.getValue() == null || myLabel.getValue().trim().isEmpty() ? 0.0
 							: Common.numberFormat.get().parse(myLabel.getValue()).doubleValue();
 					if (nilaiBiayas > 0.0 || !abaikanNilaiMinus()) {
 						telahDibayar += nilaiDibayar;

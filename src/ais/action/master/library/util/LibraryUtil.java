@@ -38,6 +38,7 @@ import org.zkoss.zul.Paging;
 
 import ais.action.master.helper.util.GoogleBookSynchronized;
 import ais.action.master.helper.util.OpenLibrarySyncronizer;
+import ais.action.master.library.ItemAction;
 import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.ConstantValues;
@@ -1677,12 +1678,13 @@ public class LibraryUtil {
 		}
 
 		Session session = HibernateUtil.currentNativeSession();
-		TipeItem myTipeItem = (TipeItem) session.createCriteria(TipeItem.class).add(Restrictions.idEq(tipeItem))
-				.uniqueResult();
-		if (myTipeItem == null) {
-			return;
-		}
 		try {
+			ItemAction.pastikanKolomTeksItemTidakTerpotong(session);
+			TipeItem myTipeItem = (TipeItem) session.createCriteria(TipeItem.class).add(Restrictions.idEq(tipeItem))
+					.uniqueResult();
+			if (myTipeItem == null) {
+				return;
+			}
 			int count = ((Number) session.createCriteria(Item.class).setProjection(Projections.rowCount())
 					.add(Restrictions.eq("isbn", "NIM:" + skripsi.getMahasiswa().getNim() + ":" + tipeItem))
 					.setMaxResults(1).uniqueResult()).intValue();
@@ -1774,11 +1776,15 @@ public class LibraryUtil {
 
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/library/util/LibraryUtil.java:1744");
+		} finally {
+			StreamingHibernateUtil.getInstance().closeSession();
+			if (session != null && session.isOpen()) {
+				try { session.clear(); } catch (Exception e) { }
+				try { session.disconnect(); } catch (Exception e) { }
+				try { session.close(); } catch (Exception e) { }
+			}
+			HibernateUtil.closeSession();
 		}
-		StreamingHibernateUtil.getInstance().closeSession();
-		// session.disconnect();
-		if (session.isOpen()) {session.disconnect();session.close();}
-		HibernateUtil.closeSession();
 	}
 
 	@SuppressWarnings("deprecation")
@@ -1791,6 +1797,7 @@ public class LibraryUtil {
 			}
 
 			Session session = HibernateUtil.currentNativeSession();
+			ItemAction.pastikanKolomTeksItemTidakTerpotong(session);
 
 			try {
 
@@ -1929,9 +1936,14 @@ public class LibraryUtil {
 
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
+			} finally {
+				if (session != null && session.isOpen()) {
+					try { session.clear(); } catch (Exception e) { }
+					try { session.disconnect(); } catch (Exception e) { }
+					try { session.close(); } catch (Exception e) { }
+				}
+				HibernateUtil.closeSession();
 			}
-
-			HibernateUtil.closeSession();
 
 			if (skripsi != null && skripsi.getFormatNilaiSkripsi() != null) {
 				checkSkripsiForItem(skripsi, skripsi.getFormatNilaiSkripsi().getTipeItem1(),

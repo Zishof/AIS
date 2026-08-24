@@ -273,32 +273,37 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     public SearchResult search(Query input) {
         Query q = normalize(input);
-        Session session = session();
         SearchResult result = new SearchResult();
         result.query = q;
         if(q.semantic&&q.keyword.length()>0){result.items=semanticSearch(q.keyword,q.pageSize);result.total=result.items.size();result.totalPages=result.items.isEmpty()?0:1;result.collections=listCollections(100);return result;}
-        result.total = count(searchCriteria(session, q));
-        result.synonymExpanded = synonymTerms(q.keyword).size() > 1;
-        if (result.total == 0L && q.keyword.length() >= 3) result.didYouMean = suggestCorrection(session, q.keyword);
-        result.totalPages = result.total == 0L ? 0 : (int) ((result.total + q.pageSize - 1L) / q.pageSize);
-        if (result.totalPages > 0 && q.page > result.totalPages) q.page = result.totalPages;
+        Session session = null;
+        try {
+            session = HibernateUtil.openSession();
+            result.total = count(searchCriteria(session, q));
+            result.synonymExpanded = synonymTerms(q.keyword).size() > 1;
+            if (result.total == 0L && q.keyword.length() >= 3) result.didYouMean = suggestCorrection(session, q.keyword);
+            result.totalPages = result.total == 0L ? 0 : (int) ((result.total + q.pageSize - 1L) / q.pageSize);
+            if (result.totalPages > 0 && q.page > result.totalPages) q.page = result.totalPages;
 
-        Criteria rows = searchCriteria(session, q);
-        applySort(rows, q.sort);
-        rows.setFirstResult((q.page - 1) * q.pageSize);
-        rows.setMaxResults(q.pageSize);
-        List<RepoItem> entities = rows.list();
+            Criteria rows = searchCriteria(session, q);
+            applySort(rows, q.sort);
+            rows.setFirstResult((q.page - 1) * q.pageSize);
+            rows.setMaxResults(q.pageSize);
+            List<RepoItem> entities = rows.list();
 
-        result.items = cards(session, entities);
-        result.typeFacets = groupFacet(session, q, "documentType");
-        result.accessFacets = groupFacet(session, q, "accessPolicy");
-        result.yearFacets = yearFacet(session, q);
-        result.authorFacets = tokenFacet(session,q,"authors"); result.subjectFacets=tokenFacet(session,q,"subjects");
-        result.languageFacets=groupFacet(session,q,"language"); result.sourceFacets=groupFacet(session,q,"sourceClass");
-        result.licenseFacets=groupFacet(session,q,"licenseUri"); result.programFacets=programFacet(session);
-        result.fullTextFacets=fullTextFacet(session,q);
-        result.collections = listCollections(100);
-        return result;
+            result.items = cards(session, entities);
+            result.typeFacets = groupFacet(session, q, "documentType");
+            result.accessFacets = groupFacet(session, q, "accessPolicy");
+            result.yearFacets = yearFacet(session, q);
+            result.authorFacets = tokenFacet(session,q,"authors"); result.subjectFacets=tokenFacet(session,q,"subjects");
+            result.languageFacets=groupFacet(session,q,"language"); result.sourceFacets=groupFacet(session,q,"sourceClass");
+            result.licenseFacets=groupFacet(session,q,"licenseUri"); result.programFacets=programFacet(session);
+            result.fullTextFacets=fullTextFacet(session,q);
+            result.collections = listCollections(session, 100);
+            return result;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -461,6 +466,11 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     public List<CollectionView> listCollections(int maximum) {
         Session session = session();
+        return listCollections(session, maximum);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<CollectionView> listCollections(Session session, int maximum) {
         List<RepoCollection> rows = session.createCriteria(RepoCollection.class)
                 .add(activeRestriction())
                 .add(tenantRestriction())

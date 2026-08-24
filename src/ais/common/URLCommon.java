@@ -36,6 +36,11 @@ public class URLCommon {
 		con.setInstanceFollowRedirects(true);
 
 		con.setRequestProperty("Content-length", String.valueOf(postData.length()));
+		con.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; ECAMPUS-DSpace/1.0)");
+		con.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
+		con.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+		con.setConnectTimeout(15000);
+		con.setReadTimeout(30000);
 
 		con.setDoOutput(true);
 		con.setDoInput(true);

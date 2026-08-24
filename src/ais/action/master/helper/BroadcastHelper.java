@@ -254,7 +254,7 @@ public class BroadcastHelper {
 							List<Object[]> results = session.createCriteria(Mahasiswa.class)
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 									.add(Restrictions.eq("statusKeluar.id", 1L)).createAlias("jurusan", "jurusan")
-									.add(pengumumanAkademis.getFakultas() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("fakultas", pengumumanAkademis.getFakultas()))
+									.add(pengumumanAkademis.getFakultas() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan.fakultas", pengumumanAkademis.getFakultas()))
 									.add(pengumumanAkademis.getJurusan() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan", pengumumanAkademis.getJurusan()))
 									.add(pengumumanAkademis.getProgram() == null || pengumumanAkademis.getProgram().trim().isEmpty() ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("program", pengumumanAkademis.getProgram()))
 									.setProjection(Projections.projectionList()
