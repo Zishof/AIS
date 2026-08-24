@@ -41,7 +41,7 @@ public class HomePortalContentService {
                     item.unit = row.getFakultas() == null ? "" : clean(row.getFakultas().getNama());
                     item.accreditation = clean(row.getPeringkatAkreditasi());
                     item.description = compact(first(row.getDeskripsi(), row.getProfil()), 180);
-                    copyLink(item, links.resolve(detailUrl, "#program"));
+                    copyLink(item, links.resolve("#program".equals(detailUrl) ? vm.contextPath + "/web/program/" + row.getId() : detailUrl, "#program"));
                     if (item.label.length() > 0) vm.programs.add(item);
                 }
             } else if (vm.institution.schoolId != null) {
@@ -52,7 +52,7 @@ public class HomePortalContentService {
                     item.label = clean(row.getNama());
                     item.level = row.getTingkat() == null || row.getTingkat().intValue() <= 0 ? "" : "Tingkat " + row.getTingkat();
                     item.description = compact(row.getKeterangan(), 180);
-                    copyLink(item, links.resolve(detailUrl, "#program"));
+                    copyLink(item, links.resolve("#program".equals(detailUrl) ? vm.contextPath + "/web/program/" + row.getId() : detailUrl, "#program"));
                     if (item.label.length() > 0) vm.programs.add(item);
                 }
             }
@@ -86,7 +86,7 @@ public class HomePortalContentService {
                 item.summary = compact(row.getCatatan(), 220);
                 item.date = format(row.getTanggal());
                 item.category = "Pengumuman";
-                copyLink(item, links.resolve(url, "#informasi"));
+                copyLink(item, links.resolve("#informasi".equals(url) ? vm.contextPath + "/web/berita/" + row.getId() : url, "#informasi"));
                 if (item.label.length() > 0) vm.news.add(item);
             }
         } catch (Exception e) {
@@ -177,7 +177,7 @@ public class HomePortalContentService {
                 item.day = date == null ? "" : dayFormat.format(date);
                 item.month = date == null ? "" : monthFormat.format(date).toUpperCase(new Locale("id", "ID"));
                 item.date = date == null ? "" : isoFormat.format(date);
-                copyLink(item, links.resolve(url, "#informasi"));
+                copyLink(item, links.resolve("#informasi".equals(url) ? vm.contextPath + "/web/agenda/" + row.getId() : url, "#informasi"));
                 if (item.label.length() > 0) vm.agenda.add(item);
             }
         } catch (Exception e) {

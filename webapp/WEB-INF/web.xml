@@ -411,6 +411,11 @@
 		<servlet-class>ais.action.servlet.Web</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Discovery SEO website institusi</description>
+		<servlet-name>websiteDiscovery</servlet-name>
+		<servlet-class>ais.action.servlet.WebsiteDiscovery</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>login</display-name>
@@ -1392,6 +1397,14 @@
 	<servlet-mapping>
 		<servlet-name>web</servlet-name>
 		<url-pattern>/web/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>websiteDiscovery</servlet-name>
+		<url-pattern>/robots.txt</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>websiteDiscovery</servlet-name>
+		<url-pattern>/sitemap.xml</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login</servlet-name>

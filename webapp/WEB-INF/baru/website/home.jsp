@@ -88,7 +88,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
 
 <header class="site-header" data-site-header>
     <div class="wrap header-row">
-        <a class="brand" href="#beranda" aria-label="Beranda <%=esc(vm.institution.name)%>">
+        <a class="brand" href="<%=root%>/web" aria-label="Beranda <%=esc(vm.institution.name)%>">
             <span class="brand-logo">
                 <img src="<%=esc(vm.institution.logoUrl)%>" alt="Logo <%=esc(vm.institution.name)%>" width="52" height="52">
                 <span class="brand-fallback" aria-hidden="true"><%=esc(initials(vm.institution.name))%></span>
@@ -96,14 +96,15 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
             <span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small><%=esc(institutionType)%></small></span>
         </a>
         <nav class="desktop-nav" aria-label="Navigasi utama">
-            <a href="#tentang">Tentang</a>
-            <% if (vm.showPrograms) { %><a href="#program"><%=esc(vm.terminology.programLabel)%></a><% } %>
-            <% if (vm.showAdmission) { %><a href="#penerimaan">Penerimaan</a><% } %>
-            <% if (vm.showImpact) { %><a href="#dampak">Riset &amp; Dampak</a><% } %>
-            <% if (vm.showNews || vm.showAgenda) { %><a href="#informasi">Berita &amp; Agenda</a><% } %>
-            <a href="#layanan">Layanan</a>
+            <a href="<%=root%>/web/profil">Tentang</a>
+            <% if (vm.showPrograms) { %><a href="<%=root%>/web/program"><%=esc(vm.terminology.programLabel)%></a><% } %>
+            <a href="<%=root%>/web/penerimaan">Penerimaan</a>
+            <% if (vm.showImpact) { %><a href="<%=root%>/web/<%=vm.institution.college ? "riset" : "pembelajaran"%>"><%=vm.institution.college ? "Riset & Dampak" : "Pembelajaran"%></a><% } %>
+            <a href="<%=root%>/web/berita">Berita &amp; Agenda</a>
+            <a href="<%=root%>/web/layanan">Layanan</a>
         </nav>
         <div class="header-actions">
+            <% if (vm.showSearch) { %><a class="button button--quiet desktop-action" href="<%=root%>/web/cari">Cari</a><% } %>
             <a class="button button--quiet desktop-action" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Masuk Portal</a>
             <a class="button button--primary desktop-action" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><%=esc(vm.primaryLabel)%></a>
             <button class="menu-button" type="button" data-menu-open aria-controls="mobile-menu" aria-expanded="false"><span>Menu</span><span aria-hidden="true">☰</span></button>
@@ -115,12 +116,11 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
 <aside class="mobile-menu" id="mobile-menu" data-mobile-menu aria-hidden="true" aria-label="Menu seluler">
     <div class="mobile-menu__head"><strong>Menu</strong><button type="button" data-menu-close aria-label="Tutup menu">×</button></div>
     <nav>
-        <a href="#tentang">Tentang</a>
-        <% if (vm.showPrograms) { %><a href="#program"><%=esc(vm.terminology.programLabel)%></a><% } %>
-        <% if (vm.showAdmission) { %><a href="#penerimaan">Penerimaan</a><% } %>
-        <% if (vm.showImpact) { %><a href="#dampak">Riset &amp; Dampak</a><% } %>
-        <% if (vm.showNews || vm.showAgenda) { %><a href="#informasi">Berita &amp; Agenda</a><% } %>
-        <a href="#layanan">Layanan</a><a href="#kontak">Kontak</a>
+        <a href="<%=root%>/web/profil">Tentang</a>
+        <% if (vm.showPrograms) { %><a href="<%=root%>/web/program"><%=esc(vm.terminology.programLabel)%></a><% } %>
+        <a href="<%=root%>/web/penerimaan">Penerimaan</a>
+        <% if (vm.showImpact) { %><a href="<%=root%>/web/<%=vm.institution.college ? "riset" : "pembelajaran"%>"><%=vm.institution.college ? "Riset & Dampak" : "Pembelajaran"%></a><% } %>
+        <a href="<%=root%>/web/berita">Berita</a><a href="<%=root%>/web/agenda">Agenda</a><a href="<%=root%>/web/layanan">Layanan</a><a href="<%=root%>/web/kontak">Kontak</a><% if (vm.showSearch) { %><a href="<%=root%>/web/cari">Pencarian</a><% } %>
     </nav>
     <div class="mobile-menu__actions">
         <a class="button button--primary" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><%=esc(vm.primaryLabel)%></a>
@@ -210,7 +210,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <% } %>
 
     <% if (vm.showImpact) { %>
-    <section class="section section--soft" id="dampak"><div class="wrap"><div class="section-heading"><div><span class="kicker">Riset, mutu &amp; dampak</span><h2>Bukti kontribusi yang dapat ditelusuri</h2><p>Setiap kartu mengarah pada layanan atau sumber informasi institusi yang nyata.</p></div></div><div class="impact-grid">
+    <section class="section section--soft" id="dampak"><div class="wrap"><div class="section-heading"><div><span class="kicker"><%=vm.institution.college ? "Riset, mutu & dampak" : "Pembelajaran, prestasi & dampak"%></span><h2>Bukti kontribusi yang dapat ditelusuri</h2><p>Setiap kartu mengarah pada layanan atau sumber informasi institusi yang nyata.</p></div></div><div class="impact-grid">
         <% for (HomePortalViewModel.ImpactItem item : vm.impacts) { %><a class="impact-card" href="<%=esc(item.url)%>"<%=attrs(item)%>><span aria-hidden="true">↗</span><h3><%=esc(item.label)%></h3><p><%=esc(item.description)%></p></a><% } %>
     </div></div></section>
     <% } %>
@@ -237,7 +237,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     </address></div></section>
 </main>
 
-<footer class="site-footer"><div class="wrap footer-grid"><div class="footer-brand"><div class="brand brand--footer"><span class="brand-logo"><img src="<%=esc(vm.institution.logoUrl)%>" alt="" width="52" height="52"></span><span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small>Informasi institusi dan layanan digital resmi</small></span></div><p><%=esc(text(vm.institution.motto, vm.institution.address))%></p></div><div><h2>Tentang</h2><a href="#beranda">Beranda</a><a href="#tentang">Profil ringkas</a><a href="#kontak">Kontak</a></div><div><h2>Informasi</h2><% if (vm.showPrograms) { %><a href="#program"><%=esc(vm.terminology.programLabel)%></a><% } %><% if (vm.showAdmission) { %><a href="#penerimaan">Penerimaan</a><% } %><% if (vm.showNews || vm.showAgenda) { %><a href="#informasi">Berita &amp; agenda</a><% } %></div><div><h2>Layanan</h2><a href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Portal digital</a><a href="#layanan">Seluruh layanan</a><a href="#kontak">Bantuan</a></div></div><div class="wrap footer-bottom"><span>© <%=Calendar.getInstance().get(Calendar.YEAR)%> <%=esc(vm.institution.name)%>. Seluruh hak dilindungi.</span><a href="#konten-utama">Kembali ke atas ↑</a></div></footer>
+<footer class="site-footer"><div class="wrap footer-grid"><div class="footer-brand"><div class="brand brand--footer"><span class="brand-logo"><img src="<%=esc(vm.institution.logoUrl)%>" alt="" width="52" height="52"></span><span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small>Informasi institusi dan layanan digital resmi</small></span></div><p><%=esc(text(vm.institution.motto, vm.institution.address))%></p></div><div><h2>Tentang</h2><a href="<%=root%>/web">Beranda</a><a href="<%=root%>/web/profil">Profil</a><a href="<%=root%>/web/akreditasi">Akreditasi</a><a href="<%=root%>/web/kontak">Kontak</a></div><div><h2>Informasi</h2><a href="<%=root%>/web/program"><%=esc(vm.terminology.programLabel)%></a><a href="<%=root%>/web/penerimaan">Penerimaan</a><a href="<%=root%>/web/berita">Berita</a><a href="<%=root%>/web/agenda">Agenda</a><a href="<%=root%>/web/dokumen">Dokumen</a></div><div><h2>Kebijakan</h2><a href="<%=root%>/web/privasi">Privasi</a><a href="<%=root%>/web/aksesibilitas">Aksesibilitas</a><a href="<%=root%>/web/ppid">Informasi publik</a><a href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Portal digital</a></div></div><div class="wrap footer-bottom"><span>© <%=Calendar.getInstance().get(Calendar.YEAR)%> <%=esc(vm.institution.name)%>. Seluruh hak dilindungi.</span><a href="#konten-utama">Kembali ke atas ↑</a></div></footer>
 <script src="<%=root%>/js/baru/website-v4.js?v=<%=version%>" defer></script>
 </body>
 </html>

@@ -12,6 +12,10 @@ public class WebsitePageViewModel {
     public String description;
     public String body;
     public String updatedLabel;
+    public String schemaType = "WebPage";
+    public String publishedIso;
+    public String startIso;
+    public String endIso;
     public String jsonLd;
     public boolean searchPage;
     public boolean notFound;

@@ -17,6 +17,7 @@ import ais.database.model.sekolah.KelasSiswa;
 public class WebsitePageService {
     private final HomePortalSectionResolver config = new HomePortalSectionResolver();
     private final SimpleDateFormat date = new SimpleDateFormat("d MMMM yyyy", new Locale("id", "ID"));
+    private final SimpleDateFormat isoDate = new SimpleDateFormat("yyyy-MM-dd");
 
     public WebsitePageViewModel build(HomePortalViewModel portal, String rawPath, String query) {
         String path = normalize(rawPath);
@@ -153,6 +154,7 @@ public class WebsitePageService {
                         .setParameter("id", id).setParameter("tenant", page.portal.institution.id).setMaxResults(1).list();
                 if (rows.isEmpty()) { notFound(page); return; }
                 Jurusan row = (Jurusan) rows.get(0);
+                page.schemaType = "EducationalOccupationalProgram";
                 heading(page, level(row), clean(row.getNama()), compact(first(row.getDeskripsi(), row.getProfil()), 320));
                 section(page, "Profil program", nonEmpty(clean(first(row.getProfil(), row.getDeskripsi())), "Profil program sedang disiapkan oleh unit pengelola."));
                 section(page, "Gelar dan bahasa pengantar", join("Gelar: " + clean(first(row.getGelar(), row.getSingkatanGelar())), "Bahasa pengantar: " + clean(row.getBahasaPengantar())));
@@ -163,6 +165,7 @@ public class WebsitePageService {
                         .setParameter("id", id).setParameter("tenant", page.portal.institution.schoolId).setMaxResults(1).list();
                 if (rows.isEmpty()) { notFound(page); return; }
                 KelasSiswa row = (KelasSiswa) rows.get(0);
+                page.schemaType = "EducationalOccupationalProgram";
                 heading(page, row.getTingkat() == null ? "Program pendidikan" : "Tingkat " + row.getTingkat(), clean(row.getNama()), clean(row.getKeterangan()));
                 section(page, "Kurikulum dan pembelajaran", row.getKurikulumSekolah() == null ? "Informasi kurikulum sedang disiapkan." : clean(row.getKurikulumSekolah().toString()));
                 section(page, "Tahun ajaran", clean(row.getTahunAjaran()));
@@ -198,9 +201,11 @@ public class WebsitePageService {
             List<?> rows = q.setParameter("id", id).setMaxResults(1).list();
             if (rows.isEmpty()) { notFound(page); return; }
             PengumumanAkademis row = (PengumumanAkademis) rows.get(0);
+            page.schemaType = "NewsArticle";
             heading(page, "Pengumuman", clean(row.getJudul()), compact(row.getCatatan(), 320));
             page.body = clean(row.getCatatan());
             page.updatedLabel = format(row.getTanggal());
+            page.publishedIso = iso(row.getTanggal());
         } catch (Exception e) { audit(e, "newsDetail"); notFound(page); } finally { close(s); }
         crumb(page, "Berita", url(page, "berita"));
         crumb(page, page.title, null);
@@ -235,9 +240,12 @@ public class WebsitePageService {
             List<?> rows = q.setParameter("id", id).setMaxResults(1).list();
             if (rows.isEmpty()) { notFound(page); return; }
             KalenderAkademik row = (KalenderAkademik) rows.get(0);
+            page.schemaType = "Event";
             heading(page, "Agenda", clean(row.getNamaKegiatanAkademik()), clean(row.getDeskripsiKegiatanAkademik()));
             section(page, "Waktu", range(row.getTanggalMulai(), row.getTanggalSelesai()));
             section(page, "Status", clean(row.getStatus()));
+            page.startIso = iso(row.getTanggalMulai());
+            page.endIso = iso(row.getTanggalSelesai());
         } catch (Exception e) { audit(e, "agendaDetail"); notFound(page); } finally { close(s); }
         crumb(page, "Agenda", url(page, "agenda"));
         crumb(page, page.title, null);
@@ -286,9 +294,19 @@ public class WebsitePageService {
     private void section(WebsitePageViewModel p, String title, String body) { WebsitePageViewModel.Section s = new WebsitePageViewModel.Section(); s.title = title; s.body = nonEmpty(body, "Informasi sedang disiapkan."); p.sections.add(s); }
     private void card(WebsitePageViewModel p, String eyebrow, String title, String summary, String meta, String url) { WebsitePageViewModel.Card c = new WebsitePageViewModel.Card(); c.eyebrow = clean(eyebrow); c.title = clean(title); c.summary = clean(summary); c.meta = clean(meta); c.url = url; p.cards.add(c); }
     private void crumb(WebsitePageViewModel p, String label, String url) { WebsitePageViewModel.Crumb c = new WebsitePageViewModel.Crumb(); c.label = label; c.url = url; p.breadcrumbs.add(c); }
-    private String value(String suffix, String fallback) { return config.value("website_v4_" + suffix, fallback); }
+    private String value(String suffix, String fallback) {
+        String legacy = null;
+        if ("profile_intro".equals(suffix)) legacy = "website_profil_kampus";
+        else if ("profile_governance".equals(suffix)) legacy = "website_struktur_organisasi";
+        else if ("student_life_facilities".equals(suffix)) legacy = "website_fasilitas_layanan";
+        else if ("research_intro".equals(suffix) || "learning_intro".equals(suffix) || "student_life_intro".equals(suffix)) legacy = "website_akademik_kemahasiswaan";
+        else if ("contact_hours".equals(suffix)) legacy = "website_kontak_person";
+        String inherited = legacy == null ? fallback : config.value(legacy, fallback);
+        return config.value("website_v4_" + suffix, inherited);
+    }
     private String url(WebsitePageViewModel p, String path) { return p.portal.contextPath + "/web/" + path; }
     private String format(Date d) { return d == null ? "" : date.format(d); }
+    private String iso(Date d) { return d == null ? "" : isoDate.format(d); }
     private String range(Date a, Date b) { return a == null ? "Jadwal belum ditetapkan" : format(a) + (b == null || a.equals(b) ? "" : " – " + format(b)); }
     private String status(HomePortalViewModel vm) { return vm.admission == null ? "Periksa jadwal" : nonEmpty(vm.admission.period, vm.admission.open ? "Pendaftaran dibuka" : "Pendaftaran ditutup"); }
     private String admissionPeriod(HomePortalViewModel vm) { return vm.admission == null ? "Jadwal penerimaan belum dipublikasikan." : join(vm.admission.period, join(vm.admission.startDate, vm.admission.endDate)); }
@@ -308,8 +326,30 @@ public class WebsitePageService {
     private void seo(WebsitePageViewModel p) {
         p.portal.seo.title = p.title + " - " + p.portal.institution.name;
         p.portal.seo.description = compact(p.description, 180);
-        String type = p.path.startsWith("berita/") ? "NewsArticle" : (p.path.startsWith("agenda/") ? "Event" : "WebPage");
-        p.jsonLd = "{\"@context\":\"https://schema.org\",\"@type\":\"" + type + "\",\"name\":\"" + json(p.title) + "\",\"description\":\"" + json(p.description) + "\",\"url\":\"" + json(p.portal.seo.canonical) + "\",\"isPartOf\":{\"@type\":\"WebSite\",\"name\":\"" + json(p.portal.institution.name) + "\"}}";
+        StringBuilder graph = new StringBuilder("{\"@context\":\"https://schema.org\",\"@graph\":[{");
+        graph.append("\"@type\":\"").append(p.schemaType).append("\",\"name\":\"").append(json(p.title))
+                .append("\",\"description\":\"").append(json(p.description)).append("\",\"url\":\"")
+                .append(json(p.portal.seo.canonical)).append("\",\"isPartOf\":{\"@type\":\"WebSite\",\"name\":\"")
+                .append(json(p.portal.institution.name)).append("\"}");
+        if (p.publishedIso != null && p.publishedIso.length() > 0) graph.append(",\"datePublished\":\"").append(p.publishedIso).append("\"");
+        if (p.startIso != null && p.startIso.length() > 0) graph.append(",\"startDate\":\"").append(p.startIso).append("\"");
+        if (p.endIso != null && p.endIso.length() > 0) graph.append(",\"endDate\":\"").append(p.endIso).append("\"");
+        graph.append("},{\"@type\":\"BreadcrumbList\",\"itemListElement\":[");
+        for (int i = 0; i < p.breadcrumbs.size(); i++) {
+            WebsitePageViewModel.Crumb crumb = p.breadcrumbs.get(i);
+            if (i > 0) graph.append(',');
+            graph.append("{\"@type\":\"ListItem\",\"position\":").append(i + 1).append(",\"name\":\"").append(json(crumb.label)).append("\"");
+            if (crumb.url != null) graph.append(",\"item\":\"").append(json(absolute(p, crumb.url))).append("\"");
+            graph.append('}');
+        }
+        graph.append("]}]} ");
+        p.jsonLd = graph.toString();
+    }
+    private String absolute(WebsitePageViewModel p, String url) {
+        if (url.startsWith("http://") || url.startsWith("https://")) return url;
+        String canonical = p.portal.seo.canonical;
+        String requestPath = p.portal.contextPath + "/web/" + p.path;
+        return canonical.endsWith(requestPath) ? canonical.substring(0, canonical.length() - requestPath.length()) + url : url;
     }
     private String json(String value) { return nonEmpty(value, "").replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", " ").replace("\n", " ").replace("<", "\\u003c"); }
 }

@@ -744,6 +744,22 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				"website_v4_show_news", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Tampilkan agenda pada Website Institusi V4",
 				"website_v4_show_agenda", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan pencarian website pada Website Institusi V4",
+				"website_v4_show_site_search", Konfigurasi.AKTIF));
+
+		createSpan("Konten Kepatuhan dan Layanan Publik Website V4", rows);
+		rows.appendChild(createRowNilai("Visi, misi, dan nilai", "website_v4_profile_vision_mission", "", 8, null));
+		rows.appendChild(createRowNilai("Identitas legal, izin, dan registrasi", "website_v4_profile_legal", "", 8, null));
+		rows.appendChild(createRowNilai("Informasi jalur dan tanggal penerimaan", "website_v4_admission_routes", "", 8, null));
+		rows.appendChild(createRowNilai("Persyaratan penerimaan", "website_v4_admission_requirements", "", 8, null));
+		rows.appendChild(createRowNilai("Biaya, keringanan, dan bantuan", "website_v4_admission_fees", "", 8, null));
+		rows.appendChild(createRowNilai("Pemberitahuan privasi - data dan tujuan", "website_v4_privacy_data", "", 8, null));
+		rows.appendChild(createRowNilai("Pemberitahuan privasi - retensi dan keamanan", "website_v4_privacy_retention", "", 8, null));
+		rows.appendChild(createRowNilai("Pernyataan aksesibilitas", "website_v4_accessibility_intro", "", 8, null));
+		rows.appendChild(createRowNilai("Kanal pelaporan hambatan aksesibilitas", "website_v4_accessibility_feedback", "", 6, null));
+		rows.appendChild(createRowNilai("Profil dan cakupan layanan PPID", "website_v4_ppid_intro", "", 8, null));
+		rows.appendChild(createRowNilai("Permohonan informasi dan keberatan PPID", "website_v4_ppid_request", "", 8, null));
+		rows.appendChild(createRowNilai("Kebijakan perlindungan anak dan anti-perundungan", "website_v4_safeguarding_policy", "", 8, null));
 		rows.appendChild(createRowNilai("Judul kecil website kampus", "website_eyebrow", "Website Resmi Kampus"));
 		rows.appendChild(createRowNilai("Tagline hero website kampus", "website_tagline",
 				"Pusat informasi resmi kampus untuk akademik, kemahasiswaan, layanan digital, prestasi, program studi, beasiswa, dan komunikasi publik institusi.",

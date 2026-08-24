@@ -142,7 +142,7 @@ public class HomePortalService {
             vm.showImpact = config.enabled(prefix + "_show_health_quality", true)
                     || config.enabled(prefix + "_show_health_facilities", true);
             vm.showPartners = config.enabled(prefix + "_show_partners", false);
-            vm.showSearch = config.enabled(prefix + "_show_site_search", false);
+            vm.showSearch = config.enabled(prefix + "_show_site_search", true);
             vm.showLanguage = config.enabled(prefix + "_show_language_switcher", true);
             return;
         }
@@ -152,7 +152,7 @@ public class HomePortalService {
         vm.showAgenda = config.enabled(prefix + "_show_agenda", true);
         vm.showImpact = config.enabled(prefix + "_show_research", true) || config.enabled(prefix + "_show_achievements", true);
         vm.showPartners = config.enabled(prefix + "_show_partners", false);
-        vm.showSearch = config.enabled(prefix + "_show_site_search", false);
+        vm.showSearch = config.enabled(prefix + "_show_site_search", true);
         vm.showLanguage = config.enabled(prefix + "_show_language_switcher", true);
     }
 
@@ -219,7 +219,10 @@ public class HomePortalService {
             vm.showImpact = !vm.impacts.isEmpty();
             return;
         }
-        if (config.enabled(prefix + "_show_research", true)) impact(vm, "Riset & Inovasi", "Publikasi, proyek terapan, dan inovasi civitas akademika.", "fa-flask", config.value(prefix + "_research_url", "#layanan"));
+        if (config.enabled(prefix + "_show_research", vm.institution.college)) impact(vm,
+                vm.institution.college ? "Riset & Inovasi" : "Pembelajaran & Inovasi",
+                vm.institution.college ? "Publikasi, proyek terapan, dan inovasi civitas akademika." : "Kurikulum, projek, inovasi pembelajaran, dan karya peserta didik.",
+                "fa-flask", config.value(prefix + "_research_url", vm.contextPath + (vm.institution.college ? "/web/riset" : "/web/pembelajaran")));
         if (config.enabled("tampilkan_modul_karir", true)) impact(vm, "Karier", "Tracer study, lowongan, magang, dan pengembangan alumni.", "fa-briefcase", config.value("link_modul_karir", "/karir"));
         if (config.enabled(prefix + "_show_achievements", true)) impact(vm, "Prestasi", "Pencapaian peserta didik dan tenaga pendidik.", "fa-trophy", config.value(prefix + "_achievements_url", "#layanan"));
         if (config.enabled(prefix + "_show_facilities", false)) impact(vm, "Fasilitas", "Ruang belajar dan fasilitas pendukung institusi.", "fa-building", config.value(prefix + "_facilities_url", "#kontak"));
