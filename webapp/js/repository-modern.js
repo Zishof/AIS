@@ -127,6 +127,19 @@
       });
     }
 
+    // Seluruh permukaan kartu membuka detail, sementara tautan/tombol di dalam
+    // kartu tetap menjalankan aksi spesifiknya sendiri.
+    var linkedCards = document.querySelectorAll('[data-repo-card-href]');
+    for (var lc = 0; lc < linkedCards.length; lc++) linkedCards[lc].addEventListener('click', function (event) {
+      var node = event.target;
+      while (node && node !== this) {
+        if (/^(A|BUTTON|INPUT|SELECT|TEXTAREA|SUMMARY|LABEL)$/.test(node.tagName)) return;
+        node = node.parentNode;
+      }
+      var target = this.getAttribute('data-repo-card-href');
+      if (target) window.location.href = target;
+    });
+
     var autosaveForm = document.querySelector('[data-repo-autosave]');
     if (autosaveForm && window.FormData && window.fetch) {
       var autosaveTimer = null;

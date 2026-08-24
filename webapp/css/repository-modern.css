@@ -236,6 +236,8 @@
 .repo-access-breakdown { display:grid; gap:5px; }
 .repo-click-card { cursor:pointer; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background-color .18s ease; }
 .repo-click-card:hover,.repo-click-card:focus-visible { transform:translateY(-2px); border-color:var(--repo-primary); box-shadow:var(--repo-shadow-sm); }
+.repo-card[data-repo-card-href],.repo-item-card[data-repo-card-href] { cursor:pointer; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background-color .18s ease; }
+.repo-card[data-repo-card-href]:hover,.repo-item-card[data-repo-card-href]:hover { transform:translateY(-2px); border-color:var(--repo-primary); box-shadow:var(--repo-shadow-sm); background:#fbfefe; }
 .repo-item-card.repo-click-card:focus-visible { background:#fbfefe; }
 .repo-collection:hover,.repo-collection:focus-visible,.repo-topic-panel .repo-chip:hover,.repo-topic-panel .repo-chip:focus-visible { background:var(--repo-theme-light); }
 .repo-access-breakdown small { color:var(--repo-on-primary); opacity:.82; line-height:1.45; }
