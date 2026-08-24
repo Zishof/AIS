@@ -234,6 +234,12 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
 		toolbar.setParent(div);
+		Label petunjuk = new Label(
+				"Mahasiswa yang sudah memiliki Dosen PA tetap dapat dicari dan dipilih untuk dipindahkan. "
+						+ "Periksa kolom Dosen PA sebelum menyimpan.");
+		petunjuk.setStyle("display:block;color:#475569;background:#f8fafc;border:1px solid #cbd5e1;"
+				+ "border-radius:6px;padding:7px 10px;margin:4px 0;");
+		petunjuk.setParent(div);
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 		button.addEventListener("onClick", new EventListener() {
@@ -385,10 +391,13 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Mahasiswa.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				// Mahasiswa yang masih dimiliki PA lain tidak boleh tampil sebagai kandidat.
-				// Setelah dilepas dari PA lama, nilai ini menjadi null dan mahasiswa langsung
-				// dapat dicari/dipilih pada dosen tujuan.
-				.add(Restrictions.or(Restrictions.isNull("dosen"), Restrictions.eq("dosen", 0L)))
+				/*
+				 * Jangan menyaring berdasarkan mahasiswa.dosen. Menu ini juga merupakan
+				 * sarana PEMINDAHAN PA: mahasiswa yang masih menunjuk PA lama harus tetap
+				 * dapat ditemukan, diperlihatkan PA-nya pada kolom Dosen PA, lalu dipilih
+				 * untuk dialihkan ke dosen tujuan. Filter lama (dosen null/0 saja) membuat
+				 * pencarian NIM yang benar menghasilkan nol baris.
+				 */
 
 				.add(kelas != null && !kelas.getNama().trim().isEmpty()
 						? Restrictions.ilike("kelas", kelas.getNama().trim(), MatchMode.EXACT)
