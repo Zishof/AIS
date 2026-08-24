@@ -1777,6 +1777,22 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 															+ eClearDk.getMessage());
 												}
 												Common.refreshDelete(sHapus, obj);
+											} else if (obj instanceof ais.database.model.sekolah.Siswa) {
+												/* Pengaturan biaya adalah konfigurasi keuangan, sehingga tidak aman
+												 * dihapus otomatis bersama siswa. Cegah DELETE sebelum mencapai DB
+												 * (dan sebelum FK melempar exception), lalu beri petunjuk yang jelas. */
+												org.hibernate.Session sCek = HibernateUtil.currentSession();
+												Long siswaId = ((ais.database.model.sekolah.Siswa) obj).getId();
+												Number jumlahReferensi = (Number) sCek.createQuery(
+														"select count(p.id) from PengaturanBiayaPunyaSiswa p where p.siswa.id = :id")
+														.setParameter("id", siswaId).uniqueResult();
+												if (jumlahReferensi != null && jumlahReferensi.longValue() > 0L) {
+													MyMessageboxConfig.show("Siswa tidak dapat dihapus karena masih dipakai oleh "
+															+ jumlahReferensi.longValue() + " pengaturan biaya. "
+															+ "Hapus siswa dari Pengaturan Biaya terlebih dahulu.");
+													return;
+												}
+												Common.refreshDelete(sCek, obj);
 											} else {
 												Common.refreshDelete(obj);
 											}

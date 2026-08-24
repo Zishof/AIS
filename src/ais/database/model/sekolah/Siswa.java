@@ -650,12 +650,21 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 			if (idKelas == null) {
 				return null;
 			}
-			ais.database.model.GeneralValueObject segar = ais.common.DataUtil.ambilData(KelasSiswa.class,
-					idKelas.toString(), true);
-			if (segar instanceof KelasSiswa) {
-				KelasSiswa hasil = (KelasSiswa) segar;
-				hasil.getTahunAjaran();
+			org.hibernate.Session sessionKelas = null;
+			try {
+				sessionKelas = ais.database.hibernate.HibernateUtil.openSession();
+				KelasSiswa hasil = (KelasSiswa) sessionKelas.get(KelasSiswa.class, idKelas);
+				if (hasil != null) {
+					/* Paksa basic state dibaca sebelum session mandiri ditutup. */
+					hasil.getTahunAjaran();
+				}
 				return hasil;
+			} finally {
+				if (sessionKelas != null) {
+					try { sessionKelas.clear(); } catch (Exception abaikan) { }
+					try { sessionKelas.disconnect(); } catch (Exception abaikan) { }
+					try { sessionKelas.close(); } catch (Exception abaikan) { }
+				}
 			}
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "Siswa.kelasSiswaAman");

@@ -303,12 +303,25 @@ public class NominalBiaya extends GeneralValueObject {
 				sessionUpdate = ais.database.hibernate.HibernateUtil.openSession();
 				sessionUpdate.getTransaction().begin();
 
-				sessionUpdate.update(this);
+				NominalBiaya nominalManaged = null;
+				if (getId() == null) {
+					sessionUpdate.save(this);
+					nominalManaged = this;
+				} else {
+					nominalManaged = (NominalBiaya) sessionUpdate.get(NominalBiaya.class, getId(),
+							org.hibernate.LockMode.UPGRADE);
+					if (nominalManaged == null) {
+						/* Sudah dihapus proses lain; jangan menjadwalkan UPDATE row 0. */
+						return listHasil;
+					}
+					nominalManaged.setDibayarSebayak(getDibayarSebayak());
+					nominalManaged.setDibayarSebayakManual(getDibayarSebayakManual());
+				}
 
 				// Jalankan Ghost Buster pembersih sisa row database
 				String hqlCleanup = "update Tagihan set aktif = false, aktifkanmanual = false where nominalBiaya = :nb and bayarKe > :maxBayar";
 				sessionUpdate.createQuery(hqlCleanup)
-						.setParameter("nb", this)
+						.setParameter("nb", nominalManaged)
 						.setParameter("maxBayar", nilaiBaruManual)
 						.executeUpdate();
 
@@ -322,7 +335,20 @@ public class NominalBiaya extends GeneralValueObject {
 							th.setAktifkanmanual(Boolean.TRUE);
 						}
 					}
-					sessionUpdate.saveOrUpdate(th);
+					if (th.getId() == null) {
+						sessionUpdate.save(th);
+					} else {
+						Tagihan thManaged = (Tagihan) sessionUpdate.get(Tagihan.class, th.getId(),
+								org.hibernate.LockMode.UPGRADE);
+						if (thManaged == null) {
+							continue;
+						}
+						thManaged.setNominal(th.getNominal());
+						thManaged.setNominalManual(th.getNominalManual());
+						thManaged.setBayarKe(th.getBayarKe());
+						thManaged.setAktif(th.getAktif());
+						thManaged.setAktifkanmanual(th.getAktifkanmanual());
+					}
 				}
 
 				sessionUpdate.getTransaction().commit();

@@ -1704,8 +1704,18 @@ public class VirtualAccountBank extends GeneralValueObject {
 		} else if (getBank() != null && getBank().equalsIgnoreCase("flip") && getNotif() != null
 				&& !getNotif().trim().isEmpty()) {
 			try {
-				biayaAdmin = new JSONObject(getNotif()).getDouble("fee_amount");
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/VirtualAccountBank.java:1703");
+				JSONObject notifJson = new JSONObject(getNotif());
+				/* fee_amount tidak selalu dikirim Flip (mis. notifikasi lama/pending).
+				 * Nilai ini opsional, jadi jangan memakai getter wajib yang melempar saat
+				 * Hibernate memanggil property getter pada proses flush. */
+				if (notifJson.has("fee_amount") && !notifJson.isNull("fee_amount")) {
+					biayaAdmin = notifJson.optDouble("fee_amount", biayaAdmin == null ? 0.0 : biayaAdmin);
+				}
+			} catch (Exception e) {
+				/* Notifikasi tidak valid tidak boleh menggagalkan flush entity. Pertahankan
+				 * biaya admin yang sudah tersimpan (atau nol melalui return di bawah). */
+				System.err.println("[VirtualAccountBank.getBiayaAdmin] notif Flip tidak dapat dibaca: "
+						+ e.getMessage());
 			}
 		}
 		return biayaAdmin == null ? 0.0 : biayaAdmin;

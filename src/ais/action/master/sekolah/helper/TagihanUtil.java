@@ -1975,26 +1975,34 @@ public class TagihanUtil {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			// INNER JOIN ke pembayaranSiswaDetail & pembayaranSiswa → hanya tagihan yang benar-benar
-			// sudah bertaut pembayaran nyata.
-			List<Tagihan> lunas = session.createCriteria(Tagihan.class).add(Restrictions.eq("siswa", siswa))
-					.createAlias("pembayaranSiswaDetail", "psd").createAlias("psd.pembayaranSiswa", "ps").list();
-			for (Tagihan t : lunas) {
+			/* Gunakan projection nilai scalar. Jangan memanggil Tagihan.getDibayar() di
+			 * sini: getter tersebut merambat ke PembayaranSiswaDetail dan
+			 * ItemBiayaSekolah; identity-map legacy dapat mengganti relasi hasil query
+			 * dengan proxy dari request lama yang sesinya sudah ditutup. */
+			List<Object[]> lunas = session.createQuery(
+					"select ib.id, pb.id, t.tahunbulan, t.bayarKe, t.nominal, "
+					+ "psd.nominalManual, psd.nominal "
+					+ "from Tagihan t join t.itemBiayaSekolah ib "
+					+ "left join t.pengaturanBiaya pb "
+					+ "join t.pembayaranSiswaDetail psd join psd.pembayaranSiswa ps "
+					+ "where t.siswa.id = :siswaId")
+					.setParameter("siswaId", siswa.getId()).list();
+			for (Object[] row : lunas) {
 				try {
-					if (t == null || t.getItemBiayaSekolah() == null) {
+					if (row == null || row.length < 7 || row[0] == null) {
 						continue;
 					}
-					double bayar = t.getDibayar() == null ? 0.0 : t.getDibayar();
-					double nominal = t.getNominal() == null ? 0.0 : t.getNominal();
+					Number nilaiBayar = row[5] instanceof Number ? (Number) row[5]
+							: (row[6] instanceof Number ? (Number) row[6] : null);
+					double bayar = nilaiBayar == null ? 0.0 : nilaiBayar.doubleValue();
+					double nominal = row[4] instanceof Number ? ((Number) row[4]).doubleValue() : 0.0;
 					// LUNAS: tagihan bernominal tetap (> 0) yang nominal terbayarnya menutup tagihan
 					// (toleransi pembulatan kecil). Pembayaran sebagian (cicilan slot yang sama) TIDAK
 					// dianggap lunas → tetap boleh dibayar. Item bernominal 0 yang nilainya bisa diubah
 					// saat pembayaran (mis. top-up) sengaja TIDAK diblok agar tetap bisa dibayar lagi.
 					if (nominal > 0.1 && bayar + 0.5 >= nominal) {
-						String slot = slotKeyTagihan(t);
-						if (slot != null) {
-							keys.add(slot);
-						}
+						keys.add(String.valueOf(row[0]) + "_" + String.valueOf(row[1]) + "_"
+								+ String.valueOf(row[2]) + "_" + String.valueOf(row[3]));
 					}
 				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/TagihanUtil.java:1738");
 				}

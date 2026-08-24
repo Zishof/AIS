@@ -720,21 +720,26 @@ public class LaporanRincianPembayaranSiswa extends MyWindow {
 					arrayList.add(map.get("nomor_induk"));
 					arrayList.add(map.get("nama_siswa"));
 
-					String kelas = map.get("kelas") + "";
+					Object kelasValue = map.get("kelas");
+					String kelas = kelasValue == null ? "" : String.valueOf(kelasValue);
 					try {
-						if (kelas == null || kelas.trim().equalsIgnoreCase("-")) {
+						if (kelas.trim().isEmpty() || kelas.trim().equalsIgnoreCase("-")) {
 
-							Long siswa_id = Long.parseLong(map.get("siswa_id") + "");
-							String tahunajaran = map.get("tahunajaran") + "";
+							Object siswaIdValue = map.get("siswa_id");
+							if (siswaIdValue instanceof Number) {
+								Long siswa_id = Long.valueOf(((Number) siswaIdValue).longValue());
+								String tahunajaran = map.get("tahunajaran") == null ? ""
+										: String.valueOf(map.get("tahunajaran"));
 
-							System.out.println("siswa_id -> " + siswa_id + " tahunajaran -> " + tahunajaran);
+								System.out.println("siswa_id -> " + siswa_id + " tahunajaran -> " + tahunajaran);
 
-							kelas = (String) session.createCriteria(KelasSiswaPunyaSiswa.class)
-									.createAlias("kelasSiswa", "kelasSiswa")
-									.add(Restrictions.eq("kelasSiswa.aktif", true))
-									.add(Restrictions.eq("siswa.id", siswa_id))
-									.add(Restrictions.eq("kelasSiswa.tahunAjaran", tahunajaran)).setMaxResults(1)
-									.setProjection(Projections.max("kelasSiswa.nama")).uniqueResult();
+								kelas = (String) session.createCriteria(KelasSiswaPunyaSiswa.class)
+										.createAlias("kelasSiswa", "kelasSiswa")
+										.add(Restrictions.eq("kelasSiswa.aktif", true))
+										.add(Restrictions.eq("siswa.id", siswa_id))
+										.add(Restrictions.eq("kelasSiswa.tahunAjaran", tahunajaran)).setMaxResults(1)
+										.setProjection(Projections.max("kelasSiswa.nama")).uniqueResult();
+							}
 						}
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/sekolah/LaporanRincianPembayaranSiswa.java:718");
 						// TODO: handle exception

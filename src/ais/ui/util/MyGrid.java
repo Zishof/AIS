@@ -263,8 +263,11 @@ public class MyGrid extends Grid {
 							c.setVisible(false);
 							c.invalidate();
 						} catch (Throwable abaikan) {
-							ais.common.ErrorAuditUtil.record(abaikan,
-									"MyGrid.pulihkanVisibilitas:" + c.getClass().getName());
+							String pesan = abaikan.getMessage() == null ? "" : abaikan.getMessage();
+							if (pesan.indexOf("Use open/close instead") < 0) {
+								ais.common.ErrorAuditUtil.record(abaikan,
+										"MyGrid.pulihkanVisibilitas:" + c.getClass().getName());
+							}
 						}
 					}
 

@@ -2817,28 +2817,45 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			final PengaturanBiaya pb = allPBiayas.get(i);
 			final Siswa targetSiswa = (Siswa) targetList.get(i)[0];
 			final CalonSiswa targetCalonSiswa = (CalonSiswa) targetList.get(i)[1];
+			final Long pbId = pb == null ? null : pb.getId();
+			final Long targetSiswaId = targetSiswa == null ? null : targetSiswa.getId();
+			final Long targetCalonSiswaId = targetCalonSiswa == null ? null : targetCalonSiswa.getId();
 
 			executor.submit(new Runnable() {
 				@Override
 				public void run() {
+					Session workerSession = null;
 					try {
-						JenisBiayaSekolah jbs = pb.getJenisBiayaSekolah();
+						/* Entity dari request/ZK tidak boleh dibawa ke worker. Muat ulang seluruh
+						 * akar object pada native session khusus thread ini agar setiap proxy lazy
+						 * mempunyai sesi yang masih hidup selama penghitungan tagihan. */
+						workerSession = HibernateUtil.currentNativeSession();
+						PengaturanBiaya pbWorker = pbId == null ? null
+								: (PengaturanBiaya) workerSession.get(PengaturanBiaya.class, pbId);
+						Siswa siswaWorker = targetSiswaId == null ? null
+								: (Siswa) workerSession.get(Siswa.class, targetSiswaId);
+						CalonSiswa calonWorker = targetCalonSiswaId == null ? null
+								: (CalonSiswa) workerSession.get(CalonSiswa.class, targetCalonSiswaId);
+						if (pbWorker == null) {
+							return;
+						}
+						JenisBiayaSekolah jbs = pbWorker.getJenisBiayaSekolah();
 						boolean isValid = false;
-						if (pb.getAktif()) {
-							if (targetSiswa != null && !jbs.getGunakanCalonSiswa()
-									&& DetailTagihanSiswaHelper.apakahAda(pb, targetSiswa)) {
+						if (pbWorker.getAktif()) {
+							if (siswaWorker != null && !jbs.getGunakanCalonSiswa()
+									&& DetailTagihanSiswaHelper.apakahAda(pbWorker, siswaWorker)) {
 								isValid = true;
-							} else if (targetCalonSiswa != null && jbs.getGunakanCalonSiswa()
-									&& DetailTagihanCalonSiswaHelper.apakahAda(pb, targetCalonSiswa)) {
+							} else if (calonWorker != null && jbs.getGunakanCalonSiswa()
+									&& DetailTagihanCalonSiswaHelper.apakahAda(pbWorker, calonWorker)) {
 								isValid = true;
 							}
 						}
 
 						if (isValid) {
 							List<Tagihan> listTagihanLokal = jbs.getGunakanCalonSiswa()
-									? TagihanUtilCalonSiswa.getTagihan(pb.getJenisBiayaSekolah(), pb, targetCalonSiswa,
+									? TagihanUtilCalonSiswa.getTagihan(jbs, pbWorker, calonWorker,
 											bln, thn, refresh)
-									: TagihanUtil.getTagihan(pb.getJenisBiayaSekolah(), pb, targetSiswa, bln, thn,
+									: TagihanUtil.getTagihan(jbs, pbWorker, siswaWorker, bln, thn,
 											refresh);
 
 							if (listTagihanLokal != null && !listTagihanLokal.isEmpty()) {
@@ -2848,6 +2865,9 @@ public class PembayaranOnline extends GenericAutowireComposer {
 					} catch (Exception e) {
 						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/PembayaranOnline.java:2671");
 					} finally {
+						/* currentNativeSession disimpan ThreadLocal: wajib unbind sekaligus
+						 * clear/disconnect/close sebelum thread pool dipakai ulang. */
+						HibernateUtil.closeSession();
 						completedCount.incrementAndGet();
 					}
 				}

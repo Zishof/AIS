@@ -2222,6 +2222,10 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (mybulansMulai.getSelectedItem() == null
+							|| mybulansSampai.getSelectedItem() == null) {
+						return;
+					}
 					mul = (Integer) mybulansMulai.getSelectedItem().getValue();
 					sam = (Integer) mybulansSampai.getSelectedItem().getValue();
 
@@ -2233,15 +2237,11 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 
 			mybulansMulai.addEventListener("onChange", bulanEvents);
 			mybulansSampai.addEventListener("onChange", bulanEvents);
-			try {
+			if (mybulansMulai.getSelectedItem() != null) {
 				mul = (Integer) mybulansMulai.getSelectedItem().getValue();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/DetailTagihanSiswaHelper.java:2167");
-				// TODO: handle exception
 			}
-			try {
+			if (mybulansSampai.getSelectedItem() != null) {
 				sam = (Integer) mybulansSampai.getSelectedItem().getValue();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/DetailTagihanSiswaHelper.java:2172");
-				// TODO: handle exception
 			}
 
 			MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakDataCustomButton(Siswa.class, this, "Download",

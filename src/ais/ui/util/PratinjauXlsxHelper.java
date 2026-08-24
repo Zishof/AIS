@@ -2,7 +2,9 @@ package ais.ui.util;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
@@ -16,6 +18,8 @@ import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
+import org.zkoss.zul.LayoutRegion;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.North;
@@ -52,6 +56,39 @@ import org.zkoss.zul.Toolbar;
  * <p><b>Gaya kode.</b> Java 1.6/1.7 (tanpa lambda/try-with-resources/diamond/Stream).</p>
  */
 public class PratinjauXlsxHelper {
+
+	/**
+	 * Center/North/South hanya menerima satu anak. Laporan lama kadang menaruh
+	 * Spreadsheet langsung di region tersebut, lalu helper ini menggantinya dengan
+	 * Grid dan Label sehingga anak kedua ditolak ZK. Bungkus seluruh isi region di
+	 * satu Div terlebih dahulu; untuk parent biasa perilaku lama tetap dipakai.
+	 */
+	private static Component wadahAmanUntukPreview(Component parent) {
+		if (!(parent instanceof LayoutRegion)) {
+			return parent;
+		}
+		LayoutRegion region = (LayoutRegion) parent;
+		if (region.getChildren().size() == 1) {
+			Object anak = region.getChildren().get(0);
+			if (anak instanceof Div && "xlsx-preview-region-wrapper".equals(((Div) anak).getSclass())) {
+				return (Component) anak;
+			}
+		}
+		List<Component> anakLama = new ArrayList<Component>();
+		for (Object anak : region.getChildren()) {
+			if (anak instanceof Component) {
+				anakLama.add((Component) anak);
+			}
+		}
+		Div wadah = new Div();
+		wadah.setSclass("xlsx-preview-region-wrapper");
+		wadah.setStyle("width:100%;height:100%;overflow:auto;");
+		for (Component anak : anakLama) {
+			anak.setParent(wadah);
+		}
+		wadah.setParent(region);
+		return wadah;
+	}
 
 	/** Batas baris yang dimuat ke pratinjau grid agar tetap ringan. */
 	public static final int MAKS_BARIS_PREVIEW = 1000;
@@ -400,7 +437,7 @@ public class PratinjauXlsxHelper {
 					(org.zkoss.poi.ss.usermodel.Workbook) spreadsheet.getBook();
 			spreadsheet.setVisible(false);
 			spreadsheet.setParent(null);
-			Component wadah = parent;
+			Component wadah = wadahAmanUntukPreview(parent);
 
 			int totalBaris = renderWorkbookKeGrid(wadah, workbook,
 					MAKS_BARIS_PREVIEW, fallbackCols, false);
