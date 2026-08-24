@@ -1556,13 +1556,16 @@ public class JadwalPelajaranAction extends GenericAutowireComposer
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				tahunAjaran.getParent().setVisible(kelasLesSiswa.getAttribute("kelasLesSiswa") == null);
-				semester.getParent().setVisible(kelasLesSiswa.getAttribute("kelasLesSiswa") == null);
-				matapelajaran.getParent().setVisible(kelasLesSiswa.getAttribute("kelasLesSiswa") == null);
-				kelas.getParent().setVisible(kelasLesSiswa.getAttribute("kelasLesSiswa") == null);
-
-				kelasLesSiswa.getParent()
-						.setVisible(kelas.getSelectedItem() == null || kelas.getSelectedItem().getValue() == null);
+				boolean kelasReguler = kelasLesSiswa == null || kelasLesSiswa.getAttribute("kelasLesSiswa") == null;
+				if (tahunAjaran != null && tahunAjaran.getParent() != null) tahunAjaran.getParent().setVisible(kelasReguler);
+				if (semester != null && semester.getParent() != null) semester.getParent().setVisible(kelasReguler);
+				if (matapelajaran != null && matapelajaran.getParent() != null) matapelajaran.getParent().setVisible(kelasReguler);
+				if (kelas != null && kelas.getParent() != null) kelas.getParent().setVisible(kelasReguler);
+				boolean kelasBelumDipilih = kelas == null || kelas.getSelectedItem() == null
+						|| kelas.getSelectedItem().getValue() == null;
+				if (kelasLesSiswa != null && kelasLesSiswa.getParent() != null) {
+					kelasLesSiswa.getParent().setVisible(kelasBelumDipilih);
+				}
 			}
 		};
 

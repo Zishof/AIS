@@ -214,9 +214,9 @@ public class LaporanRekapAbsenGuruPiketHarian extends MyWindow {
 		center.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(center, true);
 
-		org.zkoss.zul.North north = new org.zkoss.zul.North();
-		north.setParent(borderlayout);
-		north.appendChild(toolbar = CommonReport.exportReport(new ParameterListener() {
+		LayoutRegion exportRegion = Common.isMobile() ? new org.zkoss.zul.South() : new org.zkoss.zul.North();
+		exportRegion.setParent(borderlayout);
+		exportRegion.appendChild(toolbar = CommonReport.exportReport(new ParameterListener() {
 
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			@Override

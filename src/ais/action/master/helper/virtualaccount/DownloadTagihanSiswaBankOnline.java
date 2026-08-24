@@ -411,7 +411,7 @@ public class DownloadTagihanSiswaBankOnline {
 								String hasil = VirtualAccountBank.curlSmartlink(strURL, usernameEsmartlink,
 										passwordEsmartlink, postData);
 
-								JSONObject jSONObject = new JSONObject(hasil);
+								JSONObject jSONObject = bacaResponsJson(hasil, "eSmartlink");
 
 								if (!(jSONObject.get("code") + "").equals("0")) {
 									try {
@@ -841,6 +841,25 @@ public class DownloadTagihanSiswaBankOnline {
 				MyMessageboxConfig.show(message, "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			}
 		} catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/virtualaccount/DownloadTagihanSiswaBankOnline.java:843");
+		}
+	}
+
+	private static JSONObject bacaResponsJson(String respons, String layanan) throws Exception {
+		String isi = respons == null ? "" : respons.trim();
+		if (isi.length() == 0) {
+			throw new Exception(layanan + " tidak mengembalikan respons.");
+		}
+		if (!isi.startsWith("{")) {
+			String ringkas = isi.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+			if (ringkas.length() > 160) {
+				ringkas = ringkas.substring(0, 160) + "...";
+			}
+			throw new Exception(layanan + " mengembalikan respons yang tidak valid: " + ringkas);
+		}
+		try {
+			return new JSONObject(isi);
+		} catch (Exception e) {
+			throw new Exception(layanan + " mengembalikan JSON yang tidak dapat dibaca.", e);
 		}
 	}
 

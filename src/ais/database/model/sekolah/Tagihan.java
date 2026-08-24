@@ -608,52 +608,48 @@ public class Tagihan extends GeneralValueObject {
 
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
-		if (arg0 instanceof Tagihan) {
-			try {
-				Tagihan tagihan = (Tagihan) arg0;
-				String itemNama = getItemBiayaSekolah() != null && getItemBiayaSekolah().getNama() != null
-						? getItemBiayaSekolah().getNama()
-						: "";
-				String itemPad = String.format("%5s", itemNama).replace(' ', '0');
-				itemPad = itemPad.substring(itemPad.length() - 5);
-
-				// itemPad berasal dari NAMA item biaya (bisa alfanumerik, mis. "ah0TK1"), BUKAN
-				// murni digit -- Integer.parseInt bisa gagal utk data yang sah. Root cause fix:
-				// bungkus parse ini dgn fallback aman (pakai string mentah apa adanya) supaya
-				// Collections.sort() tak pernah meledak gara-gara satu baris tagihan berkode non-numerik.
-				String rawByr0 = itemPad + (getBayarKe() != null ? getBayarKe() : 0);
-				String byr0;
-				try {
-					byr0 = String.format("%04d", Integer.parseInt(rawByr0));
-				} catch (NumberFormatException nfe0) {
-					ais.common.ErrorAuditUtil.record(nfe0,
-							"Tagihan.compareTo: itemPad+bayarKe bukan angka murni ('" + rawByr0
-									+ "'), fallback ke perbandingan string apa adanya");
-					byr0 = rawByr0;
-				}
-				String byr1 = String.format("%04d", tagihan.getBayarKe() != null ? tagihan.getBayarKe() : 0);
-
-				byr0 = byr0.substring(byr0.length() - 4);
-				byr1 = byr1.substring(byr1.length() - 4);
-
-				Long pbIdThis = getPengaturanBiaya() != null
-						? getPengaturanBiaya().getId()
-						: 0L;
-				Long pbIdThat = tagihan.getNominalBiaya() != null
-						&& tagihan.getPengaturanBiaya() != null
-								? tagihan.getPengaturanBiaya().getId()
-								: 0L;
-
-				if (getTahunbulan() != null && tagihan.getTahunbulan() != null) {
-					return (pbIdThis + "-" + byr0 + "-" + getTahunbulan())
-							.compareTo(pbIdThat + "-" + byr1 + "-" + tagihan.getTahunbulan());
-				} else {
-					return (pbIdThis + "-" + byr0).compareTo(pbIdThat + "-" + byr1);
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sekolah/Tagihan.java:643");
-				/* Abaikan error parsing saat compare */ }
+		if (!(arg0 instanceof Tagihan)) {
+			return super.compareTo(arg0);
 		}
-		return super.compareTo(arg0);
+		Tagihan tagihan = (Tagihan) arg0;
+		int hasil = bandingLong(ambilPengaturanBiayaId(this), ambilPengaturanBiayaId(tagihan));
+		if (hasil != 0) return hasil;
+		hasil = bandingString(ambilNamaItem(this), ambilNamaItem(tagihan));
+		if (hasil != 0) return hasil;
+		hasil = bandingInteger(getBayarKe(), tagihan.getBayarKe());
+		if (hasil != 0) return hasil;
+		hasil = bandingInteger(getTahunbulan(), tagihan.getTahunbulan());
+		if (hasil != 0) return hasil;
+		return bandingLong(getId(), tagihan.getId());
+	}
+
+	private static Long ambilPengaturanBiayaId(Tagihan tagihan) {
+		return tagihan.getPengaturanBiaya() == null ? null : tagihan.getPengaturanBiaya().getId();
+	}
+
+	private static String ambilNamaItem(Tagihan tagihan) {
+		return tagihan.getItemBiayaSekolah() == null ? null : tagihan.getItemBiayaSekolah().getNama();
+	}
+
+	private static int bandingLong(Long kiri, Long kanan) {
+		if (kiri == kanan) return 0;
+		if (kiri == null) return -1;
+		if (kanan == null) return 1;
+		return kiri.compareTo(kanan);
+	}
+
+	private static int bandingInteger(Integer kiri, Integer kanan) {
+		if (kiri == kanan) return 0;
+		if (kiri == null) return -1;
+		if (kanan == null) return 1;
+		return kiri.compareTo(kanan);
+	}
+
+	private static int bandingString(String kiri, String kanan) {
+		if (kiri == kanan) return 0;
+		if (kiri == null) return -1;
+		if (kanan == null) return 1;
+		return kiri.compareToIgnoreCase(kanan);
 	}
 
 	// =========================================================================================

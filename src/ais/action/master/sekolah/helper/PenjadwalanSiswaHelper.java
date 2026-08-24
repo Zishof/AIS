@@ -1,5 +1,7 @@
 package ais.action.master.sekolah.helper;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -96,6 +98,28 @@ public class PenjadwalanSiswaHelper {
 
 	private MyCheckboxConfig hanyaYangAktif;
 	private MyCheckboxConfig urutkanManual;
+
+	private static Date parseWaktu(String nilai) throws ParseException {
+		ParseException terakhir = null;
+		String[] pola = new String[] { "HH.mm", "HH:mm" };
+		for (int i = 0; i < pola.length; i++) {
+			try {
+				SimpleDateFormat format = new SimpleDateFormat(pola[i]);
+				format.setLenient(false);
+				return format.parse(nilai.trim());
+			} catch (ParseException e) {
+				terakhir = e;
+			}
+		}
+		throw terakhir;
+	}
+
+	private static StatusPertemuan ambilStatusPertemuanDefault(Session session) {
+		if (ConstantValues.TATAP_MUKA != null) {
+			return ConstantValues.TATAP_MUKA;
+		}
+		return session == null ? null : (StatusPertemuan) session.get(StatusPertemuan.class, Long.valueOf(236L));
+	}
 
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -775,7 +799,11 @@ public class PenjadwalanSiswaHelper {
 										pertemuan = new Pertemuan();
 										pertemuan.setPertemuanKe(i);
 
-										pertemuan.setStatusPertemuan(ConstantValues.TATAP_MUKA);
+										StatusPertemuan statusDefault = ambilStatusPertemuanDefault(session);
+										if (statusDefault == null) {
+											throw new IllegalStateException("Status pertemuan Tatap Muka belum tersedia.");
+										}
+										pertemuan.setStatusPertemuan(statusDefault);
 
 										pertemuan.setTanggal(currDate);
 										pertemuan.setJadwalPelajaran(jadwalPelajaran);
@@ -1747,14 +1775,14 @@ public class PenjadwalanSiswaHelper {
 					waktuMulai.setValue(
 							jadwalPelajaran.getWaktuMulai() == null || jadwalPelajaran.getWaktuMulai().trim().isEmpty()
 									? null
-									: Common.timeFormat2.get().parse(jadwalPelajaran.getWaktuMulai()));
+									: parseWaktu(jadwalPelajaran.getWaktuMulai()));
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/PenjadwalanSiswaHelper.java:1412");
 
 				}
 				try {
 					waktuSelesai.setValue(jadwalPelajaran.getWaktuSelesai() == null
 							|| jadwalPelajaran.getWaktuSelesai().trim().isEmpty() ? null
-									: Common.timeFormat2.get().parse(jadwalPelajaran.getWaktuSelesai()));
+									: parseWaktu(jadwalPelajaran.getWaktuSelesai()));
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/PenjadwalanSiswaHelper.java:1419");
 
 				}
@@ -1840,14 +1868,24 @@ public class PenjadwalanSiswaHelper {
 					@SuppressWarnings("unchecked")
 					@Override
 					public void onEvent(Event event) throws Exception {
-
+						Session session = HibernateUtil.currentSession();
+						StatusPertemuan statusPertemuan = combobox.getSelectedItem() == null ? null
+								: (StatusPertemuan) combobox.getSelectedItem().getValue();
+						if (statusPertemuan == null) {
+							statusPertemuan = ambilStatusPertemuanDefault(session);
+						}
+						if (statusPertemuan == null) {
+							MyMessageboxConfig.show("Jenis pertemuan belum tersedia.", "Peringatan",
+									MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						window.detach();
 
 						final Pertemuan pertemuan = new Pertemuan();
 						pertemuan.setCatatan(catatan.getValue());
 						pertemuan.setBukuRujukan1(bukuRujukan1.getValue());
 						pertemuan.setBukuRujukan2(bukuRujukan2.getValue());
-						pertemuan.setStatusPertemuan((StatusPertemuan) combobox.getSelectedItem().getValue());
+						pertemuan.setStatusPertemuan(statusPertemuan);
 						pertemuan.setTanggal(tanggalPertemuan.getValue());
 						pertemuan.setJadwalPelajaran(jadwalPelajaran);
 						pertemuan.setRuang(jadwalPelajaran.getRuang());
@@ -1862,8 +1900,6 @@ public class PenjadwalanSiswaHelper {
 							pertemuan.setWaktuSelesai(jadwalPelajaran.getJamPelajaran().getSampaiS());
 						}
 						pertemuan.setJadwalPelajaran(jadwalPelajaran);
-
-						Session session = HibernateUtil.currentSession();
 
 						session.save(pertemuan);
 						session.flush();

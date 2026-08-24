@@ -33,6 +33,7 @@ import javax.persistence.TemporalType;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang.StringUtils;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
@@ -587,6 +588,26 @@ public class Pertemuan extends Tugas {
 		this.statusPertemuan = statusPertemuan;
 	}
 
+	@SuppressWarnings("unchecked")
+	private List<String> ambilUsernamePemilik(String properti, Long ref) {
+		Session session = null;
+		try {
+			session = HibernateUtil.currentNativeSession();
+			return session.createCriteria(Tbmuser.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.eq(properti + ".id", ref))
+					.setProjection(Projections.property("userId")).list();
+		} finally {
+			if (session != null && session.isOpen()) {
+				session.clear();
+				if (session.isConnected()) {
+					session.disconnect();
+				}
+				session.close();
+			}
+		}
+	}
+
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_pertemuan", nullable = false)
 	public StatusPertemuan getStatusPertemuan() {
@@ -997,17 +1018,7 @@ public class Pertemuan extends Tugas {
 										"Info kehadiran mahasiswa pada " + info(), ket, Pertemuan.this);
 							}
 						} else if (jenis.equalsIgnoreCase("Guru")) {
-							Session session = HibernateUtil.currentNativeSession();
-							List<String> usernames = session.createCriteria(Tbmuser.class)
-									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.add(Restrictions.eq("guru.id", ref)).setProjection(Projections.property("userId"))
-									.list();
-							// session.disconnect();
-							if (session.isOpen()) {
-								session.disconnect();
-								session.close();
-							}
-							HibernateUtil.closeSession();
+							List<String> usernames = ambilUsernamePemilik("guru", ref);
 							if (!usernames.isEmpty()) {
 								JSONArray userIds = new JSONArray();
 								for (String s : usernames) {
@@ -1016,8 +1027,8 @@ public class Pertemuan extends Tugas {
 								String recipientsTemp = null;
 								Guru guru = (Guru) ConstantValues.ambil(Guru.class.getName(), ref);
 								if (guru != null) {
-									Integer smt = getJadwalPelajaran() == null ? null : getPerkuliahan().getSemester();
-									String ta = getJadwalPelajaran() == null ? null : getPerkuliahan().getTahunAjaran();
+									Integer smt = getJadwalPelajaran() == null ? null : getJadwalPelajaran().getSemester();
+									String ta = getJadwalPelajaran() == null ? null : getJadwalPelajaran().getTahunAjaran();
 									String kls = getJadwalPelajaran() == null ? null
 											: (getJadwalPelajaran().getKelas() != null
 													? getJadwalPelajaran().getKelas().getNama()
@@ -1048,17 +1059,7 @@ public class Pertemuan extends Tugas {
 								}
 							}
 						} else if (jenis.equalsIgnoreCase("Dosen")) {
-							Session session = HibernateUtil.currentNativeSession();
-							List<String> usernames = session.createCriteria(Tbmuser.class)
-									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.add(Restrictions.eq("dosen.id", ref)).setProjection(Projections.property("userId"))
-									.list();
-							// session.disconnect();
-							if (session.isOpen()) {
-								session.disconnect();
-								session.close();
-							}
-							HibernateUtil.closeSession();
+							List<String> usernames = ambilUsernamePemilik("dosen", ref);
 							if (!usernames.isEmpty()) {
 								JSONArray userIds = new JSONArray();
 								for (String s : usernames) {
@@ -1101,16 +1102,7 @@ public class Pertemuan extends Tugas {
 							// Fitur Voucher Pegawai (kehadiran Kajian) -- mengikuti persis pola cabang Guru/Dosen
 							// di atas, disederhanakan (tanpa konteks jadwalPelajaran/kelas akademik yang tidak
 							// relevan untuk kehadiran Kajian/kegiatan non-akademik).
-							Session session = HibernateUtil.currentNativeSession();
-							List<String> usernames = session.createCriteria(Tbmuser.class)
-									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.add(Restrictions.eq("pegawai.id", ref)).setProjection(Projections.property("userId"))
-									.list();
-							if (session.isOpen()) {
-								session.disconnect();
-								session.close();
-							}
-							HibernateUtil.closeSession();
+							List<String> usernames = ambilUsernamePemilik("pegawai", ref);
 							if (!usernames.isEmpty()) {
 								JSONArray userIds = new JSONArray();
 								for (String s : usernames) {
@@ -2046,14 +2038,21 @@ public class Pertemuan extends Tugas {
 	}
 
 	public Long getSekolahId() {
-		if (jadwalPelajaran != null && jadwalPelajaran.getSekolah() != null) {
-			sekolahId = jadwalPelajaran.getSekolah().getId();
-		} else if (jadwalUjianPSB != null && jadwalUjianPSB.getGelombangPendaftaranPsb() != null
-				&& jadwalUjianPSB.getGelombangPendaftaranPsb().getSekolah() != null) {
-			sekolahId = jadwalUjianPSB.getGelombangPendaftaranPsb().getSekolah().getId();
-		} else if (jadwalPertemuanPSB != null && jadwalPertemuanPSB.getGelombangPendaftaranPsb() != null
-				&& jadwalPertemuanPSB.getGelombangPendaftaranPsb().getSekolah() != null) {
-			sekolahId = jadwalPertemuanPSB.getGelombangPendaftaranPsb().getSekolah().getId();
+		try {
+			if (jadwalPelajaran != null && Hibernate.isInitialized(jadwalPelajaran)
+					&& jadwalPelajaran.getSekolah() != null) {
+				sekolahId = jadwalPelajaran.getSekolah().getId();
+			} else if (jadwalUjianPSB != null && Hibernate.isInitialized(jadwalUjianPSB)
+					&& jadwalUjianPSB.getGelombangPendaftaranPsb() != null
+					&& jadwalUjianPSB.getGelombangPendaftaranPsb().getSekolah() != null) {
+				sekolahId = jadwalUjianPSB.getGelombangPendaftaranPsb().getSekolah().getId();
+			} else if (jadwalPertemuanPSB != null && Hibernate.isInitialized(jadwalPertemuanPSB)
+					&& jadwalPertemuanPSB.getGelombangPendaftaranPsb() != null
+					&& jadwalPertemuanPSB.getGelombangPendaftaranPsb().getSekolah() != null) {
+				sekolahId = jadwalPertemuanPSB.getGelombangPendaftaranPsb().getSekolah().getId();
+			}
+		} catch (RuntimeException ignore) {
+			// Getter dipanggil juga saat audit objek detached; pertahankan nilai snapshot yang sudah ada.
 		}
 		return sekolahId;
 	}

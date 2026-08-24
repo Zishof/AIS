@@ -715,11 +715,12 @@ public class DetailpertemuanHelper implements DataLoader {
 										if (rowId != null) {
 											for (int c = 2; c <= rowId.getLastCellNum(); c++) {
 												try {
-													String idStr = Common.getCellContent(rowId.getCell(c));
-													if (idStr != null && !idStr.trim().isEmpty()) {
-														kolomPertemuan.put(Integer.valueOf(c), Long.valueOf(Double
-																.valueOf(idStr.trim().replace(",", ".")).longValue()));
-													}
+												String idStr = Common.getCellContent(rowId.getCell(c));
+												String idNormal = idStr == null ? "" : idStr.trim().replace(",", ".");
+												if (idNormal.matches("[0-9]+(?:\\.[0-9]+)?")) {
+													kolomPertemuan.put(Integer.valueOf(c),
+															Long.valueOf(Double.valueOf(idNormal).longValue()));
+												}
 												} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailpertemuanHelper.java:728");
 												}
 											}
