@@ -246,6 +246,8 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 	private MyCheckboxConfig otomatisDiterimaSaatDaftar;
 	protected LampiranLain icon;
 	private MyCheckboxConfig tampilkanQrCodeMahasiswaSetelahDapatNim;
+	private MyCheckboxConfig tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
+	private MyCheckboxConfig tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
 	private Combobox kelompokGelombang;
 
 	public void doAfterCompose(Component comp) throws Exception {
@@ -1268,6 +1270,22 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(tampilkanStatusPembayaranRegistrasiDiHalamanAwal = new MyCheckboxConfig(
+				"Tampilkan status Lunas / Belum Lunas pembayaran registrasi di halaman awal calon mahasiswa"));
+		tampilkanStatusPembayaranRegistrasiDiHalamanAwal.setChecked(
+				gelombangPendaftaran.getTampilkanStatusPembayaranRegistrasiDiHalamanAwal());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(tampilkanStatusPembayaranDaftarUlangDiHalamanAwal = new MyCheckboxConfig(
+				"Tampilkan status Lunas / Belum Lunas pembayaran daftar ulang di halaman awal calon mahasiswa"));
+		tampilkanStatusPembayaranDaftarUlangDiHalamanAwal.setChecked(
+				gelombangPendaftaran.getTampilkanStatusPembayaranDaftarUlangDiHalamanAwal());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
 		row.appendChild(harusSebagaiAlumni = new MyCheckboxConfig("Calon mahasiswa harus sebagai alumni"));
 		harusSebagaiAlumni.setChecked(gelombangPendaftaran.getHarusSebagaiAlumni());
 
@@ -1903,6 +1921,10 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 
 		gelombangPendaftaran.setTanggalTagihanDaftarUlang(tanggalTagihanDaftarUlang.getValue());
 		gelombangPendaftaran.setTanggalTagihanRegistrasi(tanggalTagihanRegistrasi.getValue());
+		gelombangPendaftaran.setTampilkanStatusPembayaranRegistrasiDiHalamanAwal(
+				tampilkanStatusPembayaranRegistrasiDiHalamanAwal.isChecked());
+		gelombangPendaftaran.setTampilkanStatusPembayaranDaftarUlangDiHalamanAwal(
+				tampilkanStatusPembayaranDaftarUlangDiHalamanAwal.isChecked());
 
 		gelombangPendaftaran.setOtomatisLoginSetelahDaftar(otomatisLoginSetelahDaftar.isChecked());
 		gelombangPendaftaran.setHarusSebagaiAlumni(harusSebagaiAlumni.isChecked());

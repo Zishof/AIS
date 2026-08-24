@@ -21,7 +21,7 @@ Baseline implementasi: SVN revision 78235, 24 Agustus 2026.
 - Compliance gate dan feature flags default-off.
 - Portal publik `/sosial`, program, kalkulator, checkout, status, riwayat, transparansi, bantuan, kebijakan, workspace, serta verifikasi bukti.
 - API typed `/sosial-api` dengan CSRF, rate limit, validation, ownership, dan server-calculated total.
-- Smartlink adapter khusus sosial tanpa membuat tagihan akademik palsu.
+- Smartlink adapter khusus sosial tanpa membuat tagihan akademik palsu, dengan credential profile yang dibekukan per donasi.
 - Callback `/SosialSmartlinkCallback` dengan IP allow-list, HMAC-SHA256, fingerprint, lock, amount check, duplicate handling, mismatch queue, allocation posting, dan receipt.
 - PDF bukti setor on-demand di `/sosial-receipt-pdf`.
 - Service posting penyaluran dengan restricted balance check.
@@ -37,7 +37,7 @@ Seluruh fitur mutasi uang harus tetap nonaktif sampai konfigurasi tenant, policy
 - Donasi tamu belum diaktifkan. V1 mewajibkan login AIS sampai token kepemilikan transaksi tamu yang dapat kedaluwarsa tersedia.
 - Notification sender/worker belum dihubungkan ke email/WhatsApp existing.
 - Accounting adapter tidak memposting jurnal sebelum mapping akun disetujui dan flag diaktifkan.
-- Kontrak header callback implementasi saat ini adalah `X-Smartlink-Signature = hex(HMAC-SHA256(secret, rawBody))`. Kontrak ini wajib dicocokkan dengan Smartlink saat deployment; jangan melonggarkan verifikasi untuk membuat callback lolos.
+- Kontrak header callback implementasi saat ini adalah `X-Smartlink-Signature = hex(HMAC-SHA256(secret profil transaksi, rawBody))`. Kontrak ini wajib dicocokkan dengan Smartlink saat deployment; jangan melonggarkan verifikasi untuk membuat callback lolos.
 - CRUD master/workflow rinci tetap memerlukan menu/action Generic CRUD dan assignment role pada data konfigurasi AIS.
 
 ## Build lokal

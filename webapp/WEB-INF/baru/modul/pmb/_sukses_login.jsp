@@ -100,6 +100,7 @@ if (cama == null) {
 // =========================================================================
 boolean tampilkanInformasiPembyaran = false, tampilkanInterview = false, tampilkanInformasiUjian = false;
 boolean tampilkanUjianOnline = false, tampilkanBuktiDiterima = false, harusLulusSblmDaftarUlang = false;
+boolean tampilkanStatusPembayaranRegistrasi = true, tampilkanStatusPembayaranDaftarUlang = true;
 boolean allowEditBiodata = true; String denyEditMessage = "";
 
 String gelombang = "-", seleksi = "-", paket = "-", periode = "-";
@@ -200,6 +201,8 @@ try {
            
             if (cama.getGelombangPendaftaran() != null) {
                 GelombangPendaftaran gp = cama.getGelombangPendaftaran();
+				tampilkanStatusPembayaranRegistrasi = gp.getTampilkanStatusPembayaranRegistrasiDiHalamanAwal();
+				tampilkanStatusPembayaranDaftarUlang = gp.getTampilkanStatusPembayaranDaftarUlangDiHalamanAwal();
                 
                 try { if (gp.getTanggalDaftarUlangBerakhir() != null) batasLengkapiData = sdf.format(gp.getTanggalDaftarUlangBerakhir()); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pmb/_sukses_login.jsp:172");}
                 try { if (gp.getTanggalLoginCalonMahasiswaBerakhir() != null) batasLogin = sdf.format(gp.getTanggalLoginCalonMahasiswaBerakhir()); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pmb/_sukses_login.jsp:173");}
@@ -565,14 +568,18 @@ try {
                                         <td><%= Common.getBahasaConfig("Ruangan Ujian (Jika Ada)") %></td>
                                         <td><span class="d-none d-sm-inline me-2 text-muted">:</span> <%= ruangUjian %></td>
                                     </tr>
+                                    <% if (tampilkanStatusPembayaranRegistrasi) { %>
                                     <tr>
                                         <td><%= Common.getBahasaConfig("Status Pembayaran Registrasi") %></td>
                                         <td><span class="d-none d-sm-inline me-2 text-muted">:</span> <%= teksBayarReg %></td>
                                     </tr>
+                                    <% } %>
+                                    <% if (tampilkanStatusPembayaranDaftarUlang) { %>
                                     <tr>
                                         <td><%= Common.getBahasaConfig("Status Pembayaran Daftar Ulang") %></td>
                                         <td><span class="d-none d-sm-inline me-2 text-muted">:</span> <%= teksBayarDU %></td>
                                     </tr>
+                                    <% } %>
                                 </tbody>
                             </table>
                         </div>

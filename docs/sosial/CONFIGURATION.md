@@ -16,17 +16,26 @@ Nilai aktif mengikuti nilai `Konfigurasi.AKTIF`. Semua default tidak aktif.
 
 Flag juga dapat disimpan dalam JSON `SocialTenantSetting.featureFlags`; nilai tenant mengungguli konfigurasi global.
 
-## Smartlink
+## Smartlink multi-credential per donasi
 
-- `sosial_smartlink_create_order_url`
-- `sosial_smartlink_username`
-- `sosial_smartlink_password`
-- `sosial_smartlink_channels`, contoh `VA_CIMB,VA_BRI`
-- `sosial_smartlink_callback_secret`, minimal 16 karakter
-- `sosial_smartlink_callback_allowed_ips`, daftar IP dipisah koma
-- `online_smartlink_biaya_administrasi`
+Setiap transaksi menyimpan `smartlinkCredentialCode`. Kode dipilih server-side dan disalin ke payment attempt sehingga credential tidak berubah walaupun konfigurasi routing kemudian diperbarui.
 
-Username, password, dan callback secret tidak boleh memiliki default di source, JSP, JavaScript, atau dokumentasi operasional publik.
+- `sosial_smartlink_profiles_<tenant-slug>`: pool kode profil untuk tenant, misalnya `amil_a,amil_b`.
+- `sosial_smartlink_profiles`: fallback pool bila konfigurasi tenant tidak tersedia.
+- `sosial_smartlink_fund_<jenisDanaId>_profile`: profil tetap untuk suatu jenis dana; mengungguli pool.
+- `sosial_smartlink_profile_<code>_url`
+- `sosial_smartlink_profile_<code>_username`
+- `sosial_smartlink_profile_<code>_password`
+- `sosial_smartlink_profile_<code>_channels`, contoh `VA_CIMB,VA_BRI`
+- `sosial_smartlink_profile_<code>_fee`
+- `sosial_smartlink_profile_<code>_callback_secret`, minimal 16 karakter
+- `sosial_smartlink_profile_<code>_callback_allowed_ips`, daftar IP dipisah koma
+
+Tanpa mapping jenis dana, profil dipilih secara deterministik dari hash nomor transaksi. Browser tidak boleh mengirim atau memilih kode profil. Callback mencari payment berdasarkan `order_id`, lalu memverifikasi signature dan IP menggunakan profil yang dibekukan pada payment tersebut.
+
+Username, password, dan callback secret tidak memiliki default di source, JSP, JavaScript, atau dokumentasi operasional publik. Batasi akses tabel konfigurasi dan log; nilai secret tidak boleh ikut response atau audit payload.
+
+Kode profil bersifat versioned dan immutable setelah dipakai membuat order. Untuk rotasi username, password, endpoint, atau callback secret, buat kode baru (contoh `amil_a_v2`), masukkan ke pool, hentikan routing baru ke kode lama, lalu pertahankan konfigurasi lama sampai seluruh order dan settlement-nya selesai.
 
 ## RBAC
 
@@ -63,4 +72,3 @@ Formula key V1:
 - `TRADE_BUSINESS`
 - `MAAL_GENERIC`
 - `FITRAH`
-

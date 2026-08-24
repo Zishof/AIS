@@ -312,6 +312,8 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	private Boolean fotoWajibDiuplad;
 	private Boolean tampilkanUploadFoto;
 	private Boolean tampilkanQrCodeMahasiswaSetelahDapatNim;
+	private Boolean tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
+	private Boolean tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
 	private PerguruanTinggi perguruanTinggi;
 
 	private String calendarEvent;
@@ -1460,6 +1462,28 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 	public void setTampilkanQrCodeMahasiswaSetelahDapatNim(Boolean tampilkanQrCodeMahasiswaSetelahDapatNim) {
 		this.tampilkanQrCodeMahasiswaSetelahDapatNim = tampilkanQrCodeMahasiswaSetelahDapatNim;
+	}
+
+	@Column(name = "tampilkan_status_bayar_registrasi_di_pmb")
+	public Boolean getTampilkanStatusPembayaranRegistrasiDiHalamanAwal() {
+		return tampilkanStatusPembayaranRegistrasiDiHalamanAwal == null ? true
+				: tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
+	}
+
+	public void setTampilkanStatusPembayaranRegistrasiDiHalamanAwal(
+			Boolean tampilkanStatusPembayaranRegistrasiDiHalamanAwal) {
+		this.tampilkanStatusPembayaranRegistrasiDiHalamanAwal = tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
+	}
+
+	@Column(name = "tampilkan_status_bayar_daftar_ulang_di_pmb")
+	public Boolean getTampilkanStatusPembayaranDaftarUlangDiHalamanAwal() {
+		return tampilkanStatusPembayaranDaftarUlangDiHalamanAwal == null ? true
+				: tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
+	}
+
+	public void setTampilkanStatusPembayaranDaftarUlangDiHalamanAwal(
+			Boolean tampilkanStatusPembayaranDaftarUlangDiHalamanAwal) {
+		this.tampilkanStatusPembayaranDaftarUlangDiHalamanAwal = tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
