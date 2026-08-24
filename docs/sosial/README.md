@@ -26,6 +26,8 @@ Baseline implementasi: SVN revision 78235, 24 Agustus 2026.
 - PDF bukti setor on-demand di `/sosial-receipt-pdf`.
 - Service posting penyaluran dengan restricted balance check.
 - Service rekonsiliasi settlement dan accounting boundary yang default-off.
+- CRUD ZKoss Zakat, Infaq, Shodaqoh, Donasi, dan SosialChannel dengan dashboard pada tab pertama serta CRUD pada tab kedua.
+- Seeder menu startup idempoten dan hak penuh role Administrator `am`; lihat `ZKOSS_MENU_CRUD.md`.
 
 ## Status aktivasi
 

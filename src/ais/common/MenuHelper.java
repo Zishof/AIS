@@ -1962,6 +1962,32 @@ public class MenuHelper {
         }
     }
 
+    /** Memastikan menu ZIS/Donasi ZKoss dan hak CRUD penuh Administrator tersedia. */
+    public static void ensureSosialMenus() {
+        Session session = null; Transaction tx = null;
+        try {
+            session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
+            Menu root = ensureMenu(session,33293L,40L,600000008L,"Modul Sosial",null,"fas fa-hand-holding-heart",13,Boolean.FALSE);
+            Menu zakat = ensureMenu(session,73329301L,600000008L,60000000820L,"Zakat","/pages/master/sosial/zakat_workspace.zul","fas fa-mosque",1,Boolean.FALSE);
+            Menu infaq = ensureMenu(session,73329302L,600000008L,60000000821L,"Infaq","/pages/master/sosial/infaq_workspace.zul","fas fa-hand-holding-usd",2,Boolean.FALSE);
+            Menu shodaqoh = ensureMenu(session,73329303L,600000008L,60000000822L,"Shodaqoh","/pages/master/sosial/shodaqoh_workspace.zul","fas fa-hands-helping",3,Boolean.FALSE);
+            Menu donasi = ensureMenu(session,73329304L,600000008L,60000000823L,"Donasi","/pages/master/sosial/donasi_workspace.zul","fas fa-donate",4,Boolean.FALSE);
+            Menu channel = ensureMenu(session,73329305L,600000008L,60000000824L,"SosialChannel","/pages/master/sosial/sosial_channel.zul","fas fa-credit-card",5,Boolean.FALSE);
+            tx.commit(); tx=null;
+            tx=session.beginTransaction(); Tbmrole admin=(Tbmrole)session.get(Tbmrole.class,Tbmrole.ADMINISTRATOR);
+            java.util.List<Menu> menus=new java.util.ArrayList<Menu>(); menus.add(root);menus.add(zakat);menus.add(infaq);menus.add(shodaqoh);menus.add(donasi);menus.add(channel);
+            for(long legacy=33294L;legacy<=33298L;legacy++){Menu m=(Menu)session.get(Menu.class,legacy);if(m!=null)menus.add(m);}
+            for(Menu menu:menus){attachMenu(admin,menu);ensureSosialFullPrivilege(session,Tbmrole.ADMINISTRATOR,menu);}
+            tx.commit();tx=null;ais.common.newui.NewUiCacheInvalidator.invalidateRole(Tbmrole.ADMINISTRATOR);
+            System.out.println("[MenuHelper] Menu sosial dan akses penuh Administrator berhasil dipastikan.");
+        } catch(Exception e){if(tx!=null&&tx.isActive())try{tx.rollback();}catch(Exception ignored){}ais.common.ErrorAuditUtil.record(e,"MenuHelper.ensureSosialMenus");}
+        finally{HibernateUtil.closeSessionQuietly(session);HibernateUtil.closeSession();}
+    }
+
+    private static void ensureSosialFullPrivilege(Session session,String roleId,Menu menu){
+        ensurePrivilege(session,roleId,menu);RolePrivilage p=(RolePrivilage)session.createCriteria(RolePrivilage.class).createAlias("role","r").createAlias("menu","m").add(org.hibernate.criterion.Restrictions.eq("r.roleId",roleId)).add(org.hibernate.criterion.Restrictions.eq("m.id",menu.getId())).setMaxResults(1).uniqueResult();if(p!=null){p.setRead(1);p.setCreate(1);p.setUpdate(1);p.setDelete(1);p.setApprove(1);p.setReject(1);session.saveOrUpdate(p);}
+    }
+
     private static Menu ensureMenu(Session session, Long id, Long root, Long child, String label, String url,
             String icon, Integer nomorUrut, Boolean bukaHalamanBaru) {
         Menu menu = (Menu) session.get(Menu.class, id);

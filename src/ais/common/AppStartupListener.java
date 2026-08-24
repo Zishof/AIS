@@ -167,6 +167,7 @@ public class AppStartupListener implements ServletContextListener {
 			MenuHelper.ensureDokterMenus();
 			MenuHelper.ensurePenjaminanMutuAnalisisMenu();
 			MenuHelper.ensureKursusMarketplaceMenus();
+			MenuHelper.ensureSosialMenus();
 
 			// Modul Satuan Pengawasan Internal (SPI) — Bagian A: role & menu Setup SPI.
 			// Role harus di-seed dulu SEBELUM menu agar ensurePrivilege langsung berhasil
