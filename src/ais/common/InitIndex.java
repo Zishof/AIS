@@ -549,8 +549,9 @@ public class InitIndex {
 									+ "hanya lebih lambat). Solusi: naikkan parameter 'maintenance_work_mem' pada "
 									+ "konfigurasi server PostgreSQL (postgresql.conf) lalu jalankan ulang statement "
 									+ "ini secara manual, atau restart aplikasi setelah parameter dinaikkan.");
+						} else {
+							ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/InitIndex.java:437");
 						}
-						ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/InitIndex.java:437");
 					}
 				}
 			});
@@ -2106,6 +2107,26 @@ public class InitIndex {
 			t = t.getCause();
 		}
 		return false;
+	}
+
+	/** Menjalankan satu kelompok DDL yang saling bergantung dalam SATU worker.
+	 * Menjadwalkan CREATE dan ALTER satu per satu ke pool membuat ALTER dapat menang
+	 * balapan sebelum CREATE selesai. */
+	private static void eksekusiKelompokDdlBerurutan(final String[] sqls) {
+		submitDdl(new Runnable() {
+			@Override
+			public void run() {
+				for (int i = 0; i < sqls.length; i++) {
+					try {
+						String sql = sqlKompatibelIndexIfNotExistsPostgresLama(
+								sqlKompatibelPostgresLama(sqls[i]));
+						if (bolehEksekusiSqlIndex(sql)) ais.common.Common.updateSql(sql, 600, true);
+					} catch (Throwable e) {
+						ais.common.ErrorAuditUtil.record(e, "init grup aturan diskon (DDL ke-" + (i + 1) + ")");
+					}
+				}
+			}
+		});
 	}
 
 	private static void tambahkanConstraintKebijakanReturJikaBelumAda() throws Exception {
@@ -3721,6 +3742,12 @@ public class InitIndex {
 			ais.common.ErrorAuditUtil.record(e, "init penanda toko demo");
 		}
 
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE akunting.pertangungjawaban ALTER COLUMN keterangan TYPE text");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init kolom keterangan pertanggungjawaban");
+		}
+
 		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta
 		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar
 		// instalasi lama dan instalasi baru bergerak ke skema yang sama.
@@ -3744,10 +3771,7 @@ public class InitIndex {
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_grup_diskon_produk ON koperasi.grup_aturan_diskon_detail (grup_aturan_diskon, produk)",
 				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_aktif_toko_periode ON koperasi.grup_aturan_diskon (toko, tanggal_mulai, tanggal_selesai) WHERE aktif=true",
 				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_detail_produk_aktif ON koperasi.grup_aturan_diskon_detail (produk, grup_aturan_diskon) WHERE aktif=true" };
-		for (String sql : DDL_GRUP_ATURAN_DISKON) {
-			try { eksekusiSqlAmanDdl(sql); }
-			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init grup aturan diskon"); }
-		}
+		eksekusiKelompokDdlBerurutan(DDL_GRUP_ATURAN_DISKON);
 
 		} finally {
 			// Tunggu SEMUA DDL paralel selesai, lalu tutup pool & reset state (idempoten,

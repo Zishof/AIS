@@ -1319,14 +1319,11 @@ public class BiodataPegawaiAction extends MyWindow {
 					TRANSPORT.setValue(transport == null ? "" : Common.numberFormat.get().format(transport.getTransport()));
 					LAIN.setValue(gajiPokok == null ? "" : Common.numberFormat.get().format(gajiPokok.getLain()));
 
-					try {
-						GAPOK.getParent().setVisible(false);
-						INSENTIF.getParent().setVisible(false);
-						MAKAN.getParent().setVisible(false);
-						TRANSPORT.getParent().setVisible(false);
-						LAIN.getParent().setVisible(false);
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/BiodataPegawaiAction.java:1323");
-					}
+					if (GAPOK.getParent() != null) GAPOK.getParent().setVisible(false);
+					if (INSENTIF.getParent() != null) INSENTIF.getParent().setVisible(false);
+					if (MAKAN.getParent() != null) MAKAN.getParent().setVisible(false);
+					if (TRANSPORT.getParent() != null) TRANSPORT.getParent().setVisible(false);
+					if (LAIN.getParent() != null) LAIN.getParent().setVisible(false);
 				}
 			};
 

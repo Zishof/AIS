@@ -2,8 +2,12 @@ package ais.database.hibernate;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -444,6 +448,41 @@ public class AuditListener extends AuditEventListener {
 		return (list != null) ? list : new ArrayList<T>();
 	}
 
+	/** Kirim JSON tanpa menaruh payload pada argument command OS.
+	 * Payload audit dapat berukuran ratusan KB; ProcessBuilder/curl gagal dengan
+	 * "Argument list too long" sebelum proses sempat dijalankan. */
+	private static String postJsonAudit(String alamat, JSONObject data) throws Exception {
+		HttpURLConnection koneksi = null;
+		OutputStream keluaran = null;
+		BufferedReader pembaca = null;
+		try {
+			koneksi = (HttpURLConnection) new URL(alamat).openConnection();
+			koneksi.setRequestMethod("POST");
+			koneksi.setRequestProperty("Accept", "application/json");
+			koneksi.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			koneksi.setConnectTimeout(15000);
+			koneksi.setReadTimeout(30000);
+			koneksi.setDoOutput(true);
+			byte[] isi = data.toString().getBytes("UTF-8");
+			koneksi.setFixedLengthStreamingMode(isi.length);
+			keluaran = koneksi.getOutputStream();
+			keluaran.write(isi);
+			keluaran.flush();
+			int status = koneksi.getResponseCode();
+			InputStream masukan = status >= 400 ? koneksi.getErrorStream() : koneksi.getInputStream();
+			if (masukan == null) return "HTTP " + status;
+			pembaca = new BufferedReader(new InputStreamReader(masukan, "UTF-8"));
+			StringBuilder hasil = new StringBuilder();
+			String baris;
+			while ((baris = pembaca.readLine()) != null) hasil.append(baris).append('\n');
+			return hasil.toString();
+		} finally {
+			if (pembaca != null) try { pembaca.close(); } catch (Exception abaikan) { }
+			if (keluaran != null) try { keluaran.close(); } catch (Exception abaikan) { }
+			if (koneksi != null) koneksi.disconnect();
+		}
+	}
+
 	private void proses(Serializable serializable, String cla, Serializable id) {
 
 		PenggunaanAnggaran.simpan(serializable);
@@ -477,21 +516,7 @@ public class AuditListener extends AuditEventListener {
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:433");
@@ -533,21 +558,7 @@ public class AuditListener extends AuditEventListener {
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:489");
@@ -586,21 +597,7 @@ public class AuditListener extends AuditEventListener {
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:542");
@@ -642,20 +639,7 @@ public class AuditListener extends AuditEventListener {
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahSemuaDataKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahSemuaDataKirimkeLink, "--data", postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahSemuaDataKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:591");

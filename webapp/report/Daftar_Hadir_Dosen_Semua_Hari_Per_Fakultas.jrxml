@@ -302,9 +302,9 @@ c.nama||c.id,
 					</textElement>
 					<textFieldExpression><![CDATA[($F{dosen} == null||$F{dosen}.equals("") ? "" : "Dosen    : "+$F{dosen})+($F{pangkat} == null||$F{pangkat}.equals("") ? "" : "\nPangkat : "+$F{pangkat})]]></textFieldExpression>
 				</textField>
-				<image hAlign="Center" vAlign="Middle">
+				<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
 					<reportElement x="1" y="0" width="57" height="58" uuid="98c8b6e3-4604-4bf8-ab6e-470425023db2"/>
-					<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "current_local_url" )+"/AmbilMedia?id="+$F{dosenid}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoDosen&property=dosen&var=3"]]></imageExpression>
+					<imageExpression><![CDATA[$F{dosenid} == null ? null : $P{REPORT_PARAMETERS_MAP}.get( "current_local_url" )+"/AmbilMedia?id="+$F{dosenid}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoDosen&property=dosen&var=3"]]></imageExpression>
 				</image>
 				<staticText>
 					<reportElement key="staticText-8" x="506" y="60" width="28" height="19" uuid="138aad50-d16f-4abc-8b30-f844b79cdc6b"/>

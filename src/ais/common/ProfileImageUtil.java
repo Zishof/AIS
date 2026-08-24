@@ -565,6 +565,7 @@ public class ProfileImageUtil {
 			if (tbmuser.getMahasiswa() != null && tbmuser.getMahasiswa().getId() != null) {
 				FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getMahasiswa().getId(),
 						FotoMahasiswa.DEFAULT_JENIS, FotoMahasiswa.class);
+				if (fileFotoLain == null) return file.getAbsolutePath();
 				if (fileFotoLain.getGdrive() != null)
 					return fileFotoLain.thumbnailGDriveUrl();
 				file = fileFotoLain.ambilFile();
@@ -572,6 +573,7 @@ public class ProfileImageUtil {
 			} else if (tbmuser.ambilDosen() != null && tbmuser.getDosen().getId() != null) {
 				FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getDosen().getId(), FotoDosen.DEFAULT_JENIS,
 						FotoDosen.class);
+				if (fileFotoLain == null) return file.getAbsolutePath();
 				if (fileFotoLain.getGdrive() != null)
 					return fileFotoLain.thumbnailGDriveUrl();
 				file = fileFotoLain.ambilFile();
@@ -579,6 +581,7 @@ public class ProfileImageUtil {
 			} else if (tbmuser.getSiswa() != null && tbmuser.getSiswa().getId() != null) {
 				FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getSiswa().getId(), FotoSiswa.DEFAULT_JENIS,
 						FotoSiswa.class);
+				if (fileFotoLain == null) return file.getAbsolutePath();
 				if (fileFotoLain.getGdrive() != null)
 					return fileFotoLain.thumbnailGDriveUrl();
 				file = fileFotoLain.ambilFile();
@@ -586,6 +589,7 @@ public class ProfileImageUtil {
 			} else if (tbmuser.ambilGuru() != null && tbmuser.getGuru().getId() != null) {
 				FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getGuru().getId(), FotoGuru.DEFAULT_JENIS,
 						FotoGuru.class);
+				if (fileFotoLain == null) return file.getAbsolutePath();
 				if (fileFotoLain.getGdrive() != null)
 					return fileFotoLain.thumbnailGDriveUrl();
 				file = fileFotoLain.ambilFile();
@@ -594,12 +598,14 @@ public class ProfileImageUtil {
 				if (tbmuser.ambilPegawai().getDosen() != null) {
 					FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.ambilPegawai().getDosen().getId(),
 							FotoDosen.DEFAULT_JENIS, FotoDosen.class);
+					if (fileFotoLain == null) return file.getAbsolutePath();
 					if (fileFotoLain.getGdrive() != null)
 						return fileFotoLain.thumbnailGDriveUrl();
 					file = fileFotoLain.ambilFile();
 				} else {
 					FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getPegawai().getId(),
 							FotoPegawai.DEFAULT_JENIS, FotoPegawai.class);
+					if (fileFotoLain == null) return file.getAbsolutePath();
 					if (fileFotoLain.getGdrive() != null)
 						return fileFotoLain.thumbnailGDriveUrl();
 					file = fileFotoLain.ambilFile();

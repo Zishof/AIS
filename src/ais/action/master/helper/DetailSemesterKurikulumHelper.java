@@ -690,9 +690,13 @@ public class DetailSemesterKurikulumHelper {
 
 		for (int i = 1; i < (sheet.getLastRowNum() + 1); i++) {
 			String kodeMk = "";
+			Session session = null;
+			org.hibernate.Transaction transaction = null;
 			try {
-
-				Session session = HibernateUtil.currentNativeSession();
+				// Upload berjalan lintas banyak baris dan dapat melampaui lifecycle request.
+				// Pakai session terdedikasi per baris; jangan mewarisi currentSession yang
+				// mungkin telah ditutup oleh request/baris sebelumnya.
+				session = HibernateUtil.getSessionFactory().openSession();
 
 				if (Common.getSheetContentAsString(sheet, 1, i) == null) {
 					break;
@@ -730,9 +734,9 @@ public class DetailSemesterKurikulumHelper {
 					kurikulumPunyaMatakuliah.setJumlahPertemuanPerkuliahanDefault(jumlahPertemuanPerkuliahanDefault);
 					kurikulumPunyaMatakuliah.setIndukMatakuliah(indukMatakuliah);
 
-					session.getTransaction().begin();
+					transaction = session.beginTransaction();
 					session.saveOrUpdate(kurikulumPunyaMatakuliah);
-					session.getTransaction().commit();
+					transaction.commit();
 
 					report.sukses(i, kodeMk, "Semester " + semester);
 				} else {
@@ -741,11 +745,18 @@ public class DetailSemesterKurikulumHelper {
 							"Periksa kode mata kuliah (kolom B) dan isi semester (kolom C)");
 				}
 
-				HibernateUtil.closeSession();
-
 			} catch (Exception e) {
+				if (transaction != null && transaction.isActive()) {
+					try { transaction.rollback(); } catch (Exception ignored) { }
+				}
 				report.gagal(i, kodeMk, e, "Periksa data pada baris ini lalu ulangi upload");
 				Common.tampilErrorJikaAdmin(e);
+			} finally {
+				if (session != null) {
+					try { session.clear(); } catch (Exception ignored) { }
+					try { session.disconnect(); } catch (Exception ignored) { }
+					try { session.close(); } catch (Exception ignored) { }
+				}
 			}
 
 		}

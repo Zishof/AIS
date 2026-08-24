@@ -5,6 +5,7 @@ import ais.common.CommonSearchFilterHelper;
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -1309,6 +1310,19 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 
 	}
 
+	/**
+	 * Datebox melempar WrongValueException dari getValue() bila teks kosong/tidak
+	 * sesuai format. Untuk validasi form, kondisi itu diperlakukan sebagai nilai
+	 * belum valid agar pengguna memperoleh pesan bisnis yang jelas dari onSave.
+	 */
+	private Date ambilTanggalValid(MyDatebox datebox) {
+		try {
+			return datebox == null ? null : datebox.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			return null;
+		}
+	}
+
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Kejuaraan",
@@ -1319,7 +1333,8 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 					});
 			return false;
 		}
-		if (tanggal.getValue() == null) {
+		Date tanggalMulaiValue = ambilTanggalValid(tanggal);
+		if (tanggalMulaiValue == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Mulai Kejuaraan",
 					"Kolom Tanggal Mulai Kejuaraan belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
@@ -1328,7 +1343,8 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 					});
 			return false;
 		}
-		if (tanggalSelesai.getValue() == null) {
+		Date tanggalSelesaiValue = ambilTanggalValid(tanggalSelesai);
+		if (tanggalSelesaiValue == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Tanggal Selesai Kejuaraan",
 					"Kolom Tanggal Selesai Kejuaraan belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
@@ -1421,8 +1437,8 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		penghargaanMahasiswa.setCapaian(capaian.getValue());
 		penghargaanMahasiswa.setUrl(url.getValue());
 
-		penghargaanMahasiswa.setTanggal(tanggal.getValue());
-		penghargaanMahasiswa.setTanggalSelesai(tanggalSelesai.getValue());
+		penghargaanMahasiswa.setTanggal(tanggalMulaiValue);
+		penghargaanMahasiswa.setTanggalSelesai(tanggalSelesaiValue);
 		penghargaanMahasiswa.setNama(nama.getValue());
 		penghargaanMahasiswa.setNamaEn(namaEn.getValue());
 		penghargaanMahasiswa.setNomorSertifikat(nomorSertifikat.getValue());
@@ -1430,7 +1446,7 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		penghargaanMahasiswa.setDosenPembina1((Dosen) dosenPembina1.getAttribute("dosen"));
 		penghargaanMahasiswa.setDosenPembina2((Dosen) dosenPembina2.getAttribute("dosen"));
 		penghargaanMahasiswa.setKeterangan(keterangan.getValue());
-		penghargaanMahasiswa.setTanggal(tanggal.getValue());
+		penghargaanMahasiswa.setTanggal(tanggalMulaiValue);
 
 		penghargaanMahasiswa.setJurusan(
 				(Jurusan) (jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null ? null

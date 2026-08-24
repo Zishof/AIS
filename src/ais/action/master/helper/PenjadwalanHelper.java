@@ -34,6 +34,7 @@ import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Comboitem;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Image;
@@ -446,7 +447,17 @@ public class PenjadwalanHelper {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pertemuan.setStatusPertemuan((StatusPertemuan) combobox.getSelectedItem().getValue());
+					/*
+					 * ZK tetap dapat mengirim onChange ketika nilai ComboBox dikosongkan dari
+					 * sisi klien, walaupun komponennya readonly. Jangan dereference item null;
+					 * kembalikan pilihan lama dan abaikan event yang tidak membawa pilihan sah.
+					 */
+					Comboitem itemTerpilih = combobox.getSelectedItem();
+					if (itemTerpilih == null || !(itemTerpilih.getValue() instanceof StatusPertemuan)) {
+						Common.selectComboItem(combobox, pertemuan.getStatusPertemuan());
+						return;
+					}
+					pertemuan.setStatusPertemuan((StatusPertemuan) itemTerpilih.getValue());
 					Session session = HibernateUtil.currentSession();
 					Common.refreshUpdate(session, (pertemuan));
 				}

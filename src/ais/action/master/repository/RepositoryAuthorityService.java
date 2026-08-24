@@ -52,11 +52,15 @@ public final class RepositoryAuthorityService {
         if(row==null)row=(RepoAuthorAuthority)session.createCriteria(RepoAuthorAuthority.class)
                 .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("normalizedName",normalized)).setMaxResults(1).uniqueResult();
         Date now=new Date();
-        if(row==null){row=new RepoAuthorAuthority();row.setTenantKey(RepositoryTenantScope.currentKey());row.setCanonicalName(canonicalName(name));row.setNormalizedName(normalized);row.setCreatedAt(now);row.setVerified(Boolean.FALSE);row.setAktif(Boolean.TRUE);}
+        boolean baru=row==null;
+        if(baru){row=new RepoAuthorAuthority();row.setTenantKey(RepositoryTenantScope.currentKey());row.setCanonicalName(canonicalName(name));row.setNormalizedName(normalized);row.setCreatedAt(now);row.setVerified(Boolean.FALSE);row.setAktif(Boolean.TRUE);}
         else session.setReadOnly(row,false);
         row.setNameVariants(appendVariant(row.getNameVariants(),name));
         if(clean(orcid).length()>0)row.setOrcid(clean(orcid)); if(clean(affiliation).length()>0)row.setAffiliation(clean(affiliation)); if(clean(ror).length()>0)row.setRorId(clean(ror));
-        row.setUpdatedAt(now);session.saveOrUpdate(row);session.flush();return row;
+        // Entity hasil Criteria sudah persistent dan tidak perlu saveOrUpdate/flush ulang.
+        // Flush per penulis memperbesar jendela StaleStateException saat sinkronisasi paralel.
+        // Untuk row baru, generator sequence memberi ID pada save() tanpa flush manual.
+        row.setUpdatedAt(now);if(baru)session.save(row);return row;
     }
 
     private static RepoItemContributor findLink(List<RepoItemContributor> rows,Long authorityId){for(RepoItemContributor row:rows)if(authorityId.equals(row.getAuthorityId())&&"AUTHOR".equals(row.getContributorRole()))return row;return null;}

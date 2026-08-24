@@ -95,6 +95,10 @@ public class StrukM extends HttpServlet {
 				try { session.close(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/StrukM.java:85");}
 			}
 		}
+		if (pembayaranSiswa == null) {
+			resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Data struk tidak ditemukan.");
+			return;
+		}
 
 		File file = CommonReportHelper.cetakBuktipembayaranMahasiswa(pembayaranSiswa, false);
 
@@ -102,18 +106,20 @@ public class StrukM extends HttpServlet {
 		resp.setHeader("Content-Disposition", "attachment; filename=\"struk_pembayaran.pdf\"");
 
 		ServletOutputStream out = resp.getOutputStream();
-		FileInputStream in = new FileInputStream(file);
-		int length = (int) file.length();
-
-		int bufferSize = 1024;
-		byte[] buffer = new byte[bufferSize];
-
-		while ((length = in.read(buffer)) != -1) {
-			out.write(buffer, 0, length);
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(file);
+			int length;
+			byte[] buffer = new byte[1024];
+			while ((length = in.read(buffer)) != -1) {
+				out.write(buffer, 0, length);
+			}
+			out.flush();
+		} finally {
+			if (in != null) {
+				try { in.close(); } catch (Exception ignored) { }
+			}
 		}
-
-		in.close();
-		out.flush();
 	}
 
 	/** Parse aman: null (bukan exception) bila value kosong/tidak berupa angka. */

@@ -304,6 +304,7 @@ public class InitDataHelper {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void initMaster() {
+		pastikanKolomTipeAkun();
 		// 1. Buka Session Baru (Isolated Session)
 		// Menggunakan openSession() agar terpisah dari session HTTP request
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -2737,6 +2738,38 @@ public class InitDataHelper {
 			try {
 				HibernateUtil.closeSession();
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:2739");
+			}
+		}
+	}
+
+	/**
+	 * Menjembatani database lama yang dibuat sebelum atribut Akun.tipeAkun ada.
+	 * Hibernate menyertakan seluruh kolom entity pada Criteria, sehingga bahkan pencarian
+	 * akun kas gagal bila kolom opsional ini belum tersedia.
+	 */
+	private static void pastikanKolomTipeAkun() {
+		Session schemaSession = null;
+		Transaction transaction = null;
+		try {
+			schemaSession = HibernateUtil.getSessionFactory().openSession();
+			transaction = schemaSession.beginTransaction();
+			schemaSession.createSQLQuery(
+					"alter table akunting.akun add column if not exists tipe_akun varchar(16)")
+					.executeUpdate();
+			transaction.commit();
+		} catch (Exception e) {
+			if (transaction != null && transaction.isActive()) {
+				try { transaction.rollback(); } catch (Exception ignored) { }
+			}
+			// Tetap lanjut agar instalasi yang sudah benar atau user DB tanpa hak DDL tidak
+			// menghentikan seluruh bootstrap; query berikut akan memberi diagnosis final.
+			System.err.println("[InitDataHelper] Kolom akunting.akun.tipe_akun belum dapat dipastikan: "
+					+ e.getMessage());
+		} finally {
+			if (schemaSession != null) {
+				try { schemaSession.clear(); } catch (Exception ignored) { }
+				try { schemaSession.disconnect(); } catch (Exception ignored) { }
+				try { schemaSession.close(); } catch (Exception ignored) { }
 			}
 		}
 	}

@@ -1230,7 +1230,9 @@ public class CommonComboInsertHelper {
 
 							comboitem.setLabel(property.equals("") ? (o == null ? "" : "") + ""
 									: "" + (myproperty == null ? "" : myproperty));
-							comboitem.setDescription(deskripsi.equals("") ? (o == null ? "" : o) + ""
+							// Jangan memanggil toString() entity/proxy saat deskripsi tidak diminta.
+							// Proxy Akun yang sudah detached akan mencoba lazy-load dari session tertutup.
+							comboitem.setDescription(deskripsi.equals("") ? ""
 									: "" + (mydeskripsi == null ? "" : mydeskripsi));
 							comboitem.setValue(o);
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonComboInsertHelper.java:1209");

@@ -236,7 +236,7 @@ public class JenisShiftPunyaPegawaiAction extends MyDetail implements DataCriter
 		Criterion critKode = Restrictions.sqlRestriction("false");
 		if (!kode.getValue().trim().equals("")) {
 			critKode = Restrictions.or(critKode,
-					Restrictions.ilike("pegawai.kode", kode.getValue().trim(), MatchMode.ANYWHERE));
+					Restrictions.ilike("pegawai.code", kode.getValue().trim(), MatchMode.ANYWHERE));
 		} else {
 			critKode = Restrictions.sqlRestriction("true");
 		}

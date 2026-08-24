@@ -72,12 +72,13 @@ public class MailSender {
 	// Envers → pool DB & statement-cache HABIS (BasicResourcePool/GooGooStatementCache antre) + heap
 	// tertekan. Sekarang semua dispatch lewat pool TETAP kecil + antrean; saat antrean penuh tugas
 	// dijalankan di thread pemanggil (CallerRunsPolicy = backpressure) alih-alih melahirkan thread
-	// tanpa batas. Ukuran pool via -Dmail.pool.size (default 4).
+	// tanpa batas. SMTP diurutkan secara default untuk mencegah penyedia memblokir banyak
+	// login bersamaan; masih dapat diubah secara eksplisit via -Dmail.pool.size.
 	private static final int MAIL_POOL_SIZE;
 	static {
-		int n = 4;
+		int n = 1;
 		try {
-			n = Integer.parseInt(System.getProperty("mail.pool.size", "4").trim());
+			n = Integer.parseInt(System.getProperty("mail.pool.size", "1").trim());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/delivery/email/sender/MailSender.java:74");
 		}
 		MAIL_POOL_SIZE = n < 1 ? 1 : n;
@@ -1396,6 +1397,11 @@ public class MailSender {
 								session.setDebugOut(out);
 							}
 
+							long authGagal = AUTH_GAGAL_TERAKHIR.get();
+							if (authGagal > 0L && System.currentTimeMillis() - authGagal < JEDA_LAPOR_AUTH_MS) {
+								throw new javax.mail.AuthenticationFailedException(
+										"Pengiriman ditunda sementara setelah autentikasi SMTP ditolak.");
+							}
 							Transport.send(message);
 
 							hasil = "Kirim ke " + recipients + " sukses";

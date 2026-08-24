@@ -1077,7 +1077,8 @@ public abstract class FileFoto extends GeneralValueObject {
 			Class clazz = source.getClass();
 			while (clazz != null) {
 				String className = clazz.getName();
-				if ("ais.database.model.file.LampiranPengumumanAkademis".equals(className)) {
+				if ("ais.database.model.file.LampiranPengumumanAkademis".equals(className)
+						|| "ais.database.model.file.LampiranPengumumanPerkuliahan".equals(className)) {
 					return true;
 				}
 				clazz = clazz.getSuperclass();

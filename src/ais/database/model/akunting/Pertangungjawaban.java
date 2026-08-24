@@ -158,7 +158,7 @@ public class Pertangungjawaban extends DataSop {
 		this.nama = nama;
 	}
 
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}

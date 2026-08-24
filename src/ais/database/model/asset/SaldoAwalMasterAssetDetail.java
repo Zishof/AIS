@@ -129,14 +129,20 @@ public class SaldoAwalMasterAssetDetail extends GeneralValueObject {
 	public Double hitungPpn() {
 		
 
-		SaldoAwalMasterAssetDetail saldoAwalMasterAssetDetail = this;
-		Double dpp = (saldoAwalMasterAssetDetail.getJumlah() * saldoAwalMasterAssetDetail.getHarga());
+		/* Gunakan field skalar langsung. Getter ini dibaca juga oleh dirty-check Hibernate;
+		 * memanggil getter relasi dari sini dapat menginisialisasi proxy yang sudah detached. */
+		double jumlahAman = jumlah == null ? 0.0 : jumlah.doubleValue();
+		double hargaAman = harga == null ? 0.0 : harga.doubleValue();
+		double potonganAman = hargaPotongan == null ? 0.0 : hargaPotongan.doubleValue();
+		double persenPpnAman = persenPpn == null ? 0.0 : persenPpn.doubleValue();
+		double persenPphAman = persenPph == null ? 0.0 : persenPph.doubleValue();
+		Double dpp = Double.valueOf(jumlahAman * hargaAman);
 
-		Double potongan = getDiskonDalamBentukPersen() ? ((saldoAwalMasterAssetDetail.getHargaPotongan() / 100.0) * dpp)
-				: saldoAwalMasterAssetDetail.getHargaPotongan();
+		Double potongan = getDiskonDalamBentukPersen() ? Double.valueOf((potonganAman / 100.0) * dpp)
+				: Double.valueOf(potonganAman);
 		dpp = dpp - potongan;
 
-		Double ppn = ((saldoAwalMasterAssetDetail.getPersenPpn() / 100.0) * dpp);
+		Double ppn = Double.valueOf((persenPpnAman / 100.0) * dpp);
 
 		return ppn;
 	}
@@ -146,14 +152,20 @@ public class SaldoAwalMasterAssetDetail extends GeneralValueObject {
 		// total/LPJ dikontrol TERPISAH oleh konfigurasi pph_mengurangi_lpj di
 		// getHargaTotal() dan PertangungjawabanAction. Jadi di sini PPH JANGAN di-nol-kan,
 		// supaya nilai PPH tetap tampil walau konfigurasi tersebut nonaktif.
-		SaldoAwalMasterAssetDetail saldoAwalMasterAssetDetail = this;
-		Double dpp = (saldoAwalMasterAssetDetail.getJumlah() * saldoAwalMasterAssetDetail.getHarga());
+		/* Gunakan field skalar langsung. Getter ini juga dibaca oleh dirty-check
+		 * Hibernate dan tidak boleh memicu inisialisasi relasi/proxy detached. */
+		double jumlahAman = jumlah == null ? 0.0 : jumlah.doubleValue();
+		double hargaAman = harga == null ? 0.0 : harga.doubleValue();
+		double potonganAman = hargaPotongan == null ? 0.0 : hargaPotongan.doubleValue();
+		double persenPpnAman = persenPpn == null ? 0.0 : persenPpn.doubleValue();
+		double persenPphAman = persenPph == null ? 0.0 : persenPph.doubleValue();
+		Double dpp = Double.valueOf(jumlahAman * hargaAman);
 
-		Double potongan = getDiskonDalamBentukPersen() ? ((saldoAwalMasterAssetDetail.getHargaPotongan() / 100.0) * dpp)
-				: saldoAwalMasterAssetDetail.getHargaPotongan();
+		Double potongan = getDiskonDalamBentukPersen() ? Double.valueOf((potonganAman / 100.0) * dpp)
+				: Double.valueOf(potonganAman);
 		dpp = dpp - potongan;
 
-		Double pph = ((saldoAwalMasterAssetDetail.getPersenPph() / 100.0) * dpp);
+		Double pph = Double.valueOf((persenPphAman / 100.0) * dpp);
 
 		return pph;
 	}
@@ -423,16 +435,17 @@ public class SaldoAwalMasterAssetDetail extends GeneralValueObject {
 		} catch (Throwable t) {
 			pph_mengurangi_lpj = true;
 		}
-		SaldoAwalMasterAssetDetail saldoAwalMasterAssetDetail = this;
-		Double dpp = (saldoAwalMasterAssetDetail.getJumlah() * saldoAwalMasterAssetDetail.getHarga());
+		double jumlahAman = jumlah == null ? 0.0 : jumlah.doubleValue();
+		double hargaAman = harga == null ? 0.0 : harga.doubleValue();
+		double potonganAman = hargaPotongan == null ? 0.0 : hargaPotongan.doubleValue();
+		double dpp = jumlahAman * hargaAman;
+		double potongan = getDiskonDalamBentukPersen()
+				? (potonganAman / 100.0) * dpp : potonganAman;
+		dpp -= potongan;
 
-		Double potongan = getDiskonDalamBentukPersen() ? ((saldoAwalMasterAssetDetail.getHargaPotongan() / 100.0) * dpp)
-				: saldoAwalMasterAssetDetail.getHargaPotongan();
-		dpp = dpp - potongan;
-
-		Double ppn = ((saldoAwalMasterAssetDetail.getPersenPpn() / 100.0) * dpp);
-
-		Double pph = !pph_mengurangi_lpj ? 0.0 : ((saldoAwalMasterAssetDetail.getPersenPph() / 100.0) * dpp);
+		double ppn = ((persenPpn == null ? 0.0 : persenPpn.doubleValue()) / 100.0) * dpp;
+		double pph = !pph_mengurangi_lpj ? 0.0
+				: ((persenPph == null ? 0.0 : persenPph.doubleValue()) / 100.0) * dpp;
 
 		hargaTotal = (dpp + ppn) - (pph);
 

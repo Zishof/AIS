@@ -3279,7 +3279,7 @@ public class MatakuliahAction extends GenericAutowireComposer
 					});
 			return false;
 		}
-		if (jurusan.getSelectedItem() == null || jurusan.getSelectedItem() == null) {
+		if (jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Prodi",
 					"Kolom Prodi belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {

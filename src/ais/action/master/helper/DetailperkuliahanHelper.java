@@ -751,10 +751,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:727");
 			// TODO: handle exception
 		}
@@ -801,10 +805,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button.setDisabled(!reject);
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:777");
 			// TODO: handle exception
 		}
@@ -854,10 +862,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button.setDisabled(!delete);
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:830");
 			// TODO: handle exception
 		}

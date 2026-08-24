@@ -693,6 +693,10 @@ public class SuratUtilHelper {
 		for (String property : properties) {
 			try {
 				Object val = metadata.getPropertyValue(entity, property, EntityMode.POJO);
+				if (val != null && !org.hibernate.Hibernate.isInitialized(val)) {
+					parameters.put(prefix + "." + property, "");
+					continue;
+				}
 				parameters.put(prefix + "." + property, val == null ? "" : val.toString());
 
 				if (val instanceof GeneralValueObject) {
@@ -700,6 +704,10 @@ public class SuratUtilHelper {
 					if (localMeta != null) {
 						for (String localProp : localMeta.getPropertyNames()) {
 							Object valLocal = localMeta.getPropertyValue(val, localProp, EntityMode.POJO);
+							if (valLocal != null && !org.hibernate.Hibernate.isInitialized(valLocal)) {
+								parameters.put(prefix + "." + property + "." + localProp, "");
+								continue;
+							}
 							parameters.put(prefix + "." + property + "." + localProp, valLocal == null ? "" : valLocal.toString());
 						}
 					}

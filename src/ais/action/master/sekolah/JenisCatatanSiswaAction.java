@@ -516,12 +516,16 @@ public class JenisCatatanSiswaAction extends GenericAutowireComposer
 		Map<Long, KelompokParameterTambahanCatatanSiswa> kelompokParameterTambahanCatatanSiswas = ConstantValues
 				.ambilBerdasarClass(KelompokParameterTambahanCatatanSiswa.class);
 
+		selectedKelompokParameterTambahanCatatanSiswa = new HashSet<KelompokParameterTambahanCatatanSiswa>();
 		if (jenisCatatanSiswa != null && jenisCatatanSiswa.getId() != null) {
-			HibernateUtil.currentSession().refresh(jenisCatatanSiswa);
+			JenisCatatanSiswa tersimpan = (JenisCatatanSiswa) HibernateUtil.currentSession().get(
+					JenisCatatanSiswa.class, jenisCatatanSiswa.getId());
+			if (tersimpan != null && tersimpan.getKelompokParameterTambahanCatatanSiswas() != null) {
+				/* Putuskan dari PersistentSet session agar komponen UI tidak menyimpan proxy lazy. */
+				selectedKelompokParameterTambahanCatatanSiswa.addAll(
+						tersimpan.getKelompokParameterTambahanCatatanSiswas());
+			}
 		}
-
-		selectedKelompokParameterTambahanCatatanSiswa = this.jenisCatatanSiswa
-				.getKelompokParameterTambahanCatatanSiswas();
 		Set<Long> ids = new HashSet<Long>();
 		for (KelompokParameterTambahanCatatanSiswa v : selectedKelompokParameterTambahanCatatanSiswa) {
 			ids.add(v.getId());

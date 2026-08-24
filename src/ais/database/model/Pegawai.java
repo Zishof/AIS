@@ -3105,12 +3105,18 @@ public class Pegawai extends Karyawan {
 	public IkatanKerjaDosen getIkatanKerjaDosen() {
 
 		try {
-			if (getDosen() != null && getDosen().getIkatanKerjaDosen() != null) {
-				ikatanKerjaDosen = getDosen().getIkatanKerjaDosen();
+			Dosen dosenData = getDosen();
+			if (dosenData != null && dosenData.getIkatanKerjaDosen() != null) {
+				ikatanKerjaDosen = dosenData.getIkatanKerjaDosen();
 			} else {
 				ikatanKerjaDosen = check(ikatanKerjaDosen);
 				if (ikatanKerjaDosen == null) {
-					if (Integer.valueOf(1).equals(getTetap())) {
+					/*
+					 * Hindari getTetap() karena getter tersebut kembali me-resolve getDosen().
+					 * Pada proxy/data legacy hal itu dapat memicu NPE berulang. Kolom scalar
+					 * tetap sudah mempunyai default 0 dan aman dibandingkan langsung.
+					 */
+					if (Integer.valueOf(1).equals(tetap)) {
 						ikatanKerjaDosen = ConstantValues.DOSEN_TETAP;
 					} else {
 						ikatanKerjaDosen = ConstantValues.DOSEN_HONORER;

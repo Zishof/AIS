@@ -2,10 +2,12 @@ package ais.common;
 
 import java.io.Serializable;
 
-import org.apache.commons.beanutils.BeanUtilsBean;
+import org.hibernate.EntityMode;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.jdbc.Work;
+import org.hibernate.metadata.ClassMetadata;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
@@ -28,7 +30,10 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
         // Jika session tertutup atau null, minta yang baru
         // Catatan: Pastikan HibernateUtil memiliki method ini atau sesuaikan
         try {
-            Session newSession = HibernateUtil.currentNativeSession();
+			/* Jalur ini dipanggil dari request/listener yang dikelola HibernateUtil.
+			 * Gunakan currentSession agar kepemilikan dan penutupannya tetap pada
+			 * HibernateUtil; jangan mengembalikan currentNativeSession tanpa finally. */
+			Session newSession = HibernateUtil.currentSession();
             if (newSession != null && newSession.isOpen()) {
                 return newSession;
             }
@@ -134,7 +139,21 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
             }
 
             if (ocopy != null) {
-                BeanUtilsBean.getInstance().copyProperties(ocopy, o);
+				/* BeanUtils membaca SEMUA getter, termasuk koleksi lazy pada objek detached.
+				 * Salin hanya properti Hibernate yang memang sudah terinisialisasi. */
+				ClassMetadata metadata = HibernateUtil.getClassMetadata(o.getClass());
+				if (metadata != null) {
+					String[] properti = metadata.getPropertyNames();
+					for (int i = 0; i < properti.length; i++) {
+						try {
+							Object nilai = metadata.getPropertyValue(o, properti[i], EntityMode.POJO);
+							if (nilai != null && !Hibernate.isInitialized(nilai)) continue;
+							metadata.setPropertyValue(ocopy, properti[i], nilai, EntityMode.POJO);
+						} catch (Throwable abaikanPropertiLazy) {
+							// Satu relasi detached tidak boleh menggagalkan pemulihan properti skalar lain.
+						}
+					}
+				}
                 session.update(ocopy);
             } else {
                 // Jika tidak ada di DB tapi punya ID, mungkin perlu di-save ulang

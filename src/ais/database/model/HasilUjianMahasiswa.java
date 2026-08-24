@@ -707,7 +707,10 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 				dataCache = HasilUjianMahasiswa.ygSudahDiambils.get(this.getId());
 			}
 			if (dataCache == null || dataCache.isEmpty() || refresh) {
-				Session session = HibernateUtil.currentNativeSession();
+				// Metode ini kerap dipanggil dari proses ekspor yang sudah memiliki session
+				// sendiri. currentNativeSession() lalu ditutup di sini akan menutup ResultSet
+				// milik pemanggil. Gunakan session terdedikasi agar lifecycle tidak bertumpuk.
+				Session session = HibernateUtil.getSessionFactory().openSession();
 
 				try {
 					List<Long> hasil = getId() == null ? new ArrayList<Long>()
@@ -745,7 +748,6 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 					try { if (session != null && session.isOpen()) session.clear(); } catch (Exception e) { }
 					try { if (session != null && session.isOpen()) session.disconnect(); } catch (Exception e) { }
 					try { if (session != null && session.isOpen()) session.close(); } catch (Exception e) { }
-					HibernateUtil.closeSession();
 				}
 			}
 

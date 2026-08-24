@@ -734,9 +734,17 @@ public class LaporanRekapHostToHostCicilanPerItemWindow extends MyWindow {
 					File file = new File(fn);
 
 					try {
-						FileOutputStream fileOut = new FileOutputStream(file);
-						workbook.write(fileOut);
-						fileOut.close();
+						int jumlahKolom = 6 + itemBiayas.size();
+						for (int i = 0; i < jumlahKolom; i++) {
+							try { sheet.autoSizeColumn(i); } catch (Exception ignored) { }
+						}
+						FileOutputStream fileOut = null;
+						try {
+							fileOut = new FileOutputStream(file);
+							workbook.write(fileOut);
+						} finally {
+							if (fileOut != null) try { fileOut.close(); } catch (Exception ignored) { }
+						}
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						Common.tampilErrorJikaAdmin(e);
@@ -750,13 +758,6 @@ public class LaporanRekapHostToHostCicilanPerItemWindow extends MyWindow {
 					spreadsheet.setSrc("../../tmp/" + file.getName());
 					spreadsheet.setMaxcolumns(6 + itemBiayas.size());
 					spreadsheet.setMaxrows(jurusans.size() + 25);
-					for (int i = 0; i < spreadsheet.getMaxcolumns(); i++) {
-						try {
-							sheet.autoSizeColumn(i);
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/helper/keuangan/LaporanRekapHostToHostCicilanPerItemWindow.java:737");
-							// TODO: handle exception
-						}
-					}
 					jurusans.clear();
 
 					// Tampilkan sebagai grid ringan; Excel tetap utuh saat tombol Download diklik.

@@ -32,6 +32,9 @@ import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
 public class ItemKpiTreeModel extends AbstractTreeModel {
+	private static boolean kodeVariabelValid(String kode) {
+		return kode != null && kode.matches("[A-Za-z_][A-Za-z0-9_]*");
+	}
 
 	/**
 	 * 
@@ -358,12 +361,20 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 		Session session = HibernateUtil.currentSession();
 		Map<String, ItemKpi> itemKpiSet = new HashMap<String, ItemKpi>();
 		String[] splits = formulaTemp.split(" ");
+		int nomorAlias = 0;
 		for (String hasil : splits) {
-			if (!Common.isNumber(hasil)) {
+			if (hasil != null && hasil.trim().length() > 0 && !Common.isNumber(hasil)) {
 				ItemKpi itemKpi = (ItemKpi) ConstantValues
 						.simpleObject(session.createCriteria(ItemKpi.class).add(Restrictions.eq("kode", hasil.trim()))
 								.add(Restrictions.eq("formatKpi", formatKpi)).setMaxResults(1), ItemKpi.class);
-				itemKpiSet.put(hasil, itemKpi);
+				if (itemKpi != null) {
+					String variabel = kodeVariabelValid(hasil) ? hasil : "KPI_VAR_" + nomorAlias++;
+					if (!variabel.equals(hasil)) {
+						formula = org.apache.commons.lang3.StringUtils.replace(formula,
+								" " + hasil + " ", " " + variabel + " ");
+					}
+					itemKpiSet.put(variabel, itemKpi);
+				}
 			}
 		}
 
@@ -376,7 +387,8 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 			try {
 				Expression e = new ExpressionBuilder(formula).variables(itemKpiSet.keySet())
 						.functions(LogicalUtil.ALL_FUNCTION).operator(LogicalUtil.ALL_OPERATOR).build();
-				for (ItemKpi itemKpi : itemKpiSet.values()) {
+				for (Map.Entry<String, ItemKpi> entri : itemKpiSet.entrySet()) {
+					ItemKpi itemKpi = entri.getValue();
 					try {
 						Double t = itemKpi == null || itemKpi.getFormula() == null
 								|| itemKpi.getFormula().trim().equals("")
@@ -385,7 +397,7 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 												? hitungItemKpi(itemKpi, " ( " + itemKpi.getFormula() + " ) ",
 														konstantas, itemKpis, sekarang, refresh, ++coba, penghitungan)
 												: itemKpi.getTarget());
-						e.setVariable(itemKpi.getKode(), t);
+						e.setVariable(entri.getKey(), t == null ? 0.0 : t.doubleValue());
 					} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/action/master/kpi/helper/ItemKpiTreeModel.java:389");
 
 					}
@@ -559,14 +571,22 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 		Session session = HibernateUtil.currentSession();
 		Map<String, NilaiKpi> nilaiKpiSet = new HashMap<String, NilaiKpi>();
 		String[] splits = formulaTemp.split(" ");
+		int nomorAlias = 0;
 		for (String hasil : splits) {
-			if (!Common.isNumber(hasil)) {
+			if (hasil != null && hasil.trim().length() > 0 && !Common.isNumber(hasil)) {
 				NilaiKpi nilaiKpi = (NilaiKpi) ConstantValues
 						.simpleObject(
 								session.createCriteria(NilaiKpi.class).add(Restrictions.eq("kode", hasil.trim()))
 										.add(Restrictions.eq("penilaianKpi", penilaianKpi)).setMaxResults(1),
 								NilaiKpi.class);
-				nilaiKpiSet.put(hasil, nilaiKpi);
+				if (nilaiKpi != null) {
+					String variabel = kodeVariabelValid(hasil) ? hasil : "NILAI_VAR_" + nomorAlias++;
+					if (!variabel.equals(hasil)) {
+						formula = org.apache.commons.lang3.StringUtils.replace(formula,
+								" " + hasil + " ", " " + variabel + " ");
+					}
+					nilaiKpiSet.put(variabel, nilaiKpi);
+				}
 			}
 		}
 
@@ -579,9 +599,11 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 			try {
 				Expression e = new ExpressionBuilder(formula).variables(nilaiKpiSet.keySet())
 						.functions(LogicalUtil.ALL_FUNCTION).operator(LogicalUtil.ALL_OPERATOR).build();
-				for (NilaiKpi nilaiKpi : nilaiKpiSet.values()) {
+				for (Map.Entry<String, NilaiKpi> entri : nilaiKpiSet.entrySet()) {
+					NilaiKpi nilaiKpi = entri.getValue();
 					try {
-						Double t = nilaiKpi == null || nilaiKpi.getItemKpi().getFormula() == null
+						Double t = nilaiKpi == null || nilaiKpi.getItemKpi() == null
+								|| nilaiKpi.getItemKpi().getFormula() == null
 								|| nilaiKpi.getItemKpi().getFormula().trim().equals("")
 										? 0.0
 										: refresh
@@ -589,7 +611,7 @@ public class ItemKpiTreeModel extends AbstractTreeModel {
 														" ( " + nilaiKpi.getItemKpi().getFormula() + " ) ",
 														penilaianKpi, konstantas, refresh, ++coba, penghitungan)
 												: nilaiKpi.getRealisasi();
-						e.setVariable(nilaiKpi.getKode(), t);
+						e.setVariable(entri.getKey(), t == null ? 0.0 : t.doubleValue());
 					} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/action/master/kpi/helper/ItemKpiTreeModel.java:593");
 
 					}

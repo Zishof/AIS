@@ -231,6 +231,11 @@ public class LaporanRekapTotalNilai extends MyWindow {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				try {
+					if (excelku == null || excelku.getBook() == null) {
+						MyMessageboxConfig.show("Pratinjau Excel belum selesai dibuat. Klik Tampilkan dan tunggu sampai laporan muncul, lalu ambil file kembali.",
+								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+						return;
+					}
 					ByteArrayOutputStream bout = new ByteArrayOutputStream();
 					excelku.getBook().write(bout);
 					bout.close();
