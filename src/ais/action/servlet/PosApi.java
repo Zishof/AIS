@@ -3001,6 +3001,24 @@ public class PosApi extends HttpServlet {
 	 * (opsional), {@code kodeTransaksi}/{@code kode} (opsional, cari nomor transaksi/nota),
 	 * {@code page}/{@code pageSize} (paginasi riwayat transaksi).</p>
 	 */
+	/**
+	 * Ekspresi SQL label metode pembayaran -- SATU sumber kebenaran yang dipakai kartu
+	 * "Komposisi Pembayaran" DAN penyaring tabel Data Pembelian.
+	 *
+	 * <p>Keduanya WAJIB memakai ekspresi yang sama. Kartu itulah yang menghasilkan daftar
+	 * pilihan pada combo penyaring, termasuk label khusus {@code 'Lainnya'} untuk transaksi
+	 * yang cara bayarnya kosong; bila penyaringnya membandingkan kolom mentah, memilih
+	 * "Lainnya" tidak akan pernah cocok dan pengguna melihat tabel kosong tanpa sebab.</p>
+	 */
+	private static String kondisiMetodeBayar(String kolom) {
+		return "COALESCE(NULLIF(TRIM(CAST(" + kolom + " AS varchar)),''),'Lainnya')";
+	}
+
+	/** Varian untuk tabel transaksi, yang dikelompokkan per transaksi. */
+	private static String kondisiMetodeBayar() {
+		return kondisiMetodeBayar("MAX(a.carabayar)");
+	}
+
 	private void prosesDashboardUmum(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
@@ -3027,6 +3045,10 @@ public class PosApi extends HttpServlet {
 		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String cariPembeli = payload.optString("cariPembeli", "").trim();
+		// Penyaring "Jenis pembayaran" pada tabel Data Pembelian. Nilainya adalah LABEL
+		// yang sama dengan kartu "Komposisi Pembayaran", termasuk label khusus "Lainnya"
+		// untuk transaksi yang cara bayarnya kosong -- lihat kondisiMetodeBayar().
+		String metodeBayarFilter = payload.optString("metodeBayar", "").trim();
 		String kodeTransaksi = payload.optString("kodeTransaksi", "").trim();
 		if (kodeTransaksi.length() == 0) kodeTransaksi = payload.optString("kode", "").trim();
 		int page = Math.max(1, payload.optInt("page", 1));
@@ -3160,7 +3182,18 @@ public class PosApi extends HttpServlet {
 				paramsTrx.add(qKode);
 				paramsTrx.add(qKode);
 			}
-			String havingCari = cariPembeli.length() > 0 ? " HAVING MAX(a.member) ILIKE ?" : "";
+			// HAVING, bukan WHERE: satu transaksi adalah GRUP baris koperasi.pembelian, dan
+			// cara bayar yang ditampilkan tabel adalah MAX(a.carabayar) atas grup itu. Menyaring
+			// di WHERE akan memotong sebagian baris lalu tetap memunculkan transaksinya dengan
+			// total yang sudah tidak utuh.
+			java.util.List<String> having = new java.util.ArrayList<String>();
+			if (cariPembeli.length() > 0) having.add("MAX(a.member) ILIKE ?");
+			if (metodeBayarFilter.length() > 0) having.add(kondisiMetodeBayar() + " = ?");
+			StringBuilder sbHaving = new StringBuilder();
+			for (int i = 0; i < having.size(); i++) {
+				sbHaving.append(i == 0 ? " HAVING " : " AND ").append(having.get(i));
+			}
+			String havingCari = sbHaving.toString();
 
 			java.sql.PreparedStatement psCount = conn.prepareStatement(
 					"SELECT COUNT(*) FROM (SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) FROM koperasi.pembelian a WHERE "
@@ -3168,6 +3201,7 @@ public class PosApi extends HttpServlet {
 			int idx = 1;
 			for (Object p : paramsTrx) ikatParam(psCount, idx++, p);
 			if (cariPembeli.length() > 0) psCount.setString(idx++, "%" + cariPembeli + "%");
+			if (metodeBayarFilter.length() > 0) psCount.setString(idx++, metodeBayarFilter);
 			java.sql.ResultSet rsCount = psCount.executeQuery();
 			long totalTrx = rsCount.next() ? rsCount.getLong(1) : 0;
 			rsCount.close();
@@ -3176,13 +3210,19 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psData = conn.prepareStatement(
 					"SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) AS id_transaksi, MAX(a.waktu) AS waktu, "
 							+ "STRING_AGG(COALESCE(c.nama,'(Produk Dihapus)') || ' (' || a.qty || ')', ', ') AS namabarang, "
-							+ "MAX(a.member) AS member, MAX(a.jenismember) AS jenismember, MAX(a.carabayar) AS carabayar, "
+							+ "MAX(a.member) AS member, MAX(a.jenismember) AS jenismember, "
+							// Label, bukan kolom mentah: transaksi tanpa carabayar harus terbaca
+							// 'Lainnya' -- sama dgn kartu Komposisi dan dgn penyaringnya. Memakai
+							// kolom mentah di sini membuat sel METODE kosong pd baris yang justru
+							// baru saja disaring lewat label 'Lainnya'.
+							+ kondisiMetodeBayar() + " AS carabayar, "
 							+ "SUM(a.qty) AS qty, SUM(a.total) AS total, BOOL_AND(COALESCE(a.terlayani,false)) AS terlayani "
 							+ "FROM koperasi.pembelian a LEFT JOIN koperasi.produk c ON c.id = a.produk "
 							+ "WHERE " + whereTrx + " GROUP BY 1" + havingCari + " ORDER BY waktu DESC LIMIT ? OFFSET ?");
 			idx = 1;
 			for (Object p : paramsTrx) ikatParam(psData, idx++, p);
 			if (cariPembeli.length() > 0) psData.setString(idx++, "%" + cariPembeli + "%");
+			if (metodeBayarFilter.length() > 0) psData.setString(idx++, metodeBayarFilter);
 			psData.setInt(idx++, pageSize);
 			psData.setInt(idx++, offset);
 			java.sql.ResultSet rsData = psData.executeQuery();
@@ -3225,7 +3265,7 @@ public class PosApi extends HttpServlet {
 
 			JSONArray metodeBayar = new JSONArray();
 			java.sql.PreparedStatement psBayar = conn.prepareStatement(
-					"SELECT COALESCE(NULLIF(TRIM(CAST(p.carabayar AS varchar)),''),'Lainnya') lbl, COALESCE(SUM(p.total),0) nilai "
+					"SELECT " + kondisiMetodeBayar("p.carabayar") + " lbl, COALESCE(SUM(p.total),0) nilai "
 							+ "FROM koperasi.pembelian p WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 2 DESC");
 			idx = 1;
 			for (Object p : paramsChart) ikatParam(psBayar, idx++, p);
@@ -5156,6 +5196,15 @@ public class PosApi extends HttpServlet {
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
+		// PENANDA layaniSemuaMenyaring: tombol ini WAJIB mengikuti penyaring yang sedang
+		// terlihat di layar. Sebelumnya hanya rentang tanggal yang dipakai, sehingga
+		// pengguna yang menyaring "QRIS BMT" lalu menekan Layani Semua ikut menandai
+		// transaksi Tunai yang tidak pernah ia lihat -- yang dikerjakan bukan yang
+		// disetujui. Kunci payloadnya sama persis dengan tabel Data Pembelian.
+		String cariPembeli = payload.optString("cariPembeli", "").trim();
+		String kodeTransaksi = payload.optString("kodeTransaksi", "").trim();
+		if (kodeTransaksi.length() == 0) kodeTransaksi = payload.optString("kode", "").trim();
+		String metodeBayarFilter = payload.optString("metodeBayar", "").trim();
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -5165,6 +5214,46 @@ public class PosApi extends HttpServlet {
 			if (tglMulai.length() > 0) { sql.append(" AND DATE(waktu) >= ?"); params.add(tglMulai); }
 			if (tglSampai.length() > 0) { sql.append(" AND DATE(waktu) <= ?"); params.add(tglSampai); }
 
+			// Penyaring pembeli & metode bayar bersifat PER TRANSAKSI (satu transaksi =
+			// beberapa baris pembelian), jadi tidak bisa ditempel begitu saja pada UPDATE
+			// per-baris: dipilih dulu id transaksinya lewat subquery yang dikelompokkan --
+			// susunan yang sama dengan tabel Data Pembelian.
+			if (cariPembeli.length() > 0 || metodeBayarFilter.length() > 0
+					|| kodeTransaksi.length() > 0) {
+				StringBuilder sub = new StringBuilder(
+						" AND COALESCE(pembelian_anggota_koperasi, id) IN (SELECT COALESCE(a.pembelian_anggota_koperasi, a.id)"
+								+ " FROM koperasi.pembelian a WHERE a.toko = ?");
+				java.util.List<Object> paramsSub = new java.util.ArrayList<Object>();
+				paramsSub.add(tokoId);
+				if (tglMulai.length() > 0) { sub.append(" AND DATE(a.waktu) >= ?"); paramsSub.add(tglMulai); }
+				if (tglSampai.length() > 0) { sub.append(" AND DATE(a.waktu) <= ?"); paramsSub.add(tglSampai); }
+				if (kodeTransaksi.length() > 0) {
+					sub.append(" AND (CAST(COALESCE(a.pembelian_anggota_koperasi, a.id) AS varchar) ILIKE ?"
+							+ " OR COALESCE(a.kode,'') ILIKE ?"
+							+ " OR EXISTS (SELECT 1 FROM koperasi.pembelian_anggota_koperasi pak"
+							+ " WHERE pak.id = a.pembelian_anggota_koperasi AND COALESCE(pak.kode,'') ILIKE ?))");
+					String qKode = "%" + kodeTransaksi + "%";
+					paramsSub.add(qKode);
+					paramsSub.add(qKode);
+					paramsSub.add(qKode);
+				}
+				sub.append(" GROUP BY 1");
+				java.util.List<String> havingSub = new java.util.ArrayList<String>();
+				if (cariPembeli.length() > 0) {
+					havingSub.add("MAX(a.member) ILIKE ?");
+					paramsSub.add("%" + cariPembeli + "%");
+				}
+				if (metodeBayarFilter.length() > 0) {
+					havingSub.add(kondisiMetodeBayar() + " = ?");
+					paramsSub.add(metodeBayarFilter);
+				}
+				for (int i = 0; i < havingSub.size(); i++) {
+					sub.append(i == 0 ? " HAVING " : " AND ").append(havingSub.get(i));
+				}
+				sub.append(")");
+				sql.append(sub);
+				params.addAll(paramsSub);
+			}
 			session.beginTransaction();
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
 			for (int i = 0; i < params.size(); i++) ikatParam(ps, i + 1, params.get(i));
