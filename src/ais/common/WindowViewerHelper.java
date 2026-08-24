@@ -18,6 +18,7 @@ import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Html;
@@ -159,7 +160,19 @@ public class WindowViewerHelper {
 			} catch (Exception e) {
 				c.setHeight("5000px");
 			}
-			Common.tampilanScroll1(center).appendChild(c);
+			/*
+			 * Jangan membungkus Include dengan Grid/Row. Pada ZUL bertingkat (misalnya
+			 * popup Pembayaran Mahasiswa), tabel internal Grid dapat menghitung sel
+			 * berdasarkan lebar minimum konten. Akibatnya Include 100% hanya mendapat
+			 * sekitar setengah lebar Center dan menyisakan ruang kosong besar di kiri.
+			 * Div adalah blok penuh dan tetap menyediakan perilaku scroll yang sama.
+			 */
+			Div scrollHost = new Div();
+			scrollHost.setWidth("100%");
+			scrollHost.setHeight("100%");
+			scrollHost.setStyle("overflow:auto;box-sizing:border-box;");
+			scrollHost.setParent(center);
+			c.setParent(scrollHost);
 		} else {
 			center.appendChild(c);
 		}
