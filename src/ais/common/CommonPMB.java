@@ -1251,7 +1251,7 @@ public class CommonPMB {
 		return saveMahasiswa(session, calonMahasiswa, nim, commitMaual, false);
 	}
 
-	public static Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
+	public static synchronized Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
 			boolean commitMaual, boolean izinkanNimDenganTandaHubung) {
 
 		Mahasiswa mahasiswa = calonMahasiswa.getMahasiswa();
@@ -1351,7 +1351,9 @@ public class CommonPMB {
 		mahasiswa.setAgama(calonMahasiswa.getAgama());
 
 		boolean mahasiswaBaru = mahasiswa.getId() == null;
-		if (commitMaual) {
+		boolean transaksiAktifSebelumSimpan = session.getTransaction() != null
+				&& session.getTransaction().isActive();
+		if (commitMaual && !transaksiAktifSebelumSimpan) {
 			session.getTransaction().begin();
 		}
 		try {
@@ -1382,10 +1384,13 @@ public class CommonPMB {
 				}
 			} catch (Exception eRollback) { ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/common/CommonPMB.java:saveMahasiswa-rollback"); }
 			try { session.clear(); } catch (Exception eClear) { ais.common.ErrorAuditUtil.record(eClear, "auto-audit(empty-catch) src/ais/common/CommonPMB.java:saveMahasiswa-clear"); }
-			ais.common.ErrorAuditUtil.record(eSimpanMahasiswa,
-					"CommonPMB.saveMahasiswa: race condition biodataCalonMahasiswa id="
-							+ (calonMahasiswa.getId() == null ? "null" : calonMahasiswa.getId())
-							+ " -- pakai Mahasiswa yang sudah dibuat proses lain");
+			System.out.println("CommonPMB.saveMahasiswa: request paralel biodataCalonMahasiswa id="
+					+ (calonMahasiswa.getId() == null ? "null" : calonMahasiswa.getId())
+					+ " -- menggunakan Mahasiswa yang sudah dibuat request lain");
+			if ((transaksiAktifSebelumSimpan || commitMaual)
+					&& (session.getTransaction() == null || !session.getTransaction().isActive())) {
+				session.beginTransaction();
+			}
 			Mahasiswa mahasiswaSudahAda = (Mahasiswa) ConstantValues.simpleObject(
 					session.createCriteria(Mahasiswa.class)
 							.add(Restrictions.eq("biodataCalonMahasiswa", calonMahasiswa.getId())).setMaxResults(1),
@@ -1395,9 +1400,6 @@ public class CommonPMB {
 				throw eSimpanMahasiswa;
 			}
 			mahasiswa = mahasiswaSudahAda;
-			if (commitMaual) {
-				session.getTransaction().begin();
-			}
 		}
 		if (commitMaual) {
 			session.getTransaction().commit();

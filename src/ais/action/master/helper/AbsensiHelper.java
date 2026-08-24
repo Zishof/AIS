@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -3925,42 +3926,70 @@ public class AbsensiHelper {
 							return;
 						}
 
-						Session session = HibernateUtil.currentSession();
-						PengajuanIzinTidakMasukPerkuliahan pengajuanIzinTidakMasukPerkuliahan = (PengajuanIzinTidakMasukPerkuliahan) session
-								.createCriteria(PengajuanIzinTidakMasukPerkuliahan.class)
-								.add(Restrictions.eq("mahasiswa", mhs)).add(Restrictions.eq("pertemuan", pertemuan))
-								.setMaxResults(1).uniqueResult();
-						if (pengajuanIzinTidakMasukPerkuliahan == null) {
-							pengajuanIzinTidakMasukPerkuliahan = new PengajuanIzinTidakMasukPerkuliahan();
-						} else if (pengajuanIzinTidakMasukPerkuliahan.getDiizinkan()) {
-							MyMessageboxConfig.show(
-									"Pengajian mahasiswa " + mhs.getNama()
-											+ " telah disetujui, sehingga tidak bisa diubah",
-									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-							return;
-						}
-						pengajuanIzinTidakMasukPerkuliahan.setPertemuan(pertemuan);
-						pengajuanIzinTidakMasukPerkuliahan.setMahasiswa(mhs);
-						pengajuanIzinTidakMasukPerkuliahan.setStatusabsensi((Statusabsensi) s.getAttribute("nilai"));
-						pengajuanIzinTidakMasukPerkuliahan.setKeterangan(katerangan.getValue().trim());
-						// currentSession() adalah sesi ZK OpenSessionInView. Bila sesi sudah
-						// tertutup (mis. event dari timer/server-push di luar execution ZK normal),
-						// buka sesi baru yang kita kelola sendiri dan tutup di finally.
+						Session session = null;
 						Session sessionFallback = null;
+						Transaction transaksiFallback = null;
+						PengajuanIzinTidakMasukPerkuliahan pengajuanIzinTidakMasukPerkuliahan = null;
 						try {
-							if (!session.isOpen()) {
+							session = HibernateUtil.currentSession();
+							if (session == null || !session.isOpen()) {
 								sessionFallback = HibernateUtil.openSession();
-								sessionFallback.beginTransaction();
+								transaksiFallback = sessionFallback.beginTransaction();
 								session = sessionFallback;
 							}
+							pengajuanIzinTidakMasukPerkuliahan = (PengajuanIzinTidakMasukPerkuliahan) session
+									.createCriteria(PengajuanIzinTidakMasukPerkuliahan.class)
+									.add(Restrictions.eq("mahasiswa", mhs))
+									.add(Restrictions.eq("pertemuan", pertemuan)).setMaxResults(1).uniqueResult();
+							if (pengajuanIzinTidakMasukPerkuliahan == null) {
+								pengajuanIzinTidakMasukPerkuliahan = new PengajuanIzinTidakMasukPerkuliahan();
+							} else if (pengajuanIzinTidakMasukPerkuliahan.getDiizinkan()) {
+								MyMessageboxConfig.show(
+										"Pengajian mahasiswa " + mhs.getNama()
+												+ " telah disetujui, sehingga tidak bisa diubah",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+								return;
+							}
+							pengajuanIzinTidakMasukPerkuliahan.setPertemuan(pertemuan);
+							pengajuanIzinTidakMasukPerkuliahan.setMahasiswa(mhs);
+							pengajuanIzinTidakMasukPerkuliahan
+									.setStatusabsensi((Statusabsensi) s.getAttribute("nilai"));
+							pengajuanIzinTidakMasukPerkuliahan.setKeterangan(katerangan.getValue().trim());
 							Common.refreshSaveOrUpdate(session, pengajuanIzinTidakMasukPerkuliahan);
 							session.flush();
-							if (sessionFallback != null && sessionFallback.getTransaction().isActive()) {
-								sessionFallback.getTransaction().commit();
+							if (transaksiFallback != null && transaksiFallback.isActive()) {
+								transaksiFallback.commit();
 							}
+						} catch (Exception eSimpanIzin) {
+							if (transaksiFallback != null && transaksiFallback.isActive()) {
+								try {
+									transaksiFallback.rollback();
+								} catch (Exception eRollback) {
+									System.err.println("Gagal rollback sesi lokal pengajuan izin: "
+											+ eRollback.getMessage());
+								}
+							}
+							throw eSimpanIzin;
 						} finally {
-							if (sessionFallback != null && sessionFallback.isOpen()) {
-								sessionFallback.close();
+							if (sessionFallback != null) {
+								try {
+									sessionFallback.clear();
+								} catch (Exception eClear) {
+									System.err.println("Gagal clear sesi lokal pengajuan izin: " + eClear.getMessage());
+								}
+								try {
+									sessionFallback.disconnect();
+								} catch (Exception eDisconnect) {
+									System.err.println("Gagal disconnect sesi lokal pengajuan izin: "
+											+ eDisconnect.getMessage());
+								}
+								try {
+									if (sessionFallback.isOpen()) {
+										sessionFallback.close();
+									}
+								} catch (Exception eClose) {
+									System.err.println("Gagal menutup sesi lokal pengajuan izin: " + eClose.getMessage());
+								}
 							}
 						}
 
@@ -5139,11 +5168,10 @@ public class AbsensiHelper {
 										keluar.setDisabled(true);
 										masuk.setDisabled(true);
 
-										Date s = null;
-										try {
-											s = Common.timeFormat2.get()
-													.parse(pertemuan.retreiveAbsensiSampai(dosen.getId()));
-										} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:5085");
+										Date s = ais.ui.util.WaktuUtil.getDate();
+										String waktuSampai = pertemuan.retreiveAbsensiSampai(dosen.getId());
+										if (waktuSampai != null && waktuSampai.trim().length() > 0) {
+											s = Common.timeFormat2.get().parse(waktuSampai);
 										}
 										keluar.setLabel("Selesai mengajar " + Common.timeFormat2.get().format(s));
 
@@ -5175,22 +5203,21 @@ public class AbsensiHelper {
 											HibernateUtil.currentSession().refresh(pertemuan);
 										}
 										Date m = ais.ui.util.WaktuUtil.getDate();
-										try {
-											m = Common.timeFormat2.get()
-													.parse(pertemuan.retreiveAbsensiMulai(dosen.getId()));
-										} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:5120");
+										String waktuMulai = pertemuan.retreiveAbsensiMulai(dosen.getId());
+										if (waktuMulai != null && waktuMulai.trim().length() > 0) {
+											m = Common.timeFormat2.get().parse(waktuMulai);
 										}
 
 										String mulai = m == null
 												? Common.timeFormat2.get().format(ais.ui.util.WaktuUtil.getDate())
 												: Common.timeFormat2.get().format(m);
-										String selesai = pertemuan.getPerkuliahan().getWaktuSelesaiD().toString()
-												+ "000000";
-
-										try {
-											selesai = selesai.substring(0, 5);
-										} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:5131");
-											// TODO: handle exception
+										String selesai = Common.timeFormat2.get().format(ais.ui.util.WaktuUtil.getDate());
+										if (pertemuan.getPerkuliahan() != null
+												&& pertemuan.getPerkuliahan().getWaktuSelesaiD() != null) {
+											String waktuSelesaiRencana = pertemuan.getPerkuliahan().getWaktuSelesaiD().toString();
+											if (waktuSelesaiRencana.length() >= 5) {
+												selesai = waktuSelesaiRencana.substring(0, 5);
+											}
 										}
 
 										System.out.println("mulai => " + mulai + ", selesai => " + selesai);
@@ -5205,11 +5232,10 @@ public class AbsensiHelper {
 										masuk.setVisible(true);
 										selesaikanOtomatis.setDisabled(true);
 
-										Date s = null;
-										try {
-											s = Common.timeFormat2.get()
-													.parse(pertemuan.retreiveAbsensiSampai(dosen.getId()));
-										} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:5151");
+										Date s = ais.ui.util.WaktuUtil.getDate();
+										String waktuSampai = pertemuan.retreiveAbsensiSampai(dosen.getId());
+										if (waktuSampai != null && waktuSampai.trim().length() > 0) {
+											s = Common.timeFormat2.get().parse(waktuSampai);
 										}
 										keluar.setLabel("Selesai mengajar " + Common.timeFormat2.get().format(s));
 										masuk.setLabel("Mulai mengajar " + Common.timeFormat2.get().format(m));

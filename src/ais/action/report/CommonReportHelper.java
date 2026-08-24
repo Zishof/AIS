@@ -10809,96 +10809,76 @@ public class CommonReportHelper {
 						}
 						map.put("nilai_total", detailperkuliahan.getTotalNilai());
 
-						try {
-							map.put("nip_kajur",
-									detailperkuliahan.getMahasiswa().getJurusan().getFakultas().getDekan().getCode());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10066");
-						}
-						try {
-							map.put("nama_kajur",
-									detailperkuliahan.getMahasiswa().getJurusan().getFakultas().getDekan().getNama());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10071");
-						}
-
-						try {
-							map.put("nip_kaprodi",
-									detailperkuliahan.getMahasiswa().getJurusan().getKaprodi().getCode());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10077");
-						}
-						try {
-							map.put("nama_kaprodi",
-									detailperkuliahan.getMahasiswa().getJurusan().getKaprodi().getNama());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10082");
-						}
-
-						try {
-							map.put("id_fakultas", detailperkuliahan.getMahasiswa().getJurusan().getFakultas().getId());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10087");
-						}
+						Jurusan jurusanLaporan = detailperkuliahan.getMahasiswa().getJurusan();
+						Fakultas fakultasLaporan = jurusanLaporan == null ? null : jurusanLaporan.getFakultas();
+						Dosen dekanLaporan = fakultasLaporan == null ? null : fakultasLaporan.getDekan();
+						Dosen kaprodiLaporan = jurusanLaporan == null ? null : jurusanLaporan.getKaprodi();
+						map.put("nip_kajur", dekanLaporan == null ? "" : dekanLaporan.getCode());
+						map.put("nama_kajur", dekanLaporan == null ? "" : dekanLaporan.getNama());
+						map.put("nip_kaprodi", kaprodiLaporan == null ? "" : kaprodiLaporan.getCode());
+						map.put("nama_kaprodi", kaprodiLaporan == null ? "" : kaprodiLaporan.getNama());
+						map.put("id_fakultas", fakultasLaporan == null ? -1L : fakultasLaporan.getId());
 
 						try {
 							Mahasiswa mahasiswa = detailperkuliahan.getMahasiswa();
-							map.put("id_pejabat_prodi_1", mahasiswa.getJurusan().getPegawai1() == null ? -1L
-									: mahasiswa.getJurusan().getPegawai1().getId());
+							Jurusan jurusanMahasiswa = mahasiswa == null ? null : mahasiswa.getJurusan();
+							Fakultas fakultasMahasiswa = jurusanMahasiswa == null ? null
+									: jurusanMahasiswa.getFakultas();
+							Pegawai pejabatProdi1 = jurusanMahasiswa == null ? null : jurusanMahasiswa.getPegawai1();
+							Pegawai pejabatProdi2 = jurusanMahasiswa == null ? null : jurusanMahasiswa.getPegawai2();
+							Pegawai pejabatProdi3 = jurusanMahasiswa == null ? null : jurusanMahasiswa.getPegawai3();
+							Pegawai pejabatFakultas1 = fakultasMahasiswa == null ? null
+									: fakultasMahasiswa.getPegawai1();
+							Pegawai pejabatFakultas2 = fakultasMahasiswa == null ? null
+									: fakultasMahasiswa.getPegawai2();
+							Pegawai pejabatFakultas3 = fakultasMahasiswa == null ? null
+									: fakultasMahasiswa.getPegawai3();
+
+							map.put("id_pejabat_prodi_1", pejabatProdi1 == null ? -1L : pejabatProdi1.getId());
 							map.put("periode", perkuliahan == null ? "SP" : perkuliahan.getGanjilGenap());
-							map.put("jenis_pejabat_prodi_1", mahasiswa.getJurusan().getLabelPejabat1());
-							map.put("nama_pejabat_prodi_1", mahasiswa.getJurusan().getPegawai1() == null ? ""
-									: mahasiswa.getJurusan().getPegawai1().getNama());
-							map.put("nip_pejabat_prodi_1", mahasiswa.getJurusan().getPegawai1() == null ? ""
-									: mahasiswa.getJurusan().getPegawai1().getCode());
+							map.put("jenis_pejabat_prodi_1",
+									jurusanMahasiswa == null ? "" : jurusanMahasiswa.getLabelPejabat1());
+							map.put("nama_pejabat_prodi_1", pejabatProdi1 == null ? "" : pejabatProdi1.getNama());
+							map.put("nip_pejabat_prodi_1", pejabatProdi1 == null ? "" : pejabatProdi1.getCode());
 
-							map.put("id_pejabat_prodi_2", mahasiswa.getJurusan().getPegawai2() == null ? -1L
-									: mahasiswa.getJurusan().getPegawai2().getId());
-							map.put("jenis_pejabat_prodi_2", mahasiswa.getJurusan().getLabelPejabat2());
-							map.put("nama_pejabat_prodi_2", mahasiswa.getJurusan().getPegawai2() == null ? ""
-									: mahasiswa.getJurusan().getPegawai2().getNama());
-							map.put("nip_pejabat_prodi_2", mahasiswa.getJurusan().getPegawai2() == null ? ""
-									: mahasiswa.getJurusan().getPegawai2().getCode());
+							map.put("id_pejabat_prodi_2", pejabatProdi2 == null ? -1L : pejabatProdi2.getId());
+							map.put("jenis_pejabat_prodi_2",
+									jurusanMahasiswa == null ? "" : jurusanMahasiswa.getLabelPejabat2());
+							map.put("nama_pejabat_prodi_2", pejabatProdi2 == null ? "" : pejabatProdi2.getNama());
+							map.put("nip_pejabat_prodi_2", pejabatProdi2 == null ? "" : pejabatProdi2.getCode());
 
-							map.put("id_pejabat_prodi_3", mahasiswa.getJurusan().getPegawai3() == null ? -1L
-									: mahasiswa.getJurusan().getPegawai3().getId());
-							map.put("jenis_pejabat_prodi_3", mahasiswa.getJurusan().getLabelPejabat3());
-							map.put("nama_pejabat_prodi_3", mahasiswa.getJurusan().getPegawai3() == null ? ""
-									: mahasiswa.getJurusan().getPegawai3().getNama());
-							map.put("nip_pejabat_prodi_3", mahasiswa.getJurusan().getPegawai3() == null ? ""
-									: mahasiswa.getJurusan().getPegawai3().getCode());
+							map.put("id_pejabat_prodi_3", pejabatProdi3 == null ? -1L : pejabatProdi3.getId());
+							map.put("jenis_pejabat_prodi_3",
+									jurusanMahasiswa == null ? "" : jurusanMahasiswa.getLabelPejabat3());
+							map.put("nama_pejabat_prodi_3", pejabatProdi3 == null ? "" : pejabatProdi3.getNama());
+							map.put("nip_pejabat_prodi_3", pejabatProdi3 == null ? "" : pejabatProdi3.getCode());
 
 							map.put("id_pejabat_fakultas_1",
-									mahasiswa.getJurusan().getFakultas().getPegawai1() == null ? -1L
-											: mahasiswa.getJurusan().getFakultas().getPegawai1().getId());
-
+									pejabatFakultas1 == null ? -1L : pejabatFakultas1.getId());
 							map.put("jenis_pejabat_fakultas_1",
-									mahasiswa.getJurusan().getFakultas().getLabelPejabat1());
+									fakultasMahasiswa == null ? "" : fakultasMahasiswa.getLabelPejabat1());
 							map.put("nama_pejabat_fakultas_1",
-									mahasiswa.getJurusan().getFakultas().getPegawai1() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai1().getNama());
+									pejabatFakultas1 == null ? "" : pejabatFakultas1.getNama());
 							map.put("nip_pejabat_fakultas_1",
-									mahasiswa.getJurusan().getFakultas().getPegawai1() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai1().getCode());
+									pejabatFakultas1 == null ? "" : pejabatFakultas1.getCode());
 
 							map.put("id_pejabat_fakultas_2",
-									mahasiswa.getJurusan().getFakultas().getPegawai1() == null ? -1L
-											: mahasiswa.getJurusan().getFakultas().getPegawai1().getId());
+									pejabatFakultas2 == null ? -1L : pejabatFakultas2.getId());
 							map.put("jenis_pejabat_fakultas_2",
-									mahasiswa.getJurusan().getFakultas().getLabelPejabat2());
+									fakultasMahasiswa == null ? "" : fakultasMahasiswa.getLabelPejabat2());
 							map.put("nama_pejabat_fakultas_2",
-									mahasiswa.getJurusan().getFakultas().getPegawai2() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai2().getNama());
+									pejabatFakultas2 == null ? "" : pejabatFakultas2.getNama());
 							map.put("nip_pejabat_fakultas_2",
-									mahasiswa.getJurusan().getFakultas().getPegawai2() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai2().getCode());
+									pejabatFakultas2 == null ? "" : pejabatFakultas2.getCode());
 
 							map.put("id_pejabat_fakultas_3",
-									mahasiswa.getJurusan().getFakultas().getPegawai1() == null ? -1L
-											: mahasiswa.getJurusan().getFakultas().getPegawai1().getId());
+									pejabatFakultas3 == null ? -1L : pejabatFakultas3.getId());
 							map.put("jenis_pejabat_fakultas_3",
-									mahasiswa.getJurusan().getFakultas().getLabelPejabat3());
+									fakultasMahasiswa == null ? "" : fakultasMahasiswa.getLabelPejabat3());
 							map.put("nama_pejabat_fakultas_3",
-									mahasiswa.getJurusan().getFakultas().getPegawai3() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai3().getNama());
+									pejabatFakultas3 == null ? "" : pejabatFakultas3.getNama());
 							map.put("nip_pejabat_fakultas_3",
-									mahasiswa.getJurusan().getFakultas().getPegawai3() == null ? ""
-											: mahasiswa.getJurusan().getFakultas().getPegawai3().getCode());
+									pejabatFakultas3 == null ? "" : pejabatFakultas3.getCode());
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:10153");
 						}
 

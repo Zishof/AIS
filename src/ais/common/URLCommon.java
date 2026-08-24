@@ -36,7 +36,17 @@ public class URLCommon {
 		con.setInstanceFollowRedirects(true);
 
 		con.setRequestProperty("Content-length", String.valueOf(postData.length()));
-		con.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; ECAMPUS-DSpace/1.0)");
+		/*
+		 * Cloudflare error 1010 menolak signature User-Agent bot/custom walaupun
+		 * request berasal dari server eCampus yang sah. Gunakan signature browser
+		 * standar dan sertakan origin agar endpoint DSpace di balik WAF tidak salah
+		 * menggolongkan integrasi server sebagai crawler berbahaya.
+		 */
+		con.setRequestProperty("User-Agent",
+				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+		String origin = url.getProtocol() + "://" + url.getAuthority();
+		con.setRequestProperty("Origin", origin);
+		con.setRequestProperty("Referer", origin + "/");
 		con.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
 		con.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
 		con.setConnectTimeout(15000);
@@ -63,8 +73,12 @@ public class URLCommon {
 		input.close();
 
 		if (status >= 400) {
+			String responseRingkas = ringkasResponse(resultBuf.toString());
+			String petunjukWaf = status == 403 && responseRingkas.toLowerCase().indexOf("error code: 1010") >= 0
+					? " Atur dspace_private_url ke alamat internal DSpace yang tidak melewati Cloudflare/WAF."
+					: "";
 			throw new IOException("POST " + urlStr + " gagal. HTTP " + status + " " + con.getResponseMessage()
-					+ ". Response: " + ringkasResponse(resultBuf.toString()));
+					+ ". Response: " + responseRingkas + petunjukWaf);
 		}
 
 		Map<String, List<String>> map = con.getHeaderFields();

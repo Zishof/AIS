@@ -1084,7 +1084,17 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 										+ ", new mahasiswa = " + mahasiswa);
 							}
 
-							tx.commit();
+							/*
+							 * saveMahasiswa dapat memulihkan benturan request paralel dengan rollback
+							 * lalu memulai transaksi pengganti pada session yang sama. Variabel tx di
+							 * atas masih menunjuk transaksi lama yang sudah selesai. Ambil kembali
+							 * transaksi aktif dari session sebelum commit agar tidak muncul
+							 * "Transaction not successfully started".
+							 */
+							tx = session.getTransaction();
+							if (tx != null && tx.isActive()) {
+								tx.commit();
+							}
 
 						} catch (Exception e) {
 							if (tx != null && tx.isActive()) {

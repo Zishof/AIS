@@ -823,29 +823,23 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 				parameters.put("id_pendaftaran_wisuda", pendaftaranWisudaCetak.getId());
 
 				KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswaCetak);
-				Common.insertProperty(KrsMahasiswa.class, krsMahasiswa, parameters, "krs");
+				if (krsMahasiswa != null) {
+					Common.insertProperty(KrsMahasiswa.class, krsMahasiswa, parameters, "krs");
+				}
 
-				Judisium judisium = Common.hitungJudisium(mahasiswaCetak, krsMahasiswa);
+				Judisium judisium = krsMahasiswa == null ? null
+						: Common.hitungJudisium(mahasiswaCetak, krsMahasiswa);
 				parameters.put("judisium", judisium == null ? "" : judisium.getNama());
 				parameters.put("judisium_en", judisium == null ? "" : judisium.getNamaen());
 
-				try {
-					BiodataMahasiswa biodataMahasiswa = mahasiswaCetak.ambilBiodata();
+				BiodataMahasiswa biodataMahasiswa = mahasiswaCetak.ambilBiodata();
+				if (biodataMahasiswa != null) {
 					Common.insertProperty(BiodataMahasiswa.class, biodataMahasiswa, parameters, "bio");
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:825");
-					// TODO: handle exception
 				}
-				try {
-					Common.insertProperty(Mahasiswa.class, mahasiswaCetak, parameters, "mhs");
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:831");
-					// TODO: handle exception
-				}
-				try {
-					Common.insertProperty(Skripsi.class,
-							pendaftaranWisudaCetak.getSkripsi(), parameters,
-							"skripsi");
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PendaftaranWisudaMahasiswaAction.java:838");
-					// TODO: handle exception
+				Common.insertProperty(Mahasiswa.class, mahasiswaCetak, parameters, "mhs");
+				Skripsi skripsiCetak = pendaftaranWisudaCetak.getSkripsi();
+				if (skripsiCetak != null) {
+					Common.insertProperty(Skripsi.class, skripsiCetak, parameters, "skripsi");
 				}
 
 				Report.generatePDFReport(Report.PDF, parameters, "kartu_daftar_wisuda",

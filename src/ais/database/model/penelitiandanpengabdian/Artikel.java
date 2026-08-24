@@ -9,6 +9,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -310,14 +312,41 @@ public class Artikel extends DataSop {
 		if (vol == null) {
 			vol = 0;
 		}
-		try {
-			if (sintaArticle != null && !sintaArticle.getVol().trim().isEmpty()) {
-				vol = Integer.parseInt(sintaArticle.getVol());
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/penelitiandanpengabdian/Artikel.java:316");
-			// e.printStackTrace();
+		String volumeSinta = sintaArticle == null ? null : sintaArticle.getVol();
+		Integer volumeTerbaca = parseVolumeSinta(volumeSinta);
+		if (volumeTerbaca != null) {
+			vol = volumeTerbaca;
 		}
 		return vol;
+	}
+
+	private Integer parseVolumeSinta(String nilai) {
+		if (nilai == null || nilai.trim().length() == 0) {
+			return null;
+		}
+		String teks = nilai.trim();
+		try {
+			return Integer.valueOf(teks);
+		} catch (NumberFormatException bukanAngkaTunggal) {
+			// Data SINTA lama kadang berisi sitasi lengkap, misalnya
+			// "2548-9836 5 (1), 14-25", bukan hanya angka volume.
+		}
+
+		Pattern[] polaVolume = new Pattern[] {
+				Pattern.compile("\\d{4}-\\d{3}[\\dXx]\\s+(\\d+)\\s*\\("),
+				Pattern.compile("(?i)\\bvol(?:ume)?\\.?\\s*(\\d+)"),
+				Pattern.compile("(?:^|\\s)(\\d+)\\s*\\(") };
+		for (int i = 0; i < polaVolume.length; i++) {
+			Matcher matcher = polaVolume[i].matcher(teks);
+			if (matcher.find()) {
+				try {
+					return Integer.valueOf(matcher.group(1));
+				} catch (NumberFormatException angkaVolumeTidakValid) {
+					return null;
+				}
+			}
+		}
+		return null;
 	}
 
 	public void setVol(Integer vol) {

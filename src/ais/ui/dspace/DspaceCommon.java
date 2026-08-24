@@ -176,8 +176,10 @@ public class DspaceCommon {
 
 	public static String login() throws Exception {
 
-		String postData = "email=" + Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com").getNilai()
-				+ "&password=" + Common.getKonfigurasi("dspace_password", "jangannakal").getNilai();
+		String username = Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com").getNilai();
+		String password = Common.getKonfigurasi("dspace_password", "jangannakal").getNilai();
+		String postData = "email=" + URLEncoder.encode(username == null ? "" : username, "UTF-8")
+				+ "&password=" + URLEncoder.encode(password == null ? "" : password, "UTF-8");
 
 		String urlStr = ConstantValues.DSPACE_URL_PRIVATE + "/login";
 
@@ -190,6 +192,10 @@ public class DspaceCommon {
 				System.out.println("value = " + value);
 				cookie = StringUtils.split(value, "=")[1].split(";")[0];
 			}
+		}
+		if (cookie == null || cookie.trim().length() == 0) {
+			throw new java.io.IOException(
+					"Login DSpace tidak mengembalikan cookie sesi. Periksa dspace_private_url dan kredensial DSpace.");
 		}
 
 		System.out.println("cookie = " + cookie);
