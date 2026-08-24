@@ -908,6 +908,11 @@ public class Pertemuan extends Tugas {
 		this.absensi = absensi;
 	}
 
+	private String namaStatusPertemuanUntukNotifikasi() {
+		StatusPertemuan status = getStatusPertemuan();
+		return status == null || status.getNama() == null ? "" : status.getNama();
+	}
+
 	public void populate(Long ref, Statusabsensi statusabsensi, String mulai, String sampai, String jenis) {
 		populate(ref, statusabsensi, null, null, mulai, sampai, jenis);
 	}
@@ -930,6 +935,9 @@ public class Pertemuan extends Tugas {
 					@Override
 					public void run() {
 						try {
+							if (jenis == null || jenis.trim().length() == 0) {
+								return;
+							}
 
 						String waktu = "";
 						int jam = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
@@ -974,7 +982,7 @@ public class Pertemuan extends Tugas {
 										+ ", pada " + info() + (ta == null ? "" : " tahun pelajaran " + ta)
 										+ (smt == null ? "" : " semester " + (smt.equals(1) ? "ganjil" : "genap"))
 										+ (kls == null ? "" : " kelas " + kls) + " sesi "
-										+ getStatusPertemuan().getNama()
+										+ namaStatusPertemuanUntukNotifikasi()
 										+ ". Kehadiran Anda sangat kami hargai dan semoga Anda selalu bersemangat dalam mengikuti "
 										+ (jadwalPelajaran == null ? " kegiatan ini" : " mata pelajaran ini")
 										+ ". Terima kasih.";
@@ -1010,7 +1018,7 @@ public class Pertemuan extends Tugas {
 										+ (getWaktuSelesai() == null ? "" : " hingga " + getWaktuSelesai() + " ")
 										+ ", pada " + info() + (ta == null ? "" : " tahun akademik " + ta)
 										+ (smt == null ? "" : " semester " + smt) + (kls == null ? "" : " kelas " + kls)
-										+ " sesi " + getStatusPertemuan().getNama()
+										+ " sesi " + namaStatusPertemuanUntukNotifikasi()
 										+ ". Kehadiran Anda sangat kami hargai dan semoga Anda selalu bersemangat dalam mengikuti "
 										+ (perkuliahan == null ? " kegiatan ini" : "perkuliahan") + ". Terima kasih.";
 
@@ -1048,7 +1056,7 @@ public class Pertemuan extends Tugas {
 											+ ", pada " + info() + (ta == null ? "" : " tahun pelajaran " + ta)
 											+ (smt == null ? "" : " semester " + (smt.equals(1) ? "ganjil" : "genap"))
 											+ (kls == null ? "" : " kelas " + kls) + " sesi "
-											+ getStatusPertemuan().getNama()
+											+ namaStatusPertemuanUntukNotifikasi()
 											+ ". Kehadiran Anda sangat kami hargai dan semoga Anda selalu bersemangat dalam mengajar "
 											+ (jadwalPelajaran == null ? " kegiatan ini" : " mata pelajaran ini")
 											+ ". Terima kasih.";
@@ -1087,7 +1095,7 @@ public class Pertemuan extends Tugas {
 											+ ", pada " + info() + (ta == null ? "" : " tahun akademik " + ta)
 											+ (smt == null ? "" : " semester " + smt)
 											+ (kls == null ? "" : " kelas B1-HK") + " sesi "
-											+ getStatusPertemuan().getNama()
+											+ namaStatusPertemuanUntukNotifikasi()
 											+ ". Kehadiran Anda sangat kami hargai dan semoga Anda selalu bersemangat dalam mengajar "
 											+ (perkuliahan == null ? " kegiatan ini" : "perkuliahan ini")
 											+ ". Terima kasih.";
@@ -1119,7 +1127,7 @@ public class Pertemuan extends Tugas {
 													: Common.dateFormat6.get().format(getTanggal()))
 											+ ", pukul " + (getWaktuMulai() == null ? "" : " " + getWaktuMulai()) + " "
 											+ (getWaktuSelesai() == null ? "" : " hingga " + getWaktuSelesai() + " ")
-											+ ", pada " + info() + " sesi " + getStatusPertemuan().getNama()
+											+ ", pada " + info() + " sesi " + namaStatusPertemuanUntukNotifikasi()
 											+ " telah tercatat. Terima kasih.";
 
 									MailSender.simpanNotif(userIds, recipientsTemp,

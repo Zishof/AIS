@@ -3991,7 +3991,9 @@ public class AbsensiSiswaHelper {
 			hbox.appendChild(waktuMulai);
 			waktuMulai.setFormat(Common.timeFormat2.get().toPattern());
 			try {
-				waktuMulai.setValue(Common.timeFormat2.get().parse(pertemuan.retreiveAbsensiMulai(guru.getId())));
+				String absensiMulai = pertemuan.retreiveAbsensiMulai(guru.getId());
+				waktuMulai.setValue(absensiMulai == null || absensiMulai.trim().length() == 0 ? null
+						: Common.timeFormat2.get().parse(absensiMulai.trim()));
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java:3978");
 
 			}
@@ -4000,7 +4002,9 @@ public class AbsensiSiswaHelper {
 			hbox.appendChild(waktuSelesai);
 			waktuSelesai.setFormat(Common.timeFormat2.get().toPattern());
 			try {
-				waktuSelesai.setValue(Common.timeFormat2.get().parse(pertemuan.retreiveAbsensiSampai(guru.getId())));
+				String absensiSelesai = pertemuan.retreiveAbsensiSampai(guru.getId());
+				waktuSelesai.setValue(absensiSelesai == null || absensiSelesai.trim().length() == 0 ? null
+						: Common.timeFormat2.get().parse(absensiSelesai.trim()));
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java:3987");
 
 			}

@@ -9976,8 +9976,14 @@ public class Common {
 	 */
 	@SuppressWarnings("rawtypes")
 	public static boolean checkIsNull(Class clazz, Object o, String property) {
+		if (clazz == null || o == null || property == null || property.trim().length() == 0) {
+			return true;
+		}
 		try {
 			ClassMetadata classMetadata = HibernateUtil.getClassMetadata(clazz);
+			if (classMetadata == null) {
+				return false;
+			}
 			Object value = classMetadata.getPropertyValue(o, property, EntityMode.POJO);
 			if (value == null) {
 				return true;

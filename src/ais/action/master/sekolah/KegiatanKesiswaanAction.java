@@ -407,6 +407,17 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	private static void setTabDanPanelVisible(Tabpanel tabpanel, boolean visible) {
+		if (tabpanel == null) {
+			return;
+		}
+		tabpanel.setVisible(visible);
+		Tab tab = tabpanel.getLinkedTab();
+		if (tab != null) {
+			tab.setVisible(visible);
+		}
+	}
+
 	public void doAfterCompose(Component comp) throws Exception {
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
@@ -416,10 +427,8 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 
 		try {
 			if (tbmuser != null && (tbmuser.ambilGuru() != null || tbmuser.getSiswa() != null)) {
-				formTab.setVisible(false);
-				formTab.getLinkedTab().setVisible(false);
-				kelompokKegiatanKesiswaanTab.setVisible(false);
-				kelompokKegiatanKesiswaanTab.getLinkedTab().setVisible(false);
+				setTabDanPanelVisible(formTab, false);
+				setTabDanPanelVisible(kelompokKegiatanKesiswaanTab, false);
 
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/KegiatanKesiswaanAction.java:420");
@@ -428,7 +437,7 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
 
-		if (add != null) { add.setVisible(tbmuser.ambilGuru() == null && tbmuser.getSiswa() == null); }
+		if (add != null) { add.setVisible(tbmuser != null && tbmuser.ambilGuru() == null && tbmuser.getSiswa() == null); }
 		if (add != null) { add.setTooltiptext("Tambah"); }
 
 		MyToolbarbuttonConfig ajukan = new MyToolbarbuttonConfig("Isi Form Pengajuan", "/img/print.png");
@@ -444,7 +453,7 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 				laporan.onModal();
 			}
 		});
-		if (ajukan != null) { ajukan.setParent(add.getParent()); }
+		if (add != null && add.getParent() != null) { ajukan.setParent(add.getParent()); }
 
 		// edit = tbmuser.ambilGuru() == null
 		// && tbmuser.getSiswa() == null;
@@ -470,14 +479,14 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 		});
 
 		try {
-			if (tbmuser.getSiswa() != null || tbmuser.ambilGuru() != null) {
-				kelompokKegiatanKesiswaanTab.getLinkedTab().setVisible(false);
-				rekapBerdasarJabatanTab.getLinkedTab().setVisible(false);
-				rekapBerdasarSkalaTab.getLinkedTab().setVisible(false);
-				rekapBerdasarKelompokTab.getLinkedTab().setVisible(false);
-				rekapBerdasarDetailKelompokTab.getLinkedTab().setVisible(false);
-				formTab.getLinkedTab().setVisible(false);
-				rekap.setVisible(false);
+			if (tbmuser != null && (tbmuser.getSiswa() != null || tbmuser.ambilGuru() != null)) {
+				setTabDanPanelVisible(kelompokKegiatanKesiswaanTab, false);
+				setTabDanPanelVisible(rekapBerdasarJabatanTab, false);
+				setTabDanPanelVisible(rekapBerdasarSkalaTab, false);
+				setTabDanPanelVisible(rekapBerdasarKelompokTab, false);
+				setTabDanPanelVisible(rekapBerdasarDetailKelompokTab, false);
+				setTabDanPanelVisible(formTab, false);
+				if (rekap != null) { rekap.setVisible(false); }
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/KegiatanKesiswaanAction.java:477");
 			// TODO: handle exception
@@ -582,7 +591,7 @@ public class KegiatanKesiswaanAction extends GenericAutowireComposer implements 
 				laporan.onModal();
 			}
 		});
-		if (cetak != null) { cetak.setParent(add.getParent()); }
+		if (add != null && add.getParent() != null) { cetak.setParent(add.getParent()); }
 
 		if (tbmuser.getSiswa() == null && tbmuser.getSiswa() == null) {
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Setujui Semua", "/img/svg/check2.svg");
