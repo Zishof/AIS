@@ -86,6 +86,7 @@ public class RepositoryWorkspace extends HttpServlet {
                 request.setAttribute("repoFunding",workflow.metadataText(id,"dc.relation.isPartOf",user));
                 request.setAttribute("repoRightsStatement",workflow.metadataText(id,"dc.rights",user));
                 request.setAttribute("repoDepositorNote",workflow.metadataText(id,"repository.depositorNote",user));
+                request.setAttribute("repoBibliography",workflow.metadataText(id,"dc.relation.references",user));
                 DraftInput duplicateInput = new DraftInput(); duplicateInput.id = item.getId();
                 duplicateInput.title = item.getTitle(); duplicateInput.authors = item.getAuthors();
                 request.setAttribute("repoDuplicates", workflow.duplicates(duplicateInput, 10));
@@ -216,6 +217,11 @@ public class RepositoryWorkspace extends HttpServlet {
             flash(request.getSession(), "repository.flash", "Dry-run impor selesai; tidak ada data yang ditulis.");
             redirect(response, request, "admin", null); return;
         }
+        String uploadName = uploaded.getName() == null ? "" : uploaded.getName().toLowerCase();
+        String uploadType = uploaded.getContentType() == null ? "" : uploaded.getContentType().toLowerCase();
+        if ((uploadName.endsWith(".pdf") || uploadType.contains("pdf"))
+                && !"true".equalsIgnoreCase(fields.get("watermarkConfirmed")))
+            throw new IllegalArgumentException("Konfirmasikan bahwa PDF final telah diberi watermark institusi.");
         Long itemId = positiveLong(fields.get("id"));
         files.store(itemId, uploaded.getName(), uploaded.getContentType(), uploaded.getSize(), uploaded.getInputStream(),
                 "true".equalsIgnoreCase(fields.get("primary")), fields.get("fileAccess"), fields.get("description"), user, requestId);
@@ -235,7 +241,8 @@ public class RepositoryWorkspace extends HttpServlet {
         input.advisors=request.getParameter("advisors");input.examiners=request.getParameter("examiners");
         input.programStudy=request.getParameter("programStudy");input.faculty=request.getParameter("faculty");
         input.funding=request.getParameter("funding");input.rightsStatement=request.getParameter("rightsStatement");
-        input.depositorNote=request.getParameter("depositorNote");return input;
+        input.depositorNote=request.getParameter("depositorNote");
+        input.bibliography=request.getParameter("bibliography");return input;
     }
 
     private void verifyCsrf(HttpSession session, String supplied) {

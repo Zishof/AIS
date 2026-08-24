@@ -10,6 +10,7 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 -Dais.repository.virusScanner=/usr/bin/clamscan
 -Dais.repository.analyticsSalt=<rahasia-acak>
 -Dais.repository.searchSynonyms=umkm=usaha mikro kecil menengah|usaha kecil;skripsi=tugas akhir|thesis
+-Dais.repository.anonymousFullText=false
 
 -Dais.repository.dataciteUrl=https://api.datacite.org
 -Dais.repository.dataciteUser=<repository-id>
@@ -29,6 +30,10 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 
 -Dais.repository.aiEndpoint=https://ai-gateway.internal/repository
 ```
+
+`ais.repository.anonymousFullText=false` adalah nilai bawaan: pengguna umum hanya melihat
+metadata dan abstrak, sedangkan naskah lengkap memerlukan login eCampus. Ubah menjadi `true`
+hanya bila kebijakan institusi memang mengizinkan unduhan anonim untuk berkas Open Access.
 
 Gunakan endpoint test DataCite terlebih dahulu dan ubah `dataciteEvent` dari `register` ke
 `publish` hanya setelah landing page permanen dapat diakses. DOI yang sudah terdaftar tidak

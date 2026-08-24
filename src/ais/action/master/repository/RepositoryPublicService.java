@@ -96,6 +96,7 @@ public class RepositoryPublicService {
         public int metadataQuality;
         public String firstYear = "";
         public String lastYear = "";
+        public Map<String, Long> typeStatistics = new LinkedHashMap<String, Long>();
     }
 
     public static class CollectionView {
@@ -105,6 +106,7 @@ public class RepositoryPublicService {
         public String deskripsi;
         public String tipe;
         public long itemCount;
+        public Date modifiedAt;
     }
 
     public static class ItemCard {
@@ -267,7 +269,20 @@ public class RepositoryPublicService {
         SimpleDateFormat year = new SimpleDateFormat("yyyy");
         summary.firstYear = first == null ? "" : year.format(first);
         summary.lastYear = last == null ? "" : year.format(last);
+        summary.typeStatistics.put("Skripsi",Long.valueOf(countPublicByHints(session,new String[]{"skripsi","undergraduate thesis"})));
+        summary.typeStatistics.put("Tesis",Long.valueOf(countPublicByHints(session,new String[]{"tesis","master thesis"})));
+        summary.typeStatistics.put("Disertasi",Long.valueOf(countPublicByHints(session,new String[]{"disertasi","dissertation","doctoral thesis"})));
+        summary.typeStatistics.put("Karya dosen",Long.valueOf(countPublicByHints(session,new String[]{"karya dosen","article","artikel","book","buku","teaching material","bahan ajar"})));
+        summary.typeStatistics.put("Laporan penelitian",Long.valueOf(countPublicByHints(session,new String[]{"laporan penelitian","research report"})));
+        summary.typeStatistics.put("Prosiding",Long.valueOf(countPublicByHints(session,new String[]{"prosiding","proceeding","conference"})));
         return summary;
+    }
+
+    private long countPublicByHints(Session session,String[] hints){
+        StringBuilder sql=new StringBuilder("select count(distinct i.id) from repo_item i left join repo_collection c on c.id=i.collection_id where coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant and (");
+        for(int i=0;i<hints.length;i++){if(i>0)sql.append(" or ");sql.append("lower(coalesce(i.document_type,'')||' '||coalesce(c.nama,'')) like :hint").append(i);}
+        sql.append(')');org.hibernate.SQLQuery query=session.createSQLQuery(sql.toString());query.setString("tenant",RepositoryTenantScope.currentKey());
+        for(int i=0;i<hints.length;i++)query.setString("hint"+i,"%"+hints[i].toLowerCase()+"%");Object value=query.uniqueResult();return value instanceof Number?((Number)value).longValue():0L;
     }
 
     @SuppressWarnings("unchecked")
@@ -325,6 +340,14 @@ public class RepositoryPublicService {
     }
 
     @SuppressWarnings("unchecked")
+    public SearchResult latestPage(int requestedPage,int requestedPageSize){
+        Query q=new Query();q.page=Math.max(1,requestedPage);q.pageSize=Math.max(1,Math.min(requestedPageSize,20));q.sort="newest";
+        SearchResult result=new SearchResult();result.query=q;Session session=null;
+        try{session=HibernateUtil.openSession();result.total=count(publicCriteria(session,null));result.totalPages=result.total==0L?0:(int)((result.total+q.pageSize-1L)/q.pageSize);if(result.totalPages>0&&q.page>result.totalPages)q.page=result.totalPages;Criteria rows=publicCriteria(session,null);applySort(rows,q.sort);rows.setFirstResult((q.page-1)*q.pageSize);rows.setMaxResults(q.pageSize);result.items=cards(session,rows.list());return result;}
+        finally{HibernateUtil.closeSessionQuietly(session);}
+    }
+
+    @SuppressWarnings("unchecked")
     public List<ItemCard> featured(int maximum){List<RepoItem> rows=publicCriteria(session(),null).add(Restrictions.eq("featured",Boolean.TRUE))
             .addOrder(Order.desc("featuredAt")).addOrder(Order.desc("issuedAt")).setMaxResults(Math.max(1,Math.min(maximum,12))).list();return cards(session(),rows);}
 
@@ -349,6 +372,10 @@ public class RepositoryPublicService {
         }
         return result;
     }
+
+    public List<CollectionView> latestCollections(int maximum){List<CollectionView> rows=listCollections(500);Collections.sort(rows,new java.util.Comparator<CollectionView>(){public int compare(CollectionView a,CollectionView b){long av=a.modifiedAt==null?0L:a.modifiedAt.getTime(),bv=b.modifiedAt==null?0L:b.modifiedAt.getTime();return Long.valueOf(bv).compareTo(Long.valueOf(av));}});List<CollectionView> result=new ArrayList<CollectionView>();for(CollectionView row:rows)if(row.itemCount>0&&result.size()<Math.max(1,Math.min(maximum,20)))result.add(row);return result;}
+
+    public boolean anonymousFullTextAllowed(){return "true".equalsIgnoreCase(System.getProperty("ais.repository.anonymousFullText","false"));}
 
     public Map<String, Long> popularSubjects(int maximum) {
         return top(tokenFacet(session(), new Query(), "subjects"), maximum < 1 ? 8 : Math.min(maximum, 30));
@@ -488,6 +515,7 @@ public class RepositoryPublicService {
             view.nama = safe(row.getNama());
             view.deskripsi = safe(row.getDeskripsi());
             view.tipe = safe(row.getTipe());
+            view.modifiedAt = row.getTanggal_dirubah();
             Long itemCount = counts.get(row.getId());
             view.itemCount = itemCount == null ? 0L : itemCount.longValue();
             result.add(view);
@@ -578,7 +606,7 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("id", id)).add(activeRestriction()).add(tenantRestriction()).uniqueResult();
         if (row == null) return null;
         CollectionView view = new CollectionView(); view.id=row.getId(); view.kode=safe(row.getKode());
-        view.nama=safe(row.getNama()); view.deskripsi=safe(row.getDeskripsi()); view.tipe=safe(row.getTipe());
+        view.nama=safe(row.getNama()); view.deskripsi=safe(row.getDeskripsi()); view.tipe=safe(row.getTipe());view.modifiedAt=row.getTanggal_dirubah();
         Long count=collectionCounts(session()).get(row.getId()); view.itemCount=count==null?0L:count.longValue(); return view;
     }
 
@@ -773,6 +801,7 @@ public class RepositoryPublicService {
                     Restrictions.ilike("authors", q.keyword, MatchMode.ANYWHERE),
                     Restrictions.ilike("authors", reversedName(q.keyword), MatchMode.ANYWHERE)));
             else if ("subject".equals(q.searchField)) criteria.add(Restrictions.ilike("subjects", q.keyword, MatchMode.ANYWHERE));
+            else if ("year".equals(q.searchField)) {try{int y=Integer.parseInt(q.keyword);Calendar from=Calendar.getInstance();from.clear();from.set(Calendar.YEAR,y);Calendar until=Calendar.getInstance();until.clear();until.set(Calendar.YEAR,y+1);criteria.add(Restrictions.ge("issuedAt",from.getTime()));criteria.add(Restrictions.lt("issuedAt",until.getTime()));}catch(Exception invalidYear){criteria.add(Restrictions.sqlRestriction("1=0"));}}
             else if ("abstract".equals(q.searchField)) criteria.add(Restrictions.ilike("abstractText", q.keyword, MatchMode.ANYWHERE));
             else if ("fulltext".equals(q.searchField)) criteria.add(Restrictions.ilike("extractedText", q.keyword, MatchMode.ANYWHERE));
             else if ("program".equals(q.searchField)) criteria.add(Restrictions.sqlRestriction(
@@ -1101,7 +1130,7 @@ public class RepositoryPublicService {
 
     private String normalizeSearchField(String value) {
         String field = clean(value).toLowerCase();
-        return "title".equals(field) || "author".equals(field) || "subject".equals(field)
+        return "title".equals(field) || "author".equals(field) || "subject".equals(field) || "year".equals(field)
                 || "abstract".equals(field) || "program".equals(field) || "advisor".equals(field)
                 || "fulltext".equals(field) || "identifier".equals(field) ? field : "all";
     }

@@ -67,6 +67,7 @@ public class RepositoryWorkflowService {
         public String funding;
         public String rightsStatement;
         public String depositorNote;
+        public String bibliography;
     }
 
     public static class ValidationResult {
@@ -428,8 +429,17 @@ public class RepositoryWorkflowService {
         if (blank(item.getTitle())) result.errors.add("Judul wajib diisi.");
         if (blank(item.getAuthors())) result.errors.add("Minimal satu penulis wajib diisi.");
         if (blank(item.getDocumentType())) result.errors.add("Jenis dokumen wajib diisi.");
-        if (("Thesis".equalsIgnoreCase(item.getDocumentType()) || "Article".equalsIgnoreCase(item.getDocumentType()))
+        if ((isFinalAcademicWork(item.getDocumentType()) || "Article".equalsIgnoreCase(item.getDocumentType()))
                 && blank(item.getAbstractText())) result.errors.add("Abstrak wajib untuk thesis/article.");
+        if (isFinalAcademicWork(item.getDocumentType())) {
+            Number references = (Number) session.createCriteria(RepoItemMetadata.class)
+                    .add(Restrictions.eq("itemId", item.getId()))
+                    .add(Restrictions.eq("metadataField", "dc.relation.references"))
+                    .add(Restrictions.eq("aktif", Boolean.TRUE))
+                    .setProjection(Projections.rowCount()).uniqueResult();
+            if (references == null || references.longValue() == 0L)
+                result.errors.add("Daftar pustaka wajib untuk skripsi, tesis, atau disertasi.");
+        }
         if (!ACCESS_POLICIES.contains(item.getAccessPolicy())) result.errors.add("Kebijakan akses tidak valid.");
         if (!"METADATA_ONLY".equals(item.getAccessPolicy()) && blank(item.getLicenseUri()))
             result.errors.add("Lisensi wajib dipilih untuk berkas yang didistribusikan.");
@@ -492,7 +502,8 @@ public class RepositoryWorkflowService {
     @SuppressWarnings("unchecked")
     private void syncExtendedMetadata(Session session,RepoItem item,DraftInput input,Tbmuser actor){
         String[] fields={"repository.author.affiliation","repository.author.ror","dc.contributor.advisor","repository.examiner",
-                "repository.programStudy","repository.faculty","dc.relation.isPartOf","dc.rights","repository.depositorNote"};
+                "repository.programStudy","repository.faculty","dc.relation.isPartOf","dc.rights","repository.depositorNote",
+                "dc.relation.references"};
         List<RepoItemMetadata> old=session.createCriteria(RepoItemMetadata.class).add(Restrictions.eq("itemId",item.getId()))
                 .add(Restrictions.in("metadataField",fields)).add(Restrictions.eq("aktif",Boolean.TRUE)).list();
         for(RepoItemMetadata row:old){row.setAktif(Boolean.FALSE);row.setOlehId(actor.getUserId());row.setOleh(actor.toString());session.update(row);}
@@ -505,7 +516,9 @@ public class RepositoryWorkflowService {
         metadataSingle(session,item.getId(),"dc.relation.isPartOf",input.funding,actor);
         metadataSingle(session,item.getId(),"dc.rights",input.rightsStatement,actor);
         metadataSingle(session,item.getId(),"repository.depositorNote",input.depositorNote,actor);
+        metadataSingle(session,item.getId(),"dc.relation.references",input.bibliography,actor);
     }
+    private boolean isFinalAcademicWork(String type){String value=clean(type).toLowerCase();return "thesis".equals(value)||"skripsi".equals(value)||"tesis".equals(value)||"disertasi".equals(value)||"dissertation".equals(value);}
     private void metadataLines(Session session,Long itemId,String field,String value,Tbmuser actor){String[] rows=lines(value);for(int i=0;i<rows.length;i++)if(!blank(rows[i]))metadata(session,itemId,field,rows[i],i,actor);}
     private void metadataSingle(Session session,Long itemId,String field,String value,Tbmuser actor){if(!blank(value))metadata(session,itemId,field,value,0,actor);}
 

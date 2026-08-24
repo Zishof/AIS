@@ -16,9 +16,9 @@ public final class RepositoryTenantScope {
     }
 
 	/**
-	 * Migrasi idempoten untuk instalasi lama yang tabel repository-nya dibuat sebelum
-	 * dukungan multi-tenant. Dijalankan sekali per JVM memakai session mandiri agar DDL
-	 * tidak merusak transaksi request/scheduler milik pemanggil.
+	 * Backfill idempoten setelah Hibernate memastikan schema multi-tenant tersedia.
+	 * Dijalankan sekali per JVM memakai session mandiri agar transaksi request/scheduler
+	 * milik pemanggil tidak ikut berubah.
 	 */
 	public static void ensureSchema() {
 		if (schemaReady) return;
@@ -30,8 +30,6 @@ public final class RepositoryTenantScope {
 			try {
 				session = HibernateUtil.openSession();
 				transaction = session.beginTransaction();
-				session.createSQLQuery("alter table if exists public.repo_collection add column if not exists tenant_key varchar(120)").executeUpdate();
-				session.createSQLQuery("alter table if exists public.repo_item add column if not exists tenant_key varchar(120)").executeUpdate();
 				session.createSQLQuery("update public.repo_collection set tenant_key = :tenant where tenant_key is null or trim(tenant_key) = ''")
 						.setString("tenant", tenant).executeUpdate();
 				session.createSQLQuery("update public.repo_item set tenant_key = :tenant where tenant_key is null or trim(tenant_key) = ''")

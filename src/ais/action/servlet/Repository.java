@@ -102,6 +102,7 @@ public class Repository extends HttpServlet {
         if (path.length() > 0 && !"/".equals(path)) {
             String[] segments = path.split("/");
             if (path.equals("/search") || path.startsWith("/browse")) view = "search";
+            else if (path.equals("/collections")) view = "collections";
             else if (path.equals("/policies") || path.startsWith("/policies/")) view = "policies";
             else if (path.equals("/help")) view = "help";
             else if(path.equals("/ask"))view="ask";
@@ -166,6 +167,7 @@ public class Repository extends HttpServlet {
         request.setAttribute("repoIsAdmin",Boolean.valueOf(workflow.isRepositoryAdministrator(publicUser)));
         request.setAttribute("repoIsReviewer", Boolean.valueOf(workflow.isRepositoryAdmin(publicUser)&&!workflow.isRepositoryAdministrator(publicUser)));
         request.setAttribute("repoCanDeposit", Boolean.valueOf(workflow.canDeposit(publicUser) && service.hasDepositCollection()));
+        request.setAttribute("repoAnonymousFullText",Boolean.valueOf(service.anonymousFullTextAllowed()));
 
         if ("item".equals(view)) {
             Long itemId=routeId==null?parseLong(request.getParameter("id")):routeId;
@@ -175,6 +177,7 @@ public class Repository extends HttpServlet {
                 if (detail == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publikasi tidak ditemukan."); return; }
             }
             request.setAttribute("repoItem", detail);
+            if(publicUser==null&&!service.anonymousFullTextAllowed()){detail.files.clear();detail.pdfAvailable=false;}
             if(publicUser!=null){boolean bookmarked=false;for(RepositoryPublicService.PreferenceView p:service.preferences(publicUser.getUserId(),"BOOKMARK",100))if(detail.id.equals(p.itemId)){bookmarked=true;break;}request.setAttribute("repoBookmarked",Boolean.valueOf(bookmarked));}
             if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request),country(request),request.getHeader("Referer"));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
@@ -188,6 +191,10 @@ public class Repository extends HttpServlet {
             String name=routeAuthor.length()==0?clean(request.getParameter("name")):routeAuthor;
             AuthorProfile author=service.authorProfile(name);if(author==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Profil penulis tidak ditemukan.");return;}
             request.setAttribute("repoAuthor",author);
+        } else if("collections".equals(view)){
+            Query catalogQuery=new Query();catalogQuery.pageSize=1;SearchResult catalog=service.search(catalogQuery);
+            request.setAttribute("repoCollections",service.listCollections(100));request.setAttribute("repoLatestCollections",service.latestCollections(8));
+            request.setAttribute("repoLatest",service.latest(8));request.setAttribute("repoCollectionFacets",catalog);
         } else if("ask".equals(view)){
             request.setAttribute("repoAnswer",service.askRepository(clean(request.getParameter("q"))));
         } else if ("policies".equals(view) || "help".equals(view)) {
@@ -196,7 +203,11 @@ public class Repository extends HttpServlet {
             request.setAttribute("repoView", "home");
             request.setAttribute("repoSummary", service.loadSummary());
             request.setAttribute("repoCollections", service.listCollections(12));
-            request.setAttribute("repoLatest", service.latest(6));
+            Integer requestedLatestPage=parseInteger(request.getParameter("latestPage"));
+            int latestPage=requestedLatestPage==null?1:requestedLatestPage.intValue();
+            SearchResult latestResult=service.latestPage(latestPage,6);
+            request.setAttribute("repoLatestPage",latestResult);
+            request.setAttribute("repoLatest",latestResult.items);
             request.setAttribute("repoPopularCollections", service.popularCollections(6));
             request.setAttribute("repoPopularTopics", service.popularSubjects(10));
             request.setAttribute("repoFeatured",service.featured(6));
@@ -322,6 +333,7 @@ public class Repository extends HttpServlet {
     }
 
     private void download(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if(!service.anonymousFullTextAllowed()&&Common.getCurrentUser(request)==null){response.sendError(HttpServletResponse.SC_UNAUTHORIZED,"Silakan login menggunakan akun eCampus untuk membaca atau mengunduh naskah lengkap.");return;}
         RepoBitstream bitstream = service.findDownloadableBitstream(parseLong(request.getParameter("id")));
         if (bitstream == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Berkas tidak ditemukan atau tidak dapat diakses.");
