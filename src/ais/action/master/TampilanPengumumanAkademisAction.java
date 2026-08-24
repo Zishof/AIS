@@ -2091,10 +2091,19 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 						htmlEscape(ruangPaketPMB == null || ruangPaketPMB.getRuangPMB() == null ? ""
 								: ruangPaketPMB.getRuangPMB().getNama())));
 
-				if (tampilkanInformasiPembyaranDiPMB) {
-					htmlBuilder
-						.append(buildInfoRow(Common.getBahasaConfig("Pembayaran Reg."), teksBayarReg2))
-						.append(buildInfoRow(Common.getBahasaConfig("Status/Daftar Ulang"), teksBayarDU2));
+				if (tampilkanInformasiPembyaranDiPMB
+						&& (myGelombangPendaftaran == null
+								|| myGelombangPendaftaran
+										.getTampilkanStatusPembayaranRegistrasiDiHalamanAwal())) {
+					htmlBuilder.append(
+							buildInfoRow(Common.getBahasaConfig("Pembayaran Reg."), teksBayarReg2));
+				}
+				if (tampilkanInformasiPembyaranDiPMB
+						&& (myGelombangPendaftaran == null
+								|| myGelombangPendaftaran
+										.getTampilkanStatusPembayaranDaftarUlangDiHalamanAwal())) {
+					htmlBuilder.append(
+							buildInfoRow(Common.getBahasaConfig("Status/Daftar Ulang"), teksBayarDU2));
 				}
 
 				htmlBuilder.append("</table>");
