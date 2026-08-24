@@ -24,6 +24,8 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
 public class CommonPrivilages {
+	private static final Object LOG_ACTIVITY_SCHEMA_LOCK = new Object();
+	private static volatile boolean logActivitySchemaChecked = false;
 
     public final static Integer READ = 0;
     public final static Integer CREATE = 1;
@@ -60,6 +62,8 @@ public class CommonPrivilages {
 
             String keterangan1 = buildKeterangan(serializable);
 
+			pastikanSequenceLogUserActifity();
+
             session = HibernateUtil.getSessionFactory().openSession();
             transaction = session.beginTransaction();
 
@@ -88,17 +92,76 @@ public class CommonPrivilages {
                     transaction.rollback();
                 }
             } catch (Exception rollbackException) {
-                Common.tampilErrorJikaAdmin(rollbackException);
+				ErrorAuditUtil.record(rollbackException,
+						"CommonPrivilages.saveActivity gagal rollback audit aktivitas");
             }
             AuditTrailHelper.debug("CommonPrivilages.saveActivity gagal "
                     + AuditTrailHelper.describeActivity(activityType) + " "
                     + AuditTrailHelper.describeEntity(serializable, AuditTrailHelper.safeIdentifier(serializable)), e);
-            Common.tampilErrorJikaAdmin(e);
+			/*
+			 * Audit aktivitas adalah fungsi pendamping. Kegagalannya wajib tercatat ke
+			 * ErrorLog/server log, tetapi tidak boleh menampilkan message box atau
+			 * membatalkan pembuatan halaman/transaksi utama pengguna.
+			 */
+			ErrorAuditUtil.record(e, "CommonPrivilages.saveActivity gagal menyimpan LogUserActifity");
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
         return false;
     }
+
+	/**
+	 * Memulihkan sequence legacy LogUserActifity yang pada sebagian database lama
+	 * tidak ikut terbawa saat restore. Hibernate IDENTITY PostgreSQL mengharapkan
+	 * nama baku public.log_user_actifity_id_seq untuk mengambil id hasil insert.
+	 * Dijalankan paling banyak sekali per JVM dan idempoten.
+	 */
+	private static void pastikanSequenceLogUserActifity() {
+		if (logActivitySchemaChecked) {
+			return;
+		}
+		synchronized (LOG_ACTIVITY_SCHEMA_LOCK) {
+			if (logActivitySchemaChecked) {
+				return;
+			}
+			Session schemaSession = null;
+			Transaction schemaTransaction = null;
+			try {
+				schemaSession = HibernateUtil.getSessionFactory().openSession();
+				schemaTransaction = schemaSession.beginTransaction();
+				schemaSession.createSQLQuery(
+						"create sequence if not exists public.log_user_actifity_id_seq").executeUpdate();
+				schemaSession.createSQLQuery(
+						"lock table public.log_user_actifity in access exclusive mode").executeUpdate();
+				schemaSession.createSQLQuery(
+						"select setval('public.log_user_actifity_id_seq', "
+								+ "coalesce((select max(id) from public.log_user_actifity), 0) + 1, false)")
+						.uniqueResult();
+				schemaSession.createSQLQuery(
+						"alter table public.log_user_actifity alter column id set default "
+								+ "nextval('public.log_user_actifity_id_seq'::regclass)").executeUpdate();
+				schemaSession.createSQLQuery(
+						"alter sequence public.log_user_actifity_id_seq owned by public.log_user_actifity.id")
+						.executeUpdate();
+				schemaTransaction.commit();
+			} catch (Exception e) {
+				try {
+					if (schemaTransaction != null && !schemaTransaction.wasCommitted()
+							&& !schemaTransaction.wasRolledBack()) {
+						schemaTransaction.rollback();
+					}
+				} catch (Exception rollbackException) {
+					ErrorAuditUtil.record(rollbackException,
+							"CommonPrivilages.pastikanSequenceLogUserActifity rollback gagal");
+				}
+				ErrorAuditUtil.record(e,
+						"Gagal memperbaiki public.log_user_actifity_id_seq; audit dibuat fail-open");
+			} finally {
+				logActivitySchemaChecked = true;
+				HibernateUtil.closeSessionQuietly(schemaSession);
+			}
+		}
+	}
 
     @SuppressWarnings({ "rawtypes", "deprecation" })
     private static String buildKeterangan(Serializable serializable) {
