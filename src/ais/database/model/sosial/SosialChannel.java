@@ -20,7 +20,7 @@ public class SosialChannel extends SocialRecord {
  @Column(name="provider",nullable=false,length=40) public String getProvider(){return provider==null?"SMARTLINK":provider;} public void setProvider(String v){provider=trim(v);}
  @Column(name="operation_mode",nullable=false,length=30) public String getOperationMode(){return operationMode==null?"SANDBOX":operationMode;} public void setOperationMode(String v){operationMode=trim(v);}
  @Column(name="aktif") public Boolean getAktif(){return !Boolean.FALSE.equals(aktif);} public void setAktif(Boolean v){aktif=v;}
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="akun_id") public Akun getAkun(){return akun;} public void setAkun(Akun v){akun=v;}
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="akun_id",nullable=false) public Akun getAkun(){return akun;} public void setAkun(Akun v){akun=v;}
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="yayasan_id") public Yayasan getYayasan(){return yayasan;} public void setYayasan(Yayasan v){yayasan=v;}
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="sekolah_id") public Sekolah getSekolah(){return sekolah;} public void setSekolah(Sekolah v){sekolah=v;}
  @Column(name="smartlink_enabled") public Boolean getSmartlinkEnabled(){return Boolean.TRUE.equals(smartlinkEnabled);} public void setSmartlinkEnabled(Boolean v){smartlinkEnabled=v;}
