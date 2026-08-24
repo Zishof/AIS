@@ -36,7 +36,7 @@
     // Persiapan variabel data dengan validasi Null (Fallback ke strip "-")
     boolean punyaCoverAsli = item.getImageUrl() != null && item.getImageUrl().trim().startsWith("http");
     String coverImg = punyaCoverAsli
-        ? item.getImageUrl() 
+        ? item.getImageUrl()
         : Common.getRequestHostWithProtocol() + "/library/item-cover?id=" + item.getId();
     
     String judul = item.getTitle() != null && !item.getTitle().trim().isEmpty() ? item.getTitle() : Common.getBahasaConfig("Tanpa Judul");

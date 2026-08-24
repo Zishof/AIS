@@ -40,6 +40,48 @@ private String rrelative(Date value) {
     return new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("id", "ID")).format(value);
 }
 private String rdate(Date value){return value==null?"":new java.text.SimpleDateFormat("dd MMM yyyy",new java.util.Locale("id","ID")).format(value);}
+private String rpageHref(String base, String pageParam, int page, String anchor) {
+    String separator = base.endsWith("?") || base.endsWith("&") ? "" : (base.indexOf('?') >= 0 ? "&" : "?");
+    return rh(base + separator + pageParam + "=" + page + (anchor == null ? "" : anchor));
+}
+private String rpaging(String base, String pageParam, int currentPage, int totalPages,
+        String label, String anchor, boolean compact, boolean bottom) {
+    if (totalPages <= 1) return "";
+    int current = Math.max(1, Math.min(currentPage, totalPages));
+    int first = Math.max(1, current - 2);
+    int last = Math.min(totalPages, current + 2);
+    StringBuilder html = new StringBuilder();
+    html.append("<nav class=\"repo-pagination");
+    if (compact) html.append(" repo-pagination-compact");
+    if (bottom) html.append(" repo-pagination-bottom");
+    html.append("\" aria-label=\"").append(rh(label)).append("\">");
+    if (current > 1) {
+        html.append("<a href=\"").append(rpageHref(base, pageParam, current - 1, anchor))
+                .append("\" aria-label=\"Halaman sebelumnya\">‹</a>");
+    }
+    if (first > 1) {
+        html.append("<a href=\"").append(rpageHref(base, pageParam, 1, anchor)).append("\">1</a>");
+        if (first > 2) html.append("<b class=\"repo-pagination-gap\" aria-hidden=\"true\">…</b>");
+    }
+    for (int pageNumber = first; pageNumber <= last; pageNumber++) {
+        if (pageNumber == current) {
+            html.append("<span aria-current=\"page\">").append(pageNumber).append("</span>");
+        } else {
+            html.append("<a href=\"").append(rpageHref(base, pageParam, pageNumber, anchor))
+                    .append("\">").append(pageNumber).append("</a>");
+        }
+    }
+    if (last < totalPages) {
+        if (last < totalPages - 1) html.append("<b class=\"repo-pagination-gap\" aria-hidden=\"true\">…</b>");
+        html.append("<a href=\"").append(rpageHref(base, pageParam, totalPages, anchor))
+                .append("\">").append(totalPages).append("</a>");
+    }
+    if (current < totalPages) {
+        html.append("<a href=\"").append(rpageHref(base, pageParam, current + 1, anchor))
+                .append("\" aria-label=\"Halaman berikutnya\">›</a>");
+    }
+    return html.append("</nav>").toString();
+}
 %>
 <%
 String root = request.getContextPath();
@@ -149,7 +191,7 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
     <section class="repo-wrap repo-section repo-home-grid">
       <div class="repo-card repo-card-pad" id="publikasi-terbaru">
         <div class="repo-section-head"><h2>Publikasi terbaru</h2><a class="repo-link" href="<%=root%>/repository?view=search">Lihat semua</a></div>
-        <%if(latestTotalPages>1){int latestFirst=Math.max(1,latestCurrentPage-2),latestLast=Math.min(latestTotalPages,latestCurrentPage+2);%><nav class="repo-pagination repo-pagination-compact" aria-label="Halaman atas publikasi terbaru"><%if(latestCurrentPage>1){%><a href="<%=root%>/repository?latestPage=<%=latestCurrentPage-1%>#publikasi-terbaru" aria-label="Publikasi terbaru sebelumnya">‹</a><%}for(int lp=latestFirst;lp<=latestLast;lp++){if(lp==latestCurrentPage){%><span aria-current="page"><%=lp%></span><%}else{%><a href="<%=root%>/repository?latestPage=<%=lp%>#publikasi-terbaru"><%=lp%></a><%}}if(latestCurrentPage<latestTotalPages){%><a href="<%=root%>/repository?latestPage=<%=latestCurrentPage+1%>#publikasi-terbaru" aria-label="Publikasi terbaru berikutnya">›</a><%}%></nav><%}%>
+        <%=rpaging(root+"/repository","latestPage",latestCurrentPage,latestTotalPages,"Halaman atas publikasi terbaru","#publikasi-terbaru",true,false)%>
         <div class="repo-list">
         <% if (latest.isEmpty()) { %><div class="repo-empty"><h3>Belum ada publikasi</h3><p>Record publik akan muncul setelah proses persetujuan dan sinkronisasi selesai.</p></div><% }
            for (ItemCard item : latest) { %>
@@ -166,7 +208,7 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
           </a>
         <% } %>
         </div>
-        <%if(latestTotalPages>1){int latestFirstBottom=Math.max(1,latestCurrentPage-2),latestLastBottom=Math.min(latestTotalPages,latestCurrentPage+2);%><nav class="repo-pagination repo-pagination-compact repo-pagination-bottom" aria-label="Halaman bawah publikasi terbaru"><%if(latestCurrentPage>1){%><a href="<%=root%>/repository?latestPage=<%=latestCurrentPage-1%>#publikasi-terbaru" aria-label="Publikasi terbaru sebelumnya">‹</a><%}for(int lp=latestFirstBottom;lp<=latestLastBottom;lp++){if(lp==latestCurrentPage){%><span aria-current="page"><%=lp%></span><%}else{%><a href="<%=root%>/repository?latestPage=<%=lp%>#publikasi-terbaru"><%=lp%></a><%}}if(latestCurrentPage<latestTotalPages){%><a href="<%=root%>/repository?latestPage=<%=latestCurrentPage+1%>#publikasi-terbaru" aria-label="Publikasi terbaru berikutnya">›</a><%}%></nav><%}%>
+        <%=rpaging(root+"/repository","latestPage",latestCurrentPage,latestTotalPages,"Halaman bawah publikasi terbaru","#publikasi-terbaru",true,true)%>
       </div>
       <aside class="repo-card repo-card-pad">
         <div class="repo-section-head"><h2>Koleksi populer</h2></div>
@@ -248,12 +290,13 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
         <details class="repo-facet"><summary>Sumber dan lisensi</summary><%for(Map.Entry<String,Long> f:search.sourceFacets.entrySet()){%><span class="repo-facet-static"><%=rh(f.getKey())%> <b><%=f.getValue()%></b></span><%}for(Map.Entry<String,Long> f:search.licenseFacets.entrySet()){if(f.getKey().trim().length()>0){%><span class="repo-facet-static"><%=rh(f.getKey())%> <b><%=f.getValue()%></b></span><%}}%></details>
 <div class="repo-facet"><h3>Ketersediaan naskah</h3><%for(Map.Entry<String,Long> f:search.fullTextFacets.entrySet()){%><a href="<%=root%>/repository?view=search&q=<%=ru(query.keyword)%>&field=<%=ru(query.searchField)%>&type=<%=ru(query.documentType)%>&access=<%=ru(query.accessPolicy)%>&scope=<%=ru(query.searchScope)%>&fullText=<%=ru(f.getKey())%>"><span><%="WITH_FILE".equals(f.getKey())?"Dengan naskah lengkap":"Metadata saja"%></span><b><%=f.getValue()%></b></a><%}%></div>
       </aside>
-      <section aria-live="polite">
+      <section id="repo-search-results" aria-live="polite">
         <div class="repo-results-head"><div><strong><%=nf.format(search.total)%> hasil</strong><div class="repo-chips"><% if (query.documentType.length() > 0) { %><span class="repo-chip"><%=rh(query.documentType)%></span><% } if (query.accessPolicy.length() > 0) { %><span class="repo-chip repo-chip-open"><%=rh(rlabel(query.accessPolicy))%></span><% } if(query.author.length()>0){%><span class="repo-chip">Penulis: <%=rh(query.author)%></span><%}if(query.subject.length()>0){%><span class="repo-chip">Subjek: <%=rh(query.subject)%></span><%}if(query.programStudy.length()>0){%><span class="repo-chip">Program: <%=rh(query.programStudy)%></span><%}if(query.fullText.length()>0){%><span class="repo-chip"><%="WITH_FILE".equals(query.fullText)?"Full text tersedia":"Metadata saja"%></span><%}%></div></div>
           <div class="repo-result-tools"><button class="repo-btn repo-mobile-filter" type="button" data-repo-filter-toggle aria-expanded="false">Filter</button><a class="repo-btn <%="list".equals(resultMode)?"is-active":""%>" href="<%=modeSearch%>&layout=list">Daftar</a><a class="repo-btn <%="card".equals(resultMode)?"is-active":""%>" href="<%=modeSearch%>&layout=card">Kartu</a>
           <form method="get" action="<%=root%>/repository/search" style="display:inline"><input type="hidden" name="q" value="<%=rh(query.keyword)%>"><input type="hidden" name="field" value="<%=rh(query.searchField)%>"><input type="hidden" name="type" value="<%=rh(query.documentType)%>"><input type="hidden" name="access" value="<%=rh(query.accessPolicy)%>"><input type="hidden" name="author" value="<%=rh(query.author)%>"><input type="hidden" name="subject" value="<%=rh(query.subject)%>"><input type="hidden" name="language" value="<%=rh(query.language)%>"><input type="hidden" name="identifier" value="<%=rh(query.identifier)%>"><input type="hidden" name="program" value="<%=rh(query.programStudy)%>"><input type="hidden" name="scope" value="<%=rh(query.searchScope)%>"><input type="hidden" name="fullText" value="<%=rh(query.fullText)%>"><select class="repo-btn" name="sort" onchange="this.form.submit()"><option value="newest" <%="newest".equals(query.sort) ? "selected" : ""%>>Terbaru</option><option value="oldest" <%="oldest".equals(query.sort) ? "selected" : ""%>>Terlama</option><option value="title" <%="title".equals(query.sort) ? "selected" : ""%>>Judul A–Z</option><option value="author" <%="author".equals(query.sort) ? "selected" : ""%>>Penulis A–Z</option></select></form></div>
         </div>
         <%if(publicUser!=null){%><form class="repo-save-search" action="<%=root%>/repository" method="post"><input type="hidden" name="action" value="saveSearch"><input type="hidden" name="csrf" value="<%=rh(repoCsrf)%>"><input type="hidden" name="queryValue" value="<%=rh(baseSearch)%>"><input type="hidden" name="returnTo" value="<%=rh(baseSearch)%>"><label>Nama pencarian<input name="label" maxlength="255" value="<%=rh(query.keyword.length()>0?query.keyword:"Semua publikasi")%>"></label><label class="repo-check-inline"><input type="checkbox" name="alert" value="true"> Aktifkan alert</label><button class="repo-btn" type="submit">Simpan pencarian</button></form><%}%>
+        <%=rpaging(baseSearch,"page",query.page,search.totalPages,"Halaman atas hasil pencarian","#repo-search-results",false,false)%>
         <div class="repo-results <%="card".equals(resultMode)?"repo-results-card-mode":""%>">
           <div class="repo-search-skeleton" data-repo-search-skeleton hidden aria-hidden="true"><i></i><i></i><i></i></div>
           <% if (search.items.isEmpty()) { %><div class="repo-card repo-empty"><h2>Tidak ada hasil</h2><p>Coba gunakan kata kunci lebih singkat, periksa ejaan, atau hapus sebagian filter.</p><%if(search.didYouMean.length()>0){%><p class="repo-did-you-mean">Apakah yang Anda maksud: <a href="<%=root%>/repository/search?q=<%=ru(search.didYouMean)%>"><strong><%=rh(search.didYouMean)%></strong></a>?</p><%}%><div class="repo-paper-actions"><a class="repo-btn repo-btn-primary" href="<%=root%>/repository/search">Hapus semua filter</a><a class="repo-btn" href="<%=root%>/repository/search?sort=newest">Lihat publikasi terbaru</a><a class="repo-btn" href="<%=root%>/repository/search?fullText=WITH_FILE">Jelajahi full text terbuka</a></div></div><% }
@@ -261,15 +304,40 @@ NumberFormat nf = NumberFormat.getIntegerInstance(new Locale("id", "ID"));
           <article class="repo-card repo-result-card" data-repo-card-href="<%=root%>/repository/item/<%=item.id%>"><div class="repo-chips"><span class="repo-chip"><%=rh(item.documentType)%></span><span class="repo-chip <%="OPEN_ACCESS".equals(item.accessPolicy) ? "repo-chip-open" : "repo-chip-warning"%>"><%=rh(rlabel(item.accessPolicy))%></span><span class="repo-chip"><%=item.publicFileCount>0?(item.pdfAvailable?"PDF tersedia":item.publicFileCount+" berkas tersedia"):"Metadata saja"%></span></div><h2><a href="<%=root%>/repository/item/<%=item.id%>"><%=rh(item.title)%></a></h2><div class="repo-authors"><%for(String a:item.authors.split(";")){if(a.trim().length()>0){%><a href="<%=root%>/repository/author/<%=ru(a.trim())%>"><%=rh(a.trim())%></a> <%}}%></div><div class="repo-meta"><%if(item.programStudy.length()>0){%><span><%=rh(item.programStudy)%></span><span>•</span><%}%><span><%=rh(item.year)%></span><span>•</span><span><%=rh(item.collectionName)%></span></div><p class="repo-abstract"><%=rh(item.abstractText)%></p><div class="repo-chips"><% if (item.subjects.length() > 0) { for(String subject:item.subjects.split("[;,]")){if(subject.trim().length()>0){%><a class="repo-chip" href="<%=root%>/repository/search?subject=<%=ru(subject.trim())%>"><%=rh(subject.trim())%></a><%}} } %></div><div class="repo-result-actions"><span class="repo-meta"><%if(item.doi.length()>0){%>DOI <%=rh(item.doi)%> · <%}%><%=nf.format(item.viewCount)%> dilihat · <%=nf.format(item.downloadCount)%> unduhan</span><a class="repo-btn" href="<%=root%>/repository?action=citation&format=apa&id=<%=item.id%>">Sitasi</a><a class="repo-btn repo-btn-soft" href="<%=root%>/repository/item/<%=item.id%>">Detail</a></div></article>
           <% } %>
         </div>
-        <% if (search.totalPages > 1) { %><nav class="repo-pagination" aria-label="Halaman hasil"><% int first = Math.max(1, query.page - 2), last = Math.min(search.totalPages, query.page + 2); if (query.page > 1) { %><a href="<%=baseSearch%>&page=<%=query.page-1%>" aria-label="Halaman sebelumnya">‹</a><% } for (int pi = first; pi <= last; pi++) { if (pi == query.page) { %><span aria-current="page"><%=pi%></span><% } else { %><a href="<%=baseSearch%>&page=<%=pi%>"><%=pi%></a><% }} if (query.page < search.totalPages) { %><a href="<%=baseSearch%>&page=<%=query.page+1%>" aria-label="Halaman berikutnya">›</a><% } %></nav><% } %>
+        <%=rpaging(baseSearch,"page",query.page,search.totalPages,"Halaman bawah hasil pencarian","#repo-search-results",false,true)%>
       </section>
     </div>
 
-  <% } else if ("collection".equals(view)) { CollectionView c=(CollectionView)request.getAttribute("repoCollection"); SearchResult sr=(SearchResult)request.getAttribute("repoSearch"); %>
-    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Koleksi</div><p class="repo-eyebrow"><%=rh(c.tipe)%></p><h1><%=rh(c.nama)%></h1><p><%=rh(c.deskripsi)%></p><div class="repo-chips"><span class="repo-chip"><%=nf.format(c.itemCount)%> item publik</span></div><form class="repo-search" action="<%=root%>/repository/search" method="get"><input type="hidden" name="collection" value="<%=c.id%>"><label class="visually-hidden" for="collection-q">Cari dalam koleksi</label><input id="collection-q" name="q" placeholder="Cari dalam koleksi ini"><button class="repo-btn repo-btn-primary">Cari</button></form></section><section class="repo-wrap repo-section"><div class="repo-section-head"><h2>Publikasi terbaru</h2></div><div class="repo-results"><%for(ItemCard i:sr.items){%><article class="repo-card repo-result-card" data-repo-card-href="<%=root%>/repository/item/<%=i.id%>"><h2><a href="<%=root%>/repository/item/<%=i.id%>"><%=rh(i.title)%></a></h2><div class="repo-authors"><%=rh(i.authors)%></div><div class="repo-meta"><%=rh(i.year)%> · <%=rh(i.documentType)%> · <%=rh(rlabel(i.accessPolicy))%></div><p class="repo-abstract"><%=rh(i.abstractText)%></p></article><%}%></div></section>
+  <% } else if ("collection".equals(view)) {
+      CollectionView c=(CollectionView)request.getAttribute("repoCollection");
+      SearchResult sr=(SearchResult)request.getAttribute("repoSearch");
+      Query collectionQuery=sr.query;
+      String collectionBase=root+"/repository/collection/"+c.id+"?q="+ru(collectionQuery.keyword)+"&sort="+ru(collectionQuery.sort)+"&size="+collectionQuery.pageSize;
+  %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Koleksi</div><p class="repo-eyebrow"><%=rh(c.tipe)%></p><h1><%=rh(c.nama)%></h1><p><%=rh(c.deskripsi)%></p><div class="repo-chips"><span class="repo-chip"><%=nf.format(c.itemCount)%> item publik</span></div><form class="repo-search" action="<%=root%>/repository/search" method="get"><input type="hidden" name="collection" value="<%=c.id%>"><label class="visually-hidden" for="collection-q">Cari dalam koleksi</label><input id="collection-q" name="q" placeholder="Cari dalam koleksi ini"><button class="repo-btn repo-btn-primary">Cari</button></form></section>
+    <section class="repo-wrap repo-section" id="collection-publications" aria-live="polite">
+      <div class="repo-section-head"><h2>Publikasi</h2><span class="repo-meta">Halaman <%=collectionQuery.page%> dari <%=Math.max(1,sr.totalPages)%></span></div>
+      <%=rpaging(collectionBase,"page",collectionQuery.page,sr.totalPages,"Halaman atas publikasi koleksi","#collection-publications",false,false)%>
+      <div class="repo-results">
+        <%if(sr.items.isEmpty()){%><div class="repo-card repo-empty"><h2>Belum ada publikasi</h2><p>Belum ada item publik yang dapat ditampilkan dalam koleksi ini.</p></div><%}%>
+        <%for(ItemCard i:sr.items){%><article class="repo-card repo-result-card" data-repo-card-href="<%=root%>/repository/item/<%=i.id%>"><h2><a href="<%=root%>/repository/item/<%=i.id%>"><%=rh(i.title)%></a></h2><div class="repo-authors"><%=rh(i.authors)%></div><div class="repo-meta"><%=rh(i.year)%> · <%=rh(i.documentType)%> · <%=rh(rlabel(i.accessPolicy))%></div><p class="repo-abstract"><%=rh(i.abstractText)%></p></article><%}%>
+      </div>
+      <%=rpaging(collectionBase,"page",collectionQuery.page,sr.totalPages,"Halaman bawah publikasi koleksi","#collection-publications",false,true)%>
+    </section>
 
-  <% } else if ("author".equals(view)) { AuthorProfile author=(AuthorProfile)request.getAttribute("repoAuthor"); %>
-    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Penulis</div><p class="repo-eyebrow">Profil penulis <%if(author.verified){%>· Terverifikasi<%}%></p><h1><%=rh(author.name)%></h1><p><%=nf.format(author.workCount)%> karya publik ditemukan.<%if(author.affiliation.length()>0){%> · <%=rh(author.affiliation)%><%}%></p><div class="repo-chips"><%if(author.orcid.length()>0){%><a class="repo-chip repo-chip-open" href="https://orcid.org/<%=rh(author.orcid)%>" rel="me noopener" target="_blank">ORCID <%=rh(author.orcid)%></a><%}if(author.rorId.length()>0){%><a class="repo-chip" href="https://ror.org/<%=rh(author.rorId.replace("https://ror.org/",""))%>" rel="noopener" target="_blank">ROR</a><%}for(Map.Entry<String,Long> y:author.yearTrend.entrySet()){%><span class="repo-chip"><%=rh(y.getKey())%>: <%=y.getValue()%></span><%}%></div></section><section class="repo-wrap repo-section repo-home-grid"><div><div class="repo-results"><%for(ItemCard i:author.works){%><article class="repo-card repo-result-card" data-repo-card-href="<%=root%>/repository/item/<%=i.id%>"><h2><a href="<%=root%>/repository/item/<%=i.id%>"><%=rh(i.title)%></a></h2><div class="repo-meta"><%=rh(i.year)%> · <%=rh(i.documentType)%> · <%=rh(i.collectionName)%></div><p class="repo-abstract"><%=rh(i.abstractText)%></p></article><%}%></div></div><aside class="repo-card repo-card-pad"><%if(author.nameVariants.length()>0){%><h2>Variasi nama</h2><p><%=rh(author.nameVariants.replace("\n"," · "))%></p><%}%><h2>Topik</h2><div class="repo-chips"><%for(Map.Entry<String,Long> s:author.subjects.entrySet()){%><a class="repo-chip" href="<%=root%>/repository/search?subject=<%=ru(s.getKey())%>"><%=rh(s.getKey())%> (<%=s.getValue()%>)</a><%}%></div><a class="repo-btn" href="<%=root%>/repository?action=feed&format=rss&author=<%=ru(author.name)%>">RSS karya penulis</a></aside></section>
+  <% } else if ("author".equals(view)) {
+      AuthorProfile author=(AuthorProfile)request.getAttribute("repoAuthor");
+      String authorBase=root+"/repository/author/"+ru(author.name)+"?size="+author.pageSize;
+  %>
+    <section class="repo-wrap repo-page-head"><div class="repo-breadcrumb"><a href="<%=root%>/repository">Beranda</a> / Penulis</div><p class="repo-eyebrow">Profil penulis <%if(author.verified){%>· Terverifikasi<%}%></p><h1><%=rh(author.name)%></h1><p><%=nf.format(author.workCount)%> karya publik ditemukan.<%if(author.affiliation.length()>0){%> · <%=rh(author.affiliation)%><%}%></p><div class="repo-chips"><%if(author.orcid.length()>0){%><a class="repo-chip repo-chip-open" href="https://orcid.org/<%=rh(author.orcid)%>" rel="me noopener" target="_blank">ORCID <%=rh(author.orcid)%></a><%}if(author.rorId.length()>0){%><a class="repo-chip" href="https://ror.org/<%=rh(author.rorId.replace("https://ror.org/",""))%>" rel="noopener" target="_blank">ROR</a><%}for(Map.Entry<String,Long> y:author.yearTrend.entrySet()){%><span class="repo-chip"><%=rh(y.getKey())%>: <%=y.getValue()%></span><%}%></div></section>
+    <section class="repo-wrap repo-section repo-home-grid" id="author-works">
+      <div>
+        <%=rpaging(authorBase,"page",author.currentPage,author.totalPages,"Halaman atas karya penulis","#author-works",false,false)%>
+        <div class="repo-results"><%if(author.works.isEmpty()){%><div class="repo-card repo-empty"><h2>Belum ada karya</h2><p>Belum ada karya publik yang dapat ditampilkan untuk penulis ini.</p></div><%}%><%for(ItemCard i:author.works){%><article class="repo-card repo-result-card" data-repo-card-href="<%=root%>/repository/item/<%=i.id%>"><h2><a href="<%=root%>/repository/item/<%=i.id%>"><%=rh(i.title)%></a></h2><div class="repo-meta"><%=rh(i.year)%> · <%=rh(i.documentType)%> · <%=rh(i.collectionName)%></div><p class="repo-abstract"><%=rh(i.abstractText)%></p></article><%}%></div>
+        <%=rpaging(authorBase,"page",author.currentPage,author.totalPages,"Halaman bawah karya penulis","#author-works",false,true)%>
+      </div>
+      <aside class="repo-card repo-card-pad"><%if(author.nameVariants.length()>0){%><h2>Variasi nama</h2><p><%=rh(author.nameVariants.replace("\n"," · "))%></p><%}%><h2>Topik</h2><div class="repo-chips"><%for(Map.Entry<String,Long> s:author.subjects.entrySet()){%><a class="repo-chip" href="<%=root%>/repository/search?subject=<%=ru(s.getKey())%>"><%=rh(s.getKey())%> (<%=s.getValue()%>)</a><%}%></div><a class="repo-btn" href="<%=root%>/repository?action=feed&format=rss&author=<%=ru(author.name)%>">RSS karya penulis</a></aside>
+    </section>
 
     <%if(isAdmin&&author.authorityId!=null){%><section class="repo-wrap repo-card repo-card-pad repo-authority-admin"><p class="repo-eyebrow">Authority control</p><h2>Verifikasi identitas penulis</h2><div class="repo-paper-actions"><a class="repo-btn repo-btn-primary" href="<%=root%>/repository-workspace?action=orcidStart&authorityId=<%=author.authorityId%>">Autentikasi ORCID</a><a class="repo-btn" href="<%=root%>/repository-workspace?view=admin">Kelola ROR dan authority</a></div></section><%}%>
 

@@ -5,8 +5,8 @@ try {
     out.print(LibraryIntegrationGateway.handle(request).toString());
 } catch (Exception e) {
     ais.common.ErrorAuditUtil.record(e, "library integration gateway");
-    response.setStatus(422);
+    response.setStatus(500);
     out.print(new JSONObject().put("ok", false).put("status", "error")
-        .put("error", e.getMessage() == null ? "Integrasi gagal diproses." : e.getMessage()).toString());
+        .put("error", "Integrasi gagal diproses.").toString());
 }
 %>

@@ -182,6 +182,9 @@ public class RepositoryPublicService {
         public String nameVariants = "";
         public boolean verified;
         public long workCount;
+        public int currentPage = 1;
+        public int pageSize = DEFAULT_PAGE_SIZE;
+        public int totalPages;
         public List<ItemCard> works = new ArrayList<ItemCard>();
         public Map<String, Long> yearTrend = new LinkedHashMap<String, Long>();
         public Map<String, Long> subjects = new LinkedHashMap<String, Long>();
@@ -344,7 +347,9 @@ public class RepositoryPublicService {
             result.total = count(searchCriteria(session, q));
             result.totalPages = result.total == 0L ? 0 : (int) ((result.total + q.pageSize - 1L) / q.pageSize);
             Criteria rows = searchCriteria(session, q);
-            applySort(rows, q.sort);
+            // Stable primary-key ordering avoids duplicates/skips when harvest pages span
+            // records with identical or changing bibliographic dates.
+            rows.addOrder(Order.asc("id"));
             rows.setFirstResult((q.page - 1) * q.pageSize);
             rows.setMaxResults(q.pageSize);
             result.items = cards(session, (List<RepoItem>) rows.list());
@@ -657,17 +662,23 @@ public class RepositoryPublicService {
     }
 
     public AuthorProfile authorProfile(String name) {
+        return authorProfile(name, 1, DEFAULT_PAGE_SIZE);
+    }
+
+    public AuthorProfile authorProfile(String name, int requestedPage, int requestedPageSize) {
         String author = limit(clean(name), 200); if (author.length() == 0) return null;
-        Query q = new Query(); q.author=author; q.sort="newest"; q.pageSize=MAX_PAGE_SIZE;
+        Query q = new Query(); q.author=author; q.sort="newest";
+        q.page=Math.max(1,requestedPage);q.pageSize=Math.max(1,Math.min(requestedPageSize,MAX_PAGE_SIZE));
         SearchResult result=search(q); if(result.total==0)return null;
         AuthorProfile profile=new AuthorProfile(); profile.name=author; profile.workCount=result.total; profile.works=result.items;
+        profile.currentPage=result.query.page;profile.pageSize=result.query.pageSize;profile.totalPages=result.totalPages;
         RepoAuthorAuthority authority=(RepoAuthorAuthority)session().createCriteria(RepoAuthorAuthority.class)
                 .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
                 .add(Restrictions.eq("normalizedName",RepositoryAuthorityService.normalizeName(author)))
                 .add(activeRestriction()).setMaxResults(1).uniqueResult();
         if(authority!=null){profile.authorityId=authority.getId();profile.name=authority.getCanonicalName();profile.orcid=authority.getOrcid();
             profile.affiliation=authority.getAffiliation();profile.rorId=authority.getRorId();profile.nameVariants=authority.getNameVariants();profile.verified=Boolean.TRUE.equals(authority.getVerified());}
-        for(ItemCard item:result.items){if(item.year.length()>0)increment(profile.yearTrend,item.year);for(String s:safe(item.subjects).split("[;,]"))if(clean(s).length()>0)increment(profile.subjects,clean(s));}
+        profile.yearTrend.putAll(result.yearFacets);profile.subjects.putAll(result.subjectFacets);
         return profile;
     }
 

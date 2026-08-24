@@ -159,8 +159,10 @@
 .repo-pagination { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 20px 0; }
 .repo-pagination a, .repo-pagination span { min-width: 38px; min-height: 38px; padding: 8px; display: grid; place-items: center; border: 1px solid var(--repo-line); border-radius: 9px; background: #fff; }
 .repo-pagination span { color: #fff; background: var(--repo-primary); border-color: var(--repo-primary); }
+.repo-pagination .repo-pagination-gap { min-width: 24px; min-height: 38px; display: grid; place-items: center; color: var(--repo-muted); font-weight: 700; }
 .repo-pagination-compact { justify-content:flex-end; margin:8px 0 13px; }
 .repo-pagination-compact a,.repo-pagination-compact span { min-width:34px; min-height:34px; padding:6px; }
+.repo-pagination-compact .repo-pagination-gap { min-height:34px; }
 .repo-pagination-bottom { margin:14px 0 0; }
 .repo-detail { display: grid; grid-template-columns: minmax(0, 1.5fr) 350px; gap: 18px; padding-bottom: 32px; }
 .repo-paper-head { padding: 25px; }

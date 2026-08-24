@@ -5,8 +5,8 @@ try {
     out.print(LibraryMarcApi.handle(request).toString());
 } catch (Exception e) {
     ais.common.ErrorAuditUtil.record(e, "library MARC API");
-    response.setStatus(422);
+    response.setStatus(500);
     out.print(new JSONObject().put("ok", false).put("status", "error")
-        .put("error", e.getMessage() == null ? "MARC gagal diproses." : e.getMessage()).toString());
+        .put("error", "MARC gagal diproses.").toString());
 }
 %>

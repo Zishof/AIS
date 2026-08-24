@@ -582,15 +582,19 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
                 </div>
 
                 <div class="col-md-3 col-lg-3 d-flex flex-column align-items-center align-items-md-start">
-                    <h5 class="text-uppercase"><%= homeText("home_text_unduh_aplikasi_mobile", "Unduh Aplikasi Mobile") %></h5>
+                    <h5 class="text-uppercase"><%= homeText("home_text_unduh_aplikasi_mobile", "Tersedia di Perangkat Anda") %></h5>
                     <div class="d-flex flex-column mt-3 gap-3 w-100 align-items-center align-items-md-start">
-                        <a href="https://play.google.com/store/apps/details?id=com.ecampus.zishof" target="_blank" class="store-btn-home">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/Google_Play_Arrow_logo.svg" alt="Google Play" class="store-icon-home"/>
+                        <a href="https://play.google.com/store/apps/details?id=com.ecampus.zishof" target="_blank" rel="noopener noreferrer" class="store-btn-home">
+                            <i class="fab fa-google-play fs-3 text-white" aria-hidden="true"></i>
                             <span class="ms-3 fw-semibold"><%= homeText("home_text_google_play", "Google Play") %></span>
                         </a>
-                        <a href="https://apps.apple.com/id/app/ecampus/id6503487876?l=id" target="_blank" class="store-btn-home">
+                        <a href="https://apps.apple.com/id/app/ecampus/id6503487876?l=id" target="_blank" rel="noopener noreferrer" class="store-btn-home">
                             <i class="fab fa-apple fs-3 text-white"></i>
                             <span class="ms-3 fw-semibold"><%= homeText("home_text_app_store", "App Store") %></span>
+                        </a>
+                        <a href="https://github.com/Zishof/ecampus-eschool-releases/releases/latest" target="_blank" rel="noopener noreferrer" class="store-btn-home">
+                            <i class="fas fa-desktop fs-3 text-white" aria-hidden="true"></i>
+                            <span class="ms-3 fw-semibold"><%= homeText("home_text_versi_desktop", "Versi Desktop") %></span>
                         </a>
                     </div>
                 </div>

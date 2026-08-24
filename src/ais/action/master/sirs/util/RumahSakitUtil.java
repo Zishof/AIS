@@ -26,14 +26,21 @@ public final class RumahSakitUtil {
 
     public static RumahSakit getRumahSakit(HttpServletRequest request) {
         if (request == null) return null;
+        String host = normalize(request.getServerName());
         Object cached = request.getSession().getAttribute("rumahSakit_data");
-        if (cached instanceof RumahSakit && ((RumahSakit) cached).getId() != null) {
+        Object cachedHost = request.getSession().getAttribute("rumahSakit_domain");
+        if (cached instanceof RumahSakit && ((RumahSakit) cached).getId() != null
+                && host.equals(cachedHost)) {
             return (RumahSakit) cached;
         }
         refreshIfNeeded();
-        RumahSakit result = findByDomain(request.getServerName());
+        RumahSakit result = findByDomain(host);
         if (result != null && result.getId() != null) {
             request.getSession().setAttribute("rumahSakit_data", result);
+            request.getSession().setAttribute("rumahSakit_domain", host);
+        } else {
+            request.getSession().removeAttribute("rumahSakit_data");
+            request.getSession().removeAttribute("rumahSakit_domain");
         }
         return result;
     }
@@ -52,7 +59,7 @@ public final class RumahSakitUtil {
         if (exact != null) return exact;
         for (Map.Entry<String, RumahSakit> entry : byDomain.entrySet()) {
             String domain = entry.getKey();
-            if (host.startsWith(domain + ".") || host.contains(domain)) return entry.getValue();
+            if (host.endsWith("." + domain)) return entry.getValue();
         }
         return null;
     }
@@ -71,7 +78,9 @@ public final class RumahSakitUtil {
                 Map<String, RumahSakit> replacement = new LinkedHashMap<String, RumahSakit>();
                 for (RumahSakit item : rows) {
                     if (item == null || item.getId() == null) continue;
-                    for (String raw : item.getDomain().split("[,;\\s]+")) {
+                    String configuredDomains = item.getDomain();
+                    if (configuredDomains == null || configuredDomains.trim().length() == 0) continue;
+                    for (String raw : configuredDomains.split("[,;\\s]+")) {
                         String domain = normalize(raw);
                         if (domain.length() > 0) replacement.put(domain, item);
                     }
@@ -118,6 +127,7 @@ public final class RumahSakitUtil {
         if (slash >= 0) result = result.substring(0, slash);
         int colon = result.indexOf(':');
         if (colon >= 0) result = result.substring(0, colon);
+        while (result.endsWith(".")) result = result.substring(0, result.length() - 1);
         return result.startsWith("www.") ? result.substring(4) : result;
     }
 }

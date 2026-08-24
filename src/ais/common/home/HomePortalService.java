@@ -63,12 +63,16 @@ public class HomePortalService {
         vm.showAdmission = vm.showAdmission && vm.admission != null;
         vm.showNews = vm.showNews && !vm.news.isEmpty();
         vm.showAgenda = vm.showAgenda && !vm.agenda.isEmpty();
-        vm.androidUrl = safeAppUrl(config.value(prefix + "_mobile_app_android_url",
-                "https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
-        vm.iosUrl = safeAppUrl(config.value(prefix + "_mobile_app_ios_url",
-                "https://apps.apple.com/id/app/ecampus/id6503487876?l=id"));
-        vm.desktopUrl = safeAppUrl(config.value(prefix + "_desktop_app_url",
-                "https://github.com/Zishof/ecampus-eschool-releases/releases/latest"));
+        String androidFallback = vm.institution.healthcare ? ""
+                : "https://play.google.com/store/apps/details?id=com.ecampus.zishof";
+        String iosFallback = vm.institution.healthcare ? ""
+                : "https://apps.apple.com/id/app/ecampus/id6503487876?l=id";
+        String desktopFallback = vm.institution.healthcare ? ""
+                : "https://github.com/Zishof/ecampus-eschool-releases/releases/latest";
+        String appKeyPrefix = prefix + (vm.institution.healthcare ? "_health" : "");
+        vm.androidUrl = safeAppUrl(config.value(appKeyPrefix + "_mobile_app_android_url", androidFallback));
+        vm.iosUrl = safeAppUrl(config.value(appKeyPrefix + "_mobile_app_ios_url", iosFallback));
+        vm.desktopUrl = safeAppUrl(config.value(appKeyPrefix + "_desktop_app_url", desktopFallback));
         vm.seo = new HomePortalSeoService().build(vm, config, request.getRequestURL().toString(), prefix);
         return vm;
     }

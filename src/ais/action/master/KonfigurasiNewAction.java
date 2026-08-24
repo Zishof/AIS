@@ -724,6 +724,15 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Isi bar pengumuman Website Institusi V4", "website_v4_announcement_text", ""));
 		rows.appendChild(createRowNilai("Judul SEO Website Institusi V4", "website_v4_meta_title", ""));
 		rows.appendChild(createRowNilai("Deskripsi SEO Website Institusi V4", "website_v4_meta_description", "", 3, null));
+		rows.appendChild(createRowNilai("Tautan Google Play Website Institusi V4", "website_v4_mobile_app_android_url",
+				"https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
+		rows.appendChild(createRowNilai("Tautan App Store Website Institusi V4", "website_v4_mobile_app_ios_url",
+				"https://apps.apple.com/id/app/ecampus/id6503487876?l=id"));
+		rows.appendChild(createRowNilai("Tautan aplikasi Desktop Website Institusi V4", "website_v4_desktop_app_url",
+				"https://github.com/Zishof/ecampus-eschool-releases/releases/latest"));
+		rows.appendChild(createRowNilai("Tautan Google Play eMedic pada Website Institusi V4", "website_v4_health_mobile_app_android_url", ""));
+		rows.appendChild(createRowNilai("Tautan App Store eMedic pada Website Institusi V4", "website_v4_health_mobile_app_ios_url", ""));
+		rows.appendChild(createRowNilai("Tautan aplikasi Desktop eMedic pada Website Institusi V4", "website_v4_health_desktop_app_url", ""));
 		rows.appendChild(createRowActiveDefault("Tampilkan program pendidikan pada Website Institusi V4",
 				"website_v4_show_programs", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Tampilkan penerimaan pada Website Institusi V4",

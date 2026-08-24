@@ -113,9 +113,9 @@ public class HomePortalContentService {
             session = HibernateUtil.getSessionFactory().openSession();
             Date now = new Date();
             Object row;
-            if (vm.institution.college) {
-                List<GelombangPendaftaran> rows = session.createQuery("from GelombangPendaftaran g where g.aktif = true and (g.sampai is null or g.sampai >= :now) order by g.mulai asc")
-                        .setParameter("now", now).setMaxResults(1).list();
+            if (vm.institution.college && vm.institution.id != null) {
+                List<GelombangPendaftaran> rows = session.createQuery("from GelombangPendaftaran g where g.aktif = true and g.perguruanTinggi.id = :college and (g.sampai is null or g.sampai >= :now) order by g.mulai asc")
+                        .setParameter("college", vm.institution.id).setParameter("now", now).setMaxResults(1).list();
                 row = rows.isEmpty() ? null : rows.get(0);
             } else if (vm.institution.schoolId != null) {
                 List<GelombangPendaftaranPsb> rows = session.createQuery("from GelombangPendaftaranPsb g where g.aktif = true and g.sekolah.id = :school and (g.sampai is null or g.sampai >= :now) order by g.mulai asc")

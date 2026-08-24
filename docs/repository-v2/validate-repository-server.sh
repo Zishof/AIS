@@ -10,9 +10,8 @@ if [ -z "$BASE" ]; then
   exit 2
 fi
 BASE=${BASE%/}
-TMP_ROOT=${TMPDIR:-/tmp}/ais-repository-validate-$$
-mkdir -p "$TMP_ROOT"
-trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
+TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/ais-repository-validate.XXXXXX")
+trap 'rm -rf -- "$TMP_ROOT"' EXIT HUP INT TERM
 
 PASS=0
 FAIL=0
@@ -91,4 +90,3 @@ check_contains "OAI rejects illegal arguments" "$BAD" 'error code="badArgument"'
 
 echo "Summary: PASS=$PASS FAIL=$FAIL"
 if [ "$FAIL" -ne 0 ]; then exit 1; fi
-

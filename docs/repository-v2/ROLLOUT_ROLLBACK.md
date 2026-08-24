@@ -21,6 +21,11 @@ Nilai `false` mengaktifkan halaman kompatibilitas `ListRepositoryLegacy.jsp`. Ha
 - Role dengan `dasborRepository=true`: review.
 - Role `am`: administrasi repository.
 
+Pemisahan tersebut ditegakkan pada servlet dan service. Reviewer dapat membuka antrian, claim,
+memberi komentar, return/reject/approve/publish sesuai workflow, tetapi tidak memperoleh operasi
+profil koleksi, authority, ekspor/impor, fixity, bulk repair, ORCID/ROR, DataCite, atau COAR Notify.
+Form metadata dan berkas depositor hanya dapat diubah pemilik deposit atau administrator.
+
 Create, save, submit, resubmit, dan upload memeriksa izin kembali di server serta menggunakan CSRF untuk operasi browser.
 
 ## Data baru

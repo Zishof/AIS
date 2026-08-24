@@ -206,7 +206,7 @@ Gap source berikut telah ditutup pada lanjutan 25 Agustus 2026:
 - halaman reader tidak lagi sekaligus merender modal detail akibat parameter `id`;
 - reader dan URL digital memakai gate anggota aktif atau petugas;
 - URL digital lokal menolak protocol-relative, backslash, CR/LF, dan traversal;
-- exception internal operasi petugas tidak lagi dikirim mentah ke browser.
+- exception internal operasi petugas, integrasi, dan MARC tidak lagi dikirim mentah ke browser.
 
 Masalah endpoint katalog pada server masih memerlukan build/deployment source terbaru dan pemeriksaan log. Perubahan source tidak dapat membuktikan keadaan artefak WAR atau Tomcat yang sedang aktif.
 

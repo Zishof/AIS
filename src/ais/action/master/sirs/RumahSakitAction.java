@@ -1,10 +1,14 @@
 package ais.action.master.sirs;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -124,11 +128,22 @@ public class RumahSakitAction extends GenericCrudAction<RumahSakit> {
         if (!cssValue.isEmpty() && !cssValue.replace('\\', '/').substring(cssValue.replace('\\', '/').lastIndexOf('/') + 1).matches("[A-Za-z0-9._-]+\\.css")) {
             warning("Tema CSS harus berupa nama file .css yang aman."); return false;
         }
+        Set<String> requestedDomains = normalizedDomains(domain.getValue());
+        if (requestedDomains.isEmpty()) {
+            warning("Domain wajib berisi nama host yang valid, misalnya klinik.contoh.id."); return false;
+        }
         Session session = HibernateUtil.currentSession();
-        Number duplicate = (Number) session.createCriteria(RumahSakit.class).setProjection(Projections.rowCount())
-                .add(Restrictions.ilike("domain", domain.getValue().trim(), MatchMode.EXACT))
-                .add(currentEntity.getId() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.ne("id", currentEntity.getId())).uniqueResult();
-        if (duplicate != null && duplicate.intValue() > 0) { warning("Domain tersebut sudah digunakan fasilitas kesehatan lain."); return false; }
+        @SuppressWarnings("unchecked")
+        List<RumahSakit> existingRows = session.createCriteria(RumahSakit.class).list();
+        for (RumahSakit existing : existingRows) {
+            if (existing == null || existing.getId() == null
+                    || (currentEntity.getId() != null && currentEntity.getId().equals(existing.getId()))) continue;
+            Set<String> overlap = normalizedDomains(existing.getDomain());
+            overlap.retainAll(requestedDomains);
+            if (!overlap.isEmpty()) {
+                warning("Domain " + overlap.iterator().next() + " sudah digunakan fasilitas kesehatan lain."); return false;
+            }
+        }
         RumahSakit entity = currentEntity;
         if (entity.getId() != null) entity = (RumahSakit) session.load(RumahSakit.class, entity.getId());
         entity.setKode(kode.getValue()); entity.setNama(nama.getValue()); entity.setNamaSingkat(namaSingkat.getValue());
@@ -149,6 +164,27 @@ public class RumahSakitAction extends GenericCrudAction<RumahSakit> {
     }
     private String selected(Combobox box) { return box.getSelectedItem() == null ? "" : String.valueOf(box.getSelectedItem().getValue()); }
     private void warning(String message) throws Exception { MyMessageboxConfig.show(message, "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION); }
+
+    private Set<String> normalizedDomains(String value) {
+        Set<String> result = new HashSet<String>();
+        if (value == null) return result;
+        for (String raw : value.split("[,;\\s]+")) {
+            String host = raw.trim().toLowerCase(Locale.ENGLISH);
+            int scheme = host.indexOf("://");
+            if (scheme >= 0) host = host.substring(scheme + 3);
+            int slash = host.indexOf('/');
+            if (slash >= 0) host = host.substring(0, slash);
+            int colon = host.indexOf(':');
+            if (colon >= 0) host = host.substring(0, colon);
+            while (host.endsWith(".")) host = host.substring(0, host.length() - 1);
+            if (host.startsWith("www.")) host = host.substring(4);
+            if (!host.matches("(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")) {
+                result.clear(); return result;
+            }
+            result.add(host);
+        }
+        return result;
+    }
 
     class RumahSakitRenderer extends MyRowRenderer {
         @Override public void render(Row row, Object data) throws Exception {

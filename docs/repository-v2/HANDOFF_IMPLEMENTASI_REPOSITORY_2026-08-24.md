@@ -391,3 +391,34 @@ setelah browser di-refresh:
 Perubahan ini mencegah kegagalan sementara sebuah query berubah menjadi halaman error global.
 Kegagalan permanen tetap harus dicari di log server; fallback bukan pengganti perbaikan database,
 pool koneksi, atau query yang memang salah.
+
+## 17. Penyelesaian lanjutan 25 Agustus 2026
+
+Audit lanjutan terhadap source aktual menemukan dan memperbaiki beberapa perbedaan antara baseline
+dan implementasi:
+
+- `RepositoryTenantScope.ensureSchema()` tidak lagi melakukan `UPDATE` massal terhadap semua item
+  atau koleksi yang `tenant_key`-nya kosong. Hook kompatibilitas tersebut sekarang tidak memutasi
+  database; penetapan tenant legacy dilakukan per record oleh sinkronisasi saat pemilik sumber
+  diketahui. Ini mencegah institusi pertama yang membuka portal mengklaim data tenant lain.
+- `ListIdentifiers` dan `ListRecords` OAI-PMH sekarang mencakup record publik serta tombstone
+  withdrawn. Datestamp tombstone memakai waktu penarikan bila lebih baru.
+- Filter `from`/`until` OAI memperhitungkan penarikan, sinkronisasi, waktu perubahan, publikasi,
+  penerbitan, dan submit.
+- Argumen OAI divalidasi per verb, argumen berulang/asing ditolak, `resumptionToken` bersifat
+  eksklusif dan terikat pada verb, token kedaluwarsa/tidak valid ditolak, serta urutan harvesting
+  menggunakan ID stabil.
+- Identitas OAI dapat dikonfigurasi melalui `ais.repository.oaiBaseUrl`,
+  `ais.repository.oaiRepositoryName`, dan `ais.repository.oaiAdminEmail`.
+- Hak reviewer dan administrator dipisahkan kembali. `dasborRepository` hanya memberi akses review;
+  pengelolaan koleksi/authority, ekspor, fixity, bulk repair, DataCite, COAR Notify, ORCID/ROR,
+  dan fungsi administrasi memerlukan role administrator.
+- Reviewer dapat melihat item/antrian yang diizinkan, tetapi tidak dapat menyunting metadata atau
+  berkas milik depositor. Penyuntingan hanya untuk pemilik deposit atau administrator.
+- Otorisasi upload dilakukan sebelum penyimpanan Repository, pemindaian antivirus, dan ekstraksi
+  konten. Penghapusan berkas memulihkan file dari trash bila transaksi database gagal.
+- Ditambahkan `validate-repository-server.sh` untuk smoke validation publik read-only setelah
+  deployment.
+
+Perubahan ini hanya diperiksa secara statis. Build, WAR, Tomcat, database, dan pengujian lokal tetap
+tidak dijalankan sesuai instruksi pemilik sistem.

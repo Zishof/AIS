@@ -159,8 +159,8 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <section class="section section--soft" id="tentang">
         <div class="wrap"><div class="section-heading"><div><span class="kicker">Akses berdasarkan kebutuhan</span><h2>Temukan jalur informasi yang paling relevan</h2><p>Pilih kebutuhan Anda untuk menuju informasi dan layanan yang tepat tanpa menelusuri menu panjang.</p></div><a class="text-link" href="#layanan">Semua layanan <span aria-hidden="true">→</span></a></div>
         <div class="persona-grid">
-            <a class="persona" href="<%=esc(vm.primaryUrl)%>"><span>01</span><strong><%=esc(candidate)%></strong><small>Program, biaya, bantuan, dan pendaftaran.</small></a>
-            <a class="persona" href="<%=esc(vm.loginUrl)%>"><span>02</span><strong><%=esc(activeLearner)%></strong><small>Portal, informasi, dan layanan digital.</small></a>
+            <a class="persona" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><span>01</span><strong><%=esc(candidate)%></strong><small>Program, biaya, bantuan, dan pendaftaran.</small></a>
+            <a class="persona" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>"><span>02</span><strong><%=esc(activeLearner)%></strong><small>Portal, informasi, dan layanan digital.</small></a>
             <a class="persona" href="#kontak"><span>03</span><strong><%=esc(parent)%></strong><small>Informasi resmi dan kanal komunikasi.</small></a>
             <a class="persona" href="#layanan"><span>04</span><strong><%=esc(alumni)%></strong><small>Jejaring, karier, dan layanan terkait.</small></a>
             <a class="persona" href="<%=impactAnchor%>"><span>05</span><strong><%=esc(impactAudience)%></strong><small>Kolaborasi, mutu, riset, dan dampak.</small></a>
@@ -215,9 +215,20 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     </div></div></section>
     <% } %>
 
-    <section class="section" id="layanan"><div class="wrap"><div class="section-heading"><div><span class="kicker">Ekosistem digital AIS</span><h2><%=esc(vm.digitalPortalTitle)%></h2><p><%=esc(vm.digitalPortalSummary)%>. Modul yang tampil mengikuti jenis dan konfigurasi institusi.</p></div><a class="button button--primary" href="<%=esc(vm.loginUrl)%>">Masuk Portal</a></div><div class="service-grid">
+    <section class="section" id="layanan"><div class="wrap"><div class="section-heading"><div><span class="kicker">Ekosistem digital AIS</span><h2><%=esc(vm.digitalPortalTitle)%></h2><p><%=esc(vm.digitalPortalSummary)%>. Modul yang tampil mengikuti jenis dan konfigurasi institusi.</p></div><a class="button button--primary" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>">Masuk Portal</a></div><div class="service-grid">
         <% for (HomePortalViewModel.ServiceItem item : vm.services) { %><a class="service-card" href="<%=esc(item.url)%>"<%=attrs(item)%>><span class="service-icon" aria-hidden="true"><%=esc(initials(item.label))%></span><span><strong><%=esc(item.label)%></strong><small><%=esc(item.description)%></small></span><i aria-hidden="true">→</i></a><% } %>
-    </div></div></section>
+    </div>
+    <% if ((vm.androidUrl != null && vm.androidUrl.length() > 0) || (vm.iosUrl != null && vm.iosUrl.length() > 0) || (vm.desktopUrl != null && vm.desktopUrl.length() > 0)) { %>
+    <div class="app-availability" aria-labelledby="app-availability-title">
+        <div><span class="kicker">Aplikasi resmi</span><h3 id="app-availability-title">Tersedia juga untuk perangkat Anda</h3><p>Gunakan aplikasi resmi melalui Google Play, App Store, atau versi Desktop.</p></div>
+        <div class="app-links">
+            <% if (vm.androidUrl != null && vm.androidUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.androidUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span><span><small>Unduh di</small><strong>Google Play</strong></span></a><% } %>
+            <% if (vm.iosUrl != null && vm.iosUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.iosUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">●</span><span><small>Unduh di</small><strong>App Store</strong></span></a><% } %>
+            <% if (vm.desktopUrl != null && vm.desktopUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.desktopUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▣</span><span><small>Unduh</small><strong>Versi Desktop</strong></span></a><% } %>
+        </div>
+    </div>
+    <% } %>
+    </div></section>
 
     <section class="section section--soft" id="kontak"><div class="wrap contact-panel"><div><span class="kicker">Kontak resmi</span><h2>Terhubung dengan <%=esc(vm.institution.shortName)%></h2><p>Gunakan informasi resmi berikut untuk pertanyaan, kunjungan, dan layanan publik.</p></div><address>
         <% if (vm.institution.address != null && vm.institution.address.length() > 0) { %><div><small>Alamat</small><strong><%=esc(vm.institution.address)%></strong></div><% } %>

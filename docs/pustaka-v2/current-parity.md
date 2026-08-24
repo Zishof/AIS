@@ -20,7 +20,7 @@
 | RFID/self-check | Workspace integrasi | Gateway bersama | `LibraryIntegrationGateway` |
 | Multi-select/bulk action | Ya | Katalog existing | `LibraryMemberApi` + RIS/client share |
 | Saved search + preferensi alert | Ya | Data bersama | `SearchHistory` + `LibraryOperationsApi` |
-| Reader digital | Dokumen/audio/video | Tautan ke reader yang sama | `LibraryItemDetailService` |
+| Reader digital | Dokumen/audio/video; anggota aktif/petugas | Tautan ke reader yang sama | `LibraryItemDetailService` + `LibraryMemberApi` + `LibraryPermissionGuard` |
 | Layanan anggota | Tanya, usulan, booking, ILL | Data operasional existing | `LibraryEngagementApi` |
 | ISBN/barcode scan mobile | Ya, bila browser mendukung | Scanner existing | `BarcodeDetector` / katalog typed |
 | Scope institusi/cabang | Ya | Ya | `LibraryScopeResolver` |

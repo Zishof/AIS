@@ -205,7 +205,11 @@ public class Repository extends HttpServlet {
             request.setAttribute("repoCollection",collection); request.setAttribute("repoSearch",service.search(queryFrom(request)));
         } else if ("author".equals(view)) {
             String name=routeAuthor.length()==0?clean(request.getParameter("name")):routeAuthor;
-            AuthorProfile author=service.authorProfile(name);if(author==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Profil penulis tidak ditemukan.");return;}
+            Integer authorPageValue=parseInteger(request.getParameter("page"));
+            Integer authorSizeValue=parseInteger(request.getParameter("size"));
+            int authorPage=authorPageValue==null?1:authorPageValue.intValue();
+            int authorSize=authorSizeValue==null?RepositoryPublicService.DEFAULT_PAGE_SIZE:authorSizeValue.intValue();
+            AuthorProfile author=service.authorProfile(name,authorPage,authorSize);if(author==null){response.sendError(HttpServletResponse.SC_NOT_FOUND,"Profil penulis tidak ditemukan.");return;}
             request.setAttribute("repoAuthor",author);
         } else if("collections".equals(view)){
             Query catalogQuery=new Query();catalogQuery.pageSize=1;SearchResult catalog=service.search(catalogQuery);
@@ -630,17 +634,19 @@ public class Repository extends HttpServlet {
             return "";
         }
         if ("Identify".equals(verb) || "ListSets".equals(verb))
-            return hasAnyOaiArgument(request, new String[] { "identifier", "metadataPrefix", "from", "until", "set" })
+            return hasAnyOaiArgument(request, new String[] { "identifier", "metadataPrefix", "from", "until", "set", "resumptionToken" })
                     ? "Verb ini tidak menerima argumen tambahan." : "";
         if ("ListMetadataFormats".equals(verb))
-            return hasAnyOaiArgument(request, new String[] { "metadataPrefix", "from", "until", "set" })
+            return hasAnyOaiArgument(request, new String[] { "metadataPrefix", "from", "until", "set", "resumptionToken" })
                     ? "ListMetadataFormats hanya menerima identifier opsional." : "";
         if ("GetRecord".equals(verb)) {
             if (clean(request.getParameter("identifier")).length() == 0 || clean(request.getParameter("metadataPrefix")).length() == 0)
                 return "GetRecord memerlukan identifier dan metadataPrefix.";
-            return hasAnyOaiArgument(request, new String[] { "from", "until", "set" })
+            return hasAnyOaiArgument(request, new String[] { "from", "until", "set", "resumptionToken" })
                     ? "GetRecord tidak menerima set/from/until." : "";
         }
+        if (request.getParameter("resumptionToken") != null)
+            return "Resumption token kosong tidak valid.";
         if (clean(request.getParameter("metadataPrefix")).length() == 0)
             return verb + " memerlukan metadataPrefix.";
         if (clean(request.getParameter("identifier")).length() > 0)

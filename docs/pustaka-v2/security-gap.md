@@ -15,7 +15,7 @@
 - Akses reader/digital memerlukan anggota aktif atau role petugas; pengguna login biasa tidak otomatis memperoleh URL.
 - Router `/pustaka` hanya dapat menginklusikan modul `pustaka` dan nama fragmen yang masuk allow-list.
 - Kegagalan adaptor JSON/XML tidak lagi dialihkan menjadi fallback HTML.
-- Error internal operasi petugas dicatat pada audit server tanpa mengirim pesan exception mentah ke browser.
+- Error internal operasi petugas, integrasi, dan MARC dicatat pada audit server tanpa mengirim pesan exception mentah ke browser.
 
 ## Batas audit
 

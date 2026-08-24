@@ -576,7 +576,7 @@ public class RepositoryWorkflowService {
     }
 
     private void requireOwnerOrAdmin(RepoItem item, Tbmuser actor) {
-        if (!actor.getUserId().equals(item.getOwnerId()) && !isRepositoryAdmin(actor))
+        if (!actor.getUserId().equals(item.getOwnerId()) && !isRepositoryAdministrator(actor))
             throw new SecurityException("Item bukan milik pengguna aktif.");
     }
 
@@ -590,7 +590,8 @@ public class RepositoryWorkflowService {
         if (user == null) return false;
         try {
             Tbmrole role = user.hakAkses();
-            return role != null && Boolean.TRUE.equals(role.getDasborRepository());
+            return role != null && (Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId())
+                    || Boolean.TRUE.equals(role.getDasborRepository()));
         } catch (Exception e) {
             return false;
         }
@@ -604,7 +605,7 @@ public class RepositoryWorkflowService {
         if (user == null) return false;
         try {
             Tbmrole role = user.hakAkses();
-            return isRepositoryAdmin(user) || (role != null && Boolean.TRUE.equals(role.getBacaRepository()));
+            return isRepositoryAdministrator(user) || (role != null && Boolean.TRUE.equals(role.getBacaRepository()));
         } catch (Exception e) { return false; }
     }
 
