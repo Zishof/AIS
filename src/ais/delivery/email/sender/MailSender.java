@@ -499,18 +499,29 @@ public class MailSender {
 
 					notifikasi.setKeterangan(jsonObject.toString());
 
-					org.hibernate.Session session2 = HibernateUtil.currentNativeSession();
-					session2.getTransaction().begin();
-					session2.save(notifikasi);
-					session2.getTransaction().commit();
-					session2.disconnect();
-					session2.close();
+					org.hibernate.Session session2 = null;
+					org.hibernate.Transaction transaction2 = null;
+					try {
+						session2 = HibernateUtil.currentNativeSession();
+						transaction2 = session2.beginTransaction();
+						session2.save(notifikasi);
+						transaction2.commit();
+						transaction2 = null;
+					} finally {
+						if (transaction2 != null) {
+							try {
+								transaction2.rollback();
+							} catch (Exception rollbackException) {
+								ais.common.ErrorAuditUtil.record(rollbackException,
+										"auto-audit(empty-catch) src/ais/delivery/email/sender/MailSender.java:simpanNotif-rollback");
+							}
+						}
+						Common.closeNativeSessionQuietly(session2);
+					}
 
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/delivery/email/sender/MailSender.java:503");
 				}
-				HibernateUtil.closeSession();
-
 				// Notifikasi baru tersimpan -> segarkan cache lonceng/pusat notifikasi.
 				try {
 					ais.common.NotifikasiCache.tandaiKotor();
@@ -1055,6 +1066,12 @@ public class MailSender {
 	private static void sendinblue(final JSONArray userIds, final String subject, final String body,
 			final String sender, final String recipientsTemp, final PrintStream out, final Notifikasi notifikasi,
 			File... temp) {
+		if (recipientsTemp == null || recipientsTemp.trim().isEmpty()) {
+			if (notifikasi != null) {
+				notifikasi.setHasilEmail("Email tidak dikirim karena alamat penerima kosong.");
+			}
+			return;
+		}
 		final File[] file = jadikanSatuFilePdf(temp);
 		submitEmail(new Runnable() {
 

@@ -1133,15 +1133,22 @@ public class CommonSecurityLoginHelper extends Common {
         Siswa siswa = null;
         try {
             session = HibernateUtil.currentNativeSession();
-            user = (Tbmuser) session.createCriteria(Tbmuser.class)
+            List<Tbmuser> daftarUser = session.createCriteria(Tbmuser.class)
                     .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-                    .add(Restrictions.eq("userId", username)).uniqueResult();
-            mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class)
+                    .add(Restrictions.eq("userId", username)).setMaxResults(2).list();
+            List<Mahasiswa> daftarMahasiswa = session.createCriteria(Mahasiswa.class)
                     .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-                    .add(Restrictions.eq("nim", username)).uniqueResult();
-            siswa = (Siswa) session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa"))
+                    .add(Restrictions.eq("nim", username)).addOrder(Order.desc("id")).setMaxResults(2).list();
+            List<Siswa> daftarSiswa = session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa"))
                     .add(Restrictions.ne("namaSiswa", "")).add(Restrictions.isNotNull("sekolah"))
-                    .add(Restrictions.eq("nomorIndukNasional", username)).uniqueResult();
+                    .add(Restrictions.eq("nomorIndukNasional", username)).addOrder(Order.desc("id"))
+                    .setMaxResults(2).list();
+            if (daftarUser.size() > 1 || daftarMahasiswa.size() > 1 || daftarSiswa.size() > 1) {
+                return "ID pengguna terdaftar lebih dari satu. Demi keamanan, kata sandi tidak dikirim. Silakan hubungi admin untuk memperbaiki data pengguna.";
+            }
+            user = daftarUser.isEmpty() ? null : daftarUser.get(0);
+            mahasiswa = daftarMahasiswa.isEmpty() ? null : daftarMahasiswa.get(0);
+            siswa = daftarSiswa.isEmpty() ? null : daftarSiswa.get(0);
             Dosen dosen = user == null ? null : user.getDosen();
             Pegawai pegawai = user == null ? null : user.getPegawai();
 
