@@ -1014,37 +1014,22 @@ public class PenjadwalanHelper {
 
 										if (perkuliahan != null) {
 											perkuliahan.belum();
-											session.createSQLQuery(
-													"delete from pertemuan where perkuliahan=" + perkuliahan.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "perkuliahan", perkuliahan.getId());
 										} else if (kelompokKkn != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where kelompok_kkn=" + kelompokKkn.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "kelompok_kkn", kelompokKkn.getId());
 										} else if (kelompokPkl != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where kelompok_pkl=" + kelompokPkl.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "kelompok_pkl", kelompokPkl.getId());
 										} else if (formulirKegiatan != null) {
-											session.createSQLQuery("delete from pertemuan where formulir_kegiatan="
-													+ formulirKegiatan.getId()).executeUpdate();
+											hapusPertemuanBesertaTugas(session, "formulir_kegiatan", formulirKegiatan.getId());
 										} else if (mahasiswaRequestTugasAkhir != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where mahasiswa_request_tugas_akhir="
-															+ mahasiswaRequestTugasAkhir.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "mahasiswa_request_tugas_akhir",
+													mahasiswaRequestTugasAkhir.getId());
 										} else if (krsMahasiswa != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where krs_mahasiswa=" + krsMahasiswa.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "krs_mahasiswa", krsMahasiswa.getId());
 										} else if (skripsi != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where skripsi=" + skripsi.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "skripsi", skripsi.getId());
 										} else if (wisuda != null) {
-											session.createSQLQuery(
-													"delete from pertemuan where wisuda=" + wisuda.getId())
-													.executeUpdate();
+											hapusPertemuanBesertaTugas(session, "wisuda", wisuda.getId());
 										}
 
 										eventListener.onEvent(event);
@@ -1063,6 +1048,14 @@ public class PenjadwalanHelper {
 			}
 		});
 		button.setParent(toolbar);
+	}
+
+	private static void hapusPertemuanBesertaTugas(Session session, String kolomPemilik, Long idPemilik) {
+		String kondisi = kolomPemilik + "=:idPemilik";
+		session.createSQLQuery("delete from tugas_pertemuan where pertemuan in "
+				+ "(select id from pertemuan where " + kondisi + ")").setLong("idPemilik", idPemilik).executeUpdate();
+		session.createSQLQuery("delete from pertemuan where " + kondisi).setLong("idPemilik", idPemilik)
+				.executeUpdate();
 	}
 
 	public static void prosesTampilTombolAturUlangWaktu(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,

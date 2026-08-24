@@ -1020,17 +1020,11 @@ public class DataUtil {
 			// tampil (identity map lalu diisi di akhir). Karena itu fallback DB dipaksa saat OFF.
 			if ((jikaNggakKetemucari || !PAKAI_MAPDB_ENTITY) && data == null && Common.isNumber(key)) {
 				Session session = null;
-				// PERBAIKAN (session closed): currentNativeSession() thread-local, bukan
-				// call-scoped -- bila pemanggil (mis. KrsDanSkripsiHelper.singkronkanKrsMahasiswa
-				// dipanggil dari thread latar KelasAction yang SUDAH membuka native session lebih
-				// dulu di thread yang sama) SUDAH membuka native session, panggilan di sini akan
-				// meminjam (bukan membuka baru) session ancestor tsb. Tutup paksa di finally seperti
-				// sebelumnya membuat ancestor melihat "Session is closed!" saat lanjut memakainya
-				// (persis pola yang sudah diperbaiki di ambilDataBanyak, lihat komentar di sana).
-				// Hanya tutup bila method INI yang benar-benar membuka baru.
-				boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
+				// Cache-miss dapat terjadi dari thread latar. Session lokal mencegah method ini
+				// meminjam native session thread-local yang sudah tertutup atau masih dipakai
+				// proses induk.
 				try {
-					session = HibernateUtil.currentNativeSession();
+					session = HibernateUtil.openSession();
 					data = (GeneralValueObject) session.createCriteria(c).add(Restrictions.idEq(Long.parseLong(key)))
 							.uniqueResult();
 
@@ -1040,17 +1034,7 @@ public class DataUtil {
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataUtil.java:1018");
 				} finally {
-					// OPTIMASI: Pastikan session selalu ditutup dengan rapi dan aman tanpa
-					// membocorkan koneksi -- KECUALI bila session ini dipinjam dari ancestor yang
-					// masih memakainya (lihat komentar di atas); ancestor tetap bertanggung jawab
-					// menutup session miliknya sendiri.
-					// FIX SessionException "Session was already closed": session ini bisa sudah
-					// ditutup pihak lain (mis. currentNativeSession() dipakai bersamaan/self-heal
-					// di request lain pada thread yang sama) -- cek isOpen() dulu sebelum
-					// clear/disconnect/close supaya tidak melempar exception yang cuma akan
-					// tertangkap & jadi noise di audit log.
-					if (!sessionSudahTerbukaSebelumnya) {
-						if (session != null && session.isOpen()) {
+					if (session != null && session.isOpen()) {
 							try {
 								session.clear();
 							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1026");
@@ -1066,8 +1050,6 @@ public class DataUtil {
 							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1030");
 								// Ignore close error
 							}
-						}
-						HibernateUtil.closeSession();
 					}
 				}
 			}

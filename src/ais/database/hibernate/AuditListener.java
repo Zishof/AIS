@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +18,7 @@ import org.hibernate.envers.event.AuditEventListener;
 import org.hibernate.event.PostDeleteEvent;
 import org.hibernate.event.PostInsertEvent;
 import org.hibernate.event.PostUpdateEvent;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.action.master.PengumumanAkademisAction;
@@ -375,6 +378,67 @@ public class AuditListener extends AuditEventListener {
 		return (obj != null) ? obj.toString() : "";
 	}
 
+	@SuppressWarnings("rawtypes")
+	private static JSONObject buatJsonAuditAman(Map data) throws org.json.JSONException {
+		JSONObject hasil = new JSONObject();
+		IdentityHashMap<Object, Boolean> dikunjungi = new IdentityHashMap<Object, Boolean>();
+		for (Object key : data.keySet()) {
+			hasil.put(String.valueOf(key), nilaiJsonAuditAman(data.get(key), dikunjungi, 0));
+		}
+		return hasil;
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static Object nilaiJsonAuditAman(Object nilai, IdentityHashMap<Object, Boolean> dikunjungi, int kedalaman)
+			throws org.json.JSONException {
+		if (nilai == null || nilai == JSONObject.NULL || nilai instanceof String || nilai instanceof Number
+				|| nilai instanceof Boolean || nilai instanceof JSONObject || nilai instanceof JSONArray) {
+			return nilai;
+		}
+		if (nilai instanceof java.util.Date || nilai instanceof Character || nilai instanceof Enum) {
+			return nilai.toString();
+		}
+		if (dikunjungi.containsKey(nilai)) {
+			return "[referensi-siklus]";
+		}
+		if (kedalaman >= 8) {
+			return "[data-terlalu-dalam]";
+		}
+		dikunjungi.put(nilai, Boolean.TRUE);
+		try {
+			if (nilai instanceof Map) {
+				JSONObject object = new JSONObject();
+				Map map = (Map) nilai;
+				for (Object key : map.keySet()) {
+					object.put(String.valueOf(key), nilaiJsonAuditAman(map.get(key), dikunjungi, kedalaman + 1));
+				}
+				return object;
+			}
+			if (nilai instanceof Collection) {
+				JSONArray array = new JSONArray();
+				for (Object item : (Collection) nilai) {
+					array.put(nilaiJsonAuditAman(item, dikunjungi, kedalaman + 1));
+				}
+				return array;
+			}
+			if (nilai.getClass().isArray()) {
+				JSONArray array = new JSONArray();
+				int panjang = java.lang.reflect.Array.getLength(nilai);
+				for (int i = 0; i < panjang; i++) {
+					array.put(nilaiJsonAuditAman(java.lang.reflect.Array.get(nilai, i), dikunjungi, kedalaman + 1));
+				}
+				return array;
+			}
+			if (nilai instanceof GeneralValueObject) {
+				GeneralValueObject entity = (GeneralValueObject) nilai;
+				return entity.getId() == null ? String.valueOf(entity) : entity.getId();
+			}
+			return String.valueOf(nilai);
+		} finally {
+			dikunjungi.remove(nilai);
+		}
+	}
+
 // Mencegah NullPointerException jika method populate mengembalikan null
 	private static <T> List<T> safeList(List<T> list) {
 		return (list != null) ? list : new ArrayList<T>();
@@ -408,7 +472,7 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:408");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
@@ -464,7 +528,7 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:464");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
@@ -517,7 +581,7 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:517");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
@@ -573,7 +637,7 @@ public class AuditListener extends AuditEventListener {
 								Common.insertProperty(generalValueObject.getClass(), generalValueObject, parameters,
 										"");
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahSemuaDataKirimkeLink);
 //								System.out.println("postData -> " + postData);

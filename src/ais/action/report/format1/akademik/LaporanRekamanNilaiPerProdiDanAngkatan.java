@@ -8,6 +8,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
+import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -289,14 +290,16 @@ public class LaporanRekamanNilaiPerProdiDanAngkatan extends MyWindow {
 
 		List<Map> maps = new ArrayList<Map>();
 		String ta = Common.getCurrentTahunAkademik();
-		List<Long> dataMhs = HibernateUtil.currentSession().createCriteria(Mahasiswa.class)
+		Session reportSession = HibernateUtil.openSession();
+		try {
+		List<Long> dataMhs = reportSession.createCriteria(Mahasiswa.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.setProjection(Projections.property("id"))
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
 		for (Long generalValueObjectid : dataMhs) {
 			Mahasiswa mahasiswa = (Mahasiswa) ConstantValues.ambil(Mahasiswa.class.getName(), generalValueObjectid);
 
-			Skripsi skripsi = (Skripsi) HibernateUtil.currentSession().createCriteria(Skripsi.class)
+			Skripsi skripsi = (Skripsi) reportSession.createCriteria(Skripsi.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa)).addOrder(Order.desc("id")).setMaxResults(1)
 					.uniqueResult();
 			if (skripsi != null) {
@@ -356,6 +359,13 @@ public class LaporanRekamanNilaiPerProdiDanAngkatan extends MyWindow {
 					}
 
 				}
+			}
+		}
+		} finally {
+			if (reportSession != null && reportSession.isOpen()) {
+				try { reportSession.clear(); } catch (Exception e) { }
+				try { reportSession.disconnect(); } catch (Exception e) { }
+				try { reportSession.close(); } catch (Exception e) { }
 			}
 		}
 

@@ -1370,23 +1370,23 @@ public class CommonReportHelper {
 		Map ujianData = new HashMap();
 		UjianPMB ujianPMB;
 		try {
-			ujianPMB = (UjianPMB) session.createCriteria(RuangPaketPMB.class).createAlias("ruangPMB", "ruangPMB")
-					.setProjection(Projections.property("ruangPMB.ujianPMB"))
-					.add(Restrictions.isNotNull("ruangPMB.ujianPMB"))
+			Long ujianPMBId = (Long) session.createCriteria(RuangPaketPMB.class)
+					.createAlias("ruangPMB", "ruangPMB").createAlias("ruangPMB.ujianPMB", "ujianPMB")
+					.setProjection(Projections.property("ujianPMB.id"))
 					.add(Restrictions.eq("biodataCalonMahasiswa", calonMahasiswa)).addOrder(Order.asc("id"))
 					.setMaxResults(1).uniqueResult();
+			/*
+			 * Projection entity relasi dapat menghasilkan proxy yang pemilik session-nya
+			 * berbeda. Ambil id lalu muat ulang entity pada session lokal ini agar seluruh
+			 * getter jadwal aman diakses sebelum session ditutup.
+			 */
+			ujianPMB = ujianPMBId == null ? null : (UjianPMB) session.get(UjianPMB.class, ujianPMBId);
 			if (ujianPMB == null) {
 				ujianPMB = (UjianPMB) session.createCriteria(UjianPMB.class)
 						.add(Restrictions.eq("gelombangPendaftaran", calonMahasiswa.getGelombangPendaftaran()))
 						.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
 			}
-			/*
-			 * Projection relasi di atas dapat menghasilkan proxy UjianPMB. Seluruh data
-			 * jadwal dipakai setelah session ditutup, sehingga proxy wajib diinisialisasi
-			 * selama session ini masih aktif.
-			 */
 			if (ujianPMB != null) {
-				org.hibernate.Hibernate.initialize(ujianPMB);
 				ujianData.put("tanggalujian1", ujianPMB.getTanggalUjian1());
 				ujianData.put("tanggalujian2", ujianPMB.getTanggalUjian2());
 				ujianData.put("tanggalujian3", ujianPMB.getTanggalUjian3());

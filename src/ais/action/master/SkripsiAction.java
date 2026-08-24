@@ -1082,8 +1082,12 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 											: fakultas.getSelectedItem().getValue());
 									Jurusan j = (Jurusan) (jurusan.getSelectedItem() == null ? null
 											: jurusan.getSelectedItem().getValue());
-									Session session = HibernateUtil.currentNativeSession();
-									List<Skripsi> ids = session.createCriteria(Skripsi.class)
+									Session session = null;
+									List<Skripsi> ids;
+									StatusKeluar LULUS;
+									try {
+										session = HibernateUtil.openSession();
+										ids = session.createCriteria(Skripsi.class)
 											.add(Restrictions.eq("tahunAkademik",
 													tahunAkademik.getSelectedItem().getValue()))
 											.createAlias("mahasiswa", "mahasiswa")
@@ -1093,10 +1097,12 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 											.add(f == null ? Restrictions.sqlRestriction("true")
 													: Restrictions.eq("jurusan.fakultas", f))
 											.addOrder(Order.asc("id")).list();
-									StatusKeluar LULUS = (StatusKeluar) session.createCriteria(StatusKeluar.class)
+										LULUS = (StatusKeluar) session.createCriteria(StatusKeluar.class)
 											.add(Restrictions.ilike("nama", "Lulus", MatchMode.ANYWHERE))
 											.setMaxResults(1).uniqueResult();
-									HibernateUtil.closeSession();
+									} finally {
+										tutupSessionSinkronisasi(session);
+									}
 									int i = 1;
 									for (Skripsi skripsi : ids) {
 										label.setValue("Singkronkan data " + skripsi + " ("
@@ -1135,11 +1141,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 											detailperkuliahan.setTotalIPSementara(
 													nilaiHuruf == null ? 0.0 : nilaiHuruf.getNilaiDiIPK());
 
-											session = HibernateUtil.currentNativeSession();
-											session.getTransaction().begin();
-											Common.refreshUpdate(session, detailperkuliahan);
-											session.getTransaction().commit();
-											HibernateUtil.closeSession();
+											simpanSinkronisasi(detailperkuliahan);
 										}
 
 										if (mahasiswa != null) {
@@ -1172,11 +1174,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 													|| mahasiswa.getTahunWisuda().equals(0)) {
 												mahasiswa.setTahunWisuda(mahasiswa.getTahunLulus());
 											}
-											session = HibernateUtil.currentNativeSession();
-											session.getTransaction().begin();
-											Common.refreshUpdate(session, mahasiswa);
-											session.getTransaction().commit();
-											HibernateUtil.closeSession();
+											simpanSinkronisasi(mahasiswa);
 										}
 
 										laporan.catatBerhasil(i - 1, kunciSkripsi, "Sinkronisasi berhasil");
@@ -1192,7 +1190,6 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 												+ ais.common.LaporanUpload.detailTeknisException(e));
 									} finally {
 										label.setValue("");
-										ais.database.hibernate.HibernateUtil.closeSession();
 									}
 								}
 							}).start();
@@ -8406,6 +8403,31 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	private static void simpanSinkronisasi(GeneralValueObject data) throws Exception {
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			session.getTransaction().begin();
+			Common.refreshUpdate(session, data);
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+				try { session.getTransaction().rollback(); } catch (Exception rollbackError) { }
+			}
+			throw e;
+		} finally {
+			tutupSessionSinkronisasi(session);
+		}
+	}
+
+	private static void tutupSessionSinkronisasi(Session session) {
+		if (session != null && session.isOpen()) {
+			try { session.clear(); } catch (Exception e) { }
+			try { session.disconnect(); } catch (Exception e) { }
+			try { session.close(); } catch (Exception e) { }
+		}
 	}
 
 }

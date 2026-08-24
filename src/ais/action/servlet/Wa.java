@@ -1274,7 +1274,7 @@ public class Wa extends HttpServlet {
 				try {
 					String from = froma;
 					String hasil = "";
-					if (from == null || send == null) {
+					if (from == null || from.trim().isEmpty() || send == null) {
 						return;
 					}
 					int l = 10000 - 1;

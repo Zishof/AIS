@@ -3417,10 +3417,6 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/NewDetailBiayaExcelAction.java:3114");
 //							Common.tampilErrorJikaAdmin(e);
 								}
-							} else {
-								ais.common.ErrorAuditUtil.record(
-										new ArrayIndexOutOfBoundsException("myIndex=" + myIndex + " arrTahunAjars.length=" + arrTahunAjars.length),
-										"NewDetailBiayaExcelAction: tahun ajaran tidak cukup utk semester " + semester);
 							}
 							index++;
 
@@ -3465,12 +3461,16 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 					detailBiaya.setKelas(getFilterKelas());
 					detailBiaya.setJenisTinggalMahasiswa(getFilterJenisTinggalMahasiswa());
 
-					Session session = HibernateUtil.currentNativeSession();
-					session.getTransaction().begin();
-					Common.refreshSaveOrUpdate(session, detailBiaya);
-					hapusSaveDetailBiaya(detailBiaya);
-					session.getTransaction().commit();
-					HibernateUtil.closeSession();
+					Session session = null;
+					try {
+						session = HibernateUtil.openSession();
+						session.getTransaction().begin();
+						Common.refreshSaveOrUpdate(session, detailBiaya);
+						hapusSaveDetailBiaya(detailBiaya);
+						session.getTransaction().commit();
+					} finally {
+						tutupSessionBiaya(session);
+					}
 				}
 			}
 		}
@@ -3499,8 +3499,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	public void onSavePengaturanPembayaranBulananDetail(DetailBiaya detailBiaya, Integer bulan, Double nominal,
 			Double persentase, Date deadline, Double total, Boolean dikalikanDenganKondisiKhusus,
 			Boolean tetapDitampilkanWalaupunNol) throws Exception {
-		Session session = HibernateUtil.currentNativeSession();
-
+		Session session = HibernateUtil.openSession();
+		try {
 		PengaturanPembayaranBulanan tempPengaturanPembayaranBulanan = (PengaturanPembayaranBulanan) session
 				.createCriteria(PengaturanPembayaranBulanan.class).add(Restrictions.eq("detailBiaya", detailBiaya))
 				.add(Restrictions.eq("bulan", bulan)).setMaxResults(1).uniqueResult();
@@ -3521,12 +3521,15 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		Common.refreshSaveOrUpdate(session, tempPengaturanPembayaranBulanan);
 		session.getTransaction().commit();
 
-		HibernateUtil.closeSession();
+		} finally {
+			tutupSessionBiaya(session);
+		}
 	}
 
 	public void onSavePengaturanPembayaranBulananDetail(DetailBiaya detailBiaya, Integer bulan, Double persentase,
 			Date deadline, Boolean dikalikanDenganKondisiKhusus, Boolean tetapDitampilkanWalaupunNol) throws Exception {
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
+		try {
 		PengaturanPembayaranBulanan tempPengaturanPembayaranBulanan = (PengaturanPembayaranBulanan) session
 				.createCriteria(PengaturanPembayaranBulanan.class).add(Restrictions.eq("detailBiaya", detailBiaya))
 				.add(Restrictions.eq("bulan", bulan)).setMaxResults(1).uniqueResult();
@@ -3546,7 +3549,9 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		Common.refreshSaveOrUpdate(session, tempPengaturanPembayaranBulanan);
 
 		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		} finally {
+			tutupSessionBiaya(session);
+		}
 	}
 
 	public boolean onSavePengaturanPembayaranBulanan(Boolean semuaProdi, Boolean semuaProgram) throws Exception {
@@ -3761,26 +3766,42 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	}
 
 	private TreeSet<String> generateSeletedTahunAngkatan() {
-		int index = searchTahunAjaran.getSelectedIndex();
-
 		int startSemester = Integer.parseInt(formStartSemester.getSelectedItem().getValue().toString());
 		int finishSemester = Integer.parseInt(formEndSemester.getSelectedItem().getValue().toString());
 		String setTahunAjar = (String) searchTahunAjaran.getSelectedItem().getValue();
 		TreeSet<String> strings = new TreeSet<String>();
-		strings.add(setTahunAjar);
-		String[] arr = Common.tahunAngkatans.toArray(new String[] {});
-		for (int i = startSemester; i < finishSemester; i++) {
-			index++;
-			// KE-FIX (ArrayIndexOutOfBoundsException, terselubung oleh catch kosong sebelumnya):
-			// dahulu index melebihi batas arr hanya diam-dilewati oleh catch, tapi akibatnya
-			// tahun ajaran ekor rentang semester yang diminta HILANG dari strings tanpa jejak
-			// (baris tagihan utk semester itu ikut tak pernah tersimpan). Hentikan loop begitu
-			// index kehabisan data alih-alih melanjutkan percobaan yang pasti gagal lagi.
-			if (index < 0 || index >= arr.length) {
-				break;
+		int jumlahTahun = ((finishSemester - startSemester + 1) / 2) + 2;
+		for (int i = 0; i < jumlahTahun; i++) {
+			String tahunAjar = geserTahunAjaran(setTahunAjar, i);
+			if (tahunAjar != null) {
+				strings.add(tahunAjar);
 			}
-			strings.add(arr[index]);
 		}
 		return strings;
+	}
+
+	private String geserTahunAjaran(String tahunAjaran, int selisih) {
+		if (tahunAjaran == null) {
+			return null;
+		}
+		String[] bagian = tahunAjaran.trim().split("/");
+		if (bagian.length != 2) {
+			return selisih == 0 ? tahunAjaran : null;
+		}
+		try {
+			int awal = Integer.parseInt(bagian[0].trim()) + selisih;
+			int akhir = Integer.parseInt(bagian[1].trim()) + selisih;
+			return awal + "/" + akhir;
+		} catch (NumberFormatException e) {
+			return selisih == 0 ? tahunAjaran : null;
+		}
+	}
+
+	private void tutupSessionBiaya(Session session) {
+		if (session != null && session.isOpen()) {
+			try { session.clear(); } catch (Exception e) { }
+			try { session.disconnect(); } catch (Exception e) { }
+			try { session.close(); } catch (Exception e) { }
+		}
 	}
 }

@@ -13611,12 +13611,11 @@ public class Common {
 	 */
 	public static int loadKomentarUkuran(Mahasiswa mahasiswa, Integer semester, final Integer tahapan,
 			Integer semesterPendek) {
+		Session session = null;
 		try {
-			// Native session: dipanggil juga dari thread latar (AsyncTaskManager) di mana
-			// currentSession() bisa berupa session ThreadLocalSessionContext yang transaction-protected
-			// sehingga createCriteria melempar "createCriteria is not valid without active transaction".
-			// Session native (ThreadLocal milik AIS) tidak transaction-protected dan ditutup oleh scope luar.
-			Session session = HibernateUtil.currentNativeSession();
+			// Query ini juga dipanggil dari thread latar. Gunakan session lokal agar tidak
+			// meminjam currentNativeSession thread-local yang mungkin sudah terputus.
+			session = HibernateUtil.openSession();
 			Criterion criterionSemester = tahapan == null || tahapan.equals(0) ? Restrictions.eq("semester", semester)
 					: Restrictions.sqlRestriction("true");
 
@@ -13633,6 +13632,12 @@ public class Common {
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 			return 0;
+		} finally {
+			if (session != null && session.isOpen()) {
+				try { session.clear(); } catch (Exception e) { }
+				try { session.disconnect(); } catch (Exception e) { }
+				try { session.close(); } catch (Exception e) { }
+			}
 		}
 	}
 

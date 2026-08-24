@@ -2636,6 +2636,9 @@ public class Perkuliahan extends VOPembelajaran {
 
 		for (Long detailperkuliahanid : detailperkuliahansTemp) {
 			try {
+				if (detailperkuliahanid == null) {
+					continue;
+				}
 				Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 						.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
 				if (detailperkuliahan != null) {
