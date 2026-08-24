@@ -223,6 +223,7 @@
 .repo-insight-head small { opacity:.76; }
 .repo-hero-insight .repo-stat { color:var(--repo-on-primary); border-color:rgba(255,255,255,.14); background:rgba(3,26,44,.2); transition:.18s ease; }
 .repo-hero-insight .repo-stat:hover { transform:translateY(-2px); background:rgba(255,255,255,.17); }
+.repo-hero-insight .repo-stat:focus-visible,.repo-access-breakdown:focus-visible,.repo-recent-downloads:focus-visible { background:rgba(255,255,255,.2); }
 .repo-hero-insight .repo-stat b { font-size:24px; margin:0; color:var(--repo-on-primary); }
 .repo-hero-insight .repo-stat span { color:var(--repo-on-primary); opacity:.78; }
 .repo-quality { margin-top:14px; }
@@ -233,6 +234,10 @@
 .repo-quality progress::-webkit-progress-value { background:#fff; }
 .repo-quality progress::-moz-progress-bar { background:#fff; }
 .repo-access-breakdown { display:grid; gap:5px; }
+.repo-click-card { cursor:pointer; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background-color .18s ease; }
+.repo-click-card:hover,.repo-click-card:focus-visible { transform:translateY(-2px); border-color:var(--repo-primary); box-shadow:var(--repo-shadow-sm); }
+.repo-item-card.repo-click-card:focus-visible { background:#fbfefe; }
+.repo-collection:hover,.repo-collection:focus-visible,.repo-topic-panel .repo-chip:hover,.repo-topic-panel .repo-chip:focus-visible { background:var(--repo-theme-light); }
 .repo-access-breakdown small { color:var(--repo-on-primary); opacity:.82; line-height:1.45; }
 .repo-search-scope { display:flex; align-items:center; gap:14px; grid-column:1 / -1; margin:8px 0 0; padding:8px 0 0; border:0; border-top:1px solid var(--repo-line); }
 .repo-search-scope legend { float:left; margin:0 8px 0 0; color:var(--repo-muted); font-size:12px; font-weight:700; }
