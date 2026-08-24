@@ -1385,16 +1385,40 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 	@SuppressWarnings("unchecked")
 	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
 			java.util.Date tglPosting) {
+		return posting(mulai, sampai, oleh, tglPosting, null);
+	}
+
+	/**
+	 * Memposting satu proses transfer melalui mesin jurnal yang sama dengan posting massal.
+	 * Penyaring {@code postingHistory is null} membuat pemanggilan ulang aman dan tidak
+	 * menghasilkan jurnal ganda.
+	 */
+	public static int postingSatu(long prosesTransferId, Tbmuser oleh, java.util.Date tglPosting) {
+		return posting(null, null, oleh, tglPosting, Long.valueOf(prosesTransferId));
+	}
+
+	@SuppressWarnings("unchecked")
+	private static int posting(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting, Long prosesTransferId) {
 		int n = 0;
 		Session session = HibernateUtil.currentNativeSession();
 		try {
-			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
-					.add(Restrictions.isNull("postingHistory")).setProjection(Projections.property("id")).list();
+			Criteria kriteria = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"));
+			if (prosesTransferId != null) {
+				kriteria.add(Restrictions.eq("prosesTransfer.id", prosesTransferId));
+			}
+			List<Long> ids = kriteria.setProjection(Projections.property("id")).list();
+			if (ids == null || ids.isEmpty()) {
+				return 0;
+			}
 
 			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGAJUAN_TRANSFER);
 			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
 			postingHistory.setTbmuser(oleh);
-			postingHistory.setKeterangan("Posting massal pengajuan transfer dari dasbor jurnal"
+			postingHistory.setKeterangan((prosesTransferId == null
+					? "Posting massal pengajuan transfer dari dasbor jurnal"
+					: "Posting otomatis saat realisasi proses transfer #" + prosesTransferId)
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
 			session = HibernateUtil.currentNativeSession();

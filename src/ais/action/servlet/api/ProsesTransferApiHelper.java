@@ -13,6 +13,7 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import ais.action.master.akunting.PostingProsesTransferAction;
 import ais.common.Common;
 import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
@@ -904,6 +905,9 @@ public final class ProsesTransferApiHelper {
 		}
 		long id = request == null ? 0 : request.optLong("id", 0);
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		String kode = "";
+		boolean sudahDirealisasikan = false;
+		boolean lanjutPosting = false;
 		try {
 			ProsesTransfer pt = id == 0 ? null : (ProsesTransfer) session.get(ProsesTransfer.class, Long.valueOf(id));
 			if (pt == null) {
@@ -915,10 +919,13 @@ public final class ProsesTransferApiHelper {
 						+ " belum disetujui sehingga belum boleh direalisasikan.");
 				return;
 			}
+			kode = pt.getKode();
 			if (pt.getRealisasikanOleh() != null) {
-				tolak(hasil, "Proses transfer " + pt.getKode() + " sudah direalisasikan.");
-				return;
-			}
+				// Pemanggilan ulang dipakai sebagai mekanisme pemulihan bila realisasi sudah
+				// tersimpan tetapi proses posting otomatis sebelumnya sempat terputus.
+				sudahDirealisasikan = true;
+				lanjutPosting = true;
+			} else {
 			// Baris yang belum ditandai Transfer maupun Transitori tidak menentukan akun
 			// kredit apa pun; dokumen sumbernya akan DILEWATI mesin posting tanpa pesan
 			// galat. Karena itu realisasi ditahan sampai semuanya bertanda.
@@ -945,16 +952,35 @@ public final class ProsesTransferApiHelper {
 			pt.setTanggalRealisasikan(tglRealisasi == null ? WaktuUtil.getDate() : tglRealisasi);
 			session.update(pt);
 			session.getTransaction().commit();
-
-			hasil.put("status", "00");
-			hasil.put("message", "Proses transfer " + pt.getKode()
-					+ " direalisasikan. Dokumen sumbernya kini siap diposting dari Draft Jurnal.");
+			lanjutPosting = true;
+			}
 		} catch (Exception e) {
 			batalkanDiam(session);
 			tolak(hasil, "Realisasi belum dapat disimpan: " + e.getMessage());
 			hasil.put("teknis", e.toString());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+		if (!lanjutPosting) {
+			return;
+		}
+
+		// Session eksplisit di atas sudah ditutup sebelum mesin posting membuka
+		// currentNativeSession(). Ini mencegah transaksi menggantung dan memastikan
+		// jurnal umum langsung terbentuk pada aksi realisasi yang sama.
+		int jumlahJurnal = PostingProsesTransferAction.postingSatu(id, tbmuser, WaktuUtil.getDate());
+		hasil.put("status", "00");
+		hasil.put("jumlahJurnal", jumlahJurnal);
+		hasil.put("jurnalOtomatis", Boolean.TRUE);
+		if (jumlahJurnal > 0) {
+			hasil.put("message", "Proses transfer " + kode
+					+ " direalisasikan dan " + jumlahJurnal + " jurnal umum dibuat otomatis.");
+		} else if (sudahDirealisasikan) {
+			hasil.put("message", "Proses transfer " + kode
+					+ " sudah direalisasikan dan jurnalnya sudah tercatat.");
+		} else {
+			hasil.put("message", "Proses transfer " + kode
+					+ " direalisasikan. Tidak ada baris baru yang perlu dijurnal.");
 		}
 	}
 

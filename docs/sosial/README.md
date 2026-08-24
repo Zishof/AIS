@@ -1,10 +1,12 @@
 # Modul Sosial AIS V1
 
-Baseline awal implementasi: SVN revision 78235. Kondisi terakhir yang diverifikasi: SVN revision 78245, 24 Agustus 2026.
+Baseline awal implementasi: SVN revision 78235. Inventaris handoff source disusun pada r78245; rencana production-readiness terakhir direbaseline terhadap working copy r78256 pada 25 Agustus 2026.
 
 ## Mulai dari sini
 
 Untuk pengembang atau AI yang akan melanjutkan pekerjaan, baca [HANDOFF_AI_LANJUTAN.md](HANDOFF_AI_LANJUTAN.md). Dokumen tersebut memuat inventaris implementasi, status database dan build, desain Smartlink/SosialChannel, risiko, batasan, serta urutan deployment dan pengujian yang disarankan.
+
+Rencana penyempurnaan berdasarkan audit dokumentasi terbaru tersedia di [RENCANA_PRODUCTION_READINESS_V2.md](RENCANA_PRODUCTION_READINESS_V2.md). Rencana tersebut direbaseline ke working copy r78256 dan memisahkan pekerjaan source, database, runtime, sandbox, keamanan, serta production gate.
 
 ## Lokasi
 
