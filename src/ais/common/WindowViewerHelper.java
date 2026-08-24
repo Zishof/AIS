@@ -144,6 +144,15 @@ public class WindowViewerHelper {
 		ais.ui.util.ZkCompat.setFlex(center, true);
 
 		MyInclude c = new MyInclude(src);
+		/*
+		 * Include adalah isi utama Center. Tanpa width eksplisit, browser/ZK dapat
+		 * mempertahankan lebar intrinsik halaman yang di-include (sering sekitar
+		 * 50% modal), walaupun scrollHost dan ZUL anak sama-sama width="100%".
+		 * Akibatnya separuh kanan popup kosong. Paksa Include menjadi blok penuh;
+		 * aturan ini berlaku baik pada mode scroll maupun non-scroll.
+		 */
+		c.setWidth("100%");
+		c.setStyle("display:block;max-width:100%;box-sizing:border-box;");
 		if (scroll) {
 			try {
 				Tbmuser tbmuser = Common.getCurrentUser();
