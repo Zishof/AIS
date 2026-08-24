@@ -82,7 +82,11 @@ public class PratinjauXlsxHelper {
 		}
 		Div wadah = new Div();
 		wadah.setSclass("xlsx-preview-region-wrapper");
-		wadah.setStyle("width:100%;height:100%;overflow:auto;");
+		/* Scroll ditangani oleh bingkai preview di renderWorkbookKeGrid. Parent
+		 * harus dibatasi ke lebar region; overflow:auto di sini membuat browser
+		 * memperlebar parent mengikuti Grid sehingga scrollbar horizontal hilang. */
+		wadah.setStyle("width:100%;height:100%;max-width:100%;min-width:0;"
+				+ "overflow:hidden;box-sizing:border-box;");
 		for (Component anak : anakLama) {
 			anak.setParent(wadah);
 		}
@@ -168,24 +172,35 @@ public class PratinjauXlsxHelper {
 		if (parent != null && parent.getChildren() != null && !parent.getChildren().isEmpty()) {
 			parent.getChildren().clear();
 		}
-		// SCROLL (mendatar & menegak): lebar kolom EKSPLISIT hasil pengukuran isi (lihat di
-		// bawah); total lebar/tinggi bisa melebihi wadah, jadi wadah harus benar-benar menggulir.
-		//   • Bila wadah = REGION Borderlayout (Center/North/…): pakai AUTOSCROLL bawaan region.
-		//     Borderlayout memberi region TINGGI pixel pasti (via layout JS), sehingga
-		//     overflow-nya sungguh menggulir. Ini MENGHINDARI jebakan "Div height:100% di dalam
-		//     flex region KOLAPS ke 0 di ZK 5.5" yang membuat scrollbar tak pernah muncul —
-		//     struktur menjadi: MyWindow → Borderlayout → Center → Grid → Rows → Row.
-		//   • Bila wadah = non-region (mis. Div pada Pola B): bungkus dengan Div ber-overflow:auto.
+		/* Satu struktur scroll dipakai untuk SEMUA jalur laporan (file XLSX maupun
+		 * MySpreadsheet). Scrollbar horizontal duplikat diletakkan di ATAS agar
+		 * tetap terjangkau pada tabel panjang; scrollbar asli tetap tersedia di
+		 * bawah area data. max-width/min-width:0 penting pada Tabpanel/Borderlayout:
+		 * tanpa itu parent ikut melebar sebesar Grid dan tidak pernah overflow. */
 		if (parent instanceof org.zkoss.zul.LayoutRegion) {
-			((org.zkoss.zul.LayoutRegion) parent).setAutoscroll(true);
-			grid.setParent(parent);
-		} else {
-			org.zkoss.zul.Div skrol = new org.zkoss.zul.Div();
-			skrol.setWidth("100%");
-			skrol.setStyle("height:100%;overflow:auto;background:#ffffff;");
-			skrol.setParent(parent);
-			grid.setParent(skrol);
+			((org.zkoss.zul.LayoutRegion) parent).setAutoscroll(false);
 		}
+		org.zkoss.zul.Div bingkaiSkrol = new org.zkoss.zul.Div();
+		bingkaiSkrol.setWidth("100%");
+		bingkaiSkrol.setStyle("height:100%;max-width:100%;min-width:0;overflow:hidden;"
+				+ "position:relative;box-sizing:border-box;background:#ffffff;");
+		bingkaiSkrol.setParent(parent);
+
+		org.zkoss.zul.Div skrolAtas = new org.zkoss.zul.Div();
+		skrolAtas.setWidth("100%");
+		skrolAtas.setStyle("height:18px;max-width:100%;overflow-x:auto;overflow-y:hidden;"
+				+ "box-sizing:border-box;background:#f8fafc;border-bottom:1px solid #dbe4ee;");
+		skrolAtas.setParent(bingkaiSkrol);
+		org.zkoss.zul.Div lebarSkrolAtas = new org.zkoss.zul.Div();
+		lebarSkrolAtas.setStyle("height:1px;");
+		lebarSkrolAtas.setParent(skrolAtas);
+
+		org.zkoss.zul.Div skrol = new org.zkoss.zul.Div();
+		skrol.setWidth("100%");
+		skrol.setStyle("height:calc(100% - 18px);max-width:100%;min-width:0;"
+				+ "overflow:auto;box-sizing:border-box;background:#ffffff;");
+		skrol.setParent(bingkaiSkrol);
+		grid.setParent(skrol);
 
 		int totalBaris = 0;
 		if (wb == null)
@@ -248,6 +263,21 @@ public class PratinjauXlsxHelper {
 		// Lebar grid = jumlah lebar kolom (bukan 100%) supaya tiap kolom mendapat
 		// jatah pastinya; bila melebihi wadah, Div pembungkus yang menggulir.
 		grid.setWidth((totalLebar + 20) + "px");
+		lebarSkrolAtas.setWidth((totalLebar + 20) + "px");
+
+		/* Sinkronkan scrollbar atas dengan area data. setTimeout diperlukan karena
+		 * node ZK baru tersedia setelah AU response selesai dirender browser. */
+		try {
+			String idAtas = skrolAtas.getUuid();
+			String idData = skrol.getUuid();
+			Clients.evalJavaScript("setTimeout(function(){try{var a=document.getElementById('"
+					+ idAtas + "'),b=document.getElementById('" + idData
+					+ "');if(!a||!b)return;var k=false;a.onscroll=function(){if(k)return;k=true;b.scrollLeft=a.scrollLeft;k=false;};"
+					+ "b.onscroll=function(){if(k)return;k=true;a.scrollLeft=b.scrollLeft;k=false;};"
+					+ "b.onwheel=function(e){if(e.shiftKey){b.scrollLeft+=e.deltaY;e.preventDefault();}};}catch(x){}},120);");
+		} catch (Exception eScroll) {
+			ais.common.ErrorAuditUtil.record(eScroll, "PratinjauXlsxHelper: sinkron scrollbar horizontal");
+		}
 
 		Rows rows = new Rows();
 		rows.setParent(grid);

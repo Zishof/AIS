@@ -133,7 +133,7 @@ public class MySpreadsheet extends Spreadsheet {
 		org.zkoss.zul.Div wadah = new org.zkoss.zul.Div();
 		wadah.setSclass("kb-wadah-region");
 		wadah.setWidth("100%");
-		wadah.setStyle("height:100%;overflow:auto;");
+		wadah.setStyle("height:100%;max-width:100%;min-width:0;overflow:auto;box-sizing:border-box;");
 		for (int i = 0; i < isi.size(); i++) {
 			((Component) isi.get(i)).setParent(wadah);
 		}
