@@ -31,6 +31,14 @@ public final class ApotikApiDispatcher {
 			ApotikApiHelper.resepList(payload, hasil);
 		} else if ("apotik_resep_detail".equals(action)) {
 			ApotikApiHelper.resepDetail(payload, hasil);
+		} else if ("apotik_antrean_farmasi_list".equals(action)) {
+			ApotikApiHelper.antreanFarmasiList(tbmuser, payload, hasil);
+		} else if ("apotik_antrean_farmasi_simpan".equals(action)) {
+			ApotikApiHelper.antreanFarmasiSimpan(tbmuser, payload, hasil);
+		} else if ("apotik_antrean_farmasi_status".equals(action)) {
+			ApotikApiHelper.antreanFarmasiStatus(tbmuser, payload, hasil);
+		} else if ("apotik_antrean_farmasi_hapus".equals(action)) {
+			ApotikApiHelper.antreanFarmasiHapus(tbmuser, payload, hasil);
 		} else if ("apotik_item_profil_simpan".equals(action)) {
 			ApotikApiHelper.itemProfilSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_bayar".equals(action)) {

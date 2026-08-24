@@ -1661,6 +1661,11 @@ public class PosApi extends HttpServlet {
 		if ("apotik_item_profil_simpan".equals(action)) {
 			return menu.optBoolean("apotik_formularium", false);
 		}
+		if (action.startsWith("apotik_antrean_farmasi_")) {
+			return menu.optBoolean("apotik_resep", false)
+					|| menu.optBoolean("apotik_racikan", false)
+					|| menu.optBoolean("apotik_kasir", false);
+		}
 		if (action.startsWith("apotik_resep_")) {
 			return menu.optBoolean("apotik_resep", false) || menu.optBoolean("apotik_kasir", false);
 		}

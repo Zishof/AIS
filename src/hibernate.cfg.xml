@@ -1881,6 +1881,7 @@
 		<mapping class="ais.database.model.sirs.ApotikItemProfile" />
 		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
 		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
+		<mapping class="ais.database.model.sirs.AntreanFarmasi" />
 		<mapping class="ais.database.model.sirs.TindakanLabDetail" />
 
 
