@@ -819,6 +819,10 @@ public class CommonPMB {
 								continue;
 							}
 
+							// Pembaca sel Excel dapat memakai lalu menutup native session thread-local.
+							// Ambil ulang sebelum query koreksi kelulusan agar tidak memakai referensi
+							// session lama yang sudah tertutup.
+							session = HibernateUtil.currentNativeSession();
 							if (prodiLulus == null && biodataCalonMahasiswa.getMahasiswa() != null) {
 								try {
 									Mahasiswa mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class)
@@ -873,6 +877,10 @@ public class CommonPMB {
 									: BiodataCalonMahasiswa.LULUS);
 
 							Mahasiswa mahasiswa = null;
+							// Sebagian implementasi NimGenerator memanggil HibernateUtil.closeSession()
+							// setelah mengecek keunikan NIM. Karena itu referensi session di awal baris
+							// tidak boleh dipakai lagi untuk transaksi penyimpanan hasil upload.
+							session = HibernateUtil.currentNativeSession();
 							session.getTransaction().begin();
 							if (prodiLulus != null && !nim.trim().isEmpty()) {
 								biodataCalonMahasiswa.setNim(nim);
