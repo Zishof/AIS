@@ -310,6 +310,53 @@
 .repo-faq-answer p { color:var(--repo-ink); line-height:1.75; }
 .repo-faq-answer .repo-link { display:inline-block; margin-top:12px; font-size:12px; }
 .repo-faq-empty { grid-column:1 / -1; }
+.repo-help-head { padding-bottom:22px; }
+.repo-help-layout { display:grid; grid-template-columns:245px minmax(0,1fr); gap:18px; align-items:start; padding-bottom:55px; }
+.repo-help-toc { position:sticky; top:88px; max-height:calc(100vh - 110px); overflow:auto; padding:16px; }
+.repo-help-toc>strong { display:block; margin-bottom:9px; font-size:15px; }
+.repo-help-toc nav { display:grid; }
+.repo-help-toc a { padding:8px 9px; border-left:2px solid var(--repo-line); color:var(--repo-muted); font-size:12px; line-height:1.3; }
+.repo-help-toc a:hover,.repo-help-toc a:focus-visible { border-color:var(--repo-primary); color:var(--repo-primary); background:var(--repo-theme-light); }
+.repo-help-manual { min-width:0; display:grid; gap:18px; }
+.repo-help-intro,.repo-help-chapter { padding:clamp(20px,3vw,34px); scroll-margin-top:88px; }
+.repo-help-intro h2,.repo-help-chapter h2 { margin:0 0 14px; font-size:clamp(23px,2.4vw,31px); }
+.repo-help-chapter h3 { margin:24px 0 8px; font-size:18px; }
+.repo-help-manual p,.repo-help-manual li,.repo-help-manual dd { line-height:1.78; }
+.repo-help-manual p { margin:10px 0; }
+.repo-help-manual ol,.repo-help-manual ul { padding-left:23px; }
+.repo-help-callout { margin:20px 0 4px; padding:16px 18px; border-left:4px solid var(--repo-primary); border-radius:0 12px 12px 0; background:var(--repo-theme-light); }
+.repo-help-callout strong { color:var(--repo-primary); }
+.repo-help-callout p { margin:5px 0 0; }
+.repo-help-callout-warning { border-color:#b98713; background:#fff8e6; }
+.repo-help-callout-warning strong { color:#795600; }
+.repo-help-diagram { margin:24px 0; display:flex; align-items:stretch; gap:8px; overflow-x:auto; padding:18px; border:1px solid var(--repo-line); border-radius:14px; background:linear-gradient(135deg,#f8fbff,#f5faf9); }
+.repo-help-diagram>i { display:grid; place-items:center; flex:0 0 18px; color:var(--repo-secondary); font-size:22px; font-style:normal; font-weight:900; }
+.repo-help-node { flex:1 0 135px; display:grid; align-content:center; gap:5px; min-height:82px; padding:13px; border:1px solid #cbdbe8; border-radius:11px; background:#fff; text-align:center; box-shadow:0 4px 10px rgba(30,56,82,.05); }
+.repo-help-node b { color:var(--repo-primary); }
+.repo-help-node span { color:var(--repo-muted); font-size:12px; line-height:1.45; }
+.repo-help-diagram-stack { max-width:580px; margin-left:auto; margin-right:auto; flex-direction:column; }
+.repo-help-diagram-stack>i { min-height:18px; }
+.repo-help-diagram-stack .repo-help-node { flex:auto; min-height:68px; }
+.repo-help-workflow .repo-help-node { flex-basis:112px; }
+.repo-help-decision { margin:24px 0; padding:18px; border:1px solid var(--repo-line); border-radius:14px; background:#f8fbfd; }
+.repo-help-decision .repo-help-node-main { max-width:300px; margin:0 auto 28px; position:relative; }
+.repo-help-decision .repo-help-node-main:after { content:"↓"; position:absolute; left:50%; bottom:-27px; color:var(--repo-secondary); }
+.repo-help-branches { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.repo-help-branches:last-child { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.repo-help-branches>div { padding:14px; border:1px solid #cbdbe8; border-radius:11px; background:#fff; }
+.repo-help-branches b,.repo-help-branches span { display:block; }
+.repo-help-branches b { margin-bottom:5px; color:var(--repo-primary); }
+.repo-help-branches span { color:var(--repo-muted); font-size:12px; line-height:1.5; }
+.repo-help-checklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 22px; list-style:none; padding:0 !important; }
+.repo-help-checklist li { position:relative; padding:9px 9px 9px 34px; border-bottom:1px solid var(--repo-line); }
+.repo-help-checklist li:before { content:"✓"; position:absolute; left:8px; top:9px; color:#18815e; font-weight:900; }
+.repo-help-table { width:100%; margin:22px 0; border-collapse:collapse; font-size:13px; }
+.repo-help-table th,.repo-help-table td { padding:11px 12px; border:1px solid var(--repo-line); text-align:left; vertical-align:top; line-height:1.55; }
+.repo-help-table th { background:var(--repo-theme-light); color:var(--repo-primary); }
+.repo-help-glossary { display:grid; grid-template-columns:minmax(100px,155px) minmax(0,1fr); margin:18px 0; }
+.repo-help-glossary dt,.repo-help-glossary dd { margin:0; padding:10px 12px; border-bottom:1px solid var(--repo-line); }
+.repo-help-glossary dt { font-weight:850; color:var(--repo-primary); }
+.repo-help-back { margin-top:24px !important; text-align:right; }
 .repo-policy-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
 .repo-policy-groups .repo-article:last-child { grid-column:1 / -1; }
 .repo-policy-groups ol { margin:0; padding-left:21px; }
@@ -328,6 +375,9 @@
   .repo-type-stat-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .repo-home-grid, .repo-detail { grid-template-columns: 1fr; }
   .repo-file-panel { position: static; }
+  .repo-help-layout { grid-template-columns:1fr; }
+  .repo-help-toc { position:static; max-height:none; }
+  .repo-help-toc nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 919px) {
   .repo-hero-v2 { grid-template-columns:1fr; }.repo-hero-insight { max-width:none; }
@@ -361,6 +411,13 @@
   .repo-faq,.repo-policy-groups { grid-template-columns:1fr; }
   .repo-faq-controls { grid-template-columns:1fr; }
   .repo-faq-status { align-items:flex-start; flex-direction:column; }
+  .repo-help-toc nav,.repo-help-checklist { grid-template-columns:1fr; }
+  .repo-help-diagram { padding:13px; }
+  .repo-help-branches,.repo-help-branches:last-child { grid-template-columns:1fr; }
+  .repo-help-glossary { grid-template-columns:1fr; }
+  .repo-help-glossary dt { padding-bottom:2px; border-bottom:0; }
+  .repo-help-glossary dd { padding-top:2px; }
+  .repo-help-table { display:block; overflow-x:auto; }
   .repo-policy-groups .repo-article:last-child { grid-column:auto; }
   .repo-collection-catalog-card { grid-template-columns:36px minmax(0,1fr); }.repo-collection-catalog-card>b { grid-column:2; }
   .repo-home-grid { display: block; }
@@ -407,6 +464,13 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .repo-modern *, .repo-modern *:before, .repo-modern *:after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+@media print {
+  .repo-help-toc,.repo-help-head .repo-paper-actions,.repo-nav,.repo-footer { display:none !important; }
+  .repo-help-layout { display:block; width:100%; }
+  .repo-help-manual { display:block; }
+  .repo-help-chapter,.repo-help-intro { break-inside:avoid; box-shadow:none; border:1px solid #bbb; margin:0 0 14px; }
+  .repo-help-diagram { overflow:visible; }
 }
 
 /* Authenticated deposit/review workspace */

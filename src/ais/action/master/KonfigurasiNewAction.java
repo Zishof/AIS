@@ -724,6 +724,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Isi bar pengumuman Website Institusi V4", "website_v4_announcement_text", ""));
 		rows.appendChild(createRowNilai("Judul SEO Website Institusi V4", "website_v4_meta_title", ""));
 		rows.appendChild(createRowNilai("Deskripsi SEO Website Institusi V4", "website_v4_meta_description", "", 3, null));
+		rows.appendChild(createRowNilai("URL publik resmi Website Institusi V4", "website_v4_public_base_url", ""));
+		rows.appendChild(createRowNilai("Izinkan agenda kampus bersama (tanpa scope tenant)",
+				"website_v4_college_agenda_shared", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Tautan Google Play Website Institusi V4", "website_v4_mobile_app_android_url",
 				"https://play.google.com/store/apps/details?id=com.ecampus.zishof"));
 		rows.appendChild(createRowNilai("Tautan App Store Website Institusi V4", "website_v4_mobile_app_ios_url",

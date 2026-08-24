@@ -25,6 +25,10 @@
 		<filter-class>ais.common.ErrorAuditFilter</filter-class>
 	</filter>
 	<filter>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<filter-class>ais.common.home.WebsitePublicSecurityFilter</filter-class>
+	</filter>
+	<filter>
 		<filter-name>springSecurityFilterChain</filter-name>
 		<filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
 	</filter>
@@ -35,6 +39,22 @@
 		<dispatcher>FORWARD</dispatcher>
 		<dispatcher>INCLUDE</dispatcher>
 		<dispatcher>ERROR</dispatcher>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/web</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/web/*</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/robots.txt</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/sitemap.xml</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>springSecurityFilterChain</filter-name>
@@ -1368,6 +1388,10 @@
 	<servlet-mapping>
 		<servlet-name>web</servlet-name>
 		<url-pattern>/web</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>web</servlet-name>
+		<url-pattern>/web/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>login</servlet-name>

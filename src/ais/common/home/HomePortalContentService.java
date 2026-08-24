@@ -150,6 +150,9 @@ public class HomePortalContentService {
     @SuppressWarnings("unchecked")
     public void loadAgenda(HomePortalViewModel vm, HomePortalSectionResolver config, String prefix) {
         if (vm.institution.healthcare) return;
+        // KalenderAkademik currently has school/foundation ownership but no college ownership.
+        // Never expose unscoped campus agenda unless an administrator explicitly accepts shared data.
+        if (vm.institution.college && !config.enabled(prefix + "_college_agenda_shared", false)) return;
         Session session = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession();

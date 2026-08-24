@@ -65,6 +65,7 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 	private Tbmuser tbmuser;
 	private PerguruanTinggi perguruanTinggi;
 	private Boolean tanpaLihatPt;
+	private boolean hanyaDosenTetap;
 
 	public AmbilDataDosenBanbox() {
 		this(true);
@@ -374,6 +375,10 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 				.add(Restrictions.or(Restrictions.ilike("statusPegawai.nama", "aktif", MatchMode.START),
 						Restrictions.isNull("statusPegawai.nama")))
 				.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")));
+		if (hanyaDosenTetap) {
+			criteria.createAlias("ikatanKerjaDosen", "ikatanKerjaDosen", Criteria.INNER_JOIN)
+					.add(Restrictions.eq("ikatanKerjaDosen.tetap", true));
+		}
 
 		criteria.addOrder(Order.asc("nama")).add(
 
@@ -425,5 +430,13 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 
 	public EventListener getEventListener() {
 		return eventListener;
+	}
+
+	public boolean isHanyaDosenTetap() {
+		return hanyaDosenTetap;
+	}
+
+	public void setHanyaDosenTetap(boolean hanyaDosenTetap) {
+		this.hanyaDosenTetap = hanyaDosenTetap;
 	}
 }

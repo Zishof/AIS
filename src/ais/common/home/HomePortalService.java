@@ -73,8 +73,25 @@ public class HomePortalService {
         vm.androidUrl = safeAppUrl(config.value(appKeyPrefix + "_mobile_app_android_url", androidFallback));
         vm.iosUrl = safeAppUrl(config.value(appKeyPrefix + "_mobile_app_ios_url", iosFallback));
         vm.desktopUrl = safeAppUrl(config.value(appKeyPrefix + "_desktop_app_url", desktopFallback));
-        vm.seo = new HomePortalSeoService().build(vm, config, request.getRequestURL().toString(), prefix);
+        vm.seo = new HomePortalSeoService().build(vm, config, canonicalUrl(request, prefix), prefix);
         return vm;
+    }
+
+    private String canonicalUrl(HttpServletRequest request, String prefix) {
+        String configured = config.value(prefix + "_public_base_url", "");
+        String base = configured == null ? "" : configured.trim();
+        if (!base.matches("https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^?#]*)?")) {
+            base = request.getRequestURL().toString();
+            String querylessPath = request.getRequestURI();
+            if (querylessPath != null && base.endsWith(querylessPath)) {
+                base = base.substring(0, base.length() - querylessPath.length());
+            } else {
+                return request.getRequestURL().toString();
+            }
+        }
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        String path = request.getRequestURI();
+        return base + (path == null ? request.getContextPath() + "/web" : path);
     }
 
     private void resolveTerminology(HomePortalViewModel vm) {

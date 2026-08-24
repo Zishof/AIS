@@ -458,3 +458,23 @@ halaman. Tampilan responsif berubah menjadi satu kolom pada layar kecil.
 Validasi statis memastikan terdapat 20 blok kategori dengan 15 topik per blok (total 300), seluruh
 delimiter JSP/form/details seimbang, dan brace serta parenthesis Java seimbang. Build WAR, Tomcat,
 database, dan pengujian lokal tidak dijalankan sesuai instruksi pemilik sistem.
+
+## 20. Manual Pusat Bantuan 5.000+ kata 25 Agustus 2026
+
+Halaman Bantuan yang sebelumnya hanya berisi lima penjelasan singkat dan satu daftar tahap deposit
+diganti dengan manual terstruktur berjumlah 5.561 kata. Konten dipisahkan ke partial
+`_repository_help.jsp` agar `ListRepository.jsp` tetap dapat dirawat. Manual mempunyai 17 bab dan
+54 heading yang mengikuti perjalanan pengguna: orientasi, pencarian, pembacaan record, akses,
+akun, persiapan deposit, sembilan tahap unggah, metadata, berkas/lisensi/embargo, review,
+publikasi/versi, sitasi/identifier, integrasi, privasi/aksesibilitas, troubleshooting, dukungan,
+dan glosarium.
+
+Ditambahkan daftar isi responsif, checklist, tabel keputusan, template laporan, glosarium, enam
+diagram HTML/CSS dengan deskripsi `aria-label`, tautan ke katalog 300 tanya jawab, serta stylesheet
+cetak. Diagram tidak memakai gambar eksternal sehingga tetap dapat dibaca pembaca layar, mengikuti
+tema institusi, dan dapat bergeser horizontal pada layar sempit.
+
+Validasi statis memastikan 5.561 kata, 17 bab, enam diagram, 18 anchor internal yang semuanya
+memiliki target, tidak ada ID duplikat, pasangan section/article seimbang, delimiter JSP seimbang,
+serta brace CSS seimbang. Build WAR, Tomcat, database, dan pengujian lokal tidak dijalankan sesuai
+instruksi pemilik sistem.

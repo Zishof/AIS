@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import ais.common.Common;
 import ais.common.home.HomePortalService;
+import ais.common.home.WebsitePageService;
+import ais.common.home.WebsitePageViewModel;
 import ais.database.model.Konfigurasi;
 
 public class Web extends HttpServlet {
@@ -50,10 +52,26 @@ public class Web extends HttpServlet {
 		}
 
 		try {
-			request.setAttribute("website", new HomePortalService().buildWebsite(request));
-			request.getRequestDispatcher("/WEB-INF/baru/website/home.jsp").forward(request, response);
+			ais.common.home.HomePortalViewModel website = new HomePortalService().buildWebsite(request);
+			request.setAttribute("website", website);
+			String path = request.getPathInfo();
+			if (path == null || path.length() == 0 || "/".equals(path)) {
+				request.getRequestDispatcher("/WEB-INF/baru/website/home.jsp").forward(request, response);
+			} else {
+				WebsitePageService pages = new WebsitePageService();
+				if (!pages.supports(path)) {
+					response.sendError(HttpServletResponse.SC_NOT_FOUND);
+					return;
+				}
+				WebsitePageViewModel page = pages.build(website, path, request.getParameter("q"));
+				if (page.notFound) response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+				request.setAttribute("websitePage", page);
+				request.getRequestDispatcher("/WEB-INF/baru/website/page.jsp").forward(request, response);
+			}
 		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "Web website V4 fallback");
+			String requestId = String.valueOf(request.getAttribute("websiteRequestId"));
+			ais.common.ErrorAuditUtil.record(e, "Web website V4 fallback request=" + requestId);
+			response.setHeader("X-Website-Fallback", "legacy");
 			if (!response.isCommitted()) {
 				request.getRequestDispatcher("/WEB-INF/baru/website.jsp").forward(request, response);
 			}

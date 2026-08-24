@@ -70,7 +70,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <link rel="stylesheet" href="<%=root%><%=esc(vm.institution.themeCss)%>">
     <% } %>
     <% if (vm.seo.jsonLd != null && vm.seo.jsonLd.trim().length() > 0) { %>
-    <script type="application/ld+json"><%=vm.seo.jsonLd%></script>
+    <script type="application/ld+json" nonce="<%=esc(String.valueOf(request.getAttribute("websiteCspNonce")))%>"><%=vm.seo.jsonLd%></script>
     <% } %>
 </head>
 <body style="--brand:<%=esc(primary)%>;--brand-dark:<%=esc(primaryDark)%>">

@@ -80,7 +80,7 @@
 									id="label_dosen" />
 									<bandbox id="searchdosen"
 									use="ais.action.master.helper.AmbilDataDosenBanbox"
-									width="95%" />
+									hanyaDosenTetap="true" width="95%" />
 
 									<label
 									use="ais.ui.util.MyLabelConfig" value="Fakultas" />
@@ -102,6 +102,11 @@
 									<textbox
 									forward="onOK=onSearchDefault" id="searchnamamhs"
 									width="95%" />
+									</row>
+									<row>
+									<label use="ais.ui.util.MyLabelConfig"
+									value="Tahun Angkatan (hapus PA massal)" />
+									<intbox id="searchtahunangkatan" width="95%" />
 									</row>
 									</rows>
 								</grid>

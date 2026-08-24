@@ -64,6 +64,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
+import ais.database.model.Jurusan;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
@@ -89,6 +90,7 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 	private Combobox searchjurusan;
 	protected Textbox searchnamamhs;
 	protected Textbox searchnim;
+	private Intbox searchtahunangkatan;
 	private PerguruanTinggi perguruanTinggi;
 	private MyToolbarbuttonConfig find;
 
@@ -219,6 +221,19 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 				});
 			}
 		});
+
+		MyToolbarbuttonConfig hapusPaMassal = new MyToolbarbuttonConfig(
+				"Hapus PA Mahasiswa Sesuai Filter", "/img/delete.gif");
+		hapusPaMassal.setTooltiptext(
+				"Kosongkan Dosen PA mahasiswa berdasarkan Prodi dan Tahun Angkatan yang dipilih.");
+		hapusPaMassal.setVisible(CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE));
+		hapusPaMassal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				konfirmasiHapusPaMassal();
+			}
+		});
+		Common.appendKeToolbar(hapusPaMassal, find, comp);
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Sinkron PA ke KRS", "/img/new.gif");
 		button.setTooltiptext("Sinkronkan Dosen PA dari data mahasiswa ke KRS mahasiswa untuk rentang semester yang dipilih.");
@@ -503,6 +518,8 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 		Session session = HibernateUtil.currentSession();
 		Dosen d = (Dosen) searchdosen.getAttribute("myValue");
 		Criteria criteria = session.createCriteria(Dosen.class)
+				.createAlias("ikatanKerjaDosen", "ikatanKerjaDosen", Criteria.INNER_JOIN)
+				.add(Restrictions.eq("ikatanKerjaDosen.tetap", true))
 				.add(perguruanTinggi == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.eq("perguruanTinggi", perguruanTinggi))
 
@@ -524,6 +541,96 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 
 				.add(d == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("id", d.getId()));
 		return criteria;
+	}
+
+	@SuppressWarnings("unchecked")
+	private void konfirmasiHapusPaMassal() throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE)) {
+			MyMessageboxConfig.show("Anda tidak memiliki hak untuk mengubah Dosen PA.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		Object prodiValue = searchjurusan.getSelectedItem() == null ? null
+				: searchjurusan.getSelectedItem().getValue();
+		Integer tahunAngkatan = searchtahunangkatan == null ? null : searchtahunangkatan.getValue();
+		if (!(prodiValue instanceof Jurusan) || tahunAngkatan == null) {
+			MyMessageboxConfig.show(
+					"Pilih Prodi dan isi Tahun Angkatan terlebih dahulu agar penghapusan tidak mengenai mahasiswa di luar sasaran.",
+					"Filter Wajib", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		final Jurusan jurusan = (Jurusan) prodiValue;
+		final Integer tahun = tahunAngkatan;
+		Session currentSession = HibernateUtil.currentSession();
+		final List<Long> mahasiswaIds = initMahasiswaUntukHapusPa(currentSession, jurusan.getId(), tahun,
+				searchnim.getValue(), searchnamamhs.getValue()).setProjection(Projections.id()).list();
+		if (mahasiswaIds.isEmpty()) {
+			MyMessageboxConfig.show(
+					"Tidak ada mahasiswa aktif yang memiliki Dosen PA sesuai filter Prodi, Tahun Angkatan, NIM, dan Nama.",
+					"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+
+		MyMessageboxConfig.show(
+				"Dosen PA akan dikosongkan untuk " + mahasiswaIds.size() + " mahasiswa aktif Prodi "
+						+ jurusan.getNama() + " angkatan " + tahun
+						+ ". Data PA pada master mahasiswa dan seluruh KRS mahasiswa tersebut akan dibersihkan. Lanjutkan?",
+				"Konfirmasi Hapus PA Massal", MyMessageboxConfig.YES | MyMessageboxConfig.NO,
+				MyMessageboxConfig.QUESTION, new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						if (!"onYes".equals(event.getName())) {
+							return;
+						}
+						int jumlah = hapusPaMassal(mahasiswaIds);
+						MyMessageboxConfig.show("Dosen PA berhasil dikosongkan untuk " + jumlah + " mahasiswa.",
+								"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+								new EventListener() {
+									@Override
+									public void onEvent(Event event) throws Exception {
+										onSearchDefault(event);
+									}
+								});
+					}
+				});
+	}
+
+	private Criteria initMahasiswaUntukHapusPa(Session session, Long jurusanId, Integer tahunAngkatan,
+			String nim, String nama) {
+		return session.createCriteria(Mahasiswa.class)
+				.createAlias("jurusan", "jurusan", Criteria.INNER_JOIN)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.isNull("statusKeluar"))
+				.add(Restrictions.eq("jurusan.id", jurusanId))
+				.add(Restrictions.eq("tahunangkatan", tahunAngkatan))
+				.add(nim == null || nim.trim().length() == 0 ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.ilike("nim", nim.trim(), org.hibernate.criterion.MatchMode.ANYWHERE))
+				.add(nama == null || nama.trim().length() == 0 ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.ilike("nama", nama.trim(), org.hibernate.criterion.MatchMode.ANYWHERE))
+				.add(Restrictions.or(Restrictions.isNotNull("dosen"), Restrictions.sqlRestriction(
+						"exists (select 1 from krs_mahasiswa k where k.mahasiswa = this_.id and k.dosen_pa is not null)")));
+	}
+
+	@SuppressWarnings("unchecked")
+	private int hapusPaMassal(List<Long> mahasiswaIds) throws Exception {
+		Session currentSession = HibernateUtil.currentSession();
+		List<Mahasiswa> mahasiswas = currentSession.createCriteria(Mahasiswa.class)
+				.add(Restrictions.in("id", mahasiswaIds)).list();
+		for (Mahasiswa mahasiswa : mahasiswas) {
+			mahasiswa.setDosen(null);
+		}
+
+		List<KrsMahasiswa> daftarKrs = currentSession.createCriteria(KrsMahasiswa.class)
+				.createAlias("mahasiswa", "mahasiswa", Criteria.INNER_JOIN)
+				.add(Restrictions.in("mahasiswa.id", mahasiswaIds)).list();
+		for (KrsMahasiswa krsMahasiswa : daftarKrs) {
+			krsMahasiswa.setDosenPa(null);
+		}
+
+		currentSession.flush();
+		return mahasiswas.size();
 	}
 
 	@SuppressWarnings("unchecked")
