@@ -160,11 +160,73 @@ seluruh kasus tepi; penyambungannya ke `bayar()` diperiksa lewat pembacaan kode 
 
 ---
 
-## 7. Data produksi tidak disentuh
+## 7. Data produksi — 58 transaksi Agung dikoreksi, 24 Agustus 2026
 
-58 transaksi 20 Agustus yang sudah tercemar ke sesi 23 Agustus **tidak diperbaiki di sini**.
-Perbaikan ini mencegah kejadian **berikutnya**, bukan membetulkan yang sudah terjadi. Struk
-23 Agustus yang sudah dicetak (snapshot di `laporan_tutup_json`) juga tidak berubah — tetap
-menyimpan angka yang salah sebagai arsip apa adanya saat itu dicetak. Bila laporan historis
-untuk kasir Agung 23 Agustus perlu dikoreksi, itu keputusan terpisah yang butuh persetujuan
-eksplisit sebelum menyentuh data produksi.
+Perbaikan kode di atas mencegah kejadian **berikutnya**; ia tidak membetulkan yang sudah
+terjadi. Bagian ini awalnya berhenti di situ. Atas persetujuan eksplisit pemilik toko, 58
+transaksi 20 Agustus milik kasir Agung yang tercemar ke sesi 23 Agustus (id 265) kemudian
+dikoreksi langsung di produksi — dipindah ke sesi yang benar-benar mencakup waktu
+transaksinya (id 222, sesi 20 Agustus).
+
+**Bukan lewat aplikasi — SQL langsung di server, karena tidak ada jalur koreksi massal di
+aplikasi untuk kasus ini.** Konsekuensinya: perubahan ini **tidak tercatat di jejak audit
+Envers** (`new_audit.pembelian_anggota_koperasi__audit`), yang hanya menangkap perubahan
+lewat siklus hidup Hibernate, bukan SQL mentah. Catatan di sini adalah satu-satunya jejak
+permanennya.
+
+Dikerjakan tiga langkah, masing-masing diverifikasi sebelum lanjut ke langkah berikutnya:
+
+1. **Verifikasi pemetaan** — memastikan seluruh 58 baris (bukan sebagian) memetakan ke TEPAT
+   SATU sesi tujuan sebelum menyentuh apa pun:
+   ```sql
+   SELECT (SELECT sk.id FROM koperasi.sesi_kas_kasir sk WHERE sk.kasir_nama = 'Agung'
+             AND sk.toko = h.toko AND sk.waktubuka <= h.tanggal_pembayaran
+             AND (sk.waktututup IS NULL OR sk.waktututup >= h.tanggal_pembayaran)
+           ORDER BY sk.waktubuka DESC LIMIT 1) AS sesi_seharusnya,
+          count(*), coalesce(sum(h.total_biaya),0)
+   FROM koperasi.pembelian_anggota_koperasi h
+   WHERE h.kasir_login_nama = 'Agung' AND h.sesi_kas_kasir = 265
+     AND date(h.tanggal_pembayaran) = '2026-08-20'
+   GROUP BY 1;
+   -- hasil: sesi_seharusnya=222, count=58, total=2506000 -- persis prediksi bagian 3.
+   ```
+2. **Koreksi** — kriteria identik dipakai untuk `UPDATE` (sama persis logika
+   `SesiKasUtil.sesiPadaWaktu`, supaya koreksi data lama konsisten dengan aturan yang kini
+   berlaku untuk data baru):
+   ```sql
+   UPDATE koperasi.pembelian_anggota_koperasi h
+   SET sesi_kas_kasir = (SELECT sk.id FROM koperasi.sesi_kas_kasir sk
+                            WHERE sk.kasir_nama = 'Agung' AND sk.toko = h.toko
+                              AND sk.waktubuka <= h.tanggal_pembayaran
+                              AND (sk.waktututup IS NULL OR sk.waktututup >= h.tanggal_pembayaran)
+                          ORDER BY sk.waktubuka DESC LIMIT 1)
+   WHERE h.kasir_login_nama = 'Agung' AND h.sesi_kas_kasir = 265
+     AND date(h.tanggal_pembayaran) = '2026-08-20';
+   -- UPDATE 58
+   ```
+3. **Verifikasi hasil** — seluruh transaksi 20 Agustus Agung kini di bawah SATU sesi:
+   ```sql
+   SELECT sesi_kas_kasir, count(*), coalesce(sum(total_biaya),0)
+   FROM koperasi.pembelian_anggota_koperasi
+   WHERE kasir_login_nama = 'Agung' AND date(tanggal_pembayaran) = '2026-08-20'
+   GROUP BY sesi_kas_kasir;
+   -- hasil: satu baris -- sesi_kas_kasir=222, count=62, total=3148500.
+   -- 62 = 58 yang dikoreksi + 4 yang sejak awal sudah benar tertaut ke sesi ini.
+   ```
+
+**Yang TIDAK berubah oleh koreksi ini**, dan penting dipahami:
+
+- **Struk kertas 23 Agustus yang sudah dicetak dan diserahkan ke Agung** — snapshot
+  `laporan_tutup_json` pada sesi 265 (dan juga sesi 222, yang sudah lebih dulu ditutup pada
+  20 Agustus) adalah arsip beku pada saat masing-masing dicetak. Keduanya TIDAK ditulis
+  ulang oleh koreksi ini. Struk 23 Agustus yang beredar secara fisik tetap menunjukkan
+  selisih -Rp 1.411.000 seperti tercetak; itulah alasan dokumen 47 bagian 1-6 ada.
+- **Dashboard "Laporan Kasir"** sudah benar SEBELUM koreksi ini (ia menyaring per tanggal
+  transaksi sungguhan, bukan lewat `sesi_kas_kasir`) — koreksi ini tidak mengubah angka yang
+  ditampilkannya untuk kedua tanggal tersebut, hanya merapikan data yang mendasarinya.
+- **164 baris milik empat kasir lain** (Jannah, Rizal, Ziko, Rima) yang tercatat di bagian 6
+  dengan pola serupa TIDAK ikut dikoreksi di sini — ini murni kasus Agung, atas permintaan
+  eksplisit yang menyebut nama kasirnya. Investigasi kasus Jannah sendiri kemudian menemukan
+  mekanisme yang BERBEDA (tabrakan id lintas tabel draft/transaksi final lewat fitur "Tahan
+  Keranjang" di `keranjang_screen.dart`, bukan kode sesi tak dikenal) — didokumentasikan
+  terpisah bila perbaikannya dikerjakan.
