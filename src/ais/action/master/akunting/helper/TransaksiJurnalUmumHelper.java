@@ -930,7 +930,20 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 					if (grupTransaksi.getId() == null) {
 						session.saveOrUpdate(grupTransaksi);
 					} else {
-						grupTransaksi = (GrupTransaksi) session.merge(grupTransaksi);
+						/*
+						 * Jurnal utama sudah disimpan oleh onSaveTransaksiUtama() pada sesi
+						 * sebelumnya. Ambil ulang sebagai instance managed milik sesi detail.
+						 * merge() tidak tepat di sini: pada Hibernate 3 interceptor/cache dapat
+						 * mengembalikan instance yang identik saat merge melakukan get(), lalu
+						 * DefaultMergeEventListener melempar "entity was not detached".
+						 */
+						GrupTransaksi grupTransaksiManaged = (GrupTransaksi) session.get(
+								GrupTransaksi.class, grupTransaksi.getId());
+						if (grupTransaksiManaged == null) {
+							throw new IllegalStateException("Jurnal utama tidak ditemukan saat menyimpan rincian: "
+									+ grupTransaksi.getId());
+						}
+						grupTransaksi = grupTransaksiManaged;
 					}
 					transaksi.setGrupTransaksi(grupTransaksi);
 				}
