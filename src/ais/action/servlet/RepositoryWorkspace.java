@@ -24,6 +24,7 @@ import ais.action.master.repository.RepositoryAdminService;
 import ais.action.master.repository.RepositoryPublicService;
 import ais.action.master.repository.RepositoryWorkflowService;
 import ais.action.master.repository.RepositoryWorkflowService.DraftInput;
+import ais.action.master.repository.RepositoryWorkflowService.ItemPage;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
@@ -65,7 +66,9 @@ public class RepositoryWorkspace extends HttpServlet {
             request.setAttribute("repoCanReview", Boolean.valueOf(canReview));
             request.setAttribute("repoIsAdmin", Boolean.valueOf(administrator));
             request.setAttribute("repoCollections", publicService.listCollections(500));
-            request.setAttribute("repoMyDeposits", workflow.myDeposits(user, 200));
+            int workspacePageSize=positiveInt(request.getParameter("workspaceSize"),20,100);
+            ItemPage depositPage=workflow.myDepositsPage(user,request.getParameter("depositQ"),request.getParameter("depositStatus"),positiveInt(request.getParameter("depositPage"),1,1000000),workspacePageSize);
+            request.setAttribute("repoMyDepositPage",depositPage);request.setAttribute("repoMyDeposits",depositPage.items);
             request.setAttribute("repoNotifications", workflow.notifications(user, 20));
             String view = clean(request.getParameter("view"));
             if (view.length() == 0) view = "deposit";
@@ -98,7 +101,7 @@ public class RepositoryWorkspace extends HttpServlet {
                 duplicateInput.title = item.getTitle(); duplicateInput.authors = item.getAuthors();
                 request.setAttribute("repoDuplicates", workflow.duplicates(duplicateInput, 10));
             }
-            if (canReview) request.setAttribute("repoReviewQueue", workflow.reviewQueue(user, 300));
+            if (canReview) {ItemPage reviewPage=workflow.reviewQueuePage(user,request.getParameter("reviewQ"),request.getParameter("reviewStatus"),positiveInt(request.getParameter("reviewPage"),1,1000000),workspacePageSize);request.setAttribute("repoReviewPage",reviewPage);request.setAttribute("repoReviewQueue",reviewPage.items);}
             if (administrator) {
                 request.setAttribute("repoAdminCollections", adminService.collections(user));
                 request.setAttribute("repoAuthorities",adminService.authorities(user,500));
@@ -204,7 +207,7 @@ public class RepositoryWorkspace extends HttpServlet {
     }
 
     private void processUpload(HttpServletRequest request, HttpServletResponse response, Tbmuser user, String requestId) throws Exception {
-        if (!workflow.canDeposit(user) && !workflow.isRepositoryAdmin(user))
+        if (!workflow.canDeposit(user) && !workflow.isRepositoryAdministrator(user))
             throw new SecurityException("Pengguna tidak memiliki izin unggah repository.");
         DiskFileItemFactory factory = new DiskFileItemFactory();
         factory.setSizeThreshold(1024 * 1024);
@@ -268,4 +271,5 @@ public class RepositoryWorkspace extends HttpServlet {
     private static String clean(String v){return v==null?"":v.trim();}
     private static Long positiveLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>0?n:null;}catch(Exception e){return null;}}
     private static Long nonNegativeLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>=0?n:null;}catch(Exception e){return null;}}
+    private static int positiveInt(String value,int fallback,int maximum){try{int parsed=Integer.parseInt(clean(value));return parsed>0?Math.min(parsed,maximum):fallback;}catch(Exception e){return fallback;}}
 }

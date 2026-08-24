@@ -14,6 +14,7 @@ import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
@@ -68,6 +69,13 @@ public class RepositoryWorkflowService {
         public String rightsStatement;
         public String depositorNote;
         public String bibliography;
+    }
+
+    public static class ItemPage {
+        public int page=1,pageSize=20,totalPages;
+        public long total;
+        public String keyword="",status="";
+        public List<RepoItem> items=new ArrayList<RepoItem>();
     }
 
     public static class ValidationResult {
@@ -264,29 +272,39 @@ public class RepositoryWorkflowService {
 
     @SuppressWarnings("unchecked")
     public List<RepoItem> myDeposits(final Tbmuser actor, final int maximum) {
-        requireLogin(actor);
-        return read(new Work<List<RepoItem> >() {
-            public List<RepoItem> run(Session session) {
-                return session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("ownerId", actor.getUserId()))
-                        .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.desc("tanggal_dirubah"))
-                        .setMaxResults(limit(maximum)).list();
-            }
-        });
+        return myDepositsPage(actor,"","",1,maximum).items;
+    }
+
+    @SuppressWarnings("unchecked")
+    public ItemPage myDepositsPage(final Tbmuser actor,final String keyword,final String status,final int requestedPage,final int requestedSize){
+        requireLogin(actor);return read(new Work<ItemPage>(){public ItemPage run(Session session){
+            ItemPage result=new ItemPage();result.keyword=limit(keyword,200);result.status=workflowStatus(status);result.page=Math.max(1,requestedPage);result.pageSize=pageSize(requestedSize);
+            Criteria countCriteria=myDepositCriteria(session,actor,result.keyword,result.status);result.total=((Number)countCriteria.setProjection(Projections.rowCount()).uniqueResult()).longValue();
+            result.totalPages=result.total==0L?0:(int)((result.total+result.pageSize-1L)/result.pageSize);if(result.totalPages>0&&result.page>result.totalPages)result.page=result.totalPages;
+            Criteria rows=myDepositCriteria(session,actor,result.keyword,result.status).addOrder(Order.desc("tanggal_dirubah"));rows.setFirstResult((result.page-1)*result.pageSize);rows.setMaxResults(result.pageSize);result.items=rows.list();return result;
+        }});
     }
 
     @SuppressWarnings("unchecked")
     public List<RepoItem> reviewQueue(final Tbmuser actor, final int maximum) {
-        requireReviewer(actor);
-        return read(new Work<List<RepoItem> >() {
-            public List<RepoItem> run(Session session) {
-                return session.createCriteria(RepoItem.class)
-                        .add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()))
-                        .add(Restrictions.in("workflowStatus", new String[] { SUBMITTED, IN_REVIEW, APPROVED }))
-                        .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.asc("submittedAt"))
-                        .setMaxResults(limit(maximum)).list();
-            }
-        });
+        return reviewQueuePage(actor,"","",1,maximum).items;
     }
+
+    @SuppressWarnings("unchecked")
+    public ItemPage reviewQueuePage(final Tbmuser actor,final String keyword,final String status,final int requestedPage,final int requestedSize){
+        requireReviewer(actor);return read(new Work<ItemPage>(){public ItemPage run(Session session){
+            ItemPage result=new ItemPage();result.keyword=limit(keyword,200);result.status=reviewStatus(status);result.page=Math.max(1,requestedPage);result.pageSize=pageSize(requestedSize);
+            Criteria countCriteria=reviewCriteria(session,result.keyword,result.status);result.total=((Number)countCriteria.setProjection(Projections.rowCount()).uniqueResult()).longValue();
+            result.totalPages=result.total==0L?0:(int)((result.total+result.pageSize-1L)/result.pageSize);if(result.totalPages>0&&result.page>result.totalPages)result.page=result.totalPages;
+            Criteria rows=reviewCriteria(session,result.keyword,result.status).addOrder(Order.asc("submittedAt"));rows.setFirstResult((result.page-1)*result.pageSize);rows.setMaxResults(result.pageSize);result.items=rows.list();return result;
+        }});
+    }
+
+    private Criteria myDepositCriteria(Session session,Tbmuser actor,String keyword,String status){Criteria criteria=session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("ownerId",actor.getUserId())).add(Restrictions.eq("aktif",Boolean.TRUE));if(keyword.length()>0)criteria.add(Restrictions.disjunction().add(Restrictions.ilike("title",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("authors",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("oaiIdentifier",keyword,MatchMode.ANYWHERE)));if(status.length()>0)criteria.add(Restrictions.eq("workflowStatus",status));return criteria;}
+    private Criteria reviewCriteria(Session session,String keyword,String status){Criteria criteria=session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("aktif",Boolean.TRUE));if(status.length()>0)criteria.add(Restrictions.eq("workflowStatus",status));else criteria.add(Restrictions.in("workflowStatus",new String[]{SUBMITTED,IN_REVIEW,APPROVED}));if(keyword.length()>0)criteria.add(Restrictions.disjunction().add(Restrictions.ilike("title",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("authors",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("ownerId",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("assignedReviewerId",keyword,MatchMode.ANYWHERE)).add(Restrictions.ilike("oaiIdentifier",keyword,MatchMode.ANYWHERE)));return criteria;}
+    private static String workflowStatus(String value){String status=limit(value,40).toUpperCase();return DRAFT.equals(status)||SUBMITTED.equals(status)||IN_REVIEW.equals(status)||REVISION_REQUIRED.equals(status)||REJECTED.equals(status)||APPROVED.equals(status)||PUBLISHED.equals(status)||WITHDRAWN.equals(status)?status:"";}
+    private static String reviewStatus(String value){String status=workflowStatus(value);return SUBMITTED.equals(status)||IN_REVIEW.equals(status)||APPROVED.equals(status)?status:"";}
+    private static int pageSize(int value){return Math.max(5,Math.min(value<=0?20:value,100));}
 
     @SuppressWarnings("unchecked")
     public List<RepoWorkflowEvent> history(final Long itemId, final Tbmuser actor) {

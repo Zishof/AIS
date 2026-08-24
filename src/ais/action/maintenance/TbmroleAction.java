@@ -3045,7 +3045,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setDashboardKoperasi(dashboardKoperasi.isChecked());
 		tbmrole.setEbisnisMenu(buildEbisnisMenuJson());
 		tbmrole.setTokoAksesJson(buildTokoAksesJson());
-		tbmrole.setJurnalAksesJson(buildJurnalAksesJson());
+		String jurnalAksesJsonBaru = buildJurnalAksesJson();
+		tbmrole.setJurnalAksesJson(jurnalAksesJsonBaru);
+		ais.action.master.jurnal.JurnalRoleMenuSynchronizer.synchronize(session, tbmrole, jurnalAksesJsonBaru);
 		tbmrole.setBolehLihatSemuaToko(Boolean.valueOf(
 				bolehLihatSemuaToko != null && bolehLihatSemuaToko.isChecked()));
 		tbmrole.setMengajukanPengajuanPegawaiLain(mengajukanPengajuanPegawaiLain.isChecked());

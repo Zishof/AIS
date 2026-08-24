@@ -63,6 +63,12 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <meta property="og:description" content="<%=esc(vm.seo.description)%>">
     <meta property="og:url" content="<%=esc(vm.seo.canonical)%>">
     <meta property="og:image" content="<%=esc(vm.seo.image)%>">
+    <meta property="og:site_name" content="<%=esc(vm.institution.name)%>">
+    <meta property="og:locale" content="<%=esc(text(vm.language, "id"))%>_ID">
+    <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="<%=esc(vm.seo.title)%>"><meta name="twitter:description" content="<%=esc(vm.seo.description)%>"><meta name="twitter:image" content="<%=esc(vm.seo.image)%>">
+    <link rel="alternate" hreflang="<%=esc(text(vm.language, "id"))%>" href="<%=esc(vm.seo.canonical)%>"><link rel="alternate" hreflang="x-default" href="<%=esc(vm.seo.canonical)%>">
+    <link rel="alternate" type="application/rss+xml" title="Berita <%=esc(vm.institution.name)%>" href="<%=root%>/website-feed.xml">
+    <link rel="manifest" href="<%=root%>/website.webmanifest">
     <meta name="theme-color" content="<%=esc(primary)%>">
     <link rel="icon" href="<%=esc(vm.institution.logoUrl)%>">
     <link rel="stylesheet" href="<%=root%>/css/baru/website-v4.css?v=<%=version%>">
