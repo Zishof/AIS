@@ -38,7 +38,7 @@
 
 ## Verifikasi
 
-- Uji payload toko Flutter mencakup layar dengan toko terpilih dan layar agregat tanpa toko terpilih.
+- Uji Flutter mencakup 20 skenario: kontrak status `success`/`00`, penyisipan toko, layar dengan toko terpilih, dan layar agregat tanpa toko terpilih.
 - `flutter analyze` dan uji terkait wajib lulus sebelum publikasi.
 - `PosApi.java` serta `LaporanKantinUtil.java` dikompilasi dengan `-source 1.7 -target 1.7` sebelum commit.
 
