@@ -115,7 +115,7 @@
             
             <div class="d-flex ms-lg-3 mt-3 mt-lg-0 align-items-center">
                 <% if (tbmuser == null) { %>
-                    <a href="<%=Common.ROOT%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=login_pustaka" class="btn btn-outline-primary rounded-pill px-4 fw-bold shadow-sm transition-all"><i class="fas fa-sign-in-alt me-2"></i><%= Common.getBahasaConfig("Masuk Sistem") %></a>
+                    <a href="<%=Common.ROOT%>/pustaka?s=login_pustaka" class="btn btn-outline-primary rounded-pill px-4 fw-bold shadow-sm transition-all"><i class="fas fa-sign-in-alt me-2"></i><%= Common.getBahasaConfig("Masuk Sistem") %></a>
                 <% } else { %>
                     <a href="#" onclick="panggilMenu<%=rnd%>('beranda_anggota')" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm me-2 transition-all"><i class="fas fa-user-circle me-2"></i><%= Common.getBahasaConfig("Beranda") %></a>
                     <a href="#" onclick="handleLogout<%=rnd%>(event)" class="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm transition-all hover-danger"><i class="fas fa-sign-out-alt me-2"></i><%= Common.getBahasaConfig("Keluar") %></a>

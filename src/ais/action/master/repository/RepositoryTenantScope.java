@@ -1,13 +1,7 @@
 package ais.action.master.repository;
 
-import org.hibernate.Session;
-import org.hibernate.Transaction;
-
-import ais.database.hibernate.HibernateUtil;
-
 /** Stable repository scope derived from the institution selected for the current domain/request. */
 public final class RepositoryTenantScope {
-	private static volatile boolean schemaReady;
     private RepositoryTenantScope(){}
     public static String currentKey(){
         try{ais.database.model.sekolah.Sekolah s=ais.action.master.sekolah.util.SekolahUtil.getSekolah();if(s!=null&&s.getId()!=null)return "SEKOLAH:"+s.getId();}catch(Exception ignored){}
@@ -16,34 +10,15 @@ public final class RepositoryTenantScope {
     }
 
 	/**
-	 * Backfill idempoten setelah Hibernate memastikan schema multi-tenant tersedia.
-	 * Dijalankan sekali per JVM memakai session mandiri agar transaksi request/scheduler
-	 * milik pemanggil tidak ikut berubah.
+	 * Compatibility hook retained for existing callers.
+	 *
+	 * <p>Schema creation belongs to Hibernate.  This method deliberately performs no
+	 * database mutation: assigning every legacy row with an empty tenant to whichever
+	 * institution happens to issue the first request can leak records across tenants.
+	 * RepositorySyncService assigns the tenant per source record while synchronizing,
+	 * where the owning institution is known.</p>
 	 */
 	public static void ensureSchema() {
-		if (schemaReady) return;
-		synchronized (RepositoryTenantScope.class) {
-			if (schemaReady) return;
-			String tenant = currentKey();
-			Session session = null;
-			Transaction transaction = null;
-			try {
-				session = HibernateUtil.openSession();
-				transaction = session.beginTransaction();
-				session.createSQLQuery("update public.repo_collection set tenant_key = :tenant where tenant_key is null or trim(tenant_key) = ''")
-						.setString("tenant", tenant).executeUpdate();
-				session.createSQLQuery("update public.repo_item set tenant_key = :tenant where tenant_key is null or trim(tenant_key) = ''")
-						.setString("tenant", tenant).executeUpdate();
-				transaction.commit();
-				schemaReady = true;
-			} catch (RuntimeException e) {
-				if (transaction != null && transaction.isActive()) {
-					try { transaction.rollback(); } catch (Exception ignored) {}
-				}
-				throw e;
-			} finally {
-				HibernateUtil.closeSessionQuietly(session);
-			}
-		}
+		// Intentionally empty. Do not reintroduce runtime DDL or bulk tenant backfill.
 	}
 }

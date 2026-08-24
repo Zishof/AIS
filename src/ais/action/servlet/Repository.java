@@ -402,25 +402,39 @@ public class Repository extends HttpServlet {
     private void oai(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String verb = clean(request.getParameter("verb"));
         String token = clean(request.getParameter("resumptionToken"));
-        if (verb.length() == 0 && token.length() > 0) verb = clean(request.getParameter("oaiVerb"));
         response.setContentType("text/xml;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
         PrintWriter out = response.getWriter();
+        String configuredBase = clean(System.getProperty("ais.repository.oaiBaseUrl"));
         String requestUrl = request.getRequestURL().toString();
-        String base = requestUrl.endsWith("/oai") ? requestUrl : requestUrl + "?action=oai";
+        String base = configuredBase.length() > 0 ? configuredBase
+                : (requestUrl.endsWith("/oai") ? requestUrl : requestUrl + "?action=oai");
         out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         out.print("<OAI-PMH xmlns=\"http://www.openarchives.org/OAI/2.0/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd\">");
-        out.print("<responseDate>" + xmlDate(new Date()) + "</responseDate><request verb=\"" + xml(verb) + "\">" + xml(base) + "</request>");
+        out.print("<responseDate>" + xmlDate(new Date()) + "</responseDate>");
+        writeOaiRequest(out, request, base, verb);
+
+        String argumentError = oaiArgumentError(request, verb, token);
+        if (argumentError.length() > 0) {
+            oaiError(out, verb.length() == 0 || !isOaiVerb(verb) ? "badVerb" : "badArgument", argumentError);
+            out.print("</OAI-PMH>"); out.flush(); return;
+        }
 
         if ("Identify".equals(verb)) {
-            out.print("<Identify><repositoryName>Repository AIS</repositoryName><baseURL>" + xml(base)
-                    + "</baseURL><protocolVersion>2.0</protocolVersion><adminEmail>repository@localhost</adminEmail>"
+            String repositoryName = clean(System.getProperty("ais.repository.oaiRepositoryName", "Repository AIS"));
+            String adminEmail = clean(System.getProperty("ais.repository.oaiAdminEmail", "repository@localhost"));
+            out.print("<Identify><repositoryName>" + xml(repositoryName) + "</repositoryName><baseURL>" + xml(base)
+                    + "</baseURL><protocolVersion>2.0</protocolVersion><adminEmail>" + xml(adminEmail) + "</adminEmail>"
                     + "<earliestDatestamp>1970-01-01T00:00:00Z</earliestDatestamp><deletedRecord>transient</deletedRecord>"
                     + "<granularity>YYYY-MM-DDThh:mm:ssZ</granularity></Identify>");
         } else if ("ListMetadataFormats".equals(verb)) {
-            out.print("<ListMetadataFormats><metadataFormat><metadataPrefix>oai_dc</metadataPrefix>"
-                    + "<schema>http://www.openarchives.org/OAI/2.0/oai_dc.xsd</schema>"
-                    + "<metadataNamespace>http://www.openarchives.org/OAI/2.0/oai_dc/</metadataNamespace>"
-                    + "</metadataFormat></ListMetadataFormats>");
+            String identifier = clean(request.getParameter("identifier"));
+            if (identifier.length() > 0 && service.findOaiItemByIdentifier(identifier) == null)
+                oaiError(out, "idDoesNotExist", "Identifier tidak ditemukan.");
+            else out.print("<ListMetadataFormats><metadataFormat><metadataPrefix>oai_dc</metadataPrefix>"
+                        + "<schema>http://www.openarchives.org/OAI/2.0/oai_dc.xsd</schema>"
+                        + "<metadataNamespace>http://www.openarchives.org/OAI/2.0/oai_dc/</metadataNamespace>"
+                        + "</metadataFormat></ListMetadataFormats>");
         } else if ("ListSets".equals(verb)) {
             List<RepositoryPublicService.CollectionView> sets = service.listCollections(500);
             out.print("<ListSets>");
@@ -446,7 +460,7 @@ public class Repository extends HttpServlet {
                 oaiError(out, "cannotDisseminateFormat", "Metadata prefix harus oai_dc.");
             } else {
                 int page = parseOaiPage(token);
-                if (page < 1) {
+                if (page < 1 || (token.length() > 0 && !verb.equals(parseOaiTokenVerb(token)))) {
                     oaiError(out, "badResumptionToken", "Resumption token tidak valid.");
                 } else {
                     Query q = new Query();
@@ -464,18 +478,22 @@ public class Repository extends HttpServlet {
                         q.collectionId = setId;
                         q.modifiedFrom = from;
                         q.modifiedUntil = until;
-                        SearchResult result = service.search(q);
+                        SearchResult result = service.searchOaiRecords(q);
+                        if (token.length() > 0 && (page > result.totalPages || result.items.isEmpty())) {
+                            oaiError(out, "badResumptionToken", "Resumption token sudah tidak valid.");
+                            out.print("</OAI-PMH>"); out.flush(); return;
+                        }
                         if (result.items.isEmpty() && page == 1) {
                             oaiError(out, "noRecordsMatch", "Tidak ada record publik yang sesuai.");
                         } else {
                             out.print("<" + verb + ">");
                             for (int i = 0; i < result.items.size(); i++) {
-                                ItemDetail item = service.findPublicItem(result.items.get(i).id);
+                                ItemDetail item = service.findOaiItem(result.items.get(i).id);
                                 writeOaiRecord(out, item, "ListRecords".equals(verb));
                             }
                             String nextToken = page < result.totalPages
-                                    ? buildOaiToken(page + 1, setId, from, until) : "";
-                            out.print("<resumptionToken completeListSize=\"" + result.total + "\" cursor=\""
+                                    ? buildOaiToken(page + 1, setId, from, until, verb) : "";
+                            if (nextToken.length() > 0) out.print("<resumptionToken completeListSize=\"" + result.total + "\" cursor=\""
                                     + ((page - 1) * q.pageSize) + "\">" + xml(nextToken) + "</resumptionToken>");
                             out.print("</" + verb + ">");
                         }
@@ -577,26 +595,88 @@ public class Repository extends HttpServlet {
     }
     private String country(HttpServletRequest request){String value=clean(request.getHeader("CF-IPCountry"));if(value.length()==0)value=clean(request.getHeader("X-Country-Code"));return value;}
 
+    private void writeOaiRequest(PrintWriter out, HttpServletRequest request, String base, String verb) {
+        out.print("<request");
+        String[] names = new String[] { "verb", "identifier", "metadataPrefix", "from", "until", "set", "resumptionToken" };
+        for (int i = 0; i < names.length; i++) {
+            String value = "verb".equals(names[i]) ? verb : clean(request.getParameter(names[i]));
+            if (value.length() > 0) out.print(" " + names[i] + "=\"" + xml(value) + "\"");
+        }
+        out.print(">" + xml(base) + "</request>");
+    }
+
+    private boolean isOaiVerb(String verb) {
+        return "Identify".equals(verb) || "ListMetadataFormats".equals(verb) || "ListSets".equals(verb)
+                || "GetRecord".equals(verb) || "ListIdentifiers".equals(verb) || "ListRecords".equals(verb);
+    }
+
+    private String oaiArgumentError(HttpServletRequest request, String verb, String token) {
+        if (!isOaiVerb(verb)) return "Verb OAI-PMH tidak dikenal.";
+        Map<?,?> parameters = request.getParameterMap();
+        for (Object keyObject : parameters.keySet()) {
+            String key = String.valueOf(keyObject);
+            if ("action".equals(key)) continue;
+            if (!("verb".equals(key) || "identifier".equals(key) || "metadataPrefix".equals(key)
+                    || "from".equals(key) || "until".equals(key) || "set".equals(key)
+                    || "resumptionToken".equals(key))) return "Argumen " + key + " tidak dikenal.";
+            Object raw = parameters.get(keyObject);
+            if (raw instanceof String[] && ((String[]) raw).length != 1) return "Argumen " + key + " tidak boleh diulang.";
+        }
+        if (token.length() > 0) {
+            if (!("ListIdentifiers".equals(verb) || "ListRecords".equals(verb)))
+                return "Resumption token hanya berlaku untuk ListIdentifiers atau ListRecords.";
+            if (parameters.size() > (parameters.containsKey("action") ? 3 : 2))
+                return "Resumption token harus menjadi satu-satunya argumen selain verb.";
+            return "";
+        }
+        if ("Identify".equals(verb) || "ListSets".equals(verb))
+            return hasAnyOaiArgument(request, new String[] { "identifier", "metadataPrefix", "from", "until", "set" })
+                    ? "Verb ini tidak menerima argumen tambahan." : "";
+        if ("ListMetadataFormats".equals(verb))
+            return hasAnyOaiArgument(request, new String[] { "metadataPrefix", "from", "until", "set" })
+                    ? "ListMetadataFormats hanya menerima identifier opsional." : "";
+        if ("GetRecord".equals(verb)) {
+            if (clean(request.getParameter("identifier")).length() == 0 || clean(request.getParameter("metadataPrefix")).length() == 0)
+                return "GetRecord memerlukan identifier dan metadataPrefix.";
+            return hasAnyOaiArgument(request, new String[] { "from", "until", "set" })
+                    ? "GetRecord tidak menerima set/from/until." : "";
+        }
+        if (clean(request.getParameter("metadataPrefix")).length() == 0)
+            return verb + " memerlukan metadataPrefix.";
+        if (clean(request.getParameter("identifier")).length() > 0)
+            return verb + " tidak menerima identifier.";
+        String from = clean(request.getParameter("from")), until = clean(request.getParameter("until"));
+        if (from.length() > 0 && until.length() > 0 && ((from.length() == 10) != (until.length() == 10)))
+            return "from dan until harus menggunakan granularitas yang sama.";
+        return "";
+    }
+
+    private boolean hasAnyOaiArgument(HttpServletRequest request, String[] names) {
+        for (int i = 0; i < names.length; i++) if (request.getParameter(names[i]) != null) return true;
+        return false;
+    }
+
     private boolean validOaiPrefix(String value) {
         return "oai_dc".equals(clean(value));
     }
 
     private int parseOaiPage(String token) {
         if (token == null || token.length() == 0) return 1;
-        if (token.indexOf(';') >= 0 && !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+")) return -1;
+        if (!token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return -1;
         String pageToken = token.indexOf(';') < 0 ? token : token.substring(0, token.indexOf(';'));
         if (!pageToken.matches("p[1-9][0-9]*")) return -1;
         try { return Integer.parseInt(pageToken.substring(1)); } catch (Exception e) { return -1; }
     }
 
-    private String buildOaiToken(int page, Long setId, Date from, Date until) {
+    private String buildOaiToken(int page, Long setId, Date from, Date until, String verb) {
         return "p" + page + ";s" + (setId == null ? 0L : setId.longValue())
                 + ";f" + (from == null ? 0L : from.getTime())
-                + ";u" + (until == null ? 0L : until.getTime());
+                + ";u" + (until == null ? 0L : until.getTime())
+                + ";v" + ("ListIdentifiers".equals(verb) ? "I" : "R");
     }
 
     private Long parseOaiTokenLong(String token, String key) {
-        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+")) return null;
+        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return null;
         String[] parts = token.split(";");
         for (int i = 1; i < parts.length; i++) if (parts[i].startsWith(key)) {
             try { long value = Long.parseLong(parts[i].substring(1)); return value <= 0L ? null : Long.valueOf(value); }
@@ -608,6 +688,11 @@ public class Repository extends HttpServlet {
     private Date parseOaiTokenDate(String token, String key) {
         Long value = parseOaiTokenLong(token, key);
         return value == null ? null : new Date(value.longValue());
+    }
+
+    private String parseOaiTokenVerb(String token) {
+        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return "";
+        return token.endsWith("vI") ? "ListIdentifiers" : "ListRecords";
     }
 
     private Date parseOaiDate(String value, boolean endOfDay) {

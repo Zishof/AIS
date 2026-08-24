@@ -111,6 +111,7 @@ function panggilMenu<%=rnd%>(menuNama) {
         'kunjungan_data': baseURL + 'kunjungan',
         'dashboard': baseURL + 'dashboard',
         'beranda_anggota': baseURL + 'beranda_anggota',
+        'login_pustaka': baseURL + 'login_pustaka',
         'layanan_anggota': baseURL + 'layanan_anggota',
         'reader': baseURL + 'reader&id=<%=request.getParameter("id")==null?"":request.getParameter("id").replaceAll("[^0-9]","")%>',
         'integrasi': baseURL + 'integrasi',

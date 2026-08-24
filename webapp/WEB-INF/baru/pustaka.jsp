@@ -18,31 +18,44 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 
 if(hanya_tampil_jsp){
     if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+        boolean apiRoute = s.endsWith("_api") || s.endsWith("_service");
+        boolean xmlRoute = "_oai".equals(s);
         try{
             java.util.Set<String> pustakaPages = new java.util.HashSet<String>(java.util.Arrays.asList(
-                "katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "integrasi", "katalogisasi", "operasional", "denda",
-                "_informasi_pustaka", "_item_rinci", "_catalog_api", "_beranda_anggota_service",
-                "_login_pustaka_service", "_welpus_service", "_workspace_api", "_integrations_api", "_marc_api", "_operations_api", "_oai"));
-            if ("pustaka".equals(p) && !pustakaPages.contains(s)) {
-                response.sendError(404);
-                return;
-            }
+                "katalog", "populer", "sirkulasi", "kunjungan", "dashboard", "beranda_anggota", "login_pustaka", "reader", "layanan_anggota",
+                "integrasi", "katalogisasi", "operasional", "denda", "_informasi_pustaka", "_item_rinci", "_catalog_api",
+                "_beranda_anggota_service", "_login_pustaka_service", "_welpus_service", "_workspace_api", "_integrations_api",
+                "_marc_api", "_operations_api", "_engagement_api", "_oai"));
             if (!p.matches("[A-Za-z0-9_/-]+") || !s.matches("[A-Za-z0-9_/-]+") || p.contains("..") || s.contains("..")) {
                 response.sendError(400);
                 return;
             }
-            if ("_oai".equals(s)) response.setContentType("text/xml; charset=UTF-8");
-            else if (s.endsWith("_api") || s.endsWith("_service")) response.setContentType("application/json; charset=UTF-8");
-            String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
+            if (!"pustaka".equals(p) || !pustakaPages.contains(s)) {
+                response.sendError(404);
+                return;
+            }
+            if (xmlRoute) response.setContentType("text/xml; charset=UTF-8");
+            else if (apiRoute) response.setContentType("application/json; charset=UTF-8");
+            String pg = "/WEB-INF/baru/modul/pustaka/"+s+".jsp";
             %>
             <jsp:include page="<%=pg %>"></jsp:include>
             <%
         }catch(Exception e){
             ais.common.ErrorAuditUtil.record(e, "library-modern route adapter");
-            %>
-            <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
-            <%
+            if (!response.isCommitted()) response.resetBuffer();
+            response.setStatus(500);
+            if (apiRoute) {
+                response.setContentType("application/json; charset=UTF-8");
+                out.print("{\"ok\":false,\"error\":\"Layanan perpustakaan belum dapat dimuat.\"}");
+            } else if (xmlRoute) {
+                response.setContentType("text/xml; charset=UTF-8");
+                out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><error>Layanan OAI belum dapat dimuat.</error>");
+            } else {
+                %><jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include><%
+            }
         }
+    } else {
+        response.sendError(404);
     }
 } else {
 %>

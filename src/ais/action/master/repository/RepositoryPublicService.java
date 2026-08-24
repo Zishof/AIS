@@ -76,6 +76,8 @@ public class RepositoryPublicService {
         public Integer yearUntil;
         public Date modifiedFrom;
         public Date modifiedUntil;
+        /** Include withdrawn tombstones for OAI-PMH harvesting only. */
+        public boolean includeWithdrawn;
         public String sort = "newest";
         public int page = 1;
         public int pageSize = DEFAULT_PAGE_SIZE;
@@ -320,6 +322,32 @@ public class RepositoryPublicService {
             result.licenseFacets=groupFacet(session,q,"licenseUri"); result.programFacets=programFacet(session);
             result.fullTextFacets=fullTextFacet(session,q);
             result.collections = listCollections(session, 100);
+            return result;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
+    }
+
+    /**
+     * OAI-PMH page that includes published records and withdrawn tombstones, without
+     * calculating public-search facets that harvesters do not use.
+     */
+    @SuppressWarnings("unchecked")
+    public SearchResult searchOaiRecords(Query input) {
+        Query q = normalize(input);
+        q.includeWithdrawn = true;
+        SearchResult result = new SearchResult();
+        result.query = q;
+        Session session = null;
+        try {
+            session = HibernateUtil.openSession();
+            result.total = count(searchCriteria(session, q));
+            result.totalPages = result.total == 0L ? 0 : (int) ((result.total + q.pageSize - 1L) / q.pageSize);
+            Criteria rows = searchCriteria(session, q);
+            applySort(rows, q.sort);
+            rows.setFirstResult((q.page - 1) * q.pageSize);
+            rows.setMaxResults(q.pageSize);
+            result.items = cards(session, (List<RepoItem>) rows.list());
             return result;
         } finally {
             HibernateUtil.closeSessionQuietly(session);
@@ -662,8 +690,14 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("oaiIdentifier", value)).add(activeRestriction()).add(tenantRestriction())
                 .uniqueResult();
         if (item == null) return null;
-        ItemDetail published = findPublicItem(item.getId());
-        return published != null ? published : findTombstone(item.getId());
+        return findOaiItem(item.getId());
+    }
+
+    /** Resolve either a public record or its withdrawn OAI tombstone by internal id. */
+    public ItemDetail findOaiItem(Long id) {
+        if (id == null || id.longValue() <= 0L) return null;
+        ItemDetail published = findPublicItem(id);
+        return published != null ? published : findTombstone(id);
     }
 
     public ItemDetail findTombstone(Long id) {
@@ -765,8 +799,10 @@ public class RepositoryPublicService {
                 + safe(item.publisher) + ". " + safe(item.oaiIdentifier);
     }
 
-    private Criteria publicCriteria(Session session, Query ignored) {
-        return session.createCriteria(RepoItem.class).add(publicVisibilityRestriction()).add(tenantRestriction());
+    private Criteria publicCriteria(Session session, Query query) {
+        Criteria criteria = session.createCriteria(RepoItem.class).add(tenantRestriction());
+        return criteria.add(query != null && query.includeWithdrawn
+                ? oaiVisibilityRestriction() : publicVisibilityRestriction());
     }
 
     private Criteria searchCriteria(Session session, Query q) {
@@ -870,6 +906,14 @@ public class RepositoryPublicService {
         return Restrictions.and(activeRestriction(), Restrictions.and(
                 Restrictions.or(Restrictions.isNull("isWithdrawn"), Restrictions.eq("isWithdrawn", Boolean.FALSE)),
                 Restrictions.in("syncStatus", PUBLIC_STATUSES)));
+    }
+
+    private org.hibernate.criterion.Criterion oaiVisibilityRestriction() {
+        return Restrictions.and(activeRestriction(), Restrictions.or(
+                Restrictions.eq("isWithdrawn", Boolean.TRUE),
+                Restrictions.and(
+                        Restrictions.or(Restrictions.isNull("isWithdrawn"), Restrictions.eq("isWithdrawn", Boolean.FALSE)),
+                        Restrictions.in("syncStatus", PUBLIC_STATUSES))));
     }
 
     private org.hibernate.criterion.Criterion activeRestriction() {
@@ -1002,6 +1046,8 @@ public class RepositoryPublicService {
         card.viewCount = entity.getViewCount() == null ? 0L : entity.getViewCount().longValue();
         card.downloadCount = entity.getDownloadCount() == null ? 0L : entity.getDownloadCount().longValue();
         card.withdrawn = Boolean.TRUE.equals(entity.getIsWithdrawn()); card.withdrawalReason=safe(entity.getWithdrawalReason()); card.withdrawnAt=entity.getWithdrawnAt();
+        if (card.withdrawn && card.withdrawnAt != null
+                && (card.datestamp == null || card.withdrawnAt.after(card.datestamp))) card.datestamp = card.withdrawnAt;
         card.issuedAt = entity.getIssuedAt();
         card.year = entity.getIssuedAt() == null ? "" : new SimpleDateFormat("yyyy").format(entity.getIssuedAt());
         card.collectionId = entity.getCollectionId();
