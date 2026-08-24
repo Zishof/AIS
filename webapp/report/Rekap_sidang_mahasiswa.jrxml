@@ -70,7 +70,10 @@ a.nilai_ketua_sidang status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -116,7 +119,10 @@ a.nilai_pembimbing status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -162,7 +168,10 @@ a.nilai_penguji1 status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -208,7 +217,10 @@ a.nilai_penguji2 status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -254,7 +266,10 @@ a.nilai_penguji_3 status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -301,7 +316,10 @@ a.nilai_penguji_4 status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
@@ -349,7 +367,10 @@ a.nilai_penguji_3 status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)

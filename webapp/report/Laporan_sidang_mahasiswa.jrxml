@@ -74,7 +74,10 @@ a.nilai_ketua_sidang status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
-a.nilai_huruf as nilaihuruf
+a.nilai_huruf as nilaihuruf,
+a.tanggal_sidang,
+a.awal_bimbingan,
+a.akhir_bimbingan
 
 from skripsi a
 left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)

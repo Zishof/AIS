@@ -10167,13 +10167,8 @@ public class Common {
 	 */
 	public static Row createFieldKota(Rows rows, final String label, final Label kota, final Label propinsi,
 			Kota dataKota, Boolean tampil) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9922");
-			// TODO: handle exception
-		}
+		if (rows == null || kota == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {

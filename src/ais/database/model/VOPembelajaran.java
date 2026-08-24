@@ -604,6 +604,11 @@ public abstract class VOPembelajaran extends VoKunci {
 
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuan(Session session) {
+		reInitPertemuan(session, true);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void reInitPertemuan(Session session, boolean bolehUlangSaatLock) {
 		if (session == null) return;
 		
 		boolean localTransaction = false;
@@ -723,8 +728,48 @@ public abstract class VOPembelajaran extends VoKunci {
 			if (localTransaction && session.isOpen() && session.getTransaction().isActive()) {
 				try { session.getTransaction().rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/database/model/VOPembelajaran.java:699");}
 			}
+			/* Penyusunan ulang nomor pertemuan dapat berbarengan dengan absensi atau
+			 * sinkronisasi kelas yang mengubah row sama. PostgreSQL membatalkan transaksi
+			 * dengan lock_timeout. Ulangi seluruh unit kerja sekali pada Session baru;
+			 * transaksi yang gagal tidak boleh dipakai kembali. */
+			if (bolehUlangSaatLock && adalahLockTimeoutPertemuan(e)) {
+				Session sessionUlang = null;
+				try {
+					try { Thread.sleep(200L); } catch (InterruptedException terputus) {
+						Thread.currentThread().interrupt();
+					}
+					sessionUlang = HibernateUtil.getSessionFactory().openSession();
+					reInitPertemuan(sessionUlang, false);
+					return;
+				} catch (Exception ulangGagal) {
+					ais.common.ErrorAuditUtil.record(ulangGagal,
+							"retry reInitPertemuan setelah lock timeout");
+				} finally {
+					if (sessionUlang != null) {
+						try { if (sessionUlang.isOpen()) sessionUlang.clear(); } catch (Exception abaikan) { }
+						try { sessionUlang.disconnect(); } catch (Exception abaikan) { }
+						try { if (sessionUlang.isOpen()) sessionUlang.close(); } catch (Exception abaikan) { }
+					}
+				}
+			}
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/VOPembelajaran.java:701");
 		}
+	}
+
+	private static boolean adalahLockTimeoutPertemuan(Throwable error) {
+		Throwable cek = error;
+		while (cek != null) {
+			String pesan = cek.getMessage();
+			if (pesan != null) {
+				String kecil = pesan.toLowerCase();
+				if (kecil.indexOf("lock timeout") >= 0
+						|| kecil.indexOf("canceling statement due to lock timeout") >= 0) {
+					return true;
+				}
+			}
+			cek = cek.getCause();
+		}
+		return false;
 	}
 
 	@SuppressWarnings("unchecked")
