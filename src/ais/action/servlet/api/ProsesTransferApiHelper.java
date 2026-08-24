@@ -1012,6 +1012,17 @@ public final class ProsesTransferApiHelper {
 						+ nama(pt.getRealisasikanOleh()) + " yang mencatatnya.");
 				return;
 			}
+			Number jumlahSudahPosting = (Number) session.createCriteria(DaftarPengajuanTransfer.class)
+					.createAlias("prosesTransfer", "prosesTransfer")
+					.add(Restrictions.eq("prosesTransfer.id", Long.valueOf(id)))
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.rowCount()).uniqueResult();
+			if (jumlahSudahPosting != null && jumlahSudahPosting.longValue() > 0) {
+				tolak(hasil, "Realisasi proses transfer " + pt.getKode()
+						+ " sudah membentuk jurnal umum. Batalkan posting jurnalnya terlebih dahulu "
+						+ "agar pencairan dan buku besar tetap konsisten.");
+				return;
+			}
 			session.beginTransaction();
 			pt.setRealisasikanOleh(null);
 			pt.setTanggalRealisasikan(null);
