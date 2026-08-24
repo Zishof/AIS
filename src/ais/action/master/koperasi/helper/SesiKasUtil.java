@@ -453,6 +453,49 @@ public final class SesiKasUtil {
 	}
 
 	/**
+	 * Sesi kasir yang JAMNYA mencakup {@code waktu} -- dipakai saat kode sesi bawaan perangkat
+	 * tidak dikenal server, supaya transaksi lokal-dulu yang terkirim terlambat tetap diikat ke
+	 * sesi tempat penjualannya BENAR-BENAR terjadi, bukan sesi yang kebetulan sedang terbuka saat
+	 * data itu akhirnya tiba. Kriteria yang sama dipakai fitur Koreksi Supervisor (lihat
+	 * {@code KantinHelper.koreksiTransaksi}); disatukan di sini supaya kedua jalur tidak dapat
+	 * berbeda perilaku diam-diam.
+	 *
+	 * <p>Sesi yang STATUS-nya apa pun (BUKA atau TUTUP) ikut dicari -- transaksi terlambat paling
+	 * sering justru mendarat setelah sesi asalnya sudah ditutup. Bila lebih dari satu sesi
+	 * (seharusnya tidak terjadi utk kasir/toko yang sama) jamnya sama-sama mencakup {@code waktu},
+	 * yang dipilih adalah yang paling baru dibuka.</p>
+	 *
+	 * @return sesi yang cocok, atau {@code null} bila tidak ada satu pun sesi kasir ini yang
+	 *         jamnya mencakup {@code waktu} (mis. transaksi dari sebelum fitur sesi kas dipakai).
+	 */
+	public static SesiKasKasir sesiPadaWaktu(Session session, Long tokoId, String kasirNama, String kasirUserId,
+			Date waktu) {
+		if (waktu == null) {
+			return null;
+		}
+		String nama = kasirNama == null ? "" : kasirNama.trim();
+		String userId = kasirUserId == null ? "" : kasirUserId.trim();
+		if (nama.length() == 0 && userId.length() == 0) {
+			return null;
+		}
+		org.hibernate.criterion.Disjunction identitas = Restrictions.disjunction();
+		if (nama.length() > 0) {
+			identitas.add(Restrictions.eq("kasirNama", nama));
+		}
+		if (userId.length() > 0) {
+			identitas.add(Restrictions.eq("kasirUserId", userId));
+		}
+		Criteria c = session.createCriteria(SesiKasKasir.class)
+				.add(identitas)
+				.add(Restrictions.le("waktuBuka", waktu))
+				.add(Restrictions.or(Restrictions.isNull("waktuTutup"), Restrictions.ge("waktuTutup", waktu)))
+				.addOrder(Order.desc("waktuBuka"))
+				.setMaxResults(1);
+		if (tokoId != null) c.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
+		return (SesiKasKasir) c.uniqueResult();
+	}
+
+	/**
 	 * Membuka kas: membuat sesi baru berstatus BUKA dengan modal awal. Mengembalikan sesi yang dibuat.
 	 * Pemanggil sebaiknya memastikan belum ada sesi terbuka (lihat {@link #idSesiTerbuka}).
 	 */

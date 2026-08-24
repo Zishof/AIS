@@ -2550,8 +2550,14 @@ public class PosApi extends HttpServlet {
 	 * SEKALI saat start lewat {@code konfigurasi}, tak pernah menyaring ulang per member -- gap ini
 	 * yang diperbaiki).</p>
 	 *
+	 * <p><b>Jaring pengaman.</b> Bila daftar izin tipe anggotanya KOSONG/NULL, seluruh metode
+	 * aktif dikembalikan dan {@code izinTidakDisetel=true} -- daftar kosong berarti belum
+	 * disetel, dan memblokir pembayaran karena itu menghentikan transaksi alih-alih
+	 * membatasinya. Daftar yang BERISI tetapi tidak cocok satu pun tetap menghasilkan daftar
+	 * kosong: itu pembatasan yang disengaja.</p>
+	 *
 	 * @param payload berisi {@code id_member} (opsional).
-	 * @param hasil   diisi {@code status="success"}, {@code caraBayar} (array {@code {id, nama, manual}}).
+	 * @param hasil   diisi {@code status="success"}, {@code caraBayar} (array {@code {id, nama, manual}}), {@code izinTidakDisetel}.
 	 */
 	private void prosesCaraBayarList(JSONObject payload, JSONObject hasil) throws Exception {
 		Long idMember = ais.common.Common.angkaAtauNull(payload, "id_member");
@@ -2562,6 +2568,40 @@ public class PosApi extends HttpServlet {
 				AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, idMember);
 				if (a != null && a.getJenisAnggotaKoperasi() != null) {
 					idJenisAnggota = a.getJenisAnggotaKoperasi().getId();
+				}
+			}
+
+			// JARING PENGAMAN: daftar izin yang KOSONG berarti belum disetel, bukan
+			// "tidak ada yang diizinkan". Tanpa ini penyaring di bawah menghasilkan
+			// NOL metode -- subkuerinya NULL, LIKE tidak pernah cocok -- sehingga
+			// tipe anggota yang belum dikonfigurasi MENGHENTIKAN transaksi, bukan
+			// sekadar membatasinya. Kasir tidak punya jalan keluar dari layarnya.
+			//
+			// Daftar izin yang BERISI tetapi tidak satu pun cocok TIDAK dimundurkan:
+			// itu pembatasan yang disengaja admin, dan menutupinya di sini akan
+			// membuka metode yang memang dilarang. Yang pertama kelalaian
+			// konfigurasi, yang kedua keputusan -- keduanya tidak boleh disamakan.
+			boolean izinTidakDisetel = false;
+			if (idJenisAnggota != null) {
+				java.sql.PreparedStatement psIzin = session.connection().prepareStatement(
+						"SELECT COALESCE(jak.daftar_cara_pembayaran_yang_boleh_di_pilih, '') "
+								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?");
+				try {
+					psIzin.setLong(1, idJenisAnggota.longValue());
+					java.sql.ResultSet rsIzin = psIzin.executeQuery();
+					try {
+						String izin = rsIzin.next() ? rsIzin.getString(1) : "";
+						// Nilai tersimpan berbentuk ",1,2,3," (dibungkus koma oleh getter
+						// entitasnya), jadi "kosong" mencakup "", ",", ",,", dan seterusnya.
+						if (izin == null || izin.replace(",", "").trim().isEmpty()) {
+							izinTidakDisetel = true;
+							idJenisAnggota = null;
+						}
+					} finally {
+						rsIzin.close();
+					}
+				} finally {
+					psIzin.close();
 				}
 			}
 
@@ -2613,6 +2653,10 @@ public class PosApi extends HttpServlet {
 
 			hasil.put("status", "success");
 			hasil.put("caraBayar", arr);
+			// Dikirim supaya layar kasir dapat membedakan "semua metode karena tanpa
+			// member" dari "semua metode karena izinnya belum disetel" -- yang kedua
+			// perlu dibereskan admin, dan tanpa penanda ini tidak pernah terlihat.
+			hasil.put("izinTidakDisetel", izinTidakDisetel);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

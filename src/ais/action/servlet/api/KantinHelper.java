@@ -1044,9 +1044,38 @@ public class KantinHelper {
 									 * terbuka, persis seperti payload tanpa kode sesi. */
 									sesiAsalSah = true;
 									hasil.put("sesi_kas_tidak_dikenal", kodeSesiDiminta);
-									System.out.println("[POS-REKONSILIASI-SESI] Transaksi " + kodeUnik
-											+ " membawa kode sesi kas '" + kodeSesiDiminta
-											+ "' yang tidak ada; transaksi diikat ke sesi kas aktif.");
+									/* KE-FIX LANJUTAN (Toko Al Bahjah, 23-08-2026, kasir Agung): baris di
+									 * atas mencegah transaksinya HILANG -- itu tetap benar dan tidak
+									 * disentuh. Yang belum tertutup adalah TEMPAT ia dicatat: dibiarkan
+									 * kosong di sini, sesiKasTransaksi jatuh ke sesiKasAktif (sesi yang
+									 * KEBETULAN sedang terbuka saat data ini akhirnya tiba), bukan sesi
+									 * tempat penjualannya BENAR-BENAR terjadi. Transaksi lokal-dulu yang
+									 * tertunda berhari-hari (mis. kode sesi karangan versi lama) jadi
+									 * menempel ke sesi HARI LAIN -- 58 transaksi 20 Agustus tercatat ke
+									 * sesi 23 Agustus, membuat laporan Tutup Kas KEDUA hari itu salah
+									 * tanpa jejak selain log ini. Dicari dulu sesi yang JAMNYA mencakup
+									 * waktu transaksi ini sendiri (kriteria yang sama dengan fitur Koreksi
+									 * Supervisor, disatukan di SesiKasUtil.sesiPadaWaktu supaya kedua jalur
+									 * tidak bisa berbeda perilaku diam-diam); baru jatuh ke sesiKasAktif
+									 * bila memang tidak ada sesi yang cocok (mis. transaksi dari sebelum
+									 * fitur sesi kas dipakai). */
+									sesiKasTransaksi = ais.action.master.koperasi.helper.SesiKasUtil
+											.sesiPadaWaktu(session, toko.getId(), idKasir[0], idKasir[1], currentWaktu);
+									if (sesiKasTransaksi != null) {
+										hasil.put("sesi_kas_direkonsiliasi", sesiKasTransaksi.getKode());
+										System.out.println("[POS-REKONSILIASI-SESI] Transaksi " + kodeUnik
+												+ " membawa kode sesi kas '" + kodeSesiDiminta
+												+ "' yang tidak ada; diikat ke sesi kas " + sesiKasTransaksi.getKode()
+												+ " yang jamnya mencakup waktu transaksi ("
+												+ Common.dateFormatInput.get().format(currentWaktu)
+												+ "), bukan sesi aktif saat ini.");
+									} else {
+										System.out.println("[POS-REKONSILIASI-SESI] Transaksi " + kodeUnik
+												+ " membawa kode sesi kas '" + kodeSesiDiminta
+												+ "' yang tidak ada, dan tidak ada sesi kas yang jamnya mencakup waktu"
+												+ " transaksi (" + Common.dateFormatInput.get().format(currentWaktu)
+												+ "); transaksi diikat ke sesi kas aktif.");
+									}
 								}
 								if (sesiAsal != null) {
 									boolean tokoSama = sesiAsal.getToko() != null && sesiAsal.getToko().getId() != null
