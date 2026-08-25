@@ -337,10 +337,78 @@ public final class EbisnisMenuKatalog {
 		}
 		try {
 			JSONObject menu = new JSONObject(raw).optJSONObject("menu");
-			return menu != null && menu.has(kunci);
+			return memilikiKunciKompatibel(menu, kunci);
 		} catch (Exception e) {
 			return false;
 		}
+	}
+
+	private static boolean memilikiKunciKompatibel(JSONObject sumber, String kunci) {
+		if (sumber == null || kunci == null) {
+			return false;
+		}
+		java.util.List<String> kandidat = EbisnisMenuActionRegistry.kandidat(kunci);
+		for (int i = 0; i < kandidat.size(); i++) {
+			if (sumber.has(kandidat.get(i))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean booleanKompatibel(JSONObject sumber, String kunci, boolean nilaiBawaan) {
+		if (sumber == null || kunci == null) {
+			return nilaiBawaan;
+		}
+		java.util.List<String> kandidat = EbisnisMenuActionRegistry.kandidat(kunci);
+		for (int i = 0; i < kandidat.size(); i++) {
+			String calon = kandidat.get(i);
+			if (sumber.has(calon)) {
+				return sumber.optBoolean(calon, nilaiBawaan);
+			}
+		}
+		return nilaiBawaan;
+	}
+
+	private static JSONObject objectKompatibel(JSONObject sumber, String kunci) {
+		if (sumber == null || kunci == null) {
+			return null;
+		}
+		java.util.List<String> kandidat = EbisnisMenuActionRegistry.kandidat(kunci);
+		for (int i = 0; i < kandidat.size(); i++) {
+			JSONObject hasil = sumber.optJSONObject(kandidat.get(i));
+			if (hasil != null) {
+				return hasil;
+			}
+		}
+		return null;
+	}
+
+	private static boolean memilikiAksiKompatibel(JSONObject sumber, String aksi) {
+		if (sumber == null || aksi == null) {
+			return false;
+		}
+		java.util.List<String> kandidat = EbisnisMenuActionRegistry.kandidatAksi(aksi);
+		for (int i = 0; i < kandidat.size(); i++) {
+			if (sumber.has(kandidat.get(i))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean booleanAksiKompatibel(JSONObject sumber, String aksi, boolean nilaiBawaan) {
+		if (sumber == null || aksi == null) {
+			return nilaiBawaan;
+		}
+		java.util.List<String> kandidat = EbisnisMenuActionRegistry.kandidatAksi(aksi);
+		for (int i = 0; i < kandidat.size(); i++) {
+			String calon = kandidat.get(i);
+			if (sumber.has(calon)) {
+				return sumber.optBoolean(calon, nilaiBawaan);
+			}
+		}
+		return nilaiBawaan;
 	}
 
 	/**
@@ -376,9 +444,9 @@ public final class EbisnisMenuKatalog {
 					return true;
 				}
 				JSONObject crud = akar.optJSONObject("crud");
-				JSONObject aksiMenu = crud == null ? null : crud.optJSONObject(kunci);
-				if (aksiMenu != null && aksiMenu.has(aksi)) {
-					return aksiMenu.optBoolean(aksi, false);
+				JSONObject aksiMenu = objectKompatibel(crud, kunci);
+				if (aksiMenu != null && memilikiAksiKompatibel(aksiMenu, aksi)) {
+					return booleanAksiKompatibel(aksiMenu, aksi, false);
 				}
 			} catch (Exception e) {
 				ais.common.ErrorAuditUtil.record(e, "EbisnisMenuKatalog.bolehAksiAkuntansi: JSON peran rusak");
@@ -406,7 +474,7 @@ public final class EbisnisMenuKatalog {
 	public static boolean aksesAkuntansi(String rawEbisnisMenu, String roleId, String kunci) {
 		if (diaturEksplisit(rawEbisnisMenu, kunci)) {
 			JSONObject menu = urai(rawEbisnisMenu).optJSONObject("menu");
-			return menu != null && menu.optBoolean(kunci, false);
+			return booleanKompatibel(menu, kunci, false);
 		}
 		return peranAkuntansiBawaan(roleId);
 	}
@@ -472,6 +540,17 @@ public final class EbisnisMenuKatalog {
 	public static final String[] AKSI_CRUD = { "create", "update", "delete", "approve", "reject" };
 
 	/**
+	 * Kontrak aksi workflow terpadu. Lima aksi lama di {@link #AKSI_CRUD} tetap default-allow untuk
+	 * kompatibilitas role lama; aksi tambahan wajib diberikan secara eksplisit (fail-closed).
+	 */
+	public static final String[] AKSI_GRANULAR = { "view", "create", "update", "delete", "submit",
+			"approve", "reject", "cancel", "post", "reverse", "export", "view_cost",
+			"view_all_location" };
+
+	private static final java.util.Set<String> AKSI_LEGACY_DEFAULT_BOLEH =
+			new java.util.LinkedHashSet<String>(java.util.Arrays.asList(AKSI_CRUD));
+
+	/**
 	 * Bungkus JSON default: {@code supervisor}/{@code berandaKantin}/{@code landingKantin} = false,
 	 * SEMUA baris {@link #DAFTAR} = true (perilaku "semua menu tampil" spt sebelum fitur hak-akses-per-
 	 * grup ini ada -- akun lama/role lama yang belum pernah menyimpan {@code ebisnisMenu} tidak boleh
@@ -517,9 +596,10 @@ public final class EbisnisMenuKatalog {
 	 * kosong, atau JSON rusak -- JANGAN pernah panggil {@code new JSONObject(raw)} langsung di
 	 * pemanggil, gunakan method ini supaya satu tempat saja yang menangani nilai kosong/lama/rusak.
 	 * Baris {@code menu} yang tidak disebut di JSON tersimpan (mis. role lama yang disimpan sebelum
-	 * menu baru ditambahkan ke {@link #DAFTAR}) otomatis dianggap {@code true} (default tampil). Sama
-	 * halnya {@code crud.<kunci>.<aksi>} yang tidak disebut (role lama sblm grid CRUD ada, atau aksi baru
-	 * yg belum dikenal versi lama) otomatis dianggap {@code true} (default boleh).
+	 * menu baru ditambahkan ke {@link #DAFTAR}) otomatis dianggap {@code true} (default tampil).
+	 * Untuk aksi, hanya lima aksi historis pada {@link #AKSI_CRUD} yang tetap default-allow demi
+	 * kompatibilitas. Aksi workflow tambahan pada {@link #AKSI_GRANULAR} default-deny sampai diberikan
+	 * secara eksplisit.
 	 */
 	public static JSONObject urai(String raw) {
 		JSONObject hasil = defaultObj();
@@ -544,8 +624,8 @@ public final class EbisnisMenuKatalog {
 			if (menuTersimpan != null) {
 				JSONObject menu = hasil.getJSONObject("menu");
 				for (Entri e : DAFTAR) {
-					if (menuTersimpan.has(e.kunci)) {
-						menu.put(e.kunci, menuTersimpan.optBoolean(e.kunci, true));
+					if (memilikiKunciKompatibel(menuTersimpan, e.kunci)) {
+						menu.put(e.kunci, booleanKompatibel(menuTersimpan, e.kunci, true));
 					}
 				}
 			}
@@ -553,14 +633,14 @@ public final class EbisnisMenuKatalog {
 			if (crudTersimpan != null) {
 				JSONObject crud = hasil.getJSONObject("crud");
 				for (String kunci : KUNCI_CRUD) {
-					JSONObject aksiTersimpan = crudTersimpan.optJSONObject(kunci);
+					JSONObject aksiTersimpan = objectKompatibel(crudTersimpan, kunci);
 					if (aksiTersimpan == null) {
 						continue;
 					}
 					JSONObject aksiMenu = crud.getJSONObject(kunci);
-					for (String aksi : AKSI_CRUD) {
-						if (aksiTersimpan.has(aksi)) {
-							aksiMenu.put(aksi, aksiTersimpan.optBoolean(aksi, true));
+					for (String aksi : AKSI_GRANULAR) {
+						if (memilikiAksiKompatibel(aksiTersimpan, aksi)) {
+							aksiMenu.put(aksi, booleanAksiKompatibel(aksiTersimpan, aksi, false));
 						}
 					}
 				}
@@ -573,34 +653,46 @@ public final class EbisnisMenuKatalog {
 	}
 
 	/**
-	 * Cek satu aksi granular ({@link #AKSI_CRUD}) utk satu menu {@link #KUNCI_CRUD} -- panggil ini di
-	 * SETIAP endpoint create/update/delete/approve/reject utk menu ber-CRUD (server-side, BUKAN cuma
+	 * Cek satu aksi granular ({@link #AKSI_GRANULAR}) utk satu menu {@link #KUNCI_CRUD} -- panggil ini di
+	 * SETIAP endpoint mutasi/workflow utk menu ber-CRUD (server-side, BUKAN cuma
 	 * gerbang UI kosmetik). Supervisor ({@code supervisor} flag hasil {@link #urai(String)}) SELALU
 	 * boleh apa pun -- bypass total, satu toggle blanket ("Supervisor = ALL Checked Akses"), BUKAN baris
-	 * grid CRUD tersendiri. Menu di luar {@link #KUNCI_CRUD}, aksi tak dikenal, atau role/aksi yg belum
-	 * pernah disimpan (role lama) selalu {@code true} (tidak digerbang granular / default boleh -- lihat
-	 * catatan backward-compat {@link #urai(String)}). Pemanggil TETAP wajib cek {@code menu.<kunci>}
+	 * grid CRUD tersendiri. Aksi tak dikenal dipertahankan {@code true} agar endpoint historis tidak
+	 * putus. Lima aksi lama juga tetap default-allow; aksi workflow baru yang terdaftar default-deny.
+	 * Pemanggil TETAP wajib cek {@code menu.<kunci>}
 	 * (visibilitas) terpisah spt biasa -- method ini hanya utk aksi mutasi di dalam menu yg sudah tampil.
 	 */
 	public static boolean bolehAksi(JSONObject roleEbisnisMenu, String kunciMenu, String aksi) {
+		String aksiKanonik = EbisnisMenuActionRegistry.aksiKanonik(aksi);
+		boolean aksiDikenal = EbisnisMenuActionRegistry.aksiTerdaftar(aksi);
+		boolean aksiLegacy = AKSI_LEGACY_DEFAULT_BOLEH.contains(aksiKanonik);
+		if (roleEbisnisMenu != null && roleEbisnisMenu.optBoolean("supervisor", false)) {
+			return true;
+		}
+		// Aksi yang belum masuk kontrak lama dipertahankan agar endpoint historis tidak putus.
+		// Begitu sebuah aksi didaftarkan sebagai workflow baru, ketiadaan izin berarti ditolak.
+		if (!aksiDikenal) {
+			return true;
+		}
 		if (roleEbisnisMenu == null) {
-			return true;
+			return aksiLegacy;
 		}
-		if (roleEbisnisMenu.optBoolean("supervisor", false)) {
-			return true;
-		}
-		if (kunciMenu == null || !KUNCI_CRUD.contains(kunciMenu)) {
-			return true;
+		String kunciKanonik = EbisnisMenuActionRegistry.kanonik(kunciMenu);
+		if (kunciKanonik.length() == 0 || !KUNCI_CRUD.contains(kunciKanonik)) {
+			return aksiLegacy;
 		}
 		JSONObject crud = roleEbisnisMenu.optJSONObject("crud");
 		if (crud == null) {
-			return true;
+			return aksiLegacy;
 		}
-		JSONObject aksiMenu = crud.optJSONObject(kunciMenu);
+		JSONObject aksiMenu = objectKompatibel(crud, kunciKanonik);
 		if (aksiMenu == null) {
-			return true;
+			return aksiLegacy;
 		}
-		return aksiMenu.optBoolean(aksi, true);
+		if (!memilikiAksiKompatibel(aksiMenu, aksiKanonik)) {
+			return aksiLegacy;
+		}
+		return booleanAksiKompatibel(aksiMenu, aksiKanonik, false);
 	}
 
 	/**
@@ -650,7 +742,7 @@ public final class EbisnisMenuKatalog {
 				row.put("kunci", e.kunci);
 				row.put("label", e.label);
 				row.put("platform", new JSONArray(e.platform));
-				row.put("tampil", menu == null || !menu.has(e.kunci) ? true : menu.optBoolean(e.kunci, true));
+				row.put("tampil", booleanKompatibel(menu, e.kunci, true));
 				arr.put(row);
 			}
 		} catch (JSONException ex) {
@@ -768,10 +860,10 @@ public final class EbisnisMenuKatalog {
 				String kunciLama = n.has("kunciLama") ? n.optString("kunciLama", null) : null;
 				boolean aktifUtkRole = true;
 				if (menuAktif != null) {
-					if (kunciLama != null && menuAktif.has(kunciLama)) {
-						aktifUtkRole = menuAktif.optBoolean(kunciLama, true);
-					} else if (menuAktif.has(kode)) {
-						aktifUtkRole = menuAktif.optBoolean(kode, true);
+					if (kunciLama != null && memilikiKunciKompatibel(menuAktif, kunciLama)) {
+						aktifUtkRole = booleanKompatibel(menuAktif, kunciLama, true);
+					} else if (memilikiKunciKompatibel(menuAktif, kode)) {
+						aktifUtkRole = booleanKompatibel(menuAktif, kode, true);
 					}
 				}
 				if (!aktifUtkRole) continue;
