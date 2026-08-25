@@ -1,6 +1,6 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
-@Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="social_payment_reconciliation")
+@Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="social_payment_reconciliation",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","gateway","settlement_reference"}))
 public class SocialPaymentReconciliation extends SocialRecord { private static final long serialVersionUID=1L; private PembayaranDonasi payment; private Date settlementDate,reviewedAt; private String gateway,settlementReference,exceptionType,notes,reviewedBy; private BigDecimal expectedAmount,receivedAmount,fee,difference;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="payment_id") public PembayaranDonasi getPayment(){return payment;} public void setPayment(PembayaranDonasi v){payment=v;}
  @Temporal(TemporalType.DATE) @Column(name="settlement_date") public Date getSettlementDate(){return settlementDate;} public void setSettlementDate(Date v){settlementDate=v;}

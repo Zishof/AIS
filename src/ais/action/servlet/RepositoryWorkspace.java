@@ -179,6 +179,9 @@ public class RepositoryWorkspace extends HttpServlet {
             flash(request.getSession(), "repository.flash", "Pemeriksaan fixity selesai."); redirect(response, request, "admin", null); return;
         } else if ("retrySync".equals(action)) {
             int queued=adminService.retryFailedSync(user);flash(request.getSession(),"repository.flash",queued+" item sync gagal dimasukkan kembali ke antrian.");redirect(response,request,"admin",null);return;
+        } else if("runSearchAlerts".equals(action)){
+            if(!workflow.isRepositoryAdministrator(user))throw new SecurityException("Hak administrator repository diperlukan.");
+            ais.action.master.repository.RepositoryAlertService.Summary alertSummary=ais.action.master.repository.RepositoryAlertScheduler.jalankanSekali();flash(request.getSession(),"repository.flash","Search alert selesai: "+alertSummary.toString());redirect(response,request,"admin",null);return;
         } else if("bulkRepairMetadata".equals(action)){
             int repaired=adminService.bulkRepairMetadata(request.getParameter("field"),user);flash(request.getSession(),"repository.flash",repaired+" record diperbaiki secara massal.");redirect(response,request,"admin",null);return;
         } else if("toggleFeatured".equals(action)){

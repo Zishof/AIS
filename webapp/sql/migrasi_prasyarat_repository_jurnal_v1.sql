@@ -127,9 +127,19 @@ CREATE TABLE IF NOT EXISTS public.repo_item_contributor (
 CREATE TABLE IF NOT EXISTS public.repo_user_preference (
  id bigserial PRIMARY KEY, user_id varchar(255) NOT NULL, tenant_key varchar(120) NOT NULL,
  preference_type varchar(30) NOT NULL, item_id bigint, label varchar(255), query_value varchar(2000),
- created_at timestamp NOT NULL DEFAULT now(), aktif boolean,
+ created_at timestamp NOT NULL DEFAULT now(), last_checked_at timestamp, last_matched_at timestamp,
+ last_notified_item_id bigint, failure_count integer DEFAULT 0, last_error varchar(1000), aktif boolean,
  CONSTRAINT fk_rup_item FOREIGN KEY(item_id) REFERENCES public.repo_item(id)
 );
+
+-- RepoUserPreference juga dipakai scheduler saved-search repository. Kolom ini
+-- wajib tersedia karena Hibernate memilih seluruh properti entity, termasuk
+-- saat fitur jurnal hanya membaca preference notifikasi.
+ALTER TABLE public.repo_user_preference ADD COLUMN IF NOT EXISTS last_checked_at timestamp;
+ALTER TABLE public.repo_user_preference ADD COLUMN IF NOT EXISTS last_matched_at timestamp;
+ALTER TABLE public.repo_user_preference ADD COLUMN IF NOT EXISTS last_notified_item_id bigint;
+ALTER TABLE public.repo_user_preference ADD COLUMN IF NOT EXISTS failure_count integer DEFAULT 0;
+ALTER TABLE public.repo_user_preference ADD COLUMN IF NOT EXISTS last_error varchar(1000);
 
 CREATE TABLE IF NOT EXISTS public.repo_integration_event (
  id bigserial PRIMARY KEY, item_id bigint, tenant_key varchar(120) NOT NULL,

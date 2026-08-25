@@ -15,6 +15,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.Base64;
+import java.security.MessageDigest;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -46,6 +50,7 @@ public class Repository extends HttpServlet {
     private static final String JSP = "/WEB-INF/baru/modul/repository/landing_page.jsp";
     private static final String CSRF = "repository.public.csrf";
     private static final String TRANSIENT_RETRY = "repository.public.transientRetry";
+    private static final byte[] OAI_TOKEN_SECRET = oaiTokenSecret();
     private final RepositoryPublicService service = new RepositoryPublicService();
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
@@ -154,6 +159,14 @@ public class Repository extends HttpServlet {
             if("bookmark".equals(action)){Long itemId=parseLong(request.getParameter("id"));service.toggleBookmark(actor.getUserId(),itemId);response.sendRedirect(request.getContextPath()+"/repository/item/"+itemId);return;}
             if("savesearch".equals(action)){service.saveSearch(actor.getUserId(),clean(request.getParameter("label")),safeRepositoryUrl(request,request.getParameter("queryValue")),"true".equalsIgnoreCase(request.getParameter("alert")));response.sendRedirect(safeRepositoryUrl(request,request.getParameter("returnTo")));return;}
             service.removePreference(actor.getUserId(),parseLong(request.getParameter("preferenceId")));response.sendRedirect(request.getContextPath()+"/repository");return;
+        }
+        if("helpfeedback".equals(action)){
+            if(!"POST".equalsIgnoreCase(request.getMethod())){response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);return;}
+            verifyPublicCsrf(request.getSession(false),request.getParameter("csrf"));
+            if(!PublicRegistrationRateLimiter.izinkan("repository-help-feedback|"+ip,20,3600000L)){tooManyRequests(response,requestId);return;}
+            String rating=clean(request.getParameter("helpful"));if(!"yes".equals(rating)&&!"no".equals(rating))throw new IllegalArgumentException("Pilih apakah panduan membantu.");
+            Tbmuser feedbackActor=Common.getCurrentUser(request);service.recordHelpFeedback(clean(request.getParameter("contentKey")),"yes".equals(rating),request.getParameter("comment"),ip,feedbackActor==null?"":feedbackActor.getUserId());
+            response.sendRedirect(request.getContextPath()+"/repository/help?feedback=thanks#help-feedback");return;
         }
         if ("download".equals(action)) {
             download(request, response);
@@ -672,27 +685,16 @@ public class Repository extends HttpServlet {
 
     private int parseOaiPage(String token) {
         if (token == null || token.length() == 0) return 1;
-        if (!token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return -1;
-        String pageToken = token.indexOf(';') < 0 ? token : token.substring(0, token.indexOf(';'));
-        if (!pageToken.matches("p[1-9][0-9]*")) return -1;
-        try { return Integer.parseInt(pageToken.substring(1)); } catch (Exception e) { return -1; }
+        String[] values=decodeOaiToken(token);if(values==null)return -1;
+        try{int page=Integer.parseInt(values[0]);return page>0?page:-1;}catch(Exception e){return -1;}
     }
 
     private String buildOaiToken(int page, Long setId, Date from, Date until, String verb) {
-        return "p" + page + ";s" + (setId == null ? 0L : setId.longValue())
-                + ";f" + (from == null ? 0L : from.getTime())
-                + ";u" + (until == null ? 0L : until.getTime())
-                + ";v" + ("ListIdentifiers".equals(verb) ? "I" : "R");
+        try{String payload=page+"|"+(setId==null?0L:setId.longValue())+"|"+(from==null?0L:from.getTime())+"|"+(until==null?0L:until.getTime())+"|"+("ListIdentifiers".equals(verb)?"I":"R")+"|"+System.currentTimeMillis();byte[] bytes=payload.getBytes("UTF-8");return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)+"."+Base64.getUrlEncoder().withoutPadding().encodeToString(hmac(bytes));}catch(Exception e){throw new IllegalStateException("Resumption token tidak dapat dibuat.",e);}
     }
 
     private Long parseOaiTokenLong(String token, String key) {
-        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return null;
-        String[] parts = token.split(";");
-        for (int i = 1; i < parts.length; i++) if (parts[i].startsWith(key)) {
-            try { long value = Long.parseLong(parts[i].substring(1)); return value <= 0L ? null : Long.valueOf(value); }
-            catch (Exception ignored) { return null; }
-        }
-        return null;
+        String[] values=decodeOaiToken(token);if(values==null)return null;int index="s".equals(key)?1:("f".equals(key)?2:("u".equals(key)?3:-1));if(index<0)return null;try{long value=Long.parseLong(values[index]);return value<=0L?null:Long.valueOf(value);}catch(Exception e){return null;}
     }
 
     private Date parseOaiTokenDate(String token, String key) {
@@ -701,21 +703,17 @@ public class Repository extends HttpServlet {
     }
 
     private String parseOaiTokenVerb(String token) {
-        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return "";
-        return token.endsWith("vI") ? "ListIdentifiers" : "ListRecords";
+        String[] values=decodeOaiToken(token);return values==null?"":("I".equals(values[4])?"ListIdentifiers":"ListRecords");
     }
 
     private boolean validOaiToken(String token) {
-        if (token == null || !token.matches("p[1-9][0-9]*;s[0-9]+;f[0-9]+;u[0-9]+;v[IR]")) return false;
-        try {
-            String[] parts = token.split(";");
-            Integer.parseInt(parts[0].substring(1));
-            Long.parseLong(parts[1].substring(1));
-            Long.parseLong(parts[2].substring(1));
-            Long.parseLong(parts[3].substring(1));
-            return true;
-        } catch (Exception invalid) { return false; }
+        return decodeOaiToken(token)!=null;
     }
+
+    private String[] decodeOaiToken(String token){try{String value=clean(token);int dot=value.indexOf('.');if(dot<=0||dot!=value.lastIndexOf('.'))return null;byte[] payload=Base64.getUrlDecoder().decode(value.substring(0,dot)),signature=Base64.getUrlDecoder().decode(value.substring(dot+1));if(!MessageDigest.isEqual(signature,hmac(payload)))return null;String[] parts=new String(payload,"UTF-8").split("\\|",-1);if(parts.length!=6||!("I".equals(parts[4])||"R".equals(parts[4])))return null;int page=Integer.parseInt(parts[0]);Long.parseLong(parts[1]);Long.parseLong(parts[2]);Long.parseLong(parts[3]);long issued=Long.parseLong(parts[5]),maximumAge=oaiTokenMaximumAge();if(page<1||issued>System.currentTimeMillis()+60000L||System.currentTimeMillis()-issued>maximumAge)return null;return parts;}catch(Exception e){return null;}}
+    private static byte[] hmac(byte[] payload)throws Exception{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(OAI_TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(payload);}
+    private static byte[] oaiTokenSecret(){try{String configured=System.getProperty("ais.repository.oaiTokenSecret","").trim();String value=configured.length()>=32?configured:UUID.randomUUID().toString()+UUID.randomUUID().toString();return value.getBytes("UTF-8");}catch(Exception e){throw new ExceptionInInitializerError(e);}}
+    private static long oaiTokenMaximumAge(){try{long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));return Math.max(300L,Math.min(seconds,604800L))*1000L;}catch(Exception e){return 86400000L;}}
 
     private Date parseOaiDate(String value, boolean endOfDay) {
         String text = clean(value);

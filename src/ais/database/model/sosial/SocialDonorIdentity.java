@@ -6,7 +6,7 @@ import org.hibernate.envers.Audited;
 import ais.database.model.Tbmuser;
 
 @Entity @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Audited
-@Table(schema="public",name="social_donor_identity",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","tbmuser_id"}))
+@Table(schema="public",name="social_donor_identity",uniqueConstraints={@UniqueConstraint(columnNames={"tenant_key","tbmuser_id"}),@UniqueConstraint(columnNames={"tenant_key","donatur_id"})})
 public class SocialDonorIdentity extends SocialRecord {
     private static final long serialVersionUID=1L;
     private Donatur donatur; private Tbmuser tbmuser; private String displayName,email,phone,donorType,privacyConsentVersion;

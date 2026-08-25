@@ -100,3 +100,9 @@ Warning JNDI/RMI `localhost` pada eksekusi CLI dicatat sebagai non-fatal: regist
 
 Credential tidak dicatat di ledger, log, Markdown, source, atau XML. Semua proses test memperoleh secret melalui environment `AIS_JURNAL_DB_*` dan `AIS_JURNAL_STREAMING_DB_*`.
 
+## Addendum 25 Agustus 2026
+
+Status lama `BLOCKED` untuk sinkronisasi role/menu dan inventory dependency telah digantikan evidence aktual di `16-HANDOFF-PRIORITAS-UTAMA-20260825.md`. Sinkronisasi role/menu lulus lokal dan technical UAT; compile final mengompilasi 7.162 source tanpa membuat WAR. SBOM CycloneDX berisi 185 komponen, raw scan tinggal dua CVE Hibernate yang ditutup dengan VEX berbasis kontrol teruji, dan secret scan ulang menghasilkan 0 temuan. Credential SharePoint yang sebelumnya tertanam telah dihapus dari kedua source tree dan wajib dirotasi pada provider.
+
+Technical UAT main/streaming lulus setelah migrasi eksplisit `lampiran_jurnal` diterapkan pada clone. Formal UAT manusia, sandbox provider, accessibility/browser matrix, legal/license review, long soak 4–24 jam, build WAR, deploy, pilot, dan cutover belum dilakukan. Build WAR dan deploy secara khusus dikecualikan oleh pemilik sistem pada pekerjaan ini.
+

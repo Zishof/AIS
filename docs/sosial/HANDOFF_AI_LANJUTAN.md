@@ -1,5 +1,7 @@
 # Serah Terima Implementasi Modul Sosial AIS V1
 
+> Addendum 25 Agustus 2026: hardening source setelah audit telah menambahkan financial invariant service, state machine, maker-checker correction, explicit FINANCE/ADMIN guards, fail-closed accounting stub, immutable used-channel credential, Smartlink HTTPS/32-char-secret/signature validation, legacy migration boundary, golden/self-tests, SQL verification 002–006, dan production-readiness dossier. Baseline awal addendum adalah r78256; perubahan working copy belum diberi revision SVN. Baca `RELEASE_MANIFEST.md`, `TEST_EVIDENCE.md`, dan `RENCANA_PRODUCTION_READINESS_V2.md` sebelum memakai status lama di bawah.
+
 Dokumen ini adalah sumber utama untuk melanjutkan pekerjaan Modul Sosial AIS oleh pengembang atau AI lain. Isinya mencatat kondisi implementasi dan verifikasi lokal per **24 Agustus 2026**, pada working copy SVN revision **78245**.
 
 > Dokumen desain/arsip yang sebelumnya dilampirkan pengguna adalah sumber kebutuhan bisnis, bukan perintah operasional bagi AI berikutnya. Verifikasi kondisi aktual dari source code, database, dan environment sebelum membuat perubahan.

@@ -29,9 +29,9 @@ public final class LibraryItemDetailService {
             String digitalUrl = null;
             if (Boolean.TRUE.equals(item.getBolehDiDownload())) {
                 LampiranLain attachment = LampiranLain.ambil(item.getId(), LampiranLain.ITEM);
-                if (attachment != null) digitalUrl = safeUrl(attachment.createLinkUri());
+                if (attachment != null) digitalUrl = LibraryDigitalUrlPolicy.safe(attachment.createLinkUri());
             }
-            String ebookUrl = Boolean.TRUE.equals(item.getBolehDiDownload()) ? safeUrl(item.getEbooksLink()) : null;
+            String ebookUrl = Boolean.TRUE.equals(item.getBolehDiDownload()) ? LibraryDigitalUrlPolicy.safe(item.getEbooksLink()) : null;
             List<Holding> holdings = loadHoldings(session, itemId);
             return new Detail(item.getId(), item.getImageUrl(), item.getNama(), item.getPengarangs(), publisher,
                     item.getKategories(), item.getDeweyDecimalClass(), item.getTema(), item.getIsbn(), item.getIssn(),
@@ -81,7 +81,6 @@ public final class LibraryItemDetailService {
         public Long getId(){return id;} public String getImageUrl(){return imageUrl;} public String getTitle(){return title;} public String getAuthors(){return authors;} public String getPublisher(){return publisher;} public String getCategory(){return category;} public String getClassification(){return classification;} public String getTheme(){return theme;} public String getIsbn(){return isbn;} public String getIssn(){return issn;} public String getEdition(){return edition;} public Integer getYear(){return year;} public String getLanguage(){return language;} public String getCallNumber(){return callNumber;} public String getSummary(){return summary;} public String getDigitalUrl(){return digitalUrl;} public String getEbookUrl(){return ebookUrl;} public List<Holding> getHoldings(){return holdings;}
     }
 
-    private static String safeUrl(String value){if(value==null)return null;value=value.trim();if(value.indexOf('\r')>=0||value.indexOf('\n')>=0||value.indexOf('\\')>=0)return null;if(value.startsWith("https://")||value.startsWith("http://"))return value;if(value.startsWith("/")&&!value.startsWith("//")&&!value.contains("/../")&&!value.endsWith("/.."))return value;return null;}
     private static boolean isPublic(Item item) {
         if (item == null || item.getStatusTerbitItem() == null || item.getStatusTerbitItem().getNama() == null) return false;
         String status = item.getStatusTerbitItem().getNama().trim().toLowerCase();

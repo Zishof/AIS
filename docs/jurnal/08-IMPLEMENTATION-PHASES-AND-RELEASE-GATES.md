@@ -387,3 +387,9 @@ Status komputer lanjutan: **NOT_RUN / NOT_AUTHORIZED**. Entry gate Fase 16–18 
 - Tidak ada data import dianggap selesai sebelum reconciliation dan file checksum selesai.
 - Tidak ada go-live sebelum backup restore dan rollback drill berhasil.
 
+## Addendum fase 25 Agustus 2026
+
+Prioritas engineering yang dapat diselesaikan lokal telah dijalankan: atomic role/menu sync, explicit schema migration, dependency remediation, SBOM/SCA/VEX, secret hardening, final full compile, SIT, dan technical UAT. Evidence terperinci berada di `16-HANDOFF-PRIORITAS-UTAMA-20260825.md`.
+
+Fase release belum boleh ditandai selesai karena masih memerlukan legal/license acceptance, rotasi secret provider, sandbox eksternal, browser/accessibility journey, soak 4–24 jam dengan SLA owner, formal UAT/sign-off, backup-restore drill, pilot, dan go/no-go. WAR serta deployment sengaja tidak dijalankan berdasarkan instruksi pemilik sistem.
+

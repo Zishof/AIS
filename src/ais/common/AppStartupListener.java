@@ -299,6 +299,11 @@ public class AppStartupListener implements ServletContextListener {
 			} catch (Throwable e) {
 				System.err.println("Penjadwal sinkron repository gagal dimulai (lanjut): " + e.getMessage());
 			}
+			try {
+				ais.action.master.repository.RepositoryAlertScheduler.mulai();
+			} catch (Throwable e) {
+				System.err.println("Penjadwal search alert repository gagal dimulai (lanjut): " + e.getMessage());
+			}
 		} catch (Throwable e) {
 			// Tidak mematikan Tomcat: data yang gagal/menunggu akan dimuat on-demand.
 			System.err.println("Error saat init data aplikasi (lanjut, data dimuat on-demand): " + e.getMessage());
@@ -568,6 +573,10 @@ public class AppStartupListener implements ServletContextListener {
 		try {
 			ais.action.master.repository.RepositorySyncScheduler.hentikan();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:repository-sync-stop");
+		}
+		try {
+			ais.action.master.repository.RepositoryAlertScheduler.hentikan();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopRepositoryAlertScheduler");
 		}
 		// Optimasi RAM Fase 1: tiga executor berikut sebelumnya TIDAK pernah dihentikan
 		// sehingga menahan classloader webapp lama saat redeploy.

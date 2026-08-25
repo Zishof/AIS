@@ -63,6 +63,7 @@ import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.common.MemoryDbUtil;
+import ais.common.JurnalRoleMenuSynchronizer;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
@@ -3087,6 +3088,11 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 			tbmrole.setMenus(menus2);
 		}
+
+		// Checkbox "Buka" jurnal adalah sumber capability menu. Sinkronkan pula
+		// relasi fisik job_has_menu dalam transaksi save role yang sama agar service
+		// authorization tidak membaca dua state yang berbeda.
+		JurnalRoleMenuSynchronizer.synchronize(session, tbmrole, tbmrole.getJurnalAksesJson());
 
 		if (tbmrole.getRoleId() != null) {
 			Common.refreshUpdate(session, tbmrole);

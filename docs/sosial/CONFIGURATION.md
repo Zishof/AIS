@@ -43,7 +43,13 @@ Role ID dipisah koma:
 - `sosial_roles_audit`
 - `sosial_roles_admin`
 
-Admin platform tetap dapat mengakses workspace. Guard diterapkan server-side; penyembunyian menu bukan kontrol keamanan.
+Admin platform tetap dapat mengakses workspace. Guard diterapkan server-side; penyembunyian menu bukan kontrol keamanan. Posting penyaluran dan settlement memerlukan `FINANCE`, refund/reversal memakai maker `FINANCE` dan checker `APPROVE`, sedangkan backfill/channel memerlukan `ADMIN`.
+
+## Scope yang dipaksa nonaktif
+
+- Accounting berstatus `STUB_NOOP`; adapter selalu fail-closed meskipun flag accounting salah diaktifkan.
+- Registrasi umum dan donasi tamu berstatus `OUT_OF_SCOPE_V1`; kedua flag wajib tetap off.
+- Callback secret baru minimal 32 karakter, URL Smartlink wajib HTTPS, dan allowed IP wajib eksplisit.
 
 ## Tenant setting wajib sebelum collection
 

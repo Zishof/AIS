@@ -675,3 +675,9 @@ Dokumen kosong tidak dianggap deliverable selesai. Isinya harus ditautkan ke evi
 ## 11. Definition of Done keseluruhan
 
 Modul Sosial dinyatakan siap produksi hanya jika release identity konsisten, formula finansial disetujui, schema dan audit repeatable, migration legacy terrekonsiliasi, semua entry point memiliki RBAC/tenant/ownership guard, runtime dan Smartlink sandbox lulus, security UAT serta DR lulus, observability aktif, artifact/secret/config tercatat, seluruh flag diaktifkan bertahap melalui canary, dan seluruh owner pada RACI memberikan persetujuan go-live.
+
+## 12. Status eksekusi source 25 Agustus 2026
+
+Selesai di working copy: financial invariants/query dashboard, state machine, FINANCE/ADMIN service guards, maker-checker refund/reversal record, accounting forced fail-closed, immutable credential untuk channel yang telah dipakai, Smartlink HTTPS/secret/signature hardening, legacy preview/backfill boundary, SQL verification 002–006, API/RBAC/Smartlink/privacy/threat/observability dossier, serta tiga self-test. Kompilasi Java terarah dan self-test PASS.
+
+Menunggu deployment pengguna/external owner: pembentukan schema dan Envers, execution SQL 005–006, runtime JSP/ZK/API/receipt, provider-approved Smartlink contract dan sandbox, backup/restore, security UAT runtime, pengisian RACI/retention/SLA, finance/syariah/legal sign-off, canary, build WAR, dan deployment. Status produksi tetap `NO`.

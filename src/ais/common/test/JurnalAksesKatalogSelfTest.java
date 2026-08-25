@@ -2,6 +2,7 @@ package ais.common.test;
 
 import org.json.JSONObject;
 import ais.common.JurnalAksesKatalog;
+import ais.common.JurnalRoleMenuSynchronizer;
 
 public final class JurnalAksesKatalogSelfTest {
     private JurnalAksesKatalogSelfTest() {}
@@ -12,6 +13,10 @@ public final class JurnalAksesKatalogSelfTest {
         check(!JurnalAksesKatalog.bolehMenu("{\"schemaVersion\":2,\"menu\":{},\"crud\":{},\"workflow\":{}}", "dashboard"), "unknown version deny");
         JSONObject editor = JurnalAksesKatalog.modelUntukEditor(null);
         check(!JurnalAksesKatalog.bolehMenu(editor.toString(), "dashboard"), "editor defaults deny");
+        check(JurnalRoleMenuSynchronizer.desiredMenuIds(editor.toString()).isEmpty(), "default deny tidak memasang menu fisik");
+        editor.getJSONObject("menu").put("journals", true);
+        check(JurnalRoleMenuSynchronizer.desiredMenuIds(editor.toString()).contains(Long.valueOf(2000460500L)), "parent jurnal otomatis");
+        check(JurnalRoleMenuSynchronizer.desiredMenuIds(editor.toString()).contains(Long.valueOf(2000460502L)), "menu journals otomatis");
         editor.getJSONObject("menu").put("dashboard", true);
         editor.getJSONObject("crud").getJSONObject("dashboard").put("read", true);
         editor.getJSONObject("workflow").put("viewAudit", true);

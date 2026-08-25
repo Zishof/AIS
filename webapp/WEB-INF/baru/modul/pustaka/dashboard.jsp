@@ -1,6 +1,6 @@
 <%@page import="ais.common.Common"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%
 String rnd=Common.getGeneratedBarCode(7); String root=Common.ROOT;
-%><link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821d"><script src="<%=root%>/assets/library-modern/library.js?v=20260821d"></script>
+%><link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260825a"><script src="<%=root%>/assets/library-modern/library.js?v=20260825a"></script>
 <section class="library-modern library-page" id="libraryDashboard<%=rnd%>"><div class="library-container">
   <header class="library-page-head"><div><div class="library-eyebrow"><%=Common.getBahasaConfig("Pusat tindakan")%></div><h1><%=Common.getBahasaConfig("Dashboard Perpustakaan")%></h1><p class="library-muted"><%=Common.getBahasaConfig("Ringkasan koleksi, layanan, dan pekerjaan prioritas sesuai hak akses Anda.")%></p></div><button class="library-button" id="refresh<%=rnd%>" type="button"><%=Common.getBahasaConfig("Muat ulang")%></button></header>
   <div class="library-kpis">

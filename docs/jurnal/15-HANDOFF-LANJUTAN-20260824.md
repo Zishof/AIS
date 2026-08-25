@@ -263,3 +263,6 @@ Saat self-test database dijalankan pada 23 Agustus, mode ini menyebabkan scan/up
 - Penghapusan sample harus tetap scoped ke `AIS_JOURNAL_DEMO:sample-*` dan gagal bila dependensi bisnis tidak aman.
 - Semua perubahan pada role/menu harus diaudit dan tidak boleh memberikan capability lebih tinggi kepada editor non-admin.
 
+## 10. Status pengganti per 25 Agustus 2026
+
+Bagian 7 dan checklist lama di atas merekam keadaan 24 Agustus. Sinkronisasi role/menu, schema-mode hardening, dependency remediation, secret scan, SIT, dan technical UAT telah dilanjutkan dan diverifikasi. Gunakan `16-HANDOFF-PRIORITAS-UTAMA-20260825.md` sebagai handoff terbaru. WAR/deploy tetap belum dilakukan atas instruksi pemilik sistem; formal UAT dan gate eksternal tetap terbuka.

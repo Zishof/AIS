@@ -10,6 +10,9 @@ BEGIN
   ('repo_item_relation','sort_order'),('repo_bitstream','journal_stage'),('repo_bitstream','content_ref'),
   ('diskusi','jurnal_penelitian_id'),('diskusi','repo_item_id'),('diskusi','anonymity_mode'),
   ('repo_author_authority','user_ref_id'),('repo_author_authority','mahasiswa_ref_id'),
+  ('repo_user_preference','last_checked_at'),('repo_user_preference','last_matched_at'),
+  ('repo_user_preference','last_notified_item_id'),('repo_user_preference','failure_count'),
+  ('repo_user_preference','last_error'),
   ('notifikasi','jurnal_idempotency_key'),('notifikasi','jurnal_snapshot_json')) v(table_name,column_name)
  WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns c WHERE c.table_schema='public' AND c.table_name=v.table_name AND c.column_name=v.column_name);
  IF missing IS NOT NULL THEN RAISE EXCEPTION 'Missing prerequisite columns: %',missing; END IF;

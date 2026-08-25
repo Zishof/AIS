@@ -127,6 +127,38 @@
       });
     }
 
+    var helpSearch = document.querySelector('[data-repo-help-search]');
+    if (helpSearch) {
+      var helpChapters = document.querySelectorAll('.repo-help-chapter');
+      var helpStatus = document.querySelector('[data-repo-help-status]');
+      var helpClear = document.querySelector('[data-repo-help-clear]');
+      var helpTocLinks = document.querySelectorAll('.repo-help-toc a[href^="#"]');
+      function filterHelp() {
+        var term = helpSearch.value.toLowerCase().replace(/^\s+|\s+$/g, '');
+        var tokens = term ? term.split(/\s+/) : [], visible = 0;
+        for (var h = 0; h < helpChapters.length; h++) {
+          var text = (helpChapters[h].textContent || '').toLowerCase(), match = true;
+          for (var t = 0; t < tokens.length; t++) if (text.indexOf(tokens[t]) < 0) { match = false; break; }
+          helpChapters[h].hidden = !match; if (match) visible++;
+        }
+        for (var l = 0; l < helpTocLinks.length; l++) {
+          var target = document.querySelector(helpTocLinks[l].getAttribute('href'));
+          helpTocLinks[l].hidden = !!(target && target.hidden);
+        }
+        if (helpStatus) helpStatus.textContent = term ? visible + ' dari ' + helpChapters.length + ' bab cocok.' : helpChapters.length + ' bab tersedia.';
+        if (helpClear) helpClear.hidden = term.length === 0;
+      }
+      helpSearch.addEventListener('input', filterHelp);
+      if (helpClear) helpClear.addEventListener('click', function () { helpSearch.value = ''; filterHelp(); helpSearch.focus(); });
+      filterHelp();
+    }
+    var helpFeedbackForm = document.querySelector('.repo-help-feedback-form');
+    if (helpFeedbackForm) helpFeedbackForm.addEventListener('submit', function () {
+      var content = helpFeedbackForm.querySelector('[data-repo-help-content]');
+      var anchor = (window.location.hash || '').replace(/^#/, '');
+      if (content && /^[a-z0-9_-]+$/i.test(anchor) && document.getElementById(anchor)) content.value = 'repository-help-v2.' + anchor.toLowerCase();
+    });
+
     // Seluruh permukaan kartu membuka detail, sementara tautan/tombol di dalam
     // kartu tetap menjalankan aksi spesifiknya sendiri.
     var linkedCards = document.querySelectorAll('[data-repo-card-href]');

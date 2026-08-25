@@ -23,7 +23,7 @@ public final class ZakatCalculatorService {
     private BigDecimal nisabValue(KebijakanPerhitunganZakat p){BigDecimal q=positive(p.getNisabQuantity(),"Nisab");return p.getReferencePrice()==null?q:q.multiply(positive(p.getReferencePrice(),"Harga referensi"));}
     private BigDecimal value(JSONObject o,String k){BigDecimal v=valueOptional(o,k,null);if(v==null||v.signum()<0)throw new IllegalArgumentException(k+" wajib berupa angka non-negatif.");if(v.compareTo(new BigDecimal("1000000000000000"))>0)throw new IllegalArgumentException(k+" melampaui batas.");return v;}
     private BigDecimal valueOptional(JSONObject o,String k,BigDecimal d){try{if(!o.has(k)||o.isNull(k))return d;return new BigDecimal(String.valueOf(o.get(k)).replace(",",""));}catch(Exception e){throw new IllegalArgumentException(k+" tidak valid.");}}
-    private BigDecimal positive(BigDecimal v,String n){if(v==null||v.signum()<0)throw new IllegalStateException(n+" belum valid.");return v;}
+    private BigDecimal positive(BigDecimal v,String n){if(v==null||v.signum()<=0)throw new IllegalStateException(n+" harus lebih besar dari nol.");return v;}
     private RoundingMode rounding(String v){try{return v==null?RoundingMode.HALF_UP:RoundingMode.valueOf(v);}catch(Exception e){return RoundingMode.HALF_UP;}}
     private JSONObject put(JSONObject o,String k1,Object v1,String k2,Object v2){try{o.put(k1,v1).put(k2,v2);}catch(Exception ignored){}return o;}
 }

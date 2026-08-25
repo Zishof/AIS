@@ -10,8 +10,8 @@
 %>
 
 <head>
-    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260822b">
-    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260822b"></script>
+    <link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260825a">
+    <script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260825a"></script>
     <style>
         .panel-bg-white-<%=rnd%> { background-color: rgba(255, 255, 255, 0.97) !important; }
     </style>
@@ -42,6 +42,8 @@
         <p class="small text-white-50"><%= Common.getBahasaConfig("Sistem sedang memproses permintaan Anda") %></p>
     </div>
 </div>
+
+<div id="libraryGlobalError<%=rnd%>" class="library-state-banner is-error" role="alert" aria-live="assertive" hidden style="position:fixed;right:18px;bottom:18px;z-index:10000;max-width:min(440px,calc(100vw - 36px));box-shadow:0 12px 34px rgba(15,35,70,.22)"></div>
 
 <jsp:include page="_footer_perpustakaan.jsp">
     <jsp:param name="rnd" value="<%=rnd%>" />
@@ -157,4 +159,13 @@ function updateLibraryHeaderOffset<%=rnd%>() {
 }
 document.addEventListener("DOMContentLoaded", () => { updateLibraryHeaderOffset<%=rnd%>(); panggilMenu<%=rnd%>('<%=menuAwal%>'); });
 window.addEventListener('resize', updateLibraryHeaderOffset<%=rnd%>);
+window.addEventListener('library:request-error', function (event) {
+    const banner = document.getElementById('libraryGlobalError<%=rnd%>');
+    const error = event.detail || {};
+    if (!banner) return;
+    banner.textContent = (error.message || 'Permintaan tidak dapat diproses.') + (error.requestId ? ' ID permintaan: ' + error.requestId : '');
+    banner.hidden = false;
+    window.clearTimeout(banner._hideTimer);
+    banner._hideTimer = window.setTimeout(function () { banner.hidden = true; }, 8000);
+});
 </script>

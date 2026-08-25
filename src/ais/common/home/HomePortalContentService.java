@@ -58,6 +58,7 @@ public class HomePortalContentService {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadPrograms");
+            vm.contentWarnings.add("program");
         } finally {
             close(session);
         }
@@ -91,6 +92,7 @@ public class HomePortalContentService {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadNews");
+            vm.contentWarnings.add("berita");
         } finally {
             close(session);
         }
@@ -142,6 +144,7 @@ public class HomePortalContentService {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadAdmission");
+            vm.contentWarnings.add("penerimaan");
         } finally {
             close(session);
         }
@@ -182,6 +185,7 @@ public class HomePortalContentService {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "HomePortalContentService.loadAgenda");
+            vm.contentWarnings.add("agenda");
         } finally {
             close(session);
         }

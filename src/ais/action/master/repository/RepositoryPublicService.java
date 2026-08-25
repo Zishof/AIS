@@ -33,6 +33,7 @@ import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoItemRelation;
 import ais.database.model.repository.RepoUsageEvent;
 import ais.database.model.repository.RepoUserPreference;
+import ais.database.model.repository.RepoHelpFeedback;
 import ais.database.model.repository.RepoAuthorAuthority;
 import ais.database.model.repository.RepoItemContributor;
 import ais.database.model.file.LampiranLain;
@@ -210,10 +211,11 @@ public class RepositoryPublicService {
         public String didYouMean = "";
         public boolean synonymExpanded;
     }
-    public static class RepositoryAnswer { public String question="",answer="";public List<ItemCard> sources=new ArrayList<ItemCard>(); }
+    public static class AnswerEvidence { public Long itemId;public int score;public String title="",authors="",year="",excerpt="",matchedTerms=""; }
+    public static class RepositoryAnswer { public String question="",answer="";public List<ItemCard> sources=new ArrayList<ItemCard>();public List<AnswerEvidence> evidence=new ArrayList<AnswerEvidence>();public String method="Pencocokan metadata dan abstrak"; }
     public static class FaqItem {
         public int id;
-        public String category="",question="",answer="",keywords="";
+        public String category="",question="",answer="",keywords="",reviewedBy="",lastReviewed="",policyRef="";
     }
     public static class FaqResult {
         public String keyword="",category="";
@@ -372,11 +374,11 @@ public class RepositoryPublicService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<ItemCard> semanticSearch(String text,int maximum){String query=clean(text).toLowerCase();if(query.length()==0)return new ArrayList<ItemCard>();List<RepoItem> rows=publicCriteria(session(),null).setMaxResults(2500).list();final Map<Long,Integer> scores=new HashMap<Long,Integer>();final List<String> terms=new ArrayList<String>();for(String expanded:synonymTerms(query))for(String token:expanded.split("[^\\p{L}\\p{N}]+"))if(token.length()>2&&!terms.contains(token))terms.add(token);
-        for(RepoItem row:rows){String title=safe(row.getTitle()).toLowerCase(),subject=safe(row.getSubjects()).toLowerCase(),body=(safe(row.getAbstractText())+" "+safe(row.getExtractedText())).toLowerCase();int score=0;for(String term:terms){if(title.indexOf(term)>=0)score+=8;if(subject.indexOf(term)>=0)score+=5;if(body.indexOf(term)>=0)score+=2;}if(score>0)scores.put(row.getId(),Integer.valueOf(score));}
-        Collections.sort(rows,new java.util.Comparator<RepoItem>(){public int compare(RepoItem a,RepoItem b){return Integer.valueOf(scores.containsKey(b.getId())?scores.get(b.getId()).intValue():0).compareTo(Integer.valueOf(scores.containsKey(a.getId())?scores.get(a.getId()).intValue():0));}});List<RepoItem> selected=new ArrayList<RepoItem>();for(RepoItem row:rows)if(scores.containsKey(row.getId())&&selected.size()<Math.max(1,Math.min(maximum,50)))selected.add(row);return cards(session(),selected);}
+    public List<ItemCard> semanticSearch(String text,int maximum){String query=clean(text).toLowerCase();if(query.length()==0)return new ArrayList<ItemCard>();final List<String> terms=semanticTerms(query);if(terms.isEmpty())return new ArrayList<ItemCard>();Criteria candidates=publicCriteria(session(),null);org.hibernate.criterion.Disjunction any=Restrictions.disjunction();for(String term:terms){any.add(Restrictions.ilike("title",term,MatchMode.ANYWHERE));any.add(Restrictions.ilike("authors",term,MatchMode.ANYWHERE));any.add(Restrictions.ilike("subjects",term,MatchMode.ANYWHERE));any.add(Restrictions.ilike("abstractText",term,MatchMode.ANYWHERE));any.add(Restrictions.ilike("extractedText",term,MatchMode.ANYWHERE));}int candidateLimit=integerProperty("ais.repository.semanticCandidateLimit",750,100,5000);List<RepoItem> rows=candidates.add(any).addOrder(Order.desc("issuedAt")).setMaxResults(candidateLimit).list();final Map<Long,Integer> scores=new HashMap<Long,Integer>();
+        for(RepoItem row:rows){String title=safe(row.getTitle()).toLowerCase(),authors=safe(row.getAuthors()).toLowerCase(),subject=safe(row.getSubjects()).toLowerCase(),abstractText=safe(row.getAbstractText()).toLowerCase(),body=(abstractText+" "+safe(row.getExtractedText()).toLowerCase());int score=title.indexOf(query)>=0?24:0,covered=0;for(String term:terms){boolean hit=false;if(title.indexOf(term)>=0){score+=10;hit=true;}if(authors.indexOf(term)>=0){score+=6;hit=true;}if(subject.indexOf(term)>=0){score+=7;hit=true;}if(abstractText.indexOf(term)>=0){score+=4;hit=true;}else if(body.indexOf(term)>=0){score+=1;hit=true;}if(hit)covered++;}score+=covered==terms.size()?12:covered*2;if(score>0)scores.put(row.getId(),Integer.valueOf(score));}
+        Collections.sort(rows,new java.util.Comparator<RepoItem>(){public int compare(RepoItem a,RepoItem b){int left=scores.containsKey(a.getId())?scores.get(a.getId()).intValue():0,right=scores.containsKey(b.getId())?scores.get(b.getId()).intValue():0;if(left!=right)return right-left;return b.getId().compareTo(a.getId());}});List<RepoItem> selected=new ArrayList<RepoItem>();for(RepoItem row:rows)if(scores.containsKey(row.getId())&&selected.size()<Math.max(1,Math.min(maximum,50)))selected.add(row);return cards(session(),selected);}
 
-    public RepositoryAnswer askRepository(String question){RepositoryAnswer answer=new RepositoryAnswer();answer.question=limit(clean(question),500);if(answer.question.length()==0)return answer;answer.sources=semanticSearch(answer.question,5);if(answer.sources.isEmpty()){answer.answer="Belum ditemukan karya repository yang cukup relevan. Coba gunakan istilah yang lebih spesifik.";return answer;}StringBuilder text=new StringBuilder("Berdasarkan karya yang tersedia di repository, topik ini dibahas dalam ");for(int i=0;i<answer.sources.size();i++){ItemCard source=answer.sources.get(i);if(i>0)text.append(i==answer.sources.size()-1?" dan ":", ");text.append('“').append(source.title).append('”');}text.append(". Buka sumber di bawah untuk membaca abstrak dan dokumen sesuai kebijakan akses. Jawaban ini hanya merangkum metadata repository dan tidak menggantikan pembacaan sumber.");answer.answer=text.toString();return answer;}
+    public RepositoryAnswer askRepository(String question){RepositoryAnswer answer=new RepositoryAnswer();answer.question=limit(clean(question),500);if(answer.question.length()==0)return answer;answer.sources=semanticSearch(answer.question,8);if(answer.sources.isEmpty()){answer.answer="Belum ditemukan karya Repository yang cukup relevan. Gunakan istilah topik, penulis, metode, lokasi, atau tahun yang lebih spesifik.";return answer;}List<String> terms=semanticTerms(answer.question.toLowerCase());for(ItemCard source:answer.sources){AnswerEvidence evidence=new AnswerEvidence();evidence.itemId=source.id;evidence.title=source.title;evidence.authors=source.authors;evidence.year=source.year;evidence.excerpt=evidenceExcerpt(source.abstractText,terms,360);List<String> matched=new ArrayList<String>();String haystack=(safe(source.title)+" "+safe(source.subjects)+" "+safe(source.abstractText)).toLowerCase();for(String term:terms)if(haystack.indexOf(term)>=0&&!matched.contains(term))matched.add(term);evidence.matchedTerms=join(matched,", ");evidence.score=matched.size();answer.evidence.add(evidence);}StringBuilder text=new StringBuilder("Repository menemukan ").append(answer.sources.size()).append(" sumber yang paling relevan. ");AnswerEvidence primary=answer.evidence.get(0);text.append("Sumber utama adalah “").append(primary.title).append("”");if(primary.authors.length()>0)text.append(" oleh ").append(primary.authors);if(primary.year.length()>0)text.append(" (").append(primary.year).append(")");text.append(". ");if(primary.excerpt.length()>0)text.append("Abstraknya menjelaskan: ").append(primary.excerpt).append(" ");if(answer.evidence.size()>1)text.append("Bandingkan dengan ").append(answer.evidence.size()-1).append(" sumber pendukung di bawah untuk melihat perbedaan konteks, metode, dan hasil. ");text.append("Jawaban ini diturunkan dari metadata dan abstrak yang tersedia; verifikasi kesimpulan dengan membaca record serta naskah sesuai kebijakan akses.");answer.answer=text.toString();return answer;}
 
     public FaqResult faqCatalog(String keyword, String category, int requestedPage, int requestedPageSize) {
         FaqResult result=new FaqResult();
@@ -397,6 +399,12 @@ public class RepositoryPublicService {
         int from=(result.page-1)*result.pageSize,to=Math.min(matches.size(),from+result.pageSize);
         if(from<to)result.items.addAll(matches.subList(from,to));
         return result;
+    }
+
+    /** Simpan penilaian konten bantuan tanpa alamat IP mentah atau data sensitif. */
+    public void recordHelpFeedback(String contentKey,boolean helpful,String comment,String visitor,String actorId){
+        String key=limit(clean(contentKey).toLowerCase(),120);if(!key.matches("[a-z0-9._-]+"))throw new IllegalArgumentException("Bagian bantuan tidak valid.");
+        Session s=null;org.hibernate.Transaction tx=null;try{s=HibernateUtil.openSession();tx=s.beginTransaction();RepoHelpFeedback row=new RepoHelpFeedback();row.setTenantKey(RepositoryTenantScope.currentKey());row.setContentKey(key);row.setHelpful(Boolean.valueOf(helpful));row.setComment(limit(clean(comment),1000));row.setVisitorHash(hash(visitor));row.setActorId(limit(clean(actorId),255));row.setCreatedAt(new Date());s.save(row);tx.commit();}catch(RuntimeException e){if(tx!=null&&tx.isActive())try{tx.rollback();}catch(Exception ignored){}throw e;}finally{HibernateUtil.closeSessionQuietly(s);}
     }
 
     public MetadataSuggestion suggestMetadata(String title,String abstractText){MetadataSuggestion suggestion=new MetadataSuggestion();String text=(clean(title)+" "+clean(abstractText)).toLowerCase();suggestion.language=text.matches(".*\\b(the|and|with|from|study)\\b.*")?"en":"id";suggestion.documentType=text.contains("dataset")?"Dataset":(text.contains("skripsi")||text.contains("thesis")?"Thesis":"Article");Map<String,Integer> frequency=new LinkedHashMap<String,Integer>();for(String token:text.split("[^\\p{L}\\p{N}]+"))if(token.length()>4&&!STOPWORDS.contains(token)){Integer n=frequency.get(token);frequency.put(token,Integer.valueOf(n==null?1:n.intValue()+1));}List<Map.Entry<String,Integer>> words=new ArrayList<Map.Entry<String,Integer>>(frequency.entrySet());Collections.sort(words,new java.util.Comparator<Map.Entry<String,Integer>>(){public int compare(Map.Entry<String,Integer>a,Map.Entry<String,Integer>b){return b.getValue().compareTo(a.getValue());}});for(int i=0;i<words.size()&&i<8;i++)suggestion.keywords.add(words.get(i).getKey());suggestion.abstractDraft=clean(abstractText);Query q=new Query();q.keyword=clean(title);q.searchField="title";q.pageSize=5;suggestion.possibleDuplicates=search(q).items;return suggestion;}
@@ -610,7 +618,10 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     public ItemDetail findPublicItem(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
-        Session session = session();
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
         RepoItem entity = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id", id))
                 .add(publicVisibilityRestriction())
@@ -661,6 +672,9 @@ public class RepositoryPublicService {
         detail.relatedItems = relatedItems(session, entity, 8);
         detail.versions = versionItems(session, entity, 20);
         return detail;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     /**
@@ -670,7 +684,10 @@ public class RepositoryPublicService {
      */
     public ItemDetail findPublicCitationItem(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
-        Session session = session();
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
         RepoItem entity = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id", id))
                 .add(publicVisibilityRestriction())
@@ -682,16 +699,26 @@ public class RepositoryPublicService {
         ItemDetail detail = new ItemDetail();
         copyCard(toCard(entity, collection), detail);
         return detail;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     public CollectionView findCollection(Long id) {
         if (id == null) return null;
-        RepoCollection row = (RepoCollection) session().createCriteria(RepoCollection.class)
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
+        RepoCollection row = (RepoCollection) session.createCriteria(RepoCollection.class)
                 .add(Restrictions.eq("id", id)).add(activeRestriction()).add(tenantRestriction()).uniqueResult();
         if (row == null) return null;
         CollectionView view = new CollectionView(); view.id=row.getId(); view.kode=safe(row.getKode());
         view.nama=safe(row.getNama()); view.deskripsi=safe(row.getDeskripsi()); view.tipe=safe(row.getTipe());view.modifiedAt=row.getTanggal_dirubah();
-        Long count=collectionCounts(session()).get(row.getId()); view.itemCount=count==null?0L:count.longValue(); return view;
+        Long count=collectionCounts(session).get(row.getId()); view.itemCount=count==null?0L:count.longValue(); return view;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     public AuthorProfile authorProfile(String name) {
@@ -718,23 +745,40 @@ public class RepositoryPublicService {
     public ItemDetail findPublicItemByOai(String identifier) {
         String value = limit(clean(identifier), 255);
         if (value.length() == 0) return null;
-        RepoItem item = (RepoItem) session().createCriteria(RepoItem.class)
+        Session session = null;
+        Long itemId;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
+        RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("oaiIdentifier", value))
                 .add(publicVisibilityRestriction())
                 .add(tenantRestriction())
                 .uniqueResult();
-        return item == null ? null : findPublicItem(item.getId());
+        itemId = item == null ? null : item.getId();
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
+        return itemId == null ? null : findPublicItem(itemId);
     }
 
     /** Record OAI dapat berupa record publik atau tombstone yang telah ditarik. */
     public ItemDetail findOaiItemByIdentifier(String identifier) {
         String value = limit(clean(identifier), 255);
         if (value.length() == 0) return null;
-        RepoItem item = (RepoItem) session().createCriteria(RepoItem.class)
+        Session session = null;
+        Long itemId;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
+        RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("oaiIdentifier", value)).add(activeRestriction()).add(tenantRestriction())
                 .uniqueResult();
-        if (item == null) return null;
-        return findOaiItem(item.getId());
+        itemId = item == null ? null : item.getId();
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
+        return itemId == null ? null : findOaiItem(itemId);
     }
 
     /** Resolve either a public record or its withdrawn OAI tombstone by internal id. */
@@ -745,14 +789,18 @@ public class RepositoryPublicService {
     }
 
     public ItemDetail findTombstone(Long id) {
-        if(id==null)return null;Session session=session();RepoItem entity=(RepoItem)session.createCriteria(RepoItem.class)
+        if(id==null)return null;Session session=null;try{RepositoryTenantScope.ensureSchema();session=HibernateUtil.openSession();RepoItem entity=(RepoItem)session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id",id)).add(activeRestriction()).add(tenantRestriction()).add(Restrictions.eq("isWithdrawn",Boolean.TRUE)).uniqueResult();
         if(entity==null)return null;RepoCollection c=(RepoCollection)session.get(RepoCollection.class,entity.getCollectionId());if(c!=null&&!RepositoryTenantScope.currentKey().equals(c.getTenantKey()))c=null;ItemDetail d=new ItemDetail();copyCard(toCard(entity,c),d);d.authors="";d.abstractText="";d.subjects="";return d;
+        }finally{HibernateUtil.closeSessionQuietly(session);}
     }
 
     public RepoBitstream findDownloadableBitstream(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
-        Session session = session();
+        Session session = null;
+        try {
+        RepositoryTenantScope.ensureSchema();
+        session = HibernateUtil.openSession();
         RepoBitstream bitstream = (RepoBitstream) session.createCriteria(RepoBitstream.class)
                 .add(Restrictions.eq("id", id))
                 .add(activeRestriction())
@@ -766,6 +814,9 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
                 .uniqueResult();
         return canDownload(item, bitstream) ? bitstream : null;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1313,6 +1364,11 @@ public class RepositoryPublicService {
     private String normalizePreferenceType(String value) {
         String type=clean(value).toUpperCase();return "BOOKMARK".equals(type)||"SAVED_SEARCH".equals(type)||"SEARCH_ALERT".equals(type)?type:"";
     }
+
+    private List<String> semanticTerms(String query){List<String> terms=new ArrayList<String>();for(String expanded:synonymTerms(query))for(String token:expanded.toLowerCase().split("[^\\p{L}\\p{N}]+"))if(token.length()>2&&!terms.contains(token)&&terms.size()<24)terms.add(token);return terms;}
+    private String evidenceExcerpt(String abstractText,List<String> terms,int maximum){String value=clean(abstractText).replaceAll("\\s+"," ");if(value.length()==0)return "";String lower=value.toLowerCase();int hit=-1;for(String term:terms){int candidate=lower.indexOf(term);if(candidate>=0&&(hit<0||candidate<hit))hit=candidate;}int start=hit<0?0:Math.max(0,hit-90),end=Math.min(value.length(),start+maximum);if(end<value.length()){int space=value.lastIndexOf(' ',end);if(space>start+maximum/2)end=space;}String excerpt=value.substring(start,end).trim();return (start>0?"…":"")+excerpt+(end<value.length()?"…":"");}
+    private static String join(List<String> values,String separator){StringBuilder text=new StringBuilder();for(String value:values){if(text.length()>0)text.append(separator);text.append(value);}return text.toString();}
+    private static int integerProperty(String name,int fallback,int minimum,int maximum){try{int value=Integer.parseInt(System.getProperty(name,String.valueOf(fallback)));return Math.max(minimum,Math.min(value,maximum));}catch(Exception e){return fallback;}}
 
     private String normalizeSort(String value) {
         String sort = clean(value).toLowerCase();

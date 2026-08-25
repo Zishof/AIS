@@ -478,3 +478,24 @@ Validasi statis memastikan 5.561 kata, 17 bab, enam diagram, 18 anchor internal 
 memiliki target, tidak ada ID duplikat, pasangan section/article seimbang, delimiter JSP seimbang,
 serta brace CSS seimbang. Build WAR, Tomcat, database, dan pengujian lokal tidak dijalankan sesuai
 instruksi pemilik sistem.
+
+## 21. Penyelesaian prioritas operasional 25 Agustus 2026
+
+Prioritas lanjutan telah diterapkan pada source tanpa build atau deployment: paging/filter pada
+workspace depositor dan review; mesin search alert terjadwal yang tenant-safe, deduplikasi
+notifikasi, retry state, dan eksekusi manual; Tanya Repository dengan penyaringan kandidat,
+ranking metadata/abstrak, cuplikan bukti, istilah cocok, dan peringatan verifikasi; token halaman
+OAI-PMH bertanda tangan HMAC, terikat verb, serta memiliki TTL; readiness storage/scanner/salt,
+metrik integrasi 24 jam, review terlambat, sinkron terakhir, dan ruang storage.
+
+Manual bantuan kini memiliki pencarian 17 bab, pemilik konten, tanggal serta siklus tinjau, dan
+formulir penilaian yang menyimpan visitor hash tanpa IP mentah. Seluruh 300 FAQ mempunyai pemilik,
+tanggal tinjau, dan rujukan kebijakan. Dashboard mengagregasi penilaian membantu/perlu diperjelas.
+Entity `RepoHelpFeedback` dan kolom state search alert ditangani Hibernate sebagaimana model
+Repository lain.
+
+Ditambahkan runbook `OBSERVABILITY.md`, prosedur `BACKUP_RESTORE.md`, matriks `TEST_MATRIX.md`,
+skrip backup/restore-verification, dan lima self-test source. Karena pemilik sistem akan melakukan
+deployment sendiri, build WAR, deploy, Tomcat, database, integrasi eksternal, dan eksekusi test
+tidak dilakukan. Konfigurasi server yang wajib diisi sebelum deploy terutama storage, antivirus,
+analytics salt, serta `ais.repository.oaiTokenSecret` stabil minimal 32 karakter.

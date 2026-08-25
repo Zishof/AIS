@@ -37,16 +37,20 @@ public class WebsitePublicSecurityFilter implements Filter {
         res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
         res.setHeader("X-Frame-Options", "SAMEORIGIN");
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-        res.setHeader("Content-Security-Policy",
+        String csp =
                 "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; "
                 + "form-action 'self'; img-src 'self' data: https:; font-src 'self' data:; "
                 + "style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-" + nonce + "'; "
-                + "connect-src 'self'; upgrade-insecure-requests");
+                + "connect-src 'self'";
+        if (isHttps(req)) csp += "; upgrade-insecure-requests";
+        res.setHeader("Content-Security-Policy", csp);
         if (isHttps(req)) {
-            res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            res.setHeader("Strict-Transport-Security", "max-age=31536000");
         }
-        if (req.getRequestURI() != null && req.getRequestURI().endsWith("/web")) {
+        if ("GET".equalsIgnoreCase(req.getMethod()) && req.getRequestURI() != null
+                && req.getRequestURI().startsWith(req.getContextPath() + "/web")) {
             res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+            res.setHeader("Vary", "Accept-Language");
         }
         chain.doFilter(request, response);
     }

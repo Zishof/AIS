@@ -16,6 +16,10 @@
 - Router `/pustaka` hanya dapat menginklusikan modul `pustaka` dan nama fragmen yang masuk allow-list.
 - Kegagalan adaptor JSON/XML tidak lagi dialihkan menjadi fallback HTML.
 - Error internal operasi petugas, integrasi, dan MARC dicatat pada audit server tanpa mengirim pesan exception mentah ke browser.
+- Filter portal memberikan request ID, header hardening, CSP kompatibel JSP lama, HSTS pada HTTPS, no-store/noindex untuk API/OAI, dan server timing.
+- Rate limiter server mempunyai batas key dan gagal tertutup; cakupannya per-node, bukan klaim sebagai proteksi cluster-wide.
+- Operasi booking, hold/reservasi, stocktake, dan denda mengunci record terkait untuk mengurangi double-submit/race condition.
+- Telemetry hanya menyimpan counter dan durasi per route, tanpa isi query, payload, atau identitas pengguna.
 
 ## Batas audit
 
@@ -26,3 +30,4 @@ AIS masih mempunyai service generik untuk modul legacy di luar alur `WEB-INF/bar
 - Tidak ada perubahan skema database.
 - Tidak ada migration karena facet/holdings memakai tabel existing.
 - Build dan pengujian lokal tidak dijalankan sesuai arahan pemilik aplikasi.
+- Pengetatan CSP tanpa `unsafe-inline` belum dapat dilakukan sebelum script/style inline JSP legacy dipindahkan atau diberi nonce secara menyeluruh.

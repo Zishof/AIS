@@ -1,6 +1,6 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import javax.persistence.*; import org.hibernate.envers.Audited;
-@Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=false) @Table(schema="public",name="social_correction_event")
+@Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=false) @Table(schema="public",name="social_correction_event",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","request_id"}))
 public class SocialCorrectionEvent extends SocialRecord { private static final long serialVersionUID=1L; private String targetType,targetReference,correctionType,reason,priorState,resultingState,approvalStatus,actor,requestId; private BigDecimal amount;
  @Column(name="target_type",nullable=false,length=60) public String getTargetType(){return targetType;} public void setTargetType(String v){targetType=trim(v);}
  @Column(name="target_reference",nullable=false,length=120) public String getTargetReference(){return targetReference;} public void setTargetReference(String v){targetReference=trim(v);}

@@ -136,3 +136,13 @@ mvn -DskipTests compile
 
 Result: `BUILD SUCCESS`; warnings concerned existing Java 8 bootstrap/deprecation/value-identity usage and did not originate in `docs/jurnal`.
 
+## Addendum acceptance 25 Agustus 2026
+
+- Final source compile: `PASS`, 7.162 source, Ant `BUILD SUCCESSFUL`, 1 menit 23 detik; package/WAR tidak dijalankan.
+- RBAC physical-menu synchronization: `PASS_LOCAL`, termasuk grant, revoke, negative role, cache refresh, rollback, dan UAT 29 menu unchanged.
+- Main/streaming schema mutation policy: `PASS`, `hbm2ddl.auto=none` dan `hibernate.use_sql_comments=false` dikunci oleh self-test.
+- UAT technical rerun: bootstrap, notification, workflow, streaming, file end-to-end, health, schema fingerprint, dan menu reconciliation lulus pada clone.
+- Security: 185-component SBOM; 2 raw Hibernate findings; 0 finding setelah VEX; 0 secret finding. Legal/license acceptance dan rotasi credential lama tetap gate eksternal.
+- Remote DOAJ validation pada run ini `BLOCKED_EXTERNAL_HTTP_403`; local export journey lulus dan tidak menggantikan kebutuhan validasi provider/sandbox.
+- Formal user UAT, accessibility/browser matrix, sandbox provider, long soak, WAR, dan deploy tetap `NOT_RUN`.
+

@@ -18,6 +18,8 @@
 - `LibraryEngagementApi` — layanan anggota berbasis entitas AIS existing dan audit trail.
 - `LibraryItemDetailService`, `LibraryMemberApi`, `LibraryWorkspaceApi`, `LibraryOperationsApi`.
 - `LibraryLoginApi`, `LibraryVisitKioskApi`, `LibraryMarcApi`, `LibraryIntegrationGateway`, `LibraryOaiPmhService`.
+- `LibraryDigitalUrlPolicy`, `LibraryRateLimiter`, `LibraryTelemetry`, dan `LibraryPortalSecurityFilter` — policy URL, throttling terbatas, observability, serta header keamanan.
+- `LibrarySavedSearchNotificationWorker` dan `LibrarySavedSearchNotificationListener` — dispatcher saved-search disabled-by-default.
 - `LibraryScopeResolver` membatasi katalog, facet, detail, holdings, dan mutasi pada institusi/cabang aktif.
 - `LibraryPermissionGuard` menyatukan pemeriksaan capability pustakawan dan administrator.
 
@@ -38,5 +40,7 @@
 - `webapp/assets/library-modern/library.js`
 
 Tidak ada CDN atau framework frontend baru.
+
+Self-test source berada di `src/ais/action/master/library/modern/test` dan tidak ikut menyatakan build/deployment telah diverifikasi.
 
 Dokumen handoff utama: `docs/pustaka-v2/ai-handoff-2026-08-24.md`.

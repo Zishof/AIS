@@ -1,5 +1,5 @@
 <%@page import="ais.common.Common"%><%@page import="ais.common.newui.NewUiCsrfUtil"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%String serviceRnd=Common.getGeneratedBarCode(7);String serviceCsrf=NewUiCsrfUtil.getToken(request.getSession());%>
-<link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260822b"><script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260822b"></script>
+<link rel="stylesheet" href="<%=Common.ROOT%>/assets/library-modern/library.css?v=20260825a"><script src="<%=Common.ROOT%>/assets/library-modern/library.js?v=20260825a"></script>
 <section class="library-modern"><div class="library-container library-page"><header class="library-page-head"><div><span class="library-eyebrow"><%=Common.getBahasaConfig("Layanan anggota")%></span><h1><%=Common.getBahasaConfig("Bantuan, fasilitas, dan pengembangan koleksi")%></h1><p class="library-muted"><%=Common.getBahasaConfig("Semua permintaan dicatat pada entitas AIS yang telah diaudit dan dapat ditindaklanjuti petugas.")%></p></div></header>
 <div id="serviceNotice<%=serviceRnd%>" class="library-state-banner" role="status" aria-live="polite" hidden></div>
 <div class="library-service-grid">

@@ -12,3 +12,5 @@ CREATE INDEX IF NOT EXISTS idx_social_allocation_transaction ON public.alokasi_d
 CREATE INDEX IF NOT EXISTS idx_social_distribution_allocation ON public.detail_penyaluran_donasi (source_allocation_id,status);
 CREATE INDEX IF NOT EXISTS idx_social_receipt_transaction ON public.bukti_setor_sosial (transaction_id,status);
 CREATE INDEX IF NOT EXISTS idx_social_reconciliation_exception ON public.social_payment_reconciliation (tenant_key,status,settlement_date);
+CREATE INDEX IF NOT EXISTS idx_social_correction_balance ON public.social_correction_event (tenant_key,target_type,target_reference,status,correction_type);
+CREATE INDEX IF NOT EXISTS idx_social_donor_legacy ON public.social_donor_identity (tenant_key,donatur_id);

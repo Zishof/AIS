@@ -9,6 +9,9 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 -Dais.repository.storage=/opt/AIS/repository-files
 -Dais.repository.virusScanner=/usr/bin/clamscan
 -Dais.repository.analyticsSalt=<rahasia-acak>
+-Dais.repository.oaiTokenSecret=<rahasia-acak-minimal-32-karakter>
+-Dais.repository.oaiTokenTtlSeconds=86400
+-Dais.repository.semanticCandidateLimit=750
 -Dais.repository.searchSynonyms=umkm=usaha mikro kecil menengah|usaha kecil;skripsi=tugas akhir|thesis
 -Dais.repository.anonymousFullText=false
 
@@ -35,6 +38,18 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 -Dais.repository.aiEndpoint=https://ai-gateway.internal/repository
 ```
 
+Konfigurasi aplikasi berikut disimpan melalui mekanisme `Common.getKonfigurasi`:
+
+```text
+repository_search_alerts=Aktif
+repository_search_alert_interval_minutes=30
+```
+
+`oaiTokenSecret` wajib stabil pada seluruh node dan seluruh restart agar token halaman OAI tetap
+valid. Gunakan nilai acak berbeda dari `analyticsSalt`, minimal 32 karakter, dan simpan melalui
+secret manager/server configuration. `semanticCandidateLimit` membatasi kandidat yang diranking
+Tanya Repository; rentang yang diterima 100–5.000.
+
 `ais.repository.anonymousFullText=false` adalah nilai bawaan: pengguna umum hanya melihat
 metadata dan abstrak, sedangkan naskah lengkap memerlukan login eCampus. Ubah menjadi `true`
 hanya bila kebijakan institusi memang mengizinkan unduhan anonim untuk berkas Open Access.
@@ -52,6 +67,9 @@ dihapus; record yang ditarik menggunakan tombstone.
    `citation_pdf_url` hanya untuk PDF yang dapat dibaca publik.
 4. Unggah berkas uji untuk memastikan signature, checksum, scanner, ekstraksi teks, dan fixity.
 5. Jalankan DataCite/COAR hanya dari item uji; periksa `repo_integration_event` melalui audit.
+6. Jalankan satu pencarian tersimpan dengan alert dan verifikasi notifikasi in-app serta status
+   `last_checked_at`; administrator juga dapat memakai tombol **Jalankan sekarang**.
+7. Kirim satu penilaian bantuan dan pastikan agregat membantu/perlu diperjelas muncul di dashboard.
 
 Smoke test publik yang tidak mengubah data dapat dijalankan dari server/operator:
 

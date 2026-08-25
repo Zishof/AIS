@@ -19,6 +19,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 
@@ -32,6 +33,8 @@ import ais.database.model.repository.RepoItemMetadata;
 import ais.database.model.repository.RepoAuthorAuthority;
 import ais.database.model.repository.RepoItemContributor;
 import ais.database.model.repository.RepoIntegrationEvent;
+import ais.database.model.repository.RepoUserPreference;
+import ais.database.model.repository.RepoHelpFeedback;
 
 /** Typed repository administration, reporting, import validation, and preservation checks. */
 public class RepositoryAdminService {
@@ -41,6 +44,10 @@ public class RepositoryAdminService {
         public long collections, items, publicItems, missingOai, duplicateOai, failedSync;
         public long bitstreams, missingChecksum, pendingScan, infected, turnitinSubmitted;
         public long humanViews,uniqueViews,botViews,humanDownloads,uniqueDownloads;
+        public long activeSearchAlerts,alertFailures,overdueReviews,integrationFailures24h,storageFreeBytes,helpfulFeedback,unhelpfulFeedback;
+        public String storagePath="",lastSync="";
+        public boolean storageWritable,antivirusConfigured,analyticsSaltConfigured;
+        public final List<RepoHelpFeedback> recentHelpFeedback = new ArrayList<RepoHelpFeedback>();
         public final Map<String, Long> workflow = new LinkedHashMap<String, Long>();
         public final Map<String, Integer> qualityPercent = new LinkedHashMap<String, Integer>();
         public final Map<String, Long> qualityMissing = new LinkedHashMap<String, Long>();
@@ -101,6 +108,7 @@ public class RepositoryAdminService {
                     if (id.length() == 0) h.missingOai++; else oai.put(id, Integer.valueOf(oai.containsKey(id) ? oai.get(id).intValue() + 1 : 1));
                 }
                 if ("FAILED".equalsIgnoreCase(item.getSyncStatus()) || "ERROR".equalsIgnoreCase(item.getSyncStatus())) h.failedSync++;
+                if ((RepositoryWorkflowService.SUBMITTED.equals(state)||RepositoryWorkflowService.IN_REVIEW.equals(state))&&item.getSubmittedAt()!=null&&item.getSubmittedAt().before(new Date(System.currentTimeMillis()-7L*86400000L)))h.overdueReviews++;
             }
             for (Integer count : oai.values()) if (count.intValue() > 1) h.duplicateOai += count.intValue() - 1;
             for (RepoBitstream file : files) {
@@ -115,6 +123,14 @@ public class RepositoryAdminService {
             fillUsageMap(session,h.countries,"select coalesce(nullif(e.country_code,''),'Tidak diketahui'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' group by 1 order by 2 desc limit 15");
             fillUsageMap(session,h.referrers,"select coalesce(nullif(e.referrer_host,''),'Langsung'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' group by 1 order by 2 desc limit 15");
             fillUsageMap(session,h.dailyTrend,"select to_char(e.occurred_at,'YYYY-MM-DD'),count(*) from repo_usage_event e join repo_item i on i.id=e.item_id where i.tenant_key=:tenant and e.user_agent_class<>'BOT' and e.occurred_at>=current_timestamp-interval '30 days' group by 1 order by 1");
+            List<RepoUserPreference> alerts=session.createCriteria(RepoUserPreference.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("preferenceType","SEARCH_ALERT")).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE))).list();h.activeSearchAlerts=alerts.size();for(RepoUserPreference alert:alerts)if(alert.getFailureCount().intValue()>0)h.alertFailures++;
+            Number integrationFailures=(Number)session.createCriteria(RepoIntegrationEvent.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.in("status",new String[]{"FAILED","ERROR"})).add(Restrictions.ge("createdAt",new Date(System.currentTimeMillis()-86400000L))).setProjection(Projections.rowCount()).uniqueResult();h.integrationFailures24h=integrationFailures==null?0L:integrationFailures.longValue();
+            Number helpful=(Number)session.createCriteria(RepoHelpFeedback.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("helpful",Boolean.TRUE)).setProjection(Projections.rowCount()).uniqueResult();h.helpfulFeedback=helpful==null?0L:helpful.longValue();
+            Number unhelpful=(Number)session.createCriteria(RepoHelpFeedback.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).add(Restrictions.eq("helpful",Boolean.FALSE)).setProjection(Projections.rowCount()).uniqueResult();h.unhelpfulFeedback=unhelpful==null?0L:unhelpful.longValue();
+            h.recentHelpFeedback.addAll(session.createCriteria(RepoHelpFeedback.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).addOrder(Order.desc("createdAt")).setMaxResults(20).list());
+            Date lastSync=(Date)session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).setProjection(Projections.max("lastSyncAt")).uniqueResult();h.lastSync=lastSync==null?"Belum ada":new java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(lastSync);
+            h.storagePath=clean(System.getProperty("ais.repository.storage",System.getenv("AIS_REPOSITORY_STORAGE")));File storage=h.storagePath.length()==0?null:new File(h.storagePath);h.storageWritable=storage!=null&&storage.exists()&&storage.isDirectory()&&storage.canWrite();h.storageFreeBytes=storage==null?0L:storage.getUsableSpace();
+            String scanner=clean(System.getProperty("ais.repository.virusScanner"));h.antivirusConfigured=scanner.length()>0&&new File(scanner).isFile()&&new File(scanner).canExecute();String salt=clean(System.getProperty("ais.repository.analyticsSalt"));h.analyticsSaltConfigured=salt.length()>=24&&!"AIS-REPOSITORY".equals(salt);
             return h;
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }

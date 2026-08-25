@@ -80,7 +80,7 @@ public class HomePortalService {
     private String canonicalUrl(HttpServletRequest request, String prefix) {
         String configured = config.value(prefix + "_public_base_url", "");
         String base = configured == null ? "" : configured.trim();
-        if (!base.matches("https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^?#]*)?")) {
+        if (!base.matches("https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?")) {
             base = request.getRequestURL().toString();
             String querylessPath = request.getRequestURI();
             if (querylessPath != null && base.endsWith(querylessPath)) {

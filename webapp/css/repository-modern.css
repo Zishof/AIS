@@ -310,7 +310,18 @@
 .repo-faq-answer p { color:var(--repo-ink); line-height:1.75; }
 .repo-faq-answer .repo-link { display:inline-block; margin-top:12px; font-size:12px; }
 .repo-faq-empty { grid-column:1 / -1; }
+.repo-answer-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(290px,.75fr); gap:18px; align-items:start; }
+.repo-answer-summary { font-size:16px; line-height:1.8; }
+.repo-evidence-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.repo-evidence-card { padding:18px; }
+.repo-evidence-card h3 { margin:12px 0 8px; font-size:17px; }
+.repo-evidence-card p { color:var(--repo-muted); line-height:1.65; }
 .repo-help-head { padding-bottom:22px; }
+.repo-help-meta { max-width:980px; color:var(--repo-muted); font-size:13px; }
+.repo-help-search { max-width:760px; margin-top:18px; padding:16px; border:1px solid var(--repo-line); border-radius:14px; background:#fff; }
+.repo-help-search>div { display:flex; gap:8px; margin-top:8px; }
+.repo-help-search input { flex:1; min-width:0; padding:12px 14px; border:1px solid var(--repo-line); border-radius:10px; font:inherit; }
+.repo-help-search p { margin:7px 0 0; font-size:12px; }
 .repo-help-layout { display:grid; grid-template-columns:245px minmax(0,1fr); gap:18px; align-items:start; padding-bottom:55px; }
 .repo-help-toc { position:sticky; top:88px; max-height:calc(100vh - 110px); overflow:auto; padding:16px; }
 .repo-help-toc>strong { display:block; margin-bottom:9px; font-size:15px; }
@@ -357,6 +368,16 @@
 .repo-help-glossary dt,.repo-help-glossary dd { margin:0; padding:10px 12px; border-bottom:1px solid var(--repo-line); }
 .repo-help-glossary dt { font-weight:850; color:var(--repo-primary); }
 .repo-help-back { margin-top:24px !important; text-align:right; }
+.repo-help-feedback { padding:clamp(20px,3vw,34px); }
+.repo-help-feedback h2 { margin-top:0; }
+.repo-help-feedback-form { display:grid; gap:14px; }
+.repo-help-feedback-form fieldset { display:flex; gap:20px; padding:12px 14px; border:1px solid var(--repo-line); border-radius:10px; }
+.repo-help-feedback-form textarea { display:block; width:100%; margin-top:7px; padding:11px; border:1px solid var(--repo-line); border-radius:10px; font:inherit; resize:vertical; }
+.repo-help-feedback-form .repo-btn { justify-self:start; }
+.repo-faq-governance { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:16px 0; }
+.repo-faq-governance div { padding:10px; border:1px solid var(--repo-line); border-radius:9px; background:var(--repo-theme-light); }
+.repo-faq-governance dt { font-size:11px; font-weight:800; color:var(--repo-muted); text-transform:uppercase; }
+.repo-faq-governance dd { margin:4px 0 0; font-size:12px; }
 .repo-policy-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
 .repo-policy-groups .repo-article:last-child { grid-column:1 / -1; }
 .repo-policy-groups ol { margin:0; padding-left:21px; }
@@ -378,6 +399,7 @@
   .repo-help-layout { grid-template-columns:1fr; }
   .repo-help-toc { position:static; max-height:none; }
   .repo-help-toc nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .repo-answer-layout { grid-template-columns:1fr; }
 }
 @media (max-width: 919px) {
   .repo-hero-v2 { grid-template-columns:1fr; }.repo-hero-insight { max-width:none; }
@@ -412,6 +434,8 @@
   .repo-faq-controls { grid-template-columns:1fr; }
   .repo-faq-status { align-items:flex-start; flex-direction:column; }
   .repo-help-toc nav,.repo-help-checklist { grid-template-columns:1fr; }
+  .repo-help-search>div,.repo-help-feedback-form fieldset { flex-direction:column; }
+  .repo-faq-governance { grid-template-columns:1fr; }
   .repo-help-diagram { padding:13px; }
   .repo-help-branches,.repo-help-branches:last-child { grid-template-columns:1fr; }
   .repo-help-glossary { grid-template-columns:1fr; }
@@ -458,6 +482,7 @@
   .repo-trust-grid a { padding:16px 10px; border-bottom:1px solid var(--repo-line); }
   .repo-trust-grid a:nth-child(odd) { border-left:0; }
   .repo-results-card-mode { grid-template-columns:1fr; }
+  .repo-evidence-grid { grid-template-columns:1fr; }
   .repo-mobile-sticky-action { display:block; position:fixed; left:0; right:0; bottom:0; z-index:55; padding:10px 14px; background:rgba(255,255,255,.96); border-top:1px solid var(--repo-line); box-shadow:0 -8px 25px rgba(20,44,72,.12); }
   .repo-mobile-sticky-action .repo-btn { width:100%; }
   .repo-detail { padding-bottom:85px; }.repo-recommend-grid { grid-template-columns:1fr; }
@@ -483,6 +508,11 @@
 .repo-workspace-side { position: sticky; top: 92px; padding: 17px; max-height: calc(100vh - 115px); overflow: auto; }
 .repo-workspace-side .repo-section-head h2 { font-size: 18px; }
 .repo-deposit-list { display: grid; gap: 7px; }
+.repo-workspace-filter { display:grid; gap:7px; margin:10px 0 12px; }
+.repo-workspace-filter input,.repo-workspace-filter select { width:100%; min-height:38px; border:1px solid var(--repo-line); border-radius:9px; background:#fff; padding:8px 10px; font:inherit; }
+.repo-workspace-filter-wide { grid-template-columns:minmax(220px,1fr) minmax(170px,.45fr) auto; align-items:end; }
+.repo-workspace-side .repo-pagination { margin:10px 0; justify-content:center; }
+.repo-workspace-side .repo-pagination a,.repo-workspace-side .repo-pagination span { min-width:32px; min-height:32px; padding:5px; }
 .repo-deposit-list a { border: 1px solid transparent; border-radius: 11px; padding: 11px; background: var(--repo-soft); }
 .repo-deposit-list a[aria-current="page"] { border-color: var(--repo-primary); background: var(--repo-theme-light); }
 .repo-deposit-list strong,.repo-deposit-list small { display: block; }
@@ -532,6 +562,9 @@
 .repo-admin-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 18px 0; }
 .repo-admin-cards article { border: 1px solid var(--repo-line); border-radius: 13px; padding: 16px; background: var(--repo-soft); }
 .repo-admin-cards h2 { margin: 0; font-size: 15px; }.repo-admin-cards b { display: block; font-size: 26px; margin: 5px 0; }
+.repo-admin-cards-observability article { display:grid; align-content:start; }
+.repo-admin-cards-observability form { margin-top:auto; }
+.repo-admin-cards .repo-admin-value-small { font-size:15px; line-height:1.45; overflow-wrap:anywhere; }
 .repo-admin-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(280px,1fr); gap: 16px; align-items: start; margin-top: 16px; }
 .repo-admin-layout > aside { display: grid; gap: 16px; }.repo-health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 .repo-usage-trend { margin-top:16px; padding-top:16px; border-top:1px solid var(--repo-line); }
@@ -564,6 +597,6 @@
   -webkit-text-fill-color: var(--repo-on-primary);
 }
 @media (max-width: 1000px) { .repo-workspace-grid { grid-template-columns: 1fr; }.repo-workspace-side { position: static; max-height: none; }.repo-upload-form { grid-template-columns: 1fr 1fr; }.repo-admin-cards { grid-template-columns: 1fr 1fr; }.repo-admin-layout { grid-template-columns: 1fr; } }
-@media (max-width: 680px) { .repo-topbar .repo-nav { width: calc(100% - 24px); }.repo-topbar .repo-links { display: flex; overflow-x: auto; gap: 12px; }.repo-topbar .repo-brand small { display: none; }.repo-form-grid,.repo-upload-form,.repo-admin-cards,.repo-health-grid { grid-template-columns: 1fr; }.repo-field-full { grid-column: auto; }.repo-stepper { overflow-x: auto; grid-template-columns: repeat(5,minmax(110px,1fr)); }.repo-card-pad { padding: 17px; } }
+@media (max-width: 680px) { .repo-topbar .repo-nav { width: calc(100% - 24px); }.repo-topbar .repo-links { display: flex; overflow-x: auto; gap: 12px; }.repo-topbar .repo-brand small { display: none; }.repo-form-grid,.repo-upload-form,.repo-admin-cards,.repo-health-grid,.repo-workspace-filter-wide { grid-template-columns: 1fr; }.repo-field-full { grid-column: auto; }.repo-stepper { overflow-x: auto; grid-template-columns: repeat(5,minmax(110px,1fr)); }.repo-card-pad { padding: 17px; } }
 @media (max-width: 680px) { .repo-search-scope { align-items:flex-start; flex-wrap:wrap; gap:8px 14px; }.repo-search-scope legend { width:100%; }.repo-citation-menu > div { position:fixed; left:14px; right:14px; top:auto; bottom:70px; } }
 @media (max-width: 680px) { .repo-stepper-nine { grid-template-columns:repeat(9,minmax(110px,1fr)); } }

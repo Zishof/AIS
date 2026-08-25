@@ -310,20 +310,11 @@ public class LibraryCatalogSearchService {
         dto.setHoldings(holdings);
         dto.setItemType(item.getJenisItem() == null ? null : item.getJenisItem().getNama());
         dto.setMaterialType(item.getTipeItem() == null ? null : item.getTipeItem().getNama());
-        String ebook = Boolean.TRUE.equals(item.getBolehDiDownload()) ? safeUrl(item.getEbooksLink()) : null;
-        if (ebook == null && Boolean.TRUE.equals(item.getBolehDiDownload())) ebook = safeUrl(item.getEbooksLinkPdf());
+        String ebook = Boolean.TRUE.equals(item.getBolehDiDownload()) ? LibraryDigitalUrlPolicy.safe(item.getEbooksLink()) : null;
+        if (ebook == null && Boolean.TRUE.equals(item.getBolehDiDownload())) ebook = LibraryDigitalUrlPolicy.safe(item.getEbooksLinkPdf());
         dto.setDigital(Boolean.TRUE.equals(item.getBolehDiDownload()) && (ebook != null || hasText(item.getLampiranPath())));
         dto.setDigitalUrl(ebook);
         return dto;
-    }
-
-    private String safeUrl(String value) {
-        if (value == null) return null;
-        value = value.trim();
-        if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\\') >= 0) return null;
-        if (value.startsWith("https://") || value.startsWith("http://")) return value;
-        if (value.startsWith("/") && !value.startsWith("//") && !value.contains("/../") && !value.endsWith("/..")) return value;
-        return null;
     }
 
     private boolean hasText(String value) { return value != null && value.trim().length() > 0; }

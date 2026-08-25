@@ -46,8 +46,8 @@ String parent = vm.institution.healthcare ? "Keluarga pasien" : "Orang tua / wal
 String alumni = vm.institution.healthcare ? "Mitra layanan" : "Alumni";
 String impactAudience = vm.institution.healthcare ? "Tenaga kesehatan" : "Mitra industri";
 String media = "Media & masyarakat";
-String impactAnchor = vm.showImpact ? "#dampak" : "#layanan";
-String informationAnchor = (vm.showNews || vm.showAgenda) ? "#informasi" : "#kontak";
+String impactAnchor = root + "/web/" + (vm.institution.college ? "riset" : "pembelajaran");
+String informationAnchor = root + "/web/berita";
 String version = esc(text(vm.assetVersion, "4.0.0"));
 %>
 <!doctype html>
@@ -135,6 +135,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
 </aside>
 
 <main id="konten-utama">
+    <% if (!vm.contentWarnings.isEmpty()) { %><div class="service-status" role="status"><div class="wrap"><strong>Sebagian informasi belum dapat dimuat.</strong><span> Silakan coba kembali atau hubungi institusi jika informasi yang Anda perlukan belum tampil.</span></div></div><% } %>
     <section class="hero" id="beranda">
         <div class="hero-shape hero-shape--one"></div><div class="hero-shape hero-shape--two"></div>
         <div class="wrap hero-grid">
@@ -165,9 +166,9 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <section class="section section--soft" id="tentang">
         <div class="wrap"><div class="section-heading"><div><span class="kicker">Akses berdasarkan kebutuhan</span><h2>Temukan jalur informasi yang paling relevan</h2><p>Pilih kebutuhan Anda untuk menuju informasi dan layanan yang tepat tanpa menelusuri menu panjang.</p></div><a class="text-link" href="#layanan">Semua layanan <span aria-hidden="true">→</span></a></div>
         <div class="persona-grid">
-            <a class="persona" href="<%=esc(vm.primaryUrl)%>" target="<%=esc(vm.primaryTarget)%>" rel="<%=esc(vm.primaryRel)%>"><span>01</span><strong><%=esc(candidate)%></strong><small>Program, biaya, bantuan, dan pendaftaran.</small></a>
+            <a class="persona" href="<%=root%>/web/penerimaan"><span>01</span><strong><%=esc(candidate)%></strong><small>Program, biaya, bantuan, dan pendaftaran.</small></a>
             <a class="persona" href="<%=esc(vm.loginUrl)%>" target="<%=esc(vm.loginTarget)%>" rel="<%=esc(vm.loginRel)%>"><span>02</span><strong><%=esc(activeLearner)%></strong><small>Portal, informasi, dan layanan digital.</small></a>
-            <a class="persona" href="#kontak"><span>03</span><strong><%=esc(parent)%></strong><small>Informasi resmi dan kanal komunikasi.</small></a>
+            <a class="persona" href="<%=root%>/web/<%=vm.institution.college || vm.institution.healthcare ? "kontak" : "orang-tua"%>"><span>03</span><strong><%=esc(parent)%></strong><small>Informasi resmi dan kanal komunikasi.</small></a>
             <a class="persona" href="#layanan"><span>04</span><strong><%=esc(alumni)%></strong><small>Jejaring, karier, dan layanan terkait.</small></a>
             <a class="persona" href="<%=impactAnchor%>"><span>05</span><strong><%=esc(impactAudience)%></strong><small>Kolaborasi, mutu, riset, dan dampak.</small></a>
             <a class="persona" href="<%=informationAnchor%>"><span>06</span><strong><%=esc(media)%></strong><small>Berita, agenda, dokumen, dan kontak.</small></a>
@@ -176,7 +177,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
 
     <% if (vm.showPrograms) { %>
     <section class="section" id="program"><div class="wrap">
-        <div class="section-heading"><div><span class="kicker"><%=esc(vm.terminology.programLabel)%></span><h2>Temukan program sesuai tujuan Anda</h2><p>Program aktif ditampilkan dari data institusi, ringkas, dan mudah dibandingkan.</p></div></div>
+        <div class="section-heading"><div><span class="kicker"><%=esc(vm.terminology.programLabel)%></span><h2>Temukan program sesuai tujuan Anda</h2><p>Program aktif ditampilkan dari data institusi, ringkas, dan mudah dibandingkan.</p></div><a class="text-link" href="<%=root%>/web/program">Lihat semua <span aria-hidden="true">→</span></a></div>
         <div class="program-grid">
         <% for (HomePortalViewModel.ProgramItem item : vm.programs) { %>
             <article class="program-card">
@@ -199,7 +200,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
 
     <% if (vm.showNews || vm.showAgenda) { %>
     <section class="section" id="informasi"><div class="wrap">
-        <div class="section-heading"><div><span class="kicker">Berita &amp; agenda</span><h2>Informasi aktual dari institusi</h2><p>Publikasi dan kegiatan resmi ditampilkan secara ringkas agar mudah dipahami.</p></div></div>
+        <div class="section-heading"><div><span class="kicker">Berita &amp; agenda</span><h2>Informasi aktual dari institusi</h2><p>Publikasi dan kegiatan resmi ditampilkan secara ringkas agar mudah dipahami.</p></div><a class="text-link" href="<%=root%>/web/berita">Lihat semua <span aria-hidden="true">→</span></a></div>
         <div class="news-grid <%=vm.showNews && vm.showAgenda ? "" : "news-grid--single"%>">
             <% if (vm.showNews) { %><div class="news-list">
                 <% for (int i = 0; i < vm.news.size(); i++) { HomePortalViewModel.NewsItem item = vm.news.get(i); %>
@@ -216,7 +217,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <% } %>
 
     <% if (vm.showImpact) { %>
-    <section class="section section--soft" id="dampak"><div class="wrap"><div class="section-heading"><div><span class="kicker"><%=vm.institution.college ? "Riset, mutu & dampak" : "Pembelajaran, prestasi & dampak"%></span><h2>Bukti kontribusi yang dapat ditelusuri</h2><p>Setiap kartu mengarah pada layanan atau sumber informasi institusi yang nyata.</p></div></div><div class="impact-grid">
+    <section class="section section--soft" id="dampak"><div class="wrap"><div class="section-heading"><div><span class="kicker"><%=vm.institution.college ? "Riset, mutu &amp; dampak" : "Pembelajaran, prestasi &amp; dampak"%></span><h2>Bukti kontribusi yang dapat ditelusuri</h2><p>Setiap kartu mengarah pada layanan atau sumber informasi institusi yang nyata.</p></div></div><div class="impact-grid">
         <% for (HomePortalViewModel.ImpactItem item : vm.impacts) { %><a class="impact-card" href="<%=esc(item.url)%>"<%=attrs(item)%>><span aria-hidden="true">↗</span><h3><%=esc(item.label)%></h3><p><%=esc(item.description)%></p></a><% } %>
     </div></div></section>
     <% } %>
@@ -228,9 +229,9 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <div class="app-availability" aria-labelledby="app-availability-title">
         <div><span class="kicker">Aplikasi resmi</span><h3 id="app-availability-title">Tersedia juga untuk perangkat Anda</h3><p>Gunakan aplikasi resmi melalui Google Play, App Store, atau versi Desktop.</p></div>
         <div class="app-links">
-            <% if (vm.androidUrl != null && vm.androidUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.androidUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span><span><small>Unduh di</small><strong>Google Play</strong></span></a><% } %>
-            <% if (vm.iosUrl != null && vm.iosUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.iosUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">●</span><span><small>Unduh di</small><strong>App Store</strong></span></a><% } %>
-            <% if (vm.desktopUrl != null && vm.desktopUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.desktopUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▣</span><span><small>Unduh</small><strong>Versi Desktop</strong></span></a><% } %>
+            <% if (vm.androidUrl != null && vm.androidUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.androidUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span><span><small>Unduh di</small><strong>Google Play</strong><span class="sr-only"> (membuka tab baru)</span></span></a><% } %>
+            <% if (vm.iosUrl != null && vm.iosUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.iosUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">●</span><span><small>Unduh di</small><strong>App Store</strong><span class="sr-only"> (membuka tab baru)</span></span></a><% } %>
+            <% if (vm.desktopUrl != null && vm.desktopUrl.length() > 0) { %><a class="app-link" href="<%=esc(vm.desktopUrl)%>" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▣</span><span><small>Unduh</small><strong>Versi Desktop</strong><span class="sr-only"> (membuka tab baru)</span></span></a><% } %>
         </div>
     </div>
     <% } %>

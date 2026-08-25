@@ -50,6 +50,7 @@ public class HomePortalViewModel {
     public List<NewsItem> news = new ArrayList<NewsItem>();
     public List<AgendaItem> agenda = new ArrayList<AgendaItem>();
     public List<ImpactItem> impacts = new ArrayList<ImpactItem>();
+    public List<String> contentWarnings = new ArrayList<String>();
     public Admission admission;
 
     public static class Institution {

@@ -1,5 +1,5 @@
 <%@page import="ais.common.Common"%><%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%><%String root=Common.ROOT;String rnd=Common.getGeneratedBarCode(7);%>
-<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260821d"><script src="<%=root%>/assets/library-modern/library.js?v=20260821d"></script>
+<link rel="stylesheet" href="<%=root%>/assets/library-modern/library.css?v=20260825a"><script src="<%=root%>/assets/library-modern/library.js?v=20260825a"></script>
 <section class="library-modern library-page"><div class="library-container">
  <header class="library-page-head"><div><div class="library-eyebrow">Interoperabilitas</div><h1>Integrasi Perpustakaan</h1><p class="library-muted">Adapter dinonaktifkan secara default. Endpoint dan kredensial dibaca dari konfigurasi server, tidak pernah dari browser.</p></div><a class="library-button" href="<%=root%>/pustaka?hanya_tampil_jsp=true&p=pustaka&s=_oai&verb=Identify" target="_blank" rel="noopener">OAI-PMH Identify</a></header>
  <div class="library-grid library-grid-3" id="integrationCards<%=rnd%>" aria-live="polite"></div>

@@ -3,6 +3,8 @@
   <p class="repo-eyebrow">Manual layanan Repository</p>
   <h1>Pusat bantuan Repository</h1>
   <p>Panduan lengkap untuk menemukan, membaca, mengunduh, mengajukan, memperbaiki, dan menjaga karya ilmiah di Repository <%=rh(institution)%>.</p>
+  <p class="repo-help-meta"><strong>Pemilik konten:</strong> Pengelola Repository · <strong>Terakhir ditinjau:</strong> 24 Agustus 2026 · <strong>Siklus tinjau:</strong> minimal setiap 6 bulan atau setelah perubahan kebijakan.</p>
+  <div class="repo-help-search"><label for="repo-help-search"><strong>Cari di dalam panduan</strong></label><div><input id="repo-help-search" type="search" placeholder="Contoh: unggah PDF, embargo, metadata" autocomplete="off" data-repo-help-search><button class="repo-btn" type="button" data-repo-help-clear hidden>Hapus</button></div><p class="repo-muted" role="status" aria-live="polite" data-repo-help-status>17 bab tersedia.</p></div>
   <div class="repo-paper-actions"><a class="repo-btn repo-btn-primary" href="#mulai">Mulai membaca</a><a class="repo-btn" href="<%=root%>/repository/ask#repository-faq">Cari 300 tanya jawab</a><a class="repo-btn" href="#troubleshooting">Atasi masalah</a></div>
 </section>
 
@@ -222,6 +224,17 @@
       </dl>
       <p>Jika istilah yang dicari belum tercantum, gunakan katalog 300 tanya jawab atau hubungi pengelola dengan menyebut halaman tempat istilah tersebut muncul. Makna operasional selalu mengikuti kebijakan institusi dan konteks field, sehingga glosarium ini menjadi panduan penggunaan, bukan pengganti dokumen kebijakan resmi.</p>
       <p class="repo-help-back"><a class="repo-btn" href="#mulai">Kembali ke awal ↑</a></p>
+    </section>
+    <section class="repo-card repo-help-feedback" id="help-feedback">
+      <p class="repo-eyebrow">Perbaikan berkelanjutan</p><h2>Apakah panduan ini membantu?</h2>
+      <%if("thanks".equals(request.getParameter("feedback"))){%><div class="repo-alert repo-alert-success" role="status">Terima kasih. Masukan Anda telah dicatat untuk tinjauan konten berikutnya.</div><%}%>
+      <p>Penilaian digunakan untuk menemukan bab yang perlu diperjelas. Jangan menulis kata sandi, OTP, NIM lengkap, atau data pribadi pada komentar.</p>
+      <form method="post" action="<%=root%>/repository" class="repo-help-feedback-form">
+        <input type="hidden" name="action" value="helpFeedback"><input type="hidden" name="csrf" value="<%=rh((String)request.getAttribute("repoCsrf"))%>"><input type="hidden" name="contentKey" value="repository-help-v2" data-repo-help-content>
+        <fieldset><legend>Penilaian</legend><label><input type="radio" name="helpful" value="yes" required> Ya, membantu</label><label><input type="radio" name="helpful" value="no" required> Belum membantu</label></fieldset>
+        <label>Komentar opsional <textarea name="comment" rows="3" maxlength="1000" placeholder="Sebut bab atau langkah yang perlu diperjelas; jangan sertakan data sensitif."></textarea></label>
+        <button class="repo-btn repo-btn-primary" type="submit">Kirim penilaian</button>
+      </form>
     </section>
   </article>
 </section>

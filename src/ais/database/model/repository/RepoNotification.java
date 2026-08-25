@@ -10,9 +10,10 @@ import javax.persistence.*;
 @Table(schema="public",name="repo_notification")
 public class RepoNotification implements Serializable {
     private static final long serialVersionUID=1L;
-    private Long id,itemId; private String recipientId,recipientRole,type,message; private Date readAt,createdAt;
+    private Long id,itemId,preferenceId; private String recipientId,recipientRole,type,message; private Date readAt,createdAt;
     @Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",insertable=false,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}
     @Column(name="item_id",nullable=false) public Long getItemId(){return itemId;} public void setItemId(Long v){itemId=v;}
+    @Column(name="preference_id") public Long getPreferenceId(){return preferenceId;} public void setPreferenceId(Long v){preferenceId=v;}
     @Column(name="recipient_id",length=255) public String getRecipientId(){return recipientId;} public void setRecipientId(String v){recipientId=v;}
     @Column(name="recipient_role",length=60) public String getRecipientRole(){return recipientRole;} public void setRecipientRole(String v){recipientRole=v;}
     @Column(name="type",nullable=false,length=40) public String getType(){return type;} public void setType(String v){type=v;}

@@ -123,6 +123,10 @@ public final class DbCredentialOverride {
                 && "true".equalsIgnoreCase(System.getenv("AIS_JURNAL_STREAMING_SCHEMA_UPDATE"))
                 && name.toLowerCase().matches(".*(_sit|_uat|_demo|_fixture)(_[a-z0-9]+)?$");
         configuration.setProperty("hibernate.hbm2ddl.auto", streamingCloneUpdate ? "update" : "none");
+		// CVE-2020-25638 requires SQL comments together with unsafe query literals.
+		// Journal environments do not need generated SQL comments, so keep the
+		// vulnerable precondition disabled even if a parent JVM sets it globally.
+		configuration.setProperty("hibernate.use_sql_comments", "false");
 		return true;
 	}
 

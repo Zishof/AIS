@@ -168,7 +168,20 @@ final class RepositoryFaqCatalog {
             item.question=String.format(questionPattern,topic);
             item.answer=String.format(answerPattern,topic);
             item.keywords=category+" "+topic;
+            item.reviewedBy="Pengelola Repository";
+            item.lastReviewed="24 Agustus 2026";
+            item.policyRef=policyReference(category);
             items.add(item);
         }
+    }
+
+    private static String policyReference(String category){
+        String value=category.toLowerCase();
+        if(value.contains("akses")||value.contains("unduh")||value.contains("embargo"))return "Kebijakan akses dan distribusi";
+        if(value.contains("metadata")||value.contains("penulis")||value.contains("koleksi"))return "Standar metadata Repository";
+        if(value.contains("privasi")||value.contains("keamanan"))return "Kebijakan privasi dan keamanan";
+        if(value.contains("preservasi")||value.contains("versi"))return "Kebijakan preservasi digital";
+        if(value.contains("deposit")||value.contains("unggah")||value.contains("review"))return "Kebijakan deposit dan review";
+        return "Manual dan kebijakan Repository";
     }
 }

@@ -70,7 +70,7 @@ public class Web extends HttpServlet {
 			}
 		} catch (Exception e) {
 			String requestId = String.valueOf(request.getAttribute("websiteRequestId"));
-			ais.common.ErrorAuditUtil.record(e, "Web website V4 fallback request=" + requestId);
+			ais.common.ErrorAuditUtil.recordVisibleFailure(e, "[WEBSITE-V4-FALLBACK]", request, requestId);
 			response.setHeader("X-Website-Fallback", "legacy");
 			if (!response.isCommitted()) {
 				request.getRequestDispatcher("/WEB-INF/baru/website.jsp").forward(request, response);

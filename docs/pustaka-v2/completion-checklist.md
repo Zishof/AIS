@@ -34,6 +34,11 @@
 - Router telah menyertakan login, reader, layanan anggota, dan engagement API; rute di luar modul/allow-list ditolak.
 - Fallback adaptor mempertahankan JSON/XML saat terjadi error sehingga frontend tidak mencoba mem-parse halaman HTML.
 - Akses digital memakai gate anggota aktif atau petugas dan URL lokal menolak protocol-relative/traversal.
+- Header keamanan, request ID, cache policy API/OAI, telemetry per-node, serta status runtime petugas tersedia melalui filter terpusat.
+- Rate limit search/suggestion dibatasi per node dan memiliki batas jumlah key untuk mencegah pertumbuhan memori tanpa kendali.
+- Reservasi, booking ruang, penutupan stocktake, dan tindakan denda memakai pessimistic lock pada pemeriksaan yang rentan race condition.
+- Worker saved-search berbasis konfigurasi tersedia dalam keadaan disabled-by-default dan mengikuti cadence NEW/DAILY/WEEKLY.
+- Antrean petugas dapat menindaklanjuti Tanya Pustakawan, ILL, dan Usulan Anggota dengan status serta catatan audit.
 
 ## P3
 
@@ -48,3 +53,5 @@ Tidak ada skema database baru. Fitur menggunakan model AIS yang telah tersedia (
 Prasyarat tenant dan perilaku fallback dijelaskan pada `runtime-configuration.md`.
 
 Status deployment dan handoff terbaru dijelaskan pada `ai-handoff-2026-08-24.md`. Checklist ini tidak berarti seluruh integrasi eksternal atau routing server telah diverifikasi.
+
+Self-test source untuk policy URL, rate limiter, telemetry, dan security filter tersedia, tetapi belum dijalankan sesuai batas kerja tanpa build/test lokal.

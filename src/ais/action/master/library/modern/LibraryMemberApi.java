@@ -7,6 +7,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.Query;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Restrictions;
@@ -175,13 +176,14 @@ public final class LibraryMemberApi {
         Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Item item=(Item)session.get(Item.class,itemId);Perpustakaan library=(Perpustakaan)session.get(Perpustakaan.class,libraryId);
             if(item==null||Boolean.FALSE.equals(item.getAktif())||!isPublic(item))return error("Koleksi tidak ditemukan atau tidak lagi diterbitkan.");if(library==null||Boolean.FALSE.equals(library.getAktif()))return error("Perpustakaan tidak ditemukan.");
             List<Long> allowedLibraries=LibraryScopeResolver.allowedLibraryIds(session);if(allowedLibraries!=null&&!allowedLibraries.contains(libraryId))return error("Perpustakaan berada di luar scope institusi aktif.");
-            long readOnly=number(session.createSQLQuery("select count(id) from library.item_has_status where item=:item and (perpustakaan=:library or perpustakaan is null) and lower(coalesce(status,'')) like '%tidak boleh%' and current_date between coalesce(mulai,current_date) and coalesce(sampai,current_date)").setLong("item",itemId).setLong("library",libraryId).uniqueResult());if(readOnly>0)return error("Koleksi ini hanya dapat dibaca di tempat dan tidak dapat direservasi.");
+            tx=session.beginTransaction();session.lock(library,LockMode.UPGRADE);
+            long readOnly=number(session.createSQLQuery("select count(id) from library.item_has_status where item=:item and (perpustakaan=:library or perpustakaan is null) and lower(coalesce(status,'')) like '%tidak boleh%' and current_date between coalesce(mulai,current_date) and coalesce(sampai,current_date)").setLong("item",itemId).setLong("library",libraryId).uniqueResult());if(readOnly>0){rollback(tx);return error("Koleksi ini hanya dapat dibaca di tempat dan tidak dapat direservasi.");}
             long stock=number(session.createSQLQuery("select coalesce(sum((coalesce(d.qty,0)+coalesce(d.qtybonus,0))*k.jenis),0) from library.detail_transaksi d join library.kode_transaksi k on k.id=d.kode_transaksi where d.item=:item and d.perpustakaan=:library").setLong("item",itemId).setLong("library",libraryId).uniqueResult());
-            if(stock<1)return error("Koleksi tidak tersedia pada perpustakaan yang dipilih.");
-            long duplicate=count(session,"select count(id) from library.pesanan_anggota where anggota=:member and item=:item and perpustakaan=:library and status=:status and kadaluarsa>=current_timestamp",context.id,itemId,libraryId,PesananAnggota.PESAN);if(duplicate>0)return error("Koleksi ini sudah Anda reservasi.");
+            if(stock<1){rollback(tx);return error("Koleksi tidak tersedia pada perpustakaan yang dipilih.");}
+            long duplicate=count(session,"select count(id) from library.pesanan_anggota where anggota=:member and item=:item and perpustakaan=:library and status=:status and kadaluarsa>=current_timestamp",context.id,itemId,libraryId,PesananAnggota.PESAN);if(duplicate>0){rollback(tx);return error("Koleksi ini sudah Anda reservasi.");}
             Konfigurasi cfg=Common.getKonfigurasi("kadaluarsa.pemesanan.item","24");int hours=24;try{hours=Integer.parseInt(cfg.getNilai().trim());}catch(Exception ignored){hours=24;}Calendar cal=Calendar.getInstance();cal.add(Calendar.HOUR_OF_DAY,hours);
             PesananAnggota h=new PesananAnggota();h.setAnggota((Anggota)session.get(Anggota.class,context.id));h.setItem(item);h.setPerpustakaan(library);h.setTanggal(new Date());h.setKadaluarsa(cal.getTime());h.setKeterangan("Pemesanan online");h.setStatus(PesananAnggota.PESAN);
-            tx=session.beginTransaction();session.save(h);tx.commit();return ok().put("message","Reservasi berhasil dibuat.").put("holdId",h.getId());
+            session.save(h);tx.commit();return ok().put("message","Reservasi berhasil dibuat.").put("holdId",h.getId());
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
 

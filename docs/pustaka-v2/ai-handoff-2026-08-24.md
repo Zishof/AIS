@@ -108,7 +108,7 @@ Source utama: `webapp/WEB-INF/baru/modul/pustaka/_item_rinci.jsp`.
 - Baseline count, indikator hasil baru, toggle alert, serta hapus saved search.
 - Kolom `text_query` dan `text_result` bertipe `text`, sehingga metadata preference tidak dipotong.
 
-Pengiriman Email/WhatsApp tetap membutuhkan worker notifikasi dan gateway tenant di server.
+Worker polling saved-search telah tersedia melalui `LibrarySavedSearchNotificationWorker` dan default-nya nonaktif. Aktivasi memakai `library.saved_search.worker.enabled=true`, dengan interval `library.saved_search.worker.interval_minutes`. Pengiriman Email/WhatsApp tetap membutuhkan konfigurasi MailSender/gateway tenant di server.
 
 ## 10. Reader digital
 
@@ -133,6 +133,7 @@ UI: `layanan_anggota.jsp`; API: `LibraryEngagementApi` dan `_engagement_api.jsp`
 - Interlibrary loan disimpan sebagai `Pesan` bertanda `[INTERLIBRARY_LOAN]`.
 - Riwayat permintaan anggota tersedia.
 - Tombol bantuan mengambang menjadi “Tanya Pustakawan”.
+- Workspace operasional petugas memuat antrean ASK_LIBRARIAN, INTERLIBRARY_LOAN, dan USULAN ANGGOTA serta mewajibkan catatan saat menyetujui/menolak.
 
 ## 12. Mobile dan accessibility
 
@@ -154,6 +155,10 @@ UI: `layanan_anggota.jsp`; API: `LibraryEngagementApi` dan `_engagement_api.jsp`
 - Batch holdings/availability, lazy cover, dan paging database.
 - Policy file digital dan audit operasi penting.
 - Booking memvalidasi ulang tenant meskipun ID ruang dimanipulasi dari browser.
+- Filter `/pustaka` menambahkan request ID, header keamanan, CSP kompatibel JSP legacy, cache policy API/OAI, HSTS pada HTTPS, dan server timing.
+- Telemetry per-node menyimpan counter/error/durasi per route tanpa payload atau identitas dan dapat dilihat petugas melalui action `health`.
+- Limiter search/suggestion bersifat bounded dan per-node; limit lintas cluster tetap perlu gateway bersama.
+- Booking ruang, hold/reservasi, penutupan stocktake, dan tindakan denda memakai penguncian record untuk mengurangi race condition.
 
 ## 14. ZKoss
 
@@ -207,12 +212,14 @@ Gap source berikut telah ditutup pada lanjutan 25 Agustus 2026:
 - reader dan URL digital memakai gate anggota aktif atau petugas;
 - URL digital lokal menolak protocol-relative, backslash, CR/LF, dan traversal;
 - exception internal operasi petugas, integrasi, dan MARC tidak lagi dikirim mentah ke browser.
+- worker saved-search yang disabled-by-default, self-test policy/security, telemetry, dan antrean layanan petugas telah ditambahkan ke source;
+- frontend menampilkan pesan 401/403/409/429/5xx yang konsisten, ID permintaan, live alert global, dan menghormati `prefers-reduced-motion`.
 
 Masalah endpoint katalog pada server masih memerlukan build/deployment source terbaru dan pemeriksaan log. Perubahan source tidak dapat membuktikan keadaan artefak WAR atau Tomcat yang sedang aktif.
 
 ## 18. Pekerjaan yang bergantung pada data/infrastruktur
 
-- Worker notifikasi Email/WhatsApp dan gateway resmi tenant.
+- Aktivasi dan verifikasi worker notifikasi serta gateway Email/WhatsApp resmi tenant.
 - Bridge/kredensial RFID serta perangkat self-check.
 - Full-text extraction/index dan semantic/vector search.
 - Denah lantai, marker rak, jalur, akses kursi roda, QR lokasi, dan kiosk map.
@@ -231,6 +238,7 @@ Telah dilakukan:
 - pemeriksaan keseimbangan tag utama;
 - `git diff --check` pada file yang disentuh;
 - pemeriksaan respons endpoint katalog server secara read-only.
+- penambahan self-test source untuk URL policy, rate limiter, telemetry, dan filter keamanan (belum dijalankan).
 
 Belum dilakukan sesuai instruksi pemilik:
 
