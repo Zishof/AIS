@@ -2488,7 +2488,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
 
     private String formatDateOnly(Date date) {
         try {
-            return date == null ? "" : Common.dateFormat5.get().format(date);
+            return formatDateTime(date);
         } catch (Exception e) {
             return "";
         }
@@ -3710,7 +3710,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             return "Masukkan nilai baru sesuai tipe data field. Kosongkan jika nilai memang ingin dibuat kosong/null.";
         }
         if (Date.class.isAssignableFrom(propertyClass)) {
-            return "Format tanggal yang disarankan: yyyy-MM-dd HH:mm:ss atau dd-MM-yyyy HH:mm:ss. Contoh: 2026-06-06 14:30:00.";
+            return "Format tanggal: dd-MM-yyyy HH:mm:ss. Contoh: 06-06-2026 14:30:00.";
         }
         if (Boolean.class.equals(propertyClass) || Boolean.TYPE.equals(propertyClass)) {
             return "Masukkan true/false, ya/tidak, aktif/tidak, atau 1/0.";
@@ -3735,7 +3735,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 return "";
             }
             if (value instanceof Date) {
-                return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((Date) value);
+                return formatDateTime((Date) value);
             }
             if (value instanceof GeneralValueObject) {
                 Object id = ((GeneralValueObject) value).getId();
@@ -4128,8 +4128,8 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     }
 
     private Date parseManualDate(String text) throws Exception {
-        String[] patterns = new String[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd",
-                "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy",
+        String[] patterns = new String[] { "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy",
+                "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd",
                 "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy" };
         for (int i = 0; i < patterns.length; i++) {
             try {
@@ -4139,7 +4139,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:3489");
             }
         }
-        throw new IllegalArgumentException("Format tanggal belum dikenali. Gunakan yyyy-MM-dd HH:mm:ss atau dd-MM-yyyy HH:mm:ss.");
+        throw new IllegalArgumentException("Format tanggal belum dikenali. Gunakan dd-MM-yyyy HH:mm:ss.");
     }
 
     private Serializable convertRelationId(Session session, Class relationClass, String text) throws Exception {
@@ -4397,7 +4397,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) GenericRevisiHelper.formatValueForEdit"); }
         if (val instanceof java.util.Date) {
             try {
-                return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((java.util.Date) val);
+                return formatDateTime((java.util.Date) val);
             } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) GenericRevisiHelper.formatValueForEdit.date"); }
         }
         return String.valueOf(val);
@@ -5157,7 +5157,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         int processedPrimary = 0;
         try {
             Date date = fromDate == null ? addDays(WaktuUtil.getDate(), -7) : fromDate;
-            progress.start("Mengambil daftar revisi terbaru mulai " + Common.dateFormat5.get().format(date));
+            progress.start("Mengambil daftar revisi terbaru mulai " + formatDateTime(date));
 
             session = HibernateUtil.getSessionFactory().openSession();
             AuditReader reader = AuditReaderFactory.get(session);
@@ -5385,7 +5385,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             sb.append("Cakupan         : ").append(allDataMode ? "Semua ID pada class ini"
                     : ("ID terpilih = " + aiSafeStr(getSelectedEntityIdText()))).append("\n");
             sb.append("Jumlah revisi   : ").append(results.size()).append("\n");
-            sb.append("Disusun pada    : ").append(new java.util.Date().toString()).append("\n\n");
+            sb.append("Disusun pada    : ").append(formatDateTime(new java.util.Date())).append("\n\n");
 
             sb.append("=== DATA REVISI (hanya field yang BERUBAH) ===\n");
             int no = 1;
@@ -5838,7 +5838,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             status = message == null ? "Mulai restore..." : message;
             appendLog("============================================================");
             appendLog(processName + " - " + (clazz == null ? "" : clazz.getName()));
-            appendLog("Mulai : " + Common.datetimeFormat2s.get().format(startedAt));
+            appendLog("Mulai : " + formatDateTime(startedAt));
             appendLog(status);
         }
 
@@ -5898,7 +5898,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             status = message == null ? "Restore selesai." : message;
             lastMessage = status;
             appendLog(status);
-            appendLog("Selesai: " + Common.datetimeFormat2s.get().format(finishedAt));
+            appendLog("Selesai: " + formatDateTime(finishedAt));
             appendLog(getCounterText());
         }
 
@@ -5918,7 +5918,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             appendLog("[GAGAL UTAMA] " + status);
             appendLog("Penyebab : " + errorToString(throwable));
             appendLog("Solusi   : " + suggestSolution(throwable));
-            appendLog("Selesai: " + Common.datetimeFormat2s.get().format(finishedAt));
+            appendLog("Selesai: " + formatDateTime(finishedAt));
             appendLog(getCounterText());
         }
 
@@ -5927,7 +5927,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 return;
             }
             try {
-                log.append(Common.datetimeFormat2s.get().format(WaktuUtil.getDate())).append(" - ").append(message)
+                log.append(formatDateTime(WaktuUtil.getDate())).append(" - ").append(message)
                         .append("\r\n");
             } catch (Exception e) {
                 log.append(message).append("\r\n");
@@ -5995,8 +5995,8 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             sb.append("LOG RESTORE REVISI\r\n");
             sb.append("Class       : ").append(clazz == null ? "" : clazz.getName()).append("\r\n");
             sb.append("Proses      : ").append(processName).append("\r\n");
-            sb.append("Mulai       : ").append(startedAt == null ? "" : Common.datetimeFormat2s.get().format(startedAt)).append("\r\n");
-            sb.append("Selesai     : ").append(finishedAt == null ? "" : Common.datetimeFormat2s.get().format(finishedAt)).append("\r\n");
+            sb.append("Mulai       : ").append(formatDateTime(startedAt)).append("\r\n");
+            sb.append("Selesai     : ").append(formatDateTime(finishedAt)).append("\r\n");
             sb.append("Status      : ").append(successFinish ? "BERHASIL" : failed > 0 ? "SEBAGIAN/GAGAL" : "SELESAI").append("\r\n");
             sb.append(getCounterText()).append("\r\n");
             sb.append("============================================================\r\n");
@@ -6048,7 +6048,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     protected String formatRevisionDate(Object revisionEntity, Object entity) {
         try {
             if (revisionEntity instanceof DefaultRevisionEntity) {
-                return Common.dateFormat5.get().format(((DefaultRevisionEntity) revisionEntity).getRevisionDate());
+                return formatDateTime(((DefaultRevisionEntity) revisionEntity).getRevisionDate());
             }
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:4999");
         }
@@ -6056,7 +6056,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
             if (classMetadata != null && hasProperty("tanggal_dirubah")) {
                 Object value = classMetadata.getPropertyValue(entity, "tanggal_dirubah", EntityMode.POJO);
                 if (value instanceof Date) {
-                    return Common.dateFormat5.get().format((Date) value);
+                    return formatDateTime((Date) value);
                 }
             }
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/GenericRevisiHelper.java:5008");
@@ -6101,7 +6101,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     protected String formatValue(Object value) {
         try {
             if (value == null) return "";
-            if (value instanceof Date) return Common.datetimeFormat2s.get().format((Date) value);
+            if (value instanceof Date) return formatDateTime((Date) value);
             return value.toString();
         } catch (Exception e) {
             return "";
@@ -6119,13 +6119,25 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     protected String formatValueForManual(Object value) {
         try {
             if (value == null) return "";
-            if (value instanceof Date) return Common.datetimeFormat2s.get().format((Date) value);
+            if (value instanceof Date) return formatDateTime((Date) value);
             if (value instanceof GeneralValueObject) {
                 Object id = ((GeneralValueObject) value).getId();
                 String label = value.toString();
                 return (label == null ? "" : label) + (id == null ? "   [ID: -]" : "   [ID: " + id + "]");
             }
             return value.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** Format tanggal tunggal untuk seluruh tampilan, ekspor, dan log fitur revisi. */
+    protected static String formatDateTime(Date value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            return new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(value);
         } catch (Exception e) {
             return "";
         }
