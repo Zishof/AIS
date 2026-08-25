@@ -461,7 +461,6 @@ public final class PertangungjawabanApiHelper {
 		}
 		long uangMukaId = request.optLong("uangMukaId", 0);
 		String nama = request.optString("nama", "").trim();
-		double dikembalikan = request.optDouble("dikembalikan", 0);
 		Date tanggalStor = tanggal(request, "tanggalStor");
 		String statusDokumen = request.optString("statusDokumen", Pertangungjawaban.PENGAJUAN).trim();
 		JSONArray rincian = request.optJSONArray("rincian");
@@ -472,11 +471,6 @@ public final class PertangungjawabanApiHelper {
 		}
 		if (nama.isEmpty()) {
 			tolak(hasil, "Judul Pengajuan belum diisi.");
-			return;
-		}
-		// Sama dgn layar ZK: ambang 0.1 supaya pembulatan kecil tidak memaksa tanggal stor.
-		if (tanggalStor == null && dikembalikan > 0.1) {
-			tolak(hasil, "Tanggal Stor belum diisi.");
 			return;
 		}
 		if (Pertangungjawaban.DISETUJU.equals(statusDokumen) && !bolehAksi(tbmuser, "approve")) {
@@ -519,6 +513,18 @@ public final class PertangungjawabanApiHelper {
 			if ((long) nilaiUangMuka < (long) h.nilai) {
 				tolak(hasil, "Nilai yang dipertanggungjawabkan (" + Common.numberFormat.get().format(h.nilai)
 						+ ") melebihi nilai uang muka (" + Common.numberFormat.get().format(nilaiUangMuka) + ").");
+				return;
+			}
+			// Nilai pengembalian wajib berasal dari data otoritatif server. Jangan
+			// mempercayai angka kiriman klien karena rincian LPJ dapat berubah.
+			double dikembalikan = nilaiUangMuka - h.nilai;
+			if (Math.abs(dikembalikan) < 0.005) {
+				dikembalikan = 0;
+			}
+			// Sama dgn layar ZK: ambang 0.1 supaya pembulatan kecil tidak memaksa tanggal stor.
+			if (tanggalStor == null && dikembalikan > 0.1) {
+				tolak(hasil, "Tanggal Stor belum diisi untuk sisa dana "
+						+ Common.numberFormat.get().format(dikembalikan) + ".");
 				return;
 			}
 
@@ -579,6 +585,7 @@ public final class PertangungjawabanApiHelper {
 			hasil.put("kode", pj.getKode());
 			hasil.put("nilai", h.nilai);
 			hasil.put("pajak", h.pajak);
+			hasil.put("dikembalikan", dikembalikan);
 			hasil.put("message", baru ? "Pertanggungjawaban " + pj.getKode() + " dibuat."
 					: "Pertanggungjawaban diperbarui.");
 		} catch (Exception e) {
