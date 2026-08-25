@@ -13755,3 +13755,92 @@ span.z-toolbarbutton.ais-upload-opt-file:hover > a,
 span.z-toolbarbutton.ais-upload-opt-drive:hover > a,
 span.z-toolbarbutton.ais-upload-opt-dropbox:hover > a,
 span.z-toolbarbutton.ais-upload-opt-link:hover > a { opacity: .8; }
+
+/* =====================================================================
+   NORMALISASI GRID/TABEL ZUL — FULL WIDTH TANPA PITA KOSONG
+
+   Berlaku pada kelas tabel data bersama. Grid formulir biasa sengaja tidak
+   disentuh karena kolom kosongnya sering merupakan pasangan label/input.
+   MyGrid memberi kelas dgrid secara default; fgrid/dtabel/ftabel mencakup
+   pola tabel lama yang masih digunakan oleh halaman ZUL.
+   ===================================================================== */
+html body .dgrid,
+html body .fgrid,
+html body .dtabel,
+html body .ftabel,
+html body .z-grid.dgrid,
+html body .z-grid.fgrid,
+html body .z-listbox.dtabel,
+html body .z-listbox.ftabel {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+html body .dgrid > .z-grid-header,
+html body .dgrid > .z-grid-body,
+html body .dgrid > .z-grid-footer,
+html body .fgrid > .z-grid-header,
+html body .fgrid > .z-grid-body,
+html body .fgrid > .z-grid-footer,
+html body .dtabel > .z-listbox-header,
+html body .dtabel > .z-listbox-body,
+html body .dtabel > .z-listbox-footer,
+html body .ftabel > .z-listbox-header,
+html body .ftabel > .z-listbox-body,
+html body .ftabel > .z-listbox-footer {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Header, isi, dan footer memakai geometri yang sama. Jangan memaksa
+   table-layout:auto/fixed di sini: pilihan fixedLayout dari masing-masing
+   ZUL tetap dihormati agar lebar kolom eksplisit tidak berubah. */
+html body .dgrid > .z-grid-header table,
+html body .dgrid > .z-grid-body table,
+html body .dgrid > .z-grid-footer table,
+html body .fgrid > .z-grid-header table,
+html body .fgrid > .z-grid-body table,
+html body .fgrid > .z-grid-footer table,
+html body .dtabel > .z-listbox-header table,
+html body .dtabel > .z-listbox-body table,
+html body .dtabel > .z-listbox-footer table,
+html body .ftabel > .z-listbox-header table,
+html body .ftabel > .z-listbox-body table,
+html body .ftabel > .z-listbox-footer table {
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Kolom data yang memang lebar tetap bisa digulir secara horizontal, bukan
+   memotong konten atau memperlebar halaman keseluruhan. */
+html body .dgrid > .z-grid-body,
+html body .fgrid > .z-grid-body,
+html body .dtabel > .z-listbox-body,
+html body .ftabel > .z-listbox-body {
+    overflow-x: auto !important;
+}
+
+/* Header kolom aksi lama sering memakai label kosong. Kontainernya tetap
+   dipertahankan untuk keselarasan, tetapi tidak diberi padding kosong yang
+   membuat kolom aksi tampak seperti pita lebar. */
+html body .dgrid .z-column-cnt:empty,
+html body .fgrid .z-column-cnt:empty,
+html body .dtabel .z-listheader-cnt:empty,
+html body .ftabel .z-listheader-cnt:empty {
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+@media (max-width: 992px) {
+    html body .dgrid,
+    html body .fgrid,
+    html body .dtabel,
+    html body .ftabel {
+        min-width: 0 !important;
+    }
+}
