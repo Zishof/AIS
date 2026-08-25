@@ -10,6 +10,20 @@
 <%@ page import="ais.database.model.obe.*"%>
 <%@ page import="org.json.*"%>
 
+<%!
+    private int countUniqueRelationIds(String csv) {
+        Set<Long> ids = new HashSet<Long>();
+        if (csv == null || csv.trim().isEmpty()) return 0;
+        for (String token : csv.split(",")) {
+            String value = token != null ? token.trim() : "";
+            if (value.isEmpty()) continue;
+            try { ids.add(Long.valueOf(value)); }
+            catch (NumberFormatException ignored) { /* token rusak tidak dihitung */ }
+        }
+        return ids.size();
+    }
+%>
+
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -118,10 +132,10 @@
 
                 // Hitung jumlah CPL dan CPMK
                 int jmlCpl  = 0, jmlCpmk = 0, jmlBk = 0;
-                if (punyaCpl)  jmlCpl  = mk.getCapaianLulusan().split(",").length;
-                if (punyaCpmk) jmlCpmk = mk.getCapaianPembelajaranLulusan().split(",").length;
+                if (punyaCpl)  jmlCpl  = countUniqueRelationIds(mk.getCapaianLulusan());
+                if (punyaCpmk) jmlCpmk = countUniqueRelationIds(mk.getCapaianPembelajaranLulusan());
                 if (mk.getBahanKajian() != null && !mk.getBahanKajian().trim().isEmpty())
-                    jmlBk = mk.getBahanKajian().split(",").length;
+                    jmlBk = countUniqueRelationIds(mk.getBahanKajian());
 
                 // Nama dosen
                 String namaDosen = "";
