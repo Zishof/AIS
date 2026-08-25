@@ -86,7 +86,7 @@
 											sclass="dgrid" fixedLayout="true" id="grid">
 											<columns>
 												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Kode" sort="auto(kode)" />
-												<column use="ais.ui.util.MyColumnConfig" width="13%" label="Nama" />
+												<column use="ais.ui.util.MyColumnConfig" width="12%" label="Nama" />
 												<column use="ais.ui.util.MyColumnConfig" width="6%" label="Unit" />
 												<column use="ais.ui.util.MyColumnConfig" width="9%" label="Jenis Pembayaran" />
 												<column use="ais.ui.util.MyColumnConfig" width="9%" label="Jadwal Pembayaran" />
@@ -97,7 +97,7 @@
 												<column use="ais.ui.util.MyColumnConfig" width="7%" label="Status" />
 												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="14%" />
 												<column use="ais.ui.util.MyColumnConfig" width="5%" label="Kendala" />
-												<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px" label="Aksi" align="center" />
 											</columns>
 										</grid>
 								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

@@ -4,7 +4,9 @@ package ais.action.master;
 import ais.common.CommonSearchFilterHelper;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -544,6 +546,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 
 	protected Dosen dosen;
 	protected Boolean aktifPenilaian = false;
+	private final Map<String, Boolean> aktifPenilaianPerPeriode = new HashMap<String, Boolean>();
 	protected Tabs tabsNilai;
 	private North mynorth;
 	private Combobox ta;
@@ -1461,7 +1464,8 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 			detail.setOpen(true);
 			Common.clear(detail);
 			final Perkuliahan perkuliahan = (Perkuliahan) detail.getAttribute("perkuliahan");
-			detailperkuliahanHelper.display(perkuliahan, detail, null, null, aktifPenilaian);
+			detailperkuliahanHelper.display(perkuliahan, detail, null, null,
+					aktifPenilaianUntuk(perkuliahan));
 		}
 	}
 
@@ -1491,6 +1495,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 
 			String jenisSemester = perkuliahan.getGanjilGenap();
 			String tahunAkademik = perkuliahan.getTahunAjaran();
+			final boolean aktifPenilaianBaris = aktifPenilaianUntuk(perkuliahan);
 
 			final Konfigurasi konfigurasi = CommonPenilaian.getKonfigurasi(tahunAkademik, jenisSemester,
 					semesterPendek);
@@ -1537,7 +1542,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 								DetailperkuliahanForPenilaianHelper detailperkuliahanHelper = new DetailperkuliahanForPenilaianHelper(
 										edit);
 								detailperkuliahanHelper.display(perkuliahan, detail, eventListener, buttonFormatNilai,
-										aktifPenilaian);
+										aktifPenilaianBaris);
 							}
 						});
 					}
@@ -1688,8 +1693,8 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 
 											DetailperkuliahanForPenilaianHelper detailperkuliahanHelper = new DetailperkuliahanForPenilaianHelper(
 													edit);
-											detailperkuliahanHelper.display(perkuliahan, detail, eventListener,
-													buttonFormatNilai, aktifPenilaian);
+										detailperkuliahanHelper.display(perkuliahan, detail, eventListener,
+													buttonFormatNilai, aktifPenilaianBaris);
 										}
 									}, null);
 
@@ -1710,8 +1715,8 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 			}
 
 			buttonFormatNilai
-					.setDisabled(!edit || (!aktifPenilaian && !konfigurasi.getNilai().equals(Konfigurasi.AKTIF)));
-			if (aktifPenilaian) {
+					.setDisabled(!edit || (!aktifPenilaianBaris && !konfigurasi.getNilai().equals(Konfigurasi.AKTIF)));
+			if (aktifPenilaianBaris) {
 				buttonFormatNilai.setDisabled(false);
 			}
 		}
@@ -1747,6 +1752,35 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 				semesterPendek == null ? jenisSemester : Perkuliahan.SP);
 
 		System.out.println("aktifPenilaian = " + aktifPenilaian);
+	}
+
+	/**
+	 * Memeriksa izin pembukaan nilai berdasarkan periode milik baris perkuliahan,
+	 * bukan berdasarkan filter pencarian halaman. Hasil dicache per TA/semester agar
+	 * satu halaman tidak menjalankan query izin yang sama berulang kali.
+	 */
+	private boolean aktifPenilaianUntuk(Perkuliahan perkuliahan) {
+		if (perkuliahan == null) {
+			return false;
+		}
+
+		Perkuliahan periode = perkuliahan.getMerupakan_paralel()
+				&& perkuliahan.getPerkuliahan_paralel() != null ? perkuliahan.getPerkuliahan_paralel() : perkuliahan;
+		String tahunAkademik = periode.getTahunAjaran();
+		String jenisSemester = periode.getStatusSemesterPendek() != null ? Perkuliahan.SP
+				: periode.getGanjilGenap();
+		if (tahunAkademik == null || jenisSemester == null) {
+			return false;
+		}
+
+		String periodeKey = tahunAkademik + "|" + jenisSemester;
+		Boolean hasil = aktifPenilaianPerPeriode.get(periodeKey);
+		if (hasil == null) {
+			Dosen dosenAktif = tbmuser == null ? null : tbmuser.ambilDosen();
+			hasil = Common.checkApakahDosenBolehMenilai(dosenAktif, tbmuser, tahunAkademik, jenisSemester);
+			aktifPenilaianPerPeriode.put(periodeKey, hasil);
+		}
+		return Boolean.TRUE.equals(hasil);
 	}
 
 	/**
@@ -2073,6 +2107,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(final Event event) {
+		aktifPenilaianPerPeriode.clear();
 		final boolean isEventCari = event != null && event.getName() != null
 				&& event.getName().equalsIgnoreCase("cari");
 		final String tahunAkademik = (ta != null && ta.getSelectedItem() != null

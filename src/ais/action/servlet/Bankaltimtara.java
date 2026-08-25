@@ -594,7 +594,7 @@ public class Bankaltimtara extends HttpServlet {
 				}
 				// Callback otomatis wajib tunduk pada batas waktu VA berdasarkan waktu server.
 				// Parameter chekLagi hanya untuk rekonsiliasi manual yang dipicu pengguna.
-				boolean kadaluarsaCallbackOtomatis = !chekLagi
+				boolean kadaluarsaCallbackOtomatis = !chekLagi && !reversal && !chek
 						&& sudahKadaluarsaUntukCallbackOtomatis(virtualAccountBankNtt);
 				if (Double.isNaN(nominalP)) {
 					// VALIDASI DEFENSIF: amount kosong/tak valid dari bank (lihat sentinel di doProses)
