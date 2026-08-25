@@ -535,6 +535,14 @@ public class Bankaltimtara extends HttpServlet {
 		}
 	}
 
+	private static boolean sudahKadaluarsaUntukCallbackOtomatis(VirtualAccountBank virtualAccountBank) {
+		if (virtualAccountBank == null) {
+			return false;
+		}
+		Date batasPembayaran = virtualAccountBank.getKadaluarsaWaktu();
+		return batasPembayaran != null && !batasPembayaran.after(WaktuUtil.getDate());
+	}
+
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean reversal, boolean chek)
@@ -584,7 +592,10 @@ public class Bankaltimtara extends HttpServlet {
 						ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:322");
 					}
 				}
-				Date msk = virtualAccountBankNtt == null ? null : virtualAccountBankNtt.getKadaluarsaWaktu();
+				// Callback otomatis wajib tunduk pada batas waktu VA berdasarkan waktu server.
+				// Parameter chekLagi hanya untuk rekonsiliasi manual yang dipicu pengguna.
+				boolean kadaluarsaCallbackOtomatis = !chekLagi
+						&& sudahKadaluarsaUntukCallbackOtomatis(virtualAccountBankNtt);
 				if (Double.isNaN(nominalP)) {
 					// VALIDASI DEFENSIF: amount kosong/tak valid dari bank (lihat sentinel di doProses)
 					// - tolak callback dengan respons error yang jelas, jangan lempar exception mentah.
@@ -593,11 +604,10 @@ public class Bankaltimtara extends HttpServlet {
 				} else if (tanggalTidakValid) {
 					response.put("errorCode", "06");
 					response.put("statusDescription", "Format tanggal transaksi tidak valid");
-				} else if (!chekLagi && virtualAccountBankNtt != null && (tanggal != null && msk != null
-						&& Double.parseDouble(Common.dateFormat84.get().format(msk)) < Double
-								.parseDouble(Common.dateFormat84.get().format(tanggal)))) {
+				} else if (kadaluarsaCallbackOtomatis) {
 					response.put("errorCode", "03");
-					response.put("statusDescription", "Tagihan kadaluarsa");
+					response.put("statusDescription",
+							"Tagihan kadaluarsa; gunakan tombol Cek Pembayaran untuk rekonsiliasi manual");
 				} else if (virtualAccountBankNtt == null) {
 					response.put("errorCode", "01");
 					response.put("statusDescription", "Nomor VA salah");
@@ -634,12 +644,15 @@ public class Bankaltimtara extends HttpServlet {
 					
 					
 
-				if (VirtualAccountBank.isSudahTerbayarUntukPayment(virtualAccountBankNtt, inquery, reversal, chek)) {
+				if ("00".equals(response.optString("errorCode"))
+						&& VirtualAccountBank.isSudahTerbayarUntukPayment(virtualAccountBankNtt, inquery, reversal,
+								chek)) {
 					response.put("errorCode", "03");
 					response.put("statusDescription", "Tagihan sudah terbayar");
 				}
 
-				else if (virtualAccountBankNtt != null && virtualAccountBankNtt.getTotal() > 0.1) {
+				else if ("00".equals(response.optString("errorCode")) && virtualAccountBankNtt != null
+						&& virtualAccountBankNtt.getTotal() > 0.1) {
 
 					if (nominalP < 0.0) {
 						nominalP = virtualAccountBankNtt.getTotal() + virtualAccountBankNtt.getBiayaAdmin();
@@ -1325,9 +1338,9 @@ public class Bankaltimtara extends HttpServlet {
 
 		String body;
 		try {
-			// 05, request tidak diizinkan
+			// Callback publik bukan rekonsiliasi manual: VA kedaluwarsa wajib ditolak.
 			body = Bankaltimtara
-					.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true, false, reversal, chek)
+					.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, false, false, reversal, chek)
 					.toString();
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Bankaltimtara.java:1047");
@@ -1391,4 +1404,3 @@ public class Bankaltimtara extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 }
-

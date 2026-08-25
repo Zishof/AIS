@@ -82,21 +82,21 @@
 							</div>
 							<div sclass="ais-crud-data-card">
 								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
-								<grid use="ais.ui.util.MyGrid"
+								<grid use="ais.ui.util.MyGrid" width="100%" hflex="1"
 											sclass="dgrid" fixedLayout="true" id="grid">
 											<columns>
-												<column use="ais.ui.util.MyColumnConfig" label="Kode" sort="auto(kode)" />
-												<column use="ais.ui.util.MyColumnConfig" label="Nama" />
-												<column use="ais.ui.util.MyColumnConfig" label="Unit" />
-												<column use="ais.ui.util.MyColumnConfig" label="Jenis Pembayaran" />
-												<column use="ais.ui.util.MyColumnConfig" label="Jadwal Pembayaran" />
+												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Kode" sort="auto(kode)" />
+												<column use="ais.ui.util.MyColumnConfig" width="13%" label="Nama" />
+												<column use="ais.ui.util.MyColumnConfig" width="6%" label="Unit" />
+												<column use="ais.ui.util.MyColumnConfig" width="9%" label="Jenis Pembayaran" />
+												<column use="ais.ui.util.MyColumnConfig" width="9%" label="Jadwal Pembayaran" />
 												<column width="8%" use="ais.ui.util.MyColumnConfig" label="Kadaluarsa" />
 												<column width="8%" use="ais.ui.util.MyColumnConfig" label="Nominal" align="right" />
 												<column width="5%" use="ais.ui.util.MyColumnConfig" id="biayaAdminCol" label="Biaya Admin" align="right" />
 												<column width="5%" use="ais.ui.util.MyColumnConfig" id="topupCol" label="Topup" align="right" />
-												<column use="ais.ui.util.MyColumnConfig" label="Status" />
-												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="18%" />
-												<column use="ais.ui.util.MyColumnConfig" width="4%" label="Kendala" />
+												<column use="ais.ui.util.MyColumnConfig" width="7%" label="Status" />
+												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="14%" />
+												<column use="ais.ui.util.MyColumnConfig" width="5%" label="Kendala" />
 												<column use="ais.ui.util.MyColumnConfig" width="56px" label="" align="center" />
 											</columns>
 										</grid>

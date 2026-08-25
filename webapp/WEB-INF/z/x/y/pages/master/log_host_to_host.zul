@@ -212,37 +212,36 @@
 						<center border="none"
 							flex="true">
 
-							<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+							<grid use="ais.ui.util.MyGrid" sclass="fgrid" width="100%" hflex="1">
 								<rows>
-									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
 									<row>
-										<paging use="ais.ui.util.MyPagingKembar" visible="false"
+										<paging use="ais.ui.util.MyPagingKembar" visible="false" width="100%"
 											id="paging" detailed="true" />
 									</row>
 									<row>
-										<grid use="ais.ui.util.MyGrid" 
+										<grid use="ais.ui.util.MyGrid" width="100%" hflex="1"
 											sclass="dgrid" fixedLayout="true" id="grid">
 											<columns>
 												<column
 													use="ais.ui.util.MyColumnConfig" width="7%" label="IP" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="8%" label="Bank" />
+													use="ais.ui.util.MyColumnConfig" width="7%" label="Bank" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="9%" label="NIM / Nama" />
+													use="ais.ui.util.MyColumnConfig" width="10%" label="NIM / Nama" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="10%" label="Waktu" />
+													use="ais.ui.util.MyColumnConfig" width="9%" label="Waktu" />
 												<column
 													use="ais.ui.util.MyColumnConfig" width="14%" label="Request" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="14%" label="Response" />
+													use="ais.ui.util.MyColumnConfig" width="16%" label="Response" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="6%" label="Status" />
+													use="ais.ui.util.MyColumnConfig" width="7%" label="Status" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="8%" label="Kode" />
+													use="ais.ui.util.MyColumnConfig" width="9%" label="Kode" />
 												<column
 													use="ais.ui.util.MyColumnConfig" width="7%" label="Nominal" />
 												<column
-													use="ais.ui.util.MyColumnConfig" width="9%" label="Item" />
+													use="ais.ui.util.MyColumnConfig" width="10%" label="Item" />
 												<column
 													use="ais.ui.util.MyColumnConfig" width="56px" label="Aksi" align="center" />
 											</columns>
@@ -251,8 +250,7 @@
 
 
 									</row>
-									<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
-									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+									<row><paging visible="false" id="paging2" detailed="true" width="100%" use="ais.ui.util.MyPagingKembar" /></row>
 								</rows>
 							</grid>
 						</center>

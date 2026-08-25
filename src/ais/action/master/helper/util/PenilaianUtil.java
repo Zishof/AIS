@@ -526,12 +526,11 @@ public class PenilaianUtil {
 		XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 		XSSFSheet sheeta = workbook.getSheetAt(0);
 		List<List<String>> datas = Common.getSheetContent(sheeta);
+		Session session = HibernateUtil.currentSession();
 
 		try {
 
 			for (List<String> strings : datas) {
-
-				Session session = HibernateUtil.currentNativeSession();
 
 				try {
 
@@ -557,9 +556,6 @@ public class PenilaianUtil {
 
 					if (matakuliah == null) {
 						System.out.println("Matakuliah tidak ditemukan");
-						// session.disconnect();
-						if (session.isOpen()) {session.disconnect();session.close();}
-						HibernateUtil.closeSession();
 						continue;
 					}
 
@@ -593,9 +589,6 @@ public class PenilaianUtil {
 							.add(Restrictions.eq("perkuliahan.matakuliah", matakuliah)).setMaxResults(1).uniqueResult();
 					if (detailperkuliahanBukan != null) {
 						System.out.println("Matakuliah " + detailperkuliahanBukan + " sudah ada");
-						// session.disconnect();
-						if (session.isOpen()) {session.disconnect();session.close();}
-						HibernateUtil.closeSession();
 						continue;
 					}
 
@@ -643,16 +636,12 @@ public class PenilaianUtil {
 					detailperkuliahan.setNilaiHurufSementara(nilaiHuruf == null ? "" : nilaiHuruf.getNilaiHuruf());
 					detailperkuliahan.setTotalIPSementara(nilaiHuruf == null ? 0.0 : nilaiHuruf.getNilaiDiIPK());
 
-					session.getTransaction().begin();
 					session.saveOrUpdate(detailperkuliahan);
-					session.getTransaction().commit();
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
 				}
-				// session.disconnect();
-				if (session.isOpen()) {session.disconnect();session.close();}
-				HibernateUtil.closeSession();
 			}
+			session.flush();
 
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
