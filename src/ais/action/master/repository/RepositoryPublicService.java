@@ -18,6 +18,7 @@ import java.security.MessageDigest;
 import org.hibernate.Criteria;
 import org.hibernate.Hibernate;
 import org.hibernate.Session;
+import org.hibernate.SessionException;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -684,10 +685,27 @@ public class RepositoryPublicService {
      */
     public ItemDetail findPublicCitationItem(Long id) {
         if (id == null || id.longValue() <= 0L) return null;
-        Session session = null;
-        try {
-        RepositoryTenantScope.ensureSchema();
-        session = HibernateUtil.openSession();
+        SessionException sessionFailure = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Session session = null;
+            try {
+                RepositoryTenantScope.ensureSchema();
+                session = HibernateUtil.openSession();
+                return findPublicCitationItem(session, id);
+            } catch (SessionException e) {
+                sessionFailure = e;
+                // GET sitasi bersifat read-only/idempotent. Bila session tertutup di tengah query,
+                // lepaskan session tersebut dan ulangi sekali memakai session yang benar-benar baru.
+                if (attempt > 0) throw e;
+            } finally {
+                HibernateUtil.closeSessionQuietly(session);
+            }
+        }
+        if (sessionFailure != null) throw sessionFailure;
+        return null;
+    }
+
+    private ItemDetail findPublicCitationItem(Session session, Long id) {
         RepoItem entity = (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("id", id))
                 .add(publicVisibilityRestriction())
@@ -699,9 +717,6 @@ public class RepositoryPublicService {
         ItemDetail detail = new ItemDetail();
         copyCard(toCard(entity, collection), detail);
         return detail;
-        } finally {
-            HibernateUtil.closeSessionQuietly(session);
-        }
     }
 
     public CollectionView findCollection(Long id) {
