@@ -62,6 +62,7 @@ import ais.ui.util.MyGroupboxStyled;
 import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MenuAksiBaris;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
@@ -708,6 +709,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         column.setParent(columns);
         column.setLabel("");
         column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
+		column.setAlign("center");
         column = new MyColumnConfig();
         column.setParent(columns);
         column.setLabel("Ringkasan Data");
@@ -3339,6 +3341,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         column.setParent(columns);
         column.setLabel("");
         column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
+        column.setAlign("center");
         Rows rows = new Rows();
         rows.setParent(detailGrid);
 
@@ -3525,6 +3528,8 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 }
             });
         }
+
+		MenuAksiBaris.pasangSelalu(aksi, "Aksi revisi field " + (property == null ? "" : property));
     }
 
     protected void showManualEditPopup(final GeneralValueObject currentObject, final String property,

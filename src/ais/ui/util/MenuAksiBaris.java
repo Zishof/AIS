@@ -45,7 +45,7 @@ public final class MenuAksiBaris {
 
 	/** Lihat {@link #pasang(org.zkoss.zul.Hbox, String)}; judul tombolnya "Aksi lain". */
 	public static void pasang(org.zkoss.zul.Hbox toolbar) {
-		pasang(toolbar, "Aksi lain");
+		pasangInternal(toolbar, "Aksi lain", false);
 	}
 
 	/**
@@ -55,6 +55,23 @@ public final class MenuAksiBaris {
 	 * @param judul   tooltip tombol "…"
 	 */
 	public static void pasang(org.zkoss.zul.Hbox toolbar, String judul) {
+		pasangInternal(toolbar, judul, false);
+	}
+
+	/**
+	 * Selalu ringkas aksi menjadi tombol kebab, termasuk ketika hanya ada satu aksi.
+	 * Cocok untuk kolom aksi sempit yang harus konsisten pada setiap baris.
+	 */
+	public static void pasangSelalu(org.zkoss.zul.Hbox toolbar) {
+		pasangInternal(toolbar, "Aksi lain", true);
+	}
+
+	/** Lihat {@link #pasangSelalu(org.zkoss.zul.Hbox)} dengan tooltip khusus. */
+	public static void pasangSelalu(org.zkoss.zul.Hbox toolbar, String judul) {
+		pasangInternal(toolbar, judul, true);
+	}
+
+	private static void pasangInternal(org.zkoss.zul.Hbox toolbar, String judul, boolean selaluKebab) {
 		if (toolbar == null) {
 			return;
 		}
@@ -64,7 +81,7 @@ public final class MenuAksiBaris {
 				tombol.add((org.zkoss.zul.Toolbarbutton) anak);
 			}
 		}
-		if (tombol.size() < 2) {
+		if (tombol.isEmpty() || (!selaluKebab && tombol.size() < 2)) {
 			return;
 		}
 
