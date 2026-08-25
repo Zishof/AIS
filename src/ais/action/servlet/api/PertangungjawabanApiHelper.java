@@ -344,9 +344,8 @@ public final class PertangungjawabanApiHelper {
 	}
 
 	/**
-	 * Cari uang muka yang boleh dipertanggungjawabkan: sudah DISETUJUI dan belum punya LPJ.
-	 * Saat menyunting LPJ, uang muka miliknya sendiri tetap ikut supaya tidak hilang dari
-	 * pilihan.
+	 * Cari seluruh uang muka untuk pemilih LPJ. Data yang belum memenuhi syarat tetap
+	 * dikirim agar pengguna mengetahui statusnya, tetapi ditandai tidak dapat dipilih.
 	 */
 	public static void cariUangMuka(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String cari = request == null ? "" : request.optString("cari", "").trim();
@@ -356,22 +355,24 @@ public final class PertangungjawabanApiHelper {
 			Connection conn = session.connection();
 			StringBuilder sql = new StringBuilder(
 					"SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.nilai,0),"
-							+ " COALESCE(sk.nama,''), m.mulai, m.sampai"
+							+ " COALESCE(sk.nama,''), m.mulai, m.sampai, COALESCE(m.aktif,true),"
+							+ " COALESCE(m.status,''), m.disetujui_oleh, m.pertangungjawaban,"
+							+ " EXISTS (SELECT 1 FROM akunting.daftar_pengajuan_transfer d1 WHERE d1.uang_muka=m.id),"
+							+ " EXISTS (SELECT 1 FROM akunting.daftar_pengajuan_transfer d2"
+							+ " LEFT JOIN akunting.proses_transfer pt ON pt.id=d2.proses_transfer"
+							+ " LEFT JOIN akunting.transitori tr ON tr.id=d2.transitori_data"
+							+ " WHERE d2.uang_muka=m.id AND ((COALESCE(d2.transfer,false)=true"
+							+ " AND pt.realisasikan_oleh IS NOT NULL) OR (COALESCE(d2.transitori,false)=true"
+							+ " AND tr.transfer IS NOT NULL)))"
 							+ " FROM public.uang_muka m"
 							+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = m.satuan_kerja"
-							+ " WHERE COALESCE(m.status,'') = ?"
-							+ "   AND (m.pertangungjawaban IS NULL"
-							+ (lpjId > 0 ? " OR m.pertangungjawaban = ?" : "") + ")");
+							+ " WHERE 1=1");
 			if (!cari.isEmpty()) {
 				sql.append(" AND (m.kode ILIKE ? OR m.nama ILIKE ?)");
 			}
-			sql.append(" ORDER BY m.id DESC LIMIT 100");
+			sql.append(" ORDER BY m.id DESC LIMIT 200");
 			PreparedStatement ps = conn.prepareStatement(sql.toString());
 			int i = 1;
-			ps.setString(i++, UangMuka.DISETUJU);
-			if (lpjId > 0) {
-				ps.setLong(i++, lpjId);
-			}
 			if (!cari.isEmpty()) {
 				String kw = "%" + cari + "%";
 				ps.setString(i++, kw);
@@ -388,6 +389,39 @@ public final class PertangungjawabanApiHelper {
 				j.put("satuanKerja", rs.getString(5));
 				j.put("mulai", rs.getDate(6) == null ? "" : rs.getDate(6).toString());
 				j.put("sampai", rs.getDate(7) == null ? "" : rs.getDate(7).toString());
+				boolean aktif = rs.getBoolean(8);
+				String status = rs.getString(9);
+				boolean disetujui = UangMuka.DISETUJU.equals(status) && rs.getObject(10) != null;
+				long lpjTerpakai = rs.getLong(11);
+				boolean punyaLpj = !rs.wasNull();
+				boolean pilihanTersimpan = lpjId > 0 && punyaLpj && lpjTerpakai == lpjId;
+				boolean sudahMasukDpc = rs.getBoolean(12);
+				boolean dpcDirealisasikan = rs.getBoolean(13);
+				boolean dapatDipilih = pilihanTersimpan
+						|| (aktif && disetujui && !punyaLpj && sudahMasukDpc && dpcDirealisasikan);
+				String alasan = "";
+				String statusPemilihan = pilihanTersimpan ? "Pilihan saat ini" : "Tersedia";
+				if (!dapatDipilih) {
+					if (!aktif) {
+						alasan = "Uang muka tidak aktif.";
+					} else if (!disetujui) {
+						alasan = "Belum disetujui.";
+					} else if (!sudahMasukDpc) {
+						alasan = "Belum masuk Proses Transfer (DPC).";
+					} else if (!dpcDirealisasikan) {
+						alasan = "Proses Transfer (DPC) belum direalisasikan.";
+					} else if (punyaLpj) {
+						alasan = "Sudah dipakai pada pertanggungjawaban lain.";
+					}
+					statusPemilihan = "Tidak dapat dipilih";
+				}
+				j.put("dapatDipilih", dapatDipilih);
+				j.put("pilihanTersimpan", pilihanTersimpan);
+				j.put("statusPemilihan", statusPemilihan);
+				j.put("alasanTidakDapatDipilih", alasan);
+				j.put("statusUangMuka", status);
+				j.put("sudahMasukDpc", sudahMasukDpc);
+				j.put("dpcDirealisasikan", dpcDirealisasikan);
 				arr.put(j);
 			}
 			rs.close();
@@ -467,6 +501,15 @@ public final class PertangungjawabanApiHelper {
 				tolak(hasil, "Pertanggungjawaban ini sudah dijurnal sehingga tidak boleh diubah lagi.");
 				return;
 			}
+			boolean pilihanTersimpan = !baru && pj.getUangMuka() != null
+					&& pj.getUangMuka().getId().longValue() == uangMukaId;
+			if (!pilihanTersimpan) {
+				String alasan = alasanUangMukaTidakDapatDipilih(session.connection(), uangMukaId);
+				if (!alasan.isEmpty()) {
+					tolak(hasil, alasan);
+					return;
+				}
+			}
 
 			boolean pph = Common.bolehKonfigurasi("pph_mengurangi_lpj");
 			Hitungan h = hitung(session, rincian, pph);
@@ -544,6 +587,39 @@ public final class PertangungjawabanApiHelper {
 			hasil.put("teknis", e.toString());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Validasi otoritatif agar aturan pemilih tidak dapat dilewati oleh klien lama. */
+	private static String alasanUangMukaTidakDapatDipilih(Connection conn, long uangMukaId) throws Exception {
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			ps = conn.prepareStatement("SELECT COALESCE(m.aktif,true), COALESCE(m.status,''),"
+					+ " m.disetujui_oleh, m.pertangungjawaban,"
+					+ " EXISTS (SELECT 1 FROM akunting.daftar_pengajuan_transfer d1 WHERE d1.uang_muka=m.id),"
+					+ " EXISTS (SELECT 1 FROM akunting.daftar_pengajuan_transfer d2"
+					+ " LEFT JOIN akunting.proses_transfer pt ON pt.id=d2.proses_transfer"
+					+ " LEFT JOIN akunting.transitori tr ON tr.id=d2.transitori_data"
+					+ " WHERE d2.uang_muka=m.id AND ((COALESCE(d2.transfer,false)=true"
+					+ " AND pt.realisasikan_oleh IS NOT NULL) OR (COALESCE(d2.transitori,false)=true"
+					+ " AND tr.transfer IS NOT NULL))) FROM public.uang_muka m WHERE m.id=?");
+			ps.setLong(1, uangMukaId);
+			rs = ps.executeQuery();
+			if (!rs.next()) return "Uang Muka tidak ditemukan.";
+			if (!rs.getBoolean(1)) return "Uang Muka tidak aktif.";
+			if (!UangMuka.DISETUJU.equals(rs.getString(2)) || rs.getObject(3) == null)
+				return "Uang Muka belum disetujui sehingga belum dapat dipertanggungjawabkan.";
+			if (rs.getObject(4) != null)
+				return "Uang Muka sudah dipakai pada pertanggungjawaban lain.";
+			if (!rs.getBoolean(5))
+				return "Uang Muka belum masuk Proses Transfer (DPC).";
+			if (!rs.getBoolean(6))
+				return "Proses Transfer (DPC) Uang Muka belum direalisasikan.";
+			return "";
+		} finally {
+			if (rs != null) try { rs.close(); } catch (Exception ignored) { }
+			if (ps != null) try { ps.close(); } catch (Exception ignored) { }
 		}
 	}
 

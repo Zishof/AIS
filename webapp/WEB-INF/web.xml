@@ -1560,14 +1560,6 @@
 		<url-pattern>/repository/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
-		<servlet-name>repository</servlet-name>
-		<url-pattern>/sitemap.xml</url-pattern>
-	</servlet-mapping>
-	<servlet-mapping>
-		<servlet-name>repository</servlet-name>
-		<url-pattern>/robots.txt</url-pattern>
-	</servlet-mapping>
-	<servlet-mapping>
 		<servlet-name>repositoryWorkspace</servlet-name>
 		<url-pattern>/repository-workspace</url-pattern>
 	</servlet-mapping>
