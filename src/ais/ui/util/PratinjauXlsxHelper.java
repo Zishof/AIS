@@ -87,10 +87,12 @@ public class PratinjauXlsxHelper {
 		 * memperlebar parent mengikuti Grid sehingga scrollbar horizontal hilang. */
 		wadah.setStyle("width:100%;height:100%;max-width:100%;min-width:0;"
 				+ "overflow:hidden;box-sizing:border-box;");
-		for (Component anak : anakLama) {
-			anak.setParent(wadah);
-		}
+		/* ZK 5/6 LayoutRegion harus benar-benar kosong sebelum wrapper dipasang.
+		 * Reparent langsung dapat membuat region masih melihat child lama dan
+		 * melempar "Only one child is allowed" saat wadah dipasang. */
+		for (Component anak : anakLama) anak.setParent(null);
 		wadah.setParent(region);
+		for (Component anak : anakLama) anak.setParent(wadah);
 		return wadah;
 	}
 

@@ -36,7 +36,7 @@ public class MySpreadsheet extends Spreadsheet {
 			pendingParent = component;
 			return;
 		}
-		super.setParent(component);
+		super.setParent(wadahAman(component));
 		aturTinggi(maxRowsDiminta);
 //		try {
 //			((HtmlBasedComponent) component.getParent()).setStyle("max-height: 700px;min-height: 50px;");
@@ -68,7 +68,7 @@ public class MySpreadsheet extends Spreadsheet {
 		if (parent == null || attachDijadwalkan) return;
 		if (parent.getPage() == null) {
 			pendingParent = null;
-			super.setParent(parent);
+			super.setParent(wadahAman(parent));
 			aturTinggi(maxRowsDiminta);
 			return;
 		}
@@ -80,7 +80,7 @@ public class MySpreadsheet extends Spreadsheet {
 				attachDijadwalkan = false;
 				if (pendingParent == parent) {
 					pendingParent = null;
-					MySpreadsheet.super.setParent(parent);
+					MySpreadsheet.super.setParent(wadahAman(parent));
 					aturTinggi(maxRowsDiminta);
 				}
 			}
@@ -106,10 +106,7 @@ public class MySpreadsheet extends Spreadsheet {
 		 * (bukan dibuang, agar tidak ada komponen yang hilang), Div itu menjadi anak tunggal
 		 * region, lalu spreadsheet menyusul ke dalam Div yang sama. */
 		try {
-			if (parent instanceof org.zkoss.zul.LayoutRegion && !parent.getChildren().isEmpty()) {
-				parent = bungkusIsiRegion((org.zkoss.zul.LayoutRegion) parent);
-			}
-			super.setParent(parent);
+			super.setParent(wadahAman(parent));
 		} catch (Throwable t) {
 			ais.common.ErrorAuditUtil.record(t, "MySpreadsheet.pasangSekarangJikaTertunda");
 			return;
@@ -134,11 +131,24 @@ public class MySpreadsheet extends Spreadsheet {
 		wadah.setSclass("kb-wadah-region");
 		wadah.setWidth("100%");
 		wadah.setStyle("height:100%;max-width:100%;min-width:0;overflow:auto;box-sizing:border-box;");
+		/* Lepaskan dahulu seluruh child dari LayoutRegion. Memindahkan langsung
+		 * child.setParent(wadah) pada ZK lama dapat meninggalkan child tercatat
+		 * sementara di region, sehingga wadah ditolak sebagai anak kedua. */
+		for (int i = 0; i < isi.size(); i++) {
+			((Component) isi.get(i)).setParent(null);
+		}
+		wadah.setParent(region);
 		for (int i = 0; i < isi.size(); i++) {
 			((Component) isi.get(i)).setParent(wadah);
 		}
-		wadah.setParent(region);
 		return wadah;
+	}
+
+	private static Component wadahAman(Component parent) {
+		if (parent instanceof org.zkoss.zul.LayoutRegion && !parent.getChildren().isEmpty()) {
+			return bungkusIsiRegion((org.zkoss.zul.LayoutRegion) parent);
+		}
+		return parent;
 	}
 
 	public void setMaxcolumns(int columns) {
