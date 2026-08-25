@@ -170,10 +170,10 @@
 									<row>
 										<label use="ais.ui.util.MyLabelConfig" value="Kota"/>
 										<textbox forward="onOK=onSearchDefault" id="searchkabkota" width="95%"/>
-										<label value=""/>
-										<label value=""/>
-										<label value=""/>
-										<label value=""/>
+										<label use="ais.ui.util.MyLabelConfig" value="Tgl Lahir Dari"/>
+										<datebox use="ais.ui.util.MyDatebox" id="searchTanggalLahirDari" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%"/>
+										<label use="ais.ui.util.MyLabelConfig" value="Sampai"/>
+										<datebox use="ais.ui.util.MyDatebox" id="searchTanggalLahirSampai" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%"/>
 										<label value=""/>
 										<label value=""/>
 									</row>

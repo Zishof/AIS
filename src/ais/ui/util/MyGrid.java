@@ -38,14 +38,6 @@ public class MyGrid extends Grid {
 
 	public MyGrid() {
 		super();
-		/*
-		 * Grid adalah komponen blok dan harus memakai seluruh lebar kontainer.
-		 * Banyak ZUL lama tidak menuliskan width/hflex sehingga tabel berhenti
-		 * sebelum tepi panel dan menyisakan pita kosong di sisi kanan. Default
-		 * ini berlaku untuk semua pola MyGrid, tetapi tetap dapat dioverride oleh
-		 * atribut width pada ZUL setelah konstruksi komponen.
-		 */
-		setWidth("100%");
 		initBg();
 		setSclass("dgrid");
 		init();

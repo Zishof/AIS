@@ -135,6 +135,7 @@ import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyComboitemConfig;
+import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyInclude;
@@ -162,6 +163,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 	private MyToolbarbuttonConfig uploadNIM;
 	private Textbox searchujian;
 	private Textbox searchkabkota;
+	private MyDatebox searchTanggalLahirDari;
+	private MyDatebox searchTanggalLahirSampai;
 	private Textbox searchnim;
 	private Checkbox searchaktif;
 	private Combobox searchTahunAjaran;
@@ -3974,6 +3977,13 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		if (searchkabkota != null && !searchkabkota.getValue().trim().isEmpty()) {
 			criteria.createAlias("kotaCalon", "kotaCalon")
 					.add(Restrictions.ilike("kotaCalon.nama", searchkabkota.getValue().trim(), MatchMode.ANYWHERE));
+		}
+
+		if (searchTanggalLahirDari != null && searchTanggalLahirDari.getValue() != null) {
+			criteria.add(Restrictions.ge("tanggalLahir", searchTanggalLahirDari.getValue()));
+		}
+		if (searchTanggalLahirSampai != null && searchTanggalLahirSampai.getValue() != null) {
+			criteria.add(Restrictions.le("tanggalLahir", searchTanggalLahirSampai.getValue()));
 		}
 
 		if (jenisKegiatan != null) {
