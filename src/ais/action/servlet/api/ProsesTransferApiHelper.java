@@ -333,7 +333,8 @@ public final class ProsesTransferApiHelper {
 							+ " p.tanggal_pembuatan, COALESCE(p.nilai,0), c.nama,"
 							+ " du.usernama, p.tanggal_persetujuan, ru.usernama, p.tanggal_realisasikan,"
 							+ " (SELECT count(*) FROM akunting.daftar_pengajuan_transfer d"
-							+ "  WHERE d.proses_transfer = p.id)"
+							+ "  WHERE d.proses_transfer = p.id),"
+							+ " COALESCE(p.catatan_persetujuan,''), COALESCE(p.catatan_realisasi,'')"
 							+ " FROM akunting.proses_transfer p"
 							+ " LEFT JOIN akunting.cara_pembayaran_transfer c ON c.id = p.cara_pembayaran_transfer"
 							+ " LEFT JOIN tbmuser du ON du.userid = p.disetujui_oleh"
@@ -397,6 +398,8 @@ public final class ProsesTransferApiHelper {
 				j.put("realisasikanOleh", realisasi == null ? "" : realisasi);
 				j.put("tanggalRealisasikan", teksTanggal(rs.getTimestamp(11)));
 				j.put("jumlahItem", rs.getLong(12));
+				j.put("catatanPersetujuan", rs.getString(13));
+				j.put("catatanRealisasi", rs.getString(14));
 				j.put("statusDokumen", realisasi != null ? "Terealisasi" : (setuju != null ? "Disetujui" : "Draft"));
 				arr.put(j);
 			}
@@ -441,8 +444,10 @@ public final class ProsesTransferApiHelper {
 							: pt.getCaraPembayaranTransfer().getNama()));
 			h.put("disetujuiOleh", nama(pt.getDisetujuiOleh()));
 			h.put("tanggalPersetujuan", teksTanggal(pt.getTanggalPersetujuan()));
+			h.put("catatanPersetujuan", pt.getCatatanPersetujuan() == null ? "" : pt.getCatatanPersetujuan());
 			h.put("realisasikanOleh", nama(pt.getRealisasikanOleh()));
 			h.put("tanggalRealisasikan", teksTanggal(pt.getTanggalRealisasikan()));
+			h.put("catatanRealisasi", pt.getCatatanRealisasi() == null ? "" : pt.getCatatanRealisasi());
 			h.put("statusDokumen", statusDokumen(pt));
 
 			hasil.put("status", "00");
@@ -804,6 +809,17 @@ public final class ProsesTransferApiHelper {
 			return;
 		}
 		long id = request == null ? 0 : request.optLong("id", 0);
+		Date tanggalPersetujuan = tanggal(request, "tanggalPersetujuan");
+		String catatanPersetujuan = request == null ? ""
+				: request.optString("catatanPersetujuan", "").trim();
+		if (tanggalPersetujuan == null) {
+			tolak(hasil, "Tanggal disetujui wajib diisi.");
+			return;
+		}
+		if (catatanPersetujuan.length() > 2000) {
+			tolak(hasil, "Catatan persetujuan maksimal 2000 karakter.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ProsesTransfer pt = id == 0 ? null : (ProsesTransfer) session.get(ProsesTransfer.class, Long.valueOf(id));
@@ -824,7 +840,8 @@ public final class ProsesTransferApiHelper {
 			}
 			session.beginTransaction();
 			pt.setDisetujuiOleh(tbmuser);
-			pt.setTanggalPersetujuan(WaktuUtil.getDate());
+			pt.setTanggalPersetujuan(tanggalPersetujuan);
+			pt.setCatatanPersetujuan(catatanPersetujuan.length() == 0 ? null : catatanPersetujuan);
 			session.update(pt);
 			session.getTransaction().commit();
 
@@ -865,6 +882,7 @@ public final class ProsesTransferApiHelper {
 			session.beginTransaction();
 			pt.setDisetujuiOleh(null);
 			pt.setTanggalPersetujuan(null);
+			pt.setCatatanPersetujuan(null);
 			session.update(pt);
 			// Sama dengan layar ZK: baris yang menempel DIBEBASKAN supaya tidak nyangkut
 			// selamanya di status "sudah diajukan". Hanya berlaku selama dananya belum cair.
@@ -904,10 +922,18 @@ public final class ProsesTransferApiHelper {
 			return;
 		}
 		long id = request == null ? 0 : request.optLong("id", 0);
+		Date tanggalInput = tanggal(request, "tanggalRealisasikan");
+		String catatanRealisasi = request == null ? ""
+				: request.optString("catatanRealisasi", "").trim();
+		if (catatanRealisasi.length() > 2000) {
+			tolak(hasil, "Catatan realisasi maksimal 2000 karakter.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		String kode = "";
 		boolean sudahDirealisasikan = false;
 		boolean lanjutPosting = false;
+		Date tanggalUntukPosting = null;
 		try {
 			ProsesTransfer pt = id == 0 ? null : (ProsesTransfer) session.get(ProsesTransfer.class, Long.valueOf(id));
 			if (pt == null) {
@@ -925,34 +951,40 @@ public final class ProsesTransferApiHelper {
 				// tersimpan tetapi proses posting otomatis sebelumnya sempat terputus.
 				sudahDirealisasikan = true;
 				lanjutPosting = true;
+				tanggalUntukPosting = pt.getTanggalRealisasikan();
 			} else {
-			// Baris yang belum ditandai Transfer maupun Transitori tidak menentukan akun
-			// kredit apa pun; dokumen sumbernya akan DILEWATI mesin posting tanpa pesan
-			// galat. Karena itu realisasi ditahan sampai semuanya bertanda.
-			PreparedStatement ps = session.connection().prepareStatement(
+				if (tanggalInput == null) {
+					tolak(hasil, "Tanggal realisasi wajib diisi.");
+					return;
+				}
+				// Baris yang belum ditandai Transfer maupun Transitori tidak menentukan akun
+				// kredit apa pun; dokumen sumbernya akan DILEWATI mesin posting tanpa pesan
+				// galat. Karena itu realisasi ditahan sampai semuanya bertanda.
+				PreparedStatement ps = session.connection().prepareStatement(
 					"SELECT count(*) FROM akunting.daftar_pengajuan_transfer"
 							+ " WHERE proses_transfer = ? AND COALESCE(transfer,false) = false"
 							+ " AND COALESCE(transitori,false) = false");
-			ps.setLong(1, id);
-			ResultSet rs = ps.executeQuery();
-			rs.next();
-			long belumBertanda = rs.getLong(1);
-			rs.close();
-			ps.close();
-			if (belumBertanda > 0) {
-				tolak(hasil, belumBertanda + " baris belum ditandai Transfer atau Transitori. "
+				ps.setLong(1, id);
+				ResultSet rs = ps.executeQuery();
+				rs.next();
+				long belumBertanda = rs.getLong(1);
+				rs.close();
+				ps.close();
+				if (belumBertanda > 0) {
+					tolak(hasil, belumBertanda + " baris belum ditandai Transfer atau Transitori. "
 						+ "Tanda itu yang menentukan akun kredit jurnalnya, jadi tanpa tanda "
 						+ "dokumen sumbernya tidak akan terjurnal.");
-				return;
-			}
+					return;
+				}
 
-			Date tglRealisasi = tanggal(request, "tanggalRealisasikan");
-			session.beginTransaction();
-			pt.setRealisasikanOleh(tbmuser);
-			pt.setTanggalRealisasikan(tglRealisasi == null ? WaktuUtil.getDate() : tglRealisasi);
-			session.update(pt);
-			session.getTransaction().commit();
-			lanjutPosting = true;
+				session.beginTransaction();
+				pt.setRealisasikanOleh(tbmuser);
+				pt.setTanggalRealisasikan(tanggalInput);
+				pt.setCatatanRealisasi(catatanRealisasi.length() == 0 ? null : catatanRealisasi);
+				session.update(pt);
+				session.getTransaction().commit();
+				lanjutPosting = true;
+				tanggalUntukPosting = tanggalInput;
 			}
 		} catch (Exception e) {
 			batalkanDiam(session);
@@ -968,7 +1000,8 @@ public final class ProsesTransferApiHelper {
 		// Session eksplisit di atas sudah ditutup sebelum mesin posting membuka
 		// currentNativeSession(). Ini mencegah transaksi menggantung dan memastikan
 		// jurnal umum langsung terbentuk pada aksi realisasi yang sama.
-		int jumlahJurnal = PostingProsesTransferAction.postingSatu(id, tbmuser, WaktuUtil.getDate());
+		int jumlahJurnal = PostingProsesTransferAction.postingSatu(id, tbmuser,
+				tanggalUntukPosting == null ? WaktuUtil.getDate() : tanggalUntukPosting);
 		hasil.put("status", "00");
 		hasil.put("jumlahJurnal", jumlahJurnal);
 		hasil.put("jurnalOtomatis", Boolean.TRUE);
@@ -1026,6 +1059,7 @@ public final class ProsesTransferApiHelper {
 			session.beginTransaction();
 			pt.setRealisasikanOleh(null);
 			pt.setTanggalRealisasikan(null);
+			pt.setCatatanRealisasi(null);
 			session.update(pt);
 			session.getTransaction().commit();
 

@@ -95,9 +95,11 @@ public class ProsesTransfer extends DataSop {
 	private Date tanggalPembuatan;
 	private Tbmuser disetujuiOleh;
 	private Date tanggalPersetujuan;
+	private String catatanPersetujuan;
 	private NomorSuratAlurKeuangan nomorSuratAlurKeuangan;
 	private Tbmuser realisasikanOleh;
 	private Date tanggalRealisasikan;
+	private String catatanRealisasi;
 
 //	private Akun akun;
 
@@ -255,7 +257,8 @@ public class ProsesTransfer extends DataSop {
 			// canonical/shared (AuditTimestampInterceptor) yang proxy-nya terikat ke
 			// Session lain yang sudah closed -> jangan biarkan getter ini crash, cukup
 			// lewati bagian ini (nilai fallback dipertahankan).
-			if (getDisposisiSop() != null && getDisposisiSop().getDisposisiSetuju() != null
+			if (tanggalPersetujuan == null && getDisposisiSop() != null
+					&& getDisposisiSop().getDisposisiSetuju() != null
 					&& getDisposisiSop().getDisposisiSetuju().getDiajukanOleh() != null) {
 				tanggalPersetujuan = getDisposisiSop().getDisposisiSetuju().getWaktu();
 			}
@@ -267,6 +270,15 @@ public class ProsesTransfer extends DataSop {
 		} catch (Exception exLazy) { ais.common.ErrorAuditUtil.record(exLazy, "auto-audit(empty-catch) src/ais/database/model/akunting/ProsesTransfer.java:getTanggalPersetujuan-lazy");
 		}
 		return tanggalPersetujuan;
+	}
+
+	@Column(name = "catatan_persetujuan", nullable = true, length = 2000)
+	public String getCatatanPersetujuan() {
+		return catatanPersetujuan;
+	}
+
+	public void setCatatanPersetujuan(String catatanPersetujuan) {
+		this.catatanPersetujuan = catatanPersetujuan;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)
@@ -345,5 +357,14 @@ public class ProsesTransfer extends DataSop {
 
 	public void setTanggalRealisasikan(Date tanggalRealisasikan) {
 		this.tanggalRealisasikan = tanggalRealisasikan;
+	}
+
+	@Column(name = "catatan_realisasi", nullable = true, length = 2000)
+	public String getCatatanRealisasi() {
+		return catatanRealisasi;
+	}
+
+	public void setCatatanRealisasi(String catatanRealisasi) {
+		this.catatanRealisasi = catatanRealisasi;
 	}
 }

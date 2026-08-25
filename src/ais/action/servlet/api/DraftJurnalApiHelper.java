@@ -448,6 +448,8 @@ public final class DraftJurnalApiHelper {
                 DraftJurnalRingkasanUtil.Baris b = baris.get(i);
                 JSONObject j = new JSONObject();
                 j.put("kunci", b.getKunci());
+                j.put("kategori", b.getKategori());
+                j.put("kategoriNama", b.getKategoriNama());
                 j.put("nama", b.getNama());
                 j.put("keterangan", b.getKeterangan());
                 j.put("draft", b.getDraft());
@@ -525,6 +527,22 @@ public final class DraftJurnalApiHelper {
                 j.put("tanggal", d.getTanggal());
                 j.put("uraian", d.getUraian());
                 j.put("nilai", d.getNilai());
+                JSONArray jurnal = new JSONArray();
+                List<DraftJurnalRingkasanUtil.BarisJurnal> barisJurnal = d.getJurnal();
+                for (int k = 0; k < barisJurnal.size(); k++) {
+                    DraftJurnalRingkasanUtil.BarisJurnal baris = barisJurnal.get(k);
+                    JSONObject akun = new JSONObject();
+                    akun.put("kodeAkun", baris.getKodeAkun());
+                    akun.put("namaAkun", baris.getNamaAkun());
+                    akun.put("debet", baris.getDebet());
+                    akun.put("kredit", baris.getKredit());
+                    jurnal.put(akun);
+                }
+                j.put("jurnal", jurnal);
+                j.put("totalDebet", d.getTotalDebet());
+                j.put("totalKredit", d.getTotalKredit());
+                j.put("jurnalSeimbang", Math.abs(d.getTotalDebet() - d.getTotalKredit()) < 0.005d);
+                j.put("pesanJurnal", d.getPesanJurnal());
                 data.put(j);
             }
             hasil.put("status", "00");

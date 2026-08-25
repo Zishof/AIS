@@ -376,7 +376,6 @@ public final class PertangungjawabanKasBesarApiHelper {
 		}
 		long kasBesarId = request.optLong("kasBesarId", 0);
 		String nama = request.optString("nama", "").trim();
-		double dikembalikan = request.optDouble("dikembalikan", 0);
 		Date tanggalStor = tanggal(request, "tanggalStor");
 		String statusDokumen = request.optString("statusDokumen", PertangungjawabanKasBesar.PENGAJUAN).trim();
 		JSONArray rincian = request.optJSONArray("rincian");
@@ -387,10 +386,6 @@ public final class PertangungjawabanKasBesarApiHelper {
 		}
 		if (nama.isEmpty()) {
 			tolak(hasil, "Judul Pengajuan belum diisi.");
-			return;
-		}
-		if (tanggalStor == null && dikembalikan > 0.1) {
-			tolak(hasil, "Tanggal Stor belum diisi.");
 			return;
 		}
 		if (PertangungjawabanKasBesar.DISETUJU.equals(statusDokumen) && !bolehAksi(tbmuser, "approve")) {
@@ -424,6 +419,15 @@ public final class PertangungjawabanKasBesarApiHelper {
 			if (nilaiKasBesar < h.nilai) {
 				tolak(hasil, "Nilai yang dipertanggungjawabkan (" + Common.numberFormat.get().format(h.nilai)
 						+ ") melebihi nilai kas besar (" + Common.numberFormat.get().format(nilaiKasBesar) + ").");
+				return;
+			}
+			double dikembalikan = nilaiKasBesar - h.nilai;
+			if (Math.abs(dikembalikan) < 0.005D) {
+				dikembalikan = 0D;
+			}
+			if (tanggalStor == null && dikembalikan > 0.1D) {
+				tolak(hasil, "Tanggal Stor wajib diisi karena terdapat dana yang dikembalikan sebesar "
+						+ Common.numberFormat.get().format(dikembalikan) + ".");
 				return;
 			}
 

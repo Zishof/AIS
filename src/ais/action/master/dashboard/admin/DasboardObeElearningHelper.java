@@ -102,6 +102,9 @@ public class DasboardObeElearningHelper extends Div {
         Map<String, Integer> subCpmkCountByMk  = new HashMap<String, Integer>();
         // jurusanId → PL count (computed after Loop 3)
         Map<Long, Integer>   plCountByJurusan   = new HashMap<Long, Integer>();
+        // KPM → PL unik yang diturunkan dari CPL mata kuliah tersebut.
+        // Angka ini dipakai pada rekap RPS; total PL prodi tetap dipakai Loop 3.
+        Map<Long, Integer>   plCountByKpmId      = new HashMap<Long, Integer>();
         // CPL → jumlah MK yang membebankan CPL tersebut
         Map<String, Integer> cplCoverage = new LinkedHashMap<String, Integer>();
         // CPL → total bobot (%)
@@ -298,6 +301,7 @@ public class DasboardObeElearningHelper extends Div {
         Set<Long> allCpmkIds   = new HashSet<Long>();
         Set<Long> allJurusanIds = new HashSet<Long>();
         Map<String, String> cpmkCsvByMkKode = new LinkedHashMap<String, String>();
+        Map<Long, Set<Long>> cplIdsByKpmId = new HashMap<Long, Set<Long>>();
 
         for (Perkuliahan p : perkuliahans) {
             try {
@@ -355,10 +359,12 @@ public class DasboardObeElearningHelper extends Div {
                 }
 
                 int jmlCpl = 0, jmlCpmk = 0;
-                if (punyaCpl) jmlCpl = mk.getCapaianLulusan().split(",").length;
+                Set<Long> cplIdsMk = parseCsvIds(mk.getCapaianLulusan());
+                if (punyaCpl) jmlCpl = cplIdsMk.size();
                 if (mk.getCapaianPembelajaranLulusan() != null
                         && !mk.getCapaianPembelajaranLulusan().trim().isEmpty())
-                    jmlCpmk = mk.getCapaianPembelajaranLulusan().split(",").length;
+                    jmlCpmk = parseCsvIds(mk.getCapaianPembelajaranLulusan()).size();
+                cplIdsByKpmId.put(kpm.getId(), cplIdsMk);
 
                 String namaProdi  = p.getJurusan() != null ? nvl(p.getJurusan().getNama()) : "";
                 String namaDosen  = p.getDosen1()  != null ? nvl(p.getDosen1().getNama())  : "";
@@ -522,10 +528,7 @@ public class DasboardObeElearningHelper extends Div {
             for (CapaianLulusan cpl : allCpls) {
                 cplById.put(cpl.getId(), cpl);
                 if (cpl.getProfil() != null && !cpl.getProfil().trim().isEmpty()) {
-                    for (String idStr : cpl.getProfil().split(",")) {
-                        try { allPlIds.add(Long.parseLong(idStr.trim())); }
-                        catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DasboardObeElearningHelper.java:525");}
-                    }
+                    allPlIds.addAll(parseCsvIds(cpl.getProfil()));
                 }
             }
 
@@ -543,6 +546,20 @@ public class DasboardObeElearningHelper extends Div {
                 }
             }
 
+            // Hitung PL untuk setiap mata kuliah dari union PL milik CPL yang
+            // dipetakan ke mata kuliah itu. Jangan gunakan total PL prodi.
+            for (Map.Entry<Long, Set<Long>> entry : cplIdsByKpmId.entrySet()) {
+                Set<Long> plIdsMk = new HashSet<Long>();
+                for (Long cplId : entry.getValue()) {
+                    CapaianLulusan cpl = cplById.get(cplId);
+                    if (cpl == null) continue;
+                    for (Long plId : parseCsvIds(cpl.getProfil())) {
+                        if (plById.containsKey(plId)) plIdsMk.add(plId);
+                    }
+                }
+                d.plCountByKpmId.put(entry.getKey(), plIdsMk.size());
+            }
+
             // Build cplPerJurusan
             for (CapaianLulusan cpl : allCpls) {
                 if (cpl.getJurusan() == null) continue;
@@ -552,7 +569,7 @@ public class DasboardObeElearningHelper extends Div {
                 int cpmkCount = 0;
                 if (cpl.getCapaianPembelajaranLulusan() != null
                         && !cpl.getCapaianPembelajaranLulusan().trim().isEmpty()) {
-                    cpmkCount = cpl.getCapaianPembelajaranLulusan().split(",").length;
+                    cpmkCount = parseCsvIds(cpl.getCapaianPembelajaranLulusan()).size();
                 }
 
                 // Resolve PL kode from CSV
@@ -560,16 +577,13 @@ public class DasboardObeElearningHelper extends Div {
                 if (cpl.getProfil() != null && !cpl.getProfil().trim().isEmpty()) {
                     StringBuilder plKodeSb = new StringBuilder();
                     StringBuilder plNamaSb = new StringBuilder();
-                    for (String idStr : cpl.getProfil().split(",")) {
-                        try {
-                            Long plId = Long.parseLong(idStr.trim());
-                            ProfilLulusan pl = plById.get(plId);
-                            if (pl != null) {
-                                if (plKodeSb.length() > 0) { plKodeSb.append(", "); plNamaSb.append(", "); }
-                                plKodeSb.append(nvl(pl.getKode()));
-                                plNamaSb.append(nvl(pl.getNama()));
-                            }
-                        } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DasboardObeElearningHelper.java:570");}
+                    for (Long plId : parseCsvIds(cpl.getProfil())) {
+                        ProfilLulusan pl = plById.get(plId);
+                        if (pl != null) {
+                            if (plKodeSb.length() > 0) { plKodeSb.append(", "); plNamaSb.append(", "); }
+                            plKodeSb.append(nvl(pl.getKode()));
+                            plNamaSb.append(nvl(pl.getNama()));
+                        }
                     }
                     plKode = plKodeSb.toString();
                     plNama = plNamaSb.toString();
@@ -595,12 +609,9 @@ public class DasboardObeElearningHelper extends Div {
             Map<Long, Integer> cplCountPerPlId = new HashMap<Long, Integer>();
             for (CapaianLulusan cpl : allCpls) {
                 if (cpl.getProfil() == null || cpl.getProfil().trim().isEmpty()) continue;
-                for (String idStr : cpl.getProfil().split(",")) {
-                    try {
-                        Long plId = Long.parseLong(idStr.trim());
-                        cplCountPerPlId.put(plId,
-                            (cplCountPerPlId.containsKey(plId) ? cplCountPerPlId.get(plId) : 0) + 1);
-                    } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DasboardObeElearningHelper.java:601");}
+                for (Long plId : parseCsvIds(cpl.getProfil())) {
+                    cplCountPerPlId.put(plId,
+                        (cplCountPerPlId.containsKey(plId) ? cplCountPerPlId.get(plId) : 0) + 1);
                 }
             }
             for (Map.Entry<Long, ProfilLulusan> entry : plById.entrySet()) {
@@ -1036,12 +1047,11 @@ public class DasboardObeElearningHelper extends Div {
             String sBg  = rps ? "#dcfce7" : "#fee2e2";
             String sClr = rps ? "#166534" : "#991b1b";
             String sTxt = rps ? "&#10003; Terisi" : "&#10007; Belum";
-            Long jurId   = r[10] != null ? (Long) r[10] : null;
-            int plCount  = jurId != null && d.plCountByJurusan.containsKey(jurId)
-                           ? d.plCountByJurusan.get(jurId) : 0;
+            final Long kpmId = r.length > 11 && r[11] != null ? (Long) r[11] : null;
+            int plCount  = kpmId != null && d.plCountByKpmId.containsKey(kpmId)
+                           ? d.plCountByKpmId.get(kpmId) : 0;
             int subCount = d.subCpmkCountByMk.containsKey(r[0].toString())
                            ? d.subCpmkCountByMk.get(r[0].toString()) : 0;
-            final Long kpmId = r.length > 11 && r[11] != null ? (Long) r[11] : null;
             final Long perkId = r.length > 12 && r[12] != null ? (Long) r[12] : null;
 
             Row row = new Row();
@@ -2925,6 +2935,22 @@ public class DasboardObeElearningHelper extends Div {
         } catch (Exception ex) {
             return "";
         }
+    }
+
+    /** Parse CSV relasi legacy seperti ",12,15," tanpa token kosong/duplikat. */
+    private static Set<Long> parseCsvIds(String csv) {
+        Set<Long> ids = new HashSet<Long>();
+        if (csv == null || csv.trim().isEmpty()) return ids;
+        for (String token : csv.split(",")) {
+            String value = token != null ? token.trim() : "";
+            if (value.isEmpty()) continue;
+            try {
+                ids.add(Long.valueOf(value));
+            } catch (NumberFormatException ignored) {
+                // Relasi semestinya ID numerik; token rusak tidak dihitung.
+            }
+        }
+        return ids;
     }
 
     private static String escHtml(String s) {

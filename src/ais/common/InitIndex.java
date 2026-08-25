@@ -3747,6 +3747,12 @@ public class InitIndex {
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "init kolom keterangan pertanggungjawaban");
 		}
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE akunting.proses_transfer ADD COLUMN IF NOT EXISTS catatan_persetujuan varchar(2000)");
+			eksekusiSqlAmanDdl("ALTER TABLE akunting.proses_transfer ADD COLUMN IF NOT EXISTS catatan_realisasi varchar(2000)");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init metadata persetujuan dan realisasi proses transfer");
+		}
 
 		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta
 		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar

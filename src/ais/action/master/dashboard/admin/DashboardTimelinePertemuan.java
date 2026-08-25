@@ -2517,10 +2517,10 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										ctrMinK++;
 									}
 
-									int jCpl = hasCpl ? mk.getCapaianLulusan().split(",").length : 0;
-									int jCpmk = hasCpmk ? mk.getCapaianPembelajaranLulusan().split(",").length : 0;
+									int jCpl = hasCpl ? countUniqueRelationIds(mk.getCapaianLulusan()) : 0;
+									int jCpmk = hasCpmk ? countUniqueRelationIds(mk.getCapaianPembelajaranLulusan()) : 0;
 									int jBk = mk.getBahanKajian() != null && !mk.getBahanKajian().trim().isEmpty()
-											? mk.getBahanKajian().split(",").length
+											? countUniqueRelationIds(mk.getBahanKajian())
 											: 0;
 									double minK = kpm.getMinimalKetercapaian() != null ? kpm.getMinimalKetercapaian()
 											: 0;
@@ -2665,6 +2665,24 @@ public class DashboardTimelinePertemuan extends MyWindow {
 		});
 
 		return wrapper;
+	}
+
+	/** Hitung ID relasi CSV legacy tanpa token kosong maupun ID duplikat. */
+	private static int countUniqueRelationIds(String csv) {
+		Set<Long> ids = new HashSet<Long>();
+		if (csv == null || csv.trim().isEmpty())
+			return 0;
+		for (String token : csv.split(",")) {
+			String value = token != null ? token.trim() : "";
+			if (value.isEmpty())
+				continue;
+			try {
+				ids.add(Long.valueOf(value));
+			} catch (NumberFormatException ignored) {
+				// Token rusak bukan relasi yang sah dan tidak boleh dihitung.
+			}
+		}
+		return ids.size();
 	}
 
 	private static String buildObePlaceholderHtml() {

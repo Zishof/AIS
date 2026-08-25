@@ -18,6 +18,7 @@ import ais.database.model.DetailKegiatan;
 import ais.database.model.LogPembayaran;
 import ais.database.model.PengeluaranMahasiswa;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
+import ais.database.model.akunting.Akun;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.database.model.akunting.KasBesar;
 import ais.database.model.akunting.KasKecil;
@@ -80,6 +81,10 @@ public final class DraftJurnalRingkasanUtil {
 
         public String getKunci() { return kunci; }
 
+        public String getKategori() { return kategoriUntukKunci(kunci); }
+
+        public String getKategoriNama() { return namaKategoriUntukKunci(kunci); }
+
         public String getNama() { return nama; }
 
         public String getKeterangan() { return keterangan; }
@@ -110,6 +115,43 @@ public final class DraftJurnalRingkasanUtil {
             hasil.add(KUNCI[i]);
         }
         return hasil;
+    }
+
+    /** Kelompok tab yang sama dengan Draft Jurnal ZKoss. */
+    public static String kategoriUntukKunci(String kunci) {
+        if ("jurnal_umum".equals(kunci)) return "jurnal_umum";
+        if ("uang_muka".equals(kunci) || "pj_uang_muka".equals(kunci)
+                || "kas_kecil".equals(kunci) || "kas_besar".equals(kunci)
+                || "pj_kas_besar".equals(kunci) || "penggantian_kas_kecil".equals(kunci)
+                || "dana_talangan".equals(kunci)) return "uang_muka_kas";
+        if ("pajak".equals(kunci)) return "pajak";
+        if ("tagihan_vendor".equals(kunci) || "pekerjaan_vendor".equals(kunci)
+                || "dp_vendor".equals(kunci) || "dp_pekerjaan_vendor".equals(kunci)
+                || "jurnal_balik_dp_pekerjaan".equals(kunci)) return "transaksi_vendor";
+        if ("gaji".equals(kunci)) return "gaji";
+        if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
+        if ("penyusutan".equals(kunci)) return "fixed_asset";
+        if ("pengajuan_transfer".equals(kunci)) return "pengajuan_transfer";
+        if ("transitori".equals(kunci)) return "transitori";
+        if ("closing".equals(kunci)) return "closing";
+        if ("posting_hpp".equals(kunci)) return "posting_penjualan";
+        return "semua";
+    }
+
+    public static String namaKategoriUntukKunci(String kunci) {
+        String kategori = kategoriUntukKunci(kunci);
+        if ("jurnal_umum".equals(kategori)) return "Jurnal Umum";
+        if ("uang_muka_kas".equals(kategori)) return "Uang Muka dan Kas";
+        if ("pajak".equals(kategori)) return "Pajak";
+        if ("transaksi_vendor".equals(kategori)) return "Transaksi Vendor";
+        if ("gaji".equals(kategori)) return "Gaji";
+        if ("siswa_mahasiswa".equals(kategori)) return "Siswa dan Mahasiswa";
+        if ("fixed_asset".equals(kategori)) return "Fixed Asset & Penyusutan";
+        if ("pengajuan_transfer".equals(kategori)) return "Pengajuan Transfer";
+        if ("transitori".equals(kategori)) return "Transitori";
+        if ("closing".equals(kategori)) return "Closing";
+        if ("posting_penjualan".equals(kategori)) return "Posting Penjualan";
+        return "Draft Jurnal";
     }
 
     /** Seluruh baris dasbor, berurutan. Dipakai pemanggil yang tidak perlu paralel (API). */
@@ -675,12 +717,17 @@ public final class DraftJurnalRingkasanUtil {
         private final String tanggal;
         private final String uraian;
         private final double nilai;
+        private final List<BarisJurnal> jurnal;
+        private final String pesanJurnal;
 
-        public Dokumen(String id, String tanggal, String uraian, double nilai) {
+        public Dokumen(String id, String tanggal, String uraian, double nilai,
+                List<BarisJurnal> jurnal, String pesanJurnal) {
             this.id = id;
             this.tanggal = tanggal;
             this.uraian = uraian;
             this.nilai = nilai;
+            this.jurnal = jurnal == null ? new ArrayList<BarisJurnal>() : jurnal;
+            this.pesanJurnal = pesanJurnal == null ? "" : pesanJurnal;
         }
 
         public String getId() { return id; }
@@ -690,6 +737,45 @@ public final class DraftJurnalRingkasanUtil {
         public String getUraian() { return uraian; }
 
         public double getNilai() { return nilai; }
+
+        public List<BarisJurnal> getJurnal() { return jurnal; }
+
+        public String getPesanJurnal() { return pesanJurnal; }
+
+        public double getTotalDebet() {
+            double total = 0;
+            for (int i = 0; i < jurnal.size(); i++) total += jurnal.get(i).getDebet();
+            return total;
+        }
+
+        public double getTotalKredit() {
+            double total = 0;
+            for (int i = 0; i < jurnal.size(); i++) total += jurnal.get(i).getKredit();
+            return total;
+        }
+    }
+
+    /** Baris jurnal sementara. Objek ini tidak pernah disimpan ke tabel jurnal. */
+    public static final class BarisJurnal {
+        private final String kodeAkun;
+        private final String namaAkun;
+        private final double debet;
+        private final double kredit;
+
+        public BarisJurnal(Akun akun, double debet, double kredit) {
+            this.kodeAkun = akun == null || akun.getKode() == null ? "" : akun.getKode();
+            this.namaAkun = akun == null || akun.getNama() == null ? "" : akun.getNama();
+            this.debet = debet;
+            this.kredit = kredit;
+        }
+
+        public String getKodeAkun() { return kodeAkun; }
+
+        public String getNamaAkun() { return namaAkun; }
+
+        public double getDebet() { return debet; }
+
+        public double getKredit() { return kredit; }
     }
 
     /**
@@ -773,7 +859,39 @@ public final class DraftJurnalRingkasanUtil {
         }
         double angka = 0;
         if (nilai instanceof Number) angka = ((Number) nilai).doubleValue();
-        return new Dokumen(id, teksTanggal, uraian == null ? "" : String.valueOf(uraian), angka);
+        List<BarisJurnal> jurnal = new ArrayList<BarisJurnal>();
+        String pesanJurnal = "Preview jurnal untuk dokumen ini belum tersedia.";
+        if (entity instanceof KasBesar) {
+            KasBesar kasBesar = (KasBesar) entity;
+            Akun akunDebet = null;
+            Akun akunKredit = null;
+            if (kasBesar.getKasKecil() != null
+                    && kasBesar.getKasKecil().getJenisKasKecil() != null
+                    && kasBesar.getKasKecil().getJenisKasKecil().getAkun() != null
+                    && kasBesar.getJenisKasBesar() != null
+                    && kasBesar.getJenisKasBesar().getAkun() != null) {
+                akunDebet = kasBesar.getKasKecil().getJenisKasKecil().getAkun();
+                akunKredit = kasBesar.getJenisKasBesar().getAkun();
+            } else if (kasBesar.getJenisKasBesar() != null) {
+                akunDebet = kasBesar.getJenisKasBesar().getAkunPenerima();
+                akunKredit = kasBesar.getJenisKasBesar().getAkun();
+            }
+            if (akunDebet != null && akunKredit != null) {
+                double nominal = Math.abs(angka);
+                if (angka < 0) {
+                    jurnal.add(new BarisJurnal(akunKredit, nominal, 0));
+                    jurnal.add(new BarisJurnal(akunDebet, 0, nominal));
+                } else {
+                    jurnal.add(new BarisJurnal(akunDebet, nominal, 0));
+                    jurnal.add(new BarisJurnal(akunKredit, 0, nominal));
+                }
+                pesanJurnal = "";
+            } else {
+                pesanJurnal = "Akun Debet/Kredit Kas Besar belum lengkap pada konfigurasi jenis kas.";
+            }
+        }
+        return new Dokumen(id, teksTanggal, uraian == null ? "" : String.valueOf(uraian), angka,
+                jurnal, pesanJurnal);
     }
 
     private static Object bacaPertama(Object entity, String[] namaGetter) {
