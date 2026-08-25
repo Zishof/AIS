@@ -1,6 +1,7 @@
 # Handoff AI — Modernisasi Perpustakaan AIS V2
 
 Tanggal baseline: 24 Agustus 2026; dilanjutkan 25 Agustus 2026  
+Status dikonfirmasi kembali: 25 Agustus 2026  
 Workspace: `C:\opt\AIS\ais\src\main`
 
 ## 1. Tujuan dan cakupan
