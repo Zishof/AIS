@@ -187,6 +187,7 @@ public class PesantrenWebsiteEditor {
         ScalarEditor(String key, Object value) {
             original = value;
             row.setWidth("100%");
+            row.setHflex("1");
             Label label = new Label(labelFor(key));
             label.setWidth("220px");
             label.setStyle("font-weight:600;padding-top:6px;");
@@ -198,7 +199,11 @@ public class PesantrenWebsiteEditor {
             } else {
                 String current = value == null || value == JSONObject.NULL ? "" : String.valueOf(value);
                 text = new Textbox(current);
-                text.setWidth("96%");
+                // Isi seluruh sisa lebar baris setelah kolom label. setWidth saja pada
+                // Hbox ZK lama mengikuti lebar natural child, sehingga input terlihat
+                // pendek walaupun container sudah 100%.
+                text.setWidth("100%");
+                text.setHflex("1");
                 if (panjang(key, current)) text.setRows(3);
                 if ("schemaVersion".equals(key)) text.setReadonly(true);
                 text.setParent(row);
@@ -247,6 +252,7 @@ public class PesantrenWebsiteEditor {
                 Vbox outer = new Vbox();
                 outer.setWidth("100%");
                 Label help = new Label("Edit setiap properti halaman utama. JSON disusun otomatis ketika Yayasan disimpan.");
+                help.setWidth("100%");
                 help.setStyle("display:block;padding:10px;background:#eef7f5;color:#0f5f58;border-radius:6px;");
                 help.setParent(outer);
                 fields.setParent(outer);
@@ -358,8 +364,9 @@ public class PesantrenWebsiteEditor {
 
     private static Groupbox kelompok(String title) {
         Groupbox group = new Groupbox();
-        group.setWidth("98%");
-        group.setStyle("margin:6px 0;padding:6px;border:1px solid #d9e4e2;border-radius:6px;");
+        group.setWidth("100%");
+        group.setHflex("1");
+        group.setStyle("box-sizing:border-box;margin:6px 0;padding:6px;border:1px solid #d9e4e2;border-radius:6px;");
         Caption caption = new Caption(title);
         caption.setStyle("font-weight:700;color:#0f5f58;");
         caption.setParent(group);
