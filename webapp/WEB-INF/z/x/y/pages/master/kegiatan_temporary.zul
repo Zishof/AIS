@@ -109,6 +109,21 @@
 				</div>
 			</div>
 
+			<!-- ═══ KARTU AKSI PEMBAYARAN ═══ -->
+			<div sclass="ais-crud-data-card"
+				style="margin-bottom:10px;padding:12px 14px;">
+				<div style="margin-bottom:8px;">
+					<label value="Pilih Cara Pembayaran"
+						style="font-size:14px;font-weight:bold;color:#0f172a;" />
+					<label
+						value="Centang item pada tabel, lalu gunakan salah satu tombol pembayaran di bawah ini."
+						style="display:block;margin-top:3px;color:#64748b;" />
+				</div>
+				<hbox id="spaceBayar" width="100%" pack="center" align="center"
+					spacing="10px"
+					style="padding:4px 0 8px 0;overflow-x:auto;overflow-y:hidden;white-space:nowrap;" />
+			</div>
+
 			<!-- ═══ KARTU DATA ═══ -->
 			<div sclass="ais-crud-data-card">
 				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
