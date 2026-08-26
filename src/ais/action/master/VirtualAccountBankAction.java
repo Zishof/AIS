@@ -2181,26 +2181,43 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 									public void onEvent(Event event) throws Exception {
 										int i = Integer.parseInt(event.getData().toString());
 										if (i == MyMessageboxConfig.OK) {
-											try {
-
-												JSONObject jsonObject2 = Bankaltimtara
-														.checkPakaivaAtauQris(virtualAccountBankReadOnly);
-
-												MyMessageboxConfig.showFormat(
-										"Informasi hasil pemeriksaan status pembayaran: {V1}",
-										"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION, jsonObject2);
-
-												Common.createDefaultTimer(new EventListener() {
-
-													@Override
-													public void onEvent(Event arg0) throws Exception {
+											final JSONObject[] hasilCek = new JSONObject[1];
+											final Exception[] errorCek = new Exception[1];
+											final Label progress = Common.displayLoadBar(new EventListener() {
+												@Override
+												public void onEvent(Event selesai) throws Exception {
+													try {
+														if (errorCek[0] != null) {
+															tampilkanErrorCekPembayaran(errorCek[0]);
+														} else {
+															MyMessageboxConfig.showFormat(
+																	"Informasi hasil pemeriksaan status pembayaran: {V1}",
+																	"Pemberitahuan", MyMessageboxConfig.OK,
+																	MyMessageboxConfig.EXCLAMATION, hasilCek[0]);
+														}
+													} finally {
 														onSearchDefault(null);
 													}
-												});
+												}
+											});
+											progress.setValue("Cek Ulang VA 25% - menyiapkan data transaksi...");
 
-											} catch (Exception e) {
-												tampilkanErrorCekPembayaran(e);
-											}
+											new Thread(new Runnable() {
+												@Override
+												public void run() {
+													try {
+														progress.setValue("Cek Ulang VA 50% - menghubungi gateway bank...");
+														hasilCek[0] = Bankaltimtara
+																.checkPakaivaAtauQris(virtualAccountBankReadOnly);
+														progress.setValue("Cek Ulang VA 75% - memproses jawaban bank...");
+													} catch (Exception e) {
+														errorCek[0] = e;
+													} finally {
+														HibernateUtil.closeSession();
+														progress.setValue("Selesai 100% - memuat status pembayaran terbaru...");
+													}
+												}
+											}).start();
 
 										}
 

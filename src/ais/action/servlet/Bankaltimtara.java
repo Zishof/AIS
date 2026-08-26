@@ -88,7 +88,8 @@ public class Bankaltimtara extends HttpServlet {
 
 		System.out.println(login + "");
 
-		String[] command = { "curl", "--silent", "--show-error", "--location", strURL, "--header",
+		String[] command = { "curl", "--silent", "--show-error", "--connect-timeout", "10", "--max-time", "45",
+				"--location", strURL, "--header",
 				"Content-type: application/json", "--data-raw", login.toString() };
 
 		String hasil = jalankanPerintahAmbilKeluaran(command, true);
@@ -111,7 +112,8 @@ public class Bankaltimtara extends HttpServlet {
 
 			System.out.println(postData + "");
 
-			command = new String[] { "curl", "--silent", "--show-error", "--location", strURL, "--header",
+			command = new String[] { "curl", "--silent", "--show-error", "--connect-timeout", "10",
+					"--max-time", "45", "--location", strURL, "--header",
 					"Content-type: application/json", "--header", "Authorization: Bearer " + token, "--data",
 					postData };
 
@@ -226,11 +228,9 @@ public class Bankaltimtara extends HttpServlet {
 	 *
 	 * <p><b>Perilaku dipertahankan.</b> Cara membaca datanya sama persis dengan kode lama
 	 * (baris demi baris, dipisah {@code line.separator} platform). Parameter
-	 * {@code gabungkanErrorStream} mengikuti setelan MASING-MASING pemanggil: kanal QRIS memang
-	 * memakai {@code redirectErrorStream(true)} (perintahnya sudah memakai
-	 * {@code --silent --show-error}), sedangkan kanal VA TIDAK -- pada kanal VA stderr sengaja
-	 * tidak digabungkan karena curl di sana masih menulis progress meter ke stderr, yang bila
-	 * ikut tergabung akan merusak JSON hasilnya.</p>
+	 * {@code gabungkanErrorStream} mengikuti setelan pemanggil. Seluruh pemeriksaan VA/QRIS
+	 * memakai {@code --silent --show-error}, sehingga stderr aman digabungkan dan pesan kegagalan
+	 * koneksi tetap dapat dibaca tanpa progress-meter curl merusak JSON.</p>
 	 *
 	 * <p>{@code waitFor()} hanya dipanggil bila stderr digabungkan ke stdout -- pada kasus itu
 	 * seluruh keluaran sudah habis terbaca sehingga proses dijamin tidak menggantung. Bila
@@ -355,10 +355,11 @@ public class Bankaltimtara extends HttpServlet {
 
 		System.out.println(login + "");
 
-		String[] command = { "curl", "--location", strURL, "--header", "Content-type: application/json", "--data-raw",
+		String[] command = { "curl", "--silent", "--show-error", "--connect-timeout", "10", "--max-time", "45",
+				"--location", strURL, "--header", "Content-type: application/json", "--data-raw",
 				login.toString() };
 
-		String hasil = jalankanPerintahAmbilKeluaran(command, false);
+		String hasil = jalankanPerintahAmbilKeluaran(command, true);
 		System.out.println(hasil);
 
 		validasiResponJsonBankaltimtara(hasil, "login/autentikasi");
@@ -368,7 +369,8 @@ public class Bankaltimtara extends HttpServlet {
 
 		String post = linkPost + "/" + virtualAccountBankReadOnly.getKode();
 
-		String[] commandPost = { "curl", "--location", post, "--header", "Authorization: Bearer " + token };
+		String[] commandPost = { "curl", "--silent", "--show-error", "--connect-timeout", "10", "--max-time",
+				"45", "--location", post, "--header", "Authorization: Bearer " + token };
 
 		System.out.println("linkPost -> " + post);
 		System.out.println("token -> " + token);
@@ -378,7 +380,7 @@ public class Bankaltimtara extends HttpServlet {
 
 		try {
 
-			hasil = jalankanPerintahAmbilKeluaran(commandPost, false);
+			hasil = jalankanPerintahAmbilKeluaran(commandPost, true);
 
 			System.out.println("hasil -> " + hasil);
 
