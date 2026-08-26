@@ -592,7 +592,7 @@ public class AngketGuruWindow extends Groupbox {
 				radiogroup.addEventListener("onCheck", listener);
 				keterangan.addEventListener("onChange", listener);
 				AngketBelumDiisiFilter.register(pertanyaanFilter, row, groupDiv,
-						tampilBelumDiisi, radiogroup, keterangan);
+						tampilBelumDiisi, radiogroup);
 			}
 
 			renderParameterTambahanGuru(session, grup, savedAwal, groupDiv, dataParameterTambahan);

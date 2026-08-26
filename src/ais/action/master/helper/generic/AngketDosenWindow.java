@@ -624,7 +624,7 @@ public class AngketDosenWindow extends Groupbox {
 				radiogroup.addEventListener("onCheck", listener);
 				keterangan.addEventListener("onChange", listener);
 				AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, checklistCard,
-						tampilBelumDiisi, radiogroup, keterangan);
+						tampilBelumDiisi, radiogroup);
 
 			}
 

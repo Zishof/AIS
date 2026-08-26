@@ -640,7 +640,7 @@ public class ChecklistPenilaianOlehDosenAction extends GenericAutowireComposer {
 				radiogroup.addEventListener("onCheck", listener);
 				keterangan.addEventListener("onChange", listener);
 				AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
-						tampilBelumDiisi, radiogroup, keterangan);
+						tampilBelumDiisi, radiogroup);
 
 			}
 
