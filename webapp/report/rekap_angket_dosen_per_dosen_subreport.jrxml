@@ -32,7 +32,12 @@ and x.tahun_akademik=( case $P{tahun_akademik} when 'Semua' then x.tahun_akademi
 and x.semester%2 = (case $P{genapGanjil} when 'Semua' then x.semester%2 when 'Ganjil' then 1 else 0 end)
 and (b.aktif or b.aktif is null or cs.aktif or cs.aktif is null)
 GROUP BY b.id
-order by b.isi
+order by
+case
+when trim(b.isi) ~ '^[0-9]+' then substring(trim(b.isi) from '^[0-9]+')::integer
+else 2147483647
+end,
+lower(trim(b.isi)),b.id
 ]]>
 	</queryString>
 	<field name="isi" class="java.lang.String"/>
