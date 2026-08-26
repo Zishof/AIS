@@ -1,7 +1,10 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.Collections"%>
 <%@ page import="java.util.List"%>
+<%@ page import="org.json.JSONArray"%>
+<%@ page import="org.json.JSONObject"%>
 <%@ page import="org.apache.commons.lang.StringEscapeUtils"%>
+<%@ page import="ais.action.servlet.landing.PesantrenWebsiteConfig"%>
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.Profil"%>
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.UnitPendidikan"%>
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.Berita"%>
@@ -21,6 +24,17 @@
     private static String digits(String value) {
         return value == null ? "" : value.replaceAll("[^0-9]", "");
     }
+    private static JSONObject item(JSONArray values, int index) {
+        JSONObject value = values == null ? null : values.optJSONObject(index);
+        return value == null ? new JSONObject() : value;
+    }
+    private static String t(JSONObject value, String key, String fallback) {
+        return PesantrenWebsiteConfig.text(value, key, fallback);
+    }
+    private static String color(JSONObject value, String key, String fallback) {
+        String candidate = t(value, key, fallback);
+        return candidate.matches("#[0-9a-fA-F]{6}") ? candidate : fallback;
+    }
 %>
 <%
     Profil profil = (Profil) request.getAttribute("pesantrenProfil");
@@ -35,6 +49,36 @@
     if (perguruanTinggis == null) perguruanTinggis = Collections.emptyList();
     if (berita == null) berita = Collections.emptyList();
     String root = request.getContextPath();
+    JSONObject site = (JSONObject) request.getAttribute("pesantrenWebsite");
+    if (site == null) site = new JSONObject();
+    JSONObject identity = PesantrenWebsiteConfig.object(site, "identity");
+    JSONObject theme = PesantrenWebsiteConfig.object(site, "theme");
+    JSONObject seo = PesantrenWebsiteConfig.object(site, "seo");
+    JSONObject announcement = PesantrenWebsiteConfig.object(site, "announcement");
+    JSONArray navigation = PesantrenWebsiteConfig.array(site, "navigation");
+    JSONObject hero = PesantrenWebsiteConfig.object(site, "hero");
+    JSONObject heroPrimary = PesantrenWebsiteConfig.object(hero, "primaryAction");
+    JSONObject heroSecondary = PesantrenWebsiteConfig.object(hero, "secondaryAction");
+    JSONObject heroTertiary = PesantrenWebsiteConfig.object(hero, "tertiaryAction");
+    JSONObject profileContent = PesantrenWebsiteConfig.object(site, "profile");
+    JSONArray stats = PesantrenWebsiteConfig.array(site, "stats");
+    JSONObject unitsSection = PesantrenWebsiteConfig.object(site, "unitsSection");
+    JSONObject pillarsSection = PesantrenWebsiteConfig.object(site, "pillarsSection");
+    JSONArray pillars = PesantrenWebsiteConfig.array(site, "pillars");
+    JSONObject dailySection = PesantrenWebsiteConfig.object(site, "dailySection");
+    JSONArray dailyTimeline = PesantrenWebsiteConfig.array(site, "dailyTimeline");
+    JSONObject workflowSection = PesantrenWebsiteConfig.object(site, "workflowSection");
+    JSONArray workflows = PesantrenWebsiteConfig.array(site, "workflows");
+    JSONObject diagramSection = PesantrenWebsiteConfig.object(site, "diagramSection");
+    JSONArray diagrams = PesantrenWebsiteConfig.array(site, "diagrams");
+    JSONObject biometric = PesantrenWebsiteConfig.object(site, "biometric");
+    JSONObject servicesSection = PesantrenWebsiteConfig.object(site, "servicesSection");
+    JSONArray serviceGroups = PesantrenWebsiteConfig.array(site, "serviceGroups");
+    JSONObject gallerySection = PesantrenWebsiteConfig.object(site, "gallerySection");
+    JSONArray gallery = PesantrenWebsiteConfig.array(site, "gallery");
+    JSONObject newsSection = PesantrenWebsiteConfig.object(site, "newsSection");
+    JSONObject cta = PesantrenWebsiteConfig.object(site, "cta");
+    JSONObject footerContent = PesantrenWebsiteConfig.object(site, "footer");
     String wa = digits(profil.getWa());
     if (wa.startsWith("0")) wa = "62" + wa.substring(1);
 %>
@@ -44,16 +88,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="<%=e(profil.getWarna())%>">
-    <meta name="description" content="Portal terpadu <%=e(profil.getNama())%> untuk pendidikan, kesantrian, layanan wali, pustaka, kesehatan, dan ekonomi pesantren.">
-    <title><%=e(profil.getNama())%> - Portal ePesantren</title>
+    <meta name="description" content="<%=e(t(seo, "description", "Portal terpadu " + profil.getNama()))%>">
+    <title><%=e(t(seo, "title", profil.getNama() + " - Portal ePesantren"))%></title>
     <style>
         :root {
             --primary: <%=e(profil.getWarna())%>;
-            --ink: #102a2a;
+            --ink: <%=e(color(theme, "ink", "#102a2a"))%>;
             --muted: #607475;
-            --cream: #fbfaf5;
+            --cream: <%=e(color(theme, "cream", "#fbfaf5"))%>;
             --paper: #ffffff;
-            --gold: #c79a3b;
+            --gold: <%=e(color(theme, "secondary", "#c79a3b"))%>;
             --emerald: #0f766e;
             --emerald-dark: #073f3d;
             --line: rgba(15, 118, 110, .14);
@@ -67,6 +111,8 @@
         img { max-width: 100%; }
         .skip { position: fixed; left: 16px; top: -80px; z-index: 999; padding: 10px 16px; background: #fff; border-radius: 12px; }
         .skip:focus { top: 12px; }
+        .announcement { padding: 9px 20px; color: #fff; background: var(--emerald-dark); text-align: center; font-size: 14px; }
+        .announcement a { color: #f2d68e; font-weight: 800; text-decoration: none; }
         .wrap { width: min(1180px, calc(100% - 40px)); margin: auto; }
         .topbar { position: sticky; top: 0; z-index: 50; background: rgba(251,250,245,.9); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
         .topbar-inner { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
@@ -99,6 +145,12 @@
         .fact { padding: 15px 10px; text-align: center; border-radius: 16px; background: rgba(0,0,0,.14); }
         .fact strong { display: block; font-size: 20px; color: #f3d786; }
         .fact span { font-size: 11px; color: rgba(255,255,255,.7); }
+        .stat-ribbon { position: relative; z-index: 5; margin-top: -42px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); border-radius: 24px; overflow: hidden; background: #fff; box-shadow: var(--shadow); }
+        .stat-item { padding: 24px; text-align: center; border-right: 1px solid var(--line); }
+        .stat-item:last-child { border-right: 0; }
+        .stat-item strong { display: block; color: var(--primary); font: 700 25px Georgia,serif; }
+        .stat-item span { color: var(--muted); font-size: 12px; font-weight: 750; }
         section { padding: 96px 0; }
         .section-head { display: grid; grid-template-columns: .85fr 1.15fr; gap: 60px; align-items: end; margin-bottom: 46px; }
         .section-head h2 { margin: 10px 0 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.08; letter-spacing: -.025em; }
@@ -133,6 +185,46 @@
         .service-links { display: grid; gap: 9px; }
         .service-links a { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 13px; text-decoration: none; background: #fff; border: 1px solid rgba(15,118,110,.1); font-weight: 700; font-size: 14px; }
         .service-links a::after { content: "↗"; color: var(--primary); }
+        .daily { background: #fff; }
+        .timeline { position: relative; display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
+        .timeline::before { content: ""; position: absolute; left: 8%; right: 8%; top: 35px; height: 2px; background: linear-gradient(90deg,var(--gold),var(--primary)); }
+        .timeline-item { position: relative; padding: 72px 24px 26px; border: 1px solid var(--line); border-radius: 24px; background: var(--cream); }
+        .timeline-item::before { content: ""; position: absolute; top: 24px; left: 24px; width: 22px; height: 22px; border: 7px solid #fff; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 1px var(--line); }
+        .timeline-item time { color: var(--gold); font-weight: 900; font-size: 12px; }
+        .timeline-item h3 { margin: 10px 0; font-size: 20px; }
+        .timeline-item p { margin: 0; color: var(--muted); font-size: 14px; }
+        .workflows { background: #eef5f2; }
+        .workflow-list { display: grid; gap: 26px; }
+        .workflow-card { overflow: hidden; border: 1px solid var(--line); border-radius: 28px; background: #fff; box-shadow: 0 12px 34px rgba(16,42,42,.06); }
+        .workflow-head { display: grid; grid-template-columns: .65fr 1.35fr; gap: 22px; padding: 25px 28px; color: #fff; background: var(--emerald-dark); }
+        .workflow-head small { color: #f2d68e; text-transform: uppercase; letter-spacing: .12em; font-weight: 850; }
+        .workflow-head h3 { margin: 4px 0 0; font-size: 27px; }
+        .workflow-head p { margin: 4px 0 0; color: rgba(255,255,255,.72); }
+        .workflow-steps { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); padding: 28px; }
+        .workflow-step { position: relative; min-height: 132px; padding: 48px 16px 16px; text-align: center; }
+        .workflow-step:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 52px; color: var(--gold); font-size: 25px; font-weight: 900; }
+        .workflow-step b { position: absolute; left: 50%; top: 0; display: grid; place-items: center; width: 36px; height: 36px; transform: translateX(-50%); border-radius: 50%; color: #fff; background: var(--primary); }
+        .workflow-step strong { display: block; margin-bottom: 5px; font-size: 14px; }
+        .workflow-step span { color: var(--muted); font-size: 12px; }
+        .diagrams { background: var(--emerald-dark); color: #fff; }
+        .diagrams .section-head p { color: rgba(255,255,255,.72); }
+        .diagrams .kicker { color: #f2d68e; }
+        .diagram-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
+        .diagram { min-height: 390px; padding: 26px; border: 1px solid rgba(255,255,255,.14); border-radius: 28px; background: rgba(255,255,255,.07); }
+        .diagram h3 { margin: 0 0 28px; font-size: 24px; }
+        .diagram-center { display: grid; place-items: center; min-height: 82px; margin: 22px 30px; padding: 16px; border-radius: 20px; color: var(--emerald-dark); background: #f1d27d; font-weight: 900; text-align: center; }
+        .diagram-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+        .diagram-items span { position: relative; padding: 9px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.08); font-size: 12px; font-weight: 750; }
+        .diagram-items span::before { content: "↕"; margin-right: 6px; color: #f2d68e; }
+        .gallery { background: #fff; }
+        .gallery-grid { display: grid; grid-template-columns: 1.35fr .85fr .85fr; grid-auto-rows: 330px; gap: 18px; }
+        .gallery-item { position: relative; overflow: hidden; border-radius: 26px; background: linear-gradient(135deg,var(--emerald-dark),var(--primary)); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+        .gallery-item:hover img { transform: scale(1.035); }
+        .gallery-copy { position: absolute; inset: auto 0 0; padding: 60px 25px 24px; color: #fff; background: linear-gradient(transparent,rgba(4,45,43,.92)); }
+        .gallery-copy h3 { margin: 0 0 4px; font-size: 22px; }
+        .gallery-copy p { margin: 0; color: rgba(255,255,255,.76); font-size: 13px; }
+        .gallery-placeholder { display: grid; place-items: center; height: 100%; padding: 28px; color: rgba(255,255,255,.8); text-align: center; }
         .news time { color: var(--gold); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
         .empty { padding: 42px; text-align: center; border: 1px dashed rgba(15,118,110,.28); border-radius: 24px; color: var(--muted); }
         .contact { padding-top: 0; }
@@ -148,8 +240,11 @@
             .hero-grid, .bio-grid, .contact-card, .section-head { grid-template-columns: 1fr; }
             .hero-grid { gap: 30px; }
             .hero-card { align-self: auto; }
-            .unit-grid, .news-grid, .service-columns { grid-template-columns: repeat(2,1fr); }
+            .unit-grid, .news-grid, .service-columns, .diagram-grid { grid-template-columns: repeat(2,1fr); }
             .pillar-grid { grid-template-columns: repeat(2,1fr); }
+            .timeline { grid-template-columns: repeat(2,1fr); }
+            .workflow-steps { grid-template-columns: repeat(3,1fr); }
+            .gallery-grid { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 640px) {
             .wrap { width: min(100% - 26px, 1180px); }
@@ -159,7 +254,12 @@
             .hero-grid { min-height: auto; padding: 68px 0; }
             h1 { font-size: 42px; }
             section { padding: 72px 0; }
-            .unit-grid, .news-grid, .service-columns, .pillar-grid { grid-template-columns: 1fr; }
+            .unit-grid, .news-grid, .service-columns, .pillar-grid, .timeline, .diagram-grid, .gallery-grid { grid-template-columns: 1fr; }
+            .stat-grid { grid-template-columns: repeat(2,1fr); }
+            .stat-item:nth-child(2) { border-right: 0; }
+            .workflow-head { grid-template-columns: 1fr; }
+            .workflow-steps { grid-template-columns: 1fr; }
+            .workflow-step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -13px; }
             .pillar { min-height: 190px; }
             .pillar::before { margin-bottom: 28px; }
             .contact-card { padding: 34px 24px; }
@@ -170,15 +270,22 @@
 </head>
 <body>
 <a class="skip" href="#konten">Lewati ke konten utama</a>
+<% if (announcement.optBoolean("enabled", false) && !t(announcement, "text", "").isEmpty()) { %>
+<div class="announcement"><strong><%=e(t(announcement, "label", "Informasi"))%>:</strong>
+    <a href="<%=href(t(announcement, "url", "#berita"), "#berita")%>"><%=e(t(announcement, "text", ""))%></a>
+</div>
+<% } %>
 <header class="topbar">
     <div class="wrap topbar-inner">
         <a class="brand" href="#awal" aria-label="Beranda <%=e(profil.getNama())%>">
             <img src="<%=href(profil.getLogo(), root + "/img/logo.png")%>" alt="Logo <%=e(profil.getNama())%>">
-            <span><strong><%=e(profil.getNama())%></strong><span>Portal ePesantren</span></span>
+            <span><strong><%=e(profil.getNama())%></strong><span><%=e(t(identity, "shortName", "ePesantren"))%></span></span>
         </a>
         <nav aria-label="Navigasi utama">
-            <a href="#profil">Profil</a><a href="#unit">Unit</a><a href="#layanan">Layanan</a><a href="#berita">Berita</a>
-            <a class="button button-primary" href="<%=href(root + "/login", "#")%>">Masuk Sistem</a>
+            <% for (int i = 0; i < navigation.length(); i++) { JSONObject menu = item(navigation, i); %>
+            <a href="<%=href(t(menu, "url", "#"), "#")%>"><%=e(t(menu, "label", "Menu"))%></a>
+            <% } %>
+            <a class="button button-primary" href="<%=href(t(heroPrimary, "url", root + "/login"), "#")%>"><%=e(t(heroPrimary, "label", "Masuk Sistem"))%></a>
         </nav>
     </div>
 </header>
@@ -186,27 +293,36 @@
     <section class="hero" id="awal">
         <div class="wrap hero-grid">
             <div>
-                <div class="eyebrow">Satu Pesantren · Satu Sistem · Satu Data</div>
-                <h1><%=e(profil.getNama())%></h1>
-                <p class="hero-lead"><%=e(profil.getMotto())%>. Pendidikan, kesantrian, layanan wali, kesehatan, ekonomi, dan tata kelola kini hadir dalam satu ekosistem digital yang amanah.</p>
+                <div class="eyebrow"><%=e(t(hero, "eyebrow", "Satu Pesantren · Satu Sistem · Satu Data"))%></div>
+                <h1><%=e(t(hero, "title", profil.getNama()))%></h1>
+                <p class="hero-lead"><%=e(t(hero, "lead", profil.getMotto()))%></p>
                 <div class="hero-actions">
-                    <a class="button button-primary" href="<%=href(root + "/login", "#")%>">Masuk ePesantren</a>
-                    <a class="button button-light" href="#layanan">Jelajahi Layanan</a>
-                    <a class="button button-outline" href="<%=href(root + "/psb", "#")%>">Pendaftaran Santri</a>
+                    <a class="button button-primary" href="<%=href(t(heroPrimary, "url", root + "/login"), "#")%>"><%=e(t(heroPrimary, "label", "Masuk ePesantren"))%></a>
+                    <a class="button button-light" href="<%=href(t(heroSecondary, "url", "#layanan"), "#layanan")%>"><%=e(t(heroSecondary, "label", "Jelajahi Layanan"))%></a>
+                    <a class="button button-outline" href="<%=href(t(heroTertiary, "url", root + "/psb"), "#")%>"><%=e(t(heroTertiary, "label", "Pendaftaran Santri"))%></a>
                 </div>
             </div>
             <aside class="hero-card" id="profil" aria-label="Profil lembaga">
                 <img src="<%=href(profil.getLogo(), root + "/img/logo.png")%>" alt="">
-                <h2>Berakar pada adab, bertumbuh dengan teknologi</h2>
-                <p><%=e(profil.getDeskripsi().isEmpty() ? "Portal ini menghubungkan seluruh unit pendidikan dan layanan pondok dalam pengalaman yang konsisten bagi santri, wali, asatidz, pengurus, dan pimpinan." : profil.getDeskripsi())%></p>
-                <div class="hero-facts"><div class="fact"><strong><%=sekolahs.size()%></strong><span>Sekolah</span></div><div class="fact"><strong><%=perguruanTinggis.size()%></strong><span>Perguruan tinggi</span></div><div class="fact"><strong>24/7</strong><span>Layanan digital</span></div></div>
+                <h2><%=e(t(profileContent, "title", "Berakar pada adab, bertumbuh dengan teknologi"))%></h2>
+                <p><%=e(t(profileContent, "body", profil.getDeskripsi()))%></p>
+                <div class="hero-facts"><% for (int i = 0; i < Math.min(3, stats.length()); i++) { JSONObject factItem = item(stats, i); String factValue = t(factItem, "value", ""); if ("Dinamis".equalsIgnoreCase(factValue)) factValue = String.valueOf(sekolahs.size() + perguruanTinggis.size()); %><div class="fact"><strong><%=e(factValue)%></strong><span><%=e(t(factItem, "label", "Statistik"))%></span></div><% } %></div>
             </aside>
         </div>
     </section>
 
+    <% if (stats.length() > 0) { %>
+    <div class="stat-ribbon"><div class="wrap"><div class="stat-grid">
+        <% for (int i = 0; i < stats.length(); i++) { JSONObject stat = item(stats, i); String nilai = t(stat, "value", ""); if ("Dinamis".equalsIgnoreCase(nilai)) nilai = String.valueOf(sekolahs.size() + perguruanTinggis.size()); %>
+        <div class="stat-item"><strong><%=e(nilai)%></strong><span><%=e(t(stat, "label", "Statistik"))%></span></div>
+        <% } %>
+    </div></div></div>
+    <% } %>
+
+    <% if (PesantrenWebsiteConfig.visible(site, "units", true)) { %>
     <section id="unit">
         <div class="wrap">
-            <div class="section-head"><div><span class="kicker">Jaringan pendidikan</span><h2>Satu yayasan, seluruh unit terhubung</h2></div><p>Profil unit berikut diambil langsung dari data AIS. Setiap pondok dapat menampilkan sekolah, madrasah, dan perguruan tinggi sesuai struktur yayasannya tanpa mengubah halaman.</p></div>
+            <div class="section-head"><div><span class="kicker"><%=e(t(unitsSection, "eyebrow", "Jaringan pendidikan"))%></span><h2><%=e(t(unitsSection, "title", "Satu yayasan, seluruh unit terhubung"))%></h2></div><p><%=e(t(unitsSection, "body", "Sekolah, madrasah, dan perguruan tinggi tampil langsung dari data AIS."))%></p></div>
             <% if (sekolahs.isEmpty() && perguruanTinggis.isEmpty()) { %><div class="empty">Unit pendidikan belum dipublikasikan. Administrator dapat melengkapinya pada data Yayasan dan Sekolah.</div><% } else { %>
             <div class="unit-grid">
                 <% for (UnitPendidikan unit : sekolahs) { %><article class="unit"><span class="label"><%=e(unit.getJenis())%></span><h3><%=e(unit.getNama())%></h3><p><%=e(unit.getMotto().isEmpty() ? unit.getAlamat() : unit.getMotto())%></p><a href="<%=href(unit.getUrl(), root + "/login")%>">Kunjungi unit →</a></article><% } %>
@@ -214,61 +330,114 @@
             </div><% } %>
         </div>
     </section>
+    <% } %>
 
+    <% if (PesantrenWebsiteConfig.visible(site, "pillars", true)) { %>
     <section class="pillars" id="ekosistem">
         <div class="wrap">
-            <div class="section-head"><div><span class="kicker">Ekosistem ePesantren</span><h2>Delapan pilar untuk kehidupan pondok yang utuh</h2></div><p>Bukan kumpulan aplikasi terpisah. Data santri, pembelajaran, kesehatan, keuangan, dan unit usaha memakai identitas serta aturan akses yang sama.</p></div>
+            <div class="section-head"><div><span class="kicker"><%=e(t(pillarsSection, "eyebrow", "Ekosistem ePesantren"))%></span><h2><%=e(t(pillarsSection, "title", "Pilar kehidupan pondok"))%></h2></div><p><%=e(t(pillarsSection, "body", "Seluruh layanan memakai identitas dan audit yang sama."))%></p></div>
             <div class="pillar-grid">
-                <article class="pillar"><h3>Pendidikan multi-jenjang</h3><p>eSchool, eCampus, diniyah, tahfiz, kursus, LMS, penilaian, dan pelaporan nasional.</p></article>
-                <article class="pillar"><h3>Kesantrian & asrama</h3><p>Penempatan kamar, pengasuhan, izin keluar-masuk, kunjungan, prestasi, dan komunikasi wali.</p></article>
-                <article class="pillar"><h3>Kesehatan pesantren</h3><p>Rekam medis eMedic, klinik, farmasi, pemeriksaan berkala, rujukan, dan notifikasi wali.</p></article>
-                <article class="pillar"><h3>BMT & keuangan syariah</h3><p>Tabungan santri, simpanan, pembiayaan, ZIS, e-wallet, rekonsiliasi, dan laporan amanah.</p></article>
-                <article class="pillar"><h3>Unit usaha & marketplace</h3><p>POS multi-gerai, koperasi, kantin, gudang, stok, QRIS, produk pesantren, dan laporan laba.</p></article>
-                <article class="pillar"><h3>Back-office & tata kelola</h3><p>SDM, payroll, pengadaan, aset, persuratan, akuntansi, LPJ, audit, dan pengawasan.</p></article>
-                <article class="pillar"><h3>Pustaka & repository</h3><p>Sirkulasi buku, kitab digital baca-saja ber-watermark, karya ilmiah, dan statistik pemanfaatan.</p></article>
-                <article class="pillar"><h3>Kanal mandiri & AI</h3><p>Android, desktop, web, tablet, anjungan santri tanpa ponsel, serta AI dengan tinjauan manusia.</p></article>
+                <% for (int i = 0; i < pillars.length(); i++) { JSONObject pillar = item(pillars, i); %>
+                <article class="pillar"><h3><%=e(t(pillar, "title", "Layanan"))%></h3><p><%=e(t(pillar, "description", ""))%></p></article>
+                <% } %>
             </div>
         </div>
     </section>
+    <% } %>
 
+    <% if (PesantrenWebsiteConfig.visible(site, "dailyTimeline", true)) { %>
+    <section class="daily" id="alur-harian"><div class="wrap">
+        <div class="section-head"><div><span class="kicker"><%=e(t(dailySection, "eyebrow", "Operasional sehari-hari"))%></span><h2><%=e(t(dailySection, "title", "Sistem mengikuti ritme pondok"))%></h2></div><p><%=e(t(dailySection, "body", ""))%></p></div>
+        <div class="timeline">
+            <% for (int i = 0; i < dailyTimeline.length(); i++) { JSONObject dailyItem = item(dailyTimeline, i); %>
+            <article class="timeline-item"><time><%=e(t(dailyItem, "time", ""))%></time><h3><%=e(t(dailyItem, "title", "Agenda"))%></h3><p><%=e(t(dailyItem, "description", ""))%></p></article>
+            <% } %>
+        </div>
+    </div></section>
+    <% } %>
+
+    <% if (PesantrenWebsiteConfig.visible(site, "workflows", true)) { %>
+    <section class="workflows" id="workflow"><div class="wrap">
+        <div class="section-head"><div><span class="kicker"><%=e(t(workflowSection, "eyebrow", "Workflow operasional"))%></span><h2><%=e(t(workflowSection, "title", "Alur kerja terlihat sebelum fitur dibuka"))%></h2></div><p><%=e(t(workflowSection, "body", ""))%></p></div>
+        <div class="workflow-list">
+            <% for (int i = 0; i < workflows.length(); i++) { JSONObject flow = item(workflows, i); JSONArray steps = PesantrenWebsiteConfig.array(flow, "steps"); %>
+            <article class="workflow-card">
+                <div class="workflow-head"><div><small>Workflow <%=e(String.valueOf(i + 1))%></small><h3><%=e(t(flow, "title", "Alur kerja"))%></h3></div><p><%=e(t(flow, "subtitle", ""))%></p></div>
+                <div class="workflow-steps">
+                    <% for (int j = 0; j < steps.length(); j++) { JSONObject step = item(steps, j); %>
+                    <div class="workflow-step"><b><%=e(String.valueOf(j + 1))%></b><strong><%=e(t(step, "title", "Langkah"))%></strong><span><%=e(t(step, "description", ""))%></span></div>
+                    <% } %>
+                </div>
+            </article>
+            <% } %>
+        </div>
+    </div></section>
+    <% } %>
+
+    <% if (PesantrenWebsiteConfig.visible(site, "diagrams", true)) { %>
+    <section class="diagrams" id="diagram"><div class="wrap">
+        <div class="section-head"><div><span class="kicker"><%=e(t(diagramSection, "eyebrow", "Diagram ekosistem"))%></span><h2><%=e(t(diagramSection, "title", "Satu identitas menghubungkan seluruh layanan"))%></h2></div><p><%=e(t(diagramSection, "body", ""))%></p></div>
+        <div class="diagram-grid">
+            <% for (int i = 0; i < diagrams.length(); i++) { JSONObject diagram = item(diagrams, i); JSONArray diagramItems = PesantrenWebsiteConfig.array(diagram, "items"); %>
+            <article class="diagram"><h3><%=e(t(diagram, "title", "Diagram"))%></h3><div class="diagram-center"><%=e(t(diagram, "center", profil.getNama()))%></div><div class="diagram-items">
+                <% for (int j = 0; j < diagramItems.length(); j++) { %><span><%=e(diagramItems.optString(j, ""))%></span><% } %>
+            </div></article>
+            <% } %>
+        </div>
+    </div></section>
+    <% } %>
+
+    <% if (PesantrenWebsiteConfig.visible(site, "biometric", true)) { %>
     <section class="biometric" id="biometrik">
         <div class="wrap bio-grid">
-            <div><span class="eyebrow">Identitas biometrik local-first</span><h2>Satu verifikasi untuk layanan penting santri</h2><p>Sidik jari dan pengenalan wajah dapat digunakan untuk presensi mandiri, izin gerbang, dan verifikasi transaksi member di POS. Template biometrik terenkripsi disimpan di server sebagai sumber kebenaran dan disinkronkan ke perangkat berizin agar proses tetap cepat ketika koneksi terbatas.</p><a class="button button-light" href="<%=href(root + "/login", "#")%>">Kelola melalui akun berwenang</a></div>
-            <div class="bio-flow">
-                <div class="bio-step"><b>01</b><div><strong>Enrolmen dengan persetujuan</strong><span>Petugas berwenang mendaftarkan biometrik, perangkat, tujuan penggunaan, dan masa berlaku.</span></div></div>
-                <div class="bio-step"><b>02</b><div><strong>Verifikasi cepat di perangkat</strong><span>Perangkat menyimpan cache terenkripsi terbatas; data mentah tidak dipakai sebagai pengganti template.</span></div></div>
-                <div class="bio-step"><b>03</b><div><strong>Sinkronisasi idempoten</strong><span>Peristiwa offline masuk antrean lokal, dikirim ulang aman, dan tidak menggandakan presensi atau transaksi.</span></div></div>
-                <div class="bio-step"><b>04</b><div><strong>Audit, pencabutan, dan fallback</strong><span>Setiap penggunaan tercatat. Admin dapat mencabut perangkat/template; kartu, PIN, dan verifikasi petugas tetap tersedia.</span></div></div>
+            <div><span class="eyebrow"><%=e(t(biometric, "eyebrow", "Identitas biometrik local-first"))%></span><h2><%=e(t(biometric, "title", "Satu verifikasi untuk layanan penting santri"))%></h2><p><%=e(t(biometric, "body", ""))%></p><% JSONObject bioAction = PesantrenWebsiteConfig.object(biometric, "action"); %><a class="button button-light" href="<%=href(t(bioAction, "url", root + "/login"), "#")%>"><%=e(t(bioAction, "label", "Kelola melalui akun berwenang"))%></a></div>
+            <div class="bio-flow"><% JSONArray bioSteps = PesantrenWebsiteConfig.array(biometric, "steps"); for (int i = 0; i < bioSteps.length(); i++) { JSONObject bioStep = item(bioSteps, i); %>
+                <div class="bio-step"><b><%=e(String.format("%02d", Integer.valueOf(i + 1)))%></b><div><strong><%=e(t(bioStep, "title", "Tahap biometrik"))%></strong><span><%=e(t(bioStep, "description", ""))%></span></div></div>
+                <% } %>
             </div>
         </div>
     </section>
+    <% } %>
 
+    <% if (PesantrenWebsiteConfig.visible(site, "services", true)) { %>
     <section class="services" id="layanan">
         <div class="wrap">
-            <div class="section-head"><div><span class="kicker">Fasilitas digital</span><h2>Seluruh pintu layanan dalam satu halaman</h2></div><p>Tautan mengikuti fasilitas yang tersedia pada portal ERP AIS. Pondok dapat mengaktifkan modul secara bertahap sesuai kesiapan dan kebijakan akses.</p></div>
+            <div class="section-head"><div><span class="kicker"><%=e(t(servicesSection, "eyebrow", "Fasilitas digital"))%></span><h2><%=e(t(servicesSection, "title", "Seluruh pintu layanan dalam satu halaman"))%></h2></div><p><%=e(t(servicesSection, "body", ""))%></p></div>
             <div class="service-columns">
-                <div class="service-group"><h3>Pendidikan & publikasi</h3><div class="service-links">
-                    <a href="<%=href(root + "/login", "#")%>">Login ePesantren</a><a href="<%=href(root + "/psb", "#")%>">Penerimaan santri baru</a><a href="<%=href(root + "/pmb", "#")%>">Penerimaan mahasiswa baru</a><a href="<%=href(root + "/alumni", "#")%>">Alumni & tracer study</a><a href="<%=href(root + "/pustaka", "#")%>">Perpustakaan digital</a><a href="<%=href(root + "/repository", "#")%>">Repository ilmiah</a><a href="<%=href(root + "/document", "#")%>">Dokumen institusi</a><a href="<%=href(root + "/dsh", "#")%>">Dashboard pimpinan</a>
+                <% for (int i = 0; i < serviceGroups.length(); i++) { JSONObject group = item(serviceGroups, i); JSONArray links = PesantrenWebsiteConfig.array(group, "items"); %>
+                <div class="service-group"><h3><%=e(t(group, "title", "Layanan"))%></h3><div class="service-links">
+                    <% for (int j = 0; j < links.length(); j++) { JSONObject link = item(links, j); %><a href="<%=href(t(link, "url", "#"), "#")%>"><%=e(t(link, "label", "Buka layanan"))%></a><% } %>
                 </div></div>
-                <div class="service-group"><h3>Kesantrian & layanan mandiri</h3><div class="service-links">
-                    <a href="<%=href(root + "/anjungan", "#")%>">Anjungan santri</a><a href="<%=href(root + "/welsis", "#")%>">Presensi siswa</a><a href="<%=href(root + "/tamu", "#")%>">Buku tamu</a><a href="<%=href(root + "/welpus", "#")%>">Pengunjung pustaka</a><a href="<%=href(root + "/antarJemput", "#")%>">Antar jemput</a><a href="<%=href(root + "/krrs", "#")%>">Sistem kursus</a><a href="<%=href(root + "/les", "#")%>">Les / privat</a><a href="<%=href(root + "/karir", "#")%>">Lowongan & karir</a>
-                </div></div>
-                <div class="service-group"><h3>Ekonomi & operasional</h3><div class="service-links">
-                    <a href="<%=href(root + "/kantin", "#")%>">eKantin & koperasi</a><a href="<%=href(root + "/pos", "#")%>">Point of Sale</a><a href="<%=href(root + "/vendor", "#")%>">Portal rekanan</a><a href="https://apps.emedik.id">eMedic klinik pesantren</a><a href="<%=href(root + "/penawaran", "#")%>">Surat penawaran</a><a href="<%=href(root + "/presentasi", "#")%>">Presentasi solusi</a><a href="<%=href(root + "/proposal", "#")%>">Proposal ePesantren</a><a href="<%=href(root + "/pks", "#")%>">Dokumen kerja sama</a>
-                </div></div>
+                <% } %>
             </div>
         </div>
     </section>
+    <% } %>
 
+    <% if (PesantrenWebsiteConfig.visible(site, "gallery", true)) { %>
+    <section class="gallery" id="galeri"><div class="wrap">
+        <div class="section-head"><div><span class="kicker"><%=e(t(gallerySection, "eyebrow", "Suasana dan fasilitas"))%></span><h2><%=e(t(gallerySection, "title", "Kehidupan pondok dalam gambar"))%></h2></div><p><%=e(t(gallerySection, "body", ""))%></p></div>
+        <div class="gallery-grid">
+            <% for (int i = 0; i < gallery.length(); i++) { JSONObject photo = item(gallery, i); String image = t(photo, "image", ""); %>
+            <article class="gallery-item"><% if (!image.isEmpty()) { %><img src="<%=href(image, root + "/img/main.jpg")%>" alt="<%=e(t(photo, "title", "Foto pondok"))%>" loading="lazy"><% } else { %><div class="gallery-placeholder">Foto dapat diisi dari JSON Yayasan tanpa mengubah JSP.</div><% } %><div class="gallery-copy"><h3><%=e(t(photo, "title", "Kegiatan pondok"))%></h3><p><%=e(t(photo, "caption", ""))%></p></div></article>
+            <% } %>
+        </div>
+    </div></section>
+    <% } %>
+
+    <% if (PesantrenWebsiteConfig.visible(site, "news", true)) { %>
     <section id="berita">
         <div class="wrap">
-            <div class="section-head"><div><span class="kicker">Kabar pondok</span><h2>Pengumuman umum terbaru</h2></div><p>Berita berasal dari Pengumuman Akademis yang aktif dan ditujukan untuk umum, dengan pembatasan otomatis sesuai yayasan atau unit pendidikan.</p></div>
+            <div class="section-head"><div><span class="kicker"><%=e(t(newsSection, "eyebrow", "Kabar pondok"))%></span><h2><%=e(t(newsSection, "title", "Pengumuman umum terbaru"))%></h2></div><p><%=e(t(newsSection, "body", ""))%></p></div>
             <% if (berita.isEmpty()) { %><div class="empty">Belum ada pengumuman umum yang dipublikasikan.</div><% } else { %><div class="news-grid"><% for (Berita item : berita) { %><article class="news"><time><%=e(item.getTanggal())%></time><h3><%=e(item.getJudul())%></h3><p><%=e(item.getRingkasan())%></p></article><% } %></div><% } %>
         </div>
     </section>
+    <% } %>
 
-    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow">Terhubung dengan pondok</span><h2>Informasi dan layanan resmi <%=e(profil.getNama())%></h2><p><%=e(profil.getAlamat())%></p><div class="hero-actions"><a class="button button-light" href="<%=href(root + "/login", "#")%>">Masuk Sistem</a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>">Hubungi WhatsApp</a><% } %></div></div><div class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Data profil dapat disesuaikan dari master Yayasan AIS.</span></div></div></div></section>
+    <% if (PesantrenWebsiteConfig.visible(site, "contact", true)) { %>
+    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2><%=e(t(cta, "title", "Informasi dan layanan resmi " + profil.getNama()))%></h2><p><%=e(t(cta, "body", profil.getAlamat()))%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><div class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Seluruh konten halaman ini dapat disesuaikan dari JSON Website pada master Yayasan.</span></div></div></div></section>
+    <% } %>
 </main>
-<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(profil.getNama())%></span><span>Didukung ePesantren · CV. Zishof</span></div></footer>
+<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(t(footerContent, "left", profil.getNama()))%></span><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>
 </body>
 </html>
