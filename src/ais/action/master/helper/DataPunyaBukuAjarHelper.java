@@ -209,8 +209,10 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 				.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
 
-		component.getLinkedTab().setLabel("Buku Bahan Ajar "
-				+ (dataPunyaBukuBahanAjar.size() == 0 ? "" : "(" + dataPunyaBukuBahanAjar.size() + ")"));
+		if (component instanceof Tabpanel) {
+			((Tabpanel) component).getLinkedTab().setLabel("Buku Bahan Ajar "
+					+ (dataPunyaBukuBahanAjar.size() == 0 ? "" : "(" + dataPunyaBukuBahanAjar.size() + ")"));
+		}
 
 		ListModel strset = new SimpleListModel(dataPunyaBukuBahanAjar);
 		grid.setRowRenderer(new DetailSkripsiRenderer());

@@ -193,7 +193,8 @@ public final class PesantrenLandingService {
     }
 
     private static Criterion scopeBerita(Yayasan yayasan, List<Sekolah> sekolahs, List<PerguruanTinggi> pts) {
-        Criterion global = Restrictions.and(Restrictions.isNull("yayasan"), Restrictions.isNull("sekolah"),
+        Criterion global = Restrictions.and(
+                Restrictions.and(Restrictions.isNull("yayasan"), Restrictions.isNull("sekolah")),
                 Restrictions.isNull("perguruanTinggi"));
         Criterion scope = global;
         if (valid(yayasan)) {
@@ -248,7 +249,7 @@ public final class PesantrenLandingService {
 
     public static final class Profil {
         private final String nama, motto, deskripsi, alamat, telepon, wa, email, website, warna, logo, latar;
-        Profil(String nama, String motto, String deskripsi, String alamat, String telepon, String wa, String email,
+        public Profil(String nama, String motto, String deskripsi, String alamat, String telepon, String wa, String email,
                 String website, String warna, String logo, String latar) {
             this.nama = nama == null ? "Pondok Pesantren" : nama; this.motto = motto == null ? "" : motto;
             this.deskripsi = deskripsi == null ? "" : deskripsi; this.alamat = alamat == null ? "" : alamat;

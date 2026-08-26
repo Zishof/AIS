@@ -251,7 +251,7 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 									&& checkStatusPembayaranMahasiswa.equalsIgnoreCase("false")) {
 								statusMahasiswa = ConstantValues.TIDAK_AKTIF;
 							} else if (semester != null && semester < jumlah_semester
-									&& mahasiswa.getStatusKeluar() == null
+									&& statusKeluar == null
 									&& statusMahasiswa != null && statusMahasiswa.getId() != null
 									&& (statusSama(statusMahasiswa, ConstantValues.LULUS)
 											|| statusSama(statusMahasiswa, ConstantValues.KELUAR)
@@ -262,7 +262,7 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 
 							if (statusMahasiswa != null && ConstantValues.LULUS != null
 									&& statusMahasiswa.getId().equals(ConstantValues.LULUS.getId())
-									&& mahasiswa.getStatusKeluar() == null) {
+									&& statusKeluar == null) {
 								statusMahasiswa = ConstantValues.TIDAK_AKTIF;
 							}
 
