@@ -96,13 +96,16 @@ String rnd = Common.getGeneratedBarCode(7);
                                 <th class="fw-bold text-uppercase small text-center" style="width: 110px;"><i class="fas fa-piggy-bank me-1"></i><%=Common.getBahasaConfig("Tampil CB")%></th>
                                 <th class="fw-bold text-uppercase small text-center" style="width: 110px;"><i class="fas fa-check-square me-1"></i><%=Common.getBahasaConfig("Dipilih")%></th>
                                 <th class="fw-bold text-uppercase small text-center" style="width: 130px;"><i class="fas fa-money-bill-wave me-1"></i><%=Common.getBahasaConfig("Boleh Topup")%></th>
+                                <th class="fw-bold text-uppercase small text-center" style="width: 82px;"><i class="fas fa-key me-1"></i>PIN</th>
+                                <th class="fw-bold text-uppercase small text-center" style="width: 92px;"><i class="fas fa-camera me-1"></i><%=Common.getBahasaConfig("Wajah")%></th>
+                                <th class="fw-bold text-uppercase small text-center" style="width: 110px;"><i class="fas fa-fingerprint me-1"></i>Fingerprint</th>
                                 <th class="fw-bold text-uppercase small text-center" style="width: 100px;"><i class="fas fa-toggle-on me-1"></i><%=Common.getBahasaConfig("Status")%></th>
                                 <th class="fw-bold text-uppercase small text-center" style="width: 100px;"><i class="fas fa-cogs"></i></th>
                             </tr>
                         </thead>
                         <tbody id="tabelDataJenis<%=rnd%>">
                             <tr>
-                                <td colspan="10" class="text-center py-5">
+                                <td colspan="13" class="text-center py-5">
                                     <div class="spinner-border text-primary mb-3"></div>
                                     <br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Sistem sedang memuat data...")%></span>
                                 </td>
@@ -242,6 +245,23 @@ String rnd = Common.getGeneratedBarCode(7);
                                             <label class="form-check-label fw-bold text-dark small" for="inputDipilih<%=rnd%>"><%=Common.getBahasaConfig("Bisa Dipilih Saat Pendaftaran (Form Calon Anggota)")%></label>
                                         </div>
 
+                                        <div class="border rounded-3 p-3 bg-white">
+                                            <div class="fw-bold text-primary small mb-2"><i class="fas fa-shield-alt me-1"></i><%=Common.getBahasaConfig("Verifikasi sebelum memotong saldo")%></div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="inputWajibPin<%=rnd%>">
+                                                <label class="form-check-label fw-bold small" for="inputWajibPin<%=rnd%>"><%=Common.getBahasaConfig("Wajib Verifikasi PIN numerik")%></label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="inputWajibBiometricWajah<%=rnd%>">
+                                                <label class="form-check-label fw-bold small" for="inputWajibBiometricWajah<%=rnd%>"><%=Common.getBahasaConfig("Wajib Verifikasi Biometric wajah (kamera + liveness)")%></label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="inputWajibBiometricFingerprint<%=rnd%>">
+                                                <label class="form-check-label fw-bold small" for="inputWajibBiometricFingerprint<%=rnd%>"><%=Common.getBahasaConfig("Wajib Verifikasi Fingerprint (scanner USB/OTG + SDK)")%></label>
+                                            </div>
+                                            <small class="text-muted d-block mt-2"><%=Common.getBahasaConfig("Semua metode yang dicentang wajib berhasil dan diakui server sebelum saldo member dipotong.")%></small>
+                                        </div>
+
                                         <!-- Pengaturan Boleh Topup -->
                                         <div class="form-check form-switch fs-6 mb-0">
                                             <input class="form-check-input ms-0 me-2 shadow-sm border" type="checkbox" id="inputBolehTopup<%=rnd%>" style="cursor: pointer;">
@@ -291,7 +311,7 @@ String rnd = Common.getGeneratedBarCode(7);
     
     // Inject status Admin dari Java ke JavaScript
     const isAdmin<%=rnd%> = <%=isAdmin%>;
-    const colSpan<%=rnd%> = 10; // Total kolom tabel disesuaikan dengan penambahan Tampil Saldo
+    const colSpan<%=rnd%> = 13;
 
     // Variabel Paging & Cache
     let currentPage<%=rnd%> = 1;
@@ -356,6 +376,9 @@ String rnd = Common.getGeneratedBarCode(7);
         document.getElementById('inputBolehTopup<%=rnd%>').disabled = isReadonly;
         document.getElementById('inputTampilkanCashback<%=rnd%>').disabled = isReadonly;
         document.getElementById('inputTampilkanSaldo<%=rnd%>').disabled = isReadonly;
+        document.getElementById('inputWajibPin<%=rnd%>').disabled = isReadonly;
+        document.getElementById('inputWajibBiometricWajah<%=rnd%>').disabled = isReadonly;
+        document.getElementById('inputWajibBiometricFingerprint<%=rnd%>').disabled = isReadonly;
         document.getElementById('inputStatusAktif<%=rnd%>').disabled = isReadonly;
         
         document.getElementById('inputWajibBelanja<%=rnd%>').disabled = isReadonly;
@@ -433,7 +456,7 @@ String rnd = Common.getGeneratedBarCode(7);
         const sqlCount = "SELECT COUNT(*) AS jumlah FROM koperasi.jenis_anggota_koperasi " + sqlFilters + ";";
         
         // Penambahan kolom tampilkan_sisa_saldo dan istilah_cashback pada query utama
-        const sqlData = "SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, daftar_cara_pembayaran_yang_boleh_di_pilih, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran FROM koperasi.jenis_anggota_koperasi " + sqlFilters + " ORDER BY id DESC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
+        const sqlData = "SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, daftar_cara_pembayaran_yang_boleh_di_pilih, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran, COALESCE(wajib_pin,false) wajib_pin, COALESCE(wajib_verifikasi_biometric_wajah,false) wajib_verifikasi_biometric_wajah, COALESCE(wajib_verifikasi_biometric_fingerprint,false) wajib_verifikasi_biometric_fingerprint FROM koperasi.jenis_anggota_koperasi " + sqlFilters + " ORDER BY id DESC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
 
         try {
             const [resCount, resData] = await Promise.all([
@@ -468,6 +491,9 @@ String rnd = Common.getGeneratedBarCode(7);
                     // Kolom Tampilkan Cashback
                     const isTampilCb = (row.tampilkan_cashback === null || row.tampilkan_cashback === true || row.tampilkan_cashback === 'true' || row.tampilkan_cashback === 't');
                     const badgeTampilCb = isTampilCb ? '<span class="text-success fw-bold"><i class="fas fa-check-circle"></i></span>' : '<span class="text-secondary fw-bold"><i class="fas fa-minus"></i></span>';
+                    const badgeWajibPin = (row.wajib_pin === true || row.wajib_pin === 'true' || row.wajib_pin === 't') ? '<span class="badge bg-warning text-dark">PIN</span>' : '<span class="text-muted">-</span>';
+                    const badgeWajibWajah = (row.wajib_verifikasi_biometric_wajah === true || row.wajib_verifikasi_biometric_wajah === 'true' || row.wajib_verifikasi_biometric_wajah === 't') ? '<span class="badge bg-info text-dark"><i class="fas fa-camera"></i></span>' : '<span class="text-muted">-</span>';
+                    const badgeWajibFingerprint = (row.wajib_verifikasi_biometric_fingerprint === true || row.wajib_verifikasi_biometric_fingerprint === 'true' || row.wajib_verifikasi_biometric_fingerprint === 't') ? '<span class="badge bg-primary"><i class="fas fa-fingerprint"></i></span>' : '<span class="text-muted">-</span>';
 
                     // Istilah Saldo & Cashback
                     const istilahSaldo = row.istilah_sisa_saldo || 'Saldo Kas';
@@ -492,6 +518,9 @@ String rnd = Common.getGeneratedBarCode(7);
                             '<td class="text-center">' + badgeTampilCb + '</td>' +
                             '<td class="text-center">' + badgeDipilih + '</td>' +
                             '<td class="text-center">' + badgeBolehTopup + '</td>' +
+                            '<td class="text-center">' + badgeWajibPin + '</td>' +
+                            '<td class="text-center">' + badgeWajibWajah + '</td>' +
+                            '<td class="text-center">' + badgeWajibFingerprint + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>' +
                             '<td class="text-center text-nowrap">' + actionBtn + '</td>' +
                         '</tr>';
@@ -554,6 +583,9 @@ String rnd = Common.getGeneratedBarCode(7);
         document.getElementById('inputIstilahSaldo<%=rnd%>').value = 'Saldo Kas';
         document.getElementById('inputIstilahCashback<%=rnd%>').value = 'Cashback';
         document.getElementById('inputMinimalSaldo<%=rnd%>').value = '0';
+        document.getElementById('inputWajibPin<%=rnd%>').checked = false;
+        document.getElementById('inputWajibBiometricWajah<%=rnd%>').checked = false;
+        document.getElementById('inputWajibBiometricFingerprint<%=rnd%>').checked = false;
         
         document.getElementById('inputWajibBelanja<%=rnd%>').checked = false;
         document.getElementById('inputTargetBelanja<%=rnd%>').value = '0';
@@ -609,6 +641,9 @@ String rnd = Common.getGeneratedBarCode(7);
             bolehEntryTopupOlehAdmin: document.getElementById('inputBolehTopup<%=rnd%>').checked,
             tampilkanCashback: document.getElementById('inputTampilkanCashback<%=rnd%>').checked,
             tampilkanSisaSaldo: document.getElementById('inputTampilkanSaldo<%=rnd%>').checked,
+            wajibPin: document.getElementById('inputWajibPin<%=rnd%>').checked,
+            wajibVerifikasiBiometricWajah: document.getElementById('inputWajibBiometricWajah<%=rnd%>').checked,
+            wajibVerifikasiBiometricFingerprint: document.getElementById('inputWajibBiometricFingerprint<%=rnd%>').checked,
             wajibBelanjaRutin: document.getElementById('inputWajibBelanja<%=rnd%>').checked,
             targetFrekuensiBelanja: parseInt(document.getElementById('inputTargetBelanja<%=rnd%>').value) || 0,
             maksimalPelanggaran: parseInt(document.getElementById('inputMaksSP<%=rnd%>').value) || 0,
@@ -660,7 +695,7 @@ String rnd = Common.getGeneratedBarCode(7);
         
         isEditMode<%=rnd%> = true; 
         
-        const sql = 'SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, COALESCE(minimal_saldo, 0) as minimal_saldo, daftar_cara_pembayaran_yang_boleh_di_pilih, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran FROM koperasi.jenis_anggota_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, COALESCE(minimal_saldo, 0) as minimal_saldo, daftar_cara_pembayaran_yang_boleh_di_pilih, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran, COALESCE(wajib_pin,false) wajib_pin, COALESCE(wajib_verifikasi_biometric_wajah,false) wajib_verifikasi_biometric_wajah, COALESCE(wajib_verifikasi_biometric_fingerprint,false) wajib_verifikasi_biometric_fingerprint FROM koperasi.jenis_anggota_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
         
         if (res.length > 0) {
@@ -673,6 +708,9 @@ String rnd = Common.getGeneratedBarCode(7);
             document.getElementById('inputIstilahSaldo<%=rnd%>').value = data.istilah_sisa_saldo || 'Saldo Kas';
             document.getElementById('inputIstilahCashback<%=rnd%>').value = data.istilah_cashback || 'Cashback';
             document.getElementById('inputMinimalSaldo<%=rnd%>').value = data.minimal_saldo || 0;
+            document.getElementById('inputWajibPin<%=rnd%>').checked = (data.wajib_pin === true || data.wajib_pin === 'true' || data.wajib_pin === 't');
+            document.getElementById('inputWajibBiometricWajah<%=rnd%>').checked = (data.wajib_verifikasi_biometric_wajah === true || data.wajib_verifikasi_biometric_wajah === 'true' || data.wajib_verifikasi_biometric_wajah === 't');
+            document.getElementById('inputWajibBiometricFingerprint<%=rnd%>').checked = (data.wajib_verifikasi_biometric_fingerprint === true || data.wajib_verifikasi_biometric_fingerprint === 'true' || data.wajib_verifikasi_biometric_fingerprint === 't');
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
             
             const isWajib = (data.wajib_belanja_rutin === true || data.wajib_belanja_rutin === 'true' || data.wajib_belanja_rutin === 't');
