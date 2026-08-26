@@ -119,7 +119,8 @@ public class Pustaka extends HttpServlet {
 			try { requestedMemberId = Long.valueOf(anggotaIdStr == null ? "" : anggotaIdStr.trim()); } catch (Exception ignored) { }
 			Anggota ownMember = currentUser == null ? null : Anggota.buatAtauAmbilAnggota(currentUser, false);
 			boolean mayReadPhoto = currentUser != null && requestedMemberId != null
-					&& (Common.getApakahAdmin() || (ownMember != null && requestedMemberId.equals(ownMember.getId())));
+					&& (Common.getApakahAdmin() || ais.action.master.library.modern.LibraryPermissionGuard.isStaff(request)
+							|| (ownMember != null && requestedMemberId.equals(ownMember.getId())));
 			if (!mayReadPhoto) {
 				response.sendError(currentUser == null ? HttpServletResponse.SC_UNAUTHORIZED : HttpServletResponse.SC_FORBIDDEN);
 				return;

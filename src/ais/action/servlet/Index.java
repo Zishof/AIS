@@ -11,6 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import ais.common.Common;
+import ais.action.servlet.landing.PesantrenLandingService;
 import ais.database.model.Konfigurasi;
 
 /**
@@ -18,12 +19,13 @@ import ais.database.model.Konfigurasi;
  *
  * Urutan tampilan publik (kompatibel dengan routing lama):
  * 1. Bila paksa_halaman_utama_menggunakan_skin aktif, wajib memakai skin.
- * 2. default_login_ke_ebisnis -> ebisnis.jsp.
- * 3. default_login_ke_erp -> erp.jsp.
- * 4. default_home_versi_baru -> home.jsp.
- * 5. default_home_login_versi_baru -> login2.jsp.
- * 6. Skin hasil upload (/WEB-INF/j/index.jsp).
- * 7. Bila skin tidak tersedia -> home.jsp.
+ * 2. default_login_ke_epesantren -> pesantren.jsp.
+ * 3. default_login_ke_ebisnis -> ebisnis.jsp.
+ * 4. default_login_ke_erp -> erp.jsp.
+ * 5. default_home_versi_baru -> home.jsp.
+ * 6. default_home_login_versi_baru -> login2.jsp.
+ * 7. Skin hasil upload (/WEB-INF/j/index.jsp).
+ * 8. Bila skin tidak tersedia -> home.jsp.
  *
  * Enhancement aman:
  * - Null-safe untuk Konfigurasi.
@@ -76,6 +78,14 @@ public class Index extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                         "Skin halaman utama belum tersedia. Unggah skin ZIP yang memiliki file index.jsp atau nonaktifkan konfigurasi paksa skin.");
             }
+            return;
+        }
+
+        config = Common.getKonfigurasi("default_login_ke_epesantren", Konfigurasi.TIDAK_AKTIF);
+        if (isAktif(config)) {
+            PesantrenLandingService.prepare(request);
+            request.setAttribute("homeUiEntry", "configuration:epesantren");
+            forward(request, response, "/WEB-INF/baru/pesantren.jsp");
             return;
         }
 

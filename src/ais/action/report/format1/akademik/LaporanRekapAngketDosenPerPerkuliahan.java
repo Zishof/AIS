@@ -20,6 +20,7 @@ import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Label;
@@ -575,7 +576,12 @@ public class LaporanRekapAngketDosenPerPerkuliahan extends MyWindow {
 						ais.action.report.helper.LoadingReportUtil.clearBusy();
 						excelku = new ais.ui.util.MySpreadsheet();
 						Common.clear(center);
-						excelku.setParent(center);
+						Div wadahPratinjau = new Div();
+						wadahPratinjau.setWidth("100%");
+						wadahPratinjau.setHeight("100%");
+						wadahPratinjau.setStyle("overflow:auto;");
+						wadahPratinjau.setParent(center);
+						excelku.setParent(wadahPratinjau);
 						EcampusUtil.tampilkan(datas, excelku, false);
 						// Tampilkan sebagai grid ringan; Excel tetap utuh saat tombol Download diklik.
 						ais.ui.util.PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(excelku);

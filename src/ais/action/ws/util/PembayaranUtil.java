@@ -2409,7 +2409,7 @@ public class PembayaranUtil {
 		try {
 
 			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-					&& kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan() && kegiatan.getMahasiswa() != null) {
+					&& Boolean.TRUE.equals(kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan()) && kegiatan.getMahasiswa() != null) {
 				try {
 					boolean terlambarLangsungTidakAktif = Common
 							.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", kegiatan.getSemster(),
@@ -2425,8 +2425,10 @@ public class PembayaranUtil {
 						}
 						HistoryStatusMahasiswa historyStatusMahasiswa = Common.currentStatus(kegiatan.getMahasiswa(),
 								kegiatan.getTahunAkademik(), kegiatan.getSemster());
-						historyStatusMahasiswa.put("false", "checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
+						if (historyStatusMahasiswa != null) {
+							historyStatusMahasiswa.put("false", "checkStatusPembayaranMahasiswa");
+							historyStatusMahasiswa.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
+						}
 						System.out.println(
 								"mahasiswa " + kegiatan.getMahasiswa() + ", checkStatusPembayaranMahasiswa false");
 					}

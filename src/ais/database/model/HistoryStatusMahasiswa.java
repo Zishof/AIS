@@ -174,29 +174,34 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 				if (jumlah_semester == null) {
 					jumlah_semester = 8;
 				}
+				StatusKeluar statusKeluar = null;
+				String namaStatusKeluar = null;
+				KelompokStatusMahasiswa kelompokStatus = null;
+				String batasStudi = null;
+				try { statusKeluar = mahasiswa.getStatusKeluar(); } catch (Exception e) { statusKeluar = null; }
+				try { namaStatusKeluar = statusKeluar == null ? null : statusKeluar.getNama(); } catch (Exception e) { namaStatusKeluar = null; }
+				try { kelompokStatus = mahasiswa.getKelompokStatusMahasiswa(); } catch (Exception e) { kelompokStatus = null; }
+				try { batasStudi = mahasiswa.getBatasStudi(); } catch (Exception e) { batasStudi = null; }
 
-				if ((semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
-						&& mahasiswa.getStatusKeluar().getNama() != null
-						&& mahasiswa.getStatusKeluar().getNama().trim().equalsIgnoreCase("Lulus"))) {
+				if (semester >= jumlah_semester && namaStatusKeluar != null
+						&& namaStatusKeluar.trim().equalsIgnoreCase("Lulus")) {
 					statusMahasiswa = ConstantValues.LULUS;
 				}
 
-				else if ((semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
-						&& mahasiswa.getStatusKeluar().getNama() != null
-						&& mahasiswa.getStatusKeluar().getNama().trim().toLowerCase().contains("keluar"))) {
+				else if (semester >= jumlah_semester && namaStatusKeluar != null
+						&& namaStatusKeluar.trim().toLowerCase().contains("keluar")) {
 					statusMahasiswa = ConstantValues.DROP_OUT;
 				}
 
-				else if (mahasiswa != null && semester != null && mahasiswa.getKelompokStatusMahasiswa() != null
-						&& mahasiswa.getKelompokStatusMahasiswa().getSmtMulai() != null
-						&& mahasiswa.getKelompokStatusMahasiswa().getSmtSampai() != null
-						&& mahasiswa.getKelompokStatusMahasiswa().getSmtMulai() <= semester
-						&& mahasiswa.getKelompokStatusMahasiswa().getSmtSampai() >= semester) {
-					statusMahasiswa = mahasiswa.getKelompokStatusMahasiswa().getStatusMahasiswa();
+				else if (kelompokStatus != null && kelompokStatus.getSmtMulai() != null
+						&& kelompokStatus.getSmtSampai() != null && kelompokStatus.getSmtMulai() <= semester
+						&& kelompokStatus.getSmtSampai() >= semester) {
+					statusMahasiswa = kelompokStatus.getStatusMahasiswa();
 				} else {
 
-					PendaftaranCutiMahasiswa pendaftaranCutiMahasiswa = mahasiswa.ambilCuti(semester, tahap,
-							getSp() != null && getSp().equals(Perkuliahan.SEMESTER_PENDEK));
+					PendaftaranCutiMahasiswa pendaftaranCutiMahasiswa = null;
+					try { pendaftaranCutiMahasiswa = mahasiswa.ambilCuti(semester, tahap,
+							getSp() != null && getSp().equals(Perkuliahan.SEMESTER_PENDEK)); } catch (Exception e) { pendaftaranCutiMahasiswa = null; }
 
 					if (pendaftaranCutiMahasiswa != null && Boolean.TRUE.equals(pendaftaranCutiMahasiswa.getPersetujuan())
 							&& pendaftaranCutiMahasiswa.getSemester() != null
@@ -210,7 +215,7 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 
 						if (((getSks() != null && getSks() > 0)
 								|| (getSemester() != null && getSemester().equals(1)))
-								&& mahasiswa.getStatusKeluar() == null) {
+								&& statusKeluar == null) {
 							statusMahasiswa = ConstantValues.AKTIF;
 						} else {
 
@@ -218,25 +223,21 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 
 							boolean ada = false;
 
-							if ((semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
-									&& mahasiswa.getStatusKeluar().getNama() != null
-									&& mahasiswa.getStatusKeluar().getNama().trim().equalsIgnoreCase("Lulus"))) {
+							if (semester >= jumlah_semester && namaStatusKeluar != null
+									&& namaStatusKeluar.trim().equalsIgnoreCase("Lulus")) {
 								statusMahasiswa = ConstantValues.LULUS;
 							}
 
-							else if ((semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
-									&& mahasiswa.getStatusKeluar().getNama() != null
-									&& mahasiswa.getStatusKeluar().getNama().trim().toLowerCase().contains("keluar"))) {
+							else if (semester >= jumlah_semester && namaStatusKeluar != null
+									&& namaStatusKeluar.trim().toLowerCase().contains("keluar")) {
 								statusMahasiswa = ConstantValues.DROP_OUT;
 							}
 
-							else if (semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
-									&& mahasiswa.getStatusKeluar().getNama() != null) {
+							else if (semester >= jumlah_semester && statusKeluar != null && namaStatusKeluar != null) {
 								statusMahasiswa = ConstantValues.KELUAR;
-							} else if (semester != null && mahasiswa.getBatasStudi() != null
-									&& !mahasiswa.getBatasStudi().isEmpty()) {
+							} else if (batasStudi != null && !batasStudi.isEmpty()) {
 
-								for (String s : mahasiswa.getBatasStudi().split(",")) {
+								for (String s : batasStudi.split(",")) {
 									if (s.trim().equalsIgnoreCase(semester.toString())) {
 										ada = true;
 									}

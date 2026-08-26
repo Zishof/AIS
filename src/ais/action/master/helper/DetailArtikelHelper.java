@@ -2405,7 +2405,9 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 			new Label(oleh).setParent(vbox);
 
-			new MyLabelAgakKecilBold(artikel.getJurnalPenelitian().getJudul() + ", " + artikel.getNomor() + " | issn:"
+			String judulJurnal = artikel.getJurnalPenelitian() == null || artikel.getJurnalPenelitian().getJudul() == null
+					? "Jurnal belum ditentukan" : artikel.getJurnalPenelitian().getJudul();
+			new MyLabelAgakKecilBold(judulJurnal + ", " + artikel.getNomor() + " | issn:"
 					+ artikel.getIssn() + " | vol:" + artikel.getVol() + " | " + artikel.getTahun()).setParent(vbox);
 
 			MyToolbarbuttonConfig myButtonConfig = new MyToolbarbuttonConfig("Lihat Isi Artikel",
@@ -2442,7 +2444,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 				.add(Restrictions.eq("artikel", artikel)).addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 
 		List<String> koresponden = new ArrayList<String>();
-		if (artikel.getJurnalPenelitian() != null) {
+		if (artikel.getJurnalPenelitian() != null && artikel.getJurnalPenelitian().getKorespondensi() != null) {
 
 			for (String s : artikel.getJurnalPenelitian().getKorespondensi().split(",")) {
 				if (!s.trim().isEmpty()) {
@@ -2452,7 +2454,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		}
 
 		List<String> korespondenGrup = new ArrayList<String>();
-		if (artikel.getJurnalPenelitian() != null) {
+		if (artikel.getJurnalPenelitian() != null && artikel.getJurnalPenelitian().getKorespondensiGrupPengguna() != null) {
 
 			for (String s : artikel.getJurnalPenelitian().getKorespondensiGrupPengguna().split(",")) {
 				if (!s.trim().isEmpty()) {

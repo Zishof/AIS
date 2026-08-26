@@ -1257,8 +1257,7 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 					// (mis. detailNilai berformat "id,,nilai,..." atau entri belum lengkap).
 					// trim+isEmpty dulu sebelum parseLong/parseDouble -- token kosong DILEWATI
 					// (continue ke entri berikutnya di "nilais"), tanpa merusak parsing entri lain.
-					if (s.length < 3 || s[0] == null || s[0].trim().isEmpty() || s[1] == null
-							|| s[1].trim().isEmpty() || s[2] == null || s[2].trim().isEmpty()) {
+					if (s.length < 3 || !tokenAngkaValid(s[0]) || !tokenAngkaValid(s[1]) || !tokenAngkaValid(s[2])) {
 						continue;
 					}
 					Long formatId = Long.parseLong(s[0].trim());
@@ -1285,8 +1284,7 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 				try {
 					String[] s = nn.split(",");
 					// token kosong/tak lengkap dilewati agar tidak NumberFormatException (pola sama dgn retreiveDetailNilai)
-					if (s.length < 3 || s[0] == null || s[0].trim().isEmpty() || s[1] == null
-							|| s[1].trim().isEmpty() || s[2] == null || s[2].trim().isEmpty()) {
+					if (s.length < 3 || !tokenAngkaValid(s[0]) || !tokenAngkaValid(s[1]) || !tokenAngkaValid(s[2])) {
 						continue;
 					}
 					Long formatId = Long.parseLong(s[0].trim());
@@ -1304,6 +1302,10 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		}
 
 		return false;
+	}
+
+	private boolean tokenAngkaValid(String nilai) {
+		return nilai != null && !nilai.trim().isEmpty() && !"null".equalsIgnoreCase(nilai.trim());
 	}
 
 	@Column(columnDefinition = "text")

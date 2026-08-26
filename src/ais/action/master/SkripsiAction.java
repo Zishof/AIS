@@ -1319,9 +1319,9 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 											.add(Restrictions.eq("tahunAkademik",
 													tahunAkademik.getSelectedItem().getValue()))
 											.createAlias("mahasiswa", "mahasiswa")
-											.add(j == null ? Restrictions.sqlRestriction("true")
-													: Restrictions.eq("jurusan", j))
 											.createAlias("mahasiswa.jurusan", "jurusan")
+											.add(j == null ? Restrictions.sqlRestriction("true")
+													: Restrictions.eq("jurusan.id", j.getId()))
 											.add(f == null ? Restrictions.sqlRestriction("true")
 													: Restrictions.eq("jurusan.fakultas", f))
 											.addOrder(Order.asc("id")).list();

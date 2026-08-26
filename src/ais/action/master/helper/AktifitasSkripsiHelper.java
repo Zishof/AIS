@@ -382,7 +382,7 @@ public class AktifitasSkripsiHelper {
 								public void muat(Div panel) throws Exception {
 									if (panel.getChildren().size() == 0) {
 
-										Tabpanel panelBukuAjar = new ais.ui.util.MyTabpanel();
+										Div panelBukuAjar = new Div();
 										setPanelDetailTinggi(panelBukuAjar);
 										panelBukuAjar.setParent(panel);
 										DataPunyaBukuAjarHelper dataPunyaBukuAjarHelper = new DataPunyaBukuAjarHelper();

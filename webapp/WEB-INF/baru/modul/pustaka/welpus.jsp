@@ -2,12 +2,14 @@
 <%@page import="ais.database.model.PerguruanTinggi"%>
 <%@page import="ais.action.master.helper.util.PerguruanTinggiUtil"%>
 <%@page import="ais.common.newui.NewUiCsrfUtil"%>
+<%@page import="ais.action.master.library.modern.LibraryPermissionGuard"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%
     // 1. INISIALISASI VARIABEL DASAR
     String rnd = Common.getGeneratedBarCode(7);
     String kioskCsrf = NewUiCsrfUtil.getToken(request.getSession());
+    boolean kioskStaff = LibraryPermissionGuard.isStaff(request);
     long cacheBuster = System.currentTimeMillis();
     
     // 2. PENGAMBILAN DATA INSTITUSI & TEMA[cite: 5]
@@ -143,6 +145,8 @@
                 </div>
             </form>
 
+            <div id="statusKunjungan<%=rnd%>" class="alert d-none text-start mx-md-5" role="status" aria-live="polite"></div>
+
             <div class="small text-muted mb-4">
                 <i class="fas fa-map-marker-alt me-1"></i> <%= alamat1 %> | 
                 <i class="fas fa-phone-alt me-1"></i> <%= telepon %>
@@ -157,7 +161,9 @@
                 <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-bold transition-all shadow-sm" onclick="bukaModalRiwayat<%=rnd%>(0)">
                     <i class="fas fa-history me-2"></i><%= Common.getBahasaConfig("Riwayat Kunjungan") %>
                 </button>
+                <% if (kioskStaff) { %><a class="btn btn-success rounded-pill px-4 py-2 fw-bold" href="<%=Common.ROOT%>/displayMenu?menu=56134889&p=pustaka" target="_blank" rel="noopener"><i class="fas fa-book-reader me-2"></i><%=Common.getBahasaConfig("Buka Modul Peminjaman")%></a><% } %>
             </div>
+            <p class="small text-muted mt-3 mb-0"><%=Common.getBahasaConfig("Layar ini mencatat kunjungan. Transaksi peminjaman buku dilakukan petugas melalui Modul Peminjaman.")%></p>
         </div>
     </div>
 
@@ -197,7 +203,7 @@
 
     <!-- MODAL 2: RIWAYAT KUNJUNGAN TERAKHIR (DENGAN PAGING)[cite: 5] -->
     <div class="modal fade" id="modalRiwayat<%=rnd%>" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
                 <div class="modal-header bg-primary text-white py-3">
                     <h5 class="modal-title fw-bold"><i class="fas fa-list-ul me-2"></i><%= Common.getBahasaConfig("Daftar Kunjungan Hari Ini") %></h5>
@@ -208,10 +214,15 @@
                         <table class="table table-hover mb-0 table-kunjungan">
                             <thead>
                                 <tr>
-                                    <th class="ps-4" width="10%">No</th>
-                                    <th width="45%"><%= Common.getBahasaConfig("Nama Pengunjung") %></th>
-                                    <th width="20%"><%= Common.getBahasaConfig("Status") %></th>
-                                    <th width="25%" class="text-center"><%= Common.getBahasaConfig("Waktu Masuk") %></th>
+                                    <th class="ps-4">No</th>
+                                    <th><%= Common.getBahasaConfig("Foto") %></th>
+                                    <th><%= Common.getBahasaConfig("Kode") %></th>
+                                    <th><%= Common.getBahasaConfig("Nama Pengunjung") %></th>
+                                    <th><%= Common.getBahasaConfig("Alamat") %></th>
+                                    <th><%= Common.getBahasaConfig("Status") %></th>
+                                    <th><%= Common.getBahasaConfig("Perpustakaan") %></th>
+                                    <th class="text-center"><%= Common.getBahasaConfig("Waktu Masuk") %></th>
+                                    <th><%= Common.getBahasaConfig("Keterangan") %></th>
                                 </tr>
                             </thead>
                             <tbody id="tabelBodyKunjungan<%=rnd%>">
@@ -236,6 +247,17 @@
             document.getElementById('kodeAnggota<%=rnd%>').focus();
         });
 
+        function escapeKiosk<%=rnd%>(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+        }
+
+        function tampilkanStatus<%=rnd%>(message, success) {
+            const status = document.getElementById('statusKunjungan<%=rnd%>');
+            status.className = 'alert mx-md-5 text-start ' + (success ? 'alert-success' : 'alert-danger');
+            status.textContent = message || (success ? '<%=Common.getBahasaConfigJS("Kunjungan berhasil dicatat.")%>' : '<%=Common.getBahasaConfigJS("Permintaan tidak dapat diproses.")%>');
+            status.classList.remove('d-none');
+        }
+
         // 1. PENCATATAN ANGGOTA (SCAN KTM)
         async function catatKunjungan<%=rnd%>(event) {
             event.preventDefault();
@@ -252,9 +274,10 @@
                     body: 'action=scan&nui_csrf=<%=kioskCsrf%>&kode=' + encodeURIComponent(identitas)
                 });
                 const response = await req.json();
-                window.alert(response.message);
+                tampilkanStatus<%=rnd%>(response.message, response.status === 'success');
+                if (response.status === 'success') await bukaModalRiwayat<%=rnd%>(0);
             } catch (error) {
-                window.alert('<%= Common.getBahasaConfigJS("Terjadi kesalahan jaringan.") %>');
+                tampilkanStatus<%=rnd%>('<%= Common.getBahasaConfigJS("Terjadi kesalahan jaringan.") %>', false);
             } finally {
                 inputField.value = '';
                 inputField.disabled = false;
@@ -296,13 +319,14 @@
                 });
                 const response = await req.json();
                 if (response.status === 'success') {
-                    window.alert(response.message);
+                    tampilkanStatus<%=rnd%>(response.message, true);
                     modalInstTamu.hide();
+                    setTimeout(function(){bukaModalRiwayat<%=rnd%>(0);}, 350);
                 } else {
-                    window.alert(response.message);
+                    tampilkanStatus<%=rnd%>(response.message, false);
                 }
             } catch (error) {
-                window.alert('<%= Common.getBahasaConfigJS("Gagal menyimpan data.") %>');
+                tampilkanStatus<%=rnd%>('<%= Common.getBahasaConfigJS("Gagal menyimpan data.") %>', false);
             }
         }
 
@@ -311,7 +335,7 @@
         async function bukaModalRiwayat<%=rnd%>(page) {
             const body = document.getElementById('tabelBodyKunjungan<%=rnd%>');
             const paging = document.getElementById('paginationCtrl<%=rnd%>');
-            body.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>';
+            body.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>';
             
             if (!modalInstRiwayat) modalInstRiwayat = new bootstrap.Modal(document.getElementById('modalRiwayat<%=rnd%>'));
             modalInstRiwayat.show();
@@ -321,24 +345,30 @@
                 const res = await req.json();
                 
                 if (res.status === 'success') {
-                    body.innerHTML = res.data.length ? '' : '<tr><td colspan="4" class="text-center py-4 text-muted">Belum ada kunjungan hari ini.</td></tr>';
+                    body.innerHTML = res.data.length ? '' : '<tr><td colspan="9" class="text-center py-4 text-muted">Belum ada kunjungan hari ini.</td></tr>';
                     
                     res.data.forEach(function(item, index) {
                         const no = (page * res.limit) + (index + 1);
                         const statusBadge = item.status === 'Anggota' ? 'bg-info' : 'bg-secondary';
+                        const photo = item.anggotaId ? '<img src="<%=Common.ROOT%>/pustaka?action=getFoto&anggotaId=' + encodeURIComponent(item.anggotaId) + '" alt="" width="38" height="38" class="rounded-circle object-fit-cover">' : '<span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted" style="width:38px;height:38px"><i class="fas fa-user"></i></span>';
                         
                         let rowHtml = '<tr>' +
                                 '<td class="ps-4">' + no + '</td>' +
-                                '<td class="fw-bold text-dark">' + String(item.nama).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}) + '</td>' +
-                                '<td><span class="badge ' + statusBadge + ' px-3 rounded-pill">' + item.status + '</span></td>' +
-                                '<td class="text-center text-muted fw-medium">' + item.waktu + '</td>' +
+                                '<td>' + photo + '</td>' +
+                                '<td>' + escapeKiosk<%=rnd%>(item.kode || '—') + '</td>' +
+                                '<td class="fw-bold text-dark">' + escapeKiosk<%=rnd%>(item.nama) + '</td>' +
+                                '<td>' + escapeKiosk<%=rnd%>(item.alamat || '—') + '</td>' +
+                                '<td><span class="badge ' + statusBadge + ' px-3 rounded-pill">' + escapeKiosk<%=rnd%>(item.status) + '</span></td>' +
+                                '<td>' + escapeKiosk<%=rnd%>(item.perpustakaan || '—') + '</td>' +
+                                '<td class="text-center text-muted fw-medium">' + escapeKiosk<%=rnd%>(item.waktu) + '</td>' +
+                                '<td>' + escapeKiosk<%=rnd%>(item.keterangan || '—') + '</td>' +
                             '</tr>';
                         body.innerHTML += rowHtml;
                     });
 
                     // Render Kontrol Navigasi Halaman (Tanpa Simbol EL)
                     const totalPage = Math.ceil(res.total / res.limit);
-                    document.getElementById('infoPaging<%=rnd%>').innerText = 'Total: ' + res.total + ' Data';
+                    document.getElementById('infoPaging<%=rnd%>').innerText = 'Total: ' + res.total + ' Data · ' + (res.privacy || '');
                     
                     paging.innerHTML = '';
                     for (let i = 0; i < totalPage; i++) {
@@ -351,7 +381,7 @@
                     }
                 }
             } catch (error) {
-                body.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Terjadi kesalahan saat memuat data.</td></tr>';
+                body.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Terjadi kesalahan saat memuat data.</td></tr>';
             }
         }
     </script>

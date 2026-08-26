@@ -1614,6 +1614,23 @@ public class KegiatanKemahasiswaanAction extends GenericAutowireComposer impleme
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			return false;
 		}
+		java.util.Date nilaiMulai;
+		java.util.Date nilaiSampai;
+		try {
+			nilaiMulai = mulai.getValue();
+			nilaiSampai = sampai.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan tanggal kegiatan",
+					"Tanggal mulai atau tanggal selesai belum valid. Gunakan format dd-MM-yyyy.",
+					new String[] { "Periksa kembali kedua kolom tanggal.", "Isi tanggal yang valid lalu ulangi penyimpanan." });
+			return false;
+		}
+		if (nilaiMulai == null || nilaiSampai == null) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan tanggal kegiatan",
+					"Tanggal mulai dan tanggal selesai wajib diisi.",
+					new String[] { "Lengkapi kedua tanggal lalu ulangi penyimpanan." });
+			return false;
+		}
 
 		Session session = HibernateUtil.currentSession();
 		if (kegiatanKemahasiswaan.getId() != null) {
@@ -1636,8 +1653,8 @@ public class KegiatanKemahasiswaanAction extends GenericAutowireComposer impleme
 				(Jurusan) (jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null ? null
 						: jurusan.getSelectedItem().getValue()));
 		kegiatanKemahasiswaan.setUrl(url.getValue());
-		kegiatanKemahasiswaan.setMulai(mulai.getValue());
-		kegiatanKemahasiswaan.setSampai(sampai.getValue());
+		kegiatanKemahasiswaan.setMulai(nilaiMulai);
+		kegiatanKemahasiswaan.setSampai(nilaiSampai);
 		kegiatanKemahasiswaan.setNama(nama.getValue());
 		kegiatanKemahasiswaan.setNamaEn(namaEn.getValue());
 

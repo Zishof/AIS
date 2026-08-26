@@ -1187,7 +1187,7 @@ public class DataUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List ambilDataBanyak(Class c, Collection<? extends Serializable> keys, boolean refresh) {
 		List<GeneralValueObject> generalValueObjects = new ArrayList<GeneralValueObject>();
-		if (keys == null || keys.isEmpty()) {
+		if (c == null || keys == null || keys.isEmpty()) {
 			return generalValueObjects;
 		}
 
@@ -1242,9 +1242,8 @@ public class DataUtil {
 				// (bukan membuka baru) session ancestor tsb. Tutup paksa di finally seperti
 				// sebelumnya membuat ancestor melihat "Session is closed!" saat lanjut
 				// memakainya. Hanya tutup bila method INI yang benar-benar membuka baru.
-				boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
 				try {
-					session = HibernateUtil.currentNativeSession();
+					session = HibernateUtil.openSession();
 					List<GeneralValueObject> generalValueObjectsData = session.createCriteria(c)
 							.add(Restrictions.in("id", idsNggakAda)).list();
 
@@ -1280,21 +1279,7 @@ public class DataUtil {
 					// OPTIMASI: Rapi menutup hibernate session dalam finally -- KECUALI bila
 					// session ini dipinjam dari ancestor yang masih memakainya (lihat komentar
 					// di atas); ancestor tetap bertanggung jawab menutup session miliknya sendiri.
-					if (!sessionSudahTerbukaSebelumnya) {
-						if (session != null) {
-							try {
-								session.disconnect();
-							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1257");
-								// Ignore disconnect error
-							}
-							try {
-								session.close();
-							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1262");
-								// Ignore close error
-							}
-						}
-						HibernateUtil.closeSession();
-					}
+					HibernateUtil.closeSessionQuietly(session);
 				}
 			}
 		} catch (Exception e) {

@@ -1153,9 +1153,7 @@ public class ApiUtil {
 							if (gcpToken != null && !gcpToken.trim().isEmpty()) {
 								mahasiswa.setGcpToken(gcpToken);
 							}
-							session.getTransaction().begin();
-							Common.refreshUpdate(session, mahasiswa);
-							session.getTransaction().commit();
+							commitMahasiswaTokenAman(session, mahasiswa);
 						} catch (Exception exToken) {
 							if (session.getTransaction() != null && session.getTransaction().isActive()) {
 								try { session.getTransaction().rollback(); } catch (Exception exRollback) { ais.common.ErrorAuditUtil.record(exRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:proseslogin-rollback"); }

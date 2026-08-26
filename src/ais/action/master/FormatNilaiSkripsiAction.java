@@ -463,7 +463,10 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 									if (i == MyMessageboxConfig.OK) {
 										try {
 
-											Common.refreshDelete(formatNilaiSkripsi);
+											// Format nilai merupakan master historis dan dapat direferensikan skripsi.
+											// Nonaktifkan agar data lama tetap utuh dan FK tidak dilanggar.
+											formatNilaiSkripsi.setAktif(false);
+											Common.refreshUpdate(formatNilaiSkripsi);
 
 											onSearchDefault(event);
 										} catch (Exception e) {

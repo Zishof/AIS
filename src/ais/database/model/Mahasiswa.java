@@ -1728,6 +1728,7 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "biodata_calon_mahasiswa_long", nullable = true, insertable = false, updatable = false)
 	public BiodataCalonMahasiswa getBiodataCalonMahasiswaData() {
+		Long biodataId = biodataCalonMahasiswa;
 		try {
 			biodataCalonMahasiswaData = check(biodataCalonMahasiswaData);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:1761");
@@ -1740,7 +1741,7 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 			}
 		} catch (Exception e) {
 			try {
-				if (biodataCalonMahasiswaData != null && biodataCalonMahasiswaData.getId() != null) {
+				if (biodataId != null) {
 					/*
 					 * FIX (TransientObjectException BiodataCalonMahasiswa saat flush/dirty-check
 					 * Mahasiswa): dulu pakai HibernateUtil.currentNativeSession() lalu ditutup
@@ -1763,13 +1764,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 						biodataCalonMahasiswaData = (BiodataCalonMahasiswa) ConstantValues
 								.simpleObject(
 										sesiDedikasi.createCriteria(BiodataCalonMahasiswa.class)
-												.add(Restrictions.idEq(biodataCalonMahasiswaData.getId())),
+										.add(Restrictions.idEq(biodataId)),
 										BiodataCalonMahasiswa.class);
 						if (biodataCalonMahasiswaData != null) {
 							try {
 								org.hibernate.Hibernate.initialize(biodataCalonMahasiswaData);
 							} catch (Exception eInit) { ais.common.ErrorAuditUtil.record(eInit, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:1785-init");
 							}
+						}
+						else {
+							biodataCalonMahasiswaData = null;
 						}
 					} finally {
 						HibernateUtil.closeSessionQuietly(sesiDedikasi);
