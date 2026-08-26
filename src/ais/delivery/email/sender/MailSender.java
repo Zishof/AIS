@@ -1314,6 +1314,21 @@ public class MailSender {
 
 							String ssl = Common.getKonfigurasi("mail.smtp.ssl.enable", "").getNilai();
 
+							// Office 365/Outlook SMTP memakai STARTTLS pada port 587. Konfigurasi lama AIS
+							// berbawaan SSL socket port 465; kombinasi itu dapat mencapai server melalui
+							// relay tertentu tetapi autentikasinya ditolak 535. Normalisasi hanya untuk host
+							// Microsoft resmi; penyedia lain tetap mengikuti konfigurasi lama apa adanya.
+							String hostKecil = mailhost == null ? "" : mailhost.trim().toLowerCase();
+							boolean smtpMicrosoft = hostKecil.indexOf("office365.com") >= 0
+									|| hostKecil.indexOf("outlook.com") >= 0;
+							if (smtpMicrosoft) {
+								port = "587";
+								soketPort = "587";
+								soketClass = "";
+								starttls = "true";
+								ssl = "false";
+							}
+
 							boolean debug = Common.bolehKonfigurasi("mail_debug", Konfigurasi.TIDAK_AKTIF) || out != null;
 
 							props.setProperty("mail.transport.protocol", protocol);
@@ -1338,19 +1353,28 @@ public class MailSender {
 							if (!starttls.trim().isEmpty()) {
 								props.put("mail.smtp.starttls.enable", starttls); // enable STARTTLS
 							}
+							if (smtpMicrosoft) {
+								props.put("mail.smtp.starttls.required", "true");
+								props.put("mail.smtp.auth.mechanisms", "LOGIN");
+							}
 							if (!protocols.trim().isEmpty()) {
 								props.put("mail.smtp.ssl.protocols", protocols); // enable STARTTLS
 							}
 
 							System.out.println("props -> " + props);
 
+							final String emailUsername = Common
+									.getKonfigurasi("default_email_username", "").getNilai();
+							final String emailPassword = Common
+									.getKonfigurasi("default_email_password", "").getNilai();
+							if (emailUsername == null || emailUsername.trim().isEmpty()
+									|| emailPassword == null || emailPassword.length() == 0) {
+								throw new IllegalStateException(
+										"Username/password SMTP belum dikonfigurasi pada Pengaturan Email.");
+							}
 							Session session = Session.getInstance(props, new javax.mail.Authenticator() {
 								protected PasswordAuthentication getPasswordAuthentication() {
-									String email_username = Common.getKonfigurasi("default_email_username", "zishof")
-											.getNilai();
-									String email_password = Common.getKonfigurasi("default_email_password", "zishof")
-											.getNilai();
-									return new PasswordAuthentication(email_username, email_password);
+									return new PasswordAuthentication(emailUsername.trim(), emailPassword);
 								}
 							});
 							session.setDebug(debug);
@@ -1399,12 +1423,12 @@ public class MailSender {
 
 							long authGagal = AUTH_GAGAL_TERAKHIR.get();
 							if (authGagal > 0L && System.currentTimeMillis() - authGagal < JEDA_LAPOR_AUTH_MS) {
-								throw new javax.mail.AuthenticationFailedException(
-										"Pengiriman ditunda sementara setelah autentikasi SMTP ditolak.");
+								hasil = "Kirim ke " + recipients
+										+ " ditunda sementara setelah autentikasi SMTP ditolak";
+							} else {
+								Transport.send(message);
+								hasil = "Kirim ke " + recipients + " sukses";
 							}
-							Transport.send(message);
-
-							hasil = "Kirim ke " + recipients + " sukses";
 
 						} catch (Exception e) {
 
@@ -1420,23 +1444,19 @@ public class MailSender {
 								// diredam jadi sekali per selang waktu; pengiriman tetap dihitung gagal.
 								if (e instanceof javax.mail.AuthenticationFailedException) {
 									long sekarang = System.currentTimeMillis();
-									long terakhir = AUTH_GAGAL_TERAKHIR.get();
-									if (sekarang - terakhir > JEDA_LAPOR_AUTH_MS
-											&& AUTH_GAGAL_TERAKHIR.compareAndSet(terakhir, sekarang)) {
+									AUTH_GAGAL_TERAKHIR.set(sekarang);
+									hasil = "Kirim ke " + recipients + " gagal: autentikasi SMTP ditolak. "
+											+ "Periksa username/password dan pastikan SMTP AUTH diaktifkan pada penyedia email.";
+									System.err.println("[MailSender] " + hasil + " Server: " + e.getMessage());
+								} else {
+									boolean isTransient = (e instanceof javax.mail.MessagingException
+											&& (e.getMessage() != null && (e.getMessage().contains("connect") || e.getMessage().contains("UnknownHost"))))
+											|| (e instanceof com.sun.mail.smtp.SMTPSendFailedException);
+									if (!isTransient) {
 										Common.tampilErrorJikaAdmin(e);
 									} else {
-										System.err.println("[MailSender] SMTP menolak autentikasi (diredam) ke "
-												+ recipients + ": " + e.getMessage());
+										System.err.println("[MailSender] SMTP gagal ke " + recipients + ": " + e.getMessage());
 									}
-								} else {
-								boolean isTransient = (e instanceof javax.mail.MessagingException
-										&& (e.getMessage() != null && (e.getMessage().contains("connect") || e.getMessage().contains("UnknownHost"))))
-										|| (e instanceof com.sun.mail.smtp.SMTPSendFailedException);
-								if (!isTransient) {
-									Common.tampilErrorJikaAdmin(e);
-								} else {
-									System.err.println("[MailSender] SMTP gagal ke " + recipients + ": " + e.getMessage());
-								}
 								}
 							}
 						}
@@ -1461,6 +1481,7 @@ public class MailSender {
 							} finally {
 								try {
 									if (session2 != null && session2.isOpen()) {
+										session2.clear();
 										session2.disconnect();
 										session2.close();
 									}

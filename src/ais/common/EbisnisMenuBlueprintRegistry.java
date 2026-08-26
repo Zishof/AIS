@@ -98,7 +98,7 @@ public final class EbisnisMenuBlueprintRegistry {
 		menu("pengadaan_bast", "Penerimaan Barang (BAST Vendor)", "/ebisnis/pengadaan/bast", "pengadaan", 650, "penerimaan_barang,bast", "view,create,submit,approve,reject,cancel,export");
 		menu("monitoring_pengadaan", "Monitoring Pengadaan", "/ebisnis/pengadaan/monitoring", "pengadaan", 660, "pengadaan_sinkron", "view,export");
 		menu("retur_pembelian", "Retur Pembelian", "/ebisnis/pengadaan/retur", "pengadaan", 670, "", "view,create,submit,approve,cancel,export");
-		menu("status_tagihan_vendor", "Status Tagihan Vendor", "/ebisnis/keuangan/ap-tagihan", "pengadaan", 680, "pengadaan_tagihan", "view,export");
+		menu("status_tagihan_vendor", "Status Tagihan Vendor", "/ebisnis/keuangan/ap-tagihan", "pengadaan", 680, "", "view,export");
 
 		grup("pergudangan", "Pergudangan", 700);
 		menu("dashboard_gudang", "Dashboard Gudang", "/ebisnis/gudang/dashboard", "pergudangan", 710, "", "view,view_all_location,export");
@@ -135,7 +135,7 @@ public final class EbisnisMenuBlueprintRegistry {
 
 		grup("keuangan", "Keuangan", 1100);
 		menu("ap_tagihan_vendor", "AP & Tagihan Vendor", "/ebisnis/keuangan/ap", "keuangan", 1110, "pengadaan_tagihan,terima_tagihan_vendor", "view,create,edit_draft,submit,approve,reject,cancel,post,reverse,export,view_cost");
-		menu("pembayaran_vendor", "Pembayaran Vendor", "/ebisnis/keuangan/pembayaran-vendor", "keuangan", 1120, "pengadaan_dpc,pembayaran_vendor", "view,create,edit_draft,submit,approve,reject,cancel,post,reverse,export");
+		menu("pembayaran_vendor", "Pembayaran Vendor", "/ebisnis/keuangan/pembayaran-vendor", "keuangan", 1120, "pengadaan_dpc", "view,create,edit_draft,submit,approve,reject,cancel,post,reverse,export");
 		menu("piutang_pelanggan", "Piutang Pelanggan (AR)", "/ebisnis/keuangan/ar", "keuangan", 1130, "", "view,create,update,post,reverse,export");
 		menu("uang_muka_pj", "Uang Muka & Pertanggungjawaban", "/ebisnis/keuangan/uang-muka", "keuangan", 1140, "", "view,create,submit,approve,reject,cancel,post,reverse,export");
 		menu("kas_besar", "Kas Besar", "/ebisnis/keuangan/kas-besar", "keuangan", 1150, "", "view,create,submit,approve,post,reverse,export");

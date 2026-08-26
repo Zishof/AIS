@@ -47,7 +47,8 @@ public final class EbisnisMenuActionRegistry {
 		// tetap berdiri sendiri dan tidak pernah dipetakan ke CRUD lain.
 		daftarAksi("view", new String[] { "lihat", "read" });
 		daftarAksi("create", new String[] { "tambah", "insert", "new" });
-		daftarAksi("update", new String[] { "ubah", "edit", "edit_draft" });
+		daftarAksi("update", new String[] { "ubah", "edit" });
+		daftarAksi("edit_draft", new String[] { "ubah_draft", "edit_draf" });
 		daftarAksi("delete", new String[] { "hapus", "remove" });
 		daftarAksi("submit", new String[] { "ajukan", "kirim_persetujuan" });
 		daftarAksi("approve", new String[] { "setujui", "approval" });

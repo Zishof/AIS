@@ -4712,8 +4712,9 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				// lain gagal tersimpan gara-gara input tanggalPendaftaran yang belum valid.
 				biodataCalonMahasiswa.setTanggalPendaftaran(tanggalPendaftaran.getValue());
 			} catch (WrongValueException e) {
-				try { tanggalPendaftaran.clearErrorMessage(); } catch (Exception ce) { ais.common.ErrorAuditUtil.record(ce, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:tanggalPendaftaran"); }
-				ais.common.Common.tampilErrorJikaAdmin(e);
+				try { tanggalPendaftaran.clearErrorMessage(); } catch (Exception ce) {
+					System.err.println("[PMB] Gagal membersihkan pesan tanggal pendaftaran: " + ce.getMessage());
+				}
 			}
 			biodataCalonMahasiswa.setNama(nama.getValue());
 			biodataCalonMahasiswa.setRt(rt.getValue());
@@ -4736,16 +4737,17 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				// form (bukan hanya tanggalLahir), jadi JANGAN lempar ulang (akan menggagalkan
 				// alur pengisian field lain yang tidak terkait) -- cukup lewati field ini saja,
 				// field lain tetap tersimpan normal ke biodataCalonMahasiswa di bawah.
-				try { tanggalLahir.clearErrorMessage(); } catch (Exception ce) { ais.common.ErrorAuditUtil.record(ce, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:tanggalLahir"); }
-				ais.common.Common.tampilErrorJikaAdmin(e);
+				try { tanggalLahir.clearErrorMessage(); } catch (Exception ce) {
+					System.err.println("[PMB] Gagal membersihkan pesan tanggal lahir: " + ce.getMessage());
+				}
 				if (!errorTanggalLahirSudahDitampilkan) {
 					errorTanggalLahirSudahDitampilkan = true;
 					MyMessageboxConfig.show(
 							"Format tanggal lahir tidak valid, gunakan dd-MM-yyyy. (" + e.getMessage() + ")",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:4562");
-				// TODO: handle exception
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "BiodataCalonMahasiswaAction.setdata.tanggalLahir");
 			}
 
 			biodataCalonMahasiswa.setAlamat(alamat.getValue());
@@ -4949,7 +4951,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 	}
 
 	public boolean onSave(Event event) throws InterruptedException {
-
+		Session sessionSimpan = null;
 		try {
 			Tbmuser tbmuser = Common.getCurrentUser();
 			String tahunAkademikDipilih = getSelectedStringValue(tahunAkademik,
@@ -5013,7 +5015,19 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			Date myTanggalLahirVal = null;
 			try {
 				myTanggalLahirVal = tanggalLahir.getValue();
-			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:4822");}
+			} catch (WrongValueException tanggalTidakValid) {
+				try {
+					tanggalLahir.clearErrorMessage();
+				} catch (Exception abaikanTampilan) {
+					System.err.println("[PMB] Gagal membersihkan pesan tanggal lahir: "
+							+ abaikanTampilan.getMessage());
+				}
+				MyMessageboxConfig.show(
+						"Tanggal lahir belum valid. Gunakan format dd-MM-yyyy, misalnya 24-08-2006.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				tanggalLahir.focus();
+				return false;
+			}
 			if (myTanggalLahirVal != null) {
 				GelombangPendaftaran myGelombangPendaftaran = getGelombangDipilihDenganFallback(
 						biodataCalonMahasiswa.getGelombangPendaftaran());
@@ -5400,6 +5414,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			}
 
 			Session session1 = HibernateUtil.currentNativeSession();
+			sessionSimpan = session1;
 
 			AfiliasiCalonMahasiswa afil = (AfiliasiCalonMahasiswa) this.afiliasiCalonMahasiswa
 					.getAttribute("afiliasiCalonMahasiswa");
@@ -5631,8 +5646,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				return false;
 			}
 
-			session1.disconnect();
-			session1.close();
+			closeOpenedNativeSession(session1);
 			HibernateUtil.closeSession();
 
 			if (update) {
@@ -5762,7 +5776,6 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			Common.hapusSession(BiodataCalonMahasiswa.class);
 
 		} catch (WrongValueException e) {
-			Common.tampilErrorJikaAdmin(e);
 			MyMessageboxConfig.show("Data tidak lengkap. " + e.getMessage(), "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.ERROR);
 			return false;
@@ -5772,6 +5785,9 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			MyMessageboxConfig.show("Terjadi kesalahan, coba ulangi lagi!", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.ERROR);
 			return false;
+		} finally {
+			// currentNativeSession wajib dilepas juga pada seluruh return validasi dan jalur exception.
+			closeOpenedNativeSession(sessionSimpan);
 		}
 		return true;
 	}

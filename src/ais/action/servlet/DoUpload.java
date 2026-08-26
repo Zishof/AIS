@@ -153,7 +153,13 @@ public class DoUpload extends HttpServlet {
 			}
 		} finally {
 			if (s != null && s.isOpen()) {
-				try { s.clear(); s.close(); } catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose, "auto-audit(empty-catch) src/ais/action/servlet/DoUpload.java:130"); /* abaikan */ }
+				try {
+					if (s != null && s.isOpen()) {
+						s.clear();
+						s.disconnect();
+						s.close();
+					}
+				} catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose, "auto-audit(empty-catch) src/ais/action/servlet/DoUpload.java:130"); /* abaikan */ }
 			}
 		}
 	}
@@ -199,6 +205,7 @@ public class DoUpload extends HttpServlet {
 			ServletFileUpload upload = new ServletFileUpload(factory);
 			upload.setFileSizeMax(maxFileSize);
 			upload.setSizeMax(maxRequestSize);
+			upload.setFileCountMax(64L);
 
 			List<FileItem> items = upload.parseRequest(request);
 			for (FileItem item : items) {
@@ -232,6 +239,13 @@ public class DoUpload extends HttpServlet {
 				jsonObject.put("keterangan", "Total data request melebihi batas sistem.");
 			} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/servlet/DoUpload.java:207");
 			}
+		} catch (LinkageError e) {
+			try {
+				jsonObject.put("status", "Gagal");
+				jsonObject.put("keterangan",
+						"Komponen upload pada server belum sinkron. Administrator perlu membersihkan deployment lama dan me-restart aplikasi.");
+			} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/servlet/DoUpload.java:linkage"); }
+			System.err.println("[DoUpload] Konflik library upload: " + e);
 		} catch (Exception e) {
 			handleException(request, jsonObject, e);
 		} finally {
@@ -502,7 +516,11 @@ public class DoUpload extends HttpServlet {
 			if (tx != null && tx.isActive()) tx.rollback();
 			throw e;
 		} finally {
-			if (session != null && session.isOpen()) { session.clear(); session.close(); }
+			if (session != null && session.isOpen()) {
+				session.clear();
+				session.disconnect();
+				session.close();
+			}
 		}
 	}
 

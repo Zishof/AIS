@@ -4058,8 +4058,21 @@ public class Report extends GenericAutowireComposer {
 		}
 	}
 
-	/** Tampilkan PDF (via servlet {@code /pdf}, dukung Google View) ke {@code center}. */
+	/**
+	 * Tampilkan PDF ke {@code center}. Untuk browser desktop, layani langsung dari
+	 * objek {@link File} hasil generate melalui media ZK. Jangan meminta ulang file
+	 * hanya berdasarkan namanya ke servlet {@code /pdf}: pada instalasi multi-node
+	 * atau saat direktori report berbeda antar request, servlet dapat mencari di
+	 * node/folder lain dan menghasilkan 404 walaupun file yang dipegang di sini valid
+	 * (tombol Download tetap berhasil karena memakai objek File ini).
+	 *
+	 * Jalur servlet tetap dipakai khusus Google View karena layanan eksternal itu
+	 * membutuhkan URL HTTP yang dapat diakses publik.
+	 */
 	private static void tampilPdfServletKe(File myfile, Component center) throws Exception {
+		if (myfile == null || !myfile.isFile() || myfile.length() <= 0L) {
+			throw new java.io.FileNotFoundException("Berkas PDF pratinjau tidak ditemukan atau kosong");
+		}
 		Iframe include;
 		if (center instanceof Iframe) {
 			include = (Iframe) center;
@@ -4073,17 +4086,21 @@ public class Report extends GenericAutowireComposer {
 		include.setStyle("width:100% !important; height:78vh !important; min-height:520px !important; border:0; overflow:auto; background:#e9eef5;");
 		include.setScrolling("auto");
 
-		String path = "/pdf?p="
-				+ URLEncoder.encode(Common.desEncrypter.get().encrypt(myfile.getName()), "UTF-8");
 		String h = Common.getRequestHostWithProtocol();
-		if (!h.toLowerCase().contains("localhost") && !h.toLowerCase().contains("127.0.0.1")
+		boolean gunakanGoogleView = !h.toLowerCase().contains("localhost") && !h.toLowerCase().contains("127.0.0.1")
 				&& Common.bolehKonfigurasi("gunakan_google_view_saat_mobile", Konfigurasi.TIDAK_AKTIF)
-				&& (Common.isAsliMobile() || Common.bolehKonfigurasi("gunakan_google_view_saat_tampilkan_pdf", Konfigurasi.TIDAK_AKTIF))) {
+				&& (Common.isAsliMobile() || Common.bolehKonfigurasi("gunakan_google_view_saat_tampilkan_pdf", Konfigurasi.TIDAK_AKTIF));
+		if (gunakanGoogleView) {
+			String path = "/pdf?p="
+					+ URLEncoder.encode(Common.desEncrypter.get().encrypt(myfile.getName()), "UTF-8");
 			path = Common.getRequestHostWithProtocol() + path;
 			include.setSrc(
 					"https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(path, "UTF-8"));
 		} else {
-			include.setSrc(path);
+			// File yang sama dengan sumber tombol Download; ZK membuat URL media
+			// desktop-scoped sehingga tidak ada pencarian ulang berdasarkan nama file.
+			include.setSrc(null);
+			include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", myfile, true));
 		}
 		// Tampilkan progress bar "Memuat dokumen PDF" sampai iframe selesai memuat (async sisi klien).
 		pasangScrollWadahPdf(include);

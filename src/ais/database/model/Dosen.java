@@ -79,6 +79,12 @@ import ais.ui.util.WaktuUtil;
 @Audited
 @Table(schema = "public", name = "dosen")
 public class Dosen extends Karyawan implements VOMahasiswaDosen {
+	/**
+	 * Kunci read-modify-write cache pertemuan per dosen. Entity Dosen untuk ID yang sama dapat
+	 * mempunyai lebih dari satu instance Hibernate, jadi sinkronisasi pada {@code this} tidak cukup.
+	 */
+	private static final java.util.concurrent.ConcurrentHashMap<String, Object> KUNCI_PERTEMUAN_DOSEN =
+			new java.util.concurrent.ConcurrentHashMap<String, Object>();
 
 	/**
 	 * 
@@ -1837,6 +1843,45 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	private Object kunciPertemuanDosen() {
+		String key = getId() == null ? "baru_" + System.identityHashCode(this) : getId().toString();
+		Object baru = new Object();
+		Object lama = KUNCI_PERTEMUAN_DOSEN.putIfAbsent(key, baru);
+		return lama == null ? baru : lama;
+	}
+
+	/**
+	 * Membaca indeks pertemuan dengan pemulihan data lama yang pernah terpotong. Pasangan ID yang
+	 * masih lengkap dipertahankan; hanya fragmen yang tidak lagi membentuk pasangan JSON yang dibuang.
+	 */
+	private JSONObject ambilLokasiPertemuanJsonAman() {
+		Object kunci = kunciPertemuanDosen();
+		synchronized (kunci) {
+			String mentah = ambilLokasiPertemuan();
+			try {
+				return new JSONObject(mentah);
+			} catch (JSONException rusak) {
+				JSONObject pulih = new JSONObject();
+				java.util.regex.Matcher pasangan = java.util.regex.Pattern
+						.compile("\\\"([0-9]+)\\\"\\s*:\\s*\\\"([0-9]*)\\\"").matcher(mentah == null ? "" : mentah);
+				int jumlahPulih = 0;
+				while (pasangan.find()) {
+					try {
+						pulih.put(pasangan.group(1), pasangan.group(2));
+						jumlahPulih++;
+					} catch (JSONException abaikanPasangan) {
+						System.err.println("[Dosen] Pasangan cache pertemuan tidak dapat dipulihkan: "
+								+ abaikanPasangan.getMessage());
+					}
+				}
+				tulisLokasiPertemuan(pulih.toString());
+				System.err.println("[Dosen] Cache pertemuan dosen " + getId()
+						+ " terpotong; " + jumlahPulih + " pasangan ID dipulihkan secara tersinkron.");
+				return pulih;
+			}
+		}
+	}
+
 	public void tulisLokasiPertemuan(String data) {
 		File file = Common.getFileLocation(this, "dosen_punya_pertemuan_" + getId().toString());
 		try {
@@ -1902,37 +1947,29 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		if (id == null) {
 			return;
 		}
-		try {
-			JSONObject c;
+		Object kunci = kunciPertemuanDosen();
+		synchronized (kunci) {
 			try {
-				c = new JSONObject(ambilLokasiPertemuan());
-			} catch (JSONException je) {
-				// Data JSON rusak/terpotong (mis. tersimpan tak lengkap sebelumnya) -> self-heal:
-				// mulai dari objek kosong, bukan biarkan c null lalu NPE di c.put(...) di bawah.
-				ais.common.ErrorAuditUtil.record(je,
-						"auto-heal(json-corrupt) src/ais/database/model/Dosen.java removePertemuan - reset ke JSON kosong");
-				c = null;
+				JSONObject c = ambilLokasiPertemuanJsonAman();
+				c.put(id.toString(), "");
+				tulisLokasiPertemuan(c.toString());
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Dosen.java:1879");
 			}
-			if (c == null) {
-				c = new JSONObject();
-			}
-			c.put(id.toString(), "");
-			tulisLokasiPertemuan(c.toString());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Dosen.java:1879");
-
 		}
 	}
 
 	public void populatePertemuan(Pertemuan pertemuan, boolean tulisUlang) {
-		try {
-			if (pertemuan == null) {
-				return;
+		if (pertemuan == null || pertemuan.getId() == null) {
+			return;
+		}
+		Object kunci = kunciPertemuanDosen();
+		synchronized (kunci) {
+			try {
+				JSONObject c = ambilLokasiPertemuanJsonAman();
+				c.put(pertemuan.getId().toString(), pertemuan.getId().toString());
+				tulisLokasiPertemuan(c.toString());
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Dosen.java:1893");
 			}
-
-			JSONObject c = new JSONObject(ambilLokasiPertemuan());
-			c.put(pertemuan.getId().toString(), pertemuan.getId().toString());
-			tulisLokasiPertemuan(c.toString());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Dosen.java:1893");
 		}
 	}
 
@@ -1942,7 +1979,7 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		TreeMap<String, Long> pertemuansa = new TreeMap<String, Long>();
 		List<Long> idsBelumAda = new ArrayList<Long>();
 		try {
-			JSONObject c = new JSONObject(ambilLokasiPertemuan());
+			JSONObject c = ambilLokasiPertemuanJsonAman();
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
