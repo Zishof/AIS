@@ -107,7 +107,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 	}
 
-	private void aksesDitolak(String pesan) {
+	private void aksesDitolak(String pesan) throws InterruptedException {
 		MyMessageboxConfig.show(pesan, "Akses Ditolak", MyMessageboxConfig.OK,
 				MyMessageboxConfig.EXCLAMATION);
 	}

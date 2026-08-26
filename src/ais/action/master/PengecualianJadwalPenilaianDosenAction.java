@@ -137,7 +137,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		return milikDosenAktif(data);
 	}
 
-	private void tampilkanAksesDitolak(String pesan) {
+	private void tampilkanAksesDitolak(String pesan) throws InterruptedException {
 		MyMessageboxConfig.show(pesan, "Akses Ditolak", MyMessageboxConfig.OK,
 				MyMessageboxConfig.EXCLAMATION);
 	}
