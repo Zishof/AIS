@@ -1017,7 +1017,7 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Kata Sandi"));
-		row.appendChild(userPassword = new Textbox(tbmuser.getUserPassword() == null ? "" : tbmuser.getUserPassword()));
+		userPassword = new Textbox(tbmuser.getUserPassword() == null ? "" : tbmuser.getUserPassword());
 
 		if (tbmuser.getIs_encripted() != null && tbmuser.getIs_encripted()) {
 			try {
@@ -1031,6 +1031,35 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		userPassword.setType("password");
 		userPassword.setWidth("90%");
 		userPassword.setDisabled(tbmuser.getUserId() != null && !Common.getApakahAdmin());
+		if (Common.getApakahAdmin()) {
+			Hbox passwordBox = new Hbox();
+			passwordBox.setWidth("90%");
+			passwordBox.setAlign("center");
+			passwordBox.setSpacing("4px");
+			userPassword.setWidth("100%");
+			userPassword.setHflex("1");
+			userPassword.setParent(passwordBox);
+
+			final org.zkoss.zul.Toolbarbutton lihatPassword = new org.zkoss.zul.Toolbarbutton();
+			lihatPassword.setImage("/img/svg/eye.svg");
+			lihatPassword.setTooltiptext("Tampilkan kata sandi");
+			lihatPassword.setWidth("30px");
+			lihatPassword.setStyle("padding:2px;min-width:30px");
+			lihatPassword.setAttribute("passwordTerlihat", Boolean.FALSE);
+			lihatPassword.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					boolean terlihat = Boolean.TRUE.equals(lihatPassword.getAttribute("passwordTerlihat"));
+					userPassword.setType(terlihat ? "password" : "text");
+					lihatPassword.setAttribute("passwordTerlihat", Boolean.valueOf(!terlihat));
+					lihatPassword.setTooltiptext(terlihat ? "Tampilkan kata sandi" : "Sembunyikan kata sandi");
+				}
+			});
+			lihatPassword.setParent(passwordBox);
+			passwordBox.setParent(row);
+		} else {
+			userPassword.setParent(row);
+		}
 
 		row = new MyFormRow();
 		row.setParent(rows);
