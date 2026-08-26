@@ -36,6 +36,19 @@
 	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
 		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
 	</parameter>
+	<parameter name="semester_mulai_filter" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester_sampai_filter" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[16]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_angkatan" class="java.lang.Integer" isForPrompting="false"/>
+	<parameter name="semester_awal_mahasiswa" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_semester_masuk" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ganjil"]]></defaultValueExpression>
+	</parameter>
 	<queryString>
 		<![CDATA[select
 c.nama,
@@ -66,6 +79,14 @@ left join dosen ff on (ff.id = c.dosen)
 where c.id=$P{mahasiswa_id}
 and d.aktif
 and e.aktif
+and b.tahunakademik ~ '^[0-9]{4}'
+and (
+	$P{semester_awal_mahasiswa}
+	+ ((cast(substring(b.tahunakademik from 1 for 4) as integer) * 2
+		+ case when lower(coalesce(b.jenissemester, 'ganjil')) = 'genap' then 1 else 0 end)
+		- ($P{tahun_angkatan} * 2
+		+ case when lower(coalesce($P{jenis_semester_masuk}, 'Ganjil')) = 'genap' then 1 else 0 end))
+) between $P{semester_mulai_filter} and $P{semester_sampai_filter}
 and b.status='Disetujui' and a.persetujuan]]>
 	</queryString>
 	<field name="nama" class="java.lang.String"/>
