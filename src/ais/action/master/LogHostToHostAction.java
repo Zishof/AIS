@@ -679,6 +679,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 				}
 			}
 			new Label(logHostToHost.getTanggal()==null?"":Common.dateFormat3.get().format(logHostToHost.getTanggal())).setParent(arg0);
+			renderJenisTransaksi(arg0, logHostToHost);
 			new MyLabelKecil(logHostToHost.getKeterangan()).setParent(arg0);
 			new MyLabelKecil(logHostToHost.getResponseDescription()).setParent(arg0);
 
@@ -919,6 +920,55 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 
 			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
+	}
+
+	private void renderJenisTransaksi(Row row, LogHostToHost log) {
+		String jenis = resolveJenisTransaksi(log);
+		String warna;
+		String latar;
+		if ("PAYMENT".equals(jenis)) {
+			warna = "#166534";
+			latar = "#dcfce7";
+		} else if ("INQUIRY".equals(jenis)) {
+			warna = "#1d4ed8";
+			latar = "#dbeafe";
+		} else {
+			warna = "#475569";
+			latar = "#e2e8f0";
+		}
+		org.zkoss.zul.Html badge = new org.zkoss.zul.Html("<span style=\"display:inline-block;padding:3px 7px;"
+				+ "border-radius:999px;font-size:10px;font-weight:800;color:" + warna
+				+ ";background:" + latar + ";\">" + jenis + "</span>");
+		badge.setTooltiptext("Jenis transaksi dikenali dari isi request Host-to-Host.");
+		badge.setParent(row);
+	}
+
+	private String resolveJenisTransaksi(LogHostToHost log) {
+		String request = log == null || log.getKeterangan() == null ? "" : log.getKeterangan().trim();
+		if (request.startsWith("{")) {
+			try {
+				JSONObject json = new JSONObject(request);
+				String action = json.optString("action", "").trim().toLowerCase();
+				if (action.contains("inquiry") || action.contains("inquery")) {
+					return "INQUIRY";
+				}
+				if (action.contains("payment") || action.contains("pay")) {
+					return "PAYMENT";
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"LogHostToHostAction.resolveJenisTransaksi JSON");
+			}
+		}
+
+		String teks = request.toLowerCase();
+		if (teks.contains("inquiryrequestid") || teks.contains("inquiry") || teks.contains("inquery")) {
+			return "INQUIRY";
+		}
+		if (teks.contains("paymentrequestid") || teks.contains("payment") || teks.contains("paid")) {
+			return "PAYMENT";
+		}
+		return "LAINNYA";
 	}
 
 	// =======================================================================

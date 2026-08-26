@@ -228,12 +228,14 @@
 													use="ais.ui.util.MyColumnConfig" width="7%" label="Bank" />
 												<column
 													use="ais.ui.util.MyColumnConfig" width="10%" label="NIM / Nama" />
-												<column
-													use="ais.ui.util.MyColumnConfig" width="9%" label="Waktu" />
-												<column
-													use="ais.ui.util.MyColumnConfig" width="14%" label="Request" />
-												<column
-													use="ais.ui.util.MyColumnConfig" width="16%" label="Response" />
+											<column
+												use="ais.ui.util.MyColumnConfig" width="9%" label="Waktu" />
+											<column
+												use="ais.ui.util.MyColumnConfig" width="7%" label="Jenis" />
+											<column
+												use="ais.ui.util.MyColumnConfig" width="12%" label="Request" />
+											<column
+												use="ais.ui.util.MyColumnConfig" width="13%" label="Response" />
 												<column
 													use="ais.ui.util.MyColumnConfig" width="7%" label="Status" />
 												<column

@@ -69,6 +69,7 @@ import ais.database.model.BankHost;
 import ais.database.model.CicilanPembayaran;
 import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
+import ais.database.model.Kegiatan;
 import ais.database.model.Konfigurasi;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Tbmuser;
@@ -2454,6 +2455,54 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 
 			} else {
 				new Label(Boolean.TRUE.equals(virtualAccountBankReadOnly.getTerjadiKendala()) ? "Ya" : "Tidak").setParent(arg0);
+
+				// Koreksi khusus transaksi VA perguruan tinggi yang sudah dicatat bank,
+				// tetapi setelah rekonsiliasi terbukti tidak mendebit rekening nasabah.
+				// Hak aksesnya sama dengan penghapusan data pembayaran VA.
+				if (virtualAccountBankReadOnly.getKegiatan() != null
+						&& virtualAccountBankReadOnly.getPembayaran() == null
+						&& virtualAccountBankReadOnly.getDeposit() == null
+						&& bolehMengoreksiPembayaranVa()) {
+					final MyToolbarbuttonConfig batalkan = new MyToolbarbuttonConfig("Batalkan Status Bayar",
+							"/img/svg/warning-outline.svg");
+					batalkan.setOrient("vertical");
+					batalkan.setTooltiptext(
+							"Gunakan hanya setelah bank memastikan rekening tidak terdebit. Data VA dan notifikasi tetap disimpan sebagai jejak audit.");
+					batalkan.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							MyMessageboxConfig.show(
+									"Batalkan status pembayaran VA ini? Lanjutkan hanya jika mutasi/rekening koran bank sudah memastikan dana tidak terdebit. Cicilan dari VA ini akan dihapus, tagihan kembali belum lunas, sedangkan data VA dan notifikasi bank tetap disimpan untuk audit.",
+									"Konfirmasi Koreksi Pembayaran",
+									MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+									MyMessageboxConfig.QUESTION, new EventListener() {
+										@Override
+										public void onEvent(Event confirmation) throws Exception {
+											int pilihan = Integer.parseInt(confirmation.getData().toString());
+											if (pilihan != MyMessageboxConfig.OK) {
+												return;
+											}
+											try {
+												int jumlah = batalkanPembayaranVaSalah(virtualAccountBankReadOnly.getId());
+												onSearchDefault(null);
+												MyMessageboxConfig.showFormat(
+														"Status bayar VA berhasil dibatalkan. {V1} rincian cicilan dikoreksi dan tagihan dihitung ulang.",
+														"Berhasil", MyMessageboxConfig.OK,
+														MyMessageboxConfig.INFORMATION, jumlah);
+											} catch (Exception e) {
+												Common.tampilErrorJikaAdmin(e);
+												MyMessageboxConfig.showFormat(
+														"Status pembayaran belum dapat dibatalkan. Penyebab: {V1}",
+														"Peringatan", MyMessageboxConfig.OK,
+														MyMessageboxConfig.ERROR,
+														e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+											}
+										}
+									});
+						}
+					});
+					aksiButtons.add(batalkan);
+				}
 			}
 
 			// Sel aksi: tampilkan kebab HANYA bila ada tombol. Baris read-only (cabang else di
@@ -2466,6 +2515,96 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 			}
 		}
 
+	}
+
+	private boolean bolehMengoreksiPembayaranVa() {
+		if (tbmuser == null || tbmuser.getMahasiswa() != null || tbmuser.getSiswa() != null) {
+			return false;
+		}
+		String nilai = Common.getKonfigurasi("admin_yang_bisa_menghapus_data_pembayaran_va", "").getNilai();
+		for (String userId : nilai.split(";")) {
+			if (userId != null && userId.trim().equalsIgnoreCase(tbmuser.getUserId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@SuppressWarnings("unchecked")
+	private int batalkanPembayaranVaSalah(Long vaId) throws Exception {
+		if (vaId == null) {
+			throw new IllegalArgumentException("ID virtual account tidak tersedia.");
+		}
+
+		Session sessionBaru = null;
+		Transaction transaction = null;
+		Kegiatan kegiatan = null;
+		int jumlahDihapus = 0;
+		try {
+			sessionBaru = HibernateUtil.currentNativeSession();
+			transaction = sessionBaru.beginTransaction();
+			VirtualAccountBank vaDb = (VirtualAccountBank) sessionBaru.get(VirtualAccountBank.class, vaId);
+			if (vaDb == null) {
+				throw new IllegalStateException("Data virtual account tidak ditemukan.");
+			}
+			if (vaDb.getKegiatan() == null || vaDb.getPembayaran() != null || vaDb.getDeposit() != null) {
+				throw new IllegalStateException("Jenis transaksi ini tidak dapat dikoreksi melalui menu pembayaran mahasiswa.");
+			}
+
+			kegiatan = (Kegiatan) sessionBaru.get(Kegiatan.class, vaDb.getKegiatan());
+			if (kegiatan == null) {
+				throw new IllegalStateException("Tagihan yang terkait dengan virtual account tidak ditemukan.");
+			}
+
+			List<CicilanPembayaran> cicilanVa = sessionBaru.createCriteria(CicilanPembayaran.class)
+					.add(Restrictions.eq("refVa", vaId)).list();
+			if (cicilanVa == null || cicilanVa.isEmpty()) {
+				throw new IllegalStateException("Rincian cicilan dari virtual account ini tidak ditemukan.");
+			}
+
+			double amount = kegiatan.getAmount() == null ? 0.0 : kegiatan.getAmount();
+			double terhutang = kegiatan.getAmountTerhutang() == null ? 0.0 : kegiatan.getAmountTerhutang();
+			double denda = kegiatan.getDenda() == null ? 0.0 : kegiatan.getDenda();
+			double totalTagihan = Math.max(0.0, amount + terhutang - denda);
+
+			for (CicilanPembayaran cicilan : cicilanVa) {
+				sessionBaru.delete(cicilan);
+				jumlahDihapus++;
+			}
+			sessionBaru.flush();
+
+			Double[] sisa = ais.action.ws.util.PembayaranUtil.getInstance()
+					.getTotalDanDendaFromCicilan(sessionBaru, kegiatan);
+			double totalBayarTersisa = sisa == null || sisa[0] == null ? 0.0 : sisa[0];
+			double dendaTersisa = sisa == null || sisa[1] == null ? 0.0 : sisa[1];
+			kegiatan.setAmount(totalBayarTersisa);
+			kegiatan.setDenda(dendaTersisa);
+			kegiatan.setAmountTerhutang(Math.max(0.0, totalTagihan - (totalBayarTersisa - dendaTersisa)));
+			Common.refreshUpdate(sessionBaru, kegiatan);
+
+			String catatan = vaDb.getKeterangan() == null ? "" : vaDb.getKeterangan().trim();
+			String koreksi = "Koreksi status bayar: dana tidak terdebit, oleh " + tbmuser.getUserId()
+					+ ", " + WaktuUtil.getDate();
+			vaDb.setKeterangan(catatan.length() == 0 ? koreksi : catatan + " | " + koreksi);
+			vaDb.setKegiatan(null);
+			vaDb.setWaktuBayar(null);
+			vaDb.setTerjadiKendala(true);
+			Common.refreshUpdate(sessionBaru, vaDb);
+
+			transaction.commit();
+			transaction = null;
+			VirtualAccountBank.sukses.remove(vaId);
+		} catch (Exception e) {
+			Common.rollbackQuietly(transaction);
+			throw e;
+		} finally {
+			Common.closeNativeSessionQuietly(sessionBaru);
+		}
+
+		if (kegiatan != null) {
+			ais.action.master.helper.KegiatanPersistenceHelper.ambilCicilan(kegiatan, true);
+		}
+		return jumlahDihapus;
 	}
 
 

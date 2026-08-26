@@ -348,23 +348,30 @@ public class BSI extends HttpServlet {
 										kegiatan = new Kegiatan();
 									}
 
-									kegiatan.setKodeUnikLain(virtualAccountBankNtt.getKodeUnikLain());
-									kegiatan.setJadwalPembayaran(virtualAccountBankNtt.getJadwalPembayaran());
-									kegiatan.setNama(nama);
-									kegiatan.setUploadVirtualAccount(null);
-									kegiatan.setAmount(virtualAccountBankNtt.getTotal());
-									kegiatan.setCalonMahasiswa(biodataCalonMahasiswa);
-									kegiatan.setMahasiswa(mahasiswa);
-									kegiatan.setTahunAkademik(virtualAccountBankNtt.getTahunAkademik());
-									kegiatan.setSemster(semester);
-									kegiatan.setJenisKegiatan(jenisKegiatan);
-									kegiatan.setTanggal(tanggal);
-									kegiatan.setValidated(1);
-									kegiatan.setValidator(bank);
+									// Inquiry hanya boleh membaca tagihan. Sebelumnya blok ini ikut mengubah dan
+									// menyimpan Kegiatan, sehingga pengecekan dari bank dapat terlihat seperti
+									// pembayaran sebelum dana benar-benar didebit.
+									if (!inquery || kegiatan.getId() == null) {
+										kegiatan.setKodeUnikLain(virtualAccountBankNtt.getKodeUnikLain());
+										kegiatan.setJadwalPembayaran(virtualAccountBankNtt.getJadwalPembayaran());
+										kegiatan.setNama(nama);
+										kegiatan.setUploadVirtualAccount(null);
+										kegiatan.setAmount(virtualAccountBankNtt.getTotal());
+										kegiatan.setCalonMahasiswa(biodataCalonMahasiswa);
+										kegiatan.setMahasiswa(mahasiswa);
+										kegiatan.setTahunAkademik(virtualAccountBankNtt.getTahunAkademik());
+										kegiatan.setSemster(semester);
+										kegiatan.setJenisKegiatan(jenisKegiatan);
+										kegiatan.setTanggal(tanggal);
+										kegiatan.setValidated(1);
+										kegiatan.setValidator(bank);
+									}
 
-									session.getTransaction().begin();
-									Common.refreshSaveOrUpdate(session, kegiatan);
-									commitTransaksiAman(session, "331");
+									if (!inquery) {
+										session.getTransaction().begin();
+										Common.refreshSaveOrUpdate(session, kegiatan);
+										commitTransaksiAman(session, "331");
+									}
 
 									List<Long> detailBiayasId = new ArrayList<Long>();
 									for (String id : StringUtils.split(virtualAccountBankNtt.getDetailbiaya(), ",")) {
