@@ -78,7 +78,7 @@ public final class EbisnisMigrationEvidenceGate {
 		private static final long serialVersionUID = 1L;
 		public final String code;
 
-		private GateException(String code, String message, Throwable cause) {
+		GateException(String code, String message, Throwable cause) {
 			super(message, cause);
 			this.code = code;
 		}
