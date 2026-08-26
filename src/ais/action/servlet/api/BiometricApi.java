@@ -1,14 +1,20 @@
 package ais.action.servlet.api;
 
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.Disjunction;
+import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
@@ -21,8 +27,13 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.Dosen;
+import ais.database.model.Mahasiswa;
+import ais.database.model.Pegawai;
 import ais.database.model.biometric.BiometricCredential;
 import ais.database.model.biometric.BiometricEvent;
+import ais.database.model.sekolah.Guru;
+import ais.database.model.sekolah.Siswa;
 
 /** API vendor-neutral untuk enrollment, verifikasi, dan absensi biometrik. */
 public final class BiometricApi {
@@ -37,7 +48,7 @@ public final class BiometricApi {
 		JSONObject out = ApiHelperSupport.status("00", "Kemampuan biometrik berhasil dimuat");
 		out.put("boleh_melihat", bolehBiometrik(actor));
 		out.put("boleh_enroll_sendiri", bolehBiometrik(actor));
-		out.put("boleh_enroll_pengguna_lain", Common.getApakahAdminLain(actor));
+		out.put("boleh_enroll_pengguna_lain", bolehMengelolaPenggunaLain(actor));
 		out.put("boleh_absen", bolehBiometrik(actor));
 		out.put("server_encryption_ready", BiometricCrypto.configured());
 		out.put("fingerprint_matcher_ready", BiometricMatcherRegistry.available(FINGERPRINT, "ISO_19794_2"));
@@ -45,6 +56,60 @@ public final class BiometricApi {
 		out.put("face_format", BiometricMatcherRegistry.FACE_FORMAT);
 		out.put("privacy", "Template terenkripsi; foto mentah sidik jari/wajah tidak disimpan");
 		return out;
+	}
+
+	@SuppressWarnings("unchecked")
+	public static JSONObject subjects(HttpServletRequest req, JSONObject request) {
+		Tbmuser actor = ApiUtil.currentUser(request, req);
+		if (!bolehBiometrik(actor)) return ApiHelperSupport.status("93", "Tidak memiliki hak akses data absensi");
+		String query = clean(request.optString("query"), 120);
+		String kategori = clean(request.optString("kategori"), 30);
+		if (kategori != null) kategori = kategori.toUpperCase(Locale.ENGLISH);
+		int limit = integer(request, "limit") == null ? 80 : Math.max(1, Math.min(120, integer(request, "limit").intValue()));
+
+		Session session = HibernateUtil.openSession();
+		try {
+			if (!bolehMengelolaPenggunaLain(actor)) {
+				JSONArray own = new JSONArray();
+				JSONObject row = subjectJson(actor, new HashMap<String, int[]>());
+				if (row != null) own.put(row);
+				JSONObject out = ApiHelperSupport.status("00", "Subjek biometrik berhasil dimuat");
+				out.put("data", own); out.put("total", own.length()); return out;
+			}
+
+			org.hibernate.Criteria criteria = session.createCriteria(Tbmuser.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE));
+			Disjunction supported = Restrictions.disjunction();
+			supported.add(Restrictions.isNotNull("siswa"));
+			supported.add(Restrictions.isNotNull("mahasiswa"));
+			supported.add(Restrictions.isNotNull("guru"));
+			supported.add(Restrictions.isNotNull("dosen"));
+			supported.add(Restrictions.isNotNull("pegawai"));
+			criteria.add(supported);
+			Criterion categoryFilter = categoryCriterion(kategori);
+			if (categoryFilter != null) criteria.add(categoryFilter);
+			if (query != null) {
+				Disjunction search = Restrictions.disjunction();
+				search.add(Restrictions.ilike("userId", query, MatchMode.ANYWHERE));
+				search.add(Restrictions.ilike("userNama", query, MatchMode.ANYWHERE));
+				criteria.add(search);
+			}
+			criteria.addOrder(Order.asc("userNama")).addOrder(Order.asc("userId")).setMaxResults(limit);
+			List<Tbmuser> users = criteria.list();
+			List<String> ids = new ArrayList<String>();
+			for (Tbmuser user : users) if (user != null && user.getUserId() != null) ids.add(user.getUserId());
+			Map<String, int[]> counts = credentialCounts(session, ids);
+			JSONArray data = new JSONArray();
+			for (Tbmuser user : users) {
+				JSONObject row = subjectJson(user, counts);
+				if (row != null) data.put(row);
+			}
+			JSONObject out = ApiHelperSupport.status("00", "Subjek biometrik berhasil dimuat");
+			out.put("data", data); out.put("total", data.length()); return out;
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return ApiHelperSupport.errorResponse("Gagal memuat subjek biometrik");
+		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
 	@SuppressWarnings("unchecked")
@@ -120,7 +185,7 @@ public final class BiometricApi {
 		try {
 			BiometricCredential c = (BiometricCredential) session.get(BiometricCredential.class, id);
 			if (c == null) return ApiHelperSupport.status("94", "Biometrik tidak ditemukan");
-			if (!actor.getUserId().equals(c.getSubjectUserId()) && !Common.getApakahAdminLain(actor)) return ApiHelperSupport.status("93", "Tidak boleh menonaktifkan biometrik pengguna lain");
+			if (!actor.getUserId().equals(c.getSubjectUserId()) && !bolehMengelolaPenggunaLain(actor)) return ApiHelperSupport.status("93", "Tidak boleh menonaktifkan biometrik pengguna lain");
 			// Replay aman: respons jaringan bisa hilang sesudah transaksi pertama
 			// berhasil. Credential yang sudah nonaktif dianggap selesai, bukan error.
 			if (!Boolean.TRUE.equals(c.getActive())) return ApiHelperSupport.status("00", "Biometrik sudah dinonaktifkan");
@@ -212,11 +277,63 @@ public final class BiometricApi {
 		return false;
 	}
 
+	private static boolean bolehMengelolaPenggunaLain(Tbmuser user) {
+		if (user == null || user.getUserId() == null) return false;
+		if (Common.getApakahAdminLain(user)) return true;
+		try { for (Tbmrole role : user.ambilRoles()) if (role != null && Boolean.TRUE.equals(role.getPresensiKehadiran())) return true; }
+		catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "BiometricApi.bolehMengelolaPenggunaLain"); }
+		return false;
+	}
+
 	private static String targetUser(Tbmuser actor, JSONObject request) {
 		if (actor == null || actor.getUserId() == null) return null;
 		String target = clean(request.optString("target_user_id"), 255);
 		if (target == null) target = actor.getUserId();
-		return actor.getUserId().equals(target) || Common.getApakahAdminLain(actor) ? target : null;
+		return actor.getUserId().equals(target) || bolehMengelolaPenggunaLain(actor) ? target : null;
+	}
+
+	private static Criterion categoryCriterion(String category) {
+		if ("PELAJAR".equals(category)) {
+			Disjunction d = Restrictions.disjunction(); d.add(Restrictions.isNotNull("siswa")); d.add(Restrictions.isNotNull("mahasiswa")); return d;
+		}
+		if ("PENGAJAR".equals(category)) {
+			Disjunction d = Restrictions.disjunction(); d.add(Restrictions.isNotNull("guru")); d.add(Restrictions.isNotNull("dosen")); return d;
+		}
+		if ("PEGAWAI".equals(category)) return Restrictions.isNotNull("pegawai");
+		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, int[]> credentialCounts(Session session, List<String> ids) {
+		Map<String, int[]> result = new HashMap<String, int[]>();
+		if (ids == null || ids.isEmpty()) return result;
+		List<BiometricCredential> credentials = session.createCriteria(BiometricCredential.class)
+				.add(Restrictions.in("subjectUserId", ids)).add(Restrictions.eq("active", Boolean.TRUE)).list();
+		for (BiometricCredential credential : credentials) {
+			String id = credential.getSubjectUserId(); int[] count = result.get(id);
+			if (count == null) { count = new int[] { 0, 0 }; result.put(id, count); }
+			if (FINGERPRINT.equals(credential.getModality())) count[0]++; else if (FACE.equals(credential.getModality())) count[1]++;
+		}
+		return result;
+	}
+
+	private static JSONObject subjectJson(Tbmuser user, Map<String, int[]> counts) throws Exception {
+		if (user == null || user.getUserId() == null) return null;
+		String category = null; String type = null; String name = user.getUserNama(); String number = user.getUserId();
+		try {
+			Siswa siswa = user.getSiswa(); Mahasiswa mahasiswa = user.getMahasiswa(); Guru guru = user.getGuru(); Dosen dosen = user.getDosen(); Pegawai pegawai = user.getPegawai();
+			if (siswa != null) { category = "PELAJAR"; type = "SISWA_SANTRI"; name = siswa.getNama(); number = siswa.getNomorIndukNasional(); }
+			else if (mahasiswa != null) { category = "PELAJAR"; type = "MAHASISWA_SANTRI"; name = mahasiswa.getNama(); number = mahasiswa.getNim(); }
+			else if (guru != null) { category = "PENGAJAR"; type = "GURU_USTADZ"; name = guru.getNama(); number = guru.getNip(); }
+			else if (dosen != null) { category = "PENGAJAR"; type = "DOSEN_USTADZ"; name = dosen.getNama(); number = dosen.getNidn(); }
+			else if (pegawai != null) { category = "PEGAWAI"; type = "TENAGA_KEPENDIDIKAN"; name = pegawai.getNama(); number = pegawai.getNipLama(); }
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "BiometricApi.subjectJson"); }
+		if (category == null) return null;
+		int[] count = counts.get(user.getUserId()); if (count == null) count = new int[] { 0, 0 };
+		JSONObject row = new JSONObject(); row.put("user_id", user.getUserId()); row.put("nama", nullToEmpty(name));
+		row.put("nomor_induk", nullToEmpty(number)); row.put("kategori", category); row.put("jenis", type);
+		row.put("fingerprint_count", count[0]); row.put("face_count", count[1]); row.put("enrolled", count[0] + count[1] > 0);
+		return row;
 	}
 
 	private static BiometricEvent saveEvent(Session session, String actor, String subject, Long credentialId,

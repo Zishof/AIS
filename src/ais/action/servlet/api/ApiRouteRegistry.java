@@ -67,6 +67,7 @@ public final class ApiRouteRegistry {
         // sebagai gambar ber-watermark; tidak ada jalur unduh berkas utuh).
         register(routes, "izin_menu_saya", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.izinMenu(req, json); } });
         register(routes, "biometrik_kemampuan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.capability(req, json); } });
+        register(routes, "biometrik_subjek", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.subjects(req, json); } });
         register(routes, "biometrik_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.list(req, json); } });
         register(routes, "biometrik_simpan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.enroll(req, json); } });
         register(routes, "biometrik_nonaktifkan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.revoke(req, json); } });

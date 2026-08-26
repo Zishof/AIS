@@ -83,6 +83,7 @@ import ais.action.master.dashboard.admin.DashboardRekapAbsensiDosen;
 import ais.action.master.dashboard.admin.DashboardRekapAbsensiGuru;
 import ais.action.master.dashboard.admin.DashboardRekapAbsensiPerMahasiswa;
 import ais.action.master.dashboard.admin.DashboardRekapAbsensiPerSiswa;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.master.helper.UtsDanUasCheckerHelper;
 import ais.action.master.pmb.CariDataPesertaUjianAction;
@@ -690,12 +691,6 @@ public class CommonReportHelper {
 			return true;
 		}
 
-		boolean wajibBayar = Common.bolehKonfigurasi("calon_mahasiswa_baru_otomatis_mendapatkan_nim_saat_mahasiswa_melunasi_pembayaran_pembayaran_daftar_ulang", Konfigurasi.TIDAK_AKTIF);
-
-		if (wajibBayar && kegiatan.getDibayar() <= 100000.0) {
-			return false;
-		}
-
 		Mahasiswa mahasiswa = null;
 		BiodataCalonMahasiswa calonMahasiswa = calonMahasiswaAwal;
 		Exception lastException = null;
@@ -817,18 +812,15 @@ public class CommonReportHelper {
 		if (debug)
 			System.out.println("[DEBUG] === Memulai proses checkGenNim ===");
 
-		// Proteksi (null-check) untuk mencegah NullPointerException
-		if (kegiatan == null || kegiatan.getCalonMahasiswa() == null
-				|| kegiatan.getCalonMahasiswa().getProdiLulus() == null) {
+		// Callback bank membawa snapshot Kegiatan dari session transaksi pembayaran.
+		// Snapshot tersebut dapat masih memiliki nilai dibayar/persentase lama walaupun
+		// CicilanPembayaran sudah committed. Muat ulang Kegiatan dan rekap cicilannya
+		// sebelum membaca syarat NIM agar batas nominal konfigurasi tidak dinilai dari 0.
+		if (kegiatan == null || kegiatan.getId() == null) {
 			if (debug)
-				System.out.println(
-						"[DEBUG] Validasi awal gagal: kegiatan, calon mahasiswa, atau prodi lulus bernilai null. Keluar dari method.");
+				System.out.println("[DEBUG] Validasi awal gagal: kegiatan/id kegiatan bernilai null. Keluar dari method.");
 			return false;
 		}
-
-		if (debug)
-			System.out.println("[DEBUG] Data awal lolos validasi (Calon Mahasiswa ID: "
-					+ kegiatan.getCalonMahasiswa().getId() + ").");
 
 		Session session = null;
 		Transaction tx = null;
@@ -840,6 +832,25 @@ public class CommonReportHelper {
 			if (debug)
 				System.out.println("[DEBUG] Membuka session Hibernate lokal...");
 			session = ais.action.report.Report.openNativeSession();
+
+			Kegiatan kegiatanDb = (Kegiatan) session.get(Kegiatan.class, kegiatan.getId());
+			if (kegiatanDb != null) {
+				kegiatan = kegiatanDb;
+			}
+			KegiatanPersistenceHelper.ambilCicilan(kegiatan, true);
+
+			if (kegiatan.getCalonMahasiswa() == null
+					|| kegiatan.getCalonMahasiswa().getProdiLulus() == null) {
+				if (debug)
+					System.out.println(
+							"[DEBUG] Validasi data segar gagal: calon mahasiswa atau prodi lulus bernilai null.");
+				return false;
+			}
+
+			if (debug)
+				System.out.println("[DEBUG] Data segar lolos validasi (Calon Mahasiswa ID: "
+						+ kegiatan.getCalonMahasiswa().getId() + ", dibayar aktual: "
+						+ kegiatan.hitungDibayarAktualTanpaBatas() + ").");
 
 			// 1. Evaluasi apakah mahasiswa memenuhi syarat pembayaran (shouldGenNim)
 			boolean shouldGenNim = false;
@@ -859,10 +870,11 @@ public class CommonReportHelper {
 						System.out.println("[DEBUG] Gagal parsing minPersen, menggunakan default 10.0");
 				}
 
+				Double persentaseAktual = kegiatan.hitungPersentaseLunasAktual();
 				if (debug)
-					System.out.println("[DEBUG] Persentase Lunas saat ini: " + kegiatan.getPersentaseLunas()
+					System.out.println("[DEBUG] Persentase lunas aktual: " + persentaseAktual
 							+ " | Syarat Min Persen: " + minPersen);
-				if (kegiatan.getPersentaseLunas() >= minPersen) {
+				if (persentaseAktual >= minPersen) {
 					shouldGenNim = true;
 					if (debug)
 						System.out.println("[DEBUG] -> Syarat persentase terpenuhi. shouldGenNim = true");
@@ -915,10 +927,11 @@ public class CommonReportHelper {
 								System.out.println("[DEBUG] Gagal parsing minNominal, menggunakan default 10.0");
 						}
 
+						Double dibayarAktual = kegiatan.hitungDibayarAktualTanpaBatas();
 						if (debug)
-							System.out.println("[DEBUG] Nominal dibayar saat ini: " + kegiatan.getDibayar()
+							System.out.println("[DEBUG] Nominal dibayar aktual: " + dibayarAktual
 									+ " | Syarat Min Nominal: " + minNominal);
-						if (kegiatan.getDibayar() >= minNominal) {
+						if (dibayarAktual >= minNominal) {
 							shouldGenNim = true;
 							if (debug)
 								System.out.println("[DEBUG] -> Syarat nominal terpenuhi. shouldGenNim = true");
