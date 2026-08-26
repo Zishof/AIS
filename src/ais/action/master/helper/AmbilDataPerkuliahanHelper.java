@@ -713,14 +713,22 @@ public class AmbilDataPerkuliahanHelper {
 			north.setParent(borderlayout);
 			north.setBorder("none");
 			ais.ui.util.ZkCompat.setFlex(north, false);
-		// Tinggi adaptif: 2 baris filter ≈ 90px, tambah 30px cadangan untuk baris Tahapan
-		// opsional; jauh lebih rapat dari 210px yang menyisakan ~120px kosong.
-		north.setHeight(tahapan != null && !tahapan.equals(0) ? "120px" : "90px");
+			// Pada mobile setiap kelompok filter ditampilkan per baris. Tinggi 90px
+			// sebelumnya memadatkan enam baris ke area yang sangat kecil sehingga combo
+			// sulit disentuh dan sebagian filter tersembunyi. Desktop tetap ringkas.
+			if (mobile) {
+				north.setHeight(tahapan != null && !tahapan.equals(0) ? "390px" : "340px");
+			} else {
+				north.setHeight(tahapan != null && !tahapan.equals(0) ? "120px" : "90px");
+			}
 		north.setAutoscroll(true);
 
 			Grid searchgrid = new Grid();
 			searchgrid.setWidth("100%");
 			searchgrid.setParent(north);
+			if (mobile) {
+				searchgrid.setStyle("font-size:14px;");
+			}
 
 			if (mobile) {
 				Columns columns = new Columns();
@@ -728,7 +736,7 @@ public class AmbilDataPerkuliahanHelper {
 
 				MyColumnConfig column = new MyColumnConfig();
 				column.setParent(columns);
-				column.setWidth("35%");
+				column.setWidth("30%");
 
 				column = new MyColumnConfig();
 				column.setParent(columns);
@@ -770,9 +778,18 @@ public class AmbilDataPerkuliahanHelper {
 
 			Hbox hbox = new Hbox();
 			hbox.setParent(row);
+			if (mobile) {
+				hbox.setWidth("100%");
+				hbox.setSpacing("6px");
+			}
 			Common.selectComboItem(true, searchfakultas, this.mahasiswa.getJurusan().getFakultas());
 			hbox.appendChild(searchfakultas);
 			searchfakultas.setCols(mobile ? 5 : 7);
+			if (mobile) {
+				searchfakultas.setWidth("48%");
+				searchfakultas.setHeight("38px");
+				searchfakultas.setStyle("font-size:14px;");
+			}
 
 			if (searchfakultas.getSelectedItem() != null && searchfakultas.getSelectedItem().getValue() != null) {
 				Common.insertComboDanSemua(jurusanCombobox, new String[] { "nama", "kodeEpsbed" }, "jenjang",
@@ -783,6 +800,11 @@ public class AmbilDataPerkuliahanHelper {
 			Common.selectComboItem(true, jurusanCombobox, this.mahasiswa.getJurusan());
 			hbox.appendChild(jurusanCombobox);
 			jurusanCombobox.setCols(mobile ? 5 : 7);
+			if (mobile) {
+				jurusanCombobox.setWidth("48%");
+				jurusanCombobox.setHeight("38px");
+				jurusanCombobox.setStyle("font-size:14px;");
+			}
 
 			searchfakultas.addEventListener("onChange", new EventListener() {
 
@@ -809,7 +831,11 @@ public class AmbilDataPerkuliahanHelper {
 			row.appendChild(new ais.ui.util.MyLabelConfig("Matakuliah"));
 
 			row.appendChild(namaMk = new Textbox());
-			namaMk.setWidth("90%");
+			namaMk.setWidth(mobile ? "100%" : "90%");
+			if (mobile) {
+				namaMk.setHeight("38px");
+				namaMk.setStyle("font-size:14px;");
+			}
 
 			namaMk.addEventListener("onChange", new EventListener() {
 
@@ -843,9 +869,18 @@ public class AmbilDataPerkuliahanHelper {
 
 			hbox = new Hbox();
 			hbox.setParent(row);
+			if (mobile) {
+				hbox.setWidth("100%");
+				hbox.setSpacing("6px");
+			}
 
 			hbox.appendChild(programCombobox);
 			programCombobox.setCols(mobile ? 5 : 7);
+			if (mobile) {
+				programCombobox.setWidth("48%");
+				programCombobox.setHeight("38px");
+				programCombobox.setStyle("font-size:14px;");
+			}
 
 			programCombobox.addEventListener("onChange", new EventListener() {
 
@@ -878,6 +913,11 @@ public class AmbilDataPerkuliahanHelper {
 			hbox.appendChild(kelas);
 			kelas.setValue(kls == null ? "" : kls.trim());
 			kelas.setCols(mobile ? 5 : 7);
+			if (mobile) {
+				kelas.setWidth("48%");
+				kelas.setHeight("38px");
+				kelas.setStyle("font-size:14px;");
+			}
 			kelas.setEventListener(new EventListener() {
 
 				@Override
@@ -897,6 +937,10 @@ public class AmbilDataPerkuliahanHelper {
 
 			hbox = new Hbox();
 			hbox.setParent(row);
+			if (mobile) {
+				hbox.setWidth("100%");
+				hbox.setSpacing("6px");
+			}
 
 			hbox.appendChild(semesterBox = new Combobox());
 
@@ -956,6 +1000,11 @@ public class AmbilDataPerkuliahanHelper {
 
 			semesterBox.setCols(mobile ? 5 : 7);
 			semesterBox.setReadonly(true);
+			if (mobile) {
+				semesterBox.setWidth("38%");
+				semesterBox.setHeight("38px");
+				semesterBox.setStyle("font-size:14px;");
+			}
 			semesterBox.addEventListener("onChange", new EventListener() {
 
 				@Override
@@ -1001,7 +1050,11 @@ public class AmbilDataPerkuliahanHelper {
 					tahapanBox.appendChild(comboitem);
 				}
 				Common.selectComboItem(tahapanBox, tahapan);
-				tahapanBox.setWidth("90%");
+				tahapanBox.setWidth(mobile ? "100%" : "90%");
+				if (mobile) {
+					tahapanBox.setHeight("38px");
+					tahapanBox.setStyle("font-size:14px;");
+				}
 
 				tahapanBox.addEventListener("onChange", new EventListener() {
 

@@ -17,6 +17,7 @@ import java.util.TreeSet;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Session;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -52,6 +53,7 @@ import ais.database.model.PengecualianJadwalPengisianKRSMahasiswa;
 import ais.database.model.PengecualianJadwalPenilaianDosen;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Tbmuser;
+import ais.database.model.Tbmrole;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.WaktuUtil;
@@ -708,13 +710,29 @@ public class CommonHelperClass {
 		Session session = null;
 		try {
 			session = HibernateUtil.currentNativeSession();
+			/*
+			 * Satu akun petugas/admin dapat sekaligus terhubung ke master Dosen. Identitas
+			 * pengecualian harus mengikuti ROLE yang sedang login: role Dosen memakai kolom
+			 * dosen, sedangkan seluruh role pengelola memakai kolom tbmuser. Pemeriksaan lama
+			 * hanya melihat keberadaan relasi dosen sehingga izin Admin Prodi tersimpan pada
+			 * tbmuser tetapi dibaca dari kolom dosen dan selalu dianggap tidak ada.
+			 */
+			boolean hakAksesDosen = tbmuser != null && tbmuser.hakAkses() != null
+					&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId());
+			Criterion identitas;
+			if (hakAksesDosen || (tbmuser != null && tbmuser.hakAkses() == null && dosen != null)) {
+				identitas = dosen == null || dosen.getId() == null ? Restrictions.sqlRestriction("1=0")
+						: Restrictions.eq("dosen", dosen);
+			} else {
+				identitas = tbmuser == null || tbmuser.getId() == null ? Restrictions.sqlRestriction("1=0")
+						: Restrictions.eq("tbmuser", tbmuser);
+			}
 			Integer count = ((Number) session.createCriteria(PengecualianJadwalPenilaianDosen.class)
 					.add(Restrictions.or(Restrictions.isNull("status"),
 							Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU)))
 					.add(Restrictions.eq("tahunAkademik", tahunAkademik))
 					.add(Restrictions.eq("jenisSemester", jenisSemester))
-					.add(dosen == null || dosen.getId() == null ? Restrictions.eq("tbmuser", tbmuser)
-							: Restrictions.eq("dosen", dosen))
+					.add(identitas)
 					.add(Restrictions.sqlRestriction("date('" + Common.databaseDateFormat1.get().format(WaktuUtil.getDate())
 							+ "') between date(this_.tanggal_mulai) and date(this_.tanggal_sampai)"))
 					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
@@ -723,11 +741,7 @@ public class CommonHelperClass {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonHelperClass.java:708");
 			return false;
 		} finally {
-			if (session != null && session.isOpen()) {
-				session.disconnect();
-				session.close();
-			}
-			HibernateUtil.closeSession();
+			Common.closeNativeSessionQuietly(session);
 		}
 	}
 
