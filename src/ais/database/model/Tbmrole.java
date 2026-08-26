@@ -74,6 +74,8 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * idempoten saat startup lewat {@code ais.common.MenuHelper.ensureSpiRole()}.
 	 */
 	public static final String SPI = "SPI";
+	/** Role operasional pos keluar/masuk pondok. */
+	public static final String KEAMANAN_PONDOK = "keamanan_pondok";
 
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
@@ -158,6 +160,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean keuangan;
 	private Boolean kepegawaian;
 	private Boolean presensiKehadiran;
+	private Boolean aksesGerbangPesantren;
 	private Boolean absenLangsung;
 	private Boolean pembayaran;
 	private Boolean kalenderAkademik;
@@ -650,6 +653,25 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	public void setPresensiKehadiran(Boolean presensiKehadiran) {
 		this.presensiKehadiran = presensiKehadiran;
+	}
+
+	/**
+	 * Hak memproses izin serta verifikasi keluar/kembali di pos keamanan.
+	 * Terpisah dari presensi akademik agar prinsip least privilege terjaga.
+	 * Role lama bernama Keamanan Pondok/Satpam otomatis aktif saat kolom null.
+	 */
+	@Column(name = "akses_gerbang_pesantren")
+	public Boolean getAksesGerbangPesantren() {
+		if (aksesGerbangPesantren != null) return aksesGerbangPesantren;
+		if (isRole(ADMINISTRATOR) || isRole(KEAMANAN_PONDOK)
+				|| isRole("Keamanan Pondok") || isRole("Keamanan Pesantren") || isRole("Satpam")) return Boolean.TRUE;
+		String namaRole = getRoleName() == null ? "" : getRoleName().trim().toLowerCase(java.util.Locale.ENGLISH);
+		return Boolean.valueOf(namaRole.indexOf("keamanan pondok") >= 0
+				|| namaRole.indexOf("keamanan pesantren") >= 0 || namaRole.indexOf("satpam") >= 0);
+	}
+
+	public void setAksesGerbangPesantren(Boolean value) {
+		this.aksesGerbangPesantren = value;
 	}
 
 	public Boolean getAbsenLangsung() {

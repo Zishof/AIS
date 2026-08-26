@@ -179,7 +179,9 @@ public final class GerbangPesantrenApi {
 	private static boolean bolehPetugas(Tbmuser actor) {
 		if (actor == null || actor.getUserId() == null) return false;
 		if (Common.getApakahAdminLain(actor)) return true;
-		try { for (Tbmrole role : actor.ambilRoles()) if (role != null && Boolean.TRUE.equals(role.getPresensiKehadiran())) return true; }
+		try { for (Tbmrole role : actor.ambilRoles()) if (role != null
+				&& (Boolean.TRUE.equals(role.getAksesGerbangPesantren())
+						|| Boolean.TRUE.equals(role.getPresensiKehadiran()))) return true; }
 		catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "GerbangPesantrenApi.bolehPetugas"); }
 		return false;
 	}

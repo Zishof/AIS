@@ -136,6 +136,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig melihatDataPegawaiLain;
 	private MyCheckboxConfig melihatDataSatkerLain;
 	private MyCheckboxConfig presensiKehadiran;
+	private MyCheckboxConfig aksesGerbangPesantren;
 	private MyCheckboxConfig absenLangsung;
 	private MyCheckboxConfig akunting;
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
@@ -2230,6 +2231,13 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(aksesGerbangPesantren = new MyCheckboxConfig(
+				"Boleh memproses izin dan verifikasi biometrik gerbang pondok"));
+		aksesGerbangPesantren.setChecked(tbmrole.getAksesGerbangPesantren());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
 		row.appendChild(
 				updateFormatLaporan = new MyCheckboxConfig("Pengguna memiliki hak akses untuk update format laporan"));
 		updateFormatLaporan.setChecked(tbmrole.getUpdateFormatLaporan());
@@ -3037,6 +3045,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setMelihatDataPegawaiLain(melihatDataPegawaiLain.isChecked());
 		tbmrole.setMelihatDataSatkerLain(melihatDataSatkerLain.isChecked());
 		tbmrole.setPresensiKehadiran(presensiKehadiran.isChecked());
+		tbmrole.setAksesGerbangPesantren(Boolean.valueOf(
+				aksesGerbangPesantren != null && aksesGerbangPesantren.isChecked()));
 		tbmrole.setAbsenLangsung(absenLangsung.isChecked());
 		tbmrole.setAkunting(akunting.isChecked());
 		tbmrole.setUpdateFormatLaporan(updateFormatLaporan.isChecked());
