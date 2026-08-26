@@ -119,6 +119,8 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 
 	private Div divDasbor;
 	private Vbox vboxRinciOverlay;
+	private MyToolbarbuttonConfig btnHitungUlangTagihan;
+	private boolean hitungUlangBerjalan;
 
 	// Memoisasi "Tagihan SEGAR" per-kegiatan untuk SATU kali muat halaman. tagihanSegarKonsisten()
 	// bersifat READ-ONLY & deterministik (input k → hasil sama), namun pada satu load dipanggil
@@ -690,13 +692,18 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		Div barHitungUlang = new Div();
 		barHitungUlang.setStyle("text-align:right;margin:6px 8px 0 8px;");
 		barHitungUlang.setParent(pchDaftarTagihan);
-		MyToolbarbuttonConfig btnHitungUlang = new MyToolbarbuttonConfig("Hitung Ulang", "/img/refresh.png");
-		btnHitungUlang.setStyle("color:#b91c1c;font-weight:700;");
-		btnHitungUlang.setTooltiptext("Hitung ulang nilai tagihan semua kegiatan (Proses Tagihan)");
-		btnHitungUlang.setParent(barHitungUlang);
-		btnHitungUlang.addEventListener("onClick", new EventListener() {
+		btnHitungUlangTagihan = new MyToolbarbuttonConfig("Hitung Ulang", "/img/refresh.png");
+		btnHitungUlangTagihan.setStyle("color:#b91c1c;font-weight:700;");
+		btnHitungUlangTagihan.setTooltiptext("Hitung ulang nilai tagihan semua kegiatan (Proses Tagihan)");
+		btnHitungUlangTagihan.setParent(barHitungUlang);
+		btnHitungUlangTagihan.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event ev0) throws Exception {
+				if (hitungUlangBerjalan) {
+					MyMessageboxConfig.show("Proses hitung ulang tagihan masih berjalan. Silakan tunggu sampai progress mencapai 100%.",
+							"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
+				}
 				MyMessageboxConfig.show(
 						"Apakah Bapak/Ibu yakin ingin menghitung ulang (Proses Tagihan) seluruh tagihan untuk mahasiswa ini? Seluruh nilai tagihan akan dihitung ulang berdasarkan pengaturan biaya yang berlaku saat ini agar sinkron dengan rincian terbaru. Data pembayaran yang telah tercatat tidak akan terpengaruh. Silakan tekan OK untuk melanjutkan, atau Batal untuk membatalkan.",
 						"Konfirmasi Hitung Ulang", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
@@ -1994,6 +2001,10 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 	}
 
 	private void hitungUlangSemuaKegiatan() throws Exception {
+		if (hitungUlangBerjalan) {
+			return;
+		}
+
 		// Pastikan daftar kegiatan terkini termuat lebih dulu.
 		if (kegiatans == null || kegiatans.isEmpty()) {
 			loadKegiatan(true, null, null);
@@ -2006,60 +2017,178 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 			return;
 		}
 
-		org.zkoss.zk.ui.util.Clients.showBusy("Menghitung ulang tagihan...");
-		int sukses = 0;
-		try {
-			// Snapshot: loadKegiatan() akan membangun ulang map 'kegiatans'.
-			java.util.List<Kegiatan> daftar = new java.util.ArrayList<Kegiatan>(kegiatans.values());
-			for (Kegiatan kegiatan : daftar) {
-				if (kegiatan == null || kegiatan.getId() == null || kegiatan.getJenisKegiatan() == null) {
-					continue;
-				}
-				Session session = null;
-				try {
-					session = HibernateUtil.openSession();
-					org.hibernate.Transaction tx = session.beginTransaction();
-					if (mahasiswa != null) {
-						ais.action.master.helper.KegiatanHelper.checkKegiatanMahasiswa(kegiatan,
-								kegiatan.getJenisKegiatan(), mahasiswa, kegiatan.getSemster(),
-								kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true, false, null,
-								session);
-					} else if (calMhs != null) {
-						ais.action.master.helper.KegiatanHelper.checkKegiatanCalonMahasiswa(kegiatan,
-								kegiatan.getJenisKegiatan(), calMhs, kegiatan.getSemster(),
-								kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true, false, null,
-								session);
-					}
-					tx.commit();
-					sukses++;
-				} catch (Exception ex) {
-					Common.tampilErrorJikaAdmin(ex);
-				} finally {
-					if (session != null && session.isOpen()) {
-						try {
-							session.clear();
-						} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/InformasiPembayaranMahasiswaAction.java:1876");
-						}
-						try {
-							session.disconnect();
-						} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/InformasiPembayaranMahasiswaAction.java:1880");
-						}
-						try {
-							session.close();
-						} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/InformasiPembayaranMahasiswaAction.java:1884");
-						}
-					}
-				}
+		// Hanya ID yang dibawa ke utas latar. Entitas Hibernate dari utas UI tidak boleh dipakai
+		// lintas-thread karena dapat membawa proxy/session yang sudah tidak aktif.
+		final java.util.List<Long> kegiatanIds = new java.util.ArrayList<Long>();
+		for (Kegiatan kegiatan : new java.util.ArrayList<Kegiatan>(kegiatans.values())) {
+			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null) {
+				kegiatanIds.add(kegiatan.getId());
 			}
-			// Muat ulang grid + dasbor dengan nilai terbaru.
-			loadKegiatan(true, null, null);
-		} finally {
-			org.zkoss.zk.ui.util.Clients.clearBusy();
+		}
+		if (kegiatanIds.isEmpty()) {
+			MyMessageboxConfig.show("Tidak ditemukan kegiatan valid yang dapat dihitung ulang.", "Informasi",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
 		}
 
-		MyMessageboxConfig.showFormat(
-				"Proses hitung ulang telah selesai dilakukan untuk {V1} kegiatan. Seluruh nilai tagihan terkait telah diperbarui sesuai pengaturan biaya yang berlaku. Terima kasih.",
-				"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, sukses);
+		final Long mahasiswaId = mahasiswa == null ? null : mahasiswa.getId();
+		final Long calonMahasiswaId = calMhs == null ? null : calMhs.getId();
+		final int total = kegiatanIds.size();
+		final java.util.concurrent.atomic.AtomicInteger diproses = new java.util.concurrent.atomic.AtomicInteger(0);
+		final java.util.concurrent.atomic.AtomicInteger sukses = new java.util.concurrent.atomic.AtomicInteger(0);
+		final java.util.concurrent.atomic.AtomicInteger gagal = new java.util.concurrent.atomic.AtomicInteger(0);
+		final java.util.concurrent.atomic.AtomicBoolean selesai = new java.util.concurrent.atomic.AtomicBoolean(false);
+		final java.util.concurrent.atomic.AtomicReference<String> errorTerakhir =
+				new java.util.concurrent.atomic.AtomicReference<String>();
+
+		final Component root = ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+		final MyWindow progressWindow = new MyWindow("Progress Hitung Ulang Tagihan", "normal", false);
+		progressWindow.setWidth(Common.isMobile() ? "94%" : "520px");
+		progressWindow.setClosable(false);
+		progressWindow.setParent(root);
+		Vbox progressBox = new Vbox();
+		progressBox.setWidth("100%");
+		progressBox.setStyle("padding:18px 20px;box-sizing:border-box;");
+		progressBox.setParent(progressWindow);
+		final Label progressStatus = new Label("Menyiapkan " + total + " kegiatan...");
+		progressStatus.setStyle("font-weight:700;color:#1e3a5f;margin-bottom:8px;");
+		progressStatus.setParent(progressBox);
+		final Progressmeter progressMeter = new Progressmeter();
+		progressMeter.setValue(0);
+		progressMeter.setWidth("100%");
+		progressMeter.setParent(progressBox);
+		final Label progressAngka = new Label("0% (0 / " + total + ")");
+		progressAngka.setStyle("font-weight:800;color:#1d4ed8;margin-top:8px;");
+		progressAngka.setParent(progressBox);
+		progressWindow.doHighlighted();
+
+		hitungUlangBerjalan = true;
+		if (btnHitungUlangTagihan != null) {
+			btnHitungUlangTagihan.setDisabled(true);
+		}
+
+		final org.zkoss.zk.ui.Desktop desktop = org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
+		AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
+			@Override
+			public void run() {
+				try {
+					for (Long kegiatanId : kegiatanIds) {
+						Session session = null;
+						org.hibernate.Transaction tx = null;
+						try {
+							session = HibernateUtil.openSession();
+							Kegiatan kegiatan = (Kegiatan) session.get(Kegiatan.class, kegiatanId);
+							if (kegiatan == null || kegiatan.getJenisKegiatan() == null) {
+								gagal.incrementAndGet();
+								continue;
+							}
+							tx = session.beginTransaction();
+							if (mahasiswaId != null) {
+								Mahasiswa mahasiswaDb = (Mahasiswa) session.get(Mahasiswa.class, mahasiswaId);
+								ais.action.master.helper.KegiatanHelper.checkKegiatanMahasiswa(kegiatan,
+										kegiatan.getJenisKegiatan(), mahasiswaDb, kegiatan.getSemster(),
+										kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true,
+										false, null, session);
+							} else if (calonMahasiswaId != null) {
+								BiodataCalonMahasiswa calonDb = (BiodataCalonMahasiswa) session
+										.get(BiodataCalonMahasiswa.class, calonMahasiswaId);
+								ais.action.master.helper.KegiatanHelper.checkKegiatanCalonMahasiswa(kegiatan,
+										kegiatan.getJenisKegiatan(), calonDb, kegiatan.getSemster(),
+										kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true,
+										false, null, session);
+							}
+							tx.commit();
+							sukses.incrementAndGet();
+						} catch (Exception ex) {
+							try {
+								if (tx != null && tx.isActive()) {
+									tx.rollback();
+								}
+							} catch (Exception rollbackError) {
+								ais.common.ErrorAuditUtil.record(rollbackError,
+										"InformasiPembayaranMahasiswa:hitung-ulang-rollback");
+							}
+							gagal.incrementAndGet();
+							errorTerakhir.set(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+							ais.common.ErrorAuditUtil.record(ex,
+									"InformasiPembayaranMahasiswa:hitung-ulang-kegiatan-" + kegiatanId);
+						} finally {
+							diproses.incrementAndGet();
+							if (session != null && session.isOpen()) {
+								try { session.clear(); } catch (Exception ig) {
+									ais.common.ErrorAuditUtil.record(ig,
+											"InformasiPembayaranMahasiswa:hitung-ulang-clear");
+								}
+								try { session.disconnect(); } catch (Exception ig) {
+									ais.common.ErrorAuditUtil.record(ig,
+											"InformasiPembayaranMahasiswa:hitung-ulang-disconnect");
+								}
+								try { session.close(); } catch (Exception ig) {
+									ais.common.ErrorAuditUtil.record(ig,
+											"InformasiPembayaranMahasiswa:hitung-ulang-close");
+								}
+							}
+						}
+					}
+				} finally {
+					selesai.set(true);
+				}
+			}
+		});
+
+		final org.zkoss.zul.Timer progressTimer = new org.zkoss.zul.Timer(400);
+		progressTimer.setRepeats(true);
+		progressTimer.setParent(root);
+		progressTimer.addEventListener("onTimer", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				int jumlahDiproses = diproses.get();
+				int persen = total > 0 ? (int) ((long) jumlahDiproses * 90L / total) : 90;
+				if (persen > 90) {
+					persen = 90;
+				}
+				progressMeter.setValue(persen);
+				progressStatus.setValue("Menghitung kegiatan ke-" + Math.min(jumlahDiproses + 1, total)
+						+ " dari " + total + "...");
+				progressAngka.setValue(persen + "% (" + jumlahDiproses + " / " + total + ")");
+				if (selesai.get()) {
+					progressTimer.stop();
+					progressTimer.detach();
+					progressMeter.setValue(94);
+					progressStatus.setValue("Menyegarkan daftar tagihan dan dasbor...");
+					progressAngka.setValue("94% (perhitungan selesai)");
+					org.zkoss.zk.ui.event.Events.echoEvent("onSelesaiHitungUlangTagihan", progressWindow, null);
+				}
+			}
+		});
+		progressWindow.addEventListener("onSelesaiHitungUlangTagihan", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				try {
+					loadKegiatan(true, null, null);
+					progressMeter.setValue(100);
+					progressStatus.setValue("Hitung ulang tagihan selesai.");
+					progressAngka.setValue("100% (" + sukses.get() + " berhasil, " + gagal.get() + " gagal)");
+				} finally {
+					hitungUlangBerjalan = false;
+					if (btnHitungUlangTagihan != null && btnHitungUlangTagihan.getParent() != null) {
+						btnHitungUlangTagihan.setDisabled(false);
+					}
+					progressWindow.detach();
+				}
+				if (gagal.get() > 0) {
+					MyMessageboxConfig.showFormat(
+							"Hitung ulang selesai: {V1} kegiatan berhasil dan {V2} kegiatan gagal. Kegagalan terakhir: {V3}. Silakan buka log error untuk rincian.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR,
+							sukses.get(), gagal.get(), errorTerakhir.get() == null ? "Tidak diketahui" : errorTerakhir.get());
+				} else {
+					MyMessageboxConfig.showFormat(
+							"Proses hitung ulang telah selesai dilakukan untuk {V1} kegiatan. Seluruh nilai tagihan terkait telah diperbarui sesuai pengaturan biaya yang berlaku. Terima kasih.",
+							"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, sukses.get());
+				}
+			}
+		});
+		progressTimer.start();
 	}
 
 	/**
