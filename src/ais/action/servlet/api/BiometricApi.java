@@ -232,6 +232,41 @@ public final class BiometricApi {
 		return verifyInternal(actor, request, purpose, subjectUserId.trim()).response;
 	}
 
+	/**
+	 * Memvalidasi bukti verifikasi POS tanpa mempercayai keputusan klien.
+	 * Bukti harus cocok dengan kasir, member, modality, dan kode transaksi yang
+	 * sama, serta masih segar. Karena reference_id diikat ke kodeUnik, event
+	 * tidak dapat dipakai untuk transaksi lain.
+	 */
+	public static boolean validPosVerification(Tbmuser actor, String subjectUserId,
+			Long eventId, String modality, String transactionCode) {
+		if (actor == null || actor.getUserId() == null || subjectUserId == null
+				|| eventId == null || transactionCode == null || transactionCode.trim().length() == 0)
+			return false;
+		Session session = HibernateUtil.openSession();
+		try {
+			Date minimum = new Date(System.currentTimeMillis() - 5L * 60L * 1000L);
+			BiometricEvent event = (BiometricEvent) session.createCriteria(BiometricEvent.class)
+					.add(Restrictions.idEq(eventId))
+					.add(Restrictions.eq("actorUserId", actor.getUserId()))
+					.add(Restrictions.eq("subjectUserId", subjectUserId))
+					.add(Restrictions.eq("purpose", "POS_PURCHASE"))
+					.add(Restrictions.eq("modality", modality))
+					.add(Restrictions.eq("matched", Boolean.TRUE))
+					.add(Restrictions.eq("resultCode", "MATCHED"))
+					.add(Restrictions.eq("referenceType", "POS_PURCHASE"))
+					.add(Restrictions.eq("referenceId", transactionCode.trim()))
+					.add(Restrictions.ge("receivedAt", minimum))
+					.setMaxResults(1).uniqueResult();
+			return event != null;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "BiometricApi.validPosVerification");
+			return false;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	private static Verification verifyInternal(Tbmuser actor, JSONObject request, String purpose, String forcedSubject) {
 		String subject = forcedSubject == null ? targetUser(actor, request) : forcedSubject;

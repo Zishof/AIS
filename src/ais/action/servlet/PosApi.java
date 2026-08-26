@@ -30,6 +30,7 @@ import ais.action.servlet.api.PosDemoProvisionHelper;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
+import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.inventory.DraftPembelian;
@@ -253,8 +254,15 @@ public class PosApi extends HttpServlet {
 				KantinHelper.ebisnisRoleMenuSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "ebisnis_role_menu_simpan");
 			} else if ("bayar".equals(action)) {
-				KantinHelper.bayar(tbmuser, payload, hasil);
-				normalisasiStatusKantinHelper(hasil, "checkout");
+				String penolakanBiometrik = validasiBiometrikPembayaranSaldo(tbmuser, payload);
+				if (penolakanBiometrik != null) {
+					hasil.put("status", "error");
+					hasil.put("kode", "BIOMETRIK_WAJIB");
+					hasil.put("message", penolakanBiometrik);
+				} else {
+					KantinHelper.bayar(tbmuser, payload, hasil);
+					normalisasiStatusKantinHelper(hasil, "checkout");
+				}
 			} else if ("draft_bayar".equals(action)) {
 				KantinHelper.draft_bayar(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "checkout");
@@ -2489,6 +2497,10 @@ public class PosApi extends HttpServlet {
 		j.put("nama", str(a.getNama()));
 		j.put("kodeIdentitas", str(a.getKodeIdentitas()));
 		j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
+		j.put("wajibBiometricWajah", jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
+		j.put("wajibBiometricFingerprint", jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
 		j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 		return j;
 	}
@@ -2742,6 +2754,87 @@ public class PosApi extends HttpServlet {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/** Gerbang server-side sebelum POS Desktop/Android boleh memotong saldo member. */
+	private String validasiBiometrikPembayaranSaldo(Tbmuser kasir, JSONObject payload) throws Exception {
+		if (!pembayaranMemotongSaldo(payload)) return null;
+		if (payload.isNull("id_member")) return null; // validasi member standar dilakukan KantinHelper.
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Long memberId;
+			try { memberId = Long.valueOf(Long.parseLong(String.valueOf(payload.get("id_member")))); }
+			catch (Exception e) { return null; }
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
+			if (anggota == null) return null;
+			JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
+			boolean wajibWajah = jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah());
+			boolean wajibFingerprint = jenis != null
+					&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint());
+			if (!wajibWajah && !wajibFingerprint) return null;
+			Tbmuser pemilik = penggunaBiometrikMember(session, anggota);
+			if (pemilik == null || pemilik.getUserId() == null)
+				return "Member belum terhubung ke akun biometrik. Pembayaran saldo tidak dapat dilanjutkan.";
+			String kode = payload.optString("kodeUnik", "").trim();
+			if (wajibWajah) {
+				Long eventId = angkaLong(payload, "biometric_face_event_id");
+				if (!ais.action.servlet.api.BiometricApi.validPosVerification(kasir,
+						pemilik.getUserId(), eventId, "FACE", kode))
+					return "Verifikasi wajah wajib dilakukan kembali sebelum saldo member dipotong.";
+			}
+			if (wajibFingerprint) {
+				Long eventId = angkaLong(payload, "biometric_fingerprint_event_id");
+				if (!ais.action.servlet.api.BiometricApi.validPosVerification(kasir,
+						pemilik.getUserId(), eventId, "FINGERPRINT", kode))
+					return "Verifikasi sidik jari wajib dilakukan kembali sebelum saldo member dipotong.";
+			}
+			return null;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private boolean pembayaranMemotongSaldo(JSONObject payload) throws Exception {
+		JSONArray tambahan = payload.optJSONArray("caraBayarTambahan");
+		double nominalTambahan = 0D;
+		if (tambahan != null) for (int i = 0; i < Math.min(4, tambahan.length()); i++) {
+			JSONObject slot = tambahan.optJSONObject(i);
+			if (slot == null || slot.optDouble("nominal", 0D) <= 0D || slot.isNull("caraBayar")) continue;
+			nominalTambahan += slot.optDouble("nominal", 0D);
+			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) GeneralValueObject.ambilData(
+					CaraPembayaranKoperasi.class, String.valueOf(slot.get("caraBayar")));
+			if (caraMemotongSaldo(cara)) return true;
+		}
+		double total = payload.optDouble("total", -1D);
+		boolean slotUtamaBernilai = total < 0D || total - nominalTambahan > 0.5D;
+		if (slotUtamaBernilai && !payload.isNull("caraBayar")
+				&& Common.isNumber(String.valueOf(payload.get("caraBayar")))) {
+			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) GeneralValueObject.ambilData(
+					CaraPembayaranKoperasi.class, String.valueOf(payload.get("caraBayar")));
+			if (caraMemotongSaldo(cara)) return true;
+		}
+		return false;
+	}
+
+	private static boolean caraMemotongSaldo(CaraPembayaranKoperasi cara) {
+		return cara != null && (!Boolean.TRUE.equals(cara.getManual())
+				|| Boolean.TRUE.equals(cara.getMemotongDeposit()));
+	}
+
+	private static Long angkaLong(JSONObject payload, String key) {
+		try { return payload.isNull(key) ? null : Long.valueOf(String.valueOf(payload.get(key))); }
+		catch (Exception e) { return null; }
+	}
+
+	private static Tbmuser penggunaBiometrikMember(Session session, AnggotaKoperasi anggota) {
+		Tbmuser pemilik = anggota.getTbmuser();
+		if (pemilik == null && anggota.getUserid() != null)
+			pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getUserid());
+		if (pemilik == null && anggota.getMahasiswa() != null && anggota.getMahasiswa().getNim() != null)
+			pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getMahasiswa().getNim());
+		if (pemilik == null && anggota.getSiswa() != null && anggota.getSiswa().getNomorInduk() != null)
+			pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getSiswa().getNomorInduk());
+		return pemilik;
 	}
 
 	/**

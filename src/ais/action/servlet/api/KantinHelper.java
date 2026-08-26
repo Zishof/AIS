@@ -6479,6 +6479,10 @@ public class KantinHelper {
 				j.put("jenisAnggotaKoperasiId", jenis == null ? JSONObject.NULL : jenis.getId());
 				j.put("jenisNama", jenis == null ? "-" : jenis.getNama());
 				j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
+				j.put("wajibBiometricWajah", jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
+				j.put("wajibBiometricFingerprint", jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
 				j.put("fotoUrl", fotoUrl == null ? JSONObject.NULL : fotoUrl);
 				j.put("fotoNama", fotoNama == null ? JSONObject.NULL : fotoNama);
 				j.put("fotoUkuran", fotoUkuran == null ? JSONObject.NULL : fotoUkuran);
@@ -6550,6 +6554,10 @@ public class KantinHelper {
 				j.put("nama", a.getNama() == null ? "" : a.getNama());
 				j.put("kodeIdentitas", a.getKodeIdentitas() == null ? "" : a.getKodeIdentitas());
 				j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
+				j.put("wajibBiometricWajah", jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
+				j.put("wajibBiometricFingerprint", jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
 				j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 				j.put("waktuTerakhir", r[1] == null ? JSONObject.NULL
 						: Common.dateFormatInput.get().format((java.util.Date) r[1]));
@@ -6958,7 +6966,8 @@ public class KantinHelper {
 					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), COALESCE(aktif,true), COALESCE(dipilih,true), "
 							+ "COALESCE(boleh_entry_topup_oleh_admin,false), COALESCE(istilah_sisa_saldo,'Saldo Kas'), COALESCE(tampilkan_sisa_saldo,true), "
 							+ "COALESCE(istilah_cashback,'Cashback'), COALESCE(tampilkan_cashback,true), COALESCE(minimal_saldo,0), "
-							+ "COALESCE(wajib_pin,false), COALESCE(wajib_belanja_rutin,false), COALESCE(target_frekuensi_belanja,0), "
+							+ "COALESCE(wajib_pin,false), COALESCE(wajib_verifikasi_biometric_wajah,false), "
+							+ "COALESCE(wajib_verifikasi_biometric_fingerprint,false), COALESCE(wajib_belanja_rutin,false), COALESCE(target_frekuensi_belanja,0), "
 							+ "COALESCE(maksimal_pelanggaran,0), COALESCE(daftar_cara_pembayaran_yang_boleh_di_pilih,''), "
 							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.jenis_anggota_koperasi = j.id) "
 							+ "FROM koperasi.jenis_anggota_koperasi j" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
@@ -6987,11 +6996,13 @@ public class KantinHelper {
 				j.put("tampilkanCashback", rs.getBoolean(11));
 				j.put("minimalSaldo", rs.getDouble(12));
 				j.put("wajibPin", rs.getBoolean(13));
-				j.put("wajibBelanjaRutin", rs.getBoolean(14));
-				j.put("targetFrekuensiBelanja", rs.getInt(15));
-				j.put("maksimalPelanggaran", rs.getInt(16));
-				j.put("daftarCaraPembayaranYangBolehDiPilih", rs.getString(17));
-				j.put("jumlahAnggota", rs.getLong(18));
+				j.put("wajibBiometricWajah", rs.getBoolean(14));
+				j.put("wajibBiometricFingerprint", rs.getBoolean(15));
+				j.put("wajibBelanjaRutin", rs.getBoolean(16));
+				j.put("targetFrekuensiBelanja", rs.getInt(17));
+				j.put("maksimalPelanggaran", rs.getInt(18));
+				j.put("daftarCaraPembayaranYangBolehDiPilih", rs.getString(19));
+				j.put("jumlahAnggota", rs.getLong(20));
 				arr.put(j);
 			}
 			rs.close();
@@ -7051,6 +7062,8 @@ public class KantinHelper {
 			jenis.setTampilkanCashback(request.optBoolean("tampilkan_cashback", true));
 			jenis.setMinimalSaldo(Double.valueOf(request.optDouble("minimal_saldo", 0)));
 			jenis.setWajibPin(request.optBoolean("wajib_pin", false));
+			jenis.setWajibVerifikasiBiometricWajah(request.optBoolean("wajib_biometric_wajah", false));
+			jenis.setWajibVerifikasiBiometricFingerprint(request.optBoolean("wajib_biometric_fingerprint", false));
 			jenis.setWajibBelanjaRutin(request.optBoolean("wajib_belanja_rutin", false));
 			jenis.setTargetFrekuensiBelanja(Integer.valueOf(request.optInt("target_frekuensi_belanja", 0)));
 			jenis.setMaksimalPelanggaran(Integer.valueOf(request.optInt("maksimal_pelanggaran", 0)));
@@ -16642,5 +16655,3 @@ public class KantinHelper {
 		}
 	}
 }
-
-
