@@ -1231,7 +1231,16 @@ public class Report extends GenericAutowireComposer {
 			return null;
 		}
 		try {
-			return bacaSemuaByte(file);
+			byte[] data = bacaSemuaByte(file);
+			if (data == null || data.length < 5) {
+				return null;
+			}
+			if (data[0] != '%' || data[1] != 'P' || data[2] != 'D'
+					|| data[3] != 'F' || data[4] != '-') {
+				throw new java.io.IOException("Berkas pratinjau bukan dokumen PDF yang valid: "
+						+ file.getAbsolutePath());
+			}
+			return data;
 		} catch (Exception gagalBaca) {
 			ais.common.ErrorAuditUtil.record(gagalBaca,
 					"Gagal membuat snapshot PDF untuk pratinjau report");
@@ -4051,34 +4060,6 @@ public class Report extends GenericAutowireComposer {
 		}
 		File h = berkasHtmlPendamping(myfile);
 		return h != null && h.exists() && h.length() > 0;
-	}
-
-	/**
-	 * Membaca hasil PDF secara sinkron untuk pratinjau ZK. AMedia berbasis File
-	 * menyimpan InputStream sebagai field transient; request kedua dari iframe dapat
-	 * kehilangan sumber tersebut setelah event awal selesai. AMedia berbasis byte[]
-	 * repeatable dan tidak perlu membuka kembali berkas sementara.
-	 */
-	private static byte[] bacaPdfPratinjau(File myfile) {
-		if (myfile == null || !myfile.isFile() || myfile.length() <= 0L) {
-			return null;
-		}
-		try {
-			byte[] data = org.apache.commons.io.FileUtils.readFileToByteArray(myfile);
-			if (data == null || data.length < 5) {
-				return null;
-			}
-			if (data[0] != '%' || data[1] != 'P' || data[2] != 'D' || data[3] != 'F'
-					|| data[4] != '-') {
-				throw new java.io.IOException("Berkas pratinjau bukan dokumen PDF yang valid: "
-						+ myfile.getAbsolutePath());
-			}
-			return data;
-		} catch (Exception ex) {
-			ais.common.ErrorAuditUtil.record(ex,
-					"auto-audit src/ais/action/report/Report.java:bacaPdfPratinjau");
-			return null;
-		}
 	}
 
 	/**
