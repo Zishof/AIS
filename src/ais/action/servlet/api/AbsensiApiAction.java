@@ -1,5 +1,7 @@
 package ais.action.servlet.api;
 
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -33,6 +35,13 @@ import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
 public class AbsensiApiAction {
+	private static final long BATAS_MUNDUR_WAKTU_ABSEN_MILLIS = 24L * 60L * 60L * 1000L;
+	private static final long BATAS_MAJU_WAKTU_ABSEN_MILLIS = 5L * 60L * 1000L;
+	private static final String[] KUNCI_WAKTU_ABSEN = { "waktu", "waktuAbsen", "tanggalAbsen", "timestamp",
+			"capturedAt", "createdAt", "tanggal", "datetime", "date", "time" };
+	private static final String[] FORMAT_WAKTU_ABSEN = { "yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss",
+			"yyyy-MM-dd'T'HH:mm:ss.SSSZ", "yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd'T'HH:mm:ss.SSS",
+			"yyyy-MM-dd'T'HH:mm:ss", "dd-MM-yyyy HH:mm:ss", "dd/MM/yyyy HH:mm:ss" };
 
 	@SuppressWarnings({})
 	public static JSONObject absen(HttpServletRequest req, JSONObject request) {
@@ -443,19 +452,24 @@ public class AbsensiApiAction {
 								}
 							}
 
-							else if (pegawai != null && pert != null && pert.startsWith("P")) {
+							Date tanggal = WaktuUtil.getDate();
+							if (pegawai != null && pertemuan == null) {
+								tanggal = ambilWaktuAbsensi(request, tanggal);
+							}
+
+							if (pegawai != null && pert != null && pert.startsWith("P")) {
 								String code = pert.split("-", 2)[1];
 								System.out.println("Absensi pegawai code = " + code);
 								String tgl = Common.desEncrypter.get().decrypt(code);
 								System.out.println("Absensi pegawai tgl = " + tgl);
-								Date tanggal = Common.dateFormat8.get().parse(tgl);
-								System.out.println("Absensi pegawai tanggal = " + tanggal);
-								if (!Common.dateFormat8.get().format(WaktuUtil.getDate()).equals(tgl)) {
+								Date tanggalQr = Common.dateFormat8.get().parse(tgl);
+								System.out.println("Absensi pegawai tanggal = " + tanggalQr);
+								if (!Common.dateFormat8.get().format(tanggal).equals(tgl)) {
 									String s = "<strong><font style='color:red;font-size: 15px;'>Pegawai dengan nama \""
 											+ pegawai.getNama()
 											+ "\" tidak bisa melakukan absen karena tanggal QR-Code tidak sesuai, tanggal di QR-Code \""
-											+ Common.dateFormat6.get().format(tanggal) + "\" sedangkan sekarang  \""
-											+ Common.dateFormat6.get().format(WaktuUtil.getDate())
+											+ Common.dateFormat6.get().format(tanggalQr) + "\" sedangkan waktu absensi  \""
+											+ Common.dateFormat6.get().format(tanggal)
 											+ "\". Absensi online gagal dilakukan</font></strong><br><img style='width:50px' src=\""
 											+ Common.getRequestHostWithProtocol()
 											+ "/img/oh.gif\" alt=\"WebP rules.\" />";
@@ -465,8 +479,6 @@ public class AbsensiApiAction {
 								}
 
 							}
-
-							Date tanggal = WaktuUtil.getDate();
 
 							String keyTgl = Common.dateFormat9.get().format(tanggal);
 							Session session = HibernateUtil.openSession();
@@ -843,6 +855,96 @@ public class AbsensiApiAction {
 		System.out.println("absen -> " + jsonObject);
 
 		return jsonObject;
+	}
+
+	/**
+	 * Mengambil waktu saat absensi dibuat di perangkat. Payload resend membawa
+	 * kembali nilai ini sehingga jam absensi tidak berubah menjadi jam pengiriman
+	 * ulang. Payload aplikasi lama yang belum mengirim waktu tetap memakai jam
+	 * server.
+	 */
+	private static Date ambilWaktuAbsensi(JSONObject request, Date waktuServer) {
+		if (request == null || waktuServer == null) {
+			return waktuServer;
+		}
+		for (String key : KUNCI_WAKTU_ABSEN) {
+			try {
+				if (request.isNull(key)) {
+					continue;
+				}
+				Date waktuPerangkat = parseWaktuAbsensi(request.get(key), waktuServer);
+				if (waktuPerangkat == null) {
+					continue;
+				}
+				long selisih = waktuServer.getTime() - waktuPerangkat.getTime();
+				if (selisih >= -BATAS_MAJU_WAKTU_ABSEN_MILLIS
+						&& selisih <= BATAS_MUNDUR_WAKTU_ABSEN_MILLIS) {
+					return waktuPerangkat;
+				}
+			} catch (Exception e) {
+				// Nilai dari versi aplikasi lama dapat berbeda format; gunakan jam server.
+			}
+		}
+		return waktuServer;
+	}
+
+	private static Date parseWaktuAbsensi(Object nilai, Date waktuServer) {
+		if (nilai == null || JSONObject.NULL.equals(nilai)) {
+			return null;
+		}
+		String teks = String.valueOf(nilai).trim();
+		if (teks.length() == 0) {
+			return null;
+		}
+		try {
+			long epoch = Long.parseLong(teks);
+			if (Math.abs(epoch) < 100000000000L) {
+				epoch *= 1000L;
+			}
+			return new Date(epoch);
+		} catch (NumberFormatException e) {
+			// Lanjutkan ke format tanggal tekstual.
+		}
+
+		String teksZona = teks;
+		// DateTime.toIso8601String() dari Flutter dapat membawa 6 digit mikrodetik,
+		// sedangkan SimpleDateFormat hanya memahami milidetik.
+		teksZona = teksZona.replaceFirst("(\\.\\d{3})\\d+(?=Z$|[+-]\\d{2}:?\\d{2}$|$)", "$1");
+		if (teksZona.endsWith("Z")) {
+			teksZona = teksZona.substring(0, teksZona.length() - 1) + "+0000";
+		} else if (teksZona.matches(".*[+-]\\d{2}:\\d{2}$")) {
+			teksZona = teksZona.substring(0, teksZona.length() - 3)
+					+ teksZona.substring(teksZona.length() - 2);
+		}
+		for (String pola : FORMAT_WAKTU_ABSEN) {
+			SimpleDateFormat formatter = new SimpleDateFormat(pola);
+			formatter.setLenient(false);
+			ParsePosition posisi = new ParsePosition(0);
+			Date hasil = formatter.parse(teksZona, posisi);
+			if (hasil != null && posisi.getIndex() == teksZona.length()) {
+				return hasil;
+			}
+		}
+
+		String[] formatJam = { "HH:mm:ss", "HH:mm" };
+		for (String pola : formatJam) {
+			SimpleDateFormat formatter = new SimpleDateFormat(pola);
+			formatter.setLenient(false);
+			ParsePosition posisi = new ParsePosition(0);
+			Date jam = formatter.parse(teks, posisi);
+			if (jam != null && posisi.getIndex() == teks.length()) {
+				Calendar sumber = Calendar.getInstance();
+				sumber.setTime(jam);
+				Calendar hasil = Calendar.getInstance();
+				hasil.setTime(waktuServer);
+				hasil.set(Calendar.HOUR_OF_DAY, sumber.get(Calendar.HOUR_OF_DAY));
+				hasil.set(Calendar.MINUTE, sumber.get(Calendar.MINUTE));
+				hasil.set(Calendar.SECOND, sumber.get(Calendar.SECOND));
+				hasil.set(Calendar.MILLISECOND, 0);
+				return hasil.getTime();
+			}
+		}
+		return null;
 	}
 
 }
