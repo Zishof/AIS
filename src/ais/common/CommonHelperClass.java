@@ -715,6 +715,12 @@ public class CommonHelperClass {
 			}
 			tahunAkademik = tahunAkademik.trim();
 			jenisSemester = jenisSemester.trim();
+			Calendar hariIni = Calendar.getInstance();
+			hariIni.setTime(WaktuUtil.getDate());
+			hariIni.set(Calendar.HOUR_OF_DAY, 0);
+			hariIni.set(Calendar.MINUTE, 0);
+			hariIni.set(Calendar.SECOND, 0);
+			hariIni.set(Calendar.MILLISECOND, 0);
 			session = HibernateUtil.currentNativeSession();
 			/*
 			 * Satu akun petugas/admin dapat sekaligus terhubung ke master Dosen. Identitas
@@ -734,12 +740,18 @@ public class CommonHelperClass {
 						: Restrictions.eq("tbmuser", tbmuser);
 			}
 			Integer count = ((Number) session.createCriteria(PengecualianJadwalPenilaianDosen.class)
-					.add(Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU))
+					/*
+					 * Data versi lama menyimpan status NULL dan getStatus() menampilkannya sebagai
+					 * "Disetujui". Tetap baca data lama tersebut, sedangkan data baru selalu
+					 * disimpan eksplisit sebagai "Pengajuan" sampai disetujui role Admin (am).
+					 */
+					.add(Restrictions.or(Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU),
+							Restrictions.isNull("status")))
 					.add(Restrictions.eq("tahunAkademik", tahunAkademik))
 					.add(Restrictions.eq("jenisSemester", jenisSemester))
 					.add(identitas)
-					.add(Restrictions.sqlRestriction("date('" + Common.databaseDateFormat1.get().format(WaktuUtil.getDate())
-							+ "') between date(this_.tanggal_mulai) and date(this_.tanggal_sampai)"))
+					.add(Restrictions.le("tanggalMulai", hariIni.getTime()))
+					.add(Restrictions.ge("tanggalSampai", hariIni.getTime()))
 					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 			return count > 0;
 		} catch (Exception e) {

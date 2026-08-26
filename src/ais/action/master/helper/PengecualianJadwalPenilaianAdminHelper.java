@@ -438,6 +438,8 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 								pengecualianJadwalPenilaianDosen.setTahunAkademik(current);
 								pengecualianJadwalPenilaianDosen.setTanggalMulai(ais.ui.util.WaktuUtil.getDate());
 								pengecualianJadwalPenilaianDosen.setTanggalSampai(ais.ui.util.WaktuUtil.getDate());
+								pengecualianJadwalPenilaianDosen
+										.setStatus(PengecualianJadwalPenilaianDosen.PENGAJUAN);
 
 								session.save(pengecualianJadwalPenilaianDosen);
 							}
