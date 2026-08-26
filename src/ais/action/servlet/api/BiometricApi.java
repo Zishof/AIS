@@ -219,7 +219,7 @@ public final class BiometricApi {
 			if (member == null)
 				return ApiHelperSupport.status("94", "Pengguna belum terhubung ke data Member. Hubungkan di master Anggota terlebih dahulu");
 			tx = session.beginTransaction();
-			member.setPin(pin); member.setTanggal_dirubah(new Date()); member.setOlehId(actor.getUserId());
+			member.aturPinAman(pin); member.setTanggal_dirubah(new Date()); member.setOlehId(actor.getUserId());
 			session.update(member);
 			JSONObject auditRequest = new JSONObject();
 			auditRequest.put("clientMutationId", mutation(request));
@@ -529,7 +529,7 @@ public final class BiometricApi {
 		row.put("fingerprint_count", count[0]); row.put("face_count", count[1]); row.put("enrolled", count[0] + count[1] > 0);
 		AnggotaKoperasi member = memberForUser(session, user);
 		row.put("member_id", member == null ? JSONObject.NULL : member.getId());
-		row.put("pin_configured", member != null && member.getPin() != null);
+		row.put("pin_configured", member != null && member.getPinSudahDiatur());
 		return row;
 	}
 

@@ -30,7 +30,7 @@ try {
     AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, Long.valueOf(memberIdS.trim()));
     if (a == null) { result.put("status","02"); result.put("message","Anggota tidak ditemukan."); out.print(result.toString()); return; }
 
-    boolean ok = a.getPin() != null && a.getPin().equals(pinInput.trim());
+    boolean ok = a.verifikasiPin(pinInput.trim());
     String subjek = ais.action.servlet.api.BiometricApi.linkedUserIdForMember(session, a);
     if (subjek == null) subjek = "MEMBER:" + a.getId();
     String referenceId = request.getParameter("referenceId");

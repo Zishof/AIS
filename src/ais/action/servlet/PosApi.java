@@ -2681,8 +2681,8 @@ public class PosApi extends HttpServlet {
 	 * Verifikasi PIN transaksi member -- dipanggil dari jendela Layar Pelanggan lokal (lewat proses
 	 * utama Electron, BUKAN langsung dari jendela itu -- lihat JavaDoc {@code main.js} handler
 	 * {@code pos:verifikasi-pin}) SETELAH pembeli mengetik PIN di layar kedua. Logika PERSIS
-	 * {@code verifikasi_pin_service.jsp} (bandingkan {@link AnggotaKoperasi#getPin()} plain, TIDAK
-	 * di-hash -- konsisten dgn versi web, bukan pelemahan baru) -- PIN TIDAK PERNAH disimpan/dicatat
+	 * {@code verifikasi_pin_service.jsp} (memakai {@link AnggotaKoperasi#verifikasiPin(String)}
+	 * untuk PBKDF2+salt dan fallback migrasi data lama) -- PIN TIDAK PERNAH disimpan/dicatat
 	 * di sini, hanya dibandingkan sekali lalu dibuang bersama akhir method.
 	 */
 	private void prosesVerifikasiPin(Tbmuser kasir, JSONObject payload, JSONObject hasil) throws Exception {
@@ -2711,7 +2711,7 @@ public class PosApi extends HttpServlet {
 				return;
 			}
 
-			boolean ok = a.getPin() != null && a.getPin().equals(pinInput);
+			boolean ok = a.verifikasiPin(pinInput);
 			Tbmuser pemilik = penggunaBiometrikMember(session, a);
 			String subjek = pemilik == null || pemilik.getUserId() == null
 					? "MEMBER:" + a.getId() : pemilik.getUserId();

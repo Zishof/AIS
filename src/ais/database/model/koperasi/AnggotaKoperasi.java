@@ -19,13 +19,16 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.hibernate.Session;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import ais.common.BarcodeCommon;
 import ais.common.Common;
 import ais.common.ConstantValues;
+import ais.common.security.PasswordHashService;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Pegawai;
@@ -178,12 +181,15 @@ public class AnggotaKoperasi extends VOSiswa {
 	/**
 	 * PIN transaksi anggota (dientri pembeli di Layar Pelanggan / layar kedua POS saat
 	 * {@link JenisAnggotaKoperasi#getWajibPin()} aktif). Verifikasi dilakukan
-	 * SERVER-SIDE (bandingkan hash-free plain compare di service) -- nilai PIN TIDAK PERNAH
+	 * SERVER-SIDE memakai PBKDF2+salt (plaintext lama hanya fallback migrasi) -- nilai PIN TIDAK PERNAH
 	 * dikirim kembali ke browser. Tidak ada PIN bawaan bersama: setiap member wajib diatur
 	 * secara eksplisit oleh admin. DIAUDIT (Envers) -- riwayat perubahan PIN anggota perlu terlacak;
 	 * kolom tabel audit ditambah via InitIndex.java (ALTER new_audit.anggota_koperasi__audit).
 	 */
 	private String pin;
+	private String pinHash;
+	private String pinSalt;
+	private Integer pinIterations;
 
 	@Column(name = "pin")
 	public String getPin() {
@@ -192,6 +198,44 @@ public class AnggotaKoperasi extends VOSiswa {
 
 	public void setPin(String pin) {
 		this.pin = pin == null || pin.trim().length() == 0 ? null : pin.trim();
+	}
+
+	@NotAudited
+	@Column(name = "pin_hash", length = 128)
+	public String getPinHash() { return pinHash; }
+	public void setPinHash(String pinHash) { this.pinHash = pinHash; }
+
+	@NotAudited
+	@Column(name = "pin_salt", length = 128)
+	public String getPinSalt() { return pinSalt; }
+	public void setPinSalt(String pinSalt) { this.pinSalt = pinSalt; }
+
+	@NotAudited
+	@Column(name = "pin_iterations")
+	public Integer getPinIterations() { return pinIterations; }
+	public void setPinIterations(Integer pinIterations) { this.pinIterations = pinIterations; }
+
+	/** Menyimpan PIN baru sebagai PBKDF2+salt dan menghapus plaintext warisan. */
+	@Transient
+	public void aturPinAman(String nilai) {
+		if (nilai == null || !nilai.matches("[0-9]{4,8}"))
+			throw new IllegalArgumentException("PIN wajib terdiri dari 4 sampai 8 angka");
+		String[] hashSalt = PasswordHashService.hash(nilai);
+		pinHash = hashSalt[0]; pinSalt = hashSalt[1];
+		pinIterations = Integer.valueOf(PasswordHashService.ITERASI); pin = null;
+	}
+
+	/** Verifikasi constant-time; plaintext lama hanya fallback selama masa migrasi. */
+	@Transient
+	public boolean verifikasiPin(String nilai) {
+		if (pinHash != null && pinSalt != null)
+			return PasswordHashService.verify(nilai, pinHash, pinSalt, pinIterations);
+		return nilai != null && getPin() != null && getPin().equals(nilai);
+	}
+
+	@Transient
+	public boolean getPinSudahDiatur() {
+		return (pinHash != null && pinSalt != null) || getPin() != null;
 	}
 
 	/**
