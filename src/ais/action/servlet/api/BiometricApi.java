@@ -121,6 +121,9 @@ public final class BiometricApi {
 			BiometricCredential c = (BiometricCredential) session.get(BiometricCredential.class, id);
 			if (c == null) return ApiHelperSupport.status("94", "Biometrik tidak ditemukan");
 			if (!actor.getUserId().equals(c.getSubjectUserId()) && !Common.getApakahAdminLain(actor)) return ApiHelperSupport.status("93", "Tidak boleh menonaktifkan biometrik pengguna lain");
+			// Replay aman: respons jaringan bisa hilang sesudah transaksi pertama
+			// berhasil. Credential yang sudah nonaktif dianggap selesai, bukan error.
+			if (!Boolean.TRUE.equals(c.getActive())) return ApiHelperSupport.status("00", "Biometrik sudah dinonaktifkan");
 			tx = session.beginTransaction(); c.setActive(Boolean.FALSE); c.setUpdatedAt(new Date()); session.update(c);
 			saveEvent(session, actor.getUserId(), c.getSubjectUserId(), c.getId(), c.getModality(), "REVOKE", mutation(request), false, null, null, "REVOKED", request, null);
 			tx.commit(); return ApiHelperSupport.status("00", "Biometrik dinonaktifkan");
