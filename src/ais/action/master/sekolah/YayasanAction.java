@@ -34,6 +34,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.sekolah.util.SekolahUtil;
+import ais.action.servlet.landing.PesantrenWebsiteConfig;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
@@ -323,9 +324,14 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Website Sekolah"));
-		row.appendChild(website = new Textbox(yayasan.getWebsite()));
-		website.setWidth("90%");
+		row.appendChild(new ais.ui.util.MyLabelConfig("Konten Website ePesantren (JSON)"));
+		row.appendChild(website = new Textbox(PesantrenWebsiteConfig.editableJson(yayasan)));
+		website.setWidth("100%");
+		website.setRows(24);
+		Common.initKeterangan(rows,
+				"Seluruh teks, warna, tautan, workflow, flowchart, diagram, galeri, layanan, CTA, dan bagian yang tampil "
+						+ "pada pesantren.jsp disimpan di sini. Gunakan JSON valid dengan schemaVersion 1. "
+						+ "Nilai URL lama otomatis dipindahkan ke contact.website saat formulir dibuka.");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -544,6 +550,13 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		try {
+			PesantrenWebsiteConfig.validate(website == null ? null : website.getValue());
+		} catch (Exception e) {
+			MyMessageboxConfig.show("Konfigurasi Website ePesantren tidak valid: " + e.getMessage(), "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Nama Yayasan harus diisi", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.INFORMATION);

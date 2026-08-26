@@ -351,7 +351,11 @@ public class Yayasan extends VoKunci {
 		this.kodePos = kodePos;
 	}
 
-	@Column(columnDefinition = "text")
+	/**
+	 * Konfigurasi lengkap website ePesantren dalam JSON schemaVersion 1.
+	 * Nilai URL polos dari versi lama tetap didukung oleh PesantrenWebsiteConfig.
+	 */
+	@Column(name = "website", columnDefinition = "text")
 	public String getWebsite() {
 		return website;
 	}

@@ -15,6 +15,7 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONObject;
 import org.jsoup.Jsoup;
 
 import ais.action.master.helper.util.PerguruanTinggiUtil;
@@ -69,7 +70,8 @@ public final class PesantrenLandingService {
             }
 
             List<PerguruanTinggi> pts = collectPerguruanTinggi(session, sekolahs, ptKonteks);
-            Profil profil = profil(request, yayasan, sekolahKonteks, ptKonteks);
+            JSONObject websiteConfig = PesantrenWebsiteConfig.load(yayasan, request.getContextPath());
+            Profil profil = profil(request, yayasan, sekolahKonteks, ptKonteks, websiteConfig);
             List<UnitPendidikan> unitSekolah = sekolahDtos(sekolahs, request.getContextPath());
             List<UnitPendidikan> unitPt = ptDtos(pts, request.getContextPath());
             List<Berita> berita = berita(session, yayasan, sekolahs, pts);
@@ -79,42 +81,57 @@ public final class PesantrenLandingService {
             request.setAttribute("pesantrenPerguruanTinggi", unitPt);
             request.setAttribute("pesantrenBerita", berita);
             request.setAttribute("pesantrenJumlahUnit", Integer.valueOf(unitSekolah.size() + unitPt.size()));
+            request.setAttribute("pesantrenWebsite", websiteConfig);
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "PesantrenLandingService.prepare");
-            request.setAttribute("pesantrenProfil", profil(request, yayasan, sekolahKonteks, ptKonteks));
+            JSONObject websiteConfig = PesantrenWebsiteConfig.load(yayasan, request.getContextPath());
+            request.setAttribute("pesantrenProfil", profil(request, yayasan, sekolahKonteks, ptKonteks, websiteConfig));
             request.setAttribute("pesantrenSekolah", new ArrayList<UnitPendidikan>());
             request.setAttribute("pesantrenPerguruanTinggi", new ArrayList<UnitPendidikan>());
             request.setAttribute("pesantrenBerita", new ArrayList<Berita>());
             request.setAttribute("pesantrenJumlahUnit", Integer.valueOf(0));
+            request.setAttribute("pesantrenWebsite", websiteConfig);
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
     }
 
     private static Profil profil(HttpServletRequest request, Yayasan yayasan, Sekolah sekolah,
-            PerguruanTinggi pt) {
-        String nama = valid(yayasan) ? yayasan.getNama()
+            PerguruanTinggi pt, JSONObject websiteConfig) {
+        JSONObject identity = PesantrenWebsiteConfig.object(websiteConfig, "identity");
+        JSONObject theme = PesantrenWebsiteConfig.object(websiteConfig, "theme");
+        JSONObject contact = PesantrenWebsiteConfig.object(websiteConfig, "contact");
+        String namaDefault = valid(yayasan) ? yayasan.getNama()
                 : valid(sekolah) ? sekolah.getNama() : valid(pt) ? pt.getNama() : "Pondok Pesantren";
-        String motto = valid(yayasan) ? yayasan.getMotto()
+        String nama = PesantrenWebsiteConfig.text(identity, "name", namaDefault);
+        String mottoDefault = valid(yayasan) ? yayasan.getMotto()
                 : valid(sekolah) ? sekolah.getMotto() : valid(pt) ? pt.getMotto() : "Ilmu, adab, dan kemandirian";
-        String deskripsi = valid(yayasan) ? teks(yayasan.getDeskripsi(), 900) : "";
-        String alamat = valid(yayasan) ? yayasan.getAlamat()
+        String motto = PesantrenWebsiteConfig.text(identity, "motto", mottoDefault);
+        String deskripsiDefault = valid(yayasan) ? teks(yayasan.getDeskripsi(), 900) : "";
+        String deskripsi = PesantrenWebsiteConfig.text(identity, "description", deskripsiDefault);
+        String alamatDefault = valid(yayasan) ? yayasan.getAlamat()
                 : valid(sekolah) ? sekolah.getAlamat() : valid(pt) ? gabung(pt.getAlamat1(), pt.getAlamat2()) : "";
-        String telepon = valid(yayasan) ? yayasan.getTelp() : valid(sekolah) ? sekolah.getTelp() : "";
-        String wa = valid(yayasan) ? yayasan.getWa() : telepon;
-        String email = valid(yayasan) ? yayasan.getEmail()
+        String alamat = PesantrenWebsiteConfig.text(contact, "address", alamatDefault);
+        String teleponDefault = valid(yayasan) ? yayasan.getTelp() : valid(sekolah) ? sekolah.getTelp() : "";
+        String telepon = PesantrenWebsiteConfig.text(contact, "phone", teleponDefault);
+        String wa = PesantrenWebsiteConfig.text(contact, "whatsapp", valid(yayasan) ? yayasan.getWa() : telepon);
+        String emailDefault = valid(yayasan) ? yayasan.getEmail()
                 : valid(sekolah) ? sekolah.getEmail() : valid(pt) ? pt.getEmail() : "";
-        String website = valid(yayasan) ? yayasan.getWebsite()
-                : valid(sekolah) ? sekolah.getWebsite() : valid(pt) ? pt.getWebsite() : "";
-        String warna = validWarna(valid(yayasan) ? yayasan.getWarna() : null);
-        String logo = valid(yayasan)
+        String email = PesantrenWebsiteConfig.text(contact, "email", emailDefault);
+        String websiteDefault = valid(sekolah) ? sekolah.getWebsite() : valid(pt) ? pt.getWebsite() : "";
+        String website = PesantrenWebsiteConfig.text(contact, "website", websiteDefault);
+        String warna = validWarna(PesantrenWebsiteConfig.text(theme, "primary",
+                valid(yayasan) ? yayasan.getWarna() : null));
+        String logoDefault = valid(yayasan)
                 ? SekolahUtil.getYayasanMedia(request, "logo_yayasan_", yayasan)
                 : valid(sekolah) ? SekolahUtil.getSekolahMedia(request, "logo_sekolah_", sekolah)
                         : PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_pt_");
-        String latar = valid(yayasan)
+        String logo = PesantrenWebsiteConfig.text(theme, "logo", logoDefault);
+        String latarDefault = valid(yayasan)
                 ? SekolahUtil.getYayasanMedia(request, "background_yayasan_", yayasan)
                 : valid(sekolah) ? SekolahUtil.getSekolahMedia(request, "background_sekolah_", sekolah)
                         : PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_pt_");
+        String latar = PesantrenWebsiteConfig.text(theme, "heroImage", latarDefault);
         return new Profil(nama, motto, deskripsi, alamat, telepon, wa, email, website, warna, logo, latar);
     }
 
