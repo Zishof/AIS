@@ -65,3 +65,4 @@ public final class CycleCountLine {
 
 	private static String clean(String value) { return value == null ? "" : value.trim(); }
 }
+

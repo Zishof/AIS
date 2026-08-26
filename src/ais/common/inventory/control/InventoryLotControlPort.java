@@ -4,3 +4,4 @@ package ais.common.inventory.control;
 public interface InventoryLotControlPort {
 	InventoryLotControlResult releaseQuarantine(QuarantineRelease release);
 }
+

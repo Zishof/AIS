@@ -23,3 +23,4 @@ public final class FefoLotCandidate {
 	public Date getExpiryAt() { return expiryAt == null ? null : new Date(expiryAt.getTime()); }
 	public boolean isQuarantined() { return quarantined; }
 }
+

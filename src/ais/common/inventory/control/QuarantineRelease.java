@@ -70,3 +70,4 @@ public final class QuarantineRelease {
 	private static Date copy(Date value) { return value == null ? null : new Date(value.getTime()); }
 	private static String clean(String value) { return value == null ? "" : value.trim(); }
 }
+

@@ -175,3 +175,4 @@ public final class InventoryControlService {
 		public boolean isComplete() { return errors.isEmpty() && shortage.compareTo(BigDecimal.ZERO) == 0; }
 	}
 }
+

@@ -19,3 +19,4 @@ public final class InventoryLotControlResult {
 	public boolean isSuccessful() { return RELEASED.equals(status) || ALREADY_RELEASED.equals(status); }
 	public boolean isIdempotentReplay() { return ALREADY_RELEASED.equals(status); }
 }
+
