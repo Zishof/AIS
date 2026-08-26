@@ -1140,8 +1140,20 @@ public class KegiatanPersistenceHelper {
 				}
 
 				tx = session.beginTransaction();
+				// Hindari Statement.cancel() dari Query.setTimeout saat kontensi pembayaran;
+				// atur timeout hanya untuk transaksi ini dan serialkan update per kegiatan.
+				session.createSQLQuery("SET LOCAL statement_timeout = '300s'").executeUpdate();
+				session.createSQLQuery("SET LOCAL lock_timeout = '120s'").executeUpdate();
+				// pg_advisory_xact_lock mengembalikan pseudo-type PostgreSQL void
+				// (JDBC Types.OTHER/1111). Hibernate 3 gagal melakukan auto-discovery
+				// terhadap tipe tersebut. Bungkus pemanggilan lock dalam CTE dan
+				// kembalikan scalar INTEGER yang tipenya ditentukan secara eksplisit.
+				session.createSQLQuery("WITH lock_guard AS (SELECT pg_advisory_xact_lock(:lockKey)) "
+						+ "SELECT 1 AS lock_acquired FROM lock_guard")
+						.addScalar("lock_acquired", org.hibernate.Hibernate.INTEGER)
+						.setParameter("lockKey", Long.valueOf(4200000000000L + idKegiatan.longValue()))
+						.uniqueResult();
 				Query query = session.createQuery(HQL_UPDATE_KEGIATAN);
-				query.setTimeout(45);
 				query.setParameter("nilaiBaru", kegiatanDb.getBulans());
 				query.setParameter("nilaiTagihanBaru", kegiatanDb.getTagihans());
 				query.setParameter("tagihanBaru", kegiatanDb.getTagihan());

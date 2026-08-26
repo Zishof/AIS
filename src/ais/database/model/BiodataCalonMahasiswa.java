@@ -2475,8 +2475,16 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				statusAwalMahasiswa = ConstantValues.PINDAHAN;
 			}
 
-			statusAwalMahasiswa = check(statusAwalMahasiswa);
 		}
+
+		// Normalisasi harus dijalankan untuk SEMUA jalur prioritas, termasuk saat
+		// status berasal dari afiliasi. Data lama dapat memiliki kolom
+		// status_awal_mahasiswa NULL tanpa kelompok, afiliasi, atau default gelombang;
+		// pada kondisi tersebut tampilkan dan gunakan master "Baru" sebagai default.
+		if (statusAwalMahasiswa == null) {
+			statusAwalMahasiswa = ConstantValues.BARU;
+		}
+		statusAwalMahasiswa = check(statusAwalMahasiswa);
 		return statusAwalMahasiswa;
 	}
 
