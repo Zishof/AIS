@@ -299,7 +299,8 @@ public final class BiometricApi {
 		if ("PENGAJAR".equals(category)) {
 			Disjunction d = Restrictions.disjunction(); d.add(Restrictions.isNotNull("guru")); d.add(Restrictions.isNotNull("dosen")); return d;
 		}
-		if ("PEGAWAI".equals(category)) return Restrictions.isNotNull("pegawai");
+		if ("PEGAWAI".equals(category)) return Restrictions.and(Restrictions.isNotNull("pegawai"),
+				Restrictions.and(Restrictions.isNull("guru"), Restrictions.isNull("dosen")));
 		return null;
 	}
 
