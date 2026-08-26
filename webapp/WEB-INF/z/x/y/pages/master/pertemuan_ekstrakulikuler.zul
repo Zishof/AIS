@@ -187,20 +187,15 @@
 				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
 				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
 					<columns>
-
-						<column use="ais.ui.util.MyColumnConfig" width="40px"
-						label="" />
-						<column use="ais.ui.util.MyColumnConfig" width="56px"
-						label=""  align="center"/>
-						<column use="ais.ui.util.MyColumnConfig" width="56px"
-						label=""  align="center"/>
-						<column use="ais.ui.util.MyColumnConfig" width="56px"
-						label=""  align="center"/>
-						<column use="ais.ui.util.MyColumnConfig" width="56px"
-						label=""  align="center"/>
-
-
-
+						<!-- Samakan pembagian kolom dengan grid perkuliahan utama.
+						     Renderer mengisi satu kolom aksi dan empat kolom detail;
+						     lebar piksel pada semua kolom sebelumnya membuat seluruh
+						     tabel menyusut menjadi sekitar 264px. -->
+						<column use="ais.ui.util.MyColumnConfig" width="60px" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="20%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="25%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="30%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" width="25%" label="" />
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
