@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Criteria;
@@ -89,6 +90,8 @@ public class AmbilDataPerkuliahanHelper {
 	private Combobox tahapanBox;
 	private Set<Long> matakuliahTelahDiambil = new HashSet<Long>();
 	private Set<Long> perkuliahanTelahDiambil = new HashSet<Long>();
+	private Map<Long, String> riwayatMatakuliah = new HashMap<Long, String>();
+	private Map<Long, String> riwayatPerkuliahan = new HashMap<Long, String>();
 	private boolean remedial;
 	private Checkbox semuaSemester;
 
@@ -198,7 +201,12 @@ public class AmbilDataPerkuliahanHelper {
 			}
 			row.setAttribute("checkbox", checkbox);
 
-			final boolean jml = perkuliahanTelahDiambil.contains(perkuliahan.getId());
+			/*
+			 * Centang hanya menunjukkan data yang benar-benar ada pada KRS yang sedang
+			 * dibuka. perkuliahanTelahDiambil juga berisi riwayat semester lain, sehingga
+			 * tidak boleh dipakai sebagai sumber status centang.
+			 */
+			final boolean jml = hashMap.containsKey(perkuliahan.getId());
 			checkbox.setChecked(jml);
 
 			System.out.println("[MatakuliahRenderer.renderInternal] step 6: kapasitas & jumlah masuk");
@@ -331,8 +339,10 @@ public class AmbilDataPerkuliahanHelper {
 			final int jmlFinal = jumlahUdahMasuk == null ? 0 : jumlahUdahMasuk;
 			new Label(kapFinal + "/" + jmlFinal).setParent(row);
 
-			String statusText = jml ? "Terpilih"
-					: jmlMk ? "Anda telah mengambil matkul ini tapi mungkin di jadwal dan kelas yang berbeda"
+			String infoRiwayat = ambilInfoRiwayat(perkuliahan);
+			boolean pernahDiambil = infoRiwayat != null && !infoRiwayat.trim().equals("");
+			String statusText = jml ? buatInfoKrsAktif(perkuliahan)
+					: (jmlMk || pernahDiambil) ? infoRiwayat
 							: (jmlFinal < kapFinal) ? "Tersedia" : "Penuh";
 			Label label = new Label(statusText);
 			label.setParent(row);
@@ -342,7 +352,7 @@ public class AmbilDataPerkuliahanHelper {
 				label.setStyle("font-weight:bold;color:red");
 			} else if (jml) {
 				label.setStyle("font-weight:bold;color:brown");
-			} else if (jmlMk) {
+			} else if (jmlMk || pernahDiambil) {
 				label.setStyle("font-weight:bold;color:green");
 			} else if (jmlFinal < kapFinal) {
 				label.setStyle("font-weight:bold;color:blue");
@@ -428,12 +438,16 @@ public class AmbilDataPerkuliahanHelper {
 
 			try {
 				Label label = (Label) row.getAttribute("label_status");
-				label.setValue(!jmlMk.equals(0)
-						? "Anda telah mengambil matkul ini tapi mungkin di jadwal dan kelas yang berbeda"
+				String infoRiwayat = ambilInfoRiwayat(perkuliahan);
+				boolean pernahDiambil = infoRiwayat != null && !infoRiwayat.trim().equals("");
+				label.setValue(!jmlMk.equals(0) || pernahDiambil
+						? infoRiwayat
 						: jumlahUdahMasuk < (kapasitasKelas) ? "Tersedia" : "Penuh");
 
 				if (!jmlMk.equals(0)) {
 					c.setChecked(false);
+					label.setStyle("font-weight:bold;color:green");
+				} else if (pernahDiambil) {
 					label.setStyle("font-weight:bold;color:green");
 				} else if (jumlahUdahMasuk < (kapasitasKelas)) {
 					label.setStyle("font-weight:bold;color:blue");
@@ -444,6 +458,61 @@ public class AmbilDataPerkuliahanHelper {
 //				e.printStackTrace();
 			}
 
+		}
+	}
+
+	private String buatInfoKrsAktif(Perkuliahan perkuliahan) {
+		String info = "Terpilih pada KRS";
+		if (semester != null) {
+			info += " semester " + semester;
+		}
+		if (tahunAjaran != null && !tahunAjaran.trim().equals("")) {
+			info += ", TA " + tahunAjaran;
+		}
+		return info;
+	}
+
+	private String ambilInfoRiwayat(Perkuliahan perkuliahan) {
+		if (perkuliahan == null) {
+			return null;
+		}
+		String info = riwayatPerkuliahan.get(perkuliahan.getId());
+		if ((info == null || info.trim().equals("")) && perkuliahan.getMatakuliah() != null) {
+			info = riwayatMatakuliah.get(perkuliahan.getMatakuliah().getId());
+		}
+		return info;
+	}
+
+	private String buatInfoRiwayat(Detailperkuliahan detailperkuliahan) {
+		String info = "Sudah diambil";
+		Integer semesterRiwayat = detailperkuliahan.getSemester();
+		if (semesterRiwayat != null) {
+			info += " pada semester " + semesterRiwayat;
+		}
+		String tahunAkademikRiwayat = detailperkuliahan.getTahunAkademik();
+		if ((tahunAkademikRiwayat == null || tahunAkademikRiwayat.trim().equals(""))
+				&& detailperkuliahan.getPerkuliahan() != null) {
+			tahunAkademikRiwayat = detailperkuliahan.getPerkuliahan().getTahunAjaran();
+		}
+		if (tahunAkademikRiwayat != null && !tahunAkademikRiwayat.trim().equals("")) {
+			info += ", TA " + tahunAkademikRiwayat;
+		}
+		if (detailperkuliahan.getPerkuliahan() != null
+				&& detailperkuliahan.getPerkuliahan().getStatusSemesterPendek() != null) {
+			info += " (semester pendek)";
+		}
+		return info;
+	}
+
+	private void simpanInfoRiwayat(Map<Long, String> riwayat, Long id, String info) {
+		if (id == null || info == null || info.trim().equals("")) {
+			return;
+		}
+		String infoLama = riwayat.get(id);
+		if (infoLama == null || infoLama.trim().equals("")) {
+			riwayat.put(id, info);
+		} else if (infoLama.indexOf(info) < 0) {
+			riwayat.put(id, infoLama + "; " + info);
 		}
 	}
 
@@ -579,6 +648,10 @@ public class AmbilDataPerkuliahanHelper {
 
 		this.tahapan = tahapan;
 		hashMap = new HashMap<Long, Perkuliahan>();
+		matakuliahTelahDiambil.clear();
+		perkuliahanTelahDiambil.clear();
+		riwayatMatakuliah.clear();
+		riwayatPerkuliahan.clear();
 		for (Long detailperkuliahanid : detailperkuliahans) {
 			Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 					.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
@@ -593,7 +666,13 @@ public class AmbilDataPerkuliahanHelper {
 			if (o != null) {
 				if (o.getPerkuliahan() != null) {
 					perkuliahanTelahDiambil.add(o.getPerkuliahan().getId());
-					if (o.getSemester().equals(semester) &&
+					String infoRiwayat = buatInfoRiwayat(o);
+					simpanInfoRiwayat(riwayatPerkuliahan, o.getPerkuliahan().getId(), infoRiwayat);
+					if (o.getPerkuliahan().getMatakuliah() != null) {
+						simpanInfoRiwayat(riwayatMatakuliah,
+								o.getPerkuliahan().getMatakuliah().getId(), infoRiwayat);
+					}
+					if (o.getSemester() != null && o.getSemester().equals(semester) &&
 
 							(
 
@@ -603,7 +682,9 @@ public class AmbilDataPerkuliahanHelper {
 							)
 
 					) {
-						matakuliahTelahDiambil.add(o.getPerkuliahan().getMatakuliah().getId());
+						if (o.getPerkuliahan().getMatakuliah() != null) {
+							matakuliahTelahDiambil.add(o.getPerkuliahan().getMatakuliah().getId());
+						}
 					}
 				}
 			}
