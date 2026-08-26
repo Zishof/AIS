@@ -231,6 +231,14 @@ Masalah endpoint katalog pada server masih memerlukan build/deployment source te
 
 ## 19. Verifikasi yang telah dan belum dilakukan
 
+### Perbaikan kiosk `/welpus` — 26 Agustus 2026
+
+- Bootstrap 5 CSS kini dimuat sehingga modal tamu/riwayat tidak lagi tampak samar di belakang kartu scanner.
+- Setelah scan anggota atau simpan tamu berhasil, pesan tampil sebagai status non-blocking dan daftar kunjungan hari ini langsung dibuka serta dimuat ulang.
+- Daftar menyamai informasi utama `welpus.zul`: foto, kode, pengunjung, alamat, status, perpustakaan, tanggal/waktu, dan keterangan, lengkap dengan paging.
+- Sesi petugas memperoleh data lengkap; akses publik tetap menerima identitas tersamarkan dan tidak memperoleh foto anggota.
+- `/welpus` tetap merupakan buku tamu, bukan transaksi sirkulasi. Sesi petugas memperoleh tombol menuju menu resmi `Peminjaman` tanpa memberi akses peminjaman kepada kiosk anonim.
+
 Telah dilakukan:
 
 - audit source dan model existing;

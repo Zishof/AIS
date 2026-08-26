@@ -39,6 +39,7 @@
 - Reservasi, booking ruang, penutupan stocktake, dan tindakan denda memakai pessimistic lock pada pemeriksaan yang rentan race condition.
 - Worker saved-search berbasis konfigurasi tersedia dalam keadaan disabled-by-default dan mengikuti cadence NEW/DAILY/WEEKLY.
 - Antrean petugas dapat menindaklanjuti Tanya Pustakawan, ILL, dan Usulan Anggota dengan status serta catatan audit.
+- Kiosk `/welpus` tidak lagi berhenti pada alert sukses: daftar kunjungan hari ini dimuat ulang otomatis dengan paging dan kolom foto, kode, nama, alamat, status, perpustakaan, waktu, serta keterangan. Data lengkap hanya diberikan untuk sesi petugas; layar publik tetap disamarkan.
 
 ## P3
 

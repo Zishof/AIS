@@ -49,7 +49,7 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 	private MyGrid grid;
 	private Skripsi skripsi;
 
-	private Tabpanel component;
+	private org.zkoss.zk.ui.Component component;
 
 	private Paging paging;
 
@@ -220,7 +220,7 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
-			final Tabpanel component) {
+			final org.zkoss.zk.ui.Component component) {
 		this.skripsi = skripsi;
 		this.kelompokKkn = kelompokKkn;
 		this.kelompokPkl = kelompokPkl;

@@ -74,6 +74,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= Common.getBahasaConfig("Buku Tamu Perpustakaan") %> - <%= judul %></title>
     
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- CSS TERPUSAT[cite: 6] -->
     <link href="<%=request.getContextPath() %>/css/baru/base-theme.css?v=<%= cacheBuster %>" rel="stylesheet">
     <% if (!cssTema.isEmpty()) { %>
@@ -115,6 +116,7 @@
         .table-kunjungan th { background: var(--theme-gradient) !important; color: white !important; font-size: 0.85rem; }
         .page-link { color: var(--theme-primary); }
         .page-item.active .page-link { background-color: var(--theme-primary); border-color: var(--theme-primary); }
+        .modal:not(.show) { display: none; }
     </style>
 </head>
 <body>
