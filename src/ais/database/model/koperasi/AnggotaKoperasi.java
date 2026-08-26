@@ -177,20 +177,21 @@ public class AnggotaKoperasi extends VOSiswa {
 
 	/**
 	 * PIN transaksi anggota (dientri pembeli di Layar Pelanggan / layar kedua POS saat
-	 * {@link JenisAnggotaKoperasi#getWajibPin()} aktif). Default "123". Verifikasi dilakukan
+	 * {@link JenisAnggotaKoperasi#getWajibPin()} aktif). Verifikasi dilakukan
 	 * SERVER-SIDE (bandingkan hash-free plain compare di service) -- nilai PIN TIDAK PERNAH
-	 * dikirim ke browser. DIAUDIT (Envers) -- riwayat perubahan PIN anggota perlu terlacak;
+	 * dikirim kembali ke browser. Tidak ada PIN bawaan bersama: setiap member wajib diatur
+	 * secara eksplisit oleh admin. DIAUDIT (Envers) -- riwayat perubahan PIN anggota perlu terlacak;
 	 * kolom tabel audit ditambah via InitIndex.java (ALTER new_audit.anggota_koperasi__audit).
 	 */
-	private String pin = "123";
+	private String pin;
 
 	@Column(name = "pin")
 	public String getPin() {
-		return (pin == null || pin.trim().length() == 0) ? "123" : pin;
+		return pin == null || pin.trim().length() == 0 ? null : pin.trim();
 	}
 
 	public void setPin(String pin) {
-		this.pin = pin;
+		this.pin = pin == null || pin.trim().length() == 0 ? null : pin.trim();
 	}
 
 	/**

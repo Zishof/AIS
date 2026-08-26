@@ -52,6 +52,7 @@ public final class BiometricApi {
 		out.put("boleh_melihat", bolehBiometrik(actor));
 		out.put("boleh_enroll_sendiri", bolehBiometrik(actor));
 		out.put("boleh_enroll_pengguna_lain", bolehMengelolaPenggunaLain(actor));
+		out.put("boleh_kelola_pin_member", bolehKelolaPinMember(actor));
 		out.put("boleh_absen", bolehBiometrik(actor));
 		out.put("server_encryption_ready", BiometricCrypto.configured());
 		out.put("fingerprint_matcher_ready", BiometricMatcherRegistry.available(FINGERPRINT, "ISO_19794_2"));
@@ -74,7 +75,7 @@ public final class BiometricApi {
 		try {
 			if (!bolehMengelolaPenggunaLain(actor)) {
 				JSONArray own = new JSONArray();
-				JSONObject row = subjectJson(actor, new HashMap<String, int[]>());
+				JSONObject row = subjectJson(session, actor, new HashMap<String, int[]>());
 				if (row != null) own.put(row);
 				JSONObject out = ApiHelperSupport.status("00", "Subjek biometrik berhasil dimuat");
 				out.put("data", own); out.put("total", own.length()); return out;
@@ -104,7 +105,7 @@ public final class BiometricApi {
 			Map<String, int[]> counts = credentialCounts(session, ids);
 			JSONArray data = new JSONArray();
 			for (Tbmuser user : users) {
-				JSONObject row = subjectJson(user, counts);
+				JSONObject row = subjectJson(session, user, counts);
 				if (row != null) data.put(row);
 			}
 			JSONObject out = ApiHelperSupport.status("00", "Subjek biometrik berhasil dimuat");
@@ -197,6 +198,41 @@ public final class BiometricApi {
 			tx.commit(); return ApiHelperSupport.status("00", "Biometrik dinonaktifkan");
 		} catch (Exception e) { rollback(tx); Common.tampilErrorJikaAdmin(e); return ApiHelperSupport.errorResponse("Gagal menonaktifkan biometrik"); }
 		finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/** Mengatur PIN transaksi member. Nilai PIN tidak pernah dikirim kembali ke klien. */
+	public static JSONObject saveMemberPin(HttpServletRequest req, JSONObject request) {
+		Tbmuser actor = ApiUtil.currentUser(request, req);
+		if (!bolehKelolaPinMember(actor))
+			return ApiHelperSupport.status("93", "Hanya administrator yang boleh mengatur PIN member");
+		String target = clean(request.optString("target_user_id"), 255);
+		String pin = clean(request.optString("pin"), 12);
+		if (target == null) return ApiHelperSupport.status("92", "Pengguna wajib dipilih");
+		if (pin == null || !pin.matches("[0-9]{4,8}"))
+			return ApiHelperSupport.status("92", "PIN wajib terdiri dari 4 sampai 8 angka");
+
+		Session session = HibernateUtil.openSession(); Transaction tx = null;
+		try {
+			Tbmuser subject = (Tbmuser) session.get(Tbmuser.class, target);
+			if (subject == null) return ApiHelperSupport.status("94", "Pengguna tidak ditemukan");
+			AnggotaKoperasi member = memberForUser(session, subject);
+			if (member == null)
+				return ApiHelperSupport.status("94", "Pengguna belum terhubung ke data Member. Hubungkan di master Anggota terlebih dahulu");
+			tx = session.beginTransaction();
+			member.setPin(pin); member.setTanggal_dirubah(new Date()); member.setOlehId(actor.getUserId());
+			session.update(member);
+			JSONObject auditRequest = new JSONObject();
+			auditRequest.put("clientMutationId", mutation(request));
+			auditRequest.put("reference_type", "MEMBER_PIN");
+			auditRequest.put("reference_id", String.valueOf(member.getId()));
+			saveEvent(session, actor.getUserId(), target, null, "PIN", "MEMBER_PIN_ADMIN",
+					mutation(request), true, null, null, "CONFIGURED", auditRequest, null);
+			tx.commit();
+			JSONObject out = ApiHelperSupport.status("00", "PIN Member berhasil diatur");
+			out.put("member_id", member.getId()); out.put("pin_configured", true); return out;
+		} catch (Exception e) {
+			rollback(tx); Common.tampilErrorJikaAdmin(e); return ApiHelperSupport.errorResponse("Gagal mengatur PIN Member");
+		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
 	public static JSONObject verify(HttpServletRequest req, JSONObject request) {
@@ -438,6 +474,10 @@ public final class BiometricApi {
 		return false;
 	}
 
+	private static boolean bolehKelolaPinMember(Tbmuser user) {
+		return user != null && user.getUserId() != null && Common.getApakahAdminLain(user);
+	}
+
 	private static String targetUser(Tbmuser actor, JSONObject request) {
 		if (actor == null || actor.getUserId() == null) return null;
 		String target = clean(request.optString("target_user_id"), 255);
@@ -471,7 +511,7 @@ public final class BiometricApi {
 		return result;
 	}
 
-	private static JSONObject subjectJson(Tbmuser user, Map<String, int[]> counts) throws Exception {
+	private static JSONObject subjectJson(Session session, Tbmuser user, Map<String, int[]> counts) throws Exception {
 		if (user == null || user.getUserId() == null) return null;
 		String category = null; String type = null; String name = user.getUserNama(); String number = user.getUserId();
 		try {
@@ -487,7 +527,30 @@ public final class BiometricApi {
 		JSONObject row = new JSONObject(); row.put("user_id", user.getUserId()); row.put("nama", nullToEmpty(name));
 		row.put("nomor_induk", nullToEmpty(number)); row.put("kategori", category); row.put("jenis", type);
 		row.put("fingerprint_count", count[0]); row.put("face_count", count[1]); row.put("enrolled", count[0] + count[1] > 0);
+		AnggotaKoperasi member = memberForUser(session, user);
+		row.put("member_id", member == null ? JSONObject.NULL : member.getId());
+		row.put("pin_configured", member != null && member.getPin() != null);
 		return row;
+	}
+
+	private static AnggotaKoperasi memberForUser(Session session, Tbmuser user) {
+		if (session == null || user == null || user.getUserId() == null) return null;
+		try {
+			AnggotaKoperasi direct = user.getAnggotaKoperasi();
+			if (direct != null && direct.getId() != null && Boolean.TRUE.equals(direct.getAktif())) return direct;
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "BiometricApi.memberForUser.direct"); }
+		try {
+			Disjunction links = Restrictions.disjunction();
+			links.add(Restrictions.eq("tbmuser", user));
+			links.add(Restrictions.eq("userid", user.getUserId()));
+			Mahasiswa mahasiswa = user.getMahasiswa(); if (mahasiswa != null) links.add(Restrictions.eq("mahasiswa", mahasiswa));
+			Dosen dosen = user.getDosen(); if (dosen != null) links.add(Restrictions.eq("dosen", dosen));
+			Siswa siswa = user.getSiswa(); if (siswa != null) links.add(Restrictions.eq("siswa", siswa));
+			Guru guru = user.getGuru(); if (guru != null) links.add(Restrictions.eq("guru", guru));
+			Pegawai pegawai = user.getPegawai(); if (pegawai != null) links.add(Restrictions.eq("pegawai", pegawai));
+			return (AnggotaKoperasi) session.createCriteria(AnggotaKoperasi.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE)).add(links).setMaxResults(1).uniqueResult();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "BiometricApi.memberForUser.query"); return null; }
 	}
 
 	private static BiometricEvent saveEvent(Session session, String actor, String subject, Long credentialId,
