@@ -36,6 +36,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.generic.AmbilDataDosenBanyak;
 import ais.action.report.CommonReportHelper;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.common.listener.DataLoader;
 import ais.database.hibernate.HibernateUtil;
@@ -61,20 +62,54 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	private Textbox nama;
 
+	public PengecualianJadwalPenilaianDosenHelper() {
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
+	}
+
 	private boolean penggunaDosen() {
 		Tbmuser pengguna = Common.getCurrentUser();
 		return pengguna != null && pengguna.ambilDosen() != null && pengguna.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
 	}
 
-	private void pastikanBolehMengelola() throws SecurityException {
-		if (penggunaDosen()) {
-			throw new SecurityException("Dosen tidak berwenang mengubah atau menghapus persetujuan pembukaan penilaian.");
-		}
+	private boolean milikDosenAktif(PengecualianJadwalPenilaianDosen data) {
+		Tbmuser pengguna = Common.getCurrentUser();
+		Dosen dosenAktif = pengguna == null ? null : pengguna.ambilDosen();
+		return data != null && data.getDosen() != null && data.getDosen().getId() != null
+				&& dosenAktif != null && dosenAktif.getId() != null
+				&& data.getDosen().getId().equals(dosenAktif.getId());
 	}
 
-	public PengecualianJadwalPenilaianDosenHelper() {
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
+	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
+		Tbmuser pengguna = Common.getCurrentUser();
+		if (pengguna == null || data == null) {
+			return false;
+		}
+		if (data.getDibuatOleh() != null && data.getDibuatOleh().getUserId() != null
+				&& pengguna.getUserId() != null
+				&& data.getDibuatOleh().getUserId().equalsIgnoreCase(pengguna.getUserId())) {
+			return true;
+		}
+		return milikDosenAktif(data);
+	}
+
+	private boolean bolehUbahRincian(PengecualianJadwalPenilaianDosen data) {
+		if (penggunaDosen()) {
+			return milikDosenAktif(data)
+					&& PengecualianJadwalPenilaianDosen.PENGAJUAN.equals(data.getStatus());
+		}
+		return CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+	}
+
+	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
+		return !penggunaDosen() && !diajukanOlehPenggunaAktif(data)
+				&& CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)
+				&& CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+	}
+
+	private void aksesDitolak(String pesan) {
+		MyMessageboxConfig.show(pesan, "Akses Ditolak", MyMessageboxConfig.OK,
+				MyMessageboxConfig.EXCLAMATION);
 	}
 
 	class PengecualianJadwalPenilaianDosenRenderer extends ais.ui.util.MyRowRenderer {
@@ -88,7 +123,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			arg0.setValign("top");
 			// TODO Auto-generated method stub
 			final PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) arg1;
-			final boolean hanyaBaca = penggunaDosen();
+			final boolean bolehUbah = bolehUbahRincian(pengecualianJadwalPenilaianDosen);
 
 			Tbmuser tbmuser = pengecualianJadwalPenilaianDosen.getTbmuser();
 			Dosen dosen = pengecualianJadwalPenilaianDosen.getDosen();
@@ -125,7 +160,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pastikanBolehMengelola();
+					if (!bolehUbah) {
+						aksesDitolak("Pengajuan ini tidak boleh diubah oleh akun aktif.");
+						return;
+					}
 					String tahun = (String) (tahunAkademik.getSelectedItem() == null
 							|| tahunAkademik.getSelectedItem().getValue() == null ? ""
 									: tahunAkademik.getSelectedItem().getValue());
@@ -157,7 +195,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pastikanBolehMengelola();
+					if (!bolehUbah) {
+						aksesDitolak("Pengajuan ini tidak boleh diubah oleh akun aktif.");
+						return;
+					}
 					String mysemester = (String) (semester.getSelectedItem() == null ? ""
 							: semester.getSelectedItem().getValue());
 
@@ -176,7 +217,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pastikanBolehMengelola();
+					if (!bolehUbah) {
+						aksesDitolak("Pengajuan ini tidak boleh diubah oleh akun aktif.");
+						return;
+					}
 					Date mymulai = mulai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -200,7 +244,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pastikanBolehMengelola();
+					if (!bolehUbah) {
+						aksesDitolak("Pengajuan ini tidak boleh diubah oleh akun aktif.");
+						return;
+					}
 					Date mysampai = sampai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -219,10 +266,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 					String mystatus = (String) (status.getSelectedItem() == null
 							|| status.getSelectedItem().getValue() == null ? "" : status.getSelectedItem().getValue());
 
-					tahunAkademik.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
-					semester.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
-					mulai.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
-					sampai.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					tahunAkademik.setDisabled(!bolehUbah || !mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					semester.setDisabled(!bolehUbah || !mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					mulai.setDisabled(!bolehUbah || !mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					sampai.setDisabled(!bolehUbah || !mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
 
 				}
 			};
@@ -238,18 +285,26 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			status.appendChild(comboitem);
 			status.setReadonly(true);
 
-			if (hanyaBaca || pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
+			if (pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
 				status.setDisabled(true);
 			}
 
 			status.setWidth("90%");
 			Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
-			status.setParent(arg0);
+			if (bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
+				status.setParent(arg0);
+			} else {
+				new Label(pengecualianJadwalPenilaianDosen.getStatus()).setParent(arg0);
+			}
 			status.addEventListener("onChange", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pastikanBolehMengelola();
+					if (!bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
+						aksesDitolak("Status hanya dapat diproses oleh petugas berwenang dan tidak boleh disetujui oleh pengajunya sendiri.");
+						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
+						return;
+					}
 					String mystatus = (String) (status.getSelectedItem() == null ? ""
 							: status.getSelectedItem().getValue());
 					if (mystatus.equals(PengecualianJadwalPenilaianDosen.DISETUJU)) {
@@ -263,12 +318,6 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			});
 
 			semesterEventListener.onEvent(null);
-			if (hanyaBaca) {
-				tahunAkademik.setDisabled(true);
-				semester.setDisabled(true);
-				mulai.setDisabled(true);
-				sampai.setDisabled(true);
-			}
 
 			Hbox hbox = new Hbox();
 			hbox.setParent(arg0);
@@ -288,13 +337,16 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			toolbarbutton.setOrient("vertical");
 			toolbarbutton.setTooltiptext("Hapus Data");
-			if (!hanyaBaca) {
+			if (!penggunaDosen() && CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE)) {
 				toolbarbutton.setParent(hbox);
 			}
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
-					pastikanBolehMengelola();
+					if (penggunaDosen() || !CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE)) {
+						aksesDitolak("Dosen tidak diperbolehkan menghapus pengajuan izin penilaian.");
+						return;
+					}
 					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
@@ -334,28 +386,28 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
-		try {
-		Dosen dosenAktif = Common.getCurrentUser() == null ? null : Common.getCurrentUser().ambilDosen();
 		org.hibernate.Criteria criteria = session.createCriteria(PengecualianJadwalPenilaianDosen.class)
-				.addOrder(Order.desc("id")).createCriteria("dosen")
+				.addOrder(Order.desc("id"));
+		if (penggunaDosen()) {
+			Tbmuser pengguna = Common.getCurrentUser();
+			Dosen dosenAktif = pengguna == null ? null : pengguna.ambilDosen();
+			criteria.add(dosenAktif == null ? Restrictions.sqlRestriction("1=0")
+					: Restrictions.eq("dosen", dosenAktif));
+		}
+		List<PengecualianJadwalPenilaianDosen> dosen = criteria.createCriteria("dosen")
 				.add(Restrictions.ilike("nama", nama.getValue().trim(), MatchMode.ANYWHERE))
 				.add(searchjurusan.getSelectedItem() == null || searchjurusan.getSelectedItem().getValue() == null
 						|| searchjurusan.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
-		if (penggunaDosen()) {
-			criteria.add(dosenAktif == null ? Restrictions.sqlRestriction("1=0") : Restrictions.eq("id", dosenAktif.getId()));
-		}
-		List<PengecualianJadwalPenilaianDosen> dosen = criteria.setMaxResults(Common.MAX_RESULT_50).list();
+								: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false))
+				.setMaxResults(Common.MAX_RESULT_50).list();
 
 		ListModel strset = new SimpleListModel(dosen);
 		grid.setRowRenderer(new PengecualianJadwalPenilaianDosenRenderer());
 		grid.setModelCheckMobile(strset);
-		} finally {
-			Common.closeNativeSessionQuietly(session);
-		}
+
 	}
 
 	public void display() throws InterruptedException {
@@ -422,14 +474,35 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
 		toolbar.setParent(div);
-		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil Data Dosen", "/img/new.gif");
-		button.setVisible(!penggunaDosen());
+		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(
+				penggunaDosen() ? "Ajukan Izin Penilaian" : "Ambil Data Dosen", "/img/new.gif");
 
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
-				pastikanBolehMengelola();
+				if (penggunaDosen()) {
+					Tbmuser pengguna = Common.getCurrentUser();
+					Dosen dosenAktif = pengguna == null ? null : pengguna.ambilDosen();
+					if (dosenAktif == null) {
+						aksesDitolak("Data dosen pada akun aktif tidak ditemukan. Pengajuan tidak dapat dibuat.");
+						return;
+					}
+					PengecualianJadwalPenilaianDosen pengajuanBaru = new PengecualianJadwalPenilaianDosen();
+					pengajuanBaru.setDosen(dosenAktif);
+					pengajuanBaru.setDibuatOleh(pengguna);
+					pengajuanBaru.setJenisSemester(
+							Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
+					pengajuanBaru.setKeterangan("");
+					pengajuanBaru.setTahunAkademik(Common.getCurrentTahunAkademik());
+					pengajuanBaru.setTanggalMulai(WaktuUtil.getDate());
+					pengajuanBaru.setTanggalSampai(WaktuUtil.getDate());
+					pengajuanBaru.setTanggalPembuatan(WaktuUtil.getDate());
+					pengajuanBaru.setStatus(PengecualianJadwalPenilaianDosen.PENGAJUAN);
+					HibernateUtil.currentSession().save(pengajuanBaru);
+					loadData(null);
+					return;
+				}
 
 				AmbilDataDosenBanyak window = new AmbilDataDosenBanyak(new ArrayList<Dosen>());
 				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
@@ -457,6 +530,9 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 								pengecualianJadwalPenilaianDosen.setTahunAkademik(current);
 								pengecualianJadwalPenilaianDosen.setTanggalMulai(ais.ui.util.WaktuUtil.getDate());
 								pengecualianJadwalPenilaianDosen.setTanggalSampai(ais.ui.util.WaktuUtil.getDate());
+								pengecualianJadwalPenilaianDosen.setDibuatOleh(Common.getCurrentUser());
+								pengecualianJadwalPenilaianDosen.setTanggalPembuatan(WaktuUtil.getDate());
+								pengecualianJadwalPenilaianDosen.setStatus(PengecualianJadwalPenilaianDosen.PENGAJUAN);
 
 								session.save(pengecualianJadwalPenilaianDosen);
 							}
