@@ -47,6 +47,7 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.PengecualianJadwalPenilaianDosen;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Tbmuser;
+import ais.database.model.Tbmrole;
 import ais.database.model.sop.DataSop;
 import ais.database.model.sop.DisposisiSop;
 import ais.ui.util.DataCriteria;
@@ -99,6 +100,18 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 	private boolean approve = false;
 	private boolean reject = false;
 
+	private boolean penggunaDosen() {
+		Tbmuser pengguna = Common.getCurrentUser();
+		return pengguna != null && pengguna.ambilDosen() != null && pengguna.hakAkses() != null
+				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
+	}
+
+	private void pastikanPengelola() throws SecurityException {
+		if (penggunaDosen()) {
+			throw new SecurityException("Dosen tidak berwenang mengubah atau menghapus persetujuan pembukaan penilaian.");
+		}
+	}
+
 	public PengecualianJadwalPenilaianDosenAction() {
 		super();
 	}
@@ -127,11 +140,11 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		add.setTooltiptext("Tambah");
 		}
 
-		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
-		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+		edit = !penggunaDosen() && CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = !penggunaDosen() && CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
-		approve = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-		reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+		approve = !penggunaDosen() && CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+		reject = !penggunaDosen() && CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 
 		Common.initPaging(paging, new EventListener() {
 
@@ -168,6 +181,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 			arg0.setValign("top");
 			// TODO Auto-generated method stub
 			final PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) arg1;
+			final boolean hanyaBaca = penggunaDosen();
 
 			Tbmuser tbmuser = pengecualianJadwalPenilaianDosen.getTbmuser();
 			Dosen dosen = pengecualianJadwalPenilaianDosen.getDosen();
@@ -204,6 +218,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanPengelola();
 					String tahun = (String) (tahunAkademik.getSelectedItem() == null
 							|| tahunAkademik.getSelectedItem().getValue() == null ? ""
 									: tahunAkademik.getSelectedItem().getValue());
@@ -231,6 +246,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanPengelola();
 					String mysemester = (String) (semester.getSelectedItem() == null ? ""
 							: semester.getSelectedItem().getValue());
 
@@ -246,6 +262,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanPengelola();
 					Date mymulai = mulai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -262,6 +279,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanPengelola();
 					Date mysampai = sampai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -276,6 +294,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanPengelola();
 					String mystatus = (String) (status.getSelectedItem() == null
 							|| status.getSelectedItem().getValue() == null ? "" : status.getSelectedItem().getValue());
 
@@ -329,6 +348,13 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 			});
 
 			semesterEventListener.onEvent(null);
+			if (hanyaBaca) {
+				tahunAkademik.setDisabled(true);
+				semester.setDisabled(true);
+				mulai.setDisabled(true);
+				sampai.setDisabled(true);
+				status.setDisabled(true);
+			}
 
 			Hbox hbox = new Hbox();
 			hbox.setParent(arg0);
@@ -377,6 +403,11 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
+		if (penggunaDosen() && obj != null && obj.getId() != null) {
+			MyMessageboxConfig.show("Pengajuan yang sudah tersimpan hanya dapat dilihat. Perubahan atau penghapusan persetujuan hanya boleh dilakukan oleh petugas yang berwenang.",
+					"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 		pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) obj;
 		init(pengecualianJadwalPenilaianDosen);
 		addWindow.setVisible(true);
@@ -578,6 +609,13 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		Tbmuser penggunaAktif = Common.getCurrentUser();
+		Dosen dosenAktif = penggunaAktif == null ? null : penggunaAktif.ambilDosen();
+		if (penggunaDosen() && pengecualianJadwalPenilaianDosen.getId() != null) {
+			MyMessageboxConfig.show("Pengajuan yang sudah dikirim tidak dapat diubah oleh dosen. Hubungi petugas akademik apabila diperlukan koreksi.",
+					"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 
 		if (dosen.getAttribute("dosen") == null) {
 			MyMessageboxConfig.show(
@@ -586,7 +624,12 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 			return false;
 		}
 
-		Dosen peg = (Dosen) dosen.getAttribute("dosen");
+		Dosen peg = penggunaDosen() ? dosenAktif : (Dosen) dosen.getAttribute("dosen");
+		if (penggunaDosen() && peg == null) {
+			MyMessageboxConfig.show("Akun ini tidak terhubung dengan data dosen sehingga pengajuan tidak dapat disimpan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 		if (!peg.getAktif()) {
 			MyMessageboxConfig.show(
 					"Mohon maaf, data dosen yang Bapak/Ibu pilih berstatus tidak aktif sehingga tidak dapat digunakan pada pengajuan ini. Langkah yang dapat dilakukan: (1) pilih dosen lain yang berstatus aktif; (2) atau hubungi administrator untuk mengaktifkan kembali data dosen tersebut; (3) kemudian ulangi proses penyimpanan.",
@@ -600,7 +643,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 					.load(PengecualianJadwalPenilaianDosen.class, pengecualianJadwalPenilaianDosen.getId());
 
 		}
-		pengecualianJadwalPenilaianDosen.setDosen((Dosen) dosen.getAttribute("dosen"));
+		pengecualianJadwalPenilaianDosen.setDosen(peg);
 		pengecualianJadwalPenilaianDosen.setTanggalMulai(waktu.getValue());
 		pengecualianJadwalPenilaianDosen.setTanggalSampai(waktuSampai.getValue());
 		pengecualianJadwalPenilaianDosen.setTahunAkademik(
@@ -620,7 +663,9 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		} else {
 			pengecualianJadwalPenilaianDosen.setDisetujuiOleh(null);
 			pengecualianJadwalPenilaianDosen.setTanggalPersetujuan(null);
+			pengecualianJadwalPenilaianDosen.setTanggalPersetujuanManual(null);
 			pengecualianJadwalPenilaianDosen.setStatus(PengecualianJadwalPenilaianDosen.PENGAJUAN);
+			pengecualianJadwalPenilaianDosen.setDibuatOleh(penggunaAktif);
 			session.save(pengecualianJadwalPenilaianDosen);
 		}
 

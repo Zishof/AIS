@@ -538,7 +538,14 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 	public void onAjukanIzinPenilaian(Event event) throws Exception {
 		if (tbmuser != null && tbmuser.ambilDosen() != null && tbmuser.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId())) {
-			onPengecualianJadwalPenilaianDosen(event);
+			// Dosen diarahkan ke halaman pengajuan khusus yang memisahkan hak pemohon
+			// dari hak persetujuan. Helper daftar cepat digunakan untuk pengelola saja.
+			pengajuan.setVisible(true);
+			if (pengajuan.getLinkedTab() != null) {
+				pengajuan.getLinkedTab().setVisible(true);
+				pengajuan.getLinkedTab().setSelected(true);
+			}
+			onPengajuan(event);
 		} else {
 			onPengecualianJadwalPenilaianTbmuser(event);
 		}

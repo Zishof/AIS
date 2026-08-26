@@ -43,6 +43,7 @@ import ais.database.model.Dosen;
 import ais.database.model.PengecualianJadwalPenilaianDosen;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Tbmuser;
+import ais.database.model.Tbmrole;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyDatebox;
@@ -60,6 +61,18 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	private Textbox nama;
 
+	private boolean penggunaDosen() {
+		Tbmuser pengguna = Common.getCurrentUser();
+		return pengguna != null && pengguna.ambilDosen() != null && pengguna.hakAkses() != null
+				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
+	}
+
+	private void pastikanBolehMengelola() throws SecurityException {
+		if (penggunaDosen()) {
+			throw new SecurityException("Dosen tidak berwenang mengubah atau menghapus persetujuan pembukaan penilaian.");
+		}
+	}
+
 	public PengecualianJadwalPenilaianDosenHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
@@ -75,6 +88,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			arg0.setValign("top");
 			// TODO Auto-generated method stub
 			final PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) arg1;
+			final boolean hanyaBaca = penggunaDosen();
 
 			Tbmuser tbmuser = pengecualianJadwalPenilaianDosen.getTbmuser();
 			Dosen dosen = pengecualianJadwalPenilaianDosen.getDosen();
@@ -111,6 +125,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanBolehMengelola();
 					String tahun = (String) (tahunAkademik.getSelectedItem() == null
 							|| tahunAkademik.getSelectedItem().getValue() == null ? ""
 									: tahunAkademik.getSelectedItem().getValue());
@@ -142,6 +157,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanBolehMengelola();
 					String mysemester = (String) (semester.getSelectedItem() == null ? ""
 							: semester.getSelectedItem().getValue());
 
@@ -160,6 +176,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanBolehMengelola();
 					Date mymulai = mulai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -183,6 +200,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanBolehMengelola();
 					Date mysampai = sampai.getValue();
 
 					Session session = HibernateUtil.currentSession();
@@ -220,7 +238,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			status.appendChild(comboitem);
 			status.setReadonly(true);
 
-			if (pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
+			if (hanyaBaca || pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
 				status.setDisabled(true);
 			}
 
@@ -231,6 +249,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					pastikanBolehMengelola();
 					String mystatus = (String) (status.getSelectedItem() == null ? ""
 							: status.getSelectedItem().getValue());
 					if (mystatus.equals(PengecualianJadwalPenilaianDosen.DISETUJU)) {
@@ -244,6 +263,12 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			});
 
 			semesterEventListener.onEvent(null);
+			if (hanyaBaca) {
+				tahunAkademik.setDisabled(true);
+				semester.setDisabled(true);
+				mulai.setDisabled(true);
+				sampai.setDisabled(true);
+			}
 
 			Hbox hbox = new Hbox();
 			hbox.setParent(arg0);
@@ -263,10 +288,13 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			toolbarbutton.setOrient("vertical");
 			toolbarbutton.setTooltiptext("Hapus Data");
-			toolbarbutton.setParent(hbox);
+			if (!hanyaBaca) {
+				toolbarbutton.setParent(hbox);
+			}
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
+					pastikanBolehMengelola();
 					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
@@ -306,7 +334,9 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
-		List<PengecualianJadwalPenilaianDosen> dosen = session.createCriteria(PengecualianJadwalPenilaianDosen.class)
+		try {
+		Dosen dosenAktif = Common.getCurrentUser() == null ? null : Common.getCurrentUser().ambilDosen();
+		org.hibernate.Criteria criteria = session.createCriteria(PengecualianJadwalPenilaianDosen.class)
 				.addOrder(Order.desc("id")).createCriteria("dosen")
 				.add(Restrictions.ilike("nama", nama.getValue().trim(), MatchMode.ANYWHERE))
 				.add(searchjurusan.getSelectedItem() == null || searchjurusan.getSelectedItem().getValue() == null
@@ -314,13 +344,18 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 								: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false))
-				.setMaxResults(Common.MAX_RESULT_50).list();
+								: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
+		if (penggunaDosen()) {
+			criteria.add(dosenAktif == null ? Restrictions.sqlRestriction("1=0") : Restrictions.eq("id", dosenAktif.getId()));
+		}
+		List<PengecualianJadwalPenilaianDosen> dosen = criteria.setMaxResults(Common.MAX_RESULT_50).list();
 
 		ListModel strset = new SimpleListModel(dosen);
 		grid.setRowRenderer(new PengecualianJadwalPenilaianDosenRenderer());
 		grid.setModelCheckMobile(strset);
-
+		} finally {
+			Common.closeNativeSessionQuietly(session);
+		}
 	}
 
 	public void display() throws InterruptedException {
@@ -388,11 +423,13 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 		// toolbar.setHeight("25px");
 		toolbar.setParent(div);
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil Data Dosen", "/img/new.gif");
+		button.setVisible(!penggunaDosen());
 
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				pastikanBolehMengelola();
 
 				AmbilDataDosenBanyak window = new AmbilDataDosenBanyak(new ArrayList<Dosen>());
 				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
