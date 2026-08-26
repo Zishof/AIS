@@ -483,7 +483,14 @@ public class SaldoAwalDetailAction extends MyDetail implements DataCriteria {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (arg0 == null || !(arg0.getData() instanceof Object[])) {
+					return;
+				}
 				Object[] objects = (Object[]) arg0.getData();
+				if (objects.length < 3 || !(objects[0] instanceof ItemPunyaBarcode)
+						|| !(objects[2] instanceof XSSFRow)) {
+					return;
+				}
 				ItemPunyaBarcode itemPunyaBarcode = (ItemPunyaBarcode) objects[0];
 				Item item = itemPunyaBarcode.getItem();
 				if (item == null) {
@@ -496,6 +503,9 @@ public class SaldoAwalDetailAction extends MyDetail implements DataCriteria {
 				for (int i = 1; i < contentsTambahan.length; i++) {
 					Object d = null;
 					try {
+						if (classMetadata == null) {
+							continue;
+						}
 						d = classMetadata.getPropertyValue(item, contentsTambahan[i], EntityMode.POJO);
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/SaldoAwalDetailAction.java:500");
 

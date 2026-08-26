@@ -3539,8 +3539,14 @@ public class DetailUjianHelper implements DataLoader {
 			int terupload = 0;
 			ais.common.UploadReportHelper report = new ais.common.UploadReportHelper("Upload Bank Soal");
 			int rowIdx = 0;
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = null;
+			try {
+				session = HibernateUtil.openSession();
 			for (List<String> strings : objects) {
+				if (session == null || !session.isOpen()) {
+					HibernateUtil.closeSessionQuietly(session);
+					session = HibernateUtil.openSession();
+				}
 
 				try {
 					rowIdx++;
@@ -3725,7 +3731,7 @@ public class DetailUjianHelper implements DataLoader {
 							session.getTransaction().commit();
 						}
 
-						Integer count = ((Number) HibernateUtil.currentSession().createCriteria(BankSoalDetail.class)
+						Integer count = ((Number) session.createCriteria(BankSoalDetail.class)
 								.add(Restrictions.eq("bankSoal", newBankSoal)).add(Restrictions.eq("betul", true))
 								.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 						if (count > 1) {
@@ -3744,12 +3750,15 @@ public class DetailUjianHelper implements DataLoader {
 						report.sukses(rowIdx, id + "/" + (soal.length() > 30 ? soal.substring(0, 30) : soal), "terupload=" + terupload);
 					}
 				} catch (Exception e) {
+					pulihkanSessionUpload(session);
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailUjianHelper.java:2469");
 					report.gagal(rowIdx, "row " + rowIdx, e, "Periksa data soal baris " + rowIdx);
 				}
 
 			}
-			HibernateUtil.closeSession();
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
 
 			try { Filedownload.save(report.simpanLaporan(), "text/plain"); }
 			catch (Exception eDl) { ais.common.ErrorAuditUtil.record(eDl, "auto-audit(empty-catch) download laporan DetailUjianHelper"); }
@@ -3796,8 +3805,14 @@ public class DetailUjianHelper implements DataLoader {
 			List<List<String>> objects = Common.getSheetContent(sheet);
 
 			int terupload = 0;
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = null;
+			try {
+				session = HibernateUtil.openSession();
 			for (List<String> strings : objects) {
+				if (session == null || !session.isOpen()) {
+					HibernateUtil.closeSessionQuietly(session);
+					session = HibernateUtil.openSession();
+				}
 
 				try {
 					/* Baris kosong/pendek sah muncul pada template Excel. Dua kolom pertama
@@ -3998,7 +4013,7 @@ public class DetailUjianHelper implements DataLoader {
 							session.getTransaction().commit();
 						}
 
-						Integer count = ((Number) HibernateUtil.currentSession().createCriteria(BankSoalDetail.class)
+						Integer count = ((Number) session.createCriteria(BankSoalDetail.class)
 								.add(Restrictions.eq("bankSoal", newBankSoal)).add(Restrictions.eq("betul", true))
 								.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 						if (count > 1) {
@@ -4042,14 +4057,15 @@ public class DetailUjianHelper implements DataLoader {
 						terupload++;
 					}
 				} catch (Exception e) {
+					pulihkanSessionUpload(session);
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailUjianHelper.java:2751");
 				}
 
 			}
 
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
 
 			MyMessageboxConfig.show("Upload soal telah selesai dilakukan, " + terupload + " terupload", "Pemberitahuan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
@@ -4067,6 +4083,26 @@ public class DetailUjianHelper implements DataLoader {
 					"File yang anda upload harus ber-format Excel Open XML Spreadsheet (xlsx). Jika masih menggunakan format lain, buka file excel tersebut, kemudian Save As Excel Open XML Spreadsheet (xlsx). "
 							+ media,
 					"Error", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		}
+	}
+
+	private static void pulihkanSessionUpload(Session session) {
+		if (session == null || !session.isOpen()) {
+			return;
+		}
+		try {
+			if (session.getTransaction() != null && session.getTransaction().isActive()) {
+				session.getTransaction().rollback();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) DetailUjianHelper.pulihkanSessionUpload-rollback");
+		}
+		try {
+			session.clear();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) DetailUjianHelper.pulihkanSessionUpload-clear");
 		}
 	}
 

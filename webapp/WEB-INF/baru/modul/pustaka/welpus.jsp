@@ -86,16 +86,28 @@
             background: url('<%= bgImage %>') no-repeat center center fixed;
             background-size: cover;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
+            display: block;
             position: relative;
+            overflow-x: hidden;
         }
         .overlay-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.85); z-index: 1;
         }
-        .main-wrapper { z-index: 2; width: 100%; max-width: 850px; margin: auto; padding: 20px; }
+        .main-wrapper {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 850px;
+            min-height: 100vh;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+        }
         .card-scanner {
+            width: 100%;
             background: rgba(255, 255, 255, 0.98); 
             border-radius: 1.5rem; padding: 3rem 2rem;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
@@ -116,7 +128,12 @@
         .table-kunjungan th { background: var(--theme-gradient) !important; color: white !important; font-size: 0.85rem; }
         .page-link { color: var(--theme-primary); }
         .page-item.active .page-link { background-color: var(--theme-primary); border-color: var(--theme-primary); }
-        .modal:not(.show) { display: none; }
+        .modal:not(.show),
+        .modal[aria-hidden="true"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 <body>
