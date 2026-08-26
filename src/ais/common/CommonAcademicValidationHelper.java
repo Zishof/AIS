@@ -152,7 +152,8 @@ public class CommonAcademicValidationHelper {
         Session session = HibernateUtil.currentSession();
         List<Pertemuan> statusPertemuan = session.createCriteria(Pertemuan.class)
                 .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
-                .add(Restrictions.in("perkuliahan.id", idPerkuliahan)).add(Restrictions.isNotNull("absensi")).list();
+                .add(Restrictions.in("perkuliahan.id", idPerkuliahan)).add(Restrictions.isNotNull("absensi"))
+                .setReadOnly(true).list();
         if (statusPertemuan != null) {
             for (Pertemuan pertemuan : statusPertemuan) {
                 if (pertemuan != null && pertemuan.getPerkuliahan() != null

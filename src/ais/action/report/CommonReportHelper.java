@@ -9741,6 +9741,7 @@ public class CommonReportHelper {
 					List<Pertemuan> pertemuans = perkuliahan.ambilPertemuanList();
 
 					for (Pertemuan pertemuan : pertemuans) {
+						jadikanPertemuanLaporanReadOnly(pertemuan);
 						if (pertemuan.getAktif()) {
 							if (pertemuan.getStatusPertemuan() != null
 									&& pertemuan.getStatusPertemuan().getNama() != null
@@ -9777,6 +9778,7 @@ public class CommonReportHelper {
 					List<Pertemuan> pertemuans = perkuliahan.ambilPertemuanList();
 
 					for (Pertemuan pertemuan : pertemuans) {
+						jadikanPertemuanLaporanReadOnly(pertemuan);
 						if (pertemuan.getAktif()) {
 							if (pertemuan.getStatusPertemuan() != null
 									&& pertemuan.getStatusPertemuan().getNama() != null
@@ -9857,6 +9859,21 @@ public class CommonReportHelper {
 
 		detailperkuliahansData = null;
 		return maps;
+	}
+
+	/**
+	 * Entitas Pertemuan memakai property access dan beberapa getter lama melakukan
+	 * normalisasi nilai di field. Pada proses laporan, normalisasi tersebut hanya
+	 * untuk tampilan dan tidak boleh dianggap sebagai perubahan database.
+	 */
+	private static void jadikanPertemuanLaporanReadOnly(Pertemuan pertemuan) {
+		if (pertemuan == null) {
+			return;
+		}
+		Session session = HibernateUtil.currentSession();
+		if (session != null && session.contains(pertemuan)) {
+			session.setReadOnly(pertemuan, true);
+		}
 	}
 
 	public static void cetakKRS(final Mahasiswa mahasiswa, final Integer semester, final Integer tahapan,
