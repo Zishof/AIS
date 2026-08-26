@@ -1223,6 +1223,23 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	/**
+	 * Ambil snapshot PDF untuk pratinjau asynchronous. Jika berkas belum siap,
+	 * pemanggil tetap dapat memakai jalur File lama sebagai fallback.
+	 */
+	private static byte[] bacaPdfPratinjau(File file) {
+		if (file == null || !file.isFile() || file.length() <= 0L) {
+			return null;
+		}
+		try {
+			return bacaSemuaByte(file);
+		} catch (Exception gagalBaca) {
+			ais.common.ErrorAuditUtil.record(gagalBaca,
+					"Gagal membuat snapshot PDF untuk pratinjau report");
+			return null;
+		}
+	}
+
+	/**
 	 * Tampilkan berkas HTML pendamping ke dalam {@code center} via Iframe
 	 * {@code setContent} (text/html). Karena HTML sudah self-contained (gambar
 	 * base64), tidak butuh servlet PDF dan tampil mirip versi PDF.
@@ -3917,6 +3934,15 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	public static void tampil(final File myfile, final Component center) {
+		/*
+		 * Ambil snapshot PDF sebelum berpindah ke event timer ZK. Berkas hasil Jasper
+		 * berada di direktori sementara dan pada beberapa instalasi dapat dibersihkan
+		 * atau tidak terlihat lagi ketika request iframe media berikutnya dijalankan.
+		 * Snapshot byte[] juga membuat AMedia dapat diputar ulang tanpa bergantung pada
+		 * File/InputStream transient. Ini adalah jalur yang sama dengan tombol Download,
+		 * tetapi disimpan khusus selama popup pratinjau masih hidup.
+		 */
+		final byte[] pdfPratinjau = bacaPdfPratinjau(myfile);
 		// Konsumsi penanda sekali-pakai SECARA SINKRON (sebelum timer) agar nilainya benar.
 		final boolean pdfDefaultSekali = Boolean.TRUE.equals(PREVIEW_PDF_DEFAULT_SEKALI.get());
 		PREVIEW_PDF_DEFAULT_SEKALI.remove();
@@ -3949,7 +3975,7 @@ public class Report extends GenericAutowireComposer {
 					boolean htmlMode = Common.isMobile()
 							? adaPendampingHtml(myfile)
 							: (modeHtmlDefault(myfile) && !pdfDefaultLaporan);
-					renderAreaPratinjau(myfile, center, htmlMode);
+					renderAreaPratinjau(myfile, center, htmlMode, pdfPratinjau);
 					return;
 				}
 
@@ -3960,7 +3986,7 @@ public class Report extends GenericAutowireComposer {
 				if (!adaHtml) {
 					org.zkoss.zul.Div area = new org.zkoss.zul.Div();
 					pasangGridPratinjau(center, null, area);
-					renderAreaPratinjau(myfile, area, false);
+					renderAreaPratinjau(myfile, area, false, pdfPratinjau);
 					return;
 				}
 
@@ -3978,10 +4004,11 @@ public class Report extends GenericAutowireComposer {
 				// (anak otomatis selebar 100% Center) agar pratinjau memenuhi lebar penuh.
 				boolean mobile = Common.isMobile();
 				boolean htmlDefault = mobile ? true : (previewHtmlAktif() && !pdfDefaultLaporan);
-				Component bar = bangunBarToggleTampilan(myfile, area, htmlDefault, mobile, reportKey);
+				Component bar = bangunBarToggleTampilan(myfile, area, htmlDefault, mobile, reportKey,
+						pdfPratinjau);
 				pasangGridPratinjau(center, bar, area);
 
-				renderAreaPratinjau(myfile, area, htmlDefault);
+				renderAreaPratinjau(myfile, area, htmlDefault, pdfPratinjau);
 			}
 		});
 	}
@@ -4027,11 +4054,40 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	/**
+	 * Membaca hasil PDF secara sinkron untuk pratinjau ZK. AMedia berbasis File
+	 * menyimpan InputStream sebagai field transient; request kedua dari iframe dapat
+	 * kehilangan sumber tersebut setelah event awal selesai. AMedia berbasis byte[]
+	 * repeatable dan tidak perlu membuka kembali berkas sementara.
+	 */
+	private static byte[] bacaPdfPratinjau(File myfile) {
+		if (myfile == null || !myfile.isFile() || myfile.length() <= 0L) {
+			return null;
+		}
+		try {
+			byte[] data = org.apache.commons.io.FileUtils.readFileToByteArray(myfile);
+			if (data == null || data.length < 5) {
+				return null;
+			}
+			if (data[0] != '%' || data[1] != 'P' || data[2] != 'D' || data[3] != 'F'
+					|| data[4] != '-') {
+				throw new java.io.IOException("Berkas pratinjau bukan dokumen PDF yang valid: "
+						+ myfile.getAbsolutePath());
+			}
+			return data;
+		} catch (Exception ex) {
+			ais.common.ErrorAuditUtil.record(ex,
+					"auto-audit src/ais/action/report/Report.java:bacaPdfPratinjau");
+			return null;
+		}
+	}
+
+	/**
 	 * Render isi pratinjau ke {@code target} sesuai mode: {@code html=true} →
 	 * pendamping HTML (mirip PDF); selain itu → PDF via servlet. Aman dipanggil
 	 * ulang saat toggle (membersihkan lalu membangun ulang iframe).
 	 */
-	private static void renderAreaPratinjau(File myfile, Component target, boolean html) {
+	private static void renderAreaPratinjau(File myfile, Component target, boolean html,
+			byte[] pdfPratinjau) {
 		try {
 			// Bersihkan area dulu: hapus iframe lama (PDF/HTML) agar toggle benar-benar berganti.
 			if (target != null && !(target instanceof Iframe)) {
@@ -4048,11 +4104,11 @@ public class Report extends GenericAutowireComposer {
 				}
 			}
 			if (!ok) {
-				tampilPdfServletKe(myfile, target);
+				tampilPdfServletKe(myfile, target, pdfPratinjau);
 			}
 		} catch (Throwable t) {
 			try {
-				tampilPdfServletKe(myfile, target);
+				tampilPdfServletKe(myfile, target, pdfPratinjau);
 			} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/report/Report.java:2815");
 			}
 		}
@@ -4069,8 +4125,10 @@ public class Report extends GenericAutowireComposer {
 	 * Jalur servlet tetap dipakai khusus Google View karena layanan eksternal itu
 	 * membutuhkan URL HTTP yang dapat diakses publik.
 	 */
-	private static void tampilPdfServletKe(File myfile, Component center) throws Exception {
-		if (myfile == null || !myfile.isFile() || myfile.length() <= 0L) {
+	private static void tampilPdfServletKe(File myfile, Component center, byte[] pdfPratinjau)
+			throws Exception {
+		if ((pdfPratinjau == null || pdfPratinjau.length == 0)
+				&& (myfile == null || !myfile.isFile() || myfile.length() <= 0L)) {
 			throw new java.io.FileNotFoundException("Berkas PDF pratinjau tidak ditemukan atau kosong");
 		}
 		Iframe include;
@@ -4100,7 +4158,11 @@ public class Report extends GenericAutowireComposer {
 			// File yang sama dengan sumber tombol Download; ZK membuat URL media
 			// desktop-scoped sehingga tidak ada pencarian ulang berdasarkan nama file.
 			include.setSrc(null);
-			include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", myfile, true));
+			if (pdfPratinjau != null && pdfPratinjau.length > 0) {
+				include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", pdfPratinjau));
+			} else {
+				include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", myfile, true));
+			}
 		}
 		// Tampilkan progress bar "Memuat dokumen PDF" sampai iframe selesai memuat (async sisi klien).
 		pasangScrollWadahPdf(include);
@@ -4139,7 +4201,7 @@ public class Report extends GenericAutowireComposer {
 	 * {@code .ais-toggle-switch} (css_utama.css).
 	 */
 	private static Component bangunBarToggleTampilan(final File myfile, final org.zkoss.zul.Div area,
-			boolean htmlDefault, boolean mobile, final String reportKey) {
+			boolean htmlDefault, boolean mobile, final String reportKey, final byte[] pdfPratinjau) {
 		org.zkoss.zul.Div bar = new org.zkoss.zul.Div();
 		bar.setWidth("100%");
 		bar.setStyle("display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px;"
@@ -4158,7 +4220,7 @@ public class Report extends GenericAutowireComposer {
 			sw.addEventListener("onCheck", new EventListener() {
 				@Override
 				public void onEvent(Event e) throws Exception {
-					renderAreaPratinjau(myfile, area, sw.isChecked());
+					renderAreaPratinjau(myfile, area, sw.isChecked(), pdfPratinjau);
 				}
 			});
 			sw.setParent(bar);
@@ -4181,7 +4243,7 @@ public class Report extends GenericAutowireComposer {
 						// Terapkan langsung ke pratinjau yang sedang tampil: PDF bila diaktifkan.
 						boolean htmlSekarang = !swDefaultPdf.isChecked();
 						sw.setChecked(htmlSekarang);
-						renderAreaPratinjau(myfile, area, htmlSekarang);
+						renderAreaPratinjau(myfile, area, htmlSekarang, pdfPratinjau);
 					}
 				});
 				swDefaultPdf.setParent(bar);
