@@ -840,20 +840,37 @@ public class BMS extends HttpServlet {
 		String tanggalP = req == null || req.isNull("trxDateTime") ? dateFormat.get().format(new Date())
 				: req.getString("trxDateTime");
 
+		/*
+		 * Simulasi timeout tidak boleh berjalan hanya karena konfigurasi database
+		 * tidak sengaja aktif di produksi. Selain harus diaktifkan lewat konfigurasi,
+		 * operator pengujian wajib memberi JVM flag berikut:
+		 * -Dais.bms.allowTimeoutSimulation=true
+		 *
+		 * Yang paling penting, timeout dikembalikan SEBELUM doProcess dipanggil.
+		 * Implementasi lama meng-commit pembayaran terlebih dahulu lalu mengirim kode
+		 * 68. Bank kemudian me-refund transaksi, tetapi eCampus telanjur mencatat lunas.
+		 */
+		boolean simulasiTimeout = !chek && Boolean.getBoolean("ais.bms.allowTimeoutSimulation")
+				&& Common.bolehKonfigurasi("bms_va_sleep", Konfigurasi.TIDAK_AKTIF);
+		if (simulasiTimeout) {
+			Thread.sleep(3 * 1000);
+			String bodyTimeout = timeoutDb(req == null || req.isNull("paymentAmount"), data);
+			ais.action.ws.util.PembayaranGatewayHelper.catatLogHostToHost(request, bankHost, data, va, va, "",
+					"Connection Timeout (simulasi aman sebelum pencatatan pembayaran)", nominalP, "[]", null,
+					data, bodyTimeout, "68", null);
+			System.out.println("response->" + bodyTimeout);
+			return bodyTimeout;
+		}
+
 		String body;
 		try {
 			// 05, request tidak diizinkan
 			body = BMS.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true,
-					req.isNull("paymentAmount"), reversal, chek).toString();
+					req == null || req.isNull("paymentAmount"), reversal, chek).toString();
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/BMS.java:835");
-			body = errorDb(req.isNull("paymentAmount"), data);
+			body = errorDb(req == null || req.isNull("paymentAmount"), data);
 
-		}
-
-		if (Common.bolehKonfigurasi("bms_va_sleep", Konfigurasi.TIDAK_AKTIF)) {
-			Thread.sleep(3 * 1000);
-			body = timeoutDb(req.isNull("paymentAmount"), data);
 		}
 
 		System.out.println("response->" + body);
