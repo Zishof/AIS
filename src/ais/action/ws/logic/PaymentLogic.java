@@ -347,6 +347,12 @@ public class PaymentLogic {
 				detailBiayas.addAll(detailBiayas1);
 			}
 
+			// Samakan sumber item payment dengan inquiry/billing. Mahasiswa RPL dapat
+			// memiliki semester kegiatan yang tidak cocok dengan template default.
+			if (detailBiayas.isEmpty()) {
+				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
+			}
+
 			if (detailBiayas.isEmpty()) {
 				int smtAlternatif = smt == 0 ? 1 : 0;
 				java.util.Collection<DetailBiaya> alternatif = pembayaranUtil

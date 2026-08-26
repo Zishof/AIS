@@ -328,9 +328,10 @@ public class DashboardStatistikPmb {
 		cboJenjang.setReadonly(true);
 		Common.insertComboDanSemua(cboJenjang, "nama", Jenjang.class,
 				Restrictions.in("nama", new String[] { "D3", "S1", "S2", "S3", "Profesi" }));
-		if (cboJenjang.getItemCount() > 0) {
-			cboJenjang.setSelectedIndex(0);
-		}
+		// insertComboDanSemua sudah menambahkan dan memilih item null (Semua).
+		// Jangan memilih index 0 karena index tersebut adalah jenjang pertama dan
+		// dapat membuat seluruh statistik bernilai 0 pada kampus tanpa jenjang itu.
+		Common.selectComboItem(cboJenjang, null);
 		cboJenjang.setParent(filterBar);
 
 		MyToolbarbuttonConfig btnRefresh = new MyToolbarbuttonConfig("Muat Ulang", "/img/refresh.gif");

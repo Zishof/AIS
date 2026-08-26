@@ -66,6 +66,12 @@ public final class ApiRouteRegistry {
         // PUSTAKA & REPOSITORY publik (baca-saja, isi disajikan per halaman
         // sebagai gambar ber-watermark; tidak ada jalur unduh berkas utuh).
         register(routes, "izin_menu_saya", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.izinMenu(req, json); } });
+        register(routes, "biometrik_kemampuan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.capability(req, json); } });
+        register(routes, "biometrik_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.list(req, json); } });
+        register(routes, "biometrik_simpan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.enroll(req, json); } });
+        register(routes, "biometrik_nonaktifkan", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.revoke(req, json); } });
+        register(routes, "biometrik_verifikasi", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.verify(req, json); } });
+        register(routes, "biometrik_absen", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return BiometricApi.attendance(req, json); } });
         register(routes, "pustaka_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.daftar(req, json); } });
         register(routes, "pustaka_detail", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.detail(req, json); } });
         register(routes, "pustaka_halaman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PustakaApi.halaman(req, json); } });

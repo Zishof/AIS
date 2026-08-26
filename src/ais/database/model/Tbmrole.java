@@ -640,9 +640,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		}
 
 		if (getRoleId() != null && getRoleId().equals(SISWA)) {
-			return false;
+			return presensiKehadiran == null ? false : presensiKehadiran;
 		} else if (getRoleId() != null && getRoleId().equals(MAHASISWA)) {
-			return false;
+			return presensiKehadiran == null ? false : presensiKehadiran;
 		}
 
 		return presensiKehadiran == null ? true : presensiKehadiran;

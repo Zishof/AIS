@@ -1226,14 +1226,17 @@ public class CommonComboInsertHelper {
 
 						try {
 							Object myproperty = metadata.getPropertyValue(o, property, EntityMode.POJO);
-							Object mydeskripsi = metadata.getPropertyValue(o, deskripsi, EntityMode.POJO);
+							Object mydeskripsi = null;
+							if (!deskripsi.equals("") && adaProperti(metadata.getPropertyNames(), deskripsi)) {
+								mydeskripsi = metadata.getPropertyValue(o, deskripsi, EntityMode.POJO);
+							}
 
 							comboitem.setLabel(property.equals("") ? (o == null ? "" : "") + ""
 									: "" + (myproperty == null ? "" : myproperty));
 							// Jangan memanggil toString() entity/proxy saat deskripsi tidak diminta.
 							// Proxy Akun yang sudah detached akan mencoba lazy-load dari session tertutup.
 							comboitem.setDescription(deskripsi.equals("") ? ""
-									: "" + (mydeskripsi == null ? "" : mydeskripsi));
+									: nilaiAmanUntukCombo(mydeskripsi));
 							comboitem.setValue(o);
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonComboInsertHelper.java:1209");
 
@@ -1417,10 +1420,10 @@ public class CommonComboInsertHelper {
 							boolean deskripsiTerpetakan = !deskripsi.equals("") && metadata != null
 									&& adaProperti(metadata.getPropertyNames(), deskripsi);
 							if (!deskripsiTerpetakan) {
-								comboitem.setDescription(o + "");
+								comboitem.setDescription("");
 							} else {
 								Object des = metadata.getPropertyValue(o, deskripsi, EntityMode.POJO);
-								comboitem.setDescription(des == null ? "" : des.toString());
+								comboitem.setDescription(nilaiAmanUntukCombo(des));
 							}
 
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonComboInsertHelper.java:1327");
@@ -1444,5 +1447,21 @@ public class CommonComboInsertHelper {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Mengubah nilai opsional menjadi teks tanpa memaksa inisialisasi proxy
+	 * Hibernate yang sudah detached. Deskripsi combo bukan data utama, sehingga
+	 * nilai kosong lebih aman daripada menggagalkan seluruh form.
+	 */
+	private static String nilaiAmanUntukCombo(Object nilai) {
+		if (nilai == null || !Hibernate.isInitialized(nilai)) {
+			return "";
+		}
+		try {
+			return nilai.toString();
+		} catch (org.hibernate.LazyInitializationException e) {
+			return "";
+		}
 	}
 }

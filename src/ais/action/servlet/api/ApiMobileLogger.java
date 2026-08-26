@@ -54,10 +54,25 @@ public final class ApiMobileLogger {
         log.setSekolah(users == null ? null : users.getSekolah());
         log.setYayasan(users == null ? null : users.getYayasan());
         log.setTbmuser(users);
-        log.setLinkProfile(ApiHelperSupport.truncate(jsonObject == null ? "" : jsonObject.toString()));
+        log.setLinkProfile(ApiHelperSupport.truncate(redactSensitive(jsonObject).toString()));
         log.setHostname(request == null ? "" : request.getServerName());
         log.setSuccess_status(Boolean.TRUE);
         log.setHeader(ApiHelperSupport.truncate(responseBody));
         return log;
+    }
+
+    /** Template/probe biometrik tidak boleh masuk LogMobile walau mode debug. */
+    private static JSONObject redactSensitive(JSONObject source) {
+        if (source == null) return new JSONObject();
+        try {
+            JSONObject safe = new JSONObject(source.toString());
+            String[] keys = new String[] { "template_base64", "probe_base64", "biometric_template" };
+            for (int i = 0; i < keys.length; i++) {
+                if (safe.has(keys[i])) safe.put(keys[i], "[REDACTED]");
+            }
+            return safe;
+        } catch (Exception e) {
+            return new JSONObject();
+        }
     }
 }

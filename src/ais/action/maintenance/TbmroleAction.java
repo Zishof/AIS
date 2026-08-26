@@ -2260,8 +2260,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 		if ((tbmrole.getRoleId() != null && tbmrole.getRoleId().equals(Tbmrole.SISWA))
 				|| (tbmrole.getRoleId() != null && tbmrole.getRoleId().equals(Tbmrole.MAHASISWA))) {
-			absenLangsung.setDisabled(true);
-			presensiKehadiran.setDisabled(true);
+			// Hak presensi dan absen langsung tetap dapat diatur untuk mendukung
+			// enrollment serta absensi biometrik mandiri siswa/mahasiswa.
 			kinerja.setDisabled(true);
 			kantin.setDisabled(true);
 			tampilPos.setDisabled(true);

@@ -284,6 +284,11 @@ public class ReversalLogic {
 				detailBiayas.addAll(detailBiayas1);
 			}
 
+			// Reversal wajib memakai sumber rincian yang sama dengan inquiry/payment.
+			if (detailBiayas.isEmpty()) {
+				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
+			}
+
 			String pemb = "|";
 			Long total = 0L;
 

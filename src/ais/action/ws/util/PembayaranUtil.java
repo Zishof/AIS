@@ -979,16 +979,77 @@ public class PembayaranUtil {
 	}
 
 	public BiodataCalonMahasiswa getCalonMahasiswaByNoUjian(String noUjian) {
-		Session session = HibernateUtil.currentNativeSession();
-		BiodataCalonMahasiswa biodataCalonMahasiswa = (BiodataCalonMahasiswa) ConstantValues.simpleObject(
-				session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(Restrictions.ne("noUjian", "0"))
-						.add(Restrictions.ne("noUjian", "")).add(Restrictions.isNotNull("noUjian"))
-						.add(Restrictions.isNotNull("prodiLulus"))
-						.add(Restrictions.ilike("noUjian", noUjian.trim(), MatchMode.EXACT)).setMaxResults(1),
-				BiodataCalonMahasiswa.class);
+		if (noUjian == null || noUjian.trim().length() == 0) {
+			return null;
+		}
 
-		HibernateUtil.closeSession();
-		return biodataCalonMahasiswa;
+		Session session = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			@SuppressWarnings("unchecked")
+			List<BiodataCalonMahasiswa> daftar = session.createCriteria(BiodataCalonMahasiswa.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.ne("noUjian", "0"))
+					.add(Restrictions.ne("noUjian", ""))
+					.add(Restrictions.isNotNull("noUjian"))
+					.add(Restrictions.isNotNull("prodiLulus"))
+					.add(Restrictions.ilike("noUjian", noUjian.trim(), MatchMode.EXACT))
+					.addOrder(Order.desc("id")).list();
+
+			if (daftar == null || daftar.isEmpty()) {
+				return null;
+			}
+
+			/*
+			 * Nomor ujian secara historis dapat dipakai ulang pada tahun/gelombang
+			 * berbeda. Query lama memakai setMaxResults(1) tanpa urutan sehingga H2H
+			 * dapat mengembalikan calon mahasiswa lain. Prioritaskan pemilik tagihan
+			 * daftar ulang yang nyata, lalu data pada tahun akademik berjalan. Urutan ID
+			 * menurun di atas menjadi pemutus terakhir agar hasil selalu deterministik.
+			 */
+			String tahunAkademikAktif = Common.getCurrentTahunAkademik();
+			BiodataCalonMahasiswa terbaik = null;
+			int skorTerbaik = Integer.MIN_VALUE;
+			for (BiodataCalonMahasiswa calon : daftar) {
+				int skor = 0;
+				Kegiatan tagihanDaftarUlang = calon.getPembayaranDaftarUlang();
+				if (tagihanDaftarUlang != null && tagihanDaftarUlang.getId() != null) {
+					skor += 200;
+					if (tagihanDaftarUlang.getTagihan() != null && tagihanDaftarUlang.getTagihan().doubleValue() > 0.01d) {
+						skor += 1000;
+					}
+				}
+				String tahunAkademikCalon = calon.getTahunAkademik();
+				if (tahunAkademikAktif != null && tahunAkademikAktif.equals(tahunAkademikCalon)) {
+					skor += 100;
+				}
+				if (terbaik == null || skor > skorTerbaik) {
+					terbaik = calon;
+					skorTerbaik = skor;
+				}
+			}
+			return terbaik;
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit PembayaranUtil.getCalonMahasiswaByNoUjian - resolusi nomor ujian H2H");
+			return null;
+		} finally {
+			if (session != null) {
+				try {
+					session.clear();
+				} catch (Exception ignored) {
+				}
+				try {
+					session.disconnect();
+				} catch (Exception ignored) {
+				}
+				try {
+					session.close();
+				} catch (Exception ignored) {
+				}
+			}
+		}
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -1885,6 +1946,43 @@ public class PembayaranUtil {
 	public Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, boolean reload) {
 		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, null, reload);
+	}
+
+	/**
+	 * Mengambil sumber DetailBiaya dari rincian tagihan yang sudah benar-benar
+	 * terbentuk pada Kegiatan. Jalur ini dipakai H2H sebagai pemulihan apabila
+	 * pencarian ulang template biaya kosong (misalnya semester masuk mahasiswa
+	 * RPL tidak sama dengan semester default template), sementara layar billing
+	 * sudah memiliki tagihan aktual.
+	 */
+	public Collection<DetailBiaya> getDetailBiayaDariKegiatan(Kegiatan kegiatan) {
+		List<DetailBiaya> hasil = new ArrayList<DetailBiaya>();
+		if (kegiatan == null || kegiatan.getId() == null) {
+			return hasil;
+		}
+
+		Map<Long, DetailBiaya> unik = new HashMap<Long, DetailBiaya>();
+		try {
+			Collection<DetailKegiatan> rincian = kegiatan.ambilDetailKegiatan(true);
+			if (rincian != null) {
+				for (DetailKegiatan detailKegiatan : rincian) {
+					DetailBiaya detailBiaya = detailKegiatan == null ? null : detailKegiatan.getDetailBiaya();
+					if (detailBiaya != null && detailBiaya.getId() != null
+							&& detailBiaya.getItemBiaya() != null) {
+						unik.put(detailBiaya.getId(), detailBiaya);
+					}
+				}
+			}
+			hasil.addAll(unik.values());
+			try {
+				Collections.sort(hasil);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(sort) PembayaranUtil.getDetailBiayaDariKegiatan");
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PembayaranUtil.getDetailBiayaDariKegiatan");
+		}
+		return hasil;
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

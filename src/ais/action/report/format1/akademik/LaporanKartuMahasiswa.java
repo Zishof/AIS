@@ -194,7 +194,12 @@ public class LaporanKartuMahasiswa extends MyWindow {
 
 		North north = new North();
 		north.setParent(borderlayout1);
-		north.setHeight("140px");
+		/* Area filter berisi empat baris (tanggal, mahasiswa, halaman depan,
+		 * halaman belakang). Tinggi lama 140px hanya cukup ketika seluruh kontrol
+		 * tetap satu baris; pada resolusi sempit Hbox membungkus dan baris bawah
+		 * tertutup oleh tabel mahasiswa di region Center. */
+		north.setHeight("240px");
+		north.setAutoscroll(true);
 		north.setBorder("none");
 
 		MyGrid mygrid = new MyGrid();// grid.setOddRowSclass("non-odd");

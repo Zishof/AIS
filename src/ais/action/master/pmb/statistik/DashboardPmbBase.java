@@ -125,9 +125,9 @@ public abstract class DashboardPmbBase {
 		cboJenjang.setReadonly(true);
 		Common.insertComboDanSemua(cboJenjang, "nama", Jenjang.class,
 				Restrictions.in("nama", new String[] { "D3", "S1", "S2", "S3", "Profesi" }));
-		if (cboJenjang.getItemCount() > 0) {
-			cboJenjang.setSelectedIndex(0);
-		}
+		// Default seluruh dasbor turunan harus benar-benar "Semua". Item null
+		// ditambahkan oleh insertComboDanSemua dan tidak selalu berada di index 0.
+		Common.selectComboItem(cboJenjang, null);
 		cboJenjang.setParent(filterBar);
 
 		buildExtraFilter(filterBar);

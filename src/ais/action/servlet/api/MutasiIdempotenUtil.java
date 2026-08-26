@@ -36,6 +36,7 @@ public final class MutasiIdempotenUtil {
 			"simpandatabanyak",
 			"pengaduanmahasiswa",
 			"sop_ajukan",
+			"biometrik_absen",
 			"disposisi_simpan_surat_keluar",
 			"disposisi_simpan_surat_masuk"));
 

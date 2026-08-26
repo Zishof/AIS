@@ -312,6 +312,15 @@ public class InqueryLogic {
 				detailBiayas.addAll(detailBiayas1);
 			}
 
+			// Tagihan yang sudah terbentuk adalah sumber paling akurat untuk inquiry.
+			// Khusus RPL, semester kegiatan dapat berbeda dari semester template biaya;
+			// akibatnya pencarian template di atas kosong walaupun billing menampilkan
+			// tagihan. Pulihkan item dari DetailKegiatan aktual agar total H2H sama
+			// dengan layar pembayaran.
+			if (detailBiayas.isEmpty()) {
+				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
+			}
+
 			// Konfigurasi lama sering menaruh tagihan daftar ulang pada semester 0,
 			// sedangkan kode H2H lama selalu meminta semester 1. Jika pilihan utama
 			// kosong, coba semester pasangannya agar hasil inquiry sama dengan layar.

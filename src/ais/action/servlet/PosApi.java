@@ -1013,6 +1013,8 @@ public class PosApi extends HttpServlet {
 				normalisasiStatusKantinHelper(hasil, "pesanan_online_baru");
 			} else if ("verifikasi_pin".equals(action)) {
 				prosesVerifikasiPin(payload, hasil);
+			} else if ("verifikasi_biometrik_member".equals(action)) {
+				prosesVerifikasiBiometrikMember(tbmuser, payload, hasil);
 			} else if ("dashboard_umum".equals(action)) {
 				prosesDashboardUmum(tbmuser, payload, hasil);
 			} else if ("layani_transaksi".equals(action)) {
@@ -2083,6 +2085,7 @@ public class PosApi extends HttpServlet {
 				|| "checkBayar".equals(action) || "cari_member".equals(action)
 				|| "cara_bayar_list".equals(action) || "saldo_member".equals(action)
 				|| "topup_saldo".equals(action) || "verifikasi_pin".equals(action)
+				|| "verifikasi_biometrik_member".equals(action)
 				|| "layar_pelanggan_kirim".equals(action) || "layar_pelanggan_ambil".equals(action)
 				|| "survey_kepuasan_simpan".equals(action)) {
 			return menu.optBoolean("kasir", true);
@@ -2699,6 +2702,43 @@ public class PosApi extends HttpServlet {
 			boolean ok = a.getPin() != null && a.getPin().equals(pinInput);
 			hasil.put("status", "success");
 			hasil.put("ok", ok);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Verifikasi pembeli member melalui template biometrik terenkripsi. */
+	private void prosesVerifikasiBiometrikMember(Tbmuser kasir, JSONObject payload, JSONObject hasil) throws Exception {
+		if (payload.isNull("memberId")) {
+			hasil.put("status", "error"); hasil.put("ok", false); hasil.put("message", "Member wajib dipilih."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = null;
+			try {
+				anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class,
+						Long.valueOf(Long.parseLong(String.valueOf(payload.get("memberId")))));
+			} catch (Exception ignored) { }
+			if (anggota == null) {
+				hasil.put("status", "error"); hasil.put("ok", false); hasil.put("message", "Member tidak ditemukan."); return;
+			}
+			Tbmuser pemilik = anggota.getTbmuser();
+			if (pemilik == null && anggota.getUserid() != null)
+				pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getUserid());
+			if (pemilik == null && anggota.getMahasiswa() != null && anggota.getMahasiswa().getNim() != null)
+				pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getMahasiswa().getNim());
+			if (pemilik == null && anggota.getSiswa() != null && anggota.getSiswa().getNomorInduk() != null)
+				pemilik = (Tbmuser) session.get(Tbmuser.class, anggota.getSiswa().getNomorInduk());
+			if (pemilik == null || pemilik.getUserId() == null) {
+				hasil.put("status", "error"); hasil.put("ok", false);
+				hasil.put("message", "Member belum terhubung ke akun pengguna biometrik."); return;
+			}
+			JSONObject verifikasi = ais.action.servlet.api.BiometricApi.verifyLinkedSubject(
+					kasir, pemilik.getUserId(), payload, "POS_PURCHASE");
+			boolean ok = "00".equals(verifikasi.optString("status")) && verifikasi.optBoolean("matched", false);
+			hasil.put("status", ok ? "success" : "error"); hasil.put("ok", ok);
+			hasil.put("message", verifikasi.optString("description", ok ? "Biometrik cocok." : "Biometrik tidak cocok."));
+			hasil.put("biometricEventId", verifikasi.opt("event_id"));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

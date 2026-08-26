@@ -2304,6 +2304,28 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	/**
+	 * Mencegah konfigurasi sebuah tombol laporan menunjuk ke jenis dokumen lain.
+	 * Kasus nyata: Report_Cetak_KRS_Mahasiswa terisi Jadwal_UTS sehingga tombol
+	 * KRS menampilkan jadwal ujian. Template KRS kustom tetap diperbolehkan selama
+	 * nama filenya tidak jelas-jelas merupakan template kartu/jadwal ujian.
+	 */
+	private static boolean konfigurasiLaporanMenyilangJenis(String laporanDiminta, String laporanKonfigurasi) {
+		if (laporanDiminta == null || laporanKonfigurasi == null) {
+			return false;
+		}
+		String diminta = new File(laporanDiminta).getName().toLowerCase(Locale.ENGLISH);
+		String konfigurasi = new File(laporanKonfigurasi).getName().toLowerCase(Locale.ENGLISH);
+		if (diminta.endsWith(".jasper")) diminta = diminta.substring(0, diminta.length() - 7);
+		if (diminta.endsWith(".jrxml")) diminta = diminta.substring(0, diminta.length() - 6);
+		if (konfigurasi.endsWith(".jasper")) konfigurasi = konfigurasi.substring(0, konfigurasi.length() - 7);
+		if (konfigurasi.endsWith(".jrxml")) konfigurasi = konfigurasi.substring(0, konfigurasi.length() - 6);
+
+		return "cetak_krs_mahasiswa".equals(diminta)
+				&& (konfigurasi.contains("jadwal_uts") || konfigurasi.contains("jadwal_uas")
+						|| konfigurasi.contains("cetak_kuts") || konfigurasi.contains("cetak_kuas"));
+	}
+
+	/**
 	 * CORE HELPER: Semua method generateFileReport diarahkan ke sini untuk
 	 * efisiensi dan kerapian.
 	 */
@@ -2320,6 +2342,7 @@ public class Report extends GenericAutowireComposer {
 		updateProgress(progress, 10, "Membaca konfigurasi laporan", "Menyiapkan template dan parameter dasar");
 
 		String namaAsli = fileD;
+		String fileDiminta = fileD;
 		File myFile = null;
 
 		try {
@@ -2351,7 +2374,15 @@ public class Report extends GenericAutowireComposer {
 				File fileJasper = new File(fileD);
 				namaAsli = StringUtils.replaceIgnoreCase(fileJasper.getName(), ".jasper", "");
 			} else {
-				fileD = Common.getKonfigurasi("Report_" + fileD, Konfigurasi.AKTIF, fileD, "", "").getInfo1();
+				String fileKonfigurasi = Common
+						.getKonfigurasi("Report_" + fileD, Konfigurasi.AKTIF, fileD, "", "").getInfo1();
+				if (konfigurasiLaporanMenyilangJenis(namaAsli, fileKonfigurasi)) {
+					System.err.println("Konfigurasi laporan diabaikan karena menyilang jenis: Report_" + namaAsli
+							+ " -> " + fileKonfigurasi);
+					fileD = fileDiminta;
+				} else {
+					fileD = fileKonfigurasi;
+				}
 			}
 
 			if (parameters.get("maps") != null)
