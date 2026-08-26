@@ -190,6 +190,7 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
     var TOKO_ID = "<%=tokoIdParam == null ? "" : tokoIdParam.trim()%>";
     var SVC_SURVEY = "<%=Common.ROOT%>/baru?hanya_tampil_jsp=true&p=kantin%2Fpos&s=survey_kepuasan_service";
     var SVC_PIN = "<%=Common.ROOT%>/baru?hanya_tampil_jsp=true&p=kantin%2Fpos&s=verifikasi_pin_service";
+    var SVC_BIOMETRIC = "<%=Common.ROOT%>/baru?hanya_tampil_jsp=true&p=kantin%2Fpos&s=verifikasi_biometric_service";
     var resetTimer = null;
 
     var formatRp = function(n){ return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(n||0); };
@@ -254,6 +255,9 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
     // ---------- PIN (verifikasi pembeli, hanya bila jenis anggota "Wajib PIN") ----------
     var pinBuffer = '';
     var pinMemberId = null;
+    var pinReferenceId = '';
+    var verificationRequest = null;
+    var verificationEvents = {};
 
     function pinDotsRender(){
         $('lpPinDots<%=rndLp%>').textContent = pinBuffer.length ? pinBuffer.split('').map(function(){ return '●'; }).join(' ') : '–';
@@ -276,22 +280,29 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
     function pinHapus(){ pinBuffer = pinBuffer.slice(0, -1); pinDotsRender(); }
 
     function pinBatal(){
-        if (channel) { try { channel.postMessage({ tipe: 'pin_hasil', ok: false, batal: true }); } catch(e) {} }
+        if (channel) { try { channel.postMessage({ tipe: verificationRequest ? 'verifikasi_hasil' : 'pin_hasil', ok: false, batal: true }); } catch(e) {} }
         pinBuffer = ''; pinMemberId = null;
+        verificationRequest = null; verificationEvents = {};
         window['lpKembaliIdle<%=rndLp%>']();
     }
 
     function pinSubmit(){
         if (!pinBuffer || !pinMemberId) return;
-        var body = 'memberId=' + encodeURIComponent(pinMemberId) + '&pin=' + encodeURIComponent(pinBuffer);
+        var body = 'memberId=' + encodeURIComponent(pinMemberId) + '&pin=' + encodeURIComponent(pinBuffer)
+            + '&referenceId=' + encodeURIComponent(pinReferenceId || '');
         fetch(SVC_PIN, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
             .then(function(r){ return r.json(); })
             .then(function(j){
                 if (j.status === '00' && j.ok) {
                     $('lpPinBody<%=rndLp%>').innerHTML = '<div class="lp-pin-ok-msg">&#10004; <%=Common.getBahasaConfig("PIN Benar! Memproses transaksi...")%></div>';
-                    if (channel) { try { channel.postMessage({ tipe: 'pin_hasil', ok: true }); } catch(e) {} }
+                    if (verificationRequest) {
+                        verificationEvents.pinVerificationEventId = j.pinVerificationEventId;
+                        setTimeout(lanjutkanBiometric, 350);
+                    } else if (channel) {
+                        try { channel.postMessage({ tipe: 'pin_hasil', ok: true, pinVerificationEventId: j.pinVerificationEventId }); } catch(e) {}
+                        setTimeout(function(){ tampilPanel('lpKeranjang<%=rndLp%>'); }, 1400);
+                    }
                     pinBuffer = ''; pinMemberId = null;
-                    setTimeout(function(){ tampilPanel('lpKeranjang<%=rndLp%>'); }, 1400);
                 } else {
                     $('lpPinError<%=rndLp%>').textContent = "<%=Common.getBahasaConfig("PIN salah, silakan coba lagi.")%>";
                     pinBuffer = ''; pinDotsRender();
@@ -304,6 +315,7 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
         clearResetTimer();
         pinBuffer = '';
         pinMemberId = d.memberId;
+        pinReferenceId = d.referenceId || '';
         $('lpPinBody<%=rndLp%>').innerHTML = '<div class="lp-pin-judul"><%=Common.getBahasaConfig("Masukkan PIN Anda")%></div>'
             + '<div class="lp-pin-nama">' + esc(d.memberNama || '') + '</div>'
             + '<div class="lp-pin-dots" id="lpPinDots<%=rndLp%>">&ndash;</div>'
@@ -314,6 +326,52 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
         pinDotsRender();
         $('lpPinCancel<%=rndLp%>').onclick = pinBatal;
         tampilPanel('lpPin<%=rndLp%>');
+    }
+
+    function captureBiometric(modality){
+        var bridge = window.AISBiometricBridge;
+        if (!bridge || typeof bridge.capture !== 'function') {
+            return Promise.reject(new Error(modality === 'FINGERPRINT'
+                ? '<%=Common.getBahasaConfigJS("Scanner fingerprint USB/OTG dan SDK produsen belum terhubung.")%>'
+                : '<%=Common.getBahasaConfigJS("SDK face recognition dan liveness belum terhubung ke kamera.")%>'));
+        }
+        $('lpPinBody<%=rndLp%>').innerHTML = '<div class="lp-pin-judul"><%=Common.getBahasaConfig("Verifikasi")%> ' + (modality === 'FACE' ? '<%=Common.getBahasaConfigJS("wajah")%>' : 'fingerprint') + '</div>'
+            + '<div class="lp-pin-nama"><%=Common.getBahasaConfig("Ikuti petunjuk perangkat. Saldo belum dipotong.")%></div>';
+        return Promise.resolve(bridge.capture({modality:modality, memberId:verificationRequest.memberId, referenceId:verificationRequest.referenceId}))
+            .then(function(capture){
+                capture = capture || {};
+                var p = new URLSearchParams();
+                p.set('memberId', verificationRequest.memberId); p.set('modality', modality);
+                p.set('referenceId', verificationRequest.referenceId || '');
+                p.set('probe_base64', capture.probe_base64 || '');
+                p.set('template_format', capture.template_format || (modality === 'FACE' ? 'AIS_FACE_EMBEDDING_F32_V1' : 'ISO_19794_2'));
+                p.set('liveness_score', String(capture.liveness_score || 0));
+                p.set('captured_at_epoch', String(capture.captured_at_epoch || Date.now()));
+                return fetch(SVC_BIOMETRIC, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:p.toString()});
+            }).then(function(r){ return r.json(); }).then(function(j){
+                if (j.status !== '00' || !j.matched) throw new Error(j.description || '<%=Common.getBahasaConfigJS("Biometrik tidak cocok.")%>');
+                verificationEvents[modality === 'FACE' ? 'biometricFaceEventId' : 'biometricFingerprintEventId'] = j.event_id;
+            });
+    }
+
+    function lanjutkanBiometric(){
+        var chain = Promise.resolve();
+        if (verificationRequest.wajibWajah && !verificationEvents.biometricFaceEventId) chain = chain.then(function(){ return captureBiometric('FACE'); });
+        if (verificationRequest.wajibFingerprint && !verificationEvents.biometricFingerprintEventId) chain = chain.then(function(){ return captureBiometric('FINGERPRINT'); });
+        chain.then(function(){
+            if (channel) channel.postMessage(Object.assign({tipe:'verifikasi_hasil', ok:true}, verificationEvents));
+            verificationRequest = null; verificationEvents = {};
+            $('lpPinBody<%=rndLp%>').innerHTML = '<div class="lp-pin-ok-msg">&#10004; <%=Common.getBahasaConfig("Identitas terverifikasi. Memproses transaksi...")%></div>';
+            setTimeout(function(){ tampilPanel('lpKeranjang<%=rndLp%>'); }, 1000);
+        }).catch(function(e){
+            $('lpPinBody<%=rndLp%>').innerHTML = '<div class="lp-pin-judul"><%=Common.getBahasaConfig("Verifikasi belum berhasil")%></div><div class="lp-pin-error">' + esc(e && e.message ? e.message : e) + '</div><div class="lp-pin-cancel" onclick="location.reload()"><%=Common.getBahasaConfig("Coba lagi")%></div>';
+            if (channel) channel.postMessage({tipe:'verifikasi_hasil', ok:false, message:e && e.message ? e.message : String(e)});
+        });
+    }
+
+    function tampilVerifikasi(d){
+        verificationRequest = d; verificationEvents = {};
+        if (d.wajibPin) tampilPin(d); else { tampilPanel('lpPin<%=rndLp%>'); lanjutkanBiometric(); }
     }
 
     // ---------- SUKSES + SURVEY ----------
@@ -379,6 +437,7 @@ String logoPtLp = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruan
             else if (d.tipe === 'qris') tampilQris(d);
             else if (d.tipe === 'batal_qris') { clearResetTimer(); tampilPanel('lpKeranjang<%=rndLp%>'); }
             else if (d.tipe === 'minta_pin') tampilPin(d);
+            else if (d.tipe === 'minta_verifikasi') tampilVerifikasi(d);
             else if (d.tipe === 'sukses') tampilSukses(d);
             else if (d.tipe === 'reset') window['lpKembaliIdle<%=rndLp%>']();
         };

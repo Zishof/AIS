@@ -860,6 +860,12 @@ public class KantinHelper {
 				AnggotaKoperasi anggotaKoperasi = (AnggotaKoperasi) (jsonObject.isNull("id_member") ? null
 						: GeneralValueObject.ambilData(AnggotaKoperasi.class,
 								(jsonObject.get("id_member") + "").trim()));
+				String verificationError = BiometricApi.validateRequiredPosVerification(tbmuser, jsonObject);
+				if (verificationError != null) {
+					hasil.put("status", "91");
+					hasil.put("description", verificationError);
+					return;
+				}
 
 				MejaKantin mejaKantin = (MejaKantin) (jsonObject.isNull("mejaKantin") ? null
 						: GeneralValueObject.ambilData(MejaKantin.class, (jsonObject.get("mejaKantin") + "").trim()));

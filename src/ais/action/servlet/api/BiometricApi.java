@@ -27,6 +27,9 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.koperasi.AnggotaKoperasi;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
+import ais.database.model.koperasi.JenisAnggotaKoperasi;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Pegawai;
@@ -250,7 +253,13 @@ public final class BiometricApi {
 					.add(Restrictions.eq("modality", "PIN"))
 					.add(Restrictions.eq("clientMutationId", mutation))
 					.setMaxResults(1).uniqueResult();
-			if (existing != null) return existing.getId();
+			if (existing != null) {
+				if (Boolean.valueOf(matched).equals(existing.getMatched())) return existing.getId();
+				// Percobaan PIN salah tidak boleh mengunci kode transaksi selamanya.
+				// Upaya berikut yang hasilnya berbeda mendapat idempotency key baru,
+				// sementara retry jaringan dengan hasil sama tetap mereplay event lama.
+				mutation = mutation + "-retry-" + UUID.randomUUID().toString();
+			}
 			tx = session.beginTransaction();
 			BiometricEvent event = saveEvent(session, actor.getUserId(), subjectUserId.trim(), null,
 					"PIN", "POS_PURCHASE", mutation, matched, null, null,
@@ -260,6 +269,85 @@ public final class BiometricApi {
 			rollback(tx); ais.common.ErrorAuditUtil.record(e, "BiometricApi.recordPosPinVerification");
 			return null;
 		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/**
+	 * Gerbang tunggal untuk seluruh kanal POS (JSP, ZKoss, Desktop, Android).
+	 * Semua metode yang diwajibkan Jenis Member harus mempunyai event server yang
+	 * cocok dan terikat pada kode transaksi sebelum pembayaran saldo diteruskan.
+	 */
+	public static String validateRequiredPosVerification(Tbmuser cashier, JSONObject payload) throws Exception {
+		if (cashier == null || cashier.getUserId() == null) return "Sesi kasir tidak valid.";
+		if (payload == null || payload.isNull("id_member")) return null;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (!paymentDeductsMemberBalance(session, payload)) return null;
+			Long memberId = longValue(payload, "id_member");
+			if (memberId == null) return null;
+			AnggotaKoperasi member = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
+			if (member == null) return null;
+			JenisAnggotaKoperasi type = member.getJenisAnggotaKoperasi();
+			boolean pin = type != null && Boolean.TRUE.equals(type.getWajibPin());
+			boolean face = type != null && Boolean.TRUE.equals(type.getWajibVerifikasiBiometricWajah());
+			boolean fingerprint = type != null && Boolean.TRUE.equals(type.getWajibVerifikasiBiometricFingerprint());
+			if (!pin && !face && !fingerprint) return null;
+
+			String linked = linkedUserIdForMember(session, member);
+			if ((face || fingerprint) && linked == null)
+				return "Member belum terhubung ke akun biometrik. Pembayaran saldo tidak dapat dilanjutkan.";
+			String subject = linked == null ? "MEMBER:" + member.getId() : linked;
+			String reference = payload.optString("kodeUnik", "").trim();
+			if (pin && !validPosVerification(cashier, subject,
+					longValue(payload, "pin_verification_event_id"), "PIN", reference))
+				return "Verifikasi PIN wajib dilakukan kembali sebelum saldo member dipotong.";
+			if (face && !validPosVerification(cashier, subject,
+					longValue(payload, "biometric_face_event_id"), FACE, reference))
+				return "Verifikasi wajah wajib dilakukan kembali sebelum saldo member dipotong.";
+			if (fingerprint && !validPosVerification(cashier, subject,
+					longValue(payload, "biometric_fingerprint_event_id"), FINGERPRINT, reference))
+				return "Verifikasi sidik jari wajib dilakukan kembali sebelum saldo member dipotong.";
+			return null;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Identitas server yang sama untuk event PIN dan biometrik member. */
+	public static String linkedUserIdForMember(Session session, AnggotaKoperasi member) {
+		if (session == null || member == null) return null;
+		Tbmuser linked = member.getTbmuser();
+		if (linked == null && member.getUserid() != null)
+			linked = (Tbmuser) session.get(Tbmuser.class, member.getUserid());
+		if (linked == null && member.getMahasiswa() != null && member.getMahasiswa().getNim() != null)
+			linked = (Tbmuser) session.get(Tbmuser.class, member.getMahasiswa().getNim());
+		if (linked == null && member.getSiswa() != null && member.getSiswa().getNomorInduk() != null)
+			linked = (Tbmuser) session.get(Tbmuser.class, member.getSiswa().getNomorInduk());
+		return linked == null || linked.getUserId() == null ? null : linked.getUserId();
+	}
+
+	private static boolean paymentDeductsMemberBalance(Session session, JSONObject payload) throws Exception {
+		JSONArray additional = payload.optJSONArray("caraBayarTambahan");
+		double additionalAmount = 0D;
+		if (additional != null) for (int i = 0; i < Math.min(4, additional.length()); i++) {
+			JSONObject slot = additional.optJSONObject(i);
+			if (slot == null || slot.optDouble("nominal", 0D) <= 0D) continue;
+			additionalAmount += slot.optDouble("nominal", 0D);
+			Long paymentId = longValue(slot, "caraBayar");
+			CaraPembayaranKoperasi payment = paymentId == null ? null
+					: (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, paymentId);
+			if (deductsBalance(payment)) return true;
+		}
+		double total = payload.optDouble("total", -1D);
+		boolean primaryHasAmount = total < 0D || total - additionalAmount > 0.5D;
+		Long primaryId = longValue(payload, "caraBayar");
+		CaraPembayaranKoperasi primary = primaryId == null ? null
+				: (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, primaryId);
+		return primaryHasAmount && deductsBalance(primary);
+	}
+
+	private static boolean deductsBalance(CaraPembayaranKoperasi payment) {
+		return payment != null && (!Boolean.TRUE.equals(payment.getManual())
+				|| Boolean.TRUE.equals(payment.getMemotongDeposit()));
 	}
 
 	/**

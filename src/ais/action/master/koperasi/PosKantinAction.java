@@ -145,6 +145,8 @@ public class PosKantinAction extends GenericAutowireComposer {
     private Long memberJenisId;
     private Long memberTipeId;
     private boolean memberWajibPin; // dari JenisAnggotaKoperasi.wajibPin -- gate verifikasi PIN Layar Pelanggan
+    private boolean memberWajibWajah;
+    private boolean memberWajibFingerprint;
     private final List<Item> cart = new ArrayList<Item>();
     private List<Rule> rules = new ArrayList<Rule>();
 
@@ -354,8 +356,8 @@ public class PosKantinAction extends GenericAutowireComposer {
                             + "window.__posLayarPelangganChannel.postMessage(window.__lastPOSKeranjangZK);"
                             + "if(d.tipe==='survey'&&typeof tampilkanToast==='function')"
                             + "tampilkanToast('Pembeli memberi rating: '+'\\u2605'.repeat(Number(d.rating)||0),'bg-info text-dark');"
-                            + "if(d.tipe==='pin_hasil'){try{var w=zk.Widget.$('" + pinBridgeUuid + "');if(w){"
-                            + "w.setValue(JSON.stringify({ok:!!d.ok,batal:!!d.batal}));"
+                            + "if(d.tipe==='pin_hasil'||d.tipe==='verifikasi_hasil'){try{var w=zk.Widget.$('" + pinBridgeUuid + "');if(w){"
+                            + "w.setValue(JSON.stringify(d));"
                             + "zAu.send(new zk.Event(w,'onPinHasil',null,{toServer:true}));}}catch(e){}}"
                             + "};}"
                             + "window.__bukaLayarPelangganZK=function(){"
@@ -390,9 +392,10 @@ public class PosKantinAction extends GenericAutowireComposer {
             return; // sudah dibatalkan/timeout/tak ada yg tertunda
         }
         boolean ok = false;
+        JSONObject verification = null;
         try {
-            JSONObject d = new JSONObject(raw == null ? "{}" : raw);
-            ok = d.optBoolean("ok", false);
+            verification = new JSONObject(raw == null ? "{}" : raw);
+            ok = verification.optBoolean("ok", false);
         } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:291");
         }
         JSONObject payload = pendingPayload;
@@ -408,6 +411,11 @@ public class PosKantinAction extends GenericAutowireComposer {
             MyMessageboxConfig.show("Mohon maaf, verifikasi PIN gagal atau dibatalkan pembeli. Langkah yang dapat dilakukan: (1) minta pembeli memasukkan PIN yang benar; (2) pastikan pembeli mengingat PIN saldo mereka; (3) gunakan metode pembayaran lain jika PIN tidak diketahui.",
                     "PIN Tidak Valid", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
             return;
+        }
+        if (verification != null) {
+            if (!verification.isNull("pinVerificationEventId")) payload.put("pin_verification_event_id", verification.get("pinVerificationEventId"));
+            if (!verification.isNull("biometricFaceEventId")) payload.put("biometric_face_event_id", verification.get("biometricFaceEventId"));
+            if (!verification.isNull("biometricFingerprintEventId")) payload.put("biometric_fingerprint_event_id", verification.get("biometricFingerprintEventId"));
         }
         if (isOnline) {
             tampilkanQrModal(payload, caraNama, total);
@@ -1274,6 +1282,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         memberJenisId = null;
         memberTipeId = null;
         memberWajibPin = false;
+        memberWajibWajah = false;
+        memberWajibFingerprint = false;
         if (bdMember != null) {
             bdMember.setValue("");
         }
@@ -1549,11 +1559,15 @@ public class PosKantinAction extends GenericAutowireComposer {
                 }
                 memberMinSaldo = 0;
                 memberWajibPin = false;
+                memberWajibWajah = false;
+                memberWajibFingerprint = false;
                 if (memberJenisId != null) {
-                    for (Object[] r : rows("SELECT COALESCE(minimal_saldo,0), COALESCE(wajib_pin,false) "
+                    for (Object[] r : rows("SELECT COALESCE(minimal_saldo,0), COALESCE(wajib_pin,false), COALESCE(wajib_verifikasi_biometric_wajah,false), COALESCE(wajib_verifikasi_biometric_fingerprint,false) "
                             + "FROM koperasi.jenis_anggota_koperasi WHERE id = " + memberJenisId)) {
                         memberMinSaldo = num(r[0]);
                         memberWajibPin = bool(r[1]);
+                        memberWajibWajah = bool(r[2]);
+                        memberWajibFingerprint = bool(r[3]);
                     }
                 }
                 if (lblMemberSaldo != null) {
@@ -2015,12 +2029,13 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         boolean manual = cara.getManual() != null && cara.getManual().booleanValue();
+        boolean memotongSaldo = !manual || Boolean.TRUE.equals(cara.getMemotongDeposit());
         String namaCara = cara.getNama() == null ? "" : cara.getNama().toLowerCase();
         boolean online = namaCara.contains("online") || namaCara.contains("qris") || namaCara.contains("topup");
 
         // Pembayaran potong-saldo (bukan tunai/manual, bukan online) wajib member & saldonya cukup.
         // Untuk online/QRIS, member &amp; pembayaran ditentukan dari hasil cek pembayaran (checkBayar).
-        if (!manual && !online) {
+        if (memotongSaldo && !online) {
             if (memberId == null) {
                 MyMessageboxConfig.show("Mohon maaf, pembayaran lewat saldo memerlukan data member. Langkah yang dapat dilakukan: (1) scan kartu atau masukkan ID member di kolom pencarian member; (2) pastikan member memiliki saldo mencukupi; (3) ulangi proses pembayaran.",
                         "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -2068,24 +2083,27 @@ public class PosKantinAction extends GenericAutowireComposer {
         }
         payload.put("transaksi", arr);
 
-        // --- GATE PIN PEMBELI (hanya bila jenis anggota member terpilih "Wajib PIN") ---
-        // Verifikasi dilakukan PEMBELI SENDIRI di Layar Pelanggan (layar kedua); transaksi baru
-        // lanjut disimpan setelah balasan 'pin_hasil' ok=true tiba lewat jembatan onPinHasilDiterima().
-        if (memberId != null && memberWajibPin) {
+        // --- GATE IDENTITAS: semua metode Jenis Member wajib lolos sebelum saldo dipotong. ---
+        if (memotongSaldo && memberId != null
+                && (memberWajibPin || memberWajibWajah || memberWajibFingerprint)) {
             pendingPayload = payload;
             pendingCaraNama = cara.getNama();
             pendingTotal = total;
             pendingOnline = online;
 
-            JSONObject bcMintaPin = new JSONObject();
-            bcMintaPin.put("tipe", "minta_pin");
-            bcMintaPin.put("memberId", memberId);
-            bcMintaPin.put("memberNama", memberNama == null ? "" : memberNama);
-            broadcastKeLayarPelanggan(bcMintaPin);
+            JSONObject requestVerification = new JSONObject();
+            requestVerification.put("tipe", "minta_verifikasi");
+            requestVerification.put("memberId", memberId);
+            requestVerification.put("memberNama", memberNama == null ? "" : memberNama);
+            requestVerification.put("referenceId", payload.getString("kodeUnik"));
+            requestVerification.put("wajibPin", memberWajibPin);
+            requestVerification.put("wajibWajah", memberWajibWajah);
+            requestVerification.put("wajibFingerprint", memberWajibFingerprint);
+            broadcastKeLayarPelanggan(requestVerification);
             try {
                 org.zkoss.zk.ui.util.Clients.evalJavaScript(
                         "if(!window.__posCustWinZK||window.__posCustWinZK.closed){alert('"
-                                + "Buka Layar Pelanggan (layar kedua) terlebih dahulu untuk verifikasi PIN pembeli.');}");
+                                + "Buka Layar Pelanggan (layar kedua) terlebih dahulu untuk verifikasi identitas pembeli.');}");
             } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:1277");
             }
 
@@ -2106,8 +2124,8 @@ public class PosKantinAction extends GenericAutowireComposer {
                         pendingTotal = 0;
                         pendingOnline = false;
                         MyMessageboxConfig.show(
-                                "Waktu verifikasi PIN pembeli habis (90 detik). Transaksi dibatalkan.",
-                                "Verifikasi PIN Kedaluwarsa", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+                                "Waktu verifikasi identitas pembeli habis (90 detik). Transaksi dibatalkan.",
+                                "Verifikasi Kedaluwarsa", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
                     }
                 }
             });

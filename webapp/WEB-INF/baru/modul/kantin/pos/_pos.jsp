@@ -162,6 +162,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                         <input type="hidden" id="minSaldoMemberSelected<%=rnd%>" value="0">
                         <!-- Wajib PIN (dari jenis anggota) -- gate verifikasi PIN pembeli di Layar Pelanggan -->
                         <input type="hidden" id="wajibPinMemberSelected<%=rnd%>" value="false">
+                        <input type="hidden" id="wajibWajahMemberSelected<%=rnd%>" value="false">
+                        <input type="hidden" id="wajibFingerprintMemberSelected<%=rnd%>" value="false">
                         <!-- Fitur "Cek Saldo": tampilkan saldo member LANGSUNG saat dipilih, tanpa perlu mulai checkout dulu -->
                         <small class="fw-bold text-success d-none" id="infoSaldoMember<%=rnd%>"></small>
                         <% if (bolehTopupPOS) { %>
@@ -493,11 +495,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 kirimKeLayarPelanggan<%=rnd%>(lastKeranjangBroadcast<%=rnd%>);
             } else if (d.tipe === 'survey' && typeof tampilkanToast === 'function') {
                 tampilkanToast('<%=Common.getBahasaConfigJS("Pembeli memberi rating")%>: ' + '★'.repeat(Number(d.rating)||0), 'bg-info text-dark');
-            } else if (d.tipe === 'pin_hasil') {
+            } else if (d.tipe === 'pin_hasil' || d.tipe === 'verifikasi_hasil') {
                 if (d.ok && pinPendingResolve<%=rnd%>) {
                     const lanjut = pinPendingResolve<%=rnd%>;
                     pinPendingResolve<%=rnd%> = null;
-                    lanjut();
+                    lanjut(d);
                 } else if (!d.ok) {
                     pinPendingResolve<%=rnd%> = null;
                     if (typeof tampilkanToast === "function") {
@@ -830,11 +832,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             ada = true;
             const nama = opt.getAttribute('data-nama') || opt.text;
             const isManual = opt.getAttribute('data-manual') === 'true';
+            const memotongDeposit = opt.getAttribute('data-memotong-deposit') === 'true';
             const isSel = opt.selected ? 'sel' : '';
             const dalamSplit = splitSelectedMetodeBayar<%=rnd%>.some(s => String(s.id) === String(opt.value));
             html += '<div class="col-6">' +
                         '<div class="paymethod-card-<%=rnd%> ' + isSel + (dalamSplit ? ' split-sel' : '') + '" id="paymethod-<%=rnd%>-' + opt.value + '" onclick="pilihMetodeBayar<%=rnd%>(\'' + opt.value + '\')">' +
-                            '<div class="paymethod-split-chk-<%=rnd%>' + (dalamSplit ? ' checked' : '') + '" onclick="event.stopPropagation(); toggleSplitMetodeBayar<%=rnd%>(\'' + opt.value + '\', ' + JSON.stringify(nama) + ', ' + isManual + ');" title="<%=Common.getBahasaConfig("Sertakan dalam split pembayaran")%>"><i class="fas fa-check"></i></div>' +
+                            '<div class="paymethod-split-chk-<%=rnd%>' + (dalamSplit ? ' checked' : '') + '" onclick="event.stopPropagation(); toggleSplitMetodeBayar<%=rnd%>(\'' + opt.value + '\', ' + JSON.stringify(nama) + ', ' + isManual + ', ' + memotongDeposit + ');" title="<%=Common.getBahasaConfig("Sertakan dalam split pembayaran")%>"><i class="fas fa-check"></i></div>' +
                             '<div class="paymethod-ic-<%=rnd%>"><i class="fas ' + ikonMetodeBayar<%=rnd%>(nama) + '"></i></div>' +
                             '<div class="fw-bold text-dark" style="font-size:13px;">' + nama + '</div>' +
                         '</div>' +
@@ -847,7 +850,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // ==========================================
     // SPLIT PEMBAYARAN (s/d 5 metode/transaksi)
     // ==========================================
-    window.toggleSplitMetodeBayar<%=rnd%> = (id, nama, manual) => {
+    window.toggleSplitMetodeBayar<%=rnd%> = (id, nama, manual, memotongDeposit) => {
         const idx = splitSelectedMetodeBayar<%=rnd%>.findIndex(s => String(s.id) === String(id));
         if (idx >= 0) {
             splitSelectedMetodeBayar<%=rnd%>.splice(idx, 1);
@@ -856,7 +859,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Maksimal 5 metode pembayaran per transaksi.")%>', 'bg-warning text-dark');
                 return;
             }
-            splitSelectedMetodeBayar<%=rnd%>.push({ id: id, nama: nama, manual: manual, nominal: 0 });
+            splitSelectedMetodeBayar<%=rnd%>.push({ id: id, nama: nama, manual: manual, memotongDeposit: memotongDeposit, nominal: 0 });
         }
         renderMetodeBayarCards<%=rnd%>();
         renderSplitPanel<%=rnd%>();
@@ -973,12 +976,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         // ("tunai"/"cash" di nama metode). Sekarang pakai kolom sungguhan `ada_kembalian`, dgn fallback
         // SAMA PERSIS spt getter entity (COALESCE ke nama ILIKE tunai) utk metode lama yg kolomnya
         // masih NULL -- tidak perlu migrasi data.
-        let sql = "SELECT id, nama, manual, COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(masuk_sebagai_hutang,false) AS masuk_sebagai_hutang " +
+        let sql = "SELECT id, nama, manual, COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(masuk_sebagai_hutang,false) AS masuk_sebagai_hutang, COALESCE(memotong_deposit,false) AS memotong_deposit " +
                    "FROM koperasi.cara_pembayaran_koperasi WHERE aktif = true ORDER BY nama ASC";
 
         // Jika ada ID Jenis Anggota, filter berdasarkan daftar_cara_pembayaran_yang_boleh_di_pilih
         if (idJenisAnggota) {
-            sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(cpk.masuk_sebagai_hutang,false) AS masuk_sebagai_hutang " +
+            sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian, COALESCE(cpk.masuk_sebagai_hutang,false) AS masuk_sebagai_hutang, COALESCE(cpk.memotong_deposit,false) AS memotong_deposit " +
                   "FROM koperasi.cara_pembayaran_koperasi cpk " +
                   "WHERE cpk.aktif = true " +
                   // JARING PENGAMAN: daftar izin KOSONG berarti belum disetel, bukan
@@ -1001,7 +1004,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 const isManual = item.manual === true || item.manual === 't' || item.manual === 'true' ? 'true' : 'false';
                 const adaKembalian = item.ada_kembalian === true || item.ada_kembalian === 't' || item.ada_kembalian === 'true' ? 'true' : 'false';
                 const isHutang = item.masuk_sebagai_hutang === true || item.masuk_sebagai_hutang === 't' || item.masuk_sebagai_hutang === 'true' ? 'true' : 'false';
-                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" data-ada-kembalian="' + adaKembalian + '" data-hutang="' + isHutang + '" ' + isSelected + '>' + item.nama + '</option>';
+                const memotongDeposit = item.memotong_deposit === true || item.memotong_deposit === 't' || item.memotong_deposit === 'true' ? 'true' : 'false';
+                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" data-memotong-deposit="' + memotongDeposit + '" data-ada-kembalian="' + adaKembalian + '" data-hutang="' + isHutang + '" ' + isSelected + '>' + item.nama + '</option>';
             });
         } else if (idJenisAnggota) {
             optHtml = '<option value=""><%=Common.getBahasaConfig("-- Tidak Ada Metode Pembayaran Diizinkan --")%></option>';
@@ -1071,7 +1075,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
 
         // Ambil Data Anggota Koperasi (beserta relasi tipe, jenisnya, dan minimal saldo)
-        const sqlMember = "SELECT a.id, a.nama, a.kode_identitas, a.jenis_anggota_koperasi as jenis_anggota, a.tipe_anggota_koperasi as tipe_anggota, COALESCE(j.minimal_saldo, 0) as min_saldo, COALESCE(j.wajib_pin, false) as wajib_pin " +
+        const sqlMember = "SELECT a.id, a.nama, a.kode_identitas, a.jenis_anggota_koperasi as jenis_anggota, a.tipe_anggota_koperasi as tipe_anggota, COALESCE(j.minimal_saldo, 0) as min_saldo, COALESCE(j.wajib_pin, false) as wajib_pin, COALESCE(j.wajib_verifikasi_biometric_wajah,false) as wajib_wajah, COALESCE(j.wajib_verifikasi_biometric_fingerprint,false) as wajib_fingerprint " +
                           "FROM koperasi.anggota_koperasi a " +
                           "LEFT JOIN koperasi.jenis_anggota_koperasi j ON a.jenis_anggota_koperasi = j.id " +
                           "WHERE a.aktif = true ORDER BY a.nama ASC";
@@ -1096,6 +1100,10 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             document.getElementById('minSaldoMemberSelected<%=rnd%>').value = match ? match.min_saldo : 0;
             const wajibPinVal = match && (match.wajib_pin === true || match.wajib_pin === 't' || match.wajib_pin === 'true');
             document.getElementById('wajibPinMemberSelected<%=rnd%>').value = wajibPinVal ? 'true' : 'false';
+            const wajibWajahVal = match && (match.wajib_wajah === true || match.wajib_wajah === 't' || match.wajib_wajah === 'true');
+            const wajibFingerprintVal = match && (match.wajib_fingerprint === true || match.wajib_fingerprint === 't' || match.wajib_fingerprint === 'true');
+            document.getElementById('wajibWajahMemberSelected<%=rnd%>').value = wajibWajahVal ? 'true' : 'false';
+            document.getElementById('wajibFingerprintMemberSelected<%=rnd%>').value = wajibFingerprintVal ? 'true' : 'false';
 
             // Reload cara bayar sesuai jenis anggota yang dipilih
             const idJenisAnggota = match ? match.jenis_anggota : null;
@@ -2602,8 +2610,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         // grandTotal -- persis permintaan "nominal yg memotong deposit bisa ada di salah satu dari
         // 5 kolom". Mode lama (1 metode): identik spt sebelumnya (isManual dari satu-satunya slot).
         const nominalPotongSaldo = isSplitAktif
-            ? splitSelectedMetodeBayar<%=rnd%>.filter(s => !s.manual).reduce((sum, s) => sum + (parseFloat(s.nominal) || 0), 0)
-            : ((optCaraBayar && optCaraBayar.getAttribute('data-manual') === 'true') ? 0 : grandTotalValue<%=rnd%>);
+            ? splitSelectedMetodeBayar<%=rnd%>.filter(s => !s.manual || s.memotongDeposit).reduce((sum, s) => sum + (parseFloat(s.nominal) || 0), 0)
+            : ((optCaraBayar && optCaraBayar.getAttribute('data-manual') === 'true' && optCaraBayar.getAttribute('data-memotong-deposit') !== 'true') ? 0 : grandTotalValue<%=rnd%>);
 
         if (nominalPotongSaldo > 0) {
             if (idMember === "") {
@@ -2643,39 +2651,39 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             }
         }
 
-        // --- GATE PIN PEMBELI (hanya bila jenis anggota member terpilih "Wajib PIN") ---
-        // Verifikasi dilakukan PEMBELI SENDIRI di Layar Pelanggan (layar kedua); transaksi baru
-        // lanjut disimpan setelah kasir menerima balasan 'pin_hasil' ok=true lewat BroadcastChannel.
+        // --- GATE IDENTITAS MEMBER: hanya untuk nominal yang benar-benar memotong saldo. ---
         const wajibPin = document.getElementById('wajibPinMemberSelected<%=rnd%>').value === 'true';
-        if (idMember !== "" && wajibPin) {
+        const wajibWajah = document.getElementById('wajibWajahMemberSelected<%=rnd%>').value === 'true';
+        const wajibFingerprint = document.getElementById('wajibFingerprintMemberSelected<%=rnd%>').value === 'true';
+        const kodeTransaksi = "POS-" + generateUniqueCode50();
+        if (nominalPotongSaldo > 0 && idMember !== "" && (wajibPin || wajibWajah || wajibFingerprint)) {
             if (!custWin<%=rnd%> || custWin<%=rnd%>.closed) {
                 if (typeof tampilkanToast === "function") {
-                    tampilkanToast('<%=Common.getBahasaConfigJS("Buka Layar Pelanggan terlebih dahulu untuk verifikasi PIN pembeli.")%>', 'bg-warning text-dark');
+                    tampilkanToast('<%=Common.getBahasaConfigJS("Buka Layar Pelanggan terlebih dahulu untuk verifikasi identitas pembeli.")%>', 'bg-warning text-dark');
                 } else {
-                    alert('<%=Common.getBahasaConfigJS("Buka Layar Pelanggan terlebih dahulu untuk verifikasi PIN pembeli.")%>');
+                    alert('<%=Common.getBahasaConfigJS("Buka Layar Pelanggan terlebih dahulu untuk verifikasi identitas pembeli.")%>');
                 }
                 return;
             }
             const memberNamaPin = document.getElementById('inputMember<%=rnd%>').value || '';
-            pinPendingResolve<%=rnd%> = () => lanjutkanPembayaranSetelahPin<%=rnd%>(idToko, idMember, idCaraBayar, namaCaraBayar);
-            kirimKeLayarPelanggan<%=rnd%>({ tipe: 'minta_pin', memberId: idMember, memberNama: memberNamaPin });
+            pinPendingResolve<%=rnd%> = (events) => lanjutkanPembayaranSetelahPin<%=rnd%>(idToko, idMember, idCaraBayar, namaCaraBayar, kodeTransaksi, events || {});
+            kirimKeLayarPelanggan<%=rnd%>({ tipe: 'minta_verifikasi', memberId: idMember, memberNama: memberNamaPin, referenceId: kodeTransaksi, wajibPin: wajibPin, wajibWajah: wajibWajah, wajibFingerprint: wajibFingerprint });
             if (typeof tampilkanToast === "function") {
-                tampilkanToast('<%=Common.getBahasaConfigJS("Menunggu pembeli memasukkan PIN di Layar Pelanggan...")%>', 'bg-info text-dark');
+                tampilkanToast('<%=Common.getBahasaConfigJS("Menunggu verifikasi identitas pembeli di Layar Pelanggan...")%>', 'bg-info text-dark');
             }
             return;
         }
 
-        lanjutkanPembayaranSetelahPin<%=rnd%>(idToko, idMember, idCaraBayar, namaCaraBayar);
+        lanjutkanPembayaranSetelahPin<%=rnd%>(idToko, idMember, idCaraBayar, namaCaraBayar, kodeTransaksi, {});
     };
 
     /** Lanjutan initiatePembayaran setelah lolos (atau tak butuh) verifikasi PIN pembeli. */
-    const lanjutkanPembayaranSetelahPin<%=rnd%> = (idToko, idMember, idCaraBayar, namaCaraBayar) => {
+    const lanjutkanPembayaranSetelahPin<%=rnd%> = (idToko, idMember, idCaraBayar, namaCaraBayar, kodeTransaksi, verificationEvents) => {
         const btnBayar = document.getElementById('btnBayar<%=rnd%>');
         const oriBtnHtml = btnBayar.innerHTML;
         btnBayar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Menyimpan...")%>';
         btnBayar.disabled = true;
 
-        const kodeTransaksi = "POS-" + generateUniqueCode50();
         const curWaktu = getFormattedDate<%=rnd%>();
 
         // Mengirimkan Transaksi dan Ekstra Atribut Diskon & Cashback
@@ -2704,6 +2712,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 ekstra: item.ekstra || [] // Gap-closure "Produk Ekstra" -- kosong utk baris tanpa ekstra, byte-identical spt sebelumnya
             }))
         };
+        if (verificationEvents.pinVerificationEventId) payload.pin_verification_event_id = verificationEvents.pinVerificationEventId;
+        if (verificationEvents.biometricFaceEventId) payload.biometric_face_event_id = verificationEvents.biometricFaceEventId;
+        if (verificationEvents.biometricFingerprintEventId) payload.biometric_fingerprint_event_id = verificationEvents.biometricFingerprintEventId;
 
         if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
 

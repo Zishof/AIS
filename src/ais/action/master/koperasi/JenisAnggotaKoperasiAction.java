@@ -60,6 +60,9 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 
 	private Textbox nama;
 	private Textbox keterangan;
+	private Checkbox wajibPin;
+	private Checkbox wajibBiometricWajah;
+	private Checkbox wajibBiometricFingerprint;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -118,6 +121,9 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 					.createNewRevisi(JenisAnggotaKoperasi.class, jenisAnggotaKoperasi, jenisAnggotaKoperasi.getNama())
 					.setParent(arg0);
 			new Label(jenisAnggotaKoperasi.getKeterangan()).setParent(arg0);
+			new Label(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibPin()) ? "Wajib" : "-").setParent(arg0);
+			new Label(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibVerifikasiBiometricWajah()) ? "Wajib" : "-").setParent(arg0);
+			new Label(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibVerifikasiBiometricFingerprint()) ? "Wajib" : "-").setParent(arg0);
 
 			final MyCheckboxConfig checkbox = new MyCheckboxConfig("Aktif");
 			checkbox.setDisabled(!edit);
@@ -201,6 +207,24 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
 
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Verifikasi PIN"));
+		row.appendChild(wajibPin = new Checkbox("Wajib sebelum memotong saldo"));
+		wajibPin.setChecked(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibPin()));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Biometric Wajah"));
+		row.appendChild(wajibBiometricWajah = new Checkbox("Wajib kamera + liveness sebelum memotong saldo"));
+		wajibBiometricWajah.setChecked(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibVerifikasiBiometricWajah()));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fingerprint"));
+		row.appendChild(wajibBiometricFingerprint = new Checkbox("Wajib scanner USB/OTG + SDK sebelum memotong saldo"));
+		wajibBiometricFingerprint.setChecked(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibVerifikasiBiometricFingerprint()));
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -256,6 +280,9 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		jenisAnggotaKoperasi.setKode(kode.getValue());
 		jenisAnggotaKoperasi.setNama(nama.getValue());
 		jenisAnggotaKoperasi.setKeterangan(keterangan.getValue());
+		jenisAnggotaKoperasi.setWajibPin(Boolean.valueOf(wajibPin.isChecked()));
+		jenisAnggotaKoperasi.setWajibVerifikasiBiometricWajah(Boolean.valueOf(wajibBiometricWajah.isChecked()));
+		jenisAnggotaKoperasi.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(wajibBiometricFingerprint.isChecked()));
 
 		Common.refreshSaveOrUpdate(session, jenisAnggotaKoperasi);
 
