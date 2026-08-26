@@ -125,7 +125,7 @@
         .button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent; text-decoration: none; font-weight: 750; transition: transform .2s ease, box-shadow .2s ease; }
         .button:hover { transform: translateY(-2px); }
         .button-primary { color: #fff; background: var(--primary); box-shadow: 0 12px 28px rgba(15,118,110,.22); }
-        .button-light { background: #fff; border-color: rgba(255,255,255,.55); }
+        .button-light { color: var(--ink); background: #fff; border-color: rgba(255,255,255,.55); }
         .button-outline { border-color: var(--line); background: rgba(255,255,255,.72); }
         .hero { position: relative; overflow: hidden; min-height: 670px; color: #fff; background: var(--emerald-dark); }
         .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,45,43,.96) 0%, rgba(4,45,43,.88) 50%, rgba(4,45,43,.35) 100%), url('<%=href(profil.getLatar(), root + "/img/main.jpg")%>') center/cover; }
