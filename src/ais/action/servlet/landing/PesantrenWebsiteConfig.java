@@ -32,7 +32,9 @@ public final class PesantrenWebsiteConfig {
             return defaults;
         }
         try {
-            return merge(defaults, new JSONObject(raw));
+            JSONObject merged = merge(defaults, new JSONObject(raw));
+            contextualizeInternalUrls(merged, root);
+            return merged;
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "PesantrenWebsiteConfig.load");
             put(defaults, "configurationWarning", "JSON website tidak valid; konten bawaan digunakan.");
@@ -87,6 +89,21 @@ public final class PesantrenWebsiteConfig {
 
     public static String websiteUrl(Yayasan yayasan) {
         return text(object(load(yayasan, ""), "contact"), "website", "");
+    }
+
+    /**
+     * Menambahkan context path aktif pada URL internal lama seperti /login.
+     * URL absolut, protocol-relative, anchor, mailto, dan tel tidak diubah.
+     */
+    public static String contextualizeUrl(String value, String root) {
+        String url = value == null ? "" : value.trim();
+        String context = root == null ? "" : root.trim();
+        if (context.endsWith("/") && context.length() > 1) context = context.substring(0, context.length() - 1);
+        if (context.length() == 0 || "/".equals(context) || url.length() == 0 || !url.startsWith("/")
+                || url.startsWith("//") || url.equals(context) || url.startsWith(context + "/")) {
+            return url;
+        }
+        return context + url;
     }
 
     private static JSONObject defaults(Yayasan yayasan, String root) {
@@ -276,6 +293,32 @@ public final class PesantrenWebsiteConfig {
             }
         }
         return base;
+    }
+
+    private static void contextualizeInternalUrls(Object node, String root) throws JSONException {
+        if (node instanceof JSONObject) {
+            JSONObject object = (JSONObject) node;
+            java.util.Iterator<?> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = String.valueOf(keys.next());
+                Object value = object.get(key);
+                if (value instanceof JSONObject || value instanceof JSONArray) {
+                    contextualizeInternalUrls(value, root);
+                } else if (value instanceof String && ((String) value).startsWith("/")) {
+                    object.put(key, contextualizeUrl((String) value, root));
+                }
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray values = (JSONArray) node;
+            for (int i = 0; i < values.length(); i++) {
+                Object value = values.get(i);
+                if (value instanceof JSONObject || value instanceof JSONArray) {
+                    contextualizeInternalUrls(value, root);
+                } else if (value instanceof String && ((String) value).startsWith("/")) {
+                    values.put(i, contextualizeUrl((String) value, root));
+                }
+            }
+        }
     }
 
     private static JSONObject obj(Object... pairs) {

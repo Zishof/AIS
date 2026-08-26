@@ -28,6 +28,10 @@ import ais.ui.util.MyFormRow;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.South;
+import org.zkoss.zul.Tabbox;
+import org.zkoss.zul.Tabpanel;
+import org.zkoss.zul.Tabpanels;
+import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
@@ -51,6 +55,7 @@ import ais.ui.util.MyCkEditor;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
@@ -94,7 +99,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	private Textbox kecamatan;
 	private Textbox kabupatenKota;
 	private Textbox propinsi;
-	private Textbox website;
+	private PesantrenWebsiteEditor websiteEditor;
 	protected LampiranLain kop_ppdb;
 	protected LampiranLain footer_ppdb;
 	protected LampiranLain bg_ppdb;
@@ -204,11 +209,29 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		Center center = new Center();
 		center.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(center, true);
+		Tabbox tabbox = new Tabbox();
+		tabbox.setWidth("100%");
+		tabbox.setHeight("100%");
+		tabbox.setParent(center);
+		Tabs tabs = new Tabs();
+		tabs.setParent(tabbox);
+		new MyTabConfig("Data Yayasan").setParent(tabs);
+		new MyTabConfig("Halaman Utama Pesantren").setParent(tabs);
+		Tabpanels tabpanels = new Tabpanels();
+		tabpanels.setParent(tabbox);
+		Tabpanel dataPanel = new ais.ui.util.MyTabpanel();
+		dataPanel.setStyle("overflow:auto;padding:4px;");
+		dataPanel.setParent(tabpanels);
+		Tabpanel websitePanel = new ais.ui.util.MyTabpanel();
+		websitePanel.setStyle("overflow:auto;padding:8px;");
+		websitePanel.setParent(tabpanels);
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
-		grid.setParent(center);
+		grid.setParent(dataPanel);
 		grid.setWidth("100%");
 		grid.setHeight("100%");
+		websiteEditor = new PesantrenWebsiteEditor(PesantrenWebsiteConfig.editableJson(yayasan));
+		websiteEditor.getComponent().setParent(websitePanel);
 
 		Columns columns = new Columns();
 		columns.setParent(grid);
@@ -321,17 +344,6 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(new ais.ui.util.MyLabelConfig("Propinsi Sekolah"));
 		row.appendChild(propinsi = new Textbox(yayasan.getPropinsi()));
 		propinsi.setWidth("90%");
-
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Konten Website ePesantren (JSON)"));
-		row.appendChild(website = new Textbox(PesantrenWebsiteConfig.editableJson(yayasan)));
-		website.setWidth("100%");
-		website.setRows(24);
-		Common.initKeterangan(rows,
-				"Seluruh teks, warna, tautan, workflow, flowchart, diagram, galeri, layanan, CTA, dan bagian yang tampil "
-						+ "pada pesantren.jsp disimpan di sini. Gunakan JSON valid dengan schemaVersion 1. "
-						+ "Nilai URL lama otomatis dipindahkan ke contact.website saat formulir dibuka.");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -550,8 +562,11 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		String websiteValue;
 		try {
-			PesantrenWebsiteConfig.validate(website == null ? null : website.getValue());
+			websiteValue = websiteEditor == null ? PesantrenWebsiteConfig.editableJson(yayasan)
+					: websiteEditor.toJsonString();
+			PesantrenWebsiteConfig.validate(websiteValue);
 		} catch (Exception e) {
 			MyMessageboxConfig.show("Konfigurasi Website ePesantren tidak valid: " + e.getMessage(), "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -594,7 +609,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		yayasan.setKecamatan(kecamatan.getValue());
 		yayasan.setKabupatenKota(kabupatenKota.getValue());
 		yayasan.setPropinsi(propinsi.getValue());
-		yayasan.setWebsite(website.getValue());
+		yayasan.setWebsite(websiteValue);
 		yayasan.setHeaderppdb(headerppdb.getValue());
 		yayasan.setMotto(motto.getValue().trim());
 
