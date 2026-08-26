@@ -795,6 +795,11 @@ public class DownloadTagihanMahasiswaBankOnline {
 							: Restrictions.eq("jenisKegiatan.id", myjadwalPembayaran.getJenisKegiatan().getId()))
 					.add(Restrictions.isNull("kegiatan")).setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
 
+			MahasiswaVirtualAccountHelper.pastikanTagihanBelumDibayar(session, mahasiswa, null, smt,
+					myjadwalPembayaran == null ? null : myjadwalPembayaran.getJenisKegiatan(), myjadwalPembayaran,
+					pemb.toString() + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : ""),
+					cicilan.toString(), detailbiaya.toString(), total);
+
 			if (virtualAccountBankOnline != null && virtualAccountBankOnline.getChannel() != null
 					&& esmartlinkBayarVia != null
 					&& esmartlinkBayarVia.equalsIgnoreCase(virtualAccountBankOnline.getChannel())) {
@@ -1533,6 +1538,8 @@ public class DownloadTagihanMahasiswaBankOnline {
 
 			return virtualAccountBankOnline;
 
+		} catch (MahasiswaVirtualAccountHelper.TagihanSudahDibayarException e) {
+			throw e;
 		} catch (Exception e) {
 			try {
 				Common.tampilErrorJikaAdmin(e, "Terjadi kesalahan. Harap informasikan ke admin, info teknis sbb:\n\n",

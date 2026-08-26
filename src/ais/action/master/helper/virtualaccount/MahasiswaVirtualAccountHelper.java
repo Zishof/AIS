@@ -6,10 +6,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
+import org.hibernate.Criteria;
 import org.hibernate.FlushMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Grid;
@@ -21,6 +25,8 @@ import ais.common.IndonesianNumberToWords;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.JadwalPembayaran;
+import ais.database.model.JenisKegiatan;
 import ais.database.model.KegiatanTemporary;
 import ais.database.model.Mahasiswa;
 import ais.database.model.VirtualAccountBank;
@@ -39,6 +45,102 @@ public final class MahasiswaVirtualAccountHelper {
 	public static final String DEFAULT_VA_WINDOW = "/common/online/no_va.zul";
 
 	private MahasiswaVirtualAccountHelper() {
+	}
+
+	public static class TagihanSudahDibayarException extends Exception {
+		private static final long serialVersionUID = 1L;
+
+		public TagihanSudahDibayarException(String message) {
+			super(message);
+		}
+	}
+
+	/**
+	 * Mencegah penerbitan VA baru bila tagihan identik sudah pernah dibayar.
+	 * Pemeriksaan tidak dibatasi bank/channel: setelah payment sah, pengguna tidak
+	 * boleh membuat VA pengganti untuk item tagihan yang sama melalui kanal lain.
+	 */
+	@SuppressWarnings("unchecked")
+	public static void pastikanTagihanBelumDibayar(Session session, Mahasiswa mahasiswa,
+			BiodataCalonMahasiswa calonMahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
+			JadwalPembayaran jadwalPembayaran, String keterangan, String cicilan, String detailBiaya,
+			Double total) throws TagihanSudahDibayarException {
+		if (session == null || !session.isOpen()) {
+			throw new IllegalStateException("Session database tidak tersedia untuk memeriksa status pembayaran.");
+		}
+		if ((mahasiswa == null || mahasiswa.getId() == null)
+				&& (calonMahasiswa == null || calonMahasiswa.getId() == null)) {
+			return;
+		}
+
+		Criteria criteria = session.createCriteria(VirtualAccountBank.class)
+				.add(Restrictions.isNotNull("kegiatan"))
+				.add(Restrictions.or(Restrictions.isNull("terjadiKendala"),
+						Restrictions.eq("terjadiKendala", false)))
+				.add(mahasiswa != null && mahasiswa.getId() != null
+						? Restrictions.eq("mahasiswa", mahasiswa)
+						: Restrictions.eq("biodataCalonMahasiswa", calonMahasiswa))
+				.add(semester == null ? Restrictions.isNull("semester") : Restrictions.eq("semester", semester))
+				.add(jenisKegiatan == null ? Restrictions.isNull("jenisKegiatan")
+						: Restrictions.eq("jenisKegiatan", jenisKegiatan))
+				.add(jadwalPembayaran == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("jadwalPembayaran", jadwalPembayaran))
+				.addOrder(Order.desc("id")).setMaxResults(100);
+
+		List<VirtualAccountBank> pembayaranSebelumnya = criteria.list();
+		for (VirtualAccountBank pembayaran : pembayaranSebelumnya) {
+			if (!tagihanSama(pembayaran, keterangan, cicilan, detailBiaya, total)) {
+				continue;
+			}
+			String waktu = pembayaran.getWaktuBayar() == null ? ""
+					: " pada " + Common.dateFormat3.get().format(pembayaran.getWaktuBayar());
+			throw new TagihanSudahDibayarException(
+					"Tagihan ini sudah dibayar menggunakan VA " + pembayaran.getKode() + waktu
+							+ ". VA baru tidak dibuat. Jika status tersebut tidak sesuai mutasi bank, koreksi dahulu melalui menu Virtual Account.");
+		}
+	}
+
+	private static boolean tagihanSama(VirtualAccountBank pembayaran, String keterangan, String cicilan,
+			String detailBiaya, Double total) {
+		String ketBaru = normalisasiKeterangan(keterangan);
+		String ketLama = normalisasiKeterangan(pembayaran.getKeterangan());
+		if (!ketBaru.isEmpty() && ketBaru.equals(ketLama)) {
+			return true;
+		}
+
+		String cicilanBaru = normalisasiToken(cicilan);
+		String cicilanLama = normalisasiToken(pembayaran.getCicilan());
+		if (!cicilanBaru.isEmpty() && cicilanBaru.equals(cicilanLama)) {
+			return true;
+		}
+
+		String detailBaru = normalisasiToken(detailBiaya);
+		String detailLama = normalisasiToken(pembayaran.getDetailbiaya());
+		double nilaiBaru = total == null ? 0.0 : total.doubleValue();
+		double nilaiLama = pembayaran.getTotal() == null ? 0.0 : pembayaran.getTotal().doubleValue();
+		return !detailBaru.isEmpty() && detailBaru.equals(detailLama)
+				&& Math.abs(nilaiBaru - nilaiLama) < 0.01;
+	}
+
+	private static String normalisasiKeterangan(String nilai) {
+		if (nilai == null) {
+			return "";
+		}
+		return nilai.toLowerCase().replace("qris:true", "").replace("finpay:true", "")
+				.replaceAll("\\s+", "").trim();
+	}
+
+	private static String normalisasiToken(String nilai) {
+		if (nilai == null || nilai.trim().isEmpty()) {
+			return "";
+		}
+		TreeSet<String> token = new TreeSet<String>();
+		for (String bagian : nilai.split(",")) {
+			if (bagian != null && !bagian.trim().isEmpty()) {
+				token.add(bagian.trim().toLowerCase());
+			}
+		}
+		return token.toString();
 	}
 
 

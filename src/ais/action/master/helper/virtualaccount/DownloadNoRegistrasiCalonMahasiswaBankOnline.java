@@ -232,6 +232,10 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 			}
 		}
 
+		MahasiswaVirtualAccountHelper.pastikanTagihanBelumDibayar(session, null, biodataCalonMahasiswa, 0,
+				myjadwalPembayaran == null ? null : myjadwalPembayaran.getJenisKegiatan(), myjadwalPembayaran,
+				pemb + (qris ? "qris:true" : ""), cicilan, detailbiaya, total);
+
 		VirtualAccountBank virtualAccountBankOnline = (VirtualAccountBank) session
 				.createCriteria(VirtualAccountBank.class).add(Restrictions.eq("terjadiKendala", false))
 				.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
