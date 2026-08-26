@@ -44,6 +44,7 @@ import org.zkoss.zul.Vbox;
 import org.zkoss.zul.Window;
 
 import ais.common.ChecklistPenilaianHelper;
+import ais.common.AngketBelumDiisiFilter;
 import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.ConstantValues;
@@ -57,6 +58,7 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.SubGrupChecklistPenilaianUmum;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -73,6 +75,8 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 	 */
 	private static final long serialVersionUID = -5779730267402400328L;
 	private MyWindow addWindow;
+	private final List<Component> pertanyaanFilter = new ArrayList<Component>();
+	private MyCheckboxConfig tampilBelumDiisi;
 	private Paging paging;
 	private MyGrid grid;
 	private Mahasiswa mahasiswa;
@@ -311,6 +315,7 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 			Row groupboxRow, String diperuntukkan, final EventListener eventListener, boolean tampilSimpan,
 			boolean refresh) throws Exception {
 		Common.clear(groupboxRow);
+		pertanyaanFilter.clear();
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
 		grid.setParent(groupboxRow);
@@ -573,6 +578,8 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 				};
 				keterangan.addEventListener("onChange", listener);
 				radiogroup.addEventListener("onCheck", listener);
+				AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
+						tampilBelumDiisi, radiogroup, keterangan);
 			}
 
 		}
@@ -584,6 +591,7 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 			final boolean tampilSimpan, boolean refresh) throws Exception {
 
 		Div groupbox = new Div();
+		tampilBelumDiisi = AngketBelumDiisiFilter.create(pertanyaanFilter);
 
 		final Row groupboxRow = Common.tampilanScroll1(groupbox);
 
@@ -630,6 +638,8 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 				}
 			});
 			cancel.setParent(toolbar);
+
+			tampilBelumDiisi.setParent(toolbar);
 
 			cancel = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 			cancel.setTooltiptext("Refresh");

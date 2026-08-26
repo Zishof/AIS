@@ -53,6 +53,7 @@ import org.zkoss.zul.Window;
 import ais.action.master.helper.IsiAngketParameterUmumListener;
 import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.ChecklistPenilaianHelper;
+import ais.common.AngketBelumDiisiFilter;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -74,6 +75,7 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -87,6 +89,8 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 
 	private static final long serialVersionUID = -5779730267402400328L;
 	private MyWindow addWindow;
+	private final List<Component> pertanyaanFilter = new ArrayList<Component>();
+	private MyCheckboxConfig tampilBelumDiisi;
 	private Paging paging;
 	private MyGrid grid;
 	private Mahasiswa mahasiswa;
@@ -794,6 +798,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 			final EventListener eventListener, boolean tampilSimpan, boolean refresh) throws Exception {
 		
 		Common.clear(groupboxRow);
+		pertanyaanFilter.clear();
 		MyGrid gridData = new MyGrid();
 		gridData.setWidth("100%");
 		gridData.setParent(groupboxRow);
@@ -1018,6 +1023,8 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 					};
 					keterangan.addEventListener("onChange", listener);
 					radiogroup.addEventListener("onCheck", listener);
+					AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
+							tampilBelumDiisi, radiogroup, keterangan);
 				}
 
 				IsiAngketParameterUmum isiAngketParameterUmum = (IsiAngketParameterUmum) session
@@ -1098,6 +1105,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 			final Window addWindow, final EventListener eventListener, final boolean tampilSimpan, boolean refresh) {
 
 		data.clear();
+		tampilBelumDiisi = AngketBelumDiisiFilter.create(pertanyaanFilter);
 		Div groupbox = new Div();
 		groupbox.setWidth("100%");
 		groupbox.setStyle("overflow:visible; box-sizing:border-box;");
@@ -1177,6 +1185,8 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 				}
 			});
 			cancel.setParent(toolbar);
+
+			tampilBelumDiisi.setParent(toolbar);
 
 			cancel = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 			cancel.setTooltiptext("Refresh");
