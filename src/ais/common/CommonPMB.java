@@ -1753,32 +1753,53 @@ public class CommonPMB {
 	            if (!izinkanNimDenganTandaHubung) {
 	            	return "";
 	            }
+	            String nimSebelum = calonMahasiswa.getNim();
+	            Mahasiswa mahasiswaSebelum = calonMahasiswa.getMahasiswa();
+	            Integer nimGeneratedSebelum = calonMahasiswa.getNimGenerated();
 	            calonMahasiswa.setNim(nim);
-	            
-	            Session session = null;
-	            try {
-	                // Hindari currentSession() untuk mencegah tumpang tindih state hibernate jika dipanggil berulang
-	                session = HibernateUtil.getSessionFactory().openSession();
-	                Transaction tx = session.beginTransaction();
-	                
-	                Mahasiswa mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false,
-	                		izinkanNimDenganTandaHubung);
-	                CommonPMB.copyLampiran(calonMahasiswa, mahasiswa);
-	                
-	                tx.commit();
 
-	                // Generate PDF setelah berhasil disimpan
+	            Session session = null;
+	            Transaction tx = null;
+	            Mahasiswa mahasiswa = null;
+	            try {
+	                // Hindari currentSession() untuk mencegah tumpang tindih state hibernate jika dipanggil berulang.
+	                session = HibernateUtil.getSessionFactory().openSession();
+	                tx = session.beginTransaction();
+
+	                mahasiswa = CommonPMB.saveMahasiswa(session, calonMahasiswa, nim, false,
+	                		izinkanNimDenganTandaHubung);
+	                tx.commit();
+	                tx = null;
+	            } catch (Exception e) {
+	                if (tx != null && tx.isActive()) {
+	                    try {
+	                        tx.rollback();
+	                    } catch (Exception rollbackError) {
+	                        ais.common.ErrorAuditUtil.record(rollbackError,
+	                                "CommonPMB.onGenerateNim rollback");
+	                    }
+	                }
+	                calonMahasiswa.setNim(nimSebelum);
+	                calonMahasiswa.setMahasiswa(mahasiswaSebelum);
+	                calonMahasiswa.setNimGenerated(nimGeneratedSebelum);
+	                ais.common.ErrorAuditUtil.record(e, "CommonPMB.onGenerateNim simpan NIM");
+	                throw e;
+	            } finally {
+	                tutupSessionLokal(session);
+	            }
+
+	            // Salin lampiran hanya setelah mahasiswa sudah committed, agar session terpisah
+	            // dapat melihat baris mahasiswa dan tidak menabrak foreign-key/transaksi yang belum selesai.
+	            CommonPMB.copyLampiran(calonMahasiswa, mahasiswa);
+
+	            try {
 	                Map<String, Serializable> parameters = ais.common.HashMapGenerator.getRandStringSerializable();
 	                parameters.put("nim", mahasiswa.getNim());
 	                mahasiswa.putPhoto(parameters);
-
 	                Report.generatePDFReport(Report.PDF, parameters, "Biodata_Nim", ais.ui.util.WaktuUtil.getDate());
-	            } catch (Exception e) {
-	                e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonPMB.java:1360");
-	            } finally {
-	                if (session != null) {
-	                    session.close();
-	                }
+	            } catch (Exception reportError) {
+	                // NIM sudah sah tersimpan; kegagalan PDF tidak boleh membatalkan atau menyamarkan hasil tersebut.
+	                ais.common.ErrorAuditUtil.record(reportError, "CommonPMB.onGenerateNim cetak PDF");
 	            }
 	            return nim;
 	        }

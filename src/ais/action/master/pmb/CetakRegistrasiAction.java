@@ -2793,6 +2793,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 
 	public static void singkronkanDenganNim(Long id, Label label, int index, int size) {
 		Session session = null;
+		Transaction tx = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 
@@ -2809,6 +2810,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			}
 
 			if (berhasil) {
+				tx = session.beginTransaction();
 				kegiatanDaftarUlang = KegiatanHelper.checkKegiatanCalonMahasiswa(jenisKegiatan, biodataCalonMahasiswa,
 						1, biodataCalonMahasiswa.getTahunAkademik(), true, false, null, session);
 
@@ -2825,9 +2827,19 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				sql2.append(" where id=").append(id);
 
 				session.createSQLQuery(sql2.toString()).executeUpdate();
+				tx.commit();
+				tx = null;
 			}
 
 		} catch (Exception e) {
+			if (tx != null && tx.isActive()) {
+				try {
+					tx.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"CetakRegistrasiAction.singkronkanDenganNim rollback");
+				}
+			}
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		} finally {
 			if (session != null && session.isOpen()) {
@@ -3781,10 +3793,29 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					NimGenerator nimGenerator = (NimGenerator) Class.forName(Common
-							.getKonfigurasi("class_untuk_generate_nim", "ais.action.master.pmb.nim.DefaultNimGenerator")
-							.getNilai().trim()).newInstance();
-					CommonPMB.onGenerateNim(calonMahasiswa, nimGenerator);
+					try {
+						NimGenerator nimGenerator = (NimGenerator) Class.forName(Common
+								.getKonfigurasi("class_untuk_generate_nim", "ais.action.master.pmb.nim.DefaultNimGenerator")
+								.getNilai().trim()).newInstance();
+						String nimHasil = CommonPMB.onGenerateNim(calonMahasiswa, nimGenerator);
+						if (nimHasil == null || nimHasil.trim().isEmpty()) {
+							return;
+						}
+						onSearchDefault(null);
+						MyMessageboxConfig.showFormat(
+								"NIM berhasil diproses untuk {V1}. NIM: {V2}. Daftar calon mahasiswa telah diperbarui.",
+								"Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+								calonMahasiswa.getNama(), nimHasil);
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e,
+								"CetakRegistrasiAction tombol NIM calon=" + calonMahasiswa.getId());
+						Common.tampilErrorJikaAdmin(e);
+						MyMessageboxConfig.showFormat(
+								"NIM belum berhasil dibuat untuk {V1}. Penyebab: {V2}. Periksa kelengkapan prodi lulus dan konfigurasi format NIM, lalu ulangi proses.",
+								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR,
+								calonMahasiswa.getNama(),
+								e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+					}
 				}
 			});
 			aksiButtons.add(button);

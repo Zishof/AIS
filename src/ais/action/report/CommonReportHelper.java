@@ -680,20 +680,20 @@ public class CommonReportHelper {
 		return false;
 	}
 
-	private static void genNim(Kegiatan kegiatan) {
+	private static boolean genNim(Kegiatan kegiatan) {
 		if (kegiatan == null || kegiatan.getCalonMahasiswa() == null) {
-			return;
+			return false;
 		}
 
 		BiodataCalonMahasiswa calonMahasiswaAwal = kegiatan.getCalonMahasiswa();
 		if (calonMahasiswaAwal.getMahasiswa() != null) {
-			return;
+			return true;
 		}
 
 		boolean wajibBayar = Common.bolehKonfigurasi("calon_mahasiswa_baru_otomatis_mendapatkan_nim_saat_mahasiswa_melunasi_pembayaran_pembayaran_daftar_ulang", Konfigurasi.TIDAK_AKTIF);
 
 		if (wajibBayar && kegiatan.getDibayar() <= 100000.0) {
-			return;
+			return false;
 		}
 
 		Mahasiswa mahasiswa = null;
@@ -719,11 +719,11 @@ public class CommonReportHelper {
 							calonMahasiswaAwal.getId());
 				}
 				if (calonMahasiswa == null) {
-					return;
+					return false;
 				}
 				if (calonMahasiswa.getMahasiswa() != null) {
 					calonMahasiswaAwal.setMahasiswa(calonMahasiswa.getMahasiswa());
-					return;
+					return true;
 				}
 
 				String nimGenClassName = Common
@@ -779,7 +779,7 @@ public class CommonReportHelper {
 					Common.tampilErrorJikaAdmin(e);
 					ais.common.ErrorAuditUtil.record(e,
 							"auto-audit genNim habis retry (kegiatan=" + kegiatan.getId() + ")");
-					return;
+					return false;
 				}
 			} finally {
 				ais.action.report.Report.closeNativeSession(session);
@@ -789,7 +789,7 @@ public class CommonReportHelper {
 		if (lastException != null) {
 			// Tidak seharusnya sampai sini (sudah ditangani di atas), tapi jaga-jaga agar tidak
 			// melempar exception ke pemanggil (AuditListener$8) bila retry tetap habis.
-			return;
+			return false;
 		}
 
 		try {
@@ -806,6 +806,7 @@ public class CommonReportHelper {
 						"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
 					});
 		}
+		return mahasiswa != null && mahasiswa.getId() != null;
 	}
 
 	public static boolean checkGenNim(Kegiatan kegiatan) {
@@ -939,7 +940,7 @@ public class CommonReportHelper {
 				if (debug)
 					System.out
 							.println("[DEBUG] AKSI: Generate NIM (Syarat lunas terpenuhi & belum ada data mahasiswa)");
-				genNim(kegiatan);
+				berhasil = genNim(kegiatan);
 				if (debug)
 					System.out.println("[DEBUG] Generate NIM selesai dipanggil.");
 
