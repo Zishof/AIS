@@ -60,10 +60,10 @@ public final class PesantrenLandingService {
             if (valid(yayasan)) {
                 sekolahs = session.createCriteria(Sekolah.class)
                         .add(Restrictions.eq("yayasan", yayasan))
-                        .add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
+                        .add(Restrictions.eq("aktif", Boolean.TRUE))
                         .addOrder(Order.asc("nama")).list();
             } else if (valid(sekolahKonteks)) {
-                Sekolah loaded = (Sekolah) session.get(Sekolah.class, sekolahKonteks.getId());
+                Sekolah loaded = loadSekolahAktif(session, sekolahKonteks.getId());
                 if (loaded != null) {
                     sekolahs.add(loaded);
                 }
@@ -143,19 +143,39 @@ public final class PesantrenLandingService {
         for (Sekolah sekolah : sekolahs) {
             PerguruanTinggi pt = sekolah == null ? null : sekolah.getPerguruanTinggi();
             if (valid(pt) && ids.add(pt.getId())) {
-                PerguruanTinggi loaded = (PerguruanTinggi) session.get(PerguruanTinggi.class, pt.getId());
-                if (loaded != null && Boolean.TRUE.equals(loaded.getAktif())) {
+                PerguruanTinggi loaded = loadPerguruanTinggiAktif(session, pt.getId());
+                if (loaded != null) {
                     hasil.add(loaded);
                 }
             }
         }
         if (valid(ptKonteks) && ids.add(ptKonteks.getId())) {
-            PerguruanTinggi loaded = (PerguruanTinggi) session.get(PerguruanTinggi.class, ptKonteks.getId());
-            if (loaded != null && Boolean.TRUE.equals(loaded.getAktif())) {
+            PerguruanTinggi loaded = loadPerguruanTinggiAktif(session, ptKonteks.getId());
+            if (loaded != null) {
                 hasil.add(loaded);
             }
         }
         return hasil;
+    }
+
+    private static Sekolah loadSekolahAktif(Session session, Long id) {
+        if (session == null || id == null) {
+            return null;
+        }
+        return (Sekolah) session.createCriteria(Sekolah.class)
+                .add(Restrictions.eq("id", id))
+                .add(Restrictions.eq("aktif", Boolean.TRUE))
+                .setMaxResults(1).uniqueResult();
+    }
+
+    private static PerguruanTinggi loadPerguruanTinggiAktif(Session session, Long id) {
+        if (session == null || id == null) {
+            return null;
+        }
+        return (PerguruanTinggi) session.createCriteria(PerguruanTinggi.class)
+                .add(Restrictions.eq("id", id))
+                .add(Restrictions.eq("aktif", Boolean.TRUE))
+                .setMaxResults(1).uniqueResult();
     }
 
     private static List<UnitPendidikan> sekolahDtos(List<Sekolah> sekolahs, String root) {
