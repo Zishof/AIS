@@ -1803,6 +1803,15 @@ public class InitDataHelper {
 						.add(Restrictions.ilike("nama", "Baru", MatchMode.START)).addOrder(Order.asc("nama"))
 						.setMaxResults(1).uniqueResult();
 			}
+			if (ConstantValues.BARU == null) {
+				ConstantValues.BARU = new StatusAwalMahasiswa();
+				ConstantValues.BARU.setKode("");
+				ConstantValues.BARU.setNama("Baru");
+
+				session.getTransaction().begin();
+				session.save(ConstantValues.BARU);
+				session.getTransaction().commit();
+			}
 
 			ConstantValues.BARU_SISWA = (StatusAwalSiswa) session.createCriteria(StatusAwalSiswa.class).add(Restrictions
 					.or(Restrictions.ilike("nama", "Baru"), Restrictions.ilike("nama", "Peserta didik baru")))
