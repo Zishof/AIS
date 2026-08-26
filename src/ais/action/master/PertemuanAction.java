@@ -17,6 +17,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.util.PDFMergerUtility;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Projections;
@@ -1004,9 +1005,10 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					List<Perkuliahan> perkuliahans = initCriteria(true).list();
-					String cookie = DspaceCommon.login();
-					DspaceHelper.exportDisplayPilihan(cookie, perkuliahans, null, null, null, null, null,
+					try {
+						List<Perkuliahan> perkuliahans = initCriteria(true).list();
+						String cookie = DspaceCommon.login();
+						DspaceHelper.exportDisplayPilihan(cookie, perkuliahans, null, null, null, null, null,
 							new EventListener() {
 
 								@Override
@@ -1015,6 +1017,10 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 									LogLoginAction.tampilDpsaceLog();
 								}
 							});
+					} catch (Exception koneksiDspace) {
+						MyMessageboxConfig.show(DspaceCommon.pesanKoneksi(koneksiDspace), "Peringatan",
+								MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					}
 				}
 			});
 
@@ -1069,14 +1075,24 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 															int i = DspaceInformation.delete(cookie,
 																	"items/" + dspaceInformation.getUuid(),
 																	dspaceInformation.getPostInfo());
-															if (i == 200) {
+													if (i == 200) {
 
-																Session session = HibernateUtil.currentNativeSession();
-																session.getTransaction().begin();
-																session.delete(dspaceInformation);
-																session.getTransaction().commit();
-																HibernateUtil.closeSession();
+														Session session = null;
+														Transaction transaction = null;
+														try {
+															session = HibernateUtil.currentNativeSession();
+															transaction = session.beginTransaction();
+															session.delete(dspaceInformation);
+															transaction.commit();
+															transaction = null;
+														} finally {
+															if (transaction != null && transaction.isActive()) {
+																try { transaction.rollback(); } catch (Exception ignored) { }
 															}
+															HibernateUtil.closeSessionQuietly(session);
+															HibernateUtil.closeSession();
+														}
+													}
 														}
 													}
 												} catch (Exception e) {
@@ -1233,7 +1249,7 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 							CommonReport.tampilkanReportPDF(center, filePdfBaru);
 						}
 						} finally {
-							try { session.clear(); session.close(); } catch (Exception eignore) { ais.common.ErrorAuditUtil.record(eignore, "auto-audit(empty-catch) src/ais/action/master/PertemuanAction.java:1224");}
+							HibernateUtil.closeSessionQuietly(session);
 						}
 					}
 				});

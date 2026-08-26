@@ -447,20 +447,7 @@ public class LaporanKartuMahasiswa extends MyWindow {
 			}
 		}
 
-		int masaKartuMahasiswa = 4;
-		String konfigurasiMasa = Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa",
-				masaKartuMahasiswa + "").getNilai();
-		try {
-			int hasilBaca = Integer.parseInt(konfigurasiMasa == null ? "" : konfigurasiMasa.trim());
-			/* Masa kartu adalah jumlah TAHUN, bukan tanggal kalender. Batasi nilai
-			 * tidak masuk akal agar konfigurasi lama seperti "31 Desember 2025"
-			 * tidak menggagalkan seluruh proses cetak. */
-			if (hasilBaca > 0 && hasilBaca <= 20) {
-				masaKartuMahasiswa = hasilBaca;
-			}
-		} catch (NumberFormatException konfigurasiTidakValid) {
-			// Pertahankan bawaan 4 tahun; laporan tetap dapat diterbitkan.
-		}
+		int masaKartuMahasiswa = ambilMasaBerlakuKartuMahasiswa();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(tanggal.getValue());
@@ -479,6 +466,28 @@ public class LaporanKartuMahasiswa extends MyWindow {
 		parameters.put("depan", depan.isChecked());
 		parameters.put("maps", list);
 		return parameters;
+	}
+
+	/**
+	 * Membaca satu sumber konfigurasi masa berlaku KTM untuk seluruh jalur cetak.
+	 * Nilai lama berbentuk kalimat (mis. "Berlaku Selama Menjadi Mahasiswa Aktif")
+	 * bukan angka tahun, sehingga harus kembali ke bawaan tanpa menghasilkan error log.
+	 */
+	public static int ambilMasaBerlakuKartuMahasiswa() {
+		final int bawaan = 4;
+		try {
+			String nilai = Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", String.valueOf(bawaan)).getNilai();
+			return parseMasaBerlakuKartuMahasiswa(nilai);
+		} catch (Exception konfigurasiTidakTersedia) {
+			return bawaan;
+		}
+	}
+
+	public static int parseMasaBerlakuKartuMahasiswa(String nilai) {
+		final int bawaan = 4;
+		double angka = Common.parseAngkaKonfigurasi(nilai, bawaan);
+		int tahun = (int) angka;
+		return angka == tahun && tahun > 0 && tahun <= 20 ? tahun : bawaan;
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

@@ -78,10 +78,7 @@
             PDFMergerUtility ut = new PDFMergerUtility();
             ut.addSource(fileSkl);
 
-            int masaKartuMahasiswa = 4;
-            try {
-                masaKartuMahasiswa = Integer.parseInt(Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", masaKartuMahasiswa + "").getNilai());
-            } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pmb/_cetak_bukti_diterima.jsp:84");}
+            int masaKartuMahasiswa = LaporanKartuMahasiswa.ambilMasaBerlakuKartuMahasiswa();
 
             Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
             try {

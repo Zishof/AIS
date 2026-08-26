@@ -42,10 +42,7 @@
         Mahasiswa mahasiswa = calonMahasiswa.getMahasiswa();
 
         // 1. Perhitungan Masa Berlaku Kartu Mahasiswa
-        int masaKartuMahasiswa = 4;
-        try {
-            masaKartuMahasiswa = Integer.parseInt(Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", masaKartuMahasiswa + "").getNilai());
-        } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pmb/_cetak_e_ktm.jsp:48");}
+        int masaKartuMahasiswa = LaporanKartuMahasiswa.ambilMasaBerlakuKartuMahasiswa();
 
         Calendar calendar = WaktuUtil.getCalendar();
         try {

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.json.JSONObject;
 
 import ais.database.hibernate.HibernateUtil;
@@ -27,7 +28,11 @@ import ais.database.model.DspaceLog;
 public class URLCommon {
 	public static Map<String, List<String>> getPostResponseHeader(String urlStr, String postData) throws Exception {
 		URL url = new URL(urlStr);
-		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+		HttpURLConnection con = null;
+		DataOutputStream output = null;
+		DataInputStream input = null;
+		try {
+			con = (HttpURLConnection) url.openConnection();
 
 		// CURLOPT_POST
 		con.setRequestMethod("POST");
@@ -35,7 +40,8 @@ public class URLCommon {
 		// CURLOPT_FOLLOWLOCATION
 		con.setInstanceFollowRedirects(true);
 
-		con.setRequestProperty("Content-length", String.valueOf(postData.length()));
+		byte[] postBytes = (postData == null ? "" : postData).getBytes("UTF-8");
+		con.setRequestProperty("Content-length", String.valueOf(postBytes.length));
 		/*
 		 * Cloudflare error 1010 menolak signature User-Agent bot/custom walaupun
 		 * request berasal dari server eCampus yang sah. Gunakan signature browser
@@ -55,26 +61,24 @@ public class URLCommon {
 		con.setDoOutput(true);
 		con.setDoInput(true);
 
-		DataOutputStream output = new DataOutputStream(con.getOutputStream());
-		output.writeBytes(postData);
-		output.close();
+		output = new DataOutputStream(con.getOutputStream());
+		output.write(postBytes);
+		output.flush();
 
 		int status = con.getResponseCode();
 		InputStream responseStream = status >= 400 ? con.getErrorStream() : con.getInputStream();
 		if (responseStream == null) {
 			responseStream = con.getInputStream();
 		}
-		DataInputStream input = new DataInputStream(responseStream);
+		input = new DataInputStream(responseStream);
 		int c;
 		StringBuilder resultBuf = new StringBuilder();
 		while ((c = input.read()) != -1) {
 			resultBuf.append((char) c);
 		}
-		input.close();
-
 		if (status >= 400) {
 			String responseRingkas = ringkasResponse(resultBuf.toString());
-			String petunjukWaf = status == 403 && responseRingkas.toLowerCase().indexOf("error code: 1010") >= 0
+			String petunjukWaf = status == 403 && isCloudflareResponse(responseRingkas)
 					? " Atur dspace_private_url ke alamat internal DSpace yang tidak melewati Cloudflare/WAF."
 					: "";
 			throw new IOException("POST " + urlStr + " gagal. HTTP " + status + " " + con.getResponseMessage()
@@ -83,6 +87,29 @@ public class URLCommon {
 
 		Map<String, List<String>> map = con.getHeaderFields();
 		return map;
+		} finally {
+			if (input != null) {
+				try { input.close(); } catch (Exception ignored) { }
+			}
+			if (output != null) {
+				try { output.close(); } catch (Exception ignored) { }
+			}
+			if (con != null) {
+				con.disconnect();
+			}
+		}
+	}
+
+	private static boolean isCloudflareResponse(String response) {
+		String isi = response == null ? "" : response.toLowerCase();
+		return isi.indexOf("cloudflare") >= 0 || isi.indexOf("challenges.cloudflare.com") >= 0
+				|| isi.indexOf("just a moment") >= 0 || isi.indexOf("error code: 1010") >= 0;
+	}
+
+	public static boolean isWafForbidden(Exception exception) {
+		String pesan = exception == null || exception.getMessage() == null ? ""
+				: exception.getMessage().toLowerCase();
+		return pesan.indexOf("http 403") >= 0 && isCloudflareResponse(pesan);
 	}
 
 	private static String ringkasResponse(String response) {
@@ -167,11 +194,7 @@ public class URLCommon {
 			dspaceLog.setError(e.getMessage());
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
-		session.getTransaction().begin();
-		session.save(dspaceLog);
-		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		simpanDspaceLog(dspaceLog);
 
 		return jsonObject;
 	}
@@ -380,11 +403,7 @@ public class URLCommon {
 			dspaceLog.setError(e.getMessage());
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
-		session.getTransaction().begin();
-		session.save(dspaceLog);
-		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		simpanDspaceLog(dspaceLog);
 
 		return jsonObject;
 	}
@@ -486,11 +505,7 @@ public class URLCommon {
 			dspaceLog.setError(e.getMessage());
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
-		session.getTransaction().begin();
-		session.save(dspaceLog);
-		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		simpanDspaceLog(dspaceLog);
 
 		return jsonObject;
 	}
@@ -539,11 +554,7 @@ public class URLCommon {
 			dspaceLog.setError(e.getMessage());
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
-		session.getTransaction().begin();
-		session.save(dspaceLog);
-		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		simpanDspaceLog(dspaceLog);
 		return code;
 	}
 
@@ -584,11 +595,27 @@ public class URLCommon {
 			dspaceLog.setError(e.getMessage());
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
-		session.getTransaction().begin();
-		session.save(dspaceLog);
-		session.getTransaction().commit();
-		HibernateUtil.closeSession();
+		simpanDspaceLog(dspaceLog);
 		return code;
+	}
+
+	private static void simpanDspaceLog(DspaceLog dspaceLog) throws Exception {
+		Session session = null;
+		Transaction transaction = null;
+		try {
+			session = HibernateUtil.currentNativeSession();
+			transaction = session.beginTransaction();
+			session.save(dspaceLog);
+			transaction.commit();
+			transaction = null;
+		} finally {
+			if (transaction != null && transaction.isActive()) {
+				try { transaction.rollback(); } catch (Exception ignored) { }
+			}
+			// currentNativeSession dibuka/dimiliki jalur integrasi ini, maka wajib
+			// dibersihkan tuntas agar koneksi tidak tertinggal idle in transaction.
+			HibernateUtil.closeSessionQuietly(session);
+			HibernateUtil.closeSession();
+		}
 	}
 }

@@ -226,19 +226,7 @@ public class LaporanKartuMahasiswaPerJurusan extends MyWindow {
 			}
 		}
 
-		int masaKartuMahasiswa = 4;
-		try {
-			masaKartuMahasiswa = Integer.parseInt(
-					Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", masaKartuMahasiswa + "").getNilai());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanKartuMahasiswaPerJurusan.java:226");
-			PesanFormalHelper.tampilkanGagalException("pemrosesan Laporan Kartu Mahasiswa Per Jurusan", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-				new String[] {
-					"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-					"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-				});
-
-		}
+		int masaKartuMahasiswa = LaporanKartuMahasiswa.ambilMasaBerlakuKartuMahasiswa();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(tanggal.getValue());

@@ -1,6 +1,7 @@
 package ais.ui.dspace;
 
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -10,6 +11,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -175,32 +177,103 @@ public class DspaceCommon {
 	}
 
 	public static String login() throws Exception {
-
 		String username = Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com").getNilai();
 		String password = Common.getKonfigurasi("dspace_password", "jangannakal").getNilai();
 		String postData = "email=" + URLEncoder.encode(username == null ? "" : username, "UTF-8")
 				+ "&password=" + URLEncoder.encode(password == null ? "" : password, "UTF-8");
 
-		String urlStr = ConstantValues.DSPACE_URL_PRIVATE + "/login";
+		String alamatUtama = rapikanAlamat(ConstantValues.DSPACE_URL_PRIVATE);
+		String alamatInternal = rapikanAlamat(Common
+				.getKonfigurasi("dspace_private_url_internal", "").getNilai());
+		List<String> alamatLogin = new ArrayList<String>();
+		if (alamatInternal.length() > 0) {
+			alamatLogin.add(alamatInternal);
+		}
+		if (alamatUtama.length() > 0 && !alamatLogin.contains(alamatUtama)) {
+			alamatLogin.add(alamatUtama);
+		}
 
+		IOException wafTerakhir = null;
+		for (String alamat : alamatLogin) {
+			try {
+				String cookie = loginKeAlamat(alamat, postData);
+				// Semua operasi DSpace berikutnya harus memakai endpoint yang sama dengan
+				// endpoint login yang berhasil agar cookie sesi tetap berlaku.
+				ConstantValues.DSPACE_URL_PRIVATE = alamat;
+				return cookie;
+			} catch (IOException gagalLogin) {
+				if (URLCommon.isWafForbidden(gagalLogin)) {
+					wafTerakhir = gagalLogin;
+					continue;
+				}
+				throw gagalLogin;
+			}
+		}
+		if (wafTerakhir != null) {
+			throw new IOException("Login DSpace ditolak Cloudflare/WAF. Isi konfigurasi "
+					+ "dspace_private_url_internal dengan alamat REST DSpace yang dapat diakses "
+					+ "langsung dari server eCampus, tanpa proxy publik Cloudflare.");
+		}
+		throw new IOException("Alamat DSpace belum dikonfigurasi. Isi dspace_private_url atau "
+				+ "dspace_private_url_internal.");
+	}
+
+	private static String loginKeAlamat(String alamat, String postData) throws IOException {
+		String urlStr = alamat + "/login";
 		String cookie = "";
-		Map<String, List<String>> map = URLCommon.getPostResponseHeader(urlStr, postData);
+		Map<String, List<String>> map;
+		try {
+			map = URLCommon.getPostResponseHeader(urlStr, postData);
+		} catch (IOException koneksi) {
+			throw koneksi;
+		} catch (Exception koneksi) {
+			throw new IOException("Login DSpace gagal pada " + urlStr + ".", koneksi);
+		}
 		for (Map.Entry<String, List<String>> entry : map.entrySet()) {
 			String key = entry.getKey();
-			String value = entry.getValue() + "";
 			if (key != null && key.equalsIgnoreCase("Set-Cookie")) {
-				System.out.println("value = " + value);
-				cookie = StringUtils.split(value, "=")[1].split(";")[0];
+				List<String> values = entry.getValue();
+				if (values == null) {
+					continue;
+				}
+				for (String value : values) {
+					if (value == null) {
+						continue;
+					}
+					String[] bagian = value.split(";", 2);
+					String pasangan = bagian.length == 0 ? "" : bagian[0];
+					int samaDengan = pasangan.indexOf('=');
+					if (samaDengan > 0 && "JSESSIONID".equalsIgnoreCase(pasangan.substring(0, samaDengan).trim())) {
+						cookie = pasangan.substring(samaDengan + 1).trim();
+					}
+				}
 			}
 		}
 		if (cookie == null || cookie.trim().length() == 0) {
-			throw new java.io.IOException(
+			throw new IOException(
 					"Login DSpace tidak mengembalikan cookie sesi. Periksa dspace_private_url dan kredensial DSpace.");
 		}
-
-		System.out.println("cookie = " + cookie);
 		return cookie;
+	}
 
+	private static String rapikanAlamat(String alamat) {
+		String hasil = alamat == null ? "" : alamat.trim();
+		while (hasil.endsWith("/")) {
+			hasil = hasil.substring(0, hasil.length() - 1);
+		}
+		return hasil;
+	}
+
+	public static String pesanKoneksi(Exception exception) {
+		if (URLCommon.isWafForbidden(exception)
+				|| (exception != null && exception.getMessage() != null
+						&& exception.getMessage().indexOf("Cloudflare/WAF") >= 0)) {
+			return "Koneksi ke repository DSpace ditolak oleh pengaman Cloudflare. "
+					+ "Administrator perlu mengisi konfigurasi dspace_private_url_internal "
+					+ "dengan alamat REST internal DSpace, lalu ulangi proses.";
+		}
+		return "Koneksi ke repository DSpace gagal. Periksa alamat REST internal, "
+				+ "username, password, dan ketersediaan layanan DSpace.";
 	}
 
 }

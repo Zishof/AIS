@@ -1965,19 +1965,7 @@ public class CommonReportHelper {
 			PDFMergerUtility ut = new PDFMergerUtility();
 			ut.addSource(file);
 
-			int masaKartuMahasiswa = 4;
-			try {
-				masaKartuMahasiswa = Integer.parseInt(
-						Common.getKonfigurasi("masa_berlaku_kartu_mahasiswa", masaKartuMahasiswa + "").getNilai());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:1621");
-				PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Common Report Helper", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
-					new String[] {
-						"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
-						"Pastikan data yang menjadi sumber laporan ini sudah lengkap dan benar, kemudian coba cetak ulang.",
-						"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-					});
-
-			}
+			int masaKartuMahasiswa = LaporanKartuMahasiswa.ambilMasaBerlakuKartuMahasiswa();
 
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			try {
