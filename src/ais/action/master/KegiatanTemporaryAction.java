@@ -390,6 +390,7 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 				});
 
 		setupKeranjangBankOnline();
+		setupKeranjangSmartlink();
 
 		setupKeranjangGateway("aktifkan_pembayaran_via_bsi", BsiCommon.createButton(), "bsi_biaya_administrasi",
 				new KeranjangGatewayExecutor() {
@@ -453,11 +454,25 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void setupKeranjangBankOnline() {
-		boolean aktif = Konfigurasi.AKTIF.equals(Common
-				.getKonfigurasi("aktifkan_pembayaran_via_bank_online", Konfigurasi.TIDAK_AKTIF).getNilai());
+		setupKeranjangBankOnlineGateway("aktifkan_pembayaran_via_bank_online", "BAYAR ONLINE", null,
+				"online_bank_host_ip", "online_biaya_administrasi", "prefix_kode_bank_lain_online");
+	}
+
+	private void setupKeranjangSmartlink() {
+		setupKeranjangBankOnlineGateway("aktifkan_pembayaran_via_bank_online_smartlink",
+				"BAYAR VIA SMARTLINK", "smartlink", "online_bank_host_ip",
+				"online_smartlink_biaya_administrasi", "prefix_kode_bank_lain_online");
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private void setupKeranjangBankOnlineGateway(String konfigurasiAktif, String labelTombol,
+			final String gatewayFlag, final String konfigurasiBankHost, final String konfigurasiBiayaAdmin,
+			final String konfigurasiPrefixBank) {
+		boolean aktif = Konfigurasi.AKTIF.equals(
+				Common.getKonfigurasi(konfigurasiAktif, Konfigurasi.TIDAK_AKTIF).getNilai());
 		if (aktif && perguruanTinggi != null && perguruanTinggi.getId() != null) {
 			aktif = Konfigurasi.AKTIF.equals(Common
-					.getKonfigurasi("aktifkan_pembayaran_via_bank_online_pt_" + perguruanTinggi.getId(),
+					.getKonfigurasi(konfigurasiAktif + "_pt_" + perguruanTinggi.getId(),
 							Konfigurasi.AKTIF)
 					.getNilai());
 		}
@@ -465,7 +480,7 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 			return;
 		}
 
-		final MyButtonConfig bayarBankOnline = new MyButtonConfig("BAYAR ONLINE");
+		final MyButtonConfig bayarBankOnline = new MyButtonConfig(labelTombol);
 		bayarBankOnline.setWidth("130px");
 		bayarBankOnline.setHeight("55px");
 		bayarBankOnline.setStyle("font-weight:bold;border-radius:12px;background:#0f766e;color:white;");
@@ -478,7 +493,7 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 					return;
 				}
 				final Double biayaAdministrasi = MahasiswaVirtualAccountHelper.getKonfigurasiDouble(
-						"online_biaya_administrasi", "0.0");
+						konfigurasiBiayaAdmin, "0.0");
 				MyMessageboxConfig.show(MahasiswaVirtualAccountHelper.buatPesanKonfirmasi(
 						bayarBankOnline.getLabel(), selection.selected, biayaAdministrasi), "Pertanyaan",
 						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
@@ -493,9 +508,12 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										BankHost bankHost = PembayaranUtil.getInstance().getBankHost(
-												Common.getKonfigurasi("online_bank_host_ip", "").getNilai(),
+												Common.getKonfigurasi(konfigurasiBankHost, "").getNilai(),
 												"Bank Host");
 										Map param = new HashMap();
+										if (gatewayFlag != null && gatewayFlag.length() > 0) {
+											param.put(gatewayFlag, Boolean.TRUE);
+										}
 										String waktuSampai = null;
 										VirtualAccountBank virtualAccountBank = DownloadTagihanMahasiswaBankOnline.sendRequest(
 												selection.mahasiswa, null, selection.selected, biayaAdministrasi, perguruanTinggi,
@@ -503,7 +521,7 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 										if (param.get("jangan_notif") != null && (Boolean) param.get("jangan_notif")) {
 											return;
 										}
-										String prefixBankLain = Common.getKonfigurasi("prefix_kode_bank_lain_online", "")
+										String prefixBankLain = Common.getKonfigurasi(konfigurasiPrefixBank, "")
 												.getNilai();
 										MahasiswaVirtualAccountHelper.tampilkanHasilVirtualAccount(virtualAccountBank,
 												selection.mahasiswa, null, biayaAdministrasi,
