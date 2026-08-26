@@ -34,6 +34,11 @@ public final class WarehouseInboundService {
 			return result(WarehouseInboundResult.REJECTED, 0, 0, errors);
 		}
 		errors.addAll(receipt.validate());
+		if (!GoodsReceipt.ACCEPTED.equals(receipt.getStatus())
+				&& !GoodsReceipt.PARTIALLY_ACCEPTED.equals(receipt.getStatus())
+				&& !GoodsReceipt.POSTED.equals(receipt.getStatus())) {
+			errors.add("receipt hanya dapat diposting setelah QC diterima");
+		}
 		if (instructions == null || instructions.isEmpty()) errors.add("putaway wajib diisi");
 		if (!errors.isEmpty()) return result(WarehouseInboundResult.REJECTED, 0, 0, errors);
 
@@ -64,6 +69,10 @@ public final class WarehouseInboundService {
 		for (int i = 0; i < receipt.getLines().size(); i++) {
 			GoodsReceiptLine line = receipt.getLines().get(i);
 			BigDecimal accepted = line.getAcceptedQuantity();
+			if (accepted.compareTo(BigDecimal.ZERO) > 0 && line.getLotId() == null) {
+				errors.add("lotId baris " + line.getLineNumber()
+						+ " wajib diselesaikan sebelum putaway");
+			}
 			BigDecimal putaway = putawayByLine.get(Integer.valueOf(line.getLineNumber()));
 			putaway = putaway == null ? BigDecimal.ZERO : putaway;
 			if (accepted.compareTo(putaway) != 0) {

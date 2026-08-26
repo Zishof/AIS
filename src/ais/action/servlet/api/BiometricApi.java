@@ -233,6 +233,36 @@ public final class BiometricApi {
 	}
 
 	/**
+	 * Mencatat hasil PIN POS sebagai bukti server-side yang terikat pada kasir,
+	 * member, dan kode transaksi. Nilai PIN tidak pernah disimpan di event.
+	 */
+	public static Long recordPosPinVerification(Tbmuser actor, String subjectUserId,
+			JSONObject request, boolean matched) {
+		if (actor == null || actor.getUserId() == null || subjectUserId == null
+				|| subjectUserId.trim().length() == 0) return null;
+		String mutation = mutation(request);
+		Session session = HibernateUtil.openSession(); Transaction tx = null;
+		try {
+			BiometricEvent existing = (BiometricEvent) session.createCriteria(BiometricEvent.class)
+					.add(Restrictions.eq("actorUserId", actor.getUserId()))
+					.add(Restrictions.eq("subjectUserId", subjectUserId.trim()))
+					.add(Restrictions.eq("purpose", "POS_PURCHASE"))
+					.add(Restrictions.eq("modality", "PIN"))
+					.add(Restrictions.eq("clientMutationId", mutation))
+					.setMaxResults(1).uniqueResult();
+			if (existing != null) return existing.getId();
+			tx = session.beginTransaction();
+			BiometricEvent event = saveEvent(session, actor.getUserId(), subjectUserId.trim(), null,
+					"PIN", "POS_PURCHASE", mutation, matched, null, null,
+					matched ? "MATCHED" : "NO_MATCH", request, null);
+			tx.commit(); return event.getId();
+		} catch (Exception e) {
+			rollback(tx); ais.common.ErrorAuditUtil.record(e, "BiometricApi.recordPosPinVerification");
+			return null;
+		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/**
 	 * Memvalidasi bukti verifikasi POS tanpa mempercayai keputusan klien.
 	 * Bukti harus cocok dengan kasir, member, modality, dan kode transaksi yang
 	 * sama, serta masih segar. Karena reference_id diikat ke kodeUnik, event

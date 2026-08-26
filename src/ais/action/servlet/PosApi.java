@@ -1020,7 +1020,7 @@ public class PosApi extends HttpServlet {
 				KantinHelper.pesananOnlineBaru(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pesanan_online_baru");
 			} else if ("verifikasi_pin".equals(action)) {
-				prosesVerifikasiPin(payload, hasil);
+				prosesVerifikasiPin(tbmuser, payload, hasil);
 			} else if ("verifikasi_biometrik_member".equals(action)) {
 				prosesVerifikasiBiometrikMember(tbmuser, payload, hasil);
 			} else if ("dashboard_umum".equals(action)) {
@@ -2685,7 +2685,7 @@ public class PosApi extends HttpServlet {
 	 * di-hash -- konsisten dgn versi web, bukan pelemahan baru) -- PIN TIDAK PERNAH disimpan/dicatat
 	 * di sini, hanya dibandingkan sekali lalu dibuang bersama akhir method.
 	 */
-	private void prosesVerifikasiPin(JSONObject payload, JSONObject hasil) throws Exception {
+	private void prosesVerifikasiPin(Tbmuser kasir, JSONObject payload, JSONObject hasil) throws Exception {
 		if (payload.isNull("memberId") || payload.isNull("pin")) {
 			hasil.put("status", "error");
 			hasil.put("ok", false);
@@ -2712,8 +2712,14 @@ public class PosApi extends HttpServlet {
 			}
 
 			boolean ok = a.getPin() != null && a.getPin().equals(pinInput);
+			Tbmuser pemilik = penggunaBiometrikMember(session, a);
+			String subjek = pemilik == null || pemilik.getUserId() == null
+					? "MEMBER:" + a.getId() : pemilik.getUserId();
+			Long eventId = ais.action.servlet.api.BiometricApi.recordPosPinVerification(
+					kasir, subjek, payload, ok);
 			hasil.put("status", "success");
 			hasil.put("ok", ok);
+			hasil.put("pinVerificationEventId", eventId == null ? JSONObject.NULL : eventId);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -2768,24 +2774,33 @@ public class PosApi extends HttpServlet {
 			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
 			if (anggota == null) return null;
 			JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
+			boolean wajibPin = jenis != null && Boolean.TRUE.equals(jenis.getWajibPin());
 			boolean wajibWajah = jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah());
 			boolean wajibFingerprint = jenis != null
 					&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint());
-			if (!wajibWajah && !wajibFingerprint) return null;
+			if (!wajibPin && !wajibWajah && !wajibFingerprint) return null;
 			Tbmuser pemilik = penggunaBiometrikMember(session, anggota);
-			if (pemilik == null || pemilik.getUserId() == null)
+			if ((wajibWajah || wajibFingerprint) && (pemilik == null || pemilik.getUserId() == null))
 				return "Member belum terhubung ke akun biometrik. Pembayaran saldo tidak dapat dilanjutkan.";
+			String subjek = pemilik == null || pemilik.getUserId() == null
+					? "MEMBER:" + anggota.getId() : pemilik.getUserId();
 			String kode = payload.optString("kodeUnik", "").trim();
+			if (wajibPin) {
+				Long eventId = angkaLong(payload, "pin_verification_event_id");
+				if (!ais.action.servlet.api.BiometricApi.validPosVerification(kasir,
+						subjek, eventId, "PIN", kode))
+					return "Verifikasi PIN wajib dilakukan kembali sebelum saldo member dipotong.";
+			}
 			if (wajibWajah) {
 				Long eventId = angkaLong(payload, "biometric_face_event_id");
 				if (!ais.action.servlet.api.BiometricApi.validPosVerification(kasir,
-						pemilik.getUserId(), eventId, "FACE", kode))
+						subjek, eventId, "FACE", kode))
 					return "Verifikasi wajah wajib dilakukan kembali sebelum saldo member dipotong.";
 			}
 			if (wajibFingerprint) {
 				Long eventId = angkaLong(payload, "biometric_fingerprint_event_id");
 				if (!ais.action.servlet.api.BiometricApi.validPosVerification(kasir,
-						pemilik.getUserId(), eventId, "FINGERPRINT", kode))
+						subjek, eventId, "FINGERPRINT", kode))
 					return "Verifikasi sidik jari wajib dilakukan kembali sebelum saldo member dipotong.";
 			}
 			return null;

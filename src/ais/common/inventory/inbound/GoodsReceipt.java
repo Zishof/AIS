@@ -12,6 +12,7 @@ public final class GoodsReceipt {
 
 	public static final String DRAFT = "DRAFT";
 	public static final String IN_QC = "IN_QC";
+	public static final String ACCEPTED = "ACCEPTED";
 	public static final String PARTIALLY_ACCEPTED = "PARTIALLY_ACCEPTED";
 	public static final String POSTED = "POSTED";
 	public static final String REJECTED = "REJECTED";
@@ -49,7 +50,8 @@ public final class GoodsReceipt {
 		if (vendorId == null) errors.add("vendorId wajib diisi");
 		if (receivedAt == null) errors.add("receivedAt wajib diisi");
 		if (lines.isEmpty()) errors.add("receipt wajib mempunyai minimal satu baris");
-		if (!DRAFT.equals(status) && !IN_QC.equals(status) && !PARTIALLY_ACCEPTED.equals(status)
+		if (!DRAFT.equals(status) && !IN_QC.equals(status) && !ACCEPTED.equals(status)
+				&& !PARTIALLY_ACCEPTED.equals(status)
 				&& !POSTED.equals(status) && !REJECTED.equals(status) && !REVERSED.equals(status)) {
 			errors.add("status receipt tidak dikenal");
 		}
