@@ -1043,6 +1043,7 @@
 		<mapping class="ais.database.model.MutasiIdempoten" />
 		<mapping class="ais.database.model.biometric.BiometricCredential" />
 		<mapping class="ais.database.model.biometric.BiometricEvent" />
+		<mapping class="ais.database.model.biometric.IzinGerbangPesantren" />
 		<mapping class="ais.database.model.TugasKelompok"></mapping>
 		<mapping class="ais.database.model.NamaTugasKelompok"></mapping>
 		<mapping
