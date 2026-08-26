@@ -11,9 +11,11 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import javax.persistence.CascadeType;
@@ -1621,16 +1623,59 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 				}
 			}
 
-			System.out.println("krsMahasiswaIdsData -> " + krsMahasiswaIdsData);
+			/*
+			 * KRS pada penyimpanan indeks dosen dapat berupa object cache yang detached.
+			 * Membaca relasi mahasiswa dari object tersebut membuat LazyInitializationException
+			 * dan sebelumnya seluruh item diam-diam dilewati. Muat ulang setiap KRS melalui
+			 * session pemanggil agar relasi lazy tetap dapat dibaca selama render profil.
+			 */
+			List<KrsMahasiswa> krsMahasiswas = new ArrayList<KrsMahasiswa>();
+			for (String krsMahasiswaId : krsMahasiswaIdsData) {
+				try {
+					KrsMahasiswa krsMahasiswa = (KrsMahasiswa) session.get(KrsMahasiswa.class,
+							Long.valueOf(krsMahasiswaId));
+					if (krsMahasiswa != null) {
+						krsMahasiswas.add(krsMahasiswa);
+					}
+				} catch (Exception eKrs) {
+					ais.common.ErrorAuditUtil.record(eKrs,
+							"muat KRS pembimbing akademik src/ais/database/model/Dosen.java");
+				}
+			}
 
-			List<KrsMahasiswa> krsMahasiswas = GeneralValueObject.ambilDataBanyak(KrsMahasiswa.class,
-					krsMahasiswaIdsData);
+			Set<Long> krsBelumDisetujui = null;
+			if (!(belumStatus && setujuStatus) && !krsMahasiswaIdsData.isEmpty()) {
+				krsBelumDisetujui = new HashSet<Long>();
+				StringBuilder daftarIdKrs = new StringBuilder();
+				for (String idKrs : krsMahasiswaIdsData) {
+					if (daftarIdKrs.length() > 0) {
+						daftarIdKrs.append(',');
+					}
+					daftarIdKrs.append(idKrs);
+				}
+				List<Number> idsBelum = session.createSQLQuery(
+						"select distinct k.id from krs_mahasiswa k "
+						+ "inner join detailperkuliahan d on (d.mahasiswa=k.mahasiswa "
+						+ "and d.tahunakademik=k.tahunakademik and d.semester=k.semester) "
+						+ "where d.persetujuan=0 and k.id in (" + daftarIdKrs.toString() + ")").list();
+				for (Number idBelum : idsBelum) {
+					if (idBelum != null) {
+						krsBelumDisetujui.add(Long.valueOf(idBelum.longValue()));
+					}
+				}
+			}
 			for (KrsMahasiswa krsMahasiswa : krsMahasiswas) {
 				try {
-				if (krsMahasiswa != null && krsMahasiswa.getTahunAkademik() != null
-						&& krsMahasiswa.getSemester() != null && krsMahasiswa.getSemester() > 0
-						&& krsMahasiswa.getMahasiswa() != null
-						&& krsMahasiswa.getMahasiswa().getStatusKeluar() == null) {
+					boolean masihBelumDisetujui = krsMahasiswa != null && krsBelumDisetujui != null
+							&& krsBelumDisetujui.contains(krsMahasiswa.getId());
+					boolean statusPersetujuanCocok = krsBelumDisetujui == null
+							|| (belumStatus && masihBelumDisetujui)
+							|| (setujuStatus && !masihBelumDisetujui);
+					if (krsMahasiswa != null && krsMahasiswa.getTahunAkademik() != null
+							&& krsMahasiswa.getSemester() != null && krsMahasiswa.getSemester() > 0
+							&& krsMahasiswa.getMahasiswa() != null
+							&& krsMahasiswa.getMahasiswa().getStatusKeluar() == null
+							&& statusPersetujuanCocok) {
 
 					if ((tahunAkademik == null || tahunAkademik.equals(krsMahasiswa.getTahunAkademik()))
 
@@ -1644,11 +1689,9 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 						dataDiambil.add(krsMahasiswa);
 					}
 				}
-				} catch (Throwable eItemKrs) {
-					// LazyInitializationException (Mahasiswa proxy detached saat render profil di luar
-					// session) atau error lazy lain pada SATU KRS TIDAK boleh meruntuhkan seluruh daftar.
-					// Lewati KRS bermasalah; item lain tetap diproses.
-					continue;
+				} catch (Exception eItemKrs) {
+					ais.common.ErrorAuditUtil.record(eItemKrs,
+							"filter KRS pembimbing akademik src/ais/database/model/Dosen.java");
 				}
 			}
 

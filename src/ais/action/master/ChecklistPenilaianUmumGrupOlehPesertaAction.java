@@ -579,7 +579,7 @@ public class ChecklistPenilaianUmumGrupOlehPesertaAction extends GenericAutowire
 				keterangan.addEventListener("onChange", listener);
 				radiogroup.addEventListener("onCheck", listener);
 				AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
-						tampilBelumDiisi, radiogroup, keterangan);
+						tampilBelumDiisi, radiogroup);
 			}
 
 		}

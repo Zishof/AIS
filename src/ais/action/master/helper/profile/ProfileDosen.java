@@ -762,8 +762,10 @@ public class ProfileDosen {
 
 		rowEventPkl.onEvent(null);
 
-		rows.appendChild(new ais.ui.util.MyGroupConfig(Common.getBahasaConfig("Pembimbing Akademik")));
-		ProfileUiHelper.appendPanelInfoRow(rows, 2, Common.getBahasaConfig("Pembimbing Akademik"), "Mahasiswa bimbingan akademik ditampilkan agar dosen wali mudah melihat dan membuka data KRS.");
+		rows.appendChild(new ais.ui.util.MyGroupConfig("Persetujuan KRS - "
+				+ Common.getBahasaConfig("Pembimbing Akademik")));
+		ProfileUiHelper.appendPanelInfoRow(rows, 2, "Persetujuan KRS",
+				"Menampilkan mahasiswa bimbingan yang masih mempunyai mata kuliah KRS belum disetujui. Klik nama mahasiswa untuk memeriksa dan memproses persetujuan.");
 
 		row = new MyRowStyled();
 		row.setParent(rows);
@@ -801,7 +803,7 @@ public class ProfileDosen {
 
 						true, true, true, true, true,
 
-						true, true, true, true,
+						true, true, false, true,
 
 						TampilanELearningAction.KRS,
 
@@ -813,7 +815,7 @@ public class ProfileDosen {
 					Row row = new MyRowStyled();
 					row.setParent(rowsKrsMahasiswa);
 					Label a;
-					row.appendChild(a = new Label(ais.common.Common.getBahasaConfig("Tidak ada jadwal sebagai pembimbing akademik")));
+					row.appendChild(a = new Label("Tidak ada KRS mahasiswa bimbingan yang menunggu persetujuan"));
 					a.setStyle("font-size:11px;font-weight: bolder;color:red;");
 				} else {
 					for (final KrsMahasiswa krsMahasiswa : krsMahasiswas) {

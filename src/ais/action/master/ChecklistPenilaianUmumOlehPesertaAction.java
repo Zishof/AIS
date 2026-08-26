@@ -1024,7 +1024,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 					keterangan.addEventListener("onChange", listener);
 					radiogroup.addEventListener("onCheck", listener);
 					AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
-							tampilBelumDiisi, radiogroup, keterangan);
+							tampilBelumDiisi, radiogroup);
 				}
 
 				IsiAngketParameterUmum isiAngketParameterUmum = (IsiAngketParameterUmum) session

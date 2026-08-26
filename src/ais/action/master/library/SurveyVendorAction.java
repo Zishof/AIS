@@ -30,6 +30,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.AmbilDataTbmuserBanbox;
 import ais.action.master.library.helper.AmbilDataPenyediaBanbox;
+import ais.common.AngketBelumDiisiFilter;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
@@ -45,6 +46,7 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
@@ -609,6 +611,8 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 		SurveyVendorPenilaian pnAda = ambilPenilaianku(sv);
 		final SurveyVendorPenilaian pn = pnAda != null ? pnAda : new SurveyVendorPenilaian();
 		final MyIntbox[][] cell = new MyIntbox[kris.size()][vends.size()];
+		final List<Component> pertanyaanFilter = new ArrayList<Component>();
+		final MyCheckboxConfig tampilBelumDiisi = AngketBelumDiisiFilter.create(pertanyaanFilter);
 		// existing detail map
 		List<SurveyVendorPenilaianDetail> existing = pn.getId() == null ? new ArrayList<SurveyVendorPenilaianDetail>()
 				: s.createCriteria(SurveyVendorPenilaianDetail.class).add(Restrictions.eq("penilaian", pn)).list();
@@ -648,6 +652,8 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 				cell[ki][vi] = ib;
 				ib.setParent(r);
 			}
+			AngketBelumDiisiFilter.registerAllRequired(pertanyaanFilter, r, g,
+					tampilBelumDiisi, cell[ki]);
 		}
 		final MyTextbox catatan = tb(pn.getCatatan());
 		catatan.setMultiline(true);
@@ -659,6 +665,7 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 		Hbox foot = new Hbox();
 		foot.setStyle("margin-top:10px;");
 		foot.setParent(isi);
+		tampilBelumDiisi.setParent(foot);
 		tombol(foot, "Simpan Penilaian", "#059669", new EventListener() {
 			public void onEvent(Event e) throws Exception {
 				Session ses = HibernateUtil.currentSession();

@@ -10,6 +10,7 @@ import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Radiogroup;
 import org.zkoss.zul.Textbox;
 
@@ -20,6 +21,7 @@ public final class AngketBelumDiisiFilter {
 
 	private static final String ATTR_INPUTS = "angketFilterInputs";
 	private static final String ATTR_SECTION = "angketFilterSection";
+	private static final String ATTR_REQUIRE_ALL = "angketFilterRequireAll";
 
 	private AngketBelumDiisiFilter() {
 	}
@@ -39,6 +41,16 @@ public final class AngketBelumDiisiFilter {
 
 	public static void register(final Collection<Component> questions, final Component question,
 			Component section, final Checkbox filter, Component... inputs) {
+		registerInternal(questions, question, section, filter, false, inputs);
+	}
+
+	public static void registerAllRequired(final Collection<Component> questions, final Component question,
+			Component section, final Checkbox filter, Component... inputs) {
+		registerInternal(questions, question, section, filter, true, inputs);
+	}
+
+	private static void registerInternal(final Collection<Component> questions, final Component question,
+			Component section, final Checkbox filter, boolean requireAll, Component... inputs) {
 		if (questions == null || question == null) {
 			return;
 		}
@@ -52,6 +64,7 @@ public final class AngketBelumDiisiFilter {
 		}
 		question.setAttribute(ATTR_INPUTS, answerInputs);
 		question.setAttribute(ATTR_SECTION, section);
+		question.setAttribute(ATTR_REQUIRE_ALL, Boolean.valueOf(requireAll));
 		questions.add(question);
 
 		EventListener refresh = new EventListener() {
@@ -83,7 +96,8 @@ public final class AngketBelumDiisiFilter {
 				continue;
 			}
 			List<Component> inputs = (List<Component>) question.getAttribute(ATTR_INPUTS);
-			question.setVisible(!onlyEmpty || !isAnswered(inputs));
+			boolean requireAll = Boolean.TRUE.equals(question.getAttribute(ATTR_REQUIRE_ALL));
+			question.setVisible(!onlyEmpty || !isAnswered(inputs, requireAll));
 			Component section = (Component) question.getAttribute(ATTR_SECTION);
 			if (section != null) {
 				sections.add(section);
@@ -101,22 +115,35 @@ public final class AngketBelumDiisiFilter {
 		}
 	}
 
-	private static boolean isAnswered(List<Component> inputs) {
+	private static boolean isAnswered(List<Component> inputs, boolean requireAll) {
 		if (inputs == null) {
 			return false;
 		}
+		boolean foundInput = false;
 		for (Component input : inputs) {
-			if (input instanceof Radiogroup && ((Radiogroup) input).getSelectedItem() != null) {
-				return true;
+			boolean answered = false;
+			boolean recognized = false;
+			if (input instanceof Radiogroup) {
+				recognized = true;
+				answered = ((Radiogroup) input).getSelectedItem() != null;
+			} else if (input instanceof Checkbox) {
+				recognized = true;
+				answered = ((Checkbox) input).isChecked();
+			} else if (input instanceof Textbox) {
+				recognized = true;
+				answered = ((Textbox) input).getValue() != null && !((Textbox) input).getValue().trim().isEmpty();
+			} else if (input instanceof Intbox) {
+				recognized = true;
+				answered = ((Intbox) input).getValue() != null;
 			}
-			if (input instanceof Checkbox && ((Checkbox) input).isChecked()) {
-				return true;
+			if (!recognized) {
+				continue;
 			}
-			if (input instanceof Textbox && ((Textbox) input).getValue() != null
-					&& !((Textbox) input).getValue().trim().isEmpty()) {
-				return true;
+			foundInput = true;
+			if ((!requireAll && answered) || (requireAll && !answered)) {
+				return !requireAll;
 			}
 		}
-		return false;
+		return requireAll && foundInput;
 	}
 }
