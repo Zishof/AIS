@@ -2296,9 +2296,20 @@ public class RpsObeAction extends GenericAutowireComposer {
 			colProfil.setParent(columns);
 
 			for (CapaianLulusan capaianLulusan : capaianLulusans) {
-				MyColumnConfig colCpl = new MyColumnConfig(capaianLulusan.getKode());
-				colCpl.setWidth("40px");
-				colCpl.setTooltiptext(capaianLulusan.getKode() + " " + capaianLulusan.getNama());
+				String kodeCpl = capaianLulusan.getKode() == null ? "CPL" : capaianLulusan.getKode().trim();
+				if (kodeCpl.length() == 0) {
+					kodeCpl = "CPL";
+				}
+				MyColumnConfig colCpl = new MyColumnConfig();
+				colCpl.setLabelData(kodeCpl);
+				/* Lebar 40px membuat semua kode CPL tampil sebagai "C...". Beri
+				 * ruang adaptif agar kode terbaca, namun batasi supaya tabel dengan
+				 * banyak CPL tetap mudah digulir. */
+				int lebarKodeCpl = Math.max(96, Math.min(180, (kodeCpl.length() * 8) + 28));
+				colCpl.setWidth(lebarKodeCpl + "px");
+				colCpl.setAlign("center");
+				colCpl.setTooltiptext(kodeCpl + (capaianLulusan.getNama() == null ? ""
+						: " - " + capaianLulusan.getNama()));
 				colCpl.setParent(columns);
 			}
 
