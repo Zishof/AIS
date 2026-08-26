@@ -776,7 +776,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 					<rightPen lineWidth="0.25"/>
 				</box>
 				<textElement verticalAlignment="Top"/>
-				<textFieldExpression><![CDATA[$F{judul_skripsi}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get("skripsi.judul") == null || $P{REPORT_PARAMETERS_MAP}.get("skripsi.judul").toString().trim().length() == 0) ? $F{judul_skripsi} : $P{REPORT_PARAMETERS_MAP}.get("skripsi.judul").toString()]]></textFieldExpression>
 			</textField>
 			<staticText>
 				<reportElement mode="Transparent" x="179" y="224" width="15" height="30" backcolor="#FFFFFF" uuid="ee992e19-a1f2-43dd-b4b4-01833e12f224"/>
@@ -864,7 +864,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 					<rightPen lineWidth="0.25"/>
 				</box>
 				<textElement verticalAlignment="Top"/>
-				<textFieldExpression><![CDATA[": " + $F{nama_ayah}.toString().toUpperCase()]]></textFieldExpression>
+				<textFieldExpression><![CDATA[": " + (($P{REPORT_PARAMETERS_MAP}.get("bio.namaAyah") == null || $P{REPORT_PARAMETERS_MAP}.get("bio.namaAyah").toString().trim().length() == 0) ? ($F{nama_ayah} == null ? "" : $F{nama_ayah}) : $P{REPORT_PARAMETERS_MAP}.get("bio.namaAyah").toString()).toString().toUpperCase()]]></textFieldExpression>
 			</textField>
 			<staticText>
 				<reportElement mode="Opaque" x="179" y="310" width="15" height="40" backcolor="#E3E3E3" uuid="116835e7-6cb2-442c-9391-7c7e4b0df08c"/>
@@ -919,7 +919,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 					<rightPen lineWidth="0.25"/>
 				</box>
 				<textElement verticalAlignment="Top"/>
-				<textFieldExpression><![CDATA[": " + $F{nama_ibu}.toString().toUpperCase()]]></textFieldExpression>
+				<textFieldExpression><![CDATA[": " + (($P{REPORT_PARAMETERS_MAP}.get("bio.namaIbu") == null || $P{REPORT_PARAMETERS_MAP}.get("bio.namaIbu").toString().trim().length() == 0) ? ($F{nama_ibu} == null ? "" : $F{nama_ibu}) : $P{REPORT_PARAMETERS_MAP}.get("bio.namaIbu").toString()).toString().toUpperCase()]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement mode="Opaque" x="194" y="393" width="361" height="16" backcolor="#E3E3E3" uuid="3fcc0a6e-9537-40a4-837b-ea7845ffa7fb"/>
