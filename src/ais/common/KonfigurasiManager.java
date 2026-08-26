@@ -28,6 +28,7 @@ public class KonfigurasiManager {
 	 */
 	private static final java.util.Set<String> BENTROK_ID_TERCATAT =
 		java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+	private static final String TABEL_KONFIGURASI = "public.konfigurasi";
 
 	public static Konfigurasi konfigurasiKosong = new Konfigurasi("", "");
 
@@ -102,8 +103,8 @@ public class KonfigurasiManager {
 					//       ringkasan di latar. Di sini cukup MEMBACA ULANG hasil thread itu.
 					//   (b) Sequence id tabel konfigurasi TERTINGGAL di belakang max(id) --
 					//       lazim setelah impor/restore data -- sehingga nextval mengembalikan
-					//       id yang sudah terpakai. Ini TIDAK dapat diperbaiki dari kode;
-					//       perlu setval pada sequence-nya oleh administrator basis data.
+					//       id yang sudah terpakai. Jalur ini memperbaiki sequence secara atomik
+					//       di bawah lock tabel, lalu mengulang penyimpanan SATU kali.
 					//
 					// Untuk kedua sebab, yang benar adalah TIDAK menjatuhkan pemanggil: sebelum
 					// ini exception-nya dilempar ke atas dan membuat seluruh pembangunan
@@ -124,14 +125,20 @@ public class KonfigurasiManager {
 					if (hasilThreadLain != null) {
 						konfigurasi = hasilThreadLain;
 					} else {
-						// Sebab (b): dicatat SEKALI per nama supaya audit tidak dibanjiri --
-						// getKonfigurasi termasuk jalur yang sangat sering dipanggil.
-						if (BENTROK_ID_TERCATAT.add(nama)) {
-							ais.common.ErrorAuditUtil.record(cve,
-									"KonfigurasiManager: id konfigurasi bentrok utk '" + nama
-										+ "'. Periksa sequence id tabel konfigurasi (kemungkinan tertinggal di belakang max(id)).");
+						Konfigurasi hasilPerbaikan = perbaikiSequenceDanSimpan(nama, defaultValue,
+								info1, info2, info3);
+						if (hasilPerbaikan != null) {
+							konfigurasi = hasilPerbaikan;
+						} else {
+							// Dicatat SEKALI per nama supaya audit tidak dibanjiri --
+							// getKonfigurasi termasuk jalur yang sangat sering dipanggil.
+							if (BENTROK_ID_TERCATAT.add(nama)) {
+								ais.common.ErrorAuditUtil.record(cve,
+										"KonfigurasiManager: id konfigurasi bentrok utk '" + nama
+											+ "' dan perbaikan sequence otomatis gagal.");
+							}
+							konfigurasi = konfigurasiKosong;
 						}
-						konfigurasi = konfigurasiKosong;
 					}
 				} catch (Exception txEx) {
 					if (tx != null && tx.isActive()) {
@@ -173,6 +180,73 @@ public class KonfigurasiManager {
 		}
 
 		return konfigurasi;
+	}
+
+	/**
+	 * Menyelaraskan sequence id sesudah restore/import, kemudian menyimpan konfigurasi
+	 * yang semula gagal. Lock mencegah dua request memperbaiki sequence dan menyisipkan
+	 * baris secara bersamaan. Pemanggil hanya menjalankan metode ini setelah satu insert
+	 * terbukti gagal karena bentrok primary key.
+	 */
+	private static Konfigurasi perbaikiSequenceDanSimpan(String nama, String defaultValue,
+			String info1, String info2, String info3) {
+		Session session = null;
+		Transaction txPerbaikan = null;
+		try {
+			// Session yang mengalami kegagalan flush tidak boleh dipakai ulang. Gunakan
+			// session terisolasi dan selalu tutup di finally.
+			session = HibernateUtil.getSessionFactory().openSession();
+			txPerbaikan = session.beginTransaction();
+			session.createSQLQuery("lock table " + TABEL_KONFIGURASI + " in share row exclusive mode")
+					.executeUpdate();
+
+			// Thread/proses lain mungkin telah berhasil saat request ini menunggu lock.
+			Konfigurasi hasilThreadLain = (Konfigurasi) ConstantValues.simpleObject(
+					session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
+							.add(Restrictions.eq("nama", nama)).setMaxResults(1),
+					Konfigurasi.class);
+			if (hasilThreadLain != null) {
+				txPerbaikan.commit();
+				return hasilThreadLain;
+			}
+
+			session.createSQLQuery("select setval(pg_get_serial_sequence('" + TABEL_KONFIGURASI
+					+ "', 'id'), coalesce((select max(id) from " + TABEL_KONFIGURASI
+					+ "), 0) + 1, false)").uniqueResult();
+
+			Konfigurasi konfigurasi = new Konfigurasi();
+			konfigurasi.setNama(nama);
+			konfigurasi.setNilai(defaultValue);
+			konfigurasi.setInfo1(info1);
+			konfigurasi.setInfo2(info2);
+			konfigurasi.setInfo3(info3);
+			Common.refreshSaveOrUpdate(session, konfigurasi);
+			txPerbaikan.commit();
+			return konfigurasi;
+		} catch (Exception e) {
+			if (txPerbaikan != null && txPerbaikan.isActive()) {
+				try {
+					txPerbaikan.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"KonfigurasiManager.perbaikiSequenceDanSimpan rollback gagal");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e,
+					"KonfigurasiManager.perbaikiSequenceDanSimpan gagal untuk '" + nama + "'");
+			return null;
+		} finally {
+			if (session != null) {
+				try {
+					session.clear();
+					session.disconnect();
+					session.close();
+				} catch (Exception closeError) {
+					ais.common.ErrorAuditUtil.record(closeError,
+							"KonfigurasiManager.perbaikiSequenceDanSimpan close gagal");
+				}
+			}
+		}
 	}
 
 	/**
