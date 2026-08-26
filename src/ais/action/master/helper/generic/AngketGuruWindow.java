@@ -17,6 +17,7 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.A;
@@ -40,6 +41,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.IsiAngketParameterUmumListener;
 import ais.common.Common;
+import ais.common.AngketBelumDiisiFilter;
 import ais.common.CommonMedia;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -57,6 +59,7 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -446,6 +449,8 @@ public class AngketGuruWindow extends Groupbox {
 	private void init(final JadwalPelajaran jadwalPelajaran, final Guru guru, final EventListener eventListener)
 			throws Exception {
 		addWindow.setTitle("Penilaian Guru");
+		final List<Component> pertanyaanFilter = new ArrayList<Component>();
+		final MyCheckboxConfig tampilBelumDiisi = AngketBelumDiisiFilter.create(pertanyaanFilter);
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		borderlayout.setStyle("overflow:hidden;");
@@ -586,6 +591,8 @@ public class AngketGuruWindow extends Groupbox {
 				};
 				radiogroup.addEventListener("onCheck", listener);
 				keterangan.addEventListener("onChange", listener);
+				AngketBelumDiisiFilter.register(pertanyaanFilter, row, groupDiv,
+						tampilBelumDiisi, radiogroup, keterangan);
 			}
 
 			renderParameterTambahanGuru(session, grup, savedAwal, groupDiv, dataParameterTambahan);
@@ -617,6 +624,7 @@ public class AngketGuruWindow extends Groupbox {
 			}
 		});
 		batal.setParent(toolbar);
+		tampilBelumDiisi.setParent(toolbar);
 		MyToolbarbuttonConfig simpanTutup = new MyToolbarbuttonConfig("Simpan dan Tutup", "/img/save.gif");
 		simpanTutup.setParent(toolbar);
 		simpanTutup.addEventListener("onClick", new EventListener() {

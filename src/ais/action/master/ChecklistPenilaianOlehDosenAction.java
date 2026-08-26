@@ -1,5 +1,6 @@
 package ais.action.master;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Criteria;
@@ -38,6 +39,7 @@ import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
 import ais.common.Common;
+import ais.common.AngketBelumDiisiFilter;
 import ais.common.CommonMedia;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ChecklistBaruPenilaianOlehDosen;
@@ -50,6 +52,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -394,6 +397,8 @@ public class ChecklistPenilaianOlehDosenAction extends GenericAutowireComposer {
 	@SuppressWarnings("unchecked")
 	private void init(final Perkuliahan perkuliahan, final EventListener eventListener) throws Exception {
 		addWindow.setTitle("Penilaian Dosen");
+		final List<Component> pertanyaanFilter = new ArrayList<Component>();
+		final MyCheckboxConfig tampilBelumDiisi = AngketBelumDiisiFilter.create(pertanyaanFilter);
 
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -634,6 +639,8 @@ public class ChecklistPenilaianOlehDosenAction extends GenericAutowireComposer {
 
 				radiogroup.addEventListener("onCheck", listener);
 				keterangan.addEventListener("onChange", listener);
+				AngketBelumDiisiFilter.register(pertanyaanFilter, rowChecklist, groupbox,
+						tampilBelumDiisi, radiogroup, keterangan);
 
 			}
 
@@ -654,6 +661,7 @@ public class ChecklistPenilaianOlehDosenAction extends GenericAutowireComposer {
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
 		toolbar.setParent(south);
+		tampilBelumDiisi.setParent(toolbar);
 
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Simpan dan Tutup", "/img/save.gif");
 		cancel.setTooltiptext("Tutup");
