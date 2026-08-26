@@ -68,7 +68,9 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	private boolean penggunaDosen() {
 		Tbmuser pengguna = Common.getCurrentUser();
-		return pengguna != null && pengguna.ambilDosen() != null && pengguna.hakAkses() != null
+		// Role DOSEN tetap dibatasi walaupun relasi ambilDosen() belum tersedia.
+		// Fail-closed ini mencegah akun dosen tanpa relasi terbaca sebagai admin.
+		return pengguna != null && pengguna.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
 	}
 

@@ -112,7 +112,10 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 	/** Akun dosen murni hanya berperan sebagai pengaju, bukan pemberi persetujuan. */
 	private boolean penggunaDosen() {
 		Tbmuser pengguna = Common.getCurrentUser();
-		return pengguna != null && pengguna.ambilDosen() != null && pengguna.hakAkses() != null
+		// Identifikasi berdasarkan role, bukan relasi Dosen. Relasi ambilDosen() dapat
+		// null karena data akun belum lengkap dan tidak boleh membuat akun DOSEN
+		// dianggap sebagai admin/pemberi persetujuan.
+		return pengguna != null && pengguna.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
 	}
 

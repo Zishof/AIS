@@ -536,7 +536,9 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 	 * tidak boleh diubah langsung setelah masa penilaian berakhir.
 	 */
 	public void onAjukanIzinPenilaian(Event event) throws Exception {
-		if (tbmuser != null && tbmuser.ambilDosen() != null && tbmuser.hakAkses() != null
+		// Role DOSEN harus selalu masuk jalur pengajuan, termasuk saat relasi
+		// ambilDosen() null. Jangan pernah mengalihkannya ke jalur pengelola.
+		if (tbmuser != null && tbmuser.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId())) {
 			// Dosen diarahkan ke halaman pengajuan khusus yang memisahkan hak pemohon
 			// dari hak persetujuan. Helper daftar cepat digunakan untuk pengelola saja.
