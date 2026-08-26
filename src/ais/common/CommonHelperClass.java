@@ -709,6 +709,12 @@ public class CommonHelperClass {
 			String jenisSemester) {
 		Session session = null;
 		try {
+			if (tahunAkademik == null || tahunAkademik.trim().isEmpty() || jenisSemester == null
+					|| jenisSemester.trim().isEmpty()) {
+				return false;
+			}
+			tahunAkademik = tahunAkademik.trim();
+			jenisSemester = jenisSemester.trim();
 			session = HibernateUtil.currentNativeSession();
 			/*
 			 * Satu akun petugas/admin dapat sekaligus terhubung ke master Dosen. Identitas
@@ -728,8 +734,7 @@ public class CommonHelperClass {
 						: Restrictions.eq("tbmuser", tbmuser);
 			}
 			Integer count = ((Number) session.createCriteria(PengecualianJadwalPenilaianDosen.class)
-					.add(Restrictions.or(Restrictions.isNull("status"),
-							Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU)))
+					.add(Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU))
 					.add(Restrictions.eq("tahunAkademik", tahunAkademik))
 					.add(Restrictions.eq("jenisSemester", jenisSemester))
 					.add(identitas)

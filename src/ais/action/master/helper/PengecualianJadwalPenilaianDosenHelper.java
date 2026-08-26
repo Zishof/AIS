@@ -104,7 +104,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 	}
 
 	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
-		return !penggunaDosen() && !diajukanOlehPenggunaAktif(data)
+		return Common.getApakahAdmin() && !penggunaDosen() && !diajukanOlehPenggunaAktif(data)
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 	}
@@ -303,7 +303,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (!bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
-						aksesDitolak("Status hanya dapat diproses oleh petugas berwenang dan tidak boleh disetujui oleh pengajunya sendiri.");
+						aksesDitolak("Status hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.");
 						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
 						return;
 					}

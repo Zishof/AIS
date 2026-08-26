@@ -167,8 +167,8 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
-		approve = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-		reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+		approve = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+		reject = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 		if (penggunaDosen()) {
 			// Hak CRUD yang mungkin ikut diwariskan dari grup tidak boleh menjadikan dosen penyetuju.
 			edit = false;
@@ -360,7 +360,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (penggunaDosen() || pengajuanSendiri || !approve || !reject) {
-						tampilkanAksesDitolak("Status pengajuan hanya dapat diproses oleh petugas yang berwenang dan tidak boleh disetujui oleh pengajunya sendiri.");
+						tampilkanAksesDitolak("Status pengajuan hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.");
 						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
 						return;
 					}

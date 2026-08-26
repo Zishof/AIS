@@ -98,6 +98,23 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 	private boolean approve = false;
 	private boolean reject = false;
 
+	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
+		Tbmuser pengguna = Common.getCurrentUser();
+		return pengguna != null && pengguna.getUserId() != null && data != null && data.getDibuatOleh() != null
+				&& data.getDibuatOleh().getUserId() != null
+				&& pengguna.getUserId().equalsIgnoreCase(data.getDibuatOleh().getUserId());
+	}
+
+	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
+		return Common.getApakahAdmin() && approve && reject && !diajukanOlehPenggunaAktif(data);
+	}
+
+	private void tampilkanAksesDitolak() throws InterruptedException {
+		MyMessageboxConfig.show(
+				"Status hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.",
+				"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+	}
+
 	public PengecualianJadwalPenilaianAdminAction() {
 		super();
 	}
@@ -127,8 +144,8 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
-		approve = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-		reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+		approve = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+		reject = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 
 		Common.initPaging(paging, new EventListener() {
 
@@ -302,7 +319,7 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 			status.setWidth("90%");
 			Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
 
-			if (approve && reject) {
+			if (bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
 				status.setParent(arg0);
 			} else {
 				new Label(pengecualianJadwalPenilaianDosen.getStatus()).setParent(arg0);
@@ -311,6 +328,11 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
+						tampilkanAksesDitolak();
+						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
+						return;
+					}
 					String mystatus = (String) (status.getSelectedItem() == null
 							|| status.getSelectedItem().getValue() == null ? "" : status.getSelectedItem().getValue());
 

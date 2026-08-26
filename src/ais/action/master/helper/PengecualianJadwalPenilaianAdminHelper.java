@@ -34,6 +34,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.generic.AmbilDataTbmuserBanyak;
 import ais.action.report.CommonReportHelper;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.common.PesanFormalHelper;
 import ais.common.listener.DataLoader;
@@ -62,6 +63,25 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 
 	public PengecualianJadwalPenilaianAdminHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
+	}
+
+	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
+		Tbmuser pengguna = Common.getCurrentUser();
+		return pengguna != null && pengguna.getUserId() != null && data != null && data.getDibuatOleh() != null
+				&& data.getDibuatOleh().getUserId() != null
+				&& pengguna.getUserId().equalsIgnoreCase(data.getDibuatOleh().getUserId());
+	}
+
+	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
+		return Common.getApakahAdmin() && !diajukanOlehPenggunaAktif(data)
+				&& CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)
+				&& CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+	}
+
+	private void aksesDitolak() throws InterruptedException {
+		MyMessageboxConfig.show(
+				"Status hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.",
+				"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
 	class PengecualianJadwalPenilaianDosenRenderer extends ais.ui.util.MyRowRenderer {
@@ -212,11 +232,20 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 
 			status.setWidth("90%");
 			Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
-			status.setParent(arg0);
+			if (bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
+				status.setParent(arg0);
+			} else {
+				new Label(pengecualianJadwalPenilaianDosen.getStatus()).setParent(arg0);
+			}
 			status.addEventListener("onChange", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!bolehProsesStatus(pengecualianJadwalPenilaianDosen)) {
+						aksesDitolak();
+						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
+						return;
+					}
 					String mystatus = (String) (status.getSelectedItem() == null ? ""
 							: status.getSelectedItem().getValue());
 					if (mystatus.equals(PengecualianJadwalPenilaianDosen.DISETUJU)) {

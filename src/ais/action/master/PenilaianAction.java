@@ -1773,14 +1773,26 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 			return false;
 		}
 
-		Perkuliahan periode = perkuliahan.getMerupakan_paralel()
-				&& perkuliahan.getPerkuliahan_paralel() != null ? perkuliahan.getPerkuliahan_paralel() : perkuliahan;
-		String tahunAkademik = periode.getTahunAjaran();
-		String jenisSemester = periode.getStatusSemesterPendek() != null ? Perkuliahan.SP
-				: periode.getGanjilGenap();
+		/*
+		 * Izin mengikuti periode pada baris yang ditampilkan. Perkuliahan paralel boleh
+		 * memakai induk untuk nilai/format, tetapi TA dan semester izin tetap milik baris
+		 * tersebut. Induk hanya menjadi fallback untuk data lama yang periodenya kosong.
+		 */
+		String tahunAkademik = perkuliahan.getTahunAjaran();
+		String jenisSemester = perkuliahan.getStatusSemesterPendek() != null ? Perkuliahan.SP
+				: perkuliahan.getGanjilGenap();
+		if ((tahunAkademik == null || tahunAkademik.trim().isEmpty() || jenisSemester == null
+				|| jenisSemester.trim().isEmpty()) && perkuliahan.getMerupakan_paralel()
+				&& perkuliahan.getPerkuliahan_paralel() != null) {
+			Perkuliahan induk = perkuliahan.getPerkuliahan_paralel();
+			tahunAkademik = induk.getTahunAjaran();
+			jenisSemester = induk.getStatusSemesterPendek() != null ? Perkuliahan.SP : induk.getGanjilGenap();
+		}
 		if (tahunAkademik == null || jenisSemester == null) {
 			return false;
 		}
+		tahunAkademik = tahunAkademik.trim();
+		jenisSemester = jenisSemester.trim();
 
 		String periodeKey = tahunAkademik + "|" + jenisSemester;
 		Boolean hasil = aktifPenilaianPerPeriode.get(periodeKey);
