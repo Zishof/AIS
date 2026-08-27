@@ -558,6 +558,34 @@ public class Tagihan extends GeneralValueObject {
 		return (Tagihan) criteria.setMaxResults(1).uniqueResult();
 	}
 
+	/**
+	 * Pastikan entity dari cache benar-benar mewakili kunci angsuran yang diminta.
+	 * Nomor bayarKe dapat berubah ketika cicilan dirapikan; cache lama sebelumnya masih
+	 * dapat menunjuk entity tersebut lewat kunci sebelum perubahan. Akibatnya satu
+	 * pembayaran tampil pada dua urutan angsuran.
+	 */
+	private static boolean cocokDenganKunciTagihan(Tagihan tagihan, String kodeUnik, Integer bayarKe,
+			NominalBiaya nominalBiaya) {
+		if (tagihan == null || kodeUnik == null || bayarKe == null) {
+			return false;
+		}
+		try {
+			if (!bayarKe.equals(tagihan.getBayarKe())) {
+				return false;
+			}
+			if (nominalBiaya != null && nominalBiaya.getId() != null && tagihan.getNominalBiaya() != null
+					&& tagihan.getNominalBiaya().getId() != null
+					&& !nominalBiaya.getId().equals(tagihan.getNominalBiaya().getId())) {
+				return false;
+			}
+			String kodeAktual = genCode(tagihan.getItemBiayaSekolah(), tagihan.getPengaturanBiaya(),
+					tagihan.getTahunbulan(), tagihan.getSiswa(), tagihan.getCalonSiswa(), tagihan.getBayarKe());
+			return kodeUnik.equals(kodeAktual);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
 	private static boolean isDuplicateKodeUnikException(Throwable e) {
 		Throwable t = e;
 		while (t != null) {
@@ -765,10 +793,28 @@ public class Tagihan extends GeneralValueObject {
 				nominalBiaya.getSiswa(), nominalBiaya.getCalonSiswa(), bayarKe);
 
 		Tagihan tagihan = ambilManual ? null : MemoryDbUtil.getAllTagihan().get(kodeUnik);
+		if (tagihan != null && !cocokDenganKunciTagihan(tagihan, kodeUnik, bayarKe, nominalBiaya)) {
+			// Buang hanya kunci yang diminta. Entity yang sama mungkin masih valid pada
+			// kunci barunya dan akan dimasukkan kembali oleh AuditListener/reload cache.
+			MemoryDbUtil.getAllTagihan().remove(kodeUnik);
+			tagihan = null;
+		}
 
 		// Ambil dari database jika tidak ada di memori
 		if (tagihan == null) {
 			tagihan = Tagihan.findByKodeUnik(kodeUnik, session);
+			if (tagihan != null && !cocokDenganKunciTagihan(tagihan, kodeUnik, bayarKe, nominalBiaya)) {
+				// kode_unik historis dapat tertinggal setelah bayarKe pernah dirapikan.
+				// Cari entity berdasarkan identitas angsuran sebenarnya agar baris lain
+				// tidak ikut dianggap sebagai pembayaran untuk urutan ini.
+				tagihan = (Tagihan) session.createCriteria(Tagihan.class)
+						.add(Restrictions.eq("nominalBiaya", nominalBiaya))
+						.add(Restrictions.eq("bayarKe", bayarKe)).addOrder(Order.desc("id"))
+						.setMaxResults(1).uniqueResult();
+				if (tagihan != null && !cocokDenganKunciTagihan(tagihan, kodeUnik, bayarKe, nominalBiaya)) {
+					tagihan = null;
+				}
+			}
 			if (tagihan != null && !ambilManual) {
 				MemoryDbUtil.getAllTagihan().put(kodeUnik, tagihan);
 			}

@@ -243,7 +243,10 @@ public class NominalBiaya extends GeneralValueObject {
 							Double nom = t.getNominal() != null ? t.getNominal() : 0.0;
 
 							if (i <= lastPaidIdx || Math.abs(nom) > 0.1) {
-								t.setBayarKe(currentBayarKe++);
+								int nomorBaru = currentBayarKe++;
+								t.setBayarKe(nomorBaru);
+								t.setKodeUnik(Tagihan.genCode(t.getItemBiayaSekolah(), t.getPengaturanBiaya(),
+										t.getTahunbulan(), t.getSiswa(), t.getCalonSiswa(), nomorBaru));
 								listBersih.add(t);
 							} else {
 								t.setAktif(false);
@@ -346,6 +349,9 @@ public class NominalBiaya extends GeneralValueObject {
 						thManaged.setNominal(th.getNominal());
 						thManaged.setNominalManual(th.getNominalManual());
 						thManaged.setBayarKe(th.getBayarKe());
+						thManaged.setKodeUnik(Tagihan.genCode(thManaged.getItemBiayaSekolah(),
+								thManaged.getPengaturanBiaya(), thManaged.getTahunbulan(), thManaged.getSiswa(),
+								thManaged.getCalonSiswa(), th.getBayarKe()));
 						thManaged.setAktif(th.getAktif());
 						thManaged.setAktifkanmanual(th.getAktifkanmanual());
 					}

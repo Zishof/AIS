@@ -771,6 +771,21 @@ public class AuditListener extends AuditEventListener {
 				Tagihan tagihan = (Tagihan) serializable;
 				String kodeUnik = Tagihan.genCode(tagihan.getItemBiayaSekolah(), tagihan.getPengaturanBiaya(),
 						tagihan.getTahunbulan(), tagihan.getSiswa(), tagihan.getCalonSiswa(), tagihan.getBayarKe());
+				// Hapus alias cache lama untuk entity yang sama ketika bayarKe/kodeUnik
+				// berubah. Tanpa ini satu Tagihan dapat terbaca sebagai dua angsuran.
+				if (tagihan.getId() != null) {
+					List<String> kunciLama = new ArrayList<String>();
+					for (Map.Entry<String, Tagihan> entry : MemoryDbUtil.getAllTagihan().entrySet()) {
+						Tagihan cached = entry.getValue();
+						if (!kodeUnik.equals(entry.getKey()) && cached != null && cached.getId() != null
+								&& tagihan.getId().equals(cached.getId())) {
+							kunciLama.add(entry.getKey());
+						}
+					}
+					for (String kunci : kunciLama) {
+						MemoryDbUtil.getAllTagihan().remove(kunci);
+					}
+				}
 				MemoryDbUtil.getAllTagihan().put(kodeUnik, tagihan);
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:722");
