@@ -4722,7 +4722,7 @@ public class AbsensiHelper {
 		}
 
 		try {
-			if ((mahasiswa instanceof Mahasiswa)
+			if (perkuliahan != null && (mahasiswa instanceof Mahasiswa)
 					&& Common.bolehKonfigurasi("mahasiswa_yang_belum_membayar_tidak_bisa_absen_perkuliahan", Konfigurasi.TIDAK_AKTIF)) {
 
 				Long detailperkuliahanid = perkuliahan.ambilDetailperkuliahan((Mahasiswa) mahasiswa);

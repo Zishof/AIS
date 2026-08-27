@@ -797,21 +797,12 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 		waktuSelesai.setWidth("90%");
 
 		try {
-			waktuMulai.setValue(
-					pengajuanMahasiswa.getWaktuMulai() == null || pengajuanMahasiswa.getWaktuMulai().trim().isEmpty()
-							? null
-							: Common.timeFormat2.get().parse(pengajuanMahasiswa.getWaktuMulai()));
-		} catch (java.text.ParseException e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PengajuanMahasiswaAction.java:800");
-			// format waktu tidak cocok, biarkan null
+			waktuMulai.setValue(parseWaktuLama(pengajuanMahasiswa.getWaktuMulai()));
 		} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
 		try {
-			waktuSelesai.setValue(pengajuanMahasiswa.getWaktuSelesai() == null
-					|| pengajuanMahasiswa.getWaktuSelesai().trim().isEmpty() ? null
-							: Common.timeFormat2.get().parse(pengajuanMahasiswa.getWaktuSelesai()));
-		} catch (java.text.ParseException e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/PengajuanMahasiswaAction.java:809");
-			// format waktu tidak cocok, biarkan null
+			waktuSelesai.setValue(parseWaktuLama(pengajuanMahasiswa.getWaktuSelesai()));
 		} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
@@ -896,6 +887,13 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 		Common.createDefaultTimer(eventListenerJenisPengajuan);
 
 		return grid;
+	}
+
+	/** Menerima format tersimpan lama HH.mm maupun format API/browser HH:mm. */
+	private Date parseWaktuLama(String nilai) throws java.text.ParseException {
+		if (nilai == null || nilai.trim().length() == 0) return null;
+		String normal = nilai.trim().replace(':', '.');
+		return Common.timeFormat2.get().parse(normal);
 	}
 
 	private String generateCode(JenisPengajuan j, boolean tambah) {
@@ -1005,6 +1003,17 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		try {
+			// Paksa validasi komponen di awal agar WrongValueException dari constraint ZK
+			// berubah menjadi pesan form, bukan masuk ke global error handler.
+			if (tanggal != null) tanggal.getValue();
+			if (tanggalSelesai != null) tanggalSelesai.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			PesanFormalHelper.tampilkanGagal("validasi tanggal pengajuan",
+					"Format atau nilai tanggal pengajuan belum valid.",
+					new String[] { "Periksa Tanggal Permohonan dan Tanggal Selesai, lalu simpan kembali." });
+			return false;
+		}
 		if (mahasiswa.getAttribute("mahasiswa") == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Data mahasiswa",
 					"Kolom Data mahasiswa belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",

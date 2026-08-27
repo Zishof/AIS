@@ -13,6 +13,7 @@ import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.metadata.ClassMetadata;
+import org.hibernate.proxy.HibernateProxyHelper;
 import org.json.JSONObject;
 
 import ais.action.servlet.api.DaftarDataService;
@@ -142,13 +143,31 @@ public class ManajemenProperty {
 			// 1. QR Code Logic (Menggunakan reflection/interface jika method ttdQr ada di
 			// GeneralValueObject,
 			// jika tidak, casting manual seperti di kode asli)
+			Session signatureSession = null;
 			try {
-				// Asumsi method ttdQr() ada di entity tersebut
-				java.lang.reflect.Method method = entity.getClass().getMethod("ttdQr");
-				Object qrVal = method.invoke(entity);
+				Object target = entity;
+				if (entity instanceof GeneralValueObject && ((GeneralValueObject) entity).getId() != null) {
+					signatureSession = HibernateUtil.openSession();
+					Class entityClass = HibernateProxyHelper.getClassWithoutInitializingProxy(entity);
+					Object fresh = signatureSession.get(entityClass, ((GeneralValueObject) entity).getId());
+					if (fresh != null) target = fresh;
+				}
+				java.lang.reflect.Method method = target.getClass().getMethod("ttdQr");
+				Object qrVal = method.invoke(target);
 				parameters.put(baseKey + ".ttd.qr." + suffixKey, qrVal);
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/ManajemenProperty.java:129");
-				// Method tidak ditemukan, abaikan
+			} catch (NoSuchMethodException e) {
+				// Entity ini memang tidak menyediakan tanda tangan QR.
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "ManajemenProperty.processSignature");
+			} finally {
+				try {
+					if (signatureSession != null && signatureSession.isOpen()) {
+						signatureSession.clear();
+						signatureSession.disconnect();
+						signatureSession.close();
+					}
+				} catch (Exception abaikan) {
+				}
 			}
 
 			// 2. File TTD Logic

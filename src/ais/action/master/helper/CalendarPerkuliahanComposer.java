@@ -78,10 +78,12 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 				onRefresh(null);
 			}
 		})).init(perkuliahan, semesterPendek, null, merupakanRemedial);
-		penjadwalanUtil.ruang.setDisabled(true);
-		penjadwalanUtil.merupakan_tanpa_ruangan.setVisible(false);
-		penjadwalanUtil.tahunAjaran.setDisabled(true);
-		penjadwalanUtil.merupakan_tanpa_jadwal_perkuliahan.setVisible(false);
+		// Form PenjadwalanUtil bersifat dinamis; komponen yang dimatikan konfigurasi
+		// kampus tidak dibentuk dan tidak boleh menyebabkan pembuatan event kalender gagal.
+		if (penjadwalanUtil.ruang != null) penjadwalanUtil.ruang.setDisabled(true);
+		if (penjadwalanUtil.merupakan_tanpa_ruangan != null) penjadwalanUtil.merupakan_tanpa_ruangan.setVisible(false);
+		if (penjadwalanUtil.tahunAjaran != null) penjadwalanUtil.tahunAjaran.setDisabled(true);
+		if (penjadwalanUtil.merupakan_tanpa_jadwal_perkuliahan != null) penjadwalanUtil.merupakan_tanpa_jadwal_perkuliahan.setVisible(false);
 	}
 
 	public void onRefresh(Event event) {

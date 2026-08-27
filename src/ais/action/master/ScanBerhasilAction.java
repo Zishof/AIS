@@ -1286,7 +1286,14 @@ public class ScanBerhasilAction extends GenericAutowireComposer {
 
 					try {
 						if (lat == null || lat.trim().isEmpty() || lng == null || lng.trim().isEmpty()) {
-							throw new IllegalArgumentException("Koordinat lokasi tidak tersedia");
+							String infoLokasi = "Absensi belum dapat diproses karena browser/perangkat belum mengirim koordinat lokasi.";
+							Html htmlLokasi = new ais.ui.util.MyHtml();
+							htmlLokasi.setContent(pre + imgeHtml + "<strong><font>" + infoLokasi
+									+ "</font></strong><br>Aktifkan izin lokasi, lalu pindai ulang." + pos);
+							jsonObject.put(keyTgl + "_info", infoLokasi);
+							pertemuan.put(jsonObject.toString(), "sejarah");
+							rowUtama.appendChild(htmlLokasi);
+							return;
 						}
 						double latitude1 = pertemuan.getLokasi().getLat();
 						double longitude1 = pertemuan.getLokasi().getLng();

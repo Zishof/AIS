@@ -8054,7 +8054,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 					myRow.appendChild(new Label(Common.numberFormat.get().format(jumlahDiskusiTotal)));
 
-					map.put("jumlahUjianTotal", null);
+					map.put("jumlahUjianTotal", Integer.valueOf(0));
 					map.put("jumlahDiskusiTotal", jumlahDiskusiTotal);
 
 					diskusi += jumlahDiskusiTotal;

@@ -211,6 +211,7 @@ public class ProfileDosen {
 		String waktu = ProfileUiHelper.waktuSapaan();
 
 		Component contentParent = ProfileUiHelper.prepareContentParent(parent);
+		if (contentParent == null) return;
 
 		String background_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
 				(javax.servlet.http.HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest(),
@@ -388,6 +389,7 @@ public class ProfileDosen {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
+				if (rowsKrsMahasiswa == null || rowsKrsMahasiswa.getPage() == null) return;
 				Session session = HibernateUtil.currentSession();
 				Object[] objects = dosen.ambilPerkuliahanDanParalel(session, tahunAkademik, jenisSemester, hr,
 						cariPerkuliahan.getValue().trim(), kelas, false, null, true, false, false,
@@ -823,6 +825,9 @@ public class ProfileDosen {
 						if (dosen != null && krsMahasiswa.getDosenPa() != null
 								&& krsMahasiswa.getDosenPa().getId().equals(dosen.getId())) {
 
+							if (rowsKrsMahasiswa == null || rowsKrsMahasiswa.getPage() == null) {
+								return;
+							}
 							Row row = new MyRowStyled();
 							row.setParent(rowsKrsMahasiswa);
 							Toolbarbutton toolbarbuttonData = new ais.ui.util.MyToolbarbuttonConfig(

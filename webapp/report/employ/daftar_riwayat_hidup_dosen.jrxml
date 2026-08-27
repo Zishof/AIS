@@ -91,7 +91,6 @@ where a.id = $P{peg_id} and ds.id = $P{dos_id}]]>
 	<field name="bank" class="java.lang.Long"/>
 	<field name="kota" class="java.lang.Long"/>
 	<field name="propinsi" class="java.lang.Long"/>
-	<field name="nimplama" class="java.lang.String"/>
 	<field name="tmt_jabatan" class="java.sql.Timestamp"/>
 	<field name="usiapensiun" class="java.lang.Integer"/>
 	<field name="dosen" class="java.lang.Long"/>

@@ -681,6 +681,17 @@ public class CommonReportHelper {
 		return false;
 	}
 
+	private static boolean isNimSudahDipakai(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			String msg = t.getMessage() == null ? "" : t.getMessage().toLowerCase();
+			if (t instanceof IllegalArgumentException
+					&& msg.indexOf("sudah digunakan mahasiswa lain") >= 0) return true;
+			t = t.getCause();
+		}
+		return false;
+	}
+
 	private static boolean genNim(Kegiatan kegiatan) {
 		if (kegiatan == null || kegiatan.getCalonMahasiswa() == null) {
 			return false;
@@ -759,7 +770,8 @@ public class CommonReportHelper {
 					}
 				}
 				lastException = e;
-				if (isNimkeyConstraintViolation(e) && attempt < MAX_RETRY_GEN_NIM) {
+				if ((isNimkeyConstraintViolation(e) || isNimSudahDipakai(e))
+						&& attempt < MAX_RETRY_GEN_NIM) {
 					System.out.println("[genNim] Konflik nimkey (percobaan ke-" + attempt
 							+ "), regenerate ulang NIM dan retry...");
 					try {

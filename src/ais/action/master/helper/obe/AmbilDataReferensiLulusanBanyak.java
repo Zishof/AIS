@@ -250,7 +250,7 @@ public class AmbilDataReferensiLulusanBanyak extends MyWindow {
 					for (Row row : rows) {
 						try {
 							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								ReferensiLulusan myReferensiLulusan = (ReferensiLulusan) row
 										.getAttribute("referensiLulusan");
 								referensiLulusans.add(myReferensiLulusan);

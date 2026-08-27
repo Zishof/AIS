@@ -13,6 +13,7 @@ import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Projections;
 
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
 import org.zkoss.zul.Div;
@@ -381,6 +382,10 @@ public final class ProfileUiHelper {
 		if (parent == null) {
 			return null;
 		}
+		if (Executions.getCurrent() == null || Executions.getCurrent().getDesktop() == null
+				|| parent.getDesktop() != Executions.getCurrent().getDesktop()) {
+			return null;
+		}
 		try {
 			Common.clear(parent);
 		} catch (Exception e) {
@@ -424,7 +429,9 @@ public final class ProfileUiHelper {
 	 * @param parent komponen ZK tujuan penyuntikan CSS; boleh {@code null}
 	 */
 	public static void appendCss(Component parent) {
-		if (parent != null && parent.getPage() != null) {
+		if (parent != null && parent.getPage() != null && Executions.getCurrent() != null
+				&& Executions.getCurrent().getDesktop() != null
+				&& parent.getDesktop() == Executions.getCurrent().getDesktop()) {
 			parent.appendChild(new Html(CSS));
 		}
 	}

@@ -3456,7 +3456,9 @@ public class MainAction extends GenericAutowireComposer {
 
 	private boolean renderModernHomeCenter(PerguruanTinggi ptAktif) {
 		try {
-			if (panel_home == null) {
+			if (panel_home == null || panel_home.getPage() == null || Executions.getCurrent() == null
+					|| Executions.getCurrent().getDesktop() == null
+					|| panel_home.getDesktop() != Executions.getCurrent().getDesktop()) {
 				return false;
 			}
 			Common.clear(panel_home);
@@ -3514,7 +3516,8 @@ public class MainAction extends GenericAutowireComposer {
 		} catch (Exception e) {
 			showError(e);
 			try {
-				if (panel_home != null) {
+				if (panel_home != null && panel_home.getPage() != null && Executions.getCurrent() != null
+						&& panel_home.getDesktop() == Executions.getCurrent().getDesktop()) {
 					ProfileAction.initProfile(tbmuser, panel_home, pengumumanAkademis);
 				}
 			} catch (Exception ex) {

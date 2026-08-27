@@ -3,6 +3,7 @@ package ais.action.maintenance;
 import java.lang.reflect.Method;
 
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Div;
@@ -90,6 +91,13 @@ public final class MainStyleHelper {
 
 	public static void appendSclassOnce(Component component, String css) {
 		if (component == null || css == null || css.trim().length() == 0) {
+			return;
+		}
+		// Jangan menyentuh proxy komponen yang sudah terlepas atau berasal dari desktop
+		// lain. Reflection akan membungkus UiException/NPE menjadi InvocationTargetException.
+		if (component.getPage() == null || Executions.getCurrent() == null
+				|| Executions.getCurrent().getDesktop() == null
+				|| component.getDesktop() != Executions.getCurrent().getDesktop()) {
 			return;
 		}
 		try {

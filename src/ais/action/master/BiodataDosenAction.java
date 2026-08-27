@@ -9,6 +9,7 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -2967,27 +2968,33 @@ public class BiodataDosenAction extends MyWindow {
 
 			}
 
+			Session sessionPegawai = null;
+			Session streamingSessionPegawai = null;
+			Transaction transaksiPegawai = null;
+			Transaction transaksiFotoPegawai = null;
 			try {
 				if (dosen != null && dosen.getId() != null && simpanPegawai) {
-					session = HibernateUtil.currentNativeSession();
+					sessionPegawai = HibernateUtil.openSession();
 					Pegawai pegawai = (Pegawai) ConstantValues.simpleObject(
-							session.createCriteria(Pegawai.class).add(Restrictions.eq("dosen", dosen)).setMaxResults(1),
+							sessionPegawai.createCriteria(Pegawai.class).add(Restrictions.eq("dosen", dosen)).setMaxResults(1),
 							Pegawai.class);
 					if (pegawai == null) {
 						pegawai = new Pegawai();
 						pegawai.setDosen(dosen);
 
-						session.getTransaction().begin();
-						session.save(pegawai);
-						session.getTransaction().commit();
+						transaksiPegawai = sessionPegawai.beginTransaction();
+						sessionPegawai.save(pegawai);
+						transaksiPegawai.commit();
+						transaksiPegawai = null;
 
 						dosen.setPegawaiId(pegawai.getId());
-						session.getTransaction().begin();
-						Common.refreshUpdate(session, dosen);
-						session.getTransaction().commit();
+						transaksiPegawai = sessionPegawai.beginTransaction();
+						Common.refreshUpdate(sessionPegawai, dosen);
+						transaksiPegawai.commit();
+						transaksiPegawai = null;
 
-						Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
-						FotoDosen fotoDosen = (FotoDosen) streamingSession.createCriteria(FotoDosen.class)
+						streamingSessionPegawai = StreamingHibernateUtil.getInstance().openSession();
+						FotoDosen fotoDosen = (FotoDosen) streamingSessionPegawai.createCriteria(FotoDosen.class)
 								.add(Restrictions.eq("dosen", dosen.getId())).setMaxResults(1).uniqueResult();
 						if (fotoDosen != null) {
 							FotoPegawai fotoPegawai = new FotoPegawai();
@@ -2996,18 +3003,20 @@ public class BiodataDosenAction extends MyWindow {
 							fotoPegawai.setPegawai(pegawai.getId());
 							fotoPegawai.setFoto(fotoDosen.getFoto());
 
-							streamingSession.getTransaction().begin();
-							streamingSession.save(fotoPegawai);
-							streamingSession.getTransaction().commit();
+							transaksiFotoPegawai = streamingSessionPegawai.beginTransaction();
+							streamingSessionPegawai.save(fotoPegawai);
+							transaksiFotoPegawai.commit();
+							transaksiFotoPegawai = null;
 						}
-						StreamingHibernateUtil.getInstance().closeSession();
 					}
-
-					// session.disconnect();
-					if (session.isOpen()) {session.disconnect();session.close();}
 				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/BiodataDosenAction.java:3001");
+			} finally {
+				try { if (transaksiFotoPegawai != null && transaksiFotoPegawai.isActive()) transaksiFotoPegawai.rollback(); } catch (Exception abaikan) {}
+				try { if (transaksiPegawai != null && transaksiPegawai.isActive()) transaksiPegawai.rollback(); } catch (Exception abaikan) {}
+				try { if (streamingSessionPegawai != null && streamingSessionPegawai.isOpen()) { streamingSessionPegawai.clear(); streamingSessionPegawai.disconnect(); streamingSessionPegawai.close(); } } catch (Exception abaikan) {}
+				try { if (sessionPegawai != null && sessionPegawai.isOpen()) { sessionPegawai.clear(); sessionPegawai.disconnect(); sessionPegawai.close(); } } catch (Exception abaikan) {}
 			}
 
 			HibernateUtil.closeSession();

@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.hibernate.Criteria;
+import org.hibernate.FlushMode;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -826,11 +827,19 @@ public class RepositorySyncService {
 		 * pengurutan membuat baris yang terpilih berubah-ubah antar siklus. Akibatnya siklus
 		 * yang memilih baris ber-oai KOSONG akan mengisi identifier milik baris saudaranya
 		 * lalu gagal saat flush. Urutkan berdasarkan id agar pilihan selalu konsisten. */
-		RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
-				.add(Restrictions.or(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()),Restrictions.or(Restrictions.isNull("tenantKey"),Restrictions.eq("tenantKey",""))))
-				.add(Restrictions.eq("sourceClass", sourceClass)).add(Restrictions.eq("sourceId", sourceId))
-				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
-		return (RepoItem) jadikanWritable(session, item);
+		FlushMode sebelumnya = session.getFlushMode();
+		try {
+			// Lookup tidak boleh memicu auto-flush koleksi sumber yang sedang dibaca oleh
+			// scheduler; itulah penyebab ConcurrentModificationException di Criteria.list().
+			session.setFlushMode(FlushMode.MANUAL);
+			RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
+					.add(Restrictions.or(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey()),Restrictions.or(Restrictions.isNull("tenantKey"),Restrictions.eq("tenantKey",""))))
+					.add(Restrictions.eq("sourceClass", sourceClass)).add(Restrictions.eq("sourceId", sourceId))
+					.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
+			return (RepoItem) jadikanWritable(session, item);
+		} finally {
+			session.setFlushMode(sebelumnya);
+		}
 	}
 
 	/** Cari RepoItem berdasarkan oai_identifier (kolom ber-constraint UNIQUE). */

@@ -152,11 +152,13 @@ public class BacaBukuBahanAjarAction extends GenericAutowireComposer {
 			myPanel.setHeight("650px");
 			myPanel.setParent(detail);
 
-			MyHboxToolbar toolbar = new MyHboxToolbar();
-			toolbar.setParent(myPanel);
-
 			final Panelchildren panelchildren = new Panelchildren();
 			panelchildren.setParent(myPanel);
+
+			// Panel ZK hanya menerima Panelchildren sebagai child langsung. Toolbar lama
+			// dipasang langsung ke Panel sehingga melempar Unsupported child for Panel.
+			MyHboxToolbar toolbar = new MyHboxToolbar();
+			toolbar.setParent(panelchildren);
 
 			toolbar.appendChild(new Label(ais.common.Common.getBahasaConfig("Halaman")));
 			final Intbox halaman = new Intbox(0);

@@ -139,7 +139,7 @@ public class PengajuanMahasiswa extends DataSop {
 		return index;
 	}
 
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}

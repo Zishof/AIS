@@ -201,7 +201,9 @@ public final class KantinMemberApi {
             balReq.put("id_member", anggota.getId().toString());
             JSONObject balRes = new JSONObject();
             KantinHelper.topup(balReq, balRes);
-            data.put("saldo", safeLong(balRes, "data", 0L));
+			// Runtime tenant lama hanya memiliki JSONObject.put(String,Object), bukan
+			// overload put(String,long). Boxing eksplisit menjaga kompatibilitas biner.
+			data.put("saldo", Long.valueOf(safeLong(balRes, "data", 0L)));
 
             // Sisa cashback (total cashback dari pembelian - yang sudah dicairkan)
             @SuppressWarnings("unchecked")
@@ -211,7 +213,8 @@ public final class KantinMemberApi {
                 "WHERE pak.anggota_koperasi=:m),0) - COALESCE((SELECT SUM(pd.nominal_cair) " +
                 "FROM koperasi.pencairan_diskon pd WHERE pd.anggota_koperasi=:m AND pd.status='BERHASIL'),0)"
             ).setParameter("m", anggota.getId()).list();
-            data.put("sisa_cashback", cbList.isEmpty() || cbList.get(0) == null ? 0 : ((Number)cbList.get(0)).longValue());
+			data.put("sisa_cashback", Long.valueOf(cbList.isEmpty() || cbList.get(0) == null
+					? 0L : ((Number) cbList.get(0)).longValue()));
 
             JSONObject hasil = new JSONObject();
             hasil.put("data", data);

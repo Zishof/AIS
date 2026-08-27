@@ -106,7 +106,7 @@ order by e.nama,d.nama,c.nim]]>
 	<field name="program" class="java.lang.String"/>
 	<field name="telp" class="java.lang.String"/>
 	<field name="abs" class="java.lang.String"/>
-	<field name="jumlahUjianTotal" class="java.lang.Integer"/>
+	<field name="jumlahUjianTotal" class="java.lang.Number"/>
 	<field name="jumlahDiskusiTotal" class="java.lang.Integer"/>
 	<field name="tugas" class="java.lang.Integer"/>
 	<field name="online" class="java.lang.Integer"/>
@@ -116,7 +116,7 @@ order by e.nama,d.nama,c.nim]]>
 	<field name="bahan_perkulaiahan" class="java.lang.Integer"/>
 	<field name="jenis" class="java.lang.String"/>
 	<field name="file_tugas" class="java.lang.Integer"/>
-	<variable name="ujian" class="java.lang.Integer" resetType="Group" resetGroup="jenis" calculation="Sum">
+	<variable name="ujian" class="java.lang.Number" resetType="Group" resetGroup="jenis" calculation="Sum">
 		<variableExpression><![CDATA[$F{jumlahUjianTotal}]]></variableExpression>
 	</variable>
 	<variable name="diskusi" class="java.lang.Integer" resetType="Group" resetGroup="jenis" calculation="Sum">

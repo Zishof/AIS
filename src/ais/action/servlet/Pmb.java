@@ -135,8 +135,12 @@ public class Pmb extends HttpServlet {
             return;
         }
 
-        try {
-            request.getRequestDispatcher(dispatcherPath).forward(request, response);
+		try {
+			javax.servlet.RequestDispatcher dispatcher = request.getRequestDispatcher(dispatcherPath);
+			if (dispatcher == null) {
+				throw new ServletException("Halaman PMB tidak ditemukan: " + dispatcherPath);
+			}
+			dispatcher.forward(request, response);
         } catch (Throwable e) {
             Common.tampilErrorJikaAdmin(asException(e));
 
