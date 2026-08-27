@@ -4267,6 +4267,65 @@ public class Report extends GenericAutowireComposer {
 			lbl.setParent(bar);
 		}
 
+		// Kontrol zoom berlaku untuk HTML maupun PDF. PDF yang lebar (mis. Buku Besar)
+		// sebelumnya selalu dibuka dengan mode "fit page", sehingga huruf menjadi sangat
+		// kecil. Fragment #zoom dipakai untuk viewer PDF browser; untuk HTML pendamping,
+		// zoom diterapkan langsung pada dokumen iframe yang same-origin.
+		final int[] zoomPersen = new int[] { 100 };
+		final org.zkoss.zul.Label labelZoom = new org.zkoss.zul.Label("100%");
+		labelZoom.setStyle("min-width:42px; text-align:center; font-weight:800; color:#334155;");
+
+		final org.zkoss.zul.Button perkecil = new org.zkoss.zul.Button("-");
+		perkecil.setTooltiptext("Perkecil tampilan laporan");
+		perkecil.setStyle("min-width:32px; padding:4px 9px; font-weight:900;");
+		perkecil.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				zoomPersen[0] = Math.max(50, zoomPersen[0] - 25);
+				labelZoom.setValue(zoomPersen[0] + "%");
+				aturZoomIframePratinjau(area, zoomPersen[0]);
+			}
+		});
+		perkecil.setParent(bar);
+		labelZoom.setParent(bar);
+
+		final org.zkoss.zul.Button perbesar = new org.zkoss.zul.Button("+");
+		perbesar.setTooltiptext("Perbesar tampilan laporan");
+		perbesar.setStyle("min-width:32px; padding:4px 9px; font-weight:900;");
+		perbesar.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				zoomPersen[0] = Math.min(250, zoomPersen[0] + 25);
+				labelZoom.setValue(zoomPersen[0] + "%");
+				aturZoomIframePratinjau(area, zoomPersen[0]);
+			}
+		});
+		perbesar.setParent(bar);
+
+		final org.zkoss.zul.Button resetZoom = new org.zkoss.zul.Button("Reset zoom");
+		resetZoom.setTooltiptext("Kembalikan ukuran tampilan ke 100%");
+		resetZoom.setStyle("padding:4px 10px; font-weight:700;");
+		resetZoom.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				zoomPersen[0] = 100;
+				labelZoom.setValue("100%");
+				aturZoomIframePratinjau(area, 100);
+			}
+		});
+		resetZoom.setParent(bar);
+
+		final org.zkoss.zul.Button layarPenuh = new org.zkoss.zul.Button("Layar penuh");
+		layarPenuh.setTooltiptext("Buka pratinjau selebar layar agar lebih mudah dibaca");
+		layarPenuh.setStyle("padding:4px 10px; font-weight:700;");
+		layarPenuh.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				bukaLayarPenuhPratinjau(area);
+			}
+		});
+		layarPenuh.setParent(bar);
+
 		// Tombol "Cetak" → langsung mencetak isi pratinjau (HTML) yang sedang tampil di iframe.
 		final org.zkoss.zul.Button cetak = new org.zkoss.zul.Button("Cetak");
 		cetak.setStyle("margin-left:auto; background:#2563eb; color:#fff; border:0; border-radius:8px;"
@@ -4280,6 +4339,47 @@ public class Report extends GenericAutowireComposer {
 		});
 		cetak.setParent(bar);
 		return bar;
+	}
+
+	/** Atur pembesaran isi iframe pratinjau tanpa mengubah ukuran hasil cetak/unduhan. */
+	private static void aturZoomIframePratinjau(org.zkoss.zul.Div area, int zoomPersen) {
+		try {
+			if (area == null) {
+				return;
+			}
+			int zoom = Math.max(50, Math.min(250, zoomPersen));
+			StringBuilder js = new StringBuilder(1024);
+			js.append("(function(){var a=document.getElementById('").append(area.getUuid()).append("');");
+			js.append("if(!a)return;var f=a.querySelector('iframe');if(!f)return;");
+			js.append("var z=").append(zoom).append(";");
+			js.append("try{var d=f.contentWindow&&f.contentWindow.document;");
+			js.append("if(d&&d.body&&(!d.contentType||d.contentType.toLowerCase().indexOf('html')>=0)){d.body.style.zoom=(z/100);return;}}catch(ex){}");
+			js.append("var s=f.getAttribute('src')||f.src||'';if(!s)return;");
+			js.append("s=s.replace(/#.*$/,'');f.setAttribute('src',s+'#zoom='+z);})();");
+			Clients.evalJavaScript(js.toString());
+		} catch (Exception ex) {
+			ais.common.ErrorAuditUtil.record(ex,
+					"auto-audit(empty-catch) src/ais/action/report/Report.java:aturZoomIframePratinjau");
+		}
+	}
+
+	/** Memakai Fullscreen API browser; fallback membuka sumber pratinjau di tab baru. */
+	private static void bukaLayarPenuhPratinjau(org.zkoss.zul.Div area) {
+		try {
+			if (area == null) {
+				return;
+			}
+			StringBuilder js = new StringBuilder(768);
+			js.append("(function(){var a=document.getElementById('").append(area.getUuid()).append("');");
+			js.append("if(!a)return;var f=a.querySelector('iframe');if(!f)return;");
+			js.append("try{var p=f.requestFullscreen||f.webkitRequestFullscreen||f.msRequestFullscreen;");
+			js.append("if(p){p.call(f);return;}}catch(ex){}");
+			js.append("var s=f.getAttribute('src')||f.src||'';if(s)window.open(s,'_blank');})();");
+			Clients.evalJavaScript(js.toString());
+		} catch (Exception ex) {
+			ais.common.ErrorAuditUtil.record(ex,
+					"auto-audit(empty-catch) src/ais/action/report/Report.java:bukaLayarPenuhPratinjau");
+		}
 	}
 
 	/** True bila berkas pendamping HTML (mirip PDF) untuk {@code myfile} tersedia & berisi. */
