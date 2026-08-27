@@ -4,6 +4,8 @@ import ais.common.PesanFormalHelper;
 import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +41,44 @@ public class LaporanJurnalMengajar extends MyWindow {
 	 *
 	 */
 	private static final long serialVersionUID = 3331244819198611604L;
+
+	/**
+	 * Menjaga urutan Jurnal Mengajar tetap mengikuti nomor pertemuan seperti
+	 * Rencana Perkuliahan. Tanggal dan id hanya dipakai sebagai pengurut cadangan
+	 * bila terdapat nomor pertemuan yang sama.
+	 */
+	private static List<Pertemuan> urutkanPertemuan(List<Pertemuan> sumber) {
+		List<Pertemuan> hasil = sumber == null
+				? new ArrayList<Pertemuan>()
+				: new ArrayList<Pertemuan>(sumber);
+
+		Collections.sort(hasil, new Comparator<Pertemuan>() {
+			@Override
+			public int compare(Pertemuan pertama, Pertemuan kedua) {
+				if (pertama == kedua) return 0;
+				if (pertama == null) return 1;
+				if (kedua == null) return -1;
+
+				int hasilBanding = bandingkanNullTerakhir(pertama.getPertemuanKe(), kedua.getPertemuanKe());
+				if (hasilBanding != 0) return hasilBanding;
+
+				hasilBanding = bandingkanNullTerakhir(pertama.getTanggal(), kedua.getTanggal());
+				if (hasilBanding != 0) return hasilBanding;
+
+				return bandingkanNullTerakhir(pertama.getId(), kedua.getId());
+			}
+
+			@SuppressWarnings({ "rawtypes", "unchecked" })
+			private int bandingkanNullTerakhir(Comparable pertama, Comparable kedua) {
+				if (pertama == kedua) return 0;
+				if (pertama == null) return 1;
+				if (kedua == null) return -1;
+				return pertama.compareTo(kedua);
+			}
+		});
+
+		return hasil;
+	}
 
 	public LaporanJurnalMengajar(Perkuliahan perkuliahan) {
 		super();
@@ -186,8 +226,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 			komponenPenilaianStr = kpm.getKomponenPenilaian() == null ? "" : kpm.getKomponenPenilaian();
 		}
 
-		List<Pertemuan> pertemuans = perkuliahan.ambilPertemuanList();
-		if (pertemuans == null) pertemuans = new ArrayList<Pertemuan>();
+		List<Pertemuan> pertemuans = urutkanPertemuan(perkuliahan.ambilPertemuanList());
 
 		java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("EEEE, dd MMMM yyyy",
 				new java.util.Locale("id", "ID"));
@@ -524,7 +563,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 			parameters.put("nama_dosen", nama_dosen);
 			parameters.put("nidn_dosen", nidn_dosen);
 
-			List<Pertemuan> pertemuans = perkuliahan.ambilPertemuanList();
+			List<Pertemuan> pertemuans = urutkanPertemuan(perkuliahan.ambilPertemuanList());
 
 			for (Pertemuan pertemuan : pertemuans) {
 				nama_dosen = "";

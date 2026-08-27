@@ -465,8 +465,8 @@ boolean isAdmin = (toko == null);
             maksimalTransaksiMingguan: parseFloat(document.getElementById('inputMaksMingguan<%=rnd%>').value || 0),
             maksimalTransaksiBulanan: parseFloat(document.getElementById('inputMaksBulanan<%=rnd%>').value || 0),
             wajibPin: document.getElementById('inputWajibPin<%=rnd%>').checked,
-            wajibBiometricWajah: document.getElementById('inputWajibWajah<%=rnd%>').checked,
-            wajibBiometricFingerprint: document.getElementById('inputWajibFingerprint<%=rnd%>').checked
+            wajibVerifikasiBiometricWajah: document.getElementById('inputWajibWajah<%=rnd%>').checked,
+            wajibVerifikasiBiometricFingerprint: document.getElementById('inputWajibFingerprint<%=rnd%>').checked
         };
         
         const payload = { 
