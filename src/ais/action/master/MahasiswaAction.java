@@ -4433,6 +4433,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (simpanPerubahanNim(sumber.getId(), nimBaru.getValue())) {
+					segarkanMahasiswaSetelahEditNim(sumber, nimBaru.getValue());
 					window.detach();
 					onSearchDefault(null);
 				}
@@ -4441,6 +4442,36 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		simpan.setParent(toolbar);
 		window.setVisible(true);
 		window.onModal();
+	}
+
+	/**
+	 * Mengeluarkan hanya entity mahasiswa yang NIM-nya baru diubah dari cache session
+	 * halaman. Penyimpanan popup memakai openSession() tersendiri sehingga session halaman
+	 * masih dapat mengembalikan instance lama saat pencarian dijalankan ulang. Kondisi itu
+	 * membuat perubahan terlihat tidak tersimpan, walaupun transaksi database sudah commit.
+	 */
+	private void segarkanMahasiswaSetelahEditNim(Mahasiswa sumber, String nimBaruInput) {
+		if (sumber == null || sumber.getId() == null) {
+			return;
+		}
+		String nimBaru = nimBaruInput == null ? "" : nimBaruInput.trim();
+		try {
+			Session sessionHalaman = HibernateUtil.currentSession();
+			Mahasiswa tersimpanDiCache = (Mahasiswa) sessionHalaman.get(Mahasiswa.class, sumber.getId());
+			if (tersimpanDiCache != null && sessionHalaman.contains(tersimpanDiCache)) {
+				/*
+				 * Jangan clear() seluruh session halaman karena dapat membuang perubahan komponen
+				 * lain. Evict entity ini saja agar onSearchDefault mengambil NIM hasil commit.
+				 */
+				sessionHalaman.evict(tersimpanDiCache);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/MahasiswaAction.java:segarkanMahasiswaSetelahEditNim");
+		}
+		// Sumber mungkin berasal dari model daftar dan tidak terikat pada session halaman.
+		// Sinkronkan nilainya juga supaya renderer tidak pernah menampilkan NIM lama.
+		sumber.setNim(nimBaru);
 	}
 
 	@SuppressWarnings("unchecked")
