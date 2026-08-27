@@ -6170,9 +6170,16 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 								else if ("briva".equals(bankGatewayId))
 									param.put("briva", true);
 
-								VirtualAccountBank va = DownloadTagihanMahasiswaBankOnline.downloadData(mahasiswa,
-										Integer.parseInt(semester.getValue()), jadwalPembayaran, detailBiayas,
-										gridCicilan, param, biayaAdministrasi, null, null, bankHost);
+								VirtualAccountBank va;
+								try {
+									va = DownloadTagihanMahasiswaBankOnline.downloadData(mahasiswa,
+											Integer.parseInt(semester.getValue()), jadwalPembayaran, detailBiayas,
+											gridCicilan, param, biayaAdministrasi, null, null, bankHost);
+								} catch (MahasiswaVirtualAccountHelper.TagihanSudahDibayarException e) {
+									MyMessageboxConfig.show(e.getMessage(), "Tagihan Sudah Dibayar",
+											MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+									return;
+								}
 
 								if (param.get("jangan_notif") != null && (Boolean) param.get("jangan_notif"))
 									return;
