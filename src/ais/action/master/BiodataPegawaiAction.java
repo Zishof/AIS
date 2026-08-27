@@ -4254,7 +4254,7 @@ public class BiodataPegawaiAction extends MyWindow {
 				pegawai.setKtp(ktp.getValue());
 				List<String> daftarWajibDiisi = KonfigurasiTampilanPegawaiAction.dataYangWajibDiisi();
 				for (String key : daftarWajibDiisi) {
-					if (Common.checkIsNull(Pegawai.class, guru, key)) {
+					if (Common.checkIsNull(Pegawai.class, pegawai, key)) {
 						MyMessageboxConfig.showFormat(
 								"Mohon Bapak/Ibu melengkapi biodata pegawai. Data \"{V1}\" masih belum terisi dengan benar. Langkah yang dapat dilakukan: (1) lengkapi kolom yang dimaksud; (2) pastikan seluruh data wajib terisi dengan benar; (3) simpan kembali data pegawai.",
 								"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,

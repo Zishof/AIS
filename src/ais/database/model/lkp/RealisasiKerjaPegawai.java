@@ -49,6 +49,7 @@ public class RealisasiKerjaPegawai extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	@Column(name = "olehid", columnDefinition = "text")
 	public String getOlehId() {
 		return olehId;
 	}
@@ -67,6 +68,7 @@ public class RealisasiKerjaPegawai extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	@Column(name = "oleh", columnDefinition = "text")
 	public String getOleh() {
 		return oleh;
 	}
@@ -119,7 +121,7 @@ public class RealisasiKerjaPegawai extends GeneralValueObject {
 		this.id = id;
 	}
 
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}

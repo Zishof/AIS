@@ -33,6 +33,7 @@ public final class DatabaseTextColumnSchemaFix {
             initTugasPertemuan();
             initTransaksiKeterangan();
 			initPengajuanMahasiswa();
+			initRealisasiKerjaPegawai();
         } catch (Exception e) {
             try {
                 Common.tampilErrorJikaAdmin(e);
@@ -105,6 +106,13 @@ public final class DatabaseTextColumnSchemaFix {
 		String[] columns = new String[] { "keterangan" };
 		alterColumnsToText("public", "pengajuan_mahasiswa", columns);
 		alterColumnsToText("new_audit", "pengajuan_mahasiswa__audit", columns);
+	}
+
+	/** Data realisasi dan jejak audit dapat melebihi batas varchar(255). */
+	public static void initRealisasiKerjaPegawai() {
+		String[] columns = new String[] { "keterangan", "oleh", "olehid" };
+		alterColumnsToText("public", "realisasi_kerja_pegawai", columns);
+		alterColumnsToText("new_audit", "realisasi_kerja_pegawai__audit", columns);
 	}
 
     public static void initKonfigurasi() {

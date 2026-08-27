@@ -9969,6 +9969,9 @@ public class Common {
 		if (clazz == null || o == null || property == null || property.trim().length() == 0) {
 			return true;
 		}
+		if (!clazz.isInstance(o)) {
+			return true;
+		}
 		try {
 			ClassMetadata classMetadata = HibernateUtil.getClassMetadata(clazz);
 			if (classMetadata == null) {

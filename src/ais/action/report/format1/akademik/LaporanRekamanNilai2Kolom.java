@@ -264,7 +264,9 @@ public class LaporanRekamanNilai2Kolom extends MyWindow {
 			}
 		}));
 
-		onTranskrip(null);
+		if (bandboxMahasiswa.getAttribute("mahasiswa") != null) {
+			onTranskrip(null);
+		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -371,7 +373,11 @@ public class LaporanRekamanNilai2Kolom extends MyWindow {
 				namaFile = namaFile + "_" + mahasiswa.getJenjang().getId();
 			}
 
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), namaFile,
+			Map parameters = generateParameter();
+			if (parameters == null) {
+				return;
+			}
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameters, namaFile,
 					ais.ui.util.WaktuUtil.getDate(), toolbar);
 			CommonReport.tampilkanReportPDF(center, file);
 

@@ -813,7 +813,11 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = nn.split(",");
+					String[] s = nn == null ? new String[] {} : nn.split(",", -1);
+					if (s.length < 3 || s[0].trim().length() == 0 || s[1].trim().length() == 0
+							|| s[2].trim().length() == 0) {
+						continue;
+					}
 					Long formatId = Long.parseLong(s[0]);
 					Long dosenId = Long.parseLong(s[1]);
 					if (formatIdSource.getId().equals(formatId) && dosen.getId().equals(dosenId)) {
@@ -837,7 +841,11 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = nn.split(",");
+					String[] s = nn == null ? new String[] {} : nn.split(",", -1);
+					if (s.length < 6 || s[0].trim().length() == 0 || s[1].trim().length() == 0
+							|| s[2].trim().length() == 0) {
+						continue;
+					}
 					Long formatId = Long.parseLong(s[0]);
 					Long dosenId = Long.parseLong(s[1]);
 					if (formatIdSource.getId().equals(formatId) && dosen.getId().equals(dosenId)) {

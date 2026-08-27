@@ -1509,7 +1509,7 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 	public void setPersetujuan(Integer persetujuan) {
-		this.persetujuan = persetujuan;
+		this.persetujuan = persetujuan == null ? BELUM_DISETUJUI : persetujuan;
 	}
 
 	@Column(name = "persetujuan", nullable = false, length = 1)
@@ -1547,7 +1547,7 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			// TODO: handle exception
 		}
 
-		return persetujuan;
+		return persetujuan == null ? BELUM_DISETUJUI : persetujuan;
 	}
 
 	public void setMatakuliahKonversi(Matakuliah matakuliahKonversi) {

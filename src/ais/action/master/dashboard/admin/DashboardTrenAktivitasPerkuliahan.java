@@ -1469,14 +1469,19 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		if (desktop == null || !desktop.isAlive() || !desktop.isServerPushEnabled()) {
 			return;
 		}
-		Executions.schedule(desktop, new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				org.zkoss.zul.Div body = getDashboardBodyContainer();
-				Common.clear(body);
-				body.appendChild(new Html(buildErrorHtml(error)));
-			}
-		}, new Event("onElearningDashboardError"));
+		try {
+			Executions.schedule(desktop, new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					org.zkoss.zul.Div body = getDashboardBodyContainer();
+					Common.clear(body);
+					body.appendChild(new Html(buildErrorHtml(error)));
+				}
+			}, new Event("onElearningDashboardError"));
+		} catch (IllegalStateException e) {
+			// Desktop dapat ditutup atau server-push dinonaktifkan setelah pemeriksaan di atas.
+			// Ini lifecycle normal saat pengguna pindah halaman; tidak perlu menjadi error sistem.
+		}
 	}
 
 	private void showSimpleMessage(String message) {

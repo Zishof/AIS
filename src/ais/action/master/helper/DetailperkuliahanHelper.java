@@ -1206,6 +1206,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 								Integer semester = Common.getSheetContentAsInteger(sheet, 1, i);
 								Integer tahap = Common.getSheetContentAsInteger(sheet, 2, i);
 								Integer persetujuan = Common.getSheetContentAsInteger(sheet, 3, i);
+								if (persetujuan == null) {
+									persetujuan = Detailperkuliahan.BELUM_DISETUJUI;
+								}
 
 								if (semester == null) {
 									semester = perkuliahan.getSemester();
