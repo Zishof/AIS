@@ -1500,16 +1500,23 @@ public class KantinHelper {
 										"auto-audit src/ais/action/servlet/api/KantinHelper.java:produkTerjualParse");
 							}
 						}
-						for (Long produkId : produkTerjual) {
-							try {
-								ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
-							} catch (Exception exStok) {
-								exStok.printStackTrace();
-								ais.common.ErrorAuditUtil.record(exStok,
-										"auto-audit src/ais/action/servlet/api/KantinHelper.java:produkTerjualRecompute");
+						if (!produkTerjual.isEmpty()) {
+							session.beginTransaction();
+							for (Long produkId : produkTerjual) {
+								ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
 							}
+							session.getTransaction().commit();
+							session.clear();
 						}
 					} catch (Exception exProduk) {
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception exRollback) {
+							ais.common.ErrorAuditUtil.record(exRollback,
+									"auto-audit src/ais/action/servlet/api/KantinHelper.java:produkTerjualRollback");
+						}
 						exProduk.printStackTrace();
 						ais.common.ErrorAuditUtil.record(exProduk,
 								"auto-audit src/ais/action/servlet/api/KantinHelper.java:produkTerjualBlock");
@@ -11391,8 +11398,16 @@ public class KantinHelper {
 			hasil.put("description", "Toko tidak diketahui.");
 			return;
 		}
-		String tipe = request.optString("tipe", "");
+		String tipe = request.optString("tipe", "").trim();
 		String nilai = request.optString("nilai", "");
+		if (!("total".equals(tipe) || "aktif".equals(tipe) || "nonaktif".equals(tipe)
+				|| "stokHabis".equals(tipe) || "stokMinus".equals(tipe) || "stokRendah".equals(tipe)
+				|| "nilaiStok".equals(tipe) || "kategori".equals(tipe) || "pemasok".equals(tipe)
+				|| "harga".equals(tipe) || "stok".equals(tipe))) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tipe statistik produk tidak dikenal: " + tipe);
+			return;
+		}
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
