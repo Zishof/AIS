@@ -2783,6 +2783,8 @@ public class BiodataDosenAction extends MyWindow {
 			}
 
 			Session session = HibernateUtil.currentNativeSession();
+			Transaction transaksiDosen = null;
+			try {
 			if (dosen.getId() != null) {
 				dosen = (Dosen) session.load(Dosen.class, dosen.getId());
 			}
@@ -2892,13 +2894,14 @@ public class BiodataDosenAction extends MyWindow {
 			dosen.setGoogleScholar(googleScholar.getValue().trim());
 			dosen.setKodeSinta(kodeSinta.getValue());
 
-			session.getTransaction().begin();
+			transaksiDosen = session.beginTransaction();
 			if (dosen.getId() != null) {
 				session.update(dosen);
 			} else {
 				session.save(dosen);
 			}
-			session.getTransaction().commit();
+			transaksiDosen.commit();
+			transaksiDosen = null;
 
 			Tbmuser tbmuser = Common.getCurrentUser();
 			if (tbmuser.ambilDosen() != null && tbmuser.getDosen().getId().equals(dosen.getId())) {
@@ -2908,9 +2911,13 @@ public class BiodataDosenAction extends MyWindow {
 				Sessions.getCurrent().setAttribute("usersTemp", tbmuser);
 			}
 
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
+			} finally {
+				try { if (transaksiDosen != null && transaksiDosen.isActive()) transaksiDosen.rollback(); } catch (Exception abaikan) { }
+				try { if (session != null && session.isOpen()) session.clear(); } catch (Exception abaikan) { }
+				try { if (session != null && session.isConnected()) session.disconnect(); } catch (Exception abaikan) { }
+				try { if (session != null && session.isOpen()) session.close(); } catch (Exception abaikan) { }
+				HibernateUtil.closeSession();
+			}
 
 			if (lainMahasiswa != null && lainMahasiswa.getId() != null) {
 				try {

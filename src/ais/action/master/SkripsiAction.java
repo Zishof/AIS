@@ -3311,10 +3311,11 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 				}
 			}
 			Common.selectComboItem(true, formatNilaiSkripsi, skripsi.getFormatNilaiSkripsi());
-
-			if (!formatNilaiSkripsi.getChildren().isEmpty()) {
-				formatNilaiSkripsi.setSelectedIndex(0);
-			}
+			// Jangan memilih item pertama setelah nilai tersimpan berhasil dipilih.
+			// Pada layar edit, perilaku lama selalu menimpa jenis pengajuan yang benar
+			// (mis. Seminar Hasil/Skripsi II) dengan item pertama (mis. Perbaikan Proposal).
+			// Untuk data baru tanpa jenis pengajuan, biarkan kosong agar pengguna wajib
+			// memilih secara eksplisit; checkSyarat() sudah menangani validasinya.
 
 //			if (skripsi != null && skripsi.getMahasiswaRequestTugasAkhir() != null
 //					&& skripsi.getMahasiswaRequestTugasAkhir().getFormatNilaiProposalSkripsi() != null

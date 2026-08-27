@@ -78,6 +78,7 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyInclude;
+import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;

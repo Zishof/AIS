@@ -389,7 +389,7 @@ public class ProfileDosen {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
-				if (rowsKrsMahasiswa == null || rowsKrsMahasiswa.getPage() == null) return;
+				if (rowsPerkuliahan == null || rowsPerkuliahan.getPage() == null) return;
 				Session session = HibernateUtil.currentSession();
 				Object[] objects = dosen.ambilPerkuliahanDanParalel(session, tahunAkademik, jenisSemester, hr,
 						cariPerkuliahan.getValue().trim(), kelas, false, null, true, false, false,
@@ -796,6 +796,7 @@ public class ProfileDosen {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
+				if (rowsKrsMahasiswa == null || rowsKrsMahasiswa.getPage() == null) return;
 				String tahunAkademik = Common.getCurrentTahunAkademik();
 				String jenisSemester = Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
 
