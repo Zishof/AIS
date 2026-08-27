@@ -510,14 +510,14 @@ public class PerformaLog extends GeneralValueObject {
 	public static final int AMBANG_BLOCKED_KRITIS = 10;
 	public static final int AMBANG_MEMORI_PERHATIAN = 85;
 	public static final int AMBANG_MEMORI_KRITIS = 95;
+	/** Ambang historis/informasional untuk tampilan; total thread idle tidak menentukan status. */
 	public static final int AMBANG_THREAD_PERHATIAN = 800;
-
 	/**
 	 * Status kesehatan sederhana berdasarkan ambang batas default:
 	 * <ul>
 	 * <li>KRITIS  : ada deadlock, heap/metaspace &gt;= 95%, &gt;= 10 thread BLOCKED, atau &gt;= 50
 	 * thread menumpuk pada SATU lock yang sama (pola pool koneksi habis / lock global macet).</li>
-	 * <li>PERHATIAN: heap/metaspace &gt;= 85%, thread &gt; 800, &gt;= 3 thread BLOCKED, atau &gt;= 8
+	 * <li>PERHATIAN: heap/metaspace &gt;= 85%, &gt;= 3 thread BLOCKED, atau &gt;= 8
 	 * thread berebut satu lock yang sama.</li>
 	 * <li>NORMAL  : selain kondisi di atas (termasuk 1-2 thread BLOCKED yang transien).</li>
 	 * </ul>
@@ -539,7 +539,6 @@ public class PerformaLog extends GeneralValueObject {
 	public String getStatusKesehatan() {
 		int heap = getPersenHeap();
 		int meta = getPersenMetaspace();
-		int total = nz(jumlahThread);
 		int kontensi = nz(maxThreadSatuLock);
 		int blocked = nz(jumlahBlocked);
 
@@ -550,7 +549,6 @@ public class PerformaLog extends GeneralValueObject {
 		}
 		if ((heap >= 0 && heap >= AMBANG_MEMORI_PERHATIAN)
 				|| (meta >= 0 && meta >= AMBANG_MEMORI_PERHATIAN)
-				|| total > AMBANG_THREAD_PERHATIAN
 				|| blocked >= AMBANG_BLOCKED_PERHATIAN || kontensi >= AMBANG_KONTENSI_PERHATIAN) {
 			return "Perhatian";
 		}

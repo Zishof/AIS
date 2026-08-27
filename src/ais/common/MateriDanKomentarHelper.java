@@ -29,7 +29,7 @@ public class MateriDanKomentarHelper {
 	private static final boolean DEBUG_MODE = false;
 
 	// =========================================================================================
-	// 1. METODE AMBIL KOMENTAR / DISKUSI (PARALEL MAX 30 THREADS)
+	// 1. METODE AMBIL KOMENTAR / DISKUSI (PARALEL TERBATAS SESUAI POOL DB)
 	// =========================================================================================
 
 	public static TreeMap<String, Object[]> ambilKomentar(final TreeMap<String, Long> pertemuans, final boolean refresh,
@@ -50,8 +50,11 @@ public class MateriDanKomentarHelper {
 		}
 
 		final int size = pertemuanPunyaDiskusis.size();
-		// Dioptimalkan ke 230 threads agar Database Pool & Memory Tomcat stabil
-		int maxThreads = Math.min(230, size);
+		// Setiap worker memuat entity melalui Hibernate. Jangan membuat ratusan worker per
+		// request karena beberapa pengguna yang membuka ringkasan bersamaan dapat menghabiskan
+		// pool koneksi dan membuat jumlah thread melonjak. DbThreadPool menyisakan kapasitas
+		// koneksi untuk request web normal (default 16, batas keras 32).
+		int maxThreads = DbThreadPool.safe(size);
 
 		if (DEBUG_MODE) {
 			System.out.println("DEBUG [Komentar]: Memulai antrean " + size + " tugas diskusi dengan " + maxThreads + " threads paralel.");
@@ -140,15 +143,19 @@ public class MateriDanKomentarHelper {
 			});
 		}
 
+		executorService.shutdown();
 		try {
 			boolean finished = latch.await(30, TimeUnit.SECONDS);
-			if (!finished && DEBUG_MODE) {
-				System.err.println("FATAL DEBUG [Komentar]: Timeout 30 Detik Terlampaui! Ada " + latch.getCount() + " proses yang HANG / tertahan.");
+			if (!finished) {
+				executorService.shutdownNow();
+				if (DEBUG_MODE) {
+					System.err.println("FATAL DEBUG [Komentar]: Timeout 30 Detik Terlampaui! Ada " + latch.getCount() + " proses yang HANG / tertahan.");
+				}
 			} else if (DEBUG_MODE) {
 				System.out.println("DEBUG [Komentar]: Seluruh tugas paralel sukses diselesaikan.");
 			}
-			executorService.shutdown();
 		} catch (InterruptedException e) {
+			executorService.shutdownNow();
 			if (DEBUG_MODE) System.err.println("DEBUG [Komentar]: Interrupted Exception terpicu.");
 			Thread.currentThread().interrupt();
 		}
@@ -169,7 +176,7 @@ public class MateriDanKomentarHelper {
 	}
 
 	// =========================================================================================
-	// 2. METODE AMBIL MATERI E-LEARNING (PARALEL MAX 30 THREADS)
+	// 2. METODE AMBIL MATERI E-LEARNING (PARALEL TERBATAS SESUAI POOL DB)
 	// =========================================================================================
 
 	public static TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label,
@@ -186,8 +193,9 @@ public class MateriDanKomentarHelper {
 		}
 
 		final int size = pertemuans.size();
-		// Dioptimalkan ke 230 threads agar Database Pool & Memory Tomcat stabil
-		int maxThreads = Math.min(230, size);
+		// Sama seperti diskusi: pekerjaan ini DB-bound. Pool per-request yang terlalu besar
+		// mempercepat habisnya koneksi, bukan mempercepat halaman.
+		int maxThreads = DbThreadPool.safe(size);
 
 		if (DEBUG_MODE) {
 			System.out.println("DEBUG [Materi]: Memulai antrean " + size + " tugas materi dengan " + maxThreads + " threads paralel.");
@@ -345,15 +353,19 @@ public class MateriDanKomentarHelper {
 			});
 		}
 
+		executorService.shutdown();
 		try {
 			boolean finished = latch.await(30, TimeUnit.SECONDS);
-			if (!finished && DEBUG_MODE) {
-				System.err.println("FATAL DEBUG [Materi]: Timeout 30 Detik Terlampaui! Ada " + latch.getCount() + " proses yang HANG / tertahan.");
+			if (!finished) {
+				executorService.shutdownNow();
+				if (DEBUG_MODE) {
+					System.err.println("FATAL DEBUG [Materi]: Timeout 30 Detik Terlampaui! Ada " + latch.getCount() + " proses yang HANG / tertahan.");
+				}
 			} else if (DEBUG_MODE) {
 				System.out.println("DEBUG [Materi]: Seluruh tugas paralel sukses diselesaikan.");
 			}
-			executorService.shutdown();
 		} catch (InterruptedException e) {
+			executorService.shutdownNow();
 			if (DEBUG_MODE) System.err.println("DEBUG [Materi]: Interrupted Exception terpicu.");
 			Thread.currentThread().interrupt();
 		}

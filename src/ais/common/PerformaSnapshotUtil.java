@@ -177,9 +177,10 @@ public class PerformaSnapshotUtil {
 					}
 
 					boolean idleWorker = adalahWorkerIdle(info);
+					boolean antreanZk = adalahAntreanAktivasiZk(info);
 					String grup = grupNamaThread(info.getThreadName());
 					tambah(grupCount, grup, 1);
-					if (!idleWorker) {
+					if (!idleWorker && !antreanZk) {
 						tambah(grupAktifCount, grup, 1);
 					}
 					hitungKelasStack(info, kelasCount, kelasAisCount);
@@ -729,7 +730,7 @@ public class PerformaSnapshotUtil {
 				continue;
 			}
 			kelasDiThread.add(kelas);
-			if (kelas.startsWith("ais.")) {
+			if (kelas.startsWith("ais.") && !adalahKelasInfrastruktur(kelas)) {
 				kelasAisDiThread.add(kelas);
 			}
 		}
@@ -739,6 +740,17 @@ public class PerformaSnapshotUtil {
 		for (java.util.Iterator<String> it = kelasAisDiThread.iterator(); it.hasNext();) {
 			tambah(kelasAisCount, it.next(), 1);
 		}
+	}
+
+	/**
+	 * Filter/servlet pembungkus selalu ada di seluruh stack request, termasuk saat request
+	 * hanya menunggu antrean ZK. Menjadikannya "top class aplikasi" menuduh lokasi yang salah
+	 * dan menutupi business handler yang sebenarnya sedang lambat.
+	 */
+	private static boolean adalahKelasInfrastruktur(String kelas) {
+		return "ais.action.servlet.FilterJSP".equals(kelas)
+				|| "ais.common.ErrorAuditFilter".equals(kelas)
+				|| "ais.common.SecurityFilter".equals(kelas);
 	}
 
 	/**
@@ -795,6 +807,31 @@ public class PerformaSnapshotUtil {
 		return false;
 	}
 
+	/**
+	 * Request AU/ZK yang menunggu {@code UiEngineImpl.doActivate} bukan worker aktif dan
+	 * bukan kebocoran thread: ZK memang menserialkan event untuk satu desktop. Ia tetap
+	 * dihitung sebagai kontensi lock agar banjir request pada satu tab tetap terlihat dan
+	 * dapat ditelusuri ke event bisnis yang lama.
+	 */
+	private static boolean adalahAntreanAktivasiZk(ThreadInfo info) {
+		if (info == null || (info.getThreadState() != Thread.State.WAITING
+				&& info.getThreadState() != Thread.State.TIMED_WAITING)) {
+			return false;
+		}
+		StackTraceElement[] stack = info.getStackTrace();
+		if (stack == null) {
+			return false;
+		}
+		for (int i = 0; i < stack.length; i++) {
+			StackTraceElement frame = stack[i];
+			if (frame != null && "org.zkoss.zk.ui.impl.UiEngineImpl".equals(frame.getClassName())
+					&& "doActivate".equals(frame.getMethodName())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static void hitungKontensiLock(ThreadInfo info, Thread.State state, boolean idleWorker,
 			Map<String, int[]> lockWaiter, Map<String, String> lockOwner) {
 		if (idleWorker) {
@@ -808,6 +845,9 @@ public class PerformaSnapshotUtil {
 		String lockName = info.getLockName();
 		if (lockName == null || lockName.length() == 0) {
 			return;
+		}
+		if (adalahAntreanAktivasiZk(info)) {
+			lockName = "Antrean event ZK per desktop - " + lockName;
 		}
 		int[] counter = lockWaiter.get(lockName);
 		if (counter == null) {
@@ -889,9 +929,11 @@ public class PerformaSnapshotUtil {
 		if (!analisa.kontensiLock.isEmpty()) {
 			Hitung top = analisa.kontensiLock.get(0);
 			if (top.nilai >= 5) {
-				String saran = top.label != null && (top.label.toLowerCase().indexOf("resourcepool") >= 0
-						|| top.label.toLowerCase().indexOf("c3p0") >= 0)
-								? " Pola ini khas POOL KONEKSI DB HABIS: periksa Session/koneksi yang tidak ditutup (openSession tanpa close) dan ukuran maxPoolSize."
+				String labelLower = top.label == null ? "" : top.label.toLowerCase();
+				String saran = labelLower.indexOf("resourcepool") >= 0 || labelLower.indexOf("c3p0") >= 0
+						? " Pola ini khas POOL KONEKSI DB HABIS: periksa Session/koneksi yang tidak ditutup (openSession tanpa close) dan ukuran maxPoolSize."
+						: labelLower.indexOf("antrean event zk") >= 0
+								? " Banyak request berasal dari desktop/tab yang sama dan menunggu satu event ZK yang lama. Telusuri handler RUNNABLE pada desktop tersebut, cegah klik ganda, dan pindahkan proses DB massal ke worker terbatas."
 								: "";
 				rekomendasi.add(top.nilai + " thread menunggu lock yang sama (" + top.label + ")." + saran);
 			}

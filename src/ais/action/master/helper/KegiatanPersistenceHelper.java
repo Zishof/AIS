@@ -1092,7 +1092,11 @@ public class KegiatanPersistenceHelper {
 	}
 
 	private static Object[] buatKegiatanLocks() {
-		Object[] locks = new Object[64];
+		// Bulk sinkronisasi pembayaran dapat memproses ribuan kegiatan bersamaan. Dengan 64
+		// stripe, kegiatan yang berbeda tetapi memiliki id modulo sama ikut terserialisasi dan
+		// membentuk lock convoy panjang. 1024 stripe tetap sangat kecil di memori, tetapi jauh
+		// menurunkan tabrakan palsu; kegiatan dengan id yang sama tetap aman/serial.
+		Object[] locks = new Object[1024];
 		for (int i = 0; i < locks.length; i++) {
 			locks[i] = new Object();
 		}
