@@ -32,6 +32,7 @@ public final class DatabaseTextColumnSchemaFix {
             initLogHostToHost();
             initTugasPertemuan();
             initTransaksiKeterangan();
+			initPengajuanMahasiswa();
         } catch (Exception e) {
             try {
                 Common.tampilErrorJikaAdmin(e);
@@ -98,6 +99,13 @@ public final class DatabaseTextColumnSchemaFix {
         alterColumnsToText("akunting", "transaksi", columns);
         alterColumnsToText("new_audit", "transaksi__audit", columns);
     }
+
+	/** Alasan pengajuan dapat berasal dari editor/API dan memang boleh lebih dari 255 karakter. */
+	public static void initPengajuanMahasiswa() {
+		String[] columns = new String[] { "keterangan" };
+		alterColumnsToText("public", "pengajuan_mahasiswa", columns);
+		alterColumnsToText("new_audit", "pengajuan_mahasiswa__audit", columns);
+	}
 
     public static void initKonfigurasi() {
         String[] columns = new String[] { "keterangan", "nilai", "nilaidikunci" };

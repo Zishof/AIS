@@ -393,6 +393,11 @@ public class LaporanRekapHostToHostCicilanWindow extends MyWindow {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (spreadsheet == null || spreadsheet.getBook() == null) {
+					MyMessageboxConfig.show("Belum ada data untuk diunduh. Silakan tekan Tampilkan terlebih dahulu.",
+							"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
+				}
 				ByteArrayOutputStream bout = new ByteArrayOutputStream();
 				spreadsheet.getBook().write(bout);
 				bout.close();

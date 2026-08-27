@@ -165,24 +165,37 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 		}
 
 		if (penjadwalanjamMulai.getNilai().equals(Konfigurasi.AKTIF)) {
-			Integer mulai = 7;
-			try {
-				mulai = Integer.parseInt(penjadwalanjamMulai.getInfo1().trim());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarJadwalAjarDosenComposer.java:171");
-			}
+			Integer mulai = bacaJamKonfigurasi(penjadwalanjamMulai.getInfo1(), 7);
 			calendars.setBeginTime(mulai);
 		}
 		if (penjadwalanjamSelesai.getNilai().equals(Konfigurasi.AKTIF)) {
-			Integer sampai = 23;
-			try {
-				sampai = Integer.parseInt(penjadwalanjamSelesai.getInfo1().trim());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarJadwalAjarDosenComposer.java:179");
-			}
+			Integer sampai = bacaJamKonfigurasi(penjadwalanjamSelesai.getInfo1(), 23);
 			calendars.setEndTime(sampai);
 		}
 
 		initCalendarModel();
 		calendars.invalidate();
+	}
+
+	private static Integer bacaJamKonfigurasi(String nilai, int nilaiDefault) {
+		if (nilai == null || nilai.trim().isEmpty()) {
+			return Integer.valueOf(nilaiDefault);
+		}
+		try {
+			String jam = nilai.trim();
+			int pemisah = jam.indexOf(':');
+			if (pemisah < 0) {
+				pemisah = jam.indexOf('.');
+			}
+			if (pemisah >= 0) {
+				jam = jam.substring(0, pemisah);
+			}
+			int hasil = Integer.parseInt(jam.trim());
+			return Integer.valueOf(Math.max(0, Math.min(23, hasil)));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "format konfigurasi jam tidak valid: " + nilai);
+			return Integer.valueOf(nilaiDefault);
+		}
 	}
 
 	@SuppressWarnings("unchecked")

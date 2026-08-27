@@ -4960,11 +4960,22 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 														.createCriteria(BiodataMahasiswa.class)
 														.add(Restrictions.eq("mahasiswa", mahasiswa)).list();
 
-												for (BiodataMahasiswa biodataMahasiswa : biodataMahasiswas) {
-													session.delete(biodataMahasiswa);
-												}
+											for (BiodataMahasiswa biodataMahasiswa : biodataMahasiswas) {
+												session.delete(biodataMahasiswa);
+											}
 
-												Common.refreshDelete(mahasiswa);
+											/*
+											 * Riwayat login adalah data audit dan tidak boleh ikut hilang ketika master
+											 * mahasiswa dihapus. Kolom log_login.mahasiswa memang nullable, jadi lepaskan
+											 * referensinya lebih dahulu agar FK tidak menggagalkan penghapusan mahasiswa.
+											 */
+											if (mahasiswa.getId() != null) {
+												session.createSQLQuery(
+														"update public.log_login set mahasiswa = null where mahasiswa = :mahasiswaId")
+													.setLong("mahasiswaId", mahasiswa.getId().longValue()).executeUpdate();
+											}
+
+											Common.refreshDelete(mahasiswa);
 
 												onSearchDefault(event);
 											} catch (Exception e) {

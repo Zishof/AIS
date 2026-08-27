@@ -671,9 +671,10 @@ public class LaporanRekapHostToHostWindow extends MyWindow {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				// FIX NPE: bila belum ada data/sheet dimuat, getBook() null -> NPE saat .write().
 				if (spreadsheet == null || spreadsheet.getBook() == null) {
-					throw new Exception("Belum ada data untuk diunduh. Tampilkan data terlebih dahulu.");
+					MyMessageboxConfig.show("Belum ada data untuk diunduh. Silakan tekan Tampilkan terlebih dahulu.",
+							"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
 				}
 				ByteArrayOutputStream bout = new ByteArrayOutputStream();
 				spreadsheet.getBook().write(bout);
@@ -1033,6 +1034,15 @@ public class LaporanRekapHostToHostWindow extends MyWindow {
 					cell.setCellValue(jumlahTotal);
 				}
 
+				for (int i = 0; i < 6; i++) {
+					try {
+						sheet.autoSizeColumn(i);
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e,
+								"autosize laporan rekap host-to-host kolom " + i);
+					}
+				}
+
 				File file = new File(fn);
 
 				try {
@@ -1052,14 +1062,6 @@ public class LaporanRekapHostToHostWindow extends MyWindow {
 				spreadsheet.setSrc("../../tmp/" + file.getName());
 				spreadsheet.setMaxcolumns(6);
 				spreadsheet.setMaxrows(jurusans.size() + 25);
-
-				for (int i = 0; i < spreadsheet.getMaxcolumns(); i++) {
-					try {
-						sheet.autoSizeColumn(i);
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/helper/keuangan/LaporanRekapHostToHostWindow.java:1046");
-						// TODO: handle exception
-					}
-				}
 
 				jurusans.clear();
 

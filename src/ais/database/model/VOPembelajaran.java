@@ -763,7 +763,9 @@ public abstract class VOPembelajaran extends VoKunci {
 			if (pesan != null) {
 				String kecil = pesan.toLowerCase();
 				if (kecil.indexOf("lock timeout") >= 0
-						|| kecil.indexOf("canceling statement due to lock timeout") >= 0) {
+						|| kecil.indexOf("canceling statement due to lock timeout") >= 0
+						|| kecil.indexOf("deadlock detected") >= 0
+						|| kecil.indexOf("sqlstate: 40p01") >= 0) {
 					return true;
 				}
 			}
@@ -774,6 +776,11 @@ public abstract class VOPembelajaran extends VoKunci {
 
 	@SuppressWarnings("unchecked")
 	public void reInitTugas(Session session) {
+		reInitTugas(session, true);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void reInitTugas(Session session, boolean bolehUlang) {
 		if (session == null) return;
 		
 		boolean localTransaction = false;
@@ -851,7 +858,23 @@ public abstract class VOPembelajaran extends VoKunci {
 			if (localTransaction && session.getTransaction().isActive()) {
 				try { session.getTransaction().rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/database/model/VOPembelajaran.java:782");}
 			}
+			if (localTransaction && bolehUlang && adalahLockTimeoutPertemuan(e)) {
+				Session sessionUlang = null;
+				try {
+					try { Thread.sleep(250L); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+					sessionUlang = HibernateUtil.openSession();
+					reInitTugas(sessionUlang, false);
+					return;
+				} finally {
+					if (sessionUlang != null) {
+						try { sessionUlang.clear(); } catch (Exception abaikan) { }
+						try { if (sessionUlang.isConnected()) sessionUlang.disconnect(); } catch (Exception abaikan) { }
+						try { if (sessionUlang.isOpen()) sessionUlang.close(); } catch (Exception abaikan) { }
+					}
+				}
+			}
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/VOPembelajaran.java:784");
+			throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
 		}
 	}
 
