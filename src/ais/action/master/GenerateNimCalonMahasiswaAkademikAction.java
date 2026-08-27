@@ -195,6 +195,7 @@ public class GenerateNimCalonMahasiswaAkademikAction extends GenericAutowireComp
 		}
 
 		else if (Common.bolehKonfigurasi("calon_mahasiswa_wajib_melakukan_pembayaran_daftar_ulang_mahasiswa_baru")
+				&& !CommonPMB.isTagihanDaftarUlangNol(calonMahasiswa.getPembayaranDaftarUlang())
 				&& (calonMahasiswa.getPembayaranDaftarUlang() == null
 						|| calonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() == null
 						|| calonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() < 0.01)) {

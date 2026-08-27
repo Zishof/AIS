@@ -806,9 +806,12 @@ public class CommonPMB {
 							label.setValue("Upload data \"" + biodataCalonMahasiswa.getNama() + "\" ("
 									+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
 
-							if (wajibbayar && (biodataCalonMahasiswa.getPembayaranDaftarUlang() != null
-									&& biodataCalonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() != null
-									&& biodataCalonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() < 0.01)) {
+							Kegiatan pembayaranDaftarUlang = biodataCalonMahasiswa.getPembayaranDaftarUlang();
+							boolean tagihanDaftarUlangNol = isTagihanDaftarUlangNol(pembayaranDaftarUlang);
+
+							if (!tagihanDaftarUlangNol && wajibbayar && (pembayaranDaftarUlang != null
+									&& pembayaranDaftarUlang.getPersentaseLunas() != null
+									&& pembayaranDaftarUlang.getPersentaseLunas() < 0.01)) {
 
 								String my = "Calon mahasiswa \"" + biodataCalonMahasiswa
 										+ "\" belum melakukan pembayaran daftar ulang.\n";
@@ -816,9 +819,9 @@ public class CommonPMB {
 								peringatan.setValue(peringatan.getValue() + my);
 
 								continue;
-							} else if (wajibLunas && (biodataCalonMahasiswa.getPembayaranDaftarUlang() == null
-									|| biodataCalonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() == null
-									|| biodataCalonMahasiswa.getPembayaranDaftarUlang().getPersentaseLunas() < 99.9)) {
+							} else if (!tagihanDaftarUlangNol && wajibLunas && (pembayaranDaftarUlang == null
+									|| pembayaranDaftarUlang.getPersentaseLunas() == null
+									|| pembayaranDaftarUlang.getPersentaseLunas() < 99.9)) {
 								String my = "Calon mahasiswa ini belum melunasi biaya-biaya perkuliahan!";
 								peringatan.setValue(peringatan.getValue() + my);
 
@@ -1656,6 +1659,10 @@ public class CommonPMB {
 	    // Default jika tidak ada aturan wajib bayar, maka boleh generate
 	    boolean shouldGenNim = (!wajibBayarPersen && !wajibLunas); 
 	    Kegiatan kegiatan = calonMahasiswa.getPembayaranDaftarUlang();
+	    // Tagihan Rp0 tidak memerlukan transaksi pembayaran dan tetap berhak memperoleh NIM.
+	    if (isTagihanDaftarUlangNol(kegiatan)) {
+	        shouldGenNim = true;
+	    }
 	    
 	    // Evaluasi jika aturan wajib bayar/lunas aktif
 	    if (!shouldGenNim) {
@@ -1821,6 +1828,16 @@ public class CommonPMB {
 	    }
 
 	    return "";
+	}
+
+	/**
+	 * Tagihan daftar ulang Rp0 dianggap telah memenuhi syarat pembayaran untuk
+	 * proses generate NIM. Data kegiatan tetap harus tersedia agar kondisi
+	 * "belum memiliki data pembayaran" tidak keliru dianggap sebagai tagihan nol.
+	 */
+	public static boolean isTagihanDaftarUlangNol(Kegiatan kegiatan) {
+		return kegiatan != null && kegiatan.getTagihan() != null
+				&& Math.abs(kegiatan.getTagihan().doubleValue()) < 0.01;
 	}
 
 	@SuppressWarnings("deprecation")
