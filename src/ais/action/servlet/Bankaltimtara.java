@@ -387,7 +387,14 @@ public class Bankaltimtara extends HttpServlet {
 			jsonObject2 = prosesHasilCekVaBankaltimtara(virtualAccountBankReadOnly, hasil, false);
 
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Bankaltimtara.java:269");
+			// Kode 04/not found adalah keadaan bisnis yang normal ketika VA memang belum
+			// terbentuk di sisi bank. Jangan mencatatnya sebagai error aplikasi; pemanggil
+			// tetap akan menjalankan fallback notifikasi tersimpan di bawah ini.
+			if (!merupakanTransaksiBelumAdaDiBank(e)) {
+				e.printStackTrace();
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit src/ais/action/servlet/Bankaltimtara.java:checkPakaiva-live");
+			}
 			errorLive = e;
 		}
 

@@ -2144,6 +2144,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 								@SuppressWarnings("unchecked")
 								@Override
 								public void run() {
+									Session session = null;
 									try {
 
 									try {
@@ -2164,7 +2165,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 											System.out.println("sql=>" + sql);
 											criteriaStatus = Restrictions.sqlRestriction(sql);
 										}
-										Session session = HibernateUtil.currentNativeSession();
+										session = HibernateUtil.currentNativeSession();
 										Criteria criteria = session.createCriteria(Detailperkuliahan.class)
 												.add(criteriaStatus)
 
@@ -2185,7 +2186,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 																Perkuliahan.GANJIL) ? Common.ganjil : Common.genap))
 
 												.add(kelas != null && !kelas.getNama().trim().isEmpty() ? Restrictions
-														.ilike("kelas", kelas.getNama().trim(), MatchMode.EXACT)
+												.ilike("perkuliahan.kelas", kelas.getNama().trim(), MatchMode.EXACT)
 														: Restrictions.sqlRestriction("true"))
 
 												.createCriteria("mahasiswa")
@@ -2370,9 +2371,10 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 										Common.tampilErrorJikaAdmin(e);
 										label.setValue("-");
 									}
-									HibernateUtil.closeSession();
 																	} finally {
-										ais.database.hibernate.HibernateUtil.closeSession();
+										// currentNativeSession wajib dilepas dari ThreadLocal sekaligus
+										// dibersihkan dengan urutan clear/disconnect/close.
+										HibernateUtil.closeSessionQuietly(session);
 									}
 								}
 							}).start();

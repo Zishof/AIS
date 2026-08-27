@@ -781,11 +781,16 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 
 				.add(searchTahunAjaran.getSelectedItem() == null
 						|| searchTahunAjaran.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("tahunAkademik", searchTahunAjaran.getSelectedItem().getValue()))
+								: Restrictions.eq("tahunAkademik", searchTahunAjaran.getSelectedItem().getValue()));
 
-				.createCriteria("mahasiswa.jurusan", Criteria.LEFT_JOIN)
-
-				.add(CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
+		// Join jurusan/fakultas cukup dibuat ketika filter fakultas benar-benar dipakai.
+		// Pada pencarian default join ini memperbesar count/list KRS dan pernah memicu
+		// statement timeout pada data besar.
+		if (searchfakultas != null && searchfakultas.getSelectedItem() != null
+				&& searchfakultas.getSelectedItem().getValue() != null) {
+			criteria.createCriteria("mahasiswa.jurusan", Criteria.LEFT_JOIN)
+					.add(CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
+		}
 
 		return criteria;
 	}

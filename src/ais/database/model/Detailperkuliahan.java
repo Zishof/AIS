@@ -1375,7 +1375,7 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		}
 
 		if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
-				&& getVerify().equals(NOT_VERIFIED)) {
+				&& NOT_VERIFIED.equals(getVerify())) {
 			totalNilai = 0.0;
 		} else {
 			if (totalNilai < 0.01 && getTotalNilaiSementara() > 0.1) {
@@ -1440,8 +1440,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 									? detailperkuliahan.getPerkuliahan().getMatakuliah()
 									: detailperkuliahan.getMatakuliahKonversi();
 
-					NilaiHuruf nh = Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(),
-							mahasiswa.getJurusan().getFakultas(), tahunAkademik,
+					Jurusan jurusanMahasiswa = mahasiswa.getJurusan();
+					Fakultas fakultasMahasiswa = jurusanMahasiswa == null ? null : jurusanMahasiswa.getFakultas();
+					NilaiHuruf nh = Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), jurusanMahasiswa,
+							fakultasMahasiswa, tahunAkademik,
 							getSemester() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL,
 							matakuliah == null ? "" : matakuliah.getKode(),
 							matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());
@@ -1472,7 +1474,7 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		perkuliahan = getPerkuliahan();
 		mahasiswa = getMahasiswa();
 		if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
-				&& getVerify().equals(NOT_VERIFIED)) {
+				&& NOT_VERIFIED.equals(getVerify())) {
 			totalIP = 0.0;
 		}
 
@@ -1488,8 +1490,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 									? detailperkuliahan.getPerkuliahan().getMatakuliah()
 									: detailperkuliahan.getMatakuliahKonversi();
 
-					NilaiHuruf nh = Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(),
-							mahasiswa.getJurusan().getFakultas(), tahunAkademik,
+					Jurusan jurusanMahasiswa = mahasiswa.getJurusan();
+					Fakultas fakultasMahasiswa = jurusanMahasiswa == null ? null : jurusanMahasiswa.getFakultas();
+					NilaiHuruf nh = Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), jurusanMahasiswa,
+							fakultasMahasiswa, tahunAkademik,
 							getSemester() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL,
 							matakuliah == null ? "" : matakuliah.getKode(),
 							matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());

@@ -525,12 +525,27 @@ public class DashboardPersetujuanKRSMahasiswa extends MyWindow {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				FileInputStream input = null;
 				try {
-					Filedownload.save(new FileInputStream(file),
+					if (file == null || !file.isFile()) {
+						ais.ui.util.MyMessageboxConfig.show(
+								"Berkas belum tersedia. Klik Proses terlebih dahulu, tunggu sampai selesai, lalu klik Download.",
+								"Pemberitahuan", ais.ui.util.MyMessageboxConfig.OK,
+								ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
+					input = new FileInputStream(file);
+					Filedownload.save(input,
 							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 							"KRS_SUDAH_DISETUJUI_SEMUA.xlsx");
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardPersetujuanKRSMahasiswa.java:440");
-
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit src/ais/action/master/dashboard/admin/DashboardPersetujuanKRSMahasiswa.java:download");
+					Common.tampilErrorJikaAdmin(e);
+				} finally {
+					if (input != null) {
+						try { input.close(); } catch (Exception ignored) { }
+					}
 				}
 			}
 		});
