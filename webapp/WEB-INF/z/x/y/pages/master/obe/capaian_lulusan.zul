@@ -9,7 +9,7 @@
 	<window use="ais.ui.util.MyWindow" border="none" id="window"
 		apply="ais.action.master.obe.CapaianLulusanAction" width="100%" height="100%">
 
-		<tabbox width="100%" height="100%">
+		<tabbox id="tabboxUtama" width="100%" height="100%">
 
 <tabs>
                 <tab use="ais.ui.util.MyTabConfig" selected="true">Capaian Lulusan (CPL)</tab>
