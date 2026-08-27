@@ -209,7 +209,8 @@ public class PerguruanTinggiAction extends GenericAutowireComposer implements Da
 
 	/**
 	 * Membangun ulang peta domain-&gt;PerguruanTinggi/Pendaftar dengan aman: single-flight (hanya satu
-	 * thread rebuild), throttle (tak query ulang &lt; {@value #REINIT_DOMAIN_INTERVAL_MS} ms), dan
+	 * thread rebuild; request lain langsung memakai snapshot lama tanpa menunggu), throttle (tak
+	 * query ulang &lt; {@value #REINIT_DOMAIN_INTERVAL_MS} ms), dan
 	 * atomic-swap (bangun ke peta BARU lalu tukar referensi). Dulu method ini {@code clear()} peta
 	 * bersama lalu menjalankan DUA query per pemanggilan; saat peta kosong, setiap request paralel
 	 * memanggilnya sehingga pool koneksi c3p0 HABIS (ratusan thread antre koneksi).

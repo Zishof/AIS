@@ -837,7 +837,8 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	private static final long REINIT_DOMAIN_INTERVAL_MS = 60000L;
 
 	/**
-	 * Membangun ulang peta domain-&gt;Yayasan dengan aman: single-flight (hanya satu thread rebuild),
+	 * Membangun ulang peta domain-&gt;Yayasan dengan aman: non-blocking single-flight (hanya satu thread
+	 * rebuild; request lain langsung memakai snapshot lama),
 	 * throttle (tak query ulang &lt; {@value #REINIT_DOMAIN_INTERVAL_MS} ms), dan atomic-swap (bangun ke
 	 * peta BARU lalu tukar referensi) agar pembaca tak pernah melihat peta setengah-kosong dan pool
 	 * koneksi c3p0 tidak habis karena request paralel yang semuanya query saat peta kosong.

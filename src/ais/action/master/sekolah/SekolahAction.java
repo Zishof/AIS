@@ -203,7 +203,8 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 	 * paralel yang memanggil {@code if (sekolahByDomain.isEmpty()) reInitByDomain()} akan membuka
 	 * koneksi Hibernate sendiri-sendiri → pool c3p0 HABIS (ratusan thread antre koneksi, terlihat di
 	 * snapshot performa). Sekarang: (1) <b>single-flight</b> — hanya satu thread rebuild pada satu
-	 * waktu; (2) <b>throttle</b> — tidak query ulang &lt; {@value #REINIT_DOMAIN_INTERVAL_MS} ms sejak
+	 * waktu dan request lain langsung memakai snapshot lama tanpa menunggu lock; (2) <b>throttle</b>
+	 * — tidak query ulang &lt; {@value #REINIT_DOMAIN_INTERVAL_MS} ms sejak
 	 * build terakhir (menahan storm saat hasil query memang kosong); (3) <b>atomic-swap</b> — bangun
 	 * ke peta BARU lalu tukar referensi, sehingga pembaca tak pernah melihat peta setengah-kosong.</p>
 	 */
