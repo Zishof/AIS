@@ -1235,13 +1235,10 @@ public class KantinHelper {
 					// terhitung pada batas hutang siapa pun.
 					if (anggotaKoperasi == null) {
 						// DIPERLUAS dari "masuk sebagai hutang" saja menjadi tanda
-						// wajibPilihMemberEfektif(). Alasannya ditemukan pada data nyata: metode
-						// kasbon yang TIDAK ditandai hutang (mis. "Kasbon Divisi",
-						// "Kasbon Operasional") lolos penjaga lama, padahal nominalnya tidak
-						// pernah masuk bayar_tunai/bayar_non_tunai -- notanya tetap kurang bayar
-						// dan menumpuk di laporan Saldo Piutang sbg "Umum / Non-Anggota", tanpa
-						// satu pun cara mengetahui siapa yang berhutang. Di satu toko sudah
-						// terkumpul 541 nota sebelum ini ketahuan.
+						// wajibPilihMemberEfektif(). Kasbon lama yang salah setting pernah lolos
+						// tanpa member dan menumpuk sebagai piutang "Umum / Non-Anggota".
+						// Sekarang seluruh Kasbon dinormalisasi menjadi piutang customer dan wajib
+						// mempunyai member/PIC.
 						StringBuffer metodeTanpaPemilik = new StringBuffer();
 						double slot1TanpaPemilik = Math.max(0.0,
 								total.doubleValue() - split.nominal2 - split.nominal3 - split.nominal4 - split.nominal5);
@@ -1261,8 +1258,10 @@ public class KantinHelper {
 						if (metodeTanpaPemilik.length() > 0) {
 							hasil.put("status", "91");
 							hasil.put("description", "Metode pembayaran " + metodeTanpaPemilik
-									+ " wajib memilih nama pelanggan terlebih dahulu, agar tagihannya "
-									+ "dapat ditelusuri dan ditagih oleh tim keuangan.");
+									+ " wajib memilih member/PIC terlebih dahulu agar penanggung jawab transaksi "
+									+ "dapat ditelusuri tim keuangan. Semua metode Kasbon langsung masuk piutang "
+									+ "customer; untuk Kasbon Divisi/Operasional, member menjadi customer/PJ/PIC "
+									+ "yang mewakili divisi.");
 							return;
 						}
 					}
@@ -6668,8 +6667,9 @@ public class KantinHelper {
 							// pernah menentukan (null != false), dan yang EFEKTIF supaya tabel
 							// menampilkan aturan yang benar-benar berlaku saat ini.
 							+ "wajib_pilih_member, "
-							+ "COALESCE(wajib_pilih_member, COALESCE(masuk_sebagai_hutang,false) "
-							+ "  OR COALESCE(memotong_deposit,false)) "
+							+ "(LOWER(COALESCE(kode,'') || ' ' || COALESCE(nama,'')) LIKE '%kasbon%' "
+							+ " OR COALESCE(wajib_pilih_member, COALESCE(masuk_sebagai_hutang,false) "
+							+ "    OR COALESCE(memotong_deposit,false))) "
 							+ "FROM koperasi.cara_pembayaran_koperasi" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -6758,13 +6758,17 @@ public class KantinHelper {
 			}
 			cara.setOnline(request.optBoolean("online", false));
 			cara.setMemotongDeposit(Boolean.valueOf(request.optBoolean("memotongDeposit", false)));
-			cara.setMasukSebagaiHutang(Boolean.valueOf(request.optBoolean("masukSebagaiHutang", false)));
+			cara.setMasukSebagaiHutang(Boolean.valueOf(
+					request.optBoolean("masukSebagaiHutang", false) || cara.metodeKasbon()));
 			// null = "ikut aturan bawaan" (hutang/potong saldo), BUKAN sama dengan false.
 			// Perbedaan itu yang membuat metode yang belum pernah disentuh admin tidak
 			// terkunci pada jawaban yang kebetulan berlaku hari ini.
 			if (request.has("wajibPilihMember")) {
 				cara.setWajibPilihMember(request.isNull("wajibPilihMember") ? null
 						: Boolean.valueOf(request.optBoolean("wajibPilihMember")));
+			}
+			if (cara.metodeKasbon()) {
+				cara.setWajibPilihMember(Boolean.TRUE);
 			}
 			if (request.has("adaKembalian")) {
 				cara.setAdaKembalian(request.isNull("adaKembalian") ? null : Boolean.valueOf(request.optBoolean("adaKembalian")));

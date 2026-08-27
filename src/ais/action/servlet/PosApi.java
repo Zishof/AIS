@@ -2628,8 +2628,9 @@ public class PosApi extends HttpServlet {
 								// pelanggan" muncul SAAT metode dipilih, bukan setelah seluruh
 								// keranjang selesai diisi dan tombol Bayar ditekan.
 								+ "COALESCE(cpk.masuk_sebagai_hutang,false), COALESCE(cpk.memotong_deposit,false), "
-								+ "COALESCE(cpk.wajib_pilih_member, COALESCE(cpk.masuk_sebagai_hutang,false) "
-								+ "  OR COALESCE(cpk.memotong_deposit,false)) "
+								+ "(LOWER(COALESCE(cpk.kode,'') || ' ' || COALESCE(cpk.nama,'')) LIKE '%kasbon%' "
+								+ " OR COALESCE(cpk.wajib_pilih_member, COALESCE(cpk.masuk_sebagai_hutang,false) "
+								+ "    OR COALESCE(cpk.memotong_deposit,false))) "
 								+ "FROM koperasi.cara_pembayaran_koperasi cpk "
 								+ "WHERE cpk.aktif = true AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih "
 								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?) LIKE '%,' || cpk.id || ',%' "

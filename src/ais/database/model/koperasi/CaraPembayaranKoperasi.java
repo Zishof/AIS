@@ -295,17 +295,26 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	 * membuat perilaku hari ini tidak berubah sedikit pun ketika kolomnya
 	 * ditambahkan.</p>
 	 *
-	 * <p>Metode seperti "Kasbon Divisi"/"Kasbon Operasional" yang KEDUA tandanya
-	 * mati tidak tercakup penurunan itu -- justru itulah sebabnya tanda ini dibuat
-	 * dapat disetel sendiri: kasbon semacam itu tetap menyisakan tagihan, tetapi
-	 * tidak dicatat sbg hutang anggota, sehingga tanpa tanda eksplisit ia lolos
-	 * tanpa pemilik dan berakhir sebagai piutang "Umum / Non-Anggota" yang tidak
-	 * dapat ditelusuri.</p>
+	 * <p>Semua metode yang kode/namanya mengandung "Kasbon" wajib mempunyai member.
+	 * Kasbon adalah piutang customer; istilah Divisi/Operasional hanya menjelaskan
+	 * tujuan tagihannya, sedangkan member menjadi customer/PJ/PIC pada sub-ledger.</p>
 	 */
 	public boolean wajibPilihMemberEfektif() {
+		if (metodeKasbon()) {
+			return true;
+		}
 		if (wajibPilihMember != null) {
 			return wajibPilihMember.booleanValue();
 		}
 		return Boolean.TRUE.equals(getMasukSebagaiHutang()) || Boolean.TRUE.equals(getMemotongDeposit());
+	}
+
+	/** True untuk seluruh varian Kasbon, termasuk kode lama tanpa spasi/underscore. */
+	public boolean metodeKasbon() {
+		String identitas = ((getKode() == null ? "" : getKode()) + " "
+				+ (getNama() == null ? "" : getNama())).toLowerCase(java.util.Locale.ENGLISH)
+				.replace('_', ' ').replace('-', ' ');
+		String ringkas = identitas.replace(" ", "");
+		return ringkas.indexOf("kasbon") >= 0;
 	}
 }

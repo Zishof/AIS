@@ -2059,6 +2059,16 @@ public class InitIndex {
 		try {
 			ais.common.Common.updateSql("ALTER TABLE koperasi.cara_pembayaran_koperasi "
 					+ "ADD COLUMN IF NOT EXISTS masuk_sebagai_hutang boolean DEFAULT false");
+			ais.common.Common.updateSql("ALTER TABLE koperasi.cara_pembayaran_koperasi "
+					+ "ADD COLUMN IF NOT EXISTS wajib_pilih_member boolean DEFAULT false");
+			// Kasbon selalu merupakan piutang customer, bukan pembayaran lunas. Berlaku
+			// untuk kode lama (KasbonPejuang/KasbonOperasional) maupun kode baru dengan
+			// underscore. Update idempoten ini juga menutup setting lama yang keliru.
+			ais.common.Common.updateSql("UPDATE koperasi.cara_pembayaran_koperasi SET "
+					+ "masuk_sebagai_hutang=true, wajib_pilih_member=true "
+					+ "WHERE LOWER(COALESCE(kode,'') || ' ' || COALESCE(nama,'')) LIKE '%kasbon%' "
+					+ "AND (COALESCE(masuk_sebagai_hutang,false)=false "
+					+ "OR COALESCE(wajib_pilih_member,false)=false)");
 		} catch (Exception e) {
 			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e,
