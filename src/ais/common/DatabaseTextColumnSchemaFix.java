@@ -108,7 +108,13 @@ public final class DatabaseTextColumnSchemaFix {
 		alterColumnsToText("new_audit", "pengajuan_mahasiswa__audit", columns);
 	}
 
-	/** Data realisasi dan jejak audit dapat melebihi batas varchar(255). */
+	/**
+	 * Menyamakan tabel utama dan tabel Envers untuk data realisasi kerja pegawai.
+	 * Keterangan berasal dari input uraian pekerjaan, sedangkan oleh/olehid dapat berisi jejak
+	 * perubahan yang disusun interceptor; ketiganya secara sah dapat melampaui 255 karakter.
+	 * Perubahan tipe dilakukan setelah pemeriksaan information_schema sehingga aman dijalankan
+	 * berulang pada setiap startup dan tidak mengubah data yang sudah tersimpan.
+	 */
 	public static void initRealisasiKerjaPegawai() {
 		String[] columns = new String[] { "keterangan", "oleh", "olehid" };
 		alterColumnsToText("public", "realisasi_kerja_pegawai", columns);
