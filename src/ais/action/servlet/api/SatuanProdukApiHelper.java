@@ -164,15 +164,15 @@ public final class SatuanProdukApiHelper {
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			ps = session.connection().prepareStatement("SELECT COUNT(*) FROM koperasi.satuan_produk "
-					+ "WHERE lower(trim(nama)) = lower(trim(?)) AND (? IS NULL OR id <> ?)");
+			String sqlDuplikat = "SELECT COUNT(*) FROM koperasi.satuan_produk "
+					+ "WHERE lower(trim(nama)) = lower(trim(?))";
+			if (id != null) {
+				sqlDuplikat += " AND id <> ?";
+			}
+			ps = session.connection().prepareStatement(sqlDuplikat);
 			ps.setString(1, nama);
-			if (id == null) {
-				ps.setNull(2, java.sql.Types.BIGINT);
-				ps.setNull(3, java.sql.Types.BIGINT);
-			} else {
+			if (id != null) {
 				ps.setLong(2, id.longValue());
-				ps.setLong(3, id.longValue());
 			}
 			rs = ps.executeQuery();
 			if (rs.next() && rs.getLong(1) > 0L) {

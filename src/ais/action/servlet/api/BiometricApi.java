@@ -318,7 +318,7 @@ public final class BiometricApi {
 		if (payload == null || payload.isNull("id_member")) return null;
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			if (!paymentDeductsMemberBalance(session, payload)) return null;
+			boolean memotongSaldoMember = paymentDeductsMemberBalance(session, payload);
 			Long memberId = longValue(payload, "id_member");
 			if (memberId == null) return null;
 			AnggotaKoperasi member = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
@@ -327,10 +327,14 @@ public final class BiometricApi {
 			TipeAnggotaKoperasi tipe = member.getTipeAnggotaKoperasi();
 			boolean pin = (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
 					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin()));
-			boolean face = (jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
-					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah()));
-			boolean fingerprint = (jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
-					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint()));
+			// PIN mengesahkan identitas untuk setiap pembelian member. Face/fingerprint
+			// tetap dibatasi ke pembayaran yang memotong saldo sampai perangkat UAT siap.
+			boolean face = memotongSaldoMember && ((jenis != null
+					&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
+			boolean fingerprint = memotongSaldoMember && ((jenis != null
+					&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
 			if (!pin && !face && !fingerprint) return null;
 
 			String linked = linkedUserIdForMember(session, member);
