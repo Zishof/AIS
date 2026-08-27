@@ -38,7 +38,13 @@ public final class MutasiIdempotenUtil {
 			"sop_ajukan",
 			"biometrik_absen",
 			"disposisi_simpan_surat_keluar",
-			"disposisi_simpan_surat_masuk"));
+			"disposisi_simpan_surat_masuk",
+			"hapusdatarinci",
+			"simpantugasjabatan",
+			"lanjuttugasjabatan",
+			"biometrik_simpan",
+			"biometrik_nonaktifkan",
+			"gerbang_izin_simpan"));
 
 	public static boolean aksiMutasi(String action) {
 		return action != null && AKSI_MUTASI.contains(action.trim().toLowerCase(Locale.ENGLISH));
