@@ -3004,6 +3004,41 @@ public class ElearningApiUtil {
 	}
 
 	@SuppressWarnings("rawtypes")
+	private static String alasanPedagangTidakBolehDihapus(Session session, GeneralValueObject data) {
+		if (!(data instanceof Pedagang)) {
+			return null;
+		}
+
+		List pengguna = session.createCriteria(Tbmuser.class)
+				.add(Restrictions.eq("pedagang", data)).list();
+		if (pengguna == null || pengguna.isEmpty()) {
+			return null;
+		}
+
+		Pedagang pedagang = (Pedagang) data;
+		String nama = pedagang.getNama() == null ? "ID " + pedagang.getId() : pedagang.getNama();
+		StringBuilder akun = new StringBuilder();
+		int batas = Math.min(pengguna.size(), 3);
+		for (int i = 0; i < batas; i++) {
+			Tbmuser user = (Tbmuser) pengguna.get(i);
+			if (akun.length() > 0) {
+				akun.append(", ");
+			}
+			akun.append(user.getUserId() == null ? "akun tanpa ID" : user.getUserId());
+		}
+		if (pengguna.size() > batas) {
+			akun.append(" dan ").append(pengguna.size() - batas).append(" akun lain");
+		}
+
+		return "Pedagang '" + nama + "' belum dapat dihapus karena masih menjadi identitas "
+				+ pengguna.size() + " akun pengguna (" + akun + "). Tindakan: buka Konfigurasi > "
+				+ "Akun Pengguna. Jika akun tidak lagi dipakai, ubah Status menjadi Nonaktif; data "
+				+ "Pedagang tidak perlu dihapus. Jika penghapusan permanen memang wajib, minta admin "
+				+ "sistem memindahkan atau melepaskan keterkaitan akun tersebut terlebih dahulu, lalu "
+				+ "coba hapus kembali. Jangan menghapus atau mengubah relasi langsung di database.";
+	}
+
+	@SuppressWarnings("rawtypes")
 	public static JSONObject prosesHapus(HttpServletRequest req, JSONObject request) throws Exception {
 		JSONObject jsonObject = new JSONObject();
 		Class clazz = Class.forName(request.getString("class"));
@@ -3048,6 +3083,15 @@ public class ElearningApiUtil {
 			JSONObject object = new JSONObject();
 			Common.insertProperty(clazz, generalValueObject, object, "", 1);
 			jsonObject.put("data", object);
+
+			// Pedagang dapat menjadi identitas login pada tbmuser. Tolak sebelum DELETE agar
+			// koneksi tidak masuk status aborted dan pengguna mendapat langkah penyelesaian.
+			String alasanTidakBolehDihapus = alasanPedagangTidakBolehDihapus(session, generalValueObject);
+			if (alasanTidakBolehDihapus != null) {
+				jsonObject.put("status", "91");
+				jsonObject.put("description", alasanTidakBolehDihapus);
+				return jsonObject;
+			}
 
 			Transaction transaction = null;
 			boolean berhasilHapus = false;

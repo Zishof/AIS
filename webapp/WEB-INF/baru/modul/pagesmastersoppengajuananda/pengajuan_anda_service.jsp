@@ -65,10 +65,12 @@ try {
         result.put("status","00");
 
     } else if ("listProses".equals(aksi)) {
-        int page = pageOf(request);
+        // "page" adalah implicit object JSP; memakai nama yang sama membuat servlet hasil
+        // kompilasi gagal dengan "Duplicate local variable page".
+        int pageNo = pageOf(request);
         int total = PengajuanAndaSopUtil.hitung(PengajuanAndaSopUtil.criteriaPengajuanAnda(session, tbmuser));
         Criteria c = PengajuanAndaSopUtil.criteriaPengajuanAnda(session, tbmuser)
-                .addOrder(Order.desc("id")).setFirstResult(page*PAGE_SIZE).setMaxResults(PAGE_SIZE);
+                .addOrder(Order.desc("id")).setFirstResult(pageNo*PAGE_SIZE).setMaxResults(PAGE_SIZE);
         JSONArray arr = new JSONArray();
         for (Object o : c.list()) {
             DisposisiSop d = (DisposisiSop) o;
@@ -83,15 +85,15 @@ try {
                     ? s(d.getDisposisiStart().getAlurSop().getNama()) : "");
             arr.put(j);
         }
-        result.put("data", arr); result.put("page", page);
+        result.put("data", arr); result.put("page", pageNo);
         result.put("total", total); result.put("totalPage", (int)Math.ceil(total/(double)PAGE_SIZE));
         result.put("status","00");
 
     } else if ("listDisposisi".equals(aksi)) {
-        int page = pageOf(request);
+        int pageNo = pageOf(request);
         int total = PengajuanAndaSopUtil.hitung(PengajuanAndaSopUtil.criteriaSudahDisposisi(session, tbmuser));
         Criteria c = PengajuanAndaSopUtil.criteriaSudahDisposisi(session, tbmuser)
-                .addOrder(Order.desc("id")).setFirstResult(page*PAGE_SIZE).setMaxResults(PAGE_SIZE);
+                .addOrder(Order.desc("id")).setFirstResult(pageNo*PAGE_SIZE).setMaxResults(PAGE_SIZE);
         JSONArray arr = new JSONArray();
         for (Object o : c.list()) {
             DisposisiAlurSop da = (DisposisiAlurSop) o;
@@ -105,7 +107,7 @@ try {
             j.put("tahap", da.getAlurSop()!=null ? s(da.getAlurSop().getNama()) : "");
             arr.put(j);
         }
-        result.put("data", arr); result.put("page", page);
+        result.put("data", arr); result.put("page", pageNo);
         result.put("total", total); result.put("totalPage", (int)Math.ceil(total/(double)PAGE_SIZE));
         result.put("status","00");
 
