@@ -4479,7 +4479,10 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				}
 			}
 		}
-		return pilihanGelombang.size() == 1 ? pilihanGelombang.get(0) : pilihanSaatIni;
+		// Pilihan lama tidak lagi sah untuk gelombang ini. Daftar sudah diurutkan oleh
+		// GelombangPendaftaran.ambilJenisSeleksi() berdasarkan nomor urut, sehingga pilihan
+		// pertama adalah fallback yang dikonfigurasi admin modul.
+		return pilihanGelombang.get(0);
 	}
 
 	private GelombangPendaftaran getGelombangDipilihDenganFallback(GelombangPendaftaran fallback) {

@@ -706,7 +706,10 @@ public class PembayaranUtilHelper {
 				}
 			}
 		}
-		return pilihan.size() == 1 ? pilihan.get(0) : tersimpan;
+		// Jika nilai lama tidak termasuk pilihan gelombang, gunakan urutan pertama yang
+		// dikonfigurasi admin. Mempertahankan nilai lama membuat jenis seleksi di biodata dan
+		// sumber tagihan berbeda (mis. Genap pada gelombang Ganjil).
+		return pilihan.get(0);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

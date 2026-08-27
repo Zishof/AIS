@@ -106,6 +106,56 @@ public class KegiatanHelper {
 		return HibernateUtil.getSessionFactory().openSession();
 	}
 
+	/**
+	 * Konfigurasi pembayaran bulanan hanya menjadi referensi saat tagihan dihitung ulang.
+	 * Beberapa getter model tersebut menghitung ulang kolom turunannya (real bulan/nama bulan),
+	 * sehingga Hibernate dapat menganggap konfigurasi ikut berubah ketika sesi di-flush. Akibatnya
+	 * Envers mencoba menulis PengaturanPembayaranBulanan__aud walaupun pengguna tidak mengubah
+	 * konfigurasi, dan seluruh transaksi hitung ulang gagal bila skema audit tenant tertinggal.
+	 *
+	 * Tandai instance yang dikelola sesi sebagai read-only. DetailKegiatan, CicilanPembayaran, dan
+	 * Kegiatan tetap writable; hanya master konfigurasi yang dilindungi dari dirty-check semu.
+	 */
+	private static void tandaiPengaturanBulananReadOnly(Session session,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
+		if (!isUsableSession(session) || pengaturanPembayaranBulanan == null) {
+			return;
+		}
+		try {
+			PengaturanPembayaranBulanan managed = pengaturanPembayaranBulanan;
+			if (!session.contains(managed) && managed.getId() != null) {
+				managed = (PengaturanPembayaranBulanan) session.get(PengaturanPembayaranBulanan.class,
+						managed.getId());
+			}
+			if (managed != null && session.contains(managed)) {
+				session.setReadOnly(managed, true);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"KegiatanHelper:tandai-pengaturan-pembayaran-bulanan-read-only");
+		}
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static void lindungiKonfigurasiBulananSaatHitungUlang(Session session, Collection detailKegiatans,
+			Collection detailBiayas) {
+		if (detailKegiatans != null) {
+			for (Object value : detailKegiatans) {
+				if (value instanceof DetailKegiatan) {
+					tandaiPengaturanBulananReadOnly(session,
+							((DetailKegiatan) value).getPengaturanPembayaranBulanan());
+				}
+			}
+		}
+		if (detailBiayas != null) {
+			for (Object value : detailBiayas) {
+				if (value instanceof PengaturanPembayaranBulanan) {
+					tandaiPengaturanBulananReadOnly(session, (PengaturanPembayaranBulanan) value);
+				}
+			}
+		}
+	}
+
 	private static void terapkanLockTimeout(Session session) {
 		// Batasi WAKTU TUNGGU LOCK (bukan durasi query) pada transaksi berjalan. Tanpa ini, UPDATE
 		// yang menunggu baris "kegiatan" terkunci transaksi lain akan MENGGANTUNG sampai
@@ -1188,6 +1238,7 @@ public class KegiatanHelper {
 
 		if (mydetailBiayas != null) {
 			Collection<DetailKegiatan> detailKegiatans = kegiatan.ambilDetailKegiatan(ulang);
+			lindungiKonfigurasiBulananSaatHitungUlang(session, detailKegiatans, mydetailBiayas);
 
 			if (cicilanPembayarans != null) {
 				for (DetailKegiatan detailKegiatan : detailKegiatans) {
@@ -1390,6 +1441,7 @@ public class KegiatanHelper {
 			}
 
 			Collection<DetailKegiatan> detailKegiatans = kegiatan.ambilDetailKegiatan(ulang);
+			lindungiKonfigurasiBulananSaatHitungUlang(session, detailKegiatans, mydetailBiayas);
 
 			if (cicilanPembayarans != null) {
 				for (DetailKegiatan detailKegiatan : detailKegiatans) {
