@@ -161,6 +161,15 @@ public class PaymentLogic {
 				total = kegiatan.getAmountTerhutang().longValue();
 			}
 
+			// Jangan pernah membentuk transaksi pembayaran untuk tagihan kosong. Sebelumnya
+			// Kegiatan sempat disimpan lebih dahulu, baru respons NOT_VALID_AMOUNT dikirim;
+			// akibatnya muncul billing Rp0 yang terlihat 100% lunas dan tidak dapat direversal.
+			if (nominalTagihan == null || nominalTagihan.doubleValue() <= 0.0 || total.longValue() <= 0L) {
+				return displayUtil.displayNominalTagihanTidakMencukupi(logHostToHost,
+						biodataCalonMahasiswa.getNoRegistrasi(), bankHost, nama, ConstantUtil.PAY)
+						.toArray(new String[][] { null });
+			}
+
 			if (Common.bolehKonfigurasi("nominal_pembayaran_no_reg_h2h_harus_sama_dengan_tagihan")) {
 				if (!nominalTagihan.equals(total.doubleValue())) {
 					return displayUtil.displayNominalTagihanTidakMencukupi(logHostToHost,
@@ -425,6 +434,12 @@ public class PaymentLogic {
 					&& kegiatan.getAmountTerhutang() < total) {
 				pemb += "00\\Diskon\\Potongan\\" + (kegiatan.getAmountTerhutang().longValue() - total) + "|";
 				total = kegiatan.getAmountTerhutang().longValue();
+			}
+
+			if (nominalTagihan == null || nominalTagihan.doubleValue() <= 0.0 || total.longValue() <= 0L) {
+				return displayUtil.displayNominalTagihanTidakMencukupi(logHostToHost,
+						biodataCalonMahasiswa.getNoRegistrasi(), bankHost, nama, ConstantUtil.PAY)
+						.toArray(new String[][] { null });
 			}
 
 			if (Common.bolehKonfigurasi("nominal_pembayaran_daftar_ulang_h2h_harus_sama_dengan_tagihan")) {
@@ -719,6 +734,13 @@ public class PaymentLogic {
 			Long total = nilaiBiayaHarusDiBayars.longValue();
 
 			System.out.println("total ==============================================> " + total);
+
+			// Termasuk pembayaran SP: bila mahasiswa tidak mengambil SP, rincian biaya
+			// menghasilkan total nol. Tolak sebelum simpan agar tidak tercipta Kegiatan nol.
+			if (nominalTagihan == null || nominalTagihan.doubleValue() <= 0.0 || total.longValue() <= 0L) {
+				return displayUtil.displayNominalTagihanTidakMencukupi(logHostToHost, mahasiswa.getNim(), bankHost,
+						nama, ConstantUtil.PAY).toArray(new String[][] { null });
+			}
 
 			if (Common.bolehKonfigurasi("nominal_pembayaran_h2h_harus_sama_dengan_tagihan")
 					|| (bulan != null && !bulan.trim().isEmpty() && Common.isNumber(bulan))) {

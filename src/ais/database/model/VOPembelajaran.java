@@ -389,7 +389,7 @@ public abstract class VOPembelajaran extends VoKunci {
 	}
 
 	private void masukkanPertemuanLocal(TreeMap<String, Long> pertemuansTemp, Pertemuan pertemuan) {
-		if (pertemuan != null && pertemuansTemp != null) {
+		if (pertemuan != null && pertemuan.getId() != null && pertemuansTemp != null) {
 			try {
 				VOPembelajaran pembelajaran = pertemuan.ambilVOPembelajaran();
 				String urt;

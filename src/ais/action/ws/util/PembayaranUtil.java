@@ -2406,6 +2406,8 @@ public class PembayaranUtil {
 		}
 
 		boolean hasil = true;
+		Session session = null;
+		Long kegiatanId = kegiatan.getId();
 		try {
 
 			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
@@ -2443,14 +2445,20 @@ public class PembayaranUtil {
 				Common.tampilErrorJikaAdmin(e);
 			}
 
-			Session session = HibernateUtil.currentNativeSession();
+			session = HibernateUtil.currentNativeSession();
 
 			session.getTransaction().begin();
 
 			String sql = "update tunggakan_mahasiswa set kegiatan = null where kegiatan = " + kegiatan.getId() + ";";
+			String sqlVirtualAccount = "update virtual_account_bank set kegiatan = null where kegiatan = "
+					+ kegiatan.getId() + ";";
 
 			// System.out.printlnsql);
 			session.createSQLQuery(sql).executeUpdate();
+			// Pertahankan histori virtual account, tetapi lepaskan referensinya sebelum
+			// kegiatan pembayaran dihapus. Sebagian database lama belum memakai FK
+			// ON DELETE CASCADE sehingga reversal sebelumnya dapat gagal di sini.
+			session.createSQLQuery(sqlVirtualAccount).executeUpdate();
 
 			PembayaranUtil.getInstance().getResetCicilanOld(session, kegiatan.getCalonMahasiswa(),
 					kegiatan.getMahasiswa(), kegiatan.getSemster(), kegiatan.getJenisKegiatan(), kegiatan);
@@ -2461,10 +2469,16 @@ public class PembayaranUtil {
 			session.getTransaction().commit();
 
 			HibernateUtil.closeSession();
+			session = null;
 
 			session = HibernateUtil.currentNativeSession();
-
-			session.refresh(kegiatan);
+			// Objek dari renderer berasal dari sesi lama yang baru saja ditutup. Ambil
+			// instance managed yang baru; refresh terhadap objek detached dapat membuat
+			// reversal gagal tanpa pesan teknis yang berguna.
+			kegiatan = (Kegiatan) session.get(Kegiatan.class, kegiatanId);
+			if (kegiatan == null) {
+				return true;
+			}
 
 			List<LogHostToHost> hostToHosts = session.createCriteria(LogHostToHost.class)
 					.add(Restrictions.eq("kegiatan", kegiatan)).list();
@@ -2484,10 +2498,45 @@ public class PembayaranUtil {
 			session.getTransaction().commit();
 
 			HibernateUtil.closeSession();
+			session = null;
 
 		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"reversal pembayaran manual gagal, kegiatanId=" + kegiatanId);
 			Common.tampilErrorJikaAdmin(e);
+			if (session != null) {
+				try {
+					if (session.getTransaction() != null && session.getTransaction().isActive()) {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"rollback reversal pembayaran manual gagal, kegiatanId=" + kegiatanId);
+				}
+			}
 			hasil = false;
+		} finally {
+			if (session != null) {
+				try {
+					session.clear();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "clear session reversal pembayaran manual");
+				}
+				try {
+					if (session.isConnected()) {
+						session.disconnect();
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "disconnect session reversal pembayaran manual");
+				}
+				try {
+					if (session.isOpen()) {
+						session.close();
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "close session reversal pembayaran manual");
+				}
+			}
 		}
 
 		return hasil;

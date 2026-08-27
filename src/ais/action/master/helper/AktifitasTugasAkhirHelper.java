@@ -249,19 +249,21 @@ public class AktifitasTugasAkhirHelper {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/AktifitasTugasAkhirHelper.java:249");
 				}
 
-				pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
-						pertemuan.getId());
+				if (pertemuan.getId() != null) {
+					pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
+							pertemuan.getId());
 
-				Common.createDefaultTimer(new EventListener() {
+					Common.createDefaultTimer(new EventListener() {
 
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						mahasiswaRequestTugasAkhir.belum();
-						initDetail(mahasiswaRequestTugasAkhir, dataLoader, groupbox);
-					}
-				});
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							mahasiswaRequestTugasAkhir.belum();
+							initDetail(mahasiswaRequestTugasAkhir, dataLoader, groupbox);
+						}
+					});
 
-				return;
+					return;
+				}
 			}
 
 			FormatNilaiProposalSkripsi formatNilaiProposalSkripsi = mahasiswaRequestTugasAkhir
@@ -280,6 +282,9 @@ public class AktifitasTugasAkhirHelper {
 					for (TemplateFormatBimbingan templateFormatBimbingan : templates) {
 						boolean ada = false;
 						for (Long pertemuanid : pertemuans.values()) {
+							if (pertemuanid == null) {
+								continue;
+							}
 							Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class,
 									pertemuanid.toString());
 							if (pertemuan != null) {
@@ -315,8 +320,10 @@ public class AktifitasTugasAkhirHelper {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/AktifitasTugasAkhirHelper.java:315");
 							}
 
-							pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
-									pertemuan.getId());
+							if (pertemuan.getId() != null) {
+								pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_"
+										+ pertemuan.getId(), pertemuan.getId());
+							}
 						}
 					}
 
@@ -367,6 +374,9 @@ public class AktifitasTugasAkhirHelper {
 			int selected = 0;
 			Date sekarang = WaktuUtil.getDate();
 			for (Long pertemuanid : pertemuans.values()) {
+				if (pertemuanid == null) {
+					continue;
+				}
 				Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, pertemuanid.toString());
 				if (pertemuan != null) {
 					final Row rowUtama = new Row();

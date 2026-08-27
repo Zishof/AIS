@@ -499,7 +499,7 @@ public class Kegiatan extends GeneralValueObject {
 		double totalTagihan = tagihanHitung == null ? 0.0 : tagihanHitung.doubleValue();
 		double totalDibayar = dibayarHitung == null ? 0.0 : dibayarHitung.doubleValue();
 		if (totalTagihan < 0.01) {
-			return totalDibayar >= -0.01 ? 100.0 : 0.0;
+			return totalDibayar > 0.01 ? 100.0 : 0.0;
 		}
 		if (totalDibayar + 0.01 >= totalTagihan) {
 			return 100.0;
@@ -1800,7 +1800,9 @@ public class Kegiatan extends GeneralValueObject {
 		if (tagihan != null) {
 
 			if (tagihan < 0.01) {
-				persentase = 100.0;
+				// 0 tagihan dan 0 pembayaran bukan transaksi lunas. Nilai 100% hanya
+				// masuk akal bila memang pernah ada pembayaran positif.
+				persentase = dibayar != null && dibayar.doubleValue() > 0.01 ? 100.0 : 0.0;
 			} else {
 				persentase = (dibayar * 100.0) / tagihan;
 			}
