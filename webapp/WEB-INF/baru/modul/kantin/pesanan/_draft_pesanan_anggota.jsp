@@ -482,6 +482,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             idToko: draft.id_toko, 
                             waktu: curWaktu,
                             log: "true",
+							kanalCheckout: "otomatis_halaman",
                             caraBayar: caraBayar,
                             draftPembelianAnggotaKoperasi: draft.id,
                             transaksi: items.map(item => ({
@@ -1875,6 +1876,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             idToko: draft.id_toko, 
                             waktu: curWaktu,
                             log: "true",
+                            kanalCheckout: "otomatis_halaman",
                             caraBayar: caraBayar,
                             draftPembelianAnggotaKoperasi: draft.id,
                             transaksi: items.map(item => ({

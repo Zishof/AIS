@@ -878,10 +878,14 @@ public class KantinHelper {
 				}
 			}
 
-			draft.setAnggotaKoperasi(anggota);
+			// Header draft adalah bukti waktu pesan dan identitas pemesan. Finalisasi
+			// boleh memperbarui rincian/metode/total, tetapi tidak boleh mengubah
+			// waktu pesan menjadi waktu pembayaran.
+			if (anggota != null) {
+				draft.setAnggotaKoperasi(anggota);
+			}
 			draft.setCaraPembayaranKoperasi(caraBayar);
 			draft.setKodePembayaranOnline(kodePembayaranOnline);
-			draft.setTanggalPembayaran(waktu);
 			draft.setTotalDiskon(Double.valueOf(totalHitung.totalDiskon));
 			draft.setTotalCashback(Double.valueOf(totalHitung.totalCashback));
 			draft.setTotalBiaya(Double.valueOf(totalHitung.total));
@@ -1042,6 +1046,28 @@ public class KantinHelper {
 							: (DraftPembelianAnggotaKoperasi) session
 									.createCriteria(DraftPembelianAnggotaKoperasi.class)
 									.add(Restrictions.idEq(iddraftPembelianAnggotaKoperasi)).uniqueResult());
+					/*
+					 * Finalisasi draft wajib mewarisi identitas pembeli dari header draft.
+					 * Pemanggil lama (halaman Pesanan dan scheduler H+1) hanya mengirim ID
+					 * draft, tanpa id_member. Sebelumnya nilai null dari payload menimpa
+					 * anggota pada draft dan transaksi final, sehingga nama REKTORAT berubah
+					 * menjadi Masyarakat Umum dan transaksi hilang dari laporan tenant.
+					 */
+					if (anggotaKoperasi == null && draftPembelianAnggotaKoperasi != null
+							&& draftPembelianAnggotaKoperasi.getAnggotaKoperasi() != null) {
+						anggotaKoperasi = draftPembelianAnggotaKoperasi.getAnggotaKoperasi();
+					}
+					String kanalCheckout = jsonObject.optString("kanalCheckout", "").trim();
+					boolean finalisasiOtomatis = kanalCheckout.startsWith("otomatis_")
+							|| kodeUnik.startsWith("POS-AUTO-") || kodeUnik.startsWith("AUTO-");
+					if (finalisasiOtomatis && draftPembelianAnggotaKoperasi != null
+							&& anggotaKoperasi == null) {
+						hasil.put("status", "91");
+						hasil.put("description", "Pesanan tidak dibayar otomatis karena data pembeli/member pada draft belum tersedia. "
+								+ "Buka menu Pesanan, klik Detail, pastikan Nama Pemesan benar, lalu proses pembayaran secara manual. "
+								+ "Jika nama tetap kosong, hubungi administrator agar referensi member dipulihkan; jangan membuat transaksi pengganti agar tidak ganda.");
+						return;
+					}
 					// Fitur "Sesi Kasir": gerbang SERVER-SIDE (belt-and-suspenders) di titik SATU-SATUNYA
 					// tempat checkout FINAL ditulis -- JSP dan Desktop (PosApi) sebelumnya TIDAK punya
 					// gerbang sama sekali (hanya ZK PosKantinAction.onBayar() yg mengecek client-side
