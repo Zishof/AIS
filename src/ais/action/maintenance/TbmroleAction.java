@@ -137,6 +137,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig melihatDataSatkerLain;
 	private MyCheckboxConfig presensiKehadiran;
 	private MyCheckboxConfig aksesGerbangPesantren;
+	private MyCheckboxConfig bolehVerifikasiMemberMelebihiLimit;
 	private MyCheckboxConfig absenLangsung;
 	private MyCheckboxConfig akunting;
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
@@ -2238,6 +2239,14 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(bolehVerifikasiMemberMelebihiLimit = new MyCheckboxConfig(
+				"Boleh verifikasi transaksi member yang melebihi limit"));
+		bolehVerifikasiMemberMelebihiLimit.setChecked(
+				Boolean.TRUE.equals(tbmrole.getBolehVerifikasiMemberMelebihiLimit()));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
 		row.appendChild(
 				updateFormatLaporan = new MyCheckboxConfig("Pengguna memiliki hak akses untuk update format laporan"));
 		updateFormatLaporan.setChecked(tbmrole.getUpdateFormatLaporan());
@@ -3047,6 +3056,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setPresensiKehadiran(presensiKehadiran.isChecked());
 		tbmrole.setAksesGerbangPesantren(Boolean.valueOf(
 				aksesGerbangPesantren != null && aksesGerbangPesantren.isChecked()));
+		tbmrole.setBolehVerifikasiMemberMelebihiLimit(Boolean.valueOf(
+				bolehVerifikasiMemberMelebihiLimit != null
+						&& bolehVerifikasiMemberMelebihiLimit.isChecked()));
 		tbmrole.setAbsenLangsung(absenLangsung.isChecked());
 		tbmrole.setAkunting(akunting.isChecked());
 		tbmrole.setUpdateFormatLaporan(updateFormatLaporan.isChecked());

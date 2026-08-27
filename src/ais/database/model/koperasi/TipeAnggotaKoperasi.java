@@ -82,6 +82,15 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 	private String keterangan;
 	private Boolean aktif;
 	private Double maksimalBolehUtang;
+	private String daftarCaraPembayaranYangBolehDiPilih;
+	private Long caraPembayaranDefaultId;
+	private Boolean tidakBolehCaraPembayaranLain;
+	private Double maksimalTransaksiHarian;
+	private Double maksimalTransaksiMingguan;
+	private Double maksimalTransaksiBulanan;
+	private Boolean wajibPin;
+	private Boolean wajibVerifikasiBiometricWajah;
+	private Boolean wajibVerifikasiBiometricFingerprint;
 	private Boolean wajibHp;
 	private Boolean wajibEmail;
 
@@ -145,6 +154,101 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 
 	public void setMaksimalBolehUtang(Double maksimalBolehUtang) {
 		this.maksimalBolehUtang = maksimalBolehUtang;
+	}
+
+	/**
+	 * Daftar ID cara pembayaran yang boleh dipakai tipe member ini. Bentuk
+	 * tersimpan dinormalisasi menjadi ",1,2," agar aman dicocokkan dengan LIKE
+	 * tanpa salah mencocokkan ID 1 dengan 11. Nilai kosong berarti tipe tidak
+	 * menambah pembatasan (aturan Jenis Member tetap berlaku).
+	 */
+	@Column(name = "daftar_cara_pembayaran_yang_boleh_di_pilih")
+	public String getDaftarCaraPembayaranYangBolehDiPilih() {
+		if (daftarCaraPembayaranYangBolehDiPilih == null
+				|| daftarCaraPembayaranYangBolehDiPilih.replace(",", "").trim().isEmpty()) {
+			return "";
+		}
+		String nilai = daftarCaraPembayaranYangBolehDiPilih.trim();
+		if (!nilai.startsWith(",")) nilai = "," + nilai;
+		if (!nilai.endsWith(",")) nilai = nilai + ",";
+		return nilai;
+	}
+
+	public void setDaftarCaraPembayaranYangBolehDiPilih(String nilai) {
+		this.daftarCaraPembayaranYangBolehDiPilih = nilai;
+	}
+
+	@Column(name = "cara_pembayaran_default_id")
+	public Long getCaraPembayaranDefaultId() {
+		return caraPembayaranDefaultId;
+	}
+
+	public void setCaraPembayaranDefaultId(Long caraPembayaranDefaultId) {
+		this.caraPembayaranDefaultId = caraPembayaranDefaultId;
+	}
+
+	@Column(name = "tidak_boleh_cara_pembayaran_lain")
+	public Boolean getTidakBolehCaraPembayaranLain() {
+		return tidakBolehCaraPembayaranLain == null ? Boolean.FALSE : tidakBolehCaraPembayaranLain;
+	}
+
+	public void setTidakBolehCaraPembayaranLain(Boolean nilai) {
+		this.tidakBolehCaraPembayaranLain = nilai;
+	}
+
+	/** Nilai 0 berarti tanpa batas transaksi untuk periode terkait. */
+	@Column(name = "maksimal_transaksi_harian")
+	public Double getMaksimalTransaksiHarian() {
+		return maksimalTransaksiHarian == null ? 0.0 : maksimalTransaksiHarian;
+	}
+
+	public void setMaksimalTransaksiHarian(Double nilai) {
+		this.maksimalTransaksiHarian = nilai;
+	}
+
+	@Column(name = "maksimal_transaksi_mingguan")
+	public Double getMaksimalTransaksiMingguan() {
+		return maksimalTransaksiMingguan == null ? 0.0 : maksimalTransaksiMingguan;
+	}
+
+	public void setMaksimalTransaksiMingguan(Double nilai) {
+		this.maksimalTransaksiMingguan = nilai;
+	}
+
+	@Column(name = "maksimal_transaksi_bulanan")
+	public Double getMaksimalTransaksiBulanan() {
+		return maksimalTransaksiBulanan == null ? 0.0 : maksimalTransaksiBulanan;
+	}
+
+	public void setMaksimalTransaksiBulanan(Double nilai) {
+		this.maksimalTransaksiBulanan = nilai;
+	}
+
+	@Column(name = "wajib_pin")
+	public Boolean getWajibPin() {
+		return wajibPin == null ? Boolean.FALSE : wajibPin;
+	}
+
+	public void setWajibPin(Boolean nilai) {
+		this.wajibPin = nilai;
+	}
+
+	@Column(name = "wajib_verifikasi_biometric_wajah")
+	public Boolean getWajibVerifikasiBiometricWajah() {
+		return wajibVerifikasiBiometricWajah == null ? Boolean.FALSE : wajibVerifikasiBiometricWajah;
+	}
+
+	public void setWajibVerifikasiBiometricWajah(Boolean nilai) {
+		this.wajibVerifikasiBiometricWajah = nilai;
+	}
+
+	@Column(name = "wajib_verifikasi_biometric_fingerprint")
+	public Boolean getWajibVerifikasiBiometricFingerprint() {
+		return wajibVerifikasiBiometricFingerprint == null ? Boolean.FALSE : wajibVerifikasiBiometricFingerprint;
+	}
+
+	public void setWajibVerifikasiBiometricFingerprint(Boolean nilai) {
+		this.wajibVerifikasiBiometricFingerprint = nilai;
 	}
 
 	/**

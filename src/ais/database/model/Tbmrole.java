@@ -161,6 +161,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean kepegawaian;
 	private Boolean presensiKehadiran;
 	private Boolean aksesGerbangPesantren;
+	private Boolean bolehVerifikasiMemberMelebihiLimit;
 	private Boolean absenLangsung;
 	private Boolean pembayaran;
 	private Boolean kalenderAkademik;
@@ -672,6 +673,21 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	public void setAksesGerbangPesantren(Boolean value) {
 		this.aksesGerbangPesantren = value;
+	}
+
+	/**
+	 * Hak menyetujui/menolak pengajuan transaksi member yang melampaui limit.
+	 * Fail-closed: role lama maupun role baru tidak mendapat hak ini sebelum
+	 * dicentang eksplisit pada Grup Pengguna.
+	 */
+	@Column(name = "boleh_verifikasi_member_melebihi_limit")
+	public Boolean getBolehVerifikasiMemberMelebihiLimit() {
+		return bolehVerifikasiMemberMelebihiLimit == null
+				? Boolean.FALSE : bolehVerifikasiMemberMelebihiLimit;
+	}
+
+	public void setBolehVerifikasiMemberMelebihiLimit(Boolean value) {
+		this.bolehVerifikasiMemberMelebihiLimit = value;
 	}
 
 	public Boolean getAbsenLangsung() {

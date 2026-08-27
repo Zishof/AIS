@@ -30,6 +30,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.koperasi.JenisAnggotaKoperasi;
+import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Pegawai;
@@ -309,7 +310,7 @@ public final class BiometricApi {
 
 	/**
 	 * Gerbang tunggal untuk seluruh kanal POS (JSP, ZKoss, Desktop, Android).
-	 * Semua metode yang diwajibkan Jenis Member harus mempunyai event server yang
+	 * Semua metode yang diwajibkan Jenis Member atau Tipe Member harus mempunyai event server yang
 	 * cocok dan terikat pada kode transaksi sebelum pembayaran saldo diteruskan.
 	 */
 	public static String validateRequiredPosVerification(Tbmuser cashier, JSONObject payload) throws Exception {
@@ -322,10 +323,14 @@ public final class BiometricApi {
 			if (memberId == null) return null;
 			AnggotaKoperasi member = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
 			if (member == null) return null;
-			JenisAnggotaKoperasi type = member.getJenisAnggotaKoperasi();
-			boolean pin = type != null && Boolean.TRUE.equals(type.getWajibPin());
-			boolean face = type != null && Boolean.TRUE.equals(type.getWajibVerifikasiBiometricWajah());
-			boolean fingerprint = type != null && Boolean.TRUE.equals(type.getWajibVerifikasiBiometricFingerprint());
+			JenisAnggotaKoperasi jenis = member.getJenisAnggotaKoperasi();
+			TipeAnggotaKoperasi tipe = member.getTipeAnggotaKoperasi();
+			boolean pin = (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
+					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin()));
+			boolean face = (jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah()));
+			boolean fingerprint = (jenis != null && Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint()));
 			if (!pin && !face && !fingerprint) return null;
 
 			String linked = linkedUserIdForMember(session, member);

@@ -52,6 +52,7 @@ import ais.database.model.koperasi.JenisAnggotaKoperasi;
 import ais.database.model.koperasi.KodePembayaranOnline;
 import ais.database.model.koperasi.MejaKantin;
 import ais.database.model.koperasi.PembelianAnggotaKoperasi;
+import ais.database.model.koperasi.PengajuanLimitTransaksiMember;
 import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import ais.ui.util.WaktuUtil;
 
@@ -681,6 +682,154 @@ public class KantinHelper {
 		return hasil;
 	}
 
+	private static java.util.Set parseIdCaraBayar(String csv) {
+		java.util.Set hasil = new java.util.HashSet();
+		if (csv == null) return hasil;
+		String[] bagian = csv.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			try {
+				String nilai = bagian[i].trim();
+				if (!nilai.isEmpty()) hasil.add(Long.valueOf(Long.parseLong(nilai)));
+			} catch (Exception ignored) {
+			}
+		}
+		return hasil;
+	}
+
+	/** Validasi server-side agar aturan Tipe/Jenis Member tidak dapat dilewati klien lama. */
+	private static String validasiCaraBayarMember(AnggotaKoperasi anggota,
+			CaraPembayaranKoperasi utama, SplitPembayaran split) {
+		if (anggota == null) return null;
+		java.util.Set izin = null;
+		JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
+		if (jenis != null) {
+			String csv = jenis.getDaftarCaraPembayaranYangBolehDiPilih();
+			if (csv != null && !csv.replace(",", "").trim().isEmpty()) izin = parseIdCaraBayar(csv);
+		}
+		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
+		if (tipe != null) {
+			String csv = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
+			if (csv != null && !csv.replace(",", "").trim().isEmpty()) {
+				java.util.Set izinTipe = parseIdCaraBayar(csv);
+				if (izin == null) izin = izinTipe;
+				else izin.retainAll(izinTipe);
+			}
+		}
+		CaraPembayaranKoperasi[] dipakai = new CaraPembayaranKoperasi[] {
+				utama, split.cara2, split.cara3, split.cara4, split.cara5 };
+		if (izin != null) {
+			for (int i = 0; i < dipakai.length; i++) {
+				if (dipakai[i] != null && !izin.contains(dipakai[i].getId())) {
+					return "Cara pembayaran " + dipakai[i].getNama()
+							+ " tidak diizinkan untuk tipe/jenis member ini.";
+				}
+			}
+		}
+		if (tipe != null) {
+			Long wajib = tipe.getCaraPembayaranDefaultId();
+			boolean terkunci = Boolean.TRUE.equals(tipe.getTidakBolehCaraPembayaranLain())
+					|| (izin != null && izin.size() == 1);
+			if (terkunci && wajib == null && izin != null && izin.size() == 1) {
+				wajib = (Long) izin.iterator().next();
+			}
+			if (terkunci && wajib != null) {
+				for (int i = 0; i < dipakai.length; i++) {
+					if (dipakai[i] != null && !wajib.equals(dipakai[i].getId())) {
+						return "Tipe member ini hanya boleh memakai cara pembayaran default yang telah ditentukan.";
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private static Date awalPeriode(Date acuan, int jenisPeriode) {
+		java.util.Calendar c = java.util.Calendar.getInstance();
+		c.setTime(acuan == null ? new Date() : acuan);
+		c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+		c.set(java.util.Calendar.MINUTE, 0);
+		c.set(java.util.Calendar.SECOND, 0);
+		c.set(java.util.Calendar.MILLISECOND, 0);
+		if (jenisPeriode == java.util.Calendar.WEEK_OF_YEAR) {
+			c.setFirstDayOfWeek(java.util.Calendar.MONDAY);
+			while (c.get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.MONDAY) {
+				c.add(java.util.Calendar.DAY_OF_MONTH, -1);
+			}
+		} else if (jenisPeriode == java.util.Calendar.MONTH) {
+			c.set(java.util.Calendar.DAY_OF_MONTH, 1);
+		}
+		return c.getTime();
+	}
+
+	private static Date akhirPeriode(Date awal, int jenisPeriode) {
+		java.util.Calendar c = java.util.Calendar.getInstance();
+		c.setTime(awal);
+		if (jenisPeriode == java.util.Calendar.WEEK_OF_YEAR) c.add(java.util.Calendar.DAY_OF_MONTH, 7);
+		else if (jenisPeriode == java.util.Calendar.MONTH) c.add(java.util.Calendar.MONTH, 1);
+		else c.add(java.util.Calendar.DAY_OF_MONTH, 1);
+		return c.getTime();
+	}
+
+	private static double totalTransaksiPeriode(Session session, Long anggotaId,
+			Date awal, Date akhir, Long idDikecualikan) throws Exception {
+		String sql = "SELECT COALESCE(SUM(COALESCE(total_biaya,0)),0) "
+				+ "FROM koperasi.pembelian_anggota_koperasi "
+				+ "WHERE anggota_koperasi=? AND tanggal_pembayaran>=? AND tanggal_pembayaran<?"
+				+ (idDikecualikan == null ? "" : " AND id<>?");
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setLong(1, anggotaId.longValue());
+			ps.setTimestamp(2, new java.sql.Timestamp(awal.getTime()));
+			ps.setTimestamp(3, new java.sql.Timestamp(akhir.getTime()));
+			if (idDikecualikan != null) ps.setLong(4, idDikecualikan.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			try { return rs.next() ? rs.getDouble(1) : 0.0; }
+			finally { rs.close(); }
+		} finally { ps.close(); }
+	}
+
+	private static final class PelanggaranBatasTransaksi {
+		final String periode;
+		final double batas;
+		final double berjalan;
+		final double transaksi;
+
+		PelanggaranBatasTransaksi(String periode, double batas, double berjalan, double transaksi) {
+			this.periode = periode;
+			this.batas = batas;
+			this.berjalan = berjalan;
+			this.transaksi = transaksi;
+		}
+
+		String pesan() {
+			return "Batas pembelian " + periode + " tipe member ini adalah "
+					+ Common.numberFormat.get().format(batas) + ". Pemakaian periode berjalan "
+					+ Common.numberFormat.get().format(berjalan) + ", transaksi ini "
+					+ Common.numberFormat.get().format(transaksi) + ".";
+		}
+	}
+
+	private static PelanggaranBatasTransaksi validasiBatasTransaksi(Session session, AnggotaKoperasi anggota,
+			Date waktu, double transaksiIni, Long idDikecualikan) throws Exception {
+		if (anggota == null || anggota.getTipeAnggotaKoperasi() == null) return null;
+		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
+		double[] batas = new double[] { tipe.getMaksimalTransaksiHarian(),
+				tipe.getMaksimalTransaksiMingguan(), tipe.getMaksimalTransaksiBulanan() };
+		int[] periode = new int[] { java.util.Calendar.DAY_OF_MONTH,
+				java.util.Calendar.WEEK_OF_YEAR, java.util.Calendar.MONTH };
+		String[] label = new String[] { "harian", "mingguan", "bulanan" };
+		for (int i = 0; i < batas.length; i++) {
+			if (batas[i] <= 0.0) continue;
+			Date awal = awalPeriode(waktu, periode[i]);
+			double berjalan = totalTransaksiPeriode(session, anggota.getId(), awal,
+					akhirPeriode(awal, periode[i]), idDikecualikan);
+			if (berjalan + transaksiIni > batas[i] + 0.5) {
+				return new PelanggaranBatasTransaksi(label[i], batas[i], berjalan, transaksiIni);
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Menjadikan keranjang yang sedang dilihat kasir sebagai sumber kebenaran ketika sebuah draft
 	 * tertahan difinalisasi. Draft lama dapat memiliki rincian parsial akibat implementasi lama yang
@@ -1210,6 +1359,7 @@ public class KantinHelper {
 					Double total = Double.valueOf(th.total);
 					Double totalDiskon = Double.valueOf(th.totalDiskon);
 					Double totalCashback = Double.valueOf(th.totalCashback);
+					PengajuanLimitTransaksiMember pengajuanLimitDipakai = null;
 
 					// Split pembayaran (maks 5 metode/transaksi): "caraBayar" (di atas) TETAP wajib &
 					// selalu jadi slot 1 -- payload lama tanpa "caraBayarTambahan" sama sekali (client
@@ -1220,6 +1370,31 @@ public class KantinHelper {
 						hasil.put("status", "91");
 						hasil.put("description", split.pesanError);
 						return;
+					}
+					String galatCaraBayar = validasiCaraBayarMember(anggotaKoperasi,
+							caraPembayaranKoperasiOnline, split);
+					if (galatCaraBayar != null) {
+						hasil.put("status", "91");
+						hasil.put("description", galatCaraBayar);
+						return;
+					}
+					PelanggaranBatasTransaksi galatBatasTransaksi = validasiBatasTransaksi(session, anggotaKoperasi,
+							currentWaktu, total.doubleValue(), id);
+					if (galatBatasTransaksi != null) {
+						PengajuanLimitMemberApiHelper.HasilPeriksa keputusanLimit =
+								PengajuanLimitMemberApiHelper.periksaAtauAjukan(session, tbmuser,
+										anggotaKoperasi, kodeUnik, total.doubleValue(),
+										galatBatasTransaksi.periode, galatBatasTransaksi.batas,
+										galatBatasTransaksi.berjalan);
+						if (!keputusanLimit.bolehLanjut) {
+							hasil.put("status", "92");
+							hasil.put("memerlukanPersetujuanLimit", true);
+							hasil.put("pengajuanLimitId", keputusanLimit.pengajuan == null
+									? JSONObject.NULL : keputusanLimit.pengajuan.getId());
+							hasil.put("description", keputusanLimit.pesan + " " + galatBatasTransaksi.pesan());
+							return;
+						}
+						pengajuanLimitDipakai = keputusanLimit.pengajuan;
 					}
 
 					// Gerbang batas hutang (2026-08-10): kalau salah satu SLOT pembayaran memakai cara
@@ -1572,6 +1747,20 @@ public class KantinHelper {
 
 					if (dimintaLangsungTerlayani(jsonObject)) {
 						tandaiRincianTerlayani(session, pembelianAnggotaKoperasi);
+					}
+
+					if (pengajuanLimitDipakai != null) {
+						try {
+							PengajuanLimitMemberApiHelper.tandaiDipakai(session,
+									pengajuanLimitDipakai, pembelianAnggotaKoperasi);
+						} catch (Exception exPengajuanLimit) {
+							// Transaksi sudah final dan persetujuan terikat ke kode nota unik;
+							// jangan membatalkan penjualan, tetapi jangan menyembunyikan kegagalan audit.
+							hasil.put("peringatanPengajuanLimit",
+									"Transaksi tersimpan, status pemakaian persetujuan perlu direkonsiliasi.");
+							ais.common.ErrorAuditUtil.record(exPengajuanLimit,
+									"KantinHelper.bayar-tandaiPengajuanLimitDipakai");
+						}
 					}
 
 					hasil.put("data", arrayTransaksi);
@@ -6460,6 +6649,7 @@ public class KantinHelper {
 					maksId = a.getId().longValue();
 				}
 				JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
+				TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
 
 				String fotoUrl = null;
 				String fotoNama = null;
@@ -6490,11 +6680,14 @@ public class KantinHelper {
 				j.put("keterangan", a.getKeterangan() == null ? "" : a.getKeterangan());
 				j.put("jenisAnggotaKoperasiId", jenis == null ? JSONObject.NULL : jenis.getId());
 				j.put("jenisNama", jenis == null ? "-" : jenis.getNama());
-				j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
-				j.put("wajibBiometricWajah", jenis != null
-						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
-				j.put("wajibBiometricFingerprint", jenis != null
-						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
+				j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
+				j.put("wajibBiometricWajah", (jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
+				j.put("wajibBiometricFingerprint", (jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
 				j.put("fotoUrl", fotoUrl == null ? JSONObject.NULL : fotoUrl);
 				j.put("fotoNama", fotoNama == null ? JSONObject.NULL : fotoNama);
 				j.put("fotoUkuran", fotoUkuran == null ? JSONObject.NULL : fotoUkuran);
@@ -6561,15 +6754,19 @@ public class KantinHelper {
 					continue; // anggota sudah dihapus sejak transaksi terakhirnya -- lewati, bukan error.
 				}
 				ais.database.model.koperasi.JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
+				ais.database.model.koperasi.TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
 				JSONObject j = new JSONObject();
 				j.put("id", a.getId());
 				j.put("nama", a.getNama() == null ? "" : a.getNama());
 				j.put("kodeIdentitas", a.getKodeIdentitas() == null ? "" : a.getKodeIdentitas());
-				j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
-				j.put("wajibBiometricWajah", jenis != null
-						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
-				j.put("wajibBiometricFingerprint", jenis != null
-						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
+				j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
+				j.put("wajibBiometricWajah", (jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
+				j.put("wajibBiometricFingerprint", (jenis != null
+						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
 				j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 				j.put("waktuTerakhir", r[1] == null ? JSONObject.NULL
 						: Common.dateFormatInput.get().format((java.util.Date) r[1]));
@@ -7170,7 +7367,13 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT t.id, COALESCE(t.kode,''), t.nama, COALESCE(t.keterangan,''), COALESCE(t.aktif,true), "
 							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.tipe_anggota_koperasi = t.id), "
-							+ "COALESCE(t.maksimal_boleh_utang,0), t.wajib_hp, t.wajib_email "
+							+ "COALESCE(t.maksimal_boleh_utang,0), t.wajib_hp, t.wajib_email, "
+							+ "COALESCE(t.daftar_cara_pembayaran_yang_boleh_di_pilih,''), "
+							+ "t.cara_pembayaran_default_id, COALESCE(t.tidak_boleh_cara_pembayaran_lain,false), "
+							+ "COALESCE(t.maksimal_transaksi_harian,0), COALESCE(t.maksimal_transaksi_mingguan,0), "
+							+ "COALESCE(t.maksimal_transaksi_bulanan,0), COALESCE(t.wajib_pin,false), "
+							+ "COALESCE(t.wajib_verifikasi_biometric_wajah,false), "
+							+ "COALESCE(t.wajib_verifikasi_biometric_fingerprint,false) "
 							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -7199,6 +7402,16 @@ public class KantinHelper {
 						: rs.getBoolean(8));
 				Object wajibEmailTa = rs.getObject(9);
 				j.put("wajibEmail", wajibEmailTa != null && rs.getBoolean(9));
+				j.put("daftarCaraPembayaranYangBolehDiPilih", rs.getString(10));
+				Object defaultCaraBayar = rs.getObject(11);
+				if (defaultCaraBayar != null) j.put("caraPembayaranDefaultId", rs.getLong(11));
+				j.put("tidakBolehCaraPembayaranLain", rs.getBoolean(12));
+				j.put("maksimalTransaksiHarian", rs.getDouble(13));
+				j.put("maksimalTransaksiMingguan", rs.getDouble(14));
+				j.put("maksimalTransaksiBulanan", rs.getDouble(15));
+				j.put("wajibPin", rs.getBoolean(16));
+				j.put("wajibBiometricWajah", rs.getBoolean(17));
+				j.put("wajibBiometricFingerprint", rs.getBoolean(18));
 				arr.put(j);
 			}
 			rs.close();
@@ -7262,6 +7475,38 @@ public class KantinHelper {
 			if (request.has("wajibEmail") && !request.isNull("wajibEmail")) {
 				tipe.setWajibEmail(Boolean.valueOf(request.optBoolean("wajibEmail", false)));
 			}
+			String daftarCaraBayar = request.optString("daftarCaraPembayaranYangBolehDiPilih",
+					request.optString("daftar_cara_pembayaran_yang_boleh_di_pilih", "")).trim();
+			tipe.setDaftarCaraPembayaranYangBolehDiPilih(daftarCaraBayar);
+			Long caraDefault = ais.common.Common.angkaAtauNull(request, "caraPembayaranDefaultId");
+			if (caraDefault == null) caraDefault = ais.common.Common.angkaAtauNull(request, "cara_pembayaran_default_id");
+			boolean kunciCaraBayar = request.optBoolean("tidakBolehCaraPembayaranLain",
+					request.optBoolean("tidak_boleh_cara_pembayaran_lain", false));
+			if (caraDefault != null && !(',' + daftarCaraBayar + ',').replace(",,", ",")
+					.contains("," + caraDefault + ",")) {
+				hasil.put("status", "91");
+				hasil.put("description", "Cara bayar default harus termasuk dalam daftar cara bayar yang diizinkan.");
+				return;
+			}
+			if (kunciCaraBayar && caraDefault == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Pilih cara bayar default sebelum mengunci cara bayar lain.");
+				return;
+			}
+			tipe.setCaraPembayaranDefaultId(caraDefault);
+			tipe.setTidakBolehCaraPembayaranLain(Boolean.valueOf(kunciCaraBayar));
+			tipe.setMaksimalTransaksiHarian(Double.valueOf(Math.max(0.0,
+					request.optDouble("maksimalTransaksiHarian", 0.0))));
+			tipe.setMaksimalTransaksiMingguan(Double.valueOf(Math.max(0.0,
+					request.optDouble("maksimalTransaksiMingguan", 0.0))));
+			tipe.setMaksimalTransaksiBulanan(Double.valueOf(Math.max(0.0,
+					request.optDouble("maksimalTransaksiBulanan", 0.0))));
+			tipe.setWajibPin(Boolean.valueOf(request.optBoolean("wajibPin",
+					request.optBoolean("wajib_pin", false))));
+			tipe.setWajibVerifikasiBiometricWajah(Boolean.valueOf(request.optBoolean(
+					"wajibBiometricWajah", request.optBoolean("wajib_biometric_wajah", false))));
+			tipe.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(request.optBoolean(
+					"wajibBiometricFingerprint", request.optBoolean("wajib_biometric_fingerprint", false))));
 
 			session.beginTransaction();
 			session.saveOrUpdate(tipe);
@@ -15678,6 +15923,8 @@ public class KantinHelper {
 	}
 
 	private static JSONObject anggotaCepatJson(AnggotaKoperasi anggota) throws Exception {
+		JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
+		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
 		JSONObject member = new JSONObject();
 		member.put("id", anggota.getId());
 		member.put("nama", anggota.getNama() == null ? "" : anggota.getNama());
@@ -15687,7 +15934,14 @@ public class KantinHelper {
 		member.put("telp", anggota.getTelp() == null ? "" : anggota.getTelp());
 		member.put("email", anggota.getEmail() == null ? "" : anggota.getEmail());
 		member.put("keterangan", anggota.getKeterangan() == null ? "" : anggota.getKeterangan());
-		member.put("wajibPin", false);
+		member.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
+		member.put("wajibBiometricWajah", (jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
+		member.put("wajibBiometricFingerprint", (jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
 		member.put("aktif", anggota.getAktif() == null || Boolean.TRUE.equals(anggota.getAktif()));
 		member.put("minSaldo", 0);
 		member.put("userid", anggota.getUserid() == null ? "" : anggota.getUserid());

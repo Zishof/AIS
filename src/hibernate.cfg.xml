@@ -1719,6 +1719,8 @@
 			class="ais.database.model.koperasi.DraftPembelianAnggotaKoperasi"></mapping>
 		<mapping
 			class="ais.database.model.koperasi.PembelianAnggotaKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.PengajuanLimitTransaksiMember"></mapping>
 
 		<mapping
 			class="ais.database.model.koperasi.JenisTransaksiKoperasi"></mapping>

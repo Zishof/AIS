@@ -42,6 +42,7 @@ import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.koperasi.DraftPembelianAnggotaKoperasi;
 import ais.database.model.koperasi.JenisAnggotaKoperasi;
+import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import org.hibernate.criterion.Disjunction;
 
 /**
@@ -678,6 +679,10 @@ public class PosApi extends HttpServlet {
 			} else if ("anggota_hapus".equals(action)) {
 				KantinHelper.anggotaHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_hapus");
+			} else if (action.startsWith("pengajuan_limit_member_")) {
+				ais.action.servlet.api.PengajuanLimitMemberApiHelper.proses(
+						action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if ("jenis_anggota_list".equals(action)) {
 				KantinHelper.jenisAnggotaList(hasil);
 				normalisasiStatusKantinHelper(hasil, "jenis_anggota_list");
@@ -1514,6 +1519,8 @@ public class PosApi extends HttpServlet {
 		// tampilan tombol Topup di Flutter (mirror pola isAdmin/supervisorPedagang di atas).
 		hasil.put("bolehEntryTopup", roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
 				&& roleAksesMenu.getBolehEntryTopup().booleanValue());
+		hasil.put("bolehVerifikasiLimitMember",
+				ais.action.servlet.api.PengajuanLimitMemberApiHelper.bolehVerifikasi(tbmuser));
 		hasil.put("bolehHapusPesanan", bolehSupervisorAtauAdmin(tbmuser)
 				|| bolehAksiCrudPesanan(tbmuser, "delete") || bolehAksiCrudPesanan(tbmuser, "reject"));
 		// Fitur "Hak Akses Menu per Akun" (gap-closure Toko Al-Bahjah). Admin global (pedagang==null, TIDAK terikat satu toko) SELALU
@@ -2484,23 +2491,27 @@ public class PosApi extends HttpServlet {
 	 * (dataset kecil, terjamin sama-origin); versi lokal (token, jaringan lebih mahal) sengaja
 	 * pencarian-per-kueri dgn {@code LIMIT 20} drpd meniru pendekatan itu.
 	 *
-	 * <p>{@code wajibPin}/{@code minSaldo} diambil dari {@link AnggotaKoperasi#getJenisAnggotaKoperasi()}
-	 * (getter, BUKAN join Criteria) -- getter itu SUDAH menangani fallback bila kolom FK null (default
-	 * ke jenis "Reguler"), lebih aman drpd join eksplisit yang bisa keliru exclude baris ber-FK null.
+	 * <p>{@code wajibPin}/biometrik dihitung sebagai OR aturan Jenis dan Tipe Member, sedangkan
+	 * {@code minSaldo} tetap berasal dari Jenis Member. Relasi dibaca lewat getter entitas (BUKAN join
+	 * Criteria) agar fallback saat FK null tetap konsisten.
 	 * N+1 query per member dibiarkan (bukan masalah performa nyata -- hasil dibatasi 20 baris).</p>
 	 */
 	/** Bentuk JSON member yg SAMA dipakai {@code cari_member} (baik jalur keyword maupun jalur exact-id di bawah) -- satu-satunya tempat field {id,nama,kodeIdentitas,wajibPin,minSaldo} dirakit, supaya kedua jalur selalu sinkron. */
 	private JSONObject jsonMember(AnggotaKoperasi a) throws Exception {
 		JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
+		TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
 		JSONObject j = new JSONObject();
 		j.put("id", a.getId());
 		j.put("nama", str(a.getNama()));
 		j.put("kodeIdentitas", str(a.getKodeIdentitas()));
-		j.put("wajibPin", jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()));
-		j.put("wajibBiometricWajah", jenis != null
-				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()));
-		j.put("wajibBiometricFingerprint", jenis != null
-				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()));
+		j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
+		j.put("wajibBiometricWajah", (jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
+		j.put("wajibBiometricFingerprint", (jenis != null
+				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
+				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
 		j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 		return j;
 	}
@@ -2578,11 +2589,20 @@ public class PosApi extends HttpServlet {
 		Long idMember = ais.common.Common.angkaAtauNull(payload, "id_member");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Long idJenisAnggota = null;
+			String izinJenis = "";
+			String izinTipe = "";
+			Long caraBayarDefaultId = null;
+			boolean kunciDariTipe = false;
 			if (idMember != null) {
 				AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, idMember);
 				if (a != null && a.getJenisAnggotaKoperasi() != null) {
-					idJenisAnggota = a.getJenisAnggotaKoperasi().getId();
+					izinJenis = a.getJenisAnggotaKoperasi().getDaftarCaraPembayaranYangBolehDiPilih();
+				}
+				if (a != null && a.getTipeAnggotaKoperasi() != null) {
+					ais.database.model.koperasi.TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
+					izinTipe = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
+					caraBayarDefaultId = tipe.getCaraPembayaranDefaultId();
+					kunciDariTipe = Boolean.TRUE.equals(tipe.getTidakBolehCaraPembayaranLain());
 				}
 			}
 
@@ -2596,65 +2616,24 @@ public class PosApi extends HttpServlet {
 			// itu pembatasan yang disengaja admin, dan menutupinya di sini akan
 			// membuka metode yang memang dilarang. Yang pertama kelalaian
 			// konfigurasi, yang kedua keputusan -- keduanya tidak boleh disamakan.
-			boolean izinTidakDisetel = false;
-			if (idJenisAnggota != null) {
-				java.sql.PreparedStatement psIzin = session.connection().prepareStatement(
-						"SELECT COALESCE(jak.daftar_cara_pembayaran_yang_boleh_di_pilih, '') "
-								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?");
-				try {
-					psIzin.setLong(1, idJenisAnggota.longValue());
-					java.sql.ResultSet rsIzin = psIzin.executeQuery();
-					try {
-						String izin = rsIzin.next() ? rsIzin.getString(1) : "";
-						// Nilai tersimpan berbentuk ",1,2,3," (dibungkus koma oleh getter
-						// entitasnya), jadi "kosong" mencakup "", ",", ",,", dan seterusnya.
-						if (izin == null || izin.replace(",", "").trim().isEmpty()) {
-							izinTidakDisetel = true;
-							idJenisAnggota = null;
-						}
-					} finally {
-						rsIzin.close();
-					}
-				} finally {
-					psIzin.close();
-				}
+			boolean izinTidakDisetel = idMember != null
+					&& (izinJenis == null || izinJenis.replace(",", "").trim().isEmpty());
+			java.util.Set izinEfektif = null;
+			if (izinJenis != null && !izinJenis.replace(",", "").trim().isEmpty()) {
+				izinEfektif = parseDaftarIdCaraBayar(izinJenis);
+			}
+			if (izinTipe != null && !izinTipe.replace(",", "").trim().isEmpty()) {
+				java.util.Set izinTipeSet = parseDaftarIdCaraBayar(izinTipe);
+				if (izinEfektif == null) izinEfektif = izinTipeSet;
+				else izinEfektif.retainAll(izinTipeSet);
 			}
 
 			JSONArray arr = new JSONArray();
-			if (idJenisAnggota != null) {
-				java.sql.PreparedStatement ps = session.connection().prepareStatement(
-						"SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%'), "
-								// Sifat metode dikirim ke kasir supaya penolakan "wajib pilih
-								// pelanggan" muncul SAAT metode dipilih, bukan setelah seluruh
-								// keranjang selesai diisi dan tombol Bayar ditekan.
-								+ "COALESCE(cpk.masuk_sebagai_hutang,false), COALESCE(cpk.memotong_deposit,false), "
-								+ "(LOWER(COALESCE(cpk.kode,'') || ' ' || COALESCE(cpk.nama,'')) LIKE '%kasbon%' "
-								+ " OR COALESCE(cpk.wajib_pilih_member, COALESCE(cpk.masuk_sebagai_hutang,false) "
-								+ "    OR COALESCE(cpk.memotong_deposit,false))) "
-								+ "FROM koperasi.cara_pembayaran_koperasi cpk "
-								+ "WHERE cpk.aktif = true AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih "
-								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?) LIKE '%,' || cpk.id || ',%' "
-								+ "ORDER BY cpk.nama ASC");
-				ps.setLong(1, idJenisAnggota);
-				java.sql.ResultSet rs = ps.executeQuery();
-				while (rs.next()) {
-					JSONObject j = new JSONObject();
-					j.put("id", rs.getLong(1));
-					j.put("nama", rs.getString(2));
-					j.put("manual", rs.getBoolean(3));
-					j.put("adaKembalian", rs.getBoolean(4));
-					j.put("masukSebagaiHutang", rs.getBoolean(5));
-					j.put("memotongDeposit", rs.getBoolean(6));
-					j.put("wajibPilihMember", rs.getBoolean(7));
-					arr.put(j);
-				}
-				rs.close();
-				ps.close();
-			} else {
-				Criteria c = session.createCriteria(CaraPembayaranKoperasi.class)
-						.add(Restrictions.eq("aktif", true)).addOrder(Order.asc("nama"));
-				for (Object o : c.list()) {
-					CaraPembayaranKoperasi cb = (CaraPembayaranKoperasi) o;
+			Criteria c = session.createCriteria(CaraPembayaranKoperasi.class)
+					.add(Restrictions.eq("aktif", true)).addOrder(Order.asc("nama"));
+			for (Object o : c.list()) {
+				CaraPembayaranKoperasi cb = (CaraPembayaranKoperasi) o;
+				if (izinEfektif == null || izinEfektif.contains(cb.getId())) {
 					JSONObject j = new JSONObject();
 					j.put("id", cb.getId());
 					j.put("nama", str(cb.getNama()));
@@ -2666,6 +2645,10 @@ public class PosApi extends HttpServlet {
 					arr.put(j);
 				}
 			}
+			boolean caraBayarTerkunci = idMember != null && (kunciDariTipe || arr.length() == 1);
+			if (arr.length() == 1) caraBayarDefaultId = Long.valueOf(arr.getJSONObject(0).getLong("id"));
+			if (caraBayarDefaultId != null && izinEfektif != null
+					&& !izinEfektif.contains(caraBayarDefaultId)) caraBayarDefaultId = null;
 
 			hasil.put("status", "success");
 			hasil.put("caraBayar", arr);
@@ -2673,9 +2656,25 @@ public class PosApi extends HttpServlet {
 			// member" dari "semua metode karena izinnya belum disetel" -- yang kedua
 			// perlu dibereskan admin, dan tanpa penanda ini tidak pernah terlihat.
 			hasil.put("izinTidakDisetel", izinTidakDisetel);
+			hasil.put("caraBayarTerkunci", caraBayarTerkunci);
+			if (caraBayarDefaultId != null) hasil.put("caraBayarDefaultId", caraBayarDefaultId);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	private static java.util.Set parseDaftarIdCaraBayar(String csv) {
+		java.util.Set hasil = new java.util.HashSet();
+		if (csv == null) return hasil;
+		String[] bagian = csv.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			try {
+				String nilai = bagian[i].trim();
+				if (!nilai.isEmpty()) hasil.add(Long.valueOf(Long.parseLong(nilai)));
+			} catch (Exception ignored) {
+			}
+		}
+		return hasil;
 	}
 
 	/**
@@ -2848,6 +2847,12 @@ public class PosApi extends HttpServlet {
 			pesan = "Beberapa data yang dibutuhkan belum tersedia. Tidak ada perubahan yang disimpan.";
 			solusi.put("Periksa toko, produk, jumlah, dan metode pembayaran yang dipilih.")
 					.put("Muat ulang halaman, lalu ulangi proses setelah seluruh data tampil.");
+		} else if ("92".equals(asli) && hasil.optBoolean("memerlukanPersetujuanLimit", false)) {
+			kode = "PENGAJUAN_LIMIT_MENUNGGU";
+			judul = "Menunggu persetujuan limit";
+			pesan = desc;
+			solusi.put("Minta petugas dengan hak verifikasi membuka tab Pengajuan Melebihi Limit.")
+					.put("Setelah disetujui, kirim ulang transaksi dengan kode yang sama dari perangkat kasir asal.");
 		} else if ("checkBayar".equals(konteks) && "01".equals(asli)) {
 			kode = "TIDAK_DITEMUKAN";
 			pesan = desc.length() > 0 ? desc : "Pembayaran belum terkonfirmasi.";
