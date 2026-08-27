@@ -805,8 +805,9 @@ public class CommonHelperClass {
 
 			// Cek secara berurutan, jika salah satu ada, langsung kembalikan true
 			// (menghemat query database)
+			// userId adalah primary key Tbmuser. Akun nonaktif tetap memakai userId
+			// tersebut dan tidak boleh dianggap tersedia untuk insert akun baru.
 			Integer userCount = ((Number) session.createCriteria(Tbmuser.class)
-					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 					.setProjection(Projections.rowCount()).add(Restrictions.eq("userId", trimmedUsername))
 					.add(userId == null ? Restrictions.sqlRestriction("1=1") : Restrictions.ne("userId", trimmedUserId))
 					.uniqueResult()).intValue();
