@@ -433,6 +433,16 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			js.append("(function(){");
 			js.append("function fit(){try{");
 			js.append("var shell=document.querySelector('.elearning-portal-shell');if(!shell){return;}");
+			/* Isi panel semula hanya memakai tinggi minimum dari konfigurasi frame.
+			   Pada monitor tinggi, sisa viewport menjadi pita putih besar di bawah portal.
+			   Hitung kembali tinggi kerja dari posisi aktual shell, lalu terapkan ke ketiga
+			   body panel. Math.max mempertahankan lantai lama pada viewport pendek. */
+			js.append("var vh=window.innerHeight||document.documentElement.clientHeight;");
+			js.append("var r=shell.getBoundingClientRect();");
+			js.append("var panelH=Math.max(").append(tinggiMinimal)
+					.append(",Math.floor(vh-r.top-64));");
+			js.append("var bodies=shell.querySelectorAll('.elearning-portal-body');");
+			js.append("for(var bi=0;bi<bodies.length;bi++){bodies[bi].style.height=panelH+'px';}");
 			/* Cari panel parent utama dari MainAction (createDashboardFrame). */
 			js.append("var host=null,n=shell.parentNode;");
 			js.append("while(n&&n!==document){var cn=' '+(n.className||'')+' ';");
@@ -457,8 +467,6 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			   scroll dokumen agar hanya shell yang scroll. */
 			js.append("document.documentElement.style.overflow='hidden';");
 			js.append("if(document.body){document.body.style.overflow='hidden';}");
-			js.append("var r=shell.getBoundingClientRect();");
-			js.append("var vh=window.innerHeight||document.documentElement.clientHeight;");
 			js.append("var h=Math.floor(vh-r.top-2);");
 			js.append("if(h<300){h=300;}");
 			js.append("shell.style.height=h+'px';");
