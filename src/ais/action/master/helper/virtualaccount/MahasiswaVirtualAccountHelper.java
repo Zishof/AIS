@@ -28,6 +28,7 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.JadwalPembayaran;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.KegiatanTemporary;
+import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.database.model.VirtualAccountBank;
 import ais.ui.util.MyCheckboxConfig;
@@ -43,6 +44,15 @@ import ais.ui.util.MyMessageboxConfig;
 public final class MahasiswaVirtualAccountHelper {
 
 	public static final String DEFAULT_VA_WINDOW = "/common/online/no_va.zul";
+	/**
+	 * Jika AKTIF, sistem menolak pembuatan VA baru untuk rincian tagihan yang
+	 * identik dan sudah tercatat dibayar. Nilai bawaan sengaja TIDAK AKTIF agar
+	 * kampus tetap dapat menerima pembayaran bertahap/angsuran melalui VA baru.
+	 * Pemeriksaan ini juga dibatasi hanya untuk instalasi yang mengaktifkan kanal
+	 * Bank Kaltimtara; bank lain tidak ikut terkena aturan tersebut.
+	 */
+	public static final String KONFIGURASI_CEGAH_VA_TAGIHAN_SUDAH_DIBAYAR =
+			"cegah_va_baru_jika_tagihan_sudah_dibayar";
 
 	private MahasiswaVirtualAccountHelper() {
 	}
@@ -65,6 +75,20 @@ public final class MahasiswaVirtualAccountHelper {
 			BiodataCalonMahasiswa calonMahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
 			JadwalPembayaran jadwalPembayaran, String keterangan, String cicilan, String detailBiaya,
 			Double total) throws TagihanSudahDibayarException {
+		/*
+		 * Default FALSE/TIDAK AKTIF: pembayaran yang sudah pernah masuk tidak
+		 * otomatis menutup kesempatan membuat VA angsuran berikutnya. Institusi
+		 * yang menggunakan Bank Kaltimtara dan membutuhkan pencegahan VA ganda
+		 * dapat mengaktifkan konfigurasi ini.
+		 */
+		if (!Common.bolehKonfigurasi(KONFIGURASI_CEGAH_VA_TAGIHAN_SUDAH_DIBAYAR,
+				Konfigurasi.TIDAK_AKTIF)
+				|| (!Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_bankaltimtara",
+						Konfigurasi.TIDAK_AKTIF)
+						&& !Common.bolehKonfigurasi("aktifkan_va_bankaltimtara_baru",
+								Konfigurasi.TIDAK_AKTIF))) {
+			return;
+		}
 		if (session == null || !session.isOpen()) {
 			throw new IllegalStateException("Session database tidak tersedia untuk memeriksa status pembayaran.");
 		}
