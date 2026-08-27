@@ -2435,9 +2435,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				jenisSeleksi.appendChild(comboitem);
 
 				Common.selectComboItem(true, jenisSeleksi,
-						biodataCalonMahasiswa.getJenisSeleksi() == null
-								? (myGelombangPendaftaran == null ? null : myGelombangPendaftaran.getJenisSeleksi())
-								: biodataCalonMahasiswa.getJenisSeleksi());
+						jenisSeleksiSesuaiGelombang(myGelombangPendaftaran,
+								biodataCalonMahasiswa.getJenisSeleksi()));
 
 				if (myGelombangPendaftaran == null) {
 
@@ -4456,6 +4455,33 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		return value instanceof JenisSeleksi ? (JenisSeleksi) value : fallback;
 	}
 
+	/** Pastikan Jenis Seleksi selalu merupakan pilihan yang tersedia pada Gelombang. */
+	private JenisSeleksi jenisSeleksiSesuaiGelombang(GelombangPendaftaran gelombang, JenisSeleksi pilihanSaatIni) {
+		if (gelombang == null) {
+			return pilihanSaatIni;
+		}
+		List<JenisSeleksi> pilihanGelombang = gelombang.ambilJenisSeleksi();
+		if (pilihanGelombang == null || pilihanGelombang.isEmpty()) {
+			return pilihanSaatIni;
+		}
+		for (JenisSeleksi item : pilihanGelombang) {
+			if (item != null && pilihanSaatIni != null && item.getId() != null
+					&& item.getId().equals(pilihanSaatIni.getId())) {
+				return item;
+			}
+		}
+		JenisSeleksi bawaanGelombang = gelombang.getJenisSeleksi();
+		if (bawaanGelombang != null) {
+			for (JenisSeleksi item : pilihanGelombang) {
+				if (item != null && item.getId() != null && bawaanGelombang.getId() != null
+						&& item.getId().equals(bawaanGelombang.getId())) {
+					return item;
+				}
+			}
+		}
+		return pilihanGelombang.size() == 1 ? pilihanGelombang.get(0) : pilihanSaatIni;
+	}
+
 	private GelombangPendaftaran getGelombangDipilihDenganFallback(GelombangPendaftaran fallback) {
 		Object value = getSelectedComboValue(gelombangPendaftaran);
 		return value instanceof GelombangPendaftaran ? (GelombangPendaftaran) value : fallback;
@@ -4893,8 +4919,12 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			biodataCalonMahasiswa.setNimLamaSebelumPindah(nimPindahan.getValue());
 			biodataCalonMahasiswa.setPinPassword(pinPassword.getValue().trim());
 
-			biodataCalonMahasiswa
-					.setJenisSeleksi(getJenisSeleksiDipilihDenganFallback(biodataCalonMahasiswa.getJenisSeleksi()));
+			GelombangPendaftaran gelombangDipilih = getGelombangDipilihDenganFallback(
+					biodataCalonMahasiswa.getGelombangPendaftaran());
+			JenisSeleksi jenisSeleksiDipilih = getJenisSeleksiDipilihDenganFallback(
+					biodataCalonMahasiswa.getJenisSeleksi());
+			biodataCalonMahasiswa.setJenisSeleksi(
+					jenisSeleksiSesuaiGelombang(gelombangDipilih, jenisSeleksiDipilih));
 
 			biodataCalonMahasiswa.setKeterangan(keterangan.getValue());
 

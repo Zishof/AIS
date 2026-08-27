@@ -672,6 +672,43 @@ public class PembayaranUtilHelper {
 		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, null, reload);
 	}
 
+	/**
+	 * Nilai jenis seleksi lama bisa tidak lagi termasuk pada gelombang yang dipilih
+	 * (misalnya tersimpan Genap, sedangkan gelombang hanya menyediakan Ganjil).
+	 * Gunakan pilihan yang masih sah agar pencarian billing tidak terkunci pada data
+	 * lama yang sudah tidak konsisten.
+	 */
+	private static JenisSeleksi jenisSeleksiSesuaiGelombang(BiodataCalonMahasiswa calonMahasiswa) {
+		JenisSeleksi tersimpan = calonMahasiswa == null ? null : calonMahasiswa.getJenisSeleksi();
+		GelombangPendaftaran gelombang = calonMahasiswa == null ? null
+				: calonMahasiswa.getGelombangPendaftaran();
+		if (gelombang == null) {
+			return tersimpan;
+		}
+
+		List<JenisSeleksi> pilihan = gelombang.ambilJenisSeleksi();
+		if (pilihan == null || pilihan.isEmpty()) {
+			return tersimpan;
+		}
+		for (JenisSeleksi item : pilihan) {
+			if (item != null && tersimpan != null && item.getId() != null
+					&& item.getId().equals(tersimpan.getId())) {
+				return item;
+			}
+		}
+
+		JenisSeleksi bawaanGelombang = gelombang.getJenisSeleksi();
+		if (bawaanGelombang != null) {
+			for (JenisSeleksi item : pilihan) {
+				if (item != null && item.getId() != null && bawaanGelombang.getId() != null
+						&& item.getId().equals(bawaanGelombang.getId())) {
+					return item;
+				}
+			}
+		}
+		return pilihan.size() == 1 ? pilihan.get(0) : tersimpan;
+	}
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
@@ -725,7 +762,7 @@ public class PembayaranUtilHelper {
 		}
 
 		Jenjang jenjang = jurusan != null ? jurusan.getJenjang() : biodataCalonMahasiswa.getJenjang();
-		JenisSeleksi jenisSeleksi = biodataCalonMahasiswa.getJenisSeleksi();
+		JenisSeleksi jenisSeleksi = jenisSeleksiSesuaiGelombang(biodataCalonMahasiswa);
 		String program = biodataCalonMahasiswa.getProgram();
 		Integer angkatan = biodataCalonMahasiswa.getTahun();
 		Paket paket = biodataCalonMahasiswa.getPaket();
@@ -771,7 +808,7 @@ public class PembayaranUtilHelper {
 			if (biayaDefault == null || biayaDefault.isEmpty()) {
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
-						biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
+						jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
 						biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
 			}
 			
@@ -804,7 +841,7 @@ public class PembayaranUtilHelper {
 
 			List<ItemBiaya> detailSettingBiayas = SetingBiayaHelper.getItemBiaya(session, angkatan, jenjang, semester,
 					jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
-					biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
+					jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
 					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
 
 			// Cek apakah jenjang calon mhs ini masuk mode angsuran — terpusat via
@@ -869,7 +906,7 @@ public class PembayaranUtilHelper {
 			if (isHarusAngsuranForJenjang) {
 				List<DetailBiaya> biayaDefaultBiaya = SetingBiayaHelper.getDetailBiayaBukanDefaultBiaya(session, angkatan,
 						jenjang, semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(),
-						ConstantValues.AKTIF, biodataCalonMahasiswa.getJenisSeleksi(),
+						ConstantValues.AKTIF, jenisSeleksi,
 						biodataCalonMahasiswa.getGelombangPendaftaran(), biodataCalonMahasiswa.getPaket(), jurusan, program,
 						kelamin, afiliasiCalonMahasiswa, ta);
 				if (biayaDefaultBiaya != null && !biayaDefaultBiaya.isEmpty()) {
