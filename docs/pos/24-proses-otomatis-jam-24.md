@@ -111,3 +111,71 @@ Penjadwal berjalan **per instance aplikasi**. Bila nanti servernya lebih dari sa
 keduanya menjalankan siklus yang sama pada jam yang sama. Untuk layani otomatis itu tidak
 berbahaya (idempoten), tetapi **bayar otomatis perlu penguncian** agar satu draft tidak
 diproses dua kali. Selama dijalankan single-instance, ini belum menjadi masalah.
+
+## Insiden identitas pemesan dan waktu pesan (28 Agustus 2026)
+
+### Gejala
+
+Pesanan yang sore hari masih berstatus **Belum dibayar** dapat menjadi **Lunas &
+Selesai** sesudah proses H+1. Pada kasus yang dilaporkan, nama `REKTORAT` berubah
+menjadi `Masyarakat Umum`, waktu pesan ikut berubah menjadi waktu finalisasi, dan
+transaksi Rp300.000 tidak muncul pada laporan Pembayaran Tenant yang bergantung
+pada identitas member.
+
+### Akar masalah
+
+Pemanggil otomatis mengirim `draftPembelianAnggotaKoperasi`, tetapi tidak mengirim
+`id_member`. `KantinHelper.bayar` sebelumnya menafsirkan field yang tidak dikirim
+sebagai pembeli kosong, kemudian `sinkronkanRincianDraftUntukFinalisasi` menulis
+nilai kosong dan waktu pembayaran kembali ke header draft. Akibatnya bukti waktu
+pesan serta relasi pembeli pada draft ikut berubah ketika transaksi difinalisasi.
+
+### Kontrak wajib setelah perbaikan
+
+1. Finalisasi draft mewarisi member dari header draft jika payload tidak membawa
+   `id_member`.
+2. Proses otomatis tidak boleh memfinalisasi draft yang memang tidak mempunyai
+   member. Pengguna mendapat penjelasan untuk membuka **Pesanan → Detail**,
+   memeriksa Nama Pemesan, lalu memproses manual atau meminta pemulihan referensi
+   member. Membuat transaksi pengganti dilarang sebelum dipastikan tidak ganda.
+3. Header draft mempertahankan **waktu pesan asli**. Waktu transaksi final tetap
+   boleh memakai waktu pembayaran, tetapi tidak boleh menimpa sejarah pesanan.
+4. Kanal halaman diberi penanda `kanalCheckout=otomatis_halaman`; scheduler memakai
+   `otomatis_jadwal`. Ini memungkinkan gerbang otomatis membedakannya dari tombol
+   Bayar manual.
+5. Laporan tenant tidak boleh dijadikan satu-satunya alat pencarian transaksi yang
+   sudah terlanjur kehilangan member. Rekonsiliasi memakai relasi draft→transaksi,
+   toko, rincian item, nominal, dan jejak audit terlebih dahulu.
+
+### Prosedur aman untuk data yang sudah terlanjur terdampak
+
+1. Jangan menghapus transaksi dan jangan menginput ulang pembayaran.
+2. Catat kode pesanan/transaksi, toko, waktu pesan asli, nama member, rincian item,
+   dan total.
+3. Administrator mencari satu pasangan draft→transaksi yang sama dan memeriksa
+   audit perubahan sebelum koreksi.
+4. Pulihkan referensi member dan waktu header draft hanya pada ID yang sudah
+   terverifikasi; koreksi transaksi final mengikuti persetujuan supervisor.
+5. Jalankan ulang laporan pada periode **tanggal transaksi final**, lalu cocokkan
+   total transaksi dan total pembayaran tenant.
+
+Jika pengguna hanya memiliki screenshot, administrator harus meminta kode pada
+tombol **Detail**. Nominal dan nama toko saja belum cukup aman untuk menentukan
+baris yang boleh dikoreksi.
+
+Kueri berikut **read-only** dan dapat dipakai untuk menemukan kandidat beserta
+nilai member/waktu sebelum dan sesudah finalisasi. Jangan mengubah data dari hasil
+ini sebelum kandidatnya tunggal dan cocok dengan rincian item pada screenshot:
+
+```sql
+SELECT a.id AS draft_id, a.rev, a.revtype,
+       to_timestamp(r.revtstmp / 1000) AS waktu_revisi,
+       a.kode, a.toko, a.anggota_koperasi, a.tanggal_pembayaran,
+       a.lunas, a.total_biaya
+FROM new_audit.draft_pembelian_anggota_koperasi__audit a
+JOIN new_audit.revinfo r ON r.rev = a.rev
+WHERE a.total_biaya BETWEEN 299999.50 AND 300000.50
+  AND to_timestamp(r.revtstmp / 1000) >= DATE '2026-08-19'
+  AND to_timestamp(r.revtstmp / 1000) <  DATE '2026-08-23'
+ORDER BY a.id, a.rev;
+```
