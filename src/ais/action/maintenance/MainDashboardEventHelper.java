@@ -855,10 +855,7 @@ final class MainDashboardEventHelper {
 				ElearningSekolah dashboard = new ElearningSekolah();
 				action.applyFullSize(dashboard);
 				action.tabLearning = Common.insertUrl(action.navigasi, action.menuService, action.iframe, "e-Learning",
-						"e-Learning", "/img/svg/book.svg",
-						action.createDashboardFrame("e-Learning",
-								"Akses materi, kelas, tugas, dan ujian dalam satu tempat yang mudah dipantau.",
-								dashboard));
+						"e-Learning", "/img/svg/book.svg", dashboard);
 			} else {
 				if (action.tbmuser == null) {
 					action.tbmuser = Common.getCurrentUser();
@@ -869,10 +866,7 @@ final class MainDashboardEventHelper {
 				MyInclude include = new MyInclude(url);
 				action.applyFullSize(include);
 				action.tabLearning = Common.insertUrl(action.navigasi, action.menuService, action.iframe, "e-Learning",
-						"e-Learning", "/img/svg/book.svg",
-						action.createDashboardFrame("e-Learning",
-								"Akses materi, kelas, tugas, dan ujian dalam satu tempat yang mudah dipantau.",
-								include));
+						"e-Learning", "/img/svg/book.svg", include);
 			}
 		} catch (Exception e) {
 			action.showError(e);
