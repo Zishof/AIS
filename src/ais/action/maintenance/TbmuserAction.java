@@ -1630,8 +1630,14 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 						MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 				return false;
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/maintenance/TbmuserAction.java:1547");
-			// TODO: handle exception
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"Gagal memeriksa keunikan ID Pengguna pada TbmuserAction.onSave");
+			MyMessageboxConfig.show(
+					"ID Pengguna belum dapat diperiksa. Data tidak disimpan untuk mencegah akun ganda. "
+							+ "Silakan ulangi beberapa saat lagi atau hubungi Administrator jika masalah berlanjut.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
 		}
 
 		Tbmrole tbmrole1 = (Tbmrole) userRole.getSelectedItem().getValue();
@@ -1767,8 +1773,40 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		if (tbmuser.getUserId() != null) {
 			Common.refreshSaveOrUpdate(sessionData, tbmuser);
 		} else {
-			tbmuser.setUserId(userid.getValue().trim());
-			sessionData.save(tbmuser);
+			String idPenggunaBaru = userid.getValue().trim();
+			Tbmuser penggunaSudahAda = (Tbmuser) sessionData.get(Tbmuser.class, idPenggunaBaru);
+			if (penggunaSudahAda != null) {
+				tampilkanIdPenggunaSudahDipakai(idPenggunaBaru);
+				return false;
+			}
+
+			tbmuser.setUserId(idPenggunaBaru);
+			try {
+				sessionData.save(tbmuser);
+				// Jalankan INSERT di dalam onSave. Tanpa flush, pelanggaran primary key
+				// baru muncul saat onSearchDefault dan berubah menjadi error sistem umum.
+				sessionData.flush();
+			} catch (RuntimeException e) {
+				if (!adalahDuplikatIdPengguna(e)) {
+					throw e;
+				}
+				try {
+					if (sessionData.getTransaction() != null && sessionData.getTransaction().isActive()) {
+						sessionData.getTransaction().rollback();
+					}
+				} catch (Exception rollbackError) {
+					ErrorAuditUtil.record(rollbackError,
+							"Gagal rollback duplikat ID Pengguna pada TbmuserAction.onSave");
+				}
+				try {
+					sessionData.clear();
+				} catch (Exception clearError) {
+					ErrorAuditUtil.record(clearError,
+							"Gagal membersihkan session duplikat ID Pengguna pada TbmuserAction.onSave");
+				}
+				tampilkanIdPenggunaSudahDipakai(idPenggunaBaru);
+				return false;
+			}
 		}
 
 		Toko dataToko = (Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue());
@@ -1843,6 +1881,29 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		ais.common.newui.NewUiCacheInvalidator.invalidateUser(tbmuser.getUserId());
 
 		return true;
+	}
+
+	private void tampilkanIdPenggunaSudahDipakai(String idPengguna) throws InterruptedException {
+		MyMessageboxConfig.show(
+				"ID Pengguna \"" + idPengguna + "\" sudah terdaftar. Silakan gunakan ID Pengguna lain yang unik.",
+				"ID Pengguna Sudah Digunakan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+	}
+
+	private boolean adalahDuplikatIdPengguna(Throwable error) {
+		Throwable penyebab = error;
+		while (penyebab != null) {
+			String pesan = penyebab.getMessage();
+			if (pesan != null) {
+				String pesanKecil = pesan.toLowerCase();
+				if (pesanKecil.indexOf("tbmuser_pkey") >= 0
+						|| (pesanKecil.indexOf("duplicate key") >= 0
+								&& pesanKecil.indexOf("userid") >= 0)) {
+					return true;
+				}
+			}
+			penyebab = penyebab.getCause();
+		}
+		return false;
 	}
 
 	public Criteria initCriteria(boolean order) {
