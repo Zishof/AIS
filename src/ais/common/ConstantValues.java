@@ -1294,10 +1294,12 @@ public class ConstantValues {
 	public static void initPembobotanNilai() {
 		// 1. Buka Session Baru (Isolated Session)
 		// Menggunakan openSession() agar terpisah dari session HTTP request
-		Session session = HibernateUtil.getSessionFactory().openSession();
+		Session session = null;
+		Transaction transaction = null;
 
 		try {
-			session.getTransaction().begin();
+			session = HibernateUtil.getSessionFactory().openSession();
+			transaction = session.beginTransaction();
 
 			String ob = "Observasi (Praktek / Tugas)";
 			String uk = "Unjuk Kerja (Presentasi/Tugas)";
@@ -1318,16 +1320,7 @@ public class ConstantValues {
 					obeData.setId(Common.randLong());
 					obeData.setNama(o);
 					obeData.setObe(true);
-					try {
-						session.getTransaction().begin();
-						session.save(obeData);
-						session.getTransaction().commit();
-					} catch (Exception e) {
-						if (session.getTransaction().isActive()) {
-							session.getTransaction().rollback();
-						}
-						// e.printStackTrace();
-					}
+					session.save(obeData);
 				}
 			}
 
@@ -1695,19 +1688,19 @@ public class ConstantValues {
 				DARING.setAutoCreate(true);
 				session.update(DARING);
 			}
-			session.getTransaction().commit();
+			transaction.commit();
 		} catch (Exception e) {
+			if (transaction != null && transaction.isActive()) {
+				try {
+					transaction.rollback();
+				} catch (Exception rollbackError) {
+					ErrorAuditUtil.record(rollbackError, "ConstantValues.initPembobotanNilai: rollback gagal");
+				}
+			}
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/ConstantValues.java:1612");
 		} finally {
 			// 2. WAJIB Tutup Session
-			if (session != null && session.isOpen()) {
-				// session.disconnect();
-				if (session.isOpen()) {
-					session.disconnect();
-					session.close();
-				}
-			}
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 

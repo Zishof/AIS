@@ -159,49 +159,45 @@ public class StatusPertemuan extends GeneralValueObject {
 	}
 
 	public Integer getNomorUrut() {
-
-		try {
-			if (nomorUrut == null && getId() != null) {
-				if (getId().equals(ConstantValues.ABSEN.getId())) {
-					nomorUrut = 0;
-				} else if (getId().equals(ConstantValues.FORM.getId())) {
-					nomorUrut = 1;
-				} else if (getId().equals(ConstantValues.TUGAS_1.getId())) {
-					nomorUrut = 2;
-				} else if (getId().equals(ConstantValues.TUGAS_2.getId())) {
-					nomorUrut = 3;
-				} else if (getId().equals(ConstantValues.TUGAS_3.getId())) {
-					nomorUrut = 4;
-				} else if (getId().equals(ConstantValues.TUGAS_4.getId())) {
-					nomorUrut = 5;
-				} else if (getId().equals(ConstantValues.TUGAS_5.getId())) {
-					nomorUrut = 6;
-				} else if (getId().equals(ConstantValues.QUIZ_1.getId())) {
-					nomorUrut = 7;
-				} else if (getId().equals(ConstantValues.QUIZ_2.getId())) {
-					nomorUrut = 8;
-				} else if (getId().equals(ConstantValues.QUIZ_3.getId())) {
-					nomorUrut = 9;
-				} else if (getId().equals(ConstantValues.QUIZ_4.getId())) {
-					nomorUrut = 10;
-				} else if (getId().equals(ConstantValues.QUIZ_5.getId())) {
-					nomorUrut = 11;
-				} else if (getId().equals(ConstantValues.UTS.getId())) {
-					nomorUrut = 12;
-				} else if (getId().equals(ConstantValues.UAS.getId())) {
-					nomorUrut = 13;
-				} else if (getId().equals(ConstantValues.DARING.getId())) {
-					nomorUrut = 14;
-				} else if (getId().equals(ConstantValues.TATAP_MUKA.getId())) {
-					nomorUrut = 15;
-				} else if (getId().equals(ConstantValues.UJIAN_ONLINE.getId())) {
-					nomorUrut = 16;
-				} else if (getId().equals(ConstantValues.TIDAK_HADIR.getId())) {
-					nomorUrut = 17;
-				}
+		if (nomorUrut == null && getId() != null) {
+			long idStatus = getId().longValue();
+			if (idStatus == 1L) {
+				nomorUrut = 0;
+			} else if (idStatus == 2L) {
+				nomorUrut = 1;
+			} else if (idStatus == 21L) {
+				nomorUrut = 2;
+			} else if (idStatus == 22L) {
+				nomorUrut = 3;
+			} else if (idStatus == 23L) {
+				nomorUrut = 4;
+			} else if (idStatus == 24L) {
+				nomorUrut = 5;
+			} else if (idStatus == 25L) {
+				nomorUrut = 6;
+			} else if (idStatus == 31L) {
+				nomorUrut = 7;
+			} else if (idStatus == 32L) {
+				nomorUrut = 8;
+			} else if (idStatus == 33L) {
+				nomorUrut = 9;
+			} else if (idStatus == 34L) {
+				nomorUrut = 10;
+			} else if (idStatus == 35L) {
+				nomorUrut = 11;
+			} else if (idStatus == 3L) {
+				nomorUrut = 12;
+			} else if (idStatus == 4L) {
+				nomorUrut = 13;
+			} else if (idStatus == 1236L) {
+				nomorUrut = 14;
+			} else if (idStatus == 236L) {
+				nomorUrut = 15;
+			} else if (idStatus == 135L) {
+				nomorUrut = 16;
+			} else if (idStatus == 235L) {
+				nomorUrut = 17;
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/StatusPertemuan.java:203");
-			// TODO: handle exception
 		}
 
 		return nomorUrut == null ? 100 : nomorUrut;

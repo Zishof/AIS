@@ -15,6 +15,7 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.envers.Audited;
@@ -78,8 +79,10 @@ public class KodeTunjangan extends GeneralValueObject {
 	}
 
 	public static void reloadDefault() {
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = null;
+		Transaction transaction = null;
 		try {
+			session = HibernateUtil.currentNativeSession();
 
 			int urut = 1;
 			KodeTunjangan DATA = (KodeTunjangan) session.createCriteria(KodeTunjangan.class)
@@ -92,53 +95,45 @@ public class KodeTunjangan extends GeneralValueObject {
 						"Kelebihan Jam Kerja;KELEBIHAN", "Kesehatan;KES", "Pendamping;PEND", "Lain-Lain I;LAIN1",
 						"Lain-Lain II;LAIN2", "Lain-Lain III;LAIN3" };
 
+				transaction = session.beginTransaction();
 				for (String jenis : new String[] { JABATAN_STRUKTURAL, JABATAN_FUNGSIONAL, JABATAN_LAIN }) {
-
-					try {
-						for (String ss : data) {
-							try {
-								System.out.println(ss);
-								String[] s = ss.split(";");
-								String nama = s[0];
-								String kode = "";
-								try {
-									kode = s[1];
-								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/payroll/KodeTunjangan.java:106");
-									// TODO: handle exception
-								}
-								DATA = (KodeTunjangan) session.createCriteria(KodeTunjangan.class)
-										.add(Restrictions.ilike("nama", nama, MatchMode.EXACT))
+					for (String ss : data) {
+						System.out.println(ss);
+						String[] s = ss.split(";", -1);
+						String nama = s[0];
+						String kode = s.length > 1 ? s[1] : "";
+						DATA = (KodeTunjangan) session.createCriteria(KodeTunjangan.class)
+								.add(Restrictions.ilike("nama", nama, MatchMode.EXACT))
 										.add(Restrictions.ilike("jenis", jenis, MatchMode.EXACT)).setMaxResults(1)
 										.uniqueResult();
-								if (DATA == null) {
-									DATA = new KodeTunjangan();
-									DATA.setJenis(jenis);
-									DATA.setNama(nama);
-									DATA.setKode(kode);
-									DATA.setNomorUrut(urut);
-									DATA.setKeterangan(nama);
-									session.getTransaction().begin();
-									session.save(DATA);
-									session.getTransaction().commit();
-									urut++;
-								}
-							} catch (Exception e) {
-								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/payroll/KodeTunjangan.java:126");
-							}
+						if (DATA == null) {
+							DATA = new KodeTunjangan();
+							DATA.setJenis(jenis);
+							DATA.setNama(nama);
+							DATA.setKode(kode);
+							DATA.setNomorUrut(urut);
+							DATA.setKeterangan(nama);
+							session.save(DATA);
+							urut++;
 						}
-					} catch (Exception e) {
-						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/payroll/KodeTunjangan.java:130");
 					}
-
 				}
+				transaction.commit();
 			}
 
 		} catch (Exception e) {
+			if (transaction != null && transaction.isActive()) {
+				try {
+					transaction.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"KodeTunjangan.reloadDefault: rollback gagal");
+				}
+			}
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/payroll/KodeTunjangan.java:137");
+		} finally {
+			HibernateUtil.closeSession();
 		}
-		// session.disconnect();
-		if (session.isOpen()) {session.disconnect();session.close();}
-		HibernateUtil.closeSession();
 	}
 
 	private String kode;

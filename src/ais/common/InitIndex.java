@@ -402,12 +402,16 @@ public class InitIndex {
 			.equalsIgnoreCase(System.getProperty("ais.initindex.pg.old.ifnotexists.compat", "true"));
 
 	private static String sqlKompatibelIndexIfNotExistsPostgresLama(String sql) {
-		if (!MODE_INDEX_POSTGRES_LAMA_TANPA_IF_NOT_EXISTS || sql == null) {
+		if (sql == null) {
 			return sql;
 		}
 
 		String normalized = normalisasiSqlIndex(sql);
 		String lower = normalized.toLowerCase(java.util.Locale.ENGLISH);
+		boolean perluGinTrgm = lower.indexOf("gin_trgm_ops") >= 0;
+		if (!MODE_INDEX_POSTGRES_LAMA_TANPA_IF_NOT_EXISTS && !perluGinTrgm) {
+			return sql;
+		}
 
 		// WAJIB startsWith (bukan indexOf/contains): sebagian kecil statement di file ini
 		// sudah berupa blok "DO $$ ... EXECUTE 'CREATE INDEX IF NOT EXISTS ...' ... $$" --
@@ -429,6 +433,13 @@ public class InitIndex {
 			// berupa blok DO $$ ... $$, atau DROP INDEX) -- biarkan apa adanya.
 			return sql;
 		}
+		if (!MODE_INDEX_POSTGRES_LAMA_TANPA_IF_NOT_EXISTS && perluGinTrgm) {
+			String escaped = normalized.replace("'", "''");
+			return "DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_opclass opc JOIN pg_am am "
+					+ "ON am.oid = opc.opcmethod WHERE opc.opcname = 'gin_trgm_ops' "
+					+ "AND am.amname = 'gin' AND pg_opclass_is_visible(opc.oid)) "
+					+ "THEN EXECUTE '" + escaped + "'; END IF; END $$;";
+		}
 		int pos = 0;
 
 		String namaIndex = ambilNamaIndex(normalized);
@@ -443,7 +454,12 @@ public class InitIndex {
 		String bareCreateEscaped = bareCreate.replace("'", "''");
 		String namaIndexEscaped = namaIndex.replace("'", "''");
 
-		return "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
+		String syaratGinTrgm = perluGinTrgm
+				? "EXISTS (SELECT 1 FROM pg_opclass opc JOIN pg_am am ON am.oid = opc.opcmethod "
+						+ "WHERE opc.opcname = 'gin_trgm_ops' AND am.amname = 'gin' "
+						+ "AND pg_opclass_is_visible(opc.oid)) AND " : "";
+		return "DO $$ BEGIN IF " + syaratGinTrgm
+				+ "NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
 				+ "ON n.oid = c.relnamespace WHERE c.relname = '" + namaIndexEscaped
 				+ "' AND c.relkind = 'i') THEN EXECUTE '" + bareCreateEscaped + "'; END IF; END $$;";
 	}
