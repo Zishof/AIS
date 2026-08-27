@@ -104,6 +104,26 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	private static final ConcurrentHashMap<String, Long>          DASH_EXPIRY = new ConcurrentHashMap<String, Long>();
 	private static final long DASH_CACHE_TTL_MS = 5L * 60 * 1000;
 
+	/**
+	 * Buang entry kadaluarsa dari kedua map cache (optimasi RAM Fase 2): TTL sebelumnya
+	 * hanya dicek saat READ key yang sama, sehingga kombinasi filter user yang tidak
+	 * diakses lagi menumpuk selamanya (value DashboardData berisi agregat besar).
+	 * Dipanggil saat put (jarang). Race dengan put paralel key sama hanya berakibat
+	 * cache-miss sekali — bukan masalah correctness.
+	 */
+	private static void purgeExpiredDashCache() {
+		long sekarang = System.currentTimeMillis();
+		for (java.util.Iterator<java.util.Map.Entry<String, Long>> it = DASH_EXPIRY.entrySet().iterator(); it
+				.hasNext();) {
+			java.util.Map.Entry<String, Long> e = it.next();
+			Long kadaluarsa = e.getValue();
+			if (kadaluarsa == null || kadaluarsa <= sekarang) {
+				it.remove();
+				DASH_CACHE.remove(e.getKey());
+			}
+		}
+	}
+
 	private TreeMap<String, Long> pertemuansa = new TreeMap<String, Long>();
 	private transient Html dashboardLoadingHtml;
 
@@ -440,11 +460,16 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		final String cacheKey = dashCacheKey(tahun, semester, semesterKe, program, fakultas, jurusan, dosen, mahasiswa);
 		Long cacheExp = DASH_EXPIRY.get(cacheKey);
 		if (cacheExp != null && cacheExp > System.currentTimeMillis() && DASH_CACHE.containsKey(cacheKey)) {
-			renderDashboardDataOnUi(desktop, currentUser, DASH_CACHE.get(cacheKey));
+			// Jalur cache masih berada di event thread ZK, sehingga UI dapat dirender
+			// langsung. Executions.schedule di sini tidak sah bila server push belum aktif.
+			renderDashboardDataNow(currentUser, DASH_CACHE.get(cacheKey));
 			return;
 		}
 
-		new Thread(new Runnable() {
+		// Executions.schedule() hanya sah ketika server-push aktif. Helper ini
+		// menyalakannya sebelum worker dimulai, memakai pool berbatas, lalu melepas
+		// reference push di finally sehingga tidak bocor setelah dashboard selesai.
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 			@Override
 			public void run() {
 				Session session = null;
@@ -492,6 +517,7 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 
 					FastAggregateData fastAggregateData = loadFastAggregateData(rows);
 					processDashboardRows(desktop, rows, dashboardData, fastAggregateData);
+					purgeExpiredDashCache();
 					DASH_CACHE.put(cacheKey, dashboardData);
 					DASH_EXPIRY.put(cacheKey, System.currentTimeMillis() + DASH_CACHE_TTL_MS);
 					renderDashboardDataOnUi(desktop, currentUser, dashboardData);
@@ -509,7 +535,7 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 					}
 				}
 			}
-		}).start();
+		});
 	}
 
 	private void processDashboardRows(final Desktop desktop, final List<Object[]> rows, final DashboardData dashboardData,
@@ -1307,35 +1333,36 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	}
 
 	private void renderDashboardDataOnUi(Desktop desktop, final Tbmuser currentUser, final DashboardData data) {
-		if (desktop == null || !desktop.isAlive()) {
+		if (desktop == null || !desktop.isAlive() || !desktop.isServerPushEnabled()) {
 			return;
 		}
 		Executions.schedule(desktop, new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				org.zkoss.zul.Div body = getDashboardBodyContainer();
-				lastDashboardData = data;
-				pageGrid = 0;
-				Common.clear(body);
-				DashboardUiUtil.injectGlobalCss(body);
-				summaryContainer = new org.zkoss.zul.Div();
-				summaryContainer.setWidth("100%");
-				summaryContainer.setStyle("margin-bottom:12px;");
-				summaryContainer.setParent(body);
-				if (currentUser != null && pertemuansa != null && !pertemuansa.isEmpty()) {
-					Component summary = DashboardTimelinePertemuan.buildDashboardSummary(currentUser, true, pertemuansa);
-					if (summary != null) {
-						summaryContainer.appendChild(summary);
-					}
-				}
-
-				dashboardVisualContainer = new org.zkoss.zul.Div();
-				dashboardVisualContainer.setWidth("100%");
-				dashboardVisualContainer.setParent(body);
-				dashboardVisualContainer.appendChild(new Html(buildDashboardHtml(data)));
-				renderGridRekap(data);
+				renderDashboardDataNow(currentUser, data);
 			}
 		}, new Event("onRenderElearningDashboard"));
+	}
+
+	private void renderDashboardDataNow(Tbmuser currentUser, DashboardData data) {
+		org.zkoss.zul.Div body = getDashboardBodyContainer();
+		lastDashboardData = data;
+		pageGrid = 0;
+		Common.clear(body);
+		DashboardUiUtil.injectGlobalCss(body);
+		summaryContainer = new org.zkoss.zul.Div();
+		summaryContainer.setWidth("100%");
+		summaryContainer.setStyle("margin-bottom:12px;");
+		summaryContainer.setParent(body);
+		if (currentUser != null && pertemuansa != null && !pertemuansa.isEmpty()) {
+			Component summary = DashboardTimelinePertemuan.buildDashboardSummary(currentUser, true, pertemuansa);
+			if (summary != null) summaryContainer.appendChild(summary);
+		}
+		dashboardVisualContainer = new org.zkoss.zul.Div();
+		dashboardVisualContainer.setWidth("100%");
+		dashboardVisualContainer.setParent(body);
+		dashboardVisualContainer.appendChild(new Html(buildDashboardHtml(data)));
+		renderGridRekap(data);
 	}
 
 	private void renderGridRekap(DashboardData data) {
@@ -1421,7 +1448,7 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	}
 
 	private void scheduleLoading(Desktop desktop, final String message, final int percent) {
-		if (desktop == null || !desktop.isAlive()) {
+		if (desktop == null || !desktop.isAlive() || !desktop.isServerPushEnabled()) {
 			return;
 		}
 		try {
@@ -1439,17 +1466,22 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	}
 
 	private void renderErrorOnUi(Desktop desktop, final Exception error) {
-		if (desktop == null || !desktop.isAlive()) {
+		if (desktop == null || !desktop.isAlive() || !desktop.isServerPushEnabled()) {
 			return;
 		}
-		Executions.schedule(desktop, new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				org.zkoss.zul.Div body = getDashboardBodyContainer();
-				Common.clear(body);
-				body.appendChild(new Html(buildErrorHtml(error)));
-			}
-		}, new Event("onElearningDashboardError"));
+		try {
+			Executions.schedule(desktop, new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					org.zkoss.zul.Div body = getDashboardBodyContainer();
+					Common.clear(body);
+					body.appendChild(new Html(buildErrorHtml(error)));
+				}
+			}, new Event("onElearningDashboardError"));
+		} catch (IllegalStateException e) {
+			// Desktop dapat ditutup atau server-push dinonaktifkan setelah pemeriksaan di atas.
+			// Ini lifecycle normal saat pengguna pindah halaman; tidak perlu menjadi error sistem.
+		}
 	}
 
 	private void showSimpleMessage(String message) {

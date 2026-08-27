@@ -53,6 +53,13 @@ public final class KehadiranPresensiUtil {
         if (session == null) {
             return;
         }
+		try {
+			if (!session.isOpen()) {
+				return;
+			}
+		} catch (Exception e) {
+			return;
+		}
         if (clear) {
             try {
                 session.clear();

@@ -422,26 +422,30 @@ public class Common {
 	 * perlu mengulang clear/disconnect/close.
 	 */
 	public static void closeOpenedSession(Session session) {
+		if (session == null) {
+			return;
+		}
 		try {
-			if (session != null) {
-				try {
-					session.clear();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:428");
-				}
-				try {
-					session.disconnect();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:432");
-				}
-				try {
-					session.close();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:436");
-				}
+			if (!session.isOpen()) {
+				return;
 			}
-		} finally {
-			try {
-				HibernateUtil.closeSession();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:442");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(session status gagal dibaca) src/ais/common/Common.java:closeOpenedSession");
+			return;
+		}
+		try {
+			session.clear();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:428");
+		}
+		try {
+			session.disconnect();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:432");
+		}
+		try {
+			if (session.isOpen()) {
+				session.close();
 			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:436");
 		}
 	}
 
@@ -1210,10 +1214,12 @@ public class Common {
 	}
 
 	public static String getBahasaConfig(String defaultBahasa) {
+		if (HeadlessActionContext.isActive()) return defaultBahasa;
 		return CommonComboLanguageHelper.getBahasaConfig(defaultBahasa);
 	}
 
 	public static String getBahasaConfig(String prefix, String defaultBahasa) {
+		if (HeadlessActionContext.isActive()) return defaultBahasa;
 		return CommonComboLanguageHelper.getBahasaConfig(prefix, defaultBahasa);
 	}
 
@@ -2134,24 +2140,34 @@ public class Common {
 
 	public static Konfigurasi checkKonfigurasiBigIcon() {
 		Session session = HibernateUtil.currentSession();
-		Konfigurasi konfigurasi = (Konfigurasi) ConstantValues
-				.simpleObject(
-						session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
-								.add(Restrictions.eq("nama", ConstantValues.BIG_ICON)).setMaxResults(1),
-						Konfigurasi.class);
-		if (konfigurasi == null) {
+		Transaction transaksi = session.getTransaction();
+		boolean transaksiLokal = transaksi == null || !transaksi.isActive();
+		Konfigurasi konfigurasi = null;
+		try {
+			if (transaksiLokal) {
+				transaksi = session.beginTransaction();
+			}
+			konfigurasi = (Konfigurasi) ConstantValues.simpleObject(
+					session.createCriteria(Konfigurasi.class).addOrder(Order.desc("id"))
+						.add(Restrictions.eq("nama", ConstantValues.BIG_ICON)).setMaxResults(1),
+					Konfigurasi.class);
+			if (konfigurasi == null) {
+				konfigurasi = new Konfigurasi();
+				konfigurasi.setInfo1("false");
+				konfigurasi.setNama(ConstantValues.BIG_ICON);
+				session.save(konfigurasi);
+			}
+			if (transaksiLokal && transaksi != null && transaksi.isActive()) {
+				transaksi.commit();
+			}
+		} catch (Exception e) {
+			if (transaksiLokal && transaksi != null && transaksi.isActive()) {
+				try { transaksi.rollback(); } catch (Exception abaikan) { }
+			}
+			ErrorAuditUtil.record(e, "Common.checkKonfigurasiBigIcon");
 			konfigurasi = new Konfigurasi();
 			konfigurasi.setInfo1("false");
 			konfigurasi.setNama(ConstantValues.BIG_ICON);
-			try {
-				session.save(konfigurasi);
-			} catch (Exception e) {
-				// Penyimpanan default BIG_ICON dipanggil pada SETIAP inisialisasi halaman (MainAction.initData).
-				// Bila gagal karena koneksi DB diputus admin/restart/failover (transient, mis. "terminating
-				// connection due to administrator command"), JANGAN gagalkan render halaman: kembalikan objek
-				// in-memory (info1=false) dan biarkan tersimpan pada request berikutnya saat koneksi pulih.
-				try { e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/Common.java:2081"); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/Common.java:2081");}
-			}
 		}
 		return konfigurasi;
 	}
@@ -3195,8 +3211,50 @@ public class Common {
 		if (comboboxs == null)
 			return;
 		for (int i = 0; i < comboboxs.length; i++) {
+			if (!parameterInitCombosLengkap(i, comboboxs, properties, classes, null)) {
+				continue;
+			}
 			insertCombo(comboboxs[i], properties[i], classes[i]);
 		}
+	}
+
+	/**
+	 * Periksa kelengkapan parameter satu baris {@code initCombos} sebelum dipakai.
+	 *
+	 * <p><b>Alasan.</b> {@code initCombos} DULU langsung mengindeks {@code properties[i]},
+	 * {@code classes[i]}, dan {@code criterions[i]} hanya berbekal panjang {@code comboboxs}.
+	 * Bila pemanggil mengirim array yang lebih pendek (atau null) -- mudah terjadi karena
+	 * ketiga/keempat array harus dijaga sejajar secara manual -- yang muncul adalah
+	 * NullPointerException/ArrayIndexOutOfBoundsException di dalam Common, sehingga SELURUH
+	 * combobox pada layar itu gagal terisi dan layar tampak kosong tanpa petunjuk apa pun.</p>
+	 *
+	 * <p><b>Perilaku sekarang.</b> Baris yang parameternya tidak lengkap DILEWATI (combobox lain
+	 * tetap terisi seperti biasa) dan ketidaksesuaiannya dicatat sekali ke audit agar bug
+	 * pemanggilnya tetap terlihat -- bukan disembunyikan. Untuk pemanggil yang arraynya sudah
+	 * benar, tidak ada perubahan perilaku sama sekali.</p>
+	 */
+	@SuppressWarnings({ "rawtypes" })
+	private static boolean parameterInitCombosLengkap(int index, Combobox[] comboboxs, String[] properties,
+			Class[] classes, Criterion[] criterions) {
+		String kurang = null;
+		if (properties == null || index >= properties.length) {
+			kurang = "properties";
+		} else if (classes == null || index >= classes.length) {
+			kurang = "classes";
+		} else if (criterions != null && index >= criterions.length) {
+			kurang = "criterions";
+		}
+		if (kurang == null) {
+			return true;
+		}
+		ais.common.ErrorAuditUtil.record(
+				new Exception("initCombos: array '" + kurang + "' lebih pendek dari comboboxs (butuh index " + index
+						+ ", comboboxs=" + (comboboxs == null ? 0 : comboboxs.length)
+						+ ", properties=" + (properties == null ? -1 : properties.length)
+						+ ", classes=" + (classes == null ? -1 : classes.length)
+						+ ", criterions=" + (criterions == null ? -1 : criterions.length) + ")"),
+				"auto-audit src/ais/common/Common.java:initCombos-parameter-tidak-sejajar");
+		return false;
 	}
 
 	/**
@@ -3227,6 +3285,9 @@ public class Common {
 		if (comboboxs == null)
 			return;
 		for (int i = 0; i < comboboxs.length; i++) {
+			if (!parameterInitCombosLengkap(i, comboboxs, properties, classes, criterions)) {
+				continue;
+			}
 			insertCombo(comboboxs[i], properties[i], classes[i], criterions[i]);
 		}
 	}
@@ -4128,21 +4189,44 @@ public class Common {
 	public static void clear(Component comp, String nama, int index) {
 		if (comp == null || comp.getChildren() == null)
 			return;
-		int list = comp.getChildren().size();
-		for (int i = 0; i < list; i++) {
+		int posisi = index < 0 ? 0 : index;
+		/*
+		 * OPTIMASI PERFORMA (snapshot 12-19/08/2026: Common.clear adalah frame kode aplikasi
+		 * TERBANYAK yang sedang RUNNABLE, 400+ kemunculan).
+		 *
+		 * Versi lama memanggil comp.getChildren().size() dan .get(posisi) BERULANG di dalam
+		 * loop. Children ZK adalah list ber-akses SEKUENSIAL (AbstractSequentialList): get(i)
+		 * berbiaya O(i), sehingga pola lama berperilaku O(n^2). Pada kontainer berisi ribuan
+		 * anak (grid/rows) ini menghabiskan detik-detik CPU, dan celakanya dilakukan SAMBIL
+		 * MEMEGANG kunci desktop ZK -- seluruh request lain untuk desktop yang sama ikut antre
+		 * di UiEngineImpl.doActivate (terlihat pada 83-87 thread ajp-nio per snapshot).
+		 *
+		 * Perbaikan: ambil SATU salinan daftar anak lalu lepas satu per satu -> O(n). Perilaku
+		 * dipertahankan persis: anak sebelum "index" dilewati, Paging dan anak yang tidak cocok
+		 * filter "nama" tetap dipertahankan, dan tiap detach tetap dibungkus try/catch sendiri.
+		 */
+		java.util.List<?> anakAwal;
+		try {
+			anakAwal = new java.util.ArrayList<Object>(comp.getChildren());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Common.clear.salinAnak");
+			return;
+		}
+		for (int i = posisi; i < anakAwal.size(); i++) {
 			try {
-				if (nama == null || comp.getAttribute(nama) != null) {
-					Component child = (Component) comp.getChildren().get(index);
-					if (child instanceof Paging) {
-						// ZK (mis. Grid dengan mold paging) mengelola Paging secara otomatis;
-						// detach manual akan memicu IllegalStateException ("cannot be removed
-						// manually"). Lewati saja, biarkan ZK yang mengurus siklus hidupnya.
-						continue;
-					}
-					child.detach();
+				Object o = anakAwal.get(i);
+				if (!(o instanceof Component)) {
+					continue;
 				}
+				Component child = (Component) o;
+				if (child instanceof Paging || (nama != null && child.getAttribute(nama) == null)) {
+					// Paging dikelola ZK. Anak yang tidak cocok filter juga dipertahankan.
+					continue;
+				}
+				child.detach();
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:4065");
-
+				// Struktur dapat berubah dari listener ZK ketika detach; anak berikutnya
+				// tetap diproses karena kita berjalan di atas salinan.
 			}
 		}
 	}
@@ -6691,7 +6775,8 @@ public class Common {
 		List<Perkuliahan> perkuliahans = HibernateUtil.currentSession().createCriteria(Perkuliahan.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.ilike("tahunAjaran", tahunAjaran, MatchMode.ANYWHERE))
-				.add(Restrictions.eq("ganjilGenap", ganjilGenap))
+				.add(ganjilGenap.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
+						: Restrictions.in("semester", Common.ganjil))
 				.add(Restrictions.eq("ruang", ruang)).add(Restrictions.ne("id", idperkuliahan))
 
 				.list();
@@ -6917,7 +7002,8 @@ public class Common {
 		List<Perkuliahan> perkuliahans = HibernateUtil.currentSession().createCriteria(Perkuliahan.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.ilike("tahunAjaran", tahunAjaran, MatchMode.ANYWHERE))
-				.add(Restrictions.eq("ganjilGenap", ganjilGenap))
+				.add(ganjilGenap.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
+						: Restrictions.in("semester", Common.ganjil))
 				.add(Restrictions.eq("dosen1", dosen)).add(Restrictions.ne("id", idperkuliahan))
 
 				.list();
@@ -9498,12 +9584,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganBiasa(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9422");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9527,14 +9609,114 @@ public class Common {
 	 * @param keterangan teks keterangan yang ditampilkan.
 	 * @return baris yang baru ditambahkan.
 	 */
-	public static Row initKeterangan(Rows rows, String keterangan) {
-
-		String styled = null;
+	/**
+	 * <h3>Tempelkan keterangan TEPAT DI BAWAH input, dalam sel yang sama</h3>
+	 *
+	 * <p><b>Masalah yang diselesaikan.</b> {@link #initKeterangan(Rows, String)} menambahkan
+	 * keterangan sebagai BARIS TERSENDIRI (kolom pertama kosong). Bila beberapa keterangan
+	 * berurutan, atau bila baris input-nya sendiri disembunyikan konfigurasi, keterangan itu
+	 * tampil sebagai blok teks yang terlepas dari input yang dijelaskannya -- pengguna tidak
+	 * tahu keterangan tersebut milik isian yang mana.</p>
+	 *
+	 * <p><b>Perbaikan.</b> Sel input pada baris dibungkus Vbox, lalu keterangan ditempel di
+	 * bawahnya sehingga label + input + keterangan tampil sebagai SATU paket. Bila baris input
+	 * TIDAK ditampilkan (parent null karena disembunyikan konfigurasi), keterangan ikut tidak
+	 * ditampilkan -- mencegah keterangan yatim.</p>
+	 *
+	 * @param row        baris form yang sel terakhirnya berisi input; boleh null (diabaikan).
+	 * @param keterangan teks keterangan yang ditempelkan di bawah input.
+	 */
+	public static void keteranganDalamSel(Row row, String keterangan) {
 		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9453");
-			// TODO: handle exception
+			if (row == null || row.getParent() == null || keterangan == null) {
+				return;
+			}
+			java.util.List<?> anak = row.getChildren();
+			if (anak == null || anak.isEmpty()) {
+				return;
+			}
+			Object terakhir = anak.get(anak.size() - 1);
+			if (!(terakhir instanceof org.zkoss.zk.ui.Component)) {
+				return;
+			}
+			org.zkoss.zk.ui.Component selInput = (org.zkoss.zk.ui.Component) terakhir;
+			org.zkoss.zul.Vbox bungkus = new org.zkoss.zul.Vbox();
+			bungkus.setSpacing("0px");
+			row.insertBefore(bungkus, selInput);
+			selInput.setParent(bungkus);
+			org.zkoss.zul.Label labelKeterangan = new org.zkoss.zul.Label(keterangan);
+			labelKeterangan.setStyle("font-size:10px;color:#6b7280;line-height:1.3;");
+			labelKeterangan.setParent(bungkus);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Common.keteranganDalamSel");
 		}
+	}
+
+	/**
+	 * <h3>Baca nilai konfigurasi sebagai angka desimal secara TOLERAN</h3>
+	 *
+	 * <p><b>Masalah yang diselesaikan.</b> Nilai konfigurasi diketik manusia. Admin di
+	 * Indonesia lazim menulis desimal memakai KOMA (mis. {@code 0,1}), sedangkan
+	 * {@link Double#parseDouble(String)} hanya menerima TITIK. Akibatnya parsing melempar
+	 * {@code NumberFormatException}; pemanggil yang membungkusnya dengan try/catch lalu
+	 * diam-diam memakai nilai bawaan. Dua dampaknya: (1) log dibanjiri stack trace karena
+	 * pembacaan konfigurasi terjadi pada tiap request, dan (2) LEBIH BERBAHAYA, nilai yang
+	 * dimaksud admin diabaikan tanpa peringatan -- mis. admin mengetik {@code 2,5} tetapi
+	 * sistem memakai bawaan {@code 0.1}.</p>
+	 *
+	 * <p><b>Aturan penerjemahan.</b>
+	 * <ul>
+	 *   <li>Ada KOMA dan TITIK sekaligus: pemisah desimal adalah yang paling KANAN, sisanya
+	 *       dianggap pemisah ribuan. Contoh {@code 1.234,56} dan {@code 1,234.56} sama-sama
+	 *       menjadi {@code 1234.56}.</li>
+	 *   <li>Hanya KOMA: dianggap pemisah desimal gaya Indonesia ({@code 0,1} -> {@code 0.1}).</li>
+	 *   <li>Hanya TITIK: dibiarkan apa adanya supaya perilaku konfigurasi lama yang sudah
+	 *       benar TIDAK berubah.</li>
+	 * </ul>
+	 * Bila tetap gagal, nilai bawaan dikembalikan seperti perilaku lama (tanpa melempar).</p>
+	 *
+	 * @param nilai  teks nilai konfigurasi; boleh null/kosong.
+	 * @param bawaan nilai yang dipakai bila teks kosong atau tidak bisa diartikan.
+	 * @return angka hasil pembacaan, atau {@code bawaan}.
+	 */
+	public static double parseAngkaKonfigurasi(String nilai, double bawaan) {
+		if (nilai == null) {
+			return bawaan;
+		}
+		String teks = nilai.trim();
+		if (teks.length() == 0) {
+			return bawaan;
+		}
+		try {
+			int posTitik = teks.indexOf(".") < 0 ? -1 : teks.lastIndexOf(".");
+			int posKoma = teks.indexOf(",") < 0 ? -1 : teks.lastIndexOf(",");
+			if (posKoma >= 0 && posTitik >= 0) {
+				if (posKoma > posTitik) {
+					teks = teks.replace(".", "").replace(",", ".");
+				} else {
+					teks = teks.replace(",", "");
+				}
+			} else if (posKoma >= 0) {
+				teks = teks.replace(",", ".");
+			}
+			return Double.parseDouble(teks);
+		} catch (Exception e) {
+			return bawaan;
+		}
+	}
+
+	/** Ambil style baris pertama tanpa menganggap Rows selalu sudah berisi Row. */
+	private static String ambilStyleBarisPertama(Rows rows) {
+		if (rows == null || rows.getChildren() == null || rows.getChildren().isEmpty()) {
+			return null;
+		}
+		Object pertama = rows.getChildren().get(0);
+		return pertama instanceof Row ? ((Row) pertama).getStyle() : null;
+	}
+
+	public static Row initKeterangan(Rows rows, String keterangan) {
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9560,13 +9742,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganMerah(Rows rows, String keterangan) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9485");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9595,12 +9772,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganHtml(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9519");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9625,14 +9798,8 @@ public class Common {
 	 * @return baris yang baru ditambahkan.
 	 */
 	public static Row initKeteranganSatuKolom(Rows rows, String keterangan) {
-		String styled = null;
-		try {
-			if (rows != null && rows.getChildren() != null && !rows.getChildren().isEmpty()) {
-				styled = ((Row) rows.getChildren().get(0)).getStyle();
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9549");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9663,13 +9830,8 @@ public class Common {
 	 */
 	@SuppressWarnings("deprecation")
 	public static MyCheckboxConfig tambahKeteranganRowHtml(Rows rows, String keterangan) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9586");
-			// TODO: handle exception
-		}
+		if (rows == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -9804,8 +9966,17 @@ public class Common {
 	 */
 	@SuppressWarnings("rawtypes")
 	public static boolean checkIsNull(Class clazz, Object o, String property) {
+		if (clazz == null || o == null || property == null || property.trim().length() == 0) {
+			return true;
+		}
+		if (!clazz.isInstance(o)) {
+			return true;
+		}
 		try {
 			ClassMetadata classMetadata = HibernateUtil.getClassMetadata(clazz);
+			if (classMetadata == null) {
+				return false;
+			}
 			Object value = classMetadata.getPropertyValue(o, property, EntityMode.POJO);
 			if (value == null) {
 				return true;
@@ -9999,13 +10170,8 @@ public class Common {
 	 */
 	public static Row createFieldKota(Rows rows, final String label, final Label kota, final Label propinsi,
 			Kota dataKota, Boolean tampil) {
-
-		String styled = null;
-		try {
-			styled = ((Row) rows.getChildren().get(0)).getStyle();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:9922");
-			// TODO: handle exception
-		}
+		if (rows == null || kota == null) return null;
+		String styled = ambilStyleBarisPertama(rows);
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		if (styled != null) {
@@ -11701,6 +11867,31 @@ public class Common {
 	}
 
 	/**
+	 * Menghasilkan acuan (ref) SEMENTARA untuk berkas yang diunggah sebelum entitas
+	 * induknya punya id, mis. lampiran pada formulir pendaftaran yang belum tersimpan.
+	 *
+	 * <p><b>Selalu negatif.</b> Nilainya dipakai pada kolom acuan yang sama dengan id
+	 * asli (lihat {@code FileFotoLain.ambil}: berkas dicari dengan
+	 * {@code Restrictions.eq(refName, ref)}). Acuan sementara yang positif bisa menunjuk
+	 * ke baris milik entitas lain yang benar-benar ada.</p>
+	 *
+	 * <p><b>Ruangnya lebar (~1e16), bukan ~1e8.</b> Kolom acuan ini dipakai BERSAMA oleh
+	 * semua pengguna yang sedang mengunggah. Dengan ruang sesempit {@link #randLong()},
+	 * dua pendaftar yang mengisi formulir bersamaan bisa mendapat acuan yang sama untuk
+	 * jenis berkas yang sama, lalu saling melihat berkas satu sama lain. Dua undian
+	 * digabung supaya bentrok praktis tidak terjadi.</p>
+	 *
+	 * <p><b>Pemeliharaan.</b> Nilai terkecil secara magnitudo adalah -100_000_000, jadi
+	 * hasilnya tidak pernah 0 dan tidak pernah muat di {@code int} - jangan simpan ke
+	 * kolom integer. Bukan kriptografi-aman.</p>
+	 *
+	 * @return acuan sementara negatif, kira-kira antara -1e16 dan -1e8
+	 */
+	public static Long refSementara() {
+		return Long.valueOf(-((randLong() + 1L) * 100000000L + randLong()));
+	}
+
+	/**
 	 * Mencari daftar {@code CicilanPembayaran} yang cocok dengan parameter identifikasi
 	 * pembayaran (kode tagihan, NIM mahasiswa, tanggal) menggunakan sesi dan log H2H sebagai
 	 * konteks pencarian.
@@ -12289,6 +12480,73 @@ public class Common {
 	}
 
 	/**
+	 * Padanan {@link #checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(String, Koperasi)} utk
+	 * pegawai TANPA kode ({@code mycode} null/kosong) -- sebelumnya pegawai semacam ini
+	 * dikecualikan total dari kandidat sinkronisasi (permintaan eksplisit user 2026-08-12:
+	 * "tetap ambil saja, buat kode otomatis random/acak"), krn overload berbasis-String di atas
+	 * memakai {@code mycode} sbg KUNCI PENCARIAN AnggotaKoperasi yang sudah ada -- kunci
+	 * kosong/null tak bisa dipakai (banyak pegawai berbeda akan tabrakan pada satu kunci sama).
+	 *
+	 * <p>Overload ini mencari/mencocokkan lewat FK {@code pegawai.id} langsung (stabil, tak
+	 * bergantung mycode), dan men-generate {@code kode} otomatis via
+	 * {@link BarcodeCommon#generateCode()} (pola sama dgn fallback bawaan
+	 * {@link AnggotaKoperasi#getKode()}, dgn retry-loop cek tabrakan thd {@code kode unique})
+	 * HANYA saat pertama kali dibuat -- re-sync berikutnya cocok lewat {@code pegawai.id}, bukan
+	 * generate kode baru lagi.</p>
+	 *
+	 * @param idPegawai id {@code Pegawai} yang akan didaftarkan; tidak boleh null
+	 * @param koperasi  koperasi tujuan; tidak boleh null
+	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila pegawai tidak ditemukan
+	 */
+	public static AnggotaKoperasi checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(Long idPegawai, Koperasi koperasi) {
+		Session session = HibernateUtil.currentNativeSession();
+		AnggotaKoperasi anggotaKoperasi = ((AnggotaKoperasi) ConstantValues.simpleObject(
+				session.createCriteria(AnggotaKoperasi.class).createAlias("pegawai", "pegawai", Criteria.LEFT_JOIN)
+						.add(Restrictions.eq("pegawai.id", idPegawai)).setMaxResults(1),
+				AnggotaKoperasi.class));
+		if (anggotaKoperasi == null) {
+			Pegawai pegawai = (Pegawai) session.get(Pegawai.class, idPegawai);
+			if (pegawai != null) {
+				String kodeOtomatis;
+				do {
+					kodeOtomatis = ais.common.BarcodeCommon.generateCode();
+				} while (session.createCriteria(AnggotaKoperasi.class).add(Restrictions.eq("kode", kodeOtomatis))
+						.setMaxResults(1).uniqueResult() != null);
+
+				anggotaKoperasi = new AnggotaKoperasi();
+				anggotaKoperasi.setAktif(true);
+				anggotaKoperasi.setPegawai(pegawai);
+				anggotaKoperasi.setAlamat(pegawai.getAlamat());
+				anggotaKoperasi.setEmail(pegawai.getEmail());
+				anggotaKoperasi.setJenisIdentitas("NIK");
+				anggotaKoperasi.setKeterangan(
+						"Anggota Koperasi ini mendaftar otomatis (kode auto-generate, pegawai tanpa kode)");
+				anggotaKoperasi.setKodeIdentitas(kodeOtomatis);
+				anggotaKoperasi.setKode(kodeOtomatis);
+				anggotaKoperasi.setNama(pegawai.getNama());
+				anggotaKoperasi.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+				anggotaKoperasi.setTipeAnggotaKoperasi(ConstantValues.PEGAWAI);
+				anggotaKoperasi.setTipe(ConstantValues.PEGAWAI.getNama());
+				anggotaKoperasi.setKoperasi(koperasi);
+				session.getTransaction().begin();
+				session.save(anggotaKoperasi);
+				session.getTransaction().commit();
+			}
+		} else {
+			anggotaKoperasi.setKoperasi(koperasi);
+			session.getTransaction().begin();
+			Common.refreshSaveOrUpdate(session, anggotaKoperasi);
+			session.getTransaction().commit();
+		}
+		if (session.isOpen()) {
+			session.disconnect();
+			session.close();
+		}
+		HibernateUtil.closeSession();
+		return anggotaKoperasi;
+	}
+
+	/**
 	 * Mendaftarkan dosen (berdasarkan NIDN) secara otomatis sebagai anggota koperasi,
 	 * atau memperbarui asosiasi koperasi pada rekam anggota yang sudah ada.
 	 *
@@ -12352,6 +12610,70 @@ public class Common {
 			session.getTransaction().commit();
 		}
 		// session.disconnect();
+		if (session.isOpen()) {
+			session.disconnect();
+			session.close();
+		}
+		HibernateUtil.closeSession();
+		return anggotaKoperasi;
+	}
+
+	/**
+	 * Mendaftarkan guru (berdasarkan NIP) secara otomatis sebagai anggota koperasi,
+	 * atau memperbarui asosiasi koperasi pada rekam anggota yang sudah ada.
+	 *
+	 * <p><b>Tujuan.</b> Padanan {@link #checkApakahDosenOtomatisMenjadiAnggotaKoperasi(String, Koperasi)}
+	 * utk jenjang sekolah -- memastikan guru aktif bisa mengakses layanan koperasi sekolah tanpa
+	 * pendaftaran manual.</p>
+	 *
+	 * <p><b>Cara kerja (inline).</b> SAMA PERSIS strukturnya dgn versi Dosen (lihat javadoc method
+	 * tsb), kunci identitas NIP menggantikan NIDN, dan {@code AnggotaKoperasi.guru} menggantikan
+	 * {@code AnggotaKoperasi.dosen}.</p>
+	 *
+	 * @param nip      NIP guru yang akan didaftarkan; tidak boleh null
+	 * @param koperasi koperasi tujuan; tidak boleh null
+	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila guru tidak ditemukan
+	 */
+	public static AnggotaKoperasi checkApakahGuruOtomatisMenjadiAnggotaKoperasi(String nip, ais.database.model.koperasi.Koperasi koperasi) {
+		Session session = HibernateUtil.currentNativeSession();
+		AnggotaKoperasi anggotaKoperasi = ((AnggotaKoperasi) ConstantValues.simpleObject(
+				session.createCriteria(AnggotaKoperasi.class).createAlias("guru", "guru", Criteria.LEFT_JOIN)
+						.add(Restrictions.or(Restrictions.eq("guru.nip", nip),
+								Restrictions.sqlRestriction("replace(trim(this_.kode),'.','') = replace(trim('"
+										+ nip.replaceAll("'", "") + "'),'.','')")))
+						.setMaxResults(1),
+				AnggotaKoperasi.class));
+		if (anggotaKoperasi == null) {
+			ais.database.model.sekolah.Guru guru = (ais.database.model.sekolah.Guru) ConstantValues.simpleObject(
+					session.createCriteria(ais.database.model.sekolah.Guru.class).add(Restrictions.eq("nip", nip)).setMaxResults(1),
+					ais.database.model.sekolah.Guru.class);
+			if (guru != null) {
+				anggotaKoperasi = new AnggotaKoperasi();
+				anggotaKoperasi.setAktif(true);
+				anggotaKoperasi.setGuru(guru);
+				anggotaKoperasi.setAlamat(guru.getAlamatGuru());
+				anggotaKoperasi.setEmail(guru.getAlamatEmail());
+				anggotaKoperasi.setJenisIdentitas("NIP");
+				anggotaKoperasi.setKeterangan("Anggota Koperasi ini mendaftar otomatis");
+				anggotaKoperasi.setKodeIdentitas(guru.getNip());
+				anggotaKoperasi.setKode(guru.getNip());
+				anggotaKoperasi.setNama(guru.getNama());
+				anggotaKoperasi.setKoperasi(null);
+				anggotaKoperasi.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+				anggotaKoperasi.setGuru(guru);
+				anggotaKoperasi.setTipeAnggotaKoperasi(ConstantValues.GURU);
+				anggotaKoperasi.setTipe(ConstantValues.GURU.getNama());
+				anggotaKoperasi.setKoperasi(koperasi);
+				session.getTransaction().begin();
+				session.save(anggotaKoperasi);
+				session.getTransaction().commit();
+			}
+		} else {
+			anggotaKoperasi.setKoperasi(koperasi);
+			session.getTransaction().begin();
+			Common.refreshSaveOrUpdate(session, anggotaKoperasi);
+			session.getTransaction().commit();
+		}
 		if (session.isOpen()) {
 			session.disconnect();
 			session.close();
@@ -12442,7 +12764,7 @@ public class Common {
 	 * @param koperasi koperasi tujuan; null → langsung return null
 	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila siswa/NIS-NISN/koperasi tidak valid
 	 */
-	public static AnggotaKoperasi checkApakahSiswaOtomatisMenjadiAnggotaKoperasi(Siswa siswa, Koperasi koperasi) {
+	public static synchronized AnggotaKoperasi checkApakahSiswaOtomatisMenjadiAnggotaKoperasi(Siswa siswa, Koperasi koperasi) {
 
 		if (siswa == null || koperasi == null) {
 			return null;
@@ -13277,12 +13599,11 @@ public class Common {
 	 */
 	public static int loadKomentarUkuran(Mahasiswa mahasiswa, Integer semester, final Integer tahapan,
 			Integer semesterPendek) {
+		Session session = null;
 		try {
-			// Native session: dipanggil juga dari thread latar (AsyncTaskManager) di mana
-			// currentSession() bisa berupa session ThreadLocalSessionContext yang transaction-protected
-			// sehingga createCriteria melempar "createCriteria is not valid without active transaction".
-			// Session native (ThreadLocal milik AIS) tidak transaction-protected dan ditutup oleh scope luar.
-			Session session = HibernateUtil.currentNativeSession();
+			// Query ini juga dipanggil dari thread latar. Gunakan session lokal agar tidak
+			// meminjam currentNativeSession thread-local yang mungkin sudah terputus.
+			session = HibernateUtil.openSession();
 			Criterion criterionSemester = tahapan == null || tahapan.equals(0) ? Restrictions.eq("semester", semester)
 					: Restrictions.sqlRestriction("true");
 
@@ -13299,6 +13620,12 @@ public class Common {
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 			return 0;
+		} finally {
+			if (session != null && session.isOpen()) {
+				try { session.clear(); } catch (Exception e) { }
+				try { session.disconnect(); } catch (Exception e) { }
+				try { session.close(); } catch (Exception e) { }
+			}
 		}
 	}
 
@@ -14818,6 +15145,7 @@ public class Common {
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 					.add(Restrictions.or(Restrictions.ilike("email", emailAddress, MatchMode.START),
 							Restrictions.sqlRestriction(sql)))
+					.addOrder(Order.desc("tanggal_dirubah"))
 					.setMaxResults(1), Tbmuser.class);
 			if (tbmuser != null) {
 				System.out.println("[SOCIAL-LOGIN] COCOK (" + property + "=" + id + ", email=" + emailAddress
@@ -15166,6 +15494,7 @@ public class Common {
 	public static boolean checkSocialMediaApakahLebihDariSatu(String kolom, String id, String email,
 			final String linkProfile, final String callback_url) throws Exception {
 		Session session = HibernateUtil.currentSession();
+		boolean transaksiLokal = false;
 		String sql = "select (select count(*) from mahasiswa where " + kolom
 				+ " is not null and aktif=true and (email ilike '" + email + "%' or '" + id + "' = ANY(string_to_array("
 				+ kolom + ",',')))) +  (select count(*) from sekolah.siswa where " + kolom
@@ -15173,7 +15502,12 @@ public class Common {
 				+ "' = ANY(string_to_array(" + kolom + ",','))))  +  (select count(*) from tbmuser where " + kolom
 				+ " is not null and aktif=true and (email ilike '" + email + "%' or '" + id + "' = ANY(string_to_array("
 				+ kolom + ",',')))) as qty";
-		int count = ((Number) session.createSQLQuery(sql).uniqueResult()).intValue();
+		if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+			session.beginTransaction();
+			transaksiLokal = true;
+		}
+		int count = ((Number) session.createSQLQuery(sql).addScalar("qty", org.hibernate.Hibernate.INTEGER)
+				.uniqueResult()).intValue();
 		if (count > 1) {
 			System.out.println("[SOCIAL-LOGIN] AMBIGU (" + kolom + "=" + id + ", email=" + email + "): " + count
 					+ " akun cocok sekaligus -- menampilkan popup \"Pilih Pengguna\", menunggu pengguna memilih.");
@@ -15307,10 +15641,18 @@ public class Common {
 			});
 			cancel.setParent(toolbar);
 
+			if (transaksiLokal && session.getTransaction() != null && session.getTransaction().isActive()) {
+				session.getTransaction().commit();
+				transaksiLokal = false;
+			}
 			window.onModal();
 
 			return true;
 		} else {
+			if (transaksiLokal && session.getTransaction() != null && session.getTransaction().isActive()) {
+				session.getTransaction().commit();
+				transaksiLokal = false;
+			}
 			return false;
 		}
 	}
@@ -15626,7 +15968,25 @@ public class Common {
 		CommonSecurityLoginHelper.setLogin(request, res, biodataCalonMahasiswa);
 	}
 
-	private static Map<String, GeneralValueObject> mapSession = new HashMap<String, GeneralValueObject>();
+	// synchronizedMap (BUKAN ConcurrentHashMap): jalur lama mengizinkan key
+	// requestedSessionId null dan value null — ConcurrentHashMap menolak keduanya.
+	// Entri dibersihkan terpusat oleh SessionCounter.sessionDestroyed via
+	// hapusSessionById() agar form PMB/PPDB yang ditinggalkan tidak bocor permanen.
+	private static Map<String, GeneralValueObject> mapSession = java.util.Collections
+			.synchronizedMap(new HashMap<String, GeneralValueObject>());
+
+	/**
+	 * Menghapus entri {@code mapSession} milik satu session ID. Dipanggil terpusat dari
+	 * {@code SessionCounter.sessionDestroyed} (logout, timeout, invalidation) supaya data
+	 * sesi yang ditinggalkan tidak tertahan selamanya di static map.
+	 *
+	 * @param sessionId ID sesi HTTP yang sudah dihancurkan; boleh null (diabaikan)
+	 */
+	public static void hapusSessionById(String sessionId) {
+		if (sessionId != null) {
+			mapSession.remove(sessionId);
+		}
+	}
 
 	/**
 	 * Menyimpan entitas {@code GeneralValueObject} ke dalam map sesi internal ({@code mapSession})
@@ -18816,11 +19176,144 @@ public class Common {
 	 * broken pipe). Dipakai agar log admin tidak dibanjiri error sementara yang
 	 * sebenarnya sudah ditangani (rollback + hasil kosong). Menelusuri rantai cause.
 	 */
+	/**
+	 * Membaca nilai id/angka dari payload JSON secara TOLERAN.
+	 *
+	 * <p><b>KE-FIX</b> ("java.lang.NumberFormatException: For input string: &quot;&quot;").
+	 * Pola lama di seluruh helper API berbentuk:</p>
+	 *
+	 * <pre>request.isNull("x") ? null : Long.valueOf((request.get("x") + "").trim())</pre>
+	 *
+	 * <p>Formulir HTML dan klien Flutter mengirim field kosong sebagai string KOSONG
+	 * ({@code "x": ""}), BUKAN JSON null. {@code JSONObject.isNull} bernilai false untuk string
+	 * kosong sehingga {@code Long.valueOf("")} tetap dijalankan dan melempar
+	 * NumberFormatException -- pengguna melihat layar galat "For input string:" pada aksi yang
+	 * sebenarnya sah (mis. retur penjualan tanpa nota asal).</p>
+	 *
+	 * <p>Karena pola lamanya sendiri sudah membolehkan hasil {@code null} (cabang isNull),
+	 * memulangkan {@code null} untuk nilai kosong/bukan angka TIDAK mengubah kontrak pemanggil:
+	 * nilainya tetap salah satu dari "ada angkanya" atau "tidak diisi".</p>
+	 *
+	 * @param request payload JSON (boleh null)
+	 * @param kunci   nama field
+	 * @return nilai Long, atau null bila tidak ada / kosong / bukan angka
+	 */
+	/**
+	 * Menyaring sebuah String agar aman dipakai sebagai <b>value</b> {@link javax.servlet.http.Cookie}.
+	 *
+	 * <p><b>KE-FIX</b> ("java.lang.IllegalArgumentException: An invalid character [32] was present
+	 * in the Cookie value"). Tomcat 8+ memvalidasi value cookie menurut RFC 6265 saat header
+	 * dibentuk, dan menolak spasi (32), koma (44), titik-koma (59), petik ganda, backslash, serta
+	 * karakter kontrol. Beberapa cookie diisi LANGSUNG dari data pengguna -- mis. nomor registrasi
+	 * calon mahasiswa/siswa yang boleh mengandung spasi -- sehingga login PMB gagal dengan layar
+	 * galat, bukan karena kredensialnya salah.</p>
+	 *
+	 * <p>Karakter yang tidak sah DIBUANG, bukan diganti, supaya nilai yang selama ini sudah aman
+	 * (hasil {@code URLEncoder.encode} atau Base64) tetap identik byte-per-byte -- cookie lama
+	 * yang sudah tersimpan di peramban pengguna tetap terbaca seperti biasa.</p>
+	 *
+	 * @param value nilai mentah (boleh null)
+	 * @return nilai yang hanya berisi cookie-octet RFC 6265; "" bila masukannya null
+	 */
+	/**
+	 * Varian desimal dari {@link #angkaAtauNull(JSONObject, String)} untuk nilai uang.
+	 *
+	 * @return nilai Double, atau null bila tidak ada / kosong / bukan angka
+	 */
+	public static Double angkaDesimalAtauNull(JSONObject request, String kunci) {
+		if (request == null || kunci == null) {
+			return null;
+		}
+		Object mentah = request.opt(kunci);
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		if (mentah instanceof Number) {
+			return Double.valueOf(((Number) mentah).doubleValue());
+		}
+		String teks = String.valueOf(mentah).trim();
+		if (teks.length() == 0) {
+			return null;
+		}
+		try {
+			return Double.valueOf(teks);
+		} catch (NumberFormatException bukanAngka) {
+			return null;
+		}
+	}
+
+	public static String nilaiCookieAman(String value) {
+		if (value == null) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(value.length());
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			// cookie-octet RFC6265: %x21, %x23-2B, %x2D-3A, %x3C-5B, %x5D-7E
+			// (kecuali DQUOTE, koma, titik-koma, backslash, spasi, dan karakter kontrol).
+			if (c == ',' || c == ';' || c == '\\' || c == '"' || c <= 0x20 || c >= 0x7F) {
+				continue;
+			}
+			sb.append(c);
+		}
+		return sb.toString();
+	}
+
+	public static Long angkaAtauNull(JSONObject request, String kunci) {
+		if (request == null || kunci == null) {
+			return null;
+		}
+		Object mentah = request.opt(kunci);
+		if (mentah == null || JSONObject.NULL.equals(mentah)) {
+			return null;
+		}
+		if (mentah instanceof Number) {
+			return Long.valueOf(((Number) mentah).longValue());
+		}
+		String teks = String.valueOf(mentah).trim();
+		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "undefined".equalsIgnoreCase(teks)) {
+			return null;
+		}
+		try {
+			return Long.valueOf(teks);
+		} catch (NumberFormatException bukanBulat) {
+			try {
+				// Klien JavaScript kerap mengirim id sebagai desimal ("12.0"); ambil bagian bulatnya.
+				return Long.valueOf(new java.math.BigDecimal(teks).longValue());
+			} catch (NumberFormatException tetapBukanAngka) {
+				return null;
+			}
+		}
+	}
+
+	/** Sama seperti {@link #angkaAtauNull(JSONObject, String)} untuk elemen JSONArray berisi objek. */
+	public static Integer angkaBulatAtauNull(JSONObject request, String kunci) {
+		Long nilai = angkaAtauNull(request, kunci);
+		return nilai == null ? null : Integer.valueOf(nilai.intValue());
+	}
+
 	public static boolean isTransientKoneksiError(Throwable t) {
 		Throwable cur = t;
 		int guard = 0;
 		while (cur != null && guard++ < 30) {
 			if (cur instanceof org.hibernate.exception.JDBCConnectionException) {
+				return true;
+			}
+			/* KE-FIX ("An I/O error occurred while sending to the backend" / EOFException dari
+			 * PostgreSQL JDBC): kegagalan socket seperti ini TIDAK selalu dibungkus
+			 * JDBCConnectionException dan kalimatnya tidak cocok dengan daftar teks di bawah,
+			 * sehingga sebelumnya dianggap galat biasa -- pemanggil lalu mencoba rollback pada
+			 * koneksi yang sudah mati dan menghasilkan exception sekunder yang membanjiri log.
+			 * SQLState kelas "08" adalah kelas standar SQL untuk connection exception, jadi ini
+			 * menutup seluruh ragamnya sekaligus (08000/08003/08006/08001/08004/08007). */
+			if (cur instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) cur).getSQLState();
+				if (state != null && state.length() >= 2 && state.startsWith("08")) {
+					return true;
+				}
+			}
+			if (cur instanceof java.io.EOFException || cur instanceof java.net.SocketException
+					|| cur instanceof java.net.SocketTimeoutException) {
 				return true;
 			}
 			String m = cur.getMessage();
@@ -18835,11 +19328,23 @@ public class Common {
 						|| lm.indexOf("connection reset") >= 0
 						|| lm.indexOf("broken pipe") >= 0
 						|| lm.indexOf("administrator command") >= 0
-						|| lm.indexOf("connection attempt failed") >= 0) {
+						|| lm.indexOf("connection attempt failed") >= 0
+						|| lm.indexOf("i/o error occurred while sending to the backend") >= 0
+						|| lm.indexOf("an i/o error occurred") >= 0
+						|| lm.indexOf("socket is closed") >= 0
+						|| lm.indexOf("connection refused") >= 0) {
 					return true;
 				}
 			}
-			cur = cur.getCause();
+			Throwable berikut = cur.getCause();
+			if (berikut == null && cur instanceof java.sql.SQLException) {
+				// PostgreSQL JDBC merantai penyebab aslinya di getNextException, bukan getCause.
+				berikut = ((java.sql.SQLException) cur).getNextException();
+			}
+			if (berikut == cur) {
+				break;
+			}
+			cur = berikut;
 		}
 		return false;
 	}
@@ -19326,14 +19831,23 @@ public class Common {
 	 * event ZK, memastikan operasi UI aman.</p>
 	 */
 	public static void goLogoff() {
-		Clients.confirmClose(null);
-		Common.createDefaultTimer(new EventListener() {
-
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				ExecutionsCtrl.getCurrent().sendRedirect("/logoff");
+		try {
+			if (ExecutionsCtrl.getCurrent() == null) {
+				return;
 			}
-		});
+			Clients.confirmClose(null);
+			Common.createDefaultTimer(new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					if (ExecutionsCtrl.getCurrent() != null) {
+						ExecutionsCtrl.getCurrent().sendRedirect("/logoff");
+					}
+				}
+			});
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit Common.goLogoff");
+		}
 	}
 
 	/**
@@ -20235,8 +20749,12 @@ public class Common {
 			}
 			ais.database.model.Tbmuser pengguna = getCurrentUser();
 			String roleId = "";
+			String kodeRole = "";
 			if (pengguna != null && pengguna.hakAkses() != null && pengguna.hakAkses().getRoleId() != null) {
 				roleId = pengguna.hakAkses().getRoleId().trim();
+			}
+			if (pengguna != null && pengguna.hakAkses() != null && pengguna.hakAkses().getKode() != null) {
+				kodeRole = pengguna.hakAkses().getKode().trim();
 			}
 			String daftarRole = defaultRole;
 			try {
@@ -20254,7 +20772,7 @@ public class Common {
 					continue;
 				}
 				if ("*".equals(r) || "semua".equalsIgnoreCase(r) || "all".equalsIgnoreCase(r)
-						|| r.equalsIgnoreCase(roleId)) {
+						|| r.equalsIgnoreCase(roleId) || r.equalsIgnoreCase(kodeRole)) {
 					return true;
 				}
 			}
@@ -20869,6 +21387,89 @@ public class Common {
 			Combobox searchfakultas, Combobox searchjurusan) {
 		CommonComboLanguageHelper.initFakultasDanJurusanData(currentFakultas, currentJurusan, searchfakultas,
 				searchjurusan);
+	}
+
+	/**
+	 * Sertakan (include) satu fragmen JSP <b>hanya bila berkasnya benar-benar ada</b>, dan
+	 * jangan pernah melempar exception ke halaman pemanggil.
+	 *
+	 * <h3>Kenapa diperlukan</h3>
+	 * <p>Dasbor beranda ({@code /WEB-INF/baru/modul/home/index.jsp}) disusun dari banyak
+	 * fragmen kecil per peran: info mahasiswa, tombol dosen, profil admin, pengumuman,
+	 * kalender akademik, dan seterusnya. Tidak semua instalasi memiliki seluruh fragmen itu —
+	 * instalasi tanpa modul sekolah tidak punya fragmen guru/siswa, misalnya. Dengan
+	 * {@code <jsp:include>} biasa, satu fragmen yang tidak ada langsung membuat SELURUH
+	 * dasbor gagal dirender. Method ini membuat fragmen bersifat opsional: yang ada
+	 * ditampilkan, yang tidak ada dilewati diam-diam.</p>
+	 *
+	 * <h3>Kenapa kegagalan render pun ditelan</h3>
+	 * <p>Bila fragmennya ADA tetapi gagal dijalankan (mis. datanya belum lengkap), kegagalan
+	 * itu dicatat ke audit lalu dilewati. Alasannya sama: satu kartu dasbor yang bermasalah
+	 * tidak boleh membuat pengguna kehilangan seluruh halaman beranda. Jejaknya tetap ada di
+	 * audit sehingga penyebabnya tetap bisa ditelusuri pengembang.</p>
+	 *
+	 * <h3>Catatan teknis</h3>
+	 * <p>Keberadaan berkas diperiksa lewat {@code getRealPath} lebih dulu (murah, tanpa I/O
+	 * jaringan); bila aplikasi dijalankan dari WAR yang tidak diekstrak, {@code getRealPath}
+	 * mengembalikan null sehingga dicoba ulang lewat {@code getResource}.</p>
+	 *
+	 * <p>Penyertaan memakai {@code PageContext.include(String)}, BUKAN varian dua argumen
+	 * yang dapat menahan flush: {@code servlet_.jar} yang dipaketkan aplikasi ini masih
+	 * API JSP 1.2 dan hanya memiliki bentuk satu argumen. Konsekuensinya buffer
+	 * {@code JspWriter} induk ikut di-flush sebelum tiap fragmen disertakan — persis
+	 * seperti {@code <jsp:include flush="true">} yang sudah dipakai di seluruh JSP
+	 * aplikasi ini — sehingga respons ter-commit sejak fragmen pertama dan header tidak
+	 * lagi dapat diubah setelah titik itu. Untuk dasbor beranda yang memang dirender di
+	 * akhir alur, perilakunya sama dengan halaman-halaman lain yang sudah ada.</p>
+	 *
+	 * @param pageContext konteks halaman JSP pemanggil; diabaikan bila null
+	 * @param path        path absolut fragmen relatif terhadap context root, mis.
+	 *                    {@code "/WEB-INF/baru/modul/home/pengumuman.jsp"}
+	 */
+	public static void sertakanJikaAda(javax.servlet.jsp.PageContext pageContext, String path) {
+		if (pageContext == null || path == null || path.trim().length() == 0) {
+			return;
+		}
+		String berkas = path.trim();
+		try {
+			javax.servlet.ServletContext konteks = pageContext.getServletContext();
+			if (konteks == null) {
+				return;
+			}
+			if (!berkasAda(konteks, berkas)) {
+				return;
+			}
+			/* FIX 21-08-2026: overload include(String, boolean) baru ada pada JSP 2.0+, sedangkan
+			 * jsp-api pada classpath proyek ini belum memilikinya -- Common.java jadi GAGAL
+			 * dikompilasi, sehingga Common.class yang ter-deploy tidak memuat method ini dan
+			 * seluruh halaman beranda gagal dengan JasperException "method sertakanJikaAda
+			 * is undefined for the type Common". Dipakai overload satu-argumen yang tersedia. */
+			pageContext.include(berkas);
+		} catch (Throwable gagal) {
+			try {
+				ErrorAuditUtil.record(gagal, "Common.sertakanJikaAda: fragmen dilewati -- " + berkas);
+			} catch (Throwable abaikan) {
+				// pencatatan audit tidak boleh ikut menggagalkan render halaman
+			}
+		}
+	}
+
+	/** Apakah sebuah resource web benar-benar ada. Lihat {@link #sertakanJikaAda}. */
+	private static boolean berkasAda(javax.servlet.ServletContext konteks, String path) {
+		try {
+			String nyata = konteks.getRealPath(path);
+			if (nyata != null) {
+				return new java.io.File(nyata).isFile();
+			}
+		} catch (Throwable abaikan) {
+			// lanjut ke pemeriksaan berbasis getResource di bawah
+		}
+		try {
+			// WAR yang tidak diekstrak: getRealPath null, resource tetap dapat diperiksa.
+			return konteks.getResource(path) != null;
+		} catch (Throwable abaikan) {
+			return false;
+		}
 	}
 
 }

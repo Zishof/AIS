@@ -58,6 +58,18 @@ import ais.ui.util.MyMessageboxConfig;
 @Audited
 @Table(schema = "public", name = "perkuliahan")
 public class Perkuliahan extends VOPembelajaran {
+	/*
+	 * Lock ber-strip untuk operasi read-modify-write JSON peserta. Beberapa listener Hibernate
+	 * dapat memanggil populate/remove bersamaan untuk kelas yang sama; tanpa lock, dua thread
+	 * membaca snapshot yang sama lalu saling menimpa dan cache dapat terisi JSON setengah jadi.
+	 * Jumlah lock tetap agar tidak menambah map tanpa batas untuk setiap ID perkuliahan.
+	 */
+	private static final Object[] DETAIL_PERKULIAHAN_LOCKS = new Object[257];
+	static {
+		for (int i = 0; i < DETAIL_PERKULIAHAN_LOCKS.length; i++) {
+			DETAIL_PERKULIAHAN_LOCKS[i] = new Object();
+		}
+	}
 
 	public static final Integer BELUM_ADA_MAHASISWA = -1;
 	public static final Integer BELUM_DINILAI = 0;
@@ -2130,6 +2142,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	private Object ambilLockDetailPerkuliahan() {
+		Perkuliahan p = this.getPerkuliahan_paralel() == null ? this : this.getPerkuliahan_paralel();
+		Long perkuliahanId = p == null ? null : p.getId();
+		int hash = perkuliahanId == null ? System.identityHashCode(p) : perkuliahanId.hashCode();
+		return DETAIL_PERKULIAHAN_LOCKS[(hash & 0x7fffffff) % DETAIL_PERKULIAHAN_LOCKS.length];
+	}
+
+	private JSONObject ambilJsonDetailPerkuliahanAman() {
+		String data = ambilLokasiDetailPerkuliahan();
+		try {
+			return new JSONObject(data == null || data.trim().length() == 0 ? VOMahasiswa.dataJSON : data);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"Perkuliahan.ambilJsonDetailPerkuliahanAman: JSON peserta rusak, dibangun ulang bertahap");
+			return new JSONObject();
+		}
+	}
+
 	public void tulisLokasiDetailPerkuliahan(String data) {
 		Perkuliahan p = this.getPerkuliahan_paralel() == null ? this : this.getPerkuliahan_paralel();
 		File file = Common.getFileLocation(p, "detail_perkuliahan_" + p.getId().toString());
@@ -2142,25 +2172,31 @@ public class Perkuliahan extends VOPembelajaran {
 	}
 
 	public void removeDetailperkuliahan(Serializable id) {
-		try {
-			JSONObject c = new JSONObject(ambilLokasiDetailPerkuliahan());
-			c.put(id.toString(), "");
-			tulisLokasiDetailPerkuliahan(c.toString());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Perkuliahan.java:2140");
-
+		if (id == null) {
+			return;
+		}
+		synchronized (ambilLockDetailPerkuliahan()) {
+			try {
+				JSONObject c = ambilJsonDetailPerkuliahanAman();
+				c.put(id.toString(), "");
+				tulisLokasiDetailPerkuliahan(c.toString());
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "Perkuliahan.removeDetailperkuliahan");
+			}
 		}
 	}
 
 	public void populateDetailperkuliahan(Detailperkuliahan detailperkuliahan) {
-		try {
-			if (detailperkuliahan == null || detailperkuliahan.getIkutiPerkuliahan() != null) {
-				return;
+		if (detailperkuliahan == null || detailperkuliahan.getId() == null
+				|| detailperkuliahan.getIkutiPerkuliahan() != null) {
+			return;
+		}
+		synchronized (ambilLockDetailPerkuliahan()) {
+			try {
+				JSONObject c = ambilJsonDetailPerkuliahanAman();
+				c.put(detailperkuliahan.getId().toString(), detailperkuliahan.write().getAbsolutePath());
+				tulisLokasiDetailPerkuliahan(c.toString());
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "Perkuliahan.populateDetailperkuliahan");
 			}
-
-			JSONObject c = new JSONObject(ambilLokasiDetailPerkuliahan());
-			c.put(detailperkuliahan.getId().toString(), detailperkuliahan.write().getAbsolutePath());
-			tulisLokasiDetailPerkuliahan(c.toString());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Perkuliahan.java:2154");
 		}
 	}
 
@@ -2636,6 +2672,9 @@ public class Perkuliahan extends VOPembelajaran {
 
 		for (Long detailperkuliahanid : detailperkuliahansTemp) {
 			try {
+				if (detailperkuliahanid == null) {
+					continue;
+				}
 				Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 						.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
 				if (detailperkuliahan != null) {
@@ -2697,12 +2736,21 @@ public class Perkuliahan extends VOPembelajaran {
 	}
 
 	public void reInitJumlahMhs(int size) {
-		Perkuliahan perkuliahan = this;
-
 		Session session = null;
 		try {
+			if (getId() == null) {
+				return;
+			}
 			session = HibernateUtil.openSession();
-			session.refresh(perkuliahan);
+			// Jangan refresh objek detached secara langsung. Cache lama masih dapat
+			// memuat id perkuliahan yang sudah dihapus; refresh() atas id tersebut
+			// melempar UnresolvableObjectException. Ambil ulang baris dari DB dan
+			// hentikan normal bila baris memang sudah tidak ada.
+			Perkuliahan perkuliahan = (Perkuliahan) session.get(Perkuliahan.class, getId());
+			if (perkuliahan == null) {
+				ais.common.EntityIdentityMap.evict(Perkuliahan.class, getId());
+				return;
+			}
 			perkuliahan.setJumlahMahasiswa(size);
 			session.getTransaction().begin();
 			Common.refreshUpdate(session, perkuliahan);

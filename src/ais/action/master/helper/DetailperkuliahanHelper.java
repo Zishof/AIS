@@ -55,6 +55,7 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
+import ais.database.model.MahasiswaRequestTugasAkhir;
 import ais.database.model.Perkuliahan;
 import ais.database.model.StatusMahasiswa;
 import ais.database.model.Tbmuser;
@@ -285,10 +286,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 					detailperkuliahan.getPerkuliahan() == null ? null
 							: detailperkuliahan.getPerkuliahan().getStatusSemesterPendek());
 
-			StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa).getStatusMahasiswa();
+			ais.database.model.HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa);
+			StatusMahasiswa statusMahasiswa = historyStatusMahasiswa == null ? null : historyStatusMahasiswa.getStatusMahasiswa();
 			new Label((detailperkuliahan.getMahasiswa().getStatusAwalMahasiswa() == null ? ""
 					: detailperkuliahan.getMahasiswa().getStatusAwalMahasiswa().getNama()) + " / "
-					+ statusMahasiswa.getNama()).setParent(row);
+					+ (statusMahasiswa == null ? "" : statusMahasiswa.getNama())).setParent(row);
 
 			new Label(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
 					: Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
@@ -486,6 +488,19 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 										try {
+											Number jumlahRequestTugasAkhir = (Number) HibernateUtil.currentSession()
+													.createCriteria(MahasiswaRequestTugasAkhir.class)
+													.setProjection(org.hibernate.criterion.Projections.rowCount())
+													.add(Restrictions.eq("detailperkuliahan", detailperkuliahan))
+													.uniqueResult();
+											if (jumlahRequestTugasAkhir != null
+													&& jumlahRequestTugasAkhir.longValue() > 0L) {
+												MyMessageboxConfig.show(
+														"Data perkuliahan tidak dapat dihapus karena masih digunakan pada pengajuan tugas akhir mahasiswa. Batalkan atau pindahkan pengajuan tugas akhir tersebut terlebih dahulu.",
+														"Peringatan", MyMessageboxConfig.OK,
+														MyMessageboxConfig.EXCLAMATION);
+												return;
+											}
 
 											if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")) {
 												if (detailperkuliahan.getPersetujuan() != null
@@ -736,10 +751,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:727");
 			// TODO: handle exception
 		}
@@ -786,10 +805,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button.setDisabled(!reject);
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:777");
 			// TODO: handle exception
 		}
@@ -839,10 +862,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button.setDisabled(!delete);
 		try {
 			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
-					&& ((ConstantValues.Akademik != null
-							&& tbmuser.hakAkses().getRoleId().equals(ConstantValues.Akademik.getRoleId()))
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminFakultas.getRoleId())
-							|| tbmuser.hakAkses().getRoleId().equals(ConstantValues.roleAdminJurusan.getRoleId()))));
+					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
+							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminFakultas != null
+									&& ConstantValues.roleAdminFakultas.getRoleId() != null
+									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
+							|| (ConstantValues.roleAdminJurusan != null
+									&& ConstantValues.roleAdminJurusan.getRoleId() != null
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:830");
 			// TODO: handle exception
 		}
@@ -1179,6 +1206,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 								Integer semester = Common.getSheetContentAsInteger(sheet, 1, i);
 								Integer tahap = Common.getSheetContentAsInteger(sheet, 2, i);
 								Integer persetujuan = Common.getSheetContentAsInteger(sheet, 3, i);
+								if (persetujuan == null) {
+									persetujuan = Detailperkuliahan.BELUM_DISETUJUI;
+								}
 
 								if (semester == null) {
 									semester = perkuliahan.getSemester();

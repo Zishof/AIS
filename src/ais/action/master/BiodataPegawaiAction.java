@@ -821,6 +821,8 @@ public class BiodataPegawaiAction extends MyWindow {
 			Common.displaySocialMedia(tabSosial, tabpanel, null, null, null, pegawai);
 		}
 
+		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
+
 		South south = new South();
 		south.setVisible(tampilSave);
 		south.setParent(borderlayout);
@@ -1317,14 +1319,11 @@ public class BiodataPegawaiAction extends MyWindow {
 					TRANSPORT.setValue(transport == null ? "" : Common.numberFormat.get().format(transport.getTransport()));
 					LAIN.setValue(gajiPokok == null ? "" : Common.numberFormat.get().format(gajiPokok.getLain()));
 
-					try {
-						GAPOK.getParent().setVisible(false);
-						INSENTIF.getParent().setVisible(false);
-						MAKAN.getParent().setVisible(false);
-						TRANSPORT.getParent().setVisible(false);
-						LAIN.getParent().setVisible(false);
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/BiodataPegawaiAction.java:1323");
-					}
+					if (GAPOK.getParent() != null) GAPOK.getParent().setVisible(false);
+					if (INSENTIF.getParent() != null) INSENTIF.getParent().setVisible(false);
+					if (MAKAN.getParent() != null) MAKAN.getParent().setVisible(false);
+					if (TRANSPORT.getParent() != null) TRANSPORT.getParent().setVisible(false);
+					if (LAIN.getParent() != null) LAIN.getParent().setVisible(false);
 				}
 			};
 
@@ -2703,6 +2702,8 @@ public class BiodataPegawaiAction extends MyWindow {
 					}
 				}
 			});
+
+			ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
 
 			West west = new West();
 			west.setStyle("border:0px;");
@@ -4253,7 +4254,7 @@ public class BiodataPegawaiAction extends MyWindow {
 				pegawai.setKtp(ktp.getValue());
 				List<String> daftarWajibDiisi = KonfigurasiTampilanPegawaiAction.dataYangWajibDiisi();
 				for (String key : daftarWajibDiisi) {
-					if (Common.checkIsNull(Pegawai.class, guru, key)) {
+					if (Common.checkIsNull(Pegawai.class, pegawai, key)) {
 						MyMessageboxConfig.showFormat(
 								"Mohon Bapak/Ibu melengkapi biodata pegawai. Data \"{V1}\" masih belum terisi dengan benar. Langkah yang dapat dilakukan: (1) lengkapi kolom yang dimaksud; (2) pastikan seluruh data wajib terisi dengan benar; (3) simpan kembali data pegawai.",
 								"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
