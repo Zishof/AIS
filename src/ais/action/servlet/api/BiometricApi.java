@@ -326,6 +326,11 @@ public final class BiometricApi {
 			if (member == null) return null;
 			JenisAnggotaKoperasi jenis = member.getJenisAnggotaKoperasi();
 			TipeAnggotaKoperasi tipe = member.getTipeAnggotaKoperasi();
+			java.util.Set metodeDiizinkan = irisanMetodeDiizinkan(
+					jenis == null ? "" : jenis.getDaftarCaraPembayaranYangBolehDiPilih(),
+					tipe == null ? "" : tipe.getDaftarCaraPembayaranYangBolehDiPilih());
+			if (metodeDiizinkan != null && !metodeDiizinkan.containsAll(metodeTerpakai))
+				return "Cara pembayaran tidak diizinkan untuk Jenis/Tipe Member ini. Muat ulang aturan pembayaran.";
 			boolean pin = wajibPinUntukMetode(jenis == null ? Boolean.FALSE : jenis.getWajibPin(),
 					jenis == null ? "" : jenis.getDaftarCaraPembayaranWajibPin(), metodeTerpakai)
 					|| wajibPinUntukMetode(tipe == null ? Boolean.FALSE : tipe.getWajibPin(),
@@ -422,6 +427,35 @@ public final class BiometricApi {
 			if (normal.contains("," + id + ",")) return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Menghasilkan irisan izin Jenis dan Tipe Member. Nilai {@code null}
+	 * berarti kedua aturan belum disetel sehingga metode tidak dibatasi. Daftar
+	 * kosong non-null berarti kedua aturan memang tidak mempunyai irisan.
+	 */
+	private static java.util.Set irisanMetodeDiizinkan(String izinJenis, String izinTipe) {
+		java.util.Set jenis = parseDaftarId(izinJenis);
+		java.util.Set tipe = parseDaftarId(izinTipe);
+		if (jenis.isEmpty() && tipe.isEmpty()) return null;
+		if (jenis.isEmpty()) return tipe;
+		if (tipe.isEmpty()) return jenis;
+		jenis.retainAll(tipe);
+		return jenis;
+	}
+
+	private static java.util.Set parseDaftarId(String csv) {
+		java.util.Set hasil = new java.util.HashSet();
+		if (csv == null) return hasil;
+		String[] bagian = csv.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			try {
+				String nilai = bagian[i].trim();
+				if (!nilai.isEmpty()) hasil.add(Long.valueOf(Long.parseLong(nilai)));
+			} catch (Exception ignored) {
+			}
+		}
+		return hasil;
 	}
 
 	private static boolean deductsBalance(CaraPembayaranKoperasi payment) {
