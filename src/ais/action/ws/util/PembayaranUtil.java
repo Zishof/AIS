@@ -2855,6 +2855,7 @@ public class PembayaranUtil {
 	public Kegiatan simpanPembayaranCalonMahasiswa(BankHost bankHost, JadwalPembayaran jadwalPembayaran,
 			JenisKegiatan jenisKegiatan, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			java.util.Collection<DetailBiaya> detailBiayas, Double amount, String tambahanKode) {
+		Session session = null;
 		try {
 
 			Integer semester = jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId()) ? 0 : 1;
@@ -2874,7 +2875,7 @@ public class PembayaranUtil {
 				kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester, jenisKegiatan);
 			}
 
-			Session session = HibernateUtil.currentNativeSession();
+			session = HibernateUtil.currentNativeSession();
 
 			Double amountTotal = amount;
 			Number jumlahYangSudahDibayar = null;
@@ -3026,8 +3027,6 @@ public class PembayaranUtil {
 				Common.refreshSaveOrUpdate(session, logPembayaran);
 				session.getTransaction().commit();
 			}
-			HibernateUtil.closeSession();
-
 			// System.out.println"================================== Simpan
 			// Pembayaran untuk No registrasi "
 			// + biodataCalonMahasiswa.getNoRegistrasi()
@@ -3043,6 +3042,17 @@ public class PembayaranUtil {
 			// ===================================");
 			Common.tampilErrorJikaAdmin(e);
 			return null;
+		} finally {
+			// Lock-timeout PostgreSQL menandai transaksi sebagai aborted. Selalu rollback
+			// dan buang native session di boundary ini agar PaymentLogic tidak mewarisi
+			// transaksi gagal ketika menyimpan log respons bank.
+			if (session != null) {
+				try { if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "rollback pembayaran calon mahasiswa"); }
+				try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear pembayaran calon mahasiswa"); }
+				try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect pembayaran calon mahasiswa"); }
+				try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close pembayaran calon mahasiswa"); }
+			}
+			HibernateUtil.closeSession();
 		}
 	}
 

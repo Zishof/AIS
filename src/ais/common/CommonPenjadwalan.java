@@ -112,6 +112,15 @@ public class CommonPenjadwalan {
 	/** Memakai lingkup jurusan/program dari jadwal yang sedang ditambah atau diedit. */
 	public static boolean apakahPenjadwalanTidakAktif(String tahunAkademik, String jenisSemester,
 			Integer semesterPendek, Perkuliahan perkuliahan) {
+		if (perkuliahan != null && perkuliahan.getId() != null) {
+			// Form edit dapat menyimpan instance detached. Muat ulang pada currentSession
+			// agar relasi Jurusan/Fakultas lazy tidak diakses dari session yang sudah tutup.
+			Perkuliahan managed = (Perkuliahan) HibernateUtil.currentSession().get(Perkuliahan.class,
+					perkuliahan.getId());
+			if (managed != null) {
+				perkuliahan = managed;
+			}
+		}
 		Jurusan jurusan = perkuliahan == null ? null : perkuliahan.getJurusan();
 		Fakultas fakultas = jurusan == null ? null : jurusan.getFakultas();
 		String program = perkuliahan == null ? null : perkuliahan.getProgram();

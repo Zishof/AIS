@@ -4160,16 +4160,11 @@ public class CommonReportHelper {
 		addData(maps, grup1, "Jenjang", mahasiswa.getJenjang() == null ? "" : mahasiswa.getJenjang().getNama(), "");
 
 		String statusAktif = "";
-		try {
-			statusAktif = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa)
-					.getStatusMahasiswa().getNama();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/CommonReportHelper.java:3705");
-			PesanFormalHelper.tampilkanGagalException("pemrosesan Common Report Helper", "Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh data yang tidak lengkap, parameter/filter yang tidak sesuai, atau gangguan sementara pada sistem.", e,
-				new String[] {
-					"Periksa kembali data/parameter/filter yang Bapak/Ibu masukkan pada layar ini.",
-					"Ulangi kembali proses yang tadi dijalankan beberapa saat lagi.",
-					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-				});
+		ais.database.model.HistoryStatusMahasiswa statusMahasiswa =
+				ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa);
+		if (statusMahasiswa != null && statusMahasiswa.getStatusMahasiswa() != null
+				&& statusMahasiswa.getStatusMahasiswa().getNama() != null) {
+			statusAktif = statusMahasiswa.getStatusMahasiswa().getNama();
 		}
 		addData(maps, grup1, "Status Mahasiswa", statusAktif, "");
 

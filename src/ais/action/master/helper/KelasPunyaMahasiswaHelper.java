@@ -525,13 +525,21 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 										krsMahasiswa.setKelas(kelas.getNama());
 										krsMahasiswaSp.setKelas(kelas.getNama());
 
-										Session session = HibernateUtil.currentNativeSession();
-										session.getTransaction().begin();
-										Common.refreshUpdate(session, krsMahasiswa);
-										Common.refreshUpdate(session, krsMahasiswaSp);
-										session.getTransaction().commit();
-
-										HibernateUtil.closeSession();
+										Session session = null;
+										try {
+											session = HibernateUtil.openSession();
+											session.getTransaction().begin();
+											Common.refreshUpdate(session, krsMahasiswa);
+											Common.refreshUpdate(session, krsMahasiswaSp);
+											session.getTransaction().commit();
+										} finally {
+											if (session != null) {
+												try { if (session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "rollback sinkronisasi kelas"); }
+												try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear sinkronisasi kelas"); }
+												try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect sinkronisasi kelas"); }
+												try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close sinkronisasi kelas"); }
+											}
+										}
 
 									}
 
@@ -540,7 +548,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 								mahasiswas.clear();
 								label.setValue("");
 															} finally {
-									ais.database.hibernate.HibernateUtil.closeSession();
+										// Semua session worker ditutup per transaksi pada blok di atas.
 								}
 							}
 						}).start();
@@ -707,6 +715,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 			@Override
 			public void run() {
+				Session session = null;
 				try {
 
 				try {
@@ -714,7 +723,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -773,11 +782,13 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/KelasPunyaMahasiswaHelper.java:729");
 				}
 
-				HibernateUtil.closeSession();
-
 				label.setValue("");
 							} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
+					if (session != null) {
+						try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear upload kelas"); }
+						try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect upload kelas"); }
+						try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close upload kelas"); }
+					}
 				}
 			}
 		}).start();

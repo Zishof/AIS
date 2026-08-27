@@ -21,6 +21,8 @@ import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
 import org.zkoss.zk.ui.Sessions;
+import org.zkoss.zk.ui.Desktop;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.Borderlayout;
@@ -421,6 +423,8 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, gridHost, sizedata);
+		final Desktop desktop = Executions.getCurrent().getDesktop();
+		desktop.enableServerPush(true);
 
 		new Thread(new Runnable() {
 
@@ -453,7 +457,7 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 				Session session = null;
 				List<Kegiatan> kegiatans = null;
 				try {
-					session = HibernateUtil.currentNativeSession();
+					session = HibernateUtil.openSession();
 
 					kegiatans = session.createCriteria(Kegiatan.class).add(Restrictions.eq("aktif", true))
 						.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
@@ -531,7 +535,7 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 
 					try {
 
-						label.setValue("Sedang memproses data " + kegiatan.toString() + " ("
+						setNilaiLabelWorker(desktop, label, "Sedang memproses data " + kegiatan.toString() + " ("
 								+ Common.numberFormat.get().format(rowIndexMhs * 100.0 / size) + " %)");
 						rowIndexMhs++;
 
@@ -724,8 +728,15 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 				// dihitung di loop di atas. Kegagalan menggambar grafik tidak boleh mengganggu
 				// Excel/grid yang sudah berhasil ditulis. --
 				try {
-					renderChartRingkasan(chartPanel, totalTagihan, totalDibayar, totalTunggakan, jumlahLunas,
-							jumlahBelumLunas, tunggakanPerJenis, rekapPerSemester);
+					boolean aktifDesktop = false;
+					try {
+						Executions.activate(desktop);
+						aktifDesktop = true;
+						renderChartRingkasan(chartPanel, totalTagihan, totalDibayar, totalTunggakan, jumlahLunas,
+								jumlahBelumLunas, tunggakanPerJenis, rekapPerSemester);
+					} finally {
+						if (aktifDesktop) Executions.deactivate(desktop);
+					}
 				} catch (Exception exChart) {
 					ais.common.ErrorAuditUtil.record(exChart,
 							"auto-guard(chart) src/ais/action/master/dashboard/keuangan/DashboardRekapTunggakanMahasiswa.java");
@@ -735,11 +746,9 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 					Common.tampilErrorJikaAdmin(e);
 				} finally {
 					if (session != null) {
-						try {
-							HibernateUtil.closeSession();
-						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
-						}
+						try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear rekap tunggakan"); }
+						try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect rekap tunggakan"); }
+						try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close rekap tunggakan"); }
 					}
 					if (kegiatans != null) {
 						try {
@@ -749,7 +758,7 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 						}
 					}
 					try {
-						label.setValue("");
+						setNilaiLabelWorker(desktop, label, "");
 					} catch (Exception e) {
 						Common.tampilErrorJikaAdmin(e);
 					}
@@ -757,6 +766,25 @@ public class DashboardRekapTunggakanMahasiswa extends MyWindow {
 			}
 		}).start();
 
+	}
+
+	/** Memutakhirkan komponen ZK dari worker dengan mengaktifkan Desktop secara singkat. */
+	private static void setNilaiLabelWorker(Desktop desktop, Label label, String nilai) {
+		boolean aktifDesktop = false;
+		try {
+			if (desktop == null || !desktop.isAlive()) return;
+			Executions.activate(desktop);
+			aktifDesktop = true;
+			label.setValue(nilai == null ? "" : nilai);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "update progress DashboardRekapTunggakanMahasiswa");
+		} finally {
+			if (aktifDesktop) {
+				try { Executions.deactivate(desktop); } catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "deactivate DashboardRekapTunggakanMahasiswa");
+				}
+			}
+		}
 	}
 
 	/**

@@ -306,21 +306,31 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
+										Session session = null;
+										org.hibernate.Transaction transaksi = null;
 										try {
-											Session session = HibernateUtil.currentSession();
-
+											session = HibernateUtil.openSession();
+											transaksi = session.beginTransaction();
+											session.createSQLQuery("SET LOCAL lock_timeout = '60s'").executeUpdate();
 											session.createSQLQuery(
-													"delete from biodata_calon_mahasiswa where upload_biodata_calon_mahasiswa = "
-															+ uploadBiodataCalonMahasiswa.getId())
-													.executeUpdate();
-
-											Common.refreshDelete(session, uploadBiodataCalonMahasiswa);
+													"delete from biodata_calon_mahasiswa where upload_biodata_calon_mahasiswa=:id")
+													.setLong("id", uploadBiodataCalonMahasiswa.getId().longValue()).executeUpdate();
+											session.createSQLQuery("delete from upload_biodata_calon_mahasiswa where id=:id")
+													.setLong("id", uploadBiodataCalonMahasiswa.getId().longValue()).executeUpdate();
+											transaksi.commit();
 											onSearchDefault(event);
 										} catch (Exception e) {
+											try { if (transaksi != null && transaksi.isActive()) transaksi.rollback(); } catch (Exception re) { ais.common.ErrorAuditUtil.record(re, "rollback hapus upload calon mahasiswa"); }
 											Common.tampilErrorJikaAdmin(e);
 											MyMessageboxConfig.show(
 													"Data ini tidak dapat dihapus .., karena berelasi dengan data lainnya, error-nya adalah sbagai berikut:"
 															+ e.getMessage());
+										} finally {
+											if (session != null) {
+												try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear hapus upload calon mahasiswa"); }
+												try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect hapus upload calon mahasiswa"); }
+												try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close hapus upload calon mahasiswa"); }
+											}
 										}
 
 									}

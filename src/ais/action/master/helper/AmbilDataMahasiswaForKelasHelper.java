@@ -316,6 +316,9 @@ public class AmbilDataMahasiswaForKelasHelper {
 				for (Row row : rows) {
 					try {
 						MyCheckboxConfig myCheckbox = (MyCheckboxConfig) row.getAttribute("checkbox");
+						if (myCheckbox == null) {
+							continue;
+						}
 						myCheckbox.setChecked(!myCheckbox.isDisabled() && checkbox.isChecked());
 
 						if (myCheckbox.isDisabled()) {

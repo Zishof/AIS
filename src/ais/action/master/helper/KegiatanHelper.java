@@ -318,6 +318,9 @@ public class KegiatanHelper {
 				tx.commit();
 			}
 		} catch (Exception e) {
+			boolean staleRowHilang = isStaleState(e) && entity instanceof Kegiatan
+					&& ((Kegiatan) entity).getId() != null
+					&& !kegiatanMasihAda(((Kegiatan) entity).getId());
 			// KE-19 ("current transaction is aborted, commands ignored until end of transaction
 			// block" / SQLState 25P02): begitu sebuah statement GAGAL di PostgreSQL (di sini
 			// flush() kena 55P03 "canceling statement due to lock timeout" saat update baris
@@ -345,6 +348,11 @@ public class KegiatanHelper {
 				pulihkanTransaksiTerabort(session, tx);
 			}
 			try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:253");}
+			// Recalculation dan reversal dapat beradu: bila baris Kegiatan memang sudah
+			// dihapus transaksi lain, row-count 0 adalah hasil idempoten, bukan kegagalan.
+			if (staleRowHilang) {
+				return;
+			}
 			// Lock timeout (PostgreSQL 55P03: "canceling statement due to lock timeout") = kontensi
 			// sesaat pada baris. Statement timeout (57014) sering muncul ketika update menunggu
 			// lock lebih lama dari batas database. Deadlock (40P01: "deadlock detected") terjadi saat
@@ -648,6 +656,28 @@ public class KegiatanHelper {
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:369");
 			}
+		}
+	}
+
+	private static boolean isStaleState(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			if (current instanceof org.hibernate.StaleStateException
+					|| current instanceof org.hibernate.StaleObjectStateException) return true;
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private static boolean kegiatanMasihAda(Long id) {
+		Session cek = null;
+		try {
+			cek = openIsolatedSession();
+			return cek.get(Kegiatan.class, id) != null;
+		} catch (Exception e) {
+			return true;
+		} finally {
+			closeOpenedSessionQuietly(cek);
 		}
 	}
 

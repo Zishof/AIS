@@ -1813,8 +1813,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 		for (Map r : rincianList) {
 			String cpmk = rpsHs(r, "capaian.kode");
 			String sub = normalizeSubCpmkKode(rpsHs(r, "kode"));
-			String key = rpsHs(r, "key");
-			if (key.length() == 0) key = cpmk + "|" + sub.toLowerCase();
+			String keyData = rpsHs(r, "key");
+			String key = cpmk + "|" + (keyData.length() == 0 ? sub.toLowerCase() : keyData);
 			String metode = rpsHs(r, "pembelajaranLuring");
 			String daring = rpsHs(r, "pembelajaranDaring");
 			if (daring.length() > 0) metode = rpsGabungUnik(metode, daring);
@@ -6188,6 +6188,30 @@ public class RpsObeAction extends GenericAutowireComposer {
 	}
 
 	/**
+	 * Mengambil JSON array dari jawaban AI tanpa membiarkan respons terpotong atau
+	 * JSON tidak valid menjadi error global ZK. Respons AI adalah input eksternal dan
+	 * sesekali memuat teks tambahan/escape yang tidak lengkap; pengguna diminta
+	 * mengulang generate sementara data RPS lama tidak diubah.
+	 */
+	private static JSONArray parseArrayJawabanAi(String response) throws Exception {
+		String value = response == null ? "" : response.trim();
+		int awal = value.indexOf('[');
+		int akhir = value.lastIndexOf(']');
+		if (awal < 0 || akhir <= awal) {
+			MyMessageboxConfig.show("Jawaban AI belum menghasilkan JSON yang lengkap. Silakan ulangi Generate.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
+		try {
+			return new JSONArray(value.substring(awal, akhir + 1));
+		} catch (Exception e) {
+			MyMessageboxConfig.show("Format jawaban AI tidak valid atau terpotong. Data lama tidak diubah; silakan ulangi Generate.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
+	}
+
+	/**
 	 * Popup Generate AI untuk Rincian/Agenda: tanya jumlah pertemuan (default 16 − minggu terisi) + catatan
 	 * opsional; AI memetakan Sub-CPMK &amp; mengisi tiap pertemuan (indikator, teknik, metode, luring, daring,
 	 * bahan kajian, pustaka), lalu disimpan ke kurikulumPunyaMatakuliah.getRincian().
@@ -6359,12 +6383,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 						new HasilAiListener() {
 							@Override
 							public void selesai(String resp) throws Exception {
-								int a = resp.indexOf('[');
-								int b = resp.lastIndexOf(']');
-								if (a < 0 || b <= a) {
-									return;
-								}
-								org.json.JSONArray arr = new org.json.JSONArray(resp.substring(a, b + 1));
+								org.json.JSONArray arr = parseArrayJawabanAi(resp);
+								if (arr == null) return;
 								int dibuat = 0;
 								for (int i = 0; i < arr.length(); i++) {
 									JSONObject o = arr.optJSONObject(i);
@@ -7930,12 +7950,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 								new HasilAiListener() {
 									@Override
 									public void selesai(String resp) throws Exception {
-										int a = resp.indexOf('[');
-										int b = resp.lastIndexOf(']');
-										if (a < 0 || b <= a) {
-											return;
-										}
-										JSONArray arr = new JSONArray(resp.substring(a, b + 1));
+										JSONArray arr = parseArrayJawabanAi(resp);
+										if (arr == null) return;
 										for (int i = 0; i < arr.length(); i++) {
 											JSONObject o = arr.optJSONObject(i);
 											if (o == null) {

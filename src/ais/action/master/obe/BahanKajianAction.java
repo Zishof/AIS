@@ -256,7 +256,16 @@ public class BahanKajianAction extends ObeBaseAction {
         for (String d : csv.split(",")) {
             try {
                 if (!d.trim().isEmpty()) {
-                    Long id = Long.parseLong(d.trim());
+                    String token = d.trim();
+                    // Formula OBE lama dapat menyimpan key berbentuk "urutan_id"
+                    // (contoh 8_23971), sedangkan versi baru menyimpan ID saja.
+                    int pemisah = token.lastIndexOf('_');
+                    if (pemisah >= 0 && pemisah < token.length() - 1) {
+                        String kandidatId = token.substring(pemisah + 1).trim();
+                        if (Common.isNumber(kandidatId)) token = kandidatId;
+                    }
+                    if (!Common.isNumber(token)) continue;
+                    Long id = Long.parseLong(token);
                     Object entity = ConstantValues.ambil(entityClass.getName(), id);
                     if (entity != null) {
                         try {

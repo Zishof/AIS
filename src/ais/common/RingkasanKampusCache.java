@@ -267,10 +267,16 @@ public final class RingkasanKampusCache {
 		for (int i = 0; i < ids.size(); i += batchSize) {
 			List<Long> chunk = new ArrayList<Long>(ids.subList(i, Math.min(i + batchSize, ids.size())));
 			List<Mahasiswa> batch;
+			Session batchSession = null;
 			try {
-				batch = session.createCriteria(Mahasiswa.class).add(Restrictions.in("id", chunk)).list();
+				// Satu session panjang pernah mengalami ConcurrentModificationException
+				// pada persistenceContext.clear() karena currentStatus memuat relasi tambahan.
+				// Isolasi setiap batch supaya L1 cache kecil dan hanya dimiliki worker ini.
+				batchSession = HibernateUtil.openSession();
+				batch = batchSession.createCriteria(Mahasiswa.class).add(Restrictions.in("id", chunk)).list();
 			} catch (Throwable t) {
 				progressProses += chunk.size();
+				closeBatchSession(batchSession);
 				continue;
 			}
 			for (Mahasiswa m : batch) {
@@ -308,12 +314,16 @@ public final class RingkasanKampusCache {
 				}
 			}
 			// Lepas batch dari L1 agar memori tetap rendah (puluhan ribu mahasiswa).
-			try {
-				session.clear();
-			} catch (Throwable ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:313");
-			}
+			closeBatchSession(batchSession);
 			progressProses += chunk.size();
 		}
+	}
+
+	private static void closeBatchSession(Session session) {
+		if (session == null) return;
+		try { session.clear(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "clear batch ringkasan kampus"); }
+		try { if (session.isConnected()) session.disconnect(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "disconnect batch ringkasan kampus"); }
+		try { if (session.isOpen()) session.close(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "close batch ringkasan kampus"); }
 	}
 
 	/** Dosen yang MENGAJAR (punya jadwal perkuliahan) per jurusan pada TA. */

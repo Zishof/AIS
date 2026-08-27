@@ -2475,7 +2475,8 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 								rowPilih.appendChild(bobotCell);
 								bobotN.setParent(bobotCell);
 								// Inline summary: "Lainnya: Y% · Total: Z%"
-								if (subCpmkDipilih) try {
+								if (subCpmkDipilih) {
+									try {
 									double currentBobot = jsonObject.isNull(nilai.getId().toString() + "_bobot") ? 100.0
 											: jsonObject.optDouble(nilai.getId().toString() + "_bobot", 100.0);
 									String infoBobot = buildInfoBobotInline(pertemuanPunyaUjian, nilai,
@@ -2483,9 +2484,10 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 									if (infoBobot != null) {
 										new ais.ui.util.MyHtml(infoBobot).setParent(bobotCell);
 									}
-								} catch (Exception eBobotInfo) {
-									ais.common.ErrorAuditUtil.record(eBobotInfo,
+									} catch (Exception eBobotInfo) {
+										ais.common.ErrorAuditUtil.record(eBobotInfo,
 											"auto-audit(empty-catch) src/ais/action/master/helper/PertemuanPunyaUjianHelper.java:buildInfoBobotInline");
+									}
 								}
 
 								doubleboxBobot.setDisabled(!radio.isChecked());
