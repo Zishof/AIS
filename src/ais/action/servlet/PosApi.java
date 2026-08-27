@@ -673,6 +673,14 @@ public class PosApi extends HttpServlet {
 			} else if ("anggota_simpan".equals(action)) {
 				KantinHelper.anggotaSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_simpan");
+			} else if ("anggota_pin_simpan_massal".equals(action)) {
+				if (!bolehSupervisorAtauAdmin(tbmuser)) {
+					hasil.put("status", "error");
+					hasil.put("message", "Hanya supervisor atau administrator yang boleh mengganti PIN member.");
+				} else {
+					KantinHelper.anggotaPinSimpanMassal(payload, hasil);
+					normalisasiStatusKantinHelper(hasil, "anggota_pin_simpan_massal");
+				}
 			} else if ("anggota_simpan_cepat".equals(action)) {
 				KantinHelper.anggotaSimpanCepat(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_simpan_cepat");

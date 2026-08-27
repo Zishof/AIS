@@ -6519,6 +6519,93 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Mengganti PIN satu atau banyak member secara aman. Nilai PIN hanya diterima
+	 * sebagai input, langsung diubah menjadi PBKDF2+salt oleh
+	 * {@link AnggotaKoperasi#aturPinAman(String)}, dan tidak pernah dimasukkan ke
+	 * respons. Gerbang supervisor/admin ditegakkan oleh {@code PosApi} sebelum
+	 * method ini dipanggil.
+	 *
+	 * <p>Payload: {@code data:[{id|kode,pin}]}. Seluruh baris divalidasi dahulu
+	 * lalu disimpan dalam satu transaksi; satu baris salah membatalkan semuanya,
+	 * sehingga unggahan Excel tidak menghasilkan keadaan setengah jadi.</p>
+	 */
+	public static void anggotaPinSimpanMassal(JSONObject request, JSONObject hasil) throws Exception {
+		JSONArray data = request.optJSONArray("data");
+		if (data == null || data.length() == 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Daftar PIN member tidak boleh kosong.");
+			return;
+		}
+		if (data.length() > 5000) {
+			hasil.put("status", "91");
+			hasil.put("description", "Maksimal 5.000 member dalam satu unggahan.");
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.util.List<AnggotaKoperasi> anggota = new java.util.ArrayList<AnggotaKoperasi>();
+			java.util.List<String> pinBaru = new java.util.ArrayList<String>();
+			java.util.Set<Long> idUnik = new java.util.HashSet<Long>();
+			for (int i = 0; i < data.length(); i++) {
+				JSONObject baris = data.optJSONObject(i);
+				if (baris == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Baris " + (i + 1) + " bukan objek yang valid.");
+					return;
+				}
+				String pin = baris.optString("pin", "").trim();
+				if (!pin.matches("[0-9]{4,8}")) {
+					hasil.put("status", "91");
+					hasil.put("description", "Baris " + (i + 1) + ": PIN wajib terdiri dari 4 sampai 8 angka.");
+					return;
+				}
+				AnggotaKoperasi a = null;
+				Long id = ais.common.Common.angkaAtauNull(baris, "id");
+				if (id != null) a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, id);
+				if (a == null) {
+					String kode = baris.optString("kode", "").trim();
+					if (!kode.isEmpty()) {
+						@SuppressWarnings("unchecked")
+						java.util.List<AnggotaKoperasi> cocok = session.createCriteria(AnggotaKoperasi.class)
+								.add(Restrictions.eq("kode", kode)).setMaxResults(2).list();
+						if (cocok.size() == 1) a = cocok.get(0);
+					}
+				}
+				if (a == null || a.getId() == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Baris " + (i + 1) + ": member tidak ditemukan.");
+					return;
+				}
+				if (!idUnik.add(a.getId())) {
+					hasil.put("status", "91");
+					hasil.put("description", "Member " + a.getKode() + " muncul lebih dari satu kali.");
+					return;
+				}
+				anggota.add(a);
+				pinBaru.add(pin);
+			}
+
+			session.beginTransaction();
+			for (int i = 0; i < anggota.size(); i++) {
+				AnggotaKoperasi a = anggota.get(i);
+				a.aturPinAman(pinBaru.get(i));
+				session.saveOrUpdate(a);
+			}
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("jumlah", anggota.size());
+			hasil.put("description", anggota.size() + " PIN member berhasil diperbarui secara aman.");
+		} catch (Exception e) {
+			if (session.getTransaction() != null && session.getTransaction().isActive())
+				session.getTransaction().rollback();
+			throw e;
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * Daftar/pencarian anggota koperasi (paginasi) -- sisi "list" dari layar "Customer/Anggota"
 	 * Desktop, lihat JavaDoc {@link #anggotaSimpan} soal cakupan fitur ini.
 	 *
@@ -6554,7 +6641,8 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT a.id, a.nama, a.kode, COALESCE(a.kode_identitas,''), COALESCE(a.hp,''), COALESCE(a.aktif,true), COALESCE(j.nama,'-'), "
 							+ "COALESCE(a.telp,''), COALESCE(a.email_nasabah,''), COALESCE(a.keterangan,''), a.jenis_anggota_koperasi, "
-							+ "a.tipe_anggota_koperasi, COALESCE(t.nama,'-'), a.tanggal_kadaluarsa, COALESCE(a.userid,'') "
+							+ "a.tipe_anggota_koperasi, COALESCE(t.nama,'-'), a.tanggal_kadaluarsa, COALESCE(a.userid,''), "
+							+ "((a.pin_hash IS NOT NULL AND a.pin_salt IS NOT NULL) OR a.pin IS NOT NULL) "
 							+ "FROM koperasi.anggota_koperasi a LEFT JOIN koperasi.jenis_anggota_koperasi j ON a.jenis_anggota_koperasi = j.id "
 							+ "LEFT JOIN koperasi.tipe_anggota_koperasi t ON a.tipe_anggota_koperasi = t.id "
 							+ "WHERE 1=1" + andKw + " ORDER BY a.nama ASC LIMIT ? OFFSET ?");
@@ -6590,6 +6678,7 @@ public class KantinHelper {
 				java.sql.Date tglKadaluarsaRow = rs.getDate(14);
 				j.put("tanggalKadaluarsa", tglKadaluarsaRow == null ? JSONObject.NULL : sdfTglAl.format(tglKadaluarsaRow));
 				j.put("userid", rs.getString(15));
+				j.put("pinSudahDiatur", rs.getBoolean(16));
 				arr.put(j);
 			}
 			rs.close();
@@ -6682,6 +6771,7 @@ public class KantinHelper {
 				j.put("jenisNama", jenis == null ? "-" : jenis.getNama());
 				j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
 						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
+				j.put("pinSudahDiatur", a.getPinSudahDiatur());
 				j.put("wajibBiometricWajah", (jenis != null
 						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricWajah()))
 						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricWajah())));
