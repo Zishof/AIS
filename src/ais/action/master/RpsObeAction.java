@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1008,6 +1009,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				Map map = new HashMap();
 				Common.insertProperty(CapaianPembelajaranLulusan.class, capaianPembelajaranLulusan, map, "");
 				capaianPembelajaranLulusansD.add(map);
+				int indexCpmkPemilik = capaianPembelajaranLulusansD.size();
 
 				Common.insertProperty(CapaianPembelajaranLulusan.class, capaianPembelajaranLulusan, parameters,
 						"capaianPembelajaranLulusan_" + capaianPembelajaranLulusan.getId());
@@ -1035,6 +1037,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 					map1.put("kode", kode);
 					map1.put("nama", nama);
 					map1.put("bobot", bobot);
+					map1.put("capaian.kode", capaianPembelajaranLulusan.getKode());
+					map1.put("capaian.id", capaianPembelajaranLulusan.getId());
+					// Data formula lama hanya menyimpan bobot total Sub-CPMK. Layar pengaturan
+					// selama ini menampilkan bobot tersebut sebagai korelasi default ke CPMK
+					// pemilik, tetapi tidak selalu menyimpannya kembali. Samakan sumber data
+					// cetak dengan perilaku layar tanpa menimpa korelasi eksplisit pengguna.
+					String keyBobotPemilik = "bobot_index_" + indexCpmkPemilik;
+					if (!jsonObject.has(keyBobotPemilik)) {
+						map1.put(keyBobotPemilik, bobot);
+					}
 					subCpmkD.add(map1);
 				}
 			}
@@ -1775,23 +1787,60 @@ public class RpsObeAction extends GenericAutowireComposer {
 	 * tiap Sub-CPMK dengan CPMK, metode pembelajaran, bentuk penilaian, dan
 	 * bobotnya. Dibangun dari data rincian mingguan yang sudah diisi.
 	 */
+	private static String rpsGabungUnik(String awal, String tambahan) {
+		String hasil = awal == null ? "" : awal.trim();
+		String baru = tambahan == null ? "" : tambahan.trim();
+		if (baru.length() == 0) return hasil;
+		if (hasil.length() == 0) return baru;
+		String[] bagian = hasil.split("\\s*;\\s*");
+		for (int i = 0; i < bagian.length; i++) {
+			if (bagian[i].trim().equalsIgnoreCase(baru)) return hasil;
+		}
+		return hasil + "; " + baru;
+	}
+
 	private static String rpsAsesmenMatrix(java.util.List<Map> rincianList) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div class='tbl-scroll'><table class='t-main t-matriks'><thead><tr class='tr-head'>");
 		sb.append("<th style='width:4%'>No</th><th style='width:10%'>CPMK</th><th style='width:13%'>Sub-CPMK</th>");
 		sb.append("<th>Metode Pembelajaran</th><th>Bentuk Penilaian</th><th style='width:8%'>Bobot (%)</th></tr></thead><tbody>");
-		int no = 0;
-		double total = 0;
+
+		// Satu Sub-CPMK dapat muncul beberapa kali di rincian (misalnya satu baris
+		// perkuliahan dan satu baris ujian). Bobotnya adalah bobot CAPAIAN, bukan
+		// bobot setiap kegiatan. Gabungkan kegiatan/asesmennya dan hitung bobot
+		// Sub-CPMK hanya sekali agar total cetak tetap 100%.
+		LinkedHashMap<String, Object[]> barisPerSubCpmk = new LinkedHashMap<String, Object[]>();
 		for (Map r : rincianList) {
-			no++;
 			String cpmk = rpsHs(r, "capaian.kode");
 			String sub = normalizeSubCpmkKode(rpsHs(r, "kode"));
+			String key = rpsHs(r, "key");
+			if (key.length() == 0) key = cpmk + "|" + sub.toLowerCase();
 			String metode = rpsHs(r, "pembelajaranLuring");
 			String daring = rpsHs(r, "pembelajaranDaring");
-			if (daring.length() > 0) metode = metode.length() > 0 ? metode + "; " + daring : daring;
+			if (daring.length() > 0) metode = rpsGabungUnik(metode, daring);
 			String bentuk = rpsHs(r, "teknikDanKriteria");
-			Object bobRaw = r.get("bobot");
-			double bob = rpsAsDouble(bobRaw, 0);
+			double bob = rpsAsDouble(r.get("bobot"), 0);
+
+			Object[] data = barisPerSubCpmk.get(key);
+			if (data == null) {
+				barisPerSubCpmk.put(key, new Object[] { cpmk, sub, metode, bentuk, Double.valueOf(bob) });
+			} else {
+				if (((String) data[0]).length() == 0 && cpmk.length() > 0) data[0] = cpmk;
+				data[2] = rpsGabungUnik((String) data[2], metode);
+				data[3] = rpsGabungUnik((String) data[3], bentuk);
+				if (((Double) data[4]).doubleValue() <= 0 && bob > 0) data[4] = Double.valueOf(bob);
+			}
+		}
+
+		int no = 0;
+		double total = 0;
+		for (Object[] data : barisPerSubCpmk.values()) {
+			no++;
+			String cpmk = (String) data[0];
+			String sub = (String) data[1];
+			String metode = (String) data[2];
+			String bentuk = (String) data[3];
+			double bob = ((Double) data[4]).doubleValue();
 			total += bob;
 			sb.append("<tr>");
 			sb.append("<td class='tc'>").append(no).append("</td>");

@@ -2929,6 +2929,9 @@ public class AktifitasPerkuliahanHelper {
 			}
 			boolean mobile = Common.isMobile();
 			for (Long pertemuanid : pertemuans) {
+				if (pertemuanid == null) {
+					continue;
+				}
 				Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, pertemuanid.toString());
 				if (pertemuan != null) {
 

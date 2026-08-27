@@ -131,6 +131,13 @@ public class LibraryCatalogSearchService {
                 + "where lower(trim(nama)) in ('terbit','publish','published'))"));
         LibraryScopeResolver.restrict(criteria);
 
+        /* Hibernate 3 melarang satu association path dibuat lebih dari sekali walaupun
+         * aliasnya berbeda. Penerbit dapat dipakai sekaligus oleh pencarian umum,
+         * advanced search, dan facet; buat tepat satu alias yang dipakai bersama. */
+        boolean perluAliasPenerbit = (request.getQuery() != null
+                && "PUBLISHER".equals(request.getSearchField())) || request.getPublisher() != null;
+        if (perluAliasPenerbit) criteria.createAlias("penerbit", "publisher", Criteria.LEFT_JOIN);
+
         if (request.getQuery() != null) {
             String value = request.getQuery();
             String field = request.getSearchField();
@@ -138,7 +145,7 @@ public class LibraryCatalogSearchService {
             else if ("AUTHOR".equals(field)) criteria.add(Restrictions.ilike("pengarangs", value, MatchMode.ANYWHERE));
             else if ("ISBN".equals(field)) criteria.add(Restrictions.or(Restrictions.ilike("isbn", value, MatchMode.ANYWHERE), Restrictions.ilike("issn", value, MatchMode.ANYWHERE)));
             else if ("SUBJECT".equals(field)) criteria.add(Restrictions.or(Restrictions.ilike("kategories", value, MatchMode.ANYWHERE), Restrictions.ilike("tema", value, MatchMode.ANYWHERE)));
-            else if ("PUBLISHER".equals(field)) { criteria.createAlias("penerbit", "searchPublisher", Criteria.LEFT_JOIN); criteria.add(Restrictions.ilike("searchPublisher.nama", value, MatchMode.ANYWHERE)); }
+            else if ("PUBLISHER".equals(field)) criteria.add(Restrictions.ilike("publisher.nama", value, MatchMode.ANYWHERE));
             else if ("CALL_NUMBER".equals(field)) criteria.add(Restrictions.ilike("callnumber", value, MatchMode.ANYWHERE));
             else if ("BARCODE".equals(field)) criteria.add(Restrictions.sqlRestriction("{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)", "%" + value.toLowerCase() + "%", Hibernate.STRING));
             else {
@@ -151,7 +158,7 @@ public class LibraryCatalogSearchService {
             Criterion any = null;
             if (request.getTitle() != null) any = or(any, Restrictions.ilike("nama", request.getTitle(), MatchMode.ANYWHERE));
             if (request.getAuthor() != null) any = or(any, Restrictions.ilike("pengarangs", request.getAuthor(), MatchMode.ANYWHERE));
-            if (request.getPublisher() != null) { criteria.createAlias("penerbit", "anyPublisher", Criteria.LEFT_JOIN); any = or(any, Restrictions.ilike("anyPublisher.nama", request.getPublisher(), MatchMode.ANYWHERE)); }
+            if (request.getPublisher() != null) any = or(any, Restrictions.ilike("publisher.nama", request.getPublisher(), MatchMode.ANYWHERE));
             if (request.getSubject() != null) any = or(any, Restrictions.or(Restrictions.ilike("kategories", request.getSubject(), MatchMode.ANYWHERE), Restrictions.ilike("tema", request.getSubject(), MatchMode.ANYWHERE)));
             if (request.getNotes() != null) any = or(any, Restrictions.or(Restrictions.ilike("abstrak", request.getNotes(), MatchMode.ANYWHERE), Restrictions.ilike("kewords", request.getNotes(), MatchMode.ANYWHERE)));
             if (request.getCallNumber() != null) any = or(any, Restrictions.ilike("callnumber", request.getCallNumber(), MatchMode.ANYWHERE));
@@ -188,7 +195,6 @@ public class LibraryCatalogSearchService {
                 "{alias}.id in (select item from library.item_punya_barcode where lower(barcode) like ?)",
                 "%" + request.getBarcode().toLowerCase() + "%", Hibernate.STRING));
         if (!"ANY".equals(request.getMatchMode()) && request.getPublisher() != null) {
-            criteria.createAlias("penerbit", "publisher", Criteria.LEFT_JOIN);
             criteria.add(Restrictions.ilike("publisher.nama", request.getPublisher(), MatchMode.ANYWHERE));
         }
         if (request.getItemTypeId() != null) criteria.add(Restrictions.eq("jenisItem.id", request.getItemTypeId()));

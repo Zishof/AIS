@@ -911,7 +911,13 @@ public class PendaftaranCutiMahasiswaAction extends GenericAutowireComposer
 		pendaftaranCutiMahasiswa.setTahunAkademik((String) tahunAkademik.getSelectedItem().getValue());
 		pendaftaranCutiMahasiswa.setGanjilGenap((String) ganjilGenap.getSelectedItem().getValue());
 		pendaftaranCutiMahasiswa.setMahasiswa((Mahasiswa) mahasiswa.getAttribute("mahasiswa"));
-		pendaftaranCutiMahasiswa.setKeterangan(keterangan.getValue());
+		String keteranganCuti = keterangan.getValue();
+		// Skema instalasi lama masih memakai varchar(255). Batasi di boundary form
+		// agar permohonan tetap tersimpan dan tidak menggagalkan transaksi lain.
+		if (keteranganCuti != null && keteranganCuti.length() > 255) {
+			keteranganCuti = keteranganCuti.substring(0, 255);
+		}
+		pendaftaranCutiMahasiswa.setKeterangan(keteranganCuti);
 		pendaftaranCutiMahasiswa.setTanggal(tanggal.getValue());
 		pendaftaranCutiMahasiswa.setTahap((Integer) (tahap == null || tahap.getSelectedItem() == null ? null
 				: tahap.getSelectedItem().getValue()));

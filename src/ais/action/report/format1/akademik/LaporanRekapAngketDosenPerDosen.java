@@ -584,7 +584,7 @@ public class LaporanRekapAngketDosenPerDosen extends MyWindow {
 						ais.action.report.helper.LoadingReportUtil.clearBusy();
 						excelku = new ais.ui.util.MySpreadsheet();
 						Common.clear(center);
-						center.appendChild(excelku);
+						excelku.setParent(center);
 						EcampusUtil.tampilkan(datas, excelku, false);
 						// Tampilkan sebagai grid ringan; Excel tetap utuh saat tombol Download diklik.
 						ais.ui.util.PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(excelku);

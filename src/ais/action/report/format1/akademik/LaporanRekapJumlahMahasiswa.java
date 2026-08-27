@@ -689,6 +689,10 @@ public class LaporanRekapJumlahMahasiswa extends MyWindow {
 
 											HistoryStatusMahasiswa historyStatusMahasiswa = Common
 													.currentStatus(mahasiswa, tahunAkademik, smt);
+											if (historyStatusMahasiswa == null
+													|| historyStatusMahasiswa.getStatusMahasiswa() == null) {
+												continue;
+											}
 
 											Integer aktif_lk = (Integer) map.get("aktif_lk");
 											if (aktif_lk == null) {

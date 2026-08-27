@@ -2852,7 +2852,7 @@ public class LinimasaApi {
 				}
 
 				if (!cari.isEmpty()) {
-					where = where + " and real_file ilike '%" + cari + "%' ";
+					where = where + " and nama ilike '%" + cari + "%' ";
 				}
 
 				String sql = "select count(*) as size from video_pertemuan a where " + where + ";";
@@ -3191,7 +3191,7 @@ public class LinimasaApi {
 				}
 
 				if (!cari.isEmpty()) {
-					where = where + " and real_file ilike '%" + cari + "%' ";
+					where = where + " and nama ilike '%" + cari + "%' ";
 				}
 
 				String sql = "select count(*) as size from audio_pertemuan a where " + where + ";";

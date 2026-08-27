@@ -252,15 +252,18 @@ public final class KantinMemberApi {
             AnggotaKoperasi anggota = new AnggotaKoperasi();
             anggota.setAktif(true);
 
-            if (user != null) {
+			if (user != null) {
                 // Path normal: Tbmuser ada di database
                 anggota.setTbmuser(user);
                 anggota.setMahasiswa(user.getMahasiswa());
                 anggota.setSiswa(user.getSiswa());
                 anggota.setGuru(user.getGuru());
                 anggota.setDosen(user.getDosen());
-                anggota.setPegawai(user.getPegawai());
-                anggota.setUserid(user.getUserId());
+				anggota.setPegawai(user.getPegawai());
+				if (user.getMahasiswa() != null) {
+					s.setReadOnly(user.getMahasiswa(), true);
+				}
+				anggota.setUserid(user.getUserId());
                 try {
                     anggota.setPass(Common.desEncrypter.get().decrypt(user.getUserPassword()));
                 } catch (Exception e) {
@@ -273,8 +276,9 @@ public final class KantinMemberApi {
                 if (detachedUser.getMahasiswa() != null && detachedUser.getMahasiswa().getId() != null) {
                     ais.database.model.Mahasiswa mhsInSession = (ais.database.model.Mahasiswa)
                         s.get(detachedUser.getMahasiswa().getClass(), detachedUser.getMahasiswa().getId());
-                    if (mhsInSession == null) return noAuth();
-                    anggota.setMahasiswa(mhsInSession);
+					if (mhsInSession == null) return noAuth();
+					s.setReadOnly(mhsInSession, true);
+					anggota.setMahasiswa(mhsInSession);
                 } else if (detachedUser.getSiswa() != null && detachedUser.getSiswa().getId() != null) {
                     ais.database.model.sekolah.Siswa siswaInSession = (ais.database.model.sekolah.Siswa)
                         s.get(detachedUser.getSiswa().getClass(), detachedUser.getSiswa().getId());

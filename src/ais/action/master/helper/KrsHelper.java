@@ -102,7 +102,11 @@ public class KrsHelper implements DataLoader {
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
 			final Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-					.ambilData(Detailperkuliahan.class, data.toString());
+					.ambilData(Detailperkuliahan.class, data == null ? null : data.toString());
+			if (detailperkuliahan == null) {
+				row.setVisible(false);
+				return;
+			}
 			Kurikulum kurikulum = detailperkuliahan.getPerkuliahan() == null ? null
 					: detailperkuliahan.getPerkuliahan().getKurikulum();
 			Matakuliah matakuliah = detailperkuliahan.getPerkuliahan() == null
@@ -111,6 +115,10 @@ public class KrsHelper implements DataLoader {
 
 			Matakuliah[] matakuliahs = Common.getMatakuliahApakahEkivalen(matakuliah,
 					mahasiswa == null ? null : mahasiswa.getNim(), refresh);
+			if (matakuliahs == null || matakuliahs.length < 2) {
+				row.setVisible(false);
+				return;
+			}
 			matakuliah = matakuliahs[0];
 			Matakuliah matakuliahAsli = matakuliahs[1];
 

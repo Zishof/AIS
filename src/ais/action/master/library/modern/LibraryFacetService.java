@@ -110,7 +110,14 @@ public final class LibraryFacetService {
     private JSONArray entityFacet(Session session, LibraryCatalogSearchRequest request, String association, String alias)
             throws JSONException {
         Criteria criteria = new LibraryCatalogSearchService().createCriteria(session, request);
-        criteria.createAlias(association, alias, Criteria.LEFT_JOIN);
+        /* createCriteria sudah membuat alias penerbit bila filter/search penerbit aktif.
+         * Gunakan kembali alias itu agar Hibernate 3 tidak melempar duplicate association path. */
+        if ("penerbit".equals(association) && ((request.getQuery() != null
+                && "PUBLISHER".equals(request.getSearchField())) || request.getPublisher() != null)) {
+            alias = "publisher";
+        } else {
+            criteria.createAlias(association, alias, Criteria.LEFT_JOIN);
+        }
         criteria.setProjection(Projections.projectionList()
                 .add(Projections.groupProperty(alias + ".id"))
                 .add(Projections.groupProperty(alias + ".nama"))

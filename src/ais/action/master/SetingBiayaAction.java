@@ -396,6 +396,12 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 											System.out.println("setting_biaya_detail -> " + setting_biaya_detail);
 
+											int detail_setting_biaya = session.createSQLQuery(
+													"delete from detail_setting_biaya where setting_biaya="
+															+ settingBiaya.getId() + ";")
+													.executeUpdate();
+											System.out.println("detail_setting_biaya -> " + detail_setting_biaya);
+
 											Common.refreshDelete(settingBiaya);
 
 											onSearchDefault(event);

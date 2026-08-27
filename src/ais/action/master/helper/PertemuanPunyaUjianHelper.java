@@ -2462,9 +2462,12 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 										"Nomor soal untuk Sub-CPMK ini. Boleh daftar (1,2,3), rentang (1-10), atau gabungan (1-10,15,20-25).");
 								rowPilih.appendChild(doubleboxBobot);
 
-								final MyDoublebox bobotN = new MyDoublebox(
-										jsonObject.isNull(nilai.getId().toString() + "_bobot") ? 100.0
-												: (jsonObject.getDouble(nilai.getId().toString() + "_bobot")));
+								final boolean subCpmkDipilih = !jsonObject.isNull(nilai.getId().toString());
+								radio.setChecked(subCpmkDipilih);
+								final MyDoublebox bobotN = new MyDoublebox(subCpmkDipilih
+										? (jsonObject.isNull(nilai.getId().toString() + "_bobot") ? 100.0
+												: jsonObject.getDouble(nilai.getId().toString() + "_bobot"))
+										: null);
 								bobotN.setWidth("90%");
 								// Wrap bobot in a Div so inline summary appears below (Feature 2 inline,
 								// replaces the removed "Pengaturan OBE" tab).
@@ -2472,7 +2475,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 								rowPilih.appendChild(bobotCell);
 								bobotN.setParent(bobotCell);
 								// Inline summary: "Lainnya: Y% · Total: Z%"
-								try {
+								if (subCpmkDipilih) try {
 									double currentBobot = jsonObject.isNull(nilai.getId().toString() + "_bobot") ? 100.0
 											: jsonObject.optDouble(nilai.getId().toString() + "_bobot", 100.0);
 									String infoBobot = buildInfoBobotInline(pertemuanPunyaUjian, nilai,
@@ -2485,9 +2488,6 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 											"auto-audit(empty-catch) src/ais/action/master/helper/PertemuanPunyaUjianHelper.java:buildInfoBobotInline");
 								}
 
-								if (!jsonObject.isNull(nilai.getId().toString())) {
-									radio.setChecked(true);
-								}
 								doubleboxBobot.setDisabled(!radio.isChecked());
 								bobotN.setDisabled(!radio.isChecked());
 								radio.setDisabled(pertemuan.getPerkuliahan().getDikunci() != null);
@@ -2502,6 +2502,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 										}
 										FormatNilai fn = (FormatNilai) radio.getAttribute("value");
 										if (radio.isChecked()) {
+											if (bobotN.getValue() == null) bobotN.setValue(Double.valueOf(100.0));
 											jsonObject.put(fn.getId().toString(), doubleboxBobot.getValue());
 											jsonObject.put(fn.getId().toString() + "_bobot", bobotN.getValue());
 										} else {

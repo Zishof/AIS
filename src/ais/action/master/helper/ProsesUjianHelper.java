@@ -3028,7 +3028,16 @@ public class ProsesUjianHelper extends MyWindow {
 					}
 				}
 
-				Double skorBenar = totalJawabanPilihanBenar * (skorBerbeda ? skorDariJawaban : skorBenarBank);
+				// Bank soal lama cukup sering tidak mempunyai skor soal maupun skor pada
+				// pilihan benar. Jawabannya tetap dapat dinilai benar/salah, tetapi rumus
+				// lama mengalikan jawaban benar dengan 0 sehingga nilai OBE selalu 0/0.
+				// Gunakan satu poin sebagai satuan netral bila skor memang belum diatur.
+				double skorBenarEfektif = skorBerbeda ? skorDariJawaban.doubleValue() : skorBenarBank;
+				if (skorBenarEfektif <= 0.0 && skorDariJawaban.doubleValue() > 0.0) {
+					skorBenarEfektif = skorDariJawaban.doubleValue();
+				}
+				if (skorBenarEfektif <= 0.0) skorBenarEfektif = 1.0;
+				Double skorBenar = totalJawabanPilihanBenar * skorBenarEfektif;
 				Double skorSalah = totalJawabanPilihanSalah * skorSalahBank;
 				Double skorDefault = totalJawabanPilihanDefault * skorDefaultBank;
 
@@ -3038,7 +3047,7 @@ public class ProsesUjianHelper extends MyWindow {
 //						+ ", skorSalah -> " + skorSalah + ", skorDefault -> " + skorDefault + ", skorDariJawaban -> "
 //						+ skorDariJawaban + ", hasilUjianMahasiswa -> " + hasilUjianMahasiswa);
 
-				return new Double[] { skorYangDidapat, skorDariJawaban };
+				return new Double[] { skorYangDidapat, Double.valueOf(skorBenarEfektif) };
 
 			} else {
 
@@ -3136,7 +3145,7 @@ public class ProsesUjianHelper extends MyWindow {
 		}
 
 		Double skorDefaultSoal = bankSoal.getSkor() == null ? 0.0 : bankSoal.getSkor();
-		if (!Boolean.TRUE.equals(bankSoal.getSkorJawabanBerbeda())) {
+		if (!Boolean.TRUE.equals(bankSoal.getSkorJawabanBerbeda()) && skorDefaultSoal > 0.0) {
 			return skorDefaultSoal;
 		}
 
@@ -3154,7 +3163,11 @@ public class ProsesUjianHelper extends MyWindow {
 			Common.tampilErrorJikaAdmin(e);
 		}
 
-		return skorMaksimal > 0.0 ? skorMaksimal : skorDefaultSoal;
+		if (skorMaksimal > 0.0) return skorMaksimal;
+		if (skorDefaultSoal > 0.0) return skorDefaultSoal;
+		// Tanpa fallback ini soal dengan kunci benar tetapi skor kosong menghasilkan
+		// maksimum 0, sehingga persentase Sub-CPMK tidak pernah dapat dihitung.
+		return 1.0;
 	}
 
 	private static Double ambilSkorMaksimalSoalDitampilkan(HasilUjianMahasiswa hasilUjianMahasiswa) {
@@ -3592,8 +3605,7 @@ public class ProsesUjianHelper extends MyWindow {
 						// inversinya). Semua nilai dibuat null-safe di sini.
 						Double skorYangDidapat = (skor == null || skor.length < 1 || skor[0] == null) ? 0.0 : skor[0];
 						Double skorDariJawaban = (skor == null || skor.length < 2 || skor[1] == null) ? 0.0 : skor[1];
-						Double skorBenarMax = Boolean.TRUE.equals(bankSoal.getSkorJawabanBerbeda()) ? skorDariJawaban
-								: (bankSoal.getSkor() == null ? 0.0 : bankSoal.getSkor());
+						Double skorBenarMax = ambilSkorMaksimalBankSoal(bankSoal);
 						// TIPE SOAL BEDA SKALA: Menjodohkan/Mengurutkan menyimpan nilai sbg PERSENTASE (0-100),
 						// sedangkan Pilihan Ganda menyimpan POIN (0/skor). Bila dijumlah mentah, 100 (=100% benar pd
 						// soal menjodohkan) masuk sbg 100 POIN -> jawabanBenar menggelembung -> nilai > 100 (kasus

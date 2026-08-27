@@ -68,9 +68,7 @@ public class KrsDanSkripsiHelper {
 					Object cachePertama = array.opt(0);
 					String d = cachePertama == null ? "" : cachePertama.toString();
 					KrsMahasiswa k = null;
-					if (Common.isNumber(d)) {
-						k = (KrsMahasiswa) GeneralValueObject.ambilData(KrsMahasiswa.class, d, true);
-					} else if (cachePertama instanceof JSONObject) {
+					if (cachePertama instanceof JSONObject) {
 						k = (KrsMahasiswa) Common.convertToObject((JSONObject) cachePertama);
 					}
 
@@ -112,6 +110,10 @@ public class KrsDanSkripsiHelper {
 					belumTersimpan.setTahapan(tahapan);
 					return belumTersimpan;
 				}
+				// Semua lazy association dan kalkulasi berikutnya harus memakai instance
+				// managed dari session ini. Instance parameter dapat berasal dari session
+				// lain yang sudah ditutup oleh proses pembayaran/KRS sebelumnya.
+				mahasiswa = mahasiswaDb;
 
 			// Karena pemanggilan mahasiswa memerlukan session yg sama jika tidak di detach,
 			// di sini diasumsikan method bawaan sudah menangani isolated session,
@@ -165,8 +167,8 @@ public class KrsDanSkripsiHelper {
 			Set<Long> detLulus1 = new HashSet<Long>();
 
 			for (Long detailperkuliahanid : det) {
-				Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-						.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+				Detailperkuliahan detailperkuliahan = detailperkuliahanid == null ? null
+						: (Detailperkuliahan) session.get(Detailperkuliahan.class, detailperkuliahanid);
 				if (detailperkuliahan != null && detailperkuliahan.getNilaiHuruf() != null
 						&& !detailperkuliahan.getNilaiHuruf().isEmpty() && detailperkuliahan.getTotalNilai() > 10.0
 						&& detailperkuliahan.getLulus() != null && detailperkuliahan.getLulus()) {
@@ -175,8 +177,8 @@ public class KrsDanSkripsiHelper {
 			}
 
 			for (Long detailperkuliahanid : det1) {
-				Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-						.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+				Detailperkuliahan detailperkuliahan = detailperkuliahanid == null ? null
+						: (Detailperkuliahan) session.get(Detailperkuliahan.class, detailperkuliahanid);
 				if (detailperkuliahan != null && detailperkuliahan.getNilaiHuruf() != null
 						&& !detailperkuliahan.getNilaiHuruf().isEmpty() && detailperkuliahan.getTotalNilai() > 10.0
 						&& detailperkuliahan.getLulus() != null && detailperkuliahan.getLulus()) {
@@ -343,8 +345,8 @@ public class KrsDanSkripsiHelper {
 				boolean paramIniKetemu = false;
 
 				for (Long detailperkuliahanid : detailperkuliahans) {
-					Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-							.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+					Detailperkuliahan detailperkuliahan = detailperkuliahanid == null ? null
+							: (Detailperkuliahan) session.get(Detailperkuliahan.class, detailperkuliahanid);
 					if (detailperkuliahan == null)
 						continue;
 
@@ -429,8 +431,8 @@ public class KrsDanSkripsiHelper {
 					continue;
 
 				for (Long detailperkuliahanid : detailperkuliahans) {
-					Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-							.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+					Detailperkuliahan detailperkuliahan = detailperkuliahanid == null ? null
+							: (Detailperkuliahan) session.get(Detailperkuliahan.class, detailperkuliahanid);
 
 					if (detailperkuliahan == null
 							|| Detailperkuliahan.BELUM_DISETUJUI.equals(detailperkuliahan.getPersetujuan())) {
@@ -465,8 +467,8 @@ public class KrsDanSkripsiHelper {
 						continue;
 
 					for (Long detailperkuliahanid : detailperkuliahans) {
-						Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-								.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+						Detailperkuliahan detailperkuliahan = detailperkuliahanid == null ? null
+								: (Detailperkuliahan) session.get(Detailperkuliahan.class, detailperkuliahanid);
 
 						if (detailperkuliahan == null
 								|| Detailperkuliahan.BELUM_DISETUJUI.equals(detailperkuliahan.getPersetujuan())) {

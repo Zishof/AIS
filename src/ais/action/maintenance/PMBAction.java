@@ -1384,6 +1384,11 @@ public class PMBAction extends GenericAutowireComposer {
 	}
 
 	private void initBeranda() {
+		if (container == null) {
+			// onClientInfo dapat datang sebelum komponen selesai di-wire. Biarkan event
+			// init normal memanggil ulang method ini setelah container tersedia.
+			return;
+		}
 		Common.clear(container);
 
 		final PerguruanTinggi selectedPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();

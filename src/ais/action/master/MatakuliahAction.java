@@ -1856,7 +1856,7 @@ public class MatakuliahAction extends GenericAutowireComposer
 												+ (samNama ? "c.nama" : "max(c.nama) as nama")
 												+ " from  matakuliah c left join jurusan d on (c.jurusan=d.id) \n"
 												+ "where 1=1 and (c.aktif or c.aktif is null) "
-												+ (f != null ? " and f.fakultas=" + f.getId() : "") + " " + " "
+												+ (f != null ? " and d.fakultas=" + f.getId() : "") + " " + " "
 												+ (j != null ? " and c.jurusan=" + j.getId() : "") + ""
 												+ " group by c.kode" + (samaProdi ? ",c.jurusan" : "")
 												+ (samNama ? ",c.nama" : "") + (samNama ? ",c.nama" : "")

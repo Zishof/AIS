@@ -394,9 +394,19 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 
 		CalendarEvent ce = evt.getCalendarEvent();
+		if (ce == null || ce.getTitle() == null || !Common.isNumber(ce.getTitle())) {
+			MyMessageboxConfig.show("Data jadwal yang dipilih sudah tidak tersedia. Silakan muat ulang kalender.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
 
 		Perkuliahan perkuliahan = (Perkuliahan) HibernateUtil.currentSession().createCriteria(Perkuliahan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.idEq(Long.parseLong(ce.getTitle()))).setMaxResults(1).uniqueResult();
+		if (perkuliahan == null || perkuliahan.getJurusan() == null) {
+			MyMessageboxConfig.show("Jadwal atau Program Studi pada data ini sudah tidak tersedia. Silakan muat ulang kalender.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
 
 		Fakultas userFakultas = tbmuser.ambilFakultas();
 		jurusan = tbmuser.ambilJurusan();

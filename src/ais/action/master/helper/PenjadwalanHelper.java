@@ -141,6 +141,10 @@ public class PenjadwalanHelper {
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
+			if (arg1 == null) {
+				arg0.setVisible(false);
+				return;
+			}
 			// TODO Auto-generated method stub
 			final Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, arg1.toString(),
 					true);

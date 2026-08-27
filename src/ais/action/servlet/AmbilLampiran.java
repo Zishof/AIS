@@ -406,6 +406,13 @@ public class AmbilLampiran extends HttpServlet {
 					return;
 				}
 				if (fileFotoLain != null && fileFotoLain.getLink() != null && !fileFotoLain.getLink().isEmpty()) {
+					/* Tautan Google Photos adalah halaman berbagi, bukan byte stream langsung.
+					 * Jangan openStream() karena server memang menjawab 404/redirect khusus browser. */
+					if (fileFotoLain.getLink().toLowerCase().contains("photos.app.goo.gl")
+							|| fileFotoLain.getLink().toLowerCase().contains("photos.google.com")) {
+						resp.sendRedirect(fileFotoLain.getLink());
+						return;
+					}
 					try {
 						in = new URL(fileFotoLain.getLink()).openStream();
 					} catch (Exception e) {

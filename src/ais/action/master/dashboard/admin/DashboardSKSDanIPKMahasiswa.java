@@ -306,6 +306,12 @@ public class DashboardSKSDanIPKMahasiswa extends MyWindow {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				try {
+					if (file == null || !file.exists() || !file.isFile() || file.length() == 0) {
+						ais.ui.util.MyMessageboxConfig.show("Data laporan belum diproses. Klik Proses terlebih dahulu.",
+								"Peringatan", ais.ui.util.MyMessageboxConfig.OK,
+								ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
 					Filedownload.save(new FileInputStream(file), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "SKS_DAN_IPK.xlsx");
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardSKSDanIPKMahasiswa.java:306");
 

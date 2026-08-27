@@ -2622,7 +2622,9 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 														kegiatan.getJenisKegiatan(), calonMahasiswa,
 														kegiatan.getSemster(), kegiatan.getTahunAkademik(), true,
 														kegiatan.getJadwalPembayaran(), true, false, null, session);
+											if (tx != null && tx.isActive()) {
 												tx.commit();
+											}
 											} catch (Exception e) {
 												try {
 													if (tx != null && tx.isActive()) {

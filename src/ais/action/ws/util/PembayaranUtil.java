@@ -2472,29 +2472,27 @@ public class PembayaranUtil {
 			session = null;
 
 			session = HibernateUtil.currentNativeSession();
-			// Objek dari renderer berasal dari sesi lama yang baru saja ditutup. Ambil
-			// instance managed yang baru; refresh terhadap objek detached dapat membuat
-			// reversal gagal tanpa pesan teknis yang berguna.
-			kegiatan = (Kegiatan) session.get(Kegiatan.class, kegiatanId);
-			if (kegiatan == null) {
+			/* Jangan muat seluruh graph Kegiatan/DetailKegiatan ke persistence context.
+			 * Pada data lama tertentu snapshot Hibernate mengandung state null dan proses
+			 * dirty-check saat commit melempar NPE di TypeHelper.findDirty. Operasi reversal
+			 * ini memang operasi set-based; jalankan langsung dengan parameter agar histori
+			 * host tetap dipertahankan dan FK dilepas sebelum kegiatan dihapus. */
+			session.getTransaction().begin();
+			int kegiatanAda = ((Number) session.createSQLQuery(
+					"select count(*) from kegiatan where id=:kegiatanId")
+					.setLong("kegiatanId", kegiatanId.longValue()).uniqueResult()).intValue();
+			if (kegiatanAda == 0) {
+				session.getTransaction().commit();
 				return true;
 			}
-
-			List<LogHostToHost> hostToHosts = session.createCriteria(LogHostToHost.class)
-					.add(Restrictions.eq("kegiatan", kegiatan)).list();
-			List<DetailKegiatan> detailKegiatans = session.createCriteria(DetailKegiatan.class)
-					.add(Restrictions.eq("kegiatan", kegiatan)).list();
-			session.getTransaction().begin();
-			for (LogHostToHost hostToHost : hostToHosts) {
-				hostToHost
-						.setNama("pembayaran telah ditarik kembali (reversal) dari request = " + hostToHost.getNama());
-				hostToHost.setKegiatan(null);
-				Common.refreshSaveOrUpdate(session, hostToHost);
-			}
-			for (DetailKegiatan detailKegiatan : detailKegiatans) {
-				Common.refreshDelete(session, (detailKegiatan));
-			}
-			Common.refreshDelete(session, kegiatan);
+			session.createSQLQuery("update log_host_to_host set nama="
+					+ "'pembayaran telah ditarik kembali (reversal) dari request = ' || coalesce(nama,''), "
+					+ "kegiatan=null where kegiatan=:kegiatanId")
+					.setLong("kegiatanId", kegiatanId.longValue()).executeUpdate();
+			session.createSQLQuery("delete from detail_kegiatan where kegiatan=:kegiatanId")
+					.setLong("kegiatanId", kegiatanId.longValue()).executeUpdate();
+			session.createSQLQuery("delete from kegiatan where id=:kegiatanId")
+					.setLong("kegiatanId", kegiatanId.longValue()).executeUpdate();
 			session.getTransaction().commit();
 
 			HibernateUtil.closeSession();
