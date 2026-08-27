@@ -266,7 +266,10 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 						+ "h.cara_pembayaran_koperasi, h.cara_pembayaran_koperasi_2, h.cara_pembayaran_koperasi_3, "
 						+ "h.cara_pembayaran_koperasi_4, h.cara_pembayaran_koperasi_5, "
 						+ "COALESCE(h.nominal_bayar_2,0), COALESCE(h.nominal_bayar_3,0), COALESCE(h.nominal_bayar_4,0), "
-						+ "COALESCE(h.nominal_bayar_5,0) "
+						+ "COALESCE(h.nominal_bayar_5,0), "
+						+ "COALESCE((SELECT MIN(NULLIF(TRIM(pb0.cara_bayar),'')) "
+						+ "FROM koperasi.pembelian pb0 WHERE pb0.pembelian_anggota_koperasi=h.id "
+						+ "AND pb0.aktif=true), 'Tunai') "
 						+ "FROM koperasi.pembelian_anggota_koperasi h WHERE " + periode + " ORDER BY h.id").list();
 
 		// (Q2) Baris per jenis produk: nilai penjualan (OMZET) per (header, jenis produk).
@@ -299,6 +302,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		}
 
 		Map<Long, CaraPembayaranKoperasi> cacheCp = new HashMap<Long, CaraPembayaranKoperasi>();
+		Map<String, CaraPembayaranKoperasi> cacheCpNama = new HashMap<String, CaraPembayaranKoperasi>();
 
 		for (Object[] r : hdr) {
 			Long headerId = ((Number) r[0]).longValue();
@@ -306,6 +310,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 			double pajak = num(r[2]);
 			Long[] mids = new Long[] { asLong(r[3]), asLong(r[4]), asLong(r[5]), asLong(r[6]), asLong(r[7]) };
 			double nb2 = num(r[8]), nb3 = num(r[9]), nb4 = num(r[10]), nb5 = num(r[11]);
+			String caraBayarLama = teks(r[12], "Tunai");
 			double nb1 = total - (nb2 + nb3 + nb4 + nb5);
 			if (nb1 < 0) {
 				nb1 = 0;
@@ -343,10 +348,26 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 						}
 					}
 				}
+				// Kompatibilitas transaksi lama: sebelum metode pembayaran disimpan pada
+				// header, namanya tersimpan di baris pembelian. Model Pembelian sendiri
+				// mendefinisikan nilai kosong sebagai Tunai. Resolusi berdasarkan nama/kode
+				// hanya dipakai untuk slot utama; slot split 2-5 wajib tetap punya ID eksplisit.
+				if (cp == null && mid == null && i == 0) {
+					cp = cariCaraPembayaranLama(session, caraBayarLama, cacheCpNama);
+					if (cp != null) {
+						mid = cp.getId();
+					}
+				}
 				Akun ak = cp == null ? null : cp.getAkun();
 				if (ak == null || ak.getId() == null) {
 					valid = false;
-					alasan = cp == null ? "cara pembayaran tak dikenal" : (cp.getNama() + " belum punya akun");
+					if (cp == null) {
+						alasan = alasanMetodeTidakDitemukan(i + 1, mid, caraBayarLama);
+					} else {
+						alasan = "Metode pembayaran \"" + cp.getNama() + "\" belum memiliki Akun. "
+								+ CommonAkunting.langkahLengkapiKolomAkun("Cara Pembayaran",
+										"metode pembayaran \"" + cp.getNama() + "\"", "Akun");
+					}
 					break;
 				}
 				add(debitHeader, ak.getId(), amt);
@@ -373,12 +394,16 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 				if (kb.akunPendapatanId == null) {
 					valid = false;
-					alasan = "Jenis produk \"" + kb.jpNama + "\" belum punya akun Pendapatan";
+					alasan = "Jenis produk \"" + kb.jpNama + "\" belum memiliki Akun Pendapatan Penjualan. "
+							+ CommonAkunting.langkahLengkapiKolomAkun("Jenis Produk",
+									"jenis produk \"" + kb.jpNama + "\"", "Akun Pendapatan Penjualan");
 					break;
 				}
 				if (catPpn > EPS && kb.akunPpnId == null) {
 					valid = false;
-					alasan = "Jenis produk \"" + kb.jpNama + "\" belum punya akun PPN Keluaran";
+					alasan = "Jenis produk \"" + kb.jpNama + "\" belum memiliki Akun PPN Keluaran. "
+							+ CommonAkunting.langkahLengkapiKolomAkun("Jenis Produk",
+									"jenis produk \"" + kb.jpNama + "\"", "Akun PPN Keluaran");
 					break;
 				}
 				add(pendHeader, kb.akunPendapatanId, catNet);
@@ -1092,6 +1117,57 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 	private static Long asLong(Object o) {
 		return o == null ? null : Long.valueOf(((Number) o).longValue());
+	}
+
+	private static String teks(Object nilai, String bawaan) {
+		String hasil = nilai == null ? "" : nilai.toString().trim();
+		return hasil.isEmpty() ? bawaan : hasil;
+	}
+
+	/**
+	 * Resolusi kompatibilitas untuk faktur lama yang belum mempunyai FK metode di
+	 * header. Nama metode masih tersimpan pada detail pembelian; bila detail lama
+	 * juga kosong, kontrak model {@code Pembelian#getCaraBayar()} menetapkan Tunai.
+	 */
+	@SuppressWarnings("unchecked")
+	private CaraPembayaranKoperasi cariCaraPembayaranLama(Session session, String namaAtauKode,
+			Map<String, CaraPembayaranKoperasi> cache) {
+		String nilai = teks(namaAtauKode, "Tunai");
+		String kunci = nilai.toLowerCase(java.util.Locale.ENGLISH);
+		if (cache.containsKey(kunci)) {
+			return cache.get(kunci);
+		}
+		List<CaraPembayaranKoperasi> cocok = session.createCriteria(CaraPembayaranKoperasi.class)
+				.add(Restrictions.or(Restrictions.eq("nama", nilai).ignoreCase(),
+						Restrictions.eq("kode", nilai).ignoreCase()))
+				.setMaxResults(1).list();
+		CaraPembayaranKoperasi hasil = cocok.isEmpty() ? null : cocok.get(0);
+		// HashMap mengizinkan nilai null; cache miss penting agar ribuan faktur lama
+		// dengan metode sama tidak menembakkan ribuan query identik.
+		cache.put(kunci, hasil);
+		return hasil;
+	}
+
+	private String alasanMetodeTidakDitemukan(int slot, Long idMetode, String namaLama) {
+		if (idMetode != null) {
+			return "Slot pembayaran " + slot + " menunjuk metode ID " + idMetode
+					+ ", tetapi master Cara Pembayaran tersebut sudah tidak ditemukan. Tindakan aman: "
+					+ "buka menu \"Cara Pembayaran\" dan pulihkan master yang terhapus, atau minta supervisor "
+					+ "mengoreksi metode pada transaksi sumber. Setelah itu muat ulang pratinjau. "
+					+ "Jangan memaksa posting atau mengubah jurnal secara manual.";
+		}
+		if (slot > 1) {
+			return "Nominal slot pembayaran " + slot
+					+ " terisi, tetapi ID metodenya kosong. Minta supervisor mengoreksi split pembayaran "
+					+ "pada transaksi sumber, lalu muat ulang pratinjau. Jangan menebak akun jurnalnya.";
+		}
+		String nama = teks(namaLama, "Tunai");
+		return "Faktur lama menyimpan metode pembayaran \"" + nama
+				+ "\", tetapi tidak ada master Cara Pembayaran dengan Nama atau Kode yang sama. "
+				+ "Langkah perbaikan: (1) buka menu \"Cara Pembayaran\"; (2) buat atau pulihkan metode "
+				+ "dengan Nama/Kode \"" + nama + "\"; (3) isi kolom \"Akun\"; (4) klik Simpan; "
+				+ "(5) muat ulang halaman Posting. Jika metode transaksi sebenarnya berbeda, minta supervisor "
+				+ "mengoreksi transaksi sumber; jangan mengubah draf jurnal secara manual.";
 	}
 
 	private void add(Map<Long, Double> map, Long key, double nilai) {

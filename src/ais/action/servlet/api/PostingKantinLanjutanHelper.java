@@ -311,7 +311,8 @@ public final class PostingKantinLanjutanHelper {
                 j.put("debet", d.ringkasAkun(d.akunDebet, d.nilaiDebet));
                 j.put("kredit", d.ringkasAkun(d.akunKredit, d.nilaiKredit));
                 j.put("siap", d.siap());
-                j.put("alasan", d.siap() ? "" : (d.alasan.isEmpty() ? "Jurnal tidak seimbang" : d.alasan));
+				j.put("alasan", d.siap() ? "" : lengkapiLangkahPerbaikan(
+						d.alasan.isEmpty() ? "Jurnal tidak seimbang" : d.alasan));
                 arr.put(j);
                 if (d.siap()) {
                     siap++;
@@ -380,6 +381,36 @@ public final class PostingKantinLanjutanHelper {
             HibernateUtil.closeSessionQuietly(session);
         }
     }
+
+	/**
+	 * Semua draf posting toko melewati titik ini. Pesan sebab dari kalkulator tetap
+	 * dipertahankan, lalu dilengkapi lokasi setting dan tindakan sesudah simpan agar
+	 * pengguna tidak berhenti pada kalimat "akun belum diatur".
+	 */
+	private static String lengkapiLangkahPerbaikan(String alasan) {
+		String pesan = alasan == null ? "" : alasan.trim();
+		if (pesan.isEmpty() || pesan.indexOf("Langkah perbaikan:") >= 0) {
+			return pesan;
+		}
+		String kecil = pesan.toLowerCase(java.util.Locale.ENGLISH);
+		String langkah = null;
+		if (kecil.indexOf("persediaan") >= 0 || kecil.indexOf("hpp") >= 0) {
+			langkah = "buka Master Aset atau Kelompok Aset barang terkait, lalu isi Akun Persediaan dan Akun HPP";
+		} else if (kecil.indexOf("utang supplier") >= 0 || kecil.indexOf("utang penyedia") >= 0) {
+			langkah = "buka Master Data > Penyedia, cari supplier terkait, lalu isi Akun Utang";
+		} else if (kecil.indexOf("piutang") >= 0) {
+			langkah = "buka Master Data > Toko dan lengkapi Akun Piutang Usaha; periksa juga akun pada Cara Pembayaran piutang";
+		} else if (kecil.indexOf("kas/bank") >= 0 || kecil.indexOf("cara pembayaran") >= 0) {
+			langkah = "buka Master Data > Cara Pembayaran, cari metode yang disebutkan dan isi kolom Akun; bila memakai fallback outlet, lengkapi Akun Kas pada Master Toko";
+		} else if (kecil.indexOf("retur penjualan") >= 0 || kecil.indexOf("pendapatan") >= 0) {
+			langkah = "buka Master Data > Jenis Produk/Produk terkait dan lengkapi akun Pendapatan atau Retur Penjualan";
+		}
+		if (langkah == null) {
+			return pesan;
+		}
+		return pesan + " Langkah perbaikan: (1) " + langkah + "; (2) klik Simpan; "
+				+ "(3) kembali ke halaman Posting dan klik Muat ulang. Jangan mengubah draf jurnal secara manual.";
+	}
 
     // ==================================================================== penulisan
 
