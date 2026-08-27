@@ -171,6 +171,7 @@ if ("true".equals(request.getParameter("is_ajax_kirim_notif_satuan"))) {
 Tbmuser tbmuser = null;
 Toko toko = null;
 boolean isAdmin = false;
+boolean bolehKelolaPin = false;
 boolean dataMemberHarusReferneceKedataMaster = false;
 String idTokoAktif = "";
 
@@ -185,6 +186,7 @@ try {
     Pedagang pedagang = tbmuser.getPedagang();
     toko = pedagang == null ? null : pedagang.getToko();
     isAdmin = (toko == null);
+    bolehKelolaPin = ais.action.master.koperasi.helper.PinMemberMassalUtil.bolehKelola(tbmuser);
     idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
     
     dataMemberHarusReferneceKedataMaster = Common.getKonfigurasi("data_member_harus_refernece_ke_data_master", Konfigurasi.AKTIF).getNilai().equalsIgnoreCase(Konfigurasi.AKTIF);
@@ -216,9 +218,11 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
                 <button class="btn btn-light rounded-pill px-4 shadow-sm fw-bold border text-primary" onclick="resetAndLoadData<%=rnd%>()" title="<%=Common.getBahasaConfig("Perbarui Data")%>">
                     <i class="fas fa-sync-alt me-1"></i><%=Common.getBahasaConfig("Muat Ulang")%>
                 </button>
+                <% if (bolehKelolaPin) { %>
                 <button class="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onclick="unduhTemplatePin<%=rnd%>()" title="Template hanya berisi status dan kolom PIN baru kosong"><i class="fas fa-file-download me-1"></i><%=Common.getBahasaConfig("Download Template PIN")%></button>
                 <button class="btn btn-outline-warning rounded-pill px-3 shadow-sm fw-bold" onclick="document.getElementById('filePinMember<%=rnd%>').click()"><i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Upload PIN")%></button>
                 <input type="file" id="filePinMember<%=rnd%>" accept=".tsv,.txt" class="d-none" onchange="uploadPinMember<%=rnd%>(this)">
+                <% } %>
                 
                 <% if (isAdmin) { %>
                 <button class="btn btn-warning rounded-pill px-4 shadow-sm fw-bold text-dark text-nowrap" onclick="konfirmasiKirimNotifMassal<%=rnd%>()" id="btnKirimNotif<%=rnd%>" title="<%=Common.getBahasaConfig("Evaluasi seluruh member")%>">
