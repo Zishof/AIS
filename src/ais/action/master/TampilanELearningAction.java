@@ -308,6 +308,26 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		loadMenu();
 	}
 
+	/**
+	 * Tinggi awal khusus e-Learning. Rangka utama aplikasi sengaja mempunyai
+	 * kanvas minimum sangat panjang untuk halaman administrasi generik; nilai itu
+	 * tidak boleh diwariskan ke portal e-Learning karena menghasilkan ruang putih
+	 * ribuan piksel setelah tiga panel. Tinggi final tetap dihitung ulang dari
+	 * viewport oleh {@link #pasangAutoFitTinggiPortal(int)}.
+	 */
+	private int getTinggiDasarElearning() {
+		int viewport = desktopHeight != null && desktopHeight.intValue() > 0
+				? desktopHeight.intValue() : (Common.isMobile() ? 760 : 768);
+		int tinggi = viewport - (Common.isMobile() ? 180 : 240);
+		if (tinggi < 480) {
+			tinggi = 480;
+		}
+		if (tinggi > 900) {
+			tinggi = 900;
+		}
+		return tinggi;
+	}
+
 	private Borderlayout initRootLayout() throws Exception {
 		sekolah = SekolahUtil.getSekolah();
 
@@ -315,10 +335,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		 * height:auto (mode satu scroll) kolaps menjadi 0px sehingga seluruh
 		 * konten e-learning tidak terlihat. Pakai pola yang sama dengan
 		 * desktop: shell div + tinggi panel dari konfigurasi frame. */
-		int tinggiMinimal = ais.action.maintenance.MainAction.getConfiguredFrameMinimumHeight(Common.isMobile()) - 190;
-		if (tinggiMinimal < 480) {
-			tinggiMinimal = 480;
-		}
+		int tinggiMinimal = getTinggiDasarElearning();
 		tinggiKanvasMobile = tinggiMinimal;
 
 		Div shell = new Div();
@@ -351,10 +368,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 		/* Tinggi minimal panel mengikuti konfigurasi tinggi frame aplikasi
 		 * (sama dengan dashboard utama), dikurangi perkiraan tinggi header. */
-		int tinggiMinimal = ais.action.maintenance.MainAction.getConfiguredFrameMinimumHeight(Common.isMobile()) - 190;
-		if (tinggiMinimal < 480) {
-			tinggiMinimal = 480;
-		}
+		int tinggiMinimal = getTinggiDasarElearning();
 		String tinggiPanel = tinggiMinimal + "px";
 
 		Div shell = new Div();
@@ -443,6 +457,11 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					.append(",Math.floor(vh-r.top-64));");
 			js.append("var bodies=shell.querySelectorAll('.elearning-portal-body');");
 			js.append("for(var bi=0;bi<bodies.length;bi++){bodies[bi].style.height=panelH+'px';}");
+			/* Sizing global juga menyasar Tabbox native di panel kiri dan memberinya
+			   height 20.000px. Hapus tinggi inline Tabbox agar vflex server kembali
+			   bekerja, lalu batasi bagian panelnya pada tinggi parent. */
+			js.append("var menuTabs=shell.querySelectorAll('.elearning-menu-combo-tabbox');");
+			js.append("for(var mt=0;mt<menuTabs.length;mt++){var tb=menuTabs[mt];tb.style.height='';tb.style.minHeight='0';tb.style.maxHeight='none';var tp=tb.querySelectorAll('.z-tabpanels,.z-tabpanel,.z-tabpanel-cnt');for(var ti=0;ti<tp.length;ti++){tp[ti].style.height='100%';tp[ti].style.minHeight='0';tp[ti].style.maxHeight='100%';}}");
 			/* Cari panel parent utama dari MainAction (createDashboardFrame). */
 			js.append("var host=null,n=shell.parentNode;");
 			js.append("while(n&&n!==document){var cn=' '+(n.className||'')+' ';");
@@ -460,7 +479,11 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			js.append("while(up&&up!==document){");
 			js.append("try{up.style.height='auto';up.style.maxHeight='none';up.style.minHeight='0';up.style.overflowY='visible';}catch(ex){}");
 			js.append("var cu=' '+(up.className||'')+' ';");
-			js.append("if(cu.indexOf(' main-dashboard-frame ')>=0){break;}");
+			/* Jangan berhenti di dashboard-frame. Di atasnya masih ada rantai Tabpanel/
+			   Tabpanels/main-responsive-frame yang oleh shell global diberi tinggi 20.000px.
+			   Semua elemen yang disentuh adalah ancestor portal e-Learning aktif, sehingga
+			   tab/modul lain tidak ikut berubah. */
+			js.append("if(cu.indexOf(' main-responsive-frame ')>=0){break;}");
 			js.append("up=up.parentNode;}");
 			js.append("}else{");
 			/* Berdiri sendiri (halaman penuh): pakai viewport dan matikan
@@ -477,7 +500,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			js.append("}catch(e){}}");
 			js.append("fit();setTimeout(fit,250);setTimeout(fit,900);setTimeout(fit,2000);");
 			js.append("try{if(!window.ecampusElearningSingleScroll){window.ecampusElearningSingleScroll=true;");
-			js.append("window.addEventListener('resize',fit);");
+			js.append("window.addEventListener('resize',function(){setTimeout(fit,40);});");
+			/* MainStyleHelper menjalankan ulang sizing global setelah klik (sampai 500ms).
+			   Jalankan fit e-Learning sesudahnya agar angka 20.000px tidak kembali. */
+			js.append("document.addEventListener('click',function(){setTimeout(fit,650);},true);");
 			js.append("}}catch(e){}");
 			js.append("})();");
 			Clients.evalJavaScript(js.toString());
