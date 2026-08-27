@@ -4450,6 +4450,8 @@ public class KantinHelper {
 			hasil.put("fileBase64", org.apache.commons.codec.binary.Base64.encodeBase64String(bos.toByteArray()));
 			hasil.put("namaFile", "Katalog-" + (toko.getKode() == null ? toko.getId() : toko.getKode()) + ".xlsx");
 			hasil.put("total", daftar.size());
+			hasil.put("satuanBelumDiatur", satuanBelumDiatur);
+			hasil.put("pemasokBelumDiatur", pemasokBelumDiatur);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
