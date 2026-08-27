@@ -16,6 +16,7 @@ import java.util.TreeSet;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
@@ -731,15 +732,12 @@ public class CommonHelperClass {
 			 */
 			boolean hakAksesDosen = tbmuser != null && tbmuser.hakAkses() != null
 					&& Tbmrole.DOSEN.equalsIgnoreCase(tbmuser.hakAkses().getRoleId());
-			Criterion identitas;
+			Criterion identitas = null;
 			if (hakAksesDosen || (tbmuser != null && tbmuser.hakAkses() == null && dosen != null)) {
 				identitas = dosen == null || dosen.getId() == null ? Restrictions.sqlRestriction("1=0")
 						: Restrictions.eq("dosen", dosen);
-			} else {
-				identitas = tbmuser == null || tbmuser.getId() == null ? Restrictions.sqlRestriction("1=0")
-						: Restrictions.eq("tbmuser", tbmuser);
 			}
-			Integer count = ((Number) session.createCriteria(PengecualianJadwalPenilaianDosen.class)
+			Criteria izin = session.createCriteria(PengecualianJadwalPenilaianDosen.class)
 					/*
 					 * Data versi lama menyimpan status NULL dan getStatus() menampilkannya sebagai
 					 * "Disetujui". Tetap baca data lama tersebut, sedangkan data baru selalu
@@ -749,10 +747,22 @@ public class CommonHelperClass {
 							Restrictions.isNull("status")))
 					.add(Restrictions.eq("tahunAkademik", tahunAkademik))
 					.add(Restrictions.eq("jenisSemester", jenisSemester))
-					.add(identitas)
 					.add(Restrictions.le("tanggalMulai", hariIni.getTime()))
-					.add(Restrictions.ge("tanggalSampai", hariIni.getTime()))
-					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+					.add(Restrictions.ge("tanggalSampai", hariIni.getTime()));
+			if (identitas != null) {
+				izin.add(identitas);
+			} else if (tbmuser != null && tbmuser.getUserId() != null
+					&& !tbmuser.getUserId().trim().isEmpty()) {
+				/*
+				 * Cocokkan akun pengelola dengan userid, bukan instance entity dari HttpSession.
+				 * Ini menangani referensi Tbmuser lama/berbeda yang masih menyimpan userid sama.
+				 */
+				izin.createAlias("tbmuser", "izinUser");
+				izin.add(Restrictions.eq("izinUser.userId", tbmuser.getUserId().trim()));
+			} else {
+				izin.add(Restrictions.sqlRestriction("1=0"));
+			}
+			Integer count = ((Number) izin.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 			return count > 0;
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonHelperClass.java:708");
