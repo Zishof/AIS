@@ -6778,6 +6778,9 @@ public class KantinHelper {
 				j.put("wajibBiometricFingerprint", (jenis != null
 						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
 						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
+				j.put("maksimalTransaksiHarian", tipe == null ? 0 : tipe.getMaksimalTransaksiHarian());
+				j.put("maksimalTransaksiMingguan", tipe == null ? 0 : tipe.getMaksimalTransaksiMingguan());
+				j.put("maksimalTransaksiBulanan", tipe == null ? 0 : tipe.getMaksimalTransaksiBulanan());
 				j.put("fotoUrl", fotoUrl == null ? JSONObject.NULL : fotoUrl);
 				j.put("fotoNama", fotoNama == null ? JSONObject.NULL : fotoNama);
 				j.put("fotoUkuran", fotoUkuran == null ? JSONObject.NULL : fotoUkuran);
@@ -6857,6 +6860,9 @@ public class KantinHelper {
 				j.put("wajibBiometricFingerprint", (jenis != null
 						&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
 						|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
+				j.put("maksimalTransaksiHarian", tipe == null ? 0 : tipe.getMaksimalTransaksiHarian());
+				j.put("maksimalTransaksiMingguan", tipe == null ? 0 : tipe.getMaksimalTransaksiMingguan());
+				j.put("maksimalTransaksiBulanan", tipe == null ? 0 : tipe.getMaksimalTransaksiBulanan());
 				j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 				j.put("waktuTerakhir", r[1] == null ? JSONObject.NULL
 						: Common.dateFormatInput.get().format((java.util.Date) r[1]));
@@ -16032,6 +16038,9 @@ public class KantinHelper {
 		member.put("wajibBiometricFingerprint", (jenis != null
 				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
 				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
+		member.put("maksimalTransaksiHarian", tipe == null ? 0 : tipe.getMaksimalTransaksiHarian());
+		member.put("maksimalTransaksiMingguan", tipe == null ? 0 : tipe.getMaksimalTransaksiMingguan());
+		member.put("maksimalTransaksiBulanan", tipe == null ? 0 : tipe.getMaksimalTransaksiBulanan());
 		member.put("aktif", anggota.getAktif() == null || Boolean.TRUE.equals(anggota.getAktif()));
 		member.put("minSaldo", 0);
 		member.put("userid", anggota.getUserid() == null ? "" : anggota.getUserid());

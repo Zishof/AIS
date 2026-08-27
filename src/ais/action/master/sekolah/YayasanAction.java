@@ -3,6 +3,7 @@ package ais.action.master.sekolah;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -830,7 +831,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 
 	public static volatile Map<String, Yayasan> yayasanByDomain = new HashMap<String, Yayasan>();
 
-	private static final Object REINIT_DOMAIN_LOCK = new Object();
+	private static final ReentrantLock REINIT_DOMAIN_LOCK = new ReentrantLock();
 	private static volatile long reinitDomainTerakhir = 0L;
 	/** Jeda minimum antar-rebuild peta domain (throttle anti thundering-herd query DB). */
 	private static final long REINIT_DOMAIN_INTERVAL_MS = 60000L;
@@ -846,12 +847,16 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 			return;
 		}
-		synchronized (REINIT_DOMAIN_LOCK) {
+		if (!REINIT_DOMAIN_LOCK.tryLock()) {
+			return;
+		}
+		Session session = null;
+		try {
 			if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 				return;
 			}
 			try {
-				Session session = HibernateUtil.currentNativeSession();
+				session = HibernateUtil.getSessionFactory().openSession();
 				List<Yayasan> yayasans = ConstantValues.simpleList(
 						session.createCriteria(Yayasan.class).add(Restrictions.isNotNull("domain"))
 								.add(Restrictions.ne("domain", ""))
@@ -872,10 +877,20 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 			} finally {
 				reinitDomainTerakhir = System.currentTimeMillis();
 				try {
-					HibernateUtil.closeSession();
+					if (session != null) session.clear();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "YayasanAction.reInitByDomain clear session");
+				}
+				try {
+					if (session != null && session.isConnected()) session.disconnect();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "YayasanAction.reInitByDomain disconnect session");
+				}
+				try {
+					if (session != null && session.isOpen()) session.close();
 				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/sekolah/YayasanAction.java:813");
 				}
 			}
+		} finally {
+			REINIT_DOMAIN_LOCK.unlock();
 		}
 	}
 

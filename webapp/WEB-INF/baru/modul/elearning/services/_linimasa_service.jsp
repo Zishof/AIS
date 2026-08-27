@@ -182,7 +182,42 @@ try {
         if (sekolah != null) c.add(Restrictions.eq("sekolah", sekolah));
         else if (yayasan != null) { c.createAlias("sekolah", "sStruk", CriteriaSpecification.LEFT_JOIN); c.add(Restrictions.eq("sStruk.yayasan", yayasan)); }
 
-        if (ta != null && !ta.trim().isEmpty()) c.add(Restrictions.eq("ta", ta));
+        if (ta != null && !ta.trim().isEmpty()) {
+            /*
+             * Pertemuan menyimpan periode denormalisasi (ta), tetapi sumber yang menjadi
+             * pemilik materi/tugas adalah JadwalPelajaran/Perkuliahan. Data lama dapat
+             * mempunyai Pertemuan.ta yang sudah ikut tahun aktif sementara FK sumbernya
+             * masih menunjuk jadwal tahun sebelumnya. Jika hanya Pertemuan.ta yang
+             * difilter, kegiatan lama tampil pada tab Pertemuan namun tidak mungkin
+             * dihitung pada kartu Ringkasan tahun aktif.
+             *
+             * Validasi periode melalui sumber untuk dua sumber pembelajaran utama;
+             * Pertemuan dari modul lain tetap memakai kolom ta seperti perilaku lama.
+             */
+            c.createAlias("jadwalPelajaran", "jp", CriteriaSpecification.LEFT_JOIN);
+            c.createAlias("perkuliahan", "prk", CriteriaSpecification.LEFT_JOIN);
+
+            org.hibernate.criterion.Disjunction periodeTa = Restrictions.disjunction();
+            periodeTa.add(Restrictions.and(
+                Restrictions.isNotNull("jadwalPelajaran"),
+                Restrictions.eq("jp.tahunAjaran", ta)
+            ));
+            periodeTa.add(Restrictions.and(
+                Restrictions.isNull("jadwalPelajaran"),
+                Restrictions.and(
+                    Restrictions.isNotNull("perkuliahan"),
+                    Restrictions.eq("prk.tahunAjaran", ta)
+                )
+            ));
+            periodeTa.add(Restrictions.and(
+                Restrictions.isNull("jadwalPelajaran"),
+                Restrictions.and(
+                    Restrictions.isNull("perkuliahan"),
+                    Restrictions.eq("ta", ta)
+                )
+            ));
+            c.add(periodeTa);
+        }
         if (smt != null && !smt.trim().isEmpty()) c.add(Restrictions.eq("smt", smt));
         if (listJurusanIds != null && !listJurusanIds.isEmpty()) c.add(Restrictions.in("jurusan.id", listJurusanIds));
         if (listSekolahIds != null && !listSekolahIds.isEmpty()) c.add(Restrictions.in("sekolah.id", listSekolahIds));
@@ -206,13 +241,13 @@ try {
         }
 
         if (joinPerkuliahan) {
-            c.createAlias("perkuliahan", "prk", CriteriaSpecification.LEFT_JOIN);
+            if (ta == null || ta.trim().isEmpty()) c.createAlias("perkuliahan", "prk", CriteriaSpecification.LEFT_JOIN);
             if (q_matakuliah != null && !q_matakuliah.trim().isEmpty()) { c.createAlias("prk.matakuliah", "mk", CriteriaSpecification.LEFT_JOIN); c.add(Restrictions.or(Restrictions.ilike("mk.kode", q_matakuliah, MatchMode.ANYWHERE), Restrictions.ilike("mk.nama", q_matakuliah, MatchMode.ANYWHERE))); }
             if (q_kelas_kuliah != null && !q_kelas_kuliah.trim().isEmpty()) { c.add(Restrictions.ilike("prk.kelas", q_kelas_kuliah, MatchMode.ANYWHERE)); }
         }
 
         if (joinJadwal) {
-            c.createAlias("jadwalPelajaran", "jp", CriteriaSpecification.LEFT_JOIN);
+            if (ta == null || ta.trim().isEmpty()) c.createAlias("jadwalPelajaran", "jp", CriteriaSpecification.LEFT_JOIN);
             if (q_matapelajaran != null && !q_matapelajaran.trim().isEmpty()) { c.createAlias("jp.matapelajaran", "mp", CriteriaSpecification.LEFT_JOIN); c.add(Restrictions.or(Restrictions.ilike("mp.kode", q_matapelajaran, MatchMode.ANYWHERE), Restrictions.ilike("mp.nama", q_matapelajaran, MatchMode.ANYWHERE))); }
             if (q_kelas_siswa != null && !q_kelas_siswa.trim().isEmpty()) { c.createAlias("jp.kelas", "ks", CriteriaSpecification.LEFT_JOIN); c.add(Restrictions.ilike("ks.nama", q_kelas_siswa, MatchMode.ANYWHERE)); }
         }

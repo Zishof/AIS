@@ -16,6 +16,8 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
+import org.zkoss.zk.ui.Desktop;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.Borderlayout;
@@ -34,6 +36,7 @@ import org.zkoss.zul.West;
 import ais.action.report.Report;
 import ais.action.report.helper.CommonReport;
 import ais.action.report.helper.ParameterListener;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.ws.util.PembayaranUtil;
 import ais.common.Common;
 import ais.common.ConstantValues;
@@ -733,7 +736,8 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 										Kegiatan kegiatan = mahasiswa.ambilKegiatans(i,
 												ConstantValues.PENDAFTARAN_MAHASISWA_LAMA);
 										Collection<DetailKegiatan> detailKegiatans = kegiatan == null
-												|| kegiatan.getId() == null ? null : kegiatan.ambilDetailKegiatan(true);
+										|| kegiatan.getId() == null ? null
+												: KegiatanPersistenceHelper.ambilDetailKegiatanReadOnly(kegiatan, true);
 										Double biaya = 0.0;
 										for (Object o : detailBiayas) {
 											if (o instanceof PengaturanPembayaranBulanan) {
@@ -774,7 +778,8 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 									Kegiatan kegiatan = mahasiswa.ambilKegiatans(i,
 											ConstantValues.PENDAFTARAN_MAHASISWA_LAMA);
 									Collection<DetailKegiatan> detailKegiatans = kegiatan == null
-											|| kegiatan.getId() == null ? null : kegiatan.ambilDetailKegiatan(true);
+											|| kegiatan.getId() == null ? null
+													: KegiatanPersistenceHelper.ambilDetailKegiatanReadOnly(kegiatan, true);
 									Double biaya = 0.0;
 									for (Object o : detailBiayas) {
 										if (o instanceof PengaturanPembayaranBulanan) {
@@ -837,7 +842,8 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 			}
 		});
 
-		new Thread(new Runnable() {
+		final Desktop desktop = Executions.getCurrent() == null ? null : Executions.getCurrent().getDesktop();
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 
 			@Override
 			public void run() {
@@ -853,7 +859,7 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 						});
 				}
 			}
-		}).start();
+		});
 
 	}
 

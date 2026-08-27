@@ -186,6 +186,20 @@ public class KegiatanPersistenceHelper {
 
 	@SuppressWarnings("unchecked")
 	public static List<DetailKegiatan> ambilDetailKegiatanSaja(Kegiatan kegiatan, boolean refresh) {
+		return ambilDetailKegiatanInternal(kegiatan, refresh, true);
+	}
+
+	/**
+	 * Varian baca-saja untuk laporan. Mengambil data terkini tanpa mengubah kolom
+	 * denormalisasi Kegiatan dan tanpa menjadwalkan worker persistence.
+	 */
+	public static List<DetailKegiatan> ambilDetailKegiatanReadOnly(Kegiatan kegiatan, boolean refresh) {
+		return ambilDetailKegiatanInternal(kegiatan, refresh, false);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<DetailKegiatan> ambilDetailKegiatanInternal(Kegiatan kegiatan, boolean refresh,
+			boolean sinkronkanKegiatan) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return new ArrayList<DetailKegiatan>();
 		}
@@ -237,7 +251,9 @@ public class KegiatanPersistenceHelper {
 					refresh);
 		}
 
-		updateDetailKegiatan(hasilDetailKegiatan, kegiatan, refresh);
+		if (sinkronkanKegiatan) {
+			updateDetailKegiatan(hasilDetailKegiatan, kegiatan, refresh);
+		}
 		return hasilDetailKegiatan;
 	}
 

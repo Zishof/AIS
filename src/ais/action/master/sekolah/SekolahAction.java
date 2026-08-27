@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -189,7 +190,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 
 	public static volatile Map<String, Sekolah> sekolahByDomain = new HashMap<String, Sekolah>();
 
-	private static final Object REINIT_DOMAIN_LOCK = new Object();
+	private static final ReentrantLock REINIT_DOMAIN_LOCK = new ReentrantLock();
 	private static volatile long reinitDomainTerakhir = 0L;
 	/** Jeda minimum antar-rebuild peta domain (throttle anti thundering-herd query DB). */
 	private static final long REINIT_DOMAIN_INTERVAL_MS = 60000L;
@@ -210,13 +211,19 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 			return;
 		}
-		synchronized (REINIT_DOMAIN_LOCK) {
+		// Request paralel tidak perlu ikut menunggu query cache domain. Satu thread memuat,
+		// sedangkan thread lain tetap memakai snapshot lama yang dipublikasikan secara atomik.
+		if (!REINIT_DOMAIN_LOCK.tryLock()) {
+			return;
+		}
+		Session session = null;
+		try {
 			// Cek ganda di dalam lock: thread lain mungkin baru saja membangun ulang.
 			if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 				return;
 			}
 			try {
-				Session session = HibernateUtil.currentNativeSession();
+				session = HibernateUtil.getSessionFactory().openSession();
 				List<Sekolah> sekolahs = ConstantValues.simpleList(
 						session.createCriteria(Sekolah.class).add(Restrictions.isNotNull("domain"))
 								.add(Restrictions.ne("domain", ""))
@@ -238,10 +245,20 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 				// Tandai waktu percobaan (sukses/kosong/gagal) agar tak query ulang tiap request.
 				reinitDomainTerakhir = System.currentTimeMillis();
 				try {
-					HibernateUtil.closeSession();
+					if (session != null) session.clear();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "SekolahAction.reInitByDomain clear session");
+				}
+				try {
+					if (session != null && session.isConnected()) session.disconnect();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "SekolahAction.reInitByDomain disconnect session");
+				}
+				try {
+					if (session != null && session.isOpen()) session.close();
 				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/sekolah/SekolahAction.java:245");
 				}
 			}
+		} finally {
+			REINIT_DOMAIN_LOCK.unlock();
 		}
 	}
 

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -201,7 +202,7 @@ public class PerguruanTinggiAction extends GenericAutowireComposer implements Da
 
 	public static volatile Map<String, Pendaftar> pendaftarByDomain = new HashMap<String, Pendaftar>();
 
-	private static final Object REINIT_DOMAIN_LOCK = new Object();
+	private static final ReentrantLock REINIT_DOMAIN_LOCK = new ReentrantLock();
 	private static volatile long reinitDomainTerakhir = 0L;
 	/** Jeda minimum antar-rebuild peta domain (throttle anti thundering-herd query DB). */
 	private static final long REINIT_DOMAIN_INTERVAL_MS = 60000L;
@@ -217,14 +218,17 @@ public class PerguruanTinggiAction extends GenericAutowireComposer implements Da
 		if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 			return;
 		}
-		synchronized (REINIT_DOMAIN_LOCK) {
+		if (!REINIT_DOMAIN_LOCK.tryLock()) {
+			return;
+		}
+		try {
 			if (System.currentTimeMillis() - reinitDomainTerakhir < REINIT_DOMAIN_INTERVAL_MS) {
 				return;
 			}
 			Session session = null;
 			try {
 				boolean menggunakanPtDefault = Common.bolehKonfigurasi("menggunakanPtDefault");
-				session = HibernateUtil.currentNativeSession();
+				session = HibernateUtil.getSessionFactory().openSession();
 				/* KE-FIX ("Session is closed!"): reInitByDomain dapat terpanggil DARI DALAM
 				 * flush/commit (lewat getter entity seperti NomorSurat.getContohFormat) atau dari
 				 * thread latar yang sesinya sudah ditutup. Memaksa createCriteria pada sesi mati
@@ -275,17 +279,20 @@ public class PerguruanTinggiAction extends GenericAutowireComposer implements Da
 			} finally {
 				reinitDomainTerakhir = System.currentTimeMillis();
 				try {
-					if (session != null && session.isOpen()) {
-						session.disconnect();
-						session.close();
-					}
-				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/PerguruanTinggiAction.java:272");
+					if (session != null) session.clear();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "PerguruanTinggiAction.reInitByDomain clear session");
 				}
 				try {
-					HibernateUtil.closeSession();
+					if (session != null && session.isConnected()) session.disconnect();
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "PerguruanTinggiAction.reInitByDomain disconnect session");
+				}
+				try {
+					if (session != null && session.isOpen()) session.close();
 				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/PerguruanTinggiAction.java:276");
 				}
 			}
+		} finally {
+			REINIT_DOMAIN_LOCK.unlock();
 		}
 	}
 

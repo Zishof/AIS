@@ -2520,6 +2520,9 @@ public class PosApi extends HttpServlet {
 		j.put("wajibBiometricFingerprint", (jenis != null
 				&& Boolean.TRUE.equals(jenis.getWajibVerifikasiBiometricFingerprint()))
 				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibVerifikasiBiometricFingerprint())));
+		j.put("maksimalTransaksiHarian", tipe == null ? 0 : tipe.getMaksimalTransaksiHarian());
+		j.put("maksimalTransaksiMingguan", tipe == null ? 0 : tipe.getMaksimalTransaksiMingguan());
+		j.put("maksimalTransaksiBulanan", tipe == null ? 0 : tipe.getMaksimalTransaksiBulanan());
 		j.put("minSaldo", jenis == null || jenis.getMinimalSaldo() == null ? 0 : jenis.getMinimalSaldo());
 		return j;
 	}
