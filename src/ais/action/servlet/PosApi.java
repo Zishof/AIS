@@ -895,7 +895,7 @@ public class PosApi extends HttpServlet {
 				KantinHelper.notifikasiHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "notifikasi_hapus");
 			} else if ("sinkron_referensi".equals(action)) {
-				KantinHelper.sinkronReferensi(payload, hasil);
+				KantinHelper.sinkronReferensi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sinkron_referensi");
 			} else if ("sinkron_mahasiswa".equals(action)) {
 				KantinHelper.sinkronMahasiswa(tbmuser, payload, hasil);

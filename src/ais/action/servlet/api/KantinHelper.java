@@ -7981,16 +7981,50 @@ public class KantinHelper {
 	 *                "sekolah") dan {@code induk_id} (opsional, dipakai "jurusan" utk filter fakultas,
 	 *                "sekolah" utk filter yayasan).
 	 */
-	public static void sinkronReferensi(JSONObject request, JSONObject hasil) throws Exception {
+	public static synchronized void sinkronReferensi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String tipe = request.optString("tipe", "").trim();
 		Long indukId = ais.common.Common.angkaAtauNull(request, "induk_id");
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehKelola = pemanggil == null || Boolean.TRUE.equals(pemanggil.getSupervisor());
+		if (!bolehKelola) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh membuka sinkronisasi sivitas.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			JSONArray arr = new JSONArray();
 			if ("koperasi".equals(tipe)) {
-				for (Object o : session.createCriteria(ais.database.model.koperasi.Koperasi.class)
-						.addOrder(Order.asc("nama")).list()) {
-					ais.database.model.koperasi.Koperasi k = (ais.database.model.koperasi.Koperasi) o;
+				@SuppressWarnings("unchecked")
+				java.util.List<ais.database.model.koperasi.Koperasi> daftarKoperasi = session
+						.createCriteria(ais.database.model.koperasi.Koperasi.class)
+						.addOrder(Order.asc("nama")).list();
+				// Instalasi baru dapat sudah memiliki toko, produk, pegawai, bahkan satu
+				// member manual, tetapi belum memiliki master koperasi. Sebelumnya combo
+				// Flutter kosong dan seluruh sinkronisasi sivitas mustahil dijalankan.
+				// Bootstrap ini hanya dilakukan oleh admin/supervisor, satu kali, dan
+				// synchronized agar dua permintaan serentak tidak membuat duplikat.
+				if (daftarKoperasi.isEmpty()) {
+					String namaBasis = "Institusi";
+					Object tokoPertama = session.createCriteria(ais.database.model.inventory.Toko.class)
+							.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
+							.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+					if (tokoPertama instanceof ais.database.model.inventory.Toko) {
+						String namaToko = ((ais.database.model.inventory.Toko) tokoPertama).getNama();
+						if (namaToko != null && namaToko.trim().length() > 0) namaBasis = namaToko.trim();
+					}
+					ais.database.model.koperasi.Koperasi koperasiBaru = new ais.database.model.koperasi.Koperasi();
+					koperasiBaru.setKode("KOP-UTAMA");
+					koperasiBaru.setNama("Koperasi " + namaBasis);
+					koperasiBaru.setKeterangan("Dibuat otomatis saat sinkronisasi sivitas pertama");
+					koperasiBaru.setAktif(Boolean.TRUE);
+					session.beginTransaction();
+					session.save(koperasiBaru);
+					session.getTransaction().commit();
+					daftarKoperasi = new java.util.ArrayList<ais.database.model.koperasi.Koperasi>();
+					daftarKoperasi.add(koperasiBaru);
+				}
+				for (ais.database.model.koperasi.Koperasi k : daftarKoperasi) {
 					JSONObject j = new JSONObject();
 					j.put("id", k.getId());
 					j.put("nama", k.getNama() == null ? ("Koperasi #" + k.getId()) : k.getNama());
