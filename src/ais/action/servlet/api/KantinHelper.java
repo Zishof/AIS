@@ -3527,7 +3527,7 @@ public class KantinHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Long jumlahBentrok = (Long) session
+			Number jumlahBentrok = (Number) session
 					.createSQLQuery("SELECT COUNT(*) FROM koperasi.pedagang WHERE userid = :u")
 					.setParameter("u", userid).uniqueResult();
 			if (jumlahBentrok != null && jumlahBentrok.longValue() > 0) {

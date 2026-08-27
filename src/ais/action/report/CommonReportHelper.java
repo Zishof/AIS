@@ -9242,6 +9242,20 @@ public class CommonReportHelper {
 		parameters.put("semester_pendek", semesterPendek);
 
 		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, false);
+		if (krsMahasiswa == null || krsMahasiswa.getId() == null
+				|| krsMahasiswa.getSksYangDiambil() == null || krsMahasiswa.getSksYangDiambil().intValue() <= 0) {
+			MyMessageboxConfig.show(
+					"KHS semester " + semester
+							+ " belum dapat dicetak karena mahasiswa belum mempunyai data KRS/mata kuliah pada semester tersebut. Silakan pilih semester yang sudah memiliki KRS atau sinkronkan KRS terlebih dahulu.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		// Jalur cetak cepat dari profil mahasiswa sebelumnya hanya mengirim ID dan nama
+		// khusus, sedangkan template KHS membaca properti standar Mahasiswa (nim, nama,
+		// jurusan, angkatan, dan seterusnya). Akibatnya PDF tetap terbentuk tetapi header
+		// berisi null. Samakan parameter dengan LaporanKHS.generateParameter().
+		Common.insertProperty(Mahasiswa.class, mahasiswa, parameters, "");
 
 		if (krsMahasiswa != null && krsMahasiswa.getDosenPa() != null) {
 			krsMahasiswa.getDosenPa().putPhoto(parameters);

@@ -10,6 +10,34 @@
 <%@page import="ais.database.model.koperasi.AnggotaKoperasi"%>
 <%@page import="ais.common.Common"%>
 <%
+// Unduh template PIN aman: PIN/hash/salt lama tidak pernah keluar dari server.
+if ("true".equals(request.getParameter("is_ajax_pin_template"))) {
+    Tbmuser penggunaPin = Common.getCurrentUser(request);
+    if (!ais.action.master.koperasi.helper.PinMemberMassalUtil.bolehKelola(penggunaPin)) {
+        response.sendError(403, "Hanya administrator/supervisor yang boleh mengelola PIN member.");
+        return;
+    }
+    response.setContentType("text/tab-separated-values;charset=UTF-8");
+    response.setHeader("Content-Disposition", "attachment; filename=template_pin_member.tsv");
+    out.print(ais.action.master.koperasi.helper.PinMemberMassalUtil.buatTemplateTsv());
+    return;
+}
+
+if ("true".equals(request.getParameter("is_ajax_pin_upload"))) {
+    response.setContentType("application/json");
+    response.setCharacterEncoding("UTF-8");
+    JSONObject jawabanPin = new JSONObject();
+    Tbmuser penggunaPin = Common.getCurrentUser(request);
+    if (!ais.action.master.koperasi.helper.PinMemberMassalUtil.bolehKelola(penggunaPin)) {
+        jawabanPin.put("status", "91");
+        jawabanPin.put("description", "Hanya administrator/supervisor yang boleh mengelola PIN member.");
+    } else {
+        jawabanPin = ais.action.master.koperasi.helper.PinMemberMassalUtil.imporTsv(request.getParameter("konten"));
+    }
+    out.print(jawabanPin.toString());
+    return;
+}
+
 // ==========================================
 // 0. BLOK AJAX UNTUK MANUAL KIRIM NOTIFIKASI & LIHAT PASSWORD
 // ==========================================
@@ -188,6 +216,9 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
                 <button class="btn btn-light rounded-pill px-4 shadow-sm fw-bold border text-primary" onclick="resetAndLoadData<%=rnd%>()" title="<%=Common.getBahasaConfig("Perbarui Data")%>">
                     <i class="fas fa-sync-alt me-1"></i><%=Common.getBahasaConfig("Muat Ulang")%>
                 </button>
+                <button class="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onclick="unduhTemplatePin<%=rnd%>()" title="Template hanya berisi status dan kolom PIN baru kosong"><i class="fas fa-file-download me-1"></i><%=Common.getBahasaConfig("Download Template PIN")%></button>
+                <button class="btn btn-outline-warning rounded-pill px-3 shadow-sm fw-bold" onclick="document.getElementById('filePinMember<%=rnd%>').click()"><i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Upload PIN")%></button>
+                <input type="file" id="filePinMember<%=rnd%>" accept=".tsv,.txt" class="d-none" onchange="uploadPinMember<%=rnd%>(this)">
                 
                 <% if (isAdmin) { %>
                 <button class="btn btn-warning rounded-pill px-4 shadow-sm fw-bold text-dark text-nowrap" onclick="konfirmasiKirimNotifMassal<%=rnd%>()" id="btnKirimNotif<%=rnd%>" title="<%=Common.getBahasaConfig("Evaluasi seluruh member")%>">
@@ -615,6 +646,27 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
         } catch (e) {
             console.error(e);
             showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal terhubung ke server untuk mengambil password.")%>', 'bg-danger text-white');
+        }
+    };
+
+    const urlPinMember<%=rnd%> = '<%=Common.ROOT%>/baru?p=kantin%2Fmember&s=anggota_koperasi&hanya_tampil_jsp=true';
+    const unduhTemplatePin<%=rnd%> = () => {
+        window.location.href = urlPinMember<%=rnd%> + '&is_ajax_pin_template=true';
+    };
+    const uploadPinMember<%=rnd%> = async (input) => {
+        if (!input.files || !input.files.length) return;
+        try {
+            const konten = await input.files[0].text();
+            const body = new URLSearchParams();
+            body.set('konten', konten);
+            const response = await fetch(urlPinMember<%=rnd%> + '&is_ajax_pin_upload=true', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body:body.toString()});
+            const hasil = await response.json();
+            showToast<%=rnd%>(hasil.description || (hasil.status === '00' ? 'PIN berhasil diperbarui.' : 'Upload PIN gagal.'), hasil.status === '00' ? 'bg-success text-white' : 'bg-danger text-white');
+            if (hasil.status === '00') resetAndLoadData<%=rnd%>();
+        } catch (e) {
+            showToast<%=rnd%>('Upload PIN gagal: ' + e, 'bg-danger text-white');
+        } finally {
+            input.value = '';
         }
     };
 

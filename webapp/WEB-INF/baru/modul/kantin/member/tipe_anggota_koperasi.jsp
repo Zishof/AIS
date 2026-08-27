@@ -151,6 +151,32 @@ boolean isAdmin = (toko == null);
                                 <small class="text-muted"><%=Common.getBahasaConfig("Batas maksimal hutang (piutang toko) yang boleh ditumpuk anggota tipe ini. 0 = tidak boleh berhutang sama sekali.")%></small>
                             </div>
 
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-primary"><i class="fas fa-chart-line me-1"></i><%=Common.getBahasaConfig("Batas Nilai Pembelian")%></label>
+                                <div class="row g-2">
+                                    <div class="col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">Harian Rp</span><input type="number" min="0" class="form-control" id="inputMaksHarian<%=rnd%>" value="0"></div></div>
+                                    <div class="col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">Mingguan Rp</span><input type="number" min="0" class="form-control" id="inputMaksMingguan<%=rnd%>" value="0"></div></div>
+                                    <div class="col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">Bulanan Rp</span><input type="number" min="0" class="form-control" id="inputMaksBulanan<%=rnd%>" value="0"></div></div>
+                                </div>
+                                <small class="text-muted"><%=Common.getBahasaConfig("Nilai 0 berarti tanpa batas. Pemeriksaan akhir tetap dilakukan server sebelum transaksi disimpan.")%></small>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-primary"><i class="fas fa-credit-card me-1"></i><%=Common.getBahasaConfig("Cara Bayar yang Diizinkan")%></label>
+                                <div class="row g-2" id="containerCaraBayarTipe<%=rnd%>"><div class="col-12 text-muted small"><i class="fas fa-spinner fa-spin me-2"></i>Memuat...</div></div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-7"><select class="form-select form-select-sm" id="inputCaraBayarDefault<%=rnd%>"><option value="">-- Tidak ada default --</option></select></div>
+                                    <div class="col-md-5"><div class="form-check form-switch pt-1"><input class="form-check-input" type="checkbox" id="inputKunciCaraBayar<%=rnd%>"><label class="form-check-label small fw-bold" for="inputKunciCaraBayar<%=rnd%>"><%=Common.getBahasaConfig("Tidak boleh memakai cara bayar lain")%></label></div></div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-primary"><i class="fas fa-shield-alt me-1"></i><%=Common.getBahasaConfig("Verifikasi sebelum memotong saldo")%></label>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="inputWajibPin<%=rnd%>"><label class="form-check-label small" for="inputWajibPin<%=rnd%>">Wajib PIN numerik</label></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="inputWajibWajah<%=rnd%>"><label class="form-check-label small" for="inputWajibWajah<%=rnd%>">Wajib biometric wajah (kamera + liveness)</label></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="inputWajibFingerprint<%=rnd%>"><label class="form-check-label small" for="inputWajibFingerprint<%=rnd%>">Wajib fingerprint (scanner USB/OTG + SDK)</label></div>
+                            </div>
+
                             <div class="col-md-12">
                                 <label class="form-label small fw-semibold text-secondary"><i class="fas fa-address-book text-primary me-1"></i><%=Common.getBahasaConfig("Kontak Wajib Anggota")%></label>
                                 <div class="form-check">
@@ -195,6 +221,7 @@ boolean isAdmin = (toko == null);
     let currentPage<%=rnd%> = 1;
     const limitPerPage<%=rnd%> = 10;
     let totalRecords<%=rnd%> = 0;
+    let listCaraBayarTipe<%=rnd%> = [];
 
     const fetchData<%=rnd%> = async (sql) => {
         try {
@@ -229,6 +256,14 @@ boolean isAdmin = (toko == null);
     const bacaBool<%=rnd%> = (val, defVal) => {
         if (val === null || val === undefined || val === '') return defVal;
         return (val === true || val === 't' || val === 'true');
+    };
+
+    const loadMasterCaraBayarTipe<%=rnd%> = async () => {
+        listCaraBayarTipe<%=rnd%> = await fetchData<%=rnd%>("SELECT id, nama FROM koperasi.cara_pembayaran_koperasi WHERE COALESCE(aktif,true)=true ORDER BY nama");
+        const box = document.getElementById('containerCaraBayarTipe<%=rnd%>');
+        const select = document.getElementById('inputCaraBayarDefault<%=rnd%>');
+        box.innerHTML = listCaraBayarTipe<%=rnd%>.map(x => '<div class="col-md-6"><div class="form-check border rounded p-2 ps-4"><input class="form-check-input chk-cara-tipe-<%=rnd%>" type="checkbox" value="'+x.id+'" id="cbTipeBayar<%=rnd%>_'+x.id+'"><label class="form-check-label small fw-bold" for="cbTipeBayar<%=rnd%>_'+x.id+'">'+x.nama+'</label></div></div>').join('') || '<div class="col-12 text-muted small">Tidak ada cara bayar aktif.</div>';
+        select.innerHTML = '<option value="">-- Tidak ada default --</option>' + listCaraBayarTipe<%=rnd%>.map(x => '<option value="'+x.id+'">'+x.nama+'</option>').join('');
     };
 
     // Label UI Switch Status Aktif
@@ -377,6 +412,15 @@ boolean isAdmin = (toko == null);
         document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value = 0;
         document.getElementById('inputWajibHp<%=rnd%>').checked = false;
         document.getElementById('inputWajibEmail<%=rnd%>').checked = false;
+        document.getElementById('inputMaksHarian<%=rnd%>').value = 0;
+        document.getElementById('inputMaksMingguan<%=rnd%>').value = 0;
+        document.getElementById('inputMaksBulanan<%=rnd%>').value = 0;
+        document.getElementById('inputCaraBayarDefault<%=rnd%>').value = '';
+        document.getElementById('inputKunciCaraBayar<%=rnd%>').checked = false;
+        document.getElementById('inputWajibPin<%=rnd%>').checked = false;
+        document.getElementById('inputWajibWajah<%=rnd%>').checked = false;
+        document.getElementById('inputWajibFingerprint<%=rnd%>').checked = false;
+        document.querySelectorAll('.chk-cara-tipe-<%=rnd%>').forEach(x => x.checked = false);
 
         const chkStatus = document.getElementById('inputStatusAktif<%=rnd%>');
         chkStatus.checked = true;
@@ -405,6 +449,7 @@ boolean isAdmin = (toko == null);
         const btnSimpan = document.getElementById('btnSimpan<%=rnd%>');
         
         // Object utama TipeAnggotaKoperasi
+        const caraDipilih = Array.from(document.querySelectorAll('.chk-cara-tipe-<%=rnd%>:checked')).map(x => x.value);
         const dataObj = {
             kode: document.getElementById('inputKode<%=rnd%>').value,
             nama: document.getElementById('inputNama<%=rnd%>').value,
@@ -412,7 +457,16 @@ boolean isAdmin = (toko == null);
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked,
             maksimalBolehUtang: parseFloat(document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value || 0),
             wajibHp: document.getElementById('inputWajibHp<%=rnd%>').checked,
-            wajibEmail: document.getElementById('inputWajibEmail<%=rnd%>').checked
+            wajibEmail: document.getElementById('inputWajibEmail<%=rnd%>').checked,
+            daftarCaraPembayaranYangBolehDiPilih: caraDipilih.length ? ',' + caraDipilih.join(',') + ',' : '',
+            caraPembayaranDefaultId: document.getElementById('inputCaraBayarDefault<%=rnd%>').value || null,
+            tidakBolehCaraPembayaranLain: document.getElementById('inputKunciCaraBayar<%=rnd%>').checked,
+            maksimalTransaksiHarian: parseFloat(document.getElementById('inputMaksHarian<%=rnd%>').value || 0),
+            maksimalTransaksiMingguan: parseFloat(document.getElementById('inputMaksMingguan<%=rnd%>').value || 0),
+            maksimalTransaksiBulanan: parseFloat(document.getElementById('inputMaksBulanan<%=rnd%>').value || 0),
+            wajibPin: document.getElementById('inputWajibPin<%=rnd%>').checked,
+            wajibBiometricWajah: document.getElementById('inputWajibWajah<%=rnd%>').checked,
+            wajibBiometricFingerprint: document.getElementById('inputWajibFingerprint<%=rnd%>').checked
         };
         
         const payload = { 
@@ -458,7 +512,7 @@ boolean isAdmin = (toko == null);
         
         isEditMode<%=rnd%> = true; 
         
-        const sql = 'SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang, wajib_hp, wajib_email FROM koperasi.tipe_anggota_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang, wajib_hp, wajib_email, daftar_cara_pembayaran_yang_boleh_di_pilih, cara_pembayaran_default_id, COALESCE(tidak_boleh_cara_pembayaran_lain,false) tidak_boleh_cara_pembayaran_lain, COALESCE(maksimal_transaksi_harian,0) maksimal_transaksi_harian, COALESCE(maksimal_transaksi_mingguan,0) maksimal_transaksi_mingguan, COALESCE(maksimal_transaksi_bulanan,0) maksimal_transaksi_bulanan, COALESCE(wajib_pin,false) wajib_pin, COALESCE(wajib_verifikasi_biometric_wajah,false) wajib_wajah, COALESCE(wajib_verifikasi_biometric_fingerprint,false) wajib_fingerprint FROM koperasi.tipe_anggota_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
 
         if (res.length > 0) {
@@ -474,6 +528,16 @@ boolean isAdmin = (toko == null);
             // Kontak wajib: NULL -> default per nama tipe (lihat defaultWajibHp di atas)
             document.getElementById('inputWajibHp<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_hp, defaultWajibHp<%=rnd%>(data.nama));
             document.getElementById('inputWajibEmail<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_email, false);
+            document.getElementById('inputMaksHarian<%=rnd%>').value = parseFloat(data.maksimal_transaksi_harian || 0);
+            document.getElementById('inputMaksMingguan<%=rnd%>').value = parseFloat(data.maksimal_transaksi_mingguan || 0);
+            document.getElementById('inputMaksBulanan<%=rnd%>').value = parseFloat(data.maksimal_transaksi_bulanan || 0);
+            document.getElementById('inputCaraBayarDefault<%=rnd%>').value = data.cara_pembayaran_default_id || '';
+            document.getElementById('inputKunciCaraBayar<%=rnd%>').checked = bacaBool<%=rnd%>(data.tidak_boleh_cara_pembayaran_lain, false);
+            document.getElementById('inputWajibPin<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_pin, false);
+            document.getElementById('inputWajibWajah<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_wajah, false);
+            document.getElementById('inputWajibFingerprint<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_fingerprint, false);
+            const csvCara = ',' + (data.daftar_cara_pembayaran_yang_boleh_di_pilih || '').replace(/^,|,$/g, '') + ',';
+            document.querySelectorAll('.chk-cara-tipe-<%=rnd%>').forEach(x => x.checked = csvCara.includes(',' + x.value + ','));
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');
@@ -495,6 +559,6 @@ boolean isAdmin = (toko == null);
                 resetAndLoadData<%=rnd%>(); 
             }
         });
-        loadDataTipeAnggota<%=rnd%>();
+        loadMasterCaraBayarTipe<%=rnd%>().then(() => loadDataTipeAnggota<%=rnd%>());
     });
 </script>

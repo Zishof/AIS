@@ -13,6 +13,8 @@ import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.UploadEvent;
+import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
@@ -31,12 +33,14 @@ import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.South;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Vbox;
 
 import ais.action.master.akunting.helper.AmbilDataPegawaiBanbox;
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.koperasi.helper.PinMemberMassalUtil;
 import ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox;
 import ais.action.master.rab.util.SatuanKerjaTreeModel;
 import ais.action.master.sekolah.helper.AmbilDataGuruBanbox;
@@ -191,6 +195,44 @@ public class AnggotaKoperasiAction extends GenericAutowireComposer
 		MyToolbarbuttonConfig upload = Common.uploadData(this, AnggotaKoperasi.class, contents);
 		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit && delete); }
 		Common.appendKeToolbar(upload, add, comp);
+
+		final boolean bolehPin = PinMemberMassalUtil.bolehKelola(Common.getCurrentUser());
+		MyToolbarbuttonConfig unduhPin = new MyToolbarbuttonConfig("Download Template PIN", "/img/excel.png");
+		unduhPin.setVisible(bolehPin);
+		unduhPin.setTooltiptext("Tidak mengunduh PIN lama; hanya status dan kolom PIN baru kosong.");
+		unduhPin.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				byte[] data = PinMemberMassalUtil.buatTemplateTsv().getBytes("UTF-8");
+				Filedownload.save(data, "text/tab-separated-values;charset=UTF-8", "template_pin_member.tsv");
+			}
+		});
+		Common.appendKeToolbar(unduhPin, add, comp);
+
+		MyToolbarbuttonConfig unggahPin = new MyToolbarbuttonConfig("Upload PIN", "/img/excel.png");
+		unggahPin.setVisible(bolehPin);
+		unggahPin.setUpload(Common.ukuranFileUpload());
+		unggahPin.setTooltiptext("Isi hanya kolom pin_baru (4-8 angka) pada template TSV.");
+		unggahPin.addEventListener("onUpload", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				Media media = ((UploadEvent) event).getMedia();
+				if (media == null) return;
+				java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(media.getStreamData(), "UTF-8"));
+				StringBuilder isi = new StringBuilder();
+				String line;
+				while ((line = reader.readLine()) != null) isi.append(line).append('\n');
+				reader.close();
+				org.json.JSONObject hasil = PinMemberMassalUtil.imporTsv(isi.toString());
+				if (!"00".equals(hasil.optString("status"))) {
+					MyMessageboxConfig.show(hasil.optString("description", "Upload PIN gagal."), "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
+				}
+				MyMessageboxConfig.show(hasil.optString("description", "PIN berhasil diperbarui."), "Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				onSearchDefault(null);
+			}
+		});
+		Common.appendKeToolbar(unggahPin, add, comp);
 
 		MyToolbarbuttonConfig singkron = new MyToolbarbuttonConfig("Singkronkan Mahasiswa", "/img/excel.png");
 		Common.appendKeToolbar(singkron, add, comp);

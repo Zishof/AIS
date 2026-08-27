@@ -206,11 +206,17 @@ public final class CommonPagingHelper {
 								s.getTransaction().rollback();
 							}
 						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-rollback"); }
+						/* Rollback pada beberapa konfigurasi Hibernate lama dapat ikut
+						 * menutup currentSession. Periksa ulang sebelum clear/beginTransaction;
+						 * memanggil clear() pada sesi tertutup hanya menghasilkan exception
+						 * kedua yang menutupi penyebab awal. */
 						try {
-							s.clear();
+							if (s.isOpen()) {
+								s.clear();
+							}
 						} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-clear"); }
 						try {
-							if (s.getTransaction() == null || !s.getTransaction().isActive()) {
+							if (s.isOpen() && (s.getTransaction() == null || !s.getTransaction().isActive())) {
 								s.beginTransaction();
 							}
 						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-retx"); }

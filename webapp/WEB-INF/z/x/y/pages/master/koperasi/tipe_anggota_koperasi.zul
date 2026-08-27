@@ -71,6 +71,8 @@
 						sort="auto(nama)" />
 						<column
 						use="ais.ui.util.MyColumnConfig" label="Keterangan" />
+						<column use="ais.ui.util.MyColumnConfig" label="Batas Transaksi" width="20%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Verifikasi" width="14%" />
 						<column
 						use="ais.ui.util.MyColumnConfig" width="56px" label=""  align="center"/>
 						<column
@@ -83,7 +85,7 @@
 
 		</div>
 
-		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah" visible="false" mode="popup" position="center,center" border="normal" width="550px" height="350px">
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah" visible="false" mode="popup" position="center,center" border="normal" width="700px" height="90%">
 		</window>
 
 		<zscript><![CDATA[

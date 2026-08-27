@@ -1,6 +1,8 @@
 package ais.action.master.koperasi;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -26,6 +28,7 @@ import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.South;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
+import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.RevisiHelper;
 import ais.common.Common;
@@ -33,6 +36,7 @@ import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.koperasi.JenisAnggotaKoperasi;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataInitDefault;
 import ais.ui.util.DataSearchDefault;
@@ -63,6 +67,7 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 	private Checkbox wajibPin;
 	private Checkbox wajibBiometricWajah;
 	private Checkbox wajibBiometricFingerprint;
+	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayar = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -225,6 +230,25 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		row.appendChild(wajibBiometricFingerprint = new Checkbox("Wajib scanner USB/OTG + SDK sebelum memotong saldo"));
 		wajibBiometricFingerprint.setChecked(Boolean.TRUE.equals(jenisAnggotaKoperasi.getWajibVerifikasiBiometricFingerprint()));
 
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Cara Bayar yang Diizinkan"));
+		Vbox caraBayar = new Vbox();
+		pilihanCaraBayar.clear();
+		String csvCara = jenisAnggotaKoperasi.getDaftarCaraPembayaranYangBolehDiPilih();
+		@SuppressWarnings("unchecked")
+		List<CaraPembayaranKoperasi> semuaCara = HibernateUtil.currentSession().createCriteria(CaraPembayaranKoperasi.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.addOrder(Order.asc("nama")).list();
+		for (CaraPembayaranKoperasi cara : semuaCara) {
+			Checkbox pilihan = new Checkbox(cara.getNama());
+			pilihan.setChecked(csvCara.contains("," + cara.getId() + ","));
+			caraBayar.appendChild(pilihan);
+			pilihanCaraBayar.put(pilihan, cara);
+		}
+		row.appendChild(caraBayar);
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -283,6 +307,12 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		jenisAnggotaKoperasi.setWajibPin(Boolean.valueOf(wajibPin.isChecked()));
 		jenisAnggotaKoperasi.setWajibVerifikasiBiometricWajah(Boolean.valueOf(wajibBiometricWajah.isChecked()));
 		jenisAnggotaKoperasi.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(wajibBiometricFingerprint.isChecked()));
+		StringBuilder csvCara = new StringBuilder();
+		for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayar.entrySet()) {
+			if (entry.getKey().isChecked()) csvCara.append(",").append(entry.getValue().getId());
+		}
+		if (csvCara.length() > 0) csvCara.append(",");
+		jenisAnggotaKoperasi.setDaftarCaraPembayaranYangBolehDiPilih(csvCara.toString());
 
 		Common.refreshSaveOrUpdate(session, jenisAnggotaKoperasi);
 

@@ -650,6 +650,9 @@ public class HistoryStatusMahasiswaUtil {
             List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
             if (kegiatanDibayars != null) {
                 for (Kegiatan keg : kegiatanDibayars) {
+                    if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
+                        continue;
+                    }
                     check &= (keg != null && keg.getPersentaseLunas() >= 0.1);
                 }
             }
@@ -675,17 +678,44 @@ public class HistoryStatusMahasiswaUtil {
             if (kegiatanDibayars == null || kegiatanDibayars.isEmpty()) {
                 return false;
             }
+            boolean adaTagihanYangBerlaku = false;
             for (Kegiatan keg : kegiatanDibayars) {
+                if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
+                    continue;
+                }
+                adaTagihanYangBerlaku = true;
                 if (keg == null || keg.getPersentaseLunas() == null || keg.getPersentaseLunas() < 0.1) {
                     return false;
                 }
             }
-            return true;
+            return adaTagihanYangBerlaku;
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e,
                     "auto-audit(empty-catch) HistoryStatusMahasiswaUtil.adaKegiatanSyaratAktifLunasSemua");
             return false;
         }
+    }
+
+    /**
+     * Menentukan apakah sebuah tagihan memang boleh memengaruhi status mahasiswa pada
+     * semester yang sedang diperiksa. Tagihan daftar ulang mahasiswa baru hanya berlaku
+     * pada semester pertama. Data lama pernah menyimpan tagihan tersebut pada Mahasiswa
+     * (bukan hanya BiodataCalonMahasiswa), sehingga tanpa pagar ini mahasiswa lama dapat
+     * tetap Nonaktif walaupun tagihan semester regulernya sudah lunas.
+     */
+    public static boolean kegiatanSyaratAktifBerlaku(Kegiatan kegiatan, Integer semester) {
+        if (kegiatan == null || kegiatan.getJenisKegiatan() == null) {
+            return false;
+        }
+        if (semester != null && semester.intValue() > 1
+                && ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU != null
+                && ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU.getId() != null
+                && kegiatan.getJenisKegiatan().getId() != null
+                && ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU.getId()
+                        .equals(kegiatan.getJenisKegiatan().getId())) {
+            return false;
+        }
+        return true;
     }
 
     private static Integer getJumlahSemester(Mahasiswa mahasiswa) {

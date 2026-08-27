@@ -90,6 +90,16 @@ private String safeModuleSegment(String value) {
     return v;
 }
 
+private String compatibilityModulePage(String p) {
+    /* Menu lama menyimpan nama class Java yang dipadatkan sebagai parameter p.
+       Halaman laporan ini sudah tersedia di UI report baru, jadi arahkan ke
+       target yang nyata dan jangan mencoba membuka folder modul yang tidak ada. */
+    if ("aisactionreportformat1sekolahLaporanPembelianSiswa".equals(p)) {
+        return "/WEB-INF/new/root/report/uiux/format1/sekolah/laporan_pembelian_siswa.jsp";
+    }
+    return null;
+}
+
 private void includePage(HttpServletRequest request, HttpServletResponse response, javax.servlet.jsp.JspWriter out,
         String page, String label, String trace, long start) throws Exception {
     // Output include() ditulis langsung ke response, sedangkan template text JSP induk
@@ -466,7 +476,10 @@ try {
                     }
                 } else {
                     try {
-                        includePage(request, response, out, "/WEB-INF/baru/modul/" + p + "/index.jsp", "modulIndex", __trace,
+						String compatibilityPage = compatibilityModulePage(p);
+						String modulePage = compatibilityPage == null
+								? "/WEB-INF/baru/modul/" + p + "/index.jsp" : compatibilityPage;
+                        includePage(request, response, out, modulePage, "modulIndex", __trace,
                                 __start);
                     } catch (Exception e) {
                         e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit webapp/WEB-INF/baru/index.jsp:292");

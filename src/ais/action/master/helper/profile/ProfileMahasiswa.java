@@ -449,10 +449,16 @@ public class ProfileMahasiswa {
 				}
 				List<String> belumLunas = new ArrayList<String>();
 				if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif != null) {
-					for (ais.database.model.JenisKegiatan jk : ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif) {
-						ais.database.model.Kegiatan keg = mahasiswa.ambilKegiatans(krsMahasiswa.getSemester(), jk);
-						if (keg == null || keg.getAmountTerhutang() == null || keg.getAmountTerhutang() > 0.1) {
-							belumLunas.add(jk.getNamaKegiatan());
+					List<ais.database.model.Kegiatan> kegiatanSyaratAktif = mahasiswa.ambilKegiatans(
+							krsMahasiswa.getSemester(), ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif,
+							true);
+					if (kegiatanSyaratAktif != null) {
+						for (ais.database.model.Kegiatan keg : kegiatanSyaratAktif) {
+							if (ais.action.master.helper.HistoryStatusMahasiswaUtil
+									.kegiatanSyaratAktifBerlaku(keg, krsMahasiswa.getSemester())
+									&& (keg.getPersentaseLunas() == null || keg.getPersentaseLunas() < 0.1)) {
+								belumLunas.add(keg.getJenisKegiatan().getNamaKegiatan());
+							}
 						}
 					}
 				}
@@ -522,14 +528,24 @@ public class ProfileMahasiswa {
 							try {
 								session = HibernateUtil.getSessionFactory().openSession();
 								if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif != null) {
-									for (ais.database.model.JenisKegiatan jk : ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif) {
+									List<ais.database.model.Kegiatan> kegiatanSyaratAktif = mahasiswa.ambilKegiatans(
+											smt, ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
+									if (kegiatanSyaratAktif != null) {
+									for (ais.database.model.Kegiatan keg : kegiatanSyaratAktif) {
 										try {
-											ais.action.master.helper.KegiatanHelper.checkKegiatanMahasiswa(jk, mahasiswa,
-													smt, krsMahasiswa.getTahunAkademik(), true, false, null, session);
+											if (!ais.action.master.helper.HistoryStatusMahasiswaUtil
+													.kegiatanSyaratAktifBerlaku(keg, smt)) {
+												continue;
+											}
+											ais.action.master.helper.KegiatanHelper.checkKegiatanMahasiswa(keg,
+													keg.getJenisKegiatan(), mahasiswa, smt,
+													krsMahasiswa.getTahunAkademik(), true, keg.getJadwalPembayaran(),
+													false, false, null, session);
 										} catch (Exception eKeg) {
 											ais.common.ErrorAuditUtil.record(eKeg,
 													"auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: checkKegiatanMahasiswa");
 										}
+									}
 									}
 								}
 							} finally {

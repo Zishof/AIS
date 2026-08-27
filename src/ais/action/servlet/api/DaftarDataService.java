@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -54,6 +55,29 @@ import ais.database.model.sekolah.Siswa;
 // Pastikan import class model dan utilitas lain sesuai package project Anda
 
 public class DaftarDataService { // Sesuaikan nama class dengan file asli
+
+	/* Alias seperti "suratkeluar1_" adalah nama tabel INTERNAL yang dibuat
+	 * Hibernate. Pada query daftar alias itu tersedia, tetapi Hibernate 3 dapat
+	 * membuang LEFT JOIN tersebut ketika Criteria diubah menjadi rowCount().
+	 * SQL restriction lama yang menyebut alias internal lalu menghasilkan
+	 * "missing FROM-clause entry". Jangan jalankan count terpisah untuk request
+	 * legacy seperti ini; total minimum akan dihitung dari halaman yang berhasil
+	 * dimuat. "this_" tetap aman karena merupakan alias tabel utama. */
+	private static final Pattern ALIAS_SQL_INTERNAL = Pattern.compile(
+			"(?i)(?<![a-z0-9_])(?!this_\\b)[a-z][a-z0-9_]*[0-9]+_\\.");
+
+	private static boolean countMemakaiAliasSqlInternal(JSONObject request) {
+		for (int i = 1; i <= 10; i++) {
+			String key = "where" + i;
+			if (!request.isNull(key)) {
+				String where = request.optString(key, "");
+				if (ALIAS_SQL_INTERNAL.matcher(where).find()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
 	public static JSONObject daftar(HttpServletRequest req, JSONObject request) {
 		return daftar(req, request, true);
@@ -272,8 +296,8 @@ public class DaftarDataService { // Sesuaikan nama class dengan file asli
 		try {
 			transaction = session.beginTransaction();
 			// Hitung Data (Jika diminta)
-			Number countData = 0;
-			if (count) {
+			Number countData = null;
+			if (count && !countMemakaiAliasSqlInternal(request)) {
 				Criteria cCount = createCriteriaProses(request, clazz, session, tbmuser);
 				countData = (Number) cCount.setProjection(Projections.rowCount()).uniqueResult();
 			}
@@ -409,7 +433,20 @@ public class DaftarDataService { // Sesuaikan nama class dengan file asli
 
 			jsonObject.put("data", jsonArray);
 			if (count) {
-				jsonObject.put("count", countData.intValue());
+				if (countData != null) {
+					jsonObject.put("count", countData.intValue());
+				} else {
+					/* Query utama tetap valid. Untuk filter legacy dengan alias SQL
+					 * internal, kirim total minimum yang konsisten: tepat bila ini
+					 * halaman terakhir, atau satu baris lebih banyak agar UI masih
+					 * menawarkan halaman berikutnya bila halaman terisi penuh. */
+					int jumlahHalaman = resultList == null ? 0 : resultList.size();
+					int minimum = (halaman * max) + jumlahHalaman;
+					if (jumlahHalaman == max) {
+						minimum++;
+					}
+					jsonObject.put("count", minimum);
+				}
 			}
 			jsonObject.put("status", "00");
 			jsonObject.put("description", resultList != null && resultList.size() > 0 ? "Pengambilan data berhasil"
