@@ -1,6 +1,10 @@
 package ais.action.master;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -8,6 +12,7 @@ import org.hibernate.criterion.Order;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
@@ -34,6 +39,7 @@ public class MemoryInfoAction extends GenericAutowireComposer implements DataCri
 	 * 
 	 */
 	private static final long serialVersionUID = -5779730267402400328L;
+	private static final int MAKS_SAMPEL_AI = 300;
 
 	private Paging paging;
 	private MyGrid grid;
@@ -74,6 +80,16 @@ private MyToolbarbuttonConfig find;
 		// Tombol laporan modern (Cetak + Ekspor Excel + progress + grafik HTML/CSS) via mesin reuse.
 		if (find != null && find.getParent() != null) {
 			ais.action.master.helper.DashboardReportKit.pasangTombol(find.getParent(), self, buatSumberLaporanMemori());
+
+			MyToolbarbuttonConfig copyAi = new MyToolbarbuttonConfig("Copy Instruksi AI", "/img/svg/copy.svg");
+			copyAi.setTooltiptext("Salin prompt AI berisi sampel pemakaian memori terbaru ke clipboard");
+			copyAi.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					copyInstruksiAiKeClipboard();
+				}
+			});
+			find.getParent().appendChild(copyAi);
 		}
 
 		MyToolbarbuttonConfig hapus = new MyToolbarbuttonConfig("Hapus Semua Info Memori", "/img/svg/trash.svg");
@@ -127,7 +143,8 @@ private MyToolbarbuttonConfig find;
 			new Label(
 					Common.numberFormat.get().format(UserOnlineCounter.bytesToMegabytesLong(memoryInfo.getTotalFreeMemory()))
 							+ "Mb").setParent(arg0);
-			double persen = (memoryInfo.getTotalFreeMemory() * 100.0) / memoryInfo.getAllocatedMemory();
+			double persen = nilai(memoryInfo.getMaxMemory()) > 0
+					? (nilai(memoryInfo.getTotalFreeMemory()) * 100.0) / nilai(memoryInfo.getMaxMemory()) : 0;
 			new Label(Common.numberFormat.get().format(persen) + "%").setParent(arg0);
 		}
 
@@ -171,6 +188,129 @@ private MyToolbarbuttonConfig find;
 		}
 	}
 
+	private void copyInstruksiAiKeClipboard() {
+		try {
+			GenericActionDashboardHelper.showProgress(progressHtml, 15, "Menyiapkan analisis AI",
+					"Mengumpulkan sampel pemakaian memori terbaru.");
+			String prompt = buatInstruksiAiMemori();
+			GenericActionDashboardHelper.showProgress(progressHtml, 90, "Menyalin",
+					"Instruksi dan data memori sedang disalin ke clipboard.");
+			Clients.evalJavaScript(buildCopyToClipboardScript(prompt));
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			GenericActionDashboardHelper.hideProgress(progressHtml);
+		}
+	}
+
+	private String buatInstruksiAiMemori() {
+		List<MemoryInfo> sampel = ambilSampelMemori(MAKS_SAMPEL_AI);
+		StringBuilder text = new StringBuilder(65536);
+		SimpleDateFormat format = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+		Set<Long> kapasitas = new LinkedHashSet<Long>();
+
+		text.append("Tolong analisis kondisi memori JVM eCampus berdasarkan seluruh sampel berikut.\n\n");
+		text.append("Tugas analisis:\n");
+		text.append("1. Nilai tekanan memori, risiko OutOfMemoryError, lonjakan, dan arah tren.\n");
+		text.append("2. Temukan waktu pemakaian tertinggi serta sampel yang perlu diperiksa segera.\n");
+		text.append("3. Jangan menyimpulkan memory leak hanya dari seri pendek; jelaskan bukti tambahan yang perlu diperiksa, termasuk GC log, heap dump, dan thread/process terkait.\n");
+		text.append("4. Jika nilai max_mb berbeda, kelompokkan dan analisis tiap kapasitas secara terpisah karena data mungkin berasal dari JVM/node berbeda. Jangan mencampur tren antarkelompok.\n");
+		text.append("5. Berikan rekomendasi berurutan: tindakan mendesak, pemeriksaan lanjutan, lalu perbaikan konfigurasi/kode yang aman.\n");
+		text.append("6. Gunakan rumus: used = allocated - free_allocated = max - total_free; total_free_pct = total_free / max.\n\n");
+		text.append("Dibuat pada       : ").append(format.format(new Date())).append('\n');
+		text.append("Jumlah sampel     : ").append(sampel.size()).append(" (maksimal ").append(MAKS_SAMPEL_AI).append(")\n");
+		text.append("Urutan data       : terlama ke terbaru\n");
+
+		for (MemoryInfo m : sampel) {
+			kapasitas.add(Long.valueOf(toMb(nilai(m.getMaxMemory()))));
+		}
+		text.append("Kelompok max JVM  : ").append(kapasitas).append(" MB\n");
+		if (kapasitas.size() > 1) {
+			text.append("PERINGATAN        : Ada lebih dari satu kapasitas maksimum; kemungkinan sampel berasal dari beberapa JVM/node.\n");
+		}
+		text.append("\n=== DATA PEMAKAIAN MEMORI ECAMPUS ===\n");
+
+		if (sampel.isEmpty()) {
+			text.append("Tidak ada sampel pemakaian memori yang tersedia.\n");
+			return text.toString();
+		}
+
+		int nomor = 1;
+		for (int i = sampel.size() - 1; i >= 0; i--) {
+			MemoryInfo m = sampel.get(i);
+			long max = nilai(m.getMaxMemory());
+			long allocated = nilai(m.getAllocatedMemory());
+			long freeAllocated = nilai(m.getFreeMemory());
+			long totalFree = nilai(m.getTotalFreeMemory());
+			long used = allocated - freeAllocated;
+			double usedPct = max > 0 ? used * 100.0 / max : 0;
+			double totalFreePct = max > 0 ? totalFree * 100.0 / max : 0;
+			text.append("SAMPLE ").append(nomor++).append(" | id=").append(m.getId());
+			text.append(" | waktu=").append(m.getTanggal_dirubah() == null ? "-" : format.format(m.getTanggal_dirubah()));
+			text.append(" | max_mb=").append(toMb(max));
+			text.append(" | allocated_mb=").append(toMb(allocated));
+			text.append(" | free_allocated_mb=").append(toMb(freeAllocated));
+			text.append(" | total_free_mb=").append(toMb(totalFree));
+			text.append(" | used_mb=").append(toMb(used));
+			text.append(" | used_pct=").append(formatPersen(usedPct));
+			text.append(" | total_free_pct=").append(formatPersen(totalFreePct)).append('\n');
+		}
+		text.append("=== AKHIR DATA PEMAKAIAN MEMORI ===\n");
+		return text.toString();
+	}
+
+	private long nilai(Long value) {
+		return value == null ? 0 : value.longValue();
+	}
+
+	private long toMb(long bytes) {
+		return UserOnlineCounter.bytesToMegabytesLong(bytes);
+	}
+
+	private String formatPersen(double value) {
+		return Common.numberFormat.get().format(value) + "%";
+	}
+
+	private String buildCopyToClipboardScript(String text) {
+		String escaped = escapeJavaScriptString(text);
+		StringBuilder js = new StringBuilder(escaped.length() + 1800);
+		js.append("(function(){");
+		js.append("var text=\"").append(escaped).append("\";");
+		js.append("function toast(msg){try{");
+		js.append("var d=document.createElement('div');");
+		js.append("d.style.cssText='position:fixed;right:18px;bottom:18px;z-index:999999;background:#0f172a;color:#fff;padding:10px 14px;border-radius:12px;font:12px Arial,Helvetica,sans-serif;box-shadow:0 14px 32px rgba(15,23,42,.28);max-width:360px;';");
+		js.append("d.innerHTML=msg;document.body.appendChild(d);setTimeout(function(){try{document.body.removeChild(d);}catch(e){}},1800);");
+		js.append("}catch(e){}}");
+		js.append("function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','readonly');ta.style.position='fixed';ta.style.left='-9999px';ta.style.top='0';document.body.appendChild(ta);ta.focus();ta.select();try{var ok=document.execCommand('copy');toast(ok?'Data memori berhasil disalin ke clipboard':'Silakan salin manual dari kotak yang muncul');if(!ok){window.prompt('Copy:',text);}}catch(e){window.prompt('Copy:',text);}try{document.body.removeChild(ta);}catch(e){}}");
+		js.append("if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast('Data memori berhasil disalin ke clipboard');},function(){fallback();});}else{fallback();}");
+		js.append("})();");
+		return js.toString();
+	}
+
+	private String escapeJavaScriptString(String value) {
+		if (value == null) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(value.length() + 32);
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			if (c == '\\') sb.append("\\\\");
+			else if (c == '"') sb.append("\\\"");
+			else if (c == '\n') sb.append("\\n");
+			else if (c == '\r') sb.append("\\r");
+			else if (c == '\t') sb.append("\\t");
+			else if (c == '\b') sb.append("\\b");
+			else if (c == '\f') sb.append("\\f");
+			else if (c < 32) {
+				String hex = Integer.toHexString(c);
+				sb.append("\\u");
+				for (int j = hex.length(); j < 4; j++) sb.append('0');
+				sb.append(hex);
+			} else sb.append(c);
+		}
+		return sb.toString();
+	}
+
 	/**
 	 * Menyusun deskripsi laporan "Ringkasan Pemakaian Memori Server" untuk mesin
 	 * {@link ais.action.master.helper.DashboardReportKit}: kartu kondisi terkini (KPI),
@@ -209,11 +349,12 @@ private MyToolbarbuttonConfig find;
 									MemoryInfo m = s.get(0);
 									long max = UserOnlineCounter.bytesToMegabytesLong(m.getMaxMemory());
 									long alok = UserOnlineCounter.bytesToMegabytesLong(m.getAllocatedMemory());
+									long bebasDalamAlokasi = UserOnlineCounter.bytesToMegabytesLong(m.getFreeMemory());
 									long bebas = UserOnlineCounter.bytesToMegabytesLong(m.getTotalFreeMemory());
-									long pakai = alok - bebas;
-									long persen = alok > 0 ? Math.round(pakai * 100.0 / alok) : 0;
+									long pakai = alok - bebasDalamAlokasi;
+									long persen = max > 0 ? Math.round(pakai * 100.0 / max) : 0;
 									r.add(new Object[] { "Batas Maksimum", max + " MB", "Kapasitas memori tertinggi" });
-									r.add(new Object[] { "Sedang Dipakai", pakai + " MB", persen + "% dari yang dialokasikan" });
+									r.add(new Object[] { "Sedang Dipakai", pakai + " MB", persen + "% dari batas maksimum" });
 									r.add(new Object[] { "Masih Bebas", bebas + " MB", "Sisa memori yang siap dipakai" });
 									r.add(new Object[] { "Dialokasikan", alok + " MB", "Memori yang telah disiapkan sistem" });
 								}
@@ -232,7 +373,7 @@ private MyToolbarbuttonConfig find;
 								for (int i = s.size() - 1; i >= 0; i--) {
 									MemoryInfo m = s.get(i);
 									long alok = UserOnlineCounter.bytesToMegabytesLong(m.getAllocatedMemory());
-									long bebas = UserOnlineCounter.bytesToMegabytesLong(m.getTotalFreeMemory());
+									long bebas = UserOnlineCounter.bytesToMegabytesLong(m.getFreeMemory());
 									r.add(new Object[] { Common.dateFormat5.get().format(m.getTanggal_dirubah()),
 											Long.valueOf(alok - bebas) });
 								}
@@ -250,9 +391,10 @@ private MyToolbarbuttonConfig find;
 								for (MemoryInfo m : ambilSampelMemori(50)) {
 									long max = UserOnlineCounter.bytesToMegabytesLong(m.getMaxMemory());
 									long alok = UserOnlineCounter.bytesToMegabytesLong(m.getAllocatedMemory());
+									long bebasDalamAlokasi = UserOnlineCounter.bytesToMegabytesLong(m.getFreeMemory());
 									long bebas = UserOnlineCounter.bytesToMegabytesLong(m.getTotalFreeMemory());
-									long pakai = alok - bebas;
-									long persen = alok > 0 ? Math.round(pakai * 100.0 / alok) : 0;
+									long pakai = alok - bebasDalamAlokasi;
+									long persen = max > 0 ? Math.round(pakai * 100.0 / max) : 0;
 									r.add(new Object[] { Common.dateFormat5.get().format(m.getTanggal_dirubah()),
 											Long.valueOf(max), Long.valueOf(alok), Long.valueOf(pakai),
 											Long.valueOf(bebas), Long.valueOf(persen) });
