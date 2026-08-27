@@ -84,6 +84,25 @@ import ais.ui.util.WaktuUtil;
 
 public class LaporanApi {
 
+	/**
+	 * Membentuk URL laporan dari host request yang sedang aktif.
+	 *
+	 * <p>{@link Common#CURRENT_URL} merupakan state global proses dan dapat berisi
+	 * host tenant/request lain pada instalasi multi-tenant. Mengembalikan URL dari
+	 * nilai global tersebut membuat aplikasi desktop/mobile membuka halaman utama
+	 * atau login tenant yang salah. URL laporan harus selalu mengikuti request API
+	 * yang baru saja menghasilkan berkas.</p>
+	 */
+	private static String reportUrl(HttpServletRequest req, File file) throws Exception {
+		if (!Common.pakaiDirReportTergabung()) {
+			return ApiHelperSupport.absoluteUrl(req,
+					"/report/" + URLEncoder.encode(file.getName(), "UTF-8"));
+		}
+		return ApiHelperSupport.absoluteUrl(req,
+				"/pdf?p=" + URLEncoder.encode(
+						Common.desEncrypter.get().encrypt(file.getName()), "UTF-8"));
+	}
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject laporan_absen(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -156,7 +175,7 @@ public class LaporanApi {
 					jsonObject.put("status", "97");
 					jsonObject.put("description", "File laporan tidak bisa di cetak");
 				} else {
-					String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+					String path = reportUrl(req, file);
 					jsonObject.put("url", path);
 					jsonObject.put("status", "00");
 					jsonObject.put("description", "OK");
@@ -269,7 +288,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -331,7 +350,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -398,7 +417,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -461,7 +480,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -522,7 +541,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -587,7 +606,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -661,7 +680,7 @@ public class LaporanApi {
 							jsonObject.put("status", "97");
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
-							String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+							String path = reportUrl(req, file);
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
@@ -1057,7 +1076,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1126,7 +1145,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1195,7 +1214,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1256,7 +1275,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1316,7 +1335,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1405,7 +1424,7 @@ public class LaporanApi {
 									jsonObject.put("status", "97");
 									jsonObject.put("description", "File sertifikat tidak bisa di cetak");
 								} else {
-									String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+									String path = reportUrl(req, file);
 									jsonObject.put("url", path);
 									jsonObject.put("status", "00");
 									jsonObject.put("description", "OK");
@@ -1503,7 +1522,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = !Common.pakaiDirReportTergabung() ? Common.CURRENT_URL+"/report/"+URLEncoder.encode(file.getName(), "UTF-8") :  Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");;
+						String path = reportUrl(req, file);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
@@ -1725,7 +1744,7 @@ public class LaporanApi {
 						jsonObject.put("status", "97");
 						jsonObject.put("description", "File laporan tidak bisa di cetak");
 					} else {
-						String path = Common.CURRENT_URL+"/pdf?p=" + URLEncoder.encode(Common.desEncrypter.get().encrypt(filePdfBaru.getName()), "UTF-8");
+						String path = reportUrl(req, filePdfBaru);
 						jsonObject.put("url", path);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "OK");
