@@ -80,6 +80,7 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 	private MyCheckboxConfig kunciCaraBayar;
 	private Combobox caraBayarDefault;
 	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayar = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
+	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayarWajibPin = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
 	/**
 	 * true bila admin sudah menyentuh checkbox "Wajib No. HP" secara manual pada sesi
 	 * form ini; dipakai agar default per nama (lihat {@link TipeAnggotaKoperasi#defaultWajibHp(String)})
@@ -304,6 +305,15 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		wajibPin = new MyCheckboxConfig("Wajib PIN numerik");
 		wajibPin.setChecked(Boolean.TRUE.equals(tipeAnggotaKoperasi.getWajibPin()));
 		verifikasi.appendChild(wajibPin);
+		verifikasi.appendChild(new Label("PIN wajib untuk cara bayar (kosong = semua cara bayar)"));
+		pilihanCaraBayarWajibPin.clear();
+		String csvWajibPin = tipeAnggotaKoperasi.getDaftarCaraPembayaranWajibPin();
+		for (CaraPembayaranKoperasi cara : semuaCara) {
+			Checkbox cbPin = new Checkbox(cara.getNama());
+			cbPin.setChecked(csvWajibPin.contains("," + cara.getId() + ","));
+			verifikasi.appendChild(cbPin);
+			pilihanCaraBayarWajibPin.put(cbPin, cara);
+		}
 		wajibWajah = new MyCheckboxConfig("Wajib biometric wajah (kamera + liveness)");
 		wajibWajah.setChecked(Boolean.TRUE.equals(tipeAnggotaKoperasi.getWajibVerifikasiBiometricWajah()));
 		verifikasi.appendChild(wajibWajah);
@@ -437,6 +447,20 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		tipeAnggotaKoperasi.setCaraPembayaranDefaultId(idDefault);
 		tipeAnggotaKoperasi.setTidakBolehCaraPembayaranLain(Boolean.valueOf(kunciCaraBayar.isChecked()));
 		tipeAnggotaKoperasi.setWajibPin(Boolean.valueOf(wajibPin.isChecked()));
+		StringBuilder csvWajibPin = new StringBuilder();
+		for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayarWajibPin.entrySet()) {
+			if (entry.getKey().isChecked()) csvWajibPin.append(",").append(entry.getValue().getId());
+		}
+		if (csvWajibPin.length() > 0) csvWajibPin.append(",");
+		if (csvCara.length() > 0) {
+			for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayarWajibPin.entrySet()) {
+				if (entry.getKey().isChecked() && !csvCara.toString().contains("," + entry.getValue().getId() + ",")) {
+					MyMessageboxConfig.show("Cara bayar wajib PIN harus termasuk cara bayar yang diizinkan.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return false;
+				}
+			}
+		}
+		tipeAnggotaKoperasi.setDaftarCaraPembayaranWajibPin(csvWajibPin.toString());
 		tipeAnggotaKoperasi.setWajibVerifikasiBiometricWajah(Boolean.valueOf(wajibWajah.isChecked()));
 		tipeAnggotaKoperasi.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(wajibFingerprint.isChecked()));
 

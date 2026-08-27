@@ -89,6 +89,7 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 	private Double maksimalTransaksiMingguan;
 	private Double maksimalTransaksiBulanan;
 	private Boolean wajibPin;
+	private String daftarCaraPembayaranWajibPin;
 	private Boolean wajibVerifikasiBiometricWajah;
 	private Boolean wajibVerifikasiBiometricFingerprint;
 	private Boolean wajibHp;
@@ -231,6 +232,25 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 
 	public void setWajibPin(Boolean nilai) {
 		this.wajibPin = nilai;
+	}
+
+	/**
+	 * Cara pembayaran yang secara khusus memerlukan PIN. Kosong berarti seluruh
+	 * cara pembayaran memerlukan PIN ketika {@link #getWajibPin()} aktif, agar
+	 * konfigurasi lama tetap kompatibel.
+	 */
+	@Column(name = "daftar_cara_pembayaran_wajib_pin")
+	public String getDaftarCaraPembayaranWajibPin() {
+		if (daftarCaraPembayaranWajibPin == null
+				|| daftarCaraPembayaranWajibPin.replace(",", "").trim().isEmpty()) return "";
+		String nilai = daftarCaraPembayaranWajibPin.trim();
+		if (!nilai.startsWith(",")) nilai = "," + nilai;
+		if (!nilai.endsWith(",")) nilai = nilai + ",";
+		return nilai.replace(",,", ",");
+	}
+
+	public void setDaftarCaraPembayaranWajibPin(String nilai) {
+		this.daftarCaraPembayaranWajibPin = nilai;
 	}
 
 	@Column(name = "wajib_verifikasi_biometric_wajah")

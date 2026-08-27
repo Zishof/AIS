@@ -1002,6 +1002,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 	private void initMobileJadwalUjianPanel(final Div panelTugasUjianMateri) {
 		Borderlayout borderlayoutSub = new Borderlayout();
+		borderlayoutSub.setWidth("100%");
+		borderlayoutSub.setHeight("100%");
+		borderlayoutSub.setHflex("1");
+		borderlayoutSub.setVflex("1");
 		borderlayoutSub.setParent(panelTugasUjianMateri);
 
 		menuKanan = new Center();
@@ -2502,6 +2506,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		menuShell.setWidth("100%");
 		menuShell.setHeight("100%");
 		menuShell.setSclass("elearning-menu-combo-shell");
+		// Center panel kiri hanya memiliki satu anak. Tetapkan flex juga (bukan sekadar
+		// height=100%) agar ZK meneruskan tinggi region sampai Vbox dan menghitung ruang
+		// tersisa setelah combobox. Tanpa flex, isi Tabbox dapat terukur 0px walaupun
+		// combobox "Perkuliahan" di atasnya tetap terlihat.
+		menuShell.setHflex("1");
+		menuShell.setVflex("1");
 
 		final Combobox comboMenu = new Combobox();
 		comboMenu.setParent(menuShell);
@@ -2511,9 +2521,13 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 		Tabbox tabbox = new Tabbox();
 		tabbox.setParent(menuShell);
-		tabbox.setHeight("100%");
 		tabbox.setWidth("100%");
 		tabbox.setSclass("elearning-menu-combo-tabbox");
+		// Jangan memakai height=100%: di dalam Vbox tinggi itu ditambah tinggi combobox
+		// dan separator, lalu perhitungan panel Tabbox lama ZK bisa kolaps/overflow.
+		// Vflex membuat Tabbox mengambil tepat sisa tinggi yang tersedia.
+		tabbox.setHflex("1");
+		tabbox.setVflex("1");
 //		tabbox.setMold("accordion");
 
 		Tabs tabs = new Tabs();
@@ -3258,6 +3272,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		Common.clear(parent);
 		int jumlahDataDalamSatuHalamanElearning = 25;
 		Borderlayout subBorderlayout = new Borderlayout();
+		subBorderlayout.setWidth("100%");
+		subBorderlayout.setHeight("100%");
+		subBorderlayout.setHflex("1");
+		subBorderlayout.setVflex("1");
 		subBorderlayout.setParent(parent);
 
 		Center subcenter = new Center();
@@ -5825,7 +5843,15 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		}
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
+		subBorderlayoutUtama.setWidth("100%");
+		subBorderlayoutUtama.setHeight("100%");
+		subBorderlayoutUtama.setSclass("elearning-kelas-layout");
 		subBorderlayoutUtama.setParent(parent);
+		// Tabpanel bersarang tidak selalu mewariskan ukuran ke Borderlayout pada render
+		// pertama. Bila ukuran tidak eksplisit, region North (filter TA/pencarian) dan
+		// Center (daftar Perkuliahan & Kelas) ada di server tetapi tidak terlihat.
+		subBorderlayoutUtama.setHflex("1");
+		subBorderlayoutUtama.setVflex("1");
 
 		final Combobox yay = new Combobox();
 		final Combobox sek = new Combobox();
@@ -9156,6 +9182,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		window.setWidth(!Common.isMobile() ? "700px" : "98%");
 
 		Borderlayout borderlayout = new Borderlayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
+		borderlayout.setHflex("1");
+		borderlayout.setVflex("1");
 		borderlayout.setParent(window);
 
 		List<String> adaData = new ArrayList<String>();
@@ -9166,6 +9196,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		if (ygBelumAkses != null) {
 
 			Tabbox tabbox = new Tabbox();
+			tabbox.setWidth("100%");
+			tabbox.setHeight("100%");
+			tabbox.setHflex("1");
+			tabbox.setVflex("1");
 			tabbox.setParent(center);
 
 			Tabs tabs = new Tabs();
@@ -9197,6 +9231,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			tabpanel.setParent(tabpanels);
 
 			Borderlayout myborderlayout = new Borderlayout();
+			myborderlayout.setWidth("100%");
+			myborderlayout.setHeight("100%");
+			myborderlayout.setHflex("1");
+			myborderlayout.setVflex("1");
 			myborderlayout.setParent(tabpanel);
 
 			center = new Center();
@@ -9207,6 +9245,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			tabpanelBelumAkses.setParent(tabpanels);
 
 			Borderlayout myborderlayoutBelumAkses = new Borderlayout();
+			myborderlayoutBelumAkses.setWidth("100%");
+			myborderlayoutBelumAkses.setHeight("100%");
+			myborderlayoutBelumAkses.setHflex("1");
+			myborderlayoutBelumAkses.setVflex("1");
 			myborderlayoutBelumAkses.setParent(tabpanelBelumAkses);
 
 			Center centerBelumAkses = new Center();
@@ -9307,6 +9349,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			tabpanelProsentase.setParent(tabpanels);
 
 			Borderlayout myborderlayoutProsentase = new Borderlayout();
+			myborderlayoutProsentase.setWidth("100%");
+			myborderlayoutProsentase.setHeight("100%");
+			myborderlayoutProsentase.setHflex("1");
+			myborderlayoutProsentase.setVflex("1");
 			myborderlayoutProsentase.setParent(tabpanelProsentase);
 
 			Center centerProsentase = new Center();

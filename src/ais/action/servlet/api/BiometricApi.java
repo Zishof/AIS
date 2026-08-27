@@ -319,14 +319,17 @@ public final class BiometricApi {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			boolean memotongSaldoMember = paymentDeductsMemberBalance(session, payload);
+			java.util.Set metodeTerpakai = paymentIdsUsed(payload);
 			Long memberId = longValue(payload, "id_member");
 			if (memberId == null) return null;
 			AnggotaKoperasi member = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, memberId);
 			if (member == null) return null;
 			JenisAnggotaKoperasi jenis = member.getJenisAnggotaKoperasi();
 			TipeAnggotaKoperasi tipe = member.getTipeAnggotaKoperasi();
-			boolean pin = (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
-					|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin()));
+			boolean pin = wajibPinUntukMetode(jenis == null ? Boolean.FALSE : jenis.getWajibPin(),
+					jenis == null ? "" : jenis.getDaftarCaraPembayaranWajibPin(), metodeTerpakai)
+					|| wajibPinUntukMetode(tipe == null ? Boolean.FALSE : tipe.getWajibPin(),
+							tipe == null ? "" : tipe.getDaftarCaraPembayaranWajibPin(), metodeTerpakai);
 			// PIN mengesahkan identitas untuk setiap pembelian member. Face/fingerprint
 			// tetap dibatasi ke pembayaran yang memotong saldo sampai perangkat UAT siap.
 			boolean face = memotongSaldoMember && ((jenis != null
@@ -344,7 +347,7 @@ public final class BiometricApi {
 			String reference = payload.optString("kodeUnik", "").trim();
 			if (pin && !validPosVerification(cashier, subject,
 					longValue(payload, "pin_verification_event_id"), "PIN", reference))
-				return "Verifikasi PIN wajib dilakukan kembali sebelum saldo member dipotong.";
+				return "Verifikasi PIN wajib dilakukan kembali untuk cara pembayaran yang dipilih.";
 			if (face && !validPosVerification(cashier, subject,
 					longValue(payload, "biometric_face_event_id"), FACE, reference))
 				return "Verifikasi wajah wajib dilakukan kembali sebelum saldo member dipotong.";
@@ -388,6 +391,37 @@ public final class BiometricApi {
 		CaraPembayaranKoperasi primary = primaryId == null ? null
 				: (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, primaryId);
 		return primaryHasAmount && deductsBalance(primary);
+	}
+
+	/** ID metode dengan nominal positif pada pembayaran utama maupun split. */
+	private static java.util.Set paymentIdsUsed(JSONObject payload) {
+		java.util.Set ids = new java.util.HashSet();
+		JSONArray additional = payload.optJSONArray("caraBayarTambahan");
+		double additionalAmount = 0D;
+		if (additional != null) for (int i = 0; i < Math.min(4, additional.length()); i++) {
+			JSONObject slot = additional.optJSONObject(i);
+			if (slot == null || slot.optDouble("nominal", 0D) <= 0D) continue;
+			additionalAmount += slot.optDouble("nominal", 0D);
+			Long id = longValue(slot, "caraBayar");
+			if (id != null) ids.add(id);
+		}
+		double total = payload.optDouble("total", -1D);
+		if (total < 0D || total - additionalAmount > 0.5D) {
+			Long utama = longValue(payload, "caraBayar");
+			if (utama != null) ids.add(utama);
+		}
+		return ids;
+	}
+
+	private static boolean wajibPinUntukMetode(Boolean wajib, String csv, java.util.Set metodeTerpakai) {
+		if (!Boolean.TRUE.equals(wajib) || metodeTerpakai == null || metodeTerpakai.isEmpty()) return false;
+		if (csv == null || csv.replace(",", "").trim().isEmpty()) return true;
+		String normal = "," + csv.trim() + ",";
+		normal = normal.replace(",,", ",");
+		for (Object id : metodeTerpakai) {
+			if (normal.contains("," + id + ",")) return true;
+		}
+		return false;
 	}
 
 	private static boolean deductsBalance(CaraPembayaranKoperasi payment) {

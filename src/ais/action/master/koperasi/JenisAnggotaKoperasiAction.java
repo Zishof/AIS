@@ -68,6 +68,7 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 	private Checkbox wajibBiometricWajah;
 	private Checkbox wajibBiometricFingerprint;
 	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayar = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
+	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayarWajibPin = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -249,6 +250,22 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		}
 		row.appendChild(caraBayar);
 
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("PIN wajib untuk cara bayar"));
+		Vbox caraBayarPin = new Vbox();
+		caraBayarPin.appendChild(new Label("Kosong = semua cara bayar saat Wajib PIN aktif"));
+		pilihanCaraBayarWajibPin.clear();
+		String csvWajibPin = jenisAnggotaKoperasi.getDaftarCaraPembayaranWajibPin();
+		for (CaraPembayaranKoperasi cara : semuaCara) {
+			Checkbox pilihanPin = new Checkbox(cara.getNama());
+			pilihanPin.setChecked(csvWajibPin.contains("," + cara.getId() + ","));
+			caraBayarPin.appendChild(pilihanPin);
+			pilihanCaraBayarWajibPin.put(pilihanPin, cara);
+		}
+		row.appendChild(caraBayarPin);
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -313,6 +330,20 @@ public class JenisAnggotaKoperasiAction extends GenericAutowireComposer
 		}
 		if (csvCara.length() > 0) csvCara.append(",");
 		jenisAnggotaKoperasi.setDaftarCaraPembayaranYangBolehDiPilih(csvCara.toString());
+		StringBuilder csvWajibPin = new StringBuilder();
+		for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayarWajibPin.entrySet()) {
+			if (entry.getKey().isChecked()) csvWajibPin.append(",").append(entry.getValue().getId());
+		}
+		if (csvWajibPin.length() > 0) csvWajibPin.append(",");
+		if (csvCara.length() > 0) {
+			for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayarWajibPin.entrySet()) {
+				if (entry.getKey().isChecked() && !csvCara.toString().contains("," + entry.getValue().getId() + ",")) {
+					MyMessageboxConfig.show("Cara bayar wajib PIN harus termasuk cara bayar yang diizinkan.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return false;
+				}
+			}
+		}
+		jenisAnggotaKoperasi.setDaftarCaraPembayaranWajibPin(csvWajibPin.toString());
 
 		Common.refreshSaveOrUpdate(session, jenisAnggotaKoperasi);
 

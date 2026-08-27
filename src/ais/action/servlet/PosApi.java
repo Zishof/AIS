@@ -2521,6 +2521,14 @@ public class PosApi extends HttpServlet {
 		j.put("id", a.getId());
 		j.put("nama", str(a.getNama()));
 		j.put("kodeIdentitas", str(a.getKodeIdentitas()));
+		if (jenis != null) {
+			j.put("jenisAnggotaKoperasiId", jenis.getId());
+			j.put("jenisNama", str(jenis.getNama()));
+		}
+		if (tipe != null) {
+			j.put("tipeAnggotaKoperasiId", tipe.getId());
+			j.put("tipeNama", str(tipe.getNama()));
+		}
 		j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
 				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
 		j.put("wajibBiometricWajah", (jenis != null
@@ -2611,16 +2619,25 @@ public class PosApi extends HttpServlet {
 		try {
 			String izinJenis = "";
 			String izinTipe = "";
+			String pinJenis = "";
+			String pinTipe = "";
+			boolean wajibPinJenis = false;
+			boolean wajibPinTipe = false;
 			Long caraBayarDefaultId = null;
 			boolean kunciDariTipe = false;
 			if (idMember != null) {
 				AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, idMember);
 				if (a != null && a.getJenisAnggotaKoperasi() != null) {
-					izinJenis = a.getJenisAnggotaKoperasi().getDaftarCaraPembayaranYangBolehDiPilih();
+					JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
+					izinJenis = jenis.getDaftarCaraPembayaranYangBolehDiPilih();
+					wajibPinJenis = Boolean.TRUE.equals(jenis.getWajibPin());
+					pinJenis = jenis.getDaftarCaraPembayaranWajibPin();
 				}
 				if (a != null && a.getTipeAnggotaKoperasi() != null) {
 					ais.database.model.koperasi.TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
 					izinTipe = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
+					wajibPinTipe = Boolean.TRUE.equals(tipe.getWajibPin());
+					pinTipe = tipe.getDaftarCaraPembayaranWajibPin();
 					caraBayarDefaultId = tipe.getCaraPembayaranDefaultId();
 					kunciDariTipe = Boolean.TRUE.equals(tipe.getTidakBolehCaraPembayaranLain());
 				}
@@ -2637,7 +2654,8 @@ public class PosApi extends HttpServlet {
 			// membuka metode yang memang dilarang. Yang pertama kelalaian
 			// konfigurasi, yang kedua keputusan -- keduanya tidak boleh disamakan.
 			boolean izinTidakDisetel = idMember != null
-					&& (izinJenis == null || izinJenis.replace(",", "").trim().isEmpty());
+					&& (izinJenis == null || izinJenis.replace(",", "").trim().isEmpty())
+					&& (izinTipe == null || izinTipe.replace(",", "").trim().isEmpty());
 			java.util.Set izinEfektif = null;
 			if (izinJenis != null && !izinJenis.replace(",", "").trim().isEmpty()) {
 				izinEfektif = parseDaftarIdCaraBayar(izinJenis);
@@ -2662,6 +2680,8 @@ public class PosApi extends HttpServlet {
 					j.put("masukSebagaiHutang", Boolean.TRUE.equals(cb.getMasukSebagaiHutang()));
 					j.put("memotongDeposit", Boolean.TRUE.equals(cb.getMemotongDeposit()));
 					j.put("wajibPilihMember", cb.wajibPilihMemberEfektif());
+					j.put("wajibPin", wajibPinUntukCaraBayar(wajibPinJenis, pinJenis, cb.getId())
+							|| wajibPinUntukCaraBayar(wajibPinTipe, pinTipe, cb.getId()));
 					arr.put(j);
 				}
 			}
@@ -2695,6 +2715,12 @@ public class PosApi extends HttpServlet {
 			}
 		}
 		return hasil;
+	}
+
+	private static boolean wajibPinUntukCaraBayar(boolean wajibPin, String csv, Long caraBayarId) {
+		if (!wajibPin || caraBayarId == null) return false;
+		if (csv == null || csv.replace(",", "").trim().isEmpty()) return true;
+		return parseDaftarIdCaraBayar(csv).contains(caraBayarId);
 	}
 
 	/**

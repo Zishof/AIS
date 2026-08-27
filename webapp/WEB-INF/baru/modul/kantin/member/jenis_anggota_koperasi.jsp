@@ -251,6 +251,11 @@ String rnd = Common.getGeneratedBarCode(7);
                                                 <input class="form-check-input" type="checkbox" id="inputWajibPin<%=rnd%>">
                                                 <label class="form-check-label fw-bold small" for="inputWajibPin<%=rnd%>"><%=Common.getBahasaConfig("Wajib Verifikasi PIN numerik")%></label>
                                             </div>
+                                            <div class="border rounded p-2 mb-2 bg-light">
+                                                <div class="small fw-bold mb-1"><%=Common.getBahasaConfig("PIN wajib untuk cara bayar")%></div>
+                                                <div class="row g-2" id="containerCaraBayarPin<%=rnd%>"><div class="col-12 text-muted small"><i class="fas fa-spinner fa-spin me-2"></i>Memuat...</div></div>
+                                                <small class="text-muted"><%=Common.getBahasaConfig("Kosong berarti PIN berlaku untuk semua cara bayar.")%></small>
+                                            </div>
                                             <div class="form-check form-switch mb-2">
                                                 <input class="form-check-input" type="checkbox" id="inputWajibBiometricWajah<%=rnd%>">
                                                 <label class="form-check-label fw-bold small" for="inputWajibBiometricWajah<%=rnd%>"><%=Common.getBahasaConfig("Wajib Verifikasi Biometric wajah (kamera + liveness)")%></label>
@@ -362,6 +367,7 @@ String rnd = Common.getGeneratedBarCode(7);
             });
         }
         document.getElementById('containerCaraBayar<%=rnd%>').innerHTML = htmlCb;
+        document.getElementById('containerCaraBayarPin<%=rnd%>').innerHTML = res.map(item => '<div class="col-md-6"><div class="form-check bg-white border rounded p-2 ps-4"><input class="form-check-input chk-pin-carabayar-<%=rnd%>" type="checkbox" value="'+item.id+'" id="cbPinBayar_<%=rnd%>_'+item.id+'"><label class="form-check-label small" for="cbPinBayar_<%=rnd%>_'+item.id+'">'+item.nama+'</label></div></div>').join('') || '<div class="col-12 text-muted small">Tidak ada metode pembayaran aktif.</div>';
     };
 
     // Fungsi Penguncian Form (Readonly untuk selain Admin)
@@ -388,6 +394,7 @@ String rnd = Common.getGeneratedBarCode(7);
         // Kunci Checkbox Pembayaran
         const cbs = document.querySelectorAll('.chk-carabayar-<%=rnd%>');
         cbs.forEach(cb => cb.disabled = isReadonly);
+        document.querySelectorAll('.chk-pin-carabayar-<%=rnd%>').forEach(cb => cb.disabled = isReadonly);
 
         const btnSimpan = document.getElementById('btnSimpan<%=rnd%>');
         if (isReadonly) {
@@ -595,6 +602,7 @@ String rnd = Common.getGeneratedBarCode(7);
         // Uncheck all metode pembayaran checkboxes
         const cbs = document.querySelectorAll('.chk-carabayar-<%=rnd%>');
         cbs.forEach(cb => cb.checked = false);
+        document.querySelectorAll('.chk-pin-carabayar-<%=rnd%>').forEach(cb => cb.checked = false);
 
         setFormState<%=rnd%>(false);
         document.getElementById('formTitle<%=rnd%>').innerHTML = '<i class="fas fa-plus-circle text-primary me-2"></i><%=Common.getBahasaConfig("Tambah Jenis Baru")%>';
@@ -628,6 +636,12 @@ String rnd = Common.getGeneratedBarCode(7);
             // Format yang dihasilkan misal: ,1,4,5,
             stringCaraBayar = "," + idArray.join(",") + ","; 
         }
+        const pinIds = Array.from(document.querySelectorAll('.chk-pin-carabayar-<%=rnd%>:checked')).map(cb => cb.value);
+        const allowedIds = Array.from(cbsChecked).map(cb => cb.value);
+        if (pinIds.some(id => !allowedIds.includes(id))) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Cara bayar yang wajib PIN harus termasuk cara bayar yang diizinkan.")%>', 'bg-warning text-dark');
+            return;
+        }
         
         // Object utama JenisAnggotaKoperasi
         const dataObj = {
@@ -642,6 +656,7 @@ String rnd = Common.getGeneratedBarCode(7);
             tampilkanCashback: document.getElementById('inputTampilkanCashback<%=rnd%>').checked,
             tampilkanSisaSaldo: document.getElementById('inputTampilkanSaldo<%=rnd%>').checked,
             wajibPin: document.getElementById('inputWajibPin<%=rnd%>').checked,
+            daftarCaraPembayaranWajibPin: pinIds.length ? ',' + pinIds.join(',') + ',' : '',
             wajibVerifikasiBiometricWajah: document.getElementById('inputWajibBiometricWajah<%=rnd%>').checked,
             wajibVerifikasiBiometricFingerprint: document.getElementById('inputWajibBiometricFingerprint<%=rnd%>').checked,
             wajibBelanjaRutin: document.getElementById('inputWajibBelanja<%=rnd%>').checked,
@@ -695,7 +710,7 @@ String rnd = Common.getGeneratedBarCode(7);
         
         isEditMode<%=rnd%> = true; 
         
-        const sql = 'SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, COALESCE(minimal_saldo, 0) as minimal_saldo, daftar_cara_pembayaran_yang_boleh_di_pilih, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran, COALESCE(wajib_pin,false) wajib_pin, COALESCE(wajib_verifikasi_biometric_wajah,false) wajib_verifikasi_biometric_wajah, COALESCE(wajib_verifikasi_biometric_fingerprint,false) wajib_verifikasi_biometric_fingerprint FROM koperasi.jenis_anggota_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, dipilih, boleh_entry_topup_oleh_admin, aktif, tampilkan_cashback, tampilkan_sisa_saldo, istilah_sisa_saldo, istilah_cashback, COALESCE(minimal_saldo, 0) as minimal_saldo, daftar_cara_pembayaran_yang_boleh_di_pilih, daftar_cara_pembayaran_wajib_pin, wajib_belanja_rutin, target_frekuensi_belanja, maksimal_pelanggaran, COALESCE(wajib_pin,false) wajib_pin, COALESCE(wajib_verifikasi_biometric_wajah,false) wajib_verifikasi_biometric_wajah, COALESCE(wajib_verifikasi_biometric_fingerprint,false) wajib_verifikasi_biometric_fingerprint FROM koperasi.jenis_anggota_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
         
         if (res.length > 0) {
@@ -746,6 +761,10 @@ String rnd = Common.getGeneratedBarCode(7);
                 } else {
                     cb.checked = false;
                 }
+            });
+            const daftarPinStr = data.daftar_cara_pembayaran_wajib_pin || "";
+            document.querySelectorAll('.chk-pin-carabayar-<%=rnd%>').forEach(cb => {
+                cb.checked = daftarPinStr.indexOf("," + cb.value + ",") !== -1;
             });
 
             // Atur Form State Terkunci (Jika Mode Pedagang / Lihat Detail)

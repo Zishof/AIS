@@ -98,6 +98,7 @@ public class JenisAnggotaKoperasi extends GeneralValueObject {
 	// Wajib verifikasi PIN pembeli di Layar Pelanggan (layar kedua POS) sebelum transaksi anggota
 	// jenis ini boleh disimpan. Default TIDAK wajib (false) -- lihat AnggotaKoperasi.pin.
 	private Boolean wajibPin;
+	private String daftarCaraPembayaranWajibPin;
 	// Gerbang pembayaran saldo pada POS Desktop/Android. Keduanya independen:
 	// institusi boleh mewajibkan wajah, fingerprint, atau kedua-duanya.
 	private Boolean wajibVerifikasiBiometricWajah;
@@ -263,6 +264,21 @@ public class JenisAnggotaKoperasi extends GeneralValueObject {
 
 	public void setWajibPin(Boolean wajibPin) {
 		this.wajibPin = wajibPin;
+	}
+
+	/** Kosong = seluruh metode wajib PIN ketika aturan wajib PIN aktif. */
+	@Column(name = "daftar_cara_pembayaran_wajib_pin")
+	public String getDaftarCaraPembayaranWajibPin() {
+		if (daftarCaraPembayaranWajibPin == null
+				|| daftarCaraPembayaranWajibPin.replace(",", "").trim().isEmpty()) return "";
+		String nilai = daftarCaraPembayaranWajibPin.trim();
+		if (!nilai.startsWith(",")) nilai = "," + nilai;
+		if (!nilai.endsWith(",")) nilai = nilai + ",";
+		return nilai.replace(",,", ",");
+	}
+
+	public void setDaftarCaraPembayaranWajibPin(String nilai) {
+		this.daftarCaraPembayaranWajibPin = nilai;
 	}
 
 	@Column(name = "wajib_verifikasi_biometric_wajah")

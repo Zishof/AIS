@@ -11994,6 +11994,10 @@ html body .elearning-menu-combo-shell {
     box-sizing: border-box;
     padding: 8px;
     background: #f8fafc;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 html body .elearning-menu-combo-shell .z-vbox-separator {
@@ -12014,6 +12018,9 @@ html body .elearning-menu-combo .z-combobox-inp {
 html body .elearning-menu-combo-tabbox {
     border: 0 !important;
     background: transparent !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 html body .elearning-menu-combo-tabbox > .z-tabs,
@@ -12028,6 +12035,18 @@ html body .elearning-menu-combo-tabbox .z-tabpanel {
     height: 100% !important;
     border: 0 !important;
     background: transparent !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Isi "Perkuliahan & Kelas" adalah Borderlayout bersarang. Ukuran eksplisit
+   mencegah ZK lama mengukur region North/Center menjadi 0px saat Tabs visual
+   disembunyikan dan pemilihan tab dilakukan dari Combobox. */
+html body .elearning-menu-combo-tabbox .elearning-kelas-layout {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 260px !important;
+    box-sizing: border-box !important;
 }
 
 /* =========================================================================

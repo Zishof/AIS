@@ -7345,6 +7345,7 @@ public class KantinHelper {
 							+ "COALESCE(wajib_pin,false), COALESCE(wajib_verifikasi_biometric_wajah,false), "
 							+ "COALESCE(wajib_verifikasi_biometric_fingerprint,false), COALESCE(wajib_belanja_rutin,false), COALESCE(target_frekuensi_belanja,0), "
 							+ "COALESCE(maksimal_pelanggaran,0), COALESCE(daftar_cara_pembayaran_yang_boleh_di_pilih,''), "
+							+ "COALESCE(daftar_cara_pembayaran_wajib_pin,''), "
 							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.jenis_anggota_koperasi = j.id) "
 							+ "FROM koperasi.jenis_anggota_koperasi j" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
@@ -7378,7 +7379,8 @@ public class KantinHelper {
 				j.put("targetFrekuensiBelanja", rs.getInt(17));
 				j.put("maksimalPelanggaran", rs.getInt(18));
 				j.put("daftarCaraPembayaranYangBolehDiPilih", rs.getString(19));
-				j.put("jumlahAnggota", rs.getLong(20));
+				j.put("daftarCaraPembayaranWajibPin", rs.getString(20));
+				j.put("jumlahAnggota", rs.getLong(21));
 				arr.put(j);
 			}
 			rs.close();
@@ -7438,12 +7440,22 @@ public class KantinHelper {
 			jenis.setTampilkanCashback(request.optBoolean("tampilkan_cashback", true));
 			jenis.setMinimalSaldo(Double.valueOf(request.optDouble("minimal_saldo", 0)));
 			jenis.setWajibPin(request.optBoolean("wajib_pin", false));
+			String daftarJenis = request.optString("daftar_cara_pembayaran_yang_boleh_di_pilih", "");
+			String daftarWajibPinJenis = request.optString("daftarCaraPembayaranWajibPin",
+					request.optString("daftar_cara_pembayaran_wajib_pin", ""));
+			if (!daftarWajibPinJenis.trim().isEmpty() && !daftarJenis.trim().isEmpty()
+					&& !parseDaftarId(daftarJenis).containsAll(parseDaftarId(daftarWajibPinJenis))) {
+				hasil.put("status", "91");
+				hasil.put("description", "Cara bayar wajib PIN harus termasuk cara bayar yang diizinkan.");
+				return;
+			}
+			jenis.setDaftarCaraPembayaranWajibPin(daftarWajibPinJenis);
 			jenis.setWajibVerifikasiBiometricWajah(request.optBoolean("wajib_biometric_wajah", false));
 			jenis.setWajibVerifikasiBiometricFingerprint(request.optBoolean("wajib_biometric_fingerprint", false));
 			jenis.setWajibBelanjaRutin(request.optBoolean("wajib_belanja_rutin", false));
 			jenis.setTargetFrekuensiBelanja(Integer.valueOf(request.optInt("target_frekuensi_belanja", 0)));
 			jenis.setMaksimalPelanggaran(Integer.valueOf(request.optInt("maksimal_pelanggaran", 0)));
-			jenis.setDaftarCaraPembayaranYangBolehDiPilih(request.optString("daftar_cara_pembayaran_yang_boleh_di_pilih", ""));
+			jenis.setDaftarCaraPembayaranYangBolehDiPilih(daftarJenis);
 
 			session.beginTransaction();
 			session.saveOrUpdate(jenis);
@@ -7500,6 +7512,19 @@ public class KantinHelper {
 	}
 
 	/** Fitur "Tipe Member" -- daftar LENGKAP+berpaginasi, sama pola dgn {@link #jenisAnggotaListAdmin}. */
+	private static java.util.Set parseDaftarId(String csv) {
+		java.util.Set hasil = new java.util.HashSet();
+		if (csv == null) return hasil;
+		String[] bagian = csv.split(",");
+		for (int i = 0; i < bagian.length; i++) {
+			try {
+				String nilai = bagian[i].trim();
+				if (!nilai.isEmpty()) hasil.add(Long.valueOf(Long.parseLong(nilai)));
+			} catch (Exception ignored) { }
+		}
+		return hasil;
+	}
+
 	public static void tipeAnggotaListAdmin(JSONObject request, JSONObject hasil) throws Exception {
 		String keyword = request.optString("keyword", "").trim();
 		boolean termasukNonaktif = request.optBoolean("termasuk_nonaktif", false);
@@ -7534,6 +7559,7 @@ public class KantinHelper {
 							+ "t.cara_pembayaran_default_id, COALESCE(t.tidak_boleh_cara_pembayaran_lain,false), "
 							+ "COALESCE(t.maksimal_transaksi_harian,0), COALESCE(t.maksimal_transaksi_mingguan,0), "
 							+ "COALESCE(t.maksimal_transaksi_bulanan,0), COALESCE(t.wajib_pin,false), "
+							+ "COALESCE(t.daftar_cara_pembayaran_wajib_pin,''), "
 							+ "COALESCE(t.wajib_verifikasi_biometric_wajah,false), "
 							+ "COALESCE(t.wajib_verifikasi_biometric_fingerprint,false) "
 							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
@@ -7572,8 +7598,9 @@ public class KantinHelper {
 				j.put("maksimalTransaksiMingguan", rs.getDouble(14));
 				j.put("maksimalTransaksiBulanan", rs.getDouble(15));
 				j.put("wajibPin", rs.getBoolean(16));
-				j.put("wajibBiometricWajah", rs.getBoolean(17));
-				j.put("wajibBiometricFingerprint", rs.getBoolean(18));
+				j.put("daftarCaraPembayaranWajibPin", rs.getString(17));
+				j.put("wajibBiometricWajah", rs.getBoolean(18));
+				j.put("wajibBiometricFingerprint", rs.getBoolean(19));
 				arr.put(j);
 			}
 			rs.close();
@@ -7665,6 +7692,18 @@ public class KantinHelper {
 					request.optDouble("maksimalTransaksiBulanan", 0.0))));
 			tipe.setWajibPin(Boolean.valueOf(request.optBoolean("wajibPin",
 					request.optBoolean("wajib_pin", false))));
+			String daftarWajibPin = request.optString("daftarCaraPembayaranWajibPin",
+					request.optString("daftar_cara_pembayaran_wajib_pin", "")).trim();
+			if (!daftarWajibPin.isEmpty() && !daftarCaraBayar.isEmpty()) {
+				java.util.Set wajibPinSet = parseDaftarId(daftarWajibPin);
+				java.util.Set izinSet = parseDaftarId(daftarCaraBayar);
+				if (!izinSet.containsAll(wajibPinSet)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Cara bayar wajib PIN harus termasuk cara bayar yang diizinkan.");
+					return;
+				}
+			}
+			tipe.setDaftarCaraPembayaranWajibPin(daftarWajibPin);
 			tipe.setWajibVerifikasiBiometricWajah(Boolean.valueOf(request.optBoolean(
 					"wajibBiometricWajah", request.optBoolean("wajib_biometric_wajah", false))));
 			tipe.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(request.optBoolean(
