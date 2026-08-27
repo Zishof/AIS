@@ -15,6 +15,7 @@ import ais.database.model.obe.KategoriCpl;
 import ais.database.model.obe.ProfilLulusan;
 import ais.database.model.obe.ReferensiLulusan;
 import ais.ui.util.MyCheckboxConfig;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyRowRenderer;
 import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
@@ -33,6 +34,7 @@ import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import ais.ui.util.MyFormRow;
 import org.zkoss.zul.Rows;
+import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Textbox;
 
@@ -67,6 +69,8 @@ public class CapaianLulusanAction extends ObeBaseAction {
     private Tabpanel manajemenProfil;
     private Tabpanel manajemenBahanKajian;
     private Tabpanel manajemenCpmk;
+    private Tabbox tabboxUtama;
+    private MyButtonTabbox buttonTabboxUtama;
     private EventListener eventListener;
 
     private CapaianLulusan capaianLulusan;
@@ -105,6 +109,17 @@ public class CapaianLulusanAction extends ObeBaseAction {
         String[] contents = {"id", "jurusan", "kode", "nama", "kategori", "profil",
                 "bahanKajian", "referensi", "khususBuatMk", "keterangan", "aktif"};
         initCommon(comp, CapaianLulusan.class, contents);
+
+        /*
+         * Tabbox native ZK 5 dapat menampilkan judul tab terpilih tetapi gagal
+         * memasang isi Tabpanel pada render pertama. Gunakan adapter tombol yang
+         * memindahkan konten panel lama tanpa mengubah event forward/handler.
+         * Holder selalu dimulai dari indeks 1 agar daftar CPL langsung terbuka.
+         */
+        buttonTabboxUtama = MyButtonTabbox.gantiTabboxNative(tabboxUtama, new int[] { 1 });
+        if (buttonTabboxUtama != null) {
+            buttonTabboxUtama.pilihPertama();
+        }
     }
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
