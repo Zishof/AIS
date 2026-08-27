@@ -11239,13 +11239,13 @@ public class KantinHelper {
 	/**
 	 * Fitur "Dasbor Statistik Produk" (JSP/ZK/Desktop/Android) -- kartu ringkasan katalog barang satu
 	 * toko: total produk, aktif/nonaktif, stok habis/rendah, total nilai stok (stok &times; harga
-	 * beli), plus 3 rincian (breakdown) top-8 utk chart batang horizontal: per kategori, per
+	 * beli), stok minus, plus 3 rincian (breakdown) top-8 utk chart batang horizontal: per kategori, per
 	 * pemasok/vendor, dan per rentang harga jual. Scope SELALU satu toko, pola sama {@link
 	 * #stokDashboard}.
 	 *
 	 * @param request payload: {@code toko_id} (wajib utk admin, diabaikan utk pedagang/kasir).
 	 * @param hasil   diisi {@code status="00"}, KPI ({@code totalProduk}, {@code totalAktif},
-	 *                {@code totalNonaktif}, {@code stokHabis}, {@code stokRendah} (0&lt;stok&le;5),
+	 *                {@code totalNonaktif}, {@code stokHabis}, {@code stokMinus}, {@code stokRendah} (0&lt;stok&le;5),
 	 *                {@code totalNilaiStok}), dan 3 array breakdown ({@code byKategori},
 	 *                {@code byPemasok}, {@code byHarga}) masing-masing {@code {label,jumlah}}.
 	 */
@@ -11260,12 +11260,13 @@ public class KantinHelper {
 		try {
 			java.sql.Connection conn = session.connection();
 
-			long totalProduk = 0, totalAktif = 0, totalNonaktif = 0, stokHabis = 0, stokRendah = 0;
+			long totalProduk = 0, totalAktif = 0, totalNonaktif = 0, stokHabis = 0, stokMinus = 0, stokRendah = 0;
 			double totalNilaiStok = 0;
 			java.sql.PreparedStatement psKpi = conn.prepareStatement(
 					"SELECT COUNT(*), COUNT(CASE WHEN COALESCE(p.aktif,true)=true THEN 1 END), "
 							+ "COUNT(CASE WHEN COALESCE(p.aktif,true)=false THEN 1 END), "
 							+ "COUNT(CASE WHEN COALESCE(p.stok,0)<=0 THEN 1 END), "
+							+ "COUNT(CASE WHEN COALESCE(p.stok,0)<0 THEN 1 END), "
 							+ "COUNT(CASE WHEN COALESCE(p.stok,0)>0 AND COALESCE(p.stok,0)<=5 THEN 1 END), "
 							+ "COALESCE(SUM(COALESCE(p.stok,0)*COALESCE(p.hargabeli,0)),0) "
 							+ "FROM koperasi.produk p WHERE p.toko = ?");
@@ -11276,8 +11277,9 @@ public class KantinHelper {
 				totalAktif = rsKpi.getLong(2);
 				totalNonaktif = rsKpi.getLong(3);
 				stokHabis = rsKpi.getLong(4);
-				stokRendah = rsKpi.getLong(5);
-				totalNilaiStok = rsKpi.getDouble(6);
+				stokMinus = rsKpi.getLong(5);
+				stokRendah = rsKpi.getLong(6);
+				totalNilaiStok = rsKpi.getDouble(7);
 			}
 			rsKpi.close(); psKpi.close();
 
@@ -11355,6 +11357,7 @@ public class KantinHelper {
 			hasil.put("totalAktif", totalAktif);
 			hasil.put("totalNonaktif", totalNonaktif);
 			hasil.put("stokHabis", stokHabis);
+			hasil.put("stokMinus", stokMinus);
 			hasil.put("stokRendah", stokRendah);
 			hasil.put("totalNilaiStok", totalNilaiStok);
 			hasil.put("byKategori", byKategori);
@@ -11376,7 +11379,7 @@ public class KantinHelper {
 	 * PERSIS dgn {@link #produkStatistik} -- kalau salah satu diubah, ubah jg yg satunya, supaya angka
 	 * KPI/bar yg diklik SELALU cocok dgn jumlah baris yg tampil di popup.
 	 *
-	 * @param request payload: {@code tipe} (wajib -- {@code total|aktif|nonaktif|stokHabis|stokRendah|
+	 * @param request payload: {@code tipe} (wajib -- {@code total|aktif|nonaktif|stokHabis|stokMinus|stokRendah|
 	 *                nilaiStok|kategori|pemasok|harga|stok}), {@code nilai} (label baris breakdown,
 	 *                wajib HANYA utk tipe kategori/pemasok/harga/stok -- persis label dari
 	 *                {@code produkStatistik}).
@@ -11396,9 +11399,14 @@ public class KantinHelper {
 			java.sql.Connection conn = session.connection();
 			StringBuilder sql = new StringBuilder(
 					"SELECT p.id, p.kode, p.barcode, p.nama, COALESCE(k.nama,'Tanpa Kategori'), COALESCE(pm.nama,'Tanpa Pemasok'), "
-							+ "COALESCE(p.hargajual,0), COALESCE(p.stok,0), COALESCE(p.aktif,true) "
+							+ "COALESCE(p.hargajual,0), COALESCE(p.hargabeli,0), COALESCE(p.stok,0), "
+							+ "COALESCE(p.stok_minimum,0), COALESCE(p.aktif,true), terakhir.waktupengadaan, "
+							+ "COALESCE(p.keterangan,''), COALESCE(terakhir.keterangan,'') "
 							+ "FROM koperasi.produk p LEFT JOIN koperasi.jenis_produk k ON p.jenis_produk = k.id "
-							+ "LEFT JOIN koperasi.pemasok_produk pm ON p.pemasok = pm.id WHERE p.toko = ? ");
+							+ "LEFT JOIN koperasi.pemasok_produk pm ON p.pemasok = pm.id "
+							+ "LEFT JOIN LATERAL (SELECT pp.waktupengadaan, pp.keterangan FROM koperasi.pengadaan_produk pp "
+							+ "WHERE pp.produk = p.id ORDER BY pp.waktupengadaan DESC, pp.id DESC LIMIT 1) terakhir ON true "
+							+ "WHERE p.toko = ? ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			params.add(tokoId);
 
@@ -11408,6 +11416,8 @@ public class KantinHelper {
 				sql.append(" AND COALESCE(p.aktif,true) = false ");
 			} else if ("stokHabis".equals(tipe)) {
 				sql.append(" AND COALESCE(p.stok,0) <= 0 ");
+			} else if ("stokMinus".equals(tipe)) {
+				sql.append(" AND COALESCE(p.stok,0) < 0 ");
 			} else if ("stokRendah".equals(tipe)) {
 				sql.append(" AND COALESCE(p.stok,0) > 0 AND COALESCE(p.stok,0) <= 5 ");
 			} else if ("kategori".equals(tipe)) {
@@ -11455,9 +11465,34 @@ public class KantinHelper {
 				o.put("nama", rs.getString(4));
 				o.put("kategoriNama", rs.getString(5));
 				o.put("pemasokNama", rs.getString(6));
+				double stok = rs.getDouble(9);
+				double stokMinimum = rs.getDouble(10);
+				java.sql.Timestamp terakhirPengadaan = rs.getTimestamp(12);
+				String keteranganProduk = rs.getString(13);
+				String keteranganPengadaan = rs.getString(14);
 				o.put("hargaJual", rs.getDouble(7));
-				o.put("stok", rs.getDouble(8));
-				o.put("aktif", rs.getBoolean(9));
+				o.put("hargaBeli", rs.getDouble(8));
+				o.put("stok", stok);
+				o.put("stokMinimal", stokMinimum);
+				o.put("aktif", rs.getBoolean(11));
+				o.put("terakhirPengadaan", terakhirPengadaan == null ? "" : terakhirPengadaan.toString());
+				o.put("keterangan", keteranganProduk == null ? "" : keteranganProduk);
+				String alasanStok;
+				if (stok < 0) {
+					alasanStok = terakhirPengadaan == null
+							? "Stok minus dan belum ada pengadaan tercatat; periksa stok awal, penjualan, mutasi, pemakaian bahan, retur, dan opname."
+							: "Stok minus karena total pengeluaran/koreksi tercatat melebihi penerimaan; periksa penjualan, mutasi, pemakaian bahan, retur, dan opname setelah pengadaan terakhir.";
+				} else if (stok == 0) {
+					alasanStok = "Stok habis.";
+				} else if (stokMinimum > 0 && stok <= stokMinimum) {
+					alasanStok = "Stok berada pada atau di bawah batas minimal.";
+				} else {
+					alasanStok = "Stok tersedia.";
+				}
+				if (keteranganPengadaan != null && !keteranganPengadaan.trim().isEmpty()) {
+					alasanStok += " Catatan pengadaan terakhir: " + keteranganPengadaan.trim();
+				}
+				o.put("alasanStok", alasanStok);
 				arr.put(o);
 			}
 			rs.close();
