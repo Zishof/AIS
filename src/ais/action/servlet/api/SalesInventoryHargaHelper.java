@@ -413,7 +413,7 @@ public final class SalesInventoryHargaHelper {
 			rsTotal.close(); psTotal.close();
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT p.id, p.kode, p.nama, COALESCE(sp.nama,''), COALESCE(p.stok,0), "
+					"SELECT p.id, p.kode, p.nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)'), COALESCE(p.stok,0), "
 							+ "COALESCE(p.hargabeli,0), COALESCE(p.hargajual,0), " + hargaUmum + ", "
 							+ hargaBeliSupplierTerbaru + dasar + " ORDER BY p.kode ASC LIMIT ? OFFSET ?");
 			int idx = 1;

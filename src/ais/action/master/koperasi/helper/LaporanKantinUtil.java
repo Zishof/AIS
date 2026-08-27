@@ -746,8 +746,8 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("pr.toko", tokoId, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
-                sql = "select pr.kode, coalesce(pr.barcode,'-'), pr.nama, coalesce(k.nama,'Umum'), coalesce(t.nama,'-'), "
-                    + " coalesce(s.nama,'-'), coalesce(pm.nama,'-'), coalesce(pr.hargabeli,0), coalesce(pr.hargajual,0), coalesce(pr.stok,0), "
+				sql = "select pr.kode, coalesce(pr.barcode,'-'), pr.nama, coalesce(k.nama,'Umum'), coalesce(t.nama,'-'), "
+					+ " coalesce(nullif(trim(s.nama),''),'(Belum diatur)'), coalesce(nullif(trim(pm.nama),''),'(Belum diatur)'), coalesce(pr.hargabeli,0), coalesce(pr.hargajual,0), coalesce(pr.stok,0), "
                     + " (coalesce(pr.hargabeli,0) * coalesce(pr.stok,0)) "
                     + " from koperasi.produk pr left join koperasi.jenis_produk k on k.id=pr.jenis_produk "
                     + " left join koperasi.toko t on t.id=pr.toko "
@@ -1355,7 +1355,7 @@ public final class LaporanKantinUtil {
                     + " pr.nama as nama, coalesce(jp.nama,'-') as kategori, coalesce(t.nama,'-') as toko,"
                     // produk.satuan adalah FK bigint. Jangan COALESCE FK tersebut dengan
                     // string kosong; ambil nama satuan dari tabel referensinya.
-                    + " coalesce(sp.nama,'') as satuan, (" + fStok + ") as stok,"
+                    + " coalesce(nullif(trim(sp.nama),''),'(Belum diatur)') as satuan, (" + fStok + ") as stok,"
                     + " coalesce(pr.hargabeli,0) as hargabeli, coalesce(pr.hargajual,0) as hargajual"
                     + " from koperasi.produk pr"
                     + " left join koperasi.satuan_produk sp on sp.id = pr.satuan"

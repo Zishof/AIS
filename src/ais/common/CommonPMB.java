@@ -779,6 +779,12 @@ public class CommonPMB {
 							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonPMB.java:605");
 
 							}
+							// Pada mode otomatis, kolom NIM di Excel memang tidak wajib diisi.
+							// Abaikan nilai sel (termasuk placeholder lama) agar hasil generator
+							// menjadi sumber NIM utama.
+							if (generateNimOtomatis) {
+								nim = "";
+							}
 
 							if (!generateNimOtomatis && nim.trim().isEmpty()) {
 								report.gagal(i, identitasBaris,
@@ -885,7 +891,8 @@ public class CommonPMB {
 							if (prodiLulus != null && !nim.trim().isEmpty()) {
 								biodataCalonMahasiswa.setNim(nim);
 								biodataCalonMahasiswa.setGenerateNimOtomatis(generateNimOtomatis);
-								mahasiswa = CommonPMB.saveMahasiswa(session, biodataCalonMahasiswa, nim.trim(), false);
+								mahasiswa = CommonPMB.saveMahasiswa(session, biodataCalonMahasiswa, nim.trim(), false,
+										false, !generateNimOtomatis);
 							} else {
 								Common.refreshUpdate(session, biodataCalonMahasiswa);
 							}
@@ -1253,6 +1260,12 @@ public class CommonPMB {
 
 	public static synchronized Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
 			boolean commitMaual, boolean izinkanNimDenganTandaHubung) {
+		return saveMahasiswa(session, calonMahasiswa, nim, commitMaual,
+				izinkanNimDenganTandaHubung, true);
+	}
+
+	public static synchronized Mahasiswa saveMahasiswa(Session session, BiodataCalonMahasiswa calonMahasiswa, String nim,
+			boolean commitMaual, boolean izinkanNimDenganTandaHubung, boolean gunakanNimRiwayat) {
 
 		Mahasiswa mahasiswa = calonMahasiswa.getMahasiswa();
 		// Cek dulu lewat FK biodataCalonMahasiswa (lebih presisi & tak rawan salah tangkap
@@ -1277,9 +1290,11 @@ public class CommonPMB {
 							.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1),
 					Mahasiswa.class);
 		}
-		String nimRiwayat = ambilNimTersimpanDariRiwayatPmb(session, calonMahasiswa, mahasiswa);
-		if (!isBlankString(nimRiwayat)) {
-			nim = nimRiwayat;
+		if (gunakanNimRiwayat) {
+			String nimRiwayat = ambilNimTersimpanDariRiwayatPmb(session, calonMahasiswa, mahasiswa);
+			if (!isBlankString(nimRiwayat)) {
+				nim = nimRiwayat;
+			}
 		}
 		if (!isNimPmbValidAtauDiizinkan(nim, izinkanNimDenganTandaHubung)) {
 			throw new IllegalArgumentException("NIM PMB tidak valid: " + nim

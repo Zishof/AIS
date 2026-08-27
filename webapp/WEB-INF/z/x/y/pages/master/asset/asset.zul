@@ -132,10 +132,10 @@
 
 									<column
 									use="ais.ui.util.MyColumnConfig" label="Jenis"
-									sort="auto(jenisAsset)" />
+									sort="auto(masterAsset.jenisAsset)" />
 									<column
 									use="ais.ui.util.MyColumnConfig" label="Kelompok"
-									sort="auto(kelompokAsset)" />
+									sort="auto(masterAsset.kelompokAsset)" />
 
 
 									<column

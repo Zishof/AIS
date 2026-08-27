@@ -114,7 +114,7 @@ public final class SalesInventoryStokHelper {
 			// tak ber-@Column, implicit-naming deployment ini menggabung camelCase -- terbukti dari
 			// SQL produksi KantinHelper:3494); satuan = FK ke koperasi.satuan_produk.
 			String select = "SELECT p.id AS id, p.kode AS kode, COALESCE(p.barcode,'') AS barcode, "
-					+ "p.nama AS nama, COALESCE(sp.nama,'') AS satuan, "
+					+ "p.nama AS nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)') AS satuan, "
 					+ "COALESCE(p.hargabeli,0) AS harga_beli, COALESCE(p.hargajual,0) AS harga_jual, "
 					+ "COALESCE(p.stok_minimum,0) AS stok_minimum, "
 					+ awal + " AS awal, " + masuk + " AS masuk, " + keluar + " AS keluar, " + opname + " AS opname "

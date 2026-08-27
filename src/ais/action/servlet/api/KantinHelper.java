@@ -4289,6 +4289,18 @@ public class KantinHelper {
 
 	private static final String[] KOLOM_EXCEL_PRODUK = { "No", "Kode", "UPC/Barcode", "Kategori", "Nama Barang",
 			"Nama Pemasok Utama", "Satuan", "Kts", "Def. Hrg. Jual Sa", "Nilai Satuan", "Nilai Total" };
+	private static final String LABEL_REFERENSI_BELUM_DIATUR = "(Belum diatur)";
+
+	private static String nilaiReferensiEkspor(String nilai) {
+		return nilai == null || nilai.trim().length() == 0 ? LABEL_REFERENSI_BELUM_DIATUR : nilai.trim();
+	}
+
+	/** Placeholder audit dari hasil ekspor tidak boleh dibuat menjadi master pemasok/satuan sungguhan saat round-trip. */
+	private static String normalisasiReferensiImpor(String nilai) {
+		if (nilai == null) return "";
+		String bersih = nilai.trim();
+		return LABEL_REFERENSI_BELUM_DIATUR.equalsIgnoreCase(bersih) ? "" : bersih;
+	}
 
 	/**
 	 * Fitur "Unduh Excel" (layar Produk, khusus supervisor) -- mengekspor SELURUH katalog produk milik
@@ -4390,21 +4402,47 @@ public class KantinHelper {
 			}
 			int r = BARIS_HEADER + 1;
 			int no = 1;
+			int pemasokBelumDiatur = 0;
+			int satuanBelumDiatur = 0;
 			for (Produk p : daftar) {
+				String pemasok = p.getPemasok() == null ? "" : nvl(p.getPemasok().getNama());
+				String satuan = p.getSatuan() == null ? "" : nvl(p.getSatuan().getNama());
+				if (pemasok.trim().length() == 0) pemasokBelumDiatur++;
+				if (satuan.trim().length() == 0) satuanBelumDiatur++;
 				org.apache.poi.xssf.usermodel.XSSFRow row = sheet.createRow(r++);
 				row.createCell(0 + OFFSET_KOLOM_ACCURATE).setCellValue(no++);
 				row.createCell(1 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getKode() == null ? "" : p.getKode());
 				row.createCell(2 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getBarcode() == null ? "" : p.getBarcode());
 				row.createCell(3 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getJenisProduk() == null ? "" : nvl(p.getJenisProduk().getNama()));
 				row.createCell(4 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getNama() == null ? "" : p.getNama());
-				row.createCell(5 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getPemasok() == null ? "" : nvl(p.getPemasok().getNama()));
-				row.createCell(6 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getSatuan() == null ? "" : nvl(p.getSatuan().getNama()));
+				row.createCell(5 + OFFSET_KOLOM_ACCURATE).setCellValue(nilaiReferensiEkspor(pemasok));
+				row.createCell(6 + OFFSET_KOLOM_ACCURATE).setCellValue(nilaiReferensiEkspor(satuan));
 				row.createCell(7 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getStok() == null ? 0 : p.getStok());
 				row.createCell(8 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getHargaJual() == null ? 0 : p.getHargaJual());
 				row.createCell(9 + OFFSET_KOLOM_ACCURATE).setCellValue(p.getHargaBeli() == null ? 0 : p.getHargaBeli());
 				row.createCell(10 + OFFSET_KOLOM_ACCURATE)
 						.setCellValue((p.getStok() == null ? 0 : p.getStok()) * (p.getHargaBeli() == null ? 0 : p.getHargaBeli()));
 			}
+
+			// Lembar kedua membuat kelengkapan UOM mudah dilacak tanpa mengira sel kosong sebagai bug
+			// ekspor. Nilai unit tidak ditebak: pengguna memperbaikinya lewat form Produk atau impor Excel.
+			org.apache.poi.xssf.usermodel.XSSFSheet ringkasan = wb.createSheet("Ringkasan Kelengkapan");
+			ringkasan.setColumnWidth(0, 42 * 256);
+			ringkasan.setColumnWidth(1, 18 * 256);
+			String[][] metrik = {
+					{ "Indikator", "Jumlah" },
+					{ "Total barang/jasa", String.valueOf(daftar.size()) },
+					{ "Satuan sudah diatur", String.valueOf(daftar.size() - satuanBelumDiatur) },
+					{ "Satuan belum diatur", String.valueOf(satuanBelumDiatur) },
+					{ "Pemasok belum diatur", String.valueOf(pemasokBelumDiatur) }
+			};
+			for (int i = 0; i < metrik.length; i++) {
+				org.apache.poi.xssf.usermodel.XSSFRow row = ringkasan.createRow(i);
+				row.createCell(0).setCellValue(metrik[i][0]);
+				row.createCell(1).setCellValue(metrik[i][1]);
+			}
+			ringkasan.createRow(metrik.length + 1).createCell(0).setCellValue(
+					"Tindakan: filter '(Belum diatur)' pada kolom Satuan, isi melalui form Produk atau Excel, lalu unggah dan unduh ulang laporan.");
 
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			wb.write(bos);
@@ -4783,8 +4821,8 @@ public class KantinHelper {
 
 				String barcode = idx.barcode >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.barcode, r)).trim() : "";
 				String kategoriNama = idx.kategori >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.kategori, r)).trim() : "";
-				String pemasokNama = idx.pemasok >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.pemasok, r)).trim() : "";
-				String satuanNama = idx.satuan >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.satuan, r)).trim() : "";
+				String pemasokNama = idx.pemasok >= 0 ? normalisasiReferensiImpor(Common.getCellContent(Common.getCell(sheet, idx.pemasok, r))) : "";
+				String satuanNama = idx.satuan >= 0 ? normalisasiReferensiImpor(Common.getCellContent(Common.getCell(sheet, idx.satuan, r))) : "";
 				double stokBaru = idx.stok >= 0 ? bacaAngkaExcel(sheet, idx.stok, r, formulaEvaluator) : 0;
 				double hargaJual = idx.hargaJual >= 0 ? bacaAngkaExcel(sheet, idx.hargaJual, r, formulaEvaluator) : 0;
 				double hargaBeli = idx.hargaBeli >= 0 ? bacaAngkaExcel(sheet, idx.hargaBeli, r, formulaEvaluator) : 0;
@@ -5674,8 +5712,8 @@ public class KantinHelper {
 			row.createCell(2).setCellValue(b.optString("barcode", ""));
 			row.createCell(3).setCellValue(b.optString("kategoriNama", ""));
 			row.createCell(4).setCellValue(b.optString("nama", ""));
-			row.createCell(5).setCellValue(b.optString("pemasokNama", ""));
-			row.createCell(6).setCellValue(b.optString("satuanNama", ""));
+			row.createCell(5).setCellValue(nilaiReferensiEkspor(b.optString("pemasokNama", "")));
+			row.createCell(6).setCellValue(nilaiReferensiEkspor(b.optString("satuanNama", "")));
 			row.createCell(7).setCellValue(stokBaru);
 			row.createCell(8).setCellValue(b.optDouble("hargaJual", 0));
 			row.createCell(9).setCellValue(hargaBeli);
