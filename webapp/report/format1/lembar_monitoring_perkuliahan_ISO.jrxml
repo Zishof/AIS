@@ -62,7 +62,7 @@ left join dosen i on (e.kaprodi = i.id)
 
 where a.perkuliahan = $P{perkuliahan}
 group by a.pertemuan_ke,a.tanggal,a.waktu_mulai,a.waktu_selesai,a.topik,a.metode_pembelajaran,b.semester,c.nama,c.code,d.nama,d.sks,a.buku_rujukan1,a.buku_rujukan2,e.nama,f.nama,b.id,g.kode_ruangan,b.hari
-order by a.tanggal,a.pertemuan_ke]]>
+order by a.pertemuan_ke,a.tanggal]]>
 	</queryString>
 	<field name="pertemuan_ke" class="java.lang.Integer"/>
 	<field name="tanggal" class="java.sql.Date"/>
@@ -421,7 +421,7 @@ order by a.tanggal,a.pertemuan_ke]]>
 				<textElement textAlignment="Center">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{pertemuan_ke}]]></textFieldExpression>
 			</textField>
 			<textField pattern="dd MMMMM yyyy" isBlankWhenNull="true">
 				<reportElement style="Detail" x="34" y="0" width="86" height="44"/>
