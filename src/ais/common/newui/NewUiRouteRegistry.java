@@ -73,6 +73,25 @@ public final class NewUiRouteRegistry {
         register(673272211L, "ais.action.report.format1.sekolah.LaporanRekapPembayaranSiswa", "root/report", "format1/sekolah/laporan_rekap_pembayaran_siswa");
         register(1000026411L, "/pages/master/kegiatan.zul", "root", "kegiatan");
         register(1003000017L, "/pages/master/daftarulang_mahasiswa_calon.zul", "root", "daftar_ulang_calon_mahasiswa");
+
+        /*
+         * Pelengkap keuangan kampus/sekolah (audit 2026-08-28). ID dari
+         * MenuSnapshotData; hanya menu yang service generated-nya tersedia di
+         * WEB-INF/new — sisanya sengaja dibiarkan NOT_MAPPED (fail-closed).
+         */
+        register(167L, "/pages/master/item_biaya.zul", "root", "item_biaya");
+        register(168L, "/pages/master/detail_biaya.zul", "root", "detail_biaya");
+        register(917L, "/pages/master/jenis_pembayaran.zul", "root", "jenis_pembayaran");
+        register(957L, "/pages/master/posting_cicilan_mahasiswa.zul", "root", "posting_cicilan_mahasiswa");
+        register(1789L, "/pages/master/detail_biaya_excel.zul", "root", "new_detail_biaya_excel");
+        register(1790999L, "/pages/master/item_pembayaran_punya_akun.zul", "root", "item_pembayaran_punya_akun");
+        register(673273L, "ais.action.report.format1.sekolah.LaporanDepositSiswa", "root/report", "format1/sekolah/laporan_deposit_siswa");
+        register(8325592L, "/pages/master/sekolah/deposit_siswa.zul", "sekolah", "deposit_siswa");
+        register(8555573L, "/pages/master/sekolah/posting_deposit.zul", "sekolah", "posting_deposit_siswa");
+        register(10030017L, "/pages/master/pembayaran_calon_mahasiswa.zul", "root", "pembayaran_calon_mahasiswa");
+        register(100300017L, "/pages/master/pembayaran_mahasiswa.zul", "root", "pembayaran_mahasiswa");
+        register(233333333L, "/pages/master/jadwal_pembayaran.zul", "root", "jadwal_pembayaran");
+
         register(2000460500L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
         register(2000460501L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
         register(2000460502L,"/jurnal/admin/journals","jurnal","journals");

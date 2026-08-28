@@ -77,6 +77,19 @@ public final class NewUiMenuTreeBuilderSelfTest {
         assertTrue(NewUiRouteRegistry.routeForMenuIdAndUrl(Long.valueOf(8755592L),
                 "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true") == null,
                 "student and candidate payment routes must not be interchangeable");
+        NewUiRouteRegistry.Route campusPayment = NewUiRouteRegistry.routeForMenuIdAndUrl(
+                Long.valueOf(100300017L), "/pages/master/pembayaran_mahasiswa.zul");
+        assertTrue(campusPayment != null && "root".equals(campusPayment.getModule())
+                && "pembayaran_mahasiswa".equals(campusPayment.getPage()),
+                "campus payment native route missing");
+        assertTrue(NewUiRouteRegistry.routeForMenuIdAndUrl(Long.valueOf(100300017L),
+                "/pages/master/pembayaran_calon_mahasiswa.zul") == null,
+                "campus and candidate payment routes must not be interchangeable");
+        NewUiRouteRegistry.Route candidatePayment = NewUiRouteRegistry.routeForMenuIdAndUrl(
+                Long.valueOf(10030017L), "/pages/master/pembayaran_calon_mahasiswa.zul");
+        assertTrue(candidatePayment != null && "root".equals(candidatePayment.getModule())
+                && "pembayaran_calon_mahasiswa".equals(candidatePayment.getPage()),
+                "candidate campus payment native route missing");
         NewUiHybridMenuRouteRegistry.ResolvedRoute nativeFallback =
                 NewUiHybridMenuRouteRegistry.resolve(Long.valueOf(999999999L),
                         "/pages/master/sekolah/menu_baru.zul", false);

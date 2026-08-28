@@ -27,6 +27,7 @@ import ais.action.servlet.api.KantinHelper;
 import ais.action.servlet.api.SatuanKerjaKantinHelper;
 import ais.action.servlet.api.PosDeviceAuthApi;
 import ais.action.servlet.api.PosDemoProvisionHelper;
+import ais.action.servlet.api.DistribusiPengirimanApiHelper;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
@@ -1176,6 +1177,14 @@ public class PosApi extends HttpServlet {
 				prosesLaporanTransaksiPerKasir(tbmuser, payload, hasil);
 			} else if ("laporan_transaksi_per_kasir_detail".equals(action)) {
 				prosesLaporanTransaksiPerKasirDetail(tbmuser, payload, hasil);
+			} else if ("distribusi_list".equals(action)) {
+				DistribusiPengirimanApiHelper.daftar(tbmuser, payload, hasil);
+			} else if ("distribusi_detail".equals(action)) {
+				DistribusiPengirimanApiHelper.detail(tbmuser, payload, hasil);
+			} else if ("distribusi_simpan".equals(action)) {
+				DistribusiPengirimanApiHelper.simpan(tbmuser, payload, hasil);
+			} else if ("distribusi_status".equals(action)) {
+				DistribusiPengirimanApiHelper.ubahStatus(tbmuser, payload, hasil);
 			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
@@ -2139,6 +2148,10 @@ public class PosApi extends HttpServlet {
 		}
 		if (ebisnisMenuRole.optBoolean("supervisor", false)
 				|| (pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor()))) return true;
+		// Pemeriksaan granular create/edit/submit/approve dilakukan berdasarkan
+		// TbmroleAction di helper distribusi. Gerbang awal hanya meloloskan
+		// namespace ini agar pemeriksaan fail-closed tersebut dapat dijalankan.
+		if (action.startsWith("distribusi_")) return true;
 		if ("konfigurasi".equals(action) || "daftar_toko_saya".equals(action)
 				|| "pilih_toko_aktif".equals(action)
 				|| "pengaturan_edit_transaksi_ambil".equals(action)
