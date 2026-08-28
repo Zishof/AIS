@@ -151,25 +151,44 @@ public final class BiometricApi {
 		if (!BiometricCrypto.configured()) return ApiHelperSupport.status("95", "Kunci enkripsi biometrik server belum dikonfigurasi");
 		String modality = modality(request.optString("modality"));
 		String format = clean(request.optString("template_format"), 80);
+		String position = clean(request.optString("position"), 40);
 		if (modality == null || format == null) return ApiHelperSupport.status("92", "Modality dan format template wajib diisi");
+		if (!allowedPosition(modality, position)) return ApiHelperSupport.status("92", "Slot biometrik tidak valid. Gunakan salah satu dari lima slot yang disediakan");
 		Session session = HibernateUtil.openSession(); Transaction tx = null;
 		try {
 			byte[] clear = BiometricCrypto.decodeTemplate(request.optString("template_base64"));
 			String hash = BiometricCrypto.sha256(clear);
-			BiometricCredential existing = (BiometricCredential) session.createCriteria(BiometricCredential.class)
+			BiometricCredential sameHash = (BiometricCredential) session.createCriteria(BiometricCredential.class)
 					.add(Restrictions.eq("subjectUserId", subject)).add(Restrictions.eq("modality", modality))
-					.add(Restrictions.eq("templateHash", hash)).setMaxResults(1).uniqueResult();
-			if (existing != null && Boolean.TRUE.equals(existing.getActive())) {
-				JSONObject out = ApiHelperSupport.status("00", "Template biometrik sudah terdaftar"); out.put("id", existing.getId()); out.put("duplicate", true); return out;
+					.add(Restrictions.eq("templateHash", hash)).add(Restrictions.eq("active", Boolean.TRUE))
+					.setMaxResults(1).uniqueResult();
+			if (sameHash != null) {
+				if (position.equals(sameHash.getPositionCode())) {
+					JSONObject out = ApiHelperSupport.status("00", "Template biometrik sudah terdaftar di slot ini");
+					out.put("id", sameHash.getId()); out.put("duplicate", true); return out;
+				}
+				return ApiHelperSupport.status("92", "Template biometrik yang sama sudah dipakai pada slot lain");
 			}
+			BiometricCredential sameSlot = (BiometricCredential) session.createCriteria(BiometricCredential.class)
+					.add(Restrictions.eq("subjectUserId", subject)).add(Restrictions.eq("modality", modality))
+					.add(Restrictions.eq("positionCode", position)).add(Restrictions.eq("active", Boolean.TRUE))
+					.setMaxResults(1).uniqueResult();
+			List<BiometricCredential> active = session.createCriteria(BiometricCredential.class)
+					.add(Restrictions.eq("subjectUserId", subject)).add(Restrictions.eq("modality", modality))
+					.add(Restrictions.eq("active", Boolean.TRUE)).list();
+			if (sameSlot == null && active.size() >= 5)
+				return ApiHelperSupport.status("92", "Maksimal lima biometrik aktif untuk setiap jenis pengenalan");
 			tx = session.beginTransaction();
-			BiometricCredential c = existing == null ? new BiometricCredential() : existing;
-			c.setSubjectUserId(subject); c.setModality(modality); c.setPositionCode(clean(request.optString("position"), 40));
+			if (sameSlot != null) {
+				sameSlot.setActive(Boolean.FALSE); sameSlot.setUpdatedAt(new Date()); session.update(sameSlot);
+			}
+			BiometricCredential c = new BiometricCredential();
+			c.setSubjectUserId(subject); c.setModality(modality); c.setPositionCode(position);
 			c.setTemplateFormat(format); c.setTemplateHash(hash); c.setKeyVersion(BiometricCrypto.keyVersion());
 			c.setTemplateCiphertext(BiometricCrypto.encrypt(clear, aad(subject, modality, format)));
 			c.setProvider(clean(request.optString("provider"), 120)); c.setQualityScore(integer(request, "quality"));
 			c.setActive(Boolean.TRUE); c.setConsentAt(new Date()); c.setConsentBy(actor.getUserId()); c.setUpdatedAt(new Date());
-			if (existing == null) session.save(c); else session.update(c);
+			session.save(c);
 			saveEvent(session, actor.getUserId(), subject, c.getId(), modality, "ENROLL", mutation(request), false, null,
 					doubleValue(request, "liveness_score"), "ENROLLED", request, null);
 			tx.commit();
@@ -696,6 +715,16 @@ public final class BiometricApi {
 	}
 
 	private static String modality(String value) { String v = value == null ? "" : value.trim().toUpperCase(Locale.ENGLISH); return FINGERPRINT.equals(v) || FACE.equals(v) ? v : null; }
+	private static boolean allowedPosition(String modality, String position) {
+		if (position == null) return false;
+		if (FINGERPRINT.equals(modality)) return "JEMPOL_KANAN".equals(position)
+				|| "TELUNJUK_KANAN".equals(position) || "JEMPOL_KIRI".equals(position)
+				|| "TELUNJUK_KIRI".equals(position) || "JARI_CADANGAN".equals(position);
+		if (FACE.equals(modality)) return "WAJAH_DEPAN_1".equals(position)
+				|| "WAJAH_DEPAN_2".equals(position) || "WAJAH_KIRI".equals(position)
+				|| "WAJAH_KANAN".equals(position) || "WAJAH_CADANGAN".equals(position);
+		return false;
+	}
 	private static String clean(String value, int max) { if (value == null) return null; String v = value.trim(); return v.length() == 0 ? null : (v.length() > max ? v.substring(0, max) : v); }
 	private static String nullToEmpty(String value) { return value == null ? "" : value; }
 	private static String mutation(JSONObject request) { String v = clean(request.optString("clientMutationId"), 150); return v == null ? UUID.randomUUID().toString() : v; }
