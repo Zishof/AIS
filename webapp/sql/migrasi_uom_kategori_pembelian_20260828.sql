@@ -1,5 +1,8 @@
 -- Jalankan sebelum deploy server yang memuat UOM kategori + Purchase UOM.
--- DDL idempoten; data lama dipetakan ke kategori UNIT dan Reference 1:1.
+-- DDL idempoten dan atomik; data lama dipetakan ke kategori legacy tersendiri.
+
+BEGIN;
+SET LOCAL lock_timeout = '15s';
 
 ALTER TABLE koperasi.satuan_produk
   ADD COLUMN IF NOT EXISTS kategori varchar(50),
@@ -33,6 +36,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conname = 'fk_produk_satuan_pembelian'
+      AND conrelid = 'koperasi.produk'::regclass
   ) THEN
     ALTER TABLE koperasi.produk
       ADD CONSTRAINT fk_produk_satuan_pembelian
@@ -41,11 +45,11 @@ BEGIN
 END $$;
 
 -- Envers tidak menambah kolom baru pada audit table existing.
-ALTER TABLE new_audit.produk__audit
+ALTER TABLE IF EXISTS new_audit.produk__audit
   ADD COLUMN IF NOT EXISTS satuan_pembelian int8,
   ADD COLUMN IF NOT EXISTS kemasan text;
 
-ALTER TABLE new_audit.satuan_produk__audit
+ALTER TABLE IF EXISTS new_audit.satuan_produk__audit
   ADD COLUMN IF NOT EXISTS kategori varchar(50),
   ADD COLUMN IF NOT EXISTS tipe_konversi varchar(20),
   ADD COLUMN IF NOT EXISTS rasio float8,
@@ -72,15 +76,21 @@ CREATE INDEX IF NOT EXISTS idx_pengadaan_produk_satuan_input
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_pengadaan_produk_satuan_input') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_pengadaan_produk_satuan_input'
+      AND conrelid = 'koperasi.pengadaan_produk'::regclass
+  ) THEN
     ALTER TABLE koperasi.pengadaan_produk
       ADD CONSTRAINT fk_pengadaan_produk_satuan_input
       FOREIGN KEY (satuan_input) REFERENCES koperasi.satuan_produk(id);
   END IF;
 END $$;
 
-ALTER TABLE new_audit.pengadaan_produk__audit
+ALTER TABLE IF EXISTS new_audit.pengadaan_produk__audit
   ADD COLUMN IF NOT EXISTS satuan_input int8,
   ADD COLUMN IF NOT EXISTS qty_input float8,
   ADD COLUMN IF NOT EXISTS faktor_konversi float8,
   ADD COLUMN IF NOT EXISTS harga_beli_satuan_input float8;
+
+COMMIT;
