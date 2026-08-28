@@ -2114,6 +2114,7 @@ public class PosApi extends HttpServlet {
 				|| (pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor()))) return true;
 		if ("konfigurasi".equals(action) || "daftar_toko_saya".equals(action)
 				|| "pilih_toko_aktif".equals(action)
+				|| "pengaturan_edit_transaksi_ambil".equals(action)
 				|| "akun_ganti_password".equals(action)) return true;
 
 		if ("katalog".equals(action)) {
