@@ -52,6 +52,9 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [44-uji-regresi.md](44-uji-regresi.md) | Menjalankan regresi, hasil 22-08-2026, dan jebakan yang sudah memakan waktu |
 | [45-penyaring-dasbor-dan-layani-semua.md](45-penyaring-dasbor-dan-layani-semua.md) | Penyaring "Jenis pembayaran" yang tak pernah dibaca server, dan "Layani Semua" yang menyapu lebih luas daripada yang dilihat |
 | [46-angka-tanpa-rincian.md](46-angka-tanpa-rincian.md) | Bendera `bisaRincian` yang tak pernah dibaca layar, dan alasan yang ikut dikirim bersamanya |
+| [47-sesi-kas-transaksi-terlambat.md](47-sesi-kas-transaksi-terlambat.md) | Sesi kas dan transaksi yang tiba terlambat |
+| [48-gap-analisis-uom-packaging-manufaktur.md](48-gap-analisis-uom-packaging-manufaktur.md) | Peta kemampuan vs tiga PDF ERP: UoM, packaging, harga grosir, produksi, reordering |
+| [49-produksi-eksekusi-stok-dan-rencana-rinci.md](49-produksi-eksekusi-stok-dan-rencana-rinci.md) | Koreksi peta 48, temuan dokumen produksi tidak menggerakkan stok, dan langkah pengerjaan per fase |
 | [20-ikhtisar-kantin-multi-toko.md](20-ikhtisar-kantin-multi-toko.md) | Kantin, multi-toko, audit & proses otomatis |
 | [21-hak-akses-ubah-harga.md](21-hak-akses-ubah-harga.md) | Hak akses ubah harga |
 | [22-filter-toko-dan-pendaftar.md](22-filter-toko-dan-pendaftar.md) | Filter toko lintas-toko & pembatasan per pendaftar |
