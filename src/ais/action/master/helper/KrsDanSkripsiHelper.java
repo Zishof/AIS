@@ -104,12 +104,21 @@ public class KrsDanSkripsiHelper {
 				Mahasiswa mahasiswaDb = mahasiswa == null || mahasiswa.getId() == null ? null
 						: (Mahasiswa) session.get(Mahasiswa.class, mahasiswa.getId());
 				if (mahasiswaDb == null) {
+					if (session.getTransaction() != null && session.getTransaction().isActive()) {
+						session.getTransaction().rollback();
+					}
 					KrsMahasiswa belumTersimpan = new KrsMahasiswa();
 					belumTersimpan.setMahasiswa(mahasiswa);
 					belumTersimpan.setSemester(semester);
 					belumTersimpan.setTahapan(tahapan);
 					return belumTersimpan;
 				}
+				// Mahasiswa hanya menjadi referensi dan sumber kalkulasi pada transaksi ini.
+				// Jangan ikut dirty-check saat KRS di-flush: beberapa data lama memiliki
+				// nimkey yang tidak identik dengan NIM, sedangkan getNimKey() menormalkan
+				// nilai tersebut. Tanpa read-only Hibernate mencoba UPDATE Mahasiswa dan
+				// dapat menabrak mahasiswa_nimkey_key milik baris lain.
+				session.setReadOnly(mahasiswaDb, true);
 				// Semua lazy association dan kalkulasi berikutnya harus memakai instance
 				// managed dari session ini. Instance parameter dapat berasal dari session
 				// lain yang sudah ditutup oleh proses pembayaran/KRS sebelumnya.

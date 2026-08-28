@@ -727,17 +727,9 @@ public class KlasifikasiSuratKeluarAction extends GenericAutowireComposer
 					if (klasifikasiSuratKeluarParemeter.getTipe().equals(KlasifikasiSuratKeluarParemeter.DATA)) {
 						masukkanTabelKeParameter(parameters, klasifikasiSuratKeluarParemeter.getNilai());
 					}
-					if (klasifikasiSuratKeluarParemeter.getTipe().equals(KlasifikasiSuratKeluarParemeter.GAMBAR)) {
-						try {
-
-							parameters.put(klasifikasiSuratKeluarParemeter.getKey(),
-									LampiranLain
-											.ambil(klasifikasiSuratKeluarParemeter.getId(),
-													KlasifikasiSuratKeluarParemeter.class.getName())
-											.ambilFile().getAbsolutePath());
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/KlasifikasiSuratKeluarAction.java:738");
-//							ais.common.Common.tampilErrorJikaAdmin(e);
-						}
+					if (KlasifikasiSuratKeluarParemeter.GAMBAR.equals(klasifikasiSuratKeluarParemeter.getTipe())) {
+						parameters.put(klasifikasiSuratKeluarParemeter.getKey(),
+								ambilPathGambarParameter(klasifikasiSuratKeluarParemeter));
 					}
 				}
 			}
@@ -752,16 +744,9 @@ public class KlasifikasiSuratKeluarAction extends GenericAutowireComposer
 				if (klasifikasiSuratKeluarParemeter.getTipe().equals(KlasifikasiSuratKeluarParemeter.DATA)) {
 					masukkanTabelKeParameter(parameters, klasifikasiSuratKeluarParemeter.getNilai());
 				}
-				if (klasifikasiSuratKeluarParemeter.getTipe().equals(KlasifikasiSuratKeluarParemeter.GAMBAR)) {
-					try {
-						parameters.put(klasifikasiSuratKeluarParemeter.getKey(),
-								LampiranLain
-										.ambil(klasifikasiSuratKeluarParemeter.getId(),
-												KlasifikasiSuratKeluarParemeter.class.getName())
-										.ambilFile().getAbsolutePath());
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/KlasifikasiSuratKeluarAction.java:762");
-//						ais.common.Common.tampilErrorJikaAdmin(e);
-					}
+				if (KlasifikasiSuratKeluarParemeter.GAMBAR.equals(klasifikasiSuratKeluarParemeter.getTipe())) {
+					parameters.put(klasifikasiSuratKeluarParemeter.getKey(),
+							ambilPathGambarParameter(klasifikasiSuratKeluarParemeter));
 				}
 			}
 		}
@@ -772,6 +757,30 @@ public class KlasifikasiSuratKeluarAction extends GenericAutowireComposer
 		parameters.put("tidak_usah_pakai_connection", true);
 
 		return parameters;
+	}
+
+	/**
+	 * Mengambil lokasi gambar parameter surat secara null-safe. Parameter gambar
+	 * boleh belum memiliki lampiran; kondisi tersebut berarti gambar kosong dan
+	 * bukan kegagalan sistem yang perlu dicatat sebagai NullPointerException.
+	 */
+	private String ambilPathGambarParameter(KlasifikasiSuratKeluarParemeter parameter) {
+		if (parameter == null || parameter.getId() == null) {
+			return null;
+		}
+		try {
+			LampiranLain lampiran = LampiranLain.ambil(parameter.getId(),
+					KlasifikasiSuratKeluarParemeter.class.getName());
+			File file = lampiran == null ? null : lampiran.ambilFile();
+			if (file == null) {
+				return null;
+			}
+			return file.getAbsolutePath();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"Gagal mengambil lampiran gambar parameter klasifikasi surat keluar id=" + parameter.getId());
+			return null;
+		}
 	}
 
 	private void generateReport(Center center, LampiranLain lainMahasiswa) {
