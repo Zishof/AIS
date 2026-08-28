@@ -7,6 +7,7 @@ import ais.common.newui.NewUiMenuNode;
 import ais.common.newui.NewUiMenuTreeBuilder;
 import ais.common.newui.NewUiPermission;
 import ais.common.newui.NewUiRouteRegistry;
+import ais.common.newui.menu.NewUiHybridMenuRouteRegistry;
 import ais.database.model.Menu;
 
 /** Test harness tanpa JUnit agar dapat dijalankan pada build legacy. */
@@ -66,6 +67,27 @@ public final class NewUiMenuTreeBuilderSelfTest {
                 "Mahasiswa must resolve to WEB-INF/new/root/uiux/mahasiswa.jsp");
         assertTrue(!NewUiRouteRegistry.isSafeLegacyUrl("https://evil.example/x"), "external fallback accepted");
         assertTrue(!NewUiRouteRegistry.isSafeLegacyUrl("/pages/../secret.zul"), "traversal fallback accepted");
+
+        NewUiRouteRegistry.Route studentPayment = NewUiRouteRegistry.routeForMenuIdAndUrl(
+                Long.valueOf(8755592L), "/pages/master/sekolah/pem_online.zul?lbl_siswa=true");
+        assertTrue(studentPayment != null, "student payment native route missing");
+        assertTrue("sekolah".equals(studentPayment.getModule())
+                && "pembayaran_siswa".equals(studentPayment.getPage()),
+                "student payment native route mismatch");
+        assertTrue(NewUiRouteRegistry.routeForMenuIdAndUrl(Long.valueOf(8755592L),
+                "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true") == null,
+                "student and candidate payment routes must not be interchangeable");
+        NewUiHybridMenuRouteRegistry.ResolvedRoute nativeFallback =
+                NewUiHybridMenuRouteRegistry.resolve(Long.valueOf(999999999L),
+                        "/pages/master/sekolah/menu_baru.zul", false);
+        assertTrue(NewUiHybridMenuRouteRegistry.NEW_UI.equals(nativeFallback.getStatus())
+                && "_shared".equals(nativeFallback.getModule())
+                && "native_menu".equals(nativeFallback.getPage()),
+                "safe legacy identity must use native resolver instead of ZK navigation");
+        assertTrue(NewUiHybridMenuRouteRegistry.NOT_MAPPED.equals(
+                NewUiHybridMenuRouteRegistry.resolve(Long.valueOf(999999999L),
+                        "https://evil.example/menu.zul", false).getStatus()),
+                "external URL must never become a native fallback");
         System.out.println("PASS New UI RBAC tree/route self-test");
     }
 }

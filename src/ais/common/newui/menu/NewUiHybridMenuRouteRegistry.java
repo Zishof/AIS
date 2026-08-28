@@ -35,7 +35,12 @@ public final class NewUiHybridMenuRouteRegistry {
         NewUiRouteRegistry.Route route = NewUiRouteRegistry.routeForMenuIdAndUrl(menuId, existingUrl);
         if (route != null) return new ResolvedRoute(NEW_UI, route.getModule(), route.getPage(), null);
         // Native-only: URL lama hanya boleh dipakai sebagai kunci pencarian registry.
-        // Route yang belum memiliki JSP New UI tidak boleh di-embed atau di-redirect.
+        // Menu berizin yang belum mempunyai mapping eksplisit tetap membuka
+        // resolver JSP JSON/native. URL lama tidak pernah dirender, di-embed,
+        // atau dijadikan tujuan redirect ke ZKoss.
+        if (NewUiRouteRegistry.isSafeLegacyUrl(existingUrl)) {
+            return new ResolvedRoute(NEW_UI, "_shared", "native_menu", null);
+        }
         return new ResolvedRoute(NOT_MAPPED, null, null, null);
     }
 }

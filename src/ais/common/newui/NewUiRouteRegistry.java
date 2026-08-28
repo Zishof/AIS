@@ -46,6 +46,38 @@ public final class NewUiRouteRegistry {
         register(121122L, "/pages/master/kkn/kelompok_kkn.zul", "kkn", "kelompok_kkn");
         register(924987L, "/pages/master/kkn/kkn_utk_mhs.zul", "kkn", "kkn_untuk_mahasiswa");
         register(100000007L, "/pages/master/agama.zul", "root", "agama");
+
+        /*
+         * Keuangan siswa/mahasiswa.
+         *
+         * Semua binding di bawah menunjuk service JSON di WEB-INF/new. URL ZUL
+         * hanya dipakai sebagai identitas exact dari Menu.java; URL tersebut
+         * tidak pernah dikirim ke Flutter dan tidak pernah dirender sebagai
+         * halaman. Query string pada dua menu pem_online sengaja menjadi bagian
+         * binding agar menu Siswa dan Calon Siswa tidak tertukar.
+         */
+        register(1732L, "/pages/master/informasi_pembayaran_mahasiswa.zul", "root", "informasi_pembayaran_mahasiswa");
+        register(34569L, "/pages/master/baypass_pembayaran_mahasiswa.zul", "root", "baypass_pembayaran_mahasiswa");
+        register(645681L, "ais.action.report.format1.sekolah.LaporanDepositSiswa", "root/report", "format1/sekolah/laporan_deposit_siswa");
+        register(673271L, "ais.action.report.format1.sekolah.LaporanPembayaranSiswa", "root/report", "format1/sekolah/laporan_pembayaran_siswa");
+        register(673272L, "ais.action.report.format1.sekolah.LaporanRincianPembayaranSiswa", "root/report", "format1/sekolah/laporan_rincian_pembayaran_siswa");
+        register(677681L, "ais.action.report.format1.sekolah.LaporanRincianPembayaranSiswa", "root/report", "format1/sekolah/laporan_rincian_pembayaran_siswa");
+        register(6518793L, "/pages/master/sekolah/item_biaya_sekolah.zul", "sekolah", "item_biaya_sekolah");
+        register(6518796L, "/pages/master/sekolah/pengaturan_biaya_sekolah.zul", "sekolah", "pengaturan_biaya");
+        register(6769091L, "ais.action.report.format1.sekolah.LaporanPembayaranSiswa", "root/report", "format1/sekolah/laporan_pembayaran_siswa");
+        register(8555572L, "/pages/master/sekolah/posting_pembayaran.zul", "sekolah", "posting_cicilan_siswa");
+        register(8755592L, "/pages/master/sekolah/pem_online.zul?lbl_siswa=true", "sekolah", "pembayaran_siswa");
+        register(8755593L, "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true", "sekolah", "pembayaran_calon_siswa");
+        register(11098051L, "/pages/master/sekolah/diskon_siswa.zul", "sekolah", "diskon_siswa");
+        register(65181292L, "/pages/master/sekolah/akun_pembayaran_siswa.zul", "sekolah", "akun_pembayaran_siswa");
+        register(87657727L, "/pages/master/sekolah/tagihan.zul", "sekolah", "tagihan");
+        register(87657728L, "/pages/master/sekolah/pembayaran_siswa.zul", "sekolah", "pembayaran_siswa");
+        register(100000017L, "/pages/master/daftarulang_mahasiswa_lama.zul", "root", "daftar_ulang_mahasiswa_lama");
+        register(100000022L, "/pages/master/daftarulang_mahasiswa_baru.zul", "root", "daftar_ulang_mahasiswa_baru");
+        register(232333331L, "/pages/master/posting_cicilan_mahasiswa.zul", "root", "posting_cicilan_mahasiswa");
+        register(673272211L, "ais.action.report.format1.sekolah.LaporanRekapPembayaranSiswa", "root/report", "format1/sekolah/laporan_rekap_pembayaran_siswa");
+        register(1000026411L, "/pages/master/kegiatan.zul", "root", "kegiatan");
+        register(1003000017L, "/pages/master/daftarulang_mahasiswa_calon.zul", "root", "daftar_ulang_calon_mahasiswa");
         register(2000460500L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
         register(2000460501L, "/jurnal/admin/dashboard", "jurnal", "dashboard");
         register(2000460502L,"/jurnal/admin/journals","jurnal","journals");
@@ -96,9 +128,16 @@ public final class NewUiRouteRegistry {
 
     public static Route routeForMenuIdAndUrl(Long menuId, String legacyUrl) {
         Route byId = menuId == null ? null : BY_ID.get(menuId);
-        if (byId != null && (byId.exactLegacyUrl.length() == 0
-                || byId.exactLegacyUrl.equals(normalizeUrl(legacyUrl)))) {
-            return byId;
+        if (byId != null) {
+            /*
+             * ID yang sudah dikenal tidak boleh berpindah ke route milik ID
+             * lain melalui fallback URL. Ini penting untuk pasangan menu yang
+             * memakai halaman ZUL sama tetapi query/semantik berbeda, seperti
+             * Pembayaran Siswa dan Pembayaran Calon Siswa.
+             */
+            return byId.exactLegacyUrl.length() == 0
+                    || byId.exactLegacyUrl.equals(normalizeUrl(legacyUrl))
+                    ? byId : null;
         }
         return BY_EXACT_URL.get(normalizeUrl(legacyUrl));
     }
