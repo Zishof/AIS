@@ -1460,7 +1460,16 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		bahasa.setWidth("90%");
 		bahasa.setReadonly(true);
 
-		Common.selectComboItem(bahasa, tbmuser.getBahasa());
+		String bahasaPengguna = tbmuser.getBahasa();
+		if (bahasaPengguna == null || bahasaPengguna.trim().length() == 0) {
+			bahasaPengguna = Tbmuser.INDONESIA;
+		}
+		Common.selectComboItem(bahasa, bahasaPengguna);
+		// Common.selectComboItem dapat tidak menemukan nilai lama yang sudah tidak
+		// tersedia. Pastikan form tambah/ubah selalu mempunyai pilihan aman.
+		if (bahasa.getSelectedItem() == null && bahasa.getItemCount() > 0) {
+			bahasa.setSelectedIndex(0);
+		}
 
 		if (Common.bolehKonfigurasi("tampilkan_link_login_oleh_admin_di_data_pengguna")) {
 
@@ -1745,7 +1754,10 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		tbmuser.setUserShow(1);
 		tbmuser.setAktif(aktif.isChecked());
 		tbmuser.setMahasiswa(null);
-		tbmuser.setBahasa((String) bahasa.getSelectedItem().getValue());
+		Comboitem bahasaTerpilih = bahasa == null ? null : bahasa.getSelectedItem();
+		Object nilaiBahasa = bahasaTerpilih == null ? null : bahasaTerpilih.getValue();
+		tbmuser.setBahasa(nilaiBahasa instanceof String && ((String) nilaiBahasa).trim().length() > 0
+				? (String) nilaiBahasa : Tbmuser.INDONESIA);
 		tbmuser.setUsernameOjs(usernameOjs.getValue());
 		tbmuser.setYayasan((Yayasan) (yayasan.getSelectedItem() == null ? null : yayasan.getSelectedItem().getValue()));
 		tbmuser.setSekolah((Sekolah) (sekolah.getSelectedItem() == null ? null : sekolah.getSelectedItem().getValue()));
