@@ -37,6 +37,7 @@ public class AppStartupListener implements ServletContextListener {
 
 	private static final Object LOCK_MAINTENANCE = new Object();
 	private static volatile Thread maintenanceThread = null;
+	private static volatile Thread initDataThread = null;
 	private static volatile boolean contextStopping = false;
 	private static volatile java.util.concurrent.ScheduledExecutorService doUploadRetryScheduler;
 
@@ -95,6 +96,7 @@ public class AppStartupListener implements ServletContextListener {
 				}
 			}, "AIS-Init-Data");
 			initThread.setDaemon(true);
+			initDataThread = initThread;
 			initThread.start();
 			System.out.println("Bootstrap aplikasi selesai (init data BERJALAN DI LATAR; siap melayani).");
 		} else {
@@ -310,6 +312,9 @@ public class AppStartupListener implements ServletContextListener {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/AppStartupListener.java:209");
 		} finally {
 			startupInProgress = false;
+			if (Thread.currentThread() == initDataThread) {
+				initDataThread = null;
+			}
 			closeHibernateSessionQuietly();
 			closeStreamingSessionQuietly();
 		}
@@ -340,10 +345,10 @@ public class AppStartupListener implements ServletContextListener {
 		System.out.println("Aplikasi dimatikan. Membersihkan resource...");
 		contextStopping = true;
 
-		// Flush semua tulis flag ASINKRON (BacaTulisUtil) ke DB sebelum pool koneksi
-		// ditutup, agar tidak ada flag yang hilang saat shutdown.
+		// Hentikan worker lalu flush semua tulis flag ASINKRON (BacaTulisUtil) ke DB
+		// sebelum pool koneksi ditutup, agar tidak ada flag hilang atau thread tertinggal.
 		try {
-			BacaTulisUtil.flushPendingWrites();
+			BacaTulisUtil.hentikanAsyncWriter();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:230");
 		}
 
@@ -352,6 +357,33 @@ public class AppStartupListener implements ServletContextListener {
 		try {
 			Common.tandaiAplikasiBerhenti();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:237");
+		}
+
+		// Batalkan preload dan tunggu thread induknya SEBELUM SessionFactory/c3p0 ditutup.
+		// Urutan ini mencegah task init memakai pool yang sudah ditutup dan menghindari
+		// penantian tutupExecutor sampai 600 detik saat reload.
+		try {
+			Thread thread = initDataThread;
+			if (thread != null && thread != Thread.currentThread()) {
+				thread.interrupt();
+			}
+			InitData.hentikanUntukShutdown();
+			if (thread != null && thread != Thread.currentThread()) {
+				thread.join(15000L);
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (Throwable abaikan) {
+			System.err.println("Gagal menghentikan init data saat shutdown: " + abaikan.getMessage());
+		}
+		initDataThread = null;
+
+		// Executor statis ini milik classloader webapp dan wajib dihentikan eksplisit.
+		// Dilakukan saat koneksi DB masih tersedia; setelahnya barulah Hibernate ditutup.
+		try {
+			SessionCounter.hentikanPool();
+		} catch (Throwable abaikan) {
+			System.err.println("Gagal menghentikan pool penghapus sesi: " + abaikan.getMessage());
 		}
 
 		// Hentikan timer terjadwal Spring (timerFactory) LEBIH DULU, sebelum resource

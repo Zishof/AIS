@@ -285,7 +285,7 @@ public class InitDataHelper {
 
 	@SuppressWarnings("rawtypes")
 	public static void initData(final Class clazz) {
-		if (clazz == null) {
+		if (clazz == null || InitData.isStopRequested() || Thread.currentThread().isInterrupted()) {
 			return;
 		}
 

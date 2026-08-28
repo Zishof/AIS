@@ -88,6 +88,7 @@ public class BacaTulisUtil {
 	// ===================================================================================
 	private static final Object WRITE_LOCK = new Object();
 	private static volatile java.util.concurrent.ExecutorService writeExecutor = null;
+	private static volatile boolean writeExecutorStopping = false;
 	// key -> [parentKey, value]
 	private static final java.util.concurrent.ConcurrentHashMap<String, String[]> pendingWrites = new java.util.concurrent.ConcurrentHashMap<String, String[]>();
 	// Maksimum jumlah flag yang digabung dalam SATU transaksi tulis (batching).
@@ -1046,9 +1047,12 @@ public class BacaTulisUtil {
 	 * {@link #flushPendingWrites()}.</p>
 	 */
 	private static void ensureWriteExecutor() {
+		if (writeExecutorStopping) {
+			return;
+		}
 		if (writeExecutor == null) {
 			synchronized (WRITE_LOCK) {
-				if (writeExecutor == null) {
+				if (writeExecutor == null && !writeExecutorStopping) {
 					writeExecutor = java.util.concurrent.Executors
 							.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
 								@Override
@@ -1092,11 +1096,16 @@ public class BacaTulisUtil {
 	private static void enqueueWrite(final String parentKey, final String globalKey, final String data) {
 		pendingWrites.put(globalKey, new String[] { parentKey, data });
 		ensureWriteExecutor();
+		java.util.concurrent.ExecutorService currentExecutor = writeExecutor;
+		if (currentExecutor == null) {
+			drainAndFlushBatch();
+			return;
+		}
 		try {
 			// Tugas men-DRAIN seluruh antrian dalam batch (bukan 1 baris/tugas). Karena worker
 			// tunggal, tugas pertama menyapu semua yang pending; tugas berikutnya yang menumpuk
 			// menemukan antrian kosong → cepat keluar. Ini coalescing alami antar-tugas.
-			writeExecutor.submit(new Runnable() {
+			currentExecutor.submit(new Runnable() {
 				@Override
 				public void run() {
 					drainAndFlushBatch();
@@ -1228,6 +1237,35 @@ public class BacaTulisUtil {
 		// Pakai drain berbatch yang sama agar sisa antrian saat shutdown disetor cepat
 		// (beberapa UPSERT per transaksi), dengan fallback per-item bila batch gagal.
 		drainAndFlushBatch();
+	}
+
+	/**
+	 * Hentikan worker tulis asinkron dan pastikan tidak ada flag tertinggal.
+	 * Dipanggil saat webapp shutdown sebelum SessionFactory ditutup.
+	 */
+	public static void hentikanAsyncWriter() {
+		java.util.concurrent.ExecutorService currentExecutor;
+		synchronized (WRITE_LOCK) {
+			writeExecutorStopping = true;
+			currentExecutor = writeExecutor;
+		}
+		if (currentExecutor != null) {
+			currentExecutor.shutdown();
+			try {
+				if (!currentExecutor.awaitTermination(10L, java.util.concurrent.TimeUnit.SECONDS)) {
+					currentExecutor.shutdownNow();
+					currentExecutor.awaitTermination(5L, java.util.concurrent.TimeUnit.SECONDS);
+				}
+			} catch (InterruptedException e) {
+				currentExecutor.shutdownNow();
+				Thread.currentThread().interrupt();
+			}
+		}
+		// Tangkap tulisan yang mungkin masuk tepat sebelum flag stopping terlihat worker.
+		flushPendingWrites();
+		synchronized (WRITE_LOCK) {
+			writeExecutor = null;
+		}
 	}
 
 	/**

@@ -131,6 +131,27 @@ public class SessionCounter implements HttpSessionListener {
 	}
 
 	/**
+	 * Hentikan worker penghapus sesi saat webapp dihentikan/redeploy.
+	 *
+	 * <p>Pool ini statis sehingga harus ditutup eksplisit agar thread
+	 * {@code session-deleter-*} tidak menahan classloader webapp lama. Task yang sudah
+	 * mengantre diberi waktu singkat untuk membersihkan registry in-memory; akses DB
+	 * akan dilewati karena listener lebih dahulu menandai aplikasi sedang berhenti.</p>
+	 */
+	public static void hentikanPool() {
+		SESSION_POOL.shutdown();
+		try {
+			if (!SESSION_POOL.awaitTermination(10L, java.util.concurrent.TimeUnit.SECONDS)) {
+				SESSION_POOL.shutdownNow();
+				SESSION_POOL.awaitTermination(5L, java.util.concurrent.TimeUnit.SECONDS);
+			}
+		} catch (InterruptedException e) {
+			SESSION_POOL.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	/**
 	 * Pembersihan terpusat registry statis ber-key user saat sebuah sesi dihancurkan
 	 * (optimasi RAM Fase 1 — sebelumnya entri-entri ini tidak pernah dihapus dan tumbuh
 	 * monoton sepanjang umur JVM).

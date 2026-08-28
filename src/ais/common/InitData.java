@@ -291,11 +291,12 @@ public class InitData {
 
 	public static volatile boolean init = false;
 	private static volatile boolean running = false;
+	private static volatile boolean stopRequested = false;
 	private static volatile long lastStartedMillis = 0L;
 	private static volatile long lastFinishedMillis = 0L;
 
 	// Instance Executor Service
-	public static ExecutorService executor;
+	public static volatile ExecutorService executor;
 
 	private static final Object LOCK_INIT = new Object();
 
@@ -305,6 +306,10 @@ public class InitData {
 
 	public static boolean isInitialized() {
 		return init;
+	}
+
+	public static boolean isStopRequested() {
+		return stopRequested;
 	}
 
 	public static long getLastStartedMillis() {
@@ -335,6 +340,7 @@ public class InitData {
 			}
 
 			running = true;
+			stopRequested = false;
 			lastStartedMillis = System.currentTimeMillis();
 			init = true;
 			ConstantValues.udahSelesai = false;
@@ -373,31 +379,57 @@ public class InitData {
 	 * logika agar catch-block tidak menumpuk di method utama
 	 */
 	private static void tutupExecutor() {
-		if (executor != null && !executor.isTerminated()) {
-			executor.shutdown();
-			int awaitDetik = 600;
-			try {
-				awaitDetik = Integer.parseInt(
-						Common.getKonfigurasi("await_init_executor_detik", "600").getNilai().trim());
-			} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/InitData.java:381");
+		ExecutorService currentExecutor = executor;
+		if (currentExecutor != null && !currentExecutor.isTerminated()) {
+			currentExecutor.shutdown();
+			int awaitDetik = stopRequested ? 15 : 600;
+			if (!stopRequested) {
+				try {
+					awaitDetik = Integer.parseInt(
+							Common.getKonfigurasi("await_init_executor_detik", "600").getNilai().trim());
+				} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/InitData.java:381");
+				}
 			}
 			System.out.println("tutupExecutor: menunggu semua task init selesai (maks " + awaitDetik + " detik)...");
 			try {
-				if (!executor.awaitTermination(awaitDetik, TimeUnit.SECONDS)) {
+				if (!currentExecutor.awaitTermination(awaitDetik, TimeUnit.SECONDS)) {
 					System.out.println("tutupExecutor: BATAS " + awaitDetik
 							+ " detik tercapai — ada task init MENGGANTUNG; lanjut START aplikasi (shutdownNow). "
 							+ "Data terkait akan dimuat on-demand.");
-					executor.shutdownNow();
+					currentExecutor.shutdownNow();
 				} else {
 					System.out.println("tutupExecutor: semua task init selesai.");
 				}
 			} catch (InterruptedException e) {
-				executor.shutdownNow();
+				currentExecutor.shutdownNow();
 				Thread.currentThread().interrupt(); // Maintain interrupt status (Java 1.6 compatible)
 			} catch (Exception e) {
 				// Menangkap error lain jika ada, memastikan shutdown dipaksa
-				executor.shutdownNow();
+				currentExecutor.shutdownNow();
 			}
+		}
+	}
+
+	/**
+	 * Hentikan task preload saat webapp sedang dihentikan/redeploy.
+	 *
+	 * <p>Listener memanggil method ini sebelum SessionFactory ditutup. Tanpa urutan tersebut,
+	 * task init yang masih berjalan dapat mencoba membuka koneksi dari pool c3p0 yang sudah
+	 * ditutup dan menahan classloader lama sampai batas tunggu normal (default 600 detik).</p>
+	 */
+	public static void hentikanUntukShutdown() {
+		stopRequested = true;
+		ExecutorService currentExecutor = executor;
+		if (currentExecutor == null || currentExecutor.isTerminated()) {
+			return;
+		}
+		currentExecutor.shutdownNow();
+		try {
+			if (!currentExecutor.awaitTermination(15L, TimeUnit.SECONDS)) {
+				System.out.println("InitData: task preload belum berhenti setelah 15 detik; lanjut shutdown webapp.");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 		}
 	}
 
@@ -406,6 +438,9 @@ public class InitData {
 	 */
 	private static void initClasses(Class<?>... classes) {
 		for (Class<?> clazz : classes) {
+			if (stopRequested || Thread.currentThread().isInterrupted()) {
+				return;
+			}
 			InitDataHelper.initData(clazz);
 		}
 	}
