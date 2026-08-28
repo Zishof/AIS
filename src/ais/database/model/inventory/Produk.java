@@ -512,6 +512,23 @@ public class Produk extends GeneralValueObject {
 		this.ekstraPilihan = ekstraPilihan;
 	}
 
+	private String kemasan;
+
+	/**
+	 * Preset kemasan spesifik produk, terpisah dari UOM akuntansi. Format JSON:
+	 * {@code [{"nama":"Dus 24","barcode":"...","qtyDasar":24,"aktif":true}]}.
+	 * Pemindaian barcode kemasan menambah qty dasar sesuai preset, tetapi transaksi
+	 * dan persediaan tetap dibukukan dalam {@link #getSatuan()}.
+	 */
+	@Column(name = "kemasan", columnDefinition = "text", nullable = true)
+	public String getKemasan() {
+		return kemasan;
+	}
+
+	public void setKemasan(String kemasan) {
+		this.kemasan = kemasan;
+	}
+
 	private String metodeHpp;
 
 	/**

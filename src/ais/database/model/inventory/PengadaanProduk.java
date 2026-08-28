@@ -39,6 +39,12 @@ public class PengadaanProduk extends GeneralValueObject {
 	private Double qty; // Jumlah barang yang masuk
 	private Double hargaBeliSatuan;
 	private Double totalHarga;
+	// Snapshot UOM pada saat dokumen disimpan. qty/hargaBeliSatuan tetap dalam
+	// satuan stok/dasar agar seluruh rumus stok dan HPP lama tetap kompatibel.
+	private SatuanProduk satuanInput;
+	private Double qtyInput;
+	private Double faktorKonversi;
+	private Double hargaBeliSatuanInput;
 
 	private Date waktuPengadaan;
 	private String keterangan;
@@ -126,6 +132,44 @@ public class PengadaanProduk extends GeneralValueObject {
 
 	public void setTotalHarga(Double totalHarga) {
 		this.totalHarga = totalHarga;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "satuan_input", nullable = true)
+	public SatuanProduk getSatuanInput() {
+		satuanInput = check(satuanInput);
+		return satuanInput;
+	}
+
+	public void setSatuanInput(SatuanProduk satuanInput) {
+		this.satuanInput = satuanInput;
+	}
+
+	@Column(name = "qty_input")
+	public Double getQtyInput() {
+		return qtyInput == null ? getQty() : qtyInput;
+	}
+
+	public void setQtyInput(Double qtyInput) {
+		this.qtyInput = qtyInput;
+	}
+
+	@Column(name = "faktor_konversi")
+	public Double getFaktorKonversi() {
+		return faktorKonversi == null || faktorKonversi.doubleValue() <= 0.0 ? Double.valueOf(1.0) : faktorKonversi;
+	}
+
+	public void setFaktorKonversi(Double faktorKonversi) {
+		this.faktorKonversi = faktorKonversi;
+	}
+
+	@Column(name = "harga_beli_satuan_input")
+	public Double getHargaBeliSatuanInput() {
+		return hargaBeliSatuanInput == null ? getHargaBeliSatuan() : hargaBeliSatuanInput;
+	}
+
+	public void setHargaBeliSatuanInput(Double hargaBeliSatuanInput) {
+		this.hargaBeliSatuanInput = hargaBeliSatuanInput;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)

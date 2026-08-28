@@ -991,6 +991,32 @@ public class KantinHelper {
 		return Common.isNumber(v) ? Double.parseDouble(v) : bawaan;
 	}
 
+	private static double faktorUomKeAcuan(SatuanProduk uom) {
+		if (uom == null) return 1.0;
+		double rasio = uom.getRasio() == null ? 1.0 : uom.getRasio().doubleValue();
+		if (rasio <= 0.0) throw new IllegalArgumentException("Rasio UOM " + uom.getNama() + " harus lebih dari 0.");
+		return "SMALLER".equalsIgnoreCase(uom.getTipeKonversi()) ? 1.0 / rasio : rasio;
+	}
+
+	/** Faktor pengali jumlah input menjadi jumlah stok/dasar produk. */
+	private static double faktorUomInputKeDasar(Produk produk, SatuanProduk input) {
+		SatuanProduk dasar = produk == null ? null : produk.getSatuan();
+		if (input == null) input = produk == null ? null : produk.getSatuanPembelian();
+		if (input == null) input = dasar;
+		if (dasar == null || input == null) return 1.0; // kompatibilitas katalog lama tanpa relasi UOM
+		String kd = dasar.getKategori();
+		String ki = input.getKategori();
+		if (kd == null || ki == null || !kd.equalsIgnoreCase(ki)) {
+			throw new IllegalArgumentException("UOM pembelian " + input.getNama() + " tidak dapat dikonversi ke satuan stok "
+					+ dasar.getNama() + ". Perbaiki kategori UOM pada Master Data > Satuan/UOM, lalu coba kembali.");
+		}
+		double faktor = faktorUomKeAcuan(input) / faktorUomKeAcuan(dasar);
+		if (Double.isNaN(faktor) || Double.isInfinite(faktor) || faktor <= 0.0) {
+			throw new IllegalArgumentException("Konversi UOM produk " + produk.getNama() + " tidak valid. Periksa rasio UOM pembelian dan stok.");
+		}
+		return faktor;
+	}
+
 	public static void bayar(Tbmuser tbmuser, JSONObject jsonObject, JSONObject hasil) throws Exception {
 		if (!jsonObject.isNull("kodeUnik") && !jsonObject.isNull("idToko") && !jsonObject.isNull("waktu")
 				&& !jsonObject.isNull("transaksi") && !jsonObject.isNull("caraBayar")
@@ -3920,6 +3946,20 @@ public class KantinHelper {
 			// JavaDoc Produk.getBarcode(). Sebelumnya field ini hanya bisa diisi lewat impor Excel;
 			// gap-closure ini menyambungkannya jg ke form Tambah/Ubah Produk Desktop/Android/ZK.
 			String barcode = request.optString("barcode", "").trim();
+			if (!barcode.isEmpty() && p.getToko() != null) {
+				Number bentrokBarcodeKemasan = (Number) session.createSQLQuery(
+						"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
+						+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
+						+ " AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(NULLIF(px.kemasan,''),'[]')::jsonb) kx"
+						+ " WHERE UPPER(COALESCE(kx->>'barcode','')) = :barcode)")
+						.setLong("toko", p.getToko().getId()).setString("barcode", barcode.toUpperCase()).uniqueResult();
+				if (bentrokBarcodeKemasan != null && bentrokBarcodeKemasan.longValue() > 0) {
+					hasil.put("status", "91");
+					hasil.put("description", "Barcode produk " + barcode
+							+ " sudah dipakai sebagai barcode kemasan produk lain di toko ini. Gunakan barcode yang unik.");
+					return;
+				}
+			}
 			p.setBarcode(barcode.isEmpty() ? null : barcode);
 			p.setNama(nama);
 			// Gap-closure "kunci_unik tetap kosong walau baris baru disimpan" -- @PrePersist/@PreUpdate
@@ -4027,6 +4067,43 @@ public class KantinHelper {
 			if (request.has("ekstra_pilihan")) {
 				p.setEkstraPilihan(request.isNull("ekstra_pilihan") ? null
 						: request.getJSONArray("ekstra_pilihan").toString());
+			}
+			if (request.has("kemasan")) {
+				JSONArray daftarKemasan = request.isNull("kemasan") ? new JSONArray() : request.getJSONArray("kemasan");
+				java.util.Set<String> barcodeKemasan = new java.util.HashSet<String>();
+				for (int i = 0; i < daftarKemasan.length(); i++) {
+					JSONObject k = daftarKemasan.getJSONObject(i);
+					String namaKemasan = k.optString("nama", "").trim();
+					String barcodeKemasanBaris = k.optString("barcode", "").trim();
+					double qtyDasarKemasan = k.optDouble("qtyDasar", 0);
+					if (namaKemasan.isEmpty() || barcodeKemasanBaris.isEmpty() || qtyDasarKemasan <= 0
+							|| qtyDasarKemasan != Math.rint(qtyDasarKemasan)) {
+						hasil.put("status", "91");
+						hasil.put("description", "Kemasan baris ke-" + (i + 1) + " belum valid. Isi nama, barcode, dan jumlah satuan dasar berupa bilangan bulat lebih dari 0.");
+						return;
+					}
+					String barcodeKunci = barcodeKemasanBaris.toUpperCase();
+					if (!barcodeKemasan.add(barcodeKunci) || barcodeKemasanBaris.equalsIgnoreCase(barcode)) {
+						hasil.put("status", "91");
+						hasil.put("description", "Barcode kemasan " + barcodeKemasanBaris + " duplikat dengan barcode produk/kemasan lain pada produk ini.");
+						return;
+					}
+					Number bentrokKemasan = (Number) session.createSQLQuery(
+							"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
+							+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
+							+ " AND (UPPER(COALESCE(px.barcode,'')) = :barcode"
+							+ " OR EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(NULLIF(px.kemasan,''),'[]')::jsonb) kx"
+							+ " WHERE UPPER(COALESCE(kx->>'barcode','')) = :barcode))")
+							.setLong("toko", p.getToko().getId())
+							.setString("barcode", barcodeKunci).uniqueResult();
+					if (bentrokKemasan != null && bentrokKemasan.longValue() > 0) {
+						hasil.put("status", "91");
+						hasil.put("description", "Barcode kemasan " + barcodeKemasanBaris
+								+ " sudah dipakai produk atau kemasan lain di toko ini. Gunakan barcode yang unik.");
+						return;
+					}
+				}
+				p.setKemasan(daftarKemasan.length() == 0 ? null : daftarKemasan.toString());
 			}
 
 			// Bahan Baku (Resep) & HPP otomatis -- gap-closure Desktop/Android, padanan JSP
@@ -10732,6 +10809,14 @@ public class KantinHelper {
 			hasil.put("kode", produk.getKode() == null ? "" : produk.getKode());
 			hasil.put("stokSistem", stokSistem);
 			hasil.put("stokMinimum", produk.getStokMinimum() == null ? 0d : produk.getStokMinimum());
+			SatuanProduk satuanDasar = produk.getSatuan();
+			SatuanProduk satuanPembelian = produk.getSatuanPembelian() == null ? satuanDasar : produk.getSatuanPembelian();
+			double faktorPembelian = faktorUomInputKeDasar(produk, satuanPembelian);
+			hasil.put("satuanDasarId", satuanDasar == null ? JSONObject.NULL : satuanDasar.getId());
+			hasil.put("satuanDasarNama", satuanDasar == null ? "" : satuanDasar.getNama());
+			hasil.put("satuanPembelianId", satuanPembelian == null ? JSONObject.NULL : satuanPembelian.getId());
+			hasil.put("satuanPembelianNama", satuanPembelian == null ? "" : satuanPembelian.getNama());
+			hasil.put("faktorPembelianKeDasar", faktorPembelian);
 			// Harga utk pengisian otomatis baris Bulk Entry Faktur Kulakan (permintaan
 			// 2026-08-19). hargaBeliTerakhir diambil dari PENERIMAAN/KULAKAN TERAKHIR
 			// (pengadaan_produk, urut waktu desc) -- lebih tepat daripada harga master
@@ -10741,7 +10826,7 @@ public class KantinHelper {
 			hasil.put("hargaJual", produk.getHargaJual() == null ? 0d : produk.getHargaJual());
 			try {
 				Object[] terakhir = (Object[]) session.createSQLQuery(
-						"SELECT hargabelisatuan, waktupengadaan FROM koperasi.pengadaan_produk"
+						"SELECT COALESCE(harga_beli_satuan_input,hargabelisatuan), waktupengadaan FROM koperasi.pengadaan_produk"
 								+ " WHERE produk = " + produk.getId() + " AND COALESCE(hargabelisatuan,0) > 0"
 								+ " ORDER BY waktupengadaan DESC, id DESC LIMIT 1").uniqueResult();
 				if (terakhir != null && terakhir[0] != null) {
@@ -14418,9 +14503,9 @@ public class KantinHelper {
 			hasil.put("description", "Produk belum dipilih.");
 			return;
 		}
-		double qty = request.optDouble("qty", 0);
+		double qtyInput = request.optDouble("qty", 0);
 		double hargaBeliSatuan = request.optDouble("harga_beli_satuan", 0);
-		if (qty <= 0) {
+		if (qtyInput <= 0) {
 			hasil.put("status", "91");
 			hasil.put("description", "Jumlah masuk harus lebih dari 0.");
 			return;
@@ -14448,15 +14533,30 @@ public class KantinHelper {
 					return;
 				}
 			}
+			Long satuanInputId = ais.common.Common.angkaAtauNull(request, "satuan_input_id");
+			SatuanProduk satuanInput = satuanInputId == null ? produk.getSatuanPembelian()
+					: (SatuanProduk) session.get(SatuanProduk.class, satuanInputId);
+			if (satuanInputId != null && satuanInput == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "UOM pembelian tidak ditemukan. Tekan Sinkronkan/Muat Ulang dan pilih ulang satuan.");
+				return;
+			}
+			double faktorKonversi = faktorUomInputKeDasar(produk, satuanInput);
+			double qtyDasar = qtyInput * faktorKonversi;
+			double hargaDasar = hargaBeliSatuan / faktorKonversi;
 
 			PengadaanProduk pg = new PengadaanProduk();
 			pg.setProduk(produk);
 			pg.setToko(produk.getToko());
 			pg.setNomorFaktur(request.optString("nomor_faktur", ""));
 			pg.setNamaSupplier(request.optString("nama_supplier", ""));
-			pg.setQty(qty);
-			pg.setHargaBeliSatuan(hargaBeliSatuan);
-			pg.setTotalHarga(qty * hargaBeliSatuan);
+			pg.setSatuanInput(satuanInput == null ? produk.getSatuan() : satuanInput);
+			pg.setQtyInput(qtyInput);
+			pg.setFaktorKonversi(faktorKonversi);
+			pg.setHargaBeliSatuanInput(hargaBeliSatuan);
+			pg.setQty(qtyDasar);
+			pg.setHargaBeliSatuan(hargaDasar);
+			pg.setTotalHarga(qtyInput * hargaBeliSatuan);
 			pg.setWaktuPengadaan(new Date());
 			pg.setKeterangan(request.optString("keterangan", ""));
 			pg.setOleh(tbmuser == null ? "kulakan" : tbmuser.getUserId());
@@ -14464,7 +14564,7 @@ public class KantinHelper {
 			session.beginTransaction();
 			session.save(pg);
 			session.flush();
-			tambahPenerimaanBatch(session, produk, request, qty, hargaBeliSatuan,
+			tambahPenerimaanBatch(session, produk, request, qtyDasar, hargaDasar,
 					"KULAKAN-" + pg.getId(), tbmuser == null ? "kulakan" : tbmuser.getUserId());
 			ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
 			session.getTransaction().commit();
@@ -14966,8 +15066,8 @@ public class KantinHelper {
 				if (produkId == null) {
 					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
 				}
-				double qty = it.optDouble("qty", 0);
-				if (qty <= 0) {
+				double qtyInput = it.optDouble("qty", 0);
+				if (qtyInput <= 0) {
 					throw new IllegalArgumentException("Jumlah baris ke-" + (i + 1) + " harus lebih dari 0.");
 				}
 				double hargaBeliSatuan = it.optDouble("harga_beli_satuan", 0);
@@ -14984,6 +15084,16 @@ public class KantinHelper {
 						throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " bukan milik toko Anda.");
 					}
 				}
+				Long satuanInputId = ais.common.Common.angkaAtauNull(it, "satuan_input_id");
+				SatuanProduk satuanInput = satuanInputId == null ? produk.getSatuanPembelian()
+						: (SatuanProduk) session.get(SatuanProduk.class, satuanInputId);
+				if (satuanInputId != null && satuanInput == null) {
+					throw new IllegalArgumentException("UOM pembelian baris ke-" + (i + 1)
+							+ " tidak ditemukan. Tekan Sinkronkan/Muat Ulang dan pilih ulang satuan.");
+				}
+				double faktorKonversi = faktorUomInputKeDasar(produk, satuanInput);
+				double qtyDasar = qtyInput * faktorKonversi;
+				double hargaDasar = hargaBeliSatuan / faktorKonversi;
 
 				PengadaanProduk pg = new PengadaanProduk();
 				pg.setProduk(produk);
@@ -14991,15 +15101,19 @@ public class KantinHelper {
 				pg.setFakturPengadaan(header);
 				pg.setNomorFaktur(nomorFaktur);
 				pg.setNamaSupplier(supplier == null ? "" : supplier.getNama());
-				pg.setQty(qty);
-				pg.setHargaBeliSatuan(hargaBeliSatuan);
-				pg.setTotalHarga(qty * hargaBeliSatuan);
+				pg.setSatuanInput(satuanInput == null ? produk.getSatuan() : satuanInput);
+				pg.setQtyInput(qtyInput);
+				pg.setFaktorKonversi(faktorKonversi);
+				pg.setHargaBeliSatuanInput(hargaBeliSatuan);
+				pg.setQty(qtyDasar);
+				pg.setHargaBeliSatuan(hargaDasar);
+				pg.setTotalHarga(qtyInput * hargaBeliSatuan);
 				pg.setWaktuPengadaan(header.getTanggalFaktur());
 				pg.setKeterangan(it.optString("keterangan", ""));
 				pg.setOleh(oleh);
 				session.save(pg);
 				session.flush();
-				tambahPenerimaanBatch(session, produk, it, qty, hargaBeliSatuan,
+				tambahPenerimaanBatch(session, produk, it, qtyDasar, hargaDasar,
 						"FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId(), oleh);
 				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
 			}
@@ -15265,8 +15379,13 @@ public class KantinHelper {
 				j.put("kodeProduk", kodeBarang);
 				j.put("kodeBarang", kodeBarang);
 				j.put("barcode", barcodeProduk);
-				j.put("qty", pg.getQty());
-				j.put("hargaBeliSatuan", pg.getHargaBeliSatuan());
+				j.put("qty", pg.getQtyInput());
+				j.put("hargaBeliSatuan", pg.getHargaBeliSatuanInput());
+				j.put("satuanInputId", pg.getSatuanInput() == null ? JSONObject.NULL : pg.getSatuanInput().getId());
+				j.put("satuanInputNama", pg.getSatuanInput() == null ? "" : pg.getSatuanInput().getNama());
+				j.put("faktorKonversi", pg.getFaktorKonversi());
+				j.put("qtyDasar", pg.getQty());
+				j.put("satuanDasarNama", produk.getSatuan() == null ? "" : produk.getSatuan().getNama());
 				j.put("totalHarga", pg.getTotalHarga());
 				arr.put(j);
 			}

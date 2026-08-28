@@ -1298,8 +1298,6 @@ public class PosApi extends HttpServlet {
 				// cetakan detail, field ini SEBELUMNYA tak pernah dikirim aksi katalog sama sekali.
 				j.put("satuanId", p.getSatuan() == null || p.getSatuan().getId() == null
 						? JSONObject.NULL : p.getSatuan().getId());
-				j.put("satuanId", p.getSatuan() == null || p.getSatuan().getId() == null
-						? JSONObject.NULL : p.getSatuan().getId());
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));
 				j.put("satuanPembelianId", p.getSatuanPembelian() == null || p.getSatuanPembelian().getId() == null
 						? JSONObject.NULL : p.getSatuanPembelian().getId());
@@ -1337,6 +1335,16 @@ public class PosApi extends HttpServlet {
 					}
 				} else {
 					j.put("ekstraPilihan", new JSONArray());
+				}
+				String kemasanMentah = str(p.getKemasan()).trim();
+				if (!kemasanMentah.isEmpty() && !kemasanMentah.equals("[]")) {
+					try {
+						j.put("kemasan", new JSONArray(kemasanMentah));
+					} catch (Exception eKemasanParse) {
+						j.put("kemasan", new JSONArray());
+					}
+				} else {
+					j.put("kemasan", new JSONArray());
 				}
 				produkArr.put(j);
 
