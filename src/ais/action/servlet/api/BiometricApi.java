@@ -333,8 +333,23 @@ public final class BiometricApi {
 			java.util.Set metodeDiizinkan = irisanMetodeDiizinkan(
 					jenis == null ? "" : jenis.getDaftarCaraPembayaranYangBolehDiPilih(),
 					tipe == null ? "" : tipe.getDaftarCaraPembayaranYangBolehDiPilih());
-			if (metodeDiizinkan != null && !metodeDiizinkan.containsAll(metodeTerpakai))
-				return "Cara pembayaran tidak diizinkan untuk Jenis/Tipe Member ini. Muat ulang aturan pembayaran.";
+			if (metodeDiizinkan != null && !metodeDiizinkan.containsAll(metodeTerpakai)) {
+				String namaMetode = namaMetodeTidakDiizinkan(session, metodeTerpakai, metodeDiizinkan);
+				String namaMember = member.getNama() == null || member.getNama().trim().isEmpty()
+						? "ID " + member.getId() : member.getNama().trim();
+				String namaJenis = jenis == null || jenis.getNama() == null ? "belum diatur"
+						: jenis.getNama().trim();
+				String namaTipe = tipe == null || tipe.getNama() == null ? "belum diatur/di luar cakupan toko"
+						: tipe.getNama().trim();
+				return "Metode pembayaran " + namaMetode + " tidak diizinkan untuk member \"" + namaMember
+						+ "\" (Jenis Member: " + namaJenis + "; Tipe Member: " + namaTipe + "). "
+						+ "Transaksi belum diterima server; jurnal transaksi pending lokal tetap tersimpan. "
+						+ "Menaikkan Batas Transaksi atau Maksimal Boleh Utang tidak menyelesaikan penolakan izin ini. "
+						+ "Admin perlu membuka Pelanggan > Jenis Member dan Pelanggan > Tipe Member, "
+						+ "memastikan metode tersebut dicentang pada Cara Bayar yang Diizinkan/Cara Bayar dan "
+						+ "Tipe Member berlaku untuk toko ini, lalu Simpan. Setelah itu kasir menekan Sinkronkan, "
+						+ "Muat Ulang, lalu Pesanan > Transaksi Pending > Coba Kirim Transaksi Pending satu kali.";
+			}
 			boolean pin = wajibPinUntukMetode(jenis == null ? Boolean.FALSE : jenis.getWajibPin(),
 					jenis == null ? "" : jenis.getDaftarCaraPembayaranWajibPin(), metodeTerpakai)
 					|| wajibPinUntukMetode(tipe == null ? Boolean.FALSE : tipe.getWajibPin(),
@@ -460,6 +475,22 @@ public final class BiometricApi {
 			}
 		}
 		return hasil;
+	}
+
+	/** Nama metode yang ditolak, agar pesan operasional tidak berhenti pada ID teknis. */
+	private static String namaMetodeTidakDiizinkan(Session session, java.util.Set metodeTerpakai,
+			java.util.Set metodeDiizinkan) {
+		StringBuffer hasil = new StringBuffer();
+		if (metodeTerpakai != null) for (Object nilai : metodeTerpakai) {
+			if (metodeDiizinkan != null && metodeDiizinkan.contains(nilai)) continue;
+			CaraPembayaranKoperasi metode = nilai instanceof Long
+					? (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, (Long) nilai) : null;
+			String label = metode == null || metode.getNama() == null || metode.getNama().trim().isEmpty()
+					? "ID " + nilai : metode.getNama().trim();
+			if (hasil.length() > 0) hasil.append(", ");
+			hasil.append("\"").append(label).append("\"");
+		}
+		return hasil.length() == 0 ? "yang dipilih" : hasil.toString();
 	}
 
 	private static boolean deductsBalance(CaraPembayaranKoperasi payment) {
