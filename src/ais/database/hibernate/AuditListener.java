@@ -259,7 +259,8 @@ public class AuditListener extends AuditEventListener {
 		}
 
 		private String key() {
-			return String.valueOf(mahasiswaId) + "-" + String.valueOf(semester);
+			return String.valueOf(mahasiswaId) + "-" + String.valueOf(tahunAkademik) + "-"
+					+ String.valueOf(semester);
 		}
 	}
 
