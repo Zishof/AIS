@@ -9,6 +9,7 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
@@ -80,12 +81,17 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("40px");
+		west.setHeight("72px");
+
+		// Hindari transformasi otomatis MyGrid ketika menjadi anak langsung North.
+		Div filterContainer = new Div();
+		filterContainer.setWidth("100%");
+		filterContainer.setHeight("100%");
+		filterContainer.setParent(west);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
-		grid.setParent(west);
-		grid.setWidth("100%");
+		grid.setParent(filterContainer);
 		grid.setHeight("100%");
 
 		Columns columns = new Columns();
