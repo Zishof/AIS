@@ -4001,6 +4001,22 @@ public class KantinHelper {
 			} else if (request.has("satuan_nama")) {
 				p.setSatuan(resolveSatuanProduk(session, request.optString("satuan_nama", "")));
 			}
+			if (request.has("satuan_pembelian_id")) {
+				SatuanProduk pembelian = request.isNull("satuan_pembelian_id") ? p.getSatuan()
+						: (SatuanProduk) session.get(SatuanProduk.class,
+								Long.valueOf((request.get("satuan_pembelian_id") + "").trim()));
+				if (pembelian == null || !Boolean.TRUE.equals(pembelian.getAktif())) {
+					hasil.put("status", "91");
+					hasil.put("description", "Satuan Pembelian/PO tidak ditemukan atau nonaktif. Sinkronkan data dan pilih UOM aktif.");
+					return;
+				}
+				if (p.getSatuan() == null || !p.getSatuan().getKategori().equalsIgnoreCase(pembelian.getKategori())) {
+					hasil.put("status", "91");
+					hasil.put("description", "Satuan Pembelian/PO harus berada dalam kategori yang sama dengan Satuan Stok/Dasar. Contoh: Pcs dan Dus berada di kategori UNIT; Kg dan Gram di kategori BERAT.");
+					return;
+				}
+				p.setSatuanPembelian(pembelian);
+			}
 			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().
 			if (request.has("jenis_item")) {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();

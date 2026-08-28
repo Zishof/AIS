@@ -1298,7 +1298,12 @@ public class PosApi extends HttpServlet {
 				// cetakan detail, field ini SEBELUMNYA tak pernah dikirim aksi katalog sama sekali.
 				j.put("satuanId", p.getSatuan() == null || p.getSatuan().getId() == null
 						? JSONObject.NULL : p.getSatuan().getId());
+				j.put("satuanId", p.getSatuan() == null || p.getSatuan().getId() == null
+						? JSONObject.NULL : p.getSatuan().getId());
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));
+				j.put("satuanPembelianId", p.getSatuanPembelian() == null || p.getSatuanPembelian().getId() == null
+						? JSONObject.NULL : p.getSatuanPembelian().getId());
+				j.put("satuanPembelianNama", p.getSatuanPembelian() == null ? "" : str(p.getSatuanPembelian().getNama()));
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
 				// Diisi ulang (bila ada) SETELAH loop ini lewat batch query -- default kosong dulu di

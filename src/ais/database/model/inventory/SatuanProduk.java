@@ -73,6 +73,10 @@ public class SatuanProduk extends GeneralValueObject {
 
 	private String nama;
 	private Boolean aktif;
+	private String kategori;
+	private String tipeKonversi;
+	private Double rasio;
+	private Double presisiPembulatan;
 
 	public SatuanProduk() {
 	}
@@ -103,6 +107,43 @@ public class SatuanProduk extends GeneralValueObject {
 
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
+	}
+
+	@Column(name = "kategori", nullable = true, length = 50)
+	public String getKategori() {
+		return kategori == null || kategori.trim().isEmpty() ? "UNIT" : kategori.trim().toUpperCase();
+	}
+
+	public void setKategori(String kategori) {
+		this.kategori = kategori;
+	}
+
+	@Column(name = "tipe_konversi", nullable = true, length = 20)
+	public String getTipeKonversi() {
+		return tipeKonversi == null || tipeKonversi.trim().isEmpty() ? "REFERENCE" : tipeKonversi.trim().toUpperCase();
+	}
+
+	public void setTipeKonversi(String tipeKonversi) {
+		this.tipeKonversi = tipeKonversi;
+	}
+
+	@Column(name = "rasio", nullable = true)
+	public Double getRasio() {
+		return rasio == null || rasio.doubleValue() <= 0.0 ? Double.valueOf(1.0) : rasio;
+	}
+
+	public void setRasio(Double rasio) {
+		this.rasio = rasio;
+	}
+
+	@Column(name = "presisi_pembulatan", nullable = true)
+	public Double getPresisiPembulatan() {
+		return presisiPembulatan == null || presisiPembulatan.doubleValue() <= 0.0
+				? Double.valueOf(0.01) : presisiPembulatan;
+	}
+
+	public void setPresisiPembulatan(Double presisiPembulatan) {
+		this.presisiPembulatan = presisiPembulatan;
 	}
 
 }

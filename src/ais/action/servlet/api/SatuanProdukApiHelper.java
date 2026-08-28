@@ -91,7 +91,7 @@ public final class SatuanProdukApiHelper {
 		String keyword = request.optString("keyword", "").trim();
 		boolean termasukNonaktif = request.optBoolean("termasuk_nonaktif", false);
 		int page = Math.max(1, request.optInt("page", 1));
-		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 25)));
+		int pageSize = Math.min(500, Math.max(1, request.optInt("page_size", 25)));
 		int offset = (page - 1) * pageSize;
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -105,20 +105,25 @@ public final class SatuanProdukApiHelper {
 				where.append(" AND COALESCE(sp.aktif,true) = true ");
 			}
 			if (!keyword.isEmpty()) {
-				where.append(" AND sp.nama ILIKE ? ");
+				where.append(" AND (sp.nama ILIKE ? OR COALESCE(sp.kategori,'UNIT') ILIKE ?) ");
 			}
 			Connection conn = session.connection();
 			psCount = conn.prepareStatement("SELECT COUNT(*) FROM koperasi.satuan_produk sp" + where);
 			if (!keyword.isEmpty()) {
 				psCount.setString(1, "%" + keyword + "%");
+				psCount.setString(2, "%" + keyword + "%");
 			}
 			rsCount = psCount.executeQuery();
 			long total = rsCount.next() ? rsCount.getLong(1) : 0L;
 
-			ps = conn.prepareStatement("SELECT sp.id, sp.nama, COALESCE(sp.aktif,true) "
+			ps = conn.prepareStatement("SELECT sp.id, sp.nama, COALESCE(sp.aktif,true), "
+					+ "COALESCE(NULLIF(TRIM(sp.kategori),''),'UNIT'), "
+					+ "COALESCE(NULLIF(TRIM(sp.tipe_konversi),''),'REFERENCE'), "
+					+ "COALESCE(NULLIF(sp.rasio,0),1), COALESCE(NULLIF(sp.presisi_pembulatan,0),0.01) "
 					+ "FROM koperasi.satuan_produk sp" + where + " ORDER BY sp.nama ASC LIMIT ? OFFSET ?");
 			int index = 1;
 			if (!keyword.isEmpty()) {
+				ps.setString(index++, "%" + keyword + "%");
 				ps.setString(index++, "%" + keyword + "%");
 			}
 			ps.setInt(index++, pageSize);
@@ -130,6 +135,13 @@ public final class SatuanProdukApiHelper {
 				row.put("id", rs.getLong(1));
 				row.put("nama", rs.getString(2));
 				row.put("aktif", rs.getBoolean(3));
+				row.put("kategori", rs.getString(4));
+				row.put("tipeKonversi", rs.getString(5));
+				row.put("rasio", rs.getDouble(6));
+				row.put("presisiPembulatan", rs.getDouble(7));
+				double faktor = "SMALLER".equalsIgnoreCase(rs.getString(5))
+						? 1.0 / rs.getDouble(6) : rs.getDouble(6);
+				row.put("faktorKeAcuan", faktor);
 				data.put(row);
 			}
 			hasil.put("status", "00");
@@ -153,9 +165,31 @@ public final class SatuanProdukApiHelper {
 			return;
 		}
 		String nama = request.optString("nama", "").trim();
+		String kategori = request.optString("kategori", "UNIT").trim().toUpperCase();
+		String tipe = request.optString("tipe_konversi", "REFERENCE").trim().toUpperCase();
+		double rasio = request.optDouble("rasio", 1.0);
+		double presisi = request.optDouble("presisi_pembulatan", 0.01);
 		if (nama.isEmpty()) {
 			hasil.put("status", "91");
 			hasil.put("description", "Nama satuan wajib diisi.");
+			return;
+		}
+		if (kategori.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Kategori UOM wajib diisi, misalnya UNIT, BERAT, atau VOLUME.");
+			return;
+		}
+		if (!"REFERENCE".equals(tipe) && !"BIGGER".equals(tipe) && !"SMALLER".equals(tipe)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tipe konversi harus Reference, Bigger, atau Smaller.");
+			return;
+		}
+		if ("REFERENCE".equals(tipe)) rasio = 1.0;
+		if (rasio <= 0.0 || presisi <= 0.0
+				|| ("BIGGER".equals(tipe) && rasio <= 1.0)
+				|| ("SMALLER".equals(tipe) && rasio <= 1.0)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Rasio Bigger/Smaller harus lebih dari 1 dan presisi pembulatan harus positif.");
 			return;
 		}
 		Long id = ais.common.Common.angkaAtauNull(request, "id");
@@ -164,6 +198,39 @@ public final class SatuanProdukApiHelper {
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
+			if ("REFERENCE".equals(tipe)) {
+				PreparedStatement cekAcuan = session.connection().prepareStatement(
+						"SELECT COUNT(*) FROM koperasi.satuan_produk WHERE UPPER(COALESCE(kategori,'UNIT')) = ? "
+								+ "AND UPPER(COALESCE(tipe_konversi,'REFERENCE')) = 'REFERENCE' AND COALESCE(aktif,true)"
+								+ (id == null ? "" : " AND id <> ?"));
+				cekAcuan.setString(1, kategori);
+				if (id != null) cekAcuan.setLong(2, id.longValue());
+				ResultSet rsAcuan = cekAcuan.executeQuery();
+				boolean sudahAda = rsAcuan.next() && rsAcuan.getLong(1) > 0L;
+				tutup(rsAcuan);
+				tutup(cekAcuan);
+				if (sudahAda) {
+					hasil.put("status", "91");
+					hasil.put("description", "Kategori " + kategori + " sudah memiliki Reference UOM aktif. Ubah tipe satuan ini menjadi Bigger/Smaller atau edit Reference yang ada.");
+					return;
+				}
+			} else {
+				PreparedStatement cekAcuan = session.connection().prepareStatement(
+						"SELECT COUNT(*) FROM koperasi.satuan_produk WHERE UPPER(COALESCE(kategori,'UNIT')) = ? "
+								+ "AND UPPER(COALESCE(tipe_konversi,'REFERENCE')) = 'REFERENCE' AND COALESCE(aktif,true)"
+								+ (id == null ? "" : " AND id <> ?"));
+				cekAcuan.setString(1, kategori);
+				if (id != null) cekAcuan.setLong(2, id.longValue());
+				ResultSet rsAcuan = cekAcuan.executeQuery();
+				boolean adaAcuan = rsAcuan.next() && rsAcuan.getLong(1) > 0L;
+				tutup(rsAcuan);
+				tutup(cekAcuan);
+				if (!adaAcuan) {
+					hasil.put("status", "91");
+					hasil.put("description", "Kategori " + kategori + " belum memiliki Reference UOM aktif. Buat atau ubah satu satuan menjadi Reference terlebih dahulu.");
+					return;
+				}
+			}
 			String sqlDuplikat = "SELECT COUNT(*) FROM koperasi.satuan_produk "
 					+ "WHERE lower(trim(nama)) = lower(trim(?))";
 			if (id != null) {
@@ -188,6 +255,10 @@ public final class SatuanProdukApiHelper {
 				return;
 			}
 			satuan.setNama(nama);
+			satuan.setKategori(kategori);
+			satuan.setTipeKonversi(tipe);
+			satuan.setRasio(Double.valueOf(rasio));
+			satuan.setPresisiPembulatan(Double.valueOf(presisi));
 			satuan.setAktif(Boolean.valueOf(!request.has("aktif") || request.optBoolean("aktif", true)));
 			transaksi = session.beginTransaction();
 			session.saveOrUpdate(satuan);
@@ -221,8 +292,10 @@ public final class SatuanProdukApiHelper {
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			ps = session.connection().prepareStatement("SELECT COUNT(*) FROM koperasi.produk WHERE satuan = ?");
+			ps = session.connection().prepareStatement(
+					"SELECT COUNT(*) FROM koperasi.produk WHERE satuan = ? OR satuan_pembelian = ?");
 			ps.setLong(1, id.longValue());
+			ps.setLong(2, id.longValue());
 			rs = ps.executeQuery();
 			long dipakai = rs.next() ? rs.getLong(1) : 0L;
 			if (dipakai > 0L) {

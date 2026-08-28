@@ -119,6 +119,7 @@ public class Produk extends GeneralValueObject {
 	private MasterAsset masterAsset;
 	private PemasokProduk pemasok;
 	private SatuanProduk satuan;
+	private SatuanProduk satuanPembelian;
 	private KebijakanRetur kebijakanRetur;
 	private GrupProduk grupProduk;
 
@@ -437,6 +438,19 @@ public class Produk extends GeneralValueObject {
 
 	public void setSatuan(SatuanProduk satuan) {
 		this.satuan = satuan;
+	}
+
+	/** UOM bawaan PO. Harus satu kategori dengan {@link #getSatuan()}; stok
+	 * tetap dicatat dalam satuan dasar dan qty pembelian dikonversi lewat rasio UOM. */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "satuan_pembelian", nullable = true)
+	public SatuanProduk getSatuanPembelian() {
+		satuanPembelian = check(satuanPembelian);
+		return satuanPembelian;
+	}
+
+	public void setSatuanPembelian(SatuanProduk satuanPembelian) {
+		this.satuanPembelian = satuanPembelian;
 	}
 
 	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */
