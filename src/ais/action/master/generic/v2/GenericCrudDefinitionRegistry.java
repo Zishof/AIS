@@ -7,20 +7,29 @@ import java.util.List;
 import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.DaftarUlangCalonMahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.JenjangProgramStudiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
+import ais.action.master.generic.v2.adapter.PembayaranCalonSiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
 import ais.database.model.Agama;
+import ais.database.model.Kegiatan;
 import ais.database.model.Jenjang;
 import ais.database.model.JenjangProgramStudi;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.Ruang;
+import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.JenisKegiatan;
+import ais.database.model.sekolah.AkunPembayaranSiswa;
+import ais.database.model.sekolah.CalonSiswa;
+import ais.database.model.sekolah.JenisBiayaSekolah;
 import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.KurikulumSekolah;
+import ais.database.model.sekolah.PembayaranSiswa;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
@@ -36,6 +45,8 @@ public final class GenericCrudDefinitionRegistry {
         register(buildMahasiswa());
         register(buildJenjangProgramStudi());
         register(buildPenilaianSiswa());
+        register(buildPembayaranCalonSiswa());
+        register(buildDaftarUlangCalonMahasiswa());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -321,6 +332,107 @@ public final class GenericCrudDefinitionRegistry {
                 false, true, false, position);
         f.setEnumValues(values);
         return f;
+    }
+
+    /**
+     * Riwayat pembayaran calon siswa (route sekolah/pembayaran_calon_siswa,
+     * menu 8755593). READ_ONLY dengan filter wajib calonSiswa (adapter) supaya
+     * tidak tertukar dengan pembayaran siswa aktif. EntityKey diberi prefiks
+     * "calon:" agar tidak menimpa definisi auto PembayaranSiswa milik route
+     * sekolah/pembayaran_siswa pada map DEFINITIONS.
+     */
+    private static GenericCrudDefinition buildPembayaranCalonSiswa() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(PembayaranSiswa.class);
+        d.setEntityKey("calon:" + PembayaranSiswa.class.getName());
+        d.setModuleKey("sekolah");
+        d.setPageKey("pembayaran_calon_siswa");
+        d.setDisplayName("Pembayaran Calon Siswa");
+        d.setSourceActionClassName("ais.action.master.sekolah.PembayaranCalonSiswaAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+        d.setEnabled(true);
+        d.setCreateEnabled(false);
+        d.setUpdateEnabled(false);
+        d.setDeleteEnabled(false);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
+        d.setAuditEnabled(false);
+        d.setRowAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("tanggalBayar");
+        d.setDefaultSortAscending(false);
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        PembayaranCalonSiswaGenericCrudAdapter adapter = new PembayaranCalonSiswaGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(relationField("calonSiswa", "Calon Siswa", CalonSiswa.class, true, false, false, false, 20));
+        d.addField(relationField("jenisBiayaSekolah", "Jenis Biaya", JenisBiayaSekolah.class, true, false, false, false, 30));
+        d.addField(relationField("akunPembayaranSiswa", "Cara Pembayaran", AkunPembayaranSiswa.class, true, false, false, false, 40));
+        d.addField(field("bulan", "Bulan", Integer.class, "number", true, false, false, false, true, false, 50));
+        d.addField(field("tahun", "Tahun", Integer.class, "number", true, false, false, false, true, false, 60));
+        d.addField(field("nominal", "Nominal", Double.class, "number", true, false, false, false, true, false, 70));
+        d.addField(field("tanggalBayar", "Tanggal Bayar", java.util.Date.class, "date", true, false, false, false, true, false, 80));
+        d.addField(field("validator", "Validator", String.class, "text", true, false, false, false, true, true, 90));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", false, false, false, false, false, true, 100));
+        return d;
+    }
+
+    /**
+     * Daftar ulang calon mahasiswa (route root/daftar_ulang_calon_mahasiswa,
+     * menu 1003000017). Kegiatan READ_ONLY yang selalu terfilter
+     * calonMahasiswa; alur bayar/validasi tetap milik Action legacy sampai
+     * kontrak L0 tersedia.
+     */
+    private static GenericCrudDefinition buildDaftarUlangCalonMahasiswa() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(Kegiatan.class);
+        d.setEntityKey("calon:" + Kegiatan.class.getName());
+        d.setModuleKey("root");
+        d.setPageKey("daftar_ulang_calon_mahasiswa");
+        d.setDisplayName("Daftar Ulang Calon Mahasiswa");
+        d.setSourceActionClassName("ais.action.master.DaftarUlangCalonMahasiswaAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+        d.setEnabled(true);
+        d.setCreateEnabled(false);
+        d.setUpdateEnabled(false);
+        d.setDeleteEnabled(false);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
+        d.setAuditEnabled(false);
+        d.setRowAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("tanggal");
+        d.setDefaultSortAscending(false);
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        DaftarUlangCalonMahasiswaGenericCrudAdapter adapter = new DaftarUlangCalonMahasiswaGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(relationField("calonMahasiswa", "Calon Mahasiswa", BiodataCalonMahasiswa.class, true, false, false, false, 20));
+        d.addField(relationField("jenisKegiatan", "Jenis Pembayaran", JenisKegiatan.class, true, false, false, false, 30));
+        d.addField(field("tahunAkademik", "Tahun Akademik", String.class, "text", true, false, false, false, true, true, 40));
+        d.addField(field("semster", "Semester", Integer.class, "number", true, false, false, false, true, false, 50));
+        d.addField(field("program", "Program", String.class, "text", false, false, false, false, true, true, 60));
+        d.addField(field("validated", "Tervalidasi", Integer.class, "number", true, false, false, false, true, false, 70));
+        d.addField(field("refNumber", "No. Referensi", String.class, "text", true, false, false, false, true, true, 80));
+        d.addField(field("amount", "Dibayar", Double.class, "number", true, false, false, false, true, false, 90));
+        d.addField(field("amountTerhutang", "Terhutang", Double.class, "number", true, false, false, false, true, false, 100));
+        d.addField(field("tanggal", "Terakhir Update", java.util.Date.class, "date", true, false, false, false, true, false, 110));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", false, false, false, false, false, true, 120));
+        return d;
     }
 
     private static GenericCrudFieldDefinition field(String key, String label, Class type, String editor,

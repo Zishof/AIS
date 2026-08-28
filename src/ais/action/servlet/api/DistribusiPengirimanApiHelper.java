@@ -1,5 +1,6 @@
 package ais.action.servlet.api;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -96,40 +97,6 @@ public final class DistribusiPengirimanApiHelper {
 		return ctx.tokoId == null ? 0L : ctx.tokoId.longValue();
 	}
 
-	private static void pastikanTabel(Connection conn) throws Exception {
-		Statement st = null;
-		try {
-			st = conn.createStatement();
-			st.execute("CREATE SCHEMA IF NOT EXISTS inventory_distribution");
-			st.execute("CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document ("
-					+ "id bigserial PRIMARY KEY, toko_id bigint NOT NULL, document_type varchar(50) NOT NULL,"
-					+ "document_no varchar(80) NOT NULL, status varchar(30) NOT NULL DEFAULT 'DRAFT',"
-					+ "reference_no varchar(120), origin_name varchar(180), destination_name varchar(180),"
-					+ "carrier_name varchar(180), tracking_no varchar(120), planned_at timestamp, actual_at timestamp,"
-					+ "notes text, client_mutation_id varchar(100), created_by varchar(100), created_at timestamp NOT NULL DEFAULT now(),"
-					+ "updated_by varchar(100), updated_at timestamp NOT NULL DEFAULT now(), version bigint NOT NULL DEFAULT 0,"
-					+ "CONSTRAINT uq_distribution_document_no UNIQUE (toko_id, document_type, document_no))");
-			st.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_distribution_document_mutation ON inventory_distribution.distribution_document(toko_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL AND client_mutation_id <> ''");
-			st.execute("CREATE INDEX IF NOT EXISTS ix_distribution_document_list ON inventory_distribution.distribution_document(toko_id, document_type, updated_at DESC)");
-			st.execute("CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_line ("
-					+ "id bigserial PRIMARY KEY, document_id bigint NOT NULL REFERENCES inventory_distribution.distribution_document(id) ON DELETE CASCADE,"
-					+ "line_no integer NOT NULL, item_id bigint, item_code varchar(100), item_name varchar(255) NOT NULL,"
-					+ "qty numeric(24,6) NOT NULL DEFAULT 0, uom varchar(50), notes text,"
-					+ "CONSTRAINT uq_distribution_document_line UNIQUE(document_id,line_no))");
-			st.execute("CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_event ("
-					+ "id bigserial PRIMARY KEY, document_id bigint NOT NULL REFERENCES inventory_distribution.distribution_document(id) ON DELETE CASCADE,"
-					+ "from_status varchar(30), to_status varchar(30) NOT NULL, notes text, actor_id varchar(100), event_at timestamp NOT NULL DEFAULT now())");
-			st.execute("ALTER TABLE inventory_distribution.distribution_document ADD COLUMN IF NOT EXISTS origin_toko_id bigint");
-			st.execute("ALTER TABLE inventory_distribution.distribution_document ADD COLUMN IF NOT EXISTS destination_toko_id bigint");
-			st.execute("ALTER TABLE inventory_distribution.distribution_document_line ADD COLUMN IF NOT EXISTS source_product_id bigint");
-			st.execute("ALTER TABLE inventory_distribution.distribution_document_line ADD COLUMN IF NOT EXISTS destination_product_id bigint");
-			st.execute("CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_stock_posting (id bigserial PRIMARY KEY, document_id bigint NOT NULL REFERENCES inventory_distribution.distribution_document(id),line_id bigint NOT NULL REFERENCES inventory_distribution.distribution_document_line(id), direction varchar(10) NOT NULL,legacy_mutation_id bigint NOT NULL, source_toko_id bigint NOT NULL, destination_toko_id bigint NOT NULL,source_product_id bigint NOT NULL, destination_product_id bigint NOT NULL, qty numeric(24,6) NOT NULL,created_by varchar(100), created_at timestamp NOT NULL DEFAULT now(),CONSTRAINT uq_distribution_stock_posting UNIQUE(document_id,line_id,direction))");
-			st.execute("CREATE INDEX IF NOT EXISTS ix_distribution_stock_posting_document ON inventory_distribution.distribution_stock_posting(document_id,direction)");
-		} finally {
-			tutup(st);
-		}
-	}
-
 	private static JSONObject baris(ResultSet rs) throws Exception {
 		JSONObject j = new JSONObject();
 		j.put("id", rs.getLong("id"));
@@ -139,10 +106,18 @@ public final class DistribusiPengirimanApiHelper {
 		j.put("referensi", nilai(rs.getString("reference_no")));
 		j.put("asal", nilai(rs.getString("origin_name")));
 		j.put("tujuan", nilai(rs.getString("destination_name")));
-		long originTokoId = rs.getLong("origin_toko_id"); j.put("asalTokoId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(originTokoId));
-		long destinationTokoId = rs.getLong("destination_toko_id"); j.put("tujuanTokoId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(destinationTokoId));
+		long originTokoId = rs.getLong("origin_toko_id");
+		j.put("asalTokoId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(originTokoId));
+		long destinationTokoId = rs.getLong("destination_toko_id");
+		j.put("tujuanTokoId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(destinationTokoId));
 		j.put("pengangkut", nilai(rs.getString("carrier_name")));
 		j.put("nomorPelacakan", nilai(rs.getString("tracking_no")));
+		j.put("penerima", nilai(rs.getString("receiver_name")));
+		j.put("buktiUrl", nilai(rs.getString("proof_url")));
+		j.put("nomorTagihanAngkut", nilai(rs.getString("freight_invoice_no")));
+		BigDecimal nilaiTagihan = rs.getBigDecimal("freight_amount");
+		j.put("nilaiTagihanAngkut", nilaiTagihan == null ? BigDecimal.ZERO : nilaiTagihan);
+		j.put("tanggalTagihanAngkut", waktu(rs.getTimestamp("freight_invoice_date")));
 		j.put("rencana", waktu(rs.getTimestamp("planned_at")));
 		j.put("aktual", waktu(rs.getTimestamp("actual_at")));
 		j.put("catatan", nilai(rs.getString("notes")));
@@ -165,7 +140,6 @@ public final class DistribusiPengirimanApiHelper {
 			EbisnisActorContextResolver.ActorContext ctx = aktor(session, tbmuser, request, hasil, "view");
 			if (ctx == null) return;
 			Connection conn = session.connection();
-			pastikanTabel(conn);
 			String cari = request.optString("cari", "").trim();
 			int limit = request.optInt("limit", 100);
 			if (limit < 1 || limit > 500) limit = 100;
@@ -204,7 +178,7 @@ public final class DistribusiPengirimanApiHelper {
 		try {
 			EbisnisActorContextResolver.ActorContext ctx = aktor(session, tbmuser, request, hasil, "view");
 			if (ctx == null) return;
-			Connection conn = session.connection(); pastikanTabel(conn);
+			Connection conn = session.connection();
 			ps = conn.prepareStatement("SELECT d.*, (SELECT count(*) FROM inventory_distribution.distribution_document_line l WHERE l.document_id=d.id) line_count FROM inventory_distribution.distribution_document d WHERE d.id=? AND d.toko_id=? AND d.document_type=?");
 			ps.setLong(1, request.optLong("id", 0)); ps.setLong(2, tokoId(ctx, request)); ps.setString(3, jenis(request));
 			rs = ps.executeQuery();
@@ -218,10 +192,35 @@ public final class DistribusiPengirimanApiHelper {
 				long itemId = rs.getLong(1); l.put("itemId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(itemId));
 				l.put("kode", nilai(rs.getString(2))); l.put("nama", nilai(rs.getString(3)));
 				l.put("qty", rs.getDouble(4)); l.put("uom", nilai(rs.getString(5))); l.put("catatan", nilai(rs.getString(6)));
-				long sourceProductId = rs.getLong(7); l.put("sourceProductId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(sourceProductId)); long destinationProductId = rs.getLong(8); l.put("destinationProductId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(destinationProductId));
+				long sourceProductId = rs.getLong(7); l.put("sourceProductId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(sourceProductId));
+				long destinationProductId = rs.getLong(8); l.put("destinationProductId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(destinationProductId));
 				lines.put(l);
 			}
 			data.put("baris", lines);
+			tutup(rs); tutup(ps); rs = null; ps = null;
+			ps = conn.prepareStatement("SELECT from_status,to_status,notes,actor_id,event_at FROM inventory_distribution.distribution_document_event WHERE document_id=? ORDER BY event_at,id");
+			ps.setLong(1, request.optLong("id", 0)); rs = ps.executeQuery();
+			JSONArray events = new JSONArray();
+			while (rs.next()) {
+				JSONObject e = new JSONObject();
+				e.put("dariStatus", nilai(rs.getString(1))); e.put("keStatus", nilai(rs.getString(2)));
+				e.put("catatan", nilai(rs.getString(3))); e.put("pelaku", nilai(rs.getString(4)));
+				e.put("waktu", waktu(rs.getTimestamp(5))); events.put(e);
+			}
+			data.put("riwayatStatus", events);
+			tutup(rs); tutup(ps); rs = null; ps = null;
+			ps = conn.prepareStatement("SELECT direction,legacy_mutation_id,source_toko_id,destination_toko_id,source_product_id,destination_product_id,qty,created_by,created_at FROM inventory_distribution.distribution_stock_posting WHERE document_id=? ORDER BY created_at,id");
+			ps.setLong(1, request.optLong("id", 0)); rs = ps.executeQuery();
+			JSONArray postings = new JSONArray();
+			while (rs.next()) {
+				JSONObject p = new JSONObject();
+				p.put("arah", nilai(rs.getString(1))); p.put("mutasiId", rs.getLong(2));
+				p.put("tokoAsalId", rs.getLong(3)); p.put("tokoTujuanId", rs.getLong(4));
+				p.put("produkAsalId", rs.getLong(5)); p.put("produkTujuanId", rs.getLong(6));
+				p.put("qty", rs.getDouble(7)); p.put("dibuatOleh", nilai(rs.getString(8)));
+				p.put("waktu", waktu(rs.getTimestamp(9))); postings.put(p);
+			}
+			data.put("postingStok", postings);
 			hasil.put("status", "success"); hasil.put("data", data); hasil.put("hakAkses", hak(ctx, jenis(request)));
 		} finally { tutup(rs); tutup(ps); HibernateUtil.closeSessionQuietly(session); }
 	}
@@ -236,7 +235,7 @@ public final class DistribusiPengirimanApiHelper {
 			if (ctx == null) return;
 			String tujuan = request.optString("tujuan", "").trim();
 			if (tujuan.length() == 0) { tolak(hasil, "Tujuan dokumen wajib diisi."); return; }
-			Connection conn = session.connection(); pastikanTabel(conn); conn.setAutoCommit(false);
+			Connection conn = session.connection(); conn.setAutoCommit(false);
 			String mutation = request.optString("clientMutationId", "").trim();
 			if (id <= 0L && mutation.length() > 0) {
 				ps = conn.prepareStatement("SELECT id FROM inventory_distribution.distribution_document WHERE toko_id=? AND client_mutation_id=?");
@@ -251,18 +250,19 @@ public final class DistribusiPengirimanApiHelper {
 				}
 				tutup(rs); tutup(ps); rs = null; ps = null;
 			}
-			if (id <= 0L) {
+			boolean dokumenBaru = id <= 0L;
+			if (dokumenBaru) {
 				String nomor = request.optString("nomor", "").trim();
 				if (nomor.length() == 0) nomor = JENIS.get(jenis(request)) + "-" + new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new java.util.Date());
-				ps = conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document(toko_id,document_type,document_no,status,reference_no,origin_name,destination_name,origin_toko_id,destination_toko_id,carrier_name,tracking_no,planned_at,actual_at,notes,client_mutation_id,created_by,updated_by) VALUES(?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id");
+				ps = conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document(toko_id,document_type,document_no,status,reference_no,origin_name,destination_name,origin_toko_id,destination_toko_id,carrier_name,tracking_no,planned_at,actual_at,notes,client_mutation_id,receiver_name,proof_url,freight_invoice_no,freight_amount,freight_invoice_date,created_by,created_at,updated_by,updated_at,version) VALUES(?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,now(),?,now(),0) RETURNING id");
 				int n=1; ps.setLong(n++, tokoId(ctx, request)); ps.setString(n++, jenis(request)); ps.setString(n++, nomor);
 				isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiLong(ps,n++,request,"asalTokoId"); isiLong(ps,n++,request,"tujuanTokoId");
 				isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan");
-				ps.setString(n++, mutation.length()==0?null:mutation); ps.setString(n++, ctx.userId); ps.setString(n++, ctx.userId);
+				ps.setString(n++, mutation.length()==0?null:mutation); isiTeks(ps,n++,request,"penerima"); isiTeks(ps,n++,request,"buktiUrl"); isiTeks(ps,n++,request,"nomorTagihanAngkut"); isiDesimal(ps,n++,request,"nilaiTagihanAngkut"); isiWaktu(ps,n++,request,"tanggalTagihanAngkut"); ps.setString(n++, ctx.userId); ps.setString(n++, ctx.userId);
 				rs=ps.executeQuery(); rs.next(); id=rs.getLong(1); tutup(rs); tutup(ps); rs=null; ps=null;
 			} else {
-				ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET reference_no=?,origin_name=?,destination_name=?,origin_toko_id=?,destination_toko_id=?,carrier_name=?,tracking_no=?,planned_at=?,actual_at=?,notes=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=? AND toko_id=? AND document_type=? AND status='DRAFT'");
-				int n=1; isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiLong(ps,n++,request,"asalTokoId"); isiLong(ps,n++,request,"tujuanTokoId"); isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan"); ps.setString(n++,ctx.userId); ps.setLong(n++,id); ps.setLong(n++,tokoId(ctx,request)); ps.setString(n++,jenis(request));
+				ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET reference_no=?,origin_name=?,destination_name=?,origin_toko_id=?,destination_toko_id=?,carrier_name=?,tracking_no=?,planned_at=?,actual_at=?,notes=?,receiver_name=?,proof_url=?,freight_invoice_no=?,freight_amount=?,freight_invoice_date=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=? AND toko_id=? AND document_type=? AND status='DRAFT'");
+				int n=1; isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiLong(ps,n++,request,"asalTokoId"); isiLong(ps,n++,request,"tujuanTokoId"); isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan"); isiTeks(ps,n++,request,"penerima"); isiTeks(ps,n++,request,"buktiUrl"); isiTeks(ps,n++,request,"nomorTagihanAngkut"); isiDesimal(ps,n++,request,"nilaiTagihanAngkut"); isiWaktu(ps,n++,request,"tanggalTagihanAngkut"); ps.setString(n++,ctx.userId); ps.setLong(n++,id); ps.setLong(n++,tokoId(ctx,request)); ps.setString(n++,jenis(request));
 				if(ps.executeUpdate()!=1){tolak(hasil,"Hanya dokumen DRAFT yang dapat diedit.");conn.rollback();return;} tutup(ps);ps=null;
 			}
 			ps=conn.prepareStatement("DELETE FROM inventory_distribution.distribution_document_line WHERE document_id=?");ps.setLong(1,id);ps.executeUpdate();tutup(ps);ps=null;
@@ -271,6 +271,11 @@ public final class DistribusiPengirimanApiHelper {
 				ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_line(document_id,line_no,item_id,item_code,item_name,qty,uom,notes,source_product_id,destination_product_id) VALUES(?,?,?,?,?,?,?,?,?,?)");
 				for(int i=0;i<lines.length();i++){JSONObject l=lines.optJSONObject(i);if(l==null)continue;String nama=l.optString("nama","").trim();if(nama.length()==0)continue;ps.setLong(1,id);ps.setInt(2,i+1);long item=l.optLong("itemId",0);if(item>0)ps.setLong(3,item);else ps.setNull(3,java.sql.Types.BIGINT);ps.setString(4,l.optString("kode",""));ps.setString(5,nama);ps.setDouble(6,l.optDouble("qty",0));ps.setString(7,l.optString("uom",""));ps.setString(8,l.optString("catatan",""));isiLong(ps,9,l,"sourceProductId");isiLong(ps,10,l,"destinationProductId");ps.addBatch();}ps.executeBatch();
 			}
+			if (dokumenBaru) {
+				tutup(ps); ps = null;
+				ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_event(document_id,from_status,to_status,notes,actor_id,event_at) VALUES(?,NULL,'DRAFT',?,?,now())");
+				ps.setLong(1,id); ps.setString(2,"Dokumen dibuat"); ps.setString(3,ctx.userId); ps.executeUpdate();
+			}
 			conn.commit(); hasil.put("status","success"); hasil.put("id",id); hasil.put("message","Dokumen pengiriman tersimpan.");
 		} catch(Exception e){try{session.connection().rollback();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"auto-audit DistribusiPengirimanApiHelper.rollback");}throw e;}
 		finally{tutup(rs);tutup(ps);HibernateUtil.closeSessionQuietly(session);}
@@ -278,6 +283,7 @@ public final class DistribusiPengirimanApiHelper {
 
 	private static void isiTeks(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{String v=r.optString(k,"").trim();ps.setString(i,v.length()==0?null:v);}
 	private static void isiLong(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{long v=r.optLong(k,0L);if(v>0L)ps.setLong(i,v);else ps.setNull(i,java.sql.Types.BIGINT);}
+	private static void isiDesimal(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{String v=r.optString(k,"").trim().replace(",","");if(v.length()==0){ps.setNull(i,java.sql.Types.NUMERIC);return;}ps.setBigDecimal(i,new BigDecimal(v));}
 	private static void isiWaktu(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{String v=r.optString(k,"").trim();if(v.length()==0){ps.setNull(i,java.sql.Types.TIMESTAMP);return;}try{ps.setTimestamp(i,Timestamp.valueOf(v.length()==16?v+":00":v));}catch(Exception e){ps.setNull(i,java.sql.Types.TIMESTAMP);}}
 
 	public static void ubahStatus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
@@ -286,9 +292,10 @@ public final class DistribusiPengirimanApiHelper {
 		Session session=HibernateUtil.getSessionFactory().openSession();PreparedStatement ps=null;ResultSet rs=null;
 		try{
 			EbisnisActorContextResolver.ActorContext ctx=aktor(session,tbmuser,request,hasil,aksi);if(ctx==null)return;
-			Connection conn=session.connection();pastikanTabel(conn);conn.setAutoCommit(false);
-			ps=conn.prepareStatement("SELECT status,origin_toko_id,destination_toko_id,document_no FROM inventory_distribution.distribution_document WHERE id=? AND toko_id=? AND document_type=? FOR UPDATE");ps.setLong(1,request.optLong("id",0));ps.setLong(2,tokoId(ctx,request));ps.setString(3,jenis(request));rs=ps.executeQuery();if(!rs.next()){tolak(hasil,"Dokumen tidak ditemukan.");conn.rollback();return;}String asal=rs.getString(1);long originTokoId=rs.getLong(2);if(rs.wasNull())originTokoId=0L;long destinationTokoId=rs.getLong(3);if(rs.wasNull())destinationTokoId=0L;String nomor=rs.getString(4);tutup(rs);tutup(ps);rs=null;ps=null;
+			Connection conn=session.connection();conn.setAutoCommit(false);
+			ps=conn.prepareStatement("SELECT status,origin_toko_id,destination_toko_id,document_no,document_type,carrier_name,tracking_no,receiver_name,proof_url,freight_invoice_no,freight_amount FROM inventory_distribution.distribution_document WHERE id=? AND toko_id=? AND document_type=? FOR UPDATE");ps.setLong(1,request.optLong("id",0));ps.setLong(2,tokoId(ctx,request));ps.setString(3,jenis(request));rs=ps.executeQuery();if(!rs.next()){tolak(hasil,"Dokumen tidak ditemukan.");conn.rollback();return;}String asal=rs.getString(1);long originTokoId=rs.getLong(2);if(rs.wasNull())originTokoId=0L;long destinationTokoId=rs.getLong(3);if(rs.wasNull())destinationTokoId=0L;String nomor=rs.getString(4);String jenisDokumen=rs.getString(5);String pengangkut=rs.getString(6);String pelacakan=rs.getString(7);String penerima=rs.getString(8);String bukti=rs.getString(9);String nomorTagihan=rs.getString(10);BigDecimal nilaiTagihan=rs.getBigDecimal(11);tutup(rs);tutup(ps);rs=null;ps=null;
 			if(!transisiBoleh(asal,tujuanStatus)){tolak(hasil,"Perubahan status "+asal+" ke "+tujuanStatus+" tidak diizinkan.");conn.rollback();return;}
+			if(!validasiKelengkapanStatus(jenisDokumen,tujuanStatus,pengangkut,pelacakan,penerima,bukti,nomorTagihan,nilaiTagihan,hasil)){conn.rollback();return;}
 			if("COMPLETED".equals(tujuanStatus)&&memengaruhiStok(jenis(request))){
 				if(!validasiTokoStok(ctx,jenis(request),originTokoId,destinationTokoId,hasil)){conn.rollback();return;}
 				postingStok(conn,request.optLong("id",0),nomor,originTokoId,destinationTokoId,"FORWARD",ctx.userId);
@@ -296,11 +303,20 @@ public final class DistribusiPengirimanApiHelper {
 				postingStok(conn,request.optLong("id",0),nomor,destinationTokoId,originTokoId,"REVERSE",ctx.userId);
 			}
 			ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET status=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=?");ps.setString(1,tujuanStatus);ps.setString(2,ctx.userId);ps.setLong(3,request.optLong("id",0));ps.executeUpdate();tutup(ps);ps=null;
-			ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_event(document_id,from_status,to_status,notes,actor_id) VALUES(?,?,?,?,?)");ps.setLong(1,request.optLong("id",0));ps.setString(2,asal);ps.setString(3,tujuanStatus);ps.setString(4,request.optString("catatanStatus",""));ps.setString(5,ctx.userId);ps.executeUpdate();conn.commit();hasil.put("status","success");hasil.put("message","Status dokumen diperbarui menjadi "+tujuanStatus+".");
+			ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_event(document_id,from_status,to_status,notes,actor_id,event_at) VALUES(?,?,?,?,?,now())");ps.setLong(1,request.optLong("id",0));ps.setString(2,asal);ps.setString(3,tujuanStatus);ps.setString(4,request.optString("catatanStatus",""));ps.setString(5,ctx.userId);ps.executeUpdate();conn.commit();hasil.put("status","success");hasil.put("message","Status dokumen diperbarui menjadi "+tujuanStatus+".");
 		}catch(Exception e){try{session.connection().rollback();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"auto-audit DistribusiPengirimanApiHelper.ubahStatus.rollback");}throw e;}finally{tutup(rs);tutup(ps);HibernateUtil.closeSessionQuietly(session);}
 	}
 
 	private static boolean memengaruhiStok(String jenis){return "penerimaan_transfer_outlet".equals(jenis)||"reverse_logistics".equals(jenis);}
+
+	private static boolean validasiKelengkapanStatus(String jenis,String status,String pengangkut,String pelacakan,String penerima,String bukti,String nomorTagihan,BigDecimal nilaiTagihan,JSONObject hasil)throws Exception{
+		if(("IN_PROGRESS".equals(status)||"COMPLETED".equals(status))&&"shipment_tracking".equals(jenis)&&(kosong(pengangkut)||kosong(pelacakan))){tolak(hasil,"Pengangkut dan nomor pelacakan wajib diisi sebelum shipment dijalankan.");return false;}
+		if("COMPLETED".equals(status)&&"proof_of_delivery".equals(jenis)&&(kosong(penerima)||kosong(bukti))){tolak(hasil,"Nama penerima dan URL bukti penerimaan wajib diisi sebelum POD diselesaikan.");return false;}
+		if("COMPLETED".equals(status)&&"freight_order".equals(jenis)&&(kosong(nomorTagihan)||nilaiTagihan==null||nilaiTagihan.compareTo(BigDecimal.ZERO)<=0)){tolak(hasil,"Nomor dan nilai tagihan angkut wajib diisi sebelum freight order diselesaikan.");return false;}
+		return true;
+	}
+
+	private static boolean kosong(String nilai){return nilai==null||nilai.trim().length()==0;}
 
 	private static boolean validasiTokoStok(EbisnisActorContextResolver.ActorContext ctx,String jenis,long asal,long tujuan,JSONObject hasil)throws Exception{
 		if(asal<=0L||tujuan<=0L||asal==tujuan){tolak(hasil,"Toko asal dan tujuan stok wajib diisi serta harus berbeda.");return false;}
@@ -330,7 +346,7 @@ public final class DistribusiPengirimanApiHelper {
 				if(sourceId<=0L)sourceId=produkUntukToko(conn,itemId,kode,tokoAsal);if(destinationId<=0L)destinationId=produkUntukToko(conn,0L,kode,tokoTujuan);
 				if(sourceId<=0L||destinationId<=0L)throw new IllegalArgumentException("Produk '"+rs.getString(4)+"' belum dipetakan pada toko asal dan tujuan.");
 				mutasi=conn.prepareStatement("INSERT INTO koperasi.mutasi_stok_toko(produk_asal,produk_tujuan,toko_asal,toko_tujuan,qty,waktu,keterangan,oleh,tanggal_dirubah) VALUES(?,?,?,?,?,now(),?,?,now()) RETURNING id");mutasi.setLong(1,sourceId);mutasi.setLong(2,destinationId);mutasi.setLong(3,tokoAsal);mutasi.setLong(4,tokoTujuan);mutasi.setDouble(5,qty);mutasi.setString(6,("REVERSE".equals(arah)?"Pembalikan ":"Posting ")+"pengiriman "+nomor);mutasi.setString(7,userId);mutasiRs=mutasi.executeQuery();mutasiRs.next();long mutationId=mutasiRs.getLong(1);tutup(mutasiRs);tutup(mutasi);mutasiRs=null;mutasi=null;
-				jejak=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_stock_posting(document_id,line_id,direction,legacy_mutation_id,source_toko_id,destination_toko_id,source_product_id,destination_product_id,qty,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)");jejak.setLong(1,documentId);jejak.setLong(2,lineId);jejak.setString(3,arah);jejak.setLong(4,mutationId);jejak.setLong(5,tokoAsal);jejak.setLong(6,tokoTujuan);jejak.setLong(7,sourceId);jejak.setLong(8,destinationId);jejak.setDouble(9,qty);jejak.setString(10,userId);jejak.executeUpdate();tutup(jejak);jejak=null;
+				jejak=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_stock_posting(document_id,line_id,direction,legacy_mutation_id,source_toko_id,destination_toko_id,source_product_id,destination_product_id,qty,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,now())");jejak.setLong(1,documentId);jejak.setLong(2,lineId);jejak.setString(3,arah);jejak.setLong(4,mutationId);jejak.setLong(5,tokoAsal);jejak.setLong(6,tokoTujuan);jejak.setLong(7,sourceId);jejak.setLong(8,destinationId);jejak.setDouble(9,qty);jejak.setString(10,userId);jejak.executeUpdate();tutup(jejak);jejak=null;
 			}
 			if(!ada)throw new IllegalArgumentException("Dokumen "+nomor+" belum memiliki rincian barang.");
 		}finally{tutup(mutasiRs);tutup(cekRs);tutup(rs);tutup(jejak);tutup(mutasi);tutup(cek);tutup(lines);}
