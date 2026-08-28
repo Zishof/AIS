@@ -30,6 +30,7 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import ais.ui.util.MyFormRow;
@@ -114,20 +115,78 @@ public class CapaianLulusanAction extends ObeBaseAction {
     }
 
     /**
-     * Menampilkan seluruh panel yang sudah didefinisikan di ZUL melalui
-     * MyButtonTabbox. Pola ini sengaja sama untuk tab relasi dan Kategori CPL:
-     * event forward tetap ditangani composer induk, lalu isi Tabpanel dipindahkan
-     * ke panel tombol yang sedang aktif.
+     * MyButtonTabbox murni dengan pemuat eksplisit. Jangan bergantung pada
+     * forward milik Tab native yang sudah disembunyikan: pada ZK 5 event tersebut
+     * tidak selalu diteruskan sehingga tombol aktif tetapi panel tetap kosong.
      */
     private void bangunButtonTabboxUtama() throws Exception {
         if (tabboxUtama == null || tabboxUtama.getParent() == null) {
             return;
         }
-        buttonTabboxUtama = MyButtonTabbox.gantiTabboxNative(tabboxUtama, new int[] { 1 });
-        if (buttonTabboxUtama != null) {
-            buttonTabboxUtama.setTombolMembungkus(true);
-            buttonTabboxUtama.pilih(1);
+
+        Component parent = tabboxUtama.getParent();
+        Div host = new Div();
+        host.setWidth("100%");
+        host.setHeight("calc(100vh - 150px)");
+        host.setStyle("min-height:620px;overflow:hidden;box-sizing:border-box;");
+        parent.insertBefore(host, tabboxUtama);
+
+        buttonTabboxUtama = MyButtonTabbox.buat(host, "100%", new int[] { 1 });
+        buttonTabboxUtama.setTombolMembungkus(true);
+        Div panelDaftar = buttonTabboxUtama.tambahTab(1, "Capaian Lulusan (CPL)");
+        panelDaftar.setStyle("overflow:auto;min-height:560px;padding-bottom:12px;box-sizing:border-box;");
+
+        if (tabboxUtama.getTabpanels() != null
+                && !tabboxUtama.getTabpanels().getChildren().isEmpty()) {
+            Object panelPertama = tabboxUtama.getTabpanels().getChildren().get(0);
+            if (panelPertama instanceof Tabpanel) {
+                List<Component> isiDaftar = new ArrayList<Component>();
+                for (Object child : ((Tabpanel) panelPertama).getChildren()) {
+                    if (child instanceof Component) {
+                        isiDaftar.add((Component) child);
+                    }
+                }
+                for (Component child : isiDaftar) {
+                    child.setParent(panelDaftar);
+                }
+            }
         }
+
+        buttonTabboxUtama.tambahTabLazy(2, "CPL vs Profil", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsProfilLulusanAction rel =
+                        new CapaianLulusanVsProfilLulusanAction("", "none", false);
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsBahanKajianAction rel =
+                        new CapaianLulusanVsBahanKajianAction("", "none", false);
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsCapaianPembelajaranLulusanAction rel =
+                        new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabZul(5, "Kategori CPL",
+                "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
+
+        tabboxUtama.setParent(null);
+        buttonTabboxUtama.pilih(1);
     }
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
