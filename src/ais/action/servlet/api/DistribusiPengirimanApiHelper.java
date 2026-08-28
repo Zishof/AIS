@@ -287,12 +287,54 @@ public final class DistribusiPengirimanApiHelper {
 		try{
 			EbisnisActorContextResolver.ActorContext ctx=aktor(session,tbmuser,request,hasil,aksi);if(ctx==null)return;
 			Connection conn=session.connection();pastikanTabel(conn);conn.setAutoCommit(false);
-			ps=conn.prepareStatement("SELECT status FROM inventory_distribution.distribution_document WHERE id=? AND toko_id=? AND document_type=? FOR UPDATE");ps.setLong(1,request.optLong("id",0));ps.setLong(2,tokoId(ctx,request));ps.setString(3,jenis(request));rs=ps.executeQuery();if(!rs.next()){tolak(hasil,"Dokumen tidak ditemukan.");conn.rollback();return;}String asal=rs.getString(1);tutup(rs);tutup(ps);rs=null;ps=null;
+			ps=conn.prepareStatement("SELECT status,origin_toko_id,destination_toko_id,document_no FROM inventory_distribution.distribution_document WHERE id=? AND toko_id=? AND document_type=? FOR UPDATE");ps.setLong(1,request.optLong("id",0));ps.setLong(2,tokoId(ctx,request));ps.setString(3,jenis(request));rs=ps.executeQuery();if(!rs.next()){tolak(hasil,"Dokumen tidak ditemukan.");conn.rollback();return;}String asal=rs.getString(1);long originTokoId=rs.getLong(2);if(rs.wasNull())originTokoId=0L;long destinationTokoId=rs.getLong(3);if(rs.wasNull())destinationTokoId=0L;String nomor=rs.getString(4);tutup(rs);tutup(ps);rs=null;ps=null;
 			if(!transisiBoleh(asal,tujuanStatus)){tolak(hasil,"Perubahan status "+asal+" ke "+tujuanStatus+" tidak diizinkan.");conn.rollback();return;}
+			if("COMPLETED".equals(tujuanStatus)&&memengaruhiStok(jenis(request))){
+				if(!validasiTokoStok(ctx,jenis(request),originTokoId,destinationTokoId,hasil)){conn.rollback();return;}
+				postingStok(conn,request.optLong("id",0),nomor,originTokoId,destinationTokoId,"FORWARD",ctx.userId);
+			}else if("REVERSED".equals(tujuanStatus)&&memengaruhiStok(jenis(request))){
+				postingStok(conn,request.optLong("id",0),nomor,destinationTokoId,originTokoId,"REVERSE",ctx.userId);
+			}
 			ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET status=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=?");ps.setString(1,tujuanStatus);ps.setString(2,ctx.userId);ps.setLong(3,request.optLong("id",0));ps.executeUpdate();tutup(ps);ps=null;
 			ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_event(document_id,from_status,to_status,notes,actor_id) VALUES(?,?,?,?,?)");ps.setLong(1,request.optLong("id",0));ps.setString(2,asal);ps.setString(3,tujuanStatus);ps.setString(4,request.optString("catatanStatus",""));ps.setString(5,ctx.userId);ps.executeUpdate();conn.commit();hasil.put("status","success");hasil.put("message","Status dokumen diperbarui menjadi "+tujuanStatus+".");
 		}catch(Exception e){try{session.connection().rollback();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"auto-audit DistribusiPengirimanApiHelper.ubahStatus.rollback");}throw e;}finally{tutup(rs);tutup(ps);HibernateUtil.closeSessionQuietly(session);}
 	}
 
-	private static boolean transisiBoleh(String a,String b){if(a==null||b==null||a.equals(b))return false;if("DRAFT".equals(a))return "SUBMITTED".equals(b)||"CANCELLED".equals(b);if("SUBMITTED".equals(a))return "APPROVED".equals(b)||"REJECTED".equals(b)||"CANCELLED".equals(b);if("APPROVED".equals(a))return "IN_PROGRESS".equals(b)||"COMPLETED".equals(b)||"CANCELLED".equals(b)||"REVERSED".equals(b);if("IN_PROGRESS".equals(a))return "COMPLETED".equals(b)||"CANCELLED".equals(b);if("REJECTED".equals(a))return "DRAFT".equals(b);if("COMPLETED".equals(a))return "REVERSED".equals(b);return false;}
+	private static boolean memengaruhiStok(String jenis){return "penerimaan_transfer_outlet".equals(jenis)||"reverse_logistics".equals(jenis);}
+
+	private static boolean validasiTokoStok(EbisnisActorContextResolver.ActorContext ctx,String jenis,long asal,long tujuan,JSONObject hasil)throws Exception{
+		if(asal<=0L||tujuan<=0L||asal==tujuan){tolak(hasil,"Toko asal dan tujuan stok wajib diisi serta harus berbeda.");return false;}
+		if(!ctx.admin&&"penerimaan_transfer_outlet".equals(jenis)&&ctx.tokoId!=null&&tujuan!=ctx.tokoId.longValue()){tolak(hasil,"Penerimaan hanya boleh diposting ke toko aktif.");return false;}
+		if(!ctx.admin&&"reverse_logistics".equals(jenis)&&ctx.tokoId!=null&&asal!=ctx.tokoId.longValue()){tolak(hasil,"Reverse logistics hanya boleh berasal dari toko aktif.");return false;}
+		return true;
+	}
+
+	private static long produkUntukToko(Connection conn,long eksplisit,String kode,long tokoId)throws Exception{
+		PreparedStatement ps=null;ResultSet rs=null;
+		try{
+			if(eksplisit>0L){ps=conn.prepareStatement("SELECT id FROM koperasi.produk WHERE id=? AND toko=?");ps.setLong(1,eksplisit);ps.setLong(2,tokoId);rs=ps.executeQuery();if(rs.next())return rs.getLong(1);tutup(rs);tutup(ps);rs=null;ps=null;}
+			if(kode==null||kode.trim().length()==0)return 0L;
+			ps=conn.prepareStatement("SELECT id FROM koperasi.produk WHERE toko=? AND lower(trim(coalesce(kode,'')))=lower(trim(?)) ORDER BY id LIMIT 1");ps.setLong(1,tokoId);ps.setString(2,kode);rs=ps.executeQuery();return rs.next()?rs.getLong(1):0L;
+		}finally{tutup(rs);tutup(ps);}
+	}
+
+	private static void postingStok(Connection conn,long documentId,String nomor,long tokoAsal,long tokoTujuan,String arah,String userId)throws Exception{
+		PreparedStatement lines=null;PreparedStatement cek=null;PreparedStatement mutasi=null;PreparedStatement jejak=null;ResultSet rs=null;ResultSet cekRs=null;ResultSet mutasiRs=null;
+		try{
+			lines=conn.prepareStatement("SELECT id,item_id,item_code,item_name,qty,source_product_id,destination_product_id FROM inventory_distribution.distribution_document_line WHERE document_id=? ORDER BY line_no FOR UPDATE");lines.setLong(1,documentId);rs=lines.executeQuery();boolean ada=false;
+			while(rs.next()){
+				ada=true;long lineId=rs.getLong(1);double qty=rs.getDouble(5);if(qty<=0D)throw new IllegalArgumentException("Qty dokumen "+nomor+" harus lebih besar dari nol.");
+				cek=conn.prepareStatement("SELECT legacy_mutation_id FROM inventory_distribution.distribution_stock_posting WHERE document_id=? AND line_id=? AND direction=?");cek.setLong(1,documentId);cek.setLong(2,lineId);cek.setString(3,arah);cekRs=cek.executeQuery();if(cekRs.next()){tutup(cekRs);tutup(cek);cekRs=null;cek=null;continue;}tutup(cekRs);tutup(cek);cekRs=null;cek=null;
+				long itemId=rs.getLong(2);if(rs.wasNull())itemId=0L;long sourceId=rs.getLong(6);if(rs.wasNull())sourceId=0L;long destinationId=rs.getLong(7);if(rs.wasNull())destinationId=0L;String kode=rs.getString(3);
+				if("REVERSE".equals(arah)){long swap=sourceId;sourceId=destinationId;destinationId=swap;}
+				if(sourceId<=0L)sourceId=produkUntukToko(conn,itemId,kode,tokoAsal);if(destinationId<=0L)destinationId=produkUntukToko(conn,0L,kode,tokoTujuan);
+				if(sourceId<=0L||destinationId<=0L)throw new IllegalArgumentException("Produk '"+rs.getString(4)+"' belum dipetakan pada toko asal dan tujuan.");
+				mutasi=conn.prepareStatement("INSERT INTO koperasi.mutasi_stok_toko(produk_asal,produk_tujuan,toko_asal,toko_tujuan,qty,waktu,keterangan,oleh,tanggal_dirubah) VALUES(?,?,?,?,?,now(),?,?,now()) RETURNING id");mutasi.setLong(1,sourceId);mutasi.setLong(2,destinationId);mutasi.setLong(3,tokoAsal);mutasi.setLong(4,tokoTujuan);mutasi.setDouble(5,qty);mutasi.setString(6,("REVERSE".equals(arah)?"Pembalikan ":"Posting ")+"pengiriman "+nomor);mutasi.setString(7,userId);mutasiRs=mutasi.executeQuery();mutasiRs.next();long mutationId=mutasiRs.getLong(1);tutup(mutasiRs);tutup(mutasi);mutasiRs=null;mutasi=null;
+				jejak=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_stock_posting(document_id,line_id,direction,legacy_mutation_id,source_toko_id,destination_toko_id,source_product_id,destination_product_id,qty,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)");jejak.setLong(1,documentId);jejak.setLong(2,lineId);jejak.setString(3,arah);jejak.setLong(4,mutationId);jejak.setLong(5,tokoAsal);jejak.setLong(6,tokoTujuan);jejak.setLong(7,sourceId);jejak.setLong(8,destinationId);jejak.setDouble(9,qty);jejak.setString(10,userId);jejak.executeUpdate();tutup(jejak);jejak=null;
+			}
+			if(!ada)throw new IllegalArgumentException("Dokumen "+nomor+" belum memiliki rincian barang.");
+		}finally{tutup(mutasiRs);tutup(cekRs);tutup(rs);tutup(jejak);tutup(mutasi);tutup(cek);tutup(lines);}
+	}
+
+	private static boolean transisiBoleh(String a,String b){if(a==null||b==null||a.equals(b))return false;if("DRAFT".equals(a))return "SUBMITTED".equals(b)||"CANCELLED".equals(b);if("SUBMITTED".equals(a))return "APPROVED".equals(b)||"REJECTED".equals(b)||"CANCELLED".equals(b);if("APPROVED".equals(a))return "IN_PROGRESS".equals(b)||"COMPLETED".equals(b)||"CANCELLED".equals(b);if("IN_PROGRESS".equals(a))return "COMPLETED".equals(b)||"CANCELLED".equals(b);if("REJECTED".equals(a))return "DRAFT".equals(b);if("COMPLETED".equals(a))return "REVERSED".equals(b);return false;}
 }
