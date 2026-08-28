@@ -44,17 +44,17 @@ public class HistoryStatusMahasiswaUtil {
     }
 
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, Integer tahap) {
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(), tahap, null));
+        return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(), tahap, null));
     }
 
     public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, String tahunAkademik, Integer semester, Integer sp) {
         Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, sp));
+        return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, sp));
     }
 
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, String tahunAkademik, Integer semester) {
         Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, null));
+        return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, null));
     }
 
     /**
@@ -67,11 +67,14 @@ public class HistoryStatusMahasiswaUtil {
      */
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, String tahunAkademik, Integer semester, boolean refresh) {
         Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, null), refresh);
+        KrsMahasiswa krsMahasiswa = refresh
+                ? Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, null, true)
+                : Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, null);
+        return currentStatus(krsMahasiswa, refresh);
     }
 
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa) {
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(), mahasiswa.currentTahapan(), null));
+        return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(), mahasiswa.currentTahapan(), null));
     }
 
     public static HistoryStatusMahasiswa currentStatus(KrsMahasiswa krsMahasiswa) {

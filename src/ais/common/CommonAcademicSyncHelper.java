@@ -1252,7 +1252,7 @@ public class CommonAcademicSyncHelper extends Common {
 	}
 
 	public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa) {
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(),
+		KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(),
 				mahasiswa.currentTahapan(), null);
 		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
 	}
@@ -1260,7 +1260,7 @@ public class CommonAcademicSyncHelper extends Common {
 
 
 	public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, Integer tahap) {
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(), tahap, null);
+		KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(), tahap, null);
 		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
 	}
 
@@ -1269,7 +1269,7 @@ public class CommonAcademicSyncHelper extends Common {
 	public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, String tahunAkademik, Integer semester) {
 		Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
 
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, null);
+		KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, null);
 
 		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
 	}
@@ -1662,6 +1662,29 @@ public class CommonAcademicSyncHelper extends Common {
 						: mahasiswa.currentSemester();
 		Integer tahapan = mahasiswa.currentTahapan(semester);
 		return singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, null, false);
+	}
+
+	/**
+	 * Mengambil KRS tersimpan untuk kebutuhan tampilan tanpa menghitung ulang dan
+	 * tanpa menulis ke database. Jalur ini mencegah render halaman memegang lock
+	 * baris KRS/kegiatan dan bersaing dengan proses simpan pengguna.
+	 */
+	public static KrsMahasiswa ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa mahasiswa) {
+		if (mahasiswa == null) {
+			return new KrsMahasiswa();
+		}
+		Integer semesterSaatIni = mahasiswa.currentSemester();
+		Integer semester = mahasiswa.getSemesterLulus() != null && semesterSaatIni != null
+				&& mahasiswa.getSemesterLulus().intValue() >= semesterSaatIni.intValue()
+						? mahasiswa.getSemesterLulus() : semesterSaatIni;
+		Integer tahapan = mahasiswa.currentTahapan(semester);
+		return ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan, null);
+	}
+
+	public static KrsMahasiswa ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa mahasiswa, Integer semester,
+			Integer tahapan, Integer semesterPendek) {
+		return KrsDanSkripsiHelper.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+				semesterPendek);
 	}
 
 

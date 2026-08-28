@@ -11048,6 +11048,16 @@ public class Common {
 		return CommonAcademicSyncHelper.singkronkanKrsMahasiswa(mahasiswa);
 	}
 
+	public static KrsMahasiswa ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa mahasiswa) {
+		return CommonAcademicSyncHelper.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa);
+	}
+
+	public static KrsMahasiswa ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa mahasiswa, Integer semester,
+			Integer tahapan, Integer semesterPendek) {
+		return CommonAcademicSyncHelper.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+				semesterPendek);
+	}
+
 	/**
 	 * <h3>Sinkronkan KRS mahasiswa untuk semester/tahapan/semesterPendek tertentu</h3>
 	 *

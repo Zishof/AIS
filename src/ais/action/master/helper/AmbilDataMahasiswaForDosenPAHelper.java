@@ -75,7 +75,7 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 			// TODO Auto-generated method stub
 			final Mahasiswa mahasiswa = (Mahasiswa) arg1;
 
-			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
+			KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa);
 
 			MyCheckboxConfig checkbox = new MyCheckboxConfig();
 			checkbox.setParent(arg0);

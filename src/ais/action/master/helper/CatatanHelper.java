@@ -66,7 +66,7 @@ public class CatatanHelper {
 	}
 
 	public void display(final EventListener eventListener) throws Exception {
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
+		KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaUntukCatatan();
 		final MyWindow window = new MyWindow("Masukkan catatan mahasiswa untuk semester " + semester, "normal", true);
 		window.setHeight("300px");
 		window.setWidth("850px");
@@ -193,8 +193,7 @@ public class CatatanHelper {
 					return;
 				}
 
-				final KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan,
-						semesterPendek);
+				final KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaUntukCatatan();
 				krsMahasiswa.setCatatan(catatan.getValue());
 				krsMahasiswa.setCatatanKhs(catatanKhs.getValue());
 				Common.refreshUpdate(krsMahasiswa);
@@ -276,6 +275,17 @@ public class CatatanHelper {
 
 		window.setVisible(true);
 		window.onModal();
+	}
+
+	private KrsMahasiswa ambilKrsMahasiswaUntukCatatan() {
+		KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+				semesterPendek);
+		if (krsMahasiswa == null || krsMahasiswa.getId() == null) {
+			// Baris KRS memang diperlukan oleh lampiran/catatan. Sinkronisasi hanya
+			// dilakukan sekali bila datanya belum pernah terbentuk.
+			krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, true);
+		}
+		return krsMahasiswa;
 	}
 
 }

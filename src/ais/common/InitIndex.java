@@ -1686,6 +1686,63 @@ public class InitIndex {
 	}
 
 	/**
+	 * Index untuk lookup KRS berdasarkan kode unik pada jalur sinkronisasi akademik:
+	 * {@code Restrictions.eq("kodeUnik", kodeUnik).setMaxResults(1)}.
+	 *
+	 * <p>Index KRS yang sudah ada memimpin kolom mahasiswa/tahun akademik, sehingga
+	 * tidak dapat dipakai untuk predicate {@code kodeunik = ?}. Migrasi ini tidak
+	 * langsung membuat index kedua bila database sudah memiliki unique constraint
+	 * dari mapping {@code @Column(unique = true)}. Index milik constraint diprioritaskan,
+	 * lalu index satu-kolom penuh yang benar-benar kembar dan bukan milik constraint
+	 * dibuang agar INSERT/UPDATE KRS tidak membayar biaya pemeliharaan index ganda.</p>
+	 *
+	 * <p>Index parsial, expression index, dan index komposit tidak disentuh karena
+	 * mungkin melayani pola query lain.</p>
+	 */
+	private static void initIndexKrsMahasiswaKodeUnikSuperFast() {
+		String sql = "DO $ais$ "
+				+ "DECLARE v_keep text; r record; "
+				+ "BEGIN "
+				+ "SELECT ci.relname INTO v_keep "
+				+ "FROM pg_index pi "
+				+ "JOIN pg_class tc ON tc.oid = pi.indrelid "
+				+ "JOIN pg_namespace pn ON pn.oid = tc.relnamespace "
+				+ "JOIN pg_class ci ON ci.oid = pi.indexrelid "
+				+ "JOIN pg_attribute pa ON pa.attrelid = tc.oid AND pa.attname = 'kodeunik' AND NOT pa.attisdropped "
+				+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
+				+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
+				+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
+				+ "AND trim(pi.indkey::text) = pa.attnum::text "
+				+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
+				+ "ORDER BY CASE WHEN co.oid IS NOT NULL THEN 0 ELSE 1 END, "
+				+ "CASE WHEN pi.indisunique THEN 0 ELSE 1 END, ci.relname LIMIT 1; "
+				+ "IF v_keep IS NULL THEN "
+				+ "EXECUTE 'CREATE INDEX idx_krs_mahasiswa_kodeunik ON public.krs_mahasiswa (kodeunik)'; "
+				+ "v_keep := 'idx_krs_mahasiswa_kodeunik'; "
+				+ "END IF; "
+				+ "FOR r IN SELECT ci.relname AS index_name "
+				+ "FROM pg_index pi "
+				+ "JOIN pg_class tc ON tc.oid = pi.indrelid "
+				+ "JOIN pg_namespace pn ON pn.oid = tc.relnamespace "
+				+ "JOIN pg_class ci ON ci.oid = pi.indexrelid "
+				+ "JOIN pg_attribute pa ON pa.attrelid = tc.oid AND pa.attname = 'kodeunik' AND NOT pa.attisdropped "
+				+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
+				+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
+				+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
+				+ "AND trim(pi.indkey::text) = pa.attnum::text "
+				+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
+				+ "AND ci.relname <> v_keep AND co.oid IS NULL "
+				+ "LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.index_name); END LOOP; "
+				+ "END $ais$";
+		try {
+			eksekusiSql10Menit(sql);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initIndexKrsMahasiswaKodeUnikSuperFast");
+		}
+	}
+
+	/**
 	 * Index untuk fallback DB baru di {@code ConstantValues.ambilByNim} (2026-08-06).
 	 *
 	 * <p><b>Konteks.</b> {@code ambilByNim} sebelumnya HANYA scan cache in-memory
@@ -2295,6 +2352,7 @@ public class InitIndex {
 		initIndexAlurSopWorkflowSuperFast();
 		initIndexSekolahElearningSuperFast();
 		initIndexInformasiPembayaranMahasiswaSuperFast();
+		initIndexKrsMahasiswaKodeUnikSuperFast();
 		initIndexAmbilByNimFallbackSuperFast();
 		initIndexRevisiEnversGenerik();
 		initIndexRabWorkspaceUploadHapus();

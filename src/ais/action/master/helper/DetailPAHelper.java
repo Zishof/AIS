@@ -168,7 +168,7 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 			StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa).getStatusMahasiswa();
 			new Label(statusMahasiswa.getNama()).setParent(row);
 
-			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
+			KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa);
 
 			new Label(krsMahasiswa.getKelas()).setParent(row);
 			new ais.ui.util.MyHtml(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
