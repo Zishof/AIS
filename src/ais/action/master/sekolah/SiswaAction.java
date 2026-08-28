@@ -1656,7 +1656,8 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 				KelasSiswa kelasSiswa = siswa.getKelas();
 				new Label(kelasSiswa == null ? "" : kelasSiswa.getNama()).setParent(arg0);
 			} catch (Exception e) {
-				new Label().setParent(a);
+				/* Tetap isi sel kolom Kelas; jangan menaruh label kosong ke Vbox Nama. */
+				new Label().setParent(arg0);
 			}
 
 			new Label(siswa.getYayasan() == null ? "" : siswa.getYayasan().getNama()).setParent(arg0);

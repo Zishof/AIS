@@ -322,10 +322,19 @@ public class KelasSiswaAction extends GenericAutowireComposer
 
 											String kunci = kelasSiswa.getNama() + " - " + namaSiswa;
 											try {
-												siswa.setKelas(kelasSiswa);
-
+												/*
+												 * Jangan menyimpan melalui siswa.setKelas() + update entity. Properti
+												 * current_kelas_id dipetakan lewat Siswa.getKelas(), sedangkan getter itu
+												 * juga mencari kelas secara dinamis berdasarkan TA dan cache. Saat flush,
+												 * Hibernate memanggil getter tersebut kembali sehingga kelas yang baru
+												 * dipilih dapat berubah menjadi null/kelas lama. Perbarui kolom FK secara
+												 * langsung, sama dengan jalur upload anggota kelas.
+												 */
 												session.getTransaction().begin();
-												Common.refreshUpdate(session, siswa);
+												session.createSQLQuery(
+														"update sekolah.siswa set current_kelas_id=:kelasId where id=:siswaId")
+														.setLong("kelasId", kelasSiswa.getId().longValue())
+														.setLong("siswaId", siswaId.longValue()).executeUpdate();
 												session.getTransaction().commit();
 												session.clear();
 												laporan.catatBerhasil(baris - 1, kunci, "Sinkronisasi berhasil");
