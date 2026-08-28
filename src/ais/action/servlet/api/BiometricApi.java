@@ -326,6 +326,10 @@ public final class BiometricApi {
 			if (member == null) return null;
 			JenisAnggotaKoperasi jenis = member.getJenisAnggotaKoperasi();
 			TipeAnggotaKoperasi tipe = member.getTipeAnggotaKoperasi();
+			Long tokoId = longValue(payload, "idToko");
+			if (tokoId == null) tokoId = longValue(payload, "id_toko");
+			if (tokoId == null) tokoId = longValue(payload, "toko_id");
+			if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
 			java.util.Set metodeDiizinkan = irisanMetodeDiizinkan(
 					jenis == null ? "" : jenis.getDaftarCaraPembayaranYangBolehDiPilih(),
 					tipe == null ? "" : tipe.getDaftarCaraPembayaranYangBolehDiPilih());

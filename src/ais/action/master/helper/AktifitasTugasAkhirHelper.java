@@ -25,10 +25,6 @@ import org.zkoss.zul.Label;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
-import org.zkoss.zul.Tabbox;
-import org.zkoss.zul.Tabpanel;
-import org.zkoss.zul.Tabpanels;
-import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
@@ -58,7 +54,6 @@ import ais.ui.util.MyButtonConfig;
 import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyGrid;
-import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;

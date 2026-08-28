@@ -1497,6 +1497,10 @@ public class KantinHelper {
 
 						if (hutangBaru > 0.0) {
 							TipeAnggotaKoperasi tipeAnggotaHutang = anggotaKoperasi.getTipeAnggotaKoperasi();
+							if (tipeAnggotaHutang != null
+									&& !tipeAnggotaHutang.berlakuUntukToko(toko.getId())) {
+								tipeAnggotaHutang = null;
+							}
 							double maksimalBolehUtang = tipeAnggotaHutang == null ? 0.0
 									: tipeAnggotaHutang.getMaksimalBolehUtang();
 							double hutangBerjalan = hitungTotalHutangBerjalan(session, anggotaKoperasi.getId());
@@ -6932,6 +6936,7 @@ public class KantinHelper {
 				}
 				ais.database.model.koperasi.JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
 				ais.database.model.koperasi.TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
+				if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
 				JSONObject j = new JSONObject();
 				j.put("id", a.getId());
 				j.put("nama", a.getNama() == null ? "" : a.getNama());

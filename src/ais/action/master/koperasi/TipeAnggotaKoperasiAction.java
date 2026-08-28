@@ -41,6 +41,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
+import ais.database.model.inventory.Toko;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataInitDefault;
 import ais.ui.util.DataSearchDefault;
@@ -81,6 +82,8 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 	private Combobox caraBayarDefault;
 	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayar = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
 	private Map<Checkbox, CaraPembayaranKoperasi> pilihanCaraBayarWajibPin = new LinkedHashMap<Checkbox, CaraPembayaranKoperasi>();
+	private MyCheckboxConfig berlakuSemuaToko;
+	private Map<Checkbox, Toko> pilihanToko = new LinkedHashMap<Checkbox, Toko>();
 	/**
 	 * true bila admin sudah menyentuh checkbox "Wajib No. HP" secara manual pada sesi
 	 * form ini; dipakai agar default per nama (lihat {@link TipeAnggotaKoperasi#defaultWajibHp(String)})
@@ -266,6 +269,38 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		row = new MyFormRow();
 		row.setValign("top");
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Cakupan Toko"));
+		final Vbox cakupanToko = new Vbox();
+		berlakuSemuaToko = new MyCheckboxConfig("Berlaku ke semua toko");
+		berlakuSemuaToko.setChecked(Boolean.TRUE.equals(tipeAnggotaKoperasi.getBerlakuSemuaToko()));
+		cakupanToko.appendChild(berlakuSemuaToko);
+		cakupanToko.appendChild(new Label("Jika tidak aktif, pilih satu atau beberapa toko berikut."));
+		pilihanToko.clear();
+		String csvToko = tipeAnggotaKoperasi.getDaftarToko();
+		@SuppressWarnings("unchecked")
+		List<Toko> semuaToko = HibernateUtil.currentSession().createCriteria(Toko.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.addOrder(Order.asc("nama")).list();
+		for (Toko toko : semuaToko) {
+			Checkbox cbToko = new Checkbox(toko.getNama());
+			cbToko.setChecked(csvToko.contains("," + toko.getId() + ","));
+			cbToko.setDisabled(berlakuSemuaToko.isChecked());
+			cakupanToko.appendChild(cbToko);
+			pilihanToko.put(cbToko, toko);
+		}
+		berlakuSemuaToko.addEventListener("onCheck", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				for (Checkbox pilihan : pilihanToko.keySet()) {
+					pilihan.setDisabled(berlakuSemuaToko.isChecked());
+				}
+			}
+		});
+		row.appendChild(cakupanToko);
+
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Cara Bayar"));
 		Vbox bayar = new Vbox();
 		pilihanCaraBayar.clear();
@@ -429,6 +464,18 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		tipeAnggotaKoperasi.setMaksimalTransaksiHarian(Double.valueOf(maksimalHarian.getValue().doubleValue()));
 		tipeAnggotaKoperasi.setMaksimalTransaksiMingguan(Double.valueOf(maksimalMingguan.getValue().doubleValue()));
 		tipeAnggotaKoperasi.setMaksimalTransaksiBulanan(Double.valueOf(maksimalBulanan.getValue().doubleValue()));
+		StringBuilder csvToko = new StringBuilder();
+		for (Map.Entry<Checkbox, Toko> entry : pilihanToko.entrySet()) {
+			if (entry.getKey().isChecked()) csvToko.append(",").append(entry.getValue().getId());
+		}
+		if (csvToko.length() > 0) csvToko.append(",");
+		if (!berlakuSemuaToko.isChecked() && csvToko.length() == 0) {
+			MyMessageboxConfig.show("Pilih minimal satu toko atau aktifkan Berlaku ke semua toko.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		tipeAnggotaKoperasi.setBerlakuSemuaToko(Boolean.valueOf(berlakuSemuaToko.isChecked()));
+		tipeAnggotaKoperasi.setDaftarToko(berlakuSemuaToko.isChecked() ? "" : csvToko.toString());
 		StringBuilder csvCara = new StringBuilder();
 		for (Map.Entry<Checkbox, CaraPembayaranKoperasi> entry : pilihanCaraBayar.entrySet()) {
 			if (entry.getKey().isChecked()) csvCara.append(",").append(entry.getValue().getId());
