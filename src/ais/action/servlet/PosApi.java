@@ -396,6 +396,12 @@ public class PosApi extends HttpServlet {
 			} else if ("otomatis_pesanan_global_simpan".equals(action)) {
 				KantinHelper.otomatisPesananGlobalSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "otomatis_pesanan_global_simpan");
+			} else if ("pengaturan_edit_transaksi_ambil".equals(action)) {
+				KantinHelper.pengaturanEditTransaksiAmbil(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if ("pengaturan_edit_transaksi_global_simpan".equals(action)) {
+				KantinHelper.pengaturanEditTransaksiGlobalSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if ("toko_filter_list".equals(action)) {
 				prosesTokoFilterList(tbmuser, hasil);
 			} else if ("pengguna_toko_list".equals(action)) {
@@ -3778,7 +3784,9 @@ public class PosApi extends HttpServlet {
 				hasil.put("item", item);
 			}
 
-			hasil.put("bolehEditTransaksi", KantinHelper.bolehEditTransaksi(tbmuser) && punyaHeaderKelompok);
+			hasil.put("bolehEditTransaksi", KantinHelper.bolehEditTransaksi(tbmuser)
+					&& punyaHeaderKelompok
+					&& ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId));
 			hasil.put("status", "success");
 		} finally {
 			tutupOpenSession(session, "prosesDetailTransaksi");

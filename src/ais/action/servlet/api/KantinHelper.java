@@ -6226,6 +6226,38 @@ public class KantinHelper {
 		hasil.put("layani", ais.action.master.koperasi.OtomatisPesananUtil.globalLayani());
 	}
 
+	public static void pengaturanEditTransaksiAmbil(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		boolean adminGlobal = Common.getApakahAdminLain(tbmuser);
+		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
+		Long tokoPemanggil = pedagang == null || pedagang.getToko() == null
+				? null : pedagang.getToko().getId();
+		Long tokoDiminta = Common.angkaAtauNull(request, "toko_id");
+		Long tokoId = adminGlobal && tokoDiminta != null ? tokoDiminta : tokoPemanggil;
+		boolean global = ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif();
+		hasil.put("status", "00");
+		hasil.put("global", global);
+		hasil.put("toko", tokoId == null ? false
+				: ais.action.master.koperasi.KoreksiTransaksiUtil.tokoAktif(tokoId));
+		hasil.put("efektif", tokoId == null ? global
+				: ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId));
+		hasil.put("bolehUbahGlobal", adminGlobal);
+	}
+
+	public static void pengaturanEditTransaksiGlobalSimpan(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (!Common.getApakahAdminLain(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin yang dapat mengubah kebijakan global edit transaksi.");
+			return;
+		}
+		simpanKonfigurasiAktif(
+				ais.action.master.koperasi.KoreksiTransaksiUtil.KUNCI_GLOBAL,
+				request.optBoolean("aktif", false));
+		hasil.put("status", "00");
+		hasil.put("global", ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
+	}
+
 	/**
 	 * Tulis satu konfigurasi bernilai AKTIF/TIDAK_AKTIF.
 	 *
@@ -6343,6 +6375,12 @@ public class KantinHelper {
 					ais.action.master.koperasi.OtomatisPesananUtil.bayarOtomatis(toko));
 			data.put("efektifOtomatisLayaniSetelahJam24",
 					ais.action.master.koperasi.OtomatisPesananUtil.layaniOtomatis(toko));
+			data.put("globalIzinkanEditTransaksi",
+					ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
+			data.put("izinkanEditTransaksiToko",
+					ais.action.master.koperasi.KoreksiTransaksiUtil.tokoAktif(toko.getId()));
+			data.put("efektifIzinkanEditTransaksi",
+					ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(toko.getId()));
 			data.put("bolehUbahHargaSaya",
 					ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser));
 			data.put("tokoDemo", Boolean.TRUE.equals(toko.getTokoDemo()));
@@ -6464,6 +6502,11 @@ public class KantinHelper {
 			if (request.has("boleh_transaksi_stok_habis")) {
 				toko.setBolehTransaksiStokHabis(Boolean.valueOf(
 						request.optBoolean("boleh_transaksi_stok_habis", false)));
+			}
+			if (request.has("izinkan_edit_transaksi_toko")) {
+				simpanKonfigurasiAktif(
+						ais.action.master.koperasi.KoreksiTransaksiUtil.kunciToko(toko.getId()),
+						request.optBoolean("izinkan_edit_transaksi_toko", false));
 			}
 			// Toko demo membuka generator data volume besar, sehingga flag ini sengaja
 			// hanya dapat diubah administrator global. Supervisor tetap dapat menyimpan
@@ -16329,6 +16372,10 @@ public class KantinHelper {
 		try {
 			PembelianAnggotaKoperasi trx = (PembelianAnggotaKoperasi) session.get(PembelianAnggotaKoperasi.class, transaksiId);
 			if (trx == null) throw new IllegalStateException("Transaksi tidak ditemukan atau merupakan transaksi lama yang tidak dapat dikoreksi.");
+			if (trx.getToko() == null || !ais.action.master.koperasi.KoreksiTransaksiUtil
+					.efektif(trx.getToko().getId())) {
+				throw new IllegalStateException("Edit transaksi dinonaktifkan oleh konfigurasi global dan toko transaksi.");
+			}
 			Toko tokoLogin = tbmuser.getPedagang() == null ? null : tbmuser.getPedagang().getToko();
 			if (tokoLogin != null && (trx.getToko() == null || !tokoLogin.getId().equals(trx.getToko().getId())))
 				throw new IllegalStateException("Transaksi ini bukan milik toko yang sedang login.");
