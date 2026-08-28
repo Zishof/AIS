@@ -104,9 +104,8 @@
 
 						<center border="none" flex="true">
 							<borderlayout>
-								<north border="none" open="true"
-									flex="true">
-									<grid use="ais.ui.util.MyGrid"
+								<north border="none" open="true" height="52px">
+									<grid use="ais.ui.util.MyGrid" width="100%"
 										fixedLayout="true">
 										<columns>
 											<column
@@ -123,7 +122,7 @@
 
 											<row spans="2">
 
-												<toolbar>
+												<toolbar width="100%" style="padding:6px 8px;">
 													<label
 														id="labelCariPegawai" use="ais.ui.util.MyLabelConfig"
 														value="Pegawai">
