@@ -48,13 +48,8 @@ public final class NewUiRouteRegistry {
         register(100000007L, "/pages/master/agama.zul", "root", "agama");
 
         /*
-         * Keuangan siswa/mahasiswa.
-         *
-         * Semua binding di bawah menunjuk service JSON di WEB-INF/new. URL ZUL
-         * hanya dipakai sebagai identitas exact dari Menu.java; URL tersebut
-         * tidak pernah dikirim ke Flutter dan tidak pernah dirender sebagai
-         * halaman. Query string pada dua menu pem_online sengaja menjadi bagian
-         * binding agar menu Siswa dan Calon Siswa tidak tertukar.
+         * Keuangan siswa/mahasiswa. URL ZUL hanya identitas exact Menu.java;
+         * renderer desktop selalu memakai service JSON di WEB-INF/new.
          */
         register(1732L, "/pages/master/informasi_pembayaran_mahasiswa.zul", "root", "informasi_pembayaran_mahasiswa");
         register(34569L, "/pages/master/baypass_pembayaran_mahasiswa.zul", "root", "baypass_pembayaran_mahasiswa");
@@ -129,12 +124,6 @@ public final class NewUiRouteRegistry {
     public static Route routeForMenuIdAndUrl(Long menuId, String legacyUrl) {
         Route byId = menuId == null ? null : BY_ID.get(menuId);
         if (byId != null) {
-            /*
-             * ID yang sudah dikenal tidak boleh berpindah ke route milik ID
-             * lain melalui fallback URL. Ini penting untuk pasangan menu yang
-             * memakai halaman ZUL sama tetapi query/semantik berbeda, seperti
-             * Pembayaran Siswa dan Pembayaran Calon Siswa.
-             */
             return byId.exactLegacyUrl.length() == 0
                     || byId.exactLegacyUrl.equals(normalizeUrl(legacyUrl))
                     ? byId : null;
