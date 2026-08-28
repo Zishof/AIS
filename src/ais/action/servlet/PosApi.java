@@ -2458,6 +2458,20 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/** Menyalin amplop API AIS ke objek respons mutable milik Api_eBisnis. */
+	private static void salinBalasanApi(JSONObject balasan, JSONObject hasil) throws Exception {
+		if (balasan == null) {
+			hasil.put("status", "99");
+			hasil.put("description", "Layanan tidak mengembalikan respons");
+			return;
+		}
+		java.util.Iterator<?> kunci = balasan.keys();
+		while (kunci.hasNext()) {
+			String nama = String.valueOf(kunci.next());
+			hasil.put(nama, balasan.get(nama));
+		}
+	}
+
 	/**
 	 * Ringkasan penjualan HARI INI (omzet, jumlah transaksi, qty terjual, 5 produk terlaris) milik
 	 * toko kasir yang sedang login -- dipakai layar "Ringkasan" (Fase 2) sbg pengganti RINGAN dari
