@@ -28,6 +28,7 @@ import ais.action.servlet.api.SatuanKerjaKantinHelper;
 import ais.action.servlet.api.PosDeviceAuthApi;
 import ais.action.servlet.api.PosDemoProvisionHelper;
 import ais.action.servlet.api.DistribusiPengirimanApiHelper;
+import ais.action.servlet.api.ProduksiApiHelper;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
@@ -1185,6 +1186,14 @@ public class PosApi extends HttpServlet {
 				DistribusiPengirimanApiHelper.simpan(tbmuser, payload, hasil);
 			} else if ("distribusi_status".equals(action)) {
 				DistribusiPengirimanApiHelper.ubahStatus(tbmuser, payload, hasil);
+			} else if ("produksi_list".equals(action)) {
+				ProduksiApiHelper.daftar(tbmuser, payload, hasil);
+			} else if ("produksi_detail".equals(action)) {
+				ProduksiApiHelper.detail(tbmuser, payload, hasil);
+			} else if ("produksi_simpan".equals(action)) {
+				ProduksiApiHelper.simpan(tbmuser, payload, hasil);
+			} else if ("produksi_status".equals(action)) {
+				ProduksiApiHelper.ubahStatus(tbmuser, payload, hasil);
 			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
@@ -2152,6 +2161,7 @@ public class PosApi extends HttpServlet {
 		// TbmroleAction di helper distribusi. Gerbang awal hanya meloloskan
 		// namespace ini agar pemeriksaan fail-closed tersebut dapat dijalankan.
 		if (action.startsWith("distribusi_")) return true;
+		if (action.startsWith("produksi_")) return true;
 		if ("konfigurasi".equals(action) || "daftar_toko_saya".equals(action)
 				|| "pilih_toko_aktif".equals(action)
 				|| "pengaturan_edit_transaksi_ambil".equals(action)
