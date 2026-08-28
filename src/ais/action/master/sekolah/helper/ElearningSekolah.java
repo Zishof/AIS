@@ -11,7 +11,6 @@ import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Tabpanels;
 import org.zkoss.zul.Tabs;
-import org.zkoss.zul.Vbox;
 
 import ais.action.maintenance.MainProgressHelper;
 import ais.action.master.dashboard.admin.DashboardTimelinePertemuan;
@@ -26,6 +25,7 @@ import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Sekolah;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyWindow;
 
@@ -69,7 +69,7 @@ public class ElearningSekolah extends MyWindow {
 		center.setStyle("border:0;background:#f8fafc;overflow:auto;padding:0;");
 		center.setParent(borderlayout);
 
-		Vbox wrapper = new Vbox();
+		Div wrapper = new Div();
 		wrapper.setWidth("100%");
 		wrapper.setHeight("100%");
 		wrapper.setStyle("background:#f8fafc;overflow:auto;box-sizing:border-box;padding:0;margin:0;");
@@ -77,43 +77,20 @@ public class ElearningSekolah extends MyWindow {
 
 		appendHeader(wrapper, sekolah);
 
-		final Tabbox tabbox = new Tabbox();
-		tabbox.setParent(wrapper);
-		tabbox.setWidth("100%");
-		tabbox.setHeight("100%");
-		tabbox.setStyle("background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
-				+ "box-shadow:0 8px 22px rgba(15,23,42,0.08);overflow:auto;box-sizing:border-box;"
-				+ "min-height:900px;");
+		Div tabHost = new Div();
+		tabHost.setWidth("100%");
+		tabHost.setHeight("calc(100vh - 205px)");
+		tabHost.setStyle("min-height:620px;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
+				+ "box-shadow:0 8px 22px rgba(15,23,42,0.08);overflow:hidden;box-sizing:border-box;");
+		tabHost.setParent(wrapper);
 
-		Tabs tabs = new Tabs();
-		tabs.setParent(tabbox);
-		tabs.setWidth("100%");
-		tabs.setStyle("background:#eff6ff;border-bottom:1px solid #dbeafe;padding:6px;box-sizing:border-box;");
+		final MyButtonTabbox buttonTabbox = MyButtonTabbox.buat(tabHost, "100%", new int[] { 1 });
+		final Div panelRingkasan = buttonTabbox.tambahTab(1, "Ringkasan", "/img/svg/table-report.svg");
+		aturPanelUtama(panelRingkasan);
 
-		final MyTabConfig tabRingkas = createTab(tabs, "Ringkasan", "/img/svg/table-report.svg");
-		final MyTabConfig tabPertemuan = createTab(tabs, "Pertemuan", "/img/svg/list-task.svg");
-		final MyTabConfig tabUjian = createTab(tabs, "Ujian", "/img/svg/user-edit.svg");
-		final MyTabConfig tabTgs = createTab(tabs, "Tugas", "/img/svg/task-line.svg");
-		final MyTabConfig tabTugasKelompok = createTab(tabs, "Tugas Kelompok", "/img/Document-scheduled-tasks-icon.png");
-		final MyTabConfig tabReferensi = createTab(tabs, "Materi", "/img/svg/books-thin.svg");
-
-		Tabpanels tabpanels = new Tabpanels();
-		tabpanels.setParent(tabbox);
-		tabpanels.setWidth("100%");
-		tabpanels.setHeight("100%");
-		tabpanels.setStyle("background:#ffffff;overflow:auto;box-sizing:border-box;");
-
-		final Tabpanel tabpanelRingkasan = createPanel(tabpanels);
-		final Tabpanel tabpanelPertemuan = createPanel(tabpanels);
-		final Tabpanel tabpanelUjian = createPanel(tabpanels);
-		final Tabpanel tabpanelTugas = createPanel(tabpanels);
-		final Tabpanel tabpanelTugasKelompok = createPanel(tabpanels);
-		final Tabpanel tabpanelTugasMateri = createPanel(tabpanels);
-
-		loadRingkasan(tabpanelRingkasan, sekolah);
-
-		bindLazyLoad(tabPertemuan, tabpanelPertemuan, new LazyLoader() {
-			public void load(Component parent) throws Exception {
+		final Div panelPertemuan = buttonTabbox.tambahTabLazy(2, "Pertemuan",
+				"/img/svg/list-task.svg", new MyButtonTabbox.PemuatTab() {
+			public void muat(Div parent) throws Exception {
 				DashboardTimelinePertemuan dashboardTimelinePertemuan = new DashboardTimelinePertemuan(new EventListener() {
 					@Override
 					public void onEvent(Event arg0) throws Exception {
@@ -124,36 +101,49 @@ public class ElearningSekolah extends MyWindow {
 				parent.appendChild(dashboardTimelinePertemuan);
 			}
 		});
+		aturPanelUtama(panelPertemuan);
 
-		bindLazyLoad(tabUjian, tabpanelUjian, new LazyLoader() {
-			public void load(Component parent) throws Exception {
+		final Div panelUjian = buttonTabbox.tambahTabLazy(3, "Ujian", "/img/svg/user-edit.svg",
+				new MyButtonTabbox.PemuatTab() {
+			public void muat(Div parent) throws Exception {
 				RekapitulasiUjianHelper.display(parent, tbmuser);
 			}
 		});
+		aturPanelUtama(panelUjian);
 
-		bindLazyLoad(tabTgs, tabpanelTugas, new LazyLoader() {
-			public void load(Component parent) throws Exception {
+		final Div panelTugas = buttonTabbox.tambahTabLazy(4, "Tugas", "/img/svg/task-line.svg",
+				new MyButtonTabbox.PemuatTab() {
+			public void muat(Div parent) throws Exception {
 				RekapitulasiTugasHelper.display(parent, tbmuser);
 			}
 		});
+		aturPanelUtama(panelTugas);
 
-		bindLazyLoad(tabTugasKelompok, tabpanelTugasKelompok, new LazyLoader() {
-			public void load(Component parent) throws Exception {
+		final Div panelTugasKelompok = buttonTabbox.tambahTabLazy(5, "Tugas Kelompok",
+				"/img/Document-scheduled-tasks-icon.png", new MyButtonTabbox.PemuatTab() {
+			public void muat(Div parent) throws Exception {
 				RekapitulasiTugasKelompokHelper.display(parent, tbmuser);
 			}
 		});
+		aturPanelUtama(panelTugasKelompok);
 
-		bindLazyLoad(tabReferensi, tabpanelTugasMateri, new LazyLoader() {
-			public void load(Component parent) throws Exception {
+		final Div panelMateri = buttonTabbox.tambahTabLazy(6, "Materi", "/img/svg/books-thin.svg",
+				new MyButtonTabbox.PemuatTab() {
+			public void muat(Div parent) throws Exception {
 				loadMateri(parent);
 			}
 		});
+		aturPanelUtama(panelMateri);
 
-		try {
-			tabRingkas.setSelected(true);
-			tabbox.setSelectedIndex(0);
-		} catch (Exception e) {
-			showError(e);
+		// Tab pertama wajib terisi pada render awal; tidak bergantung pada event
+		// onSelect/onClick Tabbox native yang tidak konsisten pada ZK 5.
+		loadRingkasan(panelRingkasan, sekolah);
+		buttonTabbox.pilih(1);
+	}
+
+	private void aturPanelUtama(Div panel) {
+		if (panel != null) {
+			panel.setStyle("background:#ffffff;overflow:auto;padding:10px;box-sizing:border-box;min-height:560px;");
 		}
 	}
 
