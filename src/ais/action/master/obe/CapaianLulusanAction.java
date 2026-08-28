@@ -157,6 +157,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsProfilLulusanAction rel =
                         new CapaianLulusanVsProfilLulusanAction("", "none", false);
+                if (rel.getChildren().isEmpty()) {
+                    throw new IllegalStateException("Konten CPL vs Profil gagal dibentuk.");
+                }
                 rel.setHeight("100%");
                 rel.setWidth("100%");
                 rel.setParent(panel);
@@ -167,6 +170,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsBahanKajianAction rel =
                         new CapaianLulusanVsBahanKajianAction("", "none", false);
+                if (rel.getChildren().isEmpty()) {
+                    throw new IllegalStateException("Konten CPL vs Bahan Kajian gagal dibentuk.");
+                }
                 rel.setHeight("100%");
                 rel.setWidth("100%");
                 rel.setParent(panel);
@@ -177,6 +183,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsCapaianPembelajaranLulusanAction rel =
                         new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
+                if (rel.getChildren().isEmpty()) {
+                    throw new IllegalStateException("Konten CPL vs CPMK gagal dibentuk.");
+                }
                 rel.setHeight("100%");
                 rel.setWidth("100%");
                 rel.setParent(panel);
