@@ -16,9 +16,14 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.transaction.Status;
+import javax.transaction.Synchronization;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.event.AuditEventListener;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.event.PostDeleteEvent;
 import org.hibernate.event.PostInsertEvent;
 import org.hibernate.event.PostUpdateEvent;
@@ -216,6 +221,153 @@ public class AuditListener extends AuditEventListener {
 		} catch (Exception e) {
 			PROSES_AKTIF.set(null);
 		}
+	}
+
+	/*
+	 * Sinkronisasi status mahasiswa akibat perubahan Kegiatan tidak boleh dijalankan
+	 * dari onPostInsert/onPostUpdate/onPostDelete. Callback Hibernate tersebut masih
+	 * berada di dalam transaksi yang mengubah baris kegiatan. currentStatus() dapat
+	 * membuka transaksi lain dan menyinkronkan KRS; transaksi kedua kemudian menunggu
+	 * lock kegiatan milik transaksi pertama, sementara transaksi pertama menunggu
+	 * listener selesai (self-lock).
+	 *
+	 * Permintaan ditunda sampai AFTER_COMMIT. Map mempertahankan permintaan terbaru
+	 * untuk mahasiswa/semester yang sama, sedangkan striped lock mencegah dua worker
+	 * memperbarui status yang sama secara paralel.
+	 */
+	private static final java.util.concurrent.ConcurrentHashMap<String, SinkronisasiStatusKegiatanRequest> PENDING_SINKRONISASI_STATUS = new java.util.concurrent.ConcurrentHashMap<String, SinkronisasiStatusKegiatanRequest>();
+	private static final Object[] LOCK_SINKRONISASI_STATUS = new Object[64];
+	private static final ThreadLocal<Boolean> SINKRONISASI_STATUS_AKTIF = new ThreadLocal<Boolean>();
+	static {
+		for (int i = 0; i < LOCK_SINKRONISASI_STATUS.length; i++) {
+			LOCK_SINKRONISASI_STATUS[i] = new Object();
+		}
+	}
+
+	private static final class SinkronisasiStatusKegiatanRequest {
+		private final Long mahasiswaId;
+		private final String tahunAkademik;
+		private final Integer semester;
+		private final boolean pembayaranLunas;
+
+		private SinkronisasiStatusKegiatanRequest(Long mahasiswaId, String tahunAkademik, Integer semester,
+				boolean pembayaranLunas) {
+			this.mahasiswaId = mahasiswaId;
+			this.tahunAkademik = tahunAkademik;
+			this.semester = semester;
+			this.pembayaranLunas = pembayaranLunas;
+		}
+
+		private String key() {
+			return String.valueOf(mahasiswaId) + "-" + String.valueOf(semester);
+		}
+	}
+
+	private static void jadwalkanSinkronisasiStatusKegiatanSetelahCommit(final Kegiatan kegiatan,
+			Session eventSession, boolean dihapus) {
+		try {
+			if (kegiatan == null || kegiatan.getJenisKegiatan() == null || kegiatan.getMahasiswa() == null
+					|| kegiatan.getMahasiswa().getId() == null
+					|| !Boolean.TRUE.equals(kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan())) {
+				return;
+			}
+
+			Double persentase = kegiatan.getPersentaseLunas();
+			final SinkronisasiStatusKegiatanRequest request = new SinkronisasiStatusKegiatanRequest(
+					kegiatan.getMahasiswa().getId(), kegiatan.getTahunAkademik(), kegiatan.getSemster(),
+					!dihapus && persentase != null && persentase.doubleValue() >= 0.1d);
+
+			Transaction transaction = eventSession == null ? null : eventSession.getTransaction();
+			if (transaction != null && transaction.isActive()) {
+				transaction.registerSynchronization(new Synchronization() {
+					@Override
+					public void beforeCompletion() {
+					}
+
+					@Override
+					public void afterCompletion(int status) {
+						if (status == Status.STATUS_COMMITTED) {
+							antrekanSinkronisasiStatusKegiatan(request);
+						}
+					}
+				});
+				return;
+			}
+
+			// Jalur defensif untuk event tanpa transaksi aktif. Tunda agar flush/callback
+			// saat ini selesai sebelum transaksi sinkronisasi baru dibuka.
+			AUDIT_SCHEDULER.schedule(new Runnable() {
+				@Override
+				public void run() {
+					antrekanSinkronisasiStatusKegiatan(request);
+				}
+			}, 1L, java.util.concurrent.TimeUnit.SECONDS);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"gagal mendaftarkan sinkronisasi status Kegiatan setelah commit");
+		}
+	}
+
+	private static void antrekanSinkronisasiStatusKegiatan(final SinkronisasiStatusKegiatanRequest request) {
+		final String key = request.key();
+		PENDING_SINKRONISASI_STATUS.put(key, request);
+		AUDIT_SCHEDULER.schedule(new Runnable() {
+			@Override
+			public void run() {
+				Object lock = LOCK_SINKRONISASI_STATUS[(key.hashCode() & 0x7fffffff)
+						% LOCK_SINKRONISASI_STATUS.length];
+				synchronized (lock) {
+					SinkronisasiStatusKegiatanRequest terbaru = PENDING_SINKRONISASI_STATUS.remove(key);
+					if (terbaru != null) {
+						prosesSinkronisasiStatusKegiatan(terbaru);
+					}
+				}
+			}
+		}, 100L, java.util.concurrent.TimeUnit.MILLISECONDS);
+	}
+
+	private static void prosesSinkronisasiStatusKegiatan(SinkronisasiStatusKegiatanRequest request) {
+		Session session = null;
+		try {
+			SINKRONISASI_STATUS_AKTIF.set(Boolean.TRUE);
+			session = HibernateUtil.openSession();
+			Mahasiswa mahasiswa = (Mahasiswa) session.get(Mahasiswa.class, request.mahasiswaId);
+			if (mahasiswa == null) {
+				return;
+			}
+
+			Konfigurasi konfigurasi = Common.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "",
+					request.semester, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), mahasiswa.getProgram(),
+					mahasiswa.getStatusAwalMahasiswa());
+			if (konfigurasi == null || !Konfigurasi.AKTIF.equals(konfigurasi.getNilai())) {
+				return;
+			}
+
+			KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, null, request.semester,
+					request.pembayaranLunas, false);
+			HistoryStatusMahasiswa history = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(
+					mahasiswa, request.tahunAkademik, request.semester);
+			if (history != null) {
+				history.put(String.valueOf(request.pembayaranLunas), "checkStatusPembayaranMahasiswa");
+				history.setStatusMahasiswa(
+						request.pembayaranLunas ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "sinkronisasi status Kegiatan setelah commit");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+			try {
+				SINKRONISASI_STATUS_AKTIF.remove();
+			} catch (Exception e) {
+				SINKRONISASI_STATUS_AKTIF.set(null);
+			}
+		}
+	}
+
+	private static boolean sedangSinkronisasiStatusKegiatan() {
+		return Boolean.TRUE.equals(SINKRONISASI_STATUS_AKTIF.get());
 	}
 
 	public static void prosesUntukElearning(Serializable serializable, String cla, Serializable id) {
@@ -818,68 +970,8 @@ public class AuditListener extends AuditEventListener {
 					}
 				}
 
-				if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-						&& kegiatan.getMahasiswa() != null
-						&& kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan()) {
-					boolean terlambarLangsungTidakAktif = Common
-							.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", kegiatan.getSemster(),
-									kegiatan.getMahasiswa().getTahunangkatan(), kegiatan.getMahasiswa().getJurusan(),
-									kegiatan.getMahasiswa().getProgram(),
-									kegiatan.getMahasiswa().getStatusAwalMahasiswa())
-							.getNilai().equals(Konfigurasi.AKTIF);
-					if (terlambarLangsungTidakAktif) {
-						double harusLunas = 0.1;
-						boolean checkStatusPembayaranMahasiswa = (kegiatan != null
-								&& kegiatan.getPersentaseLunas() >= harusLunas);
-
-						if (kegiatan.getMahasiswa() != null) {
-							KegiatanHelper.updateBatasStudiMahasiswa(kegiatan.getMahasiswa(), null,
-									kegiatan.getSemster(), checkStatusPembayaranMahasiswa, false);
-						}
-
-						HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-								.currentStatus(kegiatan.getMahasiswa(), kegiatan.getTahunAkademik(),
-										kegiatan.getSemster());
-						historyStatusMahasiswa.put(checkStatusPembayaranMahasiswa + "",
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(
-								checkStatusPembayaranMahasiswa ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
-						System.out.println("mahasiswa " + kegiatan.getMahasiswa() + ", checkStatusPembayaranMahasiswa "
-								+ checkStatusPembayaranMahasiswa);
-					}
-				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:783");
-			}
-		} else if (serializable instanceof Kegiatan && cla.trim().contains("onPostDelete")) {
-			Kegiatan kegiatan = (Kegiatan) serializable;
-			try {
-				if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-						&& kegiatan.getMahasiswa() != null
-						&& kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan()) {
-					boolean terlambarLangsungTidakAktif = Common
-							.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", kegiatan.getSemster(),
-									kegiatan.getMahasiswa().getTahunangkatan(), kegiatan.getMahasiswa().getJurusan(),
-									kegiatan.getMahasiswa().getProgram(),
-									kegiatan.getMahasiswa().getStatusAwalMahasiswa())
-							.getNilai().equals(Konfigurasi.AKTIF);
-					if (terlambarLangsungTidakAktif) {
-						boolean checkStatusPembayaranMahasiswa = false;
-						if (kegiatan.getMahasiswa() != null) {
-							KegiatanHelper.updateBatasStudiMahasiswa(kegiatan.getMahasiswa(), null,
-									kegiatan.getSemster(), checkStatusPembayaranMahasiswa, false);
-						}
-
-						HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-								.currentStatus(kegiatan.getMahasiswa(), kegiatan.getTahunAkademik(),
-										kegiatan.getSemster());
-						historyStatusMahasiswa.put(checkStatusPembayaranMahasiswa + "",
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
-					}
-				}
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:813");
 			}
 		}
 
@@ -1976,6 +2068,9 @@ public class AuditListener extends AuditEventListener {
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 
 		String cla = this.getClass().getName() + " onPostDelete ";
+		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), true);
+		}
 
 		if (masukProses()) {
 			try {
@@ -2001,6 +2096,9 @@ public class AuditListener extends AuditEventListener {
 		AuditTrailHelper.debug("AuditListener.onPostInsert proses "
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 		String cla = this.getClass().getName() + " onPostInsert ";
+		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), false);
+		}
 
 		if (masukProses()) {
 			try {
@@ -2068,6 +2166,9 @@ public class AuditListener extends AuditEventListener {
 		}
 
 		String cla = this.getClass().getName() + " onPostUpdate ";
+		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), false);
+		}
 
 		if (masukProses()) {
 			try {
