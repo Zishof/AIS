@@ -3972,7 +3972,9 @@ public class KantinHelper {
 					p.setGrupProduk(grup);
 				}
 			}
-			// Pemasok Utama & Satuan -- SEBELUMNYA hanya bisa terisi lewat impor Excel, sehingga
+			// Pemasok Utama & Satuan -- form baru mengirim satuan_id agar relasi UOM tidak
+			// pernah dibentuk dari salah ketik. satuan_nama tetap didukung hanya sebagai
+			// kompatibilitas klien lama/importir.
 			// katalog yang dibuat/diedit dari form Produk, Kulakan, atau Bulk Entry SELALU kosong
 			// pada kedua kolom itu dan ekspor "Daftar Barang dan Jasa" ikut kosong. Di sini
 			// keduanya diterima sebagai NAMA lalu dicocokkan case-insensitive; kalau belum ada,
@@ -3982,7 +3984,21 @@ public class KantinHelper {
 			if (request.has("pemasok_nama")) {
 				p.setPemasok(resolvePemasokProduk(session, request.optString("pemasok_nama", "")));
 			}
-			if (request.has("satuan_nama")) {
+			if (request.has("satuan_id")) {
+				if (request.isNull("satuan_id") || (request.get("satuan_id") + "").trim().isEmpty()) {
+					hasil.put("status", "91");
+					hasil.put("description", "Satuan Stok/Dasar wajib dipilih dari Master Data > Satuan/UOM. Cari lalu pilih salah satu hasil; jangan hanya mengetik teks.");
+					return;
+				}
+				Long satuanId = Long.valueOf((request.get("satuan_id") + "").trim());
+				SatuanProduk satuan = (SatuanProduk) session.get(SatuanProduk.class, satuanId);
+				if (satuan == null || !Boolean.TRUE.equals(satuan.getAktif())) {
+					hasil.put("status", "91");
+					hasil.put("description", "Satuan/UOM yang dipilih tidak ditemukan atau sudah nonaktif. Tekan Sinkronkan/Muat Ulang, lalu pilih UOM aktif dari hasil pencarian.");
+					return;
+				}
+				p.setSatuan(satuan);
+			} else if (request.has("satuan_nama")) {
 				p.setSatuan(resolveSatuanProduk(session, request.optString("satuan_nama", "")));
 			}
 			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().

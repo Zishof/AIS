@@ -1296,6 +1296,8 @@ public class PosApi extends HttpServlet {
 				j.put("kebijakanReturNama", kr == null ? ais.database.model.inventory.KebijakanRetur.TANPA_KEBIJAKAN : str(kr.getNama()));
 				// Gap-closure "Cetak PDF" (layar Produk) -- perlu Satuan/UOM & Pemasok per baris utk
 				// cetakan detail, field ini SEBELUMNYA tak pernah dikirim aksi katalog sama sekali.
+				j.put("satuanId", p.getSatuan() == null || p.getSatuan().getId() == null
+						? JSONObject.NULL : p.getSatuan().getId());
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
