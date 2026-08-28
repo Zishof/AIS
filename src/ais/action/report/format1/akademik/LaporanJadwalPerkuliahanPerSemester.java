@@ -4,6 +4,7 @@ import ais.common.PesanFormalHelper;
 import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -252,7 +253,13 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 				Jurusan jurusan = (Jurusan) (kurikulumJurusan.getSelectedItem() == null ? null
 						: kurikulumJurusan.getSelectedItem().getValue());
 
-				Session session = HibernateUtil.currentSession();
+				/*
+				 * Laporan dapat berjalan cukup lama dan memanggil beberapa getter entity.
+				 * Jangan memakai currentSession request untuk seluruh proses karena session
+				 * tersebut dapat sudah ditutup oleh alur lain pada request yang sama.
+				 */
+				Session session = HibernateUtil.openSession();
+				try {
 
 				Criterion criterion = genapGanjil == null ? Restrictions.sqlRestriction("true")
 						: Restrictions.eq("ganjilGenap", genapGanjil);
@@ -296,6 +303,22 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 						.list();
 
 				List<Map<String, Serializable>> maps = new ArrayList<Map<String, Serializable>>();
+				Map<Long, Integer> jumlahPeserta = new HashMap<Long, Integer>();
+				if (!perkuliahans.isEmpty()) {
+					List<Object[]> hasilPeserta = session.createCriteria(Detailperkuliahan.class)
+							.add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
+							.add(Restrictions.in("perkuliahan", perkuliahans))
+							.setProjection(Projections.projectionList()
+									.add(Projections.groupProperty("perkuliahan.id"))
+									.add(Projections.rowCount()))
+							.list();
+					for (Object[] hasil : hasilPeserta) {
+						if (hasil != null && hasil.length > 1 && hasil[0] != null && hasil[1] instanceof Number) {
+							jumlahPeserta.put((Long) hasil[0],
+									Integer.valueOf(((Number) hasil[1]).intValue()));
+						}
+					}
+				}
 
 				for (Perkuliahan perkuliahan : perkuliahans) {
 					Map<String, Serializable> map = new java.util.HashMap<String, Serializable>();
@@ -317,11 +340,8 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 					map.put("semester_kelas",
 							"Semester " + perkuliahan.getSemester() + " " + perkuliahan.getKelas().toUpperCase());
 
-					map.put("peserta",
-							((Number) session.createCriteria(Detailperkuliahan.class)
-									.add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
-									.setProjection(Projections.rowCount())
-									.add(Restrictions.eq("perkuliahan", perkuliahan)).uniqueResult()).intValue());
+					Integer peserta = jumlahPeserta.get(perkuliahan.getId());
+					map.put("peserta", peserta == null ? Integer.valueOf(0) : peserta);
 
 					maps.add(map);
 				}
@@ -329,6 +349,9 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 				Map parameters = generateParameter();
 				parameters.put("maps", maps);
 				return parameters;
+				} finally {
+					HibernateUtil.closeSessionQuietly(session);
+				}
 			}
 		}, "Jadwal_Perkuliahan", null, new EventListener() {
 

@@ -889,20 +889,27 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 
 		try {
 			if (disposisiSop != null && hasText(disposisiSop.getProperti())) {
-				JSONObject root = new JSONObject(disposisiSop.getProperti());
-				JSONObject jsonObject = root;
-				String key = formSop.ambilClass() == null ? null : formSop.ambilClass().getName();
-				if (hasText(key) && !root.isNull(key)) {
-					jsonObject = root.getJSONObject(key);
+				data = resolveFormDataFromJson(disposisiSop.getProperti(), formSop);
+				if (data != null && data.getId() != null) {
+					return data;
 				}
-				if (jsonObject != null && !jsonObject.isNull("id") && formSop.ambilClass() != null) {
-					String id = String.valueOf(jsonObject.get("id"));
-					if (hasText(id)) {
-						data = (GeneralValueObject) GeneralValueObject.ambilData(formSop.ambilClass(), id, true);
-						if (data != null && data.getId() != null) {
-							return data;
-						}
-					}
+			}
+		} catch (Exception e) {
+			ais.common.Common.tampilErrorJikaAdmin(e);
+		}
+
+		/*
+		 * Workflow lama tidak selalu menyalin referensi form ke properti induk
+		 * DisposisiSop. Referensi id tetap tersimpan pada langkah awal. Tanpa
+		 * fallback ini form dibangun dari object kosong sehingga seluruh detail
+		 * (pegawai, status izin, periode dan jatah cuti) tampak blank.
+		 */
+		try {
+			if (disposisiSop != null && disposisiSop.getDisposisiStart() != null
+					&& hasText(disposisiSop.getDisposisiStart().getProperti())) {
+				data = resolveFormDataFromJson(disposisiSop.getDisposisiStart().getProperti(), formSop);
+				if (data != null && data.getId() != null) {
+					return data;
 				}
 			}
 		} catch (Exception e) {
@@ -925,6 +932,29 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 		}
 
 		return data == null ? createEmptyFormData(formSop) : data;
+	}
+
+	private static GeneralValueObject resolveFormDataFromJson(String properti, FormSop formSop) throws Exception {
+		if (!hasText(properti) || formSop == null || formSop.ambilClass() == null) {
+			return null;
+		}
+		JSONObject root = new JSONObject(properti);
+		JSONObject jsonObject = root;
+		String key = formSop.ambilClass().getName();
+		if (!root.isNull(key)) {
+			Object nilai = root.get(key);
+			if (nilai instanceof JSONObject) {
+				jsonObject = (JSONObject) nilai;
+			}
+		}
+		if (jsonObject == null || jsonObject.isNull("id")) {
+			return null;
+		}
+		String id = String.valueOf(jsonObject.get("id"));
+		if (!hasText(id)) {
+			return null;
+		}
+		return (GeneralValueObject) GeneralValueObject.ambilData(formSop.ambilClass(), id, true);
 	}
 
 	private static Long createMapKey(GeneralValueObject data) {
