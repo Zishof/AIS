@@ -25,6 +25,7 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.HtmlBasedComponent;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
@@ -155,27 +156,27 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(2, "CPL vs Profil", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                CapaianLulusanVsProfilLulusanAction rel =
+                Component rel =
                         new CapaianLulusanVsProfilLulusanAction("", "none", false);
-				rel.setParent(panel);
+				pasangPanelRelasi(panel, rel);
 				siapkanPanelRelasi(panel);
             }
         });
         buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                CapaianLulusanVsBahanKajianAction rel =
+                Component rel =
                         new CapaianLulusanVsBahanKajianAction("", "none", false);
-				rel.setParent(panel);
+				pasangPanelRelasi(panel, rel);
 				siapkanPanelRelasi(panel);
             }
         });
         buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                CapaianLulusanVsCapaianPembelajaranLulusanAction rel =
+                Component rel =
                         new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
-				rel.setParent(panel);
+				pasangPanelRelasi(panel, rel);
 				siapkanPanelRelasi(panel);
             }
         });
@@ -188,6 +189,38 @@ public class CapaianLulusanAction extends ObeBaseAction {
 
     private void siapkanPanelRelasi(Div panel) {
         panel.setStyle("overflow:hidden;min-height:560px;box-sizing:border-box;");
+    }
+
+    /**
+     * Menjaga kompatibilitas saat deployment inkremental masih menyisakan class
+     * relasi lama yang mewarisi MyWindow. Wrapper lama mempunyai caption bawaan
+     * "Menu" dan dapat membuat Borderlayout di dalamnya kehilangan tinggi. Isi
+     * wrapper dipindahkan langsung ke panel; class relasi baru (Div) cukup
+     * dipasang seperti biasa.
+     */
+    private void pasangPanelRelasi(Div panel, Component rel) {
+        if (rel instanceof MyWindow) {
+            List<Component> isi = new ArrayList<Component>();
+            for (Object child : rel.getChildren()) {
+                if (child instanceof Component) {
+                    isi.add((Component) child);
+                }
+            }
+            for (Component child : isi) {
+                child.setParent(panel);
+                if (child instanceof HtmlBasedComponent) {
+                    ((HtmlBasedComponent) child).setWidth("100%");
+                    ((HtmlBasedComponent) child).setHeight("100%");
+                }
+            }
+            rel.setParent(null);
+        } else {
+            rel.setParent(panel);
+            if (rel instanceof HtmlBasedComponent) {
+                ((HtmlBasedComponent) rel).setWidth("100%");
+                ((HtmlBasedComponent) rel).setHeight("100%");
+            }
+        }
     }
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
