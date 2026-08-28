@@ -254,22 +254,22 @@ public final class DistribusiPengirimanApiHelper {
 			if (id <= 0L) {
 				String nomor = request.optString("nomor", "").trim();
 				if (nomor.length() == 0) nomor = JENIS.get(jenis(request)) + "-" + new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new java.util.Date());
-				ps = conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document(toko_id,document_type,document_no,status,reference_no,origin_name,destination_name,carrier_name,tracking_no,planned_at,actual_at,notes,client_mutation_id,created_by,updated_by) VALUES(?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?) RETURNING id");
+				ps = conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document(toko_id,document_type,document_no,status,reference_no,origin_name,destination_name,origin_toko_id,destination_toko_id,carrier_name,tracking_no,planned_at,actual_at,notes,client_mutation_id,created_by,updated_by) VALUES(?,?,?,'DRAFT',?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id");
 				int n=1; ps.setLong(n++, tokoId(ctx, request)); ps.setString(n++, jenis(request)); ps.setString(n++, nomor);
-				isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan);
+				isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiLong(ps,n++,request,"asalTokoId"); isiLong(ps,n++,request,"tujuanTokoId");
 				isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan");
 				ps.setString(n++, mutation.length()==0?null:mutation); ps.setString(n++, ctx.userId); ps.setString(n++, ctx.userId);
 				rs=ps.executeQuery(); rs.next(); id=rs.getLong(1); tutup(rs); tutup(ps); rs=null; ps=null;
 			} else {
-				ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET reference_no=?,origin_name=?,destination_name=?,carrier_name=?,tracking_no=?,planned_at=?,actual_at=?,notes=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=? AND toko_id=? AND document_type=? AND status='DRAFT'");
-				int n=1; isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan"); ps.setString(n++,ctx.userId); ps.setLong(n++,id); ps.setLong(n++,tokoId(ctx,request)); ps.setString(n++,jenis(request));
+				ps=conn.prepareStatement("UPDATE inventory_distribution.distribution_document SET reference_no=?,origin_name=?,destination_name=?,origin_toko_id=?,destination_toko_id=?,carrier_name=?,tracking_no=?,planned_at=?,actual_at=?,notes=?,updated_by=?,updated_at=now(),version=version+1 WHERE id=? AND toko_id=? AND document_type=? AND status='DRAFT'");
+				int n=1; isiTeks(ps,n++,request,"referensi"); isiTeks(ps,n++,request,"asal"); ps.setString(n++,tujuan); isiLong(ps,n++,request,"asalTokoId"); isiLong(ps,n++,request,"tujuanTokoId"); isiTeks(ps,n++,request,"pengangkut"); isiTeks(ps,n++,request,"nomorPelacakan"); isiWaktu(ps,n++,request,"rencana"); isiWaktu(ps,n++,request,"aktual"); isiTeks(ps,n++,request,"catatan"); ps.setString(n++,ctx.userId); ps.setLong(n++,id); ps.setLong(n++,tokoId(ctx,request)); ps.setString(n++,jenis(request));
 				if(ps.executeUpdate()!=1){tolak(hasil,"Hanya dokumen DRAFT yang dapat diedit.");conn.rollback();return;} tutup(ps);ps=null;
 			}
 			ps=conn.prepareStatement("DELETE FROM inventory_distribution.distribution_document_line WHERE document_id=?");ps.setLong(1,id);ps.executeUpdate();tutup(ps);ps=null;
 			JSONArray lines=request.optJSONArray("baris");
 			if(lines!=null){
-				ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_line(document_id,line_no,item_id,item_code,item_name,qty,uom,notes) VALUES(?,?,?,?,?,?,?,?)");
-				for(int i=0;i<lines.length();i++){JSONObject l=lines.optJSONObject(i);if(l==null)continue;String nama=l.optString("nama","").trim();if(nama.length()==0)continue;ps.setLong(1,id);ps.setInt(2,i+1);long item=l.optLong("itemId",0);if(item>0)ps.setLong(3,item);else ps.setNull(3,java.sql.Types.BIGINT);ps.setString(4,l.optString("kode",""));ps.setString(5,nama);ps.setDouble(6,l.optDouble("qty",0));ps.setString(7,l.optString("uom",""));ps.setString(8,l.optString("catatan",""));ps.addBatch();}ps.executeBatch();
+				ps=conn.prepareStatement("INSERT INTO inventory_distribution.distribution_document_line(document_id,line_no,item_id,item_code,item_name,qty,uom,notes,source_product_id,destination_product_id) VALUES(?,?,?,?,?,?,?,?,?,?)");
+				for(int i=0;i<lines.length();i++){JSONObject l=lines.optJSONObject(i);if(l==null)continue;String nama=l.optString("nama","").trim();if(nama.length()==0)continue;ps.setLong(1,id);ps.setInt(2,i+1);long item=l.optLong("itemId",0);if(item>0)ps.setLong(3,item);else ps.setNull(3,java.sql.Types.BIGINT);ps.setString(4,l.optString("kode",""));ps.setString(5,nama);ps.setDouble(6,l.optDouble("qty",0));ps.setString(7,l.optString("uom",""));ps.setString(8,l.optString("catatan",""));isiLong(ps,9,l,"sourceProductId");isiLong(ps,10,l,"destinationProductId");ps.addBatch();}ps.executeBatch();
 			}
 			conn.commit(); hasil.put("status","success"); hasil.put("id",id); hasil.put("message","Dokumen pengiriman tersimpan.");
 		} catch(Exception e){try{session.connection().rollback();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"auto-audit DistribusiPengirimanApiHelper.rollback");}throw e;}
@@ -277,6 +277,7 @@ public final class DistribusiPengirimanApiHelper {
 	}
 
 	private static void isiTeks(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{String v=r.optString(k,"").trim();ps.setString(i,v.length()==0?null:v);}
+	private static void isiLong(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{long v=r.optLong(k,0L);if(v>0L)ps.setLong(i,v);else ps.setNull(i,java.sql.Types.BIGINT);}
 	private static void isiWaktu(PreparedStatement ps,int i,JSONObject r,String k)throws Exception{String v=r.optString(k,"").trim();if(v.length()==0){ps.setNull(i,java.sql.Types.TIMESTAMP);return;}try{ps.setTimestamp(i,Timestamp.valueOf(v.length()==16?v+":00":v));}catch(Exception e){ps.setNull(i,java.sql.Types.TIMESTAMP);}}
 
 	public static void ubahStatus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {

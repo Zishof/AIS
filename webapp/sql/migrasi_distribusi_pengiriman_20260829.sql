@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document (
     reference_no varchar(120),
     origin_name varchar(180),
     destination_name varchar(180),
+    origin_toko_id bigint,
+    destination_toko_id bigint,
     carrier_name varchar(180),
     tracking_no varchar(120),
     planned_at timestamp,
@@ -25,6 +27,11 @@ CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document (
     CONSTRAINT uq_distribution_document_no
         UNIQUE (toko_id, document_type, document_no)
 );
+
+ALTER TABLE inventory_distribution.distribution_document
+    ADD COLUMN IF NOT EXISTS origin_toko_id bigint;
+ALTER TABLE inventory_distribution.distribution_document
+    ADD COLUMN IF NOT EXISTS destination_toko_id bigint;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_distribution_document_mutation
     ON inventory_distribution.distribution_document(toko_id, client_mutation_id)
@@ -41,6 +48,8 @@ CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_line (
         ON DELETE CASCADE,
     line_no integer NOT NULL,
     item_id bigint,
+    source_product_id bigint,
+    destination_product_id bigint,
     item_code varchar(100),
     item_name varchar(255) NOT NULL,
     qty numeric(24,6) NOT NULL DEFAULT 0,
@@ -48,6 +57,11 @@ CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_line (
     notes text,
     CONSTRAINT uq_distribution_document_line UNIQUE (document_id, line_no)
 );
+
+ALTER TABLE inventory_distribution.distribution_document_line
+    ADD COLUMN IF NOT EXISTS source_product_id bigint;
+ALTER TABLE inventory_distribution.distribution_document_line
+    ADD COLUMN IF NOT EXISTS destination_product_id bigint;
 
 CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_event (
     id bigserial PRIMARY KEY,
@@ -64,5 +78,27 @@ CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_document_event (
 CREATE INDEX IF NOT EXISTS ix_distribution_document_event
     ON inventory_distribution.distribution_document_event
        (document_id, event_at DESC);
+
+CREATE TABLE IF NOT EXISTS inventory_distribution.distribution_stock_posting (
+    id bigserial PRIMARY KEY,
+    document_id bigint NOT NULL
+        REFERENCES inventory_distribution.distribution_document(id),
+    line_id bigint NOT NULL
+        REFERENCES inventory_distribution.distribution_document_line(id),
+    direction varchar(20) NOT NULL,
+    legacy_mutation_id bigint NOT NULL,
+    source_toko_id bigint NOT NULL,
+    destination_toko_id bigint NOT NULL,
+    source_product_id bigint NOT NULL,
+    destination_product_id bigint NOT NULL,
+    qty numeric(24,6) NOT NULL,
+    created_by varchar(100),
+    created_at timestamp NOT NULL DEFAULT now(),
+    CONSTRAINT uq_distribution_stock_posting
+        UNIQUE (document_id, line_id, direction)
+);
+
+CREATE INDEX IF NOT EXISTS ix_distribution_stock_posting_mutation
+    ON inventory_distribution.distribution_stock_posting(legacy_mutation_id);
 
 COMMIT;
