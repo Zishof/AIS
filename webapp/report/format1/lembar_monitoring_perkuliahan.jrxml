@@ -71,7 +71,7 @@ left join dosen i on (e.kaprodi = i.id)
 where (a.perkuliahan = $P{perkuliahan} or
 case when $X{IN,-1,paralelId} then  false else $X{IN,a.perkuliahan,paralelId} end)
 and case when $X{IN,-1,pertemuans} then false else $X{IN,a.id,pertemuans} end
-order by a.tanggal,a.pertemuan_ke]]>
+order by a.pertemuan_ke,a.tanggal]]>
 	</queryString>
 	<field name="pertemuan_ke" class="java.lang.Integer"/>
 	<field name="tanggal" class="java.sql.Date"/>
@@ -313,7 +313,8 @@ $F{fakultas}.toUpperCase()+
 				<textElement textAlignment="Center">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+				<!-- Gunakan nomor agenda asli; REPORT_COUNT berubah ketika sebagian pertemuan difilter. -->
+				<textFieldExpression><![CDATA[$F{pertemuan_ke}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement style="Detail" stretchType="RelativeToTallestObject" x="609" y="0" width="127" height="64" uuid="e8a5eeab-30e3-459b-acfe-1ce36cf81250"/>
