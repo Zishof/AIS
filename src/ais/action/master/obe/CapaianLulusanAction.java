@@ -30,6 +30,7 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import ais.ui.util.MyFormRow;
@@ -110,16 +111,76 @@ public class CapaianLulusanAction extends ObeBaseAction {
                 "bahanKajian", "referensi", "khususBuatMk", "keterangan", "aktif"};
         initCommon(comp, CapaianLulusan.class, contents);
 
-        /*
-         * Tabbox native ZK 5 dapat menampilkan judul tab terpilih tetapi gagal
-         * memasang isi Tabpanel pada render pertama. Gunakan adapter tombol yang
-         * memindahkan konten panel lama tanpa mengubah event forward/handler.
-         * Holder selalu dimulai dari indeks 1 agar daftar CPL langsung terbuka.
-         */
-        buttonTabboxUtama = MyButtonTabbox.gantiTabboxNative(tabboxUtama, new int[] { 1 });
-        if (buttonTabboxUtama != null) {
-            buttonTabboxUtama.pilihPertama();
+        bangunButtonTabboxUtama();
+    }
+
+    /**
+     * Mengganti tab native dengan MyButtonTabbox murni. Pemuat tab relasi tidak
+     * lagi bergantung pada event forward milik Tab yang sudah disembunyikan.
+     */
+    private void bangunButtonTabboxUtama() throws Exception {
+        if (tabboxUtama == null || tabboxUtama.getParent() == null) {
+            return;
         }
+
+        Component parent = tabboxUtama.getParent();
+        Div host = new Div();
+        host.setWidth("100%");
+        host.setHeight("100%");
+        parent.insertBefore(host, tabboxUtama);
+
+        buttonTabboxUtama = MyButtonTabbox.buat(host, "100%", new int[] { 1 });
+        Div panelDaftar = buttonTabboxUtama.tambahTab(1, "Capaian Lulusan (CPL)");
+
+        if (tabboxUtama.getTabpanels() != null
+                && !tabboxUtama.getTabpanels().getChildren().isEmpty()) {
+            Object panelPertama = tabboxUtama.getTabpanels().getChildren().get(0);
+            if (panelPertama instanceof Tabpanel) {
+                List<Component> isiDaftar = new ArrayList<Component>();
+                for (Object child : ((Tabpanel) panelPertama).getChildren()) {
+                    if (child instanceof Component) {
+                        isiDaftar.add((Component) child);
+                    }
+                }
+                for (Component child : isiDaftar) {
+                    child.setParent(panelDaftar);
+                }
+            }
+        }
+
+        buttonTabboxUtama.tambahTabLazy(2, "CPL vs Profil", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsProfilLulusanAction rel = new CapaianLulusanVsProfilLulusanAction();
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsBahanKajianAction rel = new CapaianLulusanVsBahanKajianAction();
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                CapaianLulusanVsCapaianPembelajaranLulusanAction rel =
+                        new CapaianLulusanVsCapaianPembelajaranLulusanAction();
+                rel.setHeight("100%");
+                rel.setWidth("100%");
+                rel.setParent(panel);
+            }
+        });
+        buttonTabboxUtama.tambahTabZul(5, "Kategori CPL",
+                "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
+
+        tabboxUtama.setParent(null);
+        buttonTabboxUtama.pilih(1);
     }
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
