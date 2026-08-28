@@ -7687,17 +7687,15 @@ public class Common {
 	 * <p><b>Tujuan.</b> Menentukan status akademik (aktif/cuti/dll) mahasiswa di semester pendek (SP)
 	 * berdasarkan KRS yang tersinkronisasi.</p>
 	 *
-	 * <p><b>Cara kerja.</b> Memanggil {@link Common#singkronkanKrsMahasiswa} dengan semester saat ini
-	 * mahasiswa dan parameter SP, kemudian mengambil status via {@code HistoryStatusMahasiswaUtil}.</p>
+	 * <p><b>Cara kerja.</b> Membaca KRS tersimpan untuk semester aktif dan parameter SP
+	 * tanpa menjalankan sinkronisasi, kemudian mengambil status via {@code HistoryStatusMahasiswaUtil}.</p>
 	 *
 	 * @param mahasiswa mahasiswa yang dicek statusnya
 	 * @param sp        parameter semester pendek
 	 * @return {@link HistoryStatusMahasiswa} status saat ini
 	 */
 	public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, Integer sp) {
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(),
-				mahasiswa.currentTahapan(), sp);
-		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
+		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatusSp(mahasiswa, sp);
 	}
 
 	/**
@@ -7737,8 +7735,8 @@ public class Common {
 	 * memungkinkan cek status di semester pendek pada tahun akademik/semester tertentu, bukan
 	 * selalu semester saat ini.</p>
 	 *
-	 * <p><b>Cara kerja.</b> Sinkronkan KRS dengan parameter semester+SP eksplisit, lalu ambil
-	 * status via {@code HistoryStatusMahasiswaUtil}.</p>
+	 * <p><b>Cara kerja.</b> Membaca KRS tersimpan dengan parameter semester+SP eksplisit
+	 * tanpa menjalankan sinkronisasi, lalu mengambil status via {@code HistoryStatusMahasiswaUtil}.</p>
 	 *
 	 * @param mahasiswa     mahasiswa yang dicek
 	 * @param tahunAkademik tahun akademik target (saat ini tidak dipakai langsung di implementasi)
@@ -7748,11 +7746,8 @@ public class Common {
 	 */
 	public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, String tahunAkademik, Integer semester,
 			Integer sp) {
-		Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
-
-		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, sp);
-
-		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
+		return ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatusSp(mahasiswa, tahunAkademik,
+				semester, sp);
 	}
 
 	/**

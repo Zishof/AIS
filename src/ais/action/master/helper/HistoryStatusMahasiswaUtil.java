@@ -40,7 +40,8 @@ public class HistoryStatusMahasiswaUtil {
     // ========================================================================
 
     public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, Integer sp) {
-        return currentStatus(Common.singkronkanKrsMahasiswa(mahasiswa, mahasiswa.currentSemester(), mahasiswa.currentTahapan(), sp));
+        return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(),
+                mahasiswa.currentTahapan(), sp));
     }
 
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, Integer tahap) {
