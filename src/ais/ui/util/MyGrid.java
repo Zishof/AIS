@@ -146,7 +146,8 @@ public class MyGrid extends Grid {
 						}
 						return;
 					}
-					if (MyGrid.this.getParent() != null && MyGrid.this.getParent() instanceof North) {
+					if (MyGrid.this.getParent() != null && MyGrid.this.getParent() instanceof North
+							&& !isNorthRingkas((North) MyGrid.this.getParent())) {
 
 						List<Component> componentsTool = UIUtil.checkGrigMobile(MyGrid.this);
 						final North north = (North) MyGrid.this.getParent();
@@ -276,6 +277,37 @@ public class MyGrid extends Grid {
 
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/ui/util/MyGrid.java:201"); 
+		}
+	}
+
+	/**
+	 * Grid filter lama yang menjadi anak langsung {@link North} biasanya diubah
+	 * menjadi panel toolbar berjudul "Menu". Transformasi tersebut memerlukan ruang
+	 * vertikal yang cukup. Pada North ringkas (contoh: filter satu baris setinggi
+	 * 40-100px), penambahan judul, groupbox, dan baris scroll justru menutup isi grid
+	 * sehingga halaman terlihat kosong atau hanya menampilkan tulisan "Menu".
+	 *
+	 * North tanpa tinggi eksplisit dan North yang lebih tinggi tetap memakai perilaku
+	 * lama. Dengan demikian panel laporan/dashboard yang memang mengandalkan toolbar
+	 * otomatis tidak berubah.
+	 */
+	private static boolean isNorthRingkas(North north) {
+		if (north == null) {
+			return false;
+		}
+		String height = north.getHeight();
+		if (height == null) {
+			return false;
+		}
+		height = height.trim().toLowerCase();
+		if (!height.endsWith("px")) {
+			return false;
+		}
+		try {
+			int tinggi = Integer.parseInt(height.substring(0, height.length() - 2).trim());
+			return tinggi > 0 && tinggi <= 100;
+		} catch (NumberFormatException e) {
+			return false;
 		}
 	}
 
