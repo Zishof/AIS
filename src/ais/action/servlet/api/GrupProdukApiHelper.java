@@ -383,16 +383,19 @@ public final class GrupProdukApiHelper {
 		try {
 			java.sql.Connection conn = session.connection();
 			java.sql.PreparedStatement ps = conn.prepareStatement(
-					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.barcode,''), p.nama, COALESCE(t.nama,''), p.grup_produk "
+					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.barcode,''), p.nama, COALESCE(t.nama,''), p.grup_produk, "
+							+ "UPPER(COALESCE(NULLIF(TRIM(p.jenis_item),''),'JUAL')) "
 							+ "FROM koperasi.produk p LEFT JOIN koperasi.toko t ON t.id = p.toko "
 							+ "WHERE COALESCE(p.aktif,true) AND (?='' OR LOWER(COALESCE(p.kode,'')||' '||COALESCE(p.barcode,'')||' '||COALESCE(p.nama,'')) LIKE ?) "
 							+ (jenisItem.isEmpty() ? ""
-									: "AND UPPER(COALESCE(NULLIF(TRIM(p.jenis_item),''),'JUAL')) = '" + jenisItem + "' ")
-							+ "ORDER BY p.nama, t.nama LIMIT 100");
+									: "ORDER BY CASE WHEN UPPER(COALESCE(NULLIF(TRIM(p.jenis_item),''),'JUAL')) = '" + jenisItem + "' THEN 0 ELSE 1 END, p.nama, t.nama ")
+							+ (jenisItem.isEmpty() ? "ORDER BY p.nama, t.nama " : "")
+							+ "LIMIT 100");
 			ps.setString(1, q);
 			ps.setString(2, "%" + q + "%");
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
+			JSONArray jenisLain = new JSONArray();
 			while (rs.next()) {
 				JSONObject o = new JSONObject();
 				o.put("id", rs.getLong(1));
@@ -402,12 +405,22 @@ public final class GrupProdukApiHelper {
 				o.put("tokoNama", rs.getString(5));
 				long gid = rs.getLong(6);
 				o.put("grup_produk", rs.wasNull() ? JSONObject.NULL : Long.valueOf(gid));
-				arr.put(o);
+				String jenisAktual = rs.getString(7);
+				o.put("jenisItem", jenisAktual);
+				if (jenisItem.isEmpty() || jenisItem.equals(jenisAktual)) {
+					arr.put(o);
+				} else if (jenisLain.length() < 10) {
+					jenisLain.put(o);
+				}
 			}
 			rs.close();
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+			hasil.put("dataJenisLain", jenisLain);
+			if (!jenisItem.isEmpty() && arr.length() == 0 && jenisLain.length() > 0) {
+				hasil.put("description", "Produk ditemukan, tetapi Jenis Item-nya bukan Bahan Baku. Buka Master Data > Produk, ubah produk menjadi Bahan Baku, simpan, lalu cari kembali.");
+			}
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
