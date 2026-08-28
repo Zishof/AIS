@@ -3785,9 +3785,33 @@ public class PosApi extends HttpServlet {
 				hasil.put("item", item);
 			}
 
-			hasil.put("bolehEditTransaksi", KantinHelper.bolehEditTransaksi(tbmuser)
-					&& punyaHeaderKelompok
-					&& ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId));
+			boolean penggunaBolehEdit = KantinHelper.bolehEditTransaksi(tbmuser);
+			boolean kebijakanEditAktif = ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId);
+			boolean bolehEditTransaksi = penggunaBolehEdit && punyaHeaderKelompok && kebijakanEditAktif;
+			hasil.put("bolehEditTransaksi", bolehEditTransaksi);
+			hasil.put("kebijakanEditGlobalAktif",
+					ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
+			hasil.put("kebijakanEditTokoAktif",
+					ais.action.master.koperasi.KoreksiTransaksiUtil.tokoAktif(tokoId));
+			if (!bolehEditTransaksi) {
+				String alasanEdit;
+				if (!punyaHeaderKelompok) {
+					alasanEdit = "Edit tidak tersedia karena baris ini tidak mempunyai header transaksi kelompok. "
+							+ "Pilih baris bernomor Order yang memuat kode transaksi yang sama. Jika header tidak ada, "
+							+ "jangan mengubah rincian langsung; minta admin merekonsiliasi transaksi sumber.";
+				} else if (!kebijakanEditAktif) {
+					alasanEdit = "Edit tidak tersedia karena kebijakan koreksi transaksi masih nonaktif untuk toko ini. "
+							+ "Admin dapat mengaktifkan Konfigurasi > Identitas Mesin > Keamanan & Koreksi Transaksi "
+							+ "secara global, atau membuka Konfigurasi > Profil Toko > Keamanan & Koreksi Transaksi Toko, "
+							+ "mengaktifkannya untuk toko ini, lalu menekan Simpan Profil Toko. Setelah itu klik Sinkronkan, "
+							+ "Muat Ulang, dan buka kembali Detail transaksi.";
+				} else {
+					alasanEdit = "Edit tidak tersedia untuk akun ini. Hanya admin global, supervisor toko, atau "
+							+ "grup pengguna berizin Supervisor yang dapat mengoreksi transaksi. Setelah hak diperbaiki, "
+							+ "keluar dan masuk kembali lalu buka Detail transaksi.";
+				}
+				hasil.put("alasanEditTransaksi", alasanEdit);
+			}
 			hasil.put("status", "success");
 		} finally {
 			tutupOpenSession(session, "prosesDetailTransaksi");
