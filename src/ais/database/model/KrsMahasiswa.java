@@ -552,7 +552,9 @@ public class KrsMahasiswa extends VOPembelajaran implements VOPesertaPembelajara
 
 	@Override
 	public String ambilJenisSemester() {
-		return getSemester() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL;
+		Integer semesterData = getSemester();
+		return semesterData == null ? ""
+				: semesterData.intValue() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL;
 	}
 
 	@Override

@@ -3047,9 +3047,11 @@ public class PembayaranUtil {
 			// dan buang native session di boundary ini agar PaymentLogic tidak mewarisi
 			// transaksi gagal ketika menyimpan log respons bank.
 			if (session != null) {
-				try { if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "rollback pembayaran calon mahasiswa"); }
-				try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear pembayaran calon mahasiswa"); }
-				try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect pembayaran calon mahasiswa"); }
+				// Helper yang dipanggil di atas dapat lebih dulu menutup native session
+				// ThreadLocal. Jangan memanggil getTransaction()/clear pada session tertutup.
+				try { if (session.isOpen() && session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "rollback pembayaran calon mahasiswa"); }
+				try { if (session.isOpen()) session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "clear pembayaran calon mahasiswa"); }
+				try { if (session.isOpen() && session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "disconnect pembayaran calon mahasiswa"); }
 				try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "close pembayaran calon mahasiswa"); }
 			}
 			HibernateUtil.closeSession();

@@ -120,7 +120,7 @@ public class KurikulumPunyaMatakuliahDetail extends GeneralValueObject {
 	}
 
 	public void setTopik(String topik) {
-		this.topik = topik;
+		this.topik = batasiKolomLama(topik);
 	}
 
 	@Column(name = "buku_rujukan1")
@@ -129,7 +129,7 @@ public class KurikulumPunyaMatakuliahDetail extends GeneralValueObject {
 	}
 
 	public void setBukuRujukan1(String bukuRujukan1) {
-		this.bukuRujukan1 = bukuRujukan1;
+		this.bukuRujukan1 = batasiKolomLama(bukuRujukan1);
 	}
 
 	@Column(name = "pertemuan_ke", length = 10)
@@ -153,7 +153,7 @@ public class KurikulumPunyaMatakuliahDetail extends GeneralValueObject {
 	}
 
 	public void setMetodePembelajaran(String metodePembelajaran) {
-		this.metodePembelajaran = metodePembelajaran;
+		this.metodePembelajaran = batasiKolomLama(metodePembelajaran);
 	}
 
 	@Column(name = "metode_pembelajaran", length = 255)
@@ -180,7 +180,11 @@ public class KurikulumPunyaMatakuliahDetail extends GeneralValueObject {
 	}
 
 	public void setWaktupembelajaran(String waktupembelajaran) {
-		this.waktupembelajaran = waktupembelajaran;
+		this.waktupembelajaran = batasiKolomLama(waktupembelajaran);
+	}
+
+	private static String batasiKolomLama(String nilai) {
+		return nilai != null && nilai.length() > 255 ? nilai.substring(0, 255) : nilai;
 	}
 
 	@Column(columnDefinition = "text")

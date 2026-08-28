@@ -700,7 +700,11 @@ public class Pertemuan extends Tugas {
 	}
 
 	public void setMetodePembelajaran(String metodePembelajaran) {
-		this.metodePembelajaran = metodePembelajaran;
+		// Kolom lama di sebagian tenant masih varchar(255). Data OBE dapat terbentuk
+		// dari gabungan beberapa metode sehingga lebih panjang dan menggagalkan seluruh
+		// update Pertemuan. Batasi tepat di boundary model agar semua jalur simpan aman.
+		this.metodePembelajaran = metodePembelajaran != null && metodePembelajaran.length() > 255
+				? metodePembelajaran.substring(0, 255) : metodePembelajaran;
 	}
 
 	@Column(name = "metode_pembelajaran", length = 255)

@@ -45,7 +45,6 @@
 	<field name="total_item_gaji_nilai_009-TUNJ_BPJS_TK_JP" class="java.lang.Double"/>
 	<field name="sub_item_gaji_nilai_TUNJ_BPJS_TK_JP" class="java.lang.Double"/>
 	<field name="sub_item_gaji_nilai_BPJS_JP_JHT" class="java.lang.Double"/>
-	<field name="field1" class="java.lang.String"/>
 	<title>
 		<band height="103" splitType="Stretch">
 			<textField>
