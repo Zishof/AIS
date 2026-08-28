@@ -94,6 +94,8 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 	private Boolean wajibVerifikasiBiometricFingerprint;
 	private Boolean wajibHp;
 	private Boolean wajibEmail;
+	private Boolean berlakuSemuaToko;
+	private String daftarToko;
 
 	public TipeAnggotaKoperasi() {
 	}
@@ -302,5 +304,39 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 
 	public void setWajibEmail(Boolean wajibEmail) {
 		this.wajibEmail = wajibEmail;
+	}
+
+	/**
+	 * Cakupan aturan transaksi tipe member. Nilai lama/null sengaja dianggap
+	 * berlaku ke semua toko agar deployment kolom baru tidak mengubah perilaku
+	 * tipe member yang sudah ada.
+	 */
+	@Column(name = "berlaku_semua_toko")
+	public Boolean getBerlakuSemuaToko() {
+		return berlakuSemuaToko == null ? Boolean.TRUE : berlakuSemuaToko;
+	}
+
+	public void setBerlakuSemuaToko(Boolean berlakuSemuaToko) {
+		this.berlakuSemuaToko = berlakuSemuaToko;
+	}
+
+	/** Daftar ID toko dinormalisasi menjadi bentuk ",1,2,". */
+	@Column(name = "daftar_toko")
+	public String getDaftarToko() {
+		if (daftarToko == null || daftarToko.replace(",", "").trim().isEmpty()) return "";
+		String nilai = daftarToko.trim();
+		if (!nilai.startsWith(",")) nilai = "," + nilai;
+		if (!nilai.endsWith(",")) nilai = nilai + ",";
+		return nilai.replace(",,", ",");
+	}
+
+	public void setDaftarToko(String daftarToko) {
+		this.daftarToko = daftarToko;
+	}
+
+	/** Benar bila seluruh kebijakan transaksi tipe ini efektif di toko tersebut. */
+	public boolean berlakuUntukToko(Long tokoId) {
+		if (Boolean.TRUE.equals(getBerlakuSemuaToko())) return true;
+		return tokoId != null && getDaftarToko().contains("," + tokoId + ",");
 	}
 }

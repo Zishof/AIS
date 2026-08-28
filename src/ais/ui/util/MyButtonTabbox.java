@@ -469,6 +469,22 @@ public class MyButtonTabbox {
 	}
 
 	/**
+	 * Mengizinkan tombol tab turun ke baris berikutnya pada panel sempit.
+	 * Default tetap satu baris + scroll horizontal untuk menjaga kompatibilitas
+	 * seluruh pemanggil lama.
+	 */
+	public void setTombolMembungkus(boolean membungkus) {
+		String kelas = "ais-btn-group ais-button-tabbox";
+		if (membungkus) {
+			kelas += " ais-button-tabbox-wrap";
+		}
+		tombolBar.setSclass(kelas);
+		tombolBar.setStyle(membungkus
+				? "flex:0 0 auto;overflow:visible;white-space:normal;"
+				: "flex:0 0 auto;overflow-x:auto;white-space:nowrap;");
+	}
+
+	/**
 	 * Sisipkan komponen header di antara baris tombol tab dan panelHost.
 	 * Berguna untuk menampilkan info konteks (misalnya info pertemuan) tepat
 	 * di bawah tab buttons tanpa masuk ke area scroll konten tab.

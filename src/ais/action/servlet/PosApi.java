@@ -2514,9 +2514,10 @@ public class PosApi extends HttpServlet {
 	 * N+1 query per member dibiarkan (bukan masalah performa nyata -- hasil dibatasi 20 baris).</p>
 	 */
 	/** Bentuk JSON member yg SAMA dipakai {@code cari_member} (baik jalur keyword maupun jalur exact-id di bawah) -- satu-satunya tempat field {id,nama,kodeIdentitas,wajibPin,minSaldo} dirakit, supaya kedua jalur selalu sinkron. */
-	private JSONObject jsonMember(AnggotaKoperasi a) throws Exception {
+	private JSONObject jsonMember(AnggotaKoperasi a, Long tokoId) throws Exception {
 		JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
 		TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
+		boolean tipeBerlaku = tipe != null && tipe.berlakuUntukToko(tokoId);
 		JSONObject j = new JSONObject();
 		j.put("id", a.getId());
 		j.put("nama", str(a.getNama()));
@@ -2529,6 +2530,7 @@ public class PosApi extends HttpServlet {
 			j.put("tipeAnggotaKoperasiId", tipe.getId());
 			j.put("tipeNama", str(tipe.getNama()));
 		}
+		if (!tipeBerlaku) tipe = null;
 		j.put("wajibPin", (jenis != null && Boolean.TRUE.equals(jenis.getWajibPin()))
 				|| (tipe != null && Boolean.TRUE.equals(tipe.getWajibPin())));
 		j.put("wajibBiometricWajah", (jenis != null
@@ -2554,6 +2556,7 @@ public class PosApi extends HttpServlet {
 	private void prosesCariMember(JSONObject payload, JSONObject hasil) throws Exception {
 		String keyword = payload.optString("keyword", "").trim();
 		Long idExact = ais.common.Common.angkaAtauNull(payload, "id");
+		Long tokoId = ais.common.Common.angkaAtauNull(payload, "id_toko");
 		if (keyword.isEmpty() && idExact == null) {
 			hasil.put("status", "success");
 			hasil.put("member", new JSONArray());
@@ -2566,7 +2569,7 @@ public class PosApi extends HttpServlet {
 			if (idExact != null) {
 				AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, idExact);
 				if (a != null && Boolean.TRUE.equals(a.getAktif())) {
-					arr.put(jsonMember(a));
+					arr.put(jsonMember(a, tokoId));
 				}
 			} else {
 				Disjunction atau = Restrictions.disjunction();
@@ -2580,7 +2583,7 @@ public class PosApi extends HttpServlet {
 						.setMaxResults(20);
 
 				for (Object o : c.list()) {
-					arr.put(jsonMember((AnggotaKoperasi) o));
+					arr.put(jsonMember((AnggotaKoperasi) o, tokoId));
 				}
 			}
 
@@ -2615,6 +2618,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesCaraBayarList(JSONObject payload, JSONObject hasil) throws Exception {
 		Long idMember = ais.common.Common.angkaAtauNull(payload, "id_member");
+		Long tokoId = ais.common.Common.angkaAtauNull(payload, "id_toko");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			String izinJenis = "";
@@ -2635,11 +2639,13 @@ public class PosApi extends HttpServlet {
 				}
 				if (a != null && a.getTipeAnggotaKoperasi() != null) {
 					ais.database.model.koperasi.TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
-					izinTipe = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
-					wajibPinTipe = Boolean.TRUE.equals(tipe.getWajibPin());
-					pinTipe = tipe.getDaftarCaraPembayaranWajibPin();
-					caraBayarDefaultId = tipe.getCaraPembayaranDefaultId();
-					kunciDariTipe = Boolean.TRUE.equals(tipe.getTidakBolehCaraPembayaranLain());
+					if (tipe.berlakuUntukToko(tokoId)) {
+						izinTipe = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
+						wajibPinTipe = Boolean.TRUE.equals(tipe.getWajibPin());
+						pinTipe = tipe.getDaftarCaraPembayaranWajibPin();
+						caraBayarDefaultId = tipe.getCaraPembayaranDefaultId();
+						kunciDariTipe = Boolean.TRUE.equals(tipe.getTidakBolehCaraPembayaranLain());
+					}
 				}
 			}
 

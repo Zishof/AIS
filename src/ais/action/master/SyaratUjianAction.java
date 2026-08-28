@@ -1333,6 +1333,22 @@ public class SyaratUjianAction extends GenericAutowireComposer
 						System.out.println("kodeBiaya -> " + kodeItemBiaya + ", jenisKegiatan => " + jenisKegiatan
 								+ ", atau -> " + atau);
 
+						/*
+						 * Daftar Ulang Mahasiswa Baru adalah biaya masuk dan hanya relevan pada
+						 * semester pertama. Konfigurasi syarat lama kadang mencantumkannya bersama
+						 * Pembayaran Per Semester; tanpa pagar ini mahasiswa lama pada semester 2+
+						 * terbaca 0% karena pencarian dialihkan ke biodata calon mahasiswa, lalu KRS
+						 * ikut terkunci meskipun SPP semester berjalan sudah dibayar.
+						 */
+						int semesterTagihan = semester.intValue() - smtData.intValue();
+						boolean daftarUlangMahasiswaBaru = jenisKegiatan != null
+								&& ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU != null
+								&& ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU.getId()
+										.equals(jenisKegiatan.getId());
+						if (daftarUlangMahasiswaBaru && semesterTagihan > 1) {
+							continue;
+						}
+
 						if (jenisKegiatan == null || Common.checkBaypassStatusPembayaranMahasiswa(semester - smtData,
 								null, mahasiswa, jenisKegiatan)) {
 							datas.put(jenisKegiatan, true);

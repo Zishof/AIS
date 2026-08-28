@@ -698,7 +698,7 @@ public class KantinHelper {
 
 	/** Validasi server-side agar aturan Tipe/Jenis Member tidak dapat dilewati klien lama. */
 	private static String validasiCaraBayarMember(AnggotaKoperasi anggota,
-			CaraPembayaranKoperasi utama, SplitPembayaran split) {
+			CaraPembayaranKoperasi utama, SplitPembayaran split, Long tokoId) {
 		if (anggota == null) return null;
 		java.util.Set izin = null;
 		JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
@@ -707,6 +707,7 @@ public class KantinHelper {
 			if (csv != null && !csv.replace(",", "").trim().isEmpty()) izin = parseIdCaraBayar(csv);
 		}
 		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
+		if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
 		if (tipe != null) {
 			String csv = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
 			if (csv != null && !csv.replace(",", "").trim().isEmpty()) {
@@ -771,10 +772,24 @@ public class KantinHelper {
 	}
 
 	private static double totalTransaksiPeriode(Session session, Long anggotaId,
-			Date awal, Date akhir, Long idDikecualikan) throws Exception {
+			Date awal, Date akhir, Long idDikecualikan, TipeAnggotaKoperasi tipe) throws Exception {
+		String pembatasToko = "";
+		if (tipe != null && !Boolean.TRUE.equals(tipe.getBerlakuSemuaToko())) {
+			java.util.Set tokoIds = parseIdCaraBayar(tipe.getDaftarToko());
+			if (tokoIds.isEmpty()) pembatasToko = " AND 1=0";
+			else {
+				StringBuilder daftar = new StringBuilder();
+				for (Object nilai : tokoIds) {
+					if (daftar.length() > 0) daftar.append(',');
+					daftar.append(((Long) nilai).longValue());
+				}
+				pembatasToko = " AND toko IN (" + daftar + ")";
+			}
+		}
 		String sql = "SELECT COALESCE(SUM(COALESCE(total_biaya,0)),0) "
 				+ "FROM koperasi.pembelian_anggota_koperasi "
 				+ "WHERE anggota_koperasi=? AND tanggal_pembayaran>=? AND tanggal_pembayaran<?"
+				+ pembatasToko
 				+ (idDikecualikan == null ? "" : " AND id<>?");
 		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 		try {
@@ -810,9 +825,10 @@ public class KantinHelper {
 	}
 
 	private static PelanggaranBatasTransaksi validasiBatasTransaksi(Session session, AnggotaKoperasi anggota,
-			Date waktu, double transaksiIni, Long idDikecualikan) throws Exception {
+			Date waktu, double transaksiIni, Long idDikecualikan, Long tokoId) throws Exception {
 		if (anggota == null || anggota.getTipeAnggotaKoperasi() == null) return null;
 		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
+		if (!tipe.berlakuUntukToko(tokoId)) return null;
 		double[] batas = new double[] { tipe.getMaksimalTransaksiHarian(),
 				tipe.getMaksimalTransaksiMingguan(), tipe.getMaksimalTransaksiBulanan() };
 		int[] periode = new int[] { java.util.Calendar.DAY_OF_MONTH,
@@ -822,7 +838,7 @@ public class KantinHelper {
 			if (batas[i] <= 0.0) continue;
 			Date awal = awalPeriode(waktu, periode[i]);
 			double berjalan = totalTransaksiPeriode(session, anggota.getId(), awal,
-					akhirPeriode(awal, periode[i]), idDikecualikan);
+					akhirPeriode(awal, periode[i]), idDikecualikan, tipe);
 			if (berjalan + transaksiIni > batas[i] + 0.5) {
 				return new PelanggaranBatasTransaksi(label[i], batas[i], berjalan, transaksiIni);
 			}
@@ -1398,14 +1414,14 @@ public class KantinHelper {
 						return;
 					}
 					String galatCaraBayar = validasiCaraBayarMember(anggotaKoperasi,
-							caraPembayaranKoperasiOnline, split);
+							caraPembayaranKoperasiOnline, split, toko == null ? null : toko.getId());
 					if (galatCaraBayar != null) {
 						hasil.put("status", "91");
 						hasil.put("description", galatCaraBayar);
 						return;
 					}
 					PelanggaranBatasTransaksi galatBatasTransaksi = validasiBatasTransaksi(session, anggotaKoperasi,
-							currentWaktu, total.doubleValue(), id);
+							currentWaktu, total.doubleValue(), id, toko == null ? null : toko.getId());
 					if (galatBatasTransaksi != null) {
 						PengajuanLimitMemberApiHelper.HasilPeriksa keputusanLimit =
 								PengajuanLimitMemberApiHelper.periksaAtauAjukan(session, tbmuser,
@@ -6786,6 +6802,7 @@ public class KantinHelper {
 	public static void anggotaSyncList(JSONObject request, JSONObject hasil) throws Exception {
 		long sejakId = request.optLong("sejak_id", 0);
 		int pageSize = Math.min(1000, Math.max(1, request.optInt("page_size", 500)));
+		Long tokoId = ais.common.Common.angkaAtauNull(request, "id_toko");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -6805,6 +6822,7 @@ public class KantinHelper {
 				}
 				JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
 				TipeAnggotaKoperasi tipe = a.getTipeAnggotaKoperasi();
+				if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
 
 				String fotoUrl = null;
 				String fotoNama = null;
@@ -7561,7 +7579,8 @@ public class KantinHelper {
 							+ "COALESCE(t.maksimal_transaksi_bulanan,0), COALESCE(t.wajib_pin,false), "
 							+ "COALESCE(t.daftar_cara_pembayaran_wajib_pin,''), "
 							+ "COALESCE(t.wajib_verifikasi_biometric_wajah,false), "
-							+ "COALESCE(t.wajib_verifikasi_biometric_fingerprint,false) "
+							+ "COALESCE(t.wajib_verifikasi_biometric_fingerprint,false), "
+							+ "COALESCE(t.berlaku_semua_toko,true), COALESCE(t.daftar_toko,'') "
 							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -7601,6 +7620,8 @@ public class KantinHelper {
 				j.put("daftarCaraPembayaranWajibPin", rs.getString(17));
 				j.put("wajibBiometricWajah", rs.getBoolean(18));
 				j.put("wajibBiometricFingerprint", rs.getBoolean(19));
+				j.put("berlakuSemuaToko", rs.getBoolean(20));
+				j.put("daftarToko", rs.getString(21));
 				arr.put(j);
 			}
 			rs.close();
@@ -7708,6 +7729,30 @@ public class KantinHelper {
 					"wajibBiometricWajah", request.optBoolean("wajib_biometric_wajah", false))));
 			tipe.setWajibVerifikasiBiometricFingerprint(Boolean.valueOf(request.optBoolean(
 					"wajibBiometricFingerprint", request.optBoolean("wajib_biometric_fingerprint", false))));
+			boolean berlakuSemuaToko = request.optBoolean("berlakuSemuaToko",
+					request.optBoolean("berlaku_semua_toko", true));
+			String daftarToko = request.optString("daftarToko",
+					request.optString("daftar_toko", "")).trim();
+			java.util.Set tokoDipilih = parseDaftarId(daftarToko);
+			if (!berlakuSemuaToko && tokoDipilih.isEmpty()) {
+				hasil.put("status", "91");
+				hasil.put("description", "Pilih minimal satu toko atau aktifkan Berlaku ke semua toko.");
+				return;
+			}
+			if (!berlakuSemuaToko) {
+				for (Object tokoIdObj : tokoDipilih) {
+					ais.database.model.inventory.Toko tokoDipilihDb =
+							(ais.database.model.inventory.Toko) session.get(
+									ais.database.model.inventory.Toko.class, (Long) tokoIdObj);
+					if (tokoDipilihDb == null || !Boolean.TRUE.equals(tokoDipilihDb.getAktif())) {
+						hasil.put("status", "91");
+						hasil.put("description", "Cakupan Tipe Member memuat toko yang tidak ditemukan atau tidak aktif.");
+						return;
+					}
+				}
+			}
+			tipe.setBerlakuSemuaToko(Boolean.valueOf(berlakuSemuaToko));
+			tipe.setDaftarToko(berlakuSemuaToko ? "" : daftarToko);
 
 			session.beginTransaction();
 			session.saveOrUpdate(tipe);
