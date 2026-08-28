@@ -606,12 +606,16 @@ public class CommonPaymentHelper extends Common {
 			}
 
 			if (!persetujuan) {
-				Session session = HibernateUtil.currentNativeSession();
-				Double tagihanSyaratKrs = hitungTagihanMahasiswaSebagaiSyaratKrs(session, mahasiswa, semester);
-				if (tagihanSyaratKrs < 0.01) {
-					return true;
+				Session session = null;
+				try {
+					session = HibernateUtil.currentNativeSession();
+					Double tagihanSyaratKrs = hitungTagihanMahasiswaSebagaiSyaratKrs(session, mahasiswa, semester);
+					if (tagihanSyaratKrs < 0.01) {
+						return true;
+					}
+				} finally {
+					HibernateUtil.closeSession();
 				}
-				HibernateUtil.closeSession();
 
 				String kodeItemBiaya = Common.getKonfigurasi("kode_item_biaya_mahasiswa_harus_bayar_sebelum_isi_krs",
 						"", semester, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), mahasiswa.getProgram(),
@@ -656,9 +660,8 @@ public class CommonPaymentHelper extends Common {
 			}
 
 			List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester,
-					CommonHelperClass.jenisKegiatansUntukKrs);
+					CommonHelperClass.jenisKegiatansUntukKrs, true);
 
-			Session session = HibernateUtil.currentNativeSession();
 			if (!mahasiswabaruMengikutipersyaratanKrsSptMahasiswa && (semester != null
 					&& (semester.equals(1) || semester.equals(mahasiswa.getPindahKeKampusIniMasukSemester() + 1)
 							|| semester.equals(mahasiswa.getPindahKeKampusIniMasukSemester()))
@@ -669,16 +672,25 @@ public class CommonPaymentHelper extends Common {
 					return true;
 				}
 
-				BiodataCalonMahasiswa biodataCalonMahasiswa = (BiodataCalonMahasiswa) ConstantValues
-						.simpleObject(session.createCriteria(BiodataCalonMahasiswa.class)
-								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-								.add(Restrictions.sqlRestriction(
-										"upper(trim(this_.nim)) = upper(trim('" + mahasiswa.getNim().trim() + "'))"))
-								.setMaxResults(1), BiodataCalonMahasiswa.class);
+				Session session = null;
+				BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+				try {
+					session = HibernateUtil.currentNativeSession();
+					biodataCalonMahasiswa = (BiodataCalonMahasiswa) ConstantValues
+							.simpleObject(session.createCriteria(BiodataCalonMahasiswa.class)
+									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+									.add(Restrictions.sqlRestriction(
+											"upper(trim(this_.nim)) = upper(trim('" + mahasiswa.getNim().trim() + "'))"))
+									.setMaxResults(1), BiodataCalonMahasiswa.class);
+				} finally {
+					HibernateUtil.closeSession();
+				}
 				if (biodataCalonMahasiswa != null) {
-					CommonHelperClass.jenisKegiatansUntukKrs.add(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
-					kegiatanDibayars = biodataCalonMahasiswa.ambilKegiatans(semester,
+					TreeSet<JenisKegiatan> jenisKegiatanCalonMahasiswa = new TreeSet<JenisKegiatan>(
 							CommonHelperClass.jenisKegiatansUntukKrs);
+					jenisKegiatanCalonMahasiswa.add(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
+					kegiatanDibayars = biodataCalonMahasiswa.ambilKegiatans(semester,
+							jenisKegiatanCalonMahasiswa, true);
 				}
 
 			} else {
@@ -688,9 +700,13 @@ public class CommonPaymentHelper extends Common {
 				}
 			}
 
-			boolean hasil = !kegiatanDibayars.isEmpty();
-
-			HibernateUtil.closeSession();
+			boolean hasil = false;
+			for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
+				if (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= 0.1) {
+					hasil = true;
+					break;
+				}
+			}
 			return hasil;
 		}
 	}

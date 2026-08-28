@@ -653,7 +653,7 @@ public class HistoryStatusMahasiswaUtil {
                     if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
                         continue;
                     }
-                    check &= (keg != null && keg.getPersentaseLunas() >= 0.1);
+                    check &= (keg != null && keg.hitungPersentaseLunasAktual() >= 0.1);
                 }
             }
         }
@@ -684,7 +684,7 @@ public class HistoryStatusMahasiswaUtil {
                     continue;
                 }
                 adaTagihanYangBerlaku = true;
-                if (keg == null || keg.getPersentaseLunas() == null || keg.getPersentaseLunas() < 0.1) {
+                if (keg == null || keg.hitungPersentaseLunasAktual() < 0.1) {
                     return false;
                 }
             }
