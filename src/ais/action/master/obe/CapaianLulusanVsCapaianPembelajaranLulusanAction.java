@@ -12,6 +12,7 @@ import org.zkoss.zul.Center;
 import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Row;
@@ -33,7 +34,7 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
-public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends MyWindow {
+public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends Div {
 
 	/**
 	 * 
@@ -48,9 +49,6 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends MyWindow {
 	private java.util.List<CapaianPembelajaranLulusan> loadedCpmk = null;
 
 	public CapaianLulusanVsCapaianPembelajaranLulusanAction() {
-		super();
-		setBorder("none");
-		setClosable(false);
 		setWidth("100%");
 		setHeight("100%");
 		try {
@@ -63,7 +61,8 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends MyWindow {
 
 	public CapaianLulusanVsCapaianPembelajaranLulusanAction(String title, String border, boolean closable)
 			throws Exception {
-		super(title, border, closable);
+		setWidth("100%");
+		setHeight("100%");
 		initKHS();
 		init();
 	}
