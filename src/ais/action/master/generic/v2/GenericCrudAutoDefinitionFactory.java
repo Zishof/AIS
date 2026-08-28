@@ -16,6 +16,7 @@ import org.hibernate.type.Type;
 
 import ais.action.master.generic.v2.adapter.GenericCrudAutoEntityAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
+import ais.action.master.generic.v2.adapter.GenericCrudReviewedAdapterFactory;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
@@ -151,8 +152,8 @@ public final class GenericCrudAutoDefinitionFactory {
 
         boolean softDelete = hasBooleanProperty(metadata, "aktif");
         definition.setDeleteEnabled(!restrictedClass && softDelete && actionDelete);
-        GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete,
-                actionBacked ? sourceActionClass : null);
+        GenericCrudAutoEntityAdapter adapter = GenericCrudReviewedAdapterFactory.create(entityClass,
+                softDelete, actionBacked ? sourceActionClass : null, false);
         definition.setAdapter(adapter);
         definition.setScopeAdapter(adapter);
 
@@ -216,6 +217,10 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setDefaultSortProperty(defaultSort);
         definition.setVersionProperty(findVersionProperty(metadata));
         definition.setCreateEnabled(autoCreatePossible && actionCreate);
+        // Harus paling akhir: adapter hasil review mengunci ulang definisi
+        // (READ_ONLY, create/update/delete false) dan penguncian itu tidak boleh
+        // tertimpa oleh flag hasil deteksi otomatis di atas.
+        adapter.configure(definition);
         return definition;
     }
 

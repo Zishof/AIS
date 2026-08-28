@@ -27,7 +27,9 @@ public final class NewUiTagihanController {
             boolean mutation=!"list".equals(action)&&!"move_targets".equals(action)&&!"history".equals(action);
             if(mutation&&(!"POST".equalsIgnoreCase(request.getMethod())||!csrf(request))){response.setStatus(403);fail(json,"CSRF_INVALID","Token CSRF tidak valid.");write(response,json);return;}
             NewUiTagihanService service=new NewUiTagihanService(); Tbmuser user=Common.getCurrentUser(request);
-            if("list".equals(action)){Snapshot data=service.load(filter(request),user);encode(json,data);json.put("syncEnabled",syncEnabled()).put("admin",safeAdmin());}
+            // csrf diikutkan pada list agar klien JSON murni (desktop native) dapat
+            // bootstrap mutasi tanpa scrape HTML; pola sama dengan dispatcher.jsp.
+            if("list".equals(action)){Snapshot data=service.load(filter(request),user);encode(json,data);json.put("syncEnabled",syncEnabled()).put("admin",safeAdmin()).put("csrf",csrfToken(request));}
             else if("generate".equals(action))json.put("generated",service.autoGenerate(id(request,"studentId",true),user));
             else if("sync".equals(action)){if(!syncEnabled())throw new SecurityException("Fitur sinkronisasi dinonaktifkan oleh konfigurasi.");json.put("synchronized",service.synchronize(filter(request),user));}
             else if("toggle".equals(action))service.toggle(id(request,"id",true),bool(request,"active"),user);
@@ -51,6 +53,15 @@ public final class NewUiTagihanController {
     private static boolean safeAdmin(){try{return Common.getApakahAdmin();}catch(Exception e){return false;}}
     private static boolean syncEnabled(){try{return Common.bolehKonfigurasi("aktifkan_tombol_singkronkan_tagihan_siswa");}catch(Exception e){return false;}}
     private static boolean csrf(HttpServletRequest r){Object e=r.getSession().getAttribute("newUiCsrfToken");String v=r.getHeader("X-CSRF-Token");return e!=null&&v!=null&&String.valueOf(e).equals(v);}
+    /** Token sesi yang sama dengan uiux/tagihan.jsp (SecureRandom 24 byte -> 48 hex). */
+    private static String csrfToken(HttpServletRequest r){
+        Object existing=r.getSession().getAttribute("newUiCsrfToken");
+        if(existing!=null)return String.valueOf(existing);
+        byte[] b=new byte[24];new java.security.SecureRandom().nextBytes(b);
+        StringBuilder s=new StringBuilder(48);
+        for(int i=0;i<b.length;i++){s.append(Character.forDigit((b[i]>>4)&0xF,16)).append(Character.forDigit(b[i]&0xF,16));}
+        String value=s.toString();r.getSession().setAttribute("newUiCsrfToken",value);return value;
+    }
     private static boolean bool(HttpServletRequest r,String n){return"true".equalsIgnoreCase(r.getParameter(n));}
     private static Long id(HttpServletRequest r,String n,boolean required){String v=r.getParameter(n);if(v==null||v.trim().length()==0){if(required)throw new IllegalArgumentException(n+" wajib diisi.");return null;}try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}
     private static Integer integerObject(HttpServletRequest r,String n){String v=r.getParameter(n);if(v==null||v.trim().length()==0)return null;try{return Integer.valueOf(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}

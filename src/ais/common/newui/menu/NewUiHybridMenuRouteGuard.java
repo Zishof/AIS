@@ -48,9 +48,14 @@ public final class NewUiHybridMenuRouteGuard {
         if ("update".equals(value) || "edit".equals(value) || "photo".equals(value)
                 || "photo_upload".equals(value) || "photo_delete".equals(value)
                 || "upload".equals(value) || "save-existing".equals(value)
-                || "restore_field".equals(value) || "restore_revision".equals(value)) return permission.isCanUpdate();
+                || "restore_field".equals(value) || "restore_revision".equals(value)
+                // Aksi workflow keuangan (mis. tagihan): controller memetakan
+                // privilege yang sama dan tetap memvalidasi ulang di service.
+                || "generate".equals(value) || "sync".equals(value)
+                || "toggle".equals(value)) return permission.isCanUpdate();
         if ("import".equals(value) || value.startsWith("import_")) return permission.isCanCreate() && permission.isCanUpdate();
         if ("delete".equals(value) || "remove".equals(value) || "permanent-delete".equals(value)
+                || "move".equals(value)
                 || value.startsWith("admin_delete_")) return permission.isCanDelete();
         if ("approve".equals(value)) return permission.isCanApprove();
         if ("reject".equals(value)) return permission.isCanReject();
@@ -64,6 +69,7 @@ public final class NewUiHybridMenuRouteGuard {
                 || "relation_lookup".equals(value) || "search".equals(value)
                 || "revisions".equals(value) || "global_revisions".equals(value)
                 || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")
+                || "history".equals(value) || "move_targets".equals(value)
                 || value.startsWith("preference_") || value.startsWith("saved_view_");
     }
 }
