@@ -13,6 +13,9 @@ request.setAttribute("nuiServiceSourceClass", "DaftarUlangCalonMahasiswaAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DaftarUlangCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose"});
-request.setAttribute("nuiServiceEntities", new String[]{});
+// Kandidat non-kosong agar dispatcher mencapai tryAutoRegister; definisi yang
+// dipakai adalah registrasi manual read-only di GenericCrudDefinitionRegistry
+// (buildDaftarUlangCalonMahasiswa) yang di-cache berdasarkan route module/page.
+request.setAttribute("nuiServiceEntities", new String[]{"Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />
