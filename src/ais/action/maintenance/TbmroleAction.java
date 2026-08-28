@@ -3070,7 +3070,6 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setTokoAksesJson(buildTokoAksesJson());
 		String jurnalAksesJsonBaru = buildJurnalAksesJson();
 		tbmrole.setJurnalAksesJson(jurnalAksesJsonBaru);
-		ais.action.master.jurnal.JurnalRoleMenuSynchronizer.synchronize(session, tbmrole, jurnalAksesJsonBaru);
 		tbmrole.setBolehLihatSemuaToko(Boolean.valueOf(
 				bolehLihatSemuaToko != null && bolehLihatSemuaToko.isChecked()));
 		tbmrole.setMengajukanPengajuanPegawaiLain(mengajukanPengajuanPegawaiLain.isChecked());
@@ -3111,9 +3110,10 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			tbmrole.setMenus(menus2);
 		}
 
-		// Checkbox "Buka" jurnal adalah sumber capability menu. Sinkronkan pula
-		// relasi fisik job_has_menu dalam transaksi save role yang sama agar service
-		// authorization tidak membaca dua state yang berbeda.
+		// Checkbox "Buka" jurnal adalah sumber capability menu. Sinkronkan SATU kali,
+		// setelah proses copy menu selesai, agar hasil copy tidak menimpa relasi jurnal.
+		// Implementasi canonical di ais.common juga memastikan menu jurnal tersedia
+		// secara idempoten pada instalasi lama yang belum menjalankan migrasi menu.
 		JurnalRoleMenuSynchronizer.synchronize(session, tbmrole, tbmrole.getJurnalAksesJson());
 
 		if (tbmrole.getRoleId() != null) {
