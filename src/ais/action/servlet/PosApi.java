@@ -1051,6 +1051,18 @@ public class PosApi extends HttpServlet {
 				prosesVerifikasiPin(tbmuser, payload, hasil);
 			} else if ("verifikasi_biometrik_member".equals(action)) {
 				prosesVerifikasiBiometrikMember(tbmuser, payload, hasil);
+			} else if ("biometrik_kemampuan".equals(action)) {
+				salinBalasanApi(ais.action.servlet.api.BiometricApi.capability(request, payload), hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if ("biometrik_daftar".equals(action)) {
+				salinBalasanApi(ais.action.servlet.api.BiometricApi.list(request, payload), hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if ("biometrik_simpan".equals(action)) {
+				salinBalasanApi(ais.action.servlet.api.BiometricApi.enroll(request, payload), hasil);
+				normalisasiStatusKantinHelper(hasil, action);
+			} else if ("biometrik_nonaktifkan".equals(action)) {
+				salinBalasanApi(ais.action.servlet.api.BiometricApi.revoke(request, payload), hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if ("dashboard_umum".equals(action)) {
 				prosesDashboardUmum(tbmuser, payload, hasil);
 			} else if ("layani_transaksi".equals(action)) {
@@ -2131,6 +2143,10 @@ public class PosApi extends HttpServlet {
 		}
 		if ("cara_bayar_list_semua".equals(action)) {
 			return menu.optBoolean("kasir", true) || menu.optBoolean("anggota", true);
+		}
+		if ("biometrik_kemampuan".equals(action) || "biometrik_daftar".equals(action)
+				|| "biometrik_simpan".equals(action) || "biometrik_nonaktifkan".equals(action)) {
+			return menu.optBoolean("anggota", true);
 		}
 		if (action.startsWith("pesanan_") || "batal_pesanan".equals(action)
 				|| "pesanan_list".equals(action) || "pesanan_hitung_ulang".equals(action)

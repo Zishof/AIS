@@ -50,6 +50,14 @@ public class ApiUtil {
 		try {
 			if (req != null) {
 				try {
+					Object penggunaPos = req.getAttribute(ais.database.hibernate.AuditTimestampInterceptor.ATTR_PENGGUNA_POS);
+					if (penggunaPos instanceof Tbmuser && ((Tbmuser) penggunaPos).getUserId() != null) {
+						return (Tbmuser) penggunaPos;
+					}
+				} catch (Exception e) {
+					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/ApiUtil.java:56");
+				}
+				try {
 					Tbmuser tbmuser = Common.getCurrentUser(req);
 					if (tbmuser != null && tbmuser.getUserId() != null) {
 						return tbmuser;

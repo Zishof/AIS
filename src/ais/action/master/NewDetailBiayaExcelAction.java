@@ -1609,6 +1609,68 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			searchStatusAwalMahasiswa.setSelectedIndex(0);
 	}
 
+	/**
+	 * Mengambil teks pilihan filter untuk ditampilkan kembali pada header pengaturan
+	 * pembayaran bulanan. Nilai ini sengaja berasal dari combobox yang sedang aktif,
+	 * sehingga petugas dapat langsung membandingkan kriteria billing dengan biodata
+	 * calon/mahasiswa pada layar Pembayaran Mahasiswa.
+	 */
+	private String labelPilihanBilling(Combobox combo) {
+		if (combo == null || !combo.isVisible() || combo.getSelectedItem() == null) {
+			return "-";
+		}
+		String label = combo.getSelectedItem().getLabel();
+		if (label != null && !label.trim().isEmpty()) {
+			return label.trim();
+		}
+		Object value = combo.getSelectedItem().getValue();
+		return value == null ? "-" : value.toString();
+	}
+
+	private String labelKelasBilling() {
+		if (searchKelas == null || !searchKelas.isVisible()) {
+			return "-";
+		}
+		String value = searchKelas.getValue();
+		return value == null || value.trim().isEmpty() ? "-" : value.trim();
+	}
+
+	private String ringkasanFilterTambahanBilling() {
+		StringBuilder hasil = new StringBuilder();
+		tambahFilterTambahanBilling(hasil, labelTambahan1, searchTambahan1);
+		tambahFilterTambahanBilling(hasil, labelTambahan2, searchTambahan2);
+		tambahFilterTambahanBilling(hasil, labelTambahan3, searchTambahan3);
+		return hasil.length() == 0 ? "-" : hasil.toString();
+	}
+
+	private void tambahFilterTambahanBilling(StringBuilder hasil, Label label, Combobox combo) {
+		if (label == null || combo == null || !label.isVisible() || !combo.isVisible()) {
+			return;
+		}
+		String nama = label.getValue();
+		if (nama == null || nama.trim().isEmpty()) {
+			nama = "Parameter";
+		}
+		if (hasil.length() > 0) {
+			hasil.append("; ");
+		}
+		hasil.append(nama.trim()).append(": ").append(labelPilihanBilling(combo));
+	}
+
+	private void tambahPasanganInfoBilling(MyFormRow row, String nama, String nilai) {
+		row.appendChild(new ais.ui.util.MyLabelConfig(nama));
+		MyLabelConfig isi = new MyLabelConfig(nilai == null || nilai.trim().isEmpty() ? "-" : nilai);
+		isi.setMultiline(true);
+		row.appendChild(isi);
+	}
+
+	private MyFormRow buatBarisInfoBilling(Rows rows) {
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		return row;
+	}
+
 	@SuppressWarnings("unchecked")
 	private void tampilkanPengaturanPembayaranBulanan(final Jurusan jurusan, final List<ItemBiaya> detailSettingBiayas)
 			throws Exception {
@@ -1885,14 +1947,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				: searchSemester.getSelectedItem().getValue().toString());
 		aktifRencana = new MyCheckboxConfig();
 
-		MyFormRow row = new MyFormRow();
-		row.setValign("top");
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
-		row.appendChild(new ais.ui.util.MyLabelConfig(jurusan.getFakultas().getNama()));
-
-		row.appendChild(new ais.ui.util.MyLabelConfig("Prodi"));
-		row.appendChild(new ais.ui.util.MyLabelConfig(jurusan.getNama()));
+		MyFormRow row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Fakultas",
+				jurusan.getFakultas() == null ? "-" : jurusan.getFakultas().getNama());
+		tambahPasanganInfoBilling(row, "Prodi", jurusan.getNama());
 
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Aktifkan Rencana Angsuran Bulanan"));
@@ -1924,11 +1982,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		aktifRencana.setChecked(pengaturanPembayaranBulanans.size() == 1 && pengaturanPembayaranBulanans.get(0));
 
-		row = new MyFormRow();
-		row.appendChild(new ais.ui.util.MyLabelConfig("Angkatan"));
-		row.appendChild(new ais.ui.util.MyLabelConfig(labelAngkatan.getValue().toString()));
+		row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Angkatan",
+				labelAngkatan.getValue() == null ? "-" : labelAngkatan.getValue().toString());
 
-		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
 		row.appendChild(rencanaSemester);
 		rencanaSemester.setWidth("90%");
@@ -1936,6 +1993,37 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik"));
 		row.appendChild(rencanaTahunAjaran);
 		rencanaTahunAjaran.setWidth("90%");
+
+		// Tampilkan seluruh kriteria penentu billing. Sebelumnya popup hanya memuat
+		// Fakultas/Prodi/Angkatan/Semester/TA, sehingga perbedaan Status Awal, Jenis
+		// Seleksi, Paket atau Gelombang (penyebab umum tagihan tidak muncul) tidak
+		// terlihat oleh petugas.
+		row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Jenis Pembayaran", labelPilihanBilling(searchJenisKegiatan));
+		tambahPasanganInfoBilling(row, "Program", labelPilihanBilling(searchProgram));
+		tambahPasanganInfoBilling(row, "Jenjang", labelPilihanBilling(searchJenjang));
+
+		row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Semester Masuk", labelPilihanBilling(searchMulaiBelajarDiSemester));
+		tambahPasanganInfoBilling(row, "Status Awal", labelPilihanBilling(searchStatusAwalMahasiswa));
+		tambahPasanganInfoBilling(row, "Status Mahasiswa", labelPilihanBilling(searchStatusMahasiswa));
+
+		row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Jenis Seleksi", labelPilihanBilling(searchJenisSeleksi));
+		tambahPasanganInfoBilling(row, "Paket PMB", labelPilihanBilling(searchPaket));
+		tambahPasanganInfoBilling(row, "Gelombang", labelPilihanBilling(searchGelombangPendaftaran));
+
+		row = buatBarisInfoBilling(rows);
+		tambahPasanganInfoBilling(row, "Warga Negara", labelPilihanBilling(searchWargaNegara));
+		tambahPasanganInfoBilling(row, "Kelas", labelKelasBilling());
+		tambahPasanganInfoBilling(row, "Jenis Tempat Tinggal",
+				labelPilihanBilling(searchJenisTempatTinggalMahasiswa));
+
+		String filterTambahan = ringkasanFilterTambahanBilling();
+		if (!"-".equals(filterTambahan)) {
+			row = buatBarisInfoBilling(rows);
+			tambahPasanganInfoBilling(row, "Parameter Tambahan", filterTambahan);
+		}
 
 		Center center = new Center();
 		center.setFlex(true);
