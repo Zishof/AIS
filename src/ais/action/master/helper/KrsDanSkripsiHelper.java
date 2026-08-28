@@ -24,12 +24,106 @@ import ais.database.model.Matakuliah;
 import ais.database.model.Perkuliahan;
 
 public class KrsDanSkripsiHelper {
+	private static final Object[] KRS_SYNC_LOCKS = new Object[64];
+	static {
+		for (int i = 0; i < KRS_SYNC_LOCKS.length; i++) {
+			KRS_SYNC_LOCKS[i] = new Object();
+		}
+	}
 
 	// =========================================================================
 	// 1. SINGKRONISASI KRS MAHASISWA
 	// =========================================================================
 
+	/**
+	 * Mengambil KRS yang sudah ada tanpa menghitung ulang dan tanpa menulis ke
+	 * database. Jalur ini khusus untuk render layar/status agar pembukaan halaman
+	 * tidak membuat transaksi baru yang dapat bersaing dengan transaksi simpan KRS.
+	 */
+	public static KrsMahasiswa ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa mahasiswa, Integer semester,
+			Integer tahapan, Integer semesterPendek) {
+		KrsMahasiswa hasil = new KrsMahasiswa();
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			return hasil;
+		}
+
+		if (tahapan != null && tahapan.intValue() == 0) {
+			tahapan = null;
+		}
+		if (semester == null) {
+			semester = mahasiswa.currentSemester();
+		}
+		if (semester == null) {
+			semester = Integer.valueOf(1);
+		}
+
+		Session session = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			Mahasiswa mahasiswaDatabase = (Mahasiswa) session.get(Mahasiswa.class, mahasiswa.getId());
+			if (mahasiswaDatabase != null) {
+				hasil = mahasiswaDatabase.ambilDefaultKrsMahasiswa(semester, tahapan, semesterPendek, session);
+				if (hasil != null) {
+					// Gunakan object mahasiswa milik layar supaya hasil tetap aman setelah
+					// session baca ditutup dan tidak membawa proxy session lama.
+					hasil.setMahasiswa(mahasiswa);
+					return hasil;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"ambil KRS tanpa sinkronisasi gagal; render dilanjutkan dengan data minimal");
+		} finally {
+			Common.closeNativeSessionQuietly(session);
+		}
+
+		hasil = new KrsMahasiswa();
+		hasil.setMahasiswa(mahasiswa);
+		hasil.setSemester(semester);
+		hasil.setTahapan(tahapan);
+		hasil.setSemesterPendek(semesterPendek);
+		return hasil;
+	}
+
 	public static KrsMahasiswa singkronkanKrsMahasiswa(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
+			Integer semesterPendek, boolean keDatabase, boolean dosenPaDefault, boolean jikaTidakAdaKembali) {
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			return new KrsMahasiswa();
+		}
+
+		// Satu mahasiswa dapat disegarkan bersamaan dari layar dosen, pembayaran, dan
+		// worker akademik. Serialisasi per mahasiswa mencegah dua transaksi mengubah
+		// baris KRS yang sama hingga PostgreSQL memutus salah satunya karena lock timeout.
+		int indeksKunci = (mahasiswa.getId().hashCode() & Integer.MAX_VALUE) % KRS_SYNC_LOCKS.length;
+		Object kunciSinkron = KRS_SYNC_LOCKS[indeksKunci];
+		synchronized (kunciSinkron) {
+			for (int percobaan = 1; percobaan <= 3; percobaan++) {
+				try {
+					return singkronkanKrsMahasiswaSekali(mahasiswa, semester, tahapan, semesterPendek,
+							keDatabase, dosenPaDefault, jikaTidakAdaKembali);
+				} catch (KrsLockTimeoutException e) {
+					if (percobaan == 3) {
+						ais.common.ErrorAuditUtil.record(e.getCause() == null ? e : e.getCause(),
+								"sinkronisasi KRS gagal setelah 3 percobaan lock timeout");
+						KrsMahasiswa fallback = new KrsMahasiswa();
+						fallback.setMahasiswa(mahasiswa);
+						fallback.setSemester(semester);
+						fallback.setTahapan(tahapan);
+						return fallback;
+					}
+					try {
+						Thread.sleep(150L * percobaan);
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						throw e;
+					}
+				}
+			}
+		}
+		return new KrsMahasiswa();
+	}
+
+	private static KrsMahasiswa singkronkanKrsMahasiswaSekali(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean keDatabase, boolean dosenPaDefault, boolean jikaTidakAdaKembali) {
 
 		if (mahasiswa == null || mahasiswa.getId() == null) {
@@ -261,13 +355,16 @@ public class KrsDanSkripsiHelper {
 			return krsMahasiswa;
 
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KrsDanSkripsiHelper.java:236");
 			if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
 				try {
 					session.getTransaction().rollback();
 				} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KrsDanSkripsiHelper.java:240");
 				}
 			}
+			if (merupakanLockTimeout(e)) {
+				throw new KrsLockTimeoutException(e);
+			}
+			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KrsDanSkripsiHelper.java:236");
 
 			KrsMahasiswa krsFallback = new KrsMahasiswa();
 			krsFallback.setMahasiswa(mahasiswa);
@@ -290,6 +387,26 @@ public class KrsDanSkripsiHelper {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KrsDanSkripsiHelper.java:262");
 				}
 			}
+		}
+	}
+
+	private static boolean merupakanLockTimeout(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			String pesan = current.getMessage();
+			if (pesan != null && pesan.toLowerCase().indexOf("lock timeout") >= 0) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private static class KrsLockTimeoutException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
+		KrsLockTimeoutException(Throwable cause) {
+			super(cause);
 		}
 	}
 

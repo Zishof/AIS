@@ -2284,7 +2284,6 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 		KrsMahasiswa krsMahasiswa = (KrsMahasiswa) session.createCriteria(KrsMahasiswa.class)
 				.add(Restrictions.eq("kodeUnik", kodeUnik)).setMaxResults(1).uniqueResult();
-		System.out.println("krsMahasiswa dari kodeUnik " + kodeUnik + " " + krsMahasiswa);
 		if (krsMahasiswa != null) {
 			return krsMahasiswa;
 		} else {

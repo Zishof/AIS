@@ -2250,6 +2250,15 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 								int nomorBaris = index - 1;
 								String kunciPerkuliahan = perkuliahan.infoSimple();
 								try {
+									// Kegagalan item sebelumnya membersihkan session agar transient
+									// tanpa id tidak ikut ter-flush lagi. Muat ulang item loop bila
+									// instance daftar sudah menjadi detached setelah pembersihan itu.
+									if (!session.contains(perkuliahan)) {
+										perkuliahan = (Perkuliahan) session.get(Perkuliahan.class, perkuliahan.getId());
+										if (perkuliahan == null) {
+											throw new IllegalStateException("Data perkuliahan sudah tidak tersedia");
+										}
+									}
 
 								List<Pertemuan> pertemuans = session.createCriteria(Pertemuan.class)
 										.add(Restrictions.or(Restrictions.isNull("aktif"),
@@ -2290,9 +2299,19 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 											kurikulumPunyaMatakuliahDetail.setKurikulumPunyaMatakuliah(
 													perkuliahan.getKurikulumPunyaMatakuliah());
 
-											session.getTransaction().begin();
-											Common.refreshSaveOrUpdate(session, kurikulumPunyaMatakuliahDetail);
-											session.getTransaction().commit();
+											org.hibernate.Transaction txDetail = null;
+											try {
+												txDetail = session.beginTransaction();
+												// Simpan langsung. Recovery merge generik tidak boleh dipakai
+												// di proses batch ini karena entitas transient yang gagal insert
+												// dapat tertinggal di session dengan id null.
+												session.saveOrUpdate(kurikulumPunyaMatakuliahDetail);
+												txDetail.commit();
+											} catch (Exception eDetail) {
+												try { if (txDetail != null && txDetail.isActive()) txDetail.rollback(); } catch (Exception rollbackError) { ais.common.ErrorAuditUtil.record(rollbackError, "rollback sinkronisasi silabus"); }
+												try { if (session.isOpen()) session.clear(); } catch (Exception clearError) { ais.common.ErrorAuditUtil.record(clearError, "clear sinkronisasi silabus"); }
+												throw eDetail;
+											}
 
 											copyLampiran(pertemuan, kurikulumPunyaMatakuliahDetail);
 										}
@@ -2304,6 +2323,8 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 								pertemuans = null;
 								laporan.catatBerhasil(nomorBaris, kunciPerkuliahan, "Sinkronisasi silabus berhasil");
 								} catch (Exception ePerItem) {
+									try { if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); } catch (Exception rollbackError) { ais.common.ErrorAuditUtil.record(rollbackError, "rollback item sinkronisasi silabus"); }
+									try { if (session.isOpen()) session.clear(); } catch (Exception clearError) { ais.common.ErrorAuditUtil.record(clearError, "clear item sinkronisasi silabus"); }
 									Common.tampilErrorJikaAdmin(ePerItem);
 									laporan.catatGagalDetail(nomorBaris, kunciPerkuliahan, ePerItem);
 								}
@@ -2315,7 +2336,6 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 						}
 
 						label.setValue("");
-						HibernateUtil.closeSession();
 											} finally {
 							ais.database.hibernate.HibernateUtil.closeSession();
 						}
