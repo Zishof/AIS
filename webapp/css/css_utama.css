@@ -8730,6 +8730,17 @@ html body a.ais-header-profile-pill .ais-header-profile-role {
     color: #0f3f8f !important;
     font-weight: 800 !important;
 }
+.ais-btn-group.ais-button-tabbox.ais-button-tabbox-wrap,
+.ais-btn-group.ais-button-tabbox.ais-button-tabbox-wrap table,
+.ais-btn-group.ais-button-tabbox.ais-button-tabbox-wrap tbody {
+    width: 100% !important;
+    white-space: normal !important;
+    overflow: visible !important;
+}
+.ais-btn-group.ais-button-tabbox.ais-button-tabbox-wrap tr {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+}
 /* ZK 5 menempelkan state hover pada elemen toolbarbutton yang berbeda-beda.
    Paksa semua lapisan teks tab nonaktif tetap gelap dan terbaca. */
 html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button.z-toolbarbutton-over,

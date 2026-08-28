@@ -25,10 +25,6 @@ import org.zkoss.zul.Label;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
-import org.zkoss.zul.Tabbox;
-import org.zkoss.zul.Tabpanel;
-import org.zkoss.zul.Tabpanels;
-import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
@@ -55,9 +51,9 @@ import ais.database.model.Skripsi;
 import ais.database.model.Tbmuser;
 import ais.database.model.TemplateFormatBimbingan;
 import ais.ui.util.MyButtonConfig;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyGrid;
-import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
@@ -175,34 +171,10 @@ public class AktifitasTugasAkhirHelper {
 		groupbox.setStyle("border: none;");
 		Common.clear(groupbox);
 
-		final Tabbox tabbox = new Tabbox();
-		tabbox.setSclass("ais-aktifitas-tabbox");
-		tabbox.setParent(groupbox);
-		tabbox.setWidth("100%");
-		tabbox.setHeight("100%");
-
-		Tabs tabs = new Tabs();
-		tabs.setParent(tabbox);
-
-		MyTabConfig tab = new MyTabConfig("Agenda Bimbingan");
-		tab.setParent(tabs);
-		tab.addEventListener("onClick", new EventListener() {
-
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				try {
-					initDetail(mahasiswaRequestTugasAkhir, groupbox);
-				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
-				}
-			}
-		});
-
-		Tabpanels tabpanels = new Tabpanels();
-		tabpanels.setParent(tabbox);
-
-		Tabpanel tabpanel = new ais.ui.util.MyTabpanel();
-		tabpanel.setParent(tabpanels);
+		final MyButtonTabbox buttonTabbox = MyButtonTabbox.buat(groupbox, "1250px", new int[] { 1 });
+		buttonTabbox.setTombolMembungkus(true);
+		final Div tabpanel = buttonTabbox.tambahTab(1, "Agenda Bimbingan", "/img/jadwal.png");
+		tabpanel.setStyle("overflow:auto;min-height:1100px;box-sizing:border-box;");
 
 		ais.ui.util.MyDiv myGroupbox = new ais.ui.util.MyDiv();
 		myGroupbox.setStyle("min-height: 500px;");
@@ -249,19 +221,21 @@ public class AktifitasTugasAkhirHelper {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/AktifitasTugasAkhirHelper.java:249");
 				}
 
-				pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
-						pertemuan.getId());
+				if (pertemuan.getId() != null) {
+					pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
+							pertemuan.getId());
 
-				Common.createDefaultTimer(new EventListener() {
+					Common.createDefaultTimer(new EventListener() {
 
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						mahasiswaRequestTugasAkhir.belum();
-						initDetail(mahasiswaRequestTugasAkhir, dataLoader, groupbox);
-					}
-				});
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							mahasiswaRequestTugasAkhir.belum();
+							initDetail(mahasiswaRequestTugasAkhir, dataLoader, groupbox);
+						}
+					});
 
-				return;
+					return;
+				}
 			}
 
 			FormatNilaiProposalSkripsi formatNilaiProposalSkripsi = mahasiswaRequestTugasAkhir
@@ -280,6 +254,9 @@ public class AktifitasTugasAkhirHelper {
 					for (TemplateFormatBimbingan templateFormatBimbingan : templates) {
 						boolean ada = false;
 						for (Long pertemuanid : pertemuans.values()) {
+							if (pertemuanid == null) {
+								continue;
+							}
 							Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class,
 									pertemuanid.toString());
 							if (pertemuan != null) {
@@ -315,8 +292,10 @@ public class AktifitasTugasAkhirHelper {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/AktifitasTugasAkhirHelper.java:315");
 							}
 
-							pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_" + pertemuan.getId(),
-									pertemuan.getId());
+							if (pertemuan.getId() != null) {
+								pertemuans.put(Common.dateFormat8.get().format(pertemuan.getTanggal()) + "_"
+										+ pertemuan.getId(), pertemuan.getId());
+							}
 						}
 					}
 
@@ -367,6 +346,9 @@ public class AktifitasTugasAkhirHelper {
 			int selected = 0;
 			Date sekarang = WaktuUtil.getDate();
 			for (Long pertemuanid : pertemuans.values()) {
+				if (pertemuanid == null) {
+					continue;
+				}
 				Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, pertemuanid.toString());
 				if (pertemuan != null) {
 					final Row rowUtama = new Row();
@@ -452,148 +434,80 @@ public class AktifitasTugasAkhirHelper {
 			}
 		}
 
-		final MyTabConfig tabReferensi = new MyTabConfig("Referensi");
-		tabReferensi.setParent(tabs);
-
-		final Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
-		tabpanelReferensi.setHeight("1250px");
-		tabpanelReferensi.setParent(tabpanels);
-		tabReferensi.addEventListener("onClick", new EventListener() {
-
+		buttonTabbox.tambahTabLazy(2, "Referensi", "/img/svg/books-thin.svg",
+				new MyButtonTabbox.PemuatTab() {
 			@Override
-			public void onEvent(Event arg0) throws Exception {
-				if (tabpanelReferensi.getChildren().size() == 0) {
+			public void muat(Div panelReferensiUtama) throws Exception {
+				panelReferensiUtama.setStyle("overflow:auto;min-height:1100px;");
+				final MyButtonTabbox referensiTabs = MyButtonTabbox.buat(panelReferensiUtama, "1100px",
+						new int[] { 1 });
 
-					final Tabbox tabbox = new Tabbox();
-					tabbox.setSclass("ais-aktifitas-tabbox");
-					tabbox.setParent(tabpanelReferensi);
-					tabbox.setWidth("100%");
-					tabbox.setHeight("100%");
-
-					Tabs tabs = new Tabs();
-					tabs.setParent(tabbox);
-
-					final MyTabConfig tabReferensiDiajukan = new MyTabConfig("Referensi");
-					tabReferensiDiajukan.setParent(tabs);
-
-					final MyTabConfig tabReferensi = new MyTabConfig("Ref. Buku");
-					tabReferensi.setParent(tabs);
-
-					final MyTabConfig tabBukuAjar = new MyTabConfig("Ref. Bahan Ajar");
-					tabBukuAjar.setParent(tabs);
-
-					final MyTabConfig tabArtikel = new MyTabConfig("Ref. Artikel");
-					tabArtikel.setParent(tabs);
-
-					Tabpanels tabpanels = new Tabpanels();
-					tabpanels.setParent(tabbox);
-
-					Tabpanel tabpanelReferensiDiajukan = new ais.ui.util.MyTabpanel();
-					tabpanelReferensiDiajukan.setHeight("1250px");
-					tabpanelReferensiDiajukan.setParent(tabpanels);
-
-					Grid gridref = MahasiswaRequestTugasAkhirAction.initReferensi(mahasiswaRequestTugasAkhir,
-							new EventListener() {
-
-								@Override
-								public void onEvent(Event arg0) throws Exception {
-
-								}
-							});
-					gridref.setParent(Common.tampilanScroll(tabpanelReferensiDiajukan));
-
-					Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
-					tabpanelReferensi.setHeight("1250px");
-					tabpanelReferensi.setParent(tabpanels);
-
-					DataPunyaItemHelper dataPunyaItemHelper = new DataPunyaItemHelper();
-					dataPunyaItemHelper.display(null, mahasiswaRequestTugasAkhir, null, null, null, tabpanelReferensi);
-
-					final Tabpanel tabpanelBukuAjar = new ais.ui.util.MyTabpanel();
-					tabpanelBukuAjar.setParent(tabpanels);
-					tabpanelBukuAjar.setHeight("1250px");
-					tabBukuAjar.addEventListener("onClick", new EventListener() {
-
-						@Override
-						public void onEvent(Event arg0) throws Exception {
-							if (tabpanelBukuAjar.getChildren().size() == 0) {
-
-								DataPunyaBukuAjarHelper dataPunyaBukuAjarHelper = new DataPunyaBukuAjarHelper();
-								dataPunyaBukuAjarHelper.display(null, mahasiswaRequestTugasAkhir, null, null, null,
-										tabpanelBukuAjar);
+				Div panelReferensiDiajukan = referensiTabs.tambahTab(1, "Referensi");
+				Grid gridref = MahasiswaRequestTugasAkhirAction.initReferensi(mahasiswaRequestTugasAkhir,
+						new EventListener() {
+							@Override
+							public void onEvent(Event arg0) throws Exception {
 							}
-						}
-					});
+						});
+				gridref.setParent(Common.tampilanScroll(panelReferensiDiajukan));
 
-					final Tabpanel tabpanelArtikel = new ais.ui.util.MyTabpanel();
-					tabpanelArtikel.setParent(tabpanels);
-					tabpanelArtikel.setHeight("1250px");
-					tabArtikel.addEventListener("onClick", new EventListener() {
-
-						@Override
-						public void onEvent(Event arg0) throws Exception {
-							if (tabpanelArtikel.getChildren().size() == 0) {
-
-								DataPunyaArtikelHelper dataPunyaArtikelHelper = new DataPunyaArtikelHelper();
-								dataPunyaArtikelHelper.display(null, mahasiswaRequestTugasAkhir, null, null, null, null,
-										null, tabpanelArtikel);
-							}
-						}
-					});
-				}
+				referensiTabs.tambahTabLazy(2, "Ref. Buku", new MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div panel) throws Exception {
+						DataPunyaItemHelper helper = new DataPunyaItemHelper();
+						helper.display(null, mahasiswaRequestTugasAkhir, null, null, null, panel);
+					}
+				});
+				referensiTabs.tambahTabLazy(3, "Ref. Bahan Ajar", new MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div panel) throws Exception {
+						DataPunyaBukuAjarHelper helper = new DataPunyaBukuAjarHelper();
+						helper.display(null, mahasiswaRequestTugasAkhir, null, null, null, panel);
+					}
+				});
+				referensiTabs.tambahTabLazy(4, "Ref. Artikel", new MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div panel) throws Exception {
+						DataPunyaArtikelHelper helper = new DataPunyaArtikelHelper();
+						helper.display(null, mahasiswaRequestTugasAkhir, null, null, null, null, null, panel);
+					}
+				});
+				referensiTabs.pilih(1);
 			}
 		});
 
 		if (mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.AKTIF_STATUS)
 				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.SEMINAR_STATUS)
+				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.MENGULANG_STATUS)
 				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.LULUS_STATUS)) {
-			final MyTabConfig tabPenilaian = new MyTabConfig("Penilaian");
-			tabPenilaian.setParent(tabs);
-
-			final Tabpanel tabpanelPenilaian = new ais.ui.util.MyTabpanel();
-
-			tabpanelPenilaian.setParent(tabpanels);
-			tabpanelPenilaian.setHeight("1250px");
-			// Scroll menyesuaikan tinggi data: bila isi penilaian (grafik per dosen, peta nilai, dll)
-			// lebih tinggi dari panel, muncul scroll vertikal — tidak terpotong.
-			tabpanelPenilaian.setStyle("overflow:auto;");
-			tabPenilaian.addEventListener("onClick", new EventListener() {
-
+			buttonTabbox.tambahTabLazy(3, "Penilaian", "/img/svg/journal-check.svg",
+					new MyButtonTabbox.PemuatTab() {
 				@Override
-				public void onEvent(Event arg0) throws Exception {
-					if (tabpanelPenilaian.getChildren().size() == 0) {
-
-						PenilaianProposalSkripsiHelper penilaianSkripsiHelper = new PenilaianProposalSkripsiHelper();
-						penilaianSkripsiHelper.display(mahasiswaRequestTugasAkhir, tabpanelPenilaian);
-					}
+				public void muat(Div panel) throws Exception {
+					panel.setStyle("overflow:auto;min-height:1100px;");
+					PenilaianProposalSkripsiHelper helper = new PenilaianProposalSkripsiHelper();
+					helper.display(mahasiswaRequestTugasAkhir, panel);
 				}
 			});
 
-			initCetak(tabbox, mahasiswaRequestTugasAkhir);
+			initCetak(buttonTabbox, 4, mahasiswaRequestTugasAkhir);
 
 			if (mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi() != null
 					&& mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi().getTerdapatSidangSetelahSelesai()) {
-				final MyTabConfig tabSidang = new MyTabConfig("Sidang");
-				tabSidang.setParent(tabs);
-
-				final Tabpanel tabpanelSidang = new ais.ui.util.MyTabpanel();
-				tabpanelSidang.setParent(tabpanels);
-				tabpanelSidang.setHeight("1250px");
-				tabpanelSidang.setStyle("overflow:auto;");
-				tabSidang.addEventListener("onClick", new EventListener() {
-
+				buttonTabbox.tambahTabLazy(5, "Sidang", "/img/svg/journal-check.svg",
+						new MyButtonTabbox.PemuatTab() {
 					@Override
-					public void onEvent(Event arg0) throws Exception {
-						if (tabpanelSidang.getChildren().size() == 0) {
-							initSidang(mahasiswaRequestTugasAkhir, tabpanelSidang, groupbox);
-						}
+					public void muat(Div panel) throws Exception {
+						panel.setStyle("overflow:auto;min-height:1100px;");
+						initSidang(mahasiswaRequestTugasAkhir, panel, groupbox);
 					}
 				});
 			}
 		}
+		buttonTabbox.pilih(1);
 	}
 
-	private void initSidang(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Tabpanel tabpanelSidang,
+	private void initSidang(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Component tabpanelSidang,
 			final Component groupbox) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		Skripsi skripsi = (Skripsi) session.createCriteria(Skripsi.class)
@@ -657,18 +571,14 @@ public class AktifitasTugasAkhirHelper {
 
 	private Toolbar toolbar;
 
-	public void initCetak(Tabbox tabbox, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir) {
-		final MyTabConfig tabMonitor = new MyTabConfig("Laporan");
-		tabMonitor.setParent(tabbox.getTabs());
-		final Tabpanel tabpanelMonitor = new ais.ui.util.MyTabpanel();
-		tabpanelMonitor.setHeight("700px");
-		tabpanelMonitor.setParent(tabbox.getTabpanels());
-		tabMonitor.addEventListener("onClick", new EventListener() {
-
+	public void initCetak(MyButtonTabbox tabbox, int index,
+			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir) {
+		tabbox.tambahTabLazy(index, "Laporan", "/img/svg/document-report.svg",
+				new MyButtonTabbox.PemuatTab() {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			@Override
-			public void onEvent(Event arg0) throws Exception {
-				Common.clear(tabpanelMonitor);
+			public void muat(final Div tabpanelMonitor) throws Exception {
+				tabpanelMonitor.setStyle("overflow:auto;min-height:700px;");
 				final Map parameters = ais.common.HashMapGenerator.getRand();
 
 				parameters.put("perkuliahan",

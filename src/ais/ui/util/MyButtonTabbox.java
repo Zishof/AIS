@@ -103,7 +103,24 @@ public class MyButtonTabbox {
 		if (tinggi == null || tinggi.trim().isEmpty()) {
 			tinggi = "100%";
 		}
-		final MyButtonTabbox pengganti = buat(tabbox.getParent(), tinggi, tabAktif);
+		Component parentAsli = tabbox.getParent();
+		Component saudaraBerikut = tabbox.getNextSibling();
+		Div penampung = new Div();
+		penampung.setWidth("100%");
+		penampung.setHeight(tinggi);
+		penampung.setStyle("display:flex;flex-direction:column;min-height:0;overflow:hidden;");
+		tabbox.setParent(null);
+		parentAsli.insertBefore(penampung, saudaraBerikut);
+		tabbox.setParent(penampung);
+		final MyButtonTabbox pengganti;
+		try {
+			pengganti = buat(penampung, tinggi, tabAktif);
+		} catch (RuntimeException e) {
+			tabbox.setParent(null);
+			penampung.setParent(null);
+			parentAsli.insertBefore(tabbox, saudaraBerikut);
+			throw e;
+		}
 		tabbox.setAttribute("myButtonTabboxPengganti", pengganti);
 
 		Tabs tabs = tabbox.getTabs();
@@ -334,7 +351,19 @@ public class MyButtonTabbox {
 		}
 		Div panelAktif = panelMap.get(Integer.valueOf(index));
 		if (panelAktif != null) {
-			aktifkanTabPertamaDiDalam(panelAktif, new HashSet<MyButtonTabbox>());
+			/*
+			 * Panel konten boleh menyimpan referensi ke tabbox pemiliknya (misalnya
+			 * VideoPertemuanHelper menyimpannya untuk memperbarui label tab). Tanpa
+			 * menandai tabbox ini sebagai sudah diproses, pemindaian panel menemukan
+			 * referensi tersebut lalu memanggil pilihPertama() pada tabbox yang sama:
+			 * pilih -> pindai -> pilih -> ... sampai StackOverflowError.
+			 *
+			 * Seed set dengan instance saat ini. Tabbox anak tetap akan diaktifkan,
+			 * sedangkan referensi balik ke pemilik diabaikan.
+			 */
+			Set<MyButtonTabbox> sudahDiproses = new HashSet<MyButtonTabbox>();
+			sudahDiproses.add(this);
+			aktifkanTabPertamaDiDalam(panelAktif, sudahDiproses);
 		}
 	}
 
@@ -437,6 +466,22 @@ public class MyButtonTabbox {
 	public void tambahTombolAksi(MyToolbarbuttonConfig tombol) {
 		actionToolbar.setVisible(true);
 		tombol.setParent(actionToolbar);
+	}
+
+	/**
+	 * Mengizinkan tombol tab turun ke baris berikutnya pada panel sempit.
+	 * Default tetap satu baris + scroll horizontal untuk menjaga kompatibilitas
+	 * seluruh pemanggil lama.
+	 */
+	public void setTombolMembungkus(boolean membungkus) {
+		String kelas = "ais-btn-group ais-button-tabbox";
+		if (membungkus) {
+			kelas += " ais-button-tabbox-wrap";
+		}
+		tombolBar.setSclass(kelas);
+		tombolBar.setStyle(membungkus
+				? "flex:0 0 auto;overflow:visible;white-space:normal;"
+				: "flex:0 0 auto;overflow-x:auto;white-space:nowrap;");
 	}
 
 	/**

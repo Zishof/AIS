@@ -1960,7 +1960,13 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					.add(tahunAjaran == null ? Restrictions.sqlRestriction("true")
 							: Restrictions.eq("tahunAkademik", tahunAjaran))
 
-					.add(semester == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("semester", semester));
+					// "semester" di sini adalah label Ganjil/Genap (String), sedangkan kolom
+					// MahasiswaRequestTugasAkhir.semester bertipe Integer (nomor semester) — samakan
+					// lewat modulo genap/ganjil, bukan Restrictions.eq langsung (ClassCastException
+					// String->Integer saat binding).
+					.add(semester == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.sqlRestriction(
+									"this_.semester % 2 = " + (semester.equals(Perkuliahan.GANJIL) ? "1" : "0")));
 
 			if (order) {
 				criteria.add(Restrictions.sqlRestriction(
@@ -2012,7 +2018,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					.add(tahunAjaran == null ? Restrictions.sqlRestriction("true")
 							: Restrictions.eq("kkn.tahunAkademik", tahunAjaran))
 
-					.add(semester == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("semester", semester));
+					// KelompokKkn tidak punya properti "semester" sendiri (hanya lewat relasi ke
+					// Kkn.semester via alias "kkn") — bare "semester" gagal diresolusi Hibernate.
+					.add(semester == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.eq("kkn.semester", semester));
 
 			if (order) {
 				criteria.addOrder(Order.desc("kkn.tahunAkademik")).addOrder(Order.desc("kkn.semester"))
@@ -4769,7 +4778,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 								Toolbarbutton upload = FileFotoLain.tampilkanTombolUploadGdrive(null, null,
 										uploadeventListener, null, null, LampiranLain.DISKUSI, false, null, "Lampiran",
-										null, false, -Common.randLong(), false, LampiranLain.class);
+										null, false, Common.refSementara(), false, LampiranLain.class);
 								upload.setImage("");
 								upload.setLabel("Lampiran");
 								upload.setOrient("vertical");
@@ -4990,6 +4999,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		boolean sekolahSaja = (adaSiswa || adaGuru) && !adaMhs && !adaDosen;
 
 		ais.ui.util.MyButtonTabbox btnBimbingan = ais.ui.util.MyButtonTabbox.buat(host, "100%", null);
+		btnBimbingan.setTombolMembungkus(true);
 		int idx = 1;
 		if (!sekolahSaja) {
 			tambahSubBimbinganBtn(btnBimbingan, idx++, "Tugas Akhir", "/img/svg/chalkboard-user.svg", TampilanELearningAction.BIMBINGAN);
@@ -5072,12 +5082,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		fgrid.setStyle("border:none;background:transparent;");
 		Columns fcols = new Columns();
 		fcols.setParent(fgrid);
-		// 2 field per baris (label + kontrol) x2 = 4 kolom; fixed-layout agar semua kontrol pas 100%
-		// dan kolom Fakultas/Cari Judul tak terpotong.
-		for (int i = 0; i < 4; i++) {
+		// Panel kiri e-Learning sempit. Susun satu field per baris agar label dan
+		// kontrol tetap terbaca pada layar 1080p tanpa perlu zoom-out.
+		for (int i = 0; i < 2; i++) {
 			org.zkoss.zul.Column c = new org.zkoss.zul.Column();
-			if (i % 2 == 0) {
-				c.setWidth("150px");
+			if (i == 0) {
+				c.setWidth("118px");
 			}
 			c.setParent(fcols);
 		}
@@ -5124,24 +5134,36 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		r1.setParent(frows);
 		r1.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik"));
 		r1.appendChild(ta);
-		r1.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
-		r1.appendChild(smt);
 
 		MyFormRow r2 = new MyFormRow();
 		r2.setValign("middle");
 		r2.setParent(frows);
-		r2.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
-		r2.appendChild(fak);
-		r2.appendChild(new ais.ui.util.MyLabelConfig("Program Studi"));
-		r2.appendChild(jur);
+		r2.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
+		r2.appendChild(smt);
+
+		MyFormRow rFakultas = new MyFormRow();
+		rFakultas.setValign("middle");
+		rFakultas.setParent(frows);
+		rFakultas.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
+		rFakultas.appendChild(fak);
+
+		MyFormRow rProdi = new MyFormRow();
+		rProdi.setValign("middle");
+		rProdi.setParent(frows);
+		rProdi.appendChild(new ais.ui.util.MyLabelConfig("Program Studi"));
+		rProdi.appendChild(jur);
 
 		MyFormRow rCari = new MyFormRow();
 		rCari.setValign("middle");
 		rCari.setParent(frows);
 		rCari.appendChild(new ais.ui.util.MyLabelConfig("Cari NIM/NIS/Nama / Judul"));
 		rCari.appendChild(cariMhs);
-		rCari.appendChild(new ais.ui.util.MyLabelConfig("Dosen"));
-		rCari.appendChild(dosenBox);
+
+		MyFormRow rDosen = new MyFormRow();
+		rDosen.setValign("middle");
+		rDosen.setParent(frows);
+		rDosen.appendChild(new ais.ui.util.MyLabelConfig("Dosen"));
+		rDosen.appendChild(dosenBox);
 
 		container.setParent(wrap);
 
@@ -5161,9 +5183,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		btnTampil.addEventListener("onClick", tampilListener);
 		r3.appendChild(btnTampil);
 		if (bolehPengajuan) {
-			// Sel ke-3 kosong (perata), tombol "Pengajuan Baru" di sel ke-4 -> sejajar kolom kanan bar filter.
-			r3.appendChild(new ais.ui.util.MyLabelConfig(""));
-			r3.appendChild(buatTombolPengajuan(host, jenis));
+			MyFormRow rPengajuan = new MyFormRow();
+			rPengajuan.setParent(frows);
+			rPengajuan.appendChild(new ais.ui.util.MyLabelConfig(""));
+			rPengajuan.appendChild(buatTombolPengajuan(host, jenis));
 		}
 
 		cariMhs.addEventListener("onOK", tampilListener);
@@ -5509,10 +5532,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 		Columns columns = new Columns();
 		columns.setParent(grid);
-		// Foto/NIM/TA/Aksi lebar tetap; Nama & Judul TANPA lebar agar melebar mengisi 100% (fixed layout).
-		String[] heads = { "Foto", "NIM/NIS", "Nama", "Judul", "TA/Smt", "Aksi" };
-		String[] widths = { "64px", "130px", null, null, "150px", "205px" };
-		String[] aligns = { "center", "left", "left", "left", "center", "center" };
+		// Tabel berada di panel kiri ±400px. Gabungkan identitas + judul dan
+		// susun tombol aksi vertikal supaya Agenda/Nilai selalu terlihat tanpa
+		// zoom-out atau scroll horizontal.
+		String[] heads = { "Foto", "Mahasiswa / Judul", "TA/Smt", "Aksi" };
+		String[] widths = { "58px", null, "112px", "82px" };
+		String[] aligns = { "center", "left", "center", "center" };
 		for (int i = 0; i < heads.length; i++) {
 			org.zkoss.zul.Column col = new org.zkoss.zul.Column(heads[i]);
 			if (widths[i] != null) {
@@ -5679,26 +5704,30 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					row.appendChild(new Label(""));
 				}
 
+				org.zkoss.zul.Vlayout identitas = new org.zkoss.zul.Vlayout();
+				identitas.setSpacing("2px");
+				identitas.setStyle("padding:7px 5px;box-sizing:border-box;overflow-wrap:anywhere;");
 				Label labNim = new Label(nimTampil == null ? "-" : nimTampil);
-				labNim.setStyle("white-space:nowrap; padding:9px 10px; color:#475569;");
-				row.appendChild(labNim);
-
+				labNim.setStyle("font-weight:700;color:#334155;");
+				labNim.setParent(identitas);
 				Label labNama = new Label(namaTampil == null ? "" : namaTampil);
-				labNama.setStyle("font-weight:600; padding:9px 10px; color:#0f172a;");
-				row.appendChild(labNama);
-
-				Label labJudul = new Label(judul == null ? "" : judul);
-				labJudul.setStyle("padding:9px 10px; color:#475569;");
-				row.appendChild(labJudul);
+				labNama.setStyle("font-weight:600;color:#0f172a;white-space:normal;");
+				labNama.setParent(identitas);
+				if (judul != null && judul.trim().length() > 0) {
+					Label labJudul = new Label(judul);
+					labJudul.setStyle("font-size:11px;color:#64748b;white-space:normal;");
+					labJudul.setParent(identitas);
+				}
+				row.appendChild(identitas);
 
 				Label labTa = new Label(taSmt);
 				labTa.setStyle("white-space:nowrap; padding:9px 10px; color:#475569;");
 				row.appendChild(labTa);
 
 				final VOPembelajaran voKlik = voAksi;
-				org.zkoss.zul.Hlayout aksi = new org.zkoss.zul.Hlayout();
-				aksi.setSpacing("8px");
-				aksi.setStyle("padding:6px 8px;");
+				org.zkoss.zul.Vlayout aksi = new org.zkoss.zul.Vlayout();
+				aksi.setSpacing("4px");
+				aksi.setStyle("padding:5px 2px;text-align:center;");
 				MyToolbarbuttonConfig btnAgenda = new MyToolbarbuttonConfig("Agenda", "/img/svg/calendar-check.svg");
 				btnAgenda.setStyle("font-size:12px; white-space:nowrap;");
 				btnAgenda.setTooltiptext("Lihat agenda pertemuan/konsultasi");
@@ -6999,9 +7028,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 		// 2. WAJIB: Aktifkan Server Push jika belum aktif agar UI bisa di-update dari
 		// background thread
+		boolean pushBaruDinyalakan = false;
 		if (desktop != null && !desktop.isServerPushEnabled()) {
 			desktop.enableServerPush(true);
+			pushBaruDinyalakan = true;
 		}
+		final boolean pushDinyalakanDiSini = pushBaruDinyalakan;
 
 		// 3. Set label awal DI LUAR background thread agar aman dari NullPointerException.
 		//    Pesan DESKRIPTIF (biar pengguna tahu SEDANG memuat apa saat data banyak): fase ini memuat daftar
@@ -7014,6 +7046,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 			@Override
 			public void onEvent(Event evLoadSync) throws Exception {
+				try {
 				List<? extends VOPembelajaran> voPembelajarans = null;
 				// int size = 0;
 
@@ -7385,6 +7418,16 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				}
 
 				voPembelajarans = null;
+				} finally {
+					/* OPTIMASI FASE 5: push dulu dinyalakan tapi tidak pernah dimatikan sehingga browser
+					 * terus polling dan menahan thread Tomcat selama tab terbuka. Matikan HANYA bila kita
+					 * yang menyalakannya, dan hanya bila desktop masih hidup. */
+					if (pushDinyalakanDiSini && desktop != null && desktop.isAlive() && desktop.isServerPushEnabled()) {
+						try { desktop.enableServerPush(false); } catch (Exception e) {
+							ais.common.ErrorAuditUtil.record(e, "Fase5.lepasServerPush");
+						}
+					}
+				}
 			}
 		}, "", false, 60);
 	}
@@ -8057,7 +8100,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 					myRow.appendChild(new Label(Common.numberFormat.get().format(jumlahDiskusiTotal)));
 
-					map.put("jumlahUjianTotal", null);
+					map.put("jumlahUjianTotal", Integer.valueOf(0));
 					map.put("jumlahDiskusiTotal", jumlahDiskusiTotal);
 
 					diskusi += jumlahDiskusiTotal;
@@ -9788,6 +9831,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 						myRow.appendChild(new Label(Common.numberFormat.get().format(pertemuan.getPertemuanKe())));
 
 						Hbox hbox = new Hbox();
+						ais.ui.util.MenuAksiBaris.pasang(hbox);
+						ais.ui.util.MenuAksiBaris.pasang(hbox);
 						hbox.setParent(myRow);
 						try {
 
