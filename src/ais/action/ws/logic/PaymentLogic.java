@@ -731,9 +731,13 @@ public class PaymentLogic {
 				Common.tampilErrorJikaAdmin(e);
 			}
 
+			Double jumlahDibayar = kegiatan == null ? Double.valueOf(0.0) : kegiatan.getJumlahTelahDibayar();
+			Double sisaTagihan = CommonUtil.hitungSisaTagihan(nilaiBiayaHarusDiBayars, jumlahDibayar);
 			Long total = nilaiBiayaHarusDiBayars.longValue();
+			Long totalHarusDibayar = sisaTagihan.longValue();
 
-			System.out.println("total ==============================================> " + total);
+			System.out.println("total ==============================================> " + total
+					+ ", sisa tagihan ==============================================> " + totalHarusDibayar);
 
 			// Termasuk pembayaran SP: bila mahasiswa tidak mengambil SP, rincian biaya
 			// menghasilkan total nol. Tolak sebelum simpan agar tidak tercipta Kegiatan nol.
@@ -742,17 +746,16 @@ public class PaymentLogic {
 						nama, ConstantUtil.PAY).toArray(new String[][] { null });
 			}
 
-			if (Common.bolehKonfigurasi("nominal_pembayaran_h2h_harus_sama_dengan_tagihan")
-					|| (bulan != null && !bulan.trim().isEmpty() && Common.isNumber(bulan))) {
-				if (!nominalTagihan.equals(total.doubleValue())) {
+			if (sisaTagihan.doubleValue() > 0.001
+					&& (Common.bolehKonfigurasi("nominal_pembayaran_h2h_harus_sama_dengan_tagihan")
+							|| (bulan != null && !bulan.trim().isEmpty() && Common.isNumber(bulan)))) {
+				if (!nominalTagihan.equals(totalHarusDibayar.doubleValue())) {
 					return displayUtil.displayNominalTagihanTidakMencukupi(logHostToHost, mahasiswa.getNim(), bankHost,
 							nama, ConstantUtil.PAY).toArray(new String[][] { null });
 				}
 			}
 
-			boolean tidakBolehMencicil = Common.bolehKonfigurasi("mahasiswa_tidak_boleh_mencicil_pembayaran_via_h2h");
-
-			if ((kegiatan == null || kegiatan.getId() == null || kegiatan.getAmount() < 0.01 || !tidakBolehMencicil)) {
+			if (sisaTagihan.doubleValue() > 0.001) {
 
 				kegiatan = pembayaranUtil.simpanPembayaranMahasiswa(bankHost, jadwalPembayaran, jenisKegiatan,
 						mahasiswa, mydetailBiayas, nominalTagihan.doubleValue(), bulan, kodeAsli);

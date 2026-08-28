@@ -147,34 +147,21 @@ public class CommonUtil {
 	public static Response checkIfCicilan(Response response) {
 		try {
 
-			if (response.getResponse_code().equals(ConstantUtil.SUCCESS)) {
+			if (response != null && ConstantUtil.SUCCESS.equals(response.getResponse_code())) {
 
 				boolean perbulan = Common.bolehKonfigurasi("aktifkan_biaya_host_to_host_per_bulan", Konfigurasi.TIDAK_AKTIF);
 
 				if (!perbulan) {
+					String totalText = response.getTotal_amount();
+					String dibayarText = response.getInfo1();
+					if (totalText != null && dibayarText != null && !totalText.trim().isEmpty()
+							&& !dibayarText.trim().isEmpty()) {
+						Double totalTagihan = Double.parseDouble(totalText.trim());
+						Double jumlahDibayar = Double.parseDouble(dibayarText.trim());
+						Double sisaTagihan = hitungSisaTagihan(totalTagihan, jumlahDibayar);
 
-					boolean tidakBolehMencicil = Common.bolehKonfigurasi("mahasiswa_tidak_boleh_mencicil_pembayaran_via_h2h");
-					if (!tidakBolehMencicil) {
-
-						if (!response.getTotal_amount().trim().isEmpty() && !response.getInfo1().trim().isEmpty()) {
-
-							Double total_amount = Double.parseDouble(response.getTotal_amount().trim());
-							Double jumlah_yang_telah_dibayar = Double.parseDouble(response.getInfo1().trim());
-							Double totalTagihanSetelahDikurangiJumlahyangTelahDibayar = total_amount
-									- jumlah_yang_telah_dibayar;
-
-							System.out.println("total_amount => " + total_amount);
-							System.out.println("jumlah_yang_telah_dibayar => " + jumlah_yang_telah_dibayar);
-							System.out.println("totalTagihanSetelahDikurangiJumlahyangTelahDibayar => "
-									+ totalTagihanSetelahDikurangiJumlahyangTelahDibayar);
-
-							totalTagihanSetelahDikurangiJumlahyangTelahDibayar = (totalTagihanSetelahDikurangiJumlahyangTelahDibayar < 0.0)
-									? 0.0
-									: totalTagihanSetelahDikurangiJumlahyangTelahDibayar;
-
-							response.setTotal_amount(totalTagihanSetelahDikurangiJumlahyangTelahDibayar + "");
-						}
-
+						response.setTotal_amount(sisaTagihan.toString());
+						response.setAmount(sesuaikanRincianDenganSisa(response.getAmount(), sisaTagihan));
 					}
 				}
 			}
@@ -183,6 +170,72 @@ public class CommonUtil {
 		}
 
 		return response;
+	}
+
+	/**
+	 * Menghitung sisa yang benar-benar masih boleh dibayar oleh host bank.
+	 * Nilai negatif akibat pembulatan/kelebihan bayar selalu dinormalkan menjadi nol.
+	 */
+	public static Double hitungSisaTagihan(Double totalTagihan, Double jumlahDibayar) {
+		double total = totalTagihan == null ? 0.0 : totalTagihan.doubleValue();
+		double dibayar = jumlahDibayar == null ? 0.0 : jumlahDibayar.doubleValue();
+		double sisa = total - dibayar;
+		return Double.valueOf(sisa > 0.0 ? sisa : 0.0);
+	}
+
+	/**
+	 * Menyamakan jumlah rincian dengan total sisa. Pembayaran lama dialokasikan
+	 * berurutan terhadap rincian tagihan sehingga nama item dan nominal yang masih
+	 * harus dibayar tetap konsisten dengan total inquiry.
+	 */
+	public static String sesuaikanRincianDenganSisa(String amount, Double sisaTagihan) {
+		if (amount == null || amount.trim().isEmpty() || sisaTagihan == null) {
+			return amount;
+		}
+		String[] baris = amount.split("\\|", -1);
+		double totalRincian = 0.0;
+		for (int i = 0; i < baris.length; i++) {
+			if (baris[i] == null || baris[i].trim().isEmpty()) {
+				continue;
+			}
+			String[] bagian = baris[i].split("\\\\", -1);
+			if (bagian.length >= 3) {
+				try {
+					totalRincian += Double.parseDouble(bagian[bagian.length - 1].trim());
+				} catch (Exception e) {
+					// Rincian tidak valid diperlakukan nol, sama seperti parser lama.
+				}
+			}
+		}
+		double pembayaranTeralokasi = Math.max(0.0,
+				totalRincian - Math.max(0.0, sisaTagihan.doubleValue()));
+		StringBuilder hasil = new StringBuilder("|");
+		for (int i = 0; i < baris.length; i++) {
+			if (baris[i] == null || baris[i].trim().isEmpty()) {
+				continue;
+			}
+			String[] bagian = baris[i].split("\\\\", -1);
+			if (bagian.length < 3) {
+				continue;
+			}
+			double nominal = 0.0;
+			try {
+				nominal = Double.parseDouble(bagian[bagian.length - 1].trim());
+			} catch (Exception e) {
+				nominal = 0.0;
+			}
+			double pembayaranItem = Math.min(Math.max(0.0, nominal), pembayaranTeralokasi);
+			double nominalSisa = Math.max(0.0, nominal - pembayaranItem);
+			pembayaranTeralokasi -= pembayaranItem;
+			for (int j = 0; j < bagian.length - 1; j++) {
+				if (j > 0) {
+					hasil.append('\\');
+				}
+				hasil.append(bagian[j] == null ? "" : bagian[j]);
+			}
+			hasil.append('\\').append(Double.valueOf(nominalSisa).longValue()).append('|');
+		}
+		return hasil.toString();
 	}
 
 	public static Integer getSemester(Integer angkatan, Boolean isGanjil, Integer mulaiSemester,

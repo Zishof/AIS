@@ -660,10 +660,11 @@ public class InqueryLogic {
 			}
 
 			Long total = nilaiBiayaHarusDiBayars.longValue();
+			Double jumlahDibayar = kegiatan == null ? Double.valueOf(0.0) : kegiatan.getJumlahTelahDibayar();
+			Double sisaTagihan = CommonUtil.hitungSisaTagihan(nilaiBiayaHarusDiBayars, jumlahDibayar);
+			boolean tagihanLunas = total.longValue() > 0L && sisaTagihan.doubleValue() <= 0.001;
 
-			boolean tidakBolehMencicil = Common.bolehKonfigurasi("mahasiswa_tidak_boleh_mencicil_pembayaran_via_h2h");
-
-			if ((kegiatan == null || kegiatan.getId() == null || kegiatan.getAmount() < 0.01 || !tidakBolehMencicil)) {
+			if (!tagihanLunas) {
 
 				data.add(new String[] { "response_code",
 						(total.toString().equals("0") ? ConstantUtil.NOT_VALID_AMOUNT : ConstantUtil.SUCCESS) });
@@ -680,8 +681,8 @@ public class InqueryLogic {
 				data.add(new String[] { "semester_ke", semester + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
-				data.add(new String[] { "amount", pemb });
-				data.add(new String[] { "total_amount", total + "" });
+				data.add(new String[] { "amount", CommonUtil.sesuaikanRincianDenganSisa(pemb, sisaTagihan) });
+				data.add(new String[] { "total_amount", sisaTagihan.longValue() + "" });
 				data.add(new String[] { "kode_status_pembayaran", jenisKegiatan.getKode() });
 				data.add(new String[] { "keterangan_status_pembayaran", jenisKegiatan.getNamaKegiatan() });
 				data.add(new String[] { "reference_number",
@@ -711,8 +712,8 @@ public class InqueryLogic {
 				data.add(new String[] { "semester_ke", semester + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
-				data.add(new String[] { "amount", pemb });
-				data.add(new String[] { "total_amount", total + "" });
+				data.add(new String[] { "amount", CommonUtil.sesuaikanRincianDenganSisa(pemb, sisaTagihan) });
+				data.add(new String[] { "total_amount", sisaTagihan.longValue() + "" });
 				data.add(new String[] { "kode_status_pembayaran", jenisKegiatan.getKode() });
 				data.add(new String[] { "keterangan_status_pembayaran", jenisKegiatan.getNamaKegiatan() });
 				data.add(new String[] { "reference_number",
