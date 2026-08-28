@@ -405,15 +405,12 @@ public class UtsDanUasCheckerHelper {
 	}
 
 	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap) {
-		// Mengacu pada struktur asli, return memanggil versi overload method ini dengan parameter tambahan.
-		// Asumsi method dengan 4 parameter ada di logic existing (di-inherit/dimplementasikan di tempat lain).
 		return checkPembayaranSebelumKRSSudahMemenuhi(mahasiswa, semester, tahap, false);
 	}
 	
-	// Method Placeholder untuk menunjang panggilan di atas (karena di kode asli dipanggil namun deklarasinya tidak disertakan)
-	// Jika method ini berada di class lain di aplikasi Anda, Anda dapat menghapus method placeholder ini.
-	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap, boolean isSp) {
-		return true; // Implementasi sesungguhnya ada di class Anda
+	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap,
+			boolean persetujuan) {
+		return CommonHelperClass.checkPembayaranSebelumKRSSudahMemenuhi(mahasiswa, semester, tahap, persetujuan);
 	}
 
 	public static Boolean checkPembayaranSebelumUASSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,

@@ -643,7 +643,7 @@ public class HistoryStatusMahasiswaUtil {
             List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
             if (kegiatanDibayars != null) {
                 for (Kegiatan keg : kegiatanDibayars) {
-                    check &= (keg != null && keg.getPersentaseLunas() >= 0.1);
+                    check &= (keg != null && keg.hitungPersentaseLunasAktual() >= 0.1);
                 }
             }
         }
@@ -669,7 +669,7 @@ public class HistoryStatusMahasiswaUtil {
                 return false;
             }
             for (Kegiatan keg : kegiatanDibayars) {
-                if (keg == null || keg.getPersentaseLunas() == null || keg.getPersentaseLunas() < 0.1) {
+                if (keg == null || keg.hitungPersentaseLunasAktual() < 0.1) {
                     return false;
                 }
             }

@@ -957,9 +957,9 @@ public class CommonHelperClass {
 		Boolean hasil = false;
 		Kegiatan kegiatan = null;
 		for (JenisKegiatan jenisKegiatan : jenisKegiatansUntukKrs) {
-			kegiatan = mahasiswa.ambilKegiatans(semester, jenisKegiatan);
+			kegiatan = mahasiswa.ambilKegiatans(semester, jenisKegiatan, true);
 
-			prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+			prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.hitungPersentaseLunasAktual();
 			hasil = prosenYangSudahDibayar >= batas;
 
 			// System.out.println("Check Pembayaran KRS -> Mahasiswa " +
@@ -991,8 +991,9 @@ public class CommonHelperClass {
 
 				if (calonMahasiswa != null) {
 					jenisKegiatansUntukKrs.add(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
-					kegiatan = calonMahasiswa.ambilKegiatans(semester, ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
-					prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+					kegiatan = calonMahasiswa.ambilKegiatans(semester,
+							ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU, true);
+					prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.hitungPersentaseLunasAktual();
 					hasil = prosenYangSudahDibayar >= batas;
 				}
 				// System.out.println("Check Pembayaran KRS -> calonMahasiswa "
