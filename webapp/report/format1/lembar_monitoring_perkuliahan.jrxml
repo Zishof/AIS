@@ -313,6 +313,7 @@ $F{fakultas}.toUpperCase()+
 				<textElement textAlignment="Center">
 					<font size="8"/>
 				</textElement>
+				<!-- Gunakan nomor agenda asli; REPORT_COUNT berubah ketika sebagian pertemuan difilter. -->
 				<textFieldExpression><![CDATA[$F{pertemuan_ke}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
