@@ -49,6 +49,10 @@ public class CapaianLulusanVsBahanKajianAction extends MyWindow {
 
 	public CapaianLulusanVsBahanKajianAction() {
 		super();
+		setBorder("none");
+		setClosable(false);
+		setWidth("100%");
+		setHeight("100%");
 		try {
 			initKHS();
 			init();
@@ -77,6 +81,10 @@ public class CapaianLulusanVsBahanKajianAction extends MyWindow {
 	private void init() throws Exception {
 		perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		// Wajib berukuran eksplisit ketika ditampilkan di panel MyButtonTabbox;
+		// tanpa tinggi, North dan Center ada tetapi seluruh layout kolaps menjadi 0px.
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
 		borderlayout.setParent(this);
 
 		North west = new North();
