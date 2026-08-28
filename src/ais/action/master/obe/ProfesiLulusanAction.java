@@ -105,25 +105,11 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     @Override
     public Criteria initCriteria(boolean order) {
-        // ProfesiLulusan tidak createAlias jurusan (nullable), filter berbeda
-        Session session = HibernateUtil.currentSession();
-        Criteria c = session.createCriteria(ProfesiLulusan.class);
-        c.add(org.hibernate.criterion.Restrictions.eq("perguruanTinggi", perguruanTinggi));
-        c.add(searchaktif == null || searchaktif.isChecked()
-                ? org.hibernate.criterion.Restrictions.or(
-                        org.hibernate.criterion.Restrictions.isNull("aktif"),
-                        org.hibernate.criterion.Restrictions.eq("aktif", true))
-                : org.hibernate.criterion.Restrictions.sqlRestriction("true"));
-        if (order) {
-            c.addOrder(org.hibernate.criterion.Order.asc("kode"));
-            c.addOrder(org.hibernate.criterion.Order.asc("nama"));
-        }
-        if (searchnama != null && !searchnama.getValue().trim().isEmpty()) {
-            c.add(org.hibernate.criterion.Restrictions.ilike("nama",
-                    searchnama.getValue().trim(),
-                    org.hibernate.criterion.MatchMode.ANYWHERE));
-        }
-        return c;
+        // Profesi Lulusan wajib terikat ke Prodi pada form. Gunakan kriteria OBE
+        // standar supaya pilihan Fakultas/Prodi benar-benar membatasi query,
+        // sama seperti Profil Lulusan, Bahan Kajian, dan CPL.
+        return buildBaseCriteria(HibernateUtil.currentSession(), ProfesiLulusan.class,
+                order, true, "kode", "nama");
     }
 
     @Override

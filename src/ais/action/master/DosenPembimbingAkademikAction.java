@@ -518,8 +518,6 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 		Session session = HibernateUtil.currentSession();
 		Dosen d = (Dosen) searchdosen.getAttribute("myValue");
 		Criteria criteria = session.createCriteria(Dosen.class)
-				.createAlias("ikatanKerjaDosen", "ikatanKerjaDosen", Criteria.INNER_JOIN)
-				.add(Restrictions.eq("ikatanKerjaDosen.tetap", true))
 				.add(perguruanTinggi == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.eq("perguruanTinggi", perguruanTinggi))
 
