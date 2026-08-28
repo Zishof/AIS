@@ -16,6 +16,7 @@ import ais.database.model.Tbmrole;
  * penyimpanan role yang sama sehingga JSON dan menu berhasil atau gagal bersama.
  */
 public final class JurnalRoleMenuSynchronizer {
+    // Satu-satunya sinkronizer role-menu jurnal; jangan menggandakan logika ini di package fitur.
     public static final long PARENT_ID = 2000460500L;
     public static final long CHILD_ID_BASE = 2000000000L;
     public static final long LAST_CHILD_ID = 2000460528L;
