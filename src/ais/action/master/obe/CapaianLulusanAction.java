@@ -157,12 +157,7 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsProfilLulusanAction rel =
                         new CapaianLulusanVsProfilLulusanAction("", "none", false);
-                if (rel.getChildren().isEmpty()) {
-                    throw new IllegalStateException("Konten CPL vs Profil gagal dibentuk.");
-                }
-                rel.setHeight("100%");
-                rel.setWidth("100%");
-                rel.setParent(panel);
+                pasangIsiRelasi(panel, rel, "CPL vs Profil");
             }
         });
         buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
@@ -170,12 +165,7 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsBahanKajianAction rel =
                         new CapaianLulusanVsBahanKajianAction("", "none", false);
-                if (rel.getChildren().isEmpty()) {
-                    throw new IllegalStateException("Konten CPL vs Bahan Kajian gagal dibentuk.");
-                }
-                rel.setHeight("100%");
-                rel.setWidth("100%");
-                rel.setParent(panel);
+                pasangIsiRelasi(panel, rel, "CPL vs Bahan Kajian");
             }
         });
         buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
@@ -183,12 +173,7 @@ public class CapaianLulusanAction extends ObeBaseAction {
             public void muat(Div panel) throws Exception {
                 CapaianLulusanVsCapaianPembelajaranLulusanAction rel =
                         new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
-                if (rel.getChildren().isEmpty()) {
-                    throw new IllegalStateException("Konten CPL vs CPMK gagal dibentuk.");
-                }
-                rel.setHeight("100%");
-                rel.setWidth("100%");
-                rel.setParent(panel);
+                pasangIsiRelasi(panel, rel, "CPL vs CPMK");
             }
         });
         buttonTabboxUtama.tambahTabZul(5, "Kategori CPL",
@@ -196,6 +181,29 @@ public class CapaianLulusanAction extends ObeBaseAction {
 
         tabboxUtama.setParent(null);
         buttonTabboxUtama.pilih(1);
+    }
+
+    /**
+     * Composer relasi lama berbentuk Window. Jika Window tersebut langsung
+     * dimasukkan ke Div milik MyButtonTabbox, ZK 5 hanya merender caption
+     * default ("Menu"), sedangkan area isi Window menghitung tinggi nol. Pindahkan
+     * isi composer ke panel biasa agar Borderlayout mendapat viewport panel
+     * secara langsung tanpa mengubah logika filter dan penyimpanan relasi.
+     */
+    private void pasangIsiRelasi(Div panel, Component relation, String namaTab) {
+        List<Component> isi = new ArrayList<Component>();
+        for (Object child : relation.getChildren()) {
+            if (child instanceof Component) {
+                isi.add((Component) child);
+            }
+        }
+        if (isi.isEmpty()) {
+            throw new IllegalStateException("Konten " + namaTab + " gagal dibentuk.");
+        }
+        for (Component child : isi) {
+            child.setParent(panel);
+        }
+        panel.setStyle("overflow:hidden;min-height:560px;box-sizing:border-box;");
     }
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
