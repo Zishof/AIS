@@ -126,11 +126,13 @@ public class CapaianLulusanAction extends ObeBaseAction {
         Component parent = tabboxUtama.getParent();
         Div host = new Div();
         host.setWidth("100%");
-        host.setHeight("100%");
+        host.setHeight("calc(100vh - 150px)");
+        host.setStyle("min-height:620px;overflow:hidden;box-sizing:border-box;");
         parent.insertBefore(host, tabboxUtama);
 
         buttonTabboxUtama = MyButtonTabbox.buat(host, "100%", new int[] { 1 });
         Div panelDaftar = buttonTabboxUtama.tambahTab(1, "Capaian Lulusan (CPL)");
+        panelDaftar.setStyle("overflow:auto;min-height:560px;padding-bottom:12px;box-sizing:border-box;");
 
         if (tabboxUtama.getTabpanels() != null
                 && !tabboxUtama.getTabpanels().getChildren().isEmpty()) {
@@ -180,6 +182,8 @@ public class CapaianLulusanAction extends ObeBaseAction {
                 "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
 
         tabboxUtama.setParent(null);
+        // Pastikan panel pertama tampil dan model grid yang sudah dimuat oleh
+        // initCommon tidak menunggu klik tab buatan pengguna.
         buttonTabboxUtama.pilih(1);
     }
 
