@@ -314,6 +314,13 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 					pembelian.setNama(namaBarang);
 					pembelian.setKodePembayaranOnline(kodePembayaranOnline);
 					pembelian.setQty(jumlahBarang);
+					// Fase B: snapshot satuan jual (sudah divalidasi/diturunkan server di
+					// KantinHelper.terapkanSatuanJual sebelum sampai ke sini).
+					if (!objectTransaksi.isNull("satuan_jual_id")) {
+						pembelian.setSatuanJual(Long.valueOf(objectTransaksi.optLong("satuan_jual_id")));
+						pembelian.setQtyInput(Double.valueOf(objectTransaksi.optDouble("qty_input", 0)));
+						pembelian.setFaktorKeDasar(Double.valueOf(objectTransaksi.optDouble("faktor_ke_dasar", 1)));
+					}
 					pembelian.setDiskon(diskonBarang);
 					pembelian.setAturanDiskon(aturanDiskon);
 					pembelian.setCashback(cashbackBarang);

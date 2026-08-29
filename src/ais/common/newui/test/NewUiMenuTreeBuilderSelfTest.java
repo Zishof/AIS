@@ -72,8 +72,8 @@ public final class NewUiMenuTreeBuilderSelfTest {
                 Long.valueOf(8755592L), "/pages/master/sekolah/pem_online.zul?lbl_siswa=true");
         assertTrue(studentPayment != null, "student payment native route missing");
         assertTrue("sekolah".equals(studentPayment.getModule())
-                && "pembayaran_siswa".equals(studentPayment.getPage()),
-                "student payment native route mismatch");
+                && "pem_online".equals(studentPayment.getPage()),
+                "student payment kasir route mismatch");
         assertTrue(NewUiRouteRegistry.routeForMenuIdAndUrl(Long.valueOf(8755592L),
                 "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true") == null,
                 "student and candidate payment routes must not be interchangeable");

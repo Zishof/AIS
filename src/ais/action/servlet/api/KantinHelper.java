@@ -999,7 +999,9 @@ public class KantinHelper {
 	}
 
 	/** Faktor pengali jumlah input menjadi jumlah stok/dasar produk. */
-	private static double faktorUomInputKeDasar(Produk produk, SatuanProduk input) {
+	// package-visible: dipakai juga SalesInventoryReceivableHelper (Fase B) --
+	// SATU penegak kesekategorian, bukan salinan.
+	static double faktorUomInputKeDasar(Produk produk, SatuanProduk input) {
 		SatuanProduk dasar = produk == null ? null : produk.getSatuan();
 		if (input == null) input = produk == null ? null : produk.getSatuanPembelian();
 		if (input == null) input = dasar;
@@ -1367,6 +1369,11 @@ public class KantinHelper {
 					// tersinkron (pengiriman_pending) TIDAK ditimpa -- pelanggan sudah membayar
 					// harga saat kejadian; aturan yang berubah belakangan tidak boleh menulis
 					// ulang struk (guard yang sama dengan evaluasi diskon di bawah).
+					// Fase B: jumlah dasar baris ber-satuan-jual diturunkan server DULUAN --
+					// ambang grosir dan diskon menilai qty dasar yang benar.
+					if (!terapkanSatuanJual(session, transaksi, hasil)) {
+						return;
+					}
 					if (!jsonObject.optBoolean("pengiriman_pending", false)) {
 						HargaGrosirApiHelper.terapkanKeItems(session.connection(), toko.getId().longValue(),
 								transaksi, null);
@@ -3730,6 +3737,56 @@ public class KantinHelper {
 	 * grid Tbmrole tetap SATU toggle blanket ({@code EbisnisMenuKatalog.bolehAksi} sudah menangani
 	 * bypass ini) -- bukan baris grid tersendiri, sesuai keputusan "Supervisor = ALL Checked Akses".
 	 */
+	/**
+	 * Fase B: baris ber-satuan-jual diturunkan jumlah DASARNYA di server.
+	 *
+	 * <p>Baris yang membawa {@code satuan_jual_id} + {@code qty_input} dihitung ulang:
+	 * {@code jumlah = qty_input x faktorUomInputKeDasar(produk, satuan)} -- nilai
+	 * {@code jumlah} kiriman klien DITIMPA (server berwenang; klien hanya pratinjau
+	 * lewat UomKonversi). Faktor hasil hitung disimpan ke baris JSON supaya
+	 * {@code simpanRinci} mempersistankan snapshot tanpa menghitung ulang.
+	 * Dipanggil SEBELUM harga grosir dan diskon -- ambang grosir wajib menilai
+	 * qty dasar yang benar. Satuan lintas kategori ditolak dengan pesan yang
+	 * bisa dibaca (dari faktorUomInputKeDasar), bukan exception mentah.</p>
+	 *
+	 * @return true bila lolos; false bila ditolak ({@code hasil} sudah terisi).
+	 */
+	static boolean terapkanSatuanJual(Session session, JSONArray transaksi, JSONObject hasil)
+			throws Exception {
+		if (transaksi == null) return true;
+		for (int i = 0; i < transaksi.length(); i++) {
+			JSONObject baris = transaksi.optJSONObject(i);
+			if (baris == null || baris.isNull("satuan_jual_id")) continue;
+			long satuanId = baris.optLong("satuan_jual_id", 0L);
+			double qtyInput = baris.optDouble("qty_input", 0);
+			if (satuanId <= 0L) continue;
+			if (qtyInput <= 0) {
+				hasil.put("status", "91");
+				hasil.put("description", "qty_input wajib lebih dari nol untuk baris ber-satuan jual.");
+				return false;
+			}
+			Produk produk = (Produk) session.get(Produk.class,
+					Long.valueOf((baris.get("id") + "").trim()));
+			SatuanProduk satuan = (SatuanProduk) session.get(SatuanProduk.class, Long.valueOf(satuanId));
+			if (produk == null || satuan == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Produk/satuan jual pada baris " + (i + 1) + " tidak ditemukan.");
+				return false;
+			}
+			double faktor;
+			try {
+				faktor = faktorUomInputKeDasar(produk, satuan);
+			} catch (IllegalArgumentException salah) {
+				hasil.put("status", "91");
+				hasil.put("description", salah.getMessage());
+				return false;
+			}
+			baris.put("jumlah", qtyInput * faktor);
+			baris.put("faktor_ke_dasar", faktor);
+		}
+		return true;
+	}
+
 	// package-visible: dipakai juga HargaGrosirApiHelper (aturan komersial, gerbang yang sama).
 	static boolean bolehAksiCrud(Tbmuser tbmuser, ais.database.model.inventory.Pedagang pemanggil,
 			boolean adminGlobal, boolean supervisorToko, String kunciMenu, String aksi) {

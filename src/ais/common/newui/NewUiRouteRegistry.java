@@ -61,8 +61,10 @@ public final class NewUiRouteRegistry {
         register(6518796L, "/pages/master/sekolah/pengaturan_biaya_sekolah.zul", "sekolah", "pengaturan_biaya");
         register(6769091L, "ais.action.report.format1.sekolah.LaporanPembayaranSiswa", "root/report", "format1/sekolah/laporan_pembayaran_siswa");
         register(8555572L, "/pages/master/sekolah/posting_pembayaran.zul", "sekolah", "posting_cicilan_siswa");
-        register(8755592L, "/pages/master/sekolah/pem_online.zul?lbl_siswa=true", "sekolah", "pembayaran_siswa");
-        register(8755593L, "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true", "sekolah", "pembayaran_calon_siswa");
+        // Kasir pem_online (siswa & calon siswa) memakai controller khusus
+        // paritas PembayaranOnline; mode subjek ditentukan parameter, bukan URL.
+        register(8755592L, "/pages/master/sekolah/pem_online.zul?lbl_siswa=true", "sekolah", "pem_online");
+        register(8755593L, "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true", "sekolah", "pem_online");
         register(11098051L, "/pages/master/sekolah/diskon_siswa.zul", "sekolah", "diskon_siswa");
         register(65181292L, "/pages/master/sekolah/akun_pembayaran_siswa.zul", "sekolah", "akun_pembayaran_siswa");
         register(87657727L, "/pages/master/sekolah/tagihan.zul", "sekolah", "tagihan");

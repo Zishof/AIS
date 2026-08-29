@@ -253,12 +253,48 @@ public final class SalesInventoryReceivableHelper {
 					tolak(hasil, "Produk " + produkId + " tidak ditemukan.");
 					return;
 				}
+				// Fase B: baris ber-satuan-jual -- jumlah dasar DITURUNKAN server dari
+				// qty_input x faktor (satu penegak: KantinHelper.faktorUomInputKeDasar);
+				// jumlah kiriman klien hanya pratinjau.
+				Long satuanJualId = optLong(it, "satuan_jual_id");
+				java.math.BigDecimal qtyInputSo = optBigDecimal(it, "qty_input");
+				java.math.BigDecimal faktorSo = null;
+				if (satuanJualId != null) {
+					if (qtyInputSo == null || qtyInputSo.signum() <= 0) {
+						tx.rollback();
+						tolak(hasil, "Item ke-" + (i + 1) + ": qty_input wajib > 0 untuk satuan jual.");
+						return;
+					}
+					ais.database.model.inventory.SatuanProduk satuanJual =
+							(ais.database.model.inventory.SatuanProduk) session.get(
+									ais.database.model.inventory.SatuanProduk.class, satuanJualId);
+					if (satuanJual == null) {
+						tx.rollback();
+						tolak(hasil, "Item ke-" + (i + 1) + ": satuan jual tidak ditemukan.");
+						return;
+					}
+					double f;
+					try {
+						f = KantinHelper.faktorUomInputKeDasar(p, satuanJual);
+					} catch (IllegalArgumentException salah) {
+						tx.rollback();
+						tolak(hasil, salah.getMessage());
+						return;
+					}
+					faktorSo = new java.math.BigDecimal(String.valueOf(f));
+					jumlah = qtyInputSo.multiply(faktorSo);
+				}
 				SalesOrderLapanganItem baris = new SalesOrderLapanganItem();
 				baris.setSalesOrder(so);
 				baris.setProduk(p);
 				baris.setNamaProduk(str(p.getNama()));
 				baris.setHargaSatuan(harga);
 				baris.setJumlah(jumlah);
+				if (satuanJualId != null) {
+					baris.setSatuanJual(satuanJualId);
+					baris.setQtyInput(qtyInputSo);
+					baris.setFaktorKeDasar(faktorSo);
+				}
 				BigDecimal sub = harga.multiply(jumlah);
 				baris.setSubtotal(sub);
 				double hpp = p.getHargaBeli() == null ? 0 : p.getHargaBeli().doubleValue();

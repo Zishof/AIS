@@ -117,6 +117,13 @@ public class Pembelian extends GeneralValueObject {
 	private Double diskon;
 	private Double total;
 	private Double qty;
+	// Fase B (dok. 48/49): snapshot satuan JUAL per baris. qty TETAP satuan
+	// dasar -- seluruh rumus stok/HPP/laporan tidak berubah; tiga kolom ini
+	// murni tampilan + audit (baris "2 Karung" tetap terbaca sebagai 2 Karung
+	// walau preset satuan berubah di masa depan).
+	private Long satuanJual;
+	private Double qtyInput;
+	private Double faktorKeDasar;
 	private Date waktu;
 	private Boolean aktif;
 	private Toko toko;
@@ -258,6 +265,21 @@ public class Pembelian extends GeneralValueObject {
 	public void setQty(Double qty) {
 		this.qty = qty;
 	}
+
+	/** Id {@code koperasi.satuan_produk} yang dipilih kasir; null = satuan dasar. */
+	@Column(name = "satuan_jual", nullable = true)
+	public Long getSatuanJual() { return satuanJual; }
+	public void setSatuanJual(Long satuanJual) { this.satuanJual = satuanJual; }
+
+	/** Qty yang DIKETIK kasir dalam satuan jual (mis. 2 utk "2 Karung"). */
+	@Column(name = "qty_input", nullable = true)
+	public Double getQtyInput() { return qtyInput; }
+	public void setQtyInput(Double qtyInput) { this.qtyInput = qtyInput; }
+
+	/** Faktor konversi saat transaksi (snapshot): qty = qtyInput * faktor. */
+	@Column(name = "faktor_ke_dasar", nullable = true)
+	public Double getFaktorKeDasar() { return faktorKeDasar; }
+	public void setFaktorKeDasar(Double faktorKeDasar) { this.faktorKeDasar = faktorKeDasar; }
 
 	public String getKios() {
 		toko = check(toko);

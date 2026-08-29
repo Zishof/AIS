@@ -43,6 +43,10 @@ public class SalesOrderLapanganItem extends GeneralValueObject {
 	private BigDecimal jumlah;
 	private BigDecimal subtotal;
 	private BigDecimal hppSnapshot;
+	// Fase B: snapshot satuan jual -- lihat catatan di Pembelian.
+	private Long satuanJual;
+	private BigDecimal qtyInput;
+	private BigDecimal faktorKeDasar;
 
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
@@ -120,6 +124,18 @@ public class SalesOrderLapanganItem extends GeneralValueObject {
 
 	/** HPP per unit saat order dibuat (dari {@code Produk.hargaBeli} / rata-rata kulakan) --
 	 *  snapshot immutable utk laba kotor; TIDAK ikut berubah bila master berubah. */
+	@Column(name = "satuan_jual", nullable = true)
+	public Long getSatuanJual() { return satuanJual; }
+	public void setSatuanJual(Long v) { satuanJual = v; }
+
+	@Column(name = "qty_input", precision = 19, scale = 4)
+	public BigDecimal getQtyInput() { return qtyInput; }
+	public void setQtyInput(BigDecimal v) { qtyInput = v; }
+
+	@Column(name = "faktor_ke_dasar", precision = 19, scale = 6)
+	public BigDecimal getFaktorKeDasar() { return faktorKeDasar; }
+	public void setFaktorKeDasar(BigDecimal v) { faktorKeDasar = v; }
+
 	@Column(name = "hpp_snapshot", precision = 19, scale = 2)
 	public BigDecimal getHppSnapshot() {
 		return hppSnapshot == null ? BigDecimal.ZERO : hppSnapshot;
