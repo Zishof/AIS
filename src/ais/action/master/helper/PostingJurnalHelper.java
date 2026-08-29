@@ -182,14 +182,23 @@ public final class PostingJurnalHelper {
 
 	/**
 	 * Menerapkan filter status posting pola join posting history:
-	 * draft = history kosong atau posting=false, terposting = posting=true.
-	 * Pola ini sama dengan filter sudah_posting di jendela posting akunting,
-	 * asset, dan payroll.
+	 * draft = history kosong atau posting=false, terposting = history ADA dan tidak
+	 * dinonaktifkan (posting=true ATAU posting null).
+	 *
+	 * <p>Bendera null dihitung TERPOSTING, bukan diabaikan: PostingHistory memakai
+	 * dynamic-insert dan kolom posting tidak punya default DB, sehingga posting massal
+	 * lama (tombol ZK "Posting Semua" tidak pernah menyetel bendera) meninggalkan
+	 * posting=null. Versi lama filter ini menuntut posting=true untuk terposting DAN
+	 * posting=false untuk draf, sehingga dokumen bercap riwayat ber-bendera null lenyap
+	 * dari KEDUA hitungan dasbor. Dokumen bercap riwayat adalah dokumen terposting;
+	 * hanya penonaktifan eksplisit (posting=false) yang mengembalikannya ke draf.</p>
 	 */
 	public static void terapkanStatusPostingHistory(Criteria criteria, boolean sudahPosting) {
 		criteria.createAlias("postingHistory", "postingHistory", Criteria.LEFT_JOIN);
 		if (sudahPosting) {
-			criteria.add(Restrictions.eq("postingHistory.posting", true));
+			criteria.add(Restrictions.and(Restrictions.isNotNull("postingHistory.id"),
+					Restrictions.or(Restrictions.eq("postingHistory.posting", true),
+							Restrictions.isNull("postingHistory.posting"))));
 		} else {
 			criteria.add(Restrictions.or(Restrictions.isNull("postingHistory.id"),
 					Restrictions.eq("postingHistory.posting", false)));
@@ -213,7 +222,7 @@ public final class PostingJurnalHelper {
 					.sqlRestriction("ref is not null and ref != 'DP_PEKERJAAN' and ref != 'DP_BALIK_PEKERJAAN'");
 		}
 		if (REF_DIMUKA.equals(ref) || REF_PAYMENT_GATEWAY.equals(ref) || REF_DP_PEKERJAAN.equals(ref)
-				|| REF_DP_BALIK_PEKERJAAN.equals(ref)) {
+				|| REF_DP_BALIK_PEKERJAAN.equals(ref) || REF_PENGEMBALIAN.equals(ref)) {
 			return Restrictions.sqlRestriction("ref = '" + ref + "'");
 		}
 		return Restrictions.sqlRestriction("1=1");
