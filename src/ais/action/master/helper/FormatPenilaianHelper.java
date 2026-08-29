@@ -67,6 +67,25 @@ public class FormatPenilaianHelper {
 				&& kurikulum.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap());
 	}
 
+	/**
+	 * Menentukan apakah struktur penilaian OBE kelas ini belum lengkap. Format Nilai
+	 * OBE dibentuk dari CPMK pada Matakuliah dan Sub-CPMK/rincian pada
+	 * KurikulumPunyaMatakuliah; salah satunya kosong berarti pengguna harus diarahkan
+	 * lebih dahulu ke fasilitas salin RPS semester sebelumnya.
+	 */
+	private static boolean belumAdaStrukturPenilaianObe(Perkuliahan perkuliahan) {
+		if (perkuliahan == null || perkuliahan.getKurikulumPunyaMatakuliah() == null) {
+			return true;
+		}
+		ais.database.model.KurikulumPunyaMatakuliah kpm = perkuliahan.getKurikulumPunyaMatakuliah();
+		ais.database.model.Matakuliah matakuliah = kpm.getMatakuliah() == null
+				? perkuliahan.getMatakuliah() : kpm.getMatakuliah();
+		String cpmk = matakuliah == null ? "" : matakuliah.getCapaianPembelajaranLulusan();
+		String rincian = kpm.getRincian();
+		return cpmk == null || cpmk.trim().isEmpty()
+				|| rincian == null || rincian.trim().isEmpty() || "{}".equals(rincian.trim());
+	}
+
 	private MyGrid grid;
 
 	private PembombotanNilai selectedPembombotanNilai;
@@ -209,18 +228,24 @@ public class FormatPenilaianHelper {
 
 		if (apakahPerkuliahanObe(perkuliahan)) {
 			try {
+				boolean strukturObeKosong = belumAdaStrukturPenilaianObe(perkuliahan);
 				// OBE: Format Nilai TIDAK diedit manual - komponen & bobotnya ditentukan CPMK/Sub-CPMK
 				// di RPS OBE. Alih-alih sekadar alert pencegahan, TAMPILKAN halaman RPS OBE (fokus tab
 				// "CPMK & Sub-CPMK") di dalam window ini agar dosen bisa langsung mengatur CPMK/bobot.
 				Common.clear(window);
-				window.setTitle(Common.getBahasaConfig("RPS OBE - CPMK & Sub-CPMK"));
+				window.setTitle(Common.getBahasaConfig(strukturObeKosong
+						? "RPS OBE - Salin Format Semester Sebelumnya"
+						: "RPS OBE - CPMK & Sub-CPMK"));
 				window.setWidth("95%");
 				window.setHeight("95%");
 				window.setMaximizable(true);
 				window.setSizable(true);
 				java.util.Map<String, Object> argRps = new java.util.HashMap<String, Object>();
 				argRps.put("perkuliahan", String.valueOf(perkuliahan.getId()));
-				argRps.put("tabAktif", "CPMK & Sub-CPMK");
+				// Jika struktur masih kosong, buka tab Mata Kuliah karena di sanalah tombol
+				// "Salin Data dari RPS Lain" tersedia. Setelah disalin, refresh otomatis
+				// membangun CPMK/Sub-CPMK dan Format Nilai tanpa menyalin nilai mahasiswa.
+				argRps.put("tabAktif", strukturObeKosong ? "Mata Kuliah" : "CPMK & Sub-CPMK");
 				// Oper juga id KurikulumPunyaMatakuliah & Matakuliah dari perkuliahan ini agar RpsObeAction
 				// otomatis memuat tab OBE: cabang "kur" di doAfterCompose memanggil onSearchDefault sehingga
 				// tab CPMK/Sub-CPMK langsung terisi (tanpa perlu pengguna memilih MK/kurikulum lagi).

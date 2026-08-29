@@ -2419,8 +2419,31 @@ public class PenjadwalanHelper {
 											.getKurikulumPunyaMatakuliah();
 
 									if (kurikulumPunyaMatakuliahLama != null && kurikulumPunyaMatakuliahBaru != null) {
+										// Salin SELURUH struktur/format OBE. Nilai dan peserta tetap tidak
+										// disalin; keduanya tersimpan pada kelas/detail penilaian, bukan KPM.
 										kurikulumPunyaMatakuliahBaru.setMinimalKetercapaian(
 												kurikulumPunyaMatakuliahLama.getMinimalKetercapaian());
+										kurikulumPunyaMatakuliahBaru.setNilaiMenggunakanCpmk(
+												kurikulumPunyaMatakuliahLama.getNilaiMenggunakanCpmk());
+										kurikulumPunyaMatakuliahBaru.setCplBobot(kurikulumPunyaMatakuliahLama.getCplBobot());
+										kurikulumPunyaMatakuliahBaru.setPemetaanSoalUts(
+												kurikulumPunyaMatakuliahLama.getPemetaanSoalUts());
+										kurikulumPunyaMatakuliahBaru.setPemetaanSoalUas(
+												kurikulumPunyaMatakuliahLama.getPemetaanSoalUas());
+										kurikulumPunyaMatakuliahBaru.setKomponenPenilaian(
+												kurikulumPunyaMatakuliahLama.getKomponenPenilaian());
+										kurikulumPunyaMatakuliahBaru.setTeknikPerCpmk(
+												kurikulumPunyaMatakuliahLama.getTeknikPerCpmk());
+										kurikulumPunyaMatakuliahBaru.setRubrikPenilaian(
+												kurikulumPunyaMatakuliahLama.getRubrikPenilaian());
+										kurikulumPunyaMatakuliahBaru.setDeskripsiPembelajaran(
+												kurikulumPunyaMatakuliahLama.getDeskripsiPembelajaran());
+										kurikulumPunyaMatakuliahBaru.setCapaianPembelajaranProdi(
+												kurikulumPunyaMatakuliahLama.getCapaianPembelajaranProdi());
+										kurikulumPunyaMatakuliahBaru.setJumlahPertemuanPerkuliahanDefault(
+												kurikulumPunyaMatakuliahLama.getJumlahPertemuanPerkuliahanDefault());
+										kurikulumPunyaMatakuliahBaru.setTerdapatTugas(
+												kurikulumPunyaMatakuliahLama.getTerdapatTugas());
 										kurikulumPunyaMatakuliahBaru
 												.setCatatan(kurikulumPunyaMatakuliahLama.getCatatan());
 										kurikulumPunyaMatakuliahBaru

@@ -2097,7 +2097,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 				row.setValign("middle");
 				row.setStyle("border-bottom: 1px dashed #e2e8f0; padding: 10px 0; background: transparent;");
 				row.setParent(rowsUtama);
-				lbl = new MyLabelConfigAgakBesar(Common.getBahasaConfig("Salin Data dari RPS Lain"));
+				lbl = new MyLabelConfigAgakBesar(Common.getBahasaConfig(
+						"Salin CPMK, Sub-CPMK, bobot dan agenda dari semester sebelumnya"));
 				lbl.setStyle("font-weight: 600; color: #475569; font-size: 12px;");
 				row.appendChild(lbl);
 				hbox = new Hbox();
