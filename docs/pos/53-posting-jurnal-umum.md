@@ -1,6 +1,6 @@
 # Posting Massal "Jurnal Umum" dari Dasbor Draft Jurnal POS
 
-Tanggal: 29 Agustus 2026. Revisi SVN dicantumkan di bagian akhir setelah commit.
+Tanggal: 29 Agustus 2026. Kode masuk SVN r78520, dokumen ini r78525.
 
 ## 1. Apa yang dilengkapi
 
@@ -109,5 +109,7 @@ Terpasang saat ini: 31 baris (termasuk Jurnal Umum ini). Belum:
 
 ## 7. Revisi
 
-- Kode: `PostingTransaksiHarianAction.java` + `DraftJurnalApiHelper.java` (src dan
-  mirror java/, byte-identik) — revisi diisi saat commit.
+- Kode: `PostingTransaksiHarianAction.java` + `DraftJurnalApiHelper.java` masuk di
+  **r78520** (terbawa commit sapu sesi paralel; konten diverifikasi byte-identik dengan
+  hasil kerja sesi ini di HEAD). Mirror `java/` selaras pada r78526.
+- Dokumen ini masuk di **r78525** (juga terbawa commit sesi paralel, isi utuh).
