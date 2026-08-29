@@ -16,11 +16,14 @@ import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.KurikulumPunyaMatakuliah;
 import ais.database.model.Matakuliah;
 import ais.database.model.Pertemuan;
+import ais.database.model.obe.BahanKajian;
 import ais.database.model.obe.CapaianLulusan;
 import ais.database.model.obe.CapaianPembelajaranLulusan;
 import ais.database.model.obe.ProfilLulusan;
+import ais.database.model.obe.ReferensiLulusan;
 import ais.ui.util.MyWindow;
 
 /**
@@ -35,6 +38,8 @@ public final class AmbilDataBanyakObeAgendaHelper {
 	public static final String JENIS_PROFIL_LULUSAN = "PL";
 	public static final String JENIS_CAPAIAN_LULUSAN = "CPL";
 	public static final String JENIS_CPMK = "CPMK";
+	public static final String JENIS_BAHAN_KAJIAN = "BAHAN_KAJIAN";
+	public static final String JENIS_PUSTAKA = "PUSTAKA";
 
 	private AmbilDataBanyakObeAgendaHelper() {
 	}
@@ -53,6 +58,10 @@ public final class AmbilDataBanyakObeAgendaHelper {
 			bukaCapaianLulusan(induk, matakuliah, selesai);
 		} else if (JENIS_CPMK.equals(jenis)) {
 			bukaCpmk(induk, matakuliah, selesai);
+		} else if (JENIS_BAHAN_KAJIAN.equals(jenis)) {
+			bukaBahanKajian(induk, matakuliah, selesai);
+		} else if (JENIS_PUSTAKA.equals(jenis)) {
+			bukaPustaka(induk, pertemuan, selesai);
 		} else {
 			throw new IllegalArgumentException("Jenis data OBE tidak dikenali: " + jenis);
 		}
@@ -141,6 +150,69 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		tampilkanPopup(popup, "Pilih CPMK");
 	}
 
+	private static void bukaBahanKajian(final Component induk, final Matakuliah matakuliah,
+			final EventListener selesai) throws Exception {
+		List<BahanKajian> tersimpan = ambilBahanKajian(matakuliah.getBahanKajian());
+		final AmbilDataBahanKajianBanyak popup = new AmbilDataBahanKajianBanyak(tersimpan,
+				matakuliah.getJurusan(), matakuliah);
+		popup.setEventListener(new EventListener() {
+			@SuppressWarnings("unchecked")
+			@Override
+			public void onEvent(Event event) throws Exception {
+				List<BahanKajian> dipilih = (List<BahanKajian>) event.getData();
+				Set<Long> ids = parseIds(matakuliah.getBahanKajian());
+				if (dipilih != null) {
+					for (BahanKajian data : dipilih) {
+						if (data != null && data.getId() != null) {
+							ids.add(data.getId());
+						}
+					}
+				}
+				matakuliah.setBahanKajian(gabungIds(ids));
+				simpanDanMuatUlang(induk, matakuliah, selesai);
+			}
+		});
+		tampilkanPopup(popup, "Pilih Bahan Kajian / Materi Pembelajaran");
+	}
+
+	private static void bukaPustaka(final Component induk, final Pertemuan pertemuan,
+			final EventListener selesai) throws Exception {
+		if (pertemuan == null || pertemuan.getPerkuliahan() == null) {
+			throw new IllegalStateException("Data perkuliahan belum tersedia.");
+		}
+		KurikulumPunyaMatakuliah dataKurikulum = pertemuan.getPerkuliahan()
+				.getKurikulumPunyaMatakuliah();
+		if (dataKurikulum == null) {
+			dataKurikulum = pertemuan.getPerkuliahan().ambilKurikulumPunyaMatakuliah();
+		}
+		if (dataKurikulum == null) {
+			throw new IllegalStateException(
+					"Kurikulum mata kuliah belum ditentukan. Lengkapi kurikulum perkuliahan terlebih dahulu.");
+		}
+		final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = dataKurikulum;
+		List<ReferensiLulusan> tersimpan = ambilReferensiLulusan(
+				kurikulumPunyaMatakuliah.getPustaka());
+		final AmbilDataReferensiLulusanBanyak popup = new AmbilDataReferensiLulusanBanyak(tersimpan);
+		popup.setEventListener(new EventListener() {
+			@SuppressWarnings("unchecked")
+			@Override
+			public void onEvent(Event event) throws Exception {
+				List<ReferensiLulusan> dipilih = (List<ReferensiLulusan>) event.getData();
+				Set<Long> ids = parseIds(kurikulumPunyaMatakuliah.getPustaka());
+				if (dipilih != null) {
+					for (ReferensiLulusan data : dipilih) {
+						if (data != null && data.getId() != null) {
+							ids.add(data.getId());
+						}
+					}
+				}
+				kurikulumPunyaMatakuliah.setPustaka(gabungIds(ids));
+				simpanDanMuatUlang(induk, kurikulumPunyaMatakuliah, selesai);
+			}
+		});
+		tampilkanPopup(popup, "Pilih Pustaka / Referensi");
+	}
+
 	private static List<ProfilLulusan> ambilProfilLulusan(String nilai) {
 		Session session = null;
 		try {
@@ -187,6 +259,36 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		}
 	}
 
+	private static List<BahanKajian> ambilBahanKajian(String nilai) {
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Set<Long> ids = parseIds(nilai);
+			if (ids.isEmpty()) {
+				return new ArrayList<BahanKajian>();
+			}
+			return ConstantValues.simpleList(session.createCriteria(BahanKajian.class)
+					.add(Restrictions.in("id", ids)).addOrder(Order.asc("kode")), BahanKajian.class);
+		} finally {
+			tutupSession(session);
+		}
+	}
+
+	private static List<ReferensiLulusan> ambilReferensiLulusan(String nilai) {
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Set<Long> ids = parseIds(nilai);
+			if (ids.isEmpty()) {
+				return new ArrayList<ReferensiLulusan>();
+			}
+			return ConstantValues.simpleList(session.createCriteria(ReferensiLulusan.class)
+					.add(Restrictions.in("id", ids)).addOrder(Order.asc("kode")), ReferensiLulusan.class);
+		} finally {
+			tutupSession(session);
+		}
+	}
+
 	private static void tampilkanPopup(MyWindow popup, String judul) throws Exception {
 		popup.setTitle(judul);
 		popup.setWidth("850px");
@@ -200,6 +302,15 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		Common.refreshUpdate(matakuliah);
 		if (selesai != null) {
 			selesai.onEvent(new Event("onObeDataChanged", induk, matakuliah));
+		}
+	}
+
+	private static void simpanDanMuatUlang(Component induk,
+			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah, EventListener selesai)
+			throws Exception {
+		Common.refreshUpdate(kurikulumPunyaMatakuliah);
+		if (selesai != null) {
+			selesai.onEvent(new Event("onObeDataChanged", induk, kurikulumPunyaMatakuliah));
 		}
 	}
 

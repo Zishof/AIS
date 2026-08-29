@@ -7204,7 +7204,9 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
 										// supaya pengguna tidak perlu menelusuri menu secara manual.
 										if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
-											tambahTombolTambahDataObe(vboxUtama, "Bahan Kajian", "pages/master/obe/bahan_kajian.zul");
+											tambahTombolAmbilDataObeAgenda(vboxUtama, "Bahan Kajian", pertemuan,
+													ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_BAHAN_KAJIAN,
+													eventListener);
 										}
 
 						vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
@@ -7281,7 +7283,9 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
 										// supaya pengguna tidak perlu menelusuri menu secara manual.
 										if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
-											tambahTombolTambahDataObe(vboxUtama, "Pustaka / Referensi", "pages/master/obe/referensi_lulusan.zul");
+											tambahTombolAmbilDataObeAgenda(vboxUtama, "Pustaka / Referensi", pertemuan,
+													ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_PUSTAKA,
+													eventListener);
 										}
 
 						vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
@@ -9769,6 +9773,10 @@ public class DashboardTimelinePertemuan extends MyWindow {
 				labelTombol = "Tambah CPL";
 			} else if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_CPMK.equals(jenis)) {
 				labelTombol = "Tambah CPMK";
+			} else if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_BAHAN_KAJIAN.equals(jenis)) {
+				labelTombol = "Tambah Bahan Kajian";
+			} else if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_PUSTAKA.equals(jenis)) {
+				labelTombol = "Tambah Pustaka";
 			}
 			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig(labelTombol, "/img/svg/plus-circle.svg");
 			tombol.setTooltiptext("Pilih " + judul + " khusus program studi mata kuliah ini");
