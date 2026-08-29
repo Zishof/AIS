@@ -60,7 +60,8 @@ public final class PostingJurnalHelper {
 			"detailKegiatan", "cicilanPembayaran", "deposit", "pengeluaranMahasiswa", "logPembayaran", "tagihan",
 			"pembayaranSiswaDetail", "depositSiswa", "penyusutanAsset", "daftarPengajuanTransfer", "transitori",
 			"pembayaranPengadaanMasterAssetDetail", "pembayaranDpMasterAssetDetail",
-			"pembayaranTerminMasterAssetDetail", "perjanjianKerjasamaMasterAsset" };
+			"pembayaranTerminMasterAssetDetail", "perjanjianKerjasamaMasterAsset", "transaksiPegawai",
+			"pembayaranGajiPunyaPegawai" };
 
 	/** Nilai kolom jenis pada grup transaksi yang boleh dipakai sebagai filter. */
 	private static final String[] JENIS_CLOSING = { "PIUTANG_SISWA", "PEMBAYARAN_SISWA_DIBAYAR_DIMUKA",

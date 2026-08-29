@@ -102,6 +102,9 @@ public final class DraftJurnalApiHelper {
         if ("Mahasiswa - Biaya Administrasi".equals(namaBaris)) return "mahasiswa_biaya_adm";
         if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) return "mahasiswa_biaya_pg";
         if ("Gaji".equals(namaBaris)) return "gaji";
+        // Dua jurnal payroll lain serumpun izin dengan Gaji.
+        if ("Transaksi Pegawai".equals(namaBaris)) return "gaji";
+        if ("Penggajian Pegawai".equals(namaBaris)) return "gaji";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Jurnal pembayaran menempel pada dokumen sumbernya, mengikuti prinsip baris lain:
         // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
@@ -392,6 +395,18 @@ public final class DraftJurnalApiHelper {
             jumlah = posting
                     ? ais.action.master.PostingBiayaPaymentGatewayPembayaranMahasiswaAction.postingSemua(mulai, sampai, tbmuser, new Date())
                     : ais.action.master.PostingBiayaPaymentGatewayPembayaranMahasiswaAction.batalkanPostingSemua(mulai, sampai);
+        } else if ("Transaksi Pegawai".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.payroll.PostingTransaksiPegawaiAction.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.payroll.PostingTransaksiPegawaiAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Penggajian Pegawai".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.payroll.PostingTransaksiPenggajianAction.postingSemua(
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.payroll.PostingTransaksiPenggajianAction
+                        .batalkanPostingSemua(mulai, sampai);
         } else if ("Gaji".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.payroll.PostingTransaksiPembayaranGajiAction.postingSemua(

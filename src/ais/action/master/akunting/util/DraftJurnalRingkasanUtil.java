@@ -104,7 +104,7 @@ public final class DraftJurnalRingkasanUtil {
             "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
-            "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
+            "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp" };
 
     private DraftJurnalRingkasanUtil() {
@@ -133,7 +133,8 @@ public final class DraftJurnalRingkasanUtil {
                 || "pembayaran_tagihan_vendor".equals(kunci) || "pembayaran_dp_vendor".equals(kunci)
                 || "pembayaran_termin_vendor".equals(kunci)
                 || "perjanjian_kerjasama".equals(kunci)) return "transaksi_vendor";
-        if ("gaji".equals(kunci)) return "gaji";
+        if ("gaji".equals(kunci) || "transaksi_pegawai_payroll".equals(kunci)
+                || "penggajian_pegawai".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
         if ("penyusutan".equals(kunci)) return "fixed_asset";
         if ("pengajuan_transfer".equals(kunci)) return "pengajuan_transfer";
@@ -316,6 +317,18 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaPembayaranGaji(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaPembayaranGaji(session, mulai, sampai), true),
                     hitungClosing(session, "pembayaranGaji", null, null, mulai, sampai)));
+        } else if ("transaksi_pegawai_payroll".equals(kunci)) {
+            out.add(new Baris(kunci, "Transaksi Pegawai",
+                    "Transaksi lain-lain pegawai (pinjaman, potongan, dsb.) dipastikan menjadi jurnal.",
+                    hitungPostingHistory(session, kriteriaTransaksiPegawai(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaTransaksiPegawai(session, mulai, sampai), true),
+                    hitungClosing(session, "transaksiPegawai", null, null, mulai, sampai)));
+        } else if ("penggajian_pegawai".equals(kunci)) {
+            out.add(new Baris(kunci, "Penggajian Pegawai",
+                    "Rincian gaji per pegawai yang disetujui dipastikan menjadi jurnal beban dan kas.",
+                    hitungPostingHistory(session, kriteriaPenggajianPegawai(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaPenggajianPegawai(session, mulai, sampai), true),
+                    hitungClosing(session, "pembayaranGajiPunyaPegawai", null, null, mulai, sampai)));
         } else if ("mahasiswa".equals(kunci)) {
             mahasiswa(out, session, mulai, sampai);
         } else if ("siswa".equals(kunci)) {
@@ -453,6 +466,23 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.ne("dp", 0.0)).add(Restrictions.isNotNull("dp"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_pembuatan", mulai, sampai)));
+    }
+
+    /**
+     * Dua kriteria payroll di bawah ini disamakan dengan mesin massal masing-masing
+     * (kriteria*Static di PostingTransaksiPegawaiAction / PostingTransaksiPenggajianAction).
+     */
+    private static Criteria kriteriaTransaksiPegawai(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.payroll.TransaksiPegawai.class)
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)));
+    }
+
+    private static Criteria kriteriaPenggajianPegawai(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.payroll.PembayaranGajiPunyaPegawai.class)
+                .createAlias("pembayaranGaji", "pembayaranGaji")
+                .add(Restrictions.isNotNull("pembayaranGaji.disetujuiOleh"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_bayar_gaji", mulai, sampai)));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -767,6 +797,12 @@ public final class DraftJurnalRingkasanUtil {
             return kriteriaPerjanjianKerjasama(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
+        if ("Transaksi Pegawai".equals(namaBaris)) {
+            return kriteriaTransaksiPegawai(session, mulai, sampai);
+        }
+        if ("Penggajian Pegawai".equals(namaBaris)) {
+            return kriteriaPenggajianPegawai(session, mulai, sampai);
+        }
 
         if ("Mahasiswa - Piutang Tagihan".equals(namaBaris)) return kriteriaDetailKegiatan(session, mulai, sampai);
         if ("Mahasiswa - Pembayaran".equals(namaBaris)) {

@@ -575,4 +575,159 @@ public class PostingTransaksiPegawaiAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen yang SAMA dengan baris "Transaksi Pegawai" di dasbor draft jurnal:
+	 * transaksi pegawai bernilai tidak nol pada rentang tanggal. Layar ZK tidak menyaring nilai;
+	 * dasbor menambahkannya supaya angka tidak dipenuhi dokumen yang jurnalnya pasti nol.
+	 */
+	private static Criteria kriteriaTransaksiPegawaiStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(TransaksiPegawai.class)
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA transaksi pegawai pada rentang -- jalur API dasbor Draft Jurnal POS.
+	 * Jurnal per dokumen mengikuti tombol "Posting Semua" layar: Dr/Cr akun jenis transaksi
+	 * pegawai lewat overload {@code CommonAkunting.saveTransaksi(TransaksiPegawai, ...)}, dengan
+	 * arah dibalik untuk nilai negatif. Riwayat memakai JENIS_TRANSAKSI_LAIN (mengikuti tombol
+	 * massal; tombol per barisnya sendiri keliru memakai JENIS_MAHASISWA -- tidak diwarisi) dan
+	 * diberi {@code posting=true}. Satuan kerja jurnal dibiarkan kosong (global) -- padanan
+	 * tanpa-filter pada layar.
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaTransaksiPegawaiStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_TRANSAKSI_LAIN);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal transaksi pegawai dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				TransaksiPegawai tp = (TransaksiPegawai) o;
+				if (tp == null || tp.getJenisTransaksiPegawai() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = tp.getJenisTransaksiPegawai().getAkunDebet();
+					Akun akunKredit = tp.getJenisTransaksiPegawai().getAkun();
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					boolean tersimpan = CommonAkunting.saveTransaksi(tp, akunDebet, postingHistory,
+							tp.getNilai() < 0.0, null, session);
+					if (tersimpan) {
+						tp.setPostingHistory(postingHistory);
+						session.update(tp);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPegawaiAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPegawaiAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA transaksi pegawai terposting pada rentang: jurnal turunannya
+	 * dihapus (baris transaksi dulu, lalu grupnya -- hanya yang belum closing), lalu penandanya
+	 * dilepas -- bentuk yang sama dengan tombol batal layar, ditambah pembersihan baris anak.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaTransaksiPegawaiStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				TransaksiPegawai tp = (TransaksiPegawai) o;
+				if (tp == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where transaksi_pegawai="
+							+ tp.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where transaksi_pegawai="
+							+ tp.getId() + " and closing is null").executeUpdate();
+					tp.setPostingHistory(null);
+					session.update(tp);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiPegawaiAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
