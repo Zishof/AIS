@@ -658,7 +658,14 @@ public final class NewUiDaftarUlangMahasiswaController {
             throw new IllegalArgumentException("Ukuran berkas bukti harus 1 byte s.d. "
                     + (MAKS_BUKTI_BYTES / 1000) + " KB.");
 
-        java.io.File temp = java.io.File.createTempFile("bukti_kasir_",
+        // Nama berkas temp = nama asli tersanitasi: createFileFotoLain memakai
+        // file.getName() sebagai nama tersimpan, jadi nama temp menentukan label
+        // yang dilihat pengguna.
+        String basis = namaFile.substring(0, namaFile.lastIndexOf('.'))
+                .replaceAll("[^A-Za-z0-9._-]", "_");
+        if (basis.length() > 60) basis = basis.substring(0, 60);
+        if (basis.length() < 3) basis = basis + "_bukti"; // prefix temp minimal 3 karakter
+        java.io.File temp = java.io.File.createTempFile(basis + "_",
                 lower.substring(lower.lastIndexOf('.')));
         try {
             java.nio.file.Files.write(temp.toPath(), isi);
