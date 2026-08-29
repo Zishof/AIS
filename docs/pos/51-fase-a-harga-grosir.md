@@ -37,7 +37,14 @@ gabungan qty lintas baris, ekstra bersarang, dua arah). Flutter:
 `harga_grosir_kontrak_test` 4 lulus; suite penuh **459 lulus / 0 gagal**;
 analyze bersih. `javac -source 1.7` EXIT=0; cermin `src`/`java` identik.
 
-## Belum termasuk (kelanjutan Fase A)
+## Pelengkap (sesi yang sama)
+
+Sisa Fase A terlaksana: pemilih kemasan tekan-lama di kartu kasir, snapshot
+kemasan di baris + struk ("2 x Karung 50kg"; bentuk informatif bila qty tidak
+bulat), dan editor aturan harga di form Produk (online-only disengaja).
+Flutter 460/0. Rincian di repo Flutter `2026-08-29-fase-a-harga-grosir.md`.
+
+## Belum termasuk (di luar Fase A)
 
 Pemilih kemasan sekali-ketuk di kartu kasir + snapshot `kemasanNama/qty` di
 baris struk (dok. 48 §4 Fase 1 butir klien); layar kelola aturan harga; paritas

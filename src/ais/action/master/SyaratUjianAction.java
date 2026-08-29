@@ -915,9 +915,10 @@ public class SyaratUjianAction extends GenericAutowireComposer
 		boolean i = checkNamaSyaratUjian();
 		if (i) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Syarat Ujian",
-					"Nama Syarat Ujian sudah terdaftar sebelumnya di database, sehingga tidak dapat disimpan kembali untuk menghindari duplikasi data.",
+					"Nama Syarat Ujian sudah terdaftar pada cakupan akademik yang sama, sehingga tidak dapat disimpan kembali untuk menghindari duplikasi data.",
 					new String[] {
-							"Gunakan nama syarat ujian yang berbeda dari data yang sudah ada.",
+							"Periksa pilihan jenjang, fakultas, prodi, program, periode, semester, angkatan, dan status mahasiswa.",
+							"Nama yang sama tetap boleh digunakan apabila cakupan akademiknya berbeda, misalnya untuk jenjang S2 dan S3.",
 							"Periksa kembali daftar data yang sudah tersimpan apabila Bapak/Ibu ragu."
 					});
 			return false;
@@ -1025,16 +1026,52 @@ public class SyaratUjianAction extends GenericAutowireComposer
 	}
 
 	public Boolean checkNamaSyaratUjian() {
-
-		Integer kotaCount = null;
 		Session session = HibernateUtil.currentSession();
-		kotaCount = ((Number) session.createCriteria(SyaratUjian.class).setProjection(Projections.rowCount())
+		Criteria criteria = session.createCriteria(SyaratUjian.class).setProjection(Projections.rowCount())
 				.add(Restrictions.eq("nama", nama.getValue().trim()))
 				.add(this.syaratUjian.getId() == null ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.ne("id", this.syaratUjian.getId()))
-				.uniqueResult()).intValue();
+						: Restrictions.ne("id", this.syaratUjian.getId()));
 
-		return !kotaCount.equals(0);
+		/*
+		 * Nama Syarat Ujian adalah label yang wajar dipakai ulang. Yang benar-benar
+		 * duplikat ialah nama + seluruh cakupan penerapannya. Sebelumnya validasi
+		 * hanya membandingkan nama secara global sehingga "50% SPP" untuk S2
+		 * menghalangi pembuatan aturan "50% SPP" untuk S3.
+		 */
+		tambahkanCakupanDuplikat(criteria, "jenjang", nilaiCombo(jenjang));
+		tambahkanCakupanDuplikat(criteria, "fakultas", nilaiCombo(fakultas));
+		tambahkanCakupanDuplikat(criteria, "jurusan", nilaiCombo(jurusan));
+		tambahkanCakupanDuplikat(criteria, "program", nilaiCombo(program));
+		tambahkanCakupanDuplikat(criteria, "statusPertemuan", nilaiCombo(statusPertemuan));
+		tambahkanCakupanDuplikat(criteria, "statusAwalMahasiswa", nilaiCombo(statusAwalMahasiswa));
+		tambahkanCakupanDuplikat(criteria, "tahunAkademik", nilaiCombo(tahunAkademik));
+		tambahkanCakupanDuplikat(criteria, "semester", nilaiCombo(semester));
+		tambahkanCakupanDuplikatDenganDefault(criteria, "minimalSmt", minimalSmt.getValue(), Integer.valueOf(0));
+		tambahkanCakupanDuplikatDenganDefault(criteria, "maksimalSmt", maksimalSmt.getValue(), Integer.valueOf(30));
+		tambahkanCakupanDuplikatDenganDefault(criteria, "minimalAngkatan", minimalAngkatan.getValue(),
+				Integer.valueOf(2000));
+		tambahkanCakupanDuplikatDenganDefault(criteria, "maksimalAngkatan", maksimalAngkatan.getValue(),
+				Integer.valueOf(2100));
+
+		Integer jumlah = ((Number) criteria.uniqueResult()).intValue();
+		return !jumlah.equals(0);
+	}
+
+	private static Object nilaiCombo(Combobox combo) {
+		return combo == null || combo.getSelectedItem() == null ? null : combo.getSelectedItem().getValue();
+	}
+
+	private static void tambahkanCakupanDuplikat(Criteria criteria, String properti, Object nilai) {
+		criteria.add(nilai == null ? Restrictions.isNull(properti) : Restrictions.eq(properti, nilai));
+	}
+
+	private static void tambahkanCakupanDuplikatDenganDefault(Criteria criteria, String properti, Object nilai,
+			Object nilaiDefault) {
+		if (nilai == null || nilai.equals(nilaiDefault)) {
+			criteria.add(Restrictions.or(Restrictions.isNull(properti), Restrictions.eq(properti, nilaiDefault)));
+		} else {
+			criteria.add(Restrictions.eq(properti, nilai));
+		}
 	}
 
 	public static boolean checkSyaratSyaratUjian(SyaratUjian syaratUjian, VOPembelajaran voPembelajaran,
