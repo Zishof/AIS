@@ -222,6 +222,9 @@ public final class SalesInventoryStokHelper {
 					.append(" AND x.kembalikan_ke_stok = true AND x.waktu ").append(rentang);
 			sql.append(" UNION ALL SELECT x.waktu, 'Retur Pembelian', COALESCE(('#' || x.id), ''), 0, x.qty FROM koperasi.retur_pembelian x WHERE x.produk = ").append(pid)
 					.append(" AND x.waktu ").append(rentang);
+			sql.append(" UNION ALL SELECT x.waktu, ('Produksi (' || x.jenis || CASE WHEN x.arah = 'REVERSE' THEN ', dibalik' ELSE '' END || ')'), "
+					+ "COALESCE(('#' || x.dokumen_id), ''), COALESCE(x.qty_masuk,0), COALESCE(x.qty_keluar,0) FROM koperasi.mutasi_stok_produksi x WHERE x.produk = ").append(pid)
+					.append(" AND x.waktu ").append(rentang);
 			sql.append(" UNION ALL SELECT x.waktu, 'Mutasi Masuk (antar toko)', COALESCE(('#' || x.id), ''), x.qty, 0 FROM koperasi.mutasi_stok_toko x WHERE x.produk_tujuan = ").append(pid)
 					.append(" AND x.waktu ").append(rentang);
 			sql.append(" UNION ALL SELECT x.waktu, 'Mutasi Keluar (antar toko)', COALESCE(('#' || x.id), ''), 0, x.qty FROM koperasi.mutasi_stok_toko x WHERE x.produk_asal = ").append(pid)

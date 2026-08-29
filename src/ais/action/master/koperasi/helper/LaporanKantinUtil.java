@@ -1343,6 +1343,9 @@ public final class LaporanKantinUtil {
                     + " - coalesce((select sum(x.qty) from koperasi.mutasi_stok_toko x where x.produk_asal=pr.id"
                     + String.format(cut, "x.waktu") + "),0)"
                     + " - coalesce((select sum(x.qty) from koperasi.retur_pembelian x where x.produk=pr.id"
+                    + String.format(cut, "x.waktu") + "),0)"
+                    // Produksi (Fase 0 dok. 49): ikut dipotong tanggal spt suku lain.
+                    + " + coalesce((select sum(coalesce(x.qty_masuk,0)-coalesce(x.qty_keluar,0)) from koperasi.mutasi_stok_produksi x where x.produk=pr.id"
                     + String.format(cut, "x.waktu") + "),0)";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("pr.toko", tokoId, prm));

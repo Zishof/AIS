@@ -135,7 +135,9 @@ public final class StokOpnameScanUtil {
 				+ "  COALESCE((SELECT SUM(qty) FROM koperasi.pengadaan_produk WHERE produk = :p),0)"
 				+ "+ COALESCE((SELECT SUM(selisih) FROM koperasi.stok_opname WHERE produk = :p),0)"
 				+ "- COALESCE((SELECT SUM(qty) FROM koperasi.pembelian WHERE produk = :p),0)"
-				+ "- COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku WHERE produk = :p),0)";
+				+ "- COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku WHERE produk = :p),0)"
+				// Produksi (Fase 0 dok. 49) -- selaras dengan baseline StokOpnameKantinAction.
+				+ "+ COALESCE((SELECT SUM(COALESCE(qty_masuk,0) - COALESCE(qty_keluar,0)) FROM koperasi.mutasi_stok_produksi WHERE produk = :p),0)";
 		try {
 			SQLQuery q = s.createSQLQuery(sql);
 			q.setParameter("p", produkId);

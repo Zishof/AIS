@@ -515,7 +515,10 @@ public class StokOpnameKantinAction extends GenericAutowireComposer {
                 + "-COALESCE((SELECT SUM(qty) FROM koperasi.pembelian pb WHERE pb.produk=a.id),0)"
                 // konsisten dengan StokKantinUtil.recomputeStokProduk: stok sistem juga dikurangi
                 // pemakaian bahan baku, agar baseline opname tidak overstate utk produk yang dipakai.
-                + "-COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku pmb WHERE pmb.produk=a.id),0)) AS stok "
+                + "-COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku pmb WHERE pmb.produk=a.id),0)"
+                // Produksi (Fase 0 dok. 49): alasan yang sama dgn suku pemakaian di atas -- baseline
+                // opname tidak boleh overstate/understate utk produk yang diproduksi/dipakai produksi.
+                + "+COALESCE((SELECT SUM(COALESCE(msp.qty_masuk,0)-COALESCE(msp.qty_keluar,0)) FROM koperasi.mutasi_stok_produksi msp WHERE msp.produk=a.id),0)) AS stok "
                 + "FROM koperasi.produk a WHERE a.aktif=true AND a.toko=" + tokoId + " ORDER BY a.nama ASC";
         for (Object[] r : rows(sql)) {
             Long pid = lng(r[0]);

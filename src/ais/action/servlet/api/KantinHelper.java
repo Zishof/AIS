@@ -1359,6 +1359,18 @@ public class KantinHelper {
 					// sebesar yang dibayar pelanggan; promo server hanya jadi batas atas.
 					// Kanal langsung (JSP/ZK) tidak mengirim penanda ini, sehingga tetap
 					// memakai hitungan server sepenuhnya seperti semula.
+					// Fase A dok. 48/49: harga grosir menentukan HARGA SATUAN lebih dulu,
+					// AturanDiskon memotong SESUDAHNYA (keputusan pemilik sistem 29-08-2026).
+					// Payload transaksi DIMUTASI di sini supaya SEMUA hilir (evaluasi diskon,
+					// hitung total, simpanRinci, koreksi selisihTotal ke struk) mewarisi harga
+					// yang sama tanpa tahu konsep grosir. Transaksi POS lokal-dulu yang baru
+					// tersinkron (pengiriman_pending) TIDAK ditimpa -- pelanggan sudah membayar
+					// harga saat kejadian; aturan yang berubah belakangan tidak boleh menulis
+					// ulang struk (guard yang sama dengan evaluasi diskon di bawah).
+					if (!jsonObject.optBoolean("pengiriman_pending", false)) {
+						HargaGrosirApiHelper.terapkanKeItems(session.connection(), toko.getId().longValue(),
+								transaksi, null);
+					}
 					terapkanEvaluasiDiskonServer(session.connection(), toko.getId(),
 							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi,
 							currentWaktu, jsonObject.optBoolean("pengiriman_pending", false));
@@ -3718,7 +3730,8 @@ public class KantinHelper {
 	 * grid Tbmrole tetap SATU toggle blanket ({@code EbisnisMenuKatalog.bolehAksi} sudah menangani
 	 * bypass ini) -- bukan baris grid tersendiri, sesuai keputusan "Supervisor = ALL Checked Akses".
 	 */
-	private static boolean bolehAksiCrud(Tbmuser tbmuser, ais.database.model.inventory.Pedagang pemanggil,
+	// package-visible: dipakai juga HargaGrosirApiHelper (aturan komersial, gerbang yang sama).
+	static boolean bolehAksiCrud(Tbmuser tbmuser, ais.database.model.inventory.Pedagang pemanggil,
 			boolean adminGlobal, boolean supervisorToko, String kunciMenu, String aksi) {
 		if (adminGlobal || supervisorToko) {
 			return true;
@@ -11397,7 +11410,7 @@ public class KantinHelper {
 	 * yang MEMANG punya underscore ({@code kembalikan_ke_stok}, {@code kode_faktur_asal}, dst).</p>
 	 *
 	 * <p>Dibatasi {@code hari} (default 30, maks 365) -- BUKAN filter tanggal presisi spt laporan lain
-	 * (unduhan Excel), krn 8 cabang UNION ALL tanpa batas waktu bisa jadi mahal di toko yg sudah lama
+	 * (unduhan Excel), krn 9 cabang UNION ALL tanpa batas waktu bisa jadi mahal di toko yg sudah lama
 	 * jalan. Ambil {@code limit+1} baris utk deteksi murah "adaLagi" (paging "muat lebih banyak")
 	 * tanpa perlu query {@code COUNT(*)} kedua yang sama mahalnya dgn query utama.</p>
 	 *
@@ -11447,6 +11460,10 @@ public class KantinHelper {
 					+ " UNION ALL "
 					+ "SELECT e2.waktu AS waktu, 'Mutasi Keluar (Antar Outlet)' AS jenis, e2.produk_asal AS produk_id, -e2.qty AS qty, COALESCE(e2.keterangan,'') AS keterangan "
 					+ "FROM koperasi.mutasi_stok_toko e2 WHERE e2.toko_asal = " + tokoId + " AND e2.produk_asal IS NOT NULL AND e2.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT m.waktu AS waktu, ('Produksi ' || m.jenis || CASE WHEN m.arah = 'REVERSE' THEN ' (Dibalik)' ELSE '' END) AS jenis, "
+					+ "m.produk AS produk_id, (COALESCE(m.qty_masuk,0) - COALESCE(m.qty_keluar,0)) AS qty, COALESCE(m.keterangan,'') AS keterangan "
+					+ "FROM koperasi.mutasi_stok_produksi m WHERE m.toko = " + tokoId + " AND m.waktu >= " + sejak
 					+ " UNION ALL "
 					+ "SELECT f.waktu AS waktu, 'Retur Pembelian' AS jenis, f.produk AS produk_id, -f.qty AS qty, "
 					+ "(CASE WHEN f.kode_faktur_asal IS NOT NULL AND f.kode_faktur_asal <> '' THEN 'Faktur ' || f.kode_faktur_asal || ' ' ELSE '' END || COALESCE(f.alasan,'')) AS keterangan "
@@ -11514,7 +11531,8 @@ public class KantinHelper {
 				+ "UNION ALL SELECT d.produk,d.waktu,d.qty FROM koperasi.retur_penjualan d WHERE d.toko=" + tid + " AND d.kembalikan_ke_stok=true AND d.waktu>=CAST(? AS date) "
 				+ "UNION ALL SELECT e.produk_tujuan,e.waktu,e.qty FROM koperasi.mutasi_stok_toko e WHERE e.toko_tujuan=" + tid + " AND e.produk_tujuan IS NOT NULL AND e.waktu>=CAST(? AS date) "
 				+ "UNION ALL SELECT e2.produk_asal,e2.waktu,-e2.qty FROM koperasi.mutasi_stok_toko e2 WHERE e2.toko_asal=" + tid + " AND e2.produk_asal IS NOT NULL AND e2.waktu>=CAST(? AS date) "
-				+ "UNION ALL SELECT f.produk,f.waktu,-f.qty FROM koperasi.retur_pembelian f WHERE f.toko=" + tid + " AND f.waktu>=CAST(? AS date)), "
+				+ "UNION ALL SELECT f.produk,f.waktu,-f.qty FROM koperasi.retur_pembelian f WHERE f.toko=" + tid + " AND f.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT m.produk,m.waktu,COALESCE(m.qty_masuk,0)-COALESCE(m.qty_keluar,0) FROM koperasi.mutasi_stok_produksi m WHERE m.toko=" + tid + " AND m.waktu>=CAST(? AS date)), "
 				+ "a AS (SELECT produk_id,"
 				+ "COALESCE(SUM(CASE WHEN waktu<CAST(? AS date)+interval '1 day' AND qty>0 THEN qty ELSE 0 END),0) masuk,"
 				+ "COALESCE(SUM(CASE WHEN waktu<CAST(? AS date)+interval '1 day' AND qty<0 THEN -qty ELSE 0 END),0) keluar,"
@@ -11537,7 +11555,8 @@ public class KantinHelper {
 		try {
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 			int i = 1;
-			for (int x = 0; x < 8; x++) ps.setString(i++, dari);
+			// 9 cabang CTE 'u' di atas -- WAJIB sama dengan jumlah placeholder CAST(? AS date).
+			for (int x = 0; x < 9; x++) ps.setString(i++, dari);
 			ps.setString(i++, sampai); ps.setString(i++, sampai); ps.setString(i++, sampai);
 			ps.setLong(i++, tokoId.longValue());
 			if (kategoriId != null) ps.setLong(i++, kategoriId.longValue());
@@ -12472,6 +12491,7 @@ public class KantinHelper {
 			{ "koperasi.retur_barang", "produk" },
 			{ "koperasi.produksi_kantin", "produk" },
 			{ "koperasi.pemakaian_bahan_baku", "produk" },
+			{ "koperasi.mutasi_stok_produksi", "produk" },
 			{ "koperasi.ambang_stok_gudang", "produk" },
 			{ "koperasi.pengajuan_pembelian_gudang", "produk" },
 			{ "asset.mutasi_lokasi", "produk" },
@@ -16420,7 +16440,8 @@ public class KantinHelper {
 				+ " UNION ALL SELECT produk, qty, waktu FROM koperasi.retur_penjualan WHERE kembalikan_ke_stok=true"
 				+ " UNION ALL SELECT produk_tujuan, qty, waktu FROM koperasi.mutasi_stok_toko WHERE produk_tujuan IS NOT NULL"
 				+ " UNION ALL SELECT produk_asal, -qty, waktu FROM koperasi.mutasi_stok_toko WHERE produk_asal IS NOT NULL"
-				+ " UNION ALL SELECT produk, -qty, waktu FROM koperasi.retur_pembelian";
+				+ " UNION ALL SELECT produk, -qty, waktu FROM koperasi.retur_pembelian"
+				+ " UNION ALL SELECT produk, COALESCE(qty_masuk,0)-COALESCE(qty_keluar,0), waktu FROM koperasi.mutasi_stok_produksi";
 		String cte = "WITH mutasi AS (" + mutasi + "), ledger AS (SELECT produk_id,COALESCE(SUM(qty),0) stok_ledger,MAX(waktu) terakhir FROM mutasi GROUP BY produk_id) ";
 		String filter = " WHERE p.toko=:tokoId";
 		if (keyword.length() > 0) {
@@ -16726,6 +16747,12 @@ public class KantinHelper {
 		try {
 			java.sql.Connection conn = session.connection();
 			// Pemeriksaan keranjang: menilai keadaan SAAT INI, jadi tanpa waktu transaksi.
+			// Fase A: harga grosir diterapkan SEBELUM evaluasi diskon -- mesin yang sama
+			// dengan checkout (bayar), supaya pratinjau keranjang dan struk tidak pernah
+			// berbeda pendapat. petaGrosir dikirim agar klien menampilkan harga efektif.
+			JSONObject petaGrosir = new JSONObject();
+			HargaGrosirApiHelper.terapkanKeItems(conn, tokoId.longValue(), items, petaGrosir);
+			hasil.put("hargaGrosir", petaGrosir);
 			JSONArray outArr = evaluasiDiskonItems(conn, tokoId, memberId, items, hanyaAturanId, null);
 			hasil.put("status", "00");
 			hasil.put("items", outArr);

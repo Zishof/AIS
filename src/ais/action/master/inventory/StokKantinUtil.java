@@ -19,6 +19,7 @@ import ais.database.model.inventory.Produk;
  *          &minus; &Sigma;pemakaian_bahan_baku.qty + &Sigma;retur_penjualan.qty(kembali_ke_stok)
  *          + &Sigma;mutasi_stok_toko.qty(tujuan) &minus; &Sigma;mutasi_stok_toko.qty(asal)
  *          &minus; &Sigma;retur_pembelian.qty
+ *          + &Sigma;mutasi_stok_produksi.qty_masuk &minus; &Sigma;mutasi_stok_produksi.qty_keluar
  * </pre>
  * <ul>
  *   <li><b>&Sigma;pengadaan.qty</b> — total barang masuk lewat modul Pengadaan (nota pembelian dari
@@ -38,6 +39,10 @@ import ais.database.model.inventory.Produk;
  *       {@code produk_asal} MENGURANGI (lihat JavaDoc {@link ais.database.model.inventory.MutasiStokToko}).</li>
  *   <li><b>&Sigma;retur_pembelian.qty</b> — barang dikembalikan KE SUPPLIER, SELALU mengurangi
  *       stok tanpa syarat (lihat JavaDoc {@link ais.database.model.inventory.ReturPembelian}).</li>
+ *   <li><b>&Sigma;mutasi_stok_produksi</b> — pergerakan dari dokumen PRODUKSI (Fase 0 dok. 49):
+ *       OUTPUT/RETURN mengisi {@code qty_masuk}, ISSUE/WASTE mengisi {@code qty_keluar}; baris
+ *       REVERSE membalik keduanya. Ditulis {@code ProduksiApiHelper} saat dokumen POSTED/REVERSED
+ *       (lihat JavaDoc {@link ais.database.model.inventory.MutasiStokProduksi}).</li>
  * </ul>
  * Suku pemakaian-bahan-baku inilah yang membuat rumus ini TIDAK BOLEH disederhanakan jadi
  * "stok = masuk - terjual" naif: satu transaksi penjualan produk jadi (mis. kopi) bisa mengurangi stok
@@ -154,12 +159,18 @@ public final class StokKantinUtil {
         // lihat JavaDoc ReturPembelian.
         double returPembelian = scalar(
                 "SELECT COALESCE(SUM(qty),0) FROM koperasi.retur_pembelian WHERE produk = " + produkId);
+        // Produksi (Fase 0 dok. 49): OUTPUT/RETURN masuk, ISSUE/WASTE keluar; baris REVERSE sudah
+        // membalik kolomnya sendiri sehingga cukup dijumlahkan apa adanya.
+        double produksi = scalar(
+                "SELECT COALESCE(SUM(COALESCE(qty_masuk,0) - COALESCE(qty_keluar,0)),0)"
+                        + " FROM koperasi.mutasi_stok_produksi WHERE produk = " + produkId);
         double latest = scalar("SELECT hargabelisatuan FROM koperasi.pengadaan_produk WHERE produk = " + produkId
                 + " ORDER BY waktupengadaan DESC, id DESC LIMIT 1");
 
         Session s = HibernateUtil.currentSession();
         Produk p = (Produk) s.load(Produk.class, produkId);
-        p.setStok(masuk + opname - keluar - pakai + returPenjualan + mutasiMasuk - mutasiKeluar - returPembelian);
+        p.setStok(masuk + opname - keluar - pakai + returPenjualan + mutasiMasuk - mutasiKeluar - returPembelian
+                + produksi);
         if (latest > 0) {
             p.setHargaBeli(latest);
             double hargaJual = p.getHargaJual() == null ? 0 : p.getHargaJual();
@@ -197,7 +208,11 @@ public final class StokKantinUtil {
                 + " - COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId + "),0)"
                 // Retur Pembelian: SELALU mengurangi stok tanpa syarat -- lihat catatan sama di
                 // recomputeStokProduk(Long)/JavaDoc ReturPembelian.
-                + " - COALESCE((SELECT SUM(qty) FROM koperasi.retur_pembelian WHERE produk = " + produkId + "),0)";
+                + " - COALESCE((SELECT SUM(qty) FROM koperasi.retur_pembelian WHERE produk = " + produkId + "),0)"
+                // Produksi (Fase 0 dok. 49): masuk-keluar dijumlahkan langsung; baris REVERSE sudah
+                // membalik kolomnya sendiri -- lihat JavaDoc MutasiStokProduksi.
+                + " + COALESCE((SELECT SUM(COALESCE(qty_masuk,0) - COALESCE(qty_keluar,0))"
+                + " FROM koperasi.mutasi_stok_produksi WHERE produk = " + produkId + "),0)";
     }
 
     /**

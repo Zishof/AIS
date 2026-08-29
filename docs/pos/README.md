@@ -55,6 +55,8 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [47-sesi-kas-transaksi-terlambat.md](47-sesi-kas-transaksi-terlambat.md) | Sesi kas dan transaksi yang tiba terlambat |
 | [48-gap-analisis-uom-packaging-manufaktur.md](48-gap-analisis-uom-packaging-manufaktur.md) | Peta kemampuan vs tiga PDF ERP: UoM, packaging, harga grosir, produksi, reordering |
 | [49-produksi-eksekusi-stok-dan-rencana-rinci.md](49-produksi-eksekusi-stok-dan-rencana-rinci.md) | Koreksi peta 48, temuan dokumen produksi tidak menggerakkan stok, dan langkah pengerjaan per fase |
+| [50-fase-0-produksi-menggerakkan-stok.md](50-fase-0-produksi-menggerakkan-stok.md) | Fase 0 terlaksana: ledger mutasi_stok_produksi, rumus 9 suku, harness 19/0 |
+| [51-fase-a-harga-grosir.md](51-fase-a-harga-grosir.md) | Fase A inti: mesin harga grosir ber-ambang, kait bayar+pratinjau, harness 13/0 |
 | [20-ikhtisar-kantin-multi-toko.md](20-ikhtisar-kantin-multi-toko.md) | Kantin, multi-toko, audit & proses otomatis |
 | [21-hak-akses-ubah-harga.md](21-hak-akses-ubah-harga.md) | Hak akses ubah harga |
 | [22-filter-toko-dan-pendaftar.md](22-filter-toko-dan-pendaftar.md) | Filter toko lintas-toko & pembatasan per pendaftar |

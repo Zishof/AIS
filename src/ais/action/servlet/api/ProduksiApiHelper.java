@@ -17,6 +17,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.inventory.ProduksiDokumen;
 import ais.database.model.inventory.ProduksiDokumenBaris;
 import ais.database.model.inventory.ProduksiDokumenEvent;
+import ais.database.model.inventory.MutasiStokProduksi;
 import ais.database.model.inventory.ProduksiGenealogiLot;
 
 /** Adapter API produksi. Skema tabel tetap sepenuhnya dikelola Hibernate. */
@@ -176,6 +177,17 @@ public final class ProduksiApiHelper {
    if (!transisi(d.getDocumentType(), d.getStatus(), target)) { tolak(hasil, "Perubahan status " + d.getStatus() + " ke " + target + " tidak diizinkan."); rollback(tx); return; }
    String awal = d.getStatus(); d.setStatus(target); d.setUpdatedBy(pengguna(ctx)); d.setUpdatedAt(new Date());
    if ("COMPLETED".equals(target) || "POSTED".equals(target)) { d.setActualAt(new Date()); hitungBiaya(d); }
+   // Fase 0 dok. 49: dokumen ISSUE/RETURN/OUTPUT/WASTE menggerakkan stok saat POSTED dan
+   // dibalikkan saat REVERSED -- transaksional dan TIDAK fail-safe: dokumen yang mengaku POSTED
+   // tetapi stoknya tidak bergerak adalah kebohongan data, jadi kegagalan posting membatalkan
+   // transisinya. Validasi baris (produk kosong/beda toko/qty<=0) ditolak dengan pesan yang bisa
+   // dibaca, bukan exception mentah.
+   if (jenisStok(d.getDocumentType())) {
+    try {
+     if ("POSTED".equals(target)) postingStok(s, d, pengguna(ctx));
+     else if ("REVERSED".equals(target)) balikkanPostingStok(s, d, pengguna(ctx));
+    } catch (IllegalArgumentException salah) { tolak(hasil, salah.getMessage()); rollback(tx); return; }
+   }
    s.update(d); event(s, d.getId(), awal, target, request.optString("catatanStatus", ""), pengguna(ctx)); tx.commit();
    hasil.put("status", "00"); hasil.put("data", dokumen(d));
   } catch (Exception e) { rollback(tx); throw e; }
@@ -247,4 +259,91 @@ public final class ProduksiApiHelper {
   h.put("setujui", ctx.bolehAksi("produksi_" + jenis, "approve")); h.put("batalkan", ctx.bolehAksi("produksi_" + jenis, "cancel")); return h;
  }
  private static void rollback(Transaction tx) { if (tx != null) try { tx.rollback(); } catch (Exception ignored) { } }
+
+ /** Jenis dokumen yang menggerakkan stok. BOM/WO/COST sengaja TIDAK (dok. 49 Adendum). */
+ private static boolean jenisStok(String type) {
+  return "ISSUE".equals(type) || "RETURN".equals(type) || "OUTPUT".equals(type) || "WASTE".equals(type);
+ }
+ /** OUTPUT/RETURN menambah stok; ISSUE/WASTE mengurangi. */
+ private static boolean arahMasuk(String type) { return "OUTPUT".equals(type) || "RETURN".equals(type); }
+
+ /**
+  * Menulis ledger {@link MutasiStokProduksi} arah FORWARD untuk tiap baris ber-{@code stockAffecting}
+  * saat dokumen POSTED, lalu menghitung ulang stok produknya. Idempoten periksa-lalu-lewati per
+  * (dokumen, baris, arah) -- pola {@code DistribusiPengirimanApiHelper.postingStok}.
+  */
+ private static void postingStok(Session s, ProduksiDokumen d, String oleh) throws Exception {
+  List lines = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+    .setLong("id", d.getId().longValue()).list();
+  java.util.Set<Long> tersentuh = new java.util.HashSet<Long>();
+  for (int i = 0; i < lines.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) lines.get(i);
+   if (!Boolean.TRUE.equals(b.getStockAffecting())) continue;
+   BigDecimal qty = aman(b.getQty());
+   if (qty.compareTo(BigDecimal.ZERO) <= 0)
+    throw new IllegalArgumentException("Baris " + b.getLineNo() + " (" + b.getItemName()
+      + "): qty wajib lebih dari nol untuk baris yang memengaruhi stok.");
+   if (b.getItemId() == null)
+    throw new IllegalArgumentException("Baris " + b.getLineNo() + " (" + b.getItemName()
+      + "): baris yang memengaruhi stok wajib menunjuk produk katalog (itemId).");
+   Object tokoProduk = s.createSQLQuery("SELECT toko FROM koperasi.produk WHERE id = :p")
+     .setLong("p", b.getItemId().longValue()).uniqueResult();
+   if (tokoProduk == null)
+    throw new IllegalArgumentException("Baris " + b.getLineNo() + " (" + b.getItemName()
+      + "): produk katalog id " + b.getItemId() + " tidak ditemukan.");
+   if (((Number) tokoProduk).longValue() != d.getTokoId().longValue())
+    throw new IllegalArgumentException("Baris " + b.getLineNo() + " (" + b.getItemName()
+      + "): produk milik toko lain -- dokumen produksi dan produknya wajib satu toko.");
+   if (sudahDiposting(s, d.getId(), b.getId(), MutasiStokProduksi.ARAH_FORWARD)) { tersentuh.add(b.getItemId()); continue; }
+   MutasiStokProduksi m = new MutasiStokProduksi();
+   m.setDokumenId(d.getId()); m.setBarisId(b.getId()); m.setArah(MutasiStokProduksi.ARAH_FORWARD);
+   m.setJenis(d.getDocumentType()); m.setToko(d.getTokoId()); m.setProduk(b.getItemId());
+   m.setQtyMasuk(arahMasuk(d.getDocumentType()) ? qty : BigDecimal.ZERO);
+   m.setQtyKeluar(arahMasuk(d.getDocumentType()) ? BigDecimal.ZERO : qty);
+   m.setKunciIdempoten(kunciPosting(d, b.getId(), MutasiStokProduksi.ARAH_FORWARD));
+   m.setKeterangan(d.getDocumentType() + " " + d.getDocumentNo()); m.setOleh(oleh); m.setWaktu(new Date());
+   s.save(m); tersentuh.add(b.getItemId());
+  }
+  s.flush();
+  for (java.util.Iterator<Long> it = tersentuh.iterator(); it.hasNext();)
+   ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(s, it.next());
+ }
+
+ /**
+  * Menulis KONTRA-BARIS (arah REVERSE, kolom masuk/keluar ditukar) untuk tiap baris FORWARD milik
+  * dokumen saat REVERSED. Ledger tidak pernah dihapus (ADR: koreksi lewat movement lawan) --
+  * koreksi atas desain awal dok. 49 yang menghapus baris, lihat Adendum 29-08-2026.
+  */
+ private static void balikkanPostingStok(Session s, ProduksiDokumen d, String oleh) throws Exception {
+  List maju = s.createQuery("from MutasiStokProduksi where dokumenId=:id and arah=:arah")
+    .setLong("id", d.getId().longValue()).setString("arah", MutasiStokProduksi.ARAH_FORWARD).list();
+  java.util.Set<Long> tersentuh = new java.util.HashSet<Long>();
+  for (int i = 0; i < maju.size(); i++) {
+   MutasiStokProduksi f = (MutasiStokProduksi) maju.get(i);
+   tersentuh.add(f.getProduk());
+   if (sudahDiposting(s, d.getId(), f.getBarisId(), MutasiStokProduksi.ARAH_REVERSE)) continue;
+   MutasiStokProduksi m = new MutasiStokProduksi();
+   m.setDokumenId(f.getDokumenId()); m.setBarisId(f.getBarisId()); m.setArah(MutasiStokProduksi.ARAH_REVERSE);
+   m.setJenis(f.getJenis()); m.setToko(f.getToko()); m.setProduk(f.getProduk());
+   m.setQtyMasuk(f.getQtyKeluar()); m.setQtyKeluar(f.getQtyMasuk());
+   m.setKunciIdempoten(kunciPosting(d, f.getBarisId(), MutasiStokProduksi.ARAH_REVERSE));
+   m.setKeterangan("Pembalikan " + f.getJenis() + " " + d.getDocumentNo()); m.setOleh(oleh); m.setWaktu(new Date());
+   s.save(m);
+  }
+  s.flush();
+  for (java.util.Iterator<Long> it = tersentuh.iterator(); it.hasNext();)
+   ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(s, it.next());
+ }
+
+ private static boolean sudahDiposting(Session s, Long dokumenId, Long barisId, String arah) {
+  Object ada = s.createQuery("select id from MutasiStokProduksi where dokumenId=:d and barisId=:b and arah=:a")
+    .setLong("d", dokumenId.longValue()).setLong("b", barisId.longValue()).setString("a", arah)
+    .setMaxResults(1).uniqueResult();
+  return ada != null;
+ }
+
+ /** Kunci idempoten format fondasi Fase 9: PRODUCTION:&lt;dokumen&gt;:&lt;jenis&gt;:&lt;baris&gt;:&lt;arah&gt;. */
+ private static String kunciPosting(ProduksiDokumen d, Long barisId, String arah) {
+  return "PRODUCTION:" + d.getId() + ":" + d.getDocumentType() + ":" + barisId + ":" + arah;
+ }
 }
