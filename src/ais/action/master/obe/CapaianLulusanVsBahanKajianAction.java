@@ -89,7 +89,9 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "CPL vs Bahan Kajian",
+				"Tentukan bahan kajian yang membentuk setiap CPL. Centang seluruh bahan kajian yang relevan; satu CPL boleh memakai beberapa bahan kajian.");
+		west.setHeight("142px");
 
 		/*
 		 * Jangan jadikan MyGrid anak langsung North. MyGrid memiliki perilaku
@@ -100,8 +102,8 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 		 */
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");

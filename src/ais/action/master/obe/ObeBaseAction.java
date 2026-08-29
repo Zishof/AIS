@@ -98,6 +98,7 @@ public abstract class ObeBaseAction extends GenericAutowireComposer
             throws Exception {
         super.doAfterCompose(comp);
         Common.initLaguage();
+        ObePageHelpHelper.pasangHalamanCrud(comp, getClass());
         perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
         if (searchfakultas != null) {
             Common.initFakultasDanJurusan(null, null, searchfakultas, searchjurusan);

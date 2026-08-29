@@ -71,13 +71,15 @@ public class MatakuliahVsKurikulumVsSemesterAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "Sebaran Mata Kuliah per Semester",
+				"Tinjau susunan mata kuliah pada setiap semester dalam kurikulum. Halaman ini membantu memeriksa urutan dan keseimbangan beban studi.");
+		west.setHeight("142px");
 
 		// Hindari transformasi otomatis MyGrid ketika menjadi anak langsung North.
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");

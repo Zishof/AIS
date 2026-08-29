@@ -160,9 +160,6 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(2, "CPL vs Profil", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                tambahPenjelasanTab(panel, "CPL vs Profil Lulusan",
-                        "Hubungkan CPL dengan Profil Lulusan. Centang profil yang didukung oleh CPL "
-                        + "pada setiap baris; satu CPL boleh mendukung lebih dari satu profil.");
                 Component rel =
                         new CapaianLulusanVsProfilLulusanAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
@@ -172,9 +169,6 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                tambahPenjelasanTab(panel, "CPL vs Bahan Kajian",
-                        "Tentukan bahan kajian yang membentuk setiap CPL. Centang seluruh bahan kajian "
-                        + "yang relevan; satu CPL boleh memakai beberapa bahan kajian.");
                 Component rel =
                         new CapaianLulusanVsBahanKajianAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
@@ -184,9 +178,6 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                tambahPenjelasanTab(panel, "CPL vs CPMK",
-                        "Hubungkan CPL dengan CPMK yang berkontribusi mencapainya. Centang CPMK yang "
-                        + "sesuai agar pemetaan dan evaluasi ketercapaian pembelajaran dapat dilakukan.");
                 Component rel =
                         new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
@@ -196,10 +187,6 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(5, "Kategori CPL", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
-                tambahPenjelasanTab(panel, "Kategori CPL",
-                        "Kelompokkan CPL sesuai jenisnya: S (Sikap), P (Pengetahuan), KU "
-                        + "(Keterampilan Umum), dan KK (Keterampilan Khusus). Kategori bawaan dibuat "
-                        + "otomatis; tambahkan kategori lain hanya bila diperlukan oleh perguruan tinggi.");
                 MyInclude include = new MyInclude(
                         "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
                 include.setWidth("100%");

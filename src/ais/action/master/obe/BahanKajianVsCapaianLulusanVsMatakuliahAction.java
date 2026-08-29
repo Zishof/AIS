@@ -89,13 +89,15 @@ public class BahanKajianVsCapaianLulusanVsMatakuliahAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "Bahan Kajian, CPL, dan Mata Kuliah",
+				"Kelola keterkaitan Bahan Kajian dengan CPL serta mata kuliah yang mengajarkannya. Buka rincian baris untuk melihat atau memperbarui mata kuliah terkait.");
+		west.setHeight("142px");
 
 		// Hindari transformasi otomatis MyGrid ketika menjadi anak langsung North.
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");

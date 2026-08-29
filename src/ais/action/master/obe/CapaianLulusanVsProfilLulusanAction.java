@@ -90,13 +90,15 @@ public class CapaianLulusanVsProfilLulusanAction extends Div {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "CPL vs Profil Lulusan",
+				"Hubungkan CPL dengan Profil Lulusan. Centang profil yang didukung oleh CPL pada setiap baris; satu CPL boleh mendukung lebih dari satu profil.");
+		west.setHeight("142px");
 
 		/* Hindari transformasi otomatis MyGrid -> North berjudul "Menu". */
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");

@@ -79,13 +79,15 @@ public class CapaianLulusanVsKurikulumMatakuliahAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "CPL dalam Kurikulum",
+				"Lihat sebaran CPL pada mata kuliah dan semester dalam kurikulum. Gunakan halaman ini untuk memastikan seluruh CPL telah didukung secara memadai.");
+		west.setHeight("142px");
 
 		/* Hindari transformasi otomatis MyGrid -> North berjudul "Menu". */
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");

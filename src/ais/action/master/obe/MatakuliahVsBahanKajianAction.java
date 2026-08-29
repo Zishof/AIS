@@ -81,13 +81,15 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 		North west = new North();
 		west.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setHeight("72px");
+		Div obeNorth = ObePageHelpHelper.pasangPadaNorth(west, "Mata Kuliah vs Bahan Kajian",
+				"Tentukan bahan kajian yang diajarkan pada setiap mata kuliah. Centang seluruh bahan kajian yang sesuai pada baris mata kuliah.");
+		west.setHeight("142px");
 
 		// Hindari transformasi otomatis MyGrid ketika menjadi anak langsung North.
 		Div filterContainer = new Div();
 		filterContainer.setWidth("100%");
-		filterContainer.setHeight("100%");
-		filterContainer.setParent(west);
+		filterContainer.setHeight("72px");
+		filterContainer.setParent(obeNorth);
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
