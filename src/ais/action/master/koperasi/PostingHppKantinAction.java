@@ -984,6 +984,15 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 					null, null, ph, true, ket, sampai, nilaiDebet.toArray(new Double[] {}),
 					nilaiKredit.toArray(new Double[] {}), Double.valueOf(0.0), null, satkerKantin(), session);
 			if (ok) {
+				// Cap baris penjualan yang menyumbang batch ini (temuan audit dok 60): tanpa cap,
+				// penghitung draf dasbor tidak pernah turun dan filter posting_hpp IS NULL kehilangan
+				// lapisan anti-dobelnya. Predikatnya SAMA dengan query pratinjau.
+				session.createSQLQuery("UPDATE koperasi.pembelian SET posting_hpp = " + ph.getId().longValue()
+						+ " WHERE posting_hpp IS NULL AND aktif = true AND produk IN"
+						+ " (SELECT id FROM koperasi.produk WHERE master_asset IS NOT NULL)"
+						+ " AND pembelian_anggota_koperasi IN (SELECT id FROM koperasi.pembelian_anggota_koperasi"
+						+ "  WHERE date(tanggal_pembayaran) BETWEEN date('" + Common.databaseDateFormat.get().format(mulai)
+						+ "') AND date('" + Common.databaseDateFormat.get().format(sampai) + "'))").executeUpdate();
 				session.getTransaction().commit();
 			} else {
 				session.getTransaction().rollback();

@@ -64,7 +64,13 @@ Harness `TesPostingKantinDasbor` (scratchpad, DB UAT `ais`), fixture `UATKTN-` r
 | Batal HPP 10–20 Mei | n=2; grup + transaksi anak + riwayat terhapus; batal ulang n=0 |
 | Batal Penjualan 10–20 Mei | n=1; tanda header TERLEPAS; grup & riwayat terhapus |
 
-**LULUS 16, GAGAL 0.** Kompilasi `javac -source 1.7 -target 1.7` kelima berkas bersih.
+**LULUS 16, GAGAL 0.** **Koreksi 29 Agustus 2026 malam:** audit silang independen
+([60-audit-silang-kantin-kaskecil.md](60-audit-silang-kantin-kaskecil.md)) menemukan
+EMPAT cacat yang lolos dari harness ini karena jalur posting sukses tidak pernah diuji
+— pembatalan HPP batch nyata gagal FK `posting_hpp`, label `coalesce` ganda menukar
+qty→hargabeli (nilai jurnal HPP salah total) dan pajak→total_biaya, kolom
+`pb0.cara_bayar` salah nama (posting Penjualan selalu error), dan `prosesApi` HPP tak
+mencap `posting_hpp`. Semuanya diperbaiki di r78574–r78575 dan teruji 20/20. Kompilasi `javac -source 1.7 -target 1.7` kelima berkas bersih.
 Dua fixture penghitung (kulakan, opname) ter-skip di UAT — kolom `produk` NOT NULL —
 predikat SQL-nya identik pola dengan dua jenis yang teruji.
 
