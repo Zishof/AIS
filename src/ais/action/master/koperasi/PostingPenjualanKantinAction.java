@@ -265,17 +265,17 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				"SELECT h.id, COALESCE(h.total_biaya,0), COALESCE(h.pajak,0), "
 						+ "h.cara_pembayaran_koperasi, h.cara_pembayaran_koperasi_2, h.cara_pembayaran_koperasi_3, "
 						+ "h.cara_pembayaran_koperasi_4, h.cara_pembayaran_koperasi_5, "
-						+ "COALESCE(h.nominal_bayar_2,0), COALESCE(h.nominal_bayar_3,0), COALESCE(h.nominal_bayar_4,0), "
-						+ "COALESCE(h.nominal_bayar_5,0), "
-						+ "COALESCE((SELECT MIN(NULLIF(TRIM(pb0.cara_bayar),'')) "
+						+ "COALESCE(h.nominal_bayar_2,0) AS nb2, COALESCE(h.nominal_bayar_3,0) AS nb3, "
+						+ "COALESCE(h.nominal_bayar_4,0) AS nb4, COALESCE(h.nominal_bayar_5,0) AS nb5, "
+						+ "COALESCE((SELECT MIN(NULLIF(TRIM(pb0.carabayar),'')) "
 						+ "FROM koperasi.pembelian pb0 WHERE pb0.pembelian_anggota_koperasi=h.id "
-						+ "AND pb0.aktif=true), 'Tunai') "
+						+ "AND pb0.aktif=true), 'Tunai') AS cara_bayar_utama "
 						+ "FROM koperasi.pembelian_anggota_koperasi h WHERE " + periode + " ORDER BY h.id").list();
 
 		// (Q2) Baris per jenis produk: nilai penjualan (OMZET) per (header, jenis produk).
 		List<Object[]> cats = session.createSQLQuery(
 				"SELECT h.id, pr.jenis_produk, jp.nama, jp.akun_pendapatan, jp.akun_ppn_keluaran, "
-						+ "COALESCE(SUM(COALESCE(pb.hargasatuan, pr.hargajual, 0)*COALESCE(pb.qty,0) - COALESCE(pb.diskon,0)),0) "
+						+ "COALESCE(SUM(COALESCE(pb.hargasatuan, pr.hargajual, 0)*COALESCE(pb.qty,0) - COALESCE(pb.diskon,0)),0) AS omzet "
 						+ "FROM koperasi.pembelian_anggota_koperasi h "
 						+ "JOIN koperasi.pembelian pb ON pb.pembelian_anggota_koperasi = h.id AND pb.aktif = true "
 						+ "JOIN koperasi.produk pr ON pr.id = pb.produk "

@@ -39,6 +39,24 @@ dok. 53 (rute PRODUKSI menghasilkan WO draf)
 4. Skema via Hibernate: 1 entitas baru (didaftarkan di `hibernate.cfg.xml`),
    1 kolom nullable (`wo_id`); `hbm2ddl` membuat saat boot, tanpa DDL tangan.
 
+## Prasyarat deployment dan pesan mandiri
+
+Namespace PostgreSQL `inventory_production` harus tersedia **sebelum** aplikasi
+server melakukan bootstrap. Setelah namespace tersedia, restart server agar
+`hbm2ddl.auto=update` membuat `production_document` dan tabel produksi terkait.
+Request API tidak boleh menjalankan `CREATE SCHEMA` atau `CREATE TABLE` sebagai
+pemulihan diam-diam.
+
+Seluruh aksi `ProduksiApiHelper` kini memeriksa keberadaan tabel induk terlebih
+dahulu. Bila deployment belum lengkap, respons memakai kode
+`PRODUCTION_SCHEMA_NOT_READY` dan menjelaskan:
+
+- pengguna harus menutup halaman dan menghubungi admin; klik ulang/muat ulang
+  tidak menyelesaikan masalah;
+- admin harus memastikan namespace `inventory_production`, restart server,
+  memeriksa hasil `hbm2ddl`, kemudian menguji ulang menu Produksi;
+- tidak ada data bisnis yang diubah oleh pemeriksaan ini.
+
 ## Berkas
 
 - `ais/database/model/inventory/ReservasiStokProduksi.java` (baru).

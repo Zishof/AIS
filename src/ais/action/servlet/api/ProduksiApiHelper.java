@@ -60,7 +60,33 @@ public final class ProduksiApiHelper {
   if (!JENIS.containsKey(j)) { tolak(hasil, "Jenis dokumen produksi tidak dikenal."); return null; }
   if (!ctx.bolehAksi("produksi_" + j, aksi)) { tolak(hasil, "Akses produksi ini tidak diizinkan."); return null; }
   if (ctx.tokoId == null && !ctx.admin) { tolak(hasil, "Toko aktif belum dipilih."); return null; }
+  if (!tabelProduksiTersedia(s)) {
+   hasil.put("status", "91");
+   hasil.put("errorCode", "PRODUCTION_SCHEMA_NOT_READY");
+   hasil.put("message", "Modul Produksi belum siap di server karena tabel produksi belum terbentuk. "
+     + "Muat ulang atau menekan tombol yang sama tidak akan menyelesaikannya. "
+     + "Silakan hubungi admin dan sertakan kode PRODUCTION_SCHEMA_NOT_READY.");
+   hasil.put("userAction", "Tutup halaman Produksi dan hubungi admin. Data lain tidak berubah.");
+   hasil.put("adminAction", "Pastikan namespace database inventory_production tersedia, lalu restart aplikasi server "
+     + "agar hbm2ddl.auto=update membuat production_document beserta tabel produksi terkait. "
+     + "Setelah restart, verifikasi tabel dan buka kembali menu Produksi.");
+   return null;
+  }
   return ctx;
+ }
+
+ /**
+  * Gerbang seluruh aksi Produksi. Namespace schema adalah prasyarat environment;
+  * tabel di dalamnya tetap dibuat/diubah oleh mapping Hibernate saat bootstrap.
+  * Pemeriksaan ini sengaja berupa DML/read-only dan tidak menjalankan DDL di
+  * tengah request. Dengan demikian database yang belum siap menghasilkan pesan
+  * edukatif, bukan stack trace SQLGrammarException berulang.
+  */
+ private static boolean tabelProduksiTersedia(Session s) {
+  Object jumlah = s.createSQLQuery("SELECT COUNT(*) FROM information_schema.tables "
+    + "WHERE table_schema='inventory_production' AND table_name='production_document'")
+    .uniqueResult();
+  return jumlah instanceof Number && ((Number) jumlah).longValue() > 0L;
  }
  private static long toko(EbisnisActorContextResolver.ActorContext ctx, JSONObject request) {
   long requested = request == null ? 0L : request.optLong("tokoId", 0L);

@@ -238,7 +238,8 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		//     pr.metode_hpp = metode biaya per-produk (kosong = default rata-rata kulakan → fallback harga beli).
 		@SuppressWarnings("unchecked")
 		List<Object[]> rows = session.createSQLQuery(
-				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0), pr.metode_hpp, "
+				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0) AS harga_beli_produk, "
+						+ "COALESCE(SUM(pb.qty),0) AS qty_terjual, pr.metode_hpp, "
 						+ "jp.akun_hpp "
 						+ "FROM koperasi.pembelian pb "
 						+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
@@ -441,7 +442,8 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		try {
 			@SuppressWarnings("unchecked")
 			List<Object[]> rows = session.createSQLQuery(
-					"SELECT produk, COALESCE(SUM(qty*COALESCE(hargabelisatuan,0)),0), COALESCE(SUM(qty),0) "
+					"SELECT produk, COALESCE(SUM(qty*COALESCE(hargabelisatuan,0)),0) AS total_biaya_kulakan, "
+							+ "COALESCE(SUM(qty),0) AS total_qty_kulakan "
 							+ "FROM koperasi.pengadaan_produk "
 							+ "WHERE produk IS NOT NULL AND date(waktupengadaan) <= date('" + sampaiStr + "') "
 							+ "GROUP BY produk").list();
