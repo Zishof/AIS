@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,9 +18,12 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.ForwardEvent;
+import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Auxhead;
@@ -33,6 +37,7 @@ import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Foot;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Footer;
 import org.zkoss.zul.Group;
 import org.zkoss.zul.Hbox;
@@ -67,6 +72,7 @@ import ais.action.master.obe.CapaianLulusanAction;
 import ais.action.master.obe.CapaianPembelajaranLulusanAction;
 import ais.action.master.obe.ProfilLulusanAction;
 import ais.action.master.obe.ReferensiLulusanAction;
+import ais.action.master.obe.RpsObeExcelHelper;
 import ais.action.report.Report;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
@@ -186,6 +192,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 	private MyDatebox tanggalPenyusunan;
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = null;
+	private Long formatNilaiTersinkronKpmId = null;
 	private Tbmuser tbmuser;
 	private Perkuliahan perkuliahan = null;
 
@@ -917,34 +924,9 @@ public class RpsObeAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 
 					if (arg0 != null && nilaiMenggunakanCpmk != null && arg0.getTarget() == nilaiMenggunakanCpmk) {
-						// Rebuild FormatNilai semua Perkuliahan yang memakai kurikulum ini
-						// agar kolom penilaian (CPMK / Sub-CPMK) langsung berubah tanpa perlu
-						// tekan tombol Format Nilai secara manual.
-						Session sess2 = null;
-						try {
-							sess2 = HibernateUtil.openSession();
-							sess2.beginTransaction();
-							@SuppressWarnings("unchecked")
-							java.util.List<ais.database.model.Perkuliahan> perkuliahanList = sess2
-									.createCriteria(ais.database.model.Perkuliahan.class)
-									.add(org.hibernate.criterion.Restrictions.eq(
-											"kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah))
-									.list();
-							for (ais.database.model.Perkuliahan p : perkuliahanList) {
-								p.belum("format_nilai_baru");
-								ais.database.model.PembombotanNilai.setDefaultPembobotan(p, sess2, true);
-							}
-							sess2.getTransaction().commit();
-						} catch (Exception eRebuild) {
-							if (sess2 != null && sess2.getTransaction() != null) {
-								try { sess2.getTransaction().rollback(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:rollback"); }
-							}
-							ais.common.ErrorAuditUtil.record(eRebuild, "auto-audit RpsObeAction rebuildFormatNilai nilaiMenggunakanCpmk");
-						} finally {
-							if (sess2 != null && sess2.isOpen()) {
-								try { sess2.close(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:close"); }
-							}
-						}
+						// Pergantian sumber bobot CPMK/Sub-CPMK harus langsung diterapkan ke
+						// seluruh kelas yang menggunakan matakuliah kurikulum ini.
+						sinkronkanFormatNilaiPerkuliahan();
 						onSearchDefault(null);
 					}
 				} catch (Exception eSave) {
@@ -1008,6 +990,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				Map map = new HashMap();
 				Common.insertProperty(CapaianPembelajaranLulusan.class, capaianPembelajaranLulusan, map, "");
 				capaianPembelajaranLulusansD.add(map);
+				int indexCpmkPemilik = capaianPembelajaranLulusansD.size();
 
 				Common.insertProperty(CapaianPembelajaranLulusan.class, capaianPembelajaranLulusan, parameters,
 						"capaianPembelajaranLulusan_" + capaianPembelajaranLulusan.getId());
@@ -1035,6 +1018,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 					map1.put("kode", kode);
 					map1.put("nama", nama);
 					map1.put("bobot", bobot);
+					map1.put("capaian.kode", capaianPembelajaranLulusan.getKode());
+					map1.put("capaian.id", capaianPembelajaranLulusan.getId());
+					// Data formula lama hanya menyimpan bobot total Sub-CPMK. Layar pengaturan
+					// selama ini menampilkan bobot tersebut sebagai korelasi default ke CPMK
+					// pemilik, tetapi tidak selalu menyimpannya kembali. Samakan sumber data
+					// cetak dengan perilaku layar tanpa menimpa korelasi eksplisit pengguna.
+					String keyBobotPemilik = "bobot_index_" + indexCpmkPemilik;
+					if (!jsonObject.has(keyBobotPemilik)) {
+						map1.put(keyBobotPemilik, bobot);
+					}
 					subCpmkD.add(map1);
 				}
 			}
@@ -1127,6 +1120,96 @@ public class RpsObeAction extends GenericAutowireComposer {
 			return;
 		}
 		tampilkanCetakHtml(kurikulumPunyaMatakuliah, perkuliahan);
+	}
+
+	/**
+	 * Mengunduh satu workbook XLSX yang memuat seluruh delapan tab RPS OBE.
+	 * Workbook menyimpan identitas RPS pada sheet metadata tersembunyi agar tidak
+	 * dapat diunggah ke mata kuliah yang berbeda secara tidak sengaja.
+	 */
+	public void onDownloadExcel(Event event) throws Exception {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			MyMessageboxConfig.show(Common.getBahasaConfig("Data Matakuliah dan Kurikulum harus diisi"),
+					Common.getBahasaConfig("Peringatan"), MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return;
+		}
+		try {
+			Long perkuliahanId = perkuliahan == null ? null : perkuliahan.getId();
+			byte[] data = RpsObeExcelHelper.exportWorkbook(kurikulumPunyaMatakuliah.getId(), perkuliahanId);
+			Filedownload.save(data, RpsObeExcelHelper.MIME_XLSX,
+					RpsObeExcelHelper.fileName(kurikulumPunyaMatakuliah));
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			MyMessageboxConfig.show("Format Excel RPS OBE tidak dapat diunduh. " + pesanKesalahanExcel(e),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		}
+	}
+
+	/**
+	 * Mengunggah kembali workbook hasil download. Validasi seluruh sheet dilakukan
+	 * sebelum transaksi database dimulai dan penyimpanan bersifat atomik.
+	 */
+	public void onUploadExcel(Event event) throws Exception {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			MyMessageboxConfig.show("Pilih mata kuliah dan kurikulum terlebih dahulu.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+		if (kurikulumPunyaMatakuliah.getDikunci() != null) {
+			MyMessageboxConfig.show("RPS OBE sudah dikunci dan tidak dapat di-upload.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+		if (!bolehMengubahFiturObe(CFG_HAK_AKSES_UBAH_RPS_OBE, true)) {
+			MyMessageboxConfig.show("Anda tidak memiliki hak untuk memperbarui seluruh data RPS OBE.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
+		}
+		try {
+			UploadEvent uploadEvent = resolveUploadExcelEvent(event);
+			Media media = uploadEvent.getMedia();
+			if (media == null || media.getName() == null
+					|| !media.getName().toLowerCase().endsWith(".xlsx")) {
+				throw new IllegalArgumentException("File harus berformat Excel Open XML (.xlsx).");
+			}
+			if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) {
+				return;
+			}
+			Long perkuliahanId = perkuliahan == null ? null : perkuliahan.getId();
+			RpsObeExcelHelper.ImportResult result = RpsObeExcelHelper.importWorkbook(
+					media.getByteData(), kurikulumPunyaMatakuliah.getId(), perkuliahanId);
+			String refreshNote = "";
+			try {
+				onSearchDefault(null);
+			} catch (Exception refreshError) {
+				ais.common.ErrorAuditUtil.record(refreshError, "refresh sesudah upload Excel RPS OBE");
+				refreshNote = " Data telah tersimpan; tekan Refresh untuk memuat ulang tampilan.";
+			}
+			MyMessageboxConfig.show(result.message() + refreshNote, "Pemberitahuan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			MyMessageboxConfig.show("Upload Excel RPS OBE gagal. " + pesanKesalahanExcel(e),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		}
+	}
+
+	private UploadEvent resolveUploadExcelEvent(Event event) {
+		Event origin = event;
+		while (origin instanceof ForwardEvent) {
+			origin = ((ForwardEvent) origin).getOrigin();
+		}
+		if (!(origin instanceof UploadEvent)) {
+			throw new IllegalArgumentException("Berkas upload tidak ditemukan. Silakan pilih ulang file XLSX.");
+		}
+		return (UploadEvent) origin;
+	}
+
+	private String pesanKesalahanExcel(Exception e) {
+		String message = e == null ? null : e.getMessage();
+		return message == null || message.trim().length() == 0
+				? "Silakan periksa format file dan coba kembali." : message;
 	}
 
 	/**
@@ -1775,23 +1858,60 @@ public class RpsObeAction extends GenericAutowireComposer {
 	 * tiap Sub-CPMK dengan CPMK, metode pembelajaran, bentuk penilaian, dan
 	 * bobotnya. Dibangun dari data rincian mingguan yang sudah diisi.
 	 */
+	private static String rpsGabungUnik(String awal, String tambahan) {
+		String hasil = awal == null ? "" : awal.trim();
+		String baru = tambahan == null ? "" : tambahan.trim();
+		if (baru.length() == 0) return hasil;
+		if (hasil.length() == 0) return baru;
+		String[] bagian = hasil.split("\\s*;\\s*");
+		for (int i = 0; i < bagian.length; i++) {
+			if (bagian[i].trim().equalsIgnoreCase(baru)) return hasil;
+		}
+		return hasil + "; " + baru;
+	}
+
 	private static String rpsAsesmenMatrix(java.util.List<Map> rincianList) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div class='tbl-scroll'><table class='t-main t-matriks'><thead><tr class='tr-head'>");
 		sb.append("<th style='width:4%'>No</th><th style='width:10%'>CPMK</th><th style='width:13%'>Sub-CPMK</th>");
 		sb.append("<th>Metode Pembelajaran</th><th>Bentuk Penilaian</th><th style='width:8%'>Bobot (%)</th></tr></thead><tbody>");
-		int no = 0;
-		double total = 0;
+
+		// Satu Sub-CPMK dapat muncul beberapa kali di rincian (misalnya satu baris
+		// perkuliahan dan satu baris ujian). Bobotnya adalah bobot CAPAIAN, bukan
+		// bobot setiap kegiatan. Gabungkan kegiatan/asesmennya dan hitung bobot
+		// Sub-CPMK hanya sekali agar total cetak tetap 100%.
+		LinkedHashMap<String, Object[]> barisPerSubCpmk = new LinkedHashMap<String, Object[]>();
 		for (Map r : rincianList) {
-			no++;
 			String cpmk = rpsHs(r, "capaian.kode");
 			String sub = normalizeSubCpmkKode(rpsHs(r, "kode"));
+			String keyData = rpsHs(r, "key");
+			String key = cpmk + "|" + (keyData.length() == 0 ? sub.toLowerCase() : keyData);
 			String metode = rpsHs(r, "pembelajaranLuring");
 			String daring = rpsHs(r, "pembelajaranDaring");
-			if (daring.length() > 0) metode = metode.length() > 0 ? metode + "; " + daring : daring;
+			if (daring.length() > 0) metode = rpsGabungUnik(metode, daring);
 			String bentuk = rpsHs(r, "teknikDanKriteria");
-			Object bobRaw = r.get("bobot");
-			double bob = rpsAsDouble(bobRaw, 0);
+			double bob = rpsAsDouble(r.get("bobot"), 0);
+
+			Object[] data = barisPerSubCpmk.get(key);
+			if (data == null) {
+				barisPerSubCpmk.put(key, new Object[] { cpmk, sub, metode, bentuk, Double.valueOf(bob) });
+			} else {
+				if (((String) data[0]).length() == 0 && cpmk.length() > 0) data[0] = cpmk;
+				data[2] = rpsGabungUnik((String) data[2], metode);
+				data[3] = rpsGabungUnik((String) data[3], bentuk);
+				if (((Double) data[4]).doubleValue() <= 0 && bob > 0) data[4] = Double.valueOf(bob);
+			}
+		}
+
+		int no = 0;
+		double total = 0;
+		for (Object[] data : barisPerSubCpmk.values()) {
+			no++;
+			String cpmk = (String) data[0];
+			String sub = (String) data[1];
+			String metode = (String) data[2];
+			String bentuk = (String) data[3];
+			double bob = ((Double) data[4]).doubleValue();
 			total += bob;
 			sb.append("<tr>");
 			sb.append("<td class='tc'>").append(no).append("</td>");
@@ -2072,7 +2192,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 				row.setValign("middle");
 				row.setStyle("border-bottom: 1px dashed #e2e8f0; padding: 10px 0; background: transparent;");
 				row.setParent(rowsUtama);
-				lbl = new MyLabelConfigAgakBesar(Common.getBahasaConfig("Salin Data dari RPS Lain"));
+				lbl = new MyLabelConfigAgakBesar(Common.getBahasaConfig(
+						"Salin CPMK, Sub-CPMK, bobot dan agenda dari semester sebelumnya"));
 				lbl.setStyle("font-weight: 600; color: #475569; font-size: 12px;");
 				row.appendChild(lbl);
 				hbox = new Hbox();
@@ -2296,9 +2417,20 @@ public class RpsObeAction extends GenericAutowireComposer {
 			colProfil.setParent(columns);
 
 			for (CapaianLulusan capaianLulusan : capaianLulusans) {
-				MyColumnConfig colCpl = new MyColumnConfig(capaianLulusan.getKode());
-				colCpl.setWidth("40px");
-				colCpl.setTooltiptext(capaianLulusan.getKode() + " " + capaianLulusan.getNama());
+				String kodeCpl = capaianLulusan.getKode() == null ? "CPL" : capaianLulusan.getKode().trim();
+				if (kodeCpl.length() == 0) {
+					kodeCpl = "CPL";
+				}
+				MyColumnConfig colCpl = new MyColumnConfig();
+				colCpl.setLabelData(kodeCpl);
+				/* Lebar 40px membuat semua kode CPL tampil sebagai "C...". Beri
+				 * ruang adaptif agar kode terbaca, namun batasi supaya tabel dengan
+				 * banyak CPL tetap mudah digulir. */
+				int lebarKodeCpl = Math.max(96, Math.min(180, (kodeCpl.length() * 8) + 28));
+				colCpl.setWidth(lebarKodeCpl + "px");
+				colCpl.setAlign("center");
+				colCpl.setTooltiptext(kodeCpl + (capaianLulusan.getNama() == null ? ""
+						: " - " + capaianLulusan.getNama()));
 				colCpl.setParent(columns);
 			}
 
@@ -4446,22 +4578,92 @@ public class RpsObeAction extends GenericAutowireComposer {
 		}
 		Session s = null;
 		org.hibernate.Transaction tx = null;
+		boolean tersimpan = false;
 		try {
 			s = HibernateUtil.openSession();
 			tx = s.beginTransaction();
 			s.update(cpl);
 			tx.commit();
 			tx = null;
+			tersimpan = true;
 		} catch (Exception e) {
 			if (tx != null) {
 				try { tx.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2967");}
 			}
 			Common.tampilErrorJikaAdmin(e);
 		} finally {
-			if (s != null) {
-				try { s.clear(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2972");}
-				try { s.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2973");}
+			closeSessionQuietly(s);
+		}
+		if (tersimpan) {
+			// Bobot/formula CPL adalah sumber FormatNilai OBE. Jangan hanya me-refresh
+			// matriks RPS; bangun ulang FormatNilai kelas agar perubahan langsung terlihat.
+			sinkronkanFormatNilaiPerkuliahan();
+		}
+	}
+
+	/**
+	 * Sinkronkan FormatNilai seluruh kelas yang memakai KurikulumPunyaMatakuliah
+	 * aktif. Selain relasi langsung, ikut tangani data lama yang belum mempunyai
+	 * relasi KPM tetapi kurikulum, matakuliah, dan semesternya sama.
+	 */
+	@SuppressWarnings("unchecked")
+	private void sinkronkanFormatNilaiPerkuliahan() {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			return;
+		}
+
+		Session syncSession = null;
+		org.hibernate.Transaction syncTransaction = null;
+		try {
+			syncSession = HibernateUtil.openSession();
+			syncTransaction = syncSession.beginTransaction();
+			KurikulumPunyaMatakuliah kpm = (KurikulumPunyaMatakuliah) syncSession.get(
+					KurikulumPunyaMatakuliah.class, kurikulumPunyaMatakuliah.getId());
+			if (kpm == null) {
+				syncTransaction.rollback();
+				syncTransaction = null;
+				return;
 			}
+
+			List<Perkuliahan> hasil = syncSession.createCriteria(Perkuliahan.class)
+					.add(Restrictions.eq("kurikulumPunyaMatakuliah", kpm)).list();
+			Map<Long, Perkuliahan> perkuliahanUnik = new LinkedHashMap<Long, Perkuliahan>();
+			for (Perkuliahan perkuliahan : hasil) {
+				perkuliahanUnik.put(perkuliahan.getId(), perkuliahan);
+			}
+
+			if (kpm.getKurikulum() != null && kpm.getMatakuliah() != null && kpm.getSemester() != null) {
+				hasil = syncSession.createCriteria(Perkuliahan.class)
+						.add(Restrictions.eq("kurikulum", kpm.getKurikulum()))
+						.add(Restrictions.eq("matakuliah", kpm.getMatakuliah()))
+						.add(Restrictions.eq("semester", kpm.getSemester())).list();
+				for (Perkuliahan perkuliahan : hasil) {
+					perkuliahanUnik.put(perkuliahan.getId(), perkuliahan);
+					if (perkuliahan.getKurikulumPunyaMatakuliah() == null) {
+						perkuliahan.setKurikulumPunyaMatakuliah(kpm);
+					}
+				}
+			}
+
+			for (Perkuliahan perkuliahan : perkuliahanUnik.values()) {
+				perkuliahan.belum("format_nilai_baru");
+				ais.database.model.PembombotanNilai.setDefaultPembobotan(perkuliahan, syncSession, true);
+			}
+			syncTransaction.commit();
+			syncTransaction = null;
+		} catch (Exception e) {
+			if (syncTransaction != null) {
+				try {
+					syncTransaction.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"auto-audit(empty-catch) RpsObeAction:sinkronkanFormatNilaiPerkuliahan:rollback");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e, "RpsObeAction sinkronisasi FormatNilai OBE");
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			closeSessionQuietly(syncSession);
 		}
 	}
 
@@ -5971,8 +6173,9 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 		if (kurikulumPunyaMatakuliah.getNilaiMenggunakanCpmk()) {
 			try {
+				String subCpmkIdStr = jsonObject.isNull(jsonKey) ? null : jsonObject.getString(jsonKey).trim();
 				Common.selectComboItem(combo,
-						jsonObject.isNull(jsonKey) ? null : Long.valueOf(jsonObject.getString(jsonKey).trim()));
+						(subCpmkIdStr == null || subCpmkIdStr.isEmpty()) ? null : Long.valueOf(subCpmkIdStr));
 			} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
@@ -6012,7 +6215,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			for (final String idStr : idsFromMk.split(",")) {
+			for (final String idStr : idsFromMk.split("[,|;]")) {
 				try {
 					if (!idStr.trim().isEmpty()) {
 						final Object entity = ConstantValues.ambil(clazz.getName(), Long.parseLong(idStr.trim()));
@@ -6124,6 +6327,30 @@ public class RpsObeAction extends GenericAutowireComposer {
 			}
 		}
 		return m;
+	}
+
+	/**
+	 * Mengambil JSON array dari jawaban AI tanpa membiarkan respons terpotong atau
+	 * JSON tidak valid menjadi error global ZK. Respons AI adalah input eksternal dan
+	 * sesekali memuat teks tambahan/escape yang tidak lengkap; pengguna diminta
+	 * mengulang generate sementara data RPS lama tidak diubah.
+	 */
+	private static JSONArray parseArrayJawabanAi(String response) throws Exception {
+		String value = response == null ? "" : response.trim();
+		int awal = value.indexOf('[');
+		int akhir = value.lastIndexOf(']');
+		if (awal < 0 || akhir <= awal) {
+			MyMessageboxConfig.show("Jawaban AI belum menghasilkan JSON yang lengkap. Silakan ulangi Generate.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
+		try {
+			return new JSONArray(value.substring(awal, akhir + 1));
+		} catch (Exception e) {
+			MyMessageboxConfig.show("Format jawaban AI tidak valid atau terpotong. Data lama tidak diubah; silakan ulangi Generate.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
 	}
 
 	/**
@@ -6298,12 +6525,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 						new HasilAiListener() {
 							@Override
 							public void selesai(String resp) throws Exception {
-								int a = resp.indexOf('[');
-								int b = resp.lastIndexOf(']');
-								if (a < 0 || b <= a) {
-									return;
-								}
-								org.json.JSONArray arr = new org.json.JSONArray(resp.substring(a, b + 1));
+								org.json.JSONArray arr = parseArrayJawabanAi(resp);
+								if (arr == null) return;
 								int dibuat = 0;
 								for (int i = 0; i < arr.length(); i++) {
 									JSONObject o = arr.optJSONObject(i);
@@ -7869,12 +8092,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 								new HasilAiListener() {
 									@Override
 									public void selesai(String resp) throws Exception {
-										int a = resp.indexOf('[');
-										int b = resp.lastIndexOf(']');
-										if (a < 0 || b <= a) {
-											return;
-										}
-										JSONArray arr = new JSONArray(resp.substring(a, b + 1));
+										JSONArray arr = parseArrayJawabanAi(resp);
+										if (arr == null) return;
 										for (int i = 0; i < arr.length(); i++) {
 											JSONObject o = arr.optJSONObject(i);
 											if (o == null) {
@@ -8023,6 +8242,13 @@ public class RpsObeAction extends GenericAutowireComposer {
 				&& kurikulumPunyaMatakuliah.getKurikulum() != null) {
 			initHakAkses();
 			matakuliah = kurikulumPunyaMatakuliah.getMatakuliah();
+			// Pulihkan pula data lama: RPS/Sub-CPMK mungkin sudah tersimpan sebelum
+			// fasilitas sinkronisasi otomatis tersedia, sedangkan FormatNilai kelasnya
+			// masih UTS/UAS/Tugas biasa. Cukup sekali per KPM selama halaman ini hidup.
+			if (!kurikulumPunyaMatakuliah.getId().equals(formatNilaiTersinkronKpmId)) {
+				sinkronkanFormatNilaiPerkuliahan();
+				formatNilaiTersinkronKpmId = kurikulumPunyaMatakuliah.getId();
+			}
 
 			// === Bangun TABBOX: form RPS OBE dipecah PER-TAB supaya tidak perlu scroll panjang. ===
 			// Tiap tab punya grid 2-kolom sendiri; this.rowsUtama diarahkan ke tab terkait sebelum
