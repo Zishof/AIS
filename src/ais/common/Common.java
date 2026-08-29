@@ -19430,6 +19430,9 @@ public class Common {
 			} else if (e instanceof org.hibernate.exception.SQLGrammarException
 					|| e instanceof org.hibernate.exception.GenericJDBCException
 					|| e instanceof org.hibernate.QueryException || e instanceof org.hibernate.MappingException) {
+				// ATURAN WAJIB NATIVE SQL: jangan pernah memakai cast PostgreSQL "::tipe".
+				// Hibernate dapat membacanya sebagai named parameter ":tipe" dan menolak kueri.
+				// Selalu gunakan bentuk standar CAST(ekspresi AS tipe), termasuk date/text/numeric/jsonb.
 				// Error tingkat-KUERI (grammar/relasi tidak ada, tipe JDBC tak terpetakan mis. ARRAY,
 				// parameter bernama palsu dari cast PostgreSQL "::tipe", dsb.) berasal dari TEKS SQL
 				// yang dikirim pemanggil (data-explorer DaftarDataService), BUKAN bug aplikasi.
