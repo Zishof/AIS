@@ -64,7 +64,11 @@ if(groupMenuId!=null){
             else{module=nativeRoute.getModule();pageName=nativeRoute.getPage();target=nativeRoute.getTarget();request.setAttribute("nui_native_module",module);request.setAttribute("nui_native_page",pageName);}
         }else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
         }
-        if(httpStatus==200&&((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiEqual(requestedPage,pageName)))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
+        // Parameter `page` numerik adalah nomor halaman paging Generic CRUD/
+        // controller native, bukan assertion nama route; nama route tidak
+        // pernah numerik sehingga assertion tetap fail-closed.
+        boolean nuiPagingPage=requestedPage!=null&&requestedPage.matches("\\d+");
+        if(httpStatus==200&&((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiPagingPage&&!nuiEqual(requestedPage,pageName)))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
     }
 }else if(service||requestedModule!=null||requestedPage!=null){
     httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";

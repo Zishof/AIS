@@ -53,8 +53,14 @@ public final class GenericCrudDefinitionRegistry {
     public static GenericCrudDefinition resolve(String entityKey, String module, String page) throws GenericCrudException {
         GenericCrudDefinition definition = null;
         if (entityKey != null && entityKey.length() > 0) { definition = (GenericCrudDefinition) DEFINITIONS.get(entityKey); }
-        if (definition == null && module != null && page != null) {
-            definition = (GenericCrudDefinition) DEFINITIONS.get(routeKey(module, page));
+        if ((definition == null || !same(module, definition.getModuleKey()) || !same(page, definition.getPageKey()))
+                && module != null && page != null) {
+            // Dua halaman berbeda dapat memilih entity yang sama sehingga key
+            // entityKey di map saling menimpa (mis. beberapa laporan memilih
+            // Siswa). Definisi yang konsisten dengan route yang diminta harus
+            // menang; tanpa ini menu alias jatuh ke BINDING_MISMATCH palsu.
+            GenericCrudDefinition byRoute = (GenericCrudDefinition) DEFINITIONS.get(routeKey(module, page));
+            if (byRoute != null) definition = byRoute;
         }
         if (definition == null) { throw new GenericCrudException(404, "ENTITY_NOT_REGISTERED", "Entity tidak terdaftar pada allow-list Generic CRUD."); }
         if (!same(module, definition.getModuleKey()) || !same(page, definition.getPageKey())) {
