@@ -134,6 +134,26 @@
             visibility: hidden !important;
             pointer-events: none !important;
         }
+        /* Fallback minimum agar modal tetap menjadi overlay jika CSS CDN tidak tersedia. */
+        .modal.show {
+            position: fixed;
+            inset: 0;
+            z-index: 1055;
+            display: block !important;
+            visibility: visible !important;
+            overflow-x: hidden;
+            overflow-y: auto;
+            pointer-events: auto !important;
+        }
+        .modal.show .modal-dialog { pointer-events: none; }
+        .modal.show .modal-content { pointer-events: auto; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1050;
+            background-color: #000;
+        }
+        .modal-backdrop.show { opacity: .5; }
     </style>
 </head>
 <body>
@@ -212,7 +232,7 @@
                 </div>
                 <div class="modal-footer bg-light border-top-0">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal"><%= Common.getBahasaConfig("Batal") %></button>
-                    <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="simpanTamu<%=rnd%>()">
+                    <button type="button" id="simpanTamuButton<%=rnd%>" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="simpanTamu<%=rnd%>()">
                         <i class="fas fa-save me-2"></i><%= Common.getBahasaConfig("Simpan Kunjungan") %>
                     </button>
                 </div>
@@ -314,6 +334,7 @@
             modalEl.addEventListener('shown.bs.modal', function() { document.getElementById('namaTamu<%=rnd%>').focus(); }, {once: true});
         }
 
+        let simpanTamuSedangBerjalan<%=rnd%> = false;
         async function simpanTamu<%=rnd%>() {
             const nama = document.getElementById('namaTamu<%=rnd%>').value.trim();
             const alamat = document.getElementById('alamatTamu<%=rnd%>').value.trim();
@@ -322,6 +343,10 @@
                 window.alert('<%= Common.getBahasaConfigJS("Nama dan Alamat wajib diisi.") %>');
                 return;
             }
+            if (simpanTamuSedangBerjalan<%=rnd%>) return;
+            simpanTamuSedangBerjalan<%=rnd%> = true;
+            const simpanButton = document.getElementById('simpanTamuButton<%=rnd%>');
+            simpanButton.disabled = true;
             try {
                 const params = new URLSearchParams();
                 params.append('action', 'guest');
@@ -346,6 +371,9 @@
                 }
             } catch (error) {
                 tampilkanStatus<%=rnd%>('<%= Common.getBahasaConfigJS("Gagal menyimpan data.") %>', false);
+            } finally {
+                simpanTamuSedangBerjalan<%=rnd%> = false;
+                simpanButton.disabled = false;
             }
         }
 
@@ -390,7 +418,9 @@
                     document.getElementById('infoPaging<%=rnd%>').innerText = 'Total: ' + res.total + ' Data · ' + (res.privacy || '');
                     
                     paging.innerHTML = '';
-                    for (let i = 0; i < totalPage; i++) {
+                    const startPage = Math.max(0, Math.min(page - 2, totalPage - 5));
+                    const endPage = Math.min(totalPage, startPage + 5);
+                    for (let i = startPage; i < endPage; i++) {
                         const activeClass = (i === page) ? 'active' : '';
                         const labelHal = i + 1;
                         let pageHtml = '<li class="page-item ' + activeClass + '">' +
@@ -398,6 +428,10 @@
                             '</li>';
                         paging.innerHTML += pageHtml;
                     }
+                } else {
+                    body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">' + escapeKiosk<%=rnd%>(res.message || '<%= Common.getBahasaConfigJS("Daftar kunjungan tidak dapat dimuat.") %>') + '</td></tr>';
+                    paging.innerHTML = '';
+                    document.getElementById('infoPaging<%=rnd%>').innerText = '';
                 }
             } catch (error) {
                 body.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Terjadi kesalahan saat memuat data.</td></tr>';

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.io.ByteArrayOutputStream;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.PDFTextStripper;
@@ -161,7 +162,8 @@ public class RepositoryFileService {
             RepoBitstream file = (RepoBitstream) session.get(RepoBitstream.class, bitstreamId);
             if (file == null || !Boolean.TRUE.equals(file.getAktif())) throw new IllegalArgumentException("Berkas tidak ditemukan.");
             RepoItem item = requiredEditableItem(session, file.getItemId(), actor);
-            source = new File(file.getPathSistem()).getCanonicalFile();
+            source = resolveManagedFile(file.getPathSistem());
+            if(source==null)throw new SecurityException("Path berkas berada di luar storage Repository.");
             if (source.exists() && source.isFile()) {
                 File trash = canonicalChild(storageRoot(), ".trash" + File.separator + file.getItemId());
                 if (!trash.exists()) trash.mkdirs();
@@ -230,19 +232,24 @@ public class RepositoryFileService {
         result.status = "PENDING";
         String executable = clean(System.getProperty("ais.repository.virusScanner"));
         if (executable.length() == 0) return result;
+        Process process=null;InputStream output=null;
         try {
-            Process process = new ProcessBuilder(executable, file.getCanonicalPath()).redirectErrorStream(true).start();
-            InputStream output = process.getInputStream();
-            byte[] drain = new byte[4096]; while (output.read(drain) >= 0) { /* prevent child process blocking */ }
-            int code = process.waitFor();
+            process = new ProcessBuilder(executable, file.getCanonicalPath()).redirectErrorStream(true).start();
+            output=process.getInputStream();final InputStream scannerOutput=output;
+            Thread drainer=new Thread(new Runnable(){public void run(){try{byte[] drain=new byte[4096];while(scannerOutput.read(drain)>=0){}}catch(Exception ignored){}}},"repository-virus-scanner-output");drainer.setDaemon(true);drainer.start();
+            boolean finished=process.waitFor(scannerTimeoutSeconds(),TimeUnit.SECONDS);
+            if(!finished){process.destroy();if(!process.waitFor(2L,TimeUnit.SECONDS))process.destroyForcibly();result.status="ERROR";result.scannedAt=new Date();ais.common.ErrorAuditUtil.record(new IllegalStateException("Antivirus melewati batas waktu."),"RepositoryFileService.scan.timeout");return result;}
+            int code = process.exitValue();
             result.scannedAt = new Date();
             result.status = code == 0 ? "CLEAN" : (code == 1 ? "INFECTED" : "ERROR");
         } catch (Exception e) {
             result.status = "ERROR"; result.scannedAt = new Date();
             ais.common.ErrorAuditUtil.record(e, "RepositoryFileService.scan");
-        }
+        }finally{if(output!=null)try{output.close();}catch(Exception ignored){}if(process!=null&&process.isAlive())process.destroyForcibly();}
         return result;
     }
+
+    private int scannerTimeoutSeconds(){try{int value=Integer.parseInt(System.getProperty("ais.repository.virusScannerTimeoutSeconds","120"));return Math.max(10,Math.min(value,900));}catch(Exception e){return 120;}}
 
     private void workflowEvent(Session session, Long itemId, String state, String action, String comment,
             Tbmuser actor, String requestId) {
@@ -266,6 +273,9 @@ public class RepositoryFileService {
         if (!root.isDirectory()) throw new IllegalStateException("Root repository bukan direktori.");
         return root;
     }
+
+    /** Resolve hanya berkas yang benar-benar berada di bawah storage Repository. */
+    public File resolveManagedFile(String storedPath)throws Exception{String value=clean(storedPath);if(value.length()==0)return null;File root=storageRoot().getCanonicalFile();File file=new File(value).getCanonicalFile();String prefix=root.getPath()+File.separator;if(!file.getPath().startsWith(prefix))return null;return file;}
 
     private File canonicalChild(File root, String relative) throws Exception {
         File base = root.getCanonicalFile();
