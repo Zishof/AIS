@@ -24,7 +24,9 @@ tanggal-persetujuan begitu "terposting" — tetapi TIDAK ADA satu baris kode pun
 mengecap `postingHistory`-nya, menjurnalnya, atau menyediakan layar/baris posting.
 Kaki PENCAIRAN pinjaman yang lewat pengajuan transfer memang terjurnal (baris "Jurnal
 Pengajuan Transfer"), tetapi simpanan masuk, angsuran, dan bunganya tidak pernah
-menyentuh buku besar. **Prioritas tertinggi — niat desainnya sudah setengah jadi.**
+menyentuh buku besar. **Prioritas tertinggi — niat desainnya sudah setengah jadi.** **SELESAI r78584** —
+mesin + baris dasbor + dua akun master produk, teruji 14/14, dok
+[62-posting-simpan-pinjam-koperasi.md](62-posting-simpan-pinjam-koperasi.md).
 
 ### B. Keluarga dana anggota koperasi — TANPA integrasi akunting sama sekali
 Semua entitas berikut menggerakkan uang/kewajiban (saldo anggota = utang koperasi
