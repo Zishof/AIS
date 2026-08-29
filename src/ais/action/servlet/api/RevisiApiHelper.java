@@ -147,6 +147,72 @@ public final class RevisiApiHelper {
 		return s.length() > 120 ? s.substring(0, 120) : s;
 	}
 
+	/** Properti teknis audit tidak dicampur dengan perubahan bisnis produk. */
+	private static boolean propertiTeknis(String nama) {
+		return "oleh".equals(nama) || "olehId".equals(nama)
+				|| "tanggal_dirubah".equals(nama) || "kunciUnik".equals(nama);
+	}
+
+	/** Kredensial tidak pernah boleh keluar lewat endpoint audit generik. */
+	private static boolean propertiSensitif(String nama) {
+		if (nama == null) return false;
+		String n = nama.toLowerCase(java.util.Locale.ENGLISH);
+		return "pin".equals(n) || "pass".equals(n) || "password".equals(n)
+				|| n.endsWith("hash") || n.endsWith("salt")
+				|| n.indexOf("password") >= 0 || n.indexOf("token") >= 0
+				|| n.indexOf("secret") >= 0;
+	}
+
+	private static String jenisNilai(Type tipe) {
+		if (tipe == null) return "Data";
+		if (tipe.isEntityType()) return "Referensi master";
+		Class kelas = tipe.getReturnedClass();
+		if (kelas == null) return "Data";
+		if (Boolean.class.isAssignableFrom(kelas) || Boolean.TYPE.equals(kelas)) return "Status Ya/Tidak";
+		if (Number.class.isAssignableFrom(kelas)) return "Angka";
+		if (Date.class.isAssignableFrom(kelas)) return "Tanggal/Waktu";
+		return "Teks";
+	}
+
+	private static boolean nilaiSama(Object kiri, Object kanan) {
+		if (kiri == null && kanan == null) return true;
+		if (kiri == null || kanan == null) return false;
+		return String.valueOf(kiri).equals(String.valueOf(kanan));
+	}
+
+	/**
+	 * Membandingkan dua snapshot Envers. Nilai relasi diringkas menjadi nama
+	 * master agar pengguna membaca "Pcs -> Botol", bukan nama kelas/proxy.
+	 */
+	private static JSONArray perubahan(ClassMetadata meta, Object sebelum,
+			Object sesudah) throws Exception {
+		JSONArray arr = new JSONArray();
+		String[] props = meta.getPropertyNames();
+		Type[] tipe = meta.getPropertyTypes();
+		for (int i = 0; i < props.length; i++) {
+			if (tipe[i].isCollectionType() || propertiTeknis(props[i])
+					|| propertiSensitif(props[i])) continue;
+			Object lama = null;
+			Object baru = null;
+			try {
+				if (sebelum != null) lama = nilaiRingkas(
+						meta.getPropertyValue(sebelum, props[i], EntityMode.POJO));
+				if (sesudah != null) baru = nilaiRingkas(
+						meta.getPropertyValue(sesudah, props[i], EntityMode.POJO));
+			} catch (Throwable abaikan) {
+				continue;
+			}
+			if (nilaiSama(lama, baru)) continue;
+			JSONObject j = new JSONObject();
+			j.put("field", props[i]);
+			j.put("jenisData", jenisNilai(tipe[i]));
+			j.put("dari", lama == null ? JSONObject.NULL : lama);
+			j.put("menjadi", baru == null ? JSONObject.NULL : baru);
+			arr.put(j);
+		}
+		return arr;
+	}
+
 	@SuppressWarnings("unchecked")
 	public static void daftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (tbmuser == null) { tolak(hasil, "Sesi tidak dikenali."); return; }
@@ -160,10 +226,12 @@ public final class RevisiApiHelper {
 			List baris = reader.createQuery().forRevisionsOfEntity(clazz, false, true)
 					.add(AuditEntity.id().eq(id))
 					.addOrder(AuditEntity.revisionNumber().desc())
-					.setMaxResults(batas).getResultList();
+					// Satu snapshot tambahan dipakai sebagai nilai "sebelum" untuk
+					// revisi terakhir yang ditampilkan dan tidak ikut dikirim ke klien.
+					.setMaxResults(batas + 1).getResultList();
 			ClassMetadata meta = HibernateUtil.getSessionFactory().getClassMetadata(clazz);
 			JSONArray arr = new JSONArray();
-			for (int i = 0; i < baris.size(); i++) {
+			for (int i = 0; i < baris.size() && i < batas; i++) {
 				Object[] b = (Object[]) baris.get(i);
 				Object entitas = b[0];
 				org.hibernate.envers.DefaultRevisionEntity rev =
@@ -175,6 +243,11 @@ public final class RevisiApiHelper {
 						.format(rev.getRevisionDate()));
 				j.put("tipe", tipe == RevisionType.ADD ? "TAMBAH"
 						: tipe == RevisionType.DEL ? "HAPUS" : "UBAH");
+				Object snapshotSebelum = i + 1 < baris.size()
+						? ((Object[]) baris.get(i + 1))[0] : null;
+				Object sebelum = tipe == RevisionType.ADD ? null : snapshotSebelum;
+				Object sesudah = tipe == RevisionType.DEL ? null : entitas;
+				j.put("perubahan", perubahan(meta, sebelum, sesudah));
 				// "oleh" diambil dari kolom audit entitas itu sendiri (GeneralValueObject
 				// menyimpannya per revisi); DefaultRevisionEntity tidak memuat user.
 				try {
@@ -216,7 +289,8 @@ public final class RevisiApiHelper {
 			Type[] tipe = meta.getPropertyTypes();
 			JSONObject nilai = new JSONObject();
 			for (int i = 0; i < props.length; i++) {
-				if (tipe[i].isCollectionType()) continue; // koleksi di luar riwayat baris.
+				if (tipe[i].isCollectionType() || propertiSensitif(props[i])) continue;
+				// koleksi di luar riwayat baris; kredensial sengaja tidak diekspos.
 				try {
 					nilai.put(props[i], nilaiRingkas(
 							meta.getPropertyValue(snapshot, props[i], EntityMode.POJO)));
@@ -423,7 +497,8 @@ public final class RevisiApiHelper {
 
 				JSONObject ringkas = new JSONObject();
 				for (int p = 0; p < props.length; p++) {
-					if (tipeProp[p].isCollectionType() || tipeProp[p].isEntityType()) continue;
+					if (tipeProp[p].isCollectionType() || tipeProp[p].isEntityType()
+							|| propertiSensitif(props[p])) continue;
 					try {
 						Object nilai = meta.getPropertyValue(entitasBaris, props[p], EntityMode.POJO);
 						if (nilai != null) ringkas.put(props[p], nilaiRingkas(nilai));
@@ -502,7 +577,7 @@ public final class RevisiApiHelper {
 		org.hibernate.envers.query.criteria.AuditCriterion kriteria = null;
 		String[] props = meta.getPropertyNames();
 		for (int i = 0; i < props.length; i++) {
-			if (!propertiTeks(meta, props[i])) continue;
+			if (!propertiTeks(meta, props[i]) || propertiSensitif(props[i])) continue;
 			org.hibernate.envers.query.criteria.AuditCriterion satu = AuditEntity
 					.property(props[i]).like(bersih, org.hibernate.criterion.MatchMode.ANYWHERE);
 			kriteria = kriteria == null ? satu : AuditEntity.or(kriteria, satu);
@@ -517,6 +592,7 @@ public final class RevisiApiHelper {
 		if (nilai == null || nilai.trim().length() == 0) return null;
 		String k = kolom.trim();
 		String v = nilai.trim();
+		if (propertiSensitif(k)) return null;
 		int i = indeksProperti(meta, k);
 		if (i < 0) return null;
 		Type t = meta.getPropertyTypes()[i];
@@ -637,7 +713,7 @@ public final class RevisiApiHelper {
 		String[] props = meta.getPropertyNames();
 		Type[] tipe = meta.getPropertyTypes();
 		for (int i = 0; i < props.length; i++) {
-			if (tipe[i].isCollectionType()) continue;
+			if (tipe[i].isCollectionType() || propertiSensitif(props[i])) continue;
 			JSONObject j = new JSONObject();
 			j.put("nama", props[i]);
 			j.put("teks", propertiTeks(meta, props[i]));
@@ -671,7 +747,7 @@ public final class RevisiApiHelper {
 			Type[] tipeProp = meta.getPropertyTypes();
 			int dilewati = 0;
 			for (int i = 0; i < props.length; i++) {
-				if (tipeProp[i].isCollectionType()) continue;
+				if (tipeProp[i].isCollectionType() || propertiSensitif(props[i])) continue;
 				try {
 					Object nilai = meta.getPropertyValue(snapshot, props[i], EntityMode.POJO);
 					if (tipeProp[i].isEntityType() && nilai != null) {
