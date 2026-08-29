@@ -10,6 +10,12 @@ utama; dokumen ini menambah tiga hal yang belum tercakup di sana:
 3. Langkah pengerjaan **di tingkat berkas** untuk tiap fase, termasuk fase
    prasyarat baru yang harus mendahului P4/P6.
 
+> **Adendum 29-08-2026 (baca dulu):** setelah dokumen ini terbit, ditemukan
+> program arsitektur rantai pasok di folder dokumentasi KEDUA --
+> `C:/opt/CodeBaseDesktopDanMobile/docs/pos` -- yang mengubah konteks temuan
+> inti dan mengoreksi dua butir desain Fase 0. Lihat bagian "Adendum" di
+> akhir dokumen SEBELUM memakai rencana Fase 0 di bawah.
+
 **Metode.** Setiap klaim diverifikasi terhadap SVN r78501 dan git `3533591`
 (keduanya baru di-update sebelum analisis, karena banyak sesi menulis ke pohon
 yang sama). Klaim dokumen 48 TIDAK dipercaya begitu saja — semuanya diperiksa
@@ -227,3 +233,70 @@ dasbor Draft Jurnal (konsisten dok. 06/09).
   stok utama) atau hanya sub-ledger batch — menentukan apakah karantina batch
   mengurangi stok yang bisa dijual. Perlu dibaca sebelum Fase E didesain.
 - Kelengkapan jurnal draft-jurnal untuk opname/waste (warisan §7 dok. 48).
+
+---
+
+## Adendum 29-08-2026 — rekonsiliasi dengan program arsitektur rantai pasok
+
+Ditulis SETELAH mempelajari folder dokumentasi kedua
+(`C:/opt/CodeBaseDesktopDanMobile/docs/pos`, 91 berkas, 25-29 Agustus) yang
+tidak diketahui dokumen 48 maupun versi awal dokumen ini. Yang menentukan:
+
+- **ADR kontrak data terpadu** (`2026-08-25-adr-kontrak-data-terpadu.md`):
+  ledger immutable, koreksi lewat movement lawan, `idempotency_key` +
+  `correlation_id` wajib pada writer baru.
+- **Fondasi Produksi Fase 9** (`2026-08-26-fase-9-production.md` + paket
+  `ais/common/inventory/production` yang SUDAH ada di kode): kontrak
+  BOM/WO/issue/return/output/waste, empat jenis movement
+  `PRODUCTION_MATERIAL_ISSUE/RETURN/OUTPUT_RECEIPT/WASTE`, format kunci
+  idempoten `PRODUCTION:<order>:MATERIAL:<line>:ISSUE`, dan aturan
+  Unit-of-Work satu transaksi. Dokumen itu menulis eksplisit: *"belum
+  mengaktifkan writer"*.
+- **Preseden yang sudah berjalan**: `DistribusiPengirimanApiHelper.postingStok`
+  -- COMPLETED menulis ledger + baris jejak per dokumen/baris/arah (idempoten
+  lewat pemeriksaan jejak), REVERSED memposting arah kebalikan, satu
+  transaksi JDBC.
+- **Kontrak Local-First** (handover 29-08): CRUD dokumen DRAFT tergolong
+  queueable-mutation (`ProduksiDokumen.clientMutationId` sudah tersedia);
+  transisi status yang menggerakkan stok tergolong online-only. Konsisten
+  dengan spesifikasi 13.3 -- garisnya di transisi status.
+
+### Koreksi atas temuan inti (§2)
+
+Temuan "dokumen produksi tidak menggerakkan stok" BENAR secara fakta, tetapi
+bukan kelalaian: fondasi Fase 9 sengaja menahan writer sampai adapter
+runtime-nya dibangun. Fase 0 dokumen ini = mengaktifkan writer itu, mengikuti
+kontrak yang sudah dibekukan -- bukan merancang dari nol.
+
+### Dua koreksi atas desain Fase 0 (§3)
+
+1. **Butir 3 (REVERSED -> hapus baris mutasi) DIBATALKAN.** Menghapus ledger
+   melanggar ADR ("koreksi dilakukan lewat movement lawan, bukan menghapus
+   ledger historis") dan menyimpang dari preseden Distribusi. Desain yang
+   benar: REVERSED memposting KONTRA-BARIS (arah `REVERSE`), idempoten per
+   dokumen/baris/arah -- riwayat ledger tidak pernah dihapus.
+2. **Kunci idempoten tidak dikarang baru**: pakai format fondasi Fase 9
+   (`PRODUCTION:<dokumen>:<jenis>:<baris>:<aksi>`), disimpan pada baris ledger
+   dengan constraint unik, sehingga proses ulang menghasilkan lewati-diam
+   (pola periksa-lalu-lewati Distribusi), bukan hapus-lalu-tulis.
+
+Yang TETAP dari desain awal: tabel ledger produksi sendiri
+(`koperasi.mutasi_stok_produksi`) dengan suku baru di rumus `StokKantinUtil` --
+produksi adalah masuk/keluar SATU toko sehingga tidak dapat menumpang semantik
+transfer `mutasi_stok_toko`, dan menumpang `pemakaian_bahan_baku` /
+`pengadaan_produk` mencemari laporan HPP/pembelian yang membacanya.
+
+### Keputusan yang dikunci pemilik sistem (29-08-2026)
+
+- **Titik posting**: stok bergerak saat dokumen ISSUE/RETURN/OUTPUT/WASTE
+  masing-masing mencapai POSTED -- bukan menunggu WO COMPLETED. (WO, BOM, dan
+  COST tidak pernah menggerakkan stok.)
+- **Dokumen lama yang terlanjur POSTED** sebelum Fase 0: dibiarkan tanpa efek
+  stok. Mengubah masa lalu menggeser angka stok tiba-tiba tanpa dokumen
+  operasional yang menyertainya.
+
+### Rujukan silang
+
+Dokumen arsitektur di repo Flutter dan dokumen 48/49 di SVN kini saling
+menunjuk. Pekerjaan produksi WAJIB membaca keduanya; salah satu saja tidak
+cukup -- persis kejadian yang melahirkan adendum ini.
