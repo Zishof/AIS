@@ -3,7 +3,8 @@
 Tanggal: 29 Agustus 2026. Kode masuk SVN **r78530** (`PostingJurnalHelper`, terbawa
 commit sesi paralel, diverifikasi byte-identik) dan **r78531**
 (`PostingPertangungjawabanPengembalianAction`, `DraftJurnalRingkasanUtil`,
-`DraftJurnalApiHelper`). Mirror `java/` selaras. Lanjutan dari
+`DraftJurnalApiHelper`); perbaikan layar ZK-nya menyusul di **r78539** (§2a).
+Mirror `java/` selaras. Lanjutan dari
 [53-posting-jurnal-umum.md](53-posting-jurnal-umum.md).
 
 ## 1. Apa yang ditambahkan
@@ -29,19 +30,47 @@ menghasilkan jurnal pengembalian yang benar:
    (massal maupun per baris) menulis `akunsKredits.add(akunDebet)` — debet dan kredit
    jatuh ke akun yang sama, jurnalnya saling meniadakan. Jalur massal bahkan memakai
    akun debet yang lain lagi (`uangMuka.akun`, bukan `akunKelebihan`).
-2. **SQL batal cacat sintaks.** Kedua tombol batal menjalankan
+2. **SQL batal cacat sintaks.** Tombol batal PER BARIS menjalankan
    `delete ... where ref='pengembalian' pertangungjawaban=<id> ...` — tanpa `AND` — yang
    selalu melempar error; penandanya sempat dilepas tetapi jurnalnya (kalau ada) yatim.
+   (Koreksi atas catatan awal dokumen ini yang menyebut "kedua tombol batal": SQL tombol
+   batal MASSAL ternyata sudah ber-`AND` dan benar — hanya jalur per baris yang cacat.)
 
 Mesin API menulis jurnal yang dijanjikan tampilan (Dr akun kelebihan / Cr akun jenis
 uang muka, senilai `dikembalikan`, tanggal `tanggalPersetujuan`, `ref='pengembalian'`
 via konstanta baru `PostingJurnalHelper.REF_PENGEMBALIAN`), dan pembatalannya memakai
 SQL yang benar — filter `ref` WAJIB supaya jurnal LPJ utama (ref null) dokumen yang sama
-tidak ikut terhapus. Layar ZK-nya sendiri TIDAK diubah pada revisi ini; perbaikannya
-menyusul bila diminta.
+tidak ikut terhapus. Layar ZK-nya sendiri TIDAK diubah pada r78531; kedua cacatnya
+diperbaiki menyusul di **r78539** (§2a).
 
 Dokumen yang jurnalnya pasti nol (dikembalikan = 0) tidak dihitung dasbor dan tidak
 diproses mesin — layar ZK menampilkan semua LPJ tanpa saringan itu.
+
+## 2a. Perbaikan layar ZK (r78539, 29 Agustus 2026)
+
+Kedua cacat §2 diperbaiki di layar ZK-nya (`PostingPertangungjawabanPengembalianAction`
+r78539; mirror `java/` selaras byte-identik). Mesin API di bagian bawah file TIDAK
+disentuh.
+
+- Kedua jalur tulis (onPostingSemua massal dan tombol posting per baris) kini menulis
+  Dr `jenisUangMuka.akunKelebihan` / Cr `jenisUangMuka.akun` — pasangan yang sama dengan
+  tampilan grid dan mesin API: `akunsKredits` diisi `akunKredit` (bukan lagi `akunDebet`),
+  dan jalur massal berhenti memakai `uangMuka.akun` sebagai debet. Efek samping yang
+  disengaja di jalur massal: dokumen ber-jenisUangMuka null / tanpa akun kelebihan kini
+  dilewati (dulu ikut terjurnal Dr X / Cr X memakai `uangMuka.akun`) — konsisten dengan
+  grid yang menandainya "Transaksi tidak valid".
+- SQL tombol batal per baris mendapat `AND` yang hilang
+  (`... where ref='pengembalian' and pertangungjawaban=<id> and closing is null`),
+  mengikuti bentuk filter `batalkanPostingSemua`. Tombol batal massal tidak diubah —
+  sudah benar. Kedua tombol batal ZK tetap menghapus `grup_transaksi` saja tanpa hapus
+  anak `akunting.transaksi` eksplisit, sama dengan idiom semua layar ZK posting lain
+  (hanya mesin-mesin API yang menghapus anaknya dulu).
+- Javadoc yang mendokumentasikan cacat lama (kelas, onPostingSemua, renderer, kedua
+  mesin API) dimutakhirkan agar tidak lagi menyebut cacatnya sebagai perilaku berjalan.
+
+Verifikasi: kompilasi `javac -source 1.7 -target 1.7` (classpath `webapp/WEB-INF/lib/*`)
+bersih; jalur ZK belum diuji runtime (butuh sesi ZK hidup) — dasar kebenarannya paritas
+dengan mesin API yang sudah lulus harness §4.
 
 ## 3. Perbaikan hitung dasbor: bendera `posting` null = terposting
 
