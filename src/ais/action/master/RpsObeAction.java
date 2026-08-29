@@ -187,6 +187,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 	private MyDatebox tanggalPenyusunan;
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = null;
+	private Long formatNilaiTersinkronKpmId = null;
 	private Tbmuser tbmuser;
 	private Perkuliahan perkuliahan = null;
 
@@ -8145,6 +8146,13 @@ public class RpsObeAction extends GenericAutowireComposer {
 				&& kurikulumPunyaMatakuliah.getKurikulum() != null) {
 			initHakAkses();
 			matakuliah = kurikulumPunyaMatakuliah.getMatakuliah();
+			// Pulihkan pula data lama: RPS/Sub-CPMK mungkin sudah tersimpan sebelum
+			// fasilitas sinkronisasi otomatis tersedia, sedangkan FormatNilai kelasnya
+			// masih UTS/UAS/Tugas biasa. Cukup sekali per KPM selama halaman ini hidup.
+			if (!kurikulumPunyaMatakuliah.getId().equals(formatNilaiTersinkronKpmId)) {
+				sinkronkanFormatNilaiPerkuliahan();
+				formatNilaiTersinkronKpmId = kurikulumPunyaMatakuliah.getId();
+			}
 
 			// === Bangun TABBOX: form RPS OBE dipecah PER-TAB supaya tidak perlu scroll panjang. ===
 			// Tiap tab punya grid 2-kolom sendiri; this.rowsUtama diarahkan ke tab terkait sebelum

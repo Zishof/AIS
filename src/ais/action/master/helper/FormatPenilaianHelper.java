@@ -55,7 +55,7 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 public class FormatPenilaianHelper {
-	private static boolean apakahPerkuliahanObe(Perkuliahan perkuliahan) {
+	public static boolean apakahPerkuliahanObe(Perkuliahan perkuliahan) {
 		if (perkuliahan == null) {
 			return false;
 		}

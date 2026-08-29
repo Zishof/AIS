@@ -1607,8 +1607,7 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 				}
 			}
 
-			if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(),
-					perkuliahan.getGanjilGenap())) {
+			if (FormatPenilaianHelper.apakahPerkuliahanObe(perkuliahan)) {
 				buttonFormatNilai.setVisible(false);
 				tampil = false;
 			}

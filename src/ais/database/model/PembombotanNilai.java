@@ -277,21 +277,62 @@ public class PembombotanNilai extends GeneralValueObject {
 
 	public static String tampilkanFormat(Perkuliahan perkuliahan) {
 		String content = "<font style='font-size:9px;'>" + "<ol>";
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = null;
+		org.hibernate.Transaction transaction = null;
 		try {
+			session = HibernateUtil.openSession();
+			KurikulumPunyaMatakuliah kpm = perkuliahan == null ? null
+					: perkuliahan.getKurikulumPunyaMatakuliah();
+			Kurikulum kurikulum = perkuliahan == null ? null : perkuliahan.getKurikulum();
+			if (kurikulum == null && kpm != null) {
+				kurikulum = kpm.getKurikulum();
+			}
+			boolean obe = perkuliahan != null && kurikulum != null
+					&& kurikulum.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap());
+			if (obe) {
+				transaction = session.beginTransaction();
+			}
 			List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+			if (obe) {
+				boolean sudahFormatObe = false;
+				for (FormatNilai formatNilai : formatNilais) {
+					if (formatNilai.getCapaianPembelajaranLulusan() != null
+							|| (formatNilai.getKodeSubCpmk() != null
+									&& !formatNilai.getKodeSubCpmk().trim().isEmpty())) {
+						sudahFormatObe = true;
+						break;
+					}
+				}
+				if (!sudahFormatObe) {
+					perkuliahan.belum("format_nilai_baru");
+					formatNilais = setDefaultPembobotan(perkuliahan, session, true);
+				}
+				transaction.commit();
+				transaction = null;
+			}
 
 			for (FormatNilai formatNilai : formatNilais) {
 				content += "<li>" + formatNilai.getNama() + " = " + Common.numberFormat.get().format(formatNilai.getPersen())
 						+ "%" + "</li>";
 			}
 			content += "</ol>" + "</font>";
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/PembombotanNilai.java:291");
-			// TODO: handle exception
+		} catch (Exception e) {
+			if (transaction != null) {
+				try {
+					transaction.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"auto-audit(empty-catch) PembombotanNilai:tampilkanFormat:rollback");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e, "PembombotanNilai tampilkanFormat dan pemulihan format OBE");
+		} finally {
+			if (session != null) {
+				try { session.clear(); } catch (Exception closeError) { ais.common.ErrorAuditUtil.record(closeError, "auto-audit(empty-catch) PembombotanNilai:tampilkanFormat:clear"); }
+				try { if (session.isConnected()) session.disconnect(); } catch (Exception closeError) { ais.common.ErrorAuditUtil.record(closeError, "auto-audit(empty-catch) PembombotanNilai:tampilkanFormat:disconnect"); }
+				try { if (session.isOpen()) session.close(); } catch (Exception closeError) { ais.common.ErrorAuditUtil.record(closeError, "auto-audit(empty-catch) PembombotanNilai:tampilkanFormat:close"); }
+			}
 		}
-		HibernateUtil.closeSession();
 		return content;
 	}
 
