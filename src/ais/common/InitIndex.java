@@ -2416,12 +2416,11 @@ public class InitIndex {
 		initDefaultJenisReimbursement();
 		initDefaultJenisPengeluaran();
 
-		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
-		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
-		try {
-			eksekusiSql("CREATE EXTENSION IF NOT EXISTS pg_trgm");
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitIndex.java:1392");
-		}
+		// pg_trgm merupakan prasyarat opsional yang dipasang DBA, bukan oleh user aplikasi.
+		// Jangan menjalankan CREATE EXTENSION saat startup: IF NOT EXISTS tetap memerlukan
+		// hak CREATE dan sebelumnya memenuhi Log Error pada instalasi production. Semua
+		// index gin_trgm_ops di bawah sudah dibungkus pemeriksaan pg_opclass; bila ekstensi
+		// belum tersedia index opsional tersebut otomatis dilewati tanpa mengganggu startup.
 
 		// Aktifkan eksekusi DDL PARALEL (pool kecil daemon) untuk sisa indeks -> jauh lebih cepat
 		// daripada satu-per-satu, namun tetap aman terhadap pool koneksi & lock tabel.
@@ -2550,9 +2549,6 @@ public class InitIndex {
 		// INDEX DATABASE OPTIMIZATION UNTUK QUERY TAGIHAN & PENGATURAN BIAYA (LENGKAP)
 		// ===================================================================================
 		String[] INDEX_QUERIES_TAGIHAN = new String[] {
-
-				// 0. Extension Dasar untuk pencarian string (LIKE %...%) di PostgreSQL
-				"CREATE EXTENSION IF NOT EXISTS pg_trgm",
 
 				// 1. Indeks Jalur Relasi (JOIN) & Filter Pembayaran
 				// REDUNDAN (prefix dari idx_pemsis_filter_tagihan (siswa_id,jenis_biaya_id,tahun,bulan)) → DROP.

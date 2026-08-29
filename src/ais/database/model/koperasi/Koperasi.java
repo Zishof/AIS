@@ -175,9 +175,12 @@ public class Koperasi extends GeneralValueObject {
 		satuanKerja = check(satuanKerja);
 		if (this.satuanKerja == null && this.id == null) {
 			try {
-				SatuanKerja satuanKerja = Common.getCurrentUser().ambilSatuanKerja();
+				// Getter entitas juga dipanggil oleh Hibernate pada request API/background
+				// yang tidak mempunyai sesi UI. Pada konteks itu currentUser memang null.
+				ais.database.model.Tbmuser pengguna = Common.getCurrentUser();
+				SatuanKerja satuanKerja = pengguna == null ? null : pengguna.ambilSatuanKerja();
 				Koperasi currentKoperasi = Common.getCurrentKoperasi();
-				if (satuanKerja == null && currentKoperasi != null) {
+				if (satuanKerja == null && currentKoperasi != null && currentKoperasi != this) {
 					satuanKerja = currentKoperasi.getSatuanKerja();
 				}
 				this.satuanKerja = satuanKerja;

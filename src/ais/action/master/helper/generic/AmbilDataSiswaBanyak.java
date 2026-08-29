@@ -312,14 +312,16 @@ public class AmbilDataSiswaBanyak extends MyWindow {
 					List<Siswa> siswas = new ArrayList<Siswa>();
 					List<Row> rows = grid.getRows().getChildren();
 					for (Row row : rows) {
-						try {
-							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
+						// Baris pesan/paging tidak selalu mempunyai checkbox atau objek siswa.
+						// Jangan memakai exception sebagai alur normal karena setiap klik Simpan
+						// sebelumnya menghasilkan NPE dan memenuhi Log Error.
+						Object nilaiCheckbox = row == null ? null : row.getAttribute("checkbox");
+						Object nilaiSiswa = row == null ? null : row.getAttribute("siswa");
+						if (nilaiCheckbox instanceof MyCheckboxConfig && nilaiSiswa instanceof Siswa) {
+							MyCheckboxConfig checkbox = (MyCheckboxConfig) nilaiCheckbox;
 							if (checkbox.isChecked() && !checkbox.isDisabled()) {
-								Siswa mySiswa = (Siswa) row.getAttribute("siswa");
-								siswas.add(mySiswa);
+								siswas.add((Siswa) nilaiSiswa);
 							}
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataSiswaBanyak.java:321");
-							// TODO: handle exception
 						}
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), siswas);

@@ -1739,13 +1739,13 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		tbmuser.setUserShow(userShow.isChecked() ? 1 : 0);
 
 		tbmuser.setJurusan(
-				(Jurusan) (jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null ? null
+				(Jurusan) (jurusan == null || jurusan.getSelectedItem() == null || jurusan.getSelectedItem().getValue() == null ? null
 						: jurusan.getSelectedItem().getValue()));
 		tbmuser.setFakultas(
-				(Fakultas) (fakultas.getSelectedItem() == null || fakultas.getSelectedItem().getValue() == null ? null
+				(Fakultas) (fakultas == null || fakultas.getSelectedItem() == null || fakultas.getSelectedItem().getValue() == null ? null
 						: fakultas.getSelectedItem().getValue()));
 		tbmuser.setProgram(
-				(Program) (program.getSelectedItem() == null || program.getSelectedItem().getValue() == null ? null
+				(Program) (program == null || program.getSelectedItem() == null || program.getSelectedItem().getValue() == null ? null
 						: program.getSelectedItem().getValue()));
 
 		tbmuser.setSatuanKerja((SatuanKerja) satuanKerja.getAttribute("satuanKerja"));
@@ -1759,10 +1759,10 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 		tbmuser.setBahasa(nilaiBahasa instanceof String && ((String) nilaiBahasa).trim().length() > 0
 				? (String) nilaiBahasa : Tbmuser.INDONESIA);
 		tbmuser.setUsernameOjs(usernameOjs.getValue());
-		tbmuser.setYayasan((Yayasan) (yayasan.getSelectedItem() == null ? null : yayasan.getSelectedItem().getValue()));
-		tbmuser.setSekolah((Sekolah) (sekolah.getSelectedItem() == null ? null : sekolah.getSelectedItem().getValue()));
+		tbmuser.setYayasan((Yayasan) (yayasan == null || yayasan.getSelectedItem() == null ? null : yayasan.getSelectedItem().getValue()));
+		tbmuser.setSekolah((Sekolah) (sekolah == null || sekolah.getSelectedItem() == null ? null : sekolah.getSelectedItem().getValue()));
 
-		tbmuser.setPerguruanTinggi((PerguruanTinggi) (perguruanTinggi.getSelectedItem() == null ? null
+		tbmuser.setPerguruanTinggi((PerguruanTinggi) (perguruanTinggi == null || perguruanTinggi.getSelectedItem() == null ? null
 				: perguruanTinggi.getSelectedItem().getValue()));
 
 		tbmuser.setHp(hp.getValue());

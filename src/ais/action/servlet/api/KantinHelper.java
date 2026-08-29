@@ -3937,7 +3937,13 @@ public class KantinHelper {
 		}
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction transaksi = null;
 		try {
+			// Mulai transaksi sebelum resolver pemasok/UOM dapat membuat master baru.
+			// Sebelumnya resolver memanggil session.save() sebelum beginTransaction(); ID
+			// sudah terbentuk tetapi baris pemasok belum menjadi induk FK yang stabil saat
+			// Produk di-insert, sehingga produk.pemasok dapat menunjuk ID yang belum ada.
+			transaksi = session.beginTransaction();
 			Produk p;
 			boolean baru = (id == null);
 			if (baru) {
@@ -4095,6 +4101,14 @@ public class KantinHelper {
 			if (request.has("pemasok_nama")) {
 				p.setPemasok(resolvePemasokProduk(session, request.optString("pemasok_nama", "")));
 			}
+			// Pulihkan data lama yang masih menunjuk ID pemasok yang sudah dihapus.
+			// Tanpa pemeriksaan ini setiap perubahan produk (bahkan hanya barcode/nama)
+			// gagal di FK produk_pemasok_fkey. Relasi yang targetnya tidak ada secara
+			// semantik sama dengan "belum ada pemasok", sehingga aman dikosongkan.
+			if (p.getPemasok() != null && p.getPemasok().getId() != null
+					&& session.get(PemasokProduk.class, p.getPemasok().getId()) == null) {
+				p.setPemasok(null);
+			}
 			if (request.has("satuan_id")) {
 				if (request.isNull("satuan_id") || (request.get("satuan_id") + "").trim().isEmpty()) {
 					hasil.put("status", "91");
@@ -4240,16 +4254,23 @@ public class KantinHelper {
 				return;
 			}
 
-			session.beginTransaction();
 			if (baru) {
 				session.save(p);
 			} else {
 				session.saveOrUpdate(p);
 			}
-			session.getTransaction().commit();
+			transaksi.commit();
 			hasil.put("status", "00");
 			hasil.put("id", p.getId());
 		} finally {
+			if (transaksi != null && transaksi.isActive()) {
+				try {
+					transaksi.rollback();
+				} catch (Exception eRollback) {
+					ais.common.ErrorAuditUtil.record(eRollback,
+							"auto-audit(rollback-gagal) KantinHelper.produkSimpan");
+				}
+			}
 			tutupSessionPolaB(session);
 		}
 	}

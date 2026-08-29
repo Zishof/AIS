@@ -410,25 +410,12 @@ public class Pegawai extends Karyawan {
 	}
 
 	public static Pegawai createDataPegawaiDariGuru(Guru guru) {
-		Session session = HibernateUtil.currentNativeSession();
-		try {
-			return createDataPegawaiDariGuru(session, guru);
-		} finally {
-			// FIX kepatuhan aturan native session (KE-3 area): pembersihan session sebelumnya
-			// TIDAK di finally, sehingga kalau createDataPegawaiDariGuru(session, guru) melempar
-			// exception (mis. akibat lock/koneksi terputus), session native ini bocor -- tak
-			// pernah di-disconnect/close/di-closeSession. Bungkus di finally supaya SELALU
-			// dibersihkan, baik sukses maupun gagal, sesuai aturan native session.
-			try {
-				if (session.isOpen()) {
-					session.disconnect();
-					session.close();
-				}
-			} catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose,
-					"auto-audit(close-gagal) src/ais/database/model/Pegawai.java createDataPegawaiDariGuru");
-			}
-			HibernateUtil.closeSession();
-		}
+		// Dipanggil dari event ZK yang baru saja menyimpan Guru lewat currentSession().
+		// Membuka currentNativeSession() kedua lalu UPDATE baris Guru yang sama membuat
+		// koneksi kedua menunggu lock milik transaksi request sendiri sampai statement_timeout.
+		// Gunakan unit-of-work request yang sama; currentSession dikelola framework dan tidak
+		// boleh ditutup manual di sini.
+		return createDataPegawaiDariGuru(HibernateUtil.currentSession(), guru);
 	}
 
 	public static Pegawai createDataPegawaiDariGuru(Session session, Guru guru) {
@@ -474,13 +461,22 @@ public class Pegawai extends Karyawan {
 			// commit manual di baris berikut gagal ("Transaction not successfully started").
 			// FIX: muat ULANG Guru pada session yang sama, set pegawai, simpan dalam SATU transaksi bersih.
 			org.hibernate.Transaction txGuru = null;
+			boolean transaksiMilikPemanggil = session.getTransaction() != null
+					&& session.getTransaction().isActive();
 			try {
-				txGuru = session.beginTransaction();
-				session.createSQLQuery("SET LOCAL statement_timeout = '60s'").executeUpdate();
-				session.createSQLQuery("UPDATE sekolah.guru SET pegawai = :pegawaiId "
-						+ "WHERE id = :guruId AND (pegawai IS NULL OR pegawai <> :pegawaiId)")
-						.setLong("pegawaiId", pegawai.getId()).setLong("guruId", guru.getId()).executeUpdate();
-				txGuru.commit();
+				if (!transaksiMilikPemanggil) {
+					txGuru = session.beginTransaction();
+				}
+				Guru guruDb = (Guru) session.get(Guru.class, guru.getId());
+				if (guruDb != null && (guruDb.getPegawai() == null
+						|| !pegawai.getId().equals(guruDb.getPegawai().getId()))) {
+					guruDb.setPegawai(pegawai);
+					session.update(guruDb);
+					session.flush();
+				}
+				if (!transaksiMilikPemanggil && txGuru != null) {
+					txGuru.commit();
+				}
 				guru.setPegawai(pegawai);
 			} catch (Exception exGuru) {
 				if (txGuru != null && txGuru.isActive()) {
@@ -488,6 +484,11 @@ public class Pegawai extends Karyawan {
 						txGuru.rollback();
 					} catch (Exception ign) { ais.common.ErrorAuditUtil.record(ign, "auto-audit(empty-catch) src/ais/database/model/Pegawai.java:465");
 					}
+				}
+				if (transaksiMilikPemanggil) {
+					// Jangan menelan kegagalan flush pada currentSession: transaksi request
+					// sudah tidak aman untuk dilanjutkan dan harus di-rollback oleh framework.
+					throw new RuntimeException("Gagal mengaitkan data Guru dengan Pegawai dalam transaksi yang sama", exGuru);
 				}
 				Common.tampilErrorJikaAdmin(exGuru);
 			}

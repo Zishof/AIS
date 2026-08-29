@@ -3141,6 +3141,29 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Terima tanggal API dalam format ISO atau format tampilan Indonesia. Nilai yang
+	 * dikembalikan sudah bertipe SQL DATE sehingga PostgreSQL tidak perlu menebak
+	 * format teks berdasarkan DateStyle server.
+	 */
+	private static java.sql.Date tanggalFilterApi(String nilai, String namaKolom) throws Exception {
+		String bersih = nilai == null ? "" : nilai.trim();
+		if (bersih.length() == 0) return null;
+		String pola;
+		if (bersih.matches("\\d{4}-\\d{2}-\\d{2}")) pola = "yyyy-MM-dd";
+		else if (bersih.matches("\\d{2}-\\d{2}-\\d{4}")) pola = "dd-MM-yyyy";
+		else throw new IllegalArgumentException(namaKolom
+				+ " tidak valid. Gunakan format yyyy-MM-dd atau dd-MM-yyyy, contoh 2026-08-28 atau 28-08-2026.");
+		java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat(pola);
+		fmt.setLenient(false);
+		try {
+			return new java.sql.Date(fmt.parse(bersih).getTime());
+		} catch (java.text.ParseException e) {
+			throw new IllegalArgumentException(namaKolom
+					+ " tidak valid. Periksa kembali hari, bulan, dan tahun yang dipilih.");
+		}
+	}
+
 	/** @return fragmen kondisi waktu utk kolom {@code a.waktu} sesuai kode periode dropdown (dipakai rekap produk terlaris/pelanggan terloyal). */
 	private static String petaIntervalPeriode(String periode, String acuanSql) {
 		if ("harian".equals(periode)) return "DATE(a.waktu) = " + acuanSql;
@@ -5149,6 +5172,8 @@ public class PosApi extends HttpServlet {
 	private JSONObject daftarOrderDenganSesi(Session session, Long tokoId, String tokoKode, JSONObject payload) throws Exception {
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
+		java.sql.Date tanggalMulai = tanggalFilterApi(tglMulai, "Tanggal mulai");
+		java.sql.Date tanggalSampai = tanggalFilterApi(tglSampai, "Tanggal sampai");
 		String cariPembeli = payload.optString("cariPembeli", payload.optString("keyword", "")).trim();
 		String kasirExact = payload.optString("kasirExact", "").trim();
 		String kasir = payload.optString("kasir", "").trim();
@@ -5174,8 +5199,8 @@ public class PosApi extends HttpServlet {
 		StringBuilder whereTrx = new StringBuilder("a.toko = ? AND COALESCE(a.aktif,true)=true");
 		java.util.List<Object> paramsTrx = new java.util.ArrayList<Object>();
 		paramsTrx.add(tokoId);
-		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= CAST(? AS date)"); paramsTrx.add(tglMulai); }
-		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= CAST(? AS date)"); paramsTrx.add(tglSampai); }
+		if (tanggalMulai != null) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tanggalMulai); }
+		if (tanggalSampai != null) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tanggalSampai); }
 		if (waktuMulai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND CAST(a.waktu AS time) >= CAST(? AS time)"); paramsTrx.add(waktuMulai); }
 		if (waktuSampai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND CAST(a.waktu AS time) <= CAST(? AS time)"); paramsTrx.add(waktuSampai); }
 		if (kasirExact.length() > 0) {

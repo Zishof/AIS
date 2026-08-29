@@ -136,8 +136,12 @@ public class MatapelajaranAction extends GenericAutowireComposer
 			}
 		});
 
+		// GeneralValueObject.keterangan bukan properti persisten Matapelajaran. Memasukkannya
+		// ke metadata impor membuat Hibernate mencari properti yang tidak dipetakan dan
+		// menghasilkan QueryException. Kolom UI tetap dipertahankan seperti sebelumnya,
+		// sedangkan ekspor/impor hanya memuat properti entitas yang benar-benar persisten.
 		String[] contents = new String[] { "id", "kode", "nama", "namaEn", "namaAr", "namaCh", "singkatan", "sekolah",
-				"jenisPenilaian", "urutan", "kelompokMatapelajaran", "kkm", "keterangan" };
+				"jenisPenilaian", "urutan", "kelompokMatapelajaran", "kkm" };
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 
