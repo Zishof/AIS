@@ -4021,7 +4021,7 @@ public class KantinHelper {
 				Number bentrokBarcodeKemasan = (Number) session.createSQLQuery(
 						"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
 						+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
-						+ " AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(NULLIF(px.kemasan,''),'[]')::jsonb) kx"
+						+ " AND EXISTS (SELECT 1 FROM jsonb_array_elements(CAST(COALESCE(NULLIF(px.kemasan,''),'[]') AS jsonb)) kx"
 						+ " WHERE UPPER(COALESCE(kx->>'barcode','')) = :barcode)")
 						.setLong("toko", p.getToko().getId()).setString("barcode", barcode.toUpperCase()).uniqueResult();
 				if (bentrokBarcodeKemasan != null && bentrokBarcodeKemasan.longValue() > 0) {
@@ -4183,7 +4183,7 @@ public class KantinHelper {
 							"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
 							+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
 							+ " AND (UPPER(COALESCE(px.barcode,'')) = :barcode"
-							+ " OR EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(NULLIF(px.kemasan,''),'[]')::jsonb) kx"
+							+ " OR EXISTS (SELECT 1 FROM jsonb_array_elements(CAST(COALESCE(NULLIF(px.kemasan,''),'[]') AS jsonb)) kx"
 							+ " WHERE UPPER(COALESCE(kx->>'barcode','')) = :barcode))")
 							.setLong("toko", p.getToko().getId())
 							.setString("barcode", barcodeKunci).uniqueResult();
