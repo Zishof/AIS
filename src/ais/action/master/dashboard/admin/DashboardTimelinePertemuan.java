@@ -9762,7 +9762,15 @@ public class DashboardTimelinePertemuan extends MyWindow {
 			if (induk == null || pertemuan == null) {
 				return;
 			}
-			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig("Tambah", "/img/svg/plus-circle.svg");
+			String labelTombol = "Tambah";
+			if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_PROFIL_LULUSAN.equals(jenis)) {
+				labelTombol = "Tambah PL";
+			} else if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_CAPAIAN_LULUSAN.equals(jenis)) {
+				labelTombol = "Tambah CPL";
+			} else if (ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_CPMK.equals(jenis)) {
+				labelTombol = "Tambah CPMK";
+			}
+			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig(labelTombol, "/img/svg/plus-circle.svg");
 			tombol.setTooltiptext("Pilih " + judul + " khusus program studi mata kuliah ini");
 			tombol.setStyle("font-weight:bold;color:#b26a00;");
 			tombol.addEventListener("onClick", new EventListener() {
