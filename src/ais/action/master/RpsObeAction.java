@@ -918,34 +918,9 @@ public class RpsObeAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 
 					if (arg0 != null && nilaiMenggunakanCpmk != null && arg0.getTarget() == nilaiMenggunakanCpmk) {
-						// Rebuild FormatNilai semua Perkuliahan yang memakai kurikulum ini
-						// agar kolom penilaian (CPMK / Sub-CPMK) langsung berubah tanpa perlu
-						// tekan tombol Format Nilai secara manual.
-						Session sess2 = null;
-						try {
-							sess2 = HibernateUtil.openSession();
-							sess2.beginTransaction();
-							@SuppressWarnings("unchecked")
-							java.util.List<ais.database.model.Perkuliahan> perkuliahanList = sess2
-									.createCriteria(ais.database.model.Perkuliahan.class)
-									.add(org.hibernate.criterion.Restrictions.eq(
-											"kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah))
-									.list();
-							for (ais.database.model.Perkuliahan p : perkuliahanList) {
-								p.belum("format_nilai_baru");
-								ais.database.model.PembombotanNilai.setDefaultPembobotan(p, sess2, true);
-							}
-							sess2.getTransaction().commit();
-						} catch (Exception eRebuild) {
-							if (sess2 != null && sess2.getTransaction() != null) {
-								try { sess2.getTransaction().rollback(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:rollback"); }
-							}
-							ais.common.ErrorAuditUtil.record(eRebuild, "auto-audit RpsObeAction rebuildFormatNilai nilaiMenggunakanCpmk");
-						} finally {
-							if (sess2 != null && sess2.isOpen()) {
-								try { sess2.close(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:close"); }
-							}
-						}
+						// Pergantian sumber bobot CPMK/Sub-CPMK harus langsung diterapkan ke
+						// seluruh kelas yang menggunakan matakuliah kurikulum ini.
+						sinkronkanFormatNilaiPerkuliahan();
 						onSearchDefault(null);
 					}
 				} catch (Exception eSave) {
@@ -4506,22 +4481,92 @@ public class RpsObeAction extends GenericAutowireComposer {
 		}
 		Session s = null;
 		org.hibernate.Transaction tx = null;
+		boolean tersimpan = false;
 		try {
 			s = HibernateUtil.openSession();
 			tx = s.beginTransaction();
 			s.update(cpl);
 			tx.commit();
 			tx = null;
+			tersimpan = true;
 		} catch (Exception e) {
 			if (tx != null) {
 				try { tx.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2967");}
 			}
 			Common.tampilErrorJikaAdmin(e);
 		} finally {
-			if (s != null) {
-				try { s.clear(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2972");}
-				try { s.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:2973");}
+			closeSessionQuietly(s);
+		}
+		if (tersimpan) {
+			// Bobot/formula CPL adalah sumber FormatNilai OBE. Jangan hanya me-refresh
+			// matriks RPS; bangun ulang FormatNilai kelas agar perubahan langsung terlihat.
+			sinkronkanFormatNilaiPerkuliahan();
+		}
+	}
+
+	/**
+	 * Sinkronkan FormatNilai seluruh kelas yang memakai KurikulumPunyaMatakuliah
+	 * aktif. Selain relasi langsung, ikut tangani data lama yang belum mempunyai
+	 * relasi KPM tetapi kurikulum, matakuliah, dan semesternya sama.
+	 */
+	@SuppressWarnings("unchecked")
+	private void sinkronkanFormatNilaiPerkuliahan() {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			return;
+		}
+
+		Session syncSession = null;
+		org.hibernate.Transaction syncTransaction = null;
+		try {
+			syncSession = HibernateUtil.openSession();
+			syncTransaction = syncSession.beginTransaction();
+			KurikulumPunyaMatakuliah kpm = (KurikulumPunyaMatakuliah) syncSession.get(
+					KurikulumPunyaMatakuliah.class, kurikulumPunyaMatakuliah.getId());
+			if (kpm == null) {
+				syncTransaction.rollback();
+				syncTransaction = null;
+				return;
 			}
+
+			List<Perkuliahan> hasil = syncSession.createCriteria(Perkuliahan.class)
+					.add(Restrictions.eq("kurikulumPunyaMatakuliah", kpm)).list();
+			Map<Long, Perkuliahan> perkuliahanUnik = new LinkedHashMap<Long, Perkuliahan>();
+			for (Perkuliahan perkuliahan : hasil) {
+				perkuliahanUnik.put(perkuliahan.getId(), perkuliahan);
+			}
+
+			if (kpm.getKurikulum() != null && kpm.getMatakuliah() != null && kpm.getSemester() != null) {
+				hasil = syncSession.createCriteria(Perkuliahan.class)
+						.add(Restrictions.eq("kurikulum", kpm.getKurikulum()))
+						.add(Restrictions.eq("matakuliah", kpm.getMatakuliah()))
+						.add(Restrictions.eq("semester", kpm.getSemester())).list();
+				for (Perkuliahan perkuliahan : hasil) {
+					perkuliahanUnik.put(perkuliahan.getId(), perkuliahan);
+					if (perkuliahan.getKurikulumPunyaMatakuliah() == null) {
+						perkuliahan.setKurikulumPunyaMatakuliah(kpm);
+					}
+				}
+			}
+
+			for (Perkuliahan perkuliahan : perkuliahanUnik.values()) {
+				perkuliahan.belum("format_nilai_baru");
+				ais.database.model.PembombotanNilai.setDefaultPembobotan(perkuliahan, syncSession, true);
+			}
+			syncTransaction.commit();
+			syncTransaction = null;
+		} catch (Exception e) {
+			if (syncTransaction != null) {
+				try {
+					syncTransaction.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"auto-audit(empty-catch) RpsObeAction:sinkronkanFormatNilaiPerkuliahan:rollback");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e, "RpsObeAction sinkronisasi FormatNilai OBE");
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			closeSessionQuietly(syncSession);
 		}
 	}
 

@@ -1313,4 +1313,183 @@ public class PostingPerjanjianKerjasamaAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen yang SAMA dengan baris "Perjanjian Kerjasama" di dasbor draft jurnal
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaPerjanjianKerjasama}): perjanjian yang sudah
+	 * disetujui dan nilai DP-nya tidak nol, pada rentang TANGGAL PEMBUATAN -- kolom yang sama
+	 * dengan filter layar (bukan tanggal persetujuan; tanggal persetujuan dipakai sebagai tanggal
+	 * jurnalnya).
+	 */
+	private static Criteria kriteriaPerjanjianStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(PerjanjianKerjasamaMasterAsset.class)
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.ne("dp", 0.0)).add(Restrictions.isNotNull("dp"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_pembuatan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA jurnal DP perjanjian kerjasama pada rentang -- jalur API dasbor Draft Jurnal
+	 * POS. Jurnal per dokumen mengikuti tombol layar: debet akun DP jenis perjanjian, kredit akun
+	 * utang DP jenis perjanjian, senilai DP, tanggal jurnal tanggal persetujuan; nilai &le; 0.1
+	 * memutar posisi. Penanda hanya dicap bila jurnal benar tersimpan, dan riwayat batch diberi
+	 * {@code posting=true} -- lihat catatan di {@code PostingPembayaranAction.postingSemua}.
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPerjanjianStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PERJANJIAN_KERJASAMA);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal perjanjian kerjasama dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				PerjanjianKerjasamaMasterAsset pk = (PerjanjianKerjasamaMasterAsset) o;
+				if (pk == null || pk.getJenisPerjanjianKerjasamaAsset() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = pk.getJenisPerjanjianKerjasamaAsset().getAkunDp();
+					Akun akunKredit = pk.getJenisPerjanjianKerjasamaAsset().getAkunUtangDp();
+					Double nilai = pk.getDp();
+					if (akunDebet == null || akunKredit == null || nilai == null || nilai == 0.0) {
+						continue;
+					}
+
+					String ket = "Perjanjian kerjasama terhadap kode \"" + pk.getKode() + "\" sebanyak "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Perjanjian kerjasama terhadap kode \"" + pk.getKode() + "-"
+								+ pk.getKeterangan() + "\" pada penyedia " + pk.getPenyedia().getNama()
+								+ " sebanyak " + Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Penyedianya boleh kosong; kalimat baku di atas tetap terpakai.
+					}
+
+					boolean tersimpan;
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					if (nilai > 0.1) {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunDebet },
+								new Akun[] { akunKredit }, null, null, postingHistory, true, ket,
+								pk.getTanggalPersetujuan(), new Double[] { nilai }, new Double[] { nilai },
+								0.0, pk, pk.getSatuanKerja(), session);
+					} else {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunKredit },
+								new Akun[] { akunDebet }, null, null, postingHistory, true, ket,
+								pk.getTanggalPersetujuan(), new Double[] { nilai }, new Double[] { nilai },
+								0.0, pk, pk.getSatuanKerja(), session);
+					}
+					if (tersimpan) {
+						pk.setPostingHistory(postingHistory);
+						session.update(pk);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPerjanjianKerjasamaAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingPerjanjianKerjasamaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA perjanjian terposting pada rentang: jurnal turunannya dihapus
+	 * (baris transaksi lebih dulu, lalu grupnya -- hanya yang belum closing), lalu penandanya
+	 * dilepas -- bentuk yang sama dengan tombol batal layar, ditambah pembersihan baris anak.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPerjanjianStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				PerjanjianKerjasamaMasterAsset pk = (PerjanjianKerjasamaMasterAsset) o;
+				if (pk == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where perjanjian_kerjasama_master_asset="
+							+ pk.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi"
+							+ " where perjanjian_kerjasama_master_asset=" + pk.getId()
+							+ " and closing is null").executeUpdate();
+					pk.setPostingHistory(null);
+					session.update(pk);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPerjanjianKerjasamaAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }

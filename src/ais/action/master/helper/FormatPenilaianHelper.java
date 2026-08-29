@@ -55,6 +55,17 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 public class FormatPenilaianHelper {
+	private static boolean apakahPerkuliahanObe(Perkuliahan perkuliahan) {
+		if (perkuliahan == null) {
+			return false;
+		}
+		ais.database.model.Kurikulum kurikulum = perkuliahan.getKurikulum();
+		if (kurikulum == null && perkuliahan.getKurikulumPunyaMatakuliah() != null) {
+			kurikulum = perkuliahan.getKurikulumPunyaMatakuliah().getKurikulum();
+		}
+		return kurikulum != null
+				&& kurikulum.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap());
+	}
 
 	private MyGrid grid;
 
@@ -196,8 +207,7 @@ public class FormatPenilaianHelper {
 	public void displayProses(final Perkuliahan perkuliahan, final MyWindow window,
 			final TampilDetailNilaiInterface tampilDetailNilaiInterface) {
 
-		if (perkuliahan.getKurikulum() != null
-				&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+		if (apakahPerkuliahanObe(perkuliahan)) {
 			try {
 				// OBE: Format Nilai TIDAK diedit manual - komponen & bobotnya ditentukan CPMK/Sub-CPMK
 				// di RPS OBE. Alih-alih sekadar alert pencegahan, TAMPILKAN halaman RPS OBE (fokus tab
@@ -679,8 +689,7 @@ public class FormatPenilaianHelper {
 		// dapat mereset nilai. Karena itu klik "Format Nilai" pada perkuliahan OBE cukup MEMBUKA RPS OBE
 		// (tab CPMK & Sub-CPMK) via displayProses — LEWATI konfirmasi "yakin ubah format (nilai bisa reset
 		// ke 0)" di bawah yang menyesatkan untuk OBE.
-		if (perkuliahan.getKurikulum() != null
-				&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+		if (apakahPerkuliahanObe(perkuliahan)) {
 			displayProses(perkuliahan, window, tampilDetailNilaiInterface);
 			return;
 		}

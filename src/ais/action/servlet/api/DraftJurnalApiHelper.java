@@ -107,6 +107,8 @@ public final class DraftJurnalApiHelper {
         // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
         if ("Pembayaran Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pembayaran DP Vendor".equals(namaBaris)) return "pengadaan_po";
+        // DP perjanjian kerjasama serumpun dengan DP pemesanan: komitmen pada vendor.
+        if ("Perjanjian Kerjasama".equals(namaBaris)) return "pengadaan_po";
         if ("Pembayaran Termin Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
@@ -269,6 +271,12 @@ public final class DraftJurnalApiHelper {
                         sampai, tbmuser, new Date())
                     : ais.action.master.asset.PostingPembayaranTerminAction.batalkanPostingSemua(
                         mulai, sampai);
+        } else if ("Perjanjian Kerjasama".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPerjanjianKerjasamaAction.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingPerjanjianKerjasamaAction
+                        .batalkanPostingSemua(mulai, sampai);
         } else if ("Dana Talangan".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.akunting.PostingDanaTalanganAction.postingSemua(mulai, sampai,

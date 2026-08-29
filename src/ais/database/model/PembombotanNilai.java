@@ -311,12 +311,26 @@ public class PembombotanNilai extends GeneralValueObject {
 				masukkanData(FormatNilai.class, formatNilai);
 			}
 
-			if (perkuliahan.getKurikulum() != null && perkuliahan.getMatakuliah() != null && perkuliahan.getKurikulum()
-					.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+			KurikulumPunyaMatakuliah kpmObe = perkuliahan.getKurikulumPunyaMatakuliah();
+			Kurikulum kurikulumObe = perkuliahan.getKurikulum();
+			Matakuliah matakuliahObe = perkuliahan.getMatakuliah();
+			if (kurikulumObe == null && kpmObe != null) {
+				kurikulumObe = kpmObe.getKurikulum();
+			}
+			if (matakuliahObe == null && kpmObe != null) {
+				matakuliahObe = kpmObe.getMatakuliah();
+			}
+
+			if (kurikulumObe != null && matakuliahObe != null
+					&& kurikulumObe.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
 
 				try {
 					Set<Long> longs = new HashSet<Long>();
-					for (String d : perkuliahan.getMatakuliah().getCapaianPembelajaranLulusan().split(",")) {
+					String daftarCpmk = matakuliahObe.getCapaianPembelajaranLulusan();
+					if (daftarCpmk == null) {
+						daftarCpmk = "";
+					}
+					for (String d : daftarCpmk.split(",")) {
 						if (!d.trim().isEmpty()) {
 							try {
 								longs.add(Long.parseLong(d.trim()));
@@ -342,8 +356,7 @@ public class PembombotanNilai extends GeneralValueObject {
 						// berbasis CPMK LANGSUNG (permintaan user: bila Sub-CPMK tak dibuat, komponen nilai TETAP tercipta
 						// dari CPMK dgn bobot CPMK). Bila flag OFF DAN ada Sub-CPMK -> tetap per Sub-CPMK (perilaku lama).
 						// Deteksi ada/tidaknya Sub-CPMK dari formula JSON milik CPMK ini.
-						boolean flagCpmk = perkuliahan.getKurikulumPunyaMatakuliah() != null
-								&& perkuliahan.getKurikulumPunyaMatakuliah().getNilaiMenggunakanCpmk();
+						boolean flagCpmk = kpmObe != null && kpmObe.getNilaiMenggunakanCpmk();
 						boolean adaSubCpmk = false;
 						try {
 							JSONArray cekSub = new JSONArray(capaianPembelajaranLulusan.getFormula());

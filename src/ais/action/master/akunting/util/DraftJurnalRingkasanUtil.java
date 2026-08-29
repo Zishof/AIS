@@ -103,7 +103,7 @@ public final class DraftJurnalRingkasanUtil {
     public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "pj_pengembalian", "kas_kecil",
             "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
-            "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor",
+            "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp" };
 
@@ -131,7 +131,8 @@ public final class DraftJurnalRingkasanUtil {
                 || "dp_vendor".equals(kunci) || "dp_pekerjaan_vendor".equals(kunci)
                 || "jurnal_balik_dp_pekerjaan".equals(kunci)
                 || "pembayaran_tagihan_vendor".equals(kunci) || "pembayaran_dp_vendor".equals(kunci)
-                || "pembayaran_termin_vendor".equals(kunci)) return "transaksi_vendor";
+                || "pembayaran_termin_vendor".equals(kunci)
+                || "perjanjian_kerjasama".equals(kunci)) return "transaksi_vendor";
         if ("gaji".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
         if ("penyusutan".equals(kunci)) return "fixed_asset";
@@ -300,6 +301,15 @@ public final class DraftJurnalRingkasanUtil {
                             true),
                     hitungClosing(session, "pembayaranTerminMasterAssetDetail", null, null, mulai,
                             sampai)));
+        } else if ("perjanjian_kerjasama".equals(kunci)) {
+            out.add(new Baris(kunci, "Perjanjian Kerjasama",
+                    "DP perjanjian kerjasama aset yang disetujui dipastikan menjadi jurnal uang muka.",
+                    hitungPostingHistory(session, kriteriaPerjanjianKerjasama(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPerjanjianKerjasama(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "perjanjianKerjasamaMasterAsset", null, null, mulai,
+                            sampai)));
         } else if ("gaji".equals(kunci)) {
             out.add(new Baris(kunci, "Gaji",
                     "Pembayaran gaji yang disetujui dipastikan sudah menjadi jurnal beban gaji.",
@@ -431,6 +441,18 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.eq("pilih", true))
                 .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
                         + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
+    }
+
+    /**
+     * DP perjanjian kerjasama aset: disetujui dan DP tidak nol, pada rentang TANGGAL PEMBUATAN
+     * (kolom filter layar; tanggal persetujuannya menjadi tanggal jurnal). Kriteria yang sama
+     * dipakai mesinnya ({@code PostingPerjanjianKerjasamaAction.kriteriaPerjanjianStatic}).
+     */
+    private static Criteria kriteriaPerjanjianKerjasama(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.asset.PerjanjianKerjasamaMasterAsset.class)
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.ne("dp", 0.0)).add(Restrictions.isNotNull("dp"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_pembuatan", mulai, sampai)));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -740,6 +762,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Pembayaran Termin Vendor".equals(namaBaris)) {
             return kriteriaPembayaranTerminVendor(session, mulai, sampai);
+        }
+        if ("Perjanjian Kerjasama".equals(namaBaris)) {
+            return kriteriaPerjanjianKerjasama(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
 
