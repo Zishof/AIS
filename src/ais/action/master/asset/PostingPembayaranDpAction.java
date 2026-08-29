@@ -1243,7 +1243,9 @@ public class PostingPembayaranDpAction extends GenericAutowireComposer {
 						Restrictions.isNotNull("pembayaranDpMasterAsset.jenisPembayaranBarang"),
 						Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
 								Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
-				.add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"));
+				.add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+				// pilih menentukan nilai efektif: getDibayar() menolkan baris yang tidak dipilih.
+				.add(Restrictions.eq("pilih", true));
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null"
 					+ " or date(this_.tanggal_transaksi) between date('"
@@ -1318,7 +1320,8 @@ public class PostingPembayaranDpAction extends GenericAutowireComposer {
 								.getCaraPembayaranTransfer().getAkunTransitori();
 					}
 					Double nilai = d.getDibayar();
-					if (akunDebet == null || akunKredit == null) {
+					if (akunDebet == null || akunKredit == null || nilai == null
+							|| nilai == 0.0) {
 						continue;
 					}
 

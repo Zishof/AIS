@@ -82,8 +82,9 @@ import ais.ui.util.MyWindow;
  * <ul>
  *   <li>Akun kredit (untuk tampilan grid): dari {@code uangMuka.jenisUangMuka.akun}.</li>
  *   <li>Akun debet (untuk tampilan grid): dari {@code uangMuka.jenisUangMuka.akunKelebihan}.</li>
- *   <li>Dalam proses posting aktual, array akun debet dan kredit dibangun secara
- *       terpisah dengan {@code akunDebet = uangMuka.akun} untuk entri jurnal nyata.</li>
+ *   <li>Proses posting aktual (tombol massal maupun per baris) menulis pasangan
+ *       akun yang sama dengan tampilan grid: Debet {@code akunKelebihan},
+ *       Kredit {@code akun} dari jenis uang muka.</li>
  * </ul>
  *
  * <p>Referensi GrupTransaksi menggunakan field {@code ref = "pengembalian"} untuk
@@ -370,14 +371,14 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	 *         <li>Untuk setiap pertanggungjawaban:
 	 *             <ul>
 	 *               <li>Menentukan satuan kerja dari entitas atau null.</li>
-	 *               <li>Akun debet dari {@code uangMuka.akun}.</li>
+	 *               <li>Akun debet dari {@code uangMuka.jenisUangMuka.akunKelebihan}
+	 *                   (jika jenisUangMuka tidak null).</li>
 	 *               <li>Akun kredit dari {@code uangMuka.jenisUangMuka.akun}
 	 *                   (jika jenisUangMuka tidak null).</li>
 	 *               <li>Nilai dari {@code dikembalikan}.</li>
-	 *               <li>Membangun array akun debet dan kredit (saat ini keduanya berisi
-	 *                   {@code akunDebet} saja — perhatikan bahwa {@code akunsKredits}
-	 *                   juga ditambahkan {@code akunDebet}, bukan {@code akunKredit};
-	 *                   ini adalah implementasi yang ada dan tidak boleh diubah).</li>
+	 *               <li>Membangun array akun debet dan kredit sesuai pasangan yang
+	 *                   ditampilkan grid dan ditulis mesin API {@link #postingSemua}:
+	 *                   Dr akun kelebihan / Cr akun jenis uang muka.</li>
 	 *               <li>Memanggil {@link CommonAkunting#saveTransaksi} overload array
 	 *                   dengan parameter {@code ref}.</li>
 	 *               <li>Memperbarui {@code postingHistoryPengembalian} entitas.</li>
@@ -395,10 +396,11 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	 * Try-catch per iterasi. Kesalahan dilaporkan via {@code tampilErrorJikaAdmin}.</p>
 	 *
 	 * <p><strong>Pemeliharaan:</strong>
-	 * Perhatikan bahwa array kredit menggunakan {@code akunDebet} bukan {@code akunKredit}
-	 * — ini adalah logika bisnis yang ada dan harus diverifikasi dengan tim akuntansi
-	 * sebelum diubah. Parameter {@code ref} diteruskan ke {@code saveTransaksi} untuk
-	 * membedakan jurnal pengembalian dari jurnal lain.</p>
+	 * Dahulu array kredit keliru diisi {@code akunDebet} (jurnal Dr X / Cr X yang saling
+	 * meniadakan) dan akun debetnya diambil dari {@code uangMuka.akun}; keduanya sudah
+	 * diperbaiki mengikuti pasangan akun tampilan grid dan mesin API. Parameter
+	 * {@code ref} diteruskan ke {@code saveTransaksi} untuk membedakan jurnal
+	 * pengembalian dari jurnal lain.</p>
 	 *
 	 * @param event event ZK dari klik tombol
 	 * @throws Exception jika terjadi kesalahan saat membangun komponen UI jendela
@@ -557,7 +559,10 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 												if (pertangungjawaban != null) {
 
 													try {
-														Akun akunDebet = pertangungjawaban.getUangMuka().getAkun();
+														Akun akunDebet = pertangungjawaban.getUangMuka()
+																.getJenisUangMuka() == null ? null
+																		: pertangungjawaban.getUangMuka()
+																				.getJenisUangMuka().getAkunKelebihan();
 														Akun akunKredit = pertangungjawaban.getUangMuka()
 																.getJenisUangMuka() == null ? null
 																		: pertangungjawaban.getUangMuka()
@@ -605,7 +610,7 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 																akunsDebets.add(akunDebet);
 
 																nilaiKredits.add(nilai);
-																akunsKredits.add(akunDebet);
+																akunsKredits.add(akunKredit);
 
 																session.getTransaction().begin();
 
@@ -721,9 +726,10 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 		 *
 		 * <p><strong>Pemeliharaan:</strong>
 		 * Pastikan kondisi visibilitas tombol menggunakan {@code postingHistoryPengembalian}
-		 * (bukan {@code postingHistory}). SQL pembatalan per baris menggunakan filter
-		 * {@code ref = 'pengembalian'} yang hilang di implementasi saat ini — ini adalah
-		 * bug potensial jika entitas yang sama memiliki jurnal non-pengembalian.</p>
+		 * (bukan {@code postingHistory}). SQL pembatalan per baris memfilter
+		 * {@code ref = 'pengembalian'} DAN id pertanggungjawaban (kata kunci AND-nya sempat
+		 * hilang sehingga query selalu gagal) agar jurnal LPJ utama entitas yang sama
+		 * tidak ikut terhapus.</p>
 		 *
 		 * @param arg0 baris ZK yang akan diisi komponen
 		 * @param arg1 objek data, diharapkan bertipe {@link Pertangungjawaban}
@@ -833,7 +839,7 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 								Common.refreshSaveOrUpdate(pertangungjawaban);
 								HibernateUtil.currentSession()
 										.createSQLQuery("delete from akunting.grup_transaksi where ref='" + ref
-												+ "' pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null")
+												+ "' and pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null")
 										.executeUpdate();
 
 								Common.createDefaultTimer(new EventListener() {
@@ -914,7 +920,7 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 									akunsDebets.add(akunDebet);
 
 									nilaiKredits.add(nilai);
-									akunsKredits.add(akunDebet);
+									akunsKredits.add(akunKredit);
 
 									CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
 											akunsKredits.toArray(new Akun[] {}), akunDenda, akunPiutangDenda,
@@ -1175,12 +1181,12 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	 * Jurnal POS.
 	 *
 	 * <p>Jurnal per dokumen: Debet akun kelebihan jenis uang muka, Kredit akun jenis uang
-	 * muka, senilai {@code dikembalikan} -- PERSIS pasangan yang selama ini DITAMPILKAN grid
-	 * layar ZK. Kedua tombol layar ZK (massal maupun per baris) justru menyimpang dari
-	 * tampilannya sendiri: keduanya menulis {@code akunsKredits.add(akunDebet)} sehingga
-	 * jurnal yang tersimpan berpasangan debet-kredit pada AKUN YANG SAMA (saling meniadakan),
-	 * dan jalur massalnya memakai akun debet yang lain lagi ({@code uangMuka.akun}). Mesin ini
-	 * menulis jurnal yang dijanjikan tampilan, bukan mewarisi cacat itu.</p>
+	 * muka, senilai {@code dikembalikan} -- PERSIS pasangan yang DITAMPILKAN grid layar ZK.
+	 * Kedua tombol layar ZK (massal maupun per baris) dulu menyimpang dari tampilannya
+	 * sendiri: keduanya menulis {@code akunsKredits.add(akunDebet)} sehingga jurnal yang
+	 * tersimpan berpasangan debet-kredit pada AKUN YANG SAMA (saling meniadakan), dan
+	 * jalur massalnya memakai akun debet yang lain lagi ({@code uangMuka.akun}). Cacat itu
+	 * kini sudah diperbaiki: kedua tombol menulis pasangan akun yang sama dengan mesin ini.</p>
 	 *
 	 * <p>Transaksi dibuka sendiri (currentNativeSession + begin/commit per dokumen): dipanggil
 	 * dari API tidak ada kerangka ZK yang meng-commit sesi berjalan, dan kegagalan satu
@@ -1279,10 +1285,10 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	/**
 	 * Membatalkan posting SEMUA jurnal pengembalian pada rentang. Mengikuti pola mesin LPJ
 	 * ({@code PostingPertangungjawabanAction.batalkanPostingSemua}): jurnal turunannya dihapus
-	 * (hanya yang belum closing), lalu penandanya dilepas. SQL tombol batal di layar ZK
-	 * sendiri cacat sintaks (tanpa AND di antara filter ref dan pertangungjawaban) sehingga
-	 * selalu gagal; di sini filternya ditulis benar -- dan filter ref WAJIB ada supaya jurnal
-	 * LPJ utama dokumen yang sama (ref null) tidak ikut terhapus.
+	 * (hanya yang belum closing), lalu penandanya dilepas. SQL tombol batal per baris di
+	 * layar ZK dulu cacat sintaks (tanpa AND di antara filter ref dan pertangungjawaban)
+	 * sehingga selalu gagal -- kini sudah diperbaiki mengikuti bentuk filter di sini. Filter
+	 * ref WAJIB ada supaya jurnal LPJ utama dokumen yang sama (ref null) tidak ikut terhapus.
 	 */
 	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
 		int n = 0;

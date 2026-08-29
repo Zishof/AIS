@@ -398,6 +398,7 @@ public final class DraftJurnalRingkasanUtil {
                         Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
                                 Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
                 .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.eq("pilih", true))
                 .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
                         + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
     }
@@ -412,6 +413,7 @@ public final class DraftJurnalRingkasanUtil {
                         Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
                                 Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
                 .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.eq("pilih", true))
                 .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
                         + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
     }
@@ -426,6 +428,7 @@ public final class DraftJurnalRingkasanUtil {
                         Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
                                 Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
                 .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.eq("pilih", true))
                 .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
                         + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
     }
