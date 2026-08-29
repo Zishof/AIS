@@ -18,6 +18,7 @@ public class MyColumnConfig extends Column {
 	public MyColumnConfig(String label, String imageOrWidth) {
 		// Set label terlebih dahulu
 		super(Common.getBahasaConfig(label));
+		terapkanTooltipDefault(label);
 
 		if (imageOrWidth != null && !imageOrWidth.trim().isEmpty()) {
 			String val = imageOrWidth.trim().toLowerCase();
@@ -38,6 +39,7 @@ public class MyColumnConfig extends Column {
 
 	public MyColumnConfig(String label) {
 		super(Common.getBahasaConfig(label));
+		terapkanTooltipDefault(label);
 		terapkanUkuranAksi(label);
 	}
 
@@ -49,7 +51,21 @@ public class MyColumnConfig extends Column {
 	@Override
 	public void setLabel(String text) {
 		super.setLabel(Common.getBahasaConfig(text));
+		terapkanTooltipDefault(text);
 		terapkanUkuranAksi(text);
+	}
+
+	/**
+	 * Berikan tooltip bawaan pada seluruh header tabel. Ini penting untuk kolom
+	 * sempit/dinamis yang labelnya dipotong CSS (misalnya PL..., CPL..., dan kode
+	 * Bahan Kajian). Pemanggil tetap dapat menggantinya dengan tooltip yang lebih
+	 * lengkap melalui {@link #setTooltiptext(String)}.
+	 */
+	private void terapkanTooltipDefault(String label) {
+		if ((getTooltiptext() == null || getTooltiptext().trim().length() == 0)
+				&& label != null && label.trim().length() > 0) {
+			super.setTooltiptext(Common.getBahasaConfig(label));
+		}
 	}
 
 	@Override
@@ -93,6 +109,7 @@ public class MyColumnConfig extends Column {
 	 */
 	public MyColumnConfig setLabelData(String text) {
 		super.setLabel(text);
+		terapkanTooltipDefault(text);
 		return this;
 	}
 
