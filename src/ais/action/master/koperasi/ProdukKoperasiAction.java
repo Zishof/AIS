@@ -98,6 +98,8 @@ public class ProdukKoperasiAction extends GenericAutowireComposer
 	private Set<Long> ids;
 	private Vbox vboxSkala;
 	private AmbilDataNomorSuratBanbox nomorSurat;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunPosisi;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunMargin;
 	private double setoran;
 	private Row rowDetail;
 	protected JSONArray array;
@@ -525,6 +527,23 @@ public class ProdukKoperasiAction extends GenericAutowireComposer
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Posisi Dana (simpanan/piutang)"));
+		row.appendChild(akunPosisi = new ais.action.master.akunting.helper.AmbilDataAkunBanbox());
+		akunPosisi.setValue(produkKoperasi.getAkun() == null ? "" : produkKoperasi.getAkun().getNama());
+		akunPosisi.setAttribute("akun", produkKoperasi.getAkun());
+		akunPosisi.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Pendapatan Margin"));
+		row.appendChild(akunMargin = new ais.action.master.akunting.helper.AmbilDataAkunBanbox());
+		akunMargin.setValue(
+				produkKoperasi.getAkunMargin() == null ? "" : produkKoperasi.getAkunMargin().getNama());
+		akunMargin.setAttribute("akun", produkKoperasi.getAkunMargin());
+		akunMargin.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nomor Agenda"));
 		row.appendChild(nomorSurat = new AmbilDataNomorSuratBanbox());
 		nomorSurat.setAttribute("nomorSurat", produkKoperasi.getNomorSurat());
@@ -912,6 +931,9 @@ public class ProdukKoperasiAction extends GenericAutowireComposer
 		produkKoperasi.setSetoran(setoran);
 		produkKoperasi.setKode(kode.getValue());
 		produkKoperasi.setNama(nama.getValue());
+		produkKoperasi.setAkun((ais.database.model.akunting.Akun) akunPosisi.getAttribute("akun"));
+		produkKoperasi.setAkunMargin(
+				(ais.database.model.akunting.Akun) akunMargin.getAttribute("akun"));
 		produkKoperasi.setKoperasi((Koperasi) koperasi.getSelectedItem().getValue());
 		produkKoperasi.setTipeProdukKoperasi((TipeProdukKoperasi) tipeProdukKoperasi.getSelectedItem().getValue());
 		produkKoperasi.setKeterangan(keterangan.getValue());

@@ -486,4 +486,39 @@ public class ProdukKoperasi extends GeneralValueObject {
 	public void setBungaSimpananPersen(Double bungaSimpananPersen) {
 		this.bungaSimpananPersen = bungaSimpananPersen;
 	}
+
+	private ais.database.model.akunting.Akun akun;
+	private ais.database.model.akunting.Akun akunMargin;
+
+	/**
+	 * Akun posisi dana produk pada buku besar: kewajiban simpanan anggota untuk produk
+	 * bertipe PENAMBAHAN, atau piutang pembiayaan untuk produk bertipe PENGURANGAN.
+	 * Dipakai mesin posting Simpan-Pinjam di dasbor Draft Jurnal (dok 61 butir A) --
+	 * produk tanpa akun ini dilewati mesin dan tetap terhitung draf.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun", nullable = true)
+	public ais.database.model.akunting.Akun getAkun() {
+		return akun;
+	}
+
+	public void setAkun(ais.database.model.akunting.Akun akun) {
+		this.akun = akun;
+	}
+
+	/**
+	 * Akun pendapatan margin/bunga produk. BELUM dipakai mesin posting dokumen pengajuan
+	 * (margin diakui saat angsuran diterima, keluarga PembayaranAnggotaKoperasi -- dok 61
+	 * butir B); disediakan sekarang supaya master siap saat jurnal angsuran dibuat.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_margin", nullable = true)
+	public ais.database.model.akunting.Akun getAkunMargin() {
+		return akunMargin;
+	}
+
+	public void setAkunMargin(ais.database.model.akunting.Akun akunMargin) {
+		this.akunMargin = akunMargin;
+	}
+
 }

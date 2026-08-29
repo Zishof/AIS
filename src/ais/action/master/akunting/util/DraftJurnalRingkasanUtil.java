@@ -104,7 +104,8 @@ public final class DraftJurnalRingkasanUtil {
             "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "saldo_awal_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
-            "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
+            "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
+            "simpan_pinjam_koperasi", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -135,6 +136,7 @@ public final class DraftJurnalRingkasanUtil {
                 || "pembayaran_tagihan_vendor".equals(kunci) || "pembayaran_dp_vendor".equals(kunci)
                 || "pembayaran_termin_vendor".equals(kunci)
                 || "perjanjian_kerjasama".equals(kunci)) return "transaksi_vendor";
+        if ("simpan_pinjam_koperasi".equals(kunci)) return "simpan_pinjam";
         if ("gaji".equals(kunci) || "transaksi_pegawai_payroll".equals(kunci)
                 || "penggajian_pegawai".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
@@ -162,6 +164,7 @@ public final class DraftJurnalRingkasanUtil {
         if ("transitori".equals(kategori)) return "Transitori";
         if ("closing".equals(kategori)) return "Closing";
         if ("posting_penjualan".equals(kategori)) return "Posting Penjualan";
+        if ("simpan_pinjam".equals(kategori)) return "Simpan Pinjam Koperasi";
         return "Draft Jurnal";
     }
 
@@ -340,6 +343,14 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaPenggajianPegawai(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaPenggajianPegawai(session, mulai, sampai), true),
                     hitungClosing(session, "pembayaranGajiPunyaPegawai", null, null, mulai, sampai)));
+        } else if ("simpan_pinjam_koperasi".equals(kunci)) {
+            out.add(new Baris(kunci, "Simpan Pinjam Koperasi",
+                    "Setoran simpanan dan pencairan pembiayaan kas-langsung yang disetujui"
+                            + " dipastikan menjadi jurnal (jalur pengajuan transfer sudah"
+                            + " dijurnal baris Jurnal Pengajuan Transfer).",
+                    hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), true),
+                    hitungClosing(session, "transaksiKoperasi", null, null, mulai, sampai)));
         } else if ("mahasiswa".equals(kunci)) {
             mahasiswa(out, session, mulai, sampai);
         } else if ("siswa".equals(kunci)) {
@@ -547,6 +558,20 @@ public final class DraftJurnalRingkasanUtil {
                 .createAlias("pembayaranGaji", "pembayaranGaji")
                 .add(Restrictions.isNotNull("pembayaranGaji.disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_bayar_gaji", mulai, sampai)));
+    }
+
+    /**
+     * Simpan-pinjam koperasi kas-langsung: Disetujui, aktif, bernilai, TANPA pengajuan
+     * transfer (jalur transfer dijurnal barisnya sendiri). Sama dengan mesinnya
+     * ({@code TransaksiKoperasiAction.kriteriaSimpanPinjamStatic}).
+     */
+    private static Criteria kriteriaSimpanPinjam(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.koperasi.TransaksiKoperasi.class)
+                .add(Restrictions.eq("status", ais.database.model.koperasi.TransaksiKoperasi.DISETUJU))
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.isNull("daftarPengajuanTransfer"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_pembuatan", mulai, sampai)));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -875,6 +900,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Perjanjian Kerjasama".equals(namaBaris)) {
             return kriteriaPerjanjianKerjasama(session, mulai, sampai);
+        }
+        if ("Simpan Pinjam Koperasi".equals(namaBaris)) {
+            return kriteriaSimpanPinjam(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
         if ("Transaksi Pegawai".equals(namaBaris)) {

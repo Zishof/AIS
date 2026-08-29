@@ -108,6 +108,9 @@ public final class DraftJurnalApiHelper {
         // Dua jurnal payroll lain serumpun izin dengan Gaji.
         if ("Transaksi Pegawai".equals(namaBaris)) return "gaji";
         if ("Penggajian Pegawai".equals(namaBaris)) return "gaji";
+        // Kunci deskriptif fail-closed (pola siswa/mahasiswa): tidak ada kunci menu POS
+        // khusus simpan-pinjam, dan bolehAksiAkuntansi menolak kunci tak dikenal.
+        if ("Simpan Pinjam Koperasi".equals(namaBaris)) return "simpan_pinjam_koperasi";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Jurnal pembayaran menempel pada dokumen sumbernya, mengikuti prinsip baris lain:
         // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
@@ -430,6 +433,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.payroll.PostingTransaksiPegawaiAction.postingSemua(mulai,
                         sampai, tbmuser, new Date())
                     : ais.action.master.payroll.PostingTransaksiPegawaiAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Simpan Pinjam Koperasi".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.TransaksiKoperasiAction.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.TransaksiKoperasiAction
                         .batalkanPostingSemua(mulai, sampai);
         } else if ("Penggajian Pegawai".equals(nama)) {
             jumlah = posting

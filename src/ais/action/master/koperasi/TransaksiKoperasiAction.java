@@ -2282,4 +2282,198 @@ public class TransaksiKoperasiAction extends GenericAutowireComposer
 			}
 		}
 	}
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen yang SAMA dengan baris "Simpan Pinjam Koperasi" di dasbor draft jurnal:
+	 * transaksi berstatus Disetujui, aktif, bernilai, pada rentang TANGGAL PEMBUATAN (kolom
+	 * filter layar), dan TIDAK lewat pengajuan transfer -- pencairan/penyetoran yang lewat
+	 * pengajuan transfer sudah dijurnal baris "Jurnal Pengajuan Transfer" (debet akun tujuan
+	 * per pengajuan), sehingga menjurnalnya lagi di sini berarti dobel.
+	 */
+	private static Criteria kriteriaSimpanPinjamStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(TransaksiKoperasi.class)
+				.add(Restrictions.eq("status", TransaksiKoperasi.DISETUJU))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+				.add(Restrictions.isNull("daftarPengajuanTransfer"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_pembuatan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA transaksi simpan-pinjam kas-langsung pada rentang -- jalur API dasbor Draft
+	 * Jurnal POS. Melengkapi kerangka yang selama ini yatim (field {@code postingHistory} dan kolom
+	 * {@code grup_transaksi.transaksi_koperasi} sudah ada sejak lama tanpa satu pun pengisi --
+	 * lihat dok 61 butir A).
+	 *
+	 * <p>Arah jurnal mengikuti tipe produk: PENAMBAHAN (simpanan disetor) = Dr akun kas cara
+	 * pembayaran / Cr akun posisi produk; PENGURANGAN (pembiayaan dicairkan tunai) = Dr akun
+	 * posisi produk / Cr akun kas -- keduanya senilai POKOK ({@code nilai}). Margin sengaja TIDAK
+	 * dijurnal di sini: pengakuannya menunggu jurnal angsuran (keluarga PembayaranAnggotaKoperasi,
+	 * dok 61 butir B). Produk tanpa akun posisi, tanpa tipe, atau dokumen tanpa cara pembayaran
+	 * dilewati dan tetap terhitung draf.</p>
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaSimpanPinjamStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			ais.database.model.akunting.PostingHistory postingHistory =
+					new ais.database.model.akunting.PostingHistory(
+							ais.database.model.akunting.PostingHistory.JENIS_SIMPAN_PINJAM);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal simpan pinjam koperasi dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				TransaksiKoperasi tk = (TransaksiKoperasi) o;
+				if (tk == null || tk.getProdukKoperasi() == null
+						|| tk.getProdukKoperasi().getTipeProdukKoperasi() == null) {
+					continue;
+				}
+				try {
+					ais.database.model.akunting.Akun akunProduk = tk.getProdukKoperasi().getAkun();
+					ais.database.model.akunting.Akun akunKas = tk.getCaraPembayaranKoperasi() == null
+							? null : tk.getCaraPembayaranKoperasi().getAkun();
+					Integer arah = tk.getProdukKoperasi().getTipeProdukKoperasi().getJenis();
+					Double nilai = tk.getNilai();
+					if (akunProduk == null || akunKas == null || arah == null || nilai == null
+							|| nilai == 0.0) {
+						continue;
+					}
+
+					String ket = "Transaksi simpan pinjam \"" + tk.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Transaksi simpan pinjam \"" + tk.getKode() + " - "
+								+ tk.getProdukKoperasi().getNama() + "\" anggota "
+								+ tk.getAnggotaKoperasi().getNama() + " senilai "
+								+ Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Anggotanya boleh kosong; kalimat baku di atas tetap terpakai.
+					}
+					java.util.Date tglJurnal = tk.getTanggalPersetujuanManual() != null
+							? tk.getTanggalPersetujuanManual() : tk.getTanggalPembuatan();
+
+					boolean masuk = ais.database.model.koperasi.TipeProdukKoperasi.PENAMBAHAN
+							.equals(arah);
+					ais.database.model.akunting.Akun akunDebet = masuk ? akunKas : akunProduk;
+					ais.database.model.akunting.Akun akunKredit = masuk ? akunProduk : akunKas;
+
+					boolean tersimpan;
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					tersimpan = ais.action.master.akunting.util.CommonAkunting.saveTransaksi(
+							new ais.database.model.akunting.Akun[] { akunDebet },
+							new ais.database.model.akunting.Akun[] { akunKredit }, null, null,
+							postingHistory, true, ket, tglJurnal, new Double[] { nilai },
+							new Double[] { nilai }, 0.0, tk, tk.getSatuanKerja(), session);
+					if (tersimpan) {
+						tk.setPostingHistory(postingHistory);
+						session.update(tk);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "TransaksiKoperasiAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "TransaksiKoperasiAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA transaksi simpan-pinjam terposting pada rentang: jurnal
+	 * turunannya dihapus (baris transaksi dulu, lalu grupnya -- hanya yang belum closing),
+	 * lalu penandanya dilepas.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaSimpanPinjamStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				TransaksiKoperasi tk = (TransaksiKoperasi) o;
+				if (tk == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where transaksi_koperasi="
+							+ tk.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where transaksi_koperasi="
+							+ tk.getId() + " and closing is null").executeUpdate();
+					tk.setPostingHistory(null);
+					session.update(tk);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "TransaksiKoperasiAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
