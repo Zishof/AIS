@@ -211,7 +211,7 @@ public class PostingTransaksiPegawaiAction extends GenericAutowireComposer {
 							public void onEvent(Event arg0) throws Exception {
 								Session session = HibernateUtil.currentSession();
 
-								PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_MAHASISWA);
+								PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_TRANSAKSI_LAIN);
 								postingHistory.setTbmuser(Common.getCurrentUser());
 								postingHistory.setTanggal(ais.ui.util.WaktuUtil.getDate());
 								postingHistory.setKeterangan("Posting manual oleh " + tbmuser.getUserNama()
@@ -599,10 +599,10 @@ public class PostingTransaksiPegawaiAction extends GenericAutowireComposer {
 	 * Posting SEMUA transaksi pegawai pada rentang -- jalur API dasbor Draft Jurnal POS.
 	 * Jurnal per dokumen mengikuti tombol "Posting Semua" layar: Dr/Cr akun jenis transaksi
 	 * pegawai lewat overload {@code CommonAkunting.saveTransaksi(TransaksiPegawai, ...)}, dengan
-	 * arah dibalik untuk nilai negatif. Riwayat memakai JENIS_TRANSAKSI_LAIN (mengikuti tombol
-	 * massal; tombol per barisnya sendiri keliru memakai JENIS_MAHASISWA -- tidak diwarisi) dan
-	 * diberi {@code posting=true}. Satuan kerja jurnal dibiarkan kosong (global) -- padanan
-	 * tanpa-filter pada layar.
+	 * arah dibalik untuk nilai negatif. Riwayat memakai JENIS_TRANSAKSI_LAIN mengikuti tombol
+	 * massal (tombol per barisnya dulu keliru memakai JENIS_MAHASISWA -- kini sudah
+	 * diperbaiki mengikuti jenis yang sama) dan diberi {@code posting=true}. Satuan kerja
+	 * jurnal dibiarkan kosong (global) -- padanan tanpa-filter pada layar.
 	 */
 	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
 			java.util.Date tglPosting) {

@@ -468,15 +468,15 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 					public void onEvent(Event event) throws Exception {
 						int i = Integer.parseInt(event.getData().toString());
 						if (i == MyMessageboxConfig.OK) {
-							List<PembayaranItemGajiPegawai> pembayaranItemGajiPegawais = initCriteria(true)
+							List<PembayaranGajiPunyaPegawai> pembayaranGajiPunyaPegawais = initCriteria(true)
 									.add(Restrictions.isNotNull("postingHistory")).list();
 
-							for (PembayaranItemGajiPegawai pembayaranItemGajiPegawai : pembayaranItemGajiPegawais) {
-								pembayaranItemGajiPegawai.setPostingHistory(null);
-								Common.refreshSaveOrUpdate(pembayaranItemGajiPegawai);
+							for (PembayaranGajiPunyaPegawai pembayaranGajiPunyaPegawai : pembayaranGajiPunyaPegawais) {
+								pembayaranGajiPunyaPegawai.setPostingHistory(null);
+								Common.refreshSaveOrUpdate(pembayaranGajiPunyaPegawai);
 								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where pembayaran_gaji_punya_pegawai="
-												+ pembayaranItemGajiPegawai.getId() + " and closing is null")
+												+ pembayaranGajiPunyaPegawai.getId() + " and closing is null")
 										.executeUpdate();
 							}
 						}
@@ -686,6 +686,9 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 												if (bank != null && bank.getAkun() != null) {
 													akunKredit.add(bank.getAkun());
 													nilaiKredits.add(pembayaranGajiPunyaPegawai.getNilai());
+
+													nilaiKredit += pembayaranGajiPunyaPegawai.getNilai();
+
 												} else if (pembayaranGajiPunyaPegawai.getPembayaranGaji()
 														.getCaraPembayaranGaji() != null
 														&& pembayaranGajiPunyaPegawai.getPembayaranGaji()
@@ -716,7 +719,8 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 
 													try {
 														session.getTransaction().begin();
-														CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}),
+														boolean tersimpan = CommonAkunting.saveTransaksi(
+																akunDebet.toArray(new Akun[] {}),
 																akunKredit.toArray(new Akun[] {}), akunDenda,
 																akunPiutangDenda, postingHistory, apakahUangMasuk, ket,
 																pembayaranGajiPunyaPegawai.getTanggalBayar(),
@@ -726,6 +730,14 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 																		.getPegawai().getSatuanKerja(),
 																session);
 														session.getTransaction().commit();
+
+														if (tersimpan) {
+															pembayaranGajiPunyaPegawai
+																	.setPostingHistory(postingHistory);
+															session.getTransaction().begin();
+															session.update(pembayaranGajiPunyaPegawai);
+															session.getTransaction().commit();
+														}
 													} catch (Exception e) {
 														// TODO Auto-generated catch block
 														ais.common.Common.tampilErrorJikaAdmin(e);
@@ -877,11 +889,14 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 	 * (bila ada) atau akun cara pembayaran gaji, dan jurnal hanya ditulis bila total debet dan
 	 * kredit seimbang (perbandingan intValue, mengikuti layar).
 	 *
-	 * <p>Dua cacat tombol layar yang TIDAK diwarisi: (1) cabang bank lupa menambah akumulator
-	 * nilaiKredit sehingga pegawai ber-rekening-bank SELALU gagal penjaga keseimbangan --
-	 * di sini akumulatornya dijumlahkan; (2) tombol massal tidak pernah MENCAP dokumen
-	 * ({@code setPostingHistory}) sehingga hasil postingnya terhitung draf selamanya -- di sini
-	 * dokumen dicap begitu jurnalnya benar tersimpan. Riwayat batch diberi {@code posting=true}.</p>
+	 * <p>Dua cacat tombol massal layar yang dulu TIDAK diwarisi mesin ini: (1) cabang bank
+	 * lupa menambah akumulator nilaiKredit sehingga pegawai ber-rekening-bank SELALU gagal
+	 * penjaga keseimbangan; (2) dokumen tidak pernah DICAP ({@code setPostingHistory})
+	 * sehingga hasil postingnya terhitung draf selamanya dan run massal berikutnya
+	 * menjurnalkannya ulang. Keduanya kini sudah diperbaiki di tombolnya mengikuti bentuk di
+	 * sini -- berikut tombol batal massal yang dulu salah tipe entitas (menampung hasil query
+	 * {@code PembayaranGajiPunyaPegawai} sebagai {@code PembayaranItemGajiPegawai}) dan selalu
+	 * gagal ClassCastException. Riwayat batch diberi {@code posting=true}.</p>
 	 */
 	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
 			java.util.Date tglPosting) {
