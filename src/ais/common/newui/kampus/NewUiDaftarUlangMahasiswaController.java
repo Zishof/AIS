@@ -639,7 +639,8 @@ public final class NewUiDaftarUlangMahasiswaController {
      * (base64, maks {@value #MAKS_BUKTI_BYTES} byte setelah decode). Hasil `id`
      * dikirim balik pada save sebagai items[i].idLampiran.
      */
-    private static final int MAKS_BUKTI_BYTES = 1_500_000;
+    // Gunakan literal tanpa pemisah underscore agar kompatibel dengan source Java 6.
+    private static final int MAKS_BUKTI_BYTES = 1500000;
 
     private static void uploadBukti(JSONObject j, HttpServletRequest r, Subjek subjek, Tbmuser user) throws Exception {
         if (!subjek.staf) throw new SecurityException("Unggah bukti hanya untuk petugas kasir.");
