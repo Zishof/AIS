@@ -113,5 +113,7 @@ mengisi `debit_credit` (integer); dan jangan menaruh `System.exit` di `finally` 
 ## 5. Sisa peta modul
 
 Lihat §6 dok 53. Dengan baris ini selesai, kandidat berikutnya: trio pembayaran aset
-(`PostingPembayaran/Dp/TerminAction`), lalu Perjanjian Kerjasama, payroll
-Pegawai/Penggajian, Saldo Awal Kas Kecil, dan trio kantin (batch per periode).
+(`PostingPembayaran/Dp/TerminAction`) — SELESAI r78536+r78540, terdokumentasi dan
+teraudit di [57-posting-pembayaran-vendor.md](57-posting-pembayaran-vendor.md) — lalu
+Perjanjian Kerjasama, payroll Pegawai/Penggajian, Saldo Awal Kas Kecil, dan trio
+kantin (batch per periode).
