@@ -304,6 +304,7 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	private Date tanggalPindah = ais.ui.util.WaktuUtil.getDate();
 	private String keteranganPindah;
 	private StatusAwalMahasiswa statusAwalMahasiswa;
+	private StatusAwalMahasiswa statusAwalDiterima;
 	private String parameterTambahan;
 	private String parameterTambahanInds;
 
@@ -2513,6 +2514,15 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
+		/*
+		 * Status yang ditetapkan saat calon mahasiswa diterima adalah override eksplisit.
+		 * Kolom baru tetap NULL untuk data lama, sehingga seluruh aturan turunan lama
+		 * (kelompok, afiliasi, gelombang, pindahan, dan fallback Baru) tetap berlaku.
+		 */
+		StatusAwalMahasiswa statusDiterima = getStatusAwalDiterima();
+		if (statusDiterima != null) {
+			return statusDiterima;
+		}
 
 		afiliasiCalonMahasiswa = getAfiliasiCalonMahasiswa();
 		kelompokCalonMahasiswa = getKelompokCalonMahasiswa();
@@ -2593,6 +2603,17 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 
 	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
 		this.statusAwalMahasiswa = statusAwalMahasiswa;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "status_awal_diterima", nullable = true)
+	public StatusAwalMahasiswa getStatusAwalDiterima() {
+		statusAwalDiterima = check(statusAwalDiterima);
+		return statusAwalDiterima;
+	}
+
+	public void setStatusAwalDiterima(StatusAwalMahasiswa statusAwalDiterima) {
+		this.statusAwalDiterima = statusAwalDiterima;
 	}
 
 	@Column(columnDefinition = "text")

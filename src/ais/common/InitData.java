@@ -461,6 +461,7 @@ public class InitData {
 		// FIX SQLGrammarException/GenericJDBCException "column ... jenis_seleksi_target does not
 		// exist": kolom pada KelompokCalonMahasiswa yang belum ter-propagate ke semua instalasi.
 		KelompokCalonMahasiswaSchemaFix.initKolomBaru();
+		BiodataCalonMahasiswaSchemaFix.initKolomBaru();
 		// Snapshot hasil akhir nilai harus tersedia sebelum migrasi/backfill nilai
 		// dijalankan. Berlaku untuk tabel utama dan audit Envers.
 		NilaiKunciSchemaFix.initKolomSnapshot();

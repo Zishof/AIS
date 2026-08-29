@@ -65,6 +65,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Paket;
 import ais.database.model.PerguruanTinggi;
+import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.VerifikasiKelengkapanCalonMahasiswa;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
@@ -164,6 +165,7 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 	private Row rowJalurPenerimaan;
 	private Combobox kelompokJenisSeleksi;
 	private Combobox gelombangPendaftaran;
+	private Combobox statusAwalDiterima;
 	private AmbilDataMahasiswaBanbox mahasiswa;
 
 	public void doAfterCompose(Component comp) throws Exception {
@@ -749,7 +751,7 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 		addWindow.setTitle("Kelulusan");
 		Common.clear(addWindow);
-		addWindow.setHeight("450px");
+		addWindow.setHeight("90%");
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		Center center = new Center();
 		center.setParent(borderlayout);
@@ -1030,6 +1032,17 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 
 		Common.initKeterangan(rows, "(jika belum ada data mahasiswa akan terbuat otomatis ketika di generate NIM)");
 
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfigTitikDua("Diterima di status awal"));
+		statusAwalDiterima = new Combobox();
+		statusAwalDiterima.setReadonly(true);
+		statusAwalDiterima.setWidth("90%");
+		row.appendChild(statusAwalDiterima);
+		Common.insertComboDanSemua(statusAwalDiterima, new String[] { "nama" }, "kode", StatusAwalMahasiswa.class,
+				"== Ikuti Status Awal Calon Mahasiswa yang Ada ==", Restrictions.eq("aktif", true));
+		Common.selectComboItem(true, statusAwalDiterima, biodataCalonMahasiswa.getStatusAwalDiterima());
+
 		EventListener pilihanListrene = new EventListener() {
 
 			@Override
@@ -1042,6 +1055,7 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 				jenisSeleksi.getParent().setVisible(jurusan != null);
 				gelombangPendaftaran.getParent().setVisible(jurusan != null);
 				mahasiswa.getParent().setVisible(jurusan != null);
+				statusAwalDiterima.getParent().setVisible(jurusan != null);
 
 				try {
 					eventListener.onEvent(null);
@@ -1142,6 +1156,9 @@ public class DaftarMahasiswaLulusAction extends GenericAutowireComposer implemen
 		biodataCalonMahasiswa.setTanggalDiterima(tanggalDiterima.getValue());
 
 		biodataCalonMahasiswa.setMahasiswa((Mahasiswa) mahasiswa.getAttribute("mahasiswa"));
+		biodataCalonMahasiswa.setStatusAwalDiterima(
+				(StatusAwalMahasiswa) (statusAwalDiterima.getSelectedItem() == null ? null
+						: statusAwalDiterima.getSelectedItem().getValue()));
 
 		if (program.getSelectedItem() != null) {
 			biodataCalonMahasiswa.setProgram((String) program.getSelectedItem().getValue());
