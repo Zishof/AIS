@@ -483,8 +483,8 @@ public class KantinHelper {
 					"SELECT id FROM koperasi.pembelian_anggota_koperasi"
 							+ " WHERE (COALESCE(bayar_tunai,0)+COALESCE(bayar_non_tunai,0)) <= 0"
 							+ "   AND COALESCE(total_biaya,0) > 0"
-							+ "   AND DATE(tanggal_pembayaran) >= ?::date"
-							+ "   AND DATE(tanggal_pembayaran) <= ?::date ");
+							+ "   AND DATE(tanggal_pembayaran) >= CAST(? AS date)"
+							+ "   AND DATE(tanggal_pembayaran) <= CAST(? AS date) ");
 			if (tokoId != null) sql.append(" AND toko = ? ");
 			sql.append(" ORDER BY tanggal_pembayaran DESC LIMIT ").append(batas + 1);
 
@@ -8081,8 +8081,8 @@ public class KantinHelper {
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			if (idMember != null) where.append(" AND d.anggota_koperasi = ? ");
 			if (!keyword.isEmpty()) where.append(" AND a.nama ILIKE ? ");
-			if (!dari.isEmpty()) where.append(" AND d.waktu >= ?::date ");
-			if (!sampai.isEmpty()) where.append(" AND d.waktu < (?::date + interval '1 day') ");
+			if (!dari.isEmpty()) where.append(" AND d.waktu >= CAST(? AS date) ");
+			if (!sampai.isEmpty()) where.append(" AND d.waktu < (CAST(? AS date) + interval '1 day') ");
 
 			java.sql.Connection conn = session.connection();
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
@@ -8308,9 +8308,9 @@ public class KantinHelper {
 					+ "  WHERE pc.status = 'BERHASIL' AND cpk2.manual = false "
 					+ filterAnggotaPencairan
 					+ "), saldo_awal AS ( "
-					+ "  SELECT id_anggota, SUM(masuk-keluar) AS saldo_awal FROM semua_mutasi WHERE waktu < ?::date GROUP BY id_anggota "
+					+ "  SELECT id_anggota, SUM(masuk-keluar) AS saldo_awal FROM semua_mutasi WHERE waktu < CAST(? AS date) GROUP BY id_anggota "
 					+ "), mutasi AS ( "
-					+ "  SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day') "
+					+ "  SELECT * FROM semua_mutasi WHERE waktu >= CAST(? AS date) AND waktu < (CAST(? AS date) + interval '1 day') "
 					+ ") "
 					+ "SELECT m.waktu, m.baris_id, m.nama_anggota, m.id_anggota, m.jenis_mutasi, m.keterangan, m.masuk, m.keluar, "
 					+ "  COALESCE(sa.saldo_awal,0) + SUM(m.masuk - m.keluar) OVER (PARTITION BY m.id_anggota ORDER BY m.waktu, m.baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
@@ -8408,8 +8408,8 @@ public class KantinHelper {
 							+ "JOIN koperasi.anggota_koperasi a ON ph.anggota_koperasi = a.id "
 							+ "WHERE ph.anggota_koperasi IS NOT NULL ").append(filterPh)
 					.append("), saldo_awal AS ( "
-							+ "SELECT id_anggota, SUM(bertambah-berkurang) AS saldo_awal FROM semua_mutasi WHERE waktu < ?::date GROUP BY id_anggota"
-							+ "), mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day')) "
+							+ "SELECT id_anggota, SUM(bertambah-berkurang) AS saldo_awal FROM semua_mutasi WHERE waktu < CAST(? AS date) GROUP BY id_anggota"
+							+ "), mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= CAST(? AS date) AND waktu < (CAST(? AS date) + interval '1 day')) "
 							+ "SELECT waktu, baris_id, nama_anggota, m.id_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
 							+ "  COALESCE(sa.saldo_awal,0) + SUM(bertambah - berkurang) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, "
 							+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
@@ -8624,11 +8624,11 @@ public class KantinHelper {
 				params.add(kw);
 			}
 			if (!dari.isEmpty()) {
-				where.append(" AND n.waktu >= ?::date ");
+				where.append(" AND n.waktu >= CAST(? AS date) ");
 				params.add(dari);
 			}
 			if (!sampai.isEmpty()) {
-				where.append(" AND n.waktu < (?::date + interval '1 day') ");
+				where.append(" AND n.waktu < (CAST(? AS date) + interval '1 day') ");
 				params.add(sampai);
 			}
 
@@ -11904,8 +11904,8 @@ public class KantinHelper {
 			StringBuilder sql = new StringBuilder();
 			sql.append("WITH events AS (")
 				.append(" SELECT h.anggota_koperasi AS id_anggota, a.kode, a.nama, h.tanggal_pembayaran AS tanggal,")
-				.append(hutangPos).append("::numeric AS faktur, 0::numeric AS pembayaran, 0::numeric AS retur,")
-				.append(" 0::numeric AS uang_muka, 0::numeric AS jurnal_umum")
+				.append("CAST(").append(hutangPos).append(" AS numeric) AS faktur, CAST(0 AS numeric) AS pembayaran, CAST(0 AS numeric) AS retur,")
+				.append(" CAST(0 AS numeric) AS uang_muka, CAST(0 AS numeric) AS jurnal_umum")
 				.append(" FROM koperasi.pembelian_anggota_koperasi h")
 				.append(" JOIN koperasi.anggota_koperasi a ON a.id=h.anggota_koperasi")
 				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c1 ON c1.id=h.cara_pembayaran_koperasi")
@@ -11938,12 +11938,12 @@ public class KantinHelper {
 				.append(" FROM koperasi.penerimaan_piutang_customer p JOIN koperasi.anggota_koperasi a ON a.id=p.customer")
 				.append(" WHERE COALESCE(p.status_dok,'AKTIF')<>'DIBATALKAN'")
 				.append("), rekap AS (SELECT id_anggota,kode,nama,")
-				.append(" SUM(CASE WHEN tanggal < ?::date THEN faktur-pembayaran-retur-uang_muka+jurnal_umum ELSE 0 END) saldo_awal,")
-				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN faktur ELSE 0 END) faktur,")
-				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN pembayaran ELSE 0 END) pembayaran,")
-				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN retur ELSE 0 END) retur,")
-				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN uang_muka ELSE 0 END) uang_muka,")
-				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN jurnal_umum ELSE 0 END) jurnal_umum")
+				.append(" SUM(CASE WHEN tanggal < CAST(? AS date) THEN faktur-pembayaran-retur-uang_muka+jurnal_umum ELSE 0 END) saldo_awal,")
+				.append(" SUM(CASE WHEN tanggal>=CAST(? AS date) AND tanggal<(CAST(? AS date)+interval '1 day') THEN faktur ELSE 0 END) faktur,")
+				.append(" SUM(CASE WHEN tanggal>=CAST(? AS date) AND tanggal<(CAST(? AS date)+interval '1 day') THEN pembayaran ELSE 0 END) pembayaran,")
+				.append(" SUM(CASE WHEN tanggal>=CAST(? AS date) AND tanggal<(CAST(? AS date)+interval '1 day') THEN retur ELSE 0 END) retur,")
+				.append(" SUM(CASE WHEN tanggal>=CAST(? AS date) AND tanggal<(CAST(? AS date)+interval '1 day') THEN uang_muka ELSE 0 END) uang_muka,")
+				.append(" SUM(CASE WHEN tanggal>=CAST(? AS date) AND tanggal<(CAST(? AS date)+interval '1 day') THEN jurnal_umum ELSE 0 END) jurnal_umum")
 				.append(" FROM events GROUP BY id_anggota,kode,nama), filtered AS (SELECT *,")
 				.append(" saldo_awal+faktur-pembayaran-retur-uang_muka+jurnal_umum AS saldo_akhir FROM rekap WHERE")
 				.append(" (ABS(saldo_awal)+ABS(faktur)+ABS(pembayaran)+ABS(retur)+ABS(uang_muka)+ABS(jurnal_umum))>0.009");
@@ -12427,7 +12427,7 @@ public class KantinHelper {
 			// sbg baris terpisah -- inilah kunci yg (setelah kolom kunci_unik diisi backfill+dedup
 			// ini) akhirnya dijadikan UNIQUE INDEX sungguhan di database.
 			kunci = "LOWER(regexp_replace(COALESCE(" + alias + ".kode,'') || '_' || COALESCE(" + alias + ".barcode,'')"
-					+ " || '_' || COALESCE(" + alias + ".nama,'') || '_' || COALESCE(" + alias + ".toko::text,''),"
+					+ " || '_' || COALESCE(" + alias + ".nama,'') || '_' || COALESCE(CAST(" + alias + ".toko AS text),''),"
 					+ " '[^a-zA-Z0-9_]', '', 'g'))";
 			kondisi = " AND " + alias + ".kode IS NOT NULL AND TRIM(" + alias + ".kode) <> '' AND "
 					+ alias + ".nama IS NOT NULL AND TRIM(" + alias + ".nama) <> ''";
@@ -12754,7 +12754,7 @@ public class KantinHelper {
 				// sungguhan (lihat migrasi SQL terpisah, TIDAK dijalankan otomatis di sini).
 				java.sql.PreparedStatement psBackfillKunci = conn.prepareStatement(
 						"UPDATE koperasi.produk SET kunci_unik = LOWER(regexp_replace("
-								+ "COALESCE(kode,'') || '_' || COALESCE(barcode,'') || '_' || COALESCE(nama,'') || '_' || COALESCE(toko::text,''),"
+								+ "COALESCE(kode,'') || '_' || COALESCE(barcode,'') || '_' || COALESCE(nama,'') || '_' || COALESCE(CAST(toko AS text),''),"
 								+ " '[^a-zA-Z0-9_]', '', 'g')) "
 								+ "WHERE toko = ? AND kode IS NOT NULL AND TRIM(kode) <> '' AND nama IS NOT NULL AND TRIM(nama) <> ''");
 				psBackfillKunci.setLong(1, tokoId.longValue());

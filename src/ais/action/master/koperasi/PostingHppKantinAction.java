@@ -1204,6 +1204,12 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 					session.createSQLQuery(
 							"DELETE FROM akunting.grup_transaksi WHERE posting_history = " + idPh)
 							.executeUpdate();
+					// Lepas cap baris penjualan SEBELUM riwayatnya dihapus: koperasi.pembelian.
+					// posting_hpp ber-FK ke posting_history, jadi tanpa ini DELETE di bawah
+					// melanggar FK dan seluruh pembatalan batch diam-diam rollback (temuan audit
+					// dok 60); pelepasan ini juga yang membuat barisnya dapat diposting ulang.
+					session.createSQLQuery("UPDATE koperasi.pembelian SET posting_hpp = NULL"
+							+ " WHERE posting_hpp = " + idPh).executeUpdate();
 					session.createSQLQuery("DELETE FROM akunting.posting_history WHERE id = " + idPh)
 							.executeUpdate();
 					session.getTransaction().commit();

@@ -234,7 +234,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		DashboardData data = new DashboardData();
 		data.totalJawaban = longValue(uniqueResult(session, baseCountSql("count(1)"), filter));
 		data.totalPeserta = longValue(uniqueResult(session, baseCountSql(
-				"count(distinct coalesce('M' || h.mahasiswa::text, 'S' || h.siswa::text, 'D' || h.dosen::text, 'G' || h.guru::text, 'U' || h.tbmuser::text, 'TD' || h.tbmuser_dinilai::text, '0'))"), filter));
+				"count(distinct coalesce('M' || CAST(h.mahasiswa AS text), 'S' || CAST(h.siswa AS text), 'D' || CAST(h.dosen AS text), 'G' || CAST(h.guru AS text), 'U' || CAST(h.tbmuser AS text), 'TD' || CAST(h.tbmuser_dinilai AS text), '0'))"), filter));
 		data.totalPertanyaan = longValue(uniqueResult(session, baseCountSql("count(distinct c.id)"), filter));
 		data.totalKelompok = longValue(uniqueResult(session, baseCountSql("count(distinct g.id)"), filter));
 		data.totalJadwal = longValue(uniqueResult(session, baseCountSql("count(distinct j.id)"), filter));
@@ -251,13 +251,13 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 
 		data.groupRows = list(session, baseSelectSql("coalesce(g.isi, 'Tanpa Kelompok'), coalesce(g.diperuntukkan, 'Umum'), count(1), "
-				+ "count(distinct coalesce('M' || h.mahasiswa::text, 'S' || h.siswa::text, 'D' || h.dosen::text, 'G' || h.guru::text, 'U' || h.tbmuser::text, 'TD' || h.tbmuser_dinilai::text, '0')), avg(h.nilai)")
+				+ "count(distinct coalesce('M' || CAST(h.mahasiswa AS text), 'S' || CAST(h.siswa AS text), 'D' || CAST(h.dosen AS text), 'G' || CAST(h.guru AS text), 'U' || CAST(h.tbmuser AS text), 'TD' || CAST(h.tbmuser_dinilai AS text), '0')), avg(h.nilai)")
 				+ " group by g.id, g.isi, g.diperuntukkan order by count(1) desc, coalesce(g.isi, 'Tanpa Kelompok') asc limit 20", filter);
 
 		data.jenisRows = list(session, baseSelectSql("case when h.mahasiswa is not null then 'Mahasiswa' "
 				+ "when h.siswa is not null then 'Siswa' when h.dosen is not null then 'Dosen' when h.guru is not null then 'Guru' "
 				+ "when h.tbmuser is not null then 'User/Admin' when h.tbmuser_dinilai is not null then 'User Dinilai' else 'Tidak Teridentifikasi' end, "
-				+ "count(distinct coalesce('M' || h.mahasiswa::text, 'S' || h.siswa::text, 'D' || h.dosen::text, 'G' || h.guru::text, 'U' || h.tbmuser::text, 'TD' || h.tbmuser_dinilai::text, '0')), count(1), avg(h.nilai)")
+				+ "count(distinct coalesce('M' || CAST(h.mahasiswa AS text), 'S' || CAST(h.siswa AS text), 'D' || CAST(h.dosen AS text), 'G' || CAST(h.guru AS text), 'U' || CAST(h.tbmuser AS text), 'TD' || CAST(h.tbmuser_dinilai AS text), '0')), count(1), avg(h.nilai)")
 				+ " group by 1 order by count(1) desc", filter);
 
 		String ketSql = baseSelectSql("coalesce(g.isi, ''), coalesce(c.isi, ''), coalesce(h.keterangan, ''), h.tahun_akademik, h.semester")

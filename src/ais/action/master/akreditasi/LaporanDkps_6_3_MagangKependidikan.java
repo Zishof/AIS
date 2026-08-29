@@ -155,7 +155,7 @@ public class LaporanDkps_6_3_MagangKependidikan extends AkreditasiBaseWindow {
                                     + " COUNT(CASE WHEN EXTRACT(year FROM mk.tanggal_pelaksanaan)=" + ts1yr + " THEN 1 END) AS mhs_ts1,"
                                     + " COUNT(CASE WHEN EXTRACT(year FROM mk.tanggal_pelaksanaan)=" + tsYear + " THEN 1 END) AS mhs_ts,"
                                     + " 0 AS ptm_ts2, 0 AS ptm_ts1, 0 AS ptm_ts,"
-                                    + " ROUND(AVG(COALESCE(mk.durasi_bulan, 6))::numeric, 0) AS lama_bulan"
+                                    + " ROUND(CAST(AVG(COALESCE(mk.durasi_bulan, 6)) AS numeric), 0) AS lama_bulan"
                                     + " FROM magang_kependidikan mk"
                                     + " INNER JOIN dosen d ON mk.dosen_pembimbing=d.id"
                                     + " INNER JOIN mahasiswa m ON mk.mahasiswa=m.id"

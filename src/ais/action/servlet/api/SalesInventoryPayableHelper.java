@@ -425,7 +425,7 @@ public final class SalesInventoryPayableHelper {
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			if (dari.matches("\\d{4}-\\d{2}-\\d{2}") && sampai.matches("\\d{4}-\\d{2}-\\d{2}")) {
-				where.append(" AND b.tanggal BETWEEN ?::date AND (?::date + interval '1 day') ");
+				where.append(" AND b.tanggal BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') ");
 				params.add(dari); params.add(sampai);
 			}
 			if (!metode.isEmpty() && !"SEMUA".equals(metode)) {
@@ -637,7 +637,7 @@ public final class SalesInventoryPayableHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			StringBuilder where = new StringBuilder(
-					" WHERE f.tanggal_faktur BETWEEN ?::date AND (?::date + interval '1 day') ");
+					" WHERE f.tanggal_faktur BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			params.add(dari); params.add(sampai);
 			if (supplierId != null) {

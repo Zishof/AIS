@@ -89,7 +89,7 @@ public final class LaporanRincianTransaksiUtil {
 		Dimensi d = dimensi == null ? new Dimensi() : dimensi;
 
 		StringBuilder w = new StringBuilder(
-				" WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date ");
+				" WHERE a.toko=? AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date) ");
 		List<Object> prm = new ArrayList<Object>();
 		prm.add(tokoId);
 		prm.add(tglMulai.trim());

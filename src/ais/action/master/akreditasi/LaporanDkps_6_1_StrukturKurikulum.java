@@ -139,7 +139,7 @@ public class LaporanDkps_6_1_StrukturKurikulum extends AkreditasiBaseWindow {
                         }
 
                         String sql = "SELECT mk.kode, mk.nama, mk.sks, "
-                            + "COALESCE(mk.semester::text, '-') as semester, "
+                            + "COALESCE(CAST(mk.semester AS text), '-') as semester, "
                             + "CASE WHEN mk.wajib=true THEN 'Wajib' ELSE 'Pilihan' END as jenis "
                             + "FROM matakuliah mk INNER JOIN jurusan j ON mk.jurusan=j.id "
                             + "WHERE 1=1" + jurusanFilter

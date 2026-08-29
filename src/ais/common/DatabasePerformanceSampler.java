@@ -52,7 +52,7 @@ public final class DatabasePerformanceSampler {
 		try {
 			session.beginTransaction();
 			PreparedStatement read = session.connection().prepareStatement(
-					"SELECT round(extract(epoch from (clock_timestamp()-query_start))*1000)::bigint, "
+					"SELECT CAST(round(extract(epoch from (clock_timestamp()-query_start))*1000) AS bigint), "
 					+ "left(regexp_replace(coalesce(query,''),'[[:space:]]+',' ','g'),1000) "
 					+ "FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() "
 					+ "AND state='active' AND clock_timestamp()-query_start > interval '1 second' "

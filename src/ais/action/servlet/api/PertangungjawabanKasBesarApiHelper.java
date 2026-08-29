@@ -143,7 +143,7 @@ public final class PertangungjawabanKasBesarApiHelper {
 				sql.append(" AND p.tanggal_pembuatan >= ?");
 			}
 			if (sampai != null) {
-				sql.append(" AND p.tanggal_pembuatan < (?::date + 1)");
+				sql.append(" AND p.tanggal_pembuatan < (CAST(? AS date) + 1)");
 			}
 			if (satkerId > 0) {
 				sql.append(" AND p.satuan_kerja = ?");

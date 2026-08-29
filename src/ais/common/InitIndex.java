@@ -1744,7 +1744,7 @@ public class InitIndex {
 					+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
 					+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
 					+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
-					+ "AND trim(pi.indkey::text) = pa.attnum::text "
+					+ "AND trim(CAST(pi.indkey AS text)) = CAST(pa.attnum AS text) "
 					+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
 					+ "ORDER BY CASE WHEN co.oid IS NOT NULL THEN 0 ELSE 1 END, "
 					+ "CASE WHEN pi.indisunique THEN 0 ELSE 1 END, "
@@ -2330,7 +2330,7 @@ public class InitIndex {
 					result.close();
 					result = null;
 				}
-				result = statement.executeQuery("SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass");
+				result = statement.executeQuery("SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid=CAST('koperasi.produk' AS regclass)");
 				boolean sudahAda = result != null && result.next();
 				if (result != null) {
 					result.close();

@@ -151,7 +151,7 @@ public class LaporanDkps_6_5_PembimbinganTA extends AkreditasiBaseWindow {
                                 + " COUNT(CASE WHEN EXTRACT(year FROM s.tanggal_pengajuan)=" + ts  + " THEN 1 END) AS bimb_ps_ts,"
                                 + " 0 AS bimb_lain_ts2, 0 AS bimb_lain_ts1, 0 AS bimb_lain_ts,"
                                 + " 0 AS ptm_ts2, 0 AS ptm_ts1, 0 AS ptm_ts,"
-                                + " ROUND(COUNT(*)::numeric/3.0, 1) AS rata_rata"
+                                + " ROUND(CAST(COUNT(*) AS numeric)/3.0, 1) AS rata_rata"
                                 + " FROM skripsi s"
                                 + " INNER JOIN dosen d ON (s.pembimbing1 = d.id OR s.pembimbing2 = d.id)"
                                 + " INNER JOIN jurusan j ON d.jurusan = j.id"

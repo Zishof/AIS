@@ -483,7 +483,7 @@ public class DashboardKepatuhanKantinAction extends GenericAutowireComposer {
     private List<Object[]> qSesiKasTerbuka() {
         return qShared("kas_terbuka", "SELECT COALESCE(t.nama,'-'), COALESCE(k.kasir_nama,'-'), "
                 + "COALESCE(TO_CHAR(k.waktubuka,'dd-MM-yyyy HH24:MI'),'-'), "
-                + "COALESCE(ROUND((EXTRACT(EPOCH FROM (NOW() - k.waktubuka))/3600.0)::numeric, 1), 0) "
+                + "COALESCE(ROUND(CAST((EXTRACT(EPOCH FROM (NOW() - k.waktubuka))/3600.0) AS numeric), 1), 0) "
                 + "FROM koperasi.sesi_kas_kasir k LEFT JOIN koperasi.toko t ON t.id = k.toko "
                 + "WHERE (k.status = 'BUKA' OR k.status IS NULL)" + andToko("k")
                 + " ORDER BY 4 DESC LIMIT 200");

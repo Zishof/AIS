@@ -154,8 +154,8 @@ public class LaporanDkps_6_7_MasaStudi extends AkreditasiBaseWindow {
                             + " COUNT(CASE WHEN EXTRACT(year FROM m.tanggal_lulus)=" + tsYear + " THEN 1 END) as lulus_ts,"
                             + " COUNT(CASE WHEN m.tanggal_lulus IS NOT NULL"
                             + "   AND EXTRACT(year FROM m.tanggal_lulus)<=" + tsYear + " THEN 1 END) as total_lulus,"
-                            + " ROUND(AVG(CASE WHEN m.tanggal_lulus IS NOT NULL"
-                            + "   THEN (EXTRACT(year FROM m.tanggal_lulus)-m.tahunangkatan)*2 END)::numeric,1) as rata_smt"
+                            + " ROUND(CAST(AVG(CASE WHEN m.tanggal_lulus IS NOT NULL"
+                            + "   THEN (EXTRACT(year FROM m.tanggal_lulus)-m.tahunangkatan)*2 END) AS numeric),1) as rata_smt"
                             + " FROM mahasiswa m INNER JOIN jurusan j ON m.jurusan=j.id"
                             + " WHERE m.tahunangkatan IS NOT NULL"
                             + jurusanFilter

@@ -3997,7 +3997,7 @@ public class PosApi extends HttpServlet {
 				+ "LEFT JOIN koperasi.produk p ON p.id=a.produk LEFT JOIN koperasi.pembelian_anggota_koperasi pak "
 				+ "ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup)
 				+ " AND COALESCE(a.aktif,true)=true "
-				+ "AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
+				+ "AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)" + batasKasir
 				+ " GROUP BY 1,2,a.produk ORDER BY 2,3,1";
 		java.sql.PreparedStatement ps = conn.prepareStatement(sql);
 		isiParamToko(ps, 1, tokoId); ps.setString(2, mulai); ps.setString(3, sampai);
@@ -4345,7 +4345,7 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " MAX(a.member) member FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)"
 					+ batasKasir + " GROUP BY 1";
 
 			java.sql.PreparedStatement pk = conn.prepareStatement("SELECT COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0),"
@@ -4388,7 +4388,7 @@ public class PosApi extends HttpServlet {
 			while (rj.next()) { JSONObject o = new JSONObject(); o.put("jam", rj.getInt(1)); o.put("transaksi", rj.getLong(2)); o.put("omzet", rj.getDouble(3)); jam.put(o); }
 			rj.close(); pj.close();
 
-			java.sql.PreparedStatement pHari = conn.prepareStatement("SELECT EXTRACT(ISODOW FROM tanggal)::integer,COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0) FROM (" + trx + ") x GROUP BY 1 ORDER BY 1");
+			java.sql.PreparedStatement pHari = conn.prepareStatement("SELECT CAST(EXTRACT(ISODOW FROM tanggal) AS integer),COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0) FROM (" + trx + ") x GROUP BY 1 ORDER BY 1");
 			isiParamToko(pHari,1, tokoId); pHari.setString(2, mulai); pHari.setString(3, sampai);
 			if (!bolehSemuaKasir) pHari.setString(4, namaKasirLogin);
 			java.sql.ResultSet rHari = pHari.executeQuery(); JSONArray hari = new JSONArray();
@@ -4414,7 +4414,7 @@ public class PosApi extends HttpServlet {
 					+ "COALESCE(SUM(a.qty),0),COALESCE(SUM(a.total),0),COUNT(DISTINCT COALESCE(a.pembelian_anggota_koperasi,a.id))"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.produk p ON p.id=a.produk"
 					+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)" + batasKasir
 					+ " GROUP BY a.produk ORDER BY 3 DESC LIMIT 15";
 			java.sql.PreparedStatement pProduk = conn.prepareStatement(sqlProduk);
 			isiParamToko(pProduk,1, tokoId); pProduk.setString(2, mulai); pProduk.setString(3, sampai);
@@ -4425,7 +4425,7 @@ public class PosApi extends HttpServlet {
 
 			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.totalnilai),0)"
 					+ " FROM koperasi.retur_penjualan rp LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=rp.pembelian_anggota_koperasi_id"
-					+ " WHERE " + kondisiToko("rp", pendaftarLingkup) + " AND DATE(rp.waktu)>=?::date AND DATE(rp.waktu)<=?::date";
+					+ " WHERE " + kondisiToko("rp", pendaftarLingkup) + " AND DATE(rp.waktu)>=CAST(? AS date) AND DATE(rp.waktu)<=CAST(? AS date)";
 			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),''))=LOWER(?)";
 			java.sql.PreparedStatement pRetur = conn.prepareStatement(sqlRetur);
 			isiParamToko(pRetur,1, tokoId); pRetur.setString(2, mulai); pRetur.setString(3, sampai);
@@ -4486,7 +4486,7 @@ public class PosApi extends HttpServlet {
 			JSONObject daftar = daftarOrderDenganSesi(session, tokoId, tokoKode, aman);
 			java.sql.Connection conn = session.connection();
 			String dasar = " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date";
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)";
 			// Metode bayar ikut dibawa ke subquery agar bisa disaring (rekonsiliasi tim keuangan).
 			String metodeDipilih = payload.optString("metode", "").trim();
 			String sub = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
@@ -4567,7 +4567,7 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT DISTINCT COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
 							+ " FROM koperasi.pembelian a"
-							+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+							+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)"
 							+ " ORDER BY 1");
 			isiParamToko(ps,1, tokoId);
 			ps.setString(2, mulai);
@@ -4623,7 +4623,7 @@ public class PosApi extends HttpServlet {
 					+ " MAX(pak.cara_pembayaran_koperasi_4) cp4,MAX(COALESCE(pak.nominal_bayar_4,0)) n4,"
 					+ " MAX(pak.cara_pembayaran_koperasi_5) cp5,MAX(COALESCE(pak.nominal_bayar_5,0)) n5"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1)"
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date) GROUP BY 1)"
 					+ " SELECT id_trx,tanggal,kasir,COALESCE(NULLIF(TRIM(cb.nama),''),t.metode_rincian) metode,"
 					+ " (t.nilai-t.n2-t.n3-t.n4-t.n5) nilai FROM nota t"
 					+ " LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON cb.id=t.cp1"
@@ -4929,7 +4929,7 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai,"
 					+ " COALESCE(MAX(pak.bayar_tunai),0) tunai,COALESCE(MAX(pak.bayar_non_tunai),0) non_tunai"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
+					+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date) GROUP BY 1";
 			String filterKasir = kasirDipilih.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
 			java.sql.PreparedStatement pt = conn.prepareStatement("SELECT kasir,metode,COUNT(*),COALESCE(SUM(nilai),0),COALESCE(SUM(tunai),0),COALESCE(SUM(non_tunai),0) FROM (" + transaksi + ") trx" + filterKasir + " GROUP BY kasir,metode ORDER BY kasir,metode");
 			int ix = 1; isiParamToko(pt, ix++, tokoId); pt.setString(ix++, mulai); pt.setString(ix++, sampai); if (kasirDipilih.length() > 0) pt.setString(ix++, kasirDipilih);
@@ -4955,7 +4955,7 @@ public class PosApi extends HttpServlet {
 			String sesiSql = "SELECT COALESCE(NULLIF(TRIM(sk.kasir_nama),''),'Kasir tidak tercatat'),COUNT(*),COALESCE(SUM(sk.modalawal),0),"
 					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN COALESCE(sk.uangfisik,0) ELSE COALESCE(sk.modalawal,0)+COALESCE((SELECT SUM(COALESCE(pak.bayar_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak WHERE pak.toko=sk.toko AND (pak.sesi_kas_kasir=sk.id OR (pak.sesi_kas_kasir IS NULL AND pak.kasir_login_nama=sk.kasir_nama)) AND pak.tanggal_pembayaran>=sk.waktubuka AND pak.tanggal_pembayaran<=NOW()),0) END),0),"
 					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN 1 ELSE 0 END),0)"
-					+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterSesi + " GROUP BY 1 ORDER BY 1";
+					+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=CAST(? AS date) AND DATE(sk.waktubuka)<=CAST(? AS date)" + filterSesi + " GROUP BY 1 ORDER BY 1";
 			java.sql.PreparedStatement ps = conn.prepareStatement(sesiSql);
 			ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai); if (kasirDipilih.length() > 0) ps.setString(ix++, kasirDipilih);
 			java.sql.ResultSet rs = ps.executeQuery();
@@ -5040,7 +5040,7 @@ public class PosApi extends HttpServlet {
 						+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat'),COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-'),"
 						+ " COALESCE(SUM(a.qty),0),COALESCE(MAX(pak.total_biaya),SUM(a.total)),COALESCE(MAX(pak.bayar_tunai),0),COALESCE(MAX(pak.bayar_non_tunai),0)"
 						+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-						+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
+						+ " WHERE " + kondisiToko("a", pendaftarLingkup) + " AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)"
 						+ filterKasir + filterMetode + " GROUP BY COALESCE(a.pembelian_anggota_koperasi,a.id) ORDER BY MAX(a.waktu) DESC";
 				java.sql.PreparedStatement ps = conn.prepareStatement(sql);
 				int ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai);
@@ -5065,7 +5065,7 @@ public class PosApi extends HttpServlet {
 				String filterKasir = kasir.length() == 0 ? "" : " AND LOWER(TRIM(sk.kasir_nama))=LOWER(?)";
 				java.sql.PreparedStatement ps = conn.prepareStatement(
 						"SELECT sk.id,sk.waktubuka,sk.waktututup,sk.status,COALESCE(NULLIF(TRIM(sk.kasir_nama),''),'Kasir tidak tercatat'),COALESCE(sk.modalawal,0),COALESCE(sk.uangfisik,0)"
-						+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterKasir + " ORDER BY sk.waktubuka DESC");
+						+ " FROM koperasi.sesi_kas_kasir sk WHERE " + kondisiToko("sk", pendaftarLingkup) + " AND DATE(sk.waktubuka)>=CAST(? AS date) AND DATE(sk.waktubuka)<=CAST(? AS date)" + filterKasir + " ORDER BY sk.waktubuka DESC");
 				int ix = 1; isiParamToko(ps, ix++, tokoId); ps.setString(ix++, mulai); ps.setString(ix++, sampai); if (kasir.length() > 0) ps.setString(ix++, kasir);
 				java.sql.ResultSet rs = ps.executeQuery();
 				while (rs.next()) {
@@ -5176,8 +5176,8 @@ public class PosApi extends HttpServlet {
 		paramsTrx.add(tokoId);
 		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= CAST(? AS date)"); paramsTrx.add(tglMulai); }
 		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= CAST(? AS date)"); paramsTrx.add(tglSampai); }
-		if (waktuMulai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND a.waktu::time >= CAST(? AS time)"); paramsTrx.add(waktuMulai); }
-		if (waktuSampai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND a.waktu::time <= CAST(? AS time)"); paramsTrx.add(waktuSampai); }
+		if (waktuMulai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND CAST(a.waktu AS time) >= CAST(? AS time)"); paramsTrx.add(waktuMulai); }
+		if (waktuSampai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND CAST(a.waktu AS time) <= CAST(? AS time)"); paramsTrx.add(waktuSampai); }
 		if (kasirExact.length() > 0) {
 			whereTrx.append(" AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),'')) = LOWER(?)");
 			paramsTrx.add(kasirExact);
@@ -5262,7 +5262,7 @@ public class PosApi extends HttpServlet {
 				// lalu memakai kolom metode biasa spt sebelumnya.
 				+ "         MAX(CASE WHEN (COALESCE(pak.nominal_bayar_2,0)+COALESCE(pak.nominal_bayar_3,0)"
 				+ "                       +COALESCE(pak.nominal_bayar_4,0)+COALESCE(pak.nominal_bayar_5,0)) <> 0"
-				+ "              THEN (SELECT string_agg(sp.nm || '~' || sp.nilai::text, '|' ORDER BY sp.urut)"
+				+ "              THEN (SELECT string_agg(sp.nm || '~' || CAST(sp.nilai AS text), '|' ORDER BY sp.urut)"
 				+ "                    FROM (SELECT 1 AS urut, COALESCE(NULLIF(TRIM(c1.nama),''),'-') AS nm,"
 				+ "                                 (COALESCE(pak.total_biaya,0)-COALESCE(pak.nominal_bayar_2,0)"
 				+ "                                  -COALESCE(pak.nominal_bayar_3,0)-COALESCE(pak.nominal_bayar_4,0)"
@@ -6235,7 +6235,7 @@ public class PosApi extends HttpServlet {
 	 */
 	private String kondisiToko(String alias, Long pendaftarId) {
 		String a = (alias == null || alias.length() == 0) ? "" : (alias + ".");
-		String dasar = "COALESCE(?::bigint, COALESCE(" + a + "toko, -1)) = COALESCE(" + a + "toko, -1)";
+		String dasar = "COALESCE(CAST(? AS bigint), COALESCE(" + a + "toko, -1)) = COALESCE(" + a + "toko, -1)";
 		if (pendaftarId == null) {
 			return dasar;
 		}

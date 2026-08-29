@@ -622,7 +622,7 @@ public final class KantinMemberApi {
 
         String join  = " LEFT JOIN koperasi.toko b ON a.toko=b.id LEFT JOIN koperasi.cara_pembayaran_koperasi d ON d.id=a.cara_pembayaran_koperasi";
         String where = " WHERE a.anggota_koperasi=:m"
-            + (hasDate ? " AND DATE(a.tanggal_pembayaran) BETWEEN :sd::date AND :ed::date" : "")
+            + (hasDate ? " AND DATE(a.tanggal_pembayaran) BETWEEN CAST(:sd AS date) AND CAST(:ed AS date)" : "")
             + (hasKw   ? " AND (b.nama ILIKE :kw OR a.kode ILIKE :kw)" : "");
 
         Session s = HibernateUtil.getSessionFactory().openSession();
@@ -772,7 +772,7 @@ public final class KantinMemberApi {
 
         String join  = " LEFT JOIN koperasi.toko b ON a.toko=b.id LEFT JOIN koperasi.anggota_koperasi c ON c.id=a.anggota_koperasi LEFT JOIN koperasi.cara_pembayaran_koperasi d ON d.id=a.cara_pembayaran_koperasi";
         String where = " WHERE a.anggota_koperasi=:m"
-            + (hasDate ? " AND DATE(a.tanggal_pembayaran) BETWEEN :sd::date AND :ed::date" : "")
+            + (hasDate ? " AND DATE(a.tanggal_pembayaran) BETWEEN CAST(:sd AS date) AND CAST(:ed AS date)" : "")
             + (hasKw   ? " AND b.nama ILIKE :kw" : "");
 
         Session s = HibernateUtil.getSessionFactory().openSession();
@@ -881,7 +881,7 @@ public final class KantinMemberApi {
 
         String join  = " INNER JOIN koperasi.toko b ON a.toko=b.id AND b.aktif=true INNER JOIN koperasi.produk c ON c.id=a.produk";
         String where = " WHERE a.anggota_koperasi=:m"
-            + (hasDate ? " AND DATE(a.waktu) BETWEEN :sd::date AND :ed::date" : "")
+            + (hasDate ? " AND DATE(a.waktu) BETWEEN CAST(:sd AS date) AND CAST(:ed AS date)" : "")
             + (hasKw   ? " AND (c.nama ILIKE :kw OR c.kode ILIKE :kw OR b.nama ILIKE :kw)" : "");
 
         Session s = HibernateUtil.getSessionFactory().openSession();
@@ -946,7 +946,7 @@ public final class KantinMemberApi {
         boolean hasKw   = !keyword.isEmpty();
 
         String where = " WHERE anggota_koperasi=:m"
-            + (hasDate ? " AND DATE(kadaluarsa) BETWEEN :sd::date AND :ed::date" : "")
+            + (hasDate ? " AND DATE(kadaluarsa) BETWEEN CAST(:sd AS date) AND CAST(:ed AS date)" : "")
             + (hasKw   ? " AND (kode ILIKE :kw OR channel ILIKE :kw OR keterangan ILIKE :kw)" : "");
 
         Session s = HibernateUtil.getSessionFactory().openSession();

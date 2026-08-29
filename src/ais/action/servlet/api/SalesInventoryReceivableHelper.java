@@ -1030,7 +1030,7 @@ public final class SalesInventoryReceivableHelper {
 			if (customerId != null) where.append(" AND p.customer = ?");
 			if (salesId != null) where.append(" AND p.sales = ?");
 			if (dari != null) where.append(" AND p.tanggal >= ?");
-			if (sampai != null) where.append(" AND p.tanggal < (?::date + 1)");
+			if (sampai != null) where.append(" AND p.tanggal < (CAST(? AS date) + 1)");
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
 					"SELECT p.id, p.nomor, p.tanggal, p.nominal, p.metode, p.no_bg, p.nama_bank,"
 							+ " p.keterangan, c.id, c.nama, s.nama,"

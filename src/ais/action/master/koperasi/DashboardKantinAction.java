@@ -1208,7 +1208,7 @@ public class DashboardKantinAction extends GenericAutowireComposer {
         // precision, integer) does not exist". SUM(pb.qty)/30.0 & pembagian di baris kedua
         // menghasilkan double precision (literal 30.0), jadi di-cast ::numeric dulu.
         List<Object[]> estimasi = qShared("estimasihabisbahan", "SELECT b.nama, pr.nama, COALESCE(pr.stok,0), "
-                + "ROUND((SUM(pb.qty)/30.0)::numeric, 2), ROUND((COALESCE(pr.stok,0) / (SUM(pb.qty)/30.0))::numeric, 1) "
+                + "ROUND(CAST((SUM(pb.qty)/30.0) AS numeric), 2), ROUND(CAST((COALESCE(pr.stok,0) / (SUM(pb.qty)/30.0)) AS numeric), 1) "
                 + "FROM koperasi.pemakaian_bahan_baku pb "
                 + "JOIN koperasi.produk pr ON pr.id = pb.produk "
                 + "JOIN koperasi.toko b ON b.id = pb.toko "

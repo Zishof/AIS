@@ -102,7 +102,7 @@ public final class KadaluarsaFarmasiDashboardBuilder {
 
 			// Sepuluh item paling dekat kadaluarsa (belum lewat) beserta sisa hari.
 			String sqlItem = "select coalesce(nullif(trim(c.nama),''), '(Tanpa Nama)') as nama, "
-					+ "(a.tanggal_kadaluarsa::date - now()::date) as sisa_hari "
+					+ "(CAST(a.tanggal_kadaluarsa AS date) - CAST(now() AS date)) as sisa_hari "
 					+ "from sirs.kadaluarsa a left join sirs.item_medis c on (a.item = c.id) "
 					+ "where a.tanggal_kadaluarsa >= now() order by a.tanggal_kadaluarsa asc limit 10";
 			List<Object[]> barisItem = session.createSQLQuery(sqlItem).list();

@@ -59,7 +59,7 @@ public final class ApotikLaporanHelper {
 			String where = "FROM sirs.detail_transaksi_pasien d "
 					+ "JOIN sirs.kode_transaksi_medis k ON d.kode_transaksi = k.id "
 					+ "LEFT JOIN sirs.item_medis i ON d.item = i.id "
-					+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN ?::date AND (?::date + interval '1 day') "
+					+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') "
 					+ filterLokasi;
 
 			// KPI total
@@ -94,7 +94,7 @@ public final class ApotikLaporanHelper {
 					+ "JOIN sirs.kode_transaksi_medis k ON d.kode_transaksi = k.id "
 					+ "LEFT JOIN sirs.item_medis i ON d.item = i.id "
 					+ "LEFT JOIN sirs.apotik_item_profile ap ON ap.item = i.id "
-					+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN ?::date AND (?::date + interval '1 day') "
+					+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') "
 					+ filterLokasi;
 			java.sql.PreparedStatement psGol = session.connection().prepareStatement(
 					"SELECT COALESCE(ap.golongan_obat,'BEBAS') gol, SUM(d.qty), SUM(d.hasilpenghitungantotal) "
@@ -143,7 +143,7 @@ public final class ApotikLaporanHelper {
 			String sql = "SELECT l.waktu, i.kode, i.nama, l.golongan_obat, l.qty, l.nama_pembeli, "
 					+ "l.alamat_pembeli, l.nama_dokter, l.keterangan, l.oleh "
 					+ "FROM sirs.apotik_narkotika_log l LEFT JOIN sirs.item_medis i ON l.item = i.id "
-					+ "WHERE l.waktu BETWEEN ?::date AND (?::date + interval '1 day') " + filterGol
+					+ "WHERE l.waktu BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') " + filterGol
 					+ "ORDER BY l.waktu DESC LIMIT 1000";
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 			ps.setString(1, p[0]); ps.setString(2, p[1]);
@@ -198,7 +198,7 @@ public final class ApotikLaporanHelper {
 					+ "(kd.qty - COALESCE((SELECT SUM(bk.qty) FROM sirs.apotik_batch_konsumsi bk WHERE bk.kadaluarsa = kd.id),0)) sisa, "
 					+ "COALESCE(i.default_harga_beli,0) hb "
 					+ "FROM sirs.kadaluarsa kd LEFT JOIN sirs.item_medis i ON kd.item = i.id "
-					+ "WHERE kd.tanggal_kadaluarsa <= ?::date " + filterLokasi
+					+ "WHERE kd.tanggal_kadaluarsa <= CAST(? AS date) " + filterLokasi
 					+ "ORDER BY kd.tanggal_kadaluarsa ASC LIMIT 1000";
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 			ps.setString(1, fmt.format(batas.getTime()));

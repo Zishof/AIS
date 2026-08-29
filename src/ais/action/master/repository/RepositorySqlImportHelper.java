@@ -342,12 +342,12 @@ public class RepositorySqlImportHelper {
                 + "submitted_at=b.input_date, issued_at=case when b.publish_year ~ '^[0-9]{4}$' then to_date(b.publish_year || '-01-01','YYYY-MM-DD') else null end, "
                 + "tanggal_dirubah=now(), aktif=true "
                 + fromRepositoryData(schema)
-                + " where ri.oai_identifier='repository:biblio:' || b.biblio_id::text";
+                + " where ri.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text)";
     }
 
     private String buildInsertItemsSql(String schema, Long collectionId) {
         return "insert into public.repo_item (collection_id, oai_identifier, is_withdrawn, source_class, source_id, source_label, title, abstract_text, authors, subjects, publisher, language, document_type, access_policy, sync_status, sync_message, submitted_at, issued_at, tanggal_dirubah, aktif) "
-                + "select " + collectionId + ", 'repository:biblio:' || b.biblio_id::text, (coalesce(b.opac_hide,0)<>0), "
+                + "select " + collectionId + ", 'repository:biblio:' || CAST(b.biblio_id AS text), (coalesce(b.opac_hide,0)<>0), "
                 + "'repository.biblio', b.biblio_id, 'Repository SQL', "
                 + "left(coalesce(nullif(b.title,''),'Untitled'), 2000), "
                 + "coalesce(nullif(b.spec_detail_info,''), nullif(b.notes,''), ''), "
@@ -359,7 +359,7 @@ public class RepositorySqlImportHelper {
                 + "'OPEN_ACCESS', 'DRAFT', 'Imported from schema " + esc(schema) + "', "
                 + "b.input_date, case when b.publish_year ~ '^[0-9]{4}$' then to_date(b.publish_year || '-01-01','YYYY-MM-DD') else null end, now(), true "
                 + fromRepositoryData(schema)
-                + " where not exists (select 1 from public.repo_item x where x.oai_identifier='repository:biblio:' || b.biblio_id::text)";
+                + " where not exists (select 1 from public.repo_item x where x.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text))";
     }
 
     private String fromRepositoryData(String schema) {
@@ -375,7 +375,7 @@ public class RepositorySqlImportHelper {
     }
 
     private int insertMetadata(String schema) {
-        String base = " from public.repo_item ri join " + qs(schema, "biblio") + " b on ri.oai_identifier='repository:biblio:' || b.biblio_id::text "
+        String base = " from public.repo_item ri join " + qs(schema, "biblio") + " b on ri.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text) "
                 + "left join " + qs(schema, "mst_publisher") + " p on p.publisher_id=b.publisher_id "
                 + "left join " + qs(schema, "mst_language") + " l on l.language_id=b.language_id ";
         int total = 0;
@@ -393,7 +393,7 @@ public class RepositorySqlImportHelper {
     }
 
     private int insertMetadataField(String schema, String field, String valueExpression, String baseFrom) {
-        String value = "nullif(trim((" + valueExpression + ")::text),'')";
+        String value = "nullif(trim(CAST((" + valueExpression + ") AS text)),'')";
         String sql = "insert into public.repo_item_metadata (item_id, metadata_field, metadata_value, language, place, confidence, tanggal_dirubah, aktif) "
                 + "select ri.id, '" + esc(field) + "', left(" + value + ", 8000), null, 0, -1, now(), true "
                 + baseFrom
@@ -410,7 +410,7 @@ public class RepositorySqlImportHelper {
         }
         String path = "left(coalesce(nullif(f.file_url,''), nullif(f.file_dir || '/' || f.file_name, '/'), f.file_name), 500)";
         String sql = "insert into public.repo_bitstream (item_id, nama_file, mime_type, path_sistem, description, bundle_name, access_policy, source_class, source_id, primary_file, tanggal_dirubah, aktif) "
-                + "select ri.id, left(coalesce(nullif(f.file_name,''), 'file-' || f.file_id::text),255), "
+                + "select ri.id, left(coalesce(nullif(f.file_name,''), 'file-' || CAST(f.file_id AS text)),255), "
                 + "left(coalesce(nullif(f.mime_type,''),'application/octet-stream'),100), " + path + ", "
                 + "coalesce(nullif(f.file_desc,''), nullif(f.file_title,''), ''), 'ORIGINAL', "
                 + "case when ba.access_type='private' then 'PRIVATE' else 'OPEN_ACCESS' end, "
@@ -418,7 +418,7 @@ public class RepositorySqlImportHelper {
                 + "not exists (select 1 from public.repo_bitstream pb where pb.item_id=ri.id), now(), true "
                 + "from " + qs(schema, "biblio_attachment") + " ba "
                 + "join " + qs(schema, "files") + " f on f.file_id=ba.file_id "
-                + "join public.repo_item ri on ri.oai_identifier='repository:biblio:' || ba.biblio_id::text "
+                + "join public.repo_item ri on ri.oai_identifier='repository:biblio:' || CAST(ba.biblio_id AS text) "
                 + "where nullif(f.file_name,'') is not null "
                 + "and not exists (select 1 from public.repo_bitstream x where x.item_id=ri.id and x.source_class='repository.files' and x.source_id=f.file_id)";
         return executeCountSql(HibernateUtil.currentSession(), sql);

@@ -186,33 +186,33 @@ public final class MasterKeuanganApiHelper {
 			String sql;
 			if ("jenis_uang_muka".equals(tipe)) {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, m.akun_kelebihan, m.akun_sponsor, NULL::bigint,"
+						+ " COALESCE(m.aktif,true), m.akun, m.akun_kelebihan, m.akun_sponsor, CAST(NULL AS bigint),"
 						+ " (SELECT count(*) FROM public.uang_muka x WHERE x.jenis_uang_muka = m.id)"
 						+ " , m.satuan_kerja FROM public.jenis_uang_muka m";
 			} else if ("jenis_kas_kecil".equals(tipe)) {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, m.akun_penutup_kas_kecil, NULL::bigint, NULL::bigint,"
+						+ " COALESCE(m.aktif,true), m.akun, m.akun_penutup_kas_kecil, CAST(NULL AS bigint), CAST(NULL AS bigint),"
 						+ " (SELECT count(*) FROM akunting.kas_kecil x WHERE x.jenis_kas_kecil = m.id)"
 						+ " , m.satuan_kerja FROM public.jenis_kas_kecil m";
 			} else if ("jenis_kas_besar".equals(tipe)) {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, m.akun_penerima, NULL::bigint, NULL::bigint,"
+						+ " COALESCE(m.aktif,true), m.akun, m.akun_penerima, CAST(NULL AS bigint), CAST(NULL AS bigint),"
 						+ " (SELECT count(*) FROM akunting.kas_besar x WHERE x.jenis_kas_besar = m.id)"
 						+ " , m.satuan_kerja FROM public.jenis_kas_besar m";
 			} else if ("jenis_reimbursement".equals(tipe)) {
 				sql = "SELECT m.id, '' AS kode, COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, NULL::bigint, NULL::bigint,"
-						+ " CASE WHEN COALESCE(m.menggunakan_anggaran,false) THEN 1 ELSE 0 END::bigint,"
+						+ " COALESCE(m.aktif,true), m.akun, CAST(NULL AS bigint), CAST(NULL AS bigint),"
+						+ " CAST(CASE WHEN COALESCE(m.menggunakan_anggaran,false) THEN 1 ELSE 0 END AS bigint),"
 						+ " (SELECT count(*) FROM akunting.reimbursement_pegawai x"
 						+ "  WHERE x.jenis_reimbursement = m.id)"
 						+ " , m.satuan_kerja FROM akunting.jenis_reimbursement m";
 			} else if ("jenis_pengeluaran".equals(tipe)) {
 				sql = "SELECT m.id, '' AS kode, COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, NULL::bigint, NULL::bigint, NULL::bigint,"
-						+ " 0::bigint, NULL::bigint FROM akunting.jenis_pengeluaran m";
+						+ " COALESCE(m.aktif,true), m.akun, CAST(NULL AS bigint), CAST(NULL AS bigint), CAST(NULL AS bigint),"
+						+ " CAST(0 AS bigint), CAST(NULL AS bigint) FROM akunting.jenis_pengeluaran m";
 			} else {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
-						+ " COALESCE(m.aktif,true), m.akun, m.akun_transitori, NULL::bigint, NULL::bigint,"
+						+ " COALESCE(m.aktif,true), m.akun, m.akun_transitori, CAST(NULL AS bigint), CAST(NULL AS bigint),"
 						+ " (SELECT count(*) FROM akunting.proses_transfer x"
 						+ "  WHERE x.cara_pembayaran_transfer = m.id)"
 						+ " , m.satuan_kerja FROM akunting.cara_pembayaran_transfer m";

@@ -143,7 +143,7 @@ public class LaporanDkps_6_6_IpkLulusan extends AkreditasiBaseWindow {
                             + "COUNT(CASE WHEN m.ipk >= 2.75 AND m.ipk < 3.0 THEN 1 END) as ipk_cukup, "
                             + "COUNT(CASE WHEN m.ipk >= 3.0 AND m.ipk < 3.5 THEN 1 END) as ipk_baik, "
                             + "COUNT(CASE WHEN m.ipk >= 3.5 THEN 1 END) as ipk_sangat_baik, "
-                            + "ROUND(AVG(m.ipk)::numeric, 2) as rata_ipk "
+                            + "ROUND(CAST(AVG(m.ipk) AS numeric), 2) as rata_ipk "
                             + "FROM mahasiswa m INNER JOIN jurusan j ON m.jurusan=j.id "
                             + "WHERE m.ipk IS NOT NULL AND m.tanggal_lulus IS NOT NULL"
                             + jurusanFilter
