@@ -341,6 +341,15 @@ public class PembayaranUtilHelper {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:341");}
 			}
 
+			/*
+			 * Setting biaya khusus mahasiswa harus diperiksa SEBELUM guard mode
+			 * bulanan/angsuran. Sebelumnya guard langsung mengembalikan koleksi kosong,
+			 * sehingga setting khusus (yang memang memakai nilai/default tanggal pada
+			 * Setting Biaya) tidak pernah sempat dibaca untuk jenis kegiatan bulanan.
+			 */
+			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session,
+					mahasiswa, jenisKegiatan, semester, ta);
+
 			if (bulan == null && jenisKegiatan != null) {
 				// Per-jenjang PER-SEMESTER (dan per-angkatan bila diisi format TAHUN:SMT):
 				// aturan angsuran hanya mengenai semester/angkatan yang masuk daftar
@@ -351,17 +360,21 @@ public class PembayaranUtilHelper {
 						"[DEBUG-ANGSURAN][getDetailBiaya] mhs=" + (mahasiswa != null ? mahasiswa.getNim() : "null")
 						+ " jk=" + jenisKegiatan.getNama() + " jenjang=" + (jenjang != null ? jenjang.getNama() : "null")
 						+ " bulan=" + bulan + " modeAngsuran=" + modeAngsuran);
-				if (Boolean.TRUE.equals(modeAngsuran)) {
+				if (Boolean.TRUE.equals(modeAngsuran)
+						&& (biayaDefault == null || biayaDefault.isEmpty())) {
 					if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
-							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE: return empty (harus angsuran, skip billing reguler)");
+							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tanpa setting khusus: return empty (lanjut jalur angsuran bulanan)");
 					return new TreeSet();
+				}
+				if (Boolean.TRUE.equals(modeAngsuran) && biayaDefault != null && !biayaDefault.isEmpty()
+						&& JenisKegiatan.DEBUG_MODE_ANGSURAN) {
+					System.out.println("[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tetapi setting khusus mahasiswa ditemukan: proses setting khusus");
 				}
 				// FALSE (bukan angsuran) atau null → lanjut query billing reguler
 				if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
 						"[DEBUG-ANGSURAN][getDetailBiaya] → " + modeAngsuran + ": lanjut query billing reguler");
 			}
 
-			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, mahasiswa, jenisKegiatan, semester, ta);
 			AfiliasiCalonMahasiswa afiliasiCalonMahasiswa = null;
 
 			if (biayaDefault == null || biayaDefault.isEmpty()) {

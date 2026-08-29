@@ -18,6 +18,7 @@ import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -61,6 +62,7 @@ import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.AfiliasiCalonMahasiswa;
 import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.CicilanPembayaran;
 import ais.database.model.DetailBiaya;
 import ais.database.model.DetailKegiatan;
 import ais.database.model.DetailSettingBiaya;
@@ -672,6 +674,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 										if (i == MyMessageboxConfig.OK) {
 											try {
 
+												if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
+													return;
+												}
 												Common.refreshDelete(settingBiayaDetail);
 
 												loadData(null);
@@ -845,6 +850,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 										if (i == MyMessageboxConfig.OK) {
 											try {
 
+												if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
+													return;
+												}
 												Common.refreshDelete(settingBiayaDetail);
 
 												loadData(null);
@@ -1043,6 +1051,66 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 	public void loadData(Object value) {
 		loadData(value, false);
+	}
+
+	/**
+	 * Membersihkan template DetailBiaya yang belum pernah dipakai, sekaligus mencegah
+	 * penghapusan binding menghasilkan exception FK mentah bila sudah menjadi transaksi.
+	 */
+	private boolean bolehHapusSettingBiayaDetail(SettingBiayaDetail settingBiayaDetail) throws Exception {
+		if (settingBiayaDetail == null || settingBiayaDetail.getId() == null) {
+			return true;
+		}
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			@SuppressWarnings("unchecked")
+			List<DetailBiaya> templates = session.createCriteria(DetailBiaya.class)
+					.add(Restrictions.eq("settingBiayaDetail", settingBiayaDetail)).list();
+			long jumlahDipakai = 0L;
+			for (DetailBiaya template : templates) {
+				Number kegiatan = (Number) session.createCriteria(DetailKegiatan.class)
+						.add(Restrictions.eq("detailBiaya", template))
+						.setProjection(Projections.rowCount()).uniqueResult();
+				Number cicilan = (Number) session.createCriteria(CicilanPembayaran.class)
+						.add(Restrictions.eq("detailBiaya", template))
+						.setProjection(Projections.rowCount()).uniqueResult();
+				Number bulanan = (Number) session.createCriteria(PengaturanPembayaranBulanan.class)
+						.add(Restrictions.eq("detailBiaya", template))
+						.setProjection(Projections.rowCount()).uniqueResult();
+				jumlahDipakai += (kegiatan == null ? 0L : kegiatan.longValue())
+						+ (cicilan == null ? 0L : cicilan.longValue())
+						+ (bulanan == null ? 0L : bulanan.longValue());
+			}
+			if (jumlahDipakai > 0L) {
+				MyMessageboxConfig.show(
+						"Mahasiswa belum dapat dilepas dari setting biaya karena template sudah dipakai oleh "
+								+ jumlahDipakai + " tagihan/transaksi. Hapus terlebih dahulu tagihan yang belum dibayar "
+								+ "melalui menu Pembayaran Mahasiswa (Hapus Tagihan/Bersihkan Item Tak Sesuai), "
+								+ "kemudian ulangi penghapusan di sini. Data pembayaran yang sudah diproses tidak akan dihapus otomatis.",
+						"Data Masih Digunakan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+			if (!templates.isEmpty()) {
+				Transaction transaction = session.beginTransaction();
+				try {
+					for (DetailBiaya template : templates) {
+						session.delete(template);
+					}
+					transaction.commit();
+				} catch (Exception e) {
+					if (transaction != null && transaction.isActive()) {
+						transaction.rollback();
+					}
+					throw e;
+				}
+			}
+			return true;
+		} finally {
+			if (session != null && session.isOpen()) {
+				session.close();
+			}
+		}
 	}
 
 	@SuppressWarnings("unchecked")
