@@ -90,22 +90,31 @@ luar Tomcat butuh `el-api.jar` + `jasper-el.jar` Tomcat di classpath (Hibernate
 Validator menagih `javax.el` saat save; harness baca-saja seperti TesSesiPadaWaktu tidak
 kena), dan `System.exit` eksplisit di akhir karena pool c3p0 bukan thread daemon.
 
-## 6. Peta sisa modul yang belum punya mesin (inventarisasi 29 Agustus 2026)
+## 6. Peta sisa modul yang belum punya mesin — TUNTAS (29 Agustus 2026)
 
-Terpasang saat ini: 31 baris (termasuk Jurnal Umum ini). Belum:
+Inventarisasi awal 29 Agustus 2026 (saat itu terpasang 31 baris, termasuk Jurnal Umum
+ini). Seluruh butir peta selesai pada hari yang sama:
 
-- **PJ Pengembalian** (`PostingPertangungjawabanPengembalianAction`) — saudara PJ Uang
-  Muka yang sudah jadi; kandidat termudah berikutnya.
-- **Trio pembayaran aset** (`PostingPembayaranAction`, `PostingPembayaranDpAction`,
-  `PostingPembayaranTerminAction`) — sisi kas-keluar rantai vendor.
-- **Perjanjian Kerjasama**, **payroll Pegawai/Penggajian** (yang terpasang baru
-  Pembayaran Gaji), **Saldo Awal Kas Kecil** (`PostingJenisKasKecilAction`).
-- **Kantin: HPP, Penjualan, Toko** — polanya batch-per-periode (bukan per dokumen),
-  perlu desain endpoint sendiri; baris dasbor "Posting HPP" sudah ada (kondisional),
-  kategori "posting_penjualan" sudah dicadangkan di `DraftJurnalRingkasanUtil`.
+- **PJ Pengembalian** — SELESAI r78531 (mesin) + r78539 (perbaikan tombol layar ZK),
+  dok [54](54-posting-pengembalian-uang-muka.md).
+- **Trio pembayaran aset** (`PostingPembayaran/Dp/TerminAction`) — SELESAI
+  r78536+r78540, dok [57 vendor](57-posting-pembayaran-vendor.md) (audit tombol ZK:
+  bersih).
+- **Perjanjian Kerjasama** — SELESAI, dok [56](56-posting-perjanjian-kerjasama.md).
+  **Payroll Pegawai/Penggajian** — SELESAI r78548 (mesin) + r78551/r78552 (perbaikan
+  empat cacat tombol layar ZK), dok
+  [57 payroll](57-posting-payroll-pegawai-penggajian.md).
+  **Saldo Awal Kas Kecil** — SELESAI r78554–r78557, dok
+  [58](58-posting-saldo-awal-kas-kecil.md).
+- **Kantin: HPP, Penjualan, Toko** — SELESAI r78560: lima baris dasbor + ruting batch
+  per periode (HPP/Penjualan, batal mundur-saja) dan per dokumen (4 posting toko,
+  batal diarahkan ke dokumen pembalik), dok [59](59-posting-kantin-dasbor.md).
 - Bukan mesin (jangan dibuatkan): `PostingJurnalAction` (kontainer multi-tab),
   `PostingHistoryAction` (penampil riwayat), `PostingPenyusutanTabsAction` (pembungkus
   sub-tab).
+
+Dengan ini setiap baris dasbor draft jurnal yang punya mesin juga punya tombol yang
+benar-benar bekerja — atau penolakan yang menjelaskan dirinya.
 
 ## 7. Revisi
 
