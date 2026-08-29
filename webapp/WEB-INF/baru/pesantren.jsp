@@ -15,11 +15,19 @@
     }
     private static String href(String value, String fallback) {
         String v = value == null ? "" : value.trim();
-        if (v.startsWith("https://") || v.startsWith("http://") || v.startsWith("/")
+        if (v.startsWith("https://") || v.startsWith("http://") || (v.startsWith("/") && !v.startsWith("//"))
                 || v.startsWith("#") || v.startsWith("mailto:") || v.startsWith("tel:")) {
             return StringEscapeUtils.escapeHtml(v);
         }
         return StringEscapeUtils.escapeHtml(fallback == null ? "#" : fallback);
+    }
+    private static String image(String value, String fallback) {
+        String v = value == null ? "" : value.trim();
+        if (v.startsWith("https://") || (v.startsWith("/") && !v.startsWith("//"))) return v;
+        return fallback == null ? "" : fallback;
+    }
+    private static String jsonScript(JSONObject value) {
+        return value.toString().replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e");
     }
     private static String digits(String value) {
         return value == null ? "" : value.replaceAll("[^0-9]", "");
@@ -79,18 +87,55 @@
     JSONObject newsSection = PesantrenWebsiteConfig.object(site, "newsSection");
     JSONObject cta = PesantrenWebsiteConfig.object(site, "cta");
     JSONObject footerContent = PesantrenWebsiteConfig.object(site, "footer");
+    String language = Common.kodeBahasaAktif();
+    if (language == null || language.trim().isEmpty()) language = "id";
+    String direction = "ar".equalsIgnoreCase(language) ? "rtl" : "ltr";
+    String nonce = String.valueOf(request.getAttribute("pesantrenCspNonce"));
+    if ("null".equals(nonce)) nonce = "";
+    String seoTitle = t(seo, "title", profil.getNama() + " - Portal ePesantren");
+    String seoDescription = t(seo, "description", "Portal terpadu " + profil.getNama());
+    String canonical = t(seo, "canonical", root + "/index");
+    if (!(canonical.startsWith("https://") || canonical.startsWith("http://")
+            || (canonical.startsWith("/") && !canonical.startsWith("//")))) canonical = root + "/index";
+    String socialImage = image(t(theme, "heroImage", profil.getLatar()), root + "/img/pesantren/hero-default-v1.png");
+    JSONObject structuredData = new JSONObject();
+    structuredData.put("@context", "https://schema.org");
+    structuredData.put("@type", "EducationalOrganization");
+    structuredData.put("name", profil.getNama());
+    structuredData.put("description", seoDescription);
+    if (canonical.startsWith("http")) structuredData.put("url", canonical);
+    if (!profil.getLogo().isEmpty()) structuredData.put("logo", image(profil.getLogo(), root + "/img/logo.png"));
+    if (!profil.getAlamat().isEmpty()) structuredData.put("address", profil.getAlamat());
+    if (!profil.getTelepon().isEmpty()) structuredData.put("telephone", profil.getTelepon());
+    if (!profil.getEmail().isEmpty()) structuredData.put("email", profil.getEmail());
     String wa = digits(profil.getWa());
     if (wa.startsWith("0")) wa = "62" + wa.substring(1);
 %>
 <!doctype html>
-<html lang="id">
+<html lang="<%=e(language)%>" dir="<%=direction%>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="<%=e(profil.getWarna())%>">
-    <meta name="description" content="<%=e(t(seo, "description", "Portal terpadu " + profil.getNama()))%>">
-    <title><%=e(t(seo, "title", profil.getNama() + " - Portal ePesantren"))%></title>
-    <style>
+    <meta name="description" content="<%=e(seoDescription)%>">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:title" content="<%=e(seoTitle)%>">
+    <meta property="og:description" content="<%=e(seoDescription)%>">
+    <meta property="og:url" content="<%=e(canonical)%>">
+    <meta property="og:image" content="<%=e(socialImage)%>">
+    <meta property="og:site_name" content="<%=e(profil.getNama())%>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%=e(seoTitle)%>">
+    <meta name="twitter:description" content="<%=e(seoDescription)%>">
+    <link rel="canonical" href="<%=e(canonical)%>">
+    <link rel="icon" href="<%=e(image(profil.getLogo(), root + "/img/logo.png"))%>">
+    <link rel="manifest" href="<%=e(root)%>/website.webmanifest">
+    <link rel="alternate" type="application/rss+xml" title="Kabar <%=e(profil.getNama())%>" href="<%=e(root)%>/website-feed.xml">
+    <title><%=e(seoTitle)%></title>
+    <script type="application/ld+json" nonce="<%=e(nonce)%>"><%=jsonScript(structuredData)%></script>
+    <style nonce="<%=e(nonce)%>">
         :root {
             --primary: <%=e(profil.getWarna())%>;
             --ink: <%=e(color(theme, "ink", "#102a2a"))%>;
@@ -106,30 +151,41 @@
         }
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { margin: 0; color: var(--ink); background: var(--cream); font: 16px/1.65 Inter, "Segoe UI", Arial, sans-serif; }
+        body { margin: 0; color: var(--ink); background: linear-gradient(180deg, var(--cream), #f7f5ed); font: 16px/1.65 Inter, "Segoe UI", Arial, sans-serif; }
         a { color: inherit; }
         img { max-width: 100%; }
+        a:focus-visible, summary:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 8px; }
         .skip { position: fixed; left: 16px; top: -80px; z-index: 999; padding: 10px 16px; background: #fff; border-radius: 12px; }
         .skip:focus { top: 12px; }
         .announcement { padding: 9px 20px; color: #fff; background: var(--emerald-dark); text-align: center; font-size: 14px; }
         .announcement a { color: #f2d68e; font-weight: 800; text-decoration: none; }
         .wrap { width: min(1180px, calc(100% - 40px)); margin: auto; }
-        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(251,250,245,.9); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(251,250,245,.94); backdrop-filter: blur(16px); border-top: 3px solid var(--gold); border-bottom: 1px solid var(--line); }
         .topbar-inner { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
         .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; min-width: 0; }
         .brand img { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; background: #fff; padding: 4px; }
         .brand strong { display: block; font: 700 17px/1.2 Georgia, serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
         .brand span { display: block; color: var(--muted); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-        nav { display: flex; align-items: center; gap: 22px; }
-        nav a { text-decoration: none; font-size: 14px; font-weight: 650; }
+        .desktop-nav { display: flex; align-items: center; gap: 22px; }
+        .desktop-nav a { text-decoration: none; font-size: 14px; font-weight: 650; }
+        .mobile-nav { display: none; position: relative; }
+        .mobile-nav summary { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); cursor: pointer; list-style: none; font-size: 0; }
+        .mobile-nav summary::-webkit-details-marker { display: none; }
+        .mobile-nav summary::before { content: "☰"; font-size: 22px; line-height: 1; }
+        .mobile-nav[open] summary::before { content: "×"; font-size: 28px; }
+        .mobile-menu { position: absolute; right: 0; top: 54px; display: grid; width: min(320px, calc(100vw - 28px)); padding: 14px; border: 1px solid var(--line); border-radius: 20px; background: #fff; box-shadow: var(--shadow); }
+        .mobile-menu a { padding: 12px 14px; border-radius: 12px; text-decoration: none; font-weight: 750; }
+        .mobile-menu a:hover { background: #eef5f2; }
+        .mobile-menu .button { margin-top: 8px; color: #fff; }
         .button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent; text-decoration: none; font-weight: 750; transition: transform .2s ease, box-shadow .2s ease; }
         .button:hover { transform: translateY(-2px); }
         .button-primary { color: #fff; background: var(--primary); box-shadow: 0 12px 28px rgba(15,118,110,.22); }
         .button-light { color: var(--ink); background: #fff; border-color: rgba(255,255,255,.55); }
         .button-outline { border-color: var(--line); background: rgba(255,255,255,.72); }
         .hero { position: relative; overflow: hidden; min-height: 670px; color: #fff; background: var(--emerald-dark); }
-        .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,45,43,.96) 0%, rgba(4,45,43,.88) 50%, rgba(4,45,43,.35) 100%), url('<%=href(profil.getLatar(), root + "/img/main.jpg")%>') center/cover; }
-        .hero::after { content: ""; position: absolute; inset: 0; opacity: .18; background-image: radial-gradient(circle at 20px 20px, #e4bf6a 1.5px, transparent 1.8px); background-size: 42px 42px; mask-image: linear-gradient(to right, #000, transparent 78%); }
+        .hero-media { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+        .hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(4,45,43,.97) 0%, rgba(4,45,43,.9) 48%, rgba(4,45,43,.45) 100%); }
+        .hero::after { content: ""; position: absolute; inset: 0; z-index: 1; opacity: .18; background-image: radial-gradient(circle at 20px 20px, #e4bf6a 1.5px, transparent 1.8px); background-size: 42px 42px; mask-image: linear-gradient(to right, #000, transparent 78%); }
         .hero-grid { position: relative; z-index: 2; display: grid; grid-template-columns: 1.12fr .88fr; gap: 70px; align-items: center; min-height: 670px; padding: 84px 0; }
         .eyebrow { display: inline-flex; align-items: center; gap: 10px; color: #f2d68e; font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
         .eyebrow::before { content: ""; width: 34px; height: 1px; background: currentColor; }
@@ -227,16 +283,22 @@
         .gallery-placeholder { display: grid; place-items: center; height: 100%; padding: 28px; color: rgba(255,255,255,.8); text-align: center; }
         .news time { color: var(--gold); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
         .empty { padding: 42px; text-align: center; border: 1px dashed rgba(15,118,110,.28); border-radius: 24px; color: var(--muted); }
+        .content-warning { margin: 22px auto 0; padding: 14px 18px; border: 1px solid #e4c875; border-radius: 16px; color: #5d4b12; background: #fff8d9; font-size: 14px; }
+        .news-link { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); text-decoration: none; font-weight: 850; }
+        .news-link::after { content: "→"; }
         .contact { padding-top: 0; }
         .contact-card { display: grid; grid-template-columns: 1.2fr .8fr; gap: 44px; padding: 54px; border-radius: 34px; background: linear-gradient(135deg, var(--primary), var(--emerald-dark)); color: #fff; box-shadow: var(--shadow); }
         .contact-card h2 { margin: 8px 0 16px; font-size: 44px; line-height: 1.05; }
         .contact-card p { color: rgba(255,255,255,.78); }
         .contact-list { display: grid; gap: 10px; align-content: center; }
         .contact-list a, .contact-list span { padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,.09); text-decoration: none; }
-        footer { padding: 38px 0; color: var(--muted); border-top: 1px solid var(--line); }
+        footer { padding: 38px 0; color: var(--muted); border-top: 1px solid var(--line); background: #fff; }
         .footer-inner { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+        .footer-links a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 4px; }
         @media (max-width: 980px) {
-            nav a:not(.button) { display: none; }
+            .desktop-nav { display: none; }
+            .mobile-nav { display: block; }
             .hero-grid, .bio-grid, .contact-card, .section-head { grid-template-columns: 1fr; }
             .hero-grid { gap: 30px; }
             .hero-card { align-self: auto; }
@@ -250,7 +312,7 @@
             .wrap { width: min(100% - 26px, 1180px); }
             .topbar-inner { min-height: 68px; }
             .brand strong { max-width: 180px; }
-            nav .button { padding: 0 14px; min-height: 40px; }
+            .mobile-nav .button { padding: 0 14px; min-height: 40px; }
             .hero-grid { min-height: auto; padding: 68px 0; }
             h1 { font-size: 42px; }
             section { padding: 72px 0; }
@@ -281,16 +343,29 @@
             <img src="<%=href(profil.getLogo(), root + "/img/logo.png")%>" alt="Logo <%=e(profil.getNama())%>">
             <span><strong><%=e(profil.getNama())%></strong><span><%=e(t(identity, "shortName", "ePesantren"))%></span></span>
         </a>
-        <nav aria-label="Navigasi utama">
+        <nav class="desktop-nav" aria-label="Navigasi utama">
             <% for (int i = 0; i < navigation.length(); i++) { JSONObject menu = item(navigation, i); %>
             <a href="<%=href(t(menu, "url", "#"), "#")%>"><%=e(t(menu, "label", "Menu"))%></a>
             <% } %>
             <a class="button button-primary" href="<%=href(t(heroPrimary, "url", root + "/login"), "#")%>"><%=e(t(heroPrimary, "label", "Masuk Sistem"))%></a>
         </nav>
+        <details class="mobile-nav">
+            <summary aria-label="Buka navigasi">Menu</summary>
+            <nav class="mobile-menu" aria-label="Navigasi seluler">
+                <% for (int i = 0; i < navigation.length(); i++) { JSONObject menu = item(navigation, i); %>
+                <a href="<%=href(t(menu, "url", "#"), "#")%>"><%=e(t(menu, "label", "Menu"))%></a>
+                <% } %>
+                <a class="button button-primary" href="<%=href(t(heroPrimary, "url", root + "/login"), "#")%>"><%=e(t(heroPrimary, "label", "Masuk Sistem"))%></a>
+            </nav>
+        </details>
     </div>
 </header>
+<% if (Boolean.TRUE.equals(request.getAttribute("pesantrenContentWarning"))) { %>
+<div class="wrap content-warning" role="status">Sebagian informasi dinamis sedang tidak tersedia. Tautan layanan utama tetap dapat digunakan.</div>
+<% } %>
 <main id="konten">
     <section class="hero" id="awal">
+        <img class="hero-media" src="<%=e(image(profil.getLatar(), root + "/img/pesantren/hero-default-v1.png"))%>" alt="" aria-hidden="true" fetchpriority="high" decoding="async">
         <div class="wrap hero-grid">
             <div>
                 <div class="eyebrow"><%=e(t(hero, "eyebrow", "Satu Pesantren · Satu Sistem · Satu Data"))%></div>
@@ -419,7 +494,7 @@
         <div class="section-head"><div><span class="kicker"><%=e(t(gallerySection, "eyebrow", "Suasana dan fasilitas"))%></span><h2><%=e(t(gallerySection, "title", "Kehidupan pondok dalam gambar"))%></h2></div><p><%=e(t(gallerySection, "body", ""))%></p></div>
         <div class="gallery-grid">
             <% for (int i = 0; i < gallery.length(); i++) { JSONObject photo = item(gallery, i); String image = t(photo, "image", ""); %>
-            <article class="gallery-item"><% if (!image.isEmpty()) { %><img src="<%=href(image, root + "/img/main.jpg")%>" alt="<%=e(t(photo, "title", "Foto pondok"))%>" loading="lazy"><% } else { %><div class="gallery-placeholder">Foto dapat diisi dari JSON Yayasan tanpa mengubah JSP.</div><% } %><div class="gallery-copy"><h3><%=e(t(photo, "title", "Kegiatan pondok"))%></h3><p><%=e(t(photo, "caption", ""))%></p></div></article>
+            <article class="gallery-item"><% if (!image.isEmpty()) { %><img src="<%=e(image(image, root + "/img/pesantren/hero-default-v1.png"))%>" alt="<%=e(t(photo, "title", "Foto pondok"))%>" loading="lazy" decoding="async"><% } else { %><div class="gallery-placeholder">Foto dapat diisi dari JSON Yayasan tanpa mengubah JSP.</div><% } %><div class="gallery-copy"><h3><%=e(t(photo, "title", "Kegiatan pondok"))%></h3><p><%=e(t(photo, "caption", ""))%></p></div></article>
             <% } %>
         </div>
     </div></section>
@@ -429,7 +504,7 @@
     <section id="berita">
         <div class="wrap">
             <div class="section-head"><div><span class="kicker"><%=e(t(newsSection, "eyebrow", "Kabar pondok"))%></span><h2><%=e(t(newsSection, "title", "Pengumuman umum terbaru"))%></h2></div><p><%=e(t(newsSection, "body", ""))%></p></div>
-            <% if (berita.isEmpty()) { %><div class="empty">Belum ada pengumuman umum yang dipublikasikan.</div><% } else { %><div class="news-grid"><% for (Berita item : berita) { %><article class="news"><time><%=e(item.getTanggal())%></time><h3><%=e(item.getJudul())%></h3><p><%=e(item.getRingkasan())%></p></article><% } %></div><% } %>
+            <% if (berita.isEmpty()) { %><div class="empty">Belum ada pengumuman umum yang dipublikasikan.</div><% } else { %><div class="news-grid"><% for (Berita item : berita) { %><article class="news"><time><%=e(item.getTanggal())%></time><h3><%=e(item.getJudul())%></h3><p><%=e(item.getRingkasan())%></p><a class="news-link" href="<%=e(root)%>/web/berita/<%=e(item.getId())%>" aria-label="Baca selengkapnya: <%=e(item.getJudul())%>">Baca selengkapnya</a></article><% } %></div><% } %>
         </div>
     </section>
     <% } %>
@@ -438,6 +513,6 @@
     <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2><%=e(t(cta, "title", "Informasi dan layanan resmi " + profil.getNama()))%></h2><p><%=e(t(cta, "body", profil.getAlamat()))%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><div class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Seluruh konten halaman ini dapat disesuaikan dari JSON Website pada master Yayasan.</span></div></div></div></section>
     <% } %>
 </main>
-<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(t(footerContent, "left", profil.getNama()))%></span><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>
+<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(t(footerContent, "left", profil.getNama()))%></span><nav class="footer-links" aria-label="Informasi situs"><a href="<%=e(root)%>/web/privasi">Privasi</a><a href="<%=e(root)%>/web/aksesibilitas">Aksesibilitas</a><a href="<%=e(root)%>/web/ppid">PPID</a></nav><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>
 </body>
 </html>

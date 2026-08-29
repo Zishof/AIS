@@ -453,6 +453,28 @@ public class Produk extends GeneralValueObject {
 		this.satuanPembelian = satuanPembelian;
 	}
 
+	/** Rute pemenuhan {@link #getRute()}: beli ke vendor/gudang induk (perilaku lama). */
+	public static final String RUTE_BELI = "BELI";
+	/** Rute pemenuhan {@link #getRute()}: produksi sendiri (ambang stok memicu draf WO). */
+	public static final String RUTE_PRODUKSI = "PRODUKSI";
+
+	private String rute;
+
+	/**
+	 * Rute pemenuhan kembali stok (Fase C dok. 48 P3): {@link #RUTE_BELI} atau
+	 * {@link #RUTE_PRODUKSI}. {@code null}/kosong = BELI = perilaku hari ini -- katalog lama tidak
+	 * berubah makna. Dibaca {@link ais.common.StokThresholdScheduler} untuk memilih keluaran
+	 * otomatis: pengajuan pembelian (BELI) atau draf Work Order produksi (PRODUKSI).
+	 */
+	@Column(name = "rute", nullable = true, length = 20)
+	public String getRute() {
+		return rute;
+	}
+
+	public void setRute(String rute) {
+		this.rute = rute;
+	}
+
 	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */
 	@org.hibernate.envers.NotAudited
 	@ManyToOne(fetch = FetchType.LAZY)

@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Hibernate;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
@@ -52,7 +53,8 @@ public class RepositoryAlertService {
             session=HibernateUtil.openSession();tx=session.beginTransaction();
             RepoUserPreference preference=(RepoUserPreference)session.get(RepoUserPreference.class,preferenceId);
             if(preference==null||!Boolean.TRUE.equals(preference.getAktif())||!"SEARCH_ALERT".equals(preference.getPreferenceType())){tx.commit();return;}
-            Date now=new Date();Date since=preference.getLastCheckedAt()!=null?preference.getLastCheckedAt():preference.getCreatedAt();
+            session.lock(preference,LockMode.UPGRADE);
+            Date now=new Date();Date since=preference.getLastCheckedAt()!=null?new Date(Math.max(0L,preference.getLastCheckedAt().getTime()-60000L)):preference.getCreatedAt();
             if(since==null)since=now;
             AlertFilter filter=parse(preference.getQueryValue());
             Criteria criteria=criteria(session,preference.getTenantKey(),filter,since)

@@ -39,6 +39,7 @@ import ais.database.model.repository.RepoHelpFeedback;
 /** Typed repository administration, reporting, import validation, and preservation checks. */
 public class RepositoryAdminService {
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
+    private final RepositoryFileService fileService = new RepositoryFileService();
 
     public static class Health {
         public long collections, items, publicItems, missingOai, duplicateOai, failedSync;
@@ -164,7 +165,7 @@ public class RepositoryAdminService {
             List<RepoItem> items = session.createCriteria(RepoItem.class).add(Restrictions.eq("tenantKey",RepositoryTenantScope.currentKey())).addOrder(Order.asc("id")).list();
             Sheet sheet = wb.createSheet("Items"); row(sheet, 0, new Object[] {"ID","OAI Identifier","Judul","Penulis","Jenis","Status","Akses","DOI","Collection ID","Updated"});
             int i = 1; for (RepoItem item : items) row(sheet, i++, new Object[] {item.getId(),item.getOaiIdentifier(),item.getTitle(),item.getAuthors(),item.getDocumentType(),item.getWorkflowStatus(),item.getAccessPolicy(),item.getDoi(),item.getCollectionId(),item.getTanggal_dirubah()});
-            List<RepoWorkflowEvent> events = session.createCriteria(RepoWorkflowEvent.class).addOrder(Order.asc("id")).list();
+            List<RepoWorkflowEvent> events = session.createQuery("from RepoWorkflowEvent e where e.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant) order by e.id asc").setString("tenant",RepositoryTenantScope.currentKey()).list();
             Sheet audit = wb.createSheet("Workflow Audit"); row(audit, 0, new Object[] {"ID","Item ID","Action","From","To","Actor","Comment","Created"});
             i = 1; for (RepoWorkflowEvent e : events) row(audit, i++, new Object[] {e.getId(),e.getItemId(),e.getAction(),e.getFromStatus(),e.getToStatus(),e.getActorName(),e.getCommentText(),e.getCreatedAt()});
             for (int c=0;c<10;c++) sheet.autoSizeColumn(c); for (int c=0;c<8;c++) audit.autoSizeColumn(c);
@@ -194,8 +195,9 @@ public class RepositoryAdminService {
     public FixityResult verifyFixity(Tbmuser actor) {
         requireAdmin(actor); Session session = HibernateUtil.openSession();
         try {
-            List<RepoBitstream> files = session.createCriteria(RepoBitstream.class).add(Restrictions.eq("aktif", Boolean.TRUE)).list(); FixityResult r = new FixityResult();
-            for (RepoBitstream bit : files) { r.checked++; try { File f = new File(bit.getPathSistem()).getCanonicalFile();
+            List<RepoBitstream> files = session.createQuery("from RepoBitstream b where b.aktif=true and b.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant and i.aktif=true)").setString("tenant",RepositoryTenantScope.currentKey()).list(); FixityResult r = new FixityResult();
+            for (RepoBitstream bit : files) { r.checked++; try { File f = fileService.resolveManagedFile(bit.getPathSistem());
+                if(f==null){r.mismatch++;r.errors.add("Path #"+bit.getId()+" berada di luar storage: "+bit.getNamaFile());continue;}
                 if (!f.isFile()) { r.missing++; r.errors.add("Berkas #"+bit.getId()+" hilang: "+bit.getNamaFile()); continue; }
                 String actual = sha256(f); if (actual.equalsIgnoreCase(clean(bit.getChecksum()))) r.ok++; else { r.mismatch++; r.errors.add("Checksum #"+bit.getId()+" tidak cocok: "+bit.getNamaFile()); }
             } catch(Exception e) { r.mismatch++; r.errors.add("Berkas #"+bit.getId()+": "+e.getMessage()); } }
@@ -227,7 +229,7 @@ public class RepositoryAdminService {
     private void quality(Session session,Health h,List<RepoItem> items,List<RepoBitstream> files){
         List<RepoItem> published=new ArrayList<RepoItem>();for(RepoItem item:items)if(Boolean.FALSE.equals(item.getIsWithdrawn())||item.getIsWithdrawn()==null)if("PUBLISHED".equals(item.getWorkflowStatus())||"SYNCED".equals(item.getSyncStatus())||"APPROVED".equals(item.getSyncStatus()))published.add(item);
         Map<Long,Boolean> primary=new LinkedHashMap<Long,Boolean>();for(RepoBitstream f:files)if(Boolean.TRUE.equals(f.getPrimaryFile()))primary.put(f.getItemId(),Boolean.TRUE);
-        List<Long> programIds=new ArrayList<Long>(),orcidIds=new ArrayList<Long>();List<RepoItemMetadata> metas=session.createCriteria(RepoItemMetadata.class).add(Restrictions.in("metadataField",new String[]{"repository.programStudy","repository.author.orcid"})).add(Restrictions.eq("aktif",Boolean.TRUE)).list();
+        List<Long> programIds=new ArrayList<Long>(),orcidIds=new ArrayList<Long>();List<RepoItemMetadata> metas=session.createQuery("from RepoItemMetadata m where m.aktif=true and m.metadataField in (:fields) and m.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant and i.aktif=true)").setParameterList("fields",new String[]{"repository.programStudy","repository.author.orcid"}).setString("tenant",RepositoryTenantScope.currentKey()).list();
         for(RepoItemMetadata m:metas){if("repository.programStudy".equals(m.getMetadataField())&&!programIds.contains(m.getItemId()))programIds.add(m.getItemId());if("repository.author.orcid".equals(m.getMetadataField())&&!orcidIds.contains(m.getItemId()))orcidIds.add(m.getItemId());}
         int total=published.size();qualityMetric(h,"Judul",missing(published,"title",null),total);qualityMetric(h,"Penulis terstruktur",missing(published,"authors",null),total);qualityMetric(h,"Abstrak",missing(published,"abstract",null),total);qualityMetric(h,"Kata kunci",missing(published,"subjects",null),total);qualityMetric(h,"Program studi",missing(published,"ids",programIds),total);qualityMetric(h,"Lisensi",missing(published,"license",null),total);qualityMetric(h,"ORCID",missing(published,"ids",orcidIds),total);qualityMetric(h,"File utama",missing(published,"ids",new ArrayList<Long>(primary.keySet())),total);qualityMetric(h,"DOI",missing(published,"doi",null),total);
     }

@@ -95,6 +95,7 @@ public class AmbangStokGudang extends GeneralValueObject {
 	private Produk produk;
 	private Gudang gudang;
 	private Double ambangMinimum;
+	private Double maxQty;
 	private Boolean aktif;
 	private String keterangan;
 
@@ -142,6 +143,20 @@ public class AmbangStokGudang extends GeneralValueObject {
 
 	public void setAmbangMinimum(Double ambangMinimum) {
 		this.ambangMinimum = ambangMinimum;
+	}
+
+	/**
+	 * Target stok maksimum (Fase C dok. 48 P3). Bila terisi, saran qty pengajuan/WO otomatis =
+	 * {@code maxQty - stokSaatIni} (kebijakan min-max PDF klien); {@code null} = perilaku lama
+	 * (buffer sederhana 2x ambang). Satuan sama dengan stok Produk (satuan dasar).
+	 */
+	@Column(name = "max_qty", nullable = true)
+	public Double getMaxQty() {
+		return maxQty;
+	}
+
+	public void setMaxQty(Double maxQty) {
+		this.maxQty = maxQty;
 	}
 
 	public Boolean getAktif() {

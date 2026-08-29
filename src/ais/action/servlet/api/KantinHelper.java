@@ -999,9 +999,10 @@ public class KantinHelper {
 	}
 
 	/** Faktor pengali jumlah input menjadi jumlah stok/dasar produk. */
-	// package-visible: dipakai juga SalesInventoryReceivableHelper (Fase B) --
+	// public: dipakai juga SalesInventoryReceivableHelper (Fase B) dan
+	// StokThresholdScheduler (Fase C, pembulatan ke satuan pembelian) --
 	// SATU penegak kesekategorian, bukan salinan.
-	static double faktorUomInputKeDasar(Produk produk, SatuanProduk input) {
+	public static double faktorUomInputKeDasar(Produk produk, SatuanProduk input) {
 		SatuanProduk dasar = produk == null ? null : produk.getSatuan();
 		if (input == null) input = produk == null ? null : produk.getSatuanPembelian();
 		if (input == null) input = dasar;

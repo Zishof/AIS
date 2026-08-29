@@ -322,15 +322,15 @@ public class RepositoryWorkflowService {
     @SuppressWarnings("unchecked")
     public List<RepoNotification> notifications(final Tbmuser actor, final int maximum) {
         requireLogin(actor); return read(new Work<List<RepoNotification>>() { public List<RepoNotification> run(Session session) {
-            org.hibernate.criterion.Criterion mine=Restrictions.eq("recipientId",actor.getUserId());
-            if(isRepositoryAdmin(actor))mine=Restrictions.or(mine,Restrictions.eq("recipientRole","REPOSITORY_REVIEWER"));
-            return session.createCriteria(RepoNotification.class).add(mine).addOrder(Order.desc("createdAt")).setMaxResults(limit(maximum)).list();
+            String recipient=isRepositoryAdmin(actor)?"(n.recipientId=:user or n.recipientRole='REPOSITORY_REVIEWER')":"n.recipientId=:user";
+            return session.createQuery("from RepoNotification n where "+recipient+" and n.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant and i.aktif=true) order by n.createdAt desc")
+                    .setString("user",actor.getUserId()).setString("tenant",RepositoryTenantScope.currentKey()).setMaxResults(limit(maximum)).list();
         }});
     }
 
     public void markNotificationRead(final Long id, final Tbmuser actor) {
         requireLogin(actor); write(new Work<Object>() { public Object run(Session session) { RepoNotification n=(RepoNotification)session.get(RepoNotification.class,id);
-            if(n==null)throw new IllegalArgumentException("Notifikasi tidak ditemukan.");boolean allowed=actor.getUserId().equals(n.getRecipientId())||(isRepositoryAdmin(actor)&&"REPOSITORY_REVIEWER".equals(n.getRecipientRole()));if(!allowed)throw new SecurityException("Notifikasi bukan milik pengguna aktif.");n.setReadAt(new Date());session.update(n);return null; }});
+            if(n==null)throw new IllegalArgumentException("Notifikasi tidak ditemukan.");RepoItem item=(RepoItem)session.get(RepoItem.class,n.getItemId());if(item==null||!RepositoryTenantScope.currentKey().equals(item.getTenantKey())||!Boolean.TRUE.equals(item.getAktif()))throw new SecurityException("Notifikasi bukan milik tenant aktif.");boolean allowed=actor.getUserId().equals(n.getRecipientId())||(isRepositoryAdmin(actor)&&"REPOSITORY_REVIEWER".equals(n.getRecipientRole()));if(!allowed)throw new SecurityException("Notifikasi bukan milik pengguna aktif.");n.setReadAt(new Date());session.update(n);return null; }});
     }
 
     @SuppressWarnings("unchecked")
@@ -475,7 +475,10 @@ public class RepositoryWorkflowService {
                     .add(Restrictions.eq("primaryFile", Boolean.TRUE)).list();
             for (RepoBitstream file : primary) {
                 if (!Boolean.TRUE.equals(file.getSignatureValid())) result.errors.add("Signature berkas utama tidak valid.");
-                if ("INFECTED".equalsIgnoreCase(file.getVirusScanStatus())) result.errors.add("Berkas utama terdeteksi malware.");
+                String scanStatus=clean(file.getVirusScanStatus());
+                if ("INFECTED".equalsIgnoreCase(scanStatus)) result.errors.add("Berkas utama terdeteksi malware.");
+                else if ("ERROR".equalsIgnoreCase(scanStatus)) result.errors.add("Pemindaian antivirus berkas utama gagal; unggah ulang atau perbaiki scanner.");
+                else if(clean(System.getProperty("ais.repository.virusScanner")).length()>0&&!"CLEAN".equalsIgnoreCase(scanStatus))result.errors.add("Berkas utama belum dinyatakan bersih oleh antivirus.");
             }
         }
         result.valid = result.errors.isEmpty();

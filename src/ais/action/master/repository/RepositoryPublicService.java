@@ -659,6 +659,7 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("itemId", id))
                 .add(activeRestriction())
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
+                .add(safeScanRestriction())
                 .addOrder(Order.desc("primaryFile"))
                 .addOrder(Order.asc("id"))
                 .list();
@@ -820,6 +821,7 @@ public class RepositoryPublicService {
                 .add(Restrictions.eq("id", id))
                 .add(activeRestriction())
                 .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS"))
+                .add(safeScanRestriction())
                 .uniqueResult();
         if (bitstream == null) return null;
         RepoItem item = (RepoItem) session.createCriteria(RepoItem.class)
@@ -839,8 +841,7 @@ public class RepositoryPublicService {
         if (bitstream == null) return null;
         String storedPath = clean(bitstream.getPathSistem());
         if (storedPath.length() > 0) {
-            File direct = new File(storedPath);
-            if (direct.isAbsolute() && direct.exists() && direct.isFile()) return direct;
+            try{File direct=new RepositoryFileService().resolveManagedFile(storedPath);if(direct!=null&&direct.exists()&&direct.isFile())return direct;}catch(Exception invalidPath){ais.common.ErrorAuditUtil.record(invalidPath,"RepositoryPublicService.resolveBitstreamFile.managed-path");}
         }
         try {
             List<LampiranLain> attachments = session().createCriteria(LampiranLain.class)
@@ -1081,7 +1082,7 @@ public class RepositoryPublicService {
     @SuppressWarnings("unchecked")
     private Map<String,Long> programFacet(Session session){List<Object[]> rows=session.createSQLQuery("select m.metadata_value,count(*) from repo_item_metadata m join repo_item i on i.id=m.item_id where m.metadata_field='repository.programStudy' and coalesce(m.aktif,true)=true and coalesce(i.aktif,true)=true and coalesce(i.is_withdrawn,false)=false and i.sync_status in ('SYNCED','PUBLISHED','APPROVED') and i.tenant_key=:tenant group by m.metadata_value order by count(*) desc limit 30").setString("tenant",RepositoryTenantScope.currentKey()).list();Map<String,Long> out=new LinkedHashMap<String,Long>();for(Object[] row:rows)if(row[0]!=null&&row[1] instanceof Number)out.put(String.valueOf(row[0]),Long.valueOf(((Number)row[1]).longValue()));return out;}
     @SuppressWarnings("unchecked")
-    private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)if("OPEN_ACCESS".equals(i.getAccessPolicy()))ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
+    private Map<String,Long> fullTextFacet(Session session,Query q){List<RepoItem> items=searchCriteria(session,q).setMaxResults(5000).list();List<Long> ids=new ArrayList<Long>();for(RepoItem i:items)if("OPEN_ACCESS".equals(i.getAccessPolicy()))ids.add(i.getId());long with=0;if(!ids.isEmpty()){List<Object> rows=session.createCriteria(RepoBitstream.class).add(activeRestriction()).add(Restrictions.eq("accessPolicy","OPEN_ACCESS")).add(safeScanRestriction()).add(Restrictions.in("itemId",ids)).setProjection(Projections.distinct(Projections.property("itemId"))).list();with=rows.size();}Map<String,Long> out=new LinkedHashMap<String,Long>();out.put("WITH_FILE",Long.valueOf(with));out.put("METADATA_ONLY",Long.valueOf(items.size()-with));return out;}
     private static Map<String,Long> top(Map<String,Long> source,int maximum){List<Map.Entry<String,Long>> rows=new ArrayList<Map.Entry<String,Long>>(source.entrySet());Collections.sort(rows,new java.util.Comparator<Map.Entry<String,Long>>(){public int compare(Map.Entry<String,Long>a,Map.Entry<String,Long>b){return b.getValue().compareTo(a.getValue());}});Map<String,Long> out=new LinkedHashMap<String,Long>();for(int i=0;i<rows.size()&&i<maximum;i++)out.put(rows.get(i).getKey(),rows.get(i).getValue());return out;}
 
     private long distinctTokenCount(Session session, String property) {
@@ -1231,7 +1232,7 @@ public class RepositoryPublicService {
         }
         List<RepoBitstream> files = session.createCriteria(RepoBitstream.class)
                 .add(Restrictions.in("itemId", ids)).add(activeRestriction())
-                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")).list();
+                .add(Restrictions.eq("accessPolicy", "OPEN_ACCESS")).add(safeScanRestriction()).list();
         for (RepoBitstream file : files) {
             ItemCard card = byId.get(file.getItemId());
             if (card == null || !"OPEN_ACCESS".equals(normalizeAccess(card.accessPolicy))) continue;
@@ -1273,9 +1274,12 @@ public class RepositoryPublicService {
         if (Boolean.FALSE.equals(item.getAktif()) || Boolean.TRUE.equals(item.getIsWithdrawn())) return false;
         if (!isPublicStatus(item.getSyncStatus())) return false;
         if (!"OPEN_ACCESS".equals(normalizeAccess(item.getAccessPolicy()))) return false;
+        if("ERROR".equalsIgnoreCase(bitstream.getVirusScanStatus())||"INFECTED".equalsIgnoreCase(bitstream.getVirusScanStatus()))return false;
         String filePolicy = normalizeAccess(bitstream.getAccessPolicy());
         return filePolicy.length() == 0 || "OPEN_ACCESS".equals(filePolicy);
     }
+
+    private org.hibernate.criterion.Criterion safeScanRestriction(){return Restrictions.or(Restrictions.isNull("virusScanStatus"),Restrictions.not(Restrictions.in("virusScanStatus",new String[]{"ERROR","INFECTED"})));}
 
     private boolean isPublicStatus(String value) {
         String status = clean(value).toUpperCase();

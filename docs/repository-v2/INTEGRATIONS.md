@@ -8,7 +8,9 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 ```text
 -Dais.repository.storage=/opt/AIS/repository-files
 -Dais.repository.virusScanner=/usr/bin/clamscan
+-Dais.repository.virusScannerTimeoutSeconds=120
 -Dais.repository.analyticsSalt=<rahasia-acak>
+-Dais.repository.publicBaseUrl=https://repository.example
 -Dais.repository.oaiTokenSecret=<rahasia-acak-minimal-32-karakter>
 -Dais.repository.oaiTokenTtlSeconds=86400
 -Dais.repository.semanticCandidateLimit=750
@@ -49,6 +51,11 @@ repository_search_alert_interval_minutes=30
 valid. Gunakan nilai acak berbeda dari `analyticsSalt`, minimal 32 karakter, dan simpan melalui
 secret manager/server configuration. `semanticCandidateLimit` membatasi kandidat yang diranking
 Tanya Repository; rentang yang diterima 100–5.000.
+
+`publicBaseUrl` harus berupa origin publik HTTP(S) tanpa path aplikasi, query, fragment, atau
+kredensial, misalnya `https://repository.example`. Nilai ini mencegah URL DOI/COAR terbentuk dari
+Host header proxy yang keliru. Timeout scanner menerima 10–900 detik; proses yang melewati batas
+akan dihentikan dan unggahan dicatat berstatus scan `ERROR`.
 
 `ais.repository.anonymousFullText=false` adalah nilai bawaan: pengguna umum hanya melihat
 metadata dan abstrak, sedangkan naskah lengkap memerlukan login eCampus. Ubah menjadi `true`

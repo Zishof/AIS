@@ -21,6 +21,9 @@ import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
 import ais.database.model.inventory.AmbangStokGudang;
 import ais.database.model.inventory.PengajuanPembelianGudang;
+import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.ProduksiDokumen;
+import ais.database.model.inventory.SatuanProduk;
 import ais.database.model.sirs.Gudang;
 
 /**
@@ -172,6 +175,41 @@ public final class StokThresholdScheduler {
 			return false;
 		}
 
+		// Fase C dok. 48 P3 -- saran qty: bila maxQty terisi, kembalikan stok ke target min-max
+		// (maxQty - stok); bila kosong, perilaku lama (buffer sederhana 2x ambang). Staf boleh ubah
+		// bebas saat memproses, ini murni titik awal supaya form tidak kosong.
+		Double maxQty = ambang.getMaxQty();
+		double saranQty = maxQty != null && maxQty.doubleValue() > 0
+				? Math.max(0, maxQty.doubleValue() - totalStok)
+				: Math.max(0, (ambang.getAmbangMinimum() * 2) - totalStok);
+
+		// Fase C: rute PRODUKSI -> draf Work Order, bukan pengajuan pembelian. null/BELI = mesin lama.
+		Produk produk = ambang.getProduk();
+		if (Produk.RUTE_PRODUKSI.equalsIgnoreCase(produk.getRute()) && produk.getToko() != null
+				&& produk.getToko().getId() != null) {
+			return terbitkanWoDraf(session, ambang, gudang, totalStok, saranQty);
+		}
+
+		// Pembulatan NAIK ke satuan pembelian (contoh literal PDF: butuh 70 kg, karung 50 -> 2
+		// karung = 100 kg) -- memakai faktorUomInputKeDasar yang SAMA dengan kasir/kulakan, bukan
+		// salinan. Kegagalan konversi (kategori UOM salah) TIDAK menggagalkan siklus: saran tetap
+		// qty dasar mentah dan masalah konfigurasinya ditulis terang di keterangan.
+		String catatanKemasan = "";
+		SatuanProduk satuanPembelian = produk.getSatuanPembelian();
+		if (satuanPembelian != null && saranQty > 0) {
+			try {
+				double faktor = ais.action.servlet.api.KantinHelper.faktorUomInputKeDasar(produk, satuanPembelian);
+				if (faktor > 1) {
+					long qtyKemasan = (long) Math.ceil(saranQty / faktor);
+					saranQty = qtyKemasan * faktor;
+					catatanKemasan = " Saran dibulatkan naik ke satuan pembelian: " + qtyKemasan + " x "
+							+ satuanPembelian.getNama() + " (= " + saranQty + ").";
+				}
+			} catch (IllegalArgumentException eUom) {
+				catatanKemasan = " PERHATIAN: " + eUom.getMessage();
+			}
+		}
+
 		Gudang gudangTujuan = gudang.getGudangInduk(); // null = puncak hierarki -> ke vendor eksternal
 		boolean keVendor = gudangTujuan == null;
 
@@ -180,19 +218,78 @@ public final class StokThresholdScheduler {
 		pengajuan.setGudangAsal(gudang);
 		pengajuan.setGudangTujuan(gudangTujuan);
 		pengajuan.setStokSaatDiajukan(Double.valueOf(totalStok));
-		// Saran qty: kembalikan ke 2x ambang (buffer sederhana) dikurangi stok saat ini -- staf boleh
-		// ubah bebas saat memproses, ini murni titik awal supaya form tidak kosong.
-		double saranQty = Math.max(0, (ambang.getAmbangMinimum() * 2) - totalStok);
 		pengajuan.setQtyDiminta(Double.valueOf(saranQty));
 		pengajuan.setStatus(PengajuanPembelianGudang.STATUS_BARU);
 		pengajuan.setOtomatis(Boolean.TRUE);
 		pengajuan.setWaktuDibuat(ais.ui.util.WaktuUtil.getDate());
 		pengajuan.setKeterangan("Dibuat otomatis: stok " + ambang.getProduk().getNama() + " di gudang "
 				+ gudang.getNama() + " = " + totalStok + " (ambang " + ambang.getAmbangMinimum() + "). Tujuan: "
-				+ (keVendor ? "Vendor eksternal (gudang ini puncak hierarki)" : gudangTujuan.getNama()));
+				+ (keVendor ? "Vendor eksternal (gudang ini puncak hierarki)" : gudangTujuan.getNama())
+				+ catatanKemasan);
 		session.save(pengajuan);
 
 		kirimNotifikasi(session, ambang, gudang, totalStok, keVendor, gudangTujuan);
+		return true;
+	}
+
+	/**
+	 * Fase C: rute {@link Produk#RUTE_PRODUKSI} -- terbitkan {@link ProduksiDokumen} Work Order
+	 * status DRAFT (manusia melengkapi &amp; me-release lewat layar Produksi), BUKAN pengajuan
+	 * pembelian. Idempoten lewat {@code referenceNo} kunci {@code AUTO-AMBANG:produk:gudang} --
+	 * tidak dibuat dobel selama masih ada WO otomatis DRAFT/RELEASED/IN_PROGRESS utk pasangan itu
+	 * (perluasan idempotensi lama ke draf, dok. 49 Fase C). BOM aktif produk (baris OUTPUT) ikut
+	 * dirujuk bila ada; tanpa BOM, WO tetap terbit dengan catatan supaya staf tahu harus membuat
+	 * BOM dulu.
+	 */
+	private static boolean terbitkanWoDraf(Session session, AmbangStokGudang ambang, Gudang gudang,
+			double totalStok, double saranQty) {
+		Produk produk = ambang.getProduk();
+		Long tokoId = produk.getToko().getId();
+		String kunci = "AUTO-AMBANG:" + produk.getId() + ":" + gudang.getId();
+
+		Number sudahAda = (Number) session.createQuery(
+				"select count(*) from ProduksiDokumen where documentType='WO' and tokoId=:toko"
+						+ " and referenceNo=:kunci and status in ('DRAFT','RELEASED','IN_PROGRESS')")
+				.setLong("toko", tokoId.longValue()).setString("kunci", kunci).uniqueResult();
+		if (sudahAda != null && sudahAda.longValue() > 0) {
+			return false;
+		}
+
+		// BOM aktif yang barisnya menghasilkan (OUTPUT) produk ini -- terbaru menang.
+		Long bomId = null;
+		try {
+			java.util.List bomIds = session.createQuery(
+					"select d.id from ProduksiDokumen d, ProduksiDokumenBaris b"
+							+ " where b.documentId=d.id and d.documentType='BOM' and d.status='ACTIVE'"
+							+ " and d.tokoId=:toko and b.lineType='OUTPUT' and b.itemId=:produk"
+							+ " order by d.updatedAt desc, d.id desc")
+					.setLong("toko", tokoId.longValue()).setLong("produk", produk.getId().longValue())
+					.setMaxResults(1).list();
+			if (!bomIds.isEmpty()) {
+				bomId = (Long) bomIds.get(0);
+			}
+		} catch (Exception eBom) {
+			ErrorAuditUtil.record(eBom, "auto-audit src/ais/common/StokThresholdScheduler.java:cariBom");
+		}
+
+		ProduksiDokumen wo = new ProduksiDokumen();
+		wo.setTokoId(tokoId);
+		wo.setDocumentType("WO");
+		wo.setDocumentNo("WO-AUTO-" + System.currentTimeMillis());
+		wo.setStatus("DRAFT");
+		wo.setReferenceNo(kunci);
+		wo.setBomId(bomId);
+		wo.setPlannedQty(java.math.BigDecimal.valueOf(saranQty));
+		wo.setUom(produk.getSatuan() == null ? null : produk.getSatuan().getNama());
+		wo.setPlannedAt(ais.ui.util.WaktuUtil.getDate());
+		wo.setCreatedBy("SYSTEM");
+		wo.setNotes("Draf otomatis ambang stok: " + produk.getNama() + " di gudang " + gudang.getNama()
+				+ " = " + totalStok + " (ambang " + ambang.getAmbangMinimum()
+				+ (ambang.getMaxQty() == null ? "" : ", target " + ambang.getMaxQty()) + "). Rute PRODUKSI."
+				+ (bomId == null ? " BELUM ADA BOM AKTIF utk produk ini -- buat/aktifkan BOM lalu lengkapi WO." : ""));
+		session.save(wo);
+
+		kirimNotifikasi(session, ambang, gudang, totalStok, false, null);
 		return true;
 	}
 
@@ -223,11 +320,16 @@ public final class StokThresholdScheduler {
 			rincian.put("Gudang", gudang.getNama());
 			rincian.put("Stok saat ini", String.valueOf(totalStok));
 			rincian.put("Ambang minimum", String.valueOf(ambang.getAmbangMinimum()));
-			rincian.put("Tujuan pengajuan", keVendor ? "Vendor eksternal" : gudangTujuan.getNama());
+			rincian.put("Tindak lanjut", gudangTujuan != null ? "Pengajuan ke gudang " + gudangTujuan.getNama()
+					: keVendor ? "Pengajuan pembelian ke vendor eksternal"
+							: "Draf Work Order produksi (rute PRODUKSI)");
 
+			boolean rutePro = gudangTujuan == null && !keVendor; // Fase C: draf WO, bukan pengajuan
 			CommonNotifikasi.terbitkanKeBanyak(penerima, "Stok Menipis: " + ambang.getProduk().getNama(),
 					"Stok " + ambang.getProduk().getNama() + " di gudang " + gudang.getNama()
-							+ " sudah mencapai ambang minimum. Pengajuan pembelian otomatis telah dibuat, mohon ditindaklanjuti.",
+							+ " sudah mencapai ambang minimum. "
+							+ (rutePro ? "Draf Work Order produksi otomatis telah dibuat, mohon dilengkapi dan di-release."
+									: "Pengajuan pembelian otomatis telah dibuat, mohon ditindaklanjuti."),
 					rincian, null, ambang.getProduk(), null, null, CommonNotifikasi.STATUS_WARNING);
 		} catch (Exception e) {
 			ErrorAuditUtil.record(e, "auto-audit src/ais/common/StokThresholdScheduler.java:kirimNotifikasi");
