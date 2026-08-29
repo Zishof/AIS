@@ -76,6 +76,7 @@ Catatan harness baru (melengkapi dok 08 dan catatan dok 54/57):
 
 ## 5. Sisa peta modul
 
-Dari peta 53 §6 tersisa satu: **trio kantin HPP/Penjualan/Toko** — polanya batch
-per periode (bukan per dokumen), perlu desain endpoint sendiri; baris "Posting HPP"
-sudah ada kondisional dan kategori `posting_penjualan` sudah dicadangkan.
+Dari peta 53 §6 tersisa satu: **trio kantin HPP/Penjualan/Toko** — SELESAI r78560,
+terdokumentasi dan teruji 16/16 di
+[59-posting-kantin-dasbor.md](59-posting-kantin-dasbor.md). Peta 53 §6 dengan ini
+TUNTAS seluruhnya.
