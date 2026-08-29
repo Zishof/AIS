@@ -310,9 +310,10 @@ public class RepositoryFileService {
     }
     private static boolean starts(byte[] b,int n,int[] sig){if(n<sig.length)return false;for(int i=0;i<sig.length;i++)if((b[i]&255)!=sig[i])return false;return true;}
     private static String normalizedMime(String ext,String declared){
-        if("pdf".equals(ext))return "application/pdf"; if("png".equals(ext))return "image/png";
-        if("jpg".equals(ext)||"jpeg".equals(ext))return "image/jpeg"; if("txt".equals(ext))return "text/plain";
-        if("csv".equals(ext))return "text/csv"; return clean(declared).length()==0?"application/octet-stream":clean(declared);
+        if("pdf".equals(ext))return "application/pdf";if("png".equals(ext))return "image/png";if("jpg".equals(ext)||"jpeg".equals(ext))return "image/jpeg";if("tif".equals(ext)||"tiff".equals(ext))return "image/tiff";
+        if("txt".equals(ext))return "text/plain";if("csv".equals(ext))return "text/csv";if("rtf".equals(ext))return "application/rtf";if("zip".equals(ext))return "application/zip";
+        if("doc".equals(ext))return "application/msword";if("docx".equals(ext))return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";if("xls".equals(ext))return "application/vnd.ms-excel";if("xlsx".equals(ext))return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";if("ppt".equals(ext))return "application/vnd.ms-powerpoint";if("pptx".equals(ext))return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        if("odt".equals(ext))return "application/vnd.oasis.opendocument.text";if("ods".equals(ext))return "application/vnd.oasis.opendocument.spreadsheet";if("odp".equals(ext))return "application/vnd.oasis.opendocument.presentation";return "application/octet-stream";
     }
     private static String normalizeAccess(String value){String v=clean(value).toUpperCase();return "OPEN_ACCESS".equals(v)?v:"RESTRICTED";}
     private static String safeFileName(String value){String v=clean(value).replace('\\','_').replace('/','_').replace(':','_').replaceAll("[\\p{Cntrl}]","_");if(v.length()>180)v=v.substring(v.length()-180);if(v.length()==0)throw new IllegalArgumentException("Nama berkas kosong.");return v;}

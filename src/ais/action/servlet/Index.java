@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
+import java.util.Base64;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -41,6 +43,7 @@ public class Index extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final String KONFIGURASI_PAKSA_SKIN = "paksa_halaman_utama_menggunakan_skin";
     private static final String HALAMAN_UTAMA_SKIN = "/WEB-INF/j/index.jsp";
+    private static final SecureRandom CSP_RANDOM = new SecureRandom();
 
     public Index() {
         super();
@@ -83,6 +86,7 @@ public class Index extends HttpServlet {
 
         config = Common.getKonfigurasi("default_login_ke_epesantren", Konfigurasi.TIDAK_AKTIF);
         if (isAktif(config)) {
+            configurePesantrenResponse(request, response);
             PesantrenLandingService.prepare(request);
             request.setAttribute("homeUiEntry", "configuration:epesantren");
             forward(request, response, "/WEB-INF/baru/pesantren.jsp");
@@ -158,5 +162,37 @@ public class Index extends HttpServlet {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static void configurePesantrenResponse(HttpServletRequest request, HttpServletResponse response) {
+        byte[] bytes = new byte[18];
+        CSP_RANDOM.nextBytes(bytes);
+        String nonce = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        String requestId = Long.toHexString(System.currentTimeMillis())
+                + Integer.toHexString(System.identityHashCode(request));
+        request.setAttribute("pesantrenCspNonce", nonce);
+        response.setHeader("X-Request-Id", requestId);
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+        response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+        response.setHeader("X-Frame-Options", "SAMEORIGIN");
+        response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+        String csp = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; "
+                + "form-action 'self'; img-src 'self' data: https:; font-src 'self' data:; "
+                + "style-src 'self' 'nonce-" + nonce + "'; script-src 'self' 'nonce-" + nonce
+                + "'; connect-src 'self'";
+        if (isHttps(request)) {
+            csp += "; upgrade-insecure-requests";
+            response.setHeader("Strict-Transport-Security", "max-age=31536000");
+        }
+        response.setHeader("Content-Security-Policy", csp);
+        response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        response.setHeader("Vary", "Accept-Language");
+    }
+
+    private static boolean isHttps(HttpServletRequest request) {
+        if (request.isSecure()) return true;
+        String forwarded = request.getHeader("X-Forwarded-Proto");
+        return forwarded != null && "https".equalsIgnoreCase(forwarded.trim());
     }
 }

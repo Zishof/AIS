@@ -91,6 +91,7 @@ public final class PesantrenLandingService {
             request.setAttribute("pesantrenBerita", new ArrayList<Berita>());
             request.setAttribute("pesantrenJumlahUnit", Integer.valueOf(0));
             request.setAttribute("pesantrenWebsite", websiteConfig);
+            request.setAttribute("pesantrenContentWarning", Boolean.TRUE);
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
@@ -206,13 +207,12 @@ public final class PesantrenLandingService {
     private static List<Berita> berita(Session session, Yayasan yayasan, List<Sekolah> sekolahs,
             List<PerguruanTinggi> pts) {
         Criteria criteria = session.createCriteria(PengumumanAkademis.class)
-                .add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
-                .add(Restrictions.or(Restrictions.eq("diperuntukkan", PengumumanAkademis.UNTUK_UMUM),
-                        Restrictions.isNull("diperuntukkan")))
+                .add(Restrictions.eq("aktif", true))
+                .add(Restrictions.eq("diperuntukkan", PengumumanAkademis.UNTUK_UMUM))
                 .add(Restrictions.or(
-                        Restrictions.or(Restrictions.eq("tetapTampilkanPengumumanMeskipunSudahKelewat", true),
-                                Restrictions.isNull("tetapTampilkanPengumumanMeskipunSudahKelewat")),
-                        Restrictions.ge("sampai", WaktuUtil.getDate())))
+                        Restrictions.eq("tetapTampilkanPengumumanMeskipunSudahKelewat", true),
+                        Restrictions.or(Restrictions.isNull("sampai"),
+                                Restrictions.ge("sampai", WaktuUtil.getDate()))))
                 .add(Restrictions.le("tanggal", WaktuUtil.getDate()))
                 .add(scopeBerita(yayasan, sekolahs, pts))
                 .addOrder(Order.desc("tanggal")).addOrder(Order.desc("id")).setMaxResults(MAKS_BERITA);
@@ -230,10 +230,9 @@ public final class PesantrenLandingService {
     }
 
     private static Criterion scopeBerita(Yayasan yayasan, List<Sekolah> sekolahs, List<PerguruanTinggi> pts) {
-        Criterion global = Restrictions.and(
-                Restrictions.and(Restrictions.isNull("yayasan"), Restrictions.isNull("sekolah")),
-                Restrictions.isNull("perguruanTinggi"));
-        Criterion scope = global;
+        // Fail closed: halaman tenant tidak boleh mengambil pengumuman global atau
+        // milik tenant lain ketika konteks institusi tidak berhasil ditemukan.
+        Criterion scope = Restrictions.eq("id", Long.valueOf(-1L));
         if (valid(yayasan)) {
             scope = Restrictions.or(scope, Restrictions.eq("yayasan", yayasan));
         }

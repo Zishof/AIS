@@ -1530,6 +1530,39 @@ public class KegiatanPersistenceHelper {
 		return bangunRekapTagihan(kegiatan, listDetail, live, true);
 	}
 
+	/**
+	 * Persentase pemenuhan pembayaran berdasarkan tagihan bersih terkini. Nilai ini
+	 * dipakai untuk gerbang akademik seperti KRS agar diskon/beasiswa yang sah ikut
+	 * diperhitungkan tanpa mengharuskan operator menjalankan "Hitung Ulang".
+	 *
+	 * <p>Bila kegiatan pembayaran sudah ada dan tagihan bersihnya nol (misalnya
+	 * beasiswa menutup seluruh biaya), kewajiban dianggap terpenuhi. Bila perhitungan
+	 * segar tidak tersedia, gunakan rekap aktual pada Kegiatan sebagai fallback.</p>
+	 */
+	public static Double hitungPersentasePemenuhanTagihan(Kegiatan kegiatan) {
+		if (kegiatan == null) {
+			return Double.valueOf(0.0);
+		}
+		try {
+			Double tagihanBersih = hitungTagihanSegarKonsisten(kegiatan);
+			if (tagihanBersih != null) {
+				double tagihan = tagihanBersih.doubleValue();
+				double dibayar = kegiatan.hitungDibayarAktualTanpaBatas().doubleValue();
+				if (tagihan <= 0.01) {
+					return Double.valueOf(100.0);
+				}
+				if (dibayar + 0.01 >= tagihan) {
+					return Double.valueOf(100.0);
+				}
+				return Double.valueOf((dibayar * 100.0) / tagihan);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit hitungPersentasePemenuhanTagihan kegiatan=" + kegiatan.getId());
+		}
+		return kegiatan.hitungPersentaseLunasAktual();
+	}
+
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live,
 			boolean validasiItemAsing) throws JSONException {
 		JSONObject jsonTagihan = new JSONObject();

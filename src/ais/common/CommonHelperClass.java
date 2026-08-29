@@ -31,6 +31,7 @@ import org.zkoss.zul.Filedownload; // Asumsi pakai ZK Framework
 import org.zkoss.zul.Messagebox;
 
 import ais.action.master.helper.PembayaranUtilHelper;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.ws.util.ConstantUtil;
 import ais.action.ws.util.PembayaranUtil;
 import ais.database.hibernate.HibernateUtil;
@@ -1016,7 +1017,7 @@ public class CommonHelperClass {
 		for (JenisKegiatan jenisKegiatan : jenisKegiatansUntukKrs) {
 			kegiatan = mahasiswa.ambilKegiatans(semester, jenisKegiatan, true);
 
-			prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.hitungPersentaseLunasAktual();
+			prosenYangSudahDibayar = KegiatanPersistenceHelper.hitungPersentasePemenuhanTagihan(kegiatan);
 			hasil = prosenYangSudahDibayar >= batas;
 
 			// System.out.println("Check Pembayaran KRS -> Mahasiswa " +
@@ -1050,7 +1051,8 @@ public class CommonHelperClass {
 					jenisKegiatansUntukKrs.add(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
 					kegiatan = calonMahasiswa.ambilKegiatans(semester,
 							ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU, true);
-					prosenYangSudahDibayar = kegiatan == null ? 0.0 : kegiatan.hitungPersentaseLunasAktual();
+					prosenYangSudahDibayar = KegiatanPersistenceHelper
+							.hitungPersentasePemenuhanTagihan(kegiatan);
 					hasil = prosenYangSudahDibayar >= batas;
 				}
 				// System.out.println("Check Pembayaran KRS -> calonMahasiswa "
@@ -1173,7 +1175,8 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						boolean lunas = (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+						boolean lunas = KegiatanPersistenceHelper
+								.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 						System.out.println("kegiatanDibayar -> " + kegiatanDibayar + ", lunas " + lunas);
 						hasil &= lunas;
 					}
@@ -1269,7 +1272,8 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+						hasil &= KegiatanPersistenceHelper
+								.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 					}
 				}
 
@@ -1320,7 +1324,8 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+						hasil &= KegiatanPersistenceHelper
+								.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 					}
 				}
 
@@ -1385,11 +1390,13 @@ public class CommonHelperClass {
 				} else {
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
 						if (kegiatanDibayar != null) {
-							hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+							double persenPemenuhan = KegiatanPersistenceHelper
+									.hitungPersentasePemenuhanTagihan(kegiatanDibayar);
+							hasil &= persenPemenuhan >= harusLunas;
 
 							System.out.println("mahasiswa " + mahasiswa + " semester " + semester + " tahap " + tahap
 									+ ", kegiatanDibayar = " + kegiatanDibayar + ", harusLunas = " + harusLunas
-									+ ", prosenYangSudahDibayar " + kegiatanDibayar.hitungPersentaseLunasAktual() + ", hasil "
+									+ ", prosenYangSudahDibayar " + persenPemenuhan + ", hasil "
 									+ hasil);
 						}
 					}
@@ -1425,7 +1432,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+				hasil &= KegiatanPersistenceHelper.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 				}
 			}
 
@@ -1457,7 +1464,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+				hasil &= KegiatanPersistenceHelper.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 				}
 			}
 
@@ -1495,7 +1502,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
+				hasil &= KegiatanPersistenceHelper.hitungPersentasePemenuhanTagihan(kegiatanDibayar) >= harusLunas;
 				}
 			}
 

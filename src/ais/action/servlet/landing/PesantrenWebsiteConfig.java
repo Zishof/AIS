@@ -123,7 +123,8 @@ public final class PesantrenWebsiteConfig {
                 "theme", obj("primary", validColor(warna), "secondary", "#c79a3b", "ink", "#102a2a",
                         "cream", "#fbfaf5", "logo", "", "heroImage", root + "/img/pesantren/hero-default-v1.png", "pattern", Boolean.TRUE),
                 "seo", obj("title", nama + " - Portal ePesantren",
-                        "description", "Portal terpadu untuk pendidikan, pengasuhan, layanan wali, kesehatan, ekonomi, pustaka, dan tata kelola pondok."),
+                        "description", "Portal terpadu untuk pendidikan, pengasuhan, layanan wali, kesehatan, ekonomi, pustaka, dan tata kelola pondok.",
+                        "canonical", root + "/index"),
                 "announcement", obj("enabled", Boolean.FALSE, "label", "Informasi", "text", "",
                         "url", "#berita"),
                 "navigation", arr(

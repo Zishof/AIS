@@ -44,6 +44,7 @@ import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
@@ -1413,7 +1414,8 @@ public class SyaratUjianAction extends GenericAutowireComposer
 								// nyata: DB 100% sejak pagi, gerbang malam masih menyebut 53,398%).
 								kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester - smtData, jenisKegiatan,
 										true);
-								persenDibayar = (kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas());
+								persenDibayar = KegiatanPersistenceHelper
+										.hitungPersentasePemenuhanTagihan(kegiatan);
 							}
 
 							if (kegiatan != null) {
@@ -1429,7 +1431,8 @@ public class SyaratUjianAction extends GenericAutowireComposer
 							// di database tetap diblokir dengan persen basi (kasus nyata: DB 100% sejak
 							// pagi, gerbang malam masih menyebut 53,398%).
 							Kegiatan kegiatan = mahasiswa.ambilKegiatans(semester - smtData, jenisKegiatan, true);
-							persenDibayar = (kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas());
+							persenDibayar = KegiatanPersistenceHelper
+									.hitungPersentasePemenuhanTagihan(kegiatan);
 
 							if (kegiatan != null) {
 								dibayars = new JSONObject(kegiatan.getBulans());
