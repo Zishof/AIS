@@ -22,7 +22,8 @@ String nama = sekolah != null && sekolah.getId() != null ? sekolah.getNama()
 				: "";
 String motto = sekolah != null && sekolah.getId() != null && !sekolah.getMotto().isEmpty() ? (sekolah.getMotto())
 		: selectedPerguruanTinggi == null ? "" : (selectedPerguruanTinggi.getMotto());
-String link = sekolah != null && sekolah.getId() != null && !sekolah.getWebsite().isEmpty() ? (sekolah.getWebsite())
+String link = sekolah != null && sekolah.getId() != null && Boolean.TRUE.equals(sekolah.getAktif())
+		? request.getContextPath() + "/sekolah/" + sekolah.getId()
 		: selectedPerguruanTinggi == null ? "" : (selectedPerguruanTinggi.getWebsite());
 String alamat = sekolah != null && sekolah.getId() != null && !sekolah.getAlamat().isEmpty()
 		? ("Alamat: " + sekolah.getAlamat())

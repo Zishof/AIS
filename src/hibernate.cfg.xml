@@ -2368,6 +2368,7 @@
 		<mapping class="ais.database.model.inventory.ProduksiDokumenBaris"></mapping>
 		<mapping class="ais.database.model.inventory.ProduksiDokumenEvent"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiStokProduksi"></mapping>
+		<mapping class="ais.database.model.inventory.ReservasiStokProduksi"></mapping>
 		<mapping class="ais.database.model.koperasi.AturanHargaProduk"></mapping>
 		<mapping class="ais.database.model.inventory.ProduksiGenealogiLot"></mapping>
 		<mapping class="ais.database.model.inventory.DistribusiPostingStok"></mapping>

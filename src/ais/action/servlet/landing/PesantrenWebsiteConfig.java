@@ -9,8 +9,8 @@ import ais.database.model.sekolah.Yayasan;
 /**
  * Konfigurasi konten landing page ePesantren yang disimpan pada kolom
  * {@code sekolah.yayasan.website}. Kolom tersebut sebelumnya berisi URL polos;
- * pembaca ini mempertahankan kompatibilitas dengan nilai lama dan mengubahnya
- * menjadi {@code contact.website} pada model hasil.
+ * Nilai JSON hanya menyimpan presentasi/konten tambahan. Identitas dan kontak
+ * selalu dibaca langsung dari model agar perubahan data induk segera tampil.
  */
 public final class PesantrenWebsiteConfig {
 
@@ -21,8 +21,7 @@ public final class PesantrenWebsiteConfig {
     }
 
     public static JSONObject load(Yayasan yayasan, String root) {
-        JSONObject defaults = defaults(yayasan, root == null ? "" : root);
-        removeModelBackedProperties(defaults);
+        JSONObject defaults = defaults(root == null ? "" : root);
         String raw = yayasan == null ? null : yayasan.getWebsite();
         if (raw == null || raw.trim().length() == 0) {
             return defaults;
@@ -65,6 +64,14 @@ public final class PesantrenWebsiteConfig {
         }
     }
 
+    /** Validasi sekaligus membuang salinan field model sebelum JSON disimpan. */
+    public static String normalize(String raw) throws JSONException {
+        validate(raw);
+        JSONObject parsed = new JSONObject(raw.trim());
+        removeModelBackedProperties(parsed);
+        return parsed.toString(2);
+    }
+
     public static JSONObject object(JSONObject parent, String key) {
         if (parent == null) return new JSONObject();
         JSONObject value = parent.optJSONObject(key);
@@ -102,6 +109,8 @@ public final class PesantrenWebsiteConfig {
         remove(object(value, "cta"), "title", "body");
         remove(object(value, "contact"), "address", "phone", "whatsapp", "email", "website");
         remove(object(value, "footer"), "left");
+        remove(value, "name", "motto", "description", "address", "phone", "whatsapp", "email", "website");
+        if (object(value, "contact").length() == 0) value.remove("contact");
     }
 
     private static void remove(JSONObject value, String... keys) {
@@ -124,25 +133,13 @@ public final class PesantrenWebsiteConfig {
         return context + url;
     }
 
-    private static JSONObject defaults(Yayasan yayasan, String root) {
-        String nama = yayasan == null || yayasan.getNama() == null ? "Pondok Pesantren" : yayasan.getNama();
-        String motto = yayasan == null ? "" : yayasan.getMotto();
-        String deskripsi = yayasan == null ? "" : yayasan.getDeskripsi();
-        String warna = yayasan == null ? "#0f766e" : yayasan.getWarna();
-        String alamat = yayasan == null ? "" : yayasan.getAlamat();
-        String telp = yayasan == null ? "" : yayasan.getTelp();
-        String wa = yayasan == null ? "" : yayasan.getWa();
-        String email = yayasan == null ? "" : yayasan.getEmail();
-
+    private static JSONObject defaults(String root) {
         JSONObject rootObject = obj(
                 "schemaVersion", Integer.valueOf(SCHEMA_VERSION),
-                "identity", obj("name", nama, "motto", empty(motto, "Ilmu, adab, dan kemandirian"),
-                        "shortName", "ePesantren", "description", clean(deskripsi)),
-                "theme", obj("primary", validColor(warna), "secondary", "#c79a3b", "ink", "#102a2a", "dark", "#073f3d",
-                        "cream", "#fbfaf5", "logo", "", "heroImage", root + "/img/pesantren/hero-default-v1.png", "pattern", Boolean.TRUE),
-                "seo", obj("title", nama + " - Portal ePesantren",
-                        "description", "Portal terpadu untuk pendidikan, pengasuhan, layanan wali, kesehatan, ekonomi, pustaka, dan tata kelola pondok.",
-                        "canonical", root + "/index", "language", "id"),
+                "identity", obj("shortName", "ePesantren"),
+                "theme", obj("secondary", "#c79a3b", "ink", "#102a2a", "dark", "#073f3d",
+                        "cream", "#fbfaf5", "pattern", Boolean.TRUE),
+                "seo", obj("canonical", root + "/index", "language", "id"),
                 "announcement", obj("enabled", Boolean.FALSE, "label", "Informasi", "text", "",
                         "url", "#berita"),
                 "navigation", arr(
@@ -154,16 +151,12 @@ public final class PesantrenWebsiteConfig {
                         obj("label", "Berita", "url", "#berita")),
                 "hero", obj(
                         "eyebrow", "Satu Pesantren · Satu Sistem · Satu Data",
-                        "title", nama,
-                        "lead", empty(motto, "Ilmu, adab, dan kemandirian")
-                                + ". Pendidikan, kesantrian, layanan wali, kesehatan, ekonomi, dan tata kelola hadir dalam satu ekosistem digital yang amanah.",
                         "primaryAction", obj("label", "Masuk ePesantren", "url", root + "/login"),
                         "secondaryAction", obj("label", "Jelajahi Layanan", "url", "#layanan"),
                         "tertiaryAction", obj("label", "Pendaftaran Santri", "url", root + "/psb")),
                 "profile", obj(
                         "eyebrow", "Profil Pondok",
-                        "title", "Berakar pada adab, bertumbuh dengan teknologi",
-                        "body", empty(clean(deskripsi), "Portal ini menghubungkan seluruh unit pendidikan dan layanan pondok dalam pengalaman yang konsisten bagi santri, wali, asatidz, pengurus, dan pimpinan.")),
+                        "title", "Berakar pada adab, bertumbuh dengan teknologi"),
                 "stats", arr(
                         obj("value", "Dinamis", "label", "Unit pendidikan"),
                         obj("value", "24/7", "label", "Layanan digital"),
@@ -209,12 +202,9 @@ public final class PesantrenWebsiteConfig {
                         obj("image", root + "/img/pesantren/ekonomi-default-v1.png", "title", "Kemandirian ekonomi", "caption", "Koperasi, kantin, BMT, dan unit usaha pesantren.")),
                 "newsSection", section("Kabar pondok", "Pengumuman umum terbaru",
                         "Berita aktif dan ditujukan untuk umum diambil otomatis dari Pengumuman Akademis."),
-                "cta", obj("eyebrow", "Terhubung dengan pondok", "title", "Informasi dan layanan resmi " + nama,
-                        "body", alamat, "primaryLabel", "Masuk Sistem", "primaryUrl", root + "/login",
+                "cta", obj("eyebrow", "Terhubung dengan pondok", "primaryLabel", "Masuk Sistem", "primaryUrl", root + "/login",
                         "secondaryLabel", "Hubungi WhatsApp"),
-                "contact", obj("address", alamat, "phone", telp, "whatsapp", wa, "email", email,
-                        "website", ""),
-                "footer", obj("left", nama, "right", "Didukung ePesantren · CV. Zishof"),
+                "footer", obj("right", "Didukung ePesantren · CV. Zishof"),
                 "visibility", obj("units", Boolean.TRUE, "pillars", Boolean.TRUE, "dailyTimeline", Boolean.TRUE,
                         "workflows", Boolean.TRUE, "diagrams", Boolean.TRUE, "biometric", Boolean.TRUE,
                         "services", Boolean.TRUE, "gallery", Boolean.TRUE, "news", Boolean.TRUE,
@@ -362,16 +352,4 @@ public final class PesantrenWebsiteConfig {
         }
     }
 
-    private static String empty(String value, String fallback) {
-        return value == null || value.trim().length() == 0 ? fallback : value.trim();
-    }
-
-    private static String clean(String html) {
-        if (html == null) return "";
-        return org.jsoup.Jsoup.parse(html).text().replaceAll("\\s+", " ").trim();
-    }
-
-    private static String validColor(String value) {
-        return value != null && value.matches("#[0-9a-fA-F]{6}") ? value : "#0f766e";
-    }
 }

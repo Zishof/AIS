@@ -39,6 +39,7 @@ public class WebsiteDiscovery extends HttpServlet {
         PrintWriter out = res.getWriter();
         out.println("User-agent: *");
         out.println("Allow: /web");
+        out.println("Allow: /sekolah/");
         out.println("Disallow: /login");
         out.println("Disallow: /main");
         out.println("Disallow: /baru");
@@ -48,6 +49,9 @@ public class WebsiteDiscovery extends HttpServlet {
     private void sitemap(HttpServletResponse res, HttpServletRequest req, HomePortalViewModel vm, String origin) throws IOException {
         Set<String> urls = new LinkedHashSet<String>();
         String web = origin + req.getContextPath() + "/web";
+        if (vm.institution.schoolId != null) {
+            urls.add(origin + req.getContextPath() + "/sekolah/" + vm.institution.schoolId);
+        }
         add(urls, web, "");
         String[] shared = {"profil", "program", "penerimaan", "layanan", "berita", "agenda", "dokumen", "akreditasi", "staf", "beasiswa", "kehidupan-kampus", "kontak", "privasi", "aksesibilitas", "ppid"};
         for (String path : shared) add(urls, web, path);

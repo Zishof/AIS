@@ -118,6 +118,7 @@ public class PengajuanPembelianGudang extends GeneralValueObject {
 	private Boolean otomatis;
 	private Date waktuDibuat;
 	private String keterangan;
+	private Long woId;
 
 	public PengajuanPembelianGudang() {
 	}
@@ -212,6 +213,20 @@ public class PengajuanPembelianGudang extends GeneralValueObject {
 
 	public void setWaktuDibuat(Date waktuDibuat) {
 		this.waktuDibuat = waktuDibuat;
+	}
+
+	/**
+	 * Id {@code ProduksiDokumen} WO pemicu (Fase D dok. 48 P4): pengajuan yang lahir dari
+	 * kekurangan komponen saat rilis Work Order. {@code null} = pengajuan biasa (ambang stok
+	 * atau manual) -- data lama tidak berubah makna.
+	 */
+	@Column(name = "wo_id", nullable = true)
+	public Long getWoId() {
+		return woId;
+	}
+
+	public void setWoId(Long woId) {
+		this.woId = woId;
 	}
 
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")

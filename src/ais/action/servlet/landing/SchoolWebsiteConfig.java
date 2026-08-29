@@ -47,6 +47,14 @@ public final class SchoolWebsiteConfig {
         removeModelBackedProperties(parsed);
     }
 
+    /** Validasi sekaligus membuang salinan field model sebelum JSON disimpan. */
+    public static String normalize(String raw) throws JSONException {
+        validate(raw);
+        JSONObject parsed = new JSONObject(raw.trim());
+        removeModelBackedProperties(parsed);
+        return parsed.toString(2);
+    }
+
     public static JSONObject object(JSONObject parent, String key) {
         JSONObject value = parent == null ? null : parent.optJSONObject(key);
         return value == null ? new JSONObject() : value;
@@ -88,20 +96,20 @@ public final class SchoolWebsiteConfig {
                 "profile", obj("eyebrow", "Tentang sekolah", "title", "Pendidikan bermutu, aman, dan berpusat pada peserta didik"),
                 "valuesSection", section("Nilai utama", "Budaya sekolah yang membentuk karakter", "Nilai diterapkan dalam pembelajaran dan kehidupan sekolah."),
                 "values", arr(
-                        obj("title", "Integritas", "description", "Jujur, bertanggung jawab, dan konsisten dalam tindakan."),
-                        obj("title", "Keunggulan", "description", "Terus belajar dan meningkatkan mutu secara terukur."),
-                        obj("title", "Kepedulian", "description", "Lingkungan aman, inklusif, dan saling menghargai."),
-                        obj("title", "Kemandirian", "description", "Mendorong inisiatif, kreativitas, dan kesiapan masa depan.")),
+                        obj("title", "Integritas", "body", "Jujur, bertanggung jawab, dan konsisten dalam tindakan."),
+                        obj("title", "Keunggulan", "body", "Terus belajar dan meningkatkan mutu secara terukur."),
+                        obj("title", "Kepedulian", "body", "Lingkungan aman, inklusif, dan saling menghargai."),
+                        obj("title", "Kemandirian", "body", "Mendorong inisiatif, kreativitas, dan kesiapan masa depan.")),
                 "programsSection", section("Program pendidikan", "Pengalaman belajar yang utuh", "Program dapat disesuaikan dengan kekhasan dan jenjang sekolah."),
                 "programs", arr(
-                        obj("title", "Pembelajaran akademik", "description", "Kurikulum, asesmen, pengayaan, dan pendampingan belajar yang terstruktur."),
-                        obj("title", "Penguatan karakter", "description", "Pembiasaan positif, kepemimpinan, literasi, dan kepedulian sosial."),
-                        obj("title", "Minat dan bakat", "description", "Ekstrakurikuler dan proyek untuk mengembangkan potensi peserta didik.")),
+                        obj("title", "Pembelajaran akademik", "body", "Kurikulum, asesmen, pengayaan, dan pendampingan belajar yang terstruktur."),
+                        obj("title", "Penguatan karakter", "body", "Pembiasaan positif, kepemimpinan, literasi, dan kepedulian sosial."),
+                        obj("title", "Minat dan bakat", "body", "Ekstrakurikuler dan proyek untuk mengembangkan potensi peserta didik.")),
                 "studentLifeSection", section("Kehidupan sekolah", "Ruang aman untuk belajar dan bertumbuh", "Kolaborasi sekolah, peserta didik, serta orang tua menjadi bagian dari proses pendidikan."),
                 "studentLife", arr(
-                        obj("title", "Kesejahteraan siswa", "description", "Pendampingan, kesehatan, konseling, dan perlindungan anak."),
-                        obj("title", "Kemitraan orang tua", "description", "Informasi perkembangan dan kanal komunikasi resmi yang jelas."),
-                        obj("title", "Kegiatan dan prestasi", "description", "Agenda, organisasi siswa, kompetisi, serta apresiasi prestasi.")),
+                        obj("title", "Kesejahteraan siswa", "body", "Pendampingan, kesehatan, konseling, dan perlindungan anak."),
+                        obj("title", "Kemitraan orang tua", "body", "Informasi perkembangan dan kanal komunikasi resmi yang jelas."),
+                        obj("title", "Kegiatan dan prestasi", "body", "Agenda, organisasi siswa, kompetisi, serta apresiasi prestasi.")),
                 "facilitiesSection", section("Fasilitas", "Lingkungan belajar yang mendukung", "Foto fasilitas dapat dikelola dari konfigurasi website tanpa menyalin identitas sekolah."),
                 "gallery", arr(
                         obj("image", "", "title", "Ruang belajar", "caption", "Ruang yang nyaman dan mendukung pembelajaran aktif."),
@@ -129,6 +137,9 @@ public final class SchoolWebsiteConfig {
         remove(object(value, "contact"), "address", "phone", "whatsapp", "email", "website");
         remove(object(value, "footer"), "left");
         remove(value, "name", "motto", "description", "address", "phone", "whatsapp", "email", "website");
+        if (object(value, "identity").length() == 0) value.remove("identity");
+        if (object(value, "contact").length() == 0) value.remove("contact");
+        if (object(value, "seo").length() == 0) value.remove("seo");
     }
 
     private static void remove(JSONObject value, String... keys) {

@@ -28,6 +28,9 @@
     private static String jsonScript(JSONObject value) {
         return value.toString().replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e");
     }
+    private static void putJson(JSONObject target, String key, Object value) {
+        try { target.put(key, value); } catch (Exception ignored) { }
+    }
     private static String digits(String value) {
         return value == null ? "" : value.replaceAll("[^0-9]", "");
     }
@@ -101,15 +104,15 @@
             || (canonical.startsWith("/") && !canonical.startsWith("//")))) canonical = root + "/index";
     String socialImage = image(t(theme, "heroImage", profil.getLatar()), root + "/img/pesantren/hero-default-v1.png");
     JSONObject structuredData = new JSONObject();
-    structuredData.put("@context", "https://schema.org");
-    structuredData.put("@type", "EducationalOrganization");
-    structuredData.put("name", profil.getNama());
-    structuredData.put("description", seoDescription);
-    if (canonical.startsWith("http")) structuredData.put("url", canonical);
-    if (!profil.getLogo().isEmpty()) structuredData.put("logo", image(profil.getLogo(), root + "/img/logo.png"));
-    if (!profil.getAlamat().isEmpty()) structuredData.put("address", profil.getAlamat());
-    if (!profil.getTelepon().isEmpty()) structuredData.put("telephone", profil.getTelepon());
-    if (!profil.getEmail().isEmpty()) structuredData.put("email", profil.getEmail());
+    putJson(structuredData, "@context", "https://schema.org");
+    putJson(structuredData, "@type", "EducationalOrganization");
+    putJson(structuredData, "name", profil.getNama());
+    putJson(structuredData, "description", seoDescription);
+    if (canonical.startsWith("http")) putJson(structuredData, "url", canonical);
+    if (!profil.getLogo().isEmpty()) putJson(structuredData, "logo", image(profil.getLogo(), root + "/img/logo.png"));
+    if (!profil.getAlamat().isEmpty()) putJson(structuredData, "address", profil.getAlamat());
+    if (!profil.getTelepon().isEmpty()) putJson(structuredData, "telephone", profil.getTelepon());
+    if (!profil.getEmail().isEmpty()) putJson(structuredData, "email", profil.getEmail());
     String wa = digits(profil.getWa());
     if (wa.startsWith("0")) wa = "62" + wa.substring(1);
 %>

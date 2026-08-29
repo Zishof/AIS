@@ -130,10 +130,16 @@ public final class NewUiPemOnlineController {
     }
 
     // ---------------------------------------------------------------- lookup
-    /** Pencarian subjek kasir. Pengguna ber-relasi terbatas hanya melihat dirinya. */
+    /**
+     * Pencarian subjek kasir. Pengguna ber-relasi terbatas hanya melihat dirinya
+     * (flag "sendiri" = true agar klien mengunci pilihan). Paritas banbox ZK:
+     * q kosong TETAP mengembalikan halaman pertama daftar (onOpen menampilkan
+     * daftar tanpa mengetik).
+     */
     private static void lookup(JSONObject j, HttpServletRequest r, Tbmuser user) throws Exception {
         String q = text(r.getParameter("q"), "");
         JSONArray siswaArr = new JSONArray(), calonArr = new JSONArray();
+        boolean sendiriSaja = user.getSiswa() != null || user.getCalonSiswa() != null;
         if (user.getSiswa() != null) {
             Siswa sendiri = user.getSiswa();
             siswaArr.put(new JSONObject().put("id", sendiri.getId())
@@ -142,15 +148,16 @@ public final class NewUiPemOnlineController {
             CalonSiswa sendiri = user.getCalonSiswa();
             calonArr.put(new JSONObject().put("id", sendiri.getId())
                     .put("nama", nz(sendiri.getNamaSiswa())).put("kode", nz(sendiri.getNoRegistrasi())));
-        } else if (q.length() >= 2) {
+        } else {
+            boolean adaFilter = q.length() >= 2;
             Session s = HibernateUtil.openSession();
             try {
                 List anak = user.getOrangTua() == null ? null : user.getOrangTua().ambilAnakSiswa();
                 Criteria cs = s.createCriteria(Siswa.class)
                         .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-                        .add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
-                                Restrictions.ilike("nomorInduk", "%" + q + "%")))
                         .addOrder(Order.asc("namaSiswa")).setMaxResults(20);
+                if (adaFilter) cs.add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
+                        Restrictions.ilike("nomorInduk", "%" + q + "%")));
                 if (anak != null) cs.add(anak.isEmpty()
                         ? Restrictions.sqlRestriction("1=0") : Restrictions.in("id", anak));
                 for (Object o : cs.list()) {
@@ -161,9 +168,9 @@ public final class NewUiPemOnlineController {
                 if (anak == null) {
                     Criteria cc = s.createCriteria(CalonSiswa.class)
                             .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-                            .add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
-                                    Restrictions.ilike("noRegistrasi", "%" + q + "%")))
                             .addOrder(Order.asc("namaSiswa")).setMaxResults(20);
+                    if (adaFilter) cc.add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
+                            Restrictions.ilike("noRegistrasi", "%" + q + "%")));
                     for (Object o : cc.list()) {
                         CalonSiswa calon = (CalonSiswa) o;
                         calonArr.put(new JSONObject().put("id", calon.getId())
@@ -172,7 +179,7 @@ public final class NewUiPemOnlineController {
                 }
             } finally { s.close(); }
         }
-        j.put("siswa", siswaArr).put("calon", calonArr);
+        j.put("siswa", siswaArr).put("calon", calonArr).put("sendiri", sendiriSaja);
     }
 
     // ------------------------------------------------------------------ meta

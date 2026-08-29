@@ -190,9 +190,15 @@ public final class NewUiDaftarUlangMahasiswaController {
     }
 
     // ---------------------------------------------------------------- lookup
+    /**
+     * Paritas banbox ZK: q kosong tetap mengembalikan halaman pertama daftar
+     * (onOpen menampilkan daftar tanpa mengetik). Pengguna ber-relasi hanya
+     * melihat dirinya (flag "sendiri" = true agar klien mengunci pilihan).
+     */
     private static void lookup(JSONObject j, HttpServletRequest r, Tbmuser user, String mode) throws Exception {
         String q = text(r.getParameter("q"), "");
         JSONArray arr = new JSONArray();
+        boolean sendiriSaja = user.getMahasiswa() != null || user.getBiodataCalonMahasiswa() != null;
         if (user.getMahasiswa() != null) {
             Mahasiswa m = user.getMahasiswa();
             if (!modeCalon(mode))
@@ -201,14 +207,15 @@ public final class NewUiDaftarUlangMahasiswaController {
             BiodataCalonMahasiswa c = user.getBiodataCalonMahasiswa();
             if (modeCalon(mode))
                 arr.put(new JSONObject().put("id", c.getId()).put("nama", nz(c.getNama())).put("kode", nz(c.getNoRegistrasi())));
-        } else if (q.length() >= 2) {
+        } else {
+            boolean adaFilter = q.length() >= 2;
             Session s = HibernateUtil.openSession();
             try {
                 if (!modeCalon(mode)) {
                     Criteria c = s.createCriteria(Mahasiswa.class)
-                            .add(Restrictions.or(Restrictions.ilike("nama", "%" + q + "%"),
-                                    Restrictions.ilike("nim", "%" + q + "%")))
                             .addOrder(Order.asc("nama")).setMaxResults(20);
+                    if (adaFilter) c.add(Restrictions.or(Restrictions.ilike("nama", "%" + q + "%"),
+                            Restrictions.ilike("nim", "%" + q + "%")));
                     for (Object o : c.list()) {
                         Mahasiswa m = (Mahasiswa) o;
                         arr.put(new JSONObject().put("id", m.getId())
@@ -216,9 +223,9 @@ public final class NewUiDaftarUlangMahasiswaController {
                     }
                 } else {
                     Criteria c = s.createCriteria(BiodataCalonMahasiswa.class)
-                            .add(Restrictions.or(Restrictions.ilike("nama", "%" + q + "%"),
-                                    Restrictions.ilike("noRegistrasi", "%" + q + "%")))
                             .addOrder(Order.asc("nama")).setMaxResults(20);
+                    if (adaFilter) c.add(Restrictions.or(Restrictions.ilike("nama", "%" + q + "%"),
+                            Restrictions.ilike("noRegistrasi", "%" + q + "%")));
                     for (Object o : c.list()) {
                         BiodataCalonMahasiswa cm = (BiodataCalonMahasiswa) o;
                         arr.put(new JSONObject().put("id", cm.getId())
@@ -229,6 +236,7 @@ public final class NewUiDaftarUlangMahasiswaController {
         }
         j.put(modeCalon(mode) ? "calon" : "mahasiswa", arr);
         j.put(modeCalon(mode) ? "mahasiswa" : "calon", new JSONArray());
+        j.put("sendiri", sendiriSaja);
     }
 
     // ------------------------------------------------------------------ meta

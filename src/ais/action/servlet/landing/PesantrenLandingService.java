@@ -269,8 +269,13 @@ public final class PesantrenLandingService {
     }
 
     private static String url(String website, String domain, String fallback) {
+        String firstDomain = "";
+        if (domain != null && domain.trim().length() > 0) {
+            List<String> domains = Common.pisahDomain(domain);
+            firstDomain = domains.isEmpty() ? "" : domains.get(0);
+        }
         String value = website != null && website.trim().length() > 0 ? website.trim()
-                : domain != null && domain.trim().length() > 0 ? domain.trim() : fallback;
+                : firstDomain.length() > 0 ? firstDomain : fallback;
         if (value.startsWith("/") || value.startsWith("http://") || value.startsWith("https://")) return value;
         return "https://" + value;
     }

@@ -1379,7 +1379,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		try {
 			websiteValue = websiteEditor == null ? SchoolWebsiteConfig.editableJson(sekolah)
 					: websiteEditor.toJsonString();
-			SchoolWebsiteConfig.validate(websiteValue);
+			websiteValue = SchoolWebsiteConfig.normalize(websiteValue);
 		} catch (Exception e) {
 			MyMessageboxConfig.show("Konfigurasi Website Sekolah tidak valid: " + e.getMessage(), "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

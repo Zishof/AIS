@@ -17,14 +17,19 @@ public class SekolahWebsite extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         initCommonContext(request);
-        Long id = schoolId(request.getPathInfo());
+        String pathInfo = request.getPathInfo();
+        Long id = schoolId(pathInfo);
+        if (hasInvalidSchoolPath(pathInfo, id)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
         if (!SchoolLandingService.prepare(request, id)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
         SchoolLandingService.SchoolProfile profile =
                 (SchoolLandingService.SchoolProfile) request.getAttribute("schoolProfile");
-        request.setAttribute("schoolCanonical", canonical(request, profile == null ? null : profile.getId()));
+        request.setAttribute("schoolCanonical", canonical(request, profile));
         request.getRequestDispatcher("/WEB-INF/baru/sekolah.jsp").forward(request, response);
     }
 
@@ -46,13 +51,25 @@ public class SekolahWebsite extends HttpServlet {
         try { return Long.valueOf(value); } catch (Exception e) { return null; }
     }
 
-    private String canonical(HttpServletRequest request, Long id) {
-        String host = request.getServerName() == null ? "" : request.getServerName().trim();
+    private boolean hasInvalidSchoolPath(String path, Long id) {
+        return path != null && path.trim().length() > 0 && !"/".equals(path.trim()) && id == null;
+    }
+
+    private String canonical(HttpServletRequest request, SchoolLandingService.SchoolProfile profile) {
+        Long id = profile == null ? null : profile.getId();
+        String requestHost = request.getServerName() == null ? "" : request.getServerName().trim();
+        String host = requestHost;
+        if (profile != null && profile.getDomain() != null) {
+            java.util.List<String> domains = Common.pisahDomain(profile.getDomain());
+            if (!domains.isEmpty() && domains.get(0).matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+")) {
+                host = domains.get(0);
+            }
+        }
         if (!host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+")) return request.getContextPath() + "/sekolah/" + id;
         boolean secure = request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"));
         String scheme = secure ? "https" : "http";
         String authority = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
-        int port = request.getServerPort();
+        int port = host.equalsIgnoreCase(requestHost) ? request.getServerPort() : (secure ? 443 : 80);
         String portText = port == 80 || port == 443 ? "" : ":" + port;
         return scheme + "://" + authority + portText + request.getContextPath() + "/sekolah/" + id;
     }

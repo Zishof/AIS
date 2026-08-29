@@ -18,6 +18,9 @@ import ais.database.model.inventory.ProduksiDokumen;
 import ais.database.model.inventory.ProduksiDokumenBaris;
 import ais.database.model.inventory.ProduksiDokumenEvent;
 import ais.database.model.inventory.MutasiStokProduksi;
+import ais.database.model.inventory.PengajuanPembelianGudang;
+import ais.database.model.inventory.ReservasiStokProduksi;
+import ais.database.model.inventory.Toko;
 import ais.database.model.inventory.ProduksiGenealogiLot;
 
 /** Adapter API produksi. Skema tabel tetap sepenuhnya dikelola Hibernate. */
@@ -31,6 +34,7 @@ public final class ProduksiApiHelper {
   JENIS.put("production_output", "OUTPUT");
   JENIS.put("production_waste", "WASTE");
   JENIS.put("production_cost", "COST");
+  JENIS.put("production_unbuild", "UNBUILD");
  }
  private ProduksiApiHelper() { }
 
@@ -184,8 +188,23 @@ public final class ProduksiApiHelper {
    // dibaca, bukan exception mentah.
    if (jenisStok(d.getDocumentType())) {
     try {
-     if ("POSTED".equals(target)) postingStok(s, d, pengguna(ctx));
-     else if ("REVERSED".equals(target)) balikkanPostingStok(s, d, pengguna(ctx));
+     if ("POSTED".equals(target)) {
+      postingStok(s, d, pengguna(ctx));
+      // Fase D: ISSUE ber-referensi WO memakan reservasi komponen WO itu.
+      if ("ISSUE".equals(d.getDocumentType())) sesuaikanReservasiIssue(s, d, false);
+     } else if ("REVERSED".equals(target)) {
+      balikkanPostingStok(s, d, pengguna(ctx));
+      if ("ISSUE".equals(d.getDocumentType())) sesuaikanReservasiIssue(s, d, true);
+     }
+    } catch (IllegalArgumentException salah) { tolak(hasil, salah.getMessage()); rollback(tx); return; }
+   }
+   // Fase D dok. 48 P4: siklus reservasi komponen WO -- RELEASED mengunci komponen BOM dan
+   // memeriksa kekurangan (-> pengajuan pembelian ber-rujukan WO); CANCELLED/COMPLETED melepas.
+   if ("WO".equals(d.getDocumentType())) {
+    try {
+     if ("RELEASED".equals(target)) reservasiSaatRilis(s, d, pengguna(ctx), hasil);
+     else if ("CANCELLED".equals(target)) tutupReservasi(s, d, ReservasiStokProduksi.STATUS_BATAL);
+     else if ("COMPLETED".equals(target)) tutupReservasi(s, d, ReservasiStokProduksi.STATUS_SELESAI);
     } catch (IllegalArgumentException salah) { tolak(hasil, salah.getMessage()); rollback(tx); return; }
    }
    s.update(d); event(s, d.getId(), awal, target, request.optString("catatanStatus", ""), pengguna(ctx)); tx.commit();
@@ -262,16 +281,159 @@ public final class ProduksiApiHelper {
 
  /** Jenis dokumen yang menggerakkan stok. BOM/WO/COST sengaja TIDAK (dok. 49 Adendum). */
  private static boolean jenisStok(String type) {
-  return "ISSUE".equals(type) || "RETURN".equals(type) || "OUTPUT".equals(type) || "WASTE".equals(type);
+  return "ISSUE".equals(type) || "RETURN".equals(type) || "OUTPUT".equals(type) || "WASTE".equals(type)
+    || "UNBUILD".equals(type);
  }
  /** OUTPUT/RETURN menambah stok; ISSUE/WASTE mengurangi. */
  private static boolean arahMasuk(String type) { return "OUTPUT".equals(type) || "RETURN".equals(type); }
+ /** UNBUILD (Fase D) membalik OUTPUT+ISSUE dalam SATU dokumen sehingga arahnya per-BARIS:
+  * baris bertipe OUTPUT (barang jadi) KELUAR, baris lain (komponen BOM) MASUK. Jenis dokumen
+  * lain tetap arah per-dokumen seperti Fase 0. */
+ private static boolean arahMasukBaris(String type, String lineType) {
+  if ("UNBUILD".equals(type))
+   return !"OUTPUT".equals(lineType == null ? "" : lineType.trim().toUpperCase());
+  return arahMasuk(type);
+ }
 
  /**
   * Menulis ledger {@link MutasiStokProduksi} arah FORWARD untuk tiap baris ber-{@code stockAffecting}
   * saat dokumen POSTED, lalu menghitung ulang stok produknya. Idempoten periksa-lalu-lewati per
   * (dokumen, baris, arah) -- pola {@code DistribusiPengirimanApiHelper.postingStok}.
   */
+ /**
+  * Fase D: WO RELEASED mengunci komponen BOM sebagai {@link ReservasiStokProduksi} (kebutuhan =
+  * qty baris BOM x rasio plannedQty WO terhadap qty baris OUTPUT BOM), lalu memeriksa kekurangan
+  * terhadap stok toko dikurangi reservasi AKTIF WO lain. Kekurangan -> PengajuanPembelianGudang
+  * ber-rujukan WO bila toko punya gudangPemasok; tanpa gudang, kekurangan tetap dilaporkan di
+  * respons ({@code kekurangan}) dan catatan dokumen -- tidak diam-diam hilang. Reservasi murni
+  * INFORMASI bagi kasir (keputusan dok. 48 §6 no. 4 terbuka).
+  */
+ private static void reservasiSaatRilis(Session s, ProduksiDokumen d, String oleh, JSONObject hasil)
+   throws Exception {
+  if (d.getBomId() == null) return; // WO manual tanpa BOM: tak ada daftar komponen utk dikunci.
+  Object sudah = s.createQuery("select id from ReservasiStokProduksi where woId=:wo")
+    .setLong("wo", d.getId().longValue()).setMaxResults(1).uniqueResult();
+  if (sudah != null) return; // idempoten -- rilis ulang tidak menggandakan kunci.
+  List barisBom = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+    .setLong("id", d.getBomId().longValue()).list();
+  BigDecimal qtyOutputBom = BigDecimal.ZERO;
+  for (int i = 0; i < barisBom.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) barisBom.get(i);
+   if ("OUTPUT".equals(b.getLineType())) qtyOutputBom = qtyOutputBom.add(aman(b.getQty()));
+  }
+  BigDecimal planned = aman(d.getPlannedQty());
+  BigDecimal rasio = qtyOutputBom.compareTo(BigDecimal.ZERO) > 0
+    ? planned.divide(qtyOutputBom, 6, BigDecimal.ROUND_HALF_UP) : planned;
+  JSONArray kekuranganSemua = new JSONArray(); StringBuilder catatan = new StringBuilder();
+  for (int i = 0; i < barisBom.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) barisBom.get(i);
+   if ("OUTPUT".equals(b.getLineType()) || b.getItemId() == null) continue;
+   BigDecimal butuh = aman(b.getQty()).multiply(rasio);
+   if (butuh.compareTo(BigDecimal.ZERO) <= 0) continue;
+   ReservasiStokProduksi r = new ReservasiStokProduksi();
+   r.setWoId(d.getId()); r.setTokoId(d.getTokoId()); r.setProdukId(b.getItemId());
+   r.setQty(butuh); r.setQtySisa(butuh); r.setStatus(ReservasiStokProduksi.STATUS_AKTIF);
+   r.setKeterangan("WO " + d.getDocumentNo() + " komponen " + b.getItemName());
+   r.setOleh(oleh); r.setDibuat(new Date()); r.setDiubah(new Date());
+   s.save(r);
+   // Kekurangan: stok toko - reservasi AKTIF milik WO LAIN (reservasi WO ini baru dibuat).
+   Object stokProduk = s.createSQLQuery("SELECT COALESCE(stok,0) FROM koperasi.produk WHERE id=:p")
+     .setLong("p", b.getItemId().longValue()).uniqueResult();
+   Object reservedLain = s.createQuery(
+     "select sum(qtySisa) from ReservasiStokProduksi where produkId=:p and tokoId=:t"
+       + " and status=:st and woId<>:wo")
+     .setLong("p", b.getItemId().longValue()).setLong("t", d.getTokoId().longValue())
+     .setString("st", ReservasiStokProduksi.STATUS_AKTIF).setLong("wo", d.getId().longValue())
+     .uniqueResult();
+   BigDecimal tersedia = new BigDecimal(String.valueOf(stokProduk == null ? 0 : stokProduk))
+     .subtract(reservedLain == null ? BigDecimal.ZERO : (BigDecimal) reservedLain);
+   if (tersedia.compareTo(BigDecimal.ZERO) < 0) tersedia = BigDecimal.ZERO;
+   BigDecimal kurang = butuh.subtract(tersedia);
+   if (kurang.compareTo(BigDecimal.ZERO) <= 0) continue;
+   JSONObject k = new JSONObject(); k.put("produkId", b.getItemId()); k.put("nama", b.getItemName());
+   k.put("butuh", butuh); k.put("tersedia", tersedia); k.put("kurang", kurang);
+   Toko toko = (Toko) s.get(Toko.class, d.getTokoId());
+   if (toko != null && toko.getGudangPemasok() != null) {
+    // Idempoten mesin lama: satu pengajuan aktif per (produk, WO).
+    Object adaPengajuan = s.createQuery(
+      "select id from PengajuanPembelianGudang where woId=:wo and produk.id=:p"
+        + " and status in ('BARU','DIPROSES')")
+      .setLong("wo", d.getId().longValue()).setLong("p", b.getItemId().longValue())
+      .setMaxResults(1).uniqueResult();
+    if (adaPengajuan == null) {
+     PengajuanPembelianGudang pengajuan = new PengajuanPembelianGudang();
+     pengajuan.setProduk((ais.database.model.inventory.Produk) s.get(
+       ais.database.model.inventory.Produk.class, b.getItemId()));
+     pengajuan.setGudangAsal(toko.getGudangPemasok());
+     pengajuan.setGudangTujuan(toko.getGudangPemasok().getGudangInduk());
+     pengajuan.setStokSaatDiajukan(Double.valueOf(tersedia.doubleValue()));
+     pengajuan.setQtyDiminta(Double.valueOf(kurang.doubleValue()));
+     pengajuan.setStatus(PengajuanPembelianGudang.STATUS_BARU);
+     pengajuan.setOtomatis(Boolean.TRUE); pengajuan.setWoId(d.getId());
+     pengajuan.setWaktuDibuat(ais.ui.util.WaktuUtil.getDate());
+     pengajuan.setKeterangan("Kekurangan komponen WO " + d.getDocumentNo() + ": butuh " + butuh
+       + " " + b.getItemName() + ", tersedia " + tersedia + " (di luar reservasi WO lain).");
+     s.save(pengajuan); k.put("pengajuan", true);
+    } else { k.put("pengajuan", true); }
+   } else {
+    k.put("pengajuan", false);
+    catatan.append(" Kekurangan ").append(b.getItemName()).append(" ").append(kurang)
+      .append(" TIDAK dibuatkan pengajuan: toko belum punya Gudang Pemasok.");
+   }
+   kekuranganSemua.put(k);
+  }
+  if (kekuranganSemua.length() > 0) {
+   hasil.put("kekurangan", kekuranganSemua);
+   d.setNotes((d.getNotes() == null ? "" : d.getNotes()) + " [Rilis: " + kekuranganSemua.length()
+     + " komponen kurang." + catatan + "]");
+  }
+ }
+
+ /** Fase D: tutup semua reservasi AKTIF milik WO (BATAL saat cancel, SELESAI saat complete). */
+ private static void tutupReservasi(Session s, ProduksiDokumen d, String status) {
+  s.createQuery("update ReservasiStokProduksi set status=:st, diubah=:kini"
+    + " where woId=:wo and status=:aktif")
+    .setString("st", status).setTimestamp("kini", new Date())
+    .setLong("wo", d.getId().longValue())
+    .setString("aktif", ReservasiStokProduksi.STATUS_AKTIF).executeUpdate();
+ }
+
+ /**
+  * Fase D: ISSUE POSTED ber-referensi WO ({@code referenceNo} = documentNo WO satu toko)
+  * mengurangi {@code qtySisa} reservasi komponen WO itu (0 = SELESAI); REVERSED memulihkan
+  * (dibatasi qty awal). ISSUE tanpa referensi WO tidak menyentuh reservasi mana pun.
+  */
+ private static void sesuaikanReservasiIssue(Session s, ProduksiDokumen d, boolean pulihkan) {
+  String ref = d.getReferenceNo() == null ? "" : d.getReferenceNo().trim();
+  if (ref.length() == 0) return;
+  Object woId = s.createQuery("select id from ProduksiDokumen where documentType='WO'"
+    + " and tokoId=:t and documentNo=:no")
+    .setLong("t", d.getTokoId().longValue()).setString("no", ref).setMaxResults(1).uniqueResult();
+  if (woId == null) return;
+  List baris = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+    .setLong("id", d.getId().longValue()).list();
+  for (int i = 0; i < baris.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) baris.get(i);
+   if (!Boolean.TRUE.equals(b.getStockAffecting()) || b.getItemId() == null) continue;
+   ReservasiStokProduksi r = (ReservasiStokProduksi) s.createQuery(
+     "from ReservasiStokProduksi where woId=:wo and produkId=:p order by id")
+     .setLong("wo", ((Number) woId).longValue()).setLong("p", b.getItemId().longValue())
+     .setMaxResults(1).uniqueResult();
+   if (r == null) continue;
+   BigDecimal qty = aman(b.getQty());
+   BigDecimal sisa = pulihkan ? r.getQtySisa().add(qty) : r.getQtySisa().subtract(qty);
+   if (sisa.compareTo(BigDecimal.ZERO) < 0) sisa = BigDecimal.ZERO;
+   if (sisa.compareTo(r.getQty()) > 0) sisa = r.getQty();
+   r.setQtySisa(sisa);
+   if (ReservasiStokProduksi.STATUS_AKTIF.equals(r.getStatus())
+     || ReservasiStokProduksi.STATUS_SELESAI.equals(r.getStatus())) {
+    r.setStatus(sisa.compareTo(BigDecimal.ZERO) > 0
+      ? ReservasiStokProduksi.STATUS_AKTIF : ReservasiStokProduksi.STATUS_SELESAI);
+   }
+   r.setDiubah(new Date()); s.update(r);
+  }
+ }
+
  private static void postingStok(Session s, ProduksiDokumen d, String oleh) throws Exception {
   List lines = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
     .setLong("id", d.getId().longValue()).list();
@@ -298,8 +460,9 @@ public final class ProduksiApiHelper {
    MutasiStokProduksi m = new MutasiStokProduksi();
    m.setDokumenId(d.getId()); m.setBarisId(b.getId()); m.setArah(MutasiStokProduksi.ARAH_FORWARD);
    m.setJenis(d.getDocumentType()); m.setToko(d.getTokoId()); m.setProduk(b.getItemId());
-   m.setQtyMasuk(arahMasuk(d.getDocumentType()) ? qty : BigDecimal.ZERO);
-   m.setQtyKeluar(arahMasuk(d.getDocumentType()) ? BigDecimal.ZERO : qty);
+   boolean masuk = arahMasukBaris(d.getDocumentType(), b.getLineType());
+   m.setQtyMasuk(masuk ? qty : BigDecimal.ZERO);
+   m.setQtyKeluar(masuk ? BigDecimal.ZERO : qty);
    m.setKunciIdempoten(kunciPosting(d, b.getId(), MutasiStokProduksi.ARAH_FORWARD));
    m.setKeterangan(d.getDocumentType() + " " + d.getDocumentNo()); m.setOleh(oleh); m.setWaktu(new Date());
    s.save(m); tersentuh.add(b.getItemId());

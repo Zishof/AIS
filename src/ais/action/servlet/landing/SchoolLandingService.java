@@ -48,7 +48,7 @@ public final class SchoolLandingService {
 
             JSONObject website = SchoolWebsiteConfig.load(school, request.getContextPath());
             SchoolProfile profile = profile(request, school);
-            List<NewsItem> news = news(session, school);
+            List<NewsItem> news = newsSafe(request, session, school);
             request.setAttribute("schoolProfile", profile);
             request.setAttribute("schoolWebsite", website);
             request.setAttribute("schoolNews", news);
@@ -95,6 +95,16 @@ public final class SchoolLandingService {
                     row.getTanggal() == null ? "" : format.format(row.getTanggal())));
         }
         return result;
+    }
+
+    private static List<NewsItem> newsSafe(HttpServletRequest request, Session session, Sekolah school) {
+        try {
+            return news(session, school);
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "SchoolLandingService.news");
+            request.setAttribute("schoolContentWarning", Boolean.TRUE);
+            return new ArrayList<NewsItem>();
+        }
     }
 
     private static Sekolah safeSchool(HttpServletRequest request) {

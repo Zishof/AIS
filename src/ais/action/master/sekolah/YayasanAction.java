@@ -567,7 +567,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		try {
 			websiteValue = websiteEditor == null ? PesantrenWebsiteConfig.editableJson(yayasan)
 					: websiteEditor.toJsonString();
-			PesantrenWebsiteConfig.validate(websiteValue);
+			websiteValue = PesantrenWebsiteConfig.normalize(websiteValue);
 		} catch (Exception e) {
 			MyMessageboxConfig.show("Konfigurasi Website ePesantren tidak valid: " + e.getMessage(), "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

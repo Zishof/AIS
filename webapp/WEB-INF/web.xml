@@ -54,6 +54,10 @@
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/sekolah</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
 		<url-pattern>/sekolah/*</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
