@@ -100,7 +100,7 @@ public final class DraftJurnalRingkasanUtil {
      * Kunci modul, dalam URUTAN TAMPIL dasbor. Satu kunci dapat menghasilkan lebih dari satu baris
      * (mis. {@code mahasiswa} dan {@code siswa}).
      */
-    public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "kas_kecil",
+    public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "pj_pengembalian", "kas_kecil",
             "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
@@ -192,6 +192,15 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaLpj(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaLpj(session, mulai, sampai), true),
                     hitungClosing(session, "pertangungjawaban", null, null, mulai, sampai)));
+        } else if ("pj_pengembalian".equals(kunci)) {
+            out.add(new Baris(kunci, "Pengembalian Uang Muka",
+                    "Sisa uang muka yang dikembalikan dipastikan tercatat sebagai jurnal pengembalian.",
+                    hitungProperti(session, kriteriaPengembalian(session, mulai, sampai),
+                            "postingHistoryPengembalian", false),
+                    hitungProperti(session, kriteriaPengembalian(session, mulai, sampai),
+                            "postingHistoryPengembalian", true),
+                    hitungClosing(session, "pertangungjawaban",
+                            PostingJurnalHelper.REF_PENGEMBALIAN, null, mulai, sampai)));
         } else if ("kas_kecil".equals(kunci)) {
             out.add(new Baris(kunci, "Kas Kecil",
                     "Pengeluaran kas kecil yang disetujui dipantau sampai menjadi jurnal kas.",
@@ -316,6 +325,34 @@ public final class DraftJurnalRingkasanUtil {
     }
 
     /** disetujuiOleh ikut difilter, sama dengan PostingPertangungjawabanAction. */
+    /**
+     * Dokumen pengembalian sisa uang muka: LPJ disetujui yang {@code dikembalikan}-nya tidak
+     * nol. Kriteria yang sama dipakai mesin massalnya
+     * ({@code PostingPertangungjawabanPengembalianAction.kriteriaPengembalianStatic}).
+     */
+    private static Criteria kriteriaPengembalian(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(Pertangungjawaban.class)
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.isNotNull("dikembalikan")).add(Restrictions.ne("dikembalikan", 0.0))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /**
+     * Penghitung untuk baris yang status posting-nya tersimpan pada properti riwayat KHUSUS
+     * (bukan {@code postingHistory} baku), mis. {@code postingHistoryPengembalian} -- cukup
+     * null/tidak-null pada dokumennya, tanpa join bendera.
+     */
+    private static int hitungProperti(Session session, Criteria criteria, String properti,
+            boolean sudahPosting) {
+        try {
+            criteria.setProjection(Projections.rowCount());
+            criteria.add(PostingJurnalHelper.restriksiPosting(properti, Boolean.valueOf(sudahPosting)));
+            return PostingJurnalHelper.hitung(criteria);
+        } catch (Exception e) {
+            return gagal(session, e);
+        }
+    }
+
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
         return session.createCriteria(Pertangungjawaban.class)
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
@@ -593,6 +630,9 @@ public final class DraftJurnalRingkasanUtil {
         if ("Jurnal Umum".equals(namaBaris)) return kriteriaJurnalUmum(session, mulai, sampai);
         if ("Uang Muka".equals(namaBaris)) return kriteriaUangMuka(session, mulai, sampai);
         if ("Pertanggungjawaban Uang Muka".equals(namaBaris)) return kriteriaLpj(session, mulai, sampai);
+        if ("Pengembalian Uang Muka".equals(namaBaris)) {
+            return kriteriaPengembalian(session, mulai, sampai);
+        }
         if ("Kas Kecil".equals(namaBaris)) return kriteriaKasKecil(session, mulai, sampai);
         if ("Kas Besar".equals(namaBaris)) return kriteriaKasBesar(session, mulai, sampai);
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) {
@@ -678,6 +718,7 @@ public final class DraftJurnalRingkasanUtil {
         if ("Siswa - Dibayar Dimuka".equals(namaBaris)) return "postingHistoryUangMuka";
         if ("Siswa - Piutang Denda".equals(namaBaris)) return "postingHistoryDenda";
         if ("Siswa - Utang Diskon".equals(namaBaris)) return "postingHistoryDiskon";
+        if ("Pengembalian Uang Muka".equals(namaBaris)) return "postingHistoryPengembalian";
         if (namaBaris != null && (namaBaris.startsWith("Mahasiswa - ") || namaBaris.startsWith("Siswa - ")
                 || namaBaris.startsWith("Fix Aset") || namaBaris.startsWith("Aset dalam Pekerjaan")
                 || "Jurnal Penyusutan".equals(namaBaris) || "Jurnal Pengajuan Transfer".equals(namaBaris)

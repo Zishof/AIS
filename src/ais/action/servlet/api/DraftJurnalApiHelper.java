@@ -68,6 +68,9 @@ public final class DraftJurnalApiHelper {
         if ("Kas Besar".equals(namaBaris)) return "kas_besar";
         if ("Uang Muka".equals(namaBaris)) return "uang_muka";
         if ("Pertanggungjawaban Uang Muka".equals(namaBaris)) return "pj_uang_muka";
+        // Pengembalian sisa uang muka menempel pada dokumen LPJ yang sama, jadi satu
+        // keluarga izin dengan barisnya: siapa boleh memposting LPJ, boleh pengembaliannya.
+        if ("Pengembalian Uang Muka".equals(namaBaris)) return "pj_uang_muka";
         if ("Dana Talangan".equals(namaBaris)) return "dana_talangan";
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
         if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
@@ -197,6 +200,12 @@ public final class DraftJurnalApiHelper {
                             tbmuser, new Date())
                     : ais.action.master.akunting.PostingPertangungjawabanAction.batalkanPostingSemua(mulai,
                             sampai);
+        } else if ("Pengembalian Uang Muka".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingPertangungjawabanPengembalianAction
+                        .postingSemua(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.akunting.PostingPertangungjawabanPengembalianAction
+                        .batalkanPostingSemua(mulai, sampai);
         } else if ("Uang Muka".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.akunting.PostingUangMukaAction.postingSemua(mulai, sampai, tbmuser,

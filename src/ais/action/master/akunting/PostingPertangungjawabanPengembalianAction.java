@@ -1146,4 +1146,190 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 		});
 	}
 
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen pengembalian yang SAMA dengan baris "Pengembalian Uang Muka" di dasbor
+	 * draft jurnal ({@code DraftJurnalRingkasanUtil}): LPJ yang sudah disetujui dan nilai
+	 * {@code dikembalikan}-nya tidak nol, pada rentang tanggal persetujuan. Layar ZK sendiri
+	 * menampilkan SEMUA LPJ (termasuk yang tanpa sisa); dasbor sengaja hanya menghitung yang
+	 * benar-benar punya sisa untuk dikembalikan supaya angkanya tidak dipenuhi dokumen yang
+	 * jurnal pengembaliannya pasti bernilai nol.
+	 */
+	private static Criteria kriteriaPengembalianStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(Pertangungjawaban.class)
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.isNotNull("dikembalikan"))
+				.add(Restrictions.ne("dikembalikan", 0.0));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA jurnal pengembalian sisa uang muka pada rentang -- jalur API dasbor Draft
+	 * Jurnal POS.
+	 *
+	 * <p>Jurnal per dokumen: Debet akun kelebihan jenis uang muka, Kredit akun jenis uang
+	 * muka, senilai {@code dikembalikan} -- PERSIS pasangan yang selama ini DITAMPILKAN grid
+	 * layar ZK. Kedua tombol layar ZK (massal maupun per baris) justru menyimpang dari
+	 * tampilannya sendiri: keduanya menulis {@code akunsKredits.add(akunDebet)} sehingga
+	 * jurnal yang tersimpan berpasangan debet-kredit pada AKUN YANG SAMA (saling meniadakan),
+	 * dan jalur massalnya memakai akun debet yang lain lagi ({@code uangMuka.akun}). Mesin ini
+	 * menulis jurnal yang dijanjikan tampilan, bukan mewarisi cacat itu.</p>
+	 *
+	 * <p>Transaksi dibuka sendiri (currentNativeSession + begin/commit per dokumen): dipanggil
+	 * dari API tidak ada kerangka ZK yang meng-commit sesi berjalan, dan kegagalan satu
+	 * dokumen tidak membatalkan dokumen lain yang sudah sah terjurnal.</p>
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPengembalianStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistoryPengembalian")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGEMBALIAN_UANG_MUKA);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal pengembalian sisa uang muka dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				Pertangungjawaban pj = (Pertangungjawaban) o;
+				if (pj == null || pj.getUangMuka() == null || pj.getUangMuka().getJenisUangMuka() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = pj.getUangMuka().getJenisUangMuka().getAkunKelebihan();
+					Akun akunKredit = pj.getUangMuka().getJenisUangMuka().getAkun();
+					Double nilai = pj.getDikembalikan();
+					if (akunDebet == null || akunKredit == null || nilai == null || nilai == 0.0) {
+						continue;
+					}
+
+					String ket = "Laporan pengembalian uang muka \"" + pj.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Laporan pengembalian uang muka \"" + pj.getUangMuka().getWorkspace().getKode()
+								+ " " + pj.getUangMuka().getWorkspace().getNama() + "\" senilai "
+								+ Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Anggarannya boleh kosong; keterangan tetap terbentuk dari kode dokumennya.
+					}
+
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					CommonAkunting.saveTransaksi(new Akun[] { akunDebet }, new Akun[] { akunKredit }, null,
+							null, postingHistory, true, ket, pj.getTanggalPersetujuan(),
+							new Double[] { nilai }, new Double[] { nilai }, 0.0, pj, pj.getSatuanKerja(),
+							ais.action.master.helper.PostingJurnalHelper.REF_PENGEMBALIAN, session);
+					pj.setPostingHistoryPengembalian(postingHistory);
+					session.update(pj);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingPertangungjawabanPengembalianAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingPertangungjawabanPengembalianAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA jurnal pengembalian pada rentang. Mengikuti pola mesin LPJ
+	 * ({@code PostingPertangungjawabanAction.batalkanPostingSemua}): jurnal turunannya dihapus
+	 * (hanya yang belum closing), lalu penandanya dilepas. SQL tombol batal di layar ZK
+	 * sendiri cacat sintaks (tanpa AND di antara filter ref dan pertangungjawaban) sehingga
+	 * selalu gagal; di sini filternya ditulis benar -- dan filter ref WAJIB ada supaya jurnal
+	 * LPJ utama dokumen yang sama (ref null) tidak ikut terhapus.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPengembalianStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistoryPengembalian")).list();
+			for (Object o : daftar) {
+				Pertangungjawaban pj = (Pertangungjawaban) o;
+				if (pj == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where ref='"
+							+ ais.action.master.helper.PostingJurnalHelper.REF_PENGEMBALIAN
+							+ "' and pertangungjawaban=" + pj.getId() + " and closing is null)")
+							.executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where ref='"
+							+ ais.action.master.helper.PostingJurnalHelper.REF_PENGEMBALIAN
+							+ "' and pertangungjawaban=" + pj.getId() + " and closing is null")
+							.executeUpdate();
+					pj.setPostingHistoryPengembalian(null);
+					session.update(pj);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingPertangungjawabanPengembalianAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
