@@ -61,6 +61,9 @@ public final class DraftJurnalApiHelper {
      * pada ringkasan.</p>
      */
     private static String modulPosting(String namaBaris) {
+        // Jurnal umum diketik manual; kuncinya kunci layar POS "Jurnal Umum" sendiri,
+        // yang create-nya berarti boleh memposting (lihat EbisnisMenuKatalog).
+        if ("Jurnal Umum".equals(namaBaris)) return "jurnal_umum";
         if ("Kas Kecil".equals(namaBaris)) return "kas_kecil";
         if ("Kas Besar".equals(namaBaris)) return "kas_besar";
         if ("Uang Muka".equals(namaBaris)) return "uang_muka";
@@ -172,7 +175,13 @@ public final class DraftJurnalApiHelper {
         }
 
         int jumlah;
-        if ("Kas Kecil".equals(nama)) {
+        if ("Jurnal Umum".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingTransaksiHarianAction.postingSemua(
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.akunting.PostingTransaksiHarianAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Kas Kecil".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.akunting.PostingKasKecilAction.postingSemua(mulai, sampai, tbmuser,
                             new Date())

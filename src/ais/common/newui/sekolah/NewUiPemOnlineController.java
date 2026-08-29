@@ -77,7 +77,8 @@ public final class NewUiPemOnlineController {
             }
             Tbmuser user = Common.getCurrentUser(request);
             Subjek subjek = resolveSubjek(request, user);
-            if ("meta".equals(action)) meta(json, request, subjek, user);
+            if ("lookup".equals(action)) lookup(json, request, user);
+            else if ("meta".equals(action)) meta(json, request, subjek, user);
             else if ("list".equals(action)) list(json, request, subjek);
             else if ("options".equals(action)) options(json, subjek);
             else if ("revisions".equals(action)) riwayat(json, request, subjek);
@@ -126,6 +127,52 @@ public final class NewUiPemOnlineController {
     private static void requireSubjek(Subjek subjek) {
         if (subjek.siswa == null && subjek.calon == null)
             throw new IllegalArgumentException("Siswa atau calon siswa wajib dipilih.");
+    }
+
+    // ---------------------------------------------------------------- lookup
+    /** Pencarian subjek kasir. Pengguna ber-relasi terbatas hanya melihat dirinya. */
+    private static void lookup(JSONObject j, HttpServletRequest r, Tbmuser user) throws Exception {
+        String q = text(r.getParameter("q"), "");
+        JSONArray siswaArr = new JSONArray(), calonArr = new JSONArray();
+        if (user.getSiswa() != null) {
+            Siswa sendiri = user.getSiswa();
+            siswaArr.put(new JSONObject().put("id", sendiri.getId())
+                    .put("nama", nz(sendiri.getNamaSiswa())).put("kode", nz(sendiri.getNomorInduk())));
+        } else if (user.getCalonSiswa() != null) {
+            CalonSiswa sendiri = user.getCalonSiswa();
+            calonArr.put(new JSONObject().put("id", sendiri.getId())
+                    .put("nama", nz(sendiri.getNamaSiswa())).put("kode", nz(sendiri.getNoRegistrasi())));
+        } else if (q.length() >= 2) {
+            Session s = HibernateUtil.openSession();
+            try {
+                List anak = user.getOrangTua() == null ? null : user.getOrangTua().ambilAnakSiswa();
+                Criteria cs = s.createCriteria(Siswa.class)
+                        .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                        .add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
+                                Restrictions.ilike("nomorInduk", "%" + q + "%")))
+                        .addOrder(Order.asc("namaSiswa")).setMaxResults(20);
+                if (anak != null) cs.add(anak.isEmpty()
+                        ? Restrictions.sqlRestriction("1=0") : Restrictions.in("id", anak));
+                for (Object o : cs.list()) {
+                    Siswa siswa = (Siswa) o;
+                    siswaArr.put(new JSONObject().put("id", siswa.getId())
+                            .put("nama", nz(siswa.getNamaSiswa())).put("kode", nz(siswa.getNomorInduk())));
+                }
+                if (anak == null) {
+                    Criteria cc = s.createCriteria(CalonSiswa.class)
+                            .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                            .add(Restrictions.or(Restrictions.ilike("namaSiswa", "%" + q + "%"),
+                                    Restrictions.ilike("noRegistrasi", "%" + q + "%")))
+                            .addOrder(Order.asc("namaSiswa")).setMaxResults(20);
+                    for (Object o : cc.list()) {
+                        CalonSiswa calon = (CalonSiswa) o;
+                        calonArr.put(new JSONObject().put("id", calon.getId())
+                                .put("nama", nz(calon.getNamaSiswa())).put("kode", nz(calon.getNoRegistrasi())));
+                    }
+                }
+            } finally { s.close(); }
+        }
+        j.put("siswa", siswaArr).put("calon", calonArr);
     }
 
     // ------------------------------------------------------------------ meta

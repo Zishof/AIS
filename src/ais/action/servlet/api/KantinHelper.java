@@ -15422,17 +15422,41 @@ public class KantinHelper {
 			PengadaanFaktur f = (PengadaanFaktur) session.get(PengadaanFaktur.class, fakturId);
 			if (f == null) {
 				hasil.put("status", "91");
-				hasil.put("description", "Faktur tidak ditemukan.");
+				hasil.put("description", "Faktur tidak ditemukan. Muat ulang Riwayat Faktur karena data mungkin sudah dibatalkan atau dipindahkan oleh pengguna lain.");
+				return;
+			}
+			Long tokoId = soResolveTokoId(tbmuser, request);
+			Long tokoFakturId = f.getToko() == null ? null : f.getToko().getId();
+			if (tokoId == null || tokoFakturId == null || !tokoId.equals(tokoFakturId)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Faktur bukan milik toko yang sedang aktif. Pilih toko yang benar pada bilah atas, lalu muat ulang Riwayat Faktur.");
 				return;
 			}
 			JSONObject header = new JSONObject();
 			header.put("fakturId", f.getId());
 			header.put("nomorFaktur", f.getNomorFaktur());
 			header.put("tanggalFaktur", Common.dateFormatInput.get().format(f.getTanggalFaktur()));
-			header.put("namaSupplier", f.getSupplier() == null ? "" : f.getSupplier().getNama());
+			String namaSupplier = "";
+			Long supplierId = null;
+			boolean masterSupplierTersedia = true;
+			try {
+				if (f.getSupplier() != null) {
+					supplierId = f.getSupplier().getId();
+					namaSupplier = f.getSupplier().getNama() == null ? "" : f.getSupplier().getNama();
+				}
+			} catch (Exception e) {
+				// Faktur lama harus tetap dapat diaudit walau master supplier-nya sudah
+				// dihapus/bermasalah. Identitas header dan rincian barang tidak boleh ikut
+				// gagal hanya karena relasi master opsional ini tidak lagi dapat dimuat.
+				ais.common.ErrorAuditUtil.record(e, "kulakan_faktur_detail supplier faktur=" + fakturId);
+				namaSupplier = "Supplier sudah tidak tersedia di master";
+				masterSupplierTersedia = false;
+			}
+			header.put("namaSupplier", namaSupplier);
+			header.put("masterSupplierTersedia", masterSupplierTersedia);
 			// supplierId dipakai tombol "Edit" di layar Kulakan utk mengisi ulang picker supplier
 			// pada form entri; tanpa ini supplier faktur lama tidak dapat dipulihkan saat dikoreksi.
-			header.put("supplierId", f.getSupplier() == null ? JSONObject.NULL : f.getSupplier().getId());
+			header.put("supplierId", supplierId == null ? JSONObject.NULL : supplierId);
 			header.put("totalFakturManual", f.getTotalFakturManual() == null ? JSONObject.NULL : f.getTotalFakturManual());
 			header.put("totalHitung", f.getTotalHitungSaatSimpan());
 			header.put("diskon", f.getDiskon());
@@ -15443,32 +15467,89 @@ public class KantinHelper {
 			java.util.List<PengadaanProduk> items = session.createCriteria(PengadaanProduk.class)
 					.add(org.hibernate.criterion.Restrictions.eq("fakturPengadaan", f)).list();
 			JSONArray arr = new JSONArray();
+			int jumlahMasterProdukHilang = 0;
 			for (PengadaanProduk pg : items) {
-				Produk produk = pg.getProduk();
-				String kodeProduk = produk.getKode() == null ? "" : produk.getKode().trim();
-				String barcodeProduk = produk.getBarcode() == null ? "" : produk.getBarcode().trim();
+				Produk produk = null;
+				Long produkId = null;
+				String namaProduk = "";
+				String kodeProduk = "";
+				String barcodeProduk = "";
+				String satuanDasarNama = "";
+				boolean masterProdukTersedia = true;
+				try {
+					produk = pg.getProduk();
+					if (produk == null) throw new IllegalStateException("Relasi produk kosong");
+					produkId = produk.getId();
+					namaProduk = produk.getNama() == null ? "" : produk.getNama();
+					kodeProduk = produk.getKode() == null ? "" : produk.getKode().trim();
+					barcodeProduk = produk.getBarcode() == null ? "" : produk.getBarcode().trim();
+					try {
+						satuanDasarNama = produk.getSatuan() == null || produk.getSatuan().getNama() == null
+								? "" : produk.getSatuan().getNama();
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e, "kulakan_faktur_detail satuan dasar pengadaan=" + pg.getId());
+					}
+				} catch (Exception e) {
+					// Data transaksi adalah jurnal historis dan harus tetap dapat dibaca.
+					// Master produk boleh saja sudah dibersihkan sesudah faktur dibuat; satu
+					// baris yatim tidak boleh menggagalkan seluruh faktur.
+					ais.common.ErrorAuditUtil.record(e, "kulakan_faktur_detail produk pengadaan=" + pg.getId());
+					jumlahMasterProdukHilang++;
+					masterProdukTersedia = false;
+					try { produkId = pg.getProduk() == null ? null : pg.getProduk().getId(); }
+					catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "kulakan_faktur_detail id produk pengadaan=" + pg.getId()); }
+					namaProduk = produkId == null ? "Produk lama (master tidak tersedia)"
+							: "Produk #" + produkId + " (master tidak tersedia)";
+				}
 				String kodeBarang = kodeProduk.length() > 0 ? kodeProduk : barcodeProduk;
-				if (kodeBarang.length() == 0) kodeBarang = String.valueOf(produk.getId());
+				if (kodeBarang.length() == 0 && produkId != null) kodeBarang = String.valueOf(produkId);
+				Long satuanInputId = null;
+				String satuanInputNama = "";
+				try {
+					if (pg.getSatuanInput() != null) {
+						satuanInputId = pg.getSatuanInput().getId();
+						satuanInputNama = pg.getSatuanInput().getNama() == null ? "" : pg.getSatuanInput().getNama();
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "kulakan_faktur_detail satuan input pengadaan=" + pg.getId());
+				}
 				JSONObject j = new JSONObject();
 				j.put("id", pg.getId());
-				j.put("produkId", produk.getId());
-				j.put("namaProduk", produk.getNama());
+				j.put("produkId", produkId == null ? JSONObject.NULL : produkId);
+				j.put("namaProduk", namaProduk);
 				j.put("kodeProduk", kodeBarang);
 				j.put("kodeBarang", kodeBarang);
 				j.put("barcode", barcodeProduk);
 				j.put("qty", pg.getQtyInput());
 				j.put("hargaBeliSatuan", pg.getHargaBeliSatuanInput());
-				j.put("satuanInputId", pg.getSatuanInput() == null ? JSONObject.NULL : pg.getSatuanInput().getId());
-				j.put("satuanInputNama", pg.getSatuanInput() == null ? "" : pg.getSatuanInput().getNama());
+				j.put("satuanInputId", satuanInputId == null ? JSONObject.NULL : satuanInputId);
+				j.put("satuanInputNama", satuanInputNama.length() == 0 ? satuanDasarNama : satuanInputNama);
 				j.put("faktorKonversi", pg.getFaktorKonversi());
 				j.put("qtyDasar", pg.getQty());
-				j.put("satuanDasarNama", produk.getSatuan() == null ? "" : produk.getSatuan().getNama());
+				j.put("satuanDasarNama", satuanDasarNama);
 				j.put("totalHarga", pg.getTotalHarga());
+				j.put("masterProdukTersedia", masterProdukTersedia);
+				if (!masterProdukTersedia) {
+					j.put("peringatan", "Master produk sudah tidak tersedia; nilai historis faktur tetap ditampilkan dan tidak diubah.");
+				}
 				arr.put(j);
+			}
+			if (jumlahMasterProdukHilang > 0) {
+				header.put("peringatan", jumlahMasterProdukHilang
+						+ " rincian memakai produk yang sudah tidak tersedia di master. Faktur tetap dapat dilihat, tetapi jangan diedit sebelum admin memeriksa produk tersebut.");
+			} else if (!masterSupplierTersedia) {
+				header.put("peringatan", "Supplier faktur sudah tidak tersedia di master. Faktur tetap dapat dilihat, tetapi jangan diedit sebelum admin memeriksa supplier tersebut.");
 			}
 			hasil.put("status", "00");
 			hasil.put("header", header);
 			hasil.put("items", arr);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "kulakan_faktur_detail faktur=" + fakturId);
+			hasil.remove("header");
+			hasil.remove("items");
+			hasil.put("status", "91");
+			hasil.put("description", "Detail faktur belum dapat dibaca karena sebagian referensi historis produk, satuan, atau supplier belum lengkap. Faktur tidak diubah. Tekan Sinkronkan dan Muat Ulang, lalu buka Detail sekali lagi. Jika tetap gagal, kirim nomor faktur dan Detail Error kepada admin; jangan menghapus atau membuat ulang faktur.");
+			hasil.put("teknis", e.getClass().getName() + ": " + (e.getMessage() == null ? "tanpa pesan" : e.getMessage()));
 		} finally {
 			tutupSessionPolaB(session);
 		}

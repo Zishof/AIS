@@ -899,4 +899,223 @@ public class PostingTransaksiHarianAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen jurnal umum yang SAMA dengan baris "Jurnal Umum" di dasbor draft jurnal
+	 * ({@code DraftJurnalRingkasanUtil.kriteriaJurnalUmum}): jenis jurnal "Umum", tanggal transaksi
+	 * pada rentang, belum closing. Disamakan supaya jumlah yang diproses tidak pernah berselisih
+	 * dengan angka yang barusan dilihat pengguna di dasbor.
+	 */
+	private static Criteria kriteriaJurnalUmumStatic(Session session, Date mulai, Date sampai) {
+		Criteria kriteria = session.createCriteria(GrupTransaksi.class)
+				.add(Restrictions.eq("jenisJurnal", Transaksi.JURNAL_UMUM))
+				.add(Restrictions.isNull("closing"));
+		if (mulai != null && sampai != null) {
+			kriteria.add(Restrictions.sqlRestriction(ais.action.master.helper.PostingJurnalHelper
+					.dateSql("this_.tanggal_transaksi", mulai, sampai)));
+		}
+		return kriteria;
+	}
+
+	/**
+	 * Posting SEMUA jurnal umum draf pada rentang tanggal -- jalur API dasbor Draft Jurnal POS.
+	 *
+	 * <p>Dokumen jurnal umum BERBEDA dengan modul posting lain: jurnalnya (GrupTransaksi beserta
+	 * baris Transaksi-nya) sudah ada sejak diketik manual, sehingga memposting hanya MENCAP dokumen
+	 * dengan {@link PostingHistory}, tidak membuat jurnal baru. Kontrak per dokumen mengikuti
+	 * {@code NewUiJournalService.post}: barisnya harus ada dan balance, dan bila konfigurasi bukti
+	 * transaksi aktif, dokumen tanpa lampiran dilewati (tercatat sebagai "dilewati" di respons
+	 * dasbor). Dokumen yang riwayat posting-nya sengaja dinonaktifkan ({@code posting=false}) TIDAK
+	 * disentuh -- menyalakannya kembali adalah keputusan eksplisit di layar Jurnal Umum, bukan efek
+	 * samping posting massal.</p>
+	 *
+	 * <p>Satu {@link PostingHistory} dipakai bersama seluruh dokumen yang berhasil -- sama dengan
+	 * tombol "Posting Semua" ZK di kelas ini -- tetapi dengan {@code posting=true} supaya dasbor
+	 * menghitungnya terposting ({@code PostingJurnalHelper.terapkanStatusPostingHistory}); tombol ZK
+	 * lama lupa menyetel bendera itu sehingga hasil postingnya justru tetap terhitung draf.</p>
+	 *
+	 * <p>Transaksi dibuka sendiri (currentNativeSession + begin/commit per dokumen): dipanggil dari
+	 * API tidak ada kerangka ZK yang meng-commit sesi berjalan, dan kegagalan satu dokumen tidak
+	 * boleh membatalkan dokumen lain yang sudah sah tercap.</p>
+	 */
+	public static int postingSemua(Date mulai, Date sampai, ais.database.model.Tbmuser oleh,
+			Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> ids = kriteriaJurnalUmumStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory"))
+					.setProjection(org.hibernate.criterion.Projections.id()).list();
+			if (ids.isEmpty()) {
+				return 0;
+			}
+
+			boolean wajibBukti = Common.bolehKonfigurasi("file_bukti_transaksi_jurnal_wajib_diupload",
+					ais.database.model.Konfigurasi.TIDAK_AKTIF);
+			Date waktuPosting = tglPosting == null ? new Date() : tglPosting;
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_UMUM);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(waktuPosting);
+			postingHistory.setTanggalPosting(waktuPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal jurnal umum dari dasbor draft jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object idObj : ids) {
+				Long id = ((Number) idObj).longValue();
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					GrupTransaksi grup = (GrupTransaksi) session.get(GrupTransaksi.class, id);
+					// Diperiksa ulang di dalam transaksi: sesi lain dapat memposting atau
+					// meng-closing dokumen yang sama di sela pemilihan id dan pengecapannya.
+					if (grup == null || grup.getPostingHistory() != null || grup.getClosing() != null) {
+						session.getTransaction().rollback();
+						continue;
+					}
+					if (wajibBukti && ais.database.model.file.LampiranLain.ambil(id,
+							ais.common.newui.akunting.NewUiJournalService.ATTACHMENT_TYPE) == null) {
+						session.getTransaction().rollback();
+						continue;
+					}
+					List<?> barisJurnal = session.createCriteria(Transaksi.class)
+							.add(Restrictions.eq("grupTransaksi.id", id)).list();
+					double debet = 0, kredit = 0;
+					for (Object o : barisJurnal) {
+						Transaksi t = (Transaksi) o;
+						debet += t.getDebet() == null ? 0 : t.getDebet().doubleValue();
+						kredit += t.getKredit() == null ? 0 : t.getKredit().doubleValue();
+					}
+					if (barisJurnal.isEmpty() || debet < 0.005d || Math.abs(debet - kredit) >= 0.005d) {
+						// Jurnal kosong/berat sebelah tidak boleh masuk buku besar; dibiarkan draf
+						// supaya tetap terlihat di rincian dasbor (bendera jurnalSeimbang).
+						session.getTransaction().rollback();
+						continue;
+					}
+					grup.setTotalDebet(debet);
+					grup.setTotalKredit(kredit);
+					grup.setPostingHistory(postingHistory);
+					session.update(grup);
+					for (Object o : barisJurnal) {
+						Transaksi t = (Transaksi) o;
+						t.setPostingHistory(postingHistory);
+						t.setStatusPosting(Transaksi.STATUS_POSTING_SELESAI);
+						t.setTanggalPosting(waktuPosting);
+						session.update(t);
+					}
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiHarianAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun tercap: riwayat kosong tidak ditinggalkan di riwayat posting.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiHarianAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA jurnal umum terposting pada rentang -- kebalikan {@link #postingSemua}.
+	 *
+	 * <p>Berbeda dengan modul yang jurnalnya turunan (mis. kas kecil), di sini GrupTransaksi ADALAH
+	 * dokumen sumbernya: pembatalan hanya melepas cap {@link PostingHistory} dan mengembalikan status
+	 * baris -- tidak ada satu baris jurnal pun yang dihapus. Riwayat posting-nya sendiri baru dihapus
+	 * bila tidak lagi dirujuk dokumen lain: posting massal (tombol ZK maupun jalur ini) memakai SATU
+	 * riwayat untuk banyak dokumen, sehingga menghapusnya membabi buta seperti
+	 * {@code NewUiJournalService.unpost} justru gagal FK persis saat riwayatnya dipakai bersama.
+	 * Yang dipilih hanya dokumen yang dasbor hitung terposting ({@code posting=true}); jurnal yang
+	 * sudah closing tidak disentuh, sama dengan penjaga di jalur per dokumen.</p>
+	 */
+	public static int batalkanPostingSemua(Date mulai, Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			Criteria kriteria = kriteriaJurnalUmumStatic(session, mulai, sampai);
+			ais.action.master.helper.PostingJurnalHelper.terapkanStatusPostingHistory(kriteria, true);
+			List<?> ids = kriteria.setProjection(org.hibernate.criterion.Projections.id()).list();
+			for (Object idObj : ids) {
+				Long id = ((Number) idObj).longValue();
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					GrupTransaksi grup = (GrupTransaksi) session.get(GrupTransaksi.class, id);
+					if (grup == null || grup.getClosing() != null || grup.getPostingHistory() == null) {
+						session.getTransaction().rollback();
+						continue;
+					}
+					PostingHistory riwayat = grup.getPostingHistory();
+					grup.setPostingHistory(null);
+					session.update(grup);
+					List<?> barisJurnal = session.createCriteria(Transaksi.class)
+							.add(Restrictions.eq("grupTransaksi.id", id)).list();
+					for (Object o : barisJurnal) {
+						Transaksi t = (Transaksi) o;
+						t.setPostingHistory(null);
+						t.setStatusPosting(Transaksi.STATUS_POSTING_BELUM);
+						t.setTanggalPosting(null);
+						session.update(t);
+					}
+					session.flush();
+					Number sisaGrup = (Number) session.createCriteria(GrupTransaksi.class)
+							.add(Restrictions.eq("postingHistory", riwayat))
+							.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+					Number sisaBaris = (Number) session.createCriteria(Transaksi.class)
+							.add(Restrictions.eq("postingHistory", riwayat))
+							.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+					if ((sisaGrup == null ? 0 : sisaGrup.intValue())
+							+ (sisaBaris == null ? 0 : sisaBaris.intValue()) == 0) {
+						session.delete(riwayat);
+					}
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingTransaksiHarianAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }
