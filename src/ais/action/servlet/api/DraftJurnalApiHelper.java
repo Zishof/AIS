@@ -133,6 +133,14 @@ public final class DraftJurnalApiHelper {
         // KUNCI_DEFAULT_NONAKTIF. Memakai kunci pengadaan di sini akan keliru: yang
         // dijurnal beban penyusutan bulanan, bukan dokumen pengadaan.
         if ("Jurnal Penyusutan".equals(namaBaris)) return "posting_penyusutan";
+        // Keluarga kantin/toko: tiap baris memakai kunci posting POS-nya sendiri (semuanya
+        // fail-closed lewat KUNCI_DEFAULT_NONAKTIF di EbisnisMenuKatalog).
+        if ("Posting HPP".equals(namaBaris)) return "posting_hpp";
+        if ("Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
+        if ("Kulakan Toko".equals(namaBaris)) return "posting_kulakan";
+        if ("Pembayaran Hutang Toko".equals(namaBaris)) return "posting_bayar_hutang";
+        if ("Penerimaan Piutang Toko".equals(namaBaris)) return "posting_terima_piutang";
+        if ("Penyesuaian Persediaan Toko".equals(namaBaris)) return "posting_penyesuaian";
         return null;
     }
 
@@ -176,6 +184,19 @@ public final class DraftJurnalApiHelper {
 
         Date mulai = tanggal(payload, "mulai", awalBawaan());
         Date sampai = tanggal(payload, "sampai", akhirBawaan());
+
+        // Keluarga kantin/toko tidak lewat jalur generik: dokumennya milik modul koperasi
+        // (hitungDokumen generik tidak mengenalnya) dan mesinnya berkontrak JSON sendiri.
+        if ("Posting HPP".equals(nama) || "Penjualan Kantin".equals(nama)) {
+            jalankanKantinBatch(nama, posting, mulai, sampai, hasil);
+            return;
+        }
+        if ("Kulakan Toko".equals(nama) || "Pembayaran Hutang Toko".equals(nama)
+                || "Penerimaan Piutang Toko".equals(nama)
+                || "Penyesuaian Persediaan Toko".equals(nama)) {
+            jalankanKantinToko(nama, posting, tbmuser, mulai, sampai, hasil);
+            return;
+        }
 
         // Berhenti bila memang tidak ada yang perlu dikerjakan. Bukan sekadar demi pesan yang
         // enak dibaca: PostingKasKecilAction.postingSemua MENYIMPAN satu baris PostingHistory
@@ -468,6 +489,86 @@ public final class DraftJurnalApiHelper {
                 + (posting ? "berhasil diposting." : "posting-nya dibatalkan.")
                 + (posting ? "" : " Jurnal yang sudah closing tidak ikut dibatalkan.")
                 + sisa);
+    }
+
+    /**
+     * Posting/batal batch kantin (HPP dan Penjualan) -- per PERIODE, satu jurnal agregat per
+     * batch, maju-saja; pembatalannya mundur-saja lewat {@code batalkanPeriode} mesin masing-
+     * masing. Pesan tolakan mesin (periode tumpang tindih, belum ada yang siap, akun belum
+     * dipetakan) sudah ditulis untuk manusia, jadi diteruskan apa adanya.
+     */
+    private static void jalankanKantinBatch(String nama, boolean posting, Date mulai, Date sampai,
+            JSONObject hasil) throws Exception {
+        boolean hpp = "Posting HPP".equals(nama);
+        try {
+            if (posting) {
+                org.json.JSONObject r = hpp
+                        ? new ais.action.master.koperasi.PostingHppKantinAction()
+                                .prosesApi(mulai, sampai, true)
+                        : new ais.action.master.koperasi.PostingPenjualanKantinAction()
+                                .prosesApi(mulai, sampai, true);
+                hasil.put("status", "00");
+                hasil.put("nama", nama);
+                hasil.put("jumlah", 1);
+                hasil.put("description", "1 batch jurnal \"" + nama + "\" berhasil diposting (total "
+                        + ais.common.Common.numberFormat.get().format(r.optDouble("total", 0)) + ").");
+            } else {
+                int n = hpp
+                        ? ais.action.master.koperasi.PostingHppKantinAction.batalkanPeriode(mulai, sampai)
+                        : ais.action.master.koperasi.PostingPenjualanKantinAction.batalkanPeriode(mulai,
+                                sampai);
+                if (n == 0) {
+                    hasil.put("status", "91");
+                    hasil.put("description", "Tidak ada batch \"" + nama + "\" pada periode ini yang "
+                            + "dapat dibatalkan (belum pernah diposting, atau jurnalnya sudah closing).");
+                    return;
+                }
+                hasil.put("status", "00");
+                hasil.put("nama", nama);
+                hasil.put("jumlah", n);
+                hasil.put("description", n + " batch \"" + nama + "\" posting-nya dibatalkan. "
+                        + "Jurnal yang sudah closing tidak ikut dibatalkan.");
+            }
+        } catch (IllegalArgumentException e) {
+            hasil.put("status", "91");
+            hasil.put("description", e.getMessage());
+        } catch (IllegalStateException e) {
+            hasil.put("status", "91");
+            hasil.put("description", e.getMessage());
+        }
+    }
+
+    /**
+     * Posting dokumen toko (kulakan / bayar hutang / terima piutang / penyesuaian) lewat mesin
+     * bersama {@code PostingKantinLanjutanHelper} -- per dokumen, semua yang siap pada rentang.
+     * BATAL sengaja ditolak: modul Toko mengoreksi lewat DOKUMEN PEMBALIK bernominal negatif
+     * (reversal AP/AR) yang ikut dijurnal, bukan dengan menghapus jurnal.
+     */
+    private static void jalankanKantinToko(String nama, boolean posting,
+            ais.database.model.Tbmuser tbmuser, Date mulai, Date sampai, JSONObject hasil)
+            throws Exception {
+        if (!posting) {
+            hasil.put("status", "91");
+            hasil.put("description", "Jurnal \"" + nama + "\" tidak dibatalkan dari dasbor: modul Toko "
+                    + "mengoreksi lewat dokumen pembalik bernominal negatif (menu reversal), yang ikut "
+                    + "dijurnal dan mengembalikan buku besar.");
+            return;
+        }
+        String jenis = "Kulakan Toko".equals(nama) ? "kulakan"
+                : "Pembayaran Hutang Toko".equals(nama) ? "bayar_hutang"
+                        : "Penerimaan Piutang Toko".equals(nama) ? "terima_piutang" : "penyesuaian";
+        JSONObject muatan = new JSONObject();
+        muatan.put("mulai", ais.common.Common.databaseDateFormat.get().format(mulai));
+        muatan.put("sampai", ais.common.Common.databaseDateFormat.get().format(sampai));
+        PostingKantinLanjutanHelper.proses("posting_" + jenis + "_terapkan", tbmuser, muatan, hasil);
+        hasil.put("nama", nama);
+        if (hasil.has("diposting")) {
+            hasil.put("jumlah", hasil.optInt("diposting", 0));
+        }
+        // Kontrak dasbor membaca "description"; mesin toko menulis "message".
+        if (!hasil.has("description") && hasil.has("message")) {
+            hasil.put("description", hasil.optString("message", ""));
+        }
     }
 
     /** Jumlah dokumen satu baris pada satu status -- dipakai penjaga sebelum menjalankan mesin. */

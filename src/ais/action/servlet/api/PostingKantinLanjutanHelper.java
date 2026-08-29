@@ -477,6 +477,62 @@ public final class PostingKantinLanjutanHelper {
         return JENIS_PENYESUAIAN;
     }
 
+    // ==================================================================== penghitung dasbor draft jurnal
+
+    private static int hitungSql(Session session, String sql) {
+        Number n = (Number) session.createSQLQuery(sql).uniqueResult();
+        return n == null ? 0 : n.intValue();
+    }
+
+    /**
+     * Jumlah dokumen sumber satu jenis yang BELUM diposting pada rentang -- predikat dokumennya
+     * sama dengan draf masing-masing (penanda {@code posting_history}/{@code posting_pembelian}).
+     * Kesiapan akun sengaja TIDAK diperiksa di sini supaya penghitungnya murah untuk dasbor:
+     * dokumen yang akunnya belum lengkap memang harus tetap terhitung draf yang menunggu
+     * dibereskan, bukan menghilang dari hitungan.
+     */
+    public static int hitungDraftPending(Session session, String jenis, java.util.Date mulai,
+            java.util.Date sampai) {
+        try {
+            String m = Common.databaseDateFormat.get().format(mulai);
+            String s = Common.databaseDateFormat.get().format(sampai);
+            String rentang = " BETWEEN date('" + m + "') AND date('" + s + "')";
+            if ("kulakan".equals(jenis)) {
+                return hitungSql(session, "SELECT count(*) FROM koperasi.pengadaan_produk pp"
+                        + " WHERE pp.posting_pembelian IS NULL AND date(pp.waktupengadaan)" + rentang);
+            }
+            if ("bayar_hutang".equals(jenis)) {
+                return hitungSql(session, "SELECT count(*) FROM koperasi.pembayaran_hutang_supplier p"
+                        + " WHERE p.posting_history IS NULL AND date(p.tanggal)" + rentang);
+            }
+            if ("terima_piutang".equals(jenis)) {
+                return hitungSql(session, "SELECT count(*) FROM koperasi.penerimaan_piutang_customer p"
+                        + " WHERE p.posting_history IS NULL AND date(p.tanggal)" + rentang);
+            }
+            return hitungSql(session, "SELECT count(*) FROM koperasi.retur_pembelian r"
+                            + " WHERE r.posting_history IS NULL AND date(r.waktu)" + rentang)
+                    + hitungSql(session, "SELECT count(*) FROM koperasi.retur_penjualan r"
+                            + " WHERE r.posting_history IS NULL AND date(r.waktu)" + rentang)
+                    + hitungSql(session, "SELECT count(*) FROM koperasi.stok_opname o"
+                            + " WHERE o.posting_history IS NULL AND COALESCE(o.selisih,0) <> 0"
+                            + " AND date(o.waktuopname)" + rentang)
+                    + hitungSql(session, "SELECT count(*) FROM koperasi.mutasi_stok_toko m"
+                            + " WHERE m.posting_history IS NULL AND date(m.waktu)" + rentang);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** Jumlah jurnal terposting sepanjang waktu untuk satu jenis (riwayat ber-jenis itu). */
+    public static int hitungTerposting(Session session, String jenis) {
+        try {
+            return hitungSql(session, "SELECT count(*) FROM akunting.posting_history WHERE jenis = '"
+                    + namaJenis(jenis) + "'");
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     // ==================================================================== draf: kulakan
 
     /**

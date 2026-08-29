@@ -63,20 +63,27 @@ public final class NewUiPemOnlineController {
     private NewUiPemOnlineController() { }
 
     public static void handle(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        response.setContentType("application/json; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         JSONObject json = new JSONObject();
         try {
             String action = text(request.getParameter("action"), "meta");
             if (!NewUiRouteGuard.isActionAuthorized(request, MODULE, PAGE, action)) {
+                response.setContentType("application/json; charset=UTF-8");
                 response.setStatus(403); fail(json, "ACTION_FORBIDDEN", "Hak akses tidak tersedia."); write(response, json); return;
             }
             boolean mutation = "save".equals(action);
             if (mutation && (!"POST".equalsIgnoreCase(request.getMethod()) || !csrf(request))) {
+                response.setContentType("application/json; charset=UTF-8");
                 response.setStatus(403); fail(json, "CSRF_INVALID", "Token CSRF tidak valid."); write(response, json); return;
             }
             Tbmuser user = Common.getCurrentUser(request);
             Subjek subjek = resolveSubjek(request, user);
+            if ("export_kuitansi".equals(action)) {
+                // Menulis PDF struk langsung ke response (bukan amplop JSON).
+                kuitansiStruk(request, response, user);
+                return;
+            }
+            response.setContentType("application/json; charset=UTF-8");
             if ("lookup".equals(action)) lookup(json, request, user);
             else if ("meta".equals(action)) meta(json, request, subjek, user);
             else if ("list".equals(action)) list(json, request, subjek);
@@ -92,7 +99,84 @@ public final class NewUiPemOnlineController {
             fail(json, "INTERNAL_ERROR", "Gagal memproses kasir pembayaran. Detail dicatat di log server.");
             try { ais.common.ErrorAuditUtil.record(e, "NewUiPemOnlineController"); } catch (Exception ignored) { }
         }
+        response.setContentType("application/json; charset=UTF-8");
         write(response, json);
+    }
+
+    // -------------------------------------------------------------- kuitansi
+    /**
+     * Cetak struk/kuitansi PDF sebuah PembayaranSiswa — paritas
+     * PembayaranSiswaUtil.cetakStruk namun headless: parameter dibangun sama
+     * (kode transaksi, waktu cetak, properti siswa/calon, dataPembayaran) lalu
+     * dirender via Report.generateFileReportSimple("sekolah/struk_pembayaran").
+     */
+    private static void kuitansiStruk(HttpServletRequest r, HttpServletResponse response, Tbmuser user)
+            throws Exception {
+        if (user == null) throw new SecurityException("Sesi tidak dikenal.");
+        Long pembayaranId = id(r, "pembayaranId", true);
+        PembayaranSiswa pembayaran;
+        Session s = HibernateUtil.openSession();
+        try { pembayaran = (PembayaranSiswa) s.get(PembayaranSiswa.class, pembayaranId); }
+        finally { s.close(); }
+        if (pembayaran == null) throw new IllegalArgumentException("Pembayaran tidak ditemukan.");
+        // Scoping identitas: siswa/calon hanya boleh mencetak pembayarannya sendiri;
+        // orang tua terbatas pada anaknya.
+        boolean relasiTerbatas = user.getSiswa() != null || user.getCalonSiswa() != null
+                || user.getOrangTua() != null || user.getMahasiswa() != null;
+        if (relasiTerbatas) {
+            boolean milikSendiri =
+                    (user.getSiswa() != null && pembayaran.getSiswa() != null
+                            && user.getSiswa().getId().equals(pembayaran.getSiswa().getId()))
+                    || (user.getCalonSiswa() != null && pembayaran.getCalonSiswa() != null
+                            && user.getCalonSiswa().getId().equals(pembayaran.getCalonSiswa().getId()));
+            if (!milikSendiri && user.getOrangTua() != null && pembayaran.getSiswa() != null) {
+                java.util.List anak = user.getOrangTua().ambilAnakSiswa();
+                milikSendiri = anak != null && anak.contains(pembayaran.getSiswa().getId());
+            }
+            if (!milikSendiri) throw new SecurityException("Kuitansi di luar cakupan pengguna.");
+        }
+
+        Map<String, Object> parameters = new HashMap<String, Object>();
+        parameters.put("id_pembayaran", pembayaran.getId());
+        parameters.put("id_sekolah", pembayaran.getSekolah() != null ? pembayaran.getSekolah().getId() : -1L);
+        parameters.put("id_bri", -1L);
+        parameters.put("id_bni", -1L);
+        parameters.put("id_bsi", -1L);
+        parameters.put("id_va", -1L);
+        parameters.put("kode_transaksi", kodeTransaksi(pembayaran.getId()));
+        parameters.put("waktu_cetak", Common.dateFormat1.get().format(
+                pembayaran.getTanggal() != null ? pembayaran.getTanggal() : new Date()));
+        if (pembayaran.getCalonSiswa() != null)
+            Common.insertProperty(CalonSiswa.class, pembayaran.getCalonSiswa(), parameters, "");
+        else if (pembayaran.getSiswa() != null)
+            Common.insertProperty(Siswa.class, pembayaran.getSiswa(), parameters, "");
+        ais.action.master.sekolah.util.PembayaranSiswaUtil.dataPembayaran(pembayaran, null, null, null, null,
+                (Map) parameters);
+
+        java.io.File pdf = ais.action.report.Report.generateFileReportSimple(
+                ais.action.report.Report.PDF, (Map) parameters, "sekolah/struk_pembayaran");
+        if (pdf == null || !pdf.exists())
+            throw new IllegalStateException("PDF struk gagal dibuat.");
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition",
+                "inline; filename=\"struk_" + kodeTransaksi(pembayaran.getId()) + ".pdf\"");
+        response.setContentLength((int) pdf.length());
+        java.io.InputStream masuk = new java.io.FileInputStream(pdf);
+        try {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = masuk.read(buf)) > 0) response.getOutputStream().write(buf, 0, n);
+            response.getOutputStream().flush();
+        } finally {
+            try { masuk.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    /** Kode transaksi 8 digit (paritas PembayaranSiswaUtil.formatKodeTransaksi yang privat). */
+    private static String kodeTransaksi(Long id) {
+        if (id == null) return "00000000";
+        String kode = String.valueOf(id);
+        return kode.length() >= 8 ? kode.substring(kode.length() - 8) : String.format("%08d", id);
     }
 
     /** Subjek kasir: siswa XOR calon siswa, dengan scoping identitas server-side. */

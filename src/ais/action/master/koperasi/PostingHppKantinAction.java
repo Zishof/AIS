@@ -1154,4 +1154,77 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		}
 		return sb.toString();
 	}
+
+	// ============================================================ pembatalan batch (dasbor draft jurnal)
+
+	/**
+	 * Membatalkan batch posting HPP yang TANGGAL riwayatnya jatuh pada rentang -- mundur-saja
+	 * (LIFO), cermin dari aturan maju-saja postingnya: ditolak bila masih ada batch jenis ini
+	 * yang lebih baru daripada {@code sampai}, supaya tidak tercipta lubang periode yang tidak
+	 * akan pernah bisa diposting ulang (posting mensyaratkan mulai SETELAH batch terakhir).
+	 * Jurnal yang sudah closing tidak disentuh: batch yang grupnya terlanjur closing dilewati
+	 * dan riwayatnya dibiarkan utuh.
+	 */
+	public static int batalkanPeriode(Date mulai, Date sampai) {
+		if (mulai == null || sampai == null || mulai.after(sampai)) {
+			throw new IllegalArgumentException("Periode pembatalan HPP tidak valid.");
+		}
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			String mStr = Common.databaseDateFormat.get().format(mulai);
+			String sStr = Common.databaseDateFormat.get().format(sampai);
+			Number lebihBaru = (Number) session.createSQLQuery(
+					"SELECT count(*) FROM akunting.posting_history WHERE jenis = '" + JENIS
+							+ "' AND date(tanggal) > date('" + sStr + "')").uniqueResult();
+			if (lebihBaru != null && lebihBaru.intValue() > 0) {
+				throw new IllegalStateException("Masih ada " + lebihBaru.intValue() + " batch \"" + JENIS
+						+ "\" setelah " + Common.dateFormat.get().format(sampai)
+						+ ". Batalkan periode yang lebih baru dulu -- pembatalan HPP mundur-saja.");
+			}
+			List<?> daftar = session.createSQLQuery(
+					"SELECT id FROM akunting.posting_history WHERE jenis = '" + JENIS
+							+ "' AND date(tanggal) BETWEEN date('" + mStr + "') AND date('" + sStr
+							+ "') ORDER BY tanggal DESC, id DESC").list();
+			for (Object o : daftar) {
+				long idPh = ((Number) o).longValue();
+				try {
+					session.getTransaction().begin();
+					Number closing = (Number) session.createSQLQuery(
+							"SELECT count(*) FROM akunting.grup_transaksi WHERE posting_history = " + idPh
+									+ " AND closing IS NOT NULL").uniqueResult();
+					if (closing != null && closing.intValue() > 0) {
+						// Jurnal batch ini terkunci closing; dibiarkan utuh.
+						session.getTransaction().rollback();
+						continue;
+					}
+					session.createSQLQuery("DELETE FROM akunting.transaksi WHERE grup_transaksi IN"
+							+ " (SELECT id FROM akunting.grup_transaksi WHERE posting_history = " + idPh
+							+ ")").executeUpdate();
+					session.createSQLQuery(
+							"DELETE FROM akunting.grup_transaksi WHERE posting_history = " + idPh)
+							.executeUpdate();
+					session.createSQLQuery("DELETE FROM akunting.posting_history WHERE id = " + idPh)
+							.executeUpdate();
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingHppKantinAction.batalkanPeriode");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
 }

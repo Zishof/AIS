@@ -105,7 +105,8 @@ public final class DraftJurnalRingkasanUtil {
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
-            "posting_hpp" };
+            "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
+            "posting_terima_piutang", "posting_penyesuaian" };
 
     private DraftJurnalRingkasanUtil() {
     }
@@ -141,7 +142,10 @@ public final class DraftJurnalRingkasanUtil {
         if ("pengajuan_transfer".equals(kunci)) return "pengajuan_transfer";
         if ("transitori".equals(kunci)) return "transitori";
         if ("closing".equals(kunci)) return "closing";
-        if ("posting_hpp".equals(kunci)) return "posting_penjualan";
+        if ("posting_hpp".equals(kunci) || "posting_penjualan_kantin".equals(kunci)
+                || "posting_kulakan".equals(kunci) || "posting_bayar_hutang".equals(kunci)
+                || "posting_terima_piutang".equals(kunci)
+                || "posting_penyesuaian".equals(kunci)) return "posting_penjualan";
         return "semua";
     }
 
@@ -368,6 +372,59 @@ public final class DraftJurnalRingkasanUtil {
                                 + "(bukan per transaksi) dari tab \"Posting HPP\".",
                         ais.action.master.koperasi.PostingHppKantinAction.hitungDraftPending(session),
                         ais.action.master.koperasi.PostingHppKantinAction.hitungTerposting(session), 0));
+            }
+        } else if ("posting_penjualan_kantin".equals(kunci)) {
+            if (Common.bolehKonfigurasi(
+                    ais.database.model.Konfigurasi.POSTING_JURNAL_TAB_PREFIX + "posting_penjualan")) {
+                out.add(new Baris(kunci, "Penjualan Kantin",
+                        "Omzet penjualan kantin dipastikan menjadi jurnal kas/piutang dan pendapatan -- "
+                                + "diposting per periode atau per faktur dari tab \"Posting Penjualan\".",
+                        ais.action.master.koperasi.PostingPenjualanKantinAction.hitungDraftPending(session),
+                        ais.action.master.koperasi.PostingPenjualanKantinAction.hitungTerposting(session), 0));
+            }
+        } else if ("posting_kulakan".equals(kunci)) {
+            if (Common.bolehKonfigurasi(
+                    ais.database.model.Konfigurasi.POSTING_JURNAL_TAB_PREFIX + "posting_kulakan")) {
+                out.add(new Baris(kunci, "Kulakan Toko",
+                        "Pembelian persediaan toko (kulakan) dipastikan menjadi jurnal persediaan dan "
+                                + "kas/utang supplier -- per dokumen dari tab \"Posting Kulakan\".",
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungDraftPending(session,
+                                "kulakan", mulai, sampai),
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungTerposting(session,
+                                "kulakan"), 0));
+            }
+        } else if ("posting_bayar_hutang".equals(kunci)) {
+            if (Common.bolehKonfigurasi(
+                    ais.database.model.Konfigurasi.POSTING_JURNAL_TAB_PREFIX + "posting_bayar_hutang")) {
+                out.add(new Baris(kunci, "Pembayaran Hutang Toko",
+                        "Pembayaran utang supplier toko dipastikan menjadi jurnal utang dan kas/bank -- "
+                                + "per dokumen dari tab \"Posting Bayar Hutang\".",
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungDraftPending(session,
+                                "bayar_hutang", mulai, sampai),
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungTerposting(session,
+                                "bayar_hutang"), 0));
+            }
+        } else if ("posting_terima_piutang".equals(kunci)) {
+            if (Common.bolehKonfigurasi(
+                    ais.database.model.Konfigurasi.POSTING_JURNAL_TAB_PREFIX + "posting_terima_piutang")) {
+                out.add(new Baris(kunci, "Penerimaan Piutang Toko",
+                        "Penerimaan piutang customer toko dipastikan menjadi jurnal kas/bank dan piutang -- "
+                                + "per dokumen dari tab \"Posting Terima Piutang\".",
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungDraftPending(session,
+                                "terima_piutang", mulai, sampai),
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungTerposting(session,
+                                "terima_piutang"), 0));
+            }
+        } else if ("posting_penyesuaian".equals(kunci)) {
+            if (Common.bolehKonfigurasi(
+                    ais.database.model.Konfigurasi.POSTING_JURNAL_TAB_PREFIX + "posting_penyesuaian")) {
+                out.add(new Baris(kunci, "Penyesuaian Persediaan Toko",
+                        "Retur beli/jual, selisih opname, dan mutasi antar outlet dipastikan menjadi jurnal "
+                                + "penyesuaian persediaan -- per dokumen dari tab \"Posting Penyesuaian\".",
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungDraftPending(session,
+                                "penyesuaian", mulai, sampai),
+                        ais.action.servlet.api.PostingKantinLanjutanHelper.hitungTerposting(session,
+                                "penyesuaian"), 0));
             }
         }
         return out;
@@ -1033,9 +1090,16 @@ public final class DraftJurnalRingkasanUtil {
      * didaftar -- bukan daftar yang kebetulan kosong atau gagal dimuat.</p>
      */
     public static String alasanTanpaRincian(String namaBaris) {
-        if ("Posting HPP".equals(namaBaris)) {
+        if ("Posting HPP".equals(namaBaris) || "Penjualan Kantin".equals(namaBaris)) {
             return "\"" + namaBaris + "\" diposting per periode, bukan per dokumen, "
                     + "sehingga tidak memiliki daftar dokumen yang dapat dirinci.";
+        }
+        if ("Kulakan Toko".equals(namaBaris) || "Pembayaran Hutang Toko".equals(namaBaris)
+                || "Penerimaan Piutang Toko".equals(namaBaris)
+                || "Penyesuaian Persediaan Toko".equals(namaBaris)) {
+            return "Dokumen \"" + namaBaris + "\" milik modul Toko (koperasi), bukan entitas "
+                    + "akuntansi -- rinciannya (berikut alasan per dokumen yang belum siap) "
+                    + "tersedia di tab posting toko yang bersangkutan.";
         }
         return null;
     }

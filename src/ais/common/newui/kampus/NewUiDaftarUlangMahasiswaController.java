@@ -111,25 +111,34 @@ public final class NewUiDaftarUlangMahasiswaController {
      */
     public static void handle(HttpServletRequest request, HttpServletResponse response, String mode, String pageKey)
             throws Exception {
-        response.setContentType("application/json; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         JSONObject json = new JSONObject();
         try {
             String action = text(request.getParameter("action"), "meta");
             if (!NewUiRouteGuard.isActionAuthorized(request, MODULE, pageKey, action)) {
+                response.setContentType("application/json; charset=UTF-8");
                 response.setStatus(403); fail(json, "ACTION_FORBIDDEN", "Hak akses tidak tersedia."); write(response, json); return;
             }
-            if ("save".equals(action) && (!"POST".equalsIgnoreCase(request.getMethod()) || !csrf(request))) {
+            boolean mutation = "save".equals(action) || "upload".equals(action);
+            if (mutation && (!"POST".equalsIgnoreCase(request.getMethod()) || !csrf(request))) {
+                response.setContentType("application/json; charset=UTF-8");
                 response.setStatus(403); fail(json, "CSRF_INVALID", "Token CSRF tidak valid."); write(response, json); return;
             }
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
             Subjek subjek = resolveSubjek(request, user, mode);
+            if ("export_kuitansi".equals(action)) {
+                // Menulis PDF langsung ke response (bukan amplop JSON).
+                kuitansi(request, response, subjek, user);
+                return;
+            }
+            response.setContentType("application/json; charset=UTF-8");
             if ("lookup".equals(action)) lookup(json, request, user, mode);
             else if ("meta".equals(action)) meta(json, request, subjek, mode);
             else if ("list".equals(action)) list(json, request, subjek, mode);
             else if ("options".equals(action)) options(json);
             else if ("revisions".equals(action)) riwayat(json, subjek);
+            else if ("upload".equals(action)) uploadBukti(json, request, subjek, user);
             else if ("save".equals(action)) bayar(json, request, subjek, user, mode);
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
             json.put("ok", true);
@@ -141,6 +150,7 @@ public final class NewUiDaftarUlangMahasiswaController {
             fail(json, "INTERNAL_ERROR", "Gagal memproses kasir daftar ulang. Detail dicatat di log server.");
             try { ais.common.ErrorAuditUtil.record(e, "NewUiDaftarUlangMahasiswaController"); } catch (Exception ignored) { }
         }
+        response.setContentType("application/json; charset=UTF-8");
         write(response, json);
     }
 
@@ -618,10 +628,106 @@ public final class NewUiDaftarUlangMahasiswaController {
                 row.put("jenis", k == null || k.getJenisKegiatan() == null ? "" : nz(k.getJenisKegiatan().getNamaKegiatan()));
                 row.put("smt", k == null || k.getSemster() == null ? JSONObject.NULL : k.getSemster());
                 row.put("tahunAkademik", k == null ? "" : nz(k.getTahunAkademik()));
+                row.put("kegiatanId", k == null || k.getId() == null ? JSONObject.NULL : k.getId());
                 arr.put(row);
             }
         } finally { s.close(); }
         j.put("rows", arr).put("total", arr.length());
+    }
+
+    // --------------------------------------------------------- unggah bukti
+    /**
+     * Unggah bukti pembayaran (LampiranLain jenis "cicilanPembayaran") — paritas
+     * tombol upload per baris cicilan ZK (Common.initCicilan +
+     * LampiranLain.createDownloadUploadFileLain). Payload: `namaFile` + `data`
+     * (base64, maks {@value #MAKS_BUKTI_BYTES} byte setelah decode). Hasil `id`
+     * dikirim balik pada save sebagai items[i].idLampiran.
+     */
+    private static final int MAKS_BUKTI_BYTES = 1_500_000;
+
+    private static void uploadBukti(JSONObject j, HttpServletRequest r, Subjek subjek, Tbmuser user) throws Exception {
+        if (!subjek.staf) throw new SecurityException("Unggah bukti hanya untuk petugas kasir.");
+        String namaFile = text(r.getParameter("namaFile"), "");
+        String data = text(r.getParameter("data"), "");
+        if (namaFile.length() == 0 || data.length() == 0)
+            throw new IllegalArgumentException("namaFile dan data (base64) wajib diisi.");
+        String lower = namaFile.toLowerCase();
+        if (!(lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")
+                || lower.endsWith(".gif") || lower.endsWith(".bmp") || lower.endsWith(".pdf")))
+            throw new IllegalArgumentException("Jenis berkas bukti harus gambar (jpg/png/gif/bmp) atau PDF.");
+        byte[] isi;
+        try { isi = java.util.Base64.getDecoder().decode(data); }
+        catch (Exception e) { throw new IllegalArgumentException("data bukan base64 yang valid."); }
+        if (isi.length == 0 || isi.length > MAKS_BUKTI_BYTES)
+            throw new IllegalArgumentException("Ukuran berkas bukti harus 1 byte s.d. "
+                    + (MAKS_BUKTI_BYTES / 1000) + " KB.");
+
+        java.io.File temp = java.io.File.createTempFile("bukti_kasir_",
+                lower.substring(lower.lastIndexOf('.')));
+        try {
+            java.nio.file.Files.write(temp.toPath(), isi);
+            org.hibernate.Session sesiStreaming =
+                    ais.database.hibernate.StreamingHibernateUtil.getInstance().currentSession();
+            try {
+                ais.database.model.file.FileFotoLain lampiran =
+                        ais.database.model.file.FileFotoLain.createFileFotoLain(user, sesiStreaming,
+                                ais.database.model.file.LampiranLain.class, false, Common.refSementara(),
+                                "cicilanPembayaran", null, temp, namaFile);
+                if (lampiran == null || lampiran.getId() == null)
+                    throw new IllegalStateException("Lampiran gagal tersimpan.");
+                j.put("id", lampiran.getId());
+                j.put("nama", nz(lampiran.getNama()));
+            } finally {
+                try { ais.database.hibernate.StreamingHibernateUtil.getInstance().closeSession(); }
+                catch (Exception ignored) { }
+            }
+        } finally {
+            try { temp.delete(); } catch (Exception ignored) { }
+        }
+    }
+
+    // -------------------------------------------------------------- kuitansi
+    /**
+     * Cetak kuitansi (PDF) sebuah Kegiatan — paritas
+     * CommonReportHelper.cetakBuktipembayaran[Calon]Mahasiswa(kirim=false); pada
+     * konteks servlet (tanpa sesi ZK) helper otomatis memakai
+     * generateFileReportSimple. PDF ditulis langsung ke response.
+     */
+    private static void kuitansi(HttpServletRequest r, HttpServletResponse response, Subjek subjek, Tbmuser user)
+            throws Exception {
+        Long kegiatanId = id(r, "kegiatanId", true);
+        Kegiatan kegiatan;
+        Session s = HibernateUtil.openSession();
+        try { kegiatan = (Kegiatan) s.get(Kegiatan.class, kegiatanId); }
+        finally { s.close(); }
+        if (kegiatan == null) throw new IllegalArgumentException("Kegiatan tidak ditemukan.");
+        // Scoping identitas: pengguna ber-relasi hanya boleh mencetak kegiatannya sendiri.
+        if (!subjek.staf) {
+            boolean milikSendiri =
+                    (user.getMahasiswa() != null && kegiatan.getMahasiswa() != null
+                            && user.getMahasiswa().getId().equals(kegiatan.getMahasiswa().getId()))
+                    || (user.getBiodataCalonMahasiswa() != null && kegiatan.getCalonMahasiswa() != null
+                            && user.getBiodataCalonMahasiswa().getId().equals(kegiatan.getCalonMahasiswa().getId()));
+            if (!milikSendiri) throw new SecurityException("Kuitansi di luar cakupan pengguna.");
+        }
+        java.io.File pdf = kegiatan.getCalonMahasiswa() != null
+                ? ais.action.report.CommonReportHelper.cetakBuktipembayaranCalonMahasiswa(kegiatan, false)
+                : ais.action.report.CommonReportHelper.cetakBuktipembayaranMahasiswa(kegiatan, false);
+        if (pdf == null || !pdf.exists())
+            throw new IllegalStateException("PDF kuitansi gagal dibuat.");
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition",
+                "inline; filename=\"kuitansi_kegiatan_" + kegiatanId + ".pdf\"");
+        response.setContentLength((int) pdf.length());
+        java.io.InputStream masuk = new java.io.FileInputStream(pdf);
+        try {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = masuk.read(buf)) > 0) response.getOutputStream().write(buf, 0, n);
+            response.getOutputStream().flush();
+        } finally {
+            try { masuk.close(); } catch (Exception ignored) { }
+        }
     }
 
     // ------------------------------------------------------------------ save
@@ -630,9 +736,7 @@ public final class NewUiDaftarUlangMahasiswaController {
         // Gate ZK onSave: hanya petugas; user mahasiswa/calon (atau relasi sekolah) ditolak.
         if (!subjek.staf) throw new SecurityException("Pembayaran tunai kasir hanya untuk petugas.");
         requireSubjek(subjek, mode);
-        if (boleh("harus_menyertakan_bukti_pembayaran", false))
-            throw new IllegalArgumentException("Konfigurasi mewajibkan lampiran bukti pembayaran; "
-                    + "unggah bukti belum didukung kasir native. Gunakan halaman ZK petugas untuk transaksi ini.");
+        boolean buktiWajib = boleh("harus_menyertakan_bukti_pembayaran", false);
 
         JenisKegiatan jkRef = resolveJenis(r, mode);
         if (!PembayaranGatewayKatalog.tunaiAktif(jkRef))
@@ -646,7 +750,8 @@ public final class NewUiDaftarUlangMahasiswaController {
         if (caraBayarId == null && boleh("integrasi_modul_akuntansi", false))
             throw new IllegalArgumentException("Cara bayar wajib dipilih (integrasi modul akuntansi aktif).");
 
-        // items = JSON array [{"key":"DB_9"|"PB_7","nominal":150000}, ...]
+        // items = JSON array [{"key":"DB_9"|"PB_7","nominal":150000,
+        //                      "idLampiran":123 (opsional; wajib saat buktiWajib)}, ...]
         String rawItems = text(r.getParameter("items"), "");
         if (rawItems.length() == 0) throw new IllegalArgumentException("items wajib diisi.");
         org.json.JSONArray items = new org.json.JSONArray(rawItems);
@@ -655,6 +760,11 @@ public final class NewUiDaftarUlangMahasiswaController {
             JSONObject it = items.getJSONObject(i);
             double nominal = it.optDouble("nominal", 0);
             if (nominal <= 0) throw new IllegalArgumentException("Nominal setiap item harus lebih dari nol.");
+            // Paritas validasiPembayaran ZK: bukti lampiran wajib per baris bila
+            // konfigurasi harus_menyertakan_bukti_pembayaran aktif.
+            if (buktiWajib && it.optLong("idLampiran", 0L) <= 0L)
+                throw new IllegalArgumentException("Bukti pembayaran wajib diunggah untuk setiap item "
+                        + "(konfigurasi harus_menyertakan_bukti_pembayaran aktif).");
             totalDiminta += nominal;
         }
         // Payload kosong/total < 1.0 DITOLAK — jangan pernah menjatuhkan ke jalur
@@ -827,6 +937,10 @@ public final class NewUiDaftarUlangMahasiswaController {
                 cp.setKeterangan(ket);
                 cp.setJenisPembayaran(caraBayar);
                 cp.setValidator(user.getUserNama());
+                // Bukti lampiran per item (hasil action `upload`); paritas
+                // cicilanPembayaran.setIdLampiran pada onSave ZK.
+                long idLampiran = it.optLong("idLampiran", 0L);
+                if (idLampiran > 0L) cp.setIdLampiran(idLampiran);
                 if (ppb != null && mhs != null) {
                     try { cp.setNilaiAsli(ppb.ambilNominalModifikasi(mhs, smt)); } catch (Exception ignored) { }
                 }
