@@ -102,6 +102,15 @@ public class PengajuanPembelianGudangAction extends GenericAutowireComposer {
 			txtAmbang.setDisabled(!edit);
 			txtAmbang.setParent(row);
 
+			// Fase C (min-max): target stok maksimum. Kosong = saran lama (2x ambang).
+			final Textbox txtMaks = new Textbox(
+					ambang.getMaxQty() == null ? "" : String.valueOf(ambang.getMaxQty().longValue()));
+			txtMaks.setWidth("90%");
+			txtMaks.setTooltiptext("Target stok maksimum (kebijakan min-max). Saran qty otomatis = target - stok, "
+					+ "dibulatkan naik ke Satuan Pembelian produk. Kosongkan utk saran lama (2x ambang).");
+			txtMaks.setDisabled(!edit);
+			txtMaks.setParent(row);
+
 			final MyCheckboxConfig chkAktif = new MyCheckboxConfig("Aktif");
 			chkAktif.setChecked(Boolean.TRUE.equals(ambang.getAktif()));
 			chkAktif.setDisabled(!edit);
@@ -124,6 +133,9 @@ public class PengajuanPembelianGudangAction extends GenericAutowireComposer {
 						a.setProduk((Produk) cboProduk.getSelectedItem().getValue());
 						a.setGudang((Gudang) cboGudang.getSelectedItem().getValue());
 						a.setAmbangMinimum(parseAngka(txtAmbang.getValue()));
+						double maks = parseAngka(txtMaks.getValue());
+						a.setMaxQty(txtMaks.getValue() == null || txtMaks.getValue().trim().isEmpty() || maks <= 0
+								? null : Double.valueOf(maks));
 						a.setAktif(chkAktif.isChecked());
 						Common.refreshSaveOrUpdate(session, a);
 						MyMessageboxConfig.show("Ambang stok berhasil disimpan.", "Info", MyMessageboxConfig.OK,

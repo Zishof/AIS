@@ -39,12 +39,20 @@ public class PesantrenWebsiteEditor {
     static {
         label("schemaVersion", "Versi schema");
         label("identity", "Identitas pesantren");
+        label("metadata", "Metadata halaman");
         label("theme", "Tema dan gambar");
         label("seo", "SEO dan metadata");
         label("announcement", "Bar pengumuman");
         label("navigation", "Navigasi utama");
         label("hero", "Hero halaman utama");
         label("profile", "Profil pondok");
+        label("valuesSection", "Judul bagian nilai utama");
+        label("values", "Nilai utama sekolah");
+        label("programsSection", "Judul bagian program pendidikan");
+        label("programs", "Program pendidikan");
+        label("studentLifeSection", "Judul bagian kehidupan sekolah");
+        label("studentLife", "Kehidupan sekolah");
+        label("facilitiesSection", "Judul bagian fasilitas sekolah");
         label("stats", "Statistik ringkas");
         label("unitsSection", "Bagian unit pendidikan");
         label("pillarsSection", "Judul bagian pilar layanan");
@@ -91,8 +99,9 @@ public class PesantrenWebsiteEditor {
         label("website", "Website resmi"); label("left", "Teks kiri");
         label("right", "Teks kanan"); label("type", "Tipe diagram");
 
-        String[] urutan = new String[] { "schemaVersion", "identity", "theme", "seo", "announcement",
-                "navigation", "hero", "profile", "stats", "unitsSection", "pillarsSection", "pillars",
+        String[] urutan = new String[] { "schemaVersion", "metadata", "identity", "theme", "seo", "announcement",
+                "navigation", "hero", "profile", "valuesSection", "values", "programsSection", "programs",
+                "studentLifeSection", "studentLife", "facilitiesSection", "stats", "unitsSection", "pillarsSection", "pillars",
                 "dailySection", "dailyTimeline", "workflowSection", "workflows", "diagramSection", "diagrams",
                 "biometric", "servicesSection", "serviceGroups", "gallerySection", "gallery", "newsSection",
                 "cta", "contact", "footer", "visibility" };
@@ -102,13 +111,17 @@ public class PesantrenWebsiteEditor {
     private final ObjectEditor root;
 
     public PesantrenWebsiteEditor(String json) {
+        this(json, "Yayasan");
+    }
+
+    public PesantrenWebsiteEditor(String json, String ownerLabel) {
         JSONObject value;
         try {
             value = new JSONObject(json == null ? "{}" : json);
         } catch (Exception e) {
             value = new JSONObject();
         }
-        root = new ObjectEditor(null, value, true);
+        root = new ObjectEditor(null, value, true, ownerLabel == null ? "Institusi" : ownerLabel);
     }
 
     public Component getComponent() {
@@ -158,7 +171,7 @@ public class PesantrenWebsiteEditor {
     }
 
     private static NodeEditor editor(String key, Object value, boolean top) {
-        if (value instanceof JSONObject) return new ObjectEditor(key, (JSONObject) value, top);
+        if (value instanceof JSONObject) return new ObjectEditor(key, (JSONObject) value, top, null);
         if (value instanceof JSONArray) return new ArrayEditor(key, (JSONArray) value);
         return new ScalarEditor(key, value);
     }
@@ -237,7 +250,7 @@ public class PesantrenWebsiteEditor {
         private final List editors = new ArrayList();
         private final Component rootComponent;
 
-        ObjectEditor(String key, JSONObject value, boolean top) {
+        ObjectEditor(String key, JSONObject value, boolean top, String ownerLabel) {
             fields.setWidth("100%");
             List ordered = orderedKeys(value);
             for (int i = 0; i < ordered.size(); i++) {
@@ -251,7 +264,7 @@ public class PesantrenWebsiteEditor {
             if (top) {
                 Vbox outer = new Vbox();
                 outer.setWidth("100%");
-                Label help = new Label("Edit setiap properti halaman utama. JSON disusun otomatis ketika Yayasan disimpan.");
+                Label help = new Label("Edit konten presentasional halaman utama. Nama, alamat, telepon, email, motto, dan data identitas lain selalu mengikuti master " + ownerLabel + ". JSON disusun otomatis ketika data disimpan.");
                 help.setWidth("100%");
                 help.setStyle("display:block;padding:10px;background:#eef7f5;color:#0f5f58;border-radius:6px;");
                 help.setParent(outer);

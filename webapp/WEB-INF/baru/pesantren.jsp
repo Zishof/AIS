@@ -93,8 +93,9 @@
             || "he".equals(languageBase) || "ur".equals(languageBase)) ? "rtl" : "ltr";
     String nonce = String.valueOf(request.getAttribute("pesantrenCspNonce"));
     if ("null".equals(nonce)) nonce = "";
-    String seoTitle = t(seo, "title", profil.getNama() + " - Portal ePesantren");
-    String seoDescription = t(seo, "description", "Portal terpadu " + profil.getNama());
+    String seoTitle = profil.getNama() + " - Portal ePesantren";
+    String seoDescription = profil.getDeskripsi().isEmpty()
+            ? "Portal pendidikan dan layanan resmi " + profil.getNama() : profil.getDeskripsi();
     String canonical = t(seo, "canonical", root + "/index");
     if (!(canonical.startsWith("https://") || canonical.startsWith("http://")
             || (canonical.startsWith("/") && !canonical.startsWith("//")))) canonical = root + "/index";
@@ -370,8 +371,8 @@
         <div class="wrap hero-grid">
             <div>
                 <div class="eyebrow"><%=e(t(hero, "eyebrow", "Satu Pesantren · Satu Sistem · Satu Data"))%></div>
-                <h1><%=e(t(hero, "title", profil.getNama()))%></h1>
-                <p class="hero-lead"><%=e(t(hero, "lead", profil.getMotto()))%></p>
+                <h1><%=e(profil.getNama())%></h1>
+                <p class="hero-lead"><%=e(profil.getMotto().isEmpty() ? profil.getDeskripsi() : profil.getMotto())%></p>
                 <div class="hero-actions">
                     <a class="button button-primary" href="<%=href(t(heroPrimary, "url", root + "/login"), "#")%>"><%=e(t(heroPrimary, "label", "Masuk ePesantren"))%></a>
                     <a class="button button-light" href="<%=href(t(heroSecondary, "url", "#layanan"), "#layanan")%>"><%=e(t(heroSecondary, "label", "Jelajahi Layanan"))%></a>
@@ -381,7 +382,7 @@
             <aside class="hero-card" id="profil" aria-label="Profil lembaga">
                 <img src="<%=e(image(profil.getLogo(), root + "/img/logo.png"))%>" alt="">
                 <h2><%=e(t(profileContent, "title", "Berakar pada adab, bertumbuh dengan teknologi"))%></h2>
-                <p><%=e(t(profileContent, "body", profil.getDeskripsi()))%></p>
+                <p><%=e(profil.getDeskripsi())%></p>
                 <div class="hero-facts"><% for (int i = 0; i < Math.min(3, stats.length()); i++) { JSONObject factItem = item(stats, i); String factValue = t(factItem, "value", ""); if ("Dinamis".equalsIgnoreCase(factValue)) factValue = String.valueOf(sekolahs.size() + perguruanTinggis.size()); %><div class="fact"><strong><%=e(factValue)%></strong><span><%=e(t(factItem, "label", "Statistik"))%></span></div><% } %></div>
             </aside>
         </div>
@@ -511,9 +512,9 @@
     <% } %>
 
     <% if (PesantrenWebsiteConfig.visible(site, "contact", true)) { %>
-    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2><%=e(t(cta, "title", "Informasi dan layanan resmi " + profil.getNama()))%></h2><p><%=e(t(cta, "body", profil.getAlamat()))%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><address class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Seluruh konten halaman ini dapat disesuaikan dari JSON Website pada master Yayasan.</span></address></div></div></section>
+    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2>Informasi dan layanan resmi <%=e(profil.getNama())%></h2><p><%=e(profil.getAlamat())%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><address class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Identitas dan kontak selalu mengikuti data master Yayasan.</span></address></div></div></section>
     <% } %>
 </main>
-<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(t(footerContent, "left", profil.getNama()))%></span><nav class="footer-links" aria-label="Informasi situs"><a href="<%=e(root)%>/web/privasi">Privasi</a><a href="<%=e(root)%>/web/aksesibilitas">Aksesibilitas</a><a href="<%=e(root)%>/web/ppid">PPID</a></nav><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>
+<footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(profil.getNama())%></span><nav class="footer-links" aria-label="Informasi situs"><a href="<%=e(root)%>/web/privasi">Privasi</a><a href="<%=e(root)%>/web/aksesibilitas">Aksesibilitas</a><a href="<%=e(root)%>/web/ppid">PPID</a></nav><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>
 </body>
 </html>

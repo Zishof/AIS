@@ -833,7 +833,8 @@ public class Sekolah extends VoKunci {
 		this.kodePos = kodePos;
 	}
 
-	@Column(columnDefinition = "text")
+	/** Konfigurasi website publik sekolah dalam JSON; identitas/kontak tetap berasal dari kolom model. */
+	@Column(name = "website", columnDefinition = "text")
 	public String getWebsite() {
 		return website == null ? "" : website.trim();
 	}

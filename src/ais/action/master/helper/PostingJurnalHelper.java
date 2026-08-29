@@ -51,6 +51,8 @@ public final class PostingJurnalHelper {
 	public static final String REF_DP_BALIK_PEKERJAAN = "DP_BALIK_PEKERJAAN";
 	/** ref terisi namun bukan DP (pekerjaan vendor non-DP). */
 	public static final String REF_PEKERJAAN_NON_DP = "PEKERJAAN_NON_DP";
+	/** ref grup transaksi pengembalian sisa uang muka (jurnal pengembalian LPJ). */
+	public static final String REF_PENGEMBALIAN = "pengembalian";
 
 	/** Properti GrupTransaksi yang boleh dipakai sebagai filter entitas closing. */
 	private static final String[] ENTITAS_CLOSING = { "pertangungjawaban", "kasKecil", "kasBesar", "pajak",

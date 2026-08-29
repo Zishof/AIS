@@ -48,7 +48,8 @@ public class WebsitePublicSecurityFilter implements Filter {
             res.setHeader("Strict-Transport-Security", "max-age=31536000");
         }
         if ("GET".equalsIgnoreCase(req.getMethod()) && req.getRequestURI() != null
-                && req.getRequestURI().startsWith(req.getContextPath() + "/web")) {
+                && (req.getRequestURI().startsWith(req.getContextPath() + "/web")
+                        || req.getRequestURI().startsWith(req.getContextPath() + "/sekolah"))) {
             res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
             res.setHeader("Vary", "Accept-Language");
         }

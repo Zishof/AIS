@@ -54,6 +54,10 @@
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>WebsitePublicSecurityFilter</filter-name>
+		<url-pattern>/sekolah/*</url-pattern>
+	</filter-mapping>
+	<filter-mapping>
+		<filter-name>WebsitePublicSecurityFilter</filter-name>
 		<url-pattern>/robots.txt</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
@@ -430,6 +434,12 @@
 		<display-name>web</display-name>
 		<servlet-name>web</servlet-name>
 		<servlet-class>ais.action.servlet.Web</servlet-class>
+	</servlet>
+	<servlet>
+		<description>Website publik sekolah aktif</description>
+		<display-name>sekolahWebsite</display-name>
+		<servlet-name>sekolahWebsite</servlet-name>
+		<servlet-class>ais.action.servlet.SekolahWebsite</servlet-class>
 	</servlet>
 	<servlet>
 		<description>Discovery SEO website institusi</description>
@@ -1418,6 +1428,10 @@
 	<servlet-mapping>
 		<servlet-name>web</servlet-name>
 		<url-pattern>/web/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>sekolahWebsite</servlet-name>
+		<url-pattern>/sekolah/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>websiteDiscovery</servlet-name>

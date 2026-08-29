@@ -22,18 +22,19 @@ public final class PesantrenWebsiteConfig {
 
     public static JSONObject load(Yayasan yayasan, String root) {
         JSONObject defaults = defaults(yayasan, root == null ? "" : root);
+        removeModelBackedProperties(defaults);
         String raw = yayasan == null ? null : yayasan.getWebsite();
         if (raw == null || raw.trim().length() == 0) {
             return defaults;
         }
         raw = raw.trim();
         if (!raw.startsWith("{")) {
-            put(object(defaults, "contact"), "website", raw);
             return defaults;
         }
         try {
             JSONObject merged = merge(defaults, new JSONObject(raw));
             contextualizeInternalUrls(merged, root);
+            removeModelBackedProperties(merged);
             return merged;
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "PesantrenWebsiteConfig.load");
@@ -88,7 +89,24 @@ public final class PesantrenWebsiteConfig {
     }
 
     public static String websiteUrl(Yayasan yayasan) {
-        return text(object(load(yayasan, ""), "contact"), "website", "");
+        return yayasan == null || yayasan.getDomain() == null ? "" : yayasan.getDomain().trim();
+    }
+
+    /** Field model Yayasan tidak boleh memiliki salinan kedua di JSON website. */
+    private static void removeModelBackedProperties(JSONObject value) {
+        remove(object(value, "identity"), "name", "motto", "description");
+        remove(object(value, "theme"), "primary", "logo", "heroImage");
+        remove(object(value, "seo"), "title", "description");
+        remove(object(value, "hero"), "title", "lead");
+        remove(object(value, "profile"), "body");
+        remove(object(value, "cta"), "title", "body");
+        remove(object(value, "contact"), "address", "phone", "whatsapp", "email", "website");
+        remove(object(value, "footer"), "left");
+    }
+
+    private static void remove(JSONObject value, String... keys) {
+        if (value == null || keys == null) return;
+        for (String key : keys) value.remove(key);
     }
 
     /**

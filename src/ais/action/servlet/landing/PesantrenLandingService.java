@@ -99,40 +99,36 @@ public final class PesantrenLandingService {
 
     private static Profil profil(HttpServletRequest request, Yayasan yayasan, Sekolah sekolah,
             PerguruanTinggi pt, JSONObject websiteConfig) {
-        JSONObject identity = PesantrenWebsiteConfig.object(websiteConfig, "identity");
-        JSONObject theme = PesantrenWebsiteConfig.object(websiteConfig, "theme");
-        JSONObject contact = PesantrenWebsiteConfig.object(websiteConfig, "contact");
         String namaDefault = valid(yayasan) ? yayasan.getNama()
                 : valid(sekolah) ? sekolah.getNama() : valid(pt) ? pt.getNama() : "Pondok Pesantren";
-        String nama = PesantrenWebsiteConfig.text(identity, "name", namaDefault);
+        String nama = namaDefault;
         String mottoDefault = valid(yayasan) ? yayasan.getMotto()
                 : valid(sekolah) ? sekolah.getMotto() : valid(pt) ? pt.getMotto() : "Ilmu, adab, dan kemandirian";
-        String motto = PesantrenWebsiteConfig.text(identity, "motto", mottoDefault);
+        String motto = mottoDefault;
         String deskripsiDefault = valid(yayasan) ? teks(yayasan.getDeskripsi(), 900) : "";
-        String deskripsi = PesantrenWebsiteConfig.text(identity, "description", deskripsiDefault);
+        String deskripsi = deskripsiDefault;
         String alamatDefault = valid(yayasan) ? yayasan.getAlamat()
                 : valid(sekolah) ? sekolah.getAlamat() : valid(pt) ? gabung(pt.getAlamat1(), pt.getAlamat2()) : "";
-        String alamat = PesantrenWebsiteConfig.text(contact, "address", alamatDefault);
+        String alamat = alamatDefault;
         String teleponDefault = valid(yayasan) ? yayasan.getTelp() : valid(sekolah) ? sekolah.getTelp() : "";
-        String telepon = PesantrenWebsiteConfig.text(contact, "phone", teleponDefault);
-        String wa = PesantrenWebsiteConfig.text(contact, "whatsapp", valid(yayasan) ? yayasan.getWa() : telepon);
+        String telepon = teleponDefault;
+        String wa = valid(yayasan) ? yayasan.getWa() : valid(sekolah) ? sekolah.getWa() : telepon;
         String emailDefault = valid(yayasan) ? yayasan.getEmail()
                 : valid(sekolah) ? sekolah.getEmail() : valid(pt) ? pt.getEmail() : "";
-        String email = PesantrenWebsiteConfig.text(contact, "email", emailDefault);
-        String websiteDefault = valid(sekolah) ? sekolah.getWebsite() : valid(pt) ? pt.getWebsite() : "";
-        String website = PesantrenWebsiteConfig.text(contact, "website", websiteDefault);
-        String warna = validWarna(PesantrenWebsiteConfig.text(theme, "primary",
-                valid(yayasan) ? yayasan.getWarna() : null));
+        String email = emailDefault;
+        String website = url(null, valid(yayasan) ? yayasan.getDomain()
+                : valid(sekolah) ? sekolah.getDomain() : valid(pt) ? pt.getDomain() : null, "");
+        String warna = validWarna(valid(yayasan) ? yayasan.getWarna() : null);
         String logoDefault = valid(yayasan)
                 ? SekolahUtil.getYayasanMedia(request, "logo_yayasan_", yayasan)
                 : valid(sekolah) ? SekolahUtil.getSekolahMedia(request, "logo_sekolah_", sekolah)
                         : PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "logo_pt_");
-        String logo = PesantrenWebsiteConfig.text(theme, "logo", logoDefault);
+        String logo = logoDefault;
         String latarDefault = valid(yayasan)
                 ? SekolahUtil.getYayasanMedia(request, "background_yayasan_", yayasan)
                 : valid(sekolah) ? SekolahUtil.getSekolahMedia(request, "background_sekolah_", sekolah)
                         : PerguruanTinggiUtil.getPerguruanTinggiMedia(request, "background_pt_");
-        String latar = PesantrenWebsiteConfig.text(theme, "heroImage", latarDefault);
+        String latar = latarDefault;
         return new Profil(nama, motto, deskripsi, alamat, telepon, wa, email, website, warna, logo, latar);
     }
 
@@ -186,7 +182,7 @@ public final class PesantrenLandingService {
                 continue;
             }
             hasil.add(new UnitPendidikan(sekolah.getNama(), "Sekolah / Madrasah", sekolah.getMotto(),
-                    sekolah.getAlamat(), url(sekolah.getWebsite(), sekolah.getDomain(), root + "/login")));
+                    sekolah.getAlamat(), root + "/sekolah/" + sekolah.getId()));
         }
         return hasil;
     }

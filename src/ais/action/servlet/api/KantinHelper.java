@@ -4133,6 +4133,20 @@ public class KantinHelper {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
 				p.setJenisItem(jenisItem.isEmpty() ? "JUAL" : jenisItem);
 			}
+			// Fase C dok. 48 P3: rute pemenuhan ulang stok -- BELI (bawaan, null) atau PRODUKSI
+			// (ambang stok memicu draf Work Order, bukan pengajuan pembelian).
+			if (request.has("rute")) {
+				String rute = request.isNull("rute") ? "" : request.optString("rute", "").trim().toUpperCase();
+				if (rute.isEmpty()) {
+					p.setRute(null);
+				} else if (Produk.RUTE_BELI.equals(rute) || Produk.RUTE_PRODUKSI.equals(rute)) {
+					p.setRute(rute);
+				} else {
+					hasil.put("status", "91");
+					hasil.put("description", "Rute pemenuhan tidak dikenal: pilih BELI atau PRODUKSI.");
+					return;
+				}
+			}
 			// Gap-closure "Produk Ekstra" -- JSON array id mentah (mis. "[601,602]"), disimpan apa
 			// adanya, TIDAK di-snapshot spt bahan_baku -- lihat JavaDoc Produk.getEkstraPilihan().
 			if (request.has("ekstra_pilihan")) {

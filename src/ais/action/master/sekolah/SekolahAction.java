@@ -41,6 +41,7 @@ import ais.action.master.akunting.helper.AmbilDataPegawaiBanbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox;
 import ais.action.master.sekolah.util.SekolahUtil;
+import ais.action.servlet.landing.SchoolWebsiteConfig;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
@@ -130,7 +131,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 	private Textbox propinsi;
 	private Textbox dusun;
 	private Textbox kodePos;
-	private Textbox website;
+	private PesantrenWebsiteEditor websiteEditor;
 
 	private Textbox labelPejabat1;
 	private AmbilDataPegawaiBanbox pegawai1;
@@ -228,7 +229,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 				List<Sekolah> sekolahs = ConstantValues.simpleList(
 						session.createCriteria(Sekolah.class).add(Restrictions.isNotNull("domain"))
 								.add(Restrictions.ne("domain", ""))
-								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))),
+								.add(Restrictions.eq("aktif", true)),
 						Sekolah.class);
 				Map<String, Sekolah> baru = new HashMap<String, Sekolah>();
 				for (Sekolah sekolah : sekolahs) {
@@ -416,6 +417,10 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 
 		ais.ui.util.MyButtonTabbox btnTab = ais.ui.util.MyButtonTabbox.buat(center, "100%", new int[] { 0 });
 		org.zkoss.zul.Div panelSekolah = btnTab.tambahTab(0, "Data Sekolah", "/img/svg/book.svg");
+		org.zkoss.zul.Div panelWebsite = btnTab.tambahTab(1, "Website Sekolah", "/img/svg/book.svg");
+		panelWebsite.setStyle("overflow:auto;padding:8px;");
+		websiteEditor = new PesantrenWebsiteEditor(SchoolWebsiteConfig.editableJson(sekolah), "Sekolah");
+		websiteEditor.getComponent().setParent(panelWebsite);
 
 		Borderlayout borderlayoutSekolah = new ais.ui.util.MyBorderlayout();
 		borderlayoutSekolah.setParent(panelSekolah);
@@ -732,12 +737,6 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(new ais.ui.util.MyLabelConfig("Propinsi Sekolah"));
 		row.appendChild(propinsi = new Textbox(sekolah.getPropinsi()));
 		propinsi.setWidth("90%");
-
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Website Sekolah"));
-		row.appendChild(website = new Textbox(sekolah.getWebsite()));
-		website.setWidth("90%");
 
 		row = new MyFormRow();
 
@@ -1376,6 +1375,16 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	public boolean onSave(Event event) throws Exception {
+		String websiteValue;
+		try {
+			websiteValue = websiteEditor == null ? SchoolWebsiteConfig.editableJson(sekolah)
+					: websiteEditor.toJsonString();
+			SchoolWebsiteConfig.validate(websiteValue);
+		} catch (Exception e) {
+			MyMessageboxConfig.show("Konfigurasi Website Sekolah tidak valid: " + e.getMessage(), "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Nama Sekolah harus diisi", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.INFORMATION);
@@ -1481,7 +1490,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 			sekolah.setKecamatan(kecamatan.getValue());
 			sekolah.setKabupatenKota(kabupatenKota.getValue());
 			sekolah.setPropinsi(propinsi.getValue());
-			sekolah.setWebsite(website.getValue());
+			sekolah.setWebsite(websiteValue);
 
 			sekolah.setPegawai1((Pegawai) pegawai1.getAttribute("pegawai"));
 			sekolah.setPegawai2((Pegawai) pegawai2.getAttribute("pegawai"));
