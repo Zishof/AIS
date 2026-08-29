@@ -42,7 +42,7 @@ try {
 String view = request.getAttribute("repoView") == null ? "home" : String.valueOf(request.getAttribute("repoView"));
 ItemDetail seoItem = (ItemDetail) request.getAttribute("repoItem");
 String pageTitle = seoItem == null ? "Repositori Institusi - " + institution : seoItem.title + " - " + institution;
-String origin = request.getScheme() + "://" + request.getServerName() + ((request.getServerPort()==80||request.getServerPort()==443)?"":":"+request.getServerPort());
+String origin = request.getAttribute("repoPublicOrigin") == null ? "" : String.valueOf(request.getAttribute("repoPublicOrigin"));
 String canonical = seoItem == null ? origin + context + "/repository" : origin + context + "/repository/item/" + seoItem.id;
 boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.repository.uiV2", "true"));
 %>
@@ -55,7 +55,7 @@ boolean repositoryV2 = !"false".equalsIgnoreCase(System.getProperty("ais.reposit
   <link rel="manifest" href="<%=context%>/repository-manifest.json">
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="<%=repoHtml(seoItem == null ? "Repositori karya ilmiah, publikasi, bahan ajar, dan pengetahuan institusi." : seoItem.abstractText)%>">
-  <link rel="canonical" href="<%=repoHtml(canonical)%>">
+  <% if (origin.length() > 0) { %><link rel="canonical" href="<%=repoHtml(canonical)%>"><% } %>
   <% if (seoItem != null && seoItem.withdrawn) { %><meta name="robots" content="noindex,follow"><% } %>
   <% if (logo != null && logo.trim().length() > 0) { %><link rel="icon" href="<%=repoHtml(logo)%>"><% } %>
   <title><%=repoHtml(pageTitle)%></title>

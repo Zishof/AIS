@@ -9,7 +9,7 @@ sama dengan WAR.
 - `RepositoryFaqCatalogSelfTest`: 300 FAQ, 20 kategori, pencarian, dan koreksi halaman.
 - `RepositoryWorkspacePaginationSelfTest`: batas page size serta allow-list status.
 - `RepositoryAlertParserSelfTest`: parsing URL alert dan penolakan parameter invalid.
-- `RepositoryFileSecuritySelfTest`: signature berkas, nama file, dan akses fail-closed.
+- `RepositoryFileSecuritySelfTest`: signature berkas, nama file, MIME authoritative, dan akses fail-closed.
 - `RepositoryOaiProtocolSelfTest`: token OAI bertanda tangan, binding verb, dan penolakan tamper.
 
 ## Matriks staging wajib
@@ -31,6 +31,13 @@ sama dengan WAR.
 9. **Responsif:** 1920×1080, 1366×768, tablet, dan 360–390 px untuk seluruh state utama.
 10. **Beban:** pencarian, semantic candidate search, OAI paging, detail populer, download, scheduler
     sinkron, scheduler alert, antrean 10.000 item, dan degradasi integrasi eksternal.
+11. **Hardening akhir:** coba path bitstream di luar storage, nama/MIME dengan karakter kontrol,
+    scanner yang melewati timeout, berkas berstatus `ERROR`/`INFECTED`, form tanpa versi dan versi
+    usang, serta `publicBaseUrl` berisi path/query/kredensial. Pastikan semuanya ditolak aman.
+12. **Isolasi lintas tenant:** selain halaman detail, verifikasi export XLSX, fixity, metadata
+    quality, daftar notifikasi, mark-as-read, dan statistik alert tidak memuat ID tenant lain.
+13. **Origin publik:** cocokkan canonical HTML, robots, sitemap, RSS/Atom, URL DataCite, dan COAR
+    dengan `ais.repository.publicBaseUrl`; uji pula port nonstandar serta konfigurasi IPv6.
 
 Setiap kegagalan harus mencatat request ID, tenant, role, URL, waktu, input nonrahasia, hasil aktual,
 hasil yang diharapkan, dan bukti log. Jangan memakai data produksi untuk test destruktif.

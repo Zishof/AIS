@@ -19,4 +19,4 @@ Invariant gagal bila returned > settled, allocation > net settled, distribution 
 
 Dashboard sekarang memakai formula tersebut. Nilai negatif tidak ditutupi menjadi nol; `financialException=true` ditampilkan agar selisih dapat direkonsiliasi. Jalankan `sql/005_verify_financial_invariants.sql` setelah schema tersedia.
 
-Refund/reversal memakai maker-checker `SocialCorrectionService`: role FINANCE meminta, role APPROVE yang berbeda memposting. Eksekusi refund ke provider masih bagian kontrak eksternal dan tidak boleh diasumsikan selesai.
+Refund/reversal memakai maker-checker `SocialCorrectionService`: role FINANCE meminta, role APPROVE yang berbeda memposting. Saat koreksi diposting, nominal alokasi `POSTED` dikurangi secara deterministik hanya dari bagian yang belum disalurkan; alokasi menjadi `REVERSED` bila saldonya menjadi nol. Koreksi ditolak bila dana sudah disalurkan atau saldo alokasi tidak cukup. Dengan demikian `posted_allocation` tetap sama dengan `net_settled` setelah koreksi. Eksekusi refund ke provider masih bagian kontrak eksternal dan tidak boleh diasumsikan selesai.

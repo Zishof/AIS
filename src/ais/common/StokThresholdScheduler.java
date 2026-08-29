@@ -296,17 +296,25 @@ public final class StokThresholdScheduler {
 	@SuppressWarnings("unchecked")
 	private static void kirimNotifikasi(Session session, AmbangStokGudang ambang, Gudang gudang, double totalStok,
 			boolean keVendor, Gudang gudangTujuan) {
+		// Sesi TERPISAH dari transaksi ledger: SQL yang gagal membatalkan transaksi PostgreSQL
+		// server-side (perintah berikutnya ditolak sampai rollback) WALAU exception-nya ditangkap
+		// -- notifikasi tidak boleh bisa menggagalkan penerbitan pengajuan/WO. Sekalian perbaikan
+		// bug laten: PK tbmuser adalah userid (String), bukan id -- "select id" lama SELALU gagal
+		// dan racunnya membuat commit siklus ikut gagal, jadi pengajuan otomatis tak pernah
+		// tersimpan sejak fitur ini lahir (terungkap harness Fase C, dok. 53).
+		Session sesiNotif = null;
 		try {
-			List<Long> userIds = session.createSQLQuery(
-					"select id from public.tbmuser where "
+			sesiNotif = HibernateUtil.openSession();
+			List<String> userIds = sesiNotif.createSQLQuery(
+					"select userid from public.tbmuser where "
 							+ "userrole = :kantin or user_role2 = :kantin or user_role3 = :kantin "
 							+ "or user_role4 = :kantin or user_role5 = :kantin "
 							+ "or userrole = :admin or user_role2 = :admin or user_role3 = :admin "
 							+ "or user_role4 = :admin or user_role5 = :admin")
 					.setParameter("kantin", Tbmrole.KANTIN).setParameter("admin", Tbmrole.ADMINISTRATOR).list();
 			List<Tbmuser> penerima = new ArrayList<Tbmuser>();
-			for (Long uid : userIds) {
-				Tbmuser u = (Tbmuser) session.get(Tbmuser.class, uid);
+			for (String uid : userIds) {
+				Tbmuser u = (Tbmuser) sesiNotif.get(Tbmuser.class, uid);
 				if (u != null) {
 					penerima.add(u);
 				}
@@ -333,6 +341,15 @@ public final class StokThresholdScheduler {
 					rincian, null, ambang.getProduk(), null, null, CommonNotifikasi.STATUS_WARNING);
 		} catch (Exception e) {
 			ErrorAuditUtil.record(e, "auto-audit src/ais/common/StokThresholdScheduler.java:kirimNotifikasi");
+		} finally {
+			if (sesiNotif != null) {
+				try {
+					sesiNotif.close();
+				} catch (Throwable ignored) {
+					ErrorAuditUtil.record(ignored,
+							"auto-audit(empty-catch) src/ais/common/StokThresholdScheduler.java:kirimNotifikasi-close");
+				}
+			}
 		}
 	}
 

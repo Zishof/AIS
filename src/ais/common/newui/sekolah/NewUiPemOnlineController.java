@@ -218,7 +218,10 @@ public final class NewUiPemOnlineController {
         Integer bln = integerObject(r, "sdBulan"), thn = integerObject(r, "sdTahun");
         if (bln == null) bln = Integer.valueOf(new java.util.GregorianCalendar().get(java.util.Calendar.MONTH) + 1);
         if (thn == null) thn = Integer.valueOf(new java.util.GregorianCalendar().get(java.util.Calendar.YEAR));
-        List<Tagihan> rows = muatTagihan(subjek, bln, thn);
+        // Paritas checkbox staf "Tampilkan pilihan bukan tagihan" (pem_online).
+        boolean tampilkanBukanTagihan = subjek.staf
+                && "true".equalsIgnoreCase(r.getParameter("tampilkanBukanTagihan"));
+        List<Tagihan> rows = muatTagihan(subjek, bln, thn, tampilkanBukanTagihan);
         JSONArray arr = new JSONArray();
         for (Tagihan t : rows) arr.put(encodeTagihan(t));
         j.put("rows", arr).put("total", rows.size())
@@ -228,7 +231,8 @@ public final class NewUiPemOnlineController {
     }
 
     /** Pipeline paritas prosesTampilPembayaranParalel (sekuensial, tanpa side-effect tulis). */
-    private static List<Tagihan> muatTagihan(Subjek subjek, Integer bln, Integer thn) {
+    private static List<Tagihan> muatTagihan(Subjek subjek, Integer bln, Integer thn,
+            boolean tampilkanBukanTagihan) {
         List<Tagihan> hasil = new ArrayList<Tagihan>();
         Session s = HibernateUtil.openSession();
         try {
@@ -277,7 +281,7 @@ public final class NewUiPemOnlineController {
                         : TagihanUtil.getTagihan(jbs, pb, siswa, bln, thn, false);
                 boolean bulanan = "Bulanan".equalsIgnoreCase(nz(jbs.getPeriode()));
                 for (Tagihan t : tagihans) {
-                    if (!layakTampil(t)) continue;
+                    if (!layakTampil(t, tampilkanBukanTagihan)) continue;
                     if (bulanan) {
                         if (t.getTahunbulan() == null) continue;
                         if (pb.getBulanMulai() != null && t.getTahunbulan().intValue() < pb.getBulanMulai().intValue()) continue;
@@ -291,10 +295,10 @@ public final class NewUiPemOnlineController {
     }
 
     /** Predikat kelayakan-tampil baris (PembayaranOnline :2915/:3002). */
-    private static boolean layakTampil(Tagihan t) {
+    private static boolean layakTampil(Tagihan t, boolean tampilkanBukanTagihan) {
         try {
             if (!Boolean.TRUE.equals(t.getAktif())) return false;
-            if (t.ambilBukanTagihanData()) return false;
+            if (!tampilkanBukanTagihan && t.ambilBukanTagihanData()) return false;
             if (t.getNominalBiaya() == null || Boolean.TRUE.equals(t.getNominalBiaya().getBukanTagihan())) return false;
             if (t.getPembayaranSiswaDetail() != null) return false;
             ItemBiayaSekolah item = t.getItemBiayaSekolah();
@@ -317,6 +321,7 @@ public final class NewUiPemOnlineController {
                 .put("item", item == null ? "" : nz(item.getNama()))
                 .put("itemId", item == null ? null : item.getId())
                 .put("jenis", jbs == null ? "" : nz(jbs.getNama()))
+                .put("jenisKode", jbs == null ? "" : nz(jbs.getKode()))
                 .put("periode", jbs == null ? "" : nz(jbs.getPeriode()))
                 .put("bulan", t.getBulan()).put("tahun", t.getTahun())
                 .put("tahunbulan", t.getTahunbulan()).put("bayarKe", t.getBayarKe())
@@ -393,6 +398,18 @@ public final class NewUiPemOnlineController {
                         .put("id", d.getId())
                         .put("nominal", nvl(d.getNominal()))
                         .put("item", d.getItemBiayaSekolah() == null ? "" : nz(d.getItemBiayaSekolah().getNama()));
+                try {
+                    Tagihan tag = d.getTagihan();
+                    if (tag != null) {
+                        baris.put("tagihanId", tag.getId()).put("bayarKe", tag.getBayarKe());
+                        PengaturanBiaya pb = tag.getPengaturanBiaya();
+                        JenisBiayaSekolah jbs = pb == null ? null : pb.getJenisBiayaSekolah();
+                        if (jbs != null) {
+                            baris.put("jenis", nz(jbs.getNama())).put("jenisKode", nz(jbs.getKode()));
+                        }
+                        if (tag.getTahunAjaran() != null) baris.put("tahunAjaran", nz(tag.getTahunAjaran()));
+                    }
+                } catch (Exception ignored) { }
                 if (p != null) {
                     baris.put("pembayaranId", p.getId()).put("bulan", p.getBulan()).put("tahun", p.getTahun())
                          .put("via", p.getAkunPembayaranSiswa() == null ? "" : nz(p.getAkunPembayaranSiswa().getNama()));
@@ -423,9 +440,14 @@ public final class NewUiPemOnlineController {
         boolean adaDeposit = depositTopUp != null && depositTopUp.doubleValue() > 0.1;
         if (dipilih.isEmpty() && !adaDeposit)
             throw new IllegalArgumentException("Belum ada tagihan yang dipilih.");
+        // Paritas checkbox staf "Boleh pilih kustom per item biaya" (R0):
+        // mematikan aturan dependensi R1-R4; hanya berlaku untuk petugas.
+        boolean pilihCustom = subjek.staf && "true".equalsIgnoreCase(r.getParameter("pilihCustom"));
+        boolean tampilkanBukanTagihan = subjek.staf
+                && "true".equalsIgnoreCase(r.getParameter("tampilkanBukanTagihan"));
 
         // Muat ulang dari server — jangan percaya daftar klien.
-        List<Tagihan> layak = muatTagihan(subjek, bln, thn);
+        List<Tagihan> layak = muatTagihan(subjek, bln, thn, tampilkanBukanTagihan);
         Map<Long, Tagihan> perId = new HashMap<Long, Tagihan>();
         for (Tagihan t : layak) perId.put(t.getId(), t);
         List<Tagihan> terpilih = new ArrayList<Tagihan>();
@@ -435,7 +457,7 @@ public final class NewUiPemOnlineController {
                     "Tagihan " + tid + " tidak tersedia untuk dibayar (sudah lunas/di luar cakupan).");
             terpilih.add(t);
         }
-        validasiKeterpilihan(layak, dipilih);
+        validasiKeterpilihan(layak, dipilih, subjek.staf, pilihCustom);
 
         double total = 0.0;
         for (Tagihan t : terpilih) {
@@ -497,18 +519,24 @@ public final class NewUiPemOnlineController {
      * Penegakan ulang aturan R1/R2/R3/R4/R5/R6 pem_online atas himpunan pilihan.
      * Fail-closed: pelanggaran melempar VALIDATION_FAILED dengan pesan spesifik.
      */
-    private static void validasiKeterpilihan(List<Tagihan> layak, Set<Long> dipilih) {
+    private static void validasiKeterpilihan(List<Tagihan> layak, Set<Long> dipilih,
+            boolean staf, boolean pilihCustom) {
         int tahunbulanSekarang = PembayaranSiswa.convert(
                 Integer.valueOf(new java.util.GregorianCalendar().get(java.util.Calendar.YEAR)),
                 Integer.valueOf(new java.util.GregorianCalendar().get(java.util.Calendar.MONTH) + 1)).intValue();
-        for (Tagihan t : layak) {
-            ItemBiayaSekolah item = t.getItemBiayaSekolah();
-            boolean wajib = item != null && (Boolean.TRUE.equals(item.getWajibPilih())
-                    || (Boolean.TRUE.equals(item.getWajibPilihJikaBulanDipilih())
-                        && t.getTahunbulan() != null && t.getTahunbulan().intValue() <= tahunbulanSekarang));
-            if (wajib && !dipilih.contains(t.getId()))
-                throw new IllegalArgumentException("Tagihan wajib '" + nz(item.getNama()) + "' harus ikut dibayar.");
+        // R5/R6: baris wajib mengikat non-staf; petugas (merupakanAdmin ZK)
+        // boleh melepasnya. R1-R4 dilewati saat petugas memakai pilihCustom.
+        if (!staf) {
+            for (Tagihan t : layak) {
+                ItemBiayaSekolah item = t.getItemBiayaSekolah();
+                boolean wajib = item != null && (Boolean.TRUE.equals(item.getWajibPilih())
+                        || (Boolean.TRUE.equals(item.getWajibPilihJikaBulanDipilih())
+                            && t.getTahunbulan() != null && t.getTahunbulan().intValue() <= tahunbulanSekarang));
+                if (wajib && !dipilih.contains(t.getId()))
+                    throw new IllegalArgumentException("Tagihan wajib '" + nz(item.getNama()) + "' harus ikut dibayar.");
+            }
         }
+        if (staf && pilihCustom) return;
         Set<Long> itemDipilih = new HashSet<Long>();
         for (Tagihan t : layak) if (dipilih.contains(t.getId()) && t.getItemBiayaSekolah() != null)
             itemDipilih.add(t.getItemBiayaSekolah().getId());

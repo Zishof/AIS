@@ -592,7 +592,9 @@ public class RepositoryWorkflowService {
     }
 
     private void verifyVersion(RepoItem item, Long expected) {
-        if (expected != null && !expected.equals(item.getLockVersion()))
+        if (expected == null)
+            throw new IllegalStateException("Versi record wajib diisi. Muat ulang halaman sebelum melanjutkan.");
+        if (!expected.equals(item.getLockVersion()))
             throw new IllegalStateException("Record telah berubah. Muat ulang sebelum menyimpan kembali.");
     }
 

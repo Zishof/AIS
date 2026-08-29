@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLEncoder;
 import java.net.URLDecoder;
+import java.net.URL;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -77,6 +78,8 @@ public class Repository extends HttpServlet {
             process(request, response, requestId);
         } catch (SecurityException e) {
             if (!response.isCommitted()) renderState(request,response,HttpServletResponse.SC_FORBIDDEN,"Akses tidak diizinkan",e.getMessage(),requestId);
+        } catch (IllegalArgumentException e) {
+            if(!response.isCommitted()){if(isJsonRequest(request))writeJsonError(response,HttpServletResponse.SC_BAD_REQUEST,"INVALID_REQUEST",e.getMessage(),requestId);else renderState(request,response,HttpServletResponse.SC_BAD_REQUEST,"Permintaan tidak valid",e.getMessage(),requestId);}
         } catch (Exception e) {
             Exception visibleFailure=e;
             if(canRetryHome(request,response)){
@@ -187,6 +190,7 @@ public class Repository extends HttpServlet {
 
         if (view.length() == 0) view = "home";
         request.setAttribute("repoView", view);
+        request.setAttribute("repoPublicOrigin", publicOrigin(request));
         Tbmuser publicUser = Common.getCurrentUser(request);
         if(publicUser==null&&"GET".equalsIgnoreCase(request.getMethod()))response.setHeader("X-Repository-Cacheable","public");
         HttpSession publicSession=request.getSession(true);String publicCsrf=(String)publicSession.getAttribute(CSRF);if(publicCsrf==null){publicCsrf=UUID.randomUUID().toString()+UUID.randomUUID().toString();publicSession.setAttribute(CSRF,publicCsrf);}request.setAttribute("repoCsrf",publicCsrf);
@@ -553,17 +557,14 @@ public class Repository extends HttpServlet {
 
     private void robots(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setContentType("text/plain;charset=UTF-8");
-        String origin = request.getScheme() + "://" + request.getServerName()
-                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort());
+        String origin = publicOrigin(request);
         response.getWriter().print("User-agent: *\nAllow: " + request.getContextPath()
                 + "/repository\nSitemap: " + origin + request.getContextPath() + "/sitemap.xml\n");
     }
 
     private void sitemap(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setContentType("application/xml;charset=UTF-8");
-        String origin = request.getScheme() + "://" + request.getServerName()
-                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort())
-                + request.getContextPath();
+        String origin = publicOrigin(request) + request.getContextPath();
         PrintWriter out = response.getWriter();
         out.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>"
                 + xml(origin + "/repository") + "</loc></url>");
@@ -580,9 +581,7 @@ public class Repository extends HttpServlet {
 
     private void feed(HttpServletRequest request, HttpServletResponse response) throws Exception {
         boolean atom = "atom".equalsIgnoreCase(clean(request.getParameter("format")));
-        String base = request.getScheme() + "://" + request.getServerName()
-                + ((request.getServerPort() == 80 || request.getServerPort() == 443) ? "" : ":" + request.getServerPort())
-                + request.getContextPath();
+        String base = publicOrigin(request) + request.getContextPath();
         Query feedQuery=queryFrom(request);feedQuery.page=1;feedQuery.pageSize=20;feedQuery.sort="newest";
         List<ItemCard> items = service.search(feedQuery).items;
         response.setContentType((atom ? "application/atom+xml" : "application/rss+xml") + ";charset=UTF-8");
@@ -613,6 +612,30 @@ public class Repository extends HttpServlet {
     private String actorId(HttpServletRequest request) {
         try { ais.database.model.Tbmuser u = Common.getCurrentUser(request); return u == null ? "" : u.getUserId(); }
         catch (Exception e) { return ""; }
+    }
+
+    private String publicOrigin(HttpServletRequest request) throws Exception {
+        String configured = clean(System.getProperty("ais.repository.publicBaseUrl"));
+        if (configured.length() > 0) {
+            URL url = new URL(configured);
+            String path = clean(url.getPath());
+            if (!("http".equalsIgnoreCase(url.getProtocol()) || "https".equalsIgnoreCase(url.getProtocol()))
+                    || clean(url.getHost()).length() == 0 || url.getUserInfo() != null || url.getQuery() != null
+                    || url.getRef() != null || !(path.length() == 0 || "/".equals(path)))
+                throw new IllegalStateException("ais.repository.publicBaseUrl tidak valid.");
+            int port = url.getPort();
+            String host = url.getHost().indexOf(':') >= 0 ? "[" + url.getHost() + "]" : url.getHost();
+            return url.getProtocol().toLowerCase() + "://" + host + (port < 0 ? "" : ":" + port);
+        }
+        String scheme = clean(request.getScheme()).toLowerCase();
+        String host = clean(request.getServerName());
+        int port = request.getServerPort();
+        if (!("http".equals(scheme) || "https".equals(scheme)) || host.length() == 0
+                || !host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+") || port < 1 || port > 65535)
+            throw new IllegalStateException("Origin publik Repository tidak valid.");
+        String authority = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
+        boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+        return scheme + "://" + authority + (defaultPort ? "" : ":" + port);
     }
     private String country(HttpServletRequest request){String value=clean(request.getHeader("CF-IPCountry"));if(value.length()==0)value=clean(request.getHeader("X-Country-Code"));return value;}
 
@@ -751,7 +774,7 @@ public class Repository extends HttpServlet {
     }
 
     private boolean isJsonRequest(HttpServletRequest request) {
-        return "search".equalsIgnoreCase(clean(request.getParameter("action")));
+        String action=clean(request.getParameter("action"));return "search".equalsIgnoreCase(action)||"suggest".equalsIgnoreCase(action);
     }
 
     private void writeJsonError(HttpServletResponse response, int status, String code,
@@ -796,7 +819,8 @@ public class Repository extends HttpServlet {
     }
 
     private static String safeFileName(String value) {
-        String name = clean(value).replace('\\', '_').replace('/', '_').replace(':', '_');
+        String name = clean(value).replace('\\', '_').replace('/', '_').replace(':', '_').replaceAll("[\\p{Cntrl}]", "_");
+        if(name.length()>180)name=name.substring(name.length()-180);
         return name.length() == 0 ? "repository-file" : name;
     }
 }

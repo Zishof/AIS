@@ -9,6 +9,7 @@ dashboard menampilkan status `NONAKTIF` atau `FALLBACK LOKAL`. Jangan menyimpan 
 -Dais.repository.storage=/opt/AIS/repository-files
 -Dais.repository.virusScanner=/usr/bin/clamscan
 -Dais.repository.virusScannerTimeoutSeconds=120
+-Dais.repository.maxUploadBytes=104857600
 -Dais.repository.analyticsSalt=<rahasia-acak>
 -Dais.repository.publicBaseUrl=https://repository.example
 -Dais.repository.oaiTokenSecret=<rahasia-acak-minimal-32-karakter>
@@ -56,6 +57,9 @@ Tanya Repository; rentang yang diterima 100–5.000.
 kredensial, misalnya `https://repository.example`. Nilai ini mencegah URL DOI/COAR terbentuk dari
 Host header proxy yang keliru. Timeout scanner menerima 10–900 detik; proses yang melewati batas
 akan dihentikan dan unggahan dicatat berstatus scan `ERROR`.
+
+`maxUploadBytes` harus berupa bilangan positif. Nilai bawaan adalah 100 MiB dan batas kerasnya
+2 GiB; nilai nol, negatif, atau tidak valid akan dikembalikan ke nilai bawaan.
 
 `ais.repository.anonymousFullText=false` adalah nilai bawaan: pengguna umum hanya melihat
 metadata dan abstrak, sedangkan naskah lengkap memerlukan login eCampus. Ubah menjadi `true`

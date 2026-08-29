@@ -17,3 +17,18 @@
 Setiap evidence lanjutan harus mencatat revision, environment, timestamp, pelaksana, command/scenario, expected, actual, status, log/screenshot teredaksi, defect reference, dan checksum artifact.
 
 Tidak ada WAR yang dibangun dan tidak ada deployment sesuai permintaan pengguna.
+
+## Evidence source-level 29 Agustus 2026
+
+| Test | Status | Catatan |
+|---|---|---|
+| Java targeted compile | PASS | JDK 8; service donasi/payment/correction/reconciliation/distribution, servlet API, dan self-test; `-implicit:none`; tanpa WAR |
+| Financial invariant self-test | PASS | Termasuk skenario refund 100 - 20, alokasi 80, distribusi 30 |
+| Smartlink security self-test | PASS | `SocialSmartlinkSecuritySelfTest OK` |
+| Zakat golden self-test | PASS | `ZakatCalculatorGoldenSelfTest OK` |
+| Refund vs allocation review | PASS_SOURCE | Row lock, pengurangan saldo belum disalurkan, dan penolakan saldo tidak cukup diterapkan |
+| Reconciliation idempotency review | PASS_SOURCE | Referensi settlement dengan payment/received/fee berbeda ditolak |
+| Distribution source-fund review | PASS_SOURCE | Tenant, status, jenis dana sumber, saldo, dan CSV restricted-fund divalidasi |
+| Runtime/database/provider test | NOT_RUN_BY_REQUEST | Menunggu build/deploy oleh pemilik sistem dan credential/kontrak Smartlink |
+
+Working copy source pada saat evidence berada di baseline SVN r78523 dengan perubahan sosial belum di-commit. File non-sosial milik pengguna tidak disentuh.

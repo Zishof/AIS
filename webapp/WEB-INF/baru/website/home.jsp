@@ -72,6 +72,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <meta name="theme-color" content="<%=esc(primary)%>">
     <link rel="icon" href="<%=esc(vm.institution.logoUrl)%>">
     <link rel="stylesheet" href="<%=root%>/css/baru/website-v4.css?v=<%=version%>">
+    <style nonce="<%=esc(String.valueOf(request.getAttribute("websiteCspNonce")))%>">:root{--brand:<%=esc(primary)%>;--brand-dark:<%=esc(primaryDark)%>}</style>
     <% if (vm.institution.themeCss != null && vm.institution.themeCss.length() > 0) { %>
     <link rel="stylesheet" href="<%=root%><%=esc(vm.institution.themeCss)%>">
     <% } %>
@@ -79,7 +80,7 @@ String version = esc(text(vm.assetVersion, "4.0.0"));
     <script type="application/ld+json" nonce="<%=esc(String.valueOf(request.getAttribute("websiteCspNonce")))%>"><%=vm.seo.jsonLd%></script>
     <% } %>
 </head>
-<body style="--brand:<%=esc(primary)%>;--brand-dark:<%=esc(primaryDark)%>">
+<body>
 <a class="skip-link" href="#konten-utama">Lewati ke konten utama</a>
 
 <% if (vm.showAnnouncement) { %>

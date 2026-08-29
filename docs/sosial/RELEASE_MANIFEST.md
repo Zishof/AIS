@@ -15,4 +15,12 @@
 | General registration | OUT_OF_SCOPE_V1 |
 | Production ready | NO |
 
+## Pembaruan 29 Agustus 2026
+
+- Baseline working copy source saat audit lanjutan: SVN r78523.
+- Perubahan lanjutan masih berupa working-copy change dan belum di-commit: koreksi/refund terhadap alokasi, rekonsiliasi idempoten, validasi sumber dana penyaluran, dan tambahan test invariant refund.
+- Targeted Java compilation dan tiga self-test sosial lulus.
+- Tidak ada WAR baru yang dibuat dan tidak ada deployment pada pembaruan ini.
+- Status produksi tetap **NO** sampai schema/migration, runtime ZK/JSP/API, tenant/RBAC, callback paralel, sandbox Smartlink, dan rollback diuji pada server tujuan.
+
 Revision final, dirty-state, WAR SHA-256, schema fingerprint, Tomcat/JDK, enabled flags, tenant pilot, Smartlink contract version, zakat policy version, evidence version, dan rollback artifact harus diisi oleh release owner setelah commit/build/deployment.

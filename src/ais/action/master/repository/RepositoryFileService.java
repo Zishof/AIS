@@ -260,7 +260,10 @@ public class RepositoryFileService {
     }
 
     private long maxBytes() {
-        try { return Long.parseLong(System.getProperty("ais.repository.maxUploadBytes", String.valueOf(DEFAULT_MAX_BYTES))); }
+        try {
+            long configured = Long.parseLong(System.getProperty("ais.repository.maxUploadBytes", String.valueOf(DEFAULT_MAX_BYTES)));
+            return configured > 0L ? Math.min(configured, 2L * 1024L * 1024L * 1024L) : DEFAULT_MAX_BYTES;
+        }
         catch (Exception e) { return DEFAULT_MAX_BYTES; }
     }
 

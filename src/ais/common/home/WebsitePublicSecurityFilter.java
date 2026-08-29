@@ -40,7 +40,7 @@ public class WebsitePublicSecurityFilter implements Filter {
         String csp =
                 "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; "
                 + "form-action 'self'; img-src 'self' data: https:; font-src 'self' data:; "
-                + "style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-" + nonce + "'; "
+                + "style-src 'self' 'nonce-" + nonce + "'; script-src 'self' 'nonce-" + nonce + "'; "
                 + "connect-src 'self'";
         if (isHttps(req)) csp += "; upgrade-insecure-requests";
         res.setHeader("Content-Security-Policy", csp);

@@ -1,6 +1,6 @@
 # Modul Sosial AIS V1
 
-Baseline awal implementasi: SVN revision 78235. Inventaris handoff source disusun pada r78245; rencana production-readiness terakhir direbaseline terhadap working copy r78256 pada 25 Agustus 2026.
+Baseline awal implementasi: SVN revision 78235. Inventaris handoff source disusun pada r78245; audit source lanjutan terakhir menggunakan baseline r78523 pada 29 Agustus 2026.
 
 ## Mulai dari sini
 
@@ -11,6 +11,7 @@ Rencana penyempurnaan berdasarkan audit dokumentasi terbaru tersedia di [RENCANA
 ## Dossier production-readiness
 
 - [RELEASE_MANIFEST.md](RELEASE_MANIFEST.md)
+- [CODE_REVIEW_2026-08-29.md](CODE_REVIEW_2026-08-29.md)
 - [TEST_EVIDENCE.md](TEST_EVIDENCE.md)
 - [FINANCIAL_INVARIANTS.md](FINANCIAL_INVARIANTS.md)
 - [STATE_MACHINE_AND_TRANSITIONS.md](STATE_MACHINE_AND_TRANSITIONS.md)

@@ -499,3 +499,35 @@ skrip backup/restore-verification, dan lima self-test source. Karena pemilik sis
 deployment sendiri, build WAR, deploy, Tomcat, database, integrasi eksternal, dan eksekusi test
 tidak dilakukan. Konfigurasi server yang wajib diisi sebelum deploy terutama storage, antivirus,
 analytics salt, serta `ais.repository.oaiTokenSecret` stabil minimal 32 karakter.
+
+## 22. Audit keamanan dan correctness akhir 29 Agustus 2026
+
+Audit menyeluruh pada servlet publik, workspace, workflow, penyimpanan berkas, dashboard,
+search alert, integrasi, dan query lintas-entity menutup temuan source berikut:
+
+- operasi hapus, unduh, dan pemeriksaan fixity hanya menerima path kanonis di bawah storage
+  Repository; nilai path database tidak dapat mengakses file di luar direktori kelolaan;
+- proses antivirus mempunyai timeout 10–900 detik, menghentikan proses yang macet, dan status
+  `ERROR`/`INFECTED` tidak dianggap aman untuk publikasi maupun unduhan publik;
+- MIME hasil upload ditentukan dari ekstensi yang diizinkan dan tidak mempercayai deklarasi
+  client; nama download dibersihkan dari karakter kontrol dan dibatasi panjangnya;
+- query metadata quality, export workflow event, fixity, notifikasi, dan status baca notifikasi
+  dibatasi ke tenant aktif sehingga data institusi lain tidak ikut terbaca;
+- preferensi search alert dikunci saat diproses untuk mencegah eksekusi ganda, memakai overlap
+  waktu dan deduplikasi agar record tidak terlewat, menangani state legacy null, serta tidak
+  menganggap bitstream gagal scan sebagai full text aman;
+- semua perubahan workflow sekarang wajib membawa versi record dan menolak data form yang usang;
+- kegagalan multipart kembali ke item dan halaman kerja yang tepat; input publik tidak valid
+  menghasilkan HTTP 400, bukan HTTP 500 generik;
+- canonical URL, robots, sitemap, RSS/Atom, DOI, dan COAR memakai public origin HTTP(S) yang
+  tervalidasi. `ais.repository.publicBaseUrl` menolak path aplikasi, query, fragment, dan
+  kredensial sehingga output tidak mengikuti Host header yang tidak tepercaya;
+- batas upload invalid kembali ke 100 MiB dan dibatasi keras maksimal 2 GiB; proses scanner yang
+  menggantung tidak lagi menahan thread tanpa batas;
+- statistik alert dashboard memakai agregasi database dan tidak lagi memuat seluruh preferensi ke
+  memori.
+
+Konfigurasi server tambahan didokumentasikan pada `INTEGRATIONS.md`, termasuk
+`ais.repository.publicBaseUrl`, `ais.repository.maxUploadBytes`, dan timeout antivirus. Semua
+perubahan bagian ini hanya divalidasi secara statis. Build WAR, deploy, Tomcat, database, scanner,
+dan integrasi eksternal tetap menjadi tahap server milik operator.

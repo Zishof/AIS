@@ -271,13 +271,16 @@ public class WebsitePageService {
     }
 
     private org.hibernate.Query scopedNews(Session s, HomePortalViewModel vm, String suffix) {
-        String hql = "from PengumumanAkademis p where p.aktif = true and p.diperuntukkan = :audience";
+        String hql = "from PengumumanAkademis p where p.aktif = true and p.diperuntukkan = :audience"
+                + " and p.tanggal <= :today and (p.tetapTampilkanPengumumanMeskipunSudahKelewat = true"
+                + " or p.sampai is null or p.sampai >= :today)";
         Long tenant;
         if (vm.institution.college && vm.institution.id != null) { hql += " and p.perguruanTinggi.id = :tenant"; tenant = vm.institution.id; }
         else if (vm.institution.schoolId != null) { hql += " and p.sekolah.id = :tenant"; tenant = vm.institution.schoolId; }
         else if (vm.institution.foundationId != null) { hql += " and p.yayasan.id = :tenant"; tenant = vm.institution.foundationId; }
         else return null;
-        return s.createQuery(hql + suffix).setParameter("audience", PengumumanAkademis.UNTUK_UMUM).setParameter("tenant", tenant);
+        return s.createQuery(hql + suffix).setParameter("audience", PengumumanAkademis.UNTUK_UMUM)
+                .setParameter("today", new Date()).setParameter("tenant", tenant);
     }
 
     private org.hibernate.Query scopedAgenda(Session s, HomePortalViewModel vm, String suffix) {

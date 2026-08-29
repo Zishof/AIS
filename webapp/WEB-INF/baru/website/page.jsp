@@ -41,10 +41,11 @@ String nonce = esc(String.valueOf(request.getAttribute("websiteCspNonce")));
     <link rel="alternate" type="application/rss+xml" title="Berita <%=esc(vm.institution.name)%>" href="<%=root%>/website-feed.xml"><link rel="manifest" href="<%=root%>/website.webmanifest">
     <meta name="theme-color" content="<%=esc(primary)%>"><link rel="icon" href="<%=esc(vm.institution.logoUrl)%>">
     <link rel="stylesheet" href="<%=root%>/css/baru/website-v4.css?v=<%=version%>">
+    <style nonce="<%=nonce%>">:root{--brand:<%=esc(primary)%>;--brand-dark:<%=esc(primaryDark)%>}</style>
     <% if (vm.institution.themeCss != null && vm.institution.themeCss.length() > 0) { %><link rel="stylesheet" href="<%=root%><%=esc(vm.institution.themeCss)%>"><% } %>
     <script type="application/ld+json" nonce="<%=nonce%>"><%=pageVm.jsonLd%></script>
 </head>
-<body class="website-page" style="--brand:<%=esc(primary)%>;--brand-dark:<%=esc(primaryDark)%>">
+<body class="website-page">
 <a class="skip-link" href="#konten-utama">Lewati ke konten utama</a>
 <header class="site-header" data-site-header><div class="wrap header-row">
     <a class="brand" href="<%=home%>" aria-label="Beranda <%=esc(vm.institution.name)%>"><span class="brand-logo"><img src="<%=esc(vm.institution.logoUrl)%>" alt="Logo <%=esc(vm.institution.name)%>" width="52" height="52"><span class="brand-fallback" aria-hidden="true"><%=esc(initials(vm.institution.name))%></span></span><span class="brand-copy"><strong><%=esc(vm.institution.name)%></strong><small>Website resmi institusi</small></span></a>

@@ -186,8 +186,12 @@ public class Index extends HttpServlet {
             response.setHeader("Strict-Transport-Security", "max-age=31536000");
         }
         response.setHeader("Content-Security-Policy", csp);
-        response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-        response.setHeader("Vary", "Accept-Language");
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+            response.setHeader("Vary", "Accept-Language");
+        } else {
+            response.setHeader("Cache-Control", "no-store");
+        }
     }
 
     private static boolean isHttps(HttpServletRequest request) {

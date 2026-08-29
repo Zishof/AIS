@@ -403,3 +403,9 @@ Remove-Item Env:PGPASSWORD
 ## 18. Definition of done produksi
 
 Modul baru dapat dinyatakan selesai untuk produksi jika schema dan audit lolos review, seluruh test tenant/RBAC/security lolos, kontrak serta sandbox Smartlink terverifikasi, callback duplikat/paralel aman, receipt dan rekonsiliasi benar, backup/rollback teruji, monitoring tersedia, dan aktivasi telah disetujui pemilik bisnis serta keuangan.
+
+## 19. Addendum audit source 29 Agustus 2026
+
+Audit lanjutan pada baseline r78523 memperbaiki concurrency payment attempt, replay idempotency donasi/koreksi/settlement, race hasil create-order terhadap callback `PAID`, konsistensi refund dengan alokasi, dan validasi jenis dana sumber penyaluran. Detail temuan tersedia di `CODE_REVIEW_2026-08-29.md`; hasil kompilasi dan self-test ada di `TEST_EVIDENCE.md`.
+
+Perubahan addendum masih berada di working copy dan belum di-commit. Jangan memasukkan perubahan non-sosial milik pengguna ke commit sosial. Build WAR dan deploy tetap harus dilakukan oleh pemilik sistem, kemudian lanjutkan langkah runtime pada bagian 14.

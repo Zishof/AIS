@@ -52,8 +52,9 @@ public class RepositoryAlertService {
         try{
             session=HibernateUtil.openSession();tx=session.beginTransaction();
             RepoUserPreference preference=(RepoUserPreference)session.get(RepoUserPreference.class,preferenceId);
-            if(preference==null||!Boolean.TRUE.equals(preference.getAktif())||!"SEARCH_ALERT".equals(preference.getPreferenceType())){tx.commit();return;}
+            if(preference==null){tx.commit();return;}
             session.lock(preference,LockMode.UPGRADE);
+            if(Boolean.FALSE.equals(preference.getAktif())||!"SEARCH_ALERT".equals(preference.getPreferenceType())){tx.commit();return;}
             Date now=new Date();Date since=preference.getLastCheckedAt()!=null?new Date(Math.max(0L,preference.getLastCheckedAt().getTime()-60000L)):preference.getCreatedAt();
             if(since==null)since=now;
             AlertFilter filter=parse(preference.getQueryValue());
@@ -80,7 +81,7 @@ public class RepositoryAlertService {
         }finally{HibernateUtil.closeSessionQuietly(session);}
     }
 
-    private void recordFailure(Long preferenceId,Exception error){Session recoverySession=null;Transaction recovery=null;try{recoverySession=HibernateUtil.openSession();recovery=recoverySession.beginTransaction();RepoUserPreference preference=(RepoUserPreference)recoverySession.get(RepoUserPreference.class,preferenceId);if(preference!=null){preference.setFailureCount(Integer.valueOf(preference.getFailureCount().intValue()+1));preference.setLastError(limit(error.getMessage(),1000));recoverySession.update(preference);}recovery.commit();}catch(Exception ignored){rollback(recovery);ais.common.ErrorAuditUtil.record(ignored,"RepositoryAlertService.failure-state");}finally{HibernateUtil.closeSessionQuietly(recoverySession);}}
+    private void recordFailure(Long preferenceId,Exception error){Session recoverySession=null;Transaction recovery=null;try{recoverySession=HibernateUtil.openSession();recovery=recoverySession.beginTransaction();RepoUserPreference preference=(RepoUserPreference)recoverySession.get(RepoUserPreference.class,preferenceId);if(preference!=null){int failures=preference.getFailureCount()==null?0:preference.getFailureCount().intValue();preference.setFailureCount(Integer.valueOf(failures+1));preference.setLastError(limit(error.getMessage(),1000));recoverySession.update(preference);}recovery.commit();}catch(Exception ignored){rollback(recovery);ais.common.ErrorAuditUtil.record(ignored,"RepositoryAlertService.failure-state");}finally{HibernateUtil.closeSessionQuietly(recoverySession);}}
 
     private Criteria criteria(Session session,String tenant,AlertFilter filter,Date since){
         Criteria criteria=session.createCriteria(RepoItem.class)
@@ -98,7 +99,7 @@ public class RepositoryAlertService {
         if(filter.identifier.length()>0)criteria.add(Restrictions.or(Restrictions.or(Restrictions.ilike("oaiIdentifier",filter.identifier,MatchMode.ANYWHERE),Restrictions.ilike("dspaceHandle",filter.identifier,MatchMode.ANYWHERE)),Restrictions.ilike("doi",filter.identifier,MatchMode.ANYWHERE)));
         if(filter.program.length()>0)criteria.add(Restrictions.sqlRestriction("exists (select 1 from repo_item_metadata rpm where rpm.item_id={alias}.id and rpm.metadata_field='repository.programStudy' and lower(rpm.metadata_value) like lower(?))","%"+filter.program+"%",Hibernate.STRING));
         if(filter.year!=null){criteria.add(Restrictions.sqlRestriction("extract(year from {alias}.issued_at)=?",filter.year,Hibernate.INTEGER));}
-        if("WITH_FILE".equals(filter.fullText))criteria.add(Restrictions.sqlRestriction("exists (select 1 from repo_bitstream rb where rb.item_id={alias}.id and coalesce(rb.aktif,true)=true and rb.access_policy='OPEN_ACCESS')"));
+        if("WITH_FILE".equals(filter.fullText))criteria.add(Restrictions.sqlRestriction("exists (select 1 from repo_bitstream rb where rb.item_id={alias}.id and coalesce(rb.aktif,true)=true and rb.access_policy='OPEN_ACCESS' and coalesce(rb.virus_scan_status,'PENDING') not in ('ERROR','INFECTED'))"));
         if(filter.keyword.length()>0)addKeyword(criteria,filter.keyword,filter.field);
         return criteria;
     }

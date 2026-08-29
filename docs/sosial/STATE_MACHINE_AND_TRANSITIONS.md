@@ -23,5 +23,7 @@ Transaksi non-DRAFT immutable pada CRUD umum.
 
 - Allocation dibuat `PLANNED`, menjadi `POSTED` hanya oleh callback payment sukses.
 - Distribution hanya `APPROVED -> POSTED`, dengan row lock dan saldo/restricted-fund check.
-- Correction `REQUESTED -> POSTED` dengan maker-checker; pembuat tidak boleh menyetujui sendiri.
+- Correction `REQUESTED -> POSTED` dengan maker-checker; pembuat tidak boleh menyetujui sendiri. Posting mengunci transaksi dan seluruh alokasi sumber, lalu mengurangi hanya saldo alokasi yang belum disalurkan. Koreksi ditolak bila saldo tersebut tidak cukup.
 - Receipt dibuat hanya sesudah payment sukses tervalidasi.
+
+Idempotency key donasi, koreksi, dan referensi settlement hanya boleh mengembalikan hasil lama bila owner dan payload finansial sama. Pemakaian ulang dengan payload berbeda harus gagal.

@@ -8,7 +8,6 @@
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.Profil"%>
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.UnitPendidikan"%>
 <%@ page import="ais.action.servlet.landing.PesantrenLandingService.Berita"%>
-<%@ page import="ais.common.Common"%>
 <%!
     private static String e(Object value) {
         return StringEscapeUtils.escapeHtml(value == null ? "" : String.valueOf(value));
@@ -87,9 +86,11 @@
     JSONObject newsSection = PesantrenWebsiteConfig.object(site, "newsSection");
     JSONObject cta = PesantrenWebsiteConfig.object(site, "cta");
     JSONObject footerContent = PesantrenWebsiteConfig.object(site, "footer");
-    String language = Common.kodeBahasaAktif();
-    if (language == null || language.trim().isEmpty()) language = "id";
-    String direction = "ar".equalsIgnoreCase(language) ? "rtl" : "ltr";
+    String language = t(seo, "language", "id").toLowerCase(java.util.Locale.ENGLISH);
+    if (!language.matches("[a-z]{2,8}(-[a-z0-9]{2,8})*")) language = "id";
+    String languageBase = language.contains("-") ? language.substring(0, language.indexOf('-')) : language;
+    String direction = ("ar".equals(languageBase) || "fa".equals(languageBase)
+            || "he".equals(languageBase) || "ur".equals(languageBase)) ? "rtl" : "ltr";
     String nonce = String.valueOf(request.getAttribute("pesantrenCspNonce"));
     if ("null".equals(nonce)) nonce = "";
     String seoTitle = t(seo, "title", profil.getNama() + " - Portal ePesantren");
@@ -120,7 +121,7 @@
     <meta name="description" content="<%=e(seoDescription)%>">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <meta property="og:type" content="website">
-    <meta property="og:locale" content="id_ID">
+    <meta property="og:locale" content="<%=e("id".equals(language) ? "id_ID" : language.replace('-', '_'))%>">
     <meta property="og:title" content="<%=e(seoTitle)%>">
     <meta property="og:description" content="<%=e(seoDescription)%>">
     <meta property="og:url" content="<%=e(canonical)%>">
@@ -144,7 +145,7 @@
             --paper: #ffffff;
             --gold: <%=e(color(theme, "secondary", "#c79a3b"))%>;
             --emerald: #0f766e;
-            --emerald-dark: #073f3d;
+            --emerald-dark: <%=e(color(theme, "dark", "#073f3d"))%>;
             --line: rgba(15, 118, 110, .14);
             --shadow: 0 22px 70px rgba(7, 63, 61, .12);
             --radius: 26px;
@@ -290,7 +291,7 @@
         .contact-card { display: grid; grid-template-columns: 1.2fr .8fr; gap: 44px; padding: 54px; border-radius: 34px; background: linear-gradient(135deg, var(--primary), var(--emerald-dark)); color: #fff; box-shadow: var(--shadow); }
         .contact-card h2 { margin: 8px 0 16px; font-size: 44px; line-height: 1.05; }
         .contact-card p { color: rgba(255,255,255,.78); }
-        .contact-list { display: grid; gap: 10px; align-content: center; }
+        .contact-list { display: grid; gap: 10px; align-content: center; font-style: normal; }
         .contact-list a, .contact-list span { padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,.09); text-decoration: none; }
         footer { padding: 38px 0; color: var(--muted); border-top: 1px solid var(--line); background: #fff; }
         .footer-inner { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
@@ -340,7 +341,7 @@
 <header class="topbar">
     <div class="wrap topbar-inner">
         <a class="brand" href="#awal" aria-label="Beranda <%=e(profil.getNama())%>">
-            <img src="<%=href(profil.getLogo(), root + "/img/logo.png")%>" alt="Logo <%=e(profil.getNama())%>">
+            <img src="<%=e(image(profil.getLogo(), root + "/img/logo.png"))%>" alt="Logo <%=e(profil.getNama())%>">
             <span><strong><%=e(profil.getNama())%></strong><span><%=e(t(identity, "shortName", "ePesantren"))%></span></span>
         </a>
         <nav class="desktop-nav" aria-label="Navigasi utama">
@@ -378,7 +379,7 @@
                 </div>
             </div>
             <aside class="hero-card" id="profil" aria-label="Profil lembaga">
-                <img src="<%=href(profil.getLogo(), root + "/img/logo.png")%>" alt="">
+                <img src="<%=e(image(profil.getLogo(), root + "/img/logo.png"))%>" alt="">
                 <h2><%=e(t(profileContent, "title", "Berakar pada adab, bertumbuh dengan teknologi"))%></h2>
                 <p><%=e(t(profileContent, "body", profil.getDeskripsi()))%></p>
                 <div class="hero-facts"><% for (int i = 0; i < Math.min(3, stats.length()); i++) { JSONObject factItem = item(stats, i); String factValue = t(factItem, "value", ""); if ("Dinamis".equalsIgnoreCase(factValue)) factValue = String.valueOf(sekolahs.size() + perguruanTinggis.size()); %><div class="fact"><strong><%=e(factValue)%></strong><span><%=e(t(factItem, "label", "Statistik"))%></span></div><% } %></div>
@@ -510,7 +511,7 @@
     <% } %>
 
     <% if (PesantrenWebsiteConfig.visible(site, "contact", true)) { %>
-    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2><%=e(t(cta, "title", "Informasi dan layanan resmi " + profil.getNama()))%></h2><p><%=e(t(cta, "body", profil.getAlamat()))%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><div class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Seluruh konten halaman ini dapat disesuaikan dari JSON Website pada master Yayasan.</span></div></div></div></section>
+    <section class="contact" id="kontak"><div class="wrap"><div class="contact-card"><div><span class="eyebrow"><%=e(t(cta, "eyebrow", "Terhubung dengan pondok"))%></span><h2><%=e(t(cta, "title", "Informasi dan layanan resmi " + profil.getNama()))%></h2><p><%=e(t(cta, "body", profil.getAlamat()))%></p><div class="hero-actions"><a class="button button-light" href="<%=href(t(cta, "primaryUrl", root + "/login"), "#")%>"><%=e(t(cta, "primaryLabel", "Masuk Sistem"))%></a><% if (!wa.isEmpty()) { %><a class="button button-outline" href="https://wa.me/<%=e(wa)%>"><%=e(t(cta, "secondaryLabel", "Hubungi WhatsApp"))%></a><% } %></div></div><address class="contact-list"><% if (!profil.getTelepon().isEmpty()) { %><a href="tel:<%=e(digits(profil.getTelepon()))%>">Telepon · <%=e(profil.getTelepon())%></a><% } %><% if (!profil.getEmail().isEmpty()) { %><a href="mailto:<%=e(profil.getEmail())%>">Email · <%=e(profil.getEmail())%></a><% } %><% if (!profil.getWebsite().isEmpty()) { %><a href="<%=href(profil.getWebsite(), "#")%>">Website resmi</a><% } %><span>Seluruh konten halaman ini dapat disesuaikan dari JSON Website pada master Yayasan.</span></address></div></div></section>
     <% } %>
 </main>
 <footer><div class="wrap footer-inner"><span>© <%=new java.text.SimpleDateFormat("yyyy").format(new java.util.Date())%> <%=e(t(footerContent, "left", profil.getNama()))%></span><nav class="footer-links" aria-label="Informasi situs"><a href="<%=e(root)%>/web/privasi">Privasi</a><a href="<%=e(root)%>/web/aksesibilitas">Aksesibilitas</a><a href="<%=e(root)%>/web/ppid">PPID</a></nav><span><%=e(t(footerContent, "right", "Didukung ePesantren · CV. Zishof"))%></span></div></footer>

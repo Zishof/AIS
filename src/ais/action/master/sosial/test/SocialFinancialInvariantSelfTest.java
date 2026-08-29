@@ -10,6 +10,7 @@ public final class SocialFinancialInvariantSelfTest {
         SocialFinancialInvariantService.Snapshot s=SocialFinancialInvariantService.calculate(b("1000"),b("100"),b("700"),b("250"));
         eq(s.getNetSettled(),"900.00","net settled");eq(s.getUnallocated(),"200.00","unallocated");eq(s.getAllocationAvailable(),"450.00","allocation available");ok(!s.hasException(),"valid snapshot");
         SocialFinancialInvariantService.Snapshot bad=SocialFinancialInvariantService.calculate(b("100"),b("0"),b("120"),b("0"));ok(bad.hasException(),"over-allocation must be exception");
+        SocialFinancialInvariantService.Snapshot refund=SocialFinancialInvariantService.calculate(b("100"),b("20"),b("80"),b("30"));eq(refund.getNetSettled(),"80.00","refund net settled");eq(refund.getUnallocated(),"0.00","refund unallocated");eq(refund.getAllocationAvailable(),"50.00","refund allocation available");ok(!refund.hasException(),"refund with reduced allocation");
         eq(SocialFinancialInvariantService.totalCharged(b("1000"),b("50"),b("5")),"1055.00","total charged");
         SocialStateMachine.requireDonation("DRAFT","PENDING_PAYMENT");SocialStateMachine.requirePayment("CREATED","VA_ISSUED");deniedDonation("ALLOCATED","DRAFT");deniedPayment("PAID","PENDING");
         if(failures>0)throw new IllegalStateException(failures+" Social financial invariant failures.");System.out.println("SocialFinancialInvariantSelfTest OK");
