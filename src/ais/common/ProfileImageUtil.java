@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.io.FileUtils;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.image.AImage;
@@ -48,6 +49,100 @@ import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
 public class ProfileImageUtil {
+
+	private static final class TargetFotoProfil {
+		final Serializable ref;
+		final String jenis;
+		final Class<? extends FileFotoLain> clazz;
+		final String field;
+
+		TargetFotoProfil(Serializable ref, String jenis,
+				Class<? extends FileFotoLain> clazz, String field) {
+			this.ref = ref;
+			this.jenis = jenis;
+			this.clazz = clazz;
+			this.field = field;
+		}
+	}
+
+	private static TargetFotoProfil targetFotoProfil(GeneralValueObject object) {
+		GeneralValueObject base = ekstrakEntitasUtama(object);
+		if (base == null) return null;
+		if (base instanceof Mahasiswa)
+			return new TargetFotoProfil(base.getId(), FotoMahasiswa.DEFAULT_JENIS, FotoMahasiswa.class, "mahasiswa");
+		if (base instanceof Siswa)
+			return new TargetFotoProfil(base.getId(), FotoSiswa.DEFAULT_JENIS, FotoSiswa.class, "siswa");
+		if (base instanceof CalonSiswa)
+			return new TargetFotoProfil(base.getId(), FotoCalonSiswa.DEFAULT_JENIS, FotoCalonSiswa.class, "calonSiswa");
+		if (base instanceof Dosen)
+			return new TargetFotoProfil(base.getId(), FotoDosen.DEFAULT_JENIS, FotoDosen.class, "dosen");
+		if (base instanceof Guru)
+			return new TargetFotoProfil(base.getId(), FotoGuru.DEFAULT_JENIS, FotoGuru.class, "guru");
+		if (base instanceof BiodataCalonMahasiswa)
+			return new TargetFotoProfil(base.getId(), FotoBiodataCalonMahasiswa.DEFAULT_JENIS,
+					FotoBiodataCalonMahasiswa.class, "biodataCalonMahasiswa");
+		if (base instanceof Pegawai)
+			return new TargetFotoProfil(base.getId(), FotoPegawai.DEFAULT_JENIS, FotoPegawai.class, "pegawai");
+		if (base instanceof Tbmuser) {
+			String userId = ((Tbmuser) base).getUserId();
+			return userId == null ? null
+					: new TargetFotoProfil(userId, FotoAdmin.DEFAULT_JENIS, FotoAdmin.class, "tbmuser");
+		}
+		return null;
+	}
+
+	/**
+	 * Mengganti atau menghapus satu foto profil memakai tabel foto profil lama
+	 * yang sama dengan web eCampus. {@code bytes == null} berarti hapus.
+	 * Dengan demikian foto yang diunggah POS langsung terbaca di semua layar
+	 * lama dan tidak membuat silo media khusus aplikasi desktop.
+	 */
+	@SuppressWarnings("deprecation")
+	public static String simpanFotoDariObject(GeneralValueObject object, byte[] bytes,
+			String namaFile, String mimeType, Tbmuser oleh) throws Exception {
+		TargetFotoProfil target = targetFotoProfil(object);
+		if (target == null || target.ref == null) {
+			throw new IllegalArgumentException(
+					"Member belum ditautkan ke data pengguna/sivitas sehingga foto profil belum dapat disimpan.");
+		}
+
+		Session session = StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
+		try {
+			FileFotoLain lama = (FileFotoLain) session.createCriteria(target.clazz)
+					.add(Restrictions.eq(target.field, target.ref))
+					.setMaxResults(1).uniqueResult();
+			session.beginTransaction();
+			if (lama != null) session.delete(lama);
+			if (bytes != null) {
+				FileFotoLain baru = target.clazz.newInstance();
+				target.clazz.getMethod("set" + Character.toUpperCase(target.field.charAt(0))
+						+ target.field.substring(1), target.ref instanceof String ? String.class : Long.class)
+						.invoke(baru, target.ref);
+				target.clazz.getMethod("setNama", String.class).invoke(baru,
+						(namaFile == null || namaFile.trim().isEmpty()) ? "foto-profil.jpg" : namaFile.trim());
+				target.clazz.getMethod("setKeterangan", String.class).invoke(baru,
+						(mimeType == null || mimeType.trim().isEmpty()) ? "image/jpeg" : mimeType.trim());
+				target.clazz.getMethod("setFoto", java.sql.Blob.class).invoke(baru, Hibernate.createBlob(bytes));
+				if (oleh != null) {
+					target.clazz.getMethod("setOleh", String.class).invoke(baru, oleh.getUserNama());
+					target.clazz.getMethod("setOlehId", String.class).invoke(baru, String.valueOf(oleh.getUserId()));
+				}
+				session.save(baru);
+			}
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			if (session.getTransaction() != null && session.getTransaction().isActive())
+				session.getTransaction().rollback();
+			throw e;
+		} finally {
+			if (session.isOpen()) session.close();
+		}
+
+		// Paksa refresh cache FileFotoLain; tanpa ini cache negatif/lama dapat
+		// membuat foto baru belum tampak sampai proses server di-restart.
+		FileFotoLain.ambil(target.ref, target.jenis, target.clazz, true);
+		return bytes == null ? "" : getUrlFotoDariObject(object, true);
+	}
 
 	private static boolean isProtectedEcampusLampiranUrl(String url) {
 		if (url == null) {

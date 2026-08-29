@@ -681,6 +681,12 @@ public class PosApi extends HttpServlet {
 			} else if ("anggota_simpan".equals(action)) {
 				KantinHelper.anggotaSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_simpan");
+			} else if ("anggota_foto_upload".equals(action)) {
+				KantinHelper.anggotaFotoUpload(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "anggota_foto_upload");
+			} else if ("anggota_foto_hapus".equals(action)) {
+				KantinHelper.anggotaFotoHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "anggota_foto_hapus");
 			} else if ("anggota_pin_simpan_massal".equals(action)) {
 				if (!bolehSupervisorAtauAdmin(tbmuser)) {
 					hasil.put("status", "error");

@@ -6868,6 +6868,108 @@ public class KantinHelper {
 		}
 	}
 
+	/** Unggah/ganti satu foto profil member. Berkas JPEG dikirim base64 dan
+	 * disimpan melalui ProfileImageUtil ke tabel foto sivitas/pengguna yang
+	 * memang sudah dipakai web eCampus. */
+	public static void anggotaFotoUpload(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaFotoAnggota(tbmuser, hasil)) return;
+		Long anggotaId = ais.common.Common.angkaAtauNull(request, "anggota_id");
+		if (anggotaId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID member wajib diisi.");
+			return;
+		}
+		String base64 = request.optString("file_base64", "").trim();
+		if (base64.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Berkas foto member wajib diisi.");
+			return;
+		}
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(base64,
+				ais.common.PenjagaLampiranGambar.MAKS_GAMBAR_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
+			return;
+		}
+		byte[] bytes;
+		try {
+			bytes = java.util.Base64.getDecoder().decode(base64);
+		} catch (IllegalArgumentException e) {
+			hasil.put("status", "91");
+			hasil.put("description", "Data foto member tidak valid (base64 gagal diurai).");
+			return;
+		}
+		String tolakGambar = ais.common.PenjagaLampiranGambar.periksaGambarWajib(bytes);
+		if (tolakGambar != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakGambar);
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, anggotaId);
+			if (anggota == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Member tidak ditemukan.");
+				return;
+			}
+			try {
+				String url = ais.common.ProfileImageUtil.simpanFotoDariObject(anggota, bytes,
+						request.optString("nama_file", "foto-member.jpg"), "image/jpeg", tbmuser);
+				hasil.put("status", "00");
+				hasil.put("fotoUrl", url);
+			} catch (IllegalArgumentException e) {
+				hasil.put("status", "91");
+				hasil.put("description", e.getMessage());
+			}
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Hapus foto profil member tanpa menghapus data membernya. */
+	public static void anggotaFotoHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaFotoAnggota(tbmuser, hasil)) return;
+		Long anggotaId = ais.common.Common.angkaAtauNull(request, "anggota_id");
+		if (anggotaId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID member wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, anggotaId);
+			if (anggota == null) {
+				hasil.put("status", "00");
+				return;
+			}
+			try {
+				ais.common.ProfileImageUtil.simpanFotoDariObject(anggota, null, null, null, tbmuser);
+				hasil.put("status", "00");
+				hasil.put("fotoUrl", "");
+			} catch (IllegalArgumentException e) {
+				hasil.put("status", "91");
+				hasil.put("description", e.getMessage());
+			}
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static boolean bolehKelolaFotoAnggota(Tbmuser tbmuser, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pedagang == null;
+		boolean supervisor = pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pedagang, adminGlobal, supervisor, "anggota", "update")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola foto member.");
+			return false;
+		}
+		return true;
+	}
+
 	/**
 	 * Mengganti PIN satu atau banyak member secara aman. Nilai PIN hanya diterima
 	 * sebagai input, langsung diubah menjadi PBKDF2+salt oleh
@@ -7033,6 +7135,25 @@ public class KantinHelper {
 			}
 			rs.close();
 			ps.close();
+			// Paginasi UI kecil (maks 100): lengkapi URL foto setelah ResultSet
+			// ditutup agar akses Hibernate tidak berebut cursor JDBC yang sama.
+			for (int iFoto = 0; iFoto < arr.length(); iFoto++) {
+				JSONObject baris = arr.getJSONObject(iFoto);
+				try {
+					AnggotaKoperasi anggotaFoto = (AnggotaKoperasi) session.get(
+							AnggotaKoperasi.class, Long.valueOf(baris.getLong("id")));
+					ais.database.model.file.FileFotoLain fileFoto = anggotaFoto == null ? null
+							: ais.common.ProfileImageUtil.cariFileFotoLain(anggotaFoto);
+					String fotoUrl = fileFoto == null ? null
+							: ais.common.ProfileImageUtil.getUrlFotoDariObject(anggotaFoto, true);
+					baris.put("fotoUrl", fotoUrl == null ? JSONObject.NULL : fotoUrl);
+				} catch (Exception eFoto) {
+					baris.put("fotoUrl", JSONObject.NULL);
+					ais.common.ErrorAuditUtil.record(eFoto,
+							"auto-audit anggotaList-foto src/ais/action/servlet/api/KantinHelper.java id="
+									+ baris.optLong("id"));
+				}
+			}
 
 			hasil.put("status", "00");
 			hasil.put("data", arr);

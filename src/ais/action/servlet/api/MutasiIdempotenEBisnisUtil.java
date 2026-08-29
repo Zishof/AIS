@@ -45,6 +45,8 @@ public final class MutasiIdempotenEBisnisUtil {
 	private static final Set<String> AKSI_MASTER_ANTREAN = new HashSet<String>(Arrays.asList(
 			"akun_tambah",
 			"anggota_hapus",
+			"anggota_foto_hapus",
+			"anggota_foto_upload",
 			"anggota_simpan",
 			"anggota_simpan_cepat",
 			"apotik_item_profil_simpan",
