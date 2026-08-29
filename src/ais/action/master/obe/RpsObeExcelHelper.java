@@ -138,7 +138,7 @@ public final class RpsObeExcelHelper {
 			throw new IllegalArgumentException("File tidak dapat dibaca sebagai XLSX yang valid.", e);
 		}
 		try {
-			validateStructure(workbook, expectedKpmId);
+			validateStructure(workbook, expectedKpmId, perkuliahanId);
 			ImportData data = readAll(workbook);
 			data.validate();
 			return saveAll(data, expectedKpmId, perkuliahanId);
@@ -160,7 +160,7 @@ public final class RpsObeExcelHelper {
 		if (bytes[0] != 'P' || bytes[1] != 'K') throw new IllegalArgumentException("File harus berformat XLSX.");
 	}
 
-	private static void validateStructure(XSSFWorkbook wb, Long expectedKpmId) {
+	private static void validateStructure(XSSFWorkbook wb, Long expectedKpmId, Long expectedPerkuliahanId) {
 		String[] required = { MK, AUTH, PL, CPL, CPMK, DESC, AGENDA, NOTE, META };
 		for (int i = 0; i < required.length; i++) if (wb.getSheet(required[i]) == null)
 			throw new IllegalArgumentException("Sheet wajib '" + required[i] + "' tidak ditemukan.");
@@ -169,6 +169,10 @@ public final class RpsObeExcelHelper {
 		Long fileKpmId = parseLong(value(wb.getSheet(META), 1, 1), "Metadata KPM_ID");
 		if (expectedKpmId == null || !expectedKpmId.equals(fileKpmId))
 			throw new IllegalArgumentException("File ini berasal dari RPS mata kuliah lain. Download format dari RPS yang sedang dibuka.");
+		Long filePerkuliahanId = parseLongNullable(value(wb.getSheet(META), 3, 1), "Metadata PERKULIAHAN_ID");
+		if (filePerkuliahanId != null && expectedPerkuliahanId != null
+				&& !filePerkuliahanId.equals(expectedPerkuliahanId))
+			throw new IllegalArgumentException("File ini berasal dari kelas/perkuliahan lain. Download format dari kelas yang sedang dibuka.");
 	}
 
 	private static ImportData readAll(XSSFWorkbook wb) {
@@ -244,6 +248,8 @@ public final class RpsObeExcelHelper {
 		Map<String, ProfilLulusan> result = new LinkedHashMap<String, ProfilLulusan>();
 		for (MasterRow r : rows) {
 			ProfilLulusan x = r.id == null ? findProfile(all, jur, r.code) : (ProfilLulusan) s.get(ProfilLulusan.class, r.id);
+			if (x != null && !sameJur(x.getJurusan(), jur))
+				throw new SecurityException(r.location + ": ID Profil Lulusan bukan milik program studi RPS ini.");
 			boolean insert = x == null;
 			if (insert) { x = new ProfilLulusan(); x.setJurusan(jur); x.setPerguruanTinggi(pt); }
 			x.setKode(r.code); x.setNama(r.name); x.setKeterangan(nullIfEmpty(r.description));
@@ -261,6 +267,8 @@ public final class RpsObeExcelHelper {
 		Map<String, CapaianLulusan> result = new LinkedHashMap<String, CapaianLulusan>();
 		for (MasterRow r : rows) {
 			CapaianLulusan x = r.id == null ? findCpl(all, jur, r.code) : (CapaianLulusan) s.get(CapaianLulusan.class, r.id);
+			if (x != null && !sameJur(x.getJurusan(), jur))
+				throw new SecurityException(r.location + ": ID CPL bukan milik program studi RPS ini.");
 			boolean insert = x == null;
 			if (insert) { x = new CapaianLulusan(); x.setJurusan(jur); x.setPerguruanTinggi(pt); x.setKhususBuatMk(mk); }
 			x.setKode(r.code); x.setNama(r.name); x.setKeterangan(nullIfEmpty(r.description));
@@ -282,6 +290,8 @@ public final class RpsObeExcelHelper {
 			CpmkRow first = e.getValue().get(0);
 			CapaianPembelajaranLulusan x = first.id == null ? findCpmk(all, jur, first.cpmkCode)
 					: (CapaianPembelajaranLulusan) s.get(CapaianPembelajaranLulusan.class, first.id);
+			if (x != null && !sameJur(x.getJurusan(), jur))
+				throw new SecurityException(first.location + ": ID CPMK bukan milik program studi RPS ini.");
 			boolean insert = x == null;
 			if (insert) { x = new CapaianPembelajaranLulusan(); x.setJurusan(jur); x.setPerguruanTinggi(pt); x.setKhususBuatMk(mk); }
 			x.setKode(first.cpmkCode); x.setNama(first.cpmkName); x.setAktif(Boolean.TRUE);
@@ -578,7 +588,7 @@ public final class RpsObeExcelHelper {
 	private static Map<String,JSONObject> subCpmkLookup(Map<String,CapaianPembelajaranLulusan> cpmks) throws Exception {Map<String,JSONObject> m=new HashMap<String,JSONObject>();for(CapaianPembelajaranLulusan c:cpmks.values()){JSONArray a=array(c.getFormula());for(int i=0;i<a.length();i++){JSONObject s=a.optJSONObject(i);if(s==null)continue;JSONObject x=new JSONObject();x.put("label",s.optString("kode","")+" "+s.optString("nama",""));x.put("value",s.opt("key")+"_"+c.getId());m.put(key(s.optString("kode","")),x);}}return m;}
 	@SuppressWarnings("unchecked") private static JSONObject referenceJson(Session s,Class<?> type,String codes) throws Exception {JSONObject out=new JSONObject();for(String code:splitCodes(codes)){List<?> l=s.createCriteria(type).add(Restrictions.eq("kode",code)).setMaxResults(1).list();if(l.isEmpty())continue;Object x=l.get(0);Long id=null;String name="";if(x instanceof BahanKajian){id=((BahanKajian)x).getId();name=((BahanKajian)x).getNama();}else{id=((ReferensiLulusan)x).getId();name=((ReferensiLulusan)x).getNama();}JSONObject o=new JSONObject();o.put("id",id);o.put("nama",name);out.put(String.valueOf(id),o);}return out;}
 	private static List<JSONObject> agendaItems(JSONObject root) throws Exception {List<JSONObject> out=new ArrayList<JSONObject>();Iterator<String> it=root.keys();while(it.hasNext()){String k=it.next();JSONObject o=root.optJSONObject(k);if(o!=null){if(!o.has("keyData"))o.put("keyData",k);out.add(o);}}java.util.Collections.sort(out,new java.util.Comparator<JSONObject>(){public int compare(JSONObject a,JSONObject b){return a.optInt("mulaiMingguKe",0)-b.optInt("mulaiMingguKe",0);}});return out;}
-	private static String jsonCodes(Session session,Class<?> type,JSONObject o){List<String> out=new ArrayList<String>();if(o!=null){Iterator<String> it=o.keys();while(it.hasNext()){String id=it.next();String code="";try{Object entity=session.get(type,Long.valueOf(id));if(entity instanceof BahanKajian)code=((BahanKajian)entity).getKode();else if(entity instanceof ReferensiLulusan)code=((ReferensiLulusan)entity).getKode();}catch(Exception ignored){}JSONObject x=o.optJSONObject(id);if(!notEmpty(code)&&x!=null)code=x.optString("kode","");if(!notEmpty(code)&&x!=null)code=codeFromLabel(x.optString("nama",""));if(notEmpty(code))out.add(code);}}return join(out);}
+	private static String jsonCodes(Session session,Class<?> type,JSONObject o){List<String> out=new ArrayList<String>();if(o!=null){Iterator<String> it=o.keys();while(it.hasNext()){String id=it.next();String code="";try{Object entity=session.get(type,Long.valueOf(id));if(entity instanceof BahanKajian)code=((BahanKajian)entity).getKode();else if(entity instanceof ReferensiLulusan)code=((ReferensiLulusan)entity).getKode();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"resolve kode referensi saat export RPS OBE");}JSONObject x=o.optJSONObject(id);if(!notEmpty(code)&&x!=null)code=x.optString("kode","");if(!notEmpty(code)&&x!=null)code=codeFromLabel(x.optString("nama",""));if(notEmpty(code))out.add(code);}}return join(out);}
 
 	private static final class ImportData{Map<String,String> mk,authority;List<MasterRow> profiles,cpls;List<CpmkRow> cpmks;List<DescriptionRow> descriptions;List<AgendaRow> agendas;List<NoteRow> notes;void validate(){Set<String> cplCodes=new HashSet<String>();for(MasterRow r:cpls)cplCodes.add(key(r.code));Set<String> cpmkCodes=new HashSet<String>();Set<String> subCodes=new HashSet<String>();for(CpmkRow r:cpmks){cpmkCodes.add(key(r.cpmkCode));if(notEmpty(r.subCode)&&!subCodes.add(key(r.subCode)))throw new IllegalArgumentException(r.location+": Kode Sub-CPMK duplikat '"+r.subCode+"'.");}for(MasterRow r:profiles)for(String c:splitCodes(r.relations))if(!cplCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPL terkait '"+c+"' tidak ada di sheet CPL.");for(MasterRow r:cpls)for(String c:splitCodes(r.relations))if(!cpmkCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPMK terkait '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");for(AgendaRow r:agendas)for(String c:r.subCodes)if(notEmpty(c)&&!subCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": Sub-CPMK '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");}}
 	private static final class MasterRow{String location,code,name,description,reference,category,relations;Long id;Boolean active;}

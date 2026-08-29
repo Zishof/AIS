@@ -65,7 +65,7 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		return pertemuan.getPerkuliahan().getMatakuliah();
 	}
 
-	private static void bukaProfilLulusan(Component induk, final Matakuliah matakuliah,
+	private static void bukaProfilLulusan(final Component induk, final Matakuliah matakuliah,
 			final EventListener selesai) throws Exception {
 		List<ProfilLulusan> tersimpan = ambilProfilLulusan(matakuliah.getProfilLulusan());
 		final AmbilDataProfilLulusanBanyak popup = new AmbilDataProfilLulusanBanyak(tersimpan,
@@ -90,7 +90,7 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		tampilkanPopup(popup, "Pilih Profil Lulusan");
 	}
 
-	private static void bukaCapaianLulusan(Component induk, final Matakuliah matakuliah,
+	private static void bukaCapaianLulusan(final Component induk, final Matakuliah matakuliah,
 			final EventListener selesai) throws Exception {
 		List<CapaianLulusan> tersimpan = ambilCapaianLulusan(matakuliah.getCapaianLulusan());
 		final AmbilDataCapaianLulusanBanyak popup = new AmbilDataCapaianLulusanBanyak(tersimpan,
@@ -115,7 +115,7 @@ public final class AmbilDataBanyakObeAgendaHelper {
 		tampilkanPopup(popup, "Pilih Capaian Lulusan (CPL)");
 	}
 
-	private static void bukaCpmk(Component induk, final Matakuliah matakuliah,
+	private static void bukaCpmk(final Component induk, final Matakuliah matakuliah,
 			final EventListener selesai) throws Exception {
 		List<CapaianPembelajaranLulusan> tersimpan = ambilCpmk(
 				matakuliah.getCapaianPembelajaranLulusan());

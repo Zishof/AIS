@@ -1152,13 +1152,19 @@ public class RpsObeAction extends GenericAutowireComposer {
 	 */
 	public void onUploadExcel(Event event) throws Exception {
 		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
-			throw new IllegalArgumentException("Pilih mata kuliah dan kurikulum terlebih dahulu.");
+			MyMessageboxConfig.show("Pilih mata kuliah dan kurikulum terlebih dahulu.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
 		}
 		if (kurikulumPunyaMatakuliah.getDikunci() != null) {
-			throw new SecurityException("RPS OBE sudah dikunci dan tidak dapat di-upload.");
+			MyMessageboxConfig.show("RPS OBE sudah dikunci dan tidak dapat di-upload.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
 		}
 		if (!bolehMengubahFiturObe(CFG_HAK_AKSES_UBAH_RPS_OBE, true)) {
-			throw new SecurityException("Anda tidak memiliki hak untuk memperbarui seluruh data RPS OBE.");
+			MyMessageboxConfig.show("Anda tidak memiliki hak untuk memperbarui seluruh data RPS OBE.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return;
 		}
 		try {
 			UploadEvent uploadEvent = resolveUploadExcelEvent(event);
@@ -1173,8 +1179,14 @@ public class RpsObeAction extends GenericAutowireComposer {
 			Long perkuliahanId = perkuliahan == null ? null : perkuliahan.getId();
 			RpsObeExcelHelper.ImportResult result = RpsObeExcelHelper.importWorkbook(
 					media.getByteData(), kurikulumPunyaMatakuliah.getId(), perkuliahanId);
-			onSearchDefault(null);
-			MyMessageboxConfig.show(result.message(), "Pemberitahuan",
+			String refreshNote = "";
+			try {
+				onSearchDefault(null);
+			} catch (Exception refreshError) {
+				ais.common.ErrorAuditUtil.record(refreshError, "refresh sesudah upload Excel RPS OBE");
+				refreshNote = " Data telah tersimpan; tekan Refresh untuk memuat ulang tampilan.";
+			}
+			MyMessageboxConfig.show(result.message() + refreshNote, "Pemberitahuan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
