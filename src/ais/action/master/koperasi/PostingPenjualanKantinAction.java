@@ -262,7 +262,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 		// (Q1) Header: total, pajak, slot bayar 1..5.
 		List<Object[]> hdr = session.createSQLQuery(
-				"SELECT h.id, COALESCE(h.total_biaya,0), COALESCE(h.pajak,0), "
+				"SELECT h.id, COALESCE(h.total_biaya,0) AS total_biaya0, COALESCE(h.pajak,0) AS pajak0, "
 						+ "h.cara_pembayaran_koperasi, h.cara_pembayaran_koperasi_2, h.cara_pembayaran_koperasi_3, "
 						+ "h.cara_pembayaran_koperasi_4, h.cara_pembayaran_koperasi_5, "
 						+ "COALESCE(h.nominal_bayar_2,0) AS nb2, COALESCE(h.nominal_bayar_3,0) AS nb3, "
