@@ -101,7 +101,7 @@ public final class DraftJurnalRingkasanUtil {
      * (mis. {@code mahasiswa} dan {@code siswa}).
      */
     public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "pj_pengembalian", "kas_kecil",
-            "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
+            "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "saldo_awal_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
@@ -124,6 +124,7 @@ public final class DraftJurnalRingkasanUtil {
         if ("uang_muka".equals(kunci) || "pj_uang_muka".equals(kunci)
                 || "kas_kecil".equals(kunci) || "kas_besar".equals(kunci)
                 || "pj_kas_besar".equals(kunci) || "penggantian_kas_kecil".equals(kunci)
+                || "saldo_awal_kas_kecil".equals(kunci)
                 || "dana_talangan".equals(kunci)
                 || "pj_pengembalian".equals(kunci)) return "uang_muka_kas";
         if ("pajak".equals(kunci)) return "pajak";
@@ -231,6 +232,12 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaPenggantianKasKecil(session, mulai, sampai), true),
                     hitungClosing(session, "penggantianKasKecil", null, null, mulai, sampai)));
+        } else if ("saldo_awal_kas_kecil".equals(kunci)) {
+            out.add(new Baris(kunci, "Saldo Awal Kas Kecil",
+                    "Saldo awal jenis kas kecil yang transfernya diproses dipastikan menjadi jurnal pembukaan.",
+                    hitungPostingHistory(session, kriteriaSaldoAwalKasKecil(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaSaldoAwalKasKecil(session, mulai, sampai), true),
+                    hitungClosing(session, "jenisKasKecil", null, null, mulai, sampai)));
         } else if ("dana_talangan".equals(kunci)) {
             out.add(new Baris(kunci, "Dana Talangan",
                     "Dana talangan yang disetujui dipastikan menjadi jurnal.",
@@ -498,6 +505,19 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNotNull("disetujuiOleh"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_persetujuan", mulai, sampai)));
+    }
+
+    /**
+     * Disamakan dengan mesin massalnya (kriteriaSaldoAwalKasKecilStatic di
+     * PostingJenisKasKecilAction) dan syarat wajib layarnya: terhubung proses transfer,
+     * saldo awal tidak nol, rentang tanggal pembukaan.
+     */
+    private static Criteria kriteriaSaldoAwalKasKecil(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.akunting.JenisKasKecil.class)
+                .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer")
+                .add(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"))
+                .add(Restrictions.ne("saldoAwal", 0.0)).add(Restrictions.isNotNull("saldoAwal"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal", mulai, sampai)));
     }
 
     /** disetujuiOleh ikut difilter, sama dengan PostingKasBesarAction. */
@@ -772,6 +792,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Penggantian Kas Kecil".equals(namaBaris)) {
             return kriteriaPenggantianKasKecil(session, mulai, sampai);
+        }
+        if ("Saldo Awal Kas Kecil".equals(namaBaris)) {
+            return kriteriaSaldoAwalKasKecil(session, mulai, sampai);
         }
         if ("Dana Talangan".equals(namaBaris)) return kriteriaDanaTalangan(session, mulai, sampai);
         if ("Pajak".equals(namaBaris)) return kriteriaPajak(session, mulai, sampai);

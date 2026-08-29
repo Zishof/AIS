@@ -1092,4 +1092,200 @@ public class PostingJenisKasKecilAction extends GenericAutowireComposer {
 		});
 	}
 
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen saldo awal kas kecil yang SAMA dengan baris "Saldo Awal Kas Kecil" di
+	 * dasbor draft jurnal ({@code DraftJurnalRingkasanUtil}): jenis kas kecil yang terhubung
+	 * proses transfer (syarat wajib layar) dan saldo awalnya tidak nol, pada rentang tanggal
+	 * pembukaan. Filter satuan kerja dan kata kunci layar tidak ikut -- dasbor menghitung
+	 * global.
+	 */
+	private static Criteria kriteriaSaldoAwalKasKecilStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(JenisKasKecil.class)
+				.createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer")
+				.add(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"))
+				.add(Restrictions.ne("saldoAwal", 0.0)).add(Restrictions.isNotNull("saldoAwal"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA saldo awal kas kecil pada rentang -- jalur API dasbor Draft Jurnal POS.
+	 *
+	 * <p>Jurnal per dokumen mengikuti tombol layar: Dr akun jenis kas kecil, Cr akun cara
+	 * pembayaran transfer pengajuannya (transitori -> {@code akunTransitori}, transfer ->
+	 * {@code akun}, selain itu dokumen dilewati), senilai saldo awal pada tanggal pembukaan,
+	 * dengan idiom lama nilai &lt;= 0.1 membalik pasangan. Berbeda dari tombol layar yang
+	 * mengecap dokumen meski {@code saveTransaksi} gagal, di sini dokumen hanya dicap bila
+	 * jurnalnya benar tersimpan. Rantai pengajuan transfer di-null-guard penuh -- tombol
+	 * layar membiarkan NPE-nya ditelan catch per baris.</p>
+	 *
+	 * <p>Transaksi dibuka sendiri (currentNativeSession + begin/commit per dokumen): dipanggil
+	 * dari API tidak ada kerangka ZK yang meng-commit sesi berjalan, dan kegagalan satu
+	 * dokumen tidak membatalkan dokumen lain yang sudah sah terjurnal.</p>
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaSaldoAwalKasKecilStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_SALDO_AWAL_KAS_KECIL);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal saldo awal kas kecil dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				JenisKasKecil jk = (JenisKasKecil) o;
+				if (jk == null || jk.getDaftarPengajuanTransfer() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = jk.getAkun();
+					Akun akunKredit = null;
+					if (jk.getDaftarPengajuanTransfer().getProsesTransfer() != null
+							&& jk.getDaftarPengajuanTransfer().getProsesTransfer()
+									.getCaraPembayaranTransfer() != null) {
+						if (Boolean.TRUE.equals(jk.getDaftarPengajuanTransfer().getTransitori())) {
+							akunKredit = jk.getDaftarPengajuanTransfer().getProsesTransfer()
+									.getCaraPembayaranTransfer().getAkunTransitori();
+						} else if (Boolean.TRUE.equals(jk.getDaftarPengajuanTransfer().getTransfer())) {
+							akunKredit = jk.getDaftarPengajuanTransfer().getProsesTransfer()
+									.getCaraPembayaranTransfer().getAkun();
+						}
+					}
+					Double nilai = jk.getSaldoAwal();
+					if (akunDebet == null || akunKredit == null || nilai == null || nilai == 0.0) {
+						continue;
+					}
+
+					String ket = "Saldo awal kas kecil \"" + jk.getKode() + "\" senilai "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Saldo awal kas kecil \"" + jk.getKode() + "\" pada pengeluaran \""
+								+ jk.getNama() + "\" senilai " + Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Namanya boleh kosong; kalimat baku di atas tetap terpakai.
+					}
+
+					boolean tersimpan;
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					if (nilai > 0.1) {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunDebet },
+								new Akun[] { akunKredit }, null, null, postingHistory, true, ket,
+								jk.getTanggal(), new Double[] { nilai }, new Double[] { nilai }, 0.0, jk,
+								jk.getSatuanKerja(), session);
+					} else {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunKredit },
+								new Akun[] { akunDebet }, null, null, postingHistory, true, ket,
+								jk.getTanggal(), new Double[] { nilai }, new Double[] { nilai }, 0.0, jk,
+								jk.getSatuanKerja(), session);
+					}
+					if (tersimpan) {
+						jk.setPostingHistory(postingHistory);
+						session.update(jk);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingJenisKasKecilAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PostingJenisKasKecilAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA saldo awal kas kecil terposting pada rentang: jurnal
+	 * turunannya dihapus (baris transaksi dulu, lalu grupnya -- hanya yang belum closing),
+	 * lalu penandanya dilepas. Mengikuti bentuk mesin-mesin batal lain di keluarga ini.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaSaldoAwalKasKecilStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				JenisKasKecil jk = (JenisKasKecil) o;
+				if (jk == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where jenis_kas_kecil="
+							+ jk.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where jenis_kas_kecil="
+							+ jk.getId() + " and closing is null").executeUpdate();
+					jk.setPostingHistory(null);
+					session.update(jk);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingJenisKasKecilAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }

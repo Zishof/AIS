@@ -74,6 +74,9 @@ public final class DraftJurnalApiHelper {
         if ("Dana Talangan".equals(namaBaris)) return "dana_talangan";
         if ("Pertanggungjawaban Kas Besar".equals(namaBaris)) return "pj_kas_besar";
         if ("Penggantian Kas Kecil".equals(namaBaris)) return "penggantian_kas_kecil";
+        // Saldo awal menempel pada master jenis kas kecil, satu keluarga izin dengan Kas
+        // Kecil: siapa boleh memposting kas kecil, boleh saldo awalnya.
+        if ("Saldo Awal Kas Kecil".equals(namaBaris)) return "kas_kecil";
         // PERBAIKAN: dua baris ini dulu mengembalikan "pengajuan_transfer" dan "transitori",
         // yang BUKAN kunci menu -- EbisnisMenuKatalog.bolehAksi mengembalikan true untuk kunci
         // di luar KUNCI_CRUD, sehingga keduanya FAIL-OPEN: siapa pun yang dapat membuka Draft
@@ -232,6 +235,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.akunting.PostingPenggantianKasKecilAction.postingSemua(mulai, sampai,
                             tbmuser, new Date())
                     : ais.action.master.akunting.PostingPenggantianKasKecilAction.batalkanPostingSemua(mulai,
+                            sampai);
+        } else if ("Saldo Awal Kas Kecil".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.akunting.PostingJenisKasKecilAction.postingSemua(mulai, sampai,
+                            tbmuser, new Date())
+                    : ais.action.master.akunting.PostingJenisKasKecilAction.batalkanPostingSemua(mulai,
                             sampai);
         } else if ("Jurnal Pengajuan Transfer".equals(nama)) {
             jumlah = posting

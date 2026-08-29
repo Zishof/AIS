@@ -87,6 +87,8 @@ Catatan harness baru: `pembayaran_item_gaji_pegawai.format_item_gaji` NOT NULL (
 ## 4. Sisa peta modul
 
 Selesai: 53 Jurnal Umum, 54 Pengembalian UM, 55 trio pembayaran vendor, 56 Perjanjian
-Kerjasama, 57 payroll (dok ini). Tersisa: **Saldo Awal Kas Kecil**
-(`PostingJenisKasKecilAction`) dan **trio kantin** (HPP/Penjualan/Toko — batch per
-periode, perlu desain endpoint sendiri).
+Kerjasama, 57 payroll (dok ini), lalu **Saldo Awal Kas Kecil** — SELESAI r78554–r78557,
+terdokumentasi dan teruji 21/21 di
+[58-posting-saldo-awal-kas-kecil.md](58-posting-saldo-awal-kas-kecil.md). Tersisa:
+**trio kantin** (HPP/Penjualan/Toko — batch per periode, perlu desain endpoint
+sendiri).
