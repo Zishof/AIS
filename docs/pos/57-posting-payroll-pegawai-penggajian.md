@@ -39,6 +39,29 @@ layar sejak lama, tidak diubah. `PembayaranGajiPunyaPegawai.getTanggalBayar()`
 diturunkan dari `pembayaranGaji.waktuBayar` setiap dibaca (kolom `tanggal_bayar_gaji`
 hanyalah cache, pola yang sama dengan temuan dok 55).
 
+## 2a. Perbaikan tombol layar ZK (r78551 Pegawai, r78552 Penggajian, 29 Agustus 2026)
+
+Ketiga cacat §2 diperbaiki di layarnya sendiri; mirror `java/` selaras byte-identik.
+
+- **Transaksi Pegawai per baris**: riwayat kini `JENIS_TRANSAKSI_LAIN` (r78551).
+- **Penggajian massal**: cabang bank menjumlahkan `nilaiKredit`, dan dokumen dicap
+  `setPostingHistory` begitu `saveTransaksi` mengembalikan true — mengikuti bentuk
+  mesin §1 (r78552). Koreksi kecil atas pesan commit r78552: run massal berulang atas
+  dokumen tak tercap TIDAK menggandakan jurnal — deduplikasi `kodeUnik` di
+  `saveTransaksi` menahannya (lihat §2 butir 2); kerugian nyatanya status draf abadi
+  dan kerja ulang tiap klik.
+- **Temuan KEEMPAT saat perbaikan, belum tercatat di §2**: tombol BATAL massal
+  Penggajian menampung hasil `initCriteria` (query `PembayaranGajiPunyaPegawai`)
+  sebagai `List<PembayaranItemGajiPegawai>`, sehingga loop-nya selalu melempar
+  ClassCastException pada elemen pertama — tombol mati total; tidak pernah ada
+  pembatalan massal yang jalan dari layar ini. Tipe dibetulkan, dan id yang masuk SQL
+  kini id dokumen yang memang dirujuk kolom
+  `grup_transaksi.pembayaran_gaji_punya_pegawai` (r78552).
+
+Verifikasi: kompilasi `javac -source 1.7 -target 1.7` kedua berkas bersih; tombol
+belum diuji runtime ZK — dasar kebenarannya paritas dengan mesin §1 yang lulus
+harness §3.
+
 ## 3. Pengujian
 
 Harness `TesPostingPayroll` (scratchpad, DB UAT lokal `ais`), fixture `UATPAY-` rentang
