@@ -102,6 +102,31 @@ public final class RevisiApiHelper {
 		// tersimpan; yang kurang hanya pendaftarannya di sini.
 		ENTITAS.put("ujian", ais.database.model.Ujian.class);
 		ENTITAS.put("ujian_soal", ais.database.model.UjianPunyaSoal.class);
+		// Gelombang 7 (2026-08-29): seluruh CRUD operasional POS yang sudah
+		// @Audited harus dapat dipantau dari satu menu Riwayat Perubahan Data.
+		// Registry tetap eksplisit (bukan menerima nama kelas dari request) agar
+		// model internal/sensitif di luar POS tidak ikut terbuka lewat API generik.
+		ENTITAS.put("satuan_produk", ais.database.model.inventory.SatuanProduk.class);
+		ENTITAS.put("pemasok_produk", ais.database.model.inventory.PemasokProduk.class);
+		ENTITAS.put("pengadaan_faktur", ais.database.model.inventory.PengadaanFaktur.class);
+		ENTITAS.put("pengadaan_produk", ais.database.model.inventory.PengadaanProduk.class);
+		ENTITAS.put("stok_opname", ais.database.model.inventory.StokOpname.class);
+		ENTITAS.put("sesi_stok_opname", ais.database.model.inventory.SesiStokOpname.class);
+		ENTITAS.put("mutasi_stok", ais.database.model.inventory.MutasiStokToko.class);
+		ENTITAS.put("retur_penjualan", ais.database.model.inventory.ReturPenjualan.class);
+		ENTITAS.put("retur_pembelian", ais.database.model.inventory.ReturPembelian.class);
+		ENTITAS.put("produksi", ais.database.model.inventory.ProduksiKantin.class);
+		ENTITAS.put("pemakaian_bahan_baku", ais.database.model.inventory.PemakaianBahanBaku.class);
+		ENTITAS.put("sesi_kas", ais.database.model.inventory.SesiKasKasir.class);
+		ENTITAS.put("calon_anggota", ais.database.model.koperasi.CalonAnggotaKoperasi.class);
+		ENTITAS.put("jenis_identitas_anggota", ais.database.model.koperasi.JenisIdentitasAnggotaKoperasi.class);
+		ENTITAS.put("pengajuan_limit_member", ais.database.model.koperasi.PengajuanLimitTransaksiMember.class);
+		ENTITAS.put("pembayaran_anggota", ais.database.model.koperasi.PembayaranAnggotaKoperasi.class);
+		ENTITAS.put("penyesuaian_saldo_anggota", ais.database.model.koperasi.PenyesuaianSaldoAnggota.class);
+		ENTITAS.put("pembayaran_hutang_supplier", ais.database.model.koperasi.PembayaranHutangSupplier.class);
+		ENTITAS.put("penerimaan_piutang_customer", ais.database.model.koperasi.PenerimaanPiutangCustomer.class);
+		ENTITAS.put("harga_jual_customer", ais.database.model.koperasi.HargaJualCustomer.class);
+		ENTITAS.put("harga_beli_supplier", ais.database.model.koperasi.HargaBeliSupplier.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
