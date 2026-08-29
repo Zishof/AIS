@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -58,6 +59,12 @@ public class KrsDanSkripsiHelper {
 			if (mahasiswaDatabase != null) {
 				hasil = mahasiswaDatabase.ambilDefaultKrsMahasiswa(semester, tahapan, semesterPendek, session);
 				if (hasil != null) {
+					// Dosen PA dipakai sesudah sesi baca ditutup (mis. saat membuka
+					// komentar/catatan). Inisialisasi relasi ini tanpa melakukan write agar
+					// jalur read-only tidak menimbulkan LazyInitializationException.
+					if (hasil.getDosenPa() != null) {
+						Hibernate.initialize(hasil.getDosenPa());
+					}
 					// Gunakan object mahasiswa milik layar supaya hasil tetap aman setelah
 					// session baca ditutup dan tidak membawa proxy session lama.
 					hasil.setMahasiswa(mahasiswa);

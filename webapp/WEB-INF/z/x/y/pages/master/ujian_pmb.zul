@@ -64,24 +64,24 @@
 					<columns>
 
 						<column
-						use="ais.ui.util.MyColumnConfig" width="15%" label="Nama"
+						use="ais.ui.util.MyColumnConfig" width="14%" label="Nama"
 						sort="auto(nama)" />
 						<column
 						use="ais.ui.util.MyColumnConfig" width="0%"
 						label="Tahun Akademik" />
 						<column
-						use="ais.ui.util.MyColumnConfig" label="Gelombang" />
+						use="ais.ui.util.MyColumnConfig" width="17%" label="Gelombang" />
 						<column
 						use="ais.ui.util.MyColumnConfig" width="5%" label="Jml.Hari" />
 						<column
-						use="ais.ui.util.MyColumnConfig" label="Tanggal" />
+						use="ais.ui.util.MyColumnConfig" width="9%" label="Tanggal" />
 						<column
-						use="ais.ui.util.MyColumnConfig" label="Lokasi" />
+						use="ais.ui.util.MyColumnConfig" width="10%" label="Lokasi" />
 						<column
 						use="ais.ui.util.MyColumnConfig" label="Info" width="5%" />
-						<column width="15%"
+						<column width="16%"
 						use="ais.ui.util.MyColumnConfig" label="Info No. Pen." />
-						<column width="15%"
+						<column width="13%"
 						use="ais.ui.util.MyColumnConfig" label="Info Kartu Ujian" />
 
 						<column

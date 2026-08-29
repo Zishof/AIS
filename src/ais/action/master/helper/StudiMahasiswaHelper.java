@@ -282,7 +282,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 							checkbox.setChecked(totalNilaiLabel.getValue() > 1.0);
 						}
 
-						krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
+						// Perubahan nilai masih berada dalam transaksi request saat ini. Jangan
+						// membuka transaksi sinkronisasi kedua yang menulis KRS yang sama karena
+						// transaksi tersebut akan menunggu kunci miliknya sendiri sampai timeout.
+						krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+								semesterPendek);
 
 						Double ipmhs = krsMahasiswa.getIps();
 						Double ipkmhs = krsMahasiswa.getIpk();
@@ -999,7 +1003,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 		final String jenisSemester = semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL;
 
 		konfigurasiPersetujuanKrsDosen = CommonPenilaian.getKonfigurasiPersetujuanKrsOlehDosen(tahunAjaran, jenisSemester, semesterPendek);
-		krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
+		// display() dipanggil juga dari callback penyimpanan catatan/persetujuan.
+		// Jalur tampilan harus murni baca; sinkronisasi penuh hanya dilakukan oleh
+		// aksi eksplisit setelah transaksi perubahan sebelumnya selesai.
+		krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+				semesterPendek);
 
 		Double ipmhs = krsMahasiswa.getIps();
 		Double ipkmhs = krsMahasiswa.getIpk();
@@ -1287,7 +1295,8 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonKomentar.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				KrsMahasiswa krsMhs = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, false, false);
+				KrsMahasiswa krsMhs = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+						semesterPendek);
 				if (krsMhs != null) krsMhs.masukkanData("komentar");
 				
 				Dosen dosenPembimbingAkademik = krsMhs.getDosenPa();
@@ -1310,7 +1319,8 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonCatatan.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				KrsMahasiswa krsMhs = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, false, false);
+				KrsMahasiswa krsMhs = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
+						semesterPendek);
 				if (krsMhs != null) krsMhs.masukkanData("catatan");
 				
 				Dosen dosenPembimbingAkademik = krsMhs.getDosenPa();

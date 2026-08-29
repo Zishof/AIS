@@ -150,6 +150,16 @@ public class UjianPMBAction extends GenericAutowireComposer implements DataInitD
 
 	class UjianPMBRenderer extends ais.ui.util.MyRowRenderer {
 
+		private Label buatInformasiRingkas(String nilai) {
+			String informasi = nilai == null ? "" : nilai.trim();
+			MyLabelKecil label = new MyLabelKecil(informasi);
+			label.setMaxlength(140);
+			label.setTooltiptext(informasi.length() == 0 ? "Tidak ada informasi" : informasi);
+			label.setStyle("font-size:10px;display:block;white-space:normal;line-height:16px;"
+					+ "max-height:64px;overflow:hidden;word-wrap:break-word;cursor:help;");
+			return label;
+		}
+
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -202,8 +212,8 @@ public class UjianPMBAction extends GenericAutowireComposer implements DataInitD
 
 			new Label(ujianPMB.getLokasi()).setParent(arg0);
 			new Label(ujianPMB.getTampilkanJadwalUjianDiKartuUjian() ? "Ya" : "Tidak").setParent(arg0);
-			new MyLabelKecil(ujianPMB.getKeterangan()).setParent(arg0);
-			new MyLabelKecil(ujianPMB.getKeteranganSetelahBayar()).setParent(arg0);
+			buatInformasiRingkas(ujianPMB.getKeterangan()).setParent(arg0);
+			buatInformasiRingkas(ujianPMB.getKeteranganSetelahBayar()).setParent(arg0);
 
 			final MyCheckboxConfig checkbox = new MyCheckboxConfig("Aktif");
 			checkbox.setDisabled(!edit);

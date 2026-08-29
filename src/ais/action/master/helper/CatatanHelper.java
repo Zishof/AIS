@@ -264,8 +264,10 @@ public class CatatanHelper {
 										file);
 							}
 
-							window.detach();
-							eventListener.onEvent(new Event("", window, krsMahasiswa));
+							// Callback tampilan sudah dijalankan segera setelah catatan berhasil
+							// disimpan. Jangan jalankan kembali sesudah email karena selain merender
+							// dua kali, callback lama dapat memulai sinkronisasi KRS saat transaksi
+							// penyimpanan sebelumnya belum selesai.
 						}
 					});
 				}
