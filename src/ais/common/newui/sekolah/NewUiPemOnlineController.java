@@ -78,13 +78,9 @@ public final class NewUiPemOnlineController {
             }
             Tbmuser user = Common.getCurrentUser(request);
             Subjek subjek = resolveSubjek(request, user);
-            if ("export_kuitansi".equals(action)) {
-                // Menulis PDF struk langsung ke response (bukan amplop JSON).
-                kuitansiStruk(request, response, user);
-                return;
-            }
             response.setContentType("application/json; charset=UTF-8");
-            if ("lookup".equals(action)) lookup(json, request, user);
+            if ("export_kuitansi".equals(action)) kuitansiStruk(json, request, user);
+            else if ("lookup".equals(action)) lookup(json, request, user);
             else if ("meta".equals(action)) meta(json, request, subjek, user);
             else if ("list".equals(action)) list(json, request, subjek);
             else if ("options".equals(action)) options(json, subjek);
@@ -109,8 +105,10 @@ public final class NewUiPemOnlineController {
      * PembayaranSiswaUtil.cetakStruk namun headless: parameter dibangun sama
      * (kode transaksi, waktu cetak, properti siswa/calon, dataPembayaran) lalu
      * dirender via Report.generateFileReportSimple("sekolah/struk_pembayaran").
+     * PDF dikirim sebagai base64 di amplop JSON (JSP delegasi sudah memegang
+     * getWriter() sehingga streaming biner via getOutputStream tidak mungkin).
      */
-    private static void kuitansiStruk(HttpServletRequest r, HttpServletResponse response, Tbmuser user)
+    private static void kuitansiStruk(JSONObject j, HttpServletRequest r, Tbmuser user)
             throws Exception {
         if (user == null) throw new SecurityException("Sesi tidak dikenal.");
         Long pembayaranId = id(r, "pembayaranId", true);
@@ -157,19 +155,9 @@ public final class NewUiPemOnlineController {
                 ais.action.report.Report.PDF, (Map) parameters, "sekolah/struk_pembayaran");
         if (pdf == null || !pdf.exists())
             throw new IllegalStateException("PDF struk gagal dibuat.");
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition",
-                "inline; filename=\"struk_" + kodeTransaksi(pembayaran.getId()) + ".pdf\"");
-        response.setContentLength((int) pdf.length());
-        java.io.InputStream masuk = new java.io.FileInputStream(pdf);
-        try {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = masuk.read(buf)) > 0) response.getOutputStream().write(buf, 0, n);
-            response.getOutputStream().flush();
-        } finally {
-            try { masuk.close(); } catch (Exception ignored) { }
-        }
+        byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
+        j.put("namaFile", "struk_" + kodeTransaksi(pembayaran.getId()) + ".pdf");
+        j.put("pdfBase64", java.util.Base64.getEncoder().encodeToString(isi));
     }
 
     /** Kode transaksi 8 digit (paritas PembayaranSiswaUtil.formatKodeTransaksi yang privat). */

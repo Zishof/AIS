@@ -127,13 +127,9 @@ public final class NewUiDaftarUlangMahasiswaController {
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
             Subjek subjek = resolveSubjek(request, user, mode);
-            if ("export_kuitansi".equals(action)) {
-                // Menulis PDF langsung ke response (bukan amplop JSON).
-                kuitansi(request, response, subjek, user);
-                return;
-            }
             response.setContentType("application/json; charset=UTF-8");
-            if ("lookup".equals(action)) lookup(json, request, user, mode);
+            if ("export_kuitansi".equals(action)) kuitansi(json, request, subjek, user);
+            else if ("lookup".equals(action)) lookup(json, request, user, mode);
             else if ("meta".equals(action)) meta(json, request, subjek, mode);
             else if ("list".equals(action)) list(json, request, subjek, mode);
             else if ("options".equals(action)) options(json);
@@ -691,9 +687,10 @@ public final class NewUiDaftarUlangMahasiswaController {
      * Cetak kuitansi (PDF) sebuah Kegiatan — paritas
      * CommonReportHelper.cetakBuktipembayaran[Calon]Mahasiswa(kirim=false); pada
      * konteks servlet (tanpa sesi ZK) helper otomatis memakai
-     * generateFileReportSimple. PDF ditulis langsung ke response.
+     * generateFileReportSimple. PDF dikirim sebagai base64 di amplop JSON (JSP
+     * delegasi sudah memegang getWriter() sehingga streaming biner mustahil).
      */
-    private static void kuitansi(HttpServletRequest r, HttpServletResponse response, Subjek subjek, Tbmuser user)
+    private static void kuitansi(JSONObject j, HttpServletRequest r, Subjek subjek, Tbmuser user)
             throws Exception {
         Long kegiatanId = id(r, "kegiatanId", true);
         Kegiatan kegiatan;
@@ -715,19 +712,9 @@ public final class NewUiDaftarUlangMahasiswaController {
                 : ais.action.report.CommonReportHelper.cetakBuktipembayaranMahasiswa(kegiatan, false);
         if (pdf == null || !pdf.exists())
             throw new IllegalStateException("PDF kuitansi gagal dibuat.");
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition",
-                "inline; filename=\"kuitansi_kegiatan_" + kegiatanId + ".pdf\"");
-        response.setContentLength((int) pdf.length());
-        java.io.InputStream masuk = new java.io.FileInputStream(pdf);
-        try {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = masuk.read(buf)) > 0) response.getOutputStream().write(buf, 0, n);
-            response.getOutputStream().flush();
-        } finally {
-            try { masuk.close(); } catch (Exception ignored) { }
-        }
+        byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
+        j.put("namaFile", "kuitansi_kegiatan_" + kegiatanId + ".pdf");
+        j.put("pdfBase64", java.util.Base64.getEncoder().encodeToString(isi));
     }
 
     // ------------------------------------------------------------------ save
