@@ -22,6 +22,28 @@ mesin-mesin sebelumnya berlaku: riwayat `posting=true`, cap hanya bila jurnal be
 tersimpan, riwayat kosong dihapus bila tak satu dokumen pun terjurnal, pembatalan
 menghapus baris transaksi dulu baru grupnya (hanya yang belum closing).
 
+## 1a. Audit tombol layar ZK: BERSIH (29 Agustus 2026)
+
+Diaudit dengan daftar periksa dok 54 §2 / 57 payroll §2a:
+
+- Pasangan akun kedua jalur tulis (massal dan per baris) = tampilan grid = mesin §1:
+  Dr `jenisPerjanjianKerjasamaAsset.akunDp` / Cr `.akunUtangDp`, senilai `dp`, tanggal
+  `tanggal_persetujuan`, idiom `nilai > 0.1`. Tidak ada Dr X / Cr X.
+- Kedua SQL batal (massal dan per baris) berbentuk benar:
+  `delete from akunting.grup_transaksi where perjanjian_kerjasama_master_asset=<id>
+  and closing is null`.
+- Jenis riwayat kedua jalur `JENIS_PERJANJIAN_KERJASAMA`; kedua jalur mengecap dokumen;
+  tipe entitas hasil `initCriteria` konsisten (tidak ada cacat ClassCastException gaya
+  batal massal Penggajian).
+
+Satu TEMUAN dicatat tanpa perubahan kode: pada tombol posting PER BARIS, ternary
+satuan kerja memilih satker entitas lebih dulu, tetapi blok `if` tepat di bawahnya
+MENIMPANYA dengan `tbmuser.ambilSatuanKerja()` bila pengguna punya satker — sehingga
+jurnal manual per baris beratribusi satker petugas, sedangkan tombol massal dan mesin
+memakai satker dokumen. Ada preseden idiom satker-petugas di keluarga asset (Termin
+memakainya di kedua jalur), jadi ini tidak dikoreksi sepihak — bila tim akuntansi
+memutuskan atribusi satker dokumen yang benar, hapus blok penimpa itu.
+
 ## 2. Pengujian
 
 Harness `TesPostingPerjanjian` (scratchpad, DB UAT lokal `ais`), fixture `UATPKS-` pada
