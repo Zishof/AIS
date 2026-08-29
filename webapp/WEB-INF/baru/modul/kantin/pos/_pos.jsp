@@ -1814,7 +1814,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         if (appliedRule) {
             let discountValue = 0;
-            const itemTotalBeforeDisc = item.harga * item.jumlah;
+            const itemTotalBeforeDisc = hargaEfektif<%=rnd%>(item) * item.jumlah; // Fase A: grosir dulu
             const persen = parseFloat(appliedRule.persentase) || 0;
             const maxPot = parseFloat(appliedRule.maksimal_potongan) || 0;
             const nom = parseFloat(appliedRule.nominal) || 0;
@@ -1857,11 +1857,46 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
 
+    // ===== Fase A pelengkap kanal web: pratinjau harga grosir (dok. 51) =====
+    // Peta hargaGrosir diambil dari aksi diskon_evaluasi -- server menjalankan
+    // HargaGrosirApiHelper.terapkanKeItems yang SAMA dengan bayar, jadi pratinjau
+    // keranjang dan struk tidak pernah berbeda pendapat; klien TIDAK menghitung
+    // ambang sendiri. Gagal jaringan = pratinjau kembali harga katalog; otoritas
+    // final tetap di bayar.
+    let petaGrosir<%=rnd%> = {};
+    let sidikGrosir<%=rnd%> = '';
+    const hargaEfektif<%=rnd%> = (item) => item.hargaGrosir != null ? item.hargaGrosir : item.harga;
+    const muatHargaGrosir<%=rnd%> = async () => {
+        try {
+            const payload = {
+                action: 'diskon_evaluasi',
+                toko_id: document.getElementById('idTokoSelected<%=rnd%>').value || null,
+                id_member: document.getElementById('idMemberSelected<%=rnd%>').value || null,
+                items: cart<%=rnd%>.map(it => ({ id: it.id, harga: it.harga, jumlah: it.jumlah, ekstra: it.ekstra || [] }))
+            };
+            if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
+            const res = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data && data.hargaGrosir) {
+                petaGrosir<%=rnd%> = data.hargaGrosir;
+                recalculateCart<%=rnd%>(); // sidik tidak berubah -> tidak memicu ambil ulang
+            }
+        } catch (e) { /* offline/galat: pratinjau tetap harga katalog */ }
+    };
+
     const recalculateCart<%=rnd%> = () => {
         // Reset akumulator keranjang setiap kali dihitung ulang
         if(arrAturanDiskon<%=rnd%>) {
             arrAturanDiskon<%=rnd%>.forEach(r => r.terpakai_di_keranjang = 0);
         }
+        // Fase A: harga grosir server diterapkan ke baris SEBELUM evaluasi diskon --
+        // urutan yang sama dengan bayar (grosir menetapkan harga, diskon memotong).
+        cart<%=rnd%>.forEach(it => {
+            const g = petaGrosir<%=rnd%>[String(it.id)];
+            it.hargaGrosir = g != null ? parseFloat(g) : null;
+        });
         cart<%=rnd%>.forEach(item => {
             // Gap-closure "Aktivasi Manual" -- baris yg promonya dipilih manual kasir (item.promoManual)
             // TETAP dihitung ulang (bukan dibekukan) supaya batas maksimal_potongan tetap akurat, tapi
@@ -1869,6 +1904,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             evaluateDiscount<%=rnd%>(item, item.promoManual ? item.promoManualAturanId : null);
         });
         renderCart<%=rnd%>();
+        // Ambil peta grosir hanya saat komposisi keranjang (id x jumlah) berubah.
+        const sidik = cart<%=rnd%>.map(it => it.id + 'x' + it.jumlah).join(',');
+        if (sidik !== sidikGrosir<%=rnd%>) {
+            sidikGrosir<%=rnd%> = sidik;
+            if (cart<%=rnd%>.length > 0) muatHargaGrosir<%=rnd%>();
+            else petaGrosir<%=rnd%> = {};
+        }
     };
 
     /**
@@ -2304,7 +2346,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 			kode_sesi_kas: sesiKasInfo<%=rnd%>.kodeSesiKas || null,
             keterangan: alasanTahan,
             transaksi: cart<%=rnd%>.map(item => ({
-                id: item.id, kode: item.kode, nama: item.nama, harga: item.harga, jumlah: item.jumlah,
+                id: item.id, kode: item.kode, nama: item.nama, harga: hargaEfektif<%=rnd%>(item), jumlah: item.jumlah,
                 diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback,
                 ekstra: item.ekstra || [] // Gap-closure "Produk Ekstra" -- kosong utk baris tanpa ekstra, byte-identical spt sebelumnya
             }))
@@ -2354,8 +2396,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 // yang sebenarnya tersimpan di server.
                 const ekstraList = item.ekstra || [];
                 const ekstraHargaPerParent = ekstraList.reduce((s, ek) => s + ((parseFloat(ek.harga) || 0) * (parseFloat(ek.jumlah) || 1)), 0);
-                const itemTotal = (item.harga * item.jumlah) - item.diskon + (ekstraHargaPerParent * item.jumlah);
-                subtotal += (item.harga * item.jumlah) + (ekstraHargaPerParent * item.jumlah);
+                const hargaBaris = hargaEfektif<%=rnd%>(item); // Fase A: harga grosir server menang
+                const itemTotal = (hargaBaris * item.jumlah) - item.diskon + (ekstraHargaPerParent * item.jumlah);
+                subtotal += (hargaBaris * item.jumlah) + (ekstraHargaPerParent * item.jumlah);
                 totalDiskon += item.diskon;
                 totalCashback += item.cashback;
 
@@ -2376,7 +2419,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                         '<div class="cart-thumb-<%=rnd%>"><i class="fas fa-box"></i></div>' +
                         '<div class="flex-grow-1">' +
                             '<div class="fw-bold text-dark" style="font-size:13px;">' + item.nama + '</div>' +
-                            '<div class="text-muted" style="font-size:11px;">' + formatRp<%=rnd%>(item.harga) + '</div>' +
+                            '<div class="text-muted" style="font-size:11px;">' +
+                                (item.hargaGrosir != null && item.hargaGrosir !== item.harga
+                                    ? '<span class="badge bg-success text-white rounded-pill me-1" style="font-size:9px;">Grosir</span>' + formatRp<%=rnd%>(hargaBaris) + ' <s class="opacity-50">' + formatRp<%=rnd%>(item.harga) + '</s>'
+                                    : formatRp<%=rnd%>(item.harga)) +
+                            '</div>' +
                             ekstraHtmlBaris +
                             (notePromo ? '<div class="mt-1">' + notePromo + '</div>' : '') +
                             '<button type="button" class="btn btn-link btn-sm p-0 mt-1 text-warning" data-bs-toggle="modal" data-bs-target="#modalPromoManual<%=rnd%>" onclick="bukaPickerPromoManual<%=rnd%>(' + index + ')"><i class="fas fa-tags me-1"></i>' + (item.promoManual ? 'Ubah promo item' : 'Pilih promo item') + '</button>' +
@@ -2703,7 +2750,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             	id: item.id,
                 kode: item.kode,
                 nama: item.nama,
-                harga: item.harga,
+                harga: hargaEfektif<%=rnd%>(item), // Fase A: efektif grosir; server tetap otoritatif
                 jumlah: item.jumlah,
                 diskon: item.diskon,
                 aturanDiskon: item.aturanDiskon, // Inject ID Promo ke backend

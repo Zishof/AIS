@@ -152,6 +152,21 @@ public final class ProduksiApiHelper {
    List list = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo").setLong("id", d.getId().longValue()).list();
    for (int i = 0; i < list.size(); i++) lines.put(baris((ProduksiDokumenBaris) list.get(i)));
    data.put("baris", lines); data.put("genealogi", genealogi(s, d.getId())); data.put("riwayatStatus", events(s, d.getId()));
+   // Fase D pelengkap (dok. 54 "layar menyusul bila diminta"): rincian WO menyertakan
+   // reservasi komponennya -- datanya sudah ditulis production_reservation sejak rilis.
+   if ("WO".equals(d.getDocumentType())) {
+    JSONArray res = new JSONArray();
+    List daftarRes = s.createQuery("from ReservasiStokProduksi where woId=:wo order by id")
+      .setLong("wo", d.getId().longValue()).list();
+    for (int i = 0; i < daftarRes.size(); i++) {
+     ReservasiStokProduksi r = (ReservasiStokProduksi) daftarRes.get(i);
+     JSONObject rj = new JSONObject();
+     rj.put("produkId", r.getProdukId()); rj.put("keterangan", nilai(r.getKeterangan()));
+     rj.put("qty", aman(r.getQty())); rj.put("qtySisa", aman(r.getQtySisa()));
+     rj.put("statusReservasi", r.getStatus()); res.put(rj);
+    }
+    data.put("reservasi", res);
+   }
    hasil.put("status", "00"); hasil.put("data", data); hasil.put("hakAkses", hak(ctx, jenis(request)));
   } finally { HibernateUtil.closeSessionQuietly(s); }
  }
