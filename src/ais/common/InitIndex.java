@@ -1700,46 +1700,149 @@ public class InitIndex {
 	 * mungkin melayani pola query lain.</p>
 	 */
 	private static void initIndexKrsMahasiswaKodeUnikSuperFast() {
-		String sql = "DO $ais$ "
-				+ "DECLARE v_keep text; r record; "
-				+ "BEGIN "
-				+ "SELECT ci.relname INTO v_keep "
-				+ "FROM pg_index pi "
-				+ "JOIN pg_class tc ON tc.oid = pi.indrelid "
-				+ "JOIN pg_namespace pn ON pn.oid = tc.relnamespace "
-				+ "JOIN pg_class ci ON ci.oid = pi.indexrelid "
-				+ "JOIN pg_attribute pa ON pa.attrelid = tc.oid AND pa.attname = 'kodeunik' AND NOT pa.attisdropped "
-				+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
-				+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
-				+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
-				+ "AND trim(pi.indkey::text) = pa.attnum::text "
-				+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
-				+ "ORDER BY CASE WHEN co.oid IS NOT NULL THEN 0 ELSE 1 END, "
-				+ "CASE WHEN pi.indisunique THEN 0 ELSE 1 END, ci.relname LIMIT 1; "
-				+ "IF v_keep IS NULL THEN "
-				+ "EXECUTE 'CREATE INDEX idx_krs_mahasiswa_kodeunik ON public.krs_mahasiswa (kodeunik)'; "
-				+ "v_keep := 'idx_krs_mahasiswa_kodeunik'; "
-				+ "END IF; "
-				+ "FOR r IN SELECT ci.relname AS index_name "
-				+ "FROM pg_index pi "
-				+ "JOIN pg_class tc ON tc.oid = pi.indrelid "
-				+ "JOIN pg_namespace pn ON pn.oid = tc.relnamespace "
-				+ "JOIN pg_class ci ON ci.oid = pi.indexrelid "
-				+ "JOIN pg_attribute pa ON pa.attrelid = tc.oid AND pa.attname = 'kodeunik' AND NOT pa.attisdropped "
-				+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
-				+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
-				+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
-				+ "AND trim(pi.indkey::text) = pa.attnum::text "
-				+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
-				+ "AND ci.relname <> v_keep AND co.oid IS NULL "
-				+ "LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.index_name); END LOOP; "
-				+ "END $ais$";
+		/*
+		 * Jangan memakai blok DO/EXECUTE di sini. CommonSqlHelper sengaja hanya
+		 * mengizinkan satu DDL pemeliharaan yang diawali CREATE/DROP/ALTER INDEX;
+		 * blok DO yang mengandung DROP akan (dan memang harus) dianggap injeksi.
+		 * Audit metadata + DDL berikut adalah migrasi internal InitIndex, dijalankan
+		 * lewat JDBC dengan identifier yang berasal dari katalog PostgreSQL dan
+		 * selalu di-quote sebelum dipakai.
+		 */
+		submitDdl(new Runnable() {
+			@Override
+			public void run() {
+				initIndexKrsMahasiswaKodeUnikJdbc();
+			}
+		});
+	}
+
+	private static void initIndexKrsMahasiswaKodeUnikJdbc() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.PreparedStatement lock = null;
+		java.sql.PreparedStatement cek = null;
+		java.sql.ResultSet rs = null;
+		java.sql.Statement ddl = null;
 		try {
-			eksekusiSql10Menit(sql);
-		} catch (Exception e) {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+
+			// Mencegah dua webapp yang memakai database sama membuat/menghapus index
+			// secara bersamaan saat Tomcat dinyalakan.
+			lock = session.connection().prepareStatement("SELECT pg_advisory_xact_lock(?)");
+			lock.setLong(1, 684773650711521L);
+			lock.executeQuery().close();
+
+			String katalog = "SELECT ci.relname, (co.oid IS NOT NULL) AS milik_constraint, "
+					+ "pg_get_indexdef(pi.indexrelid) AS definisi_index "
+					+ "FROM pg_index pi "
+					+ "JOIN pg_class tc ON tc.oid = pi.indrelid "
+					+ "JOIN pg_namespace pn ON pn.oid = tc.relnamespace "
+					+ "JOIN pg_class ci ON ci.oid = pi.indexrelid "
+					+ "JOIN pg_attribute pa ON pa.attrelid = tc.oid "
+					+ "AND pa.attname = 'kodeunik' AND NOT pa.attisdropped "
+					+ "LEFT JOIN pg_constraint co ON co.conindid = pi.indexrelid "
+					+ "WHERE pn.nspname = 'public' AND tc.relname = 'krs_mahasiswa' "
+					+ "AND pi.indisvalid AND pi.indisready AND pi.indnatts = 1 "
+					+ "AND trim(pi.indkey::text) = pa.attnum::text "
+					+ "AND pi.indexprs IS NULL AND pi.indpred IS NULL "
+					+ "ORDER BY CASE WHEN co.oid IS NOT NULL THEN 0 ELSE 1 END, "
+					+ "CASE WHEN pi.indisunique THEN 0 ELSE 1 END, "
+					+ "CASE WHEN ci.relname = 'idx_krs_mahasiswa_kodeunik' THEN 0 ELSE 1 END, "
+					+ "ci.relname";
+			cek = session.connection().prepareStatement(katalog);
+			rs = cek.executeQuery();
+			java.util.List<String> namaIndexes = new java.util.ArrayList<String>();
+			java.util.Set<String> indexConstraint = new java.util.HashSet<String>();
+			java.util.Map<String, String> signatureIndexes = new java.util.HashMap<String, String>();
+			String dipertahankan = null;
+			String signatureDipertahankan = null;
+			while (rs.next()) {
+				String nama = rs.getString(1);
+				String signature = signatureDefinisiIndex(rs.getString(3));
+				if (dipertahankan == null) {
+					dipertahankan = nama;
+					signatureDipertahankan = signature;
+				}
+				namaIndexes.add(nama);
+				signatureIndexes.put(nama, signature);
+				if (rs.getBoolean(2)) {
+					indexConstraint.add(nama);
+				}
+			}
+			rs.close();
+			rs = null;
+			cek.close();
+			cek = null;
+
+			ddl = session.connection().createStatement();
+			ddl.setQueryTimeout(600);
+			if (dipertahankan == null) {
+				ddl.executeUpdate("CREATE INDEX idx_krs_mahasiswa_kodeunik "
+						+ "ON public.krs_mahasiswa (kodeunik)");
+				dipertahankan = "idx_krs_mahasiswa_kodeunik";
+				signatureDipertahankan = "using btree (kodeunik)";
+				namaIndexes.add(dipertahankan);
+				signatureIndexes.put(dipertahankan, signatureDipertahankan);
+			}
+
+			for (int i = 0; i < namaIndexes.size(); i++) {
+				String nama = namaIndexes.get(i);
+				String signature = signatureIndexes.get(nama);
+				if (!nama.equals(dipertahankan) && !indexConstraint.contains(nama)
+						&& signatureDipertahankan != null
+						&& signatureDipertahankan.equals(signature)) {
+					ddl.executeUpdate("DROP INDEX IF EXISTS public." + quoteIdentifierIndex(nama));
+				}
+			}
+			tx.commit();
+		} catch (Throwable e) {
+			if (tx != null && tx.isActive()) {
+				try { tx.rollback(); } catch (Throwable rollback) {
+					ais.common.ErrorAuditUtil.record(rollback,
+							"InitIndex.initIndexKrsMahasiswaKodeUnikJdbc-rollback");
+				}
+			}
 			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit InitIndex.initIndexKrsMahasiswaKodeUnikSuperFast");
+					"auto-audit InitIndex.initIndexKrsMahasiswaKodeUnikJdbc");
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Throwable e) {
+				ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-rs-close");
+			}
+			try { if (cek != null) cek.close(); } catch (Throwable e) {
+				ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-cek-close");
+			}
+			try { if (lock != null) lock.close(); } catch (Throwable e) {
+				ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-lock-close");
+			}
+			try { if (ddl != null) ddl.close(); } catch (Throwable e) {
+				ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Throwable e) {
+					ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-clear");
+				}
+				try { session.disconnect(); } catch (Throwable e) {
+					ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-disconnect");
+				}
+				try { session.close(); } catch (Throwable e) {
+					ais.common.ErrorAuditUtil.record(e, "InitIndex.krsKodeUnik-close");
+				}
+			}
 		}
+	}
+
+	private static String quoteIdentifierIndex(String identifier) {
+		return "\"" + identifier.replace("\"", "\"\"") + "\"";
+	}
+
+	private static String signatureDefinisiIndex(String definisi) {
+		if (definisi == null) {
+			return null;
+		}
+		String normalized = normalisasiSqlIndex(definisi).toLowerCase(java.util.Locale.ENGLISH);
+		int using = normalized.indexOf(" using ");
+		return using < 0 ? normalized : normalized.substring(using + 1);
 	}
 
 	/**
