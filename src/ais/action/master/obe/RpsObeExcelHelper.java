@@ -109,7 +109,7 @@ public final class RpsObeExcelHelper {
 			writeCpl(workbook, styles, cpl, plCodes, cpmkCodes);
 			writeCpmk(workbook, styles, cpmk);
 			writeDescription(workbook, styles, session, kpm);
-			writeAgenda(workbook, styles, kpm, cpmk);
+			writeAgenda(workbook, styles, session, kpm, cpmk);
 			writeNotes(workbook, styles, kpm, perkuliahan);
 			writeMeta(workbook, kpm, perkuliahan);
 			workbook.setSheetHidden(workbook.getSheetIndex(META), true);
@@ -240,7 +240,7 @@ public final class RpsObeExcelHelper {
 
 	@SuppressWarnings("unchecked")
 	private static Map<String, ProfilLulusan> saveProfiles(Session s, List<MasterRow> rows, Jurusan jur, PerguruanTinggi pt, Counter c) {
-		List<ProfilLulusan> all = ConstantValues.simpleList(s.createCriteria(ProfilLulusan.class).list(), ProfilLulusan.class);
+		List<ProfilLulusan> all = ConstantValues.simpleList(s.createCriteria(ProfilLulusan.class), ProfilLulusan.class);
 		Map<String, ProfilLulusan> result = new LinkedHashMap<String, ProfilLulusan>();
 		for (MasterRow r : rows) {
 			ProfilLulusan x = r.id == null ? findProfile(all, jur, r.code) : (ProfilLulusan) s.get(ProfilLulusan.class, r.id);
@@ -257,7 +257,7 @@ public final class RpsObeExcelHelper {
 	@SuppressWarnings("unchecked")
 	private static Map<String, CapaianLulusan> saveCpls(Session s, List<MasterRow> rows, Jurusan jur,
 			PerguruanTinggi pt, Matakuliah mk, Counter c) {
-		List<CapaianLulusan> all = ConstantValues.simpleList(s.createCriteria(CapaianLulusan.class).list(), CapaianLulusan.class);
+		List<CapaianLulusan> all = ConstantValues.simpleList(s.createCriteria(CapaianLulusan.class), CapaianLulusan.class);
 		Map<String, CapaianLulusan> result = new LinkedHashMap<String, CapaianLulusan>();
 		for (MasterRow r : rows) {
 			CapaianLulusan x = r.id == null ? findCpl(all, jur, r.code) : (CapaianLulusan) s.get(CapaianLulusan.class, r.id);
@@ -273,9 +273,9 @@ public final class RpsObeExcelHelper {
 
 	@SuppressWarnings("unchecked")
 	private static Map<String, CapaianPembelajaranLulusan> saveCpmks(Session s, List<CpmkRow> rows,
-			Jurusan jur, PerguruanTinggi pt, Matakuliah mk, Counter c) {
+			Jurusan jur, PerguruanTinggi pt, Matakuliah mk, Counter c) throws Exception {
 		List<CapaianPembelajaranLulusan> all = ConstantValues.simpleList(
-				s.createCriteria(CapaianPembelajaranLulusan.class).list(), CapaianPembelajaranLulusan.class);
+				s.createCriteria(CapaianPembelajaranLulusan.class), CapaianPembelajaranLulusan.class);
 		Map<String, CapaianPembelajaranLulusan> result = new LinkedHashMap<String, CapaianPembelajaranLulusan>();
 		Map<String, List<CpmkRow>> groups = groupCpmk(rows);
 		for (Map.Entry<String, List<CpmkRow>> e : groups.entrySet()) {
@@ -330,12 +330,12 @@ public final class RpsObeExcelHelper {
 		Map<String, BahanKajian> bks = new LinkedHashMap<String, BahanKajian>();
 		Map<String, ReferensiLulusan> utama = new LinkedHashMap<String, ReferensiLulusan>();
 		Map<String, ReferensiLulusan> pendukung = new LinkedHashMap<String, ReferensiLulusan>();
-		List<BahanKajian> allBk = ConstantValues.simpleList(s.createCriteria(BahanKajian.class).list(), BahanKajian.class);
-		List<ReferensiLulusan> allRef = ConstantValues.simpleList(s.createCriteria(ReferensiLulusan.class).list(), ReferensiLulusan.class);
+		List<BahanKajian> allBk = ConstantValues.simpleList(s.createCriteria(BahanKajian.class), BahanKajian.class);
+		List<ReferensiLulusan> allRef = ConstantValues.simpleList(s.createCriteria(ReferensiLulusan.class), ReferensiLulusan.class);
 		for (DescriptionRow r : rows) {
 			if ("FIELD".equals(r.type)) { fields.put(r.code, r.name); continue; }
 			if ("BAHAN_KAJIAN".equals(r.type)) {
-				BahanKajian x = findBk(allBk, jur, r.code); boolean insert = x == null;
+				BahanKajian x = findBk(allBk, jur, r.code, r.name); boolean insert = x == null;
 				if (insert) { x = new BahanKajian(); x.setKode(r.code); x.setJurusan(jur); x.setPerguruanTinggi(pt); x.setKhususBuatMk(mk); }
 				x.setNama(r.name); x.setKeterangan(nullIfEmpty(r.description)); x.setAktif(r.active);
 				if (insert) { s.save(x); allBk.add(x); counter.inserted++; } else { s.update(x); counter.updated++; }
@@ -358,7 +358,7 @@ public final class RpsObeExcelHelper {
 	}
 
 	private static String buildAgendaJson(List<AgendaRow> rows,
-			Map<String, CapaianPembelajaranLulusan> cpmks, Session session) {
+			Map<String, CapaianPembelajaranLulusan> cpmks, Session session) throws Exception {
 		JSONObject root = new JSONObject(); int n = 0;
 		Map<String, JSONObject> subByCode = subCpmkLookup(cpmks);
 		for (AgendaRow r : rows) {
@@ -391,7 +391,7 @@ public final class RpsObeExcelHelper {
 		kpm.setPemetaanSoalUas(trim(m.get("PEMETAAN_SOAL_UAS")));
 	}
 
-	private static String buildCqiJson(List<NoteRow> rows) {
+	private static String buildCqiJson(List<NoteRow> rows) throws Exception {
 		JSONArray result = new JSONArray();
 		for (NoteRow r : rows) if ("CQI".equals(r.type)) {
 			JSONObject o = new JSONObject(); o.put("cpmk", r.key); o.put("masalah", r.problem);
@@ -488,11 +488,11 @@ public final class RpsObeExcelHelper {
 		finish(sh,r,4,new int[]{24,28,75,70,12});addYesNo(sh,4,FIRST,Math.max(FIRST+300,r));
 	}
 
-	private static void writeAgenda(XSSFWorkbook wb,Styles st,KurikulumPunyaMatakuliah kpm,List<CapaianPembelajaranLulusan> cpmks){
+	private static void writeAgenda(XSSFWorkbook wb,Styles st,Session session,KurikulumPunyaMatakuliah kpm,List<CapaianPembelajaranLulusan> cpmks) throws Exception {
 		XSSFSheet sh=dataSheet(wb,st,AGENDA,"7. RINCIAN / AGENDA",new String[]{"Kunci","Mulai Minggu","Sampai Minggu","Sub-CPMK 1","Sub-CPMK 2","Sub-CPMK 3","Sub-CPMK 4","Sub-CPMK 5","Indikator","Teknik & Kriteria","Metode Pembelajaran","Pembelajaran Luring","Pembelajaran Daring","Pengalaman Belajar","Kode Bahan Kajian","Kode Pustaka Utama","Kode Pustaka Pendukung"});
 		JSONObject root=object(kpm.getRincian());List<JSONObject> items=agendaItems(root);int r=FIRST;for(JSONObject o:items){XSSFRow row=sh.createRow(r++);put(row,0,o.optString("keyData",""),st.readOnly);put(row,1,o.optInt("mulaiMingguKe",0),st.inputCenter);put(row,2,o.optInt("sampaiMingguKe",0),st.inputCenter);
 			for(int i=0;i<5;i++){String suf=i==0?"":String.valueOf(i+1);put(row,3+i,codeFromLabel(o.optString("sub_cpmk_des"+suf,"")),st.input);}
-			put(row,8,o.optString("indikator",""),st.input);put(row,9,o.optString("teknikDanKriteria",""),st.input);put(row,10,o.optString("metodePembelajaran",""),st.input);put(row,11,o.optString("pembelajaranLuring",""),st.input);put(row,12,o.optString("pembelajaranDaring",""),st.input);put(row,13,o.optString("pengalamanBelajar",""),st.input);put(row,14,jsonCodes(o.optJSONObject("bahanKajians")),st.input);put(row,15,jsonCodes(o.optJSONObject("pustakaUtamas")),st.input);put(row,16,jsonCodes(o.optJSONObject("pustakaPendukungs")),st.input);}
+			put(row,8,o.optString("indikator",""),st.input);put(row,9,o.optString("teknikDanKriteria",""),st.input);put(row,10,o.optString("metodePembelajaran",""),st.input);put(row,11,o.optString("pembelajaranLuring",""),st.input);put(row,12,o.optString("pembelajaranDaring",""),st.input);put(row,13,o.optString("pengalamanBelajar",""),st.input);put(row,14,jsonCodes(session,BahanKajian.class,o.optJSONObject("bahanKajians")),st.input);put(row,15,jsonCodes(session,ReferensiLulusan.class,o.optJSONObject("pustakaUtamas")),st.input);put(row,16,jsonCodes(session,ReferensiLulusan.class,o.optJSONObject("pustakaPendukungs")),st.input);}
 		finish(sh,r,16,new int[]{18,15,15,18,18,18,18,18,55,55,45,45,45,45,35,35,35});
 	}
 
@@ -510,9 +510,9 @@ public final class RpsObeExcelHelper {
 	private static Map<String,String> readKeyValues(XSSFSheet sh,String name){checkHeader(sh,name,"Kode Field");Map<String,String> m=new LinkedHashMap<String,String>();for(int r=FIRST;r<=sh.getLastRowNum();r++){String k=keyUpper(value(sh,r,0));if(!notEmpty(k))continue;if(m.containsKey(k))throw new IllegalArgumentException(name+" baris "+(r+1)+": kode field duplikat '"+k+"'.");m.put(k,value(sh,r,1));}return m;}
 	private static List<MasterRow> readMasterRows(XSSFSheet sh,String name,int cols){checkHeader(sh,name,"ID Sistem");List<MasterRow> out=new ArrayList<MasterRow>();Set<String> codes=new HashSet<String>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,cols))continue;MasterRow x=new MasterRow();x.location=name+" baris "+(r+1);x.id=parseLongNullable(value(sh,r,0),x.location+" ID");x.code=trim(value(sh,r,1));x.name=trim(value(sh,r,2));x.description=trim(value(sh,r,3));if(PL.equals(name)){x.reference=trim(value(sh,r,4));x.relations=trim(value(sh,r,5));x.active=parseBoolean(value(sh,r,6),x.location+" Aktif");}else{x.category=trim(value(sh,r,4));x.reference=trim(value(sh,r,5));x.relations=trim(value(sh,r,6));x.active=parseBoolean(value(sh,r,7),x.location+" Aktif");}if(!notEmpty(x.code)||!notEmpty(x.name))throw new IllegalArgumentException(x.location+": kode dan nama wajib diisi.");if(!codes.add(key(x.code)))throw new IllegalArgumentException(x.location+": kode duplikat '"+x.code+"'.");out.add(x);}return out;}
 	private static List<CpmkRow> readCpmkRows(XSSFSheet sh){checkHeader(sh,CPMK,"ID CPMK");List<CpmkRow> out=new ArrayList<CpmkRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,10))continue;CpmkRow x=new CpmkRow();x.location=CPMK+" baris "+(r+1);x.id=parseLongNullable(value(sh,r,0),x.location+" ID");x.cpmkCode=trim(value(sh,r,1));x.cpmkName=trim(value(sh,r,2));x.cpmkWeight=parseDoubleNullable(value(sh,r,3),x.location+" Bobot CPMK");x.cpmkMinimum=parseDoubleNullable(value(sh,r,4),x.location+" Minimal CPMK");x.subCode=trim(value(sh,r,5));x.subName=trim(value(sh,r,6));x.subWeight=parseDoubleNullable(value(sh,r,7),x.location+" Bobot Sub-CPMK");x.subMinimum=parseDoubleNullable(value(sh,r,8),x.location+" Minimal Sub-CPMK");x.mapping=trim(value(sh,r,9));if(!notEmpty(x.cpmkCode)||!notEmpty(x.cpmkName))throw new IllegalArgumentException(x.location+": kode dan nama CPMK wajib diisi.");if(notEmpty(x.subCode)!=notEmpty(x.subName))throw new IllegalArgumentException(x.location+": kode dan nama Sub-CPMK harus diisi bersama.");out.add(x);}return out;}
-	private static List<DescriptionRow> readDescriptionRows(XSSFSheet sh){checkHeader(sh,DESC,"Tipe Data");List<DescriptionRow> out=new ArrayList<DescriptionRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,5))continue;DescriptionRow x=new DescriptionRow();x.location=DESC+" baris "+(r+1);x.type=keyUpper(value(sh,r,0));x.code=keyUpper(value(sh,r,1));x.name=trim(value(sh,r,2));x.description=trim(value(sh,r,3));x.active=parseBoolean(value(sh,r,4),x.location+" Aktif");if(!("FIELD".equals(x.type)||"BAHAN_KAJIAN".equals(x.type)||"PUSTAKA_UTAMA".equals(x.type)||"PUSTAKA_PENDUKUNG".equals(x.type)))throw new IllegalArgumentException(x.location+": Tipe Data tidak dikenal.");if(!notEmpty(x.code))throw new IllegalArgumentException(x.location+": Kode/Field wajib diisi.");out.add(x);}return out;}
+	private static List<DescriptionRow> readDescriptionRows(XSSFSheet sh){checkHeader(sh,DESC,"Tipe Data");List<DescriptionRow> out=new ArrayList<DescriptionRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,5))continue;DescriptionRow x=new DescriptionRow();x.location=DESC+" baris "+(r+1);x.type=keyUpper(value(sh,r,0));String rawCode=trim(value(sh,r,1));x.code="FIELD".equals(x.type)?keyUpper(rawCode):rawCode;x.name=trim(value(sh,r,2));x.description=trim(value(sh,r,3));x.active=parseBoolean(value(sh,r,4),x.location+" Aktif");if(!("FIELD".equals(x.type)||"BAHAN_KAJIAN".equals(x.type)||"PUSTAKA_UTAMA".equals(x.type)||"PUSTAKA_PENDUKUNG".equals(x.type)))throw new IllegalArgumentException(x.location+": Tipe Data tidak dikenal.");if(!notEmpty(x.code))throw new IllegalArgumentException(x.location+": Kode/Field wajib diisi.");out.add(x);}return out;}
 	private static List<AgendaRow> readAgendaRows(XSSFSheet sh){checkHeader(sh,AGENDA,"Kunci");List<AgendaRow> out=new ArrayList<AgendaRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,17))continue;AgendaRow x=new AgendaRow();x.location=AGENDA+" baris "+(r+1);x.start=parseInteger(value(sh,r,1),x.location+" Mulai Minggu");x.end=parseInteger(value(sh,r,2),x.location+" Sampai Minggu");for(int i=0;i<5;i++)x.subCodes[i]=trim(value(sh,r,3+i));x.indicator=trim(value(sh,r,8));x.criteria=trim(value(sh,r,9));x.method=trim(value(sh,r,10));x.offline=trim(value(sh,r,11));x.online=trim(value(sh,r,12));x.experience=trim(value(sh,r,13));x.bahanKajian=trim(value(sh,r,14));x.pustakaUtama=trim(value(sh,r,15));x.pustakaPendukung=trim(value(sh,r,16));if(x.start<1||x.end<x.start)throw new IllegalArgumentException(x.location+": rentang minggu tidak valid.");out.add(x);}return out;}
-	private static List<NoteRow> readNoteRows(XSSFSheet sh){checkHeader(sh,NOTE,"Tipe Data");List<NoteRow> out=new ArrayList<NoteRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,10))continue;NoteRow x=new NoteRow();x.location=NOTE+" baris "+(r+1);x.type=keyUpper(value(sh,r,0));x.key=keyUpper(value(sh,r,1));x.value=value(sh,r,2);x.problem=value(sh,r,3);x.analysis=value(sh,r,4);x.plan=value(sh,r,5);x.owner=value(sh,r,6);x.target=value(sh,r,7);x.status=value(sh,r,8);x.adminComment=value(sh,r,9);if(!("FIELD".equals(x.type)||"CQI".equals(x.type)))throw new IllegalArgumentException(x.location+": Tipe Data harus FIELD atau CQI.");if(!notEmpty(x.key))throw new IllegalArgumentException(x.location+": Kunci/Kode CPMK wajib diisi.");out.add(x);}return out;}
+	private static List<NoteRow> readNoteRows(XSSFSheet sh){checkHeader(sh,NOTE,"Tipe Data");List<NoteRow> out=new ArrayList<NoteRow>();for(int r=FIRST;r<=sh.getLastRowNum();r++){if(blankRow(sh,r,10))continue;NoteRow x=new NoteRow();x.location=NOTE+" baris "+(r+1);x.type=keyUpper(value(sh,r,0));String rawKey=trim(value(sh,r,1));x.key="FIELD".equals(x.type)?keyUpper(rawKey):rawKey;x.value=value(sh,r,2);x.problem=value(sh,r,3);x.analysis=value(sh,r,4);x.plan=value(sh,r,5);x.owner=value(sh,r,6);x.target=value(sh,r,7);x.status=value(sh,r,8);x.adminComment=value(sh,r,9);if(!("FIELD".equals(x.type)||"CQI".equals(x.type)))throw new IllegalArgumentException(x.location+": Tipe Data harus FIELD atau CQI.");if(!notEmpty(x.key))throw new IllegalArgumentException(x.location+": Kunci/Kode CPMK wajib diisi.");out.add(x);}return out;}
 
 	/* -------------------------------- utilities ------------------------------- */
 
@@ -528,7 +528,7 @@ public final class RpsObeExcelHelper {
 	private static String value(XSSFSheet sh,int r,int c){if(sh==null||sh.getRow(r)==null)return "";Cell cell=sh.getRow(r).getCell(c);if(cell==null)return "";return new DataFormatter(Locale.US).formatCellValue(cell).trim();}
 	private static void title(XSSFSheet sh,Styles st,String value,int cols){sh.addMergedRegion(new CellRangeAddress(0,0,0,cols-1));cell(sh,0,0,value).setCellStyle(st.title);}
 	private static Cell cell(XSSFSheet sh,int r,int c,String value){XSSFRow row=sh.getRow(r);if(row==null)row=sh.createRow(r);Cell cell=row.getCell(c);if(cell==null)cell=row.createCell(c);cell.setCellValue(value==null?"":value);return cell;}
-	private static void put(Row row,int col,Object value,CellStyle style){Cell cell=row.createCell(col);if(value instanceof Number)cell.setCellValue(((Number)value).doubleValue());else cell.setCellValue(value==null?"":String.valueOf(value));cell.setCellStyle(style);}
+	private static void put(Row row,int col,Object value,CellStyle style){Cell cell=row.createCell(col);if(value instanceof Number)cell.setCellValue(((Number)value).doubleValue());else cell.setCellValue(value==null?"":String.valueOf(value));if(style!=null)cell.setCellStyle(style);}
 	private static void raw(XSSFSheet sh,int row,String label,Object value){XSSFRow r=sh.createRow(row);put(r,0,label,null);put(r,1,value,null);}
 	private static void widths(XSSFSheet sh,int[] widths){for(int i=0;i<widths.length;i++)sh.setColumnWidth(i,Math.min(255,widths[i])*256);}
 	private static String date(Date d){return d==null?"":new SimpleDateFormat("dd-MM-yyyy").format(d);}
@@ -557,7 +557,7 @@ public final class RpsObeExcelHelper {
 	private static String removeKpmTokens(String csv,Long kpmId){List<String> out=new ArrayList<String>();String suffix="_"+kpmId;if(csv!=null)for(String x:csv.split(","))if(notEmpty(x)&&!trim(x).endsWith(suffix))out.add(trim(x));return join(out);}
 	private static String codeFromLabel(String s){String x=trim(s);int p=x.indexOf(' ');return p>0?x.substring(0,p):x;}
 
-	@SuppressWarnings("unchecked") private static <T> List<T> selected(Session s,Class<T> type,String csv){Set<Long> ids=parseIds(csv);if(ids.isEmpty())return new ArrayList<T>();return ConstantValues.simpleList(s.createCriteria(type).add(Restrictions.in("id",ids)).addOrder(Order.asc("kode")).list(),type);}
+	@SuppressWarnings("unchecked") private static <T> List<T> selected(Session s,Class<T> type,String csv){Set<Long> ids=parseIds(csv);if(ids.isEmpty())return new ArrayList<T>();return ConstantValues.simpleList(s.createCriteria(type).add(Restrictions.in("id",ids)).addOrder(Order.asc("kode")),type);}
 	private static Set<Long> parseIds(String csv){Set<Long> ids=new HashSet<Long>();if(csv!=null)for(String x:csv.split(","))try{if(notEmpty(x))ids.add(Long.valueOf(trim(x).split("_")[0]));}catch(Exception e){}return ids;}
 	private static Map<Long,String> codes(List<? extends Object> rows){Map<Long,String> m=new HashMap<Long,String>();for(Object x:rows){if(x instanceof ProfilLulusan)m.put(((ProfilLulusan)x).getId(),((ProfilLulusan)x).getKode());else if(x instanceof CapaianPembelajaranLulusan)m.put(((CapaianPembelajaranLulusan)x).getId(),((CapaianPembelajaranLulusan)x).getKode());}return m;}
 	private static String codesFromCsv(String csv,Map<Long,String> codes){List<String> out=new ArrayList<String>();for(Long id:parseIds(csv))if(codes.get(id)!=null)out.add(codes.get(id));return join(out);}
@@ -568,17 +568,17 @@ public final class RpsObeExcelHelper {
 	private static ProfilLulusan findProfile(List<ProfilLulusan> all,Jurusan jur,String code){for(ProfilLulusan x:all)if(sameJur(x.getJurusan(),jur)&&key(x.getKode()).equals(key(code)))return x;return null;}
 	private static CapaianLulusan findCpl(List<CapaianLulusan> all,Jurusan jur,String code){for(CapaianLulusan x:all)if(sameJur(x.getJurusan(),jur)&&key(x.getKode()).equals(key(code)))return x;return null;}
 	private static CapaianPembelajaranLulusan findCpmk(List<CapaianPembelajaranLulusan> all,Jurusan jur,String code){for(CapaianPembelajaranLulusan x:all)if(sameJur(x.getJurusan(),jur)&&key(x.getKode()).equals(key(code)))return x;return null;}
-	private static BahanKajian findBk(List<BahanKajian> all,Jurusan jur,String code){for(BahanKajian x:all)if((sameJur(x.getJurusan(),jur)||x.getJurusan()==null)&&key(x.getKode()).equals(key(code)))return x;return null;}
+	private static BahanKajian findBk(List<BahanKajian> all,Jurusan jur,String code,String name){for(BahanKajian x:all)if((sameJur(x.getJurusan(),jur)||x.getJurusan()==null)&&key(x.getKode()).equals(key(code)))return x;for(BahanKajian x:all)if((sameJur(x.getJurusan(),jur)||x.getJurusan()==null)&&key(x.getNama()).equals(key(name)))return x;return null;}
 	private static ReferensiLulusan findRef(List<ReferensiLulusan> all,String code,String name){for(ReferensiLulusan x:all)if(notEmpty(code)&&key(x.getKode()).equals(key(code)))return x;for(ReferensiLulusan x:all)if(key(x.getNama()).equals(key(name)))return x;return null;}
 	private static boolean sameJur(Jurusan a,Jurusan b){return a==null?b==null:b!=null&&a.getId()!=null&&a.getId().equals(b.getId());}
 	@SuppressWarnings("unchecked") private static String findCourseIds(Session s,String codes){String out="";for(String code:splitCodes(codes)){List<Matakuliah> l=s.createCriteria(Matakuliah.class).add(Restrictions.eq("kode",code)).setMaxResults(1).list();if(!l.isEmpty())out=appendCsv(out,String.valueOf(l.get(0).getId()));}return out;}
 	@SuppressWarnings("unchecked") private static String findLecturerIds(Session s,String ids){String out="";for(String id:splitCodes(ids)){try{Long x=Long.valueOf(id);if(s.get(Dosen.class,x)!=null)out=appendCsv(out,id);}catch(Exception e){List<Dosen> l=s.createCriteria(Dosen.class).add(Restrictions.eq("kode",id)).setMaxResults(1).list();if(!l.isEmpty())out=appendCsv(out,String.valueOf(l.get(0).getId()));}}return out;}
 	private static String lecturerIds(String ids){return trim(ids);}
 	private static String courseCodes(Session s,String ids){List<String> out=new ArrayList<String>();for(Long id:parseIds(ids)){Matakuliah m=(Matakuliah)s.get(Matakuliah.class,id);if(m!=null)out.add(m.getKode());}return join(out);}
-	private static Map<String,JSONObject> subCpmkLookup(Map<String,CapaianPembelajaranLulusan> cpmks){Map<String,JSONObject> m=new HashMap<String,JSONObject>();for(CapaianPembelajaranLulusan c:cpmks.values()){JSONArray a=array(c.getFormula());for(int i=0;i<a.length();i++){JSONObject s=a.optJSONObject(i);if(s==null)continue;JSONObject x=new JSONObject();x.put("label",s.optString("kode","")+" "+s.optString("nama",""));x.put("value",s.opt("key")+"_"+c.getId());m.put(key(s.optString("kode","")),x);}}return m;}
-	@SuppressWarnings("unchecked") private static JSONObject referenceJson(Session s,Class<?> type,String codes){JSONObject out=new JSONObject();for(String code:splitCodes(codes)){List<?> l=s.createCriteria(type).add(Restrictions.eq("kode",code)).setMaxResults(1).list();if(l.isEmpty())continue;Object x=l.get(0);Long id=null;String name="";if(x instanceof BahanKajian){id=((BahanKajian)x).getId();name=((BahanKajian)x).getNama();}else{id=((ReferensiLulusan)x).getId();name=((ReferensiLulusan)x).getNama();}JSONObject o=new JSONObject();o.put("id",id);o.put("nama",name);out.put(String.valueOf(id),o);}return out;}
-	private static List<JSONObject> agendaItems(JSONObject root){List<JSONObject> out=new ArrayList<JSONObject>();Iterator<String> it=root.keys();while(it.hasNext()){String k=it.next();JSONObject o=root.optJSONObject(k);if(o!=null){if(!o.has("keyData"))o.put("keyData",k);out.add(o);}}java.util.Collections.sort(out,new java.util.Comparator<JSONObject>(){public int compare(JSONObject a,JSONObject b){return a.optInt("mulaiMingguKe",0)-b.optInt("mulaiMingguKe",0);}});return out;}
-	private static String jsonCodes(JSONObject o){List<String> out=new ArrayList<String>();if(o!=null){Iterator<String> it=o.keys();while(it.hasNext()){JSONObject x=o.optJSONObject(it.next());if(x!=null){String n=x.optString("nama","");String c=codeFromLabel(n);if(notEmpty(c))out.add(c);}}}return join(out);}
+	private static Map<String,JSONObject> subCpmkLookup(Map<String,CapaianPembelajaranLulusan> cpmks) throws Exception {Map<String,JSONObject> m=new HashMap<String,JSONObject>();for(CapaianPembelajaranLulusan c:cpmks.values()){JSONArray a=array(c.getFormula());for(int i=0;i<a.length();i++){JSONObject s=a.optJSONObject(i);if(s==null)continue;JSONObject x=new JSONObject();x.put("label",s.optString("kode","")+" "+s.optString("nama",""));x.put("value",s.opt("key")+"_"+c.getId());m.put(key(s.optString("kode","")),x);}}return m;}
+	@SuppressWarnings("unchecked") private static JSONObject referenceJson(Session s,Class<?> type,String codes) throws Exception {JSONObject out=new JSONObject();for(String code:splitCodes(codes)){List<?> l=s.createCriteria(type).add(Restrictions.eq("kode",code)).setMaxResults(1).list();if(l.isEmpty())continue;Object x=l.get(0);Long id=null;String name="";if(x instanceof BahanKajian){id=((BahanKajian)x).getId();name=((BahanKajian)x).getNama();}else{id=((ReferensiLulusan)x).getId();name=((ReferensiLulusan)x).getNama();}JSONObject o=new JSONObject();o.put("id",id);o.put("nama",name);out.put(String.valueOf(id),o);}return out;}
+	private static List<JSONObject> agendaItems(JSONObject root) throws Exception {List<JSONObject> out=new ArrayList<JSONObject>();Iterator<String> it=root.keys();while(it.hasNext()){String k=it.next();JSONObject o=root.optJSONObject(k);if(o!=null){if(!o.has("keyData"))o.put("keyData",k);out.add(o);}}java.util.Collections.sort(out,new java.util.Comparator<JSONObject>(){public int compare(JSONObject a,JSONObject b){return a.optInt("mulaiMingguKe",0)-b.optInt("mulaiMingguKe",0);}});return out;}
+	private static String jsonCodes(Session session,Class<?> type,JSONObject o){List<String> out=new ArrayList<String>();if(o!=null){Iterator<String> it=o.keys();while(it.hasNext()){String id=it.next();String code="";try{Object entity=session.get(type,Long.valueOf(id));if(entity instanceof BahanKajian)code=((BahanKajian)entity).getKode();else if(entity instanceof ReferensiLulusan)code=((ReferensiLulusan)entity).getKode();}catch(Exception ignored){}JSONObject x=o.optJSONObject(id);if(!notEmpty(code)&&x!=null)code=x.optString("kode","");if(!notEmpty(code)&&x!=null)code=codeFromLabel(x.optString("nama",""));if(notEmpty(code))out.add(code);}}return join(out);}
 
 	private static final class ImportData{Map<String,String> mk,authority;List<MasterRow> profiles,cpls;List<CpmkRow> cpmks;List<DescriptionRow> descriptions;List<AgendaRow> agendas;List<NoteRow> notes;void validate(){Set<String> cplCodes=new HashSet<String>();for(MasterRow r:cpls)cplCodes.add(key(r.code));Set<String> cpmkCodes=new HashSet<String>();Set<String> subCodes=new HashSet<String>();for(CpmkRow r:cpmks){cpmkCodes.add(key(r.cpmkCode));if(notEmpty(r.subCode)&&!subCodes.add(key(r.subCode)))throw new IllegalArgumentException(r.location+": Kode Sub-CPMK duplikat '"+r.subCode+"'.");}for(MasterRow r:profiles)for(String c:splitCodes(r.relations))if(!cplCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPL terkait '"+c+"' tidak ada di sheet CPL.");for(MasterRow r:cpls)for(String c:splitCodes(r.relations))if(!cpmkCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPMK terkait '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");for(AgendaRow r:agendas)for(String c:r.subCodes)if(notEmpty(c)&&!subCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": Sub-CPMK '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");}}
 	private static final class MasterRow{String location,code,name,description,reference,category,relations;Long id;Boolean active;}

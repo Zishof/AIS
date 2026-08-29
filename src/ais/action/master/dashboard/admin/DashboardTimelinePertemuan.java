@@ -7055,7 +7055,9 @@ public class DashboardTimelinePertemuan extends MyWindow {
 											// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
 											// supaya pengguna tidak perlu menelusuri menu secara manual.
 											if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
-												tambahTombolTambahDataObe(vboxUtama, "Profil Lulusan", "pages/master/obe/profil_lulusan.zul");
+												tambahTombolAmbilDataObeAgenda(vboxUtama, "Profil Lulusan", pertemuan,
+														ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_PROFIL_LULUSAN,
+														eventListener);
 											}
 
 							vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
@@ -7081,7 +7083,9 @@ public class DashboardTimelinePertemuan extends MyWindow {
 									// Tombol pintas: buka layar entri datanya langsung dari peringatan ini,
 									// supaya pengguna tidak perlu menelusuri menu secara manual.
 									if (tpk.trim().equalsIgnoreCase("<ol></ol>")) {
-										tambahTombolTambahDataObe(vboxUtama, "Capaian Lulusan (CPL)", "pages/master/obe/capaian_lulusan.zul");
+										tambahTombolAmbilDataObeAgenda(vboxUtama, "Capaian Lulusan (CPL)", pertemuan,
+												ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_CAPAIAN_LULUSAN,
+												eventListener);
 									}
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardTimelinePertemuan.java:6923");
 						} finally {
@@ -7113,6 +7117,11 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										: capaianPembelajaranLulusanData.getNama());
 						vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe(
 								"<div style=\"font-size:12px;\">" + kodeCpmk + " " + namaCpmk + "</div>"));
+						if (capaianPembelajaranLulusanData.getId() == null) {
+							tambahTombolAmbilDataObeAgenda(vboxUtama, "CPMK", pertemuan,
+									ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.JENIS_CPMK,
+									eventListener);
+						}
 
 						if (!kpmNilaiMenggunakanCpmk) {
 							vboxUtama.appendChild(new ais.ui.util.MyHtmlIframe("<div style=\"font-size:14px;\"><u>"
@@ -9746,6 +9755,40 @@ public class DashboardTimelinePertemuan extends MyWindow {
 	 * @param judul  judul jendela sekaligus keterangan tombol.
 	 * @param srcZul path ZUL layar entri, relatif terhadap {@code /WEB-INF/z/x/y/}.
 	 */
+	private static void tambahTombolAmbilDataObeAgenda(org.zkoss.zk.ui.Component induk,
+			final String judul, final Pertemuan pertemuan, final String jenis,
+			final EventListener refreshListener) {
+		try {
+			if (induk == null || pertemuan == null) {
+				return;
+			}
+			MyToolbarbuttonConfig tombol = new MyToolbarbuttonConfig("Tambah", "/img/svg/plus-circle.svg");
+			tombol.setTooltiptext("Pilih " + judul + " khusus program studi mata kuliah ini");
+			tombol.setStyle("font-weight:bold;color:#b26a00;");
+			tombol.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					try {
+						ais.action.master.helper.obe.AmbilDataBanyakObeAgendaHelper.buka(
+								event.getTarget(), pertemuan, jenis, refreshListener);
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e,
+								"DashboardTimelinePertemuan.tambahTombolAmbilDataObeAgenda:" + jenis);
+						String pesan = e.getMessage();
+						if (pesan == null || pesan.trim().length() == 0) {
+							pesan = "Data " + judul + " belum dapat dibuka. Silakan periksa program studi mata kuliah.";
+						}
+						Messagebox.show(pesan, "Peringatan", Messagebox.OK, Messagebox.EXCLAMATION);
+					}
+				}
+			});
+			tombol.setParent(induk);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"DashboardTimelinePertemuan.tambahTombolAmbilDataObeAgenda:" + jenis);
+		}
+	}
+
 	private static void tambahTombolTambahDataObe(org.zkoss.zk.ui.Component induk, final String judul,
 			final String srcZul) {
 		try {

@@ -18,9 +18,12 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.ForwardEvent;
+import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Auxhead;
@@ -34,6 +37,7 @@ import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Foot;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Footer;
 import org.zkoss.zul.Group;
 import org.zkoss.zul.Hbox;
@@ -68,6 +72,7 @@ import ais.action.master.obe.CapaianLulusanAction;
 import ais.action.master.obe.CapaianPembelajaranLulusanAction;
 import ais.action.master.obe.ProfilLulusanAction;
 import ais.action.master.obe.ReferensiLulusanAction;
+import ais.action.master.obe.RpsObeExcelHelper;
 import ais.action.report.Report;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
@@ -1115,6 +1120,84 @@ public class RpsObeAction extends GenericAutowireComposer {
 			return;
 		}
 		tampilkanCetakHtml(kurikulumPunyaMatakuliah, perkuliahan);
+	}
+
+	/**
+	 * Mengunduh satu workbook XLSX yang memuat seluruh delapan tab RPS OBE.
+	 * Workbook menyimpan identitas RPS pada sheet metadata tersembunyi agar tidak
+	 * dapat diunggah ke mata kuliah yang berbeda secara tidak sengaja.
+	 */
+	public void onDownloadExcel(Event event) throws Exception {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			MyMessageboxConfig.show(Common.getBahasaConfig("Data Matakuliah dan Kurikulum harus diisi"),
+					Common.getBahasaConfig("Peringatan"), MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return;
+		}
+		try {
+			Long perkuliahanId = perkuliahan == null ? null : perkuliahan.getId();
+			byte[] data = RpsObeExcelHelper.exportWorkbook(kurikulumPunyaMatakuliah.getId(), perkuliahanId);
+			Filedownload.save(data, RpsObeExcelHelper.MIME_XLSX,
+					RpsObeExcelHelper.fileName(kurikulumPunyaMatakuliah));
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			MyMessageboxConfig.show("Format Excel RPS OBE tidak dapat diunduh. " + pesanKesalahanExcel(e),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		}
+	}
+
+	/**
+	 * Mengunggah kembali workbook hasil download. Validasi seluruh sheet dilakukan
+	 * sebelum transaksi database dimulai dan penyimpanan bersifat atomik.
+	 */
+	public void onUploadExcel(Event event) throws Exception {
+		if (kurikulumPunyaMatakuliah == null || kurikulumPunyaMatakuliah.getId() == null) {
+			throw new IllegalArgumentException("Pilih mata kuliah dan kurikulum terlebih dahulu.");
+		}
+		if (kurikulumPunyaMatakuliah.getDikunci() != null) {
+			throw new SecurityException("RPS OBE sudah dikunci dan tidak dapat di-upload.");
+		}
+		if (!bolehMengubahFiturObe(CFG_HAK_AKSES_UBAH_RPS_OBE, true)) {
+			throw new SecurityException("Anda tidak memiliki hak untuk memperbarui seluruh data RPS OBE.");
+		}
+		try {
+			UploadEvent uploadEvent = resolveUploadExcelEvent(event);
+			Media media = uploadEvent.getMedia();
+			if (media == null || media.getName() == null
+					|| !media.getName().toLowerCase().endsWith(".xlsx")) {
+				throw new IllegalArgumentException("File harus berformat Excel Open XML (.xlsx).");
+			}
+			if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) {
+				return;
+			}
+			Long perkuliahanId = perkuliahan == null ? null : perkuliahan.getId();
+			RpsObeExcelHelper.ImportResult result = RpsObeExcelHelper.importWorkbook(
+					media.getByteData(), kurikulumPunyaMatakuliah.getId(), perkuliahanId);
+			onSearchDefault(null);
+			MyMessageboxConfig.show(result.message(), "Pemberitahuan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			MyMessageboxConfig.show("Upload Excel RPS OBE gagal. " + pesanKesalahanExcel(e),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		}
+	}
+
+	private UploadEvent resolveUploadExcelEvent(Event event) {
+		Event origin = event;
+		while (origin instanceof ForwardEvent) {
+			origin = ((ForwardEvent) origin).getOrigin();
+		}
+		if (!(origin instanceof UploadEvent)) {
+			throw new IllegalArgumentException("Berkas upload tidak ditemukan. Silakan pilih ulang file XLSX.");
+		}
+		return (UploadEvent) origin;
+	}
+
+	private String pesanKesalahanExcel(Exception e) {
+		String message = e == null ? null : e.getMessage();
+		return message == null || message.trim().length() == 0
+				? "Silakan periksa format file dan coba kembali." : message;
 	}
 
 	/**

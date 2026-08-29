@@ -54,6 +54,14 @@
 					</div>
 					<div sclass="ais-crud-filter-actions ais-crud-data-actions">
 						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="downloadExcel" label="Download Excel" image="/img/download.png"
+							tooltiptext="Download format Excel lengkap untuk seluruh tab RPS OBE"
+							forward="onClick=onDownloadExcel"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="uploadExcel" label="Upload Excel" image="/img/upload.gif"
+							tooltiptext="Upload kembali format Excel lengkap RPS OBE (maksimal 10 MB)"
+							upload="true,maxsize=10240" forward="onUpload=onUploadExcel"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
 							id="find" label="Refresh" image="/img/Button-Refresh-icon.png"
 							tooltiptext="Muat ulang data" forward="onClick=onSearchDefault"/>
 						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
