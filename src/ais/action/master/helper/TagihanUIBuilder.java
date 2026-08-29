@@ -202,17 +202,8 @@ public class TagihanUIBuilder {
 					.parseInt(Common.getKonfigurasi("max_semester_pilihan", "25").getNilai().trim());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:202");
 		}
-		int batasSemesterPilihan = maxSemesterPilihan;
 		if (mahasiswa instanceof Mahasiswa) {
-			Integer semesterBerjalan = ((Mahasiswa) mahasiswa).currentSemester();
-			if (semesterBerjalan != null && semesterBerjalan > 0) {
-				// Batas loop bersifat eksklusif; +1 agar semester berjalan tetap tersedia.
-				batasSemesterPilihan = Math.min(maxSemesterPilihan, semesterBerjalan + 1);
-			}
-		}
-
-		if (mahasiswa instanceof Mahasiswa) {
-			for (int i = 1; i < batasSemesterPilihan; i++) {
+			for (int i = 1; i < maxSemesterPilihan; i++) {
 				Comboitem ci = new Comboitem(String.valueOf(i));
 				ci.setValue(i);
 				semesterMulai.appendChild(ci);
@@ -238,7 +229,7 @@ public class TagihanUIBuilder {
 		final Combobox semesterSampai = new Combobox();
 		row.appendChild(semesterSampai);
 
-		for (int i = 1; i < batasSemesterPilihan; i++) {
+		for (int i = 1; i < maxSemesterPilihan; i++) {
 			Comboitem ci = new Comboitem(String.valueOf(i));
 			ci.setValue(i);
 			semesterSampai.appendChild(ci);
@@ -246,9 +237,6 @@ public class TagihanUIBuilder {
 
 		if (actionInstance != null && actionInstance.getLastSelectedSmtSampai() != null) {
 			Integer smtTerakhir = actionInstance.getLastSelectedSmtSampai();
-			if (mahasiswa instanceof Mahasiswa) {
-				smtTerakhir = Math.min(smtTerakhir, ((Mahasiswa) mahasiswa).currentSemester());
-			}
 			Common.selectComboItem(semesterSampai, smtTerakhir);
 		} else {
 			Common.selectComboItem(semesterSampai,
