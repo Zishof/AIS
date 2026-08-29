@@ -16,6 +16,7 @@ import ais.database.model.obe.ProfilLulusan;
 import ais.database.model.obe.ReferensiLulusan;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyButtonTabbox;
+import ais.ui.util.MyInclude;
 import ais.ui.util.MyRowRenderer;
 import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
@@ -136,6 +137,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.setTombolMembungkus(true);
         Div panelDaftar = buttonTabboxUtama.tambahTab(1, "Capaian Lulusan (CPL)");
         panelDaftar.setStyle("overflow:auto;min-height:560px;padding-bottom:12px;box-sizing:border-box;");
+        tambahPenjelasanTab(panelDaftar, "Capaian Lulusan (CPL)",
+                "Daftar kemampuan yang wajib dimiliki lulusan program studi. Isi satu baris untuk "
+                + "setiap capaian, lengkap dengan kode, uraian CPL, kategori, dan program studi.");
 
         if (tabboxUtama.getTabpanels() != null
                 && !tabboxUtama.getTabpanels().getChildren().isEmpty()) {
@@ -156,6 +160,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(2, "CPL vs Profil", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
+                tambahPenjelasanTab(panel, "CPL vs Profil Lulusan",
+                        "Hubungkan CPL dengan Profil Lulusan. Centang profil yang didukung oleh CPL "
+                        + "pada setiap baris; satu CPL boleh mendukung lebih dari satu profil.");
                 Component rel =
                         new CapaianLulusanVsProfilLulusanAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
@@ -165,6 +172,9 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(3, "CPL vs Bahan Kajian", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
+                tambahPenjelasanTab(panel, "CPL vs Bahan Kajian",
+                        "Tentukan bahan kajian yang membentuk setiap CPL. Centang seluruh bahan kajian "
+                        + "yang relevan; satu CPL boleh memakai beberapa bahan kajian.");
                 Component rel =
                         new CapaianLulusanVsBahanKajianAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
@@ -174,21 +184,55 @@ public class CapaianLulusanAction extends ObeBaseAction {
         buttonTabboxUtama.tambahTabLazy(4, "CPL vs CPMK", new MyButtonTabbox.PemuatTab() {
             @Override
             public void muat(Div panel) throws Exception {
+                tambahPenjelasanTab(panel, "CPL vs CPMK",
+                        "Hubungkan CPL dengan CPMK yang berkontribusi mencapainya. Centang CPMK yang "
+                        + "sesuai agar pemetaan dan evaluasi ketercapaian pembelajaran dapat dilakukan.");
                 Component rel =
                         new CapaianLulusanVsCapaianPembelajaranLulusanAction("", "none", false);
 				pasangPanelRelasi(panel, rel);
 				siapkanPanelRelasi(panel);
             }
         });
-        buttonTabboxUtama.tambahTabZul(5, "Kategori CPL",
-                "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
+        buttonTabboxUtama.tambahTabLazy(5, "Kategori CPL", new MyButtonTabbox.PemuatTab() {
+            @Override
+            public void muat(Div panel) throws Exception {
+                tambahPenjelasanTab(panel, "Kategori CPL",
+                        "Kelompokkan CPL sesuai jenisnya: S (Sikap), P (Pengetahuan), KU "
+                        + "(Keterampilan Umum), dan KK (Keterampilan Khusus). Kategori bawaan dibuat "
+                        + "otomatis; tambahkan kategori lain hanya bila diperlukan oleh perguruan tinggi.");
+                MyInclude include = new MyInclude(
+                        "/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul");
+                include.setWidth("100%");
+                include.setHeight("100%");
+                include.setParent(panel);
+            }
+        });
 
         tabboxUtama.setParent(null);
         buttonTabboxUtama.pilih(1);
     }
 
     private void siapkanPanelRelasi(Div panel) {
-        panel.setStyle("overflow:hidden;min-height:560px;box-sizing:border-box;");
+        // Penjelasan berada di atas matriks; izinkan scroll agar matriks tidak
+        // terpotong ketika tinggi layar pengguna terbatas.
+        panel.setStyle("overflow:auto;min-height:560px;box-sizing:border-box;");
+    }
+
+    /** Menampilkan petunjuk singkat yang konsisten di bagian atas setiap tab CPL. */
+    private void tambahPenjelasanTab(Div panel, String judul, String penjelasan) {
+        Div info = new Div();
+        info.setSclass("ais-obe-page-help");
+        info.setStyle("margin:8px 10px;padding:10px 14px;border-left:4px solid #2563eb;"
+                + "background:#eff6ff;border-radius:6px;box-sizing:border-box;color:#1e3a5f;");
+        info.setParent(panel);
+
+        Label title = new Label(judul);
+        title.setStyle("display:block;font-weight:bold;margin-bottom:3px;color:#1d4ed8;");
+        title.setParent(info);
+
+        Label description = new Label(penjelasan);
+        description.setStyle("display:block;white-space:normal;line-height:1.45;");
+        description.setParent(info);
     }
 
     /**
