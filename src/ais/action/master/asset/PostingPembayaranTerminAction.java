@@ -1128,4 +1128,204 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 		});
 	}
 
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen yang SAMA dengan baris "Pembayaran Termin Vendor" di dasbor draft jurnal:
+	 * detail pembayaran termin yang induknya sudah disetujui, punya sumber akun kredit, dan nilai
+	 * dibayar tidak nol, pada rentang tanggal transaksi.
+	 *
+	 * <p>PERBEDAAN dari {@code initCriteria} layar: klausa tanggalnya DIBERI KURUNG. Versi layar
+	 * menulis "this_.tanggal_transaksi is null or date(...) between ..." telanjang di dalam
+	 * sqlRestriction; Hibernate tidak membungkusnya, sehingga presedensi AND/OR SQL membuat cabang
+	 * "between" lolos dari seluruh filter lain. Baris tanpa tanggal tetap ikut terpilih, mengikuti
+	 * maksud layar.</p>
+	 */
+	private static Criteria kriteriaPembayaranTerminStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(PembayaranTerminMasterAssetDetail.class)
+				.createAlias("pembayaranTerminMasterAsset", "pembayaranTerminMasterAsset")
+				.add(Restrictions.isNotNull("pembayaranTerminMasterAsset.disetujuiOleh"))
+				.createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+				.add(Restrictions.or(
+						Restrictions.isNotNull("pembayaranTerminMasterAsset.jenisPembayaranBarang"),
+						Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
+								Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
+				.add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null"
+					+ " or date(this_.tanggal_transaksi) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "'))"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA pembayaran termin vendor pada rentang -- jalur API dasbor Draft Jurnal POS.
+	 * Jurnal per dokumen mengikuti tombol layar: debet akun utang pekerjaan jenis pemesanan,
+	 * kredit akun utang penyedia pemesanan, senilai dibayar (&le; 0.1 memutar posisi); satuan
+	 * kerja diambil dari pengguna yang memposting, sama dengan layar. Penanda hanya dicap bila
+	 * jurnal tersimpan; riwayat diberi {@code posting=true} -- lihat catatan di
+	 * {@code PostingPembayaranAction.postingSemua}.
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPembayaranTerminStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			PostingHistory postingHistory = new PostingHistory(
+					PostingHistory.JENIS_PEMBAYARAN_TAGIHAN_TERMIN);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal pembayaran termin vendor dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			ais.database.model.rab.SatuanKerja satuanKerja = oleh == null ? null
+					: oleh.ambilSatuanKerja();
+
+			for (Object o : daftar) {
+				PembayaranTerminMasterAssetDetail d = (PembayaranTerminMasterAssetDetail) o;
+				if (d == null || d.getPemesananPengadaanMasterAsset() == null) {
+					continue;
+				}
+				try {
+					Akun akunDebet = d.getPemesananPengadaanMasterAsset()
+							.getJenisPemesananPengadaanAsset() == null ? null
+									: d.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
+											.getAkunUtangPekerjaan();
+					Akun akunKredit = d.getPemesananPengadaanMasterAsset().getPenyedia() == null ? null
+							: d.getPemesananPengadaanMasterAsset().getPenyedia().getAkunUtang();
+					Double nilai = d.getDibayar();
+					if (akunDebet == null || akunKredit == null) {
+						continue;
+					}
+
+					String ket = "Pembayaran termin pembayaran tagihan sebanyak "
+							+ Common.numberFormat.get().format(nilai);
+					try {
+						ket = "Pembayaran termin pembayaran tagihan \""
+								+ d.getPemesananPengadaanMasterAsset().getKodeInvoice() + "-"
+								+ d.getPemesananPengadaanMasterAsset().getPenyedia().getNama() + "-"
+								+ d.getKeterangan() + "\" sebanyak "
+								+ Common.numberFormat.get().format(nilai);
+					} catch (Exception e) {
+						// Pemesanannya boleh tidak lengkap; kalimat baku di atas tetap terpakai.
+					}
+
+					boolean tersimpan;
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					if (nilai > 0.1) {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunDebet },
+								new Akun[] { akunKredit }, null, null, postingHistory, true, ket,
+								d.getTanggalTransaksi(), new Double[] { nilai }, new Double[] { nilai },
+								0.0, d, satuanKerja, session);
+					} else {
+						tersimpan = CommonAkunting.saveTransaksi(new Akun[] { akunKredit },
+								new Akun[] { akunDebet }, null, null, postingHistory, true, ket,
+								d.getTanggalTransaksi(), new Double[] { nilai }, new Double[] { nilai },
+								0.0, d, satuanKerja, session);
+					}
+					if (tersimpan) {
+						d.setPostingHistory(postingHistory);
+						session.update(d);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingPembayaranTerminAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "jalur API dasbor draft jurnal");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA dokumen terposting pada rentang: jurnal turunannya dihapus (baris
+	 * transaksi lebih dulu, lalu grupnya -- hanya yang belum closing), kemudian penandanya dilepas.
+	 * Layar ZK menghapus grup_transaksi langsung tanpa membersihkan baris transaksinya.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPembayaranTerminStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				PembayaranTerminMasterAssetDetail d = (PembayaranTerminMasterAssetDetail) o;
+				if (d == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where pembayaran_termin_master_asset_detail="
+							+ d.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery("delete from akunting.grup_transaksi where pembayaran_termin_master_asset_detail="
+							+ d.getId() + " and closing is null").executeUpdate();
+					d.setPostingHistory(null);
+					session.update(d);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "kriteriaPembayaranTerminStatic jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }

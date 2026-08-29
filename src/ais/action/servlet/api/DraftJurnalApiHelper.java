@@ -103,6 +103,11 @@ public final class DraftJurnalApiHelper {
         if ("Mahasiswa - Biaya Payment Gateway".equals(namaBaris)) return "mahasiswa_biaya_pg";
         if ("Gaji".equals(namaBaris)) return "gaji";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
+        // Jurnal pembayaran menempel pada dokumen sumbernya, mengikuti prinsip baris lain:
+        // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
+        if ("Pembayaran Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
+        if ("Pembayaran DP Vendor".equals(namaBaris)) return "pengadaan_po";
+        if ("Pembayaran Termin Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         if ("Pekerjaan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Rantai DP vendor. Kuncinya mengikuti DOKUMEN yang dijurnal, bukan jenis
         // jurnalnya: DP Vendor dan jurnal baliknya melekat pada pemesanan (pengadaan_po),
@@ -246,6 +251,24 @@ public final class DraftJurnalApiHelper {
                             tbmuser, new Date())
                     : ais.action.master.asset.PostingPemesananPekerjaanAction.batalkanPostingSemua(mulai,
                             sampai);
+        } else if ("Pembayaran Tagihan Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPembayaranAction.postingSemua(mulai, sampai,
+                        tbmuser, new Date())
+                    : ais.action.master.asset.PostingPembayaranAction.batalkanPostingSemua(mulai,
+                        sampai);
+        } else if ("Pembayaran DP Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPembayaranDpAction.postingSemua(mulai, sampai,
+                        tbmuser, new Date())
+                    : ais.action.master.asset.PostingPembayaranDpAction.batalkanPostingSemua(mulai,
+                        sampai);
+        } else if ("Pembayaran Termin Vendor".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PostingPembayaranTerminAction.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PostingPembayaranTerminAction.batalkanPostingSemua(
+                        mulai, sampai);
         } else if ("Dana Talangan".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.akunting.PostingDanaTalanganAction.postingSemua(mulai, sampai,

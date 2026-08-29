@@ -457,6 +457,10 @@ public class Produk extends GeneralValueObject {
 	public static final String RUTE_BELI = "BELI";
 	/** Rute pemenuhan {@link #getRute()}: produksi sendiri (ambang stok memicu draf WO). */
 	public static final String RUTE_PRODUKSI = "PRODUKSI";
+	/** Rute MTO (Fase E): konfirmasi SalesOrderLapangan memicu pengajuan pembelian. */
+	public static final String RUTE_MTO_BELI = "MTO_BELI";
+	/** Rute MTO (Fase E): konfirmasi SalesOrderLapangan memicu draf Work Order. */
+	public static final String RUTE_MTO_PRODUKSI = "MTO_PRODUKSI";
 
 	private String rute;
 
@@ -473,6 +477,23 @@ public class Produk extends GeneralValueObject {
 
 	public void setRute(String rute) {
 		this.rute = rute;
+	}
+
+	private Boolean perluQc;
+
+	/**
+	 * QC hasil produksi (Fase E dok. 48 P6): {@code true} = tiap dokumen OUTPUT POSTED yang
+	 * memuat produk ini otomatis menerbitkan dokumen Quality Alert dan MENGKARANTINA batch
+	 * ber-lot yang sama ({@code ProdukBatch.STATUS_KARANTINA}) sampai didisposisi.
+	 * {@code null}/false = perilaku lama, tanpa QC -- katalog lama tidak berubah makna.
+	 */
+	@Column(name = "perlu_qc", nullable = true)
+	public Boolean getPerluQc() {
+		return perluQc;
+	}
+
+	public void setPerluQc(Boolean perluQc) {
+		this.perluQc = perluQc;
 	}
 
 	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */

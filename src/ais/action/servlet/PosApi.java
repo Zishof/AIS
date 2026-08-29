@@ -1203,6 +1203,8 @@ public class PosApi extends HttpServlet {
 				ProduksiApiHelper.simpan(tbmuser, payload, hasil);
 			} else if ("produksi_status".equals(action)) {
 				ProduksiApiHelper.ubahStatus(tbmuser, payload, hasil);
+			} else if ("produksi_qc_disposisi".equals(action)) {
+				ProduksiApiHelper.qcDisposisi(tbmuser, payload, hasil);
 			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
@@ -1329,8 +1331,10 @@ public class PosApi extends HttpServlet {
 				j.put("satuanPembelianId", p.getSatuanPembelian() == null || p.getSatuanPembelian().getId() == null
 						? JSONObject.NULL : p.getSatuanPembelian().getId());
 				j.put("satuanPembelianNama", p.getSatuanPembelian() == null ? "" : str(p.getSatuanPembelian().getNama()));
-				// Fase C: rute pemenuhan ulang (BELI/PRODUKSI, kosong = BELI) utk form Produk.
+				// Fase C: rute pemenuhan ulang (BELI/PRODUKSI/MTO_*, kosong = BELI) utk form Produk.
 				j.put("rute", p.getRute() == null ? "" : p.getRute());
+				// Fase E: tanda QC hasil produksi utk form Produk.
+				j.put("perluQc", Boolean.TRUE.equals(p.getPerluQc()));
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
 				// Diisi ulang (bila ada) SETELAH loop ini lewat batch query -- default kosong dulu di

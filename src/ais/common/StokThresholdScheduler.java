@@ -247,47 +247,17 @@ public final class StokThresholdScheduler {
 		Long tokoId = produk.getToko().getId();
 		String kunci = "AUTO-AMBANG:" + produk.getId() + ":" + gudang.getId();
 
-		Number sudahAda = (Number) session.createQuery(
-				"select count(*) from ProduksiDokumen where documentType='WO' and tokoId=:toko"
-						+ " and referenceNo=:kunci and status in ('DRAFT','RELEASED','IN_PROGRESS')")
-				.setLong("toko", tokoId.longValue()).setString("kunci", kunci).uniqueResult();
-		if (sudahAda != null && sudahAda.longValue() > 0) {
+		// Fase E: mesin draf-WO dipusatkan di ProduksiApiHelper.buatWoDrafOtomatis (dipakai juga
+		// MTO dan disposisi REWORK QC) -- idempoten dan pencarian BOM ada di sana, bukan salinan.
+		Long woBaru = ais.action.servlet.api.ProduksiApiHelper.buatWoDrafOtomatis(session,
+				tokoId.longValue(), produk.getId(), java.math.BigDecimal.valueOf(saranQty), kunci,
+				"Draf otomatis ambang stok: " + produk.getNama() + " di gudang " + gudang.getNama()
+						+ " = " + totalStok + " (ambang " + ambang.getAmbangMinimum()
+						+ (ambang.getMaxQty() == null ? "" : ", target " + ambang.getMaxQty())
+						+ "). Rute PRODUKSI.");
+		if (woBaru == null) {
 			return false;
 		}
-
-		// BOM aktif yang barisnya menghasilkan (OUTPUT) produk ini -- terbaru menang.
-		Long bomId = null;
-		try {
-			java.util.List bomIds = session.createQuery(
-					"select d.id from ProduksiDokumen d, ProduksiDokumenBaris b"
-							+ " where b.documentId=d.id and d.documentType='BOM' and d.status='ACTIVE'"
-							+ " and d.tokoId=:toko and b.lineType='OUTPUT' and b.itemId=:produk"
-							+ " order by d.updatedAt desc, d.id desc")
-					.setLong("toko", tokoId.longValue()).setLong("produk", produk.getId().longValue())
-					.setMaxResults(1).list();
-			if (!bomIds.isEmpty()) {
-				bomId = (Long) bomIds.get(0);
-			}
-		} catch (Exception eBom) {
-			ErrorAuditUtil.record(eBom, "auto-audit src/ais/common/StokThresholdScheduler.java:cariBom");
-		}
-
-		ProduksiDokumen wo = new ProduksiDokumen();
-		wo.setTokoId(tokoId);
-		wo.setDocumentType("WO");
-		wo.setDocumentNo("WO-AUTO-" + System.currentTimeMillis());
-		wo.setStatus("DRAFT");
-		wo.setReferenceNo(kunci);
-		wo.setBomId(bomId);
-		wo.setPlannedQty(java.math.BigDecimal.valueOf(saranQty));
-		wo.setUom(produk.getSatuan() == null ? null : produk.getSatuan().getNama());
-		wo.setPlannedAt(ais.ui.util.WaktuUtil.getDate());
-		wo.setCreatedBy("SYSTEM");
-		wo.setNotes("Draf otomatis ambang stok: " + produk.getNama() + " di gudang " + gudang.getNama()
-				+ " = " + totalStok + " (ambang " + ambang.getAmbangMinimum()
-				+ (ambang.getMaxQty() == null ? "" : ", target " + ambang.getMaxQty()) + "). Rute PRODUKSI."
-				+ (bomId == null ? " BELUM ADA BOM AKTIF utk produk ini -- buat/aktifkan BOM lalu lengkapi WO." : ""));
-		session.save(wo);
 
 		kirimNotifikasi(session, ambang, gudang, totalStok, false, null);
 		return true;

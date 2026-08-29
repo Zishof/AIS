@@ -4139,13 +4139,19 @@ public class KantinHelper {
 				String rute = request.isNull("rute") ? "" : request.optString("rute", "").trim().toUpperCase();
 				if (rute.isEmpty()) {
 					p.setRute(null);
-				} else if (Produk.RUTE_BELI.equals(rute) || Produk.RUTE_PRODUKSI.equals(rute)) {
+				} else if (Produk.RUTE_BELI.equals(rute) || Produk.RUTE_PRODUKSI.equals(rute)
+						|| Produk.RUTE_MTO_BELI.equals(rute) || Produk.RUTE_MTO_PRODUKSI.equals(rute)) {
 					p.setRute(rute);
 				} else {
 					hasil.put("status", "91");
-					hasil.put("description", "Rute pemenuhan tidak dikenal: pilih BELI atau PRODUKSI.");
+					hasil.put("description",
+							"Rute pemenuhan tidak dikenal: pilih BELI, PRODUKSI, MTO_BELI, atau MTO_PRODUKSI.");
 					return;
 				}
+			}
+			// Fase E dok. 48 P6: tanda produk wajib QC saat hasil produksi diposting.
+			if (request.has("perlu_qc")) {
+				p.setPerluQc(Boolean.valueOf(request.optBoolean("perlu_qc", false)));
 			}
 			// Gap-closure "Produk Ekstra" -- JSON array id mentah (mis. "[601,602]"), disimpan apa
 			// adanya, TIDAK di-snapshot spt bahan_baku -- lihat JavaDoc Produk.getEkstraPilihan().
@@ -14240,7 +14246,9 @@ public class KantinHelper {
 	}
 
 	/** Simpan satu baris buku besar batch setelah saldo batch berubah. */
-	private static void catatMutasiBatch(Session session, ProdukBatch batch, String jenis, double masuk,
+	// package-visible: dipakai juga ProduksiApiHelper (Fase E, karantina QC) --
+	// SATU pencatat mutasi batch, bukan salinan.
+	static void catatMutasiBatch(Session session, ProdukBatch batch, String jenis, double masuk,
 			double keluar, String referensi, String keterangan, String oleh) {
 		MutasiProdukBatch mutasi = new MutasiProdukBatch();
 		mutasi.setBatch(batch);

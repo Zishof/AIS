@@ -505,6 +505,11 @@ public final class SalesInventoryReceivableHelper {
 			}
 			tx = session.beginTransaction();
 			so.setStatus(baru);
+			// Fase E dok. 48 P5: konfirmasi SO (DRAFT->PESAN) memicu MTO utk baris ber-rute MTO_*.
+			// Cakupan = SalesOrderLapangan SAJA (§6 no. 3: Pesanan POS = keranjang tertahan).
+			if (SalesOrderLapangan.STATUS_PESAN.equals(baru)) {
+				terapkanMto(session, so, hasil);
+			}
 			if (SalesOrderLapangan.STATUS_BATAL.equals(baru)) {
 				so.setAlasanBatal(alasan);
 			}
@@ -519,6 +524,79 @@ public final class SalesInventoryReceivableHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Fase E dok. 48 P5 (MTO): baris SO ber-produk rute MTO_PRODUKSI -> draf Work Order lewat
+	 * mesin bersama {@code ProduksiApiHelper.buatWoDrafOtomatis} (kunci {@code MTO:SO:so:produk},
+	 * idempoten); rute MTO_BELI -> {@code PengajuanPembelianGudang} ber-{@code so_id} lewat
+	 * gudangPemasok toko (idempoten per SO+produk selama BARU/DIPROSES). Toko tanpa
+	 * gudangPemasok: kebutuhan MTO_BELI tetap dilaporkan di respons -- tidak diam-diam hilang.
+	 * Rute lain/kosong tidak disentuh. Berjalan DI DALAM transaksi konfirmasi -- SO yang
+	 * mengaku terkonfirmasi tetapi pemicunya gagal adalah kebohongan data (pola Fase 0).
+	 */
+	@SuppressWarnings("unchecked")
+	private static void terapkanMto(Session session, SalesOrderLapangan so, JSONObject hasil)
+			throws Exception {
+		List<SalesOrderLapanganItem> items = session
+				.createQuery("from SalesOrderLapanganItem where salesOrder=:so").setEntity("so", so).list();
+		JSONArray ringkasanMto = new JSONArray();
+		for (SalesOrderLapanganItem item : items) {
+			Produk produk = item.getProduk();
+			if (produk == null || produk.getRute() == null) {
+				continue;
+			}
+			String rute = produk.getRute().trim().toUpperCase();
+			BigDecimal qty = item.getJumlah() == null ? BigDecimal.ZERO : item.getJumlah();
+			if (qty.compareTo(BigDecimal.ZERO) <= 0) {
+				continue;
+			}
+			JSONObject r = new JSONObject();
+			r.put("produkId", produk.getId()); r.put("nama", produk.getNama()); r.put("qty", qty);
+			if (Produk.RUTE_MTO_PRODUKSI.equals(rute)) {
+				Long woBaru = ais.action.servlet.api.ProduksiApiHelper.buatWoDrafOtomatis(session,
+						so.getToko().getId().longValue(), produk.getId(), qty,
+						"MTO:SO:" + so.getId() + ":" + produk.getId(),
+						"Draf otomatis MTO dari SO " + so.getNomor() + " (" + produk.getNama() + ").");
+				r.put("tindakan", woBaru == null ? "WO sudah ada" : "WO draf dibuat");
+				if (woBaru != null) r.put("woId", woBaru);
+			} else if (Produk.RUTE_MTO_BELI.equals(rute)) {
+				Toko toko = so.getToko();
+				if (toko == null || toko.getGudangPemasok() == null) {
+					r.put("tindakan", "TANPA pengajuan: toko belum punya Gudang Pemasok");
+				} else {
+					Object ada = session.createQuery(
+							"select id from PengajuanPembelianGudang where soId=:so and produk.id=:p"
+									+ " and status in ('BARU','DIPROSES')")
+							.setLong("so", so.getId().longValue()).setLong("p", produk.getId().longValue())
+							.setMaxResults(1).uniqueResult();
+					if (ada == null) {
+						ais.database.model.inventory.PengajuanPembelianGudang pengajuan =
+								new ais.database.model.inventory.PengajuanPembelianGudang();
+						pengajuan.setProduk(produk);
+						pengajuan.setGudangAsal(toko.getGudangPemasok());
+						pengajuan.setGudangTujuan(toko.getGudangPemasok().getGudangInduk());
+						pengajuan.setQtyDiminta(Double.valueOf(qty.doubleValue()));
+						pengajuan.setStatus(ais.database.model.inventory.PengajuanPembelianGudang.STATUS_BARU);
+						pengajuan.setOtomatis(Boolean.TRUE);
+						pengajuan.setSoId(so.getId());
+						pengajuan.setWaktuDibuat(ais.ui.util.WaktuUtil.getDate());
+						pengajuan.setKeterangan("MTO dari SO " + so.getNomor() + ": " + qty + " "
+								+ produk.getNama() + " dipesan customer.");
+						session.save(pengajuan);
+						r.put("tindakan", "pengajuan pembelian dibuat");
+					} else {
+						r.put("tindakan", "pengajuan sudah ada");
+					}
+				}
+			} else {
+				continue;
+			}
+			ringkasanMto.put(r);
+		}
+		if (ringkasanMto.length() > 0) {
+			hasil.put("mto", ringkasanMto);
 		}
 	}
 

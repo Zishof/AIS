@@ -119,6 +119,7 @@ public class PengajuanPembelianGudang extends GeneralValueObject {
 	private Date waktuDibuat;
 	private String keterangan;
 	private Long woId;
+	private Long soId;
 
 	public PengajuanPembelianGudang() {
 	}
@@ -227,6 +228,19 @@ public class PengajuanPembelianGudang extends GeneralValueObject {
 
 	public void setWoId(Long woId) {
 		this.woId = woId;
+	}
+
+	/**
+	 * Id {@code SalesOrderLapangan} pemicu (Fase E, MTO_BELI): pengajuan yang lahir saat SO
+	 * dikonfirmasi. {@code null} = pengajuan biasa -- data lama tidak berubah makna.
+	 */
+	@Column(name = "so_id", nullable = true)
+	public Long getSoId() {
+		return soId;
+	}
+
+	public void setSoId(Long soId) {
+		this.soId = soId;
 	}
 
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")

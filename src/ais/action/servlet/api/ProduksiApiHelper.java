@@ -35,6 +35,7 @@ public final class ProduksiApiHelper {
   JENIS.put("production_waste", "WASTE");
   JENIS.put("production_cost", "COST");
   JENIS.put("production_unbuild", "UNBUILD");
+  JENIS.put("quality_alert", "QC");
  }
  private ProduksiApiHelper() { }
 
@@ -192,6 +193,8 @@ public final class ProduksiApiHelper {
       postingStok(s, d, pengguna(ctx));
       // Fase D: ISSUE ber-referensi WO memakan reservasi komponen WO itu.
       if ("ISSUE".equals(d.getDocumentType())) sesuaikanReservasiIssue(s, d, false);
+      // Fase E: hasil produksi ber-produk QC dikarantina + Quality Alert terbit.
+      if ("OUTPUT".equals(d.getDocumentType())) buatQcAlertJikaPerlu(s, d, pengguna(ctx), hasil);
      } else if ("REVERSED".equals(target)) {
       balikkanPostingStok(s, d, pengguna(ctx));
       if ("ISSUE".equals(d.getDocumentType())) sesuaikanReservasiIssue(s, d, true);
@@ -300,6 +303,243 @@ public final class ProduksiApiHelper {
   * saat dokumen POSTED, lalu menghitung ulang stok produknya. Idempoten periksa-lalu-lewati per
   * (dokumen, baris, arah) -- pola {@code DistribusiPengirimanApiHelper.postingStok}.
   */
+ /**
+  * Mesin BERSAMA draf Work Order otomatis (Fase C penjadwal ambang; Fase E MTO dan disposisi
+  * REWORK QC) -- SATU mesin, bukan salinan. Idempoten lewat {@code referenceNo}: selama masih
+  * ada WO ber-kunci sama berstatus DRAFT/RELEASED/IN_PROGRESS, tidak dibuat dobel (kembali
+  * {@code null}). BOM ACTIVE yang baris OUTPUT-nya = produk ikut dirujuk; tanpa BOM, WO tetap
+  * terbit dengan catatan jujur supaya staf tahu harus membuat BOM dulu.
+  */
+ public static Long buatWoDrafOtomatis(Session s, long tokoId, Long produkId, BigDecimal qty,
+   String kunci, String catatan) {
+  Number sudahAda = (Number) s.createQuery(
+    "select count(*) from ProduksiDokumen where documentType='WO' and tokoId=:toko"
+      + " and referenceNo=:kunci and status in ('DRAFT','RELEASED','IN_PROGRESS')")
+    .setLong("toko", tokoId).setString("kunci", kunci).uniqueResult();
+  if (sudahAda != null && sudahAda.longValue() > 0) return null;
+  Long bomId = null;
+  try {
+   List bomIds = s.createQuery("select d.id from ProduksiDokumen d, ProduksiDokumenBaris b"
+     + " where b.documentId=d.id and d.documentType='BOM' and d.status='ACTIVE'"
+     + " and d.tokoId=:toko and b.lineType='OUTPUT' and b.itemId=:produk"
+     + " order by d.updatedAt desc, d.id desc")
+     .setLong("toko", tokoId).setLong("produk", produkId.longValue()).setMaxResults(1).list();
+   if (!bomIds.isEmpty()) bomId = (Long) bomIds.get(0);
+  } catch (Exception eBom) {
+   ais.common.ErrorAuditUtil.record(eBom, "auto-audit src/ais/action/servlet/api/ProduksiApiHelper.java:cariBom");
+  }
+  Object namaSatuan = s.createSQLQuery("SELECT sp.nama FROM koperasi.produk p"
+    + " LEFT JOIN koperasi.satuan_produk sp ON sp.id = p.satuan WHERE p.id = :p")
+    .setLong("p", produkId.longValue()).uniqueResult();
+  ProduksiDokumen wo = new ProduksiDokumen();
+  wo.setTokoId(Long.valueOf(tokoId)); wo.setDocumentType("WO");
+  wo.setDocumentNo("WO-AUTO-" + System.currentTimeMillis() + "-" + produkId);
+  wo.setStatus("DRAFT"); wo.setReferenceNo(kunci); wo.setBomId(bomId);
+  wo.setPlannedQty(qty); wo.setUom(namaSatuan == null ? null : String.valueOf(namaSatuan));
+  wo.setPlannedAt(new Date()); wo.setCreatedBy("SYSTEM");
+  wo.setNotes(catatan + (bomId == null
+    ? " BELUM ADA BOM AKTIF utk produk ini -- buat/aktifkan BOM lalu lengkapi WO." : ""));
+  s.save(wo);
+  return wo.getId();
+ }
+
+ /**
+  * Fase E dok. 48 P6: OUTPUT POSTED yang memuat produk ber-{@code perlu_qc} menerbitkan SATU
+  * dokumen Quality Alert (jenis QC, ringan, menumpang infra dokumen/baris/event) dan
+  * MENGKARANTINA batch ber-lot sama ({@code ProdukBatch.STATUS_KARANTINA} +
+  * {@code KantinHelper.catatMutasiBatch} yang sudah ada -- koreksi dok. 49 §1.2: karantina
+  * tidak dibangun dari nol). Idempoten per dokumen OUTPUT lewat referenceNo. Baris tanpa
+  * batch/lot dicatat jujur di notes -- QC tetap terbit.
+  */
+ private static void buatQcAlertJikaPerlu(Session s, ProduksiDokumen d, String oleh, JSONObject hasil)
+   throws Exception {
+  Object sudah = s.createQuery("select id from ProduksiDokumen where documentType='QC'"
+    + " and tokoId=:toko and referenceNo=:no")
+    .setLong("toko", d.getTokoId().longValue()).setString("no", d.getDocumentNo())
+    .setMaxResults(1).uniqueResult();
+  if (sudah != null) return;
+  List lines = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+    .setLong("id", d.getId().longValue()).list();
+  ProduksiDokumen qc = null; int nomorBaris = 0; StringBuilder catatan = new StringBuilder();
+  for (int i = 0; i < lines.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) lines.get(i);
+   if (!Boolean.TRUE.equals(b.getStockAffecting()) || b.getItemId() == null) continue;
+   Object perluQc = s.createSQLQuery("SELECT COALESCE(perlu_qc, false) FROM koperasi.produk WHERE id=:p")
+     .setLong("p", b.getItemId().longValue()).uniqueResult();
+   if (!Boolean.TRUE.equals(perluQc)) continue;
+   if (qc == null) {
+    qc = new ProduksiDokumen();
+    qc.setTokoId(d.getTokoId()); qc.setDocumentType("QC");
+    qc.setDocumentNo("QC-" + d.getDocumentNo());
+    qc.setStatus("DRAFT"); qc.setReferenceNo(d.getDocumentNo());
+    qc.setCreatedBy("SYSTEM");
+    s.save(qc); s.flush();
+    event(s, qc.getId(), null, "DRAFT", "Quality Alert otomatis dari OUTPUT " + d.getDocumentNo(), oleh);
+   }
+   nomorBaris++;
+   ProduksiDokumenBaris qb = new ProduksiDokumenBaris();
+   qb.setDocumentId(qc.getId()); qb.setLineNo(Integer.valueOf(nomorBaris)); qb.setLineType("QC");
+   qb.setItemId(b.getItemId()); qb.setItemCode(b.getItemCode()); qb.setItemName(b.getItemName());
+   qb.setQty(aman(b.getQty())); qb.setUom(b.getUom()); qb.setLotNo(b.getLotNo());
+   qb.setStockAffecting(Boolean.FALSE); s.save(qb);
+   String lot = b.getLotNo() == null ? "" : b.getLotNo().trim();
+   boolean terkarantina = false;
+   if (lot.length() > 0) {
+    ais.database.model.inventory.ProdukBatch batch = (ais.database.model.inventory.ProdukBatch)
+      s.createQuery("from ProdukBatch where produk.id=:p and toko.id=:t and nomorBatch=:lot")
+      .setLong("p", b.getItemId().longValue()).setLong("t", d.getTokoId().longValue())
+      .setString("lot", lot).setMaxResults(1).uniqueResult();
+    if (batch != null) {
+     batch.setStatus(ais.database.model.inventory.ProdukBatch.STATUS_KARANTINA);
+     s.update(batch);
+     KantinHelper.catatMutasiBatch(s, batch, "QC_KARANTINA", 0, 0, qc.getDocumentNo(),
+       "Karantina otomatis QC hasil produksi " + d.getDocumentNo(), oleh);
+     terkarantina = true;
+    }
+   }
+   if (!terkarantina) {
+    catatan.append(" Baris ").append(b.getItemName())
+      .append(lot.length() == 0 ? " tanpa lot" : " lot " + lot + " tanpa ProdukBatch")
+      .append(" -- karantina fisik manual.");
+   }
+  }
+  if (qc != null) {
+   qc.setNotes("QC hasil produksi " + d.getDocumentNo() + "." + catatan
+     + " Disposisi lewat aksi produksi_qc_disposisi (REWORK/UNBUILD/SCRAP/RELEASE).");
+   s.update(qc);
+   hasil.put("qcAlertId", qc.getId()); hasil.put("qcAlertNomor", qc.getDocumentNo());
+  }
+ }
+
+ /**
+  * Fase E: disposisi Quality Alert -- SEMUA turunannya memakai mesin fase sebelumnya:
+  * REWORK = draf WO ({@link #buatWoDrafOtomatis}); UNBUILD = dokumen UNBUILD DRAFT Fase D
+  * (baris OUTPUT + komponen BOM ter-skala, staf meninjau lalu memposting); SCRAP = dokumen
+  * WASTE DRAFT Fase 0; RELEASE = lolos tanpa turunan. Batch: REWORK/RELEASE mengangkat
+  * karantina (AKTIF); UNBUILD/SCRAP membiarkan KARANTINA -- barangnya memang keluar lewat
+  * dokumen turunan. QC lalu POSTED dengan catatan disposisi. Jurnal per disposisi menyusul
+  * dari dokumen turunan lewat dasbor Draft Jurnal (butuh pemetaan akun pemilik, dok. 55).
+  */
+ public static void qcDisposisi(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
+  Session s = null; Transaction tx = null;
+  try {
+   s = HibernateUtil.getSessionFactory().openSession();
+   EbisnisActorContextResolver.ActorContext ctx = aktor(s, user, request, hasil, "approve");
+   if (ctx == null) return;
+   String disposisi = request.optString("disposisi", "").trim().toUpperCase();
+   if (!"REWORK".equals(disposisi) && !"UNBUILD".equals(disposisi) && !"SCRAP".equals(disposisi)
+     && !"RELEASE".equals(disposisi)) {
+    tolak(hasil, "Disposisi tidak dikenal: pilih REWORK, UNBUILD, SCRAP, atau RELEASE."); return;
+   }
+   tx = s.beginTransaction();
+   ProduksiDokumen qc = (ProduksiDokumen) s.get(ProduksiDokumen.class, Long.valueOf(request.optLong("id")));
+   if (qc == null || !"QC".equals(qc.getDocumentType()) || qc.getTokoId().longValue() != toko(ctx, request)) {
+    tolak(hasil, "Dokumen Quality Alert tidak ditemukan."); rollback(tx); return;
+   }
+   if (!"DRAFT".equals(qc.getStatus())) {
+    tolak(hasil, "Quality Alert sudah didisposisi (status " + qc.getStatus() + ")."); rollback(tx); return;
+   }
+   JSONArray turunan = terapkanDisposisiQc(s, qc, disposisi, pengguna(ctx));
+   tx.commit();
+   hasil.put("status", "00"); hasil.put("disposisi", disposisi); hasil.put("turunan", turunan);
+  } catch (Exception e) { rollback(tx); throw e; }
+  finally { HibernateUtil.closeSessionQuietly(s); }
+ }
+
+ /** Inti disposisi QC -- dipisah dari endpoint supaya teruji langsung (pola dok. 44). */
+ static JSONArray terapkanDisposisiQc(Session s, ProduksiDokumen qc, String disposisi, String oleh)
+   throws Exception {
+  List lines = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+     .setLong("id", qc.getId().longValue()).list();
+   JSONArray turunan = new JSONArray();
+   for (int i = 0; i < lines.size(); i++) {
+    ProduksiDokumenBaris b = (ProduksiDokumenBaris) lines.get(i);
+    if (b.getItemId() == null) continue;
+    if ("REWORK".equals(disposisi)) {
+     Long woBaru = buatWoDrafOtomatis(s, qc.getTokoId().longValue(), b.getItemId(), aman(b.getQty()),
+       "QC:" + qc.getId() + ":" + b.getItemId(),
+       "Rework dari " + qc.getDocumentNo() + " (" + b.getItemName() + ").");
+     if (woBaru != null) { JSONObject t = new JSONObject(); t.put("jenis", "WO"); t.put("id", woBaru); turunan.put(t); }
+    } else if ("UNBUILD".equals(disposisi) || "SCRAP".equals(disposisi)) {
+     String tipe = "UNBUILD".equals(disposisi) ? "UNBUILD" : "WASTE";
+     ProduksiDokumen anak = new ProduksiDokumen();
+     anak.setTokoId(qc.getTokoId()); anak.setDocumentType(tipe);
+     anak.setDocumentNo(tipe + "-" + qc.getDocumentNo() + "-" + b.getLineNo());
+     anak.setStatus("DRAFT"); anak.setReferenceNo("QC:" + qc.getId());
+     anak.setPlannedQty(aman(b.getQty())); anak.setUom(b.getUom()); anak.setCreatedBy("SYSTEM");
+     anak.setNotes(disposisi + " dari " + qc.getDocumentNo() + " (" + b.getItemName()
+       + "). Tinjau baris lalu POSTED utk menggerakkan stok.");
+     s.save(anak); s.flush();
+     ProduksiDokumenBaris keluar = new ProduksiDokumenBaris();
+     keluar.setDocumentId(anak.getId()); keluar.setLineNo(Integer.valueOf(1));
+     keluar.setLineType("UNBUILD".equals(disposisi) ? "OUTPUT" : "MATERIAL");
+     keluar.setItemId(b.getItemId()); keluar.setItemCode(b.getItemCode());
+     keluar.setItemName(b.getItemName()); keluar.setQty(aman(b.getQty()));
+     keluar.setUom(b.getUom()); keluar.setLotNo(b.getLotNo());
+     keluar.setStockAffecting(Boolean.TRUE); s.save(keluar);
+     if ("UNBUILD".equals(disposisi)) {
+      // Komponen BOM ter-skala ikut diprefill supaya staf tinggal meninjau (mesin Fase D).
+      isiKomponenUnbuildDariBom(s, anak, b.getItemId(), aman(b.getQty()));
+     }
+     event(s, anak.getId(), null, "DRAFT", disposisi + " dari " + qc.getDocumentNo(), oleh);
+     JSONObject t = new JSONObject(); t.put("jenis", tipe); t.put("id", anak.getId()); turunan.put(t);
+    }
+    // Batch: REWORK/RELEASE angkat karantina; UNBUILD/SCRAP biarkan (keluar lewat turunan).
+    if ("REWORK".equals(disposisi) || "RELEASE".equals(disposisi)) {
+     String lot = b.getLotNo() == null ? "" : b.getLotNo().trim();
+     if (lot.length() > 0) {
+      ais.database.model.inventory.ProdukBatch batch = (ais.database.model.inventory.ProdukBatch)
+        s.createQuery("from ProdukBatch where produk.id=:p and toko.id=:t and nomorBatch=:lot")
+        .setLong("p", b.getItemId().longValue()).setLong("t", qc.getTokoId().longValue())
+        .setString("lot", lot).setMaxResults(1).uniqueResult();
+      if (batch != null && ais.database.model.inventory.ProdukBatch.STATUS_KARANTINA.equals(batch.getStatus())) {
+       batch.setStatus(ais.database.model.inventory.ProdukBatch.STATUS_AKTIF);
+       s.update(batch);
+       KantinHelper.catatMutasiBatch(s, batch, "QC_LEPAS", 0, 0, qc.getDocumentNo(),
+         "Karantina diangkat: disposisi " + disposisi, oleh);
+      }
+     }
+    }
+   }
+   String awal = qc.getStatus(); qc.setStatus("POSTED");
+   qc.setNotes((qc.getNotes() == null ? "" : qc.getNotes()) + " [Disposisi: " + disposisi + "]");
+   qc.setUpdatedBy(oleh); qc.setUpdatedAt(new Date()); s.update(qc);
+   event(s, qc.getId(), awal, "POSTED", "Disposisi " + disposisi, oleh);
+   return turunan;
+ }
+
+ /** Prefill komponen UNBUILD dari BOM ACTIVE produk, ter-skala qty/qtyOutputBom (mesin Fase D). */
+ private static void isiKomponenUnbuildDariBom(Session s, ProduksiDokumen anak, Long produkId,
+   BigDecimal qty) {
+  List bomIds = s.createQuery("select d.id from ProduksiDokumen d, ProduksiDokumenBaris b"
+    + " where b.documentId=d.id and d.documentType='BOM' and d.status='ACTIVE'"
+    + " and d.tokoId=:toko and b.lineType='OUTPUT' and b.itemId=:produk"
+    + " order by d.updatedAt desc, d.id desc")
+    .setLong("toko", anak.getTokoId().longValue()).setLong("produk", produkId.longValue())
+    .setMaxResults(1).list();
+  if (bomIds.isEmpty()) return;
+  List barisBom = s.createQuery("from ProduksiDokumenBaris where documentId=:id order by lineNo")
+    .setLong("id", ((Long) bomIds.get(0)).longValue()).list();
+  BigDecimal qtyOutputBom = BigDecimal.ZERO;
+  for (int i = 0; i < barisBom.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) barisBom.get(i);
+   if ("OUTPUT".equals(b.getLineType())) qtyOutputBom = qtyOutputBom.add(aman(b.getQty()));
+  }
+  BigDecimal rasio = qtyOutputBom.compareTo(BigDecimal.ZERO) > 0
+    ? qty.divide(qtyOutputBom, 6, BigDecimal.ROUND_HALF_UP) : qty;
+  int no = 1;
+  for (int i = 0; i < barisBom.size(); i++) {
+   ProduksiDokumenBaris b = (ProduksiDokumenBaris) barisBom.get(i);
+   if ("OUTPUT".equals(b.getLineType()) || b.getItemId() == null) continue;
+   no++;
+   ProduksiDokumenBaris k = new ProduksiDokumenBaris();
+   k.setDocumentId(anak.getId()); k.setLineNo(Integer.valueOf(no)); k.setLineType("MATERIAL");
+   k.setItemId(b.getItemId()); k.setItemCode(b.getItemCode()); k.setItemName(b.getItemName());
+   k.setQty(aman(b.getQty()).multiply(rasio)); k.setUom(b.getUom());
+   k.setStockAffecting(Boolean.TRUE); s.save(k);
+  }
+ }
+
  /**
   * Fase D: WO RELEASED mengunci komponen BOM sebagai {@link ReservasiStokProduksi} (kebutuhan =
   * qty baris BOM x rasio plannedQty WO terhadap qty baris OUTPUT BOM), lalu memeriksa kekurangan

@@ -103,6 +103,7 @@ public final class DraftJurnalRingkasanUtil {
     public static final String[] KUNCI = { "jurnal_umum", "uang_muka", "pj_uang_muka", "pj_pengembalian", "kas_kecil",
             "kas_besar", "pj_kas_besar", "penggantian_kas_kecil", "dana_talangan", "pajak",
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
+            "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor",
             "gaji", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp" };
 
@@ -123,11 +124,14 @@ public final class DraftJurnalRingkasanUtil {
         if ("uang_muka".equals(kunci) || "pj_uang_muka".equals(kunci)
                 || "kas_kecil".equals(kunci) || "kas_besar".equals(kunci)
                 || "pj_kas_besar".equals(kunci) || "penggantian_kas_kecil".equals(kunci)
-                || "dana_talangan".equals(kunci)) return "uang_muka_kas";
+                || "dana_talangan".equals(kunci)
+                || "pj_pengembalian".equals(kunci)) return "uang_muka_kas";
         if ("pajak".equals(kunci)) return "pajak";
         if ("tagihan_vendor".equals(kunci) || "pekerjaan_vendor".equals(kunci)
                 || "dp_vendor".equals(kunci) || "dp_pekerjaan_vendor".equals(kunci)
-                || "jurnal_balik_dp_pekerjaan".equals(kunci)) return "transaksi_vendor";
+                || "jurnal_balik_dp_pekerjaan".equals(kunci)
+                || "pembayaran_tagihan_vendor".equals(kunci) || "pembayaran_dp_vendor".equals(kunci)
+                || "pembayaran_termin_vendor".equals(kunci)) return "transaksi_vendor";
         if ("gaji".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
         if ("penyusutan".equals(kunci)) return "fixed_asset";
@@ -272,6 +276,30 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaJurnalBalikDpPekerjaan(session, mulai, sampai), true),
                     hitungClosing(session, "pemesananPengadaanMasterAsset",
                             PostingJurnalHelper.REF_DP_BALIK_PEKERJAAN, null, mulai, sampai)));
+        } else if ("pembayaran_tagihan_vendor".equals(kunci)) {
+            out.add(new Baris(kunci, "Pembayaran Tagihan Vendor",
+                    "Pembayaran tagihan vendor yang cair dipastikan menjadi jurnal pelunasan utang.",
+                    hitungPostingHistory(session, kriteriaPembayaranTagihanVendor(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPembayaranTagihanVendor(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "pembayaranPengadaanMasterAssetDetail", null, null, mulai,
+                            sampai)));
+        } else if ("pembayaran_dp_vendor".equals(kunci)) {
+            out.add(new Baris(kunci, "Pembayaran DP Vendor",
+                    "Pembayaran DP vendor yang cair dipastikan menjadi jurnal uang muka.",
+                    hitungPostingHistory(session, kriteriaPembayaranDpVendor(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaPembayaranDpVendor(session, mulai, sampai), true),
+                    hitungClosing(session, "pembayaranDpMasterAssetDetail", null, null, mulai, sampai)));
+        } else if ("pembayaran_termin_vendor".equals(kunci)) {
+            out.add(new Baris(kunci, "Pembayaran Termin Vendor",
+                    "Pembayaran termin pekerjaan vendor dipastikan menjadi jurnal utang penyedia.",
+                    hitungPostingHistory(session, kriteriaPembayaranTerminVendor(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPembayaranTerminVendor(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "pembayaranTerminMasterAssetDetail", null, null, mulai,
+                            sampai)));
         } else if ("gaji".equals(kunci)) {
             out.add(new Baris(kunci, "Gaji",
                     "Pembayaran gaji yang disetujui dipastikan sudah menjadi jurnal beban gaji.",
@@ -351,6 +379,55 @@ public final class DraftJurnalRingkasanUtil {
         } catch (Exception e) {
             return gagal(session, e);
         }
+    }
+
+    /**
+     * Tiga kriteria pembayaran vendor di bawah ini disamakan dengan mesin massal masing-masing
+     * (kriteria*Static di PostingPembayaranAction/DpAction/TerminAction). Klausa tanggalnya
+     * DIBERI KURUNG -- initCriteria layar ZK menulis "is null or between" telanjang sehingga
+     * presedensi AND/OR membuat cabang between lolos dari filter lain; baris tanpa tanggal
+     * tetap ikut, mengikuti maksud layar.
+     */
+    private static Criteria kriteriaPembayaranTagihanVendor(Session session, Date mulai, Date sampai) {
+        return session
+                .createCriteria(ais.database.model.asset.PembayaranPengadaanMasterAssetDetail.class)
+                .createAlias("pembayaranPengadaanMasterAsset", "pembayaranPengadaanMasterAsset")
+                .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+                .add(Restrictions.or(
+                        Restrictions.isNotNull("pembayaranPengadaanMasterAsset.jenisPembayaranBarang"),
+                        Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
+                                Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
+                .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
+                        + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
+    }
+
+    private static Criteria kriteriaPembayaranDpVendor(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.asset.PembayaranDpMasterAssetDetail.class)
+                .createAlias("pembayaranDpMasterAsset", "pembayaranDpMasterAsset")
+                .add(Restrictions.isNotNull("pembayaranDpMasterAsset.disetujuiOleh"))
+                .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+                .add(Restrictions.or(
+                        Restrictions.isNotNull("pembayaranDpMasterAsset.jenisPembayaranBarang"),
+                        Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
+                                Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
+                .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
+                        + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
+    }
+
+    private static Criteria kriteriaPembayaranTerminVendor(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.asset.PembayaranTerminMasterAssetDetail.class)
+                .createAlias("pembayaranTerminMasterAsset", "pembayaranTerminMasterAsset")
+                .add(Restrictions.isNotNull("pembayaranTerminMasterAsset.disetujuiOleh"))
+                .createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer", Criteria.LEFT_JOIN)
+                .add(Restrictions.or(
+                        Restrictions.isNotNull("pembayaranTerminMasterAsset.jenisPembayaranBarang"),
+                        Restrictions.and(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"),
+                                Restrictions.eq("daftarPengajuanTransfer.transfer", true))))
+                .add(Restrictions.ne("dibayar", 0.0)).add(Restrictions.isNotNull("dibayar"))
+                .add(Restrictions.sqlRestriction("(this_.tanggal_transaksi is null or "
+                        + dateSql("this_.tanggal_transaksi", mulai, sampai) + ")"));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -652,6 +729,15 @@ public final class DraftJurnalRingkasanUtil {
         if ("Jurnal Balik DP Pekerjaan".equals(namaBaris)) {
             return kriteriaJurnalBalikDpPekerjaan(session, mulai, sampai);
         }
+        if ("Pembayaran Tagihan Vendor".equals(namaBaris)) {
+            return kriteriaPembayaranTagihanVendor(session, mulai, sampai);
+        }
+        if ("Pembayaran DP Vendor".equals(namaBaris)) {
+            return kriteriaPembayaranDpVendor(session, mulai, sampai);
+        }
+        if ("Pembayaran Termin Vendor".equals(namaBaris)) {
+            return kriteriaPembayaranTerminVendor(session, mulai, sampai);
+        }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
 
         if ("Mahasiswa - Piutang Tagihan".equals(namaBaris)) return kriteriaDetailKegiatan(session, mulai, sampai);
@@ -889,7 +975,7 @@ public final class DraftJurnalRingkasanUtil {
                 "getPertanggal", "getTanggalRealisasikan" });
         Object nilai = bacaPertama(entity, new String[] { "getNilai", "getNominal", "getBiaya", "getDp",
                 "getNilaiPenyusutan", "getDenda", "getDiskonTidakLangsung", "getBiayaAdministrasi",
-                "getBiayaPaymentGateway", "getTotal" });
+                "getBiayaPaymentGateway", "getTotal", "getDibayar" });
         Object uraian = bacaPertama(entity, new String[] { "getKeterangan", "getUraian", "getKode", "getNama",
                 "getNomor", "getNoBukti", "getDeskripsi" });
         String teksTanggal = "";
