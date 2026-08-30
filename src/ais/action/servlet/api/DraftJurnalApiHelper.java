@@ -113,6 +113,8 @@ public final class DraftJurnalApiHelper {
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) return "simpan_pinjam_koperasi";
         // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
+        // Kunci deskriptif fail-closed (pola siswa/mahasiswa/simpan-pinjam).
+        if ("Penghapusan Aset".equals(namaBaris)) return "penghapusan_aset";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Jurnal pembayaran menempel pada dokumen sumbernya, mengikuti prinsip baris lain:
         // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
@@ -435,6 +437,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.payroll.PostingTransaksiPegawaiAction.postingSemua(mulai,
                         sampai, tbmuser, new Date())
                     : ais.action.master.payroll.PostingTransaksiPegawaiAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Penghapusan Aset".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.asset.PenghapusanMasterAssetAction.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.asset.PenghapusanMasterAssetAction
                         .batalkanPostingSemua(mulai, sampai);
         } else if ("Pembatalan Penjualan Kantin".equals(nama)) {
             jumlah = posting

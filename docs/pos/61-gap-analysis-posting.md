@@ -57,7 +57,9 @@ baris "Pembatalan Penjualan Kantin" + mesin jurnal balik, teruji 9/9, dok
 ### D. `PenghapusanMasterAsset(+Detail)` — disposal aset tanpa posting
 Penghapusan/pelepasan aset tidak punya jalur jurnal (standarnya: lepas nilai buku,
 lepas akumulasi penyusutan, akui rugi/laba pelepasan). Modul penyusutannya sendiri
-sudah terposting, jadi buku besar akan menyimpan aset yang fisiknya sudah dihapus.
+sudah terposting, jadi buku besar akan menyimpan aset yang fisiknya sudah dihapus. **SELESAI r78620** —
+baris "Penghapusan Aset" + mesin memakai pasangan akun JenisPengapusanBarang, teruji
+10/10, dok [65-posting-penghapusan-aset.md](65-posting-penghapusan-aset.md).
 
 ### E. Modul Inventory Sales (`NotaSalesKas` dkk.) — buku terpisah (kemungkinan by design)
 Keluarga NotaSales memakai kas & jurnal mini sendiri (layar `kas_jurnal`); helper-nya

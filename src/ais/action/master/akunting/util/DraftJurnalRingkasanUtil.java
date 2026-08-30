@@ -105,7 +105,7 @@ public final class DraftJurnalRingkasanUtil {
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
-            "simpan_pinjam_koperasi", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
+            "simpan_pinjam_koperasi", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -141,7 +141,7 @@ public final class DraftJurnalRingkasanUtil {
         if ("gaji".equals(kunci) || "transaksi_pegawai_payroll".equals(kunci)
                 || "penggajian_pegawai".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
-        if ("penyusutan".equals(kunci)) return "fixed_asset";
+        if ("penyusutan".equals(kunci) || "penghapusan_aset".equals(kunci)) return "fixed_asset";
         if ("pengajuan_transfer".equals(kunci)) return "pengajuan_transfer";
         if ("transitori".equals(kunci)) return "transitori";
         if ("closing".equals(kunci)) return "closing";
@@ -368,6 +368,15 @@ public final class DraftJurnalRingkasanUtil {
             siswa(out, session, mulai, sampai);
         } else if ("penyusutan".equals(kunci)) {
             penyusutan(out, session, mulai, sampai);
+        } else if ("penghapusan_aset".equals(kunci)) {
+            out.add(new Baris(kunci, "Penghapusan Aset",
+                    "Penghapusan/pelepasan aset yang disetujui dipastikan menjadi jurnal"
+                            + " memakai pasangan akun jenis penghapusannya.",
+                    hitungPostingHistory(session, kriteriaPenghapusanAset(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPenghapusanAset(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "penghapusanMasterAsset", null, null, mulai, sampai)));
         } else if ("pengajuan_transfer".equals(kunci)) {
             out.add(new Baris(kunci, "Jurnal Pengajuan Transfer",
                     "Transfer yang sudah direalisasikan dapat dipastikan sudah menjadi jurnal kas/bank.",
@@ -594,6 +603,18 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.eq("sudahDiposting", Boolean.TRUE))
                 .add(Restrictions.ne("totalBiaya", 0.0)).add(Restrictions.isNotNull("totalBiaya"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_dibatalkan", mulai, sampai)));
+    }
+
+    /**
+     * Penghapusan aset yang disetujui dan bernilai, rentang tanggal pembuatan. Sama dengan
+     * mesinnya ({@code PenghapusanMasterAssetAction.kriteriaPenghapusanStatic}).
+     */
+    private static Criteria kriteriaPenghapusanAset(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.asset.PenghapusanMasterAsset.class)
+                .add(Restrictions.isNotNull("disetujuiOleh"))
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_pembuatan", mulai, sampai)));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -925,6 +946,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) {
             return kriteriaPembatalanKantin(session, mulai, sampai);
+        }
+        if ("Penghapusan Aset".equals(namaBaris)) {
+            return kriteriaPenghapusanAset(session, mulai, sampai);
         }
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) {
             return kriteriaSimpanPinjam(session, mulai, sampai);

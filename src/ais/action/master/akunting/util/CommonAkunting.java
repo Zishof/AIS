@@ -643,6 +643,9 @@ public class CommonAkunting {
 			grupTransaksi.setPembayaranGaji((PembayaranGaji) reference);
 		} else if (reference != null && reference instanceof SaldoAwalMasterAsset) {
 			grupTransaksi.setSaldoAwalMasterAsset((SaldoAwalMasterAsset) reference);
+		} else if (reference != null && reference instanceof ais.database.model.asset.PenghapusanMasterAsset) {
+			grupTransaksi.setPenghapusanMasterAsset(
+					(ais.database.model.asset.PenghapusanMasterAsset) reference);
 		} else if (reference != null && reference instanceof ais.database.model.koperasi.PembatalanTransaksiKantin) {
 			grupTransaksi.setPembatalanTransaksiKantin(
 					(ais.database.model.koperasi.PembatalanTransaksiKantin) reference);

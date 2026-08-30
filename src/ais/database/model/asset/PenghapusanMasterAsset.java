@@ -324,4 +324,23 @@ public class PenghapusanMasterAsset extends DataSop {
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
+
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	/**
+	 * Riwayat posting jurnal penghapusan (dok 61 butir D): terisi begitu mesin posting
+	 * "Penghapusan Aset" menjurnalkan dokumen ini memakai pasangan akun debet/kredit dari
+	 * {@link JenisPengapusanBarang} -- pasangan yang sudah lama ada di masternya tetapi
+	 * tidak pernah dipakai satu jalur pun.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

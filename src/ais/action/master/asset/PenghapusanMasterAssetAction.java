@@ -1565,4 +1565,179 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 	public void setPersetujuan(boolean persetujuan) {
 		this.persetujuan = persetujuan;
 	}
+
+	// ================================================================= jalur API dasbor draft jurnal
+
+	/**
+	 * Kriteria dokumen yang SAMA dengan baris "Penghapusan Aset" di dasbor draft jurnal:
+	 * penghapusan yang sudah disetujui, aktif, bernilai, pada rentang tanggal pembuatan.
+	 */
+	private static Criteria kriteriaPenghapusanStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai) {
+		Criteria c = session.createCriteria(PenghapusanMasterAsset.class)
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		if (mulai != null && sampai != null) {
+			c.add(Restrictions.sqlRestriction("date(this_.tanggal_pembuatan) between date('"
+					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
+					+ Common.databaseDateFormat.get().format(sampai) + "')"));
+		}
+		return c;
+	}
+
+	/**
+	 * Posting SEMUA penghapusan aset yang disetujui pada rentang -- jalur API dasbor Draft
+	 * Jurnal POS (dok 61 butir D). Jurnal per dokumen memakai PASANGAN AKUN dari master
+	 * {@link JenisPengapusanBarang} (Dr {@code debet} / Cr {@code kredit}) -- pasangan yang
+	 * sudah lama tersedia dan dirawat di layar masternya tetapi tidak pernah dipakai jalur
+	 * mana pun -- senilai total dokumen ({@code nilai} = total harga perolehan detail),
+	 * bertanggal persetujuan (fallback tanggal pembuatan).
+	 *
+	 * <p>Batasan yang disengaja: SATU pasang akun per jenis penghapusan berarti pelepasan
+	 * akumulasi penyusutan dan pengakuan rugi TIDAK dipecah otomatis -- lazimnya master diisi
+	 * Dr "Beban/Rugi Penghapusan Aset" / Cr akun aset, lalu porsi akumulasi penyusutan
+	 * dipindahkan lewat Jurnal Penyesuaian bila kebijakan akuntansi menghendaki pemecahan.
+	 * Dokumen ber-jenis tanpa akun lengkap dilewati dan tetap terhitung draf.</p>
+	 */
+	public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+			java.util.Date tglPosting) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPenghapusanStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			ais.database.model.akunting.PostingHistory postingHistory =
+					new ais.database.model.akunting.PostingHistory(
+							ais.database.model.akunting.PostingHistory.JENIS_PENGHAPUSAN_ASET);
+			postingHistory.setTbmuser(oleh);
+			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+			postingHistory.setPosting(true);
+			postingHistory.setKeterangan("Posting massal penghapusan aset dari dasbor jurnal"
+					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			session.getTransaction().begin();
+			session.save(postingHistory);
+			session.getTransaction().commit();
+
+			for (Object o : daftar) {
+				PenghapusanMasterAsset ph = (PenghapusanMasterAsset) o;
+				if (ph == null || ph.getJenisPengapusanBarang() == null) {
+					continue;
+				}
+				try {
+					ais.database.model.akunting.Akun akunDebet = ph.getJenisPengapusanBarang().getDebet();
+					ais.database.model.akunting.Akun akunKredit = ph.getJenisPengapusanBarang().getKredit();
+					Double nilai = ph.getNilai();
+					if (akunDebet == null || akunKredit == null || nilai == null || nilai == 0.0) {
+						continue;
+					}
+
+					String ket = "Penghapusan aset \"" + ph.getKode() + "\" ("
+							+ ph.getJenisPengapusanBarang().getNama() + ") senilai "
+							+ Common.numberFormat.get().format(nilai);
+					java.util.Date tglJurnal = ph.getTanggalPersetujuan() != null
+							? ph.getTanggalPersetujuan() : ph.getTanggalPembuatan();
+
+					boolean tersimpan;
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					tersimpan = ais.action.master.akunting.util.CommonAkunting.saveTransaksi(
+							new ais.database.model.akunting.Akun[] { akunDebet },
+							new ais.database.model.akunting.Akun[] { akunKredit }, null, null,
+							postingHistory, true, ket, tglJurnal, new Double[] { nilai },
+							new Double[] { nilai }, 0.0, ph, ph.getSatuanKerja(), session);
+					if (tersimpan) {
+						ph.setPostingHistory(postingHistory);
+						session.update(ph);
+						session.getTransaction().commit();
+						n++;
+					} else {
+						session.getTransaction().rollback();
+					}
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PenghapusanMasterAssetAction jalur API");
+				}
+			}
+
+			if (n == 0) {
+				// Tidak satu dokumen pun terjurnal: riwayat kosong tidak ditinggalkan.
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PenghapusanMasterAssetAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * Membatalkan posting SEMUA penghapusan terposting pada rentang: jurnal turunannya dihapus
+	 * (baris transaksi dulu, lalu grupnya -- hanya yang belum closing), lalu penandanya dilepas.
+	 */
+	public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+		int n = 0;
+		Session session = HibernateUtil.currentNativeSession();
+		try {
+			List<?> daftar = kriteriaPenghapusanStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory")).list();
+			for (Object o : daftar) {
+				PenghapusanMasterAsset ph = (PenghapusanMasterAsset) o;
+				if (ph == null) {
+					continue;
+				}
+				try {
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
+					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+							+ " (select id from akunting.grup_transaksi where penghapusan_master_asset="
+							+ ph.getId() + " and closing is null)").executeUpdate();
+					session.createSQLQuery(
+							"delete from akunting.grup_transaksi where penghapusan_master_asset="
+									+ ph.getId() + " and closing is null").executeUpdate();
+					ph.setPostingHistory(null);
+					session.update(ph);
+					session.getTransaction().commit();
+					n++;
+				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception ex) {
+						// rollback gagal: kegagalan aslinya yang dilaporkan
+					}
+					ais.common.ErrorAuditUtil.record(e, "PenghapusanMasterAssetAction jalur API");
+				}
+			}
+		} finally {
+			try {
+				session.disconnect();
+				HibernateUtil.closeSession();
+			} catch (Exception e) {
+				// penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+			}
+		}
+		return n;
+	}
+
 }

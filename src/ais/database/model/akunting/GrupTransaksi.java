@@ -2674,4 +2674,19 @@ public class GrupTransaksi extends GeneralValueObject {
 		this.pembatalanTransaksiKantin = pembatalanTransaksiKantin;
 	}
 
+
+	private ais.database.model.asset.PenghapusanMasterAsset penghapusanMasterAsset;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "penghapusan_master_asset", nullable = true)
+	public ais.database.model.asset.PenghapusanMasterAsset getPenghapusanMasterAsset() {
+		return penghapusanMasterAsset;
+	}
+
+	public void setPenghapusanMasterAsset(
+			ais.database.model.asset.PenghapusanMasterAsset penghapusanMasterAsset) {
+		this.penghapusanMasterAsset = penghapusanMasterAsset;
+	}
+
 }
