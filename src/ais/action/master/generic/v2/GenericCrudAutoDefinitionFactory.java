@@ -213,6 +213,7 @@ public final class GenericCrudAutoDefinitionFactory {
             }
             definition.addField(field);
         }
+        pilihKolomTabel(definition);
         String defaultSort = chooseSort(metadata);
         definition.setDefaultSortProperty(defaultSort);
         definition.setVersionProperty(findVersionProperty(metadata));
@@ -222,6 +223,106 @@ public final class GenericCrudAutoDefinitionFactory {
         // tertimpa oleh flag hasil deteksi otomatis di atas.
         adapter.configure(definition);
         return definition;
+    }
+
+    /**
+     * Memilih kolom tabel berdasarkan MAKNA, bukan urutan properti Hibernate.
+     *
+     * <p>Sebelumnya 12 properti pertama (urut alfabet) langsung ditandai
+     * {@code tableVisible}, sehingga menu auto-generated menampilkan kolom
+     * teknis seperti "Auto Create", "Default Prosentase Denda", atau "Denda
+     * Akan Berlipat Terlambat Hari" sementara kolom yang dicari pengguna
+     * (nama, kode, tanggal, nominal, status) terdorong keluar layar.</p>
+     *
+     * <p>Skoring memakai kata kunci domain AIS: identitas (nama/kode/nomor/
+     * nim/nis/judul/label), waktu (tanggal/bulan/tahun/waktu), nilai uang
+     * (nominal/jumlah/biaya/nilai/total/saldo/denda/diskon), status/keterangan,
+     * lalu relasi ke entitas pokok. Kolom boolean bertele-tele dan properti
+     * konfigurasi mendapat skor rendah sehingga hanya terpakai bila kolom
+     * bermakna kurang dari batas. Identifier tetap kolom pertama.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private static void pilihKolomTabel(GenericCrudDefinition definition) {
+        final int BATAS = 12;
+        java.util.List fields = definition.getFields();
+        if (fields == null || fields.isEmpty()) return;
+
+        java.util.List<GenericCrudFieldDefinition> kandidat =
+                new java.util.ArrayList<GenericCrudFieldDefinition>();
+        for (Object o : fields) {
+            GenericCrudFieldDefinition f = (GenericCrudFieldDefinition) o;
+            if (f == null) continue;
+            if (f.isSensitive()) { f.setTableVisible(false); continue; }
+            String prop = f.getProperty() == null ? "" : f.getProperty();
+            if (prop.equals(definition.getIdentifierProperty())) {
+                f.setTableVisible(true);   // identitas baris tetap tampil
+                f.setPosition(0);          // dan selalu jadi kolom pertama
+                continue;
+            }
+            f.setTableVisible(false);
+            kandidat.add(f);
+        }
+
+        java.util.Collections.sort(kandidat, new java.util.Comparator<GenericCrudFieldDefinition>() {
+            public int compare(GenericCrudFieldDefinition a, GenericCrudFieldDefinition b) {
+                int beda = skorKolom(b) - skorKolom(a);
+                if (beda != 0) return beda;
+                return a.getPosition() - b.getPosition();   // stabil: urutan asli
+            }
+        });
+
+        int terpakai = 1; // identifier
+        int urut = 1;
+        for (GenericCrudFieldDefinition f : kandidat) {
+            if (terpakai >= BATAS) break;
+            f.setTableVisible(true);
+            // Kolom terpilih juga ditata urutannya: makin bermakna makin kiri,
+            // sehingga tabel terbaca tanpa menggulir jauh ke kanan.
+            f.setPosition(urut++);
+            terpakai++;
+        }
+        // Sisanya (hanya tampil di form) diletakkan setelah kolom tabel.
+        for (GenericCrudFieldDefinition f : kandidat) {
+            if (!f.isTableVisible()) f.setPosition(BATAS + urut++);
+        }
+    }
+
+    /** Skor makna sebuah properti untuk ditampilkan sebagai kolom tabel. */
+    private static int skorKolom(GenericCrudFieldDefinition field) {
+        String p = normalize(field.getProperty());
+        String tipe = field.getEditorType() == null ? "" : field.getEditorType();
+        int skor = 0;
+        if (p.equals("nama") || p.equals("namasiswa") || p.equals("namalengkap")) skor += 100;
+        else if (p.startsWith("nama")) skor += 80;
+        if (p.equals("kode") || p.startsWith("kode")) skor += 70;
+        if (p.equals("nomorinduk") || p.equals("nim") || p.equals("nis")
+                || p.startsWith("nomor") || p.equals("noregistrasi")) skor += 65;
+        if (p.equals("judul") || p.equals("label") || p.equals("uraian")) skor += 60;
+        if (p.startsWith("tanggal") || p.equals("waktu") || p.equals("bulan")
+                || p.equals("tahun") || p.equals("tahunajaran") || p.equals("tahunakademik")
+                || p.equals("semester") || p.equals("smt")) skor += 55;
+        if (p.equals("nominal") || p.equals("jumlah") || p.equals("nilai") || p.equals("total")
+                || p.equals("saldo") || p.equals("biaya") || p.equals("amount")
+                || p.startsWith("nilaibiaya")) skor += 50;
+        if (p.equals("denda") || p.equals("diskon") || p.equals("potongan")
+                || p.equals("terbayar") || p.equals("kekurangan")) skor += 40;
+        if (p.equals("status") || p.startsWith("status") || p.equals("keterangan")
+                || p.equals("validator")) skor += 35;
+        // Relasi ke entitas pokok lebih informatif daripada flag konfigurasi.
+        if ("relation".equals(tipe)) {
+            skor += 25;
+            if (p.contains("siswa") || p.contains("mahasiswa") || p.contains("sekolah")
+                    || p.contains("itembiaya") || p.contains("jenis") || p.contains("akun")
+                    || p.contains("kelas") || p.contains("pegawai")) skor += 15;
+        }
+        // Bendera konfigurasi/boolean cenderung tidak informatif di tabel.
+        String java = field.getJavaType() == null ? "" : field.getJavaType();
+        if (java.endsWith("Boolean") || java.equals("boolean")) skor -= 30;
+        if (p.startsWith("boleh") || p.startsWith("auto") || p.startsWith("default")
+                || p.startsWith("gunakan") || p.startsWith("tampilkan") || p.startsWith("wajib")
+                || p.startsWith("harus") || p.startsWith("aktifkan")) skor -= 25;
+        if (p.equals("aktif")) skor -= 10;
+        return skor;
     }
 
     private static Class resolveSourceAction(String sourcePackage, String sourceAction) {

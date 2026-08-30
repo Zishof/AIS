@@ -32,7 +32,18 @@ public class GenericCrudFacade {
         result.put("lifecycleStatus", d.getLifecycleStatus());
         result.put("sourceActionClassName", d.getSourceActionClassName());
         result.put("existingActionLifecycleBound", Boolean.valueOf(d.isExistingActionLifecycleBound()));
-        result.put("fields", d.getFields());
+        // Urutkan berdasarkan position agar kolom/isian penting (nama, kode,
+        // tanggal, nominal) tampil lebih dahulu. Definisi manual yang tidak
+        // menetapkan position memakai nilai default sama sehingga urutan
+        // aslinya dipertahankan (Collections.sort stabil).
+        java.util.List fieldList = new java.util.ArrayList(d.getFields());
+        java.util.Collections.sort(fieldList, new java.util.Comparator() {
+            public int compare(Object a, Object b) {
+                return ((GenericCrudFieldDefinition) a).getPosition()
+                        - ((GenericCrudFieldDefinition) b).getPosition();
+            }
+        });
+        result.put("fields", fieldList);
         result.put("pageSize", Integer.valueOf(d.getDefaultPageSize()));
         result.put("maxPageSize", Integer.valueOf(d.getMaxPageSize()));
         result.put("lookupThreshold", Integer.valueOf(d.getLookupThreshold()));
