@@ -50,7 +50,9 @@ Pembatalan penjualan kantin tidak menjurnal apa pun. Selama headernya BELUM masu
 batch "Penjualan Kantin", itu benar (header batal keluar dari kriteria). Tetapi bila
 pembatalan terjadi SETELAH batch terposting, tidak ada jurnal balik → pendapatan dan
 kas/piutang lebih catat. Padanannya di sisi toko sudah benar (modul Toko memakai
-dokumen pembalik yang ikut dijurnal — dok 59 §2); kantin belum.
+dokumen pembalik yang ikut dijurnal — dok 59 §2); kantin belum. **SELESAI r78603** —
+baris "Pembatalan Penjualan Kantin" + mesin jurnal balik, teruji 9/9, dok
+[64-jurnal-balik-pembatalan-kantin.md](64-jurnal-balik-pembatalan-kantin.md).
 
 ### D. `PenghapusanMasterAsset(+Detail)` — disposal aset tanpa posting
 Penghapusan/pelepasan aset tidak punya jalur jurnal (standarnya: lepas nilai buku,
