@@ -211,14 +211,32 @@ public class AmbilDataMahasiswaKedokteranHelper {
 		Div div = new Div();
 		div.setParent(north);
 
-		Div barisFilter = new Div();
-		barisFilter.setStyle(GAYA_BARIS_FILTER);
-		barisFilter.setParent(div);
+		MyGrid searchgrid = new MyGrid();
+		searchgrid.setWidth("100%");
+		searchgrid.setParent(div);
 
-		tambahGrupFilter(barisFilter, "Nama", nama = new Textbox());
-		tambahGrupFilter(barisFilter, "Angkatan", angkatan = new Textbox());
-		tambahGrupFilter(barisFilter, "Fakultas", searchfakultas);
-		tambahGrupFilter(barisFilter, "Prodi", searchjurusan);
+		Rows rows = new Rows();
+		rows.setParent(searchgrid);
+
+		MyFormRow row = new MyFormRow();row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nama"));
+		row.appendChild(nama = new Textbox());
+		nama.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
+		row.appendChild(searchfakultas);
+		searchfakultas.setWidth("90%");
+		searchfakultas.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Prodi"));
+		row.appendChild(searchjurusan);
+		searchjurusan.setWidth("90%");
+		searchjurusan.setWidth("90%");
 
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
@@ -336,55 +354,11 @@ public class AmbilDataMahasiswaKedokteranHelper {
 	}
 
 	@SuppressWarnings("unchecked")
-	private void tambahGrupFilter(Div baris, String labelTeks, org.zkoss.zk.ui.HtmlBasedComponent kotak) {
-		Div grup = new Div();
-		grup.setStyle(GAYA_GRUP_FILTER);
-		grup.setParent(baris);
-
-		Label label = new Label(Common.getBahasaConfig(labelTeks));
-		label.setStyle(GAYA_LABEL_FILTER);
-		label.setParent(grup);
-
-		kotak.setWidth("100%");
-		kotak.setStyle(GAYA_KOTAK_FILTER);
-		kotak.setParent(grup);
-	}
-
-	private org.hibernate.criterion.Criterion kriteriaAngkatan() {
-		if (angkatan == null || angkatan.getValue() == null
-				|| angkatan.getValue().trim().isEmpty()) {
-			return org.hibernate.criterion.Restrictions.sqlRestriction("1=1");
-		}
-		try {
-			return org.hibernate.criterion.Restrictions.eq(
-					"mahasiswaFilter.tahunangkatan",
-					Integer.valueOf(angkatan.getValue().trim()));
-		} catch (NumberFormatException e) {
-			return org.hibernate.criterion.Restrictions.sqlRestriction("1=0");
-		}
-	}
-
 	public void onSearchDefault(Event event) {
 
 		Session session = HibernateUtil.currentSession();
 		List<Mahasiswa> mahasiswa = pagingHelper.cariDenganCriteria(session.createCriteria(Detailperkuliahan.class)
-				.createAlias("mahasiswa", "mahasiswaFilter")
-				.createAlias("mahasiswaFilter.jurusan", "jurusanFilter",
-						org.hibernate.CriteriaSpecification.LEFT_JOIN)
-				.add(Restrictions.eq("perkuliahan", perkuliahan))
-				.add(nama == null || nama.getValue() == null || nama.getValue().trim().isEmpty()
-						? Restrictions.sqlRestriction("1=1")
-						: Restrictions.ilike("mahasiswaFilter.nama", nama.getValue().trim(), MatchMode.ANYWHERE))
-				.add(kriteriaAngkatan())
-				.add(searchjurusan.getSelectedItem() == null
-						|| !(searchjurusan.getSelectedItem().getValue() instanceof ais.database.model.Jurusan)
-						? Restrictions.sqlRestriction("1=1")
-						: Restrictions.eq("mahasiswaFilter.jurusan", searchjurusan.getSelectedItem().getValue()))
-				.add(searchfakultas.getSelectedItem() == null
-						|| !(searchfakultas.getSelectedItem().getValue() instanceof ais.database.model.Fakultas)
-						? Restrictions.sqlRestriction("1=1")
-						: Restrictions.eq("jurusanFilter.fakultas", searchfakultas.getSelectedItem().getValue()))
-				.setProjection(Projections.property("mahasiswa"))
+				.add(Restrictions.eq("perkuliahan", perkuliahan)).setProjection(Projections.property("mahasiswa"))
 				// .add(Restrictions
 				// .eq("persetujuan", Detailperkuliahan.DISETUJUI))
 

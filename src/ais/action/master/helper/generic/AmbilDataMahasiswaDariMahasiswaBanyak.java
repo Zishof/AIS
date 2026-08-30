@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -74,27 +73,6 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 
 	private MyTextbox kodeMahasiswaan;
 	private MyTextbox nama;
-	private MyTextbox angkatan;
-	private MyTextbox prodi;
-
-	private static final String GAYA_BARIS_FILTER = "display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:10px 12px;box-sizing:border-box;width:100%;";
-	private static final String GAYA_GRUP_FILTER = "display:flex;flex-direction:column;gap:3px;min-width:130px;flex:1 1 170px;";
-	private static final String GAYA_LABEL_FILTER = "font-weight:600;";
-	private static final String GAYA_KOTAK_FILTER = "box-sizing:border-box;";
-
-	private void tambahGrupFilter(Div baris, String labelTeks, org.zkoss.zk.ui.HtmlBasedComponent kotak) {
-		Div grup = new Div();
-		grup.setStyle(GAYA_GRUP_FILTER);
-		grup.setParent(baris);
-
-		Label label = new Label(Common.getBahasaConfig(labelTeks));
-		label.setStyle(GAYA_LABEL_FILTER);
-		label.setParent(grup);
-
-		kotak.setWidth("100%");
-		kotak.setStyle(GAYA_KOTAK_FILTER);
-		kotak.setParent(grup);
-	}
 
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -176,41 +154,24 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 		Rows rows = new Rows();
 		rows.setParent(searchgrid);
 
-		Row rowFilter = new Row();
-		rowFilter.setParent(rows);
-		Div barisFilter = new Div();
-		barisFilter.setStyle(GAYA_BARIS_FILTER);
-		barisFilter.setParent(rowFilter);
-
-		kodeMahasiswaan = new MyTextbox();
-		tambahGrupFilter(barisFilter, "NIM", kodeMahasiswaan);
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("NIM"));
+		row.appendChild(kodeMahasiswaan = new MyTextbox());
+		kodeMahasiswaan.setWidth("90%");
 		kodeMahasiswaan.addEventListener(Events.ON_OK, new EventListener() {
 			public void onEvent(Event event) throws Exception {
 				onSearchDefault(event);
 			}
 		});
 
-		nama = new MyTextbox();
-		tambahGrupFilter(barisFilter, "Nama", nama);
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nama"));
+		row.appendChild(nama = new MyTextbox());
 		nama.addEventListener(Events.ON_OK, new EventListener() {
 			public void onEvent(Event event) throws Exception {
 				onSearchDefault(event);
-			}
-		});
-
-		angkatan = new MyTextbox();
-		tambahGrupFilter(barisFilter, "Angkatan", angkatan);
-		angkatan.addEventListener(Events.ON_OK, new EventListener() {
-			public void onEvent(Event event) throws Exception {
-				search();
-			}
-		});
-
-		prodi = new MyTextbox();
-		tambahGrupFilter(barisFilter, "Prodi", prodi);
-		prodi.addEventListener(Events.ON_OK, new EventListener() {
-			public void onEvent(Event event) throws Exception {
-				search();
 			}
 		});
 
@@ -367,10 +328,6 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 						: Restrictions.ilike("nama", nama.getValue().trim(), MatchMode.ANYWHERE))
 				.add(kodeMahasiswaan.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.ilike("nim", kodeMahasiswaan.getValue().trim(), MatchMode.ANYWHERE))
-				.add(kriteriaAngkatan())
-				.createAlias("jurusan", "prodiFilter", org.hibernate.CriteriaSpecification.LEFT_JOIN)
-				.add(prodi.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.ilike("prodiFilter.nama", prodi.getValue().trim(), MatchMode.ANYWHERE))
 
 				.setMaxResults(Common.MAX_RESULT_500), Mahasiswa.class, false);
 
