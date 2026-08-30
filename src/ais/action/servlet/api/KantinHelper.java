@@ -11314,6 +11314,146 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Lembar kerja SO harian untuk barang yang bergerak karena penjualan pada satu tanggal.
+	 * Data dibuat dalam satu query/snapshot server agar jumlah terjual dan stok tersisa tidak
+	 * berasal dari dua waktu baca berbeda. Retur yang kembali ke stok ditampilkan terpisah dan
+	 * dikurangkan dari penjualan bruto menjadi penjualan bersih.
+	 */
+	public static void soHarian(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui. Pilih toko terlebih dahulu.");
+			return;
+		}
+		java.util.Date[] rentang = rentangTanggalSoHarian(request, hasil);
+		if (rentang == null) return;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.util.List<Object[]> rows = daftarSoHarian(session, tokoId, rentang[0], rentang[1]);
+			JSONArray data = new JSONArray();
+			double totalTerjual = 0.0;
+			double totalRetur = 0.0;
+			for (Object[] row : rows) {
+				JSONObject o = new JSONObject();
+				o.put("produkId", row[0]);
+				o.put("kode", row[1] == null ? "" : row[1]);
+				o.put("barcode", row[2] == null ? "" : row[2]);
+				o.put("nama", row[3] == null ? "" : row[3]);
+				o.put("satuan", row[4] == null ? "" : row[4]);
+				double terjual = row[5] == null ? 0.0 : ((Number) row[5]).doubleValue();
+				double retur = row[6] == null ? 0.0 : ((Number) row[6]).doubleValue();
+				o.put("qtyTerjual", terjual);
+				o.put("qtyRetur", retur);
+				o.put("qtyTerjualBersih", terjual - retur);
+				o.put("stokSistem", row[7] == null ? 0.0 : ((Number) row[7]).doubleValue());
+				totalTerjual += terjual;
+				totalRetur += retur;
+				data.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("tanggal", new java.text.SimpleDateFormat("yyyy-MM-dd").format(rentang[0]));
+			hasil.put("dibuatPada", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date()));
+			hasil.put("totalProduk", rows.size());
+			hasil.put("totalTerjual", totalTerjual);
+			hasil.put("totalRetur", totalRetur);
+			hasil.put("totalTerjualBersih", totalTerjual - totalRetur);
+			hasil.put("data", data);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	public static void soHarianEksporExcel(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui. Pilih toko terlebih dahulu.");
+			return;
+		}
+		java.util.Date[] rentang = rentangTanggalSoHarian(request, hasil);
+		if (rentang == null) return;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.util.List<Object[]> rows = daftarSoHarian(session, tokoId, rentang[0], rentang[1]);
+			XSSFWorkbook wb = new XSSFWorkbook();
+			XSSFSheet sheet = wb.createSheet("SO Harian");
+			sheet.setDefaultColumnWidth(17);
+			String[] kolom = { "CEK", "ID_PRODUK", "KODE", "BARCODE", "NAMA_PRODUK", "SATUAN",
+					"QTY_TERJUAL", "QTY_RETUR", "TERJUAL_BERSIH", "STOK_SISTEM_SAAT_UNDUH",
+					"STOK_FISIK", "SELISIH", "PETUGAS", "KETERANGAN" };
+			XSSFRow header = sheet.createRow(0);
+			for (int i = 0; i < kolom.length; i++) header.createCell(i).setCellValue(kolom[i]);
+			int r = 1;
+			for (Object[] row : rows) {
+				XSSFRow xr = sheet.createRow(r++);
+				xr.createCell(0).setCellValue("");
+				for (int i = 0; i < 5; i++) xr.createCell(i + 1).setCellValue(row[i] == null ? "" : row[i].toString());
+				double terjual = row[5] == null ? 0.0 : ((Number) row[5]).doubleValue();
+				double retur = row[6] == null ? 0.0 : ((Number) row[6]).doubleValue();
+				double stok = row[7] == null ? 0.0 : ((Number) row[7]).doubleValue();
+				xr.createCell(6).setCellValue(terjual);
+				xr.createCell(7).setCellValue(retur);
+				xr.createCell(8).setCellValue(terjual - retur);
+				xr.createCell(9).setCellValue(stok);
+				xr.createCell(10).setCellValue("");
+				xr.createCell(11).setCellFormula("IF(K" + r + "=\"\",\"\",K" + r + "-J" + r + ")");
+				xr.createCell(12).setCellValue("");
+				xr.createCell(13).setCellValue("");
+			}
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			wb.write(bos);
+			String tanggal = new java.text.SimpleDateFormat("yyyy-MM-dd").format(rentang[0]);
+			hasil.put("status", "00");
+			hasil.put("fileBase64", java.util.Base64.getEncoder().encodeToString(bos.toByteArray()));
+			hasil.put("namaFile", "SO-Harian-" + tanggal + ".xlsx");
+			hasil.put("total", rows.size());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static java.util.Date[] rentangTanggalSoHarian(JSONObject request, JSONObject hasil) throws Exception {
+		String teks = request.optString("tanggal", "").trim();
+		java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		fmt.setLenient(false);
+		try {
+			java.util.Date mulai = teks.isEmpty() ? fmt.parse(fmt.format(new java.util.Date())) : fmt.parse(teks);
+			java.util.Calendar kalender = java.util.Calendar.getInstance();
+			kalender.setTime(mulai);
+			kalender.add(java.util.Calendar.DATE, 1);
+			return new java.util.Date[] { mulai, kalender.getTime() };
+		} catch (Exception e) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tanggal SO Harian tidak valid. Gunakan format YYYY-MM-DD.");
+			return null;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static java.util.List<Object[]> daftarSoHarian(Session session, Long tokoId,
+			java.util.Date mulai, java.util.Date akhir) {
+		String sql = "WITH jual AS ("
+				+ " SELECT x.produk AS produk_id, SUM(COALESCE(x.qty,0)) AS qty_terjual"
+				+ " FROM koperasi.pembelian x WHERE x.toko=:tokoId AND x.waktu>=:mulai AND x.waktu<:akhir"
+				+ " GROUP BY x.produk), retur AS ("
+				+ " SELECT r.produk AS produk_id, SUM(CASE WHEN COALESCE(r.kembalikan_ke_stok,false) THEN COALESCE(r.qty,0) ELSE 0 END) AS qty_retur"
+				+ " FROM koperasi.retur_penjualan r WHERE r.toko=:tokoId AND r.waktu>=:mulai AND r.waktu<:akhir"
+				+ " GROUP BY r.produk)"
+				+ " SELECT p.id, p.kode, p.barcode, p.nama, COALESCE(s.nama,''),"
+				+ " j.qty_terjual, COALESCE(r.qty_retur,0), COALESCE(p.stok,0)"
+				+ " FROM jual j JOIN koperasi.produk p ON p.id=j.produk_id"
+				+ " LEFT JOIN koperasi.satuan_produk s ON s.id=p.satuan"
+				+ " LEFT JOIN retur r ON r.produk_id=p.id"
+				+ " ORDER BY p.nama, p.kode";
+		org.hibernate.SQLQuery q = session.createSQLQuery(sql);
+		q.setParameter("tokoId", tokoId);
+		q.setTimestamp("mulai", mulai);
+		q.setTimestamp("akhir", akhir);
+		return q.list();
+	}
+
+	/**
 	 * <h3>Stok Opname Desktop/Android -- tombol "Unduh Excel" (gap-closure, padanan tombol yang
 	 * sudah ada di JSP {@code kantin/stok/index.jsp}).</h3>
 	 *
