@@ -5,8 +5,10 @@ import java.io.ByteArrayOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
@@ -11411,6 +11413,260 @@ public class KantinHelper {
 		} finally {
 			tutupSessionPolaB(session);
 		}
+	}
+
+	/**
+	 * Nama action kanonis untuk mengunduh lembar kerja SO Harian. Metode lama
+	 * {@link #soHarianEksporExcel(Tbmuser, JSONObject, JSONObject)} tetap
+	 * dipertahankan agar aplikasi yang belum diperbarui tetap kompatibel.
+	 */
+	public static void soHarianDownloadExcel(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		soHarianEksporExcel(tbmuser, request, hasil);
+	}
+
+	/** Hasil validasi satu berkas SO Harian; data belum menyentuh jurnal/stok. */
+	private static final class SoHarianUploadValidation {
+		final java.util.List<Object[]> siap = new java.util.ArrayList<Object[]>();
+		final JSONArray data = new JSONArray();
+		final JSONArray masalah = new JSONArray();
+		int dilewati;
+		String fingerprint;
+	}
+
+	/**
+	 * Pratinjau unggah form SO Harian. Seluruh baris diperiksa lebih dahulu agar
+	 * pengguna mengetahui baris yang perlu diperbaiki sebelum stok berubah.
+	 */
+	public static void soHarianUploadExcelPreview(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (!bolehUnggahSoHarian(tbmuser, hasil)) return;
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui. Pilih toko terlebih dahulu.");
+			return;
+		}
+		java.util.Date[] rentang = rentangTanggalSoHarian(request, hasil);
+		if (rentang == null) return;
+		byte[] bytes = bacaBerkasSoHarian(request, hasil);
+		if (bytes == null) return;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			SoHarianUploadValidation validasi = validasiBerkasSoHarian(session, tokoId,
+					rentang[0], rentang[1], bytes);
+			isiHasilValidasiSoHarian(hasil, validasi);
+			hasil.put("status", "00");
+			hasil.put("siapDisimpan", validasi.masalah.length() == 0 && validasi.siap.size() > 0);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Menyimpan unggahan SO Harian secara atomik. Berkas divalidasi ulang; satu
+	 * baris tidak valid membatalkan seluruh batch. Hash berkas disimpan pada
+	 * keterangan jurnal untuk mencegah unggah ganda yang mengoreksi stok dua kali.
+	 */
+	public static void soHarianUploadExcel(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (!bolehUnggahSoHarian(tbmuser, hasil)) return;
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui. Pilih toko terlebih dahulu.");
+			return;
+		}
+		java.util.Date[] rentang = rentangTanggalSoHarian(request, hasil);
+		if (rentang == null) return;
+		byte[] bytes = bacaBerkasSoHarian(request, hasil);
+		if (bytes == null) return;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			SoHarianUploadValidation validasi = validasiBerkasSoHarian(session, tokoId,
+					rentang[0], rentang[1], bytes);
+			if (validasi.masalah.length() > 0 || validasi.siap.isEmpty()) {
+				isiHasilValidasiSoHarian(hasil, validasi);
+				hasil.put("status", "91");
+				hasil.put("description", validasi.siap.isEmpty()
+						? "Tidak ada baris dengan Stok Fisik yang siap disimpan. Isi kolom STOK_FISIK lalu unggah kembali."
+						: "Unggahan belum disimpan karena masih ada baris tidak valid. Perbaiki baris yang disebutkan lalu unggah kembali.");
+				return;
+			}
+
+			String penanda = "[SO_HARIAN_UPLOAD:" + validasi.fingerprint + "]";
+			Number pernah = (Number) session.createSQLQuery(
+					"SELECT COUNT(*) FROM koperasi.stok_opname WHERE toko=:tokoId AND keterangan LIKE :penanda")
+					.setParameter("tokoId", tokoId).setParameter("penanda", penanda + "%")
+					.uniqueResult();
+			if (pernah != null && pernah.longValue() > 0) {
+				hasil.put("status", "91");
+				hasil.put("description", "File SO Harian yang sama sudah pernah disimpan. Stok tidak diubah untuk mencegah koreksi ganda.");
+				return;
+			}
+
+			String oleh = tbmuser == null ? "so-harian-excel" : tbmuser.getUserId();
+			session.beginTransaction();
+			try {
+				for (Object[] baris : validasi.siap) {
+					Long produkId = (Long) baris[0];
+					double stokFisik = ((Number) baris[4]).doubleValue();
+					String petugas = baris[5] == null ? "" : baris[5].toString().trim();
+					String catatan = baris[6] == null ? "" : baris[6].toString().trim();
+					StringBuilder keterangan = new StringBuilder(penanda);
+					keterangan.append(" SO Harian ").append(request.optString("tanggal", ""));
+					if (!petugas.isEmpty()) keterangan.append("; petugas form: ").append(petugas);
+					if (!catatan.isEmpty()) keterangan.append("; ").append(catatan);
+					ais.action.master.inventory.StokOpnameScanUtil.simpanOpname(
+							session, tokoId, produkId, stokFisik, keterangan.toString(), oleh);
+				}
+				session.getTransaction().commit();
+			} catch (Exception e) {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+				throw e;
+			}
+			isiHasilValidasiSoHarian(hasil, validasi);
+			hasil.put("status", "00");
+			hasil.put("disimpan", validasi.siap.size());
+			hasil.put("description", validasi.siap.size()
+					+ " hasil hitung SO Harian tersimpan. Stok server telah dihitung ulang dan kasir lain akan menerima pembaruan saat sinkronisasi berikutnya.");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static boolean bolehUnggahSoHarian(Tbmuser tbmuser, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pedagang == null;
+		boolean supervisor = pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pedagang, adminGlobal, supervisor, "stokopname", "create")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager, supervisor, atau pengguna yang diberi akses tambah Stok Opname yang dapat mengunggah SO Harian.");
+			return false;
+		}
+		return true;
+	}
+
+	private static byte[] bacaBerkasSoHarian(JSONObject request, JSONObject hasil) throws Exception {
+		String fileBase64 = request.optString("file_base64", "").trim();
+		if (fileBase64.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "File Excel SO Harian belum dipilih.");
+			return null;
+		}
+		try {
+			byte[] bytes = java.util.Base64.getDecoder().decode(fileBase64);
+			if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) {
+				hasil.put("status", "91");
+				hasil.put("description", "Ukuran file SO Harian harus lebih dari 0 dan maksimal 10 MB.");
+				return null;
+			}
+			return bytes;
+		} catch (Exception e) {
+			hasil.put("status", "91");
+			hasil.put("description", "File Excel SO Harian rusak atau tidak dapat dibaca.");
+			return null;
+		}
+	}
+
+	private static SoHarianUploadValidation validasiBerkasSoHarian(Session session,
+			Long tokoId, java.util.Date mulai, java.util.Date akhir, byte[] bytes) throws Exception {
+		SoHarianUploadValidation hasil = new SoHarianUploadValidation();
+		hasil.fingerprint = sidikJariSoHarian(bytes);
+		java.util.List<Object[]> daftar = daftarSoHarian(session, tokoId, mulai, akhir);
+		Map<Long, Object[]> produkHarian = new HashMap<Long, Object[]>();
+		for (Object[] baris : daftar) produkHarian.put(Long.valueOf(baris[0].toString()), baris);
+		Set<Long> sudahAda = new HashSet<Long>();
+
+		XSSFWorkbook wb;
+		try {
+			wb = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+		} catch (Exception e) {
+			hasil.masalah.put("File bukan Excel .xlsx yang valid atau isinya rusak.");
+			return hasil;
+		}
+		if (wb.getNumberOfSheets() < 1) {
+			hasil.masalah.put("File Excel tidak memiliki lembar kerja.");
+			return hasil;
+		}
+		XSSFSheet sheet = wb.getSheetAt(0);
+		String[] wajib = { "CEK", "ID_PRODUK", "NAMA_PRODUK", "STOK_FISIK" };
+		int[] posisi = { 0, 1, 4, 10 };
+		XSSFRow header = sheet.getRow(0);
+		for (int i = 0; i < wajib.length; i++) {
+			String isi = header == null ? "" : Common.getCellContent(header.getCell(posisi[i])).trim();
+			if (!wajib[i].equalsIgnoreCase(isi)) {
+				hasil.masalah.put("Kolom " + (posisi[i] + 1) + " harus bernama " + wajib[i]
+						+ ". Gunakan file hasil Unduh Excel dari tab SO Harian.");
+			}
+		}
+		if (hasil.masalah.length() > 0) return hasil;
+
+		for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+			XSSFRow row = sheet.getRow(r);
+			if (row == null) continue;
+			String idTeks = Common.getCellContent(row.getCell(1)).trim();
+			String fisikTeks = Common.getCellContent(row.getCell(10)).trim();
+			if (idTeks.isEmpty() && fisikTeks.isEmpty()) {
+				hasil.dilewati++;
+				continue;
+			}
+			JSONObject preview = new JSONObject();
+			preview.put("baris", r + 1);
+			try {
+				Long produkId = Long.valueOf(idTeks.replaceAll("\\.0$", ""));
+				Object[] produk = produkHarian.get(produkId);
+				if (produk == null) throw new IllegalArgumentException(
+						"produk tidak termasuk daftar barang terjual pada tanggal yang dipilih");
+				if (!sudahAda.add(produkId)) throw new IllegalArgumentException("ID produk duplikat dalam file");
+				if (fisikTeks.isEmpty()) {
+					hasil.dilewati++;
+					continue;
+				}
+				if (!fisikTeks.matches("(?i)\\s*(rp\\s*)?-?[0-9][0-9.,\\s]*\\s*")) {
+					throw new IllegalArgumentException("Stok Fisik harus berupa angka yang valid");
+				}
+				double stokFisik = parseAngkaAman(fisikTeks);
+				if (Double.isNaN(stokFisik) || Double.isInfinite(stokFisik) || stokFisik < 0) {
+					throw new IllegalArgumentException("Stok Fisik harus berupa angka 0 atau lebih");
+				}
+				double stokSistem = produk[7] == null ? 0.0 : ((Number) produk[7]).doubleValue();
+				String petugas = Common.getCellContent(row.getCell(12)).trim();
+				String keterangan = Common.getCellContent(row.getCell(13)).trim();
+				preview.put("produkId", produkId);
+				preview.put("kode", produk[1] == null ? "" : produk[1]);
+				preview.put("nama", produk[3] == null ? "" : produk[3]);
+				preview.put("stokSistem", stokSistem);
+				preview.put("stokFisik", stokFisik);
+				preview.put("selisih", stokFisik - stokSistem);
+				hasil.data.put(preview);
+				hasil.siap.add(new Object[] { produkId, produk[1], produk[3],
+						Double.valueOf(stokSistem), Double.valueOf(stokFisik), petugas, keterangan });
+			} catch (Exception e) {
+				hasil.masalah.put("Baris " + (r + 1) + ": " + e.getMessage() + ".");
+			}
+		}
+		return hasil;
+	}
+
+	private static void isiHasilValidasiSoHarian(JSONObject json,
+			SoHarianUploadValidation validasi) throws Exception {
+		json.put("siap", validasi.siap.size());
+		json.put("dilewati", validasi.dilewati);
+		json.put("gagal", validasi.masalah.length());
+		json.put("data", validasi.data);
+		json.put("masalah", validasi.masalah);
+		json.put("fingerprint", validasi.fingerprint);
+	}
+
+	private static String sidikJariSoHarian(byte[] bytes) throws Exception {
+		byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+		StringBuilder teks = new StringBuilder();
+		for (int i = 0; i < digest.length; i++) teks.append(String.format("%02x", digest[i] & 0xff));
+		return teks.toString();
 	}
 
 	private static java.util.Date[] rentangTanggalSoHarian(JSONObject request, JSONObject hasil) throws Exception {

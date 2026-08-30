@@ -530,7 +530,18 @@ public class PosApi extends HttpServlet {
 			} else if ("so_harian".equals(action)) {
 				KantinHelper.soHarian(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_harian");
+			} else if ("so_harian_download_excel".equals(action)) {
+				KantinHelper.soHarianDownloadExcel(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "so_harian_download_excel");
+			} else if ("so_harian_upload_excel_preview".equals(action)) {
+				KantinHelper.soHarianUploadExcelPreview(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "so_harian_upload_excel_preview");
+			} else if ("so_harian_upload_excel".equals(action)) {
+				KantinHelper.soHarianUploadExcel(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "so_harian_upload_excel");
 			} else if ("so_harian_ekspor_excel".equals(action)) {
+				// Alias kompatibilitas untuk build POS sebelum action kanonis
+				// so_harian_download_excel diperkenalkan.
 				KantinHelper.soHarianEksporExcel(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_harian_ekspor_excel");
 			} else if ("kedaluwarsa_list".equals(action)) {
