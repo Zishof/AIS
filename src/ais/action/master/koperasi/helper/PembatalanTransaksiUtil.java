@@ -198,4 +198,213 @@ public final class PembatalanTransaksiUtil {
         String t = s.trim();
         return t.length() <= maks ? t : t.substring(0, maks);
     }
+
+    // ================================================================= jalur API dasbor draft jurnal
+
+    /**
+     * Kriteria dokumen yang SAMA dengan baris "Pembatalan Penjualan Kantin" di dasbor draft
+     * jurnal: arsip pembatalan yang transaksi aslinya SUDAH terposting batch Penjualan Kantin
+     * ({@code sudah_diposting=true}), bernilai, pada rentang tanggal DIBATALKAN. Pembatalan atas
+     * transaksi yang belum terposting tidak butuh jurnal balik (headernya keluar dari kriteria
+     * batch sebelum pernah dijurnal) sehingga tidak dihitung.
+     */
+    private static org.hibernate.Criteria kriteriaPembatalanStatic(Session session,
+            java.util.Date mulai, java.util.Date sampai) {
+        org.hibernate.Criteria c = session.createCriteria(PembatalanTransaksiKantin.class)
+                .add(org.hibernate.criterion.Restrictions.eq("sudahDiposting", Boolean.TRUE))
+                .add(org.hibernate.criterion.Restrictions.ne("totalBiaya", 0.0))
+                .add(org.hibernate.criterion.Restrictions.isNotNull("totalBiaya"));
+        if (mulai != null && sampai != null) {
+            c.add(org.hibernate.criterion.Restrictions.sqlRestriction(
+                    "date(this_.tanggal_dibatalkan) between date('"
+                            + Common.databaseDateFormat.get().format(mulai) + "') and date('"
+                            + Common.databaseDateFormat.get().format(sampai) + "')"));
+        }
+        return c;
+    }
+
+    /** Akun pendapatan tujuan jurnal balik, dari konfigurasi {@code akun_pendapatan_pembatalan_kantin_id}. */
+    private static ais.database.model.akunting.Akun akunPendapatanBalik() {
+        try {
+            String id = Common.getKonfigurasi("akun_pendapatan_pembatalan_kantin_id", "").getNilai();
+            if (id != null && !id.trim().isEmpty()) {
+                return (ais.database.model.akunting.Akun) ais.common.ConstantValues.ambil(
+                        ais.database.model.akunting.Akun.class.getName(), Long.parseLong(id.trim()));
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "PembatalanTransaksiUtil.akunPendapatanBalik");
+        }
+        return null;
+    }
+
+    /**
+     * Posting SEMUA jurnal balik pembatalan pada rentang -- jalur API dasbor Draft Jurnal POS
+     * (dok 61 butir C). Jurnal per arsip: Dr akun pendapatan (konfigurasi
+     * {@code akun_pendapatan_pembatalan_kantin_id}) / Cr akun kas dari CARA PEMBAYARAN yang
+     * terekam arsip (dicari per nama), senilai {@code totalBiaya}, bertanggal DIBATALKAN --
+     * kebalikan agregat dari porsi header pada batch Penjualan Kantin yang terlanjur terposting.
+     *
+     * <p>Batasan yang disengaja (arsip pembatalan hanya menyimpan potret teks): rincian per
+     * jenis produk, PPN, dan sisi HPP TIDAK direkonstruksi -- pendapatan dibalik agregat ke satu
+     * akun konfigurasi; koreksi HPP barang batal dilakukan lewat batal-mundur + posting ulang
+     * periode HPP berjalan atau jurnal penyesuaian. Konfigurasi belum diisi = semua arsip
+     * dilewati (tercatat di Error Log dan angka "dilewati" dasbor).</p>
+     */
+    public static int postingSemua(java.util.Date mulai, java.util.Date sampai, Tbmuser oleh,
+            java.util.Date tglPosting) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaPembatalanStatic(session, mulai, sampai)
+                    .add(org.hibernate.criterion.Restrictions.isNull("postingHistory")).list();
+            if (daftar.isEmpty()) {
+                return 0;
+            }
+            ais.database.model.akunting.Akun akunPendapatan = akunPendapatanBalik();
+            if (akunPendapatan == null) {
+                ais.common.ErrorAuditUtil.record(new IllegalStateException(
+                        "Konfigurasi akun_pendapatan_pembatalan_kantin_id belum diisi -- jurnal"
+                                + " balik pembatalan kantin tidak dapat diposting."),
+                        "PembatalanTransaksiUtil jalur API");
+                return 0;
+            }
+
+            ais.database.model.akunting.PostingHistory postingHistory =
+                    new ais.database.model.akunting.PostingHistory(
+                            ais.database.model.akunting.PostingHistory.JENIS_PEMBATALAN_KANTIN);
+            postingHistory.setTbmuser(oleh);
+            postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
+            postingHistory.setTanggalPosting(tglPosting == null ? new java.util.Date() : tglPosting);
+            postingHistory.setPosting(true);
+            postingHistory.setKeterangan("Posting massal jurnal balik pembatalan kantin dari dasbor jurnal"
+                    + (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
+                            + " s.d " + Common.dateFormat.get().format(sampai) : ""));
+            session.getTransaction().begin();
+            session.save(postingHistory);
+            session.getTransaction().commit();
+
+            for (Object o : daftar) {
+                PembatalanTransaksiKantin arsip = (PembatalanTransaksiKantin) o;
+                if (arsip == null) {
+                    continue;
+                }
+                try {
+                    ais.database.model.akunting.Akun akunKas = null;
+                    if (arsip.getCaraPembayaran() != null && !arsip.getCaraPembayaran().trim().isEmpty()) {
+                        ais.database.model.koperasi.CaraPembayaranKoperasi cara =
+                                (ais.database.model.koperasi.CaraPembayaranKoperasi) session
+                                        .createCriteria(
+                                                ais.database.model.koperasi.CaraPembayaranKoperasi.class)
+                                        .add(org.hibernate.criterion.Restrictions.eq("nama",
+                                                arsip.getCaraPembayaran().trim()))
+                                        .setMaxResults(1).uniqueResult();
+                        akunKas = cara == null ? null : cara.getAkun();
+                    }
+                    Double nilai = arsip.getTotalBiaya();
+                    if (akunKas == null || nilai == null || nilai == 0.0) {
+                        // Cara pembayaran arsip tidak dikenal/ber-akun: dilewati, tetap draf.
+                        continue;
+                    }
+
+                    String ket = "Jurnal balik pembatalan transaksi kantin \"" + arsip.getKode()
+                            + "\" (" + arsip.getNamaAnggota() + ") senilai "
+                            + Common.numberFormat.get().format(nilai)
+                            + "; alasan: " + arsip.getAlasan();
+
+                    boolean tersimpan;
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    tersimpan = ais.action.master.akunting.util.CommonAkunting.saveTransaksi(
+                            new ais.database.model.akunting.Akun[] { akunPendapatan },
+                            new ais.database.model.akunting.Akun[] { akunKas }, null, null,
+                            postingHistory, true, ket, arsip.getTanggalDibatalkan(),
+                            new Double[] { nilai }, new Double[] { nilai }, 0.0, arsip, null, session);
+                    if (tersimpan) {
+                        arsip.setPostingHistory(postingHistory);
+                        session.update(arsip);
+                        session.getTransaction().commit();
+                        n++;
+                    } else {
+                        session.getTransaction().rollback();
+                    }
+                } catch (Exception e) {
+                    try {
+                        session.getTransaction().rollback();
+                    } catch (Exception ex) {
+                        // rollback gagal: kegagalan aslinya yang dilaporkan
+                    }
+                    ais.common.ErrorAuditUtil.record(e, "PembatalanTransaksiUtil jalur API");
+                }
+            }
+
+            if (n == 0) {
+                // Tidak satu arsip pun terjurnal: riwayat kosong tidak ditinggalkan.
+                try {
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    session.delete(postingHistory);
+                    session.getTransaction().commit();
+                } catch (Exception e) {
+                    ais.common.ErrorAuditUtil.record(e, "PembatalanTransaksiUtil jalur API");
+                }
+            }
+        } finally {
+            try {
+                session.disconnect();
+                ais.database.hibernate.HibernateUtil.closeSession();
+            } catch (Exception e) {
+                // penutupan sesi manual: kegagalannya tidak menutupi hasil posting
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Membatalkan posting SEMUA jurnal balik pada rentang: jurnal turunannya dihapus (baris
+     * transaksi dulu, lalu grupnya -- hanya yang belum closing), lalu penandanya dilepas.
+     */
+    public static int batalkanPostingSemua(java.util.Date mulai, java.util.Date sampai) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaPembatalanStatic(session, mulai, sampai)
+                    .add(org.hibernate.criterion.Restrictions.isNotNull("postingHistory")).list();
+            for (Object o : daftar) {
+                PembatalanTransaksiKantin arsip = (PembatalanTransaksiKantin) o;
+                if (arsip == null) {
+                    continue;
+                }
+                try {
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+                            + " (select id from akunting.grup_transaksi where pembatalan_transaksi="
+                            + arsip.getId() + " and closing is null)").executeUpdate();
+                    session.createSQLQuery(
+                            "delete from akunting.grup_transaksi where pembatalan_transaksi="
+                                    + arsip.getId() + " and closing is null").executeUpdate();
+                    arsip.setPostingHistory(null);
+                    session.update(arsip);
+                    session.getTransaction().commit();
+                    n++;
+                } catch (Exception e) {
+                    try {
+                        session.getTransaction().rollback();
+                    } catch (Exception ex) {
+                        // rollback gagal: kegagalan aslinya yang dilaporkan
+                    }
+                    ais.common.ErrorAuditUtil.record(e, "PembatalanTransaksiUtil jalur API");
+                }
+            }
+        } finally {
+            try {
+                session.disconnect();
+                ais.database.hibernate.HibernateUtil.closeSession();
+            } catch (Exception e) {
+                // penutupan sesi manual: kegagalannya tidak menutupi hasil pembatalan
+            }
+        }
+        return n;
+    }
+
 }

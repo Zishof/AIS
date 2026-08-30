@@ -2658,4 +2658,20 @@ public class GrupTransaksi extends GeneralValueObject {
 	public void setClosing(Closing closing) {
 		this.closing = closing;
 	}
+
+	private ais.database.model.koperasi.PembatalanTransaksiKantin pembatalanTransaksiKantin;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@org.hibernate.envers.Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "pembatalan_transaksi", nullable = true)
+	public ais.database.model.koperasi.PembatalanTransaksiKantin getPembatalanTransaksiKantin() {
+		return pembatalanTransaksiKantin;
+	}
+
+	public void setPembatalanTransaksiKantin(
+			ais.database.model.koperasi.PembatalanTransaksiKantin pembatalanTransaksiKantin) {
+		this.pembatalanTransaksiKantin = pembatalanTransaksiKantin;
+	}
+
 }

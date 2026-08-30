@@ -289,4 +289,22 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
     public void setSudahDiposting(Boolean sudahDiposting) {
         this.sudahDiposting = sudahDiposting;
     }
+
+    private ais.database.model.akunting.PostingHistory postingHistory;
+
+    /**
+     * Riwayat JURNAL BALIK pembatalan (dok 61 butir C): terisi begitu mesin posting
+     * "Pembatalan Penjualan Kantin" menjurnal-balikkan pendapatan transaksi terposting
+     * yang dibatalkan ini. Hanya relevan bila {@link #getSudahDiposting()} true.
+     */
+    @javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+    @javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+    public ais.database.model.akunting.PostingHistory getPostingHistory() {
+        return postingHistory;
+    }
+
+    public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+        this.postingHistory = postingHistory;
+    }
+
 }

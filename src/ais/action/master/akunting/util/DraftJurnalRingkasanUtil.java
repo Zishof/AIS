@@ -105,7 +105,7 @@ public final class DraftJurnalRingkasanUtil {
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
-            "simpan_pinjam_koperasi", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
+            "simpan_pinjam_koperasi", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -137,6 +137,7 @@ public final class DraftJurnalRingkasanUtil {
                 || "pembayaran_termin_vendor".equals(kunci)
                 || "perjanjian_kerjasama".equals(kunci)) return "transaksi_vendor";
         if ("simpan_pinjam_koperasi".equals(kunci)) return "simpan_pinjam";
+        if ("pembatalan_kantin".equals(kunci)) return "posting_penjualan";
         if ("gaji".equals(kunci) || "transaksi_pegawai_payroll".equals(kunci)
                 || "penggajian_pegawai".equals(kunci)) return "gaji";
         if ("mahasiswa".equals(kunci) || "siswa".equals(kunci)) return "siswa_mahasiswa";
@@ -351,6 +352,16 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), true),
                     hitungClosing(session, "transaksiKoperasi", null, null, mulai, sampai)));
+        } else if ("pembatalan_kantin".equals(kunci)) {
+            out.add(new Baris(kunci, "Pembatalan Penjualan Kantin",
+                    "Pembatalan atas transaksi yang terlanjur masuk batch Penjualan Kantin"
+                            + " terposting dipastikan mendapat jurnal balik pendapatan.",
+                    hitungPostingHistory(session, kriteriaPembatalanKantin(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPembatalanKantin(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "pembatalanTransaksiKantin", null, null, mulai,
+                            sampai)));
         } else if ("mahasiswa".equals(kunci)) {
             mahasiswa(out, session, mulai, sampai);
         } else if ("siswa".equals(kunci)) {
@@ -572,6 +583,17 @@ public final class DraftJurnalRingkasanUtil {
                 .add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
                 .add(Restrictions.isNull("daftarPengajuanTransfer"))
                 .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_pembuatan", mulai, sampai)));
+    }
+
+    /**
+     * Arsip pembatalan kantin yang transaksi aslinya SUDAH terposting (butuh jurnal balik).
+     * Sama dengan mesinnya ({@code PembatalanTransaksiUtil.kriteriaPembatalanStatic}).
+     */
+    private static Criteria kriteriaPembatalanKantin(Session session, Date mulai, Date sampai) {
+        return session.createCriteria(ais.database.model.koperasi.PembatalanTransaksiKantin.class)
+                .add(Restrictions.eq("sudahDiposting", Boolean.TRUE))
+                .add(Restrictions.ne("totalBiaya", 0.0)).add(Restrictions.isNotNull("totalBiaya"))
+                .add(Restrictions.sqlRestriction(dateSql("this_.tanggal_dibatalkan", mulai, sampai)));
     }
 
     private static Criteria kriteriaLpj(Session session, Date mulai, Date sampai) {
@@ -900,6 +922,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Perjanjian Kerjasama".equals(namaBaris)) {
             return kriteriaPerjanjianKerjasama(session, mulai, sampai);
+        }
+        if ("Pembatalan Penjualan Kantin".equals(namaBaris)) {
+            return kriteriaPembatalanKantin(session, mulai, sampai);
         }
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) {
             return kriteriaSimpanPinjam(session, mulai, sampai);

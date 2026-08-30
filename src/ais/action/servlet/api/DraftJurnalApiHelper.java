@@ -111,6 +111,8 @@ public final class DraftJurnalApiHelper {
         // Kunci deskriptif fail-closed (pola siswa/mahasiswa): tidak ada kunci menu POS
         // khusus simpan-pinjam, dan bolehAksiAkuntansi menolak kunci tak dikenal.
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) return "simpan_pinjam_koperasi";
+        // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
+        if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
         if ("Penerimaan Tagihan Vendor".equals(namaBaris)) return "pengadaan_tagihan";
         // Jurnal pembayaran menempel pada dokumen sumbernya, mengikuti prinsip baris lain:
         // pembayaran tagihan/termin pada tagihannya, pembayaran DP pada pemesanannya.
@@ -433,6 +435,12 @@ public final class DraftJurnalApiHelper {
                     ? ais.action.master.payroll.PostingTransaksiPegawaiAction.postingSemua(mulai,
                         sampai, tbmuser, new Date())
                     : ais.action.master.payroll.PostingTransaksiPegawaiAction
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Pembatalan Penjualan Kantin".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PembatalanTransaksiUtil.postingSemua(
+                        mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PembatalanTransaksiUtil
                         .batalkanPostingSemua(mulai, sampai);
         } else if ("Simpan Pinjam Koperasi".equals(nama)) {
             jumlah = posting
