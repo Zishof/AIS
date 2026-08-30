@@ -183,6 +183,7 @@ public class CapaianLulusanVsKurikulumMatakuliahAction extends MyWindow {
 				showMatriks();
 			}
 		});
+		ObeRelationMatrixTransferHelper.pasang(row, createTransferAdapter());
 
 	}
 
@@ -279,7 +280,8 @@ public class CapaianLulusanVsKurikulumMatakuliahAction extends MyWindow {
 								if (kurikulumPunyaMatakuliah.getSemester() != null
 										&& kurikulumPunyaMatakuliah.getSemester().equals(smt)) {
 									Matakuliah matakuliah = kurikulumPunyaMatakuliah.getMatakuliah();
-									if (matakuliah.getCapaianLulusan().contains("," + capaianLulusan.getId() + ",")) {
+									if (ObeRelationMatrixTransferHelper.containsId(
+											matakuliah.getCapaianLulusan(), capaianLulusan.getId())) {
 										Label lbl;
 										vbox.appendChild(lbl = new Label(matakuliah.getKode()));
 										lbl.setTooltiptext(matakuliah.getNama());
@@ -365,7 +367,8 @@ public class CapaianLulusanVsKurikulumMatakuliahAction extends MyWindow {
 			sb.append("<td class='lnama'>").append(esc(cpl.getNama())).append("</td>");
 			for (int i = 0; i < kpmSorted.size(); i++) {
 				Matakuliah mk = kpmSorted.get(i).getMatakuliah();
-				boolean mapped = mk != null && mk.getCapaianLulusan().contains("," + cpl.getId() + ",");
+				boolean mapped = mk != null && ObeRelationMatrixTransferHelper.containsId(
+						mk.getCapaianLulusan(), cpl.getId());
 				if (mapped) { rowTotal++; colTotals[i]++; grand++; }
 				sb.append("<td class='").append(mapped ? "yes" : "no").append("'>")
 				  .append(mapped ? "&#10003;" : "&nbsp;").append("</td>");
@@ -390,6 +393,45 @@ public class CapaianLulusanVsKurikulumMatakuliahAction extends MyWindow {
 		d.setParent(win);
 		new org.zkoss.zul.Html(sb.toString()).setParent(d);
 		try { win.onModal(); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
+	}
+
+	private ObeRelationMatrixTransferHelper.MatrixAdapter createTransferAdapter() {
+		return new ObeRelationMatrixTransferHelper.MatrixAdapter() {
+			public String getTitle() { return "CPL vs Mata Kuliah"; }
+			public String getRowLabel() { return "CPL"; }
+			public String getColumnLabel() { return "Mata Kuliah"; }
+			public int getRowCount() { return loadedCpl == null ? 0 : loadedCpl.size(); }
+			public int getColumnCount() { return loadedKpm == null ? 0 : loadedKpm.size(); }
+			public String getRowCode(int row) { return loadedCpl.get(row).getKode(); }
+			public String getRowName(int row) { return loadedCpl.get(row).getNama(); }
+			public String getColumnCode(int column) {
+				Matakuliah mk = loadedKpm.get(column).getMatakuliah();
+				return mk == null ? "" : mk.getKode();
+			}
+			public String getColumnName(int column) {
+				Matakuliah mk = loadedKpm.get(column).getMatakuliah();
+				return mk == null ? "" : mk.getNama();
+			}
+			public boolean isSelected(int row, int column) {
+				Matakuliah mk = loadedKpm.get(column).getMatakuliah();
+				return mk != null && ObeRelationMatrixTransferHelper.containsId(
+						mk.getCapaianLulusan(), loadedCpl.get(row).getId());
+			}
+			public void applyRow(int row, boolean[] selected) throws Exception {
+				CapaianLulusan cpl = loadedCpl.get(row);
+				for (int i = 0; i < loadedKpm.size(); i++) {
+					Matakuliah mk = loadedKpm.get(i).getMatakuliah();
+					if (mk == null) continue;
+					String oldIds = mk.getCapaianLulusan();
+					String newIds = ObeRelationMatrixTransferHelper.setId(oldIds, cpl.getId(), selected[i]);
+					if (oldIds == null || !oldIds.equals(newIds)) {
+						mk.setCapaianLulusan(newIds);
+						Common.refreshUpdate(mk);
+					}
+				}
+			}
+			public void refresh() throws Exception { onKHS(null); }
+		};
 	}
 
 	private static String esc(String s) {

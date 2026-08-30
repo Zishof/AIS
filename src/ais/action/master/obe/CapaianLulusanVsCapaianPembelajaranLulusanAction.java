@@ -200,6 +200,7 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends Div {
 				showMatriks();
 			}
 		});
+		ObeRelationMatrixTransferHelper.pasang(row, createTransferAdapter());
 
 	}
 
@@ -299,21 +300,16 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends Div {
 							final Checkbox checkbox = new Checkbox();
 							checkbox.setTooltiptext(
 									bapaianPembelajaranLulusan.getKode() + " " + bapaianPembelajaranLulusan.getNama());
-							checkbox.setChecked(capaianLulusan.getCapaianPembelajaranLulusan()
-									.contains("," + bapaianPembelajaranLulusan.getId() + ","));
+							checkbox.setChecked(ObeRelationMatrixTransferHelper.containsId(
+									capaianLulusan.getCapaianPembelajaranLulusan(), bapaianPembelajaranLulusan.getId()));
 							row.appendChild(checkbox);
 							checkbox.addEventListener("onClick", new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									String p = capaianLulusan.getCapaianPembelajaranLulusan();
-									if (checkbox.isChecked()) {
-										p += p.isEmpty() ? bapaianPembelajaranLulusan.getId() + ""
-												: "," + bapaianPembelajaranLulusan.getId();
-									} else {
-										p = org.apache.commons.lang3.StringUtils.replace(p,
-												"," + bapaianPembelajaranLulusan.getId(), "");
-									}
+									String p = ObeRelationMatrixTransferHelper.setId(
+											capaianLulusan.getCapaianPembelajaranLulusan(),
+											bapaianPembelajaranLulusan.getId(), checkbox.isChecked());
 									capaianLulusan.setCapaianPembelajaranLulusan(p);
 									Common.refreshUpdate(capaianLulusan);
 								}
@@ -368,7 +364,8 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends Div {
 			sb.append("<tr><td class='lkode'>").append(esc(cpl.getKode())).append("</td>");
 			sb.append("<td class='lnama'>").append(esc(cpl.getNama())).append("</td>");
 			for (int i = 0; i < loadedCpmk.size(); i++) {
-				boolean mapped = cpl.getCapaianPembelajaranLulusan().contains("," + loadedCpmk.get(i).getId() + ",");
+				boolean mapped = ObeRelationMatrixTransferHelper.containsId(
+						cpl.getCapaianPembelajaranLulusan(), loadedCpmk.get(i).getId());
 				if (mapped) { rowTotal++; colTotals[i]++; grand++; }
 				sb.append("<td class='").append(mapped ? "yes" : "no").append("'>")
 				  .append(mapped ? "&#10003;" : "&nbsp;").append("</td>");
@@ -393,6 +390,33 @@ public class CapaianLulusanVsCapaianPembelajaranLulusanAction extends Div {
 		d.setParent(win);
 		new org.zkoss.zul.Html(sb.toString()).setParent(d);
 		try { win.onModal(); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
+	}
+
+	private ObeRelationMatrixTransferHelper.MatrixAdapter createTransferAdapter() {
+		return new ObeRelationMatrixTransferHelper.MatrixAdapter() {
+			public String getTitle() { return "CPL vs CPMK"; }
+			public String getRowLabel() { return "CPL"; }
+			public String getColumnLabel() { return "CPMK"; }
+			public int getRowCount() { return loadedCpl == null ? 0 : loadedCpl.size(); }
+			public int getColumnCount() { return loadedCpmk == null ? 0 : loadedCpmk.size(); }
+			public String getRowCode(int row) { return loadedCpl.get(row).getKode(); }
+			public String getRowName(int row) { return loadedCpl.get(row).getNama(); }
+			public String getColumnCode(int column) { return loadedCpmk.get(column).getKode(); }
+			public String getColumnName(int column) { return loadedCpmk.get(column).getNama(); }
+			public boolean isSelected(int row, int column) {
+				return ObeRelationMatrixTransferHelper.containsId(
+						loadedCpl.get(row).getCapaianPembelajaranLulusan(), loadedCpmk.get(column).getId());
+			}
+			public void applyRow(int row, boolean[] selected) throws Exception {
+				CapaianLulusan cpl = loadedCpl.get(row);
+				String ids = cpl.getCapaianPembelajaranLulusan();
+				for (int i = 0; i < loadedCpmk.size(); i++)
+					ids = ObeRelationMatrixTransferHelper.setId(ids, loadedCpmk.get(i).getId(), selected[i]);
+				cpl.setCapaianPembelajaranLulusan(ids);
+				Common.refreshUpdate(cpl);
+			}
+			public void refresh() throws Exception { onKHS(null); }
+		};
 	}
 
 	private static String esc(String s) {

@@ -204,6 +204,7 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 				showMatriks();
 			}
 		});
+		ObeRelationMatrixTransferHelper.pasang(row, createTransferAdapter());
 
 	}
 
@@ -297,19 +298,15 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 						for (final BahanKajian bahanKajian : bahanKajians) {
 							final Checkbox checkbox = new Checkbox();
 							checkbox.setTooltiptext(bahanKajian.getKode() + " " + bahanKajian.getNama());
-							checkbox.setChecked(
-									capaianLulusan.getBahanKajian().contains("," + bahanKajian.getId() + ","));
+							checkbox.setChecked(ObeRelationMatrixTransferHelper.containsId(
+									capaianLulusan.getBahanKajian(), bahanKajian.getId()));
 							row.appendChild(checkbox);
 							checkbox.addEventListener("onClick", new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									String p = capaianLulusan.getBahanKajian();
-									if (checkbox.isChecked()) {
-										p += p.isEmpty() ? bahanKajian.getId() + "" : "," + bahanKajian.getId();
-									} else {
-										p = org.apache.commons.lang3.StringUtils.replace(p, "," + bahanKajian.getId(), "");
-									}
+									String p = ObeRelationMatrixTransferHelper.setId(
+											capaianLulusan.getBahanKajian(), bahanKajian.getId(), checkbox.isChecked());
 									capaianLulusan.setBahanKajian(p);
 									Common.refreshUpdate(capaianLulusan);
 								}
@@ -364,7 +361,8 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 			sb.append("<tr><td class='lkode'>").append(esc(cpl.getKode())).append("</td>");
 			sb.append("<td class='lnama'>").append(esc(cpl.getNama())).append("</td>");
 			for (int i = 0; i < loadedBk.size(); i++) {
-				boolean mapped = cpl.getBahanKajian().contains("," + loadedBk.get(i).getId() + ",");
+				boolean mapped = ObeRelationMatrixTransferHelper.containsId(
+						cpl.getBahanKajian(), loadedBk.get(i).getId());
 				if (mapped) { rowTotal++; colTotals[i]++; grand++; }
 				sb.append("<td class='").append(mapped ? "yes" : "no").append("'>")
 				  .append(mapped ? "&#10003;" : "&nbsp;").append("</td>");
@@ -389,6 +387,33 @@ public class CapaianLulusanVsBahanKajianAction extends Div {
 		d.setParent(win);
 		new org.zkoss.zul.Html(sb.toString()).setParent(d);
 		try { win.onModal(); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
+	}
+
+	private ObeRelationMatrixTransferHelper.MatrixAdapter createTransferAdapter() {
+		return new ObeRelationMatrixTransferHelper.MatrixAdapter() {
+			public String getTitle() { return "CPL vs Bahan Kajian"; }
+			public String getRowLabel() { return "CPL"; }
+			public String getColumnLabel() { return "Bahan Kajian"; }
+			public int getRowCount() { return loadedCpl == null ? 0 : loadedCpl.size(); }
+			public int getColumnCount() { return loadedBk == null ? 0 : loadedBk.size(); }
+			public String getRowCode(int row) { return loadedCpl.get(row).getKode(); }
+			public String getRowName(int row) { return loadedCpl.get(row).getNama(); }
+			public String getColumnCode(int column) { return loadedBk.get(column).getKode(); }
+			public String getColumnName(int column) { return loadedBk.get(column).getNama(); }
+			public boolean isSelected(int row, int column) {
+				return ObeRelationMatrixTransferHelper.containsId(loadedCpl.get(row).getBahanKajian(),
+						loadedBk.get(column).getId());
+			}
+			public void applyRow(int row, boolean[] selected) throws Exception {
+				CapaianLulusan cpl = loadedCpl.get(row);
+				String ids = cpl.getBahanKajian();
+				for (int i = 0; i < loadedBk.size(); i++)
+					ids = ObeRelationMatrixTransferHelper.setId(ids, loadedBk.get(i).getId(), selected[i]);
+				cpl.setBahanKajian(ids);
+				Common.refreshUpdate(cpl);
+			}
+			public void refresh() throws Exception { onKHS(null); }
+		};
 	}
 
 	private static String esc(String s) {

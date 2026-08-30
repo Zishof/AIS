@@ -154,21 +154,28 @@ public final class ObeRelationMatrixTransferHelper {
 			}
 			Map<String, Integer> columns = new HashMap<String, Integer>();
 			for (int c = 2; c < header.getLastCellNum(); c++) {
-				columns.put(text(header.getCell(c)).trim().toUpperCase(), Integer.valueOf(c));
+				columns.put(safe(text(header.getCell(c))).trim().toUpperCase(), Integer.valueOf(c));
+			}
+			for (int c = 0; c < adapter.getColumnCount(); c++) {
+				String code = safe(adapter.getColumnCode(c)).trim().toUpperCase();
+				if (code.length() == 0 || !columns.containsKey(code)) {
+					throw new IllegalArgumentException("Kolom " + code
+							+ " tidak ditemukan. Silakan unduh dan gunakan template Excel terbaru.");
+				}
 			}
 			Map<String, Integer> rows = new HashMap<String, Integer>();
 			for (int r = 0; r < adapter.getRowCount(); r++) {
-				rows.put(adapter.getRowCode(r).trim().toUpperCase(), Integer.valueOf(r));
+				rows.put(safe(adapter.getRowCode(r)).trim().toUpperCase(), Integer.valueOf(r));
 			}
 			int updated = 0;
 			for (int n = 4; n <= sheet.getLastRowNum(); n++) {
 				Row excelRow = sheet.getRow(n);
 				if (excelRow == null) continue;
-				Integer rowIndex = rows.get(text(excelRow.getCell(0)).trim().toUpperCase());
+				Integer rowIndex = rows.get(safe(text(excelRow.getCell(0))).trim().toUpperCase());
 				if (rowIndex == null) continue;
 				boolean[] selected = new boolean[adapter.getColumnCount()];
 				for (int c = 0; c < adapter.getColumnCount(); c++) {
-					Integer excelColumn = columns.get(adapter.getColumnCode(c).trim().toUpperCase());
+					Integer excelColumn = columns.get(safe(adapter.getColumnCode(c)).trim().toUpperCase());
 					selected[c] = excelColumn != null && truthy(text(excelRow.getCell(excelColumn.intValue())));
 				}
 				adapter.applyRow(rowIndex.intValue(), selected);
@@ -241,13 +248,32 @@ public final class ObeRelationMatrixTransferHelper {
 		return false;
 	}
 
-	public static String buildIds(MatrixAdapter adapter, int row, boolean[] selected) {
+	public static String setId(String csv, long id, boolean selected) {
+		String target = String.valueOf(id);
 		StringBuilder result = new StringBuilder();
-		for (int c = 0; c < selected.length; c++) {
-			if (selected[c]) result.append(',').append(adapter.getColumnCode(c));
+		boolean found = false;
+		if (csv != null) {
+			String[] values = csv.split(",");
+			for (int i = 0; i < values.length; i++) {
+				String value = values[i].trim();
+				if (value.length() == 0) continue;
+				if (target.equals(value)) {
+					found = true;
+					if (!selected) continue;
+				}
+				if (result.length() > 0) result.append(',');
+				result.append(value);
+			}
 		}
-		if (result.length() > 0) result.append(',');
+		if (selected && !found) {
+			if (result.length() > 0) result.append(',');
+			result.append(target);
+		}
 		return result.toString();
+	}
+
+	private static String safe(String value) {
+		return value == null ? "" : value;
 	}
 
 	private static String fileName(String value) {
