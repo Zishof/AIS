@@ -183,6 +183,10 @@ public final class StokOpnameScanUtil {
 		if (produk == null) {
 			throw new Exception("Produk tidak ditemukan.");
 		}
+		if (produk.getToko() == null || produk.getToko().getId() == null
+				|| !tokoId.equals(produk.getToko().getId())) {
+			throw new Exception("Produk tidak termasuk toko yang sedang dipilih. Pilih toko yang benar lalu ulangi.");
+		}
 
 		StokOpname so = new StokOpname();
 		so.setToko(toko);
@@ -216,6 +220,56 @@ public final class StokOpnameScanUtil {
 		// mengubah harga beli/jual produk.
 		StokKantinUtil.recomputeStokProdukNative(s, produkId);
 		return so;
+	}
+
+	/** Baca stok akhir yang sudah tersimpan pada master produk di sesi/transaksi yang sama. */
+	public static double stokProdukTerkini(Session session, Long produkId) {
+		if (produkId == null) return 0d;
+		Session s = session == null ? HibernateUtil.currentSession() : session;
+		SQLQuery q = s.createSQLQuery("SELECT COALESCE(stok,0) FROM koperasi.produk WHERE id = :produk");
+		q.setParameter("produk", produkId);
+		return toDouble(q.uniqueResult());
+	}
+
+	/**
+	 * Membatalkan satu hasil opname dengan jurnal kompensasi, bukan menghapus riwayat asli.
+	 * Cara ini membuat audit tetap utuh dan aman bila sesudah opname sudah ada mutasi lain:
+	 * hanya kontribusi selisih opname asal yang dibalik.
+	 */
+	public static StokOpname batalkanOpname(Session session, Long tokoId, Long opnameId,
+			String alasan, String oleh) throws Exception {
+		if (tokoId == null || opnameId == null) throw new Exception("Catatan Stok Opname tidak ditemukan.");
+		Session s = session == null ? HibernateUtil.currentSession() : session;
+		StokOpname asal = (StokOpname) s.get(StokOpname.class, opnameId);
+		if (asal == null || asal.getToko() == null || !tokoId.equals(asal.getToko().getId())) {
+			throw new Exception("Catatan Stok Opname tidak ditemukan pada toko yang dipilih.");
+		}
+		String ketAsal = asal.getKeterangan() == null ? "" : asal.getKeterangan();
+		if (ketAsal.startsWith("[BATAL_SO:")) throw new Exception("Jurnal pembatalan tidak dapat dibatalkan kembali.");
+		if (asal.getPostingHistory() != null) {
+			throw new Exception("Stok Opname sudah diposting ke jurnal. Batalkan posting akuntansi terlebih dahulu.");
+		}
+		String penanda = "[BATAL_SO:" + opnameId + "]";
+		SQLQuery sudah = s.createSQLQuery("SELECT id FROM koperasi.stok_opname WHERE toko=:toko "
+				+ "AND keterangan LIKE :penanda ORDER BY id DESC LIMIT 1");
+		sudah.setParameter("toko", tokoId);
+		sudah.setParameter("penanda", penanda + "%");
+		Object idAda = sudah.uniqueResult();
+		if (idAda != null) return (StokOpname) s.get(StokOpname.class, ((Number) idAda).longValue());
+
+		double stokSekarang = hitungStokSistem(s, asal.getProduk().getId());
+		StokOpname balik = new StokOpname();
+		balik.setToko(asal.getToko());
+		balik.setProduk(asal.getProduk());
+		balik.setStokSistem(Double.valueOf(stokSekarang));
+		balik.setStokFisik(Double.valueOf(stokSekarang - asal.getSelisih()));
+		balik.setSelisih(Double.valueOf(-asal.getSelisih()));
+		balik.setWaktuOpname(new Date());
+		balik.setKeterangan(penanda + " " + (alasan == null ? "" : alasan.trim()));
+		balik.setOleh(oleh);
+		Common.refreshSaveOrUpdate(s, balik);
+		StokKantinUtil.recomputeStokProdukNative(s, asal.getProduk().getId());
+		return balik;
 	}
 
 	/**
@@ -283,7 +337,9 @@ public final class StokOpnameScanUtil {
 		int batas = (limit <= 0 || limit > 200) ? 50 : limit;
 		Session s = session == null ? HibernateUtil.currentSession() : session;
 		String sql = "SELECT so.id, so.waktuopname, p.kode, p.nama, so.stoksistem, so.stokfisik, so.selisih, "
-				+ "so.keterangan, so.oleh FROM koperasi.stok_opname so JOIN koperasi.produk p ON p.id = so.produk "
+				+ "so.keterangan, so.oleh, so.produk, COALESCE(p.stok,0), "
+				+ "EXISTS(SELECT 1 FROM koperasi.stok_opname b WHERE b.toko=so.toko AND b.keterangan LIKE ('[BATAL_SO:' || so.id || ']%')) "
+				+ "FROM koperasi.stok_opname so JOIN koperasi.produk p ON p.id = so.produk "
 				+ "WHERE so.toko = :toko AND CAST(so.waktuopname AS date) = CURRENT_DATE "
 				+ "ORDER BY so.waktuopname DESC LIMIT :batas";
 		try {
@@ -303,6 +359,10 @@ public final class StokOpnameScanUtil {
 				k.selisih = toDouble(c[6]);
 				k.keterangan = c[7] == null ? "" : c[7].toString();
 				k.oleh = c[8] == null ? "" : c[8].toString();
+				k.produkId = c[9] == null ? null : ((Number) c[9]).longValue();
+				k.stokAkhir = toDouble(c[10]);
+				k.dibatalkan = Boolean.TRUE.equals(c[11]);
+				k.jurnalPembatalan = k.keterangan.startsWith("[BATAL_SO:");
 				hasil.add(k);
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/inventory/StokOpnameScanUtil.java:daftarHariIni");
@@ -322,6 +382,10 @@ public final class StokOpnameScanUtil {
 		public double selisih;
 		public String keterangan;
 		public String oleh;
+		public Long produkId;
+		public double stokAkhir;
+		public boolean dibatalkan;
+		public boolean jurnalPembatalan;
 	}
 
 	/** Konversi aman nilai numerik basis data ({@link BigDecimal}/{@link Number}/teks) ke double. */

@@ -518,6 +518,12 @@ public class PosApi extends HttpServlet {
 			} else if ("so_simpan".equals(action)) {
 				KantinHelper.soSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_simpan");
+			} else if ("so_batalkan".equals(action)) {
+				KantinHelper.soBatalkan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "so_batalkan");
+			} else if ("so_perubahan_stok".equals(action)) {
+				KantinHelper.soPerubahanStok(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "so_perubahan_stok");
 			} else if ("so_ringkasan".equals(action)) {
 				KantinHelper.soRingkasan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_ringkasan");

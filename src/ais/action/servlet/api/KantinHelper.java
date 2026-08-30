@@ -11131,10 +11131,16 @@ public class KantinHelper {
 			session.beginTransaction();
 			StokOpname so = ais.action.master.inventory.StokOpnameScanUtil.simpanOpname(session, tokoId, produkId,
 					stokFisik, keterangan, oleh);
+			double stokAkhir = ais.action.master.inventory.StokOpnameScanUtil.stokProdukTerkini(session, produkId);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", so.getId());
+			hasil.put("produkId", produkId);
+			hasil.put("stokSistem", so.getStokSistem());
+			hasil.put("stokFisik", so.getStokFisik());
 			hasil.put("selisih", so.getSelisih());
+			hasil.put("stokAkhir", stokAkhir);
+			hasil.put("versiStok", so.getId());
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -11148,6 +11154,82 @@ public class KantinHelper {
 		} finally {
 			tutupSessionPolaB(session);
 		}
+	}
+
+	/**
+	 * Membatalkan hasil Stok Opname dengan jurnal kompensasi. Riwayat asal tidak dihapus agar
+	 * audit tetap lengkap. Gerbang ini sengaja supervisor/admin saja karena pembatalan mengubah
+	 * saldo stok yang sudah berlaku pada seluruh kasir.
+	 */
+	public static void soBatalkan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean admin = pedagang == null;
+		boolean supervisor = pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor());
+		if (!admin && !supervisor) {
+			hasil.put("status", "91");
+			hasil.put("description", "Pembatalan Stok Opname hanya dapat dilakukan oleh supervisor atau admin.");
+			return;
+		}
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		Long opnameId = ais.common.Common.angkaAtauNull(request, "opname_id");
+		String alasan = request.optString("alasan", "").trim();
+		if (tokoId == null || opnameId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Catatan Stok Opname yang akan dibatalkan tidak ditemukan.");
+			return;
+		}
+		if (alasan.length() < 5) {
+			hasil.put("status", "91");
+			hasil.put("description", "Alasan pembatalan wajib diisi minimal 5 karakter agar jejak audit jelas.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.beginTransaction();
+			StokOpname balik = ais.action.master.inventory.StokOpnameScanUtil.batalkanOpname(session,
+					tokoId, opnameId, alasan, tbmuser == null ? "admin" : tbmuser.getUserId());
+			Long produkId = balik.getProduk().getId();
+			double stokAkhir = ais.action.master.inventory.StokOpnameScanUtil.stokProdukTerkini(session, produkId);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", balik.getId());
+			hasil.put("produkId", produkId);
+			hasil.put("selisih", balik.getSelisih());
+			hasil.put("stokAkhir", stokAkhir);
+			hasil.put("versiStok", balik.getId());
+			hasil.put("description", "Stok Opname dibatalkan melalui jurnal koreksi. Stok seluruh kasir akan mengikuti stok server.");
+		} catch (Exception e) {
+			try { if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback(); }
+			catch (Exception rollback) { ais.common.ErrorAuditUtil.record(rollback, "KantinHelper.soBatalkan-rollback"); }
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Perubahan stok akibat opname untuk sinkron ringan antarperangkat kasir. */
+	public static void soPerubahanStok(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91"); hasil.put("description", "Toko tidak diketahui."); return;
+		}
+		long setelah = Math.max(0L, request.optLong("setelah_id", 0L));
+		int limit = Math.min(500, Math.max(1, request.optInt("limit", 200)));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			SQLQuery q = session.createSQLQuery("SELECT x.id, x.produk, COALESCE(p.stok,0) FROM "
+					+ "(SELECT id, produk FROM koperasi.stok_opname WHERE toko=:toko AND id>:setelah "
+					+ "ORDER BY id DESC LIMIT :batas) x JOIN koperasi.produk p ON p.id=x.produk ORDER BY x.id ASC");
+			q.setParameter("toko", tokoId); q.setParameter("setelah", setelah); q.setParameter("batas", limit);
+			JSONArray data = new JSONArray(); long versi = setelah;
+			@SuppressWarnings("unchecked") java.util.List<Object[]> rows = q.list();
+			for (Object[] row : rows) {
+				long id = ((Number) row[0]).longValue(); versi = Math.max(versi, id);
+				JSONObject o = new JSONObject(); o.put("id", id); o.put("produkId", row[1]); o.put("stok", row[2]); data.put(o);
+			}
+			hasil.put("status", "00"); hasil.put("data", data); hasil.put("versiTerakhir", versi);
+		} finally { tutupSessionPolaB(session); }
 	}
 
 	/**
@@ -11218,6 +11300,10 @@ public class KantinHelper {
 				o.put("selisih", k.selisih);
 				o.put("keterangan", k.keterangan);
 				o.put("oleh", k.oleh);
+				o.put("produkId", k.produkId == null ? JSONObject.NULL : k.produkId);
+				o.put("stokAkhir", k.stokAkhir);
+				o.put("dibatalkan", k.dibatalkan);
+				o.put("jurnalPembatalan", k.jurnalPembatalan);
 				data.put(o);
 			}
 			hasil.put("status", "00");
