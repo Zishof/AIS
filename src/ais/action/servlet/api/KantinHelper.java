@@ -4026,6 +4026,21 @@ public class KantinHelper {
 			// gap-closure ini menyambungkannya jg ke form Tambah/Ubah Produk Desktop/Android/ZK.
 			String barcode = request.optString("barcode", "").trim();
 			if (!barcode.isEmpty() && p.getToko() != null) {
+				// Barcode PRODUK wajib unik antar-produk pada TOKO YANG SAMA (toko
+				// berbeda boleh memakai barcode yang sama). Cek kombinasi
+				// kode+barcode+nama (kunciUnik) di atas TIDAK menutup kasus dua
+				// produk BEDA NAMA ber-barcode sama -- scan kasir jadi ambigu.
+				Number bentrokBarcodeProduk = (Number) session.createSQLQuery(
+						"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
+						+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
+						+ " AND UPPER(COALESCE(px.barcode,'')) = :barcode")
+						.setLong("toko", p.getToko().getId()).setString("barcode", barcode.toUpperCase()).uniqueResult();
+				if (bentrokBarcodeProduk != null && bentrokBarcodeProduk.longValue() > 0) {
+					hasil.put("status", "91");
+					hasil.put("description", "Barcode " + barcode
+							+ " sudah dipakai produk lain di toko ini. Barcode yang sama hanya boleh dipakai toko berbeda.");
+					return;
+				}
 				Number bentrokBarcodeKemasan = (Number) session.createSQLQuery(
 						"SELECT COUNT(*) FROM koperasi.produk px WHERE px.toko = :toko"
 						+ (p.getId() == null ? "" : " AND px.id <> " + p.getId())
