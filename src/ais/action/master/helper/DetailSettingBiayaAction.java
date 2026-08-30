@@ -672,11 +672,12 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									public void onEvent(Event event) throws Exception {
 										int i = Integer.parseInt(event.getData().toString());
 										if (i == MyMessageboxConfig.OK) {
-											try {
+										try {
 
-												if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
-													return;
-												}
+											if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
+												loadData(null);
+												return;
+											}
 												Common.refreshDelete(settingBiayaDetail);
 
 												loadData(null);
@@ -848,11 +849,12 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									public void onEvent(Event event) throws Exception {
 										int i = Integer.parseInt(event.getData().toString());
 										if (i == MyMessageboxConfig.OK) {
-											try {
+										try {
 
-												if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
-													return;
-												}
+											if (!bolehHapusSettingBiayaDetail(settingBiayaDetail)) {
+												loadData(null);
+												return;
+											}
 												Common.refreshDelete(settingBiayaDetail);
 
 												loadData(null);
@@ -1054,8 +1056,13 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	}
 
 	/**
-	 * Membersihkan template DetailBiaya yang belum pernah dipakai, sekaligus mencegah
-	 * penghapusan binding menghasilkan exception FK mentah bila sudah menjadi transaksi.
+	 * Menyiapkan penghapusan binding mahasiswa/calon mahasiswa dari SettingBiaya.
+	 *
+	 * DetailBiaya yang belum pernah dipakai aman dihapus. Jika DetailBiaya sudah menjadi
+	 * sumber tagihan/transaksi, baris SettingBiayaDetail harus tetap ada sebagai referensi
+	 * historis; yang dilepas hanya mahasiswa/calon mahasiswanya. Dengan demikian mahasiswa
+	 * hilang dari daftar khusus tanpa melanggar FK, tanpa mengubah template khusus menjadi
+	 * template umum, dan tanpa menghapus tagihan maupun pembayaran lama.
 	 */
 	private boolean bolehHapusSettingBiayaDetail(SettingBiayaDetail settingBiayaDetail) throws Exception {
 		if (settingBiayaDetail == null || settingBiayaDetail.getId() == null) {
@@ -1067,7 +1074,10 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			@SuppressWarnings("unchecked")
 			List<DetailBiaya> templates = session.createCriteria(DetailBiaya.class)
 					.add(Restrictions.eq("settingBiayaDetail", settingBiayaDetail)).list();
+			Transaction transaction = null;
 			long jumlahDipakai = 0L;
+			transaction = session.beginTransaction();
+			try {
 			for (DetailBiaya template : templates) {
 				Number kegiatan = (Number) session.createCriteria(DetailKegiatan.class)
 						.add(Restrictions.eq("detailBiaya", template))
@@ -1078,32 +1088,36 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				Number bulanan = (Number) session.createCriteria(PengaturanPembayaranBulanan.class)
 						.add(Restrictions.eq("detailBiaya", template))
 						.setProjection(Projections.rowCount()).uniqueResult();
-				jumlahDipakai += (kegiatan == null ? 0L : kegiatan.longValue())
+				long dipakaiTemplate = (kegiatan == null ? 0L : kegiatan.longValue())
 						+ (cicilan == null ? 0L : cicilan.longValue())
 						+ (bulanan == null ? 0L : bulanan.longValue());
+				jumlahDipakai += dipakaiTemplate;
+				if (dipakaiTemplate == 0L) {
+					session.delete(template);
+				}
+			}
+				if (jumlahDipakai > 0L) {
+					SettingBiayaDetail bindingHistoris = (SettingBiayaDetail) session.get(
+							SettingBiayaDetail.class, settingBiayaDetail.getId());
+					if (bindingHistoris != null) {
+						bindingHistoris.setMahasiswa(null);
+						bindingHistoris.setBiodataCalonMahasiswa(null);
+						session.update(bindingHistoris);
+					}
+				}
+				transaction.commit();
+			} catch (Exception e) {
+				if (transaction != null && transaction.isActive()) {
+					transaction.rollback();
+				}
+				throw e;
 			}
 			if (jumlahDipakai > 0L) {
-				MyMessageboxConfig.show(
-						"Mahasiswa belum dapat dilepas dari setting biaya karena template sudah dipakai oleh "
-								+ jumlahDipakai + " tagihan/transaksi. Hapus terlebih dahulu tagihan yang belum dibayar "
-								+ "melalui menu Pembayaran Mahasiswa (Hapus Tagihan/Bersihkan Item Tak Sesuai), "
-								+ "kemudian ulangi penghapusan di sini. Data pembayaran yang sudah diproses tidak akan dihapus otomatis.",
-						"Data Masih Digunakan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				System.out.println("[SETTING-BIAYA] Mahasiswa dilepas dari binding historis; "
+						+ jumlahDipakai + " referensi tagihan/transaksi lama tetap dipertahankan.");
+				// Binding tidak boleh dihapus karena masih direferensikan DetailBiaya. Nilai
+				// false memberi tahu pemanggil bahwa proses sudah selesai tanpa refreshDelete.
 				return false;
-			}
-			if (!templates.isEmpty()) {
-				Transaction transaction = session.beginTransaction();
-				try {
-					for (DetailBiaya template : templates) {
-						session.delete(template);
-					}
-					transaction.commit();
-				} catch (Exception e) {
-					if (transaction != null && transaction.isActive()) {
-						transaction.rollback();
-					}
-					throw e;
-				}
 			}
 			return true;
 		} finally {
@@ -1541,7 +1555,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 											List<SettingBiayaDetail> mahasiswas = ConstantValues
 													.simpleList(initCriteria(true), SettingBiayaDetail.class);
 											for (SettingBiayaDetail mahasiswa : mahasiswas) {
-												Common.refreshDelete(mahasiswa);
+												if (bolehHapusSettingBiayaDetail(mahasiswa)) {
+													Common.refreshDelete(mahasiswa);
+												}
 											}
 											Common.createDefaultTimer(new EventListener() {
 
@@ -1739,7 +1755,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 											List<SettingBiayaDetail> mahasiswas = ConstantValues
 													.simpleList(initCriteria(true), SettingBiayaDetail.class);
 											for (SettingBiayaDetail mahasiswa : mahasiswas) {
-												Common.refreshDelete(mahasiswa);
+												if (bolehHapusSettingBiayaDetail(mahasiswa)) {
+													Common.refreshDelete(mahasiswa);
+												}
 											}
 											Common.createDefaultTimer(new EventListener() {
 
