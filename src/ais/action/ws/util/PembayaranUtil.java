@@ -87,6 +87,24 @@ public class PembayaranUtil {
 	/** Menyimpan stack trace exception terakhir dari simpanPembayaranMahasiswa per thread. */
 	private static final ThreadLocal<String> lastSimpanException = new ThreadLocal<String>();
 
+	private void tutupSessionSetelahPengecualian(Session session) {
+		if (session != null && session.isOpen()) {
+			try {
+				session.disconnect();
+			} catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored,
+						"Pengecualian tagihan: gagal disconnect session");
+			}
+			try {
+				session.close();
+			} catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored,
+						"Pengecualian tagihan: gagal close session");
+			}
+		}
+		HibernateUtil.closeSession();
+	}
+
 	/** Ambil dan hapus stack trace exception dari simpanPembayaranMahasiswa (dipanggil oleh PaymentLogic). */
 	public static String popLastSimpanException() {
 		String e = lastSimpanException.get();
@@ -1567,6 +1585,7 @@ public class PembayaranUtil {
 		List<DetailBiaya> biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, mahasiswa, jenisKegiatan,
 				semester, ta);
 		if (PengecualianTagihanList.adalah(biayaDefault)) {
+			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
 		AfiliasiCalonMahasiswa afiliasiCalonMahasiswa = null;
@@ -1586,6 +1605,7 @@ public class PembayaranUtil {
 					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 					mahasiswa.getNim());
 			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				tutupSessionSetelahPengecualian(session);
 				return PengecualianTagihanList.kosong();
 			}
 		}
@@ -1643,6 +1663,7 @@ public class PembayaranUtil {
 				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 				mahasiswa.getNim());
 		if (detailSettingBiayas == null) {
+			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
 
@@ -2100,6 +2121,7 @@ public class PembayaranUtil {
 		List<DetailBiaya> biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, biodataCalonMahasiswa,
 				jenisKegiatan, semester, ta);
 		if (PengecualianTagihanList.adalah(biayaDefault)) {
+			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
 
@@ -2110,6 +2132,7 @@ public class PembayaranUtil {
 					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 					biodataCalonMahasiswa.getNim());
 			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				tutupSessionSetelahPengecualian(session);
 				return PengecualianTagihanList.kosong();
 			}
 		}
@@ -2151,6 +2174,7 @@ public class PembayaranUtil {
 				biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 				biodataCalonMahasiswa.getNim());
 		if (detailSettingBiayas == null) {
+			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
 

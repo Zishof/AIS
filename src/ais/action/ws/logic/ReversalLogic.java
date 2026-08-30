@@ -270,22 +270,23 @@ public class ReversalLogic {
 			}
 
 			Jurusan myjurusan1 = biodataCalonMahasiswa.getProdiLulus();
-			List<DetailBiaya> detailBiayas = new ArrayList<DetailBiaya>();
+			java.util.Collection<DetailBiaya> detailBiayas;
 			if (myjurusan1 == null || myjurusan1.getId() == null) {
 				myjurusan1 = biodataCalonMahasiswa.getProdi1() == null ? biodataCalonMahasiswa.getProdi2()
 						: biodataCalonMahasiswa.getProdi1();
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
 
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			} else {
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			}
 
 			// Reversal wajib memakai sumber rincian yang sama dengan inquiry/payment.
-			if (detailBiayas.isEmpty()) {
+			if (detailBiayas.isEmpty()
+					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
 			}
 
