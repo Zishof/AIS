@@ -24,6 +24,7 @@ import org.zkoss.zul.North;
 import org.zkoss.zul.Panel;
 import org.zkoss.zul.Panelchildren;
 import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
 
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
@@ -93,19 +94,6 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 		kotak.setWidth("100%");
 		kotak.setStyle(GAYA_KOTAK_FILTER);
 		kotak.setParent(grup);
-	}
-
-	/** Membentuk kriteria angkatan tanpa membuat input nonangka memicu error query. */
-	private org.hibernate.criterion.Criterion kriteriaAngkatan() {
-		String nilai = angkatan == null || angkatan.getValue() == null ? "" : angkatan.getValue().trim();
-		if (nilai.length() == 0) {
-			return Restrictions.sqlRestriction("1=1");
-		}
-		try {
-			return Restrictions.eq("tahunangkatan", Integer.valueOf(nilai));
-		} catch (NumberFormatException ex) {
-			return Restrictions.sqlRestriction("1=0");
-		}
 	}
 
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
@@ -213,8 +201,6 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 		angkatan = new MyTextbox();
 		tambahGrupFilter(barisFilter, "Angkatan", angkatan);
 		angkatan.addEventListener(Events.ON_OK, new EventListener() {
-
-			@Override
 			public void onEvent(Event event) throws Exception {
 				search();
 			}
@@ -223,8 +209,6 @@ public class AmbilDataMahasiswaDariMahasiswaBanyak extends MyWindow {
 		prodi = new MyTextbox();
 		tambahGrupFilter(barisFilter, "Prodi", prodi);
 		prodi.addEventListener(Events.ON_OK, new EventListener() {
-
-			@Override
 			public void onEvent(Event event) throws Exception {
 				search();
 			}

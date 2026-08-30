@@ -4,9 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.hibernate.Criteria;
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -55,13 +53,7 @@ public class AmbilDataMahasiswaKedokteranHelper {
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
-    private static final String GAYA_BARIS_FILTER = "display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:10px 12px;box-sizing:border-box;width:100%;";
-    private static final String GAYA_GRUP_FILTER = "display:flex;flex-direction:column;gap:3px;min-width:130px;flex:1 1 170px;";
-    private static final String GAYA_LABEL_FILTER = "font-weight:600;";
-    private static final String GAYA_KOTAK_FILTER = "box-sizing:border-box;";
-
-    private Textbox nama;
-    private Textbox angkatan;
+	private Textbox nama;
 	private Set<PHDHasMahasiswa> deletedMahasiswas = new HashSet<PHDHasMahasiswa>();
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
@@ -219,14 +211,14 @@ public class AmbilDataMahasiswaKedokteranHelper {
 		Div div = new Div();
 		div.setParent(north);
 
-        Div barisFilter = new Div();
-        barisFilter.setStyle(GAYA_BARIS_FILTER);
-        barisFilter.setParent(div);
+		Div barisFilter = new Div();
+		barisFilter.setStyle(GAYA_BARIS_FILTER);
+		barisFilter.setParent(div);
 
-        tambahGrupFilter(barisFilter, "Nama", nama = new Textbox());
-        tambahGrupFilter(barisFilter, "Angkatan", angkatan = new Textbox());
-        tambahGrupFilter(barisFilter, "Fakultas", searchfakultas);
-        tambahGrupFilter(barisFilter, "Prodi", searchjurusan);
+		tambahGrupFilter(barisFilter, "Nama", nama = new Textbox());
+		tambahGrupFilter(barisFilter, "Angkatan", angkatan = new Textbox());
+		tambahGrupFilter(barisFilter, "Fakultas", searchfakultas);
+		tambahGrupFilter(barisFilter, "Prodi", searchjurusan);
 
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
