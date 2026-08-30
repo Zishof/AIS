@@ -1961,6 +1961,16 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
 			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
 			String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta) {
+		return getItemBiaya(session, angkatan, jenjang, semester, jenisKegiatan, statusAwalMahasiswa,
+				statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program, kelamin,
+				afiliasiCalonMahasiswa, ta, null);
+	}
+
+	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
+			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
+			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
+			String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta,
+			String nimMahasiswa) {
 
 		List<SettingBiaya> settingBiayas = ConstantValues.simpleList(session.createCriteria(SettingBiaya.class)
 
@@ -1992,6 +2002,9 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				"getDetailBiayaDefault final settingBiaya -> " + settingBiaya + " dari " + settingBiayas.size());
 		if (settingBiaya == null) {
 			return new ArrayList<ItemBiaya>();
+		}
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			return null;
 		}
 
 		List<ItemBiaya> itemBiayas = ConstantValues

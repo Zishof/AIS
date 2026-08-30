@@ -1174,6 +1174,9 @@ public class PembayaranUtil {
 	public int countBulanan(Session session, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Collection detailBiayas, boolean reload,
 			boolean comitManual) {
+		if (PengecualianTagihanList.adalah(detailBiayas)) {
+			return 0;
+		}
 
 		if (jenisKegiatan != null && jenisKegiatan.getHanyaBerupaAngsuran()) {
 			// Aturan "hanya berupa angsuran" berlaku PER-JENJANG (jenjangAngsuranJson) —
@@ -1637,7 +1640,11 @@ public class PembayaranUtil {
 
 		List<ItemBiaya> detailSettingBiayas = SetingBiayaAction.getItemBiaya(session, angkatan, jenjang, semester,
 				jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getNim());
+		if (detailSettingBiayas == null) {
+			return PengecualianTagihanList.kosong();
+		}
 
 		Criteria criteria = session.createCriteria(DetailBiaya.class);
 
@@ -2141,7 +2148,11 @@ public class PembayaranUtil {
 		List<ItemBiaya> detailSettingBiayas = SetingBiayaAction.getItemBiaya(session, angkatan, jenjang, semester,
 				jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
 				biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
-				biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+				biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				biodataCalonMahasiswa.getNim());
+		if (detailSettingBiayas == null) {
+			return PengecualianTagihanList.kosong();
+		}
 
 		System.out.println("calon mahasiswa jenis kegiatan = " + jenisKegiatan.getNamaKegiatan() + " default "
 				+ ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU + " min " + jenisKegiatan.getMinSmt() + " max "

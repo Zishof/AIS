@@ -342,27 +342,29 @@ public class PaymentLogic {
 			}
 
 			Jurusan myjurusan1 = biodataCalonMahasiswa.getProdiLulus();
-			List<DetailBiaya> detailBiayas = new ArrayList<DetailBiaya>();
+			java.util.Collection<DetailBiaya> detailBiayas;
 			if (myjurusan1 == null || myjurusan1.getId() == null) {
 				myjurusan1 = biodataCalonMahasiswa.getProdi1() == null ? biodataCalonMahasiswa.getProdi2()
 						: biodataCalonMahasiswa.getProdi1();
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
 
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			} else {
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			}
 
 			// Samakan sumber item payment dengan inquiry/billing. Mahasiswa RPL dapat
 			// memiliki semester kegiatan yang tidak cocok dengan template default.
-			if (detailBiayas.isEmpty()) {
+			if (detailBiayas.isEmpty()
+					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
 			}
 
-			if (detailBiayas.isEmpty()) {
+			if (detailBiayas.isEmpty()
+					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				int smtAlternatif = smt == 0 ? 1 : 0;
 				java.util.Collection<DetailBiaya> alternatif = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1,

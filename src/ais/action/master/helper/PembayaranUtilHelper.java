@@ -458,7 +458,11 @@ public class PembayaranUtilHelper {
 
 			List<ItemBiaya> detailSettingBiayas = SetingBiayaHelper.getItemBiaya(session, angkatan, jenjang, semester,
 					jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getNim());
+			if (detailSettingBiayas == null) {
+				return PengecualianTagihanList.kosong();
+			}
 
 			if (JenisKegiatan.DEBUG_MODE_ANGSURAN) {
 				System.out.println("[DEBUG-ANGSURAN][getDetailBiaya] getItemBiaya size="
@@ -872,7 +876,11 @@ public class PembayaranUtilHelper {
 			List<ItemBiaya> detailSettingBiayas = SetingBiayaHelper.getItemBiaya(session, angkatan, jenjang, semester,
 					jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
 					jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
-					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					biodataCalonMahasiswa.getNim());
+			if (detailSettingBiayas == null) {
+				return PengecualianTagihanList.kosong();
+			}
 
 			// Cek apakah jenjang calon mhs ini masuk mode angsuran — terpusat via
 			// modeAngsuranUntukJenjang(jenjang, semester, angkatan) sehingga aturan

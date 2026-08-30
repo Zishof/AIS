@@ -148,12 +148,12 @@ public class TagihanMahasiswa {
 												.getDetailBiayaCalonMahasiswa(calonMahasiswa, jk, myjurusan1, smt,
 														refresh);
 
-										detailBiayas.addAll(detailBiayas1);
+										detailBiayas = detailBiayas1;
 									} else {
 										java.util.Collection<DetailBiaya> detailBiayas1 = PembayaranUtilHelper
 												.getDetailBiayaCalonMahasiswa(calonMahasiswa, jk, prodiLulus, smt,
 														refresh);
-										detailBiayas.addAll(detailBiayas1);
+										detailBiayas = detailBiayas1;
 									}
 								} else if (calonMahasiswa != null
 										&& jk.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId())) {
@@ -164,11 +164,11 @@ public class TagihanMahasiswa {
 												: calonMahasiswa.getProdi1();
 										java.util.Collection<DetailBiaya> detailBiayas1 = PembayaranUtilHelper
 												.getDetailBiayaCalonMahasiswa(calonMahasiswa, jk, myjurusan1, refresh);
-										detailBiayas.addAll(detailBiayas1);
+										detailBiayas = detailBiayas1;
 									} else {
 										java.util.Collection<DetailBiaya> detailBiayas1 = PembayaranUtilHelper
 												.getDetailBiayaCalonMahasiswa(calonMahasiswa, jk, prodiLulus, refresh);
-										detailBiayas.addAll(detailBiayas1);
+										detailBiayas = detailBiayas1;
 									}
 									countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, calonMahasiswa,
 											jk, smt, detailBiayas, refresh, false);

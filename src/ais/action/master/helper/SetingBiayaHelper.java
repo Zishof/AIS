@@ -183,6 +183,16 @@ public class SetingBiayaHelper {
             JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
             JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
             String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta) {
+		return getItemBiaya(session, angkatan, jenjang, semester, jenisKegiatan, statusAwalMahasiswa,
+				statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program, kelamin,
+				afiliasiCalonMahasiswa, ta, null);
+	}
+
+	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
+			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
+			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
+			String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta,
+			String nimMahasiswa) {
 
         try {
             Criteria criteria = createSettingBiayaCriteria(session, ta, jenisKegiatan, semester, false, false)
@@ -204,6 +214,9 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<ItemBiaya>();
             }
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+				return null;
+			}
 
             Criteria dsbCriteria = session.createCriteria(DetailSettingBiaya.class).createAlias("itemBiaya", "itemBiaya");
             applyItemBiayaFilters(dsbCriteria, semester, false);

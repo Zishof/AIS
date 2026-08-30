@@ -298,18 +298,18 @@ public class InqueryLogic {
 			}
 
 			Jurusan myjurusan1 = biodataCalonMahasiswa.getProdiLulus();
-			List<DetailBiaya> detailBiayas = new ArrayList<DetailBiaya>();
+			java.util.Collection<DetailBiaya> detailBiayas;
 			if (myjurusan1 == null || myjurusan1.getId() == null) {
 				myjurusan1 = biodataCalonMahasiswa.getProdi1() == null ? biodataCalonMahasiswa.getProdi2()
 						: biodataCalonMahasiswa.getProdi1();
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
 
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			} else {
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
-				detailBiayas.addAll(detailBiayas1);
+				detailBiayas = detailBiayas1;
 			}
 
 			// Tagihan yang sudah terbentuk adalah sumber paling akurat untuk inquiry.
@@ -317,14 +317,16 @@ public class InqueryLogic {
 			// akibatnya pencarian template di atas kosong walaupun billing menampilkan
 			// tagihan. Pulihkan item dari DetailKegiatan aktual agar total H2H sama
 			// dengan layar pembayaran.
-			if (detailBiayas.isEmpty()) {
+			if (detailBiayas.isEmpty()
+					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
 			}
 
 			// Konfigurasi lama sering menaruh tagihan daftar ulang pada semester 0,
 			// sedangkan kode H2H lama selalu meminta semester 1. Jika pilihan utama
 			// kosong, coba semester pasangannya agar hasil inquiry sama dengan layar.
-			if (detailBiayas.isEmpty()) {
+			if (detailBiayas.isEmpty()
+					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				int smtAlternatif = smt == 0 ? 1 : 0;
 				java.util.Collection<DetailBiaya> alternatif = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1,
