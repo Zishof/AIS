@@ -11696,13 +11696,29 @@ public class KantinHelper {
 				+ " SELECT r.produk AS produk_id, SUM(CASE WHEN COALESCE(r.kembalikan_ke_stok,false) THEN COALESCE(r.qty,0) ELSE 0 END) AS qty_retur"
 				+ " FROM koperasi.retur_penjualan r WHERE r.toko=:tokoId AND r.waktu>=:mulai AND r.waktu<:akhir"
 				+ " GROUP BY r.produk)"
-				+ " SELECT p.id, p.kode, p.barcode, p.nama, COALESCE(s.nama,''),"
-				+ " j.qty_terjual, COALESCE(r.qty_retur,0), COALESCE(p.stok,0)"
+				+ " SELECT p.id AS produk_id, p.kode AS produk_kode,"
+				+ " p.barcode AS produk_barcode, p.nama AS produk_nama,"
+				+ " COALESCE(s.nama,'') AS satuan_nama,"
+				+ " j.qty_terjual AS qty_terjual,"
+				+ " COALESCE(r.qty_retur,0) AS qty_retur,"
+				+ " COALESCE(p.stok,0) AS produk_stok"
 				+ " FROM jual j JOIN koperasi.produk p ON p.id=j.produk_id"
 				+ " LEFT JOIN koperasi.satuan_produk s ON s.id=p.satuan"
 				+ " LEFT JOIN retur r ON r.produk_id=p.id"
 				+ " ORDER BY p.nama, p.kode";
 		org.hibernate.SQLQuery q = session.createSQLQuery(sql);
+		// Hibernate lama tidak aman mengandalkan auto-discovery tipe untuk hasil
+		// native query campuran teks + angka. Tanpa scalar eksplisit, kolom kelima
+		// (nama satuan, mis. "Pcs") pernah dibaca sebagai DOUBLE dan membuat API
+		// SO Harian gagal dengan SQLState 22003 / "Bad value for type double".
+		q.addScalar("produk_id", org.hibernate.Hibernate.LONG)
+				.addScalar("produk_kode", org.hibernate.Hibernate.STRING)
+				.addScalar("produk_barcode", org.hibernate.Hibernate.STRING)
+				.addScalar("produk_nama", org.hibernate.Hibernate.STRING)
+				.addScalar("satuan_nama", org.hibernate.Hibernate.STRING)
+				.addScalar("qty_terjual", org.hibernate.Hibernate.DOUBLE)
+				.addScalar("qty_retur", org.hibernate.Hibernate.DOUBLE)
+				.addScalar("produk_stok", org.hibernate.Hibernate.DOUBLE);
 		q.setParameter("tokoId", tokoId);
 		q.setTimestamp("mulai", mulai);
 		q.setTimestamp("akhir", akhir);
