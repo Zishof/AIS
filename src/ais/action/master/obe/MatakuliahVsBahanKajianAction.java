@@ -45,6 +45,8 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 	private Combobox jurusan;
 
 	private Center center;
+	private java.util.List<Matakuliah> loadedMk = null;
+	private java.util.List<BahanKajian> loadedBk = null;
 
 	public MatakuliahVsBahanKajianAction() {
 		super();
@@ -179,6 +181,7 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 				onKHS(arg0);
 			}
 		});
+		ObeRelationMatrixTransferHelper.pasang(row, createTransferAdapter());
 
 	}
 
@@ -259,6 +262,9 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 					Rows rows = new Rows();
 					rows.setParent(grid);
 
+					loadedMk = matakuliahs;
+					loadedBk = bahanKajians;
+
 					for (final Matakuliah matakuliah : matakuliahs) {
 						MyFormRow row = new MyFormRow();row.setValign("top");
 						row.setParent(rows);
@@ -292,6 +298,33 @@ public class MatakuliahVsBahanKajianAction extends MyWindow {
 			}
 		});
 
+	}
+
+	private ObeRelationMatrixTransferHelper.MatrixAdapter createTransferAdapter() {
+		return new ObeRelationMatrixTransferHelper.MatrixAdapter() {
+			public String getTitle() { return "Mata Kuliah vs Bahan Kajian"; }
+			public String getRowLabel() { return "Mata Kuliah"; }
+			public String getColumnLabel() { return "Bahan Kajian"; }
+			public int getRowCount() { return loadedMk == null ? 0 : loadedMk.size(); }
+			public int getColumnCount() { return loadedBk == null ? 0 : loadedBk.size(); }
+			public String getRowCode(int row) { return loadedMk.get(row).getKode(); }
+			public String getRowName(int row) { return loadedMk.get(row).getNama(); }
+			public String getColumnCode(int column) { return loadedBk.get(column).getKode(); }
+			public String getColumnName(int column) { return loadedBk.get(column).getNama(); }
+			public boolean isSelected(int row, int column) {
+				return ObeRelationMatrixTransferHelper.containsId(loadedMk.get(row).getBahanKajian(),
+						loadedBk.get(column).getId());
+			}
+			public void applyRow(int row, boolean[] selected) throws Exception {
+				Matakuliah mk = loadedMk.get(row);
+				String ids = mk.getBahanKajian();
+				for (int i = 0; i < loadedBk.size(); i++)
+					ids = ObeRelationMatrixTransferHelper.setId(ids, loadedBk.get(i).getId(), selected[i]);
+				mk.setBahanKajian(ids);
+				Common.refreshUpdate(mk);
+			}
+			public void refresh() throws Exception { onKHS(null); }
+		};
 	}
 
 }

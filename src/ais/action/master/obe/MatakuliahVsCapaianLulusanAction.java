@@ -192,6 +192,7 @@ public class MatakuliahVsCapaianLulusanAction extends MyWindow {
 				showMatriks();
 			}
 		});
+		ObeRelationMatrixTransferHelper.pasang(row, createTransferAdapter());
 
 	}
 
@@ -382,6 +383,33 @@ public class MatakuliahVsCapaianLulusanAction extends MyWindow {
 	private static String esc(String s) {
 		if (s == null) return "";
 		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+	}
+
+	private ObeRelationMatrixTransferHelper.MatrixAdapter createTransferAdapter() {
+		return new ObeRelationMatrixTransferHelper.MatrixAdapter() {
+			public String getTitle() { return "Mata Kuliah vs CPL"; }
+			public String getRowLabel() { return "Mata Kuliah"; }
+			public String getColumnLabel() { return "CPL"; }
+			public int getRowCount() { return loadedMk == null ? 0 : loadedMk.size(); }
+			public int getColumnCount() { return loadedCpl == null ? 0 : loadedCpl.size(); }
+			public String getRowCode(int row) { return loadedMk.get(row).getKode(); }
+			public String getRowName(int row) { return loadedMk.get(row).getNama(); }
+			public String getColumnCode(int column) { return loadedCpl.get(column).getKode(); }
+			public String getColumnName(int column) { return loadedCpl.get(column).getNama(); }
+			public boolean isSelected(int row, int column) {
+				return ObeRelationMatrixTransferHelper.containsId(loadedMk.get(row).getCapaianLulusan(),
+						loadedCpl.get(column).getId());
+			}
+			public void applyRow(int row, boolean[] selected) throws Exception {
+				Matakuliah mk = loadedMk.get(row);
+				String ids = mk.getCapaianLulusan();
+				for (int i = 0; i < loadedCpl.size(); i++)
+					ids = ObeRelationMatrixTransferHelper.setId(ids, loadedCpl.get(i).getId(), selected[i]);
+				mk.setCapaianLulusan(ids);
+				Common.refreshUpdate(mk);
+			}
+			public void refresh() throws Exception { onKHS(null); }
+		};
 	}
 
 }
