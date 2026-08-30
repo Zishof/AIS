@@ -2,7 +2,7 @@ package ais.database.model.inventory;
 import static javax.persistence.GenerationType.IDENTITY;
 import java.io.Serializable; import java.util.Date;
 import javax.persistence.Column; import javax.persistence.Entity; import javax.persistence.GeneratedValue; import javax.persistence.Id; import javax.persistence.Table; import javax.persistence.Temporal; import javax.persistence.TemporalType;
-@Entity @Table(schema="inventory_production",name="production_document_event")
+@Entity @Table(schema="koperasi",name="production_document_event")
 public class ProduksiDokumenEvent implements Serializable {
 	private static final long serialVersionUID=1L; private Long id; private Long documentId; private String fromStatus; private String toStatus; private String notes; private String actorId; private Date eventAt=new Date();
 	@Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",unique=true,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}

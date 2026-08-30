@@ -34,7 +34,7 @@ import javax.persistence.TemporalType;
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_production", name = "production_reservation")
+@Table(schema = "koperasi", name = "production_reservation")
 public class ReservasiStokProduksi implements Serializable {
 	private static final long serialVersionUID = 1L;
 

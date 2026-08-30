@@ -18,7 +18,7 @@ import javax.persistence.UniqueConstraint;
 /** Dokumen induk produksi yang skemanya dikelola Hibernate. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_production", name = "production_document",
+@Table(schema = "koperasi", name = "production_document",
 	uniqueConstraints = {
 		@UniqueConstraint(columnNames = { "toko_id", "document_type", "document_no" }),
 		@UniqueConstraint(columnNames = { "toko_id", "client_mutation_id" })

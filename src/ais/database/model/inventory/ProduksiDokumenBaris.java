@@ -12,7 +12,7 @@ import javax.persistence.UniqueConstraint;
 
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_production", name = "production_document_line", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_no" }))
+@Table(schema = "koperasi", name = "production_document_line", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_no" }))
 public class ProduksiDokumenBaris implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private Long id; private Long documentId; private Integer lineNo; private String lineType;

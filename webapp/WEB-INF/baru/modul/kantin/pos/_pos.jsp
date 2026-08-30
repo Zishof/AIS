@@ -1553,41 +1553,56 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
     
-    // --- ASYNC FUNCTION UTK CEK DAN LOAD GAMBAR BILA ADA ---
-    const checkAndLoadImage<%=rnd%> = async (pId) => {
+    // Foto produk POS wajib berasal dari tabel FotoGambarProduk, bukan lampiran generik lama.
+    // Seluruh id foto untuk satu halaman diambil sekali (hindari N+1 request). Jika satu produk
+    // memiliki beberapa foto, gambar aktif berganti tiap 3 detik.
+    const fotoTimers<%=rnd%> = new Map();
+    const bersihkanFotoTimers<%=rnd%> = () => {
+        fotoTimers<%=rnd%>.forEach(timer => clearInterval(timer));
+        fotoTimers<%=rnd%>.clear();
+    };
+    const loadProductImages<%=rnd%> = async (productIds) => {
+        bersihkanFotoTimers<%=rnd%>();
+        const ids = (productIds || []).map(Number).filter(Number.isFinite);
+        if (ids.length === 0) return;
         try {
-            const reqObj = { 
-                action: "file", 
-                class: "ais.database.model.file.LampiranLain", 
-                ref: pId.toString(), 
-                jenis: "ais.database.model.inventory.Produk",
-                refresh: "false"
-            };
-            if (posTanpaLogin<%=rnd%>) reqObj.tanpaLogin = "true";
-
-            const response = await fetch('<%=Common.ROOT%>/Data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(reqObj)
+            const fotoRows = await fetchData<%=rnd%>(
+                "SELECT id, produk FROM public.foto_gambar_produk WHERE produk IN (" + ids.join(',') + ") ORDER BY produk, id ASC"
+            );
+            const perProduk = new Map();
+            fotoRows.forEach(foto => {
+                const pid = Number(foto.produk);
+                if (!perProduk.has(pid)) perProduk.set(pid, []);
+                perProduk.get(pid).push(Number(foto.id));
             });
-            const dataResponse = await response.json();
-            
-            if(dataResponse.status === '00' && dataResponse.data && dataResponse.data.nama){ 
-                const fileName = dataResponse.data.nama;
-                
-                if(fileName !== 'administrator-icon_default.png') {
-                    let imgUrl = "<%=Common.ROOT%>/Data?action=file&class=ais.database.model.file.LampiranLain&ref=" + pId + "&jenis=ais.database.model.inventory.Produk&render=true";
-                    if (posTanpaLogin<%=rnd%>) imgUrl += "&tanpaLogin=true";
-
-                    const wrapper = document.getElementById('prod-icon-wrapper-<%=rnd%>-' + pId);
-
-                    if(wrapper) {
-                        wrapper.innerHTML = '<img src="' + imgUrl + '" alt="Produk">';
-                    }
+            perProduk.forEach((fotoIds, pId) => {
+                const wrapper = document.getElementById('prod-icon-wrapper-<%=rnd%>-' + pId);
+                if (!wrapper || fotoIds.length === 0) return;
+                const badges = Array.from(wrapper.querySelectorAll('span')).map(el => el.outerHTML).join('');
+                wrapper.innerHTML = badges + fotoIds.map((fotoId, index) =>
+                    '<img class="pos-product-photo-<%=rnd%>" src="<%=Common.ROOT%>/AmbilMediaProduk?fotoId=' + fotoId +
+                    '" alt="Foto produk" style="display:' + (index === 0 ? 'block' : 'none') + '" ' +
+                    'onerror="this.style.display=\'none\'">'
+                ).join('');
+                if (fotoIds.length > 1) {
+                    let aktif = 0;
+                    const timer = setInterval(() => {
+                        if (!document.body.contains(wrapper)) {
+                            clearInterval(timer);
+                            fotoTimers<%=rnd%>.delete(pId);
+                            return;
+                        }
+                        const slides = wrapper.querySelectorAll('.pos-product-photo-<%=rnd%>');
+                        if (slides.length < 2) return;
+                        slides[aktif].style.display = 'none';
+                        aktif = (aktif + 1) % slides.length;
+                        slides[aktif].style.display = 'block';
+                    }, 3000);
+                    fotoTimers<%=rnd%>.set(pId, timer);
                 }
-            }
+            });
         } catch (error) {
-            console.error("Gagal menarik metadata gambar POS:", error);
+            console.error("Gagal menarik foto produk POS:", error);
         }
     };
 
@@ -1732,7 +1747,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         grid.innerHTML = htmlGrid;
 
         if(produkList.length > 0) {
-            produkList.forEach(p => { checkAndLoadImage<%=rnd%>(p.id); });
+            loadProductImages<%=rnd%>(produkList.map(p => p.id));
+        } else {
+            bersihkanFotoTimers<%=rnd%>();
         }
     };
 

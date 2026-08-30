@@ -16,7 +16,7 @@ import javax.persistence.UniqueConstraint;
 /** Penanda idempoten posting stok untuk satu baris distribusi. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_distribution", name = "distribution_stock_posting", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_id", "direction" }))
+@Table(schema = "koperasi", name = "distribution_stock_posting", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_id", "direction" }))
 public class DistribusiPostingStok implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private Long id; private Long documentId; private Long lineId; private String direction;

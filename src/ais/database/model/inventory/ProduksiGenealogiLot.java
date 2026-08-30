@@ -2,7 +2,7 @@ package ais.database.model.inventory;
 import static javax.persistence.GenerationType.IDENTITY;
 import java.io.Serializable; import java.math.BigDecimal; import java.util.Date;
 import javax.persistence.Column; import javax.persistence.Entity; import javax.persistence.GeneratedValue; import javax.persistence.Id; import javax.persistence.Table; import javax.persistence.Temporal; import javax.persistence.TemporalType; import javax.persistence.UniqueConstraint;
-@Entity @Table(schema="inventory_production",name="production_lot_genealogy",uniqueConstraints=@UniqueConstraint(columnNames={"document_id","input_line_id","output_line_id"}))
+@Entity @Table(schema="koperasi",name="production_lot_genealogy",uniqueConstraints=@UniqueConstraint(columnNames={"document_id","input_line_id","output_line_id"}))
 public class ProduksiGenealogiLot implements Serializable {
 	private static final long serialVersionUID=1L; private Long id; private Long documentId; private Long inputLineId; private Long outputLineId; private String inputLotNo; private String outputLotNo; private BigDecimal allocatedQty=BigDecimal.ZERO; private Date createdAt=new Date();
 	@Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",unique=true,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}

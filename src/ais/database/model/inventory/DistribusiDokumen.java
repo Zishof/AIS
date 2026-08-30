@@ -16,7 +16,7 @@ import javax.persistence.UniqueConstraint;
 /** Dokumen induk distribusi/pengiriman yang skemanya dikelola Hibernate. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_distribution", name = "distribution_document", uniqueConstraints = {
+@Table(schema = "koperasi", name = "distribution_document", uniqueConstraints = {
 	@UniqueConstraint(columnNames = { "toko_id", "document_type", "document_no" }),
 	@UniqueConstraint(columnNames = { "toko_id", "client_mutation_id" }) })
 public class DistribusiDokumen implements Serializable {

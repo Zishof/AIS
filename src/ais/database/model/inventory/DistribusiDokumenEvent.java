@@ -14,7 +14,7 @@ import javax.persistence.TemporalType;
 /** Jejak perubahan status dokumen distribusi. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_distribution", name = "distribution_document_event")
+@Table(schema = "koperasi", name = "distribution_document_event")
 public class DistribusiDokumenEvent implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private Long id; private Long documentId; private String fromStatus; private String toStatus;

@@ -4,13 +4,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.criterion.Order;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
@@ -44,6 +47,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.inventory.Toko;
+import ais.database.model.file.FotoGambarProduk;
 import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.ui.util.DashboardUiKit;
 import ais.ui.util.HtmlChartHelper;
@@ -1492,6 +1496,32 @@ public class PosKantinAction extends GenericAutowireComposer {
             produkBox.appendChild(DashboardUiKit.html("<div class='psk-empty'>Tidak ada produk yang cocok.</div>"));
             return;
         }
+        // Ambil seluruh foto untuk satu halaman dalam satu query. Urutan id adalah urutan unggah;
+        // tiap kartu yang memiliki >1 foto akan memutarnya setiap 3 detik.
+        final Map<Long, List<String>> fotoProduk = new HashMap<Long, List<String>>();
+        final List<Long> produkIds = new ArrayList<Long>();
+        for (Object[] row : data) {
+            produkIds.add(((Number) row[0]).longValue());
+        }
+        if (!produkIds.isEmpty()) {
+            @SuppressWarnings("unchecked")
+            List<FotoGambarProduk> fotoRows = HibernateUtil.currentSession()
+                    .createCriteria(FotoGambarProduk.class)
+                    .add(Restrictions.in("produk", produkIds))
+                    .addOrder(Order.asc("id"))
+                    .list();
+            for (FotoGambarProduk foto : fotoRows) {
+                if (foto == null || foto.getId() == null || foto.getProduk() == null) {
+                    continue;
+                }
+                List<String> urls = fotoProduk.get(foto.getProduk());
+                if (urls == null) {
+                    urls = new ArrayList<String>();
+                    fotoProduk.put(foto.getProduk(), urls);
+                }
+                urls.add(Common.ROOT + "/AmbilMediaProduk?fotoId=" + foto.getId());
+            }
+        }
         int idx = 0;
         for (Object[] r : data) {
             final Long pid = ((Number) r[0]).longValue();
@@ -1505,11 +1535,34 @@ public class PosKantinAction extends GenericAutowireComposer {
             card.setSclass("psk-card");
             String ikon = PSK_ICON[idx % PSK_ICON.length];
             idx++;
-            String imgUrl = Common.ROOT + "/Data?action=file&class=ais.database.model.file.LampiranLain&ref=" + pid
-                    + "&jenis=ais.database.model.inventory.Produk&render=true";
-            String html = "<div class='psk-ico'>" + ikon
-                    + "<img class='psk-img' src='" + imgUrl + "' alt='' onerror=\"this.style.display='none'\"/></div>"
-                    + "<div class='psk-nm'>" + DashboardUiKit.esc(nama) + "</div>"
+            final List<String> fotoUrls = fotoProduk.get(pid) == null
+                    ? Collections.<String>emptyList() : fotoProduk.get(pid);
+            Div media = new Div();
+            media.setSclass("psk-ico");
+            media.appendChild(DashboardUiKit.html("<span class='psk-fallback'>" + ikon + "</span>"));
+            if (!fotoUrls.isEmpty()) {
+                final org.zkoss.zul.Image foto = new org.zkoss.zul.Image();
+                foto.setSclass("psk-img");
+                foto.setSrc(fotoUrls.get(0));
+                foto.setParent(media);
+                if (fotoUrls.size() > 1) {
+                    final int[] posisiFoto = new int[] { 0 };
+                    org.zkoss.zul.Timer timerFoto = new org.zkoss.zul.Timer();
+                    timerFoto.setDelay(3000);
+                    timerFoto.setRepeats(true);
+                    timerFoto.setParent(card);
+                    timerFoto.addEventListener("onTimer", new EventListener() {
+                        @Override
+                        public void onEvent(Event event) throws Exception {
+                            posisiFoto[0] = (posisiFoto[0] + 1) % fotoUrls.size();
+                            foto.setSrc(fotoUrls.get(posisiFoto[0]));
+                        }
+                    });
+                    timerFoto.start();
+                }
+            }
+            media.setParent(card);
+            String html = "<div class='psk-nm'>" + DashboardUiKit.esc(nama) + "</div>"
                     + "<div class='psk-pr'>Rp " + DashboardUiKit.money(harga) + "</div>"
                     + "<div class='psk-st'>Stok: " + DashboardUiKit.money(stok) + "</div>"
                     + "<div class='psk-add'>+</div>";

@@ -67,8 +67,8 @@ public final class ProduksiApiHelper {
      + "Muat ulang atau menekan tombol yang sama tidak akan menyelesaikannya. "
      + "Silakan hubungi admin dan sertakan kode PRODUCTION_SCHEMA_NOT_READY.");
    hasil.put("userAction", "Tutup halaman Produksi dan hubungi admin. Data lain tidak berubah.");
-   hasil.put("adminAction", "Pastikan namespace database inventory_production tersedia, lalu restart aplikasi server "
-     + "agar hbm2ddl.auto=update membuat production_document beserta tabel produksi terkait. "
+   hasil.put("adminAction", "Restart aplikasi server agar hbm2ddl.auto=update membuat koperasi.production_document "
+     + "beserta tabel produksi terkait (skema koperasi selalu ada -- tidak ada DDL manual). "
      + "Setelah restart, verifikasi tabel dan buka kembali menu Produksi.");
    return null;
   }
@@ -84,7 +84,7 @@ public final class ProduksiApiHelper {
   */
  private static boolean tabelProduksiTersedia(Session s) {
   Object jumlah = s.createSQLQuery("SELECT COUNT(*) FROM information_schema.tables "
-    + "WHERE table_schema='inventory_production' AND table_name='production_document'")
+    + "WHERE table_schema='koperasi' AND table_name='production_document'")
     .uniqueResult();
   return jumlah instanceof Number && ((Number) jumlah).longValue() > 0L;
  }

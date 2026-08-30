@@ -13,7 +13,7 @@ import javax.persistence.UniqueConstraint;
 /** Baris barang pada dokumen distribusi. */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Table(schema = "inventory_distribution", name = "distribution_document_line", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_no" }))
+@Table(schema = "koperasi", name = "distribution_document_line", uniqueConstraints = @UniqueConstraint(columnNames = { "document_id", "line_no" }))
 public class DistribusiDokumenBaris implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private Long id; private Long documentId; private Integer lineNo; private Long itemId;
