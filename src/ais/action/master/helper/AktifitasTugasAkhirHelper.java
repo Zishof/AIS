@@ -573,7 +573,7 @@ public class AktifitasTugasAkhirHelper {
 
 	public void initCetak(MyButtonTabbox tabbox, int index,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir) {
-		tabbox.tambahTabLazy(index, "Laporan", "/img/svg/document-report.svg",
+		tabbox.tambahTabLazy(index, "Laporan", "/img/svg/file-report.svg",
 				new MyButtonTabbox.PemuatTab() {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			@Override
