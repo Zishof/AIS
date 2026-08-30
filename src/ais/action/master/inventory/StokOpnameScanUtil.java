@@ -131,15 +131,16 @@ public final class StokOpnameScanUtil {
 			return 0d;
 		}
 		Session s = session == null ? HibernateUtil.currentSession() : session;
-		String sql = "SELECT "
+		String sql = "SELECT ("
 				+ "  COALESCE((SELECT SUM(qty) FROM koperasi.pengadaan_produk WHERE produk = :p),0)"
 				+ "+ COALESCE((SELECT SUM(selisih) FROM koperasi.stok_opname WHERE produk = :p),0)"
 				+ "- COALESCE((SELECT SUM(qty) FROM koperasi.pembelian WHERE produk = :p),0)"
 				+ "- COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku WHERE produk = :p),0)"
 				// Produksi (Fase 0 dok. 49) -- selaras dengan baseline StokOpnameKantinAction.
-				+ "+ COALESCE((SELECT SUM(COALESCE(qty_masuk,0) - COALESCE(qty_keluar,0)) FROM koperasi.mutasi_stok_produksi WHERE produk = :p),0)";
+				+ "+ COALESCE((SELECT SUM(COALESCE(qty_masuk,0) - COALESCE(qty_keluar,0)) FROM koperasi.mutasi_stok_produksi WHERE produk = :p),0)) AS stok_sistem";
 		try {
-			SQLQuery q = s.createSQLQuery(sql);
+			SQLQuery q = s.createSQLQuery(sql)
+					.addScalar("stok_sistem", org.hibernate.Hibernate.DOUBLE);
 			q.setParameter("p", produkId);
 			return toDouble(q.uniqueResult());
 		} catch (Exception e) {
@@ -226,7 +227,8 @@ public final class StokOpnameScanUtil {
 	public static double stokProdukTerkini(Session session, Long produkId) {
 		if (produkId == null) return 0d;
 		Session s = session == null ? HibernateUtil.currentSession() : session;
-		SQLQuery q = s.createSQLQuery("SELECT COALESCE(stok,0) FROM koperasi.produk WHERE id = :produk");
+		SQLQuery q = s.createSQLQuery("SELECT COALESCE(stok,0) AS stok_produk FROM koperasi.produk WHERE id = :produk")
+				.addScalar("stok_produk", org.hibernate.Hibernate.DOUBLE);
 		q.setParameter("produk", produkId);
 		return toDouble(q.uniqueResult());
 	}
@@ -250,8 +252,9 @@ public final class StokOpnameScanUtil {
 			throw new Exception("Stok Opname sudah diposting ke jurnal. Batalkan posting akuntansi terlebih dahulu.");
 		}
 		String penanda = "[BATAL_SO:" + opnameId + "]";
-		SQLQuery sudah = s.createSQLQuery("SELECT id FROM koperasi.stok_opname WHERE toko=:toko "
-				+ "AND keterangan LIKE :penanda ORDER BY id DESC LIMIT 1");
+		SQLQuery sudah = s.createSQLQuery("SELECT id AS opname_id FROM koperasi.stok_opname WHERE toko=:toko "
+				+ "AND keterangan LIKE :penanda ORDER BY id DESC LIMIT 1")
+				.addScalar("opname_id", org.hibernate.Hibernate.LONG);
 		sudah.setParameter("toko", tokoId);
 		sudah.setParameter("penanda", penanda + "%");
 		Object idAda = sudah.uniqueResult();
@@ -291,7 +294,11 @@ public final class StokOpnameScanUtil {
 				+ "COALESCE(SUM(CASE WHEN selisih < 0 THEN -selisih ELSE 0 END),0) AS kurang "
 				+ "FROM koperasi.stok_opname WHERE toko = :toko AND CAST(waktuopname AS date) = CURRENT_DATE";
 		try {
-			SQLQuery q = s.createSQLQuery(sql);
+			SQLQuery q = s.createSQLQuery(sql)
+					.addScalar("jml", org.hibernate.Hibernate.LONG)
+					.addScalar("prd", org.hibernate.Hibernate.LONG)
+					.addScalar("lebih", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("kurang", org.hibernate.Hibernate.DOUBLE);
 			q.setParameter("toko", tokoId);
 			Object row = q.uniqueResult();
 			if (row instanceof Object[]) {
@@ -336,14 +343,29 @@ public final class StokOpnameScanUtil {
 		}
 		int batas = (limit <= 0 || limit > 200) ? 50 : limit;
 		Session s = session == null ? HibernateUtil.currentSession() : session;
-		String sql = "SELECT so.id, so.waktuopname, p.kode, p.nama, so.stoksistem, so.stokfisik, so.selisih, "
-				+ "so.keterangan, so.oleh, so.produk, COALESCE(p.stok,0), "
-				+ "EXISTS(SELECT 1 FROM koperasi.stok_opname b WHERE b.toko=so.toko AND b.keterangan LIKE ('[BATAL_SO:' || so.id || ']%')) "
+		String sql = "SELECT so.id AS opname_id, so.waktuopname AS waktu_opname, "
+				+ "p.kode AS produk_kode, p.nama AS produk_nama, "
+				+ "so.stoksistem AS stok_sistem, so.stokfisik AS stok_fisik, so.selisih AS selisih, "
+				+ "so.keterangan AS keterangan, so.oleh AS oleh, so.produk AS produk_id, "
+				+ "COALESCE(p.stok,0) AS stok_akhir, "
+				+ "EXISTS(SELECT 1 FROM koperasi.stok_opname b WHERE b.toko=so.toko AND b.keterangan LIKE ('[BATAL_SO:' || so.id || ']%')) AS dibatalkan "
 				+ "FROM koperasi.stok_opname so JOIN koperasi.produk p ON p.id = so.produk "
 				+ "WHERE so.toko = :toko AND CAST(so.waktuopname AS date) = CURRENT_DATE "
 				+ "ORDER BY so.waktuopname DESC LIMIT :batas";
 		try {
-			SQLQuery q = s.createSQLQuery(sql);
+			SQLQuery q = s.createSQLQuery(sql)
+					.addScalar("opname_id", org.hibernate.Hibernate.LONG)
+					.addScalar("waktu_opname", org.hibernate.Hibernate.TIMESTAMP)
+					.addScalar("produk_kode", org.hibernate.Hibernate.STRING)
+					.addScalar("produk_nama", org.hibernate.Hibernate.STRING)
+					.addScalar("stok_sistem", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("stok_fisik", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("selisih", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("keterangan", org.hibernate.Hibernate.STRING)
+					.addScalar("oleh", org.hibernate.Hibernate.STRING)
+					.addScalar("produk_id", org.hibernate.Hibernate.LONG)
+					.addScalar("stok_akhir", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("dibatalkan", org.hibernate.Hibernate.BOOLEAN);
 			q.setParameter("toko", tokoId);
 			q.setParameter("batas", batas);
 			@SuppressWarnings("unchecked")

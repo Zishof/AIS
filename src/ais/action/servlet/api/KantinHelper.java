@@ -11061,9 +11061,13 @@ public class KantinHelper {
 			hasil.put("hargaJual", produk.getHargaJual() == null ? 0d : produk.getHargaJual());
 			try {
 				Object[] terakhir = (Object[]) session.createSQLQuery(
-						"SELECT COALESCE(harga_beli_satuan_input,hargabelisatuan), waktupengadaan FROM koperasi.pengadaan_produk"
+						"SELECT COALESCE(harga_beli_satuan_input,hargabelisatuan) AS harga_beli_terakhir,"
+								+ " waktupengadaan AS waktu_harga_beli FROM koperasi.pengadaan_produk"
 								+ " WHERE produk = " + produk.getId() + " AND COALESCE(hargabelisatuan,0) > 0"
-								+ " ORDER BY waktupengadaan DESC, id DESC LIMIT 1").uniqueResult();
+								+ " ORDER BY waktupengadaan DESC, id DESC LIMIT 1")
+						.addScalar("harga_beli_terakhir", org.hibernate.Hibernate.DOUBLE)
+						.addScalar("waktu_harga_beli", org.hibernate.Hibernate.TIMESTAMP)
+						.uniqueResult();
 				if (terakhir != null && terakhir[0] != null) {
 					hasil.put("hargaBeliTerakhir", ((Number) terakhir[0]).doubleValue());
 					hasil.put("waktuHargaBeliTerakhir", terakhir[1] == null ? "" : String.valueOf(terakhir[1]));
@@ -11220,9 +11224,12 @@ public class KantinHelper {
 		int limit = Math.min(500, Math.max(1, request.optInt("limit", 200)));
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			SQLQuery q = session.createSQLQuery("SELECT x.id, x.produk, COALESCE(p.stok,0) FROM "
+			SQLQuery q = session.createSQLQuery("SELECT x.id AS opname_id, x.produk AS produk_id, COALESCE(p.stok,0) AS produk_stok FROM "
 					+ "(SELECT id, produk FROM koperasi.stok_opname WHERE toko=:toko AND id>:setelah "
-					+ "ORDER BY id DESC LIMIT :batas) x JOIN koperasi.produk p ON p.id=x.produk ORDER BY x.id ASC");
+					+ "ORDER BY id DESC LIMIT :batas) x JOIN koperasi.produk p ON p.id=x.produk ORDER BY x.id ASC")
+					.addScalar("opname_id", org.hibernate.Hibernate.LONG)
+					.addScalar("produk_id", org.hibernate.Hibernate.LONG)
+					.addScalar("produk_stok", org.hibernate.Hibernate.DOUBLE);
 			q.setParameter("toko", tokoId); q.setParameter("setelah", setelah); q.setParameter("batas", limit);
 			JSONArray data = new JSONArray(); long versi = setelah;
 			@SuppressWarnings("unchecked") java.util.List<Object[]> rows = q.list();
@@ -11497,7 +11504,8 @@ public class KantinHelper {
 
 			String penanda = "[SO_HARIAN_UPLOAD:" + validasi.fingerprint + "]";
 			Number pernah = (Number) session.createSQLQuery(
-					"SELECT COUNT(*) FROM koperasi.stok_opname WHERE toko=:tokoId AND keterangan LIKE :penanda")
+					"SELECT COUNT(*) AS jumlah FROM koperasi.stok_opname WHERE toko=:tokoId AND keterangan LIKE :penanda")
+					.addScalar("jumlah", org.hibernate.Hibernate.LONG)
 					.setParameter("tokoId", tokoId).setParameter("penanda", penanda + "%")
 					.uniqueResult();
 			if (pernah != null && pernah.longValue() > 0) {
@@ -11749,8 +11757,8 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			StringBuilder sql = new StringBuilder(
-					"SELECT a.id, TO_CHAR(a.waktuopname, 'YYYY-MM-DD HH24:MI') as waktu, " +
-					"a.stoksistem, a.stokfisik, a.selisih, a.keterangan, " +
+					"SELECT a.id AS opname_id, TO_CHAR(a.waktuopname, 'YYYY-MM-DD HH24:MI') AS waktu, " +
+					"a.stoksistem AS stok_sistem, a.stokfisik AS stok_fisik, a.selisih AS selisih, a.keterangan AS keterangan, " +
 					"a.produk AS id_produk, p.nama AS nama_produk, p.kode AS kode_produk " +
 					"FROM koperasi.stok_opname a LEFT JOIN koperasi.produk p ON a.produk = p.id " +
 					"WHERE a.toko = :tokoId ");
@@ -11759,7 +11767,16 @@ public class KantinHelper {
 			}
 			sql.append("ORDER BY a.waktuopname DESC, a.id DESC");
 
-			org.hibernate.SQLQuery q = session.createSQLQuery(sql.toString());
+			org.hibernate.SQLQuery q = session.createSQLQuery(sql.toString())
+					.addScalar("opname_id", org.hibernate.Hibernate.LONG)
+					.addScalar("waktu", org.hibernate.Hibernate.STRING)
+					.addScalar("stok_sistem", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("stok_fisik", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("selisih", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("keterangan", org.hibernate.Hibernate.STRING)
+					.addScalar("id_produk", org.hibernate.Hibernate.LONG)
+					.addScalar("nama_produk", org.hibernate.Hibernate.STRING)
+					.addScalar("kode_produk", org.hibernate.Hibernate.STRING);
 			q.setParameter("tokoId", tokoId);
 			if (!bulan.isEmpty()) q.setParameter("bulan", bulan);
 
