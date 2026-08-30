@@ -203,6 +203,8 @@ public class SetingBiayaHelper {
                     .addOrder(Order.asc("jurusan")).addOrder(Order.asc("program"));
 
             List<SettingBiaya> settingBiayas = ConstantValues.simpleList(criteria, SettingBiaya.class);
+			settingBiayas = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, settingBiayas,
+					nimMahasiswa);
 
             String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
                     "angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket", "jurusan" };
@@ -350,6 +352,8 @@ public class SetingBiayaHelper {
                     .addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jurusan"));
 
             List<SettingBiaya> settingBiayas = ConstantValues.simpleList(criteria, SettingBiaya.class);
+			settingBiayas = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, settingBiayas,
+					nimMahasiswa);
 
             StringBuilder idSettingBiayaSb = new StringBuilder();
             for (SettingBiaya sbCandidate : settingBiayas) {

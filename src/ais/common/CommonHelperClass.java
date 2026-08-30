@@ -372,12 +372,14 @@ public class CommonHelperClass {
 			jenisPembayaranMahasiswa = new Combobox();
 		}
 
-		if (jenisKegiatansTanpaDaftarUlang == null) {
-			reloadJenisKegiatans();
-		}
+		jenisPembayaranMahasiswa.getItems().clear();
+		reloadJenisKegiatans();
 
 		if (jenisKegiatansTanpaDaftarUlang != null) {
 			for (JenisKegiatan jenisKegiatan : jenisKegiatansTanpaDaftarUlang) {
+				if (jenisKegiatan == null || Boolean.FALSE.equals(jenisKegiatan.getAktif())) {
+					continue;
+				}
 				Comboitem comboitem = new Comboitem(jenisKegiatan.getNamaKegiatan());
 				comboitem.setValue(jenisKegiatan);
 				jenisPembayaranMahasiswa.appendChild(comboitem);
@@ -393,6 +395,7 @@ public class CommonHelperClass {
 			jenisPembayaranMahasiswa = new Combobox();
 		}
 
+		jenisPembayaranMahasiswa.getItems().clear();
 		MyComboitemConfig comboitem = new MyComboitemConfig(ConstantUtil.PENDAFTARAN_CALON_MAHASISWA);
 		comboitem.setValue(ConstantValues.PENDAFTARAN_CALON_MAHASISWA);
 		jenisPembayaranMahasiswa.appendChild(comboitem);
@@ -414,12 +417,14 @@ public class CommonHelperClass {
 			jenisPembayaranMahasiswa = new Combobox();
 		}
 
-		if (jenisKegiatansTanpaDaftarUlang == null) {
-			reloadJenisKegiatans();
-		}
+		jenisPembayaranMahasiswa.getItems().clear();
+		reloadJenisKegiatans();
 
 		if (jenisKegiatansTanpaDaftarUlang != null) {
 			for (JenisKegiatan jenisKegiatan : jenisKegiatansTanpaDaftarUlang) {
+				if (jenisKegiatan == null || Boolean.FALSE.equals(jenisKegiatan.getAktif())) {
+					continue;
+				}
 				Comboitem comboitem = new Comboitem(jenisKegiatan.getNamaKegiatan());
 				comboitem.setValue(jenisKegiatan);
 				jenisPembayaranMahasiswa.appendChild(comboitem);

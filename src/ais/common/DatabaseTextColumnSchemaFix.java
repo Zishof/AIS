@@ -106,6 +106,31 @@ public final class DatabaseTextColumnSchemaFix {
 	public static void initSettingBiaya() {
 		addColumnTextIfMissing("public", "setting_biaya", "pengecualian_mahasiswa");
 		addColumnTextIfMissing("new_audit", "setting_biaya__audit", "pengecualian_mahasiswa");
+		addColumnBooleanIfMissing("public", "setting_biaya", "batasi_mahasiswa_tertentu");
+		addColumnBooleanIfMissing("new_audit", "setting_biaya__audit", "batasi_mahasiswa_tertentu");
+	}
+
+	/** Tambah kolom boolean bila belum ada; dipakai juga untuk menjaga schema audit Envers. */
+	private static void addColumnBooleanIfMissing(String schema, String table, String column) {
+		if (!isSafeIdentifier(schema) || !isSafeIdentifier(table) || !isSafeIdentifier(column)
+				|| getColumnInfo(schema, table, column) != null) {
+			return;
+		}
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			session.createSQLQuery("ALTER TABLE " + quote(schema) + "." + quote(table) + " ADD COLUMN "
+					+ quote(column) + " boolean").executeUpdate();
+			tx.commit();
+			log("Berhasil tambah kolom boolean: " + schema + "." + table + "." + column);
+		} catch (Exception e) {
+			rollbackQuietly(tx);
+			log("Gagal tambah kolom " + schema + "." + table + "." + column + " : " + e.getMessage());
+		} finally {
+			closeQuietly(session);
+		}
 	}
 
 	/** Alasan pengajuan dapat berasal dari editor/API dan memang boleh lebih dari 255 karakter. */

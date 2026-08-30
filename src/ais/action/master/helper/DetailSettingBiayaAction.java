@@ -93,6 +93,10 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
+	private boolean modeDaftarMahasiswa() {
+		return settingBiaya != null && (settingBiaya.getKhususBuatMahasiswaTertentu()
+				|| settingBiaya.getBatasiMahasiswaTertentu());
+	}
 
 	/**
 	 * 
@@ -1157,7 +1161,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					grid.setRowRenderer(new CalonMahasiswaSettingRenderer(refresh, reset));
 					grid.setModelCheckMobile(strset);
 
-				} else if (settingBiaya.getKhususBuatMahasiswaTertentu()) {
+				} else if (modeDaftarMahasiswa()) {
 
 					List<SettingBiayaDetail> mahasiswas = ConstantValues
 							.simpleList(
@@ -1235,7 +1239,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			searchtahunsd.appendChild(comboitem);
 		}
 
-		if (settingBiaya.getKhususBuatMahasiswaTertentu()) {
+		if (modeDaftarMahasiswa()) {
 			Common.selectComboItem(searchtahun, tahun - 10);
 		} else {
 			Common.selectComboItem(searchtahun, tahun - 2);
@@ -1580,7 +1584,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			});
 			button.setParent(toolbar);
 
-		} else if (settingBiaya.getKhususBuatMahasiswaTertentu()) {
+		} else if (modeDaftarMahasiswa()) {
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Ambil Mahasiswa",
 					"/img/user_male_add.png");
 			toolbar.appendChild(toolbarbutton);
@@ -1964,7 +1968,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			column.setWidth("45%");
 		}
 
-		if (!settingBiaya.getKhususBuatMahasiswaTertentu()) {
+		if (!modeDaftarMahasiswa()) {
 			column.setLabel(mhs ? "Mahasiswa" : "Calon Mhs");
 		} else {
 			if ((settingBiaya.getJenisKegiatan() != null && ConstantValues.PENDAFTARAN_CALON_MAHASISWA != null
@@ -1991,7 +1995,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			Vbox vbox = new Vbox();
 			column.appendChild(vbox);
 			vbox.appendChild(new Label(itemBiaya.getNama()));
-			if (!settingBiaya.getKhususBuatMahasiswaTertentu()) {
+			if (!modeDaftarMahasiswa()) {
 				MyToolbarbuttonConfig prosesUlang = KegiatanHelper.prosesDownloadTagihan("Download", "/img/excel.png",
 						tahunAkademik, genapGanjil, settingBiaya, this, itemBiaya);
 				vbox.appendChild(prosesUlang);
@@ -2007,7 +2011,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			}
 		}
 
-		if (settingBiaya.getKhususBuatMahasiswaTertentu()) {
+		if (modeDaftarMahasiswa()) {
 			column = new MyColumnConfig("Hapus");
 			column.setParent(columns);
 			column.setWidth("8%");
@@ -2378,7 +2382,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 						.addOrder(Order.asc("biodataCalonMahasiswa.noRegistrasi"));
 			}
 
-		} else if (settingBiaya.getKhususBuatMahasiswaTertentu()) {
+		} else if (modeDaftarMahasiswa()) {
 
 			criteria = session.createCriteria(SettingBiayaDetail.class)
 					.add(Restrictions.eq("settingBiaya", settingBiaya)).createAlias("mahasiswa", "mahasiswa")

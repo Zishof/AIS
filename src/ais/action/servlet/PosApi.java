@@ -1364,6 +1364,8 @@ public class PosApi extends HttpServlet {
 				j.put("rute", p.getRute() == null ? "" : p.getRute());
 				// Fase E: tanda QC hasil produksi utk form Produk.
 				j.put("perluQc", Boolean.TRUE.equals(p.getPerluQc()));
+				// PDF stok & uom: kebijakan harga beli (manual vs ikut faktur) utk form Produk.
+				j.put("hargaBeliManual", Boolean.TRUE.equals(p.getHargaBeliManual()));
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
 				// Diisi ulang (bila ada) SETELAH loop ini lewat batch query -- default kosong dulu di

@@ -4767,6 +4767,40 @@ public final class PengadaanPosApiHelper {
 			hasil.put("status", "00");
 			hasil.put("id", bast.getId());
 			hasil.put("statusDokumen", statusBast(bast));
+			// PDF "stok & uom" 30-08: validasi (SETUJUI) langsung menjadikan barang sebagai
+			// stok -- jalur sinkron Kulakan resmi yang SAMA dengan tombol manual (konversi UOM
+			// pembelian->dasar, batch penerimaan, hitung ulang stok, harga beli master).
+			// Kegagalan sinkron TIDAK membatalkan persetujuan: dilaporkan jujur lewat
+			// peringatanSinkron dan tombol sinkron manual tetap tersedia sebagai jalur ulang;
+			// penolakan ganda (sudah pernah sinkron) juga tidak menggandakan stok.
+			if ("SETUJUI".equals(keputusan)) {
+				if (bolehAksi(tbmuser, KUNCI_SINKRON, "create")) {
+					JSONObject hasilSink = new JSONObject();
+					try {
+						JSONObject reqSink = new JSONObject();
+						reqSink.put("id", bast.getId());
+						if (request != null && !request.isNull("toko_id")) {
+							reqSink.put("toko_id", request.get("toko_id"));
+						}
+						bastSinkronKulakan(tbmuser, reqSink, hasilSink);
+					} catch (Exception eSink) {
+						ais.common.ErrorAuditUtil.record(eSink,
+								"PengadaanPosApiHelper.bastPutusan sinkron-otomatis");
+						hasilSink.put("description", String.valueOf(eSink.getMessage()));
+					}
+					boolean sinkronOk = "00".equals(hasilSink.optString("status"))
+							|| "success".equals(hasilSink.optString("status"));
+					hasil.put("sinkronOtomatis", sinkronOk);
+					if (!sinkronOk) {
+						hasil.put("peringatanSinkron", hasilSink.optString("description",
+								"Sinkron stok belum berjalan; gunakan tombol Sinkron ke Kulakan."));
+					}
+				} else {
+					hasil.put("sinkronOtomatis", false);
+					hasil.put("peringatanSinkron", "Persetujuan tercatat, tetapi akun Anda tidak "
+							+ "berhak menyinkronkan stok; minta pemegang hak menjalankan Sinkron ke Kulakan.");
+				}
+			}
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {

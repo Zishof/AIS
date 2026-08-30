@@ -4184,6 +4184,10 @@ public class KantinHelper {
 			if (request.has("perlu_qc")) {
 				p.setPerluQc(Boolean.valueOf(request.optBoolean("perlu_qc", false)));
 			}
+			// PDF "stok & uom" 30-08: kebijakan harga beli per produk (manual vs ikut faktur).
+			if (request.has("harga_beli_manual")) {
+				p.setHargaBeliManual(Boolean.valueOf(request.optBoolean("harga_beli_manual", false)));
+			}
 			// Gap-closure "Produk Ekstra" -- JSON array id mentah (mis. "[601,602]"), disimpan apa
 			// adanya, TIDAK di-snapshot spt bahan_baku -- lihat JavaDoc Produk.getEkstraPilihan().
 			if (request.has("ekstra_pilihan")) {
@@ -15884,6 +15888,14 @@ public class KantinHelper {
 				pg.setKeterangan(it.optString("keterangan", ""));
 				pg.setOleh(oleh);
 				session.save(pg);
+				// PDF "stok & uom" 30-08: harga beli MASTER mengikuti faktur -- per satuan DASAR
+				// hasil konversi UOM pembelian (1.200.000/DUS isi 6 -> 200.000/botol). Produk yang
+				// disetel harga-beli MANUAL tidak ditimpa. Gerbang bolehUbahHarga sudah lolos di
+				// pintu fungsi ini.
+				if (!Boolean.TRUE.equals(produk.getHargaBeliManual())) {
+					produk.setHargaBeli(Double.valueOf(hargaDasar));
+					session.update(produk);
+				}
 				session.flush();
 				tambahPenerimaanBatch(session, produk, it, qtyDasar, hargaDasar,
 						"FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId(), oleh);

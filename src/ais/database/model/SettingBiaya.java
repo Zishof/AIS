@@ -96,6 +96,7 @@ public class SettingBiaya extends GeneralValueObject {
 	private Boolean smtIkutiSettinganDisini;
 	private Integer jumlahPembayaran;
 	private Boolean khususBuatMahasiswaTertentu;
+	private Boolean batasiMahasiswaTertentu;
 	private String templateNotifikasi;
 	private Date waktuNotifikasi;
 	private Boolean aktifkanNotifikasi;
@@ -272,6 +273,20 @@ public class SettingBiaya extends GeneralValueObject {
 
 	public void setKhususBuatMahasiswaTertentu(Boolean khususBuatMahasiswaTertentu) {
 		this.khususBuatMahasiswaTertentu = khususBuatMahasiswaTertentu;
+	}
+
+	/**
+	 * Membatasi setting biaya umum/bulanan hanya untuk mahasiswa yang tercatat pada
+	 * SettingBiayaDetail. Berbeda dengan khususBuatMahasiswaTertentu, flag ini tidak
+	 * mengubah tagihan menjadi nilai default/insidentil dan tetap memakai billing bulanan.
+	 */
+	@Column(name = "batasi_mahasiswa_tertentu")
+	public Boolean getBatasiMahasiswaTertentu() {
+		return batasiMahasiswaTertentu == null ? false : batasiMahasiswaTertentu;
+	}
+
+	public void setBatasiMahasiswaTertentu(Boolean batasiMahasiswaTertentu) {
+		this.batasiMahasiswaTertentu = batasiMahasiswaTertentu;
 	}
 
 	/**

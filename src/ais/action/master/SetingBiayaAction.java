@@ -131,6 +131,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	private Combobox gelombangPendaftaran;
 	private Combobox paket;
 	private MyCheckboxConfig khususBuatMahasiswaTertentu;
+	private MyCheckboxConfig batasiMahasiswaTertentu;
 	private Intbox jumlahPembayaran;
 	private MyCheckboxConfig tampilkanPerProdi;
 
@@ -694,6 +695,17 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		row.appendChild(khususBuatMahasiswaTertentu = new MyCheckboxConfig(
 				"Khusus buat mahasiswa tertentu dengan nilai yg berbeda-beda"));
 		khususBuatMahasiswaTertentu.setChecked(settingBiaya.getKhususBuatMahasiswaTertentu());
+		khususBuatMahasiswaTertentu.setTooltiptext(
+				"Mode nilai khusus/insidentil per mahasiswa. Jangan gunakan pilihan ini bila tagihan tetap mengikuti billing bulanan.");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(batasiMahasiswaTertentu = new MyCheckboxConfig(
+				"Batasi hanya untuk mahasiswa yang dipilih (tetap tagihan bulanan)"));
+		batasiMahasiswaTertentu.setChecked(settingBiaya.getBatasiMahasiswaTertentu());
+		batasiMahasiswaTertentu.setTooltiptext(
+				"Menampilkan fitur Ambil Mahasiswa, tetapi nominal dan periode tetap berasal dari Pengaturan Tagihan Bulanan. Mahasiswa yang tidak dipilih tidak memakai setting ini.");
 
 		row = new MyFormRow();
 		row.setValign("top");
@@ -742,10 +754,13 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		row.appendChild(tampilkanPerProdi = new MyCheckboxConfig("Tampilkan pilihan tagihan per prodi"));
 		tampilkanPerProdi.setChecked(settingBiaya.getTampilkanPerProdi());
 
-		EventListener eventListenerKhusus = new EventListener() {
+		final EventListener eventListenerKhusus = new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (khususBuatMahasiswaTertentu.isChecked()) {
+					batasiMahasiswaTertentu.setChecked(false);
+				}
 				jenjang.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
 				statusAwalMahasiswa.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
 				afiliasiCalonMahasiswa.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
@@ -760,6 +775,15 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		};
 
 		khususBuatMahasiswaTertentu.addEventListener("onClick", eventListenerKhusus);
+		batasiMahasiswaTertentu.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (batasiMahasiswaTertentu.isChecked()) {
+					khususBuatMahasiswaTertentu.setChecked(false);
+					eventListenerKhusus.onEvent(null);
+				}
+			}
+		});
 		eventListenerKhusus.onEvent(null);
 
 		EventListener eventListenerDefault = new EventListener() {
@@ -1662,6 +1686,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		settingBiaya.setMaxSmt(maxSmt.getValue());
 		settingBiaya.setSmtIkutiSettinganDisini(smtIkutiSettinganDisini.isChecked());
 		settingBiaya.setKhususBuatMahasiswaTertentu(khususBuatMahasiswaTertentu.isChecked());
+		settingBiaya.setBatasiMahasiswaTertentu(batasiMahasiswaTertentu.isChecked());
 		settingBiaya.setPengecualianMahasiswa(pengecualianMahasiswa.getValue());
 		settingBiaya.setJumlahPembayaran(jumlahPembayaran.getValue());
 		settingBiaya.setTampilkanPerProdi(tampilkanPerProdi.isChecked());
@@ -1871,6 +1896,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 								Integer.valueOf(angkatan.getSelectedItem().getValue().toString())))
 
 				.add(Restrictions.eq("khususBuatMahasiswaTertentu", khususBuatMahasiswaTertentu.isChecked()))
+				.add(batasiMahasiswaTertentu.isChecked()
+						? Restrictions.eq("batasiMahasiswaTertentu", Boolean.TRUE)
+						: Restrictions.or(Restrictions.isNull("batasiMahasiswaTertentu"),
+								Restrictions.eq("batasiMahasiswaTertentu", Boolean.FALSE)))
 
 				.add(Restrictions.ge("ta", ta))
 
@@ -1987,6 +2016,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
 				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jenisSeleksi"))
 				.addOrder(Order.asc("jurusan")).addOrder(Order.asc("program")), SettingBiaya.class);
+		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
+				settingBiayas, nimMahasiswa);
 
 		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
 				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
@@ -2116,6 +2147,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				.addOrder(Order.asc("gelombangPendaftaran")).addOrder(Order.asc("jenjang"))
 				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
 				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jurusan")), SettingBiaya.class);
+		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
+				settingBiayas, nimMahasiswa);
 
 		String[] properties = new String[] { "jenisSeleksi", "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa",
 				"program", "angkatan", "jenjang", "statusAwalMahasiswa", "gelombangPendaftaran", "paket", "jurusan" };

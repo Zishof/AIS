@@ -496,6 +496,23 @@ public class Produk extends GeneralValueObject {
 		this.perluQc = perluQc;
 	}
 
+	private Boolean hargaBeliManual;
+
+	/**
+	 * Kebijakan harga beli master (PDF "stok & uom" 30-08): {@code null}/false = harga beli
+	 * OTOMATIS mengikuti faktur kulakan/BAST tervalidasi (per satuan DASAR hasil konversi UOM
+	 * pembelian -- contoh: Rp 1.200.000/DUS isi 6 -> Rp 200.000/botol); {@code true} = harga
+	 * beli dikunci MANUAL, faktur tidak menimpanya.
+	 */
+	@Column(name = "harga_beli_manual", nullable = true)
+	public Boolean getHargaBeliManual() {
+		return hargaBeliManual;
+	}
+
+	public void setHargaBeliManual(Boolean hargaBeliManual) {
+		this.hargaBeliManual = hargaBeliManual;
+	}
+
 	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */
 	@org.hibernate.envers.NotAudited
 	@ManyToOne(fetch = FetchType.LAZY)
