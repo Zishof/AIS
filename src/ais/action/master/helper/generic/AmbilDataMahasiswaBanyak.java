@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -74,6 +75,8 @@ public class AmbilDataMahasiswaBanyak extends MyWindow {
 
 	private MyTextbox kodeMahasiswaan;
 	private MyTextbox nama;
+	private MyTextbox angkatan;
+	private MyTextbox prodi;
 
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -170,6 +173,26 @@ public class AmbilDataMahasiswaBanyak extends MyWindow {
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nama"));
 		row.appendChild(nama = new MyTextbox());
 		nama.addEventListener(Events.ON_OK, new EventListener() {
+			public void onEvent(Event event) throws Exception {
+				onSearchDefault(event);
+			}
+		});
+
+		MyFormRow rowFilterLanjutan = new MyFormRow();
+		rowFilterLanjutan.setValign("top");
+		rowFilterLanjutan.setParent(rows);
+		rowFilterLanjutan.appendChild(new ais.ui.util.MyLabelConfig("Angkatan"));
+		rowFilterLanjutan.appendChild(angkatan = new MyTextbox());
+		angkatan.setWidth("90%");
+		angkatan.addEventListener(Events.ON_OK, new EventListener() {
+			public void onEvent(Event event) throws Exception {
+				onSearchDefault(event);
+			}
+		});
+
+		rowFilterLanjutan.appendChild(new ais.ui.util.MyLabelConfig("Prodi"));
+		rowFilterLanjutan.appendChild(prodi = new MyTextbox());
+		prodi.addEventListener(Events.ON_OK, new EventListener() {
 			public void onEvent(Event event) throws Exception {
 				onSearchDefault(event);
 			}
@@ -307,15 +330,34 @@ public class AmbilDataMahasiswaBanyak extends MyWindow {
 						.add(ids.size() == 0 ? Restrictions.sqlRestriction("1!=1") : Restrictions.in("id", ids)),
 				Mahasiswa.class);
 
-		List<Mahasiswa> myMahasiswa = session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+		Criteria criteria = session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.addOrder(Order.desc("tahunangkatan")).addOrder(Order.asc("nim"))
 				.add(ids.size() == 0 ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.not(Restrictions.in("id", ids)))
 				.add(mahasiswasHanyaDitampilkan == null ? Restrictions.sqlRestriction("1=1")
 						: values.size() == 0 ? Restrictions.sqlRestriction("1!=1") : Restrictions.in("id", values))
 				.add(Restrictions.ilike("nama", nama.getValue().trim(), MatchMode.ANYWHERE))
-				.add(Restrictions.ilike("nim", kodeMahasiswaan.getValue().trim(), MatchMode.ANYWHERE))
-				.setMaxResults(Common.MAX_RESULT).list();
+				.add(Restrictions.ilike("nim", kodeMahasiswaan.getValue().trim(), MatchMode.ANYWHERE));
+
+		String nilaiAngkatan = angkatan.getValue() == null ? "" : angkatan.getValue().trim();
+		if (nilaiAngkatan.length() > 0) {
+			try {
+				criteria.add(Restrictions.eq("tahunangkatan", Integer.valueOf(nilaiAngkatan)));
+			} catch (NumberFormatException e) {
+				/* Angkatan pada data mahasiswa bertipe angka. Input bukan angka dibuat
+				 * menghasilkan daftar kosong agar pencarian tidak memunculkan data yang
+				 * tidak sesuai. */
+				criteria.add(Restrictions.sqlRestriction("1!=1"));
+			}
+		}
+
+		String nilaiProdi = prodi.getValue() == null ? "" : prodi.getValue().trim();
+		if (nilaiProdi.length() > 0) {
+			criteria.createAlias("jurusan", "prodiFilter");
+			criteria.add(Restrictions.ilike("prodiFilter.nama", nilaiProdi, MatchMode.ANYWHERE));
+		}
+
+		List<Mahasiswa> myMahasiswa = criteria.setMaxResults(Common.MAX_RESULT).list();
 
 		mahasiswa.addAll(myMahasiswa);
 

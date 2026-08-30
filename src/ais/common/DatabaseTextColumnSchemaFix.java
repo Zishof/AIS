@@ -31,6 +31,7 @@ public final class DatabaseTextColumnSchemaFix {
             initLabelBahasaMandarin();
             initLogHostToHost();
             initTugasPertemuan();
+			initSettingBiaya();
             initTransaksiKeterangan();
 			initPengajuanMahasiswa();
 			initRealisasiKerjaPegawai();
@@ -100,6 +101,12 @@ public final class DatabaseTextColumnSchemaFix {
         alterColumnsToText("akunting", "transaksi", columns);
         alterColumnsToText("new_audit", "transaksi__audit", columns);
     }
+
+	/** Kolom daftar NIM pengecualian pada tabel utama dan audit Setting Biaya. */
+	public static void initSettingBiaya() {
+		addColumnTextIfMissing("public", "setting_biaya", "pengecualian_mahasiswa");
+		addColumnTextIfMissing("new_audit", "setting_biaya__audit", "pengecualian_mahasiswa");
+	}
 
 	/** Alasan pengajuan dapat berasal dari editor/API dan memang boleh lebih dari 255 karakter. */
 	public static void initPengajuanMahasiswa() {

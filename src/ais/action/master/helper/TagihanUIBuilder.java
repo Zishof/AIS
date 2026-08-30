@@ -510,7 +510,7 @@ public class TagihanUIBuilder {
 															detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(
 																	(Mahasiswa) mhsTarget, fSmt, jk, refresh);
 														} else {
-															detailBiayas = new ArrayList();
+													detailBiayas = new ArrayList();
 															BiodataCalonMahasiswa calonMhs = (BiodataCalonMahasiswa) mhsTarget;
 															Jurusan prodiLulus = calonMhs.getProdiLulus();
 															Jurusan targetJur = (prodiLulus == null
@@ -523,15 +523,15 @@ public class TagihanUIBuilder {
 															if (jk.getId().equals(
 																	ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU
 																			.getId())) {
-																detailBiayas.addAll(PembayaranUtilHelper
-																		.getDetailBiayaCalonMahasiswa(calonMhs, jk,
-																				targetJur, fSmt, refresh));
+														detailBiayas = PembayaranUtilHelper
+																.getDetailBiayaCalonMahasiswa(calonMhs, jk,
+																		targetJur, fSmt, refresh);
 															} else if (jk.getId()
 																	.equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA
 																			.getId())) {
-																detailBiayas.addAll(PembayaranUtilHelper
-																		.getDetailBiayaCalonMahasiswa(calonMhs, jk,
-																				targetJur, refresh));
+														detailBiayas = PembayaranUtilHelper
+																.getDetailBiayaCalonMahasiswa(calonMhs, jk,
+																		targetJur, refresh);
 															}
 														}
 

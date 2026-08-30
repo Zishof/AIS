@@ -57,6 +57,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.AmbilDataAfiliasiCalonMahasiswaBanbox;
 import ais.action.master.helper.DetailSettingBiayaAction;
+import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.common.Common;
@@ -140,6 +141,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	private Combobox kelamin;
 	private Combobox tahunAkademik;
 	private Combobox semester;
+	private Textbox pengecualianMahasiswa;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -266,6 +268,13 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			new Label(settingBiaya.getGunakanBiayaDefault() ? "Ya" : "Tidak").setParent(arg0);
 
 			new Label(settingBiaya.getMinSmt() + " sd " + settingBiaya.getMaxSmt()).setParent(arg0);
+
+			Label pengecualian = new Label(settingBiaya.getPengecualianMahasiswa());
+			pengecualian.setMultiline(true);
+			pengecualian.setTooltiptext(settingBiaya.getPengecualianMahasiswa().length() == 0
+					? "Tidak ada mahasiswa yang dikecualikan"
+					: "NIM berikut tidak akan memperoleh tagihan dari setting ini");
+			pengecualian.setParent(arg0);
 
 			Session session = HibernateUtil.currentSession();
 			List<DetailSettingBiaya> selectedItemBiaya = ConstantValues
@@ -685,6 +694,18 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		row.appendChild(khususBuatMahasiswaTertentu = new MyCheckboxConfig(
 				"Khusus buat mahasiswa tertentu dengan nilai yg berbeda-beda"));
 		khususBuatMahasiswaTertentu.setChecked(settingBiaya.getKhususBuatMahasiswaTertentu());
+
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Pengecualian Mahasiswa (NIM)"));
+		pengecualianMahasiswa = new Textbox(settingBiaya.getPengecualianMahasiswa());
+		pengecualianMahasiswa.setRows(4);
+		pengecualianMahasiswa.setMultiline(true);
+		pengecualianMahasiswa.setWidth("90%");
+		pengecualianMahasiswa.setTooltiptext(
+				"Masukkan NIM mahasiswa yang tidak boleh memakai setting biaya ini. Pisahkan dengan koma, titik koma, spasi, atau baris baru. Contoh: 20240001, 20240002");
+		row.appendChild(pengecualianMahasiswa);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1641,6 +1662,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		settingBiaya.setMaxSmt(maxSmt.getValue());
 		settingBiaya.setSmtIkutiSettinganDisini(smtIkutiSettinganDisini.isChecked());
 		settingBiaya.setKhususBuatMahasiswaTertentu(khususBuatMahasiswaTertentu.isChecked());
+		settingBiaya.setPengecualianMahasiswa(pengecualianMahasiswa.getValue());
 		settingBiaya.setJumlahPembayaran(jumlahPembayaran.getValue());
 		settingBiaya.setTampilkanPerProdi(tampilkanPerProdi.isChecked());
 		settingBiaya.setStatusMahasiswa((StatusMahasiswa) (statusMahasiswa.getSelectedItem() == null ? null
@@ -2016,6 +2038,11 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				SettingBiayaDetail.class);
 
 		if (settingBiayaDetail != null) {
+			if (settingBiayaDetail.getSettingBiaya() != null
+					&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(
+							biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim())) {
+				return PengecualianTagihanList.kosong();
+			}
 			return getDefaultSettingBiaya(session, settingBiayaDetail, semester, biodataCalonMahasiswa);
 		} else {
 			return null;
@@ -2037,6 +2064,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				SettingBiayaDetail.class);
 
 		if (settingBiayaDetail != null) {
+			if (settingBiayaDetail.getSettingBiaya() != null
+					&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(mahasiswa == null ? null : mahasiswa.getNim())) {
+				return PengecualianTagihanList.kosong();
+			}
 			return getDefaultSettingBiaya(session, settingBiayaDetail, semester, mahasiswa);
 		} else {
 			return null;
@@ -2049,6 +2080,16 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
 			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
 			Integer ta) {
+		return getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan, statusAwalMahasiswa,
+				statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program, kelamin,
+				afiliasiCalonMahasiswa, ta, null);
+	}
+
+	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
+			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
+			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
+			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
+			Integer ta, String nimMahasiswa) {
 
 		List<SettingBiaya> settingBiayas = ConstantValues.simpleList(session.createCriteria(SettingBiaya.class)
 				.add(Restrictions.le("ta", ta))
@@ -2075,6 +2116,11 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 //		System.out.println(
 //				"getDetailBiayaDefault final settingBiaya -> " + settingBiaya + " dari " + settingBiayas.size());
 		if (settingBiaya == null) {
+			return PengecualianTagihanList.kosong();
+		}
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			System.out.println("[TAGIHAN-DEBUG] SettingBiaya id=" + settingBiaya.getId()
+					+ " tidak berlaku untuk NIM " + nimMahasiswa + " (daftar pengecualian).");
 			return new ArrayList<DetailBiaya>();
 		}
 		List<DetailBiaya> detailBiayas = getDefaultSettingBiaya(session, settingBiaya, angkatan, jenjang, semester,

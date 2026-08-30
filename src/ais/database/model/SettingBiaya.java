@@ -105,6 +105,7 @@ public class SettingBiaya extends GeneralValueObject {
 	private Integer ta;
 	private String semester;
 	private String tahunAkademik;
+	private String pengecualianMahasiswa;
 
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
@@ -271,6 +272,34 @@ public class SettingBiaya extends GeneralValueObject {
 
 	public void setKhususBuatMahasiswaTertentu(Boolean khususBuatMahasiswaTertentu) {
 		this.khususBuatMahasiswaTertentu = khususBuatMahasiswaTertentu;
+	}
+
+	/**
+	 * Daftar NIM yang tidak boleh memakai setting biaya ini. Pemisah yang didukung:
+	 * koma, titik koma, spasi, tab, atau baris baru.
+	 */
+	@Column(name = "pengecualian_mahasiswa", columnDefinition = "text")
+	public String getPengecualianMahasiswa() {
+		return pengecualianMahasiswa == null ? "" : pengecualianMahasiswa.trim();
+	}
+
+	public void setPengecualianMahasiswa(String pengecualianMahasiswa) {
+		this.pengecualianMahasiswa = pengecualianMahasiswa == null ? null : pengecualianMahasiswa.trim();
+	}
+
+	/** Pemeriksaan tunggal agar seluruh jalur billing memakai aturan pengecualian yang sama. */
+	public boolean isMahasiswaDikecualikan(String nim) {
+		if (nim == null || nim.trim().length() == 0 || getPengecualianMahasiswa().length() == 0) {
+			return false;
+		}
+		String nimDicari = nim.trim();
+		String[] daftarNim = getPengecualianMahasiswa().split("[\\s,;]+");
+		for (int i = 0; i < daftarNim.length; i++) {
+			if (nimDicari.equalsIgnoreCase(daftarNim[i].trim())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

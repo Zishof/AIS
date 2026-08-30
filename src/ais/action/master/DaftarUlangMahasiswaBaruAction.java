@@ -60,6 +60,7 @@ import ais.action.master.helper.DaftarUlangPembayaranHelper;
 import ais.action.master.helper.KegiatanHelper;
 import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
+import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.master.helper.RevisiCicilanPembayaranHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.keuangan.DownloadCicilanCalonMahasiswa;
@@ -2783,6 +2784,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		if (jenisKegiatan != null) {
 			Integer smt = (Integer) semesterPilihan.getSelectedItem().getValue();
 			itemBiayas = new HashMap<Long, DetailBiaya>();
+			Collection hasilTagihan = null;
 
 			if (jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU.getId())) {
 				Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -2790,11 +2792,11 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				if (prodiLulus == null || prodiLulus.getId() == null) {
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
-					detailBiayas.addAll(PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							myjurusan1, smt, refresh));
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+							myjurusan1, smt, refresh);
 				} else {
-					detailBiayas.addAll(PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							prodiLulus, smt, refresh));
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+							prodiLulus, smt, refresh);
 				}
 			} else if (jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId())) {
 				Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -2802,14 +2804,18 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				if (prodiLulus == null || prodiLulus.getId() == null) {
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
-					detailBiayas.addAll(PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							myjurusan1, refresh));
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+							myjurusan1, refresh);
 				} else {
-					detailBiayas.addAll(PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							prodiLulus, refresh));
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+							prodiLulus, refresh);
 				}
 			}
 
+			boolean nimDikecualikan = PengecualianTagihanList.adalah(hasilTagihan);
+			if (hasilTagihan != null) {
+				detailBiayas.addAll(hasilTagihan);
+			}
 			for (Object o : detailBiayas) {
 				DetailBiaya detailBiaya = (DetailBiaya) o;
 				if (detailBiaya != null && detailBiaya.getItemBiaya() != null)
@@ -2832,7 +2838,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				// dapat membuat KEDUA varian kosong padahal pengaturan billing/bulanan ada di
 				// tabel. Hitung ulang SEKALI langsung dari database sebelum menyerah, sehingga
 				// petugas tidak perlu menekan Refresh manual untuk melihat tagihan.
-				if (!refresh && (detailBiayas == null || detailBiayas.isEmpty())
+				if (!nimDikecualikan && !refresh && (detailBiayas == null || detailBiayas.isEmpty())
 						&& (biayaBulanan == null || biayaBulanan.isEmpty())) {
 					countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, calonMahasiswa, jenisKegiatan,
 							smt, detailBiayas, true, false);
@@ -2850,7 +2856,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			dataTagihanData = new ArrayList(ooo);
 			// Benteng terakhir: bila tetap kosong, susun tampilan dari riwayat cicilan yang
 			// pernah terbayar agar posisi pembayaran calon mahasiswa tetap terlihat.
-			if (dataTagihanData.isEmpty())
+			if (!nimDikecualikan && dataTagihanData.isEmpty())
 				PembayaranUtilHelper.fallbackTagihanDariCicilan(calonMahasiswa, jenisKegiatan, dataTagihanData,
 						itemBiayas, smt);
 			Collections.sort(dataTagihanData);

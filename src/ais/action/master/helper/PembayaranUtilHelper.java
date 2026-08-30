@@ -349,6 +349,9 @@ public class PembayaranUtilHelper {
 			 */
 			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session,
 					mahasiswa, jenisKegiatan, semester, ta);
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
 
 			if (bulan == null && jenisKegiatan != null) {
 				// Per-jenjang PER-SEMESTER (dan per-angkatan bila diisi format TAHUN:SMT):
@@ -364,7 +367,7 @@ public class PembayaranUtilHelper {
 						&& (biayaDefault == null || biayaDefault.isEmpty())) {
 					if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
 							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tanpa setting khusus: return empty (lanjut jalur angsuran bulanan)");
-					return new TreeSet();
+					return PengecualianTagihanList.kosong();
 				}
 				if (Boolean.TRUE.equals(modeAngsuran) && biayaDefault != null && !biayaDefault.isEmpty()
 						&& JenisKegiatan.DEBUG_MODE_ANGSURAN) {
@@ -389,7 +392,11 @@ public class PembayaranUtilHelper {
 
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-						mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+						mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+						mahasiswa.getNim());
+				if (PengecualianTagihanList.adalah(biayaDefault)) {
+					return new TreeSet();
+				}
 			}
 
 			if (JenisKegiatan.DEBUG_MODE_ANGSURAN) {
@@ -820,12 +827,19 @@ public class PembayaranUtilHelper {
 
 			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, biodataCalonMahasiswa,
 					jenisKegiatan, semester, ta);
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
 
 			if (biayaDefault == null || biayaDefault.isEmpty()) {
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
 						jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
-						biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+						biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+						biodataCalonMahasiswa.getNim());
+				if (PengecualianTagihanList.adalah(biayaDefault)) {
+					return PengecualianTagihanList.kosong();
+				}
 			}
 			
 			if (biayaDefault != null && !biayaDefault.isEmpty()) {
@@ -1198,6 +1212,9 @@ public class PembayaranUtilHelper {
 	public static int countBulanan(Session session, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Collection detailBiayas, boolean reload,
 			boolean comitManual) {
+		if (PengecualianTagihanList.adalah(detailBiayas)) {
+			return 0;
+		}
 
 		// Fresh reload untuk hindari stale cache dari combobox lama
 		if (jenisKegiatan != null && jenisKegiatan.getId() != null) {
