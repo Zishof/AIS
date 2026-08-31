@@ -30,6 +30,7 @@ import ais.database.model.rab.Workspace;
 import ais.database.model.rab.WorkspacePunyaSasaran;
 import ais.ui.util.WaktuUtil;
 
+import com.sun.jersey.api.NotFoundException;
 import com.sun.jersey.spi.resource.Singleton;
 
 /**
@@ -38,9 +39,23 @@ import com.sun.jersey.spi.resource.Singleton;
  * {@link DataResource} — lihat catatan keamanan kredensial-di-URL pada javadoc kelas itu, yang
  * berlaku sama di sini. Method tambahan di kelas ini melayani kebutuhan spesifik workspace: pohon
  * workspace default per satuan kerja, serta feed informasi RAB (papan pengumuman/berita internal
- * satuan kerja) beserta komentarnya — DUA method terakhir ini TIDAK memvalidasi
- * username/password sama sekali (berbeda dari method load/search), sehingga dapat diakses tanpa
- * autentikasi.
+ * satuan kerja) beserta komentarnya.
+ *
+ * <p>
+ * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> {@link #daftarWorkspace}, kedua overload
+ * {@link #daftarInformasiRab}, {@link #daftarInformasiRabKomentar}, dan
+ * {@link #daftarInformasiRabJumlahKomentar} sebelumnya TIDAK memvalidasi username/password sama
+ * sekali (berbeda dari method load/search), sehingga siapa pun yang menjangkau path
+ * {@code /user_workspace/*} dapat membaca struktur workspace internal dan feed informasi RAB
+ * tanpa login — termasuk {@link #daftarInformasiRabKomentar}, yang mengembalikan nama/kontak/email
+ * PRIBADI penulis komentar untuk {@code item} (id {@link InformasiRab}) mana pun yang berhasil
+ * ditebak, tanpa autentikasi. Kelima method ini kini mewajibkan {@code username}/{@code password}
+ * yang valid (segmen path, divalidasi lewat {@link Common#checkLogin(String, String)} — pola yang
+ * sama dipakai {@link #getData}/{@link #getAllData} di kelas ini), konsisten dengan seluruh method
+ * lain di kelas ini. Pemanggil lama yang belum menyertakan segmen {@code username}/{@code password}
+ * pada URL akan ditolak; pembaruan pada sisi pemanggil diperlukan agar endpoint-endpoint ini
+ * kembali berfungsi.
+ * </p>
  */
 @Path("/user_workspace")
 @Singleton
@@ -117,16 +132,23 @@ public class WorkspaceResource extends DataResource<Workspace> {
 	/**
 	 * Mengambil daftar workspace default (bawaan/carry-over) yang menjadi anak langsung dari
 	 * {@code parent}, beserta ringkasan sasaran RAB tiap workspace lewat
-	 * {@link RabUtil#getDetailWorkspace}. Tidak memvalidasi kredensial.
+	 * {@link RabUtil#getDetailWorkspace}.
 	 *
-	 * @param parent id workspace induk, atau {@code "_"}/{@code "-1"} untuk workspace tingkat akar
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param parent   id workspace induk, atau {@code "_"}/{@code "-1"} untuk workspace tingkat akar
 	 * @return daftar workspace anak beserta ringkasan sasaran (di {@code info2}/{@code info3})
 	 */
 	@SuppressWarnings("unchecked")
 	@GET
-	@Path("daftar_workspace/{parent}/")
+	@Path("daftar_workspace/{username}/{password}/{parent}/")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public List<CommonID> daftarWorkspace(@PathParam("parent") String parent) {
+	public List<CommonID> daftarWorkspace(@PathParam("username") String username,
+			@PathParam("password") String password, @PathParam("parent") String parent) {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("fobidden access");
+
 		List<CommonID> commonIDs = new ArrayList<CommonID>();
 
 		parent = parent.trim().equals("_") || parent.trim().equals("-1") ? "" : parent.trim();
@@ -153,13 +175,14 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return commonIDs;
 	}
 
-	/** Seperti {@link #daftarInformasiRab(String, String, String, String)} dengan halaman pertama (10 baris pertama). */
+	/** Seperti {@link #daftarInformasiRab(String, String, String, String, String, String)} dengan halaman pertama (10 baris pertama). */
 	@GET
-	@Path("daftar_informasi_rab/{satuanKerja}/{cari}/")
+	@Path("daftar_informasi_rab/{username}/{password}/{satuanKerja}/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public List<CommonID> daftarInformasiRab(@PathParam("satuanKerja") String satuanKerja,
+	public List<CommonID> daftarInformasiRab(@PathParam("username") String username,
+			@PathParam("password") String password, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("cari") String cari) throws Exception {
-		return daftarInformasiRab(satuanKerja, cari, "0", "10");
+		return daftarInformasiRab(username, password, satuanKerja, cari, "0", "10");
 	}
 
 	/**
@@ -167,8 +190,9 @@ public class WorkspaceResource extends DataResource<Workspace> {
 	 * tanggal berjalan (antara {@code mulai} dan {@code sampai}, atau {@code sampai} kosong),
 	 * dengan pencarian teks opsional pada {@code content} dan filter satuan kerja opsional,
 	 * dipaginasi. Setiap item disertai daftar lampiran foto (link unduh) dan jumlah komentar.
-	 * Tidak memvalidasi kredensial.
 	 *
+	 * @param username    kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password    kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
 	 * @param satuanKerja id satuan kerja pemilik, atau {@code ""}/{@code "_"}/{@code "-1"} untuk semua
 	 * @param cari        kata kunci pencarian pada isi informasi (URL-encoded), atau penanda kosong untuk tanpa filter
 	 * @param start       offset baris awal (paginasi)
@@ -177,11 +201,16 @@ public class WorkspaceResource extends DataResource<Workspace> {
 	 */
 	@SuppressWarnings("unchecked")
 	@GET
-	@Path("daftar_informasi_rab/{satuanKerja}/{cari}/{start}/{banyak}/")
+	@Path("daftar_informasi_rab/{username}/{password}/{satuanKerja}/{cari}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public List<CommonID> daftarInformasiRab(@PathParam("satuanKerja") String satuanKerja,
+	public List<CommonID> daftarInformasiRab(@PathParam("username") String username,
+			@PathParam("password") String password, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("cari") String cari, @PathParam("start") String start, @PathParam("banyak") String banyak)
 			throws Exception {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("fobidden access");
+
 		List<CommonID> commonIDs = new ArrayList<CommonID>();
 
 		cari = URLDecoder.decode(cari, "UTF-8");
@@ -244,16 +273,23 @@ public class WorkspaceResource extends DataResource<Workspace> {
 
 	/**
 	 * Mengambil komentar-komentar (hingga {@link Common#MAX_RESULT_20}, terbaru dahulu) pada satu
-	 * {@link InformasiRab}. Tidak memvalidasi kredensial.
+	 * {@link InformasiRab}.
 	 *
-	 * @param item id informasi RAB yang komentarnya diambil
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param item     id informasi RAB yang komentarnya diambil
 	 * @return daftar komentar beserta nama, kontak, email, dan tanggal ubah
 	 */
 	@SuppressWarnings("unchecked")
 	@GET
-	@Path("daftar_informasi_rab_komentar/{item}/")
+	@Path("daftar_informasi_rab_komentar/{username}/{password}/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public List<CommonID> daftarInformasiRabKomentar(@PathParam("item") String item) throws Exception {
+	public List<CommonID> daftarInformasiRabKomentar(@PathParam("username") String username,
+			@PathParam("password") String password, @PathParam("item") String item) throws Exception {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("fobidden access");
+
 		Session session = HibernateUtil.currentNativeSession();
 		List<InformasiRabKomentar> komentarItems = session.createCriteria(InformasiRabKomentar.class)
 				.add(Restrictions.eq("informasiRab.id", Long.parseLong(item))).addOrder(Order.desc("tanggal_dirubah"))
@@ -279,15 +315,21 @@ public class WorkspaceResource extends DataResource<Workspace> {
 
 	/**
 	 * Mengambil jumlah komentar pada satu {@link InformasiRab} tanpa mengunduh isi komentarnya.
-	 * Tidak memvalidasi kredensial.
 	 *
-	 * @param item id informasi RAB yang dihitung jumlah komentarnya
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param item     id informasi RAB yang dihitung jumlah komentarnya
 	 * @return objek dengan id = {@code item} dan {@code info1} = jumlah komentar
 	 */
 	@GET
-	@Path("daftar_informasi_rab_jumlah_komentar/{item}/")
+	@Path("daftar_informasi_rab_jumlah_komentar/{username}/{password}/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public CommonID daftarInformasiRabJumlahKomentar(@PathParam("item") String item) throws Exception {
+	public CommonID daftarInformasiRabJumlahKomentar(@PathParam("username") String username,
+			@PathParam("password") String password, @PathParam("item") String item) throws Exception {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("fobidden access");
+
 		Session session = HibernateUtil.currentNativeSession();
 		Integer jumlahKomentarItems = ((Number) session.createCriteria(InformasiRabKomentar.class)
 				.add(Restrictions.eq("informasiRab.id", Long.parseLong(item))).setProjection(Projections.rowCount())
