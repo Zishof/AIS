@@ -50,6 +50,15 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK untuk mengelola riwayat pekerjaan/karier sebelumnya ({@link RiwayatKerjaPegawai})
+ * milik satu {@link Pegawai}: daftar riwayat dalam grid berpencarian (bila {@code pegawai} yang
+ * diberikan pada konstruktor {@code null}, pencarian mencakup semua pegawai), form tambah/ubah
+ * lengkap (nama instansi, kedudukan/jabatan, rentang tahun, alamat, pimpinan, status), dengan
+ * status {@code true} ditandai ikon centang (dan tombol hapus disembunyikan — baris berstatus ok
+ * tidak boleh dihapus) sedangkan status {@code false} ditandai ikon peringatan (masih dapat
+ * dihapus), serta lampiran foto/dokumen pendukung lewat {@link FotoLampiranPegawai}.
+ */
 public class RiwayatKerjaPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -74,11 +83,13 @@ public class RiwayatKerjaPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Menyiapkan helper untuk {@code pegawai} tertentu, atau untuk semua pegawai bila {@code null}. */
 	public RiwayatKerjaPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris grid untuk {@link RiwayatKerjaPegawai}: pegawai, nama instansi, kedudukan, rentang tahun, alamat, pimpinan, ikon status (centang/peringatan), dan tombol ubah/hapus (hapus hanya untuk status belum ok). */
 	class RiwayatKerjaPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -152,6 +163,7 @@ public class RiwayatKerjaPegawaiHelper {
 		}
 	}
 
+	/** Membangun kerangka layar daftar riwayat kerja: panel filter (pegawai, status, satuan kerja) di utara dan grid rincian di tengah, lalu langsung memuat datanya. */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -322,6 +334,7 @@ public class RiwayatKerjaPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang daftar {@link RiwayatKerjaPegawai} sesuai filter aktif ke grid. */
 	public void onSearchDefault(Event event) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -354,6 +367,7 @@ public class RiwayatKerjaPegawaiHelper {
 
 	}
 
+	/** Membangun form tambah/ubah untuk {@code riwayatKerjaPegawai} (baru atau sudah ada): nama instansi, kedudukan, rentang tahun, alamat, pimpinan, status, dan lampiran foto/dokumen, menggantikan tampilan daftar sementara. */
 	public void init(final RiwayatKerjaPegawai riwayatKerjaPegawai) throws Exception {
 		this.riwayatKerjaPegawai = riwayatKerjaPegawai;
 
@@ -509,6 +523,7 @@ public class RiwayatKerjaPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memvalidasi dan menyimpan data {@link RiwayatKerjaPegawai} dari form; mengembalikan {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna), {@code true} bila berhasil disimpan. */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {

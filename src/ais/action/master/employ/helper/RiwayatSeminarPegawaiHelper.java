@@ -51,6 +51,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK untuk mengelola riwayat keikutsertaan seminar ({@link Seminar}) milik satu
+ * {@link Pegawai} — pola dan struktur mengikuti {@link RiwayatKerjaPegawaiHelper}, dengan field
+ * yang disesuaikan untuk seminar: daftar riwayat dalam grid berpencarian, form tambah/ubah
+ * (judul seminar, rentang tanggal mulai/selesai, lokasi, pembicara utama, peran/{@code sebagai},
+ * keterangan, status — status {@code true} tidak dapat dihapus), serta lampiran dokumen
+ * pendukung lewat {@link LampiranLain}.
+ */
 public class RiwayatSeminarPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -77,6 +85,7 @@ public class RiwayatSeminarPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Menyiapkan helper untuk {@code pegawai} tertentu, atau untuk semua pegawai bila {@code null}. */
 	public RiwayatSeminarPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}

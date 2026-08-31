@@ -80,6 +80,20 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Komponen ZK penjelajah dokumen ({@link DokumenAkreditasi}) di dalam satu ruang arsip
+ * {@link Akreditasi} — dipasang tertanam pada baris yang diperluas di {@link AkreditasiAction}
+ * (juga dapat dibatasi hanya ke satu sub-folder induk lewat {@code indukDokumenAkreditasi}, dan
+ * dijalankan dalam mode {@code simple} yang menyembunyikan toolbar untuk konteks tampilan ringkas).
+ * Menyediakan dua tampilan sinkron atas data yang sama: pohon hierarkis ruang/sub-ruang/file
+ * ({@link DokumenAkreditasiTreeModel}) dan daftar tabel berpaging (untuk pencarian cepat). Cakupan
+ * data satuan kerja mengikuti pola yang sama dengan {@link AkreditasiAction#initCriteria}. Fitur
+ * ekspor/pembatalan ekspor massal ke repositori DSpace (tombol hanya tampil bila konfigurasi
+ * {@code terhubung_ke_dspace} dan {@code dokumen_terhubung_ke_dspace} aktif) mendelegasikan
+ * pembuatan item/koleksi DSpace ke {@link AkreditasiAction#getDspace}/
+ * {@link AkreditasiAction#getDspaceDokumenAkreditasi}, dengan token otentikasi diambil dari
+ * {@link DspaceCommon} (bukan ditanam di kelas ini).
+ */
 public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, DataSearchDefault, DataInitDefault {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -111,6 +125,15 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
     private MyTabConfig tabExplorer;
     private AbstractComponent tabList;
 
+    /**
+     * Membuat komponen penjelajah dokumen terikat pada satu ruang arsip; pemanggil harus memanggil
+     * {@link #init()} setelah komponen ini dipasang ke parent untuk benar-benar membangun isinya.
+     *
+     * @param akreditasi              ruang arsip akreditasi yang dokumennya dijelajahi
+     * @param indukDokumenAkreditasi  batasi tampilan hanya ke sub-folder ini, boleh {@code null} untuk seluruh ruang
+     * @param simple                  {@code true} untuk menyembunyikan toolbar (mode tampilan ringkas)
+     * @param searchparent            filter satuan kerja induk yang dipakai bersama layar pemanggil, boleh {@code null}
+     */
     public DokumenAkreditasiAction(Akreditasi akreditasi, DokumenAkreditasi indukDokumenAkreditasi, boolean simple,
             AmbilDataSatuanKerjaBanbox searchparent) {
         super();
@@ -120,6 +143,7 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
         this.searchparent = searchparent;
     }
 
+    /** Membangun seluruh isi komponen: hak akses, toolbar (tambah/cetak/unggah/cari/ekspor DSpace), tab pohon eksplorer, tab daftar tabel, dan pencarian awal. */
     public void init() {
         satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
         create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -493,6 +517,7 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
         }
     }
 
+    /** Membuka form tambah ruang/file dokumen baru di dalam induk yang sedang aktif. */
     public void onAdd(Event event) throws Exception {
         openEditor(new DokumenAkreditasi(akreditasi, indukDokumenAkreditasi), indukDokumenAkreditasi, new EventListener() {
             @Override
@@ -503,6 +528,7 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
     }
 
     @Override
+    /** Membangun form tambah/ubah ruang/file dokumen (kode, nama, tanggal, keterangan, nomor urut, satuan kerja, unggah lampiran) pada jendela dialog. */
     public void init(GeneralValueObject obj) throws Exception {
         DokumenAkreditasi data = (DokumenAkreditasi) obj;
         openEditor(data, data.getInduk(), new EventListener() {
@@ -650,6 +676,15 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
         row.appendChild(satuanKerja);
     }
 
+    /**
+     * Memvalidasi lalu menyimpan data ruang/file dokumen dari form: menolak bila nama kosong; jika
+     * lolos menyimpan/memperbarui entitas dengan seluruh field form, menautkan lampiran yang sudah
+     * diunggah ke id dokumen tersimpan, lalu menyegarkan pohon dan daftar tabel.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama == null || nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data ruang/file",
@@ -703,6 +738,14 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
         }
     }
 
+    /**
+     * Menyusun kriteria pencarian {@link DokumenAkreditasi} milik ruang arsip aktif, dengan cakupan
+     * satuan kerja berlapis (sama seperti {@link AkreditasiAction#initCriteria}) dan filter kata
+     * kunci (nama/kode/keterangan), diurutkan berdasarkan induk-nomor urut-kode-nama bila diminta.
+     *
+     * @param order {@code true} untuk menyertakan pengurutan
+     * @return kriteria Hibernate siap dieksekusi
+     */
     public Criteria initCriteria(boolean order) {
         SatuanKerja parent = (SatuanKerja) (searchparent == null ? null : searchparent.getAttribute("satuanKerja"));
         Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
@@ -731,6 +774,7 @@ public class DokumenAkreditasiAction extends Groupbox implements DataCriteria, D
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    /** Menjalankan pencarian tabel dokumen sesuai kriteria dan halaman paging aktif, lalu merender hasilnya ke grid (mengembalikan model kosong bila terjadi kegagalan). */
     public void onSearchDefault(Event event) {
         if (grid == null) {
             return;

@@ -34,6 +34,14 @@ import ais.database.model.library.SaldoAwalDetail;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper pengelola grid rincian item pada dokumen "Saldo Awal" ({@link SaldoAwal}) perpustakaan —
+ * pencatatan jumlah eksemplar awal ({@link SaldoAwalDetail}) untuk setiap {@link Item} pustaka
+ * saat migrasi/inisialisasi data koleksi. Setiap baris menampilkan identitas item (ISBN/ISSN),
+ * jumlah eksemplar (dapat diedit dan tersimpan otomatis saat berubah, dipaksa selalu bernilai
+ * non-negatif via {@code Math.abs}), dan keterangan. Kontrol edit dinonaktifkan begitu dokumen
+ * saldo awal sudah disetujui ({@code getDisetujuiOleh() != null}) atau pengguna tidak berhak ubah.
+ */
 public class SaldoAwalPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -41,6 +49,7 @@ public class SaldoAwalPunyaItemHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridItem}; hak tambah/ubah/hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public SaldoAwalPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +57,13 @@ public class SaldoAwalPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel rincian item untuk {@code saldoAwal}: toolbar tambah item (bila berhak) dan
+	 * grid menampilkan seluruh baris {@link SaldoAwalDetail} yang sudah tersimpan.
+	 *
+	 * @param saldoAwal dokumen saldo awal target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final SaldoAwal saldoAwal) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -181,6 +197,13 @@ public class SaldoAwalPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan identitas item, jumlah eksemplar (auto-save, dipaksa
+	 * non-negatif), dan keterangan.
+	 *
+	 * @param row            baris grid target
+	 * @param saldoAwalDetail data rincian saldo awal untuk baris ini
+	 */
 	public void initRow(final Row row, final SaldoAwalDetail saldoAwalDetail) throws Exception {
 		row.setValign("top");row.setAttribute("saldoAwalDetail", saldoAwalDetail);
 

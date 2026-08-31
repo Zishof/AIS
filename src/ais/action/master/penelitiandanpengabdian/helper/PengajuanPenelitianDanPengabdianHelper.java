@@ -594,6 +594,7 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 		return true;
 	}
 
+	/** Memeriksa apakah {@code sumberDana} sudah tercatat sebagai salah satu sumber dana pada {@code pengajuan} — dipakai untuk memprapilih checkbox sumber dana saat form dimuat ulang. */
 	private boolean punyaSumberDana(PengajuanPenelitianDanPengabdian pengajuan,
 			SumberDanaPenelitianDanPengabdian sumberDana) {
 		if (pengajuan == null || sumberDana == null || sumberDana.getId() == null
@@ -608,18 +609,21 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 		return false;
 	}
 
+	/** Mengembalikan label istilah tetap {@code "Pengajuan Penelitian dan Pengabdian"} yang dipakai pada tampilan alur SOP (dapat dioverride, lihat {@link PersetujuanPenelitianHelper#istilah()}). */
 	@Override
 	public String istilah() throws Exception {
 		// TODO Auto-generated method stub
 		return "Pengajuan Penelitian dan Pengabdian";
 	}
 
+	/** Mengembalikan entitas {@link PengajuanPenelitianDanPengabdian} yang sedang dikelola form ini, sebagai {@link DataSop} untuk alur SOP. */
 	@Override
 	public DataSop ambil() throws Exception {
 		// TODO Auto-generated method stub
 		return pengajuanPenelitianDanPengabdianData;
 	}
 
+	/** Mengembalikan kelas entitas yang dikelola: {@link PengajuanPenelitianDanPengabdian}. */
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Class ambilClass() throws Exception {
@@ -627,18 +631,27 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 		return PengajuanPenelitianDanPengabdian.class;
 	}
 
+	/** Mengatur mode form ini menjadi mode persetujuan/disposisi ({@code true}) atau mode pengajuan biasa ({@code false}). */
 	@Override
 	public void setPersetujuan(boolean persetujuan) {
 		this.persetujuan = persetujuan;
 
 	}
 
+	/** Implementasi {@link FormSop#cetakData}: saat ini tidak menyediakan cetak data khusus (selalu mengembalikan {@code null}). */
 	@Override
 	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	/**
+	 * Membangun jendela form pengajuan penelitian/pengabdian baru atau edit (dipanggil dari
+	 * {@link #form}), termasuk pengaju, judul, tujuan (editor kaya CKEditor), sumber dana
+	 * (checkbox berdasarkan {@link SumberDanaPenelitianDanPengabdian} aktif), jumlah dana, masa
+	 * penugasan, anggota tim, editor/kontributor, abstrak, kata kunci, dan lampiran (berkas tugas,
+	 * keterangan, surat rekomendasi jika diwajibkan jenis penelitian/pengabdian terkait).
+	 */
 	@SuppressWarnings("unchecked")
 	private MyGrid displayWindowPengajuanBaru(Component parent,
 			final PenelitianDanPengabdian penelitianDanPengabdianData,
@@ -1252,6 +1265,15 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Memastikan/membuat community DSpace tingkat teratas untuk jenis pengajuan (penelitian/
+	 * pengabdian) dan jurusan pengaju, sebagai induk hierarki collection di bawahnya. UUID
+	 * community dicache pada {@link Konfigurasi} {@code dspace_label_collection_pengajuanPenelitianDanPengabdian_<idTipe>_<idJurusan>}.
+	 *
+	 * @param cookie                            token sesi autentikasi DSpace
+	 * @param pengajuanPenelitianDanPengabdian  pengajuan yang menentukan jenis dan jurusan
+	 * @return informasi community DSpace (termasuk UUID) hasil {@code dspaceProcess}
+	 */
 	public static DspaceInformation getDspacePengajuanPenelitianDanPengabdian(String cookie,
 			PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian) throws Exception {
 		Jurusan jurusan = null;
@@ -1286,6 +1308,11 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Memastikan/membuat collection DSpace untuk tahun {@link PenelitianDanPengabdian}, bersarang
+	 * di bawah collection tipe penelitian ({@link #getDspaceTipePengajuanPenelitianDanPengabdian}).
+	 * UUID dicache pada {@link Konfigurasi} {@code dspace_label_collection_penelitianDanPengabdian_tahun_*}.
+	 */
 	public static DspaceInformation getDspaceTipePengajuanPenelitianDanPengabdianTahun(String cookie,
 			PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian) throws Exception {
 		Jurusan jurusan = null;
@@ -1320,6 +1347,12 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Memastikan/membuat collection DSpace untuk satu {@link PenelitianDanPengabdian} (judul
+	 * program penelitian/pengabdian), bersarang di bawah community
+	 * {@link #getDspacePengajuanPenelitianDanPengabdian}. UUID dicache pada {@link Konfigurasi}
+	 * {@code dspace_label_collection_penelitianDanPengabdian_*}.
+	 */
 	public static DspaceInformation getDspaceTipePengajuanPenelitianDanPengabdian(String cookie,
 			PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian) throws Exception {
 		Jurusan jurusan = null;
@@ -1353,6 +1386,17 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Membuat/memperbarui item DSpace individual untuk satu {@code pengajuanPenelitianDanPengabdian}
+	 * di dalam collection tahun ({@link #getDspaceTipePengajuanPenelitianDanPengabdianTahun}),
+	 * lengkap dengan metadata Dublin Core (penulis, editor, tanggal hak cipta, dan metadata lain
+	 * yang relevan sesuai isi pengajuan).
+	 *
+	 * @param cookie                            token sesi autentikasi DSpace
+	 * @param pengajuanPenelitianDanPengabdian  pengajuan yang dipublikasikan/disinkronkan ke DSpace
+	 * @param update                            {@code true} untuk memperbarui item yang sudah ada, {@code false} untuk membuat baru
+	 * @return informasi item DSpace hasil {@code dspaceProcess}
+	 */
 	@SuppressWarnings("unchecked")
 	public static DspaceInformation getDspace(String cookie,
 			PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian, boolean update) throws Exception {
@@ -1480,6 +1524,24 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 	private Row r1Anggota;
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Membangun layar utama daftar pengajuan penelitian/pengabdian: panel filter (jenis penelitian/
+	 * pengabdian, status, tahap pengajuan, pencarian judul/abstrak/nama pengaju) dan grid hasil
+	 * dengan aksi sesuai mode. Bila {@code ases} bernilai {@code true}, layar berjalan dalam mode
+	 * penilaian asesor (menampilkan kontrol skor lewat {@link PenilaianAsesorHelper}); bila
+	 * {@code usernamePengajuan} diberikan, daftar dibatasi ke pengajuan milik pengguna tersebut.
+	 * Method ini adalah titik masuk utama layar (dipanggil dari {@link JurnalPenelitianAction} dan
+	 * layar SOP lain), mendelegasikan penyusunan kriteria ke {@link #initCriteria}.
+	 *
+	 * @param ases                          {@code true} untuk mode penilaian asesor
+	 * @param usernamePengajuan             batasi ke pengaju tertentu, atau {@code null} untuk semua
+	 * @param diperuntukkanPengajuan        peruntukan pengajuan (dosen/mahasiswa/umum), boleh {@code null}
+	 * @param penelitianDanPengabdianData   batasi ke satu program penelitian/pengabdian tertentu, boleh {@code null}
+	 * @param component                     komponen induk tempat layar dibangun
+	 * @param window                        jendela induk (untuk dialog turunan)
+	 * @param jenis                         tipe penelitian/pengabdian default filter
+	 * @param tinggi                        tinggi tata letak (CSS height)
+	 */
 	public void displayPengajuan(final Boolean ases, final String usernamePengajuan,
 			final String diperuntukkanPengajuan, final PenelitianDanPengabdian penelitianDanPengabdianData,
 			final Component component, final MyWindow window, final TipePenelitianDanPengabdian jenis,
@@ -2176,6 +2238,13 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian pengajuan sebagai <b>pengaju utama</b> (bukan anggota tim):
+	 * disaring berdasarkan judul, abstrak, status, tahap pengajuan, jenis penelitian/pengabdian,
+	 * peruntukan, dan pencarian nama/username/NIM pengaju; wajib memiliki mahasiswa atau tbmuser
+	 * pengaju. Bila {@link #usernamePengajuan} diset, dibatasi hanya pengajuan milik user
+	 * tersebut. Diurutkan berdasarkan id terbaru bila {@code order}.
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -2239,6 +2308,13 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 		return criteria;
 	}
 
+	/**
+	 * Membangun kriteria pencarian pengajuan sebagai <b>anggota tim</b> (bukan pengaju utama):
+	 * mencari lewat {@link AnggotaPengajuanPenelitianDanPengabdian} yang usernya cocok
+	 * {@link #usernamePengajuan}/pencarian nama, dikelompokkan per pengajuan induk, lalu disaring
+	 * ulang dengan filter yang sama seperti {@link #initCriteria} (judul, abstrak, status, tahap,
+	 * jenis, peruntukan, program terpilih).
+	 */
 	public Criteria initCriteriaSebagaiAnggota(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -2308,6 +2384,7 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 		return criteria;
 	}
 
+	/** Memuat ulang daftar pengajuan (sebagai pengaju utama, {@link #initCriteria}) ke {@link #gridPengajuan} beserta paginasinya; tidak melakukan apa pun bila komponen pencarian belum siap. */
 	@SuppressWarnings("unchecked")
 	public void loadDataPengajuan() {
 		if (cariJudul == null) {
@@ -2326,6 +2403,7 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/** Memuat ulang daftar pengajuan sebagai anggota tim ({@link #initCriteriaSebagaiAnggota}) ke {@link #gridPengajuanAnggota}; blok "Sebagai Anggota" hanya ditampilkan bila hasilnya tidak kosong. */
 	@SuppressWarnings("unchecked")
 	public void loadDataPengajuanAnggota() {
 		if (cariJudul == null) {
@@ -2348,6 +2426,13 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan detail pengajuan: nomor registrasi/nama pengaju, judul program
+	 * penelitian/pengabdian, abstrak, daftar anggota tim, status, tahap pengajuan, dan kontrol aksi
+	 * yang berbeda tergantung mode — pada mode penilaian asesor ({@code ases=true}), baris turut
+	 * menampilkan kontrol skor lewat {@link PenilaianAsesorHelper} untuk {@code pegawai} (asesor)
+	 * yang sedang login; pada mode biasa, menampilkan tombol lihat/ubah/hapus pengajuan.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void displayRow(Row arg0, final PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian,
 			final Pegawai pegawai, final boolean ases, final TipePenelitianDanPengabdian jenis) throws Exception {
@@ -2804,15 +2889,18 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	}
 
+	/** Mengatur apakah form ini ditampilkan sebagai read-only (tidak dapat disunting). */
 	public void setReadonly(Boolean readonly) {
 		this.readonly = readonly;
 	}
 
+	/** Mengembalikan status read-only form ini saat ini. */
 	public Boolean getReadonly() {
 		return readonly;
 	}
 
 	@Override
+	/** Menjalankan pencarian standar, memuat ulang baik daftar pengajuan sebagai pengaju utama maupun sebagai anggota tim. */
 	public void onSearchDefault(Event event) {
 		loadDataPengajuan();
 	}

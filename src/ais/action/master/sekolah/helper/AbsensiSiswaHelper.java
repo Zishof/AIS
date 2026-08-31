@@ -120,6 +120,43 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK terbesar dan terpadat di modul sekolah: membangun seluruh panel manajemen
+ * kehadiran ("presensi") satu {@link Pertemuan} (sesi kelas/mata pelajaran) — mencakup form info
+ * pertemuan (topik, metode, waktu, ruang, dan konfigurasi kelas daring: Zoom/BBB/Skype/WhatsApp/
+ * Google Meet/link lain, beserta batas toleransi waktu absen), daftar kehadiran per siswa
+ * (dengan kolom nilai/keterlambatan/catatan), daftar pengajuan izin/sakit yang menunggu
+ * persetujuan, riwayat aktivitas daring, serta widget status kehadiran guru/asisten yang dipakai
+ * ulang oleh layar-layar sekolah lain (empat overload statis {@code createStatusKehadiran}, satu
+ * untuk asisten kelas, dua untuk satu/banyak guru, satu ringkasan dari koleksi {@link CommonVO}).
+ *
+ * <p>
+ * Titik masuk utama adalah {@link #mainInit(Pertemuan, Component, boolean)}: membangun tata
+ * letak berbeda untuk mode mobile (tumpuk vertikal) vs desktop (border layout tiga panel — info
+ * di barat, daftar kehadiran di tengah, daftar izin di timur), sekaligus menentukan status
+ * kehadiran default dari konfigurasi {@code default_status_kehadiran} dan mengunci field
+ * tanggal/waktu/ruang bila guru tidak diizinkan mengubah jadwal ({@code
+ * JadwalPelajaran#getGuruBisaMerubahTanggalJadwalPelajaran}). Setiap perubahan data memicu
+ * {@link #reload(Pertemuan)}, yang membangun ulang seluruh panel dari nol lewat timer default
+ * (bukan memperbarui komponen secara parsial) — pola yang berulang di banyak method lain di
+ * kelas ini — dan menandai cache tren absensi ({@code AbsensiTrenCache}) kotor agar grafik
+ * terkait ikut segar. {@link #sesuaikan(Pertemuan, boolean)} adalah satu-satunya titik yang
+ * menuliskan kembali seluruh field form ke entitas {@link Pertemuan} dan (opsional) menyimpannya.
+ * </p>
+ *
+ * <p>
+ * Kelas ini memegang cukup banyak state instance (field-field form info pertemuan) sehingga satu
+ * instance {@link AbsensiSiswaHelper} idealnya dipakai untuk satu tampilan pertemuan pada satu
+ * waktu; konstruktor {@link #AbsensiSiswaHelper(Siswa, CalonSiswa)} membatasi tampilan ke
+ * konteks satu siswa/calon siswa (mis. saat siswa melihat kehadirannya sendiri, field menjadi
+ * read-only) dan memuat daftar status kehadiran yang dapat dipilih (mengecualikan status
+ * "belajar"/"cuti"/"dinas" yang khusus untuk pegawai). Widget status kehadiran guru
+ * ({@code createStatusKehadiran}) memiliki aturan berlapis: bila jadwal pelajaran mensyaratkan
+ * input sesuai jadwal dan waktu saat ini di luar rentang jadwal, guru hanya melihat status
+ * read-only (tidak dapat mengubah); selain itu, {@link #boleh} menentukan komponen input yang
+ * ditampilkan berdasarkan status kehadiran yang dipilih.
+ * </p>
+ */
 public class AbsensiSiswaHelper {
 
 	// private Textbox topik;
@@ -185,6 +222,16 @@ public class AbsensiSiswaHelper {
 	private Combobox lokasi;
 	private MyDoublebox jarak;
 
+	/**
+	 * Membangun tombol "Kehadiran" (membuka {@link PertemuanHelper} untuk {@code pertemuan})
+	 * yang disertai label kecil ringkasan status kehadiran (mis. {@code "Hadir=20, Alpa=3"})
+	 * beserta jumlah pengajuan izin ({@code "P=n"}) bila ada; hanya tombol polos bila belum ada
+	 * data kehadiran maupun pengajuan izin sama sekali.
+	 *
+	 * @param pertemuan  pertemuan yang tombolnya dibangun
+	 * @param dataLoader callback pemuatan ulang data pada layar pemanggil setelah dialog kehadiran ditutup
+	 * @return komponen tombol (atau {@link Label} kosong bila terjadi galat) siap disisipkan ke tampilan
+	 */
 	public static Component createTombolAbsen(final Pertemuan pertemuan, final DataLoader dataLoader) {
 
 		try {
@@ -223,6 +270,12 @@ public class AbsensiSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun helper untuk konteks siswa {@code siswa}/{@code calonSiswa} tertentu (mis.
+	 * saat siswa melihat kehadirannya sendiri, {@code null} keduanya untuk tampilan staf), sambil
+	 * memuat daftar status kehadiran yang dapat dipilih (mengecualikan status yang namanya
+	 * mengandung "belajar"/"cuti"/"dinas", karena status-status itu khusus untuk absensi pegawai).
+	 */
 	@SuppressWarnings("unchecked")
 	public AbsensiSiswaHelper(final Siswa siswa, final CalonSiswa calonSiswa) {
 		this.siswa = siswa;
@@ -236,6 +289,16 @@ public class AbsensiSiswaHelper {
 				Statusabsensi.class);
 	}
 
+	/**
+	 * Mengambil daftar siswa aktif yang seharusnya hadir pada {@code pertemuan}, diambil dari
+	 * kelas pada {@link JadwalPelajaran} terkait dan disaring ulang berdasarkan mata pelajaran
+	 * jadwal tersebut ({@code KelasSiswaPunyaSiswa#filterMk}), terurut menurut NIM atau nama
+	 * sesuai konfigurasi {@code absensi_urut_berdasarkan_nim}.
+	 *
+	 * @param pertemuan pertemuan yang daftar siswanya diambil
+	 * @return daftar siswa aktif yang termasuk kelas/mata pelajaran pertemuan tersebut, daftar
+	 *         kosong bila pertemuan tidak memiliki jadwal pelajaran atau kelas
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public static List<Siswa> populateSiswaDariPertemuan(Pertemuan pertemuan) {
 
@@ -286,6 +349,17 @@ public class AbsensiSiswaHelper {
 	}
 
 	@SuppressWarnings({ "deprecation" })
+	/**
+	 * Membangun panel form informasi pertemuan: (opsional) ringkasan info pertemuan
+	 * ({@code DashboardTimelinePertemuan#displayInfoPertemuan}), hari/waktu/ruang dari jadwal
+	 * pelajaran, serta seluruh field yang dapat diubah (topik, metode, waktu mulai/selesai,
+	 * ruang, buku rujukan, guru tamu, status pertemuan/ujian, konfigurasi kelas daring dan batas
+	 * toleransi absen daring). Setiap perubahan field memicu {@link #sesuaikan(Pertemuan,
+	 * boolean)} untuk menyimpan langsung ke database.
+	 *
+	 * @param pertemuan pertemuan yang informasinya ditampilkan/diedit
+	 * @return komponen panel info siap disisipkan ke tata letak utama
+	 */
 	private Component bagianInfo(final Pertemuan pertemuan) throws Exception {
 
 		final EventListener sesuaikan = new EventListener() {

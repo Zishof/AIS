@@ -50,6 +50,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK untuk mengelola riwayat organisasi kampus ({@link RiwayatOrganisasiKampusPegawai})
+ * milik satu {@link Pegawai} — pola dan struktur identik dengan {@link RiwayatKerjaPegawaiHelper},
+ * hanya berbeda entitas dan field tambahan {@code periode}: daftar riwayat dalam grid
+ * berpencarian, form tambah/ubah (nama organisasi, kedudukan, rentang tahun, periode, alamat,
+ * pimpinan, status — status {@code true} tidak dapat dihapus), serta lampiran foto/dokumen
+ * pendukung lewat {@link FotoLampiranPegawai}.
+ */
 public class RiwayatOrganisasiKampusPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -75,11 +83,13 @@ public class RiwayatOrganisasiKampusPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Menyiapkan helper untuk {@code pegawai} tertentu, atau untuk semua pegawai bila {@code null}. */
 	public RiwayatOrganisasiKampusPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris grid untuk {@link RiwayatOrganisasiKampusPegawai}: pegawai, nama organisasi, kedudukan, rentang tahun, alamat, pimpinan, ikon status (centang/peringatan), dan tombol ubah/hapus (hapus hanya untuk status belum ok). */
 	class RiwayatOrganisasiKampusPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -158,6 +168,7 @@ public class RiwayatOrganisasiKampusPegawaiHelper {
 		}
 	}
 
+	/** Membangun kerangka layar daftar riwayat organisasi: panel filter (pegawai, status, satuan kerja) di utara dan grid rincian di tengah, lalu langsung memuat datanya. */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -332,6 +343,7 @@ public class RiwayatOrganisasiKampusPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang daftar {@link RiwayatOrganisasiKampusPegawai} sesuai filter aktif ke grid. */
 	public void onSearchDefault(Event event) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -365,6 +377,7 @@ public class RiwayatOrganisasiKampusPegawaiHelper {
 
 	}
 
+	/** Membangun form tambah/ubah untuk {@code riwayatOrganisasiKampusPegawai} (baru atau sudah ada): nama organisasi, kedudukan, rentang tahun, periode, alamat, pimpinan, status, dan lampiran foto/dokumen, menggantikan tampilan daftar sementara. */
 	public void init(final RiwayatOrganisasiKampusPegawai riwayatOrganisasiKampusPegawai) throws Exception {
 		this.riwayatOrganisasiKampusPegawai = riwayatOrganisasiKampusPegawai;
 
@@ -526,6 +539,7 @@ public class RiwayatOrganisasiKampusPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memvalidasi dan menyimpan data {@link RiwayatOrganisasiKampusPegawai} dari form; mengembalikan {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna), {@code true} bila berhasil disimpan. */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {

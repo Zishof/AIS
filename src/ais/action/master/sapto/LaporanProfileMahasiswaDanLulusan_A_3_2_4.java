@@ -23,12 +23,29 @@ import ais.database.model.GrupChecklistPenilaianUmum;
 import ais.database.model.Mahasiswa;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-3.2.4 (profil mahasiswa dan lulusan lima tahun
+ * terakhir): perhitungan datanya didelegasikan sepenuhnya ke
+ * {@link SaptoGenerator#generateProfileMahasiswaDanLulusan_A_3_2_4} untuk tahun akademik terpilih
+ * (rentang 5 tahun mundur dari tahun angkatan pada tahun akademik tersebut), dijalankan di thread
+ * terpisah dan dirender ke worksheet {@link #sheetCode} ("A-3.2.4") lewat
+ * {@link SaptoUtil#displayWorksheet}.
+ *
+ * <p>
+ * Klik sel data memicu unduhan Excel: kolom kedua (indeks {@code x==1}) mengunduh mahasiswa yang
+ * mengisi checklist penilaian alumni ({@link GrupChecklistPenilaianUmum#UNTUK_ALUMNI}) pada tahun
+ * lulus kolom tersebut, kolom lain mengunduh seluruh {@link Mahasiswa} aktif dengan tahun lulus
+ * yang sama — dipetakan lewat offset tetap (baris -6, kolom -3, lima kolom tahun mundur dari tahun
+ * terpilih) mengikuti tata letak template worksheet.
+ * </p>
+ */
 public class LaporanProfileMahasiswaDanLulusan_A_3_2_4 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-3.2.4";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Konstruktor default: menyiapkan filter tahun akademik (default periode berjalan) lalu membangun kerangka jendela dan langsung memuat data. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_4() {
         super();
         try {
@@ -37,14 +54,17 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_4 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_4(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
         buildBase(true);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter tahun akademik (wajib, readonly; memicu {@link #onCetak} otomatis saat berubah) ke baris toolbar filter. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -56,6 +76,12 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_4 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Handler cetak: mendelegasikan perhitungan data ke
+     * {@link SaptoGenerator#generateProfileMahasiswaDanLulusan_A_3_2_4} di thread terpisah untuk
+     * tahun akademik terpilih, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}. Klik
+     * sel data memicu unduhan Excel mahasiswa/lulusan sesuai kolom tahun yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

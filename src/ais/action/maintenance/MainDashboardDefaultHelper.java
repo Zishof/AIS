@@ -18,6 +18,24 @@ import org.zkoss.zul.Comboitem;
 import ais.common.Common;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper paket (bukan API publik) yang membangun daftar pilihan "dasbor/beranda default" bagi
+ * pengguna: gabungan modul utama tetap (mis. e-Learning, Pustaka, Workflow/SOP, Toko, POS,
+ * Kepegawaian — masing-masing berkode {@code main:<nama>}) dan seluruh kelas jendela dasbor
+ * kustom ({@code *DashboardWindow}) yang ditemukan secara otomatis lewat pemindaian berkas sumber
+ * {@code .java} (atau, sebagai cadangan bila sumber tidak tersedia di lingkungan deploy, berkas
+ * {@code .class} terkompilasi) di bawah paket {@code ais.action} (dikode {@code class:<nama
+ * kelas lengkap>}). Dipakai oleh layar pengaturan agar admin dapat memilih tampilan apa yang
+ * muncul sebagai beranda default tanpa perlu mendaftarkan setiap kelas dasbor secara manual.
+ *
+ * <p>
+ * {@link #createWindow(String)} membuat instance {@link MyWindow} dari kode pilihan berawalan
+ * {@code class:} lewat refleksi (constructor tanpa-argumen, termasuk yang privat, diaktifkan lewat
+ * {@code setAccessible(true)}), dengan pengaman: hanya kelas yang benar-benar merupakan turunan
+ * {@link MyWindow} yang diinstansiasi. Nilai yang diinstansiasi berasal dari daftar pilihan yang
+ * dibangun sendiri oleh kelas ini (hasil pemindaian berkas), bukan input bebas dari pengguna akhir.
+ * </p>
+ */
 final class MainDashboardDefaultHelper {
 
 	static final String MAIN_ELEARNING = "main:elearning";
@@ -51,6 +69,7 @@ final class MainDashboardDefaultHelper {
 	private MainDashboardDefaultHelper() {
 	}
 
+	/** @return seluruh pilihan dasbor default: modul utama tetap diikuti kelas {@code *DashboardWindow} hasil pemindaian, tanpa duplikat (dikunci per {@code value} lewat {@link LinkedHashMap}). */
 	static List<Option> options() {
 		LinkedHashMap<String, Option> map = new LinkedHashMap<String, Option>();
 		addMain(map, MAIN_ELEARNING, "e-Learning");
@@ -94,6 +113,7 @@ final class MainDashboardDefaultHelper {
 		return new ArrayList<Option>(map.values());
 	}
 
+	/** @return label tampilan untuk kode pilihan {@code value}: dicari di {@link #options()}, atau nama kelas sederhana bila berupa {@code class:...}, atau nilai apa adanya bila tidak dikenali. */
 	static String label(String value) {
 		if (value == null || value.trim().isEmpty()) {
 			return "";
@@ -114,6 +134,15 @@ final class MainDashboardDefaultHelper {
 		return isClassOption(value) ? value.substring(CLASS_PREFIX.length()) : null;
 	}
 
+	/**
+	 * Membuat instance {@link MyWindow} dari kode pilihan {@code value} bila berupa opsi kelas
+	 * kustom ({@code class:<nama kelas>}), lewat refleksi (constructor tanpa-argumen). Mengembalikan
+	 * {@code null} bila {@code value} bukan opsi kelas, atau bila kelasnya bukan turunan
+	 * {@link MyWindow}.
+	 *
+	 * @param value kode pilihan (dari {@link #options()})
+	 * @return jendela dasbor yang diinstansiasi, atau {@code null}
+	 */
 	static MyWindow createWindow(String value) throws Exception {
 		String className = className(value);
 		if (className == null) {

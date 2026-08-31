@@ -34,6 +34,14 @@ import ais.database.model.library.RakDetail;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper pengelola grid rincian item pada data master "Rak" ({@link Rak}) perpustakaan —
+ * penempatan eksemplar {@link Item} pustaka pada suatu rak tertentu ({@link RakDetail}). Setiap
+ * baris menampilkan identitas item (ISBN/ISSN), jumlah eksemplar di rak tersebut (dapat diedit dan
+ * tersimpan otomatis saat berubah, dipaksa selalu bernilai non-negatif via {@code Math.abs}), dan
+ * keterangan. Struktur dan perilaku paralel dengan {@link SaldoAwalPunyaItemHelper}, hanya konteks
+ * entitasnya berbeda (penempatan rak, bukan saldo awal stok).
+ */
 public class RakPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -41,6 +49,7 @@ public class RakPunyaItemHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridItem}; hak tambah/ubah/hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public RakPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +57,13 @@ public class RakPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel rincian item untuk {@code rak}: toolbar tambah item (bila berhak) dan grid
+	 * menampilkan seluruh baris {@link RakDetail} yang sudah tersimpan.
+	 *
+	 * @param rak rak target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final Rak rak) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -179,6 +195,13 @@ public class RakPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan identitas item, jumlah eksemplar di rak (auto-save, dipaksa
+	 * non-negatif), dan keterangan.
+	 *
+	 * @param row      baris grid target
+	 * @param rakDetail data penempatan rak untuk baris ini
+	 */
 	public void initRow(final Row row, final RakDetail rakDetail) throws Exception {
 		row.setValign("top");row.setAttribute("rakDetail", rakDetail);
 

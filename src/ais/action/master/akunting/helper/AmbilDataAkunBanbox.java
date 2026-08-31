@@ -67,6 +67,28 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Komponen "banbox" (bandbox pencarian popup) untuk memilih satu {@link Akun} akunting, dengan
+ * dua mode tampilan tergantung apakah satuan kerja aktif memiliki akun level-akar sendiri: bila
+ * ya, popup langsung menampilkan tab "Akun Sering Dipakai" ({@link AkunSeringDipakai}, grid
+ * pencarian berpaginasi); bila tidak, popup menampilkan tab pohon hierarki akun ({@link Tree}
+ * dengan model {@link AkunTreeModel}) berdampingan dengan tab daftar akun. Cakupan akun dibatasi
+ * ke satuan kerja aktif (dari {@link PerguruanTinggiUtil}/{@link SekolahUtil}, atau tanpa batas
+ * bila konfigurasi {@code semua_akun_tampil} aktif) dan dapat difilter grup akun serta prefiks
+ * kode ({@code dimulai}, dipisah {@code ";"}).
+ *
+ * <p>
+ * <b>Aturan "hanya akun daun"</b> — kecuali dikonstruksi dengan {@code bisaDipilihSemua=true},
+ * komponen ini menegakkan bahwa hanya akun level paling bawah (tanpa sub-akun) yang boleh dipilih:
+ * ditegakkan tiga kali secara independen — (1) checkbox radio pada node pohon yang masih punya
+ * anak dinonaktifkan; (2) baris grid "Daftar Akun" memfilter akun berdaun (subquery
+ * {@code not exists} sub-akun) sehingga akun induk tidak pernah tampil di grid; (3) input manual
+ * (mengetik kode lalu Enter) divalidasi ulang dan ditolak dengan pesan peringatan bila akun yang
+ * diketik ternyata punya sub-akun. Setiap kali akun berhasil dipilih (lewat pohon, grid, atau
+ * ketikan manual), counter {@code jmlDipakai} akun tersebut dinaikkan satu dalam transaksi
+ * tersendiri (statistik "sering dipakai"), lalu {@code eventListener} yang terpasang dipanggil.
+ * </p>
+ */
 public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 
 	private static final long serialVersionUID = 6452461056684904810L;
@@ -84,14 +106,23 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 	private Combobox comboGrupAkun;
 	private String dimulai = null;
 
+	/** Membuat komponen dengan aturan "hanya akun daun" ditegakkan ({@code bisaDipilihSemua=false}) dan tanpa filter prefiks kode. */
 	public AmbilDataAkunBanbox() {
 		this(false);
 	}
 
+	/** @param bisaDipilihSemua {@code true} untuk mengizinkan pemilihan akun induk (menonaktifkan aturan "hanya akun daun") */
 	public AmbilDataAkunBanbox(Boolean bisaDipilihSemua) {
 		this(bisaDipilihSemua, null);
 	}
 
+	/**
+	 * Membuat komponen, memasang listener input teks manual (ketik kode akun lalu Enter/blur)
+	 * yang mencari akun persis sesuai kode dan menerapkan validasi "hanya akun daun" bila berlaku.
+	 *
+	 * @param bisaDipilihSemua {@code true} untuk mengizinkan pemilihan akun induk
+	 * @param dimulai          prefiks kode akun yang diizinkan (dipisah {@code ";"}), atau {@code null} untuk semua
+	 */
 	public AmbilDataAkunBanbox(Boolean bisaDipilihSemua, String dimulai) {
 		super();
 		this.dimulai = dimulai;
@@ -207,6 +238,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 		});
 	}
 
+	/** Renderer node pohon akun: label kode+nama, radio pilih (dinonaktifkan pada node yang punya sub-akun kecuali {@code bisaDipilihSemua}), menaikkan {@code jmlDipakai} dan memicu {@code eventListener} saat dipilih. */
 	class AkunTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 		@Override
 		public void render(final Treeitem treeitem, Object arg1) {
@@ -288,6 +320,14 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/**
+	 * Menyusun konten popup bandbox (dipanggil sekali saat pertama dibuka): menentukan satuan
+	 * kerja aktif (perguruan tinggi, lalu sekolah bila ada, diabaikan bila
+	 * {@code semua_akun_tampil}); bila satuan kerja tersebut memiliki akun level-akar sendiri,
+	 * langsung menampilkan tab "Akun Sering Dipakai"; bila tidak, menampilkan tab pohon hierarki
+	 * akun ({@link #onSearchDefault(Event)}) berdampingan dengan tab "Daftar Akun"
+	 * (dimuat lazy saat pertama diklik).
+	 */
 	public void display() throws Exception {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -468,6 +508,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/** Membangun ulang model pohon akun ({@link AkunTreeModel}, difilter debet/kredit, satuan kerja, grup akun, dan prefiks kode) dan menerapkannya ke {@link #tree}; tidak melakukan apa pun bila pohon belum terpasang. */
 	public void onSearchDefault(Event event) {
 		// Banbox akun bisa dipanggil (mis. dari renderer tree Satuan Kerja) sebelum komponen tree-nya
 		// ter-wire/terpasang. Tanpa tree tidak ada yang bisa dirender -> hindari NPE pada tree.setModel.
@@ -488,14 +529,22 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 		tree.setItemRenderer(new AkunTreeRenderer());
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu akun */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan akun yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Tab "Akun Sering Dipakai": grid pencarian akun berpaginasi (15 baris/halaman) dengan filter
+	 * kode/nama, dibatasi ke satuan kerja aktif (beserta seluruh turunannya bila satuan kerja
+	 * induk dipilih pada filter luar) dan menegakkan aturan "hanya akun daun" (subquery SQL
+	 * {@code not exists} sub-akun) kecuali {@code bisaDipilihSemua}.
+	 */
 	private class AkunSeringDipakai extends Borderlayout {
 
 		private static final long serialVersionUID = 6452461056684904810L;
@@ -503,6 +552,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 		private Textbox kodeAkunan;
 		private Textbox nama;
 
+		/** Membuat panel dan langsung menyusun isinya. */
 		public AkunSeringDipakai() {
 			super();
 			try {
@@ -512,6 +562,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 			}
 		}
 
+		/** Renderer baris grid: kode, nama, label debet/kredit, satuan kerja, bank; mengklik baris memilih akun (dengan validasi "hanya akun daun"), menaikkan {@code jmlDipakai}, dan memicu {@code eventListener}. */
 		class AkunRenderer extends ais.ui.util.MyRowRenderer {
 			@Override
 			public void render(Row arg0, Object arg1) throws Exception {
@@ -588,6 +639,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 			}
 		}
 
+		/** Menyusun tata letak panel: filter kode/nama akun, grid hasil (kolom kode/nama/debet-kredit/satuan kerja/bank), dan kontrol paginasi 15-baris. */
 		public void display() throws Exception {
 			Center center = new Center();
 			center.setParent(this);
@@ -697,6 +749,13 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 			});
 		}
 
+		/**
+		 * @param session sesi Hibernate untuk membangun kriteria
+		 * @param order   tambahkan pengurutan menaik berdasarkan kode bila {@code true}
+		 * @return kriteria pencarian {@link Akun} berdasarkan grup, debet/kredit tetap ({@link #debetCredit}),
+		 *         nama/kode, cakupan satuan kerja (beserta turunannya bila satuan kerja induk dipilih),
+		 *         prefiks kode ({@link #dimulai}), dan aturan "hanya akun daun" kecuali {@code bisaDipilihSemua}
+		 */
 		public Criteria initCriteria(Session session, boolean order) {
 			SatuanKerja parent = (SatuanKerja) ambilDataSatuanKerjaBanbox.getAttribute("satuanKerja");
 			Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
@@ -755,6 +814,7 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 			return criteria;
 		}
 
+		/** Memuat ulang paginasi dan grid akun sesuai filter dan halaman aktif, membuka sesi Hibernate baru secara mandiri dan selalu menutupnya di {@code finally}. */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) {
 			Session session = null;

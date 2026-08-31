@@ -45,8 +45,31 @@ import ais.ui.util.WaktuUtil;
 @Path("/elearning")
 @Singleton
 
+/**
+ * Titik akhir REST (Jersey/JAX-RS) untuk integrasi e-learning/mobile: kontrol live streaming
+ * perkuliahan (mulai/berhenti, dipanggil server RTMP eksternal), absensi online berbasis
+ * lokasi/token (dengan pengecekan jarak GPS terhadap koordinat dosen bila diaktifkan), login
+ * (mencoba berurutan sebagai Mahasiswa/Siswa/Penduduk/Tbmuser berdasarkan NIM/NISN/kode/userId +
+ * password terenkripsi DES) yang mengembalikan daftar menu mobile dinamis, dan pengambilan data
+ * generik berbasis nama kelas Java.
+ *
+ * <p>
+ * <b>Catatan keamanan — CELAH SERIUS:</b> {@link #getAmbilData(String, String, String, String)}
+ * (endpoint {@code GET /elearning/ambil_data/{token}/{clazz}/{mulai}/{banyak}}) menerima nama kelas
+ * Java SEMBARANG dari path URL dan langsung memuatnya lewat {@code Class.forName(clazz)} lalu
+ * menjalankan query Hibernate {@code Criteria} terhadapnya, mengembalikan seluruh baris (dipaging
+ * {@code mulai}/{@code banyak}) sebagai JSON — TANPA memvalidasi parameter {@code token} sama sekali
+ * (parameter itu diterima tapi tidak pernah dibandingkan ke nilai apa pun; variabel lokalnya bahkan
+ * dinamai {@code username} namun tidak dipakai untuk autentikasi). Siapa pun yang mengetahui URL
+ * dapat mengekspos isi tabel entitas Hibernate APA PUN yang dikenal aplikasi (mis. {@link Tbmuser}
+ * berisi hash password, data keuangan, data pribadi) tanpa login sama sekali. Endpoint lain di kelas
+ * ini ({@link #simpanLive}/{@link #stopLive}/{@link #simpanAbsen}) juga tidak memeriksa autentikasi,
+ * meski dampaknya lebih terbatas (kontrol status streaming/absensi per id pertemuan).
+ * </p>
+ */
 public class ELearningResource {
 
+	/** Mengembalikan waktu server saat ini (epoch millis) — dipakai untuk sinkronisasi jam klien mobile. */
 	public long getSystemTime() {
 		return System.currentTimeMillis();
 	}
@@ -54,6 +77,7 @@ public class ELearningResource {
 	@GET
 	@Path("test/{nama}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Endpoint uji coba sederhana yang menggemakan (echo) parameter {@code nama} yang diberikan. */
 	public CommonID getMahasiswa(@PathParam("nama") String nama) {
 		CommonID commonID = new CommonID();
 		commonID.setInfo1(nama);
@@ -63,6 +87,16 @@ public class ELearningResource {
 	@GET
 	@Path("simpan_live/{id}/{kodeStream}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Menandai satu {@link Pertemuan} sebagai sedang live streaming: mencatat kode stream ke
+	 * {@link LiveStreamingPlayerWindow}, menyimpan info video, dan menandai kolom
+	 * {@code publikasikanstreaming=true} lewat SQL native langsung. Dipanggil oleh server RTMP
+	 * eksternal saat stream dimulai; tidak memeriksa autentikasi.
+	 *
+	 * @param id         id {@link Pertemuan} yang sedang live
+	 * @param kodeStream kode unik stream dari server RTMP
+	 * @return status sukses/gagal
+	 */
 	public CommonID simpanLive(@PathParam("id") String id, @PathParam("kodeStream") String kodeStream) {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -102,6 +136,16 @@ public class ELearningResource {
 	@GET
 	@Path("stop_live/{id}/{kodeStream}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Menandai satu {@link Pertemuan} berhenti live streaming: menghapus kode stream (dan kode
+	 * turunannya yang berawalan sama) dari {@link LiveStreamingPlayerWindow}, menandai kolom
+	 * {@code publikasikanstreaming=false} lewat SQL native langsung. Dipanggil oleh server RTMP
+	 * eksternal saat stream berakhir; tidak memeriksa autentikasi.
+	 *
+	 * @param id         id {@link Pertemuan} yang berhenti live
+	 * @param kodeStream kode unik stream dari server RTMP
+	 * @return status sukses/gagal
+	 */
 	public CommonID stopLive(@PathParam("id") String id, @PathParam("kodeStream") String kodeStream) {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -144,6 +188,21 @@ public class ELearningResource {
 		}
 	}
 
+	/**
+	 * Implementasi inti pencatatan absensi online untuk satu {@link Pertemuan}: memvalidasi bahwa
+	 * data absensi ({@code data}, berisi token/kode per peserta yang dipisah — lihat pemakaian lebih
+	 * lanjut di badan method) diberikan, menghitung jendela waktu absensi dari jadwal pertemuan, dan
+	 * (bila koordinat {@code lat}/{@code lng} diberikan dan validasi jarak GPS diaktifkan) memeriksa
+	 * jarak terhadap lokasi acuan sebelum mencatat kehadiran dengan {@code keterangan} yang diberikan.
+	 * Dipanggil oleh {@link #simpanAbsen} (endpoint publik) dan berpotensi jalur lain di aplikasi.
+	 *
+	 * @param id          id {@link Pertemuan} yang diabsen
+	 * @param data        data absensi (kode/token peserta)
+	 * @param lat         lintang lokasi absen, boleh {@code null}
+	 * @param lng         bujur lokasi absen, boleh {@code null}
+	 * @param keterangan  keterangan yang dicatat pada baris absensi
+	 * @return status hasil absensi
+	 */
 	public static CommonID doAbsen(String id, String data, String lat, String lng, String keterangan) {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -457,6 +516,14 @@ public class ELearningResource {
 	@GET
 	@Path("simpan_absen/{id}/{data}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Endpoint absensi online tanpa koordinat GPS; mendelegasikan ke {@link #doAbsen} dengan
+	 * keterangan waktu otomatis. Tidak memeriksa autentikasi.
+	 *
+	 * @param id   id {@link Pertemuan} yang diabsen
+	 * @param data data absensi (kode/token peserta)
+	 * @return status hasil absensi
+	 */
 	public CommonID simpanAbsen(@PathParam("id") String id, @PathParam("data") String data) {
 		return doAbsen(id, data, null, null,
 				"Absensi online sukses pada " + Common.dateFormat5.get().format(WaktuUtil.getDate()));
@@ -466,6 +533,25 @@ public class ELearningResource {
 	@GET
 	@Path("ambil_data/{token}/{clazz}/{mulai}/{banyak}")
 	@Produces({ MediaType.TEXT_PLAIN })
+	/**
+	 * Mengambil data generik dari kelas entitas Hibernate mana pun yang namanya diberikan lewat URL,
+	 * dipaging {@code mulai}/{@code banyak}, diurutkan id terbaru lebih dulu, dan diserialisasi ke
+	 * JSON sederhana ({@link Common#convertToJsonObjectSimple}).
+	 *
+	 * <p>
+	 * <b>PERINGATAN KEAMANAN:</b> parameter {@code token} TIDAK PERNAH divalidasi — endpoint ini
+	 * dapat diakses dan mengekspos data entitas apa pun tanpa autentikasi. Lihat catatan keamanan
+	 * pada javadoc kelas.
+	 * </p>
+	 *
+	 * @param username nama parameter path adalah {@code token}, namun nilainya tidak dipakai untuk
+	 *                 autentikasi sama sekali (parameter mati/tidak divalidasi)
+	 * @param clazz    nama lengkap kelas Java (mis. {@code ais.database.model.Tbmuser}) yang datanya diambil
+	 * @param mulai    offset baris awal (paging)
+	 * @param banyak   jumlah maksimum baris yang diambil
+	 * @return string JSON array berisi data entitas yang diminta
+	 * @throws Exception termasuk {@link NotFoundException} bila kelas tidak ditemukan atau query gagal
+	 */
 	public String getAmbilData(@PathParam("token") String username, @PathParam("clazz") String clazz,
 			@PathParam("mulai") String mulai, @PathParam("banyak") String banyak) throws Exception {
 		String hasil = "";

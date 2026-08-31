@@ -1599,6 +1599,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return "118px";
 	}
 
+	/** Mengambil nilai sel ke-{@code index} dari {@code rowData} dengan aman, string kosong bila di luar batas/{@code null}. */
 	private Object getCell(List rowData, int index) {
 		if (rowData == null || index < 0 || index >= rowData.size()) {
 			return null;
@@ -1606,6 +1607,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return rowData.get(index);
 	}
 
+	/** Mengembalikan representasi string {@code value}, string kosong bila {@code null}. */
 	private String getCellString(Object value) {
 		if (value == null) {
 			return "";
@@ -1617,6 +1619,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return String.valueOf(value);
 	}
 
+	/** Menjumlahkan nilai numerik kolom ke-{@code index} pada seluruh baris {@code data}. */
 	private long sumColumn(List<List> data, int index) {
 		long total = 0;
 		if (data == null) {
@@ -1628,6 +1631,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return total;
 	}
 
+	/** Menjumlahkan total kolom dokumen terisi (sudah diunggah) di seluruh baris {@code data}, lewat {@link #countUploadedLampiranForRow}. */
 	private long countUploadedLampiran(List<List> data) {
 		long total = 0;
 		if (data == null) {
@@ -1652,6 +1656,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return total;
 	}
 
+	/** Mengurai {@code value} sebagai {@code int} (mendukung {@link Number} maupun string), {@code 0} bila gagal. */
 	private int parseIntFromObject(Object value) {
 		String text = getCellString(value);
 		if (text == null || text.trim().length() == 0) {
@@ -1674,6 +1679,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Mengurai bagian kedua dari teks berformat {@code "a / b"} (mis. kolom "Qty Tugas" bergaya {@code "3 / 12"}) sebagai {@code int}, {@code 0} bila gagal. */
 	private int parseSecondIntFromSlash(String value) {
 		try {
 			if (value == null) {
@@ -1689,6 +1695,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Mengurai teks persentase (mis. {@code "75%"}) sebagai {@code int}, {@code 0} bila gagal. */
 	private int parsePercent(String value) {
 		try {
 			if (value == null) {
@@ -1705,6 +1712,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Meng-escape karakter khusus HTML ({@code & < > " '}) pada {@code value} agar aman disisipkan ke markup, string kosong bila {@code value} {@code null}. */
 	private String escapeHtml(String value) {
 		if (value == null) {
 			return "";
@@ -1740,6 +1748,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 
 
 
+	/** Memuat status kelengkapan dokumen e-learning untuk seluruh perkuliahan pada {@code jurusans} sekaligus dalam satu batch query (menghindari query per-baris N+1), dipetakan dari id perkuliahan ke peta label-jenis-dokumen ke nilainya. */
 	private Map<Long, Map<String, String>> loadDokumenPerkuliahanBatch(List<Object[]> jurusans) {
 		Map<Long, Map<String, String>> result = new TreeMap<Long, Map<String, String>>();
 		if (jurusans == null || jurusans.isEmpty()) {
@@ -1794,6 +1803,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return result;
 	}
 
+	/** Menyusun klausa SQL {@code IN (id1,id2,...)} dari daftar {@code ids} (angka). */
 	private String buildInLongSql(List<Long> ids) {
 		StringBuilder sb = new StringBuilder();
 		if (ids != null) {
@@ -1810,6 +1820,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return sb.length() == 0 ? "-1" : sb.toString();
 	}
 
+	/** Menyusun klausa SQL {@code IN ('v1','v2',...)} dari daftar {@code values} (string, di-quote). */
 	private String buildInStringSql(List<String> values) {
 		StringBuilder sb = new StringBuilder();
 		if (values != null) {
@@ -1826,6 +1837,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return sb.length() == 0 ? "''" : sb.toString();
 	}
 
+	/** Mengurai {@code str} sebagai {@link Long}, {@code null} bila gagal. */
 	private Long parseLongSafe(String str) {
 		try {
 			return Long.parseLong(str);
@@ -1834,6 +1846,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Menjadwalkan {@link #renderRekapGridDanGrafik} untuk dijalankan pada thread event ZK milik {@code desktop} (aman dipanggil dari thread latar belakang), diam-diam diabaikan bila desktop tidak lagi aktif. */
 	private void safeRenderRekap(Desktop desktop, final List<List> data, final String headerText) {
 		if (desktop == null || !desktop.isAlive()) {
 			return;
@@ -1860,6 +1873,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 	}
 
 
+	/** Memperbarui {@code label} progres dengan {@code message} secara aman dari thread latar belakang (dijadwalkan ke thread event ZK milik {@code desktop}), diam-diam diabaikan bila desktop tidak lagi aktif. */
 	private void safeUpdateLabel(Desktop desktop, final Label label, final String message) {
 		if (desktop == null || !desktop.isAlive()) return;
 		try {

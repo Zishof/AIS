@@ -25,16 +25,24 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.InformasiPerpustakaan;
 import ais.database.model.library.InformasiPerpustakaanKomentar;
 
+/**
+ * Helper ZK modul perpustakaan yang menampilkan grid komentar publik
+ * ({@link InformasiPerpustakaanKomentar}) pada satu {@link InformasiPerpustakaan} (pengumuman/berita
+ * perpustakaan). Bersifat read-only (tanpa fitur tambah komentar dari sini — komentar dibuat lewat
+ * jalur publik lain); hanya menyediakan tombol hapus per komentar, tampil sesuai privilese DELETE.
+ */
 public class InformasiPerpustakaanPunyaKomentarHelper {
 
 	private MyGrid gridKomentar;
 	private boolean delete = false;
 
+	/** Membuat helper untuk grid target {@code gridKomentar}, membaca privilese DELETE saat ini. */
 	public InformasiPerpustakaanPunyaKomentarHelper(MyGrid gridKomentar) {
 		this.gridKomentar = gridKomentar;
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/** Membangun kerangka grid (kolom Komentar, Oleh, Email, Hapus) dan memuat komentar yang sudah ada lewat {@link #loadDataDetail}. */
 	public Borderlayout initDetail(
 			final InformasiPerpustakaan informasiPerpustakaan) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -69,6 +77,7 @@ public class InformasiPerpustakaanPunyaKomentarHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang seluruh {@link InformasiPerpustakaanKomentar} milik {@code informasiPerpustakaan} ke grid (kosong bila belum tersimpan). */
 	private void loadDataDetail(
 			final InformasiPerpustakaan informasiPerpustakaan) {
 
@@ -91,6 +100,7 @@ public class InformasiPerpustakaanPunyaKomentarHelper {
 		}
 	}
 
+	/** Merender satu baris grid untuk {@code informasiPerpustakaanKomentar}: nama, kontak, email pengomentar, dan tombol hapus. */
 	public void initRow(final Row row,
 			final InformasiPerpustakaanKomentar informasiPerpustakaanKomentar) {
 		row.setValign("top");row.setAttribute("informasiPerpustakaanKomentar",

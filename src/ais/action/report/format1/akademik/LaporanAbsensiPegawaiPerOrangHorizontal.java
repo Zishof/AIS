@@ -59,6 +59,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan rekapitulasi kehadiran pegawai/dosen/guru dalam format satu baris per pegawai
+ * dengan hingga 31 kolom tanggal (sesuai batas kolom {@code col_0}..{@code col_30} pada template
+ * JRXML). Dua tata letak alternatif ({@code vertical} true/false, ditentukan lewat konstruktor)
+ * menempatkan panel filter di West atau North. Filter mencakup satuan kerja (dengan cakupan
+ * turunannya), pegawai spesifik (atau semua bila dikosongkan), jenis pegawai (hanya
+ * dosen/guru/pegawai biasa), ikatan kerja dosen, rentang tanggal, hari aktif mana yang dihitung,
+ * dan opsi mengabaikan hari yang tidak dipilih. Perhitungan status kehadiran per hari per pegawai
+ * (hadir/tidak hadir/terlambat/lembur, dengan mempertimbangkan cuti/izin disetujui dan hari
+ * libur nasional dari cache) dijalankan paralel lewat {@link ParallelTaskExecutor} di
+ * {@link #data} untuk mempercepat pemrosesan populasi pegawai besar, dengan progres dilaporkan ke
+ * label lewat server-push ZK setiap 100 langkah. Laporan akhirnya dicetak sebagai PDF lewat mesin
+ * laporan lama ({@link Report}).
+ */
 public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 
 	private static final long serialVersionUID = -397946194166101691L;
@@ -84,6 +98,7 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 	private MyCheckboxConfig abaikanKehadiranJikaHariTidakTerpilih;
 	private Desktop desktop;
 
+	/** Membuat jendela laporan untuk semua pegawai (tanpa pegawai spesifik) dengan tata letak vertikal (filter di West). */
 	public LaporanAbsensiPegawaiPerOrangHorizontal() {
 		super();
 		try {
@@ -99,10 +114,18 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		}
 	}
 
+	/** Membuat jendela laporan terkunci ke satu {@code pegawai} dengan tata letak vertikal, langsung memuat laporan setelah tampilan tersusun. */
 	public LaporanAbsensiPegawaiPerOrangHorizontal(Pegawai pegawai) {
 		this(pegawai, true);
 	}
 
+	/**
+	 * Membuat jendela laporan terkunci ke satu {@code pegawai} (atau {@code null} untuk semua
+	 * pegawai) dengan tata letak yang dipilih; langsung memuat laporan bila {@code pegawai} diisi.
+	 *
+	 * @param pegawai  pegawai yang datanya ditampilkan, atau {@code null} untuk semua pegawai
+	 * @param vertical {@code true} untuk filter di panel West, {@code false} untuk panel North
+	 */
 	public LaporanAbsensiPegawaiPerOrangHorizontal(Pegawai pegawai, boolean vertical) {
 		super();
 		this.pegawai = pegawai;
@@ -120,11 +143,24 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom (tata
+	 * letak vertikal bawaan).
+	 *
+	 * @param title    judul jendela
+	 * @param border   gaya border jendela
+	 * @param closable apakah jendela dapat ditutup pengguna
+	 */
 	public LaporanAbsensiPegawaiPerOrangHorizontal(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/**
+	 * Menyusun seluruh panel filter (sesuai {@link #vertical}: North atau West), toolbar ekspor,
+	 * dan area tampil PDF; langsung memuat laporan bila jendela dibuka untuk satu pegawai
+	 * tertentu.
+	 */
 	@SuppressWarnings("deprecation")
 	private void init() throws Exception {
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -425,6 +461,7 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		}
 	}
 
+	/** @return peta parameter laporan (hari aktif terpilih per indeks, {@link #maps} bila sudah dihitung, rentang tanggal, dan header kolom tanggal {@code col_0..col_30}) untuk mesin cetak PDF lama. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Map generateParameter() throws Exception {
 		Map parameters = ais.common.HashMapGenerator.getRand();
@@ -467,6 +504,15 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		return parameters;
 	}
 
+	/**
+	 * Menentukan populasi pegawai yang masuk laporan (satu {@code pegawai} spesifik plus
+	 * guru/dosen terkaitnya bila diisi, atau cakupan satuan kerja terpilih + filter jenis
+	 * pegawai/ikatan kerja bila tidak) dan hanya pegawai aktif yang {@code tipePegawai}-nya
+	 * mengizinkan presensi, lalu mendelegasikan perhitungan ke {@link #data} dan menyimpan
+	 * hasilnya ke {@link #maps}.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres, boleh {@code null}
+	 */
 	public void generateDataDanImageAlbum(Label label) throws Exception {
 		SatuanKerja parent = (SatuanKerja) searchSatker.getAttribute("satuanKerja");
 		Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
@@ -548,6 +594,33 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		}
 	}
 
+	/**
+	 * Menghitung rekap kehadiran harian (satu peta per pegawai, kolom {@code col_0..col_30}
+	 * berisi tanggal dan status) untuk seluruh {@code pegawais} dalam rentang
+	 * {@code [mulai, sampai]}. Alur kerja: (1) muat sekali di muka seluruh
+	 * {@link CutiDanIzin} yang disetujui dan tumpang tindih rentang tanggal, plus peta status
+	 * kehadiran harian default per (tanggal, pegawai) lewat
+	 * {@code CommonPayroll#getDefaultStatuskehadiranKaryawanHarian}; (2) bangun cache hari libur
+	 * nasional per tanggal sekali di muka; (3) proses setiap pegawai secara PARALEL lewat
+	 * {@link ParallelTaskExecutor} (melewati pegawai yang tipe pegawainya tidak mengizinkan
+	 * presensi) — untuk setiap tanggal dalam rentang, hari yang tidak dipilih pada filter
+	 * dilewati (kecuali {@code abaikanKehadiranJikaHariTidakTerpilih} dan hari itu ternyata ada
+	 * kehadiran), status default dibuat bila belum ada baris tersimpan (Tidak Ada Alasan untuk
+	 * tanggal lampau, Belum Absen untuk tanggal mendatang), dan seluruh detail (jam masuk/pulang,
+	 * lembur, keterlambatan, foto/lokasi absen) ditulis ke kolom bernomor sesuai indeks tanggal
+	 * (dibatasi 31 kolom); (4) hasil tiap pegawai digabung kembali sesuai urutan asal (bukan
+	 * urutan selesai thread). Progres dilaporkan ke {@code label} lewat server-push setiap 100
+	 * langkah bila {@code desktop} diberikan.
+	 *
+	 * @param pegawais                             daftar pegawai yang direkap
+	 * @param mulai                                tanggal awal rentang
+	 * @param sampai                               tanggal akhir rentang
+	 * @param label                                komponen label UI untuk progres, boleh {@code null}
+	 * @param haris                                checkbox hari aktif per hari dalam seminggu
+	 * @param desktop                              desktop ZK untuk server-push progres, boleh {@code null}
+	 * @param abaikanKehadiranJikaHariTidakTerpilih tetap hitung hari yang tidak dipilih bila ternyata ada kehadiran
+	 * @return daftar peta data, satu per pegawai yang diproses
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static List data(final List<Pegawai> pegawais, final Date mulai, final Date sampai, final Label label,
 			final MyCheckboxConfig[] haris, final Desktop desktop, final boolean abaikanKehadiranJikaHariTidakTerpilih) throws Exception {
@@ -803,6 +876,14 @@ public class LaporanAbsensiPegawaiPerOrangHorizontal extends MyWindow {
 		return finalMaps;
 	}
 
+	/**
+	 * Menampilkan progress bar, mengaktifkan server-push desktop, lalu menjalankan
+	 * {@link #generateDataDanImageAlbum} pada thread pool terkelola
+	 * ({@link ais.common.AsyncTaskManager#jalankanDenganPush}) dan menghasilkan/menampilkan
+	 * berkas PDF lewat mesin laporan lama setelah data siap.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 */
 	public void onKHS(Event event) throws Exception {
 		final Label label = Common.displayLoadBar(new EventListener() { 
 			@Override

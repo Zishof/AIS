@@ -22,24 +22,50 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-6.2.5 (ketersediaan pustaka digital): untuk setiap jenis
+ * koleksi baku ({@code Textbook}, {@code Jurnal Nasional yang terakreditasi},
+ * {@code Jurnal International}, {@code Prosiding}), menghitung jumlah {@link ItemPunyaBarcode}
+ * (eksemplar) yang koleksinya tidak boleh diunduh, boleh diunduh, dan total eksemplar — tanpa
+ * filter (layar ini tidak menyediakan filter apa pun, lihat {@link #buildFilters}).
+ *
+ * <p>
+ * Data dimuat di thread terpisah dan dirender ke worksheet {@link #sheetCode} ("A-6.2.5_PT") lewat
+ * {@link SaptoUtil#displayWorksheet}. Klik sel data memicu unduhan Excel: kolom "total eksemplar"
+ * mengunduh detail item dengan kolom lengkap (ISBN/ISSN, pengarang, penerbit, dsb.), sedangkan
+ * kolom tidak-bisa/bisa-download mengunduh daftar {@link ais.database.model.library.Item} unik
+ * sesuai status unduh-nya, lewat {@link Common#cetakDataCustomButton}. Posisi baris/kolom sel yang
+ * diklik dipetakan ke jenis koleksi dan jenis kolom lewat offset tetap (baris -7, kolom -4),
+ * mengikuti tata letak template worksheet.
+ * </p>
+ */
 public class LaporanPustaka_A_6_2_5 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.2.5_PT";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Konstruktor default: membangun kerangka jendela dan langsung memuat data (tanpa filter). */
     public LaporanPustaka_A_6_2_5() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanPustaka_A_6_2_5(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
+    /** Tidak menambahkan filter apa pun — laporan ini selalu menampilkan data untuk seluruh koleksi. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Handler cetak: menghitung jumlah eksemplar per jenis koleksi baku (lihat dokumentasi kelas)
+     * di thread terpisah, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}. Klik sel
+     * data memicu unduhan Excel rincian yang sesuai dengan sel yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

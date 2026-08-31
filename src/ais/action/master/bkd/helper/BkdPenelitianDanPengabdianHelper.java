@@ -23,8 +23,45 @@ import ais.database.model.penelitiandanpengabdian.AnggotaPengajuanPenelitianDanP
 import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 import ais.database.model.penelitiandanpengabdian.PengajuanTahapanPelaporanPenelitianDanPengabdian;
 
+/**
+ * Helper penghitung dan penyimpan komponen BKD (Beban Kerja Dosen) untuk kegiatan penelitian dan
+ * pengabdian masyarakat, mencakup pengajuan proposal ({@link PengajuanPenelitianDanPengabdian})
+ * yang sudah disetujui dan/atau tahap pelaporannya
+ * ({@link PengajuanTahapanPelaporanPenelitianDanPengabdian}) yang juga sudah disetujui. Untuk
+ * dosen yang memiliki asesor aktif ({@link AsesorPegawai}), satu baris {@link AsesemenPenilaian}
+ * (bidang Penelitian) disimpan berisi rincian publikasi dan SKS yang didapat, lalu diteruskan ke
+ * {@link PenilaianAsesorAction#checkPenilaian} agar asesor dapat menilainya.
+ *
+ * <h2>Pembagian SKS ketua vs anggota</h2>
+ * <p>
+ * SKS dasar diambil dari konfigurasi per tahap pelaporan ({@code pengaturan_beban_sks_penelitian_dan_pengabdian_<idPenelitian>_<idTahapan>})
+ * bila terikat tahap tertentu, atau dari {@code penelitianDanPengabdian.getSks()} bila mencakup
+ * seluruh pengajuan (tanpa tahap spesifik). SKS tersebut kemudian dibagi antara ketua dan anggota
+ * pengajuan sesuai skema yang dipilih lewat konfigurasi
+ * {@code pengaturan_pembagian_beban_sks_penelitian_dan_pengabdian}: {@code "50%"} (masing-masing
+ * setengah dari SKS dasar), {@code "Dibagi rata"} (SKS dasar dibagi rata ke seluruh anggota
+ * ditambah satu ketua), atau skema berjenjang {@code "Ketua = 60% dan 1 Anggota = 40%, jika
+ * Anggota > 1, maka Ketua = 40% dan Anggota = 60%"} (proporsi berbeda tergantung jumlah anggota).
+ * </p>
+ */
 public class BkdPenelitianDanPengabdianHelper {
 
+	/**
+	 * Memproses BKD penelitian/pengabdian untuk {@code pegawai} (atau SEMUA dosen bila
+	 * {@code pegawai} {@code null}) pada tahun akademik dan semester tertentu. Mengutamakan
+	 * pengajuan yang sudah memiliki tahap pelaporan disetujui; bila tidak ada tahap pelaporan yang
+	 * cocok, jatuh kembali ke seluruh pengajuan proposal yang disetujui (tanpa terikat tahap
+	 * tertentu). Untuk setiap pengajuan, memproses ketua ({@code tbmuser.getPegawai()}) dan seluruh
+	 * anggota ({@link AnggotaPengajuanPenelitianDanPengabdian}) lewat overload
+	 * {@link #populate(Session, Pegawai, String, String, PengajuanTahapanPelaporanPenelitianDanPengabdian, PengajuanPenelitianDanPengabdian, String, Integer)}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       pegawai target; bila {@code null}, seluruh dosen dengan pengajuan
+	 *                      disetujui pada periode tersebut diproses
+	 * @param tahunAkademik tahun akademik target, boleh {@code null} untuk semua tahun
+	 * @param semester      semester target, boleh {@code null} untuk semua semester
+	 * @param label         komponen ZK opsional untuk menampilkan progres pemrosesan ke pengguna
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -136,6 +173,22 @@ public class BkdPenelitianDanPengabdianHelper {
 
 	}
 
+	/**
+	 * Implementasi inti: menghitung dan menyimpan komponen BKD penelitian/pengabdian untuk satu
+	 * {@code pegawai} tertentu pada satu pengajuan. Tidak melakukan apa pun bila {@code pegawai}
+	 * {@code null} atau tidak memiliki asesor aktif. SKS dihitung dari basis (per tahap atau per
+	 * total pengajuan) lalu dibagi antara ketua/anggota sesuai skema konfigurasi (lihat dokumentasi
+	 * kelas).
+	 *
+	 * @param session                                       sesi Hibernate aktif
+	 * @param pegawai                                        pegawai yang dinilai (ketua atau salah satu anggota)
+	 * @param tahunAkademik                                   tahun akademik target
+	 * @param semester                                        semester target
+	 * @param pengajuanTahapanPelaporanPenelitianDanPengabdian tahap pelaporan spesifik yang menjadi basis SKS, boleh {@code null} untuk memakai SKS total pengajuan
+	 * @param pengajuanPenelitianDanPengabdian                proposal terkait
+	 * @param jenisAnggotaPublikasi                            {@code "ketua"} atau {@code "anggota"}, menentukan proporsi pembagian SKS
+	 * @param jumlahAnggota                                    jumlah anggota pengajuan (di luar ketua), dipakai untuk pembagian SKS
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			PengajuanTahapanPelaporanPenelitianDanPengabdian pengajuanTahapanPelaporanPenelitianDanPengabdian,

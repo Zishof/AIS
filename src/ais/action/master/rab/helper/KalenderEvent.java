@@ -14,10 +14,25 @@ import ais.database.model.rab.Acara;
 import ais.database.model.rab.AcaraPunyaJenisParameter;
 import ais.database.model.rab.WorkspacePunyaJenisParameter;
 
+/**
+ * Adapter {@link SimpleCalendarEvent} (komponen kalender ZK) untuk {@link Acara} modul RAB (agenda
+ * kegiatan): menyalin properti tampilan (judul, warna header/konten, isi, rentang tanggal, terkunci)
+ * dari {@code Acara} saat dibuat, dan {@link #getAcara()} menulis balik nilai komponen kalender
+ * (yang mungkin sudah diedit interaktif via drag/resize) ke objek {@code Acara} yang sama.
+ *
+ * <p>
+ * {@link #getContent()} di-override untuk memperkaya isi popup event secara dinamis: bila acara
+ * terkait satu {@link ais.database.model.rab.Workspace}, deskripsi workspace dan seluruh nilai
+ * parameter tambahan ({@link WorkspacePunyaJenisParameter}/{@link AcaraPunyaJenisParameter},
+ * diformat sesuai tipe data-nya — String/Integer/Double/Date/Time) ditambahkan sebagai baris-baris
+ * tambahan setelah keterangan asli acara.
+ * </p>
+ */
 public class KalenderEvent extends SimpleCalendarEvent {
 
 	private Acara acara;
 
+	/** Membuat event kalender dari {@code acara}, menyalin judul/warna/isi/rentang tanggal/status kunci ke properti {@link SimpleCalendarEvent}. */
 	public KalenderEvent(Acara acara) {
 		this.setAcara(acara);
 		Date beginDate = acara.getPpbegin();
@@ -37,6 +52,7 @@ public class KalenderEvent extends SimpleCalendarEvent {
 		setLocked(locked);
 	}
 
+	/** Menulis balik nilai komponen kalender saat ini (warna, judul, keterangan, rentang tanggal, status kunci) ke {@link #acara} lalu mengembalikannya. */
 	public Acara getAcara() {
 		acara.setCntColor(getContentColor());
 		acara.setHeadColor(getHeaderColor());
@@ -48,10 +64,17 @@ public class KalenderEvent extends SimpleCalendarEvent {
 		return acara;
 	}
 
+	/** Mengganti {@link Acara} yang diikat oleh event kalender ini tanpa menyalin ulang properti tampilan. */
 	public void setAcara(Acara acara) {
 		this.acara = acara;
 	}
 
+	/**
+	 * Menghasilkan isi popup event kalender: keterangan asli acara, ditambah (bila acara terikat
+	 * satu {@link ais.database.model.rab.Workspace}) deskripsi workspace dan nilai setiap
+	 * parameter tambahan workspace tersebut yang sudah direalisasikan pada acara ini (diformat
+	 * sesuai tipe data parameter), seluruhnya dibungkus tag {@code <font>} berukuran kecil.
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public String getContent() {
@@ -120,11 +143,13 @@ public class KalenderEvent extends SimpleCalendarEvent {
 		return "<font style=\"font-size: 8px;\">" + originContent + "</font>";
 	}
 
+	/** @return keterangan asli (tanpa pengayaan workspace/parameter tambahan dan tanpa pembungkus font) sebagaimana tersimpan di komponen kalender. */
 	public String getOriginContent() {
 		String originContent = super.getContent();
 		return originContent;
 	}
 
+	/** Menyetel keterangan asli event (delegasi langsung ke {@link SimpleCalendarEvent#setContent}); pengayaan tambahan hanya diterapkan saat dibaca lewat {@link #getContent()}, bukan disimpan di sini. */
 	@Override
 	public void setContent(String content) {
 		super.setContent(content);
