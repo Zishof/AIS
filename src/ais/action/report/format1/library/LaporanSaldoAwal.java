@@ -30,6 +30,26 @@ import ais.database.model.library.Perpustakaan;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Penyusun/penyaji laporan untuk laporan saldo awal. Kelas ini mengubah data domain menjadi bentuk
+ * laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke lapisan
+ * report.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code AmbilDataPerpustakaanBanbox
+ * perpustakaan}, {@code Center center}, {@code Toolbar toolbar}; inisialisasi/lifecycle ({@code init()});
+ * pelaporan/ekspor ({@code onReport()}); operasi domain lain ({@code generateParameter()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class LaporanSaldoAwal extends MyWindow {
 
 	/**

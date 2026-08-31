@@ -135,6 +135,23 @@ import ais.database.model.Skripsi;
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
  */
+/**
+ * Tipe khusus untuk feeder resource. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code getSystemTime()}, {@code
+ * getMahasiswa()}, {@code getMahasiswa()}, {@code getMahasiswaBaru()}, {@code getMatakuliah()}, {@code
+ * getMatakuliah_Baru()}); mutasi data ({@code update()}); operasi domain lain ({@code convertMahasiswa()},
+ * {@code convertRiwayatMahasiswa()}, {@code convertRiwayatMahasiswaLulus()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class FeederResource {
 
 	/** Mengembalikan waktu server saat ini (epoch millis). */
