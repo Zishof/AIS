@@ -33,9 +33,18 @@ public final class LogMobileCleanupService {
 
 	private static volatile ScheduledExecutorService penjadwal;
 
+	/** Kelas utilitas statis murni -- tidak pernah diinstansiasi. */
 	private LogMobileCleanupService() {
 	}
 
+	/**
+	 * Membaca ambang retensi (dalam hari) dari konfigurasi {@code log_mobile_retensi_hari},
+	 * dipanggil ulang setiap kali {@link #bersihkanSekali()} berjalan (bukan dibaca sekali saat
+	 * kelas dimuat) sehingga nilai dapat diubah lewat layar konfigurasi tanpa perlu restart webapp.
+	 *
+	 * @return jumlah hari retensi; default (dan fallback bila nilai konfigurasi kosong/tidak valid)
+	 *         adalah 30
+	 */
 	private static int retensiHari() {
 		try {
 			return Integer.parseInt(Common
@@ -45,7 +54,26 @@ public final class LogMobileCleanupService {
 		}
 	}
 
-	/** Jadwalkan SATU KALI pembersihan beberapa saat setelah startup (bukan periodik berulang). */
+	/**
+	 * Jadwalkan SATU KALI pembersihan beberapa saat setelah startup (bukan periodik berulang).
+	 *
+	 * <p>
+	 * Idempoten terhadap pemanggilan ganda: bila {@link #penjadwal} sudah terisi (jadwal
+	 * sebelumnya masih berjalan/menunggu), pemanggilan berikutnya langsung kembali tanpa efek --
+	 * mencegah dua tugas cleanup terjadwal bersamaan bila {@code mulai()} sempat terpanggil dua kali
+	 * (mis. listener startup terpicu ulang). Tugas dijalankan pada
+	 * {@link ScheduledExecutorService} single-thread beranama {@code log-mobile-cleanup} yang
+	 * di-set daemon agar tidak menahan proses JVM tetap hidup. Setelah tugas selesai (baik sukses
+	 * maupun gagal, ditangkap lewat {@link Throwable} dan dicatat ke {@link ErrorAuditUtil}),
+	 * executor di-shutdown dan {@link #penjadwal} direset ke {@code null} sehingga pemanggilan
+	 * {@code mulai()} berikutnya (mis. pada siklus start/stop webapp berikutnya) dapat menjadwalkan
+	 * lagi.
+	 * </p>
+	 *
+	 * <p>
+	 * Dipanggil dari {@code ais.common.LogMobileCleanupListener#contextInitialized}.
+	 * </p>
+	 */
 	public static synchronized void mulai() {
 		if (penjadwal != null) {
 			return;
@@ -75,6 +103,14 @@ public final class LogMobileCleanupService {
 		penjadwal = s;
 	}
 
+	/**
+	 * Batalkan jadwal pembersihan yang belum sempat berjalan. Dipanggil dari
+	 * {@code ais.common.LogMobileCleanupListener#contextDestroyed} sebagai jaga-jaga bila webapp
+	 * di-restart/di-reload cepat sebelum delay 120 detik pada {@link #mulai()} habis -- mencegah
+	 * task cleanup lama tetap tertunda di {@link ScheduledExecutorService} yang sudah ditinggalkan.
+	 * Aman dipanggil walau {@link #mulai()} belum pernah dipanggil atau task sudah selesai
+	 * (menjadi no-op karena {@link #penjadwal} sudah {@code null}).
+	 */
 	public static synchronized void hentikan() {
 		ScheduledExecutorService s = penjadwal;
 		penjadwal = null;

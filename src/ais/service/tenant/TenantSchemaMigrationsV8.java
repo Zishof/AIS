@@ -31,14 +31,31 @@ package ais.service.tenant;
  */
 public final class TenantSchemaMigrationsV8 {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaMigrationsV8() {
 	}
 
 	// PERINGATAN: masuk ke teks DDL kanonik -- mengubahnya mengubah checksum v8.
+	/** Fragmen kolom jejak audit ringan (pembuat/pengubah + waktunya), dipakai tabel run impor. */
 	private static final String JEJAK =
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * Katalog DDL kanonik migrasi v8: {@code CREATE TABLE}/{@code CREATE INDEX} berurutan
+	 * untuk tabel operasional yang menopang P5 — {@code idempotency_record},
+	 * {@code print_log}, dan staging impor berlapis run &rarr; file &rarr; row
+	 * ({@code legacy_import_run}, {@code legacy_import_file}, {@code legacy_import_row}),
+	 * jembatan kode lama ke id baru ({@code legacy_key_map}), antrean keputusan manusia
+	 * ({@code legacy_import_exception}), dan hasil pencocokan angka pasca-impor
+	 * ({@code legacy_reconciliation}). Lihat javadoc kelas untuk penjelasan tiap tabel dan
+	 * catatan bahwa kolom kata sandi legacy ({@code USERS.DBF.PSW}) sengaja tidak diimpor.
+	 * Dikonsumsi oleh {@link TenantSchemaMigrations#SEMUA} lewat entri bertarget
+	 * {@code TARGET_ERP}; penanda {@code {S}}/{@code {A}}/{@code {SU}} disubstitusi saat
+	 * migrasi diterapkan oleh {@code TenantSchemaService#terapkanMigrasi}. Isi array ini
+	 * bagian dari checksum kanonik v8 — lihat peringatan di atas sebelum mengubah elemen
+	 * mana pun.
+	 */
 	public static final String[] ERP = {
 			"CREATE TABLE {S}.idempotency_record ("
 					+ "id bigserial PRIMARY KEY, "

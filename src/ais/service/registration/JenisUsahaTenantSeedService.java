@@ -25,6 +25,7 @@ import ais.database.model.tenant.JenisUsahaTenantModule;
  */
 public final class JenisUsahaTenantSeedService {
 
+	/** Kelas utilitas statis murni (semua anggota {@code static}); konstruktor privat mencegah instansiasi. */
 	private JenisUsahaTenantSeedService() {
 	}
 

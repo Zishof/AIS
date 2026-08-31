@@ -34,6 +34,7 @@ public final class EmailVerificationService {
 		}
 	}
 
+	/** Konstruktor privat -- kelas ini murni kumpulan method statis (utility), tidak dimaksudkan untuk diinstansiasi. */
 	private EmailVerificationService() {
 	}
 

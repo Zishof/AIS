@@ -63,6 +63,29 @@ public final class TenantContextResolver {
 		return bentuk(session, (TenantRegistry) q.uniqueResult(), tbmuserId, pendaftarId);
 	}
 
+	/**
+	 * Implementasi kanonik yang benar-benar merangkai {@link TenantContext}, dipanggil oleh
+	 * {@link #resolve}, {@link #resolveByCode}, dan {@link #resolveOtomatis} setelah
+	 * masing-masing menemukan baris {@link TenantRegistry} yang dituju. Urutan kerjanya:
+	 * (1) tolak tenant yang tidak ditemukan ({@code TENANT_ACCESS_DENIED}); (2) pastikan
+	 * statusnya layak dipakai lewat {@link #pastikanTenantDapatDipakai(TenantRegistry)}
+	 * (menolak SUSPENDED/belum READY); (3) tentukan keanggotaan aktor lewat
+	 * {@link TenantMembershipResolver#resolve} -- ini juga yang melempar
+	 * {@code TENANT_ACCESS_DENIED} bila aktor bukan anggota tenant tersebut; (4) resolusi nama
+	 * schema data dan schema audit lewat {@link TenantSchemaLocator}; (5) rangkai seluruh medan
+	 * ke dalam {@link TenantContext.Builder}, termasuk memuat modul aktif lewat
+	 * {@link #muatModul(Session, Long)}.
+	 *
+	 * @param session     Session Hibernate milik pemanggil; tidak dibuka/ditutup di sini.
+	 * @param tenant      baris {@link TenantRegistry} yang dituju, boleh {@code null} (mis. hasil
+	 *                    pencarian by-code/by-id yang tidak ketemu) -- akan menghasilkan
+	 *                    {@link TenantAccessException}.
+	 * @param tbmuserId   userid Tbmuser yang login, boleh {@code null} bila aktor Pendaftar.
+	 * @param pendaftarId id Pendaftar yang login, boleh {@code null} bila aktor Tbmuser.
+	 * @return {@link TenantContext} lengkap dan siap dipakai lapisan di atasnya.
+	 * @throws TenantAccessException bila tenant tidak ditemukan, statusnya tidak layak dipakai,
+	 *         atau aktor bukan anggota tenant tersebut.
+	 */
 	private static TenantContext bentuk(Session session, TenantRegistry tenant, String tbmuserId,
 			Long pendaftarId) {
 		if (tenant == null) {

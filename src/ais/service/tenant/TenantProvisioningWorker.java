@@ -37,6 +37,11 @@ public final class TenantProvisioningWorker {
 	private TenantProvisioningWorker() {
 	}
 
+	/**
+	 * Selang antar-tick poller, dibaca dari konfigurasi
+	 * {@code pendaftaran_provisioning_interval_detik} (default {@code 60} detik). Nilai yang
+	 * tidak dapat diparse (kosong, bukan angka) jatuh ke default yang sama.
+	 */
 	private static int intervalDetik() {
 		try {
 			return Integer.parseInt(Common
@@ -46,6 +51,17 @@ public final class TenantProvisioningWorker {
 		}
 	}
 
+	/**
+	 * Nyalakan poller latar bila belum berjalan. Aman dipanggil berulang -- panggilan kedua dan
+	 * seterusnya tidak melakukan apa-apa selama {@link #penjadwal} sudah terisi (idempoten,
+	 * dipanggil dari {@code PendaftaranTenantServlet.init()} pada load-on-startup).
+	 *
+	 * <p>Thread poller adalah daemon bernama {@code tenant-provisioning}, dijadwalkan lewat
+	 * {@link ScheduledExecutorService#scheduleAtFixedRate} dengan delay awal 120 detik (beri
+	 * waktu aplikasi selesai start-up sebelum tick pertama) dan periode berikutnya sesuai
+	 * {@link #intervalDetik()}. Setiap tick memanggil {@link #prosesAntrean()} dan menelan
+	 * {@link Throwable} apa pun supaya satu tick yang gagal tidak mematikan seluruh scheduler.</p>
+	 */
 	public static synchronized void mulai() {
 		if (penjadwal != null) {
 			return;
@@ -72,6 +88,14 @@ public final class TenantProvisioningWorker {
 		penjadwal = s;
 	}
 
+	/**
+	 * Hentikan poller latar (dipanggil dari {@code destroy()} servlet). Memakai
+	 * {@link ScheduledExecutorService#shutdownNow()} -- tick yang sedang berjalan boleh
+	 * diinterupsi; ini aman karena setiap unit kerja ({@link #klaimSatuJob()} maupun step
+	 * provisioning) berjalan dalam transaksi pendek yang di-rollback bila terputus, bukan
+	 * ditinggal dalam keadaan setengah jalan. Aman dipanggil walau poller belum pernah
+	 * dinyalakan.
+	 */
 	public static synchronized void hentikan() {
 		ScheduledExecutorService s = penjadwal;
 		penjadwal = null;
@@ -193,6 +217,12 @@ public final class TenantProvisioningWorker {
 		return false;
 	}
 
+	/**
+	 * Identitas node+thread yang mengklaim sebuah job, ditulis ke
+	 * {@code provisioning_job.locked_by} untuk memudahkan diagnosis lease basi pada deployment
+	 * multi-node. Format {@code <hostname>|<nama thread>}, dipotong ke 128 karakter agar muat di
+	 * kolom. Jatuh ke {@code "node"} bila hostname gagal diresolusi.
+	 */
 	private static String identitasNode() {
 		String host;
 		try {

@@ -67,6 +67,7 @@ public final class TenantRequestExecutor {
 		jalankan(tenantId, tbmuserId, pendaftarId, tugas);
 	}
 
+	/** Muat baris {@link ais.database.model.tenant.TenantRegistry} milik tenant pada {@code ctx}, untuk dicek {@link TenantSchemaLocator#pastikanSiap}. */
 	private static ais.database.model.tenant.TenantRegistry muatRegistry(Session session,
 			TenantContext ctx) {
 		return (ais.database.model.tenant.TenantRegistry) session

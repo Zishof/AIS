@@ -62,21 +62,37 @@ public final class TenantContext {
 		this.moduleEntitlements = Collections.unmodifiableSet(salinan);
 	}
 
+	/** Id baris tenant (tabel master tenant), atau {@code null} bila konteks belum terikat ke tenant tertentu. */
 	public Long getTenantId() { return tenantId; }
+	/** Kode singkat tenant yang dipakai di URL/subdomain dan tampilan klien. */
 	public String getTenantCode() { return tenantCode; }
+	/** Nama tampilan tenant untuk UI. */
 	public String getTenantName() { return tenantName; }
+	/** Status siklus hidup tenant (mis. PROVISIONING/READY/SUSPENDED) -- dipakai gerbang akses untuk menolak permintaan pada tenant yang belum/tidak siap. */
 	public String getTenantStatus() { return tenantStatus; }
+	/** Mode data tenant: schema tenant terdedikasi vs shared/LEGACY -- lihat {@link #pakaiSchemaTenant()}. */
 	public String getTenantMode() { return tenantMode; }
+	/** Id baris keanggotaan aktor pada tenant ini, dipakai antara lain sebagai konteks baku pada baris audit ({@link TenantAuditWriter#mulaiRevisi}). */
 	public Long getMembershipId() { return membershipId; }
+	/** Peran aktor pada tenant ini (mis. OWNER/ADMIN/STAFF), sumber otorisasi berbasis peran di lapisan atas. */
 	public String getMembershipRole() { return membershipRole; }
+	/** Id pendaftar yang memiliki/mendaftarkan tenant ini. */
 	public Long getOwnerPendaftarId() { return ownerPendaftarId; }
+	/** Id pendaftar yang sedang aktif dipakai aktor pada request ini, boleh berbeda dari {@link #getOwnerPendaftarId()} pada tenant dengan banyak pendaftar. */
 	public Long getActivePendaftarId() { return activePendaftarId; }
+	/** Id {@code Tbmuser} aktor yang sedang login, dipakai sebagai identitas "siapa" pada jejak audit. */
 	public String getActiveTbmuserId() { return activeTbmuserId; }
+	/** Nama schema data tenant di database; {@code null}/kosong berarti tenant ini masih berjalan pada shared schema (mode LEGACY) -- lihat {@link #pakaiSchemaTenant()}. TIDAK boleh dikirim ke klien, lihat {@link #toJsonKlien()}. */
 	public String getSchemaName() { return schemaName; }
+	/** Nama schema audit tenant (dipakai {@link TenantAuditWriter}); sama halnya dengan {@link #getSchemaName()}, TIDAK boleh dikirim ke klien. */
 	public String getAuditSchemaName() { return auditSchemaName; }
+	/** Versi schema tenant saat ini, dibandingkan terhadap versi yang dituntut aplikasi untuk mendeteksi kebutuhan migrasi ({@code TENANT_SCHEMA_MIGRATION_REQUIRED}). */
 	public String getSchemaVersion() { return schemaVersion; }
+	/** Zona waktu tenant, dipakai untuk memformat/menafsirkan tanggal-waktu yang tampil ke pengguna tenant ini. */
 	public String getTimezone() { return timezone; }
+	/** Locale tenant, dipakai untuk pemformatan angka/tanggal dan pemilihan bahasa. */
 	public String getLocale() { return locale; }
+	/** Himpunan kode modul yang aktif bagi tenant ini (tidak dapat diubah -- lihat konstruktor), dasar dari {@link #punyaModul(String)}. */
 	public Set<String> getModuleEntitlements() { return moduleEntitlements; }
 
 	/** Benar bila modul tersebut aktif bagi tenant ini. Perbandingan tidak peka huruf besar-kecil. */
@@ -117,11 +133,17 @@ public final class TenantContext {
 		return o;
 	}
 
+	/**
+	 * Representasi ringkas untuk log/debug -- sengaja TIDAK menyertakan {@code schemaName}
+	 * maupun {@code auditSchemaName} (alasan yang sama seperti {@link #toJsonKlien()}), sehingga
+	 * aman dicetak ke log aplikasi biasa.
+	 */
 	public String toString() {
 		return "TenantContext[id=" + tenantId + ", code=" + tenantCode + ", mode=" + tenantMode
 				+ ", aktor=" + activeTbmuserId + "]";
 	}
 
+	/** Titik masuk untuk membentuk instans baru; lihat {@link Builder}. */
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -145,23 +167,45 @@ public final class TenantContext {
 		private String locale;
 		private Set<String> moduleEntitlements;
 
+		/** Menyetel {@link TenantContext#getTenantId()}. */
 		public Builder tenantId(Long v) { this.tenantId = v; return this; }
+		/** Menyetel {@link TenantContext#getTenantCode()}. */
 		public Builder tenantCode(String v) { this.tenantCode = v; return this; }
+		/** Menyetel {@link TenantContext#getTenantName()}. */
 		public Builder tenantName(String v) { this.tenantName = v; return this; }
+		/** Menyetel {@link TenantContext#getTenantStatus()}. */
 		public Builder tenantStatus(String v) { this.tenantStatus = v; return this; }
+		/** Menyetel {@link TenantContext#getTenantMode()}. */
 		public Builder tenantMode(String v) { this.tenantMode = v; return this; }
+		/** Menyetel {@link TenantContext#getMembershipId()}. */
 		public Builder membershipId(Long v) { this.membershipId = v; return this; }
+		/** Menyetel {@link TenantContext#getMembershipRole()}. */
 		public Builder membershipRole(String v) { this.membershipRole = v; return this; }
+		/** Menyetel {@link TenantContext#getOwnerPendaftarId()}. */
 		public Builder ownerPendaftarId(Long v) { this.ownerPendaftarId = v; return this; }
+		/** Menyetel {@link TenantContext#getActivePendaftarId()}. */
 		public Builder activePendaftarId(Long v) { this.activePendaftarId = v; return this; }
+		/** Menyetel {@link TenantContext#getActiveTbmuserId()}. */
 		public Builder activeTbmuserId(String v) { this.activeTbmuserId = v; return this; }
+		/** Menyetel {@link TenantContext#getSchemaName()}. */
 		public Builder schemaName(String v) { this.schemaName = v; return this; }
+		/** Menyetel {@link TenantContext#getAuditSchemaName()}. */
 		public Builder auditSchemaName(String v) { this.auditSchemaName = v; return this; }
+		/** Menyetel {@link TenantContext#getSchemaVersion()}. */
 		public Builder schemaVersion(String v) { this.schemaVersion = v; return this; }
+		/** Menyetel {@link TenantContext#getTimezone()}. */
 		public Builder timezone(String v) { this.timezone = v; return this; }
+		/** Menyetel {@link TenantContext#getLocale()}. */
 		public Builder locale(String v) { this.locale = v; return this; }
+		/** Menyetel {@link TenantContext#getModuleEntitlements()}; isi {@code v} disalin ke set tak-berubah baru saat {@link #build()} dipanggil, bukan direferensi langsung -- lihat konstruktor {@link TenantContext}. */
 		public Builder moduleEntitlements(Set<String> v) { this.moduleEntitlements = v; return this; }
 
+		/**
+		 * Merangkai medan yang sudah disetel menjadi satu {@link TenantContext} immutable.
+		 * Boleh dipanggil berulang pada builder yang sama (tidak menghabiskan state-nya).
+		 *
+		 * @return instans {@link TenantContext} baru.
+		 */
 		public TenantContext build() {
 			return new TenantContext(this);
 		}

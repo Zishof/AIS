@@ -101,6 +101,19 @@ public final class TenantDataPlaneService {
 	// AUDIT (Envers-style di <slug>__audit)
 	// =====================================================================
 
+	/**
+	 * Terbitkan satu baris {@code revinfo} pada schema audit tenant ({@code <schema>__audit}) dan
+	 * kembalikan nomor {@code rev} yang baru dibuat. Dipanggil oleh setiap {@code mirror*} tepat
+	 * sekali per operasi mutasi, sebelum baris mirror-audit ({@code brand}/{@code toko}/
+	 * {@code pedagang} di schema {@code __audit}) ditulis dengan {@code rev} yang sama --
+	 * berbeda dari {@link TenantAuditWriter#mulaiRevisi}, versi ini disederhanakan (hanya
+	 * {@code revtstmp}) karena baris audit data-plane menyimpan konteksnya sendiri per kolom,
+	 * bukan lewat satu baris {@code revinfo} yang kaya konteks.
+	 *
+	 * @param session Session pemanggil; ditulis pada transaksi yang sama dengan mutasi datanya.
+	 * @param schema  nama schema tenant TANPA akhiran {@code __audit} (akhiran ditambahkan di sini).
+	 * @return nomor {@code rev} yang baru diterbitkan, dipakai sebagai kunci baris mirror-audit.
+	 */
 	private static long auditRev(Session session, String schema) {
 		Number rev = (Number) session.createSQLQuery("INSERT INTO \"" + schema
 				+ "__audit\".revinfo (revtstmp) VALUES (:ts) RETURNING rev")
@@ -112,6 +125,37 @@ public final class TenantDataPlaneService {
 	// MIRROR UPSERT + AUDIT (dipanggil dalam TX yang sama dgn tulis shared)
 	// =====================================================================
 
+	/**
+	 * Implementasi kanonik pola DUAL-WRITE mirror+audit untuk entitas {@code brand}: dipanggil
+	 * SETELAH kode pemanggil menulis baris ke tabel shared ({@code public.brand}) dalam TRANSAKSI
+	 * YANG SAMA, untuk menjaga schema tenant tetap sinkron sebagai salinan ber-id-sama.
+	 *
+	 * <p>
+	 * Urutan kerja: (1) UPDATE baris {@code <schema>.brand} dengan {@code id} yang sama seperti
+	 * baris shared-nya; (2) bila UPDATE menyentuh 0 baris (belum ada -- baris baru atau backfill
+	 * lewat {@link #sinkronDariShared}), INSERT baris baru dengan {@code id} eksplisit yang sama
+	 * (bukan auto-increment, sebab id HARUS identik dengan baris shared agar keduanya tetap dapat
+	 * dikorelasikan); (3) terbitkan satu {@code rev} audit lewat {@link #auditRev} lalu tulis satu
+	 * baris mirror-audit ke {@code <schema>__audit.brand} dengan {@code revtype} sesuai parameter
+	 * {@code baru} ({@link #REVTYPE_ADD} atau {@link #REVTYPE_MOD}). UPDATE-lalu-INSERT (bukan
+	 * {@code ON CONFLICT}) dipakai karena target berjalan di atas PostgreSQL 9.3 yang belum
+	 * mendukung {@code ON CONFLICT} (baru ada di 9.5+) -- lihat catatan PG 9.3 di javadoc kelas.
+	 * </p>
+	 *
+	 * @param session Session pemanggil; wajib berjalan pada transaksi yang sama dengan tulis
+	 *                shared-nya supaya mirror dan shared selalu konsisten.
+	 * @param schema  nama schema tenant, divalidasi ulang di sini lewat
+	 *                {@link TenantSchemaService#pastikanAman} (invariant #3) sekalipun sudah
+	 *                divalidasi di pemanggil -- identifier schema tidak pernah dipercaya begitu
+	 *                saja sebelum disisipkan ke SQL.
+	 * @param id      id baris, sama dengan id baris {@code public.brand} yang dicerminkan.
+	 * @param nama    nama brand.
+	 * @param aktif   status aktif brand.
+	 * @param baru    {@code true} bila ini baris yang baru pertama kali dibuat (menentukan
+	 *                {@code revtype} audit: {@link #REVTYPE_ADD} vs {@link #REVTYPE_MOD}); tidak
+	 *                menentukan jalur UPDATE-vs-INSERT itu sendiri, yang selalu diputuskan dari
+	 *                jumlah baris ter-UPDATE.
+	 */
 	public static void mirrorBrand(Session session, String schema, Long id, String nama, Boolean aktif,
 			boolean baru) {
 		String s = TenantSchemaService.pastikanAman(schema);
@@ -131,6 +175,25 @@ public final class TenantDataPlaneService {
 				.setParameter("n", nama).setParameter("a", aktif).executeUpdate();
 	}
 
+	/**
+	 * Seperti {@link #mirrorBrand} tetapi untuk entitas {@code toko}: UPDATE-lalu-INSERT ke
+	 * {@code <schema>.toko} dengan {@code id} sama seperti baris {@code koperasi.toko}, diikuti
+	 * satu baris mirror-audit ke {@code <schema>__audit.toko}. Pola UPSERT dan alasan
+	 * PG-9.3-nya identik dengan {@link #mirrorBrand} -- lihat javadoc method itu untuk penjelasan
+	 * lengkap.
+	 *
+	 * @param session Session pemanggil, dalam transaksi yang sama dengan tulis shared-nya.
+	 * @param schema  nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @param id      id baris, sama dengan {@code koperasi.toko.id}.
+	 * @param nama    nama toko.
+	 * @param brandId id brand pemilik toko, boleh {@code null}.
+	 * @param alamat  alamat toko.
+	 * @param kota    kota toko.
+	 * @param telp    nomor telepon toko.
+	 * @param aktif   status aktif toko.
+	 * @param baru    {@code true} untuk baris baru ({@link #REVTYPE_ADD}), {@code false} untuk
+	 *                perubahan ({@link #REVTYPE_MOD}).
+	 */
 	public static void mirrorToko(Session session, String schema, Long id, String nama, Long brandId,
 			String alamat, String kota, String telp, Boolean aktif, boolean baru) {
 		String s = TenantSchemaService.pastikanAman(schema);
@@ -157,6 +220,33 @@ public final class TenantDataPlaneService {
 				.setParameter("k", kota).setParameter("t", telp).setParameter("a", aktif).executeUpdate();
 	}
 
+	/**
+	 * Seperti {@link #mirrorBrand} tetapi untuk entitas {@code pedagang} (mesin POS/kasir): UPDATE-
+	 * lalu-INSERT ke {@code <schema>.pedagang} dengan {@code id} sama seperti baris
+	 * {@code koperasi.pedagang}, diikuti satu baris mirror-audit ke
+	 * {@code <schema>__audit.pedagang}. Pola UPSERT identik dengan {@link #mirrorBrand}.
+	 *
+	 * <p>
+	 * <b>Kredensial tidak masuk audit</b>: kolom {@code pass} ditulis ke baris data
+	 * ({@code <schema>.pedagang}) tetapi SENGAJA tidak disertakan pada INSERT ke
+	 * {@code <schema>__audit.pedagang} (lihat komentar inline di badan method) -- selaras dengan
+	 * larangan menyimpan rahasia pada jejak audit (semangat invariant #8 / &sect;11.6, sama
+	 * seperti yang berlaku pada {@link TenantAuditWriter}).
+	 * </p>
+	 *
+	 * @param session    Session pemanggil, dalam transaksi yang sama dengan tulis shared-nya.
+	 * @param schema     nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @param id         id baris, sama dengan {@code koperasi.pedagang.id}.
+	 * @param userid     userid login mesin POS/kasir.
+	 * @param pass       kata sandi (hash/terenkripsi sesuai konvensi tabel shared); ditulis ke
+	 *                   baris data saja, TIDAK ke baris audit.
+	 * @param nama       nama pedagang/kasir.
+	 * @param tokoId     id toko tempat pedagang ini bertugas.
+	 * @param supervisor status hak supervisor.
+	 * @param aktif      status aktif.
+	 * @param baru       {@code true} untuk baris baru ({@link #REVTYPE_ADD}), {@code false} untuk
+	 *                   perubahan ({@link #REVTYPE_MOD}).
+	 */
 	public static void mirrorPedagang(Session session, String schema, Long id, String userid, String pass,
 			String nama, Long tokoId, Boolean supervisor, Boolean aktif, boolean baru) {
 		String s = TenantSchemaService.pastikanAman(schema);

@@ -28,6 +28,7 @@ import ais.database.model.tenant.TenantRegistry;
  */
 public final class UsernameReservationService {
 
+	/** Konstruktor privat -- kelas ini murni kumpulan method statis (utility), tidak dimaksudkan untuk diinstansiasi. */
 	private UsernameReservationService() {
 	}
 
@@ -73,6 +74,19 @@ public final class UsernameReservationService {
 		return null;
 	}
 
+	/**
+	 * Helper hitung jumlah baris pada {@code kelas} yang kolom {@code properti}-nya sama persis
+	 * ({@code equals}) dengan {@code nilai}. Dipakai berulang oleh {@link #alasanTidakTersedia}
+	 * untuk memeriksa benturan username terhadap beberapa sumber sekaligus (mis.
+	 * {@code Pendaftar.domain}, {@code TenantRegistry.slug}, {@code TenantRegistry.schemaName},
+	 * {@code Tbmuser.userId}) tanpa menulis ulang criteria+projection rowCount di tiap tempat.
+	 *
+	 * @param session  sesi Hibernate milik pemanggil (dipakai apa adanya, tidak dibuka/ditutup di sini)
+	 * @param kelas    kelas entitas yang diperiksa
+	 * @param properti nama properti (kolom) yang dibandingkan
+	 * @param nilai    nilai yang dicari (perbandingan exact match)
+	 * @return jumlah baris yang cocok; 0 bila tidak ada baris cocok atau hasil query {@code null}
+	 */
 	private static long hitung(Session session, Class<?> kelas, String properti, String nilai) {
 		Number n = (Number) session.createCriteria(kelas).add(Restrictions.eq(properti, nilai))
 				.setProjection(Projections.rowCount()).uniqueResult();

@@ -53,9 +53,11 @@ public final class TenantAuditWriter {
 		public String action;
 		public String reason;
 
+		/** Jejak kosong; semua medan diisi belakangan lewat akses langsung ke fieldnya. */
 		public Jejak() {
 		}
 
+		/** Jejak dengan {@code action} langsung terisi; medan lain diisi belakangan bila perlu. */
 		public Jejak(String action) {
 			this.action = action;
 		}
@@ -133,6 +135,19 @@ public final class TenantAuditWriter {
 		return rev;
 	}
 
+	/**
+	 * Resolusi dan validasi nama schema audit sebelum dipakai untuk menyusun SQL. Dipanggil di
+	 * awal {@link #mulaiRevisi} dan {@link #catat} sehingga kegagalan (mode LEGACY tanpa schema,
+	 * atau nama schema yang tidak lolos pola aman) terdeteksi sebelum satu pun pernyataan SQL
+	 * disusun -- fail-closed.
+	 *
+	 * @param ctx konteks tenant yang menjadi sumber nama schema audit.
+	 * @return nama schema audit yang sudah tervalidasi, siap disisipkan ke SQL.
+	 * @throws TenantAccessException dengan kode {@link TenantAccessException#TENANT_SCHEMA_INVALID}
+	 *         bila {@code ctx} berjalan tanpa schema tenant (lihat {@link
+	 *         TenantContext#pakaiSchemaTenant()}), nama schema audit kosong, atau nama tersebut
+	 *         gagal lolos validasi {@link TenantSchemaLocator#pastikanAmanAudit(String)}.
+	 */
 	private static String schemaAudit(TenantContext ctx) {
 		if (ctx == null || !ctx.pakaiSchemaTenant()) {
 			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
@@ -155,6 +170,7 @@ public final class TenantAuditWriter {
 		}
 	}
 
+	/** Normalisasi string kosong/berisi-spasi menjadi {@code null} (dan memangkas sisanya) sebelum diikat sebagai parameter SQL, supaya kolom opsional tersimpan {@code NULL} alih-alih string kosong. */
 	private static String nol(String v) {
 		return v == null || v.trim().length() == 0 ? null : v.trim();
 	}

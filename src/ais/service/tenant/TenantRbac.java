@@ -81,6 +81,16 @@ public final class TenantRbac {
 	private static final Map<String, Map<String, Set<String>>> MATRIKS =
 			new HashMap<String, Map<String, Set<String>>>();
 
+	/**
+	 * Tambahkan {@code sifat} (baca/tulis/setuju) yang diizinkan bagi {@code peran} pada
+	 * {@code area} tertentu. Dipanggil berulang kali di blok inisialisasi statis di bawah untuk
+	 * membangun {@link #MATRIKS}; peta per-peran dan set per-area dibuat lazy saat pertama
+	 * disentuh.
+	 *
+	 * @param peran kode peran, mis. {@link #OWNER}
+	 * @param area  kode area, salah satu konstanta {@code AREA_*}
+	 * @param sifat satu atau lebih dari {@link #BACA}, {@link #TULIS}, {@link #SETUJU}
+	 */
 	private static void beri(String peran, String area, String... sifat) {
 		Map<String, Set<String>> perArea = MATRIKS.get(peran);
 		if (perArea == null) {

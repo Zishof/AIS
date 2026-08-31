@@ -21,19 +21,39 @@ package ais.service.tenant;
  */
 public final class TenantSchemaMigrationsV6 {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaMigrationsV6() {
 	}
 
 	// PERINGATAN: masuk ke teks DDL kanonik -- mengubahnya mengubah checksum v6.
+	/** Fragmen kolom jejak audit ringan (pembuat/pengubah + waktunya), dipakai seluruh tabel. */
 	private static final String JEJAK =
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * Fragmen kolom status dokumen dan siklus posting/pembatalan, dipakai tabel dokumen alur
+	 * sales keliling ({@code surat_perintah_sales}, {@code sales_trip}, {@code sales_trip_nota},
+	 * {@code sales_trip_setoran}, {@code sales_trip_rekonsiliasi}).
+	 */
 	private static final String POSTING =
 			"status varchar(32) DEFAULT 'DRAF', "
 			+ "diposting boolean DEFAULT false, diposting_pada timestamp, "
 			+ "dibatalkan boolean DEFAULT false, dibatalkan_pada timestamp, alasan_batal text";
 
+	/**
+	 * Katalog DDL kanonik migrasi v6: {@code CREATE TABLE}/{@code CREATE INDEX} berurutan
+	 * untuk seluruh rangkaian sales keliling — {@code surat_perintah_sales} (+ detail),
+	 * {@code sales_trip}, {@code sales_trip_barang} (barang dibawa, bukan penjualan — lihat
+	 * javadoc kelas), {@code sales_trip_nota}, {@code sales_trip_hasil},
+	 * {@code sales_trip_biaya}, {@code sales_trip_setoran}, dan
+	 * {@code sales_trip_rekonsiliasi} (disimpan, tidak dihitung ulang — lihat javadoc kelas).
+	 * Dikonsumsi oleh {@link TenantSchemaMigrations#SEMUA} lewat entri bertarget
+	 * {@code TARGET_ERP}; penanda {@code {S}}/{@code {A}}/{@code {SU}} disubstitusi saat
+	 * migrasi diterapkan oleh {@code TenantSchemaService#terapkanMigrasi}. Isi array ini
+	 * bagian dari checksum kanonik v6 — lihat peringatan di atas sebelum mengubah elemen
+	 * mana pun.
+	 */
 	public static final String[] ERP = {
 			"CREATE TABLE {S}.surat_perintah_sales ("
 					+ "id bigserial PRIMARY KEY, "

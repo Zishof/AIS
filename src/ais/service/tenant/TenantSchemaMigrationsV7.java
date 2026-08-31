@@ -25,19 +25,39 @@ package ais.service.tenant;
  */
 public final class TenantSchemaMigrationsV7 {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaMigrationsV7() {
 	}
 
 	// PERINGATAN: masuk ke teks DDL kanonik -- mengubahnya mengubah checksum v7.
+	/** Fragmen kolom jejak audit ringan (pembuat/pengubah + waktunya), dipakai seluruh tabel. */
 	private static final String JEJAK =
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * Fragmen kolom provenans impor legacy, dipakai tabel akuntansi yang sebagian isinya
+	 * diturunkan dari arsip lama ({@code akun}, {@code jurnal}): nama berkas dan nomor baris
+	 * sumber, hash baris, id run impor, dan penanda {@code legacy_deleted}.
+	 */
 	private static final String LEGACY =
 			"legacy_source_file varchar(128), legacy_source_record_no integer, "
 			+ "legacy_row_hash varchar(64), legacy_import_run_id bigint, "
 			+ "legacy_deleted boolean DEFAULT false";
 
+	/**
+	 * Katalog DDL kanonik migrasi v7: {@code CREATE TABLE}/{@code CREATE INDEX} berurutan
+	 * untuk bagan akun ({@code akun}), periode ({@code periode_akuntansi}, ditutup keras —
+	 * lihat javadoc kelas), buku besar ({@code jurnal} + {@code jurnal_detail}, keseimbangan
+	 * debit/kredit dijaga aplikasi karena PostgreSQL 9.3 tidak punya constraint lintas-baris
+	 * yang praktis), dan jejak posting/pembalikan ({@code posting_log}, {@code reversal_log},
+	 * dicatat terpisah dari kolom {@code diposting} — lihat javadoc kelas). Seluruhnya milik
+	 * tenant, bukan {@code akunting.*} bersama (§12.1). Dikonsumsi oleh
+	 * {@link TenantSchemaMigrations#SEMUA} lewat entri bertarget {@code TARGET_ERP}; penanda
+	 * {@code {S}}/{@code {A}}/{@code {SU}} disubstitusi saat migrasi diterapkan oleh
+	 * {@code TenantSchemaService#terapkanMigrasi}. Isi array ini bagian dari checksum
+	 * kanonik v7 — lihat peringatan di atas sebelum mengubah elemen mana pun.
+	 */
 	public static final String[] ERP = {
 			"CREATE TABLE {S}.akun ("
 					+ "id bigserial PRIMARY KEY, "

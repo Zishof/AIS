@@ -39,16 +39,43 @@ public class TenantAccessException extends RuntimeException {
 
 	private final String kode;
 
+	/**
+	 * Membentuk galat tenant tanpa sebab (cause) berantai.
+	 *
+	 * @param kode  salah satu konstanta kode galat baku di kelas ini (kontrak &sect;7.2); klien
+	 *              memetakan kode ini ke pesan tampilannya sendiri, jadi jangan memberi nilai di
+	 *              luar daftar konstanta tanpa memperbarui kontraknya.
+	 * @param pesan pesan yang aman dibaca manusia -- tidak boleh memuat nama schema, SQL, jejak
+	 *              tumpukan, URL basis data, maupun kredensial (lihat larangan &sect;7.2 di
+	 *              javadoc kelas).
+	 */
 	public TenantAccessException(String kode, String pesan) {
 		super(pesan);
 		this.kode = kode;
 	}
 
+	/**
+	 * Sama seperti {@link #TenantAccessException(String, String)}, dengan tambahan
+	 * {@code sebab} (cause) untuk melampirkan galat asal -- dipakai saat exception ini membungkus
+	 * kegagalan lain (mis. validasi nama schema yang gagal) supaya jejak asalnya tidak hilang di
+	 * log server, tanpa membocorkannya ke {@link #getMessage()}.
+	 *
+	 * @param kode  salah satu konstanta kode galat baku di kelas ini.
+	 * @param pesan pesan yang aman dibaca manusia.
+	 * @param sebab galat asal yang memicu penolakan akses ini.
+	 */
 	public TenantAccessException(String kode, String pesan, Throwable sebab) {
 		super(pesan, sebab);
 		this.kode = kode;
 	}
 
+	/**
+	 * Kode galat baku (kontrak &sect;7.2) yang dibaca mesin oleh klien untuk memutuskan
+	 * penanganannya (mis. tampilkan pemilih tenant, arahkan ke halaman suspend, dsb.) --
+	 * berbeda dari {@link #getMessage()} yang murni untuk dibaca manusia.
+	 *
+	 * @return salah satu konstanta {@code TENANT_*} di kelas ini.
+	 */
 	public String getKode() {
 		return kode;
 	}
