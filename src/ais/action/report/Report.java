@@ -101,6 +101,39 @@ import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
+/**
+ * Penyusun/penyaji laporan untuk report. Kelas ini mengubah data domain menjadi bentuk laporan
+ * yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke lapisan report.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String PDF}, {@code String XLS}, {@code
+ * String RTF}, {@code String HTML}, {@code String DOCX}, {@code String PPTX}, {@code String ODT}, {@code String
+ * ODS}; inisialisasi/lifecycle ({@code initDefaultParameter()}); pembacaan/pencarian ({@code ambilLockJasper()},
+ * {@code getProgressContext()}, {@code isReportErrorDownloadEnabled()}, {@code getKonfigurasiNilai()}, {@code
+ * tampilErrorSessionQuietly()}, {@code getRootCause()}); validasi/perhitungan ({@code hitungPersen()}, {@code
+ * hitungJumlahHariInklusif()}, {@code isPathGambarTidakValid()}, {@code kosongkanParameterGambarTidakValid()},
+ * {@code bolehKosongSebagaiNullDiJasper()}); mutasi data ({@code updateProgress()}, {@code
+ * setPreviewPdfDefaultSekali()}, {@code setReportKey()}, {@code setLaporanDefaultPdf()}, {@code
+ * saveReportHistory()}, {@code setlogo()}); penghapusan/pembatalan ({@code removeProgressContext()});
+ * pelaporan/ekspor ({@code isReportProgressAutoHide()}, {@code isReportErrorFriendlyEnabled()}, {@code
+ * isReportErrorStackTraceEnabled()}, {@code isReportErrorParameterEnabled()}, {@code
+ * isReportErrorLogConsoleEnabled()}, {@code buildReportErrorDetailText()}); operasi domain lain ({@code nvl()},
+ * {@code normalizePercent()}, {@code putProgressContext()}, {@code isKonfigurasiAktif()}, {@code
+ * createProgress()}, {@code finishProgress()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 @SuppressWarnings("deprecation")
 public class Report extends GenericAutowireComposer {
 

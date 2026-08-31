@@ -219,6 +219,30 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Penyusun/penyaji laporan untuk common report. Kelas ini mengubah data domain menjadi bentuk
+ * laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke lapisan
+ * report.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code ThreadLocal dateFormat}, {@code int
+ * MAX_RETRY_GEN_NIM}; inisialisasi/lifecycle ({@code buatParameterBuktiDariRincianLayar()}); pembacaan/pencarian
+ * ({@code getDataPMB()}, {@code getDataAlbumPMBAdmin()}); validasi/perhitungan ({@code checkGenNim()}, {@code
+ * checkGenNim()}); mutasi data ({@code prosesSuratKeteranganHasilUjian()}, {@code prosesSuratTagihan()}, {@code
+ * prosesSuratTagihan()}, {@code onCetakPenyediaAsset()}, {@code prosesCetakUTS()}, {@code prosesCetakUAS()});
+ * pelaporan/ekspor ({@code cetakBuktipembayaranMahasiswa()}, {@code cetakBuktipembayaranMahasiswa()}, {@code
+ * cetakBuktipembayaranCalonMahasiswa()}, {@code cetakBuktipembayaranCalonMahasiswa()}, {@code
+ * onCetakSuratKeteranganLulus()}, {@code onCetakSuratKeteranganLulus()}); operasi domain lain ({@code
+ * selaraskanSnapshotDenganRingkasan()}, {@code resizeImage()}, {@code isNimkeyConstraintViolation()}, {@code
+ * isNimSudahDipakai()}, {@code genNim()}, {@code genSklMap()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class CommonReportHelper {
 
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
