@@ -581,6 +581,24 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SplitPembayaran} milik {@link KantinHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link KantinHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code CaraPembayaranKoperasi cara2}, {@code
+	 * CaraPembayaranKoperasi cara3}, {@code CaraPembayaranKoperasi cara4}, {@code CaraPembayaranKoperasi cara5},
+	 * {@code Double nominal2}, {@code Double nominal3}, {@code Double nominal4}, {@code Double nominal5}; operasi
+	 * lokal: {@code terapkanKe()}, {@code nominalPositif()}, {@code dibayar()}, {@code nominalTunai()}, {@code
+	 * nominalNonTunai}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see KantinHelper
+	 */
 	private static class SplitPembayaran {
 		CaraPembayaranKoperasi cara2, cara3, cara4, cara5;
 		Double nominal2 = 0.0, nominal3 = 0.0, nominal4 = 0.0, nominal5 = 0.0;
@@ -805,6 +823,22 @@ public class KantinHelper {
 		} finally { ps.close(); }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PelanggaranBatasTransaksi} milik {@link KantinHelper}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link KantinHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String periode}, {@code double
+	 * batas}, {@code double berjalan}, {@code double transaksi}; operasi lokal: {@code pesan}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see KantinHelper
+	 */
 	private static final class PelanggaranBatasTransaksi {
 		final String periode;
 		final double batas;

@@ -141,10 +141,38 @@ public final class ApiHelperSupport {
     }
 
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link ApiHelperSupport}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ApiHelperSupport}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code doInSession}(). Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see ApiHelperSupport
+     */
     public static interface SessionCallback {
         Object doInSession(Session session) throws Exception;
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link ApiHelperSupport}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ApiHelperSupport}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code doInSession}(). Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see ApiHelperSupport
+     */
     public static interface VoidSessionCallback {
         void doInSession(Session session) throws Exception;
     }

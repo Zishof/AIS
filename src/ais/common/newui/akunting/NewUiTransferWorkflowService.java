@@ -92,16 +92,180 @@ public final class NewUiTransferWorkflowService {
     private static String join(String a,String b){return(clean(a)==null?"":a.trim())+(clean(a)==null||clean(b)==null?"":" - ")+(clean(b)==null?"":b.trim());}
     private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
 
+    /**
+     * Tipe implementasi bersarang {@link Dashboard} milik {@link NewUiTransferWorkflowService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int waiting}, {@code int submitted},
+     * {@code int transitory}, {@code int transferred}, {@code double amount}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     private static final class Dashboard{int waiting,submitted,transitory,transferred;double amount;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTransferWorkflowService} untuk filter. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long workUnitId},
+     * {@code String query}, {@code Date start}, {@code Date end}, {@code boolean activeOnly}, {@code boolean
+     * waiting}, {@code boolean submitted}; operasi lokal: {@code copy}(). Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class Filter{public Long id,workUnitId;public String query;public Date start,end;public boolean activeOnly=true,waiting,submitted,transitory,transferred,advance,accountability,bigCash,smallCash,procurement,termin,downPayment,tax,employee,cooperative;public int page,size=20;Filter copy(){Filter x=new Filter();x.id=id;x.workUnitId=workUnitId;x.query=query;x.start=start;x.end=end;x.activeOnly=activeOnly;x.waiting=waiting;x.submitted=submitted;x.transitory=transitory;x.transferred=transferred;x.advance=advance;x.accountability=accountability;x.bigCash=bigCash;x.smallCash=smallCash;x.procurement=procurement;x.termin=termin;x.downPayment=downPayment;x.tax=tax;x.employee=employee;x.cooperative=cooperative;return x;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTransferWorkflowService} untuk snapshot. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int waiting},
+     * {@code int submitted}, {@code int transitory}, {@code int transferred}, {@code double amount}, {@code double
+     * allAmount}, {@code List rows}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class Snapshot{public int total,waiting,submitted,transitory,transferred;public double amount,allAmount;public final List<Row>rows=new ArrayList<Row>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTransferWorkflowService} untuk row. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long processId},
+     * {@code Long workUnitId}, {@code Long sopId}, {@code String code}, {@code String name}, {@code String note},
+     * {@code String kind}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class Row{public Long id,processId,workUnitId,sopId;public String code,name,note,kind,status,account,bank,accountName,accountNumber,processCode,processTitle,realizedBy,workUnit,sop;public Date time;public double amount;public boolean active;}
+    /**
+     * Tipe implementasi bersarang {@link ProcessSnapshot} milik {@link NewUiTransferWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int waiting},
+     * {@code int approved}, {@code int realized}, {@code List rows}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class ProcessSnapshot{public int total,waiting,approved,realized;public final List<ProcessRow>rows=new ArrayList<ProcessRow>();}
+    /**
+     * Tipe implementasi bersarang {@link ProcessRow} milik {@link NewUiTransferWorkflowService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long methodId},
+     * {@code String code}, {@code String title}, {@code String note}, {@code String method}, {@code String
+     * status}, {@code String approvedBy}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class ProcessRow{public Long id,methodId;public String code,title,note,method,status,approvedBy,realizedBy,realizedUserId;public Date date,approvedAt,realizedAt;public double amount;public boolean active;public final List<Row>items=new ArrayList<Row>();}
+    /**
+     * Tipe implementasi bersarang {@link ProcessDraft} milik {@link NewUiTransferWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long methodId},
+     * {@code String title}, {@code String note}, {@code Date date}, {@code List itemIds}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class ProcessDraft{public Long id,methodId;public String title,note;public Date date;public List<Long>itemIds=new ArrayList<Long>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTransferWorkflowService} untuk option. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class Option{public final Long id;public final String label;Option(Long id,String label){this.id=id;this.label=label;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTransferWorkflowService} untuk options. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List methods}, {@code List accounts},
+     * {@code List workUnits}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class Options{public final List<Option>methods=new ArrayList<Option>(),accounts=new ArrayList<Option>(),workUnits=new ArrayList<Option>();}
+    /**
+     * Tipe implementasi bersarang {@link SyncResult} milik {@link NewUiTransferWorkflowService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int success},
+     * {@code int skipped}, {@code int failed}, {@code List messages}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class SyncResult{public int total,success,skipped,failed;public final List<String>messages=new ArrayList<String>();}
+    /**
+     * Tipe implementasi bersarang {@link PaymentMethodRow} milik {@link NewUiTransferWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long accountId},
+     * {@code Long transitoryAccountId}, {@code Long workUnitId}, {@code String code}, {@code String name}, {@code
+     * String description}, {@code String account}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class PaymentMethodRow{public Long id,accountId,transitoryAccountId,workUnitId;public String code,name,description,account,transitoryAccount,workUnit;public boolean active,defaultPayment;PaymentMethodRow(CaraPembayaranTransfer v){id=v.getId();code=v.getKode();name=v.getNama();description=v.getDeskripsi();active=Boolean.TRUE.equals(v.getAktif());defaultPayment=Boolean.TRUE.equals(v.getDefaultPembayaran());if(v.getAkun()!=null){accountId=v.getAkun().getId();account=join(v.getAkun().getKode(),v.getAkun().getNama());}if(v.getAkunTransitori()!=null){transitoryAccountId=v.getAkunTransitori().getId();transitoryAccount=join(v.getAkunTransitori().getKode(),v.getAkunTransitori().getNama());}if(v.getSatuanKerja()!=null){workUnitId=v.getSatuanKerja().getId();workUnit=v.getSatuanKerja().getNama();}}}
+    /**
+     * Tipe implementasi bersarang {@link PaymentMethodDraft} milik {@link NewUiTransferWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiTransferWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long accountId},
+     * {@code Long transitoryAccountId}, {@code Long workUnitId}, {@code String code}, {@code String name}, {@code
+     * String description}, {@code boolean active}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see NewUiTransferWorkflowService
+     */
     public static final class PaymentMethodDraft{public Long id,accountId,transitoryAccountId,workUnitId;public String code,name,description;public boolean active=true,makeDefault;}
 }

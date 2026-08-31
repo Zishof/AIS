@@ -17,10 +17,88 @@ import java.io.File;import java.io.FileOutputStream;import java.io.InputStream;i
  private Row row(KomponenDataProdukKursus x){Row r=new Row();r.id=x.getId();r.code=x.getKode();r.name=x.getNama();r.note=x.getKeterangan();r.type=x.getKomponenProdukKursus();r.active=Boolean.TRUE.equals(x.getAktif());r.defaultPrice=Boolean.TRUE.equals(x.getHargaIkutDefault());r.price=x.getHarga();r.meetings=x.getJumlahPertemuan();r.start=x.getMulai();r.duration=x.getDurasi();if(x.getSatuanKerja()!=null){r.unitId=x.getSatuanKerja().getId();r.unit=x.getSatuanKerja().getNama();}if(x.getBuku()!=null){r.itemId=x.getBuku().getId();r.item=x.getBuku().getNama();}if(x.getUjian()!=null){r.examId=x.getUjian().getId();r.exam=x.getUjian().getNama();}Pegawai[]ps={x.getTutor1(),x.getTutor2(),x.getTutor3(),x.getTutor4(),x.getTutor5()};for(Pegawai p:ps)if(p!=null){r.tutorIds.add(p.getId());r.tutors.add(p.getNama());}LampiranLain l=null;try{l=LampiranLain.ambil(x.getId(),KomponenDataProdukKursus.class.getName());}catch(Exception ignored){}if(l!=null){r.attachmentName=l.getNama();String link=clean(l.getLink());r.attachmentUrl=link!=null&&safeLink(link)?link:l.getUrl();r.hasAttachment=clean(r.attachmentUrl)!=null;}return r;}
  private static KomponenDataProdukKursus require(Session s,Long id,String type,Set<SatuanKerja>a){KomponenDataProdukKursus x=id==null?null:(KomponenDataProdukKursus)s.get(KomponenDataProdukKursus.class,id);if(x==null)throw new IllegalArgumentException("Komponen kursus tidak ditemukan.");if(type!=null&&!type.equals(x.getKomponenProdukKursus()))throw new IllegalArgumentException("Jenis komponen tidak sesuai halaman.");if(x.getSatuanKerja()!=null&&a!=null){boolean ok=false;for(SatuanKerja u:a)if(u.getId().equals(x.getSatuanKerja().getId()))ok=true;if(!ok)throw new IllegalArgumentException("Komponen berada di luar akses satuan kerja.");}return x;}
  private static SatuanKerja unit(Session s,Long id,Set<SatuanKerja>a){if(id==null)return null;if(a!=null)for(SatuanKerja x:a)if(id.equals(x.getId()))return(SatuanKerja)s.get(SatuanKerja.class,id);throw new IllegalArgumentException("Satuan kerja berada di luar akses.");}private static Pegawai employee(Session s,Long id){return id==null?null:(Pegawai)s.get(Pegawai.class,id);}private static void validate(Input v,String t){if(t==null)throw new IllegalArgumentException("Jenis komponen wajib dipilih.");if((KomponenProdukKursus.BUKU.equals(t)||KomponenProdukKursus.EBOOK.equals(t))&&v.itemId==null)throw new IllegalArgumentException("Buku wajib dipilih.");if((KomponenProdukKursus.UJIAN.equals(t)||KomponenProdukKursus.LATIHAN_SOAL.equals(t))&&v.examId==null)throw new IllegalArgumentException("Ujian wajib dipilih.");if(!KomponenProdukKursus.BUKU.equals(t)&&!KomponenProdukKursus.EBOOK.equals(t)&&!KomponenProdukKursus.UJIAN.equals(t)&&!KomponenProdukKursus.LATIHAN_SOAL.equals(t)&&clean(v.name)==null)throw new IllegalArgumentException("Nama wajib diisi.");if(schedule(t)&&(v.meetings<1||v.start==null))throw new IllegalArgumentException("Jumlah dan tanggal mulai pertemuan wajib diisi.");}private static boolean schedule(String t){return KomponenProdukKursus.PEMBELAJARAN_TATAP_MUKA.equals(t)||KomponenProdukKursus.PEMBELAJARAN_JARAK_JAUH.equals(t)||KomponenProdukKursus.EKSTRA_KURIKULER.equals(t);}private static boolean fileType(String t){return KomponenProdukKursus.VIDEO.equals(t)||KomponenProdukKursus.EBOOK.equals(t);}private static boolean safeLink(String v){String x=clean(v);return x!=null&&(x.toLowerCase().startsWith("http://")||x.toLowerCase().startsWith("https://"));}private static void stamp(KomponenDataProdukKursus x,Tbmuser u){if(u!=null){x.setOleh(u.getUserNama());x.setOlehId(u.getUserId());}}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}
+ /**
+  * Tipe implementasi bersarang {@link Input} milik {@link NewUiCourseComponentService}. Kelas ini memberi nama
+  * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long itemId}, {@code
+  * Long examId}, {@code Long unitId}, {@code Long tutor1}, {@code Long tutor2}, {@code Long tutor3}, {@code
+  * Long tutor4}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class Input{public Long id,itemId,examId,unitId,tutor1,tutor2,tutor3,tutor4,tutor5;public String code,name,note;public boolean active=true,defaultPrice=true;public double price;public int meetings=10;public Date start,duration;}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCourseComponentService} untuk snapshot. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code List rows}, {@code
+  * List units}, {@code List employees}, {@code List items}, {@code List exams}. Aturan bisnis bersama tetap
+  * berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class Snapshot{public int total;public final List<Row>rows=new ArrayList<Row>();public final List<Option>units=new ArrayList<Option>(),employees=new ArrayList<Option>(),items=new ArrayList<Option>(),exams=new ArrayList<Option>();}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCourseComponentService} untuk option. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label}.
+  * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class Option{public final Long id;public final String label;Option(Long i,String l){id=i;label=l;}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCourseComponentService} untuk row. Tipe ini mengelompokkan nilai
+  * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long unitId}, {@code
+  * Long itemId}, {@code Long examId}, {@code String code}, {@code String name}, {@code String note}, {@code
+  * String type}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class Row{public Long id,unitId,itemId,examId;public String code,name,note,type,unit,item,exam,attachmentName,attachmentUrl;public boolean active,defaultPrice,hasAttachment;public double price;public int meetings;public Date start,duration;public final List<Long>tutorIds=new ArrayList<Long>();public final List<String>tutors=new ArrayList<String>();}
+ /**
+  * Tipe implementasi bersarang {@link Meeting} milik {@link NewUiCourseComponentService}. Kelas ini memberi
+  * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code int number}, {@code
+  * Date date}, {@code String start}, {@code String end}, {@code String topic}, {@code String status}. Aturan
+  * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class Meeting{public final Long id;public final int number;public final Date date;public final String start,end,topic,status;Meeting(Pertemuan p){id=p.getId();number=p.getPertemuanKe();date=p.getTanggal();start=p.getWaktuMulai();end=p.getWaktuSelesai();topic=p.getTopik();status=p.getStatusPertemuan()==null?"":p.getStatusPertemuan().getNama();}}
+ /**
+  * Tipe implementasi bersarang {@link History} milik {@link NewUiCourseComponentService}. Kelas ini memberi
+  * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCourseComponentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int revision}, {@code int type},
+  * {@code long timestamp}, {@code String by}, {@code String code}, {@code String name}, {@code String
+  * componentType}, {@code String note}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see NewUiCourseComponentService
+  */
  public static final class History{public final int revision,type;public final long timestamp;public final String by,code,name,componentType,note;public final double price;public final Boolean active;History(Object[]x){revision=((Number)x[0]).intValue();type=x[1]==null?0:((Number)x[1]).intValue();timestamp=x[2]==null?0:((Number)x[2]).longValue();by=x[3]==null?"":String.valueOf(x[3]);code=x[4]==null?"":String.valueOf(x[4]);name=x[5]==null?"":String.valueOf(x[5]);componentType=x[6]==null?"":String.valueOf(x[6]);price=x[7]==null?0:((Number)x[7]).doubleValue();active=x[8]==null?null:(Boolean)x[8];note=x[9]==null?"":String.valueOf(x[9]);}}
 }

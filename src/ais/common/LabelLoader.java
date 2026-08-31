@@ -427,6 +427,22 @@ public class LabelLoader {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ExValue} milik {@link LabelLoader}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LabelLoader} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Expression _expr}, {@code String
+	 * _val}; operasi lokal: {@code getValue}(). Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see LabelLoader
+	 */
 	private class ExValue {
 		private Expression _expr;
 		private String _val;
@@ -450,6 +466,22 @@ public class LabelLoader {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Resolver} milik {@link LabelLoader}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LabelLoader} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code VariableResolver custom}; operasi
+	 * lokal: {@code resolveVariable}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see LabelLoader
+	 */
 	private class Resolver implements VariableResolver, java.io.Serializable {
 		private VariableResolver custom;
 

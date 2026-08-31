@@ -32,6 +32,17 @@ import ais.common.Common;
 public class DateScrollFilter {
 
 	// Class pembantu untuk memudahkan sorting
+	/**
+	 * Tipe implementasi bersarang {@link ItemData} milik {@link DateScrollFilter}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DateScrollFilter}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String pertemuan}, {@code Date
+	 * dateObj}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DateScrollFilter
+	 */
 	static class ItemData {
 		String pertemuan;
 		Date dateObj;

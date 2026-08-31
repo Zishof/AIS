@@ -7,6 +7,22 @@ import java.util.Map;
 /** Allow-list subhalaman native untuk handler tab Action existing. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public final class NewUiNativeSubrouteRegistry {
+    /**
+     * Tipe implementasi bersarang {@link Route} milik {@link NewUiNativeSubrouteRegistry}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiNativeSubrouteRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String module}, {@code String page};
+     * operasi lokal: {@code getModule()}, {@code getPage()}, {@code target}(). Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiNativeSubrouteRegistry
+     */
     public static final class Route {
         private final String module;
         private final String page;

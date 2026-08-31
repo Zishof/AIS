@@ -213,6 +213,20 @@ public class MyButtonTabbox {
 		return buatTombolDanPanel(index, label, icon);
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link MyButtonTabbox}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MyButtonTabbox} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code muat}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see MyButtonTabbox
+	 */
 	public interface PemuatTab {
 		void muat(Div panel) throws Exception;
 	}

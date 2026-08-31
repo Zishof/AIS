@@ -60,6 +60,18 @@ public final class DashboardCache {
         T load() throws Exception;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Entry} milik {@link DashboardCache}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardCache}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object value}, {@code long expiry}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardCache
+     */
     private static final class Entry {
         final Object value;
         final long expiry;

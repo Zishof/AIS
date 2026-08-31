@@ -17,12 +17,56 @@ public final class EbisnisPlatformParityRegistry {
 	public static final String ERROR_CONTRACT = "EBISNIS_ERROR_V1";
 	public static final int DEFAULT_PAGE_SIZE = 10;
 	public static final int MAX_PAGE_SIZE = 100;
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisPlatformParityRegistry}. Tipe ini memisahkan satu
+	 * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisPlatformParityRegistry} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code apakahAdmin()}, {@code
+	 * diizinkan}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisPlatformParityRegistry
+	 */
 	public interface AccessPolicy { boolean apakahAdmin(); boolean diizinkan(String menuKey, String aksi); }
+	/**
+	 * Tipe implementasi bersarang {@link PlatformProfile} milik {@link EbisnisPlatformParityRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisPlatformParityRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String platform}, {@code Set
+	 * capabilities}; operasi lokal: {@code mendukung}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisPlatformParityRegistry
+	 */
 	public static final class PlatformProfile {
 		public final String platform; public final Set<String> capabilities;
 		private PlatformProfile(String p, String c) { platform=p; capabilities=nilai(c); }
 		public boolean mendukung(String c) { return capabilities.contains(normalisasi(c)); }
 	}
+	/**
+	 * Tipe implementasi bersarang {@link ResolvedAction} milik {@link EbisnisPlatformParityRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisPlatformParityRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String platform}, {@code String
+	 * menuKey}, {@code String aksi}, {@code String canonicalRoute}, {@code String permissionKey}, {@code String
+	 * errorContract}, {@code String denialReason}, {@code boolean visible}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisPlatformParityRegistry
+	 */
 	public static final class ResolvedAction {
 		public final String platform, menuKey, aksi, canonicalRoute, permissionKey, errorContract, denialReason;
 		public final boolean visible, enabled, writeOperation, idempotencyRequired, optimisticVersionRequired;

@@ -72,10 +72,38 @@ public class AsyncTaskManager {
 	}
 
 	// Interfaces
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link AsyncTaskManager}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AsyncTaskManager} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code doInBackground}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> pekerjaan berjalan di thread lain. Buka/tutup resource miliknya sendiri, jangan
+	 * memakai komponen ZK atau session Hibernate request tanpa aktivasi yang eksplisit, dan laporkan kegagalan
+	 * melalui mekanisme kelas induk.</p>
+	 *
+	 * @see AsyncTaskManager
+	 */
 	public interface BackgroundTask {
 		Object doInBackground() throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link AsyncTaskManager}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AsyncTaskManager} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code updateUI}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> pekerjaan berjalan di thread lain. Buka/tutup resource miliknya sendiri, jangan
+	 * memakai komponen ZK atau session Hibernate request tanpa aktivasi yang eksplisit, dan laporkan kegagalan
+	 * melalui mekanisme kelas induk.</p>
+	 *
+	 * @see AsyncTaskManager
+	 */
 	public interface UITask {
 		void updateUI(Object backgroundResult) throws Exception;
 	}

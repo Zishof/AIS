@@ -130,6 +130,24 @@ public final class InventoryControlService {
 		return message == null || message.trim().length() == 0 ? "kesalahan tanpa pesan" : message.trim();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link OperationResult} milik {@link InventoryControlService}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * InventoryControlService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String POSTED}, {@code String
+	 * ALREADY_PROCESSED}, {@code String REJECTED}, {@code String FAILED}, {@code String status}, {@code int
+	 * processedCount}, {@code int replayCount}, {@code List messages}; operasi lokal: {@code getStatus()}, {@code
+	 * getProcessedCount()}, {@code getReplayCount()}, {@code getMessages()}, {@code isSuccessful}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see InventoryControlService
+	 */
 	public static final class OperationResult {
 		public static final String POSTED = "POSTED";
 		public static final String ALREADY_PROCESSED = "ALREADY_PROCESSED";
@@ -152,6 +170,22 @@ public final class InventoryControlService {
 		public boolean isSuccessful() { return POSTED.equals(status) || ALREADY_PROCESSED.equals(status); }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Allocation} milik {@link InventoryControlService}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * InventoryControlService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long lotId}, {@code BigDecimal
+	 * quantity}; operasi lokal: {@code getLotId()}, {@code getQuantity}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see InventoryControlService
+	 */
 	public static final class Allocation {
 		private final Long lotId;
 		private final BigDecimal quantity;
@@ -160,6 +194,23 @@ public final class InventoryControlService {
 		public BigDecimal getQuantity() { return quantity; }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link FefoPlan} milik {@link InventoryControlService}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * InventoryControlService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List allocations}, {@code BigDecimal
+	 * shortage}, {@code List errors}; operasi lokal: {@code getAllocations()}, {@code getShortage()}, {@code
+	 * getErrors()}, {@code isComplete}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see InventoryControlService
+	 */
 	public static final class FefoPlan {
 		private final List<Allocation> allocations;
 		private final BigDecimal shortage;
@@ -175,4 +226,3 @@ public final class InventoryControlService {
 		public boolean isComplete() { return errors.isEmpty() && shortage.compareTo(BigDecimal.ZERO) == 0; }
 	}
 }
-

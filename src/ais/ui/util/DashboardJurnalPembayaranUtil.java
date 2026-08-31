@@ -354,6 +354,20 @@ public final class DashboardJurnalPembayaranUtil {
         try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/ui/util/DashboardJurnalPembayaranUtil.java:354");}
     }
 
+    /**
+     * Tipe implementasi bersarang {@link JurnalDashboardRow} milik {@link DashboardJurnalPembayaranUtil}. Kelas
+     * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardJurnalPembayaranUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kodeAkun}, {@code String
+     * namaAkun}, {@code double debet}, {@code double kredit}, {@code String catatan}, {@code boolean akunLengkap}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardJurnalPembayaranUtil
+     */
     private static class JurnalDashboardRow {
         String kodeAkun;
         String namaAkun;

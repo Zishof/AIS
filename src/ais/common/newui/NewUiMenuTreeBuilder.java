@@ -18,6 +18,22 @@ public final class NewUiMenuTreeBuilder {
 
     public static final int MAX_DEPTH = 64;
 
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiMenuTreeBuilder} untuk result. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiMenuTreeBuilder}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List roots}, {@code int
+     * duplicateCount}, {@code int orphanCount}, {@code int cycleCount}; operasi lokal: {@code getRoots()}, {@code
+     * getDuplicateCount()}, {@code getOrphanCount()}, {@code getCycleCount}(). Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiMenuTreeBuilder
+     */
     public static final class Result {
         private final List<NewUiMenuNode> roots;
         private final int duplicateCount;

@@ -26,6 +26,19 @@ public final class PengajuanLimitMemberApiHelper {
 
 	private PengajuanLimitMemberApiHelper() { }
 
+	/**
+	 * Tipe implementasi bersarang {@link HasilPeriksa} milik {@link PengajuanLimitMemberApiHelper}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * PengajuanLimitMemberApiHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean bolehLanjut}, {@code
+	 * PengajuanLimitTransaksiMember pengajuan}, {@code String pesan}. Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see PengajuanLimitMemberApiHelper
+	 */
 	public static final class HasilPeriksa {
 		public final boolean bolehLanjut;
 		public final PengajuanLimitTransaksiMember pengajuan;

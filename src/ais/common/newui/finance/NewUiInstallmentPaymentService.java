@@ -39,9 +39,80 @@ public final class NewUiInstallmentPaymentService {
     private Row row(CicilanPembayaran c){Row r=new Row();r.id=c.getId();r.amount=num(c.getNilai());r.deposit=num(c.getDeposit());r.penalty=num(c.getDenda());r.date=c.getTanggal();r.receiptDate=c.getTanggalKwitansi();r.note=c.getKeterangan();r.stage=c.getTahap();if(c.getJenisPembayaran()!=null)r.paymentType=c.getJenisPembayaran().getNama();if(c.getItemBiaya()!=null)r.item=c.getItemBiaya().getNama();Kegiatan k=c.getKegiatan();if(k!=null){r.activityId=k.getId();r.academicYear=k.getTahunAkademik();r.semester=k.getSemster();r.billed=num(k.getTagihan());r.activityPaid=num(k.getAmount());r.remaining=num(k.getAmountTerhutang());if(k.getJenisKegiatan()!=null)r.activity=k.getJenisKegiatan().getNamaKegiatan();Mahasiswa m=k.getMahasiswa();BiodataCalonMahasiswa b=k.getCalonMahasiswa();if(m!=null){r.studentId=m.getId();r.identifier=m.getNim();r.name=m.getNama();if(m.getJurusan()!=null){r.studyProgram=m.getJurusan().getNama();if(m.getJurusan().getFakultas()!=null)r.faculty=m.getJurusan().getFakultas().getNama();}}else if(b!=null){r.candidateId=b.getId();r.identifier=b.getNoRegistrasi();r.name=b.getNama();Jurusan jp=b.getProdiLulus()==null?b.getProdi1():b.getProdiLulus();if(jp!=null){r.studyProgram=jp.getNama();if(jp.getFakultas()!=null)r.faculty=jp.getFakultas().getNama();}}}return r;}
     private static CicilanPembayaran require(Session s,Long id,Long studentId,Long candidateId){CicilanPembayaran c=id==null?null:(CicilanPembayaran)s.get(CicilanPembayaran.class,id);if(c==null)throw new IllegalArgumentException("Cicilan pembayaran tidak ditemukan.");Kegiatan k=c.getKegiatan();if(studentId!=null&&(k==null||k.getMahasiswa()==null||!studentId.equals(k.getMahasiswa().getId())))throw new SecurityException("Pembayaran bukan milik pengguna aktif.");if(candidateId!=null&&(k==null||k.getCalonMahasiswa()==null||!candidateId.equals(k.getCalonMahasiswa().getId())))throw new SecurityException("Pembayaran bukan milik pengguna aktif.");return c;}
     private static Date start(Date d){Calendar c=Calendar.getInstance();c.setTime(d);c.set(Calendar.HOUR_OF_DAY,0);c.set(Calendar.MINUTE,0);c.set(Calendar.SECOND,0);c.set(Calendar.MILLISECOND,0);return c.getTime();}private static Date next(Date d){Calendar c=Calendar.getInstance();c.setTime(start(d));c.add(Calendar.DATE,1);return c.getTime();}private static double num(Object n){return n==null?0:((Number)n).doubleValue();}private static String clean(String s){return s==null||s.trim().length()==0?null:s.trim();}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiInstallmentPaymentService} untuk filter. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiInstallmentPaymentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String query}, {@code String
+     * academicYear}, {@code Integer cohort}, {@code Long studentId}, {@code Long candidateId}, {@code Long
+     * facultyId}, {@code Long studyProgramId}, {@code Boolean semesterOdd}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiInstallmentPaymentService
+     */
     public static final class Filter{public String query,academicYear;public Integer cohort;public Long studentId,candidateId,facultyId,studyProgramId;public Boolean semesterOdd;public Date start,end;public boolean depositOnly;public List<Long>itemIds;public int page,size=20;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiInstallmentPaymentService} untuk snapshot. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiInstallmentPaymentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code double amount},
+     * {@code double deposit}, {@code double penalty}, {@code List rows}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiInstallmentPaymentService
+     */
     public static final class Snapshot{public int total;public double amount,deposit,penalty;public final List<Row>rows=new ArrayList<Row>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiInstallmentPaymentService} untuk row. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiInstallmentPaymentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long activityId},
+     * {@code Long studentId}, {@code Long candidateId}, {@code Integer semester}, {@code Integer stage}, {@code
+     * String identifier}, {@code String name}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiInstallmentPaymentService
+     */
     public static final class Row{public Long id,activityId,studentId,candidateId;public Integer semester,stage;public String identifier,name,faculty,studyProgram,academicYear,activity,paymentType,item,note;public Date date,receiptDate;public double amount,deposit,penalty,billed,activityPaid,remaining;}
+    /**
+     * Tipe implementasi bersarang {@link HistoryRow} milik {@link NewUiInstallmentPaymentService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiInstallmentPaymentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int revision}, {@code Date date},
+     * {@code String user}, {@code String type}, {@code String note}, {@code double amount}, {@code double
+     * deposit}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiInstallmentPaymentService
+     */
     public static final class HistoryRow{public int revision;public Date date;public String user,type,note;public double amount,deposit;}
-    public static final class Options{public final List<Option>items=new ArrayList<Option>(),faculties=new ArrayList<Option>(),studyPrograms=new ArrayList<Option>();}public static final class Option{public final Long id,parentId;public final String label;Option(Long i,String l,Long p){id=i;label=l;parentId=p;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiInstallmentPaymentService} untuk options. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiInstallmentPaymentService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List items}, {@code List faculties},
+     * {@code List studyPrograms}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiInstallmentPaymentService
+     */
+    /** Satu pilihan filter cicilan dengan id, label, dan id induk opsional. */
+    public static final class Options{public final List<Option>items=new ArrayList<Option>(),faculties=new ArrayList<Option>(),studyPrograms=new ArrayList<Option>();}/** Satu pilihan filter cicilan dengan id, label, dan id induk opsional. */
+    public static final class Option{public final Long id,parentId;public final String label;Option(Long i,String l,Long p){id=i;label=l;parentId=p;}}
 }

@@ -52,6 +52,19 @@ public class PendaftarPublicHelper {
 	private static final int PBKDF2_ITERASI = 120000;
 	private static final int PBKDF2_PANJANG_KEY_BIT = 256;
 
+	/**
+	 * Tipe implementasi bersarang {@link HasilProses} milik {@link PendaftarPublicHelper}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * PendaftarPublicHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean sukses}, {@code String
+	 * pesan}, {@code Long pendaftarId}, {@code String namaBisnis}, {@code Pendaftar pendaftar}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see PendaftarPublicHelper
+	 */
 	public static class HasilProses {
 		public boolean sukses;
 		public String pesan;

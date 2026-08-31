@@ -151,6 +151,20 @@ public class LaporanRekapMahasiswaSudahBayarWindow extends MyWindow {
 		comboitem.setValue(Mahasiswa.WNA);
 		searchwnawni.appendChild(comboitem);
 
+		/**
+		 * Event listener lokal milik {@link LaporanRekapMahasiswaSudahBayarWindow}. Kelas ini menangani event untuk
+		 * komponen induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LaporanRekapMahasiswaSudahBayarWindow} dan
+		 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see LaporanRekapMahasiswaSudahBayarWindow
+		 */
 		class SearchFakultasEventListener implements EventListener {
 
 			@Override

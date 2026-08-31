@@ -86,9 +86,74 @@ public final class NewUiPembelianService {
     private void ensureVisible(Pembelian p,Toko shop,Tbmuser user){if(user!=null&&user.getSiswa()!=null&&(p.getSiswa()==null||!user.getSiswa().getId().equals(p.getSiswa().getId())))throw new IllegalArgumentException("Pembelian berada di luar akses siswa.");if(shop!=null&&shop.getId()!=null&&!shop.getBolehMelihatTokolain()&&(p.getToko()==null||!shop.getId().equals(p.getToko().getId())))throw new IllegalArgumentException("Pembelian berada di luar toko aktif.");}
     private static String member(Siswa s,Mahasiswa m){if(s!=null)return s.getNomorInduk()+" "+s.getNama();if(m!=null)return m.getNim()+" "+m.getNama();return "1";}private static void stamp(Pembelian p,Tbmuser u){if(u!=null){p.setOleh(u.getUserNama());p.setOlehId(u.getUserId());}}
     private static double total(List<ResolvedLine> rows){double v=0;for(int i=0;i<rows.size();i++)v+=rows.get(i).amount;return v;}private static double number(Object v){return v==null?0:((Number)v).doubleValue();}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static Date dayStart(Date d){return new Date(d.getYear(),d.getMonth(),d.getDate(),0,0,0);}private static Date dayEnd(Date d){return new Date(d.getYear(),d.getMonth(),d.getDate(),23,59,59);}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+    /**
+     * Tipe implementasi bersarang {@link ResolvedLine} milik {@link NewUiPembelianService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPembelianService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Produk product}, {@code double
+     * quantity}, {@code double amount}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiPembelianService
+     */
     private static final class ResolvedLine{final Produk product;double quantity,amount;ResolvedLine(Produk p,double q,double a){product=p;quantity=q;amount=a;}}
+    /**
+     * Tipe implementasi bersarang {@link LineInput} milik {@link NewUiPembelianService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPembelianService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long productId}, {@code double
+     * quantity}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiPembelianService
+     */
     public static final class LineInput{public final Long productId;public final double quantity;public LineInput(Long p,double q){productId=p;quantity=q;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiPembelianService} untuk snapshot. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPembelianService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code List shops},
+     * {@code int total}, {@code double unitTotal}, {@code double grandTotal}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiPembelianService
+     */
     public static final class Snapshot{public final List<PurchaseRow>rows=new ArrayList<PurchaseRow>();public final List<Option>shops=new ArrayList<Option>();public int total;public double unitTotal,grandTotal;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiPembelianService} untuk option. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPembelianService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label},
+     * {@code String code}, {@code String barcode}, {@code double price}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiPembelianService
+     */
     public static final class Option{public final Long id;public final String label,code,barcode;public final double price;Option(Toko v){id=v.getId();label=v.getNama();code=null;barcode=null;price=0;}Option(Produk v){id=v.getId();label=v.getNama();code=v.getKode();barcode=v.getBarcode();price=number(v.getHargaJual());}Option(Siswa v){id=v.getId();label=v.getNama();code=v.getNomorInduk();barcode=null;price=0;}Option(Mahasiswa v){id=v.getId();label=v.getNama();code=v.getNim();barcode=null;price=0;}}
+    /**
+     * Tipe implementasi bersarang {@link PurchaseRow} milik {@link NewUiPembelianService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPembelianService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long productId},
+     * {@code Long shopId}, {@code Long studentId}, {@code Long collegeStudentId}, {@code String invoice}, {@code
+     * String productCode}, {@code String product}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see NewUiPembelianService
+     */
     public static final class PurchaseRow{public final Long id,productId,shopId,studentId,collegeStudentId;public final String invoice,productCode,product,member,shop,note;public final double quantity,unitPrice,amount;public final Date time;PurchaseRow(Pembelian v){id=v.getId();invoice=v.getKode();productId=v.getProduk()==null?null:v.getProduk().getId();productCode=v.getProduk()==null?"":v.getProduk().getKode();product=v.getProduk()==null?"":v.getProduk().getNama();quantity=number(v.getQty());unitPrice=number(v.getHargaSatuan());amount=number(v.getHargaJual());time=v.getWaktu();member=v.getMember();shopId=v.getToko()==null?null:v.getToko().getId();shop=v.getToko()==null?"":v.getToko().getNama();studentId=v.getSiswa()==null?null:v.getSiswa().getId();collegeStudentId=v.getMahasiswa()==null?null:v.getMahasiswa().getId();note=v.getKeterangan();}}
 }

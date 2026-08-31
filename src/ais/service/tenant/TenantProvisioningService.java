@@ -44,6 +44,21 @@ public final class TenantProvisioningService {
 		}
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link TenantProvisioningService}. Tipe ini memisahkan satu
+	 * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TenantProvisioningService} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code jalankan}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see TenantProvisioningService
+	 */
 	private interface LogikaStep {
 		/** @return metadata singkat utk kolom metadata_json (boleh null). */
 		String jalankan(Session session, ProvisioningJob job) throws Exception;

@@ -222,6 +222,21 @@ public class SessionCounter implements HttpSessionListener {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SessionDeleter} milik {@link SessionCounter}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SessionCounter} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String sessionId}; operasi lokal:
+	 * {@code run}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see SessionCounter
+	 */
 	private class SessionDeleter implements Runnable {
 
 		private String sessionId;

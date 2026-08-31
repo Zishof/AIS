@@ -29,6 +29,22 @@ public final class NewUiNativeJspResolver {
     private static final String ROOT = "/WEB-INF/new/";
     private static final Pattern COMPOSER = Pattern.compile("(?:apply|use)\\s*=\\s*[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE);
 
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiNativeJspResolver} untuk result. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiNativeJspResolver}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String target}, {@code String
+     * module}, {@code String page}; operasi lokal: {@code getTarget()}, {@code getModule()}, {@code getPage}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiNativeJspResolver
+     */
     public static final class Result {
         private final String target;
         private final String module;

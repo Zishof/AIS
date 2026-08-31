@@ -12,14 +12,56 @@ public final class EbisnisMigrationEvidenceGate {
 	public static final String RESULT_APPLIED = "APPLIED";
 	public static final String RESULT_ALREADY_APPLIED = "ALREADY_APPLIED";
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationEvidenceGate}. Tipe ini memisahkan satu
+	 * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationEvidenceGate} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code isAuthorized}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public interface ActorAuthenticator {
 		boolean isAuthorized(String actor, String workflow, String stage);
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationEvidenceGate}. Tipe ini memisahkan satu
+	 * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationEvidenceGate} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public interface GuardedAction {
 		void execute(String operationId) throws Exception;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Plan} milik {@link EbisnisMigrationEvidenceGate}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String operationId}, {@code String
+	 * workflow}, {@code String scopeIdentity}, {@code String stage}, {@code String actor}, {@code String
+	 * reference}, {@code String evidencePayload}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public static final class Plan {
 		public final String operationId;
 		public final String workflow;
@@ -42,6 +84,19 @@ public final class EbisnisMigrationEvidenceGate {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link EbisnisMigrationEvidenceGate} untuk result. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String status}, {@code long
+	 * preparedSequence}, {@code long appliedSequence}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public static final class Result {
 		public final String status;
 		public final long preparedSequence;
@@ -55,6 +110,19 @@ public final class EbisnisMigrationEvidenceGate {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Metrics} milik {@link EbisnisMigrationEvidenceGate}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long attempts}, {@code long applied},
+	 * {@code long alreadyApplied}, {@code long rejected}, {@code long evidenceFailures}, {@code long
+	 * actionFailures}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public static final class Metrics {
 		public final long attempts;
 		public final long applied;
@@ -74,6 +142,18 @@ public final class EbisnisMigrationEvidenceGate {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link GateException} milik {@link EbisnisMigrationEvidenceGate}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String code}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceGate
+	 */
 	public static final class GateException extends Exception {
 		private static final long serialVersionUID = 1L;
 		public final String code;

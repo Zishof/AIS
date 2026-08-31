@@ -329,6 +329,24 @@ public class LaporanKantinPdf extends HttpServlet {
 
     // ====================== Kop (tiap halaman) + Footer (nomor halaman) ======================
 
+    /**
+     * Tipe implementasi bersarang {@link KopFooter} milik {@link LaporanKantinPdf}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LaporanKantinPdf}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String instansi}, {@code String
+     * judul}, {@code String toko}, {@code String periode}, {@code String dicetak}, {@code String logoPath}, {@code
+     * PdfTemplate total}, {@code BaseFont base}; operasi lokal: {@code onOpenDocument()}, {@code logo()}, {@code
+     * onStartPage()}, {@code onEndPage()}, {@code onCloseDocument}(). Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LaporanKantinPdf
+     */
     private static final class KopFooter extends PdfPageEventHelper {
         private final String instansi, judul, toko, periode, dicetak, logoPath;
         private PdfTemplate total;

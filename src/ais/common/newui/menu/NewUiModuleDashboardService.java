@@ -127,17 +127,81 @@ public final class NewUiModuleDashboardService {
         map.put(key,new Definition(key,title,source,description,new MetricSpec[]{a,b,c,d},features));
     }
 
+    /**
+     * Tipe implementasi bersarang {@link MetricSpec} milik {@link NewUiModuleDashboardService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiModuleDashboardService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code String
+     * entityClass}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiModuleDashboardService
+     */
     private static final class MetricSpec { final String label, entityClass; MetricSpec(String label,String entityClass){this.label=label;this.entityClass=entityClass;} }
+    /**
+     * Tipe implementasi bersarang {@link Definition} milik {@link NewUiModuleDashboardService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiModuleDashboardService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String title},
+     * {@code String sourceClass}, {@code String description}, {@code MetricSpec metrics}, {@code String features};
+     * operasi lokal: {@code getKey()}, {@code getTitle()}, {@code getSourceClass()}, {@code getDescription()},
+     * {@code getFeatures}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiModuleDashboardService
+     */
     public static final class Definition implements Serializable {
         private static final long serialVersionUID=1L; private final String key,title,sourceClass,description; private final MetricSpec[] metrics; private final String[] features;
         Definition(String key,String title,String sourceClass,String description,MetricSpec[] metrics,String[] features){this.key=key;this.title=title;this.sourceClass=sourceClass;this.description=description;this.metrics=metrics;this.features=features;}
         public String getKey(){return key;} public String getTitle(){return title;} public String getSourceClass(){return sourceClass;} public String getDescription(){return description;} public String[] getFeatures(){return features;}
     }
+    /**
+     * Tipe implementasi bersarang {@link Metric} milik {@link NewUiModuleDashboardService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiModuleDashboardService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code String
+     * entityClass}, {@code long value}, {@code boolean available}; operasi lokal: {@code getLabel()}, {@code
+     * getEntityClass()}, {@code getValue()}, {@code isAvailable}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiModuleDashboardService
+     */
     public static final class Metric implements Serializable {
         private static final long serialVersionUID=1L; private final String label,entityClass; private final long value; private final boolean available;
         Metric(String label,String entityClass,long value,boolean available){this.label=label;this.entityClass=entityClass;this.value=value;this.available=available;}
         public String getLabel(){return label;} public String getEntityClass(){return entityClass;} public long getValue(){return value;} public boolean isAvailable(){return available;}
     }
+    /**
+     * Tipe implementasi bersarang {@link Dashboard} milik {@link NewUiModuleDashboardService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiModuleDashboardService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Definition definition}, {@code List
+     * metrics}, {@code long generatedAt}; operasi lokal: {@code getDefinition()}, {@code getMetrics()}, {@code
+     * getGeneratedAt}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiModuleDashboardService
+     */
     public static final class Dashboard implements Serializable {
         private static final long serialVersionUID=1L; private final Definition definition; private final List metrics; private final long generatedAt;
         Dashboard(Definition definition,List metrics,long generatedAt){this.definition=definition;this.metrics=Collections.unmodifiableList(metrics);this.generatedAt=generatedAt;}

@@ -51,6 +51,22 @@ public final class EbisnisMigrationRolloutRegistry {
 		NEXT_STAGE.put(CUTOVER, COMPLETE);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Scope} milik {@link EbisnisMigrationRolloutRegistry}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationRolloutRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String tenantKey}, {@code String
+	 * locationKey}, {@code String writerKey}, {@code int canaryPercent}; operasi lokal: {@code identity}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationRolloutRegistry
+	 */
 	public static final class Scope {
 		public final String tenantKey;
 		public final String locationKey;
@@ -74,6 +90,20 @@ public final class EbisnisMigrationRolloutRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Policy} milik {@link EbisnisMigrationRolloutRegistry}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationRolloutRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long maxMismatchCount}, {@code int
+	 * maxErrorRateBasisPoints}, {@code int maxLatencyRegressionPercent}, {@code int minObservationMinutes}, {@code
+	 * int maxCanaryPercent}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationRolloutRegistry
+	 */
 	public static final class Policy {
 		public final long maxMismatchCount;
 		public final int maxErrorRateBasisPoints;
@@ -98,6 +128,20 @@ public final class EbisnisMigrationRolloutRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Evidence} milik {@link EbisnisMigrationRolloutRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationRolloutRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean baselineCaptured}, {@code
+	 * boolean dryRunPassed}, {@code boolean backfillPassed}, {@code boolean shadowReadPassed}, {@code boolean
+	 * shadowWritePassed}, {@code boolean reconciliationPassed}, {@code boolean canaryPassed}, {@code boolean
+	 * cutoverStable}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationRolloutRegistry
+	 */
 	public static final class Evidence {
 		public final boolean baselineCaptured;
 		public final boolean dryRunPassed;
@@ -144,6 +188,26 @@ public final class EbisnisMigrationRolloutRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Builder} milik {@link EbisnisMigrationRolloutRegistry}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationRolloutRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean baselineCaptured}, {@code
+	 * boolean dryRunPassed}, {@code boolean backfillPassed}, {@code boolean shadowReadPassed}, {@code boolean
+	 * shadowWritePassed}, {@code boolean reconciliationPassed}, {@code boolean canaryPassed}, {@code boolean
+	 * cutoverStable}; operasi lokal: {@code baselineCaptured()}, {@code dryRunPassed()}, {@code backfillPassed()},
+	 * {@code shadowReadPassed()}, {@code shadowWritePassed()}, {@code reconciliationPassed()}, {@code
+	 * canaryPassed()}, {@code cutoverStable()}, {@code rollbackRehearsed()}, {@code qaApproved}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationRolloutRegistry
+	 */
 	public static final class Builder {
 		private boolean baselineCaptured;
 		private boolean dryRunPassed;
@@ -198,6 +262,20 @@ public final class EbisnisMigrationRolloutRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Decision} milik {@link EbisnisMigrationRolloutRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationRolloutRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean allowed}, {@code boolean
+	 * rollbackRequired}, {@code String code}, {@code String currentStage}, {@code String requestedStage}, {@code
+	 * String scopeIdentity}, {@code List reasons}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationRolloutRegistry
+	 */
 	public static final class Decision {
 		public final boolean allowed;
 		public final boolean rollbackRequired;

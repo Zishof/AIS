@@ -459,6 +459,34 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 
 								final XSSFCellStyle hlink_style = (XSSFCellStyle) objects[6];
 
+								/**
+								 * Helper implementasi bersarang milik {@link CommonUiFactoryHelper} untuk data adding helper. Kelas ini
+								 * mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+								 *
+								 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CommonUiFactoryHelper} dan dapat mengakses
+								 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+								 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+								 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+								 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+								 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+								 * tambahkan perilaku lintas domain pada service bersama.</p>
+								 *
+								 * @see CommonUiFactoryHelper
+								 */
+								/**
+								 * Helper implementasi bersarang milik {@link CommonUiFactoryHelper} untuk data adding helper. Kelas ini
+								 * mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+								 *
+								 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CommonUiFactoryHelper} dan dapat mengakses
+								 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+								 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+								 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+								 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+								 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+								 * tambahkan perilaku lintas domain pada service bersama.</p>
+								 *
+								 * @see CommonUiFactoryHelper
+								 */
 								class DataAddingHelper {
 									public void process(XSSFRow row, int index,
 											PertemuanPunyaDiskusi pertemuanPunyaDiskusi) throws Exception {
@@ -2209,6 +2237,10 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 								XSSFRow row = (XSSFRow) objects[2];
 								final XSSFCellStyle hlink_style = (XSSFCellStyle) objects[6];
 
+								/**
+								 * Helper lokal ekspor yang menulis lampiran diskusi pertemuan ke workbook. Operasi membaca lampiran
+								 * melalui alur {@link CommonUiFactoryHelper} dan hanya memodifikasi row Excel yang diberikan.
+								 */
 								class DataAddingHelper {
 									public void process(XSSFRow row, int index,
 											PertemuanPunyaDiskusi pertemuanPunyaDiskusi) throws Exception {

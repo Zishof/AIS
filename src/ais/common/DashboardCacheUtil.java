@@ -217,6 +217,21 @@ public final class DashboardCacheUtil {
     // Inner: entry cache dengan TTL
     // ════════════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link CachedEntry} milik {@link DashboardCacheUtil}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardCacheUtil}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object data}, {@code long expiresAt};
+     * operasi lokal: {@code isExpired()}, {@code remainingMs}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DashboardCacheUtil
+     */
     public static final class CachedEntry {
         public final Object data;
         private final long  expiresAt;

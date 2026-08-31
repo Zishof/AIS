@@ -7,18 +7,76 @@ package ais.common;
 public final class EbisnisMigrationAuditedIdentityProvider
 		implements EbisnisMigrationOperationalControl.IdentityProvider {
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationAuditedIdentityProvider}. Tipe ini
+	 * memisahkan satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationAuditedIdentityProvider} dan
+	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code verify}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationAuditedIdentityProvider
+	 */
 	public interface CredentialVerifier {
 		Principal verify(String actor, String credential) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationAuditedIdentityProvider}. Tipe ini
+	 * memisahkan satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationAuditedIdentityProvider} dan
+	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code record}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationAuditedIdentityProvider
+	 */
 	public interface AuditSink {
 		void record(Decision decision) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationAuditedIdentityProvider}. Tipe ini
+	 * memisahkan satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationAuditedIdentityProvider} dan
+	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code currentTimeMillis}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationAuditedIdentityProvider
+	 */
 	public interface TimeSource {
 		long currentTimeMillis();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Principal} milik {@link EbisnisMigrationAuditedIdentityProvider}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationAuditedIdentityProvider}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+	 * aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String actor}, {@code String
+	 * assertionId}, {@code long expiresAtMillis}, {@code String permissions}; operasi lokal: {@code permits}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationAuditedIdentityProvider
+	 */
 	public static final class Principal {
 		public final String actor;
 		public final String assertionId;
@@ -49,6 +107,20 @@ public final class EbisnisMigrationAuditedIdentityProvider
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Decision} milik {@link EbisnisMigrationAuditedIdentityProvider}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationAuditedIdentityProvider}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+	 * aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String actor}, {@code String
+	 * assertionId}, {@code String workflow}, {@code String stage}, {@code boolean authorized}, {@code String
+	 * reason}, {@code long decidedAtMillis}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationAuditedIdentityProvider
+	 */
 	public static final class Decision {
 		public final String actor;
 		public final String assertionId;

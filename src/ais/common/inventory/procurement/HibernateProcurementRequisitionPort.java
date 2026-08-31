@@ -304,6 +304,21 @@ public final class HibernateProcurementRequisitionPort implements ProcurementReq
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ResolvedReferences} milik {@link HibernateProcurementRequisitionPort}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * HibernateProcurementRequisitionPort}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String requesterUserId}, {@code Long
+	 * targetTokoId}, {@code List lines}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see HibernateProcurementRequisitionPort
+	 */
 	private static final class ResolvedReferences {
 		private final String requesterUserId;
 		private final Long targetTokoId;
@@ -317,6 +332,20 @@ public final class HibernateProcurementRequisitionPort implements ProcurementReq
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ResolvedLine} milik {@link HibernateProcurementRequisitionPort}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * HibernateProcurementRequisitionPort}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ProcurementRequisitionDraftLine
+	 * draftLine}, {@code Long masterAssetId}, {@code MasterAsset masterAsset}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see HibernateProcurementRequisitionPort
+	 */
 	private static final class ResolvedLine {
 		private final ProcurementRequisitionDraftLine draftLine;
 		private final Long masterAssetId;

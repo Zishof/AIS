@@ -223,12 +223,113 @@ public final class NewUiPenggunaanAnggaranService {
     private static List<SourceSpec> sourceSpecs(){List<SourceSpec>x=new ArrayList<SourceSpec>();x.add(new SourceSpec(UANG_MUKA,"Uang Muka",UangMuka.class));x.add(new SourceSpec(PENGADAAN,"Pengadaan Master Asset",PermintaanPengadaanMasterAssetDetail.class));x.add(new SourceSpec(GAJI,"Pembayaran Gaji",PembayaranGaji.class));x.add(new SourceSpec(KAS_KECIL,"Kas Kecil",KasKecil.class));x.add(new SourceSpec(KAS_BESAR,"Kas Besar",KasBesar.class));x.add(new SourceSpec(JURNAL,"Jurnal Umum",GrupTransaksi.class));x.add(new SourceSpec(SALDO_AWAL,"Saldo Awal Asset",SaldoAwalMasterAssetDetail.class));x.add(new SourceSpec(PERTANGGUNGJAWABAN,"Pertanggungjawaban",Pertangungjawaban.class));return x;}
     private static int percent(int done,int total){return total==0?0:Math.min(90,done*90/total);}private static void increment(Map<String,Integer>m,String k){Integer v=m.get(k);m.put(k,Integer.valueOf(v==null?1:v.intValue()+1));}private static double value(Double v){return v==null?0:v.doubleValue();}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static void normalize(Filter f){if(f==null)throw new IllegalArgumentException("Filter wajib tersedia.");f.page=Math.max(0,f.page);f.size=Math.max(10,Math.min(100,f.size));}
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link NewUiPenggunaanAnggaranService}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link NewUiPenggunaanAnggaranService} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code update}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public interface Progress { void update(int percent,String message); }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiPenggunaanAnggaranService} untuk filter. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String q}, {@code Long workspaceId},
+     * {@code Date start}, {@code Date end}, {@code boolean activeOnly}, {@code int page}, {@code int size}, {@code
+     * Map sources}; operasi lokal: {@code enabled}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public static final class Filter { public String q;public Long workspaceId;public Date start,end;public boolean activeOnly=true;public int page,size=20;public final Map<String,Boolean> sources=new LinkedHashMap<String,Boolean>();public boolean enabled(String key){Boolean v=sources.get(key);return v==null||v.booleanValue();} }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiPenggunaanAnggaranService} untuk snapshot. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code List workspaces},
+     * {@code Map sourceCounts}, {@code Map transferCounts}, {@code int total}, {@code int active}, {@code int
+     * inactive}, {@code double totalAmount}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public static final class Snapshot { public final List<Row>rows=new ArrayList<Row>();public final List<WorkspaceOption>workspaces=new ArrayList<WorkspaceOption>();public final Map<String,Integer>sourceCounts=new LinkedHashMap<String,Integer>(),transferCounts=new LinkedHashMap<String,Integer>();public int total,active,inactive;public double totalAmount; }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiPenggunaanAnggaranService} untuk row. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long workspaceId},
+     * {@code Long sopId}, {@code String code}, {@code String name}, {@code String note}, {@code String ref},
+     * {@code String workspace}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public static final class Row { public Long id,workspaceId,sopId;public String code,name,note,ref,workspace,source,sop,sopName,transferStatus;public Date time;public double amount,budget;public boolean active; }
+    /** Pilihan workspace ringkas untuk filter UI; hanya membawa id dan label yang dibentuk dari entity {@link Workspace}. */
     public static final class WorkspaceOption { public final Long id;public final String label;WorkspaceOption(Workspace w){id=w.getId();label=(w.getTahunWorkspace()==null?"":w.getTahunWorkspace()+" · ")+w.getNama();} }
+    /**
+     * Tipe implementasi bersarang {@link ReprocessResult} milik {@link NewUiPenggunaanAnggaranService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int processed}, {@code int
+     * duplicatesRemoved}, {@code Map perSource}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public static final class ReprocessResult { public int processed,duplicatesRemoved;public final Map<String,Integer>perSource=new LinkedHashMap<String,Integer>(); }
+    /**
+     * Tipe implementasi bersarang {@link History} milik {@link NewUiPenggunaanAnggaranService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int revision}, {@code int type},
+     * {@code long timestamp}, {@code String by}, {@code String code}, {@code String name}, {@code String note},
+     * {@code double amount}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     public static final class History { public final int revision,type;public final long timestamp;public final String by,code,name,note;public final double amount;public final Boolean active;History(Object[]x){revision=((Number)x[0]).intValue();type=x[1]==null?0:((Number)x[1]).intValue();timestamp=x[2]==null?0:((Number)x[2]).longValue();by=x[3]==null?"":String.valueOf(x[3]);code=x[4]==null?"":String.valueOf(x[4]);name=x[5]==null?"":String.valueOf(x[5]);amount=x[6]==null?0:((Number)x[6]).doubleValue();active=x[7]==null?null:(Boolean)x[7];note=x[8]==null?"":String.valueOf(x[8]);} }
+    /**
+     * Tipe implementasi bersarang {@link SourceSpec} milik {@link NewUiPenggunaanAnggaranService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String label},
+     * {@code Class type}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranService
+     */
     private static final class SourceSpec { final String key,label;final Class type;SourceSpec(String k,String l,Class t){key=k;label=l;type=t;} }
 }

@@ -27,6 +27,19 @@ public final class RetailDatabaseMigrations {
 	private RetailDatabaseMigrations() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Migration} milik {@link RetailDatabaseMigrations}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RetailDatabaseMigrations}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String version}, {@code String
+	 * description}, {@code String sql}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see RetailDatabaseMigrations
+	 */
 	private static final class Migration {
 		final String version;
 		final String description;

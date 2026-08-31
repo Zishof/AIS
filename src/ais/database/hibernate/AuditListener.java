@@ -270,6 +270,22 @@ public class AuditListener extends AuditEventListener {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SinkronisasiStatusKegiatanRequest} milik {@link AuditListener}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AuditListener}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long mahasiswaId}, {@code String
+	 * tahunAkademik}, {@code Integer semester}, {@code boolean pembayaranLunas}; operasi lokal: {@code key}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AuditListener
+	 */
 	private static final class SinkronisasiStatusKegiatanRequest {
 		private final Long mahasiswaId;
 		private final String tahunAkademik;

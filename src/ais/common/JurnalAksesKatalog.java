@@ -27,6 +27,18 @@ public final class JurnalAksesKatalog {
         "manageSubscription", "managePayment", "manageIdentifier"
     };
 
+    /**
+     * Tipe implementasi bersarang {@link Entri} milik {@link JurnalAksesKatalog}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalAksesKatalog}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long child}, {@code String kunci},
+     * {@code String label}, {@code String capability}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see JurnalAksesKatalog
+     */
     public static final class Entri {
         public final long child;
         public final String kunci;

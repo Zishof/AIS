@@ -10,11 +10,102 @@ import java.util.ArrayList;import java.util.List;import org.hibernate.Criteria;i
  private Criteria criteria(Session s,Filter f,boolean order){Criteria c=s.createCriteria(TunggakanMahasiswa.class,"a").add(Restrictions.ge("jumlahTunggakan",Double.valueOf(1)));if(f.studentStatusId!=null)c.add(Restrictions.sqlRestriction("mahasiswa in (select mahasiswa from history_status_mahasiswa where status_mahasiswa=? and tahunakademik=? and ganjil_genap=?)",new Object[]{f.studentStatusId,f.statusAcademicYear,f.statusSemesterOdd?Perkuliahan.GANJIL:Perkuliahan.GENAP},new org.hibernate.type.Type[]{Hibernate.LONG,Hibernate.STRING,Hibernate.STRING}));c.createAlias("mahasiswa","m").createAlias("m.jurusan","j",Criteria.LEFT_JOIN).createAlias("j.fakultas","fac",Criteria.LEFT_JOIN);if(clean(f.query)!=null)c.add(Restrictions.or(Restrictions.ilike("m.nim",clean(f.query),MatchMode.ANYWHERE),Restrictions.ilike("m.nama",clean(f.query),MatchMode.ANYWHERE)));if(f.year!=null)c.add(Restrictions.eq("m.tahunangkatan",f.year));if(clean(f.academicYear)!=null)c.add(Restrictions.eq("tahunAkademik",clean(f.academicYear)));if(f.semester!=null)c.add(Restrictions.eq("semester",f.semester));if(clean(f.program)!=null)c.add(Restrictions.eq("m.program",clean(f.program)));if(clean(f.citizenship)!=null)c.add(Restrictions.eq("m.warganegara",clean(f.citizenship)));if(f.facultyId!=null)c.add(Restrictions.eq("fac.id",f.facultyId));if(f.studyProgramId!=null)c.add(Restrictions.eq("j.id",f.studyProgramId));if(f.initialStatusId!=null)c.add(Restrictions.eq("m.statusAwalMahasiswa.id",f.initialStatusId));if(f.concentrationId!=null)c.add(Restrictions.eq("m.konsentrasi.id",f.concentrationId));if(f.levelId!=null)c.add(Restrictions.eq("j.jenjang.id",f.levelId));if(f.advisorId!=null)c.add(Restrictions.eq("m.dosen",f.advisorId));if(f.advisorMissing)c.add(Restrictions.isNull("m.dosen"));if(f.unpaidOnly)c.add(Restrictions.isNull("kegiatan"));if(f.settledOnly)c.add(Restrictions.eq("dianggapLunas",true));if(order)c.addOrder(Order.asc("m.nim")).addOrder(Order.desc("tahunAkademik")).addOrder(Order.desc("semester"));return c;}
  private Row row(TunggakanMahasiswa x){Row r=new Row();r.id=x.getId();r.academicYear=x.getTahunAkademik();r.semester=x.getSemester();r.debt=number(x.getJumlahTunggakan());r.settled=Boolean.TRUE.equals(x.getDianggapLunas());r.note=x.getKeterangan();Mahasiswa m=x.getMahasiswa();if(m!=null){r.studentId=m.getId();r.nim=m.getNim();r.name=m.getNama();r.cohort=m.getTahunangkatan();r.citizenship=m.getWarganegara();r.startSemester=m.getSemesterMulai();r.program=m.getProgram();if(m.getJurusan()!=null){r.studyProgram=m.getJurusan().getNama();if(m.getJurusan().getFakultas()!=null)r.faculty=m.getJurusan().getFakultas().getNama();}}Kegiatan k=x.getKegiatan();r.hasPayment=k!=null;if(k!=null){r.paid=number(k.getAmount());r.remaining=number(k.getAmountTerhutang());r.paidPercent=number(k.getPersentaseLunas());}else r.remaining=r.debt;return r;}
  private static TunggakanMahasiswa require(Session s,Long id){TunggakanMahasiswa x=id==null?null:(TunggakanMahasiswa)s.get(TunggakanMahasiswa.class,id);if(x==null)throw new IllegalArgumentException("Tunggakan mahasiswa tidak ditemukan.");return x;}private static void stamp(TunggakanMahasiswa x,Tbmuser u){if(u!=null){x.setOleh(u.getUserNama());x.setOlehId(u.getUserId());}}private static double number(Number n){return n==null?0:n.doubleValue();}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStudentArrearsService} untuk filter. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String query}, {@code String
+  * academicYear}, {@code String program}, {@code String citizenship}, {@code String statusAcademicYear}, {@code
+  * Integer year}, {@code Integer semester}, {@code Long facultyId}. Aturan bisnis bersama tetap berada pada
+  * kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Filter{public String query,academicYear,program,citizenship,statusAcademicYear;public Integer year,semester;public Long facultyId,studyProgramId,studentStatusId,initialStatusId,concentrationId,levelId,advisorId;public boolean statusSemesterOdd,advisorMissing,unpaidOnly,settledOnly;public int page,size=20;}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStudentArrearsService} untuk snapshot. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int records},
+  * {@code double debt}, {@code List rows}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+  * yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Snapshot{public int total,records;public double debt;public final List<Row>rows=new ArrayList<Row>();}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStudentArrearsService} untuk row. Tipe ini mengelompokkan nilai
+  * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long studentId},
+  * {@code Integer semester}, {@code Integer cohort}, {@code String academicYear}, {@code String nim}, {@code
+  * String name}, {@code String citizenship}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+  * yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Row{public Long id,studentId;public Integer semester,cohort;public String academicYear,nim,name,citizenship,startSemester,faculty,studyProgram,status,program,note;public double debt,remaining,paid,paidPercent;public boolean settled,hasPayment;}
+ /**
+  * Tipe implementasi bersarang {@link Details} milik {@link NewUiStudentArrearsService}. Kelas ini memberi nama
+  * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List charges}, {@code List payments}.
+  * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Details{public final List<Detail>charges=new ArrayList<Detail>(),payments=new ArrayList<Detail>();}
+ /**
+  * Tipe implementasi bersarang {@link Detail} milik {@link NewUiStudentArrearsService}. Kelas ini memberi nama
+  * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code double amount}.
+  * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Detail{public final String name;public final double amount;Detail(String n,double a){name=n;amount=a;}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStudentArrearsService} untuk options. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List statuses}, {@code List
+  * initialStatuses}, {@code List faculties}, {@code List studyPrograms}, {@code List concentrations}, {@code
+  * List levels}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Options{public final List<Option>statuses=new ArrayList<Option>(),initialStatuses=new ArrayList<Option>(),faculties=new ArrayList<Option>(),studyPrograms=new ArrayList<Option>(),concentrations=new ArrayList<Option>(),levels=new ArrayList<Option>();}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStudentArrearsService} untuk option. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStudentArrearsService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long parentId},
+  * {@code String label}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see NewUiStudentArrearsService
+  */
  public static final class Option{public final Long id,parentId;public final String label;Option(Long i,String l,Long p){id=i;label=l;parentId=p;}}
 }

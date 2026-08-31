@@ -33,6 +33,22 @@ public final class TenantSchemaMigrations {
 	public static final String TARGET_ERP = "ERP";
 	public static final String TARGET_AUDIT = "AUDIT";
 
+	/**
+	 * Tipe implementasi bersarang {@link Migrasi} milik {@link TenantSchemaMigrations}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * TenantSchemaMigrations}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String versionCode}, {@code String
+	 * target}, {@code String ddl}; operasi lokal: {@code checksum}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see TenantSchemaMigrations
+	 */
 	public static final class Migrasi {
 		public final String versionCode;
 		public final String target;

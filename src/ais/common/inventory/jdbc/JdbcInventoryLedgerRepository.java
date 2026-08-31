@@ -345,6 +345,19 @@ public final class JdbcInventoryLedgerRepository implements InventoryLedgerRepos
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PostedMovement} milik {@link JdbcInventoryLedgerRepository}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * JdbcInventoryLedgerRepository}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long movementId}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see JdbcInventoryLedgerRepository
+	 */
 	private static final class PostedMovement {
 		private final Long movementId;
 
@@ -353,6 +366,23 @@ public final class JdbcInventoryLedgerRepository implements InventoryLedgerRepos
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ExistingMovement} milik {@link JdbcInventoryLedgerRepository}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * JdbcInventoryLedgerRepository}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code InventoryLedgerRecord record}, {@code
+	 * Long uomId}, {@code String sourceType}, {@code String sourceId}, {@code String eventType}; operasi lokal:
+	 * {@code matches}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see JdbcInventoryLedgerRepository
+	 */
 	private static final class ExistingMovement {
 		private final InventoryLedgerRecord record;
 		private final Long uomId;

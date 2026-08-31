@@ -10,8 +10,65 @@ import java.io.File;import java.io.FileInputStream;import java.io.FileOutputStre
  private Criteria criteria(Session s,Filter f,boolean order){Criteria c=s.createCriteria(BiodataCalonMahasiswaPunyaVerifikasiBerkas.class,"d").createAlias("biodataCalonMahasiswa","c").createAlias("verifikasiKelengkapanCalonMahasiswa","v");if(f.packageId!=null)c.add(Restrictions.eq("c.paket.id",f.packageId));if(f.selectionId!=null)c.add(Restrictions.eq("c.jenisSeleksi.id",f.selectionId));if(f.waveId!=null)c.add(Restrictions.eq("c.gelombangPendaftaran.id",f.waveId));if(nonblank(f.academicYear))c.add(Restrictions.eq("c.tahunAkademik",f.academicYear.trim()));if(f.programChoiceId!=null)c.add(Restrictions.or(Restrictions.eq("c.prodi1.id",f.programChoiceId),Restrictions.or(Restrictions.eq("c.prodi2.id",f.programChoiceId),Restrictions.or(Restrictions.eq("c.prodi3.id",f.programChoiceId),Restrictions.or(Restrictions.eq("c.prodi4.id",f.programChoiceId),Restrictions.eq("c.prodi5.id",f.programChoiceId))))));if(f.programPassedId!=null)c.add(Restrictions.eq("c.prodiLulus.id",f.programPassedId));if(f.hasNim)c.add(Restrictions.and(Restrictions.isNotNull("c.nim"),Restrictions.ne("c.nim","")));if(f.noNim)c.add(Restrictions.or(Restrictions.isNull("c.nim"),Restrictions.eq("c.nim","")));if(f.extraForm)c.add(Restrictions.ne("c.parameterTambahanInds",""));if(f.uploaded!=null)c.add(Restrictions.eq("uploaded",f.uploaded));if(f.verified!=null)c.add(Restrictions.eq("verified",f.verified));if(f.registrationPaid!=null){c.createAlias("c.pembayaranRegistrasi","pr",Criteria.LEFT_JOIN);c.add(f.registrationPaid.booleanValue()?Restrictions.gt("pr.amount",Double.valueOf(.1)):Restrictions.or(Restrictions.isNull("pr"),Restrictions.lt("pr.amount",Double.valueOf(.1))));}if(f.reregistrationPaid!=null||f.reregistrationSettled!=null){c.createAlias("c.pembayaranDaftarUlang","pu",Criteria.LEFT_JOIN);if(f.reregistrationPaid!=null)c.add(f.reregistrationPaid.booleanValue()?Restrictions.gt("pu.amount",Double.valueOf(.1)):Restrictions.or(Restrictions.isNull("pu"),Restrictions.lt("pu.amount",Double.valueOf(.1))));if(f.reregistrationSettled!=null)c.add(Restrictions.eq("pu.lunas",f.reregistrationSettled));}if(nonblank(f.document))c.add(Restrictions.ilike("v.nama",f.document.trim(),MatchMode.ANYWHERE));if(nonblank(f.candidate))c.add(Restrictions.or(Restrictions.ilike("c.nama",f.candidate.trim(),MatchMode.ANYWHERE),Restrictions.or(Restrictions.ilike("c.noUjian",f.candidate.trim(),MatchMode.ANYWHERE),Restrictions.ilike("c.noRegistrasi",f.candidate.trim(),MatchMode.ANYWHERE))));if(order)c.addOrder(Order.desc("tanggal_dirubah"));return c;}
  private void options(Session s,Snapshot o){for(Object x:s.createCriteria(Jurusan.class).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE))).addOrder(Order.asc("nama")).list())o.programs.add(new Option((Jurusan)x));for(Object x:s.createCriteria(JenisSeleksi.class).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE))).addOrder(Order.asc("nama")).list())o.selections.add(new Option((JenisSeleksi)x));for(Object x:s.createCriteria(GelombangPendaftaran.class).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE))).addOrder(Order.desc("id")).list())o.waves.add(new Option((GelombangPendaftaran)x));for(Object x:s.createCriteria(Paket.class).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE))).addOrder(Order.asc("nama")).list())o.packages.add(new Option((Paket)x));List years=s.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.isNotNull("tahunAkademik")).setProjection(Projections.distinct(Projections.property("tahunAkademik"))).addOrder(Order.desc("tahunAkademik")).list();for(Object x:years)o.academicYears.add(String.valueOf(x));}
  private static BiodataCalonMahasiswaPunyaVerifikasiBerkas get(Session s,Long id){Object v=id==null?null:s.get(BiodataCalonMahasiswaPunyaVerifikasiBerkas.class,id);if(v==null)throw new IllegalArgumentException("Data verifikasi tidak ditemukan.");return(BiodataCalonMahasiswaPunyaVerifikasiBerkas)v;}private static boolean expired(BiodataCalonMahasiswaPunyaVerifikasiBerkas v){try{Date d=v.getBiodataCalonMahasiswa().getGelombangPendaftaran().getTanggalDaftarUlangBerakhir();return d!=null&&d.before(new Date())&&!Common.dateFormat8.get().format(d).equals(Common.dateFormat8.get().format(new Date()));}catch(Exception e){return false;}}private static void stamp(BiodataCalonMahasiswaPunyaVerifikasiBerkas v,Tbmuser u){if(u!=null){v.setOleh(u.getUserNama());v.setOlehId(u.getUserId());}}private static boolean nonblank(String x){return x!=null&&x.trim().length()>0;}private static String safe(String x){return x==null?"file":x.replaceAll("[^A-Za-z0-9._-]+","_");}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCandidateDocumentVerificationService} untuk filter. Tipe ini
+  * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+  * jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCandidateDocumentVerificationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+  * aman digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String candidate}, {@code String
+  * document}, {@code String academicYear}, {@code Long programChoiceId}, {@code Long programPassedId}, {@code
+  * Long selectionId}, {@code Long waveId}, {@code Long packageId}. Aturan bisnis bersama tetap berada pada
+  * kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCandidateDocumentVerificationService
+  */
  public static final class Filter{public String candidate,document,academicYear;public Long programChoiceId,programPassedId,selectionId,waveId,packageId;public Boolean uploaded,verified,registrationPaid,reregistrationPaid,reregistrationSettled;public boolean hasNim,noNim,extraForm;public int page=0,size=20;}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCandidateDocumentVerificationService} untuk snapshot. Tipe ini
+  * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+  * jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCandidateDocumentVerificationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+  * aman digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code List rows}, {@code
+  * List programs}, {@code List selections}, {@code List waves}, {@code List packages}, {@code List
+  * academicYears}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCandidateDocumentVerificationService
+  */
  public static final class Snapshot{public int total;public final List<Row>rows=new ArrayList<Row>();public final List<Option>programs=new ArrayList<Option>(),selections=new ArrayList<Option>(),waves=new ArrayList<Option>(),packages=new ArrayList<Option>();public final List<String>academicYears=new ArrayList<String>();}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCandidateDocumentVerificationService} untuk option. Tipe ini
+  * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+  * jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCandidateDocumentVerificationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+  * aman digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label},
+  * {@code String year}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiCandidateDocumentVerificationService
+  */
  public static final class Option{public final Long id;public final String label,year;Option(Jurusan x){id=x.getId();label=x.getNama();year="";}Option(JenisSeleksi x){id=x.getId();label=x.getNama();year="";}Option(GelombangPendaftaran x){id=x.getId();label=x.getNama();year=x.getTahunAkademik();}Option(Paket x){id=x.getId();label=x.getNama();year="";}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiCandidateDocumentVerificationService} untuk row. Tipe ini
+  * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+  * jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiCandidateDocumentVerificationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+  * aman digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long candidateId},
+  * {@code String registration}, {@code String exam}, {@code String name}, {@code String academicYear}, {@code
+  * String wave}, {@code String document}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see NewUiCandidateDocumentVerificationService
+  */
  public static final class Row{public final Long id,candidateId;public final String registration,exam,name,academicYear,wave,document,note,fileName,phone,email,photo;public final boolean required,needsVerification,verified,uploaded,expired,hasAttachment;Row(BiodataCalonMahasiswaPunyaVerifikasiBerkas x){id=x.getId();BiodataCalonMahasiswa c=x.getBiodataCalonMahasiswa();candidateId=c.getId();registration=c.getNoRegistrasi();exam=c.getNoUjian();name=c.getNama();academicYear=c.getTahunAkademik();wave=c.getGelombangPendaftaran()==null?"":c.getGelombangPendaftaran().getNama();document=x.getVerifikasiKelengkapanCalonMahasiswa().getNama();required=Boolean.TRUE.equals(x.getVerifikasiKelengkapanCalonMahasiswa().getWajib());needsVerification=Boolean.TRUE.equals(x.getVerifikasiKelengkapanCalonMahasiswa().getVerifikasi());verified=Boolean.TRUE.equals(x.getVerified());uploaded=Boolean.TRUE.equals(x.getUploaded());note=x.getKeterangan();fileName=x.getNamaFile();phone=c.getHp();email=c.getEmail();expired=expired(x);LampiranLain l=null;try{l=LampiranLain.ambil(id,BiodataCalonMahasiswaPunyaVerifikasiBerkas.class.getName());}catch(Exception ignored){}hasAttachment=l!=null;String p="";try{p=CommonMedia.getUrlFotoPengguna(new Tbmuser(c));}catch(Exception ignored){}photo=p;}}
 }

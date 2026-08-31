@@ -5,6 +5,21 @@ import java.security.MessageDigest;
 /** Kontrak publikasi evidence ke object storage immutable/WORM F18. */
 public final class EbisnisMigrationImmutableEvidencePublisher {
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationImmutableEvidencePublisher}. Tipe ini
+	 * memisahkan satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationImmutableEvidencePublisher}
+	 * dan dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code capabilities()}, {@code
+	 * putIfAbsent()}, {@code read}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationImmutableEvidencePublisher
+	 */
 	public interface ImmutableObjectStore {
 		Capabilities capabilities() throws Exception;
 		void putIfAbsent(String key, byte[] payload, String sha256,
@@ -12,6 +27,24 @@ public final class EbisnisMigrationImmutableEvidencePublisher {
 		byte[] read(String key) throws Exception;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Capabilities} milik {@link EbisnisMigrationImmutableEvidencePublisher}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationImmutableEvidencePublisher}. Dependensi yang diperlukan harus diberikan secara eksplisit
+	 * agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean immutableWrite}, {@code
+	 * boolean encryptionAtRest}, {@code boolean versioning}, {@code boolean retentionLock}, {@code boolean
+	 * crossHostReplication}; operasi lokal: {@code productionReady}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationImmutableEvidencePublisher
+	 */
 	public static final class Capabilities {
 		public final boolean immutableWrite;
 		public final boolean encryptionAtRest;
@@ -35,6 +68,20 @@ public final class EbisnisMigrationImmutableEvidencePublisher {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Publication} milik {@link EbisnisMigrationImmutableEvidencePublisher}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationImmutableEvidencePublisher}. Dependensi yang diperlukan harus diberikan secara eksplisit
+	 * agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String sha256},
+	 * {@code int byteCount}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationImmutableEvidencePublisher
+	 */
 	public static final class Publication {
 		public final String key;
 		public final String sha256;

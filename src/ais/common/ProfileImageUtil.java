@@ -69,6 +69,19 @@ import ais.database.model.sekolah.Siswa;
  */
 public class ProfileImageUtil {
 
+	/**
+	 * Tipe implementasi bersarang {@link TargetFotoProfil} milik {@link ProfileImageUtil}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ProfileImageUtil}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Serializable ref}, {@code String
+	 * jenis}, {@code Class clazz}, {@code String field}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see ProfileImageUtil
+	 */
 	private static final class TargetFotoProfil {
 		final Serializable ref;
 		final String jenis;

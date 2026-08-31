@@ -14,6 +14,20 @@ import java.util.Map;
 /** Backup, restore, replay, dan retention-plan untuk evidence F17. */
 public final class EbisnisMigrationEvidenceOperations {
 
+	/**
+	 * Pembawa data/helper lokal milik {@link EbisnisMigrationEvidenceOperations} untuk snapshot. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceOperations}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code File file}, {@code File
+	 * manifestFile}, {@code int recordCount}, {@code String lastHash}, {@code String fileHash}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceOperations
+	 */
 	public static final class Snapshot {
 		public final File file;
 		public final File manifestFile;
@@ -31,6 +45,20 @@ public final class EbisnisMigrationEvidenceOperations {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link EbisnisMigrationEvidenceOperations} untuk replay summary. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceOperations}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int recordCount}, {@code int
+	 * prepared}, {@code int applied}, {@code int failed}, {@code int incomplete}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceOperations
+	 */
 	public static final class ReplaySummary {
 		public final int recordCount;
 		public final int prepared;
@@ -48,6 +76,20 @@ public final class EbisnisMigrationEvidenceOperations {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RetentionDecision} milik {@link EbisnisMigrationEvidenceOperations}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceOperations}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code File file}, {@code boolean eligible},
+	 * {@code String reason}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceOperations
+	 */
 	public static final class RetentionDecision {
 		public final File file;
 		public final boolean eligible;

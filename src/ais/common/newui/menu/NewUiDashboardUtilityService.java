@@ -102,6 +102,23 @@ public final class NewUiDashboardUtilityService {
         return value;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link OnlineUserInfo} milik {@link NewUiDashboardUtilityService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiDashboardUtilityService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code String role},
+     * {@code String unit}, {@code String subUnit}, {@code java.util.Date login}; operasi lokal: {@code getName()},
+     * {@code getRole()}, {@code getUnit()}, {@code getSubUnit()}, {@code getLogin}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiDashboardUtilityService
+     */
     public static final class OnlineUserInfo implements Serializable {
         private static final long serialVersionUID = 1L;
         private final String name, role, unit, subUnit; private final java.util.Date login;
@@ -109,6 +126,23 @@ public final class NewUiDashboardUtilityService {
         public String getName(){return name;} public String getRole(){return role;} public String getUnit(){return unit;} public String getSubUnit(){return subUnit;} public java.util.Date getLogin(){return login;}
     }
 
+    /**
+     * Tipe implementasi bersarang {@link CustomerContact} milik {@link NewUiDashboardUtilityService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiDashboardUtilityService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String group}, {@code String person},
+     * {@code String phone}, {@code String internationalPhone}; operasi lokal: {@code getGroup()}, {@code
+     * getPerson()}, {@code getPhone()}, {@code getInternationalPhone}(). Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiDashboardUtilityService
+     */
     public static final class CustomerContact implements Serializable {
         private static final long serialVersionUID = 1L;
         private final String group, person, phone, internationalPhone;
@@ -116,4 +150,3 @@ public final class NewUiDashboardUtilityService {
         public String getGroup(){return group;} public String getPerson(){return person;} public String getPhone(){return phone;} public String getInternationalPhone(){return internationalPhone;}
     }
 }
-

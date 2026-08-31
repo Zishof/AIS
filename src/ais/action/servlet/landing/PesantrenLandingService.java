@@ -284,6 +284,25 @@ public final class PesantrenLandingService {
         return warna != null && warna.matches("#[0-9a-fA-F]{6}") ? warna : "#0f766e";
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Profil} milik {@link PesantrenLandingService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenLandingService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code String motto},
+     * {@code String deskripsi}, {@code String alamat}, {@code String telepon}, {@code String wa}, {@code String
+     * email}, {@code String website}; operasi lokal: {@code getNama()}, {@code getMotto()}, {@code
+     * getDeskripsi()}, {@code getAlamat()}, {@code getTelepon()}, {@code getWa()}, {@code getEmail()}, {@code
+     * getWebsite()}, {@code getWarna()}, {@code getLogo}(). Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenLandingService
+     */
     public static final class Profil {
         private final String nama, motto, deskripsi, alamat, telepon, wa, email, website, warna, logo, latar;
         public Profil(String nama, String motto, String deskripsi, String alamat, String telepon, String wa, String email,
@@ -302,6 +321,23 @@ public final class PesantrenLandingService {
         public String getLatar() { return latar; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link UnitPendidikan} milik {@link PesantrenLandingService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenLandingService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code String jenis},
+     * {@code String motto}, {@code String alamat}, {@code String url}; operasi lokal: {@code getNama()}, {@code
+     * getJenis()}, {@code getMotto()}, {@code getAlamat()}, {@code getUrl}(). Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenLandingService
+     */
     public static final class UnitPendidikan {
         private final String nama, jenis, motto, alamat, url;
         UnitPendidikan(String nama, String jenis, String motto, String alamat, String url) {
@@ -313,6 +349,23 @@ public final class PesantrenLandingService {
         public String getUrl() { return url; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Berita} milik {@link PesantrenLandingService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenLandingService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String judul},
+     * {@code String ringkasan}, {@code String tanggal}; operasi lokal: {@code getId()}, {@code getJudul()}, {@code
+     * getRingkasan()}, {@code getTanggal}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenLandingService
+     */
     public static final class Berita {
         private final Long id; private final String judul, ringkasan, tanggal;
         Berita(Long id, String judul, String ringkasan, String tanggal) {

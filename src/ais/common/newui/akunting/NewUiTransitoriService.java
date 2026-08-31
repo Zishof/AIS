@@ -11,6 +11,33 @@ import java.util.ArrayList;import java.util.Date;import java.util.List;import or
  /** Model lama memaksa getter transfer=true; gunakan snapshot kolom melalui property Hibernate bukan getter mutatif. */
  private Map<Long,Boolean>transferFlags(Session s){Map<Long,Boolean>m=new HashMap<Long,Boolean>();List rows=s.createSQLQuery("select id, transfer from akunting.transitori").list();for(Object o:rows){Object[]x=(Object[])o;m.put(Long.valueOf(String.valueOf(x[0])),x[1]==null?Boolean.FALSE:(Boolean)x[1]);}return m;}private String status(Transitori v,Boolean transfer){if(v.getProsesTransitori()==null)return"WAITING";return Boolean.TRUE.equals(transfer)?"TRANSFERRED":"SUBMITTED";}
  private static void stamp(Transitori v,Tbmuser u){if(u!=null){v.setOleh(u.getUserNama());v.setOlehId(u.getUserId());}}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiTransitoriService} untuk snapshot. Tipe ini mengelompokkan nilai
+  * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiTransitoriService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+  * diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code int total}, {@code
+  * int waiting}, {@code int submitted}, {@code int transferred}. Aturan bisnis bersama tetap berada pada kelas
+  * induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiTransitoriService
+  */
  public static final class Snapshot{public final List<Row>rows=new ArrayList<Row>();public int total,waiting,submitted,transferred;}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiTransitoriService} untuk row. Tipe ini mengelompokkan nilai
+  * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiTransitoriService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+  * diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long processId},
+  * {@code Long transferProcessId}, {@code Long sopId}, {@code String code}, {@code String name}, {@code String
+  * note}, {@code String status}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see NewUiTransitoriService
+  */
  public static final class Row{public final Long id,processId,transferProcessId,sopId;public final String code,name,note,status,processCode,account,bank,accountName,accountNumber,sop;public final Date time;public final double amount;public final boolean sourceMissing,active;Row(Transitori v,String st){id=v.getId();name=v.getNama();note=v.getKeterangan();status=st;active=v.getAktif();processId=v.getProsesTransitori()==null?null:v.getProsesTransitori().getId();processCode=v.getProsesTransitori()==null?"":v.getProsesTransitori().getNama();DaftarPengajuanTransfer d=v.getDaftarPengajuanTransfer();sourceMissing=d==null;code=d==null?v.getKode():d.getKode();time=d==null?null:d.getWaktu();amount=d==null||d.getNominal()==null?0:d.getNominal();account=d==null||d.getAkun()==null?"":d.getAkun().getKode()+" - "+d.getAkun().getNama();bank=d==null||d.getBankSumber()==null?"":d.getBankSumber().getNama();accountName=d==null?"":d.getAtasNamaSumber();accountNumber=d==null?"":d.getNoRekSumber();transferProcessId=d==null||d.getProsesTransfer()==null?null:d.getProsesTransfer().getId();sopId=d==null||d.getDisposisiSop()==null?null:d.getDisposisiSop().getId();sop=d==null||d.getDisposisiSop()==null?"":d.getDisposisiSop().getKeterangan();}}
 }

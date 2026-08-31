@@ -157,6 +157,18 @@ public final class NewUiDaftarUlangMahasiswaController {
         boolean staf;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link KonfirmasiGandaException} milik {@link
+     * NewUiDaftarUlangMahasiswaController}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung
+     * jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiDaftarUlangMahasiswaController}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     *
+     * @see NewUiDaftarUlangMahasiswaController
+     */
     private static final class KonfirmasiGandaException extends RuntimeException {
         KonfirmasiGandaException(String m) { super(m); }
     }

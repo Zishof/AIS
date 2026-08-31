@@ -1340,6 +1340,18 @@ public class DynamicJspCrudGenerator {
         return isBlank(s) || "null".equalsIgnoreCase(s) ? "Tidak diisi" : s;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link StatRow} milik {@link DynamicJspCrudGenerator}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DynamicJspCrudGenerator}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long count}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DynamicJspCrudGenerator
+     */
     private static class StatRow {
         String label;
         long count;
@@ -1499,6 +1511,23 @@ public class DynamicJspCrudGenerator {
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DynamicJspCrudGenerator.java:1499");}
     }
 
+    /**
+     * Tipe implementasi bersarang {@link CrudRequestSnapshot} milik {@link DynamicJspCrudGenerator}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DynamicJspCrudGenerator}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map params}, {@code HttpSession
+     * session}, {@code String contextPath}; operasi lokal: {@code getParameter()}, {@code getParameterValues()},
+     * {@code getParameterMap()}, {@code getParameterNames()}, {@code getSession()}, {@code getSession()}, {@code
+     * getContextPath}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DynamicJspCrudGenerator
+     */
     private static class CrudRequestSnapshot extends HttpServletRequestWrapper {
         private Map params = new HashMap();
         private HttpSession session;
@@ -2849,6 +2878,18 @@ public class DynamicJspCrudGenerator {
         return x.substring(0, 1).toUpperCase() + x.substring(1);
     }
 
+    /**
+     * Tipe implementasi bersarang {@link UserContext} milik {@link DynamicJspCrudGenerator}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DynamicJspCrudGenerator}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String simpleName}, {@code Object
+     * value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DynamicJspCrudGenerator
+     */
     private static class UserContext {
         String simpleName;
         Object value;

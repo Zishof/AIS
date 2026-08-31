@@ -29,6 +29,20 @@ public class ParallelTaskExecutor {
     private static final int HARD_MAX_THREADS = 250;
     private static final long DEFAULT_AWAIT_TERMINATION_SECONDS = 300L;
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link ParallelTaskExecutor}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ParallelTaskExecutor} dan dapat mengakses
+     * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> pekerjaan berjalan di thread lain. Buka/tutup resource miliknya sendiri, jangan
+     * memakai komponen ZK atau session Hibernate request tanpa aktivasi yang eksplisit, dan laporkan kegagalan
+     * melalui mekanisme kelas induk.</p>
+     *
+     * @see ParallelTaskExecutor
+     */
     public interface Task<T> {
         void execute(T item) throws Exception;
     }
@@ -151,6 +165,22 @@ public class ParallelTaskExecutor {
         return value;
     }
 
+    /**
+     * Pekerjaan latar bersarang milik {@link ParallelTaskExecutor} untuk named thread factory. Tipe ini membatasi
+     * state yang dibawa ke eksekusi asinkron dan tidak boleh membawa session request secara implisit.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ParallelTaskExecutor}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String prefix}, {@code AtomicInteger
+     * counter}; operasi lokal: {@code newThread}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> pekerjaan berjalan di thread lain. Buka/tutup resource miliknya sendiri, jangan
+     * memakai komponen ZK atau session Hibernate request tanpa aktivasi yang eksplisit, dan laporkan kegagalan
+     * melalui mekanisme kelas induk.</p>
+     *
+     * @see ParallelTaskExecutor
+     */
     private static class NamedThreadFactory implements ThreadFactory {
         private final String prefix;
         private final AtomicInteger counter = new AtomicInteger(1);

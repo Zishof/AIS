@@ -1153,6 +1153,21 @@ public class LaporanRealisasiLkpTerpaduWindow extends MyWindow {
 		return text.substring(0, Math.max(0, max - 3)) + "...";
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link LaporanRealisasiLkpTerpaduWindow} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LaporanRealisasiLkpTerpaduWindow} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int tahun}, {@code int bulan}, {@code
+	 * String bulanStr}, {@code double persenKuantitas}, {@code double persenKualitas}, {@code double persenWaktu},
+	 * {@code List rows}, {@code Map mapPegawai}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see LaporanRealisasiLkpTerpaduWindow
+	 */
 	private class DashboardData {
 		int tahun;
 		int bulan;
@@ -1181,6 +1196,24 @@ public class LaporanRealisasiLkpTerpaduWindow extends MyWindow {
 		int jumlahTargetAnalitik;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link LaporanRealisasiLkpTerpaduWindow} untuk pegawai summary. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LaporanRealisasiLkpTerpaduWindow} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long pegawaiId}, {@code String nama},
+	 * {@code String nip}, {@code String satuanKerja}, {@code String jabatanFungsional}, {@code int targetCount},
+	 * {@code double totalTargetKuantitas}, {@code double totalRealisasiKuantitas}; operasi lokal: {@code add()},
+	 * {@code finish}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see LaporanRealisasiLkpTerpaduWindow
+	 */
 	private class PegawaiSummary {
 		Long pegawaiId;
 		String nama = "";
@@ -1217,6 +1250,20 @@ public class LaporanRealisasiLkpTerpaduWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link LkpRow} milik {@link LaporanRealisasiLkpTerpaduWindow}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LaporanRealisasiLkpTerpaduWindow} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Integer bulan}, {@code Integer
+	 * tahun}, {@code Long pegawaiId}, {@code Long targetId}, {@code String nama}, {@code String nip}, {@code
+	 * String jabatanFungsional}, {@code String satuanKerja}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see LaporanRealisasiLkpTerpaduWindow
+	 */
 	private class LkpRow {
 		Integer bulan;
 		Integer tahun;

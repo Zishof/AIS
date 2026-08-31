@@ -12,6 +12,23 @@ public final class NewUiHybridMenuRouteRegistry {
     public static final String NOT_MAPPED = "NOT_MAPPED";
     public static final String NOT_FOUND = "NOT_FOUND";
 
+    /**
+     * Tipe implementasi bersarang {@link ResolvedRoute} milik {@link NewUiHybridMenuRouteRegistry}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiHybridMenuRouteRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String status}, {@code String
+     * module}, {@code String page}, {@code String legacyUrl}; operasi lokal: {@code getStatus()}, {@code
+     * getModule()}, {@code getPage()}, {@code getLegacyUrl()}, {@code isValid}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiHybridMenuRouteRegistry
+     */
     public static final class ResolvedRoute implements Serializable {
         private static final long serialVersionUID = 1L;
         private final String status;

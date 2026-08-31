@@ -30,6 +30,18 @@ public final class HeadlessActionContext {
         return state == null ? null : state.message;
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link HeadlessActionContext} untuk state. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * HeadlessActionContext}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String message}. Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see HeadlessActionContext
+     */
     private static final class State {
         private String message;
     }

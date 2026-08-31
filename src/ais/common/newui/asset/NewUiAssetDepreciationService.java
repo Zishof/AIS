@@ -73,11 +73,105 @@ public final class NewUiAssetDepreciationService {
     private static int months(Date a,Date b){Calendar x=Calendar.getInstance(),y=Calendar.getInstance();x.setTime(a);y.setTime(b);return(y.get(Calendar.YEAR)-x.get(Calendar.YEAR))*12+y.get(Calendar.MONTH)-x.get(Calendar.MONTH);}
     private static Date startOfDay(Date d){Calendar c=Calendar.getInstance();c.setTime(d);c.set(Calendar.HOUR_OF_DAY,0);c.set(Calendar.MINUTE,0);c.set(Calendar.SECOND,0);c.set(Calendar.MILLISECOND,0);return c.getTime();}private static Date nextDay(Date d){Calendar c=Calendar.getInstance();c.setTime(startOfDay(d));c.add(Calendar.DATE,1);return c.getTime();}
     private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static double n(Number v){return v==null?0:v.doubleValue();}private static void rollback(Transaction t){if(t!=null)try{t.rollback();}catch(Exception ignored){}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiAssetDepreciationService} untuk filter. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String query}, {@code String brand},
+     * {@code Long assetTypeId}, {@code Long roomId}, {@code Set workUnitIds}, {@code Date start}, {@code Date
+     * end}, {@code Date asOf}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Filter{public String query,brand;public Long assetTypeId,roomId;public Set<Long>workUnitIds;public Date start,end,asOf=new Date();public int page,size=20;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiAssetDepreciationService} untuk snapshot. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code List rows}. Aturan
+     * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Snapshot{public int total;public final List<Row>rows=new ArrayList<Row>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiAssetDepreciationService} untuk row. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Integer month},
+     * {@code String name}, {@code String barcode}, {@code String note}, {@code String masterAsset}, {@code String
+     * brand}, {@code String assetType}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Row{public Long id;public Integer month;public String name,barcode,note,masterAsset,brand,assetType,room,workUnit;public Date purchaseDate,lastDate;public double purchaseValue,minimumValue,economicLife,monthlyDepreciation,accumulated,bookValue;}
+    /**
+     * Tipe implementasi bersarang {@link DepreciationRow} milik {@link NewUiAssetDepreciationService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Integer month},
+     * {@code Date date}, {@code String note}, {@code double purchaseValue}, {@code double monthly}, {@code double
+     * accumulated}, {@code double bookValue}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class DepreciationRow{public Long id;public Integer month;public Date date;public String note;public double purchaseValue,monthly,accumulated,bookValue;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiAssetDepreciationService} untuk options. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List assetTypes}, {@code List rooms},
+     * {@code List workUnits}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Options{public final List<Option>assetTypes=new ArrayList<Option>(),rooms=new ArrayList<Option>(),workUnits=new ArrayList<Option>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiAssetDepreciationService} untuk option. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long parentId},
+     * {@code String label}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Option{public final Long id,parentId;public final String label;Option(Long i,String l,Long p){id=i;label=l;parentId=p;}}
+    /**
+     * Tipe implementasi bersarang {@link Progress} milik {@link NewUiAssetDepreciationService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiAssetDepreciationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int done}, {@code
+     * int failed}, {@code boolean running}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiAssetDepreciationService
+     */
     public static final class Progress{public volatile int total,done,failed;public volatile boolean running;}
 }

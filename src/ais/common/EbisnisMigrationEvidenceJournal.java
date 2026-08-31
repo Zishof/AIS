@@ -33,6 +33,20 @@ public final class EbisnisMigrationEvidenceJournal {
 	private EbisnisMigrationEvidenceJournal() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Request} milik {@link EbisnisMigrationEvidenceJournal}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceJournal}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long occurredAt}, {@code String
+	 * eventId}, {@code String workflow}, {@code String scopeIdentity}, {@code String stage}, {@code String
+	 * decisionCode}, {@code String actor}, {@code String reference}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceJournal
+	 */
 	public static final class Request {
 		public final long occurredAt;
 		public final String eventId;
@@ -66,6 +80,20 @@ public final class EbisnisMigrationEvidenceJournal {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Entry} milik {@link EbisnisMigrationEvidenceJournal}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceJournal}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long sequence}, {@code long
+	 * occurredAt}, {@code String eventId}, {@code String workflow}, {@code String scopeIdentity}, {@code String
+	 * stage}, {@code String decisionCode}, {@code String actor}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceJournal
+	 */
 	public static final class Entry {
 		public final long sequence;
 		public final long occurredAt;
@@ -99,6 +127,19 @@ public final class EbisnisMigrationEvidenceJournal {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Verification} milik {@link EbisnisMigrationEvidenceJournal}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceJournal}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean valid}, {@code int
+	 * recordCount}, {@code int errorLine}, {@code String message}, {@code String lastHash}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceJournal
+	 */
 	public static final class Verification {
 		public final boolean valid;
 		public final int recordCount;
@@ -380,6 +421,21 @@ public final class EbisnisMigrationEvidenceJournal {
 		return new JournalCorruptException(line, validCount, lastHash, message);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link JournalCorruptException} milik {@link EbisnisMigrationEvidenceJournal}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceJournal}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int line}, {@code int
+	 * validRecordCount}, {@code String lastValidHash}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceJournal
+	 */
 	private static final class JournalCorruptException extends EOFException {
 		private static final long serialVersionUID = 1L;
 		private final int line;

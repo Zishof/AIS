@@ -1103,6 +1103,21 @@ public class BCA extends HttpServlet {
 	private int expiresInMinute = 60 * 15;
 	private int expiresIn = 1000 * expiresInMinute;
 
+	/**
+	 * Tipe implementasi bersarang {@link Remover} milik {@link BCA}. Kelas ini memberi nama pada state atau
+	 * perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BCA} dan dapat mengakses state kelas induk.
+	 * Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long startedTime}, {@code String
+	 * token}; operasi lokal: {@code toString()}, {@code setStartedTime()}, {@code run}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BCA
+	 */
 	class Remover implements Runnable {
 
 		private long startedTime;

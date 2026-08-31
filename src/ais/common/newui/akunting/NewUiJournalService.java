@@ -110,18 +110,187 @@ public final class NewUiJournalService {
     private static Date parseDate(String v){try{return new java.text.SimpleDateFormat("yyyy-MM-dd").parse(v.trim());}catch(Exception e){throw new IllegalArgumentException("Tanggal CSV harus yyyy-MM-dd.");}}
     private static List<String>csvRow(String row){List<String>o=new ArrayList<String>();StringBuilder b=new StringBuilder();boolean q=false;for(int i=0;i<row.length();i++){char c=row.charAt(i);if(c=='"'){if(q&&i+1<row.length()&&row.charAt(i+1)=='"'){b.append('"');i++;}else q=!q;}else if(c==','&&!q){o.add(b.toString());b.setLength(0);}else b.append(c);}o.add(b.toString());return o;}
 
+    /**
+     * Tipe implementasi bersarang {@link Totals} milik {@link NewUiJournalService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code double debit}, {@code double credit}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     private static final class Totals{double debit,credit;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiJournalService} untuk filter. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long typeId}, {@code
+     * Long workUnitId}, {@code Long workspaceId}, {@code Long postingId}, {@code Long closingId}, {@code String
+     * query}, {@code String lineQuery}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Filter{public Long id,typeId,workUnitId,workspaceId,postingId,closingId;public String query,lineQuery,journalType,sourceEntity,ref,kind;public Date start,end,closingBefore;public Double min,max;public Boolean posted,postedActive,closed;public boolean unbalanced,unpostedActive,allJournals;public List<Long>accountIds;public int page,size=20;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiJournalService} untuk snapshot. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code double debit},
+     * {@code double credit}, {@code List rows}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Snapshot{public int total;public double debit,credit;public final List<Row>rows=new ArrayList<Row>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiJournalService} untuk row. Tipe ini mengelompokkan nilai antara
+     * agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long typeId}, {@code
+     * Long workUnitId}, {@code Long workspaceId}, {@code Long postingId}, {@code Long closingId}, {@code String
+     * code}, {@code String description}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Row{public Long id,typeId,workUnitId,workspaceId,postingId,closingId;public String code,description,type,workUnit,workspace,journalType,invoice,payee,user,closing;public Date date,postingDate;public double debit,credit;public boolean balanced,hasAttachment;public Boolean postingActive;public final List<Line>lines=new ArrayList<Line>();}
+    /**
+     * Tipe implementasi bersarang {@link Line} milik {@link NewUiJournalService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long accountId},
+     * {@code String accountCode}, {@code String account}, {@code String description}, {@code double debit}, {@code
+     * double credit}, {@code Integer status}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Line{public Long id,accountId;public String accountCode,account,description;public double debit,credit;public Integer status;}
+    /**
+     * Tipe implementasi bersarang {@link Draft} milik {@link NewUiJournalService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long typeId}, {@code
+     * Long workUnitId}, {@code Long workspaceId}, {@code String code}, {@code String description}, {@code String
+     * journalType}, {@code String invoice}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Draft{public Long id,typeId,workUnitId,workspaceId;public String code,description,journalType,invoice,payee;public Date date;public List<LineDraft>lines=new ArrayList<LineDraft>();}
+    /**
+     * Tipe implementasi bersarang {@link LineDraft} milik {@link NewUiJournalService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long accountId},
+     * {@code String description}, {@code double debit}, {@code double credit}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class LineDraft{public Long id,accountId;public String description;public double debit,credit;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiJournalService} untuk option. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long parentId},
+     * {@code String label}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Option{public final Long id,parentId;public final String label;Option(Long id,String label,Long parentId){this.id=id;this.label=label;this.parentId=parentId;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiJournalService} untuk options. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date lastClosing}, {@code List
+     * accounts}, {@code List types}, {@code List workUnits}, {@code List workspaces}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Options{public Date lastClosing;public final List<Option>accounts=new ArrayList<Option>(),types=new ArrayList<Option>(),workUnits=new ArrayList<Option>(),workspaces=new ArrayList<Option>();}
+    /**
+     * Tipe implementasi bersarang {@link HistoryRow} milik {@link NewUiJournalService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int revision}, {@code Date date},
+     * {@code String type}, {@code String code}, {@code String description}, {@code double debit}, {@code double
+     * credit}, {@code Long postingId}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class HistoryRow{public int revision;public Date date;public String type,code,description;public double debit,credit;public Long postingId;}
+    /**
+     * Tipe implementasi bersarang {@link BatchResult} milik {@link NewUiJournalService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int success}, {@code List errors}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static class BatchResult{public int success;public final List<String>errors=new ArrayList<String>();}
+    /**
+     * Tipe implementasi bersarang {@link ImportResult} milik {@link NewUiJournalService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List ids}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class ImportResult extends BatchResult{public final List<Long>ids=new ArrayList<Long>();}
+    /**
+     * Tipe implementasi bersarang {@link Attachment} milik {@link NewUiJournalService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code String link},
+     * {@code File file}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class Attachment{public String name,link;public File file;}
+    /**
+     * Tipe implementasi bersarang {@link MaintenanceResult} milik {@link NewUiJournalService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiJournalService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int groups}, {@code int lines}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiJournalService
+     */
     public static final class MaintenanceResult{public int groups,lines;}
 }

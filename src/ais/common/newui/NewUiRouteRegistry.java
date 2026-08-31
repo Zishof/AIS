@@ -15,6 +15,22 @@ public final class NewUiRouteRegistry {
     public static final int UNMAPPED = 2;
     public static final int NOT_FOUND = 3;
 
+    /**
+     * Tipe implementasi bersarang {@link Route} milik {@link NewUiRouteRegistry}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiRouteRegistry}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long menuId}, {@code String
+     * exactLegacyUrl}, {@code String module}, {@code String page}; operasi lokal: {@code getMenuId()}, {@code
+     * getModule()}, {@code getPage}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiRouteRegistry
+     */
     public static final class Route {
         private final Long menuId;
         private final String exactLegacyUrl;

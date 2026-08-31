@@ -85,9 +85,75 @@ public final class NewUiWorkRealizationService {
     private TargetKerjaPegawai require(Session session, Long id, Set<SatuanKerja> allowedUnits) {TargetKerjaPegawai value=id==null?null:(TargetKerjaPegawai)session.get(TargetKerjaPegawai.class,id);if(value==null)throw new IllegalArgumentException("Target kerja tidak ditemukan.");SatuanKerja unit=value.getKegiatanTugasJabatan()==null?null:value.getKegiatanTugasJabatan().getSatuanKerja();if(unit!=null&&allowedUnits!=null&&!allowedUnits.isEmpty()){boolean ok=false;for(SatuanKerja allowed:allowedUnits)if(unit.getId().equals(allowed.getId()))ok=true;if(!ok)throw new SecurityException("Target kerja berada di luar akses satuan kerja.");}return value;}
     private void options(Session session,Snapshot out,Set<SatuanKerja>units){if(units!=null)for(SatuanKerja unit:units)out.units.add(new Option(unit.getId(),unit.getNama()));for(Object value:session.createCriteria(Pegawai.class).add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",true))).addOrder(Order.asc("nama")).setMaxResults(3000).list()){Pegawai employee=(Pegawai)value;out.employees.add(new Option(employee.getId(),employee.getNama()));}}
     private static double number(Number value){return value==null?0:value.doubleValue();}private static String clean(String value){return value==null||value.trim().length()==0?null:value.trim();}private static void rollback(Transaction tx){if(tx!=null)try{tx.rollback();}catch(Exception ignored){}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiWorkRealizationService} untuk filter. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiWorkRealizationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String query}, {@code String period},
+     * {@code int year}, {@code int monthValue}, {@code int page}, {@code int size}, {@code Integer month}, {@code
+     * Long employeeId}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiWorkRealizationService
+     */
     public static final class Filter{public String query,period=KegiatanTugasJabatan.BULANAN;public int year,monthValue,page,size=20;public Integer month;public Long employeeId,unitId;}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiWorkRealizationService} untuk snapshot. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiWorkRealizationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code List rows}, {@code
+     * List employees}, {@code List units}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiWorkRealizationService
+     */
     public static final class Snapshot{public int total;public final List<Row>rows=new ArrayList<Row>();public final List<Option>employees=new ArrayList<Option>(),units=new ArrayList<Option>();}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiWorkRealizationService} untuk option. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiWorkRealizationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiWorkRealizationService
+     */
     public static final class Option{public final Long id;public final String label;Option(Long id,String label){this.id=id;this.label=label;}}
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiWorkRealizationService} untuk row. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiWorkRealizationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long employeeId},
+     * {@code Long unitId}, {@code Integer year}, {@code Integer month}, {@code String employee}, {@code String
+     * activity}, {@code String activityNote}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiWorkRealizationService
+     */
     public static final class Row{public Long id,employeeId,unitId;public Integer year,month;public String employee,activity,activityNote,unit,quantityUnit,timeUnit,note;public double quantity,quality,time,cost,realizedQuantity,realizedQuality,realizedTime;public int detailCount;public boolean verified,canAssess;}
+    /**
+     * Tipe implementasi bersarang {@link Detail} milik {@link NewUiWorkRealizationService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiWorkRealizationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String description},
+     * {@code String note}, {@code String by}, {@code double quantity}, {@code double time}, {@code double cost},
+     * {@code boolean verified}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiWorkRealizationService
+     */
     public static final class Detail{public final Long id;public final String description,note,by;public final double quantity,time,cost;public final boolean verified;public final long from,to;Detail(RealisasiKerjaPegawai value){id=value.getId();description=value.getKeterangan();note=value.getCatatan();by=value.getOleh();quantity=number(value.getKuantitas());time=number(value.getWaktu());cost=number(value.getBiaya());verified=Boolean.TRUE.equals(value.getVerifikasi());from=value.getTanggalWaktu()==null?0:value.getTanggalWaktu().getTime();to=value.getTanggalWaktuSampai()==null?0:value.getTanggalWaktuSampai().getTime();}}
 }

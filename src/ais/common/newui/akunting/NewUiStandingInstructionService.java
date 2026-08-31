@@ -7,6 +7,33 @@ import java.util.ArrayList;import java.util.Date;import java.util.HashMap;import
  private Criteria criteria(Session s,String q,Date start,Date end,Long unitId,Set<SatuanKerja>allowed){Criteria c=s.createCriteria(StandingInstruction.class);if(allowed!=null&&!allowed.isEmpty()){if(unitId!=null){SatuanKerja selected=null;for(SatuanKerja u:allowed)if(unitId.equals(u.getId()))selected=u;if(selected==null)throw new IllegalArgumentException("Satuan kerja berada di luar akses pengguna.");c.add(Restrictions.eq("satuanKerja",selected));}else c.add(Restrictions.or(Restrictions.isNull("satuanKerja"),Restrictions.in("satuanKerja",allowed)));}else c.add(Restrictions.isNull("satuanKerja"));if(start!=null)c.add(Restrictions.ge("waktu",start));if(end!=null)c.add(Restrictions.le("waktu",new Date(end.getTime()+86399999L)));String x=clean(q);if(x!=null)c.add(Restrictions.or(Restrictions.ilike("kode",x,MatchMode.ANYWHERE),Restrictions.ilike("nama",x,MatchMode.ANYWHERE)));return c;}
  private Row row(Session s,StandingInstruction v){String status="PENDING",transfer="Diajukan";StringBuilder text=new StringBuilder();try{JSONObject root=new JSONObject(v.getTransferVia());Iterator it=root.keys();boolean has=false,done=false;while(it.hasNext()){String key=String.valueOf(it.next());JSONObject x=root.optJSONObject(key);if(x==null)continue;String sid=x.optString("si","");if(sid.length()>0){has=true;ProsesTransferStandingInstruction p=(ProsesTransferStandingInstruction)s.get(ProsesTransferStandingInstruction.class,Long.valueOf(sid));Bank b=(Bank)s.get(Bank.class,Long.valueOf(key));if(text.length()>0)text.append(", ");text.append(b==null?"Bank tidak ditemukan":b.getNama()).append(" ").append(x.optDouble("nilai",0));if(p!=null&&p.getRealisasikanOleh()!=null)done=true;}}if(done)status="TRANSFERRED";else if(has)status="APPROVED";if(text.length()>0)transfer=text.toString();}catch(Exception ignored){}return new Row(v,status,transfer);}
  private boolean matches(String s,boolean p,boolean a,boolean t){if(!p&&!a&&!t)return true;return p&&"PENDING".equals(s)||a&&"APPROVED".equals(s)||t&&"TRANSFERRED".equals(s);}private void ensureScope(StandingInstruction v,Set<SatuanKerja>a){if(v.getSatuanKerja()==null)return;if(a==null||a.isEmpty())throw new IllegalArgumentException("Standing instruction berada di luar akses satuan kerja.");for(SatuanKerja u:a)if(u.getId().equals(v.getSatuanKerja().getId()))return;throw new IllegalArgumentException("Standing instruction berada di luar akses satuan kerja.");}private static int value(Map<String,Integer>m,String k){Integer v=m.get(k);return v==null?0:v.intValue();}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStandingInstructionService} untuk snapshot. Tipe ini
+  * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+  * jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStandingInstructionService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code Map status},
+  * {@code Map types}, {@code int total}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see NewUiStandingInstructionService
+  */
  public static final class Snapshot{public final List<Row>rows=new ArrayList<Row>();public final Map<String,Integer>status=new HashMap<String,Integer>(),types=new HashMap<String,Integer>();public int total;}
+ /**
+  * Pembawa data/helper lokal milik {@link NewUiStandingInstructionService} untuk row. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * NewUiStandingInstructionService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long sopId}, {@code
+  * String code}, {@code String name}, {@code String note}, {@code String account}, {@code String bank}, {@code
+  * String accountName}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+  *
+  * @see NewUiStandingInstructionService
+  */
  public static final class Row{public final Long id,sopId;public final String code,name,note,account,bank,accountName,accountNumber,unit,status,transfer;public final Date time;public final double amount;public final boolean payroll;Row(StandingInstruction v,String st,String tr){id=v.getId();code=v.getKode();name=v.getNama();note=v.getKeterangan();time=v.getWaktu();amount=v.getNominal();account=v.getAkun()==null?"":v.getAkun().getKode()+" - "+v.getAkun().getNama();bank=v.getBankSumber()==null?"":v.getBankSumber().getNama();accountName=v.getAtasNamaSumber();accountNumber=v.getNoRekSumber();unit=v.getSatuanKerja()==null?"":v.getSatuanKerja().getNama();status=st;transfer=tr;sopId=v.getDisposisiSop()==null?null:v.getDisposisiSop().getId();payroll=v.getPembayaranGaji()!=null;}}
 }

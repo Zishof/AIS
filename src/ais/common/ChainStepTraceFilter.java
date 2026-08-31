@@ -141,6 +141,23 @@ public class ChainStepTraceFilter implements Filter {
         return t.getClass().getName() + ": " + msg;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link StatusCaptureResponse} milik {@link ChainStepTraceFilter}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ChainStepTraceFilter}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int status}; operasi lokal: {@code
+     * setStatus()}, {@code setStatus()}, {@code sendError()}, {@code sendError()}, {@code sendRedirect()}, {@code
+     * getCapturedStatus}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see ChainStepTraceFilter
+     */
     private static class StatusCaptureResponse extends HttpServletResponseWrapper {
         private int status = -1;
 

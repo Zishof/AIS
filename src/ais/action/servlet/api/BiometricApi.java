@@ -736,6 +736,22 @@ public final class BiometricApi {
 	private static long maximumOfflineAgeMillis() { try { String v = BiometricCrypto.setting("AIS_BIOMETRIC_MAX_OFFLINE_MINUTES"); return 60000L * (v == null ? 1440L : Long.parseLong(v)); } catch (Exception e) { return 86400000L; } }
 	private static void rollback(Transaction tx) { if (tx != null) try { tx.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "BiometricApi.rollback"); } }
 
+	/**
+	 * Tipe implementasi bersarang {@link Verification} milik {@link BiometricApi}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link BiometricApi}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code JSONObject response}, {@code boolean
+	 * matched}, {@code String modality}, {@code Long eventId}; operasi lokal: {@code error}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiometricApi
+	 */
 	private static final class Verification {
 		private final JSONObject response; private final boolean matched; private final String modality; private final Long eventId;
 		private Verification(JSONObject response, boolean matched, String modality, Long eventId) { this.response = response; this.matched = matched; this.modality = modality; this.eventId = eventId; }

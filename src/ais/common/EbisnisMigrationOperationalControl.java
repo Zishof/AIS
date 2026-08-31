@@ -6,10 +6,38 @@ package ais.common;
  */
 public final class EbisnisMigrationOperationalControl {
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationOperationalControl}. Tipe ini memisahkan
+	 * satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationOperationalControl} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code isEnabled}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationOperationalControl
+	 */
 	public interface FeatureFlag {
 		boolean isEnabled(String scopeIdentity, String workflow, String stage);
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationOperationalControl}. Tipe ini memisahkan
+	 * satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationOperationalControl} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code authenticateAndAuthorize}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationOperationalControl
+	 */
 	public interface IdentityProvider {
 		boolean authenticateAndAuthorize(String actor, String credential,
 				String workflow, String stage);

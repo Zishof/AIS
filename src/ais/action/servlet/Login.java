@@ -586,6 +586,22 @@ public class Login extends HttpServlet {
 		return pesanDefault;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AjaxLoginPrecheck} milik {@link Login}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Login}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
+	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean valid}, {@code String
+	 * message}; operasi lokal: {@code ok()}, {@code error}(). Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see Login
+	 */
 	private static class AjaxLoginPrecheck {
 		boolean valid;
 		String message;
@@ -604,6 +620,24 @@ public class Login extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AjaxLoginResponseWrapper} milik {@link Login}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Login}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
+	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code StringWriter capture}, {@code
+	 * PrintWriter writer}, {@code String redirectLocation}, {@code int errorCode}, {@code String errorMessage};
+	 * operasi lokal: {@code getWriter()}, {@code sendRedirect()}, {@code sendError()}, {@code sendError()}, {@code
+	 * getRedirectLocation()}, {@code getErrorMessage()}, {@code getErrorCode()}, {@code getCapturedContent}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see Login
+	 */
 	private static class AjaxLoginResponseWrapper extends HttpServletResponseWrapper {
 		private final StringWriter capture = new StringWriter();
 		private final PrintWriter writer = new PrintWriter(capture);

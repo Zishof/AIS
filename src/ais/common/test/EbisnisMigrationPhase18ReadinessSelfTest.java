@@ -201,6 +201,24 @@ public final class EbisnisMigrationPhase18ReadinessSelfTest {
 				true, true, true, true, true, true);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link MemoryStore} milik {@link EbisnisMigrationPhase18ReadinessSelfTest}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationPhase18ReadinessSelfTest}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+	 * aman digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai
+	 * API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean ready}, {@code boolean
+	 * corruptRead}, {@code Map values}; operasi lokal: {@code capabilities()}, {@code putIfAbsent()}, {@code
+	 * read}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationPhase18ReadinessSelfTest
+	 */
 	private static final class MemoryStore implements
 			EbisnisMigrationImmutableEvidencePublisher.ImmutableObjectStore {
 		private final boolean ready;

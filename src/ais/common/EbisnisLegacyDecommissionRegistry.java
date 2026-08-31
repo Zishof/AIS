@@ -49,6 +49,22 @@ public final class EbisnisLegacyDecommissionRegistry {
 		NEXT_STAGE.put(READY_FOR_REMOVAL_RELEASE, COMPLETE);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Scope} milik {@link EbisnisLegacyDecommissionRegistry}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisLegacyDecommissionRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String moduleKey}, {@code String
+	 * artifactKey}, {@code String ownerKey}, {@code String removalRelease}; operasi lokal: {@code identity}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisLegacyDecommissionRegistry
+	 */
 	public static final class Scope {
 		public final String moduleKey;
 		public final String artifactKey;
@@ -68,6 +84,19 @@ public final class EbisnisLegacyDecommissionRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Policy} milik {@link EbisnisLegacyDecommissionRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisLegacyDecommissionRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int minObservationDays}, {@code int
+	 * maxErrorRateBasisPoints}, {@code int maxOpenAlertCount}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisLegacyDecommissionRegistry
+	 */
 	public static final class Policy {
 		public final int minObservationDays;
 		public final int maxErrorRateBasisPoints;
@@ -85,6 +114,20 @@ public final class EbisnisLegacyDecommissionRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Evidence} milik {@link EbisnisLegacyDecommissionRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisLegacyDecommissionRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int observationDays}, {@code int
+	 * errorRateBasisPoints}, {@code int openAlertCount}, {@code int reconciliationExceptionCount}, {@code int
+	 * activeReaderCount}, {@code int activeWriterCount}, {@code boolean monitoringStable}, {@code boolean
+	 * routesDeprecated}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisLegacyDecommissionRegistry
+	 */
 	public static final class Evidence {
 		public final int observationDays;
 		public final int errorRateBasisPoints;
@@ -151,6 +194,27 @@ public final class EbisnisLegacyDecommissionRegistry {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Builder} milik {@link EbisnisLegacyDecommissionRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisLegacyDecommissionRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int observationDays}, {@code int
+	 * errorRateBasisPoints}, {@code int openAlertCount}, {@code int reconciliationExceptionCount}, {@code int
+	 * activeReaderCount}, {@code int activeWriterCount}, {@code boolean monitoringStable}, {@code boolean
+	 * routesDeprecated}; operasi lokal: {@code observationDays()}, {@code errorRateBasisPoints()}, {@code
+	 * openAlertCount()}, {@code reconciliationExceptionCount()}, {@code activeReaderCount()}, {@code
+	 * activeWriterCount()}, {@code monitoringStable()}, {@code routesDeprecated()}, {@code actionsDeprecated()},
+	 * {@code tablesDeprecated}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisLegacyDecommissionRegistry
+	 */
 	public static final class Builder {
 		private int observationDays;
 		private int errorRateBasisPoints;
@@ -217,6 +281,19 @@ public final class EbisnisLegacyDecommissionRegistry {
 		public Evidence build() { return new Evidence(this); }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Decision} milik {@link EbisnisLegacyDecommissionRegistry}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisLegacyDecommissionRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean allowed}, {@code boolean
+	 * rollbackRequired}, {@code String code}, {@code String message}, {@code String scopeIdentity}, {@code List
+	 * missingEvidence}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisLegacyDecommissionRegistry
+	 */
 	public static final class Decision {
 		public final boolean allowed;
 		public final boolean rollbackRequired;

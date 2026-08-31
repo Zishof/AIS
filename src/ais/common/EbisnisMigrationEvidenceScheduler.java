@@ -6,14 +6,56 @@ package ais.common;
  */
 public final class EbisnisMigrationEvidenceScheduler {
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationEvidenceScheduler}. Tipe ini memisahkan
+	 * satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationEvidenceScheduler} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code snapshot}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceScheduler
+	 */
 	public interface SnapshotSource {
 		byte[] snapshot(String scopeIdentity) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link EbisnisMigrationEvidenceScheduler}. Tipe ini memisahkan
+	 * satu variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link EbisnisMigrationEvidenceScheduler} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code failed}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceScheduler
+	 */
 	public interface AlarmSink {
 		void failed(String scopeIdentity, String code, String message);
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link EbisnisMigrationEvidenceScheduler} untuk result. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationEvidenceScheduler}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String scopeIdentity}, {@code String
+	 * objectKey}, {@code String sha256}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationEvidenceScheduler
+	 */
 	public static final class Result {
 		public final String scopeIdentity;
 		public final String objectKey;

@@ -124,6 +124,19 @@ public class DoUpload extends HttpServlet {
 	private static final ConcurrentHashMap<String, PendingUpload> RETRY_QUEUE =
 		new ConcurrentHashMap<String, PendingUpload>();
 
+	/**
+	 * Tipe implementasi bersarang {@link PendingUpload} milik {@link DoUpload}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DoUpload}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
+	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code File file}, {@code Class clazz},
+	 * {@code Serializable ref}, {@code String jenis}, {@code String subdata}, {@code String nama}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DoUpload
+	 */
 	@SuppressWarnings("rawtypes")
 	private static class PendingUpload {
 		final File file;

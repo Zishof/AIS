@@ -75,6 +75,17 @@ public class Minify {
 	private int line;
 	private int column;
 
+	/**
+	 * Enum lokal {@link Action} yang mendefinisikan pilihan/status untuk alur Minify. Nilainya berlaku dalam
+	 * konteks kelas induk dan tidak dimaksudkan sebagai status domain global.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Minify}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi nilai: {@code OUTPUT_CURR}, {@code DELETE_CURR}, {@code
+	 * DELETE_NEXT}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see Minify
+	 */
 	public static enum Action {
 		OUTPUT_CURR, DELETE_CURR, DELETE_NEXT
 	}

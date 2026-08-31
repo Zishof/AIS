@@ -11,6 +11,20 @@ import ais.common.Common;
  */
 public class VirtualAccountDashboardUtil {
 
+    /**
+     * Pembawa data/helper lokal milik {@link VirtualAccountDashboardUtil} untuk bank summary. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * VirtualAccountDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String bank}, {@code int jumlah},
+     * {@code double nominal}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see VirtualAccountDashboardUtil
+     */
     public static class BankSummary {
         public String bank;
         public int jumlah;
@@ -23,6 +37,19 @@ public class VirtualAccountDashboardUtil {
         }
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link VirtualAccountDashboardUtil} untuk trend summary. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * VirtualAccountDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int jumlah}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see VirtualAccountDashboardUtil
+     */
     public static class TrendSummary {
         public String label;
         public int jumlah;
@@ -33,6 +60,20 @@ public class VirtualAccountDashboardUtil {
         }
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link VirtualAccountDashboardUtil} untuk summary. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * VirtualAccountDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int sudahBayar},
+     * {@code int belumBayar}, {@code int kendala}, {@code int belumKadaluarsa}, {@code int kadaluarsa}, {@code
+     * double totalNominal}, {@code double totalBiayaAdmin}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see VirtualAccountDashboardUtil
+     */
     public static class Summary {
         public int total;
         public int sudahBayar;

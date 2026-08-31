@@ -1749,6 +1749,19 @@ public class ConstantValues {
 	private static final Object nilaiHurufIndexLock = new Object();
 	private static volatile Map<String, NilaiHurufBucket> nilaiHurufIndex = Collections.emptyMap();
 
+	/**
+	 * Tipe implementasi bersarang {@link NilaiHurufBucket} milik {@link ConstantValues}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ConstantValues}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map perJurusan}, {@code Map
+	 * perFakultas}, {@code NilaiHuruf global}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see ConstantValues
+	 */
 	private static final class NilaiHurufBucket {
 		Map<Long, NilaiHuruf> perJurusan;
 		Map<Long, NilaiHuruf> perFakultas;

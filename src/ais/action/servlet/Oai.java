@@ -715,6 +715,19 @@ public class Oai extends HttpServlet {
 
     // ── Utility ───────────────────────────────────────────────────────────────
 
+    /**
+     * Tipe implementasi bersarang {@link ListQuery} milik {@link Oai}. Kelas ini memberi nama pada state atau
+     * perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Oai}. Dependensi yang
+     * diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String metadataPrefix}, {@code Date
+     * from}, {@code Date until}, {@code String setSpec}, {@code int offset}, {@code String error}, {@code String
+     * errorCode}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see Oai
+     */
     private static class ListQuery {
         String metadataPrefix;
         Date   from;

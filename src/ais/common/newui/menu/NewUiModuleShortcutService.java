@@ -153,6 +153,19 @@ public final class NewUiModuleShortcutService {
         catch (Exception ignored) { return yes(role.getBolehAksesSister()); }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Spec} milik {@link NewUiModuleShortcutService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiModuleShortcutService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String label},
+     * {@code String description}, {@code String icon}, {@code boolean enabled}, {@code String aliases}. Aturan
+     * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiModuleShortcutService
+     */
     private static final class Spec {
         private final String key;
         private final String label;

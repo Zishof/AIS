@@ -7,6 +7,20 @@ import java.util.List;
 /** Gerbang canary produksi per tenant/lokasi dengan default OFF. */
 public final class EbisnisMigrationProductionCanaryGate {
 
+	/**
+	 * Tipe implementasi bersarang {@link Evidence} milik {@link EbisnisMigrationProductionCanaryGate}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationProductionCanaryGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long checkedRecords}, {@code long
+	 * mismatchCount}, {@code boolean backupRestorePassed}, {@code boolean crashRecoveryPassed}, {@code boolean
+	 * rollbackRehearsed}, {@code boolean qaApproved}, {@code boolean businessApproved}, {@code boolean
+	 * itApproved}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationProductionCanaryGate
+	 */
 	public static final class Evidence {
 		public final long checkedRecords;
 		public final long mismatchCount;
@@ -32,6 +46,18 @@ public final class EbisnisMigrationProductionCanaryGate {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Decision} milik {@link EbisnisMigrationProductionCanaryGate}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMigrationProductionCanaryGate}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean allowed}, {@code List
+	 * reasons}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMigrationProductionCanaryGate
+	 */
 	public static final class Decision {
 		public final boolean allowed;
 		public final List<String> reasons;

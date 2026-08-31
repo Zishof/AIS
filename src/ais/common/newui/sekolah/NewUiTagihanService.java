@@ -209,11 +209,85 @@ public final class NewUiTagihanService {
     private static String clean(String value) { return value == null || value.trim().length() == 0 ? null : value.trim(); }
     private static void rollback(Transaction tx) { if (tx != null) try { tx.rollback(); } catch (Exception ignored) { } }
 
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTagihanService} untuk filter. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String q}, {@code String fee}, {@code
+     * String academicYear}, {@code Long studentId}, {@code Long candidateId}, {@code Long settingId}, {@code Long
+     * schoolId}, {@code Long foundationId}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class Filter { public String q,fee,academicYear; public Long studentId,candidateId,settingId,schoolId,foundationId; public Integer month,year; public boolean unpaidOnly,activeOnly=true; public int page=0,size=20; }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTagihanService} untuk snapshot. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code int total}, {@code
+     * Options options}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class Snapshot { public final List<Row> rows=new ArrayList<Row>(); public int total; public Options options; }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTagihanService} untuk options. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Set academicYears}, {@code List
+     * students}, {@code List candidates}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class Options { public final Set<String> academicYears=new LinkedHashSet<String>(); public final List<Choice> students=new ArrayList<Choice>(),candidates=new ArrayList<Choice>(); }
+    /**
+     * Tipe implementasi bersarang {@link Choice} milik {@link NewUiTagihanService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String code}, {@code
+     * String name}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class Choice { public final Long id; public final String code,name; Choice(Siswa s){id=s.getId();code=s.getNomorInduk();name=s.getNama();} Choice(CalonSiswa s){id=s.getId();code=s.getNoRegistrasi();name=s.getNama();} }
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiTagihanService} untuk row. Tipe ini mengelompokkan nilai antara
+     * agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long studentId},
+     * {@code Long candidateId}, {@code String code}, {@code String name}, {@code String school}, {@code String
+     * item}, {@code String information}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class Row { public final Long id,studentId,candidateId; public final String code,name,school,item,information,academicYear,photo; public final Integer month,year,installment; public final double nominal,fine,paid; public final boolean settled,active,notBill,canToggle,canMove; Row(Tagihan t){id=t.getId();studentId=t.getSiswa()==null?null:t.getSiswa().getId();candidateId=t.getCalonSiswa()==null?null:t.getCalonSiswa().getId();code=t.getSiswa()!=null?t.getSiswa().getNomorInduk():t.getCalonSiswa()==null?"":t.getCalonSiswa().getNoRegistrasi();name=t.getSiswa()!=null?t.getSiswa().getNama():t.getCalonSiswa()==null?"":t.getCalonSiswa().getNama();school=t.getSiswa()!=null&&t.getSiswa().getSekolah()!=null?t.getSiswa().getSekolah().getNama():t.getCalonSiswa()!=null&&t.getCalonSiswa().getSekolah()!=null?t.getCalonSiswa().getSekolah().getNama():"";item=t.getItemBiayaSekolah()==null?"":t.getItemBiayaSekolah().getNama();information=t.getInformasi();academicYear=t.getTahunAjaran();month=t.getBulan();year=t.getTahun();installment=t.getBayarKe();nominal=t.getNominal()==null?0:t.getNominal();fine=t.getDenda()==null?0:t.getDenda();paid=t.getDibayar()==null?0:t.getDibayar();settled=t.getPembayaranSiswaDetail()!=null;active=Boolean.TRUE.equals(t.getAktif());notBill=Boolean.TRUE.equals(t.getBukanTagihan());canToggle=!settled&&!notBill;canMove=settled&&!notBill;String p="";try{p=CommonMedia.getUrlFotoPengguna(t.getSiswa()!=null?new Tbmuser(t.getSiswa()):new Tbmuser(t.getCalonSiswa()));}catch(Exception ignored){}photo=p; } }
+    /** Target pemindahan pembayaran yang hanya membawa id tagihan dan label nominal/periode siap tampil. */
     public static final class MoveTarget { public final Long id; public final String label; MoveTarget(Tagihan t){id=t.getId();label=(t.getItemBiayaSekolah()==null?"Tagihan":t.getItemBiayaSekolah().getNama())+" · "+(t.getTahunAjaran()==null?"":t.getTahunAjaran())+" · "+(t.getBulan()==null?"-":t.getBulan())+"/"+(t.getTahun()==null?"-":t.getTahun())+" · Rp "+Math.round(t.getNominal()==null?0:t.getNominal());} }
+    /**
+     * Tipe implementasi bersarang {@link History} milik {@link NewUiTagihanService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NewUiTagihanService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int revision}, {@code int type},
+     * {@code long timestamp}, {@code String by}, {@code String information}, {@code double nominal}, {@code double
+     * fine}, {@code Boolean active}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiTagihanService
+     */
     public static final class History { public final int revision,type; public final long timestamp; public final String by,information; public final double nominal,fine; public final Boolean active; public final Long paymentId; History(Object[]x){revision=((Number)x[0]).intValue();type=x[1]==null?0:((Number)x[1]).intValue();timestamp=x[2]==null?0:((Number)x[2]).longValue();by=x[3]==null?"":String.valueOf(x[3]);information=x[4]==null?"":String.valueOf(x[4]);nominal=x[5]==null?0:((Number)x[5]).doubleValue();fine=x[6]==null?0:((Number)x[6]).doubleValue();active=x[7]==null?null:(Boolean)x[7];paymentId=x[8]==null?null:((Number)x[8]).longValue();} }
 }

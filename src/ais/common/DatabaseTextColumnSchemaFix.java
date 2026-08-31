@@ -354,6 +354,19 @@ public final class DatabaseTextColumnSchemaFix {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ColumnInfo} milik {@link DatabaseTextColumnSchemaFix}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DatabaseTextColumnSchemaFix}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String dataType}, {@code String
+     * maxLength}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DatabaseTextColumnSchemaFix
+     */
     private static class ColumnInfo {
         String dataType;
         String maxLength;

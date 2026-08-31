@@ -62,5 +62,20 @@ public final class NewUiPenggunaanAnggaranController {
     private static Long id(String v){if(v==null||v.trim().length()==0)return null;try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException("Workspace tidak valid.");}}
     private static Date date(String v){if(v==null||v.trim().length()==0)return null;try{return new SimpleDateFormat("yyyy-MM-dd").parse(v);}catch(Exception e){throw new IllegalArgumentException("Tanggal tidak valid.");}}
     private static int integer(String v,int d){try{return Integer.parseInt(v);}catch(Exception e){return d;}}private static String text(String v,String d){return v==null||v.trim().length()==0?d:v.trim();}private static void fail(JSONObject j,String c,String m)throws Exception{j.put("ok",false).put("code",c).put("message",m);}private static void write(HttpServletResponse r,JSONObject j)throws Exception{r.getWriter().write(j.toString());}
+    /**
+     * Pekerjaan latar bersarang milik {@link NewUiPenggunaanAnggaranController} untuk job. Tipe ini membatasi
+     * state yang dibawa ke eksekusi asinkron dan tidak boleh membawa session request secara implisit.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiPenggunaanAnggaranController}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String id}, {@code String owner},
+     * {@code String state}, {@code String message}, {@code int percent}, {@code long finishedAt}, {@code
+     * ReprocessResult result}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see NewUiPenggunaanAnggaranController
+     */
     private static final class Job{String id,owner,state="QUEUED",message="Menunggu proses...";volatile int percent;volatile long finishedAt;volatile ReprocessResult result;}
 }

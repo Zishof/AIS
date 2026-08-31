@@ -23,6 +23,20 @@ public final class EbisnisMenuBlueprintRegistry {
 			"cancel", "post", "reverse", "export", "view_cost", "view_all_location"
 	};
 
+	/**
+	 * Tipe implementasi bersarang {@link Entri} milik {@link EbisnisMenuBlueprintRegistry}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * EbisnisMenuBlueprintRegistry}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String menuKey}, {@code String
+	 * label}, {@code String canonicalRoute}, {@code String parentKey}, {@code int sortOrder}, {@code List
+	 * platforms}, {@code List legacyAliases}, {@code List requiredActions}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see EbisnisMenuBlueprintRegistry
+	 */
 	public static final class Entri {
 		public final String menuKey;
 		public final String label;

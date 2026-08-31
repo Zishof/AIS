@@ -171,6 +171,23 @@ public class InstallCert {
         return sb.toString();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link SavingTrustManager} milik {@link InstallCert}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link InstallCert}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code X509TrustManager tm}, {@code
+     * X509Certificate chain}; operasi lokal: {@code getAcceptedIssuers()}, {@code checkClientTrusted()}, {@code
+     * checkServerTrusted}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see InstallCert
+     */
     private static class SavingTrustManager implements X509TrustManager {
 
         private final X509TrustManager tm;

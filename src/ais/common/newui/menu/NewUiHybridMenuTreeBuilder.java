@@ -15,6 +15,23 @@ public final class NewUiHybridMenuTreeBuilder {
     public static final int MAX_DEPTH = 50;
     public static final Long VIRTUAL_GROUP_ID = Long.valueOf(-1L);
 
+    /**
+     * Pembawa data/helper lokal milik {@link NewUiHybridMenuTreeBuilder} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiHybridMenuTreeBuilder}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List sidebarBranches}, {@code List
+     * allAssigned}, {@code NewUiHybridMenuDiagnostics diagnostics}; operasi lokal: {@code getSidebarBranches()},
+     * {@code getAllAssigned()}, {@code getDiagnostics}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see NewUiHybridMenuTreeBuilder
+     */
     public static final class Result {
         private final List<NewUiHybridMenuNode> sidebarBranches;
         private final List<NewUiHybridMenuNode> allAssigned;
@@ -29,6 +46,18 @@ public final class NewUiHybridMenuTreeBuilder {
         public NewUiHybridMenuDiagnostics getDiagnostics() { return diagnostics; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Classification} milik {@link NewUiHybridMenuTreeBuilder}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiHybridMenuTreeBuilder}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code NewUiHybridMenuNode node}, {@code
+     * boolean visible}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiHybridMenuTreeBuilder
+     */
     private static final class Classification {
         private final NewUiHybridMenuNode node;
         private final boolean visible;

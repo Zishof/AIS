@@ -144,6 +144,33 @@ public final class NewUiCourseComponentController {
     private static String text(String value,String fallback){return clean(value)==null?fallback:value.trim();}
     private static void fail(JSONObject json,String code,String message)throws Exception{json.put("ok",false).put("code",code).put("message",message);}
     private static void write(HttpServletResponse res,JSONObject json)throws Exception{res.getWriter().write(json.toString());}
+    /**
+     * Tipe implementasi bersarang {@link SaveRequest} milik {@link NewUiCourseComponentController}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiCourseComponentController}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Input input}, {@code FileItem file},
+     * {@code String link}, {@code String type}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see NewUiCourseComponentController
+     */
     private static final class SaveRequest{Input input;FileItem file;String link,type;}
+    /**
+     * Tipe implementasi bersarang {@link CsvRow} milik {@link NewUiCourseComponentController}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * NewUiCourseComponentController}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Input input}, {@code String link},
+     * {@code String type}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see NewUiCourseComponentController
+     */
     private static final class CsvRow{Input input;String link,type;}
 }

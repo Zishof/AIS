@@ -4008,6 +4008,19 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		return result;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardEntry} milik {@link DetailPembayaranMahasiswaRenderer}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DetailPembayaranMahasiswaRenderer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code double value}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DetailPembayaranMahasiswaRenderer
+	 */
 	private static class DashboardEntry {
 		private String label;
 		private double value;
@@ -4018,6 +4031,22 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardPembayaranData} milik {@link DetailPembayaranMahasiswaRenderer}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DetailPembayaranMahasiswaRenderer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code double tagihan}, {@code double
+	 * dibayar}, {@code double sisa}, {@code int persenLunas}, {@code int jumlahTransaksi}, {@code double
+	 * totalRiwayat}, {@code double rataRata}, {@code int jumlahItemTagihan}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DetailPembayaranMahasiswaRenderer
+	 */
 	private static class DashboardPembayaranData {
 		private double tagihan;
 		private double dibayar;
