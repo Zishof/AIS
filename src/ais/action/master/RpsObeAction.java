@@ -953,6 +953,13 @@ public class RpsObeAction extends GenericAutowireComposer {
 			Map parameters = ais.common.HashMapGenerator.getRand();
 			parameters.put("id", kurikulumPunyaMatakuliah.getId());
 			Common.insertProperty(KurikulumPunyaMatakuliah.class, kurikulumPunyaMatakuliah, parameters, "", 2);
+			// Nama Ka. Prodi tidak boleh mengandalkan hasil flatten insertProperty.
+			// Relasi kurikulum -> jurusan -> kaprodi -> nama berada lebih dalam daripada
+			// batas ekspansi map, sehingga nama prodi tampil tetapi Ka. Prodi kosong pada
+			// cetak HTML. Ambil langsung dari profil prodi yang menjadi sumber resminya.
+			Dosen kaprodiRps = ambilKaprodiRps(kurikulumPunyaMatakuliah);
+			parameters.put("ketuaProgramStudi",
+					kaprodiRps == null || kaprodiRps.getNama() == null ? "" : kaprodiRps.getNama().trim());
 
 			Set<Long> longs = parseIdsToSet(kurikulumPunyaMatakuliah.getMatakuliah().getCapaianLulusan());
 			List<CapaianLulusan> capaianLulusans = ConstantValues
@@ -1286,7 +1293,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		String prodi       = rpsHs(p, "kurikulum.jurusan.nama");
 		String jenjang     = rpsHs(p, "kurikulum.jurusan.jenjang.nama");
 		String fakultas    = rpsHs(p, "kurikulum.jurusan.fakultas.nama");
-		String kaprodi     = rpsHs(p, "kurikulum.jurusan.kaprodi.nama");
+		String kaprodi     = rpsHs(p, "ketuaProgramStudi");
 		String deskripsi   = rpsHs(p, "deskripsiPembelajaran");
 		String catatan     = rpsHs(p, "catatan");
 		// Gap #1: CPL bobot per MK
@@ -2264,10 +2271,26 @@ public class RpsObeAction extends GenericAutowireComposer {
 		createRowLabelAndValue(rowsUtama, Common.getBahasaConfig("Koordinator"),
 				bolehUbahObe ? koordinator : new Label(kurikulumPunyaMatakuliah.getKoordinator()));
 
+		Dosen kaprodiRps = ambilKaprodiRps(kurikulumPunyaMatakuliah);
 		createRowLabelAndValue(rowsUtama, Common.getBahasaConfig("Ketua Program Studi"),
-				new Label(kurikulumPunyaMatakuliah.getKurikulum().getJurusan() == null
-						|| kurikulumPunyaMatakuliah.getKurikulum().getJurusan().getKaprodi() == null ? ""
-								: kurikulumPunyaMatakuliah.getKurikulum().getJurusan().getKaprodi().getNama()));
+				new Label(kaprodiRps == null || kaprodiRps.getNama() == null ? "" : kaprodiRps.getNama()));
+	}
+
+	/**
+	 * Mengambil Ka. Prodi dari profil program studi RPS. Kurikulum menjadi sumber
+	 * utama; jurusan mata kuliah dipakai sebagai fallback untuk data lama yang
+	 * relasi jurusannya belum tersalin ke kurikulum.
+	 */
+	private static Dosen ambilKaprodiRps(KurikulumPunyaMatakuliah kpm) {
+		if (kpm == null) return null;
+		if (kpm.getKurikulum() != null && kpm.getKurikulum().getJurusan() != null
+				&& kpm.getKurikulum().getJurusan().getKaprodi() != null) {
+			return kpm.getKurikulum().getJurusan().getKaprodi();
+		}
+		if (kpm.getMatakuliah() != null && kpm.getMatakuliah().getJurusan() != null) {
+			return kpm.getMatakuliah().getJurusan().getKaprodi();
+		}
+		return null;
 	}
 
 	@SuppressWarnings({ "deprecation", "unchecked" })
