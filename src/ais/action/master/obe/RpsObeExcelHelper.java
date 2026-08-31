@@ -445,8 +445,12 @@ public final class RpsObeExcelHelper {
 		XSSFSheet sh = keyValueSheet(wb, st, AUTH, "2. OTORITAS"); int r = FIRST;
 		r = kv(sh, st, r, "PENGEMBANG_RPS", kpm.getPengembangRps(), "Nama penyusun/pengembang RPS", true);
 		r = kv(sh, st, r, "KOORDINATOR", kpm.getKoordinator(), "Nama koordinator mata kuliah", true);
-		String kaprodi = kpm.getKurikulum() == null || kpm.getKurikulum().getJurusan() == null
-				|| kpm.getKurikulum().getJurusan().getKaprodi() == null ? "" : kpm.getKurikulum().getJurusan().getKaprodi().getNama();
+		Dosen kaprodiRps = kpm.getKurikulum() != null && kpm.getKurikulum().getJurusan() != null
+				? kpm.getKurikulum().getJurusan().getKaprodi() : null;
+		if (kaprodiRps == null && kpm.getMatakuliah() != null && kpm.getMatakuliah().getJurusan() != null) {
+			kaprodiRps = kpm.getMatakuliah().getJurusan().getKaprodi();
+		}
+		String kaprodi = kaprodiRps == null || kaprodiRps.getNama() == null ? "" : kaprodiRps.getNama();
 		r = kv(sh, st, r, "KETUA_PROGRAM_STUDI", kaprodi, "Diambil dari master program studi", false);
 		finish(sh, r, 2, new int[] { 32, 60, 55 });
 	}
