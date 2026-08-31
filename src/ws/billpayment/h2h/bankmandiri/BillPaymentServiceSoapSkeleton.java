@@ -7,6 +7,23 @@
 
 package ws.billpayment.h2h.bankmandiri;
 
+/**
+ * Adapter dispatch sisi server Apache Axis untuk layanan bill-payment. Kelas hasil WSDL2Java ini
+ * meneruskan operasi SOAP ke implementasi layanan tanpa memiliki aturan pembayaran sendiri.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link
+ * ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoap}, {@link org.apache.axis.wsdl.Skeleton}. Implementasi
+ * konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya
+ * bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code
+ * ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoap impl}, {@code java.util.Map _myOperations}, {@code
+ * java.util.Collection _myOperationsList}; pembacaan/pencarian ({@code getOperationDescByName()}, {@code
+ * getOperationDescs()}); operasi domain lain ({@code reverse()}, {@code payment()}, {@code inquiry()}, {@code
+ * echoTest()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> bergantung pada perannya, operasi dapat mengubah konfigurasi endpoint, membuat stub,
+ * melakukan I/O jaringan, atau meneruskan request ke logika transaksi. Error transport tetap diteruskan sebagai
+ * kontrak JAX-RPC/Axis; jangan menggandakan mapping WSDL di kelas lain.</p>
+ */
 public class BillPaymentServiceSoapSkeleton implements ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoap, org.apache.axis.wsdl.Skeleton {
     private ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoap impl;
     private static java.util.Map _myOperations = new java.util.Hashtable();

@@ -7,6 +7,25 @@
 
 package CIMB3rdParty.BillPaymentWS;
 
+/**
+ * DTO permintaan SOAP bill-payment untuk cimb3 rd party payment rq. Field kelas ini adalah
+ * representasi kontrak wire yang diserialisasi oleh Apache Axis; tipe ini tidak menjalankan
+ * validasi atau aturan pembayaran.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini hanya memodelkan data pesan SOAP. Interface
+ * {@link java.io.Serializable} (dan {@code Comparable}, bila ada) adalah kebutuhan binding/collection, bukan
+ * tempat implementasi transaksi. Validasi, autentikasi, dan aturan pembayaran wajib tetap berada pada endpoint
+ * atau service domain agar DTO wire tidak menjadi sumber aturan yang tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code CIMB3rdParty.BillPaymentWS.PaymentRq
+ * paymentRq}, {@code java.lang.Object __equalsCalc}, {@code boolean __hashCodeCalc}, {@code
+ * org.apache.axis.description.TypeDesc typeDesc}; pembacaan/pencarian ({@code getPaymentRq()}, {@code
+ * getTypeDesc()}, {@code getSerializer()}, {@code getDeserializer()}); mutasi data ({@code setPaymentRq()});
+ * operasi domain lain ({@code equals()}, {@code hashCode()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor hanya membaca atau mengganti state DTO. Tidak ada I/O, transaksi,
+ * autentikasi, maupun validasi bisnis; nilai wajib, format, dan makna status mengikuti WSDL serta implementasi
+ * endpoint. Jangan menambahkan aturan domain ke binding ini.</p>
+ */
 public class CIMB3RdParty_PaymentRq  implements java.io.Serializable {
     private CIMB3rdParty.BillPaymentWS.PaymentRq paymentRq;
 

@@ -22,6 +22,21 @@ import ws.billpayment.h2h.bankmandiri.logic.PaymentLogic;
 import ws.billpayment.h2h.bankmandiri.logic.ReversalLogic;
 import ws.billpayment.h2h.bankmandiri.util.ConstantUtilBankMandiri;
 
+/**
+ * Implementasi endpoint SOAP bill-payment. Kelas ini menghubungkan request protokol bank dengan
+ * validasi, inquiry, pembayaran, reversal, dan pencatatan yang disediakan komponen domain AIS.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link BillPaymentServiceSoap}. Implementasi
+ * konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya
+ * bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PaymentLogic pembayaranLogic}, {@code
+ * ReversalLogic reversalLogic}, {@code InqueryLogic inqueryLogic}; operasi domain lain ({@code reverse()},
+ * {@code payment()}, {@code inquiry()}, {@code echoTest()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> bergantung pada perannya, operasi dapat mengubah konfigurasi endpoint, membuat stub,
+ * melakukan I/O jaringan, atau meneruskan request ke logika transaksi. Error transport tetap diteruskan sebagai
+ * kontrak JAX-RPC/Axis; jangan menggandakan mapping WSDL di kelas lain.</p>
+ */
 public class BillPaymentServiceSoapImpl implements BillPaymentServiceSoap {
 
 	private PaymentLogic pembayaranLogic = new PaymentLogic();

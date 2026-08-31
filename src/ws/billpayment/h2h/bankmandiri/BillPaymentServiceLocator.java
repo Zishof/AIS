@@ -7,6 +7,28 @@
 
 package ws.billpayment.h2h.bankmandiri;
 
+/**
+ * Locator klien Apache Axis untuk layanan bill-payment. Kelas hasil WSDL2Java ini menyimpan alamat
+ * endpoint dan membuat port SOAP bertipe kuat untuk dipakai pemanggil integrasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * org.apache.axis.client.Service}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk
+ * variasi ini; perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak
+ * bercabang atau tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.lang.String
+ * BillPaymentServiceSoap_address}, {@code java.lang.String BillPaymentServiceSoapWSDDServiceName}, {@code
+ * java.util.HashSet ports}; pembacaan/pencarian ({@code getBillPaymentServiceSoapAddress()}, {@code
+ * getBillPaymentServiceSoapWSDDServiceName()}, {@code getBillPaymentServiceSoap()}, {@code
+ * getBillPaymentServiceSoap()}, {@code getPort()}, {@code getPort()}); mutasi data ({@code
+ * setBillPaymentServiceSoapWSDDServiceName()}, {@code setBillPaymentServiceSoapEndpointAddress()}, {@code
+ * setEndpointAddress()}, {@code setEndpointAddress()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> bergantung pada perannya, operasi dapat mengubah konfigurasi endpoint, membuat stub,
+ * melakukan I/O jaringan, atau meneruskan request ke logika transaksi. Error transport tetap diteruskan sebagai
+ * kontrak JAX-RPC/Axis; jangan menggandakan mapping WSDL di kelas lain.</p>
+ *
+ * @see org.apache.axis.client.Service
+ */
 public class BillPaymentServiceLocator extends org.apache.axis.client.Service implements ws.billpayment.h2h.bankmandiri.BillPaymentService {
 
     public BillPaymentServiceLocator() {

@@ -7,6 +7,27 @@
 
 package ws.billpayment.h2h.bankmandiri;
 
+/**
+ * DTO respons SOAP bill-payment untuk payment response. Field kelas ini membawa status dan data
+ * protokol yang diserialisasi oleh Apache Axis; pembentukan keputusan bisnis tetap milik
+ * implementasi layanan.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini hanya memodelkan data pesan SOAP. Interface
+ * {@link java.io.Serializable} (dan {@code Comparable}, bila ada) adalah kebutuhan binding/collection, bukan
+ * tempat implementasi transaksi. Validasi, autentikasi, dan aturan pembayaran wajib tetap berada pada endpoint
+ * atau service domain agar DTO wire tidak menjadi sumber aturan yang tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.lang.String billInfo1}, {@code
+ * java.lang.String billInfo2}, {@code java.lang.String billInfo3}, {@code java.lang.String billInfo4}, {@code
+ * java.lang.String billInfo5}, {@code java.lang.String billInfo6}, {@code java.lang.String billInfo7}, {@code
+ * java.lang.String billInfo8}; pembacaan/pencarian ({@code getBillInfo1()}, {@code getBillInfo2()}, {@code
+ * getBillInfo3()}, {@code getBillInfo4()}, {@code getBillInfo5()}, {@code getBillInfo6()}); mutasi data ({@code
+ * setBillInfo1()}, {@code setBillInfo2()}, {@code setBillInfo3()}, {@code setBillInfo4()}, {@code
+ * setBillInfo5()}, {@code setBillInfo6()}); operasi domain lain ({@code equals()}, {@code hashCode()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor hanya membaca atau mengganti state DTO. Tidak ada I/O, transaksi,
+ * autentikasi, maupun validasi bisnis; nilai wajib, format, dan makna status mengikuti WSDL serta implementasi
+ * endpoint. Jangan menambahkan aturan domain ke binding ini.</p>
+ */
 public class PaymentResponse  implements java.io.Serializable {
     /**
 	 * 

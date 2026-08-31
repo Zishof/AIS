@@ -36,6 +36,22 @@ import ws.billpayment.h2h.bankmandiri.util.CommonUtil;
 import ws.billpayment.h2h.bankmandiri.util.ConstantUtilBankMandiri;
 import ws.billpayment.h2h.bankmandiri.util.DisplayUtil;
 
+/**
+ * Orkestrator inquiry tagihan Bank Mandiri untuk calon mahasiswa dan mahasiswa aktif. Kelas ini
+ * menghimpun konfigurasi pembayaran, jadwal, denda, detail biaya, dan log host-to-host menjadi
+ * respons protokol bank; ejaan nama kelas dipertahankan untuk kompatibilitas kode lama.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PembayaranUtil pembayaranUtil}, {@code
+ * DisplayUtil displayUtil}; operasi domain lain ({@code inqueryCalonMahasiswa()}, {@code
+ * inqueryMahasiswaBaru()}, {@code inqueryMahasiswaLama()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi inquiry membaca banyak entitas Hibernate, menghitung jadwal/denda dan total
+ * tagihan, serta memperbarui log host-to-host. Pertahankan satu alur ini sebagai sumber aturan inquiry agar
+ * perhitungan tagihan tidak disalin ke endpoint bank lain.</p>
+ */
 public class InqueryLogic {
 
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();

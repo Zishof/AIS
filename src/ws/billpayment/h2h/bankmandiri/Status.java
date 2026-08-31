@@ -7,6 +7,25 @@
 
 package ws.billpayment.h2h.bankmandiri;
 
+/**
+ * DTO SOAP bill-payment untuk status. Tipe ini merepresentasikan bagian pesan wire dan hanya
+ * menyimpan nilai yang akan diserialisasi atau dibaca oleh binding Apache Axis.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini hanya memodelkan data pesan SOAP. Interface
+ * {@link java.io.Serializable} (dan {@code Comparable}, bila ada) adalah kebutuhan binding/collection, bukan
+ * tempat implementasi transaksi. Validasi, autentikasi, dan aturan pembayaran wajib tetap berada pada endpoint
+ * atau service domain agar DTO wire tidak menjadi sumber aturan yang tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean isError}, {@code
+ * java.lang.String errorCode}, {@code java.lang.String statusDescription}, {@code java.lang.Object
+ * __equalsCalc}, {@code boolean __hashCodeCalc}, {@code org.apache.axis.description.TypeDesc typeDesc};
+ * pembacaan/pencarian ({@code getErrorCode()}, {@code getStatusDescription()}, {@code getTypeDesc()}, {@code
+ * getSerializer()}, {@code getDeserializer()}); mutasi data ({@code setIsError()}, {@code setErrorCode()},
+ * {@code setStatusDescription()}); operasi domain lain ({@code isIsError()}, {@code equals()}, {@code
+ * hashCode()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor hanya membaca atau mengganti state DTO. Tidak ada I/O, transaksi,
+ * autentikasi, maupun validasi bisnis; nilai wajib, format, dan makna status mengikuti WSDL serta implementasi
+ * endpoint. Jangan menambahkan aturan domain ke binding ini.</p>
+ */
 public class Status  implements java.io.Serializable {
     /**
 	 * 

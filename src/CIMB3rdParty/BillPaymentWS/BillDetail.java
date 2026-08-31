@@ -7,6 +7,26 @@
 
 package CIMB3rdParty.BillPaymentWS;
 
+/**
+ * DTO SOAP bill-payment untuk bill detail. Tipe ini merepresentasikan bagian pesan wire dan hanya
+ * menyimpan nilai yang akan diserialisasi atau dibaca oleh binding Apache Axis.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini hanya memodelkan data pesan SOAP. Interface
+ * {@link java.io.Serializable} (dan {@code Comparable}, bila ada) adalah kebutuhan binding/collection, bukan
+ * tempat implementasi transaksi. Validasi, autentikasi, dan aturan pembayaran wajib tetap berada pada endpoint
+ * atau service domain agar DTO wire tidak menjadi sumber aturan yang tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.lang.String billCurrency}, {@code
+ * java.lang.String billCode}, {@code java.lang.Integer billAmount}, {@code java.lang.String billReference},
+ * {@code java.lang.Object __equalsCalc}, {@code boolean __hashCodeCalc}, {@code
+ * org.apache.axis.description.TypeDesc typeDesc}; pembacaan/pencarian ({@code getBillCurrency()}, {@code
+ * getBillCode()}, {@code getBillAmount()}, {@code getBillReference()}, {@code getTypeDesc()}, {@code
+ * getSerializer()}); mutasi data ({@code setBillCurrency()}, {@code setBillCode()}, {@code setBillAmount()},
+ * {@code setBillReference()}); operasi domain lain ({@code equals()}, {@code hashCode()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor hanya membaca atau mengganti state DTO. Tidak ada I/O, transaksi,
+ * autentikasi, maupun validasi bisnis; nilai wajib, format, dan makna status mengikuti WSDL serta implementasi
+ * endpoint. Jangan menambahkan aturan domain ke binding ini.</p>
+ */
 public class BillDetail  implements java.io.Serializable {
     private java.lang.String billCurrency;
 

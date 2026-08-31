@@ -7,6 +7,27 @@
 
 package ws.billpayment.h2h.bankmandiri;
 
+/**
+ * Proxy klien Apache Axis untuk layanan bill-payment. Kelas hasil WSDL2Java ini memetakan operasi,
+ * serializer, endpoint, dan pemanggilan jaringan SOAP ke kontrak Java paket ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * org.apache.axis.client.Stub}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi
+ * ini; perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang
+ * atau tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.util.Vector cachedSerClasses},
+ * {@code java.util.Vector cachedSerQNames}, {@code java.util.Vector cachedSerFactories}, {@code java.util.Vector
+ * cachedDeserFactories}, {@code org.apache.axis.description.OperationDesc _operations}; inisialisasi/lifecycle
+ * ({@code _initOperationDesc1()}); operasi domain lain ({@code createCall()}, {@code reverse()}, {@code
+ * payment()}, {@code inquiry()}, {@code echoTest()}); konfigurasi constructor: {@code cachedEndpoint}, {@code
+ * cls}, {@code qName}, {@code qName2}, {@code service}. Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> bergantung pada perannya, operasi dapat mengubah konfigurasi endpoint, membuat stub,
+ * melakukan I/O jaringan, atau meneruskan request ke logika transaksi. Error transport tetap diteruskan sebagai
+ * kontrak JAX-RPC/Axis; jangan menggandakan mapping WSDL di kelas lain.</p>
+ *
+ * @see org.apache.axis.client.Stub
+ */
 public class BillPaymentServiceSoapStub extends org.apache.axis.client.Stub implements ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoap {
     private java.util.Vector cachedSerClasses = new java.util.Vector();
     private java.util.Vector cachedSerQNames = new java.util.Vector();

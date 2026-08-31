@@ -37,6 +37,22 @@ import ais.database.model.cimb.CimbRequest;
 import ais.database.model.cimb.CimbRequestDetail;
 import ais.database.model.cimb.CimbResponse;
 
+/**
+ * Implementasi endpoint SOAP bill-payment. Kelas ini menghubungkan request protokol bank dengan
+ * validasi, inquiry, pembayaran, reversal, dan pencatatan yang disediakan komponen domain AIS.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link
+ * CIMB3rdParty.BillPaymentWS.BillPaymentServiceSoap}. Implementasi konkret bertanggung jawab atas transaksi,
+ * resource, error handling, dan efek samping; pemanggil sebaiknya bergantung pada kontrak ini agar tidak
+ * menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PaymentLogic paymentLogic}, {@code
+ * PembayaranUtil pembayaranUtil}; operasi domain lain ({@code inquiry()}, {@code payment()}, {@code echoTest()},
+ * {@code createKegiatan()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> bergantung pada perannya, operasi dapat mengubah konfigurasi endpoint, membuat stub,
+ * melakukan I/O jaringan, atau meneruskan request ke logika transaksi. Error transport tetap diteruskan sebagai
+ * kontrak JAX-RPC/Axis; jangan menggandakan mapping WSDL di kelas lain.</p>
+ */
 public class BillPaymentServiceSoapImpl implements CIMB3rdParty.BillPaymentWS.BillPaymentServiceSoap {
 
 	private PaymentLogic paymentLogic = new PaymentLogic();
