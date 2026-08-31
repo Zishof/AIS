@@ -21,6 +21,25 @@ import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.file.FotoImagePerHalamanItem;
 import ais.database.model.library.Item;
 
+/**
+ * Tipe khusus untuk tampilan hasil scan per halaman window. Kelas ini memberi nama dan batas
+ * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
+ * diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code init()}); pembacaan/pencarian
+ * ({@code loadImage()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class TampilanHasilScanPerHalamanWindow extends MyWindow {
 
 	/**

@@ -14,6 +14,30 @@ import ais.action.master.generic.v2.adapter.GenericCrudRestorePolicy;
 import ais.action.master.generic.v2.adapter.GenericCrudScopeAdapter;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Tipe khusus untuk generic crud definition. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link Serializable}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String DISABLED}, {@code String
+ * REVIEW_REQUIRED}, {@code String READ_ONLY}, {@code String FULL_CRUD}, {@code String entityKey}, {@code Class
+ * entityClass}, {@code String moduleKey}, {@code String pageKey}; inisialisasi/lifecycle ({@code
+ * setUpdateEnabled()}); pembacaan/pencarian ({@code getField()}, {@code getFields()}, {@code getEntityClass()},
+ * {@code getEntityKey()}, {@code getModuleKey()}, {@code getPageKey()}); mutasi data ({@code setEntityClass()},
+ * {@code setEntityKey()}, {@code setModuleKey()}, {@code setPageKey()}, {@code setDisplayName()}, {@code
+ * setLifecycleStatus()}); penghapusan/pembatalan ({@code isDeleteEnabled()}, {@code isImportDeleteEnabled()},
+ * {@code isAdminDeleteEnabled()}); pelaporan/ekspor ({@code isExportXlsxEnabled()}, {@code
+ * isExportPdfEnabled()}, {@code isExportDocxEnabled()}, {@code isExportPptxEnabled()}); operasi domain lain
+ * ({@code addField()}, {@code isEnabled()}, {@code isCreateEnabled()}, {@code isImportEnabled()}, {@code
+ * isBulkEditEnabled()}, {@code isPhotoEnabled()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class GenericCrudDefinition implements Serializable {
     private static final long serialVersionUID = 1L;

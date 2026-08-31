@@ -26,6 +26,21 @@ import ais.action.report.helper.nilai.LaporanDaftarNilaiWindow;
 import ais.action.report.helper.nilai.LaporanDaftarPrestasiBelajarWindow;
 import ais.common.Common;
 
+/**
+ * Komponen dashboard khusus untuk common dashboard. Kelas ini memilih variasi data atau tampilan
+ * dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code TreeMap masterDashboard}; operasi
+ * domain lain ({@code dashboardDescription()}, {@code dashboardCard()}, {@code closeOpenedSession()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class CommonDashboard {
 
 	@SuppressWarnings("rawtypes")
