@@ -33,6 +33,25 @@ import ais.ui.util.MyInclude;
 import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk daftar ulang pembayaran. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code ambilNominalDariLabel()}, {@code
+ * hitungJumlahYangAkanDibayarDariTampilan()}, {@code getBayarCooldownMs()}, {@code loadIframeToTabpanel()});
+ * validasi/perhitungan ({@code hitungNilaiCicilanBelumTersimpanDariGrid()}); mutasi data ({@code
+ * updateDetailBiayaUntukDibayar()}, {@code pilihSettingBiayaSesuai()}, {@code resolveSettingBiaya()}); operasi
+ * domain lain ({@code pasangRingkasanBayar()}, {@code buildBayarSignature()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public final class DaftarUlangPembayaranHelper {
 
 	private DaftarUlangPembayaranHelper() {

@@ -109,6 +109,29 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk tampil studi mahasiswa. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code Mahasiswa
+ * mahasiswa}, {@code Boolean tampilKonversi}, {@code boolean remedial}, {@code Integer semesterPendek}, {@code
+ * Tbmuser tbmuser}, {@code Combobox semesterMulai}, {@code Combobox semesterSampai}; inisialisasi/lifecycle
+ * ({@code initDashboard()}, {@code initMain()}, {@code initMain()}); pembacaan/pencarian ({@code tampil()},
+ * {@code tampil()}, {@code tampil()}, {@code buildMkBelumDiambilHtml()}, {@code buildMkBelumDiambilHtml()},
+ * {@code buildMkBelumDiambilHtml()}); validasi/perhitungan ({@code hitungDetailPerkuliahan()}); pelaporan/ekspor
+ * ({@code exportStudiMahasiswaExcel()}); operasi domain lain ({@code daftarStatusMatakuliah()}, {@code
+ * daftarKurikulumProdi()}, {@code kotakRingkasMkbd()}, {@code xlsSel()}, {@code xlsHeader()}, {@code
+ * xlsSheetTabel()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class TampilStudiMahasiswaHelper {
 
 	private MyGrid grid;

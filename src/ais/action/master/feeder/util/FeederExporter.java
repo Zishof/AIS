@@ -55,6 +55,25 @@ import ais.database.model.Skripsi;
 import ais.database.model.kkn.KelompokKkn;
 import ais.database.model.pkl.KelompokPkl;
 
+/**
+ * Tipe khusus untuk feeder exporter. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code FeederConnector feederConnector},
+ * {@code String token}, {@code Progressmeter progressmeter}, {@code Progressmeter progressmeterChild}, {@code
+ * Label labelProses}; pembacaan/pencarian ({@code ambilDataObject()}, {@code ambilNilaiData()});
+ * pelaporan/ekspor ({@code logLangkahFeederExporter()}); operasi domain lain ({@code
+ * kurikulumPunyaMatakuliah()}, {@code kurikulumPunyaMatakuliah()}, {@code kurikulumPunyaMatakuliah()}, {@code
+ * kurikulum()}, {@code kurikulum()}, {@code kurikulum()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class FeederExporter {
 	private FeederConnector feederConnector;
 	private String token;

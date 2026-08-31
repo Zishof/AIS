@@ -18,6 +18,25 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Tipe khusus untuk perubahan nilai listener. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link EventListener}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Detailperkuliahan detailperkuliahan},
+ * {@code EventListener onPerubahanNilai}, {@code Label label}, {@code FormatNilai formatNilai}, {@code
+ * MyDoublebox doublebox}, {@code List formatNilais}, {@code MyCheckboxConfig verify}, {@code int
+ * SYNC_POOL_SIZE}; pembacaan/pencarian ({@code getDoublebox()}, {@code getVerify()}); mutasi data ({@code
+ * setDoublebox()}, {@code setVerify()}); operasi domain lain ({@code process()}, {@code process()}, {@code
+ * onEvent()}, {@code bacaNilaiAman()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PerubahanNilaiListener implements EventListener {
 
 	private Detailperkuliahan detailperkuliahan;

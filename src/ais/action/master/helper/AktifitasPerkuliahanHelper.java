@@ -117,6 +117,28 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk aktifitas perkuliahan. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PenjadwalanHelper penjadwalanHelper},
+ * {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa}, {@code Integer mulai},
+ * {@code Integer banyak}, {@code Component groupbox}, {@code boolean tampikanTab}, {@code boolean
+ * tampilLangsungRinci}; inisialisasi/lifecycle ({@code initAgendaPerkuliahan()}, {@code initDetail()}, {@code
+ * initDetail()}); pembacaan/pencarian ({@code tampilCalender()}, {@code tampilkanLampiran()}, {@code
+ * tampilRinci()}, {@code tampilRinci()}); mutasi data ({@code chekSimpan()}); operasi domain lain ({@code
+ * teksAman()}, {@code namaMatakuliah()}, {@code escapeHtmlAman()}, {@code displayHeader()}, {@code
+ * displayHeaderInternal()}, {@code createKeterangan()}); konfigurasi constructor: {@code tbmuser}. Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class AktifitasPerkuliahanHelper {
 
 	protected PenjadwalanHelper penjadwalanHelper = new PenjadwalanHelper();

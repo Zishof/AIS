@@ -88,6 +88,24 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Tipe khusus untuk kegiatan proses heper. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int DEFAULT_THREAD_POOL_SIZE}, {@code
+ * ExecutorService WORKER_EXECUTOR}; pembacaan/pencarian ({@code getSafeThreadPoolSize()}); mutasi data ({@code
+ * prosesUlangTagihanCombo()}, {@code prosesUlangTagihan()}, {@code updateUI()}, {@code updateInfo()}, {@code
+ * prosesUlangTagihan()}, {@code prosesUlangTagihan()}); operasi domain lain ({@code singkronkanDataCicilan()},
+ * {@code nilaiDouble()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class KegiatanProsesHeper {
 
 	private static final int DEFAULT_THREAD_POOL_SIZE = Math.max(2,

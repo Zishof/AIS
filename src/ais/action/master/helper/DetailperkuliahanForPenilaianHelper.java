@@ -96,6 +96,27 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk detailperkuliahan for penilaian. Tipe ini membungkus satu variasi kecil
+ * dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code MyGrid
+ * gridKomentar}, {@code Perkuliahan perkuliahan}, {@code List formatNilais}, {@code Konfigurasi konfigurasi},
+ * {@code List statusPertemuan}, {@code EventListener onPerubahanNilai}, {@code Textbox nama};
+ * pembacaan/pencarian ({@code loadData()}, {@code loadDataDetailAsisten()}, {@code loadDataKomentar()}); mutasi
+ * data ({@code prosesDisplay()}); operasi domain lain ({@code tanamkanRekapKeTabpanel()}, {@code
+ * displayAsistenMahasiswa()}, {@code display()}, {@code onLaporan()}, {@code onLaporan()}, {@code onLaporan()});
+ * konfigurasi constructor: {@code editDisable}, {@code nilai0MasukPenghitungan}, {@code tbmuser}. Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 	private MyGrid grid;

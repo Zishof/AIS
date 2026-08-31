@@ -136,6 +136,29 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk absensi. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox metode}, {@code Combobox
+ * ujian}, {@code Textbox bukuRujukan1}, {@code Textbox bukuRujukan2}, {@code Textbox dosenTamu}, {@code Textbox
+ * dosenTamu2}, {@code MyDatebox tanggal}, {@code MyDatebox tanggalRealisasi}; inisialisasi/lifecycle ({@code
+ * mainInit()}, {@code initKelasPertemuan()}); pembacaan/pencarian ({@code reload()}, {@code
+ * createListMahasiswaAbsensi()}, {@code reloadSejarahAbsensiOnline()}, {@code tampilkanAbsensiOnline()}, {@code
+ * tampilBawah()}, {@code createListMahasiswaIzin()}); validasi/perhitungan ({@code boleh()}, {@code
+ * bolehKonfirmasi()}, {@code bolehKonfirmasiRps()}, {@code bolehOlehAkademik()}); mutasi data ({@code
+ * ubahTerlewat()}); operasi domain lain ({@code createTombolAbsen()}, {@code createTombolAbsen()}, {@code
+ * populateMahasiswaDariPertemuan()}, {@code bagianInfo()}, {@code gayaKartuPresensi()}, {@code badgeStatus()});
+ * konfigurasi constructor: {@code statusabsensis}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class AbsensiHelper {
 
 	// private Textbox topik;

@@ -110,6 +110,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper terfokus untuk detail ujian. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Ujian ujian}, {@code Grid grid}, {@code
+ * Textbox cari}, {@code Paging paging}, {@code Tbmuser tbmuser}, {@code int countHasil}, {@code boolean
+ * refreshSoal}, {@code PertemuanPunyaUjian pertemuanPunyaUjian}; inisialisasi/lifecycle ({@code
+ * bukaBuatSoalAi()}); pembacaan/pencarian ({@code tampilSoalDanJawaban()}, {@code doDownload()}, {@code
+ * doDownload()}, {@code doDownload()}, {@code doUpload()}, {@code doUpload()}); validasi/perhitungan ({@code
+ * checkMerupakanPerkuliahan()}, {@code acCheckbox()}, {@code hitungBobotPPULain()}); mutasi data ({@code
+ * simpanAntiCurang()}); operasi domain lain ({@code display()}, {@code isiTabAntiCurang()}, {@code acIntbox()},
+ * {@code acDoublebox()}, {@code acTextarea()}, {@code isiTabPengaturanOBE()}); konfigurasi constructor: {@code
+ * tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DetailUjianHelper implements DataLoader {
 
 	private Ujian ujian;

@@ -26,6 +26,22 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.PenugasanDosenMengajar;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Helper terfokus untuk feeder exporter. Tipe ini membungkus satu variasi kecil dari alur yang
+ * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah mutasi data ({@code simpanFeederIdDenganNativeSession()});
+ * operasi domain lain ({@code dosen_pt()}, {@code ajar_dosen()}, {@code ajar_dosen()}, {@code
+ * tutupSessionKhusus()}, {@code mahasiswa_pt()}, {@code kuliah_mahasiswa()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class FeederExporterHelper {
 
 	public static void dosen_pt(Session session, FeederConnector feederConnector, String token,

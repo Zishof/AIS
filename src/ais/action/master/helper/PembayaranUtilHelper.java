@@ -51,6 +51,26 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
 
+/**
+ * Helper terfokus untuk pembayaran util. Tipe ini membungkus satu variasi kecil dari alur yang
+ * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String SQL_TRUE}, {@code String
+ * SQL_FALSE}; pembacaan/pencarian ({@code getDetailBiayaMahasiswa()}, {@code getDetailBiayaMahasiswa()}, {@code
+ * getDetailBiayaMahasiswa()}, {@code getDetailBiayaMahasiswaBerdasarkanJenisKegiatan()}, {@code
+ * getDetailBiayaMahasiswa()}, {@code getDetailKegiatanMahasiswa()}); operasi domain lain ({@code
+ * jenjangCocok()}, {@code closeOpenedSession()}, {@code jenisSeleksiSesuaiGelombang()}, {@code
+ * filterCriteriaDenganNilaiTambahan()}, {@code isAktifPengaturanBulanan()}, {@code
+ * saringPengaturanPembayaranBulanan()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
+ * yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PembayaranUtilHelper {
 
 	private static final String SQL_TRUE = "1=1";

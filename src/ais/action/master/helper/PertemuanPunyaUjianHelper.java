@@ -119,6 +119,28 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 
+/**
+ * Helper terfokus untuk pertemuan punya ujian. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code Div kartuWrap},
+ * {@code Pertemuan pertemuan}, {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa},
+ * {@code String GAYA_KARTU_UJIAN}; inisialisasi/lifecycle ({@code buatKartuUjianPeserta()}, {@code
+ * buatKartuUjianRingkas()}, {@code buatKetentuanUjianHtml()}, {@code buatPenilaianUjianHtml()}, {@code
+ * buatKolomUjian()}); pembacaan/pencarian ({@code tampilBolekIkutUjianAtauTidak()}, {@code loadData()});
+ * validasi/perhitungan ({@code hitungJumlahNomor()}); mutasi data ({@code prosesUlangSoal()}); pelaporan/ekspor
+ * ({@code cetak()}); operasi domain lain ({@code parameter()}, {@code kepalaKartuPeserta()}, {@code chip()},
+ * {@code ketItem()}, {@code penilaianBlok()}, {@code fmtPersen()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PertemuanPunyaUjianHelper implements DataLoader {
 
 	private MyGrid grid;

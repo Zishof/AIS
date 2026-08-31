@@ -89,6 +89,30 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk main. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String PUBLIC_APPLICATION_RELEASE},
+ * {@code Map logins}; inisialisasi/lifecycle ({@code initMain()}); pembacaan/pencarian ({@code
+ * tampilkanAngketDosenMahasiswaDariJadwalUmum()}, {@code tampilkanAngketGuruSiswaDariJadwalUmum()}, {@code
+ * getStringData()}, {@code tampilkanAngketSaatLogin()}, {@code tampilkanAngketSaatLoginPesan()}, {@code
+ * getRememberedUsername()}); validasi/perhitungan ({@code cekAngketWajibDosen()}, {@code
+ * cekAngketGuruOlehSiswa()}, {@code appendCheckForParentScript()}, {@code alreadyHasCheckForParentScript()});
+ * mutasi data ({@code prosesLoginDosen()}, {@code prosesLoginMahasiswa()}, {@code prosesLoginSiswa()}, {@code
+ * prosesLoginGuru()}, {@code prosesLoginAdmin()}, {@code prosesAngketSaatLogin()}); penghapusan/pembatalan
+ * ({@code hapusCookieRememberMe()}, {@code hapusCookieDiPeramban()}); operasi domain lain ({@code
+ * isPenggunaAdminAtauPegawai()}, {@code isKonfigurasiAktif()}, {@code gabungkanJadwalAngketUmum()}, {@code
+ * tambahJadwalAngket()}, {@code isStyleOrScriptComponent()}, {@code onBantuan()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class MainHelper {
 	/**
 	 * Halaman unduhan publik untuk APK Android dan installer Windows. URL latest

@@ -115,6 +115,28 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk penjadwalan. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Perkuliahan perkuliahan}, {@code MyGrid
+ * grid}, {@code MyCheckboxConfig hanyaYangAktif}, {@code MyCheckboxConfig urutkanManual}; inisialisasi/lifecycle
+ * ({@code tampilTombolBuatPertemuan()}, {@code buatPertemuan()}, {@code buatSatuPertemuan()}, {@code
+ * buatSatuPertemuan()}); pembacaan/pencarian ({@code tampilTombolDownload()}, {@code tampilTombolHapus()},
+ * {@code prosesTampilTombolAturUlangWaktu()}, {@code tampilTombolAturUlangWaktu()}, {@code tampilTombolAmbil()},
+ * {@code onSearchDefault()}); validasi/perhitungan ({@code checkBolehHapus()}, {@code checkBolehHapus()}, {@code
+ * bolehHapus()}); penghapusan/pembatalan ({@code hapusPertemuanBesertaTugas()}); operasi domain lain ({@code
+ * pindahkanUrutanPertemuan()}, {@code daftarPertemuanPratinjau()}, {@code copyLampiranPertemuan()}, {@code
+ * pesanError()}, {@code copyLampiranPertemuan()}, {@code display()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PenjadwalanHelper {
 
 	private Perkuliahan perkuliahan;

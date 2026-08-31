@@ -30,6 +30,24 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Tipe khusus untuk parameter tambahan alumni listener. Kelas ini memberi nama dan batas tanggung
+ * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link EventListener}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code List parameterRows}, {@code Rows rows},
+ * {@code BiodataMahasiswa biodataMahasiswa}, {@code Map lampiranLains}, {@code Boolean
+ * digunakanUntukPenggunaAlumni}; pembacaan/pencarian ({@code lolosSyaratTampil()}, {@code cariNilaiParam()});
+ * validasi/perhitungan ({@code validate()}, {@code check()}); mutasi data ({@code onSave()}); operasi domain
+ * lain ({@code parseParameterMap()}, {@code onEvent()}, {@code displayRinci()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class ParameterTambahanAlumniListener implements EventListener {
 
 	private List<Row> parameterRows;

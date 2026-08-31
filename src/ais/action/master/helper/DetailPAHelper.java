@@ -62,6 +62,26 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk detail pa. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}, {@link DataCriteria}.
+ * Implementasi konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil
+ * sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String
+ * KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA}, {@code String DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA}, {@code MyGrid
+ * grid}, {@code Dosen dosen}, {@code boolean delete}, {@code Textbox nama}, {@code Intbox angkatan}, {@code
+ * boolean create}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code
+ * bolehAmbilMahasiswaDosenPA()}, {@code loadData()}, {@code getDataloader()}, {@code uploadDataMahasiswa()});
+ * operasi domain lain ({@code lepaskanDosenPa()}, {@code lepaskanSemuaDosenPa()}, {@code displayDetailPA()});
+ * konfigurasi constructor: {@code create}, {@code delete}, {@code paging}, {@code update}. Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DetailPAHelper implements DataLoader, DataCriteria {
 	private static final String KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA =
 			"hak_akses_ambil_mahasiswa_dosen_pa";

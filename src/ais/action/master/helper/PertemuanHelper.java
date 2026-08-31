@@ -59,6 +59,31 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk pertemuan. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code DataLoader dataLoader}, {@code MyWindow
+ * window}, {@code boolean tampilSelesai}, {@code Pertemuan pertemuan}, {@code VideoPertemuanHelper
+ * videoPertemuanHelper}, {@code AudioPertemuanHelper audioPertemuanHelper}, {@code FilePerkuliahanHelper
+ * filePerkuliahanHelper}, {@code PertemuanPunyaUjianHelper pertemuanPunyaUjianHelper}; inisialisasi/lifecycle
+ * ({@code initTugas()}, {@code initTugas()}, {@code initDasbor()}, {@code buatGbClickable()}, {@code init()},
+ * {@code initCatatan()}); pembacaan/pencarian ({@code tampilanDesktop()}, {@code tampilanMobile()});
+ * validasi/perhitungan ({@code hitungStatusDenganSuffix()}); operasi domain lain ({@code addInfoPertemuan()},
+ * {@code gabungStatus()}, {@code tambahStatus()}, {@code ringkasStatus()}, {@code nilaiStatus()}, {@code
+ * addKpiCard()}); konfigurasi constructor: {@code absensiHelper}, {@code absensiSiswaHelper}, {@code
+ * audioPertemuanHelper}, {@code biodataCalonMahasiswa}, {@code filePerkuliahanHelper}, {@code mahasiswa}, {@code
+ * pertemuanPunyaDiskusiHelper}, {@code pertemuanPunyaHasilHelper}, {@code pertemuanPunyaUjianHelper}, {@code
+ * pertemuanPunyaUjianSiswaHelper}, {@code tugasMandiriHelper}, {@code videoPertemuanHelper}. Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PertemuanHelper {
 
 	private DataLoader dataLoader;

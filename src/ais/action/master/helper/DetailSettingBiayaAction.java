@@ -92,6 +92,36 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Controller/action ZK untuk detail setting biaya. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code SettingBiaya settingBiaya}, {@code
+ * MyGrid grid}, {@code Textbox pencarian}, {@code Combobox searchtahun}, {@code Combobox searchtahunsd}, {@code
+ * Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code List selectedItemBiaya};
+ * inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code ambilTanggalTagihanEfektif()},
+ * {@code loadData()}, {@code loadData()}, {@code uploadDataMahasiswa()}, {@code uploadDataCalonMahasiswa()});
+ * validasi/perhitungan ({@code bolehHapusSettingBiayaDetail()}); mutasi data ({@code
+ * saringMapUntukSettingIni()}); pelaporan/ekspor ({@code renderSatuItemTagihanAktif()}, {@code
+ * renderTanggalTagihan()}); operasi domain lain ({@code modeDaftarMahasiswa()}, {@code
+ * resolveKegiatanMahasiswa()}, {@code resolveKegiatanCalonMahasiswa()}, {@code display()}); konfigurasi
+ * constructor: {@code mhs}, {@code paging}, {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see MyDetail
+ */
 public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	private boolean modeDaftarMahasiswa() {
 		return settingBiaya != null && (settingBiaya.getKhususBuatMahasiswaTertentu()

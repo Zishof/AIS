@@ -78,6 +78,36 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTimebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Tipe khusus untuk manajemen penjadwalan mahasiswa composer. Kelas ini memberi nama dan batas
+ * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
+ * diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericForwardComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code SimpleCalendarModel cm}, {@code
+ * Calendars calendars}, {@code List dateTime}, {@code Combobox tahunAjaran}, {@code Combobox semester}, {@code
+ * AmbilDataKelasBanbox kelas}, {@code Combobox fakultas}, {@code Combobox jurusan}; inisialisasi/lifecycle
+ * ({@code init()}, {@code doBeforeCompose()}, {@code doAfterCompose()}, {@code initTimeDropdown()}, {@code
+ * initCalendarModel()}, {@code initDataMahasiswa()}); pembacaan/pencarian ({@code onRefresh()}, {@code
+ * bangunKunciRefresh()}, {@code onSearchDefault()}, {@code ambilKonteksKelasTervalidasi()}, {@code
+ * loadDataMahasiswa()}); validasi/perhitungan ({@code checkMahasiswaBentrok()}); mutasi data ({@code
+ * onEventUpdate$calendars()}, {@code onUpdateFirstDayOfWeek()}, {@code onUpdateView()}); operasi domain lain
+ * ({@code generatePerkulihaanParalel()}, {@code nilaiTerpilih()}, {@code onEventCreate$calendars()}, {@code
+ * onEventEdit$calendars()}, {@code onMoveDate()}, {@code onToday()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericForwardComposer
+ */
 public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardComposer implements OnSearchDefaultListener {
 
 	protected static final long serialVersionUID = 201011240904L;

@@ -74,6 +74,26 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk penilaian proposal skripsi. Tipe ini membungkus satu variasi kecil dari
+ * alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
+ * MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir}, {@code Footer footerRataRataNilai}, {@code Footer
+ * footerNilaiHuruf}, {@code Tbmuser tbmuser}; inisialisasi/lifecycle ({@code init()}, {@code
+ * buatDashboardNilai()}); pembacaan/pencarian ({@code loadData()}); operasi domain lain ({@code
+ * populateKomponen()}, {@code dashEsc()}, {@code dashFmt()}, {@code dashSafe()}, {@code dashNilaiDosen()},
+ * {@code dashPersenDosen()}); konfigurasi constructor: {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 	private MyGrid grid;

@@ -33,6 +33,27 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.StatusMahasiswa;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Tipe khusus untuk history status mahasiswa util. Kelas ini memberi nama dan batas tanggung jawab
+ * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code initDataStatusMahasiswa()}, {@code
+ * initStatusHelper()}); pembacaan/pencarian ({@code getHistoryStatusMahasiswa()}, {@code
+ * getHistoryStatusMahasiswa()}, {@code getJumlahSemester()}); validasi/perhitungan ({@code checkStatus()},
+ * {@code cekDanUpdateCacheStatus()}, {@code cekPembayaranMahasiswa()}); mutasi data ({@code
+ * updateSksBukanKonversi()}, {@code prosesNonAktifkanStatusSingkronisasi()}, {@code
+ * updateViaTransactionQuietly()}, {@code simpanKeCache()}); operasi domain lain ({@code currentStatusSp()},
+ * {@code currentStatus()}, {@code currentStatusSp()}, {@code currentStatus()}, {@code currentStatus()}, {@code
+ * currentStatus()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class HistoryStatusMahasiswaUtil {
 
     // ========================================================================
