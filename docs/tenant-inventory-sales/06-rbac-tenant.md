@@ -104,11 +104,51 @@ maupun karangan ditolak.
 
 ## Yang BELUM dikerjakan
 
-- **Peran belum di-seed ke `role_tenant`.** Delapan konstantanya ada di `TenantRbac.PERAN`;
-  memasukkannya ke `<slug>.role_tenant` saat provisioning menunggu basis data uji.
+> **Sudah dikerjakan sejak dokumen ini ditulis:** delapan peran kini disemai ke
+> `<slug>.role_tenant` oleh `TenantRoleSeeder`, dipanggil dari langkah provisioning
+> `STEP_SEED_ROLES`. Lihat bagian di bawah.
+
 - **Lingkup toko/gudang/sales belum ditegakkan** (§16 baris 8). `ActorContext` sudah membawa
   `tokoId` dan `salesId`, tetapi penyaringannya per kueri — bagian dari migrasi kueri P4.
 - **Keadaan dokumen dan periode akuntansi** (§16 baris 9–10) menunggu tabel v7 dipakai.
 - **Audit tindakan sensitif** (§16: perubahan rekening, harga di bawah biaya, posting,
   reversal, pembukaan periode, reprint, export) — `TenantAuditWriter` siap menerimanya,
   pemanggilnya lahir bersama migrasi kueri.
+
+## Penyemaian peran: `TenantRoleSeeder`
+
+`TenantRbac` menentukan **apa** yang boleh dilakukan tiap peran, tetapi matriksnya hidup di
+dalam kode. Tabel `<slug>.role_tenant` adalah sisi yang terlihat: dari sanalah layar
+pengelolaan pengguna mengambil pilihan peran, dan ke sanalah `user_role_tenant` menunjuk.
+
+Tanpa penyemaian, tabel itu berdiri **kosong** pada tenant yang baru di-provision — sehingga
+tidak ada satu peran pun yang dapat diberikan kepada pengguna, dan RBAC yang lengkap di kode
+menjadi tidak terpakai.
+
+### Idempoten, dan tidak menimpa
+
+```sql
+INSERT INTO {S}.role_tenant (kode, nama, keterangan, bawaan, aktif, dibuat_pada, oleh)
+VALUES (:kode, :nama, :ket, true, true, now(), :oleh)
+ON CONFLICT (kode) DO NOTHING
+```
+
+`DO NOTHING`, **bukan** `DO UPDATE`. Nama dan keterangan yang sudah disunting pemilik tenant
+harus bertahan; menimpanya berarti membatalkan penyesuaian mereka setiap kali provisioning
+diulang atau pemulihan dijalankan.
+
+Diverifikasi pada PostgreSQL 16.4: jalan pertama menyisipkan 8 baris, jalan kedua tetap 8,
+dan nama yang sudah diubah tidak tertimpa.
+
+### Keterangan mengikuti matriks yang sebenarnya
+
+Teks keterangan tiap peran diturunkan dari `TenantRbac` baris 105–166 — misalnya Sales
+Keliling disebut hanya boleh **membaca** harga, sesuai `beri(SALES_KELILING, AREA_HARGA, BACA)`.
+Bila matriksnya berubah, teksnya wajib ikut berubah: keterangan yang berbohong tentang
+kewenangan lebih berbahaya daripada tidak ada keterangan sama sekali.
+
+### Mode LEGACY tidak disemai
+
+Pada mode LEGACY tidak ada schema per-tenant, sehingga tidak ada `role_tenant` untuk diisi;
+peran owner tetap datang dari `tenant_membership.role_code`. `Tbmrole` global **tidak**
+disentuh sama sekali — peran tenant tidak boleh mengubah super admin platform (§10.4).

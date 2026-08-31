@@ -285,7 +285,18 @@ public final class TenantProvisioningService {
 				if (ProvisioningStep.STEP_SEED_ROLES.equals(stepCode)) {
 					// Mode LEGACY: role tenant = membership role_code (OWNER); Tbmrole global
 					// TIDAK disentuh (role tenant tidak boleh mengubah platform super admin §10.4).
-					return "role owner via tenant_membership.role_code (tanpa Tbmrole baru)";
+					if (legacy) {
+						return "mode LEGACY: role owner via tenant_membership.role_code "
+								+ "(tanpa Tbmrole baru)";
+					}
+					// HYBRID/TENANT_ONLY: tanpa langkah ini tabel role_tenant berdiri kosong,
+					// sehingga tidak ada satu peran pun yang dapat diberikan kepada pengguna --
+					// matriks TenantRbac lengkap di kode tetapi tidak terpakai. Idempoten, jadi
+					// aman pada provisioning ulang maupun pemulihan.
+					int disemai = TenantRoleSeeder.seedSchema(session, tenant.getSlug(),
+							"provisioning");
+					return disemai + " peran bawaan disemai ke role_tenant (dari "
+							+ TenantRoleSeeder.kodeBawaan().length + " peran baku)";
 				}
 
 				if (ProvisioningStep.STEP_CREATE_OWNER_USER.equals(stepCode)) {
