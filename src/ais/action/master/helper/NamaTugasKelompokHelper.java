@@ -726,8 +726,13 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 	public void onAdd(Event event, NamaTugasKelompok namaTugasKelompok) throws Exception {
 		addWindow = new MyWindow();
-		addWindow.setHeight("270px");
-		addWindow.setWidth("850px");
+		if (Common.isMobile()) {
+			addWindow.setHeight("70%");
+			addWindow.setWidth("100%");
+		} else {
+			addWindow.setHeight("270px");
+			addWindow.setWidth("850px");
+		}
 		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
 		init(namaTugasKelompok);
 		addWindow.setVisible(true);

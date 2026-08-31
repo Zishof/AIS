@@ -477,6 +477,27 @@ public final class JurnalUmumApiHelper {
                 tolak(hasil, "Hanya jurnal umum yang dapat dihapus dari layar ini.");
                 return;
             }
+            // Penjaga periode tutup buku. Jalur SIMPAN sudah menolak tanggal sebelum closing
+            // terakhir, tetapi jalur hapus ini dulu hanya memeriksa posting history -- padahal
+            // jurnal umum diketik manual sehingga LAZIM ber-postingHistory null. Akibatnya entri
+            // di dalam periode yang sudah ditutup masih bisa dihapus dan angka periode terkunci
+            // ikut berubah. Dua penjagaan: penanda closing pada barisnya, dan tanggalnya terhadap
+            // closing terakhir (menangkap baris periode tertutup yang belum sempat bercap).
+            if (g.getClosing() != null) {
+                tolak(hasil, "Jurnal ini sudah terkunci closing sehingga tidak dapat dihapus. "
+                        + "Minta bagian keuangan membuka kembali periodenya lebih dulu.");
+                return;
+            }
+            Date maxClosingHapus = (Date) session.createCriteria(Closing.class)
+                    .setProjection(Projections.max("tanggal")).uniqueResult();
+            if (maxClosingHapus != null && g.getTanggalTransaksi() != null
+                    && g.getTanggalTransaksi().before(maxClosingHapus)) {
+                tolak(hasil, "Jurnal bertanggal " + iso().format(g.getTanggalTransaksi())
+                        + " berada di periode yang sudah ditutup buku sampai "
+                        + iso().format(maxClosingHapus) + " sehingga tidak dapat dihapus. "
+                        + "Minta bagian keuangan membuka kembali periodenya lebih dulu.");
+                return;
+            }
             session.getTransaction().begin();
             try {
                 session.createSQLQuery("DELETE FROM akunting.transaksi WHERE grup_transaksi = " + id)
