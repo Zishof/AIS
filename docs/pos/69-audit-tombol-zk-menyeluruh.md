@@ -1,4 +1,4 @@
-# Audit Menyeluruh Tombol Posting Layar ZK (40 Layar) + Penutupan Celah Hub
+# Audit Menyeluruh Tombol Posting Layar ZK (47 Layar) + Penutupan Celah Hub
 
 Tanggal: 31 Agustus 2026, pada HEAD r78659. Kode masuk SVN **r78660**
 (`PostingPembayaranTerminAction`, mirror `java/` selaras) dan **r78661**
@@ -15,7 +15,7 @@ posting (dok 53–59). Karena dari 10 layar itu DUA ternyata cacat — satu menu
 Dr X / Cr X yang saling meniadakan (r78539), satu lagi punya tombol batal massal yang
 mati total karena salah tipe entitas (r78552) — sisa ±30 layar yang tak pernah
 diperiksa adalah risiko yang tidak boleh dibiarkan hanya karena modulnya "sudah lama
-jalan". Sapuan ini memeriksa **seluruh 40 layar `Posting*Action`** dengan daftar
+jalan". Sapuan ini memeriksa **seluruh 47 layar `Posting*Action`** dengan daftar
 periksa yang sama.
 
 ## 2. Lima kelas cacat yang dicari (dan cara memeriksanya secara mekanis)
@@ -36,10 +36,10 @@ memakai setter varian (`setPostingHistoryPengembalian`, `...Dimuka`, `...Denda`,
 biasanya milik renderer (mencari nomor bukti `GrupTransaksi`) dan menghasilkan 30-an
 laporan palsu.
 
-## 3. Hasil: BERSIH pada 40 layar
+## 3. Hasil: BERSIH pada 47 layar
 
-Kelas 1, 2, 3, dan 4: nihil temuan (satu-satunya kecocokan kelas 1 adalah teks Javadoc
-dok 54 yang justru menjelaskan cacat yang sudah diperbaiki). Kelas 5 memunculkan tiga
+Kelas 1, 2, 3, dan 4: nihil temuan — satu-satunya kecocokan kelas 1 adalah teks Javadoc
+dok 54 yang justru menjelaskan cacat yang sudah diperbaiki. Kelas 5 memunculkan tiga
 kandidat, semuanya terbukti sah setelah ditinjau:
 
 - `PostingProsesTransferAction` dan `PostingProsesTransitoriAction` — `List<Long>` atas
@@ -52,6 +52,12 @@ kandidat, semuanya terbukti sah setelah ditinjau:
   cacat r78552 yang menewaskan tombol batal massal Penggajian.
 
 Dengan ini seluruh layar posting ZK sudah teraudit, bukan hanya yang tersentuh kampanye.
+
+Catatan kejujuran cakupan: angka "40 layar" pada draf pertama dokumen ini keliru —
+daftar berkasnya terpotong `head -40`, dan pemeriksaan kelas 5 putaran pertama juga
+kehabisan waktu di tengah jalan. Kelima kelas kemudian dijalankan ULANG sampai tuntas
+atas seluruh **47** berkas `Posting*Action` (kelas 5 dengan pemindai Python, bukan
+`awk` per berkas yang lambat); hasil di atas adalah hasil putaran penuh itu.
 
 ## 4. Penutupan celah hub ZK (dok 63 §4)
 

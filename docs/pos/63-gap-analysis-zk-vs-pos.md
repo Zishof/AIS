@@ -67,8 +67,16 @@ prioritas kecil: (1) menyalakan tab PJ Kas Besar yang disembunyikan, (2) menamba
 include pembayaran vendor yang tertinggal di `transaksi_vendor.zul` — keduanya
 pekerjaan menit-an; sisanya biarkan POS yang memimpin.
 
+**Tindak lanjut 31 Agustus 2026** ([69-audit-tombol-zk-menyeluruh.md](69-audit-tombol-zk-menyeluruh.md) §4):
+butir (2) **SELESAI r78661** — kedua include dipasang di ujung daftar karena ZK
+memasangkan tab↔tabpanel secara posisional. Butir (1) **sengaja tidak dikerjakan**:
+`svn blame` menunjukkan tab PJ Kas Besar dan tab DP Pekerjaan Vendor (yang luput dari
+inventaris §2 dokumen ini — tab-nya ada tetapi `visible="false"`) disembunyikan
+BERSAMA dalam satu commit r74892, jadi itu keputusan produk, bukan kelalaian; keputusan
+menyalakannya dikembalikan ke pemilik produk.
+
 Celah AKUNTANSI yang sesungguhnya tetap yang tercatat di
-[61-gap-analysis-posting.md](61-gap-analysis-posting.md): butir **A selesai** (dok 62);
-**C** (jurnal balik pembatalan kantin — SEDANG dikerjakan), **D** (disposal aset),
-**B** (keluarga dana anggota, menunggu keputusan bagan akun), **E** (lingkup Inventory
-Sales).
+[61-gap-analysis-posting.md](61-gap-analysis-posting.md): butir **A selesai** (dok 62),
+**C selesai** (dok 64), **D selesai** (dok 65), **B selesai** (dok 68; kaki kembali
+modal penyertaan menyusul di r78651). Yang tersisa hanya **E** — keputusan lingkup
+Inventory Sales, bukan pekerjaan teknis.
