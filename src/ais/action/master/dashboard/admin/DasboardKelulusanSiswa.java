@@ -59,6 +59,33 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyPanelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Komponen dashboard khusus untuk dasboard kelulusan siswa. Kelas ini memilih variasi data atau
+ * tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyPortallayout}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan
+ * yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.util.concurrent.ConcurrentHashMap
+ * _CACHE}, {@code java.util.concurrent.ConcurrentHashMap _EXPIRY}, {@code long _TTL_MS}, {@code int TOP_LIMIT},
+ * {@code int DETAIL_LIMIT}, {@code boolean debug}, {@code Tbmuser tbmuser}, {@code Integer desktopHeight};
+ * inisialisasi/lifecycle ({@code init()}, {@code initDefaultFilterValue()}, {@code appendMiniTable()});
+ * pembacaan/pencarian ({@code renderDashboardContentDenganLoading()}, {@code loadDashboardDataCached()}, {@code
+ * loadDashboardData()}, {@code tampilkanLoadingDashboardKelulusan()}, {@code hapusLoadingDashboardKelulusan()},
+ * {@code buildLoadingDashboardHtml()}); mutasi data ({@code setDebug()}, {@code updateDashboardProgress()});
+ * pelaporan/ekspor ({@code renderContent()}, {@code renderHero()}, {@code renderFilter()}, {@code
+ * renderOverview()}, {@code renderDokumenKelulusan()}, {@code renderTopTablesAndTrends()}); operasi domain lain
+ * ({@code isDebug()}, {@code buildCacheKey()}, {@code createBaseSiswaCriteria()}, {@code applyYearCriterion()},
+ * {@code startOfYear()}, {@code endOfYear()}); konfigurasi constructor: {@code tbmuser}. Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyPortallayout
+ */
 public class DasboardKelulusanSiswa extends MyPortallayout {
 
     private static final long serialVersionUID = 20260530231801L;

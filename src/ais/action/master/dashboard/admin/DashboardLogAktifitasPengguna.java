@@ -51,6 +51,27 @@ import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Tabpanels;
 import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Html;
+/**
+ * Komponen dashboard khusus untuk dashboard log aktifitas pengguna. Kelas ini memilih variasi data
+ * atau tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox searchfakultas}, {@code
+ * Combobox searchjurusan}, {@code Combobox searchjenisaktifitas}, {@code Textbox searchnamapengguna}, {@code
+ * Textbox searchdata}, {@code Textbox searchaktifitas}, {@code MyDatebox mulai}, {@code MyDatebox sampai};
+ * inisialisasi/lifecycle ({@code initFakultas()}, {@code init()}, {@code initSpreadsheet()}); operasi domain
+ * lain ({@code buildDashboardIntroHtml()}, {@code appendDashboardCard()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DashboardLogAktifitasPengguna extends MyWindow {
 
 	/**
