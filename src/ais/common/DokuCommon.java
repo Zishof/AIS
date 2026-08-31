@@ -391,6 +391,62 @@ public class DokuCommon {
 
 	}
 
+	/**
+	 * Implementasi inti eksekusi transaksi pembayaran lewat gateway Doku: menghitung tanda
+	 * tangan transaksi, menyimpan record permintaan ke database lewat {@link #sendRequest},
+	 * lalu membentuk dan menampilkan formulir HTML auto-submit yang mengarahkan browser
+	 * pengguna ke gateway Doku.
+	 *
+	 * <p>
+	 * Bila {@code amn} (nominal yang harus dibayar) kurang dari {@code 0.01}, method langsung
+	 * mengembalikan {@code false} tanpa melakukan apa pun (tidak ada gunanya memulai transaksi
+	 * bernilai nol). Selain itu, method ini:
+	 * </p>
+	 * <ol>
+	 * <li>Menyusun {@code add_info2} — ringkasan item biaya non-cicilan dalam format teks yang
+	 * disyaratkan Doku ({@code "<nama>,<harga>.00,1,<harga>.00"}, dipisah {@code ;} antar
+	 * item), dipakai sebagai isi keranjang belanja ({@code BASKET}) pada form Doku.</li>
+	 * <li>Membaca kredensial Doku ({@code doku_key}, {@code doku_merchant_id}) dari konfigurasi
+	 * — lihat peringatan keamanan pada javadoc kelas — dan menghitung tanda tangan transaksi
+	 * {@code WORDS = SHA1(AMOUNT + key + TRANSIDMERCHANT)} lewat {@link AeSimpleSHA1#SHA1}.</li>
+	 * <li>Memanggil {@link #sendRequest} untuk menyimpan record {@link DokuRequest} beserta
+	 * detailnya SEBELUM permintaan dikirim ke gateway.</li>
+	 * <li>Bila penyimpanan berhasil (record memiliki {@code nama}), mengambil data biodata
+	 * mahasiswa terbaru ({@link BiodataMahasiswa}, bila {@code mahasiswa} tidak {@code null})
+	 * untuk mengisi field identitas pembayar (nama, email, telepon, alamat, kode pos, tanggal
+	 * lahir, kota, provinsi) pada form Doku, lalu menulis berkas HTML form auto-submit ke
+	 * {@code Common.REAL_PATH + "/tmp/" + WORDS + ".html"} dan menampilkannya lewat
+	 * {@link Common#displayWindow(String, boolean, String)} sehingga browser pengguna
+	 * diarahkan (via {@code <script>...submit()</script>}) ke URL gateway Doku
+	 * ({@code doku_gateway_url}).</li>
+	 * <li>Bila penyimpanan gagal, menampilkan alert kegagalan beserta "Informasi Teknis" lewat
+	 * {@link InfoTeknisPembayaran#pesanGagal()} dan {@link MyMessageboxConfig}.</li>
+	 * </ol>
+	 *
+	 * @param amn                       nominal total yang harus dibayar (rupiah)
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null} bila pembayar
+	 *                                  adalah calon mahasiswa
+	 * @param biodataCalonMahasiswa     calon mahasiswa pembayar, boleh {@code null} bila
+	 *                                  pembayar adalah mahasiswa aktif
+	 * @param jenisKegiatan             jenis kegiatan terkait transaksi
+	 * @param jadwalPembayaran          jadwal pembayaran yang berlaku
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan/deskripsi transaksi
+	 * @param pengurangan               nilai pengurangan/diskon yang sudah diperhitungkan
+	 * @param nilaiBiayaHarusDiBayars   nilai total biaya sebelum pengurangan
+	 * @param dokuRequestDetails        rincian item pembayaran (hasil salah satu method
+	 *                                  {@code populateDokuRequestDetail*})
+	 * @param dokuRequestDetailBiayas   rincian biaya mentah (hasil {@link #populateDetailBiaya})
+	 * @param event                     event ZK pemicu (tidak dipakai langsung di badan method
+	 *                                  ini, kemungkinan disediakan untuk kompatibilitas
+	 *                                  pemanggil/pengembangan lanjutan)
+	 * @return {@code true} bila proses (baik sukses menampilkan form Doku maupun gagal dengan
+	 *         alert ditampilkan) selesai dijalankan; {@code false} hanya bila {@code amn}
+	 *         kurang dari {@code 0.01} (transaksi tidak dimulai sama sekali)
+	 * @throws Exception diteruskan dari kegagalan {@link #sendRequest} atau operasi
+	 *                    penulisan berkas HTML
+	 */
 	@SuppressWarnings({})
 	public static boolean onSaveDoku(final Double amn, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran, Integer semester, String tahunAkademik,
@@ -504,6 +560,50 @@ public class DokuCommon {
 		return true;
 	}
 
+	/**
+	 * Menyimpan record {@link DokuRequest} beserta seluruh rincian {@link DokuRequestDetail}
+	 * dan {@link DokuRequestDetailBiaya} terkait ke database, dipanggil oleh {@link
+	 * #onSaveDoku} SEBELUM permintaan pembayaran benar-benar dikirim ke gateway Doku (karena
+	 * integrasi Doku memakai form-post browser, bukan panggilan HTTP server-to-server —
+	 * penyimpanan lokal ini menjadi jejak transaksi yang harus ada terlebih dahulu).
+	 *
+	 * <p>
+	 * Setiap entitas ({@link DokuRequest} induk, lalu setiap {@link DokuRequestDetail} dan
+	 * {@link DokuRequestDetailBiaya}) disimpan dalam transaksi Hibernate TERPISAH (begin/save/
+	 * commit berulang per entitas, bukan satu transaksi besar) memakai sesi native
+	 * ({@link HibernateUtil#currentNativeSession()}). Sebelum menyimpan, riwayat "Informasi
+	 * Teknis" kegagalan sebelumnya dibersihkan lewat {@link InfoTeknisPembayaran#bersihkan()}
+	 * agar tidak bocor ke pesan kegagalan transaksi yang baru.
+	 * </p>
+	 *
+	 * @param TRANSIDMERCHANT           id transaksi unik sisi merchant (dari
+	 *                                  {@link Common#getGeneratedBarCode()}), disimpan sebagai
+	 *                                  {@code nama} pada {@link DokuRequest}
+	 * @param WORDS                     tanda tangan transaksi (hash SHA1) yang sudah dihitung
+	 *                                  oleh {@link #onSaveDoku}, disimpan sebagai {@code trxId}
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa     calon mahasiswa pembayar, boleh {@code null}
+	 * @param jenisKegiatan             jenis kegiatan terkait transaksi
+	 * @param jadwalPembayaran          jadwal pembayaran yang berlaku
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan/deskripsi transaksi
+	 * @param pengurangan               nilai pengurangan/diskon
+	 * @param nilaiBiayaHarusDiBayars   nilai total biaya sebelum pengurangan
+	 * @param amount                    nominal akhir yang harus dibayar
+	 * @param comments                  ringkasan item biaya (field {@code comments} pada
+	 *                                  {@link DokuRequest}, biasanya sama dengan {@code add_info2}
+	 *                                  dari {@link #onSaveDoku})
+	 * @param dokuRequestDetails        rincian item pembayaran yang akan disimpan
+	 * @param dokuRequestDetailBiayas   rincian biaya mentah yang akan disimpan
+	 * @return record {@link DokuRequest} yang berhasil disimpan beserta id-nya, atau
+	 *         {@code null} bila terjadi kegagalan penyimpanan (transaksi Hibernate yang aktif
+	 *         di-rollback dan detail teknis dicatat lewat {@link InfoTeknisPembayaran#catat}
+	 *         serta {@link ais.common.ErrorAuditUtil#record})
+	 * @throws Exception saat ini tidak pernah dilempar dari badan method (kegagalan ditangani
+	 *                    dan dikembalikan sebagai {@code null}); dideklarasikan untuk
+	 *                    kompatibilitas dengan pemanggil yang menangani {@code Exception}
+	 */
 	public static DokuRequest sendRequest(String TRANSIDMERCHANT, String WORDS, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,
 			Integer semester, String tahunAkademik, String keterangan, Double pengurangan,

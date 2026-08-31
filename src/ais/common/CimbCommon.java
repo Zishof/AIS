@@ -46,8 +46,65 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Helper terpusat untuk alur pembayaran via <b>CIMB Niaga Virtual Account (VA)</b> di AIS,
+ * mencakup: menyusun tombol pemilihan metode bayar di UI ZKoss, mengumpulkan rincian tagihan dari
+ * berbagai sumber (grid biaya kuliah, grid cicilan, parameter request web), serta menyimpan
+ * permintaan pembayaran ({@link CimbRequest} beserta rincian {@link CimbRequestDetail}/
+ * {@link CimbRequestDetailBiaya}) ke database.
+ *
+ * <h2>Model integrasi: VA dibuat lokal, bukan panggilan API real-time ke CIMB</h2>
+ * <p>
+ * Berbeda dari sebagian integrasi payment gateway lain di AIS yang memanggil API pihak ketiga
+ * secara real-time untuk membuat token/VA (bandingkan {@link OttoUtil} yang memanggil OttoPay lewat
+ * {@code curl}), alur CIMB pada kelas ini TIDAK melakukan panggilan keluar ke API/gateway CIMB sama
+ * sekali — nomor VA dan seluruh detail transaksi dibuat/disimpan sepenuhnya di sisi aplikasi AIS
+ * (lihat komentar eksplisit pada {@link #sendRequest} yang menyebut "CIMB tidak memanggil gateway di
+ * sini (VA dibuat lokal)"). Rekonsiliasi dengan CIMB sesungguhnya (verifikasi pembayaran
+ * masuk/notifikasi) berada di komponen terpisah di luar berkas ini (lihat modul terkait di bawah
+ * paket {@code CIMB3rdParty}/{@code BillPaymentWS} pada basis kode, yang TIDAK diubah sebagai bagian
+ * dari dokumentasi ini) — kelas ini murni menyiapkan sisi permintaan/pencatatan di aplikasi. Tidak
+ * ditemukan kredensial, API key, atau merchant id tertanam pada berkas ini; seluruh data yang
+ * ditulis ke {@link CimbRequest} berasal dari input pengguna/entitas domain (mahasiswa, biaya,
+ * cicilan), bukan konfigurasi rahasia.
+ * </p>
+ *
+ * <h2>Peta method</h2>
+ * <ul>
+ * <li>{@link #createButton()} — menyiapkan konfigurasi tombol "Bayar via CIMB Niaga" (label dapat
+ * dikonfigurasi lewat {@code label_pembayaran_via_cimb}, ikon dapat dikustomisasi lewat lampiran
+ * {@link LampiranLain#BG_TOMBOL_PEMBAYARAN_VIA_CIMB}).</li>
+ * <li>{@link #populateDetailBiaya}, {@link #populateCimbRequestDetailDariDetailBiaya},
+ * {@link #populateCimbRequestDetail(HttpServletRequest, Mahasiswa, String, Integer)},
+ * {@link #populateCimbRequestDetail(Grid, Mahasiswa, Integer, JadwalPembayaran)} — empat cara
+ * berbeda mengumpulkan rincian item biaya yang akan dibayar, tergantung sumber datanya: grid biaya
+ * kuliah ZKoss (dengan komponen input yang bisa diedit pengguna), request HTTP dari halaman web non-
+ * ZKoss, atau grid cicilan pembayaran (dengan perhitungan denda otomatis lewat
+ * {@link PengaturanPembayaranBulanan#checkDenda}).</li>
+ * <li>{@link #bayarCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan)} — alur khusus pembayaran
+ * pendaftaran mahasiswa baru: menghitung rincian biaya lewat {@link PembayaranUtil} berdasarkan
+ * program studi kelulusan/pilihan calon mahasiswa, lalu langsung memicu {@link #onSaveCimb}.</li>
+ * <li>{@link #onPilihCimb}/{@link #onSaveCimb} — titik masuk dari aksi UI (klik tombol bayar):
+ * memvalidasi nominal, memanggil {@link #sendRequest} untuk menyimpan permintaan, lalu menampilkan
+ * jendela nomor VA ({@code /common/cimb/no_va.zul}) bila berhasil atau pesan galat teknis lewat
+ * {@link InfoTeknisPembayaran} bila gagal.</li>
+ * <li>{@link #sendRequest} — implementasi kanonik yang benar-benar menyimpan {@link CimbRequest}
+ * beserta seluruh baris detailnya ke database, masing-masing dalam transaksi Hibernate terpisah per
+ * baris (bukan satu transaksi besar mencakup seluruhnya).</li>
+ * </ul>
+ */
 public class CimbCommon {
 
+	/**
+	 * Menyiapkan konfigurasi tombol "Bayar via CIMB Niaga" untuk ditampilkan di UI ZKoss: label
+	 * diambil dari konfigurasi {@code label_pembayaran_via_cimb} (default "Bayar via CIMB Niaga"),
+	 * dan ikon diambil dari lampiran kustom {@link LampiranLain#BG_TOMBOL_PEMBAYARAN_VIA_CIMB} bila
+	 * tersedia (disalin ke folder {@code /img} lokal bila belum ada di sana), jatuh kembali ke ikon
+	 * default {@code cimb-logo.jpg} bila lampiran tidak ditemukan atau terjadi kegagalan saat
+	 * menyalin.
+	 *
+	 * @return konfigurasi tombol siap pakai ({@link MyButtonConfig}) berisi label dan path ikon
+	 */
 	public static MyButtonConfig createButton() {
 		File fileViaCimb = new File(Common.REAL_PATH + "/img/cimb-logo.jpg");
 		try {
@@ -79,6 +136,26 @@ public class CimbCommon {
 		return bayarViaCimb;
 	}
 
+	/**
+	 * Mengumpulkan rincian item biaya dari sebuah {@link Grid} ZKoss (tampilan tabel biaya kuliah)
+	 * menjadi daftar {@link CimbRequestDetailBiaya}. Untuk setiap baris grid yang terlihat
+	 * ({@code isVisible()}), nilai biaya diambil dengan prioritas: (1) bila komponen input pada baris
+	 * tersebut adalah {@link Doublebox} dan item biayanya memang boleh diubah nilainya, ambil nilai
+	 * dari {@link Doublebox}; (2) bila komponennya {@link Label}, parsing nilai numerik dari teks
+	 * label lewat {@link Common#numberFormat}; (3) jika tidak keduanya, jatuh kembali ke
+	 * {@code detailBiaya.getNilaiBiayaBaru()} atau {@code getNilaiBiaya()}. Khusus item biaya dengan
+	 * mode penghitungan {@link ItemBiaya#DIKALI_NILAI_MINUS}, nilai akhirnya justru ditimpa dari
+	 * komponen pengurangan yang cocok di {@code pengurangan} (dicari berdasarkan kecocokan id
+	 * {@link DetailBiaya}), bukan dari nilai grid utama.
+	 *
+	 * @param gridss      grid ZKoss sumber, setiap barisnya diharapkan memiliki atribut
+	 *                    {@code "myValue"} berisi {@link DetailBiaya} dan {@code "tag"} berisi
+	 *                    komponen input (opsional)
+	 * @param pengurangan daftar komponen input pengurangan (dengan atribut {@code "itemBiaya"} berisi
+	 *                    {@link DetailBiaya} terkait) yang dipakai khusus untuk item biaya bertipe
+	 *                    {@link ItemBiaya#DIKALI_NILAI_MINUS}
+	 * @return daftar {@link CimbRequestDetailBiaya}, satu per baris grid yang terlihat
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<CimbRequestDetailBiaya> populateDetailBiaya(Grid gridss, List<MyDoubleboxMin> pengurangan) {
 		List<CimbRequestDetailBiaya> cimbRequestDetailBiayas = new ArrayList<CimbRequestDetailBiaya>();
@@ -130,6 +207,17 @@ public class CimbCommon {
 		return cimbRequestDetailBiayas;
 	}
 
+	/**
+	 * Mengonversi daftar {@link CimbRequestDetailBiaya} (hasil {@link #populateDetailBiaya}) menjadi
+	 * daftar {@link CimbRequestDetail} yang siap disimpan sebagai baris rincian permintaan CIMB,
+	 * dengan nomor urut ({@code ke}) dimulai dari 1 sesuai urutan pada {@code cimbRequestDetailBiayas}
+	 * dan tanggal diisi dengan waktu saat ini ({@link ais.ui.util.WaktuUtil#getDate()}).
+	 * {@code pengaturanPembayaranBulanan} selalu diset {@code null} pada hasil konversi ini (jalur
+	 * ini dipakai untuk pembayaran biaya langsung, bukan cicilan bulanan berjadwal).
+	 *
+	 * @param cimbRequestDetailBiayas daftar rincian biaya sumber
+	 * @return daftar {@link CimbRequestDetail} baru, satu per elemen sumber
+	 */
 	public static List<CimbRequestDetail> populateCimbRequestDetailDariDetailBiaya(
 			List<CimbRequestDetailBiaya> cimbRequestDetailBiayas) {
 		List<CimbRequestDetail> cimbRequestDetails = new ArrayList<CimbRequestDetail>();
@@ -150,6 +238,33 @@ public class CimbCommon {
 		return cimbRequestDetails;
 	}
 
+	/**
+	 * Mengumpulkan rincian item biaya dari parameter {@link HttpServletRequest} (dipakai jalur
+	 * pembayaran non-ZKoss, mis. endpoint web sederhana) menjadi daftar {@link CimbRequestDetail}.
+	 * Membaca parameter {@code jenis} ("bulanan" untuk mengambil dari
+	 * {@link PengaturanPembayaranBulanan}, nilai lain untuk mengambil langsung dari
+	 * {@link DetailBiaya}) dan {@code data} (daftar id, dipisah koma) dari request. Untuk setiap id,
+	 * nominal dihitung (untuk jenis bulanan lewat
+	 * {@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)}, untuk jenis
+	 * lain langsung dari {@code nilaiBiayaBaru}/{@code nilaiBiaya}), dan keterangan disusun otomatis
+	 * berisi kode+nama item biaya, nominal terformat, serta info {@code validator} bila diberikan.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> kondisi {@code jenis.equalsIgnoreCase(jenis)} pada percabangan jenis biaya
+	 * selalu bernilai {@code true} (membandingkan variabel dengan dirinya sendiri) — cabang
+	 * {@code else} pada percabangan tersebut tidak pernah tereksekusi dalam implementasi saat ini.
+	 * Perilaku ini didokumentasikan apa adanya sesuai kode; tidak diubah sebagai bagian dari
+	 * pekerjaan dokumentasi ini.
+	 * </p>
+	 *
+	 * @param request   request HTTP sumber parameter {@code jenis} dan {@code data}
+	 * @param mahasiswa mahasiswa pembayar, dipakai untuk menghitung nominal modifikasi pembayaran
+	 *                  bulanan
+	 * @param validator keterangan tambahan (mis. nama validator/petugas) yang disisipkan ke
+	 *                  keterangan tiap baris bila tidak kosong
+	 * @param semester  semester yang dipakai untuk menghitung nominal modifikasi pembayaran bulanan
+	 * @return daftar {@link CimbRequestDetail} hasil parsing parameter request
+	 */
 	public static List<CimbRequestDetail> populateCimbRequestDetail(HttpServletRequest request, Mahasiswa mahasiswa,
 			String validator, Integer semester) {
 
@@ -216,6 +331,29 @@ public class CimbCommon {
 		return cimbRequestDetails;
 	}
 
+	/**
+	 * Mengumpulkan rincian item biaya dari {@link Grid} ZKoss tampilan cicilan pembayaran, menjadi
+	 * daftar {@link CimbRequestDetail}. Hanya baris dengan nilai cicilan signifikan (di luar rentang
+	 * {@code -0.01} hingga {@code 0.01}) yang diproses. Untuk baris cicilan BARU (belum punya id
+	 * {@link CicilanPembayaran}) yang terkait {@link PengaturanPembayaranBulanan}, method ini juga
+	 * menghitung ULANG denda keterlambatan secara otomatis lewat
+	 * {@link PengaturanPembayaranBulanan#checkDenda} — memperhitungkan apakah ada jadwal pembayaran
+	 * khusus untuk NIM mahasiswa tersebut ({@code jadwalPembayaran.getKhususUntukNim()}) — dan
+	 * menyimpannya sebagai selisih antara nilai dengan-denda dan nilai nominal asli. Validator
+	 * (keterangan siapa yang memvalidasi cicilan) diambil dari {@link CicilanPembayaran} yang ada,
+	 * atau bila kosong/{@code "null"}, jatuh kembali ke representasi string pengguna yang sedang
+	 * login ({@link Common#getCurrentUser()}).
+	 *
+	 * @param gridCicilan      grid ZKoss cicilan, setiap barisnya membawa atribut
+	 *                         {@code jumlahCicilan}, {@code cicilanPembayaran}, {@code tanggal},
+	 *                         {@code itemBiaya}, dan {@code keterangan} sebagai komponen input
+	 * @param mahasiswa        mahasiswa pembayar, dipakai untuk perhitungan denda
+	 * @param semester         semester berjalan, dipakai untuk perhitungan nominal modifikasi
+	 * @param jadwalPembayaran jadwal pembayaran aktif, dipakai untuk menentukan berlaku tidaknya
+	 *                         pengecualian jadwal khusus NIM saat menghitung denda; boleh
+	 *                         {@code null}
+	 * @return daftar {@link CimbRequestDetail} untuk baris cicilan dengan nilai signifikan
+	 */
 	public static List<CimbRequestDetail> populateCimbRequestDetail(Grid gridCicilan, Mahasiswa mahasiswa,
 			Integer semester, JadwalPembayaran jadwalPembayaran) {
 		@SuppressWarnings("unchecked")
@@ -291,6 +429,23 @@ public class CimbCommon {
 		return cimbRequestDetails;
 	}
 
+	/**
+	 * Alur pembayaran khusus untuk pendaftaran mahasiswa baru: menghitung rincian biaya yang wajib
+	 * dibayar {@code calonMahasiswa} lewat {@link PembayaranUtil}, berdasarkan program studi
+	 * kelulusan ({@code prodiLulus}) bila sudah ditentukan, atau salah satu program studi
+	 * pilihan (prodi1/prodi2) bila kelulusan belum ditentukan. Bila ada biaya yang harus dibayar dan
+	 * jadwal pembayaran yang berlaku ditemukan (lewat
+	 * {@link PembayaranUtil#getJadwalPembayaranDanDendaBerdasarkanTahunAkademik}), method ini
+	 * langsung menyusun {@link CimbRequestDetailBiaya} untuk tiap item biaya dan memicu
+	 * {@link #onSaveCimb} dengan keterangan tetap {@code "Pembayaran Pendaftaran Mahasiswa Baru"} dan
+	 * nominal pembulatan hasil format angka ({@link Common#numberFormat}, untuk menghindari
+	 * perbedaan floating point kecil antara nilai mentah dan nilai yang ditampilkan ke pengguna).
+	 *
+	 * @param calonMahasiswa data calon mahasiswa yang akan membayar biaya pendaftaran
+	 * @param jenisKegiatan  jenis kegiatan akademik terkait pembayaran (mis. gelombang pendaftaran)
+	 * @throws Exception diteruskan dari {@link PembayaranUtil} atau dari {@link #onSaveCimb}/
+	 *                    {@link #onPilihCimb}/{@link #sendRequest} di ujung rantai pemanggilan
+	 */
 	public static void bayarCalonMahasiswa(BiodataCalonMahasiswa calonMahasiswa, JenisKegiatan jenisKegiatan)
 			throws Exception {
 		Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -345,6 +500,39 @@ public class CimbCommon {
 
 	}
 
+	/**
+	 * Titik masuk UI untuk memilih metode bayar CIMB: memanggil {@link #sendRequest} untuk membuat
+	 * dan menyimpan {@link CimbRequest} beserta rincian detailnya. Bila berhasil (request tersimpan),
+	 * membuka jendela ZKoss nomor VA ({@code /common/cimb/no_va.zul}) yang menampilkan trxId sebagai
+	 * nomor VA dan nominal terformat lewat {@link Common#displayWindow(String, boolean, String)}.
+	 * Bila gagal (request bernilai {@code null} dari {@link #sendRequest}), menampilkan pesan
+	 * peringatan generik yang detail teknisnya sudah dicatat lebih dulu oleh
+	 * {@link InfoTeknisPembayaran} di dalam {@link #sendRequest} — pola bersama yang dipakai seluruh
+	 * payment gateway di AIS agar pesan galat ke pengguna tetap ringkas namun detail teknis tetap
+	 * tersedia untuk audit/dukungan.
+	 *
+	 * @param amn                      nominal yang akan dibayar
+	 * @param mahasiswa                mahasiswa pembayar, boleh {@code null} bila pembayar adalah
+	 *                                 calon mahasiswa
+	 * @param biodataCalonMahasiswa    calon mahasiswa pembayar, boleh {@code null} bila pembayar
+	 *                                 adalah mahasiswa aktif
+	 * @param jenisKegiatan            jenis kegiatan akademik terkait pembayaran
+	 * @param jadwalPembayaran         jadwal pembayaran yang berlaku
+	 * @param semester                 semester berjalan
+	 * @param tahunAkademik            tahun akademik berjalan
+	 * @param keterangan               keterangan transaksi
+	 * @param pengurangan              nilai pengurangan/diskon yang diterapkan, boleh {@code null}
+	 * @param nilaiBiayaHarusDiBayars  total nilai biaya sebelum pengurangan
+	 * @param cimbRequestDetails       rincian detail transaksi per item biaya
+	 * @param cimbRequestDetailBiayas  rincian detail biaya mentah (sebelum dikonversi ke
+	 *                                 {@link CimbRequestDetail})
+	 * @param event                    event ZKoss pemicu (tidak dipakai langsung oleh method ini,
+	 *                                 diteruskan apa adanya ke {@link #sendRequest})
+	 * @return selalu {@code true} — nilai kembalian tidak membedakan sukses/gagal; keberhasilan
+	 *         ditentukan dari isi jendela yang ditampilkan ke pengguna
+	 * @throws Exception diteruskan dari {@link #sendRequest} atau kegagalan encode URL parameter
+	 *                    jendela hasil
+	 */
 	public static boolean onPilihCimb(final Double amn, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,
 			Integer semester, String tahunAkademik, String keterangan, Double pengurangan,
@@ -373,6 +561,17 @@ public class CimbCommon {
 		return true;
 	}
 
+	/**
+	 * Validasi ringan sebelum mendelegasikan ke {@link #onPilihCimb}: menolak permintaan dengan
+	 * nominal yang secara efektif nol atau negatif (kurang dari {@code 0.01}), lalu meneruskan
+	 * seluruh parameter apa adanya ke {@link #onPilihCimb} bila valid. Parameter identik dengan
+	 * {@link #onPilihCimb} — lihat javadoc method tersebut untuk detail masing-masing.
+	 *
+	 * @return {@code false} bila nominal kurang dari {@code 0.01} (permintaan ditolak tanpa
+	 *         menyimpan apa pun); {@code true} bila permintaan diteruskan ke {@link #onPilihCimb}
+	 *         (nilai kembali {@link #onPilihCimb} sendiri diabaikan)
+	 * @throws Exception diteruskan dari {@link #onPilihCimb}
+	 */
 	@SuppressWarnings({})
 	public static boolean onSaveCimb(final Double amn, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final JenisKegiatan jenisKegiatan,
@@ -391,6 +590,61 @@ public class CimbCommon {
 		return true;
 	}
 
+	/**
+	 * Implementasi kanonik pembuatan permintaan pembayaran CIMB: satu-satunya method di kelas ini
+	 * yang benar-benar menyimpan {@link CimbRequest} beserta seluruh baris
+	 * {@link CimbRequestDetail}/{@link CimbRequestDetailBiaya} terkait ke database. Tidak ada
+	 * panggilan API/gateway CIMB eksternal apa pun di sini — VA dibuat sepenuhnya lokal (lihat
+	 * javadoc kelas {@link CimbCommon} untuk penjelasan model integrasi ini).
+	 *
+	 * <p>
+	 * Sebelum menyimpan, {@link InfoTeknisPembayaran#bersihkan()} dipanggil untuk membersihkan
+	 * detail kegagalan transaksi sebelumnya agar tidak "bocor" ke alert pengguna untuk transaksi
+	 * baru ini. {@link CimbRequest} induk disimpan dalam transaksi Hibernate tersendiri, lalu setiap
+	 * baris {@link CimbRequestDetail} dan {@link CimbRequestDetailBiaya} disimpan MASING-MASING
+	 * dalam transaksi terpisah pula (bukan satu transaksi besar mencakup seluruh operasi) — pola ini
+	 * berarti kegagalan di tengah penyimpanan baris detail dapat meninggalkan {@link CimbRequest}
+	 * induk tersimpan dengan sebagian detail saja (tidak sepenuhnya atomik).
+	 * </p>
+	 *
+	 * <p>
+	 * Bila terjadi kegagalan (Hibernate atau lainnya) selama proses ini, detail teknisnya dicatat ke
+	 * {@link InfoTeknisPembayaran} (dengan pesan error dipotong maksimal 200 karakter lewat
+	 * {@link InfoTeknisPembayaran#potong}) untuk ditampilkan ke admin/pemanggil (lewat
+	 * {@link #onPilihCimb}), dan galat itu sendiri hanya ditampilkan ke admin lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} — TIDAK dilempar ulang ke pemanggil, sehingga
+	 * pemanggil harus memeriksa apakah {@link CimbRequest} yang dikembalikan memiliki id
+	 * (tersimpan) atau tidak untuk mengetahui sukses/gagalnya operasi.
+	 * </p>
+	 *
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null} bila pembayar calon
+	 *                                  mahasiswa
+	 * @param biodataCalonMahasiswa     calon mahasiswa pembayar, boleh {@code null} bila pembayar
+	 *                                  mahasiswa aktif
+	 * @param jenisKegiatan             jenis kegiatan akademik terkait pembayaran
+	 * @param jadwalPembayaran          jadwal pembayaran yang berlaku
+	 * @param semester                  semester berjalan
+	 * @param tahunAkademik             tahun akademik berjalan
+	 * @param keterangan                keterangan transaksi
+	 * @param pengurangan               nilai pengurangan/diskon
+	 * @param nilaiBiayaHarusDiBayars   total nilai biaya sebelum pengurangan
+	 * @param amount                    nominal akhir yang harus dibayar
+	 * @param cimbRequestDetails        rincian detail transaksi per item biaya, dihubungkan ke
+	 *                                  {@link CimbRequest} yang baru dibuat lalu disimpan satu per
+	 *                                  satu
+	 * @param cimbRequestDetailBiayas   rincian detail biaya mentah, dihubungkan dan disimpan dengan
+	 *                                  cara yang sama
+	 * @param hapusCicilanSebelumnya    penanda apakah cicilan sebelumnya untuk transaksi terkait
+	 *                                  perlu dihapus (disimpan ke {@link CimbRequest}, logika
+	 *                                  penghapusannya sendiri berada di luar method ini)
+	 * @return {@link CimbRequest} yang baru dibuat; memiliki id (berhasil tersimpan) bila proses
+	 *         sukses, atau objek kosong tanpa id bila terjadi kegagalan yang tertangkap secara
+	 *         internal
+	 * @throws Exception praktis tidak pernah dilempar ke pemanggil karena seluruh badan method
+	 *                    dibungkus {@code try/catch(Exception)} internal; dideklarasikan untuk
+	 *                    konsistensi dengan signature pemanggil dalam rantai {@code onPilihCimb}/
+	 *                    {@code onSaveCimb}/{@code bayarCalonMahasiswa}
+	 */
 	public static CimbRequest sendRequest(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran, Integer semester, String tahunAkademik,
 			String keterangan, Double pengurangan, Double nilaiBiayaHarusDiBayars, Double amount,

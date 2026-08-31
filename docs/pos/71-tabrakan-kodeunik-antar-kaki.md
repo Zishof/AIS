@@ -132,6 +132,32 @@ r78693): **satu tagihan yang denda atau diskonnya "sudah diposting" tetapi jurna
 ada di buku besar, dan jurnal piutangnya berlabel jenis denda/diskon.** Perbaikan ini
 mencegah kejadian baru; data lama yang sudah telanjur bertabrakan perlu ditinjau terpisah.
 
+## 6a. Dampak data lama: skrip diagnosa produksi (r78713)
+
+Perbaikan r78693 mencegah kejadian BARU; jurnal yang terlanjur bertabrakan sebelum itu
+tetap perlu ditinjau. Angkanya **belum dapat diambil dari mesin kerja**: satu-satunya
+basis data yang tersambung di sini adalah UAT lokal (`127.0.0.1:5432/ais`) — berkas
+override kredensial produksi tidak ada dan `context.xml` Tomcat tidak memuat JDBC apa pun.
+Di UAT lokal seluruh angkanya nol, tetapi itu tidak berarti apa-apa: modul siswa memang
+belum pernah dipakai di sana (nol grup jurnal ber-`tagihan`).
+
+Karena itu disiapkan skrip **hanya-baca**
+[`docs/sql/2026-08-31-diagnosa-tabrakan-kodeunik-tagihan.sql`](../sql/2026-08-31-diagnosa-tabrakan-kodeunik-tagihan.sql)
+untuk dijalankan DBA pada produksi. Tujuh kueri, seluruhnya `SELECT`, sekali jalan menilai
+EMPAT jejak kerusakan berbeda dari kampanye perbaikan ini:
+
+| Kueri | Menilai | Jejak yang dicari |
+|---|---|---|
+| Q0–Q3 | tabrakan kodeUnik kaki tagihan siswa (r78693) | kaki bercap "sudah diposting" tanpa jurnal; grup piutang yang labelnya berpindah |
+| Q4 | kaki `LogPembayaran` saling menghapus (r78672, dok 70 §2.1) | cap terisi tanpa jurnal pada kaki administrasi / payment gateway |
+| Q5 | jurnal cicilan yatim (r78673, dok 70 §2.2) | jurnal masih ada padahal capnya sudah dilepas — nilainya MASIH terhitung di buku besar |
+| Q6 | jurnal pengembalian Dr X / Cr X (r78539, dok 54 §2a) | grup `ref='pengembalian'` yang seluruh barisnya memakai satu akun |
+
+Skrip sudah divalidasi terhadap skema nyata lewat pelari yang menolak pernyataan selain
+`SELECT`/`WITH` — ketujuh kueri jalan bersih. Cara membaca hasil dan langkah pemulihan tiap
+temuan ditulis di kaki skripnya; pemulihan apa pun menunggu persetujuan bagian keuangan dan
+tidak boleh menyentuh periode yang sudah ditutup buku tanpa membukanya lebih dulu.
+
 ## 7. Sapuan penutup: seluruh kolom referensi ber-pemilik ganda
 
 §3 memeriksa dokumen ber-CAP ganda. Bentuk lain dari risiko yang sama adalah satu **kolom

@@ -634,6 +634,58 @@ public class JatelindoCommon {
 		return true;
 	}
 
+	/**
+	 * Implementasi kanonik pembuatan &amp; penyimpanan satu {@link JatelindoRequest} beserta
+	 * seluruh baris detailnya. Ini SATU-SATUNYA tempat nomor Virtual Account dibangkitkan:
+	 * digabung dari {@code merchant_id} + digit acak sepanjang {@code generated_angka_digit_jatelindo}
+	 * (default 8 digit, lewat {@link Common#getGeneratedAngkaDigit(int)}) — TIDAK ada pemanggilan
+	 * API/gateway eksternal di method ini; VA dibangkitkan dan divalidasi sepenuhnya di sisi
+	 * aplikasi, sehingga kegagalan pada method ini SELALU berarti kegagalan penyimpanan lokal,
+	 * bukan kegagalan komunikasi dengan bank.
+	 *
+	 * <p>
+	 * Biaya administrasi dibaca dari konfigurasi {@code jatelindo_biaya_administrasi} (default
+	 * {@code "0.0"}). Penyimpanan dilakukan dalam beberapa transaksi Hibernate terpisah berurutan
+	 * (satu untuk {@link JatelindoRequest} induk, lalu satu transaksi per baris
+	 * {@link JatelindoRequestDetail}, lalu satu transaksi per baris
+	 * {@link JatelindoRequestDetailBiaya}) — BUKAN satu transaksi besar tunggal, sehingga bila
+	 * kegagalan terjadi di tengah, sebagian baris detail bisa saja sudah tersimpan sementara
+	 * baris lain belum (tidak atomik secara penuh).
+	 * </p>
+	 *
+	 * <p>
+	 * Riwayat kegagalan pembayaran sebelumnya pada {@link InfoTeknisPembayaran} dibersihkan lebih
+	 * dulu ({@link InfoTeknisPembayaran#bersihkan()}) agar detail transaksi lama tidak bocor ke
+	 * pesan alert transaksi yang sedang berjalan. Bila terjadi exception, detail teknis
+	 * (nama exception + potongan pesan, maksimum 200 karakter) dicatat ke
+	 * {@link InfoTeknisPembayaran#catat(String)} dan exception TIDAK dilempar ulang ke
+	 * pemanggil — method mengembalikan objek {@link JatelindoRequest} yang mungkin belum
+	 * ter-{@code id} (belum tersimpan), sehingga pemanggil ({@link #onPilihJatelindo}) harus
+	 * memeriksa keberhasilan lewat kondisi lain (mis. objek tidak {@code null} tapi belum tentu
+	 * tersimpan penuh — lihat javadoc {@link #onPilihJatelindo} untuk penanganan hasilnya).
+	 * </p>
+	 *
+	 * @param mahasiswa                     mahasiswa pembayar; boleh {@code null}
+	 * @param biodataCalonMahasiswa         calon mahasiswa pembayar; boleh {@code null}
+	 * @param jenisKegiatan                 jenis kegiatan terkait pembayaran
+	 * @param jadwalPembayaran              jadwal pembayaran acuan
+	 * @param semester                      semester terkait
+	 * @param tahunAkademik                 tahun akademik terkait
+	 * @param keterangan                    keterangan pembayaran
+	 * @param pengurangan                   nilai pengurangan/diskon
+	 * @param nilaiBiayaHarusDiBayars       total nilai biaya sebelum pengurangan
+	 * @param amount                        nominal yang akan dibayar (tanpa biaya administrasi)
+	 * @param merchant_id                   id merchant Jatelindo, dipakai sebagai awalan nomor VA
+	 * @param jatelindoRequestDetails       daftar detail item pembayaran yang akan disimpan
+	 * @param jatelindoRequestDetailBiayas  daftar detail biaya yang akan disimpan
+	 * @param hapusCicilanSebelumnya        tandai apakah cicilan sebelumnya untuk item terkait
+	 *                                      harus dihapus/digantikan oleh request baru ini
+	 * @return objek {@link JatelindoRequest} yang dibangun; berisi id valid bila seluruh proses
+	 *         penyimpanan sukses, atau objek tanpa id (belum tersimpan sepenuhnya) bila terjadi
+	 *         kegagalan yang tertangkap secara internal
+	 * @throws Exception dideklarasikan pada tanda tangan method namun exception internal
+	 *                    ditangkap dan dicatat, bukan dilempar ulang, pada implementasi saat ini
+	 */
 	public static JatelindoRequest sendRequest(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran, Integer semester, String tahunAkademik,
 			String keterangan, Double pengurangan, Double nilaiBiayaHarusDiBayars, Double amount, String merchant_id,

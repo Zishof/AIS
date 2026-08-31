@@ -6,12 +6,68 @@ import java.util.Date;
 import org.joda.time.LocalDateTime;
 import org.joda.time.Period;
 
+/**
+ * Pemformat waktu relatif ("time ago"/"time from now") berbahasa Indonesia, dibangun DI ATAS
+ * {@link ais.ui.util.WaktuUtil} — berbeda dari kelas tersebut yang menyediakan primitif tanggal
+ * mentah (nilai {@link Date}/{@link java.util.Calendar}, offset zona waktu, aritmetika kalender,
+ * format/parse generik), kelas ini fokus SEMATA pada mengubah selisih dua titik waktu menjadi TEKS
+ * yang ramah dibaca manusia (mis. {@code "Kemarin"}, {@code "5 menit lagi"}, {@code "Setahun yang
+ * lalu"}), cocok untuk label timestamp pada notifikasi, linimasa aktivitas, atau daftar
+ * pengumuman/jadwal.
+ *
+ * <h2>Cara kerja</h2>
+ * <p>
+ * Kedua method publik ({@link #getDayString} dan {@link #getDayStringJamMenit}) menghitung selisih
+ * ({@link org.joda.time.Period}, dari pustaka Joda-Time) antara titik acuan {@code dariWaktu}
+ * (biasanya "sekarang", diambil lewat {@link ais.ui.util.WaktuUtil#now()} agar konsisten dengan
+ * koreksi zona waktu {@link ais.ui.util.WaktuUtil#PENAMBAHAN_WAKTU}) dan tanggal target
+ * {@code date}, lalu memetakan selisih tersebut ke satu string Indonesia lewat rangkaian
+ * percabangan {@code if-else} berjenjang: tahun → bulan → minggu → hari → jam/menit, dengan
+ * penanganan khusus untuk nilai {@code -1}/{@code 0}/{@code 1}/{@code 2} pada tiap satuan (mis.
+ * "Setahun" alih-alih "1 tahun", "Kemarin Lusa" untuk H-2, "Baru saja" untuk selisih nol). Tanda
+ * (lampau vs mendatang) ditentukan dari tanda numerik hasil {@link org.joda.time.Period} itu
+ * sendiri (negatif = {@code dariWaktu} setelah {@code date}, yaitu {@code date} di masa lampau).
+ * </p>
+ *
+ * <h2>Parameter {@code waktu} opsional</h2>
+ * <p>
+ * Kedua method menerima parameter {@code waktu} berformat {@code "JAM.MENIT"} (mis.
+ * {@code "14.30"}) yang, bila diisi, MENIMPA komponen jam/menit pada {@code date} sebelum
+ * perhitungan selisih dijalankan (detik dipaksa ke {@code 1}) — berguna ketika tanggal dan jam suatu
+ * peristiwa (mis. jadwal ujian) disimpan terpisah di dua kolom database. Kegagalan parsing
+ * {@code waktu} (format tidak sesuai) ditangkap dan diabaikan; {@code date} asli (tanpa jam
+ * ditimpa) dipakai sebagai fallback.
+ * </p>
+ */
 public class SmartDateTimeUtil {
 
+	/**
+	 * Varian ringkas {@link #getDayString(LocalDateTime, Date, String)} dengan titik acuan
+	 * "sekarang" diambil otomatis lewat {@link ais.ui.util.WaktuUtil#now()}.
+	 *
+	 * @param date  tanggal target yang akan dibandingkan terhadap "sekarang"
+	 * @param waktu jam.menit opsional (format {@code "JAM.MENIT"}) untuk menimpa komponen waktu
+	 *              {@code date}; boleh {@code null}/kosong
+	 * @return string waktu relatif berbahasa Indonesia, diakhiri {@code ", "} (lihat javadoc kelas
+	 *         untuk daftar lengkap variasi teksnya)
+	 */
 	public static String getDayString(Date date, String waktu) {
 		return getDayString(ais.ui.util.WaktuUtil.now(), date, waktu);
 	}
 
+	/**
+	 * Implementasi kanonik: menghitung selisih antara {@code dariWaktu} dan {@code date} (setelah
+	 * {@code waktu} opsional diterapkan ke {@code date}), lalu mengembalikan string waktu relatif
+	 * berbahasa Indonesia yang paling sesuai (lihat javadoc kelas untuk daftar variasi teks dan
+	 * urutan percabangan tahun→bulan→minggu→hari→jam/menit).
+	 *
+	 * @param dariWaktu titik acuan waktu (biasanya "sekarang")
+	 * @param date      tanggal target yang dibandingkan terhadap {@code dariWaktu}
+	 * @param waktu     jam.menit opsional (format {@code "JAM.MENIT"}) untuk menimpa komponen waktu
+	 *                  {@code date}; boleh {@code null}/kosong; kegagalan parsing diabaikan diam-diam
+	 * @return string waktu relatif berbahasa Indonesia, selalu diakhiri {@code ", "}; string kosong
+	 *         (sebelum akhiran) bila selisih tidak cocok dengan satu pun kondisi yang ditangani
+	 */
 	public static String getDayString(LocalDateTime dariWaktu, Date date, String waktu) {
 
 		if (waktu == null || waktu.trim().isEmpty()) {
@@ -97,6 +153,21 @@ public class SmartDateTimeUtil {
 		return s + ", ";
 	}
 
+	/**
+	 * Varian ringkas dari {@link #getDayString}: hanya menangani skala jam/menit (tanpa
+	 * hari/minggu/bulan/tahun), menghasilkan format seperti {@code "Baru saja"}, {@code "5 menit"},
+	 * atau {@code "2 jam 15 menit"} — cocok untuk konteks di mana selisih waktu dipastikan tidak
+	 * melebihi satu hari (mis. hitung mundur/hitung maju sesi ujian). TIDAK diakhiri {@code ", "}
+	 * seperti {@link #getDayString}, dan TIDAK membedakan arah lampau/mendatang dalam teksnya
+	 * (selalu memakai nilai absolut jam/menit).
+	 *
+	 * @param dariWaktu titik acuan waktu
+	 * @param date      tanggal/jam target
+	 * @param waktu     jam.menit opsional (format {@code "JAM.MENIT"}) untuk menimpa komponen waktu
+	 *                  {@code date}; boleh {@code null}/kosong; kegagalan parsing diabaikan diam-diam
+	 * @return {@code "Baru saja"} bila selisih nol menit/jam; {@code "<n> menit"} bila selisih
+	 *         kurang dari satu jam; selain itu {@code "<jam> jam <menit> menit"}
+	 */
 	public static String getDayStringJamMenit(LocalDateTime dariWaktu, Date date, String waktu) {
 
 		if (waktu == null || waktu.trim().isEmpty()) {

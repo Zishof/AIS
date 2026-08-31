@@ -25,7 +25,76 @@ import org.json.JSONObject;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.DspaceLog;
 
+/**
+ * Kumpulan utilitas HTTP klien statis di AIS, dengan fokus utama sebagai lapisan integrasi REST
+ * ke server DSpace (repositori digital, dipakai untuk menyimpan/mengunggah dokumen skripsi/tesis/
+ * karya ilmiah dsb.) via {@link ConstantValues#DSPACE_URL_PRIVATE}, ditambah satu utilitas HTTP
+ * POST generik ({@link #getPostResponseHeader(String, String)}) yang dipakai di luar konteks
+ * DSpace.
+ *
+ * <h2>Pola integrasi DSpace</h2>
+ * <p>
+ * Seluruh method CRUD DSpace ({@link #post}, {@link #get}, {@link #put}, {@link #delete},
+ * {@link #upload}/{@link #uploadOld}) mengikuti pola yang sama: autentikasi memakai cookie sesi
+ * ({@code JSESSIONID}) yang diteruskan sebagai parameter (bukan disimpan sebagai state kelas),
+ * request dibangun manual lewat {@link HttpURLConnection} (tanpa library HTTP client), dan SETIAP
+ * pemanggilan — sukses maupun gagal — dicatat sebagai satu baris {@link DspaceLog} lewat
+ * {@link #simpanDspaceLog(DspaceLog)}, sehingga riwayat integrasi DSpace (aksi, status HTTP, pesan
+ * error) selalu terlacak di database aplikasi terlepas dari hasil pemanggilan. Sebagian besar
+ * method dalam kelas ini SENGAJA menelan exception di dalam blok {@code catch} (hanya mengisi
+ * {@code dspaceLog.setError(...)}) dan tetap mengembalikan nilai (kadang {@code null} atau
+ * {@code 0}) alih-alih melempar ulang — pemanggil harus memeriksa nilai kembalian, bukan
+ * mengandalkan exception, untuk mendeteksi kegagalan pada sebagian besar method di kelas ini.
+ * </p>
+ *
+ * <h2>Method {@link #upload(String, String, File, String)} vs {@link #uploadOld}</h2>
+ * <p>
+ * {@link #upload} adalah implementasi AKTIF (menjalankan {@code curl} eksternal via
+ * {@link ProcessBuilder}) dengan penanganan proses yang cermat (pengurasan stream stderr di thread
+ * terpisah + watchdog batas waktu) — lihat komentar sejarah insiden pada badan method tersebut
+ * untuk kronologi bug deadlock yang pernah terjadi dan bagaimana perbaikannya. {@link #uploadOld}
+ * adalah implementasi LAMA berbasis {@link HttpURLConnection} murni (membangun multipart/form-data
+ * secara manual) yang ditinggalkan sebagai referensi/cadangan.
+ * </p>
+ *
+ * <p>
+ * Tidak ditemukan kredensial atau API key tertanam pada kelas ini — nilai {@code cookie} selalu
+ * diterima sebagai parameter dari pemanggil (nilai sesi yang sudah diperoleh sebelumnya di luar
+ * kelas ini), dan URL dasar DSpace dibaca dari {@link ConstantValues#DSPACE_URL_PRIVATE}.
+ * </p>
+ */
 public class URLCommon {
+	/**
+	 * Utilitas HTTP POST generik (di luar konteks integrasi DSpace) yang mengirim {@code
+	 * postData} sebagai {@code application/x-www-form-urlencoded} dan mengembalikan seluruh
+	 * header respons. Dipakai bila pemanggil butuh membaca header (mis. {@code Location},
+	 * cookie set) dari hasil POST, bukan sekadar body.
+	 *
+	 * <p>
+	 * Header {@code User-Agent}/{@code Origin}/{@code Referer} sengaja diisi menyerupai browser
+	 * standar (Chrome di Linux) — komentar pada kode menjelaskan ini untuk menghindari endpoint
+	 * di balik WAF Cloudflare salah mengklasifikasikan request server-ke-server yang sah sebagai
+	 * bot/crawler berbahaya (error Cloudflare 1010). Timeout koneksi 15 detik, timeout baca 30
+	 * detik.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila status HTTP respons &gt;= 400, method ini melempar {@link IOException} berisi status,
+	 * pesan status, dan ringkasan body respons (dipotong maksimum 500 karakter lewat
+	 * {@link #ringkasResponse(String)}); bila kegagalan terindikasi berasal dari halaman
+	 * tantangan Cloudflare (dideteksi {@link #isCloudflareResponse(String)}) dan status 403,
+	 * pesan exception ditambahi petunjuk untuk mengatur {@code dspace_private_url} ke alamat
+	 * internal yang tidak melewati WAF — lihat juga {@link #isWafForbidden(Exception)} untuk
+	 * mendeteksi kondisi ini dari luar berdasarkan pesan exception.
+	 * </p>
+	 *
+	 * @param urlStr   URL tujuan POST
+	 * @param postData isi body yang dikirim (di-encode UTF-8); {@code null} diperlakukan sebagai
+	 *                 string kosong
+	 * @return peta header respons HTTP (nama header ke daftar nilainya)
+	 * @throws Exception termasuk {@link IOException} bila status HTTP &gt;= 400, atau kegagalan
+	 *                    koneksi/IO lainnya
+	 */
 	public static Map<String, List<String>> getPostResponseHeader(String urlStr, String postData) throws Exception {
 		URL url = new URL(urlStr);
 		HttpURLConnection con = null;
@@ -100,18 +169,47 @@ public class URLCommon {
 		}
 	}
 
+	/**
+	 * Mendeteksi apakah teks {@code response} berasal dari halaman tantangan/blokir Cloudflare
+	 * (ciri-ciri: mengandung "cloudflare", URL challenge Cloudflare, teks "just a moment", atau
+	 * kode error 1010) — dipakai untuk membedakan kegagalan HTTP asli dari server target
+	 * dengan blokir WAF yang mencegat request sebelum sampai ke aplikasi.
+	 *
+	 * @param response teks body respons yang diperiksa
+	 * @return {@code true} bila teks mengandung salah satu penanda halaman Cloudflare
+	 */
 	private static boolean isCloudflareResponse(String response) {
 		String isi = response == null ? "" : response.toLowerCase();
 		return isi.indexOf("cloudflare") >= 0 || isi.indexOf("challenges.cloudflare.com") >= 0
 				|| isi.indexOf("just a moment") >= 0 || isi.indexOf("error code: 1010") >= 0;
 	}
 
+	/**
+	 * Memeriksa apakah {@code exception} yang diberikan merepresentasikan kegagalan HTTP 403
+	 * yang disebabkan blokir Cloudflare (dibangun oleh {@link #getPostResponseHeader(String,
+	 * String)} saat status &gt;= 400) — dicek dari teks pesan exception, bukan tipe exception
+	 * khusus. Dipakai pemanggil di luar kelas ini untuk menampilkan pesan/penanganan berbeda
+	 * saat kegagalan integrasi disebabkan WAF, bukan kegagalan aplikasi target.
+	 *
+	 * @param exception exception yang akan diperiksa; {@code null} atau tanpa pesan dianggap
+	 *                  bukan kegagalan WAF
+	 * @return {@code true} bila pesan exception menunjukkan HTTP 403 dari respons Cloudflare
+	 */
 	public static boolean isWafForbidden(Exception exception) {
 		String pesan = exception == null || exception.getMessage() == null ? ""
 				: exception.getMessage().toLowerCase();
 		return pesan.indexOf("http 403") >= 0 && isCloudflareResponse(pesan);
 	}
 
+	/**
+	 * Meringkas teks body respons untuk disisipkan ke pesan error: baris baru/tab diratakan
+	 * jadi spasi tunggal, spasi ganda dirapikan, dan hasil dipotong maksimum 500 karakter
+	 * (ditambah {@code "..."} bila dipotong) agar pesan exception tetap ringkas dan tidak
+	 * membanjiri log dengan HTML/JSON respons yang panjang.
+	 *
+	 * @param response teks body respons mentah
+	 * @return ringkasan satu-baris, maksimum 500 karakter
+	 */
 	private static String ringkasResponse(String response) {
 		String isi = response == null ? "" : response.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ').trim();
 		while (isi.indexOf("  ") >= 0) {
@@ -123,6 +221,35 @@ public class URLCommon {
 		return isi;
 	}
 
+	/**
+	 * Mengirim HTTP POST JSON ke endpoint DSpace ({@code ConstantValues.DSPACE_URL_PRIVATE +
+	 * "/" + acton}), diautentikasi lewat cookie {@code JSESSIONID}, dan mencatat hasilnya
+	 * sebagai {@link DspaceLog} beraksi {@link DspaceLog#SIMPAN}.
+	 *
+	 * <p>
+	 * Karakter non-printable pada {@code postData} dibuang lebih dulu (regex {@code \P{Print}})
+	 * sebelum dikirim. Bila JSON respons memuat field {@code retrieveLink} atau {@code handle},
+	 * nilainya dicatat ke {@link DspaceLog#setHandle(String)} sebagai jejak identitas objek
+	 * DSpace yang terpengaruh.
+	 * </p>
+	 *
+	 * <p>
+	 * Exception yang terjadi selama proses request DITANGKAP secara internal (dicatat ke
+	 * {@link ErrorAuditUtil} dan {@code dspaceLog.setError(...)}), bukan dilempar ulang —
+	 * method mengembalikan {@code null} pada kegagalan; pemanggil harus memeriksa nilai
+	 * kembalian, bukan mengandalkan exception, untuk mendeteksi kegagalan.
+	 * </p>
+	 *
+	 * @param cookie   nilai {@code JSESSIONID} sesi DSpace yang sudah diautentikasi sebelumnya
+	 * @param acton    path aksi relatif terhadap {@code DSPACE_URL_PRIVATE} (typo "acton"
+	 *                 dipertahankan sesuai nama parameter asli di kode)
+	 * @param postData body JSON yang dikirim
+	 * @return JSON hasil parsing respons, atau {@code null} bila terjadi kegagalan yang
+	 *         tertangkap secara internal
+	 * @throws Exception dideklarasikan pada tanda tangan namun pada praktiknya kegagalan
+	 *                    ditangkap secara internal, bukan dilempar ulang, kecuali dari
+	 *                    {@link #simpanDspaceLog(DspaceLog)}
+	 */
 	public static JSONObject post(String cookie, String acton, String postData) throws Exception {
 		JSONObject jsonObject = null;
 
@@ -199,6 +326,24 @@ public class URLCommon {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengirim HTTP GET ke endpoint DSpace ({@code ConstantValues.DSPACE_URL_PRIVATE + "/" +
+	 * action}) tanpa autentikasi cookie, mem-parsing body respons sebagai JSON.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #post}/{@link #put}/{@link #delete}, method ini TIDAK mencatat
+	 * {@link DspaceLog} — murni operasi baca. Kegagalan membaca stream input ditangkap secara
+	 * diam-diam (dicatat ke {@link ErrorAuditUtil}) dan digantikan nilai default
+	 * {@code {"uuid":""}} sebelum di-parse sebagai JSON, sehingga method ini TIDAK PERNAH
+	 * mengembalikan {@code null} akibat kegagalan baca — hanya JSON placeholder.
+	 * </p>
+	 *
+	 * @param action path aksi relatif terhadap {@code DSPACE_URL_PRIVATE}
+	 * @return JSON hasil parsing respons, atau JSON placeholder {@code {"uuid":""}} bila
+	 *         pembacaan respons gagal
+	 * @throws Exception diteruskan dari kegagalan membuka koneksi atau parsing JSON pada data
+	 *                    yang berhasil dibaca
+	 */
 	public static JSONObject get(String action) throws Exception {
 
 		String urlStr = ConstantValues.DSPACE_URL_PRIVATE + "/" + action;
@@ -237,6 +382,14 @@ public class URLCommon {
 
 	}
 
+	/**
+	 * Memeriksa ketersediaan/kesuksesan sebuah endpoint DSpace lewat HTTP GET, tanpa membaca
+	 * body respons — hanya memeriksa apakah status HTTP bernilai 200.
+	 *
+	 * @param action path aksi relatif terhadap {@code DSPACE_URL_PRIVATE} yang akan diperiksa
+	 * @return {@code true} bila status HTTP respons adalah 200
+	 * @throws Exception diteruskan dari kegagalan membuka koneksi HTTP
+	 */
 	public static boolean cek(String action) throws Exception {
 
 		String urlStr = ConstantValues.DSPACE_URL_PRIVATE + "/" + action;
@@ -262,6 +415,42 @@ public class URLCommon {
 
 	}
 
+	/**
+	 * Implementasi AKTIF unggah berkas biner ke satu item DSpace (endpoint
+	 * {@code /items/{uuid}/bitstreams}), dijalankan lewat proses eksternal {@code curl} (bukan
+	 * {@link HttpURLConnection}) karena lebih tangguh menangani unggahan berkas besar.
+	 *
+	 * <p>
+	 * <b>Latar belakang perbaikan (lihat juga komentar rinci pada badan method):</b> versi
+	 * sebelumnya memakai flag {@code curl -v} (verbose) yang membanjiri STDERR tanpa pernah
+	 * dikuras, sehingga begitu buffer pipa STDERR penuh, proses {@code curl} macet menulis dan
+	 * seluruh thread pemanggil ikut menggantung selamanya menunggu STDOUT (insiden nyata:
+	 * satu thread tercatat macet di titik ini selama seminggu penuh). Implementasi saat ini
+	 * memberi tiga pengaman: (1) flag {@code -sS} (senyap namun tetap menampilkan error, bukan
+	 * verbose); (2) thread daemon terpisah yang secara aktif mengonsumsi/membuang STDERR proses
+	 * curl sepanjang proses berjalan, sehingga pipanya tidak pernah penuh; (3) thread watchdog
+	 * daemon yang memaksa {@code p.destroy()} bila proses melewati batas waktu (konfigurasi
+	 * {@code timeout_upload_dspace_detik}, default 300 detik, dipaksa minimum 10 detik) —
+	 * sehingga proses yang macet karena sebab lain pun tidak lagi menggantung tanpa batas.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila watchdog memicu penghentian paksa (melewati batas waktu), method melempar
+	 * {@link Exception} yang menyebutkan nama berkas dan batas waktu yang terlampaui — ini
+	 * SATU-SATUNYA jalur di method ini yang benar-benar melempar exception ke pemanggil;
+	 * kegagalan lain (mis. curl mengembalikan JSON error) ditangkap dan dicatat ke
+	 * {@link DspaceLog#setError(String)} tanpa dilempar ulang.
+	 * </p>
+	 *
+	 * @param cookie      nilai {@code JSESSIONID} sesi DSpace
+	 * @param uuid        id item DSpace tujuan unggahan
+	 * @param binaryFile  berkas lokal yang akan diunggah
+	 * @param description deskripsi berkas, disisipkan ke query string dan {@link DspaceLog}
+	 * @return JSON hasil parsing respons curl, atau {@code null} bila terjadi kegagalan yang
+	 *         tertangkap secara internal (selain kasus timeout watchdog)
+	 * @throws Exception dilempar bila proses unggah melewati batas waktu watchdog; kegagalan
+	 *                    lain umumnya ditangkap secara internal
+	 */
 	public static JSONObject upload(String cookie, String uuid, File binaryFile, String description) throws Exception {
 		DspaceLog dspaceLog = new DspaceLog();
 		dspaceLog.setKeterangan(description + ". File : " + binaryFile.getName());
@@ -408,6 +597,23 @@ public class URLCommon {
 		return jsonObject;
 	}
 
+	/**
+	 * Implementasi LAMA unggah berkas biner ke item DSpace, memakai {@link HttpURLConnection}
+	 * murni dengan body {@code multipart/form-data} dibangun manual (boundary dari heksadesimal
+	 * timestamp, ditulis lewat {@link PrintWriter}/{@link OutputStreamWriter}). Ditinggalkan
+	 * sebagai referensi/cadangan setelah digantikan {@link #upload(String, String, File,
+	 * String)} berbasis {@code curl} yang lebih tangguh untuk berkas besar — lihat javadoc
+	 * {@link #upload(String, String, File, String)} untuk kronologi alasan penggantian.
+	 *
+	 * @param cookie      nilai {@code JSESSIONID} sesi DSpace
+	 * @param uuid        id item DSpace tujuan unggahan
+	 * @param binaryFile  berkas lokal yang akan diunggah
+	 * @param description deskripsi berkas
+	 * @return JSON hasil parsing respons, atau {@code null} bila terjadi kegagalan (ditangkap
+	 *         dan dicatat ke {@link DspaceLog#setError(String)})
+	 * @throws Exception diteruskan dari kegagalan koneksi/IO yang tidak tertangkap oleh blok
+	 *                    {@code catch} internal method ini
+	 */
 	public static JSONObject uploadOld(String cookie, String uuid, File binaryFile, String description)
 			throws Exception {
 
@@ -510,6 +716,22 @@ public class URLCommon {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengirim HTTP PUT JSON ke endpoint DSpace ({@code ConstantValues.DSPACE_URL_PRIVATE + "/"
+	 * + acton}), diautentikasi lewat cookie {@code JSESSIONID}, dan mencatat hasilnya sebagai
+	 * {@link DspaceLog} beraksi {@link DspaceLog#UBAH}. Pola sama dengan {@link #post}, namun
+	 * mengembalikan kode status HTTP mentah alih-alih JSON hasil parsing (dipakai saat pemanggil
+	 * hanya perlu tahu berhasil/tidaknya operasi ubah).
+	 *
+	 * @param cookie   nilai {@code JSESSIONID} sesi DSpace
+	 * @param acton    path aksi relatif terhadap {@code DSPACE_URL_PRIVATE}
+	 * @param postData body JSON perubahan yang dikirim
+	 * @return kode status HTTP respons (200 = OK), atau {@code 0} bila terjadi kegagalan yang
+	 *         tertangkap secara internal sebelum status sempat dibaca
+	 * @throws Exception dideklarasikan pada tanda tangan namun kegagalan pada praktiknya
+	 *                    ditangkap secara internal, kecuali dari
+	 *                    {@link #simpanDspaceLog(DspaceLog)}
+	 */
 	public static int put(String cookie, String acton, String postData) throws Exception {
 		int code = 0;
 
@@ -558,6 +780,20 @@ public class URLCommon {
 		return code;
 	}
 
+	/**
+	 * Mengirim HTTP DELETE ke endpoint DSpace ({@code ConstantValues.DSPACE_URL_PRIVATE + "/" +
+	 * acton}), diautentikasi lewat cookie {@code JSESSIONID}, dan mencatat hasilnya sebagai
+	 * {@link DspaceLog} beraksi {@link DspaceLog#HAPUS}. Pola sama dengan {@link #put}.
+	 *
+	 * @param cookie      nilai {@code JSESSIONID} sesi DSpace
+	 * @param acton       path aksi relatif terhadap {@code DSPACE_URL_PRIVATE} yang akan dihapus
+	 * @param description deskripsi operasi, dicatat ke {@link DspaceLog}
+	 * @return kode status HTTP respons (200 = OK), atau {@code 0} bila terjadi kegagalan yang
+	 *         tertangkap secara internal
+	 * @throws Exception dideklarasikan pada tanda tangan namun kegagalan pada praktiknya
+	 *                    ditangkap secara internal, kecuali dari
+	 *                    {@link #simpanDspaceLog(DspaceLog)}
+	 */
 	public static int delete(String cookie, String acton, String description) throws Exception {
 
 		DspaceLog dspaceLog = new DspaceLog();
@@ -599,6 +835,18 @@ public class URLCommon {
 		return code;
 	}
 
+	/**
+	 * Menyimpan satu baris {@link DspaceLog} dalam transaksi Hibernate sendiri, dengan rollback
+	 * eksplisit bila terjadi kegagalan. Sesi Hibernate native SELALU dibersihkan tuntas di
+	 * blok {@code finally} (lewat {@link HibernateUtil#closeSessionQuietly(Session)} DAN
+	 * {@link HibernateUtil#closeSession()}) — komentar pada kode menegaskan pembersihan ganda
+	 * ini disengaja karena sesi dibuka/dimiliki oleh jalur integrasi ini sendiri, sehingga wajib
+	 * ditutup tuntas agar tidak meninggalkan koneksi database dalam status "idle in transaction".
+	 *
+	 * @param dspaceLog baris log yang akan disimpan
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat menyimpan (transaksi di-rollback
+	 *                    lebih dulu sebelum exception diteruskan)
+	 */
 	private static void simpanDspaceLog(DspaceLog dspaceLog) throws Exception {
 		Session session = null;
 		Transaction transaction = null;

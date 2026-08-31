@@ -37,8 +37,100 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Implementasi alur pembayaran "keranjang" (kumpulan beberapa {@link KegiatanTemporary}/tagihan
+ * cicilan sekaligus dibayar dalam satu transaksi) melalui payment gateway <b>Faspay</b>, mencakup
+ * pengambilan daftar kanal pembayaran yang tersedia, tampilan pemilihan kanal ke pengguna,
+ * penyusunan XML permintaan transaksi sesuai spesifikasi API Faspay, pengiriman permintaan ke
+ * gateway, dan penanganan hasilnya (tampilkan halaman Virtual Account/QR bila berhasil, atau
+ * pesan kegagalan bila ditolak). Kelas ini merupakan bagian dari rangkaian integrasi Faspay AIS
+ * (bandingkan dengan util Faspay lain di paket {@code ais.common} untuk alur pembayaran tunggal/
+ * non-keranjang) dan berbagi konfigurasi kredensial merchant yang sama dengan util Faspay
+ * tersebut.
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN — kredensial merchant Faspay tertanam (hardcoded) sebagai nilai
+ * default</b>: baik {@link #onSaveFaspay} maupun {@link #onPilihFaspay} mengambil kredensial
+ * merchant lewat {@link Common#getKonfigurasi(String, String)} dengan nilai default yang tertanam
+ * langsung di kode sumber bila konfigurasi database belum diisi: {@code faspay_merchant_id}
+ * default {@code "31503"}, {@code faspay_merchant_name} default {@code "eCampus"},
+ * {@code faspay_user_id} default {@code "bot31503"}, dan {@code faspay_password} default
+ * {@code "W4TYRmO0"} — password akun Faspay dalam bentuk plain text. URL default gateway
+ * ({@code faspay_payment_channel_url}, {@code faspay_gateway_url}, {@code faspay_redirect_url})
+ * juga tertanam, mengarah ke domain {@code faspaydev.mediaindonusa.com} (tampak sebagai
+ * lingkungan development/sandbox Faspay). Sama seperti kredensial BSI/Maja di
+ * {@link BSIMajaUtil}, nilai-nilai ini berpotensi terpakai diam-diam sebagai fallback produksi
+ * bila baris konfigurasi terkait belum diisi eksplisit, dan tersimpan sebagai plain text di
+ * riwayat kontrol versi. Nilai-nilai ini TIDAK diubah di sini — lihat catatan keamanan pada
+ * laporan dokumentasi.
+ * </p>
+ *
+ * <p>
+ * <b>Signature/otentikasi permintaan</b> — setiap permintaan ke Faspay ditandatangani dengan
+ * {@code AeSimpleSHA1.SHA1(MD5.crypt(...))} atas kombinasi {@code UserID+Password} (untuk
+ * permintaan daftar kanal) atau {@code UserID+Password+bill_no} (untuk permintaan posting
+ * transaksi) — pola signature MD5-lalu-SHA1 ini mengikuti spesifikasi resmi API Faspay dan bukan
+ * pilihan kriptografi bebas dari AIS.
+ * </p>
+ *
+ * <p>
+ * <b>Alur tiga tahap</b>: (1) {@link #onSaveFaspay} mengambil daftar kanal pembayaran yang
+ * tersedia dari Faspay dan, bila lebih dari satu kanal tersedia, menampilkan dialog pilihan kanal
+ * ke pengguna (bila hanya satu kanal, langsung dipakai tanpa dialog); (2) begitu kanal dipilih,
+ * {@link #onPilihFaspay} menyusun payload XML transaksi lengkap — termasuk daftar item
+ * (dibangun dari seluruh {@link CicilanPembayaran} milik {@link KegiatanTemporary} yang dipilih,
+ * ditambah baris biaya administrasi bila dikonfigurasi), data pelanggan (diambil dari
+ * {@link Mahasiswa} atau, bila belum menjadi mahasiswa, dari {@link BiodataCalonMahasiswa}), dan
+ * signature transaksi — lalu mendelegasikan pengiriman ke {@link #sendRequest}; (3)
+ * {@link #sendRequest} mengirim XML ke gateway Faspay, memparse XML respons menjadi JSON, mencatat
+ * baris {@link FaspayRequest} sebagai jejak audit transaksi, dan mengembalikannya ke pemanggil
+ * untuk ditampilkan sebagai halaman pembayaran (kode VA + kode QR) atau pesan kegagalan.
+ * </p>
+ *
+ * <p>
+ * <b>Penanganan galat berlapis pada {@link #sendRequest}</b> — method ini membedakan beberapa
+ * jenis kegagalan jaringan secara eksplisit ({@link java.net.ConnectException},
+ * {@link java.net.SocketTimeoutException},
+ * {@link org.apache.commons.httpclient.ConnectTimeoutException}, dan kegagalan umum lain) dan
+ * mencatat pesan diagnostik yang berbeda untuk masing-masing lewat {@code InfoTeknisPembayaran},
+ * sehingga admin dapat membedakan "gateway tidak terjangkau", "gateway timeout", dan "gateway
+ * menolak permintaan" saat menelusuri kegagalan pembayaran.
+ * </p>
+ */
 public class FaspayKeranjangPembayaran {
 
+	/**
+	 * Titik masuk pertama alur pembayaran keranjang Faspay: mengambil daftar kanal pembayaran
+	 * yang tersedia dari Faspay (permintaan XML "Request List of Payment Gateway" ditandatangani
+	 * dengan {@code SHA1(MD5(UserID+Password))}), lalu langsung melanjutkan ke
+	 * {@link #onPilihFaspay} bila hanya ada satu kanal, atau menampilkan dialog radio-button
+	 * pemilihan kanal ({@link MyWindow} modal) bila kanal tersedia lebih dari satu.
+	 *
+	 * <p>
+	 * Respons XML dari Faspay dikonversi ke JSON lewat {@link org.json.XML#toJSONObject(String)};
+	 * struktur {@code payment_channel} dapat berupa array (banyak kanal) atau objek tunggal (satu
+	 * kanal), keduanya ditangani secara terpisah (percobaan sebagai array dulu, fallback ke objek
+	 * tunggal bila gagal). Kegagalan permintaan atau parsing menampilkan pesan "Kanal pembayaran
+	 * tidak ditemukan" kepada pengguna.
+	 * </p>
+	 *
+	 * @param amn                          nominal total yang hendak dibayar (dalam Rupiah, harus
+	 *                                     minimal 0.01; bila kurang, method langsung mengembalikan
+	 *                                     {@code false} tanpa memproses apa pun)
+	 * @param mahasiswa                    mahasiswa pembayar (untuk pembayaran mahasiswa aktif),
+	 *                                     boleh {@code null} bila pembayar adalah calon mahasiswa
+	 * @param biodataCalonMahasiswa        data calon mahasiswa pembayar, dipakai bila
+	 *                                     {@code mahasiswa} bernilai {@code null}
+	 * @param selectedKegiatanTemporary    kumpulan kegiatan/tagihan sementara yang dipilih untuk
+	 *                                     dibayar bersamaan dalam satu transaksi
+	 * @param event                        event ZK asal pemanggilan, diteruskan ke
+	 *                                     {@link #onPilihFaspay}
+	 * @return {@code true} bila proses berhasil dimulai (permintaan daftar kanal berhasil
+	 *         diproses, terlepas dari hasil akhir pemilihan kanal) atau bila {@code amn} kurang
+	 *         dari 0.01 dinyatakan bukan sebagai kegagalan; {@code false} hanya pada kasus
+	 *         {@code amn < 0.01} atau kanal pembayaran tidak ditemukan sama sekali
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangkap secara internal
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public static boolean onSaveFaspay(final Double amn, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,
@@ -173,6 +265,54 @@ public class FaspayKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Menyusun payload XML transaksi lengkap sesuai spesifikasi API Faspay ("Post Data
+	 * Transaksi") untuk kanal pembayaran yang sudah dipilih, lalu mengirimkannya lewat
+	 * {@link #sendRequest} dan menampilkan hasilnya (halaman kode Virtual Account/QR bila
+	 * berhasil, pesan kegagalan bila gagal).
+	 *
+	 * <p>
+	 * Daftar item transaksi dibangun dari seluruh {@link CicilanPembayaran} milik setiap
+	 * {@link KegiatanTemporary} pada {@code selectedKegiatanTemporary} (nama produk disesuaikan
+	 * apakah cicilan berupa pembayaran bulanan atau bukan), ditambah satu baris "Biaya
+	 * Administrasi" bila konfigurasi {@code faspay_biaya_administrasi} bernilai positif. Nomor
+	 * tagihan ({@code bill_no}) dibangkitkan lewat {@link Common#getGeneratedBarCode()}, dan
+	 * signature transaksi memakai {@code SHA1(MD5(UserID+Password+bill_no))}. Batas waktu
+	 * pembayaran ({@code bill_expired}) diset 12 jam dari waktu transaksi (perhatikan penggunaan
+	 * {@link Calendar#HOUR} — bidang 12 jam, bukan {@code HOUR_OF_DAY}).
+	 * </p>
+	 *
+	 * <p>
+	 * Data pelanggan (nama, nomor identitas, telepon, email, alamat, kota, provinsi, kode pos)
+	 * diambil dari {@code mahasiswa} bila tidak {@code null} (termasuk data tambahan dari
+	 * {@link BiodataMahasiswa} terkait), atau dari {@code biodataCalonMahasiswa} sebagai
+	 * fallback. Nomor HP yang tidak berformat angka valid digantikan nilai placeholder
+	 * {@code "0810000000"} agar tidak menggagalkan validasi format Faspay.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila {@link #sendRequest} mengembalikan {@link FaspayRequest} dengan URL valid, sebuah kode
+	 * QR dibangkitkan lewat {@link BarcodeCommon#generateCRCode(String, File)} dan halaman
+	 * {@code /common/faspay/no_va.zul} ditampilkan (berisi nomor VA, nominal, biaya administrasi,
+	 * total, kode QR, dan nominal dalam bentuk terbilang lewat
+	 * {@link IndonesianNumberToWords#convert(long)}). Bila gagal, pesan kegagalan standar
+	 * ({@link InfoTeknisPembayaran#pesanGagal()}) ditampilkan.
+	 * </p>
+	 *
+	 * @param amn                          nominal yang hendak dibayar (di luar biaya administrasi)
+	 * @param mahasiswa                    mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa        data calon mahasiswa pembayar (dipakai bila
+	 *                                     {@code mahasiswa} {@code null})
+	 * @param selectedKegiatanTemporary    kegiatan/tagihan sementara yang dibayar bersamaan
+	 * @param payment_channel              kode kanal pembayaran Faspay yang dipilih (pg_code)
+	 * @param payment_channel_name         nama kanal pembayaran yang dipilih (pg_name), dicatat
+	 *                                     ke {@link FaspayRequest} untuk keperluan pelaporan
+	 * @param event                        event ZK asal pemanggilan
+	 * @return selalu {@code true} pada implementasi saat ini (baik transaksi berhasil maupun
+	 *         gagal, method tetap mengembalikan {@code true} — status keberhasilan sesungguhnya
+	 *         hanya terlihat dari tampilan yang dimunculkan ke pengguna)
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangkap secara internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean onPilihFaspay(final Double amn, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,
@@ -358,6 +498,71 @@ public class FaspayKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Mengirim payload XML transaksi yang sudah disusun ke endpoint gateway Faspay
+	 * (konfigurasi {@code faspay_gateway_url}) lewat HTTP POST, memparse respons XML menjadi
+	 * JSON, mencatat baris {@link FaspayRequest} sebagai jejak audit transaksi ke database, dan
+	 * membangun URL redirect pembayaran ({@code faspay_redirect_url}) yang memuat {@code trx_id}
+	 * hasil respons Faspay.
+	 *
+	 * <p>
+	 * Sebelum dikirim, seluruh karakter {@code &} pada {@code postData} diganti menjadi kata
+	 * {@code "dan"} — langkah ini mencegah karakter {@code &} pada isi data (mis. nama yang
+	 * mengandung "&") merusak struktur XML/parsing di sisi Faspay, dengan konsekuensi data
+	 * tersebut tampil sebagai kata "dan" pada sistem Faspay.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila respons Faspay memuat kode status ({@code response_code}) selain {@code "00"}
+	 * (sukses), detail penolakan (kode + pesan + potongan respons mentah) dicatat lewat
+	 * {@code InfoTeknisPembayaran.catat(...)} agar dapat ditampilkan sebagai penjelasan teknis
+	 * kegagalan kepada admin, alih-alih sekadar pesan generik "Transaksi Gagal". Penyimpanan
+	 * {@link FaspayRequest} dilakukan dalam transaksi Hibernate tersendiri dengan rollback
+	 * eksplisit bila gagal disimpan, dan kegagalan penyimpanan dilempar ulang ({@code throw se})
+	 * setelah rollback — menyebabkan seluruh method jatuh ke blok {@code catch} terluar.
+	 * </p>
+	 *
+	 * <p>
+	 * Empat kategori kegagalan ditangani terpisah dengan pesan diagnostik berbeda (lihat catatan
+	 * pada Javadoc kelas): {@link java.net.ConnectException} (gateway tak terjangkau),
+	 * {@link java.net.SocketTimeoutException} (timeout baca respons),
+	 * {@link org.apache.commons.httpclient.ConnectTimeoutException} (timeout saat membangun
+	 * koneksi — dicatat terpisah dari {@code ConnectException} karena merupakan subclass
+	 * {@link java.io.InterruptedIOException}, bukan {@code ConnectException}), dan
+	 * {@link Exception} umum lainnya (mis. respons tidak dapat diparse, atau kegagalan
+	 * penyimpanan yang dilempar ulang dari blok penyimpanan). Pada seluruh kasus kegagalan,
+	 * method mengembalikan objek {@link FaspayRequest} yang baru dibuat namun BELUM terisi
+	 * (field {@code url} tetap {@code null}), sehingga pemanggil ({@link #onPilihFaspay}) dapat
+	 * mendeteksi kegagalan lewat pengecekan {@code getUrl() == null} dan menampilkan pesan gagal
+	 * standar.
+	 * </p>
+	 *
+	 * @param postData                  payload XML transaksi (karakter {@code &} akan
+	 *                                  digantikan {@code "dan"} sebelum dikirim)
+	 * @param mahasiswa                 mahasiswa terkait transaksi, dicatat ke
+	 *                                  {@link FaspayRequest}, boleh {@code null}
+	 * @param biodataCalonMahasiswa     calon mahasiswa terkait transaksi, dicatat ke
+	 *                                  {@link FaspayRequest}, boleh {@code null}
+	 * @param selectedKegiatanTemporary kegiatan/tagihan sementara terkait; elemen pertamanya
+	 *                                  dipakai untuk mengambil semester dan tahun akademik yang
+	 *                                  dicatat ke {@link FaspayRequest}
+	 * @param amount                    nominal transaksi (di luar biaya administrasi), dicatat ke
+	 *                                  {@link FaspayRequest}
+	 * @param merchant_id               id merchant Faspay yang dipakai pada transaksi ini
+	 * @param signature                 signature transaksi yang sudah dihitung pemanggil, dipakai
+	 *                                  juga sebagai bagian dari URL redirect
+	 * @param bill_no                   nomor tagihan unik transaksi ini
+	 * @param payment_channel_name      nama kanal pembayaran yang dipilih, dicatat ke
+	 *                                  {@link FaspayRequest}
+	 * @param hapusCicilanSebelumnya    ditulis apa adanya ke {@link FaspayRequest#setHapusCicilanSebelumnya},
+	 *                                  menandakan apakah baris cicilan sebelumnya untuk kegiatan
+	 *                                  terkait perlu dibersihkan oleh pemroses hasil transaksi
+	 * @return {@link FaspayRequest} yang sudah tersimpan dan berisi URL redirect pembayaran bila
+	 *         transaksi berhasil diproses gateway; {@link FaspayRequest} kosong (field
+	 *         {@code url} {@code null}) bila terjadi kegagalan jaringan/parsing/penyimpanan
+	 * @throws Exception dideklarasikan pada signature namun praktiknya seluruh kegagalan
+	 *                    ditangani secara internal dan tidak dilempar keluar
+	 */
 	@SuppressWarnings("deprecation")
 	public static FaspayRequest sendRequest(String postData, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,

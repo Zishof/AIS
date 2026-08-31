@@ -429,9 +429,88 @@ import de.undercouch.citeproc.csl.CSLType;
 
 
 
+/**
+ * Kumpulan helper statis untuk seluruh mekanisme login/logout dan sesi pengguna di AIS, mencakup
+ * banyak "jenis" identitas yang dapat login secara terpisah (login sosial untuk {@link Tbmuser}/
+ * {@link Mahasiswa}/{@link Siswa}, login cookie PMB untuk {@link BiodataCalonMahasiswa}, login
+ * {@link CalonSiswa} PPDB, login {@link PenyediaAsset}, login {@link CalonPegawai} rekrutmen),
+ * ditambah verifikasi kredensial ({@link #checkLogin(String, String)}) dan alur lupa password
+ * ({@link #kirimLupaPassword(String)}). Kelas ini mewarisi {@link Common} (mengekspos ulang
+ * beberapa method seperti {@code tampilErrorJikaAdmin}) dan seluruh anggotanya bersifat statis.
+ *
+ * <h2>Pola sesi &amp; cookie</h2>
+ * <p>
+ * Untuk setiap jenis identitas, kelas ini umumnya menyediakan tiga method berpasangan:
+ * {@code isLogin*()} (memeriksa status login, kadang membaca dari {@link HttpSession} lalu
+ * memulihkannya dari cookie bila sesi kosong), {@code setLogin*(...)} (menandai login: menulis ke
+ * {@link HttpSession} dan — untuk sebagian jenis — juga menulis cookie persisten), dan
+ * {@code setLogout*(...)} (membersihkan session attribute terkait, dan untuk sebagian jenis juga
+ * menghapus cookie). Session attribute standar yang SELALU ikut diisi/dibersihkan berdampingan
+ * dengan attribute spesifik jenis adalah {@code mytbmuser}, {@code usersTemp}, dan {@code user} —
+ * ini adalah representasi {@link Tbmuser} generik dari identitas yang sedang login, dipakai luas
+ * oleh lapisan otorisasi/tampilan lain di aplikasi tanpa perlu tahu jenis identitas aslinya.
+ * </p>
+ * <p>
+ * Login cookie PMB (Penerimaan Mahasiswa Baru) untuk {@link BiodataCalonMahasiswa} bersifat
+ * OPSIONAL, dikendalikan oleh saklar konfigurasi {@link #isPmbCookieLoginEnabled()}
+ * ({@code KONFIG_PMB_LOGIN_COOKIE}) — bila tidak aktif, login PMB murni berbasis session tanpa
+ * cookie "ingat saya". Nilai cookie yang menyimpan id entitas dienkripsi lebih dulu lewat
+ * {@code Common.desEncrypter.get().encrypt(...)} sebelum ditulis (dan didekripsi saat dibaca
+ * kembali via {@link #getCookieValue(HttpServletRequest, String)}), dibungkus lagi lewat
+ * {@code Common.nilaiCookieAman(...)}, dengan umur cookie 15.552.000 detik (180 hari) dan flag
+ * {@code Secure} mengikuti {@code request.isSecure()}.
+ * </p>
+ *
+ * <h2>PERINGATAN KEAMANAN — penyimpanan &amp; verifikasi kata sandi</h2>
+ * <p>
+ * <b>1. Kata sandi pengguna disimpan sebagai ENKRIPSI SIMETRIS YANG DAPAT DIBALIK (reversible),
+ * BUKAN sebagai hash satu-arah.</b> Seluruh alur di kelas ini — {@link #checkLogin(String,
+ * String)}, {@link #kirimLupaPassword(String)}, dan ketiga varian lengkap {@code doLogin(...)} —
+ * memanggil {@code Common.desEncrypter.get().decrypt(...)} untuk memperoleh kata sandi asli dalam
+ * bentuk plain text dari kolom tersimpan ({@code Tbmuser#getUserPassword()},
+ * {@code Mahasiswa#getPass()}, {@code Siswa#getPass()}). Ini adalah pola kriptografi yang lemah
+ * dibandingkan praktik standar (hash satu-arah bergaram seperti bcrypt/PBKDF2/Argon2): siapa pun
+ * yang memperoleh kunci enkripsi ({@code desEncrypter}, lokasi definisinya di luar file ini) dapat
+ * membalik SELURUH kata sandi pengguna yang tersimpan di database, bukan hanya kata sandi yang
+ * sedang diverifikasi. Sesuai batasan tugas dokumentasi ini, pola ini TIDAK diubah di sini — lihat
+ * laporan dokumentasi terkait untuk detail lokasi persis dan rekomendasi migrasi ke hashing
+ * satu-arah.
+ * </p>
+ * <p>
+ * <b>2. {@link #kirimLupaPassword(String)} mengirim kata sandi ASLI (hasil dekripsi) dalam bentuk
+ * plain text lewat email</b> ({@code "... Kata sandi : " + passwordDecript}) — pola yang HANYA
+ * mungkin dilakukan karena kata sandi disimpan reversibel (temuan #1 di atas); pada sistem yang
+ * memakai hash satu-arah, pola semacam ini secara desain tidak mungkin dilakukan (yang dikirim
+ * seharusnya tautan reset, bukan kata sandi lama). Ini bukan bug terpisah, melainkan konsekuensi
+ * langsung dari temuan #1.
+ * </p>
+ * <p>
+ * <b>3. {@link #checkLogin(String, String)} membandingkan kata sandi dengan {@code
+ * password.equals(pwd)}</b> — perbandingan string standar Java yang TIDAK constant-time (waktu
+ * eksekusinya dapat bervariasi tergantung di karakter mana ketidakcocokan pertama terjadi),
+ * membuka celah teoretis serangan timing untuk menebak kata sandi karakter demi karakter pada
+ * lingkungan dengan pengukuran waktu jaringan yang sangat presisi. Risiko praktis pola ini
+ * umumnya lebih rendah dibanding temuan #1-2, namun tetap dicatat sebagai penyimpangan dari
+ * praktik terbaik (perbandingan token/secret idealnya memakai fungsi constant-time seperti
+ * {@code MessageDigest.isEqual}).
+ * </p>
+ * <p>
+ * Sesuai instruksi tugas dokumentasi ini, KETIGA pola di atas TIDAK diubah — hanya didokumentasikan
+ * apa adanya berdasarkan pembacaan kode yang teliti.
+ * </p>
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class CommonSecurityLoginHelper extends Common {
 
+	/**
+	 * Mencari nilai satu cookie HTTP berdasarkan namanya di antara seluruh cookie pada
+	 * {@code request}. Kegagalan (mis. {@code request.getCookies()} melempar) ditangkap dan
+	 * dicatat ke {@link ErrorAuditUtil}, mengembalikan {@code null} alih-alih melempar ulang.
+	 *
+	 * @param request    HTTP request sumber cookie; {@code null} menghasilkan {@code null}
+	 * @param cookieName nama cookie yang dicari; {@code null}/kosong menghasilkan {@code null}
+	 * @return nilai cookie yang cocok, atau {@code null} bila tidak ditemukan/terjadi kegagalan
+	 */
 	private static String getCookieValue(HttpServletRequest request, String cookieName) {
 		if (request == null || cookieName == null || cookieName.trim().length() == 0) {
 			return null;
@@ -457,14 +536,24 @@ public class CommonSecurityLoginHelper extends Common {
 	private static final String COOKIE_PMB_BIODATA = "biodataCalonMahasiswa";
 	private static final String COOKIE_PMB_USERID = "userid";
 
+	/** @return {@code value} setelah di-trim, atau string kosong bila {@code value} {@code null} */
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
 	}
 
+	/** @return {@code true} bila {@code value} {@code null}, kosong, atau hanya whitespace */
 	private static boolean isBlank(String value) {
 		return value == null || value.trim().length() == 0;
 	}
 
+	/**
+	 * Memastikan {@code directory} ada sebagai direktori, membuatnya (beserta direktori induk
+	 * yang belum ada) bila belum ada.
+	 *
+	 * @param directory direktori yang dipastikan tersedia; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila direktori sudah ada (dan memang berupa direktori) atau berhasil
+	 *         dibuat; {@code false} bila path sudah ada tapi bukan direktori, atau pembuatan gagal
+	 */
 	private static boolean ensureDirectory(File directory) {
 		if (directory == null) {
 			return false;
@@ -475,6 +564,14 @@ public class CommonSecurityLoginHelper extends Common {
 		return directory.mkdirs();
 	}
 
+	/**
+	 * Menampilkan pesan error CRUD generik ke pengguna lewat {@link MyMessageboxConfig}, dengan
+	 * detail pesan exception (bila ada) ditambahkan setelah {@code pesan}, sekaligus mencatat
+	 * exception lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param e     exception penyebab, boleh {@code null}
+	 * @param pesan pesan utama yang ditampilkan ke pengguna
+	 */
 	private static void tampilCrudError(Exception e, String pesan) {
 		Common.tampilErrorJikaAdmin(e);
 		String detail = e == null || e.getMessage() == null ? "" : "\n" + e.getMessage();

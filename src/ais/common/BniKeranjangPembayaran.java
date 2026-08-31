@@ -26,8 +26,69 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.bni.BniRequest;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Integrasi pembayaran via <b>BNI eCollection</b> (Virtual Account) untuk modul penerimaan
+ * mahasiswa baru maupun mahasiswa aktif di AIS: membentuk permintaan pembuatan tagihan (billing)
+ * BNI, menandatanganinya dengan skema hash kepemilikan BNI ({@link BNIHash}), mengirimkannya ke
+ * gateway BNI, menyimpan hasilnya sebagai {@link BniRequest}, dan menampilkan/mencetak bukti nomor
+ * Virtual Account (VA) kepada pengguna (mahasiswa atau calon mahasiswa/{@link
+ * BiodataCalonMahasiswa}).
+ *
+ * <h2>Alur pembuatan tagihan</h2>
+ * <ol>
+ * <li>{@link #onSaveBni} adalah gerbang validasi tipis: menolak permintaan dengan nominal kurang
+ * dari {@code 0.01} lalu mendelegasikan ke {@link #onPilihBni}.</li>
+ * <li>{@link #onPilihBni} membangun payload permintaan billing BNI dalam bentuk JSON mentah (string
+ * yang disusun manual, bukan lewat pustaka JSON builder) berisi email, nomor transaksi ({@code
+ * bill_no} dari {@link Common#getGeneratedBarCode()}), tanggal kedaluwarsa, {@code client_id}
+ * (merchant id), nomor HP, nama, nomor Virtual Account yang dibangkitkan, serta total tagihan
+ * (nominal + biaya administrasi opsional). Nomor Virtual Account dapat dibangkitkan dari NIM
+ * mahasiswa/nomor registrasi calon mahasiswa (bila konfigurasi
+ * {@code angka_va_bni_menggunakan_nim} aktif) atau dari angka acak sepanjang digit yang
+ * dikonfigurasi.</li>
+ * <li>Payload di-hash lewat {@link BNIHash#hashData(String, String, String)} memakai merchant id
+ * dan password BNI sebagai kunci, dibungkus menjadi permintaan POST JSON, dan dikirim lewat
+ * {@link #sendRequest}.</li>
+ * <li>Bila server BNI mengembalikan Virtual Account yang valid, pengguna diberi tahu lewat dialog
+ * berisi nomor VA dan instruksi pembayaran; sebuah timer default kemudian menyiapkan bukti
+ * pembayaran PDF ({@code Bukti_Bni_Mahasiswa}) dan mengirimkannya lewat email
+ * ({@link CommonEmail#infoBayarViaBni}). Bila gagal, pesan kegagalan disertai info teknis
+ * ({@link BniCommon#pesanGagalDenganInfoTeknis()}) ditampilkan.</li>
+ * </ol>
+ *
+ * <h2>Peringatan keamanan — kredensial merchant tertanam sebagai nilai default</h2>
+ * <p>
+ * Pada {@link #onPilihBni}, password/kunci merchant BNI dibaca lewat
+ * {@code Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf")} —
+ * <b>nilai kedua adalah default fallback yang ditulis langsung di kode sumber dalam bentuk teks
+ * polos</b> (dipakai bila baris konfigurasi {@code bni_password} belum diisi di database). Nilai
+ * ini dipakai sebagai kunci penandatanganan ({@code key}) permintaan billing ke BNI eCollection.
+ * Sesuai instruksi tugas dokumentasi ini, nilai tersebut TIDAK diubah/dihapus di sini — temuan ini
+ * dilaporkan agar dapat ditindaklanjuti terpisah (verifikasi apakah nilai ini masih aktif dipakai
+ * merchant produksi, dan bila ya, rotasi kredensial serta pemindahan ke penyimpanan konfigurasi
+ * yang tidak ter-commit ke kode sumber).
+ * </p>
+ */
 public class BniKeranjangPembayaran {
 
+	/**
+	 * Gerbang validasi tipis sebelum membuat tagihan BNI: menolak permintaan dengan nominal
+	 * {@code amn} kurang dari {@code 0.01} (dianggap tidak valid/kosong), selebihnya mendelegasikan
+	 * seluruh pembuatan tagihan ke {@link #onPilihBni}.
+	 *
+	 * @param amn                         nominal tagihan yang akan dibuatkan Virtual Account BNI
+	 * @param mahasiswa                   mahasiswa pembayar, boleh {@code null} bila pembayar adalah
+	 *                                    calon mahasiswa
+	 * @param biodataCalonMahasiswa       calon mahasiswa pembayar, dipakai bila {@code mahasiswa}
+	 *                                    {@code null}
+	 * @param selectedKegiatanTemporary   kumpulan item tagihan sementara yang tercakup dalam
+	 *                                    pembayaran ini
+	 * @param event                       event ZK asal pemanggilan (diteruskan ke
+	 *                                    {@link #onPilihBni})
+	 * @return {@code true} bila permintaan diproses (diteruskan ke {@link #onPilihBni}); {@code
+	 *         false} bila nominal kurang dari {@code 0.01}
+	 * @throws Exception diteruskan dari {@link #onPilihBni}
+	 */
 	@SuppressWarnings({})
 	public static boolean onSaveBni(final Double amn, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,
@@ -42,6 +103,27 @@ public class BniKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Implementasi utama pembuatan tagihan Virtual Account BNI. Menyusun payload JSON billing
+	 * (nomor VA, nominal, batas waktu, identitas pembayar), menandatanganinya dengan
+	 * {@link BNIHash}, mengirimkannya lewat {@link #sendRequest}, lalu menampilkan hasil kepada
+	 * pengguna: dialog nomor VA + instruksi pembayaran bila berhasil (diikuti penjadwalan pembuatan
+	 * &amp; pengiriman bukti pembayaran PDF via email), atau pesan kegagalan disertai info teknis
+	 * bila gagal. Lihat Javadoc kelas untuk detail lengkap struktur payload dan sumber kredensial
+	 * merchant.
+	 *
+	 * @param amn                        nominal tagihan (belum termasuk biaya administrasi)
+	 * @param mahasiswa                  mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa      calon mahasiswa pembayar, dipakai bila {@code mahasiswa}
+	 *                                   {@code null}
+	 * @param selectedKegiatanTemporary  kumpulan item tagihan sementara yang tercakup
+	 * @param event                      event ZK asal pemanggilan
+	 * @return selalu {@code true} setelah proses pembuatan tagihan dijalankan (nilai kembalian tidak
+	 *         membedakan sukses/gagal — status sukses/gagal ditampilkan langsung ke pengguna lewat
+	 *         dialog)
+	 * @throws Exception diteruskan dari operasi hashing/HTTP/Hibernate di {@link #sendRequest} atau
+	 *                    dari operasi ZK
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean onPilihBni(final Double amn, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Event event) throws Exception {
@@ -214,6 +296,42 @@ public class BniKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Mengirim permintaan pembuatan billing yang sudah ditandatangani ke gateway BNI eCollection
+	 * (memakai IP client khusus lewat {@code BniForwarder} bila dikonfigurasi, atau URL gateway
+	 * standar {@code https://apibeta.bni-ecollection.com/} sebagai fallback) lewat POST HTTP mentah
+	 * (Apache Commons {@link HttpClient}, API deprecated). Respons JSON diperiksa kode status-nya
+	 * (harus {@code "000"} untuk sukses); bila sukses, data respons yang terenkripsi didekripsi lewat
+	 * {@link BNIHash#parseData(String, String, String)} untuk memperoleh nomor Virtual Account dan
+	 * detail lain, yang kemudian disimpan sebagai satu baris {@link BniRequest} dalam transaksi
+	 * Hibernate native tersendiri (dengan rollback eksplisit pada kegagalan).
+	 *
+	 * @param postData                   body permintaan JSON (berisi {@code client_id} dan data
+	 *                                   ter-hash), karakter {@code &} diganti kata "dan" sebelum
+	 *                                   dikirim untuk mencegah gangguan pada sisi penerima
+	 * @param mahasiswa                  mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa      calon mahasiswa pembayar, boleh {@code null}
+	 * @param selectedKegiatanTemporary  kumpulan item tagihan sementara; elemen pertamanya dipakai
+	 *                                   untuk mengambil semester/tahun akademik yang dicatat ke
+	 *                                   {@link BniRequest}
+	 * @param amount                     nominal tagihan
+	 * @param merchant_id                id merchant BNI, dipakai juga sebagai kunci dekripsi respons
+	 * @param signature                  data mentah (belum di-hash) yang dikirim, disimpan hanya
+	 *                                   sebagai parameter (tidak dipakai langsung dalam method ini)
+	 * @param bill_no                    nomor transaksi/invoice yang dibangkitkan sebelumnya
+	 * @param key                        password/kunci merchant BNI, dipakai untuk mendekripsi
+	 *                                   respons
+	 * @param hapusCicilanSebelumnya     ditandai ke {@link BniRequest} untuk menentukan apakah
+	 *                                   cicilan/tagihan sebelumnya perlu dihapus saat request ini
+	 *                                   diproses lebih lanjut oleh pemanggil lain
+	 * @return {@link BniRequest} yang tersimpan lengkap dengan nomor Virtual Account, atau
+	 *         {@code null} bila status respons BNI bukan {@code "000"} (gagal)
+	 * @throws Exception diteruskan dari kegagalan HTTP/parsing JSON/Hibernate; kegagalan yang
+	 *                    tertangkap langsung di dalam method (blok {@code catch} umum) hanya
+	 *                    ditampilkan ke admin lewat {@link Common#tampilErrorJikaAdmin(Exception)}
+	 *                    tanpa dilempar ulang, sehingga {@code bniRequest} yang dikembalikan bisa
+	 *                    saja masih dalam keadaan belum terisi penuh
+	 */
 	@SuppressWarnings("deprecation")
 	public static BniRequest sendRequest(String postData, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,

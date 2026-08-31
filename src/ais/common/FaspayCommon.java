@@ -64,8 +64,79 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Implementasi utama integrasi payment gateway <b>Faspay</b> untuk pembayaran tunggal (satu jenis
+ * kegiatan/tagihan per transaksi) di AIS — mencakup penyiapan tombol pembayaran pada antarmuka,
+ * pengumpulan rincian item yang akan dibayar dari berbagai sumber (grid biaya, grid cicilan,
+ * parameter request web service), penyusunan payload XML transaksi sesuai spesifikasi API Faspay,
+ * pengiriman permintaan, dan penanganan hasilnya. Kelas ini adalah padanan "pembayaran tunggal"
+ * dari {@link FaspayKeranjangPembayaran} (yang menangani pembayaran gabungan beberapa
+ * {@code KegiatanTemporary} sekaligus); kedua kelas berbagi struktur XML, pola signature, dan
+ * kredensial merchant Faspay yang sama.
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN — kredensial merchant Faspay tertanam (hardcoded) sebagai nilai
+ * default</b>: sama seperti {@link FaspayKeranjangPembayaran}, method
+ * {@link #onPilihFaspay(Double, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, JadwalPembayaran, Integer, String, String, Double, Double, List, List, String, String, Event)}
+ * dan
+ * {@link #onSaveFaspay(Double, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, JadwalPembayaran, Integer, String, String, Double, Double, List, List, Event)}
+ * mengambil kredensial merchant lewat {@link Common#getKonfigurasi(String, String)} dengan nilai
+ * default tertanam langsung di kode sumber: {@code faspay_merchant_id} default {@code "31503"},
+ * {@code faspay_merchant_name} default {@code "eCampus"}, {@code faspay_user_id} default
+ * {@code "bot31503"}, dan {@code faspay_password} default {@code "W4TYRmO0"} (password akun
+ * Faspay plain text). URL gateway default juga tertanam, mengarah ke domain
+ * {@code faspaydev.mediaindonusa.com} (lingkungan development/sandbox Faspay). Nilai-nilai ini
+ * TIDAK diubah di sini — lihat catatan keamanan pada laporan dokumentasi, dan lihat juga
+ * peringatan serupa pada Javadoc kelas {@link FaspayKeranjangPembayaran}.
+ * </p>
+ *
+ * <p>
+ * <b>Empat sumber pengumpulan rincian pembayaran</b> — kelas ini menyediakan beberapa varian
+ * method {@code populateFaspayRequestDetail*}/{@code populateDetailBiaya} yang masing-masing
+ * mengubah data dari konteks/sumber berbeda menjadi daftar {@link FaspayRequestDetail}/
+ * {@link FaspayRequestDetailBiaya} yang seragam, sebelum diteruskan ke
+ * {@link #onSaveFaspay}/{@link #onPilihFaspay}: (1) {@link #populateDetailBiaya(Grid, List)} —
+ * dari grid komponen biaya pada antarmuka ZK (termasuk penanganan biaya yang bisa diubah manual
+ * dan biaya yang dikurangi lewat komponen pengurangan); (2)
+ * {@link #populateFaspayRequestDetailDariDetailBiaya(List)} — konversi langsung dari
+ * {@link FaspayRequestDetailBiaya} (hasil dari method sebelumnya) menjadi {@link FaspayRequestDetail};
+ * (3) {@link #populateFaspayRequestDetail(HttpServletRequest, Mahasiswa, String, Integer)} — dari
+ * parameter HTTP request (dipakai jalur web service/API), dengan id-id item biaya dikirim sebagai
+ * daftar dipisah koma; (4) {@link #populateFaspayRequestDetail(Grid, Mahasiswa, Integer, JadwalPembayaran)}
+ * — dari grid cicilan pembayaran pada antarmuka ZK, termasuk kalkulasi ulang denda keterlambatan
+ * bila cicilan baru (belum tersimpan) berbasis {@link PengaturanPembayaranBulanan#checkDenda}.
+ * </p>
+ *
+ * <p>
+ * <b>Alur transaksi tiga tahap</b>, identik pola dengan {@link FaspayKeranjangPembayaran}: (1)
+ * {@link #onSaveFaspay} mengambil daftar kanal pembayaran tersedia dari Faspay dan menampilkan
+ * dialog pilihan bila lebih dari satu; (2) {@link #onPilihFaspay} menyusun XML transaksi lengkap
+ * dari rincian yang sudah dikumpulkan dan mendelegasikan ke {@link #sendRequest}; (3)
+ * {@link #sendRequest} mengirim XML ke gateway, memparse respons, menyimpan
+ * {@link FaspayRequest} beserta seluruh baris {@link FaspayRequestDetail}/
+ * {@link FaspayRequestDetailBiaya} terkait dalam SATU transaksi Hibernate (berbeda dari
+ * {@link FaspayKeranjangPembayaran#sendRequest}, yang tidak menyimpan detail baris terpisah).
+ * </p>
+ *
+ * <p>
+ * Method {@link #bayarCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan)} adalah titik masuk
+ * tingkat tinggi khusus untuk alur pembayaran pendaftaran mahasiswa baru: menghitung biaya yang
+ * harus dibayar calon mahasiswa lewat {@link PembayaranUtil}, mengambil jadwal pembayaran yang
+ * berlaku, lalu langsung memulai transaksi Faspay untuk seluruh biaya tersebut.
+ * </p>
+ */
 public class FaspayCommon {
 
+	/**
+	 * Membangun tombol "Bayar via Faspay" siap tampil untuk antarmuka ZK, dengan label dan ikon
+	 * yang dapat disesuaikan institusi. Label diambil dari konfigurasi
+	 * {@code label_pembayaran_via_faspay} (default {@code "Bayar via Faspay"}); ikon diambil dari
+	 * lampiran kustom {@link LampiranLain#BG_TOMBOL_PEMBAYARAN_VIA_FASPAY} bila institusi sudah
+	 * mengunggahnya (disalin ke direktori {@code /img/} aplikasi bila belum ada salinan lokal),
+	 * atau ikon bawaan {@code faspay-logo.jpg} bila belum dikustomisasi.
+	 *
+	 * @return konfigurasi tombol {@link MyButtonConfig} siap dipasang ke komponen ZK
+	 */
 	public static MyButtonConfig createButton() {
 		File fileViaFaspay = new File(Common.REAL_PATH + "/img/faspay-logo.jpg");
 
@@ -99,6 +170,32 @@ public class FaspayCommon {
 		return bayarViaFaspay;
 	}
 
+	/**
+	 * Mengumpulkan rincian biaya yang akan dibayar dari grid komponen biaya pada antarmuka ZK,
+	 * mengonversi setiap baris grid yang terlihat (visible) menjadi satu
+	 * {@link FaspayRequestDetailBiaya}.
+	 *
+	 * <p>
+	 * Untuk setiap baris: nilai biaya diambil dari {@link DetailBiaya#getNilaiBiayaBaru()} (bila
+	 * ada) atau {@link DetailBiaya#getNilaiBiaya()} sebagai dasar, lalu ditimpa oleh nilai yang
+	 * sesungguhnya ditampilkan di komponen antarmuka baris tersebut (atribut {@code "tag"}): bila
+	 * berupa {@link Doublebox} DAN item biaya-nya {@link ItemBiaya#getNilaiBisaDiubah() dapat
+	 * diubah}, nilai diambil dari input tersebut; bila berupa {@link Label}, nilai diparse dari
+	 * teks yang ditampilkan. Khusus item biaya dengan jenis penghitungan
+	 * {@link ItemBiaya#DIKALI_NILAI_MINUS}, nilai akhirnya digantikan oleh nilai dari komponen
+	 * pengurangan ({@code pengurangan}) yang terkait (dicocokkan lewat atribut {@code "itemBiaya"}
+	 * pada komponen {@link MyDoubleboxMin} yang id {@link DetailBiaya}-nya sama).
+	 * </p>
+	 *
+	 * @param gridss      grid ZK berisi baris-baris biaya, dengan setiap {@link Row} memiliki
+	 *                    atribut {@code "myValue"} berisi {@link DetailBiaya} dan atribut
+	 *                    {@code "tag"} berisi komponen input/tampilan nilainya
+	 * @param pengurangan daftar komponen pengurangan nilai (untuk item biaya berjenis
+	 *                    {@link ItemBiaya#DIKALI_NILAI_MINUS}), masing-masing membawa atribut
+	 *                    {@code "itemBiaya"} yang menunjuk {@link DetailBiaya} terkait
+	 * @return daftar {@link FaspayRequestDetailBiaya} hasil konversi baris-baris grid yang
+	 *         terlihat
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<FaspayRequestDetailBiaya> populateDetailBiaya(Grid gridss, List<MyDoubleboxMin> pengurangan) {
 		List<FaspayRequestDetailBiaya> faspayRequestDetailBiayas = new ArrayList<FaspayRequestDetailBiaya>();
@@ -150,6 +247,16 @@ public class FaspayCommon {
 		return faspayRequestDetailBiayas;
 	}
 
+	/**
+	 * Mengonversi daftar {@link FaspayRequestDetailBiaya} (biasanya hasil
+	 * {@link #populateDetailBiaya(Grid, List)}) menjadi daftar {@link FaspayRequestDetail} yang
+	 * setara, dengan nomor urut ({@code ke}) dimulai dari 1 dan tanggal transaksi diisi waktu
+	 * saat ini. Dipakai pada alur pembayaran yang sumber datanya berupa {@link DetailBiaya}
+	 * langsung (bukan cicilan bulanan), mis. {@link #bayarCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan)}.
+	 *
+	 * @param faspayRequestDetailBiayas daftar rincian biaya sumber
+	 * @return daftar {@link FaspayRequestDetail} hasil konversi, dalam urutan yang sama
+	 */
 	public static List<FaspayRequestDetail> populateFaspayRequestDetailDariDetailBiaya(
 			List<FaspayRequestDetailBiaya> faspayRequestDetailBiayas) {
 		List<FaspayRequestDetail> faspayRequestDetails = new ArrayList<FaspayRequestDetail>();
@@ -170,6 +277,40 @@ public class FaspayCommon {
 		return faspayRequestDetails;
 	}
 
+	/**
+	 * Mengumpulkan rincian biaya yang akan dibayar dari parameter {@link HttpServletRequest},
+	 * dipakai pada jalur web service/API (bukan antarmuka ZK langsung). Parameter {@code jenis}
+	 * menentukan interpretasi id pada parameter {@code data}: {@code "bulanan"} (default bila
+	 * parameter {@code jenis} tidak dikirim) menafsirkan setiap id sebagai id
+	 * {@link PengaturanPembayaranBulanan}, selain itu ditafsirkan sebagai id {@link DetailBiaya}
+	 * langsung. Parameter {@code data} berisi daftar id dipisah koma.
+	 *
+	 * <p>
+	 * <b>Catatan perilaku</b> — kondisi percabangan pada implementasi ini adalah
+	 * {@code jenis.equalsIgnoreCase(jenis)}, yaitu membandingkan variabel dengan dirinya sendiri,
+	 * yang SELALU bernilai {@code true}. Akibatnya, cabang {@link PengaturanPembayaranBulanan}
+	 * SELALU dijalankan pada implementasi saat ini, terlepas dari nilai parameter {@code jenis}
+	 * yang sesungguhnya dikirim — cabang {@link DetailBiaya} langsung (blok {@code else}) tidak
+	 * pernah tercapai. Perilaku ini tidak diubah di sini karena instruksi dokumentasi hanya
+	 * mencakup penambahan Javadoc; lihat catatan pada laporan dokumentasi.
+	 * </p>
+	 *
+	 * <p>
+	 * Untuk setiap id, nilai nominal diambil lewat
+	 * {@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)} (nilai yang
+	 * sudah memperhitungkan modifikasi khusus mahasiswa/semester bersangkutan), dan keterangan
+	 * baris dibangun otomatis (nama item biaya, bulan, nominal, serta {@code validator} bila
+	 * diberikan).
+	 * </p>
+	 *
+	 * @param request   request HTTP berisi parameter {@code jenis} dan {@code data}
+	 * @param mahasiswa mahasiswa yang membayar, dipakai untuk menghitung nominal modifikasi per
+	 *                  mahasiswa
+	 * @param validator label validator/pemroses yang disisipkan ke keterangan baris, boleh string
+	 *                  kosong
+	 * @param semester  semester berjalan, dipakai untuk menghitung nominal modifikasi
+	 * @return daftar {@link FaspayRequestDetail} hasil pemrosesan parameter request
+	 */
 	public static List<FaspayRequestDetail> populateFaspayRequestDetail(HttpServletRequest request, Mahasiswa mahasiswa,
 			String validator, Integer semester) {
 

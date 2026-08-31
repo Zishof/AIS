@@ -327,6 +327,14 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Menulis {@code content} ke berkas teks sementara bernama acak di direktori
+	 * {@code <REAL_PATH>/tmp/} lalu memicu unduhan berkas tersebut ke browser pengguna lewat
+	 * {@link Filedownload#save(File, String)}. Kegagalan (mis. galat tulis berkas) dicatat dan
+	 * diabaikan agar tidak mengganggu alur penanganan galat utama yang memanggilnya.
+	 *
+	 * @param content isi berkas yang akan diunduh (biasanya stack trace)
+	 */
 	private static void saveAndDownloadErrorFile(String content) {
 		try {
 			// Gunakan File.separator agar aman di Windows/Linux
@@ -346,6 +354,16 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Menyimpan {@code errContent} sebagai satu baris {@link ErrorLog} baru, memakai sesi
+	 * Hibernate terisolasi ({@code openSession()}, terpisah dari sesi request HTTP) agar
+	 * pencatatan galat tidak ikut gagal bila transaksi/sesi request sedang dalam keadaan tidak
+	 * valid. Sesi selalu ditutup di blok {@code finally}; kegagalan penyimpanan sendiri dicatat
+	 * lewat {@link ais.common.ErrorAuditUtil} dan tidak dilempar ulang.
+	 *
+	 * @param errContent isi galat (biasanya stack trace, opsional digabung info tambahan) yang
+	 *                    disimpan ke kolom {@code keterangan}
+	 */
 	private static void saveErrorToDatabase(String errContent) {
 		// 1. Buka Session Baru (Isolated Session)
 		// Menggunakan openSession() agar terpisah dari session HTTP request
@@ -382,6 +400,20 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Menentukan apakah suatu {@link Matakuliah} memiliki padanan ekivalen untuk mahasiswa
+	 * ({@code nim}) tertentu (mis. akibat perubahan kurikulum), dengan opsi memaksa muat ulang
+	 * relasi ekivalensi lebih dulu.
+	 *
+	 * @param matakuliah mata kuliah yang diperiksa; boleh {@code null}
+	 * @param nim        NIM mahasiswa, dipakai untuk resolusi ekivalensi spesifik-mahasiswa
+	 * @param refresh    {@code true} untuk memanggil {@link Matakuliah#reInitEkivalen()} lebih
+	 *                   dulu sebelum membaca relasi ekivalensi
+	 * @return larik dua elemen {@code [matakuliahEkivalenAtauAsli, matakuliahAsli]} — elemen
+	 *         pertama adalah mata kuliah ekivalen bila ditemukan, atau {@code matakuliah} itu
+	 *         sendiri bila tidak ada ekivalensi; {@code {null, null}} bila {@code matakuliah}
+	 *         {@code null}
+	 */
 	public static Matakuliah[] getMatakuliahApakahEkivalen(Matakuliah matakuliah, String nim, boolean refresh) {
 		if (matakuliah != null) {
 			if (refresh) {
@@ -398,13 +430,24 @@ public class CommonHelperClass {
 		}
 	}
 
+	/** Cache statis {@link JenisKegiatan} aktif yang bukan pendaftaran/daftar ulang mahasiswa baru; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansTanpaDaftarUlang = null;
+	/** Cache statis seluruh {@link JenisKegiatan} aktif dan bukan kegiatan default; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansAktif = null;
+	/** Cache statis {@link JenisKegiatan} yang dipakai sebagai syarat pengambilan KRS; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansUntukKrs = null;
+	/** Cache statis {@link JenisKegiatan} yang dipakai sebagai syarat melihat nilai; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansUntukNilai = null;
+	/** Cache statis {@link JenisKegiatan} yang dipakai sebagai syarat status keaktifan mahasiswa; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansUntukSyaratAktif = null;
+	/** Cache statis {@link JenisKegiatan} yang dipakai sebagai syarat mengikuti ujian; diisi lewat {@link #reloadJenisKegiatans()}. */
 	public static TreeSet<JenisKegiatan> jenisKegiatansUntukSyaratUjian = null;
 
+	/**
+	 * Memuat ulang seluruh cache {@code jenisKegiatans*} memakai sesi Hibernate native baru
+	 * (dibuka dan ditutup sendiri oleh method ini). Delegasi ke
+	 * {@link #reloadJenisKegiatans(Session)}.
+	 */
 	public static void reloadJenisKegiatans() {
 		Session session = null;
 		try {
@@ -417,6 +460,22 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Implementasi kanonik pemuatan ulang keenam cache statis {@code jenisKegiatans*} (lihat
+	 * Javadoc kelas, kelompok "Cache jenis kegiatan") dari database memakai {@code session} yang
+	 * diberikan pemanggil (tidak dibuka/ditutup oleh method ini). Setiap cache diisi lewat query
+	 * Hibernate Criteria dengan filter berbeda (nama tidak kosong, status aktif, penanda
+	 * penggunaan seperti {@code digunakanUntukPengecekanKrs}/{@code digunakanUntukPengecekanNilai}),
+	 * dan beberapa cache memiliki fallback ke {@link ConstantValues#PENDAFTARAN_MAHASISWA_LAMA}
+	 * bila hasil query kosong agar selalu ada minimal satu jenis kegiatan rujukan. Juga memanggil
+	 * {@link ConstantUtil#initIstilahPendaftaran(Session)} dan me-refresh beberapa entitas
+	 * {@link ConstantValues} terkait pendaftaran. Tidak melakukan apa pun (return langsung) bila
+	 * {@code session} {@code null} atau sudah tertutup. Kegagalan dicatat ke
+	 * {@link ais.common.ErrorAuditUtil} dan tidak dilempar ulang — cache yang gagal dimuat akan
+	 * tetap bernilai {@code null}/nilai lama.
+	 *
+	 * @param session sesi Hibernate native aktif yang dipakai untuk seluruh query pada method ini
+	 */
 	@SuppressWarnings("unchecked")
 	public static void reloadJenisKegiatans(Session session) {
 		try {
@@ -514,6 +573,15 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Mengisi {@code jenisPembayaranMahasiswa} dengan pilihan {@link #jenisKegiatansTanpaDaftarUlang}
+	 * (memuat ulang cache lebih dulu lewat {@link #reloadJenisKegiatans()}), melewati kegiatan
+	 * yang tidak aktif, lalu memilih {@link ConstantValues#PENDAFTARAN_MAHASISWA_LAMA} sebagai
+	 * item terpilih default.
+	 *
+	 * @param jenisPembayaranMahasiswa combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox initJenisPembayaranMahasiswa(Combobox jenisPembayaranMahasiswa) {
 		if (jenisPembayaranMahasiswa == null) {
 			jenisPembayaranMahasiswa = new Combobox();
@@ -537,6 +605,15 @@ public class CommonHelperClass {
 		return jenisPembayaranMahasiswa;
 	}
 
+	/**
+	 * Mengisi {@code jenisPembayaranMahasiswa} khusus dengan dua pilihan pendaftaran calon
+	 * mahasiswa ({@link ConstantValues#PENDAFTARAN_CALON_MAHASISWA} sebagai default terpilih, dan
+	 * {@link ConstantValues#PENDAFTARAN_ULANG_MAHASISWA_BARU}); memastikan cache
+	 * {@link #jenisKegiatansAktif} sudah dimuat (tanpa memaksanya dimuat ulang bila sudah ada).
+	 *
+	 * @param jenisPembayaranMahasiswa combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox initJenisPembayaranBiodataCalonMahasiswa(Combobox jenisPembayaranMahasiswa) {
 		if (jenisPembayaranMahasiswa == null) {
 			jenisPembayaranMahasiswa = new Combobox();
@@ -559,6 +636,15 @@ public class CommonHelperClass {
 		return jenisPembayaranMahasiswa;
 	}
 
+	/**
+	 * Gabungan {@link #initJenisPembayaranMahasiswa(Combobox)} dan
+	 * {@link #initJenisPembayaranBiodataCalonMahasiswa(Combobox)}: mengisi combobox dengan seluruh
+	 * {@link #jenisKegiatansTanpaDaftarUlang} DITAMBAH dua pilihan pendaftaran calon mahasiswa,
+	 * dengan {@link ConstantValues#PENDAFTARAN_MAHASISWA_LAMA} sebagai item terpilih akhir.
+	 *
+	 * @param jenisPembayaranMahasiswa combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox initJenisPembayaranMahasiswaDanBiodataCalonMahasiswa(Combobox jenisPembayaranMahasiswa) {
 		if (jenisPembayaranMahasiswa == null) {
 			jenisPembayaranMahasiswa = new Combobox();
@@ -592,10 +678,20 @@ public class CommonHelperClass {
 		return jenisPembayaranMahasiswa;
 	}
 
+	/** Seperti {@link #initJenisSemester(Combobox, boolean)} tanpa pilihan Semester Pendek ({@code sp=false}). */
 	public static Combobox initJenisSemester(Combobox jenisSemester) {
 		return initJenisSemester(jenisSemester, false);
 	}
 
+	/**
+	 * Mengisi {@code jenisSemester} (dijadikan read-only) dengan pilihan Ganjil/Genap, dan
+	 * opsional Semester Pendek ({@link Perkuliahan#SP}) bila {@code sp=true}; item terpilih default
+	 * mengikuti semester berjalan saat ini ({@link Common#isNowSemensterGanjil()}).
+	 *
+	 * @param jenisSemester combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @param sp            {@code true} untuk menyertakan pilihan Semester Pendek
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox initJenisSemester(Combobox jenisSemester, boolean sp) {
 		if (jenisSemester == null) {
 			jenisSemester = new Combobox();
@@ -621,11 +717,24 @@ public class CommonHelperClass {
 		return jenisSemester;
 	}
 
+	/** @return {@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP} sesuai semester berjalan saat ini ({@link Common#isNowSemensterGanjil()}). */
 	public static String getSemesterString() {
 		Boolean ganjil = Common.isNowSemensterGanjil();
 		return (ganjil != null && ganjil) ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
 	}
 
+	/**
+	 * Membangun riwayat status per-semester seorang mahasiswa, dari semester mulainya (disesuaikan
+	 * bila pernah pindah kampus lewat {@code getPindahKeKampusIniMasukSemester()}) sampai tahun
+	 * akademik berjalan (atau sampai statusnya menjadi "lulus"/"keluar", yang menghentikan
+	 * perulangan lebih awal). Untuk program studi dengan {@code jumlahTahapan == 3}, kolom status
+	 * dikosongkan (ditentukan lewat mekanisme tahapan yang berbeda oleh pemanggil lain).
+	 *
+	 * @param mahasiswa mahasiswa yang riwayat semesternya dihitung; bila {@code null} atau data
+	 *                  semester mulai/tahun angkatan belum lengkap, mengembalikan peta kosong
+	 * @return peta terurut nomor semester → larik {@code [tahunAkademik, nomorSemester, status,
+	 *         "", namaSemester]}
+	 */
 	public static TreeMap<Integer, String[]> generateStatusSemester(Mahasiswa mahasiswa) {
 		TreeMap<Integer, String[]> treeMap = new TreeMap<Integer, String[]>();
 		if (mahasiswa == null || mahasiswa.getSemesterMulai() == null || mahasiswa.getTahunangkatan() == null) {
@@ -687,6 +796,25 @@ public class CommonHelperClass {
 		return treeMap;
 	}
 
+	/**
+	 * Menyusun daftar baris untuk grid UI riwayat semester/tahapan mahasiswa dalam rentang
+	 * {@code [mulai, sampai]}, dibangun di atas {@link #generateStatusSemester(Mahasiswa)} dengan
+	 * pemrosesan tambahan bergantung pada jumlah tahapan pembayaran program studi mahasiswa
+	 * ({@link ConstantValues#getJumlahTahapan}): tanpa tahapan atau 2 tahap → satu baris per
+	 * semester apa adanya; 3 tahap → logika penggabungan semester genap-ganjil menjadi satu
+	 * tahap gabungan (khusus mahasiswa yang mulai di semester genap) beserta baris "Tanpa Tahap";
+	 * 4 tahap → setiap semester dipecah menjadi dua baris tahap berurutan. Baris "Konversi"
+	 * ditambahkan di akhir bila {@code semesterPendek} {@code null}. Kegagalan pemrosesan dicatat
+	 * ke {@link ais.common.ErrorAuditUtil} dan data yang sudah terkumpul sejauh itu dikembalikan
+	 * apa adanya (bukan dilempar ulang).
+	 *
+	 * @param mahasiswa      mahasiswa yang datanya diproses
+	 * @param mulai          nomor semester awal rentang yang disertakan
+	 * @param sampai         nomor semester akhir rentang yang disertakan
+	 * @param semesterPendek bila {@code null}, baris "Konversi" ditambahkan di akhir daftar
+	 * @return daftar baris grid, masing-masing larik string dengan kolom bergantung skema tahapan
+	 *         yang berlaku; daftar kosong bila {@code mahasiswa} {@code null}/tahun angkatan kosong
+	 */
 	public static List<String[]> generateSemestersForGrid(Mahasiswa mahasiswa, int mulai, int sampai,
 			Integer semesterPendek) {
 		List<String[]> data = new ArrayList<String[]>();
@@ -811,6 +939,17 @@ public class CommonHelperClass {
 		return data;
 	}
 
+	/**
+	 * Varian sederhana {@link #generateSemestersForGrid} yang menghasilkan baris grid berdasarkan
+	 * {@code jumlahTahapan} eksplisit yang diberikan pemanggil (bukan dibaca dari konfigurasi
+	 * program studi), tanpa memuat status pembayaran per semester — hanya kombinasi
+	 * (tahun akademik, nomor tahap). Nomor semester dinaikkan dua per tahun akademik.
+	 *
+	 * @param mahasiswa     mahasiswa yang riwayat tahunnya dihitung
+	 * @param jumlahTahapan jumlah tahap yang dibuat per tahun akademik
+	 * @return daftar baris {@code [tahunAkademik, nomorTahap, ""]} diakhiri baris "Konversi";
+	 *         daftar kosong bila {@code mahasiswa} {@code null}/tahun angkatan kosong
+	 */
 	public static List<String[]> generateSemestersForGridTahapan(Mahasiswa mahasiswa, int jumlahTahapan) {
 		List<String[]> data = new ArrayList<String[]>();
 		if (mahasiswa == null || mahasiswa.getTahunangkatan() == null) {
@@ -844,6 +983,14 @@ public class CommonHelperClass {
 		return data;
 	}
 
+	/**
+	 * Mengisi {@code conf} dengan seluruh entri {@link Konfigurasi#konfigurasi} (peta kunci
+	 * konfigurasi yang diketahui aplikasi), label tampil berupa nilai peta dan {@code value}
+	 * berupa kunci peta.
+	 *
+	 * @param conf combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox createComboKonfigurasi(Combobox conf) {
 		if (conf == null) {
 			conf = new Combobox();
@@ -859,6 +1006,29 @@ public class CommonHelperClass {
 		return conf;
 	}
 
+	/**
+	 * Memeriksa apakah ada baris {@link PengecualianJadwalPenilaianDosen} yang berlaku HARI INI
+	 * (rentang {@code tanggalMulai}..{@code tanggalSampai}) dan berstatus disetujui (atau
+	 * {@code null}, ditafsirkan sebagai "Disetujui" untuk data lama), untuk {@code tahunAkademik}
+	 * dan {@code jenisSemester} yang diberikan, yang mengizinkan dosen/pengelola bersangkutan
+	 * memberi nilai di luar jadwal penilaian normal.
+	 *
+	 * <p>
+	 * Identitas pemeriksa ditentukan oleh peran akun yang login: bila {@code tbmuser} berperan
+	 * {@link Tbmrole#DOSEN}, pengecualian dicocokkan lewat relasi {@code dosen}; bila akun tidak
+	 * punya hak akses eksplisit tapi entitas {@code dosen} tersedia, jalur yang sama juga dipakai.
+	 * Untuk peran pengelola lain, pencocokan memakai {@code userId} pada relasi {@code tbmuser}
+	 * pengecualian (menangani kasus satu akun petugas yang juga terhubung ke master Dosen, di mana
+	 * izin tersimpan pada kolom {@code tbmuser}, bukan {@code dosen}).
+	 * </p>
+	 *
+	 * @param dosen         entitas dosen yang diperiksa, boleh {@code null} bila pemeriksa bukan dosen
+	 * @param tbmuser       akun pengguna yang sedang login
+	 * @param tahunAkademik tahun akademik yang diperiksa (format {@code "YYYY/YYYY"})
+	 * @param jenisSemester {@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP}
+	 * @return {@code true} bila ditemukan pengecualian yang berlaku dan disetujui; {@code false}
+	 *         bila parameter tidak lengkap, tidak ditemukan pengecualian, atau terjadi galat
+	 */
 	public static Boolean checkApakahDosenBolehMenilai(Dosen dosen, Tbmuser tbmuser, String tahunAkademik,
 			String jenisSemester) {
 		Session session = null;
@@ -925,6 +1095,19 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Memeriksa apakah ada baris {@link PengecualianJadwalPengisianKRSMahasiswa} yang berlaku HARI
+	 * INI untuk {@code mahasiswa}, {@code tahunAkademik}, dan {@code jenisSemester} yang diberikan
+	 * — bila ada, mahasiswa diizinkan mengambil/mengubah KRS di luar jadwal pengisian normal
+	 * maupun tanpa memenuhi syarat pembayaran (dipakai sebagai salah satu jalur "lolos" pada
+	 * berbagai method {@code checkStatusPembayaran*}/{@code checkPembayaran*} di kelas ini).
+	 *
+	 * @param mahasiswa     mahasiswa yang diperiksa
+	 * @param tahunAkademik tahun akademik yang diperiksa (format {@code "YYYY/YYYY"})
+	 * @param jenisSemester {@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP}
+	 * @return {@code true} bila ditemukan pengecualian yang berlaku hari ini; {@code false} bila
+	 *         tidak ditemukan atau terjadi galat
+	 */
 	public static Boolean checkApakahMahasiswaBolehAmbilKrsLewatPengecualian(Mahasiswa mahasiswa, String tahunAkademik,
 			String jenisSemester) {
 		Session session = null;
@@ -945,6 +1128,25 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Memvalidasi apakah {@code username} SUDAH dipakai oleh akun/entitas lain, diperiksa
+	 * berurutan (berhenti pada kecocokan pertama untuk menghemat query) terhadap empat sumber:
+	 * kolom {@code userId} pada {@link Tbmuser}, {@code userOrtu} dan {@code nim} pada
+	 * {@link Mahasiswa} aktif, serta {@code username} pada {@link BiodataCalonMahasiswa} aktif.
+	 * Parameter {@code userId}/{@code id} dipakai untuk MENGECUALIKAN baris milik entitas yang
+	 * sedang diedit sendiri dari pemeriksaan (agar mengedit tanpa mengubah username tidak dianggap
+	 * bentrok dengan dirinya sendiri).
+	 *
+	 * @param username username yang akan diperiksa keunikannya
+	 * @param userId   {@code userId} {@link Tbmuser} milik entitas yang sedang diedit (dikecualikan
+	 *                 dari pemeriksaan pada tabel Tbmuser); {@code null} berarti tidak ada
+	 *                 pengecualian (mode tambah baru)
+	 * @param id       id baris {@link Mahasiswa}/{@link BiodataCalonMahasiswa} yang sedang diedit
+	 *                 (dikecualikan dari pemeriksaan pada kedua tabel tersebut); {@code null}
+	 *                 berarti tidak ada pengecualian
+	 * @return {@code true} bila {@code username} sudah dipakai entitas lain (bentrok); {@code false}
+	 *         bila {@code username} kosong, tersedia, atau terjadi galat saat pemeriksaan
+	 */
 	public static Boolean checkUsername(String username, String userId, Long id) {
 		if (username == null || username.trim().isEmpty()) {
 			return false;
@@ -1000,6 +1202,16 @@ public class CommonHelperClass {
 		}
 	}
 
+	/**
+	 * Mengisi {@code jenisPembayaran} dengan opsi "Semua" (dipilih default, {@code value=null})
+	 * DITAMBAH seluruh jenis pendaftaran baku ({@link ConstantValues#PENDAFTARAN_MAHASISWA_LAMA},
+	 * {@code PENDAFTARAN_CALON_MAHASISWA}, {@code PENDAFTARAN_WISUDA},
+	 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}) dan seluruh {@link #jenisKegiatansAktif}. Cocok
+	 * untuk filter pencarian di mana "tanpa filter jenis" adalah pilihan valid.
+	 *
+	 * @param jenisPembayaran combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox createComboJenisPembayaranDanSemua(Combobox jenisPembayaran) {
 		if (jenisPembayaran == null) {
 			jenisPembayaran = new Combobox();
@@ -1037,6 +1249,14 @@ public class CommonHelperClass {
 		return jenisPembayaran;
 	}
 
+	/**
+	 * Seperti {@link #createComboJenisPembayaranDanSemua(Combobox)} tetapi TANPA opsi "Semua" —
+	 * item terpilih default adalah {@link ConstantValues#PENDAFTARAN_MAHASISWA_LAMA}. Cocok untuk
+	 * form entri di mana suatu jenis pembayaran WAJIB dipilih.
+	 *
+	 * @param jenisPembayaran combobox yang akan diisi; dibuat baru bila {@code null}
+	 * @return combobox yang sama (atau baru) setelah diisi
+	 */
 	public static Combobox createComboJenisPembayaran(Combobox jenisPembayaran) {
 		if (jenisPembayaran == null) {
 			jenisPembayaran = new Combobox();
@@ -1069,6 +1289,22 @@ public class CommonHelperClass {
 		return jenisPembayaran;
 	}
 
+	/**
+	 * Menjumlahkan total nominal tagihan {@code mahasiswa} pada {@code semester} tertentu untuk
+	 * seluruh {@link #jenisKegiatansUntukKrs} (memuat ulang cache lebih dulu bila belum ada),
+	 * termasuk tagihan yang dijadwalkan lewat skema cicilan bulanan
+	 * ({@link PengaturanPembayaranBulanan}) — bila mahasiswa/kegiatan memiliki pengaturan cicilan
+	 * bulanan aktif ({@code countBulanan > 0}), detail biaya diambil ulang khusus untuk skema
+	 * tersebut. Hasil ini menjadi penyebut dasar untuk menentukan apakah seorang mahasiswa
+	 * "punya tagihan sama sekali" pada suatu semester (dipakai method {@code checkStatusPembayaran*}
+	 * lain untuk melewatkan pemeriksaan bila total tagihan mendekati nol).
+	 *
+	 * @param session   sesi Hibernate aktif yang dipakai untuk query pengaturan cicilan bulanan
+	 * @param mahasiswa mahasiswa yang tagihannya dihitung
+	 * @param semester  nomor semester yang diperiksa
+	 * @return total nominal tagihan (dari {@link DetailBiaya} dan/atau
+	 *         {@link PengaturanPembayaranBulanan}) untuk seluruh jenis kegiatan syarat KRS
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Double hitungTagihanMahasiswaSebagaiSyaratKrs(Session session, Mahasiswa mahasiswa,
 			Integer semester) {
@@ -1107,6 +1343,34 @@ public class CommonHelperClass {
 		return totaltagihan;
 	}
 
+	/**
+	 * Gerbang syarat pembayaran UTAMA untuk pengambilan/persetujuan KRS pada semester berjalan.
+	 * Mengembalikan {@code true} (lolos) melalui salah satu dari beberapa jalur, diperiksa
+	 * berurutan: (1) status baypass eksplisit ({@code Common.checkBaypassStatusPembayaranMahasiswa});
+	 * (2) pengecualian jadwal KRS yang berlaku ({@link
+	 * #checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}); (3) ambang batas persentase pembayaran
+	 * dikonfigurasi {@code 0} (berarti syarat pembayaran dimatikan untuk konteks
+	 * jurusan/program/angkatan/status mahasiswa tersebut); (4) total tagihan mahasiswa pada
+	 * semester ini mendekati nol ({@link #hitungTagihanMahasiswaSebagaiSyaratKrs} {@code < 0.01});
+	 * atau (5) persentase pemenuhan tagihan aktual mahasiswa pada SALAH SATU
+	 * {@link #jenisKegiatansUntukKrs} sudah mencapai ambang batas. Bila mahasiswa baru
+	 * (semester {@code <= 1}) belum lolos dan konfigurasi
+	 * {@code mahasiswa_baru_mengikuti_persyaratan_krs_spt_mahasiswa} TIDAK aktif, pemeriksaan
+	 * tambahan dilakukan terhadap data {@link BiodataCalonMahasiswa} terkait (jalur pembayaran
+	 * pendaftaran, bukan KRS mahasiswa aktif). Bila akhirnya tetap tidak lolos, dialog peringatan
+	 * ditampilkan langsung ke pengguna lewat {@link MyMessageboxConfig#showFormat} yang menyebutkan
+	 * NIM, konteks (semester/tahap), dan daftar jenis pembayaran yang harus diselesaikan.
+	 *
+	 * @param mahasiswa  mahasiswa yang diperiksa
+	 * @param semester   nomor semester yang akan diambil KRS-nya
+	 * @param tahap      nomor tahap (dipakai hanya untuk teks pesan bila
+	 *                   {@code aktifkanTahapanTerhubungKeKeuangan} aktif), boleh {@code null}
+	 * @param persetujuan {@code true} bila pemeriksaan ini untuk alur PERSETUJUAN KRS oleh dosen
+	 *                    wali (memakai kunci konfigurasi ambang batas yang berbeda dari
+	 *                    pengambilan KRS oleh mahasiswa sendiri)
+	 * @return {@code true} bila syarat pembayaran terpenuhi (atau tidak berlaku); {@code false}
+	 *         bila belum terpenuhi
+	 */
 	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap,
 			boolean persetujuan) {
 
@@ -1246,11 +1510,36 @@ public class CommonHelperClass {
 		return hasil;
 	}
 
+	/** Seperti {@link #checkStatusPembayaranMahasiswaSebelumnya(Integer, Integer, Mahasiswa, boolean)} untuk alur pengambilan KRS oleh mahasiswa sendiri ({@code persetujuan=false}). */
 	public static boolean checkStatusPembayaranMahasiswaSebelumnya(Integer semester, Integer tahap,
 			Mahasiswa mahasiswa) {
 		return checkStatusPembayaranMahasiswaSebelumnya(semester, tahap, mahasiswa, false);
 	}
 
+	/**
+	 * Gerbang syarat "semester SEBELUMNYA harus lunas" sebelum mahasiswa boleh mengambil/disetujui
+	 * KRS semester berjalan — hanya aktif bila konfigurasi
+	 * {@code mahasiswa_harus_lunas_semester_sebelumnya_sebelum_[mengambil|persetujuan]_krs} bernilai
+	 * AKTIF (default TIDAK AKTIF, sehingga method ini mengembalikan {@code true} langsung pada
+	 * kebanyakan instalasi). Dilewati untuk mahasiswa baru (empat kondisi semester awal terkait
+	 * {@code pindahKeKampusIniMasukSemester}) dan untuk tahap pertama saat
+	 * {@code aktifkanTahapanTerhubungKeKeuangan} aktif. Bila aktif, memeriksa SEMESTER SEBELUMNYA
+	 * ({@code semester - 1}): dilewati bila ada pengecualian jadwal KRS yang berlaku atau mahasiswa
+	 * sedang cuti disetujui pada semester tersebut; bila total tagihan semester sebelumnya
+	 * mendekati nol, otomatis lolos; jika tidak, persentase pemenuhan tagihan (atau, bila
+	 * {@code tahap} diberikan, perhitungan berbasis cicilan bulanan per tahap) dibandingkan
+	 * terhadap ambang batas ({@code batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_*},
+	 * default 90%).
+	 *
+	 * @param semester    nomor semester yang akan diambil KRS-nya (diperiksa adalah
+	 *                    {@code semester - 1})
+	 * @param tahap       nomor tahap (bila memakai skema tahapan terhubung keuangan), boleh
+	 *                    {@code null} untuk memakai perhitungan berbasis semester penuh
+	 * @param mahasiswa   mahasiswa yang diperiksa
+	 * @param persetujuan {@code true} untuk alur persetujuan KRS oleh dosen wali (ambang batas
+	 *                    konfigurasi berbeda)
+	 * @return {@code true} bila syarat pelunasan semester sebelumnya terpenuhi atau tidak berlaku
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean checkStatusPembayaranMahasiswaSebelumnya(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			boolean persetujuan) {
@@ -1388,6 +1677,24 @@ public class CommonHelperClass {
 
 	}
 
+	/**
+	 * Gerbang syarat pembayaran untuk pendaftaran suatu {@link FormulirKegiatan} (mis. kegiatan
+	 * kemahasiswaan/organisasi yang perlu formulir pendaftaran), memeriksa DUA syarat independen
+	 * yang masing-masing dapat diaktifkan terpisah pada {@code formulirKegiatan}: (1)
+	 * {@code getHarusBayarLunasSmtLalu()} — semester SEBELUMNYA harus lunas &ge;99%, dilewati bila
+	 * mahasiswa sedang cuti disetujui pada semester tersebut; (2)
+	 * {@code getHarusBayarLunasSmtSaatIni()} — semester BERJALAN (dihitung dari
+	 * {@code formulirKegiatan.getSemester()}) harus lunas &ge;99% dengan aturan cuti yang sama.
+	 * Kedua pemeriksaan memakai {@link #jenisKegiatansUntukKrs} sebagai acuan jenis tagihan dan
+	 * menghormati baypass ({@code Common.checkBaypassStatusPembayaranMahasiswa}). Bila salah satu
+	 * syarat gagal, dialog informasi ditampilkan langsung ke pengguna dan pemeriksaan syarat kedua
+	 * TIDAK dijalankan (short-circuit begitu syarat pertama gagal).
+	 *
+	 * @param formulirKegiatan formulir kegiatan yang berisi saklar kedua syarat pelunasan di atas
+	 * @param mahasiswa        mahasiswa pendaftar
+	 * @return {@code true} bila kedua syarat yang aktif terpenuhi (atau tidak diaktifkan pada
+	 *         {@code formulirKegiatan})
+	 */
 	public static boolean checkStatusPembayaranKegiatanMahasiswa(FormulirKegiatan formulirKegiatan,
 			Mahasiswa mahasiswa) {
 		// Integer semester = mahasiswa.currentSemester();
@@ -1503,6 +1810,28 @@ public class CommonHelperClass {
 
 	}
 
+	/**
+	 * Gerbang syarat pembayaran sebelum mahasiswa/dosen boleh MELIHAT NILAI semester sebelumnya —
+	 * hanya aktif bila konfigurasi
+	 * {@code mahasiswa_harus_lunas_semester_sebelumnya_sebelum_melihat_nilai} AKTIF. Dilewati untuk
+	 * semester {@code <= 0}, serta (bila {@code termasukSmt1=true}) untuk kondisi semester awal
+	 * terkait {@code pindahKeKampusIniMasukSemester}. Bila aktif, memeriksa SEMESTER SEBELUMNYA:
+	 * dilewati bila mahasiswa sedang cuti disetujui pada semester tersebut, atau bila baypass
+	 * berlaku, atau bila tidak ada {@link Kegiatan} tertagih sama sekali pada
+	 * {@link #jenisKegiatansUntukNilai} (dianggap lolos); jika ada, SELURUH kegiatan tertagih harus
+	 * memenuhi ambang batas {@code harusLunas} yang diberikan pemanggil (bukan dibaca dari
+	 * konfigurasi tersendiri seperti method sejenis lainnya).
+	 *
+	 * @param semester      nomor semester yang nilainya ingin dilihat (diperiksa adalah
+	 *                      {@code semester - 1})
+	 * @param tahap         nomor tahap (dikurangi 1 bila skema tahapan terhubung keuangan aktif)
+	 * @param mahasiswa     mahasiswa yang diperiksa
+	 * @param harusLunas    ambang batas persentase pelunasan (0-100) yang harus dipenuhi setiap
+	 *                      kegiatan tertagih
+	 * @param termasukSmt1  {@code true} untuk ikut menerapkan pengecualian semester awal
+	 *                      (mahasiswa baru/pindahan) di samping pengecualian {@code semester <= 0}
+	 * @return {@code true} bila syarat terpenuhi, tidak berlaku, atau tidak ada tagihan
+	 */
 	public static boolean checkStatusPembayaranMahasiswaSebelumnyaUntukPenilaian(Integer semester, Integer tahap,
 			Mahasiswa mahasiswa, Double harusLunas, boolean termasukSmt1) {
 		if (semester == null || semester.intValue() <= 0
@@ -1563,6 +1892,21 @@ public class CommonHelperClass {
 
 	}
 
+	/**
+	 * Gerbang syarat pembayaran sebelum mahasiswa boleh mengajukan PROPOSAL SKRIPSI, hanya
+	 * diberlakukan bila {@code formatNilaiProposalSkripsi.getHarusLunas()} bernilai {@code true}.
+	 * Dilewati untuk kondisi semester awal (mahasiswa baru/pindahan). Ambang batas persentase
+	 * pelunasan diambil dari {@code formatNilaiProposalSkripsi.getProsentaseLunas()} (per format
+	 * penilaian, bukan konfigurasi global), diperiksa terhadap seluruh {@link Kegiatan} tertagih
+   * pada {@link #jenisKegiatansUntukKrs} (menghormati baypass bila berlaku).
+	 *
+	 * @param formatNilaiProposalSkripsi format nilai yang menentukan aktif/tidaknya syarat lunas
+	 *                                   dan ambang batas persentasenya
+	 * @param semester                   nomor semester berjalan mahasiswa
+	 * @param mahasiswa                  mahasiswa pengaju
+	 * @return {@code true} bila syarat lunas tidak diaktifkan, tidak berlaku (semester awal), atau
+	 *         seluruh kegiatan tertagih sudah memenuhi ambang batas
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanSkripsi(
 			FormatNilaiProposalSkripsi formatNilaiProposalSkripsi, Integer semester, Mahasiswa mahasiswa) {
 		if (semester == null || semester.intValue() <= 1
@@ -1595,6 +1939,19 @@ public class CommonHelperClass {
 
 	}
 
+	/**
+	 * Padanan {@link #checkStatusPembayaranMahasiswaPengajuanSkripsi} untuk pengajuan SIDANG
+	 * SKRIPSI: syarat lunas diambil dari {@code formatNilaiSkripsi.getHarusLunas()}/
+	 * {@code getProsentaseLunas()} (bukan {@code formatNilaiProposalSkripsi}), logika pemeriksaan
+	 * lainnya identik (dilewati untuk semester awal, diperiksa terhadap
+	 * {@link #jenisKegiatansUntukKrs}, menghormati baypass).
+	 *
+	 * @param formatNilaiSkripsi format nilai skripsi yang menentukan aktif/tidaknya syarat lunas
+	 *                           dan ambang batas persentasenya
+	 * @param semester           nomor semester berjalan mahasiswa
+	 * @param mahasiswa          mahasiswa pengaju
+	 * @return {@code true} bila syarat lunas tidak diaktifkan, tidak berlaku, atau terpenuhi
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanSidang(FormatNilaiSkripsi formatNilaiSkripsi,
 			Integer semester, Mahasiswa mahasiswa) {
 		if (semester == null || semester.intValue() <= 1
@@ -1627,6 +1984,18 @@ public class CommonHelperClass {
 
 	}
 
+	/**
+	 * Gerbang syarat pembayaran sebelum mahasiswa boleh mendaftar WISUDA, hanya diberlakukan bila
+	 * konfigurasi {@code mahasiswa_harus_lunas_sebelum_wisuda} AKTIF (default TIDAK AKTIF).
+	 * Dilewati untuk kondisi semester awal (mahasiswa baru/pindahan). Ambang batas persentase
+	 * pelunasan diambil dari konfigurasi {@code batas_terendah_persen_pembayaran_sebelum_wisuda}
+	 * (default 90%), diperiksa terhadap seluruh {@link Kegiatan} tertagih pada
+	 * {@link #jenisKegiatansUntukKrs} (menghormati baypass bila berlaku).
+	 *
+	 * @param semester  nomor semester berjalan mahasiswa
+	 * @param mahasiswa mahasiswa pendaftar wisuda
+	 * @return {@code true} bila syarat lunas tidak diaktifkan, tidak berlaku, atau terpenuhi
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanWisuda(Integer semester, Mahasiswa mahasiswa) {
 		if (semester == null || semester.intValue() <= 1
 				|| (semester.equals(1) || semester.equals(mahasiswa.getPindahKeKampusIniMasukSemester() + 1)

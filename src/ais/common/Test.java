@@ -2,8 +2,67 @@ package ais.common;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Kelas <b>uji coba/scratch manual</b> murni untuk kebutuhan pengembang — bukan bagian dari alur
+ * aplikasi AIS yang berjalan normal. Tidak ada indikasi kelas ini dipanggil dari bagian lain
+ * aplikasi; satu-satunya method, {@link #main(String[])}, adalah tempat pengembang menjalankan
+ * potongan kode percobaan sekali pakai (menguji fungsi {@link StringUtils#replace}, format angka,
+ * parsing tanggal, membangun pesan ISO-8583, memanggil REST/SOAP eksternal, dsb.) sebelum
+ * dipindahkan ke lokasi produksinya masing-masing.
+ *
+ * <p>
+ * Isi kelas ini <b>hampir seluruhnya berupa kode yang telah dinonaktifkan (commented-out)</b> —
+ * bertumpuk-tumpuk potongan uji coba dari waktu yang berbeda-beda, dibiarkan sebagai catatan/
+ * referensi historis daripada dihapus. Hanya dua baris paling atas di {@link #main(String[])}
+ * yang benar-benar aktif dieksekusi (menguji {@link StringUtils#replace} untuk mengonversi urutan
+ * escape {@code "\\n"} literal menjadi karakter newline sungguhan dan sebaliknya); seluruh sisanya
+ * — termasuk seluruh definisi kelas kedua di bagian paling bawah berkas ini (di luar deklarasi
+ * kelas {@code Test} yang resmi, murni komentar blok C-style berisi kelas {@code Test} versi lama
+ * dengan method {@code listAlertContent}/{@code getString}/{@code getJsonObject}/{@code getJsonArray})
+ * — adalah kode nonaktif.
+ * </p>
+ *
+ * <h2>Peringatan keamanan — nilai sensitif tertanam di kode yang dinonaktifkan</h2>
+ * <p>
+ * Meskipun dinonaktifkan (tidak pernah dieksekusi selama tetap dalam bentuk komentar), beberapa
+ * blok komentar di {@link #main(String[])} dan di kelas lama pada komentar blok akhir berkas ini
+ * tetap memuat nilai sensitif yang sudah tercatat permanen di riwayat kode sumber:
+ * </p>
+ * <ul>
+ * <li>Header {@code X-BRI-KEY: "b6642aad94d9861f21671cfcccfa672fc880a89d"} dan
+ * {@code Authorization: "Bearer ee9d8ad39fe81ffe276bc52833108b2513eb8854"} pada blok komentar
+ * percobaan panggilan API BRI VA ({@code https://developer.bri.co.id/v1/api/briva}) — keduanya
+ * berbentuk token/API key nyata, bukan placeholder.</li>
+ * <li>Sejumlah alamat email pribadi tertanam sebagai data uji coba pada blok komentar (mis.
+ * {@code achtar.tuanda@gmail.com}, {@code asrofiridho@gmail.com}, dan variasi
+ * {@code fauzioke2003@email.com}) beserta host/IP server percobaan lama
+ * ({@code 54.251.44.17}/{@code 54.251.62.201} port {@code 7892}, domain
+ * {@code zishofdemo.cloudapp.net}) pada komentar blok kelas lama di akhir berkas.</li>
+ * </ul>
+ * <p>
+ * Sesuai cakupan pekerjaan dokumentasi ini, komentar-komentar tersebut TIDAK dihapus atau diubah
+ * — lihat ringkasan hasil dokumentasi untuk detail lokasi baris lengkap. Karena nilai-nilai ini
+ * berada di dalam kode yang tidak pernah dieksekusi, risikonya terbatas pada pengungkapan lewat
+ * pembacaan kode sumber/riwayat versi, bukan eksekusi aktif — namun API key/token BRI tersebut
+ * tetap sebaiknya ditinjau dan dirotasi bila masih berlaku.
+ * </p>
+ */
 public class Test {
 
+	/**
+	 * Titik masuk uji coba manual. Bagian yang benar-benar aktif hanya menguji konversi bolak-balik
+	 * antara urutan escape {@code "\\n"} literal (dua karakter: backslash + huruf n) dan karakter
+	 * newline sungguhan lewat {@link StringUtils#replace(String, String, String)} serta
+	 * {@link String#replaceAll(String, String)}, dengan hasil tiap tahap dicetak ke konsol. Seluruh
+	 * kode setelahnya adalah potongan-potongan uji coba historis yang dinonaktifkan (commented-out)
+	 * — lihat javadoc kelas untuk ringkasan isinya dan peringatan keamanan terkait nilai sensitif
+	 * yang tertanam di dalamnya.
+	 *
+	 * @param args argumen baris perintah; tidak dipakai sama sekali oleh method ini
+	 * @throws Exception dideklarasikan untuk mengakomodasi potongan kode uji coba yang mungkin
+	 *                    diaktifkan kembali oleh pengembang; kode yang aktif saat ini tidak
+	 *                    melempar exception apa pun dalam kondisi normal
+	 */
 	public static void main(String[] args) throws Exception {
 		
 		String data = "siap\\n oke bosss";

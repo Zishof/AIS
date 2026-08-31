@@ -55,8 +55,89 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Kumpulan helper statis untuk menampilkan konten (halaman ZUL, berkas lampiran/foto, iframe URL
+ * eksternal) di dalam jendela modal ZK ({@link MyWindow}) pada aplikasi AIS. Kelas ini menjadi
+ * titik sentral yang dipanggil dari banyak layar berbeda setiap kali aplikasi perlu menampilkan
+ * "popup lihat data" — baik berupa halaman ZUL lain yang di-include ({@link #displayWindow(String,
+ * boolean)} dan variannya), berkas lampiran/foto milik entitas domain seperti mahasiswa/siswa/
+ * pegawai ({@link #display(FileFoto)}, {@link #displayWindow(Boolean, String, Boolean, String,
+ * String, Boolean, FileFoto)}), maupun sekadar iframe URL murni tanpa logika deteksi berkas
+ * ({@link #displayWindowIframe}).
+ *
+ * <h2>Pola umum jendela modal</h2>
+ * <p>
+ * Hampir seluruh method publik di kelas ini membangun struktur ZK yang sama: sebuah
+ * {@link MyWindow} modal dilekatkan ke root halaman saat ini (lewat
+ * {@link ExecutionsCtrl#getCurrentCtrl()}), berisi {@link Borderlayout} dengan area {@link Center}
+ * (tempat konten utama — iframe, gambar, atau HTML info) dan area {@link South} berisi
+ * {@link Toolbar} dengan tombol "Tutup" yang men-detach jendela. Jendela selalu diakhiri dengan
+ * {@code window.onModal()} agar tampil sebagai dialog modal yang memblokir interaksi dengan
+ * halaman di belakangnya sampai ditutup.
+ * </p>
+ *
+ * <h2>Deteksi jenis konten dan strategi tampilan berkas</h2>
+ * <p>
+ * Untuk method yang menampilkan berkas ({@link #display(FileFoto)} dan
+ * {@link #displayWindow(Boolean, String, Boolean, String, String, Boolean, FileFoto)}), kelas ini
+ * menjalankan serangkaian pemeriksaan berjenjang untuk menentukan cara terbaik menampilkan suatu
+ * berkas:
+ * </p>
+ * <ul>
+ * <li><b>Berkas tersimpan di Google Drive</b> ({@code fileFoto.getGdrive() != null}) — ditampilkan
+ * lewat iframe pratinjau bawaan Google Drive ({@code https://drive.google.com/file/d/.../preview}).</li>
+ * <li><b>Berkas yang dapat dirender langsung oleh browser</b> (lihat {@link #isBrowserPreviewable}:
+ * PDF, PNG, JPG/JPEG, WEBP, GIF, TXT) — ditampilkan langsung sebagai iframe/gambar tanpa perantara.</li>
+ * <li><b>Dokumen Office (docx/xlsx/dsb.) yang berada di balik login eCampus</b> (URL cocok
+ * {@link #isProtectedEcampusLampiranUrl}, mis. mengandung {@code "/al?d="} atau
+ * {@code "ambillampiran"}) — TIDAK dikirim ke Google Docs Viewer, karena Google Viewer mengakses
+ * URL tanpa membawa sesi login pengguna sehingga yang terbaca bisa jadi halaman login, bukan isi
+ * dokumen. Sebagai gantinya ditampilkan kartu info penjelasan lewat
+ * {@link #tampilkanInfoPreviewDokumenProtected} dengan tautan "Buka/unduh lewat eCampus".</li>
+ * <li><b>Dokumen Office yang TIDAK berada di balik login</b> (URL publik) — diteruskan ke Google
+ * Docs Viewer ({@code https://docs.google.com/gview?embedded=true&url=...}).</li>
+ * <li><b>Berkas berjenis {@code .txt} yang sebenarnya berisi tautan URL</b> (konvensi
+ * "berupa_link.txt": mahasiswa mengunggah tautan, bukan berkas fisik) — isi berkas dibaca sebagai
+ * URL dan diteruskan ke {@link Common#displayUrlContent} alih-alih ditampilkan sebagai teks
+ * mentah.</li>
+ * <li><b>URL Google Drive/YouTube publik</b> — diteruskan ke {@link Common#displayUrlContent}
+ * yang menangani perenderan embed masing-masing.</li>
+ * <li><b>Berkas fisik hilang dari server</b> (record ada di database tapi file tidak ditemukan di
+ * disk) — ditampilkan kartu peringatan merah "Berkas tidak ditemukan di server" alih-alih jendela
+ * kosong tanpa penjelasan.</li>
+ * </ul>
+ *
+ * <h2>Integrasi Google Drive sebagai penyimpanan sekunder</h2>
+ * <p>
+ * {@link #simpanKeDrive} menyediakan tombol toolbar opsional "Simpan ke Drive" yang, bila
+ * diklik, mem-backup berkas lampiran ke Google Drive milik pengguna (lewat
+ * {@link GDriveUtilPerPengguna}), memperbarui kolom {@code gdrive}/{@code gdriveUsername} pada
+ * entitas berkas terkait, lalu menghapus salinan lokal lama. Proses backup berjalan asinkron dan
+ * hasilnya dipantau lewat polling {@link Timer} 1 detik pada thread UI ZK (bukan callback
+ * langsung), karena panggilan Google Drive API tidak dapat memblokir thread event ZK. <b>Perlu
+ * dicatat</b>: tombol ini secara sengaja disembunyikan permanen di kode saat ini —
+ * {@code save.setVisible(tampil && f != null && f.exists() && false)} — akibat operand
+ * {@code && false} yang eksplisit, sehingga meski logika visibilitas lain terpenuhi, tombol tidak
+ * akan pernah tampil sampai {@code && false} tersebut dihapus (lihat komentar pada kode
+ * bersangkutan).
+ * </p>
+ *
+ * <p>
+ * Kelas ini murni statis (tidak ada instance state) dan tidak menyimpan kredensial atau rahasia
+ * apa pun — seluruh URL dan path dibangun dari konfigurasi/host request saat runtime.
+ * </p>
+ */
 public class WindowViewerHelper {
 
+	/**
+	 * Memeriksa apakah sebuah URL lampiran mengarah ke endpoint yang dilindungi login eCampus
+	 * (memuat penanda {@code "/al?d="} atau {@code "ambillampiran"}), yang berarti URL tersebut
+	 * TIDAK dapat diakses tanpa sesi login — sehingga tidak aman diteruskan ke Google Docs Viewer
+	 * (lihat penjelasan pada Javadoc kelas).
+	 *
+	 * @param src URL/tautan yang diperiksa, boleh {@code null}
+	 * @return {@code true} bila URL dianggap memerlukan sesi login eCampus
+	 */
 	private static boolean isProtectedEcampusLampiranUrl(String src) {
 		if (src == null) {
 			return false;
@@ -65,6 +146,13 @@ public class WindowViewerHelper {
 		return lower.contains("/al?d=") || lower.contains("ambillampiran");
 	}
 
+	/**
+	 * Memeriksa apakah nama berkas memiliki ekstensi yang umumnya dapat dirender langsung oleh
+	 * browser modern tanpa perantara viewer eksternal (PDF, PNG, JPG/JPEG, WEBP, GIF, TXT).
+	 *
+	 * @param nama nama berkas (dengan ekstensi), boleh {@code null}
+	 * @return {@code true} bila ekstensi berkas termasuk yang dapat dipratinjau langsung
+	 */
 	private static boolean isBrowserPreviewable(String nama) {
 		if (nama == null) {
 			return false;
@@ -75,6 +163,15 @@ public class WindowViewerHelper {
 				|| lower.endsWith(".txt");
 	}
 
+	/**
+	 * Melakukan escaping karakter HTML dasar ({@code & " < >}) pada sebuah nilai agar aman
+	 * disisipkan sebagai isi atribut HTML (mis. {@code href}) tanpa merusak markup atau membuka
+	 * celah XSS sederhana.
+	 *
+	 * @param value nilai mentah yang akan di-escape, boleh {@code null}
+	 * @return {@code value} dengan karakter {@code & " < >} sudah di-escape; string kosong bila
+	 *         {@code value} adalah {@code null}
+	 */
 	private static String escapeAttr(String value) {
 		if (value == null) {
 			return "";
@@ -82,6 +179,17 @@ public class WindowViewerHelper {
 		return value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
 	}
 
+	/**
+	 * Menambahkan kartu informasi HTML ke {@code center} yang menjelaskan bahwa pratinjau dokumen
+	 * Office lewat Google Viewer tidak dapat ditampilkan karena berkas dilindungi login eCampus,
+	 * beserta tautan tombol "Buka / unduh lewat eCampus" yang membuka {@code link} pada tab baru.
+	 * Dipakai sebagai pengganti iframe Google Docs Viewer untuk berkas yang terdeteksi
+	 * {@link #isProtectedEcampusLampiranUrl}.
+	 *
+	 * @param center komponen {@link Center} tempat kartu info ditambahkan sebagai anak
+	 * @param link   URL unduh/akses langsung berkas lewat eCampus, di-escape lewat
+	 *               {@link #escapeAttr} sebelum disisipkan ke atribut {@code href}
+	 */
 	private static void tampilkanInfoPreviewDokumenProtected(Center center, String link) {
 		Html info = new ais.ui.util.MyHtml("<div style='margin:14px;padding:14px 16px;"
 				+ "font-family:Arial,sans-serif;color:#334155;background:#f8fafc;border:1px solid #cbd5e1;"
@@ -97,14 +205,27 @@ public class WindowViewerHelper {
 		center.appendChild(info);
 	}
 
+	/**
+	 * Varian paling ringkas: menampilkan {@code src} (URL/path halaman ZUL) dalam jendela modal
+	 * berukuran default 95% tinggi dan 95% lebar. Lihat varian paling lengkap
+	 * {@link #displayWindow(String, boolean, String, String, EventListener, String, boolean)}
+	 * untuk penjelasan penuh perilaku jendela.
+	 *
+	 * @param src           URL/path konten (biasanya halaman ZUL) yang di-include ke dalam jendela
+	 * @param tampilToolbar tampilkan toolbar bawah berisi tombol "Tutup" bila {@code true}
+	 * @return jendela {@link MyWindow} yang baru dibuat dan sudah ditampilkan
+	 * @throws Exception diteruskan dari kegagalan membangun komponen ZK
+	 */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar) throws Exception {
 		return displayWindow(src, tampilToolbar, "95%", "95%");
 	}
 
+	/** Seperti {@link #displayWindow(String, boolean)}, dengan {@code lebar} kustom (tinggi tetap 95%). */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar, String lebar) throws Exception {
 		return displayWindow(src, tampilToolbar, "95%", lebar);
 	}
 
+	/** Seperti {@link #displayWindow(String, boolean, String)}, dengan {@code tinggi} kustom juga, tanpa listener khusus penutupan (memakai listener kosong). */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar, String tinggi, String lebar)
 			throws Exception {
 		return displayWindow(src, tampilToolbar, tinggi, lebar, new EventListener() {
@@ -115,16 +236,62 @@ public class WindowViewerHelper {
 		});
 	}
 
+	/** Seperti {@link #displayWindow(String, boolean, String, String)}, dengan {@code eventListener} kustom yang dipanggil saat jendela ditutup, judul default {@code "Tampilan Data"}. */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar, String tinggi, String lebar,
 			final EventListener eventListener) throws Exception {
 		return displayWindow(src, tampilToolbar, tinggi, lebar, eventListener, "Tampilan Data");
 	}
 
+	/** Seperti {@link #displayWindow(String, boolean, String, String, EventListener)}, dengan {@code judul} kustom, konten dapat di-scroll (default {@code scroll=true}). */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar, String tinggi, String lebar,
 			final EventListener eventListener, String judul) throws Exception {
 		return displayWindow(src, tampilToolbar, tinggi, lebar, eventListener, judul, true);
 	}
 
+	/**
+	 * Implementasi kanonik seluruh keluarga overload {@code displayWindow(String, boolean, ...)}:
+	 * membuka halaman ZUL/konten pada {@code src} di dalam jendela modal {@link MyWindow} yang
+	 * dilekatkan ke root halaman saat ini. Konten dibungkus komponen {@link MyInclude} yang
+	 * dipaksa memenuhi lebar penuh (100%, {@code display:block}) — tanpa pemaksaan ini, browser/ZK
+	 * dapat mempertahankan lebar intrinsik halaman yang di-include (sering sekitar 50% modal)
+	 * sehingga separuh kanan popup tampak kosong (lihat komentar penjelasan di badan method).
+	 *
+	 * <p>
+	 * Bila {@code scroll=true}, tinggi {@link MyInclude} diatur sangat besar (dua kali tinggi
+	 * layar pengguna yang tercatat di {@code MainAction#desktopHeights}, atau {@code 5000px} bila
+	 * tidak diketahui) dan dibungkus {@link Div} dengan {@code overflow:auto} sebagai host scroll
+	 * — sengaja TIDAK dibungkus {@link Grid}/{@link Row} karena pada ZUL bertingkat (mis. popup
+	 * Pembayaran Mahasiswa), tabel {@link Grid} internal dapat menghitung lebar sel berdasarkan
+	 * konten minimum sehingga Include 100% justru hanya mendapat sekitar setengah lebar
+	 * {@link Center} (lihat komentar penjelasan di badan method).
+	 * </p>
+	 *
+	 * <p>
+	 * Bila {@code tampilToolbar=false}, jendela diberi judul eksplisit ({@code judul}) dan
+	 * {@code eventListener} didaftarkan pada event {@link Events#ON_CLOSE} jendela (dipicu saat
+	 * ditutup lewat tombol close bawaan ZK, bukan tombol "Tutup" kustom); bila
+	 * {@code tampilToolbar=true}, jendela tanpa judul namun menampilkan toolbar berisi tombol
+	 * "Tutup" yang memanggil {@code eventListener} lalu men-detach jendela.
+	 * </p>
+	 *
+	 * @param src           URL/path konten yang di-include ke dalam jendela
+	 * @param tampilToolbar tampilkan toolbar bawah berisi tombol "Tutup"; bila {@code false},
+	 *                      judul jendela ditampilkan sebagai gantinya dan {@code eventListener}
+	 *                      terpasang pada event tutup jendela
+	 * @param tinggi        tinggi jendela (nilai CSS, mis. {@code "95%"}); {@code null} berarti
+	 *                      {@code "97%"}
+	 * @param lebar         lebar jendela (nilai CSS); {@code null} atau perangkat mobile berarti
+	 *                      {@code "97%"}
+	 * @param eventListener listener yang dipanggil saat jendela ditutup (lewat toolbar atau event
+	 *                      close, tergantung {@code tampilToolbar}), boleh {@code null}
+	 * @param judul         judul jendela, dipakai hanya saat {@code tampilToolbar=false}
+	 * @param scroll        bungkus konten dengan host scroll bertinggi besar bila {@code true};
+	 *                      bila {@code false}, konten ditambahkan langsung ke {@link Center} tanpa
+	 *                      pengaturan tinggi/scroll khusus
+	 * @return jendela {@link MyWindow} yang baru dibuat, sudah ditampilkan sebagai modal
+	 * @throws Exception diteruskan dari kegagalan membangun komponen ZK atau resolusi pengguna
+	 *                    saat ini
+	 */
 	public static MyWindow displayWindow(String src, boolean tampilToolbar, String tinggi, String lebar,
 			final EventListener eventListener, String judul, boolean scroll) throws Exception {
 
@@ -216,6 +383,29 @@ public class WindowViewerHelper {
 		return window;
 	}
 
+	/**
+	 * Menampilkan sebuah berkas ({@link FileFoto} atau turunannya, mis. {@link LampiranLain})
+	 * dalam jendela modal, dijalankan secara asinkron lewat {@link Common#createDefaultTimer}
+	 * (bukan langsung dalam thread event pemanggil) — pola yang umum dipakai AIS untuk operasi
+	 * yang berpotensi memerlukan I/O (resolusi path/link berkas) tanpa memblokir UI.
+	 *
+	 * <p>
+	 * Untuk berkas dengan {@code getGdrive() != null}, tautan diambil lewat
+	 * {@link LampiranLain#downloadGDriveUrl()}. Untuk turunan {@link LampiranLain} lain, tautan
+	 * dibangun lewat {@link LampiranLain#createLinkUri()}. Untuk berkas biasa, URL dibangun dari
+	 * host request saat ini digabung path segmen folder berkas ({@code segmenFolderBerkas()} —
+	 * dipakai agar primary key yang sama pada tabel entitas berbeda tidak berbagi folder fisik).
+	 * Konten ditampilkan sebagai iframe langsung bila dapat dipratinjau browser
+	 * ({@link #isBrowserPreviewable}) atau berasal dari Google Drive; bila berupa dokumen Office
+	 * yang dilindungi login eCampus, ditampilkan kartu info penjelasan
+	 * ({@link #tampilkanInfoPreviewDokumenProtected}) alih-alih iframe Google Docs Viewer; selain
+	 * itu diteruskan ke Google Docs Viewer.
+	 * </p>
+	 *
+	 * @param alurFile berkas yang akan ditampilkan; method langsung kembali tanpa efek apa pun
+	 *                 bila {@code null}
+	 * @throws Exception diteruskan dari kegagalan membangun timer/komponen ZK
+	 */
 	public static void display(final FileFoto alurFile) throws Exception {
 		if (alurFile == null) {
 			return;
@@ -307,6 +497,60 @@ public class WindowViewerHelper {
 		});
 	}
 
+	/**
+	 * Implementasi paling lengkap untuk menampilkan sebuah {@link FileFoto} (dan turunannya) dalam
+	 * jendela modal, dengan kontrol eksplisit atas mode tampilan (gambar/iframe), sumber
+	 * (Google Drive, berkas fisik lokal, atau URL yang sudah diberikan lewat {@code src}), serta
+	 * tombol aksi tambahan pada toolbar (unduh, simpan ke Google Drive). Method ini dipanggil baik
+	 * secara langsung oleh kode aplikasi maupun secara rekursif oleh dirinya sendiri (lewat
+	 * callback {@link #simpanKeDrive}) setelah suatu berkas selesai dibackup ke Drive, untuk
+	 * membuka ulang tampilan dengan data {@link FileFoto} yang sudah diperbarui.
+	 *
+	 * <p>
+	 * Judul jendela diturunkan dari {@code ff.getKeterangan()} bila bukan berupa MIME type (mis.
+	 * {@code "application/pdf"}), jika tidak memakai {@code ff.getNama()}; prefix {@code "id_"}
+	 * pada nama berkas (pola penamaan berkas ber-primary-key AIS) dihilangkan dari judul.
+	 * </p>
+	 *
+	 * <p>
+	 * Alur penentuan konten mengikuti urutan pemeriksaan yang dijelaskan pada Javadoc kelas
+	 * (PDF langsung, konten {@link PertemuanFileContent} dengan lokasi fisik, tautan Dropbox
+	 * (dibuka lewat redirect di mobile atau popup JS di desktop), berkas {@code .txt} berisi
+	 * tautan, berkas Google Drive, berkas fisik biasa lewat {@code CommonMedia}, dan fallback
+	 * kartu "berkas tidak ditemukan"). Parameter {@code image} dan {@code iframe} mengontrol mode
+	 * render akhir: {@code image=true} merender sebagai {@link Image} di dalam {@link Grid};
+	 * {@code iframe=true} merender sebagai {@link Iframe} (dengan deteksi tambahan dokumen
+	 * Office/Google Drive/YouTube); selain itu diteruskan ke
+	 * {@link Common#displayUrlContent(String, Center)}.
+	 * </p>
+	 *
+	 * <p>
+	 * Toolbar bawah selalu memuat tombol "Tutup"; bila berkas fisik ditemukan, ditambahkan tombol
+	 * "Download" (memakai {@link Filedownload#save}) dan tombol "Simpan ke Drive" (lewat
+	 * {@link #simpanKeDrive}, walau saat ini selalu tersembunyi — lihat catatan pada Javadoc
+	 * kelas); bila berkas hanya tersimpan di Google Drive, ditambahkan tombol "Download" yang
+	 * mengarahkan (redirect) ke URL unduh Drive.
+	 * </p>
+	 *
+	 * @param image         render konten sebagai gambar ({@link Image} dalam {@link Grid}) bila
+	 *                      {@code true}; diabaikan bila {@code src} berakhiran {@code .pdf} atau
+	 *                      berkas fisik tidak ditemukan
+	 * @param src           URL/path konten; boleh kosong/{@code null} dan akan diturunkan otomatis
+	 *                      dari {@code ff} bila memungkinkan
+	 * @param tampilToolbar tampilkan toolbar bawah (tombol Tutup dan tombol aksi lain)
+	 * @param lebar         lebar jendela (nilai CSS); diabaikan (dipaksa {@code "97%"}) pada
+	 *                      perangkat mobile
+	 * @param tinggi        tinggi jendela (nilai CSS); {@code null} berarti {@code "97%"}
+	 * @param iframe        render konten sebagai {@link Iframe} bila {@code true} dan {@code image}
+	 *                      tidak aktif; dapat diubah secara internal (mis. dipaksa {@code false}
+	 *                      untuk berkas {@code .txt} berisi tautan)
+	 * @param ff            entitas {@link FileFoto} (atau turunannya) yang berkasnya ditampilkan;
+	 *                      boleh {@code null} bila hanya menampilkan {@code src} mentah tanpa
+	 *                      konteks entitas
+	 * @return jendela {@link MyWindow} yang baru dibuat, sudah ditampilkan sebagai modal
+	 * @throws Exception diteruskan dari kegagalan I/O berkas, encoding URL, atau pembangunan
+	 *                    komponen ZK
+	 */
 	public static MyWindow displayWindow(final Boolean image, String src, final Boolean tampilToolbar,
 			final String lebar, final String tinggi, Boolean iframe, FileFoto ff) throws Exception {
 
@@ -573,11 +817,45 @@ public class WindowViewerHelper {
 		return window;
 	}
 
+	/** Seperti {@link #simpanKeDrive(FileFoto, File, String, String, EventListener)} tanpa sub-folder tambahan ({@code folderNameLagi=null}). */
 	public static MyToolbarbuttonConfig simpanKeDrive(FileFoto fileFoto, File f, String folderName,
 			EventListener eventListener) {
 		return simpanKeDrive(fileFoto, f, folderName, null, eventListener);
 	}
 
+	/**
+	 * Membangun tombol toolbar "Simpan ke Drive" yang, bila diklik, membackup berkas {@code f}
+	 * ke Google Drive milik pengguna saat ini (lewat {@link GDriveUtilPerPengguna#prosesBackup}),
+	 * lalu memperbarui kolom {@code gdrive}/{@code gdriveUsername} pada entitas {@code fileFoto}
+	 * dan menghapus salinan lokal lama (lewat {@link FileFoto#hapusTotal}). Lihat penjelasan
+	 * lengkap alur backup + polling status pada Javadoc kelas.
+	 *
+	 * <p>
+	 * Tombol disembunyikan sepenuhnya (tidak pernah ditampilkan pada kondisi kode saat ini) untuk
+	 * jenis foto entitas utama (mahasiswa, dosen, pegawai, siswa, dsb. — daftar {@code instanceof}
+	 * pada badan method) dan untuk jenis {@link LampiranLain} bertanda tangan digital tertentu
+	 * (TTD dosen/kartu anggota perpustakaan/dsb.), serta — akibat operand {@code && false} yang
+	 * eksplisit pada penetapan {@code setVisible} — untuk SEMUA jenis berkas lainnya juga, terlepas
+	 * dari nilai kondisi lain (lihat catatan pada Javadoc kelas).
+	 * </p>
+	 *
+	 * <p>
+	 * Setelah proses backup dimulai, sebuah {@link Timer} berulang (interval 1 detik) didaftarkan
+	 * pada root halaman untuk memantau daftar hasil {@code s}; begitu berisi (backup selesai),
+	 * timer dihentikan dan {@code eventListener} dipanggil dengan data {@link FileFoto} yang sudah
+	 * diperbarui — pola polling ini diperlukan karena panggilan Google Drive API berjalan di luar
+	 * thread event ZK dan tidak dapat memanggil balik komponen UI secara langsung.
+	 * </p>
+	 *
+	 * @param fileFoto       entitas berkas yang akan dibackup dan diperbarui referensi Drive-nya
+	 * @param f              berkas fisik lokal yang akan diunggah ke Drive
+	 * @param folderName     nama folder Drive tujuan (biasanya nama folder lokal induk berkas)
+	 * @param folderNameLagi sub-folder tambahan di dalam {@code folderName}, boleh {@code null}
+	 * @param eventListener  dipanggil setelah backup selesai, menerima {@link FileFoto} terbaru
+	 *                       sebagai data event
+	 * @return tombol {@link MyToolbarbuttonConfig} "Simpan ke Drive" (visibilitasnya lihat catatan
+	 *         di atas — pada kode saat ini selalu tersembunyi)
+	 */
 	public static MyToolbarbuttonConfig simpanKeDrive(final FileFoto fileFoto, final File f, final String folderName,
 			final String folderNameLagi, final EventListener eventListener) {
 
@@ -731,11 +1009,27 @@ public class WindowViewerHelper {
 		return save;
 	}
 
+	/** Seperti {@link #displayWindowIframe(String, Boolean, String, String, String)} dengan judul default {@code "Tampilan Data"}. */
 	public static MyWindow displayWindowIframe(String src, Boolean tampilToolbar, String lebar, String tinggi)
 			throws Exception {
 		return displayWindowIframe(src, tampilToolbar, lebar, tinggi, "Tampilan Data");
 	}
 
+	/**
+	 * Menampilkan {@code src} sebagai iframe murni di dalam jendela modal, tanpa logika deteksi
+	 * jenis berkas/dokumen seperti pada {@link #displayWindow(Boolean, String, Boolean, String,
+	 * String, Boolean, FileFoto)} — cocok dipakai saat pemanggil sudah tahu persis {@code src}
+	 * adalah URL yang aman ditampilkan langsung dalam iframe (mis. laporan/report internal).
+	 *
+	 * @param src           URL yang ditampilkan sebagai iframe
+	 * @param tampilToolbar tampilkan toolbar bawah berisi tombol "Tutup"; bila {@code false},
+	 *                      {@code judul} ditampilkan sebagai judul jendela sebagai gantinya
+	 * @param lebar         lebar jendela (nilai CSS); dipaksa {@code "97%"} pada perangkat mobile
+	 * @param tinggi        tinggi jendela (nilai CSS); {@code null} berarti {@code "97%"}
+	 * @param judul         judul jendela, dipakai hanya saat {@code tampilToolbar=false}
+	 * @return jendela {@link MyWindow} yang baru dibuat, sudah ditampilkan sebagai modal
+	 * @throws Exception diteruskan dari kegagalan membangun komponen ZK
+	 */
 	public static MyWindow displayWindowIframe(String src, Boolean tampilToolbar, String lebar, String tinggi,
 			String judul) throws Exception {
 		final MyWindow window = tampilToolbar ? new MyWindow("", "none", false) : new MyWindow(judul, "none", true);

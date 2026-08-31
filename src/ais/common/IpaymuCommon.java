@@ -46,8 +46,88 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Kelas utilitas statis untuk integrasi payment gateway <b>iPaymu</b> di AIS, menangani alur
+ * pembayaran biaya kuliah/pendaftaran mahasiswa (mahasiswa aktif maupun calon mahasiswa) mulai
+ * dari penyusunan rincian tagihan dari komponen antarmuka ZK, pemanggilan API iPaymu lewat
+ * {@link HttpURLConnection} langsung (bukan {@code curl} eksternal seperti pada
+ * {@code BRIDataUtil}/{@code DokuCommon}), penyimpanan record permintaan & respons ke database,
+ * hingga pengalihan browser pengguna ke halaman pembayaran/redirect iPaymu.
+ *
+ * <p>
+ * Struktur kelas ini SANGAT MIRIP dengan {@code ais.common.DokuCommon} (integrasi payment
+ * gateway lain di AIS) — keduanya menyediakan pasangan method {@code populateDetailBiaya},
+ * {@code populate*RequestDetailDariDetailBiaya}, {@code populate*RequestDetail},
+ * {@code bayarCalonMahasiswa}, {@code onSave*}, dan {@code sendRequest} dengan pola kerja yang
+ * identik, hanya berbeda pada model data ({@code Ipaymu*} vs {@code Doku*}) dan mekanisme
+ * pemanggilan gateway-nya. Perbedaan penting: iPaymu mendukung DUA MODE transaksi (lihat
+ * {@link #onSaveIpaymu}), sedangkan Doku hanya satu mode form-post.
+ * </p>
+ *
+ * <p>
+ * Alur kerja umum melibatkan tiga lapisan:
+ * </p>
+ * <ol>
+ * <li><b>Penyusunan rincian tagihan</b> — {@link #populateDetailBiaya(Grid, List)},
+ * {@link #populateIpaymuRequestDetailDariDetailBiaya(List)}, dan
+ * {@link #populateIpaymuRequestDetail(Grid, Mahasiswa, Integer, JadwalPembayaran)} membaca
+ * nilai dari komponen grid ZK yang sudah diisi/diedit pengguna, lalu mengonversinya menjadi
+ * objek {@link IpaymuRequestDetail}/{@link IpaymuRequestDetailBiaya}.</li>
+ * <li><b>Orkestrasi pembayaran</b> — {@link #bayarCalonMahasiswa(BiodataCalonMahasiswa,
+ * JenisKegiatan)} adalah titik masuk khusus alur pendaftaran mahasiswa baru, menghitung detail
+ * biaya wajib lewat {@link PembayaranUtil} lalu mendelegasikan ke {@link #onSaveIpaymu}.</li>
+ * <li><b>Eksekusi transaksi</b> — {@link #onSaveIpaymu} adalah method inti: menentukan MODE
+ * transaksi (langsung Virtual Account vs halaman pembayaran redirect) berdasarkan konfigurasi
+ * {@code ipaymu_langsung_menggunakan_virtual_account}, menyusun parameter permintaan sesuai
+ * mode, lalu memanggil {@link #sendRequest} yang benar-benar melakukan panggilan HTTP POST ke
+ * API iPaymu, mem-parsing respons JSON, menyimpan record {@link IpaymuRequest} (dan
+ * {@link IpaymuResponse} bila mode VA langsung menghasilkan nomor VA), lalu mengarahkan browser
+ * pengguna ke URL hasil (baik halaman pembayaran iPaymu maupun halaman info VA internal AIS)
+ * lewat {@link Common#displayWindow(String, boolean, String)}.</li>
+ * </ol>
+ *
+ * <p>
+ * Kegagalan pada {@link #sendRequest} ditangani lewat pola "Informasi Teknis" bersama seluruh
+ * payment gateway AIS ({@link InfoTeknisPembayaran}): setiap jenis kegagalan (server menolak
+ * dengan kode status non-2xx, koneksi gagal/{@code ConnectException}, timeout/
+ * {@code SocketTimeoutException}, respons sukses tapi tanpa data transaksi, kegagalan
+ * penyimpanan ke database setelah gateway menerima transaksi) dicatat dengan pesan spesifik
+ * lewat {@link InfoTeknisPembayaran#catat(String)} sebelum mengembalikan {@code null}, sehingga
+ * {@link #onSaveIpaymu} dapat menampilkan alert kegagalan yang informatif ke pengguna/admin
+ * tanpa perlu membuka log server.
+ * </p>
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN:</b> method {@link #onSaveIpaymu} membaca kredensial integrasi iPaymu
+ * dari konfigurasi database dengan NILAI DEFAULT yang ditulis langsung (hardcoded) di kode
+ * sumber sebagai fallback: {@code ipaymu_key} (default
+ * {@code "HZ2j4j8y112OHd2UVWH60QXfT04Pf1"}) — nilai ini setara dengan API key/secret merchant
+ * iPaymu dan dikirim langsung sebagai parameter {@code key} pada setiap permintaan ke API
+ * iPaymu. Bila nilai tersebut adalah key produksi sungguhan (bukan sekadar contoh), siapa pun
+ * dengan akses baca kode sumber dapat memakai API key tersebut untuk memanggil API iPaymu atas
+ * nama merchant ini. Javadoc ini TIDAK mengubah nilai tersebut sesuai instruksi; lihat
+ * ringkasan laporan terkait untuk detail lokasi baris agar dapat ditindaklanjuti (mis. hapus
+ * default hardcoded, pastikan konfigurasi selalu diisi lewat database/secret store, dan rotasi
+ * key di sisi iPaymu bila memang bocor).
+ * </p>
+ */
 public class IpaymuCommon {
 
+	/**
+	 * Menyusun daftar {@link IpaymuRequestDetailBiaya} dari baris-baris sebuah komponen
+	 * {@link Grid} ZK yang menampilkan rincian biaya, sambil menerapkan aturan pengurangan
+	 * khusus untuk item biaya bertipe {@link ItemBiaya#DIKALI_NILAI_MINUS}. Method ini setara
+	 * (logika identik) dengan {@code ais.common.DokuCommon#populateDetailBiaya(Grid, List)},
+	 * hanya berbeda tipe objek hasil ({@link IpaymuRequestDetailBiaya} vs
+	 * {@code DokuRequestDetailBiaya}) — lihat javadoc method tersebut untuk uraian rinci alur
+	 * pembacaan nilai per baris.
+	 *
+	 * @param gridss      komponen {@link Grid} ZK berisi baris rincian biaya
+	 * @param pengurangan daftar komponen {@link MyDoubleboxMin} untuk item biaya bertipe
+	 *                    {@code DIKALI_NILAI_MINUS}
+	 * @return daftar {@link IpaymuRequestDetailBiaya} siap simpan, satu per baris grid yang
+	 *         tampak
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<IpaymuRequestDetailBiaya> populateDetailBiaya(Grid gridss, List<MyDoubleboxMin> pengurangan) {
 		List<IpaymuRequestDetailBiaya> ipaymuRequestDetailBiayas = new ArrayList<IpaymuRequestDetailBiaya>();
@@ -98,6 +178,16 @@ public class IpaymuCommon {
 		return ipaymuRequestDetailBiayas;
 	}
 
+	/**
+	 * Mengonversi daftar {@link IpaymuRequestDetailBiaya} menjadi daftar
+	 * {@link IpaymuRequestDetail} yang siap disimpan, dengan nomor urut berurutan mulai dari 1
+	 * dan tanggal diisi tanggal saat ini. Setara logika dengan
+	 * {@code DokuCommon#populateDokuRequestDetailDariDetailBiaya(List)}.
+	 *
+	 * @param ipaymuRequestDetailBiayas daftar rincian biaya sumber
+	 * @return daftar {@link IpaymuRequestDetail} yang setara, dengan
+	 *         {@code pengaturanPembayaranBulanan} selalu {@code null}
+	 */
 	public static List<IpaymuRequestDetail> populateIpaymuRequestDetailDariDetailBiaya(
 			List<IpaymuRequestDetailBiaya> ipaymuRequestDetailBiayas) {
 		List<IpaymuRequestDetail> ipaymuRequestDetails = new ArrayList<IpaymuRequestDetail>();
@@ -118,6 +208,20 @@ public class IpaymuCommon {
 		return ipaymuRequestDetails;
 	}
 
+	/**
+	 * Menyusun daftar {@link IpaymuRequestDetail} dari baris-baris grid cicilan pembayaran ZK,
+	 * hanya menyertakan baris yang jumlah cicilannya diisi. Logika penentuan validator,
+	 * item biaya/pengaturan pembayaran bulanan, serta perhitungan ulang denda & nilai asli
+	 * untuk cicilan baru identik dengan
+	 * {@code DokuCommon#populateDokuRequestDetail(Grid, Mahasiswa, Integer, JadwalPembayaran)}
+	 * — lihat javadoc method tersebut untuk uraian rinci.
+	 *
+	 * @param gridCicilan      komponen {@link Grid} ZK berisi baris cicilan pembayaran
+	 * @param mahasiswa        mahasiswa pemilik cicilan
+	 * @param semester         semester berjalan
+	 * @param jadwalPembayaran jadwal pembayaran yang berlaku, boleh {@code null}
+	 * @return daftar {@link IpaymuRequestDetail} untuk baris cicilan yang diisi
+	 */
 	public static List<IpaymuRequestDetail> populateIpaymuRequestDetail(Grid gridCicilan, Mahasiswa mahasiswa,
 			Integer semester, JadwalPembayaran jadwalPembayaran) {
 		@SuppressWarnings("unchecked")
@@ -196,6 +300,21 @@ public class IpaymuCommon {
 		return ipaymuRequestDetails;
 	}
 
+	/**
+	 * Titik masuk alur pembayaran biaya pendaftaran untuk seorang calon mahasiswa lewat
+	 * gateway iPaymu. Logikanya identik dengan
+	 * {@code DokuCommon#bayarCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan)}: menentukan
+	 * program studi acuan, menghitung {@link DetailBiaya} yang wajib dibayar lewat
+	 * {@link PembayaranUtil#getDetailBiayaCalonMahasiswa}, menentukan jadwal pembayaran lewat
+	 * {@link PembayaranUtil#getJadwalPembayaranDanDendaBerdasarkanTahunAkademik}, lalu
+	 * mendelegasikan eksekusi transaksi ke {@link #onSaveIpaymu}.
+	 *
+	 * @param calonMahasiswa data calon mahasiswa yang akan membayar biaya pendaftaran
+	 * @param jenisKegiatan  jenis kegiatan/gelombang penerimaan yang menentukan komponen biaya
+	 *                       yang berlaku
+	 * @throws Exception diteruskan dari kegagalan perhitungan biaya/jadwal pembayaran
+	 *                    ({@link PembayaranUtil}) atau dari {@link #onSaveIpaymu}
+	 */
 	public static void bayarCalonMahasiswa(BiodataCalonMahasiswa calonMahasiswa, JenisKegiatan jenisKegiatan)
 			throws Exception {
 		Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -248,6 +367,62 @@ public class IpaymuCommon {
 
 	}
 
+	/**
+	 * Implementasi inti eksekusi transaksi pembayaran lewat gateway iPaymu, mendukung DUA MODE
+	 * yang dipilih berdasarkan konfigurasi
+	 * {@code ipaymu_langsung_menggunakan_virtual_account}:
+	 *
+	 * <p>
+	 * Bila {@code amn} (nominal yang harus dibayar) kurang dari {@code 0.01}, method langsung
+	 * mengembalikan {@code false} tanpa melakukan apa pun.
+	 * </p>
+	 *
+	 * <ul>
+	 * <li><b>Mode langsung Virtual Account</b> (konfigurasi aktif) — memanggil endpoint
+	 * {@code ipaymu_gateway_url_va} (default {@code GetVa.php}) untuk memperoleh nomor VA
+	 * langsung tanpa halaman pembayaran interaktif; parameter berisi {@code key}, {@code amount},
+	 * dan {@code notes} (ringkasan item). Bila berhasil (respons memiliki {@code trxId}), browser
+	 * diarahkan ke {@link IpaymuRequest#getUrl()} yang sudah disiapkan {@link #sendRequest}
+	 * (URL info VA internal AIS bila API tidak mengembalikan URL eksplisit).</li>
+	 * <li><b>Mode halaman pembayaran</b> (konfigurasi tidak aktif, default) — memanggil endpoint
+	 * {@code ipaymu_gateway_url} (default {@code payment.htm}) dengan parameter lengkap gaya
+	 * form pembayaran iPaymu klasik ({@code action=payment}, {@code product}, {@code price},
+	 * {@code quantity=1}, {@code comments}, serta URL callback {@code ureturn}/{@code unotify}/
+	 * {@code ucancel} yang mengarah ke halaman {@code /common/ipaymu/return.zul},
+	 * {@code ipaymu_path_url_response} (default {@code /FinPayResponse}), dan
+	 * {@code /common/ipaymu/batal.zul}). Bila berhasil (respons memiliki {@code url}), browser
+	 * diarahkan ke halaman pembayaran iPaymu tersebut.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * Kedua mode menyusun {@code add_info1}/{@code add_info2} (ringkasan nama+identitas
+	 * pembayar dan daftar item non-cicilan) sebelum memanggil {@link #sendRequest}, dan
+	 * menampilkan alert kegagalan beserta "Informasi Teknis" lewat
+	 * {@link InfoTeknisPembayaran#pesanGagal()} bila {@link #sendRequest} mengembalikan hasil
+	 * tanpa data transaksi yang valid.
+	 * </p>
+	 *
+	 * @param amn                       nominal total yang harus dibayar (rupiah)
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null} bila pembayar
+	 *                                  adalah calon mahasiswa
+	 * @param biodataCalonMahasiswa     calon mahasiswa pembayar, boleh {@code null}
+	 * @param jenisKegiatan             jenis kegiatan terkait transaksi
+	 * @param jadwalPembayaran          jadwal pembayaran yang berlaku
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan/deskripsi transaksi
+	 * @param pengurangan               nilai pengurangan/diskon yang sudah diperhitungkan
+	 * @param nilaiBiayaHarusDiBayars   nilai total biaya sebelum pengurangan
+	 * @param ipaymuRequestDetails      rincian item pembayaran
+	 * @param ipaymuRequestDetailBiayas rincian biaya mentah
+	 * @param event                     event ZK pemicu (tidak dipakai langsung di badan method
+	 *                                  ini)
+	 * @return {@code true} bila proses (baik sukses menampilkan halaman iPaymu maupun gagal
+	 *         dengan alert ditampilkan) selesai dijalankan; {@code false} hanya bila
+	 *         {@code amn} kurang dari {@code 0.01}
+	 * @throws Exception diteruskan dari kegagalan {@link #sendRequest} atau penyusunan
+	 *                    parameter permintaan
+	 */
 	@SuppressWarnings({})
 	public static boolean onSaveIpaymu(final Double amn, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,
@@ -355,6 +530,60 @@ public class IpaymuCommon {
 		return true;
 	}
 
+	/**
+	 * Melakukan panggilan HTTP POST langsung (lewat {@link HttpURLConnection}, bukan proses
+	 * {@code curl} eksternal) ke endpoint API iPaymu yang diberikan, mem-parsing respons JSON,
+	 * dan menyimpan record {@link IpaymuRequest} (beserta detail dan, bila mode VA
+	 * menghasilkan nomor VA, record {@link IpaymuResponse} berstatus
+	 * {@link IpaymuResponse#PENDING}) ke database.
+	 *
+	 * <p>
+	 * Alur kerja: (1) membersihkan riwayat "Informasi Teknis" lewat
+	 * {@link InfoTeknisPembayaran#bersihkan()}; (2) mengirim {@code postData} (hasil
+	 * {@link URLBuilder#httpBuildQuery(Map, String)}) ke {@code urlStr} lewat POST; (3) bila
+	 * kode status HTTP bukan 2xx, membaca error stream, mencatat detail kegagalan, dan
+	 * mengembalikan {@code null} tanpa menyentuh database; (4) bila sukses, mem-parsing body
+	 * respons sebagai {@link JSONObject} untuk mengambil {@code va} dan {@code id} (trxId); (5)
+	 * bila trxId, va, dan url semuanya kosong (gateway menolak secara logis meski status HTTP
+	 * sukses), mencatat detail kegagalan (tanpa langsung berhenti — penyimpanan tetap
+	 * dilanjutkan dengan data kosong agar jejak percobaan tetap tersimpan); (6) menyusun dan
+	 * menyimpan record {@link IpaymuRequest} beserta seluruh {@link IpaymuRequestDetail}/
+	 * {@link IpaymuRequestDetailBiaya} terkait, masing-masing dalam transaksi Hibernate
+	 * terpisah; (7) bila {@code va} tidak kosong, turut menyimpan record {@link IpaymuResponse}
+	 * awal berstatus {@code PENDING} sebagai jejak VA yang diterbitkan.
+	 * </p>
+	 *
+	 * <p>
+	 * Penanganan galat granular per jenis kegagalan jaringan: {@link java.net.ConnectException}
+	 * (gateway tak terhubung), {@link java.net.SocketTimeoutException} (timeout), dan
+	 * {@link Exception} umum lainnya masing-masing dicatat dengan pesan "Informasi Teknis" yang
+	 * spesifik lewat {@link InfoTeknisPembayaran#catat(String)} sebelum mengembalikan
+	 * {@code null} — lihat javadoc kelas untuk penjelasan pola ini.
+	 * </p>
+	 *
+	 * @param urlStr                    URL endpoint API iPaymu yang dipanggil (berbeda
+	 *                                  tergantung mode di {@link #onSaveIpaymu})
+	 * @param postData                  data POST yang sudah di-encode (query string
+	 *                                  {@code application/x-www-form-urlencoded})
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa     calon mahasiswa pembayar, boleh {@code null}
+	 * @param jenisKegiatan             jenis kegiatan terkait transaksi
+	 * @param jadwalPembayaran          jadwal pembayaran yang berlaku
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan/deskripsi transaksi
+	 * @param pengurangan               nilai pengurangan/diskon
+	 * @param nilaiBiayaHarusDiBayars   nilai total biaya sebelum pengurangan
+	 * @param amount                    nominal akhir yang harus dibayar
+	 * @param comments                  ringkasan item biaya
+	 * @param ipaymuRequestDetails      rincian item pembayaran yang akan disimpan
+	 * @param ipaymuRequestDetailBiayas rincian biaya mentah yang akan disimpan
+	 * @return record {@link IpaymuRequest} yang berhasil disimpan, atau {@code null} bila
+	 *         gateway tidak dapat dihubungi/menolak permintaan, atau bila penyimpanan ke
+	 *         database gagal setelah gateway menerima transaksi
+	 * @throws Exception diteruskan dari kegagalan di luar blok try-catch internal (mis.
+	 *                    kegagalan encode URL pada {@link URLEncoder#encode(String, String)})
+	 */
 	public static IpaymuRequest sendRequest(String urlStr, String postData, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,
 			Integer semester, String tahunAkademik, String keterangan, Double pengurangan,

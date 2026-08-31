@@ -25,8 +25,70 @@ import ais.database.model.penelitiandanpengabdian.Artikel;
 import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
 import ais.database.model.penelitiandanpengabdian.TahapanPenyusunanArtikel;
 
+/**
+ * Web crawler (bukan klien API resmi — mengambil dan mem-parsing halaman HTML publik secara
+ * langsung dengan Jsoup) untuk situs SINTA (Science and Technology Index) Kementerian Pendidikan,
+ * yaitu basis data sitasi/publikasi ilmiah nasional Indonesia yang dikelola Kemdikbud. Kelas ini
+ * dipakai untuk menyinkronkan dua jenis data dari SINTA ke database AIS berdasarkan kode SINTA satu
+ * perguruan tinggi ({@link PerguruanTinggi#getKodeSinta()}):
+ * <ol>
+ * <li><b>Daftar dosen ber-SINTA</b> — dikumpulkan lewat {@link #populateKodeSintaDosen(JSONArray,
+ * String, int, Label)} dari halaman profil afiliasi SINTA, dicocokkan ke entitas {@link Dosen} lokal
+ * berdasarkan NIDN, lalu kolom {@code kodeSinta} pada dosen yang cocok diperbarui.</li>
+ * <li><b>Artikel ilmiah tiap dosen</b> — dikumpulkan lewat {@link #singkronkanArtikel(Dosen, Label,
+ * Session, TahapanPenyusunanArtikel)} (yang mendelegasikan pengambilan data mentah ke
+ * {@link SintaCrawler#populateData}), disimpan sebagai {@link SintaArticle}, dan dari situ dibuatkan
+ * (atau diperbarui) catatan {@link Artikel} pada modul penelitian-dan-pengabdian AIS, termasuk
+ * membuat entitas {@link JurnalPenelitian} baru secara otomatis bila nama jurnal pada data SINTA
+ * belum dikenal.</li>
+ * </ol>
+ * <p>
+ * Method utama, {@link #singkronkan(Label, PerguruanTinggi)}, dipanggil dari layar ZKoss (parameter
+ * {@link Label} dipakai sebagai indikator progres tekstual yang diperbarui langsung selama proses
+ * berjalan — pola "polling label" sederhana untuk memberi umpan balik ke pengguna tanpa mekanisme
+ * push/WebSocket). Kegagalan pada satu dosen (mis. halaman SINTA-nya berformat tak terduga) SENGAJA
+ * ditangkap dan dicatat ke audit tanpa menghentikan sinkronisasi dosen lain dalam batch yang sama —
+ * lihat komentar inline pada loop {@code singkronkanArtikel} di {@link #singkronkan}.
+ * </p>
+ *
+ * <h2>Kerapuhan terhadap perubahan struktur halaman SINTA</h2>
+ * <p>
+ * Karena data diambil dengan mem-parsing HTML berdasarkan selector CSS tetap (mis.
+ * {@code dl[class=uk-description-list-line]}, {@code a[class=text-blue]}) dan pola teks tertentu
+ * (mis. mencari elemen yang teksnya mengandung substring {@code "nidn"} lalu memecahnya dengan
+ * separator {@code ":"}), crawler ini SANGAT rentan berhenti bekerja bila SINTA mengubah struktur/
+ * kelas CSS halamannya — tidak ada API resmi berversi yang dipakai di sini. Setiap kegagalan parsing
+ * per field (link, author, vol, issue, tahun, jurnal, judul, page) ditangkap individual dan dicatat
+ * ke audit tanpa menggagalkan penyimpanan artikel secara keseluruhan, sehingga artikel tetap
+ * tersimpan dengan field yang berhasil diambil meski sebagian field lain gagal di-parse.
+ * </p>
+ *
+ * <p>
+ * Metode {@link #main(String[])} adalah skrip uji coba manual berdiri sendiri yang menjalankan
+ * ulang logika pengambilan satu halaman profil afiliasi SINTA dengan kode perguruan tinggi
+ * ({@code id=626}) dan kode dosen ({@code id=8443}) yang di-hardcode, mencetak hasilnya ke konsol —
+ * tidak dipanggil dari alur aplikasi.
+ * </p>
+ */
 public class SintaPtCrawler {
 
+	/**
+	 * Titik masuk sinkronisasi utama, dipanggil dari layar ZKoss untuk memicu proses penuh: (1)
+	 * mengambil daftar dosen ber-SINTA milik {@code perguruanTinggi} lewat {@link
+	 * #populateKodeSintaDosen(JSONArray, String, int, Label)}; (2) mencocokkan setiap entri hasil
+	 * crawl (berdasarkan NIDN) dengan entitas {@link Dosen} lokal yang masih aktif, memperbarui kolom
+	 * {@code kodeSinta} pada dosen yang cocok, dan mengumpulkan dosen yang berhasil dicocokkan ke
+	 * dalam {@code dosenSinta}; (3) untuk setiap dosen dalam {@code dosenSinta}, memicu sinkronisasi
+	 * artikel lewat {@link #singkronkanArtikel(Dosen, Label, Session, TahapanPenyusunanArtikel)},
+	 * dengan kegagalan pada satu dosen ditangkap dan dicatat ke audit tanpa menghentikan sisa batch.
+	 * Sepanjang proses, {@code label} diperbarui berulang kali untuk menampilkan progres ke pengguna,
+	 * dan dikosongkan kembali di akhir (baik sukses maupun bila tidak ada data ditemukan).
+	 *
+	 * @param label           komponen ZKoss yang nilainya diperbarui langsung sebagai indikator
+	 *                        progres tekstual selama proses berjalan
+	 * @param perguruanTinggi perguruan tinggi target sinkronisasi; method langsung kembali tanpa
+	 *                        melakukan apa pun bila {@code null} atau kode SINTA-nya kosong
+	 */
 	@SuppressWarnings("unchecked")
 	public static void singkronkan(final Label label, PerguruanTinggi perguruanTinggi) {
 		if (perguruanTinggi == null || perguruanTinggi.getKodeSinta().isEmpty()) {
@@ -92,6 +154,36 @@ public class SintaPtCrawler {
 		label.setValue("");
 	}
 
+	/**
+	 * Mengambil dan menyinkronkan seluruh artikel ilmiah milik satu {@code dosen} dari SINTA (lewat
+	 * {@link SintaCrawler#populateData}) ke database lokal. Untuk setiap artikel hasil crawl: mencari
+	 * {@link SintaArticle} yang sudah ada berdasarkan kombinasi dosen+link+judul (case-insensitive
+	 * lewat {@code ilike}), membuat baru bila belum ada, lalu mengisi field-field artikel (link,
+	 * author, volume, issue, tahun, jurnal, judul, halaman) satu per satu — SETIAP field dibungkus
+	 * {@code try/catch} terpisah sehingga kegagalan parsing satu field (mis. field tidak ada pada
+	 * data mentah SINTA) tidak menggagalkan pengisian field lain maupun penyimpanan artikel itu
+	 * sendiri.
+	 *
+	 * <p>
+	 * Setelah {@link SintaArticle} tersimpan, bila dosen memiliki akun {@link Tbmuser} aktif, method
+	 * ini juga membuat/memperbarui catatan {@link Artikel} pada modul penelitian-dan-pengabdian:
+	 * mencari (atau membuat baru bila belum ada) {@link JurnalPenelitian} berdasarkan {@code path}
+	 * yang diturunkan dari nama jurnal (huruf kecil, spasi diganti underscore; nama jurnal kosong
+	 * memakai fallback {@code "Jurnal Default"}), lalu menghubungkan {@link Artikel} ke
+	 * {@link SintaArticle}, {@link Tbmuser}, {@code tahapanPenyusunanArtikel} yang diberikan, dan
+	 * {@link JurnalPenelitian} tersebut.
+	 * </p>
+	 *
+	 * @param dosen                     dosen pemilik artikel yang disinkronkan; harus sudah memiliki
+	 *                                  {@code kodeSinta} terisi
+	 * @param label                     komponen ZKoss untuk indikator progres, diteruskan ke
+	 *                                  {@link SintaCrawler#populateData}
+	 * @param session                   sesi Hibernate aktif yang dipakai untuk seluruh query/simpan
+	 *                                  dalam method ini (dikelola oleh pemanggil, tidak dibuka/
+	 *                                  ditutup di sini)
+	 * @param tahapanPenyusunanArtikel  tahap default yang diisikan pada {@link Artikel} baru (mis.
+	 *                                  "Dicetak (terbit)")
+	 */
 	public static void singkronkanArtikel(Dosen dosen, Label label, Session session,
 			TahapanPenyusunanArtikel tahapanPenyusunanArtikel) {
 
@@ -207,6 +299,28 @@ public class SintaPtCrawler {
 		}
 	}
 
+	/**
+	 * Mengambil satu halaman daftar dosen dari halaman profil afiliasi SINTA
+	 * ({@code https://sinta.kemdikbud.go.id/affiliations/profile}) untuk kode perguruan tinggi
+	 * {@code kode}, mem-parsing setiap entri dosen (nama, link profil, id SINTA yang diekstrak dari
+	 * parameter query pada link, dan NIDN yang dicari dari elemen mana pun yang teksnya mengandung
+	 * substring {@code "nidn"}) menjadi satu {@link JSONObject} per dosen, menambahkannya ke
+	 * {@code data}, lalu <b>memanggil dirinya sendiri secara rekursif untuk halaman berikutnya</b>
+	 * ({@code page + 1}) sampai suatu halaman tidak lagi mengandung elemen artikel/dosen apa pun
+	 * (selector {@code dl[class=uk-description-list-line]} kosong) — pada titik itu rekursi berhenti.
+	 * Karena rekursi berbasis paginasi tanpa batas atas eksplisit, jumlah pemanggilan bergantung
+	 * sepenuhnya pada jumlah halaman yang tersedia di SINTA untuk kode perguruan tinggi tersebut.
+	 *
+	 * @param data  akumulator hasil; diisi di tempat (bukan dikembalikan) dengan satu
+	 *              {@link JSONObject} per dosen yang ditemukan pada seluruh halaman
+	 * @param kode  kode SINTA perguruan tinggi yang di-crawl
+	 * @param page  nomor halaman yang diambil pada pemanggilan ini (dimulai dari 1 oleh pemanggil
+	 *              awal di {@link #singkronkan})
+	 * @param label komponen ZKoss yang diperbarui dengan ringkasan data tiap dosen begitu ditemukan,
+	 *              sebagai indikator progres
+	 * @throws Exception diteruskan dari kegagalan koneksi HTTP Jsoup ({@code timeout} 3 detik) ke
+	 *                    situs SINTA
+	 */
 	public static void populateKodeSintaDosen(JSONArray data, String kode, int page, Label label) throws Exception {
 		Document doc = Jsoup.connect("https://sinta.kemdikbud.go.id/affiliations/profile")
 				.data("page", page + "", "view", "authors", "id", kode, "sort", "year2").userAgent("Mozilla")
@@ -263,6 +377,17 @@ public class SintaPtCrawler {
 		populateKodeSintaDosen(data, kode, ++page, label);
 	}
 
+	/**
+	 * Skrip uji coba manual berdiri sendiri: mengulang logika inti {@link
+	 * #populateKodeSintaDosen(JSONArray, String, int, Label)} (tanpa rekursi paginasi dan tanpa
+	 * parameter {@link Label}) terhadap SATU halaman profil afiliasi SINTA dengan kode perguruan
+	 * tinggi ({@code 626}) dan kode dosen ({@code 8443}) yang ditulis langsung sebagai literal,
+	 * mencetak hasil parsing sebagai JSON ke konsol. Tidak dipanggil dari alur aplikasi AIS — murni
+	 * untuk verifikasi manual perilaku parsing HTML saat pengembangan.
+	 *
+	 * @param argv argumen baris perintah; tidak dipakai
+	 * @throws Exception diteruskan dari kegagalan koneksi HTTP Jsoup ke situs SINTA
+	 */
 	public static void main(String[] argv) throws Exception {
 
 		Document doc = Jsoup.connect("https://sinta.kemdikbud.go.id/affiliations/profile/626")

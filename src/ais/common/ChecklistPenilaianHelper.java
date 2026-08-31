@@ -29,8 +29,106 @@ import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Kelas utilitas statis pusat untuk seluruh mekanisme "checklist/angket penilaian" di AIS —
+ * modul yang mewajibkan pengguna (mahasiswa, dosen, siswa, guru, orang tua, atau pengguna umum)
+ * mengisi kuesioner/angket tertentu (penilaian dosen, penilaian guru, angket umum, parameter
+ * tambahan) sebelum dapat melanjutkan aktivitas lain di sistem (pola umum: gate/pemblokir yang
+ * dicek di banyak titik alur aplikasi, mis. sebelum melihat nilai atau sebelum KRS).
+ *
+ * <p>
+ * Kelas ini menangani DUA JALUR checklist yang berbeda namun saling terkait:
+ * </p>
+ * <ol>
+ * <li><b>Checklist penilaian dosen "klasik"</b> — {@link #checkStatusChecklist(Dosen, String,
+ * String)}, dikaitkan langsung ke tabel {@code perkuliahan} (dosen1..dosen10) untuk menentukan
+ * mata kuliah mana saja yang diampu seorang dosen pada tahun ajaran/semester tertentu, lalu
+ * dicocokkan dengan checklist penilaian dosen aktif dan data yang sudah diisi lewat
+ * {@link ChecklistBaruPenilaianOlehDosen#count(Dosen, String, String)}.</li>
+ * <li><b>Checklist/angket "umum" berjadwal</b> — kumpulan method yang jauh lebih besar dan
+ * kompleks, berpusat pada tabel {@code jadwal_checklist_penilaian_umum} yang dapat menaungi
+ * beragam jenis pertanyaan sekaligus dalam satu jadwal: checklist penilaian umum langsung
+ * ({@code checklist_penilaian_umum}), parameter tambahan angket ({@code
+ * parameter_tambahan_angket_umum}), ATAU rujukan ke grup checklist penilaian dosen/guru
+ * ({@code grup_checklist_penilaian_dosen}/{@code grup_checklist_penilaian_guru}) yang harus
+ * diisi lewat jalur checklist dosen/guru terpisah. Jalur "umum" ini sendiri terbagi dua varian:
+ * varian TANPA grup kuesioner ({@code grup_kuesioner_umum is null}, ditargetkan berdasarkan
+ * peran pengguna — mahasiswa/dosen/siswa/guru/orang tua/umum/admin/asisten/alumni, lewat
+ * {@link #buildSqlTambahanUmum}) dan varian DENGAN grup kuesioner eksplisit ({@code
+ * grup_kuesioner_umum} merujuk ke {@code grup_kuosioner_umum_detail}, ditargetkan langsung ke
+ * userId tertentu, dipakai method-method bersufiks {@code UmumGrup}).</li>
+ * </ol>
+ *
+ * <p>
+ * Pola umum yang berulang pada hampir seluruh method publik "umum": (1) membangun query SQL
+ * native gabungan (multi-join) untuk menemukan jadwal checklist yang berlaku SAAT INI (filter
+ * tanggal {@code mulai}/{@code sampai} terhadap {@link ais.ui.util.WaktuUtil#getDate()}) dan
+ * relevan bagi pengguna; (2) mengumpulkan id pertanyaan/parameter yang WAJIB diisi ke dalam
+ * struktur {@link Set}; (3) mengambil data yang SUDAH diisi pengguna (lewat method
+ * {@code ambilChecklistHasilPenilaianUmum} pada entitas {@link Tbmuser}/{@link Mahasiswa}/
+ * {@link Dosen}, yang dapat memakai cache internal — parameter {@code refresh} memaksa
+ * pengambilan ulang tanpa cache); (4) membandingkan kedua himpunan tersebut untuk menyimpulkan
+ * status "masih ada yang wajib diisi tapi belum" ({@code adaChecklist}/{@code
+ * adaParameterTambahan}). Method-method "get" ({@code getJumlahStatusChecklistUmum*})
+ * mengembalikan array {@link Object}[] berisi rincian lengkap (dipakai layar yang perlu
+ * menampilkan progres, mis. "3 dari 5 terisi"), sedangkan method-method "check"
+ * ({@code checkStatusChecklist*}) membungkusnya menjadi satu {@link Boolean} sederhana
+ * (dipakai gate ya/tidak).
+ * </p>
+ *
+ * <p>
+ * <b>Manajemen sesi Hibernate</b> — seluruh method publik/privat pada kelas ini membuka sesi
+ * Hibernate MANDIRI (bukan sesi thread-local) lewat {@code HibernateUtil.getSessionFactory()
+ * .openSession()}, dan selalu menutupnya lewat helper {@link #closeOpenedSession(Session)} di
+ * blok {@code finally} — pola ini konsisten di seluruh kelas kecuali beberapa method lama yang
+ * masih menutup sesi secara manual inline. Kegagalan pada method "umum" ditangani secara
+ * "lunak" lewat {@link Common#tampilErrorJikaAdmin(Exception)} (menampilkan error hanya untuk
+ * admin) dan mengembalikan nilai default aman, sedangkan {@link #checkStatusChecklist} yang
+ * lebih lama masih memakai pola {@code e.printStackTrace()} + {@link
+ * ais.common.ErrorAuditUtil#record}.
+ * </p>
+ *
+ * <p>
+ * <b>CATATAN KEAMANAN — potensi SQL injection pada penyusunan query native:</b> sebagian besar
+ * method membangun SQL native lewat konkatenasi {@link StringBuilder} dan mengikat nilai lewat
+ * parameter bind (aman), NAMUN pada {@link #getJumlahStatusChecklistUmum(String, String,
+ * Tbmuser, boolean)} nilai parameter {@code tahunAkademik} dan {@code semester} DISISIPKAN
+ * LANGSUNG ke dalam string SQL lewat konkatenasi ({@code
+ * sql.append("...='").append(tahunAkademik).append("'")}), TANPA melalui parameter bind maupun
+ * fungsi {@link #escapeSql(String)} yang tersedia di kelas ini dan dipakai konsisten di method
+ * {@link #buildSqlTambahanUmum}. Bila kedua parameter tersebut pernah berasal dari input yang
+ * dapat dipengaruhi pengguna (bukan hanya nilai tetap dari kode pemanggil), ini berpotensi
+ * menjadi celah SQL injection. Javadoc ini TIDAK mengubah kode tersebut sesuai instruksi; lihat
+ * ringkasan laporan terkait untuk detail lokasi baris agar dapat ditindaklanjuti (mis. beralih
+ * ke parameter bind seperti pada method-method lain di kelas ini).
+ * </p>
+ */
 public class ChecklistPenilaianHelper {
 
+    /**
+     * Menentukan apakah seorang dosen MASIH memiliki checklist penilaian dosen (jalur
+     * "klasik", terkait langsung ke tabel {@code perkuliahan}) yang belum diisi untuk tahun
+     * ajaran/semester tertentu.
+     *
+     * <p>
+     * Alur kerja: (1) mencari id {@code perkuliahan} di mana dosen tersebut tercatat sebagai
+     * salah satu dari {@code dosen1} s.d. {@code dosen10}; (2) membentuk kunci
+     * {@code "<dosenId>-<perkuliahanId>"} untuk setiap mata kuliah yang diampu; (3) mengambil id
+     * checklist penilaian dosen yang aktif dan berlaku untuk dosen ({@code untukDosen=true});
+     * (4) mengambil data checklist yang SUDAH diisi lewat
+     * {@link ChecklistBaruPenilaianOlehDosen#count(Dosen, String, String)}; (5) untuk setiap
+     * kombinasi (id checklist x kunci mata kuliah), mengembalikan {@code true} SEGERA begitu
+     * ditemukan satu kombinasi yang belum ada di data terisi (short-circuit).
+     * </p>
+     *
+     * @param dosen       dosen yang statusnya ingin diperiksa; bila {@code null} atau belum
+     *                    memiliki id, method langsung mengembalikan {@code false}
+     * @param ganjilGenap penanda semester ganjil/genap
+     * @param tahunAjaran tahun ajaran yang diperiksa
+     * @return {@code true} bila masih ada kombinasi mata kuliah-checklist yang wajib namun
+     *         belum diisi dosen; {@code false} bila sudah lengkap, tidak ada mata kuliah/
+     *         checklist yang berlaku, atau terjadi kegagalan query
+     */
     @SuppressWarnings("unchecked")
     public static Boolean checkStatusChecklist(Dosen dosen, String ganjilGenap, String tahunAjaran) {
         if (dosen == null || dosen.getId() == null) {
@@ -108,6 +206,17 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /**
+     * Mengambil daftar pasangan (tahun akademik, semester) yang memiliki jadwal checklist/
+     * angket penilaian umum aktif dan berlaku SAAT INI bagi pengguna tertentu, KHUSUS untuk
+     * jadwal varian TANPA grup kuesioner eksplisit ({@code grup_kuesioner_umum is null}) —
+     * target ditentukan berdasarkan peran pengguna lewat {@link #buildSqlTambahanUmum}.
+     * Dipakai untuk mengisi pilihan tahun akademik/semester pada layar pengisian angket.
+     *
+     * @param tbmuser pengguna yang jadwalnya ingin diambil
+     * @return daftar {@code Object[]{tahunAkademik, semester}}, terurut; list kosong bila tidak
+     *         ada jadwal berlaku atau terjadi kegagalan query
+     */
     @SuppressWarnings("unchecked")
     public static List<Object[]> getJadwalChecklistUmum(Tbmuser tbmuser) {
         Session session = null;
@@ -139,6 +248,20 @@ public class ChecklistPenilaianHelper {
         return datas;
     }
 
+    /**
+     * Seperti {@link #getJadwalChecklistUmum(Tbmuser)}, namun KHUSUS untuk jadwal varian
+     * DENGAN grup kuesioner eksplisit ({@code grup_kuesioner_umum} merujuk ke
+     * {@code grup_kuosioner_umum_detail} yang menargetkan {@code tbmuser} tertentu secara
+     * langsung, bukan berdasarkan peran). Ikut mempertimbangkan jadwal yang isinya berupa
+     * rujukan ke grup checklist penilaian dosen ({@code grup_checklist_penilaian_dosen}) atau
+     * guru ({@code grup_checklist_penilaian_guru}), bukan hanya checklist/parameter umum
+     * langsung.
+     *
+     * @param tbmuser pengguna yang jadwalnya ingin diambil; bila {@code null} atau belum
+     *                memiliki userId, method langsung mengembalikan list kosong
+     * @return daftar {@code Object[]{tahunAkademik, semester}}, terurut; list kosong bila tidak
+     *         ada jadwal berlaku atau terjadi kegagalan query
+     */
     @SuppressWarnings("unchecked")
     public static List<Object[]> getJadwalChecklistUmumGrup(Tbmuser tbmuser) {
         Session session = null;
