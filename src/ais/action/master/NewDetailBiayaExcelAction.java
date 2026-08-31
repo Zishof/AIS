@@ -104,6 +104,39 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk new detail biaya excel. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code Row
+ * rowInfoTagihan}, {@code Row rowFilterPmb}, {@code Label infoTagihanLabel}, {@code Combobox searchTahunAjaran},
+ * {@code Combobox searchSemester}, {@code Combobox searchJenisKegiatan}, {@code Combobox searchProgram};
+ * inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code buatBarisInfoBilling()});
+ * pembacaan/pencarian ({@code tampilkanInfoTagihanTidakDitemukan()}, {@code loadEventListener()}, {@code
+ * preEventListener()}, {@code loadSearch()}, {@code tampilkanPengaturanPembayaranBulanan()}, {@code
+ * tampilkanPengaturanPembayaranBulananDetail()}); validasi/perhitungan ({@code
+ * hitungTotalNominalPerItemBiaya()}, {@code checkNilai()}, {@code checkKondisiSebelumMenyimpan()}); mutasi data
+ * ({@code onUbahActive()}, {@code updateFilterKelasDanTempatTinggal()}, {@code onSave()}, {@code onSaveRinci()},
+ * {@code hapusSaveDetailBiaya()}, {@code onSavePengaturanPembayaranBulananDetail()}); pelaporan/ekspor ({@code
+ * onCetak()}); operasi domain lain ({@code sembunyikanInfoTagihanTidakDitemukan()}, {@code
+ * parameterAnalisisAda()}, {@code pilihanAnalisisPresisi()}, {@code kunciComboAnalisis()}, {@code
+ * terapkanKunciFilterAnalisis()}, {@code changeLabelAngkatan()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 	/**

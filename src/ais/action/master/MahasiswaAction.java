@@ -197,6 +197,37 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk mahasiswa. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code Paging
+ * paging}, {@code MyGrid grid}, {@code Textbox searchnim}, {@code Textbox searchnama}, {@code Combobox
+ * searchfakultas}, {@code Combobox searchjurusan}, {@code Decimalbox searchtahun}; inisialisasi/lifecycle
+ * ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code initBiodata()}, {@code initLoginOrtu()}, {@code
+ * initAlumni()}, {@code initKelulusan()}); pembacaan/pencarian ({@code onDownloadLampiran()}, {@code
+ * onDownloadFoto()}, {@code onDownloadFotoMassal()}, {@code onUploadFotoMassal()}, {@code onUploadPassword()},
+ * {@code onUploadUKT()}); validasi/perhitungan ({@code checkNim()}, {@code
+ * validasiPerubahanStatusAwalPerSemester()}, {@code bersihkanDecimalboxTidakValid()}); mutasi data ({@code
+ * updateUser()}, {@code segarkanMahasiswaSetelahEditNim()}, {@code simpanPerubahanNim()}, {@code onSave()},
+ * {@code simpanPerubahanStatusAwalPerSemester()}); pelaporan/ekspor ({@code exportKeFeeder()}); operasi domain
+ * lain ({@code onStatistik()}, {@code onSynchronizeStatus()}, {@code onSuratMahasiswa()}, {@code
+ * onAlbumMahasiswa()}, {@code onRekapJumlahMahasiswa()}, {@code onDataMahasiswa()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class MahasiswaAction extends GenericAutowireComposer implements DataLoader, DataCriteria, DataSearchDefault {
 
 	/**

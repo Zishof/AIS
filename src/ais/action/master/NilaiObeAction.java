@@ -66,6 +66,38 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Controller/action ZK untuk nilai obe. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String STYLE_CARD}, {@code String
+ * STYLE_INFO}, {@code String STYLE_BADGE}, {@code String STYLE_NUMBER}, {@code String STYLE_LABEL}, {@code
+ * String STYLE_GRID}, {@code String STYLE_TOOLBAR}, {@code AmbilDataMahasiswaBanbox mahasiswa};
+ * inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code initMahasiswaFilter()},
+ * {@code initToolbarButtons()}, {@code initMk()}, {@code initRinci()}); pembacaan/pencarian ({@code
+ * reloadRinci()}, {@code loadAllCplForCpmk()}, {@code loadProfilMap()}, {@code getScale4Local()}, {@code
+ * onSearchDefault()}, {@code loadCpmkListForDashboard()}); validasi/perhitungan ({@code calculateObe()}, {@code
+ * calculateStudentObeDashboard()}, {@code hitungHurufObeSingle()}, {@code hitungPersenPerKomponenObe()}, {@code
+ * recalculateTotalPerFormatObe()}, {@code hitungKonversiObe()}); mutasi data ({@code
+ * saveMhsCatatanForStudent()}, {@code buildClassAveragesHtml()}, {@code parseTugasJSONForStudent()}, {@code
+ * parseIdsToSet()}); pelaporan/ekspor ({@code cetak()}, {@code onCetak()}); operasi domain lain ({@code
+ * showPortofolioMk()}, {@code showCqiEditor()}, {@code buildPortofolioMkHtml()}, {@code parameter()}, {@code
+ * createInfoRow()}, {@code buildFormatNilaiKeyMap()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class NilaiObeAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = -5779730267402400328L;
