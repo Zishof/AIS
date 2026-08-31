@@ -67,6 +67,36 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper tampilan & pengelolaan keikutsertaan siswa dalam kegiatan kesiswaan
+ * ({@link KegiatanKesiswaanPunyaSiswa}, analog kegiatan kemahasiswaan tetapi untuk jenjang
+ * sekolah). Dapat dipakai dalam dua konteks: (1) daftar seluruh kegiatan yang diikuti satu
+ * {@link Siswa} tertentu (via {@link #SiswaPunyaKegiatanKesiswaanHelper()} + {@link #display}),
+ * atau (2) daftar peserta satu kombinasi kelompok/detail/jabatan/skala/tahun akademik kegiatan
+ * tertentu lewat konstruktor filter eksplisit.
+ *
+ * <p>
+ * Baris keikutsertaan bersifat dapat diperluas (accordion selalu terbuka) menampilkan bukti
+ * kegiatan (upload), tombol cetak sertifikat (bila disetujui dan kegiatan punya template
+ * sertifikat), serta form edit inline (jabatan, skala, tanggal mulai/selesai, keterangan) yang
+ * hanya dapat diubah oleh siswa pemilik data sendiri SEBELUM disetujui — setelah persetujuan
+ * diberikan, seluruh field dikunci dan tombol hapus disembunyikan. Persetujuan
+ * ({@code persetujuan}) hanya dapat diberikan oleh staf (bukan siswa yang login).
+ * </p>
+ *
+ * <p>
+ * Toolbar menyediakan pencarian nama kegiatan, pengajuan kegiatan baru, pendaftaran diri ke
+ * kegiatan yang sudah ada, ekspor Excel dengan kolom tambahan berisi hyperlink ke berkas SK
+ * (lampiran), serta cetak laporan angka kredit siswa. Baris {@code kegiatanKesiswaanPunyaSiswa}
+ * yang diberikan lewat {@link #display(Siswa, Component, KegiatanKesiswaanPunyaSiswa)} disorot
+ * kuning dan selalu ditempatkan di baris pertama halaman (dipakai untuk menyorot data yang baru
+ * ditambahkan/diedit dari layar lain).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} dan {@link DataCriteria}.
+ * </p>
+ */
 public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -82,6 +112,7 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 	private String tahunAkademik = null;
 	private KegiatanKesiswaanPunyaSiswa kegiatanKesiswaanPunyaSiswa;
 
+	/** Konstruktor untuk mode "daftar kegiatan milik satu siswa" (tanpa filter kelompok/jabatan/skala tambahan); menyiapkan komponen paging. */
 	public SiswaPunyaKegiatanKesiswaanHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -96,6 +127,11 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 		});
 	}
 
+	/**
+	 * Konstruktor untuk mode "daftar peserta" satu kombinasi kelompok/detail/jabatan/skala/
+	 * tahun akademik kegiatan kesiswaan tertentu — parameter yang bernilai {@code null} tidak
+	 * ikut menyaring (dianggap "semua").
+	 */
 	public SiswaPunyaKegiatanKesiswaanHelper(KelompokKegiatanKesiswaan kelompokKegiatanKesiswaan,
 			DetailKelompokKegiatanKesiswaan detailKelompokKegiatanKesiswaan,
 			JabatanKegiatanKesiswaan jabatanKegiatanKesiswaan,
@@ -119,6 +155,7 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 		});
 	}
 
+	/** Merender satu baris keikutsertaan siswa: foto+identitas siswa, info kegiatan (revisi, kelompok, detail kelompok, tahun akademik/semester), bukti unggahan, form edit inline atau label read-only (lihat javadoc kelas untuk aturan hak edit), checkbox/label persetujuan, tombol hapus dan cetak sertifikat. */
 	class DetailSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailSiswaRenderer() {
@@ -389,6 +426,15 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link KegiatanKesiswaanPunyaSiswa} berdasarkan nama
+	 * kegiatan (contains) dan seluruh filter opsional yang diberikan lewat konstruktor/field
+	 * ({@link #siswa}, kelompok, detail kelompok, jabatan, skala, tahun akademik) — filter yang
+	 * bernilai {@code null} tidak ikut menyaring.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan berdasarkan id menurun (terbaru dulu)
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(KegiatanKesiswaanPunyaSiswa.class);
@@ -423,6 +469,13 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 		return criteria;
 	}
 
+	/**
+	 * Menyegarkan grid secara asinkron: bila {@link #kegiatanKesiswaanPunyaSiswa} (baris yang
+	 * perlu disorot) diset, baris tersebut selalu dipaksa tampil di posisi pertama halaman
+	 * (dikecualikan dari hasil query utama via {@code id != ...} agar tidak dobel), diikuti
+	 * hasil pencarian normal; selain itu, memuat halaman data sesuai {@link #initCriteria} dan
+	 * posisi {@link #paging} biasa.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -456,14 +509,26 @@ public class SiswaPunyaKegiatanKesiswaanHelper implements DataLoader, DataCriter
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pencarian kegiatan agar dapat memicu {@link #loadData(Object)} setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/** Varian {@link #display(Siswa, Component, KegiatanKesiswaanPunyaSiswa)} tanpa baris yang perlu disorot. */
 	public void display(Siswa siswa, Component component) {
 		display(siswa, component, null);
 	}
 
+	/**
+	 * Membangun panel lengkap daftar kegiatan kesiswaan milik {@code siswa} ke dalam
+	 * {@code component} (toolbar responsif — flex-wrap pada mobile, {@link Toolbar} biasa pada
+	 * desktop — dengan pencarian, "Ajukan Kegiatan Baru", "Ikut Kegiatan", ekspor Excel dengan
+	 * hyperlink SK, dan cetak angka kredit) di atas grid paging dengan area scroll tersendiri.
+	 *
+	 * @param siswa                       siswa yang kegiatannya ditampilkan
+	 * @param component                    kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param kegiatanKesiswaanPunyaSiswa  baris yang perlu disorot & dipaksa tampil pertama, boleh {@code null}
+	 */
 	public void display(final Siswa siswa, Component component,
 			KegiatanKesiswaanPunyaSiswa kegiatanKesiswaanPunyaSiswa) {
 		this.siswa = siswa;

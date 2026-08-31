@@ -37,13 +37,58 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Kelas fasad untuk membuatkan/mendapatkan kembali kode pembayaran (virtual account/link/QRIS)
+ * atas sekumpulan {@link Tagihan} siswa atau calon siswa, dengan mendukung BANYAK payment gateway
+ * sekaligus — Flip, eSmartlink (dengan pemilihan channel via {@link SmartlinkChannelWindow}),
+ * Finpay, QRIS (Jaring), BSI Maja, VA Jaring, VA BJB langsung, dan fallback generator VA internal
+ * ("Bank Online 2") — dipilih berdasarkan flag pada parameter {@code param} atau konfigurasi
+ * aktivasi masing-masing gateway. Hasil akhir selalu berupa satu baris {@link VirtualAccountBank}
+ * yang disimpan/diperbarui, dan bila ada {@link Tagihan} terkait, kolom VA/link/kadaluarsa pada
+ * tagihan tersebut ikut disinkronkan.
+ *
+ * <p>
+ * <b>Deduplikasi</b>: sebelum membuat kode pembayaran baru, dicari lebih dulu apakah sudah ada
+ * {@link VirtualAccountBank} yang cocok (siswa/calon siswa, bank host, tabungan, keterangan
+ * identik, belum kedaluwarsa, belum dibayar, tidak bermasalah) — bila ditemukan dan
+ * {@code update=false}, baris lama itu langsung dipakai ulang tanpa memanggil gateway lagi.
+ * </p>
+ *
+ * <p>
+ * <b>CATATAN KEAMANAN PENTING</b>: beberapa integrasi gateway di kelas ini memakai
+ * {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT berupa kredensial/rahasia
+ * yang tertanam langsung di kode sebagai fallback bila konfigurasi database belum diisi:
+ * <ul>
+ * <li>QRIS Jaring: {@code qris_jaring_merchantId} default {@code "3200124010015"},
+ * {@code qris_jaring_terminalId} default {@code "10010005"}, dan yang paling signifikan
+ * {@code qris_jaring_screet_key} default {@code "YnNuOmJzbg=="} — string Base64 yang mendekode
+ * menjadi {@code "bsn:bsn"} dan dipakai LANGSUNG sebagai secret key untuk menandatangani (SHA-256)
+ * permintaan ke gateway QRIS DAN sebagai header {@code Authorization: Basic}.</li>
+ * <li>VA Jaring: {@code va_jaring_screet_key} default {@code "amFyaW5nOmphcmluZw=="} — Base64 yang
+ * mendekode menjadi {@code "jaring:jaring"}, dipakai dengan cara yang sama (tanda tangan SHA-256 +
+ * header Basic Auth).</li>
+ * </ul>
+ * Kredensial ini tetap berfungsi sebagai secret sungguhan yang dikirim ke endpoint eksternal
+ * kapan pun baris konfigurasi terkait di database kosong/belum di-override — bukan sekadar contoh
+ * dokumentasi. Disarankan memindahkan nilai-nilai ini keluar dari kode sumber (mis. wajib diisi
+ * lewat konfigurasi, tanpa default tertanam) dan merotasi kredensial bila pernah dipakai di
+ * lingkungan produksi. Sesuai instruksi tugas, TIDAK diperbaiki di sini — hanya dilaporkan.
+ * </p>
+ */
 public class DownloadTagihanSiswaBankOnline {
 
+	/** Menyusun header HTTP Basic Authentication ({@code "Basic base64(username:password)"}) dari sepasang kredensial, dipakai oleh integrasi Flip dan Finpay. */
 	public static final String getBasicAuthenticationHeader(String username, String password) {
 		String valueToEncode = username + ":" + password;
 		return "Basic " + new String(org.apache.commons.codec.binary.Base64.encodeBase64(valueToEncode.getBytes()));
 	}
 
+	/**
+	 * Varian paling ringkas keluarga {@code downloadData}: tanpa tabungan/topup/warnings/batas
+	 * waktu eksplisit. Lihat implementasi kanonik
+	 * {@link #downloadData(Siswa, CalonSiswa, Collection, Map, Double, Double, Double, BankHost, AkunPembayaranSiswa, Sekolah, List, String)}
+	 * untuk uraian lengkap alur pembuatan kode pembayaran.
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa, Sekolah sekolah)
@@ -54,6 +99,7 @@ public class DownloadTagihanSiswaBankOnline {
 				sekolah, null, null);
 	}
 
+	/** Seperti varian ringkas, dengan {@code tabungan} (potongan dari saldo tabungan siswa) eksplisit. */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, Double tabungan, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa,
@@ -63,6 +109,7 @@ public class DownloadTagihanSiswaBankOnline {
 				sekolah, null, null);
 	}
 
+	/** Seperti di atas, dengan {@code warnings} eksplisit — bila diberikan (bukan {@code null}), pesan peringatan/gagal ditambahkan ke list ini alih-alih ditampilkan lewat {@link MyMessageboxConfig}. */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, Double tabungan, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa,
@@ -72,6 +119,7 @@ public class DownloadTagihanSiswaBankOnline {
 				sekolah, warnings, null);
 	}
 
+	/** Seperti di atas, dengan {@code topup} eksplisit (nilai top-up yang ikut memengaruhi entitas {@link VirtualAccountBank} tersimpan). */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, Double tabungan, Double topup, BankHost bankHost,
@@ -80,6 +128,7 @@ public class DownloadTagihanSiswaBankOnline {
 				sekolah, null, null);
 	}
 
+	/** Seperti di atas, dengan {@code topup} DAN {@code warnings} eksplisit, tanpa batas waktu kedaluwarsa kustom ({@code waktuSampai}). */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, Double tabungan, Double topup, BankHost bankHost,
@@ -88,6 +137,45 @@ public class DownloadTagihanSiswaBankOnline {
 				sekolah, warnings, null);
 	}
 
+	/**
+	 * Implementasi kanonik: membangun daftar item (biaya admin, potongan tabungan, setiap
+	 * {@link Tagihan}) dan teks keterangan gabungan, memvalidasi (tabungan tidak melebihi total,
+	 * total tidak nol/minus bila konfigurasi melarang, seluruh tagihan harus memakai kanal
+	 * pembayaran yang sama), mencari kode pembayaran EXISTING yang cocok untuk dipakai ulang, atau
+	 * bila tidak ada/{@code update=true} — memanggil SATU gateway sesuai flag di {@code param}
+	 * (urutan prioritas: {@code flip} → {@code esmartlink} → {@code finpay} → {@code qris} →
+	 * {@code maja}/konfigurasi {@code aktifkan_va_maja} → konfigurasi {@code aktifkan_va_jaring} →
+	 * {@code bjb_langsung}/konfigurasi {@code aktifkan_va_bjb_langsung} → fallback generator VA
+	 * internal "Bank Online 2"), lalu menyimpan hasil sebagai {@link VirtualAccountBank} dan
+	 * menyinkronkan kolom VA/link/kadaluarsa pada seluruh {@link Tagihan} terkait dalam SATU
+	 * transaksi batch. Lihat javadoc kelas untuk catatan keamanan mengenai kredensial default
+	 * tertanam pada jalur QRIS/VA Jaring.
+	 *
+	 * @param siswa                 siswa pemilik tagihan (mode siswa aktif), boleh {@code null}
+	 *                              bila konteksnya {@code calonSiswa}
+	 * @param calonSiswa            calon siswa pemilik tagihan (mode PPDB), boleh {@code null}
+	 *                              bila konteksnya {@code siswa}
+	 * @param tag                   kumpulan tagihan yang akan digabung dalam satu kode pembayaran
+	 * @param param                 flag pemilihan gateway ({@code qris}/{@code flip}/
+	 *                              {@code esmartlink}/{@code esmartlinkBayarVia}/{@code finpay}/
+	 *                              {@code maja}/{@code update}/{@code bjb_langsung})
+	 * @param biayaAdmin            biaya admin tambahan, ditambahkan sebagai item terpisah
+	 * @param tabungan              nilai potongan dari saldo tabungan siswa, boleh {@code null}
+	 * @param topup                 nilai top-up terkait, disimpan apa adanya ke entitas
+	 * @param bankHost              host bank tujuan (memengaruhi pencarian VA existing)
+	 * @param akunPembayaranSiswa   akun pembayaran terkait, disimpan apa adanya ke entitas
+	 * @param sekolah               sekolah pemilik konfigurasi kredensial gateway (Flip/eSmartlink/
+	 *                              Finpay)
+	 * @param warnings              bila diberikan, pesan peringatan/gagal ditambahkan ke sini
+	 *                              alih-alih ditampilkan lewat messagebox
+	 * @param waktuSampai           batas waktu kedaluwarsa kustom (konstanta
+	 *                              {@link SmartlinkChannelWindow}, mis. "15 menit"/"1 jam"), boleh
+	 *                              {@code null} untuk memakai aturan kedaluwarsa default
+	 * @return baris {@link VirtualAccountBank} yang tersimpan/dipakai ulang, atau {@code null} bila
+	 *         validasi gagal, gateway menolak, atau (khusus eSmartlink dengan beberapa channel
+	 *         biaya admin) jendela pemilihan channel dibuka dan proses ditunda menunggu pilihan
+	 *         pengguna
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			Map param, Double biayaAdmin, Double tabungan, Double topup, BankHost bankHost,
@@ -755,6 +843,14 @@ public class DownloadTagihanSiswaBankOnline {
 
 	// ===================== HELPER METHODS =====================
 
+	/**
+	 * Menghitung tanggal kedaluwarsa kode pembayaran. Bila {@code waktuSampai} diberikan, dipetakan
+	 * ke salah satu durasi tetap milik {@link SmartlinkChannelWindow} (15 menit s.d. 1 bulan) relatif
+	 * terhadap waktu sekarang. Bila tidak, jatuh ke aturan konfigurasi berjenjang: akhir hari ini
+	 * ({@code tagihan_expired_akhir_hari}) → jumlah jam ({@code tagihan_expired_jam}) → jumlah hari
+	 * ({@code tagihan_expired_day}) → {@code null} (tidak ada batas eksplisit, ditangani pemanggil
+	 * dengan default +1 hari).
+	 */
 	private static Date hitungWaktuExpired(String waktuSampai) {
 		Date expired_date = null;
 		if (waktuSampai != null) {
@@ -823,6 +919,7 @@ public class DownloadTagihanSiswaBankOnline {
 		return expired_date;
 	}
 
+	/** Mengembalikan nomor HP pertama pada {@code phones} yang tampak valid (panjang 9-14 karakter, bukan nilai sampah dikenal seperti string nol berulang), atau {@code fallback} bila tidak ada yang valid. */
 	private static String dapatkanNoHpValid(String fallback, String... phones) {
 		for (String phone : phones) {
 			if (phone != null && !phone.trim().isEmpty() && phone.length() > 8 && phone.length() < 15
@@ -833,6 +930,7 @@ public class DownloadTagihanSiswaBankOnline {
 		return fallback;
 	}
 
+	/** Melaporkan {@code message}: ditambahkan ke {@code warnings} bila diberikan, jika tidak ditampilkan lewat {@link MyMessageboxConfig}. Galat penampilan ditelan diam-diam. */
 	private static void tampilkanPeringatan(String message, List<String> warnings) {
 		try {
 			if (warnings != null) {
@@ -844,6 +942,12 @@ public class DownloadTagihanSiswaBankOnline {
 		}
 	}
 
+	/**
+	 * Mem-parsing respons mentah {@code respons} dari gateway {@code layanan} (mis. "eSmartlink")
+	 * menjadi {@link JSONObject}, dengan pesan galat yang jelas dan aman untuk ditampilkan ke
+	 * pengguna bila respons kosong, bukan JSON (mis. halaman HTML error dipangkas & tag dibuang),
+	 * atau JSON tidak valid — mencegah stack trace mentah/HTML gateway bocor ke pesan galat.
+	 */
 	private static JSONObject bacaResponsJson(String respons, String layanan) throws Exception {
 		String isi = respons == null ? "" : respons.trim();
 		if (isi.length() == 0) {

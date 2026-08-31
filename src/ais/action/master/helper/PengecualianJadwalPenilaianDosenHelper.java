@@ -54,6 +54,33 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK berbentuk window untuk mengelola alur pengajuan-persetujuan
+ * {@link PengecualianJadwalPenilaianDosen} — izin bagi dosen untuk menilai di luar jadwal
+ * penilaian baku, dengan status {@code PENGAJUAN} → {@code DISETUJU}/{@code DITOLAK}.
+ *
+ * <p>
+ * Perilaku dan hak akses bercabang berdasarkan peran user login (dicek lewat serangkaian method
+ * privat {@link #penggunaDosen()}, {@link #milikDosenAktif}, {@link #diajukanOlehPenggunaAktif},
+ * {@link #bolehUbahRincian}, {@link #bolehProsesStatus}):
+ * </p>
+ * <ul>
+ * <li><b>Dosen</b> hanya melihat pengajuannya sendiri (filter otomatis di {@link #loadData}),
+ * mengajukan lewat tombol "Ajukan Izin Penilaian" (self-service, langsung memakai data dosen dari
+ * akun login), dan hanya boleh mengubah rincian (tahun akademik/semester/tanggal) selama status
+ * masih {@code PENGAJUAN} dan pengajuan itu miliknya sendiri — dosen TIDAK bisa mengubah status
+ * (approve/reject) atau menghapus data.</li>
+ * <li><b>Admin/staf non-dosen</b> dapat menambah pengajuan untuk dosen lain secara massal (lewat
+ * {@link AmbilDataDosenBanyak}), mengubah rincian (bila punya hak {@code UPDATE}), memproses status
+ * approve/reject (bila punya hak {@code APPROVE} dan {@code REJECT}, dan BUKAN pengaju pengajuan
+ * tersebut — mencegah admin menyetujui pengajuannya sendiri), serta menghapus data (bila punya hak
+ * {@code DELETE}).</li>
+ * </ul>
+ * <p>
+ * Status yang sudah punya {@code disposisiSop} terkait terkunci (tidak bisa diubah lagi). Setiap
+ * baris juga menyediakan tombol cetak lewat {@link CommonReportHelper#onCetakPengecualianJadwalPenilaianDosen}.
+ * </p>
+ */
 public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -62,10 +89,12 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	private Textbox nama;
 
+	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
 	public PengecualianJadwalPenilaianDosenHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** @return {@code true} bila user login berperan sebagai dosen (role {@code DOSEN}); fail-closed bila relasi dosen belum tersedia. */
 	private boolean penggunaDosen() {
 		Tbmuser pengguna = Common.getCurrentUser();
 		// Role DOSEN tetap dibatasi walaupun relasi ambilDosen() belum tersedia.
@@ -74,6 +103,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
 	}
 
+	/** @return {@code true} bila {@code data} adalah pengajuan milik dosen yang sedang login. */
 	private boolean milikDosenAktif(PengecualianJadwalPenilaianDosen data) {
 		Tbmuser pengguna = Common.getCurrentUser();
 		Dosen dosenAktif = pengguna == null ? null : pengguna.ambilDosen();
@@ -82,6 +112,7 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 				&& data.getDosen().getId().equals(dosenAktif.getId());
 	}
 
+	/** @return {@code true} bila {@code data} diajukan oleh user yang sedang login (via {@code dibuatOleh} atau sebagai dosen pemilik). */
 	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
 		Tbmuser pengguna = Common.getCurrentUser();
 		if (pengguna == null || data == null) {
@@ -95,6 +126,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 		return milikDosenAktif(data);
 	}
 
+	/**
+	 * @return bagi dosen: {@code true} hanya bila {@code data} miliknya sendiri dan statusnya masih
+	 *         {@code PENGAJUAN}; bagi non-dosen: bergantung hak {@code UPDATE}.
+	 */
 	private boolean bolehUbahRincian(PengecualianJadwalPenilaianDosen data) {
 		if (penggunaDosen()) {
 			return milikDosenAktif(data)
@@ -103,6 +138,10 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 		return CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 	}
 
+	/**
+	 * @return {@code true} bila user login adalah admin non-dosen dengan hak {@code APPROVE} dan
+	 *         {@code REJECT}, DAN bukan pengaju {@code data} itu sendiri (mencegah self-approval).
+	 */
 	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
 		return Common.getApakahAdmin() && !penggunaDosen() && !diajukanOlehPenggunaAktif(data)
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)
@@ -114,6 +153,15 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 				MyMessageboxConfig.EXCLAMATION);
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link PengecualianJadwalPenilaianDosen}: identitas dosen
+	 * (dari {@code tbmuser} atau {@code dosen}, mana pun yang tersedia), field yang bisa diedit
+	 * (tahun akademik, jenis semester, tanggal mulai/sampai — dikunci sesuai
+	 * {@link #bolehUbahRincian} dan status), combobox/label status (approve/reject hanya tampil
+	 * sebagai combobox bagi yang berwenang lewat {@link #bolehProsesStatus}, selain itu label
+	 * baca-saja), serta tombol cetak dan hapus (hapus disembunyikan untuk dosen atau tanpa hak
+	 * {@code DELETE}).
+	 */
 	class PengecualianJadwalPenilaianDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PengecualianJadwalPenilaianDosenRenderer() {
@@ -385,6 +433,14 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan {@link PengecualianJadwalPenilaianDosen}, diurutkan id menurun,
+	 * difilter berdasarkan nama dosen (ILIKE anywhere), jurusan, dan fakultas — dibatasi
+	 * {@link Common#MAX_RESULT_50}. Bila user login berperan dosen, hasil otomatis difilter hanya
+	 * miliknya sendiri (lihat {@link #penggunaDosen()}).
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -412,6 +468,14 @@ public class PengecualianJadwalPenilaianDosenHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan window "Daftar pengecualian jadwal penilaian dosen": form filter
+	 * (nama, fakultas, prodi), toolbar aksi (yang teksnya berubah tergantung peran — "Ajukan Izin
+	 * Penilaian" self-service untuk dosen, atau "Ambil Data Dosen" massal via
+	 * {@link AmbilDataDosenBanyak} untuk admin — plus tombol cari), dan grid berpaging.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	public void display() throws InterruptedException {
 
 		final MyWindow window = new MyWindow("Daftar pengecualian jadwal penilaian dosen", "none", true);

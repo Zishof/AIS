@@ -15,17 +15,42 @@ import ais.database.model.JenisKegiatan;
 import ais.database.model.Jenjang;
 import ais.database.model.Konfigurasi;
 
+/**
+ * {@link TimerTask} penjadwalan yang dimaksudkan untuk menonaktifkan status seluruh mahasiswa
+ * (lintas {@link Jenjang}) yang terlambat membayar kewajiban pendaftaran mahasiswa lama pada
+ * tahun akademik/semester berjalan — hanya berjalan bila konfigurasi
+ * {@code mhs_all_lambat_bayar_langsung_tidak_aktif} bernilai {@link Konfigurasi#AKTIF}.
+ *
+ * <p>
+ * <b>Catatan penting:</b> pernyataan SQL {@code UPDATE mahasiswa SET status = ...} yang
+ * sesungguhnya menonaktifkan mahasiswa (baris ~70-82) sudah DIKOMENTARI di file ini — saat ini
+ * {@link #doProcess()} hanya mencatat log dan membuka/menutup transaksi kosong per {@link
+ * Jenjang} tanpa benar-benar mengubah status mahasiswa mana pun. Efek fungsional task ini saat
+ * ini terbatas pada logging (via {@code System.out}) dan pengecekan dini: bila masih ada {@link
+ * JadwalPembayaran} yang berlaku untuk suatu jenjang (dicek lewat {@link
+ * ais.action.ws.util.PembayaranUtil#getJadwalPembayaranDanDendaIgnoreStart}), method berhenti
+ * total (early return) untuk seluruh jenjang tersisa, bukan hanya melewati jenjang itu.
+ * </p>
+ */
 public class AutoNotActivatingMahasiswaSemuaJenjangProcessor extends TimerTask {
 
 	public AutoNotActivatingMahasiswaSemuaJenjangProcessor() {
 
 	}
 
+	/** Implementasi {@link TimerTask#run}: delegasi ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Lihat catatan penting pada javadoc kelas: SQL penonaktifan mahasiswa yang sesungguhnya
+	 * sedang dikomentari, sehingga saat ini method ini efektif hanya logging + no-op per
+	 * {@link Jenjang} (kecuali early-return total bila jadwal pembayaran suatu jenjang masih
+	 * berlaku). Sesi Hibernate dibuka manual dan selalu dibersihkan (clear/disconnect/close) di
+	 * blok {@code finally}.
+	 */
 	@SuppressWarnings("unchecked")
 	private void doProcess() {
 

@@ -9,10 +9,31 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang menyinkronkan tabel {@code foto_mahasiswa} (foto profil
+ * tunggal per mahasiswa, dipakai untuk tampilan ringkas di seluruh aplikasi) dari dua sumber data
+ * mentah: {@code biodata_mahasiswa}/{@code foto_biodata_mahasiswa} (mengambil foto utama, atau bila
+ * tidak ada foto mana pun yang tersedia) dan {@code biodata_calon_mahasiswa} (foto dari data
+ * pendaftaran PMB yang dicocokkan lewat NIM). Hanya menyisipkan baris untuk mahasiswa yang belum
+ * punya baris {@code foto_mahasiswa} sama sekali (idempoten terhadap eksekusi berulang) dan
+ * membersihkan baris yang akhirnya tetap tanpa foto.
+ *
+ * <p>
+ * Proses ini sengaja dibatasi hanya berjalan pada satu/beberapa server tertentu dalam klaster untuk
+ * menghindari duplikasi kerja: aktif hanya bila konfigurasi {@code foto_mahasiswa_syncrhonizer}
+ * bernilai {@link Konfigurasi#AKTIF} DAN hostname mesin saat ini ({@link #localIp}, sebenarnya
+ * hostname bukan alamat IP walau namanya menyiratkan demikian) cocok dengan salah satu dari tiga
+ * slot host yang diizinkan ({@code info1}/{@code info2}/{@code info3} pada baris konfigurasi
+ * tersebut). Konfigurasi tambahan {@code foto_mahasiswa_syncrhonizer_clean} (bila AKTIF)
+ * mengosongkan seluruh tabel {@code foto_mahasiswa} sebelum sinkronisasi ulang dari awal —
+ * digunakan untuk memaksa build ulang penuh, bukan mode normal sehari-hari.
+ * </p>
+ */
 public class FotoMahasiswaSyncrhonizerProcessor extends TimerTask {
 
 	private String localIp = "";
 
+	/** Merekam hostname server saat ini ke {@link #localIp}, dipakai {@link #run()} untuk menentukan apakah proses ini boleh berjalan pada server ini. */
 	public FotoMahasiswaSyncrhonizerProcessor() {
 		InetAddress thisIp;
 		try {
@@ -25,6 +46,7 @@ public class FotoMahasiswaSyncrhonizerProcessor extends TimerTask {
 		}
 	}
 
+	/** Titik masuk {@link TimerTask}: memanggil {@link #doProcess()} yang melakukan seluruh pengecekan gerbang (konfigurasi aktif + host cocok) dan sinkronisasi foto. */
 	@Override
 	public void run() {
 		doProcess();

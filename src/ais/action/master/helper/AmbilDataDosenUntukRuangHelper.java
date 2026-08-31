@@ -41,6 +41,12 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog "Ambil Data Dosen" pada penempatan {@link Ruang}: menampilkan grid
+ * pencarian dosen aktif (nama/fakultas/jurusan, dengan dosen "milik universitas" selalu ikut tampil
+ * lepas dari filter fakultas/jurusan) dengan checkbox pilih per baris. {@link #save()} menetapkan
+ * {@code ruang} pada setiap dosen yang dicentang.
+ */
 public class AmbilDataDosenUntukRuangHelper {
 	private MyGrid grid;
 
@@ -51,10 +57,12 @@ public class AmbilDataDosenUntukRuangHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Menyiapkan kombo filter fakultas/jurusan (opsi "Semua" disertakan). */
 	public AmbilDataDosenUntukRuangHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Row renderer grid pencarian dosen: checkbox pilih, NIP, nama, ruang saat ini, jurusan, dan fakultas. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
@@ -76,6 +84,7 @@ public class AmbilDataDosenUntukRuangHelper {
 		}
 	}
 
+	/** Menetapkan {@code ruang} pada setiap dosen yang dicentang di grid dan menyimpannya. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		TimDosenDao timDosenDao = DaoFactory.getInstance().gettTimDosenDao();
@@ -101,6 +110,14 @@ public class AmbilDataDosenUntukRuangHelper {
 
 	}
 
+	/**
+	 * Membangun window modal pencarian+pilih dosen (filter, grid checkbox, tombol Simpan/Cari/Batal)
+	 * untuk ruang yang diberikan dan memuat data awal.
+	 *
+	 * @param ruang      ruang tujuan penempatan dosen
+	 * @param dataLoader callback yang dipanggil ulang setelah "Simpan" berhasil
+	 * @param window     window yang dipakai sebagai kanvas dialog (dibersihkan lebih dulu)
+	 */
 	public void display(Ruang ruang, final DataLoader dataLoader, final MyWindow window) {
 		this.ruang = ruang;
 		Common.clear(window);
@@ -290,6 +307,7 @@ public class AmbilDataDosenUntukRuangHelper {
 		});
 	}
 
+	/** Mencari dosen aktif sesuai filter nama/jurusan/fakultas (dosen "milik universitas" selalu ikut lepas dari filter jurusan/fakultas), dibatasi {@link Common#MAX_RESULT} baris, dan me-render ulang grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

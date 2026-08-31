@@ -25,6 +25,34 @@ import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * {@link EventListener} yang membangun dan mengelola blok "parameter tambahan" pada formulir
+ * biodata mahasiswa ({@link BiodataMahasiswa}) — field kustom dinamis (per {@link
+ * ParameterTambahan}, dikelompokkan oleh {@link KelompokParameterTambahanMahasiswa}) yang dapat
+ * dikonfigurasi admin, mis. pertanyaan tambahan spesifik institusi beserta lampiran
+ * pendukungnya. Field yang ditampilkan disaring berdasarkan tahun angkatan mahasiswa (parameter
+ * yang ditandai {@code tampilDiSemuaTahunAngkatan} atau yang daftar {@code tahunAngkatans}-nya
+ * memuat angkatan mahasiswa tersebut) dan status aktif kelompok/parameternya.
+ *
+ * <p>
+ * Nilai tersimpan sebagai teks terserialisasi baris-per-baris pada
+ * {@code biodataMahasiswa.getParameterTambahanInds()}, dengan format
+ * {@code "<idKelompok>-><idParameter><=>nilai<=>...<=>keterangan"} per baris — di-parse manual
+ * lewat {@code split("\n")}/{@code split("<=>")} baik saat merender nilai awal field ({@link
+ * #onEvent}) maupun saat memvalidasi ({@link #validate}).
+ * </p>
+ *
+ * <p>
+ * {@link #onEvent} (dipasang sebagai listener perubahan konteks, mis. saat tahun angkatan
+ * berubah) membangun ulang seluruh baris field dari awal; {@link #onSave} menyerahkan proses
+ * pengumpulan nilai balik ke {@link BiodataMahasiswa#populateParameterTambahan}; {@link
+ * #validate} adalah method statis independen (tidak memerlukan instance dibangun via {@link
+ * #onEvent} lebih dulu) yang memeriksa parameter wajib diisi/wajib lampiran dan menampilkan
+ * pesan peringatan bila ada yang belum lengkap; {@link #check} hanya memeriksa apakah ada
+ * parameter tambahan relevan sama sekali untuk mahasiswa ini (dipakai untuk menyembunyikan
+ * seluruh blok bila tidak ada konfigurasi yang berlaku).
+ * </p>
+ */
 public class ParameterTambahanMahasiswaListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -32,6 +60,12 @@ public class ParameterTambahanMahasiswaListener implements EventListener {
 	private BiodataMahasiswa biodataMahasiswa;
 	private Map<String, LampiranLain> lampiranLains;
 
+	/**
+	 * @param biodataMahasiswa biodata mahasiswa yang parameter tambahannya dikelola
+	 * @param parameterRows    daftar baris ZK yang dibangun/dikelola listener ini (dibaca ulang oleh {@link #onSave})
+	 * @param lampiranLains    peta lampiran yang sudah diunggah per kunci parameter, diteruskan ke {@link ParameterTambahan#initComponent}
+	 * @param rows             komponen {@link Rows} induk tempat baris field ditambahkan
+	 */
 	public ParameterTambahanMahasiswaListener(BiodataMahasiswa biodataMahasiswa, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
 		this.parameterRows = parameterRows;
@@ -40,6 +74,17 @@ public class ParameterTambahanMahasiswaListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi bahwa seluruh parameter tambahan wajib (aktif, relevan dengan tahun angkatan
+	 * mahasiswa) sudah diisi — termasuk lampiran wajib bila parameter mensyaratkannya. Berhenti
+	 * pada kegagalan validasi pertama yang ditemukan (tidak mengumpulkan semua kegagalan
+	 * sekaligus).
+	 *
+	 * @param biodataMahasiswa data yang divalidasi; {@code null} langsung dianggap valid
+	 * @param eventListener    dipanggil setelah pesan peringatan ditutup (bila {@code tampilMessage}) atau langsung (bila tidak) pada kegagalan validasi
+	 * @param tampilMessage    bila {@code true}, tampilkan {@link MyMessageboxConfig} peringatan; bila {@code false}, langsung panggil {@code eventListener} tanpa dialog
+	 * @return {@code true} bila semua parameter wajib terpenuhi; {@code false} bila ada yang belum
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean validate(BiodataMahasiswa biodataMahasiswa, EventListener eventListener,
 			final Boolean tampilMessage) throws Exception {
@@ -137,10 +182,12 @@ public class ParameterTambahanMahasiswaListener implements EventListener {
 		return true;
 	}
 
+	/** Mengumpulkan nilai seluruh field parameter tambahan yang sedang ditampilkan kembali ke {@code biodataMahasiswa}, lewat {@link BiodataMahasiswa#populateParameterTambahan}. */
 	public void onSave(BiodataMahasiswa biodataMahasiswa) {
 		biodataMahasiswa.populateParameterTambahan(parameterRows);
 	}
 
+	/** @return {@code true} bila ada minimal satu parameter tambahan aktif yang relevan untuk tahun angkatan {@link #biodataMahasiswa}; {@code false} bila tidak ada (blok dapat disembunyikan). */
 	public boolean check() {
 		Integer gel = biodataMahasiswa.getMahasiswa() == null ? null
 				: biodataMahasiswa.getMahasiswa().getTahunangkatan();
@@ -156,6 +203,15 @@ public class ParameterTambahanMahasiswaListener implements EventListener {
 		return c != 0;
 	}
 
+	/**
+	 * Membangun ulang dari awal seluruh baris field parameter tambahan: menghapus baris lama
+	 * ({@link #parameterRows}), lalu untuk tiap kelompok parameter relevan (aktif, sesuai tahun
+	 * angkatan) membuat baris judul kelompok diikuti satu baris per {@link ParameterTambahan}
+	 * aktif di dalamnya — komponen input tiap field dibangun oleh {@link
+	 * ParameterTambahan#initComponent}, diisi nilai awal yang diurai dari
+	 * {@code parameterTambahanInds}. Baris judul kelompok hanya ditampilkan bila minimal satu
+	 * field di dalamnya nyata dirender.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

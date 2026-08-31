@@ -65,6 +65,33 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK yang menampilkan daftar {@link KegiatanKedosenan} yang telah ditugaskan ke
+ * satu {@link Dosen} tertentu (lewat relasi {@link KegiatanKedosenanPunyaDosen}), atau — bila
+ * dibuat lewat konstruktor kedua — daftar lintas dosen yang disaring berdasarkan kelompok/detail
+ * kelompok kegiatan, jabatan, skala, dan tahun akademik (dipakai dari layar rekap/monitoring
+ * admin). Setiap baris dapat diperluas untuk menampilkan detail: unggah bukti kegiatan, tombol
+ * cetak sertifikat (bila kegiatan sudah disetujui dan punya template sertifikat), serta — bagi
+ * dosen pemilik kegiatan sendiri (sebelum disetujui) atau atasan langsungnya — kontrol edit
+ * (jabatan, skala, tanggal mulai/selesai, keterangan) dan checkbox persetujuan atasan, dengan
+ * tombol hapus yang hilang otomatis setelah disetujui.
+ *
+ * <p>
+ * Toolbar menyediakan pencarian nama kegiatan/dosen, tombol "Ajukan Kegiatan Baru" (membuka
+ * {@code KegiatanKedosenanAction.onAddExternal}), "Ambil Kegiatan Yang Ada" (membuka
+ * {@link AmbilDataKegiatanForKegiatanKedosenanHelper} untuk menugaskan kegiatan yang sudah ada ke
+ * dosen), dan tombol unduh Excel (dengan kolom tambahan hyperlink ke lampiran SK, disusun manual
+ * lewat Apache POI/ZK POI).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} dan {@link DataCriteria}. Bila helper dibuat dengan
+ * {@code kegiatanKedosenanPunyaDosen} spesifik (lewat
+ * {@link #display(Dosen, Component, KegiatanKedosenanPunyaDosen)}), baris tersebut selalu
+ * ditampilkan PALING ATAS (disorot kuning) di halaman manapun grid berada, terlepas dari hasil
+ * paging normal.
+ * </p>
+ */
 public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -80,6 +107,7 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 	private String tahunAkademik = null;
 	private KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen;
 
+	/** Membuat helper tanpa filter kelompok/jabatan/skala/tahun akademik (hanya menyaring berdasarkan {@link Dosen} yang diberikan ke {@link #display}); menyiapkan paging server-side. */
 	public DosenPunyaKegiatanKedosenanHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -94,6 +122,15 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 		});
 	}
 
+	/**
+	 * Membuat helper dengan filter tambahan, dipakai dari layar rekap/monitoring lintas dosen.
+	 *
+	 * @param kelompokKegiatanKedosenan       filter kelompok kegiatan, boleh {@code null}
+	 * @param detailKelompokKegiatanKedosenan filter detail kelompok kegiatan, boleh {@code null}
+	 * @param jabatanKegiatanKedosenan        filter jabatan pada kegiatan, boleh {@code null}
+	 * @param skalaKegiatanKedosenan          filter skala kegiatan, boleh {@code null}
+	 * @param tahunAkademik                   filter tahun akademik kegiatan, boleh {@code null}
+	 */
 	public DosenPunyaKegiatanKedosenanHelper(KelompokKegiatanKedosenan kelompokKegiatanKedosenan,
 			DetailKelompokKegiatanKedosenan detailKelompokKegiatanKedosenan,
 			JabatanKegiatanKedosenan jabatanKegiatanKedosenan, SkalaKegiatanKedosenan skalaKegiatanKedosenan,
@@ -117,6 +154,15 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 		});
 	}
 
+	/**
+	 * Perender baris grid: menyorot baris kuning bila cocok dengan {@link #kegiatanKedosenanPunyaDosen}
+	 * yang diminta helper dibuka. Menampilkan foto+identitas dosen, kegiatan+kelompok+tahun ajaran
+	 * (dengan riwayat revisi), area unggah bukti kegiatan, dan — untuk dosen pemilik (sebelum
+	 * disetujui) atau atasan langsungnya — kontrol edit lengkap (jabatan, skala, tanggal, keterangan,
+	 * checkbox persetujuan) beserta tombol hapus; bagi user lain, kolom-kolom tersebut ditampilkan
+	 * sebagai label read-only. Tombol cetak sertifikat muncul hanya setelah kegiatan disetujui dan
+	 * memiliki template sertifikat.
+	 */
 	class DetailDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailDosenRenderer() {
@@ -380,6 +426,15 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 
 	}
 
+	/**
+	 * Membangun kriteria {@link KegiatanKedosenanPunyaDosen} sesuai pencarian nama (kegiatan atau
+	 * dosen, ilike), dan seluruh filter opsional helper (dosen — atau bawahan langsung dosen login
+	 * bila filter dosen tidak diisi, kelompok/detail kelompok/jabatan/skala kegiatan, tahun
+	 * akademik).
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menurun berdasarkan id
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 
@@ -423,6 +478,15 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid secara asinkron: menghitung total baris untuk paging, lalu mengambil satu
+	 * halaman {@link KegiatanKedosenanPunyaDosen} sesuai kriteria. Bila helper dibuka dengan
+	 * {@link #kegiatanKedosenanPunyaDosen} spesifik, baris tersebut SELALU disisipkan di posisi
+	 * pertama daftar (dikecualikan dari hasil paging normal via {@code Restrictions.ne("id", ...)})
+	 * agar tetap terlihat di halaman manapun.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -458,14 +522,27 @@ public class DosenPunyaKegiatanKedosenanHelper implements DataLoader, DataCriter
 
 	}
 
+	/** @return referensi ke helper ini sendiri, dipakai sebagai {@link DataLoader} oleh helper penambah data. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/** Seperti {@link #display(Dosen, Component, KegiatanKedosenanPunyaDosen)} tanpa baris yang perlu disorot/ditampilkan lebih dulu. */
 	public void display(final Dosen dosen, Component component) {
 		display(dosen, component, null);
 	}
 
+	/**
+	 * Membangun dan menampilkan UI daftar kegiatan kedosenan ke dalam {@code component}: toolbar
+	 * pencarian dan aksi (Ajukan Kegiatan Baru, Ambil Kegiatan Yang Ada — keduanya hanya tampil bila
+	 * user login, unduh Excel dengan kolom hyperlink lampiran SK), dan grid ber-paging di dalam
+	 * area scroll tetap (60vh).
+	 *
+	 * @param dosen                       dosen konteks (menentukan filter kegiatan miliknya)
+	 * @param component                   komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param kegiatanKedosenanPunyaDosen bila diberikan, baris relasi ini disorot dan selalu
+	 *                                    ditampilkan pertama di grid; boleh {@code null}
+	 */
 	public void display(final Dosen dosen, Component component,
 			KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen) {
 		this.dosen = dosen;

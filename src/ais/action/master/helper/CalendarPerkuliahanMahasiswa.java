@@ -32,6 +32,31 @@ import ais.database.model.Tbmuser;
 import ais.ui.util.CustomSimpleDateFormatter;
 import ais.ui.util.MyComboitemConfig;
 
+/**
+ * Composer ZK (bukan helper "generic" biasa — dikaitkan langsung ke halaman .zul lewat {@link
+ * GenericForwardComposer}) yang menampilkan jadwal kuliah mingguan satu mahasiswa dalam bentuk
+ * kalender visual ({@link Calendars} milik ZK Calendar). Mahasiswa yang ditampilkan ditentukan
+ * dari, berurutan: parameter request {@code selectedMahasiswa} (id), lalu atribut sesi
+ * {@code selectedMahasiswa} (dihapus setelah dibaca), lalu mahasiswa milik user login saat ini.
+ *
+ * <p>
+ * Rentang jam tampil (default 07:00-23:00) dan zona waktu kalender dapat diatur lewat
+ * konfigurasi {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code
+ * penjadwalan_timezone}; nilai jam yang berformat {@code "HH:mm"} atau {@code "HH.mm"} diparse
+ * lewat {@link #parseJamKonfigurasi} (mengambil bagian jam saja, dibatasi 0-24). Filter tahun
+ * ajaran dan jenis semester (Ganjil/Genap/Semester Pendek) memicu {@link #initCalendarModel()}
+ * yang mengambil jadwal {@link Perkuliahan} (termasuk kelas paralel) mahasiswa lalu mengubahnya
+ * jadi entri {@link SimpleCalendarEvent} berulang mingguan lewat {@link #initModel}.
+ * </p>
+ *
+ * <p>
+ * {@link #initModel(SimpleCalendarModel, List)} bersifat statis dan dapat dipakai ulang oleh
+ * composer/halaman kalender lain: untuk tiap {@link Perkuliahan}, hari dan jam mulai/selesai
+ * diproyeksikan ke minggu kalender berjalan, entri dengan jam mulai=selesai (durasi nol, biasa
+ * terjadi pada data tidak lengkap) dilewati, dan kartu event diberi label matakuliah, dosen,
+ * kelas/ruang, jurusan/fakultas, serta tanda "[P]" berwarna merah untuk kelas paralel.
+ * </p>
+ */
 public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 2010111240904L;
@@ -44,17 +69,26 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 
 	protected Integer semesterPendek = null;
 
+	/** Event handler tombol/aksi refresh: membangun ulang model kalender dan memaksa komponen {@link #calendars} me-render ulang. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Hook keamanan standar ZK: menolak akses sebelum halaman dibangun bila sesi tidak valid. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Inisialisasi halaman: menentukan mahasiswa yang ditampilkan (lihat javadoc kelas), mengisi
+	 * combobox jenis semester, mengatur format tanggal/rentang jam/zona waktu kalender dari
+	 * konfigurasi, memilih semester berjalan (ganjil/genap otomatis), mengisi combobox tahun
+	 * ajaran, lalu memuat kalender lewat {@link #onRefresh(Event)}. Menampilkan alert dan
+	 * berhenti bila tidak ada user login atau user tersebut bukan/tidak terkait mahasiswa.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -135,6 +169,16 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		onRefresh(null);
 	}
 
+	/**
+	 * Mengurai bagian jam dari nilai konfigurasi berformat {@code "HH"}, {@code "HH:mm"}, atau
+	 * {@code "HH.mm"} (bagian menit diabaikan; kalender ZK Calendar hanya menerima jam bulat
+	 * untuk batas awal/akhir tampilan).
+	 *
+	 * @param nilai         teks konfigurasi; {@code null}/kosong mengembalikan {@code nilaiDefault}
+	 * @param nilaiDefault  nilai jam fallback
+	 * @return jam (0-24)
+	 * @throws IllegalArgumentException bila jam hasil parse di luar rentang 0-24
+	 */
 	private static Integer parseJamKonfigurasi(String nilai, int nilaiDefault) {
 		if (nilai == null || nilai.trim().length() == 0) {
 			return Integer.valueOf(nilaiDefault);
@@ -154,6 +198,13 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		return Integer.valueOf(jam);
 	}
 
+	/**
+	 * Membangun ulang model kalender ({@link SimpleCalendarModel}) berdasarkan tahun ajaran dan
+	 * jenis semester yang dipilih pada combobox. Bila jenis semester adalah Semester Pendek (SP),
+	 * jadwal diambil khusus untuk {@code Perkuliahan.SEMESTER_PENDEK}; selain itu diambil sesuai
+	 * paritas semester (ganjil/genap) dan {@link #semesterPendek} (biasanya {@code null}). Tidak
+	 * melakukan apa pun bila tahun ajaran atau jenis semester belum dipilih.
+	 */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null ? null
@@ -179,6 +230,18 @@ public class CalendarPerkuliahanMahasiswa extends GenericForwardComposer {
 		calendars.onInitRender();
 	}
 
+	/**
+	 * Mengonversi daftar id {@link Perkuliahan} menjadi entri {@link SimpleCalendarEvent} pada
+	 * {@code cm}, satu event per hari jadwal (jadwal dengan {@code hari} yang cocok terhadap
+	 * {@link Common#haris}) diproyeksikan ke minggu kalender berjalan. Event dengan waktu mulai
+	 * sama dengan waktu selesai (durasi nol) dilewati. Kartu event dikunci ({@code setLocked})
+	 * dan diberi warna tetap, dengan konten HTML berisi nama matakuliah (ditandai "[P]" merah
+	 * bila kelas paralel), dosen pengampu, kelas/ruang, jurusan/fakultas, dan keterangan bila ada.
+	 * Statis dan dapat dipakai ulang oleh composer kalender lain yang membutuhkan tampilan serupa.
+	 *
+	 * @param cm          model kalender tujuan, diisi di tempat
+	 * @param perkuliahan daftar id {@link Perkuliahan} yang akan diproyeksikan sebagai event
+	 */
 	public static void initModel(SimpleCalendarModel cm, List<Long> perkuliahan) {
 		for (Long perkuliahanid : perkuliahan) {
 			Perkuliahan myPerkuliahan = (Perkuliahan) ConstantValues.ambil(Perkuliahan.class.getName(), perkuliahanid);

@@ -62,6 +62,34 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper tampilan pemutaran video pertemuan e-learning ({@link VideoPertemuan}): satu pertemuan
+ * dapat memiliki beberapa video dari berbagai sumber (Google Drive, YouTube, Facebook, tautan
+ * bebas, atau berkas terunggah), masing-masing dirender sebagai iframe embed atau daftar tautan
+ * dengan pratinjau. Bila hanya ada satu video, ditampilkan langsung; bila lebih dari satu,
+ * ditampilkan sebagai grup tombol tab ({@link ais.ui.util.MyButtonTabbox}) satu tab per video,
+ * dimuat lazy.
+ *
+ * <p>
+ * Untuk staf pengajar (bukan mahasiswa/siswa/calon mahasiswa/calon siswa) dengan hak
+ * {@link #delete}, toolbar menyediakan: tambah/ambil video dari sumber lain (menyalin video
+ * yang sudah ada — {@code copyDari} — sebagai baris baru yang ditautkan ke pertemuan/kurikulum
+ * saat ini), tautan video eksternal, unggah dari Google Drive/Dropbox, scan foto/scan layar
+ * (rekam kelas), keterangan tambahan yang dapat diedit inline, dan hapus video. Untuk mahasiswa/
+ * peserta didik, syarat kehadiran/tugas terkait video ditampilkan read-only lewat
+ * {@link Tugas#tampilanSyaratReadonly}, sedangkan staf melihat form syarat yang dapat diedit
+ * lewat {@link Tugas#tampilanSyarat}.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan implementasi</b> — tombol hapus video TIDAK menghapus baris {@link VideoPertemuan}
+ * dari database, melainkan menjalankan {@code UPDATE} SQL native yang mengosongkan seluruh
+ * kolom foreign key (pertemuan, kurikulum-punya-matakuliah, kurikulum-punya-matakuliah-detail,
+ * grup pertemuan) dengan nilai sentinel {@code -11111111111111111} — pola "lepas keterkaitan"
+ * ini membuat video tidak lagi muncul di halaman manapun tanpa benar-benar menghapus data
+ * historisnya.
+ * </p>
+ */
 public class VideoPertemuanHelper implements DataLoader {
 
 	private Pertemuan pertemuan;
@@ -74,11 +102,31 @@ public class VideoPertemuanHelper implements DataLoader {
 	private Center center;
 	private VideoPertemuan selectedVideoPertemuan = null;
 
+	/**
+	 * @param delete       {@code true} bila pengguna berhak menambah/mengedit/menghapus video
+	 *                     (toolbar aksi ditampilkan); {@code false} untuk mode tampil saja
+	 * @param tampilkanMk  bila {@code true}, info mata kuliah pertemuan ikut ditampilkan di atas video
+	 */
 	public VideoPertemuanHelper(Boolean delete, boolean tampilkanMk) {
 		this.delete = delete;
 		this.tampilkanMk = tampilkanMk;
 	}
 
+	/**
+	 * Membangun konten pemutar untuk satu {@code videoPertemuan}: iframe embed Google Drive/
+	 * YouTube/Facebook bila salah satunya diisi; selain itu, daftar tautan (dari
+	 * {@code keteranganTambahan}/{@code link}, atau URL media hasil salin berkas lokal ke
+	 * direktori media publik bila video berupa berkas terunggah) dengan tautan otomatis
+	 * dilinkifikasi di dalam teks keterangan. Menambahkan info revisi {@link Pertemuan} terkait
+	 * di akhir (baik dari parameter {@code pertemuan} maupun, bila tidak diberikan, dari
+	 * {@code videoPertemuan.getPertemuan()}). Menandai pertemuan sudah diakses lewat
+	 * {@code pertemuan.masukkanData("video_"+id)}.
+	 *
+	 * @param videoPertemuan   video yang akan dirender
+	 * @param pertemuan        pertemuan konteks untuk info revisi, boleh {@code null}
+	 * @param tampilKeterangan tampilkan blok keterangan tambahan/isi teks di atas embed
+	 * @return {@link Grid} berisi seluruh baris konten yang dibangun
+	 */
 	public static Grid createBoxVideo(final VideoPertemuan videoPertemuan, Pertemuan pertemuan,
 			boolean tampilKeterangan) throws Exception {
 		if (pertemuan != null)
@@ -207,6 +255,15 @@ public class VideoPertemuanHelper implements DataLoader {
 		return rowVideo.getGrid();
 	}
 
+	/**
+	 * Membangun tampilan lengkap satu video pertemuan ke dalam {@code tabpanelUtama}: blok
+	 * syarat/tugas terkait (edit untuk staf, read-only untuk mahasiswa/peserta didik — lihat
+	 * javadoc kelas), tombol unduh/putar video, keterangan tambahan (editable untuk staf
+	 * ber-{@link #delete}, dengan auto-save dan pembaruan label tab tombol), tombol hapus (staf
+	 * ber-{@link #delete}), penanda "dilihat" ({@link TampilanELearningAction#dilihat}), embed
+	 * video ({@link #createBoxVideo}), dan blok syarat/info lain (hanya dirender bila benar-benar
+	 * berisi data, menghindari grid kosong tampil sebagai garis-garis kosong).
+	 */
 	private void tampilkanKonten(final Component tabpanelUtama, final VideoPertemuan videoPertemuan) throws Exception {
 		Borderlayout borderlayout = new Borderlayout();
 		borderlayout.setParent(tabpanelUtama);
@@ -520,6 +577,16 @@ public class VideoPertemuanHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat/menyegarkan tampilan: mengambil daftar {@link VideoPertemuan} yang relevan —
+	 * seluruh video pertemuan ({@link Pertemuan#ambilVideoPertemuanTotal()}) bila {@link #pertemuan}
+	 * diset; selain itu, disaring berdasarkan {@link #kurikulumPunyaMatakuliahDetail}, daftar
+	 * {@link #pertemuans}, atau {@link #kurikulumPunyaMatakuliah} (urutan prioritas filter),
+	 * dibatasi {@link Common#MAX_RESULT_20}. Bila hanya satu video ditemukan, ditampilkan
+	 * langsung lewat {@link #tampilkanKonten}; bila lebih, dibangun grup tombol tab satu per
+	 * video (label diambil dari keterangan tambahan atau nama/link, dipotong 15 karakter), dan
+	 * tab {@link #selectedVideoPertemuan} (bila diset) dipilih otomatis.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.clear(center);
@@ -638,11 +705,13 @@ public class VideoPertemuanHelper implements DataLoader {
 
 	}
 
+	/** Varian {@link #display} untuk menampilkan video dari beberapa {@link Pertemuan} sekaligus (mis. rekap video mingguan), disaring berdasarkan daftar id pertemuan. */
 	public void display(final List<Number> pertemuans, final Component component) {
 		this.pertemuans = pertemuans;
 		display(pertemuan, null, null, component, null);
 	}
 
+	/** Varian {@link #display(Pertemuan, KurikulumPunyaMatakuliah, KurikulumPunyaMatakuliahDetail, Component, String, VideoPertemuan)} tanpa {@code rtmpLink} eksplisit. */
 	public void display(final Pertemuan pertemuan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliahTemp,
 			final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail, final Component component,
 			VideoPertemuan selectedVideoPertemuan) {
@@ -650,6 +719,19 @@ public class VideoPertemuanHelper implements DataLoader {
 				selectedVideoPertemuan);
 	}
 
+	/**
+	 * Membangun toolbar aksi video (scan foto/layar, tambah-ambil video, tautan eksternal,
+	 * unggah Google Drive/Dropbox, refresh — masing-masing hanya untuk staf ber-{@link #delete}
+	 * yang relevan, memicu {@code pertemuan.belum("video_pertemuan")} sebelum menyegarkan) di
+	 * atas area konten video, lalu memuat data awal lewat {@link #loadData(Object)}.
+	 *
+	 * @param pertemuan                     pertemuan konteks, boleh {@code null}
+	 * @param kurikulumPunyaMatakuliahTemp  konteks mata kuliah kurikulum, diabaikan bila {@code kurikulumPunyaMatakuliahDetail} diberikan (diturunkan dari situ)
+	 * @param kurikulumPunyaMatakuliahDetail konteks detail kurikulum-matakuliah, boleh {@code null}
+	 * @param component                     kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param rtmpLink                      tidak dipakai langsung pada badan method ini
+	 * @param selectedVideoPertemuan        video yang tab-nya otomatis dipilih saat data dimuat, boleh {@code null}
+	 */
 	public void display(final Pertemuan pertemuan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliahTemp,
 			final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail, final Component component,
 			final String rtmpLink, VideoPertemuan selectedVideoPertemuan) {

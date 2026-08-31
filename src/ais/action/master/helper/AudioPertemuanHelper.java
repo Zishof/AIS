@@ -59,6 +59,26 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK untuk menampilkan dan mengelola lampiran audio ({@link AudioPertemuan})
+ * terkait satu {@link Pertemuan} (atau, lebih luas, satu {@link KurikulumPunyaMatakuliah}/
+ * {@link KurikulumPunyaMatakuliahDetail}, atau kumpulan banyak pertemuan sekaligus). Digunakan pada
+ * tampilan e-learning untuk memutar/mengunduh materi audio, menampilkan syarat akses (bila ada),
+ * dan — bagi user berwenang (bukan mahasiswa/siswa/calon) — menambah, mengubah keterangan, atau
+ * menghapus audio.
+ *
+ * <p>
+ * Bila hanya ada satu audio yang cocok, kontennya ditampilkan langsung; bila lebih dari satu,
+ * ditampilkan sebagai tab (vertikal di mobile) yang dimuat malas saat tab dibuka — dengan tab yang
+ * cocok dengan {@code selectedAudioPertemuan} (bila diberikan) dipilih otomatis, atau tab pertama
+ * bila tidak ada yang cocok. Penghapusan bersifat "soft" — bukan {@code DELETE} baris, melainkan
+ * SQL {@code UPDATE} yang menimpa kolom relasi ({@code pertemuan}, {@code kurikulumpunyamatakuliah},
+ * dst.) dengan id sentinel negatif agar audio lepas dari semua tautan tapi baris tetap ada. Audio
+ * dapat ditambah lewat pemilihan dari sumber lain (menyalin/{@code clone} lewat
+ * {@link AmbilDataAudioPertemuan}), tautan langsung, unggah Google Drive, atau Dropbox — masing-
+ * masing didelegasikan ke method statis {@link AmbilDataAudioPertemuan}.
+ * </p>
+ */
 public class AudioPertemuanHelper implements DataLoader {
 
 	private Pertemuan pertemuan;
@@ -71,11 +91,32 @@ public class AudioPertemuanHelper implements DataLoader {
 	private Center center;
 	private AudioPertemuan selectedAudioPertemuan = null;
 
+	/**
+	 * @param delete       bila {@code true}, tombol tambah/hapus dan edit keterangan audio
+	 *                     ditampilkan bagi user berwenang
+	 * @param tampilkanMk  bila {@code true}, info matakuliah pertemuan ikut ditampilkan di bawah
+	 *                     konten audio (hanya berlaku saat menampilkan satu audio, lewat
+	 *                     {@link Pertemuan#tampilMk(Vbox)})
+	 */
 	public AudioPertemuanHelper(Boolean delete, boolean tampilkanMk) {
 		this.delete = delete;
 		this.tampilkanMk = tampilkanMk;
 	}
 
+	/**
+	 * Membangun grid berisi konten pemutar satu {@link AudioPertemuan}: pratinjau embed Google
+	 * Drive bila {@code audioPertemuan.getGdrive()} terisi, atau tautan eksternal lain dari
+	 * {@code getLink()}; diikuti keterangan tambahan (dengan URL di dalamnya diubah jadi tautan
+	 * klik), dan info revisi pertemuan terkait (dicari dari {@code audioPertemuan.getPertemuan()}
+	 * bila parameter {@code pertemuan} tidak diberikan). Menandai pertemuan sudah "mengakses" audio
+	 * ini lewat {@link Pertemuan#masukkanData(String)}.
+	 *
+	 * @param audioPertemuan audio yang akan ditampilkan
+	 * @param pertemuan      pertemuan terkait untuk info revisi; boleh {@code null} (akan dicoba
+	 *                       dicari otomatis dari {@code audioPertemuan.getPertemuan()})
+	 * @return grid siap dipasang ke parent
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI
+	 */
 	public static Grid createBoxAudio(final AudioPertemuan audioPertemuan, Pertemuan pertemuan) throws Exception {
 		if (pertemuan != null)
 			pertemuan.masukkanData("audio_" + audioPertemuan.getId());
@@ -149,6 +190,18 @@ public class AudioPertemuanHelper implements DataLoader {
 		return rowAudio.getGrid();
 	}
 
+	/**
+	 * Menampilkan satu {@link AudioPertemuan} secara lengkap di dalam {@code tabpanelUtama}: syarat
+	 * akses (bila pertemuan terkait punya syarat, ditampilkan editable untuk staf atau read-only
+	 * untuk mahasiswa/peserta), tombol putar/unduh audio, keterangan (dapat diedit oleh non-peserta
+	 * bila {@link #delete} aktif) dengan tombol hapus, indikator "dilihat"
+	 * ({@link TampilanELearningAction#dilihat}), konten pemutar (lewat {@link #createBoxAudio}), dan
+	 * opsional info matakuliah bila {@link #tampilkanMk}.
+	 *
+	 * @param tabpanelUtama  komponen induk tempat konten ditampilkan
+	 * @param audioPertemuan audio yang ditampilkan
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+	 */
 	private void tampilkanKonten(final Component tabpanelUtama, final AudioPertemuan audioPertemuan) throws Exception {
 		Borderlayout borderlayout = new Borderlayout();
 		borderlayout.setParent(tabpanelUtama);
@@ -445,6 +498,17 @@ public class AudioPertemuanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang area konten dengan seluruh {@link AudioPertemuan} yang cocok: bila
+	 * {@link #pertemuan} diberikan, memakai {@link Pertemuan#ambilAudioPertemuanTotal()}; selain
+	 * itu, query langsung ke {@link AudioPertemuan} difilter berdasarkan
+	 * {@link #kurikulumPunyaMatakuliahDetail}, daftar {@link #pertemuans}, atau
+	 * {@link #kurikulumPunyaMatakuliah} (urutan prioritas filter sesuai kondisi yang tersedia),
+	 * dibatasi {@link Common#MAX_RESULT_50}. Hasil satu audio ditampilkan langsung; lebih dari satu
+	 * ditampilkan sebagai tab (lihat javadoc kelas).
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -575,11 +639,34 @@ public class AudioPertemuanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Varian {@link #display(Pertemuan, KurikulumPunyaMatakuliah, KurikulumPunyaMatakuliahDetail,
+	 * Component, AudioPertemuan)} untuk menampilkan audio dari BANYAK pertemuan sekaligus
+	 * (mis. rekap audio satu minggu), sesuai daftar id {@code pertemuans}.
+	 *
+	 * @param pertemuans daftar id {@link Pertemuan} yang audionya digabung ditampilkan
+	 * @param component  komponen induk ZK tempat UI dibangun
+	 */
 	public void display(final List<Number> pertemuans, final Component component) {
 		this.pertemuans = pertemuans;
 		display(pertemuan, null, null, component, null);
 	}
 
+	/**
+	 * Membangun UI lengkap: toolbar aksi (scan foto/tambah/link/upload GDrive/upload Dropbox/refresh
+	 * — visibilitas tombol tambah bergantung {@link #delete}, toolbar keseluruhan hanya untuk user
+	 * non-mahasiswa/siswa/calon) dan area konten. Lalu memuat datanya.
+	 *
+	 * @param pertemuan                     pertemuan yang audionya ditampilkan; boleh {@code null}
+	 * @param kurikulumPunyaMatakuliahTemp   konteks kurikulum-matakuliah bila tidak spesifik ke satu
+	 *                                       pertemuan; diabaikan (ditimpa) bila
+	 *                                       {@code kurikulumPunyaMatakuliahDetail} diberikan
+	 * @param kurikulumPunyaMatakuliahDetail konteks detail kurikulum-matakuliah; bila diberikan,
+	 *                                       {@code kurikulumPunyaMatakuliahTemp} diturunkan darinya
+	 * @param component                     komponen induk ZK; isinya dibersihkan lebih dulu
+	 * @param selectedAudioPertemuan        audio yang tab-nya dipilih otomatis saat dibuka, boleh
+	 *                                       {@code null}
+	 */
 	public void display(final Pertemuan pertemuan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliahTemp,
 			final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail, final Component component,
 			AudioPertemuan selectedAudioPertemuan) {

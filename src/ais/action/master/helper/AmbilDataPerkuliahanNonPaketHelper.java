@@ -60,6 +60,45 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal "Ambil Data Matakuliah" — inti alur pengisian KRS mahasiswa untuk
+ * mata kuliah NON-PAKET (mahasiswa memilih sendiri kelas {@link Perkuliahan} yang tersedia,
+ * berbeda dari paket kurikulum tetap). Menampilkan grid mata kuliah yang tersedia pada
+ * semester/tahun akademik terpilih, dengan checkbox pilih per mata kuliah, informasi
+ * kapasitas kelas, status ketersediaan, prasyarat, dan batas SKS berdasarkan IPK.
+ *
+ * <p>
+ * Aturan bisnis utama yang diterapkan saat merender dan menyimpan pilihan:
+ * </p>
+ * <ul>
+ * <li><b>Deduplikasi mata kuliah</b> — bila mahasiswa sudah mengambil mata kuliah yang
+ * sama (di kelas/jadwal berbeda) pada semester genap/ganjil yang sama tahun akademik ini,
+ * baris ditampilkan sebagai label saja (tidak dapat dicentang) dengan keterangan info;
+ * checkbox hanya muncul untuk kombinasi mata kuliah yang benar-benar baru.</li>
+ * <li><b>Kapasitas kelas</b> — checkbox dinonaktifkan otomatis bila jumlah peserta yang
+ * sudah masuk mencapai {@code kapasitasKelas} (atau {@link Ruang#getDefaultKapasitas()}
+ * bila tidak diset); status render mata kuliah menampilkan label "Tersedia"/"Penuh".</li>
+ * <li><b>Baris disembunyikan</b> otomatis bila kelas penuh, mata kuliah yang sama sudah
+ * ditampilkan pada baris lain yang terlihat (hanya baris pertama per mata kuliah yang
+ * ditampilkan), atau jadwalnya bentrok jam dengan mata kuliah lain yang sudah ditampilkan
+ * ({@link Common#checkJamBentrok}).</li>
+ * <li><b>Batas SKS</b> — setiap kali checkbox diubah,
+ * {@link Common#checkPembatasanSKSBerdasarkanIP} dicek (dilewati untuk semester pendek);
+ * bila melebihi batas, pilihan dibatalkan dan label total SKS diperbarui.</li>
+ * <li><b>Prasyarat mata kuliah</b> — {@link Common#checkMatakuliahPrasyarat} dicek baik
+ * saat checkbox diubah maupun saat {@link #save()}; mata kuliah yang tidak lolos prasyarat
+ * tidak dapat dicentang/disimpan.</li>
+ * <li><b>Anti-uncheck entri belum disetujui</b> — mata kuliah yang sudah tersimpan
+ * sebagai entri KRS TIDAK BOLEH di-uncheck langsung dari layar ini; pengguna diarahkan
+ * untuk menghapusnya dari papan KRS terlebih dahulu.</li>
+ * </ul>
+ *
+ * <p>
+ * Penyimpanan ({@link #save()}) memakai {@link KrsUtilHelper#simpanKrsJikaBelumAda} untuk
+ * mencegah duplikasi entri KRS, dan otomatis menyetujui entri baru bila konfigurasi
+ * {@code saat_ambil_krs_langsung_disetujui} aktif.
+ * </p>
+ */
 public class AmbilDataPerkuliahanNonPaketHelper {
 
 	private String tahunAjaran;
@@ -78,6 +117,7 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 	private Paging paging;
 	private Integer tahapan;
 
+	/** Membuat helper; {@code semesterPendek} menentukan apakah pencarian {@link Perkuliahan} membatasi pada status semester pendek tertentu atau reguler ({@code null}). Menyiapkan paging 15 baris/halaman. */
 	public AmbilDataPerkuliahanNonPaketHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 
@@ -91,15 +131,37 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		});
 	}
 
+	/**
+	 * Perender baris grid mata kuliah non-paket. Melacak state lintas-baris via
+	 * {@link #longs} (id mata kuliah yang sudah ditampilkan pada halaman ini) dan
+	 * {@link #perkuliahans} (kelas yang sudah ditampilkan, untuk cek bentrok jam) —
+	 * KEDUA set ini di-reset otomatis setiap instance renderer baru dibuat (satu
+	 * instance per pemanggilan {@link #onSearchDefault(Event)}), sehingga deduplikasi
+	 * dan cek bentrok hanya berlaku dalam satu halaman render, bukan lintas halaman.
+	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		private PerkuliahanDao perkuliahanDao = DaoFactory.getInstance().getPerkuliahanDao();
 
 		private Session session = perkuliahanDao.getCurrentSession();
 
+		/** Id mata kuliah yang sudah ditampilkan (baris terlihat) pada render halaman saat ini — mencegah mata kuliah sama tampil dua kali. */
 		private Set<Long> longs = new HashSet<Long>();
+		/** Kelas {@link Perkuliahan} yang sudah ditampilkan (baris terlihat) pada render halaman saat ini — dipakai untuk cek bentrok jam terhadap baris berikutnya. */
 		private List<Perkuliahan> perkuliahans = new ArrayList<Perkuliahan>();
 
+		/**
+		 * Merender satu baris {@link Perkuliahan}: menyembunyikan baris bila mata
+		 * kuliah kosong, kelas penuh, mata kuliah sama sudah tampil di baris lain pada
+		 * halaman ini, atau bentrok jam dengan kelas lain yang sudah tampil. Checkbox
+		 * hanya ditampilkan (bukan label statis) bila mahasiswa belum mengambil mata
+		 * kuliah ini sama sekali pada semester genap/ganjil berjalan DAN kurikulum
+		 * kelas ini boleh diambil mahasiswa ({@link Kurikulum#bolehAmbil}); dinonaktifkan
+		 * bila kelas sudah penuh. Menampilkan SKS, daftar prasyarat, nama kurikulum, dan
+		 * label status berwarna (Terpilih/Tersedia/Penuh/dsb). Listener {@code onCheck}
+		 * menegakkan cek prasyarat dan larangan uncheck entri yang sudah tersimpan, lalu
+		 * memanggil {@link #updateStatus(Checkbox, Matakuliah)}.
+		 */
 		@Override
 		public void render(Row row, Object arg1) throws Exception {
 			// TODO Auto-generated method stub
@@ -248,6 +310,13 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 
 	}
 
+	/**
+	 * Dipanggil setelah checkbox mata kuliah berubah: memeriksa
+	 * {@link #apakahMelebihiKetentuan()} — bila melebihi batas SKS, checkbox yang baru
+	 * diubah dibatalkan dan label total SKS diperbarui. Sisa method ini (loop atas baris
+	 * grid yang tercentang/tidak) saat ini tidak melakukan aksi lebih lanjut selain
+	 * mengumpulkan info (tidak ada efek samping tambahan pada baris lain).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void updateStatus(Checkbox checkbox, Matakuliah matakuliah) throws Exception {
 		if (apakahMelebihiKetentuan()) {
@@ -284,6 +353,13 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		}
 	}
 
+	/**
+	 * Menghitung total SKS mata kuliah yang saat ini tercentang di grid (via
+	 * {@link KrsUtilHelper#hitungSksYangTelahDiambil}) dan memperbarui label
+	 * {@link #sksYangdiambil} bila sudah dibuat.
+	 *
+	 * @return total SKS mata kuliah tercentang
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Integer hitungSksYangTelahDiambil() {
 		Map<Long, Perkuliahan> map = new java.util.HashMap<Long, Perkuliahan>();
@@ -311,6 +387,14 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		return jumlah;
 	}
 
+	/**
+	 * Mengecek apakah SKS yang tercentang saat ini melebihi batas maksimal berdasarkan
+	 * IPK mahasiswa ({@link Common#checkPembatasanSKSBerdasarkanIP}). Selalu
+	 * {@code false} (tidak dibatasi) untuk semester pendek.
+	 *
+	 * @return {@code true} bila melebihi ketentuan batas SKS
+	 * @throws Exception diteruskan dari perhitungan batas SKS
+	 */
 	@SuppressWarnings({})
 	private boolean apakahMelebihiKetentuan() throws Exception {
 		return semesterPendek != null && semesterPendek.equals(Perkuliahan.SEMESTER_PENDEK) ? false
@@ -318,6 +402,22 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 						hitungSksYangTelahDiambil(), semesterPendek);
 	}
 
+	/**
+	 * Menyimpan seluruh mata kuliah yang tercentang di grid sebagai entri KRS. Untuk
+	 * setiap baris tercentang (dedup per mata kuliah dalam satu pemanggilan): mengecek
+	 * ulang batas SKS ({@link #apakahMelebihiKetentuan()}, membatalkan seluruh
+	 * penyimpanan bila melebihi) dan prasyarat mata kuliah; entri KRS yang sudah ada
+	 * (belum disetujui) diperbarui, entri baru dicek dulu terhadap kapasitas kelas
+	 * (peringatan ditampilkan dan mata kuliah tersebut dilewati bila kelas jadi penuh)
+	 * lalu disimpan lewat {@link KrsUtilHelper#simpanKrsJikaBelumAda}. Entri baru
+	 * otomatis disetujui bila konfigurasi {@code saat_ambil_krs_langsung_disetujui}
+	 * aktif. Kegagalan pada satu baris tidak menghentikan pemrosesan baris lain.
+	 *
+	 * @return {@code true} bila berhasil diproses (termasuk saat sebagian mata kuliah
+	 *         dilewati karena kapasitas); {@code false} bila batas SKS terlampaui
+	 *         (tidak ada apa pun yang disimpan)
+	 * @throws Exception diteruskan dari pengecekan batas SKS/akses Hibernate
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws Exception {
 
@@ -424,6 +524,19 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Matakuliah": form filter
+	 * (Fakultas/Kode MK/Prodi/Program/Nama MK/Semester/Tahun Akademik — Fakultas/Prodi/
+	 * Program diinisialisasi sesuai data mahasiswa saat ini namun tetap dapat diubah),
+	 * ringkasan SKS yang telah diambil vs batas maksimal berdasarkan IPK, grid berpaging
+	 * mata kuliah tersedia, dan tombol Simpan/Batal.
+	 *
+	 * @param mahasiswa  mahasiswa yang mengisi KRS
+	 * @param tahunAjaran tahun akademik yang dicari kelasnya
+	 * @param semester   semester akademik yang dipilih pada combobox
+	 * @param tahapan    tahapan KRS, dipakai untuk perhitungan batas SKS
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah Simpan (dipanggil dengan {@code true})
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final Integer tahapan, final DataLoader dataLoader) {
 		this.mahasiswa = mahasiswa;
@@ -725,6 +838,16 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		onSearchDefault(null);
 	}
 
+	/**
+	 * Membangun kriteria pencarian {@link Perkuliahan} yang tersedia untuk diambil:
+	 * aktif, ditandai tampil saat pengambilan KRS, status semester pendek sesuai
+	 * {@link #semesterPendek}, BUKAN kelas paralel ({@code merupakan_paralel=false}),
+	 * dan disaring opsional oleh Fakultas/Prodi/Program/Semester/Kode MK/Nama MK yang
+	 * sedang terisi.
+	 *
+	 * @param order tambahkan pengurutan berdasarkan nama mata kuliah bila {@code true}
+	 * @return kriteria Hibernate atas {@link Perkuliahan}
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Program program = (Program) (programCombobox.getSelectedItem() == null ? null
@@ -767,6 +890,16 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid mata kuliah sesuai {@link #initCriteria(boolean)}, dengan paging
+	 * (15 baris terdaftar di paging control, halaman berisi hingga
+	 * {@link Common#ROWS_COUNT_ON_PAGE_50} baris data mentah — sebagian akan
+	 * disembunyikan oleh {@link MatakuliahRenderer} karena deduplikasi/bentrok/penuh).
+	 * Membuat instance {@link MatakuliahRenderer} baru setiap pemanggilan, me-reset
+	 * state deduplikasi/bentrok jam untuk halaman ini.
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

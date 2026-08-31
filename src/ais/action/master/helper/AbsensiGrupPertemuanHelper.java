@@ -59,6 +59,25 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper presensi (absensi) untuk satu {@link GrupPertemuan} (grup pertemuan/konsultasi,
+ * mis. bimbingan dosen PA yang beranggotakan beberapa mahasiswa dengan satu pertemuan
+ * individual masing-masing lewat {@link PertemuanPunyaGrupPertemuan}). Membangun tampilan
+ * tiga panel: informasi pertemuan (tanggal/waktu/ruang/kehadiran dosen/dosen pengganti,
+ * region West), daftar presensi mahasiswa yang dapat diedit (region Center), dan daftar
+ * pengajuan izin/sakit yang perlu disetujui (region East).
+ *
+ * <p>
+ * <b>Kontrol akses edit</b> — field presensi dan tombol massal ("Semua masuk", "Reset")
+ * hanya AKTIF untuk pengguna staf (bukan mahasiswa/siswa) atau bila
+ * {@link #mahasiswaBolehUbahAbsen} diset {@code true} (saat ini selalu {@code false},
+ * diinisialisasi ulang di {@link #createListMahasiswaAbsensi}); mahasiswa/siswa hanya
+ * melihat status sebagai label. Seluruh region dibekukan (readonly) via
+ * {@link Common#freeze} bila konteks tampilan adalah milik mahasiswa/calon
+ * mahasiswa/peserta kursus sendiri. Pengajuan izin yang sudah disetujui ditampilkan
+ * sebagai status tetap (tidak dapat diedit lagi via kombo presensi biasa).
+ * </p>
+ */
 public class AbsensiGrupPertemuanHelper {
 
 	private MyDatebox tanggal;
@@ -77,11 +96,27 @@ public class AbsensiGrupPertemuanHelper {
 	private boolean mahasiswaBolehUbahAbsen;
 	private Center center;
 
+	/**
+	 * Membuat helper untuk konteks tampilan tertentu. Bila {@code mahasiswa} atau
+	 * {@code biodataCalonMahasiswa} terisi, tampilan yang dihasilkan dibekukan
+	 * (read-only) — konteks ini dipakai saat mahasiswa membuka presensi miliknya sendiri.
+	 *
+	 * @param mahasiswa             mahasiswa pemilik konteks tampilan, boleh {@code null}
+	 * @param biodataCalonMahasiswa konteks calon mahasiswa alternatif, boleh {@code null}
+	 */
 	public AbsensiGrupPertemuanHelper(final Mahasiswa mahasiswa, final BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Membuat tombol "Absen" yang membuka jendela {@link GrupPertemuanHelper} untuk
+	 * mahasiswa yang sedang login mengisi presensinya sendiri pada {@code grupPertemuan}.
+	 *
+	 * @param grupPertemuan grup pertemuan yang akan diabsen
+	 * @param dataLoader    callback pemuatan ulang data setelah jendela ditutup
+	 * @return tombol toolbar siap pakai
+	 */
 	public static MyToolbarbuttonConfig createTombolAbsen(final GrupPertemuan grupPertemuan,
 			final DataLoader dataLoader) {
 
@@ -99,6 +134,20 @@ public class AbsensiGrupPertemuanHelper {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Membangun seluruh tampilan presensi {@code grupPertemuan} ke dalam
+	 * {@code tabpanelUtama}: region West berisi form tanggal/waktu/ruang (dapat diedit,
+	 * disimpan lewat {@link #save()}), status kehadiran dosen utama, dan pemilihan
+	 * dosen pengganti (staf saja); region Center berisi daftar presensi mahasiswa
+	 * ({@link #createListMahasiswaAbsensi}); region East (dimuat lewat timer, setelah
+	 * region lain terpasang) berisi daftar pengajuan izin/sakit
+	 * ({@link #createListMahasiswaIzin}). Method langsung kembali tanpa membangun apa
+	 * pun bila grup pertemuan tidak punya anggota mahasiswa.
+	 *
+	 * @param grupPertemuan grup pertemuan yang diabsen
+	 * @param tabpanelUtama tab panel tempat tampilan dibangun
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate
+	 */
 	@SuppressWarnings("unchecked")
 	public void mainInit(final GrupPertemuan grupPertemuan, Tabpanel tabpanelUtama) throws Exception {
 		this.tabpanelUtama = tabpanelUtama;
@@ -270,6 +319,15 @@ public class AbsensiGrupPertemuanHelper {
 
 	}
 
+	/**
+	 * Membangun region presensi mahasiswa ke dalam {@code parentrow}: toolbar tombol
+	 * massal "Semua masuk" (menandai seluruh mahasiswa hadir, dengan konfirmasi) dan
+	 * "Reset" (mengembalikan seluruh status ke {@link ConstantValues#BELUM_ABSEN},
+	 * dengan konfirmasi) — hanya terlihat untuk staf atau bila
+	 * {@link #mahasiswaBolehUbahAbsen} — lalu grid presensi via {@link #reloadAbsensi()}.
+	 *
+	 * @param parentrow kontainer ZK tempat region dibangun
+	 */
 	private void createListMahasiswaAbsensi(Component parentrow) {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -391,6 +449,13 @@ public class AbsensiGrupPertemuanHelper {
 		reloadAbsensi();
 	}
 
+	/**
+	 * Membangun region daftar pengajuan izin/sakit ({@link PengajuanIzinTidakMasukPerkuliahan})
+	 * ke dalam {@code parentrow}: grid dengan kolom OK (persetujuan)/Mahasiswa/
+	 * Keterangan, dimuat lewat {@link #reloadIzinAbsensi()}.
+	 *
+	 * @param parentrow kontainer ZK tempat region dibangun
+	 */
 	private void createListMahasiswaIzin(Component parentrow) {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -433,6 +498,14 @@ public class AbsensiGrupPertemuanHelper {
 		reloadIzinAbsensi();
 	}
 
+	/**
+	 * Menyimpan perubahan pada form informasi pertemuan (waktu mulai/selesai, ruang,
+	 * tanggal) ke {@link #grupPertemuan}. Menolak dan mengarahkan fokus ke field
+	 * tanggal bila tab ini sedang aktif dan tanggal belum diisi.
+	 *
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi tanggal gagal
+	 * @throws InterruptedException diteruskan dari dialog messagebox
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -463,6 +536,7 @@ public class AbsensiGrupPertemuanHelper {
 		return true;
 	}
 
+	/** Membangun ulang grid presensi mahasiswa (kolom Status/Mahasiswa/Keterangan) dari {@link #mahasiswas}, dirender lewat {@link MahasiswaRenderer}. */
 	private void reloadAbsensi() {
 
 		Common.clear(center);
@@ -500,6 +574,7 @@ public class AbsensiGrupPertemuanHelper {
 
 	}
 
+	/** Membangun ulang grid pengajuan izin/sakit dari seluruh {@link Pertemuan} milik anggota {@link #grupPertemuan}, dirender lewat {@link MahasiswaIzinRenderer}. */
 	@SuppressWarnings("unchecked")
 	private void reloadIzinAbsensi() {
 
@@ -520,6 +595,25 @@ public class AbsensiGrupPertemuanHelper {
 
 	}
 
+	/**
+	 * Merender satu baris presensi mahasiswa untuk {@code pertemuanPunyaGrupPertemuan}.
+	 * Baris disembunyikan bila data mahasiswa kosong. Bila mahasiswa punya pengajuan
+	 * izin/sakit yang SUDAH DISETUJUI, status ditampilkan sebagai label tetap (tidak
+	 * dapat diubah lewat kombo presensi). Selain itu: untuk staf (atau bila
+	 * {@link #mahasiswaBolehUbahAbsen}), ditampilkan combobox status kehadiran
+	 * (mengecualikan status Cuti/Cuti Hamil) beserta jam masuk-selesai opsional
+	 * ({@code tampilkan_jam_masuk_absen_untuk_mahasiswa}) dan textbox keterangan —
+	 * seluruhnya langsung tersimpan on-change ke {@link Pertemuan} via
+	 * {@link Pertemuan#populate}; untuk mahasiswa, hanya label status+jam+keterangan
+	 * yang ditampilkan.
+	 *
+	 * @param arg0                        baris grid yang akan diisi
+	 * @param pertemuanPunyaGrupPertemuan entri keanggotaan+pertemuan individual mahasiswa
+	 * @param statusabsensis              daftar status absensi yang tersedia (parameter dipertahankan untuk kompatibilitas, daftar aktual di-query ulang dari combobox)
+	 * @param status                      status absensi default (parameter dipertahankan untuk kompatibilitas)
+	 * @param tbmuser                     pengguna yang sedang login, menentukan mode tampilan (edit/baca saja)
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate
+	 */
 	private void tampilRowAbsensi(Row arg0, final PertemuanPunyaGrupPertemuan pertemuanPunyaGrupPertemuan,
 			List<Statusabsensi> statusabsensis, Statusabsensi status, Tbmuser tbmuser) throws Exception {
 		final Mahasiswa mahasiswa = pertemuanPunyaGrupPertemuan.getMahasiswa();
@@ -680,12 +774,14 @@ public class AbsensiGrupPertemuanHelper {
 
 	}
 
+	/** Perender baris grid presensi utama, mendelegasikan ke {@link #tampilRowAbsensi}. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private List<Statusabsensi> statusabsensis;
 		private Statusabsensi status;
 		private Tbmuser tbmuser = Common.getCurrentUser();
 
+		/** Memuat daftar status absensi (kecuali Cuti) dan status default dari konfigurasi {@code default_status_kehadiran}. */
 		@SuppressWarnings("unchecked")
 		public MahasiswaRenderer() {
 			Session session = HibernateUtil.currentSession();

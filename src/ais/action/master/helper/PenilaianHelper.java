@@ -28,11 +28,31 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengedit nilai satu baris {@link Detailperkuliahan} (satu mata kuliah yang
+ * diambil mahasiswa) berdasarkan komponen-komponen {@link FormatNilai} yang berlaku pada
+ * {@link Matakuliah} terkait (mis. Tugas, UTS, UAS masing-masing dengan bobot persentase).
+ * Jendela menampilkan satu baris input angka per komponen format nilai; saat disimpan,
+ * {@link #save()} menghitung nilai total terbobot, menentukan {@link NilaiHuruf} (huruf mutu dan
+ * nilai IP) yang sesuai lewat {@code Common#getNilaiHuruf}, dan menuliskan hasilnya baik ke kolom
+ * nilai "final" ({@code totalNilai}/{@code nilaiHuruf}/{@code totalIP}) maupun kolom "sementara"
+ * ({@code totalNilaiSementara}/{@code nilaiHurufSementara}/{@code totalIPSementara}) pada
+ * {@link Detailperkuliahan}.
+ */
 public class PenilaianHelper {
 
 	private Detailperkuliahan detailperkuliahan;
 	private MyGrid grid;
 
+	/**
+	 * Membaca nilai tiap komponen {@link FormatNilai} dari baris grid (kolom ketiga tiap baris,
+	 * {@link MyDoublebox}), menyimpannya lewat
+	 * {@link Detailperkuliahan#populateDetailNilai(FormatNilai, Object, Double, boolean, boolean, Tbmuser)}
+	 * per komponen, lalu menghitung total nilai terbobot ({@code jumlah * persen/100} dijumlahkan
+	 * antar komponen). Total ini dipetakan ke {@link NilaiHuruf} (huruf mutu, status lulus, dan nilai
+	 * IP) lewat {@code Common#getNilaiHuruf}, dan hasilnya ditulis ke kolom nilai final maupun
+	 * sementara pada {@link #detailperkuliahan} sebelum disimpan ke database.
+	 */
 	@SuppressWarnings("unchecked")
 	public void save() {
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -85,6 +105,16 @@ public class PenilaianHelper {
 		Common.refreshUpdate(session, detailperkuliahan);
 	}
 
+	/**
+	 * Membangun jendela edit nilai: satu baris per {@link FormatNilai} yang berlaku bagi mata kuliah
+	 * pada {@code detailperkuliahan} (diambil lewat {@code Common#getFormatNilais}), dipra-isi dari
+	 * nilai komponen yang sudah tersimpan ({@code detailperkuliahan.retreiveDetailNilai}). Tombol
+	 * Simpan memanggil {@link #save()} lalu menyegarkan tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param detailperkuliahan baris KRS/nilai yang akan diedit
+	 * @param window             jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 * @param dataLoader         dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 */
 	public void display(final Detailperkuliahan detailperkuliahan, final MyWindow window, final DataLoader dataLoader) {
 		this.detailperkuliahan = detailperkuliahan;
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");

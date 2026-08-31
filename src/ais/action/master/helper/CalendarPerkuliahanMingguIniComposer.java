@@ -84,6 +84,35 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Composer ZK untuk kalender "Agenda Minggu Ini" — tampilan read-only lintas jenis kegiatan
+ * (berbeda dari {@link CalendarPerkuliahanComposer} yang berfokus pada satu ruangan dan
+ * mendukung tambah/edit jadwal drag-and-drop). Satu kalender di sini dapat menampilkan
+ * gabungan tujuh jenis {@link Pertemuan} sekaligus, masing-masing dapat dimatikan lewat
+ * checkbox filter: perkuliahan, KKN, PKL, bimbingan tugas akhir, revisi/sidang skripsi,
+ * konsultasi (KRS/dosen PA), dan konsultasi lain (grup pertemuan bebas). Filter tambahan
+ * mendukung tahun akademik, semester, kelas, fakultas/jurusan (berjenjang), program, ruangan,
+ * dosen, mahasiswa, dan kurikulum — bila pengguna login adalah dosen atau mahasiswa, filter
+ * tersebut otomatis dipersempit ke jadwal miliknya sendiri (lewat parameter {@code dosen}/
+ * {@code mahasiswa} pada {@link #ambilData}) dan sebagian kontrol filter disembunyikan/dikunci.
+ *
+ * <p>
+ * Mengklik satu event kalender membuka jendela modal berisi rincian pertemuan
+ * ({@link #displayRinci}) yang bercabang menurut jenis kegiatan pertemuan tersebut (perkuliahan,
+ * jadwal pelajaran sekolah, KKN, PKL, formulir kegiatan, wisuda, skripsi, tugas akhir, KRS, atau
+ * grup pertemuan), masing-masing mendelegasikan ke helper aktivitas yang sesuai (mis.
+ * {@link AktifitasPerkuliahanHelper}, {@link AktifitasSkripsiHelper},
+ * {@link AktifitasKrsMahasiswaHelper}, dsb.).
+ * </p>
+ *
+ * <p>
+ * Sejumlah method helper privat ({@code prepareCheckbox}, {@code safeSetEventListener},
+ * {@code safeAttribute}, {@code safeValue}) sengaja dibungkus try/catch dan menerima
+ * {@code null}/tipe apa pun tanpa melempar, karena banyak komponen filter (checkbox warna,
+ * banbox pencarian, dsb.) bersifat opsional tergantung halaman ZUL pemanggil — tidak semua
+ * halaman yang memakai composer ini menyertakan seluruh komponen tersebut.
+ * </p>
+ */
 public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -118,6 +147,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 	private Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 	// private Calendar calendar1 = ais.ui.util.WaktuUtil.getCalendar();
 
+	/** Membungkus {@link #displayRinci} dalam satu baris grid ber-accordion yang selalu terbuka; dipakai sebagai isi jendela modal oleh {@link #init}. */
 	public static MyGrid tampilInit(final Pertemuan pertemuan, final EventListener eventListener) throws Exception {
 
 		MyGrid grid = new MyGrid();
@@ -150,6 +180,18 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		return grid;
 	}
 
+	/**
+	 * Merender rincian satu {@link Pertemuan} ke {@code row}, bercabang menurut jenis kegiatan
+	 * yang terisi pada pertemuan tersebut (perkuliahan, jadwal pelajaran sekolah, KKN, PKL,
+	 * formulir kegiatan, wisuda, skripsi, tugas akhir, KRS, atau grup pertemuan) — hanya satu
+	 * cabang yang berlaku per pertemuan, masing-masing menampilkan header info singkat lalu
+	 * mendelegasikan detail lengkap ke helper aktivitas yang sesuai jenisnya.
+	 *
+	 * @param row           kontainer ZK tempat header info ditambahkan
+	 * @param pertemuan     pertemuan yang rinciannya ditampilkan
+	 * @param eventListener diteruskan ke beberapa helper aktivitas untuk callback penyegaran
+	 * @return {@link MyDiv} berisi detail lengkap kegiatan (diisi oleh helper aktivitas terkait)
+	 */
 	public static MyDiv displayRinci(Component row, Pertemuan pertemuan, EventListener eventListener) throws Exception {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		Perkuliahan perkuliahan = pertemuan.getPerkuliahan();
@@ -322,6 +364,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		return groupbox;
 	}
 
+	/** Membuka jendela modal (hampir layar penuh) berisi {@link #tampilInit} untuk {@code pertemuan}, dengan tombol Tutup yang memicu {@code eventListener} sebelum menutup jendela. Dijalankan asinkron lewat {@link Common#createDefaultTimer}. */
 	@SuppressWarnings({})
 	public static void init(final Pertemuan pertemuan, final EventListener eventListener) throws Exception {
 		Common.createDefaultTimer(new EventListener() {
@@ -365,18 +408,21 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		});
 	}
 
+	/** Mundur satu minggu: menggeser {@link #calendar} referensi, membangun ulang model, lalu memindahkan halaman kalender ZK ke periode sebelumnya. */
 	public void onBack(Event event) {
 		calendar.set(Calendar.WEEK_OF_MONTH, calendar.get(Calendar.WEEK_OF_MONTH) - 1);
 		initCalendarModel();
 		calendars.previousPage();
 	}
 
+	/** Maju satu minggu: menggeser {@link #calendar} referensi, membangun ulang model, lalu memindahkan halaman kalender ZK ke periode berikutnya. */
 	public void onNext(Event event) {
 		calendar.set(Calendar.WEEK_OF_MONTH, calendar.get(Calendar.WEEK_OF_MONTH) + 1);
 		initCalendarModel();
 		calendars.nextPage();
 	}
 
+	/** Membangun ulang model kalender (asinkron) sesuai filter saat ini dan meminta ZK me-render ulang komponen kalender bila ada. */
 	public void onRefresh(Event event) {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -392,6 +438,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 
 	}
 
+	/** Cek keamanan standar layar sebelum komponen ZK dirakit. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -402,6 +449,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 	private Row row2;
 
 
+	/** Menerapkan gaya visual (border, radius, shadow) pada komponen kalender bila tersedia; kegagalan diabaikan diam-diam. */
 	private void configureCalendarUi() {
 		try {
 			if (calendars != null) {
@@ -414,6 +462,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		}
 	}
 
+	/** Mewarnai label checkbox filter jenis jadwal sesuai palet warna kalender ({@link Pertemuan#warnas}, indeks {@code warnaIndex}) dan mencentangnya secara default; komponen {@code null} (tidak ada di halaman ZUL) dilewati. */
 	private void prepareCheckbox(MyCheckboxConfig checkbox, int warnaIndex) {
 		try {
 			if (checkbox != null) {
@@ -424,6 +473,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		}
 	}
 
+	/** Memasang {@code listener} pada komponen banbox pencarian (kelas/ruang/dosen/mahasiswa/kurikulum) bila tipenya cocok salah satu dari lima jenis banbox yang dikenal; tipe lain atau {@code null} diabaikan diam-diam. */
 	private void safeSetEventListener(Object component, final EventListener listener) {
 		try {
 			if (component instanceof AmbilDataKelasBanbox) {
@@ -441,6 +491,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		}
 	}
 
+	/** Mengambil atribut ZK {@code key} dari {@code component} bila berupa {@link org.zkoss.zk.ui.Component}; mengembalikan {@code null} untuk tipe lain atau bila atribut tidak ada. */
 	private Object safeAttribute(Object component, String key) {
 		try {
 			if (component instanceof org.zkoss.zk.ui.Component) {
@@ -451,6 +502,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		return null;
 	}
 
+	/** Mengambil nilai teks dari {@code component} bila berupa {@link org.zkoss.zul.Bandbox} atau {@link org.zkoss.zul.Textbox} (di-trim); mengembalikan string kosong untuk tipe lain, {@code null} value, atau kegagalan apa pun. */
 	private String safeValue(Object component) {
 		try {
 			if (component instanceof org.zkoss.zul.Bandbox) {
@@ -466,6 +518,17 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		return "";
 	}
 
+	/**
+	 * Inisialisasi pasca-render: mewarnai & mencentang seluruh checkbox filter jenis jadwal,
+	 * memasang listener refresh pada banbox pencarian (kelas/ruang/dosen/mahasiswa/kurikulum),
+	 * mengisi combobox semester (1-23) dan tahun ajaran, mengatur jam kerja/zona waktu/gaya
+	 * kalender, mengisi combobox fakultas/jurusan berjenjang dan program, mempersempit &
+	 * mengunci filter fakultas/jurusan bila pengguna login punya batasan hak akses, serta
+	 * menyembunyikan filter tahun ajaran/kelas untuk dosen/mahasiswa yang login. Semua akses ke
+	 * komponen filter memakai method {@code safe*} agar komponen yang tidak ada di halaman ZUL
+	 * pemanggil tidak menyebabkan {@link NullPointerException}. Diakhiri dengan pemuatan awal
+	 * kalender ({@link #onRefresh}) dan (pada mobile) menyembunyikan baris filter tambahan.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -657,6 +720,25 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 
 	}
 
+	/**
+	 * Mengambil seluruh {@link Pertemuan} aktif dalam rentang tanggal {@code mulai}..{@code sampai}
+	 * yang cocok dengan filter jenis jadwal (checkbox — jenis yang tidak dicentang disaring
+	 * dengan mensyaratkan kolom relasinya {@code null}) DAN filter kepemilikan:
+	 * <ul>
+	 * <li>Bila {@code dosen} diberikan: OR atas seluruh peran dosen yang mungkin (pengajar 1-10
+	 * pada perkuliahan, pembimbing 1-5 KKN/PKL, ketua sidang/penguji 1-4/pembimbing skripsi,
+	 * dosen 1-6 tugas akhir, dosen PA KRS) — parameter fakultas/jurusan/dll. lain DIABAIKAN.</li>
+	 * <li>Selain itu, bila {@code mahasiswa} diberikan: OR atas subquery SQL native ke tabel
+	 * relasi kepesertaan (detailperkuliahan, kelompok KKN/PKL, skripsi, tugas akhir, KRS, grup
+	 * pertemuan) — parameter fakultas/jurusan/dll. lain juga DIABAIKAN.</li>
+	 * <li>Bila keduanya {@code null}: filter umum berlaku (kurikulum, tahun akademik, semester,
+	 * kelas, ruang, fakultas, jurusan, program), masing-masing {@code null} berarti tidak
+	 * menyaring.</li>
+	 * </ul>
+	 * Hanya salah satu dari tiga cabang (dosen/mahasiswa/filter umum) yang aktif per panggilan.
+	 *
+	 * @return daftar pertemuan yang cocok, tidak diurutkan secara eksplisit
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Pertemuan> ambilData(String tahunAkademik, Integer semester, String kelas, Fakultas fakultas,
 			Jurusan jurusan, String program, Ruang ruang, Dosen dosen, Kurikulum myKurikulum, Mahasiswa mahasiswa,
@@ -818,6 +900,15 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		return criteria.list();
 	}
 
+	/**
+	 * Menghasilkan laporan PDF "SKS Dosen Periode" dari {@link #pertemuan} yang sedang
+	 * ditampilkan di kalender: mengumpulkan seluruh kombinasi unik dosen+pertemuan (satu
+	 * pertemuan dapat melibatkan beberapa dosen), diurutkan otomatis via {@link TreeMap}, dengan
+	 * baris laporan yang deskripsinya bercabang menurut jenis kegiatan pertemuan (perkuliahan,
+	 * pembimbing KKN/PKL, sidang skripsi, pembimbing skripsi/TA, pembimbing akademik KRS, atau
+	 * grup pertemuan). Periode laporan diambil dari rentang tanggal minimum-maksimum pertemuan
+	 * yang tampil.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onAgendaDosen(Event event) throws Exception {
 		if (pertemuan != null) {
@@ -901,6 +992,15 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 
 	private List<Pertemuan> pertemuan = null;
 
+	/**
+	 * Membangun ulang model kalender ({@link SimpleCalendarModel}) untuk rentang satu minggu
+	 * sebelum dan sesudah {@link #calendar} referensi (total ~3 minggu jendela tampil),
+	 * membaca seluruh nilai filter dari komponen ZK (lewat method {@code safe*}) dan
+	 * mendelegasikan pengambilan data ke {@link #ambilData}. Setiap {@link Pertemuan} hasil
+	 * diubah menjadi event kalender lewat
+	 * {@code CalendarPerkuliahanBulanIniComposer.createEvent} dan hasilnya disimpan ke
+	 * {@link #pertemuan} (dipakai ulang oleh {@link #onAgendaDosen}).
+	 */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran == null || tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
@@ -946,6 +1046,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		}
 	}
 
+	/** Ditangkap saat pengguna mencoba menggambar event baru pada kalender ini; kalender ini bersifat read-only (agenda gabungan lintas jenis, bukan editor jadwal), jadi hanya mencegah ZK menghapus ghost event tanpa membuat data apa pun. */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -953,6 +1054,15 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Ditangkap saat pengguna mengklik event kalender untuk melihat rinciannya. Judul event
+	 * berformat khusus: bila diawali {@code "-"} (bagian sebelum {@code "-"} kosong), sisanya
+	 * adalah id pertemuan yang dinegasikan (konvensi penanda dari
+	 * {@code CalendarPerkuliahanBulanIniComposer.createEvent} untuk kasus tertentu); selain itu,
+	 * bagian sebelum {@code "-"} pertama adalah id pertemuan langsung. Pertemuan yang
+	 * ditemukan dibuka lewat {@link #init(Pertemuan, EventListener)} (jendela modal rincian).
+	 * Kegagalan parsing/pencarian diabaikan diam-diam.
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -996,6 +1106,7 @@ public class CalendarPerkuliahanMingguIniComposer extends GenericForwardComposer
 
 	}
 
+	/** Menyinkronkan perubahan tampilan (geser/ubah durasi event lewat drag, bila diizinkan komponen kalender) ke model kalender in-memory — murni pembaruan UI, tidak menyentuh database. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();

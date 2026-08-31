@@ -68,6 +68,39 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk halaman admin/dosen "Daftar Mahasiswa" pada satu {@link Perkuliahan}:
+ * menampilkan seluruh {@link Detailperkuliahan} (mahasiswa peserta KRS) dari sudut pandang
+ * perkuliahan (kebalikan {@link KrsHelper}/{@link KrsPaketHelper} yang berpusat pada mahasiswa).
+ * Setiap baris menampilkan foto, riwayat revisi, status validitas data Feeder Dikti, nama,
+ * angkatan, status kemahasiswaan, total nilai, status persetujuan (editable via textbox keterangan
+ * + intbox semester/tahap), dan tombol Pindah Data/Ubah Persetujuan/Hapus per baris — hak tampil
+ * tombol dikontrol lewat flag {@code delete}/{@code edit}/{@code approve}/{@code reject}/{@code create}
+ * yang diberikan lewat konstruktor.
+ *
+ * <p>
+ * Toolbar menyediakan: pencarian NIM/nama; Refresh; "Singkronkan" (menjalankan
+ * {@code perkuliahan.singkronkan()} di thread terpisah dengan polling timer); "Ambil Mhs" (buka
+ * {@code AmbilDataMahasiswaHelper}); "Transfer"/"Copy mhs" (pindah/salin mahasiswa ke perkuliahan
+ * lain); "Setujui"/"Tolak"/"Hapus" massal untuk seluruh mahasiswa (dibatasi role
+ * Akademik/AdminFakultas/AdminJurusan/Admin); cetak laporan Absensi/UTS/UAS; unduh/unggah data
+ * Excel (format kolom {@code mahasiswa, semester, tahap, persetujuan}, diproses baris-per-baris
+ * asinkron via {@link #uploadDataMahasiswa} dengan laporan hasil per baris
+ * {@link ais.common.LaporanUpload}); dan "History" (buka {@code RevisiDetailPerkuliahanHelper}).
+ * </p>
+ *
+ * <p>
+ * Method statis {@link #kirimKeFeeder} menyediakan tombol pengiriman satu
+ * {@link Detailperkuliahan} ke Feeder Dikti (Neo Feeder) — dipakai baik oleh perender baris kelas
+ * ini maupun dipanggil dari konteks lain — yang menjalankan proses ekspor di thread terpisah
+ * dengan progress bar dan log error yang dapat diunduh sebagai file teks bila gagal.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataCriteria} ({@link #initCriteria(boolean)}, dipakai fitur cetak
+ * data) dan {@link DataLoader} ({@link #loadData(Object)}).
+ * </p>
+ */
 public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 	private MyGrid grid;
@@ -85,6 +118,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	private boolean reject;
 	private boolean create;
 
+	/**
+	 * @param semesterPendek status semester pendek konteks perkuliahan ({@code null} untuk reguler)
+	 * @param delete         izinkan tombol hapus per baris dan tombol "Hapus" massal
+	 * @param edit           izinkan tombol Pindah Data, Transfer, Copy mhs, dan History
+	 * @param approve        izinkan tombol "Setujui" massal
+	 * @param reject         izinkan tombol "Tolak" massal
+	 * @param create         izinkan tombol "Ambil Mhs"
+	 */
 	public DetailperkuliahanHelper(Integer semesterPendek, boolean delete, boolean edit, boolean approve,
 			boolean reject, boolean create) {
 		this.semesterPendek = semesterPendek;
@@ -97,6 +138,21 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 	private List<Long> detailperkuliahan = null;
 
+	/**
+	 * Menambahkan tombol "Kirim ke feeder" ke {@code vbox} (hanya tampil bila user login, admin
+	 * berhak akses Feeder, fitur {@code aktifkan_terhubung_langsung_ke_feeder} aktif, dan mahasiswa
+	 * sudah punya {@code idRegPd}). Saat diklik: memeriksa ketersediaan server Neo Feeder, lalu
+	 * login dan mengirim data perkuliahan (via {@code PerkuliahanAction.kirimKeFeeder}) atau nilai
+	 * transfer/konversi (via {@code feederImporter.nilaiTransfer}) di thread terpisah dengan
+	 * progress bar; kegagalan (koneksi, kredensial, parsing) ditampilkan sebagai pesan error yang
+	 * terlihat pada progress bar, bukan gagal diam-diam.
+	 *
+	 * @param tbmuser           user yang sedang login
+	 * @param detailperkuliahan baris KRS yang akan dikirim ke feeder
+	 * @param dataLoader        callback penyegar tampilan setelah proses selesai
+	 * @param vbox              komponen tujuan penambahan tombol
+	 * @param verical           bila {@code true}, tombol dirender dengan orientasi vertikal
+	 */
 	public static void kirimKeFeeder(Tbmuser tbmuser, final Detailperkuliahan detailperkuliahan,
 			final DataLoader dataLoader, Component vbox, boolean verical) {
 		Mahasiswa mahasiswa = detailperkuliahan.getMahasiswa();
@@ -243,6 +299,16 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		}
 	}
 
+	/**
+	 * Perender baris grid: menampilkan foto, riwayat revisi, indikator validitas data Feeder
+	 * (ikon check/warning bila fitur Feeder aktif), tombol "Kirim ke feeder" ({@link #kirimKeFeeder}),
+	 * nama, angkatan, status kemahasiswaan, total nilai, status persetujuan, textbox keterangan
+	 * nilai tambahan (auto-save on change), intbox semester dan tahap (auto-save on change), serta
+	 * tombol Pindah Data (buka {@code TransferDataMahasiswaHelper} untuk satu mahasiswa), Ubah
+	 * Persetujuan (toggle disetujui/belum, dengan pengecekan opsional "nilai harus nol"), dan Hapus
+	 * (dengan pengecekan tidak bisa hapus bila sudah disetujui, masih dipakai pengajuan tugas akhir,
+	 * atau nilai tidak nol).
+	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -552,6 +618,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 	}
 
+	/**
+	 * Membangun kriteria {@link Detailperkuliahan} yang mengikuti {@link Perkuliahan} tertentu
+	 * (bukan konversi, {@code ikutiPerkuliahan} kosong), disaring pula berdasarkan NIM/nama
+	 * mahasiswa (ilike) bila kotak pencarian diisi.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan NIM mahasiswa
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Detailperkuliahan.class);
@@ -569,6 +643,14 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link Detailperkuliahan} milik {@link #perkuliahan} saat
+	 * ini, sesuai teks pencarian pada kotak nama.
+	 *
+	 * @param value bila {@code true} (sebagai {@link Boolean}), paksa cache {@code Detailperkuliahan}
+	 *              milik {@link #perkuliahan} dibangun ulang dari database via
+	 *              {@code reInitDetailperkuliahan} sebelum diambil
+	 */
 	public void loadData(Object value) {
 		if (value != null && value.equals(true)) {
 			perkuliahan.reInitDetailperkuliahan(HibernateUtil.currentSession());
@@ -580,10 +662,28 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 	}
 
+	/**
+	 * Mengatur konteks {@link Perkuliahan} helper tanpa membangun ulang tampilan.
+	 *
+	 * @param perkuliahan      perkuliahan konteks baru
+	 * @param perkuliahanAsli  tidak dipakai dalam badan method; diterima untuk kompatibilitas signature
+	 */
 	public void setPerkuliahan(Perkuliahan perkuliahan, Perkuliahan perkuliahanAsli) {
 		this.perkuliahan = perkuliahan;
 	}
 
+	/**
+	 * Membangun dan menampilkan seluruh UI "Daftar Mahasiswa" untuk {@code perkuliahan} ke dalam
+	 * {@code component}: toolbar pencarian dan aksi (lihat javadoc kelas untuk daftar lengkap
+	 * tombol dan hak yang mengaturnya) serta grid berisi seluruh peserta perkuliahan (page size
+	 * besar — 10000 — sehingga efektif menampilkan semua baris sekaligus).
+	 *
+	 * @param perkuliahan      perkuliahan yang daftar mahasiswanya ditampilkan
+	 * @param perkuliahanAsli  perkuliahan asli (sebelum kemungkinan substitusi/redirect), dipakai
+	 *                         untuk cetak laporan absensi
+	 * @param component        komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param window           window pemanggil, diteruskan ke helper Ambil Mhs/Transfer/Copy mhs
+	 */
 	public void display(final Perkuliahan perkuliahan, final Perkuliahan perkuliahanAsli, final Component component,
 			final MyWindow window) {
 		this.perkuliahan = perkuliahan;
@@ -1142,6 +1242,21 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 	}
 
+	/**
+	 * Memproses berkas Excel (.xlsx) unggahan berisi kolom mahasiswa/semester/tahap/persetujuan:
+	 * untuk setiap baris, mencari mahasiswa (via objek sel atau fallback NIM), memeriksa status
+	 * pembayaran semester terkait (baris dilewati dengan catatan bila belum bayar), lalu
+	 * membuat/menemukan baris {@link Detailperkuliahan} yang sesuai. Dijalankan di thread terpisah
+	 * dengan sesi Hibernate dedikasi (bukan sesi thread-local, karena thread ini berjalan setelah
+	 * request asal selesai) yang ditutup rapi di {@code finally}; kegagalan simpan per baris di-
+	 * rollback agar tidak menggagalkan baris berikutnya. Hasil akhir dilaporkan per baris via
+	 * {@link ais.common.LaporanUpload}, lalu {@code eventListener} dipanggil.
+	 *
+	 * @param file          berkas .xlsx yang diunggah
+	 * @param eventListener callback dipanggil setelah laporan hasil selesai disusun
+	 * @param contents      nama-nama kolom (tidak dipakai langsung; bagian dari signature yang
+	 *                      dibagi dengan pemanggil unduh data)
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener, final String[] contents)
 			throws Exception {
 

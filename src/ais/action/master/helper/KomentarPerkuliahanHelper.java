@@ -33,16 +33,40 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk menulis satu {@link KomentarPerkuliahan} (komentar penilaian) pada halaman KRS
+ * mahasiswa — dapat ditulis oleh dosen pembimbing akademik maupun pihak lain yang berkepentingan,
+ * dan langsung tampil baik di halaman mahasiswa bersangkutan maupun dosen pembimbingnya.
+ *
+ * <p>
+ * {@link #display} menampilkan dialog input komentar sederhana; setelah disimpan, notifikasi
+ * email dikirim asinkron (lewat {@link Common#createDefaultTimer}) ke: seluruh dosen pengampu
+ * {@link #perkuliahan} (lewat alamat email langsung {@link Dosen#getEmail()} dan lewat user id
+ * {@link Tbmuser} terkait untuk push/WA via {@link MailSender}), serta seluruh user dengan role
+ * yang dikonfigurasi lewat {@code kode_role_penerima_email_saat_dosen_mengirim_komentar} (default
+ * {@code "am"}). Baik alamat email langsung maupun user id role penerima digabung ke satu
+ * panggilan {@link MailSender#sendMail}.
+ * </p>
+ */
 public class KomentarPerkuliahanHelper {
 
 	private Textbox komentar;
 	private Perkuliahan perkuliahan;
 
+	/** @param perkuliahan jadwal perkuliahan tujuan komentar */
 	public KomentarPerkuliahanHelper(Perkuliahan perkuliahan) {
 		this.perkuliahan = perkuliahan;
 
 	}
 
+	/**
+	 * Membuka dialog modal input komentar. Tombol Simpan memvalidasi komentar tidak kosong,
+	 * menyimpan {@link KomentarPerkuliahan} atas nama user login, lalu mengirim notifikasi email
+	 * asinkron ke dosen pengampu dan role penerima terkonfigurasi sebelum menutup dialog dan
+	 * memanggil {@code eventListener}.
+	 *
+	 * @param eventListener dipanggil (dengan event kosong) setelah komentar tersimpan dan email selesai diproses
+	 */
 	public void display(final EventListener eventListener) throws Exception {
 		final MyWindow window = new MyWindow("Masukkan komentar Anda", "normal", false);
 		window.setHeight("250px");

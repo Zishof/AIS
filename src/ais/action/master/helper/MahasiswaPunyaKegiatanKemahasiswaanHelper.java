@@ -66,6 +66,28 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar keikutsertaan mahasiswa pada kegiatan
+ * kemahasiswaan ({@link KegiatanKemahasiswaanPunyaMahasiswa}) — dapat dipakai baik untuk satu
+ * mahasiswa tertentu (parameter {@code mahasiswa} pada {@link #display}) maupun sebagai rekap lintas
+ * mahasiswa difilter kombinasi kelompok/detail-kelompok/jabatan/skala kegiatan dan tahun akademik
+ * (konstruktor kedua).
+ *
+ * <p>
+ * Setiap baris dapat dibuka (detail) untuk unggah bukti kegiatan, mengedit tanggal mulai/sampai,
+ * jabatan, skala, dan keterangan — hanya oleh mahasiswa pemilik data dan selama belum disetujui
+ * ({@code persetujuan=false}). Approval (checkbox "Setujui") hanya tersedia bagi user non-mahasiswa
+ * (staf/dosen/admin). Setelah disetujui, tombol cetak sertifikat muncul bila kegiatan terkait punya
+ * template sertifikat ({@link SertifikatAction#cetakSertifikat}). Toolbar menyediakan pencarian nama
+ * kegiatan, pengajuan kegiatan baru ({@link KegiatanKemahasiswaanAction#onAddExternal}), pendaftaran
+ * ke kegiatan yang sudah ada (lewat {@link AmbilDataKegiatanForKegiatanKemahasiswaanHelper}), unduh
+ * Excel dengan tautan berkas SK per baris, serta cetak rekap angka kredit
+ * ({@link CommonReportHelper#onCetakAngkaKreditMahasiswa}/{@code onCetakRekapAngkaKreditMahasiswa}).
+ * Bila dibuka menyorot satu baris tertentu ({@code kegiatanKemahasiswaanPunyaMahasiswa} pada
+ * constructor {@link #display(Mahasiswa, Component, KegiatanKemahasiswaanPunyaMahasiswa)}), baris
+ * tersebut disorot kuning dan selalu ditampilkan di posisi pertama grid.
+ * </p>
+ */
 public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -81,6 +103,7 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 	private String tahunAkademik = null;
 	private KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa;
 
+	/** Membuat helper tanpa filter kelompok/jabatan/skala/tahun akademik (dipakai untuk daftar satu mahasiswa). */
 	public MahasiswaPunyaKegiatanKemahasiswaanHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -95,6 +118,15 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 		});
 	}
 
+	/**
+	 * Membuat helper dengan filter tetap untuk mode rekap lintas mahasiswa.
+	 *
+	 * @param kelompokKegiatanKemahasiswaan       filter kelompok kegiatan, boleh {@code null}
+	 * @param detailKelompokKegiatanKemahasiswaan filter detail kelompok kegiatan, boleh {@code null}
+	 * @param jabatanKegiatanKemahasiswaan        filter jabatan/status dalam kegiatan, boleh {@code null}
+	 * @param skalaKegiatanKemahasiswaan          filter skala kegiatan, boleh {@code null}
+	 * @param tahunAkademik                       filter tahun akademik kegiatan, boleh {@code null}
+	 */
 	public MahasiswaPunyaKegiatanKemahasiswaanHelper(KelompokKegiatanKemahasiswaan kelompokKegiatanKemahasiswaan,
 			DetailKelompokKegiatanKemahasiswaan detailKelompokKegiatanKemahasiswaan,
 			JabatanKegiatanKemahasiswaan jabatanKegiatanKemahasiswaan,
@@ -118,6 +150,15 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 		});
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link KegiatanKemahasiswaanPunyaMahasiswa}: panel detail
+	 * unggah bukti kegiatan, identitas mahasiswa dan info kegiatan (kelompok/detail/tahun-semester),
+	 * dan — bila baris ini milik mahasiswa yang sedang login dan belum disetujui — field yang bisa
+	 * diedit (tanggal, jabatan, skala, keterangan, tombol hapus); selain itu ditampilkan sebagai
+	 * label baca-saja beserta checkbox/label persetujuan (checkbox hanya untuk user non-mahasiswa).
+	 * Baris yang cocok dengan {@link #kegiatanKemahasiswaanPunyaMahasiswa} (baris yang sedang
+	 * disorot dari pemanggil) diberi latar kuning.
+	 */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailMahasiswaRenderer() {
@@ -395,6 +436,15 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link KegiatanKemahasiswaanPunyaMahasiswa} difilter
+	 * berdasarkan nama kegiatan (ILIKE anywhere), {@link #mahasiswa} (bila diberikan), serta filter
+	 * tetap yang diberikan lewat konstruktor kedua (kelompok/detail-kelompok/jabatan/skala/tahun
+	 * akademik).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan id menurun
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(KegiatanKemahasiswaanPunyaMahasiswa.class);
@@ -429,6 +479,14 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid (lewat timer default) berdasarkan {@link #initCriteria(boolean)}. Bila
+	 * {@link #kegiatanKemahasiswaanPunyaMahasiswa} diset (baris yang sedang disorot dari
+	 * pemanggil), baris tersebut selalu disisipkan di posisi pertama dan dikecualikan dari hasil
+	 * paging normal agar tidak duplikat.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -466,10 +524,25 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 		return this;
 	}
 
+	/** Seperti {@link #display(Mahasiswa, Component, KegiatanKemahasiswaanPunyaMahasiswa)} tanpa baris yang disorot. */
 	public void display(Mahasiswa mahasiswa, Component component) {
 		display(mahasiswa, component, null);
 	}
 
+	/**
+	 * Membangun UI lengkap: toolbar responsif (Div flex-wrap di mobile, {@link Toolbar} di desktop)
+	 * berisi pencarian nama, ajukan kegiatan baru, ikut kegiatan, unduh Excel, dan (bila
+	 * {@code mahasiswa} diberikan) cetak angka kredit/rekap angka kredit; lalu grid berpaging. Lalu
+	 * memuat datanya.
+	 *
+	 * @param mahasiswa                             mahasiswa yang keikutsertaannya
+	 *                                              ditampilkan/dikelola; boleh {@code null} untuk
+	 *                                              mode rekap lintas mahasiswa (memakai filter dari
+	 *                                              konstruktor kedua)
+	 * @param component                            komponen induk ZK; isinya dibersihkan lebih dulu
+	 * @param kegiatanKemahasiswaanPunyaMahasiswa   baris yang akan disorot dan ditampilkan di posisi
+	 *                                              pertama grid, boleh {@code null}
+	 */
 	public void display(final Mahasiswa mahasiswa, Component component,
 			KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa) {
 		this.mahasiswa = mahasiswa;

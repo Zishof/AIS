@@ -53,6 +53,29 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper generik "Daftar Buku Referensi/Artikel" yang dapat ditautkan ke berbagai jenis
+ * entitas pemilik (owner) sekaligus — {@link Skripsi}, {@link MahasiswaRequestTugasAkhir},
+ * {@link JadwalUjianPMB}, {@link KelompokKkn}, {@link KelompokPkl}, {@link Perkuliahan},
+ * {@link KurikulumPunyaMatakuliah}, {@link JadwalPelajaran} — lewat baris relasi
+ * {@link DataPunyaArtikel} yang memiliki satu kolom foreign key per jenis owner (hanya
+ * kolom yang relevan yang diisi tidak-null pada satu baris). Menyediakan pencarian
+ * (judul/kata kunci/abstrak {@link Artikel}), pengambilan artikel dari katalog internal
+ * ({@link AmbilDataArtikelBanyak}) atau dari Google Scholar ({@link
+ * AmbilDataDariGoogleScholarBanyak}, tombol saat ini disembunyikan/{@code setVisible(false)}
+ * pada varian tab), tampilan kutipan, dan penghapusan.
+ *
+ * <p>
+ * Method {@link #display} memiliki dua mode tata letak yang hampir identik isinya
+ * (duplikasi toolbar/tombol yang disengaja): sebagai isi {@link Tabpanel} (label tab
+ * diperbarui otomatis dengan jumlah data) atau sebagai isi region {@link Center} pada
+ * {@link org.zkoss.zul.Borderlayout} (toolbar dipasang di {@code North}, paging di
+ * {@code South} milik parent). Parameter {@code sqltambahan} pada varian
+ * {@link #display(String, Component)} memungkinkan pemanggil menambahkan kondisi SQL
+ * kustom (mis. untuk owner yang belum punya kolom foreign key khusus) ke kriteria
+ * pencarian OR standar.
+ * </p>
+ */
 public class DataPunyaArtikelHelper implements DataLoader {
 
 	private Grid grid;
@@ -73,13 +96,22 @@ public class DataPunyaArtikelHelper implements DataLoader {
 	private JadwalPelajaran jadwalPelajaran;
 	private Textbox cari;
 
+	/** Membuat helper dan mengambil pengguna yang sedang login ke {@link #tbmuser} (dipakai untuk kontrol visibilitas tombol). */
 	public DataPunyaArtikelHelper() {
 
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Perender baris grid: detail artikel (via {@link DetailArtikelHelper#displayRow}) plus tombol Kutipan dan Hapus. */
 	class DetailSkripsiRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link DataPunyaArtikel}: detail {@link Artikel} terkait
+		 * lewat {@link DetailArtikelHelper#displayRow}, tombol "Kutipan" (menampilkan
+		 * format kutipan via {@link ArtikelAction#tampilkanKutipan}), dan tombol hapus
+		 * (terlihat hanya bila ada pengguna login, dengan konfirmasi dan pesan galat
+		 * ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			final DataPunyaArtikel dataPunyaArtikel = (DataPunyaArtikel) data;
@@ -140,6 +172,17 @@ public class DataPunyaArtikelHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian {@link DataPunyaArtikel} yang tertaut ke SALAH SATU
+	 * owner yang sedang aktif pada helper ini ({@link #jadwalPelajaran}/{@link #perkuliahan}/
+	 * {@link #kurikulumPunyaMatakuliah}/{@link #kelompokPkl}/{@link #kelompokKkn}/
+	 * {@link #mahasiswaRequestTugasAkhir}/{@link #skripsi}/{@link #jadwalUjianPMB}, atau
+	 * {@link #sqltambahan} sebagai kondisi SQL tambahan), disaring opsional oleh kata
+	 * kunci pencarian pada judul/kata kunci/abstrak artikel.
+	 *
+	 * @param order tambahkan pengurutan berdasarkan id menaik bila {@code true}
+	 * @return kriteria Hibernate atas {@link DataPunyaArtikel}
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(DataPunyaArtikel.class).createAlias("artikel", "artikel")
@@ -171,6 +214,13 @@ public class DataPunyaArtikelHelper implements DataLoader {
 		return crit;
 	}
 
+	/**
+	 * Memuat ulang daftar {@link DataPunyaArtikel} sesuai {@link #initCriteria(boolean)}
+	 * dengan paging standar, dan bila kontainer tampilan berupa {@link Tabpanel},
+	 * memperbarui label tab dengan jumlah data ("Artikel (N)").
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -190,12 +240,23 @@ public class DataPunyaArtikelHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Seperti {@link #display(Skripsi, MahasiswaRequestTugasAkhir, JadwalUjianPMB, KelompokKkn, KelompokPkl, Perkuliahan, KurikulumPunyaMatakuliah, Component)}
+	 * memakai owner yang sudah tersimpan di field instance (biasanya semuanya {@code null}
+	 * bila dipanggil sebelum owner lain diset), dengan tambahan {@code sqltambahan} —
+	 * kondisi SQL kustom untuk mencakup owner yang belum punya kolom foreign key khusus
+	 * pada {@link DataPunyaArtikel}.
+	 *
+	 * @param sqltambahan kondisi SQL tambahan yang di-OR-kan ke kriteria owner standar
+	 * @param component   kontainer ZK yang akan diisi (dibersihkan lebih dulu)
+	 */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(skripsi, mahasiswaRequestTugasAkhir, jadwalUjianPMB, kelompokKkn, kelompokPkl, perkuliahan,
 				kurikulumPunyaMatakuliah, component);
 	}
 
+	/** Seperti {@link #display(Skripsi, MahasiswaRequestTugasAkhir, JadwalUjianPMB, KelompokKkn, KelompokPkl, Perkuliahan, KurikulumPunyaMatakuliah, JadwalPelajaran, Component)} tanpa owner {@link JadwalPelajaran}. */
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final Perkuliahan perkuliahan, final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,
@@ -204,6 +265,31 @@ public class DataPunyaArtikelHelper implements DataLoader {
 				kurikulumPunyaMatakuliah, null, component);
 	}
 
+	/**
+	 * Membangun tampilan "Daftar Buku Referensi" untuk kombinasi owner yang diberikan
+	 * (tepat satu owner biasanya terisi non-null; sisanya {@code null}) ke dalam
+	 * {@code component}. Tata letak menyesuaikan tipe {@code component}: bila
+	 * {@link Tabpanel}, dibangun sebagai groupbox dengan toolbar+grid+paging langsung
+	 * di dalamnya (label tab diperbarui dengan jumlah data); bila {@link Center} pada
+	 * borderlayout, toolbar dipasang ke region {@code North} dan paging ke
+	 * {@code South} milik parent {@code component}; selain itu, grid dipasang langsung
+	 * ke {@code component} tanpa toolbar/paging tambahan. Toolbar (bila ada) berisi
+	 * "Ambil Artikel" (terlihat untuk staf non-mahasiswa, membuka
+	 * {@link AmbilDataArtikelBanyak} berisi artikel yang sudah dipakai owner-owner
+	 * sejenis sebagai referensi cepat), "Ambil Artikel dari Google Scholar" (membuka
+	 * {@link AmbilDataDariGoogleScholarBanyak}, membuat {@link Artikel} baru dari
+	 * {@link ScholarArticle} bila belum ada), dan kotak pencarian.
+	 *
+	 * @param skripsi                    owner skripsi, boleh {@code null}
+	 * @param mahasiswaRequestTugasAkhir owner permintaan tugas akhir, boleh {@code null}
+	 * @param jadwalUjianPMB             owner jadwal ujian PMB, boleh {@code null}
+	 * @param kelompokKkn                owner kelompok KKN, boleh {@code null}
+	 * @param kelompokPkl                owner kelompok PKL, boleh {@code null}
+	 * @param perkuliahan                owner perkuliahan, boleh {@code null}
+	 * @param kurikulumPunyaMatakuliah   owner mata kuliah kurikulum, boleh {@code null}
+	 * @param jadwalPelajaran            owner jadwal pelajaran (sekolah), boleh {@code null}
+	 * @param component                  kontainer ZK yang akan diisi (dibersihkan lebih dulu bila tidak {@code null})
+	 */
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final Perkuliahan perkuliahan, final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,

@@ -59,6 +59,30 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk menampilkan kartu penilaian seorang {@link Mahasiswa} pada satu semester:
+ * ringkasan KRS (IPS, IPK, SKS semester/kumulatif, dosen PA) diikuti DUA grid terpisah —
+ * matakuliah yang SUDAH dinilai dan yang BELUM dinilai — masing-masing mendukung matakuliah
+ * ekivalen (kode/nama asli ditampilkan dalam kurung). Menyediakan tombol cetak nilai dan lihat
+ * riwayat kurikulum mahasiswa.
+ *
+ * <p>
+ * Bila konfigurasi {@code tampilkan_nilai_rinci_di_mahasiswa} aktif ({@link #tampilkanNilaiRinci}),
+ * setiap baris pada grid "sudah dinilai" dapat di-expand ({@code MyDetail}) untuk menampilkan
+ * rincian komponen nilai per matakuliah lewat {@link #tampilNilai} — tab Nilai Total (breakdown per
+ * {@link FormatNilai}/{@link FormatNilaiTambahan}), serta tab Nilai Tugas/Nilai Ujian (masing-masing
+ * dikontrol konfigurasi {@code tampil_nilai_tugas_di_mahasiswa}/{@code tampil_nilai_ujian_di_mahasiswa},
+ * lazy-load saat tab diklik) dan tab Rekap Total Nilai (hanya untuk baris yang memiliki
+ * {@link Perkuliahan}, bukan nilai konversi).
+ * </p>
+ *
+ * <p>
+ * Nilai komponen dapat disembunyikan (tampil {@code "-"}) bila
+ * {@link Perkuliahan#getSembunyikanNilaiJikaBelumDiverifikasi()} aktif DAN komponen tersebut belum
+ * diverifikasi — mencegah mahasiswa melihat nilai mentah sebelum divalidasi dosen/admin. Akses
+ * keseluruhan kartu nilai digerbangi lewat {@link #checkBolehLihatNilai}.
+ * </p>
+ */
 public class PenilaianMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -75,17 +99,22 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 
 	private boolean tampilkanNilaiRinci = true;
 
+	/** @param semesterPendek penanda semester pendek untuk pemuatan data nilai, boleh {@code null}
+	 *  @param remedial       bila {@code true}, kartu ini menampilkan nilai kelas remedial */
 	public PenilaianMahasiswaHelper(Integer semesterPendek, boolean remedial) {
 		this.semesterPendek = semesterPendek;
 		this.remedial = remedial;
 		tampilkanNilaiRinci = Common.bolehKonfigurasi("tampilkan_nilai_rinci_di_mahasiswa");
 	}
 
+	/** Perender baris grid per {@link Detailperkuliahan}: kode/nama/SKS matakuliah (dengan penanda ekivalen), jadwal & dosen (bila memiliki {@link Perkuliahan}), total nilai & nilai huruf; kolom detail expandable hanya ditampilkan bila {@code rinci} true dan fitur nilai rinci aktif. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
 		private boolean rinci;
 
+		/** @param refresh paksa muat ulang resolusi ekivalensi matakuliah dari database, bukan cache
+		 *  @param rinci   izinkan baris ini di-expand menampilkan rincian nilai (dipakai {@code true} untuk grid "sudah dinilai", {@code false} untuk grid "belum dinilai") */
 		public DetailMahasiswaRenderer(boolean refresh, boolean rinci) {
 			this.refresh = refresh;
 			this.rinci = rinci;
@@ -167,6 +196,16 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Mengisi {@code detail} dengan tab-tab rincian nilai satu {@link Detailperkuliahan}: tab
+	 * "Nilai Total" (breakdown per {@link FormatNilai} dan {@link FormatNilaiTambahan}, dengan
+	 * kolom nilai disembunyikan bila belum diverifikasi dan konfigurasi sembunyi-nilai aktif),
+	 * tab "Nilai Tugas"/"Nilai Ujian" (lazy-load {@link RekapHasilTugasMahasiswa}/
+	 * {@link RekapHasilUjianMahasiswa} saat diklik, masing-masing digerbangi konfigurasi
+	 * terpisah), dan tab "Rekap Total Nilai" (hanya untuk baris dengan {@link Perkuliahan}, lewat
+	 * {@link ais.common.GradingHelper#hitungNilaiBerdasarkanFormatNilai}). Tidak melakukan apa pun
+	 * bila {@link #checkBolehLihatNilai(Mahasiswa, int)} menolak akses.
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public static void tampilNilai(final Detailperkuliahan detailperkuliahan, Component detail) {
 
@@ -379,6 +418,14 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 		footer.setParent(foot);
 	}
 
+	/**
+	 * Memuat ulang kedua grid: matakuliah sudah dinilai ({@link Common#getDetailperkuliahansSudahDinilai})
+	 * disaring lagi lewat {@link EkivalenNilaiUtil#saringNilaiTertinggi} agar matakuliah yang saling
+	 * ekivalen hanya tampil sekali (nilai tertinggi), dan matakuliah belum dinilai
+	 * ({@link Common#getDetailperkuliahansBelumDinilai}, selalu tanpa refresh cache ekivalensi).
+	 * Kontrak {@link DataLoader#loadData(Object)}; bila {@code value} bertipe {@link Boolean},
+	 * nilainya mengendalikan apakah cache resolusi ekivalensi matakuliah dipaksa dimuat ulang.
+	 */
 	public void loadData(Object value) {
 		boolean refresh = (value != null && value instanceof Boolean) ? (Boolean) value : false;
 		detailperkuliahans = Common.getDetailperkuliahansSudahDinilai(mahasiswa, semester, tahapan, semesterPendek,
@@ -402,6 +449,21 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh tampilan kartu penilaian (ringkasan KRS + dua grid nilai) ke dalam
+	 * {@code component}. Memanggil {@link Common#singkronkanKrsMahasiswa} untuk memastikan data
+	 * KRS mutakhir, lalu {@link #loadData} untuk mengisi kedua grid.
+	 *
+	 * @param mahasiswa   mahasiswa yang kartu nilainya ditampilkan
+	 * @param tahunAjaran diteruskan ke {@link CommonReportHelper#cetakNilai} saat tombol "Cetak
+	 *                    Nilai" ditekan
+	 * @param semester    semester yang ditampilkan
+	 * @param tahapan     tahapan KRS (bernilai {@code -1} berarti ringkasan grid atas disembunyikan)
+	 * @param component   kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
+	 * @param window      diterima untuk keseragaman kontrak antar-helper serupa; tidak dipakai
+	 *                    langsung di badan method ini
+	 * @param keDatabase  diteruskan ke {@link Common#singkronkanKrsMahasiswa}
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final Integer tahapan, final Component component, final MyWindow window, boolean keDatabase) {
 		this.mahasiswa = mahasiswa;
@@ -639,10 +701,12 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 		this.semesterPendek = semesterPendek;
 	}
 
+	/** Seperti {@link #checkBolehLihatNilai(Mahasiswa, int)} memakai {@link Mahasiswa#currentSemester()} sebagai semester; mengembalikan {@code true} bila {@code mahasiswa} {@code null}. */
 	public static boolean checkBolehLihatNilai(Mahasiswa mahasiswa) {
 		return (mahasiswa == null) || checkBolehLihatNilai(mahasiswa, mahasiswa.currentSemester());
 	}
 
+	/** Menentukan apakah nilai mahasiswa pada {@code semester} boleh dilihat oleh pengguna saat ini; mendelegasikan sepenuhnya ke {@link NilaiValidator#checkBolehLihatNilai}. */
 	public static boolean checkBolehLihatNilai(Mahasiswa mahasiswa, int semester) {
 		return NilaiValidator.checkBolehLihatNilai(mahasiswa, semester);
 

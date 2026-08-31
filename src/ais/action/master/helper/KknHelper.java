@@ -34,6 +34,12 @@ import ais.database.model.Kkn;
 import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaDapatKkn;
 
+/**
+ * Helper ZK sederhana untuk menampilkan dan mengelola daftar mahasiswa peserta satu kegiatan
+ * {@link Kkn} (Kuliah Kerja Nyata), lewat baris relasi {@link MahasiswaDapatKkn}. Grid berpaginasi
+ * menampilkan NIM, nama, Jurusan, dan Fakultas tiap peserta dengan tombol hapus per baris; tombol
+ * "Tambah Data" pada toolbar membuka {@link AmbilDataMahasiswaKknHelper} untuk menambah peserta baru.
+ */
 public class KknHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -97,6 +103,12 @@ public class KknHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang seluruh {@link MahasiswaDapatKkn} milik
+	 * {@link #kkn} ke {@link #grid}.
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -113,6 +125,13 @@ public class KknHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Menampilkan panel daftar peserta {@code kkn} dengan tombol "Tambah Data".
+	 *
+	 * @param kkn       kegiatan KKN yang pesertanya akan ditampilkan
+	 * @param component komponen ZK induk tempat panel dirender (dibersihkan lebih dulu)
+	 * @param window    jendela induk, diteruskan ke {@link AmbilDataMahasiswaKknHelper} saat menambah peserta
+	 */
 	public void display(final Kkn kkn, final Component component, final MyWindow window) {
 		this.kkn = kkn;
 		Common.clear(component);

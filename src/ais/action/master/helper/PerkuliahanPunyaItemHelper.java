@@ -62,6 +62,29 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper "Daftar Referensi Perpustakaan" untuk satu {@link Perkuliahan} (kelas kuliah),
+ * mengelola baris {@link PerkuliahanPunyaItem} yang menautkan buku/{@link Item}
+ * perpustakaan sebagai referensi kelas tersebut. Menyediakan pencarian (pengarang/judul/
+ * ISBN), pengambilan item dari katalog internal ({@link AmbilDataItemBanyak}) atau dari
+ * Google Books ({@link AmbilDataDariGoogleBookBanyak} — item yang belum ada di katalog
+ * otomatis dibuat via {@link CheckISBN}), tampilan kutipan, pembacaan buku via Google
+ * Play Books atau viewer scan per halaman internal (bila tersedia), catatan per item, dan
+ * penghapusan.
+ *
+ * <p>
+ * {@link #display} mendukung tiga mode tata letak yang isinya sebagian besar duplikat:
+ * sebagai isi {@link Tabpanel} (groupbox mandiri dengan toolbar+grid+paging), sebagai isi
+ * region {@link Center} pada borderlayout (toolbar ke {@code North}, paging ke
+ * {@code South} milik parent), atau kontainer generik lainnya (grid+paging langsung
+ * dipasang ke {@code component}, tanpa toolbar bawaan). Ukuran halaman grid tetap KECIL
+ * (3 baris/halaman) di semua mode karena setiap baris menampilkan detail buku yang cukup
+ * besar (gambar sampul, kutipan, dsb). {@link #loadData} menangani putusnya koneksi
+ * database ({@link org.hibernate.exception.JDBCConnectionException}/
+ * {@link org.hibernate.exception.GenericJDBCException}) secara non-fatal dengan pesan
+ * alert, bukan membiarkan UI crash.
+ * </p>
+ */
 public class PerkuliahanPunyaItemHelper implements DataLoader {
 
 	private Grid grid;
@@ -72,12 +95,25 @@ public class PerkuliahanPunyaItemHelper implements DataLoader {
 
 	private Paging paging;
 
+	/** Membuat helper dan mengambil pengguna yang sedang login ke {@link #tbmuser} (dipakai untuk kontrol visibilitas tombol/field). */
 	public PerkuliahanPunyaItemHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Perender baris grid: sampul dan detail buku, form katalog (mode "semua perkuliahan"), catatan yang dapat diedit, dan tombol aksi (kutipan, baca via Google/scan internal, hapus). */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link PerkuliahanPunyaItem}: sampul buku, ISBN/ISSN,
+		 * nama/judul dengan riwayat revisi, pengarang, penerbit; bila helper dipakai
+		 * dalam mode "lintas perkuliahan" ({@link #perkuliahan} {@code null}), juga
+		 * menampilkan info dosen dan detail kelas pemilik baris tersebut; catatan yang
+		 * dapat diedit langsung (staf) atau label saja (mahasiswa/siswa); serta tombol
+		 * Kutipan, "Google" (buka preview via Google Play Books, hanya bila item punya
+		 * {@code googleBookId}), "Baca" (viewer scan per halaman internal, hanya bila
+		 * ada halaman ter-scan), dan hapus (staf saja, dengan konfirmasi dan pesan
+		 * galat ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final PerkuliahanPunyaItem perkuliahanPunyaItem = (PerkuliahanPunyaItem) data;
@@ -245,6 +281,15 @@ public class PerkuliahanPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian {@link PerkuliahanPunyaItem}: bila {@link #perkuliahan}
+	 * terisi, dibatasi ke perkuliahan tersebut; bila {@code null}, memakai
+	 * {@link #sqltambahan} sebagai kondisi SQL bebas (mode lintas perkuliahan). Disaring
+	 * opsional oleh kata kunci pencarian pada pengarang/nama/ISBN item.
+	 *
+	 * @param order tambahkan pengurutan berdasarkan id menaik bila {@code true}
+	 * @return kriteria Hibernate atas {@link PerkuliahanPunyaItem}
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteri = session.createCriteria(PerkuliahanPunyaItem.class)
@@ -266,6 +311,15 @@ public class PerkuliahanPunyaItemHelper implements DataLoader {
 		return criteri;
 	}
 
+	/**
+	 * Memuat ulang daftar {@link PerkuliahanPunyaItem} sesuai
+	 * {@link #initCriteria(boolean)}, dengan paging 3 baris/halaman. Kegagalan koneksi
+	 * database ({@link org.hibernate.exception.JDBCConnectionException}/
+	 * {@link org.hibernate.exception.GenericJDBCException}) ditangkap dan ditampilkan
+	 * sebagai alert non-fatal, bukan dibiarkan menggagalkan seluruh render halaman.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		try {
@@ -289,11 +343,31 @@ public class PerkuliahanPunyaItemHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menampilkan helper dalam mode "lintas perkuliahan" (tanpa satu {@link Perkuliahan}
+	 * spesifik): {@code sqltambahan} menjadi satu-satunya kondisi filter kepemilikan
+	 * baris {@link PerkuliahanPunyaItem} yang ditampilkan.
+	 *
+	 * @param sqltambahan kondisi SQL bebas untuk membatasi baris yang ditampilkan
+	 * @param component   kontainer ZK yang akan diisi (dibersihkan lebih dulu)
+	 */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(perkuliahan, component);
 	}
 
+	/**
+	 * Membangun tampilan "Daftar Referensi Perpustakaan" untuk {@code perkuliahan} ke
+	 * dalam {@code component}. Tata letak menyesuaikan tipe {@code component} — lihat
+	 * javadoc kelas untuk ketiga mode ({@link Tabpanel}/{@link Center}/generik). Toolbar
+	 * (bila ada) berisi "Ambil Referensi" (staf non-mahasiswa, membuka
+	 * {@link AmbilDataItemBanyak}), "Ambil Google Book" (membuka
+	 * {@link AmbilDataDariGoogleBookBanyak}, judul mata kuliah dipakai sebagai kata
+	 * kunci pencarian awal), dan kotak pencarian.
+	 *
+	 * @param perkuliahan kelas kuliah yang referensinya dikelola; {@code null} untuk mode lintas perkuliahan (memakai {@link #sqltambahan})
+	 * @param component   kontainer ZK yang akan diisi (dibersihkan lebih dulu bila tidak {@code null})
+	 */
 	public void display(final Perkuliahan perkuliahan, final Component component) {
 		this.perkuliahan = perkuliahan;
 		if (component != null) {

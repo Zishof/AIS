@@ -63,6 +63,27 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk menampilkan dan menilai mahasiswa yang tergabung dalam satu
+ * {@link KelompokPkl} (kelompok Praktik Kerja Lapangan). Grid utama menampilkan mahasiswa penerima
+ * kelompok PKL beserta matakuliah PKL yang otomatis dicocokkan (dicari dari
+ * {@link Detailperkuliahan} yang sudah disetujui dengan nama matakuliah mengandung "pkl") dan
+ * total nilai/nilai huruf; tombol "Penilaian" membuka jendela {@link #init(MahasiswaDapatKelompokPkl)}
+ * untuk mengisi nilai per {@link KomponenPenilaianPkl} (dengan struktur induk-anak berbobot,
+ * dosen hanya dapat menilai komponen yang menjadi kewenangannya berdasarkan properti dinamis pada
+ * entitas komponen — dibaca via {@link ClassMetadata} Hibernate memakai nama kolom dosen yang
+ * bersangkutan dalam {@link KelompokPkl#populateDosen()}).
+ *
+ * <p>
+ * Setiap perubahan nilai komponen langsung dihitung ulang totalnya
+ * ({@code hitungTotalNilai}), dikonversi ke nilai huruf via {@link Common#getNilaiHuruf}, dan
+ * disinkronkan ke {@link Detailperkuliahan} terkait (baik nilai final maupun kolom "sementara")
+ * — sehingga nilai PKL otomatis tercermin di KRS/transkrip mahasiswa tanpa langkah simpan
+ * terpisah. Toolbar juga menyediakan cetak daftar penerima kelompok dan "Singkronkan Nilai" (batch
+ * menghitung ulang & menulis ulang nilai seluruh anggota kelompok ke {@link Detailperkuliahan}
+ * masing-masing, dijalankan asinkron via {@link Common#createDefaultTimer}).
+ * </p>
+ */
 public class PenilaianPklHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -71,6 +92,14 @@ public class PenilaianPklHelper implements DataLoader {
 	private Textbox nim;
 	private Tbmuser tbmuser;
 
+	/**
+	 * Perender baris grid: foto+riwayat revisi mahasiswa, nama/jurusan/fakultas, matakuliah PKL
+	 * yang cocok (dicari-dan-dicache pada {@link MahasiswaDapatKelompokPkl#getDetailperkuliahan()}
+	 * bila belum ada — dengan pengaman memulai transaksi bila renderer dipanggil tanpa transaksi
+	 * aktif — atau dapat dipilih manual oleh admin/panitia via {@code AmbilDataDetailPerkuliahanBanbox}),
+	 * dan (bila user bukan mahasiswa lain yang tidak berkepentingan) total nilai, nilai huruf, dan
+	 * tombol buka form penilaian.
+	 */
 	class DetailKelompokPklRenderer extends ais.ui.util.MyRowRenderer {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -186,6 +215,19 @@ public class PenilaianPklHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penilaian PKL untuk satu
+	 * {@link MahasiswaDapatKelompokPkl}: grid dua level (komponen induk yang punya anak ditampilkan
+	 * sebagai header tanpa input, komponen anak/daun diberi indentasi dan input nilai) dengan
+	 * footer total nilai + nilai huruf yang diperbarui otomatis setiap input berubah. Hanya
+	 * komponen yang boleh dinilai oleh dosen penilai saat ini (ditentukan lewat kolom dinamis pada
+	 * entitas {@link KomponenPenilaianPkl} sesuai posisi dosen di {@link KelompokPkl#populateDosen()})
+	 * yang diberi kontrol input; selain itu (termasuk saat dilihat mahasiswa) ditampilkan sebagai
+	 * label read-only. Setiap perubahan nilai langsung disinkronkan ke
+	 * {@link Detailperkuliahan} terkait (nilai final dan kolom "sementara").
+	 *
+	 * @param mahasiswaDapatKelompokPkl relasi mahasiswa-kelompok PKL yang akan dinilai
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void init(final MahasiswaDapatKelompokPkl mahasiswaDapatKelompokPkl) throws Exception {
 		final MyWindow addWindow = new MyWindow();
@@ -524,6 +566,14 @@ public class PenilaianPklHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun kriteria {@link MahasiswaDapatKelompokPkl} yang diterima ({@code diterima = true})
+	 * pada {@link #kelompokPkl} saat ini, disaring pula berdasarkan NIM/nama mahasiswa (ilike) bila
+	 * kotak pencarian diisi.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan id
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(MahasiswaDapatKelompokPkl.class).add(Restrictions.eq("diterima", true))
@@ -543,6 +593,12 @@ public class PenilaianPklHelper implements DataLoader {
 		return crit;
 	}
 
+	/**
+	 * Memuat ulang grid dengan satu halaman {@link MahasiswaDapatKelompokPkl} sesuai kriteria dan
+	 * halaman aktif paging saat ini.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -556,6 +612,14 @@ public class PenilaianPklHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan UI penilaian PKL untuk {@code kelompokPkl} ke dalam
+	 * {@code component}: toolbar (cetak daftar penerima dan "Singkronkan Nilai" — hanya tampil bagi
+	 * user non-mahasiswa/non-siswa, pencarian NIM/nama) dan grid ber-paging berisi anggota kelompok.
+	 *
+	 * @param kelompokPkl kelompok PKL yang anggotanya dinilai
+	 * @param component   komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 */
 	public void display(final KelompokPkl kelompokPkl, final Component component) {
 		this.kelompokPkl = kelompokPkl;
 		Common.clear(component);

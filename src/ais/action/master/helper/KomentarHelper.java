@@ -37,6 +37,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog input komentar pada halaman KRS mahasiswa: membuka form sederhana satu
+ * kolom teks, menyimpannya sebagai baris {@link Komentar} (dengan {@code detailperkuliahan=-1}
+ * menandai komentar level-KRS, bukan komentar per matakuliah), lalu mengirim email notifikasi ke
+ * dosen pembimbing akademik dan mahasiswa terkait (beserta lampiran PDF cetak KRS) lewat
+ * {@link MailSender#sendMailLampiran}. Komentar yang tersimpan tampil baik di halaman mahasiswa
+ * bersangkutan maupun halaman dosen pembimbing akademiknya.
+ */
 public class KomentarHelper {
 
 	private Dosen dosen;
@@ -49,6 +57,15 @@ public class KomentarHelper {
 	private Integer tahapan;
 	private boolean remedial;
 
+	/**
+	 * @param mahasiswa      mahasiswa yang KRS-nya diberi komentar
+	 * @param tahunAkademik  tahun akademik KRS terkait
+	 * @param semester       semester KRS terkait
+	 * @param tahapan        tahapan KRS terkait, boleh {@code null}
+	 * @param semesterPendek status semester pendek terkait, boleh {@code null}
+	 * @param remedial       diteruskan ke pembuatan PDF cetak KRS lampiran email
+	 * @param dosenpa        dosen pembimbing akademik penerima notifikasi, boleh {@code null}
+	 */
 	public KomentarHelper(Mahasiswa mahasiswa, String tahunAkademik, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean remedial, Dosen dosenpa) {
 		try {
@@ -65,6 +82,16 @@ public class KomentarHelper {
 		this.remedial = remedial;
 	}
 
+	/**
+	 * Membangun dialog input komentar (kolom teks, tombol Simpan/Batal). Saat "Simpan" ditekan,
+	 * memvalidasi komentar tidak kosong, menyimpan baris {@link Komentar}, mengirim email notifikasi
+	 * ke dosen pembimbing akademik dan mahasiswa (dengan lampiran PDF cetak KRS), menutup dialog, lalu
+	 * memanggil {@code eventListener} dengan data komentar yang baru disimpan.
+	 *
+	 * @param eventListener callback yang dipanggil setelah komentar berhasil disimpan (menerima
+	 *                       {@link Komentar} sebagai {@code event.getData()})
+	 * @throws Exception diteruskan dari kegagalan membangun UI
+	 */
 	public void display(final EventListener eventListener) throws Exception {
 		final MyWindow window = new MyWindow("Masukkan komentar Anda", "normal", false);
 		window.setHeight("250px");

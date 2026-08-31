@@ -20,6 +20,15 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK yang membungkus tiga jenis materi ajar (File, Audio, Video) untuk satu baris
+ * {@link KurikulumPunyaMatakuliahDetail} (detail pertemuan dalam Rencana Pembelajaran satu mata
+ * kuliah pada kurikulum) ke dalam satu jendela bertab. Setiap tab didelegasikan ke helper khusus
+ * yang sudah ada: {@link FilePerkuliahanHelper} (dokumen), {@link AudioPertemuanHelper}, dan
+ * {@link VideoPertemuanHelper}; kelas ini hanya menyusun tab-nya dan meneruskan konteks materi.
+ * Hak edit pada tab Audio/Video ditentukan sekali di konstruktor: hanya pengguna yang bukan
+ * mahasiswa, bukan siswa, dan bukan dosen (mis. admin) yang boleh mengubah.
+ */
 public class KurikulumPunyaMatakuliahHelper {
 
 	private DataLoader dataLoader;
@@ -32,6 +41,7 @@ public class KurikulumPunyaMatakuliahHelper {
 
 	int index = 0;
 
+	/** Menyiapkan sub-helper File/Audio/Video, menentukan hak edit Audio/Video berdasarkan peran pengguna yang sedang login. */
 	public KurikulumPunyaMatakuliahHelper() {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		filePerkuliahanHelper = new FilePerkuliahanHelper(tbmuser.getMahasiswa(), null);
@@ -41,6 +51,14 @@ public class KurikulumPunyaMatakuliahHelper {
 				tbmuser != null && tbmuser.getMahasiswa() == null &&  tbmuser.getSiswa() == null && tbmuser.ambilDosen() == null, false);
 	}
 
+	/**
+	 * Membangun tabbox File/Audio/Video di dalam {@link #window} untuk
+	 * {@link #kurikulumPunyaMatakuliahDetail}, dengan tab yang aktif ditentukan oleh {@link #index}
+	 * (0=File, 1=Audio, 2=Video). Tombol "Tutup" menyegarkan tampilan pemanggil lewat
+	 * {@link #dataLoader} sebelum menutup jendela.
+	 *
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK oleh sub-helper terkait
+	 */
 	public void init() throws Exception {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -101,6 +119,15 @@ public class KurikulumPunyaMatakuliahHelper {
 
 	}
 
+	/**
+	 * Membuka jendela materi ajar (File/Audio/Video) untuk satu
+	 * {@link KurikulumPunyaMatakuliahDetail}.
+	 *
+	 * @param kurikulumPunyaMatakuliahDetail detail rencana pembelajaran yang materinya akan dikelola
+	 * @param dataLoader                     dipanggil saat jendela ditutup untuk menyegarkan tampilan pemanggil
+	 * @param index                          tab yang aktif saat jendela dibuka: 0=File, 1=Audio, 2=Video
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK
+	 */
 	public void display(final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail,
 			final DataLoader dataLoader, int index) throws Exception {
 

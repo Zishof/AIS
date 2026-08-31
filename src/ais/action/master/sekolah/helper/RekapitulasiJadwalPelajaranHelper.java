@@ -460,7 +460,14 @@ public class RekapitulasiJadwalPelajaranHelper {
 		MyGrid grid = new MyGrid();
 		grid.setParent(center);
 		grid.setWidth("100%");
-		grid.setHeight("100%");
+		/*
+		 * Jangan mengunci grid ke tinggi Center. Satu jadwal dapat menghasilkan baris
+		 * ringkasan yang tinggi; height 100% membuat body grid berhenti di batas
+		 * viewport dan jadwal berikutnya terlihat terpotong. Grid dibiarkan tumbuh
+		 * mengikuti semua baris, sedangkan Center yang autoscroll menangani halaman
+		 * yang lebih panjang.
+		 */
+		grid.setHeight("auto");
 
 		Columns columns = new Columns();
 		columns.setParent(grid);

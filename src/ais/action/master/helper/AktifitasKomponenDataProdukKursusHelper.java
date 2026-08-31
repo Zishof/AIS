@@ -35,6 +35,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Composer ZK untuk tampilan "timeline" e-Learning satu {@link KomponenDataProdukKursus} (mirip
+ * {@code AktifitasPerkuliahanHelper} tetapi untuk komponen produk kursus, bukan matakuliah reguler):
+ * menampilkan grid pertemuan berpaging satu-per-halaman ({@code pageSize=1}) dengan navigasi otomatis
+ * ke pertemuan pada/terdekat hari ini saat pertama dibuka, setiap halaman menampilkan judul topik,
+ * pengajar, catatan diskusi, tombol konferensi video, tombol absen, dan (bila diaktifkan lewat
+ * konfigurasi {@code komentar_tampil_di_halaman_utama_elearning}) komentar diskusi pertemuan.
+ *
+ * <p>
+ * {@link #initDetail} melakukan <b>auto-generate</b> baris {@link Pertemuan} bila jumlah pertemuan
+ * yang sudah ada belum mencapai {@code komponenDataProdukKursus.getJumlahPertemuan()} — hanya
+ * dijalankan untuk pengguna operator (bukan mahasiswa/siswa/calon siswa/calon mahasiswa), dengan
+ * tanggal tiap pertemuan baru dijadwalkan berjarak 1 minggu dari pertemuan sebelumnya mulai dari
+ * {@code komponenDataProdukKursus.getMulai()}.
+ * </p>
+ */
 public class AktifitasKomponenDataProdukKursusHelper {
 
 	protected PenjadwalanKomponenDataProdukKursusHelper penjadwalanHelper = new PenjadwalanKomponenDataProdukKursusHelper();
@@ -42,6 +58,14 @@ public class AktifitasKomponenDataProdukKursusHelper {
 	public AktifitasKomponenDataProdukKursusHelper() {
 	}
 
+	/**
+	 * Membangun toolbar aksi (Agenda Kegiatan, Refresh) untuk komponen produk kursus yang diberikan,
+	 * tampil hanya bagi pengguna non-mahasiswa/non-siswa.
+	 *
+	 * @param komponenDataProdukKursus komponen kursus terkait
+	 * @param dataLoader                callback yang dipanggil ulang setelah aksi toolbar selesai
+	 * @return toolbar siap ditambahkan ke komponen lain
+	 */
 	public Toolbar initAgendaKomponenDataProdukKursus(final KomponenDataProdukKursus komponenDataProdukKursus,
 			final DataLoader dataLoader) {
 
@@ -91,11 +115,26 @@ public class AktifitasKomponenDataProdukKursusHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(KomponenDataProdukKursus, DataLoader, Component, boolean)} dengan {@code dataLoader} default yang memuat ulang tampilan ini sendiri. */
 	public void initDetail(KomponenDataProdukKursus komponenDataProdukKursus, Component groupbox, boolean tatapMuka)
 			throws Exception {
 		initDetail(komponenDataProdukKursus, null, groupbox, tatapMuka);
 	}
 
+	/**
+	 * Membangun tampilan timeline pertemuan komponen kursus ke dalam {@code groupbox}: toolbar aksi,
+	 * lalu auto-generate pertemuan yang belum ada (khusus operator, lihat dokumentasi kelas), lalu
+	 * grid berpaging satu pertemuan per halaman yang otomatis membuka halaman pertemuan pertama yang
+	 * jatuh pada/setelah hari ini.
+	 *
+	 * @param komponenDataProdukKursus komponen kursus yang timeline-nya ditampilkan
+	 * @param mydataLoader              callback pemuat ulang kustom; {@code null} memakai default yang
+	 *                                   memanggil kembali method ini
+	 * @param groupbox                  container ZK yang akan diisi (dibersihkan lebih dulu)
+	 * @param tatapMuka                  status pertemuan default untuk pertemuan baru yang di-generate
+	 *                                    ({@code true}=tatap muka, {@code false}=daring)
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat auto-generate pertemuan
+	 */
 	public void initDetail(final KomponenDataProdukKursus komponenDataProdukKursus, final DataLoader mydataLoader,
 			final Component groupbox, final boolean tatapMuka) throws Exception {
 

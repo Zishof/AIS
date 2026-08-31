@@ -45,6 +45,21 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK berbentuk dialog pencarian-dan-pilih untuk mendaftarkan mahasiswa langsung sebagai
+ * peserta diterima pada satu {@link Kkn} (Kuliah Kerja Nyata) — dipakai pihak pengelola untuk
+ * menambahkan peserta secara manual, berbeda dari alur pendaftaran mandiri mahasiswa. Struktur
+ * dan alurnya identik dengan {@link AmbilDataMahasiswaSeleksiPklHelper} untuk PKL, hanya entitas
+ * targetnya yang berbeda: filter NIM/nama/rentang NIM/tahun angkatan/fakultas/prodi; checkbox
+ * tiap baris tercentang otomatis bila mahasiswa sudah terdaftar dan diterima ({@code terima=1})
+ * pada KKN ini.
+ *
+ * <p>
+ * {@link #save()} memproses hanya baris yang tercentang: memvalidasi syarat kepesertaan lewat
+ * {@link Common#checkSyaratKkn}, lalu membuat baru {@link MahasiswaDaftarKkn} (dengan keterangan/
+ * nama kosong) bila belum ada — tidak menimpa atau menghapus data pendaftaran yang sudah ada.
+ * </p>
+ */
 public class AmbilDataMahasiswaSeleksiKknHelper {
 
 	private Kkn kkn;
@@ -63,11 +78,13 @@ public class AmbilDataMahasiswaSeleksiKknHelper {
 	private Textbox dariNim;
 	private Textbox sampaiNim;
 
+	/** Menyiapkan combobox filter fakultas dan jurusan (dengan opsi "Semua"). */
 	public AmbilDataMahasiswaSeleksiKknHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Renderer baris kandidat mahasiswa: checkbox (tercentang bila sudah terdaftar diterima pada {@link #kkn} ini), NIM, nama, tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatKknDao mahasiswaDapatKknDao = DaoFactory.getInstance().getMahasiswaDapatKknDao();
@@ -98,6 +115,11 @@ public class AmbilDataMahasiswaSeleksiKknHelper {
 
 	}
 
+	/**
+	 * Mendaftarkan setiap mahasiswa tercentang sebagai peserta {@link #kkn} bila memenuhi syarat
+	 * ({@link Common#checkSyaratKkn}) dan belum terdaftar sebelumnya. Baris yang tidak tercentang
+	 * atau tidak memenuhi syarat dilewati tanpa mengubah data.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 
@@ -136,6 +158,14 @@ public class AmbilDataMahasiswaSeleksiKknHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog pencarian mahasiswa dan grid berpaging server-side,
+	 * dengan tombol Simpan (memanggil {@link #save()}) / Cari / Batal.
+	 *
+	 * @param kkn        KKN tujuan pendaftaran
+	 * @param dataLoader dipanggil untuk memuat ulang tampilan pemanggil setelah simpan
+	 * @param window     window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	public void display(final Kkn kkn, final DataLoader dataLoader, final MyWindow window) {
 		this.kkn = kkn;
 		Common.clear(window);
@@ -323,6 +353,7 @@ public class AmbilDataMahasiswaSeleksiKknHelper {
 		}
 	}
 
+	/** Memuat ulang grid kandidat mahasiswa (maks {@link Common#MAX_RESULT} baris) sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

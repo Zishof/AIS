@@ -58,12 +58,46 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper widget "Rekapitulasi Tugas" — daftar gabungan pertemuan yang punya judul tugas
+ * ({@link Pertemuan#getJudultugas()}) DAN tugas per-pertemuan ({@link TugasPertemuan},
+ * termasuk turunan {@link TugasKelompok}) untuk satu pengguna atau satu
+ * {@link VOPembelajaran} (perkuliahan/jadwal pelajaran) tertentu. Dipakai sebagai panel
+ * ringkasan tugas pada dashboard maupun pada halaman detail perkuliahan/jadwal pelajaran.
+ *
+ * <p>
+ * Untuk performa, {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}
+ * TIDAK memuat entitas Hibernate satu per satu, melainkan menyusun satu query SQL native
+ * {@code UNION ALL} atas tabel {@code pertemuan} dan {@code tugas_pertemuan} (predikat
+ * WHERE disuntikkan langsung ke masing-masing cabang query — push-down predicate) untuk
+ * menghitung total baris, menentukan halaman awal (baris pertama yang tanggalnya sudah
+ * lewat), dan mengambil satu halaman data sekaligus; baris grid baru dikonversi kembali
+ * ke entitas ({@link Pertemuan}/{@link TugasPertemuan}) di {@link DetailPertemuanRenderer}
+ * saat dirender. Filter kepemilikan pertemuan (daftar id) dilewati sepenuhnya untuk admin
+ * ({@code isAdmin}) di luar konteks {@link VOPembelajaran} spesifik.
+ * </p>
+ */
 public class RekapitulasiTugasHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} tanpa membatasi ke satu {@link VOPembelajaran} — menampilkan rekap tugas milik {@code tbmuser} secara umum. */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Membangun panel "Rekapitulasi Tugas" ke dalam {@code parent}: toolbar pencarian
+	 * (dan filter rentang tanggal bila {@code perkuliahan} {@code null}), tombol buat
+	 * tugas baru ({@link RekapitulasiUjianHelper#buatbaru}), Refresh, dan — khusus
+	 * pengelola (dosen/admin, bukan mahasiswa/siswa/calon) — tombol "Recovery" yang
+	 * membuka riwayat Envers semua tugas pada pembelajaran yang sama lewat
+	 * {@link RevisiTugasHelper} untuk memulihkan tugas yang terhapus/berubah. Rentang
+	 * tanggal default: satu bulan sebelum s.d. satu bulan setelah rencana tahun
+	 * akademik berjalan. Grid dimuat lewat {@link #reload(Tbmuser, Component, Date, Date, String, boolean, boolean, VOPembelajaran)}.
+	 *
+	 * @param parent      kontainer ZK tempat panel dibangun
+	 * @param tbmuser     pengguna yang rekap tugasnya ditampilkan (menentukan cakupan pertemuan: mahasiswa/dosen/guru/siswa/admin)
+	 * @param perkuliahan bila terisi, membatasi rekap hanya ke pertemuan milik satu {@link Perkuliahan}/{@link JadwalPelajaran} ini; {@code null} untuk rekap umum milik {@code tbmuser}
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		org.zkoss.zul.Vbox subVboxUtama = new org.zkoss.zul.Vbox();
@@ -184,6 +218,26 @@ public class RekapitulasiTugasHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan bagi konteks tampilan
+	 * (langsung dari {@code perkuliahan} bila terisi; via
+	 * {@code Mahasiswa#ambilPertemuan}/{@code Dosen#ambilPertemuan} bila pengguna
+	 * mahasiswa/dosen — dengan opsi muat ulang cache 6 bulan sebelum-sesudah rentang
+	 * tanggal saat {@code refreh}; via kriteria timeline umum
+	 * {@link DashboardTimelinePertemuan#initStaticCriteria} untuk guru/siswa sekolah;
+	 * atau kosong untuk admin karena filter dilewati di query data), lalu membangun
+	 * grid berpaging dan memuat halaman pertama lewat
+	 * {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}.
+	 *
+	 * @param tbmuser    pengguna yang menentukan cakupan pertemuan
+	 * @param center     kontainer ZK yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @param mulai      awal rentang tanggal filter
+	 * @param sampai     akhir rentang tanggal filter
+	 * @param cari       kata kunci pencarian judul tugas
+	 * @param refreh     paksa muat ulang cache pertemuan mahasiswa/dosen dari database
+	 * @param awal       arahkan halaman aktif ke baris pertama yang tanggalnya sudah lewat
+	 * @param perkuliahan bila terisi, membatasi ke satu {@link VOPembelajaran} tertentu
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Component center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -362,6 +416,25 @@ public class RekapitulasiTugasHelper {
 
 	}
 
+	/**
+	 * Implementasi inti pemuatan data grid rekap tugas lewat SQL native
+	 * {@code UNION ALL} atas {@code pertemuan} dan {@code tugas_pertemuan} (lihat
+	 * javadoc kelas). Menghitung total baris dan (bila {@code awal}) menentukan
+	 * halaman aktif berdasarkan jumlah baris yang tanggalnya sebelum hari ini, lalu
+	 * mengambil satu halaman data terurut berdasarkan tanggal mulai. Filter kepemilikan
+	 * memakai {@code pertemuans} kecuali untuk admin di luar konteks
+	 * {@code perkuliahan} spesifik (filter dilewati sepenuhnya).
+	 *
+	 * @param pertemuans  daftar id {@link Pertemuan} yang menjadi cakupan (diabaikan untuk admin non-konteks)
+	 * @param paging      komponen paging yang total/halaman aktifnya diperbarui
+	 * @param grid        grid target yang modelnya diisi ulang
+	 * @param mahasiswa   mahasiswa terkait (diteruskan ke {@link DetailPertemuanRenderer})
+	 * @param awal        hitung ulang dan set halaman aktif ke baris pertama yang sudah lewat tanggal
+	 * @param mulai       awal rentang tanggal filter (diabaikan bila {@code perkuliahan} terisi)
+	 * @param sampai      akhir rentang tanggal filter (diabaikan bila {@code perkuliahan} terisi)
+	 * @param cari        kata kunci pencarian judul tugas
+	 * @param perkuliahan bila terisi, filter tanggal dan kepemilikan pertemuan lewat {@code pertemuans} tidak berlaku ganda dengan filter admin
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final java.util.List<Long> pertemuans, final org.zkoss.zul.Paging paging, final ais.ui.util.MyGrid grid,
 			final ais.database.model.Mahasiswa mahasiswa, boolean awal, final java.util.Date mulai, final java.util.Date sampai, final String cari,
@@ -503,12 +576,25 @@ public class RekapitulasiTugasHelper {
 		}
 	}
 
+	/**
+	 * Perender baris grid rekap tugas. Menerima baris hasil query SQL native
+	 * {@code UNION ALL} (bukan entitas Hibernate langsung) berupa {@code Object[]}
+	 * {@code [id, jenis, mulai_real, selesai, judultugas, pertemuan_id]}, memuat ulang
+	 * entitas {@link Pertemuan}/{@link TugasPertemuan} sesuai {@code jenis}, dan
+	 * menampilkan tombol/link yang membuka {@link PertemuanHelper} pada tab yang sesuai
+	 * (pertemuan biasa, tugas kelompok, atau tugas individual) ketika diklik.
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Mahasiswa mahasiswa;
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 		private EventListener eventListener;
 
+		/**
+		 * @param mahasiswa              mahasiswa terkait (konteks tampilan detail), boleh {@code null}
+		 * @param biodataCalonMahasiswa  konteks calon mahasiswa alternatif, boleh {@code null}
+		 * @param eventListener          callback yang dipanggil setelah jendela detail {@link PertemuanHelper} ditutup, untuk memuat ulang grid
+		 */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 				EventListener eventListener) {
 			this.mahasiswa = mahasiswa;
@@ -516,6 +602,16 @@ public class RekapitulasiTugasHelper {
 			this.eventListener = eventListener;
 		}
 
+		/**
+		 * Merender satu baris {@code Object[]} hasil query rekap: memuat entitas
+		 * {@link Pertemuan} (langsung, atau lewat {@link TugasPertemuan} bila
+		 * {@code jenis="tugas"}) dan menyembunyikan baris bila pertemuan sudah tidak
+		 * ditemukan. Bila judul tugas terisi, menampilkan tombol ikon (list-task atau
+		 * user-group untuk {@link TugasKelompok}), indikator jumlah upload peserta,
+		 * indikator "dilihat", dan link teks — keduanya membuka {@link PertemuanHelper}
+		 * pada tab detail yang sesuai (pertemuan/tugas kelompok/tugas individual) saat
+		 * diklik.
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			Object[] objects = (Object[]) data;
@@ -700,6 +796,7 @@ public class RekapitulasiTugasHelper {
 	}
 
 
+	/** Menutup sesi Hibernate secara diam-diam (mengabaikan kegagalan) via {@link ais.common.ElearningSessionUtil#closeQuietly}. */
 	private static void closeHibernateSessionQuietly(Session session) {
 		ais.common.ElearningSessionUtil.closeQuietly(session);
 	}

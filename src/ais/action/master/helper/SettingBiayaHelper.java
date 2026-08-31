@@ -36,11 +36,20 @@ import ais.database.model.DetailSettingBiaya;
 import ais.database.model.ItemBiaya;
 import ais.database.model.SettingBiaya;
 
+/**
+ * Helper ZK untuk mengelola daftar item biaya ({@link ItemBiaya}, lewat relasi {@link
+ * DetailSettingBiaya}) yang termasuk dalam satu {@link SettingBiaya}. Grid menampilkan kode,
+ * nama, dan status "nilai bisa diubah" tiap item, dengan tombol hapus per baris (relasi dihapus
+ * lewat {@link DetailSettingBiayaDao}, bukan langsung Hibernate Session). Tombol "Tambah Item
+ * Biaya" membuka dialog {@link AmbilDetailSettingBiayaHelper} untuk menambah/melepas item secara
+ * massal.
+ */
 public class SettingBiayaHelper implements DataLoader {
 
 	private MyGrid grid;
 	private SettingBiaya settingBiaya;
 
+	/** Renderer baris item biaya: kode, nama, status "nilai bisa diubah", dan tombol hapus (dengan konfirmasi) yang melepas relasi {@link DetailSettingBiaya} lewat {@link DetailSettingBiayaDao}. */
 	class DetailSettingBiayaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -103,6 +112,7 @@ public class SettingBiayaHelper implements DataLoader {
 
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang seluruh item biaya (dengan item aktif saja) milik {@link #settingBiaya}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -123,6 +133,14 @@ public class SettingBiayaHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Titik masuk utama: membangun panel daftar item biaya untuk {@code settingBiaya} — toolbar
+	 * "Tambah Item Biaya" diikuti grid berpaging.
+	 *
+	 * @param settingBiaya setting biaya yang item-nya dikelola
+	 * @param component    komponen induk (dibersihkan lebih dulu)
+	 * @param window       window pembungkus (diteruskan ke dialog tambah agar dapat menutup diri sendiri)
+	 */
 	public void displayDetailSettingBiaya(final SettingBiaya settingBiaya, final Component component,
 			final MyWindow window) {
 		this.settingBiaya = settingBiaya;

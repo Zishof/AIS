@@ -38,6 +38,19 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.PaketPerkuliahan;
 import ais.database.model.StatusMahasiswa;
 
+/**
+ * Helper ZK untuk menampilkan daftar mahasiswa yang mengikuti satu {@link PaketPerkuliahan} (paket
+ * matakuliah, mis. paket SKS untuk semester tertentu) pada satu semester, disaring lewat NIM/nama.
+ * Data diambil dari baris {@link Detailperkuliahan} yang memiliki {@code paketPerkuliahan} terisi
+ * dan {@code ikutiPerkuliahan} kosong (bukan jalur "ikut perkuliahan lain"), lalu dideduplikasi per
+ * mahasiswa (satu mahasiswa dapat memiliki beberapa {@link Detailperkuliahan} dalam paket yang sama).
+ *
+ * <p>
+ * Setiap baris dapat dibuka ({@link MyDetail}) untuk menampilkan ringkasan studi mahasiswa lewat
+ * {@link TampilStudiMahasiswaHelper}. Tombol "Ambil data Mahasiswa" membuka
+ * {@link AmbilDataMahasiswaForPaketPerkuliahanHelper} untuk menambah anggota paket.
+ * </p>
+ */
 public class DetailPaketPerkuliahanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -111,6 +124,12 @@ public class DetailPaketPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang daftar mahasiswa anggota {@link #paketPerkuliahan}
+	 * pada {@link #semester} sesuai filter NIM/nama saat ini, dideduplikasi per mahasiswa.
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -137,6 +156,14 @@ public class DetailPaketPerkuliahanHelper implements DataLoader {
 		detailperkuliahan = null;
 	}
 
+	/**
+	 * Membangun tampilan daftar anggota {@code paketPerkuliahan}: toolbar filter NIM/nama dan tombol
+	 * "Ambil data Mahasiswa", serta grid anggota berpaginasi.
+	 *
+	 * @param paketPerkuliahan paket perkuliahan yang anggotanya akan ditampilkan
+	 * @param semester         semester yang menjadi konteks keanggotaan paket
+	 * @param component        jendela ({@link MyWindow}) tempat layar dirender (dibersihkan lebih dulu)
+	 */
 	public void display(final PaketPerkuliahan paketPerkuliahan, final Integer semester, final MyWindow component) {
 		this.paketPerkuliahan = paketPerkuliahan;
 		this.semester = semester;

@@ -59,6 +59,24 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar {@link BankSoal} (soal ujian) yang
+ * tergabung dalam satu {@link PenjelasanBankSoal} (kelompok/grup soal, mis. per bab atau per topik).
+ * Menyediakan tampilan soal-jawaban langsung di grid (lewat {@link DetailUjianHelper}), pengambilan
+ * soal dari bank soal lain, pembuatan soal baru, ekspor/impor massal ke/dari berkas Excel (.xlsx),
+ * dan penghapusan seluruh soal dalam grup.
+ *
+ * <p>
+ * Ekspor ({@link #doDownload}) menghasilkan spreadsheet dengan satu baris per {@link BankSoal}: teks
+ * soal, jawaban benar (huruf), skor benar/salah/default, isi tiap opsi jawaban (kolom JWB_A..JWB_J),
+ * penjelasan, flag tampil-penjelasan-saat-ujian, dan jenis soal. Impor ({@link #doUpload}) membaca
+ * struktur yang sama untuk membuat/memperbarui {@link BankSoal} beserta {@link BankSoalDetail}
+ * per opsi jawaban (dicocokkan lewat id numerik pada spreadsheet atau, bila tidak ada, lewat
+ * kecocokan persis teks soal), dan menyimpulkan {@code jenisPilihanGanda} (kombinasi/benar-salah/
+ * pilihan ganda biasa) dari jumlah opsi yang ditandai benar. Kolom "Soal", "Pilihan Ganda", "Upload",
+ * "Hapus" dan pengambilan-soal-massal hanya tersedia untuk user non-mahasiswa.
+ * </p>
+ */
 public class DetailGrupSoalHelper implements DataLoader {
 
 	private Grid grid;
@@ -74,6 +92,15 @@ public class DetailGrupSoalHelper implements DataLoader {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Membangun UI daftar soal untuk {@code penjelasanBankSoal}: toolbar (ambil soal dari bank lain
+	 * lewat {@link AmbilDataBankSoalBanyak}, buat soal baru lewat
+	 * {@link BankSoalAction#onAddExternal}, download/upload Excel, hapus semua, refresh, cari) dan
+	 * grid berpaging. Lalu memuat datanya.
+	 *
+	 * @param penjelasanBankSoal grup soal yang isinya ditampilkan/dikelola
+	 * @param detail             komponen induk ZK tempat UI dibangun
+	 */
 	public void display(final PenjelasanBankSoal penjelasanBankSoal, Component detail) {
 		this.penjelasanBankSoal = penjelasanBankSoal;
 		tbmuser = Common.getCurrentUser();
@@ -312,6 +339,7 @@ public class DetailGrupSoalHelper implements DataLoader {
 
 	}
 
+	/** Perender baris grid yang mendelegasikan tampilan soal+jawaban ke {@link DetailUjianHelper#tampilSoalDanJawaban}, dengan mode edit aktif untuk user non-mahasiswa/siswa/calon mahasiswa. */
 	public class DetailUjianRenderer extends ais.ui.util.MyRowRenderer {
 
 		private EventListener ubahEventListener = new EventListener() {
@@ -334,6 +362,16 @@ public class DetailGrupSoalHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengekspor hasil {@code criteria} (daftar {@link BankSoal}) ke spreadsheet Excel dan
+	 * mengirimkannya sebagai unduhan {@code bank_soal__.xlsx} lewat {@link Filedownload#save}. Satu
+	 * baris per soal: teks soal, huruf jawaban benar, skor benar/salah/default, isi opsi jawaban
+	 * (kolom JWB_A..JWB_J untuk pilihan ganda, atau jawaban esai untuk jenis lain), penjelasan, flag
+	 * tampil-penjelasan-saat-ujian, dan jenis soal.
+	 *
+	 * @param criteria kriteria Hibernate untuk {@link BankSoal} yang akan diekspor
+	 * @throws Exception diteruskan dari kegagalan pembangunan spreadsheet atau I/O
+	 */
 	@SuppressWarnings("unchecked")
 	public static void doDownload(Criteria criteria) throws Exception {
 
@@ -457,6 +495,16 @@ public class DetailGrupSoalHelper implements DataLoader {
 				fileName);
 	}
 
+	/**
+	 * Varian {@link #doDownload(Criteria)} khusus satu {@link PenjelasanBankSoal} (grup soal):
+	 * struktur kolom sama, ditambah kolom nomor urut dan id grup ditulis ke sel (0,0) untuk
+	 * dipakai ulang saat impor. Nama berkas unduhan menyertakan id dan nama grup soal.
+	 *
+	 * @param penjelasanBankSoal grup soal yang diekspor (dipakai untuk nama berkas dan kolom nomor
+	 *                           urut); boleh {@code null}
+	 * @param criteria           kriteria Hibernate untuk {@link BankSoal} yang akan diekspor
+	 * @throws Exception diteruskan dari kegagalan pembangunan spreadsheet atau I/O
+	 */
 	@SuppressWarnings("unchecked")
 	public static void doDownload(PenjelasanBankSoal penjelasanBankSoal, Criteria criteria) throws Exception {
 
@@ -585,6 +633,19 @@ public class DetailGrupSoalHelper implements DataLoader {
 				fileName);
 	}
 
+	/**
+	 * Mengimpor soal dari berkas Excel (.xlsx, format yang sama dengan hasil {@link #doDownload})
+	 * TANPA membatasi pencarian pada satu grup — soal dicocokkan lintas seluruh {@link BankSoal}
+	 * berdasarkan id (kolom pertama) atau, bila tidak ada, teks soal persis sama. Untuk tiap baris
+	 * valid, membuat/memperbarui {@link BankSoal} dan {@link BankSoalDetail} per opsi jawaban (atau
+	 * satu baris esai untuk jenis non-pilihan-ganda), lalu menyimpulkan {@code jenisPilihanGanda}.
+	 * Menampilkan ringkasan jumlah baris terupload lewat {@link MyMessageboxConfig}, lalu memicu
+	 * {@code dataLoader.loadData(true)}.
+	 *
+	 * @param media      berkas Excel yang diunggah; ditolak dengan pesan error bila bukan {@code .xlsx}
+	 * @param dataLoader callback muat-ulang data pemanggil setelah impor selesai
+	 * @throws Exception diteruskan dari kegagalan I/O atau parsing Excel
+	 */
 	public static void doUpload(Media media, final DataLoader dataLoader) throws Exception {
 		if (media.getName().toLowerCase().endsWith("xlsx")) {
 
@@ -792,6 +853,17 @@ public class DetailGrupSoalHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Varian {@link #doUpload(Media, DataLoader)} yang membatasi pencarian/penautan soal pada satu
+	 * {@code penjelasanBankSoal} (grup) tertentu — soal yang cocok (via id atau teks persis) dicari
+	 * hanya di dalam grup ini, dan soal baru otomatis ditautkan ke grup ini. Kolom nomor urut (kolom
+	 * ke-20) turut dibaca dan disimpan ke {@code nomorUrut}.
+	 *
+	 * @param media              berkas Excel yang diunggah
+	 * @param penjelasanBankSoal grup soal tujuan impor
+	 * @param dataLoader         callback muat-ulang data pemanggil setelah impor selesai
+	 * @throws Exception diteruskan dari kegagalan I/O atau parsing Excel
+	 */
 	public static void doUpload(Media media, PenjelasanBankSoal penjelasanBankSoal, final DataLoader dataLoader)
 			throws Exception {
 		if (media.getName().toLowerCase().endsWith("xlsx")) {
@@ -1007,6 +1079,7 @@ public class DetailGrupSoalHelper implements DataLoader {
 		}
 	}
 
+	/** Mengekspor seluruh soal pada {@link #penjelasanBankSoal} (diurutkan nomor urut lalu id) lewat {@link #doDownload(PenjelasanBankSoal, Criteria)}. */
 	private void initSpreadsheet() throws Exception {
 		DetailGrupSoalHelper.doDownload(penjelasanBankSoal,
 				HibernateUtil.currentSession().createCriteria(BankSoal.class)
@@ -1014,10 +1087,17 @@ public class DetailGrupSoalHelper implements DataLoader {
 						.addOrder(Order.asc("id")));
 	}
 
+	/** Mengimpor {@code media} ke {@link #penjelasanBankSoal} lewat {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)}, dengan {@code this} sebagai callback muat-ulang. */
 	private void uploadSoal(Media media, PenjelasanBankSoal penjelasanBankSoal) throws Exception {
 		DetailGrupSoalHelper.doUpload(media, penjelasanBankSoal, this);
 	}
 
+	/**
+	 * Memuat satu halaman {@link BankSoal} milik {@link #penjelasanBankSoal} (diurutkan nomor urut
+	 * lalu id) ke grid, sesuai halaman aktif pada {@link #paging}.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public void loadData(Object value) {

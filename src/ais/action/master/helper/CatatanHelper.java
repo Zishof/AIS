@@ -38,6 +38,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk menuliskan catatan dosen Pembimbing Akademik terhadap satu {@link KrsMahasiswa}
+ * (satu baris KRS mahasiswa pada semester/tahapan/semester-pendek tertentu) — dua catatan terpisah
+ * disediakan: catatan Rencana Studi (tampil di halaman KRS) dan catatan Penilaian/KHS (tampil di
+ * halaman KHS), keduanya dapat diwajibkan memiliki panjang minimal karakter lewat konfigurasi
+ * {@code minimal_catatan_krs}/{@code minimal_catatan_khs}. Jendela juga menyediakan unggah lampiran
+ * pendukung catatan.
+ *
+ * <p>
+ * Setelah catatan tersimpan, bila field catatan KRS tidak kosong, sebuah email/notifikasi otomatis
+ * dikirim (asinkron lewat {@code Common#createDefaultTimer}) ke mahasiswa, dosen PA-nya, dan
+ * pengguna yang menulis catatan — dilampiri berkas PDF KRS hasil cetak
+ * ({@code Report#generateFileReport}) — lewat {@link MailSender#sendMailLampiran}.
+ * </p>
+ */
 public class CatatanHelper {
 
 	private Mahasiswa mahasiswa;
@@ -53,6 +68,15 @@ public class CatatanHelper {
 	private int minimalCatatanKrs = 0;
 	private int minimalCatatanKhs = 0;
 
+	/**
+	 * @param mahasiswa      mahasiswa pemilik KRS yang akan diberi catatan
+	 * @param semester       nomor semester KRS
+	 * @param tahapan        nomor tahapan (bila fitur tahapan kurikulum aktif), boleh {@code null}
+	 * @param dosenpa        dosen Pembimbing Akademik, dipakai sebagai salah satu penerima notifikasi email
+	 * @param tahunAkademik  tahun akademik KRS
+	 * @param semesterPendek penanda konteks Semester Pendek/Antara, boleh {@code null}
+	 * @param remedial       penanda apakah KRS ini remedial (dipakai saat mencetak lampiran PDF KRS)
+	 */
 	public CatatanHelper(Mahasiswa mahasiswa, Integer semester, final Integer tahapan, Dosen dosenpa,
 			String tahunAkademik, Integer semesterPendek, boolean remedial) {
 		this.mahasiswa = mahasiswa;
@@ -65,6 +89,16 @@ public class CatatanHelper {
 		this.remedial = remedial;
 	}
 
+	/**
+	 * Membangun jendela input catatan KRS/KHS. Setelah disimpan (dengan validasi panjang minimal
+	 * karakter bila dikonfigurasi), {@code eventListener} dipanggil segera, lalu — bila catatan KRS
+	 * tidak kosong — email notifikasi terlampir PDF KRS dikirim secara asinkron ke mahasiswa/dosen
+	 * PA/penulis catatan (lihat dokumentasi kelas).
+	 *
+	 * @param eventListener dipanggil segera setelah catatan tersimpan (sebelum proses kirim email),
+	 *                      dengan data event berupa {@link KrsMahasiswa} yang diperbarui
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK atau akses database
+	 */
 	public void display(final EventListener eventListener) throws Exception {
 		KrsMahasiswa krsMahasiswa = ambilKrsMahasiswaUntukCatatan();
 		final MyWindow window = new MyWindow("Masukkan catatan mahasiswa untuk semester " + semester, "normal", true);

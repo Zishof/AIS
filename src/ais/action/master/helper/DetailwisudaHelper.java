@@ -90,6 +90,23 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper administrasi peserta satu acara {@link Wisuda}: menampilkan & mengelola daftar
+ * pendaftaran wisuda ({@link PendaftaranWisuda}) per mahasiswa — status persetujuan (keuangan,
+ * administrasi, perpustakaan tingkat universitas/fakultas), nomor registrasi/kursi, ukuran toga,
+ * dan status kelulusan terkini. Menyediakan pencarian (NIM/nama, fakultas/jurusan), penambahan
+ * peserta dari pencarian mahasiswa, pencetakan berbagai laporan (peserta, album foto, profil,
+ * bukti kartu wisuda, transkrip), ekspor Excel dengan kolom turunan (IPS/IPK/SKS/masa studi
+ * dihitung saat ekspor, bukan disimpan), impor Excel massal, dan sinkronisasi status kelulusan
+ * massal ke seluruh mahasiswa yang disetujui wisuda (menandai LULUS, menghitung semester lulus,
+ * tahun lulus/wisuda, dan predikat kelulusan/yudisium).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} (callback penyegaran) dan {@link DataCriteria}
+ * (kriteria pencarian dipakai bersama oleh paging server-side, sinkronisasi status, dan ekspor
+ * Excel via {@link Common#cetakDataCustomButton}).
+ * </p>
+ */
 public class DetailwisudaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -104,16 +121,19 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 	private boolean edit;
 	private boolean delete;
 
+	/** Kolom entitas yang diekspor/diimpor pada tombol "Download Peserta"/upload utama, memetakan langsung ke properti {@link PendaftaranWisuda} dan {@link Mahasiswa} terkait. */
 	public static String[] contents = new String[] { "id", "mahasiswa", "mahasiswa.judulSkripsi", "mahasiswa.noAkta1",
 			"mahasiswa.tanggalLulus", "tanggalDaftarWisuda", "skripsi", "wisuda", "statusPersetujuanKeuangan",
 			"statusPersetujuanAdministrasi", "statusPersetujuanPerpustakaan", "statusPersetujuanPerpustakaanFakultas",
 			"statusPersetujuanAdministrasiFakultas", "persetujuanWisuda", "noRegistrasiWisuda", "noKursi", "ukuranToga",
 			"keterangan" };
 
+	/** Kolom identitas dasar yang diekspor pada tombol "Download Wisudawan" (data biografis ringkas untuk keperluan cetak ijazah/undangan). */
 	public static String[] contentsBaru = new String[] { "id", "mahasiswa.nim", "mahasiswa.nama",
 			"mahasiswa.jurusan.fakultas.nama", "mahasiswa.jurusan.nama", "mahasiswa.kelamin", "mahasiswa.tempatlahir",
 			"mahasiswa.tanggallahir" };
 
+	/** Menyiapkan combobox filter fakultas/jurusan dan hak edit/hapus pengguna saat ini. */
 	public DetailwisudaHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas = new Combobox(),
 				searchjurusan = new Combobox());
@@ -121,6 +141,16 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Merender satu baris peserta wisuda: foto, no. registrasi/kursi, status persetujuan, NIM/
+	 * nama/angkatan, status akademik terkini (gabungan status keluar/status mahasiswa/status
+	 * awal/semester), fakultas/jurusan, dan judul skripsi (di-cache otomatis ke
+	 * {@link Mahasiswa#getJudulSkripsi()} dan ditautkan ke {@link Skripsi} bila belum ada, saat
+	 * baris dirender pertama kali). Tombol aksi: Transkrip (pratinjau), No. (generate nomor
+	 * kursi/registrasi, staf ber-{@link #edit}), Ubah (staf ber-{@link #edit}, mensyaratkan data
+	 * skripsi sudah ada), Bukti (cetak kartu), Hapus (staf ber-{@link #delete}, hanya melepas
+	 * relasi wisuda dari pendaftaran — bukan menghapus baris {@link PendaftaranWisuda}).
+	 */
 	class DetailWisudaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailWisudaRenderer() {
@@ -337,6 +367,13 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Mencetak "Kartu Daftar Wisuda" (PDF) untuk satu {@code pendaftaranWisuda}. Bila nomor
+	 * kursi belum diisi, menetapkan nomor kursi otomatis dari id pendaftaran (di-padding nol
+	 * hingga 8 digit) sebelum mencetak. Parameter laporan mencakup yudisium hasil hitung ulang
+	 * ({@link Common#hitungJudisium}), data KRS lulus tersinkron, foto kelulusan, serta seluruh
+	 * properti {@link BiodataMahasiswa}, {@link Mahasiswa}, dan {@link Skripsi} terkait.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void cetakBukti(PendaftaranWisuda pendaftaranWisuda) throws Exception {
 		if (pendaftaranWisuda.getNoKursi() == null || !pendaftaranWisuda.getNoKursi().isEmpty()) {
@@ -380,6 +417,13 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		Report.generatePDFReport(Report.PDF, parameters, "kartu_daftar_wisuda", ais.ui.util.WaktuUtil.getDate());
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link PendaftaranWisuda} untuk {@link #wisuda},
+	 * disaring berdasarkan nama/NIM mahasiswa (contains) dan fakultas/jurusan terpilih.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan berdasarkan NIM
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PendaftaranWisuda.class).add(Restrictions.eq("wisuda", wisuda))
@@ -404,6 +448,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat/menyegarkan grid dengan halaman peserta wisuda sesuai {@link #initCriteria} dan posisi {@link #paging} saat ini. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -418,10 +463,24 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pencarian mahasiswa agar dapat memicu {@link #loadData(Object)} setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel lengkap daftar peserta {@code wisuda} ke dalam {@code component}: form
+	 * pencarian, toolbar aksi (Ambil Data Mahasiswa, Cari, tiga tombol cetak laporan — Peserta/
+	 * Album/Profile, ekspor Excel "Download Peserta" dengan kolom IPS/IPK/SKS/masa studi
+	 * turunan, upload Excel massal, "Singkronkan dengan status mahasiswa" — proses async
+	 * berjalan di thread terpisah dengan progress bar yang menandai LULUS seluruh mahasiswa
+	 * disetujui pada fakultas/jurusan terpilih, dan ekspor Excel kedua "Download Wisudawan"
+	 * dengan kolom data ijazah/kontak/alamat lengkap) di atas grid paging 50 baris.
+	 *
+	 * @param wisuda    acara wisuda yang pesertanya akan ditampilkan/dikelola
+	 * @param component kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param window    jendela induk, diteruskan ke helper pencarian mahasiswa
+	 */
 	@SuppressWarnings("deprecation")
 	public void display(final Wisuda wisuda, final Component component, final MyWindow window) {
 		this.wisuda = wisuda;

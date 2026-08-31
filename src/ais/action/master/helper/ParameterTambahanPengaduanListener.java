@@ -26,6 +26,21 @@ import ais.database.model.ParameterTambahanPengaduan;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * {@link EventListener} yang membangun secara dinamis input-input "parameter tambahan" pada form
+ * {@link Pengaduan}, dikelompokkan menurut {@link KelompokParameterTambahanPengaduan}. Struktur dan
+ * perilakunya identik dengan {@link ParameterTambahanCatatanPegawaiListener} (lihat javadoc kelas
+ * tersebut untuk detail alur), hanya berbeda entitas target: setiap kali dipanggil ({@link #onEvent}),
+ * seluruh baris parameter lama dihapus dan dibangun ulang dari konfigurasi
+ * {@link ParameterTambahanPengaduan} yang aktif per kelompok, dengan nilai tersimpan diurai dari
+ * {@code pengaduan.getParameterTambahanInds()} (format baris {@code "kelompokId->parameterId<=>nilai<=>keterangan"}).
+ *
+ * <p>
+ * {@link #validate()} harus dipanggil sebelum simpan formulir untuk memastikan parameter wajib dan
+ * lampiran wajib sudah lengkap; {@link #onSave(Pengaduan)} menuliskan nilai-nilai terisi kembali ke
+ * entitas {@link Pengaduan} yang diberikan.
+ * </p>
+ */
 public class ParameterTambahanPengaduanListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +49,13 @@ public class ParameterTambahanPengaduanListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanPengaduan> kelompokParameterTambahanPengaduans;
 
+	/**
+	 * @param pengaduan                              entitas pengaduan yang formulirnya dibangun
+	 * @param kelompokParameterTambahanPengaduans    kelompok-kelompok parameter yang ditampilkan
+	 * @param parameterRows                          list keluaran yang diisi baris-baris parameter yang dibangun
+	 * @param lampiranLains                           peta lampiran yang sudah diunggah, dikunci per "kelompokId->parameterId"
+	 * @param rows                                    container {@link Rows} tempat baris parameter ditambahkan
+	 */
 	public ParameterTambahanPengaduanListener(Pengaduan pengaduan,
 			Set<KelompokParameterTambahanPengaduan> kelompokParameterTambahanPengaduans, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +66,15 @@ public class ParameterTambahanPengaduanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter yang sedang dibangun: parameter wajib-diisi harus memiliki
+	 * nilai, dan parameter yang mewajibkan lampiran harus sudah memiliki entri di {@code lampiranLains}.
+	 * Menampilkan dialog peringatan berisi label parameter yang gagal validasi (validasi berhenti pada
+	 * kegagalan pertama).
+	 *
+	 * @return {@code true} bila seluruh parameter valid; {@code false} bila ada yang gagal
+	 * @throws Exception diteruskan dari kegagalan menampilkan dialog
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +108,23 @@ public class ParameterTambahanPengaduanListener implements EventListener {
 		return true;
 	}
 
+	/** Menuliskan nilai-nilai parameter tambahan yang sedang terisi (dari {@code parameterRows}) ke entitas {@code pengaduan} yang diberikan, siap disimpan. */
 	public void onSave(Pengaduan pengaduan) {
 
 		pengaduan.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan: menghapus baris lama, lalu untuk setiap
+	 * kelompok mengambil parameter yang aktif dan dikonfigurasi untuk kelompok tersebut, mengurai
+	 * nilai tersimpan dari {@code pengaduan.getParameterTambahanInds()}, dan membangun komponen
+	 * inputnya lewat {@code ParameterTambahan.initComponent}. Baris header kelompok hanya ditampilkan
+	 * bila ada parameter yang berhasil dibangun untuk kelompok tersebut.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari kegagalan Hibernate atau pembangunan komponen
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

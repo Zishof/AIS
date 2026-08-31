@@ -40,6 +40,15 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk menampilkan dan mengelola daftar dosen yang memegang satu {@link Jabatan}
+ * tertentu: grid pencarian (nama/fakultas/jurusan) menampilkan dosen yang field
+ * {@code spesifikasiJabatan} (bila jabatan milik PT sendiri) atau {@code spesifikasiJabatanPtLain}
+ * (bila jabatan di PT lain, ditentukan oleh {@link Jabatan#getPtSendiri()}) menunjuk ke jabatan ini.
+ * Tombol "Ambil Data Dosen" membuka dialog pemilihan dosen; tombol hapus per baris hanya melepas
+ * relasi jabatan pada dosen tersebut (mengosongkan {@code spesifikasiJabatan}), tidak menghapus
+ * dosennya.
+ */
 public class DetailJabatanDosenHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -49,10 +58,12 @@ public class DetailJabatanDosenHelper implements DataLoader {
 
 	private Textbox nama;
 
+	/** Menyiapkan kombo filter fakultas/jurusan (opsi "Semua" disertakan). */
 	public DetailJabatanDosenHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Row renderer grid dosen pemegang jabatan: foto+kode/NIDN, nama, jurusan, fakultas, dan tombol hapus (melepas relasi jabatan, bukan menghapus dosen). */
 	class DetailDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailDosenRenderer() {
@@ -112,6 +123,7 @@ public class DetailJabatanDosenHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang daftar dosen pemegang jabatan saat ini sesuai filter nama/jurusan/fakultas dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -133,6 +145,13 @@ public class DetailJabatanDosenHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun UI grid dosen pemegang jabatan (filter, toolbar ambil-data/cari, kolom grid) di dalam
+	 * {@code component} untuk jabatan yang diberikan dan memuat data awal.
+	 *
+	 * @param jabatan   jabatan yang dosennya ditampilkan
+	 * @param component container ZK yang akan diisi
+	 */
 	public void displayDetailDosen(final Jabatan jabatan, final Component component) {
 		this.jabatan = jabatan;
 		Common.clear(component);

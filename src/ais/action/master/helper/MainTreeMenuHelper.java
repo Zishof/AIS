@@ -26,8 +26,47 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyTreeitemConfig;
 
+/**
+ * Helper statis yang membangun pohon menu navigasi utama ({@link Tree} berbentuk {@link
+ * org.zkoss.zul.Treeitem} bertingkat) berdasarkan hak akses ({@link Tbmrole}) milik {@link
+ * Tbmuser} yang login, sekaligus mencatat jejak audit login/klik menu ke {@link LogLogin}/{@link
+ * DetailLogLogin}. Item menu tanpa anak langsung membuka target ({@code menu.getUrl()}) ke dalam
+ * tab/iframe navigasi ({@link Common#insertToTab}/{@link Common#launchMenu}); item yang punya
+ * anak (dicek lewat {@code MainHelper.hasChild}) dirender sebagai folder yang dapat dibuka/
+ * ditutup dan anaknya dibangun rekursif lewat {@link #createRootSubMenu}.
+ *
+ * <p>
+ * Daftar {@link Menu} milik role di-cache per sesi ZK ({@code Sessions} attribute
+ * {@code "current_menus"}) untuk menghindari query berulang; bila koleksi lazy pada objek
+ * {@link Tbmrole} yang tersimpan di sesi ternyata sudah terlepas dari Session Hibernate lamanya
+ * (detached, dapat memicu {@code SessionException} saat diinisialisasi), method {@link
+ * #loadTree} secara eksplisit mengambil ulang daftar menu lewat query HQL pada session baru
+ * (dengan fallback muat-ulang {@link Tbmrole} by-id bila query gagal, dan fallback akhir ke
+ * daftar kosong bila keduanya gagal) alih-alih membiarkan seluruh menu utama gagal dimuat.
+ * Kegagalan mencatat log (mis. sequence id database belum ter-wire) juga selalu di-rollback dan
+ * sesinya ditutup eksplisit agar tidak meninggalkan transaksi/koneksi dalam keadaan rusak yang
+ * dapat menjatuhkan pemuatan menu berikutnya pada thread yang sama.
+ * </p>
+ */
 public class MainTreeMenuHelper {
 
+	/**
+	 * Titik masuk utama: membangun seluruh pohon menu ke dalam {@code menubar} untuk
+	 * {@code tbmuser}, mencatat baris {@link DetailLogLogin} "Login" pertama kali bila
+	 * {@code login} diberikan dan belum pernah dicatat pada sesi ini, lalu menambahkan item
+	 * "Bantuan" (bila konfigurasi {@code tampilkan_menu_bantuan} aktif) dan "Keluar Aplikasi" di
+	 * akhir pohon. Tidak melakukan apa pun bila {@code tbmuser} atau hak aksesnya kosong.
+	 *
+	 * @param tbmuser            user yang login, sumber hak akses/menu
+	 * @param login              record login aktif untuk pencatatan jejak audit; boleh {@code null}
+	 * @param menubar            komponen tree tujuan
+	 * @param clickEventListener listener tambahan yang dipanggil setiap kali item menu daun diklik (sebelum menu benar-benar dibuka)
+	 * @param iframe             tabbox tempat konten menu dibuka
+	 * @param navigasi           panel navigasi (west) terkait
+	 * @param menuService        tombol layanan menu terkait
+	 * @param pt                 batasi menu ke yang ditandai tampil di perguruan tinggi
+	 * @param ya                 batasi menu ke yang ditandai tampil di sekolah
+	 */
 	@SuppressWarnings("unchecked")
 	public static void loadTree(Tbmuser tbmuser, final LogLogin login, Tree menubar, EventListener clickEventListener,
 			Tabbox iframe, West navigasi, MyToolbarbuttonConfig menuService, boolean pt, boolean ya) {
@@ -171,6 +210,15 @@ public class MainTreeMenuHelper {
 
 	}
 
+	/**
+	 * Membangun satu tingkat {@link Treechildren} berisi menu-menu ber-{@code root == 0} (menu
+	 * tingkat teratas) dari {@code menus}, difilter juga oleh flag {@code pt}/{@code ya} dan
+	 * status aktif. Menu dengan anak dirender sebagai folder yang membuka rekursif lewat {@link
+	 * #createRootSubMenu}; menu daun membuka target lewat {@code clickEventListener} + {@link
+	 * Common#insertToTab}, sambil mencatat {@link DetailLogLogin} untuk klik tersebut.
+	 *
+	 * @return simpul {@link Treechildren} yang sudah ditempel ke {@code menubar}
+	 */
 	public static Treechildren createTreeMenu(Tree menubar, Tbmrole job, List<Menu> menus, Tbmuser tbmuser,
 			final LogLogin login, final EventListener clickEventListener, final Tabbox iframe, final West navigasi,
 			final MyToolbarbuttonConfig menuService, boolean pt, boolean ya) {
@@ -260,6 +308,13 @@ public class MainTreeMenuHelper {
 		return tc1;
 	}
 
+	/**
+	 * Membangun rekursif submenu dari {@code menus} yang ber-{@code root} sama dengan {@code
+	 * root} (id menu induk), ditempel sebagai anak {@code parenttreeitem}. Sama seperti {@link
+	 * #createTreeMenu}, menu dengan anak menjadi folder yang memanggil dirinya sendiri lagi;
+	 * menu daun membuka target lewat {@link Common#launchMenu} sambil mencatat {@link
+	 * DetailLogLogin}.
+	 */
 	private static void createRootSubMenu(Long root, List<Menu> menus, MyTreeitemConfig parenttreeitem, Tbmuser tbmuser,
 			final LogLogin login, final EventListener clickEventListener, final Tabbox iframe, final West navigasi,
 			final MyToolbarbuttonConfig menuService, boolean pt, boolean ya) {

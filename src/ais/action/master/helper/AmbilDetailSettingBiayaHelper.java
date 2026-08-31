@@ -43,6 +43,24 @@ import ais.database.model.DetailSettingBiaya;
 import ais.database.model.ItemBiaya;
 import ais.database.model.SettingBiaya;
 
+/**
+ * Helper ZK berbentuk dialog pencarian-dan-pilih untuk menetapkan (dan melepaskan) item biaya
+ * ({@link ItemBiaya}) yang termasuk dalam satu {@link SettingBiaya}, lewat relasi {@link
+ * DetailSettingBiaya}. Berbeda dari dialog "Ambil Data" lain di modul ini yang umumnya bersifat
+ * aditif saja, dialog ini dua arah: checkbox tercentang menyimpan/menciptakan relasi, checkbox
+ * yang dilepas menghapus relasi yang ada.
+ *
+ * <p>
+ * <b>Catatan:</b> penghapusan relasi ditangani lewat dua jalur yang tumpang tindih — di dalam
+ * {@link #save()} sendiri (baris tidak tercentang memicu {@code session.delete(...)} langsung),
+ * dan lewat set {@link #deleteDetailSettingBiaya} yang diisi event {@code onCheck} pada {@link
+ * ItemBiayaRenderer} lalu dihapus ulang di akhir {@link #save()}. Bila kedua jalur mengenai
+ * relasi yang sama, panggilan {@code delete} kedua berpotensi gagal (objek sudah terhapus) —
+ * risiko ini tidak terlihat ke pengguna karena error di dalam loop utama ditangkap diam-diam,
+ * tetapi baris kedua di luar loop (di atas set {@link #deleteDetailSettingBiaya}) tidak
+ * dibungkus try/catch.
+ * </p>
+ */
 public class AmbilDetailSettingBiayaHelper {
 
 	private SettingBiaya settingBiaya;
@@ -51,6 +69,12 @@ public class AmbilDetailSettingBiayaHelper {
 
 	private Set<DetailSettingBiaya> deleteDetailSettingBiaya = new HashSet<DetailSettingBiaya>();
 
+	/**
+	 * Renderer baris item biaya: checkbox (tercentang bila relasi ke {@link #settingBiaya} sudah
+	 * ada), kode, nama, dan status "nilai bisa diubah". Setiap klik checkbox menambah/menghapus
+	 * relasi existing dari {@link #deleteDetailSettingBiaya} (lihat catatan kelas mengenai
+	 * potensi tumpang tindih dengan {@link #save()}).
+	 */
 	class ItemBiayaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private ItemBiayaDao itemBiayaDao = DaoFactory.getInstance().getItemBiayaDao();
@@ -98,6 +122,12 @@ public class AmbilDetailSettingBiayaHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan relasi {@link DetailSettingBiaya} sesuai status checkbox tiap baris grid:
+	 * tercentang menyimpan/memperbarui relasi, tidak tercentang menghapusnya. Di akhir, seluruh
+	 * relasi yang tercatat di {@link #deleteDetailSettingBiaya} juga dihapus (lihat catatan
+	 * kelas mengenai potensi tumpang tindih dengan penghapusan di dalam loop utama).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -155,6 +185,14 @@ public class AmbilDetailSettingBiayaHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog pencarian item biaya (filter nama) dan grid berpaging,
+	 * dengan tombol Simpan (memanggil {@link #save()}) / Cari / Batal.
+	 *
+	 * @param settingBiaya setting biaya tujuan yang item-nya dikelola
+	 * @param dataLoader   dipanggil untuk memuat ulang tampilan pemanggil setelah simpan
+	 * @param window       window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	public void display(final SettingBiaya settingBiaya, final DataLoader dataLoader, final MyWindow window) {
 
 		this.settingBiaya = settingBiaya;
@@ -296,6 +334,7 @@ public class AmbilDetailSettingBiayaHelper {
 		}
 	}
 
+	/** Memuat ulang grid item biaya aktif (maks {@link Common#MAX_RESULT} baris) sesuai filter nama aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

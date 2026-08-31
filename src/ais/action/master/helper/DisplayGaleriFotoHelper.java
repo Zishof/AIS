@@ -21,16 +21,32 @@ import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 
+/**
+ * Helper tampilan galeri foto: merender seluruh {@link GaleriFotoImage} milik satu {@link GaleriFoto}
+ * ke dalam grid tiga kolom (setiap gambar+keterangan mengisi satu sel, baris baru dimulai setiap
+ * kelipatan tiga gambar), diurutkan berdasarkan nomor halaman. Data gambar diambil lewat sesi
+ * Hibernate terpisah {@link StreamingHibernateUtil}, konsisten dengan entitas lain yang memuat data
+ * biner besar.
+ */
 public class DisplayGaleriFotoHelper {
 
 	private MyGrid gridGaleriFotoImage;
 
 	private Groupbox groupbox;
 
+	/** @param gridGaleriFotoImage grid ZK yang akan diisi kolom dan baris gambar galeri */
 	public DisplayGaleriFotoHelper(MyGrid gridGaleriFotoImage) {
 		this.gridGaleriFotoImage = gridGaleriFotoImage;
 	}
 
+	/**
+	 * Membangun groupbox berjudul nama galeri berisi grid tiga kolom, lalu memuat gambar-gambar
+	 * galeri ke dalamnya.
+	 *
+	 * @param galeriFoto galeri foto yang gambarnya ditampilkan
+	 * @return groupbox siap ditambahkan ke komponen lain
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat memuat gambar
+	 */
 	public Groupbox initDetail(final GaleriFoto galeriFoto) throws Exception {
 
 		groupbox = new ais.ui.util.MyGroupboxStyled();
@@ -56,6 +72,7 @@ public class DisplayGaleriFotoHelper {
 		return groupbox;
 	}
 
+	/** Memuat seluruh {@link GaleriFotoImage} milik galeri (terurut nomor halaman) dan menyusunnya ke grid, tiga gambar per baris. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final GaleriFoto galeriFoto) throws Exception {
 
@@ -81,6 +98,7 @@ public class DisplayGaleriFotoHelper {
 
 	}
 
+	/** Mengisi satu sel {@code row} dengan gambar galeri dan keterangannya (HTML). */
 	public void initRow(final Row row, final GaleriFotoImage galeriFotoImage) throws Exception {
 		row.setValign("top");
 		row.setAttribute("galeriFotoImage", galeriFotoImage);

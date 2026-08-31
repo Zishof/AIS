@@ -59,6 +59,24 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper daftar keanggotaan dosen pada satu {@link OrganisasiDosen} (mis. senat, komite,
+ * himpunan profesi), disimpan sebagai baris {@link OrganisasiDosenPunyaDosen}. Setiap
+ * baris keanggotaan memuat periode (mulai-sampai), jabatan, keterangan, lampiran SK/surat
+ * keterangan, dan status persetujuan. Menyediakan pencarian NIDN/Nama/Fakultas/Prodi
+ * (dikunci ke fakultas/jurusan organisasi bila organisasi sudah membatasi keduanya),
+ * penambahan anggota (lewat {@link AmbilDataDosenForOrganisasiDosenHelper}), pembersihan
+ * massal anggota yang belum disetujui, unggah/unduh data (termasuk kolom hyperlink SK pada
+ * unduhan Excel), dan alur persetujuan per baris.
+ *
+ * <p>
+ * <b>Alur persetujuan</b> — bila pengguna saat ini BUKAN dosen ({@code tbmuser.ambilDosen()
+ * == null}, yaitu staf/admin), kolom Persetujuan berupa checkbox "Setujui" yang dapat
+ * diklik langsung; field periode/jabatan/keterangan otomatis terkunci begitu baris
+ * disetujui. Bila pengguna adalah dosen, kolom hanya menampilkan label status
+ * ("Ya"/"Belum", berwarna) tanpa dapat diubah.
+ * </p>
+ */
 public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -72,6 +90,7 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 	private Paging paging;
 	private Tbmuser tbmuser;
 
+	/** Menyiapkan pengguna saat ini, combobox filter Fakultas/Prodi, dan paging standar. */
 	public OrganisasiDosenPunyaDosenHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -87,14 +106,27 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/** Perender baris grid: detail dosen, lampiran SK, field periode/jabatan/keterangan yang dapat diedit inline, kontrol persetujuan, dan tombol hapus. */
 	class DetailOrganisasiDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
 
+		/** Mengecek hak hapus ({@link CommonPrivilages#DELETE}) pengguna saat ini untuk mengontrol visibilitas tombol hapus. */
 		public DetailOrganisasiDosenRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
 
+		/**
+		 * Merender satu baris {@link OrganisasiDosenPunyaDosen}: detail dosen dengan
+		 * riwayat revisi, panel {@link MyDetail} (terbuka default) untuk unggah/unduh
+		 * lampiran SK/surat keterangan, label ikatan kerja/status kepegawaian/fakultas/
+		 * jurusan dosen, datebox periode mulai-sampai, textbox keterangan, dan combobox
+		 * jabatan organisasi — seluruhnya langsung tersimpan on-change dan otomatis
+		 * terkunci begitu baris sudah disetujui. Kontrol persetujuan berupa checkbox
+		 * (untuk staf/admin) atau label status (untuk dosen) — lihat catatan alur
+		 * persetujuan pada javadoc kelas. Tombol hapus (bila berhak) menghapus baris
+		 * dengan konfirmasi.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final OrganisasiDosenPunyaDosen organisasiDosenPunyaDosen = (OrganisasiDosenPunyaDosen) data;
@@ -253,6 +285,13 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian anggota {@link #organisasiDosen} sesuai filter
+	 * Fakultas/Prodi/NIDN/Nama dosen yang sedang terisi.
+	 *
+	 * @param order tambahkan pengurutan berdasarkan nama dosen bila {@code true}
+	 * @return kriteria Hibernate atas {@link OrganisasiDosenPunyaDosen}
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(OrganisasiDosenPunyaDosen.class);
@@ -279,6 +318,15 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang daftar anggota {@link #organisasiDosen} sesuai
+	 * {@link #initCriteria(boolean)}, dengan paging standar. Dijalankan lewat
+	 * {@link Common#createDefaultTimer} (dijeda ke siklus event berikutnya) alih-alih
+	 * langsung, sesuai konvensi pemuatan data yang menunggu render UI selesai lebih
+	 * dulu.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -300,10 +348,26 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** Mengembalikan diri sendiri sebagai {@link DataLoader}, dipakai sebagai callback refresh untuk {@link AmbilDataDosenForOrganisasiDosenHelper}. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel "Daftar dosen yang mengikuti organisasi ..." ke dalam
+	 * {@code component}: toolbar filter (NIDN/Nama/Fakultas/Prodi — Fakultas/Prodi
+	 * dikunci bila organisasi sudah membatasi keduanya) dan aksi (Cari, "Ambil Dosen"
+	 * membuka {@link AmbilDataDosenForOrganisasiDosenHelper}, "Bersihkan" menghapus SQL
+	 * native seluruh anggota yang BELUM disetujui pada organisasi ini, unggah data,
+	 * unduh data Excel dengan kolom hyperlink tambahan ke lampiran SK), lalu grid
+	 * berpaging anggota. Tata letak grid dibungkus borderlayout dengan {@code Center}
+	 * autoscroll agar tabel lebar/panjang dapat digulir tanpa memengaruhi caption dan
+	 * toolbar di luarnya.
+	 *
+	 * @param organisasiDosen organisasi yang anggotanya ditampilkan
+	 * @param component       komponen ZK induk yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @param window          jendela induk, diteruskan ke {@link AmbilDataDosenForOrganisasiDosenHelper}
+	 */
 	public void display(final OrganisasiDosen organisasiDosen, final Component component, final MyWindow window) {
 		this.organisasiDosen = organisasiDosen;
 		Common.clear(component);
@@ -605,6 +669,7 @@ public class OrganisasiDosenPunyaDosenHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** Implementasi {@link DataSearchDefault}: memuat ulang grid, dipakai callback oleh {@link Common#cetakDataCustomButton} saat mengekspor seluruh data hasil pencarian. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

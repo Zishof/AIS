@@ -31,6 +31,23 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK (dipasang lewat berkas ZUL terkait) untuk tampilan kalender "Jadwal Ajar Dosen" — satu
+ * {@link Dosen} tertentu (diri sendiri bila login sebagai dosen, atau dosen lain lewat parameter
+ * request {@code dosen}/atribut sesi {@code selectedDosen} bagi admin yang meninjau) dengan seluruh
+ * jadwal {@link Perkuliahan} yang diampu (sebagai {@code dosen1} atau {@code dosen2}) pada Tahun
+ * Akademik dan Jenis Semester (Ganjil/Genap/Semester Pendek) terpilih.
+ *
+ * <p>
+ * Selain kalender utama, composer ini menyediakan tiga tab tambahan yang dimuat lazy saat pertama
+ * kali dipilih: informasi jadwal ajar mendalam ({@link #onSp(Event)}, memuat halaman JSP/ZUL
+ * terpisah lewat {@link MyInclude}), laporan daftar hadir dosen
+ * ({@link #onLaporanPerDosen(Event)}, via {@link LaporanDaftarHadirDosen}), dan laporan SK
+ * (Surat Keputusan) mengajar dosen ({@link #onLaporanSkDosen(Event)}, via {@link LaporanSKDosen}).
+ * Jam mulai/selesai tampilan kalender dan zona waktu dapat diatur lewat konfigurasi
+ * {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code penjadwalan_timezone}.
+ * </p>
+ */
 public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -43,6 +60,7 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 
 	protected Tabpanel sp;
 
+	/** Event handler ZK tab "SP"/informasi jadwal ajar: memuat halaman {@code informasi_jadwal_ajar_dosen.zul} untuk {@link #dosen} lewat {@link MyInclude}, hanya sekali (lazy) saat tab pertama kali dibuka. */
 	public void onSp(Event event) {
 		if (sp.getChildren().size() == 0) {
 			MyWindow window = new MyWindow("", "none", false);
@@ -55,6 +73,7 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Event handler ZK tab laporan daftar hadir dosen: memasang komponen {@link LaporanDaftarHadirDosen}, hanya sekali (lazy) saat tab pertama kali dibuka. */
 	public void onLaporanPerDosen(Event event) {
 
 		if (laporanPerDosen.getChildren().size() == 0) {
@@ -67,6 +86,7 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 
 	private Tabpanel laporanSkDosen;
 
+	/** Event handler ZK tab laporan SK dosen: memasang komponen {@link LaporanSKDosen} untuk {@link #dosen}, hanya sekali (lazy) saat tab pertama kali dibuka. */
 	public void onLaporanSkDosen(Event event) {
 
 		if (laporanSkDosen.getChildren().size() == 0) {
@@ -81,6 +101,7 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 
 	protected Integer semesterPendek = null;
 
+	/** Membangun ulang model kalender sesuai filter (Tahun Akademik/Jenis Semester) saat ini dan memvalidasi ulang komponen {@link #calendars}. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
@@ -93,6 +114,16 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Hook siklus hidup ZK setelah komposisi ZUL selesai: menentukan {@link #dosen} target (dari
+	 * atribut sesi {@code selectedDosen}, parameter request {@code dosen}, atau dosen pengguna yang
+	 * login), menampilkan pesan dan berhenti bila tidak ada dosen valid, mengisi kombo Tahun Akademik
+	 * dan Jenis Semester (default sesuai semester berjalan), mengonfigurasi jam/timezone tampilan
+	 * {@link #calendars} dari konfigurasi terkait, lalu memuat model kalender awal.
+	 *
+	 * @param comp komponen akar hasil komposisi ZUL
+	 * @throws Exception diteruskan dari kegagalan inisialisasi komponen
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -198,6 +229,13 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 		}
 	}
 
+	/**
+	 * Membangun ulang {@link SimpleCalendarModel} dari seluruh {@link Perkuliahan} aktif yang diampu
+	 * {@link #dosen} (sebagai {@code dosen1} atau {@code dosen2}) pada Tahun Akademik dan Jenis
+	 * Semester terpilih (termasuk penanganan khusus Semester Pendek via
+	 * {@code Perkuliahan#SEMESTER_PENDEK}), lalu menerapkannya ke {@link #calendars}. Tidak melakukan
+	 * apa pun bila dosen, tahun akademik, atau jenis semester belum terpilih.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void initCalendarModel() {
 

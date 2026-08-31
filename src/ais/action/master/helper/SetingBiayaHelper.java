@@ -29,6 +29,59 @@ import ais.database.model.SettingBiayaDetail;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
 
+/**
+ * Helper (murni statis) inti mesin penentuan biaya kuliah/pendaftaran: mencocokkan profil satu
+ * mahasiswa/calon mahasiswa (angkatan, jenjang, semester, jenis kegiatan, status awal/status
+ * mahasiswa, jenis seleksi, gelombang pendaftaran, paket, jurusan, program, kelamin, afiliasi,
+ * tahun akademik) terhadap konfigurasi {@link SettingBiaya} yang berlaku, lalu memastikan baris
+ * tagihan {@link DetailBiaya} untuk setiap item biaya ({@link DetailSettingBiaya}) di bawah
+ * konfigurasi tersebut sudah ada di database — membuatnya bila belum, memperbaruinya bila
+ * relasinya berubah, dan memakai ulang baris lama bila sudah sesuai (idempoten).
+ *
+ * <p>
+ * Ada dua jalur utama:
+ * </p>
+ * <ol>
+ * <li><b>Jalur "cohort" (umum)</b> — dipakai untuk mahasiswa/calon mahasiswa yang biayanya
+ * mengikuti aturan umum per kelompok (bukan per-orang). Kandidat {@link SettingBiaya} dicari lewat
+ * {@link #createSettingBiayaCriteria} (filter tahun akademik ≤ ta, jenis kegiatan, rentang semester
+ * — baik yang diatur di {@code SettingBiaya} sendiri maupun mengikuti rentang
+ * {@link JenisKegiatan}), disaring/diprioritaskan lewat
+ * {@link SettingBiayaMahasiswaSelector#saringDanPrioritaskan} dan
+ * {@link SettingBiayaMahasiswaSelector#pilihSatuDenganPrioritas} (memilih satu {@code SettingBiaya}
+ * paling spesifik yang cocok dengan seluruh atribut profil), lalu direalisasikan jadi baris
+ * {@link DetailBiaya} lewat {@link #getDefaultSettingBiaya(Session, SettingBiaya, Integer, Jenjang,
+ * Integer, JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi,
+ * GelombangPendaftaran, Paket, Jurusan, String, String, AfiliasiCalonMahasiswa)}.</li>
+ * <li><b>Jalur "khusus per mahasiswa"</b> — dipakai bila mahasiswa/calon mahasiswa punya baris
+ * {@link SettingBiayaDetail} yang menautkannya langsung (bukan lewat kecocokan atribut) ke satu
+ * {@link SettingBiaya} ber-flag {@code khususBuatMahasiswaTertentu}. Direalisasikan lewat overload
+ * {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, Mahasiswa)}/
+ * {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, BiodataCalonMahasiswa)}.</li>
+ * </ol>
+ *
+ * <p>
+ * Setiap {@code SettingBiaya} bisa mendaftarkan NIM tertentu sebagai pengecualian
+ * ({@link SettingBiaya#isMahasiswaDikecualikan(String)}) — bila NIM yang diminta termasuk
+ * dikecualikan, hasil dikembalikan sebagai daftar kosong lewat {@link PengecualianTagihanList#kosong()}
+ * (bukan {@code null}), yang secara semantik berbeda dari "tidak ada SettingBiaya yang cocok sama
+ * sekali" ({@code null}, lihat javadoc masing-masing method).
+ * </p>
+ *
+ * <p>
+ * Pembuatan {@link DetailBiaya} baru berlapis tiga jaring pencarian "sudah adakah baris ini"
+ * sebelum benar-benar membuat baris baru — pencarian ketat (kunci id persis), pencarian longgar
+ * (item+bayarKe, status boleh berbeda dari saat baris lama dibuat karena status mahasiswa bisa
+ * berubah lewat sinkron KRS/cuti/kampus-merdeka), dan jaring pengaman terakhir (item+bayarKe+
+ * semester+settingBiaya saja) — untuk mencegah baris tagihan duplikat akibat race condition (klik
+ * ganda, tab ganda) atau konfigurasi admin yang tumpang tindih. Objek entity yang berasal dari
+ * cache lintas-sesi (mis. {@code ConstantValues.simpleList}) selalu diikat ke query lewat alias+id,
+ * bukan lewat objek langsung, untuk menghindari {@code TransientObjectException}. Method
+ * {@link #closeSessionSafely(Session)} sengaja DIKOSONGKAN — {@code Session} yang diterima method
+ * di kelas ini milik pemanggil ({@code PembayaranUtilHelper}), yang bertanggung jawab menutupnya
+ * sendiri di akhir iterasi besar.
+ * </p>
+ */
 public class SetingBiayaHelper {
 
     private static final String SQL_TRUE = "1=1";
@@ -37,6 +90,12 @@ public class SetingBiayaHelper {
     // PRIVATE HELPER METHODS (Untuk efisiensi memori & mencegah duplikasi kode)
     // ===================================================================================
 
+    /**
+     * Menambahkan filter umum item biaya ke {@code criteria} (yang sudah beralias {@code itemBiaya}):
+     * item harus aktif, dan bila {@code semester} diberikan, item tidak ditandai "tidak ditagih" di
+     * semester ganjil/genap yang bersangkutan serta berada dalam rentang {@code minSmt}/{@code maxSmt}
+     * item tersebut.
+     */
     private static void applyItemBiayaFilters(Criteria criteria, Integer semester, boolean withOrdering) {
         if (withOrdering) {
             criteria.addOrder(Order.asc("itemBiaya.nama")).addOrder(Order.asc("bayarKe"));
@@ -77,6 +136,13 @@ public class SetingBiayaHelper {
         return a.getId().equals(b.getId());
     }
 
+    /**
+     * Membangun kriteria kandidat {@link SettingBiaya}: tahun akademik ≤ {@code ta}, jenis kegiatan
+     * sama, flag {@code khususBuatMahasiswaTertentu}/{@code gunakanBiayaDefault} sesuai
+     * {@code isKhusus}/{@code isDefault} (diabaikan bila {@code null}), dan rentang semester — baik
+     * yang diatur langsung pada {@code SettingBiaya} ({@code smtIkutiSettinganDisini=true}) maupun
+     * mengikuti rentang semester {@link JenisKegiatan} induk (bila flag itu false/null).
+     */
     private static Criteria createSettingBiayaCriteria(Session session, Integer ta, JenisKegiatan jenisKegiatan, Integer semester, Boolean isKhusus, Boolean isDefault) {
         Criteria criteria = session.createCriteria(SettingBiaya.class);
         if (ta != null) criteria.add(Restrictions.le("ta", ta));
@@ -126,6 +192,7 @@ public class SetingBiayaHelper {
         return criteria;
     }
 
+    /** Sengaja tidak melakukan apa pun — lihat catatan session-ownership pada javadoc kelas. */
     private static void closeSessionSafely(Session session) {
         // PENTING: Dikosongkan agar tidak terjadi "org.hibernate.SessionException: Session is closed!"
         // Karena method di Helper ini hanya MENERIMA session dari class Parent (PembayaranUtilHelper),
@@ -133,6 +200,7 @@ public class SetingBiayaHelper {
         // pada akhir proses iterasi besarnya. 
     }
 
+    /** @return {@code true} bila {@code detailBiaya} sudah ada tapi relasi {@code detailSettingBiaya}/{@code settingBiaya}-nya berbeda dari {@code dsb}/{@code sb} yang diberikan (perlu di-update). */
     private static boolean isDetailBiayaNeedsUpdate(DetailBiaya detailBiaya, DetailSettingBiaya dsb, SettingBiaya sb) {
         if (detailBiaya == null) {
             return false;
@@ -144,6 +212,12 @@ public class SetingBiayaHelper {
         return dsbDiff || sbDiff;
     }
 
+    /**
+     * Menyimpan/memperbarui {@code entity}, membuka transaksi lokal sendiri bila belum ada transaksi
+     * aktif pada {@code session} (dan meng-commit/rollback transaksi lokal itu saja — transaksi milik
+     * pemanggil tidak disentuh). Melempar {@link RuntimeException} yang membungkus kegagalan asli
+     * bila terjadi error.
+     */
     private static void saveOrUpdateEntity(Session session, Object entity, boolean isUpdate) {
         if (session == null || entity == null) {
             return;
@@ -179,6 +253,7 @@ public class SetingBiayaHelper {
     // PUBLIC METHODS
     // ===================================================================================
 
+    /** Seperti {@link #getItemBiaya(Session, Integer, Jenjang, Integer, JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket, Jurusan, String, String, AfiliasiCalonMahasiswa, Integer, String)} dengan {@code nimMahasiswa=null}. */
     public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
             JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
             JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
@@ -188,6 +263,18 @@ public class SetingBiayaHelper {
 				afiliasiCalonMahasiswa, ta, null);
 	}
 
+	/**
+	 * Menentukan {@link ItemBiaya} apa saja (tanpa membuat baris tagihan) yang berlaku untuk profil
+	 * yang diberikan pada jalur "cohort": mencari kandidat {@link SettingBiaya} lewat
+	 * {@link #createSettingBiayaCriteria}, memprioritaskan via
+	 * {@link SettingBiayaMahasiswaSelector}, lalu mengembalikan daftar item biaya unik pada
+	 * {@link DetailSettingBiaya} di bawah {@code SettingBiaya} terpilih.
+	 *
+	 * @param nimMahasiswa NIM mahasiswa (untuk pengecekan pengecualian dan prioritas per-NIM), boleh
+	 *                     {@code null}
+	 * @return daftar item biaya yang berlaku; list kosong bila tidak ada {@code SettingBiaya} yang
+	 *         cocok; {@code null} bila {@code SettingBiaya} yang cocok mengecualikan {@code nimMahasiswa}
+	 */
 	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
 			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
 			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
@@ -237,6 +324,17 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Jalur "khusus per mahasiswa" untuk calon mahasiswa: mencari {@link SettingBiayaDetail} yang
+     * menautkan {@code biodataCalonMahasiswa} langsung ke satu {@link SettingBiaya} ber-flag
+     * {@code khususBuatMahasiswaTertentu}, lalu merealisasikannya jadi baris {@link DetailBiaya}
+     * lewat {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, BiodataCalonMahasiswa)}.
+     *
+     * @return daftar {@link DetailBiaya}; {@code null} bila tidak ada binding khusus untuk calon
+     *         mahasiswa ini (pemanggil sebaiknya lanjut ke jalur cohort umum); list kosong (lewat
+     *         {@link PengecualianTagihanList#kosong()}) bila binding ditemukan tapi NIM-nya
+     *         dikecualikan dari {@code SettingBiaya} tersebut
+     */
     public static List<DetailBiaya> getDetailBiayaDefault(Session session, BiodataCalonMahasiswa biodataCalonMahasiswa,
             JenisKegiatan jenisKegiatan, Integer semester, Integer ta) {
         
@@ -271,6 +369,14 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Jalur "khusus per mahasiswa" untuk mahasiswa aktif: setara dengan
+     * {@link #getDetailBiayaDefault(Session, BiodataCalonMahasiswa, JenisKegiatan, Integer, Integer)}
+     * tapi mencari binding {@link SettingBiayaDetail} berdasarkan {@code mahasiswa}.
+     *
+     * @return daftar {@link DetailBiaya}; {@code null} bila tidak ada binding khusus (lanjut ke
+     *         jalur cohort umum); list kosong bila binding ditemukan tapi NIM dikecualikan
+     */
     public static List<DetailBiaya> getDetailBiayaDefault(Session session, Mahasiswa mahasiswa,
             JenisKegiatan jenisKegiatan, Integer semester, Integer ta) {
 
@@ -315,6 +421,7 @@ public class SetingBiayaHelper {
         }
     }
 
+    /** Seperti overload dengan {@code nimMahasiswa}, dipanggil dengan {@code nimMahasiswa=null}. */
     public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
             Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
             StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -325,6 +432,20 @@ public class SetingBiayaHelper {
 				afiliasiCalonMahasiswa, ta, null);
 	}
 
+	/**
+	 * Jalur "cohort" utama: mencari kandidat {@link SettingBiaya} yang cocok dengan seluruh profil
+	 * (lewat {@link #createSettingBiayaCriteria} + {@link SettingBiayaMahasiswaSelector}), lalu
+	 * merealisasikannya jadi baris {@link DetailBiaya} lewat
+	 * {@link #getDefaultSettingBiaya(Session, SettingBiaya, Integer, Jenjang, Integer, JenisKegiatan,
+	 * StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket, Jurusan,
+	 * String, String, AfiliasiCalonMahasiswa)}.
+	 *
+	 * @param nimMahasiswa NIM untuk pengecekan pengecualian dan prioritas per-NIM, boleh {@code null}
+	 * @return daftar {@link DetailBiaya}; list kosong bila tidak ada {@code SettingBiaya} yang
+	 *         cocok atau bila terjadi kesalahan internal; list kosong (lewat
+	 *         {@link PengecualianTagihanList#kosong()}) bila {@code SettingBiaya} cocok tapi
+	 *         mengecualikan {@code nimMahasiswa}
+	 */
 	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
 			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -398,6 +519,18 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Merealisasikan satu {@link SettingBiaya} (jalur cohort) menjadi baris {@link DetailBiaya} untuk
+     * setiap {@link DetailSettingBiaya} (item+bayarKe) di bawahnya yang lolos filter
+     * {@link #applyItemBiayaFilters}. Untuk tiap item, dicari baris {@code DetailBiaya} yang sudah
+     * ada lewat tiga lapis pencarian (ketat → longgar → jaring pengaman terakhir, lihat javadoc
+     * kelas); bila tetap tidak ditemukan, baris baru dibuat. Baris yang sudah ada tapi relasi
+     * {@code detailSettingBiaya}/{@code settingBiaya}-nya berbeda ikut diperbarui.
+     *
+     * @return daftar {@link DetailBiaya} (baru maupun hasil pakai-ulang) untuk seluruh item biaya di
+     *         bawah {@code settingBiaya}; list kosong bila {@code settingBiaya} {@code null}/belum
+     *         punya id
+     */
     public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiaya settingBiaya, Integer angkatan,
             Jenjang jenjang, Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
             StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -596,6 +729,16 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Merealisasikan satu binding {@link SettingBiayaDetail} (jalur "khusus per mahasiswa") menjadi
+     * baris {@link DetailBiaya} untuk {@code mahasiswa}, satu per {@link DetailSettingBiaya} di bawah
+     * {@code SettingBiaya} terkait. Bila mahasiswa sudah lulus/keluar sebelum {@code semester} yang
+     * diminta DAN jenis kegiatannya tidak berlaku untuk alumni, mengembalikan list kosong tanpa
+     * memproses apa pun.
+     *
+     * @return daftar {@link DetailBiaya}; list kosong bila mahasiswa alumni yang tidak ditagih, atau
+     *         bila terjadi kesalahan internal
+     */
     public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiayaDetail settingBiayaDetail,
             Integer semester, Mahasiswa mahasiswa) {
         List<DetailBiaya> detailBiayas = new ArrayList<DetailBiaya>();
@@ -689,6 +832,13 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Sama seperti {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, Mahasiswa)}
+     * tapi untuk {@link BiodataCalonMahasiswa} (belum berstatus mahasiswa aktif) — jurusan diambil
+     * dari prodi lulus (bila ada) atau prodi pilihan pertama.
+     *
+     * @return daftar {@link DetailBiaya} untuk seluruh item biaya di bawah binding tersebut
+     */
     public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiayaDetail settingBiayaDetail,
             Integer semester, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 
@@ -769,6 +919,16 @@ public class SetingBiayaHelper {
         }
     }
 
+    /**
+     * Varian jalur cohort yang HANYA menyertakan item biaya dengan {@code defaultBiaya > 0.1} (item
+     * "bukan default/gratis"), memakai strategi pencarian baris {@link DetailBiaya} yang sudah ada
+     * (ketat lalu longgar, tanpa jaring pengaman tambahan) sebelum membuat baris baru. NIM tidak
+     * dipertimbangkan untuk pengecualian/prioritas di jalur ini ({@code nimMahasiswa} selalu
+     * {@code null} saat memanggil {@link SettingBiayaMahasiswaSelector#saringDanPrioritaskan}).
+     *
+     * @return daftar {@link DetailBiaya} untuk item biaya berbayar yang berlaku; list kosong bila
+     *         tidak ada {@code SettingBiaya} yang cocok
+     */
     public static List<DetailBiaya> getDetailBiayaBukanDefaultBiaya(Session session, Integer angkatan, Jenjang jenjang,
             Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
             StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,

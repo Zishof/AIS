@@ -90,6 +90,52 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK untuk fitur diskusi/tanya-jawab pada satu {@link Pertemuan} — menampilkan
+ * seluruh {@link PertemuanPunyaDiskusi} (komentar dan balasan berjenjang, gaya gelembung media
+ * sosial via {@code ais.ui.util.DiskusiUiHelper}) dari berbagai jenis penulis (mahasiswa, dosen,
+ * calon mahasiswa, siswa, calon siswa, atau user umum), lengkap dengan lampiran (unggah langsung
+ * atau Google Drive), balas-komentar berjenjang, dan (untuk admin/dosen) kontrol pengaturan diskusi
+ * per pertemuan (tutup diskusi, izinkan unggah lampiran langsung/Google Drive).
+ *
+ * <p>
+ * Untuk tampilan admin/dosen (bukan konteks mahasiswa/siswa/calon tunggal), {@link #display}
+ * membangun tiga tab: "Isi Diskusi" (daftar komentar), "Peserta Diskusi" (daftar seluruh
+ * peserta pertemuan dengan filter Semua/Ikut Diskusi/Tidak Ikut Diskusi/Akses/Tidak Akses, plus
+ * tombol massal "Tidak ikut diskusi dianggap alpa" dan "Tidak akses dianggap alpa"), dan
+ * "Statistik" (donut chart partisipasi diskusi via {@code HtmlChartHelper}). Data diskusi
+ * dikelompokkan ke {@link #diskusis} (peta id pemilik → daftar id diskusi) untuk mempercepat
+ * pencarian per peserta, dengan bulk-fetch eksplisit untuk menghindari N+1 query.
+ * </p>
+ *
+ * <p>
+ * Tiga method statis menyediakan aksi massal terkait kehadiran berbasis aktivitas: {@link
+ * #aksesDianggapHadir} (menandai hadir seluruh peserta yang mengakses suatu {@link Tugas}/
+ * {@link Pertemuan} dalam rentang waktu tertentu), {@link #tidakAksesDianggapAlpa} (menandai alpa
+ * peserta yang TIDAK mengakses), dan {@link #diskusiDianggapHadir} (menandai hadir seluruh peserta
+ * yang berpartisipasi dalam diskusi pertemuan, dengan isi diskusi disalin ke keterangan absensi).
+ * Ketiganya dijalankan setelah konfirmasi dialog dan dalam transaksi terpisah dengan sesi Hibernate
+ * yang dibuka/ditutup manual (bukan sesi thread-local) karena berjalan lewat
+ * {@link Common#createDefaultTimer} setelah event asal selesai.
+ * </p>
+ *
+ * <p>
+ * Penulisan komentar baru (baik top-level maupun balasan) melalui dua jalur: inline langsung pada
+ * baris ({@link #displayRow}, textbox + tombol Kirim/Upload) atau jendela modal terpisah
+ * ({@link #onAddKomentar(Event, PertemuanPunyaDiskusi)}/{@link #onAddKomentar(PertemuanPunyaDiskusi,
+ * PertemuanPunyaDiskusi, TreeSet, Mahasiswa, Dosen, BiodataCalonMahasiswa, Siswa, CalonSiswa,
+ * EventListener) varian statis}, keduanya bermuara ke {@link #init}/{@link #onSave}). Setelah
+ * simpan, {@link CommonEmail#infoAdaDiskusiPerkuliahan} mengirim notifikasi email adanya diskusi
+ * baru.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} ({@link #loadData(Object)}). Method privat
+ * {@link #closeHibernateSessionQuietly(Session)} adalah util bersama untuk menutup sesi Hibernate
+ * manual (disconnect+close, exception ditelan) yang dipakai di seluruh operasi database kelas ini
+ * yang berjalan di luar sesi thread-local.
+ * </p>
+ */
 public class PertemuanPunyaDiskusiHelper implements DataLoader {
 
 	private Pertemuan pertemuan;
@@ -111,6 +157,17 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 	private Siswa siswa;
 	private CalonSiswa calonSiswa;
 
+	/**
+	 * Membuat helper untuk satu identitas penulis diskusi. Tepat satu parameter biasanya diisi
+	 * sesuai jenis user yang sedang login (atau semuanya {@code null} untuk konteks admin/dosen
+	 * yang hanya melihat, bukan menulis, sebagai penulis tertentu).
+	 *
+	 * @param mahasiswa             mahasiswa penulis, boleh {@code null}
+	 * @param dosen                 dosen penulis, boleh {@code null}
+	 * @param biodataCalonMahasiswa calon mahasiswa penulis, boleh {@code null}
+	 * @param siswa                 siswa penulis, boleh {@code null}
+	 * @param calonSiswa            calon siswa penulis, boleh {@code null}
+	 */
 	public PertemuanPunyaDiskusiHelper(Mahasiswa mahasiswa, Dosen dosen, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			Siswa siswa, CalonSiswa calonSiswa) {
 		this.siswa = siswa;
@@ -120,6 +177,36 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Merender satu baris {@link PertemuanPunyaDiskusi} ke {@code rowUtama}. Dua mode: bila
+	 * {@code editable=true}, baris dirender sebagai FORM PENULISAN komentar baru (bukan menampilkan
+	 * {@code pertemuanPunyaDiskusi} yang diberikan sebagai isi) — textbox + tombol Kirim/Upload
+	 * lampiran/Google Drive, checkbox pengaturan pertemuan (tutup diskusi, izinkan lampiran) yang
+	 * hanya tampil bagi admin/dosen non-mahasiswa, dan checkbox urutkan-terlama (disimpan sebagai
+	 * preferensi user via {@code tbmuser.put}); bila {@code editable=false}, baris menampilkan ISI
+	 * komentar yang sudah ada — foto+nama penulis (mahasiswa/siswa/calon mahasiswa/calon siswa/
+	 * dosen/user umum, resolusi berurutan), waktu, isi (URL otomatis diubah jadi tautan, HTML lain
+	 * di-escape via Jsoup), lampiran, dan tombol aksi (dikembalikan sebagai {@link Hbox} untuk diisi
+	 * pemanggil dengan Balas/Hapus).
+	 *
+	 * @param pertemuanPunyaDiskusi   diskusi yang direpresentasikan baris ini (diabaikan isinya saat
+	 *                                {@code editable=true})
+	 * @param pertemuanPunyaDiskusisa set id diskusi milik pertemuan, diperbarui saat komentar baru
+	 *                                dikirim inline
+	 * @param rowUtama                baris grid tujuan render
+	 * @param mahasiswa               mahasiswa penulis (untuk mode editable), boleh {@code null}
+	 * @param biodataCalonMahasiswa   calon mahasiswa penulis (untuk mode editable), boleh {@code null}
+	 * @param dosen                   dosen penulis (untuk mode editable), boleh {@code null}
+	 * @param editable                {@code true} untuk merender form penulisan baru; {@code false}
+	 *                                untuk menampilkan isi komentar yang sudah ada
+	 * @param eventListener           callback penyegar tampilan setelah aksi (kirim komentar, ubah
+	 *                                pengaturan pertemuan)
+	 * @param eventListenerUtama      callback tambahan untuk memicu penyegaran urutan (dipakai
+	 *                                checkbox "Terlama"); bila {@code null}, checkbox tersebut
+	 *                                disembunyikan
+	 * @return {@link Hbox} kosong (mode editable, berisi tombol pengaturan) atau berisi slot
+	 *         tombol aksi Balas/Hapus (mode tampil) untuk diisi lebih lanjut oleh pemanggil
+	 */
 	public static Hbox displayRow(final PertemuanPunyaDiskusi pertemuanPunyaDiskusi,
 			final TreeSet<Long> pertemuanPunyaDiskusisa, Row rowUtama, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final Dosen dosen, final boolean editable,
@@ -594,6 +681,16 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 
 	private java.util.Map<String, List<Long>> diskusis = new HashMap<String, List<Long>>();
 
+	/**
+	 * Memuat ulang tampilan diskusi ke {@link #center}: menyegarkan cache
+	 * {@code PertemuanPunyaDiskusi} milik {@link #pertemuan} bila belum termuat, mengambil urutan
+	 * diskusi sesuai preferensi {@link #urutkan}, dan (khusus konteks admin/dosen tanpa identitas
+	 * peserta tunggal) membangun ulang peta {@link #diskusis} (id pemilik → daftar id diskusi, via
+	 * bulk-fetch) untuk mendukung tab "Peserta Diskusi". Rendering aktual didelegasikan ke
+	 * {@link DashboardTimelinePertemuan#loadKomentarDetail}.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		if (center != null) {
@@ -676,6 +773,22 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Setelah konfirmasi dialog, menandai hadir ({@link ais.common.ConstantValues#MASUK}) seluruh
+	 * peserta yang tercatat mengakses {@code tugas} (jenis akses ditentukan {@code akses}, mis.
+	 * "audio"/"video"/dsb.) dalam rentang {@code mulai}..{@code sampai} — kecuali dosen (kecuali
+	 * konfigurasi {@code dosen_ikut_masuk_ketika_di_akses_dianggap_hadir} aktif) dan peserta yang
+	 * masuk daftar {@code mhsYgTidakIkut} tugas. Waktu absensi diambil dari
+	 * {@code retreiveAbsensiMulai/Sampai} tugas, dengan fallback ke jam mulai/selesai pertemuan.
+	 * Dijalankan dalam transaksi terpisah (bukan sesi thread-local) setelah timer default.
+	 *
+	 * @param tugas          sumber data akses ({@link TugasKelompok}/{@link Pertemuan}/{@link TugasPertemuan})
+	 * @param akses          jenis akses yang dicek
+	 * @param keterangan     teks keterangan yang ditulis ke absensi (dan dialog konfirmasi)
+	 * @param mulai          batas awal rentang waktu akses yang dihitung
+	 * @param sampai         batas akhir rentang waktu akses yang dihitung
+	 * @param eventListener  callback dipanggil setelah proses selesai
+	 */
 	public static void aksesDianggapHadir(final Tugas tugas, final String akses, final String keterangan,
 			final Date mulai, final Date sampai, final EventListener eventListener) throws Exception {
 		MyMessageboxConfig.show(

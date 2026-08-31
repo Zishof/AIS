@@ -40,6 +40,13 @@ import ais.database.model.Fakultas;
 import ais.database.model.QuotaWisudaUntukFakultas;
 import ais.database.model.Wisuda;
 
+/**
+ * Composer ZK untuk mengelola kuota kelulusan per fakultas ({@link QuotaWisudaUntukFakultas}) pada
+ * satu acara {@link Wisuda}: menampilkan grid seluruh fakultas dengan input kuota dan keterangan yang
+ * langsung tersimpan saat berubah ({@link #onChangeQuota}/{@link #onChangeKeterangan}). Baris kuota
+ * dibuat otomatis (belum dipersist) saat pertama kali dirender bila belum ada
+ * ({@link #getQuotaWisudaUntukFakultas}), baru benar-benar disimpan begitu nilainya diubah.
+ */
 public class QuotaWisudaUntukFakultasHelper {
 
 	private MyGrid grid;
@@ -49,6 +56,13 @@ public class QuotaWisudaUntukFakultasHelper {
 	private Textbox searchfakultas;
 	private Wisuda wisuda;
 
+	/**
+	 * Membangun window modal daftar kuota fakultas (filter nama, grid quota/keterangan editable) untuk
+	 * wisuda yang diberikan dan memuat data awal.
+	 *
+	 * @param wisuda acara wisuda yang kuotanya dikelola
+	 * @param window window yang dipakai sebagai kanvas dialog (dibersihkan lebih dulu)
+	 */
 	public void tampil(Wisuda wisuda, final MyWindow window) {
 		this.wisuda = wisuda;
 		Common.clear(window);
@@ -167,6 +181,7 @@ public class QuotaWisudaUntukFakultasHelper {
 		}
 	}
 
+	/** Row renderer grid fakultas: nama fakultas, input kuota (angka) dan keterangan, masing-masing tersimpan otomatis saat berubah. */
 	class QuotaWisudaUntukFakultasRenderer extends ais.ui.util.MyRowRenderer {
 		// Session session = HibernateUtil.currentSession()
 		// ;
@@ -207,6 +222,7 @@ public class QuotaWisudaUntukFakultasHelper {
 
 	}
 
+	/** Mencari seluruh fakultas sesuai filter nama (maks {@link Common#MAX_RESULT} baris) dan me-render ulang grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -226,6 +242,7 @@ public class QuotaWisudaUntukFakultasHelper {
 
 	}
 
+	/** Menyimpan (insert atau update) nilai kuota kelulusan fakultas untuk wisuda saat ini. */
 	public void onChangeQuota(Fakultas fakultas, BigDecimal quota) {
 		// TODO Auto-generated method stub
 		QuotaWisudaUntukFakultas quotaWisudaUntukFakultas = getQuotaWisudaUntukFakultas(fakultas);
@@ -243,6 +260,7 @@ public class QuotaWisudaUntukFakultasHelper {
 
 	}
 
+	/** Menyimpan (insert atau update) keterangan kuota kelulusan fakultas untuk wisuda saat ini. */
 	public void onChangeKeterangan(Fakultas fakultas, String keterangan) {
 		// TODO Auto-generated method stub
 		QuotaWisudaUntukFakultas quotaWisudaUntukFakultas = getQuotaWisudaUntukFakultas(fakultas);
@@ -259,6 +277,13 @@ public class QuotaWisudaUntukFakultasHelper {
 		// quotaWisudaUntukFakultasDao.commitTransaction();
 	}
 
+	/**
+	 * Mengambil baris {@link QuotaWisudaUntukFakultas} milik kombinasi fakultas+wisuda saat ini, atau
+	 * membuat instance baru (belum disimpan) bila belum ada.
+	 *
+	 * @param fakultas fakultas yang kuotanya diambil
+	 * @return baris kuota yang sudah ada, atau instance baru siap-isi bila belum ada
+	 */
 	public QuotaWisudaUntukFakultas getQuotaWisudaUntukFakultas(
 			Fakultas fakultas) {
 		// TODO Auto-generated method stub

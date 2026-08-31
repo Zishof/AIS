@@ -68,6 +68,49 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Komponen ZK ({@link Groupbox}) yang menampilkan "Angket Penilaian Guru" untuk seorang
+ * {@link Siswa}: satu grid ringkasan berisi baris per {@link JadwalPelajaran} × {@link Guru}
+ * pengampu (deduplikasi guru yang sama pada satu jadwal), masing-masing menampilkan status
+ * pengisian ("Telah diisi"/"Belum terisi" beserta jumlah isian aktif/riwayat nonaktif) dan tombol
+ * "Lakukan Penilaian" yang membuka jendela modal berisi form pertanyaan sesungguhnya.
+ *
+ * <p>
+ * Struktur data pertanyaan berjenjang: {@link AngketPenilaianGuru} (angket induk, dapat dibatasi
+ * per sekolah/yayasan/angkatan siswa) → {@link GrupChecklistPenilaianGuru} (kelompok pertanyaan) →
+ * {@link ChecklistPenilaianGuru} (pertanyaan individual, dijawab dengan skala radio 1..N sesuai
+ * {@link AngketPenilaianGuru#getJumlahPilihan()}, opsional keterangan teks per pertanyaan). Jawaban
+ * siswa disimpan sebagai satu baris {@link ChecklistBaruPenilaianGuruOlehSiswa} per kombinasi
+ * (siswa, jadwal pelajaran, guru), dengan nilai per-pertanyaan disimpan di dalamnya (bukan satu
+ * baris per pertanyaan) — method {@code ambilValue}/{@code getValue}/{@code getKeteranganValue}
+ * pada entitas tersebut membaca/menulis struktur gabungan itu. Setiap perubahan radio/keterangan
+ * langsung tersimpan otomatis (autosave per pertanyaan lewat {@link #onSave}), TIDAK menunggu
+ * tombol simpan.
+ * </p>
+ *
+ * <p>
+ * <b>Pertanyaan yang dinonaktifkan</b>: bila siswa pernah menjawab pertanyaan yang kemudian
+ * dinonaktifkan admin, jawaban lama tetap ditampilkan (read-only, dalam kartu terpisah beraksen
+ * oranye) lewat {@link #renderChecklistGuruNonAktif} — agar riwayat pengisian tidak hilang begitu
+ * saja dari pandangan siswa, walau pertanyaannya sudah tidak dipakai lagi.
+ * </p>
+ *
+ * <p>
+ * <b>Parameter tambahan</b>: bila satu {@link GrupChecklistPenilaianGuru} memiliki baris
+ * {@code ParameterTambahanAngketUmum} terkait, form tambahan dirender lewat
+ * {@link IsiAngketParameterUmumListener} dan disimpan sebagai {@link IsiAngketParameterUmum}
+ * (termasuk lampiran file bila ada) — divalidasi dan disimpan bersamaan saat tombol "Simpan dan
+ * Tutup" pada jendela penilaian ditekan (berbeda dari checklist utama yang autosave per-item).
+ * </p>
+ *
+ * <p>
+ * Kolom "Masukan/Saran/Komentar" bersifat wajib diisi bila konfigurasi
+ * {@code masukan_penilaian_guru_harus_diisi} aktif — divalidasi sebelum jendela penilaian ditutup.
+ * Cache internal ({@link #mapsKey}, {@link #jumlahChecklistCache}, {@link #checklistAktifIdCache})
+ * dipakai untuk menghindari query berulang saat merender banyak baris guru dalam satu grid; semua
+ * dikosongkan ulang setiap kali {@link #init(boolean)} dipanggil (mis. tombol Refresh).
+ * </p>
+ */
 public class AngketGuruWindow extends Groupbox {
 
 	private static final long serialVersionUID = -8503828719463870174L;
@@ -83,6 +126,14 @@ public class AngketGuruWindow extends Groupbox {
 	private String tahunAjaran;
 	private String jenis;
 
+	/**
+	 * @param tahunAjaran     tahun ajaran yang ditampilkan pada judul
+	 * @param jenis           label jenis angket (mis. semester ganjil/genap), ditampilkan pada judul
+	 * @param jadwalPelajarans daftar id {@link JadwalPelajaran} yang gurunya akan dinilai
+	 * @param siswa           siswa yang mengisi angket
+	 * @param addWindow       jendela modal yang dipakai ulang untuk menampilkan form penilaian per guru
+	 * @param tampilClose     tampilkan tombol "Selesai" yang mengalihkan ke halaman utama
+	 */
 	public AngketGuruWindow(String tahunAjaran, String jenis, List<Long> jadwalPelajarans, Siswa siswa,
 			MyWindow addWindow, boolean tampilClose) {
 		super();
@@ -96,6 +147,7 @@ public class AngketGuruWindow extends Groupbox {
 		init(false);
 	}
 
+	/** Memuat ulang {@link #mapsKey} (kunci {@code siswaId_jadwalId_guruId}) dari seluruh baris {@link ChecklistBaruPenilaianGuruOlehSiswa} milik {@link #siswa} pada {@link #jadwalPelajarans} yang diberikan, memakai sesi Hibernate mandiri yang selalu ditutup di {@code finally}. */
 	@SuppressWarnings("unchecked")
 	private void loadSavedMap(boolean refresh) {
 		mapsKey.clear();
@@ -132,6 +184,7 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/** Membangun ulang seluruh tampilan grup box: header, toolbar (Selesai/Refresh), dan grid ringkasan jadwal-guru. Memuat ulang {@link #mapsKey} dan mengosongkan cache jumlah/checklist-aktif setiap kali dipanggil. */
 	private void init(boolean refresh) {
 		Common.clear(this);
 		setWidth("100%");
@@ -203,6 +256,7 @@ public class AngketGuruWindow extends Groupbox {
 		grid.setModelCheckMobile(model);
 	}
 
+	/** Perender baris grid ringkasan per {@link JadwalPelajaran}: nama jadwal lalu sub-grid berisi satu baris per guru pengampu (deduplikasi guru yang tampil ganda pada jadwal yang sama). */
 	class ChecklistRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(final Row row, Object data) throws Exception {
@@ -239,6 +293,7 @@ public class AngketGuruWindow extends Groupbox {
 			}
 		}
 
+		/** Merender satu baris ringkasan guru: foto (klik untuk preview), nama guru & jadwal, label status pengisian (dihitung/diperbarui lewat closure {@code refreshStatus}), dan tombol "Lakukan Penilaian" yang membuka form lewat {@link AngketGuruWindow#init(JadwalPelajaran, Guru, EventListener)}. */
 		private void createNewRowGuru(final JadwalPelajaran jadwalPelajaran, final Guru guru, Rows rows) throws Exception {
 			final Row row = new Row();
 			row.setValign("top");
@@ -305,10 +360,12 @@ public class AngketGuruWindow extends Groupbox {
 	}
 
 
+	/** Jumlah pertanyaan checklist aktif yang berlaku untuk kombinasi jadwal-guru ini (dipakai untuk perbandingan "sudah terisi semua"). */
 	private Integer hitungChecklist(JadwalPelajaran jadwalPelajaran, Guru guru) {
 		return Integer.valueOf(ambilChecklistAktifIdsGuru(jadwalPelajaran, guru).size());
 	}
 
+	/** Mengambil (dengan cache per-kunci di {@link #checklistAktifIdCache}) himpunan id {@link ChecklistPenilaianGuru} aktif yang berlaku untuk {@link #siswa} pada kombinasi jadwal-guru ini, lewat {@link #buildChecklistCriteria}. */
 	@SuppressWarnings("unchecked")
 	private Set<Long> ambilChecklistAktifIdsGuru(JadwalPelajaran jadwalPelajaran, Guru guru) {
 		String key = siswa == null || siswa.getId() == null || jadwalPelajaran == null || jadwalPelajaran.getId() == null
@@ -337,6 +394,7 @@ public class AngketGuruWindow extends Groupbox {
 		return result;
 	}
 
+	/** Menghitung berapa banyak jawaban tersimpan pada {@code hasil} yang id pertanyaannya termasuk dalam {@code checklistAktifIds} (pertanyaan yang saat ini masih aktif/ditampilkan). */
 	private Integer hitungJumlahJawabanAktifGuru(ChecklistBaruPenilaianGuruOlehSiswa hasil,
 			Set<Long> checklistAktifIds) {
 		if (hasil == null || checklistAktifIds == null || checklistAktifIds.isEmpty()) {
@@ -353,6 +411,7 @@ public class AngketGuruWindow extends Groupbox {
 		return count;
 	}
 
+	/** Kebalikan dari {@link #hitungJumlahJawabanAktifGuru}: menghitung jawaban tersimpan yang id pertanyaannya TIDAK termasuk dalam {@code checklistAktifIds} (pertanyaan yang sudah dinonaktifkan). */
 	private Integer hitungJumlahJawabanNonAktifGuru(ChecklistBaruPenilaianGuruOlehSiswa hasil,
 			Set<Long> checklistAktifIds) {
 		if (hasil == null) {
@@ -369,6 +428,7 @@ public class AngketGuruWindow extends Groupbox {
 		return count;
 	}
 
+	/** Mengekstrak id pertanyaan checklist dari baris {@code Object[]} hasil {@link ChecklistBaruPenilaianGuruOlehSiswa#ambilValue()} (elemen pertama); {@code null} bila kosong/tidak dapat diparse. */
 	private Long ambilIdChecklistGuru(Object[] obj) {
 		if (obj == null || obj.length == 0 || obj[0] == null) {
 			return null;
@@ -380,6 +440,7 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/** Menyusun teks status ringkas ("Telah diisi"/"Belum terisi" + rasio isian aktif, ditambah jumlah riwayat nonaktif bila ada) untuk ditampilkan pada baris ringkasan guru. */
 	private String formatStatusIsianAngketGuru(Integer jumlahChecklist, Integer jumlahSaved,
 			Integer jumlahRiwayatNonAktif) {
 		int total = jumlahChecklist == null ? 0 : jumlahChecklist.intValue();

@@ -83,6 +83,33 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar dosen peserta satu
+ * {@link KegiatanKedosenan}, lewat relasi {@link KegiatanKedosenanPunyaDosen}. Melengkapi
+ * {@link DosenPunyaKegiatanKedosenanHelper} (yang berpusat pada satu dosen) dengan sudut pandang
+ * sebaliknya: satu kegiatan, banyak dosen. Grid menampilkan identitas dosen (NIP/NIDN, nama, ikatan
+ * kerja, status kepegawaian, jurusan), rentang tanggal, jabatan/skala kegiatan, keterangan, status
+ * persetujuan (checkbox bagi atasan langsung dosen atau admin non-dosen, label read-only bagi
+ * lainnya), dan tombol Sertifikat/Hapus per baris — logika rendering baris bersama dipisah ke
+ * method statis {@link #displayRow} agar dapat dipakai ulang dari konteks lain (mis. tab penilaian
+ * asesor BKD, ditandai parameter {@code ases}).
+ *
+ * <p>
+ * Toolbar menyediakan pencarian NIDN/nama/fakultas/jurusan, "Ambil Dosen" (membuka
+ * {@code AmbilDataDosenForKegiatanKedosenanHelper}), "Bersihkan" (hapus SQL langsung seluruh
+ * relasi yang belum disetujui untuk kegiatan ini), unduh/unggah data Excel, dan — bila fitur
+ * repository DSpace aktif ({@code terhubung_ke_dspace} + {@code kegiatan_dosen_terhubung_ke_dspace})
+ * — "Ekspor" dan "Batalkan Ekspor" yang memproses seluruh relasi yang sudah disetujui secara
+ * asinkron di thread terpisah dengan progress bar ({@link Common#displayLoadBar}), memanggil
+ * {@link #getDspace} untuk membangun metadata Dublin Core dan mengunggah item+lampiran ke koleksi
+ * DSpace yang sesuai fakultas/jurusan dosen (koleksi/komunitas dicari-atau-dibuat otomatis lewat
+ * {@link #getDspaceTipeKegiatanKedosenanPunyaDosen}/{@link #getDspaceTipeKegiatanKedosenanPunyaDosenJurusan}).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader}, {@link DataCriteria}, dan {@link DataSearchDefault}.
+ * </p>
+ */
 public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -95,6 +122,7 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	private Paging paging;
 
+	/** Membuat helper: menginisialisasi combobox fakultas/jurusan dan komponen paging server-side. */
 	public KegiatanKedosenanPunyaDosenHelper() {
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -110,6 +138,25 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	}
 
+	/**
+	 * Merender satu baris detail {@link KegiatanKedosenanPunyaDosen} ke {@code arg0}, dipakai baik
+	 * oleh {@link DetailKegiatanKedosenanRenderer} kelas ini maupun konteks lain (mis. tab penilaian
+	 * asesor BKD bila {@code ases} bernilai {@code true} dan {@code pegawai} diberikan — dalam mode
+	 * ini area detail berisi tab "Penilaian Asesor" ({@link PenilaianAsesorHelper#formNilai}) dan
+	 * "Lampiran Kegiatan Dosen" dimuat lazy, alih-alih langsung menampilkan area unggah bukti).
+	 * Menampilkan riwayat revisi, identitas dosen, kontrol edit (jabatan/skala/tanggal/keterangan,
+	 * dikunci setelah disetujui), checkbox/label persetujuan (checkbox hanya untuk atasan langsung
+	 * dosen atau admin non-dosen saat kegiatan berstatus {@link KegiatanKedosenan#DISETUJUI}), dan
+	 * tombol aksi Sertifikat/Hapus.
+	 *
+	 * @param arg0                  baris grid tujuan render
+	 * @param kegiatanKedosenanPunyaDosen relasi dosen-kegiatan yang dirender
+	 * @param pegawai               pegawai konteks penilaian asesor, boleh {@code null}
+	 * @param ases                  bila {@code true}, tampilkan tab penilaian asesor alih-alih area
+	 *                              unggah langsung
+	 * @param delete                izin tampil tombol hapus
+	 * @param deleteEventListener   callback dipanggil setelah baris berhasil dihapus
+	 */
 	public static void displayRow(Row arg0, final KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen,
 			final Pegawai pegawai, final Boolean ases, final Boolean delete, final EventListener deleteEventListener)
 			throws Exception {
@@ -436,6 +483,7 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	}
 
+	/** Perender baris grid; mendelegasikan seluruhnya ke {@link #displayRow} dalam mode non-asesor, dengan izin hapus sesuai hak akses {@link CommonPrivilages#DELETE} user saat ini. */
 	class DetailKegiatanKedosenanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -461,6 +509,13 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	}
 
+	/**
+	 * Membangun kriteria {@link KegiatanKedosenanPunyaDosen} milik {@link #kegiatanKedosenan} saat
+	 * ini, disaring berdasarkan jurusan/fakultas dosen dan NIDN/nama dosen (ilike).
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan nama dosen
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(KegiatanKedosenanPunyaDosen.class);
@@ -487,6 +542,12 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid secara asinkron: menghitung total baris untuk paging, lalu mengambil satu
+	 * halaman {@link KegiatanKedosenanPunyaDosen} sesuai kriteria pencarian saat ini.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -508,10 +569,22 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	}
 
+	/** @return referensi ke helper ini sendiri, dipakai sebagai {@link DataLoader} oleh helper penambah data. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun dan menampilkan UI daftar dosen peserta {@code kegiatanKedosenan} ke dalam
+	 * {@code component}: toolbar pencarian dan aksi (Ambil Dosen, Bersihkan, unduh/unggah Excel,
+	 * dan bila fitur DSpace aktif: Ekspor/Batalkan Ekspor), lalu grid ber-paging di dalam area
+	 * scroll tetap (60vh). Fakultas/jurusan pencarian otomatis dipilihkan sesuai
+	 * {@code kegiatanKedosenan} bila ada.
+	 *
+	 * @param kegiatanKedosenan kegiatan yang daftar dosennya dikelola
+	 * @param component         komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param window            window pemanggil, diteruskan ke helper "Ambil Dosen"
+	 */
 	public void display(final KegiatanKedosenan kegiatanKedosenan, final Component component, final MyWindow window) {
 		this.kegiatanKedosenan = kegiatanKedosenan;
 		Common.clear(component);
@@ -950,6 +1023,20 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 		});
 	}
 
+	/**
+	 * Membangun metadata Dublin Core (penulis, tanggal, judul, subjek, penerbit, URI, dst.) dari
+	 * satu {@link KegiatanKedosenanPunyaDosen} dan mengirimkannya ke DSpace via
+	 * {@link DspaceInformation#dspaceProcess} — item dibuat pada koleksi yang sesuai
+	 * fakultas/jurusan dosen (dicari-atau-dibuat via {@link #getDspaceTipeKegiatanKedosenanPunyaDosen}).
+	 * Bila ada lampiran bukti kegiatan tersimpan, lampiran tersebut ikut diunggah sebagai berkas
+	 * item DSpace.
+	 *
+	 * @param cookie                        sesi login DSpace aktif
+	 * @param kegiatanKedosenanPunyaDosen    relasi dosen-kegiatan yang akan diekspor
+	 * @param update                         bila {@code true}, perbarui item DSpace yang sudah ada; bila
+	 *                                       {@code false}, buat item baru
+	 * @return informasi item DSpace yang dibuat/diperbarui (termasuk UUID)
+	 */
 	public static DspaceInformation getDspace(String cookie, KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen,
 			boolean update) throws Exception {
 
@@ -1058,6 +1145,16 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 		return dspaceInformation;
 	}
 
+	/**
+	 * Mencari-atau-membuat koleksi DSpace "Prestasi Dosen" khusus untuk jurusan dosen pemilik
+	 * {@code kegiatanKedosenanPunyaDosen}, di dalam komunitas jurusan yang dikembalikan
+	 * {@link #getDspaceTipeKegiatanKedosenanPunyaDosenJurusan}. UUID koleksi di-cache pada
+	 * {@link Konfigurasi} bernama {@code dspace_label_collection_kegiatanKedosenanPunyaDosen_jurusan_<idKegiatan>_<idJurusan>}.
+	 *
+	 * @param cookie                       sesi login DSpace aktif
+	 * @param kegiatanKedosenanPunyaDosen   relasi dosen-kegiatan penentu jurusan/koleksi tujuan
+	 * @return informasi koleksi DSpace yang dipakai/dibuat
+	 */
 	public static DspaceInformation getDspaceTipeKegiatanKedosenanPunyaDosen(String cookie,
 			KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen) throws Exception {
 
@@ -1083,6 +1180,16 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 						+ "/collections");
 	}
 
+	/**
+	 * Mencari-atau-membuat komunitas DSpace "Prestasi Dosen" untuk jurusan dosen pemilik
+	 * {@code kegiatanKedosenanPunyaDosen}, di dalam komunitas jurusan (level lebih tinggi)
+	 * milik {@link JurusanAction#getDspace}. UUID komunitas di-cache pada {@link Konfigurasi}
+	 * bernama {@code dspace_label_collection_kegiatanKedosenanPunyaDosen_<idJurusan>}.
+	 *
+	 * @param cookie                       sesi login DSpace aktif
+	 * @param kegiatanKedosenanPunyaDosen   relasi dosen-kegiatan penentu jurusan/komunitas tujuan
+	 * @return informasi komunitas DSpace yang dipakai/dibuat
+	 */
 	public static DspaceInformation getDspaceTipeKegiatanKedosenanPunyaDosenJurusan(String cookie,
 			KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen) throws Exception {
 		Jurusan jurusan = kegiatanKedosenanPunyaDosen.getDosen().getJurusan();
@@ -1106,6 +1213,7 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 	}
 
+	/** Implementasi {@link DataSearchDefault}; mendelegasikan langsung ke {@link #loadData(Object)}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

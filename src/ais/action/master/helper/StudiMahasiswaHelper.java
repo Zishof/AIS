@@ -89,6 +89,54 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper layar inti "Rencana Studi Mahasiswa" (KRS — Kartu Rencana Studi): menampilkan dan
+ * mengelola seluruh mata kuliah yang diambil satu {@link Mahasiswa} pada satu kombinasi
+ * semester/tahap/tahun akademik (termasuk mode khusus semester {@code 0} untuk konversi nilai
+ * dari transfer/pindahan, dan mode semester pendek/remedial). Ini adalah salah satu layar
+ * terpadat dan paling sering dipakai di AIS — satu baris grid mewakili satu
+ * {@link Detailperkuliahan} (mata kuliah yang diambil), dengan kolom yang berubah tampilan
+ * tergantung konteks (semester biasa vs. konversi vs. tahap khusus): nilai per komponen
+ * ({@link FormatNilai}), nilai huruf (diwarnai lulus/tidak lulus via
+ * {@code WarnaStatusLulusUtil}), status persetujuan KRS, jadwal, dosen, dan aksi (pindah data,
+ * hapus, kirim ke Feeder/PDDikti).
+ *
+ * <p>
+ * <b>Alur persetujuan KRS</b> — inti bisnis layar ini. Sebelum persetujuan diberikan (per baris
+ * lewat {@link #lakukanSatuPersetujuan} atau seluruhnya lewat {@link #lakukanSemuaPersetujuan}),
+ * sistem memvalidasi berturut-turut: status pembayaran semester berjalan (bila
+ * {@code mahasiswa_harus_bayar_sebelum_persetujuan_krs} aktif), status pembayaran semester
+ * sebelumnya (ambang batas persentase dari konfigurasi), dan batas SKS berdasarkan IP
+ * ({@link #apakahMelebihiSks}, memakai {@link Common#checkPembatasanSKSBerdasarkanIP}) —
+ * pelanggaran apa pun membatalkan centang dan menampilkan pesan penjelasan. Begitu SEMUA baris
+ * disetujui, jendela {@link CatatanHelper} otomatis terbuka untuk meminta catatan dosen PA.
+ * Pembatalan massal ({@link #lakukanPembatalanSemuaPersetujuan}) menolak baris yang sudah
+ * memiliki nilai (>1.0) — nilai yang sudah diinput mengunci status disetujui.
+ * </p>
+ *
+ * <p>
+ * <b>Toolbar</b> {@link #display} menyediakan sangat banyak aksi kontekstual (sebagian besar
+ * hanya untuk staf ber-hak edit, sebagian bergantung konfigurasi/fitur Feeder aktif): Ambilkan
+ * Perkuliahan (dosen PA mengambilkan KRS mahasiswa), Komentar, Catatan (dosen PA), Setujui/
+ * Batalkan massal, Tambah Konversi (nilai transfer), Paket (KRS paket), cetak KRS/Nilai/UTS/UAS/
+ * Keterangan Aktif, unduh/unggah Excel kurikulum, kirim data ke Neo Feeder (PDDikti, termasuk
+ * AKM), ambil nilai dari sumber eksternal, dan Refresh. Di bawah toolbar tampil grid detail
+ * (dengan info jam bentrok jadwal via {@link Common#generateInformasiJamBentrok}) serta grid
+ * komentar diskusi terpisah ({@link #loadDataKomentar}).
+ * </p>
+ *
+ * <p>
+ * <b>Integrasi Feeder</b> — beberapa tombol mengirim data mata kuliah/nilai/AKM ke server Neo
+ * Feeder (integrasi PDDikti) memakai kredensial yang diambil dari konfigurasi lewat
+ * {@code EksporFromFeederAction.koneksi()} (bukan tertanam di kode), dijalankan di thread
+ * terpisah dengan log error yang dapat diunduh bila gagal.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar {@link #loadData(Object)} dapat dipakai sebagai
+ * callback penyegaran dari helper lain (mis. {@link TransferDataMahasiswaHelper}).
+ * </p>
+ */
 public class StudiMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -129,6 +177,16 @@ public class StudiMahasiswaHelper implements DataLoader {
 	private Konfigurasi konfigurasiPersetujuanKrsDosen = null;
 	private KrsMahasiswa krsMahasiswa;
 
+	/**
+	 * Konstruktor ringkas: hak hapus baris ({@code tampilHapus}) otomatis ditentukan dari
+	 * konfigurasi {@code admin_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs}
+	 * dikombinasikan dengan status admin pengguna saat ini.
+	 *
+	 * @param semesterPendek konteks semester pendek (nomor SP), {@code null} untuk semester reguler
+	 * @param remedial       {@code true} untuk konteks KRS remedial
+	 * @param tampilKonversi tampilkan fitur konversi nilai transfer
+	 * @param edit           izinkan pengeditan (toolbar & kolom edit tampil)
+	 */
 	public StudiMahasiswaHelper(Integer semesterPendek, boolean remedial, Boolean tampilKonversi, Boolean edit) {
 		this(semesterPendek, remedial,
 				(Common.bolehKonfigurasi("admin_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs", Konfigurasi.TIDAK_AKTIF) && Common.getApakahAdmin()),
@@ -137,6 +195,16 @@ public class StudiMahasiswaHelper implements DataLoader {
 		this.edit = edit;
 	}
 
+	/**
+	 * Konstruktor lengkap; menentukan hak update/hapus pengguna saat ini lewat
+	 * {@link CommonPrivilages}.
+	 *
+	 * @param semesterPendek konteks semester pendek (nomor SP), {@code null} untuk semester reguler
+	 * @param remedial       {@code true} untuk konteks KRS remedial
+	 * @param tampilHapus    tampilkan tombol hapus baris secara eksplisit
+	 * @param tampilKonversi tampilkan fitur konversi nilai transfer
+	 * @param edit           izinkan pengeditan (toolbar & kolom edit tampil)
+	 */
 	public StudiMahasiswaHelper(Integer semesterPendek, boolean remedial, Boolean tampilHapus, Boolean tampilKonversi, Boolean edit) {
 		this.edit = edit;
 		this.delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
@@ -150,6 +218,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		this.remedial = remedial;
 	}
 
+	/** Menambahkan satu baris nama-nilai pada panel rincian nilai per komponen; baris {@code utama} (biasanya "Total") diberi gaya lebih tebal/menonjol. @return label nilai (untuk diperbarui lebih lanjut oleh pemanggil) */
 	private Label tambahBarisNilai(Vbox parent, String nama, String nilai, boolean utama) {
 		Hbox baris = new Hbox();
 		baris.setWidth("100%");
@@ -169,6 +238,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		return labelNilai;
 	}
 
+	/** Menambahkan baris "Huruf" berisi {@code labelNilaiHuruf} (nilai huruf yang sudah ada, mis. dari {@link #rapikanLabelNilaiHuruf}) ke panel rincian nilai; tidak melakukan apa pun bila label {@code null}. */
 	private void tambahBarisNilaiHuruf(Vbox parent, Label labelNilaiHuruf) {
 		if (labelNilaiHuruf == null) {
 			return;
@@ -187,6 +257,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		labelNilaiHuruf.setParent(baris);
 	}
 
+	/** Menerapkan gaya visual standar (ukuran, tebal, warna biru tua, rata kanan) pada label nilai huruf; tidak melakukan apa pun bila {@code null}. */
 	private void rapikanLabelNilaiHuruf(Label labelNilaiHuruf) {
 		if (labelNilaiHuruf == null) {
 			return;
@@ -194,12 +265,23 @@ public class StudiMahasiswaHelper implements DataLoader {
 		labelNilaiHuruf.setStyle("font-size:11px;font-weight:bold;color:#1e3a8a;text-align:right;width:auto;white-space:nowrap;");
 	}
 
+	/**
+	 * Merender satu baris {@link Detailperkuliahan} pada grid KRS. Menangani mata kuliah
+	 * ekivalen (menampilkan kode/nama asli dalam kurung bila berbeda dari yang tersimpan),
+	 * rincian nilai per komponen, nilai huruf berwarna, checkbox persetujuan (auto-save memicu
+	 * {@link #lakukanSatuPersetujuan}), field mode konversi (kode/nama/SKS/nilai huruf asal —
+	 * hanya pada semester {@code 0}), info jadwal/dosen, dan berbagai tombol aksi (pindah data
+	 * KRS, hapus, kirim ke Feeder) yang visibilitasnya bergantung pada konteks (semester
+	 * konversi vs. reguler), peran pengguna (dosen/mahasiswa/staf), dan konfigurasi fitur
+	 * (integrasi Feeder aktif, hak edit/hapus).
+	 */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private KrsMahasiswa krsMahasiswa;
 		private boolean refresh;
 		private Tbmuser user = Common.getCurrentUser();
 
+		/** @param krsMahasiswa KRS induk konteks render; @param refresh bila {@code true}, paksa hitung ulang mata kuliah ekivalen (bukan dari cache) */
 		public DetailMahasiswaRenderer(KrsMahasiswa krsMahasiswa, boolean refresh) {
 			this.krsMahasiswa = krsMahasiswa;
 			this.refresh = refresh;
@@ -712,6 +794,19 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat/menyegarkan grid KRS: mengambil seluruh {@link Detailperkuliahan} milik
+	 * {@link #mahasiswa} pada semester/tahap/semester-pendek/remedial konteks saat ini lewat
+	 * {@link Common#getDetailperkuliahans}, memasang ulang renderer, menyegarkan status
+	 * persetujuan ({@link #loadStatus}), dan menghitung ulang informasi jam bentrok jadwal
+	 * (langsung, paralel, dan paralel-dari-paralel) yang ditampilkan di {@link #jamBentrok}.
+	 * Bila konfigurasi {@code saat_pengambilan_krs_tidak_diperbolehkan_ada_jam_bentrok_dosen}
+	 * aktif dan bukan mode konversi (tahap {@code -1}), turut memvalidasi bentrok jadwal dosen.
+	 *
+	 * @param value bila berupa {@link Boolean} {@code true}, memaksa hitung ulang mata kuliah
+	 *              ekivalen dari sumber (bukan cache) — dipakai setelah operasi yang mengubah
+	 *              data mata kuliah/ekivalensi
+	 */
 	public void loadData(Object value) {
 		boolean refresh = (value != null && value instanceof Boolean) ? (Boolean) value : false;
 		detailperkuliahansData = Common.getDetailperkuliahans(mahasiswa, semester, tahapan, null, semesterPendek, remedial, false, false, refresh);
@@ -759,6 +854,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Menghitung ulang total SKS yang diambil dan status persetujuan gabungan (semua/sebagian/belum disetujui) dari {@link #detailperkuliahansData}, lalu memperbarui label {@link #jumlahKRS} dan {@link #statusPersetujuan} (dengan warna sesuai status). */
 	private void loadStatus() {
 		boolean adaPersetujuan = false;
 		boolean adaBelumPersetujuan = false;
@@ -793,6 +889,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menghitung total SKS dari seluruh baris grid yang checkbox persetujuannya tercentang
+	 * (mengabaikan baris konversi bila konfigurasi {@code konversi_masuk_akumulasi_jumlah_sks_pengambilan_krs}
+	 * tidak aktif), lalu memvalidasinya terhadap batas SKS berdasarkan IP mahasiswa lewat
+	 * {@link Common#checkPembatasanSKSBerdasarkanIP}.
+	 *
+	 * @return {@code true} bila melebihi batas (pemanggil harus membatalkan aksi persetujuan)
+	 */
 	@SuppressWarnings("unchecked")
 	private boolean apakahMelebihiSks() throws Exception {
 		Integer jumlahSks = 0;
@@ -819,6 +923,16 @@ public class StudiMahasiswaHelper implements DataLoader {
 		return Common.checkPembatasanSKSBerdasarkanIP(mahasiswa, semester, jumlahSks, semesterPendek);
 	}
 
+	/**
+	 * Memproses perubahan centang persetujuan pada satu baris {@link Detailperkuliahan}. Urutan
+	 * validasi (lihat juga javadoc kelas): status pembayaran semester berjalan → status
+	 * pembayaran semester sebelumnya (ambang persentase dari konfigurasi) → batas SKS
+	 * berdasarkan IP ({@link #apakahMelebihiSks}) — kegagalan pada validasi mana pun membatalkan
+	 * centang dan menampilkan pesan. Bila lolos, memuat ulang entitas dari database (menghindari
+	 * data stale) dan menyimpan status persetujuan baru. Setelah disimpan, mengecek apakah
+	 * SEMUA baris pada grid kini tercentang — bila ya, membuka {@link CatatanHelper} untuk
+	 * meminta catatan dosen PA sebelum menyegarkan tampilan; bila tidak, langsung menyegarkan.
+	 */
 	@SuppressWarnings("unchecked")
 	private void lakukanSatuPersetujuan(MyCheckboxConfig checkbox, Detailperkuliahan seledtedDetailperkuliahan, KrsMahasiswa krsMahasiswa, final int semester) throws Exception {
 		Konfigurasi konfigurasi = Common.getKonfigurasi("mahasiswa_harus_bayar_sebelum_persetujuan_krs", Konfigurasi.AKTIF);
@@ -907,6 +1021,12 @@ public class StudiMahasiswaHelper implements DataLoader {
 		if (krsMahasiswa != null) krsMahasiswa.masukkanData(checkbox.isChecked() ? "setujui" : "batalkan");
 	}
 
+	/**
+	 * Menyetujui SEMUA baris {@link Detailperkuliahan} sekaligus, hanya bila total SKS
+	 * (mengabaikan konversi bila dikonfigurasikan demikian) TIDAK melebihi batas SKS berdasarkan
+	 * IP mahasiswa. Setelah tersimpan, menyinkronkan ulang KRS mahasiswa dan membuka
+	 * {@link CatatanHelper} untuk mencatat catatan dosen PA sebelum menyegarkan tampilan.
+	 */
 	private void lakukanSemuaPersetujuan() throws Exception {
 		if (detailperkuliahansData != null && !detailperkuliahansData.isEmpty()) {
 			Session session = HibernateUtil.currentSession();
@@ -956,6 +1076,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membatalkan persetujuan SEMUA baris {@link Detailperkuliahan} yang BELUM memiliki nilai
+	 * (total nilai ≤ 1.0); baris yang sudah dinilai dilewati dan memicu pesan peringatan bahwa
+	 * mata kuliah bernilai tidak dapat dibatalkan persetujuannya. Menyegarkan tampilan di akhir.
+	 */
 	private void lakukanPembatalanSemuaPersetujuan() throws Exception {
 		Session session = HibernateUtil.currentSession();
 		boolean ada = false;

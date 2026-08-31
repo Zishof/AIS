@@ -26,6 +26,28 @@ import ais.database.model.ParameterTambahanCatatanAdministrasi;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * {@link EventListener} yang membangun dan mengelola blok "parameter tambahan" pada formulir
+ * {@link CatatanAdministrasi} — field kustom dinamis (per {@link ParameterTambahan},
+ * dikelompokkan oleh {@link KelompokParameterTambahanCatatanAdministrasi}) yang dapat
+ * dikonfigurasi admin untuk melengkapi catatan administrasi dengan data tambahan spesifik
+ * institusi beserta lampiran pendukungnya. Sepasang dengan {@link
+ * ParameterTambahanMahasiswaListener} yang menangani pola serupa untuk biodata mahasiswa; namun
+ * berbeda dari kelas itu, kelompok parameter yang relevan di sini diterima sebagai parameter
+ * konstruktor ({@link #kelompokParameterTambahanCatatanAdministrasis}), bukan ditentukan
+ * otomatis dari tahun angkatan.
+ *
+ * <p>
+ * Nilai tersimpan sebagai teks terserialisasi baris-per-baris pada
+ * {@code catatanAdministrasi.getParameterTambahanInds()}, format
+ * {@code "<idKelompok>-><idParameter><=>nilai<=>...<=>keterangan"} per baris, diurai manual
+ * ({@code split("\n")}/{@code split("<=>")}) saat merender nilai awal field di {@link #onEvent}.
+ * {@link #validate}, berbeda dari {@link ParameterTambahanMahasiswaListener#validate}, membaca
+ * nilai langsung dari komponen ZK yang sudah dirender ({@link ParameterTambahan#ambilVal})
+ * alih-alih dari teks tersimpan, sehingga hanya valid dipanggil setelah {@link #onEvent}
+ * membangun baris-barisnya.
+ * </p>
+ */
 public class ParameterTambahanCatatanAdministrasiListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +56,13 @@ public class ParameterTambahanCatatanAdministrasiListener implements EventListen
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCatatanAdministrasi> kelompokParameterTambahanCatatanAdministrasis;
 
+	/**
+	 * @param catatanAdministrasi                             catatan administrasi yang parameter tambahannya dikelola
+	 * @param kelompokParameterTambahanCatatanAdministrasis    kelompok parameter yang relevan untuk konteks ini (ditentukan pemanggil, bukan otomatis)
+	 * @param parameterRows                                    daftar baris ZK yang dibangun/dikelola listener ini (dibaca ulang oleh {@link #onSave}/{@link #validate})
+	 * @param lampiranLains                                    peta lampiran yang sudah diunggah per kunci parameter, diteruskan ke {@link ParameterTambahan#initComponent}
+	 * @param rows                                              komponen {@link Rows} induk tempat baris field ditambahkan
+	 */
 	public ParameterTambahanCatatanAdministrasiListener(CatatanAdministrasi catatanAdministrasi,
 			Set<KelompokParameterTambahanCatatanAdministrasi> kelompokParameterTambahanCatatanAdministrasis, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +73,13 @@ public class ParameterTambahanCatatanAdministrasiListener implements EventListen
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi bahwa seluruh parameter tambahan wajib pada baris-baris yang sudah dirender
+	 * (lihat {@link #onEvent}) sudah diisi, termasuk lampiran wajib bila disyaratkan. Berhenti
+	 * pada kegagalan validasi pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila semua parameter wajib terpenuhi (atau belum ada baris sama sekali); {@code false} bila ada yang belum lengkap (pesan sudah ditampilkan)
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +113,22 @@ public class ParameterTambahanCatatanAdministrasiListener implements EventListen
 		return true;
 	}
 
+	/** Mengumpulkan nilai seluruh field parameter tambahan yang sedang ditampilkan kembali ke {@code catatanAdministrasi}, lewat {@link CatatanAdministrasi#populateParameterTambahan}. */
 	public void onSave(CatatanAdministrasi catatanAdministrasi) {
 
 		catatanAdministrasi.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang dari awal seluruh baris field parameter tambahan: menghapus baris lama
+	 * ({@link #parameterRows}), lalu untuk tiap kelompok dalam {@link
+	 * #kelompokParameterTambahanCatatanAdministrasis} membuat baris judul kelompok diikuti satu
+	 * baris per {@link ParameterTambahan} aktif di dalamnya — komponen input tiap field dibangun
+	 * oleh {@link ParameterTambahan#initComponent}, diisi nilai awal yang diurai dari
+	 * {@code parameterTambahanInds}. Baris judul kelompok hanya ditampilkan bila minimal satu
+	 * field di dalamnya nyata dirender.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

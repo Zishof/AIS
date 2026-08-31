@@ -55,16 +55,48 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper tampilan ringkasan {@link Kurikulum} per semester: satu baris per semester (sesuai
+ * jumlah semester jenjang jurusan kurikulum), menampilkan jumlah mata kuliah dan jumlah jadwal
+ * perkuliahan terpasang, dengan detail yang dapat diperluas (accordion, lazy) menuju
+ * {@link MatakuliahKurikulumHelper} untuk mengelola mata kuliah semester tersebut. Bila
+ * {@code aktifkanTahapanKurikulum} aktif, kolom tambahan menampilkan sebaran jumlah mata kuliah
+ * per tahap.
+ *
+ * <p>
+ * Toolbar administratif (hanya untuk staf, bukan mahasiswa/siswa/dosen) menyediakan: unduh/
+ * unggah kurikulum lewat Excel, sinkronisasi silabus dari data perkuliahan
+ * ({@code KurikulumAction.copySilabusDariPerkuliahan}), pembersihan baris
+ * {@link KurikulumPunyaMatakuliah} duplikat (mata kuliah+semester sama — dihapus permanen bila
+ * belum dipakai jadwal apa pun, dinonaktifkan bila sudah dipakai), sinkronisasi keterkaitan
+ * jadwal {@link Perkuliahan} dengan baris kurikulum yang sesuai, dan — bila fitur Feeder
+ * (integrasi PDDikti/Neo Feeder) aktif — kirim/ambil data kurikulum dari/ke server Feeder
+ * eksternal (dijalankan di thread terpisah dengan progress bar dan log error yang dapat
+ * diunduh).
+ * </p>
+ */
 public class DetailSemesterKurikulumHelper {
 
 	private String[] contents = new String[] { "id", "matakuliah", "semester", "tahap",
 			"jumlahPertemuanPerkuliahanDefault", "indukMatakuliah", "matakuliah.sks", "aktif" };
 	private Kurikulum kurikulum;
 
+	/** Varian {@link #display(Kurikulum, PaketPerkuliahan, Component, MyWindow)} tanpa konteks {@link PaketPerkuliahan}. */
 	public void display(final Kurikulum kurikulum, final Component component, final MyWindow window) {
 		display(kurikulum, null, component, window);
 	}
 
+	/**
+	 * Membangun ringkasan semester untuk {@code kurikulum} ke dalam {@code component}: toolbar
+	 * administratif (lihat javadoc kelas, dimuat asinkron) di atas satu baris per semester
+	 * (jumlah dan hitungan mata kuliah/jadwal dihitung asinkron per baris), masing-masing dapat
+	 * diperluas menuju detail mata kuliah semester tersebut.
+	 *
+	 * @param kurikulum        kurikulum yang ringkasannya ditampilkan
+	 * @param paketPerkuliahan konteks paket perkuliahan opsional, diteruskan ke detail mata kuliah
+	 * @param component        kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param window           jendela induk, diteruskan ke aksi terkait
+	 */
 	@SuppressWarnings("unchecked")
 	public void display(final Kurikulum kurikulum, final PaketPerkuliahan paketPerkuliahan, final Component component,
 			final MyWindow window) {
@@ -678,6 +710,23 @@ public class DetailSemesterKurikulumHelper {
 
 	}
 
+	/**
+	 * Mengimpor/memperbarui baris {@link KurikulumPunyaMatakuliah} dari berkas Excel yang sudah
+	 * diunggah, baris demi baris pada sheet pertama: kolom id (untuk update baris existing bila
+	 * ada), kode mata kuliah (dicocokkan dalam jurusan kurikulum ini), semester, tahap, jumlah
+	 * pertemuan default, dan induk mata kuliah. Bila id tidak ditemukan, dicari berdasarkan mata
+	 * kuliah sebelum membuat baris baru. Setiap baris diproses dengan sesi Hibernate & transaksi
+	 * tersendiri (dibuka lewat {@code getSessionFactory().openSession()}, bukan
+	 * {@code currentSession()}, karena proses upload dapat melampaui lifecycle satu request) dan
+	 * rollback eksplisit saat gagal. Hasil per baris dicatat ke {@link ais.common.UploadReportHelper}
+	 * (baris tanpa mata kuliah/semester valid dilaporkan gagal, bukan dilewati diam-diam);
+	 * laporan lengkap diunduh otomatis dan ringkasannya ditampilkan di akhir.
+	 *
+	 * @param file          berkas Excel (.xlsx) sumber data kurikulum
+	 * @param eventListener callback dipanggil setelah kotak dialog ringkasan ditutup
+	 * @param contents      tidak dipakai langsung di method ini (parameter diteruskan untuk
+	 *                      konsistensi dengan pemanggil di {@link #display})
+	 */
 	public void uploadKurikulum(File file, EventListener eventListener, String[] contents) throws Exception {
 
 		// Laporan hasil per baris. Sebelumnya baris yang matakuliahnya tidak ditemukan

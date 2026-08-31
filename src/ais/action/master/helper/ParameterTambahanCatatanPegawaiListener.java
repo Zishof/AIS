@@ -26,6 +26,24 @@ import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * {@link EventListener} yang membangun secara dinamis input-input "parameter tambahan" pada form
+ * {@link CatatanPegawai}, dikelompokkan menurut {@link KelompokParameterTambahanCatatanPegawai}.
+ * Dipasang sebagai listener pemicu (mis. saat kelompok/jenis catatan berubah); setiap kali
+ * dipanggil ({@link #onEvent}), seluruh baris parameter lama dihapus dan dibangun ulang dari
+ * konfigurasi {@link ParameterTambahanCatatanPegawai} yang aktif untuk setiap kelompok, dengan nilai
+ * yang sudah tersimpan (bila ada) diurai dari string terserialisasi
+ * {@code catatanPegawai.getParameterTambahanInds()} (format baris {@code "kelompokId->parameterId<=>nilai<=>keterangan"}).
+ * Komponen input aktual dibangun oleh {@code ParameterTambahan.initComponent} generik (dipakai
+ * bersama oleh listener sejenis lain, mis. {@link ParameterTambahanPengaduanListener}).
+ *
+ * <p>
+ * {@link #validate()} harus dipanggil sebelum simpan formulir: memeriksa parameter wajib diisi sudah
+ * terisi dan lampiran wajib (bila diminta) sudah diunggah, menampilkan dialog peringatan dan
+ * menghentikan proses simpan bila ada yang belum lengkap. {@link #onSave(CatatanPegawai)} menuliskan
+ * nilai-nilai terisi kembali ke entitas {@link CatatanPegawai} yang diberikan.
+ * </p>
+ */
 public class ParameterTambahanCatatanPegawaiListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +52,13 @@ public class ParameterTambahanCatatanPegawaiListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCatatanPegawai> kelompokParameterTambahanCatatanPegawais;
 
+	/**
+	 * @param catatanPegawai                            entitas catatan pegawai yang formulirnya dibangun
+	 * @param kelompokParameterTambahanCatatanPegawais  kelompok-kelompok parameter yang ditampilkan
+	 * @param parameterRows                              list keluaran yang diisi baris-baris parameter yang dibangun (dipakai bersama pemanggil untuk validasi/simpan)
+	 * @param lampiranLains                               peta lampiran yang sudah diunggah, dikunci per "kelompokId->parameterId"
+	 * @param rows                                        container {@link Rows} tempat baris parameter ditambahkan
+	 */
 	public ParameterTambahanCatatanPegawaiListener(CatatanPegawai catatanPegawai,
 			Set<KelompokParameterTambahanCatatanPegawai> kelompokParameterTambahanCatatanPegawais, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +69,15 @@ public class ParameterTambahanCatatanPegawaiListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter yang sedang dibangun: parameter wajib-diisi harus memiliki
+	 * nilai, dan parameter yang mewajibkan lampiran harus sudah memiliki entri di {@code lampiranLains}.
+	 * Menampilkan dialog peringatan berisi label parameter yang gagal validasi (validasi berhenti pada
+	 * kegagalan pertama).
+	 *
+	 * @return {@code true} bila seluruh parameter valid; {@code false} bila ada yang gagal
+	 * @throws Exception diteruskan dari kegagalan menampilkan dialog
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +111,23 @@ public class ParameterTambahanCatatanPegawaiListener implements EventListener {
 		return true;
 	}
 
+	/** Menuliskan nilai-nilai parameter tambahan yang sedang terisi (dari {@code parameterRows}) ke entitas {@code catatanPegawai} yang diberikan, siap disimpan. */
 	public void onSave(CatatanPegawai catatanPegawai) {
 
 		catatanPegawai.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan: menghapus baris lama, lalu untuk setiap
+	 * kelompok mengambil parameter yang aktif dan dikonfigurasi untuk kelompok tersebut, mengurai
+	 * nilai tersimpan dari {@code catatanPegawai.getParameterTambahanInds()}, dan membangun komponen
+	 * inputnya lewat {@code ParameterTambahan.initComponent}. Baris header kelompok hanya ditampilkan
+	 * bila ada parameter yang berhasil dibangun untuk kelompok tersebut.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari kegagalan Hibernate atau pembangunan komponen
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {
