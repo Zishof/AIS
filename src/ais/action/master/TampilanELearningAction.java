@@ -2442,8 +2442,15 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 
-					if (menuKanan.isOpen() && (reloadBlnSd || centerMateri.getChildren().isEmpty()
-							|| southKomentar.getChildren().isEmpty())) {
+					/*
+					 * Jangan bergantung pada Region.isOpen(). Pada render awal, East sudah
+					 * terlihat di browser tetapi state open server-side ZK 5 kadang belum
+					 * tersinkron. Akibatnya callback timeline (reloadBlnSd=true) tertolak
+					 * dan panel baru terisi setelah tombol Refresh ditekan. Selama komponen
+					 * panel tersedia dan memang kosong/perlu dimuat ulang, proses langsung.
+					 */
+					if (reloadBlnSd || centerMateri.getChildren().isEmpty()
+							|| southKomentar.getChildren().isEmpty()) {
 						/*
 						 * Jangan bungkus lagi dengan Timer. Pemicu ini sendiri sudah datang dari
 						 * ON_OPEN, callback timeline, atau jalur load-awal yang ditunda. Timer
@@ -3100,7 +3107,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 	 * <p>Metode ini memanggil {@link #eventListenerMateri} langsung dari jalur andal tersebut
 	 * (dipicu Timer 1 detik / ON_OPEN region kiri), meniru pola versi mobile
 	 * ({@code loadMobileJadwalUjianContent}). Aman dipanggil berulang (idempoten):
-	 * {@code eventListenerMateri} hanya benar-benar memuat bila {@code menuKanan.isOpen()} dan
+	 * {@code eventListenerMateri} hanya benar-benar memuat bila data timeline berubah atau
 	 * {@link #centerMateri}/{@link #southKomentar} masih kosong, dan {@code loadMenuKanan()}
 	 * memanggil {@code Common.clear(parent)} sebelum merender sehingga tak menggandakan isi.
 	 *
