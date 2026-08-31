@@ -367,7 +367,13 @@ public class PembayaranUtilHelper {
 						&& (biayaDefault == null || biayaDefault.isEmpty())) {
 					if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
 							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tanpa setting khusus: return empty (lanjut jalur angsuran bulanan)");
-					return PengecualianTagihanList.kosong();
+					/*
+					 * Ini bukan pengecualian NIM. Koleksi kosong biasa memberi tahu pemanggil
+					 * agar tagihan dilayani oleh jalur angsuran/bulanan. Sentinel
+					 * PengecualianTagihanList hanya boleh dipakai untuk NIM yang benar-benar
+					 * tercantum pada daftar pengecualian Setting Biaya.
+					 */
+					return new TreeSet();
 				}
 				if (Boolean.TRUE.equals(modeAngsuran) && biayaDefault != null && !biayaDefault.isEmpty()
 						&& JenisKegiatan.DEBUG_MODE_ANGSURAN) {
