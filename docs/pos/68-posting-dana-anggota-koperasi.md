@@ -1,6 +1,7 @@
 # Posting Dana Anggota Koperasi (dok 61 butir B)
 
-Tanggal: 31 Agustus 2026. Kode masuk SVN **r78646** (tahap 1) dan **r78649** (tahap 2). Membuka butir **B** gap analysis
+Tanggal: 31 Agustus 2026. Kode masuk SVN **r78646** (topup & pencairan), **r78649** (penyesuaian saldo & modal
+penyertaan), dan **r78651** (pembagian SHU). Membuka butir **B** gap analysis
 [61-gap-analysis-posting.md](61-gap-analysis-posting.md) — butir terakhir yang tersisa dari peta
 posting, dan satu-satunya yang dahulu ditandai "menunggu keputusan akuntansi".
 
@@ -25,6 +26,7 @@ dokumennya tetap tampil sebagai draf di dasbor sehingga kekurangan setup terliha
 | **Pencairan Diskon Anggota** (`PencairanDiskon`) | status `BERHASIL`, nominal cair ≠ 0 | **Dr** akun beban pencairan / **Cr** akun kas/bank cara pembayaran | waktu pencairan |
 | **Penyesuaian Saldo Anggota** (`PenyesuaianSaldoAnggota`) | selisih ≠ 0 | memorial tanpa kas: selisih POSITIF **Dr** akun selisih / **Cr** kewajiban saldo anggota; NEGATIF kebalikannya, nilainya mutlak | waktu opname |
 | **Modal Penyertaan Masuk** (`ModalPenyertaanKoperasi`) | aktif, nominal ≠ 0, `tanggal_masuk` terisi | **Dr** akun kas penerimaan modal / **Cr** akun modal penyertaan | tanggal masuk |
+| **Pembagian SHU** (`PembagianShu`) | status `DIBAGIKAN`, total SHU ≠ 0 | **Dr** akun SHU ditahan (total) / **Cr** tujuh pos pembagian sesuai persentase | tanggal RAT |
 
 Lima kunci Konfigurasi baru:
 
@@ -33,6 +35,9 @@ Lima kunci Konfigurasi baru:
 - `akun_selisih_saldo_anggota_id` — kerugian/keuntungan selisih opname saldo e-wallet.
 - `akun_kas_modal_penyertaan_id` — kas/bank penerima setoran modal penyertaan.
 - `akun_modal_penyertaan_id` — pos modal penyertaan itu sendiri.
+- `akun_shu_ditahan_id` + tujuh pos SHU (`akun_shu_cadangan_id`, `akun_shu_jasa_modal_id`,
+  `akun_shu_jasa_usaha_id`, `akun_shu_pengurus_id`, `akun_shu_pendidikan_id`,
+  `akun_shu_sosial_id`, `akun_shu_lain_id`).
 
 Modal penyertaan memakai akun kas dari Konfigurasi (bukan dari cara pembayaran) karena
 entitasnya memang tidak menyimpan cara pembayaran.
@@ -44,7 +49,16 @@ penghapusan aset (dok 65).
 
 Keempat baris dasbor masuk kategori **simpan_pinjam** (serumpun perputaran dana milik anggota),
 dengan kunci izin deskriptif fail-closed `topup_saldo_anggota`, `pencairan_diskon`,
-`penyesuaian_saldo_anggota`, dan `modal_penyertaan`.
+`penyesuaian_saldo_anggota`, `modal_penyertaan`, dan `pembagian_shu`.
+
+### Dua penjagaan khusus pembagian SHU
+Jurnal SHU memecah satu debet ke tujuh kredit, jadi paling mudah menjadi pincang. Karena itu:
+(1) persentase seluruh pos **wajib berjumlah 100** (toleransi 0,01) — kalau tidak, dokumen
+dilewati UTUH, sebab mengalokasikan sisa persentase ke salah satu pos berarti mengarang
+kebijakan pembagian yang tidak pernah diputuskan RAT; (2) setiap pos berpersentase ≠ 0 **wajib
+sudah punya akun** — satu saja kosong membatalkan dokumen itu, bukan menjurnalkannya sebagian.
+Pembulatan tiap pos ke rupiah penuh, selisihnya dibebankan ke pos bernilai TERBESAR sehingga
+total kredit persis sama dengan debet.
 
 Satu hal yang sengaja berbeda dari mesin-mesin sebelumnya: metode kriteria di
 `DraftJurnalRingkasanUtil` **memanggil kriteria mesinnya langsung**, bukan menyalin ulang
@@ -57,17 +71,19 @@ Harness `TesPostingDanaAnggota` (scratchpad, DB UAT), fixture rentang **1–31 J
 
 | Skenario | Hasil |
 |---|---|
-| Dasbor | draf topup 2 (T1 & T3), pencairan 1 (P1), penyesuaian 2, modal 1 — dokumen belum dibayar / PENDING / berselisih nol / bernominal nol tidak terpilih |
+| Dasbor | draf topup 2, pencairan 1, penyesuaian 2, modal 1, SHU 3 — dokumen belum dibayar / PENDING / berselisih nol / bernominal nol tidak terpilih |
 | Topup terjurnal | Dr bank 500rb / Cr kewajiban saldo 500rb; bertanggal tanggal bayar |
-| Cara bayar tanpa akun | T3 dilewati mesin, tetap draf, tidak tercap |
+| Cara bayar tanpa akun | dilewati mesin, tetap draf, tidak tercap |
 | Pencairan terjurnal | Dr beban cashback 150rb / Cr bank 150rb; bertanggal waktu pencairan |
 | Penyesuaian selisih POSITIF | Dr akun selisih 30rb / Cr kewajiban saldo 30rb |
 | Penyesuaian selisih NEGATIF | arah membalik dan nilainya MUTLAK (20rb) — dipastikan pula tidak ada satu pun baris jurnal bernilai negatif di seluruh tabel |
 | Modal penyertaan | Dr bank penerimaan 7jt / Cr modal penyertaan 7jt; bertanggal tanggal masuk |
-| Dasbor sesudah posting | angka draf/terposting bergeser konsisten dengan mesin |
-| Idempoten & batal | posting/batal ulang 0 untuk keempatnya; jurnal habis; dokumen kembali draf |
+| SHU terpecah | 20/30/50% dari 10.000.001 → cadangan 2jt, jasa modal 3jt, jasa usaha 5.000.001 (selisih pembulatan 1 rupiah ke pos terbesar) |
+| SHU seimbang | debet SHU ditahan = jumlah seluruh kredit pos, selisih nol |
+| SHU dijaga | dokumen berpersentase 90% dan dokumen berpos tanpa akun TIDAK dijurnal sebagian pun; tetap draf |
+| Idempoten & batal | posting/batal ulang 0 untuk kelimanya; jurnal habis; dokumen kembali draf |
 
-**LULUS 24, GAGAL 0.**
+**LULUS 31, GAGAL 0.**
 
 ### Jebakan baru yang ditemukan harness
 
@@ -83,7 +99,6 @@ modul lain — **jangan pernah memakai kolom bergetter turunan sebagai penanda d
 | Dokumen | Keadaan | Catatan |
 |---|---|---|
 | `ModalPenyertaanKoperasi` — kaki KEMBALI | belum | Satu baris memuat DUA peristiwa uang (setoran saat `tanggal_masuk`, pengembalian saat status DITARIK / `tanggal_kembali`) sementara satu dokumen hanya punya satu cap `posting_history`. Perlu cap kedua (`posting_history_kembali`) plus baris dasbor sendiri; sengaja tidak dipaksakan ke dalam pola satu-cap yang dipakai seluruh mesin lain. |
-| `PembagianShu` / `ShuAnggota` | belum | Paling berat kebijakannya: satu dokumen memecah SHU ke TUJUH pos (cadangan, jasa modal, jasa usaha, pengurus, pendidikan, sosial, lain) menurut persentase. Agar jurnal tetap seimbang, semua pos berpersentase ≠ 0 wajib punya akun — kalau salah satu belum diisi, dokumennya harus dilewati UTUH, bukan sebagian. Perlu tujuh kunci Konfigurasi plus satu akun SHU ditahan, dan pembulatan sisa pembagian harus dibebankan ke satu pos agar debet = kredit persis. Ini keputusan akuntansi yang sebaiknya ditetapkan lebih dahulu. |
 | `DepositoRolloverKoperasi` | **tidak perlu** | Rollover hanya memperpanjang jangka waktu deposito yang sudah ada; tidak ada uang berpindah. Yang perlu dijurnal adalah penempatan/pencairan pokoknya (lewat simpan-pinjam, dok 62) dan akrual bunganya — bukan peristiwa rollover-nya. |
 
 ## 5. Bagi admin
@@ -95,5 +110,5 @@ alasannya tercatat di ErrorAudit.
 Pastikan pula setiap **Cara Pembayaran Koperasi** yang dipakai topup dan pencairan sudah
 ditautkan ke akun kas/bank-nya; tanpa itu dokumennya juga menetap sebagai draf.
 
-Tidak ada tabel baru; empat kolom `posting_history` dan empat kolom referensi pada
+Tidak ada tabel baru; lima kolom `posting_history` dan lima kolom referensi pada
 `akunting.grup_transaksi` dibuat `hbm2ddl update` saat Tomcat mulai.
