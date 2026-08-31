@@ -43,6 +43,8 @@ public class PostingHistory extends GeneralValueObject {
 	public static final String JENIS_SIMPAN_PINJAM = "Simpan Pinjam Koperasi";
 	public static final String JENIS_PEMBATALAN_KANTIN = "Pembatalan Penjualan Kantin";
 	public static final String JENIS_PENGHAPUSAN_ASET = "Penghapusan Aset";
+	public static final String JENIS_TOPUP_SALDO_ANGGOTA = "Topup Saldo Anggota";
+	public static final String JENIS_PENCAIRAN_DISKON = "Pencairan Diskon Anggota";
 	public static final String JENIS_PENGGANTIAN_KAS_KECIL = "Penggantian Kas Kecil";
 	public static final String JENIS_PENGGUNAAN_KAS_KECIL = "Penggunaan Kas Kecil";
 	public static final String JENIS_PENGGUNAAN_KAS_BESAR = "Penggunaan Kas Besar";

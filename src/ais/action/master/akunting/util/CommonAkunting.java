@@ -646,6 +646,14 @@ public class CommonAkunting {
 		} else if (reference != null && reference instanceof ais.database.model.asset.PenghapusanMasterAsset) {
 			grupTransaksi.setPenghapusanMasterAsset(
 					(ais.database.model.asset.PenghapusanMasterAsset) reference);
+		} else if (reference != null
+				&& reference instanceof ais.database.model.koperasi.PembayaranAnggotaKoperasi) {
+			grupTransaksi.setPembayaranAnggotaKoperasi(
+					(ais.database.model.koperasi.PembayaranAnggotaKoperasi) reference);
+		} else if (reference != null
+				&& reference instanceof ais.database.model.koperasi.PencairanDiskon) {
+			grupTransaksi.setPencairanDiskon(
+					(ais.database.model.koperasi.PencairanDiskon) reference);
 		} else if (reference != null && reference instanceof ais.database.model.koperasi.PembatalanTransaksiKantin) {
 			grupTransaksi.setPembatalanTransaksiKantin(
 					(ais.database.model.koperasi.PembatalanTransaksiKantin) reference);

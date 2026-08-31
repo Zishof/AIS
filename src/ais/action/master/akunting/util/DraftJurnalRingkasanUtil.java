@@ -105,7 +105,7 @@ public final class DraftJurnalRingkasanUtil {
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
-            "simpan_pinjam_koperasi", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
+            "simpan_pinjam_koperasi", "topup_saldo_anggota", "pencairan_diskon", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -137,6 +137,11 @@ public final class DraftJurnalRingkasanUtil {
                 || "pembayaran_termin_vendor".equals(kunci)
                 || "perjanjian_kerjasama".equals(kunci)) return "transaksi_vendor";
         if ("simpan_pinjam_koperasi".equals(kunci)) return "simpan_pinjam";
+        // Keluarga dana anggota serumpun dengan simpan-pinjam: sama-sama perputaran dana milik
+        // anggota koperasi, bukan penjualan.
+        if ("topup_saldo_anggota".equals(kunci) || "pencairan_diskon".equals(kunci)) {
+            return "simpan_pinjam";
+        }
         if ("pembatalan_kantin".equals(kunci)) return "posting_penjualan";
         if ("gaji".equals(kunci) || "transaksi_pegawai_payroll".equals(kunci)
                 || "penggajian_pegawai".equals(kunci)) return "gaji";
@@ -352,6 +357,22 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), false),
                     hitungPostingHistory(session, kriteriaSimpanPinjam(session, mulai, sampai), true),
                     hitungClosing(session, "transaksiKoperasi", null, null, mulai, sampai)));
+        } else if ("topup_saldo_anggota".equals(kunci)) {
+            out.add(new Baris(kunci, "Topup Saldo Anggota",
+                    "Topup/pembayaran saldo anggota yang sudah dibayar dipastikan menjadi jurnal"
+                            + " kas masuk dan kewajiban koperasi kepada anggota.",
+                    hitungPostingHistory(session, kriteriaTopupSaldo(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaTopupSaldo(session, mulai, sampai), true),
+                    hitungClosing(session, "pembayaranAnggotaKoperasi", null, null, mulai, sampai)));
+        } else if ("pencairan_diskon".equals(kunci)) {
+            out.add(new Baris(kunci, "Pencairan Diskon Anggota",
+                    "Pencairan saldo diskon/cashback anggota yang BERHASIL dipastikan menjadi jurnal"
+                            + " beban dan kas keluar.",
+                    hitungPostingHistory(session, kriteriaPencairanDiskon(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPencairanDiskon(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "pencairanDiskon", null, null, mulai, sampai)));
         } else if ("pembatalan_kantin".equals(kunci)) {
             out.add(new Baris(kunci, "Pembatalan Penjualan Kantin",
                     "Pembatalan atas transaksi yang terlanjur masuk batch Penjualan Kantin"
@@ -609,6 +630,21 @@ public final class DraftJurnalRingkasanUtil {
      * Penghapusan aset yang disetujui dan bernilai, rentang tanggal pembuatan. Sama dengan
      * mesinnya ({@code PenghapusanMasterAssetAction.kriteriaPenghapusanStatic}).
      */
+    /**
+     * Kriteria dasbor untuk topup saldo anggota &amp; pencairan diskon SENGAJA memanggil mesin
+     * postingnya langsung, bukan menyalin ulang syaratnya: angka draf di dasbor dan dokumen yang
+     * benar-benar diproses mesin dijamin berasal dari satu definisi yang sama.
+     */
+    private static Criteria kriteriaTopupSaldo(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaTopupStatic(session,
+                mulai, sampai);
+    }
+
+    private static Criteria kriteriaPencairanDiskon(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaPencairanStatic(
+                session, mulai, sampai);
+    }
+
     private static Criteria kriteriaPenghapusanAset(Session session, Date mulai, Date sampai) {
         return session.createCriteria(ais.database.model.asset.PenghapusanMasterAsset.class)
                 .add(Restrictions.isNotNull("disetujuiOleh"))
@@ -952,6 +988,12 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) {
             return kriteriaSimpanPinjam(session, mulai, sampai);
+        }
+        if ("Topup Saldo Anggota".equals(namaBaris)) {
+            return kriteriaTopupSaldo(session, mulai, sampai);
+        }
+        if ("Pencairan Diskon Anggota".equals(namaBaris)) {
+            return kriteriaPencairanDiskon(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
         if ("Transaksi Pegawai".equals(namaBaris)) {

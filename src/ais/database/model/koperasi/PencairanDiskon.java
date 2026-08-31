@@ -197,4 +197,22 @@ public class PencairanDiskon extends GeneralValueObject {
 		this.tanggalExpiredJikaBerupaTopup = tanggalExpiredJikaBerupaTopup;
 	}
 
+
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	/**
+	 * Riwayat posting jurnal (dok 61 butir B): terisi begitu mesin
+	 * {@code PostingDanaAnggotaUtil} menjurnalkan dokumen ini. Sebelumnya perputaran dana
+	 * anggota tidak pernah menyentuh buku besar sama sekali.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

@@ -2689,4 +2689,32 @@ public class GrupTransaksi extends GeneralValueObject {
 		this.penghapusanMasterAsset = penghapusanMasterAsset;
 	}
 
+
+	private ais.database.model.koperasi.PembayaranAnggotaKoperasi pembayaranAnggotaKoperasi;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "pembayaran_anggota_koperasi", nullable = true)
+	public ais.database.model.koperasi.PembayaranAnggotaKoperasi getPembayaranAnggotaKoperasi() {
+		return pembayaranAnggotaKoperasi;
+	}
+
+	public void setPembayaranAnggotaKoperasi(
+			ais.database.model.koperasi.PembayaranAnggotaKoperasi pembayaranAnggotaKoperasi) {
+		this.pembayaranAnggotaKoperasi = pembayaranAnggotaKoperasi;
+	}
+
+	private ais.database.model.koperasi.PencairanDiskon pencairanDiskon;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "pencairan_diskon", nullable = true)
+	public ais.database.model.koperasi.PencairanDiskon getPencairanDiskon() {
+		return pencairanDiskon;
+	}
+
+	public void setPencairanDiskon(ais.database.model.koperasi.PencairanDiskon pencairanDiskon) {
+		this.pencairanDiskon = pencairanDiskon;
+	}
+
 }

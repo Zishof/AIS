@@ -111,6 +111,8 @@ public final class DraftJurnalApiHelper {
         // Kunci deskriptif fail-closed (pola siswa/mahasiswa): tidak ada kunci menu POS
         // khusus simpan-pinjam, dan bolehAksiAkuntansi menolak kunci tak dikenal.
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) return "simpan_pinjam_koperasi";
+        if ("Topup Saldo Anggota".equals(namaBaris)) return "topup_saldo_anggota";
+        if ("Pencairan Diskon Anggota".equals(namaBaris)) return "pencairan_diskon";
         // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
         // Kunci deskriptif fail-closed (pola siswa/mahasiswa/simpan-pinjam).
@@ -444,6 +446,18 @@ public final class DraftJurnalApiHelper {
                         sampai, tbmuser, new Date())
                     : ais.action.master.asset.PenghapusanMasterAssetAction
                         .batalkanPostingSemua(mulai, sampai);
+        } else if ("Topup Saldo Anggota".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .batalkanPostingSemua(mulai, sampai);
+        } else if ("Pencairan Diskon Anggota".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .postingSemuaPencairan(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .batalkanPostingSemuaPencairan(mulai, sampai);
         } else if ("Pembatalan Penjualan Kantin".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.koperasi.helper.PembatalanTransaksiUtil.postingSemua(
