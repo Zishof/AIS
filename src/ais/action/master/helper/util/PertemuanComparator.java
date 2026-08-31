@@ -5,6 +5,16 @@ import java.util.Comparator;
 
 import ais.database.model.Pertemuan;
 
+/**
+ * Tipe khusus untuk pertemuan comparator. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link Comparator}, {@link Serializable}.
+ * Implementasi konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil
+ * sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah operasi lokal: {@code compare}(). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ */
 public class PertemuanComparator implements Comparator<Pertemuan>, Serializable {
 	/**
 	 * 

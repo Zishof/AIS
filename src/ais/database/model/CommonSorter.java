@@ -2,6 +2,19 @@ package ais.database.model;
 
 import java.io.Serializable;
 
+/**
+ * Model data untuk common sorter. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link Serializable}, {@link Comparable}.
+ * Implementasi konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil
+ * sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal: {@code serializable}, {@code serializable1}, {@code
+ * value}; operasi lokal: {@code compareTo()}, {@code getValue()}, {@code setValue()}, {@code getSerializable()},
+ * {@code setSerializable()}, {@code getSerializable1()}, {@code setSerializable1}(). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ */
 public class CommonSorter implements Serializable, Comparable<CommonSorter> {
 
 	/**
