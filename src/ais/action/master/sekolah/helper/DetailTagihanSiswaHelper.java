@@ -199,6 +199,22 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailTagihanSiswaHelper}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailTagihanSiswaHelper} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}, {@code
+	 * PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya}, {@code Integer pembayaranTerakhir}; operasi lokal:
+	 * {@code render()}, {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailTagihanSiswaHelper
+	 */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();

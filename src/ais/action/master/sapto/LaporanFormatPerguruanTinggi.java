@@ -135,6 +135,21 @@ public class LaporanFormatPerguruanTinggi extends MyWindow {
         addLazy(tabA_7_3_3,  tabpanels, new LazyFactory() { public MyWindow create() throws Exception { return new LaporanKerjasamaLuarNegeri_A_7_3_3(); }});
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link LaporanFormatPerguruanTinggi}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link LaporanFormatPerguruanTinggi} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code create}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LaporanFormatPerguruanTinggi
+     */
     private interface LazyFactory { MyWindow create() throws Exception; }
 
     private void addLazy(final Tab tab, Tabpanels panels, final LazyFactory factory) {

@@ -318,6 +318,19 @@ public final class TagihanDiskonSiswaHelper {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DiskonHitung} milik {@link TagihanDiskonSiswaHelper}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * TagihanDiskonSiswaHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Boolean persen}, {@code Double
+	 * totalDiskon}, {@code DiskonSiswa diskonSiswa}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see TagihanDiskonSiswaHelper
+	 */
 	private static class DiskonHitung {
 		Boolean persen = Boolean.TRUE;
 		Double totalDiskon = Double.valueOf(0.0);

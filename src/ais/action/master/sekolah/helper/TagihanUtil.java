@@ -192,6 +192,19 @@ public class TagihanUtil {
 		return syaratAsrama && syaratKelas && syaratKelasBanyak;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DataKeanggotaanSiswa} milik {@link TagihanUtil}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link TagihanUtil}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List kelasIds}, {@code List
+	 * asramaIds}, {@code String namaKelas}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see TagihanUtil
+	 */
 	private static class DataKeanggotaanSiswa {
 		private final List<Long> kelasIds = new ArrayList<Long>();
 		private final List<Long> asramaIds = new ArrayList<Long>();

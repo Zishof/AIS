@@ -41,6 +41,18 @@ public class DashboardAsalSekolahSiswa extends DashboardSiswaBase {
     // Inner data class
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link NamaData} milik {@link DashboardAsalSekolahSiswa}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardAsalSekolahSiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int jumlah}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardAsalSekolahSiswa
+     */
     private static final class NamaData {
         String nama;
         int    jumlah;
@@ -51,6 +63,19 @@ public class DashboardAsalSekolahSiswa extends DashboardSiswaBase {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link PropinsiData} milik {@link DashboardAsalSekolahSiswa}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardAsalSekolahSiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int peminat},
+     * {@code int diterima}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DashboardAsalSekolahSiswa
+     */
     private static final class PropinsiData {
         String nama;
         int    peminat;

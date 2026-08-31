@@ -44,6 +44,20 @@ public class RepositoryWorkflowService {
             "OPEN_ACCESS", "METADATA_ONLY", "EMBARGOED", "INSTITUTION_ONLY", "AUTHENTICATED", "RESTRICTED")));
     private static final Map<String, Set<String> > TRANSITIONS = transitions();
 
+    /**
+     * Tipe implementasi bersarang {@link DraftInput} milik {@link RepositoryWorkflowService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long
+     * expectedVersion}, {@code Long collectionId}, {@code String title}, {@code String authors}, {@code String
+     * authorOrcids}, {@code String abstractText}, {@code String subjects}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryWorkflowService
+     */
     public static class DraftInput {
         public Long id;
         public Long expectedVersion;
@@ -72,6 +86,19 @@ public class RepositoryWorkflowService {
         public String bibliography;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ItemPage} milik {@link RepositoryWorkflowService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int page}, {@code int pageSize},
+     * {@code int totalPages}, {@code long total}, {@code String keyword}, {@code String status}, {@code List
+     * items}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryWorkflowService
+     */
     public static class ItemPage {
         public int page=1,pageSize=20,totalPages;
         public long total;
@@ -79,11 +106,36 @@ public class RepositoryWorkflowService {
         public List<RepoItem> items=new ArrayList<RepoItem>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ValidationResult} milik {@link RepositoryWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean valid}, {@code List errors}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryWorkflowService
+     */
     public static class ValidationResult {
         public boolean valid;
         public List<String> errors = new ArrayList<String>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DuplicateCandidate} milik {@link RepositoryWorkflowService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String title},
+     * {@code String authors}, {@code String workflowStatus}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryWorkflowService
+     */
     public static class DuplicateCandidate {
         public Long id;
         public String title;
@@ -705,6 +757,21 @@ public class RepositoryWorkflowService {
         item.setOlehId(actor.getUserId()); item.setOleh(actor.toString()); item.setTanggal_dirubah(new Date());
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link RepositoryWorkflowService}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link RepositoryWorkflowService} dan dapat mengakses
+     * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code run}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see RepositoryWorkflowService
+     */
     private interface Work<T> { T run(Session session); }
 
     private <T> T read(Work<T> work) {

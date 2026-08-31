@@ -37,6 +37,23 @@ public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<Pemba
 
 	private static final String[] SEARCH_PROPERTIES = new String[] { "keterangan", "ref", "oleh" };
 
+	/**
+	 * Tipe implementasi bersarang {@link MilikSiswaFilter} milik {@link RevisiPembayaranSiswaDetailHelper}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RevisiPembayaranSiswaDetailHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Siswa siswa}, {@code CalonSiswa
+	 * calonSiswa}; operasi lokal: {@code apply}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RevisiPembayaranSiswaDetailHelper
+	 */
 	private static class MilikSiswaFilter implements QueryCustomizer {
 		private final Siswa siswa;
 		private final CalonSiswa calonSiswa;

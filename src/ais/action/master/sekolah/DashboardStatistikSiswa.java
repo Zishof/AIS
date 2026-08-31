@@ -43,6 +43,19 @@ public class DashboardStatistikSiswa extends DashboardSiswaBase {
     // Inner data classes
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link JurusanData} milik {@link DashboardStatistikSiswa}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardStatistikSiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object id}, {@code String nama},
+     * {@code int total}, {@code int diterima}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see DashboardStatistikSiswa
+     */
     private static final class JurusanData {
         Object id;
         String nama;
@@ -56,6 +69,18 @@ public class DashboardStatistikSiswa extends DashboardSiswaBase {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link GelombangData} milik {@link DashboardStatistikSiswa}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardStatistikSiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int total}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardStatistikSiswa
+     */
     private static final class GelombangData {
         String nama;
         int    total;

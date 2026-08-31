@@ -20,6 +20,18 @@ import java.util.Map;
  */
 public class SaptoGridConfig {
 
+    /**
+     * Tipe implementasi bersarang {@link Config} milik {@link SaptoGridConfig}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link SaptoGridConfig}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String description}, {@code String
+     * headers}, {@code int dataStartRow}, {@code String chartType}, {@code boolean dynamic}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see SaptoGridConfig
+     */
     public static class Config {
         public final String description;
         public final String[] headers;

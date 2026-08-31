@@ -26,6 +26,22 @@ import ais.database.model.repository.RepoUserPreference;
 public class RepositoryAlertService {
     private static final String[] PUBLIC_STATUSES={"SYNCED","PUBLISHED","APPROVED"};
 
+    /**
+     * Pembawa data/helper lokal milik {@link RepositoryAlertService} untuk summary. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryAlertService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int scanned}, {@code int matched},
+     * {@code int created}, {@code int failed}; operasi lokal: {@code toString}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see RepositoryAlertService
+     */
     public static class Summary {
         public int scanned,matched,created,failed;
         public String toString(){return "dipindai="+scanned+", cocok="+matched+", notifikasi="+created+", gagal="+failed;}
@@ -122,6 +138,20 @@ public class RepositoryAlertService {
         filter.collectionId=positiveLong(parameters.get("collection"));filter.year=integer(parameters.get("year"));return filter;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link AlertFilter} milik {@link RepositoryAlertService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryAlertService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String keyword}, {@code String
+     * field}, {@code String type}, {@code String access}, {@code String language}, {@code String author}, {@code
+     * String subject}, {@code String identifier}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see RepositoryAlertService
+     */
     private static class AlertFilter {String keyword="",field="all",type="",access="",language="",author="",subject="",identifier="",program="",fullText="";Long collectionId;Integer year;}
     private static String decode(String value){try{return URLDecoder.decode(safe(value),"UTF-8");}catch(Exception e){return safe(value);}}
     private static String choice(String value,String[] allowed,String fallback){String clean=safe(value);for(String option:allowed)if(option.equalsIgnoreCase(clean))return option;return fallback;}

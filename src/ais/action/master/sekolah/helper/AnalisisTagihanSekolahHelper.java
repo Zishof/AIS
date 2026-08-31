@@ -40,6 +40,20 @@ public final class AnalisisTagihanSekolahHelper {
 	private AnalisisTagihanSekolahHelper() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Tahap} milik {@link AnalisisTagihanSekolahHelper}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * AnalisisTagihanSekolahHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code String nilai},
+	 * {@code Criterion criterion}, {@code int jumlah}, {@code int jikaDilewati}, {@code boolean gagalPertama}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see AnalisisTagihanSekolahHelper
+	 */
 	private static class Tahap {
 		String nama;
 		String nilai;
@@ -55,6 +69,21 @@ public final class AnalisisTagihanSekolahHelper {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Hilir} milik {@link AnalisisTagihanSekolahHelper}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * AnalisisTagihanSekolahHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int nominalBiaya}, {@code int
+	 * tagihanSemua}, {@code int tagihanAktif}, {@code int tagihanNonaktif}, {@code int tagihanTerbayar}, {@code
+	 * int tagihanBelumTerbayar}, {@code int tagihanSampaiPeriode}, {@code int barisLayar}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see AnalisisTagihanSekolahHelper
+	 */
 	private static class Hilir {
 		int nominalBiaya;
 		int tagihanSemua;

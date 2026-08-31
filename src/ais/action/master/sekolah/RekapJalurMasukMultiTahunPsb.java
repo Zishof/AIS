@@ -32,6 +32,20 @@ public class RekapJalurMasukMultiTahunPsb extends DashboardSiswaBase {
     private Combobox cboPaket;
     private Combobox cboPenjurusan;
 
+    /**
+     * Tipe implementasi bersarang {@link RowData} milik {@link RekapJalurMasukMultiTahunPsb}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RekapJalurMasukMultiTahunPsb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int peminat}, {@code int diterima},
+     * {@code int bayarPendaftaran}, {@code int daftarUlang}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see RekapJalurMasukMultiTahunPsb
+     */
     private static final class RowData {
         int peminat;
         int diterima;

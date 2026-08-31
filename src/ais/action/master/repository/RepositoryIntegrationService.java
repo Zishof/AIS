@@ -21,6 +21,19 @@ import ais.database.model.repository.RepoAuthorAuthority;
 /** Adapter integrasi eksternal. Semua layanan nonaktif secara aman sampai konfigurasi tersedia. */
 public class RepositoryIntegrationService {
     private final RepositoryWorkflowService workflow=new RepositoryWorkflowService();
+    /**
+     * Pembawa data/helper lokal milik {@link RepositoryIntegrationService} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryIntegrationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean success}, {@code boolean
+     * configured}, {@code String status}, {@code String message}, {@code String externalId}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryIntegrationService
+     */
     public static class Result{public boolean success,configured;public String status="",message="",externalId="";}
 
     public Result mintOrUpdateDoi(Long itemId,String landingUrl,Tbmuser actor,String requestId){
@@ -78,5 +91,18 @@ public class RepositoryIntegrationService {
     private void requireAdmin(Tbmuser actor){if(!workflow.isRepositoryAdministrator(actor))throw new SecurityException("Hak administrator repository diperlukan.");}
     private void requiredTenant(RepoItem item){if(item==null||!RepositoryTenantScope.currentKey().equals(item.getTenantKey()))throw new IllegalArgumentException("Item repository tidak ditemukan.");}
     private static String property(String name,String fallback){return clean(System.getProperty(name,fallback));}private static String config(String name,String fallback){try{return clean(ais.common.Common.getKonfigurasi(name,fallback).getNilai());}catch(Exception e){return fallback;}}private static String clean(String v){return v==null?"":v.trim();}private static String limit(String v,int max){String x=clean(v);return x.length()>max?x.substring(0,max):x;}private static void rollback(Transaction tx){if(tx!=null&&tx.isActive())try{tx.rollback();}catch(Exception ignored){}}
+    /**
+     * Tipe implementasi bersarang {@link HttpResult} milik {@link RepositoryIntegrationService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryIntegrationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int code}, {@code String body}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryIntegrationService
+     */
     private static class HttpResult{int code;String body="";}
 }

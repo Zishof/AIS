@@ -326,5 +326,17 @@ public class RepositoryFileService {
     private static String hex(byte[] bytes){StringBuilder b=new StringBuilder();for(byte v:bytes)b.append(String.format("%02x",v&255));return b.toString();}
     private static String extractText(File file,String extension){try{String text="";if("pdf".equals(extension)){PDDocument d=PDDocument.load(file);try{text=new PDFTextStripper().getText(d);}finally{d.close();}}else if("txt".equals(extension)||"csv".equals(extension)||"rtf".equals(extension)){InputStream in=new FileInputStream(file);ByteArrayOutputStream out=new ByteArrayOutputStream();try{byte[]b=new byte[8192];int n,total=0;while((n=in.read(b))>=0&&total<1048576){int take=Math.min(n,1048576-total);out.write(b,0,take);total+=take;}}finally{in.close();}text=new String(out.toByteArray(),"UTF-8");}text=clean(text).replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]"," ");return text.length()>1048576?text.substring(0,1048576):text;}catch(Exception e){ais.common.ErrorAuditUtil.record(e,"RepositoryFileService.extractText");return "";}}
     private static void requireLogin(Tbmuser actor){if(actor==null||clean(actor.getUserId()).length()==0)throw new SecurityException("Login diperlukan.");}
+    /**
+     * Tipe implementasi bersarang {@link ScanResult} milik {@link RepositoryFileService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryFileService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String status}, {@code Date
+     * scannedAt}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryFileService
+     */
     private static class ScanResult { String status; Date scannedAt; }
 }

@@ -211,6 +211,21 @@ public class PembayaranOnline extends GenericAutowireComposer {
 	private Vbox panelJurnalPembayaranOnline;
 	private AkunPembayaranSiswa akunPembayaranPreview;
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link PembayaranOnline}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranOnline} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PembayaranOnline
+	 */
 	private interface PaymentAction {
 		void execute() throws Exception;
 	}
@@ -2082,6 +2097,24 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		reloadTagihan(false);
 	}
 
+	/**
+	 * Event listener lokal milik {@link PembayaranOnline}. Kelas ini menangani event untuk komponen induk dan
+	 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranOnline} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String ipConfigKey}, {@code String
+	 * prefixBankLainKey}, {@code String labelBtn}, {@code Map param}, {@code boolean isBankLainOnline}; operasi
+	 * lokal: {@code onEvent()}, {@code getBiayaAdministrasi()}, {@code executePayment()}, {@code
+	 * executeDownload()}, {@code handleSuccess}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PembayaranOnline
+	 */
 	private abstract class BaseOnlinePaymentListener implements EventListener {
 		protected String ipConfigKey, prefixBankLainKey, labelBtn;
 		protected Map<String, Object> param;

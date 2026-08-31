@@ -1294,6 +1294,20 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link CalonSiswaAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CalonSiswaAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see CalonSiswaAction
+	 */
 	class CalonSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -1839,6 +1853,23 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link CheckKesamaan} milik {@link CalonSiswaAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link CalonSiswaAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code GelombangPendaftaranPsb
+	 * gelombangPendaftaranPsb}, {@code MyDatebox tanggalLahir}, {@code Textbox namaSiswa}, {@code CalonSiswa
+	 * calonSiswa}, {@code Textbox namaIbu}, {@code MyWindow addWindow}, {@code EventListener eventListener};
+	 * operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see CalonSiswaAction
+	 */
 	public static class CheckKesamaan implements EventListener {
 
 		private GelombangPendaftaranPsb gelombangPendaftaranPsb;

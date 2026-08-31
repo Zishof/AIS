@@ -954,6 +954,21 @@ public class DashboardAktifitasHarianSiswaAction extends GenericAutowireComposer
     // INNER DATA CLASS
     // ════════════════════════════════════════════════════════════════════════
 
+    /**
+     * Pembawa data/helper lokal milik {@link DashboardAktifitasHarianSiswaAction} untuk dash data. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardAktifitasHarianSiswaAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List list}, {@code int totalHari},
+     * {@code Set siswaUnikId}, {@code int totalYa}, {@code int totalTidak}, {@code int hariSempurna}, {@code int
+     * belumKomentarOrtu}, {@code Map trendHarian}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see DashboardAktifitasHarianSiswaAction
+     */
     static final class DashData {
         List<AktiftasHarianSiswa>         list              = new ArrayList<AktiftasHarianSiswa>();
         int                               totalHari;

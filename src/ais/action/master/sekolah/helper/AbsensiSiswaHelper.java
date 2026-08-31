@@ -3549,6 +3549,21 @@ public class AbsensiSiswaHelper {
 
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AbsensiSiswaHelper}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AbsensiSiswaHelper} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}, {@code Pertemuan
+	 * pertemuan}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AbsensiSiswaHelper
+	 */
 	class SiswaIzinRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser;
@@ -4390,6 +4405,20 @@ public class AbsensiSiswaHelper {
 			pegawai4.setValue(petugas4 == null ? null : petugas4.getNama());
 			pegawai4.setReadonly(true);
 
+			/**
+			 * Event listener lokal milik {@link AbsensiSiswaHelper}. Kelas ini menangani event untuk komponen induk dan
+			 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AbsensiSiswaHelper} dan dapat mengakses state
+			 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+			 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+			 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+			 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+			 * renderer/listener ini.</p>
+			 *
+			 * @see AbsensiSiswaHelper
+			 */
 			class PertemuanChangeListener implements EventListener {
 
 				@Override

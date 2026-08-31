@@ -186,11 +186,42 @@ public class PesantrenWebsiteEditor {
         return value;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link NodeEditor} milik {@link PesantrenWebsiteEditor}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenWebsiteEditor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code component()}, {@code value}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenWebsiteEditor
+     */
     private static abstract class NodeEditor {
         abstract Component component();
         abstract Object value() throws JSONException;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ScalarEditor} milik {@link PesantrenWebsiteEditor}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenWebsiteEditor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object original}, {@code Hbox row},
+     * {@code Textbox text}, {@code Checkbox check}; operasi lokal: {@code component()}, {@code value()}, {@code
+     * panjang}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenWebsiteEditor
+     */
     private static final class ScalarEditor extends NodeEditor {
         private final Object original;
         private final Hbox row = new Hbox();
@@ -244,6 +275,22 @@ public class PesantrenWebsiteEditor {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ObjectEditor} milik {@link PesantrenWebsiteEditor}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenWebsiteEditor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Vbox fields}, {@code List keys},
+     * {@code List editors}, {@code Component rootComponent}; operasi lokal: {@code component()}, {@code value}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenWebsiteEditor
+     */
     private static final class ObjectEditor extends NodeEditor {
         private final Vbox fields = new Vbox();
         private final List keys = new ArrayList();
@@ -286,6 +333,23 @@ public class PesantrenWebsiteEditor {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ArrayEditor} milik {@link PesantrenWebsiteEditor}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * PesantrenWebsiteEditor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Groupbox group}, {@code Vbox list},
+     * {@code List items}, {@code Object template}; operasi lokal: {@code component()}, {@code value()}, {@code
+     * renderItems()}, {@code aksiPindah}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see PesantrenWebsiteEditor
+     */
     private static final class ArrayEditor extends NodeEditor {
         private final Groupbox group;
         private final Vbox list = new Vbox();
@@ -330,6 +394,22 @@ public class PesantrenWebsiteEditor {
             }
         }
 
+        /**
+         * Tipe implementasi bersarang {@link ArrayItem} milik {@link ArrayEditor}. Kelas ini memberi nama pada state
+         * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+         *
+         * <p><b>Scope:</b> setiap instance terikat pada instance {@link ArrayEditor} dan dapat mengakses state kelas
+         * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+         * implementasi privat; pemanggil luar harus memakai API kelas induk.
+         * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Groupbox group}, {@code Caption
+         * caption}, {@code NodeEditor editor}; operasi lokal: {@code update}(). Aturan bisnis bersama tetap berada
+         * pada kelas induk atau service yang dipanggilnya.</p>
+         * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+         * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+         * tambahkan perilaku lintas domain pada service bersama.</p>
+         *
+         * @see ArrayEditor
+         */
         private final class ArrayItem {
             final Groupbox group = kelompok("Item");
             final Caption caption;

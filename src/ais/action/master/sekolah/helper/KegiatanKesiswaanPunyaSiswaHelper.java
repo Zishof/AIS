@@ -581,6 +581,20 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 				hlink_style.setFillForegroundColor(new XSSFColor(Color.LIGHT_GRAY));
 				hlink_style.setFont(hlink_font);
 
+				/**
+				 * Helper implementasi bersarang milik {@link KegiatanKesiswaanPunyaSiswaHelper} untuk data adding helper.
+				 * Kelas ini mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanKesiswaanPunyaSiswaHelper} dan dapat
+				 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see KegiatanKesiswaanPunyaSiswaHelper
+				 */
 				class DataAddingHelper {
 					public void process(XSSFRow row, int index, KegiatanKesiswaanPunyaSiswa kegiatanKesiswaanPunyaSiswa,
 							String jenis) throws Exception {

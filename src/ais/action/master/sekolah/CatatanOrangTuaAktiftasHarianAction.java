@@ -102,6 +102,22 @@ public class CatatanOrangTuaAktiftasHarianAction extends GenericAutowireComposer
     private List<AktiftasHarianSiswa> dataList;
 
     // ── Data aggregation ─────────────────────────────────────────────────────
+    /**
+     * Pembawa data/helper lokal milik {@link CatatanOrangTuaAktiftasHarianAction} untuk dash data. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * CatatanOrangTuaAktiftasHarianAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalHari}, {@code int
+     * hariLengkap}, {@code int totalYaGlobal}, {@code int totalAktGlobal}, {@code int belumKomentar}, {@code List
+     * trendTanggal}, {@code List trendPersen}, {@code Map perJenis}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see CatatanOrangTuaAktiftasHarianAction
+     */
     private static final class DashData {
         int totalHari;
         int hariLengkap;      // semua aktivitas = YA

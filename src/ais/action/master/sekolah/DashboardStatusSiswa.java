@@ -45,6 +45,19 @@ public class DashboardStatusSiswa extends DashboardSiswaBase {
     // Inner data class
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link JurusanStatusData} milik {@link DashboardStatusSiswa}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardStatusSiswa}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object id}, {@code String nama},
+     * {@code int diterima}, {@code int ditolak}, {@code int mundur}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardStatusSiswa
+     */
     private static final class JurusanStatusData {
         Object id;
         String nama;

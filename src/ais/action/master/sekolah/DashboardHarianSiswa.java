@@ -42,6 +42,18 @@ public class DashboardHarianSiswa extends DashboardSiswaBase {
     // Inner data class
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link HariData} milik {@link DashboardHarianSiswa}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardHarianSiswa}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int jumlah}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardHarianSiswa
+     */
     private static final class HariData {
         String label;
         int    jumlah;

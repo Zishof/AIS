@@ -66,6 +66,20 @@ public class RepositorySyncService {
 	private static final java.util.Map<String, Long> SUMBER_DITUNDA_IZIN =
 			java.util.Collections.synchronizedMap(new java.util.HashMap<String, Long>());
 
+	/**
+	 * Tipe implementasi bersarang {@link SourceDescriptor} milik {@link RepositorySyncService}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RepositorySyncService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code String
+	 * collectionCode}, {@code String collectionName}, {@code String modelClassName}, {@code String
+	 * actionClassName}, {@code String documentType}, {@code String eligibility}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RepositorySyncService
+	 */
 	private static class SourceDescriptor {
 		private String label;
 		private String collectionCode;
@@ -87,6 +101,23 @@ public class RepositorySyncService {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link RepositorySyncService} untuk sync summary. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RepositorySyncService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int scanned}, {@code int synced},
+	 * {@code int failed}, {@code String message}, {@code boolean connectionLost}, {@code boolean stopped}; operasi
+	 * lokal: {@code getScanned()}, {@code getSynced()}, {@code getFailed()}, {@code getMessage()}, {@code
+	 * isConnectionLost}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RepositorySyncService
+	 */
 	public static class SyncSummary {
 		private int scanned;
 		private int synced;

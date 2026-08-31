@@ -54,6 +54,20 @@ public class RepositoryPublicService {
     private static final String[] PUBLIC_STATUSES = new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
     private static final Set<String> STOPWORDS=new HashSet<String>(Arrays.asList("yang","dan","dengan","untuk","dari","pada","dalam","adalah","atau","the","and","with","from","this","that","study","penelitian"));
 
+    /**
+     * Tipe implementasi bersarang {@link Query} milik {@link RepositoryPublicService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String keyword}, {@code String
+     * searchField}, {@code String author}, {@code String subject}, {@code String language}, {@code String
+     * identifier}, {@code String programStudy}, {@code String searchScope}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class Query {
         public String keyword = "";
         public String searchField = "all";
@@ -85,6 +99,20 @@ public class RepositoryPublicService {
         public int pageSize = DEFAULT_PAGE_SIZE;
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link RepositoryPublicService} untuk summary. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalItems}, {@code long
+     * totalCollections}, {@code long openAccess}, {@code long metadataOnly}, {@code long restrictedItems}, {@code
+     * long embargoedItems}, {@code long authorCount}, {@code long subjectCount}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class Summary {
         public long totalItems;
         public long totalCollections;
@@ -103,6 +131,19 @@ public class RepositoryPublicService {
         public Map<String, Long> typeStatistics = new LinkedHashMap<String, Long>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link CollectionView} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String kode}, {@code
+     * String nama}, {@code String deskripsi}, {@code String tipe}, {@code long itemCount}, {@code Date
+     * modifiedAt}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class CollectionView {
         public Long id;
         public String kode;
@@ -113,6 +154,20 @@ public class RepositoryPublicService {
         public Date modifiedAt;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ItemCard} milik {@link RepositoryPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String
+     * oaiIdentifier}, {@code String dspaceHandle}, {@code String title}, {@code String authors}, {@code String
+     * abstractText}, {@code String subjects}, {@code String documentType}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class ItemCard {
         public Long id;
         public String oaiIdentifier;
@@ -146,6 +201,19 @@ public class RepositoryPublicService {
         public String authorOrcids = "";
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Suggestion} milik {@link RepositoryPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String type}, {@code String label},
+     * {@code String detail}, {@code String value}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class Suggestion {
         public String type = "item";
         public String label = "";
@@ -153,10 +221,37 @@ public class RepositoryPublicService {
         public String value = "";
     }
 
+    /**
+     * Tipe implementasi bersarang {@link PreferenceView} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long itemId}, {@code
+     * String type}, {@code String label}, {@code String queryValue}, {@code Date createdAt}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class PreferenceView {
         public Long id,itemId; public String type="",label="",queryValue=""; public Date createdAt;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link BitstreamView} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String namaFile},
+     * {@code String mimeType}, {@code Long ukuranByte}, {@code String checksum}, {@code String description},
+     * {@code String accessPolicy}, {@code boolean primaryFile}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class BitstreamView {
         public Long id;
         public String namaFile;
@@ -168,6 +263,19 @@ public class RepositoryPublicService {
         public boolean primaryFile;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ItemDetail} milik {@link RepositoryPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map metadata}, {@code List files},
+     * {@code List relatedItems}, {@code List versions}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class ItemDetail extends ItemCard {
         public Map<String, List<String> > metadata = new LinkedHashMap<String, List<String> >();
         public List<BitstreamView> files = new ArrayList<BitstreamView>();
@@ -175,6 +283,20 @@ public class RepositoryPublicService {
         public List<ItemCard> versions = new ArrayList<ItemCard>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link AuthorProfile} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code String
+     * queryName}, {@code String orcid}, {@code Long authorityId}, {@code String affiliation}, {@code String
+     * rorId}, {@code String nameVariants}, {@code boolean verified}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class AuthorProfile {
         public String name = "";
         public String queryName = "";
@@ -193,6 +315,20 @@ public class RepositoryPublicService {
         public Map<String, Long> subjects = new LinkedHashMap<String, Long>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link SearchResult} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Query query}, {@code long total},
+     * {@code int totalPages}, {@code List items}, {@code Map typeFacets}, {@code Map accessFacets}, {@code Map
+     * yearFacets}, {@code Map authorFacets}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class SearchResult {
         public Query query;
         public long total;
@@ -212,12 +348,66 @@ public class RepositoryPublicService {
         public String didYouMean = "";
         public boolean synonymExpanded;
     }
+    /**
+     * Tipe implementasi bersarang {@link AnswerEvidence} milik {@link RepositoryPublicService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long itemId}, {@code int score},
+     * {@code String title}, {@code String authors}, {@code String year}, {@code String excerpt}, {@code String
+     * matchedTerms}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class AnswerEvidence { public Long itemId;public int score;public String title="",authors="",year="",excerpt="",matchedTerms=""; }
+    /**
+     * Tipe implementasi bersarang {@link RepositoryAnswer} milik {@link RepositoryPublicService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String question}, {@code String
+     * answer}, {@code List sources}, {@code List evidence}, {@code String method}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class RepositoryAnswer { public String question="",answer="";public List<ItemCard> sources=new ArrayList<ItemCard>();public List<AnswerEvidence> evidence=new ArrayList<AnswerEvidence>();public String method="Pencocokan metadata dan abstrak"; }
+    /**
+     * Tipe implementasi bersarang {@link FaqItem} milik {@link RepositoryPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int id}, {@code String category},
+     * {@code String question}, {@code String answer}, {@code String keywords}, {@code String reviewedBy}, {@code
+     * String lastReviewed}, {@code String policyRef}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class FaqItem {
         public int id;
         public String category="",question="",answer="",keywords="",reviewedBy="",lastReviewed="",policyRef="";
     }
+    /**
+     * Tipe implementasi bersarang {@link FaqResult} milik {@link RepositoryPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String keyword}, {@code String
+     * category}, {@code int page}, {@code int pageSize}, {@code int totalPages}, {@code long total}, {@code List
+     * items}, {@code Map categories}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class FaqResult {
         public String keyword="",category="";
         public int page=1,pageSize=12,totalPages;
@@ -225,6 +415,19 @@ public class RepositoryPublicService {
         public List<FaqItem> items=new ArrayList<FaqItem>();
         public Map<String,Long> categories=new LinkedHashMap<String,Long>();
     }
+    /**
+     * Tipe implementasi bersarang {@link MetadataSuggestion} milik {@link RepositoryPublicService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryPublicService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String language}, {@code String
+     * documentType}, {@code String abstractDraft}, {@code List keywords}, {@code List possibleDuplicates}. Aturan
+     * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryPublicService
+     */
     public static class MetadataSuggestion { public String language="id",documentType="Other",abstractDraft="";public List<String> keywords=new ArrayList<String>();public List<ItemCard> possibleDuplicates=new ArrayList<ItemCard>(); }
 
     public Session session() {
