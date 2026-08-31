@@ -1,9 +1,9 @@
 <%--
-    Adaptor native: Terima Transfer Item
+    Adaptor native: Laporan Arus Kas
 
-    Sumber menu : ais.action.report.format1.library.LaporanTerima
+    Sumber menu : ais.action.report.format1.akunting.LaporanAkuntingArusKas
     Kontrak     : ais.common.newui.laporan.NewUiLaporanUmumController
-                  (kunci registri "library_terima_pengadaan", template library/terima_pengadaan_semua)
+                  (kunci registri "akunting_arus_kas", template akunting/laporan_arus_12_bulan)
     Pemetaan    : laporan ini hanya menyusun beberapa parameter lalu menyerahkan
                   render ke Jasper, sehingga dilayani kontrak laporan generik
                   yang filternya dideklarasikan server. Menambah laporan sejenis
@@ -11,5 +11,5 @@
 --%>
 <%@ page contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %><%@ page import="ais.common.newui.laporan.NewUiLaporanUmumController" %>
 <%
-NewUiLaporanUmumController.handle(request, response, "library_terima_pengadaan", "format1/library/laporan_terima");
+NewUiLaporanUmumController.handle(request, response, "akunting_arus_kas", "format1/akunting/laporan_akunting_arus_kas");
 %>

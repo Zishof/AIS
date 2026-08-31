@@ -707,6 +707,19 @@ public class CommonAlatMedis {
 		}
 	}
 
+	/**
+	 * Menghasilkan dan mengunduh berkas Excel (.xls, format Apache POI HSSF) berisi seluruh
+	 * {@link AlatMedis} beserta harga jualnya — kebalikan dari {@link #onUploadBiaya}, dipakai
+	 * sebagai templat untuk diedit lalu diunggah ulang. Sheet {@code "1000000-DATA"} berisi daftar
+	 * master alat medis (kolom sama seperti pada impor); sheet lain, satu per
+	 * {@link KelasPerawatan}, berisi rincian harga jual per komponen biaya
+	 * ({@link JenisBiaya} aktif yang benar-benar dipakai pada baris {@link Biaya} master). Bila
+	 * {@code tarifKhusus} diberikan, daftar alat medis dibatasi ke yang sudah punya entri
+	 * {@link TarifKhususPunyaAlatMedis} pada tarif tersebut. Diproses asinkron dengan indikator
+	 * progres, hasil akhir diunduh lewat {@link Filedownload}.
+	 *
+	 * @param jenis jenis alat medis yang menjadi cakupan ekspor
+	 */
 	@SuppressWarnings("unchecked")
 	public static void onDownloadBiaya(Event event, final TarifKhusus tarifKhusus, final String jenis)
 			throws Exception {
@@ -995,11 +1008,28 @@ public class CommonAlatMedis {
 
 	}
 
+	/**
+	 * Komponen editor grid harga jual satu {@link AlatMedis} (atau satu
+	 * {@link TarifKhususPunyaAlatMedis}), dengan satu baris per {@link KelasPerawatan}: tiap baris
+	 * berisi rincian komponen biaya ({@link JenisBiaya}, masing-masing sebagai pasangan nilai
+	 * jumlah/persen), checkbox "pembagian biaya dalam persen" dan "harga bisa diubah saat
+	 * transaksi", serta total harga. Checkbox {@link #semuahargasama} (bila dicentang) mengunci
+	 * seluruh baris selain baris pertama agar mengikuti nilainya secara otomatis
+	 * ({@link #ubahStatusRubahSemuaEventListener}) — memudahkan pengisian harga yang seragam di
+	 * semua kelas perawatan.
+	 */
 	public static class InitHarga {
 
 		public Grid gridHargaJual = new Grid();
 		public Checkbox semuahargasama = new Checkbox();
 
+		/**
+		 * Menyimpan seluruh baris grid {@link #gridHargaJual} sebagai {@link BiayaAlatMedisPerKelas}
+		 * (dikaitkan ke {@code alatMedis} atau, bila diisi, ke {@code tarifKhususPunyaAlatMedis} —
+		 * saling meniadakan) beserta rincian komponen biayanya ({@link Biaya}).
+		 *
+		 * @return selalu {@code true}
+		 */
 		@SuppressWarnings("unchecked")
 		public boolean saveDetail(AlatMedis alatMedis, TarifKhususPunyaAlatMedis tarifKhususPunyaAlatMedis) {
 			Session session = HibernateUtil.currentSession();
@@ -1056,6 +1086,13 @@ public class CommonAlatMedis {
 			return true;
 		}
 
+		/**
+		 * Listener yang diaktifkan saat {@link #semuahargasama} diubah atau nilai baris pertama
+		 * berubah: bila dicentang, menyalin nilai checkbox/input harga dari baris pertama ke semua
+		 * baris lain dan menguncinya (disabled); bila tidak dicentang, membuka kunci semua input.
+		 * Juga menghitung ulang total harga per baris (jumlah komponen biaya) untuk baris yang
+		 * pembagian biayanya bukan dalam persen.
+		 */
 		public EventListener ubahStatusRubahSemuaEventListener = new EventListener() {
 
 			@SuppressWarnings({ "unchecked" })
@@ -1174,6 +1211,15 @@ public class CommonAlatMedis {
 			}
 		};
 
+		/**
+		 * Membangun {@link #gridHargaJual} ke dalam {@code tabpanel}: satu baris per
+		 * {@link KelasPerawatan} berisi kontrol harga jual {@code alatMedis} (atau
+		 * {@code tarifKhususPunyaAlatMedis} bila diisi), memuat nilai yang sudah tersimpan bila
+		 * ada. {@code onSave} dipanggil untuk memaksa penyimpanan entitas induk terlebih dahulu
+		 * bila belum tersimpan, mengikuti pola yang sama dengan helper detail SIRS lainnya (lihat
+		 * {@link ais.action.master.sirs.detail.TindakanHelper}/{@link ais.action.master.sirs.detail.AlatMedisHelper}).
+		 * Hak hapus komponen biaya ditentukan dari privilese {@link CommonPrivilages#DELETE}.
+		 */
 		@SuppressWarnings("unchecked")
 		public void initHargaJual(final AlatMedis alatMedis, final Tabpanel tabpanel, final OnSave onSave,
 				final TarifKhususPunyaAlatMedis tarifKhususPunyaAlatMedis) throws Exception {

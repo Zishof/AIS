@@ -85,6 +85,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK ({@link GenericAutowireComposer}) untuk mengelola {@link Deposit} (tabungan/deposit)
+ * milik mahasiswa, calon mahasiswa, siswa, calon siswa, atau anggota koperasi — satu Deposit
+ * mewakili satu transaksi setor/tarik (nominal positif/negatif) pada rekening tabungan seorang
+ * penabung. Layar utama menampilkan grid transaksi berpencarian dan form tambah/ubah, ditambah
+ * beberapa tab pendukung (jenis pembayaran/cara bayar tabungan, jenis tabungan, laporan deposit,
+ * penggunaan deposit untuk cicilan pembayaran — masing-masing dimuat lazy sekali via
+ * {@link #loadIncludeOnce}), serta dashboard mutasi tabungan berisi ringkasan bulanan, grafik
+ * (spider-web, mini gauge), watchlist saldo per penabung, dan ekspor Excel
+ * ({@link #initMutasiTabungan}).
+ * <p>
+ * Bila user yang login sendiri berperan sebagai mahasiswa/siswa (bukan admin/petugas), layar
+ * masuk ke <b>mode penabung terbatas</b> ({@link #isLoginPenabungTerbatas()}): hak tambah/ubah/
+ * hapus dan beberapa tab administratif disembunyikan, dan pencarian dikunci ke data diri sendiri
+ * — lihat {@link #applyModePenabungTerbatas()}.
+ * </p>
+ */
 public class DepositAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault, DataInitDefault {
 
 	private static final long serialVersionUID = -5779730267402400328L;
@@ -112,6 +129,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	private Tabpanel tabCaraBayarTabungan;
 
+	/** Memuat {@code url} ke dalam {@code panel} lewat {@link MyInclude}, hanya sekali (tidak memuat ulang bila panel sudah punya konten) — dipakai agar tab-tab pendukung dimuat lazy saat pertama kali dibuka. */
 	private void loadIncludeOnce(Tabpanel panel, String url) {
 		if (panel == null || url == null || url.trim().length() == 0) {
 			return;
@@ -128,6 +146,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Memuat tab "Cara Bayar Tabungan" (pengaturan {@link JenisPembayaran}) secara lazy. */
 	public void onCaraBayarTabungan(Event event) {
 		loadIncludeOnce(tabCaraBayarTabungan, "/pages/master/jenis_pembayaran.zul");
 	}
@@ -135,6 +154,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private Tabpanel tabLaporanDeposit;
 	private Combobox jenisPembayaran;
 
+	/** Memuat tab "Laporan Deposit" ({@link LaporanDeposit}) secara lazy. */
 	public void onLaporanDeposit(Event event) {
 		if (tabLaporanDeposit.getChildren().size() == 0) {
 			LaporanDeposit laporan = new LaporanDeposit();
@@ -146,6 +166,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	private Tabpanel tabJenisDeposit;
 
+	/** Memuat tab "Jenis Deposit" (pengaturan {@link JenisTabungan}) secara lazy. */
 	public void onJenis(Event event) {
 		loadIncludeOnce(tabJenisDeposit, "/pages/master/jenis_tabungan.zul");
 	}
@@ -157,6 +178,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private AmbilDataSiswaBanbox siswa;
 	private AmbilDataCalonSiswaBanbox calonSiswa;
 
+	/** Memuat tab "Penggunaan Deposit" (integrasi cicilan pembayaran memakai saldo deposit) secara lazy; tidak berlaku dalam mode penabung terbatas. */
 	public void onPenggunaan(Event event) {
 		if (isLoginPenabungTerbatas()) {
 			return;
@@ -181,6 +203,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private Siswa sis;
 	private Map<Long, Double> saldoDepositCache = new HashMap<Long, Double>();
 
+	/** Memeriksa keamanan sesi sebelum komponen ZK mulai dibangun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -188,6 +211,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menentukan apakah user yang login sendiri berperan sebagai mahasiswa atau siswa — menandakan layar harus masuk mode penabung terbatas (lihat dokumentasi kelas). */
 	private boolean isLoginPenabungTerbatas() {
 		return (mhs != null && mhs.getId() != null) || (sis != null && sis.getId() != null);
 	}
@@ -210,6 +234,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return "";
 	}
 
+	/** Menyembunyikan/menampilkan {@code panel} beserta tab-nya yang terkait ({@link Tabpanel#getLinkedTab()}), menelan galat bila komponen sudah tidak valid. */
 	private void setVisibleTabpanel(Tabpanel panel, boolean visible) {
 		if (panel == null) {
 			return;
@@ -228,6 +253,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Menerapkan mode penabung terbatas (lihat dokumentasi kelas) bila berlaku: menonaktifkan hak tambah/ubah/hapus, menyembunyikan tab administratif dan filter fakultas/yayasan, dan mengunci pencarian nama penabung ke nama sendiri. */
 	private void applyModePenabungTerbatas() {
 		if (!isLoginPenabungTerbatas()) {
 			return;
@@ -256,6 +282,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/**
+	 * Menyiapkan halaman: menentukan identitas user (dan apakah mode penabung terbatas berlaku),
+	 * mode aplikasi (perguruan tinggi/sekolah), mengisi filter fakultas/jurusan atau yayasan/
+	 * sekolah, menentukan hak tambah/ubah/hapus (termasuk pemeriksaan
+	 * {@code bolehEntryTopupAktif()} pada role user), menerapkan mode penabung terbatas bila
+	 * berlaku, memuat data awal (grid transaksi dan dashboard mutasi) secara asinkron, serta
+	 * menambahkan tombol cetak dan unggah data massal ke toolbar.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -358,10 +392,18 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	// Semua grafik dibuat langsung dari HTML/CSS agar ringan, responsif, dan aman untuk ZKoss 5.5.
 	// -----------------------------------------------------------------
 
+	/** Seperti {@link #initMutasiTabungan(String, Fakultas, Jurusan, Yayasan, Sekolah)}, tanpa filter fakultas/jurusan/yayasan/sekolah. */
 	private void initMutasiTabungan(final String searchName) {
 		initMutasiTabungan(searchName, null, null, null, null);
 	}
 
+	/**
+	 * Membangun tab dashboard mutasi tabungan (murni HTML/CSS, tanpa library grafik, agar ringan
+	 * dan kompatibel ZK 5.5): toolbar pencarian nama/nomor dan filter fakultas/jurusan atau
+	 * yayasan/sekolah (disembunyikan dalam mode penabung terbatas), lalu mengagregasi transaksi
+	 * {@link Deposit} yang cocok menjadi ringkasan bulanan, grafik komposisi masuk/keluar, mini
+	 * gauge, watchlist saldo per penabung, dan tabel mutasi berpaging dengan tombol ekspor Excel.
+	 */
 	@SuppressWarnings("unchecked")
 	private void initMutasiTabungan(final String searchName, final Fakultas filterFakultas, final Jurusan filterJurusan,
 			final Yayasan filterYayasan, final Sekolah filterSekolah) {
@@ -551,6 +593,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		renderInsightDeposit(pcBottom, totalTabungan, totalRealisasi, sisaTabungan, mutasiList.size(), summaryData.size());
 	}
 
+	/** Menambahkan pasangan label+combobox filter ke {@code toolbar}, label mengikuti visibilitas combo. */
 	private void appendFilter(Toolbar toolbar, String label, Combobox combo) {
 		if (toolbar == null || combo == null) {
 			return;
@@ -562,6 +605,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Mengambil id seluruh {@link Jurusan} aktif di bawah {@code filterFakultas}, dipakai untuk memperluas filter fakultas menjadi daftar jurusan pada query mutasi native. */
 	private List<Long> ambilJurusanIds(Session session, Fakultas filterFakultas) {
 		if (filterFakultas == null || filterFakultas.getId() == null || session == null) {
 			return null;
@@ -570,6 +614,16 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				.setProjection(Projections.property("id")).add(Restrictions.eq("fakultas", filterFakultas)).list();
 	}
 
+	/**
+	 * Menyusun query SQL native yang menyatukan (UNION ALL) empat sumber mutasi saldo tabungan
+	 * menjadi satu baris waktu per penabung: setoran ({@code deposit}, jenis
+	 * {@code TOPUP_TABUNGAN}), pemakaian untuk tagihan mahasiswa ({@code cicilan_pembayaran}),
+	 * pengeluaran manual mahasiswa ({@code pengeluaran_mahasiswa}), dan pemakaian untuk tagihan
+	 * siswa ({@code sekolah.pembayaran_siswa}) — identitas penabung digabung dari lima kemungkinan
+	 * tabel (mahasiswa/calon mahasiswa/siswa/calon siswa/anggota koperasi) lewat {@code CASE WHEN}
+	 * berjenjang. Difilter opsional berdasarkan kata kunci nama/nomor, fakultas/jurusan, atau
+	 * yayasan/sekolah, dan dibatasi ke data diri sendiri bila mode penabung terbatas berlaku.
+	 */
 	private SQLQuery buildMutasiQuery(Session session, String searchName, Fakultas filterFakultas, Jurusan filterJurusan,
 			Yayasan filterYayasan, Sekolah filterSekolah, List<Long> longsJurusans) {
 		StringBuilder sql = new StringBuilder();
@@ -651,6 +705,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return query;
 	}
 
+	/** Menutup {@code session} secara bertahap (clear, disconnect, close), menelan galat di tiap tahap. */
 	private void closeOpenedSession(Session session) {
 		if (session == null) {
 			return;
@@ -674,6 +729,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Menambahkan {@code value} ke entri {@code key} pada {@code map} (menambah baru bila belum ada) — akumulator agregasi sederhana. */
 	private void addMapValue(Map<String, Double> map, String key, double value) {
 		if (key == null || key.trim().length() == 0) {
 			key = "Tidak diketahui";
@@ -682,6 +738,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		map.put(key, Double.valueOf((old == null ? 0.0 : old.doubleValue()) + value));
 	}
 
+	/** Menambahkan {@code value} ke entri {@code key} pada {@code map} (menambah baru bila belum ada) — akumulator penghitung sederhana. */
 	private void addIntegerValue(Map<String, Integer> map, String key, int value) {
 		if (key == null || key.trim().length() == 0) {
 			key = "Tidak diketahui";
@@ -690,6 +747,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		map.put(key, Integer.valueOf((old == null ? 0 : old.intValue()) + value));
 	}
 
+	/** Menerjemahkan kode jenis mutasi internal (mis. {@code TOPUP_TABUNGAN}) menjadi label ramah-pengguna untuk ditampilkan pada grid/dashboard. */
 	private String labelJenisMutasi(String jenis) {
 		if (jenis == null) {
 			return "Lainnya";
@@ -709,6 +767,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return jenis.replace('_', ' ');
 	}
 
+	/** Menghasilkan kunci bulan (mis. {@code "2026-01"}) dari {@code tanggal}, dipakai mengelompokkan tren mutasi per bulan. */
 	private String monthKey(Date tanggal) {
 		if (tanggal == null) {
 			return "Tanpa Tanggal";
@@ -720,6 +779,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Memperbarui ringkasan per penabung ({@code summaryData}, berkunci {@code personKey}) dengan satu transaksi baru: mengakumulasi total debit/kredit dan mencatat nama penabung. */
 	private void akumulasiSummary(Map<String, Map<String, Object>> summaryData, String personKey, String nama,
 			double nominal) {
 		Map<String, Object> data = summaryData.get(personKey);
@@ -739,6 +799,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		data.put("sumSaldo", Double.valueOf(((Double) data.get("sumSaldo")).doubleValue() + nominal));
 	}
 
+	/** Memformat {@code value} sebagai nominal rupiah untuk tampilan dashboard. */
 	private String formatMoney(double value) {
 		try {
 			return Common.numberFormat.get().format(value);
@@ -747,6 +808,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Memformat {@code date} untuk tampilan dashboard, string kosong bila {@code null}. */
 	private String formatDate(Date date) {
 		if (date == null) {
 			return "-";
@@ -758,6 +820,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Meng-escape {@code value} agar aman disisipkan sebagai teks di dalam markup HTML yang dibangun manual pada dashboard. */
 	private String html(String value) {
 		if (value == null) {
 			return "";
@@ -766,6 +829,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				.replace("'", "&#39;");
 	}
 
+	/** Menyusun markup HTML satu kartu statistik dashboard (judul, nilai besar, deskripsi kecil). */
 	private String dashboardCard(String title, String value, String desc) {
 		return "<div style='background:white;border:1px solid #e2e8f0;border-radius:14px;padding:13px;"
 				+ "box-shadow:0 2px 8px rgba(15,23,42,0.07);min-width:145px;flex:1;'>"
@@ -774,6 +838,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				+ "</div><div style='font-size:11px;color:#64748b;margin-top:4px;'>" + html(desc) + "</div></div>";
 	}
 
+	/** Merender baris kartu statistik utama dashboard (total masuk/keluar, saldo, jumlah transaksi/penabung, transaksi terakhir) ke {@code parent}. */
 	private void renderDashboardDeposit(Component parent, double totalMasuk, double totalKeluar, double saldo,
 			int jumlahTransaksi, int jumlahPenabung, Date transaksiTerakhir) {
 		Panel panel = new Panel();
@@ -810,6 +875,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		children.appendChild(new org.zkoss.zul.Html(html));
 	}
 
+	/** Menghitung persentase {@code value} terhadap {@code total} sebagai integer 0-100, aman terhadap pembagian nol. */
 	private int percentValue(double value, double total) {
 		if (total <= 0.0) {
 			return 0;
@@ -824,10 +890,12 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return p;
 	}
 
+	/** Menghitung lebar CSS proporsional (persentase, sebagai string) untuk elemen bar/progres, aman terhadap pembagian nol. */
 	private String safeWidth(double value, double total) {
 		return String.valueOf(percentValue(value, total));
 	}
 
+	/** Merender panel dashboard komposisi mutasi per jenis (pemasukan dan pengeluaran) ke {@code parent}, memakai {@link #buildJenisMutasiHtml}. */
 	private void renderDashboardJenisMutasi(Component parent, Map<String, Double> pemasukanPerJenis,
 			Map<String, Double> pengeluaranPerJenis, Map<String, Integer> jumlahPerJenis) {
 		Panel panel = new Panel();
@@ -848,6 +916,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		children.appendChild(new org.zkoss.zul.Html(html));
 	}
 
+	/** Menyusun markup HTML daftar bar proporsional satu kategori mutasi (mis. pemasukan) berdasarkan {@code data} (total nilai per jenis) dan {@code jumlahPerJenis} (jumlah transaksi per jenis). */
 	private String buildJenisMutasiHtml(String title, Map<String, Double> data, Map<String, Integer> jumlahPerJenis,
 			String color) {
 		StringBuilder sb = new StringBuilder();
@@ -883,6 +952,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return sb.toString();
 	}
 
+	/** Merender panel "kesehatan saldo" (rasio saldo terhadap pemasukan, rata-rata saldo per penabung, dsb.) ke {@code parent}, memakai {@link #buildMiniGauge}. */
 	private void renderDashboardKesehatanSaldo(Component parent, double totalMasuk, double totalKeluar, double saldo,
 			Map<String, Map<String, Object>> summaryData, int jumlahTransaksi) {
 		Panel panel = new Panel();
@@ -930,6 +1000,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		children.appendChild(new org.zkoss.zul.Html(html));
 	}
 
+	/** Menyusun markup HTML/SVG grafik radar (spider-web) sederhana untuk {@code labels}/{@code values} yang diberikan, tanpa library grafik eksternal. */
 	private String buildSpiderWebHtml(String title, String[] labels, int[] values) {
 		if (labels == null || values == null || labels.length == 0 || labels.length != values.length) {
 			return "";
@@ -995,10 +1066,12 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return sb.toString();
 	}
 
+	/** Memformat {@code value} sebagai string angka yang aman disisipkan ke atribut koordinat SVG (memakai titik desimal, bukan koma lokal). */
 	private String toSvg(double value) {
 		return String.valueOf(Math.round(value * 10.0d) / 10.0d);
 	}
 
+	/** Menyusun markup HTML satu gauge mini (lingkaran/bar persentase kecil berlabel) untuk metrik ringkas pada dashboard. */
 	private String buildMiniGauge(String label, int percent, String color) {
 		return "<div style='margin-bottom:10px;'><div style='display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#334155;'>"
 				+ "<span>" + html(label) + "</span><span>" + percent + "%</span></div>"
@@ -1007,6 +1080,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				+ ";border-radius:999px;'></div></div></div>";
 	}
 
+	/** Merender panel narasi "insight" (ringkasan tekstual otomatis atas kondisi tabungan) ke {@code parent}. */
 	private void renderInsightDeposit(Component parent, double totalMasuk, double totalKeluar, double saldo,
 			int transaksi, int penabung) {
 		Panel panel = new Panel();
@@ -1046,6 +1120,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		children.appendChild(new org.zkoss.zul.Html(html));
 	}
 
+	/** Merender panel grafik komposisi dan tren mutasi tabungan ke {@code parent}, menggabungkan {@link #buildKomposisiHtml} dan {@link #renderTrendMutasiBulanan}. */
 	private void renderGrafikDeposit(Component parent, final Map<String, Double> trendMasuk,
 			final Map<String, Double> trendKeluar, Map<String, Map<String, Object>> summaryData, double totalMasuk,
 			double totalKeluar) {
@@ -1065,6 +1140,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				+ buildKomposisiHtml(totalMasuk, totalKeluar) + buildTopPenabungHtml(summaryData) + "</div>"));
 	}
 
+	/** Merender grafik tren mutasi bulanan (garis masuk vs keluar) ke {@code parent}, dengan navigasi antar halaman bulan ({@link #TREND_MUTASI_PAGE_SIZE} bulan per halaman). */
 	private void renderTrendMutasiBulanan(Component parent, final Map<String, Double> trendMasuk,
 			final Map<String, Double> trendKeluar) {
 		final List<String> keys = buildTrendKeys(trendMasuk, trendKeluar);
@@ -1099,6 +1175,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Menyusun daftar kunci bulan terurut (gabungan dari {@code trendMasuk} dan {@code trendKeluar}) untuk sumbu grafik tren. */
 	private List<String> buildTrendKeys(Map<String, Double> trendMasuk, Map<String, Double> trendKeluar) {
 		TreeSet<String> keySet = new TreeSet<String>();
 		if (trendMasuk != null) {
@@ -1110,6 +1187,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return new ArrayList<String>(keySet);
 	}
 
+	/** Menghitung nilai maksimum di antara {@code trendMasuk}/{@code trendKeluar} pada rentang kunci yang diberikan, dipakai untuk menskalakan tinggi grafik. */
 	private double hitungMaxTrend(Map<String, Double> trendMasuk, Map<String, Double> trendKeluar,
 			List<String> keys) {
 		double max = 0.0;
@@ -1128,6 +1206,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return max <= 0.0 ? 1.0 : max;
 	}
 
+	/** Mengambil nilai {@code trend} pada {@code key}, {@code 0.0} bila tidak ada. */
 	private double getTrendValue(Map<String, Double> trend, String key) {
 		if (trend == null || key == null || !trend.containsKey(key) || trend.get(key) == null) {
 			return 0.0;
@@ -1135,6 +1214,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return trend.get(key).doubleValue();
 	}
 
+	/** Merender ulang konten {@code target} untuk satu halaman navigasi grafik tren bulanan, memakai {@link #buildTrendHtmlPage}. */
 	private void renderTrendHtmlPage(org.zkoss.zul.Html target, Map<String, Double> trendMasuk,
 			Map<String, Double> trendKeluar, List<String> keys, double max, int activePage) {
 		if (target == null) {
@@ -1143,6 +1223,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		target.setContent(buildTrendHtmlPage(trendMasuk, trendKeluar, keys, max, activePage));
 	}
 
+	/** Menyusun markup HTML grafik batang/garis tren mutasi bulanan untuk satu halaman navigasi (subset kunci bulan). */
 	private String buildTrendHtmlPage(Map<String, Double> trendMasuk, Map<String, Double> trendKeluar,
 			List<String> keys, double max, int activePage) {
 		if (keys == null) {
@@ -1193,6 +1274,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return sb.toString();
 	}
 
+	/** Menyusun markup HTML diagram komposisi total pemasukan vs pengeluaran (bar proporsional). */
 	private String buildKomposisiHtml(double totalMasuk, double totalKeluar) {
 		double total = totalMasuk + totalKeluar;
 		double masukPct = total > 0.0 ? totalMasuk * 100.0 / total : 0.0;
@@ -1209,6 +1291,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 				+ " (" + html(formatMoney(keluarPct)) + "%)</div></div>";
 	}
 
+	/** Menyusun markup HTML daftar penabung dengan saldo/aktivitas tertinggi dari {@code summaryData}. */
 	private String buildTopPenabungHtml(Map<String, Map<String, Object>> summaryData) {
 		List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>(summaryData.values());
 		Collections.sort(rows, new Comparator<Map<String, Object>>() {
@@ -1240,6 +1323,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return sb.toString();
 	}
 
+	/** Merender panel watchlist saldo penabung (mis. saldo rendah/negatif yang perlu perhatian) ke {@code parent}, memakai {@link #buildWatchlistSaldoHtml}. */
 	private void renderWatchlistSaldoPenabung(Component parent, Map<String, Map<String, Object>> summaryData) {
 		Panel panel = new Panel();
 		panel.setTitle("Watchlist Saldo Penabung");
@@ -1253,6 +1337,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		children.appendChild(new org.zkoss.zul.Html(buildWatchlistSaldoHtml(summaryData)));
 	}
 
+	/** Menyusun markup HTML tabel watchlist saldo, menyoroti baris penabung dengan saldo rendah/negatif via {@link #appendWatchlistRow}. */
 	private String buildWatchlistSaldoHtml(Map<String, Map<String, Object>> summaryData) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-family:Arial,sans-serif;background:white;border:1px solid #e2e8f0;border-radius:14px;padding:12px;'>");
@@ -1308,6 +1393,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return sb.toString();
 	}
 
+	/** Menambahkan satu baris HTML tabel watchlist ({@code row} penabung, {@code saldo}, warna penanda status) ke {@code sb}. */
 	private void appendWatchlistRow(StringBuilder sb, Map<String, Object> row, double saldo, String color) {
 		sb.append("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed #e2e8f0;padding:6px 0;'>");
 		sb.append("<span style='font-size:11px;color:#334155;'>").append(html(String.valueOf(row.get("nama"))))
@@ -1317,6 +1403,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		sb.append("</div>");
 	}
 
+	/** Membuat tombol yang, saat diklik, mengekspor {@code mutasiList} sebagai berkas Excel dan mengunduhkannya lewat {@link Filedownload}. */
 	private MyToolbarbuttonConfig createExcelButton(final List<Map<String, Object>> mutasiList) {
 		MyToolbarbuttonConfig btnExcelMutasi = new MyToolbarbuttonConfig("Download Excel", "/img/excel.gif");
 		btnExcelMutasi.addEventListener("onClick", new EventListener() {
@@ -1370,6 +1457,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return btnExcelMutasi;
 	}
 
+	/** Merender grid tabel mutasi lengkap (satu baris per transaksi) ke {@code parent}, dengan footer total lewat {@link #renderMutasiFooter}. */
 	private void renderGridMutasi(Component parent, List<Map<String, Object>> mutasiList, double totalMasuk,
 			double totalKeluar, double saldo) {
 		Panel pnlMutasi = new Panel();
@@ -1437,6 +1525,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		renderMutasiFooter(gridMutasi, totalMasuk, totalKeluar, saldo);
 	}
 
+	/** Menambahkan baris footer total (debit/kredit/saldo) ke {@code gridMutasi}. */
 	private void renderMutasiFooter(MyGrid gridMutasi, double totalMasuk, double totalKeluar, double saldo) {
 		Foot foot = new Foot();
 		foot.setParent(gridMutasi);
@@ -1477,6 +1566,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		fSal.appendChild(lblTotSal);
 	}
 
+	/** Merender grid ringkasan per penabung (total debit/kredit/saldo tiap orang) ke {@code parent}, dengan footer total lewat {@link #renderSummaryFooter}. */
 	private void renderSummaryPenabung(Component parent, Map<String, Map<String, Object>> summaryData) {
 		Panel pnlSummary = new Panel();
 		pnlSummary.setTitle("Summary Buku Besar Mutasi Voucher");
@@ -1534,6 +1624,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		renderSummaryFooter(gridSummary, totSumDebit, totSumKredit, totSumSaldo);
 	}
 
+	/** Menambahkan baris footer total (debit/kredit/saldo) ke {@code gridSummary}. */
 	private void renderSummaryFooter(MyGrid gridSummary, double debit, double kredit, double saldo) {
 		Foot footSum = new Foot();
 		footSum.setParent(gridSummary);
@@ -1559,6 +1650,16 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		fSumSal.appendChild(lblSumTotSal);
 	}
 
+	/**
+	 * Menghitung saldo tabungan kumulatif penabung pemilik {@code deposit} (mahasiswa/calon
+	 * mahasiswa/siswa/calon siswa/anggota koperasi — dicoba berurutan, yang pertama terisi
+	 * dipakai), menjumlahkan seluruh mutasi (setoran, pemakaian tagihan mahasiswa/siswa,
+	 * pengeluaran manual — union yang sama dengan {@link #buildMutasiQuery}) via SQL native.
+	 * Hasil di-cache di {@link #saldoDepositCache} berkunci id {@code deposit} untuk menghindari
+	 * query berulang saat merender banyak baris grid.
+	 *
+	 * @return saldo kumulatif penabung, atau {@code 0.0} bila {@code deposit} {@code null} atau tidak punya pemilik yang valid
+	 */
 	private double hitungSaldoPerOrang(Deposit deposit) {
 		if (deposit == null) {
 			return 0.0;
@@ -1620,6 +1721,12 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	}
 
 
+	/**
+	 * Mengisi {@link #saldoDepositCache} untuk seluruh {@code deposits} sekaligus lewat satu query
+	 * SQL native beragregasi (dikelompokkan per {@link #personKey}), menggantikan pola N+1 query
+	 * yang akan terjadi bila {@link #hitungSaldoPerOrang} dipanggil satu per satu untuk tiap baris
+	 * grid — dipanggil sebelum grid dirender agar performa tetap baik pada daftar besar.
+	 */
 	private void preloadSaldoDepositCache(List<Deposit> deposits) {
 		saldoDepositCache = new HashMap<Long, Double>();
 		if (deposits == null || deposits.isEmpty()) {
@@ -1714,6 +1821,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Menambahkan id pemilik {@code dep} (mahasiswa/calon mahasiswa/siswa/calon siswa/anggota koperasi, yang pertama terisi) ke daftar id sejenis yang sesuai, dipakai membangun filter {@code IN} pada {@link #preloadSaldoDepositCache}. */
 	private void addPersonId(Deposit dep, List<Long> mahasiswaIds, List<Long> calonMahasiswaIds, List<Long> siswaIds,
 			List<Long> calonSiswaIds, List<Long> anggotaIds) {
 		if (dep == null) {
@@ -1732,12 +1840,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/** Menambahkan {@code id} ke {@code ids} bila belum ada (dan tidak {@code null}). */
 	private void addUniqueLong(List<Long> ids, Long id) {
 		if (ids != null && id != null && !ids.contains(id)) {
 			ids.add(id);
 		}
 	}
 
+	/** Membangun kunci identitas penabung pemilik {@code dep} (mis. {@code "MHS_123"}, {@code "SSW_45"}) yang konsisten dengan kunci yang dihasilkan query native di {@link #buildMutasiQuery}/{@link #preloadSaldoDepositCache}, dipakai untuk mencocokkan cache. */
 	private String personKey(Deposit dep) {
 		if (dep == null) {
 			return null;
@@ -1760,6 +1870,13 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return null;
 	}
 
+	/**
+	 * Renderer baris grid untuk {@link Deposit}: foto+identitas penabung (anggota koperasi/siswa/
+	 * calon siswa/mahasiswa/calon mahasiswa, dengan tombol riwayat revisi), nominal transaksi,
+	 * saldo kumulatif penabung ({@link #hitungSaldoPerOrang}), tanggal transaksi, tanggal
+	 * kedaluwarsa (ditandai merah + "(Hangus)" bila sudah lewat — baris tersebut tidak lagi
+	 * dihitung dalam saldo terpakai), jenis pembayaran/tabungan, keterangan, dan tombol edit/hapus.
+	 */
 	class DepositRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -1840,12 +1957,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	}
 
+	/** Membuka dialog tambah {@link Deposit} baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new Deposit());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Implementasi {@link DataInitDefault}: membuka dialog ubah untuk {@code obj} (harus berupa {@link Deposit}). */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		deposit = (Deposit) obj;
@@ -1854,6 +1973,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		addWindow.onModal();
 	}
 
+	/** Membangun form tambah/ubah {@link Deposit}: pemilih penabung (mahasiswa/calon mahasiswa untuk mode perguruan tinggi, siswa/calon siswa untuk mode sekolah, atau anggota koperasi), nominal, waktu, tanggal kedaluwarsa, jenis pembayaran/tabungan, dan keterangan. */
 	private void init(Deposit deposit) throws Exception {
 		this.deposit = deposit;
 		addWindow.setTitle(deposit.getId() == null ? "Tambah Tabungan" : "Ubah Tabungan");
@@ -2074,6 +2194,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	}
 
+	/** Mengambil atribut {@code name} dari {@code component} secara aman, {@code null} bila komponen {@code null} atau gagal diakses. */
 	private Object getAttributeQuietly(Component component, String name) {
 		try {
 			return component == null ? null : component.getAttribute(name);
@@ -2082,6 +2203,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		}
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan data {@link Deposit}: penabung (salah satu dari mahasiswa/calon
+	 * mahasiswa/anggota koperasi/siswa/calon siswa), nominal (wajib bukan nol, ambang {@code 0.1}
+	 * untuk toleransi pembulatan), cara pembayaran, dan jenis tabungan wajib diisi; waktu default
+	 * ke saat ini bila tidak diisi. Nominal negatif merepresentasikan penarikan/pemakaian saldo.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		Object attrMahasiswa = getAttributeQuietly(mahasiswa, "mahasiswa");
 		Object attrCalonMahasiswa = getAttributeQuietly(calonMahasiswa, "calonMahasiswa");
@@ -2148,6 +2277,12 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return true;
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link Deposit}, difilter berdasarkan sekolah/yayasan (siswa/
+	 * calon siswa) atau fakultas/jurusan (mahasiswa/calon mahasiswa, jurusan diperluas ke seluruh
+	 * jurusan di bawah fakultas bila hanya fakultas yang dipilih); dibatasi ke data diri sendiri
+	 * bila mode penabung terbatas berlaku.
+	 */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(boolean order) {
 
@@ -2226,6 +2361,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return criteria;
 	}
 
+	/** Memuat ulang daftar {@link Deposit} sesuai filter aktif (dipaginasi) ke grid, memanaskan {@link #saldoDepositCache} lebih dulu via {@link #preloadSaldoDepositCache} agar render tiap baris tidak melakukan query saldo berulang. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		try {
