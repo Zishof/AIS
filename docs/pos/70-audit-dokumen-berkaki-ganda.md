@@ -79,6 +79,37 @@ mesin akan diam-diam melenyapkan jurnalnya.
   `ref is not null` lebih dulu, jadi tidak kena jebakan yang sama.
 - Modal penyertaan masuk/kembali: sudah bersaring `jenis` lewat `hapusJurnalJenis`.
 
+## 3a. Pengujian (harness `TesBatalKakiGanda`)
+
+Scratchpad, DB UAT `ais`, fixture `UATKG-` rentang **1–10 Maret 2092**. Setiap perbaikan
+diuji berpasangan dengan **KONTROL yang menjalankan bentuk LAMA** atas fixture kembar —
+kontrol WAJIB merusak, supaya terbukti harness ini memang bisa membedakan kode rusak dari
+kode benar dan tidak lulus karena kebetulan tidak menguji apa-apa.
+
+| Skenario | Hasil |
+|---|---|
+| L1: dua kaki (administrasi + payment gateway) terjurnal dan tercap | prasyarat terpenuhi |
+| Batal kaki ADMINISTRASI lewat mesinnya | jurnal kaki administrasi terhapus; **jurnal kaki PG beserta dua baris transaksinya SELAMAT**; cap administrasi lepas, cap PG tetap terpasang |
+| Batal kaki PG sesudahnya | jurnalnya terhapus, capnya lepas — kedua kaki bisa dibatalkan berurutan tanpa saling merusak |
+| **KONTROL** predikat lama (`log_pembayaran=<id>` tanpa pembeda) atas L2 | menghapus **KEDUA** kaki — cacat 2.1 terbukti nyata, bukan teoretis |
+| **KONTROL** predikat lama cicilan `ref != 'dimuka'` | menghapus **NOL** baris; kaki utama ber-ref NULL tetap tinggal = jurnal yatim |
+| Predikat baru `(ref is null or ref != 'dimuka')` | menghapus tepat 1 baris (kaki utama); kaki `dimuka` selamat |
+| Batal PJ Kas Besar lewat mesinnya, dengan kaki pajak disimulasikan (`ref='pajak'`) | kaki utama terhapus; **jurnal ber-ref pajak beserta barisnya SELAMAT** — perlindungan kaki masa depan bekerja |
+| Kebersihan fixture | sisa data uji = 0 |
+
+**LULUS 18, GAGAL 0.**
+
+Catatan cakupan yang jujur: perbaikan cicilan (2.2) ada di dalam event listener ZK yang
+tidak bisa dipanggil headless, jadi yang diuji adalah **predikat SQL-nya persis** — bentuk
+lama vs bentuk baru — atas baris fixture yang sama, bukan pemanggilan handler-nya. Dua
+perbaikan lain diuji lewat pemanggilan mesin sungguhan.
+
+Jebakan fixture baru yang ditemukan harness ini: kolom `LogPembayaran.biayaAdministrasi`
+dan `biayaPaymentGateway` dipetakan **`biayaadministrasi` / `biayapaymentgateway`** (huruf
+kecil polos tanpa garis bawah — properti tanpa `@Column`, keluarga jebakan yang sama dengan
+`saldoawal` pada dok 58); `akunting.kas_besar` KOSONG di UAT sehingga fixture PJ Kas Besar
+harus membuat dokumen kas besarnya sendiri (wajib hanya `id` dan `nama`).
+
 ## 4. Catatan metode (untuk pemeriksa berikutnya)
 
 Sapuan pertama **melewatkan cacat 2.1** karena predikatnya dirakit lewat variabel:

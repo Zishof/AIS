@@ -1696,6 +1696,111 @@ public class TugasKelompokHelper implements DataLoader {
 
 		private Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
 
+		private void bukaDaftarKelompok(final TugasKelompok tugasKelompok, final Set<String> syaratAlert,
+				boolean langsungTambah) throws Exception {
+			final MyWindow win = new MyWindow();
+			win.setTitle("Kelola Kelompok - "
+					+ (tugasKelompok.getJudul() == null ? "" : tugasKelompok.getJudul()));
+			if (Common.isMobile()) {
+				win.setWidth("100%");
+				win.setHeight("100%");
+			} else {
+				win.setWidth("95%");
+				win.setHeight("95%");
+			}
+			ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(win);
+
+			Borderlayout bl = new ais.ui.util.MyBorderlayout();
+			Center c2 = new Center();
+			c2.setParent(bl);
+			ais.ui.util.ZkCompat.setFlex(c2, true);
+			ais.ui.util.MyGroupboxStyled isiWin = new ais.ui.util.MyGroupboxStyled();
+			isiWin.setStyle("padding:8px;width:100%;");
+			isiWin.setParent(c2);
+
+			NamaTugasKelompokHelper helper = new NamaTugasKelompokHelper(mahasiswa,
+					biodataCalonMahasiswa);
+			helper.display(tugasKelompok, isiWin, syaratAlert);
+
+			South south2 = new South();
+			ais.ui.util.ZkCompat.setFlex(south2, true);
+			south2.setParent(bl);
+			Toolbar tb2 = new Toolbar();
+			tb2.setParent(south2);
+			MyToolbarbutton tutup = new MyToolbarbutton("fa-times", "Tutup");
+			tutup.setTooltiptext("Tutup jendela Kelola Kelompok");
+			tutup.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event ev) throws Exception {
+					win.detach();
+				}
+			});
+			tutup.setParent(tb2);
+			bl.setParent(win);
+			win.setVisible(true);
+
+			// Untuk tombol cepat, form tambah dibuka langsung. Sesudah disimpan pengguna
+			// kembali ke daftar kelompok untuk melanjutkan pengaturan anggota.
+			if (langsungTambah) {
+				helper.onAdd(null, new NamaTugasKelompok());
+			}
+			win.onModal();
+		}
+
+		private void pasangAksiPengaturan(final Vbox parent, final TugasKelompok tugasKelompok,
+				final Set<String> syaratAlert) {
+			if (!bolehKelola(Common.getCurrentUser())) {
+				return;
+			}
+
+			Vbox aksi = new Vbox();
+			aksi.setWidth("100%");
+			aksi.setSpacing("4px");
+			aksi.setStyle("box-sizing:border-box;background:#f0fdf4;border:1px solid #bbf7d0;"
+					+ "border-radius:10px;padding:8px;margin:2px 0 8px;");
+			aksi.setParent(parent);
+
+			Label judulAksi = new Label("Pengaturan Tugas Kelompok");
+			judulAksi.setStyle("font-size:12px;font-weight:bold;color:#166534;margin-bottom:2px;");
+			judulAksi.setParent(aksi);
+
+			MyToolbarbutton ubah = new MyToolbarbutton("fa-pencil", "Ubah Judul & Instruksi");
+			ubah.setWidth("100%");
+			ubah.setStyle("text-align:left;");
+			ubah.setTooltiptext("Ubah judul, instruksi, jadwal, dan pengaturan tugas kelompok");
+			ubah.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					onAdd(event, tugasKelompok);
+				}
+			});
+			ubah.setParent(aksi);
+
+			MyToolbarbutton tambah = new MyToolbarbutton("fa-plus", "Tambah Kelompok");
+			tambah.setWidth("100%");
+			tambah.setStyle("text-align:left;");
+			tambah.setTooltiptext("Buat kelompok baru lalu atur anggotanya");
+			tambah.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					bukaDaftarKelompok(tugasKelompok, syaratAlert, true);
+				}
+			});
+			tambah.setParent(aksi);
+
+			MyToolbarbutton kelola = new MyToolbarbutton("fa-users", "Kelola Kelompok & Anggota");
+			kelola.setWidth("100%");
+			kelola.setStyle("text-align:left;");
+			kelola.setTooltiptext("Lihat kelompok serta tambah atau hapus anggotanya");
+			kelola.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					bukaDaftarKelompok(tugasKelompok, syaratAlert, false);
+				}
+			});
+			kelola.setParent(aksi);
+		}
+
 		@SuppressWarnings({ "unchecked" })
 		@Override
 		public void render(final Row rowUtama, Object data) throws Exception {
@@ -1764,6 +1869,7 @@ public class TugasKelompokHelper implements DataLoader {
 				if (bagian[2] != null && bagian[2].length() > 0) {
 					new ais.ui.util.MyHtml(bagian[2]).setParent(vbox); // dosen + peserta di atas
 				}
+				pasangAksiPengaturan(vbox, tugasKelompok, syaratAlert);
 				jd.setVisible(false); // caption lama redundan dengan header kartu → sembunyikan
 
 				// Dashboard analitik & ringkasan nilai (HTML/CSS/SVG, tanpa JFreeChart) — full-width di
@@ -2349,17 +2455,7 @@ public class TugasKelompokHelper implements DataLoader {
 			toolbar.setStyle("display:flex;flex-wrap:wrap;gap:2px;align-items:center;"
 					+ "background:#f8fafc;border:1px solid #e2e8f0;"
 					+ "border-radius:10px;padding:3px 6px;margin:8px 0;");
-			MyToolbarbutton button = new MyToolbarbutton("fa-pencil", "Instruksi Tugas Kelompok");
-			button.setVisible(bolehKelola(tbmuser));
-			button.setTooltiptext("Edit instruksi dan pengaturan tugas kelompok ini");
-			button.addEventListener("onClick", new EventListener() {
-				@Override
-				public void onEvent(Event event) throws Exception {
-					onAdd(event, tugasKelompok);
-				}
-
-			});
-			button.setParent(toolbar);
+			MyToolbarbutton button;
 
 			// (C) Kelola Nilai: entri nilai per anggota kelompok dalam satu daftar rata (Window).
 			// Hanya untuk pengelola (bukan mahasiswa/siswa).
@@ -2610,49 +2706,12 @@ public class TugasKelompokHelper implements DataLoader {
 			// siswa memakainya untuk melihat & bergabung kelompok; kontrol Tambah/Upload otomatis
 			// disembunyikan bagi mereka di dalam NamaTugasKelompokHelper).
 			button = new MyToolbarbutton("fa-users", "Kelola Kelompok");
+			button.setVisible(!bolehKelola(tbmuser));
 			button.setTooltiptext("Kelola daftar kelompok & anggota");
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
-					final MyWindow win = new MyWindow();
-					win.setTitle("Kelola Kelompok — "
-							+ (tugasKelompok.getJudul() == null ? "" : tugasKelompok.getJudul()));
-					if (Common.isMobile()) {
-						win.setWidth("100%");
-						win.setHeight("100%");
-					} else {
-						win.setWidth("95%");
-						win.setHeight("95%");
-					}
-					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(win);
-					Borderlayout bl = new ais.ui.util.MyBorderlayout();
-					Center c2 = new Center();
-					c2.setParent(bl);
-					ais.ui.util.ZkCompat.setFlex(c2, true);
-					// NamaTugasKelompokHelper.display() menambahkan MyCaptionStyled (Caption), yang di ZK
-					// HANYA boleh berinduk pada Groupbox — bukan Div. Karena itu wadahnya Groupbox.
-					ais.ui.util.MyGroupboxStyled isiWin = new ais.ui.util.MyGroupboxStyled();
-					isiWin.setStyle("padding:8px;width:100%;");
-					isiWin.setParent(c2);
-					new NamaTugasKelompokHelper(mahasiswa, biodataCalonMahasiswa).display(tugasKelompok, isiWin,
-							syaratAlert);
-					South south2 = new South();
-					ais.ui.util.ZkCompat.setFlex(south2, true);
-					south2.setParent(bl);
-					Toolbar tb2 = new Toolbar();
-					tb2.setParent(south2);
-					MyToolbarbutton tutup = new MyToolbarbutton("fa-times", "Tutup");
-					tutup.setTooltiptext("Tutup jendela Kelola Kelompok");
-					tutup.addEventListener("onClick", new EventListener() {
-						@Override
-						public void onEvent(Event ev) throws Exception {
-							win.detach();
-						}
-					});
-					tutup.setParent(tb2);
-					bl.setParent(win);
-					win.setVisible(true);
-					win.onModal();
+					bukaDaftarKelompok(tugasKelompok, syaratAlert, false);
 				}
 			});
 			button.setParent(toolbar);
