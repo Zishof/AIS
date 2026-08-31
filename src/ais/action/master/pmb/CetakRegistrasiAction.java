@@ -4030,6 +4030,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				+ "Sistem membaca prefix NIM lalu membandingkan NIM existing dengan NIM urut/suggestion. "
 				+ "Perubahan hanya dilakukan setelah operator menekan tombol Apply."
 				+ "<br><b>" + perluDirapikan + "</b> data memiliki saran NIM baru."
+				+ "<br><span style='color:#495057'>Filter aktif: " + filterAnalisisNimRingkas() + "</span>"
 				+ "</div>").setParent(vbMain);
 
 		if (suggestions.isEmpty()) {
@@ -4413,6 +4414,44 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		return nilai.length() == 0 ? null : nilai;
 	}
 
+	private String filterAnalisisNimRingkas() {
+		StringBuilder sb = new StringBuilder();
+		tambahFilterRingkas(sb, "Nama", searchnama == null ? null : searchnama.getValue());
+		tambahFilterRingkas(sb, "No.Reg", searchnoreg == null ? null : searchnoreg.getValue());
+		tambahFilterRingkas(sb, "No.Ujian", searchujian == null ? null : searchujian.getValue());
+		tambahFilterRingkas(sb, "NIM", searchnim == null ? null : searchnim.getValue());
+		tambahFilterRingkas(sb, "Tahun", nilaiComboRingkas(searchTahunAjaran));
+		tambahFilterRingkas(sb, "Semester", nilaiComboRingkas(searchSemester));
+		tambahFilterRingkas(sb, "Gelombang", nilaiComboRingkas(searchGelombang));
+		tambahFilterRingkas(sb, "Jenjang", nilaiComboRingkas(searchJenjang));
+		tambahFilterRingkas(sb, "Program", nilaiComboRingkas(searchProgram));
+		tambahFilterRingkas(sb, "Prodi Lulus", nilaiComboRingkas(searchProdiLulus));
+		tambahFilterRingkas(sb, "Status Awal", nilaiComboRingkas(searchStatusAwalMahasiswa));
+		return sb.length() == 0 ? "semua data sesuai hak akses halaman" : sb.toString();
+	}
+
+	private static void tambahFilterRingkas(StringBuilder sb, String label, String nilai) {
+		nilai = bersihkan(nilai);
+		if (nilai == null || "Semua".equalsIgnoreCase(nilai) || "= Semua =".equalsIgnoreCase(nilai)
+				|| "=Program=".equalsIgnoreCase(nilai)) {
+			return;
+		}
+		if (sb.length() > 0) {
+			sb.append("; ");
+		}
+		sb.append(label).append("=").append(nilai);
+	}
+
+	private static String nilaiComboRingkas(Combobox combo) {
+		if (combo == null || combo.getSelectedItem() == null) {
+			return null;
+		}
+		if (combo.getSelectedItem().getLabel() != null) {
+			return combo.getSelectedItem().getLabel();
+		}
+		return combo.getValue();
+	}
+
 	public Criteria initCriteria(boolean order) {
 		VerifikasiKelengkapanCalonMahasiswa verifikasiKelengkapanCalonMahasiswa = null;
 		JenisKegiatan jenisKegiatan = null;
@@ -4603,8 +4642,10 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		}
 
 		if (searchnim != null && !searchnim.getValue().trim().isEmpty()) {
-			criteria.createAlias("mahasiswa", "mahasiswa")
-					.add(Restrictions.ilike("mahasiswa.nim", searchnim.getValue().trim(), MatchMode.ANYWHERE));
+			criteria.createAlias("mahasiswa", "mahasiswa", Criteria.LEFT_JOIN)
+					.add(Restrictions.or(
+							Restrictions.ilike("nim", searchnim.getValue().trim(), MatchMode.ANYWHERE),
+							Restrictions.ilike("mahasiswa.nim", searchnim.getValue().trim(), MatchMode.ANYWHERE)));
 		}
 
 		if (order && verifikasiKelengkapanCalonMahasiswa == null && jenisKegiatan == null) {
