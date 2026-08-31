@@ -157,9 +157,12 @@ public class RekapitulasiPerkuliahanHelper {
 	private static void tampilPerkuliahan(Tabpanel tabpanelUtamaPerkuliahan, final Tbmuser tbmuser,
 			final boolean tampilStatistik, final Integer ditampilkanHanya) {
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
+		subBorderlayoutUtama.setWidth("100%");
+		subBorderlayoutUtama.setHeight("100%");
 		subBorderlayoutUtama.setParent(tabpanelUtamaPerkuliahan);
 
 		final Center center = new Center();
+		center.setAutoscroll(true);
 		North north = new North();
 		ais.ui.util.ZkCompat.setFlex(north, true);
 		north.setParent(subBorderlayoutUtama);
@@ -337,7 +340,11 @@ public class RekapitulasiPerkuliahanHelper {
 			closeHibernateSessionQuietly(session);
 			HibernateUtil.closeSession();
 
-			Integer jumlahDataDalamSatuHalaman = 10;
+			/* Gunakan ukuran yang sama untuk komponen Paging dan query. Limit 10
+			 * dengan pageSize global sebelumnya membuat data setelah baris ke-10
+			 * tidak dapat dijangkau saat ROWS_COUNT_ON_PAGE lebih besar dari 10. */
+			Integer jumlahDataDalamSatuHalaman = Common.ROWS_COUNT_ON_PAGE > 0
+					? Common.ROWS_COUNT_ON_PAGE : 10;
 			Integer halaman = page == -1 ? paging.getActivePage() : page;
 			if (halaman == null || halaman < 0) {
 				halaman = 0;
@@ -350,8 +357,7 @@ public class RekapitulasiPerkuliahanHelper {
 			 * pages" begitu hasil pencarian/filter menyusut. Batasi juga batas atas terhadap
 			 * jumlah halaman riil supaya aman bila offset lama melebihi total setelah
 			 * data/filter berubah. */
-			int totalHalaman = Common.ROWS_COUNT_ON_PAGE <= 0 ? 1
-					: (int) Math.ceil(size / (double) Common.ROWS_COUNT_ON_PAGE);
+			int totalHalaman = (int) Math.ceil(size / (double) jumlahDataDalamSatuHalaman);
 			if (totalHalaman < 1) {
 				totalHalaman = 1;
 			}
@@ -361,11 +367,11 @@ public class RekapitulasiPerkuliahanHelper {
 
 			try {
 				paging.setAttribute("aktif", true);
-				paging.setPageSize(Common.ROWS_COUNT_ON_PAGE);
+				paging.setPageSize(jumlahDataDalamSatuHalaman);
 				paging.setPageIncrement(Common.isMobile() ? 5 : 10);
 				paging.setMold("os");
 				paging.setTotalSize(size);
-				paging.setVisible(size > Common.ROWS_COUNT_ON_PAGE);
+				paging.setVisible(size > jumlahDataDalamSatuHalaman);
 				paging.setDetailed(true);
 				paging.setActivePage(halaman);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/RekapitulasiPerkuliahanHelper.java:351");
@@ -447,7 +453,6 @@ public class RekapitulasiPerkuliahanHelper {
 			Common.clear(center);
 		}
 
-		boolean mobile = Common.isMobile();
 		Paging paging = new Paging();
 		List<VOPembelajaran> perkuliahans = ambilPembelajaran(tbmuser, ta, smt, cari, refreh, page, tampilStatistik,
 				ditampilkanHanya, paging, new EventListener() {
@@ -475,18 +480,18 @@ public class RekapitulasiPerkuliahanHelper {
 			columns.setParent(grid);
 			MyColumnConfig column = new MyColumnConfig();
 			column.setParent(columns);
-			column.setWidth("20%");
+			column.setWidth("18%");
 
 			column = new MyColumnConfig();
-			column.setWidth("25%");
+			column.setWidth("24%");
 			column.setParent(columns);
 
 			column = new MyColumnConfig();
-			column.setWidth("45%");
+			column.setWidth("42%");
 			column.setParent(columns);
 
 			column = new MyColumnConfig();
-			column.setWidth("25%");
+			column.setWidth("16%");
 			column.setParent(columns);
 		} else {
 
@@ -523,7 +528,7 @@ public class RekapitulasiPerkuliahanHelper {
 			row.setParent(rows);
 
 			try {
-				Common.getDeskripsiPerkuliahanHbox(vpPembelajaran, tampilStatistik, !mobile, row, new EventListener() {
+				Common.getDeskripsiPerkuliahanHbox(vpPembelajaran, tampilStatistik, false, row, new EventListener() {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {

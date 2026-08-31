@@ -14,12 +14,11 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Borderlayout;
-import org.zkoss.zul.Box;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
-import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Div;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Paging;
 import org.zkoss.zul.Row;
@@ -265,9 +264,12 @@ public class RekapitulasiJadwalPelajaranHelper {
 	public static void display(Component parent, final Tbmuser tbmuser, final boolean tampilStatistik) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
+		subBorderlayoutUtama.setWidth("100%");
+		subBorderlayoutUtama.setHeight("100%");
 		subBorderlayoutUtama.setParent(parent);
 
 		final Center center = new Center();
+		center.setAutoscroll(true);
 		North north = new North();
 		ais.ui.util.ZkCompat.setFlex(north, true);
 		north.setParent(subBorderlayoutUtama);
@@ -381,17 +383,25 @@ public class RekapitulasiJadwalPelajaranHelper {
 				false, false, false, true, true, true, true, true, true, true, true, true, "", tbmuser, session)
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 
-		Integer jumlahDataDalamSatuHalaman = 10;
+		/*
+		 * Satu sumber ukuran halaman wajib dipakai oleh Paging, perhitungan jumlah
+		 * halaman, limit, dan offset query. Sebelumnya query selalu mengambil 10
+		 * jadwal tetapi Paging memakai Common.ROWS_COUNT_ON_PAGE. Jika konfigurasi
+		 * global lebih dari 10, jadwal urutan ke-11 dan seterusnya tidak memiliki
+		 * halaman yang dapat dibuka sehingga kelas tampak hilang.
+		 */
+		Integer jumlahDataDalamSatuHalaman = Common.ROWS_COUNT_ON_PAGE > 0
+				? Common.ROWS_COUNT_ON_PAGE : 10;
 		Integer halaman = page == -1 ? paging.getActivePage() : page;
 		if (halaman == null || halaman < 0) {
 			halaman = 0;
 		}
 
-		paging.setPageSize(Common.ROWS_COUNT_ON_PAGE);
+		paging.setPageSize(jumlahDataDalamSatuHalaman);
 		paging.setPageIncrement(Common.isMobile() ? 5 : 10);
 		paging.setMold("os");
 		paging.setTotalSize(size);
-		paging.setVisible(size > Common.ROWS_COUNT_ON_PAGE);
+		paging.setVisible(size > jumlahDataDalamSatuHalaman);
 		paging.setDetailed(true);
 
 		/* Clamp: setActivePage() sebelumnya dipanggil dengan parameter mentah `page`
@@ -402,8 +412,7 @@ public class RekapitulasiJadwalPelajaranHelper {
 		 * hasil pencarian/filter kosong (size=0 -> cuma 1 halaman valid: index 0). Batasi
 		 * juga batas atas terhadap jumlah halaman riil supaya aman bila offset lama
 		 * melebihi total setelah data/filter berubah. */
-		int totalHalaman = Common.ROWS_COUNT_ON_PAGE <= 0 ? 1
-				: (int) Math.ceil(size / (double) Common.ROWS_COUNT_ON_PAGE);
+		int totalHalaman = (int) Math.ceil(size / (double) jumlahDataDalamSatuHalaman);
 		if (totalHalaman < 1) {
 			totalHalaman = 1;
 		}
@@ -460,17 +469,17 @@ public class RekapitulasiJadwalPelajaranHelper {
 		column.setWidth("18%");
 
 		column = new MyColumnConfig();
-		column.setWidth("25%");
+		column.setWidth("24%");
 		column.setParent(columns);
 
 		if (tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null) {
 
 			column = new MyColumnConfig();
-			column.setWidth("40%");
+			column.setWidth("42%");
 			column.setParent(columns);
 
 			column = new MyColumnConfig();
-			column.setWidth("18%");
+			column.setWidth("16%");
 			column.setParent(columns);
 		} else {
 			column = new MyColumnConfig();
@@ -489,7 +498,10 @@ public class RekapitulasiJadwalPelajaranHelper {
 			row.setParent(rows);
 
 			try {
-				Common.getDeskripsiJadwalPelajaranHbox(jadwalPelajaran, tampilStatistik, !mobile, row);
+				/* Mode ringkas dua kolom menjaga ikon statistik tetap berada di dalam
+				 * kolom pada laptop. Mode horizontal lama memakai Hbox tanpa wrap dan
+				 * mendorong tombol Kehadiran/Penilaian keluar dari viewport. */
+				Common.getDeskripsiJadwalPelajaranHbox(jadwalPelajaran, tampilStatistik, false, row);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/RekapitulasiJadwalPelajaranHelper.java:475");
@@ -500,7 +512,11 @@ public class RekapitulasiJadwalPelajaranHelper {
 				Vbox vboxUtama = new Vbox();
 				row.appendChild(vboxUtama);
 
-				Box toolbar = mobile ? new Vbox() : new Hbox();
+				Div toolbar = new Div();
+				toolbar.setWidth("100%");
+				toolbar.setStyle(mobile
+						? "display:flex; flex-direction:column; gap:6px;"
+						: "display:flex; flex-wrap:wrap; gap:8px 12px; align-items:flex-start;");
 				vboxUtama.appendChild(toolbar);
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Kehadiran", "/img/svg/user-list-thin.svg");
@@ -672,7 +688,11 @@ public class RekapitulasiJadwalPelajaranHelper {
 				});
 				button.setParent(toolbar);
 
-				toolbar = mobile ? new Vbox() : new Hbox();
+				toolbar = new Div();
+				toolbar.setWidth("100%");
+				toolbar.setStyle(mobile
+						? "display:flex; flex-direction:column; gap:6px;"
+						: "display:flex; flex-wrap:wrap; gap:8px 12px; align-items:flex-start;");
 				vboxUtama.appendChild(toolbar);
 
 				button = new MyToolbarbuttonConfig("Agenda", "/img/svg/calendar-check.svg");
@@ -775,7 +795,9 @@ public class RekapitulasiJadwalPelajaranHelper {
 				MyFormRow row = new MyFormRow();
 				row.setValign("top");
 				if (tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null) {
-					ais.ui.util.ZkCompat.setSpans(row, "2");
+					ais.ui.util.ZkCompat.setSpans(row, "4");
+				} else {
+					ais.ui.util.ZkCompat.setSpans(row, "3");
 				}
 				row.setParent(rows);
 				row.appendChild(paging);
