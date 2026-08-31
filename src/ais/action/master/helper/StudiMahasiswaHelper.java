@@ -1109,6 +1109,41 @@ public class StudiMahasiswaHelper implements DataLoader {
 		});
 	}
 
+	/**
+	 * Titik masuk utama: merakit seluruh layar Rencana Studi Mahasiswa ke dalam
+	 * {@code component} untuk kombinasi mahasiswa/semester/tahap yang diberikan. Lihat javadoc
+	 * kelas untuk gambaran lengkap toolbar dan alur persetujuan. Ringkasan alur method ini:
+	 * <ol>
+	 * <li>Menyinkronkan KRS TANPA memicu sinkronisasi penuh ({@link Common#ambilKrsMahasiswaTanpaSinkronisasi}) —
+	 * disengaja, karena method ini juga dipanggil sebagai callback pasca-perubahan sehingga
+	 * harus murni baca agar tidak bertabrakan dengan transaksi yang baru selesai.</li>
+	 * <li>Mengisi label ringkasan (IP/IPK, SKS diambil/lulus dengan rincian SKS konversi,
+	 * keterangan KRS, jumlah komentar).</li>
+	 * <li>Bila {@code component} bukan {@link Tabpanel}, membangun {@link Tabbox} dua tab:
+	 * "Rencana Studi Mahasiswa" (isi utama) dan "Agenda Konsultasi Mahasiswa" (dimuat lazy,
+	 * mendelegasikan ke {@link AktifitasKrsMahasiswaHelper}), lalu memindahkan konten Tab-1 ke
+	 * atas di akhir method ({@code MyButtonTabbox.gantiTabboxNative}) agar tampil langsung.</li>
+	 * <li>Membangun toolbar aksi kontekstual (lihat javadoc kelas) dan grid utama dengan kolom
+	 * yang visibilitas/labelnya menyesuaikan konteks (semester {@code 0}/konversi vs. reguler,
+	 * tahap {@code -1}, {@code aktifkanTahapan}).</li>
+	 * <li>Memuat grid komentar diskusi ({@link #loadDataKomentar()}) dan grid detail
+	 * ({@link #loadData(Object)}).</li>
+	 * <li>Bila konfigurasi {@code selain_admin_tidak_boleh_merubah_konversi} aktif dan konteks
+	 * semester {@code 0}, mengunci (freeze) seluruh panel untuk pengguna non-administrator.</li>
+	 * </ol>
+	 *
+	 * @param mahasiswa    mahasiswa yang KRS-nya ditampilkan
+	 * @param tahunAjaran  tahun akademik konteks
+	 * @param semester     semester konteks ({@code 0} = mode konversi nilai transfer)
+	 * @param tahapan      tahap konteks (bila jenjang memakai tahapan; {@code -1} = mode khusus)
+	 * @param component    kontainer ZK yang akan diisi (isi sebelumnya dibersihkan, kecuali sudah berupa {@link Tabpanel})
+	 * @param keterangan   komponen HTML tempat keterangan KRS naratif ditulis
+	 * @param komentarshtml komponen HTML tempat ringkasan jumlah komentar ditulis
+	 * @param ipIpk        label tempat IP/IPK ditulis
+	 * @param sksSksk      tautan tempat ringkasan SKS diambil/lulus ditulis
+	 * @param catatan      label catatan dosen PA (diperbarui setelah persetujuan penuh)
+	 * @param catatanKhs   label catatan KHS (diperbarui setelah persetujuan penuh)
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final Integer tahapan, final Component component, final Html keterangan, final Html komentarshtml,
 			final Label ipIpk, final A sksSksk, final Label catatan, final Label catatanKhs) {
@@ -2285,6 +2320,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Memuat/menyegarkan grid komentar diskusi KRS ({@link #gridKomentar}) untuk konteks mahasiswa/semester/tahap/tahun-akademik/semester-pendek saat ini, memakai {@link Common.KomentarRenderer} bersama dengan callback penyegaran diri sendiri. */
 	public void loadDataKomentar() {
 		List<Komentar> komentars = Common.loadKomentarData(mahasiswa, semester, tahapan, tahunAjaran, semesterPendek);
 		ListModel strset = new SimpleListModel(komentars);

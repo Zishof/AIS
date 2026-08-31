@@ -804,6 +804,7 @@ public class AbsensiGrupPertemuanHelper {
 		}
 	}
 
+	/** Perender baris grid pengajuan izin/sakit: kontrol persetujuan, identitas mahasiswa, keterangan, lampiran, dan tombol hapus. */
 	class MahasiswaIzinRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser;
@@ -812,6 +813,16 @@ public class AbsensiGrupPertemuanHelper {
 			tbmuser = Common.getCurrentUser();
 		}
 
+		/**
+		 * Merender satu baris {@link PengajuanIzinTidakMasukPerkuliahan}: checkbox
+		 * "Setujui" (staf saja; saat dicentang/dilepas, menyimpan persetujuan DAN
+		 * menyalin status absensi pengajuan ke {@link Pertemuan} terkait via
+		 * {@link Pertemuan#populate}) atau label Ya/Tidak (mahasiswa), identitas dan
+		 * foto mahasiswa, status+keterangan pengajuan, lampiran unduh/unggah, dan
+		 * tombol hapus (terlihat hanya untuk pengaju sendiri atau staf, dan HANYA bila
+		 * pengajuan BELUM disetujui — mencegah penghapusan setelah disetujui tanpa
+		 * membatalkan dulu).
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {arg0.setValign("top");
 			// TODO Auto-generated method stub
@@ -923,6 +934,7 @@ public class AbsensiGrupPertemuanHelper {
 		}
 	}
 
+	/** Delegasi tanpa efek samping tambahan ke {@link AbsensiHelper#createStatusKehadiran(Mahasiswa, Pertemuan, Mahasiswa, BiodataCalonMahasiswa, EventListener, boolean)} untuk menampilkan status kehadiran asisten. */
 	public static Component createStatusKehadiran(final Mahasiswa asisten, final Pertemuan pertemuan,
 			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		return AbsensiHelper.createStatusKehadiran(asisten, pertemuan, mahasiswa, biodataCalonMahasiswa,
@@ -936,6 +948,7 @@ public class AbsensiGrupPertemuanHelper {
 				}, false);
 	}
 
+	/** Delegasi tanpa efek samping tambahan ke {@link AbsensiHelper#boleh} untuk menentukan komponen kontrol status kehadiran dosen yang boleh diedit. */
 	public static Component boleh(Statusabsensi statusabsensi, final Pertemuan pertemuan, final Dosen dosen) {
 		return AbsensiHelper.boleh(statusabsensi, pertemuan, dosen, null, new EventListener() {
 
@@ -947,6 +960,19 @@ public class AbsensiGrupPertemuanHelper {
 		});
 	}
 
+	/**
+	 * Menampilkan status kehadiran {@code dosen} pada {@code pertemuan}: label statis
+	 * bila jadwal input kehadiran dosen dibatasi ({@code kehadiranDosenHarusDiinputSesuaiJadwal})
+	 * dan waktu saat ini di luar jendela waktu pertemuan, ATAU bila konteks tampilan
+	 * adalah milik mahasiswa/calon mahasiswa/peserta kursus/siswa (baca saja); selain
+	 * itu, kontrol yang dapat diedit lewat {@link #boleh}.
+	 *
+	 * @param dosen                 dosen yang statusnya ditampilkan; {@code null} menghasilkan label kosong
+	 * @param pertemuan             pertemuan terkait
+	 * @param mahasiswa             konteks tampilan mahasiswa, boleh {@code null}
+	 * @param biodataCalonMahasiswa konteks tampilan calon mahasiswa, boleh {@code null}
+	 * @return komponen status kehadiran (label atau kontrol edit)
+	 */
 	public static Component createStatusKehadiran(final Dosen dosen, final Pertemuan pertemuan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (dosen == null) {

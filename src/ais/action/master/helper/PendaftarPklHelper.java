@@ -86,6 +86,40 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk mengelola daftar mahasiswa pendaftar seleksi satu {@link Pkl} (Praktik
+ * Kerja Lapangan): menampilkan {@link MahasiswaDaftarPkl} berpaging dengan info akademik terkini
+ * (SKS/SKSK, IP/IPK disinkronkan lewat {@link Common#singkronkanKrsMahasiswa}), skor seleksi total,
+ * dan status terima/tolak yang dapat diubah langsung (hanya bila {@link #approve} true). Mendukung
+ * pencarian mahasiswa baru lewat {@link AmbilDataMahasiswaSeleksiPklHelper}, cetak berbagai laporan
+ * PDF (kartu pendaftar per mahasiswa, daftar pendaftar, daftar diterima, rekap penerima), serta
+ * ekspor/impor massal data persyaratan dan status penerimaan lewat Excel (.xlsx).
+ *
+ * <p>
+ * <b>Ekspor Excel</b> ({@link #cetakDataCustomButton}): dijalankan di thread terpisah dengan
+ * indikator progres (busy overlay + label berjalan, dipoll lewat {@link org.zkoss.zul.Timer}),
+ * menghasilkan satu baris per mahasiswa dengan kolom dasar (ID, NIM, nama, jurusan, fakultas,
+ * diterima, skor) diikuti satu kolom per {@link PersyaratanPkl} milik {@link Pkl} ini — tipe kolom
+ * mengikuti {@link PersyaratanPkl#getTipeDataInputan()} (teks/angka/tanggal/ya-tidak/pilihan
+ * custom), dengan hyperlink ke berkas lampiran bila persyaratan tersebut mewajibkan lampiran.
+ * Baris {@link MahasiswaPklPersyaratan} yang belum ada dibuat otomatis (kosong) saat proses
+ * berjalan. Hasil akhir ditampilkan dalam pratinjau spreadsheet sebelum diunduh.
+ * </p>
+ *
+ * <p>
+ * <b>Impor Excel</b> (tombol "Upload" pada {@link #displayPrasyaratPkl}): membaca kembali file
+ * .xlsx berformat sama (kolom ID di 0, NIM di 1, status diterima di 5), mencocokkan baris lewat id
+ * (bila ada) atau membuat baris {@link MahasiswaDaftarPkl} baru berdasarkan NIM, lalu memperbarui
+ * status terima/tolak — dijalankan juga di thread terpisah dengan indikator progres serupa.
+ * </p>
+ *
+ * <p>
+ * Tombol "Hitung Skor" menjumlahkan skor dari seluruh jawaban {@link MahasiswaPklPersyaratan}
+ * bertipe {@link PersyaratanPkl#PILIHAN_CUSTOM} (format nilai {@code "label:skor"}, bagian skor
+ * di-parse dari segmen setelah titik dua) untuk setiap mahasiswa hasil filter saat ini, lalu
+ * menuliskannya ke {@link MahasiswaDaftarPkl#setTotalSkor}.
+ * </p>
+ */
 public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -99,6 +133,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	private Intbox angkatan;
 	private MyCheckboxConfig hanyaYgBelumDiterima;
 
+	/** Perender baris grid: identitas mahasiswa, SKS/SKSK dan IP/IPK (disinkronkan lewat {@link Common#singkronkanKrsMahasiswa} untuk semester yang dihitung dari {@link Pkl} terkait), skor seleksi, checkbox terima (aktif hanya bila {@link #approve} true), serta tombol cetak kartu/ubah/hapus. */
 	class PendaftarPklRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -220,6 +255,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** Membangun {@link Criteria} {@link MahasiswaDaftarPkl} untuk {@link #pkl} yang sedang ditampilkan, disaring opsional hanya yang belum diterima, NIM/nama, fakultas, jurusan, dan angkatan. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(MahasiswaDaftarPkl.class).add(Restrictions.eq("pkl", pkl))
@@ -249,6 +285,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat ulang paging dan grid berdasarkan {@link #initCriteria} dengan filter aktif saat ini. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -263,10 +300,23 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return diri sendiri sebagai {@link DataLoader}, dipakai untuk menyegarkan grid ini dari helper picker ({@link AmbilDataMahasiswaSeleksiPklHelper}) setelah penambahan pendaftar. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun tombol toolbar yang, saat diklik, mengekspor seluruh {@link MahasiswaDaftarPkl}
+	 * hasil {@code dataCriteria.initCriteria(true)} (hingga 1.048.576 baris) ke berkas Excel
+	 * sementara di folder {@code /tmp}, dijalankan di thread terpisah dengan indikator progres.
+	 * Lihat javadoc kelas untuk uraian lengkap struktur kolom yang dihasilkan. Setelah selesai,
+	 * berkas ditampilkan dalam jendela pratinjau spreadsheet dengan tombol unduh.
+	 *
+	 * @param dataCriteria sumber kriteria data yang akan diekspor (biasanya {@code this})
+	 * @param buttonLabel  label tombol toolbar
+	 * @param buttonImage  ikon tombol toolbar
+	 * @return tombol toolbar siap ditambahkan ke {@link Toolbar} pemanggil
+	 */
 	@SuppressWarnings("unchecked")
 	public MyToolbarbuttonConfig cetakDataCustomButton(final DataCriteria dataCriteria, String buttonLabel,
 			String buttonImage) {
@@ -641,6 +691,17 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Membangun panel lengkap pengelolaan pendaftar PKL (toolbar filter/aksi lengkap: cari,
+	 * pengecualian, cetak pendaftar/penerima/rekap, hitung skor, tambah pendaftar baru, download/
+	 * upload Excel; grid berpaging) ke dalam {@code component}, untuk {@code pkl} yang diberikan.
+	 *
+	 * @param pkl       kegiatan PKL yang daftar pendaftarnya dikelola
+	 * @param component kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
+	 * @param window    jendela pemanggil, diteruskan ke {@link AmbilDataMahasiswaSeleksiPklHelper}
+	 *                  saat menambah pendaftar baru
+	 * @param approve   izinkan pengguna mengubah status terima/tolak langsung dari grid
+	 */
 	public void displayPrasyaratPkl(final Pkl pkl, final Component component, final MyWindow window, boolean approve) {
 		this.pkl = pkl;
 		this.approve = approve;
@@ -1065,6 +1126,13 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Mengubah status terima/tolak pendaftaran PKL seorang mahasiswa (baris
+	 * {@link MahasiswaDaftarPkl} terbaru untuk kombinasi mahasiswa-pkl tersebut) dan menampilkan
+	 * pesan konfirmasi informatif sesuai hasilnya.
+	 *
+	 * @param checked {@code true} untuk menerima, {@code false} untuk menolak
+	 */
 	public void terimaPkl(Mahasiswa mahasiswa, Pkl pkl, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		MahasiswaDaftarPkl mahasiswaDiterimaPklIni = (MahasiswaDaftarPkl) session

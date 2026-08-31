@@ -76,6 +76,45 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK terbesar dan paling kompleks untuk mengelola penilaian sidang
+ * {@link Skripsi} (skripsi/tugas akhir), mencakup data administratif sidang (tanggal/waktu, lokasi,
+ * lampiran PDF/PPT, catatan) dan penilaian per dosen penilai (ketua sidang, pembimbing 1-3,
+ * penguji 1-5 — jumlah dan urutan peran ditentukan oleh {@link ais.database.model.FormatNilaiSkripsi}
+ * yang dipakai skripsi tersebut).
+ *
+ * <p>
+ * Dipanggil lewat dua titik masuk utama:
+ * </p>
+ * <ul>
+ * <li>{@link #display(Skripsi, Component, EventListener)} — membangun panel dua kolom: kolom kiri
+ * berisi form administratif sidang (status telah-sidang, jadwal, unggah PDF/PPT, lokasi, catatan
+ * penting, tanpa-perbaikan, pemilihan {@link Detailperkuliahan}/{@code FormatNilai} tujuan nilai
+ * masuk KRS, tombol cetak "Blanko Penilaian"/"Berita Acara", reset seluruh nilai); kolom kanan
+ * berisi dashboard ringkasan nilai ({@link #buatDashboardNilai()} — HTML kustom dengan bar chart
+ * per dosen dan "radar" visual bobot) diikuti grid daftar dosen penilai
+ * ({@link DetailKelompokKknRenderer} — nama kelas warisan dari pola serupa di helper KKN, isinya
+ * sebenarnya daftar dosen penilai skripsi, BUKAN kelompok KKN).</li>
+ * <li>{@link #init(Dosen, String)} (dipicu dari tombol "Penilaian" pada baris dosen) — window modal
+ * entri nilai per komponen ({@link KomponenPenilaianSkripsi}, bisa berjenjang parent-child) untuk
+ * satu dosen pada satu peran ({@code jenis}), dengan catatan dosen dan lampiran per peran. Setiap
+ * perubahan nilai komponen langsung memicu hitung ulang total via {@code hitungUlang} (listener
+ * lokal di dalam {@code init}) yang memanggil {@link Skripsi#cariNilaiDariDosen}, menentukan nilai
+ * huruf lewat {@link Common#getNilaiHuruf}, dan menyinkronkan hasil ke {@link Detailperkuliahan}
+ * terkait (bila skripsi sudah tertaut ke KRS) agar transkrip ikut ter-update.</li>
+ * </ul>
+ *
+ * <p>
+ * Hak akses berlapis: field administratif dan entri nilai hanya bisa diedit oleh user non-mahasiswa
+ * (staf/dosen); mengganti dosen penilai ({@link #tampilkanFormUbahDosen}) hanya untuk user
+ * non-mahasiswa DAN bukan dosen (staf/admin) — mengganti dosen otomatis memindahkan riwayat nilai
+ * lama (tersimpan sebagai string terenkode di {@code Skripsi#getDetailNilai()}) dari dosen lama ke
+ * dosen baru lewat {@link #pindahkanDetailNilaiDosen} serta menyinkronkan
+ * {@link MahasiswaRequestTugasAkhir} bila ada. Dosen hanya bisa mengedit nilai untuk perannya
+ * sendiri (dicek lewat perbandingan id dosen login terhadap dosen baris). Nilai dapat disembunyikan
+ * dari mahasiswa lewat flag {@code Skripsi#getSembunyikanNilaiKemahasiswa()}.
+ * </p>
+ */
 public class PenilaianSkripsiHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -90,10 +129,12 @@ public class PenilaianSkripsiHelper implements DataLoader {
 	}
 
 
+	/** @return {@code value}, atau string kosong bila {@code null}. */
 	private String safeString(String value) {
 		return value == null ? "" : value;
 	}
 
+	/** @return {@code value} (via {@link #safeString}) dengan karakter HTML khusus di-escape, untuk disisipkan aman ke dalam markup {@link #buatDashboardNilai()}. */
 	private String html(String value) {
 		String text = safeString(value);
 		text = text.replace("&", "&amp;");
@@ -103,6 +144,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return text;
 	}
 
+	/** @return {@code value} sebagai {@link JSONObject}, atau objek JSON kosong bila {@code value} null/kosong/tidak valid. */
 	private JSONObject safeJson(String value) {
 		try {
 			if (value == null || value.trim().isEmpty()) {
@@ -114,22 +156,32 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/** @return {@code value}, atau {@code 0.0} bila {@code null}. */
 	private Double safeDouble(Double value) {
 		return value == null ? 0.0 : value;
 	}
 
+	/** @return {@code value} (via {@link #safeDouble}) diformat sesuai {@link Common#numberFormat}. */
 	private String formatDouble(Double value) {
 		return Common.numberFormat.get().format(safeDouble(value));
 	}
 
+	/** @return {@code true} bila user login berwenang mengelola nilai/data administratif skripsi (bukan mahasiswa maupun siswa). */
 	private boolean bolehKelolaNilai() {
 		return tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null;
 	}
 
+	/** @return {@code true} bila user login berwenang mengganti dosen penilai (staf/admin — bukan mahasiswa maupun dosen). */
 	private boolean bolehUbahDosenPenilai() {
 		return tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.ambilDosen() == null;
 	}
 
+	/**
+	 * Memindahkan riwayat nilai tersimpan dari {@code dosenLama} ke {@code dosenBaru} di dalam
+	 * {@link Skripsi#getDetailNilai()} — string terenkode berformat entri dipisah {@code ";"}, tiap
+	 * entri dipisah {@code ","} dengan elemen kedua berupa id dosen. Tidak melakukan apa pun bila
+	 * salah satu dosen {@code null}/belum ber-id, atau bila keduanya sama.
+	 */
 	private void pindahkanDetailNilaiDosen(Dosen dosenLama, Dosen dosenBaru) {
 		if (skripsi == null || dosenLama == null || dosenBaru == null || dosenLama.getId() == null
 				|| dosenBaru.getId() == null || dosenLama.getId().equals(dosenBaru.getId())) {
@@ -159,6 +211,12 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		skripsi.setDetailNilai(hasil.toString());
 	}
 
+	/**
+	 * Menyinkronkan penggantian dosen penilai ke {@link MahasiswaRequestTugasAkhir} terkait skripsi
+	 * (bila ada): field {@code dosen1}/{@code dosen2}/{@code dosen3} pada permintaan tugas akhir
+	 * diperbarui sesuai peran ({@code jenis}) yang cocok dengan konfigurasi
+	 * {@link ais.database.model.FormatNilaiSkripsi} skripsi ini.
+	 */
 	private void sinkronkanRequestTugasAkhir(Dosen dosenBaru, String jenis) {
 		MahasiswaRequestTugasAkhir request = skripsi == null ? null : skripsi.getMahasiswaRequestTugasAkhir();
 		if (request == null || skripsi.getFormatNilaiSkripsi() == null || jenis == null) {
@@ -173,6 +231,19 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membuka window modal kecil untuk mengganti dosen penilai pada satu peran ({@code jenis}):
+	 * memilih dosen baru lewat {@link AmbilDataDosenSkripsiBanbox}, lalu saat disimpan memindahkan
+	 * riwayat nilai ({@link #pindahkanDetailNilaiDosen}), menyimpan penugasan baru lewat
+	 * {@link Skripsi#simpanDosen(Dosen, String)}, menyinkronkan request tugas akhir
+	 * ({@link #sinkronkanRequestTugasAkhir}), dan menghitung ulang total nilai
+	 * ({@link #hitungUlangSemuaNilaiDosen(boolean)}).
+	 *
+	 * @param dosenLama dosen yang akan digantikan
+	 * @param jenis     peran penilai (mis. nilai {@code dosen1}/{@code dosen2} dari
+	 *                  {@code FormatNilaiSkripsi}) yang penugasannya diubah
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI
+	 */
 	private void tampilkanFormUbahDosen(final Dosen dosenLama, final String jenis) throws Exception {
 		final MyWindow window = new MyWindow();
 		window.setTitle("Ubah Dosen Penilai");

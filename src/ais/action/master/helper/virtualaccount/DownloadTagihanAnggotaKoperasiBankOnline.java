@@ -36,13 +36,57 @@ import ais.database.model.sekolah.KanalPembayaran;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Generator kode/link pembayaran online (virtual account atau tautan pembayaran) untuk
+ * tagihan {@link AnggotaKoperasi} (anggota koperasi) atau untuk top-up saldo koperasi,
+ * disimpan sebagai baris {@link VirtualAccountBank}. Mendukung empat mode gateway yang
+ * dipilih berdasarkan flag pada parameter {@code param} dan konfigurasi
+ * {@link KanalPembayaran} terkait:
+ * <ol>
+ * <li><b>Flip</b> ({@code flip=true}) — POST HTTP langsung ke {@code flip_gateway_url_v2}
+ * (default {@code https://bigflip.id/api/v2/pwf/bill}) dengan Basic Auth dari
+ * {@code kanalPembayaran.getApiKeyFlip()}/{@code getTokenFlip()}; hasil berupa
+ * {@code link_url}+{@code link_id}.</li>
+ * <li><b>Esmartlink</b> ({@code esmartlink=true}) — bila kanal punya beberapa channel
+ * biaya admin dan {@code esmartlinkBayarVia} belum dipilih, method membuka
+ * {@link SmartlinkChannelWindow} modal dan mengembalikan {@code null} (pemanggil harus
+ * menunggu pilihan pengguna); selain itu POST ke
+ * {@code gateway_url_va_e_smartlink} lewat {@link VirtualAccountBank#curlSmartlink}
+ * dengan kredensial {@code usernameEsmartlink}/{@code passwordEsmartlink} dari kanal.</li>
+ * <li><b>Maja/BSI</b> ({@code maja=true} atau konfigurasi {@code aktifkan_va_maja} aktif)
+ * — memakai {@link BSIMajaUtil#sendRequestToken}/{@code sendRequest} untuk membuat VA
+ * BSI Maja.</li>
+ * <li><b>Bank Online generik (fallback)</b> — kode VA dibuat lokal dari konfigurasi
+ * {@code prefix_va_bank_online} + digit acak ({@code jml_digit_prefix_va_bank_online}),
+ * tanpa panggilan API eksternal.</li>
+ * </ol>
+ *
+ * <p>
+ * Sebelum membuat kode baru, method mencari {@link VirtualAccountBank} yang masih
+ * berlaku (belum kedaluwarsa, belum ada pembayaran, keterangan identik) untuk
+ * dipakai ulang — kecuali {@code update=true} dipaksa dari parameter. Tanggal
+ * kedaluwarsa dihitung dari salah satu konfigurasi (diperiksa berurutan):
+ * {@code tagihan_expired_akhir_hari} (kedaluwarsa akhir hari ini),
+ * {@code tagihan_expired_jam} (n jam dari sekarang), atau
+ * {@code tagihan_expired_day} (n hari dari sekarang).
+ * </p>
+ *
+ * <p>
+ * Dua varian {@code downloadData} disediakan: satu untuk tagihan cicilan koperasi
+ * ({@link Collection} dari {@link TransaksiKoperasiDetail}) dan satu untuk top-up saldo
+ * (nominal {@link Double} langsung) — keduanya menjalankan logika gateway yang hampir
+ * identik (duplikasi kode yang disengaja karena struktur data sumbernya berbeda).
+ * </p>
+ */
 public class DownloadTagihanAnggotaKoperasiBankOnline {
 
+	/** Membangun header HTTP {@code Authorization: Basic ...} dari {@code username}/{@code password} (dipakai untuk autentikasi API Flip). */
 	public static final String getBasicAuthenticationHeader(String username, String password) {
 		String valueToEncode = username + ":" + password;
 		return "Basic " + new String(org.apache.commons.codec.binary.Base64.encodeBase64(valueToEncode.getBytes()));
 	}
 
+	/** Seperti {@link #downloadData(AnggotaKoperasi, Collection, Map, Double, BankHost, CaraPembayaranKoperasi, List)} tanpa daftar peringatan keluaran. */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(AnggotaKoperasi anggotaKoperasi,
 			Collection<TransaksiKoperasiDetail> tag, Map param, Double biayaAdmin, BankHost bankHost,
@@ -51,6 +95,26 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 		return downloadData(anggotaKoperasi, tag, param, biayaAdmin, bankHost, caraPembayaranKoperasi, warnings);
 	}
 
+	/**
+	 * Membuat (atau memakai ulang) kode/link pembayaran online untuk kumpulan
+	 * {@code tag} (baris tagihan cicilan koperasi milik {@code anggotaKoperasi}).
+	 * Menyusun deskripsi gabungan dari seluruh tagihan (untuk pencarian VA yang bisa
+	 * dipakai ulang) dan daftar {@code items} JSON per tagihan (plus biaya admin bila
+	 * ada), lalu mendelegasikan ke salah satu gateway (Flip/Esmartlink/Maja/generik)
+	 * sesuai flag pada {@code param} — lihat javadoc kelas untuk rincian tiap gateway.
+	 * Setiap baris {@code tag} diperbarui dengan kode VA, tanggal kedaluwarsa, dan link
+	 * hasil pembuatan.
+	 *
+	 * @param anggotaKoperasi        anggota koperasi yang ditagih
+	 * @param tag                    kumpulan baris tagihan cicilan yang digabung dalam satu kode pembayaran
+	 * @param param                  flag mode gateway ({@code qris}/{@code flip}/{@code esmartlink}/{@code esmartlinkBayarVia}/{@code maja}/{@code update})
+	 * @param biayaAdmin             biaya admin tambahan (0 bila tidak ada)
+	 * @param bankHost               host bank terkait (menentukan sesi/koneksi database yang dipakai), boleh {@code null}
+	 * @param caraPembayaranKoperasi konfigurasi cara pembayaran, sumber {@link KanalPembayaran}
+	 * @param warnings               daftar keluaran pesan peringatan (saat ini tidak diisi oleh implementasi)
+	 * @return baris {@link VirtualAccountBank} yang dibuat/dipakai ulang, atau {@code null} bila gateway gagal atau menunggu pilihan channel pengguna (Esmartlink)
+	 * @throws Exception diteruskan dari kegagalan tak terduga di luar blok try/catch internal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(AnggotaKoperasi anggotaKoperasi,
 			Collection<TransaksiKoperasiDetail> tag, Map param, Double biayaAdmin, BankHost bankHost,
@@ -561,6 +625,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 		return null;
 	}
 
+	/** Seperti {@link #downloadData(AnggotaKoperasi, Double, Double, Map, BankHost, CaraPembayaranKoperasi, List)} tanpa daftar peringatan keluaran. */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(AnggotaKoperasi anggotaKoperasi, Double topup, Double biayaAdmin,
 			Map param, BankHost bankHost, CaraPembayaranKoperasi caraPembayaranKoperasi) throws Exception {
@@ -568,6 +633,25 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 		return downloadData(anggotaKoperasi, topup, biayaAdmin, param, bankHost, caraPembayaranKoperasi, warnings);
 	}
 
+	/**
+	 * Varian {@link #downloadData(AnggotaKoperasi, Collection, Map, Double, BankHost, CaraPembayaranKoperasi, List)}
+	 * untuk TOP-UP saldo koperasi (bukan pelunasan tagihan cicilan): {@code topup}
+	 * langsung menjadi nominal utama (deskripsi "Topup senilai ..."), tanpa daftar
+	 * {@link TransaksiKoperasiDetail} yang perlu ditandai VA-nya setelah berhasil.
+	 * Logika pemilihan gateway (Flip/Esmartlink/Maja/generik) dan aturan pencarian VA
+	 * yang bisa dipakai ulang identik dengan varian tagihan cicilan — lihat javadoc
+	 * kelas.
+	 *
+	 * @param anggotaKoperasi        anggota koperasi yang melakukan top-up
+	 * @param topup                  nominal top-up
+	 * @param biayaAdmin             biaya admin tambahan (0 bila tidak ada)
+	 * @param param                  flag mode gateway ({@code qris}/{@code flip}/{@code esmartlink}/{@code esmartlinkBayarVia}/{@code maja}/{@code update})
+	 * @param bankHost               host bank terkait, boleh {@code null}
+	 * @param caraPembayaranKoperasi konfigurasi cara pembayaran, sumber {@link KanalPembayaran}
+	 * @param warnings               daftar keluaran pesan peringatan (saat ini tidak diisi oleh implementasi)
+	 * @return baris {@link VirtualAccountBank} yang dibuat/dipakai ulang, atau {@code null} bila gateway gagal atau menunggu pilihan channel pengguna (Esmartlink)
+	 * @throws Exception diteruskan dari kegagalan tak terduga di luar blok try/catch internal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(AnggotaKoperasi anggotaKoperasi, Double topup, Double biayaAdmin,
 			Map param, BankHost bankHost, CaraPembayaranKoperasi caraPembayaranKoperasi, List<String> warnings)
@@ -1053,6 +1137,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 		return null;
 	}
 
+	/** Utilitas uji coba manual: menampilkan hasil pemotongan panjang akhir sebuah contoh kode pelanggan. Tidak dipakai pada alur aplikasi. */
 	public static void main(String[] argv) {
 		String customer_code = "2010630100001";
 		System.out.println(Common.maxPanjangAkhir(customer_code, 12));

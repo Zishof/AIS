@@ -456,6 +456,7 @@ public class AngketGuruWindow extends Groupbox {
 	}
 
 	
+	/** Membangun {@link Criteria} {@link GrupChecklistPenilaianGuru} aktif yang berlaku untuk {@link #siswa}: angket harus {@code untukSiswa} (atau tidak dibatasi), cocok sekolah/yayasan siswa (atau tidak dibatasi ke sekolah/yayasan manapun), dan cocok angkatan siswa (atau angket berlaku untuk semua angkatan). */
 	private Criteria buildGrupCriteria(Session session) {
 		Criteria criteria = session.createCriteria(GrupChecklistPenilaianGuru.class)
 				.createAlias("angketPenilaianGuru", "angketPenilaianGuru", Criteria.LEFT_JOIN)
@@ -480,6 +481,7 @@ public class AngketGuruWindow extends Groupbox {
 		return criteria;
 	}
 
+	/** Sama seperti {@link #buildGrupCriteria}, satu tingkat lebih dalam: {@link Criteria} {@link ChecklistPenilaianGuru} aktif (grupnya pun harus aktif) yang berlaku untuk {@link #siswa}. */
 	private Criteria buildChecklistCriteria(Session session) {
 		Criteria criteria = session.createCriteria(ChecklistPenilaianGuru.class)
 				.createAlias("grupChecklistPenilaianGuru", "grupChecklistPenilaianGuru")
@@ -506,6 +508,20 @@ public class AngketGuruWindow extends Groupbox {
 		return criteria;
 	}
 
+	/**
+	 * Membangun form penilaian lengkap untuk satu (jadwal, guru) ke dalam {@link #addWindow}:
+	 * header identitas guru, blok petunjuk per {@link AngketPenilaianGuru} (ditampilkan sekali
+	 * saat berganti angket), grup pertanyaan dengan radio skala 1..N dan keterangan opsional
+	 * (autosave per perubahan lewat {@link #onSave}), riwayat jawaban pada pertanyaan yang sudah
+	 * dinonaktifkan ({@link #renderChecklistGuruNonAktif}), form parameter tambahan bila ada
+	 * ({@link #renderParameterTambahanGuru}), kolom masukan/saran, dan toolbar Batal/"Simpan dan
+	 * Tutup". Tombol "Simpan dan Tutup" memvalidasi kolom masukan wajib (bila dikonfigurasi) dan
+	 * parameter tambahan sebelum memanggil {@code eventListener} (refresh status baris ringkasan)
+	 * dan menutup jendela.
+	 *
+	 * @param eventListener dipanggil setelah form ditutup (baik Batal maupun Simpan) untuk
+	 *                      menyegarkan status baris ringkasan pada grid utama
+	 */
 	@SuppressWarnings("unchecked")
 	private void init(final JadwalPelajaran jadwalPelajaran, final Guru guru, final EventListener eventListener)
 			throws Exception {
@@ -712,6 +728,7 @@ public class AngketGuruWindow extends Groupbox {
 	}
 
 
+	/** Menambahkan id setiap {@link ChecklistPenilaianGuru} pada {@code checklistPenilaianGurus} ke dalam {@code target} — dipakai membangun himpunan pertanyaan aktif yang sedang ditampilkan pada form. */
 	private void catatChecklistAktif(Set<Long> target, List<ChecklistPenilaianGuru> checklistPenilaianGurus) {
 		if (target == null || checklistPenilaianGurus == null) {
 			return;
@@ -723,6 +740,12 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/**
+	 * Merender kartu "Riwayat Jawaban pada Pertanyaan yang Sudah Dinonaktifkan" berisi jawaban lama
+	 * siswa yang id pertanyaannya tidak lagi termasuk {@code checklistAktifDitampilkan} (lihat
+	 * {@link #ambilChecklistIdNonAktifDariJawabanGuru}) — tampilan murni baca, tidak ada input.
+	 * Tidak melakukan apa pun bila tidak ada riwayat semacam itu.
+	 */
 	@SuppressWarnings("unchecked")
 	private void renderChecklistGuruNonAktif(Session session, ChecklistBaruPenilaianGuruOlehSiswa hasil,
 			Set<Long> checklistAktifDitampilkan, Vbox parent) {
@@ -786,6 +809,7 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/** Mengekstrak id pertanyaan unik dari {@code hasil.ambilValue()} yang TIDAK termasuk {@code checklistAktifDitampilkan} — kandidat pertanyaan nonaktif yang perlu ditampilkan sebagai riwayat. */
 	private List<Long> ambilChecklistIdNonAktifDariJawabanGuru(ChecklistBaruPenilaianGuruOlehSiswa hasil,
 			Set<Long> checklistAktifDitampilkan) {
 		List<Long> ids = new ArrayList<Long>();
@@ -817,6 +841,7 @@ public class AngketGuruWindow extends Groupbox {
 	}
 
 
+	/** Mengambil baris {@link ChecklistBaruPenilaianGuruOlehSiswa} yang sudah ada untuk kombinasi (siswa, guru, jadwal) ini — dari {@link #mapsKey} atau query database — atau membuat & menyimpan baris kosong baru bila belum ada. Hasilnya di-cache kembali ke {@link #mapsKey}. */
 	private ChecklistBaruPenilaianGuruOlehSiswa getOrCreateChecklistGuru(Siswa siswa, Guru guru,
 			JadwalPelajaran jadwalPelajaran) {
 		String kodeUnik = siswa.getId() + "_" + jadwalPelajaran.getId() + "_" + guru.getId();
@@ -847,6 +872,13 @@ public class AngketGuruWindow extends Groupbox {
 		return data;
 	}
 
+	/**
+	 * Bila {@code grup} memiliki definisi {@code ParameterTambahanAngketUmum}, merender section
+	 * form parameter tambahan lewat {@link IsiAngketParameterUmumListener} dan mendaftarkan
+	 * listener tersebut ke {@code dataParameterTambahan} agar divalidasi & disimpan bersamaan saat
+	 * form utama disimpan ({@link #simpanParameterTambahan}). Tidak melakukan apa pun bila grup
+	 * ini tidak memiliki parameter tambahan.
+	 */
 	private void renderParameterTambahanGuru(Session session, GrupChecklistPenilaianGuru grup,
 			ChecklistBaruPenilaianGuruOlehSiswa hasil, Div parent,
 			Map<IsiAngketParameterUmum, Object[]> dataParameterTambahan) {
@@ -898,6 +930,7 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/** Mengambil baris {@link IsiAngketParameterUmum} yang tertaut ke {@code hasil}, atau membuat baris baru (nama otomatis via {@link #buildNamaIsiAngketParameterGuru}) bila belum ada; memperbaiki nama kosong pada baris lama bila ditemukan. */
 	private IsiAngketParameterUmum getOrCreateIsiAngketParameterGuru(Session session,
 			ChecklistBaruPenilaianGuruOlehSiswa hasil) {
 		IsiAngketParameterUmum isi = null;
@@ -926,6 +959,7 @@ public class AngketGuruWindow extends Groupbox {
 		return isi;
 	}
 
+	/** Menyusun nama deskriptif (guru, siswa, id jadwal) untuk baris {@link IsiAngketParameterUmum}, dipotong maksimal 250 karakter; setiap bagian dijaga individual agar data yang hilang/null tidak menggagalkan penyusunan nama. */
 	private String buildNamaIsiAngketParameterGuru(ChecklistBaruPenilaianGuruOlehSiswa hasil) {
 		StringBuilder sb = new StringBuilder("Angket Parameter Guru");
 		try {
@@ -950,6 +984,16 @@ public class AngketGuruWindow extends Groupbox {
 		return value.length() > 250 ? value.substring(0, 250) : value;
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan seluruh listener parameter tambahan yang terdaftar (satu per grup
+	 * checklist yang punya parameter tambahan): berhenti pada validasi pertama yang gagal
+	 * ({@code false} tanpa melanjutkan ke grup lain), jika lolos menyimpan nilainya lewat
+	 * {@link IsiAngketParameterUmumListener#onSave} dan lampiran terkait lewat
+	 * {@link #simpanLampiranParameter}.
+	 *
+	 * @return {@code true} bila semua tersimpan tanpa galat; {@code false} bila validasi gagal
+	 *         atau terjadi galat penyimpanan
+	 */
 	@SuppressWarnings("unchecked")
 	private boolean simpanParameterTambahan(Map<IsiAngketParameterUmum, Object[]> dataParameterTambahan) {
 		if (dataParameterTambahan == null || dataParameterTambahan.isEmpty()) {
@@ -975,6 +1019,7 @@ public class AngketGuruWindow extends Groupbox {
 		return true;
 	}
 
+	/** Menautkan setiap {@link LampiranLain} yang diunggah pada form parameter tambahan ke {@code isiAngketParameterUmum} (kolom {@code ref}), dalam satu transaksi mandiri (sesi terpisah, ditutup tuntas di {@code finally}). */
 	private void simpanLampiranParameter(IsiAngketParameterUmum isiAngketParameterUmum,
 			HashMap<String, LampiranLain> lampiranLains) {
 		Session session = null;
@@ -1003,6 +1048,17 @@ public class AngketGuruWindow extends Groupbox {
 		}
 	}
 
+	/**
+	 * Menyimpan (autosave) satu jawaban pertanyaan checklist: mengambil/membuat baris
+	 * {@link ChecklistBaruPenilaianGuruOlehSiswa} dari {@link #mapsKey}, menuliskan nilai radio dan
+	 * keterangan untuk {@code checklistPenilaianGuru} tersebut lewat
+	 * {@link ChecklistBaruPenilaianGuruOlehSiswa#setValue}, memperbarui kolom masukan, lalu
+	 * menyimpan dan memperbarui cache. Dipanggil dari listener {@code onCheck}/{@code onChange}
+	 * setiap kali radio atau keterangan berubah — TIDAK menunggu tombol simpan form. Bila terjadi
+	 * galat, tampilan form dimuat ulang ({@link #init(boolean)}) agar tetap konsisten.
+	 *
+	 * @return selalu {@code true}
+	 */
 	public boolean onSave(Guru guru, JadwalPelajaran jadwalPelajaran, ChecklistPenilaianGuru checklistPenilaianGuru,
 			Integer nilai, String keterangan, String masukan) throws Exception {
 		Session session = HibernateUtil.currentSession();

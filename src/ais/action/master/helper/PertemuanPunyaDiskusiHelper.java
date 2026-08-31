@@ -867,6 +867,19 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 				});
 	}
 
+	/**
+	 * Kebalikan {@link #aksesDianggapHadir}: setelah konfirmasi dialog, menandai alpa
+	 * ({@link ais.common.ConstantValues#TIDAK_ADA_ALASAN}) seluruh mahasiswa peserta pertemuan yang
+	 * TIDAK tercatat mengakses {@code tugas} dalam rentang waktu tersebut (kecuali yang masuk
+	 * daftar {@code mhsYgTidakIkut}). Dijalankan dalam transaksi terpisah setelah timer default.
+	 *
+	 * @param tugas          sumber data akses
+	 * @param akses          jenis akses yang dicek
+	 * @param keterangan     teks keterangan yang ditulis ke absensi (dan dialog konfirmasi)
+	 * @param mulai          batas awal rentang waktu akses yang dihitung
+	 * @param sampai         batas akhir rentang waktu akses yang dihitung
+	 * @param eventListener  callback dipanggil setelah proses selesai
+	 */
 	public static void tidakAksesDianggapAlpa(final Tugas tugas, final String akses, final String keterangan,
 			final Date mulai, final Date sampai, final EventListener eventListener) throws Exception {
 		MyMessageboxConfig.show(
@@ -946,6 +959,17 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 				});
 	}
 
+	/**
+	 * Setelah konfirmasi dialog, menandai hadir seluruh peserta yang berpartisipasi dalam diskusi
+	 * {@code pertemuan}: mahasiswa selalu ditandai hadir, dosen ditandai hadir hanya bila
+	 * konfigurasi {@code dosen_ikut_masuk_ketika_di_dikusi_dianggap_hadir} aktif. Keterangan
+	 * absensi memuat tanggal dan isi diskusi (dibersihkan dari HTML via Jsoup). Data diskusi
+	 * diambil bulk lewat satu kriteria (bukan per-baris) untuk efisiensi. Dijalankan dalam
+	 * transaksi terpisah setelah timer default.
+	 *
+	 * @param pertemuan     pertemuan yang diskusinya diproses
+	 * @param eventListener callback dipanggil setelah proses selesai
+	 */
 	public static void diskusiDianggapHadir(final Pertemuan pertemuan, final EventListener eventListener) throws Exception {
 		MyMessageboxConfig.show(
 				"Apakah yakin semua mahasiswa dan dosen yang melakukan diskusi atau tanya jawab dianggap hadir kelas ini ?",
@@ -1028,6 +1052,20 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 				});
 	}
 
+	/**
+	 * Membangun dan menampilkan seluruh UI diskusi untuk {@code pertemuan} ke dalam
+	 * {@code component}: toolbar (Dianggap hadir, cetak/unduh data diskusi ke Excel dengan kolom
+	 * lampiran hyperlink, Refresh, checkbox Urutkan terlama, History revisi diskusi). Bila konteks
+	 * bukan identitas peserta tunggal (admin/dosen), membangun tiga tab (Isi Diskusi/Peserta
+	 * Diskusi/Statistik — dua tab terakhir dimuat lazy saat diklik pertama kali); bila konteks
+	 * identitas tunggal, hanya area diskusi langsung yang ditampilkan.
+	 *
+	 * @param pertemuan       pertemuan yang diskusinya ditampilkan
+	 * @param component       komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param tampilInfo      diteruskan ke {@link DashboardTimelinePertemuan#loadKomentarDetail}
+	 *                        untuk menampilkan info tambahan pada setiap komentar
+	 * @param selectedDiskusi id diskusi yang akan disorot/dibuka otomatis, boleh {@code null}
+	 */
 	public void display(final Pertemuan pertemuan, final Component component, final boolean tampilInfo,
 			final Long selectedDiskusi) {
 		this.pertemuan = pertemuan;
@@ -1516,6 +1554,22 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 
 	private int height = 100;
 
+	/**
+	 * Membuka jendela modal balas-komentar dari konteks statis (mis. dipanggil dari renderer di
+	 * kelas lain yang tidak memiliki instance {@link PertemuanPunyaDiskusiHelper}): membuat
+	 * instance sementara, mengikatnya ke {@code pertemuanPunyaDiskusi.getPertemuan()}, lalu
+	 * mendelegasikan ke {@link #init}.
+	 *
+	 * @param parent                  diskusi induk yang dibalas (ditampilkan sebagai kutipan)
+	 * @param pertemuanPunyaDiskusi   diskusi baru yang sedang disusun (biasanya instance kosong baru)
+	 * @param pertemuanPunyaDiskusisa set id diskusi yang akan diperbarui setelah simpan
+	 * @param mahasiswa               identitas penulis, boleh {@code null}
+	 * @param dosen                   identitas penulis, boleh {@code null}
+	 * @param biodataCalonMahasiswa   identitas penulis, boleh {@code null}
+	 * @param siswa                   identitas penulis, boleh {@code null}
+	 * @param calonSiswa              identitas penulis, boleh {@code null}
+	 * @param eventListener           callback dipanggil setelah simpan berhasil
+	 */
 	public static void onAddKomentar(PertemuanPunyaDiskusi parent, PertemuanPunyaDiskusi pertemuanPunyaDiskusi,
 			final TreeSet<Long> pertemuanPunyaDiskusisa, Mahasiswa mahasiswa, Dosen dosen,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Siswa siswa, CalonSiswa calonSiswa,
@@ -1533,6 +1587,13 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membuka jendela modal untuk menulis komentar baru (balasan ke {@code parent}, atau top-level
+	 * bila {@code parent == null}) dari instance helper ini, mendelegasikan ke {@link #init}.
+	 *
+	 * @param event  tidak dipakai langsung; ada untuk kompatibilitas signature handler ZK
+	 * @param parent diskusi induk yang dibalas, atau {@code null} untuk komentar top-level baru
+	 */
 	public void onAddKomentar(Event event, PertemuanPunyaDiskusi parent) throws Exception {
 		MyWindow addWindow = new MyWindow();
 		addWindow.setHeight("340px");
@@ -1543,10 +1604,22 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/** Handler event standar untuk tombol "tambah komentar baru" (top-level, tanpa induk); mendelegasikan ke {@link #onAddKomentar(Event, PertemuanPunyaDiskusi)}. */
 	public void onAdd(Event event) throws Exception {
 		onAddKomentar(event, null);
 	}
 
+	/**
+	 * Membangun isi jendela modal penulisan/balasan komentar: info pertemuan, kutipan komentar
+	 * induk (bila {@code parent} diberikan), textbox isi (fokus otomatis), tombol unggah lampiran
+	 * langsung dan/atau Google Drive (sesuai izin pertemuan), dan tombol Batal/Kirim Diskusi —
+	 * tombol Kirim memanggil {@link #onSave(Event, PertemuanPunyaDiskusi)} lalu menutup jendela dan
+	 * memicu {@link #eventListener} bila sukses.
+	 *
+	 * @param pertemuanPunyaDiskusi entitas diskusi yang sedang disusun (baru atau hasil edit)
+	 * @param parent                diskusi induk yang dibalas, boleh {@code null}
+	 * @param addWindow             jendela modal yang akan dibangun isinya
+	 */
 	private void init(final PertemuanPunyaDiskusi pertemuanPunyaDiskusi, final PertemuanPunyaDiskusi parent,
 			final MyWindow addWindow) throws Exception {
 		this.pertemuanPunyaDiskusi = pertemuanPunyaDiskusi;
@@ -1724,6 +1797,18 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 		borderlayout.setParent(addWindow);
 	}
 
+	/**
+	 * Menyimpan {@link #pertemuanPunyaDiskusi} (menolak dengan pesan bila isi kosong): menautkan ke
+	 * {@code parent} (untuk balasan berjenjang), identitas penulis, dan {@link #pertemuan}, lalu
+	 * commit dalam sesi/transaksi terpisah. Setelah tersimpan, secara asinkron (via
+	 * {@link Common#createDefaultTimer}) menautkan lampiran (bila ada) ke id diskusi yang baru,
+	 * memperbarui set {@link #pertemuanPunyaDiskusisaStatic}/{@code pertemuanPunyaDiskusisa}, dan
+	 * mengirim notifikasi email via {@link CommonEmail#infoAdaDiskusiPerkuliahan}.
+	 *
+	 * @param event  tidak dipakai langsung; ada untuk kompatibilitas signature handler ZK
+	 * @param parent diskusi induk yang dibalas, boleh {@code null}
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi isi kosong gagal
+	 */
 	public boolean onSave(Event event, PertemuanPunyaDiskusi parent) throws Exception {
 		if (isi.getValue().isEmpty()) {
 			MyMessageboxConfig.show("Masukkan isi diskusi Anda", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -1794,6 +1879,13 @@ public class PertemuanPunyaDiskusiHelper implements DataLoader {
 		return true;
 	}
 
+	/**
+	 * Menutup sesi Hibernate yang dibuka manual (bukan sesi thread-local) dengan aman:
+	 * disconnect lalu close, seluruh exception ditelan (dicatat via {@link ais.common.ErrorAuditUtil}).
+	 * Tidak melakukan apa pun bila {@code session} sudah {@code null}.
+	 *
+	 * @param session sesi yang akan ditutup, boleh {@code null}
+	 */
 	private static void closeHibernateSessionQuietly(Session session) {
 		if (session == null) {
 			return;

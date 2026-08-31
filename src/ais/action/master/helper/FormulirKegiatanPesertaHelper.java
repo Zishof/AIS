@@ -78,6 +78,39 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar peserta ({@link FormulirKegiatanPeserta})
+ * satu {@link FormulirKegiatan} (formulir pendaftaran kegiatan) — atau, bila {@code formulirKegiatan}
+ * tidak diberikan, seluruh peserta dalam satu {@link GrupFormulirKegiatan}. Peserta dapat berupa
+ * mahasiswa, dosen (konteks perguruan tinggi), atau siswa, guru (konteks sekolah/yayasan) — UI
+ * beradaptasi otomatis lewat {@link Common#chekPtAtauSekolah()}.
+ *
+ * <p>
+ * Fungsi utama:
+ * </p>
+ * <ul>
+ * <li><b>Pendaftaran massal</b> peserta lewat helper pemilih data (mahasiswa via
+ * {@link AmbilDataMahasiswaForFormulirKegiatanHelper}, dosen via {@link AmbilDataDosenBanyak},
+ * siswa via {@link AmbilDataSiswaForFormulirKegiatanHelper}, guru via {@link AmbilDataGuruBanyak}).
+ * Untuk dosen/guru, sebelum didaftarkan dicek dulu apakah yang bersangkutan sudah terdaftar di
+ * formulir LAIN dalam {@link GrupFormulirKegiatan} yang sama — bila ya, pendaftaran ditolak (satu
+ * orang tidak boleh ganda dalam satu grup formulir).</li>
+ * <li><b>Approval per peserta</b> (checkbox "Acc") beserta nilai dan keterangan yang bisa diedit
+ * langsung oleh admin, atau oleh guru/dosen pembina yang ditunjuk untuk formulir/siswa tersebut.
+ * Peserta yang sudah di-acc tidak bisa dihapus (lewat UI ini) oleh guru/dosen.</li>
+ * <li><b>Ekspor/impor Excel</b> (kolom bukti lampiran + tautan, ditambah IPS/IPK/SKS/SKSK untuk
+ * konteks sekolah) lewat {@link Common#cetakDataCustomButton}/{@link Common#uploadData}.</li>
+ * <li><b>Cetak kartu peserta</b> ({@link SertifikatAction#cetakFormPendafatranKegiatan}) dan
+ * sertifikat individual per peserta yang sudah di-acc.</li>
+ * <li><b>"Bersihkan"</b> — menghapus SELURUH baris {@link FormulirKegiatanPeserta} formulir ini
+ * lewat SQL {@code DELETE} native langsung (bukan satu per satu lewat Hibernate).</li>
+ * <li><b>"Singkronkan dg Kegiatan"</b> — bila formulir tertaut ke {@code KegiatanKemahasiswaan}/
+ * {@code KegiatanKedosenan}, memproses di thread latar (dengan native session tersendiri yang wajib
+ * ditutup manual karena thread tidak lewat filter JSP) seluruh peserta ber-status acc menjadi baris
+ * {@link KegiatanKemahasiswaanPunyaMahasiswa}/{@link KegiatanKedosenanPunyaDosen} otomatis-disetujui,
+ * agar keikutsertaan formulir tercatat juga sebagai poin kegiatan kemahasiswaan/kedosenan.</li>
+ * </ul>
+ */
 public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -97,6 +130,7 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 	private Tbmuser tbmuser;
 	private GrupFormulirKegiatan grupFormulirKegiatan;
 
+	/** Menyiapkan combobox filter fakultas/jurusan dan yayasan/sekolah, serta paging server-side. */
 	public FormulirKegiatanPesertaHelper() {
 		tbmuser = Common.getCurrentUser();
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -113,6 +147,13 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link FormulirKegiatanPeserta}: foto+identitas peserta (dari
+	 * mahasiswa/dosen/siswa/guru — baris disembunyikan bila keempatnya kosong), kode peserta, waktu
+	 * daftar, jurusan/sekolah, nilai+keterangan (editable bagi admin atau guru/dosen pembina yang
+	 * berwenang), checkbox "Acc", dan tombol aksi (cetak formulir, cetak sertifikat bila sudah acc,
+	 * hapus bila belum acc dan berwenang).
+	 */
 	class DetailFormulirKegiatanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailFormulirKegiatanRenderer() {
@@ -378,6 +419,18 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link FormulirKegiatanPeserta} yang punya salah satu dari
+	 * siswa/guru/mahasiswa/dosen terisi, difilter berdasarkan: pembatasan siswa binaan (bila user
+	 * login adalah guru pembina, hanya siswa di kelas binaannya yang tampil), status acc
+	 * (checkbox {@link #tampilAcc}/{@link #tampilBelumAcc}), jenis peserta yang diizinkan formulir
+	 * ({@code getPesertaDosen}/{@code getPesertaMahasiswa}/{@code getPesertaSiswa}/{@code getPesertaGuru}),
+	 * fakultas/jurusan atau yayasan/sekolah, dan pencarian teks bebas ({@link #nim}, mencocokkan
+	 * nama/NIM/NIDN pada keempat jenis peserta).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan kode
+	 * @return criteria siap dieksekusi, dipakai untuk memuat data, paging, maupun ekspor/cetak
+	 */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -504,6 +557,12 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid (lewat timer default) berdasarkan {@link #initCriteria(boolean)}, sesuai
+	 * halaman aktif pada {@link #paging}.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -529,6 +588,20 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 		return this;
 	}
 
+	/**
+	 * Membangun UI lengkap: toolbar pencarian/filter (menyesuaikan konteks PT vs sekolah lewat
+	 * {@link Common#chekPtAtauSekolah()}), tombol ambil peserta massal per jenis peserta yang
+	 * diizinkan formulir, ekspor/impor Excel, cetak kartu peserta, "Bersihkan", "Singkronkan dg
+	 * Kegiatan", checkbox filter acc/belum-acc, dan grid berpaging. Lalu memuat datanya. Lihat
+	 * javadoc kelas untuk detail masing-masing fitur.
+	 *
+	 * @param formulirKegiatan     formulir yang pesertanya ditampilkan/dikelola; boleh {@code null}
+	 *                             untuk mode rekap lintas formulir dalam satu grup
+	 * @param grupFormulirKegiatan grup formulir (dipakai bila {@code formulirKegiatan} {@code null},
+	 *                             dan untuk pengecekan duplikasi peserta lintas formulir dalam grup)
+	 * @param component            komponen induk ZK; isinya dibersihkan lebih dulu
+	 * @param window                window pemanggil, diteruskan ke helper pemilih peserta massal
+	 */
 	public void display(final FormulirKegiatan formulirKegiatan, final GrupFormulirKegiatan grupFormulirKegiatan,
 			final Component component, final MyWindow window) {
 		this.formulirKegiatan = formulirKegiatan;
@@ -1288,6 +1361,7 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 	}
 
+	/** Delegasi ke {@link #loadData(Object)}; implementasi {@link DataSearchDefault}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);
