@@ -2162,12 +2162,17 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 //		System.out.println(
 //				"getDetailBiayaDefault final settingBiaya -> " + settingBiaya + " dari " + settingBiayas.size());
 		if (settingBiaya == null) {
-			return PengecualianTagihanList.kosong();
+			// Tidak menemukan setting default bukan berarti mahasiswa dikecualikan.
+			// Kembalikan list kosong biasa agar PembayaranUtil tetap melanjutkan ke
+			// jalur tagihan normal/bulanan seperti perilaku sebelum fitur pengecualian NIM.
+			return new ArrayList<DetailBiaya>();
 		}
 		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
 			System.out.println("[TAGIHAN-DEBUG] SettingBiaya id=" + settingBiaya.getId()
 					+ " tidak berlaku untuk NIM " + nimMahasiswa + " (daftar pengecualian).");
-			return new ArrayList<DetailBiaya>();
+			// Hanya kondisi pengecualian eksplisit yang memakai list penanda agar
+			// pemanggil berhenti dan tidak jatuh kembali ke tagihan normal.
+			return PengecualianTagihanList.kosong();
 		}
 		List<DetailBiaya> detailBiayas = getDefaultSettingBiaya(session, settingBiaya, angkatan, jenjang, semester,
 				jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan,
