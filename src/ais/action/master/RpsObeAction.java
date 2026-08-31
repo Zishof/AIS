@@ -1402,8 +1402,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		}
 
 		// ===== HAL 2: CAPAIAN PEMBELAJARAN =====
-		sb.append("<div class='page-break'></div>");
-		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak));
+		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak, true));
 		sb.append(rpsSectionIntro("Capaian Pembelajaran",
 			"Daftar kemampuan yang harus dikuasai mahasiswa: dari capaian lulusan (CPL), bahan kajian (BK), capaian mata kuliah (CPMK), sampai rincian tiap tahap (Sub-CPMK)."));
 
@@ -1618,8 +1617,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		}
 
 		// ===== HAL 3: DESKRIPSI + REFERENSI + MEDIA =====
-		sb.append("<div class='page-break'></div>");
-		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak));
+		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak, true));
 		sb.append(rpsSectionIntro("Deskripsi, Materi, dan Referensi Mata Kuliah",
 			"Gambaran isi mata kuliah, materi yang dipelajari, sumber bacaan, media, dosen pengampu, dan beban belajar mahasiswa."));
 		sb.append("<table class='t-main'>");
@@ -1699,8 +1697,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 		// ===== HAL 4+: RINCIAN MINGGUAN =====
 		if (!rincianList.isEmpty()) {
-			sb.append("<div class='page-break'></div>");
-			sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak));
+			sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak, true));
 			sb.append(rpsSectionIntro("Rencana Pembelajaran Mingguan",
 				"Rincian tiap minggu: kemampuan yang ditargetkan, materi, cara belajar, pengalaman belajar, serta cara dan bobot penilaiannya."));
 			sb.append("<div class='tbl-scroll'>");
@@ -1746,8 +1743,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 		// ===== PETA KETERCAPAIAN PEMBELAJARAN (alur HTML/CSS, tanpa JFreeChart) =====
 		if (!rincianList.isEmpty()) {
-			sb.append("<div class='page-break'></div>");
-			sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak));
+			sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak, true));
 			sb.append(rpsSectionIntro("Peta Ketercapaian Pembelajaran",
 				"Alur tahapan belajar dari minggu awal, melewati UTS dan UAS, hingga mencapai capaian lulusan."));
 			sb.append(rpsFlowPeta(rincianList, cplList));
@@ -1761,8 +1757,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 		}
 
 		// ===== CATATAN / PENJELASAN ISTILAH OBE =====
-		sb.append("<div class='page-break'></div>");
-		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak));
+		sb.append(rpsPageHeader(institusi, fakultas, mkKode, berlakuSejak, true));
 		sb.append(rpsSectionIntro("Catatan & Penjelasan Istilah",
 			"Penjelasan singkat istilah OBE agar dokumen ini mudah dipahami siapa pun, termasuk yang baru mengenal kurikulum OBE."));
 		sb.append(rpsCatatan());
@@ -1977,8 +1972,14 @@ public class RpsObeAction extends GenericAutowireComposer {
 	}
 
 	private static String rpsPageHeader(String institusi, String subTitle, String mkKode, String berlakuSejak) {
+		return rpsPageHeader(institusi, subTitle, mkKode, berlakuSejak, false);
+	}
+
+	private static String rpsPageHeader(String institusi, String subTitle, String mkKode, String berlakuSejak, boolean mulaiHalamanBaru) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("<table class='t-header'><tr>");
+		sb.append("<table class='t-header");
+		if (mulaiHalamanBaru) sb.append(" rps-page-start");
+		sb.append("'><tr>");
 		sb.append("<td class='td-logo' rowspan='3'></td>");
 		sb.append("<td class='bold'>").append(rpsHe(institusi)).append("</td>");
 		sb.append("<td class='td-kl'>Kode</td><td class='td-ks'>:</td><td>").append(rpsHe(mkKode)).append("</td></tr>");
@@ -2054,7 +2055,6 @@ public class RpsObeAction extends GenericAutowireComposer {
 			/* ---- catatan ---- */
 			".catatan-list{font-family:'Segoe UI',Arial,sans-serif;font-size:12.5px;color:var(--ink);margin:6px 0;padding-left:20px}" +
 			".catatan-list li{margin-bottom:5px}" +
-			".page-break{height:0;margin:0;padding:0}" +
 			/* ---- cetak ---- */
 			"@media print{" +
 			"body{background:#fff;font-size:10pt}" +
@@ -2063,7 +2063,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 			".sec-intro,.peta-goal,.peta-badge,.peta-uts,.peta-uas,.td-title,.td-subtitle,.td-otorisasi,.tr-head th{-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
 			".tbl-scroll{overflow:visible}" +
 			".sec-intro{break-inside:avoid}.peta-step{break-inside:avoid}" +
-			".page-break{page-break-before:always}" +
+			".rps-page-start{page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid-page}" +
+			".t-header{page-break-after:avoid;break-after:avoid-page}" +
 			"table{page-break-inside:auto}tr{page-break-inside:avoid}thead{display:table-header-group}" +
 			"@page{margin:1.2cm;size:A4 landscape}" +
 			"}" +
