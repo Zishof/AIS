@@ -2,8 +2,22 @@ package ais.action.master.employ.util;
 
 import ais.common.Common;
 
+/**
+ * Kumpulan tabel kata bilangan Bahasa Indonesia (0-100 dan kelipatan ribuan tertentu) yang
+ * dimaksudkan untuk konversi angka ke terbilang pada modul kepegawaian (mis. slip gaji).
+ *
+ * <p>
+ * <b>Catatan akurasi</b> — {@link #nilais} berisi beberapa kesalahan penamaan sumber (mis. indeks
+ * untuk "Empat Puluh Dua" dan "Empat Puluh Empat" tertukar: array memuat {@code "Empat Puluh Satu",
+ * "Empat Puluh Empat", "Empat Puluh Tiga", "Empat Puluh Empat", ...}), dan method
+ * {@link #getNilai(Double)} pada seluruh cabang kondisi yang teramati hanya menghasilkan string
+ * kosong (tidak benar-benar mengonversi angka ke kata). Kode fungsional TIDAK diubah sesuai
+ * batasan tugas dokumentasi ini; perilaku di atas didokumentasikan apa adanya.
+ * </p>
+ */
 public class NilaiHelper {
 
+	/** Kata bilangan 0 ("Nol") sampai 100 ("Seratus") dalam Bahasa Indonesia, terindeks sesuai nilainya. */
 	public static String[] nilais = {
 
 	"Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan",
@@ -55,12 +69,21 @@ public class NilaiHelper {
 
 			"Seratus" };
 
+	/** Kata bilangan ribuan ("Seribu" sampai "Tujuh Belas Ribu") dalam Bahasa Indonesia. */
 	public static String[] nilaisRibuan = { "Seribu", "Dua Ribu", "Tiga Ribu",
 			"Empat Ribu", "Lima Ribu", "Enam Ribu", "Tujuh Ribu",
 			"Delapan Ribu", "Sembilan Ribu", "Sepuluh Ribu", "Sebelas Ribu",
 			"Dua Belas Ribu", "Tiga Belas Ribu", "Empat Belas Ribu",
 			"Lima Belas Ribu", "Enam Belas Ribu", "Tujuh Belas Ribu" };
 
+	/**
+	 * Dimaksudkan untuk mengonversi {@code nilai} menjadi terbilang Bahasa Indonesia memakai
+	 * {@link #nilais}/{@link #nilaisRibuan}. Lihat catatan akurasi pada javadoc kelas: pada
+	 * seluruh cabang kondisi yang ada, method ini hanya menghasilkan string kosong.
+	 *
+	 * @param nilai angka yang hendak dikonversi
+	 * @return string kosong pada implementasi saat ini
+	 */
 	public static String getNilai(Double nilai) {
 		String ss = Common.numberFormat.get().format(nilai);
 		String[] sss = ss.split("\\.");

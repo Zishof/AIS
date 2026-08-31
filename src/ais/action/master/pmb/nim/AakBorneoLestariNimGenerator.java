@@ -14,13 +14,33 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.epsbed.KapasitasMahasiswaBaru;
 
+/**
+ * Algoritma penomoran NIM khas AAK Borneo Lestari. Format: {@code <kodeProdi><angkatanKe><2 digit
+ * tahun><"2"><3 digit urutan>}. Angka angkatan diambil dari {@link KapasitasMahasiswaBaru} yang
+ * cocok jurusan+tahun akademik+ganjil-genap milik calon mahasiswa; bila tidak ditemukan persis,
+ * jatuh ke kapasitas terbaru jurusan tersebut dan angkatan diekstrapolasi maju sebesar selisih
+ * tahun berjalan terhadap tahun akademik kapasitas itu. Mengembalikan {@code "-"} bila calon
+ * mahasiswa belum memiliki program studi lulus.
+ */
 public class AakBorneoLestariNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar NIM yang harus dihindari. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM baru untuk {@code calonMahasiswa} sesuai format khas AAK Borneo Lestari
+	 * (lihat javadoc kelas), menghindari nomor pada {@code jumlahPengecualian}. Rekursif: bila NIM
+	 * yang dihasilkan sudah terpakai, ditambahkan ke daftar pengecualian dan method memanggil
+	 * dirinya sendiri untuk mencoba nomor berikutnya.
+	 *
+	 * @param calonMahasiswa      calon mahasiswa yang akan diberi NIM; harus memiliki program studi
+	 *                            lulus agar NIM dapat dihitung (selain itu mengembalikan {@code "-"})
+	 * @param jumlahPengecualian  daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return NIM unik sesuai format angkatan, atau {@code "-"} bila program studi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

@@ -11,14 +11,36 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma NIM khusus Politeknik Kesehatan (Poltekkes) Palu. Format NIM:
+ * {@code "PO" + [kode program studi kelulusan] + [2 digit terakhir tahun angkatan] + [3 digit
+ * nomor urut]}, mis. {@code PODIII26007}. Nomor urut dihitung dari jumlah {@link Mahasiswa} aktif
+ * pada tahun angkatan dan jurusan (prodi kelulusan) yang sama, ditambah jumlah kandidat yang sudah
+ * dicoba tapi bentrok pada pemanggilan rekursif, lalu ditambah 1 dan dipad nol ke kiri menjadi 3
+ * digit. Bila {@code calonMahasiswa.getProdiLulus()} belum diisi, NIM dikembalikan sebagai
+ * {@code "-"} (belum dapat dibangkitkan). Bila hasil gabungan ternyata sudah dipakai mahasiswa
+ * lain, nomor tersebut dicatat sebagai pengecualian dan method memanggil dirinya sendiri untuk
+ * mencoba nomor berikutnya.
+ */
 public class PoltekkesPaluNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM baru tanpa daftar pengecualian awal — lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code "PO"+kode prodi lulus+2 digit tahun+3 digit urut},
+	 * menghindari nilai yang ada di {@code jumlahPengecualian} maupun yang sudah dipakai mahasiswa
+	 * lain di database; mencoba ulang secara rekursif bila terjadi bentrok.
+	 *
+	 * @param calonMahasiswa     calon mahasiswa target; {@code prodiLulus} dan {@code tahun}-nya
+	 *                           menentukan bagian awal NIM
+	 * @param jumlahPengecualian NIM-NIM yang sudah dicoba dan diketahui bentrok, dihindari pada
+	 *                           percobaan berikutnya (diperbarui di tempat)
+	 * @return NIM baru yang belum pernah dipakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

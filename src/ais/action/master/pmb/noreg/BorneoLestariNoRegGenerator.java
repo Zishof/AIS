@@ -12,14 +12,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Jurusan;
 
+/**
+ * Implementasi {@link NoRegGenerator} khusus institusi Borneo Lestari: nomor registrasi PMB disusun
+ * dari kode fakultas program studi pilihan pertama + 2 digit terakhir tahun masuk (digit pertama),
+ * diikuti 3 digit nomor urut sekuensial (digit kedua) yang dihitung dari jumlah calon mahasiswa
+ * aktif yang nomor registrasinya sudah berawalan prefix yang sama. Sama seperti generator NIM/NoReg
+ * lain di paket ini, keunikan diverifikasi ulang terhadap data tersimpan dan, bila bertabrakan,
+ * nomor tersebut ditambahkan ke daftar pengecualian lalu method dipanggil ulang secara rekursif.
+ */
 public class BorneoLestariNoRegGenerator implements NoRegGenerator {
 
+	/** Menghasilkan nomor registrasi tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNoReg(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		return generateNoReg(new ArrayList<String>(), biodataCalonMahasiswa);
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan nomor registrasi berformat {@code [kode fakultas][2 digit tahun][3 digit urut]}
+	 * untuk calon mahasiswa, menghindari nilai dalam {@code jumlahPengecualian} maupun yang sudah
+	 * tersimpan di database (rekursif bila bertabrakan).
+	 *
+	 * @param jumlahPengecualian daftar nomor registrasi yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @param biodataCalonMahasiswa data calon mahasiswa, sumber tahun masuk dan program studi pilihan pertama
+	 * @return nomor registrasi yang belum terpakai
+	 */
 	@Override
 	public String generateNoReg(List<String> jumlahPengecualian, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		Integer tahun = biodataCalonMahasiswa.getTahun();

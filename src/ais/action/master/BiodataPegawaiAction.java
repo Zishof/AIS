@@ -135,6 +135,51 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Jendela ZK (popup) untuk menampilkan dan mengelola seluruh biodata seorang {@link Pegawai}
+ * (pegawai/dosen/guru), disusun dalam banyak tab: Data pokok, Rincian Data (biodata tambahan),
+ * Prestasi, Penelitian dan Pengabdian (bila terhubung OJS), Publikasi Ilmiah, Absensi, Kartu
+ * Identitas, SK Kedinasan, SK Penghargaan, SK Sangsi, Keluarga Pegawai, dan sederet tab "Riwayat"
+ * (Pendidikan, Pelatihan/Kursus, Seminar, Bekerja, Kepangkatan, Tanda Jasa/Penghargaan, Keluar
+ * Negeri, Organisasi Sekolah/Kampus/Lain, Keterangan Lain), serta tab Media Sosial bila
+ * dikonfigurasi aktif.
+ *
+ * <h2>Pola kerja</h2>
+ * <p>
+ * Konstruktor menerima {@link Pegawai} secara eksplisit, atau bila tidak diberikan, dicari dari
+ * user yang sedang login (langsung via {@code Tbmuser.getPegawai()}, atau tidak langsung lewat
+ * relasi {@code Dosen}/{@code Guru} milik user tersebut). Bila tidak ditemukan pegawai terkait
+ * sama sekali, jendela menampilkan pesan peringatan dan tidak melanjutkan inisialisasi
+ * (halaman ini murni untuk pengguna yang terhubung dengan data kepegawaian).
+ * </p>
+ * <p>
+ * Setiap tab "Riwayat" dan tab pendukung lain (Absensi, Kartu Identitas, dsb.) dimuat secara
+ * <i>lazy</i>: konten tab baru dibangun (helper terkait di-instansiasi dan
+ * {@code display()}/{@code displayPengajuan()} dipanggil) pada saat event {@code onClick} tab
+ * tersebut pertama kali terjadi, dan hanya jika data pegawai pada tab "Data" sudah berhasil
+ * disimpan lebih dulu lewat {@link ManagingPegawai#onSave(Event, Pegawai)} — bila belum berhasil,
+ * pengguna dikembalikan ke tab "Data". Visibilitas sebagian tab (Rincian Data, Absensi, Riwayat
+ * Kepangkatan dkk., SK Sangsi berbasis hak akses role) dan urutan tampil diatur lewat konfigurasi
+ * aplikasi ({@code Common.bolehKonfigurasi}) dan konfigurasi hak akses
+ * {@code hak_akses_yg_boleh_akses_sk_sangsi}.
+ * </p>
+ * <p>
+ * Dua kelas batin menangani penyimpanan: {@link ManagingPegawai} untuk data pokok tabel
+ * {@link Pegawai} (dengan validasi wajib isi berbasis konfigurasi {@code KonfigurasiTampilanPegawaiAction}
+ * dan pengecekan bentrok nilai unik {@code mycode}/{@code code} terhadap pegawai lain), dan
+ * {@link ManagingBiodataPegawai} untuk data tambahan tabel {@link BiodataPegawai} (alamat,
+ * data orang tua, fisik, hobi, kemampuan bahasa, riwayat pendidikan S1/S2/S3, dsb.). Tombol
+ * "Simpan" pada toolbar bawah memanggil {@link #save(Event)} yang menjalankan kedua penyimpanan
+ * ini secara berurutan lalu memicu callback {@link CommonOnSearchdefault} (bila diberikan lewat
+ * {@link #setCommonOnSearchdefault}) agar layar pemanggil dapat menyegarkan hasil pencarian.
+ * </p>
+ * <p>
+ * <b>Perhatian pengelolaan resource:</b> kelas ini membuka banyak {@link Session} Hibernate
+ * mandiri (di luar sesi thread-local baku) untuk pencarian pegawai/relasi terkait; seluruhnya
+ * dibersihkan lewat helper privat {@link #cleanupSession(Session)} yang menjamin
+ * clear/disconnect/close dilakukan aman walau sesi sudah tertutup sebagian.
+ * </p>
+ */
 public class BiodataPegawaiAction extends MyWindow {
 
 	private static final long serialVersionUID = 72558191307949087L;
@@ -207,43 +252,59 @@ public class BiodataPegawaiAction extends MyWindow {
 		}
 	}
 
+	/**
+	 * Keluarga konstruktor {@code BiodataPegawaiAction} (9 varian publik). Seluruhnya bermuara pada
+	 * {@link #init(Pegawai)} setelah opsional mengatur {@link #tampilSave}/{@link #tampilBatal} dan
+	 * judul/border/closable jendela. Parameter {@code satuanKerjaOnSession} pada beberapa varian
+	 * saat ini tidak dipakai di badan konstruktor (diteruskan sebagai {@code null} ke
+	 * {@link #init(Pegawai)}) — dipertahankan demi kompatibilitas pemanggil lama. Bila
+	 * {@code pegawai} tidak diberikan, {@link #init(Pegawai)} akan mencarinya dari user yang sedang
+	 * login.
+	 */
 	public BiodataPegawaiAction() throws Exception {
 		super();
 		init(null);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction()}; parameter {@code satuanKerjaOnSession} tidak dipakai. */
 	public BiodataPegawaiAction(SatuanKerja satuanKerjaOnSession) throws Exception {
 		super();
 		init(null);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction()}, dengan judul/border/closable kustom untuk jendela. */
 	public BiodataPegawaiAction(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init(null);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction(String, String, boolean)}; {@code satuanKerjaOnSession} tidak dipakai. */
 	public BiodataPegawaiAction(String title, String border, boolean closable, SatuanKerja satuanKerjaOnSession)
 			throws Exception {
 		super(title, border, closable);
 		init(null);
 	}
 
+	/** Membuka biodata untuk {@code pegawai} yang sudah diketahui (tanpa resolusi dari user login). */
 	public BiodataPegawaiAction(Pegawai pegawai) throws Exception {
 		super();
 		init(pegawai);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction(Pegawai)}, dengan kendali eksplisit tampil-tidaknya tombol Simpan. */
 	public BiodataPegawaiAction(Pegawai pegawai, Boolean tampilSave) throws Exception {
 		super();
 		this.tampilSave = tampilSave;
 		init(pegawai);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction(Pegawai)}; {@code satuanKerjaOnSession} tidak dipakai. */
 	public BiodataPegawaiAction(Pegawai pegawai, SatuanKerja satuanKerjaOnSession) throws Exception {
 		super();
 		init(pegawai);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction(Pegawai)}, dengan kendali eksplisit tampil-tidaknya tombol Batal ({@code tampilLogin} tidak dipakai). */
 	public BiodataPegawaiAction(Pegawai pegawai, SatuanKerja satuanKerjaOnSession, Boolean tampilLogin,
 			Boolean tampilBatal) throws Exception {
 		super();
@@ -251,11 +312,22 @@ public class BiodataPegawaiAction extends MyWindow {
 		init(pegawai);
 	}
 
+	/** Seperti {@link #BiodataPegawaiAction(Pegawai)}, dengan judul/border/closable kustom untuk jendela. */
 	public BiodataPegawaiAction(Pegawai pegawai, String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init(pegawai);
 	}
 
+	/**
+	 * Inisialisasi inti jendela: resolusi {@link Pegawai} target (dari parameter, atau dari user
+	 * login lewat relasi langsung/{@code Dosen}/{@code Guru}), penentuan visibilitas tab
+	 * berdasarkan konfigurasi aplikasi dan hak akses SK Sangsi, pembangunan seluruh {@link Tabbox}
+	 * beserta event listener lazy-load tiap tab, dan pemasangan toolbar Batal/Simpan. Bila pegawai
+	 * tidak dapat diresolusi sama sekali, method menampilkan pesan peringatan dan berhenti tanpa
+	 * membangun UI lebih lanjut.
+	 *
+	 * @param pegawai pegawai target, atau {@code null} agar diresolusi otomatis dari user login
+	 */
 	private void init(Pegawai pegawai) throws Exception {
 		setTitle("Biodata Pegawai");
 		this.pegawaiData = pegawai;
@@ -853,6 +925,16 @@ public class BiodataPegawaiAction extends MyWindow {
 		save.setParent(toolbar);
 	}
 
+	/**
+	 * Handler tombol "Simpan" pada toolbar bawah. Menyimpan data pokok pegawai lebih dulu lewat
+	 * {@link ManagingPegawai#onSave(Event, Pegawai)}; hanya jika berhasil (pegawai tersimpan dengan
+	 * id valid), lanjut menyimpan data rincian lewat {@link ManagingBiodataPegawai#onSave(Event)}.
+	 * Bila penyimpanan rincian gagal, pesan peringatan ditampilkan. Setelah kedua penyimpanan
+	 * berhasil, memicu {@link CommonOnSearchdefault#onSearchDefault} (bila terpasang) supaya layar
+	 * pemanggil menyegarkan hasil pencarian dengan data pegawai terbaru.
+	 *
+	 * @param event event ZK asal aksi Simpan, diteruskan ke {@link ManagingPegawai#onSave}
+	 */
 	public void save(Event event) throws Exception {
 		Pegawai pegawai = managingPegawai.onSave(event, pegawaiData);
 		if (pegawai != null && pegawai.getId() != null) {
@@ -878,6 +960,12 @@ public class BiodataPegawaiAction extends MyWindow {
 		return commonOnSearchdefault;
 	}
 
+	/**
+	 * Mengelola tab "Data": membangun seluruh field form data pokok {@link Pegawai} (identitas,
+	 * kontak, kepegawaian, penggajian, atasan, dsb.) lewat {@link #init(Pegawai)} dan menyimpannya
+	 * lewat {@link #onSave(Event, Pegawai)}, termasuk validasi wajib isi dan pengecekan bentrok
+	 * nilai unik {@code code}/{@code mycode} terhadap pegawai lain.
+	 */
 	private class ManagingPegawai {
 		private Textbox code;
 		private Textbox mycode;
@@ -1024,6 +1112,14 @@ public class BiodataPegawaiAction extends MyWindow {
 			statusPerkawinan.appendChild(comboitem);
 		}
 
+		/**
+		 * Membangun panel tab "Data" berisi seluruh field form data pokok pegawai (identitas,
+		 * kontak darurat, alamat, rekening bank, kepegawaian, atasan, dsb.) dan mengisinya dari
+		 * {@code pegawai} bila diberikan.
+		 *
+		 * @param pegawai data awal yang akan ditampilkan, boleh {@code null} untuk form kosong
+		 * @return panel tab siap pakai
+		 */
 		public Tabpanel init(final Pegawai pegawai) throws Exception {
 			this.pegawai = pegawai;
 			Tabpanel panel = new ais.ui.util.MyTabpanel();
@@ -3985,6 +4081,20 @@ public class BiodataPegawaiAction extends MyWindow {
 			return panel;
 		}
 
+		/**
+		 * Memvalidasi dan menyimpan data pokok pegawai dari tab "Data". Validasi mencakup: field
+		 * {@code mycode}/{@code code} wajib isi bila diwajibkan lewat konfigurasi
+		 * {@code KonfigurasiTampilanPegawaiAction.statusWajibIsi}, {@code nama} selalu wajib isi,
+		 * serta pengecekan bentrok — nilai {@code mycode} dan {@code code} harus unik di antara
+		 * pegawai aktif lain (dicek lewat kueri terpisah, dikecualikan dari diri sendiri bila sudah
+		 * punya id). Setiap pelanggaran validasi menampilkan pesan peringatan dan mengembalikan
+		 * {@code null} tanpa menyentuh database.
+		 *
+		 * @param event   event ZK asal aksi simpan
+		 * @param pegawai entitas target; bila {@code null} tapi kelas ini sudah punya pegawai
+		 *                tersimpan sebelumnya ({@link #pegawai}), entitas tersebut yang dipakai
+		 * @return pegawai yang berhasil disimpan (dengan id), atau {@code null} bila validasi gagal
+		 */
 		public Pegawai onSave(Event event, Pegawai pegawai) throws Exception {
 
 			if (this.pegawai != null && this.pegawai.getId() != null && (pegawai == null || pegawai.getId() == null)) {
@@ -4357,6 +4467,13 @@ public class BiodataPegawaiAction extends MyWindow {
 		}
 	}
 
+	/**
+	 * Mengelola tab "Rincian Data": data tambahan pegawai yang disimpan pada entitas terpisah
+	 * {@link BiodataPegawai} (alamat detail, data orang tua, fisik, hobi, kemampuan bahasa, riwayat
+	 * pendidikan S1/S2/S3, dsb.), satu-ke-banyak terhadap {@link Pegawai} tetapi hanya baris terbaru
+	 * (id terbesar) yang dipakai sebagai data aktif. Dimuat lazy lewat {@link #preInit(Pegawai)} /
+	 * {@link #loadDataPegawai()} dan disimpan lewat {@link #onSave(Event)}.
+	 */
 	private class ManagingBiodataPegawai {
 		private Textbox alamat;
 		private Textbox namaAyah;
@@ -4452,6 +4569,13 @@ public class BiodataPegawaiAction extends MyWindow {
 			return loadDataPegawai();
 		}
 
+		/**
+		 * Memuat baris {@link BiodataPegawai} terbaru milik {@link #pegawai} (bila ada) dari
+		 * database, atau menyiapkan entitas baru kosong bila belum pernah ada, lalu membangun panel
+		 * form-nya lewat {@code initBiodataPegawai}.
+		 *
+		 * @return panel tab "Rincian Data" siap pakai
+		 */
 		public Tabpanel loadDataPegawai() throws Exception {
 			Session session = null;
 			try {
@@ -4804,6 +4928,15 @@ public class BiodataPegawaiAction extends MyWindow {
 			return panel;
 		}
 
+		/**
+		 * Menyimpan seluruh field "Rincian Data" (alamat, data orang tua, fisik, hobi, kemampuan
+		 * bahasa, riwayat pendidikan, dsb.) ke entitas {@link BiodataPegawai} dalam satu transaksi
+		 * Hibernate mandiri. Field numerik (tinggi/berat badan) yang gagal di-parse diabaikan secara
+		 * diam-diam (dicatat ke audit galat) alih-alih menggagalkan seluruh penyimpanan.
+		 *
+		 * @param event event ZK asal aksi simpan (saat ini tidak dipakai langsung dalam logika)
+		 * @return {@code true} bila transaksi berhasil disimpan
+		 */
 		public boolean onSave(Event event) throws Exception {
 			Session sessionObj = null;
 			Transaction tx = null;

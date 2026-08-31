@@ -15,13 +15,36 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.CalonSiswa;
 
+/**
+ * Endpoint servlet API untuk pendaftaran siswa baru (PSB) lewat klien eksternal (mis. aplikasi
+ * mobile PPDB). Menyimpan data {@link CalonSiswa} lewat mesin simpan generik
+ * {@code ElearningApiUtil.simpanData}, lalu — bila gelombang PSB terkait memiliki jenis biaya
+ * sekolah yang dikonfigurasi (biaya awal, terverifikasi, dan/atau lulus) — membangkitkan tagihan
+ * insidentil untuk masing-masing lewat {@link TagihanUtilCalonSiswa#doGenerateTagihanInsendentil}.
+ */
 public class SiswaBaruApi {
 
+	/** Seperti {@link #pendaftaran_siswa_baru(JSONObject, HttpServletRequest, boolean)}, dengan flag {@code refresh} diambil dari field {@code "refresh"} pada {@code request} (default {@code false}). */
 	public static JSONObject pendaftaran_siswa_baru(JSONObject request, HttpServletRequest req) {
 		boolean refresh = request.optBoolean("refresh", false);
 		return pendaftaran_siswa_baru(request, req, refresh);
 	}
 
+	/**
+	 * Menyimpan pendaftaran calon siswa baru dari payload {@code request}, membangkitkan tagihan
+	 * insidentil terkait gelombang PSB bila berlaku, dan mengembalikan tautan pembayaran online
+	 * langsung. Seluruh kegagalan (baik dari validasi field maupun exception tak terduga) ditangkap
+	 * dan diterjemahkan menjadi respons JSON berkode status non-{@code "00"}.
+	 *
+	 * @param request payload data pendaftaran calon siswa baru
+	 * @param req     permintaan HTTP asli (dipakai untuk resolusi user login dan host/protokol)
+	 * @param refresh diteruskan ke {@link TagihanUtilCalonSiswa#doGenerateTagihanInsendentil} untuk
+	 *                menentukan apakah tagihan yang sudah ada dihitung ulang
+	 * @return objek JSON respons: {@code status="00"} beserta {@code data} (properti
+	 *         {@link CalonSiswa} tersimpan) dan {@code link_bayar} bila sukses; {@code "90"} bila ada
+	 *         peringatan validasi atau error tak terduga (lihat {@code description}); {@code "01"}
+	 *         bila penyimpanan gagal tanpa peringatan spesifik
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static JSONObject pendaftaran_siswa_baru(JSONObject request, HttpServletRequest req, boolean refresh) {
 		JSONObject jsonObject = new JSONObject();

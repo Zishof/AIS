@@ -11,14 +11,34 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Pembangkit NIM khusus STAKN Palangkaraya dengan format
+ * {@code YY+"02"+KODEPRODI+URUT}, mis. {@code "2602TI0007"} — digit kedua berupa kode tetap
+ * {@code "02"} (bukan berasal dari data calon mahasiswa). Bagian {@code URUT} (4 digit)
+ * dihitung dari 4 digit terakhir NIM tertinggi ({@code MAX(nim)}) yang sudah terdaftar untuk
+ * jurusan (prodi lulus) yang sama, bukan dari jumlah baris seperti pada generator NIM lain.
+ * Bila calon mahasiswa belum memiliki prodi lulus, dikembalikan {@code "-"}. Bila nomor hasil
+ * bentrok, dibangkitkan ulang secara rekursif dengan nomor tersebut ditambahkan ke daftar
+ * pengecualian.
+ */
 public class StaknPalangkarayaNimGenerator implements NimGenerator {
 
+	/** Membangkitkan NIM baru untuk {@code calonMahasiswa} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM berformat {@code YY+"02"+KODEPRODI+URUT}, menghindari nomor pada
+	 * {@code jumlahPengecualian} maupun yang sudah tersimpan; mengulang secara rekursif bila
+	 * terjadi bentrok. Mengembalikan {@code "-"} bila calon mahasiswa belum memiliki prodi lulus.
+	 *
+	 * @param calonMahasiswa     data calon mahasiswa yang akan diberi NIM
+	 * @param jumlahPengecualian daftar NIM yang harus dihindari, diperbarui di tempat saat
+	 *                           terjadi bentrok
+	 * @return NIM baru yang belum dipakai, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

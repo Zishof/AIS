@@ -67,8 +67,43 @@ import jxl.Cell;
 import jxl.Sheet;
 import jxl.Workbook;
 
+/**
+ * Utilitas modul SIRS (rumah sakit) untuk mengelola tarif/biaya {@link Tindakan} (tindakan medis)
+ * per {@link KelasPerawatan}: import massal lewat template Excel {@code .xls} ({@link #onUploadBiaya}),
+ * export ke Excel ({@link #onDownloadBiaya}), serta editor grid harga jual interaktif per tindakan
+ * lewat kelas dalam {@link InitHarga}.
+ *
+ * <p>
+ * Template Excel mengikuti konvensi: sheet bernama {@code "1000000-DATA"} berisi data master
+ * {@link Tindakan} (kode, nama, kategori Lab/Operasi/Radiologi/VK/Renal Unit/Gizi, dsb.), sedangkan
+ * setiap sheet lain bernama {@code "<idKelasPerawatan>-<namaKelas>"} berisi tarif tindakan untuk
+ * kelas perawatan tersebut plus kolom per {@link JenisBiaya} (header kolom berisi
+ * {@code "<idJenisBiaya>-<namaJenisBiaya>"}). Bila {@code tarifKhusus} diberikan, baris yang
+ * diproses terikat ke {@link TarifKhususPunyaTindakan} alih-alih tarif standar. Setelah semua sheet
+ * diproses, tindakan yang ditandai {@code semuahargasama} disinkronkan otomatis dari kelas
+ * perawatan "umum" ke seluruh kelas perawatan lain.
+ * </p>
+ *
+ * <p>
+ * Kedua proses import/export berjalan pada thread terpisah ({@code new Thread(...).start()}) dan
+ * melaporkan progres ke UI lewat {@link Label} yang dipoll oleh {@link Timer} ZK (pola "busy
+ * indicator" khas ZKoss untuk operasi lama tanpa memblokir UI thread).
+ * </p>
+ */
 public class CommonTindakan {
 
+	/**
+	 * Menangani upload template Excel ({@code .xls}, format Apache POI HSSF/JXL) berisi data master
+	 * tindakan dan tarif per kelas perawatan, lalu memproses tiap baris/sheet secara asinkron di
+	 * thread terpisah (lihat dokumentasi kelas). Setiap baris disimpan dalam sesi Hibernate dan
+	 * transaksi sendiri sehingga kegagalan satu baris tidak menggagalkan baris lain. Menolak file
+	 * yang bukan berekstensi {@code .xls}.
+	 *
+	 * @param event       event upload ({@link UploadEvent} langsung atau dibungkus {@link ForwardEvent})
+	 * @param tarifKhusus bila tidak {@code null}, tarif diikat ke {@link TarifKhususPunyaTindakan} ini
+	 *                    alih-alih tarif standar tindakan
+	 * @throws Exception diteruskan dari kegagalan menyimpan file upload ke disk
+	 */
 	public static void onUploadBiaya(Event event, final TarifKhusus tarifKhusus) throws Exception {
 
 		final Media media;
@@ -680,6 +715,19 @@ public class CommonTindakan {
 		}
 	}
 
+	/**
+	 * Menghasilkan file Excel {@code .xls} (Apache POI HSSF) berisi seluruh {@link Tindakan} (sheet
+	 * {@code "1000000-DATA"}) dan tarifnya per {@link KelasPerawatan} (satu sheet per kelas), lalu
+	 * memicu unduhan lewat {@link Filedownload#save}. Bila {@code tarifKhusus} tidak {@code null},
+	 * hanya tindakan yang terdaftar pada {@link TarifKhususPunyaTindakan} tarif tersebut yang
+	 * disertakan dan tarifnya diambil dari kombinasi tarif khusus tersebut. Struktur file yang
+	 * dihasilkan kompatibel sebagai template input {@link #onUploadBiaya}. Proses berjalan asinkron
+	 * di thread terpisah dengan indikator busy berbasis {@link Timer}.
+	 *
+	 * @param event       event pemicu (tidak dipakai langsung selain untuk konsistensi signature handler)
+	 * @param tarifKhusus batasan tarif khusus, boleh {@code null} untuk tarif standar seluruh tindakan
+	 * @throws Exception diteruskan dari kegagalan membuat file sementara
+	 */
 	@SuppressWarnings("unchecked")
 	public static void onDownloadBiaya(Event event, final TarifKhusus tarifKhusus) throws Exception {
 
@@ -916,11 +964,31 @@ public class CommonTindakan {
 
 	}
 
+	/**
+	 * Builder + controller untuk grid editor harga jual tindakan (satu baris per
+	 * {@link KelasPerawatan}, satu pasang kolom nilai/persen per {@link JenisBiaya}) yang dipakai
+	 * pada layar detail {@link Tindakan}/{@link TarifKhususPunyaTindakan}. Menyimpan state grid
+	 * ({@link #gridHargaJual}, {@link #semuahargasama}) sebagai field instance karena listener
+	 * perubahan sel saling bergantung (perubahan satu sel memicu perhitungan ulang total baris dan,
+	 * bila "Semua harga sama" dicentang, menyalin nilai baris pertama ke seluruh baris lain lewat
+	 * {@link #ubahStatusRubahSemuaEventListener}).
+	 */
 	public static class InitHarga {
 
+		/** Grid ZK yang menampilkan matriks kelas perawatan x jenis biaya, dibangun oleh {@link #initHargaJual}. */
 		public Grid gridHargaJual = new Grid();
+		/** Checkbox master "Semua harga sama"; saat dicentang, baris kelas perawatan lain mengikuti baris pertama dan dikunci (readonly). */
 		public Checkbox semuahargasama = new Checkbox();
 
+		/**
+		 * Menulis kembali seluruh isi {@link #gridHargaJual} (per baris kelas perawatan) ke entitas
+		 * {@link BiayaTindakanPerKelas} dan {@link Biaya} terkait, lalu menyimpannya lewat
+		 * {@code session.saveOrUpdate}. Dipanggil saat form tindakan/tarif khusus disimpan.
+		 *
+		 * @param tindakan                  tindakan target bila tarif bukan tarif khusus (boleh {@code null})
+		 * @param tarifKhususPunyaTindakan   tarif khusus target bila berlaku (boleh {@code null})
+		 * @return selalu {@code true} (dipertahankan untuk kompatibilitas signature caller)
+		 */
 		@SuppressWarnings("unchecked")
 		public boolean saveDetail(Tindakan tindakan, TarifKhususPunyaTindakan tarifKhususPunyaTindakan) {
 			Session session = HibernateUtil.currentSession();
@@ -977,6 +1045,13 @@ public class CommonTindakan {
 			return true;
 		}
 
+		/**
+		 * Listener yang dipicu setiap kali sebuah sel harga/persen/checkbox pada {@link #gridHargaJual}
+		 * berubah, atau saat {@link #semuahargasama} di-toggle. Bila "semua harga sama" aktif, menyalin
+		 * (dan mengunci/{@code disabled}) nilai baris pertama ke seluruh baris kelas perawatan lain;
+		 * bila tidak, mengembalikan baris menjadi bisa diedit dan menghitung ulang total per baris dari
+		 * jumlah kolom-kolom {@link JenisBiaya}-nya (bila pembagian biaya tidak dalam persen).
+		 */
 		public EventListener ubahStatusRubahSemuaEventListener = new EventListener() {
 
 			@SuppressWarnings({ "unchecked" })
@@ -1095,6 +1170,23 @@ public class CommonTindakan {
 			}
 		};
 
+		/**
+		 * Membangun (dari nol, membersihkan {@code tabpanel} lebih dulu) seluruh UI editor harga jual:
+		 * toolbar "Tambah akun lain-nya" + checkbox {@link #semuahargasama}, dan {@link #gridHargaJual}
+		 * dengan satu kolom per {@link JenisBiaya} yang berlaku untuk {@code tindakan}/{@code jenisPaket}
+		 * (lewat {@code CommonTarifTindakan.getJenisBiayas}) serta satu baris per {@link KelasPerawatan}.
+		 * Setiap sel nilai/persen memuat {@link EventListener} yang saling menyinkronkan total baris,
+		 * dan tombol hapus per kolom jenis biaya (tampil hanya bila punya privilese DELETE dan tindakan
+		 * sudah tersimpan). Dipanggil ulang secara rekursif setiap kali daftar jenis biaya berubah
+		 * (tambah/hapus kolom) agar grid selalu konsisten dengan data terbaru.
+		 *
+		 * @param tindakan                 tindakan yang sedang diedit
+		 * @param tabpanel                 panel host tempat UI dirender
+		 * @param jenisPaket               kategori paket ({@link Tindakan#JENIS_PERAWATAN_PAKET} dsb.) yang menentukan jenis biaya yang relevan
+		 * @param onSave                   callback validasi/simpan sebelum menambah jenis biaya baru
+		 * @param tarifKhususPunyaTindakan bila tidak {@code null}, grid mengedit tarif khusus ini alih-alih tarif standar tindakan
+		 * @throws Exception diteruskan dari operasi Hibernate saat memuat data biaya
+		 */
 		@SuppressWarnings("unchecked")
 		public void initHargaJual(final Tindakan tindakan, final Tabpanel tabpanel, final String jenisPaket,
 				final OnSave onSave, final TarifKhususPunyaTindakan tarifKhususPunyaTindakan) throws Exception {

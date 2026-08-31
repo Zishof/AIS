@@ -4,6 +4,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Model data (bean) yang mendeskripsikan tata letak dan perilaku satu form pada kerangka kerja CRUD
+ * generik ({@code generic/v2}): kunci form, mode (mis. create/update/view), judul, strategi
+ * penyimpanan ({@code saveStrategy}), penjaga perubahan belum tersimpan ({@code unsavedChangeGuard},
+ * default aktif), serta daftar tab, section, dan action yang membentuk form. Murni kumpulan
+ * getter/setter tanpa logika — dikonsumsi oleh renderer form generik untuk membangun tampilan ZK
+ * secara dinamis dari definisi ini. Setter {@code tabs}/{@code sections}/{@code actions} selalu
+ * menjamin daftar tidak pernah {@code null} (mengganti dengan {@link ArrayList} kosong bila
+ * diberi {@code null}).
+ */
 @SuppressWarnings("rawtypes")
 public class GenericCrudFormDefinition implements Serializable {
     private static final long serialVersionUID = 1L;

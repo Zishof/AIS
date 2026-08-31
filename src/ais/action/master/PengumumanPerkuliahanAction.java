@@ -73,6 +73,21 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk layar CRUD {@link PengumumanPerkuliahan} (pengumuman terkait satu
+ * {@link Perkuliahan}/kelas kuliah): pencarian dengan filter fakultas/jurusan/tahun ajaran/judul/isi
+ * (dibatasi otomatis ke fakultas/jurusan user bila user berwenang terbatas), form tambah/ubah
+ * dengan lampiran file dan fitur polling/jejak pendapat tertanam, serta broadcast pengumuman lewat
+ * email ke koresponden/mahasiswa/dosen.
+ *
+ * <p>
+ * Data polling disimpan sebagai JSON mentah pada kolom {@code isiPolling} (array
+ * {@code {ref, judul, isi}}) dan {@code jawabanPolling} (map {@code userId -> ref}) pada entitas
+ * {@link PengumumanPerkuliahan} sendiri, bukan tabel terpisah — {@link #initIsiPolling} membangun
+ * editor daftar pertanyaan polling, sedangkan {@link #tampilkanPolling} adalah tampilan publik
+ * (radio button bila user belum menjawab, hasil persentase/progressmeter bila sudah).
+ * </p>
+ */
 public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 	private static final long serialVersionUID = 3786091220301468178L;
 	private MyWindow addWindow;
@@ -110,6 +125,11 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 	private Combobox kategoriPengumuman;
 	private JSONArray isiPollings;
 
+	/**
+	 * Inisialisasi layar: memuat combo fakultas/jurusan (dengan cascading listener jurusan mengikuti
+	 * fakultas terpilih), membatasi akses ke fakultas/jurusan tertentu bila {@link Tbmuser} yang
+	 * login punya batasan wewenang, memuat pencarian awal, dan mengaktifkan paging.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -218,6 +238,7 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		});
 	}
 
+	/** Renderer baris grid hasil pencarian: menampilkan ringkasan pengumuman plus detail lazy-load (lampiran + diskusi) saat baris dibuka, dan tombol ubah/hapus sesuai privilese. */
 	class PengumumanPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -335,12 +356,19 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Handler tombol "Tambah": membuka form dengan {@link PengumumanPerkuliahan} kosong baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new PengumumanPerkuliahan());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/**
+	 * Titik masuk statis untuk membuka form tambah/ubah pengumuman dari luar layar ini (mis. dari
+	 * layar {@link Perkuliahan} lain), membuat instance {@link PengumumanPerkuliahanAction} dan
+	 * jendela {@link MyWindow} baru secara mandiri (tidak bergantung pada composer ZUL yang sudah
+	 * ter-autowire), lalu memicu {@code eventListener} setelah data disimpan/dibatalkan.
+	 */
 	public static void onAddExternal(Event event, EventListener eventListener,
 			PengumumanPerkuliahan pengumumanPerkuliahan) throws Exception {
 		PengumumanPerkuliahanAction pengumumanPerkuliahanAction = new PengumumanPerkuliahanAction();
@@ -358,6 +386,13 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		pengumumanPerkuliahanAction.addWindow.onModal();
 	}
 
+	/**
+	 * Membangun form tambah/ubah {@link PengumumanPerkuliahan} di dalam {@link #addWindow}: tab
+	 * "Data Pengumuman" (perkuliahan target, rentang tanggal berlaku, checkbox aktif/boleh
+	 * dikomentari, broadcast ke mahasiswa/dosen, judul, kategori, isi CKEditor, editor polling,
+	 * daftar koresponden) dan tab "Lampiran Pengumuman" (dimuat lazy setelah {@link #onSave}
+	 * berhasil, karena entitas harus tersimpan dulu sebelum lampiran bisa diikat).
+	 */
 	private void init(PengumumanPerkuliahan pengumumanPerkuliahan) throws Exception {
 		this.pengumumanPerkuliahan = pengumumanPerkuliahan;
 		Common.clear(addWindow);
@@ -621,6 +656,14 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Memvalidasi (judul dan perkuliahan wajib diisi) dan menyimpan {@link PengumumanPerkuliahan}
+	 * dari nilai form saat ini, menyusun label {@code oleh} berdasarkan peran pembuat
+	 * (mahasiswa/dosen/role lain), lalu memicu {@code TampilanPengumumanPerkuliahanAction.kirimEmailKeKorespondensi}
+	 * dan {@code .broadcastEmail} untuk mengirim notifikasi.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan error sudah ditampilkan)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (judul.getValue().trim().equals("")) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Judul",
@@ -690,6 +733,7 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/** Membentuk criteria pencarian {@link PengumumanPerkuliahan} berdasarkan filter judul/isi (ILIKE), jurusan, fakultas (via jurusan), dan tahun ajaran perkuliahan; diurutkan berdasarkan tanggal bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PengumumanPerkuliahan.class)
@@ -714,6 +758,7 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan ulang pencarian (memakai {@link #initCriteria}) dan memuat ulang {@link #grid} serta {@link #paging}; tidak melakukan apa pun bila komponen belum ter-autowire ({@code searchjudul == null}). */
 	public void onSearchDefault(Event event) {
 
 		if (searchjudul == null) {
@@ -731,6 +776,7 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 
 	}
 
+	/** Membungkus isi ({@code catatan}) pengumuman ke dalam markup HTML sederhana (paragraf rata kiri-kanan) untuk ditampilkan di tempat lain (mis. badan email). */
 	public static String tampilPengumuman(PengumumanPerkuliahan pengumumanPerkuliahan) {
 		String pengumuman = "<p align='justify'>" + pengumumanPerkuliahan.getCatatan() + "</p><br>";
 

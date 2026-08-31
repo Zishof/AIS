@@ -12,13 +12,30 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khas Universitas Bangka Belitung (UBB). Format: {@code <kodeProdi><2
+ * digit tahun><kode program><"1" baru atau "2" pindahan><3 digit urutan>}. Kode program diambil
+ * dari peta {@code Common.programs} berdasarkan program studi calon mahasiswa (S1/D3/dsb, default
+ * {@code "0"} bila pemetaan gagal); digit status mahasiswa membedakan pendaftar baru dari
+ * mahasiswa pindahan ({@link BiodataCalonMahasiswa#getMerupakanPindahan()}).
+ */
 public class UbbNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar NIM yang harus dihindari. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM baru untuk {@code calonMahasiswa} sesuai format khas UBB (lihat javadoc
+	 * kelas), menghindari nomor pada {@code jumlahPengecualian}. Rekursif pada bentrokan nomor.
+	 *
+	 * @param calonMahasiswa      calon mahasiswa yang akan diberi NIM; harus memiliki program studi
+	 *                            lulus agar NIM dapat dihitung (selain itu mengembalikan {@code "-"})
+	 * @param jumlahPengecualian  daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return NIM unik sesuai format UBB, atau {@code "-"} bila program studi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

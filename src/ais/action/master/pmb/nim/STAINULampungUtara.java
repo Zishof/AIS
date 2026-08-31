@@ -11,14 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Implementasi {@link NimGenerator} khusus institusi STAINU Lampung Utara: NIM disusun dari 2 digit
+ * terakhir tahun masuk, kode program studi kelulusan, kode perguruan tinggi, lalu 3 digit nomor urut
+ * sekuensial dihitung dari jumlah mahasiswa aktif pada kombinasi (tahun angkatan, jenjang, jurusan)
+ * yang sama. Mengembalikan string kosong bila calon mahasiswa belum punya program studi kelulusan.
+ * Keunikan diverifikasi ulang terhadap {@link Mahasiswa} dan tabrakan ditangani rekursif via daftar
+ * pengecualian, sama seperti generator NIM lain di paket ini.
+ */
 public class STAINULampungUtara implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code [2 digit tahun][kode prodi][kode perguruan tinggi][3 digit
+	 * urut]} untuk calon mahasiswa yang sudah memiliki program studi kelulusan; mengembalikan string
+	 * kosong bila belum.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber tahun masuk, jenjang, dan program studi kelulusan
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau string kosong bila program studi kelulusan belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

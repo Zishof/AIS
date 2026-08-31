@@ -11,13 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khusus institusi "STTIND": menyusun NIM dari kode tahun masuk (2 digit
+ * terakhir), prefix tetap {@code "100"} digabung kode prodi (atau {@code "-"} bila prodi tidak
+ * diketahui), dan nomor urut 3 digit mahasiswa aktif tahun angkatan &amp; prodi yang sama. Berbeda
+ * dari generator lain di paket ini, method ini tidak mengecek {@code prodiLulus == null} sebelum
+ * memakainya di query — bila null, query prodi akan gagal alih-alih mengembalikan {@code "-"}.
+ */
 public class SttindNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian awal; lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menyusun NIM dari tahun (2 digit), prefix+kode prodi, dan nomor urut 3 digit (jumlah
+	 * mahasiswa aktif tahun &amp; prodi sama ditambah ukuran {@code jumlahPengecualian}). Bila NIM
+	 * hasil sudah terpakai, memanggil diri sendiri secara rekursif dengan NIM tersebut ditambahkan
+	 * ke {@code jumlahPengecualian}.
+	 *
+	 * @param calonMahasiswa     data calon mahasiswa (tahun masuk, prodi lulus)
+	 * @param jumlahPengecualian daftar NIM yang harus dilewati (bertambah saat rekursi)
+	 * @return NIM yang belum terpakai
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

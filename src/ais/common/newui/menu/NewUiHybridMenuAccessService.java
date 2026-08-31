@@ -117,7 +117,9 @@ public final class NewUiHybridMenuAccessService {
                         jobAssignedMenuIds.containsKey(menu.getId())));
             }
             if (recoveredAdministratorMenus > 0) {
-                LOG.info("Hybrid menu administrator recoveredFromRolePrivilage="
+                // Statistik pemulihan ini merupakan kondisi normal dan bisa dipanggil
+                // berkali-kali; simpan hanya saat logging diagnostik FINE diaktifkan.
+                LOG.fine("Hybrid menu administrator recoveredFromRolePrivilage="
                         + recoveredAdministratorMenus + ", effectiveAssigned=" + menus.size());
             }
         } catch (Exception e) {

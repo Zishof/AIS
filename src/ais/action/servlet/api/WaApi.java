@@ -12,8 +12,53 @@ import ais.action.servlet.Wa;
 import ais.common.Common;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Kelas utilitas untuk menyusun perintah {@code curl} pengiriman pesan WhatsApp lewat dua
+ * penyedia pihak ketiga: Ultramsg ({@link #ultramsgFormat}) dan Watzap ({@link #watzapFormat}).
+ * Kedua method hanya <b>menyusun</b> array argumen perintah {@code curl} (dijalankan lewat
+ * {@link ProcessBuilder} oleh pemanggil, mis. {@link ais.action.servlet.Wa}) — argumen disusun
+ * sebagai elemen array terpisah (bukan satu string shell) agar aman dari celah shell-injection.
+ *
+ * <p>
+ * <b>Peringatan keamanan (dilaporkan, TIDAK diperbaiki sesuai instruksi tugas):</b> beberapa
+ * token/kunci API pihak ketiga tertanam langsung di kode sebagai nilai default fallback pada
+ * pemanggilan {@code Common.getKonfigurasi(key, default)} — nilai default ini dipakai bila
+ * konfigurasi database belum diisi, sehingga secara efektif menjadi kredensial cadangan yang
+ * ikut ter-commit ke source control. Ditemukan di:
+ * </p>
+ * <ul>
+ * <li>{@code instance_id} Ultramsg — default {@code "instance101739"} (kunci konfigurasi
+ * {@code token_instance_id_baru}, lihat {@link #ultramsgFormat})</li>
+ * <li>{@code token} Ultramsg — default {@code "dd9gcfbnp928paj0"} (kunci konfigurasi
+ * {@code token_ultramsg_baru}, lihat {@link #ultramsgFormat})</li>
+ * <li>{@code api_key} Watzap — default {@code "YBIYGXHPIVEVHT3G"} (kunci konfigurasi
+ * {@code watzap_api_key}, lihat {@link #watzapFormat})</li>
+ * <li>{@code number_key} Watzap — default {@code "u3w09ScxqJsNIrpG"} (kunci konfigurasi
+ * {@code watzap_number_key}, lihat {@link #watzapFormat})</li>
+ * <li>daftar {@code number_key} rotasi Watzap — default
+ * {@code "u3w09ScxqJsNIrpG;ESaI8uxCG6hHdJro;1zUEMU5zLp2UlJis;5ur22YeVFmUkCpCX"} (kunci
+ * konfigurasi {@code watzap_number_key_random}, lihat {@link #watzapFormat})</li>
+ * </ul>
+ * <p>
+ * Bila token-token ini masih aktif/valid di sisi penyedia, keberadaannya dalam riwayat kode
+ * (termasuk riwayat SVN) merupakan kebocoran kredensial yang perlu ditinjau dan dirotasi oleh
+ * pemilik integrasi; tidak diubah di sini sesuai batasan tugas dokumentasi.
+ * </p>
+ */
 public class WaApi {
 
+	/**
+	 * Menyusun perintah {@code curl} untuk mengirim pesan (atau dokumen, bila {@code namaFile}
+	 * dan {@code url} diisi) lewat API Ultramsg. Kredensial instance/token diambil dari
+	 * konfigurasi {@code token_instance_id_baru}/{@code token_ultramsg_baru} — lihat peringatan
+	 * keamanan pada javadoc kelas terkait nilai default fallback yang tertanam di kode.
+	 *
+	 * @param from     nomor tujuan WhatsApp
+	 * @param send     isi pesan (atau caption, bila mengirim dokumen)
+	 * @param namaFile nama file lampiran, boleh {@code null} bila tanpa lampiran
+	 * @param url      URL dokumen yang akan dilampirkan, boleh {@code null} bila tanpa lampiran
+	 * @return array argumen perintah {@code curl} siap dijalankan lewat {@link ProcessBuilder}
+	 */
 	public static String[] ultramsgFormat(String from, String send, String namaFile, String url) throws Exception {
 		String instance_id = Common.getKonfigurasi("token_instance_id_baru", "instance101739").getNilai().trim();
 
@@ -34,6 +79,30 @@ public class WaApi {
 		return command;
 	}
 
+	/**
+	 * Menyusun perintah {@code curl} untuk mengirim pesan lewat API Watzap. Kunci nomor
+	 * pengirim ({@code number_key}) dipilih secara round-robin dari daftar
+	 * {@code watzap_number_key_random} (indeks berjalan di {@link
+	 * ais.action.servlet.Wa#indexPengiriman}) bila {@code from} belum punya kunci tetap di
+	 * {@link ais.action.servlet.Wa#nomorKey}, agar beban pengiriman tersebar ke beberapa nomor
+	 * pengirim. Payload JSON ditulis ke berkas sementara {@code /opt/tanya/send_<nomor>.txt} dan
+	 * dikirim lewat {@code --data @berkas} (menghindari batas panjang argumen shell untuk pesan
+	 * panjang); bila penulisan berkas gagal (mis. direktori tidak dapat dibuat), method jatuh
+	 * kembali mengirim payload langsung sebagai argumen {@code curl} (tetap aman dari
+	 * shell-injection karena tetap berupa elemen array terpisah). Bila {@code namaFile} dan
+	 * {@code url} diisi serta konfigurasi {@code kirim_file_via_watzap} aktif, method ini juga
+	 * langsung memicu pengiriman dokumen terpisah lewat endpoint {@code send_file_url} (efek
+	 * samping tambahan, di luar perintah {@code curl} yang dikembalikan). Lihat peringatan
+	 * keamanan pada javadoc kelas terkait kredensial default fallback yang tertanam di kode.
+	 *
+	 * @param from     nomor tujuan WhatsApp/Watzap, tidak boleh kosong
+	 * @param send     isi pesan; {@code null} diperlakukan sebagai string kosong
+	 * @param namaFile nama file lampiran, boleh {@code null} bila tanpa lampiran
+	 * @param url      URL dokumen yang akan dilampirkan, boleh {@code null} bila tanpa lampiran
+	 * @return array argumen perintah {@code curl} untuk pengiriman pesan teks, siap dijalankan
+	 *         lewat {@link ProcessBuilder}
+	 * @throws IllegalArgumentException bila {@code from} kosong/{@code null}
+	 */
 	public static String[] watzapFormat(String from, String send, String namaFile, String url) throws Exception {
 		if (from == null || from.trim().length() == 0) {
 			throw new IllegalArgumentException("Nomor tujuan WhatsApp/Watzap kosong");

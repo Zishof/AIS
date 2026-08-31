@@ -15,13 +15,34 @@ import ais.database.model.sekolah.RuangGelombangPendaftaranPsbPSB;
 import ais.database.model.sekolah.RuangPSB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Algoritma pembangkit nomor ujian PSB bawaan, sekaligus penetap ruang ujian
+ * ({@link RuangPSB}) untuk calon siswa. Alur kerja: (1) bila calon siswa sudah punya nomor ujian,
+ * kembalikan langsung tanpa proses ulang; (2) cari {@link RuangPSB} yang belum penuh pada
+ * gelombang pendaftaran calon siswa; (3) bila tidak ada ruang tersedia atau ruang yang dipilih
+ * sudah penuh, tampilkan pesan informasi dan kembalikan string kosong; (4) bentuk nomor ujian dari
+ * 2 digit terakhir tahun masuk + digit urutan global (diambil dari nomor ujian tertinggi yang
+ * sudah tersimpan di seluruh sekolah, panjang dari konfigurasi {@code jumlah_increments_no_ujian_psb},
+ * default 8) dan langsung menyimpannya ke {@code calonSiswa}; (5) bila nomor ternyata sudah
+ * dipakai calon siswa lain, coba lagi secara rekursif; (6) setelah berhasil, tetapkan penempatan
+ * ruang ujian lewat {@link CommonPSB#dapatkanRuangUjian(CalonSiswa)}.
+ */
 public class DefaultNoUjianGeneratorPsb implements NoUjianGeneratorPsb {
 
+	/** @return nomor ujian untuk {@code calonSiswa}, lihat {@link #generateNoUjian(CalonSiswa, List)}. */
 	@Override
 	public String generateNoUjian(CalonSiswa calonSiswa) throws Exception {
 		return generateNoUjian(calonSiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan (atau mengembalikan nomor ujian yang sudah ada) sekaligus menetapkan ruang
+	 * ujian calon siswa. Lihat javadoc kelas untuk alur lengkap.
+	 *
+	 * @param calonSiswa          calon siswa yang akan diberi nomor ujian
+	 * @param jumlahPengecualian  nomor yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @return nomor ujian yang tersimpan, atau string kosong bila kuota/ruang ujian tidak tersedia
+	 */
 	@Override
 	public String generateNoUjian(CalonSiswa calonSiswa, List<String> jumlahPengecualian) throws Exception {
 

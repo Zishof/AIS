@@ -11,13 +11,32 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 
+/**
+ * Implementasi {@link BarcodeGenerator} berbasis nomor urut numerik 7 digit murni untuk barcode item
+ * perpustakaan. Nomor baru dihitung dari nilai barcode numerik-7-digit tertinggi yang sudah ada di
+ * {@link ItemPunyaBarcode} ({@code MAX(barcode)} dengan filter regex panjang 7 digit angka) ditambah
+ * 1, lalu diperiksa ulang keunikannya terhadap tabel yang sama; bila ternyata sudah terpakai (kondisi
+ * balapan/race saat pembuatan massal), nomor tersebut ditambahkan ke daftar pengecualian dan method
+ * memanggil dirinya sendiri secara rekursif untuk mencoba nomor berikutnya.
+ */
 public class NomorUrut7DigitGenerator implements BarcodeGenerator {
 
+	/** Menghasilkan barcode tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Menghasilkan barcode numerik 7 digit berikutnya, menghindari nilai dalam
+	 * {@code barcodePengecualian} maupun yang sudah tersimpan di database. Rekursif: bila kandidat
+	 * ternyata sudah dipakai, kandidat itu ditambahkan ke {@code barcodePengecualian} dan method
+	 * dipanggil ulang untuk mencoba nilai berikutnya (offset bertambah sesuai ukuran daftar).
+	 *
+	 * @param barcodePengecualian daftar barcode yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @param batchItemPunyaBarcode konteks batch item (tidak dipakai untuk membentuk nomor)
+	 * @return barcode numerik 7 digit yang belum terpakai
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

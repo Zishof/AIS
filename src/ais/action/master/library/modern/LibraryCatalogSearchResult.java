@@ -7,6 +7,15 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
+/**
+ * DTO hasil pencarian katalog perpustakaan modern: satu halaman {@link LibraryCatalogItemDto}
+ * beserta metadata paginasi ({@code page}/{@code pageSize}/{@code total}) dan facet pencarian
+ * (kategori, penulis, dsb dalam bentuk {@link JSONObject} bebas). {@link #toJson()} menyerialisasi
+ * seluruh field menjadi satu objek JSON respons API, dengan {@code total} disertakan dua kali
+ * (kunci {@code "count"} dan {@code "total"}) dan daftar item disertakan dua kali (kunci
+ * {@code "data"} dan {@code "items"}) demi kompatibilitas dengan beberapa varian klien front-end
+ * yang membaca nama kunci berbeda.
+ */
 public class LibraryCatalogSearchResult {
     private int page;
     private int pageSize;
@@ -14,6 +23,13 @@ public class LibraryCatalogSearchResult {
     private List<LibraryCatalogItemDto> items = new ArrayList<LibraryCatalogItemDto>();
     private JSONObject facets = new JSONObject();
 
+    /**
+     * Menyerialisasi hasil pencarian menjadi objek JSON respons API (page, pageSize, total/count,
+     * facets, dan daftar item di bawah kunci {@code data} maupun {@code items}).
+     *
+     * @return objek JSON siap dikirim sebagai respons
+     * @throws JSONException bila penyusunan objek JSON gagal
+     */
     public JSONObject toJson() throws JSONException {
         JSONArray data = new JSONArray();
         for (LibraryCatalogItemDto item : items) data.put(item.toJson());

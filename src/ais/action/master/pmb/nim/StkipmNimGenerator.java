@@ -11,13 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khas STKIP Muhammadiyah (STKIPM). Format: {@code "0142" + namaJenjang +
+ * kodeProdi + potonganTahun + 3 digit urutan} — prefix institusi {@code "0142"} tetap, diikuti
+ * <b>nama</b> jenjang (bukan kode) dan kode program studi. Catatan: variabel bernama
+ * {@code digitPertama}/{@code digitKedua} pada implementasi sengaja tertukar posisi terhadap
+ * urutan pada NIM akhir (lihat susunan {@code nim = "0142"+digitPertama+digitKedua+...}) — nama
+ * variabel yang membingungkan ini dipertahankan apa adanya sesuai kode asli.
+ */
 public class StkipmNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar NIM yang harus dihindari. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM baru untuk {@code calonMahasiswa} sesuai format khas STKIPM (lihat javadoc
+	 * kelas), menghindari nomor pada {@code jumlahPengecualian}. Rekursif pada bentrokan nomor.
+	 *
+	 * @param calonMahasiswa      calon mahasiswa yang akan diberi NIM; harus memiliki program studi
+	 *                            lulus agar NIM dapat dihitung (selain itu mengembalikan {@code "-"})
+	 * @param jumlahPengecualian  daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return NIM unik berprefix {@code "0142"} sesuai format STKIPM, atau {@code "-"} bila program studi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

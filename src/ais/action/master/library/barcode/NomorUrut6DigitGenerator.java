@@ -11,13 +11,34 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 
+/**
+ * Pembangkit barcode item perpustakaan dengan format nomor urut 6 digit polos (tanpa awalan
+ * tahun/kode), mis. {@code "000123"}. Nomor berikutnya dihitung dari barcode numerik 6-digit
+ * terbesar yang sudah tersimpan (dicari lewat pola SQL regex {@code char_length(barcode)=6 and
+ * barcode ~ '^[0-9\.]+$'}), ditambah 1 dan ditambah jumlah barcode yang sudah dipesan dalam
+ * proses pembangkitan batch berjalan. Bila nomor hasil bentrok dengan barcode yang sudah ada,
+ * method memanggil dirinya sendiri secara rekursif dengan nomor tersebut ditambahkan ke daftar
+ * pengecualian.
+ */
 public class NomorUrut6DigitGenerator implements BarcodeGenerator {
 
+	/** Membangkitkan barcode baru untuk {@code batchItemPunyaBarcode} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Membangkitkan barcode baru berupa nomor urut 6 digit, menghindari nomor pada
+	 * {@code barcodePengecualian} maupun yang sudah tersimpan di database; mengulang secara
+	 * rekursif bila terjadi bentrok.
+	 *
+	 * @param barcodePengecualian daftar barcode yang harus dihindari, diperbarui di tempat saat
+	 *                             terjadi bentrok
+	 * @param batchItemPunyaBarcode batch item yang akan diberi barcode (tidak dipakai langsung
+	 *                             dalam pembentukan nomor pada varian ini, hanya diteruskan)
+	 * @return barcode baru berupa string 6 digit yang belum dipakai
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

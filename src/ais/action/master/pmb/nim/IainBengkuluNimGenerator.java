@@ -11,13 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khas IAIN Bengkulu. Format: {@code <2 digit tahun><kodePerguruanTinggi
+ * fakultas><kodeProdi><4 digit urutan>}, dengan urutan dihitung dalam lingkup
+ * tahun-angkatan+jenjang+program-studi yang sama. Kode perguruan tinggi diambil dari
+ * {@code prodiLulus.fakultas.perguruanTinggi.kodePerguruanTinggi}, sehingga secara implisit
+ * mengasumsikan seluruh fakultas berada di bawah satu kode perguruan tinggi (IAIN Bengkulu).
+ */
 public class IainBengkuluNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar NIM yang harus dihindari. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM baru untuk {@code calonMahasiswa} sesuai format khas IAIN Bengkulu (lihat
+	 * javadoc kelas), menghindari nomor pada {@code jumlahPengecualian}. Rekursif pada bentrokan
+	 * nomor.
+	 *
+	 * @param calonMahasiswa      calon mahasiswa yang akan diberi NIM; mengembalikan string kosong
+	 *                            bila program studi lulus belum diisi
+	 * @param jumlahPengecualian  daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return NIM unik sesuai format IAIN Bengkulu, atau string kosong bila program studi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

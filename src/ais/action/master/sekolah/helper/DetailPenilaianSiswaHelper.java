@@ -115,21 +115,60 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper ZK yang membangun seluruh antarmuka input/tampilan nilai siswa (modul sekolah) di dalam
+ * satu {@link Component} host: grid per grup penilaian &amp; kategori item penilaian, tab-tab
+ * bertingkat (grup penilaian -> kategori -> total), fitur download/upload nilai lewat Excel
+ * (XSSF), serta tombol kunci/buka-kunci nilai per (matapelajaran, grup penilaian, kategori, kelas,
+ * semester).
+ *
+ * <p>
+ * Sebagian besar method bersifat {@code static} dan menerima seluruh konteks (kelas, mata
+ * pelajaran, jadwal pelajaran, daftar siswa) sebagai parameter, karena dipanggil dari berbagai
+ * layar/aksi yang membangun UI penilaian secara dinamis dan berulang (dipanggil ulang lewat
+ * {@code EventListener} setiap kali filter pencarian/semester berubah). Field instance (
+ * {@link #kelasSiswa}, {@link #rowsData}, {@link #siswas}) hanya dipakai oleh jalur non-statis
+ * {@link #displayDetailPA} untuk menampilkan rekap penilaian yang dikelompokkan per jenis
+ * penilaian dan dibatasi pada mata pelajaran yang diampu guru yang sedang login.
+ * </p>
+ *
+ * <p>
+ * Total/min/max nilai dihitung lewat formula pada {@link GrupPenilaian}/
+ * {@link GrupKategoriItemPenilaianSiswa} yang dievaluasi oleh {@link GrupPenilaianUtil}, sedangkan
+ * konversi ke nilai huruf memakai {@link NilaiHurufSekolah}. Proses upload Excel berjalan di thread
+ * terpisah dengan indikator "busy" berbasis {@link Timer} agar UI tidak terkunci selama proses
+ * baris-demi-baris berlangsung.
+ * </p>
+ */
 public class DetailPenilaianSiswaHelper {
 
+	/** Kelas siswa yang sedang ditampilkan/diproses oleh jalur non-statis {@link #displayDetailPA}. */
 	private KelasSiswa kelasSiswa;
+	/** Baris grid tempat rekap penilaian (per jenis penilaian) dirender oleh {@link #loadData}. */
 	private Rows rowsData;
+	/** Daftar siswa (beserta relasi kelas) yang sedang ditampilkan pada {@link #rowsData}. */
 	private List<? extends VoKelasPunyaSiswa> siswas;
 
+	/** Nama properti Hibernate yang diproyeksikan sebagai kolom identitas siswa pada export/import Excel nilai. */
 	private static String[] contents = new String[] { "siswa.id", "siswa.nomorInduk", "siswa.nomorIndukNasional",
 			"siswa.namaSiswa", "siswa.tahunMasuk", "siswa.jenisKelamin", "siswa.agama.nama" };
 
+	/** Konstruktor kosong; state instance diisi belakangan lewat {@link #displayDetailPA}. */
 	public DetailPenilaianSiswaHelper() {
 		// delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		// create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 
 	}
 
+	/**
+	 * Membuat {@link Criteria} dasar untuk mengambil {@link KelasSiswaPunyaSiswa} aktif pada
+	 * {@link #kelasSiswa}, diurut berdasarkan nomor urut/nama bila {@code order} true. Bila user
+	 * yang sedang login adalah orang tua, hasil dibatasi hanya pada anak-anaknya sendiri lewat
+	 * {@code Tbmuser#getOrangTua()}.
+	 *
+	 * @param order sertakan pengurutan (nomor urut, nama, id) bila {@code true}
+	 * @return criteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -152,11 +191,13 @@ public class DetailPenilaianSiswaHelper {
 		return criteria;
 	}
 
+	/** Varian ringkas {@link #displayPenilaian(JadwalPelajaran, KurikulumPunyaMatapelajaran, Component, KelasSiswa, List)} tanpa {@link JadwalPelajaran} eksplisit (dipakai saat penilaian tidak terikat satu jadwal pelajaran tertentu). */
 	public static void displayPenilaian(KurikulumPunyaMatapelajaran kurikulumPunyaMatapelajaran, Component detail,
 			KelasSiswa kelasSiswa, List<? extends VoKelasPunyaSiswa> siswas) throws Exception {
 		displayPenilaian(null, kurikulumPunyaMatapelajaran, detail, kelasSiswa, siswas);
 	}
 
+	/** Membangun header {@link Rows} grid nilai (kolom Foto/Siswa/Penilaian, dengan atau tanpa pemisahan semester Ganjil/Genap tergantung apakah semester sudah tetap) untuk varian grid dengan kolom Min/Max. */
 	private static Rows createRows(JadwalPelajaran jadwalPelajaran, GrupPenilaian grupPenilaian,
 			GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa, KelasSiswa kelasSiswa,
 			Matapelajaran matapelajaran, Tbmuser tbmuser, EventListener eventListener, Groupbox groupboxData) {
@@ -318,6 +359,17 @@ public class DetailPenilaianSiswaHelper {
 		return rows;
 	}
 
+	/**
+	 * Membuat sepasang tombol toolbar "Download" dan "Upload " untuk export/import nilai dalam
+	 * format Excel (XSSF), dibatasi pada semester ({@code jadwalPelajaran}/khusus semester grup
+	 * atau kategori/{@code smtTunggal}) dan hasil filter nama/agama/jenis kelamin yang sedang aktif
+	 * pada layar. Tombol download memakai {@link Common#cetakDataCustomButton} dengan callback
+	 * {@code dataAdding} yang menulis nilai tiap item penilaian (plus kolom verifikasi bila bukan
+	 * tipe FORMULA) dan total ke setiap baris sheet. Tombol upload menerima file {@code .xlsx} dan
+	 * mendelegasikan pemrosesan ke {@link #uploadDataNilai}.
+	 *
+	 * @return array berisi {@code {tombolDownload, tombolUpload}}
+	 */
 	private static Button[] buatDownloadDanUpload(final JadwalPelajaran jadwalPelajaran,
 			final Matapelajaran matapelajaran, final Boolean hanyaValid,
 			final GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa, final GrupPenilaian grupPenilaian,
@@ -566,6 +618,13 @@ public class DetailPenilaianSiswaHelper {
 		return new Button[] { cetakToolbarbutton, upload };
 	}
 
+	/**
+	 * Seperti {@link #createRows}, tapi untuk grid nilai <b>tanpa kolom Min/Max</b> (hanya
+	 * Total+Huruf). Sekaligus merender toolbar kunci/buka-kunci (lewat {@link #tampilKunci}) dan
+	 * tombol download/upload di setiap header semester, dan menyembunyikan tombol tersebut bila
+	 * nilai semester itu sudah terkunci ({@code Konfigurasi#getDikunci()} tidak null) atau bila
+	 * kelas/jadwal/masa jadwal pelajaran itu sendiri terkunci.
+	 */
 	private static Rows createRowsTanpaMinMax(JadwalPelajaran jadwalPelajaran, GrupPenilaian grupPenilaian,
 			GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa, KelasSiswa kelasSiswa,
 			Matapelajaran matapelajaran, Tbmuser tbmuser, EventListener eventListener, Groupbox groupboxData,
@@ -846,6 +905,29 @@ public class DetailPenilaianSiswaHelper {
 		return rows;
 	}
 
+	/**
+	 * Implementasi kanonik: membangun seluruh UI penilaian nilai siswa untuk satu
+	 * {@code matapelajaran}/kurikulum di dalam {@code detail}, berupa {@link Tabbox} bertingkat
+	 * (tab per {@link GrupPenilaian} aktif, lalu tab per {@link GrupKategoriItemPenilaianSiswa}
+	 * di dalamnya, ditambah tab "Total" bila grupnya {@code getAdaTotal()}). Isi tiap tabpanel
+	 * dibangun malas (lazy) lewat listener {@code onClick} pertama kali tab dibuka — bukan saat
+	 * tab dibuat — supaya pembentukan halaman awal tetap ringan walau jumlah grup/kategori banyak.
+	 *
+	 * <p>
+	 * Grup penilaian yang {@code khususTingkat}-nya tidak cocok dengan tingkat {@code kelasSiswa}
+	 * dilewati. Daftar siswa difilter dulu lewat {@link KelasSiswaPunyaSiswa#filterMk} terhadap
+	 * mata pelajaran yang berlaku. Setiap tabpanel menyediakan filter pencarian (nama/NIS/NISN,
+	 * agama, jenis kelamin), tombol download Excel, dan — untuk grup yang punya kategori — grid
+	 * input nilai per siswa lengkap dengan tombol kunci/buka-kunci dan upload Excel.
+	 * </p>
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran spesifik (menentukan semester tetap), boleh {@code null}
+	 * @param kur             relasi kurikulum-matapelajaran yang menentukan jenis penilaian, boleh {@code null}
+	 * @param detail          komponen host tempat seluruh UI dirender (dibersihkan dulu oleh pemanggil)
+	 * @param kelasSiswa      kelas siswa yang nilainya ditampilkan
+	 * @param siswasTemp      daftar siswa kandidat sebelum difilter terhadap mata pelajaran
+	 * @throws Exception diteruskan dari operasi Hibernate/parsing JSON di dalamnya
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public static void displayPenilaian(final JadwalPelajaran jadwalPelajaran, final KurikulumPunyaMatapelajaran kur,
 			final Component detail, final KelasSiswa kelasSiswa, List<? extends VoKelasPunyaSiswa> siswasTemp) throws Exception {
@@ -3509,6 +3591,13 @@ public class DetailPenilaianSiswaHelper {
 		}
 	}
 
+	/**
+	 * Menampilkan rekap penilaian (grid per {@link JenisPenilaian}) untuk guru yang sedang login,
+	 * dibatasi hanya pada mata pelajaran yang diampunya (lewat {@code JadwalUtil.ambilJadwal}) dan
+	 * yang termasuk kurikulum {@code kelasSiswa}. Menyimpan {@code kelasSiswa} ke field instance
+	 * lalu mendelegasikan pembangunan baris ke {@link #loadData}. Bila kelas belum memiliki
+	 * kurikulum sekolah yang diset, menampilkan label peringatan dan berhenti.
+	 */
 	public void displayDetailPA(KelasSiswa kelasSiswa, final Component component, final MyWindow window) {
 
 		this.kelasSiswa = kelasSiswa;
@@ -3535,6 +3624,28 @@ public class DetailPenilaianSiswaHelper {
 		loadData(null);
 	}
 
+	/**
+	 * Memproses file Excel hasil upload nilai secara asinkron di thread terpisah, baris demi baris:
+	 * mencocokkan siswa lewat id (kolom 0) atau NISN (kolom 1), lalu untuk setiap kombinasi
+	 * semester x item penilaian menuliskan nilai (atau menghitungnya otomatis dari formula bila
+	 * tipe item FORMULA) beserta status verifikasi, dan menghitung ulang total per kategori.
+	 * Setiap baris di-commit dalam transaksi Hibernate sendiri (bukan satu transaksi besar) supaya
+	 * kegagalan satu baris tidak membatalkan baris lain; kegagalan dihitung dan dilaporkan lewat
+	 * pesan ringkas di akhir proses. Indikator "busy" ditampilkan lewat {@link Timer} yang berpolling
+	 * ke {@code label} sampai proses selesai, lalu memunculkan {@link MyMessageboxConfig} dan
+	 * memicu {@code eventListener}.
+	 *
+	 * @param file                          file {@code .xlsx} hasil upload
+	 * @param eventListener                 dipicu setelah proses selesai (biasanya me-refresh grid)
+	 * @param contents                      nama kolom identitas siswa (lihat {@link #contents})
+	 * @param smts                          semester yang diproses (satu atau dua elemen)
+	 * @param jenisItemPenilaianSiswas      daftar item penilaian yang kolomnya ada di sheet
+	 * @param siswas                        daftar siswa kandidat untuk dicocokkan dengan baris sheet
+	 * @param matapelajaran                 mata pelajaran target
+	 * @param grupKategoriItemPenilaianSiswa kategori item penilaian target
+	 * @param grupPenilaian                 grup penilaian target
+	 * @throws Exception diteruskan dari kegagalan membuka file Excel
+	 */
 	public static void uploadDataNilai(final File file, final EventListener eventListener, final String[] contents,
 			final int[] smts, final List<JenisItemPenilaianSiswa> jenisItemPenilaianSiswas,
 			final List<? extends VoKelasPunyaSiswa> siswas, final Matapelajaran matapelajaran,
@@ -3749,6 +3860,13 @@ public class DetailPenilaianSiswaHelper {
 		}).start();
 	}
 
+	/**
+	 * Menambahkan tombol "Buka" dan "Kunci" ke {@code toolbar} untuk mengubah status kunci
+	 * {@code konfigurasi} (kunci nilai per matapelajaran/grup/kategori/kelas/semester). Tombol
+	 * hanya ditampilkan bila user yang login bukan siswa dan {@code konfigurasi} tersedia; keduanya
+	 * meminta konfirmasi lewat {@link MyMessageboxConfig} sebelum menyetel/menghapus
+	 * {@code Konfigurasi#getDikunci()} dan memicu {@code eventListener} untuk me-refresh tampilan.
+	 */
 	public static void tampilKunci(Component toolbar, final Konfigurasi konfigurasi, Tbmuser tbmuser,
 			final EventListener eventListener) {
 		final MyToolbarbuttonConfig bukaKunci = new MyToolbarbuttonConfig("Buka", "/img/svg/unlock.svg");
@@ -3854,6 +3972,12 @@ public class DetailPenilaianSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun ulang isi {@link #rowsData}: satu baris label per {@link JenisPenilaian} yang
+	 * relevan (mata pelajaran diampu guru login dan termasuk kurikulum {@link #kelasSiswa}),
+	 * diikuti satu baris grid nilai untuk jenis penilaian tersebut. Dipanggil dari
+	 * {@link #displayDetailPA} dan dari listener internal saat data perlu disegarkan.
+	 */
 	private void loadData(Object object) {
 
 		Tbmuser tbmuser = Common.getCurrentUser();

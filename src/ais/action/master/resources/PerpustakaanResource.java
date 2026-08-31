@@ -82,6 +82,48 @@ import ais.database.model.library.UdcItem;
 import ais.database.model.rab.SatuanKerja;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Resource JAX-RS ({@code /perpustakaan}) yang menjadi API utama modul perpustakaan (library)
+ * untuk konsumen eksternal (aplikasi desktop sirkulasi, mobile OPAC), dipublikasikan sebagai
+ * singleton lewat {@link Singleton}. Kelas ini mewarisi CRUD generik dari
+ * {@link DataResource DataResource&lt;Perpustakaan&gt;} (login sederhana username/password,
+ * pencarian generik) dan menambahkan puluhan endpoint {@code @GET} khusus domain perpustakaan:
+ * autentikasi pustakawan, pencarian anggota/buku, transaksi peminjaman dan pengembalian,
+ * pencarian stok/statistik buku populer, sinkronisasi katalog dengan Google Books/Open Library,
+ * komentar pembaca pada item/publikasi/informasi perpustakaan, serta berbagai daftar referensi
+ * (DDC, UDC, kategori, jenis item, domain penelitian).
+ *
+ * <h2>Pola berulang di seluruh kelas</h2>
+ * <ul>
+ * <li><b>Overload berjenjang</b> — banyak endpoint (mis. {@code cariBukuStok},
+ * {@code cariBukuPopulerPerPerpustakaan}, {@code daftarItemJurnal}, {@code daftarPublikasiItem})
+ * punya beberapa varian {@code @Path} dengan jumlah parameter berbeda; varian dengan parameter
+ * lebih sedikit hanya menyisipkan nilai default/kosong lalu mendelegasikan ke varian dengan
+ * parameter terbanyak yang menjadi implementasi sesungguhnya.</li>
+ * <li><b>Parameter path sebagai filter opsional</b> — nilai path berupa {@code ""}, {@code "_"},
+ * atau {@code "-1"} secara konvensi berarti "tidak difilter"; hampir semua kriteria Hibernate
+ * memakai pola {@code kondisi.trim().equals("") || kondisi.trim().equals("_") ?
+ * Restrictions.sqlRestriction("1=1") : Restrictions.ilike(...)}.</li>
+ * <li><b>Sesi Hibernate manual</b> — tiap metode mengambil {@link Session} lewat
+ * {@link HibernateUtil#currentNativeSession()} dan menutupnya sendiri di akhir lewat
+ * {@link HibernateUtil#closeSession()} (kadang juga {@link StreamingHibernateUtil} untuk galeri
+ * foto/lampiran), bukan lewat filter/transaksi terpusat.</li>
+ * <li><b>URL-decoding manual</b> — parameter teks bebas (judul, nama, kata kunci) di-decode
+ * dengan {@link URLDecoder#decode(String, String)} karena dikirim lewat segmen path, bukan query
+ * string standar.</li>
+ * <li><b>Perhitungan batas peminjaman berlapis</b> — beberapa metode ({@code getPeminjaman},
+ * {@code cariPeminjaman}, {@code getAnggota}) menghitung jumlah maksimal item yang boleh dipinjam
+ * dan jumlah maksimal perpanjangan dengan query {@link ais.database.model.library.BatasWaktuPeminjamanItem}
+ * bertingkat: dicoba dulu aturan spesifik (jenis+tipe anggota+fakultas+jurusan+semester), lalu
+ * fallback ke aturan lebih umum bila tidak ditemukan.</li>
+ * </ul>
+ *
+ * <p>
+ * Sebagian besar data sensitif anggota (relasi ke {@link Tbmuser}, {@link Mahasiswa}, pegawai,
+ * dosen) sengaja di-null-kan sebelum dikembalikan ke klien (lihat {@code setTbmuser(null)} dkk.)
+ * untuk mencegah kebocoran data lewat serialisasi JSON otomatis.
+ * </p>
+ */
 @Path("/perpustakaan")
 @Singleton
 
@@ -89,16 +131,19 @@ import ais.ui.util.WaktuUtil;
 
 public class PerpustakaanResource extends DataResource<Perpustakaan> {
 
+	/** Konstruktor default; mendaftarkan {@link Perpustakaan} sebagai entitas CRUD generik ke superclass {@link DataResource}. */
 	public PerpustakaanResource() {
 		super(Perpustakaan.class);
 	}
 
+	/** Endpoint pemeriksaan/handshake sederhana yang mengembalikan resource ini sendiri sebagai JSON. */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public PerpustakaanResource getXml() {
 		return this;
 	}
 
+	/** Mengambil satu {@link Perpustakaan} berdasarkan id, setelah memvalidasi kredensial via {@link DataResource#getData}. */
 	@GET
 	@Path("load/{username}/{password}/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -107,6 +152,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return super.getData(username, password, id);
 	}
 
+	/** Mengembalikan seluruh {@link Perpustakaan} setelah validasi kredensial (tanpa filter pencarian). */
 	@GET
 	@Path("search/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -115,6 +161,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return super.getAllData(username, password);
 	}
 
+	/** Seperti {@link #getAllData(String, String)}, dengan satu kata kunci pencarian tambahan. */
 	@GET
 	@Path("search/{username}/{password}/{search}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -123,6 +170,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return super.getAllData(username, password, search);
 	}
 
+	/** Seperti {@link #getAllData(String, String, String)}, dengan kata kunci pencarian kedua. */
 	@GET
 	@Path("search/{username}/{password}/{search}/{search1}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -131,6 +179,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return super.getAllData(username, password, search, search1);
 	}
 
+	/** Daftar {@link SatuanKerja} default (root/top-level) untuk dropdown pemilihan satuan kerja perpustakaan. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("satuan_kerja/")
@@ -151,6 +200,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar semua {@link Penerbit} (penerbit buku), tanpa filter nama. */
 	@GET
 	@Path("penerbit/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -158,6 +208,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPenerbit("");
 	}
 
+	/** Mencari {@link Penerbit} yang punya {@code satuanKerja} terisi, difilter ilike terhadap {@code nama} (maks. {@link Common#MAX_RESULT_20} hasil). */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("penerbit/{nama}/")
@@ -182,6 +233,15 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/**
+	 * Autentikasi pustakawan: mencocokkan {@link Tbmuser} aktif berdasarkan {@code username} dan
+	 * password (dienkripsi via {@link Common#desEncrypter}), lalu mencari data
+	 * {@link Pustakawan} miliknya (ambil yang terbaru berdasarkan id) untuk menentukan
+	 * {@link Perpustakaan} tempatnya bertugas.
+	 *
+	 * @return {@link Perpustakaan} tempat pustakawan bertugas
+	 * @throws com.sun.jersey.api.NotFoundException bila data pustakawan/perpustakaan tidak ditemukan atau kredensial tidak valid
+	 */
 	@GET
 	@Path("login/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -216,6 +276,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return pustakawan.getPerpustakaan();
 	}
 
+	/** Seperti {@link #getPeminjaman(String, String)}, tanpa membatasi ke {@link Perpustakaan} tertentu. */
 	@GET
 	@Path("get_peminjaman/{kode}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -223,6 +284,18 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return getPeminjaman(kode, null);
 	}
 
+	/**
+	 * Mencari satu transaksi {@link PeminjamanPengadaanItem} aktif berdasarkan {@code kode}
+	 * (dicocokkan langsung ke kode transaksi, atau bila tidak ketemu, ke kode/NIM/kode dosen
+	 * anggota), lalu merangkumnya jadi {@link PeminjamanItem}: data anggota, ringkasan status
+	 * peminjaman ({@link LibraryUtil#tampilanSummaryPeminjamanFormatDesktop}), sisa kuota
+	 * perpanjangan, kuota maksimal item yang boleh dipinjam (dihitung via
+	 * {@link ais.database.model.library.BatasWaktuPeminjamanItem}, fallback ke aturan umum bila
+	 * aturan spesifik semester tidak ada), serta daftar item yang sedang dipinjam beserta denda
+	 * keterlambatan per item ({@link LibraryUtil#hitungDendaItem}).
+	 *
+	 * @return {@link PeminjamanItem} berisi ringkasan peminjaman, atau dengan {@code error} terisi bila kode tidak ditemukan
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("get_peminjaman_perpustakaan/{kode}/{perpustakaan}")
@@ -335,6 +408,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return peminjamanItem;
 	}
 
+	/** Seperti {@link #cariPeminjaman(String, String, String, String)}, tanpa membatasi ke {@link Perpustakaan} tertentu. */
 	@GET
 	@Path("cari_peminjaman/{kode}/{identitas}/{nama}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -343,6 +417,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariPeminjaman(kode, identitas, nama, null);
 	}
 
+	/**
+	 * Mencari daftar transaksi {@link PeminjamanPengadaanItem} (maks.
+	 * {@link Common#MAX_RESULT_20}) berdasarkan kombinasi filter ilike kode transaksi/kode
+	 * identitas anggota/nama anggota, lalu merangkum tiap hasil menjadi {@link PeminjamanItem}
+	 * dengan cara yang sama seperti {@link #getPeminjaman(String, String)} (ringkasan status,
+	 * kuota perpanjangan dan kuota maksimal peminjaman dihitung berlapis berdasarkan jenis/tipe
+	 * anggota, fakultas, jurusan, dan semester berjalan).
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("cari_peminjaman_perpustakaan/{kode}/{identitas}/{nama}/{perpustakaan}/")
@@ -511,6 +593,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return peminjamanItems;
 	}
 
+	/** Mencari {@link Item} aktif (maks. {@link Common#MAX_RESULT_20}) berdasarkan kombinasi ilike judul/ISBN/pengarang, mengembalikan ringkasan (judul, ISBN, ISSN, abstrak/catatan, pengarang) per hasil. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("cari_buku/{judul}/{isbn}/{pengarang}/")
@@ -551,6 +634,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/**
+	 * Mencari satu {@link Anggota} berdasarkan {@code kode} (dicoba dulu kolom {@code kode} exact
+	 * match, fallback ke {@code kodeIdentitas}), lalu bila anggota adalah mahasiswa, menghitung
+	 * kuota maksimal perpanjangan dan kuota maksimal peminjaman (berlapis: aturan spesifik lebih
+	 * dulu, fallback aturan umum) dan menyimpannya ke field {@code perpanjang}/{@code maksimal}
+	 * pada objek anggota. Relasi ke {@link Tbmuser}/{@link Mahasiswa}/pegawai/dosen di-null-kan
+	 * sebelum dikembalikan untuk mencegah kebocoran data via serialisasi JSON.
+	 */
 	@GET
 	@Path("anggota/{kode}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -650,6 +741,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return anggota;
 	}
 
+	/** Seperti {@link #getAnggota(String)}, dengan kuota peminjaman/perpanjangan dihitung khusus untuk satu {@link Perpustakaan} ({@code p}). */
 	@GET
 	@Path("anggotaPerpustakaan/{kode}/{perpustakaan}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -760,6 +852,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return anggota;
 	}
 
+	/**
+	 * Mencatat kunjungan anggota ke perpustakaan hari ini: bila belum ada record
+	 * {@link KunjunganAnggota} untuk kombinasi (anggota, perpustakaan, tanggal hari ini), satu
+	 * dibuat baru dengan keterangan "Berkunjung via app desktop"; bila sudah ada, record yang ada
+	 * langsung dikembalikan (idempoten per hari).
+	 *
+	 * @return {@link KunjunganAnggota} hari ini, atau {@code null} bila anggota/perpustakaan tidak ditemukan
+	 */
 	@GET
 	@Path("kunjunganAnggota/{kode}/{perpustakaan}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -813,6 +913,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return kunjunganAnggota;
 	}
 
+	/** Mengambil {@link Item} berdasarkan id, sekaligus menaikkan counter {@code jumlahDilihat} sebanyak 1 (dipersist), lalu mengembalikan salinan (clone) tanpa relasi {@code dibuatOleh}/{@code parent}. */
 	@GET
 	@Path("item_by_id/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -836,6 +937,13 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return myItem;
 	}
 
+	/**
+	 * Mencari {@link Item} berdasarkan {@code kode}, dicoba berurutan: barcode
+	 * ({@link ItemPunyaBarcode}), lalu kode pesanan anggota yang masih berlaku
+	 * ({@link PesananAnggota} berstatus {@code PESAN} dan belum kedaluwarsa), lalu ISBN, lalu
+	 * ISSN. Barcode/kode pesanan yang cocok disimpan sementara ke {@code temporaryBarcode} pada
+	 * item hasil. Mengembalikan salinan (clone) tanpa relasi {@code dibuatOleh}/{@code parent}.
+	 */
 	@GET
 	@Path("item/{kode}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -880,6 +988,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return myItem;
 	}
 
+	/** Membungkus hasil {@link #getAnggotas(String, String, String)} menjadi ringkasan {@link CommonID} (kode, nama, identitas, tipe, kontak). */
 	@GET
 	@Path("new_daftar_anggota/{kode}/{identitas}/{nama}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -904,6 +1013,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Membungkus hasil {@link #getDataKunjunganAnggotas(String, String, String)} menjadi ringkasan {@link CommonID}, ditambah tanggal kunjungan dan id record kunjungan. */
 	@GET
 	@Path("daftarKunjunganAnggota/{kode}/{identitas}/{nama}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -931,6 +1041,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Mencari {@link Anggota} aktif (maks. {@link Common#MAX_RESULT_20}) berdasarkan kombinasi ilike kode/identitas/nama; relasi {@code tbmuser} di-null-kan sebelum dikembalikan. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_anggota/{kode}/{identitas}/{nama}/")
@@ -956,6 +1067,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return newAnggotas;
 	}
 
+	/** Mencari {@link KunjunganAnggota} (maks. {@link Common#MAX_RESULT_20}, terbaru dulu) berdasarkan kombinasi ilike kode/identitas/nama anggota aktif; relasi {@code tbmuser} pada anggota di-null-kan. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_kunjungan_anggota/{kode}/{identitas}/{nama}/")
@@ -982,6 +1094,20 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return newAnggotas;
 	}
 
+	/**
+	 * Memproses pengembalian buku untuk satu transaksi {@link PeminjamanPengadaanItem}: mencatat
+	 * kunjungan anggota hari ini (idempoten, sama seperti {@link #getKunjunganAnggota}), membuat
+	 * atau memperbarui {@link KembaliPengadaanItem} (kode dibangkitkan via
+	 * {@link LibraryUtil#generateCode}), lalu untuk tiap item yang ditandai dikembalikan
+	 * (parameter {@code items} berformat {@code "id,dicentang,jumlahPerpanjangan,keterangan|..."})
+	 * membuat/memperbarui {@link KembaliPengadaanItemDetail} berikut perhitungan dendanya
+	 * ({@link LibraryUtil#hitungDendaItem}), memperbarui status {@link PesananAnggota} terkait
+	 * menjadi {@code DIKEMBALIKAN} bila ada, dan mencatat {@link DetailTransaksi} kode
+	 * {@link LibraryUtil#PENGEMBALIAN_MASUK} untuk tiap item yang dikembalikan.
+	 *
+	 * @param items daftar item dipisah {@code |}, tiap entri {@code id,check,jumlahPerpanjangan,keterangan}
+	 * @return {@link CommonID} berisi id {@link KembaliPengadaanItem} yang dibuat/diperbarui
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("kembalikan/{userid}/{peminjaman}/{items}/")
@@ -1139,6 +1265,22 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return new CommonID(kembaliPengadaanItem.getId());
 	}
 
+	/**
+	 * Memproses transaksi peminjaman baru: bila konfigurasi
+	 * {@code anggota_tidak_boleh_meminjam_lagi_meskipun_peminjaman_sebelumnya_belum_dikembalikan}
+	 * aktif, menolak (melempar {@link Exception}) jika anggota masih punya peminjaman item yang
+	 * belum dikembalikan di perpustakaan yang sama. Selanjutnya mencatat kunjungan anggota hari
+	 * ini (idempoten), membuat {@link PeminjamanPengadaanItem} baru (kode dibangkitkan via
+	 * {@link LibraryUtil#generateCode}), lalu untuk tiap item pada parameter {@code items}
+	 * (format {@code "idItem,barcode|..."}) membuat {@link PeminjamanPengadaanItemDetail} —
+	 * mengaitkan ke {@link ItemPunyaBarcode} bila barcode cocok, atau ke {@link PesananAnggota}
+	 * yang masih berlaku (status diubah jadi {@code PINJAM}) bila tidak — serta mencatat
+	 * {@link DetailTransaksi} kode {@link LibraryUtil#PINJAM_KELUAR} untuk tiap item.
+	 *
+	 * @param items daftar item dipisah {@code |}, tiap entri {@code idItem,barcode}
+	 * @return {@link CommonID} berisi id {@link PeminjamanPengadaanItem} yang dibuat
+	 * @throws Exception bila anggota masih punya peminjaman belum dikembalikan (saat konfigurasi terkait aktif)
+	 */
 	@GET
 	@Path("pinjam/{userid}/{perpustakaan}/{anggota}/{items}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1292,6 +1434,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return new CommonID(peminjamanPengadaanItem.getId());
 	}
 
+	/** Seperti {@link #cariBukuStok(String, String, String, String, String)}, dengan urutan default {@code "desc"}. */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1300,6 +1443,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuStok(perpustakaan, judul, isbn, pengarang, "desc");
 	}
 
+	/** Seperti varian dengan {@code namaPerpustakaan}, tanpa memfilter nama perpustakaan. */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1309,6 +1453,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuStok(perpustakaan, judul, isbn, pengarang, order, "");
 	}
 
+	/** Seperti varian dengan {@code kategori}, tanpa memfilter kategori. */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/{namaPerpustakaan}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1318,6 +1463,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuStok(perpustakaan, judul, isbn, pengarang, order, namaPerpustakaan, "");
 	}
 
+	/** Seperti varian dengan {@code jenis}, tanpa memfilter jenis item. */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/{namaPerpustakaan}/{kategori}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1328,6 +1474,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuStok(perpustakaan, judul, isbn, pengarang, order, namaPerpustakaan, kategori, "");
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/{namaPerpustakaan}/{kategori}/{jenis}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1338,6 +1485,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuStok(perpustakaan, judul, isbn, pengarang, order, namaPerpustakaan, kategori, jenis, "0", "10");
 	}
 
+	/** Seperti varian dengan {@code ddc}, tanpa memfilter kode DDC. */
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/{namaPerpustakaan}/{kategori}/{jenis}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1350,6 +1498,19 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				banyak);
 	}
 
+	/**
+	 * Implementasi kanonik pencarian stok buku: menyusun dan menjalankan SQL native agregat atas
+	 * {@code library.detail_transaksi} (dijumlahkan per item dengan tanda jenis transaksi masuk/
+	 * keluar) digabung ke {@code item}/{@code perpustakaan}/{@code jenis_item}/{@code tipe_item},
+	 * difilter berdasarkan kombinasi perpustakaan, jenis item, kode DDC (lewat subquery ke
+	 * {@link DataDdcItemDetail}), nama perpustakaan, kategori, ISBN, judul, dan pengarang
+	 * (memakai {@code ilike} literal, disusun via string concatenation), diurutkan berdasarkan
+	 * stok, lalu dipaginasi ({@code start}/{@code banyak}). Gambar sampul diambil dari
+	 * {@code image_url} item atau, bila kosong, dibangkitkan via
+	 * {@link CommonMedia#getMediaItem(Long, int, int, boolean)}.
+	 *
+	 * @return daftar {@link StokItem} berisi ringkasan stok per item pada perpustakaan yang dicari
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("cari_buku_stok/{perpustakaan}/{judul}/{isbn}/{pengarang}/{order}/{namaPerpustakaan}/{kategori}/{jenis}/{ddc}/{start}/{banyak}/")
@@ -1447,6 +1608,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return stokItems;
 	}
 
+	/** Seperti varian dengan {@code namaPerpustakaan}, tanpa memfilter nama perpustakaan. */
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1456,6 +1618,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuPopulerPerPerpustakaan(perpustakaan, judul, isbn, pengarang, "");
 	}
 
+	/** Seperti varian dengan {@code kategori}, tanpa memfilter kategori. */
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/{namaPerpustakaan}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1465,6 +1628,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuPopulerPerPerpustakaan(perpustakaan, judul, isbn, pengarang, namaPerpustakaan, "");
 	}
 
+	/** Seperti varian dengan {@code jenis}, tanpa memfilter jenis item. */
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/{namaPerpustakaan}/{kategori}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1475,6 +1639,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return cariBukuPopulerPerPerpustakaan(perpustakaan, judul, isbn, pengarang, namaPerpustakaan, kategori, "");
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/{namaPerpustakaan}/{kategori}/{jenis}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1486,6 +1651,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				"0", "10");
 	}
 
+	/** Seperti varian dengan {@code ddc}, tanpa memfilter kode DDC. */
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/{namaPerpustakaan}/{kategori}/{jenis}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1498,6 +1664,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				"", start, banyak);
 	}
 
+	/**
+	 * Implementasi kanonik pencarian buku populer: sama dengan {@link #cariBukuStok} tetapi
+	 * dibatasi ke {@code detail_transaksi} 6 bulan terakhir dan diurutkan berdasarkan jumlah
+	 * transaksi peminjaman ({@code jumlah}, bukan stok) — dipakai untuk widget "buku populer"
+	 * pada satu perpustakaan.
+	 *
+	 * @return daftar {@link StokItem} terurut dari yang paling sering dipinjam
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("cari_buku_populer_per_perpustakaan/{perpustakaan}/{judul}/{isbn}/{pengarang}/{namaPerpustakaan}/{kategori}/{jenis}/{ddc}/{start}/{banyak}/")
@@ -1591,6 +1765,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return stokItems;
 	}
 
+	/** Daftar {@link FotoItem} (lampiran/gambar) yang ditampilkan untuk satu {@link Item}, memakai {@link StreamingHibernateUtil} agar tidak membebani sesi Hibernate utama. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("get_lampiran/{item}/")
@@ -1616,6 +1791,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar {@link Perpustakaan} aktif (maks. {@link Common#MAX_RESULT_20}) difilter ilike nama perpustakaan dan/atau nama satuan kerja induknya. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_perpustakaan/{nama}/{satuan_kerja}/")
@@ -1647,6 +1823,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar sub-folder karya ilmiah ({@link Item} bertipe {@link LibraryUtil#KARYA_ILMIAH}, {@code folder=true}) di bawah {@code parent} tertentu, difilter opsional per satuan kerja. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_folder_item/{parent}/{satuan_kerja}/")
@@ -1679,6 +1856,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti varian dengan {@code order}, terurut default berdasarkan {@code tanggalterbit} menurun. */
 	@GET
 	@Path("daftar_item/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1688,6 +1866,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemJurnal(parent, nama, pengarang, keyword, abstrack, institusi, "");
 	}
 
+	/** Seperti varian dengan {@code order1}, dengan urutan sekunder default sama dengan {@code order}. */
 	@GET
 	@Path("daftar_item/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1698,6 +1877,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemJurnal(parent, nama, pengarang, keyword, abstrack, institusi, order, "");
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("daftar_item/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -1708,6 +1888,17 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemJurnal(parent, nama, pengarang, keyword, abstrack, institusi, order, order1, "0", "10");
 	}
 
+	/**
+	 * Implementasi kanonik daftar item jurnal/karya ilmiah terbit: mencari {@link Item} bertipe
+	 * {@link LibraryUtil#KARYA_ILMIAH}, status {@link LibraryUtil#PUBLISH}, bukan folder, difilter
+	 * berdasarkan folder induk (termasuk anak-anaknya via
+	 * {@link PerpustakaanResourcesHelper#generateChildsByIds}), nama/tema, kata kunci, abstrak,
+	 * pengarang, dan institusi penerbit (dicek ke lima kolom {@code penerbit}..{@code penerbit5}).
+	 * Untuk tiap hasil disertakan jumlah komentar, statistik unduhan/dilihat, serta jalur folder
+	 * (breadcrumb) hasil telusur ke atas lewat rantai {@code parent}.
+	 *
+	 * @return daftar ringkasan {@link CommonID} item jurnal yang cocok, terpaginasi
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_item/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/{start}/{banyak}/")
@@ -1831,6 +2022,15 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/**
+	 * Mencari {@link Item} lokal (koleksi katalog) berdasarkan kombinasi filter bebas (perpustakaan,
+	 * folder induk beserta anak-anaknya, nama/tema, ISBN/ISBN10/ISSN, kata kunci, abstrak/catatan,
+	 * pengarang, institusi penerbit, kategori, tahun terbit), diurutkan dan dipaginasi. Bila
+	 * {@code perpustakaan} diisi, pencarian dilakukan lewat {@link DetailTransaksi} (item yang
+	 * pernah bertransaksi di perpustakaan tersebut) alih-alih langsung ke {@link Item}. Dipakai
+	 * bersama oleh {@link #daftarItemWithStart} sebagai sumber data lokal sebelum (bila perlu)
+	 * dilengkapi dari Google Books.
+	 */
 	@SuppressWarnings("unchecked")
 	private List<Item> loadDataItem(String perpustakaan, String parent, String nama, String isbn, String pengarang,
 			String keyword, String abstrack, String institusi, String kategori, String tahun, String order,
@@ -1926,6 +2126,21 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return items;
 	}
 
+	/**
+	 * Implementasi bersama {@link #daftarItem} dan {@link #daftarItemManual}: memanggil
+	 * {@link #loadDataItem} untuk hasil lokal, dan bila hasilnya kurang (atau kosong untuk
+	 * pencarian ISBN) DAN pencarian bukan mode {@code sync} DAN tidak difilter per
+	 * {@code perpustakaan}/{@code tahun}, melengkapinya dengan query ke Google Books API
+	 * (lewat {@link BooksSample#queryGoogleBooks}) menggunakan query gabungan
+	 * {@code isbn:}/{@code inauthor:}/{@code intitle:}/{@code inpublisher:}/{@code subject:} —
+	 * tiap volume yang ditemukan disimpan sebagai {@link Item} baru via
+	 * {@link ais.action.servlet.CheckISBN#simpanVolume}. Untuk tiap item hasil, bila belum pernah
+	 * disinkronkan, dijadwalkan sinkronisasi metadata asinkron (thread terpisah, fire-and-forget)
+	 * ke {@link GoogleBookSynchronized} dan {@link OpenLibrarySyncronizer}, serta dilengkapi
+	 * gambar sampul default dan daftar perpustakaan tempat item tersedia.
+	 *
+	 * @param manual bila {@code true}, permintaan Google Books memakai {@code start}/{@code banyak} eksplisit (mode manual, bukan otomatis)
+	 */
 	public List<Item> daftarItemWithStart(@PathParam("perpustakaan") String perpustakaan,
 			@PathParam("parent") String parent, @PathParam("nama") String nama, @PathParam("isbn") String isbn,
 			@PathParam("pengarang") String pengarang, @PathParam("keyword") String keyword,
@@ -2083,6 +2298,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return items;
 	}
 
+	/** Endpoint publik pencarian katalog item (otomatis melengkapi dari Google Books bila hasil lokal kurang) — lihat {@link #daftarItemWithStart}. */
 	@GET
 	@Path("items/{perpustakaan}/{parent}/{nama}/{isbn}/{pengarang}/{keyword}/{abstrack}/{institusi}/{kategori}/{tahun}/{order}/{order1}/{start}/{banyak}/{sync}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2097,6 +2313,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				tahun, order, order1, start, banyak, sync, false);
 	}
 
+	/** Seperti {@link #daftarItem}, tapi permintaan pelengkap ke Google Books memakai paging manual ({@code start}/{@code banyak} eksplisit) — lihat {@link #daftarItemWithStart}. */
 	@GET
 	@Path("items_manual/{perpustakaan}/{parent}/{nama}/{isbn}/{pengarang}/{keyword}/{abstrack}/{institusi}/{kategori}/{tahun}/{order}/{order1}/{start}/{banyak}/{sync}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2111,6 +2328,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				tahun, order, order1, start, banyak, sync, true);
 	}
 
+	/** Menambahkan {@link ItemKomentar} baru untuk satu {@link Item}, merekam status terbit item saat komentar dibuat ({@code statusTerbitItemPadaSaatKomentar}) untuk keperluan moderasi. */
 	@GET
 	@Path("tambah_komentar_item/{item}/{nama}/{alamat}/{kontak}/{email}/{perpustakaan}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2158,6 +2376,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return komentar;
 	}
 
+	/** Seperti varian dengan {@code status}/{@code tidakStatus}, memfilter komentar pada item berstatus terbit "Terbit" tanpa exclude tambahan. */
 	@GET
 	@Path("daftar_item_komentar/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2165,6 +2384,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemKomentar(item, "Terbit", "");
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). Catatan: parameter {@code status} yang diterima diabaikan — kedua slot filter status/exclude diisi dari {@code tidakStatus}. */
 	@GET
 	@Path("daftar_item_komentar/{item}/{status}/{tidakStatus}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2173,6 +2393,12 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemKomentar(item, tidakStatus, tidakStatus, "0", "10");
 	}
 
+	/**
+	 * Implementasi kanonik daftar komentar pada satu {@link Item}: memfilter berdasarkan status
+	 * terbit item saat komentar dibuat (perlakuan khusus untuk {@code "Terbit"} yang juga
+	 * meloloskan komentar tanpa status tercatat), dan dapat mengecualikan satu status tertentu
+	 * lewat {@code tidakStatus}, diurutkan terbaru dulu dan dipaginasi.
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_item_komentar/{item}/{status}/{tidakStatus}/{start}/{banyak}/")
@@ -2218,6 +2444,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("daftar_item_komentar_semua/{parent}/{satuanKerja}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2226,6 +2453,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarItemKomentarSemua(parent, satuanKerja, "0", "10");
 	}
 
+	/** Daftar {@link ItemKomentar} lintas item (status terbit item dilonggarkan/kosong atau {@link LibraryUtil#PUBLISH}), difilter berdasarkan folder induk (beserta anak-anaknya) dan satuan kerja default item. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_item_komentar_semua/{parent}/{satuanKerja}/{start}/{banyak}/")
@@ -2275,6 +2503,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti varian dengan {@code kategori}, tanpa memfilter kategori. */
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2283,6 +2512,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPublikasiItem(satuanKerja, perpustakaan, cari, "");
 	}
 
+	/** Seperti varian dengan {@code jenis}, tanpa memfilter jenis item. */
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/{kategori}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2292,6 +2522,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPublikasiItem(satuanKerja, perpustakaan, cari, kategori, "");
 	}
 
+	/** Seperti varian dengan {@code publikasi}, tanpa memfilter publikasi terbit. */
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/{kategori}/{jenis}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2301,6 +2532,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPublikasiItem(satuanKerja, perpustakaan, cari, kategori, jenis, "");
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/{kategori}/{jenis}/{publikasi}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2311,6 +2543,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPublikasiItem(satuanKerja, perpustakaan, cari, kategori, jenis, publikasi, "0", "10");
 	}
 
+	/**
+	 * Menyusun potongan HTML tabel siap-tampil untuk satu {@link ItemPunyaTerbit} (item yang
+	 * dipublikasikan), merangkum penerbit gabungan (lima kolom {@code penerbit}..{@code penerbit5}),
+	 * lampiran foto dengan tautan unduh, kata kunci gabungan (ID+EN), gambar sampul default, dan
+	 * ketersediaan stok per perpustakaan (dihitung via SQL native agregat atas
+	 * {@code library.detail_transaksi}). String HTML ini disisipkan sebagai {@code info4} pada
+	 * {@link CommonID} yang diberikan sekaligus dikembalikan.
+	 */
 	@SuppressWarnings("unchecked")
 	private String createLayoutItemTerbit(ItemPunyaTerbit itemPunyaTerbit, Session session, Session streamingSession,
 			CommonID commonID) throws Exception {
@@ -2497,6 +2737,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return html;
 	}
 
+	/** Mengambil publikasi ({@link ItemPunyaTerbit}) terbaru untuk satu {@link Item} berdasarkan id item-nya, dirangkum via {@link #createLayoutItemTerbit}. Mengembalikan {@link CommonID} kosong (hanya id) bila item belum pernah dipublikasikan. */
 	@GET
 	@Path("publikasi_item_by_item_id/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2532,6 +2773,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		}
 	}
 
+	/** Mengambil satu {@link ItemPunyaTerbit} berdasarkan id-nya sendiri (bukan id item), dirangkum via {@link #createLayoutItemTerbit}. */
 	@GET
 	@Path("publikasi_item/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON })

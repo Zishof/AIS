@@ -13,13 +13,33 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Algoritma penomoran NIM pola "PRODI-YY-BARUPINDAHAN-URUT": menyusun NIM dari kode prodi, kode
+ * tahun masuk (2 digit terakhir), digit status kelas (1=Ganjil non-pindahan, 2=Ganjil pindahan,
+ * 4=Genap non-pindahan, 6=Genap pindahan), dan nomor urut mahasiswa aktif dengan kombinasi
+ * tahun+semester mulai+status pindahan+prodi yang sama (jumlah digit dikonfigurasi lewat
+ * {@code jumlah_digit_gen_nim_mahasiswa}, default 4), ditambah prefix opsional dari konfigurasi
+ * {@code prefix_pmb}. Bila prodi lulus tidak diketahui, mengembalikan {@code "-"}.
+ */
 public class PRODI_YY_BARUPINDAHAN_URUT_NimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian awal; lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menyusun NIM dari kode prodi, tahun (2 digit), digit status pindahan/semester, dan nomor urut
+	 * (jumlah mahasiswa aktif dengan kombinasi tahun+semester+status pindahan+prodi sama, ditambah
+	 * ukuran {@code jumlahPengecualian}, diformat sesuai jumlah digit terkonfigurasi). Bila NIM
+	 * hasil sudah terpakai, memanggil diri sendiri secara rekursif dengan NIM tersebut ditambahkan
+	 * ke {@code jumlahPengecualian}.
+	 *
+	 * @param calonMahasiswa     data calon mahasiswa (tahun masuk, prodi lulus, semester mulai, status pindahan)
+	 * @param jumlahPengecualian daftar NIM yang harus dilewati (bertambah saat rekursi)
+	 * @return NIM yang belum terpakai, atau {@code "-"} bila prodi lulus tidak diketahui
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

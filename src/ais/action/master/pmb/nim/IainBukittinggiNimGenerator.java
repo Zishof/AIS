@@ -11,13 +11,28 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma pembangkit NIM khusus institusi IAIN Bukittinggi. Format NIM: kode prodi lulus
+ * (atau {@code "--"} bila belum ada) + 2 digit terakhir tahun angkatan + 3 digit urutan
+ * mahasiswa aktif pada kombinasi (tahun angkatan, jenjang, jurusan) yang sama.
+ */
 public class IainBukittinggiNimGenerator implements NimGenerator {
 
+	/** @return NIM baru untuk {@code calonMahasiswa}, lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM format prodi+tahun+urutan; bila hasil sudah dipakai, NIM tersebut
+	 * ditambahkan ke {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara
+	 * rekursif untuk mencoba urutan berikutnya.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa yang akan diberi NIM
+	 * @param jumlahPengecualian  NIM yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @return NIM baru yang belum pernah dipakai
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa,

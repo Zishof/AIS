@@ -11,14 +11,30 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Implementasi {@link NimGenerator} khusus institusi Unikaltar: NIM disusun dari tahun masuk penuh
+ * (4 digit), kode program studi kelulusan, lalu 3 digit nomor urut sekuensial dihitung dari jumlah
+ * mahasiswa aktif pada kombinasi (tahun angkatan, jurusan) yang sama. Mengembalikan {@code "-"}
+ * tanpa membangkitkan nomor bila calon mahasiswa belum punya {@code prodiLulus}. Keunikan
+ * diverifikasi ulang terhadap {@link Mahasiswa} dan tabrakan ditangani rekursif via daftar
+ * pengecualian, sama seperti generator NIM lain di paket ini.
+ */
 public class UnikaltarNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code [4 digit tahun][kode prodi][3 digit urut]} untuk calon
+	 * mahasiswa yang sudah memiliki program studi kelulusan; mengembalikan {@code "-"} bila belum.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber tahun masuk dan program studi kelulusan
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

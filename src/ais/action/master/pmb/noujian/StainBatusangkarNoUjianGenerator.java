@@ -5,7 +5,6 @@ import java.util.Calendar;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
@@ -89,14 +88,9 @@ public class StainBatusangkarNoUjianGenerator implements NoUjianGenerator {
 			String digitPertama = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR) + "";
 			digitPertama = digitPertama.substring(3) + biodataCalonMahasiswa.getPaket().getKode();
 
-			Long jumlah = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-					.setProjection(Projections.rowCount())
-					.add(Restrictions.ilike("noUjian", digitPertama, MatchMode.START)).setMaxResults(1).uniqueResult())
-					.longValue();
-
-			jumlah += jumlahPengecualian.size();
-			String digitKedua = "000000000000000" + (jumlah + 1);
-			digitKedua = digitKedua.substring(digitKedua.length() - 4);
+			long nomorUrut = NoUjianGeneratorSupport.nomorUrutBerikutnya(session, digitPertama, 4,
+					biodataCalonMahasiswa, jumlahPengecualian);
+			String digitKedua = NoUjianGeneratorSupport.leftPadNomor(nomorUrut, 4);
 
 			System.out.println("digit pertama (kode prodi) = " + digitPertama);
 			System.out.println("digit kedua (kode tahun) = " + digitKedua);
@@ -109,11 +103,10 @@ public class StainBatusangkarNoUjianGenerator implements NoUjianGenerator {
 			return "";
 		}
 
-		Integer count = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.add(Restrictions.eq("noUjian", noUjianFinal)).setProjection(Projections.rowCount()).uniqueResult())
-				.intValue();
+		boolean nomorSudahDipakai = NoUjianGeneratorSupport.nomorSudahDipakai(session, noUjianFinal,
+				biodataCalonMahasiswa);
 
-		if (!count.equals(0)) {
+		if (nomorSudahDipakai) {
 			jumlahPengecualian.add(noUjianFinal);
 			return generateNoUjian(biodataCalonMahasiswa, jumlahPengecualian);
 		} else {

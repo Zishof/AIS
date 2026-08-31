@@ -5,8 +5,27 @@ import ais.common.ConstantValues;
 import ais.database.model.PengumumanAkademis;
 import ais.database.model.Tbmuser;
 
+/**
+ * Spesialisasi {@link PengajuanPenelitianDanPengabdianHelper} untuk jenis pengajuan
+ * <b>Pengabdian</b> (kepada masyarakat), dibedakan dari pengajuan Penelitian lewat parameter
+ * {@link ConstantValues#PENGABDIAN} yang diteruskan ke konstruktor induk.
+ *
+ * <p>
+ * Saat dibuat, kelas ini langsung menentukan siapa yang mengajukan berdasarkan
+ * {@link Common#getCurrentUser() user yang sedang login}: bila user tersebut memiliki data dosen,
+ * pengajuan ditandai atas nama dosen ({@code usernamePengajuan} = user id, target
+ * {@link PengumumanAkademis#UNTUK_DOSEN}); bila tidak, tetapi memiliki data mahasiswa, pengajuan
+ * ditandai atas nama mahasiswa ({@code usernamePengajuan} = NIM, target
+ * {@link PengumumanAkademis#UNTUK_MAHASISWA}). Bila user tidak memiliki keduanya, kedua bidang
+ * warisan tersebut dibiarkan tidak terisi.
+ * </p>
+ */
 public class PengajuanPengabdianHelper extends PengajuanPenelitianDanPengabdianHelper {
 
+	/**
+	 * Membuat helper pengajuan pengabdian untuk user yang sedang login, sekaligus menentukan
+	 * peran pengaju (dosen atau mahasiswa) lewat pemeriksaan {@link Common#getCurrentUser()}.
+	 */
 	public PengajuanPengabdianHelper() {
 		super(false, ConstantValues.PENGABDIAN);
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -19,6 +38,7 @@ public class PengajuanPengabdianHelper extends PengajuanPenelitianDanPengabdianH
 		}
 	}
 
+	/** @return label tetap {@code "Pengajuan Pengabdian Dosen"} untuk jenis pengajuan ini. */
 	@Override
 	public String istilah() throws Exception {
 		// TODO Auto-generated method stub

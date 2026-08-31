@@ -59,12 +59,39 @@ import ais.ui.util.WaktuUtil;
 
 
 
+/**
+ * Endpoint REST (JAX-RS/Jersey, singleton) di jalur {@code /user_perpustakaan} yang menjembatani
+ * aplikasi luar (portal repositori karya ilmiah/perpustakaan) dengan modul {@code library} AIS:
+ * pengajuan jurnal/karya ilmiah, pemesanan item pustaka, pencarian/listing item dan pengarang, serta
+ * penyediaan-otomatis (auto-provisioning) akun {@link Tbmuser}/{@link Anggota}/{@link Pengarang}
+ * bila belum ada.
+ *
+ * <p>
+ * Konvensi parameter path di seluruh method: nilai {@code "_"} atau string kosong berarti "tidak
+ * difilter"/"kosong" (dipakai karena JAX-RS path segment tidak dapat benar-benar kosong), dan
+ * hampir semua parameter teks di-decode dulu lewat {@link URLDecoder#decode(String, String)}
+ * (UTF-8) sebelum dipakai pada query Hibernate. Pengguna diidentifikasi lewat {@code username}
+ * (dicocokkan ke {@code email} ATAU id {@link Tbmuser}) tanpa mekanisme otentikasi/sesi lain — API
+ * ini murni dipanggil server-to-server oleh sistem luar yang sudah dipercaya.
+ * </p>
+ *
+ * <p>
+ * Method pencarian item ({@link #daftarItemJurnal}/{@link #daftarItemJurnalMereka}/
+ * {@link #daftarItemKomentarSemua}/{@link #daftarItemKomentarSemuaMereka}) masing-masing punya tiga
+ * overload dengan jumlah parameter path bertingkat (tanpa status/paging, dengan status, dengan
+ * status+paging) sebagai default value berjenjang — pola umum JAX-RS untuk mendukung URL pendek dan
+ * panjang pada resource yang sama. Setiap method menutup sesi Hibernate ({@link HibernateUtil#closeSession()})
+ * sebelum return, termasuk pada jalur awal (early return) saat validasi user/data gagal.
+ * </p>
+ */
 public class UserPerpustakaanResource extends PerpustakaanResource {
 
+	/** Konstruktor default, meneruskan inisialisasi ke {@link PerpustakaanResource}. */
 	public UserPerpustakaanResource() {
 		super();
 	}
 
+	/** Endpoint root ({@code GET /user_perpustakaan}) yang sekadar mengembalikan diri sendiri sebagai JSON — dipakai untuk verifikasi resource ter-mount. */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public UserPerpustakaanResource getXml() {
@@ -75,6 +102,20 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("/ajukanJurnal")
 	@Produces("text/plain")
+	/**
+	 * Mengajukan (membuat/memperbarui) satu karya ilmiah/jurnal ({@link Item} bertipe
+	 * {@code LibraryUtil.KARYA_ILMIAH}) beserta relasi pengarangnya, dipanggil setelah file jurnal
+	 * diunggah lewat mekanisme lain (diverifikasi dari keberadaan {@link FotoItem} ber-{@code kodeUnik}
+	 * yang sama). Parameter {@code item} adalah daftar nilai posisi-tetap: [0] id item (0/baru bila
+	 * belum ada), [1] kode unik file terlampir, [2..7] judul/abstrak/keyword ID &amp; EN, [8] username
+	 * pengaju utama, [9] id penerbit, [10] id domain penelitian (opsional), [11..] username pengaju
+	 * tambahan. Bila item baru dan belum ada {@link ItemPunyaPemeriksa}, daftar pemeriksa
+	 * disalin otomatis dari {@link PenerbitPunyaPemeriksa} penerbit+domain penelitian terkait.
+	 *
+	 * @param item daftar nilai form posisi-tetap (lihat javadoc method)
+	 * @return {@code "OK"} bila berhasil, atau pesan error dalam Bahasa Indonesia bila validasi gagal
+	 * @throws Exception ditangkap secara internal (rollback transaksi Hibernate); praktis tidak pernah keluar dari method
+	 */
 	public String ajukanJurnal(@DefaultValue("All") @QueryParam(value = "item") final List<String> item)
 			throws Exception {
 
@@ -237,6 +278,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("check_pesan_item/{username}/{item}/{perpustakaan}/")
 	@Produces("text/plain")
+	/** Mengecek apakah {@code username} (via {@link Anggota} aktifnya) sudah punya pesanan aktif ({@code status=PESAN}) untuk {@code item} di {@code perpustakaan} tertentu. Mengembalikan {@code "OK"}/{@code "NOT OK"}, atau pesan error bila user/anggota/perpustakaan/item tidak ditemukan. */
 	public String checkPesanItem(@PathParam("username") String username, @PathParam("item") String item,
 			@PathParam("perpustakaan") String perpustakaan) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
@@ -293,6 +335,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_pesanan_item/{username}/{cari}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Mengembalikan daftar pesanan {@link PesananAnggota} milik {@code username}, dipaginasi ({@code start}/{@code banyak}) dan difilter berdasarkan {@code cari} yang dicocokkan (ILIKE) terhadap nama/tema/keyword/ISBN/ISSN/pengarang/kode item. Setiap hasil dipetakan ke {@link CommonID} dengan info1..info8 berisi ISBN, ISSN, nama, pengarang, status, tanggal, URL gambar, dan kode. */
 	public List<CommonID> daftarPesanItem(@PathParam("username") String username, @PathParam("cari") String cari,
 			@PathParam("start") String start, @PathParam("banyak") String banyak) throws Exception {
 		List<CommonID> commonIDs = new ArrayList<CommonID>();
@@ -362,6 +405,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("batalkan_pesan_item/{id}/")
 	@Produces("text/plain")
+	/** Menghapus permanen (SQL {@code delete}) satu baris {@code library.pesanan_anggota} berdasarkan id. Selalu mengembalikan {@code "OK"} bila query berhasil dieksekusi, tanpa memeriksa apakah baris tersebut sebelumnya ada. */
 	public String batalkanPesanItem(@PathParam("id") String id) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		session.getTransaction().begin();
@@ -375,6 +419,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("check_keanggotaan/{username}/")
 	@Produces("text/plain")
+	/** Memeriksa apakah {@code username} punya {@link Tbmuser} dan {@link Anggota} aktif; mengembalikan {@code "OK"} bila keduanya valid, atau pesan error Bahasa Indonesia bila salah satunya tidak ditemukan/tidak aktif. */
 	public String checkKeanggotaan(@PathParam("username") String username) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		username = URLDecoder.decode(username, "UTF-8");
@@ -404,6 +449,15 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("pesan_item/{username}/{item}/{perpustakaan}/")
 	@Produces("text/plain")
+	/**
+	 * Membuat pesanan baru ({@link PesananAnggota}) untuk {@code item} di {@code perpustakaan} atas
+	 * nama {@code username}, setelah memvalidasi keanggotaan, ketersediaan stok (dihitung via SQL
+	 * native dari {@code library.detail_transaksi} dikalikan jenis transaksi), dan memastikan belum
+	 * ada pesanan aktif (belum kadaluarsa) untuk kombinasi item+perpustakaan+anggota yang sama. Masa
+	 * berlaku pesanan dihitung dari konfigurasi {@code kadaluarsa.pemesanan.item} (jam, default 24).
+	 *
+	 * @return {@code "OK"} bila pesanan berhasil dibuat, atau pesan error Bahasa Indonesia bila validasi gagal
+	 */
 	public String pesanItem(@PathParam("username") String username, @PathParam("item") String item,
 			@PathParam("perpustakaan") String perpustakaan) throws Exception {
 
@@ -496,6 +550,12 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("ubah_status/{id}/{status}/")
 	@Produces("text/plain")
+	/**
+	 * Mengubah status satu {@link ItemPunyaPemeriksa} (proses review karya ilmiah oleh pemeriksa),
+	 * lalu menyinkronkan status terbit {@link Item} induknya: bila sudah tidak ada pemeriksa lain
+	 * dengan status selain {@code DISETUJUI}, item ditandai {@code LibraryUtil.APPROVE}; selain itu
+	 * dikembalikan ke {@code LibraryUtil.DRAFT}.
+	 */
 	public String ubahStatus(@PathParam("id") String id, @PathParam("status") String status) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		ItemPunyaPemeriksa itemPunyaPemeriksa = (ItemPunyaPemeriksa) session.createCriteria(ItemPunyaPemeriksa.class)
@@ -533,6 +593,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_penerbit/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Mengembalikan seluruh pasangan {@link PenerbitPunyaPemeriksa} (penerbit, domain penelitian, pemeriksa), terurut nama, dipetakan ke {@link CommonID}. Parameter {@code cari} saat ini tidak dipakai untuk memfilter hasil. */
 	public List<CommonID> daftarPenerbit(@PathParam("cari") String cari) throws Exception {
 		List<CommonID> commonIDs = new ArrayList<CommonID>();
 		Session session = HibernateUtil.currentNativeSession();
@@ -561,6 +622,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_pengarang/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Mencari {@link Pengarang} berdasarkan {@code cari} (ILIKE terhadap nama pengarang, atau id/nama user-nya), dibatasi {@link Common#MAX_RESULT_20} hasil, dipetakan ke {@link CommonID} (nama, userId, userNama). */
 	public List<CommonID> daftarPengarang(@PathParam("cari") String cari) throws Exception {
 
 		cari = URLDecoder.decode(cari, "UTF-8");
@@ -594,6 +656,16 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("check_pengguna/{username}/{awal}/{tengah}/{akhir}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Titik masuk auto-provisioning: memastikan {@code username} punya {@link Tbmuser} (dibuat baru
+	 * dengan role {@code ConstantValues.roleKomunitas} bila belum ada, password disimpan apa adanya
+	 * tanpa enkripsi via {@code is_encripted=false}), {@link Anggota} (dibuat baru berjenis
+	 * {@code ANGGOTA_REGULER}/{@code UMUM}, tidak aktif sampai diverifikasi manual di perpustakaan),
+	 * dan {@link Pengarang}. Nama lengkap disusun dari {@code awal+" "+tengah+" "+akhir} dan
+	 * disinkronkan ke ketiga entitas bila berbeda dari yang tersimpan.
+	 *
+	 * @return {@link CommonID} berisi userId, userNama, dan id {@link Pengarang} yang bersangkutan
+	 */
 	public CommonID checkPengguna(@PathParam("username") String username, @PathParam("awal") String awal,
 			@PathParam("tengah") String tengah, @PathParam("akhir") String akhir) throws Exception {
 		username = URLDecoder.decode(username, "UTF-8");
@@ -698,6 +770,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item/{username}/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Varian tanpa {@code status}/paging dari {@link #daftarItemJurnal(String, String, String, String, String, String, String, String, String, String, String, String)}; default status {@code "PUBLISH"} (lihat catatan pada overload 10-parameter tentang bug default paging). */
 	public List<CommonID> daftarItemJurnal(@PathParam("username") String username, @PathParam("parent") String parent,
 			@PathParam("nama") String nama, @PathParam("pengarang") String pengarang,
 			@PathParam("keyword") String keyword, @PathParam("abstrack") String abstrack,
@@ -710,6 +783,19 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item/{username}/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/{status}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Varian dengan {@code status} tapi tanpa paging eksplisit dari
+	 * {@link #daftarItemJurnal(String, String, String, String, String, String, String, String, String, String, String, String)}.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> implementasi ini mendelegasikan ke overload 9-parameter dengan
+	 * {@code order="0", order1="10"} — {@code status} yang diterima TIDAK diteruskan (hilang), dan
+	 * nilai {@code "0"}/{@code "10"} yang dimaksudkan sebagai default {@code start}/{@code banyak}
+	 * pada overload 9-parameter justru dipakai sebagai nama kolom pengurutan
+	 * ({@code order}/{@code order1}), bukan sebagai parameter paging. Perilaku ini dipertahankan
+	 * apa adanya (tidak diubah) sesuai cakupan dokumentasi ini.
+	 * </p>
+	 */
 	public List<CommonID> daftarItemJurnal(@PathParam("username") String username, @PathParam("parent") String parent,
 			@PathParam("nama") String nama, @PathParam("pengarang") String pengarang,
 			@PathParam("keyword") String keyword, @PathParam("abstrack") String abstrack,
@@ -722,6 +808,19 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item/{username}/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/{status}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Implementasi kanonik pencarian karya ilmiah ({@link Item} bertipe {@code KARYA_ILMIAH}) milik
+	 * {@code username} (sebagai {@code dibuatOleh}). Mendukung filter nama/tema, keyword, abstrak,
+	 * pengarang, institusi (dicocokkan ke penerbit1..5, ILIKE), status terbit, dan folder induk
+	 * ({@code parent}, diperluas ke seluruh keturunannya lewat
+	 * {@link PerpustakaanResourcesHelper#generateChildsByIds}), diurutkan oleh dua kolom
+	 * ({@code order}/{@code order1}) dan dipaginasi ({@code start}/{@code banyak}). Setiap hasil
+	 * dipetakan ke {@link CommonID} dengan info1..info21 mencakup nama, satuan kerja, tanggal,
+	 * keyword, jumlah komentar/unduhan/dilihat, penerbit1..5, status terbit, domain penelitian,
+	 * daftar pemeriksa, dan path folder induk.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila {@code username} tidak dikenali
+	 */
 	public List<CommonID> daftarItemJurnal(@PathParam("username") String username, @PathParam("parent") String parent,
 			@PathParam("nama") String nama, @PathParam("pengarang") String pengarang,
 			@PathParam("keyword") String keyword, @PathParam("abstrack") String abstrack,
@@ -865,6 +964,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_mereka/{username}/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/{status}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Varian tanpa paging eksplisit dari {@link #daftarItemJurnalMereka(String, String, String, String, String, String, String, String, String, String, String, String)}; default {@code start=0, banyak=10}. */
 	public List<CommonID> daftarItemJurnalMereka(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("nama") String nama,
 			@PathParam("pengarang") String pengarang, @PathParam("keyword") String keyword,
@@ -879,6 +979,14 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_mereka/{username}/{parent}/{nama}/{pengarang}/{keyword}/{abstrack}/{institusi}/{order}/{order1}/{status}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Seperti {@link #daftarItemJurnal(String, String, String, String, String, String, String, String, String, String, String, String)},
+	 * tapi hasilnya dibatasi pada karya ilmiah yang {@code username} bertindak sebagai
+	 * {@link ItemPunyaPemeriksa} (pemeriksa/reviewer)-nya — dipanggil dari sisi query yang meng-query
+	 * {@link ItemPunyaPemeriksa} lalu mengambil {@code item} terkait, bukan langsung dari {@link Item}.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila {@code username} tidak dikenali
+	 */
 	public List<CommonID> daftarItemJurnalMereka(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("nama") String nama,
 			@PathParam("pengarang") String pengarang, @PathParam("keyword") String keyword,
@@ -1022,6 +1130,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua/{username}/{parent}/{satuanKerja}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Varian tanpa filter status dari {@link #daftarItemKomentarSemua(String, String, String, String, String, String, String)}. */
 	public List<CommonID> daftarItemKomentarSemua(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja) throws Exception {
 		return daftarItemKomentarSemua(username, parent, satuanKerja, "", "");
@@ -1030,6 +1139,15 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua/{username}/{parent}/{satuanKerja}/{status}/{tidakStatus}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Varian tanpa paging dari {@link #daftarItemKomentarSemua(String, String, String, String, String, String, String)}.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> delegasi ini meneruskan {@code tidakStatus} pada posisi parameter
+	 * {@code status} maupun {@code tidakStatus} sekaligus (parameter {@code status} yang diterima
+	 * TIDAK dipakai) — perilaku dipertahankan apa adanya sesuai cakupan dokumentasi ini.
+	 * </p>
+	 */
 	public List<CommonID> daftarItemKomentarSemua(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("status") String status, @PathParam("tidakStatus") String tidakStatus) throws Exception {
@@ -1040,6 +1158,17 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua/{username}/{parent}/{satuanKerja}/{status}/{tidakStatus}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Implementasi kanonik: mengembalikan daftar {@link ItemKomentar} pada karya ilmiah milik
+	 * {@code username} (sebagai {@code item.dibuatOleh}), difilter status terbit item pada saat
+	 * komentar dibuat ({@code status} untuk menyertakan, {@code tidakStatus} untuk mengecualikan;
+	 * kasus khusus {@code status="Terbit"} juga menyertakan item yang statusnya belum tercatat/null),
+	 * folder induk ({@code parent}, diperluas ke keturunannya), dan satuan kerja, terurut komentar
+	 * terbaru lebih dulu. Hasil dipetakan ke {@link CommonID}: nama pengomentar, kontak, tanggal,
+	 * id item, id komentar.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila {@code username} tidak dikenali
+	 */
 	public List<CommonID> daftarItemKomentarSemua(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("status") String status, @PathParam("tidakStatus") String tidakStatus,
@@ -1113,6 +1242,7 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua_mereka/{username}/{parent}/{satuanKerja}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Varian tanpa filter status dari {@link #daftarItemKomentarSemuaMereka(String, String, String, String, String, String, String)}. */
 	public List<CommonID> daftarItemKomentarSemuaMereka(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja) throws Exception {
 		return daftarItemKomentarSemuaMereka(username, parent, satuanKerja, "", "");
@@ -1121,6 +1251,11 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua_mereka/{username}/{parent}/{satuanKerja}/{status}/{tidakStatus}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Varian tanpa paging dari {@link #daftarItemKomentarSemuaMereka(String, String, String, String, String, String, String)}.
+	 * Catatan: sama seperti overload sejenis pada {@link #daftarItemKomentarSemua(String, String, String, String, String)},
+	 * parameter {@code status} yang diterima tidak dipakai — {@code tidakStatus} diteruskan pada kedua posisi.
+	 */
 	public List<CommonID> daftarItemKomentarSemuaMereka(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("status") String status, @PathParam("tidakStatus") String tidakStatus) throws Exception {
@@ -1131,6 +1266,13 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("daftar_item_komentar_semua_mereka/{username}/{parent}/{satuanKerja}/{status}/{tidakStatus}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Seperti {@link #daftarItemKomentarSemua(String, String, String, String, String, String, String)},
+	 * tapi dibatasi pada komentar atas item yang {@code username} bertindak sebagai
+	 * {@link ItemPunyaPemeriksa}-nya, bukan item yang dibuatnya sendiri.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila {@code username} tidak dikenali
+	 */
 	public List<CommonID> daftarItemKomentarSemuaMereka(@PathParam("username") String username,
 			@PathParam("parent") String parent, @PathParam("satuanKerja") String satuanKerja,
 			@PathParam("status") String status, @PathParam("tidakStatus") String tidakStatus,

@@ -62,8 +62,31 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Kelas UI (ZK) yang menampilkan jendela pilihan metode pembayaran biaya pendaftaran/daftar-ulang
+ * calon mahasiswa, dan merender tombol untuk tiap payment gateway/bank yang sedang diaktifkan lewat
+ * konfigurasi ({@link Konfigurasi}). Mendukung banyak kanal: Finpay, iPaymu, Faspay, CIMB, BNI,
+ * BSI, Jatelindo/Mandiri, DOKU, serta berbagai varian "bank online"/virtual account (Bank NTT,
+ * Bankaltimtara, BJB, BTN, dan lain-lain) yang masing-masing punya kelas {@code *Common} atau
+ * {@code DownloadNoRegistrasiCalonMahasiswaBank*} sendiri untuk membangun kode VA/QRIS.
+ *
+ * <p>
+ * Semua kredensial/endpoint kanal pembayaran DIAMBIL dari {@link Common#getKonfigurasi} (mis.
+ * {@code online_bank_host_ip}, {@code bankaltimtara_biaya_administrasi}) atau didelegasikan ke
+ * kelas {@code *Common} masing-masing kanal — pemeriksaan pada file ini TIDAK menemukan kredensial,
+ * API key, atau secret yang ditulis langsung (hardcoded) di dalam kode.
+ * </p>
+ *
+ * <p>
+ * Saklar aktif/nonaktif tiap kanal disimpan di field statis kelas ini ({@code bayarVia*},
+ * {@code aktifkan_pembayaran_via_bank_*}) yang diisi ulang setiap kali {@link #adaPembayaranRegistrasi()}
+ * dipanggil — kelas ini karenanya TIDAK thread-safe untuk pemakaian bersamaan lintas request, namun
+ * pola ini konsisten dengan gaya helper statis lain di modul PMB.
+ * </p>
+ */
 public class TampilanPaymentGateway {
 
+	/** Saklar aktif kanal Finpay hasil evaluasi terakhir {@link #adaPembayaranRegistrasi()}. */
 	private static boolean bayarViaFinpay;
 	private static boolean bayarViaIpaymu;
 	private static boolean bayarViaFaspay;
@@ -86,12 +109,24 @@ public class TampilanPaymentGateway {
 	private static boolean aktifkan_pembayaran_via_bank_briva;
 	private static boolean aktifkan_pembayaran_via_bank_maja;
 
+	/** Membuka jendela daftar-ulang mahasiswa baru ({@code /common/daftarulang_mahasiswa_baru.zul}) untuk {@code biodataCalonMahasiswa} yang bersangkutan. */
 	public static void tampilPembayaranDaftarUlang(final BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		Common.displayWindow(
 				"/common/daftarulang_mahasiswa_baru.zul?biodataCalonMahasiswa=" + biodataCalonMahasiswa.getId(), false,
 				"2200px", null);
 	}
 
+	/**
+	 * Menyegarkan seluruh saklar kanal pembayaran ({@code bayarVia*}/
+	 * {@code aktifkan_pembayaran_via_bank_*}) dari {@link Konfigurasi} global DAN konfigurasi
+	 * khusus per {@link PerguruanTinggi} (mis. {@code aktifkan_pembayaran_via_finpay} DAN
+	 * {@code aktifkan_pembayaran_via_finpay_<idPT>} harus sama-sama aktif), lalu mengembalikan
+	 * {@code true} bila ada minimal satu kanal yang aktif. Method ini dipanggil di awal
+	 * {@link #tampilPembayaranRegistrasi} sehingga hasil evaluasinya menentukan tombol kanal mana
+	 * saja yang dirender pada jendela pembayaran.
+	 *
+	 * @return {@code true} bila minimal satu payment gateway aktif untuk PT yang bersangkutan
+	 */
 	public static boolean adaPembayaranRegistrasi() {
 		PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
 		bayarViaFinpay = Common.bolehKonfigurasi("aktifkan_pembayaran_via_finpay", Konfigurasi.TIDAK_AKTIF)
@@ -157,6 +192,25 @@ public class TampilanPaymentGateway {
 				|| aktifkan_pembayaran_via_bank_bankaltimtara || aktifkan_pembayaran_via_bank_briva;
 	}
 
+	/**
+	 * Menampilkan jendela modal "Proses Pembayaran Calon Mahasiswa" berisi rincian tagihan
+	 * (dihitung lewat {@link PembayaranUtilHelper#getDetailBiayaCalonMahasiswa}) dan satu tombol
+	 * per kanal pembayaran yang aktif (lihat {@link #adaPembayaranRegistrasi()}). Jendela hanya
+	 * dibuka bila registrasi belum lunas ({@code persentaseLunas < 99.0}) dan total tagihan lebih
+	 * dari 0.
+	 *
+	 * <p>
+	 * Setiap tombol kanal, saat diklik, mendelegasikan proses pembuatan transaksi/kode virtual
+	 * account ke kelas {@code *Common}/{@code DownloadNoRegistrasiCalonMahasiswaBank*} masing-masing
+	 * kanal, lalu (untuk kanal berbasis VA/QRIS) menghasilkan barcode lewat
+	 * {@link BarcodeCommon#generateCRCode} dan membuka halaman ringkasan pembayaran
+	 * ({@code /common/&lt;kanal&gt;/no_va.zul}) dengan parameter (nominal, kadaluarsa, terbilang,
+	 * dll.) di-encode lewat {@link URLEncoder}.
+	 * </p>
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang akan membayar
+	 * @throws Exception diteruskan dari kegagalan pemanggilan gateway pembayaran/encoding URL
+	 */
 	public static void tampilPembayaranRegistrasi(final BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 
 		if (adaPembayaranRegistrasi() && (biodataCalonMahasiswa.getPembayaranRegistrasi() == null
@@ -1908,6 +1962,7 @@ public class TampilanPaymentGateway {
 		}
 	}
 
+	/** Alias publik untuk {@link #adaPembayaranRegistrasi()}, dipakai pemanggil yang hanya perlu tahu status aktif tanpa terikat nama method "registrasi". */
 	public static boolean adaPaymentGatewayYangAktif() {
 		// TODO Auto-generated method stub
 		return adaPembayaranRegistrasi();

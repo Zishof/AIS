@@ -9,13 +9,31 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 
+/**
+ * Algoritma penomoran NIM generik dengan pola {@code YY-JENJANG-PRODI-URUT} (nama kelas mengikuti
+ * pola formatnya): {@code <2 digit tahun><kode jenjang><kode prodi><N digit urutan>}. Jumlah digit
+ * urutan dapat dikonfigurasi lewat {@code jumlah_digit_gen_nim_mahasiswa} (default 4). Cocok
+ * dipakai institusi yang ingin NIM-nya secara eksplisit menyatakan jenjang (D3/S1/S2/dst) dan
+ * program studi tanpa komponen angkatan/kapasitas seperti pada generator lain.
+ */
 public class YY_JENJANG_PRODI_URUT_NimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar NIM yang harus dihindari. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM baru untuk {@code calonMahasiswa} sesuai pola {@code YY-JENJANG-PRODI-URUT}
+	 * (lihat javadoc kelas), menghindari nomor pada {@code jumlahPengecualian}. Rekursif pada
+	 * bentrokan nomor.
+	 *
+	 * @param calonMahasiswa      calon mahasiswa yang akan diberi NIM; harus memiliki program studi
+	 *                            lulus agar NIM dapat dihitung (selain itu mengembalikan {@code "-"})
+	 * @param jumlahPengecualian  daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return NIM unik sesuai pola tahun-jenjang-prodi-urutan, atau {@code "-"} bila program studi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

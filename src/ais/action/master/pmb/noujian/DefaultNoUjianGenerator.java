@@ -94,16 +94,12 @@ public class DefaultNoUjianGenerator implements NoUjianGenerator {
 				Common.tampilErrorJikaAdmin(e);
 			}
 
-			int penambahan = jumlahPengecualian.size();
-
-			Number count = ((Number) session
-					.createSQLQuery(
-							"select max(to_number(substr(no_ujian,5),'99999999999999')) from biodata_calon_mahasiswa where no_ujian != '' and no_ujian is not null and substr(no_ujian,5)!=''")
-					.uniqueResult());
-			String noUjian = "00000000000" + (((count == null ? 0 : count.intValue()) + 1) + penambahan);
+			long nomorUrut = NoUjianGeneratorSupport.nomorUrutBerikutnya(session, digitSatuDanDua,
+					jumlahIncrements, biodataCalonMahasiswa, jumlahPengecualian);
+			String noUjian = NoUjianGeneratorSupport.leftPadNomor(nomorUrut, jumlahIncrements);
 			System.out.println("noUjian => " + noUjian);
 
-			noUjianFinal = digitSatuDanDua + noUjian.substring(noUjian.length() - jumlahIncrements, noUjian.length());
+			noUjianFinal = digitSatuDanDua + noUjian;
 
 			session.refresh(biodataCalonMahasiswa);
 			biodataCalonMahasiswa.setNoUjian(noUjianFinal);
@@ -115,11 +111,10 @@ public class DefaultNoUjianGenerator implements NoUjianGenerator {
 			return "";
 		}
 
-		Integer count = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.add(Restrictions.eq("noUjian", noUjianFinal)).setProjection(Projections.rowCount()).uniqueResult())
-						.intValue();
+		boolean nomorSudahDipakai = NoUjianGeneratorSupport.nomorSudahDipakai(session, noUjianFinal,
+				biodataCalonMahasiswa);
 
-		if (!count.equals(0)) {
+		if (nomorSudahDipakai) {
 			jumlahPengecualian.add(noUjianFinal);
 			return generateNoUjian(biodataCalonMahasiswa, jumlahPengecualian);
 		} else {

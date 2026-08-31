@@ -15,11 +15,37 @@ import org.hibernate.envers.query.AuditQuery;
 
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Layanan audit framework CRUD generik {@link ais.action.master.generic.v2}, dibangun di atas
+ * Hibernate Envers: menyediakan riwayat revisi per baris data, perbandingan dua revisi, dan
+ * daftar revisi global lintas seluruh baris entitas. Semua method memerlukan izin
+ * {@link GenericCrudOperation#AUDIT} (diperiksa lewat {@link #privilege}) dan menghormati scope
+ * data pengguna (diperiksa lewat {@link #scope}) — baris di luar scope pengguna tidak akan
+ * muncul di hasil audit, bahkan pada audit global.
+ *
+ * <p>
+ * Setiap method membuka {@link Session} Hibernate baru sendiri (bukan sesi thread-local) dan
+ * selalu menutupnya lewat {@link #close(Session)} di blok {@code finally}, karena
+ * {@link AuditReader} Envers memerlukan sesi tersendiri untuk query historis.
+ * </p>
+ */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class GenericCrudAuditService {
     private final GenericCrudPrivilegeGuard privilege = new GenericCrudPrivilegeGuard();
     private final GenericCrudScopeGuard scope = new GenericCrudScopeGuard();
 
+    /**
+     * Mengambil daftar revisi (riwayat perubahan) satu baris data tertentu, terurut dari revisi
+     * terbaru, dengan paginasi.
+     *
+     * @param context  konteks permintaan, sumber pemeriksaan hak akses dan scope
+     * @param id       id baris data yang riwayatnya ingin dilihat
+     * @param page     halaman yang diminta (dipaksa minimal 1)
+     * @param pageSize ukuran halaman (dipaksa minimal 1, maksimal 100)
+     * @return halaman berisi baris-baris revisi beserta total jumlahnya
+     * @throws GenericCrudException bila audit per-baris belum diaktifkan pada definisi entitas,
+     *                               atau baris data aktif tidak ditemukan/di luar scope pengguna
+     */
     public GenericCrudPage listRowRevisions(GenericCrudRequestContext context, Serializable id, int page, int pageSize) throws Exception {
         privilege.require(context, GenericCrudOperation.AUDIT);
         GenericCrudDefinition definition = context.getDefinition();
@@ -52,6 +78,21 @@ public class GenericCrudAuditService {
         } finally { close(session); }
     }
 
+    /**
+     * Membandingkan dua revisi ({@code left} vs {@code right}) dari satu baris data yang sama,
+     * mengembalikan hanya properti yang nilainya berbeda. Properti yang ditandai
+     * {@link GenericCrudFieldDefinition#isSensitive()} dilewati (tidak ikut dibandingkan/
+     * ditampilkan) demi mencegah kebocoran data sensitif lewat fitur audit.
+     *
+     * @param context konteks permintaan, sumber pemeriksaan hak akses dan scope
+     * @param id      id baris data yang dibandingkan
+     * @param left    nomor revisi pertama
+     * @param right   nomor revisi kedua
+     * @return peta properti ke perubahan {@code {"left": nilaiLama, "right": nilaiBaru}}, hanya
+     *         untuk properti yang berbeda antara kedua revisi
+     * @throws GenericCrudException bila audit per-baris belum diaktifkan, baris data aktif tidak
+     *                               ditemukan/di luar scope, atau salah satu revisi tidak ada
+     */
     public Map compare(GenericCrudRequestContext context, Serializable id, Number left, Number right) throws Exception {
         privilege.require(context, GenericCrudOperation.AUDIT);
         if (!context.getDefinition().isRowAuditEnabled()) { throw new GenericCrudException(403, "ROW_AUDIT_DISABLED", "Audit per data belum diaktifkan."); }
@@ -85,6 +126,20 @@ public class GenericCrudAuditService {
         } finally { close(session); }
     }
 
+    /**
+     * Mengambil daftar revisi terbaru lintas <b>seluruh</b> baris entitas ini (bukan hanya satu
+     * baris), terurut dari revisi terbaru, dengan paginasi. Setiap revisi diperiksa ulang
+     * terhadap data aktif saat ini: revisi milik baris yang sudah tidak ada atau berada di luar
+     * scope pengguna dilewati begitu saja (tidak menggagalkan seluruh permintaan).
+     *
+     * @param context  konteks permintaan, sumber pemeriksaan hak akses, kebijakan restore, dan scope
+     * @param page     halaman yang diminta (dipaksa minimal 1)
+     * @param pageSize ukuran halaman (dipaksa minimal 1, maksimal 100)
+     * @return halaman berisi baris-baris revisi (masing-masing disertai id baris data) yang
+     *         masih berada dalam scope pengguna
+     * @throws GenericCrudException bila audit global belum diaktifkan pada definisi entitas atau
+     *                               ditolak oleh {@link GenericCrudDefinition#getRestorePolicy()}
+     */
     public GenericCrudPage listGlobalRevisions(GenericCrudRequestContext context, int page, int pageSize) throws Exception {
         privilege.require(context, GenericCrudOperation.AUDIT);
         GenericCrudDefinition definition = context.getDefinition();
@@ -113,6 +168,7 @@ public class GenericCrudAuditService {
         } finally { close(session); }
     }
 
+    /** Mengubah satu tuple hasil query Envers ({@code [entitas, revisionEntity, tipeRevisi]}) menjadi baris peta {@code revision}/{@code timestamp}/{@code type} siap tampil. */
     private Map toRevisionRow(Object[] tuple) {
         Map row = new LinkedHashMap();
         Object revision = tuple.length > 1 ? tuple[1] : null;
@@ -125,9 +181,11 @@ public class GenericCrudAuditService {
         return row;
     }
 
+    /** Mencari {@link java.beans.PropertyDescriptor} berdasarkan {@code name} di antara {@code descriptors}, atau {@code null} bila tidak ditemukan. */
     private java.beans.PropertyDescriptor find(java.beans.PropertyDescriptor[] descriptors, String name) {
         for (int i = 0; i < descriptors.length; i++) if (name.equals(descriptors[i].getName())) return descriptors[i];
         return null;
     }
+    /** Menutup {@code session} dengan aman bila masih terbuka, mengabaikan galat penutupan. */
     private void close(Session session) { try { if (session != null && session.isOpen()) session.close(); } catch (Exception ignored) { } }
 }

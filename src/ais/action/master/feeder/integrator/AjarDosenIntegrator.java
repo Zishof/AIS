@@ -8,20 +8,31 @@ import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyWindow;
 import org.zkoss.zul.Div;
 
+/**
+ * Jendela integrasi PDDIKTI Feeder untuk data "Ajar Dosen" (penugasan mengajar dosen per mata
+ * kuliah). Menyusun tiga tab lazy-load lewat {@link MyButtonTabbox}: unduh data ajar dosen
+ * (selalu tersedia), unggah/kirim data ajar dosen ke Feeder (hanya tampil bila konfigurasi
+ * {@code aktifkan_upload_ajar_dosen_pada_menu_feeder_integrator} aktif), dan unduh data
+ * pembimbing/penguji tugas akhir. Tab dimuat malas ({@code PemuatTab}) agar konten tiap tab baru
+ * dibangun saat pertama kali dibuka, bukan saat jendela pertama kali dirender.
+ */
 public class AjarDosenIntegrator extends MyWindow {
 
 	private static final long serialVersionUID = -3384689142222653374L;
 
+	/** Membuat jendela dengan pengaturan default {@link MyWindow}. */
 	public AjarDosenIntegrator() {
 		super();
 		init();
 	}
 
+	/** Membuat jendela dengan judul, border, dan opsi dapat ditutup sesuai parameter. */
 	public AjarDosenIntegrator(String title, String border, boolean closable) {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun tab-tab lazy-load (download, upload bersyarat, pembimbing/penguji TA) dan memilih tab pertama sebagai tampilan awal. */
 	private void init() {
 		final boolean bolehUpload = Common.bolehKonfigurasi(
 				"aktifkan_upload_ajar_dosen_pada_menu_feeder_integrator");

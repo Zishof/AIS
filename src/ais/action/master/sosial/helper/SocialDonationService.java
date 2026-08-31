@@ -3,7 +3,41 @@ package ais.action.master.sosial.helper;
 import java.math.BigDecimal; import java.util.Date; import org.hibernate.Session; import org.hibernate.Transaction; import org.hibernate.criterion.Restrictions;
 import ais.database.hibernate.HibernateUtil; import ais.database.model.sosial.*;
 
+/**
+ * Layanan pembuatan transaksi donasi sosial ({@link TransaksiDonasi}) publik (jalur web donatur,
+ * bukan input internal admin). Menegakkan validasi ketat sebelum menyimpan: pengguna harus
+ * terautentikasi, kunci idempotensi wajib berformat valid dan — bila sudah pernah dipakai —
+ * permintaan ulang HARUS memiliki payload identik ({@link #requireIdempotentMatch}) atau ditolak
+ * sebagai konflik, jenis dana/program/hasil kalkulasi zakat harus aktif dan milik tenant yang sama,
+ * nominal donasi dan kontribusi operasional divalidasi batas & skala desimalnya, dan channel
+ * pembayaran diresolusi lewat {@code SocialSmartlinkCredentialService}. Setiap transaksi baru dibuat
+ * dalam satu transaksi Hibernate (rollback penuh bila gagal) yang sekaligus menyimpan baris alokasi
+ * dana ({@link AlokasiDonasi}) dan, bila ada doa yang disertakan, baris pesan doa
+ * ({@link SocialPrayerMessage}) berstatus moderasi PENDING. Seluruh input teks dibersihkan dari
+ * karakter kontrol dan dipotong sesuai batas panjang kolom lewat {@link #clean}.
+ */
 public final class SocialDonationService {
+ /**
+  * Membuat (atau, bila kunci idempotensi sudah pernah dipakai dengan payload identik, mengembalikan
+  * transaksi yang sudah ada) satu transaksi donasi baru berstatus DRAFT.
+  *
+  * @param context             konteks permintaan (tenant, identitas pengguna) yang harus sudah terautentikasi
+  * @param fundTypeId          id jenis dana sosial tujuan donasi
+  * @param programExtensionId  id perluasan program donasi spesifik, boleh {@code null}
+  * @param calculationId       id hasil perhitungan zakat yang dikonversi menjadi donasi, boleh {@code null}
+  * @param requestedAmount     nominal donasi yang diminta (diabaikan bila {@code calculationId} diisi)
+  * @param contribution        kontribusi operasional platform, boleh {@code null} (dianggap nol)
+  * @param anonymous           donasi ditampilkan sebagai anonim ("Hamba Allah") bila {@code true}
+  * @param donorName           nama donatur (dipakai bila identitas tidak dapat diresolusi)
+  * @param donorContact        kontak donatur (dipakai bila identitas tidak dapat diresolusi)
+  * @param prayer              pesan doa opsional yang disertakan donatur
+  * @param publicPrayer        tandai doa boleh ditampilkan publik bila {@code true}
+  * @param idempotencyKey      kunci idempotensi klien, wajib berformat {@code [A-Za-z0-9._:-]{8,120}}
+  * @return transaksi donasi yang baru dibuat, atau transaksi lama yang cocok bila kunci idempotensi berulang
+  * @throws SecurityException       bila pengguna belum login, atau kunci idempotensi dipakai pengguna lain
+  * @throws IllegalArgumentException bila data referensi tidak valid/tidak aktif atau nominal di luar batas
+  * @throws IllegalStateException    bila kunci idempotensi dipakai ulang dengan payload yang berbeda (konflik)
+  */
  public TransaksiDonasi create(SocialRequestContext context,Long fundTypeId,Long programExtensionId,Long calculationId,BigDecimal requestedAmount,BigDecimal contribution,boolean anonymous,String donorName,String donorContact,String prayer,boolean publicPrayer,String idempotencyKey){
   if(!context.isAuthenticated())throw new SecurityException("Login AIS diperlukan untuk membuat transaksi sosial.");
   if(idempotencyKey==null||!idempotencyKey.matches("[A-Za-z0-9._:-]{8,120}"))throw new IllegalArgumentException("Idempotency key tidak valid.");

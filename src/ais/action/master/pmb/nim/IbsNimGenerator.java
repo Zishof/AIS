@@ -9,13 +9,32 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Algoritma penomoran NIM khusus institusi "IBS": menyusun NIM 7 digit dari kode tahun masuk
+ * (4 digit penuh), kode strata (1=S1, 2=S2, 3 untuk jenjang lain), kode program studi, kode
+ * program (1=Reguler/Pascasarjana, 2=Ekstensi, 3=Karyawan, 4=Internasional, 5=lainnya), penanda
+ * semester ganjil/genap (1/2), dan nomor urut 3 digit dari {@link NimGeneratorSupport}. Bila
+ * program studi kelulusan calon mahasiswa tidak diketahui, mengembalikan {@code "-"}.
+ */
 public class IbsNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian awal; lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menyusun NIM dari kode tahun, strata, program studi, program, dan semester, lalu menambahkan
+	 * nomor urut berikutnya (dicek terhadap {@code jumlahPengecualian} dan NIM yang sudah dipakai
+	 * di database). Bila NIM hasil sudah terpakai, method memanggil dirinya sendiri secara
+	 * rekursif dengan NIM tersebut ditambahkan ke {@code jumlahPengecualian} agar nomor urut
+	 * berikutnya dicoba.
+	 *
+	 * @param calonMahasiswa    data calon mahasiswa (tahun masuk, prodi lulus, program, semester)
+	 * @param jumlahPengecualian daftar NIM yang harus dilewati (diisi bertambah saat rekursi)
+	 * @return NIM 7 digit yang belum terpakai, atau {@code "-"} bila prodi lulus tidak diketahui
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

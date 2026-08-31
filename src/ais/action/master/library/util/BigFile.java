@@ -3,13 +3,27 @@ package ais.action.master.library.util;
 import java.util.*;
 import java.io.*;
 
+/**
+ * Pembungkus sederhana untuk membaca berkas teks besar baris demi baris tanpa memuat seluruh isi
+ * berkas ke memori sekaligus, dengan antarmuka {@link Iterable} sehingga dapat dipakai langsung
+ * dalam {@code for-each}. Setiap panggilan {@link Iterator#hasNext()} membaca satu baris baru dari
+ * {@link BufferedReader}; iterator ini tidak mendukung banyak jalur baca bersamaan (satu
+ * {@code BigFile} = satu posisi baca yang dibagi oleh iterator yang dihasilkan). Dipakai di modul
+ * perpustakaan untuk memproses berkas data besar (mis. impor katalog) secara streaming.
+ */
 public class BigFile implements Iterable<String> {
 	private BufferedReader _reader;
 
+	/**
+	 * Membuka {@code filePath} untuk dibaca baris demi baris.
+	 *
+	 * @param filePath path berkas teks yang akan dibaca
+	 */
 	public BigFile(String filePath) throws Exception {
 		_reader = new BufferedReader(new FileReader(filePath));
 	}
 
+	/** Menutup reader berkas; kegagalan penutupan diabaikan (dicatat ke audit galat). */
 	public void Close() {
 		try {
 			_reader.close();
@@ -17,6 +31,7 @@ public class BigFile implements Iterable<String> {
 		}
 	}
 
+	/** @return iterator baris yang membaca langsung dari reader berkas yang sama (bukan salinan independen). */
 	public Iterator<String> iterator() {
 		return new FileIterator();
 	}

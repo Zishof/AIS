@@ -3,8 +3,41 @@ package ais.action.master.sosial.helper;
 import java.math.BigDecimal; import java.util.Calendar; import java.util.Date; import org.hibernate.LockMode; import org.hibernate.Session; import org.hibernate.Transaction; import org.hibernate.criterion.Restrictions; import org.json.JSONObject;
 import ais.action.master.helper.PembayaranGatewayKatalog; import ais.common.Common; import ais.database.hibernate.HibernateUtil; import ais.database.model.sosial.*;
 
+/**
+ * Layanan inisiasi pembayaran untuk transaksi donasi pada modul sosial (ZIS/donasi), khusus
+ * gateway Smartlink. Kredensial gateway TIDAK disimpan/di-hardcode di kelas ini — dimuat per
+ * kanal ({@link SocialSmartlinkCredentialService}) dari {@code SosialChannel} milik transaksi.
+ *
+ * <p>
+ * Alur {@link #initiate} secara garis besar: validasi gateway didukung dan aktif di katalog,
+ * pastikan modul sosial siap menerima donasi ({@code SocialComplianceService}) dan fitur
+ * Smartlink diaktifkan lewat feature flag, cari transaksi donasi berdasarkan nomor + tenant lalu
+ * kunci baris dengan {@link LockMode#UPGRADE} agar aman dari concurrent request, verifikasi
+ * kepemilikan transaksi ({@link #guardOwner}), dan bila status transaksi masih dapat dibayar,
+ * kembalikan percobaan pembayaran ({@link PembayaranDonasi}) yang sudah aktif bila ada
+ * (idempoten — tidak membuat order gateway dobel), atau hitung biaya+total lewat
+ * {@code SocialFinancialInvariantService} dan buat baris percobaan pembayaran baru berstatus
+ * {@code CREATED} dengan kedaluwarsa 1 hari. Setelah transaksi database di-commit, permintaan
+ * order dikirim ke gateway Smartlink secara terpisah; bila gateway sukses, status diperbarui
+ * menjadi {@code VA_ISSUED} dengan URL pembayaran; bila gagal, status diperbarui menjadi
+ * {@code FAILED} kecuali status di database sudah terlanjur {@code PAID} (dibiarkan, tidak
+ * ditimpa jadi gagal).
+ * </p>
+ */
 public final class SocialPaymentService {
- public PembayaranDonasi initiate(SocialRequestContext context,String transactionNumber,String gatewayId){
+	/**
+	 * Menginisiasi (atau mengembalikan percobaan yang sudah aktif untuk) pembayaran gateway
+	 * Smartlink bagi satu transaksi donasi. Lihat javadoc kelas untuk alur lengkap.
+	 *
+	 * @param context           konteks permintaan (tenant, aktor, status autentikasi)
+	 * @param transactionNumber nomor transaksi donasi yang akan dibayar
+	 * @param gatewayId         id gateway; saat ini hanya {@code "smartlink"} yang didukung
+	 * @return percobaan pembayaran ({@link PembayaranDonasi}) yang aktif/baru dibuat, lengkap dengan URL pembayaran bila order gateway berhasil dibuat
+	 * @throws IllegalArgumentException bila gateway tidak didukung atau transaksi tidak ditemukan
+	 * @throws IllegalStateException    bila gateway/fitur tidak aktif, status transaksi tidak dapat dibayar, atau kegagalan lain saat membuat order gateway
+	 * @throws SecurityException        bila transaksi bukan milik pengguna yang meminta (lihat {@link #guardOwner})
+	 */
+	public PembayaranDonasi initiate(SocialRequestContext context,String transactionNumber,String gatewayId){
   if(!"smartlink".equals(gatewayId))throw new IllegalArgumentException("Gateway sosial tidak didukung.");if(!PembayaranGatewayKatalog.aktif(PembayaranGatewayKatalog.cari(gatewayId)))throw new IllegalStateException("Smartlink tidak aktif pada katalog gateway.");
   Session s=null;Transaction tx=null;PembayaranDonasi payment;SocialSmartlinkCredentialService.Credential credential;String name,email,phone,description;try{s=HibernateUtil.openSession();tx=s.beginTransaction();new SocialComplianceService().requireCollectionReady(s,context);if(!SocialFeatureFlags.enabled(s,context,SocialFeatureFlags.SMARTLINK))throw new IllegalStateException("Smartlink Sosial belum diaktifkan.");
    TransaksiDonasi donation=(TransaksiDonasi)s.createCriteria(TransaksiDonasi.class).add(Restrictions.eq("tenantKey",context.getTenantKey())).add(Restrictions.eq("transactionNumber",transactionNumber)).setMaxResults(1).uniqueResult();if(donation==null)throw new IllegalArgumentException("Transaksi tidak ditemukan.");s.lock(donation,LockMode.UPGRADE);guardOwner(context,donation);if(!("DRAFT".equals(donation.getStatus())||"PENDING_PAYMENT".equals(donation.getStatus())))throw new IllegalStateException("Status transaksi tidak dapat dibayar.");
@@ -15,7 +48,10 @@ public final class SocialPaymentService {
   try{JSONObject response=new SocialSmartlinkAdapter().createOrder(credential,payment.getGatewayOrderId(),payment.getTotal(),description,name,email,phone,payment.getExpiryAt());JSONObject data=response.getJSONObject("data");return updateGatewayResult(payment.getId(),"VA_ISSUED",data.optString("payment_url",null),data.optString("reference",null),null);}
   catch(Exception e){PembayaranDonasi current=updateGatewayResult(payment.getId(),"FAILED",null,null,e.getMessage());if("PAID".equals(current.getPaymentStatus()))return current;throw e instanceof RuntimeException?(RuntimeException)e:new IllegalStateException(e);}
  }
+ /** Memperbarui status percobaan pembayaran {@code id} (mis. jadi {@code VA_ISSUED} atau {@code FAILED}) setelah panggilan ke gateway selesai; dilewati (baris dibiarkan {@code PAID}) bila status di database sudah terlanjur lunas, mencegah hasil gateway yang terlambat menimpa pembayaran yang sudah sukses. Mengunci baris dengan {@link LockMode#UPGRADE} sebelum mengubah status. */
  private PembayaranDonasi updateGatewayResult(Long id,String status,String url,String ref,String failure){Session s=null;Transaction tx=null;try{s=HibernateUtil.openSession();tx=s.beginTransaction();PembayaranDonasi p=(PembayaranDonasi)s.get(PembayaranDonasi.class,id);if(p==null)throw new IllegalStateException("Payment attempt hilang setelah create order.");s.lock(p,LockMode.UPGRADE);if("PAID".equals(p.getPaymentStatus())){tx.commit();return p;}SocialStateMachine.requirePayment(p.getPaymentStatus(),status);p.setPaymentStatus(status);p.setPaymentUrl(url);p.setGatewayReference(ref);p.setFailureReason(failure);tx.commit();return p;}catch(RuntimeException e){if(tx!=null)try{tx.rollback();}catch(Exception ignored){}throw e;}finally{close(s);}}
+ /** Melempar {@link SecurityException} bila transaksi donasi {@code d} memiliki identitas donatur tertaut akun ({@code Tbmuser}) tetapi pemanggil tidak login sebagai akun tersebut — mencegah pengguna lain menginisiasi pembayaran atas transaksi orang lain. Transaksi tanpa identitas donatur tertaut (donasi anonim/tamu) tidak diperiksa. */
  private void guardOwner(SocialRequestContext c,TransaksiDonasi d){if(d.getDonorIdentity()!=null){if(!c.isAuthenticated()||d.getDonorIdentity().getTbmuser()==null||!c.getUser().getUserId().equals(d.getDonorIdentity().getTbmuser().getUserId()))throw new SecurityException("Transaksi bukan milik pengguna.");}}
+ /** Menutup {@code s} dengan aman, mengabaikan kegagalan penutupan (dipakai di blok {@code finally}). */
  private void close(Session s){if(s!=null)try{s.close();}catch(Exception ignored){}}
 }

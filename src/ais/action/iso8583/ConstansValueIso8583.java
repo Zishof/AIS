@@ -2,7 +2,23 @@ package ais.action.iso8583;
 
 import java.util.Random;
 
+/**
+ * Kumpulan konstanta protokol ISO 8583 (kode respons dan MTI/Message Type Indicator) yang dipakai
+ * paket {@code ais.action.iso8583} untuk komunikasi transaksi finansial antarmesin (mis. EDC/switch
+ * pembayaran). Tidak berisi kredensial atau kunci rahasia — hanya kode respons standar (mis.
+ * {@link #SUCCESS}) dan nilai MTI untuk pesan manajemen jaringan ({@link #NetManReq}/
+ * {@link #NetManRes}) serta pesan inquiry ({@link #InqReq}/{@link #InqRes}). Sebagian besar kode
+ * respons standar lain (kartu tidak valid, dana tidak cukup, dsb.) dinonaktifkan sebagai komentar
+ * dan tidak dipakai aktif oleh kode saat ini.
+ *
+ * <p>
+ * <b>Catatan:</b> method {@link #main(String[])} pada kelas ini adalah kode uji coba pemilihan port
+ * acak yang tidak berkaitan dengan tujuan kelas (konstanta protokol) dan tampak sebagai sisa
+ * eksperimen/debug, bukan bagian dari alur produksi.
+ * </p>
+ */
 public class ConstansValueIso8583 {
+	/** Kode respons ISO 8583 untuk transaksi sukses. */
 	public static final String SUCCESS = "0000";
 	// public static final String KARTU_TIDAK_VALID = "01";
 	// public static final String KARTU_BELUM_TERDAFTAR = "03";
@@ -25,12 +41,22 @@ public class ConstansValueIso8583 {
 	// public static final String SYSTEM_ERROR = "96";
 	//
 
+	/** MTI permintaan manajemen jaringan (network management request). */
 	public static final String NetManReq = "2800";
+	/** MTI balasan manajemen jaringan (network management response). */
 	public static final String NetManRes = "2810";
 
+	/** MTI permintaan inquiry (pengecekan status transaksi). */
 	public static final String InqReq = "2100";
+	/** MTI balasan inquiry. */
 	public static final String InqRes = "2110";
 
+	/**
+	 * Kode uji coba/demo yang mencetak 10 pilihan port acak dari daftar tetap; tidak berkaitan
+	 * dengan konstanta protokol ISO 8583 di kelas ini dan tampak sebagai sisa eksperimen.
+	 *
+	 * @param argv argumen baris perintah, tidak dipakai
+	 */
 	public static void main(String[] argv) {
 		String[] ports = new String[] { "5050", "6060", "7070", "8080" };
 		Random rn = new Random();

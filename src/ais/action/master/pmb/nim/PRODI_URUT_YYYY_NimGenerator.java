@@ -12,13 +12,33 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma pembangkit NIM dengan urutan komponen "urutan lalu prodi lalu tahun" (nama kelas
+ * mengikuti urutan komponen sumber, {@code PRODI_URUT_YYYY}, tetapi susunan akhir NIM adalah
+ * prefix konfigurasi + urutan + kode prodi + tahun — lihat implementasi). Format NIM: prefix dari
+ * konfigurasi {@code prefix_pmb} (boleh kosong) + digit urutan (panjang dari konfigurasi
+ * {@code jumlah_digit_gen_nim_mahasiswa}, default 4) mahasiswa aktif pada kombinasi (tahun
+ * angkatan, prodi) yang sama + kode prodi lulus + 4 digit tahun angkatan. Mengembalikan
+ * {@code "-"} bila calon mahasiswa belum memiliki prodi lulus.
+ */
 public class PRODI_URUT_YYYY_NimGenerator implements NimGenerator {
 
+	/** @return NIM baru untuk {@code calonMahasiswa}, lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan NIM format prefix+urutan+prodi+tahun; mengembalikan {@code "-"} bila
+	 * {@code calonMahasiswa} belum memiliki prodi lulus. Bila hasil sudah dipakai, NIM tersebut
+	 * ditambahkan ke {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara
+	 * rekursif untuk mencoba urutan berikutnya.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa yang akan diberi NIM
+	 * @param jumlahPengecualian  NIM yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @return NIM baru yang belum pernah dipakai, atau {@code "-"} bila prodi lulus belum diisi
+	 */
 	// generate NIM
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {

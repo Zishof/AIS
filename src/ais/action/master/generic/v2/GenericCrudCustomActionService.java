@@ -4,8 +4,34 @@ import java.util.List;
 import java.util.Map;
 import ais.action.master.generic.v2.adapter.GenericCrudCustomActionProvider;
 
+/**
+ * Layanan validasi + dispatch untuk aksi kustom pada framework CRUD generik
+ * {@code ais.action.master.generic.v2}. Sebelum mendelegasikan eksekusi ke
+ * {@link GenericCrudCustomActionProvider}, service ini menegakkan sederet aturan allow-list agar
+ * aksi kustom tidak dapat dipanggil di luar yang sudah didefinisikan secara eksplisit oleh entitas:
+ * aksi harus terdaftar dan {@code enabled} pada hasil {@link GenericCrudCustomActionProvider#getActions},
+ * hak akses ({@code requiredPrivilege}) divalidasi lewat {@link GenericCrudPrivilegeGuard}, jumlah
+ * baris terpilih harus sesuai {@code selectionMode} (NONE/SINGLE/MULTIPLE, dengan batas MULTIPLE
+ * 1–1000), dan setiap kunci parameter yang dikirim harus ada dalam {@code parameterNames} yang
+ * diizinkan aksi tersebut. Semua pelanggaran dilempar sebagai {@link GenericCrudException} dengan
+ * kode HTTP dan kode error yang sesuai, bukan dibiarkan lolos diam-diam.
+ */
 @SuppressWarnings("rawtypes")
 public class GenericCrudCustomActionService {
+    /**
+     * Memvalidasi lalu mengeksekusi satu aksi kustom pada satu/beberapa baris terpilih.
+     *
+     * @param context    konteks permintaan (identitas pengguna, definisi entitas) yang divalidasi
+     * @param key        kunci aksi ({@code actionKey}) yang diminta
+     * @param ids        daftar id baris terpilih sebagai target aksi, sesuai {@code selectionMode} aksi
+     * @param parameters parameter tambahan untuk aksi, kuncinya harus termasuk dalam allow-list
+     *                   {@code parameterNames} aksi tersebut
+     * @param provider   penyedia daftar aksi + implementasi eksekusi untuk entitas terkait
+     * @return hasil eksekusi aksi dari {@code provider}
+     * @throws Exception termasuk {@link GenericCrudException} bila aksi tidak terdaftar/nonaktif,
+     *                    hak akses ditolak, jumlah selection tidak sesuai, atau parameter tidak
+     *                    diizinkan; atau galat lain dari {@code provider}
+     */
     public GenericCrudResult execute(GenericCrudRequestContext context, String key, List ids, Map parameters,
             GenericCrudCustomActionProvider provider) throws Exception {
         if (provider == null || key == null || key.length() == 0) throw new GenericCrudException(403, "CUSTOM_ACTION_DISABLED", "Custom action tidak terdaftar.");

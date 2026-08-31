@@ -11,13 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 
+/**
+ * Algoritma penomoran barcode item perpustakaan berupa nomor urut 8 digit murni numerik.
+ * Mengambil barcode tertinggi yang sudah ada (dibatasi pada barcode berpanjang tepat 8 karakter
+ * dan hanya berisi digit/titik lewat filter SQL {@code char_length(barcode)=8 and barcode ~ '^[0-9\.]+$'}),
+ * menambahkannya dengan 1 plus jumlah pengecualian yang sudah dicoba, lalu memformatnya menjadi
+ * 8 digit dengan padding nol di depan.
+ */
 public class NomorUrut8DigitGenerator implements BarcodeGenerator {
 
+	/** Menghasilkan barcode tanpa daftar pengecualian awal; lihat {@link #generateBarcode(List, BatchItemPunyaBarcode)}. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Menyusun barcode 8 digit dari nomor urut tertinggi yang sudah dipakai (barcode numerik murni
+	 * berpanjang 8) ditambah 1 plus ukuran {@code barcodePengecualian}. Bila barcode hasil sudah
+	 * terpakai, memanggil diri sendiri secara rekursif dengan barcode tersebut ditambahkan ke
+	 * {@code barcodePengecualian}.
+	 *
+	 * @param barcodePengecualian      daftar barcode yang harus dilewati (bertambah saat rekursi)
+	 * @param batchItemPunyaBarcode    konteks batch item (tidak dipakai langsung dalam perhitungan)
+	 * @return barcode 8 digit yang belum terpakai
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

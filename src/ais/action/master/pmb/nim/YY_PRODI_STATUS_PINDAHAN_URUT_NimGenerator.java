@@ -9,14 +9,35 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 
+/**
+ * Pembangkit NIM dengan format {@code YY+KODEPRODI+KODESTATUSAWAL+URUT}, mis.
+ * {@code "26TIP0007"}. Digit status ({@code KODESTATUSAWAL}) diambil dari status awal mahasiswa
+ * (mis. status pindahan) dan bernilai {@code "0"} bila tidak ditentukan. Prefiks nomor (tahun +
+ * prodi + status), ditambah prefiks konfigurasi {@code prefix_pmb} bila ada, dipakai bersama
+ * {@link NimGeneratorSupport#nomorUrutBerikutnya} untuk menghitung nomor urut berikutnya secara
+ * seragam dengan generator lain yang memakai helper yang sama; jumlah digit urut dapat diatur
+ * lewat konfigurasi {@code jumlah_digit_gen_nim_mahasiswa} (default 4). Bila nomor hasil bentrok
+ * (dicek lewat {@link NimGeneratorSupport#nimSudahDipakai}), dibangkitkan ulang secara rekursif.
+ */
 public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator {
 
+	/** Membangkitkan NIM baru untuk {@code calonMahasiswa} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM berformat {@code YY+KODEPRODI+KODESTATUSAWAL+URUT}, menghindari nomor
+	 * pada {@code jumlahPengecualian} maupun yang sudah tersimpan; mengulang secara rekursif
+	 * bila terjadi bentrok. Mengembalikan {@code "-"} bila calon mahasiswa belum memiliki prodi
+	 * lulus.
+	 *
+	 * @param calonMahasiswa     data calon mahasiswa yang akan diberi NIM
+	 * @param jumlahPengecualian daftar NIM yang harus dihindari, diperbarui di tempat saat
+	 *                           terjadi bentrok
+	 * @return NIM baru yang belum dipakai, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

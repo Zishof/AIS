@@ -1,3 +1,13 @@
 package ais.action.master.generic.v2.test;
 import ais.action.master.generic.v2.GenericCrudDefinition;import ais.action.master.generic.v2.adapter.*;import ais.database.model.koperasi.PembayaranAnggotaKoperasi;import ais.database.model.rab.Tugas;
-public final class FinalUnboundWorkflowSelfTest{private FinalUnboundWorkflowSelfTest(){}public static void main(String[]a)throws Exception{check(new CooperativeMemberPaymentWorkflowGenericCrudAdapter(),PembayaranAnggotaKoperasi.class,3);check(new RabTaskRevisionWorkflowGenericCrudAdapter(),Tugas.class,4);System.out.println("FinalUnboundWorkflowSelfTest OK");System.exit(0);}private static void check(GenericCrudAutoEntityAdapter x,Class c,int keys)throws Exception{GenericCrudDefinition d=new GenericCrudDefinition();d.setEntityClass(c);d.setCreateEnabled(true);d.setUpdateEnabled(true);d.setDeleteEnabled(true);d.setImportEnabled(true);x.configure(d);if(d.isCreateEnabled()||d.isUpdateEnabled()||d.isDeleteEnabled()||d.isImportEnabled())throw new IllegalStateException(c+" generic mutation must fail closed");if(x.getNaturalKeyProperties().size()!=keys)throw new IllegalStateException(c+" natural key");if(!GenericCrudReviewedAdapterFactory.isReviewed(c))throw new IllegalStateException(c+" reviewed adapter");}}
+/**
+ * Harness uji manual yang memeriksa dua adapter CRUD generik yang belum tercakup oleh harness
+ * khusus lain — {@link CooperativeMemberPaymentWorkflowGenericCrudAdapter} untuk
+ * {@link PembayaranAnggotaKoperasi} (3 kolom kunci alami) dan
+ * {@link RabTaskRevisionWorkflowGenericCrudAdapter} untuk {@link Tugas} (4 kolom kunci alami) —
+ * memastikan keduanya gagal-tertutup terhadap mutasi generik dan terdaftar sebagai adapter yang
+ * sudah ditinjau.
+ */
+public final class FinalUnboundWorkflowSelfTest{private FinalUnboundWorkflowSelfTest(){}
+	/** Menjalankan pemeriksaan untuk kedua adapter; melempar {@link IllegalStateException} bila ada yang gagal. */
+	public static void main(String[]a)throws Exception{check(new CooperativeMemberPaymentWorkflowGenericCrudAdapter(),PembayaranAnggotaKoperasi.class,3);check(new RabTaskRevisionWorkflowGenericCrudAdapter(),Tugas.class,4);System.out.println("FinalUnboundWorkflowSelfTest OK");System.exit(0);}private static void check(GenericCrudAutoEntityAdapter x,Class c,int keys)throws Exception{GenericCrudDefinition d=new GenericCrudDefinition();d.setEntityClass(c);d.setCreateEnabled(true);d.setUpdateEnabled(true);d.setDeleteEnabled(true);d.setImportEnabled(true);x.configure(d);if(d.isCreateEnabled()||d.isUpdateEnabled()||d.isDeleteEnabled()||d.isImportEnabled())throw new IllegalStateException(c+" generic mutation must fail closed");if(x.getNaturalKeyProperties().size()!=keys)throw new IllegalStateException(c+" natural key");if(!GenericCrudReviewedAdapterFactory.isReviewed(c))throw new IllegalStateException(c+" reviewed adapter");}}

@@ -7,7 +7,23 @@ import org.zkoss.zul.Label;
 import ais.database.model.file.FotoGambarProduk;
 import ais.database.model.inventory.Produk;
 
+/**
+ * Utilitas kecil untuk menghasilkan komponen ZK yang menampilkan foto produk pada layar
+ * inventaris. Satu-satunya method, {@link #generateImage}, mengambil foto default produk
+ * (jenis {@link FotoGambarProduk#DEFAULT_JENIS}) bila tersedia, atau menampilkan label placeholder
+ * "Tidak ada gambar" bila tidak ada foto.
+ */
 public class ProdukUtil {
+	/**
+	 * Menghasilkan komponen gambar untuk {@code produk}: {@link Image} berisi foto default produk
+	 * bila tersedia dan valid, atau {@link Label} placeholder "Tidak ada gambar" sebagai fallback
+	 * (termasuk saat {@code produk} atau id-nya {@code null}, atau saat pengambilan foto gagal —
+	 * galat ditampilkan hanya untuk admin lewat {@code Common.tampilErrorJikaAdmin}).
+	 *
+	 * @param produk entitas produk yang fotonya akan ditampilkan, boleh {@code null}
+	 * @return komponen ZK ({@link Image} atau {@link Label}) siap ditambahkan ke layar
+	 * @throws Exception diteruskan dari kegagalan pembuatan komponen di luar penanganan internal
+	 */
 	public static Component generateImage(Produk produk) throws Exception {
 		try {
 			FotoGambarProduk fotoGambarProduk = (FotoGambarProduk) (produk == null || produk.getId() == null ? null

@@ -14,13 +14,35 @@ import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.TipeItem;
 
+/**
+ * Algoritma penomoran barcode item perpustakaan khas institusi IAIN Batusangkar. Format barcode:
+ * {@code <kodeJenisItem>.<digit1 tahun><2 digit terakhir tahun><5 digit urutan>}, mis. jenis item
+ * "BK" tahun 2026 menjadi bentuk seperti {@code BK.226xxxxx} (potongan tahun diambil dari digit
+ * pertama plus dua digit terakhir tahun, bukan tahun penuh — konvensi khas institusi ini). Tahun
+ * yang dipakai diambil dari tanggal pembuatan saldo awal atau penerimaan pengadaan pada
+ * {@link BatchItemPunyaBarcode}, bukan tanggal sistem saat ini. Urutan dihitung dari jumlah
+ * {@link ItemPunyaBarcode} yang barcode-nya sudah cocok pola kode jenis + potongan tahun tersebut.
+ */
 public class IAINBatusangkarBarcodeGenerator implements BarcodeGenerator {
 
+	/** Seperti {@link #generateBarcode(List, BatchItemPunyaBarcode)} tanpa daftar barcode yang harus dihindari. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Menghasilkan barcode baru untuk {@code batchItemPunyaBarcode} sesuai format khas IAIN
+	 * Batusangkar (lihat javadoc kelas), menghindari nomor pada {@code barcodePengecualian}.
+	 * Rekursif: bila barcode yang dihasilkan sudah terpakai, ditambahkan ke daftar pengecualian
+	 * dan method memanggil dirinya sendiri untuk mencoba nomor berikutnya.
+	 *
+	 * @param barcodePengecualian     daftar barcode yang harus dihindari, dimutasi langsung saat
+	 *                                terjadi bentrokan
+	 * @param batchItemPunyaBarcode   item yang akan diberi barcode; menentukan jenis item dan
+	 *                                tanggal acuan tahun
+	 * @return barcode unik sesuai pola {@code kodeJenisItem + potonganTahun + urutan5digit}
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

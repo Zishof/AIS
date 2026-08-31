@@ -3,6 +3,18 @@ package ais.action.master.jurnal.test;
 import ais.action.master.jurnal.importer.OjsSourceCatalog;
 import ais.action.master.jurnal.importer.OjsTransformCatalog;
 
+/**
+ * Harness uji manual (bukan JUnit, dijalankan lewat {@code main}) yang memverifikasi konsistensi
+ * katalog transformasi impor OJS: {@link OjsSourceCatalog#TABLES} harus berisi 134 tabel sumber,
+ * dan setiap tabel tersebut harus terklasifikasi tepat satu kali di {@link OjsTransformCatalog}
+ * dengan total disposisi 69 {@code MERGED} + 37 {@code ALTER_EXISTING} + 11 {@code NEW_MODEL} + 4
+ * {@code DERIVED} + 13 {@code NOT_APPLICABLE_WITH_RATIONALE} = 134 tabel (habis terklasifikasi,
+ * tidak ada yang terlewat). Untuk setiap tabel sumber juga diverifikasi bahwa
+ * {@link OjsTransformCatalog#outcome} mengembalikan {@code targetType}/{@code targetField} yang
+ * terisi. Terakhir memastikan katalog bersifat <i>fail-closed</i>: memanggil {@code outcome} untuk
+ * tabel yang tidak dikenal harus melempar {@link IllegalArgumentException}, bukan diam-diam
+ * mengembalikan hasil kosong/null.
+ */
 public final class OjsTransformCatalogSelfTest {
     private OjsTransformCatalogSelfTest() {}
     public static void main(String[] args) {

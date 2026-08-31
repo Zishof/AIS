@@ -4,6 +4,22 @@ import java.math.BigDecimal;
 import ais.action.master.sosial.helper.SocialFinancialInvariantService;
 import ais.action.master.sosial.helper.SocialStateMachine;
 
+/**
+ * Harness uji manual (dijalankan lewat {@code main}, bukan JUnit) yang memverifikasi invarian
+ * perhitungan keuangan sosial di {@link SocialFinancialInvariantService} dan transisi status
+ * sah/tidak-sah di {@link SocialStateMachine}.
+ *
+ * <p>
+ * Mencakup: kasus normal (dana masuk-keluar-alokasi konsisten), kasus over-alokasi yang WAJIB
+ * ditandai {@link SocialFinancialInvariantService.Snapshot#hasException() exception}, kasus
+ * refund dengan alokasi berkurang, perhitungan total tertagih ({@code totalCharged}), serta
+ * transisi status donasi/pembayaran yang valid dan yang seharusnya ditolak. Setiap kegagalan
+ * dicatat lewat {@link #ok(boolean, String)} (menambah penghitung {@link #failures}, TIDAK
+ * langsung melempar), dan {@code main} melempar {@link IllegalStateException} di akhir bila ada
+ * kegagalan — sehingga satu proses uji melaporkan seluruh pelanggaran sekaligus, bukan berhenti
+ * di kegagalan pertama.
+ * </p>
+ */
 public final class SocialFinancialInvariantSelfTest {
     private static int failures;
     public static void main(String[] args){

@@ -2,6 +2,12 @@ package ais.action.master.generic.v2;
 
 import java.io.Serializable;
 
+/**
+ * Objek data (POJO serializable) yang merepresentasikan satu kriteria pengurutan pada framework CRUD
+ * generik {@code ais.action.master.generic.v2}: nama properti entitas yang diurutkan dan arahnya
+ * (naik/turun, default naik). Dipakai sebagai bagian dari permintaan daftar data untuk menentukan
+ * klausa {@code ORDER BY} query Hibernate yang dibangun secara dinamis.
+ */
 public class GenericCrudSort implements Serializable {
     private static final long serialVersionUID = 1L;
     private String property;

@@ -13,7 +13,28 @@ import ais.common.ConstantValues;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Tbmuser;
 
+/**
+ * Utilitas endpoint servlet API untuk kebutuhan biodata calon mahasiswa (PMB). Saat ini hanya
+ * berisi satu operasi: menghasilkan/menyediakan URL berkas PDF cetak biodata calon mahasiswa bagi
+ * klien API (mis. aplikasi mobile PMB) yang sudah terautentikasi lewat token.
+ */
 public class CalonMahasiswaApiUtil {
+	/**
+	 * Menangani permintaan API untuk mencetak/mengambil URL biodata calon mahasiswa dalam bentuk
+	 * PDF. Memvalidasi token pemanggil lewat {@link ApiUtil#currentUser(JSONObject, HttpServletRequest)},
+	 * memuat {@link BiodataCalonMahasiswa} berdasarkan {@code id} pada {@code request}, mencetak
+	 * laporan biodata lewat {@link CommonReportHelper#onCetakBiodataCalonMahasiswa}, lalu
+	 * mengembalikan URL berkas hasil cetak (dienkripsi bila konfigurasi direktori laporan
+	 * tergabung aktif). Seluruh kegagalan ditangkap dan diterjemahkan menjadi respons JSON
+	 * berkode status non-{@code "00"} (tidak melempar exception ke pemanggil servlet).
+	 *
+	 * @param req     permintaan HTTP asli (dipakai untuk resolusi token/user)
+	 * @param request payload JSON permintaan, wajib memuat {@code id} (id
+	 *                {@link BiodataCalonMahasiswa})
+	 * @return objek JSON respons dengan kunci {@code status} ({@code "00"} sukses, {@code "97"}
+	 *         data/token tidak valid, {@code "90"} error tak terduga), {@code description}, dan
+	 *         {@code url} (bila sukses) berisi tautan berkas PDF biodata
+	 */
 	public static JSONObject biodata_calon_mahasiswa(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {

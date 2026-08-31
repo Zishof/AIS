@@ -17,8 +17,31 @@ import ais.database.model.Pegawai;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 
+/**
+ * Helper BKD (Beban Kerja Dosen) untuk memproses komponen penilaian "Penunjang dan Lain-lain":
+ * mengubah data {@link PenunjangKinerjaDosen} (kegiatan penunjang dosen yang tercatat) menjadi
+ * baris {@link AsesemenPenilaian} yang siap dinilai asesor. Satu-satunya method,
+ * {@link #populate}, dipanggil dari alur penilaian BKD untuk mempopulasi/menyegarkan penilaian
+ * penunjang milik satu atau seluruh dosen.
+ */
 public class BkdPenunjangHelper {
 
+	/**
+	 * Untuk setiap {@link PenunjangKinerjaDosen} yang cocok filter (pegawai/tahun akademik/semester,
+	 * masing-masing opsional — {@code null} berarti tanpa filter), membuat atau memperbarui satu
+	 * baris {@link AsesemenPenilaian} berspesifikasi {@link PenilaianAsesor#PENUNJANG_DAN_LAIN_LAIN},
+	 * lalu memanggil {@link PenilaianAsesorAction#checkPenilaian} untuk memastikan baris penilaian
+	 * asesor terkait tersedia. Baris hanya diproses bila dosen memiliki asesor aktif yang
+	 * ditugaskan ({@link AsesorPegawai}); progres ditulis ke {@code label} dalam persentase.
+	 * Setiap baris disimpan dalam transaksi Hibernate terpisah (bukan satu transaksi besar untuk
+	 * seluruh batch).
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen yang diproses; {@code null} berarti seluruh dosen
+	 * @param tahunAkademik tahun akademik filter; {@code null} berarti seluruh tahun
+	 * @param semester      semester filter; {@code null} berarti seluruh semester
+	 * @param label         komponen ZK untuk menampilkan progres pemrosesan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {

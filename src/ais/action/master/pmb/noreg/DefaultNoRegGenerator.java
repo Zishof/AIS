@@ -4,34 +4,39 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 
+/**
+ * Algoritma pembangkit nomor registrasi PMB bawaan (dipakai bila institusi tidak memiliki
+ * generator khusus). Format nomor: tahun pendaftaran ({@code biodataCalonMahasiswa.getTahun()})
+ * diikuti sejumlah digit urutan (panjang dikontrol konfigurasi
+ * {@code jumlah_increments_no_registrasi_pmb}, default 8) yang diturunkan dari
+ * {@code id} tertinggi record {@link BiodataCalonMahasiswa} aktif saat ini.
+ */
 public class DefaultNoRegGenerator implements NoRegGenerator {
 
+	/** @return nomor registrasi baru untuk {@code biodataCalonMahasiswa}, lihat {@link #generateNoReg(List, BiodataCalonMahasiswa)}. */
 	@Override
 	public String generateNoReg(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		return generateNoReg(new ArrayList<String>(), biodataCalonMahasiswa);
 	}
 
+	/**
+	 * Menghasilkan nomor registrasi format tahun+urutan berbasis {@code id} tertinggi; bila hasil
+	 * sudah dipakai, nomor tersebut ditambahkan ke {@code jumlahPengecualian} dan method memanggil
+	 * dirinya sendiri secara rekursif untuk mencoba urutan berikutnya.
+	 *
+	 * @param jumlahPengecualian nomor yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang akan diberi nomor registrasi
+	 * @return nomor registrasi yang belum pernah dipakai
+	 */
 	// generate NIM
 	@Override
 	public String generateNoReg(List<String> jumlahPengecualian, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		Session session = HibernateUtil.currentSession();
-		Number number = (Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.setProjection(Projections.max("id")).uniqueResult();
-
-		if (number == null) {
-			number = 0;
-		} else {
-			number = number.longValue() + (jumlahPengecualian.size() + 1);
-		}
-		String kodeRegistratsi = "00000000000000000000000000000000000000" + number.longValue();
-
 		Integer jumlahIncrements = 8;
 		try {
 			jumlahIncrements = Integer
@@ -40,14 +45,14 @@ public class DefaultNoRegGenerator implements NoRegGenerator {
 			Common.tampilErrorJikaAdmin(e); 
 		}
 
-		String noreg = (biodataCalonMahasiswa.getTahun() + "")
-				+ kodeRegistratsi.substring(kodeRegistratsi.length() - jumlahIncrements, kodeRegistratsi.length());
+		String prefix = biodataCalonMahasiswa.getTahun() + "";
+		long nomorUrut = NoRegGeneratorSupport.nomorUrutBerikutnya(session, prefix, jumlahIncrements,
+				biodataCalonMahasiswa, jumlahPengecualian);
+		String noreg = prefix + NoRegGeneratorSupport.leftPadNomor(nomorUrut, jumlahIncrements);
 
-		Integer count = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.add(Restrictions.eq("noRegistrasi", noreg)).setProjection(Projections.rowCount()).uniqueResult())
-						.intValue();
+		boolean nomorSudahDipakai = NoRegGeneratorSupport.nomorSudahDipakai(session, noreg, biodataCalonMahasiswa);
 
-		if (!count.equals(0)) {
+		if (nomorSudahDipakai) {
 			jumlahPengecualian.add(noreg);
 			return generateNoReg(jumlahPengecualian, biodataCalonMahasiswa);
 		} else {

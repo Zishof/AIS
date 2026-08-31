@@ -12,16 +12,32 @@ import ais.action.master.sapto.util.SaptoUtil;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.6.1 pada paket sapto: rekap kualifikasi pendidikan
+ * (S3/S2/S1/D4/D3/D2/D1/SMA) tenaga kependidikan non-dosen, dipecah per jenis tenaga
+ * (Pustakawan, Programer/Laboran, Administrasi, Lainnya). Sesuai konvensi kode sheet
+ * {@link #sheetCode}, kelas ini adalah window ZK yang dibangun di atas {@link SaptoBaseWindow}.
+ *
+ * <p>
+ * Tidak memiliki filter yang ditampilkan ke pengguna ({@link #buildFilters(Row)} kosong).
+ * Data dihitung lewat satu query SQL native ber-{@code UNION ALL} (4 blok, satu per jenis tenaga
+ * kependidikan) yang menjumlahkan kecocokan pola nama jenjang pendidikan (mis. {@code ilike
+ * '%S3%'}) memakai {@code CASE WHEN}, dijalankan di thread terpisah agar UI tidak terblokir
+ * selama query berjalan.
+ * </p>
+ */
 public class LaporanProfileDosen_A_4_6_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.6.1";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Membangun window laporan dalam konfigurasi baku (dipanggil dari kode yang membuat instance tanpa parameter tambahan). */
     public LaporanProfileDosen_A_4_6_1() {
         super();
         try { buildBase(true, false); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit (dipanggil saat window dibuka sebagai modal/dialog tersendiri). */
     public LaporanProfileDosen_A_4_6_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true, false);
@@ -30,6 +46,12 @@ public class LaporanProfileDosen_A_4_6_1 extends SaptoBaseWindow {
     @Override protected String getSheetCode() { return sheetCode; }
     @Override protected void buildFilters(Row row) { /* no visible filters */ }
 
+    /**
+     * Menjalankan query rekap kualifikasi pendidikan tenaga kependidikan dan menampilkan
+     * hasilnya sebagai worksheet {@link #sheetCode}. Query dijalankan di thread terpisah;
+     * hasil disisipkan ke {@code label} lewat atribut {@code "datas"} yang dibaca
+     * {@link SaptoUtil#displayWorksheet}.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {
