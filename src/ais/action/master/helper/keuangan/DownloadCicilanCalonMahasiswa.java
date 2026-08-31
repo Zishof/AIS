@@ -157,10 +157,13 @@ public class DownloadCicilanCalonMahasiswa extends MyWindow {
 		North north = new North();
 		north.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(north, false);
-		north.setHeight("160px");
-		north.setAutoscroll(true);
+		// Filter terdiri dari dua baris, toolbar, dan paging. Tinggi lama 160px
+		// membuat paging terpotong/tertutup scrollbar area Center.
+		north.setHeight("200px");
+		north.setAutoscroll(false);
 
 		Div div = new Div();
+		div.setStyle("overflow:visible;padding-bottom:6px;");
 		div.setParent(north);
 
 		MyGrid grid = new MyGrid();
@@ -316,6 +319,10 @@ public class DownloadCicilanCalonMahasiswa extends MyWindow {
 		paging = new Paging();
 		paging.setParent(div);
 		paging.setMold("os");
+		paging.setWidth("100%");
+		paging.setHeight("34px");
+		paging.setStyle("display:block;clear:both;box-sizing:border-box;overflow:visible;"
+				+ "padding:3px 8px;background:#f8fafc;border-top:1px solid #dbe3ec;");
 		paging.setPageSize(1);
 		paging.setTotalSize(1000);
 		paging.addEventListener("onPaging", new EventListener() {

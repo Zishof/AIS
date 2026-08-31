@@ -42,8 +42,13 @@ kepada anggota) tanpa satu pun referensi akun/jurnal:
 | `ModalPenyertaanKoperasi` | setoran modal (ekuitas) |
 | `PembagianShu` / `ShuAnggota` | distribusi SHU (ekuitas → kewajiban/kas) |
 
-Perlu KEPUTUSAN AKUNTANSI dulu (akun kewajiban saldo anggota, akun modal, akun SHU)
-sebelum mesin posting dibuat — bukan sekadar pekerjaan teknis.
+Semula ditandai "perlu KEPUTUSAN AKUNTANSI dulu (akun kewajiban saldo anggota, akun modal,
+akun SHU)". **SEBAGIAN SELESAI r78646** — pemilihan akun dibuat DAPAT DIATUR lewat Konfigurasi
+sehingga kebijakan tetap milik lembaga tanpa menahan mesinnya: topup saldo anggota dan pencairan
+diskon sudah berjurnal, teruji 14/14, dok
+[68-posting-dana-anggota-koperasi.md](68-posting-dana-anggota-koperasi.md). Sisa tahap 2
+(penyesuaian saldo, modal penyertaan, pembagian SHU) beserta alasannya ada di dok 68 §4;
+deposito rollover dinyatakan TIDAK perlu jurnal.
 
 ### C. `PembatalanTransaksiKantin` — refund tanpa jurnal balik
 Pembatalan penjualan kantin tidak menjurnal apa pun. Selama headernya BELUM masuk
