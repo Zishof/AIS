@@ -3,10 +3,12 @@ package ais.action.master.inventory;
 import java.util.List;
 
 import org.hibernate.Session;
+import org.hibernate.LockMode;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.StokOpname;
 
 /**
  * Util bersama perhitungan ulang stok kantin — satu-satunya tempat rumus stok ditulis, dipakai oleh
@@ -82,7 +84,68 @@ import ais.database.model.inventory.Produk;
  */
 public final class StokKantinUtil {
 
+    private static final String PENANDA_SALDO_AWAL_LEGACY = "[SALDO_AWAL_LEGACY_OTOMATIS]";
+
     private StokKantinUtil() {
+    }
+
+    /**
+     * Menjembatani produk lama yang saldo {@code produk.stok}-nya sudah berisi angka operasional,
+     * tetapi saldo awal tersebut belum pernah mempunyai jurnal sumber yang ikut dibaca oleh
+     * {@link #formulaStokSql(Long)}.
+     *
+     * <p>Tanpa jembatan ini, mutasi kanonik pertama (contoh: BAST 2 dus x 6 botol) akan menghitung
+     * ulang hanya dari tabel transaksi. Saldo lama 540 hilang dan hasil dapat berubah menjadi -9,
+     * padahal semestinya 552. Method ini menyimpan selisih antara saldo tersimpan dan saldo kanonik
+     * sebagai SATU jurnal Stok Opname sebelum mutasi baru dicatat. Penanda per produk membuatnya
+     * idempoten: retry BAST/sinkronisasi tidak pernah membuat saldo awal kedua.</p>
+     *
+     * <p>Method wajib dipanggil DI DALAM transaksi dan SEBELUM mutasi baru untuk produk disimpan.
+     * Produk baru atau produk yang saldo tersimpannya sudah sama dengan formula tidak menghasilkan
+     * jurnal apa pun.</p>
+     */
+    public static void pastikanSaldoAwalLegacyTercatat(Session session, Produk produk, String oleh) {
+        if (session == null || produk == null || produk.getId() == null || produk.getToko() == null) {
+            return;
+        }
+        // Serialkan inisialisasi saldo awal per produk. Retry/sinkronisasi paralel tidak boleh
+        // melewati pemeriksaan penanda secara bersamaan lalu membuat dua jurnal pembuka.
+        session.lock(produk, LockMode.UPGRADE);
+        Long produkId = produk.getId();
+        Number jumlahPenanda = (Number) session.createSQLQuery(
+                "SELECT COUNT(*) AS jumlah FROM koperasi.stok_opname "
+                        + "WHERE produk=:produkId AND keterangan LIKE :penanda")
+                .addScalar("jumlah", org.hibernate.Hibernate.LONG)
+                .setParameter("produkId", produkId)
+                .setParameter("penanda", PENANDA_SALDO_AWAL_LEGACY + "%")
+                .uniqueResult();
+        if (jumlahPenanda != null && jumlahPenanda.longValue() > 0L) {
+            return;
+        }
+
+        Number hasilKanonik = (Number) session.createSQLQuery(
+                "SELECT (" + formulaStokSql(produkId) + ") AS stok")
+                .addScalar("stok", org.hibernate.Hibernate.DOUBLE)
+                .uniqueResult();
+        double stokKanonik = hasilKanonik == null ? 0.0 : hasilKanonik.doubleValue();
+        double stokTersimpan = produk.getStok() == null ? 0.0 : produk.getStok().doubleValue();
+        if (Math.abs(stokTersimpan - stokKanonik) < 0.000001d) {
+            return;
+        }
+
+        StokOpname saldoAwal = new StokOpname();
+        saldoAwal.setProduk(produk);
+        saldoAwal.setToko(produk.getToko());
+        saldoAwal.setStokSistem(Double.valueOf(stokKanonik));
+        saldoAwal.setStokFisik(Double.valueOf(stokTersimpan));
+        saldoAwal.setSelisih(Double.valueOf(stokTersimpan - stokKanonik));
+        saldoAwal.setWaktuOpname(new java.util.Date());
+        saldoAwal.setOleh(oleh == null || oleh.trim().isEmpty() ? "migrasi-saldo-awal" : oleh);
+        saldoAwal.setKeterangan(PENANDA_SALDO_AWAL_LEGACY
+                + " Rekonsiliasi satu kali dari saldo master sebelum mutasi kanonik pertama; produk="
+                + produkId + ", saldo_master=" + stokTersimpan + ", saldo_formula=" + stokKanonik + ".");
+        session.save(saldoAwal);
+        session.flush();
     }
 
     /**

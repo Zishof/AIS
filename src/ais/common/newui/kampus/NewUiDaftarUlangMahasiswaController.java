@@ -134,6 +134,7 @@ public final class NewUiDaftarUlangMahasiswaController {
             else if ("list".equals(action)) list(json, request, subjek, mode);
             else if ("options".equals(action)) options(json);
             else if ("revisions".equals(action)) riwayat(json, subjek);
+            else if ("informasi".equals(action)) informasi(json, subjek, mode);
             else if ("upload".equals(action)) uploadBukti(json, request, subjek, user);
             else if ("save".equals(action)) bayar(json, request, subjek, user, mode);
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
@@ -629,6 +630,62 @@ public final class NewUiDaftarUlangMahasiswaController {
             }
         } finally { s.close(); }
         j.put("rows", arr).put("total", arr.length());
+    }
+
+    // -------------------------------------------------- informasi pembayaran
+    /**
+     * Ringkasan seluruh kegiatan pembayaran seorang mahasiswa/calon — paritas
+     * layar {@code informasi_pembayaran_mahasiswa.zul} (menu 1732) yang
+     * sebelumnya jatuh ke daftar entity Mahasiswa mentah.
+     *
+     * <p>Read-only: satu baris per {@link Kegiatan} (jenis + TA + semester)
+     * dengan tagihan, dibayar, kekurangan, denda, status lunas, jumlah
+     * cicilan, dan {@code kegiatanId} untuk cetak kuitansi lewat
+     * {@code export_kuitansi}.</p>
+     */
+    private static void informasi(JSONObject j, Subjek subjek, String mode) throws Exception {
+        requireSubjek(subjek, mode);
+        JSONArray arr = new JSONArray();
+        double totalTagihan = 0, totalDibayar = 0;
+        Session s = HibernateUtil.openSession();
+        try {
+            Criteria c = s.createCriteria(Kegiatan.class).addOrder(Order.desc("id")).setMaxResults(200);
+            if (subjek.mahasiswa != null) c.add(Restrictions.eq("mahasiswa", subjek.mahasiswa));
+            else c.add(Restrictions.eq("calonMahasiswa", subjek.calon));
+            for (Object o : c.list()) {
+                Kegiatan k = (Kegiatan) o;
+                double amount = nvl(k.getAmount());
+                double terhutang = nvl(k.getAmountTerhutang());
+                double tagihan = amount + (terhutang > 0 ? terhutang : 0);
+                int jumlahCicilan = 0;
+                try {
+                    List cicilans = KegiatanPersistenceHelper.ambilCicilan(k, false);
+                    jumlahCicilan = cicilans == null ? 0 : cicilans.size();
+                } catch (Exception ignored) { }
+                JSONObject row = new JSONObject();
+                row.put("kegiatanId", k.getId());
+                row.put("jenis", k.getJenisKegiatan() == null ? "" : nz(k.getJenisKegiatan().getNamaKegiatan()));
+                row.put("tahunAkademik", nz(k.getTahunAkademik()));
+                row.put("smt", k.getSemster() == null ? JSONObject.NULL : k.getSemster());
+                row.put("tanggal", k.getTanggal() == null ? JSONObject.NULL : k.getTanggal().getTime());
+                row.put("tagihan", tagihan);
+                row.put("dibayar", amount);
+                row.put("kekurangan", terhutang > 0 ? terhutang : 0);
+                row.put("denda", nvl(k.getDenda()));
+                row.put("lunas", terhutang <= 0.1);
+                row.put("jumlahCicilan", jumlahCicilan);
+                row.put("validator", nz(k.getValidator()));
+                row.put("keterangan", nz(k.getKeterangan()));
+                arr.put(row);
+                totalTagihan += tagihan;
+                totalDibayar += amount;
+            }
+        } finally { s.close(); }
+        j.put("rows", arr).put("total", arr.length());
+        j.put("totalTagihan", totalTagihan).put("totalDibayar", totalDibayar);
+        j.put("totalKekurangan", Math.max(0, totalTagihan - totalDibayar));
+        j.put("subjekNama", subjek.mahasiswa != null ? nz(subjek.mahasiswa.getNama()) : nz(subjek.calon.getNama()));
+        j.put("subjekKode", subjek.mahasiswa != null ? nz(subjek.mahasiswa.getNim()) : nz(subjek.calon.getNoRegistrasi()));
     }
 
     // --------------------------------------------------------- unggah bukti

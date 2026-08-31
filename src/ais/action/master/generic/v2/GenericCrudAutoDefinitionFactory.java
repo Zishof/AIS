@@ -305,9 +305,16 @@ public final class GenericCrudAutoDefinitionFactory {
                 || p.equals("saldo") || p.equals("biaya") || p.equals("amount")
                 || p.startsWith("nilaibiaya")) skor += 50;
         if (p.equals("denda") || p.equals("diskon") || p.equals("potongan")
-                || p.equals("terbayar") || p.equals("kekurangan")) skor += 40;
-        if (p.equals("status") || p.startsWith("status") || p.equals("keterangan")
+                || p.equals("terbayar") || p.equals("kekurangan")
+                || p.equals("amountterhutang") || p.equals("pengurangan")) skor += 40;
+        // "status" hanya bila memang kolom status; properti seperti
+        // statusAwalMahasiswa adalah relasi turunan yang tidak layak
+        // mendorong kolom utama keluar layar.
+        if (p.equals("status") || p.endsWith("status") || p.equals("keterangan")
                 || p.equals("validator")) skor += 35;
+        // Kode internal/teknis: berguna untuk sistem, membingungkan di tabel.
+        if (p.equals("kodeunik") || p.equals("kodereq") || p.equals("koderequest")
+                || p.equals("refnumber") || p.equals("ref")) skor -= 25;
         // Relasi ke entitas pokok lebih informatif daripada flag konfigurasi.
         if ("relation".equals(tipe)) {
             skor += 25;

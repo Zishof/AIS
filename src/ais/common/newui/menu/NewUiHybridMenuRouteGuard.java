@@ -66,6 +66,8 @@ public final class NewUiHybridMenuRouteGuard {
         return "meta".equals(value) || "health".equals(value) || "read".equals(value)
                 || "list".equals(value) || "detail".equals(value) || "get".equals(value)
                 || "options".equals(value) || "lookup".equals(value)
+                // ringkasan read-only (mis. Informasi Pembayaran Mahasiswa)
+                || "informasi".equals(value)
                 || "relation_lookup".equals(value) || "search".equals(value)
                 || "revisions".equals(value) || "global_revisions".equals(value)
                 || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")

@@ -15887,6 +15887,11 @@ public class KantinHelper {
 						throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " bukan milik toko Anda.");
 					}
 				}
+				// Produk lama dapat memiliki saldo master operasional tanpa jurnal saldo awal.
+				// Catat selisihnya satu kali SEBELUM penerimaan baru agar recompute kanonik tidak
+				// membuang stok lama (contoh 540 + BAST 2 dus x 6 botol harus menjadi 552).
+				ais.action.master.inventory.StokKantinUtil.pastikanSaldoAwalLegacyTercatat(
+						session, produk, oleh);
 				Long satuanInputId = ais.common.Common.angkaAtauNull(it, "satuan_input_id");
 				SatuanProduk satuanInput = satuanInputId == null ? produk.getSatuanPembelian()
 						: (SatuanProduk) session.get(SatuanProduk.class, satuanInputId);
