@@ -126,6 +126,20 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 		// display();
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AmbilDataDdcItemBanbox}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDdcItemBanbox} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AmbilDataDdcItemBanbox
+	 */
 	class DdcItemTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 
 		@Override
@@ -267,6 +281,23 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 		return eventListener;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DdcItemSeringDipakai} milik {@link AmbilDataDdcItemBanbox}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDdcItemBanbox} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
+	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code MyTextbox nama}, {@code MyTextbox kode}; operasi
+	 * lokal: {@code display()}, {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AmbilDataDdcItemBanbox
+	 */
 	private class DdcItemSeringDipakai extends Borderlayout {
 
 		/**
@@ -285,6 +316,20 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 		private MyTextbox nama;
 		private MyTextbox kode;
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link DdcItemSeringDipakai}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DdcItemSeringDipakai} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see DdcItemSeringDipakai
+		 */
 		class DdcItemRenderer extends ais.ui.util.MyRowRenderer {
 
 			@Override

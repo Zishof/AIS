@@ -176,6 +176,20 @@ public class KaryaTulisItemAction extends ItemAction {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KaryaTulisItemAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KaryaTulisItemAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KaryaTulisItemAction
+	 */
 	class ItemRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -362,6 +376,20 @@ public class KaryaTulisItemAction extends ItemAction {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Event listener lokal milik {@link KaryaTulisItemAction}. Kelas ini menangani event untuk komponen induk dan
+	 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KaryaTulisItemAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code selectback()}, {@code onCheck()},
+	 * {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KaryaTulisItemAction
+	 */
 	public class StatusTerbitEventListener implements EventListener {
 
 		private void selectback() {

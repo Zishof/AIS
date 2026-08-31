@@ -250,6 +250,20 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		// display();
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AmbilDataSatuanKerjaBanbox}. Kelas ini menerjemahkan satu item
+	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSatuanKerjaBanbox} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AmbilDataSatuanKerjaBanbox
+	 */
 	class SatuanKerjaTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 
 		@Override
@@ -383,6 +397,23 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		return eventListener;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SatuanKerjaSeringDipakai} milik {@link AmbilDataSatuanKerjaBanbox}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSatuanKerjaBanbox} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
+	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox kodeSatuanKerjaan}, {@code Textbox nama};
+	 * operasi lokal: {@code display()}, {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AmbilDataSatuanKerjaBanbox
+	 */
 	private class SatuanKerjaSeringDipakai extends Borderlayout {
 
 		/**
@@ -402,6 +433,20 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		private Textbox kodeSatuanKerjaan;
 		private Textbox nama;
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link SatuanKerjaSeringDipakai}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SatuanKerjaSeringDipakai} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see SatuanKerjaSeringDipakai
+		 */
 		class SatuanKerjaRenderer extends ais.ui.util.MyRowRenderer {
 
 			@Override

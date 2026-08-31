@@ -38,6 +38,18 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 	// Inner data classes
 	// ═══════════════════════════════════════════════════════════════
 
+	/**
+	 * Tipe implementasi bersarang {@link KpiInterview} milik {@link DashboardInterviewPmb}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardInterviewPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int terjadwal}, {@code int hadir}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardInterviewPmb
+	 */
 	private static final class KpiInterview {
 		int terjadwal;
 		int hadir;
@@ -45,12 +57,36 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 		KpiInterview(int t, int h) { terjadwal = t; hadir = h; }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PewawancaraData} milik {@link DashboardInterviewPmb}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardInterviewPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int jumlah}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardInterviewPmb
+	 */
 	private static final class PewawancaraData {
 		String nama;
 		int    jumlah;
 		PewawancaraData(String n, int j) { nama = n; jumlah = j; }
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProdiInterviewData} milik {@link DashboardInterviewPmb}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardInterviewPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int jumlah}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardInterviewPmb
+	 */
 	private static final class ProdiInterviewData {
 		String nama;
 		int    jumlah;

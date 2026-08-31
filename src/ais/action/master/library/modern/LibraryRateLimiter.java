@@ -58,6 +58,18 @@ public final class LibraryRateLimiter {
         return value.length() > max ? value.substring(0, max) : value;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Window} milik {@link LibraryRateLimiter}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryRateLimiter}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long startedAt}, {@code int count}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LibraryRateLimiter
+     */
     private static final class Window {
         private long startedAt;
         private int count;

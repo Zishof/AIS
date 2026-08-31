@@ -200,6 +200,21 @@ public final class LibraryOaiPmhService {
     private static long number(Object value){return value instanceof Number?((Number)value).longValue():0L;}
     private static String xml(String value){if(value==null)return "";return value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
 
+    /**
+     * Pembawa data/helper lokal milik {@link LibraryOaiPmhService} untuk result. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryOaiPmhService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int status}, {@code String body};
+     * operasi lokal: {@code getStatus()}, {@code getBody}(). Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LibraryOaiPmhService
+     */
     public static final class Result {
         private final int status; private final String body;
         private Result(int status,String body){this.status=status;this.body=body;}

@@ -223,6 +223,34 @@ public final class LibraryMemberApi {
     private static long number(Object value){return value instanceof Number?((Number)value).longValue():0L;}
     private static double decimal(Object value){return value instanceof Number?((Number)value).doubleValue():0D;}
     private static void rollback(Transaction tx){try{if(tx!=null&&tx.isActive())tx.rollback();}catch(Exception ignored){}}
+    /**
+     * Tipe implementasi bersarang {@link MemberContext} milik {@link LibraryMemberApi}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryMemberApi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Anggota member}, {@code Long id}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LibraryMemberApi
+     */
     private static final class MemberContext{private final Anggota member;private final Long id;private MemberContext(Anggota member){this.member=member;this.id=member.getId();}}
+    /**
+     * Tipe implementasi bersarang {@link Page} milik {@link LibraryMemberApi}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryMemberApi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int number}, {@code int size};
+     * operasi lokal: {@code offset}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LibraryMemberApi
+     */
     private static final class Page{private final int number,size;private Page(int number,int size){this.number=number;this.size=size;}private int offset(){return(number-1)*size;}}
 }

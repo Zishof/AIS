@@ -100,5 +100,22 @@ public final class LibraryMarcApi {
     private static JSONObject ok(HttpServletRequest r)throws Exception{return new JSONObject().put("ok",true).put("status","success").put("csrf",NewUiCsrfUtil.getToken(r.getSession()));}private static JSONObject error(String m)throws Exception{return new JSONObject().put("ok",false).put("status","error").put("error",m).put("message",m);}
     private static void rollback(Transaction tx){try{if(tx!=null&&tx.isActive())tx.rollback();}catch(Exception ignored){}}
 
+    /**
+     * Pembawa data/helper lokal milik {@link LibraryMarcApi} untuk marc record. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryMarcApi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String controlNumber}, {@code String
+     * isbn}, {@code String issn}, {@code String author}, {@code String title}, {@code String edition}, {@code
+     * String publisher}, {@code String language}; operasi lokal: {@code json}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LibraryMarcApi
+     */
     private static final class MarcRecord{String controlNumber,isbn,issn,author,title,edition,publisher,language,classification,description,subject;Integer year;JSONObject json()throws Exception{return new JSONObject().put("controlNumber",safe(controlNumber)).put("isbn",safe(isbn)).put("issn",safe(issn)).put("author",safe(author)).put("title",safe(title)).put("edition",safe(edition)).put("publisher",safe(publisher)).put("year",year==null?"":year).put("language",safe(language)).put("classification",safe(classification)).put("description",safe(description)).put("subject",safe(subject));}}
 }

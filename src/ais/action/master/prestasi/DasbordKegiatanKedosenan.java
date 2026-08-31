@@ -83,6 +83,20 @@ public class DasbordKegiatanKedosenan extends Div {
     private Data   lastData;
 
     // ── Satu kegiatan yang sudah dinormalisasi ────────────────────────────────
+    /**
+     * Tipe implementasi bersarang {@link Item} milik {@link DasbordKegiatanKedosenan}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasbordKegiatanKedosenan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date mulai}, {@code String kode},
+     * {@code String nama}, {@code String aspek}, {@code String aspekRinci}, {@code String jabatan}, {@code String
+     * skala}, {@code String status}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DasbordKegiatanKedosenan
+     */
     static final class Item {
         final Date   mulai;
         final String kode, nama, aspek, aspekRinci, jabatan, skala, status, fakultas, prodi, dosen, tempat;
@@ -97,6 +111,20 @@ public class DasbordKegiatanKedosenan extends Div {
     }
 
     // ── Data agregat (dimuat 1×, dipakai semua panel) ─────────────────────────
+    /**
+     * Tipe implementasi bersarang {@link Data} milik {@link DasbordKegiatanKedosenan}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasbordKegiatanKedosenan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List semua}, {@code Map perBulan},
+     * {@code Map perHari}, {@code Map perTahun}, {@code Map perAspek}, {@code Map perAspekRinci}, {@code Map
+     * perJabatan}, {@code Map perSkala}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DasbordKegiatanKedosenan
+     */
     static final class Data {
         List<Item> semua = new ArrayList<Item>();
         Map<String,Integer> perBulan = new LinkedHashMap<String,Integer>();

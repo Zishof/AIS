@@ -263,6 +263,23 @@ public class CariDataPembayaranAction extends GenericAutowireComposer {
 		hbox.appendChild(upload);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProsesUploadBuktiPembayaran} milik {@link CariDataPembayaranAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * CariDataPembayaranAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code BiodataCalonMahasiswa
+	 * biodataCalonMahasiswa}; operasi lokal: {@code upload}(). Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see CariDataPembayaranAction
+	 */
 	public static class ProsesUploadBuktiPembayaran {
 
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
@@ -431,6 +448,20 @@ public class CariDataPembayaranAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link CariDataPembayaranAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CariDataPembayaranAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see CariDataPembayaranAction
+	 */
 	class CalonRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override

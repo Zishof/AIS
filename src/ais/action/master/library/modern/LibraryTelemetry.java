@@ -50,11 +50,36 @@ public final class LibraryTelemetry {
         do { current = target.get(); if (value <= current) return; } while (!target.compareAndSet(current, value));
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Metric} milik {@link LibraryTelemetry}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryTelemetry}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code AtomicLong requests}, {@code
+     * AtomicLong errors}, {@code AtomicLong duration}, {@code AtomicLong maximum}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LibraryTelemetry
+     */
     private static final class Metric {
         private final AtomicLong requests = new AtomicLong();
         private final AtomicLong errors = new AtomicLong();
         private final AtomicLong duration = new AtomicLong();
         private final AtomicLong maximum = new AtomicLong();
     }
+    /**
+     * Tipe implementasi bersarang {@link Started} milik {@link LibraryTelemetry}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryTelemetry}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long AT}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LibraryTelemetry
+     */
     private static final class Started { private static final long AT = System.currentTimeMillis(); }
 }

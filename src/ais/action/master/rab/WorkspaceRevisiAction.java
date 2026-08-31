@@ -923,6 +923,23 @@ public class WorkspaceRevisiAction extends GenericAutowireComposer {
 		window.onModal();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PercabanganDetail} milik {@link WorkspaceRevisiAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link WorkspaceRevisiAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code Workspace
+	 * workspace}, {@code Label total}, {@code EventListener eventListener}, {@code MyWindow window}; operasi
+	 * lokal: {@code hitungTotal()}, {@code init}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see WorkspaceRevisiAction
+	 */
 	private class PercabanganDetail {
 
 		private MyGrid grid;

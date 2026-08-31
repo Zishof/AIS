@@ -388,6 +388,20 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				fileFolderLampiran.mkdirs();
 				System.out.println("fileFolderLampiran => " + fileFolderLampiran.getAbsolutePath());
 
+				/**
+				 * Helper implementasi bersarang milik {@link CetakRegistrasiAction} untuk file download helper. Kelas ini
+				 * mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CetakRegistrasiAction} dan dapat mengakses
+				 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code download}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see CetakRegistrasiAction
+				 */
 				class FileDownloadHelper {
 					public File download(String jenis, BiodataCalonMahasiswa biodataCalonMahasiswa,
 							File fileFolderCalon) {
@@ -1334,6 +1348,20 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 						hlink_style.setFillForegroundColor(new XSSFColor(Color.LIGHT_GRAY));
 						hlink_style.setFont(hlink_font);
 
+						/**
+						 * Helper implementasi bersarang milik {@link CetakRegistrasiAction} untuk data adding helper. Kelas ini
+						 * mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+						 *
+						 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CetakRegistrasiAction} dan dapat mengakses
+						 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+						 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+						 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+						 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+						 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+						 * tambahkan perilaku lintas domain pada service bersama.</p>
+						 *
+						 * @see CetakRegistrasiAction
+						 */
 						class DataAddingHelper {
 							public void process(XSSFRow row, int index, BiodataCalonMahasiswa biodataCalonMahasiswa,
 									String jenis) throws Exception {
@@ -3449,6 +3477,21 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link CetakRegistrasiAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CetakRegistrasiAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render()}, {@code
+	 * pasangCellTagihan}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see CetakRegistrasiAction
+	 */
 	class CalonMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -4016,6 +4059,20 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link NimUrutanSuggestion} milik {@link CetakRegistrasiAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * CetakRegistrasiAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long mahasiswaId},
+	 * {@code String nama}, {@code String noRegistrasi}, {@code String prodi}, {@code String nimLama}, {@code
+	 * String nimSaran}, {@code String status}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see CetakRegistrasiAction
+	 */
 	private static class NimUrutanSuggestion {
 		private Long id;
 		private Long mahasiswaId;

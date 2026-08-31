@@ -49,6 +49,22 @@ public class DashboardTargetProdiPmb extends DashboardPmbBase {
 	// Inner data class
 	// ═══════════════════════════════════════════════════════════════
 
+	/**
+	 * Tipe implementasi bersarang {@link ProdiTargetData} milik {@link DashboardTargetProdiPmb}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTargetProdiPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object id}, {@code String nama},
+	 * {@code int target}, {@code int peminat}, {@code int diterima}, {@code int nim}; operasi lokal: {@code
+	 * persenTarget}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardTargetProdiPmb
+	 */
 	private static final class ProdiTargetData {
 		Object id;
 		String nama;

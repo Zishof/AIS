@@ -433,6 +433,21 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Event listener lokal milik {@link RekapPendaftarSpmb}. Kelas ini menangani event untuk komponen induk dan
+	 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RekapPendaftarSpmb} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String program}, {@code Jurusan j},
+	 * {@code Criterion crits}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see RekapPendaftarSpmb
+	 */
 	public class MyEventListener implements EventListener {
 
 		private String program;
@@ -551,6 +566,21 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Event listener lokal milik {@link RekapPendaftarSpmb}. Kelas ini menangani event untuk komponen induk dan
+	 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RekapPendaftarSpmb} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String program}, {@code Jurusan j},
+	 * {@code Criterion crits}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see RekapPendaftarSpmb
+	 */
 	public class MyEventListenerMahasiswa implements EventListener {
 
 		private String program;
@@ -763,6 +793,20 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 		return pilB1;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link RekapPendaftarSpmb}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RekapPendaftarSpmb} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see RekapPendaftarSpmb
+	 */
 	class BiodataCalonRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings({ "unchecked", "deprecation" })

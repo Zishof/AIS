@@ -56,6 +56,20 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
 
     // ─── Inner DTO ────────────────────────────────────────────────────────────
 
+    /**
+     * Tipe implementasi bersarang {@link RowData} milik {@link RekapJalurMasukMultiTahunPmb}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RekapJalurMasukMultiTahunPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int pil1}, {@code int pil2}, {@code
+     * int pil3}, {@code int pil4}, {@code int jumlah}, {@code int lulus}, {@code int formulir}, {@code int bayar}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RekapJalurMasukMultiTahunPmb
+     */
     private static final class RowData {
         /** PIL 1 = count prodi1 not null (atau = jurusan filter) */
         int pil1;

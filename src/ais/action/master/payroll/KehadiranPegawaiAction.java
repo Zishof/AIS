@@ -505,6 +505,20 @@ public class KehadiranPegawaiAction extends GenericAutowireComposer implements D
 		}).render(filterMulai, filterSampai, filterHariAktif, filterSatker, sortBy, muatData);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardKehadiranRequest} milik {@link KehadiranPegawaiAction}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * KehadiranPegawaiAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date filterMulai}, {@code Date
+	 * filterSampai}, {@code List filterHariAktif}, {@code ais.database.model.rab.SatuanKerja filterSatker}, {@code
+	 * String sortBy}, {@code boolean muatData}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see KehadiranPegawaiAction
+	 */
 	private static class DashboardKehadiranRequest {
 		private final Date filterMulai;
 		private final Date filterSampai;
@@ -524,6 +538,20 @@ public class KehadiranPegawaiAction extends GenericAutowireComposer implements D
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KehadiranPegawaiAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KehadiranPegawaiAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Collection user}; operasi lokal:
+	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KehadiranPegawaiAction
+	 */
 	class StatuskehadiranKaryawanHarianRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("rawtypes")

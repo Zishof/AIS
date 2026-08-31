@@ -124,6 +124,20 @@ public class AmbilDataDomainPenelitianBanbox extends Bandbox implements
 		this.chooseAll = chooseAll;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AmbilDataDomainPenelitianBanbox}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDomainPenelitianBanbox} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AmbilDataDomainPenelitianBanbox
+	 */
 	class DomainPenelitianTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 
 		@Override
@@ -298,6 +312,24 @@ public class AmbilDataDomainPenelitianBanbox extends Bandbox implements
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DomainPenelitianSeringDipakai} milik {@link
+	 * AmbilDataDomainPenelitianBanbox}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung
+	 * jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDomainPenelitianBanbox} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
+	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
+	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AmbilDataDomainPenelitianBanbox
+	 */
 	private class DomainPenelitianSeringDipakai extends Borderlayout {
 
 		/**
@@ -315,6 +347,20 @@ public class AmbilDataDomainPenelitianBanbox extends Bandbox implements
 
 		private Textbox nama;
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link DomainPenelitianSeringDipakai}. Kelas ini menerjemahkan satu item
+		 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DomainPenelitianSeringDipakai} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see DomainPenelitianSeringDipakai
+		 */
 		class DomainPenelitianRenderer extends ais.ui.util.MyRowRenderer {
 
 			@Override

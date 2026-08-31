@@ -594,15 +594,145 @@ public final class RpsObeExcelHelper {
 	private static List<JSONObject> agendaItems(JSONObject root) throws Exception {List<JSONObject> out=new ArrayList<JSONObject>();Iterator<String> it=root.keys();while(it.hasNext()){String k=it.next();JSONObject o=root.optJSONObject(k);if(o!=null){if(!o.has("keyData"))o.put("keyData",k);out.add(o);}}java.util.Collections.sort(out,new java.util.Comparator<JSONObject>(){public int compare(JSONObject a,JSONObject b){return a.optInt("mulaiMingguKe",0)-b.optInt("mulaiMingguKe",0);}});return out;}
 	private static String jsonCodes(Session session,Class<?> type,JSONObject o){List<String> out=new ArrayList<String>();if(o!=null){Iterator<String> it=o.keys();while(it.hasNext()){String id=it.next();String code="";try{Object entity=session.get(type,Long.valueOf(id));if(entity instanceof BahanKajian)code=((BahanKajian)entity).getKode();else if(entity instanceof ReferensiLulusan)code=((ReferensiLulusan)entity).getKode();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"resolve kode referensi saat export RPS OBE");}JSONObject x=o.optJSONObject(id);if(!notEmpty(code)&&x!=null)code=x.optString("kode","");if(!notEmpty(code)&&x!=null)code=codeFromLabel(x.optString("nama",""));if(notEmpty(code))out.add(code);}}return join(out);}
 
+	/**
+	 * Tipe implementasi bersarang {@link ImportData} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map mk}, {@code Map authority},
+	 * {@code List profiles}, {@code List cpls}, {@code List cpmks}, {@code List descriptions}, {@code List
+	 * agendas}, {@code List notes}; operasi lokal: {@code validate}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class ImportData{Map<String,String> mk,authority;List<MasterRow> profiles,cpls;List<CpmkRow> cpmks;List<DescriptionRow> descriptions;List<AgendaRow> agendas;List<NoteRow> notes;void validate(){Set<String> cplCodes=new HashSet<String>();for(MasterRow r:cpls)cplCodes.add(key(r.code));Set<String> cpmkCodes=new HashSet<String>();Set<String> subCodes=new HashSet<String>();for(CpmkRow r:cpmks){cpmkCodes.add(key(r.cpmkCode));if(notEmpty(r.subCode)&&!subCodes.add(key(r.subCode)))throw new IllegalArgumentException(r.location+": Kode Sub-CPMK duplikat '"+r.subCode+"'.");}for(MasterRow r:profiles)for(String c:splitCodes(r.relations))if(!cplCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPL terkait '"+c+"' tidak ada di sheet CPL.");for(MasterRow r:cpls)for(String c:splitCodes(r.relations))if(!cpmkCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": CPMK terkait '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");for(AgendaRow r:agendas)for(String c:r.subCodes)if(notEmpty(c)&&!subCodes.contains(key(c)))throw new IllegalArgumentException(r.location+": Sub-CPMK '"+c+"' tidak ada di sheet CPMK_SUB_CPMK.");}}
+	/**
+	 * Tipe implementasi bersarang {@link MasterRow} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String
+	 * code}, {@code String name}, {@code String description}, {@code String reference}, {@code String category},
+	 * {@code String relations}, {@code Long id}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class MasterRow{String location,code,name,description,reference,category,relations;Long id;Boolean active;}
+	/**
+	 * Tipe implementasi bersarang {@link CpmkRow} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String
+	 * cpmkCode}, {@code String cpmkName}, {@code String subCode}, {@code String subName}, {@code String mapping},
+	 * {@code Long id}, {@code Double cpmkWeight}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class CpmkRow{String location,cpmkCode,cpmkName,subCode,subName,mapping;Long id;Double cpmkWeight,cpmkMinimum,subWeight,subMinimum;}
+	/**
+	 * Tipe implementasi bersarang {@link DescriptionRow} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String
+	 * type}, {@code String code}, {@code String name}, {@code String description}, {@code Boolean active}. Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class DescriptionRow{String location,type,code,name,description;Boolean active;}
+	/**
+	 * Tipe implementasi bersarang {@link AgendaRow} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String
+	 * indicator}, {@code String criteria}, {@code String method}, {@code String offline}, {@code String online},
+	 * {@code String experience}, {@code String bahanKajian}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class AgendaRow{String location,indicator,criteria,method,offline,online,experience,bahanKajian,pustakaUtama,pustakaPendukung;Integer start,end;String[] subCodes=new String[5];}
+	/**
+	 * Tipe implementasi bersarang {@link NoteRow} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String
+	 * type}, {@code String key}, {@code String value}, {@code String problem}, {@code String analysis}, {@code
+	 * String plan}, {@code String owner}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class NoteRow{String location,type,key,value,problem,analysis,plan,owner,target,status,adminComment;}
+	/**
+	 * Tipe implementasi bersarang {@link Counter} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int inserted}, {@code int updated}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class Counter{int inserted,updated;}
 
+	/**
+	 * Tipe implementasi bersarang {@link ImportResult} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int pl}, {@code int cpl}, {@code int
+	 * cpmk}, {@code int agenda}, {@code int inserted}, {@code int updated}; operasi lokal: {@code message}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	public static final class ImportResult{private final int pl,cpl,cpmk,agenda,inserted,updated;ImportResult(int pl,int cpl,int cpmk,int agenda,int inserted,int updated){this.pl=pl;this.cpl=cpl;this.cpmk=cpmk;this.agenda=agenda;this.inserted=inserted;this.updated=updated;}public String message(){return "Upload RPS OBE berhasil. Profil lulusan: "+pl+", CPL: "+cpl+", baris CPMK/Sub-CPMK: "+cpmk+", rincian agenda: "+agenda+". Data master baru: "+inserted+", diperbarui: "+updated+".";}}
 
+	/**
+	 * Tipe implementasi bersarang {@link Styles} milik {@link RpsObeExcelHelper}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link RpsObeExcelHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code XSSFCellStyle title}, {@code
+	 * XSSFCellStyle header}, {@code XSSFCellStyle body}, {@code XSSFCellStyle input}, {@code XSSFCellStyle
+	 * inputCenter}, {@code XSSFCellStyle note}, {@code XSSFCellStyle readOnly}; operasi lokal: {@code style}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RpsObeExcelHelper
+	 */
 	private static final class Styles{final XSSFCellStyle title,header,body,input,inputCenter,note,readOnly;Styles(XSSFWorkbook wb){XSSFFont white=wb.createFont();white.setBold(true);white.setColor(IndexedColors.WHITE.getIndex());XSSFFont dark=wb.createFont();dark.setBold(true);dark.setColor(IndexedColors.DARK_BLUE.getIndex());XSSFFont normal=wb.createFont();title=style(wb,white,IndexedColors.DARK_BLUE);title.setAlignment(HorizontalAlignment.CENTER);header=style(wb,white,IndexedColors.TEAL);header.setAlignment(HorizontalAlignment.CENTER);body=style(wb,normal,IndexedColors.WHITE);input=style(wb,normal,IndexedColors.LIGHT_YELLOW);inputCenter=style(wb,normal,IndexedColors.LIGHT_YELLOW);inputCenter.setAlignment(HorizontalAlignment.CENTER);note=style(wb,dark,IndexedColors.LIGHT_CORNFLOWER_BLUE);readOnly=style(wb,normal,IndexedColors.GREY_25_PERCENT);}private static XSSFCellStyle style(XSSFWorkbook wb,Font font,IndexedColors fill){XSSFCellStyle st=wb.createCellStyle();st.setFont(font);st.setFillForegroundColor(fill.getIndex());st.setFillPattern(FillPatternType.SOLID_FOREGROUND);st.setBorderBottom(BorderStyle.THIN);st.setBorderTop(BorderStyle.THIN);st.setBorderLeft(BorderStyle.THIN);st.setBorderRight(BorderStyle.THIN);st.setVerticalAlignment(VerticalAlignment.TOP);st.setWrapText(true);return st;}}
 }

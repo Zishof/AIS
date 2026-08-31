@@ -37,6 +37,18 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 	// Inner data classes
 	// ═══════════════════════════════════════════════════════════════
 
+	/**
+	 * Tipe implementasi bersarang {@link NamaData} milik {@link DashboardAsalSekolahPmb}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardAsalSekolahPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int jumlah}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardAsalSekolahPmb
+	 */
 	private static final class NamaData {
 		String nama;
 		int    jumlah;

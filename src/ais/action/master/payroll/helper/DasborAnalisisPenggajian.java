@@ -94,6 +94,19 @@ public class DasborAnalisisPenggajian extends Div {
     // Data holder
     // ════════════════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link PayrollData} milik {@link DasborAnalisisPenggajian}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasborAnalisisPenggajian}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int year}, {@code GajiData gaji},
+     * {@code TransaksiData transaksi}, {@code CutiData cuti}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see DasborAnalisisPenggajian
+     */
     private static class PayrollData {
         int year;
         GajiData gaji;
@@ -101,6 +114,20 @@ public class DasborAnalisisPenggajian extends Div {
         CutiData cuti;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link GajiData} milik {@link DasborAnalisisPenggajian}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasborAnalisisPenggajian}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalBatch}, {@code long
+     * batchPosted}, {@code long totalSlip}, {@code long pegawaiDibayar}, {@code double totalNilai}, {@code double
+     * nilaiPerBulan}, {@code long slipPerBulan}, {@code LinkedHashMap caraBayar}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborAnalisisPenggajian
+     */
     private static class GajiData {
         long totalBatch, batchPosted, totalSlip, pegawaiDibayar;
         double totalNilai;
@@ -109,6 +136,19 @@ public class DasborAnalisisPenggajian extends Div {
         LinkedHashMap<String, Double> caraBayar = new LinkedHashMap<String, Double>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link TransaksiData} milik {@link DasborAnalisisPenggajian}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasborAnalisisPenggajian}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalTransaksi}, {@code double
+     * totalDebet}, {@code double totalKredit}, {@code double debetPerBulan}, {@code double kreditPerBulan}, {@code
+     * List perJenis}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborAnalisisPenggajian
+     */
     private static class TransaksiData {
         long totalTransaksi;
         double totalDebet, totalKredit;
@@ -118,6 +158,19 @@ public class DasborAnalisisPenggajian extends Div {
         List<Object[]> perJenis = new ArrayList<Object[]>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link CutiData} milik {@link DasborAnalisisPenggajian}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasborAnalisisPenggajian}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long total}, {@code long disetujui},
+     * {@code double totalHari}, {@code long perBulan}, {@code LinkedHashMap perJenis}, {@code LinkedHashMap
+     * perStatus}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborAnalisisPenggajian
+     */
     private static class CutiData {
         long total, disetujui;
         double totalHari;

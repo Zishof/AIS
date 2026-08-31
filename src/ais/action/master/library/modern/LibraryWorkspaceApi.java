@@ -218,6 +218,22 @@ public final class LibraryWorkspaceApi {
     private static long number(Object value) { return value instanceof Number ? ((Number)value).longValue() : 0L; }
     private static String string(Object value) { return value == null ? "" : String.valueOf(value); }
 
+    /**
+     * Tipe implementasi bersarang {@link Context} milik {@link LibraryWorkspaceApi}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryWorkspaceApi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser user}, {@code Long memberId},
+     * {@code boolean admin}; operasi lokal: {@code memberOnly()}, {@code scope}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LibraryWorkspaceApi
+     */
     private static final class Context {
         private final Tbmuser user; private final Long memberId; private final boolean admin;
         private Context(Tbmuser user, Long memberId, boolean admin){this.user=user;this.memberId=memberId;this.admin=admin;}

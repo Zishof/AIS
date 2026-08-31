@@ -563,6 +563,22 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link CheckKesamaan} milik {@link BiodataCalonMahasiswaAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long biodataCalonMahasiswa}; operasi
+	 * lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataCalonMahasiswaAction
+	 */
 	private class CheckKesamaan implements EventListener {
 		private Long biodataCalonMahasiswa;
 
@@ -2053,6 +2069,20 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		asalNegara.setWidth("90%");
 		// asalNegara.//setConstraint("no empty");
 
+		/**
+		 * Event listener lokal milik {@link BiodataCalonMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiodataCalonMahasiswaAction
+		 */
 		class KewarganegaraanEventListener implements EventListener {
 
 			@Override
@@ -2896,6 +2926,20 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		row.appendChild(pendapatanOrtuWali);
 		pendapatanOrtuWali.setWidth("90%");
 
+		/**
+		 * Event listener lokal milik {@link BiodataCalonMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiodataCalonMahasiswaAction
+		 */
 		class AlamatSamaEventListener implements EventListener {
 
 			@Override
@@ -3013,6 +3057,20 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		final MyLabelStyled dPilhanProdi = new MyLabelStyled("V. Pilihan Program Studi (Prodi)");
 		final MyLabelStyled pilihanPindahan = new MyLabelStyled("VI. Pilihan Pindahan (Untuk Mahasiswa Pindahan)");
 
+		/**
+		 * Event listener lokal milik {@link BiodataCalonMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiodataCalonMahasiswaAction
+		 */
 		class Prodi1EventListener implements EventListener {
 
 			@Override
@@ -3294,6 +3352,20 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 		final Prodi1EventListener prodi1EventListener = new Prodi1EventListener();
 
+		/**
+		 * Event listener lokal milik {@link BiodataCalonMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiodataCalonMahasiswaAction
+		 */
 		class PilihanPaketEventListener implements EventListener {
 
 			@Override
@@ -3827,6 +3899,20 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		kecamatanOrtu.setMaxlength(255);
 		noTelpOrtu.setMaxlength(20);
 
+		/**
+		 * Event listener lokal milik {@link BiodataCalonMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataCalonMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiodataCalonMahasiswaAction
+		 */
 		class JurusanSekolahEventListener implements EventListener {
 
 			@Override

@@ -952,6 +952,19 @@ public class DashboardKehadiranTambahan {
     // Holder lokal khusus class tambahan
     // ---------------------------------------------------------------------
 
+    /**
+     * Tipe implementasi bersarang {@link MasukLiburHolder} milik {@link DashboardKehadiranTambahan}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardKehadiranTambahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String namaPegawai}, {@code String
+     * namaSatker}, {@code long jumlahHari}, {@code double totalJamKerja}, {@code double totalJamLembur}. Aturan
+     * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardKehadiranTambahan
+     */
     private static class MasukLiburHolder {
         String namaPegawai;
         String namaSatker;
@@ -960,6 +973,20 @@ public class DashboardKehadiranTambahan {
         double totalJamLembur = 0.0;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link HariStatHolder} milik {@link DashboardKehadiranTambahan}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardKehadiranTambahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int hari}, {@code long totalLog},
+     * {@code long totalTerlambat}, {@code long totalAlpha}, {@code long totalPulangCepat}, {@code long
+     * totalTidakAbsenPulang}, {@code double totalJamLembur}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see DashboardKehadiranTambahan
+     */
     private static class HariStatHolder {
         @SuppressWarnings("unused")
 		int hari;
@@ -975,6 +1002,19 @@ public class DashboardKehadiranTambahan {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link AnomaliInfo} milik {@link DashboardKehadiranTambahan}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardKehadiranTambahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jenis}, {@code String
+     * keterangan}, {@code String prioritas}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DashboardKehadiranTambahan
+     */
     private static class AnomaliInfo {
         String jenis;
         String keterangan;

@@ -76,6 +76,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class DashboardKehadiranExpert {
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DashboardKehadiranExpert}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DashboardKehadiranExpert} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code reload}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	public interface ReloadHandler {
 		void reload(Date mulai, Date sampai, List<Integer> hariAktif, ais.database.model.rab.SatuanKerja satker,
 				String sortBy) throws Exception;
@@ -1943,10 +1957,39 @@ public class DashboardKehadiranExpert {
 	}
 
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DashboardKehadiranExpert}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code update}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	public static interface ProgressHandler {
 		void update(String message, int percent);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PortalRefs} milik {@link DashboardKehadiranExpert}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ais.ui.util.MyPortalchildren pcTop},
+	 * {@code ais.ui.util.MyPortalchildren pcLeft}, {@code ais.ui.util.MyPortalchildren pcRight}, {@code
+	 * ais.ui.util.MyPortalchildren pcBottom}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	private static class PortalRefs {
 		ais.ui.util.MyPortalchildren pcTop;
 		ais.ui.util.MyPortalchildren pcLeft;
@@ -1954,6 +1997,22 @@ public class DashboardKehadiranExpert {
 		ais.ui.util.MyPortalchildren pcBottom;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DashboardKehadiranExpert} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ProgressHandler progressHandler},
+	 * {@code List listKehadiranFiltered}, {@code int totalLogGlobal}, {@code int totalHadirTepatWaktuGlobal},
+	 * {@code int totalHadirTerlambatGlobal}, {@code int totalPulangCepatGlobal}, {@code int totalCutiIzinGlobal},
+	 * {@code int totalCutiMemotongGlobal}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	static class DashboardData {
 		ProgressHandler progressHandler;
 		List<StatuskehadiranKaryawanHarian> listKehadiranFiltered = new java.util.ArrayList<StatuskehadiranKaryawanHarian>();
@@ -1977,6 +2036,20 @@ public class DashboardKehadiranExpert {
 		java.util.Map<String, RingkasanSatkerHolder> mapSatker = new java.util.TreeMap<String, RingkasanSatkerHolder>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RingkasanPegawaiHolder} milik {@link DashboardKehadiranExpert}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String namaPegawai}, {@code String
+	 * namaSatker}, {@code long aktif}, {@code long jumlahHariEfektif}, {@code long tidak_hadir}, {@code long
+	 * tidakHadirTanpaHoliday}, {@code long cuti_memotong}, {@code long cuti_tidak_memotong}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	static class RingkasanPegawaiHolder {
 		String namaPegawai;
 		String namaSatker;
@@ -1990,23 +2063,74 @@ public class DashboardKehadiranExpert {
 		java.util.Set<String> cutiIzinKeys = new java.util.HashSet<String>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RingkasanSatkerHolder} milik {@link DashboardKehadiranExpert}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String namaSatker}, {@code int
+	 * totalLog}, {@code int totalHadir}, {@code int totalTelat}, {@code int totalAlpha}, {@code double
+	 * totalJamLembur}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	private static class RingkasanSatkerHolder {
 		String namaSatker;
 		int totalLog = 0, totalHadir = 0, totalTelat = 0, totalAlpha = 0;
 		double totalJamLembur = 0.0;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link KondisiInfo} milik {@link DashboardKehadiranExpert}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String status}, {@code String
+	 * bgColor}, {@code String textColor}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	private static class KondisiInfo {
 		String status;
 		String bgColor;
 		String textColor;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link StatusUi} milik {@link DashboardKehadiranExpert}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String text}, {@code String color}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	private static class StatusUi {
 		String text;
 		String color;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RankWrapper} milik {@link DashboardKehadiranExpert}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardKehadiranExpert}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code RingkasanPegawaiHolder holder},
+	 * {@code double score}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DashboardKehadiranExpert
+	 */
 	private static class RankWrapper {
 		RingkasanPegawaiHolder holder;
 		double score;

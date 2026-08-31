@@ -53,6 +53,20 @@ public class DashboardRegistrasiUlangPmb extends DashboardPmbBase {
 	// Inner data class
 	// ═══════════════════════════════════════════════════════════════
 
+	/**
+	 * Tipe implementasi bersarang {@link ProdiRegData} milik {@link DashboardRegistrasiUlangPmb}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardRegistrasiUlangPmb}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object id}, {@code String nama},
+	 * {@code int diterima}, {@code int bayarDafUlang}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardRegistrasiUlangPmb
+	 */
 	private static final class ProdiRegData {
 		Object id;
 		String nama;

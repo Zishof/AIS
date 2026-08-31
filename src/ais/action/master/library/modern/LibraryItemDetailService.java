@@ -56,6 +56,16 @@ public final class LibraryItemDetailService {
         } finally { HibernateUtil.closeSessionQuietly(session); }
     }
 
+    /**
+     * DTO allowlist satu eksemplar/holding item perpustakaan yang dikembalikan oleh
+     * {@link LibraryItemDetailService}. State mencakup barcode, perpustakaan pemilik, ketersediaan, jatuh tempo,
+     * rak, dan panjang antrean; tipe ini tidak memuat entity Hibernate atau menjalankan query sendiri.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static} dan hanya membawa snapshot respons publik. Pembentukan status
+     * ketersediaan tetap dilakukan oleh service induk agar aturan sirkulasi tidak diduplikasi.</p>
+     *
+     * @see LibraryItemDetailService
+     */
     public static final class Holding {
         private final String barcode; private final Long libraryId; private final String libraryName;
         private final boolean available; private final String dueDate; private final String shelf; private final long queue;
@@ -72,6 +82,25 @@ public final class LibraryItemDetailService {
         public long getQueue() { return queue; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Detail} milik {@link LibraryItemDetailService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * LibraryItemDetailService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String imageUrl},
+     * {@code String title}, {@code String authors}, {@code String publisher}, {@code String category}, {@code
+     * String classification}, {@code String theme}; operasi lokal: {@code getId()}, {@code getImageUrl()}, {@code
+     * getTitle()}, {@code getAuthors()}, {@code getPublisher()}, {@code getCategory()}, {@code
+     * getClassification()}, {@code getTheme()}, {@code getIsbn()}, {@code getIssn}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LibraryItemDetailService
+     */
     public static final class Detail {
         private final Long id; private final String imageUrl,title,authors,publisher,category,classification,theme,isbn,issn,edition,language,callNumber,summary,digitalUrl,ebookUrl;
         private final Integer year; private final List<Holding> holdings;

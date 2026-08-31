@@ -49,6 +49,18 @@ public final class LibraryFacetService {
     }
 
     private String cacheKey(LibraryCatalogSearchRequest r){ais.database.model.library.Perpustakaan p=ais.common.Common.getCurrentPerpustakaan();return (p==null?"*":String.valueOf(p.getId()))+'|'+safe(r.getQuery())+'|'+safe(r.getSearchField())+'|'+safe(r.getMatchMode())+'|'+safe(r.getTitle())+'|'+safe(r.getAuthor())+'|'+safe(r.getPublisher())+'|'+safe(r.getSubject())+'|'+safe(r.getNotes())+'|'+safe(r.getExclude())+'|'+safe(r.getLanguage())+'|'+safe(r.getAvailability())+'|'+safe(r.getLibraryId())+'|'+safe(r.getItemTypeId())+'|'+safe(r.getMaterialTypeId())+'|'+safe(r.getSchoolId())+'|'+safe(r.getStudyProgramId())+'|'+safe(r.getYearFrom())+'|'+safe(r.getYearTo());}
+    /**
+     * Tipe implementasi bersarang {@link CacheEntry} milik {@link LibraryFacetService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link LibraryFacetService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long created}, {@code String json}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LibraryFacetService
+     */
     private static final class CacheEntry{private final long created;private final String json;private CacheEntry(long created,String json){this.created=created;this.json=json;}}
 
     @SuppressWarnings("unchecked")
