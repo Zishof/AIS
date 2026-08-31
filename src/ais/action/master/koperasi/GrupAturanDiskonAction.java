@@ -86,5 +86,9 @@ public class GrupAturanDiskonAction extends GenericCrudAction<GrupAturanDiskon> 
     private static Set<Long> parseIds(String v){Set<Long>s=new LinkedHashSet<Long>();if(v!=null)for(String x:v.split("[,;\\s]+"))if(x.trim().length()>0)s.add(Long.valueOf(x.trim()));return s;}
     private static String validJson(String v){try{return new JSONArray(v==null||v.trim().length()==0?"[]":v).toString();}catch(Exception e){throw new IllegalArgumentException("Filter member harus berupa JSON array, contoh [1,2].");}}
     private static String kosong(String v){return v==null||v.trim().length()==0?null:v.trim();}
+    /**
+     * Renderer baris grup aturan diskon. Operasi menampilkan toko, nilai promo, prioritas/kombinasi, status aktif,
+     * serta tombol revisi/edit/hapus menggunakan privilege dan lifecycle layar {@link GrupAturanDiskonAction}.
+     */
     class Renderer extends MyRowRenderer{public void render(Row row,Object value)throws Exception{GrupAturanDiskon g=(GrupAturanDiskon)value;RevisiHelper.createNewRevisi(GrupAturanDiskon.class,g,g.getNamaGrup()).setParent(row);new Label(String.valueOf(g.getToko())).setParent(row);new Label(g.getPersentase()+"% / Rp "+Common.numberFormat.get().format(g.getNominal())).setParent(row);new Label("Prioritas "+g.getPrioritas()+(Boolean.TRUE.equals(g.getDapatDigabung())?" · Gabung":" · Tunggal")).setParent(row);MyCheckboxConfig c=new MyCheckboxConfig("Aktif");c.setChecked(Boolean.TRUE.equals(g.getAktif()));c.setDisabled(!edit);c.setParent(row);Common.copyEditDeleteButtons(edit,delete,g,GrupAturanDiskonAction.this).setParent(row);}}
 }
