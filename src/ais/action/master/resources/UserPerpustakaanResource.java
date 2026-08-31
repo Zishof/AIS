@@ -76,6 +76,14 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
+ * <b>Catatan keamanan:</b> {@link #batalkanPesanItem(String)} sebelumnya menyusun perintah SQL
+ * {@code DELETE} dengan menyambung parameter {@code id} LANGSUNG ke string SQL — celah SQL
+ * injection ke perintah destruktif, DITUTUP 2026-09-01 lewat validasi numerik + parameter binding
+ * (lihat javadoc method). Ketiadaan mekanisme otentikasi pada kelas ini secara keseluruhan (lihat
+ * paragraf di atas) TIDAK diubah pada perbaikan ini.
+ * </p>
+ *
+ * <p>
  * Method pencarian item ({@link #daftarItemJurnal}/{@link #daftarItemJurnalMereka}/
  * {@link #daftarItemKomentarSemua}/{@link #daftarItemKomentarSemuaMereka}) masing-masing punya tiga
  * overload dengan jumlah parameter path bertingkat (tanpa status/paging, dengan status, dengan
@@ -405,11 +413,26 @@ public class UserPerpustakaanResource extends PerpustakaanResource {
 	@GET
 	@Path("batalkan_pesan_item/{id}/")
 	@Produces("text/plain")
-	/** Menghapus permanen (SQL {@code delete}) satu baris {@code library.pesanan_anggota} berdasarkan id. Selalu mengembalikan {@code "OK"} bila query berhasil dieksekusi, tanpa memeriksa apakah baris tersebut sebelumnya ada. */
+	/**
+	 * Menghapus permanen (SQL {@code delete}) satu baris {@code library.pesanan_anggota} berdasarkan
+	 * id. Selalu mengembalikan {@code "OK"} bila query berhasil dieksekusi, tanpa memeriksa apakah
+	 * baris tersebut sebelumnya ada.
+	 *
+	 * <p>
+	 * <b>Catatan keamanan (CELAH SQL INJECTION DITUTUP 2026-09-01):</b> sebelumnya parameter
+	 * {@code id} disambung LANGSUNG ke string SQL delete tanpa validasi/parameter binding — celah
+	 * SQL injection ke perintah DELETE yang dapat dieksploitasi lewat path URL tanpa login (kelas
+	 * ini sama sekali tidak memeriksa autentikasi). Kini {@code id} divalidasi sebagai angka
+	 * ({@code Long.parseLong}) dan diikat lewat {@code SQLQuery#setParameter}. Ketiadaan autentikasi
+	 * pada kelas ini secara keseluruhan TIDAK diubah pada perbaikan ini — lihat catatan keamanan
+	 * pada javadoc kelas.
+	 * </p>
+	 */
 	public String batalkanPesanItem(@PathParam("id") String id) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		session.getTransaction().begin();
-		session.createSQLQuery("delete from library.pesanan_anggota where id = " + id).executeUpdate();
+		session.createSQLQuery("delete from library.pesanan_anggota where id = :id")
+				.setParameter("id", Long.parseLong(id.trim())).executeUpdate();
 		session.getTransaction().commit();
 
 		HibernateUtil.closeSession();

@@ -1503,11 +1503,24 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 	 * {@code library.detail_transaksi} (dijumlahkan per item dengan tanda jenis transaksi masuk/
 	 * keluar) digabung ke {@code item}/{@code perpustakaan}/{@code jenis_item}/{@code tipe_item},
 	 * difilter berdasarkan kombinasi perpustakaan, jenis item, kode DDC (lewat subquery ke
-	 * {@link DataDdcItemDetail}), nama perpustakaan, kategori, ISBN, judul, dan pengarang
-	 * (memakai {@code ilike} literal, disusun via string concatenation), diurutkan berdasarkan
-	 * stok, lalu dipaginasi ({@code start}/{@code banyak}). Gambar sampul diambil dari
-	 * {@code image_url} item atau, bila kosong, dibangkitkan via
+	 * {@link DataDdcItemDetail}), nama perpustakaan, kategori, ISBN, judul, dan pengarang,
+	 * diurutkan berdasarkan stok, lalu dipaginasi ({@code start}/{@code banyak}). Gambar sampul
+	 * diambil dari {@code image_url} item atau, bila kosong, dibangkitkan via
 	 * {@link CommonMedia#getMediaItem(Long, int, int, boolean)}.
+	 *
+	 * <p>
+	 * <b>Catatan keamanan (CELAH SQL INJECTION DITUTUP 2026-09-01):</b> seluruh parameter path di
+	 * method ini sebelumnya disambung LANGSUNG ke string SQL (termasuk {@code order}/{@code start}/
+	 * {@code banyak} ke klausa {@code ORDER BY}/{@code LIMIT}/{@code OFFSET} — bukan hanya di dalam
+	 * literal string ber-kutip) tanpa validasi apa pun, dan method ini tidak memeriksa autentikasi —
+	 * celah SQL injection pre-auth. Kini {@code perpustakaan}/{@code jenis}/{@code ddc}/
+	 * {@code start}/{@code banyak} divalidasi sebagai angka murni ({@code Long.parseLong}, melempar
+	 * exception bila bukan angka), {@code order} dibatasi ke {@code "asc"}/{@code "desc"} saja, dan
+	 * kelima filter teks ({@code namaPerpustakaan}/{@code kategori}/{@code isbn}/{@code judul}/
+	 * {@code pengarang}) diikat lewat parameter binding ({@code Query#setParameter}) alih-alih
+	 * konkatenasi string ke klausa {@code ilike}. Ketiadaan autentikasi pada method ini TIDAK
+	 * diubah pada perbaikan ini.
+	 * </p>
 	 *
 	 * @return daftar {@link StokItem} berisi ringkasan stok per item pada perpustakaan yang dicari
 	 */
@@ -1538,6 +1551,16 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		namaPerpustakaan = namaPerpustakaan.trim().equals("_") || namaPerpustakaan.trim().equals("-1") ? ""
 				: namaPerpustakaan;
 
+		// Validasi ketat untuk nilai yang dipakai sebagai literal numerik/klausa SQL (bukan diikat
+		// lewat parameter binding) — mencegah SQL injection lewat parameter path URL (CELAH DITUTUP
+		// 2026-09-01, lihat javadoc method).
+		perpustakaan = perpustakaan.isEmpty() ? "" : String.valueOf(Long.parseLong(perpustakaan.trim()));
+		jenis = jenis.isEmpty() ? "" : String.valueOf(Long.parseLong(jenis.trim()));
+		ddc = ddc.isEmpty() ? "" : String.valueOf(Long.parseLong(ddc.trim()));
+		long banyakVal = Long.parseLong(banyak.trim());
+		long startVal = Long.parseLong(start.trim());
+		String orderSql = order != null && order.trim().equalsIgnoreCase("asc") ? "asc" : "desc";
+
 		String sql = "select a.item, max(c.nama) as nama_item, " + "max(a.tanggal) as tanggal_terakhir_pengadaan, "
 				+ "sum((a.qty+a.qtybonus)*b.jenis) as stok, max(c.pengarangs) as pengarangs, max(d.nama) as perpustakaan, "
 				+ "max(c.isbn) as isbn, "
@@ -1556,22 +1579,34 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 						: (" and a.item in (select aa.item from library.data_ddc_item_detail aa inner join library.data_ddc_item bb on (aa.data_ddc_item = bb.id) where bb.ddc_item = "
 								+ ddc + ")"))
 				+ " " + (namaPerpustakaan.trim().equals("") ? ""
-						: " and d.nama ilike '%" + namaPerpustakaan.trim() + "%'")
+						: " and d.nama ilike :namaPerpustakaan")
 
-				+ (kategori.trim().equals("") ? "" : " and c.kategories ilike '%" + kategori.trim() + "%'")
+				+ (kategori.trim().equals("") ? "" : " and c.kategories ilike :kategori")
 
-				+ (isbn.trim().equals("") ? "" : " and c.isbn ilike '%" + isbn.trim() + "%'")
-				+ (judul.trim().equals("") ? "" : " and c.nama ilike '%" + judul.trim() + "%'")
+				+ (isbn.trim().equals("") ? "" : " and c.isbn ilike :isbn")
+				+ (judul.trim().equals("") ? "" : " and c.nama ilike :judul")
 				+ (pengarang.trim().equals("") ? ""
-						: " and c.pengarangs ilike '%" + pengarang.trim() + "%'")
-				+ " group by a.item, a.perpustakaan order by stok " + order + " limit " + banyak + "  offset " + start;
+						: " and c.pengarangs ilike :pengarang")
+				+ " group by a.item, a.perpustakaan order by stok " + orderSql + " limit " + banyakVal + "  offset "
+				+ startVal;
 		System.out.println(sql);
 
 		List<Object[]> myItem = new ArrayList<Object[]>();
 
 		try {
 			Session session = HibernateUtil.currentNativeSession();
-			myItem = session.createSQLQuery(sql).list();
+			org.hibernate.Query query = session.createSQLQuery(sql);
+			if (!namaPerpustakaan.trim().isEmpty())
+				query.setParameter("namaPerpustakaan", "%" + namaPerpustakaan.trim() + "%");
+			if (!kategori.trim().isEmpty())
+				query.setParameter("kategori", "%" + kategori.trim() + "%");
+			if (!isbn.trim().isEmpty())
+				query.setParameter("isbn", "%" + isbn.trim() + "%");
+			if (!judul.trim().isEmpty())
+				query.setParameter("judul", "%" + judul.trim() + "%");
+			if (!pengarang.trim().isEmpty())
+				query.setParameter("pengarang", "%" + pengarang.trim() + "%");
+			myItem = query.list();
 
 			HibernateUtil.closeSession();
 		} catch (Exception e) {
@@ -1670,6 +1705,14 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 	 * transaksi peminjaman ({@code jumlah}, bukan stok) — dipakai untuk widget "buku populer"
 	 * pada satu perpustakaan.
 	 *
+	 * <p>
+	 * <b>Catatan keamanan (CELAH SQL INJECTION DITUTUP 2026-09-01):</b> method ini punya celah yang
+	 * sama persis dengan {@link #cariBukuStok} (lihat javadoc method itu untuk detail) dan ditutup
+	 * dengan pendekatan yang sama: {@code perpustakaan}/{@code jenis}/{@code ddc}/{@code start}/
+	 * {@code banyak} divalidasi sebagai angka murni, dan filter teks diikat lewat parameter binding.
+	 * Ketiadaan autentikasi pada method ini TIDAK diubah pada perbaikan ini.
+	 * </p>
+	 *
 	 * @return daftar {@link StokItem} terurut dari yang paling sering dipinjam
 	 */
 	@SuppressWarnings("unchecked")
@@ -1699,6 +1742,15 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		kategori = kategori.trim().equals("_") ? "" : kategori;
 		perpustakaan = perpustakaan.trim().equals("_") || perpustakaan.trim().equals("-1") ? "" : perpustakaan;
 
+		// Validasi ketat untuk nilai yang dipakai sebagai literal numerik SQL (bukan diikat lewat
+		// parameter binding) — mencegah SQL injection lewat parameter path URL (CELAH DITUTUP
+		// 2026-09-01, lihat javadoc method).
+		perpustakaan = perpustakaan.isEmpty() ? "" : String.valueOf(Long.parseLong(perpustakaan.trim()));
+		jenis = jenis.isEmpty() ? "" : String.valueOf(Long.parseLong(jenis.trim()));
+		ddc = ddc.isEmpty() ? "" : String.valueOf(Long.parseLong(ddc.trim()));
+		long banyakVal = Long.parseLong(banyak.trim());
+		long startVal = Long.parseLong(start.trim());
+
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH) - 6);
 
@@ -1718,22 +1770,33 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 				+ Common.databaseDateFormat.get().format(calendar.getTime()) + "') and date('"
 				+ Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate()) + "') "
 				+ (kategori.trim().equals("") ? ""
-						: " and c.kategories ilike '%" + kategori.trim() + "%'")
+						: " and c.kategories ilike :kategori")
 				+ "and a.perpustakaan = " + (perpustakaan.equals("") ? "a.perpustakaan" : perpustakaan)
 				+ " and c.jenis_item = " + (jenis.equals("") ? "c.jenis_item" : jenis) + (ddc.equals("") ? ""
 						: (" and a.item in (select aa.item from library.data_ddc_item_detail aa inner join library.data_ddc_item bb on (aa.data_ddc_item = bb.id) where bb.ddc_item = "
 								+ ddc + ")"))
 				+ " " + (namaPerpustakaan.trim().equals("") ? ""
-						: " and d.nama ilike '%" + namaPerpustakaan.trim() + "%'")
+						: " and d.nama ilike :namaPerpustakaan")
 				+ (isbn.trim().equals("") ? ""
-						: " and c.isbn ilike '%" + isbn.trim() + "%'")
+						: " and c.isbn ilike :isbn")
 				+ (judul.trim().equals("") ? ""
-						: " and c.nama ilike '%" + judul.trim() + "%'")
+						: " and c.nama ilike :judul")
 				+ (pengarang.trim().equals("") ? ""
-						: " and c.pengarangs ilike '%" + pengarang.trim() + "%'")
-				+ " group by a.perpustakaan,a.item order by jumlah desc limit " + banyak + "  offset " + start;
+						: " and c.pengarangs ilike :pengarang")
+				+ " group by a.perpustakaan,a.item order by jumlah desc limit " + banyakVal + "  offset " + startVal;
 		System.out.println(sql);
-		List<Object[]> myItem = session.createSQLQuery(sql).list();
+		org.hibernate.Query query = session.createSQLQuery(sql);
+		if (!kategori.trim().isEmpty())
+			query.setParameter("kategori", "%" + kategori.trim() + "%");
+		if (!namaPerpustakaan.trim().isEmpty())
+			query.setParameter("namaPerpustakaan", "%" + namaPerpustakaan.trim() + "%");
+		if (!isbn.trim().isEmpty())
+			query.setParameter("isbn", "%" + isbn.trim() + "%");
+		if (!judul.trim().isEmpty())
+			query.setParameter("judul", "%" + judul.trim() + "%");
+		if (!pengarang.trim().isEmpty())
+			query.setParameter("pengarang", "%" + pengarang.trim() + "%");
+		List<Object[]> myItem = query.list();
 
 		HibernateUtil.closeSession();
 
