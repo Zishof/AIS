@@ -283,11 +283,44 @@ public class InformasiKunjunganMahasiswaAction extends GenericAutowireComposer {
 		fotoGrid.setOddRowSclass("non-odd");
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TampilDetailPembayaran} milik {@link InformasiKunjunganMahasiswaAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link InformasiKunjunganMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code LogLogin logLogin}, {@code MyDetail
+	 * detail}, {@code MyGrid detailPembayaranGrid}; operasi lokal: {@code createList()}, {@code
+	 * loadDetailLogLogin()}, {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see InformasiKunjunganMahasiswaAction
+	 */
 	private class TampilDetailPembayaran implements EventListener {
 		private LogLogin logLogin;
 		private MyDetail detail;
 		private MyGrid detailPembayaranGrid;
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link TampilDetailPembayaran}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TampilDetailPembayaran} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+		 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TampilDetailPembayaran
+		 */
 		private class DetailLogLoginRenderer extends ais.ui.util.MyRowRenderer {
 			@Override
 			public void render(final Row row, Object data) throws Exception {
@@ -359,6 +392,21 @@ public class InformasiKunjunganMahasiswaAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link InformasiKunjunganMahasiswaAction}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link InformasiKunjunganMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see InformasiKunjunganMahasiswaAction
+	 */
 	private class LogLoginRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(final Row row, Object data) throws Exception {

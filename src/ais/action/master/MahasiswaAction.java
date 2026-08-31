@@ -468,6 +468,20 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				fileFolderLampiran.mkdirs();
 				System.out.println("fileFolderLampiran => " + fileFolderLampiran.getAbsolutePath());
 
+				/**
+				 * Helper implementasi bersarang milik {@link MahasiswaAction} untuk file download helper. Kelas ini mengemas
+				 * langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MahasiswaAction} dan dapat mengakses state
+				 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code download}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see MahasiswaAction
+				 */
 				class FileDownloadHelper {
 					public File download(String jenis, Mahasiswa mahasiswa, File fileFolderCalon) {
 						File fileCopy = null;
@@ -3813,6 +3827,21 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		return columnHeadersAdding;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DataAddingMahasiswa} milik {@link MahasiswaAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link MahasiswaAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Boolean alumni}, {@code String
+	 * contents}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see MahasiswaAction
+	 */
 	public static class DataAddingMahasiswa implements EventListener {
 
 		private Boolean alumni;
@@ -4076,6 +4105,20 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					.setCellValue(biodataMahasiswa == null || biodataMahasiswa.getHpProvider() == null ? ""
 							: biodataMahasiswa.getHpProvider());
 
+			/**
+			 * Helper implementasi bersarang milik {@link DataAddingMahasiswa} untuk data adding helper. Kelas ini mengemas
+			 * langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DataAddingMahasiswa} dan dapat mengakses state
+			 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+			 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+			 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+			 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+			 * tambahkan perilaku lintas domain pada service bersama.</p>
+			 *
+			 * @see DataAddingMahasiswa
+			 */
 			class DataAddingHelper {
 				public void process(XSSFRow row, int index, Mahasiswa mahasiswa, String jenis) throws Exception {
 					Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
@@ -4640,6 +4683,20 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		return true;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link MahasiswaAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MahasiswaAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see MahasiswaAction
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -5477,6 +5534,19 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 	private final java.util.List<EditorStatusAwalSemester> editorStatusAwalSemester =
 			new java.util.ArrayList<EditorStatusAwalSemester>();
 
+	/**
+	 * Tipe implementasi bersarang {@link EditorStatusAwalSemester} milik {@link MahasiswaAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link MahasiswaAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long historyId}, {@code Long krsId},
+	 * {@code org.zkoss.zul.Checkbox paksa}, {@code org.zkoss.zul.Combobox statusAwal}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see MahasiswaAction
+	 */
 	private static final class EditorStatusAwalSemester {
 		private final Long historyId;
 		private final Long krsId;
@@ -5986,6 +6056,20 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		jurusan = new Combobox();
 		konsentrasi = new Combobox();
 		Common.insertCombo(fakultas, new String[] { "nama", "kode" }, Fakultas.class, Restrictions.eq("aktif", true));
+		/**
+		 * Event listener lokal milik {@link MahasiswaAction}. Kelas ini menangani event untuk komponen induk dan
+		 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MahasiswaAction} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see MahasiswaAction
+		 */
 		class FakultasEventListener implements EventListener {
 
 			@Override
@@ -6006,6 +6090,20 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 		fakultas.addEventListener("onChange", new FakultasEventListener());
 
+		/**
+		 * Event listener lokal milik {@link MahasiswaAction}. Kelas ini menangani event untuk komponen induk dan
+		 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MahasiswaAction} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see MahasiswaAction
+		 */
 		class JurusanEventListener implements EventListener {
 
 			@Override

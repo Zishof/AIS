@@ -234,6 +234,21 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KegiatanTemporaryAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * KegiatanTemporaryAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KegiatanTemporaryAction
+	 */
 	public static class DetailKegiatanTemporaryRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -363,6 +378,21 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 	}
 
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link KegiatanTemporaryAction}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanTemporaryAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see KegiatanTemporaryAction
+	 */
 	private interface KeranjangGatewayExecutor {
 		void execute(Double tagihan, Mahasiswa mahasiswa, Set<KegiatanTemporary> selected, Event event) throws Exception;
 	}
@@ -564,12 +594,39 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 		});
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link KeranjangSelection} milik {@link KegiatanTemporaryAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * KegiatanTemporaryAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Set selected}, {@code Mahasiswa
+	 * mahasiswa}, {@code Double total}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see KegiatanTemporaryAction
+	 */
 	private static class KeranjangSelection {
 		private Set<KegiatanTemporary> selected;
 		private Mahasiswa mahasiswa;
 		private Double total;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KegiatanTemporaryAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanTemporaryAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}; operasi lokal:
+	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KegiatanTemporaryAction
+	 */
 	class KegiatanTemporaryRenderer extends ais.ui.util.MyRowRenderer {
 
 		Tbmuser tbmuser = Common.getCurrentUser();

@@ -1691,6 +1691,22 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 				.append(htmlText(value)).append("</div></div>");
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardRekapData} milik {@link InformasiPembayaranMahasiswaAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * InformasiPembayaranMahasiswaAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code TreeMap kegiatans}, {@code List
+	 * allCicilan}, {@code TreeMap tagihanPerSemester}, {@code TreeMap dibayarPerSemester}, {@code TreeMap
+	 * sisaPerSemester}, {@code TreeMap trenBulanan}, {@code TreeMap itemBiaya}, {@code double totalTagihan}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see InformasiPembayaranMahasiswaAction
+	 */
 	private static class DashboardRekapData {
 		private TreeMap<String, Kegiatan> kegiatans;
 		private List<CicilanPembayaran> allCicilan;
@@ -2725,12 +2741,44 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 	    return comboboxPlaceholder;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TampilDetailPembayaran} milik {@link InformasiPembayaranMahasiswaAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link InformasiPembayaranMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Kegiatan kegiatan}, {@code MyDetail
+	 * detail}, {@code MyGrid detailPembayaranGrid}, {@code MyGrid detailTagihanGrid}; operasi lokal: {@code
+	 * createList()}, {@code loadDetailKegiatan()}, {@code loadDetailTagihan()}, {@code onEvent}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see InformasiPembayaranMahasiswaAction
+	 */
 	private class TampilDetailPembayaran implements EventListener {
 		private Kegiatan kegiatan;
 		private MyDetail detail;
 		private MyGrid detailPembayaranGrid;
 		private MyGrid detailTagihanGrid;
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link TampilDetailPembayaran}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TampilDetailPembayaran} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TampilDetailPembayaran
+		 */
 		class DetailKegiatanRenderer extends ais.ui.util.MyRowRenderer {
 			@Override
 			public void render(final Row arg0, Object arg1) throws Exception {
@@ -2747,6 +2795,20 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 			}
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link TampilDetailPembayaran}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TampilDetailPembayaran} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TampilDetailPembayaran
+		 */
 		class DetailTagihanRenderer extends ais.ui.util.MyRowRenderer {
 			@Override
 			public void render(final Row arg0, Object arg1) throws Exception {
@@ -2958,6 +3020,20 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link InformasiPembayaranMahasiswaAction}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link InformasiPembayaranMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code ambilSnapshotRincianTagihan()},
+	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see InformasiPembayaranMahasiswaAction
+	 */
 	class KegiatanRenderer extends ais.ui.util.MyRowRenderer {
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		private List<Map<String, Serializable>> ambilSnapshotRincianTagihan(Kegiatan kegiatan) {

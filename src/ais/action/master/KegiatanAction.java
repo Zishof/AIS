@@ -406,6 +406,20 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 		prosesTagihan(downloadFormatPembayaran.getParent());
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KegiatanAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KegiatanAction
+	 */
 	class DetailKegiatanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -424,6 +438,20 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KegiatanAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KegiatanAction
+	 */
 	class KegiatanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -1647,6 +1675,19 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 				"/img/excel.png");
 		btnRekapProdiAngkatan.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Tipe implementasi bersarang {@link DataVo} milik {@link KegiatanAction}. Kelas ini memberi nama pada state
+			 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanAction} dan dapat mengakses state
+			 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Jurusan jurusan}, {@code Integer
+			 * angkatan}, {@code Set jmlMhs}, {@code Set jmlMhsBlmByr}, {@code Set jmlMhsBlmLunas}, {@code Set
+			 * jmlMhsLunas}, {@code Double tagihan}, {@code Double dibayar}. Aturan bisnis bersama tetap berada pada kelas
+			 * induk atau service yang dipanggilnya.</p>
+			 *
+			 * @see KegiatanAction
+			 */
 			class DataVo {
 				public Jurusan jurusan;
 				public Integer angkatan;
