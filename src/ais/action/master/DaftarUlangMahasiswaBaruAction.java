@@ -3058,6 +3058,22 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		return tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TahapAnalisisTagihanBaru} milik {@link DaftarUlangMahasiswaBaruAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DaftarUlangMahasiswaBaruAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code String nilai},
+	 * {@code int jumlah}, {@code boolean gagalPertama}, {@code String nilaiTersedia}, {@code String tindakan},
+	 * {@code Criterion criterion}, {@code int jumlahJikaDilewati}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DaftarUlangMahasiswaBaruAction
+	 */
 	private static class TahapAnalisisTagihanBaru {
 		private final String nama;
 		private final String nilai;

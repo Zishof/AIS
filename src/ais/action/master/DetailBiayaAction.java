@@ -194,6 +194,20 @@ public class DetailBiayaAction extends GenericAutowireComposer {
 		fakultas = new Combobox();
 		jurusan = new Combobox();
 		Common.insertCombo(fakultas, new String[] { "nama", "kode" }, Fakultas.class, Restrictions.eq("aktif", true));
+		/**
+		 * Event listener lokal milik {@link DetailBiayaAction}. Kelas ini menangani event untuk komponen induk dan
+		 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailBiayaAction} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see DetailBiayaAction
+		 */
 		class FakultasEventListener implements EventListener {
 
 			@Override
@@ -214,6 +228,20 @@ public class DetailBiayaAction extends GenericAutowireComposer {
 
 		Common.insertCombo(searchfakultas, new String[] { "nama", "kode" }, Fakultas.class, Restrictions.eq("aktif", true));
 
+		/**
+		 * Event listener lokal milik {@link DetailBiayaAction}. Kelas ini menangani event untuk komponen induk dan
+		 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailBiayaAction} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see DetailBiayaAction
+		 */
 		class SearchFakultasEventListener implements EventListener {
 
 			@Override
@@ -252,6 +280,20 @@ public class DetailBiayaAction extends GenericAutowireComposer {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailBiayaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailBiayaAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailBiayaAction
+	 */
 	class detailBiayaRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {arg0.setValign("top");

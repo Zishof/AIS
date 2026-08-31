@@ -348,6 +348,20 @@ public class ErrorLogAction extends GenericAutowireComposer implements DataCrite
         }
     }
 
+    /**
+     * Renderer lokal untuk layar/komponen {@link ErrorLogAction}. Kelas ini menerjemahkan satu item data menjadi
+     * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ErrorLogAction} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ErrorLogAction
+     */
     class ErrorLogRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object data) throws Exception {
@@ -1697,6 +1711,20 @@ public class ErrorLogAction extends GenericAutowireComposer implements DataCrite
                 .replace("'", "&#39;");
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link ErrorLogAction} untuk dashboard data. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ErrorLogAction}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long total}, {@code Long today},
+     * {@code Long last7Days}, {@code String topCategory}, {@code List logs}, {@code Map trendCounts}, {@code Map
+     * categoryCounts}, {@code Map sourceCounts}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see ErrorLogAction
+     */
     private static class DashboardData {
         Long total = Long.valueOf(0);
         Long today = Long.valueOf(0);
