@@ -93,21 +93,21 @@ awal, empat jurnal kas, satu memorial tanpa kas):
    nilai jatuh ke keranjang "Belum dipetakan". Perhatikan: kelompok jenis Arus Kas yang ada
    baru bernaung di grup **Operasional** dan **Investasi** — grup **Pendanaan** perlu
    ditambahkan bila laporan hendak persis mengikuti format yayasan.
-2. **Satu satuan kerja per instalasi.** Semua laporan berbasis jurnal disaring ke konfigurasi
-   `satuan_kerja_kantin`. Untuk yayasan dengan banyak unit (FF Mart, Katering, Laundry, SMP)
-   yang masing-masing butuh paketnya sendiri plus konsolidasi, ini batasan nyata: parameter
-   `lintasSatker=true` sudah ada di mesin tetapi **tidak ada satu klien pun yang mengirimnya**
-   dan tidak ada pemilih unit di layar laporan. Perlu keputusan: tambah pemilih Satuan Kerja
-   pada layar Laporan Keuangan, atau tetap satu instalasi per unit.
+2. **Satu satuan kerja per instalasi — SELESAI r78643** (dok
+   [67](67-laporan-aktivitas-dan-pemilih-unit.md)). Dahulu semua laporan berbasis jurnal terkunci
+   pada konfigurasi `satuan_kerja_kantin`, sehingga satu instalasi hanya bisa menampilkan satu
+   unit; parameter `lintasSatker` ada di mesin tetapi tidak ada klien yang mengirimnya. Kini ada
+   pemilih Unit/Satuan Kerja pada layar Laporan (termasuk pilihan "Semua Unit (Konsolidasi)").
 3. **Kolom distribusi buku kas** (21 klasifikasi pada lembar Mutasi) tidak direplikasi:
    di AIS peran itu dipegang akun jurnal itu sendiri, dan rekapnya keluar lewat Buku Besar /
    Neraca Percobaan. Tidak dianggap celah.
-4. **"Laporan Aktivitas" tidak ditambahkan sebagai laporan terpisah.** Angkanya identik
-   dengan `akn_laba_rugi`; judul bagian (PENDAPATAN/BEBAN/SURPLUS) mengikuti penamaan
-   Kelompok Laporan, jadi format nirlaba dicapai lewat penamaan kelompok, bukan laporan baru.
-   Rasio Contribution Margin/Profit Margin dan rincian HPP (saldo awal barang + pembelian −
-   persediaan akhir) belum ada di versi berbasis jurnal — tersedia terpisah di kategori
-   "Margin, Laba & Analisa" berbasis data POS.
+4. **"Laporan Aktivitas" — SELESAI r78643** (dok
+   [67](67-laporan-aktivitas-dan-pemilih-unit.md)). Semula tidak dibuat karena angkanya identik
+   dengan `akn_laba_rugi`; atas permintaan, laporan tersendiri `akn_laporan_aktivitas` kini ada
+   dengan susunan nirlaba lengkap beserta Contribution Margin dan Profit Margin. Rincian HPP
+   bergaya persediaan (saldo awal barang + pembelian − persediaan akhir) tetap TIDAK ada di versi
+   berbasis jurnal — di buku besar HPP adalah satu akun beban; versi berbasis stok tersedia di
+   kategori "Margin, Laba & Analisa".
 5. **Kelas yatim yang ditemukan sepanjang audit** (belum tersentuh, dicatat saja):
    `LaporanBukuKasUmum` (satu-satunya BKU, tidak terpasang di menu mana pun),
    `LaporanNeracaLajur`, `LaporanBukuBesarPerTanggal`, `LaporanRiwayatTransaksi`,
