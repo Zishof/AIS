@@ -35,6 +35,7 @@ public class AturanHargaProduk implements Serializable {
 
 	private Long id; private Long produk; private Long toko;
 	private Double minQtyDasar; private Double harga;
+	private Double hargaPaket; private Boolean kelipatanWajib;
 	private Date berlakuMulai; private Date berlakuSampai;
 	private Boolean aktif = Boolean.TRUE; private String keterangan;
 	private String oleh; private Date waktu = new Date();
@@ -49,6 +50,14 @@ public class AturanHargaProduk implements Serializable {
 	@Column(name = "min_qty_dasar", nullable = false) public Double getMinQtyDasar() { return minQtyDasar; } public void setMinQtyDasar(Double value) { minQtyDasar = value; }
 	/** Harga per SATUAN DASAR saat ambang terpenuhi — bukan harga per kemasan. */
 	@Column(name = "harga", nullable = false) public Double getHarga() { return harga; } public void setHarga(Double value) { harga = value; }
+	/** Metode 2 dok. 48 §6 no.1: harga TETAP per paket/kemasan (mis. Rp 4.500.000/karung yang
+	 * tidak persis isi x harga satuan). Bila terisi, mesin memakai {@code hargaPaket/minQtyDasar}
+	 * sebagai harga satuan efektif — total kelipatan paket selalu = harga paket x jumlah paket.
+	 * {@code null} = aturan ambang biasa (Metode 1). */
+	@Column(name = "harga_paket") public Double getHargaPaket() { return hargaPaket; } public void setHargaPaket(Double value) { hargaPaket = value; }
+	/** §6 no.2: {@code true} = pembeli grosir WAJIB kelipatan {@code minQtyDasar} — bayar menolak
+	 * qty nanggung ("53 kg") dengan pesan terbaca. {@code null}/false = bebas (perilaku lama). */
+	@Column(name = "kelipatan_wajib") public Boolean getKelipatanWajib() { return kelipatanWajib; } public void setKelipatanWajib(Boolean value) { kelipatanWajib = value; }
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "berlaku_mulai") public Date getBerlakuMulai() { return berlakuMulai; } public void setBerlakuMulai(Date value) { berlakuMulai = value; }
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "berlaku_sampai") public Date getBerlakuSampai() { return berlakuSampai; } public void setBerlakuSampai(Date value) { berlakuSampai = value; }
 	@Column(name = "aktif") public Boolean getAktif() { return aktif == null ? Boolean.TRUE : aktif; } public void setAktif(Boolean value) { aktif = value; }

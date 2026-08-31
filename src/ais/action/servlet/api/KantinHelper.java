@@ -1380,6 +1380,15 @@ public class KantinHelper {
 					if (!jsonObject.optBoolean("pengiriman_pending", false)) {
 						HargaGrosirApiHelper.terapkanKeItems(session.connection(), toko.getId().longValue(),
 								transaksi, null);
+						// Dok. 48 §6 no.2: aturan grosir ber-kelipatan-wajib menolak qty nanggung
+						// dengan pesan terbaca — dinilai atas TOTAL qty produk, seperti ambangnya.
+						String pelanggaranKelipatan = HargaGrosirApiHelper.cekKelipatanWajib(
+								session.connection(), toko.getId().longValue(), transaksi, null);
+						if (pelanggaranKelipatan != null) {
+							hasil.put("status", "91");
+							hasil.put("description", pelanggaranKelipatan);
+							return;
+						}
 					}
 					terapkanEvaluasiDiskonServer(session.connection(), toko.getId(),
 							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi,
@@ -2125,6 +2134,17 @@ public class KantinHelper {
 
 	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
 			boolean bolehStokHabisToko) {
+		// §6 no.4 (saklar, default MATI): reservasi WO AKTIF ikut mengunci stok yang boleh dijual.
+		return validasiStokCukupDenganLock(transaksi, tokoId, bolehStokHabisToko,
+				ais.common.Common.bolehKonfigurasi(
+						ais.database.model.Konfigurasi.KANTIN_POS_RESERVASI_MENGUNCI,
+						ais.database.model.Konfigurasi.TIDAK_AKTIF));
+	}
+
+	/** Varian ber-flag eksplisit -- dipisah supaya inti logika teruji tanpa lapisan cache
+	 * konfigurasi (pola dok. 44). */
+	static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
+			boolean bolehStokHabisToko, boolean reservasiMengunci) {
 		if (transaksi == null || transaksi.length() == 0) {
 			return null;
 		}
@@ -2162,7 +2182,9 @@ public class KantinHelper {
 				double qtyDiminta = en.getValue().doubleValue();
 				Object[] row = (Object[]) lockSession.createSQLQuery("SELECT nama, ("
 						+ ais.action.master.inventory.StokKantinUtil.formulaStokSql(pid) + "),"
-						+ " izinkan_jual_minus_stok"
+						+ " izinkan_jual_minus_stok,"
+						+ " (SELECT COALESCE(SUM(r.qty_sisa), 0) FROM koperasi.production_reservation r"
+						+ "  WHERE r.produk_id = p.id AND r.toko_id = p.toko AND r.status = 'AKTIF')"
 						+ " FROM koperasi.produk p WHERE p.id = " + pid
 						+ " AND p.toko = " + tokoId + " FOR UPDATE").uniqueResult();
 				if (row == null) {
@@ -2171,8 +2193,13 @@ public class KantinHelper {
 				String nama = row[0] == null ? ("#" + pid) : row[0].toString();
 				double stokLive = row[1] == null ? 0.0 : ((Number) row[1]).doubleValue();
 				Boolean overridePerItem = (row[2] instanceof Boolean) ? (Boolean) row[2] : null;
-				if (stokLive < qtyDiminta && !Boolean.TRUE.equals(overridePerItem)) {
-					String deskripsi = nama + " (sisa " + stokLive + ", diminta " + qtyDiminta + ")";
+				double terkunciReservasi = !reservasiMengunci || row[3] == null ? 0.0
+						: ((Number) row[3]).doubleValue();
+				double stokBolehDijual = stokLive - terkunciReservasi;
+				if (stokBolehDijual < qtyDiminta && !Boolean.TRUE.equals(overridePerItem)) {
+					String deskripsi = nama + " (sisa " + stokLive
+							+ (terkunciReservasi > 0 ? ", terkunci reservasi WO " + terkunciReservasi : "")
+							+ ", diminta " + qtyDiminta + ")";
 					kurang.add(deskripsi);
 					wajibBlokir.add(deskripsi);
 				}

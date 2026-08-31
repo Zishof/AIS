@@ -37,6 +37,7 @@ import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.FotoAdmin;
 import ais.database.model.file.FotoBiodataCalonMahasiswa;
 import ais.database.model.file.FotoCalonSiswa;
+import ais.database.model.file.FotoAnggotaKoperasi;
 import ais.database.model.file.FotoDosen;
 import ais.database.model.file.FotoGuru;
 import ais.database.model.file.FotoMahasiswa;
@@ -88,6 +89,11 @@ public class ProfileImageUtil {
 			return userId == null ? null
 					: new TargetFotoProfil(userId, FotoAdmin.DEFAULT_JENIS, FotoAdmin.class, "tbmuser");
 		}
+		// Member POS mandiri (tanpa tautan siswa/mahasiswa/pengguna) punya rumah fotonya
+		// sendiri sejak 31-08 -- sebelumnya SELALU ditolak "belum ditautkan".
+		if (base instanceof AnggotaKoperasi)
+			return new TargetFotoProfil(base.getId(), FotoAnggotaKoperasi.DEFAULT_JENIS,
+					FotoAnggotaKoperasi.class, "anggotaKoperasi");
 		return null;
 	}
 
@@ -268,6 +274,10 @@ public class ProfileImageUtil {
 			targetId = ((Tbmuser) baseEntity).getUserId();
 			targetJenis = FotoAdmin.DEFAULT_JENIS;
 			targetClass = FotoAdmin.class;
+		} else if (baseEntity instanceof AnggotaKoperasi) { // member POS mandiri (31-08)
+			targetId = baseEntity.getId();
+			targetJenis = FotoAnggotaKoperasi.DEFAULT_JENIS;
+			targetClass = FotoAnggotaKoperasi.class;
 		} else if (baseEntity instanceof PenyediaAsset) {
 			// Logika Khusus Penyedia Asset
 			Long idAsset = (Long) baseEntity.getId();
@@ -463,7 +473,7 @@ public class ProfileImageUtil {
 				return ak.getMahasiswa();
 			if (ak.getTbmuser() != null)
 				return ekstrakEntitasUtama(ak.getTbmuser());
-			return null;
+			return ak; // member mandiri: fotonya disimpan atas nama anggota itu sendiri
 		} else if (object instanceof BiodataCalonMahasiswa) {
 			BiodataCalonMahasiswa bcm = GeneralValueObject.check((BiodataCalonMahasiswa) object);
 			if (bcm != null && bcm.getMahasiswa() != null)

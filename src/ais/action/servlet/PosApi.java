@@ -3048,7 +3048,14 @@ public class PosApi extends HttpServlet {
 				pesan = "Kode transaksi yang sama sudah ada di server. Pembayaran tidak diulang untuk mencegah transaksi ganda.";
 				solusi.put("Periksa Riwayat Penjualan dan Riwayat Sinkronisasi.")
 						.put("Jangan menekan Bayar kembali jika transaksi sudah tercatat.");
-			} else if (descLower.indexOf("stok") >= 0 || descLower.indexOf("kadaluarsa") >= 0) {
+			} else if (descLower.indexOf("kadaluarsa") >= 0
+						// Frasa kekurangan stok SUNGGUHAN saja -- "Satuan Stok/Dasar wajib dipilih"
+						// (validasi UOM produk) pernah tersamar jadi "Stok belum mencukupi" hanya
+						// karena mengandung kata "stok" (laporan galat 30-08).
+						|| (descLower.indexOf("stok") >= 0 && descLower.indexOf("satuan stok") < 0
+								&& (descLower.indexOf("stok tidak") >= 0 || descLower.indexOf("stok belum") >= 0
+										|| descLower.indexOf("melebihi stok") >= 0 || descLower.indexOf("stok habis") >= 0
+										|| descLower.indexOf("kekurangan stok") >= 0 || descLower.indexOf("sisa ") >= 0))) {
 				kode = descLower.indexOf("kadaluarsa") >= 0 ? "PRODUK_KADALUARSA" : "STOK_TIDAK_CUKUP";
 				judul = descLower.indexOf("kadaluarsa") >= 0 ? "Produk tidak boleh dijual" : "Stok belum mencukupi";
 				pesan = desc;

@@ -72,6 +72,10 @@ public class Konfigurasi extends GeneralValueObject {
 	// Default AKTIF (ON). Unit yang secara operasional tidak memakai laci/shift kas dapat memilih
 	// "tidak aktif" secara eksplisit. Semua kanal membaca sakelar server yang sama.
 	public static final String KANTIN_POS_WAJIB_SESI_KAS = "kantin_pos_wajib_sesi_kas";
+	// Dok. 48 §6 no.4 (Fase D): stok yang DIKUNCI reservasi Work Order ikut mengurangi stok yang
+	// boleh dijual kasir (cek stok bayar membaca sum(qty_sisa) reservasi AKTIF). Default TIDAK
+	// AKTIF = reservasi murni informasi, perilaku sebelum saklar ini ada.
+	public static final String KANTIN_POS_RESERVASI_MENGUNCI = "kantin_pos_reservasi_mengunci";
 	// Wajibkan setiap rincian tagihan rutin tanpa BAST menunjuk anggaran/Workspace.
 	// Default TIDAK AKTIF agar tagihan utilitas tetap dapat dicatat saat anggaran belum disiapkan.
 	public static final String PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB =

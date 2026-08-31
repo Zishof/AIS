@@ -1005,6 +1005,11 @@ public final class PengadaanPosApiHelper {
 				o.put("hargaBeli", pr.getHargaBeli() == null ? 0 : pr.getHargaBeli());
 				o.put("master_asset_id", pr.getMasterAsset() == null ? JSONObject.NULL
 						: pr.getMasterAsset().getId());
+				// PDF stok & uom (butir 3): PR/PO diinput per satuan PEMBELIAN -- layar
+				// menampilkan labelnya di kolom Jumlah/Harga supaya semantiknya terlihat.
+				o.put("satuanPembelianNama", pr.getSatuanPembelian() != null
+						? String.valueOf(pr.getSatuanPembelian().getNama())
+						: (pr.getSatuan() == null ? "" : String.valueOf(pr.getSatuan().getNama())));
 				arr.put(o);
 			}
 			hasil.put("status", "00");

@@ -123,6 +123,7 @@
 		<mapping class="ais.database.model.file.FileBukuBahanAjar" />
 		<mapping class="ais.database.model.file.FotoMahasiswa" />
 		<mapping class="ais.database.model.file.FotoSiswa" />
+		<mapping class="ais.database.model.file.FotoAnggotaKoperasi" />
 		<mapping class="ais.database.model.file.FotoCalonSiswa" />
 		<mapping class="ais.database.model.file.FotoCalonPegawai" />
 		<mapping class="ais.database.model.file.FotoMahasiswaLulus" />

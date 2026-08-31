@@ -953,6 +953,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				"Cegah Oversell Kasir — blokir penambahan item melebihi stok pada POS (default MATI; aktifkan setelah toko rutin mencatat stok masuk lewat Pengadaan/Stok Opname, jika belum akan memblokir seluruh penjualan produk yang stoknya belum pernah tercatat)",
 				Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault(
+				"Reservasi Work Order mengunci stok kasir — stok yang dikunci reservasi produksi AKTIF ikut mengurangi stok yang boleh dijual di POS (default MATI = reservasi hanya informasi; menuntut Cegah Oversell juga aktif agar berdampak memblokir)",
+				Konfigurasi.KANTIN_POS_RESERVASI_MENGUNCI, Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(createRowActiveDefault(
 				"Wajibkan Sesi Kas Kasir sebelum pembayaran (default MATI; aktifkan hanya untuk toko yang benar-benar memakai buka-tutup kas per shift -- bila aktif, verifikasi pesanan otomatis H+1 di halaman Pesanan ikut menuntut sesi kas terbuka)",
 				Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF));
 
