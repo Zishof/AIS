@@ -48,6 +48,37 @@ import ais.ui.util.MyHtml;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Controller/action ZK untuk error log. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int DASHBOARD_LIMIT}, {@code int
+ * TREND_DAYS}, {@code int EXPORT_CHUNK_SIZE_DEFAULT}, {@code int EXPORT_LIMIT_DEFAULT}, {@code Paging paging},
+ * {@code MyGrid grid}, {@code Html dashboardHtml}, {@code Html progressHtml}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code initDefaultTanggal()}, {@code initCriteria()}, {@code
+ * initCriteria()}, {@code buatSumberLaporanError()}); pembacaan/pencarian ({@code getFilterTanggalMulai()},
+ * {@code getFilterTanggalSampaiEksklusif()}, {@code downloadFilteredErrors()}, {@code
+ * isHanyaTampilkanErrorBerbeda()}, {@code getDistinctScanLimit()}, {@code getDistinctChunkSize()}); mutasi data
+ * ({@code updatePagingSafely()}); penghapusan/pembatalan ({@code confirmDeleteAll()}, {@code deleteAllLogs()});
+ * pelaporan/ekspor ({@code buildFilteredErrorReport()}, {@code buildErrorFingerprint()}, {@code
+ * normalizeFingerprintLine()}, {@code addIfFingerprintBaru()}); operasi domain lain ({@code
+ * appendToolbarButtons()}, {@code rollbackQuietly()}, {@code copyErrorLogToClipboard()}, {@code
+ * buildCopyText()}, {@code copyFilteredAiPromptToClipboard()}, {@code countFilteredRowsLong()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class ErrorLogAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 
     private static final long serialVersionUID = -5779730267402400328L;

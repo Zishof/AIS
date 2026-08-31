@@ -91,6 +91,40 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk informasi pembayaran mahasiswa. Tipe ini merupakan titik masuk UI
+ * yang menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus
+ * oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String
+ * KONFIG_TAMPILKAN_RINGKASAN_KESELURUHAN}, {@code MyWindow win}, {@code TreeMap kegiatans}, {@code Mahasiswa
+ * mahasiswa}, {@code MyGrid fotoGrid}, {@code MyColumnConfig columnBulan}, {@code Div west}, {@code
+ * JenisKegiatan selectedJenisKegiatan}; inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code
+ * doAfterCompose()}, {@code executeAfterRincianLoaded()}, {@code init()}); pembacaan/pencarian ({@code
+ * getLastSelectedJkLabel()}, {@code getLastSelectedJenisKegiatan()}, {@code getLastSelectedSmtMulai()}, {@code
+ * getLastSelectedSmtSampai()}, {@code isTagihanLoading()}, {@code tampilkanHistoryStatusMahasiswa()});
+ * validasi/perhitungan ({@code hitungUlangSemuaKegiatan()}, {@code hitungTagihanSegar()}, {@code
+ * tagihanSegarKonsistenHitung()}); mutasi data ({@code setLastSelectedJkLabel()}, {@code
+ * setLastSelectedJenisKegiatan()}, {@code setLastSelectedSmtMulai()}, {@code setLastSelectedSmtSampai()});
+ * pelaporan/ekspor ({@code renderDashboardSummary()}, {@code renderSemesterComparison()}, {@code
+ * renderPrioritasTunggakan()}, {@code renderPaymentTrend()}, {@code renderItemComposition()}, {@code
+ * renderPaymentInsight()}); operasi domain lain ({@code cleanupSession()}, {@code onViewExternal()}, {@code
+ * onViewExternal()}, {@code text()}, {@code buildDashboardRekap()}, {@code collectDashboardRekapData()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 4155860737880329036L;
