@@ -26,6 +26,18 @@ import ais.database.model.payroll.CutiDanIzin;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener form dinamis untuk parameter tambahan pada pengajuan Cuti dan Izin pegawai. Mengikuti
+ * pola parameter tambahan generik ({@link ParameterTambahan}): saat dipicu ({@link #onEvent}),
+ * membangun ulang baris-baris input dinamis di grid {@code rows} sesuai kelompok parameter
+ * tambahan aktif ({@link KelompokParameterTambahanCutiDanIzin}) yang berlaku untuk pengajuan cuti
+ * ini, memuat nilai tersimpan sebelumnya (diparse dari string terserialisasi
+ * {@code cutiDanIzin.getParameterTambahanInds()}), dan mendukung validasi wajib-isi/lampiran wajib
+ * sebelum penyimpanan lewat {@link #validate()} serta pemetaan nilai kembali ke entitas lewat
+ * {@link #onSave(CutiDanIzin)}. Pola tata letak baris ini sengaja disamakan dengan
+ * {@code ParameterTambahanMahasiswaListener} (baris harus di-{@code setParent} secara eksplisit ke
+ * grid; {@code initComponent()} sendiri hanya mengisi komponen ke dalam row).
+ */
 public class ParameterTambahanCutiDanIzinListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +46,15 @@ public class ParameterTambahanCutiDanIzinListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCutiDanIzin> kelompokParameterTambahanCutiDanIzins;
 
+	/**
+	 * Membuat listener untuk satu form pengajuan cuti/izin.
+	 *
+	 * @param cutiDanIzin                            entitas pengajuan cuti/izin yang sedang diedit
+	 * @param kelompokParameterTambahanCutiDanIzins   kelompok parameter tambahan yang berlaku
+	 * @param parameterRows                           daftar baris ZK dinamis yang dikelola listener ini (diisi/dibersihkan di {@link #onEvent})
+	 * @param lampiranLains                           peta lampiran yang sudah diunggah, berkunci "kelompokId-&gt;parameterId"
+	 * @param rows                                    grid ZK tempat baris parameter tambahan ditempelkan
+	 */
 	public ParameterTambahanCutiDanIzinListener(CutiDanIzin cutiDanIzin,
 			Set<KelompokParameterTambahanCutiDanIzin> kelompokParameterTambahanCutiDanIzins, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +65,15 @@ public class ParameterTambahanCutiDanIzinListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter wajib diisi
+	 * harus memiliki nilai (bukan kosong/{@code "null"}), dan parameter yang mewajibkan lampiran
+	 * harus sudah memiliki entri di {@code lampiranLains}. Menampilkan {@link MyMessageboxConfig}
+	 * dan menghentikan pemeriksaan pada pelanggaran pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila seluruh parameter tambahan valid, {@code false} bila ada yang gagal
+	 * @throws Exception diteruskan dari kegagalan membaca nilai baris
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +107,21 @@ public class ParameterTambahanCutiDanIzinListener implements EventListener {
 		return true;
 	}
 
+	/** Menyalin nilai-nilai yang sedang diisikan pada {@code parameterRows} kembali ke entitas {@code cutiDanIzin} (serialisasi ke {@code parameterTambahanInds}), dipanggil sebelum entitas disimpan. */
 	public void onSave(CutiDanIzin cutiDanIzin) {
 
 		cutiDanIzin.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan dinamis: menyembunyikan &amp; membersihkan
+	 * baris lama, lalu untuk setiap kelompok parameter tambahan aktif yang berlaku, menambahkan
+	 * baris judul kelompok dan baris input per parameter aktif (diurutkan), memuat nilai tersimpan
+	 * dari {@code cutiDanIzin.getParameterTambahanInds()} bila ada, dan menempelkan setiap baris ke
+	 * grid {@code rows}. Baris judul kelompok hanya ditampilkan bila minimal satu parameter di
+	 * dalamnya benar-benar dirender ({@code tampil}).
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

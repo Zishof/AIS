@@ -28,18 +28,35 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.rab.Workspace;
 import ais.database.model.rab.WorkspacePunyaPredecessor;
 
+/**
+ * Helper UI untuk mengelola relasi banyak-ke-banyak <b>predecessor</b> (workspace pendahulu yang
+ * harus selesai lebih dulu) pada satu {@link Workspace} modul RAB, ditampilkan sebagai grid
+ * tambah/hapus di dalam layar detail workspace. Menu tambah membuka dialog pemilihan workspace
+ * ({@code AmbilDataWorkspaceBanyak}) yang mengecualikan workspace yang sudah menjadi predecessor;
+ * hapus baris langsung menghapus baris {@link WorkspacePunyaPredecessor} dari database (bila sudah
+ * tersimpan) setelah konfirmasi. Visibilitas tombol tambah/hapus mengikuti hak akses pengguna
+ * ({@link CommonPrivilages}).
+ */
 public class WorkspacePunyaPredecessorHelper {
 
 	private MyGrid gridWorkspace;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridWorkspace}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public WorkspacePunyaPredecessorHelper(MyGrid gridWorkspace) {
 		this.gridWorkspace = gridWorkspace;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid predecessor lengkap dengan toolbar tambah, tiga kolom (kode, nama,
+	 * hapus), dan langsung memuat data predecessor {@code workspace} yang sudah ada.
+	 *
+	 * @param workspace workspace yang predecessor-nya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final Workspace workspace) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -128,6 +145,7 @@ public class WorkspacePunyaPredecessorHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh baris predecessor tersimpan milik {@code workspace} ke grid, atau tidak menambah baris apa pun bila workspace belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Workspace workspace) {
 
@@ -148,6 +166,7 @@ public class WorkspacePunyaPredecessorHelper {
 		}
 	}
 
+	/** Mengisi satu baris grid dengan kode+nama workspace predecessor dan tombol hapus (dengan konfirmasi) yang, saat disetujui, menghapus baris dari database bila sudah tersimpan lalu menyembunyikan/melepas baris dari grid. */
 	public void initRow(final Row row,
 			final WorkspacePunyaPredecessor workspacePunyaPredecessor) {
 		row.setValign("top");row.setAttribute("workspacePunyaPredecessor", workspacePunyaPredecessor);

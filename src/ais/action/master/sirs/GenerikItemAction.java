@@ -25,6 +25,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Generik Item" SIRS (nama generik obat/item, dipakai sebagai referensi
+ * item farmasi rumah sakit). Dibangun di atas kerangka kerja {@link GenericCrudAction}: kelas ini
+ * menyediakan kriteria pencarian (filter nama, {@code ILIKE} sebagian), form tambah/edit sederhana
+ * (nama + keterangan), validasi nama wajib diisi dan tidak duplikat, serta renderer baris daftar
+ * yang menampilkan tombol revisi dan aksi edit/hapus.
+ */
 public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +51,7 @@ public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
     @Override
     protected String getWindowTitle() { return "Pendataan Generik Item"; }
 
+    /** Membangun kriteria pencarian {@link GenerikItem} berdasarkan filter nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -62,6 +70,7 @@ public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Generik Item (field nama + keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final GenerikItem generikItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +142,7 @@ public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi, tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link GenerikItem} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan ditampilkan ke pengguna). */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Generik wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Generik pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +166,7 @@ public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link GenerikItem} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaGenerikItem() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(GenerikItem.class)
@@ -170,6 +181,7 @@ public class GenerikItemAction extends GenericCrudAction<GenerikItem> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Generik Item: label revisi+nama, keterangan, dan tombol edit/hapus. */
     class GenerikItemRenderer extends MyRowRenderer {
 
         @Override

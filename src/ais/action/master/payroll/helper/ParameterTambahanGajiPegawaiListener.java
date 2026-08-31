@@ -26,6 +26,19 @@ import ais.database.model.payroll.ParameterTambahanGajiPegawai;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Event listener ZK yang membangun form dinamis "parameter tambahan gaji pegawai" pada layar
+ * pegawai/penggajian: untuk setiap {@link KelompokParameterTambahanGajiPegawai} aktif yang berlaku
+ * bagi pegawai, listener merender baris judul kelompok diikuti baris input per
+ * {@link ParameterTambahan} aktif dalam kelompok tersebut (komponen input dibangun oleh
+ * {@link ParameterTambahan#initComponent}, sesuai tipe input yang dikonfigurasi per parameter),
+ * mem-prefill nilai dari string terserialisasi {@code parameterTambahanInds} milik
+ * {@link Pegawai} (format baris {@code "kelompokId->parameterId<=>nilai<=>keterangan"}), dan
+ * menyembunyikan kelompok yang tidak menghasilkan input apa pun. Juga menyediakan
+ * {@link #validate()} untuk memastikan parameter wajib diisi terisi dan lampiran wajib sudah
+ * diunggah sebelum data disimpan, serta {@link #onSave(Pegawai)} untuk menuliskan kembali nilai
+ * form ke entitas pegawai.
+ */
 public class ParameterTambahanGajiPegawaiListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +47,15 @@ public class ParameterTambahanGajiPegawaiListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanGajiPegawai> kelompokParameterTambahanGajiPegawais;
 
+	/**
+	 * Membuat listener terikat pada satu pegawai dan komponen ZK target.
+	 *
+	 * @param gajiPegawai                            pegawai yang parameter tambahannya ditampilkan/diedit
+	 * @param kelompokParameterTambahanGajiPegawais  kelompok parameter yang relevan untuk pegawai ini
+	 * @param parameterRows                          daftar baris komponen dinamis yang dibangun, diisi/dibersihkan oleh listener
+	 * @param lampiranLains                          peta lampiran yang sudah diunggah, berkunci {@code "kelompokId->parameterId"}
+	 * @param rows                                   komponen {@link Rows} ZK tempat baris form dipasang
+	 */
 	public ParameterTambahanGajiPegawaiListener(Pegawai gajiPegawai,
 			Set<KelompokParameterTambahanGajiPegawai> kelompokParameterTambahanGajiPegawais, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +66,14 @@ public class ParameterTambahanGajiPegawaiListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang dirender: menolak (menampilkan pesan
+	 * dan mengembalikan {@code false}) bila ada parameter wajib diisi yang masih kosong, atau
+	 * parameter yang mewajibkan lampiran namun lampirannya belum diunggah.
+	 *
+	 * @return {@code true} bila seluruh parameter memenuhi aturan wajib isi/lampiran, {@code false} sebaliknya
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembacaan nilai komponen
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +107,28 @@ public class ParameterTambahanGajiPegawaiListener implements EventListener {
 		return true;
 	}
 
+	/**
+	 * Menuliskan kembali nilai-nilai form parameter tambahan yang sedang ditampilkan ke entitas
+	 * pegawai (mendelegasikan ke {@link Pegawai#populateParameterTambahan(List)}), biasanya dipanggil
+	 * sesaat sebelum penyimpanan.
+	 *
+	 * @param gajiPegawai pegawai target penulisan nilai parameter tambahan
+	 */
 	public void onSave(Pegawai gajiPegawai) {
 
 		gajiPegawai.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris form parameter tambahan: membersihkan baris lama, lalu untuk
+	 * setiap kelompok parameter aktif merender baris judul kelompok dan baris input per parameter
+	 * aktif dalam kelompok, mem-prefill nilai dari data tersimpan pada {@code gajiPegawai}, dan
+	 * menyembunyikan kelompok yang tidak memiliki parameter aktif apa pun untuk ditampilkan.
+	 *
+	 * @param event event ZK pemicu pembangunan ulang (mis. perubahan kelompok/jabatan pegawai)
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

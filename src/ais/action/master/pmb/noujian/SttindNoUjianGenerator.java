@@ -18,15 +18,40 @@ import ais.database.model.RuangPMB;
 import ais.database.model.RuangPaketPMB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Algoritma pembangkit nomor ujian PMB khusus institusi STTIND, sekaligus penetap ruang ujian
+ * ({@link RuangPMB}) untuk calon mahasiswa. Alur kerja: (1) bila calon mahasiswa sudah punya
+ * nomor ujian, kembalikan langsung; (2) bila gelombang pendaftaran mewajibkan pembayaran sebelum
+ * login dan pembayaran registrasi belum lunas, tampilkan peringatan dan kembalikan string kosong;
+ * (3) cari {@link RuangPMB} yang cocok dengan paket calon mahasiswa dan belum penuh pada gelombang
+ * pendaftarannya; (4) bila ruang tidak ditemukan atau sudah melebihi kapasitas, tampilkan pesan
+ * informasi dan kembalikan string kosong; (5) bentuk nomor ujian dari 2 digit terakhir tahun +
+ * kode prodi pilihan pertama, diikuti 4 digit urutan (dihitung dari jumlah
+ * {@link BiodataCalonMahasiswa} aktif yang nomor ujiannya sudah diawali prefix yang sama, ditambah
+ * jumlah nomor yang sudah dipesan dalam batch berjalan); (6) bila nomor sudah dipakai, coba lagi
+ * secara rekursif; (7) setelah berhasil, simpan nomor ujian ke entitas dan tetapkan penempatan
+ * ruang ujian lewat {@link CommonPMB#dapatkanRuangUjian}.
+ */
 public class SttindNoUjianGenerator implements NoUjianGenerator {
 
+	/** Instans bersama {@link PembayaranUtil} untuk mengecek status lunas pembayaran registrasi. */
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** @return nomor ujian untuk {@code biodataCalonMahasiswa}, lihat {@link #generateNoUjian(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		return generateNoUjian(biodataCalonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan (atau mengembalikan nomor ujian yang sudah ada) sekaligus menetapkan ruang
+	 * ujian calon mahasiswa. Lihat javadoc kelas untuk alur lengkap, termasuk pengecekan
+	 * pembayaran registrasi dan kuota ruang.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang akan diberi nomor ujian
+	 * @param jumlahPengecualian    nomor yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @return nomor ujian yang tersimpan, atau string kosong bila pembayaran belum lunas atau kuota/ruang tidak tersedia
+	 */
 	// generate NIM
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> jumlahPengecualian)

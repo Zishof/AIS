@@ -35,6 +35,23 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor (bukan grid tabular biasa) untuk "Angket Umum" (checklist penilaian umum):
+ * merangkum jawaban/peserta/rata-rata nilai lewat kartu statistik, distribusi nilai, ringkasan per
+ * kelompok angket dan per jenis pengguna, masukan/keterangan terbaru, serta visualisasi berbasis CSS
+ * murni (bar, trend, radar/spider) — tanpa library chart eksternal. Difilter berdasarkan tahun
+ * akademik, semester, dan jenis pengguna (diperuntukkan), yang memuat ulang seluruh dasbor saat
+ * berubah.
+ *
+ * <p>
+ * Seluruh data diambil lewat SQL native ({@link Query}) ke tabel
+ * {@code checklist_hasil_penilaian_umum} (di-join ke {@code checklist_penilaian_umum},
+ * {@code grup_checklist_penilaian_umum}, {@code jadwal_checklist_penilaian_umum}) pada sesi Hibernate
+ * terpisah yang dibuka via {@code Report.openNativeSession()} dan selalu ditutup di
+ * {@link #closeSession(Session)}. Setiap kartu/baris/bar pada dasbor bisa diklik untuk membuka
+ * popup detail ({@link #showDataPopup}) berisi grid rincian datanya.
+ * </p>
+ */
 public class LaporanAngketUmumDashboardWindow extends MyWindow {
 
 	private static final long serialVersionUID = 3820619879461224201L;
@@ -45,6 +62,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 	private Center center;
 	private Div dashboardContent;
 
+	/** Konstruktor default; kegagalan inisialisasi ditangkap dan ditampilkan lewat pesan formal, tidak dilempar ulang. */
 	public LaporanAngketUmumDashboardWindow() {
 		super();
 		try {
@@ -60,11 +78,13 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
 	public LaporanAngketUmumDashboardWindow(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun kerangka jendela: toolbar filter (tahun akademik, semester, jenis pengguna, tombol refresh) dan area konten dasbor, lalu memuat dasbor untuk pertama kali. */
 	private void init() throws Exception {
 		DashboardGridExportHelper.pasang(this, "Laporan Angket Umum Dashboard Window");
 		setHeight("100%");
@@ -151,6 +171,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		reloadDashboard();
 	}
 
+	/** Menampilkan indikator "Memuat..." lalu menjadwalkan {@link #renderDashboard} lewat timer ZK (agar indikator sempat dirender sebelum query berat berjalan) memakai filter terkini dari {@link #readFilter()}. */
 	private void reloadDashboard() throws Exception {
 		Common.clear(dashboardContent);
 		Html loading = new Html("<div style='padding:14px;color:#555;'><i class='fa fa-spinner fa-spin'></i> Memuat dasbor angket umum...</div>");
@@ -174,6 +195,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Membaca nilai combo filter (tahun akademik, semester, jenis pengguna) saat ini menjadi {@link Filter}, dengan default {@code "Semua"} bila belum dipilih. */
 	private Filter readFilter() {
 		Filter filter = new Filter();
 		filter.tahunAkademik = selectedString(tahunAkademik, "Semua");
@@ -194,6 +216,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Membuka sesi native, memuat {@link DashboardData} lewat {@link #loadDashboardData}, lalu merender seluruh bagian dasbor (judul, kartu, visualisasi CSS, distribusi, ringkasan kelompok/jenis, keterangan terbaru). Kegagalan ditampilkan sebagai pesan error dalam area konten, bukan dilempar ke pemanggil. */
 	private void renderDashboard(Filter filter) {
 		Session session = null;
 		try {
@@ -230,6 +253,14 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Menjalankan seluruh query agregat (total jawaban, peserta unik, pertanyaan, kelompok, jadwal,
+	 * rata-rata nilai, distribusi nilai 1-5, ringkasan per kelompok/jenis pengguna, dan 10 keterangan
+	 * terbaru) terhadap {@code session}, dengan filter yang sama diterapkan di setiap query lewat
+	 * {@link #baseSelectSql}. Peserta unik dihitung dengan menggabungkan (coalesce) enam kemungkinan
+	 * kolom pemilik jawaban (mahasiswa/siswa/dosen/guru/tbmuser/tbmuser_dinilai) menjadi satu kunci
+	 * bertanda prefiks huruf agar id yang sama pada tabel berbeda tidak tertukar.
+	 */
 	private DashboardData loadDashboardData(Session session, Filter filter) {
 		DashboardData data = new DashboardData();
 		data.totalJawaban = longValue(uniqueResult(session, baseCountSql("count(1)"), filter));
@@ -270,6 +301,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		return baseSelectSql(selectExpression);
 	}
 
+	/** Menyusun klausa {@code SELECT ... FROM checklist_hasil_penilaian_umum ... WHERE} dasar (dengan join ke tabel kelompok/pertanyaan/jadwal terkait) yang dipakai seluruh query agregat, sudah menyertakan parameter bind {@code :tahunAkademik}/{@code :semester}/{@code :diperuntukkan} (masing-masing dilewati bila bernilai {@code "Semua"}). */
 	private String baseSelectSql(String selectExpression) {
 		return "select " + selectExpression
 				+ " from checklist_hasil_penilaian_umum h "
@@ -309,6 +341,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		query.setParameter("diperuntukkan", filter == null || filter.diperuntukkan == null ? "Semua" : filter.diperuntukkan);
 	}
 
+	/** Merender baris kartu statistik ringkas (total jawaban, peserta, rata-rata nilai, kelompok, pertanyaan, jadwal), tiap kartu bisa diklik untuk popup detail. */
 	private void renderCards(Div parent, DashboardData data) {
 		Div cards = new Div();
 		cards.setStyle("display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;");
@@ -344,6 +377,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 				+ "<div style='font-size:11px;color:#64748b;'>" + html(desc) + "</div>").setParent(card);
 	}
 
+	/** Merender tabel distribusi nilai 1-5 (jumlah dan persentase relatif terhadap nilai terbanyak), tiap sel bisa diklik untuk popup detail. */
 	private void renderDistribution(Div parent, DashboardData data) {
 		Div box = new Div();
 		box.setStyle("background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;");
@@ -381,6 +415,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Merender grid ringkasan per kelompok angket (nama kelompok, jenis pengguna, jumlah jawaban, peserta, rata-rata), maksimum 20 kelompok teratas (dibatasi di query). */
 	private void renderGroupSummary(Div parent, List rowsData) {
 		new Html("<div style='font-weight:bold;color:#163d7a;margin:10px 0 4px 0;'>Ringkasan per Kelompok Angket</div>"
 				+ "<div style='font-size:11px;color:#64748b;line-height:1.45;margin-bottom:8px;'>Panel ini merangkum jawaban berdasarkan kelompok angket. Pengguna dapat melihat kelompok mana yang paling banyak diisi dan bagaimana rata-rata nilainya.</div>").setParent(parent);
@@ -429,6 +464,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Merender grid ringkasan responden per jenis pengguna (Mahasiswa/Siswa/Dosen/Guru/User/dsb.). */
 	private void renderJenisSummary(Div parent, List rowsData) {
 		new Html("<div style='font-weight:bold;color:#163d7a;margin:14px 0 4px 0;'>Responden per Jenis Pengguna</div>"
 				+ "<div style='font-size:11px;color:#64748b;line-height:1.45;margin-bottom:8px;'>Panel ini menunjukkan jenis pengguna yang mengisi angket. Data ini membantu memastikan angket sudah menjangkau kelompok pengguna yang tepat.</div>").setParent(parent);
@@ -465,6 +501,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Merender grid 10 keterangan/masukan (komentar teks) terbaru dari pengisi angket, teks tiap kolom dipangkas ({@link #limit}) agar grid tetap ringkas. */
 	private void renderKeteranganTerbaru(Div parent, List rowsData) {
 		new Html("<div style='font-weight:bold;color:#163d7a;margin:14px 0 4px 0;'>Masukan / Keterangan Terbaru</div>"
 				+ "<div style='font-size:11px;color:#64748b;line-height:1.45;margin-bottom:8px;'>Panel ini menampilkan komentar terbaru dari pengisi angket. Masukan ini membantu membaca alasan di balik nilai yang diberikan.</div>").setParent(parent);
@@ -502,6 +539,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 	}
 
 
+	/** Merender ketiga visualisasi CSS-murni (bar distribusi nilai, trend rata-rata per kelompok, spider web lima aspek teratas) berdampingan dalam satu baris flex. */
 	private void renderCssVisualizations(Div parent, DashboardData data) {
 		Div charts = new Div();
 		charts.setStyle("display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;");
@@ -511,6 +549,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		renderCssSpiderVisual(charts, data);
 	}
 
+	/** Menggambar bar chart CSS (lebar {@code <div>} sebagai batang) untuk distribusi nilai 1-5, dinormalisasi terhadap nilai tertinggi. */
 	private void renderCssBarVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Grafik Distribusi Nilai", "Bar CSS berdasarkan jumlah jawaban per nilai. Klik batang untuk melihat detail.");
 		long max = 1L;
@@ -529,6 +568,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menggambar bar chart CSS trend rata-rata nilai untuk maksimum 8 kelompok teratas (persentase dihitung dari skala nilai 0-5 dikali 20). */
 	private void renderCssTrendVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Trend Rata-rata per Kelompok", "Grafik trend CSS dari rata-rata kelompok/aspek angket umum.");
 		int added = 0;
@@ -546,6 +586,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menggambar radar/spider ringan berbasis {@code conic-gradient}/{@code radial-gradient} CSS untuk rata-rata gabungan lima aspek/kelompok teratas, dengan daftar label di sampingnya. */
 	private void renderCssSpiderVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Spider Web Aspek Angket", "Radar/spider web ringan berbasis CSS untuk ringkasan lima aspek teratas.");
 		double total = 0D;
@@ -740,6 +781,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		return rows;
 	}
 
+	/** Menampilkan jendela modal berisi grid rincian ({@code headers}/{@code rowsData}) — dipanggil oleh seluruh elemen dasbor yang diklik (kartu, baris grid, batang chart) untuk menampilkan datanya secara tabular. */
 	private void showDataPopup(String title, String[] headers, List rowsData) {
 		try {
 			MyWindow window = new MyWindow();
@@ -795,6 +837,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menutup {@code session} native (clear/disconnect/close berurutan, tiap langkah aman terhadap exception) yang dibuka {@link #renderDashboard}. */
 	private void closeSession(Session session) {
 		if (session == null) {
 			return;
@@ -831,6 +874,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Kumpulan nilai filter dasbor saat ini (tahun akademik, semester, jenis pengguna), dipakai sebagai parameter bind seluruh query agregat. */
 	private static class Filter implements Serializable {
 		private static final long serialVersionUID = -4545988118961519518L;
 		private String tahunAkademik;
@@ -838,6 +882,7 @@ public class LaporanAngketUmumDashboardWindow extends MyWindow {
 		private String diperuntukkan;
 	}
 
+	/** Wadah hasil seluruh query agregat yang dimuat {@link #loadDashboardData}, dipakai bersama oleh semua method {@code render*}. */
 	private static class DashboardData implements Serializable {
 		private static final long serialVersionUID = 4875809889216694153L;
 		private long totalJawaban;

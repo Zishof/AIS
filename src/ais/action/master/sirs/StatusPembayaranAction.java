@@ -25,6 +25,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Status Pembayaran" SIRS (mis. Lunas, Belum Bayar, Cicilan — digunakan
+ * sebagai referensi status transaksi pembayaran pasien rumah sakit). Dibangun di atas kerangka
+ * kerja {@link GenericCrudAction}: menyediakan kriteria pencarian (filter nama, {@code ILIKE}
+ * sebagian), form tambah/edit sederhana (nama + keterangan), validasi nama wajib diisi dan tidak
+ * duplikat, serta renderer baris daftar dengan tombol revisi dan aksi edit/hapus. Struktur dan
+ * perilaku identik dengan {@link GenerikItemAction}, hanya berbeda entitas targetnya.
+ */
 public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +52,7 @@ public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> 
     @Override
     protected String getWindowTitle() { return "Pendataan Status Pembayaran"; }
 
+    /** Membangun kriteria pencarian {@link StatusPembayaran} berdasarkan filter nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -62,6 +71,7 @@ public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> 
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Status Pembayaran (field nama + keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final StatusPembayaran statusPembayaran) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +143,7 @@ public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> 
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi, tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link StatusPembayaran} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan ditampilkan ke pengguna). */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Status Pembayaran wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Status Pembayaran pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +167,7 @@ public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> 
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link StatusPembayaran} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaStatusPembayaran() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(StatusPembayaran.class)
@@ -170,6 +182,7 @@ public class StatusPembayaranAction extends GenericCrudAction<StatusPembayaran> 
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Status Pembayaran: label revisi+nama, keterangan, dan tombol edit/hapus. */
     class StatusPembayaranRenderer extends MyRowRenderer {
 
         @Override

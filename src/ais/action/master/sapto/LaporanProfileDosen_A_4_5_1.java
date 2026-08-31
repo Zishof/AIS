@@ -18,10 +18,21 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.FormulirKegiatan;
 import ais.database.model.Jurusan;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.4.5.1 versi program studi (kode sheet
+ * {@code A-4.5.1}, dibedakan dari varian institusi {@link LaporanDosenInstitusi_A_4_5_1} yang
+ * memakai sheet {@code A-4.5.1_PT}). Merekap para pembicara/narasumber yang tampil pada kegiatan
+ * ({@link FormulirKegiatan}) program studi, difilter opsional per fakultas/jurusan: setiap
+ * kegiatan dapat memiliki hingga 3 slot pembicara ({@code namaPembicara1/2/3} beserta
+ * {@code jabatanPembicara1/2/3}); setiap slot yang terisi menjadi satu baris data berisi nama
+ * pembicara, jabatannya, nama kegiatan, dan tahun pelaksanaan (diambil dari tanggal kegiatan). Data
+ * dimuat asinkron lalu dirender lewat {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanProfileDosen_A_4_5_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.5.1";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membangun jendela laporan dengan filter fakultas/jurusan siap pakai. */
     public LaporanProfileDosen_A_4_5_1() {
         super();
         try {
@@ -30,19 +41,29 @@ public class LaporanProfileDosen_A_4_5_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanProfileDosen_A_4_5_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return kode sheet borang {@code "A-4.5.1"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan lewat {@link #addFakultasJurusanFilter}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menghitung dan menampilkan rekap pembicara kegiatan program studi (hingga 3 slot per
+     * kegiatan), difilter jurusan bila dipilih. Data dimuat asinkron di thread terpisah dan
+     * dirender lewat {@link SaptoUtil#displayWorksheet}.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -23,7 +23,29 @@ import ais.database.model.Tbmuser;
 import ais.database.model.penelitiandanpengabdian.Artikel;
 import ais.database.model.penelitiandanpengabdian.TingkatArtikel;
 
+/**
+ * Helper modul BKD untuk mempopulasi ulang penilaian asesmen dari publikasi <b>artikel</b> ilmiah
+ * dosen ({@link Artikel}), termasuk pembagian SKS antara ketua dan anggota penulis sesuai
+ * kebijakan institusi yang dikonfigurasi ({@code pengaturan_pembagian_beban_sks_artikel}: dibagi
+ * sama rata, 50%, atau skema 60/40 tergantung jumlah anggota).
+ */
 public class BkdArtikelHelper {
+	/**
+	 * Mempopulasi ulang penilaian artikel untuk satu dosen (atau seluruh dosen bila {@code pegawai}
+	 * {@code null}) pada tahun akademik+semester tertentu. Untuk setiap artikel yang cocok
+	 * (memiliki {@code articleId} tervalidasi ATAU sudah berstatus disetujui), pegawai ketua
+	 * ({@code artikel.tbmuser.pegawai}) diproses dengan peran "ketua" dan setiap anggota yang
+	 * namanya tercantum di {@code artikel.getAnggota()} (dipisah koma, dipetakan lewat
+	 * {@link Tbmuser}) diproses dengan peran "anggota" — lihat
+	 * {@link #populate(Session, Pegawai, String, String, Artikel, String, Integer)} untuk
+	 * perhitungan SKS per peran.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen penulis yang diproses, atau {@code null} untuk semua dosen
+	 * @param tahunAkademik filter tahun akademik, atau {@code null} untuk semua tahun
+	 * @param semester      filter semester, atau {@code null} untuk semua semester
+	 * @param label         komponen label UI tempat progres persentase ditampilkan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -64,6 +86,25 @@ public class BkdArtikelHelper {
 
 	}
 
+	/**
+	 * Menghitung dan menyimpan/memutakhirkan satu baris {@link AsesemenPenilaian} untuk kontribusi
+	 * {@code pegawai} pada {@code artikel}, untuk setiap {@link TingkatArtikel} yang tercatat pada
+	 * artikel tersebut. SKS dasar diambil dari parameter umum konfigurasi
+	 * {@code pengaturan_beban_sks_artikel_<idTahapan>_<idTingkat>} (default {@code "0.0"}), lalu
+	 * dibagi sesuai kebijakan {@code pengaturan_pembagian_beban_sks_artikel} dan peran penulis
+	 * ({@code jenisAnggotaPublikasi}: {@code "ketua"} atau {@code "anggota"}) — lihat komentar kode
+	 * untuk rumus per skema pembagian (50%, dibagi rata, atau 60/40 tergantung jumlah anggota).
+	 * Tidak melakukan apa pun bila {@code pegawai} {@code null} atau tidak memiliki asesor aktif.
+	 *
+	 * @param session               sesi Hibernate aktif
+	 * @param pegawai               dosen penulis (ketua atau anggota) yang dinilai
+	 * @param tahunAkademik         tahun akademik penilaian
+	 * @param semester              semester penilaian
+	 * @param artikel               artikel yang dinilai
+	 * @param jenisAnggotaPublikasi peran penulis: {@code "ketua"} atau {@code "anggota"}
+	 * @param jumlahAnggota         jumlah anggota (selain ketua) pada artikel ini, dipakai untuk
+	 *                              menghitung pembagian SKS
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Artikel artikel, String jenisAnggotaPublikasi, Integer jumlahAnggota) {

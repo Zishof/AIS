@@ -21,11 +21,47 @@ import org.hibernate.type.Type;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Layanan baca (query) baku framework CRUD generik {@link ais.action.master.generic.v2}:
+ * menyediakan pencarian berpaginasi dengan pencarian teks bebas, filter kolom, dan pengurutan
+ * ({@link #list}), serta pengambilan satu baris ({@link #get}). Semua akses field/filter/sort
+ * divalidasi terhadap {@link GenericCrudFieldDefinition} entitas — kolom yang tidak
+ * {@code searchable}/{@code sortable}/{@code readable}, atau ditandai
+ * {@link GenericCrudFieldDefinition#isSensitive()}, ditolak dengan {@link GenericCrudException}
+ * — sehingga pemanggil tidak dapat memaksa membaca atau mengurutkan berdasarkan kolom yang tidak
+ * diizinkan lewat manipulasi parameter request.
+ *
+ * <p>
+ * Setiap query menghormati izin ({@link GenericCrudOperation#READ}, lewat {@link #privilege}) dan
+ * scope data pengguna (lewat {@link #scope}, diterapkan berbeda untuk hitung total vs
+ * pengambilan baris). Baris hasil diubah ke {@link Map} generik lewat {@link #toRow}: relasi ke
+ * entitas lain diringkas menjadi id + label tampilan ({@code __label}), bukan objek penuh,
+ * sehingga aman diserialisasi ke klien tanpa risiko lazy-loading di luar sesi.
+ * </p>
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudQueryService {
     private final GenericCrudPrivilegeGuard privilege = new GenericCrudPrivilegeGuard();
     private final GenericCrudScopeGuard scope = new GenericCrudScopeGuard();
 
+    /**
+     * Mengambil satu halaman data entitas sesuai {@code context}, dengan pencarian teks bebas
+     * ({@code search}, dicocokkan {@code ilike} pada field bertipe {@code String} yang
+     * {@code searchable}), daftar {@code filters} kolom, dan {@code sort}. Total baris dihitung
+     * terpisah dari pengambilan baris agar scope hitung dan scope baca dapat diterapkan secara
+     * independen. Pengurutan sekunder berdasarkan id ditambahkan otomatis bila kolom urut utama
+     * bukan id, demi hasil yang stabil antar-halaman.
+     *
+     * @param context  konteks permintaan, sumber izin akses, scope, dan definisi entitas
+     * @param page     halaman yang diminta (dipaksa minimal 1)
+     * @param pageSize ukuran halaman (dinormalisasi ke default/maksimum definisi entitas)
+     * @param search   kata kunci pencarian bebas, boleh {@code null}/kosong
+     * @param filters  daftar {@link GenericCrudFilter} kolom, boleh {@code null}
+     * @param sort     pengurutan yang diminta; bila {@code null}, dipakai default definisi entitas
+     * @return halaman berisi baris data (bentuk {@link Map}) beserta total jumlahnya
+     * @throws GenericCrudException bila kolom sort/filter tidak diizinkan atau operator filter
+     *                               tidak dikenal
+     */
     public GenericCrudPage list(GenericCrudRequestContext context, int page, int pageSize,
             String search, List filters, GenericCrudSort sort) throws Exception {
         privilege.require(context, GenericCrudOperation.READ);
@@ -63,6 +99,15 @@ public class GenericCrudQueryService {
         } finally { close(session); }
     }
 
+    /**
+     * Mengambil satu baris data berdasarkan {@code id}, diubah ke bentuk {@link Map} siap
+     * tampil.
+     *
+     * @param context konteks permintaan, sumber izin akses, scope, dan definisi entitas
+     * @param id      id baris data yang diminta
+     * @return baris data dalam bentuk {@link Map} (properti ke nilai, relasi diringkas id+label)
+     * @throws GenericCrudException bila data tidak ditemukan atau berada di luar scope pengguna
+     */
     public Map get(GenericCrudRequestContext context, Serializable id) throws Exception {
         privilege.require(context, GenericCrudOperation.READ);
         GenericCrudDefinition definition = context.getDefinition();
@@ -76,11 +121,13 @@ public class GenericCrudQueryService {
         } finally { close(session); }
     }
 
+    /** Menormalkan ukuran halaman: memakai default definisi bila {@code size} kurang dari 1, dibatasi maksimum definisi. */
     private int normalizePageSize(int size, GenericCrudDefinition definition) {
         int value = size < 1 ? definition.getDefaultPageSize() : size;
         return Math.min(value, definition.getMaxPageSize());
     }
 
+    /** Memvalidasi {@code sort} terhadap definisi field (harus sortable, readable, tidak sensitive); mengembalikan sort default entitas bila {@code sort} {@code null}. */
     private GenericCrudSort validateSort(GenericCrudDefinition definition, GenericCrudSort sort) throws GenericCrudException {
         if (sort != null) {
             GenericCrudFieldDefinition field = definition.getField(sort.getProperty());
@@ -92,6 +139,7 @@ public class GenericCrudQueryService {
         return new GenericCrudSort(definition.getDefaultSortProperty(), definition.isDefaultSortAscending());
     }
 
+    /** Menambahkan kondisi {@code OR ilike '%search%'} ke {@code criteria} pada seluruh field {@code String} yang searchable; tidak melakukan apa pun bila {@code search} kosong. */
     private void applySearch(Criteria criteria, GenericCrudDefinition definition, String search) {
         if (search == null || search.trim().length() == 0) { return; }
         Disjunction or = Restrictions.disjunction();
@@ -105,6 +153,15 @@ public class GenericCrudQueryService {
         criteria.add(or);
     }
 
+    /**
+     * Menerapkan {@code filters} ke {@code criteria}, satu {@link Criterion} per filter sesuai
+     * operatornya ({@code CONTAINS}/{@code STARTS_WITH} untuk String, {@code NE}/{@code GT}/
+     * {@code GTE}/{@code LT}/{@code LTE}/{@code EQ}, {@code IS_NULL}/{@code IS_NOT_NULL},
+     * {@code IN} dengan nilai dipisah koma). Setiap kolom filter divalidasi harus searchable,
+     * readable, dan tidak sensitive sebelum diterapkan.
+     *
+     * @throws GenericCrudException bila kolom filter tidak diizinkan atau operatornya tidak dikenal
+     */
     private void applyFilters(Criteria criteria, GenericCrudDefinition definition, ClassMetadata metadata, List filters) throws Exception {
         if (filters == null) { return; }
         for (int i = 0; i < filters.size(); i++) {
@@ -137,6 +194,12 @@ public class GenericCrudQueryService {
         }
     }
 
+    /**
+     * Mengubah satu entitas {@code object} menjadi {@link Map} baris siap tampil: field
+     * sensitif/tidak-readable/id dilewati (id ditambahkan terpisah di awal), dan field bertipe
+     * relasi entitas ({@link GeneralValueObject}) diringkas menjadi pasangan id +
+     * {@code <properti>__label} (label tampilan) alih-alih objek penuh.
+     */
     private Map toRow(Object object, GenericCrudDefinition definition, ClassMetadata metadata) {
         Map row = new LinkedHashMap();
         row.put(definition.getIdentifierProperty(), metadata.getIdentifier(object, EntityMode.POJO));
@@ -159,6 +222,7 @@ public class GenericCrudQueryService {
         }
         return row;
     }
+    /** Mengambil label tampilan entitas relasi {@code value} dari properti {@code display}, jatuh kembali ke {@code id} bila label kosong/tidak dapat dibaca. */
     private String relationLabel(Object value, ClassMetadata metadata, String display, Object id) {
         if (metadata != null && display != null) {
             try {
@@ -169,5 +233,6 @@ public class GenericCrudQueryService {
         }
         return id == null ? "" : String.valueOf(id);
     }
+    /** Menutup {@code session} dengan aman bila masih terbuka, mengabaikan galat penutupan. */
     private void close(Session session) { try { if (session != null && session.isOpen()) session.close(); } catch (Exception ignored) { } }
 }

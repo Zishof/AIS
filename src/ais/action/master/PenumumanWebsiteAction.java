@@ -30,6 +30,14 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK (databind lama, non-MVVM) untuk kelola pengumuman/berita di website kampus
+ * ({@link PenumumanWebsite}): daftar dengan pencarian judul/isi (dibatasi ke perguruan tinggi
+ * pemanggil bila konteks multi-PT aktif), tambah/ubah lewat jendela modal, serta pencatatan
+ * riwayat revisi lewat {@link RevisiHelper#createNewRevisi}. Akses diverifikasi lewat
+ * {@link Common#doCheckSecurity()} sebelum halaman disusun dan {@link CommonPrivilages#READ}
+ * setelahnya; sesi tanpa {@code usersTemp} atau tanpa hak baca dipaksa logoff.
+ */
 public class PenumumanWebsiteAction extends GenericAutowireComposer {
 	private static final long serialVersionUID = 1L;
 
@@ -46,12 +54,18 @@ public class PenumumanWebsiteAction extends GenericAutowireComposer {
 	private Checkbox aktif;
 	private PenumumanWebsite penumumanWebsite;
 
+	/** Memverifikasi keamanan sesi lewat {@link Common#doCheckSecurity()} sebelum halaman disusun. */
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Memvalidasi sesi user dan hak baca ({@link CommonPrivilages#READ}) setelah komponen
+	 * tersusun; memaksa logoff bila salah satu tidak terpenuhi. Bila lolos, memuat daftar
+	 * pengumuman awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
@@ -62,6 +76,13 @@ public class PenumumanWebsiteAction extends GenericAutowireComposer {
 		onSearchDefault(null);
 	}
 
+	/**
+	 * Memuat ulang grid daftar pengumuman (maksimal 200 baris, terbaru dahulu) sesuai isian
+	 * filter judul/isi saat ini, dibatasi ke perguruan tinggi pemanggil bila konteks multi-PT
+	 * aktif. Setiap baris diberi tombol "Ubah" yang membuka {@link #openForm(PenumumanWebsite)}.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session hs = HibernateUtil.currentSession();
@@ -105,10 +126,12 @@ public class PenumumanWebsiteAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Membuka jendela isi data untuk membuat pengumuman baru (record kosong). */
 	public void onAdd(Event event) throws Exception {
 		openForm(new PenumumanWebsite());
 	}
 
+	/** Mengisi field formulir dari {@code data} dan menampilkan jendela modal isi/edit pengumuman. */
 	private void openForm(PenumumanWebsite data) throws Exception {
 		penumumanWebsite = data;
 		judul.setValue(data.getJudul());
@@ -125,6 +148,15 @@ public class PenumumanWebsiteAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Memvalidasi judul wajib diisi, lalu menyimpan (buat baru atau perbarui)
+	 * {@link PenumumanWebsite} dalam transaksi Hibernate: mencatat perguruan tinggi pemanggil dan
+	 * identitas user yang menyimpan, mencatat riwayat revisi lewat {@link RevisiHelper}, menutup
+	 * jendela modal, dan memuat ulang daftar. Transaksi di-rollback dan kesalahan ditampilkan bila
+	 * penyimpanan gagal.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 */
 	public void onSave(Event event) throws Exception {
 		if (judul.getValue() == null || judul.getValue().trim().length() == 0) {
 			try {

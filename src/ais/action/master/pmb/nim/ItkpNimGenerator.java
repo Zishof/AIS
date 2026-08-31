@@ -16,14 +16,35 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
 import ais.database.model.epsbed.KapasitasMahasiswaBaru;
 
+/**
+ * Implementasi {@link NimGenerator} khusus institusi ITKP. Digit pertama adalah "kode angkatan" 3
+ * digit yang diresolusi dari {@link KapasitasMahasiswaBaru}: dicari kapasitas mahasiswa baru yang
+ * cocok persis (jurusan, tahun akademik, semester); bila tidak ada, dicari kapasitas terbaru untuk
+ * jurusan yang sama lalu {@code angkatanKe} diekstrapolasi maju sebesar selisih tahun berjalan
+ * terhadap tahun akademik kapasitas tersebut. Semester genap menggeser tahun masuk +1 sebelum
+ * dipakai. Untuk jenjang S1 ({@link ConstantValues#s1}), NIM = angkatan(3) + 1 digit akhir tahun +
+ * {@code "2"} (penanda S1) + 3 digit urut; untuk jenjang lain, NIM = angkatan(3) + tahun penuh +
+ * 3 digit urut. Nomor urut dihitung dari 3 digit akhir NIM tertinggi ({@code MAX(nim)}) pada jurusan
+ * yang sama. Keunikan diverifikasi ulang terhadap {@link Mahasiswa} dan tabrakan ditangani rekursif
+ * via daftar pengecualian.
+ */
 public class ItkpNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM khusus ITKP (lihat format berbeda untuk S1 vs jenjang lain di javadoc kelas)
+	 * untuk calon mahasiswa yang sudah memiliki program studi kelulusan; mengembalikan {@code "-"}
+	 * bila belum.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber jenjang, tahun, semester, dan prodi kelulusan
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

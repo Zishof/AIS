@@ -26,6 +26,26 @@ import ais.database.model.sop.ParameterTambahanAlurSop;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun secara dinamis form "parameter tambahan" (field kustom yang
+ * dikonfigurasi admin per {@link AlurSop}, dikelompokkan lewat
+ * {@link KelompokParameterTambahanAlurSop}) pada layar disposisi alur SOP. Mengikuti pola yang
+ * sama seperti
+ * {@link ais.action.master.sekolah.helper.ParameterTambahanCatatanSiswaListener} untuk modul
+ * Catatan Siswa, dengan tambahan dukungan mode {@code readonly}.
+ *
+ * <p>
+ * Dipasang sebagai listener suatu event (mis. saat alur SOP dipilih): {@link
+ * #onEvent(Event)} membaca kelompok parameter dari {@link AlurSop} terkait
+ * {@code disposisiAlurSop}, membersihkan baris parameter lama, lalu untuk tiap kelompok
+ * parameter aktif membangun ulang baris-baris input ({@link MyFormRow}) berdasarkan definisi
+ * {@link ParameterTambahanAlurSop} yang aktif, mengisi nilai tersimpan (bila ada) dari kolom
+ * {@code parameterTambahanInds} berformat baris {@code "kelompokId->parameterId<=>nilai<=>keterangan"}.
+ * {@link #validate()} memeriksa field wajib isi dan lampiran wajib (dilewati bila
+ * {@code readonly}); {@link #onSave(DisposisiAlurSop)} menuliskan kembali nilai form ke entitas
+ * {@link DisposisiAlurSop}.
+ * </p>
+ */
 public class ParameterTambahanDisposisiAlurSopListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +54,15 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 	private Map<String, LampiranLain> lampiranLains;
 	private boolean readonly;
 
+	/**
+	 * Membangun listener untuk satu instance form disposisi alur SOP.
+	 *
+	 * @param disposisiAlurSop entitas disposisi yang sedang diisi/diedit, sumber referensi ke {@link AlurSop}
+	 * @param parameterRows    daftar baris ZK yang dikelola listener (diisi/dibersihkan di tempat)
+	 * @param lampiranLains    peta lampiran yang sudah diunggah, berkunci {@code "kelompokId->parameterId"}
+	 * @param rows             kontainer ZK {@link Rows} tempat baris parameter disisipkan
+	 * @param readonly         bila {@code true}, form dirender read-only dan {@link #validate()} selalu lolos
+	 */
 	public ParameterTambahanDisposisiAlurSopListener(DisposisiAlurSop disposisiAlurSop, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows, boolean readonly) {
 		this.parameterRows = parameterRows;
@@ -43,6 +72,15 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 		this.readonly = readonly;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter wajib isi
+	 * harus memiliki nilai, dan parameter yang mewajibkan lampiran harus sudah memiliki lampiran
+	 * terunggah. Selalu lolos tanpa memeriksa apa pun bila {@link #readonly} bernilai
+	 * {@code true}. Menampilkan pesan informasi dan menghentikan pemeriksaan pada pelanggaran
+	 * pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila seluruh parameter valid (atau readonly/tidak ada parameter), {@code false} bila ada pelanggaran
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty() || readonly) {
 			return true;
@@ -77,6 +115,7 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 		return true;
 	}
 
+	/** Menuliskan kembali nilai-nilai yang sudah diisi pada {@link #parameterRows} ke entitas {@code disposisiAlurSop} sebelum disimpan. */
 	public void onSave(DisposisiAlurSop disposisiAlurSop) {
 
 		disposisiAlurSop.populateParameterTambahan(parameterRows);
@@ -85,10 +124,20 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 
 	private boolean tampil = false;
 
+	/** Mengembalikan {@code true} bila kelompok parameter yang terakhir diproses {@link #onEvent(Event)} menghasilkan minimal satu baris parameter yang benar-benar dirender. */
 	public boolean getTampil() {
 		return tampil;
 	}
 
+	/**
+	 * Membangun ulang seluruh baris input parameter tambahan berdasarkan {@link AlurSop} yang
+	 * dirujuk {@link #disposisiAlurSop}: menyembunyikan/membersihkan baris lama, lalu untuk
+	 * setiap kelompok parameter pada alur SOP tersebut menambahkan judul kelompok dan baris
+	 * input per parameter aktif (diurutkan), mengisi nilai tersimpan dari
+	 * {@code disposisiAlurSop.getParameterTambahanInds()} bila ada, menghormati flag
+	 * {@link #readonly} saat merender tiap komponen. Sesi Hibernate yang dibuka di sini selalu
+	 * ditutup di blok {@code finally}.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

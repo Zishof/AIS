@@ -29,6 +29,15 @@ import ais.database.model.library.Item;
 import ais.database.model.library.ItemPunyaKategoriItem;
 import ais.database.model.library.KategoriItem;
 
+/**
+ * Helper UI untuk mengelola relasi banyak-ke-banyak antara satu {@link Item} perpustakaan dan
+ * kategori-kategorinya ({@link KategoriItem}), ditampilkan sebagai grid tambah/hapus di dalam layar
+ * detail item. Menu tambah membuka dialog pemilihan kategori ({@code AmbilDataKategoriItemBanyak}),
+ * langsung menyimpan baris {@link ItemPunyaKategoriItem} ke database bila item sudah tersimpan;
+ * baris dengan kategori yatim (FK terhapus/orphan) dilewati saat membangun daftar pengecualian agar
+ * tidak memicu NPE saat dirender pada dialog pemilihan. Hapus baris menghapus relasi dari database
+ * setelah konfirmasi. Visibilitas tombol tambah/hapus mengikuti hak akses pengguna.
+ */
 public class ItemPunyaKategoriItemHelper {
 
 	private MyGrid gridKategoriItem;
@@ -36,12 +45,20 @@ public class ItemPunyaKategoriItemHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridKategoriItem}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public ItemPunyaKategoriItemHelper(MyGrid gridKategoriItem) {
 		this.gridKategoriItem = gridKategoriItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid kategori item lengkap dengan toolbar tambah, dua kolom (kategori,
+	 * hapus), dan langsung memuat data kategori {@code item} yang sudah ada.
+	 *
+	 * @param item item perpustakaan yang kategorinya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final Item item) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -137,6 +154,7 @@ public class ItemPunyaKategoriItemHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh baris kategori tersimpan milik {@code item} ke grid, atau tidak menambah baris apa pun bila item belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Item item) {
 
@@ -157,6 +175,7 @@ public class ItemPunyaKategoriItemHelper {
 		}
 	}
 
+	/** Mengisi satu baris grid dengan nama kategori dan tombol hapus (dengan konfirmasi) yang, saat disetujui, menghapus relasi dari database bila sudah tersimpan lalu menyembunyikan/melepas baris dari grid. */
 	public void initRow(final Row row,
 			final ItemPunyaKategoriItem itemPunyaKategoriItem) {
 		row.setValign("top");row.setAttribute("itemPunyaKategoriItem", itemPunyaKategoriItem);

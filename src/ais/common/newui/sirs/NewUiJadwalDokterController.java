@@ -45,7 +45,13 @@ import ais.database.model.sirs.JadwalDokter;
  */
 public final class NewUiJadwalDokterController {
 
-    private static final String MODULE = "sirs";
+    /**
+     * Harus SAMA dengan awalan folder JSP sebelum {@code /uiux/}.
+     * {@code NewUiRouteGuard.evaluate} membandingkan nilai ini dengan
+     * {@code nui_native_module} hasil resolver; memakai "sirs" saja membuat
+     * seluruh aksi dijawab ACTION_FORBIDDEN meski hak aksesnya ada.
+     */
+    private static final String MODULE = "sirs/jadwal_dokter";
 
     /** Pengelompokan menurut dokter (menu Penjadwalan Tenaga Medis). */
     public static final String MODE_DOKTER = "dokter";

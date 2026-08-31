@@ -12,7 +12,27 @@ import org.w3c.dom.Node;
 import ais.common.Common;
 import ais.database.model.Detailperkuliahan;
 
+/**
+ * Orkestrasi pengiriman data nilai dan aktivitas kuliah mahasiswa (AKM) ke PDDikti Feeder,
+ * menangani jalur insert (data baru) maupun update (data sudah ada), termasuk pemulihan otomatis
+ * saat update ditolak oleh Feeder. Dipakai oleh proses sinkronisasi Feeder untuk entitas
+ * {@link Detailperkuliahan} (nilai per mata kuliah) dan data kuliah mahasiswa (AKM).
+ */
 public class FeederTranspoter {
+	/**
+	 * Mengirim data nilai satu {@link Detailperkuliahan} ke Feeder: bila data belum pernah dikirim
+	 * (ditandai {@code ada=false}) atau belum memiliki {@code id_kls}/{@code id_reg_pd}, dilakukan
+	 * <b>insert</b> baru lewat {@code feederConnector.insertRecordOld}, dan hasil id yang
+	 * dikembalikan Feeder disimpan kembali ke {@code detailperkuliahan} dalam transaksi tersendiri.
+	 * Bila data sudah ada dan totalnilai lebih besar dari nol, didelegasikan ke {@link #updateNilai}.
+	 *
+	 * @param feederConnector    klien komunikasi ke Feeder
+	 * @param token              token autentikasi sesi Feeder
+	 * @param detailperkuliahan  baris nilai yang akan dikirim/diperbarui
+	 * @param session            sesi Hibernate aktif untuk menyimpan id hasil insert
+	 * @param errorLog           daftar pesan galat, diisi bila operasi Feeder gagal
+	 * @param ada                {@code true} bila data ini diperkirakan sudah tercatat di Feeder sebelumnya
+	 */
 	public static void insertNilai(FeederConnector feederConnector, String token, Detailperkuliahan detailperkuliahan,
 			Session session, List<String> errorLog, boolean ada) throws Exception {
 		JSONObject jsonObject = FeederExporterGenerator.nilai(detailperkuliahan);
@@ -37,6 +57,21 @@ public class FeederTranspoter {
 		}
 	}
 
+	/**
+	 * Memperbarui data nilai yang sudah tercatat di Feeder (kunci {@code id_kls}+{@code id_reg_pd}).
+	 * Bila update ditolak Feeder, dicoba dipulihkan berurutan: (1) panggil
+	 * {@code restoreRecord} untuk mengembalikan record ke status dapat-diubah, lalu ulangi update;
+	 * (2) bila restore juga gagal, coba <b>insert ulang</b> record nilai dari awal; hanya bila
+	 * langkah insert-ulang ini juga gagal, seluruh pesan galat dari ketiga upaya digabung ke
+	 * {@code errorLog} pemanggil.
+	 *
+	 * @param jsonObject         payload data nilai yang akan dikirim (field {@code id_kls}/{@code id_reg_pd} akan dilepas dan dipindah ke bagian kunci)
+	 * @param feederConnector    klien komunikasi ke Feeder
+	 * @param token              token autentikasi sesi Feeder
+	 * @param detailperkuliahan  baris nilai yang diperbarui, sumber nilai kunci {@code id_kls}/{@code id_reg_pd}
+	 * @param session            sesi Hibernate aktif (diteruskan untuk kemungkinan insert ulang)
+	 * @param errorLog           daftar pesan galat, diisi hanya bila seluruh upaya pemulihan gagal
+	 */
 	public static void updateNilai(JSONObject jsonObject, FeederConnector feederConnector, String token,
 			Detailperkuliahan detailperkuliahan, Session session, List<String> errorLog) throws Exception {
 
@@ -80,6 +115,16 @@ public class FeederTranspoter {
 		}
 	}
 
+	/**
+	 * Mengirim data aktivitas kuliah mahasiswa (AKM) baru ke Feeder ({@code kuliah_mahasiswa}).
+	 * Bila Feeder tidak mengembalikan {@code id_smt}/{@code id_reg_pd} yang valid (indikasi record
+	 * sudah ada sebelumnya), otomatis dialihkan ke {@link #updateAkm}.
+	 *
+	 * @param jsonObject      payload data AKM yang akan dikirim
+	 * @param feederConnector klien komunikasi ke Feeder
+	 * @param token           token autentikasi sesi Feeder
+	 * @param session         sesi Hibernate aktif (diteruskan bila terjadi fallback ke update)
+	 */
 	public static void insertAkm(JSONObject jsonObject, FeederConnector feederConnector, String token, Session session)
 			throws Exception {
 
@@ -93,6 +138,15 @@ public class FeederTranspoter {
 		}
 	}
 
+	/**
+	 * Memperbarui data aktivitas kuliah mahasiswa (AKM) yang sudah tercatat di Feeder, dengan
+	 * kunci {@code id_smt}+{@code id_reg_pd} diambil dari {@code jsonObject} yang diberikan.
+	 *
+	 * @param jsonObject      payload data AKM (wajib memuat {@code id_smt} dan {@code id_reg_pd})
+	 * @param feederConnector klien komunikasi ke Feeder
+	 * @param token           token autentikasi sesi Feeder
+	 * @param session         sesi Hibernate aktif (tidak dipakai langsung, diteruskan untuk konsistensi API)
+	 */
 	public static void updateAkm(JSONObject jsonObject, FeederConnector feederConnector, String token, Session session)
 			throws Exception {
 		String idSmt = (String) jsonObject.getString("id_smt");

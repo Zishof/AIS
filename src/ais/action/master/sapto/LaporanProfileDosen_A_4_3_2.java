@@ -21,10 +21,21 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.RiwayatPendidikanDosen;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.4.3.2 (kode sheet {@code A-4.3.2}): rekap dosen
+ * tetap ({@code tetap=1}) aktif ber-NIDN yang bidang keahliannya TIDAK SESUAI dengan bidang
+ * keilmuan program studi ({@code sesuaiBidangKeilmuan=false}), difilter opsional per
+ * fakultas/jurusan. Baris jenis jurusan program studi disisipkan sebagai penanda, diikuti untuk
+ * tiap dosen: nama, NIDN, tanggal lahir, jabatan fungsional, status sertifikasi, dan riwayat
+ * pendidikan S1/S2/S3 (gelar, asal sekolah, bidang ilmu) dari {@link RiwayatPendidikanDosen}. Data
+ * dimuat asinkron lalu dirender lewat {@link SaptoUtil#displayWorksheet}; mengklik baris dosen
+ * mencetak DRH dosen tersebut lewat {@link DosenAction#cetakDRHDosen}.
+ */
 public class LaporanProfileDosen_A_4_3_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.2";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membangun jendela laporan dengan filter fakultas/jurusan siap pakai. */
     public LaporanProfileDosen_A_4_3_2() {
         super();
         try {
@@ -33,19 +44,29 @@ public class LaporanProfileDosen_A_4_3_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanProfileDosen_A_4_3_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return kode sheet borang {@code "A-4.3.2"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan lewat {@link #addFakultasJurusanFilter}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menghitung dan menampilkan rekap dosen tetap yang bidang keahliannya tidak sesuai bidang
+     * keilmuan prodi, difilter jurusan bila dipilih. Data dimuat asinkron di thread terpisah dan
+     * dirender lewat {@link SaptoUtil#displayWorksheet}; mengklik baris dosen mencetak DRH-nya.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

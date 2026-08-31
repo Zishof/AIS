@@ -24,6 +24,15 @@ import ais.database.model.Jurusan;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Pertemuan;
 
+/**
+ * Laporan borang akreditasi BAN-PT SAPTO butir A-4.3.5 (daftar mata kuliah yang diampu dosen tetap
+ * <b>di luar bidang keilmuan</b>, {@code sesuaiBidangKeilmuan=false}, dan memiliki NIDN), lengkap
+ * dengan jumlah SKS matakuliah dan jumlah pertemuan aktual yang sudah terselenggara. Dapat difilter
+ * fakultas/jurusan, tahun akademik, dan semester (ganjil/genap/semua). Dosen dicari sebagai
+ * pengampu di salah satu dari 10 slot dosen pengampu ({@code dosen1}..{@code dosen10}) pada entitas
+ * {@link Perkuliahan}, dan hanya perkuliahan non-paralel ({@code perkuliahan_paralel} null) yang
+ * dihitung. Klik satu baris hasil memicu pencetakan DRH dosen terkait.
+ */
 public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.5";
@@ -31,6 +40,7 @@ public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
     private Combobox tahunAjaran;
     private Combobox semester;
 
+    /** Membangun jendela laporan dengan tahun akademik berjalan dan combobox semester terpilih, lalu langsung menyiapkan kerangka laporan. */
     public LaporanProfileDosen_A_4_3_5() {
         super();
         try {
@@ -41,6 +51,7 @@ public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
     public LaporanProfileDosen_A_4_3_5(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -49,6 +60,7 @@ public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
         buildBase(false);
     }
 
+    /** Membangun combobox filter semester dengan tiga opsi tetap: Genap, Ganjil, dan "Semua" (nilai {@code null}, terpilih default). */
     private void buildSemesterCombobox() {
         semester = new Combobox();
         org.zkoss.zul.Comboitem ci = new org.zkoss.zul.Comboitem();
@@ -65,8 +77,10 @@ public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
         semester.setReadonly(true);
     }
 
+    /** Mengembalikan kode sheet borang BAN-PT yang ditangani jendela ini: {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi fakultas/jurusan, tahun akademik, dan semester; mengubah tahun akademik atau semester memicu {@link #onCetak} otomatis. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -85,6 +99,15 @@ public class LaporanProfileDosen_A_4_3_5 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menyusun dan menampilkan worksheet A-4.3.5: mengambil dosen tetap aktif ber-NIDN yang
+     * mengampu mata kuliah di luar bidang keilmuannya (opsional difilter jurusan), lalu untuk
+     * setiap dosen mencari perkuliahan non-paralel yang diampunya (dicocokkan tahun
+     * akademik/semester bila dipilih) beserta jumlah pertemuan yang sudah terselenggara,
+     * dijalankan di thread terpisah. Sel hasil dapat diklik untuk mencetak DRH dosen bersangkutan.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

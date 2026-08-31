@@ -19,24 +19,46 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Pegawai;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.4.5.1 (kode sheet {@code A-4.5.1_PT}). Meskipun
+ * nama kelas menyebut "Dosen", isi laporan sesungguhnya adalah rekap TENAGA KEPENDIDIKAN tingkat
+ * institusi (pegawai non-dosen), disilangkan antara jenis tenaga kependidikan (Pustakawan,
+ * Laboran/Teknisi/Analis/Operator/Programer, Administrasi, Lainnya) dan jenjang pendidikan terakhir
+ * (S3, S2, S1, D4, D3, D2, D1, SMA/sederajat). Tidak ada filter — laporan selalu mencakup seluruh
+ * institusi. Data dimuat asinkron lewat kueri SQL native beragregasi {@code CASE WHEN}/{@code SUM}
+ * per kombinasi jenis-jenjang, lalu dirender lewat {@link SaptoUtil#displayWorksheet}. Setiap sel
+ * angka dapat diklik untuk mengunduh rincian pegawai penyusun angka tersebut (identitas kepegawaian
+ * lengkap) lewat {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanDosenInstitusi_A_4_5_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.5.1_PT";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Membangun jendela laporan (tanpa filter tambahan). */
     public LaporanDosenInstitusi_A_4_5_1() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanDosenInstitusi_A_4_5_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
     }
 
+    /** @return kode sheet borang {@code "A-4.5.1_PT"}. */
     @Override protected String getSheetCode() { return sheetCode; }
+    /** Tidak ada filter untuk laporan ini — cakupan selalu seluruh institusi. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Menghitung dan menampilkan rekap tenaga kependidikan institusi silang jenis x jenjang
+     * pendidikan. Data dimuat asinkron lalu dirender lewat {@link SaptoUtil#displayWorksheet}.
+     * Mengklik sel angka mengunduh rincian pegawai penyusunnya.
+     *
+     * @param event event pemicu, boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

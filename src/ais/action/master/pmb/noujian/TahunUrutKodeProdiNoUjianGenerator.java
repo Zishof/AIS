@@ -18,15 +18,37 @@ import ais.database.model.RuangPMB;
 import ais.database.model.RuangPaketPMB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Algoritma pembangkit nomor ujian PMB dengan format "tahun.urutan.kodeProdi", sekaligus penetap
+ * ruang ujian ({@link RuangPMB}) untuk calon mahasiswa. Alur kerja serupa
+ * {@link SttindNoUjianGenerator}, dengan perbedaan: (1) mengembalikan string kosong lebih awal
+ * bila calon mahasiswa belum memiliki prodi pilihan pertama ({@code prodi1}); (2) format nomor
+ * akhir adalah {@code "<tahun>.<urutan 4 digit>.<kodeProdi>"}, dengan urutan dihitung per
+ * kombinasi (prodi, prefix tahun) — bukan per tahun saja seperti pada generator STTIND. Alur
+ * lengkap lain (cek pembayaran registrasi, pencarian ruang, retry rekursif saat nomor bentrok,
+ * penetapan ruang ujian akhir) identik.
+ */
 public class TahunUrutKodeProdiNoUjianGenerator implements NoUjianGenerator {
 
+	/** Instans bersama {@link PembayaranUtil} untuk mengecek status lunas pembayaran registrasi. */
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** @return nomor ujian untuk {@code biodataCalonMahasiswa}, lihat {@link #generateNoUjian(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		return generateNoUjian(biodataCalonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan (atau mengembalikan nomor ujian yang sudah ada) sekaligus menetapkan ruang
+	 * ujian calon mahasiswa. Mengembalikan string kosong bila prodi pilihan pertama belum diisi,
+	 * pembayaran registrasi belum lunas (untuk gelombang yang mewajibkannya), atau kuota/ruang
+	 * ujian tidak tersedia. Lihat javadoc kelas untuk format nomor dan alur lengkap.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang akan diberi nomor ujian
+	 * @param jumlahPengecualian    nomor yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
+	 * @return nomor ujian yang tersimpan, atau string kosong sesuai kondisi di atas
+	 */
 	// generate NIM
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> jumlahPengecualian)

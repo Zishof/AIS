@@ -2,19 +2,19 @@
     Adaptor native: Penjadwalan Kelas
 
     Sumber ZK   : /pages/master/kalender/perkuliahan/penjadwalan_kelas.zul
-                  (composer CalendarPerkuliahanSemesterComposer)
     Entity      : ais.database.model.Perkuliahan
-    Pemetaan    : kedua layar penjadwalan perkuliahan adalah kalender atas
-                  entity Perkuliahan; sumbu pengelompokannya saja yang berbeda
-                  (per kelas/semester). Data yang sama dilayani scaffold Generic CRUD.
-    Batas       : tampilan kalender beserta interaksi geser-taruh belum
-                  direproduksi; halaman ini menyajikan datanya sebagai tabel
-                  yang dapat disaring. Penjadwalan ulang tetap melalui layar ZK.
+    Pemetaan    : kalender perkuliahan adalah tampilan lain atas entity Perkuliahan; tampilan kalendernya belum direproduksi, datanya disajikan sebagai tabel.
+    Catatan     : memakai dispatcher scaffold (_shared/services/dispatcher.jsp)
+                  agar definisi Generic CRUD didaftarkan otomatis lewat
+                  tryAutoRegister; memanggil generic-crud/dispatcher langsung
+                  menghasilkan ENTITY_NOT_REGISTERED.
 --%>
-<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
-request.setAttribute("genericCrudEntityKey", "ais.database.model.Perkuliahan");
-request.setAttribute("genericCrudModuleKey", "kalender/perkuliahan");
-request.setAttribute("genericCrudPageKey", "penjadwalan_kelas");
-pageContext.include("/WEB-INF/new/_shared/generic-crud/ui/crud_page.jsp", true);
+request.setAttribute("nuiModule", "kalender/perkuliahan");
+request.setAttribute("nuiPage", "penjadwalan_kelas");
+request.setAttribute("nuiPageTitle", "Penjadwalan Kelas");
+request.setAttribute("nuiPageType", "list");
+request.setAttribute("nuiEntityCandidates", new String[]{"Perkuliahan"});
 %>
+<jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

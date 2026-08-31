@@ -22,8 +22,28 @@ import ais.database.model.rab.SatuanLokasi;
 import ais.database.model.rab.SumberDana;
 import ais.database.model.rab.Workspace;
 
+/**
+ * Helper penyusun parameter laporan akunting format 1 (mis. Surat Perintah Pembayaran/SPP dan
+ * dokumen sejenis) dari satu {@link Transaksi} beserta konteks {@link Workspace}-nya. Menelusuri
+ * hierarki {@link Workspace} (kegiatan/sub-kegiatan, fungsi/sub-fungsi/program) dan {@link
+ * SatuanKerja} (lembaga/unit organisasi/satuan kerja) lewat {@link WorkspaceTreeModel}, meresolusi
+ * pejabat penandatangan (dicari berdasarkan jabatan yang mengandung "Pejabat Pembuat Komitmen" pada
+ * satuan kerja/unit/lembaga terkait), dan memetakan seluruh nilai tersebut ke satu {@link Map}
+ * parameter siap pakai untuk mesin pembuat laporan (mis. JasperReports).
+ */
 public class LaporanAkuntingHelper {
 
+	/**
+	 * Menyusun peta parameter laporan akunting standar dari satu transaksi dan konteks workspace-nya
+	 * — mencakup identitas satuan kerja/lokasi, kode kegiatan/fungsi/program, nominal dan keperluan
+	 * transaksi, data pihak penerima, serta nama/NIP pejabat penandatangan (Pejabat Pembuat Komitmen)
+	 * yang diresolusi dari hierarki satuan kerja workspace.
+	 *
+	 * @param workspace          workspace transaksi, sumber hierarki satuan kerja dan kegiatan/fungsi
+	 * @param transaksi          transaksi akunting yang parameternya disusun
+	 * @param workspaceTreeModel model pohon workspace/satuan kerja untuk resolusi hierarki
+	 * @return peta nama parameter ke nilainya, siap disisipkan ke mesin pembuat laporan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public synchronized static Map getDefaultParameter(Workspace workspace, Transaksi transaksi,
 			WorkspaceTreeModel workspaceTreeModel) {

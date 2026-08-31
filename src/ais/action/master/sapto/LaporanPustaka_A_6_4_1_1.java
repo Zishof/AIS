@@ -23,15 +23,27 @@ import ais.database.model.Jurusan;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT (SAPTO) butir A-6.4.1.1 — Pustaka: merekap jumlah judul
+ * unik dan jumlah eksemplar (barcode) koleksi perpustakaan per tipe pustaka baku
+ * ({@link #TIPE_LIST}: Textbook, Jurnal Nasional Terakreditasi, Jurnal Internasional, Prosiding,
+ * Skripsi, Tesis, Disertasi), opsional difilter per jurusan. Setiap sel angka pada worksheet dapat
+ * diklik untuk mengunduh daftar judul (kolom "judul") atau daftar item lengkap (kolom "eksemplar")
+ * pada baris tipe pustaka yang bersangkutan, ditentukan dari posisi baris/kolom sel yang diklik.
+ * Memperluas {@link SaptoBaseWindow} untuk kerangka layar cetak/ekspor borang SAPTO baku.
+ */
 public class LaporanPustaka_A_6_4_1_1 extends SaptoBaseWindow {
 
+    /** Kode sheet/butir borang SAPTO yang diwakili laporan ini. */
     public static final String sheetCode = "A-6.4.1.1";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Daftar tipe pustaka baku yang direkap, sesuai urutan baris pada worksheet; elemen kosong terakhir mewakili baris total/lainnya. */
     private static final String[] TIPE_LIST = {
         "Textbook", "Jurnal Nasional yang terakreditasi", "Jurnal International",
         "Prosiding", "Skripsi", "Tesis", "Disertasi", ""
     };
 
+    /** Konstruktor default; menyiapkan filter fakultas/jurusan lalu membangun kerangka dasar layar. */
     public LaporanPustaka_A_6_4_1_1() {
         super();
         try {
@@ -40,6 +52,7 @@ public class LaporanPustaka_A_6_4_1_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit, diteruskan ke {@link SaptoBaseWindow}. */
     public LaporanPustaka_A_6_4_1_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -48,11 +61,21 @@ public class LaporanPustaka_A_6_4_1_1 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan bawaan {@link SaptoBaseWindow}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menangani aksi cetak/tampilkan lembar kerja: di thread terpisah, untuk setiap tipe pustaka
+     * di {@link #TIPE_LIST} menghitung jumlah judul unik dan jumlah eksemplar (barcode) yang cocok
+     * (difilter jurusan bila dipilih), menyusun baris worksheet, lalu menampilkannya lewat
+     * {@link SaptoUtil#displayWorksheet} dengan handler klik-sel yang membuka unduhan daftar judul
+     * atau eksemplar sesuai sel yang diklik.
+     *
+     * @param event event ZK pemicu aksi cetak
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

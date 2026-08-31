@@ -26,6 +26,22 @@ import ais.database.model.sekolah.ParameterTambahanCatatanSiswa;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun secara dinamis form "parameter tambahan" (field kustom yang
+ * dikonfigurasi admin, dikelompokkan lewat {@link KelompokParameterTambahanCatatanSiswa}) pada
+ * layar Catatan Siswa, mengikuti pola yang sama seperti
+ * {@link ais.action.master.sop.helper.ParameterTambahanDisposisiAlurSopListener} untuk modul SOP.
+ *
+ * <p>
+ * Dipasang sebagai listener suatu event (mis. saat kelompok/jenis catatan berubah): {@link
+ * #onEvent(Event)} membersihkan baris parameter yang sudah ada, lalu untuk tiap kelompok
+ * parameter aktif membangun ulang baris-baris input ({@link MyFormRow}) berdasarkan definisi
+ * {@link ParameterTambahanCatatanSiswa} yang aktif, mengisi nilai tersimpan (bila ada) dari
+ * kolom {@code parameterTambahanInds} berformat baris {@code "kelompokId->parameterId<=>nilai<=>keterangan"}.
+ * {@link #validate()} memeriksa field wajib isi dan lampiran wajib sebelum data disimpan;
+ * {@link #onSave(CatatanSiswa)} menuliskan kembali nilai form ke entitas {@link CatatanSiswa}.
+ * </p>
+ */
 public class ParameterTambahanCatatanSiswaListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +50,15 @@ public class ParameterTambahanCatatanSiswaListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCatatanSiswa> kelompokParameterTambahanCatatanSiswas;
 
+	/**
+	 * Membangun listener untuk satu instance form catatan siswa.
+	 *
+	 * @param catatanSiswa                              entitas catatan siswa yang sedang diisi/diedit
+	 * @param kelompokParameterTambahanCatatanSiswas     kelompok parameter tambahan yang relevan untuk konteks form ini
+	 * @param parameterRows                              daftar baris ZK yang dikelola listener (diisi/dibersihkan di tempat)
+	 * @param lampiranLains                              peta lampiran yang sudah diunggah, berkunci {@code "kelompokId->parameterId"}
+	 * @param rows                                       kontainer ZK {@link Rows} tempat baris parameter disisipkan
+	 */
 	public ParameterTambahanCatatanSiswaListener(CatatanSiswa catatanSiswa,
 			Set<KelompokParameterTambahanCatatanSiswa> kelompokParameterTambahanCatatanSiswas, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +69,14 @@ public class ParameterTambahanCatatanSiswaListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter wajib isi
+	 * harus memiliki nilai, dan parameter yang mewajibkan lampiran harus sudah memiliki lampiran
+	 * terunggah. Menampilkan pesan informasi dan menghentikan pemeriksaan pada pelanggaran
+	 * pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila seluruh parameter valid (atau tidak ada parameter ditampilkan), {@code false} bila ada pelanggaran
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +110,21 @@ public class ParameterTambahanCatatanSiswaListener implements EventListener {
 		return true;
 	}
 
+	/** Menuliskan kembali nilai-nilai yang sudah diisi pada {@link #parameterRows} ke entitas {@code catatanSiswa} sebelum disimpan. */
 	public void onSave(CatatanSiswa catatanSiswa) {
 
 		catatanSiswa.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris input parameter tambahan: menyembunyikan/membersihkan baris
+	 * lama, lalu untuk setiap kelompok parameter aktif menambahkan judul kelompok dan baris
+	 * input per parameter aktif (diurutkan), mengisi nilai tersimpan dari
+	 * {@code catatanSiswa.getParameterTambahanInds()} bila ada. Baris judul kelompok hanya
+	 * ditampilkan bila kelompok tersebut memiliki minimal satu parameter yang benar-benar
+	 * dirender ({@link ParameterTambahan#initComponent}).
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

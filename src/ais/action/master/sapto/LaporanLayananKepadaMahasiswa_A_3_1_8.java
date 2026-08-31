@@ -22,8 +22,18 @@ import ais.database.model.JenisLayananKepadaMahasiswa;
 import ais.database.model.PertemuanPunyaGrupPertemuan;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT (SAPTO) butir A-3.1.8 — Layanan kepada Mahasiswa: merekap,
+ * per jenis layanan aktif ({@link JenisLayananKepadaMahasiswa}, diurutkan sesuai
+ * {@code nomorUrut}), frekuensi kegiatan ({@link GrupPertemuan}) dan jumlah mahasiswa peserta
+ * ({@link PertemuanPunyaGrupPertemuan}) pada rentang tahun akademik "dari" s.d. "sampai dengan" yang
+ * dipilih. Setiap sel angka dapat diklik untuk mengunduh daftar kegiatan (kolom frekuensi) atau
+ * daftar mahasiswa peserta (kolom jumlah) pada baris jenis layanan yang bersangkutan. Memperluas
+ * {@link SaptoBaseWindow} untuk kerangka layar cetak/ekspor borang SAPTO baku.
+ */
 public class LaporanLayananKepadaMahasiswa_A_3_1_8 extends SaptoBaseWindow {
 
+    /** Kode sheet/butir borang SAPTO yang diwakili laporan ini. */
     public static final String sheetCode = "A-3.1.8";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
@@ -32,6 +42,7 @@ public class LaporanLayananKepadaMahasiswa_A_3_1_8 extends SaptoBaseWindow {
     private static final String[] EMPTY_COLS = new String[54];
     static { java.util.Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Konstruktor default; menyiapkan rentang tahun akademik berjalan (dari = sampai = tahun berjalan) lalu membangun kerangka dasar layar. */
     public LaporanLayananKepadaMahasiswa_A_3_1_8() {
         super();
         try {
@@ -41,6 +52,7 @@ public class LaporanLayananKepadaMahasiswa_A_3_1_8 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit, diteruskan ke {@link SaptoBaseWindow}. */
     public LaporanLayananKepadaMahasiswa_A_3_1_8(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -50,6 +62,7 @@ public class LaporanLayananKepadaMahasiswa_A_3_1_8 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi dua combobox rentang tahun akademik ("dari" dan "s.d."); perubahan salah satu langsung memicu {@link #onCetak}. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -69,6 +82,15 @@ public class LaporanLayananKepadaMahasiswa_A_3_1_8 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menangani aksi cetak/tampilkan lembar kerja: mengambil daftar jenis layanan aktif, lalu di
+     * thread terpisah menghitung frekuensi kegiatan dan jumlah mahasiswa peserta per jenis layanan
+     * dalam rentang tahun akademik yang dipilih, menyusun baris worksheet, lalu menampilkannya lewat
+     * {@link SaptoUtil#displayWorksheet} dengan handler klik-sel yang membuka unduhan daftar
+     * kegiatan atau daftar peserta sesuai sel yang diklik.
+     *
+     * @param event event ZK pemicu aksi cetak (juga dipanggil manual dengan {@code null} saat filter berubah)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -26,6 +26,14 @@ import ais.database.model.sekolah.ParameterTambahanCatatanKelasSiswa;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun dan mengelola baris-baris <b>parameter tambahan dinamis</b> (form
+ * kustom per kelompok, dikonfigurasi admin) pada layar catatan kelas siswa ({@link CatatanKelasSiswa}).
+ * Parameter tambahan dikelompokkan lewat {@link KelompokParameterTambahanCatatanKelasSiswa}; setiap
+ * parameter aktif dalam kelompok yang cocok dirender sebagai baris form (readonly atau dapat diisi,
+ * termasuk dukungan lampiran file lewat {@link LampiranLain}), dan nilai/lampirannya divalidasi
+ * (wajib diisi/wajib lampiran) sebelum catatan kelas dapat disimpan.
+ */
 public class ParameterTambahanCatatanKelasSiswaListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -35,6 +43,18 @@ public class ParameterTambahanCatatanKelasSiswaListener implements EventListener
 	private Set<KelompokParameterTambahanCatatanKelasSiswa> kelompokParameterTambahanCatatanKelasSiswas;
 	private boolean readonly;
 
+	/**
+	 * Membuat listener yang akan membangun baris parameter tambahan ke dalam {@code rows} saat
+	 * dipicu (lewat {@link #onEvent}), dan memvalidasi/menyimpan isiannya kembali ke
+	 * {@code catatanKelasSiswa}.
+	 *
+	 * @param catatanKelasSiswa                              entitas catatan kelas siswa yang sedang diedit
+	 * @param kelompokParameterTambahanCatatanKelasSiswas     kelompok parameter tambahan yang relevan (mis. sesuai jenis catatan)
+	 * @param parameterRows                                   list baris form parameter tambahan yang dikelola listener ini, dimutasi langsung
+	 * @param lampiranLains                                   peta lampiran yang sudah diunggah, berkunci {@code "idKelompok->idParameter"}
+	 * @param rows                                             komponen {@link Rows} tempat baris form ditambahkan
+	 * @param readonly                                         bila {@code true}, nilai parameter hanya ditampilkan (tidak dapat diedit)
+	 */
 	public ParameterTambahanCatatanKelasSiswaListener(CatatanKelasSiswa catatanKelasSiswa,
 			Set<KelompokParameterTambahanCatatanKelasSiswa> kelompokParameterTambahanCatatanKelasSiswas,
 			List<Row> parameterRows, Map<String, LampiranLain> lampiranLains, Rows rows, boolean readonly) {
@@ -46,6 +66,14 @@ public class ParameterTambahanCatatanKelasSiswaListener implements EventListener
 		this.readonly = readonly;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter yang ditandai
+	 * wajib diisi harus memiliki nilai bukan kosong/{@code "null"}, dan parameter yang mensyaratkan
+	 * lampiran wajib harus sudah memiliki entri di {@link #lampiranLains}. Menampilkan
+	 * {@link MyMessageboxConfig} peringatan dan berhenti pada pelanggaran pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila seluruh parameter tambahan valid (atau tidak ada baris untuk divalidasi); {@code false} bila ada pelanggaran
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -79,12 +107,23 @@ public class ParameterTambahanCatatanKelasSiswaListener implements EventListener
 		return true;
 	}
 
+	/** Menulis kembali nilai-nilai parameter tambahan dari baris form saat ini ke {@code catatanKelasSiswa}, dipanggil saat catatan kelas disimpan. */
 	public void onSave(CatatanKelasSiswa catatanKelasSiswa) {
 
 		catatanKelasSiswa.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan: menghapus baris lama, lalu untuk setiap
+	 * kelompok parameter yang relevan menambahkan baris judul kelompok diikuti baris per parameter
+	 * aktif (diurutkan), masing-masing menampilkan nilai tersimpan (dari
+	 * {@code catatanKelasSiswa.getParameterTambahanInds()}, format {@code "idKelompok->idParameter<=>nilai<=>keterangan"}
+	 * per baris) sebagai teks readonly atau komponen input yang dapat diisi, sesuai flag
+	 * {@link #readonly}. Kelompok tanpa parameter aktif disembunyikan.
+	 *
+	 * @param event event pemicu (mis. perubahan jenis catatan kelas)
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

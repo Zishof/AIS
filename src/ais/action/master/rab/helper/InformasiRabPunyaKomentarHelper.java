@@ -25,16 +25,36 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.rab.InformasiRab;
 import ais.database.model.rab.InformasiRabKomentar;
 
+/**
+ * Helper ZK untuk menampilkan dan mengelola grid komentar ({@link InformasiRabKomentar}) milik satu
+ * {@link InformasiRab} (relasi "punya banyak") pada layar detail info RAB. Membangun kolom grid
+ * (Komentar/Oleh/Email/Hapus), memuat baris komentar terkait, dan menyediakan aksi hapus per baris
+ * (tombol hapus disembunyikan bila pengguna tidak punya hak {@link CommonPrivilages#DELETE}) lengkap
+ * dengan dialog konfirmasi sebelum benar-benar menghapus dari database.
+ */
 public class InformasiRabPunyaKomentarHelper {
 
 	private MyGrid gridKomentar;
 	private boolean delete = false;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses hapus
+	 * pengguna saat ini.
+	 *
+	 * @param gridKomentar komponen grid ZK tempat baris komentar dirender
+	 */
 	public InformasiRabPunyaKomentarHelper(MyGrid gridKomentar) {
 		this.gridKomentar = gridKomentar;
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (kolom grid) dan langsung memuat data komentar untuk info RAB
+	 * yang diberikan.
+	 *
+	 * @param informasiRab info RAB yang komentarnya ditampilkan
+	 * @return komponen {@link Borderlayout} berisi grid komentar yang siap dipasang ke layar pemanggil
+	 */
 	public Borderlayout initDetail(
 			final InformasiRab informasiRab) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -91,6 +111,14 @@ public class InformasiRabPunyaKomentarHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan data komentar (nama, kontak, email) dan memasang tombol hapus
+	 * beserta event handler-nya (menampilkan dialog konfirmasi, menghapus baris dari database dan
+	 * dari grid bila dikonfirmasi).
+	 *
+	 * @param row                 baris grid yang diisi
+	 * @param informasiRabKomentar data komentar yang direpresentasikan baris ini
+	 */
 	public void initRow(final Row row,
 			final InformasiRabKomentar informasiRabKomentar) {
 		row.setValign("top");row.setAttribute("informasiRabKomentar",

@@ -21,12 +21,23 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT (SAPTO) butir A-7.1.2_PT — Penelitian Dosen Tetap: merekap
+ * jumlah judul penelitian (tipe {@link ConstantValues#PENELITIAN}, status
+ * {@link PengajuanPenelitianDanPengabdian#DISETUJUI}, hanya dosen tetap) yang disetujui per sumber
+ * dana baku ({@link #SUMBER_LIST}) untuk tiga tahun berjalan (TS-2, TS-1, TS) relatif terhadap tahun
+ * akademik yang dipilih. Setiap sel angka dapat diklik untuk mengunduh daftar pengajuan penelitian
+ * yang menyusun angka tersebut, ditentukan dari posisi baris (sumber dana) dan kolom (tahun) sel
+ * yang diklik. Memperluas {@link SaptoBaseWindow} untuk kerangka layar cetak/ekspor borang SAPTO baku.
+ */
 public class LaporanPenelitianDosen_A_7_1_2 extends SaptoBaseWindow {
 
+    /** Kode sheet/butir borang SAPTO yang diwakili laporan ini. */
     public static final String sheetCode = "A-7.1.2_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Daftar kategori sumber dana penelitian baku yang direkap, sesuai urutan baris pada worksheet; elemen kosong terakhir mewakili baris total/lainnya. */
     private static final String[] SUMBER_LIST = {
         "Pembiayaan sendiri oleh peneliti",
         "PT/yayasan yang bersangkutan",
@@ -35,6 +46,7 @@ public class LaporanPenelitianDosen_A_7_1_2 extends SaptoBaseWindow {
         "Institusi luar negeri", ""
     };
 
+    /** Konstruktor default; menyiapkan pilihan tahun akademik berjalan lalu membangun kerangka dasar layar. */
     public LaporanPenelitianDosen_A_7_1_2() {
         super();
         try {
@@ -43,6 +55,7 @@ public class LaporanPenelitianDosen_A_7_1_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit, diteruskan ke {@link SaptoBaseWindow}. */
     public LaporanPenelitianDosen_A_7_1_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -51,6 +64,7 @@ public class LaporanPenelitianDosen_A_7_1_2 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi combobox tahun akademik; perubahan pilihan langsung memicu {@link #onCetak}. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -62,6 +76,15 @@ public class LaporanPenelitianDosen_A_7_1_2 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menangani aksi cetak/tampilkan lembar kerja: di thread terpisah, untuk setiap kategori sumber
+     * dana di {@link #SUMBER_LIST} dan setiap tahun (TS-2, TS-1, TS) menghitung jumlah pengajuan
+     * penelitian dosen tetap yang disetujui, menyusun baris worksheet, lalu menampilkannya lewat
+     * {@link SaptoUtil#displayWorksheet} dengan handler klik-sel yang membuka unduhan daftar
+     * pengajuan penelitian sesuai sel (sumber dana x tahun) yang diklik.
+     *
+     * @param event event ZK pemicu aksi cetak (juga dipanggil manual dengan {@code null} saat filter berubah)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

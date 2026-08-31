@@ -20,6 +20,22 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.penelitiandanpengabdian.Artikel;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-7.1.3 pada paket sapto: rekap jumlah karya
+ * ilmiah/seni/sastra dosen tetap yang disetujui, dipecah per jenis publikasi ({@link
+ * #JENIS_LIST} — jurnal terakreditasi DIKTI, jurnal internasional, buku, karya seni, karya
+ * sastra tingkat nasional/internasional) untuk 3 tahun (tahun ajaran terpilih dan dua tahun
+ * sebelumnya). Kelas ini adalah window ZK yang dibangun di atas {@link SaptoBaseWindow},
+ * mengikuti konvensi kode sheet {@link #sheetCode}.
+ *
+ * <p>
+ * Menampilkan filter combobox tahun ajaran yang memicu cetak ulang otomatis saat berubah. Selain
+ * menampilkan rekap angka, laporan ini interaktif: mengklik satu sel data ({@code onCellClick})
+ * membuka daftar {@link Artikel} rinci di balik angka tersebut lewat
+ * {@code Common#cetakDataCustomButton}, dengan kriteria pencarian diturunkan dari posisi
+ * baris/kolom sel yang diklik (memetakan kembali ke kombinasi jenis publikasi + tahun).
+ * </p>
+ */
 public class LaporanPenelitianDosen_A_7_1_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-7.1.3_PT";
@@ -33,6 +49,7 @@ public class LaporanPenelitianDosen_A_7_1_3 extends SaptoBaseWindow {
         "Karya sastra tingkat nasional", "Karya sastra tingkat internasional", ""
     };
 
+    /** Membangun window laporan dengan pilihan tahun ajaran berjalan sebagai default (dipanggil dari kode yang membuat instance tanpa parameter tambahan). */
     public LaporanPenelitianDosen_A_7_1_3() {
         super();
         try {
@@ -41,6 +58,7 @@ public class LaporanPenelitianDosen_A_7_1_3 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit, sekaligus memilih tahun ajaran berjalan sebagai default. */
     public LaporanPenelitianDosen_A_7_1_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -49,6 +67,7 @@ public class LaporanPenelitianDosen_A_7_1_3 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter combobox tahun akademik (readonly, dipilih dari daftar) yang memicu cetak ulang otomatis saat berubah. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -60,6 +79,12 @@ public class LaporanPenelitianDosen_A_7_1_3 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menjalankan query rekap jumlah karya ilmiah per jenis publikasi untuk 3 tahun dan
+     * menampilkan hasilnya sebagai worksheet {@link #sheetCode} (dijalankan di thread terpisah),
+     * sekaligus memasang listener klik-sel yang membuka daftar {@link Artikel} rinci di balik
+     * angka yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

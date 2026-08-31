@@ -21,10 +21,20 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.Ruang;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.6.3.1 (kode sheet {@code A-6.3.1}): rekap
+ * ketersediaan ruang kerja dosen tetap aktif, dikelompokkan berdasarkan tingkat kepadatan
+ * pemakaian ruang — jumlah dosen yang berbagi satu {@link Ruang} yang sama, dibatasi maksimum 4
+ * (lebih dari 4 dosen per ruang tetap dihitung pada kelompok "4"), difilter opsional per
+ * fakultas/jurusan. Untuk setiap kelompok kepadatan (4 dosen/ruang turun sampai 1 dosen/ruang)
+ * ditampilkan jumlah ruang pada kelompok tersebut dan total luas gabungannya. Data dimuat asinkron
+ * lalu dirender lewat {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanRuangDosen_A_6_3_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.3.1";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membangun jendela laporan dengan filter fakultas/jurusan siap pakai. */
     public LaporanRuangDosen_A_6_3_1() {
         super();
         try {
@@ -33,19 +43,29 @@ public class LaporanRuangDosen_A_6_3_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanRuangDosen_A_6_3_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return kode sheet borang {@code "A-6.3.1"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan lewat {@link #addFakultasJurusanFilter}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menghitung dan menampilkan rekap ruang kerja dosen per tingkat kepadatan (1-4+ dosen per
+     * ruang), difilter jurusan bila dipilih. Data dimuat asinkron di thread terpisah dan dirender
+     * lewat {@link SaptoUtil#displayWorksheet}.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

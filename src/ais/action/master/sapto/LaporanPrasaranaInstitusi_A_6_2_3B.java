@@ -15,24 +15,43 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sapto.PrasaranaPerguruanTinggiSapto;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.6.2.3B (kode sheet {@code A-6.2.3B}): rekap
+ * prasarana penunjang institusi (bukan prasarana utama — {@code utama=false}) dari
+ * {@link PrasaranaPerguruanTinggiSapto}, diurutkan berdasarkan tahun lalu nama. Untuk setiap
+ * prasarana ditampilkan tahun pengadaan, nama, jumlah unit, luas, serta dua pasangan indikator
+ * bertanda "v" (checkmark) sesuai kondisi: status kepemilikan (milik sendiri atau bukan) dan
+ * status perawatan (terawat atau tidak). Tidak ada filter — cakupan selalu seluruh institusi. Data
+ * dimuat asinkron lalu dirender lewat {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanPrasaranaInstitusi_A_6_2_3B extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.2.3B";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Membangun jendela laporan (tanpa filter tambahan). */
     public LaporanPrasaranaInstitusi_A_6_2_3B() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanPrasaranaInstitusi_A_6_2_3B(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
     }
 
+    /** @return kode sheet borang {@code "A-6.2.3B"}. */
     @Override protected String getSheetCode() { return sheetCode; }
+    /** Tidak ada filter untuk laporan ini — cakupan selalu seluruh institusi. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Menghitung dan menampilkan rekap prasarana penunjang institusi beserta status kepemilikan
+     * dan perawatannya. Data dimuat asinkron lalu dirender lewat {@link SaptoUtil#displayWorksheet}.
+     *
+     * @param event event pemicu, boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -53,6 +53,22 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Composer ZK untuk layar CRUD {@link PerguruanTinggiLain} (data institusi perguruan tinggi lain,
+ * dipakai mis. untuk relasi mahasiswa pindahan/kerja sama antar kampus). Form mencakup identitas
+ * lengkap institusi (alamat, kontak, SK pendirian/izin operasi, akreditasi BAN-PT, rekening bank,
+ * domain, kode Sinta) serta pengaturan integrasi Neo Feeder (field {@code feeder}, hanya terlihat
+ * bagi admin dengan akses feeder).
+ *
+ * <p>
+ * Fitur khusus: tombol "Syn. Semua PT Feeder" (tampil hanya bila admin punya akses feeder dan
+ * konfigurasi {@code aktifkan_terhubung_langsung_ke_feeder} aktif) menarik seluruh data
+ * {@code satuan_pendidikan} dari Neo Feeder secara halaman-per-halaman (100 baris) lewat
+ * {@link FeederConnector}, mengonversi tiap node XML menjadi {@link JSONObject}, dan mengimpornya
+ * lewat {@code FeederJSONImport.perguruanTinggiLain}, berjalan di thread terpisah dengan progres
+ * ditampilkan lewat {@link Common#displayLoadBar}.
+ * </p>
+ */
 public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 3786091220301468178L;
@@ -109,6 +125,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 	private Textbox kodeSinta;
 	private Textbox feeder;
 
+	/** Menjalankan pemeriksaan keamanan standar sebelum komponen ZK di-compose. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -116,6 +133,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Inisialisasi layar: validasi sesi/privilese READ, memuat pencarian awal, mengaktifkan paging, dan (bagi admin berakses feeder) menambahkan tombol sinkronisasi massal dari Neo Feeder. */
 	public void doAfterCompose(Component comp) throws Exception {
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
@@ -248,6 +266,15 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Menarik seluruh baris {@code satuan_pendidikan} dari Neo Feeder secara berhalaman (100 baris
+	 * per batch) lewat {@code feederConnector}, mengonversi tiap node XML anak menjadi
+	 * {@link JSONObject} datar (nama elemen -&gt; teks), lalu mengimpornya lewat
+	 * {@code FeederJSONImport.perguruanTinggiLain}. Kegagalan per-baris ditangkap secara lokal agar
+	 * satu record bermasalah tidak menghentikan seluruh batch; kegagalan lain (mis. gagal
+	 * {@code getCount}/{@code getRecordset}) dilempar ke pemanggil agar thread latar yang memantau
+	 * progres tidak keliru melaporkan sukses.
+	 */
 	private void exportKeFeeder(String username, FeederExporter feederImporter, String token,
 			FeederConnector feederConnector) throws Exception {
 		// FIX "gagal diam-diam": try-luar sebelumnya menelan total exception (mis.
@@ -289,6 +316,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Renderer baris grid hasil pencarian: kode yayasan/feeder, kode PT, nama, alamat, kota, checkbox aktif (langsung tersimpan saat diubah), dan menu aksi ubah/hapus. */
 	class PerguruanTinggiLainRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -379,6 +407,16 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Membuat/memperbarui community DSpace untuk {@code perguruanTinggiLain} (repositori digital)
+	 * lewat {@link DspaceInformation#dspaceProcess}, dengan payload nama, teks hak cipta (memakai
+	 * label universitas dari konfigurasi), deskripsi, dan teks sidebar yang disusun otomatis dari
+	 * nama institusi.
+	 *
+	 * @param cookie sesi otentikasi DSpace yang sudah didapat sebelumnya
+	 * @param update {@code true} untuk memperbarui community yang sudah ada, {@code false} untuk membuat baru
+	 * @return informasi community DSpace hasil proses
+	 */
 	public static DspaceInformation getDspace(String cookie, PerguruanTinggiLain perguruanTinggiLain, boolean update)
 			throws Exception {
 
@@ -396,6 +434,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 				"communities");
 	}
 
+	/** Membangun kerangka form (area utama dari {@link #initMain} + toolbar Batal/Simpan) di dalam {@link #addWindow} untuk {@code perguruanTinggiLain} yang diedit. */
 	private void init(final PerguruanTinggiLain perguruanTinggiLain) throws Exception {
 		this.perguruanTinggiLain = perguruanTinggiLain;
 
@@ -440,12 +479,14 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 
 	}
 
+	/** Handler tombol "Tambah": membuka form dengan {@link PerguruanTinggiLain} kosong baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new PerguruanTinggiLain());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Membangun grid input seluruh field {@link PerguruanTinggiLain} (identitas, alamat, SK pendirian/izin, akreditasi BAN-PT, rekening bank, domain/motto/kode Sinta, dan field feeder khusus admin). */
 	private Borderlayout initMain(PerguruanTinggiLain perguruanTinggiLain) {
 		this.perguruanTinggiLain = perguruanTinggiLain;
 		addWindow.setTitle(perguruanTinggiLain.getId() == null ? "Tambah Perguruan Tinggi" : "Ubah Perguruan Tinggi");
@@ -715,6 +756,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 
 	}
 
+	/** Memvalidasi (nama wajib diisi) dan menyimpan seluruh field form ke {@link #perguruanTinggiLain}. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
 	public boolean onSave(Event event) throws Exception {
 
 		if (nama.getValue().trim().equals("")) {
@@ -779,6 +821,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/** Membentuk criteria pencarian {@link PerguruanTinggiLain} berdasarkan filter nama/alamat/kode yayasan/kode PT/kota (ILIKE), diurut nama bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -800,6 +843,7 @@ public class PerguruanTinggiLainAction extends GenericAutowireComposer {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan ulang pencarian dan memuat ulang {@link #grid} serta {@link #paging}. */
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 

@@ -24,13 +24,24 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.Pertemuan;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT (SAPTO) butir A-5.4.1 — Dosen Pembimbing Akademik:
+ * menyajikan, per dosen pembimbing (dosen PA) yang punya mahasiswa bimbingan aktif (opsional
+ * difilter per fakultas/jurusan), jumlah mahasiswa bimbingan dan rata-rata jumlah pertemuan
+ * bimbingan per mahasiswa (dihitung dari baris {@link Pertemuan} yang terkait KRS mahasiswa dengan
+ * dosen PA tersebut). Setiap baris dosen dapat diklik untuk mengunduh daftar mahasiswa bimbingannya
+ * (lewat {@link Common#cetakDataCustomButton}, memakai indeks baris worksheet untuk menentukan dosen
+ * yang diklik). Memperluas {@link SaptoBaseWindow} untuk kerangka layar cetak/ekspor borang SAPTO baku.
+ */
 public class LaporanDosenPembimbing_A_5_4_1 extends SaptoBaseWindow {
 
+    /** Kode sheet/butir borang SAPTO yang diwakili laporan ini. */
     public static final String sheetCode = "A-5.4.1";
     private static final long serialVersionUID = 3331244819198611604L;
     private static final String[] EMPTY_COLS = new String[180];
     static { Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Konstruktor default; menyiapkan filter fakultas/jurusan lalu membangun kerangka dasar layar. */
     public LaporanDosenPembimbing_A_5_4_1() {
         super();
         try {
@@ -39,6 +50,7 @@ public class LaporanDosenPembimbing_A_5_4_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit, diteruskan ke {@link SaptoBaseWindow}. */
     public LaporanDosenPembimbing_A_5_4_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -47,11 +59,21 @@ public class LaporanDosenPembimbing_A_5_4_1 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan bawaan {@link SaptoBaseWindow}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menangani aksi cetak/tampilkan lembar kerja: mengumpulkan daftar id dosen yang punya mahasiswa
+     * bimbingan aktif (sesuai filter jurusan bila dipilih), lalu di thread terpisah menghitung
+     * jumlah mahasiswa bimbingan dan rata-rata jumlah pertemuan bimbingan per dosen, menyusunnya
+     * menjadi baris worksheet, dan memasang handler klik-sel yang membuka unduhan daftar mahasiswa
+     * bimbingan dosen pada baris yang diklik.
+     *
+     * @param event event ZK pemicu aksi cetak
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

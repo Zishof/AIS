@@ -21,7 +21,37 @@ import ais.database.model.Pegawai;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 
+/**
+ * Kelas utilitas modul BKD (Beban Kerja Dosen) yang menghitung dan menyimpan penilaian asesmen
+ * kinerja dosen sebagai penulis buku bahan ajar. Untuk setiap {@link BukuBahanAjar} yang sudah
+ * melalui tahap penyusunan dan peredaran, method di sini menetapkan nilai SKS yang diperoleh
+ * masing-masing penulis (ketua maupun anggota) sebagai baris {@link AsesemenPenilaian}, lalu
+ * memicu pengecekan ulang penilaian asesor terkait lewat
+ * {@link PenilaianAsesorAction#checkPenilaian}.
+ *
+ * <p>
+ * Pembagian bobot SKS antar-penulis mengikuti konfigurasi (parameter umum)
+ * {@code pengaturan_pembagian_beban_sks_buku}, dengan tiga skema: {@code "50%"} (separuh untuk
+ * setiap penulis), {@code "Dibagi rata"} (dibagi rata ke seluruh penulis termasuk ketua), atau
+ * skema ketua-dominan (ketua 60% bila anggota lebih dari satu, sebaliknya ketua 40% dan
+ * anggota 60% bila hanya satu anggota). SKS dasar per kombinasi tahap-penyusunan+jenis-peredaran
+ * dibaca dari parameter umum {@code pengaturan_beban_sks_buku_<idTahapan>_<idJenisPeredaran>}.
+ * </p>
+ */
 public class BkdPenulisHelper {
+	/**
+	 * Memproses seluruh {@link BukuBahanAjar} milik {@code pegawai} (atau seluruh pegawai bila
+	 * {@code pegawai} {@code null}) pada tahun akademik/semester tertentu: untuk setiap buku,
+	 * menghitung dan menyimpan penilaian SKS bagi penulis utama (ketua) dan setiap anggota
+	 * penulis, memperbarui {@code label} progres di setiap langkah.
+	 *
+	 * @param session       sesi Hibernate aktif untuk membaca daftar buku bahan ajar
+	 * @param pegawai       pegawai (dosen) yang dibatasi diprosesnya, atau {@code null} untuk
+	 *                      memproses seluruh pegawai pengarang pertama
+	 * @param tahunAkademik tahun akademik yang menjadi filter, boleh {@code null} untuk semua
+	 * @param semester      semester yang menjadi filter, boleh {@code null} untuk semua
+	 * @param label         komponen label ZK tempat progres pemrosesan ditampilkan ke pengguna
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -61,6 +91,25 @@ public class BkdPenulisHelper {
 
 	}
 
+	/**
+	 * Menghitung dan menyimpan (create-or-update) penilaian SKS satu {@code pegawai} sebagai
+	 * penulis {@code bukuBahanAjar}, dengan peran {@code jenisAnggotaPublikasi} ({@code "ketua"}
+	 * atau {@code "anggota"}). Tidak melakukan apa pun bila {@code pegawai} {@code null} atau
+	 * pegawai tersebut tidak memiliki asesor aktif ({@link AsesorPegawai}). SKS dasar diambil
+	 * dari parameter umum sesuai tahap penyusunan dan jenis peredaran buku, lalu dibagi antar
+	 * penulis sesuai skema {@code pengaturan_pembagian_beban_sks_buku} (lihat javadoc kelas).
+	 * Setelah baris {@link AsesemenPenilaian} tersimpan, method memicu
+	 * {@link PenilaianAsesorAction#checkPenilaian} untuk memperbarui status penilaian asesor
+	 * yang relevan.
+	 *
+	 * @param session               sesi Hibernate aktif, dipakai juga untuk transaksi simpan
+	 * @param pegawai               pegawai (dosen) yang dinilai; tidak melakukan apa pun bila {@code null}
+	 * @param tahunAkademik         tahun akademik penilaian
+	 * @param semester              semester penilaian
+	 * @param bukuBahanAjar         buku bahan ajar yang menjadi objek penilaian
+	 * @param jenisAnggotaPublikasi peran pegawai pada buku ini, {@code "ketua"} atau {@code "anggota"}
+	 * @param jumlahAnggota         jumlah anggota penulis (di luar ketua) pada buku ini
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			BukuBahanAjar bukuBahanAjar, String jenisAnggotaPublikasi, Integer jumlahAnggota) {

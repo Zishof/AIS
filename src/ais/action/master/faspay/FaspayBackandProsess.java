@@ -23,8 +23,46 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.faspay.FaspayRequest;
 import ais.database.model.faspay.FaspayResponse;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang melakukan pengecekan status pembayaran Faspay secara
+ * otomatis ("backend process") untuk transaksi yang masih menggantung. Berjalan hanya bila
+ * konfigurasi {@code aktifkan_pembayaran_via_faspay_auto} aktif; setiap eksekusi mencari
+ * {@link FaspayRequest} dalam 7 hari terakhir yang belum punya {@code faspayResponse} dan
+ * berstatus kosong/{@code "0"}/{@code "1"} (belum final), lalu memanggil {@link #check} untuk
+ * masing-masing guna menanyakan status terbaru ke gateway Faspay lewat panggilan HTTP POST XML
+ * (Inquiry Status Payment). Berbeda dari {@code ais.common.FaspayCommon} (integrasi Faspay lain
+ * yang sudah didokumentasikan), kelas ini fokus pada rekonsiliasi status berkala (polling), bukan
+ * inisiasi pembayaran.
+ *
+ * <p>
+ * <b>Catatan keamanan (dilaporkan, tidak diperbaiki sesuai instruksi tugas):</b> URL default
+ * pengecekan status ({@code faspay_check_status_url}, dipakai bila konfigurasi belum diisi) adalah
+ * {@code http://faspaydev.mediaindonusa.com/pws/100004/183xx00010100000} — menggunakan HTTP polos
+ * (bukan HTTPS) dan tampak menyertakan segmen path yang menyerupai ID merchant/kredensial gateway
+ * ("183xx00010100000") tertanam langsung sebagai default kode sumber. Payload permintaan
+ * (termasuk {@code trx_id}, {@code merchant_id}, dan {@code signature} milik
+ * {@link FaspayRequest}) dikirim lewat HTTP tanpa enkripsi transport bila konfigurasi produksi
+ * tidak mengganti URL ini ke HTTPS.
+ * </p>
+ */
 public class FaspayBackandProsess extends TimerTask {
 
+	/**
+	 * Mengecek status satu permintaan pembayaran Faspay: pertama mencoba memakai respons
+	 * ({@link FaspayResponse}) yang sudah tersimpan di database (bila statusnya sudah final,
+	 * yaitu {@code payment_status_code == "2"}, langsung dikembalikan tanpa panggilan jaringan).
+	 * Bila belum ada respons final tersimpan, mengirim permintaan XML "Inquiry Status Payment" ke
+	 * {@code strURL} lewat HTTP POST, mem-parsing respons XML menjadi JSON, lalu menyimpan/
+	 * memperbarui {@link FaspayResponse} dan {@link FaspayRequest} sesuai status terbaru. Bila
+	 * status baru menunjukkan pembayaran sukses (kode {@code "2"}), memicu
+	 * {@link FasPayResponse#prosesResponse} untuk menindaklanjuti pembayaran (mis. update tagihan).
+	 *
+	 * @param strURL       URL endpoint Inquiry Status Payment Faspay
+	 * @param faspayRequest permintaan pembayaran yang statusnya akan dicek
+	 * @param session      sesi Hibernate aktif, dipakai untuk transaksi simpan/update terpisah
+	 * @return objek JSON hasil pengecekan status (dari cache tersimpan atau dari gateway), atau
+	 *         {@code null} bila tidak dapat diperoleh
+	 */
 	@SuppressWarnings("deprecation")
 	public static JSONObject check(String strURL, FaspayRequest faspayRequest, Session session) {
 		JSONObject faspay = null;
@@ -149,6 +187,11 @@ public class FaspayBackandProsess extends TimerTask {
 		return faspay;
 	}
 
+	/**
+	 * Titik masuk eksekusi terjadwal: bila fitur pengecekan otomatis aktif, mengambil seluruh
+	 * {@link FaspayRequest} 7 hari terakhir yang belum final dan memanggil {@link #check} untuk
+	 * masing-masing secara berurutan. Sesi Hibernate selalu ditutup di akhir eksekusi.
+	 */
 	@Override
 	public void run() {
 		try {

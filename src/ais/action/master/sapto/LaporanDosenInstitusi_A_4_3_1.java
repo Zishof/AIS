@@ -19,16 +19,34 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.3.1 pada paket sapto: rekap jumlah dosen tetap
+ * menurut jabatan fungsional (Profesor, Lektor Kepala, Lektor, Asisten Ahli, Tenaga Pengajar),
+ * dipecah per jenjang pendidikan terakhir (S3/Sp-2, S2/Sp-1, S1/Profesi/D4). Kelas ini adalah
+ * window ZK yang dibangun di atas {@link SaptoBaseWindow}, mengikuti konvensi kode sheet
+ * {@link #sheetCode}. Tidak memiliki filter yang ditampilkan ke pengguna.
+ *
+ * <p>
+ * Data dihitung lewat satu query SQL native ber-{@code UNION ALL} (3 blok, satu per kelompok
+ * jenjang pendidikan) yang menjumlahkan kecocokan jabatan fungsional memakai {@code CASE WHEN},
+ * dijalankan di thread terpisah. Laporan ini interaktif: mengklik satu sel data membuka daftar
+ * {@link Dosen} rinci di balik angka tersebut lewat {@code Common#cetakDataCustomButton}, dengan
+ * kriteria (jabatan fungsional + kelompok jenjang pendidikan) diturunkan dari posisi
+ * baris/kolom sel yang diklik.
+ * </p>
+ */
 public class LaporanDosenInstitusi_A_4_3_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.1_PT";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Membangun window laporan dalam konfigurasi baku (dipanggil dari kode yang membuat instance tanpa parameter tambahan). */
     public LaporanDosenInstitusi_A_4_3_1() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit. */
     public LaporanDosenInstitusi_A_4_3_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
@@ -38,6 +56,12 @@ public class LaporanDosenInstitusi_A_4_3_1 extends SaptoBaseWindow {
 
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Menjalankan query rekap jumlah dosen tetap per jabatan fungsional dan kelompok jenjang
+     * pendidikan, menampilkan hasilnya sebagai worksheet {@link #sheetCode} (dijalankan di
+     * thread terpisah), sekaligus memasang listener klik-sel yang membuka daftar {@link Dosen}
+     * rinci di balik angka yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

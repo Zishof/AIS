@@ -25,6 +25,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis kerangka {@link GenericCrudAction}) untuk data master <b>Jenis
+ * Pembayaran</b> modul SIRS (Sistem Informasi Rumah Sakit), mis. tunai, asuransi, BPJS. Form hanya
+ * berisi nama dan keterangan; validasi menolak nama kosong atau nama yang sudah dipakai jenis
+ * pembayaran lain ({@link #checkNamaJenisPembayaran()}). Perubahan nama dicatat lewat mekanisme
+ * revisi standar ({@link RevisiHelper#createNewRevisi}) pada tampilan grid.
+ */
 public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedis> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -35,15 +42,19 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link JenisPembayaranMedis}. */
     @Override
     protected Class<JenisPembayaranMedis> getEntityClass() { return JenisPembayaranMedis.class; }
 
+    /** Membuat instance {@link JenisPembayaranMedis} kosong untuk form tambah data baru. */
     @Override
     protected JenisPembayaranMedis createNewEntity() { return new JenisPembayaranMedis(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Jenis Pembayaran"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Pembayaran"; }
 
+    /** Membangun kriteria pencarian jenis pembayaran, diurutkan berdasarkan nama, disaring berdasarkan kecocokan sebagian nama pada kotak pencarian bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -55,6 +66,7 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian jenis pembayaran: {@link JenisPembayaranRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisPembayaranRenderer();
@@ -62,6 +74,7 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit jenis pembayaran (kartu dengan grid nama+keterangan dan toolbar simpan/batal) di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisPembayaranMedis jenisPembayaran) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +146,13 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib diisi, nama belum dipakai jenis pembayaran lain) dan
+     * menyimpan/memperbarui data jenis pembayaran dari isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Pembayaran wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Pembayaran pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +176,7 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai jenis pembayaran lain (mengecualikan record yang sedang diedit sendiri). */
     public Boolean checkNamaJenisPembayaran() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisPembayaranMedis.class)
@@ -170,6 +191,7 @@ public class JenisPembayaranAction extends GenericCrudAction<JenisPembayaranMedi
 
     // ======================== Renderer ========================
 
+    /** Perender baris grid pencarian jenis pembayaran: menampilkan nama (dengan tautan riwayat revisi), keterangan, dan tombol ubah/hapus. */
     class JenisPembayaranRenderer extends MyRowRenderer {
 
         @Override

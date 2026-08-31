@@ -18,16 +18,46 @@ import ais.database.model.RuangPMB;
 import ais.database.model.RuangPaketPMB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Pembangkit nomor ujian PMB (Penerimaan Mahasiswa Baru) khusus institusi STAIN Batusangkar,
+ * sekaligus penetap ruang ujian bagi calon mahasiswa. Format nomor: {@code YY+KODEPAKET+URUT},
+ * mis. {@code "26TI0007"}, dengan {@code URUT} dihitung lewat helper bersama
+ * {@link NoUjianGeneratorSupport}.
+ *
+ * <p>
+ * Alur: (1) bila calon sudah punya nomor ujian, dikembalikan apa adanya (idempoten); (2) bila
+ * gelombang pendaftaran mengharuskan pembayaran sebelum login ({@code
+ * harusBayarSebelumBisaLogin}) dan pembayaran registrasi belum lunas, proses dihentikan dengan
+ * pesan peringatan; (3) dicari ruang ujian yang cocok dengan paket calon dan gelombang
+ * pendaftarannya, dengan kuota tersisa; (4) dipastikan ruang belum melebihi kapasitas lewat
+ * penghitungan ulang peserta yang sudah menempati; (5) nomor dibentuk dan disimpan, ruang ujian
+ * ditetapkan lewat {@code CommonPMB#dapatkanRuangUjian}. Bila nomor hasil bentrok, dibangkitkan
+ * ulang secara rekursif.
+ * </p>
+ */
 public class StainBatusangkarNoUjianGenerator implements NoUjianGenerator {
 
+	/** Instance {@link PembayaranUtil} bersama (singleton) untuk keperluan pengecekan status pembayaran registrasi. */
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Membangkitkan nomor ujian baru untuk {@code biodataCalonMahasiswa} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		return generateNoUjian(biodataCalonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan nomor ujian berformat {@code YY+KODEPAKET+URUT}, memverifikasi status
+	 * pembayaran registrasi (bila diwajibkan gelombang pendaftaran) dan ketersediaan ruang
+	 * ujian, lalu menyimpan nomor dan menetapkan ruang pada calon mahasiswa. Menampilkan pesan
+	 * peringatan/informasi dan mengembalikan string kosong bila pembayaran belum lunas atau
+	 * ruang tidak tersedia/penuh. Mengulang secara rekursif bila nomor hasil bentrok.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang akan diberi nomor ujian dan ruang
+	 * @param jumlahPengecualian    daftar nomor ujian yang harus dihindari, diperbarui di tempat
+	 *                              saat terjadi bentrok
+	 * @return nomor ujian yang dibangkitkan (atau sudah ada), atau string kosong bila gagal
+	 */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> jumlahPengecualian)
 			throws Exception {
