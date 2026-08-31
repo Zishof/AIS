@@ -5005,8 +5005,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		boolean adaGuru = tbmuser != null && tbmuser.ambilGuru() != null;
 		boolean sekolahSaja = (adaSiswa || adaGuru) && !adaMhs && !adaDosen;
 
-		ais.ui.util.MyButtonTabbox btnBimbingan = ais.ui.util.MyButtonTabbox.buat(host, "100%", null);
-		btnBimbingan.setTombolMembungkus(true);
+		ais.ui.util.MyButtonTabbox btnBimbingan = ais.ui.util.MyButtonTabbox.buatVertikal(host, "100%", null);
 		int idx = 1;
 		if (!sekolahSaja) {
 			tambahSubBimbinganBtn(btnBimbingan, idx++, "Tugas Akhir", "/img/svg/chalkboard-user.svg", TampilanELearningAction.BIMBINGAN);
@@ -5732,11 +5731,13 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				row.appendChild(labTa);
 
 				final VOPembelajaran voKlik = voAksi;
-				org.zkoss.zul.Vlayout aksi = new org.zkoss.zul.Vlayout();
+				Vbox aksi = new Vbox();
+				aksi.setWidth("76px");
 				aksi.setSpacing("4px");
-				aksi.setStyle("padding:5px 2px;text-align:center;");
+				aksi.setStyle("padding:5px 2px;text-align:left;box-sizing:border-box;");
 				MyToolbarbuttonConfig btnAgenda = new MyToolbarbuttonConfig("Agenda", "/img/svg/calendar-check.svg");
-				btnAgenda.setStyle("font-size:12px; white-space:nowrap;");
+				btnAgenda.setWidth("72px");
+				btnAgenda.setStyle("font-size:12px;white-space:nowrap;text-align:left;box-sizing:border-box;");
 				btnAgenda.setTooltiptext("Lihat agenda pertemuan/konsultasi");
 				btnAgenda.addEventListener("onClick", new EventListener() {
 					@Override
@@ -5751,7 +5752,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				String labelAksiNilai = KRS.equals(jenis) ? "Transkrip" : "Nilai";
 				MyToolbarbuttonConfig btnNilai = new MyToolbarbuttonConfig(labelAksiNilai,
 						"/img/svg/journal-check.svg");
-				btnNilai.setStyle("font-size:12px; white-space:nowrap;");
+				btnNilai.setWidth("72px");
+				btnNilai.setStyle("font-size:12px;white-space:nowrap;text-align:left;box-sizing:border-box;");
 				btnNilai.setTooltiptext(KRS.equals(jenis) ? "Lihat transkrip akademik" : "Input / lihat penilaian");
 				btnNilai.addEventListener("onClick", new EventListener() {
 					@Override

@@ -434,7 +434,7 @@ public class AktifitasTugasAkhirHelper {
 			}
 		}
 
-		buttonTabbox.tambahTabLazy(2, "Referensi", "/img/svg/books-thin.svg",
+		final Div panelReferensi = buttonTabbox.tambahTabLazy(2, "Referensi", "/img/svg/books-thin.svg",
 				new MyButtonTabbox.PemuatTab() {
 			@Override
 			public void muat(Div panelReferensiUtama) throws Exception {
@@ -475,20 +475,22 @@ public class AktifitasTugasAkhirHelper {
 				referensiTabs.pilih(1);
 			}
 		});
+		setPanelDetailTinggi(panelReferensi);
 
 		if (mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.AKTIF_STATUS)
 				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.SEMINAR_STATUS)
 				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.MENGULANG_STATUS)
 				|| mahasiswaRequestTugasAkhir.getStatus().equals(MahasiswaRequestTugasAkhir.LULUS_STATUS)) {
-			buttonTabbox.tambahTabLazy(3, "Penilaian", "/img/svg/journal-check.svg",
+			final Div panelPenilaian = buttonTabbox.tambahTabLazy(3, "Penilaian", "/img/svg/journal-check.svg",
 					new MyButtonTabbox.PemuatTab() {
 				@Override
 				public void muat(Div panel) throws Exception {
-					panel.setStyle("overflow:auto;min-height:1100px;");
+					setPanelDetailTinggi(panel);
 					PenilaianProposalSkripsiHelper helper = new PenilaianProposalSkripsiHelper();
 					helper.display(mahasiswaRequestTugasAkhir, panel);
 				}
 			});
+			setPanelDetailTinggi(panelPenilaian);
 
 			initCetak(buttonTabbox, 4, mahasiswaRequestTugasAkhir);
 
@@ -505,6 +507,14 @@ public class AktifitasTugasAkhirHelper {
 			}
 		}
 		buttonTabbox.pilih(1);
+	}
+
+	private void setPanelDetailTinggi(Component panel) {
+		if (panel instanceof org.zkoss.zk.ui.HtmlBasedComponent) {
+			org.zkoss.zk.ui.HtmlBasedComponent html = (org.zkoss.zk.ui.HtmlBasedComponent) panel;
+			html.setHeight("1100px");
+			html.setStyle("height:1100px;min-height:1100px;overflow-y:auto;overflow-x:hidden;");
+		}
 	}
 
 	private void initSidang(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Component tabpanelSidang,

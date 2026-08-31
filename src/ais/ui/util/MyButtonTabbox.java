@@ -7,11 +7,13 @@ import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Label;
+import org.zkoss.zul.Box;
 import org.zkoss.zul.Tab;
 import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Tabpanels;
 import org.zkoss.zul.Tabs;
+import org.zkoss.zul.Vbox;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,28 +39,42 @@ public class MyButtonTabbox {
 	private final Map<Integer, EventListener> onSetiapPilihMap = new LinkedHashMap<Integer, EventListener>();
 	private final Set<Integer> sudahDimuat = new HashSet<Integer>();
 	private final Div panelHost;
-	private final Hbox tombolBar;
+	private final Box tombolBar;
 	private final Hbox actionToolbar;
 	private final int[] tabAktif;
+	private final boolean tombolVertikal;
 
-	private MyButtonTabbox(Hbox tombolBar, Div panelHost, Hbox actionToolbar, int[] tabAktif) {
+	private MyButtonTabbox(Box tombolBar, Div panelHost, Hbox actionToolbar, int[] tabAktif,
+			boolean tombolVertikal) {
 		this.tombolBar = tombolBar;
 		this.panelHost = panelHost;
 		this.actionToolbar = actionToolbar;
 		this.tabAktif = tabAktif;
+		this.tombolVertikal = tombolVertikal;
 	}
 
 	public static MyButtonTabbox buat(Component parent, String tinggiCss, int[] tabAktifHolder) {
+		return buat(parent, tinggiCss, tabAktifHolder, false);
+	}
+
+	public static MyButtonTabbox buatVertikal(Component parent, String tinggiCss, int[] tabAktifHolder) {
+		return buat(parent, tinggiCss, tabAktifHolder, true);
+	}
+
+	private static MyButtonTabbox buat(Component parent, String tinggiCss, int[] tabAktifHolder,
+			boolean vertikal) {
 		Div outer = new Div();
 		outer.setWidth("100%");
 		outer.setHeight(tinggiCss);
 		outer.setStyle("display:flex;flex-direction:column;min-height:0;overflow:hidden;");
 		outer.setParent(parent);
 
-		Hbox tombolBar = new Hbox();
+		Box tombolBar = vertikal ? new Vbox() : new Hbox();
 		tombolBar.setSclass("ais-btn-group ais-button-tabbox");
 		tombolBar.setWidth("100%");
-		tombolBar.setStyle("flex:0 0 auto;overflow-x:auto;white-space:nowrap;");
+		tombolBar.setStyle(vertikal
+				? "flex:0 0 auto;overflow:visible;white-space:normal;padding:4px;box-sizing:border-box;"
+				: "flex:0 0 auto;overflow-x:auto;white-space:nowrap;");
 		tombolBar.setParent(outer);
 
 		Div panelHost = new Div();
@@ -75,7 +91,7 @@ public class MyButtonTabbox {
 		actionToolbar.setParent(outer);
 
 		MyButtonTabbox tabbox = new MyButtonTabbox(tombolBar, panelHost, actionToolbar,
-				tabAktifHolder == null ? new int[] { 1 } : tabAktifHolder);
+				tabAktifHolder == null ? new int[] { 1 } : tabAktifHolder, vertikal);
 		outer.setAttribute("myButtonTabbox", tabbox);
 		panelHost.setAttribute("myButtonTabbox", tabbox);
 		return tabbox;
@@ -299,6 +315,10 @@ public class MyButtonTabbox {
 				? new MyToolbarbuttonConfig(label, icon)
 				: new MyToolbarbuttonConfig(label);
 		tombol.setSclass("ais-button-tabbox-button");
+		if (tombolVertikal) {
+			tombol.setWidth("100%");
+			tombol.setStyle("width:100%;box-sizing:border-box;text-align:left;margin:2px 0;");
+		}
 		tombol.setParent(tombolBar);
 		tombol.setTooltiptext(label);
 		tombolMap.put(Integer.valueOf(index), tombol);
@@ -383,8 +403,13 @@ public class MyButtonTabbox {
 		try {
 			pemuat.onEvent(null);
 		} catch (Exception e) {
+			// Pemuatan yang gagal tidak boleh dianggap selesai. Sebelumnya helper yang
+			// sempat membuat wrapper kosong meninggalkan tab putih dan klik berikutnya
+			// tidak pernah mencoba memuat ulang.
+			sudahDimuat.remove(Integer.valueOf(index));
 			Div panel = panelMap.get(Integer.valueOf(index));
-			if (panel != null && panel.getChildren().isEmpty()) {
+			if (panel != null) {
+				panel.getChildren().clear();
 				Label label = new Label("Gagal memuat konten tab: "
 						+ (e.getMessage() == null ? e.getClass().getName() : e.getMessage()));
 				label.setStyle("color:#b91c1c;padding:12px;display:block;");

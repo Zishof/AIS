@@ -792,8 +792,10 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		// atas, CENTER = konten penilaian (autoscroll, tinggi pasti min-height:480px agar konten
 		// panjang tak terpotong). Konten tetap 1-kolom (Hasil Seminar lalu Nilai Seminar) sesuai
 		// perbaikan sebelumnya; hanya bingkai/tata-letak luar yang diseragamkan.
-		ais.ui.util.MyDiv wrapperEl = new ais.ui.util.MyDiv();
-		wrapperEl.setHeight("100%");
+		org.zkoss.zul.Div wrapperEl = new org.zkoss.zul.Div();
+		wrapperEl.setWidth("100%");
+		wrapperEl.setHeight("1050px");
+		wrapperEl.setStyle("height:1050px;min-height:480px;overflow:hidden;");
 		wrapperEl.setParent(component);
 
 		org.zkoss.zul.Style eLStyle = new org.zkoss.zul.Style();
@@ -802,9 +804,11 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 		Borderlayout borderlayout = new Borderlayout();
 		borderlayout.setParent(wrapperEl);
-		// Borderlayout wajib punya tinggi pasti; tanpa ini ia kolaps (0px) di dalam tab/detail.
-		borderlayout.setHeight("100%");
-		borderlayout.setStyle("min-height:480px;");
+		// Tinggi pixel diperlukan saat form dimuat dari tab custom eLearning. Tinggi 100%
+		// dapat kolaps pada rantai panel bersarang dan membuat akun dosen melihat layar putih.
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("1050px");
+		borderlayout.setStyle("height:1050px;min-height:480px;");
 		borderlayout.setSclass("eL-penilaian");
 
 		org.zkoss.zul.North north = new org.zkoss.zul.North();
@@ -837,7 +841,7 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		// Kolom kanan (daftar dosen penilai) WAJIB bisa di-scroll: sebelumnya Vbox tanpa overflow,
 		// sehingga bila jumlah dosen + dashboard nilai melebihi tinggi Center, baris terakhir terpotong
 		// dan tidak ada scrollbar — dosen terakhir tak bisa dinilai. Pakai Div height 100% + overflow:auto.
-		ais.ui.util.MyDiv centerBox = new ais.ui.util.MyDiv();
+		org.zkoss.zul.Div centerBox = new org.zkoss.zul.Div();
 		centerBox.setWidth("100%");
 		centerBox.setHeight("100%");
 		centerBox.setStyle("overflow:auto;");
