@@ -1,16 +1,16 @@
 package ais.action.master.pmb.nim;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.hibernate.SQLQuery;
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Jurusan;
-import ais.database.model.Mahasiswa;
 
 public class StainBatusangkarNimGenerator implements NimGenerator {
 
@@ -37,16 +37,9 @@ public class StainBatusangkarNimGenerator implements NimGenerator {
 		validasiKomponenNim(digitKetiga, "prodi", calonMahasiswa);
 		validasiKomponenNim(digitKetiga1, "jenis kelamin", calonMahasiswa);
 
-		Session session = HibernateUtil.currentNativeSession();
-		Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-
-				.setProjection(Projections.rowCount()).add(Restrictions.eq("tahunangkatan", tahun))
-				.add(Restrictions.eq("jenjang", calonMahasiswa.getJenjang()))
-				.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1).uniqueResult())
-				.longValue();
-
-		jumlah += jumlahPengecualian.size();
-		String digitKeempat = "000000000000" + (jumlah + 1);
+		String prefix = digitPertama + digitKedua + digitKetiga + digitKetiga1;
+		Long nomorUrut = ambilNomorUrutBerikutnya(prefix, calonMahasiswa, jumlahPengecualian);
+		String digitKeempat = "000000000000" + nomorUrut;
 		digitKeempat = digitKeempat.substring(digitKeempat.length() - 4);
 
 		System.out.println("digit pertama (kode prodi) = " + digitPertama);
@@ -58,23 +51,93 @@ public class StainBatusangkarNimGenerator implements NimGenerator {
 		String nim = digitPertama + digitKedua + digitKetiga + digitKetiga1 + digitKeempat;
 		validasiNim(nim, calonMahasiswa);
 
-		Integer count = ((Number) session.createCriteria(Mahasiswa.class)
-				.add(Restrictions.eq("nim", nim)).setProjection(Projections.count("nim")).uniqueResult()).intValue();
-		org.hibernate.Criteria calonCriteria = session.createCriteria(BiodataCalonMahasiswa.class)
-				.add(Restrictions.eq("nim", nim)).setProjection(Projections.count("nim"));
-		if (calonMahasiswa.getId() != null) {
-			calonCriteria.add(Restrictions.ne("id", calonMahasiswa.getId()));
-		}
-		Integer countCalon = ((Number) calonCriteria.uniqueResult()).intValue();
-
-		HibernateUtil.closeSession();
-
-		if (!count.equals(0) || !countCalon.equals(0)) {
+		if (nimSudahDipakai(nim, calonMahasiswa)) {
 			jumlahPengecualian.add(nim);
 			return generateNim(calonMahasiswa, jumlahPengecualian);
 		}
 
 		return nim;
+	}
+
+	private Long ambilNomorUrutBerikutnya(String prefix, BiodataCalonMahasiswa calonMahasiswa,
+			List<String> jumlahPengecualian) {
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Set<String> nimTerpakai = new HashSet<String>();
+
+			String sqlMahasiswa = "select nim from mahasiswa where nim is not null and trim(nim) like :prefix";
+			SQLQuery qMahasiswa = session.createSQLQuery(sqlMahasiswa);
+			qMahasiswa.setString("prefix", prefix + "%");
+			nimTerpakai.addAll(qMahasiswa.list());
+
+			String sqlCalon = "select nim from biodata_calon_mahasiswa where nim is not null and trim(nim) like :prefix";
+			if (calonMahasiswa != null && calonMahasiswa.getId() != null) {
+				sqlCalon += " and id <> :idCalon";
+			}
+			SQLQuery qCalon = session.createSQLQuery(sqlCalon);
+			qCalon.setString("prefix", prefix + "%");
+			if (calonMahasiswa != null && calonMahasiswa.getId() != null) {
+				qCalon.setLong("idCalon", calonMahasiswa.getId());
+			}
+			nimTerpakai.addAll(qCalon.list());
+
+			if (jumlahPengecualian != null) {
+				nimTerpakai.addAll(jumlahPengecualian);
+			}
+
+			long nomorTerbesar = 0L;
+			for (String nim : nimTerpakai) {
+				Long nomor = ambilNomorUrutDariNim(prefix, nim);
+				if (nomor != null && nomor.longValue() > nomorTerbesar) {
+					nomorTerbesar = nomor.longValue();
+				}
+			}
+			return Long.valueOf(nomorTerbesar + 1L);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private Long ambilNomorUrutDariNim(String prefix, String nim) {
+		if (prefix == null || nim == null) {
+			return null;
+		}
+		nim = nim.trim();
+		if (!nim.startsWith(prefix) || nim.length() < prefix.length() + 4) {
+			return null;
+		}
+		String nomor = nim.substring(nim.length() - 4);
+		for (int i = 0; i < nomor.length(); i++) {
+			if (!Character.isDigit(nomor.charAt(i))) {
+				return null;
+			}
+		}
+		return Long.valueOf(Long.parseLong(nomor));
+	}
+
+	private boolean nimSudahDipakai(String nim, BiodataCalonMahasiswa calonMahasiswa) {
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Number countMahasiswa = (Number) session.createSQLQuery(
+					"select count(1) from mahasiswa where nim = :nim")
+					.setString("nim", nim).uniqueResult();
+			String sqlCalon = "select count(1) from biodata_calon_mahasiswa where nim = :nim";
+			if (calonMahasiswa != null && calonMahasiswa.getId() != null) {
+				sqlCalon += " and id <> :idCalon";
+			}
+			SQLQuery qCalon = session.createSQLQuery(sqlCalon);
+			qCalon.setString("nim", nim);
+			if (calonMahasiswa != null && calonMahasiswa.getId() != null) {
+				qCalon.setLong("idCalon", calonMahasiswa.getId());
+			}
+			Number countCalon = (Number) qCalon.uniqueResult();
+			return (countMahasiswa != null && countMahasiswa.intValue() > 0)
+					|| (countCalon != null && countCalon.intValue() > 0);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	private String ambilKodeProdi(Jurusan prodi) {
