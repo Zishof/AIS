@@ -389,6 +389,7 @@
 
             try {
                 const req = await fetch('<%= linkDetail %>&action=list&page=' + page);
+                const requestId = req.headers.get('X-Request-Id');
                 const res = await req.json();
                 
                 if (res.status === 'success') {
@@ -429,7 +430,9 @@
                         paging.innerHTML += pageHtml;
                     }
                 } else {
-                    body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">' + escapeKiosk<%=rnd%>(res.message || '<%= Common.getBahasaConfigJS("Daftar kunjungan tidak dapat dimuat.") %>') + '</td></tr>';
+                    const serverMessage = res.message || res.error || '<%= Common.getBahasaConfigJS("Daftar kunjungan tidak dapat dimuat.") %>';
+                    const requestInfo = requestId ? ' (ID: ' + requestId + ')' : '';
+                    body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">' + escapeKiosk<%=rnd%>(serverMessage + requestInfo) + '</td></tr>';
                     paging.innerHTML = '';
                     document.getElementById('infoPaging<%=rnd%>').innerText = '';
                 }

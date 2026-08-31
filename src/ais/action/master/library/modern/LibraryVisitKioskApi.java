@@ -6,10 +6,11 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -17,6 +18,7 @@ import org.json.JSONObject;
 
 import ais.action.master.library.util.LibraryUtil;
 import ais.common.Common;
+import ais.common.ErrorAuditUtil;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.Anggota;
@@ -37,7 +39,8 @@ public final class LibraryVisitKioskApi {
             if ("guest".equals(action)) return guest(request);
             return error("Operasi kiosk tidak dikenal.");
         } catch (Exception e) {
-            Common.tampilErrorJikaAdmin(e); return error("Layanan kunjungan belum dapat memproses permintaan.");
+            ErrorAuditUtil.record(e, "library visit kiosk API", request);
+            return error("Layanan kunjungan belum dapat memproses permintaan.");
         }
     }
 
@@ -45,8 +48,8 @@ public final class LibraryVisitKioskApi {
         String code=text(request.getParameter("kode"),120);if(code==null)return error("Masukkan kode identitas.");
         Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Perpustakaan library=library(session);if(library==null)return error("Lokasi perpustakaan belum dikonfigurasi.");
             Anggota member=LibraryUtil.cariAnggotaDariIdentitas(session,code);if(member==null||Boolean.FALSE.equals(member.getAktif()))return error("Identitas anggota aktif tidak ditemukan.");
-            Query existing=session.createSQLQuery("select count(id) from library.kunjungan_anggota where anggota=:member and perpustakaan=:library and date(tgl)=current_date").setLong("member",member.getId()).setLong("library",library.getId());
-            if(number(existing.uniqueResult())>0)return ok("Kunjungan Anda hari ini sudah tercatat.");
+            Object existing=session.createCriteria(KunjunganAnggota.class).add(Restrictions.eq("anggota",member)).add(Restrictions.eq("perpustakaan",library)).add(Restrictions.eq("tgl",new Date())).setProjection(Projections.rowCount()).uniqueResult();
+            if(number(existing)>0)return ok("Kunjungan Anda hari ini sudah tercatat.");
             KunjunganAnggota visit=new KunjunganAnggota();Date now=new Date();visit.setAnggota(member);visit.setPerpustakaan(library);visit.setTanggal(now);visit.setTgl(now);visit.setKeterangan("Kiosk kunjungan");tx=session.beginTransaction();session.save(visit);tx.commit();return ok("Selamat datang, "+safe(member.getNama())+".");
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
@@ -54,8 +57,8 @@ public final class LibraryVisitKioskApi {
     private static JSONObject guest(HttpServletRequest request)throws Exception{
         String name=text(request.getParameter("nama"),120),address=text(request.getParameter("alamat"),240),note=text(request.getParameter("keterangan"),240);if(name==null||address==null)return error("Nama dan alamat/instansi wajib diisi.");
         Session session=null;Transaction tx=null;try{session=HibernateUtil.openSession();Perpustakaan library=library(session);if(library==null)return error("Lokasi perpustakaan belum dikonfigurasi.");
-            Query existing=session.createSQLQuery("select count(id) from library.kunjungan_anggota where anggota is null and lower(nama)=:name and lower(alamat)=:address and perpustakaan=:library and date(tgl)=current_date").setString("name",name.toLowerCase()).setString("address",address.toLowerCase()).setLong("library",library.getId());
-            if(number(existing.uniqueResult())>0)return ok("Kunjungan Anda hari ini sudah tercatat.");
+            Object existing=session.createCriteria(KunjunganAnggota.class).add(Restrictions.isNull("anggota")).add(Restrictions.ilike("nama",name,MatchMode.EXACT)).add(Restrictions.ilike("alamat",address,MatchMode.EXACT)).add(Restrictions.eq("perpustakaan",library)).add(Restrictions.eq("tgl",new Date())).setProjection(Projections.rowCount()).uniqueResult();
+            if(number(existing)>0)return ok("Kunjungan Anda hari ini sudah tercatat.");
             KunjunganAnggota visit=new KunjunganAnggota();Date now=new Date();visit.setPerpustakaan(library);visit.setNama(name);visit.setAlamat(address);visit.setKeterangan(note==null?"":note);visit.setTanggal(now);visit.setTgl(now);tx=session.beginTransaction();session.save(visit);tx.commit();return ok("Kunjungan berhasil dicatat. Terima kasih.");
         }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
     }
@@ -63,9 +66,10 @@ public final class LibraryVisitKioskApi {
     @SuppressWarnings("unchecked")
     private static JSONObject list(HttpServletRequest request)throws Exception{
         Session session=null;try{session=HibernateUtil.openSession();Perpustakaan library=library(session);if(library==null)return error("Lokasi perpustakaan belum dikonfigurasi.");int page=bounded(request.getParameter("page"),0,10000,0),limit=10;boolean detailed=LibraryPermissionGuard.isStaff(request);
-            long total=number(session.createSQLQuery("select count(id) from library.kunjungan_anggota where perpustakaan=:library and date(tgl)=current_date").setLong("library",library.getId()).uniqueResult());
-            List<KunjunganAnggota> rows=session.createCriteria(KunjunganAnggota.class).add(Restrictions.eq("perpustakaan",library)).add(Restrictions.sqlRestriction("date(tgl)=current_date")).addOrder(Order.desc("id")).setFirstResult(page*limit).setMaxResults(limit).list();JSONArray data=new JSONArray();SimpleDateFormat time=new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            for(KunjunganAnggota visit:rows){boolean member=visit.getAnggota()!=null;String name=safe(visit.getNama()),code=safe(visit.getKode()),address=safe(visit.getAlamat()),note=safe(visit.getKeterangan());data.put(new JSONObject().put("anggotaId",detailed&&member?visit.getAnggota().getId():JSONObject.NULL).put("kode",detailed?code:maskCode(code)).put("nama",detailed?name:mask(name)).put("alamat",detailed?address:"—").put("status",member?"Anggota":"Tamu").put("perpustakaan",safe(library.getNama())).put("waktu",visit.getTanggal()==null?"-":time.format(visit.getTanggal())).put("keterangan",detailed?note:"—"));}
+            Date today=new Date();
+            long total=number(session.createCriteria(KunjunganAnggota.class).add(Restrictions.eq("perpustakaan",library)).add(Restrictions.eq("tgl",today)).setProjection(Projections.rowCount()).uniqueResult());
+            List<KunjunganAnggota> rows=session.createCriteria(KunjunganAnggota.class).add(Restrictions.eq("perpustakaan",library)).add(Restrictions.eq("tgl",today)).addOrder(Order.desc("id")).setFirstResult(page*limit).setMaxResults(limit).list();JSONArray data=new JSONArray();SimpleDateFormat time=new SimpleDateFormat("dd-MM-yyyy HH:mm");
+            for(KunjunganAnggota visit:rows){try{boolean member=visit.getAnggota()!=null;String name=safe(visit.getNama()),code=safe(visit.getKode()),address=safe(visit.getAlamat()),note=safe(visit.getKeterangan());data.put(new JSONObject().put("anggotaId",detailed&&member?visit.getAnggota().getId():JSONObject.NULL).put("kode",detailed?code:maskCode(code)).put("nama",detailed?name:mask(name)).put("alamat",detailed?address:"—").put("status",member?"Anggota":"Tamu").put("perpustakaan",safe(library.getNama())).put("waktu",visit.getTanggal()==null?"-":time.format(visit.getTanggal())).put("keterangan",detailed?note:"—"));}catch(Exception rowError){ErrorAuditUtil.record(rowError,"library visit kiosk row",request);}}
             return new JSONObject().put("ok",true).put("status","success").put("data",data).put("total",total).put("limit",limit).put("detailed",detailed).put("privacy",detailed?"Data lengkap tersedia untuk petugas.":"Identitas disamarkan pada layar publik.");
         }finally{HibernateUtil.closeSessionQuietly(session);}
     }
