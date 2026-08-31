@@ -202,7 +202,7 @@ public final class NewUiLaporanUmumController {
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
                 new Laporan("Realisasi Anggaran Per Jenis Item",
-                        "rab/Realisasi_Anggaran_Per_Jenis_Item_Workspace",
+                        "rab/Realisasi_Anggaran_Per_Jenis_Item_Bulanan",
                         Filter.relasiBernama("satuan_kerja_id", "Satuan Kerja",
                                 "ais.database.model.rab.SatuanKerja", true, "satuan_kerja"),
                         Filter.tahun(true), Filter.bulan(true),
@@ -316,6 +316,20 @@ public final class NewUiLaporanUmumController {
             }
         } finally { s.close(); }
         j.put("pilihan", arr).put("filter", nama).put("total", arr.length());
+    }
+
+    /** Nama entity untuk parameter turunan; string kosong bila tidak ditemukan. */
+    private static String namaEntity(String kelas, Long id) {
+        if (kelas == null || id == null) return "";
+        Session s = HibernateUtil.openSession();
+        try {
+            Object obyek = s.get(Class.forName(kelas), id);
+            return obyek == null ? "" : String.valueOf(nilaiProperti(obyek, "getNama"));
+        } catch (Exception e) {
+            return "";
+        } finally {
+            try { s.close(); } catch (Exception ignored) { }
+        }
     }
 
     private static Object nilaiProperti(Object obyek, String getter) {

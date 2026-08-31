@@ -69,16 +69,24 @@ import ais.database.model.TemplateSurat;
  * <li>Password dikirim sebagai bagian path URL pada permintaan GET (bukan header/body) — rawan
  * tercatat di log akses, cache proxy, riwayat browser, dan header {@code Referer}, berlaku pada
  * seluruh method yang menerima {@code @PathParam("password")}.</li>
- * <li><b>{@link #bayar(String, String, String, String, String, String)} TIDAK melakukan
- * autentikasi/otorisasi apa pun</b> (tidak ada {@code Common.checkLogin} atau pemeriksaan sesi) —
- * endpoint ini menerima id mahasiswa, id jenis kegiatan, id item biaya, dan NOMINAL secara langsung
- * dari path URL, lalu membuat baris {@link DetailBiaya} dan memicu
- * {@link PembayaranUtil#simpanPembayaranMahasiswa} yang menghasilkan {@link Kegiatan} pembayaran.
- * Siapa pun yang mengetahui/menebak URL-nya dapat men-trigger pembuatan transaksi pembayaran untuk
- * mahasiswa mana pun dengan nominal sembarang tanpa login.</li>
+ * <li><b>{@link #bayar(String, String, String, String, String, String, String)} kini mewajibkan
+ * autentikasi (DITAMBAL 2026-09-01):</b> sebelumnya endpoint ini menerima id mahasiswa, id jenis
+ * kegiatan, id item biaya, dan NOMINAL secara langsung dari path URL tanpa pemeriksaan apa pun,
+ * lalu membuat baris {@link DetailBiaya} dan memicu {@link PembayaranUtil#simpanPembayaranMahasiswa}
+ * yang menghasilkan {@link Kegiatan} pembayaran — siapa pun yang mengetahui/menebak URL-nya dapat
+ * men-trigger pembuatan transaksi pembayaran untuk mahasiswa mana pun dengan nominal sembarang
+ * tanpa login. Kini mewajibkan {@code username}/{@code password} valid lewat query param,
+ * divalidasi {@link Common#checkLogin(String, String)}.</li>
+ * <li><b>{@link #getLoginNim(String)} (varian NIM saja, TANPA PIN/password) DINONAKTIFKAN
+ * (2026-09-01):</b> sebelumnya method ini melakukan login penuh (mengembalikan entitas
+ * {@link Mahasiswa} lengkap) hanya berdasarkan NIM — data yang seringkali mudah ditebak/publik —
+ * tanpa verifikasi kredensial apa pun, memungkinkan pengambilalihan akun siapa pun yang NIM-nya
+ * diketahui. Method ini sekarang selalu melempar {@link NotFoundException}; gunakan varian
+ * ber-PIN {@link #getLoginNim(String, Long)} sebagai gantinya.</li>
  * <li>{@link #reportLog(String)} dan {@link #getFormatTemplateSurat(String, String)} juga tidak
  * memeriksa autentikasi (siapa pun dapat menulis baris {@link ReportLog} atau membaca format
- * template surat).</li>
+ * template surat) — TIDAK diubah pada perbaikan ini (dampak dinilai jauh lebih rendah: tidak ada
+ * transaksi finansial atau kebocoran data pribadi).</li>
  * </ul>
  */
 public class MahasiswaResource extends DataResource<Mahasiswa> {
@@ -185,24 +193,19 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@Path("login_nim/{username}/")
 	@Produces({ MediaType.APPLICATION_JSON })
 	/**
-	 * Mengambil mahasiswa aktif berdasarkan NIM saja, TANPA verifikasi password.
+	 * DINONAKTIFKAN (2026-09-01) — sebelumnya mengambil (login sebagai) mahasiswa aktif berdasarkan
+	 * NIM saja, TANPA verifikasi password/PIN apa pun: siapa pun yang mengetahui NIM (data yang
+	 * seringkali mudah ditebak/publik) dapat mengambil alih akun mahasiswa mana pun. Method ini
+	 * sekarang selalu melempar {@link NotFoundException}; gunakan varian ber-PIN
+	 * {@link #getLoginNim(String, Long)}.
 	 *
-	 * @param username NIM mahasiswa
-	 * @return entitas mahasiswa yang cocok
-	 * @throws NotFoundException bila NIM tidak ditemukan
+	 * @param username NIM mahasiswa (tidak lagi dipakai — endpoint nonaktif)
+	 * @return tidak pernah kembali secara normal
+	 * @throws NotFoundException selalu dilempar
 	 */
 	public Mahasiswa getLoginNim(@PathParam("username") String username) {
-		Session session = HibernateUtil.currentNativeSession();
-		Mahasiswa mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(Restrictions.eq("nim", username))
-				.setMaxResults(1).uniqueResult();
-
-		HibernateUtil.closeSession();
-
-		if (mahasiswa == null) {
-			throw new NotFoundException("Login mahasiswa gagal dilakukan");
-		}
-
-		return mahasiswa;
+		throw new NotFoundException(
+				"Endpoint dinonaktifkan karena celah keamanan (login tanpa verifikasi PIN/password) — gunakan login_nim/{username}/{pin}/");
 	}
 
 	@GET
