@@ -41,6 +41,15 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk kelola data daya tampung mahasiswa baru per
+ * program studi/tahun akademik/semester ({@link KapasitasMahasiswaBaru}), dipakai untuk pelaporan
+ * EPSBED/PDDikti: daftar dengan filter tahun akademik dan jendela isi/edit terpisah berisi banyak
+ * field pendukung PDDikti (jadwal awal/akhir perkuliahan ganjil-genap, jumlah minggu kuliah,
+ * metode hari perkuliahan, semester pendek) — sebagian besar field ini disembunyikan
+ * ({@code setVisible(false)}) pada formulir saat ini, hanya field inti (tahun akademik, semester,
+ * jumlah daya tampung) yang tampil aktif.
+ */
 public class KapasitasProdiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -65,6 +74,7 @@ public class KapasitasProdiHelper {
 	private Combobox genapGanjil;
 	private KapasitasMahasiswaBaru kapasitasMahasiswaBaru;
 
+	/** Menyiapkan opsi kombo tetap (metode hari perkuliahan A/B/C, ada/tidak semester pendek, metode SP A/B, semester genap/ganjil) yang dipakai berulang pada jendela isi/edit. */
 	public KapasitasProdiHelper() {
 
 		MyComboitemConfig comboitem = new MyComboitemConfig("A");
@@ -113,6 +123,7 @@ public class KapasitasProdiHelper {
 
 	}
 
+	/** Renderer baris tabel: prodi, tahun akademik, semester, jumlah daya tampung (terformat), dan tombol ubah/hapus. */
 	class KapasitasProdiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -172,6 +183,13 @@ public class KapasitasProdiHelper {
 
 	}
 
+	/**
+	 * Menyusun tata letak (filter tahun akademik, tombol tambah, grid daya tampung) dan langsung
+	 * memuat data {@code jurusan} yang sudah tersimpan.
+	 *
+	 * @param jurusan program studi yang data daya tampungnya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout display(final Jurusan jurusan) {
 		this.jurusan = jurusan;
 		Center center = new Center();
@@ -265,6 +283,12 @@ public class KapasitasProdiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Memuat ulang grid daya tampung untuk {@code jurusan}, difilter tahun akademik bila dipilih
+	 * (hingga {@link Common#MAX_RESULT} baris, diurutkan menaik berdasarkan tahun akademik).
+	 *
+	 * @param jurusan program studi yang datanya dimuat
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Jurusan jurusan) {
 
@@ -283,6 +307,14 @@ public class KapasitasProdiHelper {
 
 	}
 
+	/**
+	 * Menampilkan jendela modal isi/edit satu {@link KapasitasMahasiswaBaru}: tahun akademik dan
+	 * semester (hanya-baca setelah dipilih pada dialog), jumlah daya tampung, serta sejumlah
+	 * field pendukung PDDikti lain yang saat ini disembunyikan pada tampilan (lihat catatan pada
+	 * javadoc kelas). Tombol simpan mendelegasikan ke {@link #save()}.
+	 *
+	 * @param kapasitasMahasiswaBaru data yang diedit, atau instans baru (dengan {@code jurusan} terisi) untuk data baru
+	 */
 	@SuppressWarnings("deprecation")
 	public void init(final KapasitasMahasiswaBaru kapasitasMahasiswaBaru) throws Exception {
 		this.kapasitasMahasiswaBaru = kapasitasMahasiswaBaru;
@@ -451,6 +483,12 @@ public class KapasitasProdiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi tahun akademik dan semester wajib dipilih, lalu menyimpan (buat baru atau
+	 * perbarui) entitas {@link KapasitasMahasiswaBaru} beserta seluruh field pendukungnya.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 */
 	public boolean save() throws Exception {
 
 		if (tahunakademik.getSelectedItem() == null) {

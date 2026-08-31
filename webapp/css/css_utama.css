@@ -8881,6 +8881,21 @@ html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-active.z-toolbarbu
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
+
+/* Ringkasan e-Learning sekolah: daftar jadwal dapat lebih tinggi daripada
+   viewport tab. Center menjadi satu-satunya area scroll; grid dan body-nya
+   mengikuti seluruh baris agar jadwal/paging terakhir tidak terpotong. */
+html body .elearning-sekolah-ringkasan-center,
+html body .elearning-sekolah-ringkasan-center > .z-center-body {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+html body .elearning-sekolah-ringkasan-grid,
+html body .elearning-sekolah-ringkasan-grid > .z-grid-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
 @media (max-width: 640px) {
     .ais-btn-group.ais-button-tabbox {
         padding: 4px !important;

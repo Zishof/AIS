@@ -118,11 +118,13 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		initChart();
 	}
 
+	/** Mengisi combo filter fakultas/prodi dan yayasan/sekolah (plus opsi "Semua"). */
 	private void initFakultas() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
 	}
 
+	/** Membangun kerangka dasbor responsif: panel saringan (filter fakultas/prodi/yayasan/sekolah/kata kunci profil/rentang tanggal, checkbox kelompok pengguna) plus tombol refresh dan (bagi admin mode rinci) tombol "Lihat Rinci". */
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Kunjungan Pengguna Mobile");
 		setHeight("100%");
@@ -272,6 +274,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 
 	}
 
+	/** Menambahkan {@code combo} filter ke {@code row} dengan tooltip dan listener yang memicu {@link #initChart()} saat berubah. */
 	private void setupCombo(Row row, Combobox combo, String tooltip) {
 		row.appendChild(combo);
 		combo.setWidth("95%");
@@ -285,6 +288,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		});
 	}
 
+	/** Memasang listener pada {@code checkbox} kelompok pengguna agar memicu {@link #initChart()} saat diklik. */
 	private void addReload(MyCheckboxConfig checkbox) {
 		checkbox.addEventListener("onClick", new EventListener() {
 			@Override
@@ -294,6 +298,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		});
 	}
 
+	/** Menampilkan indikator loading, memuat baris statistik harian dari sumber {@code log_mobile} lewat {@link StatistikKunjunganDashboardUtil#loadDailyRows}, lalu merender dasbor; kegagalan ditampilkan sebagai pesan error dalam area konten. */
 	private void initChart() {
 		if (center == null) {
 			return;
@@ -315,6 +320,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		}
 	}
 
+	/** Membaca nilai seluruh kontrol filter form saat ini menjadi {@link StatistikKunjunganDashboardUtil.Filter}. */
 	private StatistikKunjunganDashboardUtil.Filter readFilter() {
 		StatistikKunjunganDashboardUtil.Filter filter = new StatistikKunjunganDashboardUtil.Filter();
 		filter.fakultas = StatistikKunjunganDashboardUtil.selectedFakultas(searchfakultas);
@@ -332,6 +338,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		return filter;
 	}
 
+	/** Merangkai seluruh panel dasbor (hero, info filter, kartu ringkas, tren harian, komposisi pengguna, radar, tabel) dari {@code rows} lewat method statis {@link StatistikKunjunganDashboardUtil} dan menempelkannya ke {@link #center}. */
 	private void renderDashboard(List<StatistikKunjunganDashboardUtil.DailyRow> rows, StatistikKunjunganDashboardUtil.Filter filter) {
 		Div wrapper = new Div();
 		wrapper.setStyle("width:100%;min-height:" + Math.max(420, height) + "px;box-sizing:border-box;padding:12px;background:#f6f8fb;overflow:auto;");

@@ -65,6 +65,28 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Layar CRUD master data Absen Piket (sesi pencatatan kehadiran siswa oleh guru piket) pada
+ * modul sekolah, diimplementasikan langsung di atas {@link GenericAutowireComposer} (pola ZK
+ * "manual", seperti {@link ais.action.master.payroll.AsuransiPegawaiAction}) sambil
+ * mengimplementasikan {@link ais.ui.util.DataCriteria}, {@link DataSearchDefault}, dan
+ * {@link DataInitDefault}. Setiap baris {@link AbsenPiket} mengaitkan yayasan, sekolah, kelas,
+ * guru piket (atau petugas non-guru lewat {@code pegawai}), tahun ajaran/semester, dan tanggal.
+ *
+ * <p>
+ * Detail kehadiran siswa per sesi ditampilkan lewat baris yang dapat diperluas, didelegasikan ke
+ * {@link DetailAbsenPiketHelper}. Combobox kelas pada form maupun filter bersifat cascading
+ * terhadap tahun ajaran/sekolah, dan pada form tambah/ubah juga terhadap guru terpilih (kelas
+ * yang mensyaratkan guru pembina/BK tertentu hanya muncul bila guru terpilih cocok); memilih
+ * kelas yang sudah punya guru pembina otomatis mengunci field guru ke guru pembina tersebut.
+ * Pencarian mendukung rentang tanggal (default 3 bulan ke belakang hingga besok), filter
+ * yayasan/sekolah/kelas/tahun ajaran/semester/keterangan, guru (dicocokkan ke salah satu dari 5
+ * kolom guru pengampu, guru pembina kelas, atau pegawai terkait guru tersebut), dan siswa
+ * (nama/NIS/NISN) — bagi pengguna orang tua, daftar otomatis dibatasi ke kelas anak-anaknya.
+ * Method {@link #onAbsen(Event)} memuat iframe {@code /welsis.zul} (integrasi absensi eksternal)
+ * secara lazy saat panel absen pertama kali dibuka.
+ * </p>
+ */
 public class AbsenPiketAction extends GenericAutowireComposer
 		implements ais.ui.util.DataCriteria, DataSearchDefault, DataInitDefault {
 
@@ -109,6 +131,7 @@ public class AbsenPiketAction extends GenericAutowireComposer
 	private PerguruanTinggi perguruanTinggi;
 	private AmbilDataPegawaiBanbox pegawai;
 
+	/** Memuat iframe {@code /welsis.zul} (integrasi absensi eksternal) ke dalam {@link #absenPanel} secara lazy, hanya sekali saat panel masih kosong. */
 	public void onAbsen(Event event) {
 		if (absenPanel != null && absenPanel.getChildren().isEmpty()) {
 			MyWindow window = new MyWindow("", "none", false);
@@ -120,6 +143,7 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Memaksa pemeriksaan keamanan halaman ({@code Common#doCheckSecurity}) sebelum komponen ZUL dikomposisi. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -127,6 +151,12 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Menyiapkan seluruh filter pencarian (tahun ajaran, semester, rentang tanggal default 3
+	 * bulan ke belakang, kelas cascading terhadap tahun ajaran, yayasan/sekolah), menghitung hak
+	 * tambah/ubah/hapus, memasang paging, menambahkan tombol cetak/unggah data massal ke
+	 * toolbar, dan memuat data awal.
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -226,6 +256,7 @@ public class AbsenPiketAction extends GenericAutowireComposer
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/** Perenderan satu baris tabel absen piket: detail kehadiran siswa yang dapat diperluas (memuat lewat {@link DetailAbsenPiketHelper} saat dibuka), tahun ajaran/semester, tanggal (tautan riwayat revisi), nama sekolah, nama kelas, guru/petugas piket, keterangan, dan tombol edit/hapus. */
 	class AbsenPiketRenderer extends ais.ui.util.MyRowRenderer {
 		private DetailAbsenPiketHelper detailAbsenPiketHelper = new DetailAbsenPiketHelper();
 
@@ -261,6 +292,7 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Membuka dialog tambah dengan entitas {@link AbsenPiket} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new AbsenPiket());
 		if (addWindow != null) {
@@ -269,6 +301,7 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Membuka dialog ubah untuk entitas {@code obj} yang diberikan (dipanggil dari tombol edit baris tabel). */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		absenPiket = (AbsenPiket) obj;
@@ -279,6 +312,14 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Membangun form tambah/ubah absen piket (tahun ajaran, semester, yayasan, sekolah, guru,
+	 * kelas, petugas, tanggal, keterangan) beserta toolbar Batal/Simpan. Kombinasi
+	 * yayasan/sekolah/guru/kelas saling cascading: kelas yang tersedia bergantung tahun
+	 * ajaran+sekolah+guru terpilih; memilih kelas dengan guru pembina otomatis mengunci field
+	 * guru ke guru pembina tersebut. Bagi data baru, petugas diisi otomatis dari pegawai
+	 * pengguna yang login.
+	 */
 	private void init(final AbsenPiket absenPiket) throws Exception {
 		this.absenPiket = absenPiket;
 		addWindow.setTitle(absenPiket.getId() == null ? "Tambah Presensi / Kehadiran" : "Ubah Presensi / Kehadiran");
@@ -492,6 +533,15 @@ public class AbsenPiketAction extends GenericAutowireComposer
 	}
 
 
+	/**
+	 * Memvalidasi (yayasan, sekolah, kelas, dan guru piket wajib dipilih) dan menyimpan
+	 * (create-or-update, dalam transaksi eksplisit dengan rollback saat gagal) entitas absen
+	 * piket dari isian form.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+	 *         peringatan sudah ditampilkan ke pengguna)
+	 * @throws Exception diteruskan ulang setelah rollback bila penyimpanan gagal
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (yayasan == null || yayasan.getSelectedItem() == null || yayasan.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Mohon maaf, Yayasan belum dipilih. Langkah yang dapat dilakukan: (1) klik kolom Yayasan dan pilih yayasan yang sesuai; (2) pastikan yayasan terpilih sebelum menyimpan; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -546,6 +596,14 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian daftar absen piket menggunakan {@code session} yang
+	 * diberikan: difilter berdasarkan rentang tanggal, kelas siswa milik anak pengguna orang tua
+	 * (bila relevan), nama/NIS/NISN siswa, keterangan, guru (mencocokkan salah satu dari 5 kolom
+	 * guru pengampu, guru pembina kelas, atau pegawai terkait guru tersebut lewat OR
+	 * disjunction), kelas, semester, tahun ajaran, sekolah, dan yayasan — sesuai isian yang
+	 * diberikan pada masing-masing filter.
+	 */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(Session session, boolean order) {
 		Criteria criteria = session.createCriteria(AbsenPiket.class)
@@ -621,12 +679,14 @@ public class AbsenPiketAction extends GenericAutowireComposer
 		return criteria;
 	}
 
+	/** Implementasi {@link ais.ui.util.DataCriteria} legacy: mendelegasikan ke {@link #initCriteria(Session, boolean)} memakai sesi Hibernate saat ini. */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		// Fallback method untuk interface legacy DataCriteria
 		return initCriteria(HibernateUtil.currentSession(), order);
 	}
 
+	/** Memuat ulang halaman daftar absen piket sesuai kriteria pencarian saat ini (memakai sesi terpisah yang selalu ditutup di {@code finally}), memperbarui paging dan grid. */
 	@SuppressWarnings("unchecked")
 	@Override
 	public void onSearchDefault(Event event) {

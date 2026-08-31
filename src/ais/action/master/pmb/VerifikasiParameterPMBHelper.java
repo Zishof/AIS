@@ -43,6 +43,23 @@ import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper statis untuk menampilkan dan menyimpan checklist verifikasi kelengkapan berkas calon
+ * mahasiswa (PMB) — daftar {@link ParameterVerifikasiCalonMahasiswa} (mis. ijazah, KTP, kartu
+ * keluarga) yang wajib dipenuhi sesuai {@link Paket} pendaftaran yang dipilih calon mahasiswa,
+ * masing-masing disimpan per calon sebagai baris
+ * {@link BiodataCalonMahasiswaPunyaVerifikasiParameter} berisi status tercentang (verified),
+ * catatan, dan lampiran bukti unggahan ({@link LampiranLain}).
+ *
+ * <p>
+ * Tampilan berbeda menurut siapa yang membuka: petugas admin/verifikator (user tanpa
+ * {@code biodataCalonMahasiswa} terkait) melihat checkbox yang dapat dicentang/diedit beserta
+ * catatan dan tombol hapus; calon mahasiswa sendiri hanya melihat versi baca-saja (label, tanpa
+ * kontrol edit). Mencentang/mengubah catatan langsung tersimpan seketika (auto-save per baris)
+ * lewat listener {@code onClick}/{@code onChange}, sehingga {@link #simpanVerifikasi} pada
+ * dasarnya hanya jaring pengaman tambahan saat form induk disimpan secara eksplisit.
+ * </p>
+ */
 public class VerifikasiParameterPMBHelper {
 
 	private static Paket resolvePaket(BiodataCalonMahasiswa biodataCalonMahasiswa, Combobox paket, Paket p) {
@@ -208,12 +225,28 @@ public class VerifikasiParameterPMBHelper {
 		}
 	}
 
+	/** Seperti {@link #tampilkanVerifikasi(BiodataCalonMahasiswa, Rows, Combobox, Paket, Combobox)}, tanpa filter gelombang pendaftaran. */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public static List<Rows> tampilkanVerifikasi(final BiodataCalonMahasiswa biodataCalonMahasiswa, final Rows rows,
 			final Combobox paket, final Paket p) throws Exception {
 		return tampilkanVerifikasi(biodataCalonMahasiswa, rows, paket, p, null);
 	}
 
+	/**
+	 * Membangun tampilan checklist verifikasi parameter untuk {@code biodataCalonMahasiswa}
+	 * berdasarkan paket yang berlaku (diresolusi dari {@code p}, atau dari combobox {@code paket},
+	 * atau dari paket calon mahasiswa itu sendiri — lihat {@code resolvePaket}). Untuk setiap
+	 * parameter yang terdaftar pada paket ({@link PaketPunyaParameterVerifikasiCalonMahasiswa}),
+	 * ditampilkan satu baris berisi checkbox status, catatan, dan area unggah bukti; perubahan
+	 * langsung tersimpan otomatis.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa target
+	 * @param rows                  container baris tempat checklist dirender
+	 * @param paket                 combobox pemilihan paket (dipakai bila {@code p} tidak diberikan)
+	 * @param p                     paket eksplisit, boleh {@code null} untuk diresolusi dari sumber lain
+	 * @param gelombangPendaftaran  combobox gelombang pendaftaran (mempengaruhi parameter yang relevan), boleh {@code null}
+	 * @return daftar {@link Rows} sub-checklist yang dibangun (satu per grup parameter)
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public static List<Rows> tampilkanVerifikasi(final BiodataCalonMahasiswa biodataCalonMahasiswa, final Rows rows,
 			final Combobox paket, final Paket p, final Combobox gelombangPendaftaran) throws Exception {
@@ -410,6 +443,14 @@ public class VerifikasiParameterPMBHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menyimpan ulang status verified/catatan seluruh baris checklist yang dibangun oleh
+	 * {@link #tampilkanVerifikasi}. Berfungsi sebagai jaring pengaman tambahan; perubahan per baris
+	 * sesungguhnya sudah tersimpan otomatis saat pengguna berinteraksi (lihat dokumentasi kelas).
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa terkait (tidak dipakai langsung dalam iterasi, hanya konteks)
+	 * @param rows                  daftar {@link Rows} hasil {@link #tampilkanVerifikasi}
+	 */
 	public static void simpanVerifikasi(BiodataCalonMahasiswa biodataCalonMahasiswa, List<Rows> rows) {
 		if (rows == null) {
 			return;

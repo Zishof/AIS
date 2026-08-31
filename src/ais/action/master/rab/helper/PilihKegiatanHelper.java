@@ -42,6 +42,16 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyTreeitemConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI untuk dialog "Pilih Kegiatan": menampilkan pohon {@link Workspace} (kegiatan RAB)
+ * satu tahun anggaran sebagai {@link Tree} ZK, memungkinkan pemilihan banyak workspace lewat
+ * checkbox per baris (opsional dibatasi hanya pada node daun bila {@code tampilRootSelect=false}),
+ * dan opsional menampilkan kolom realisasi anggaran serta pemilih tahun workspace. Hasil pilihan
+ * diserahkan ke pemanggil lewat kontrak {@link Pemilih#pilih(String, java.util.List)} saat tombol
+ * terapkan diklik. Pohon dibangun secara rekursif dari daftar datar {@link Workspace} berdasarkan
+ * relasi {@code parentId} (akar ditandai {@link #ROOT}), dengan cache {@code selectedTahun} agar
+ * pohon tidak dibangun ulang bila tahun belum berubah.
+ */
 public class PilihKegiatanHelper {
 
 	private static Long ROOT = -1L;
@@ -65,6 +75,11 @@ public class PilihKegiatanHelper {
 	private boolean tampilTahun = false;
 	private Combobox tahunWorkspace;
 
+	/**
+	 * @param tampilRealisasi  tampilkan kolom jumlah realisasi dan persentase realisasi terhadap anggaran
+	 * @param tampilRootSelect izinkan checkbox pilih pada node non-daun (bila {@code false}, hanya node daun yang dapat dipilih)
+	 * @param tampilTahun      tampilkan kombo pemilih tahun workspace (rentang tahun berjalan+5 s.d. tahun berjalan-20)
+	 */
 	public PilihKegiatanHelper(boolean tampilRealisasi, Boolean tampilRootSelect, Boolean tampilTahun) {
 		this.tampilRealisasi = tampilRealisasi;
 		this.tampilRootSelect = tampilRootSelect;
@@ -82,6 +97,13 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/**
+	 * Menampilkan dialog pilih kegiatan sebagai modal pada {@code window} yang diberikan.
+	 *
+	 * @param window jendela yang akan diisi dan ditampilkan sebagai modal
+	 * @param tahun  tahun workspace awal; {@code null} berarti tahun berjalan
+	 * @param pemilih callback yang menerima hasil pilihan saat tombol terapkan diklik
+	 */
 	public void display(MyWindow window, Integer tahun, Pemilih pemilih) {
 		this.window = window;
 		if (tahun != null) {
@@ -95,6 +117,7 @@ public class PilihKegiatanHelper {
 		init();
 	}
 
+	/** Membuka/menutup ({@code open}) seluruh {@link MyTreeitemConfig} secara rekursif di bawah {@code component}. */
 	private void setOpen(boolean open, Component component) {
 		if (component instanceof MyTreeitemConfig) {
 			MyTreeitemConfig treeitem = (MyTreeitemConfig) component;
@@ -113,6 +136,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** Membuka (mengembangkan) seluruh sub-node dari node workspace yang sedang dipilih di pohon. */
 	public void onTampilItem(Event event) {
 		selectestreeitem = workspaceTree.getSelectedItem();
 		if (selectestreeitem != null) {
@@ -120,6 +144,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** Menutup (melipat) seluruh sub-node dari node workspace yang sedang dipilih di pohon. */
 	public void onTutupItem(Event event) {
 		selectestreeitem = workspaceTree.getSelectedItem();
 		if (selectestreeitem != null) {
@@ -127,6 +152,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** @return menu konteks pohon dengan aksi "Tampil"/"Tutup" (kembangkan/lipat sub-node terpilih). */
 	private Menupopup createMenupopup() {
 		Menupopup menupopup = new Menupopup();
 		menupopup.setId("myMenuPopup");
@@ -159,6 +185,11 @@ public class PilihKegiatanHelper {
 		return menupopup;
 	}
 
+	/**
+	 * Menyusun (hanya bila jendela masih kosong atau tahun berubah) seluruh konten dialog: pohon
+	 * workspace, filter judul kegiatan dan tahun, serta toolbar terapkan/batal, lalu menampilkan
+	 * jendela sebagai modal.
+	 */
 	private void init() {
 		window.setTitle("Pilih Kegiatan");
 		window.setWidth("90%");
@@ -268,6 +299,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** Memuat seluruh {@link Workspace} tahun {@link #tahun} dari basis data, lalu membangun pohonnya lewat {@link #loadWorkspace}. */
 	@SuppressWarnings("unchecked")
 	private void initTree() {
 		try {
@@ -291,6 +323,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** Menyusun kolom pohon (judul, jumlah anggaran, opsional realisasi+persen, pilih) dan node akar (workspace dengan {@code parentId=}{@link #ROOT}, atau satu node spesifik bila {@code rootId} diisi). */
 	private void loadWorkspace(Integer tahun, Long rootId) {
 		Common.clear(workspaceTree);
 		Treecols treecols = new Treecols();
@@ -345,12 +378,14 @@ public class PilihKegiatanHelper {
 
 	}
 
+	/** Membuat kontainer anak dan mengisinya secara rekursif dengan sub-workspace dari {@code root}. */
 	private void createRootSubWorkspace(Long root, MyTreeitemConfig componen) {
 		Treechildren tc1 = new Treechildren();
 		createRootSubWorkspace(root, tc1);
 		tc1.setParent(componen);
 	}
 
+	/** Menambahkan satu node tree-item per workspace anak langsung dari {@code root}, rekursif ke sub-workspace bila node tersebut punya anak ({@link #hasChild}). */
 	private void createRootSubWorkspace(Long root, Treechildren tc1) {
 		for (final Workspace workspace : workspaces) {
 			if (workspace.getParentId().equals(root)) {
@@ -373,6 +408,7 @@ public class PilihKegiatanHelper {
 		}
 	}
 
+	/** @return {@code true} bila ada workspace lain dengan {@code parentId} sama dengan {@code root}. */
 	private Boolean hasChild(Long root) {
 		for (Workspace workspace : workspaces) {
 			if (workspace.getParentId().equals(root)) {
@@ -392,6 +428,12 @@ public class PilihKegiatanHelper {
 		generateTreecell(treerow, workspace);
 	}
 
+	/**
+	 * Mengisi satu baris pohon dengan kode+nama, jumlah anggaran, opsional realisasi+persentase,
+	 * dan checkbox pilih — checkbox hanya ditampilkan bila {@link #tampilRootSelect} atau node
+	 * tersebut adalah daun (tidak punya anak); memilih/membatalkan checkbox memperbarui
+	 * {@link #selectedWorspaces}.
+	 */
 	private void generateTreecell(Treerow treerow, final Workspace workspace) {
 		new Treecell((workspace.getKode() == null || workspace.getKode().trim().equals("") ? ""
 				: "" + workspace.getKode() + " - ") + workspace.getNama()).setParent(treerow);
@@ -448,6 +490,7 @@ public class PilihKegiatanHelper {
 
 	}
 
+	/** @return tahun workspace yang pohonnya terakhir dibangun, atau {@code null} bila belum pernah ditampilkan. */
 	public Integer getSelectedTahun() {
 		return selectedTahun;
 	}

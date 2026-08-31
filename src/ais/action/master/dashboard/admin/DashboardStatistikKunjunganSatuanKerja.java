@@ -38,6 +38,14 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dashboard admin yang merangkum statistik kunjungan (login) pengguna dikelompokkan per
+ * satuan kerja, dari sumber log {@code log_login} (agregasi via
+ * {@link StatistikKunjunganDashboardUtil#loadLabelRows}). Menampilkan panel ranking, radar
+ * distribusi, dan tabel rincian kunjungan harian, dirender sebagai HTML/CSS murni (tanpa library
+ * grafik lama — lihat catatan berkas). Dapat difilter berdasarkan fakultas/jurusan, yayasan/
+ * sekolah, rentang tanggal, dan kombinasi peran pengguna (mahasiswa/dosen/siswa/guru).
+ */
 public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -56,6 +64,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 	private int width = 1200;
 	private int height = 500;
 
+	/** Konstruktor default: membangun kerangka jendela, lalu memuat grafik pertama kali secara asinkron lewat timer non-blocking ({@link Common#createDefaultTimerNoBusy}). */
 	public DashboardStatistikKunjunganSatuanKerja() throws Exception {
 		super();
 		initFakultas();
@@ -67,11 +76,13 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		});
 	}
 
+	/** Seperti konstruktor default, dengan ukuran tampilan kustom (dipakai saat dashboard ini disematkan sebagai widget berukuran tetap), langsung memuat grafik secara sinkron. */
 	public DashboardStatistikKunjunganSatuanKerja(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/** Membangun ulang kerangka jendela dengan ukuran {@code width}/{@code height} baru dan langsung memuat grafik. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -80,6 +91,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		initChart();
 	}
 
+	/** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan, langsung memuat grafik secara sinkron. */
 	public DashboardStatistikKunjunganSatuanKerja(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -87,11 +99,13 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		initChart();
 	}
 
+	/** Mengisi combobox filter fakultas/jurusan dan yayasan/sekolah dengan pilihan lengkap termasuk opsi "Semua". */
 	private void initFakultas() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
 	}
 
+	/** Membangun kerangka layout responsif dashboard: panel saringan (fakultas/jurusan/yayasan/sekolah, rentang tanggal, checkbox peran) di area filter dan area konten grafik yang dapat diekspor ({@link DashboardGridExportHelper}). */
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Kunjungan per Satuan Kerja");
 		setHeight("100%");
@@ -199,6 +213,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 
 	}
 
+	/** Menambahkan {@code combo} ke {@code row} dengan tooltip yang diberikan dan mendaftarkan pemuatan ulang grafik saat pilihannya berubah. */
 	private void setupCombo(Row row, Combobox combo, String tooltip) {
 		row.appendChild(combo);
 		combo.setWidth("95%");
@@ -212,6 +227,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		});
 	}
 
+	/** Mendaftarkan pemuatan ulang grafik saat {@code checkbox} peran (mahasiswa/dosen/siswa/guru) diklik. */
 	private void addReload(MyCheckboxConfig checkbox) {
 		checkbox.addEventListener("onClick", new EventListener() {
 			@Override
@@ -221,6 +237,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		});
 	}
 
+	/** Memuat ulang seluruh konten dashboard: menampilkan indikator memuat, mengambil data agregat kunjungan per satuan kerja sesuai filter aktif, lalu merendernya; menampilkan pesan galat pada area konten bila gagal. */
 	private void initChart() {
 		if (center == null) {
 			return;
@@ -241,6 +258,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		}
 	}
 
+	/** Membaca nilai filter yang sedang dipilih pada form (fakultas/jurusan, yayasan/sekolah, rentang tanggal, kombinasi peran) menjadi satu objek {@link StatistikKunjunganDashboardUtil.Filter}. */
 	private StatistikKunjunganDashboardUtil.Filter readFilter() {
 		StatistikKunjunganDashboardUtil.Filter filter = new StatistikKunjunganDashboardUtil.Filter();
 		filter.fakultas = StatistikKunjunganDashboardUtil.selectedFakultas(searchfakultas);
@@ -257,6 +275,7 @@ public class DashboardStatistikKunjunganSatuanKerja extends MyWindow {
 		return filter;
 	}
 
+	/** Merender panel-panel dashboard (ringkasan hero, info filter, ranking, radar distribusi, tabel harian) sebagai HTML statis berbasis {@code rows} yang sudah diagregasi. */
 	private void renderDashboard(List<StatistikKunjunganDashboardUtil.LabelRow> rows, StatistikKunjunganDashboardUtil.Filter filter) {
 		Div wrapper = new Div();
 		wrapper.setStyle("width:100%;min-height:" + Math.max(480, height) + "px;box-sizing:border-box;padding:12px;background:#f6f8fb;overflow:auto;");

@@ -73,6 +73,27 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Asrama pada modul akademik, dibangun di atas {@link GenericCrudAction}.
+ * Setiap asrama dapat dibatasi cakupannya ke fakultas/jurusan/tahun angkatan tertentu (kosong
+ * berarti berlaku untuk semua), dan menaungi daftar mahasiswa penghuninya lewat
+ * {@link AsramaPunyaMahasiswaHelper} pada baris yang dapat diperluas.
+ *
+ * <p>
+ * {@link #onAfterInit(Component)} melakukan migrasi data satu kali: bila belum ada baris
+ * {@link Asrama} sama sekali, kelas ini membangkitkan baris awal dari nilai unik kolom
+ * {@code asrama} pada tabel {@link Perkuliahan} lama, atau membuat satu asrama default "A" bila
+ * data lama itu pun kosong. Mendukung impor massal lewat unggah Excel
+ * ({@link #onUploadData(Event)} — satu sheet per asrama, kolom NIM dicoba dari 4 posisi kolom
+ * berbeda, dijalankan di thread terpisah dengan laporan hasil via {@link UploadReportHelper} dan
+ * status via polling timer), dikendalikan oleh flag konfigurasi
+ * {@code boleh_upload_data_asrama}. Tombol unduh kustom ({@link #cetakDataCustomButton})
+ * menghasilkan file Excel (satu sheet per asrama, daftar mahasiswa penghuni) dan menampilkan
+ * pratinjau spreadsheet sebelum diunduh — juga dijalankan di thread terpisah dengan polling timer.
+ * Terdapat pula tab laporan rekapitulasi asrama yang dimuat lazy saat pertama dibuka
+ * ({@link #onTampilAsrama(Event)}).
+ * </p>
+ */
 public class AsramaAction extends GenericCrudAction<Asrama> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -106,6 +127,13 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
     @Override
     protected String getWindowTitle() { return "Pendataan Asrama"; }
 
+    /**
+     * Membangkitkan data asrama awal bila tabel masih kosong (dari nilai unik kolom lama
+     * {@code Perkuliahan.asrama}, atau satu asrama default "A" bila keduanya kosong),
+     * menambahkan tombol cetak data ke toolbar, menyiapkan combobox fakultas/jurusan (termasuk
+     * untuk filter pencarian), dan mengatur visibilitas tombol unggah data sesuai konfigurasi
+     * {@code boleh_upload_data_asrama}.
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
     protected void onAfterInit(Component comp) throws Exception {
@@ -152,6 +180,7 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
         }
     }
 
+    /** Membangun kriteria pencarian daftar asrama, difilter berdasarkan kecocokan sebagian nama, tahun angkatan, jurusan, dan fakultas bila diisi (baris tanpa cakupan tetap ikut tampil sebagai "berlaku untuk semua"). */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -183,6 +212,7 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== ZUL lazy-tab event handler ========================
 
+    /** Memuat panel {@link LaporanRekapitulasiAsrama} ke tab laporan secara lazy, hanya sekali saat tab masih kosong. */
     public void onTampilAsrama(Event event) {
         if (laporanAsrama.getChildren().size() == 0) {
             LaporanRekapitulasiAsrama laporanRekapitulasiAsrama = new LaporanRekapitulasiAsrama();
@@ -194,6 +224,17 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== Upload event handler ========================
 
+    /**
+     * Mengimpor massal data penghuni asrama dari berkas Excel (.xlsx): setiap sheet mewakili
+     * satu asrama (dicari berdasarkan nama sheet, dibuat bila belum ada), dan setiap baris
+     * dicocokkan ke {@link Mahasiswa} lewat NIM yang dicoba dari 4 posisi kolom berbeda (kolom
+     * 0-3) hingga ditemukan. Relasi lama mahasiswa tersebut ke asrama manapun dihapus lebih
+     * dulu ({@code delete from asrama_punya_mahasiswa}) sebelum baris {@link
+     * AsramaPunyaMahasiswa} baru disimpan, sehingga satu mahasiswa hanya terdaftar di satu
+     * asrama. Diproses di thread terpisah dengan laporan hasil sukses/gagal per baris via
+     * {@link UploadReportHelper}, status dipantau lewat timer polling yang mengunduh laporan
+     * dan menampilkan ringkasan setelah selesai. Menolak berkas yang bukan {@code .xlsx}.
+     */
     public void onUploadData(Event event) throws Exception {
         final Tbmuser tbmuser = Common.getCurrentUser();
         ForwardEvent forwardEvent = (ForwardEvent) event;
@@ -335,6 +376,11 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== Form content ========================
 
+    /**
+     * Membangun form tambah/ubah (nama, fakultas, program studi cascading terhadap fakultas,
+     * tahun angkatan, keterangan) beserta toolbar Batal/Simpan; fakultas/jurusan default
+     * mengikuti fakultas/jurusan pengguna yang login bila belum diisi pada entitas.
+     */
     @Override
     protected void buildFormContent(MyWindow window, final Asrama asrama) throws Exception {
         if (fakultas == null) {
@@ -438,6 +484,13 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update) entitas
+     * asrama dari isian form, termasuk cakupan fakultas/jurusan/tahun angkatan opsional.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         galat sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Asrama",
@@ -474,6 +527,7 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai asrama lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaAsrama() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Asrama.class)
@@ -488,6 +542,16 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== Custom download button ========================
 
+    /**
+     * Membangun tombol toolbar yang, saat diklik, menghasilkan berkas Excel berisi daftar
+     * mahasiswa penghuni tiap asrama aktif (satu sheet per asrama, kolom No./NIM/Nama) —
+     * dijalankan di thread terpisah dengan indikator sibuk (busy) dipantau lewat timer polling —
+     * lalu menampilkan pratinjau spreadsheet dalam dialog modal beserta tombol unduh.
+     *
+     * @param buttonLabel label tombol toolbar
+     * @param buttonImage path ikon tombol toolbar
+     * @return tombol toolbar siap disisipkan
+     */
     @SuppressWarnings("unchecked")
     public MyToolbarbuttonConfig cetakDataCustomButton(String buttonLabel, String buttonImage) {
         MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
@@ -649,6 +713,7 @@ public class AsramaAction extends GenericCrudAction<Asrama> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel asrama: detail penghuni yang dapat diperluas (lewat {@link AsramaPunyaMahasiswaHelper}), nama (tautan riwayat revisi), cakupan fakultas/jurusan/tahun angkatan ("Semua" bila tidak dibatasi), keterangan, checkbox status aktif, jumlah penghuni, dan tombol edit/hapus. */
     class AsramaRenderer extends MyRowRenderer {
 
         @Override

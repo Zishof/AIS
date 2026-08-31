@@ -26,8 +26,27 @@ import ais.database.model.lkp.RealisasiKerjaPegawai;
 import ais.database.model.lkp.TargetKerjaPegawai;
 import ais.database.model.rab.SatuanKerja;
 
+/**
+ * Servis API mobile untuk modul kinerja pegawai (LKP - Laporan Kinerja Pegawai): mendaftar tugas
+ * jabatan yang berlaku bagi pegawai, membuat/mengambil target kerja bulanan, menyimpan realisasi
+ * kerja, dan menelusuri catatan realisasi yang sudah tersimpan. Seluruh endpoint mengikuti
+ * konvensi respons API AIS: JSON dengan {@code status} ({@code "00"} sukses, {@code "90"} galat/
+ * ditolak, {@code "97"} token tidak valid) dan {@code description}, autentikasi berbasis token
+ * via {@link ApiUtil#currentUser}, dan mensyaratkan user login sebagai pegawai (memiliki relasi
+ * {@link Tbmuser#getPegawai()}).
+ */
 public class KinerjaPegawaiApi {
 
+	/**
+	 * Mengambil daftar {@link KegiatanTugasJabatan} aktif yang berlaku bagi pegawai yang login:
+	 * dicocokkan berdasarkan {@link SatuanKerja} pegawai (tugas jabatan umum satuan kerja tanpa
+	 * peran spesifik, atau tugas jabatan yang secara eksplisit ditandai untuk
+	 * {@link Tbmrole hak akses} pegawai tersebut), difilter opsional kata kunci nama, dibatasi ke
+	 * {@link Common#MAX_RESULT_1000} baris.
+	 *
+	 * @param request payload JSON: {@code cari} (kata kunci nama, opsional)
+	 * @return JSON berisi {@code status}/{@code description}, serta bila sukses {@code data} (larik tugas jabatan)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject daftarTugasJabatan(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -100,6 +119,14 @@ public class KinerjaPegawaiApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil (atau membuat bila belum ada) {@link TargetKerjaPegawai} untuk kombinasi pegawai
+	 * login, tahun, bulan, dan {@link KegiatanTugasJabatan} yang diberikan — dipakai sebagai
+	 * langkah "lanjut" sebelum mengisi realisasi kerja bulan tersebut.
+	 *
+	 * @param request payload JSON: {@code tugasJabatan} (id, wajib), {@code tahun}/{@code bulan} (default tahun/bulan berjalan)
+	 * @return JSON berisi {@code status}/{@code description}, serta bila sukses {@code data} (objek target kerja pegawai)
+	 */
 	public static JSONObject lanjutTugasJabatan(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -173,6 +200,15 @@ public class KinerjaPegawaiApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Menyimpan satu {@link RealisasiKerjaPegawai} (realisasi kerja pegawai untuk satu target
+	 * kerja bulanan) dari payload generik, didelegasikan ke
+	 * {@link ElearningApiUtil#simpanData}. Bila proses penyimpanan menghasilkan peringatan
+	 * (mis. validasi field tambahan tidak terpenuhi), respons berstatus gagal dengan seluruh
+	 * peringatan digabung sebagai deskripsi.
+	 *
+	 * @return JSON berisi {@code status}/{@code description}, serta bila sukses {@code data} (objek realisasi kerja yang tersimpan)
+	 */
 	public static JSONObject simpanTugasJabatan(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -226,6 +262,17 @@ public class KinerjaPegawaiApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil daftar {@link RealisasiKerjaPegawai} yang sudah tersimpan (terbaru dulu,
+	 * dipaginasi). Secara default hanya menampilkan realisasi milik pegawai yang login (via
+	 * relasi langsung {@code pegawai} atau lewat {@code targetKerjaPegawai.pegawai}); pegawai yang
+	 * hak aksesnya mengizinkan {@code getMelihatDataPegawaiLain()} dapat melihat seluruh data.
+	 * Difilter opsional kata kunci pada nama tugas jabatan, keterangan, atau catatan. Tiap hasil
+	 * dilengkapi tautan lampiran ({@link LampiranLain}) bila ada.
+	 *
+	 * @param request payload JSON: {@code cari} (kata kunci, opsional), {@code max} (default 5), {@code halaman} (default 0)
+	 * @return JSON berisi {@code status}/{@code description}, serta bila sukses {@code data} (larik realisasi kerja)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject daftarCatatanTugasJabatan(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();

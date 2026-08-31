@@ -56,6 +56,29 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}) untuk mengelola tabel konversi Nilai
+ * Huruf ({@link NilaiHuruf}) — pemetaan rentang nilai angka ({@code mulai}-{@code sampai}) ke
+ * huruf mutu (mis. A, B+, C) beserta bobot IPK-nya, dapat spesifik per fakultas/jurusan, tahun
+ * angkatan, tahun akademik/semester, kode mata kuliah, dan jenis nilai huruf.
+ *
+ * <h2>Fitur tambahan di luar CRUD baku</h2>
+ * <ul>
+ * <li>Unggah massal lewat berkas Excel (.xlsx) ({@link #prosesUploadNilaiHuruf(UploadEvent)}),
+ * ditambahkan sebagai tombol toolbar hanya bagi pengguna dengan hak edit dan hapus sekaligus.</li>
+ * <li>Sinkronisasi ulang nilai huruf mahasiswa berdasarkan tabel konversi terbaru:
+ * {@link #onSyncronisasiNilai(Event)} (seluruh nilai) dan
+ * {@link #onSyncronisasiHanyaYangBelumDapatNilai(Event)} (hanya yang belum mendapat nilai huruf),
+ * keduanya dijalankan pada thread terpisah dengan indikator progres.</li>
+ * </ul>
+ * <p>
+ * {@link #onSave(Event)} menyimpan seluruh field form ke entitas, lalu memuat ulang cache statis
+ * tabel konversi ({@code ConstantValues.realoadNilaiHuruf}) baik segera maupun via timer susulan,
+ * agar perhitungan IPK di seluruh aplikasi memakai data terbaru tanpa perlu restart.
+ * {@link #initCriteria(boolean)} membangun kueri pencarian dengan filter jurusan, fakultas, tahun
+ * angkatan, dan nilai huruf (pencocokan persis).
+ * </p>
+ */
 public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
 
     private static final long serialVersionUID = 261036075526361529L;
@@ -124,6 +147,13 @@ public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
         }
     }
 
+    /**
+     * Membangun kueri pencarian tabel nilai huruf, difilter jurusan, fakultas, tahun angkatan, dan
+     * nilai huruf (pencocokan persis).
+     *
+     * @param order {@code true} untuk mengurutkan hasil berdasarkan nilai huruf menaik
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -153,6 +183,7 @@ public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
 
     // ======================== Sync event handlers ========================
 
+    /** Menjalankan sinkronisasi ulang SELURUH nilai huruf mahasiswa berdasarkan tabel konversi saat ini, pada thread terpisah dengan label progres yang diperbarui berkala. */
     public void onSyncronisasiNilai(Event event) {
         final Label label = new Label(ais.common.Common.getBahasaConfig("Proses singkronisasi nilai huruf sedang berlangsung, harap menunggu.."));
         new Thread(new Runnable() {
@@ -164,6 +195,7 @@ public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
         startSyncTimer(label);
     }
 
+    /** Seperti {@link #onSyncronisasiNilai(Event)}, tetapi hanya memproses mahasiswa yang belum memiliki nilai huruf. */
     public void onSyncronisasiHanyaYangBelumDapatNilai(Event event) {
         final Label label = new Label(ais.common.Common.getBahasaConfig("Proses singkronisasi nilai huruf sedang berlangsung, harap menunggu.."));
         new Thread(new Runnable() {
@@ -344,6 +376,14 @@ public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Menyimpan satu baris konversi nilai huruf dengan seluruh field form, lalu memuat ulang cache
+     * statis tabel konversi ({@code ConstantValues.realoadNilaiHuruf}) segera dan sekali lagi lewat
+     * timer susulan, agar perubahan langsung berpengaruh pada perhitungan IPK di seluruh aplikasi.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return selalu {@code true} (tidak ada validasi tambahan di luar tipe data form)
+     */
     public boolean onSave(Event event) throws Exception {
         Session session = HibernateUtil.currentSession();
         NilaiHuruf entity = currentEntity;

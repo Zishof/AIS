@@ -47,6 +47,20 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD dan alur persetujuan Pemakaian Barang ({@link PemakaianItem}) pada modul SIRS: pencatatan
+ * pengambilan barang/obat dari stok oleh pegawai (mis. untuk keperluan pasien), diikuti detail item
+ * ({@link PemakaianItemDetail}, dikelola lewat {@link PemakaianItemDetailAction} tertanam pada
+ * setiap baris grid). Kode transaksi dibangkitkan otomatis per lokasi ({@code Common.generateCode}),
+ * dan lokasi terkunci mengikuti lokasi kerja pengguna bila sudah ditentukan ({@link
+ * Common#getCurrentLokasi()}). Alur persetujuan: sebelum disetujui, data masih dapat diubah/dihapus
+ * (tombol edit/hapus hanya tampil selama {@code disetujuiOleh} kosong); menyetujui
+ * ({@code btnApprove}, hak {@link CommonPrivilages#APPROVE}) MENCATAT stok keluar dengan membuat
+ * baris {@link DetailTransaksiPasien} untuk setiap detail item; membatalkan persetujuan
+ * ({@code btnReject}, hak {@link CommonPrivilages#REJECT}) menghapus baris transaksi stok yang
+ * bersangkutan via SQL native langsung dan mengosongkan status persetujuan, mengembalikan data ke
+ * status dapat diedit.
+ */
 public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -81,6 +95,7 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
     @Override
     protected String getWindowTitle() { return "Pendataan Pemakaian Barang"; }
 
+    /** Menginisialisasi komponen dasar layar, mengunci filter lokasi ke lokasi kerja pengguna bila ada, dan mengevaluasi hak akses approve/reject. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -93,6 +108,7 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
         reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
     }
 
+    /** Menyusun kriteria pencarian {@link PemakaianItem}, difilter lokasi dan kode, diurutkan id terbaru lebih dulu bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -107,6 +123,7 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link PemakaianItemRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new PemakaianItemRenderer();
@@ -114,6 +131,7 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
 
     // ======================== Cetak report ========================
 
+    /** Membuka dialog modal laporan pemakaian barang per periode ({@link LaporanPemakaianItemWindow}). */
     public void onCetak(Event event) throws Exception {
         LaporanPemakaianItemWindow laporanPemakaianItemWindow = new LaporanPemakaianItemWindow();
         laporanPemakaianItemWindow.setTitle("Laporan Pemakaian Per Periode");
@@ -126,6 +144,7 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah pemakaian barang (kode auto-generate per lokasi, tanggal, lokasi, pegawai pemakai, keperluan, keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final PemakaianItem pemakaianItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -239,6 +258,15 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data pemakaian barang dari form: menolak bila kode/lokasi/pegawai
+     * pemakai/keperluan belum lengkap; jika lolos, data baru diberi nomor urut per lokasi dan kode
+     * baru dibangkitkan ulang ({@code Common.generateCode}), lalu entitas disimpan/diperbarui.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -292,6 +320,12 @@ public class PemakaianiItemAction extends GenericCrudAction<PemakaianItem> {
 
     // ======================== Renderer ========================
 
+    /**
+     * Renderer baris grid daftar pemakaian barang: detail item tertanam ({@link PemakaianItemDetailAction}),
+     * kode (dengan link riwayat revisi), lokasi, pegawai pemakai, keperluan, pembuat + tanggal, status
+     * persetujuan (pemberi + tanggal), keterangan, dan tombol aksi cetak/setujui/batalkan/ubah/hapus
+     * yang visibilitasnya bergantung pada hak akses dan status persetujuan baris.
+     */
     class PemakaianItemRenderer extends MyRowRenderer {
 
         @Override

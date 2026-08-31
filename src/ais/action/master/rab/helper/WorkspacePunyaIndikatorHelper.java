@@ -33,6 +33,13 @@ import ais.database.model.rab.WorkspacePunyaIndikator;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper ZK modul RAB yang mengelola grid indikator kinerja ({@link WorkspacePunyaIndikator}) milik
+ * satu {@link Workspace} (item RAB): menautkan {@link Indikator} lewat picker banyak-pilih
+ * ({@link AmbilDataIndikatorBanyak}, mengecualikan indikator yang sudah ada di grid), lalu
+ * mengedit nilai target, satuan, dan output tiap indikator dengan autosave per sel. Visibilitas
+ * tombol tambah/edit/hapus mengikuti privilese CREATE/UPDATE/DELETE user yang login.
+ */
 public class WorkspacePunyaIndikatorHelper {
 
 	private MyGrid gridIndikator;
@@ -40,6 +47,7 @@ public class WorkspacePunyaIndikatorHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper untuk grid target {@code gridIndikator}, membaca privilese CREATE/UPDATE/DELETE saat ini. */
 	public WorkspacePunyaIndikatorHelper(MyGrid gridIndikator) {
 		this.gridIndikator = gridIndikator;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -47,6 +55,12 @@ public class WorkspacePunyaIndikatorHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka grid: toolbar "Tambah Indikator" (membuka picker banyak-pilih
+	 * {@link Indikator} yang mengecualikan indikator yang sudah ada di grid, setiap terpilih
+	 * menjadi baris {@link WorkspacePunyaIndikator} baru) dan kolom (Kode, Isi Indikator, Target,
+	 * Satuan, Output Indikator, Hapus), lalu memuat baris yang sudah ada lewat {@link #loadDataDetail}.
+	 */
 	public Borderlayout initDetail(final Workspace workspace) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -141,6 +155,7 @@ public class WorkspacePunyaIndikatorHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang seluruh {@link WorkspacePunyaIndikator} milik {@code workspace} ke grid (kosong bila {@code workspace} belum tersimpan). */
 	private void loadDataDetail(final Workspace workspace) {
 
 		List<WorkspacePunyaIndikator> workspacePunyaIndikators = workspace == null || workspace.getId() == null
@@ -159,6 +174,7 @@ public class WorkspacePunyaIndikatorHelper {
 		}
 	}
 
+	/** Merender satu baris grid untuk {@code workspacePunyaIndikator}: kode+nama indikator, nilai target/satuan/output editable (autosave saat berubah, dikunci bila tanpa privilese UPDATE), dan tombol hapus. */
 	public void initRow(final Row row, final WorkspacePunyaIndikator workspacePunyaIndikator) {
 		row.setValign("top");
 		row.setAttribute("workspacePunyaIndikator", workspacePunyaIndikator);

@@ -42,8 +42,46 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * API mobile untuk fitur angket/kuesioner evaluasi: penilaian dosen oleh mahasiswa
+ * ({@link ChecklistPenilaianDosen}/{@link ChecklistBaruPenilaianDosenOlehMahasiswa}) dan penilaian
+ * guru oleh siswa ({@link ChecklistPenilaianGuru}/{@link ChecklistBaruPenilaianGuruOlehSiswa}).
+ * Menyediakan tiga aksi: {@link #checkAngket} (memeriksa apakah pengguna wajib mengisi angket
+ * sebelum diizinkan login penuh — dikombinasikan dengan pemeriksaan syarat pembayaran per semester
+ * sebagai syarat login), {@link #daftarAngket} (mengambil daftar pertanyaan angket beserta status
+ * pengisian per dosen/mata kuliah atau per guru/jadwal pelajaran yang relevan bagi pengguna), dan
+ * {@link #simpanAngket} (menyimpan satu jawaban angket). Setiap method mengautentikasi pemanggil
+ * lewat token ({@link ApiUtil#currentUser}) dan mengembalikan kode status JSON standar API mobile
+ * ({@code "00"}=sukses, {@code "90"}=galat internal, {@code "97"}=token tidak sesuai).
+ *
+ * <p>
+ * Untuk mempercepat pencarian jawaban tersimpan saat {@code simpanAngket}/{@code daftarAngket}
+ * dipanggil berulang, kelas ini menahan dua peta cache statis proses-hidup ({@link #maps} untuk
+ * mahasiswa, {@link #maps1} untuk siswa) berkunci id mahasiswa/siswa, masing-masing memetakan ke
+ * peta jawaban ber-kunci gabungan (mis. {@code mahasiswaId_perkuliahanId_dosenId}). Cache ini
+ * TIDAK pernah dibersihkan otomatis dan tumbuh selama JVM hidup (satu entri per mahasiswa/siswa
+ * yang pernah mengakses API ini); parameter {@code refresh} pada {@code daftarAngket} memaksa
+ * pemuatan ulang isi peta jawaban untuk satu mahasiswa/siswa (lewat {@code byKey(session, true)})
+ * tapi tidak menghapus entri lain di cache.
+ * </p>
+ */
 public class AngketUtilApi {
 
+	/**
+	 * Memeriksa apakah pengguna (khusus mahasiswa) memiliki alasan pemblokiran login
+	 * ({@link BlokirMahasiswa}) atau belum memenuhi syarat pembayaran semester berjalan (menurut
+	 * konfigurasi {@link JenisKegiatan} yang ditandai sebagai syarat login, dicek per semester
+	 * mundur sesuai kombinasi flag {@code bayarHanyaSmt...}), serta apakah wajib mengisi angket
+	 * penilaian dosen semester berlangsung (bila konfigurasi
+	 * {@code checklist_penilaian_dosen_semester_berlangsung} aktif untuk konteks fakultas/jurusan/
+	 * program mahasiswa) dan belum menyelesaikannya. Mahasiswa dengan cuti disetujui pada semester
+	 * terkait dikecualikan dari pengecekan pembayaran semester itu.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request payload JSON permintaan
+	 * @return objek JSON berisi {@code status}, {@code description}, dan
+	 *         {@code alasans_tidak_boleh_login} (daftar alasan/peringatan yang menghalangi login penuh)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject checkAngket(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -256,6 +294,18 @@ public class AngketUtilApi {
 
 	private static Map<Long, Map<String, ChecklistBaruPenilaianGuruOlehSiswa>> maps1 = new HashMap<Long, Map<String, ChecklistBaruPenilaianGuruOlehSiswa>>();
 
+	/**
+	 * Menyimpan satu jawaban angket: untuk mahasiswa, satu nilai penilaian dosen pada kombinasi
+	 * (mata kuliah/{@code perkuliahan_id}, dosen/{@code dosen_id}, butir checklist/{@code check_id});
+	 * untuk siswa, satu nilai penilaian guru pada kombinasi (jadwal pelajaran/{@code jadwalPelajaran_id},
+	 * guru/{@code guru_id}, butir checklist/{@code check_id}). Menggunakan cache
+	 * {@link #maps}/{@link #maps1} untuk menghindari query berulang saat menyimpan banyak jawaban
+	 * berurutan dari sesi pengisian yang sama.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request payload JSON berisi id relasi, {@code nilai}, {@code keterangan} opsional, {@code masukan} opsional
+	 * @return objek JSON berisi {@code status}, {@code description}, dan {@code data} (entitas checklist tersimpan)
+	 */
 	public static JSONObject simpanAngket(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -378,6 +428,20 @@ public class AngketUtilApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil daftar pertanyaan angket beserta status pengisiannya bagi pengguna saat ini. Untuk
+	 * mahasiswa: menyaring {@link GrupChecklistPenilaianDosen} yang berlaku untuk konteksnya
+	 * (fakultas/jurusan/program/angkatan cocok atau kosong pada konfigurasi angket), lalu untuk
+	 * setiap kombinasi mata kuliah+dosen pada semester terpilih ({@code semester}, default semester
+	 * berjalan), menghitung jumlah butir yang perlu diisi vs sudah terisi. Untuk siswa: pola serupa
+	 * berbasis {@link GrupChecklistPenilaianGuru}, yayasan/sekolah/program/angkatan, dan jadwal
+	 * pelajaran (kelas reguler maupun kelas les) pada semester+tahun ajaran terpilih. Parameter
+	 * {@code refresh} memaksa pemuatan ulang cache jawaban tersimpan (lihat javadoc kelas).
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request payload JSON berisi {@code semester}/{@code ta}/{@code refresh} opsional
+	 * @return objek JSON berisi {@code status}, {@code description}, {@code angket} (definisi grup+butir pertanyaan), dan {@code data} (status pengisian per mata kuliah-dosen atau jadwal-guru)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject daftarAngket(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();

@@ -270,6 +270,7 @@ public class RekapitulasiJadwalPelajaranHelper {
 
 		final Center center = new Center();
 		center.setAutoscroll(true);
+		center.setSclass("elearning-sekolah-ringkasan-center");
 		North north = new North();
 		ais.ui.util.ZkCompat.setFlex(north, true);
 		north.setParent(subBorderlayoutUtama);
@@ -460,6 +461,7 @@ public class RekapitulasiJadwalPelajaranHelper {
 		MyGrid grid = new MyGrid();
 		grid.setParent(center);
 		grid.setWidth("100%");
+		grid.setSclass("dgrid elearning-sekolah-ringkasan-grid");
 		/*
 		 * Jangan mengunci grid ke tinggi Center. Satu jadwal dapat menghasilkan baris
 		 * ringkasan yang tinggi; height 100% membuat body grid berhenti di batas

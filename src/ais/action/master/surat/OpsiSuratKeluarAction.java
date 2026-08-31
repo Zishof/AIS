@@ -39,6 +39,14 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link OpsiSuratKeluar} (jenis/opsi surat keluar yang dapat diajukan pada
+ * modul persuratan): tiap opsi dapat dibatasi hanya boleh diajukan oleh jenis pengguna tertentu
+ * (id role, dipisah koma) ATAU oleh username tertentu (dipisah koma) — dua mode ini saling
+ * eksklusif pada form (toggle checkbox "hanya boleh"), tidak ada batasan berarti opsi terbuka
+ * untuk semua pengguna. Dibangun di atas kerangka {@link GenericCrudAction}, memakai
+ * {@link OpsiSuratKeluarDao} (bukan Hibernate langsung) untuk operasi simpan/hapus.
+ */
 public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -52,21 +60,26 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
 
     // ======================== Abstract implementations ========================
 
+    /** Kelas entitas yang dikelola: {@link OpsiSuratKeluar}. */
     @Override
     protected Class<OpsiSuratKeluar> getEntityClass() { return OpsiSuratKeluar.class; }
 
+    /** Membuat instance {@link OpsiSuratKeluar} kosong untuk form tambah data baru. */
     @Override
     protected OpsiSuratKeluar createNewEntity() { return new OpsiSuratKeluar(); }
 
+    /** Judul jendela: {@code "Pendataan Opsi Surat Keluar"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Opsi Surat Keluar"; }
 
+    /** Memastikan kelas {@link SuratUtil} (berisi konstanta {@code balasan}) sudah termuat sejak awal inisialisasi layar. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         @SuppressWarnings("unused")
         OpsiSuratKeluar balasan = SuratUtil.balasan;
     }
 
+    /** Menyusun kriteria pencarian {@link OpsiSuratKeluar}, difilter ilike berdasarkan nama, terurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -78,6 +91,7 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
         return criteria;
     }
 
+    /** Penyedia renderer baris grid hasil pencarian: {@link OpsiSuratKeluarRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new OpsiSuratKeluarRenderer();
@@ -85,6 +99,12 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
 
     // ======================== Form content ========================
 
+    /**
+     * Membangun form tambah/ubah {@link OpsiSuratKeluar}: nama, toggle pembatasan pengaju (jenis
+     * pengguna/role vs username tertentu — hanya satu yang tampil dan disimpan sesuai pilihan
+     * toggle), tombol pemilihan username lewat dialog {@link AmbilDataTbmuserBanyak}, dan
+     * keterangan, beserta tombol Batal dan Simpan.
+     */
     @Override
     protected void buildFormContent(MyWindow window, final OpsiSuratKeluar opsiSuratKeluar) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -220,6 +240,15 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link OpsiSuratKeluar}: menolak bila nama kosong atau nama
+     * sudah dipakai opsi lain (dicek via {@link #checkNamaOpsiSuratKeluar()}), lalu menyimpan
+     * hanya salah satu dari {@code jenisPengguna}/{@code usernamePengguna} sesuai posisi toggle
+     * "hanya boleh" (yang tidak aktif diset {@code null}), lalu menyimpan/memperbarui entitas
+     * lewat {@link OpsiSuratKeluarDao}.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Opsi Surat Keluar belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Opsi; (2) isikan nama opsi surat keluar secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -249,6 +278,7 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai {@link OpsiSuratKeluar} lain (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaOpsiSuratKeluar() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(OpsiSuratKeluar.class)
@@ -263,6 +293,7 @@ public class OpsiSuratKeluarAction extends GenericCrudAction<OpsiSuratKeluar> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link OpsiSuratKeluar}: nama (dengan tombol riwayat revisi), pembatasan jenis pengguna/username ("Semua" bila tidak dibatasi), keterangan, checkbox status aktif (tersimpan langsung), dan tombol edit/hapus (hapus lewat {@link OpsiSuratKeluarDao#delete}, menampilkan pesan bila gagal karena relasi data lain). */
     class OpsiSuratKeluarRenderer extends MyRowRenderer {
 
         @Override

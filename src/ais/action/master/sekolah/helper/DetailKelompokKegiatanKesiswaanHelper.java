@@ -204,6 +204,13 @@ public class DetailKelompokKegiatanKesiswaanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel daftar rincian aspek untuk satu kelompok kegiatan kesiswaan: tombol tambah di
+	 * utara dan grid daftar berpaging di tengah.
+	 *
+	 * @param kelompokKegiatanKesiswaan kelompok kegiatan kesiswaan yang rincian aspeknya dikelola
+	 * @param component                 komponen kontainer target, dibersihkan dan diisi ulang oleh method ini
+	 */
 	public void displayDetailKelompokKegiatanKesiswaan(
 			final KelompokKegiatanKesiswaan kelompokKegiatanKesiswaan, final Component component) {
 		this.kelompokKegiatanKesiswaan = kelompokKegiatanKesiswaan;
@@ -278,6 +285,15 @@ public class DetailKelompokKegiatanKesiswaanHelper implements DataLoader {
 	}
 
 	@SuppressWarnings({ "unchecked", "deprecation" })
+	/**
+	 * Membangun dan menampilkan dialog modal tambah/ubah satu rincian aspek: form nama + nomor urut
+	 * (default nomor urut tertinggi + 1 untuk data baru), diikuti dua kolom checkbox multi-pilih
+	 * (jabatan/status/tugas dan skala) yang dikelola di memori lewat peta id (lihat javadoc kelas
+	 * untuk alasan menghindari {@code TreeSet}) sebelum ditulis kembali ke entitas saat disimpan.
+	 *
+	 * @param detailKelompokKegiatanKesiswaan rincian aspek yang diedit (entitas baru untuk tambah data)
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void init(final DetailKelompokKegiatanKesiswaan detailKelompokKegiatanKesiswaan) throws Exception {
 		final MyWindow window = new MyWindow("Pendataan Rincian Aspek", "normal", false);
 		window.setHeight("95%");

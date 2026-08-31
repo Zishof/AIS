@@ -47,6 +47,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar ekspor data penerima beasiswa (termasuk Bidikmisi) ke format Excel siap-unggah PDDikti/EPSBED
+ * ({@code Beasiswa.xlsx}, 21 kolom baku: NPM, kode PT, jenis dan nama beasiswa, data mahasiswa,
+ * IPK, kode pekerjaan/tanggungan/penghasilan, periode, dan kontak). Filter tahun akademik, semester,
+ * fakultas, dan program studi (fakultas/prodi default mengikuti wewenang pengguna yang login, lewat
+ * {@code tbmuser.ambilFakultas()}/{@code ambilJurusan()}). File Excel dibangun di thread latar
+ * belakang terpisah dengan progress bar ({@link Common#displayLoadBar}), sesi Hibernate di-flush dan
+ * di-clear setiap 100 baris untuk menghindari pembengkakan memori pada data besar, dan file hasil
+ * disimpan sementara di {@code webapp/tmp/} untuk diunduh lewat tombol ekspor. Berisi flag
+ * {@code debug} internal untuk mengaktifkan/menonaktifkan pencetakan stack trace ke konsol saat
+ * pengembangan.
+ */
 public class TransaksiBeasiswaBidikmisi extends MyWindow {
 
 	private static final long serialVersionUID = 790038368339375113L;
@@ -62,6 +74,7 @@ public class TransaksiBeasiswaBidikmisi extends MyWindow {
 	// Parameter debug untuk tracing error (aktifkan/matikan dari sini)
 	private boolean debug = true;
 
+	/** Konstruktor default; langsung menginisialisasi layar lewat {@link #init()}. */
 	public TransaksiBeasiswaBidikmisi() {
 		super();
 		try {
@@ -72,6 +85,7 @@ public class TransaksiBeasiswaBidikmisi extends MyWindow {
 		}
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit; langsung menginisialisasi layar lewat {@link #init()}. */
 	public TransaksiBeasiswaBidikmisi(String title, String border, boolean closable) {
 		super(title, border, closable);
 		try {
@@ -82,6 +96,7 @@ public class TransaksiBeasiswaBidikmisi extends MyWindow {
 		}
 	}
 
+	/** Membangun kerangka layar: filter tahun akademik/semester/fakultas/program studi (prodi otomatis mengikuti fakultas terpilih), toolbar refresh/ekspor, dan area tampilan spreadsheet. */
 	private void init() throws Exception {
 
 		Common.generateTahunAjaran(tahunakademik);
@@ -227,6 +242,16 @@ public class TransaksiBeasiswaBidikmisi extends MyWindow {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menghasilkan file Excel data penerima beasiswa sesuai filter terpilih: memvalidasi tahun
+	 * akademik dan semester wajib diisi, lalu di thread terpisah membuat workbook baru berisi
+	 * baris data {@link MahasiswaDaftarBeasiswa} berstatus {@link
+	 * MahasiswaDaftarBeasiswa#DITERIMA} yang cocok dengan filter (tahun akademik, semester, dan
+	 * opsional fakultas/prodi), menghitung IPK per mahasiswa lewat {@link Common#singkronkanKrsMahasiswa},
+	 * dan menuliskan hasilnya ke file {@code .xlsx} sementara yang siap diunduh.
+	 *
+	 * @throws Exception diteruskan apa adanya dari kegagalan I/O saat membuat file sementara
+	 */
 	private void initSpreadsheet() throws Exception {
 
 		if (tahunakademik.getSelectedItem() == null) {

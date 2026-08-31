@@ -30,6 +30,12 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link Donatur} pada modul sosial: kontak (telp, email, alamat, negara
+ * asal), pengelompokan berdasarkan {@link GelombangDonatur} (masa pendaftaran), status aktif yang
+ * dapat diubah langsung dari grid, serta dukungan cetak dan unggah data massal. Dibangun di atas
+ * kerangka {@link GenericCrudAction}.
+ */
 public class DonaturAction extends GenericCrudAction<Donatur> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -49,20 +55,25 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
 
     // ======================== Abstract implementations ========================
 
+    /** Kelas entitas yang dikelola: {@link Donatur}. */
     @Override
     protected Class<Donatur> getEntityClass() { return Donatur.class; }
 
+    /** Membuat instance {@link Donatur} kosong untuk form tambah data baru. */
     @Override
     protected Donatur createNewEntity() { return new Donatur(); }
 
+    /** Judul jendela: {@code "Pendataan Donatur"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Donatur"; }
 
+    /** Daftar kolom yang disertakan pada templat cetak/unggah data massal donatur. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "email", "telp", "alamat", "gelombangDonatur", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data massal ke toolbar setelah inisialisasi bawaan, tombol unggah hanya tampil bila user punya hak tambah/ubah/hapus sekaligus. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -78,6 +89,7 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
         }
     }
 
+    /** Menyusun kriteria pencarian {@link Donatur}: filter status aktif (bila dicentang), gelombang pendaftaran (ilike kode/nama), dan kata kunci kode/nama, terurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -101,6 +113,7 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
         return criteria;
     }
 
+    /** Penyedia renderer baris grid hasil pencarian: {@link DonaturRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new DonaturRenderer();
@@ -108,6 +121,7 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link Donatur}: kode, nama, telp/WA, email, alamat, masa pendaftaran (gelombang donatur), negara asal, dan keterangan, beserta tombol Batal dan Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final Donatur donatur) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -213,6 +227,12 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link Donatur}: menolak bila nama kosong atau masa
+     * pendaftaran (gelombang donatur) belum dipilih, lalu menyimpan/memperbarui entitas.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Nama Donatur harus diisi", "Peringatan",
@@ -241,6 +261,7 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai {@link Donatur} lain (mengecualikan entitas yang sedang diedit). Catatan: method ini tersedia tapi tidak dipanggil dari {@link #onSave}. */
     public Boolean checkNamaDonatur() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Donatur.class)
@@ -255,6 +276,7 @@ public class DonaturAction extends GenericCrudAction<Donatur> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link Donatur}: kode, nama (dengan tombol riwayat revisi), email, telp, alamat, gelombang, keterangan, checkbox status aktif (tersimpan langsung saat diubah), dan tombol edit/hapus. */
     class DonaturRenderer extends MyRowRenderer {
 
         @Override

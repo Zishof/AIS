@@ -26,11 +26,30 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Utilitas statis modul asset: (1) menyediakan konstanta {@link StatusAsset} baku ("Aktif"/"Tidak
+ * Aktif", dimuat/dibuat sekali di blok inisialisasi statis kelas); dan (2) membangun/mengurai
+ * "formula akun" — daftar pemetaan {@link Akun} biaya per {@link SatuanKerja} yang disimpan sebagai
+ * {@link JSONArray} JSON pada suatu entitas (mis. jenis biaya asset), dipakai untuk menentukan akun
+ * akuntansi mana yang berlaku untuk satuan kerja tertentu.
+ *
+ * <p>
+ * Elemen array berformat {@code {key, akun, satuanKerja}}; entri dengan {@code satuanKerja} null
+ * bertindak sebagai akun default/fallback. {@link #ambilDataAkun} mencari akun yang cocok persis
+ * dengan {@code satuanKerjaData} yang diberikan, dan jatuh kembali ke akun default bila tidak ada
+ * yang cocok. Entri "dihapus" dengan mengganti elemen array pada indeksnya menjadi
+ * {@link JSONObject} kosong (bukan dipangkas dari array), sama seperti pola formula serupa di
+ * {@code KursusUtil}.
+ * </p>
+ */
 public class AssetUtil {
 
+	/** Status asset baku "Aktif" (dibuat otomatis bila belum ada). */
 	public static StatusAsset AKTIF = null;
+	/** Status asset baku "Tidak Aktif" (dibuat otomatis bila belum ada). */
 	public static StatusAsset TIDAK_AKTIF = null;
 
+	/** Memuat (atau membuat bila belum ada) {@link #AKTIF} dan {@link #TIDAK_AKTIF} saat kelas ini pertama kali diakses. */
 	static {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -63,6 +82,16 @@ public class AssetUtil {
 		HibernateUtil.closeSession();
 	}
 
+	/**
+	 * Mencari {@link Akun} yang berlaku untuk {@code satuanKerjaData} dari daftar formula
+	 * {@code akunStr} (JSON): mengembalikan entri yang {@code satuanKerja}-nya cocok persis, atau
+	 * entri default ({@code satuanKerja} null) bila {@code satuanKerjaData} {@code null} atau tidak
+	 * ada entri spesifik yang cocok.
+	 *
+	 * @param akunStr         JSON array formula akun {@code {key, akun, satuanKerja}}
+	 * @param satuanKerjaData satuan kerja yang dicari akunnya, boleh {@code null} untuk langsung mengambil default
+	 * @return akun yang cocok, akun default, atau {@code null} bila tidak ada sama sekali
+	 */
 	public static Akun ambilDataAkun(String akunStr, SatuanKerja satuanKerjaData) throws Exception {
 		Akun akunDefault = null;
 		JSONArray array = new JSONArray(akunStr);
@@ -99,6 +128,11 @@ public class AssetUtil {
 		return akunDefault;
 	}
 
+	/**
+	 * Titik masuk utama: menambahkan tombol "Tambah Akun" ke {@code rowFormula} bila {@code edit}
+	 * true (menyisipkan entri baru ber-{@code key} acak ke {@code array}), lalu merender daftar
+	 * formula lewat {@link #reloadDataFormula} ke baris baru setelah {@code rowFormula}.
+	 */
 	public static void reloadFormula(final Row rowFormula, final JSONArray array, final boolean edit) throws Exception {
 		final MyFormRow rowU = new MyFormRow();
 
@@ -125,6 +159,13 @@ public class AssetUtil {
 
 	}
 
+	/**
+	 * Merender {@code array} formula akun sebagai grid dua kolom (Akun, Satuan Kerja) ke dalam
+	 * {@code rowU}: bila {@code edit} true, sel berupa banbox editable (yang menuliskan perubahan
+	 * langsung ke {@code jsonObject} JSON entri terkait) plus tombol hapus per baris; bila
+	 * {@code false}, sel berupa label read-only saja (mode tampilan). Dipanggil ulang secara
+	 * rekursif setiap kali struktur berubah agar grid selalu konsisten dengan {@code array} terbaru.
+	 */
 	public static void reloadDataFormula(final Row rowU, final JSONArray array, final boolean edit) throws Exception {
 		Common.clear(rowU);
 

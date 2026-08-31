@@ -58,6 +58,29 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer layar CRUD "Kelas PMB": mendata kelas penempatan calon mahasiswa baru
+ * ({@link KelasPmb}, dengan kapasitas ruangan dan cakupan fakultas/prodi opsional), yang berlaku
+ * untuk satu {@link GelombangPendaftaran} tertentu ATAU untuk kombinasi tahun akademik + jenis
+ * semester (kedua mode saling eksklusif — dropdown gelombang dan dropdown TA/semester saling
+ * mengunci satu sama lain; keduanya juga dikunci begitu kelas sudah terisi mahasiswa, mencegah
+ * perubahan cakupan waktu setelah dipakai). Setiap baris grid menampilkan kapasitas terisi/total,
+ * secara otomatis menandai kelas "Penuh" saat kapasitas tercapai, dan dapat diperluas
+ * ({@link MyDetail}) untuk menampilkan daftar calon mahasiswa penghuni lewat
+ * {@link KelasPmbPunyaBiodataCalonMahasiswaHelper}.
+ *
+ * <p>
+ * Fitur utama: {@link #executeSyncMassal()} — sinkronisasi massal otomatis yang menempatkan calon
+ * mahasiswa yang sudah dinyatakan lulus ({@code prodiLulus} terisi) namun belum punya kelas ke
+ * kelas-kelas yang tersedia, dikelompokkan per kombinasi waktu (gelombang, atau tahun akademik+
+ * semester) dan cakupan (prodi, fakultas, atau seluruh institusi), dengan algoritma "overflow":
+ * kelas-kelas dalam satu grup diurutkan menurut nama (mis. Kelas A sebelum Kelas B) dan diisi
+ * berurutan — begitu satu kelas penuh, penempatan otomatis berpindah ke kelas berikutnya dalam
+ * grup yang sama. Setiap grup diproses paralel lewat {@link ParallelTaskExecutor} (maks 100
+ * thread) dalam transaksi Hibernate terpisah, dengan laporan hasil rinci per grup
+ * ({@code ais.common.LaporanUpload}) mencatat sukses/gagal beserta detail teknis kegagalan.
+ * </p>
+ */
 public class KelasPmbAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 3786091220301468178L;
@@ -79,6 +102,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 	private Combobox fakultas;
 	private Combobox jurusan;
 
+	/** Menjalankan pemeriksaan keamanan sebelum komponen ZK dibangun (hook siklus hidup ZK). */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -86,6 +110,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Memverifikasi sesi login &amp; hak akses baca, menyiapkan tombol tambah dan tombol sinkronisasi massal, mengisi filter gelombang pendaftaran (terkunci bila diberikan lewat parameter URL {@code gelombangPendaftaran}), memuat data awal, dan menginisialisasi paging. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -175,6 +200,18 @@ public class KelasPmbAction extends GenericAutowireComposer {
 	// -------------------------------------------------------------------------------------
 	// LOGIKA UTAMA SINKRONISASI KELAS (PARALLEL & ALGORITMA OVERFLOW KELAS A KE KELAS B)
 	// -------------------------------------------------------------------------------------
+	/**
+	 * Menjalankan sinkronisasi massal penempatan calon mahasiswa ke kelas PMB. Mengelompokkan
+	 * seluruh {@link KelasPmb} hasil pencarian saat ini berdasarkan kunci gabungan waktu
+	 * (gelombang atau tahun akademik+semester) dan cakupan (prodi, fakultas, atau seluruh
+	 * institusi), lalu untuk setiap grup — diproses paralel lewat {@link ParallelTaskExecutor} —
+	 * menghitung sisa kapasitas kolektif seluruh kelas dalam grup, mengambil calon mahasiswa lulus
+	 * yang belum berkelas sejumlah sisa kapasitas tersebut (diurutkan NIM lalu nomor registrasi),
+	 * dan menempatkannya berurutan ke kelas-kelas yang tersedia (algoritma overflow: kelas diisi
+	 * satu per satu sesuai urutan nama, pindah ke kelas berikut begitu penuh). Status
+	 * {@code penuh} tiap kelas disinkronkan ulang sebelum dan sesudah penempatan. Hasil per grup
+	 * dicatat ke laporan; grid disegarkan setelah laporan ditutup.
+	 */
 	@SuppressWarnings("unchecked")
 	private void executeSyncMassal() {
 		Session sessionUtama = null;
@@ -386,6 +423,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		});
 	}
 
+	/** Renderer baris grid Kelas PMB: detail dapat diperluas untuk daftar penghuni ({@link KelasPmbPunyaBiodataCalonMahasiswaHelper}, dimuat lazy saat pertama dibuka), label revisi+nama, fakultas/prodi ("Semua" bila tidak dibatasi), kapasitas terisi/total (menandai otomatis "Penuh" bila tercapai), label gelombang atau tahun akademik-semester, checkbox "Penuh" manual, dan tombol ubah/hapus. */
 	class KelasPmbRenderer extends ais.ui.util.MyRowRenderer {
 
 		private KelasPmbPunyaBiodataCalonMahasiswaHelper kelasPmbPunyaBiodataCalonMahasiswaHelper = new KelasPmbPunyaBiodataCalonMahasiswaHelper();
@@ -494,12 +532,21 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Membuka form tambah dengan entitas {@link KelasPmb} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new KelasPmb());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun form tambah/edit Kelas PMB: kelas (dari {@code AmbilDataKelasBanbox}), fakultas
+	 * dengan cascade ke prodi (default dari fakultas/jurusan pengguna saat ini bila kosong),
+	 * kapasitas ruangan, dan salah satu dari gelombang pendaftaran ATAU tahun akademik+jenis
+	 * semester (memilih gelombang otomatis mengunci dua field TA/semester dan sebaliknya).
+	 * Seluruh field cakupan waktu (gelombang/TA/semester) dikunci bila kelas sudah terisi
+	 * mahasiswa ({@link #cekRuanganIsi}).
+	 */
 	private void init(KelasPmb kelasPmb) {
 		this.kelasPmb = kelasPmb;
 		fakultas = new Combobox();
@@ -653,6 +700,15 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		borderlayout.setParent(addWindow);
 	}
 
+	/**
+	 * Memvalidasi (kelas dan kapasitas ruangan wajib diisi; salah satu dari gelombang ATAU
+	 * kombinasi tahun akademik+semester wajib dipilih) lalu menyimpan/memperbarui entitas
+	 * {@link KelasPmb} — mengosongkan field TA/semester bila gelombang dipilih, atau sebaliknya
+	 * mengosongkan gelombang bila TA/semester diisi (kedua mode saling eksklusif pada data
+	 * tersimpan).
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (kelas.getAttribute("kelas") == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Kelas siswa / kelas les siswa",
@@ -740,6 +796,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/** Membangun kriteria pencarian {@link KelasPmb} berdasarkan filter nama (ILIKE sebagian) dan gelombang pendaftaran, diurutkan menurut id bila {@code order} true. */
 	public Criteria initCriteria(Session session, boolean order) {
 		Criteria criteria = session.createCriteria(KelasPmb.class);
 		
@@ -758,6 +815,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		return criteria;
 	}
 
+	/** Menjalankan pencarian dengan kriteria saat ini, memuat satu halaman hasil sesuai paging aktif, dan menyegarkan grid dengan {@link KelasPmbRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = null;
@@ -792,6 +850,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menghitung jumlah {@link BiodataCalonMahasiswa} yang saat ini ditempatkan pada {@code kelasPmb}; mengembalikan 0 bila {@code kelasPmb} {@code null} atau belum tersimpan. */
 	public Integer cekRuanganIsi(KelasPmb kelasPmb) {
 		if (kelasPmb == null || kelasPmb.getId() == null) {
 			return 0;

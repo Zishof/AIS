@@ -28,13 +28,32 @@ import ais.database.model.library.Anggota;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmuser;
 
+/**
+ * Servlet publik "Pustaka" (katalog perpustakaan): menyajikan halaman katalog buku/koleksi
+ * perpustakaan, baik sebagai JSP standalone versi baru ({@code /WEB-INF/baru/pustaka.jsp}, dipilih
+ * lewat konfigurasi {@code default_pustaka_gunakan_versi_baru}, default AKTIF) maupun versi lama
+ * yang menyuntikkan data JSON 500 {@link Item} terbaru sebagai atribut request ke
+ * {@code /WEB-INF/u/pustaka.jsp}. Juga menyediakan endpoint tersembunyi {@code ?action=getFoto}
+ * yang men-stream foto profil {@link Anggota} perpustakaan (mahasiswa/siswa/dosen/guru/pegawai/admin)
+ * langsung sebagai gambar.
+ *
+ * <p>
+ * Endpoint {@code getFoto} menerapkan kontrol akses eksplisit: hanya admin, staf perpustakaan
+ * ({@code LibraryPermissionGuard.isStaff}), atau pemilik profil sendiri yang boleh mengambil foto —
+ * ditolak dengan 401 (belum login) atau 403 (bukan pemilik/staf/admin) bila tidak memenuhi syarat.
+ * Bila foto fisik tidak ditemukan, servlet mengalihkan (redirect) ke gambar avatar default, bukan
+ * mengembalikan error.
+ * </p>
+ */
 public class Pustaka extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	/** Konstruktor default tanpa inisialisasi khusus. */
 	public Pustaka() {
 		super();
 	}
 
+	/** Menangani permintaan GET dengan mendelegasikan ke {@link #process}; kegagalan ditangkap dan dilaporkan, tidak dilempar ke container. */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -44,6 +63,7 @@ public class Pustaka extends HttpServlet {
 		}
 	}
 
+	/** Menangani permintaan POST dengan perilaku identik {@link #doGet}. */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -54,6 +74,13 @@ public class Pustaka extends HttpServlet {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menyusun representasi JSON satu {@link Item} untuk katalog versi lama: metadata dasar (judul,
+	 * ISBN/ISBN10 fallback, pengarang, penerbit, klasifikasi, tahun, deskripsi), tautan unduh
+	 * lampiran ({@link LampiranLain#ITEM}) bila ada, tautan pratinjau Google Books bila item punya
+	 * {@code googleBookId}, dan riwayat peminjaman ({@link PeminjamanPengadaanItemDetail}, terbaru
+	 * lebih dulu).
+	 */
 	private JSONObject populate(Item item, Session session) throws Exception {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("id", item.getId());
@@ -106,6 +133,14 @@ public class Pustaka extends HttpServlet {
 	}
 
 	@SuppressWarnings({ })
+	/**
+	 * Implementasi kanonik: (1) bila {@code action=getFoto}, memvalidasi wewenang lalu men-stream
+	 * foto profil {@link Anggota} target (diresolusi ke entitas peran spesifik —
+	 * mahasiswa/siswa/dosen/guru/pegawai/admin — untuk menentukan sumber {@code FileFotoLain} yang
+	 * tepat) langsung ke response, atau redirect ke avatar default bila tidak ditemukan; (2) bila
+	 * tidak, meneruskan ke JSP katalog versi baru atau lama sesuai konfigurasi
+	 * {@code default_pustaka_gunakan_versi_baru} (lihat dokumentasi kelas).
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
 		// =========================================================================================

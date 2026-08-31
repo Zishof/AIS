@@ -2,8 +2,26 @@ package ais.action.master.employ.util;
 
 import java.util.TreeMap;
 
+/**
+ * Registri statis metadata field formulir biodata {@code Pegawai}: {@link #DATA} berisi seluruh
+ * nama properti Hibernate yang tersedia untuk ditampilkan/dikonfigurasi pada form biodata pegawai
+ * (mulai identitas dasar sampai atasan jabatan), {@link #DATA_DESC} berisi label tampilan
+ * berbahasa Indonesia untuk tiap properti tersebut (indeks array bersesuaian satu-ke-satu dengan
+ * {@link #DATA}), dan {@link #MAPPING_DATA} adalah peta gabungan {@code properti -> label} yang
+ * dibangun otomatis di blok inisialisasi statis kelas (dipakai layar yang perlu menerjemahkan nama
+ * field ke label tanpa menelusuri kedua array secara manual). {@link #DEFAULT_TIDAK_AKTIF} adalah
+ * daftar nama field yang secara default disembunyikan/dinonaktifkan pada form biodata standar
+ * (mis. field spesifik PNS seperti KARIS/ASKES/TASPEN/KARPEG dan pangkat/jabatan/koordinat).
+ *
+ * <p>
+ * Kelas ini murni wadah konstanta (tidak ada instance state maupun method non-statis); konsumennya
+ * mengiterasi {@link #DATA}/{@link #DATA_DESC} atau melihat {@link #MAPPING_DATA} untuk membangun
+ * UI konfigurasi kolom formulir biodata pegawai secara dinamis.
+ * </p>
+ */
 public class FormBiodataPegawaiUtil {
 
+	/** Nama field yang secara default TIDAK aktif/ditampilkan pada form biodata pegawai standar. */
 	public final static String[] DEFAULT_TIDAK_AKTIF = new String[] { "karis",
 
 			"askes",
@@ -12,6 +30,7 @@ public class FormBiodataPegawaiUtil {
 
 			"karpeg", "pangkat", "jabatan", "lintang", "bujur", "spesialisasi1", "spesialisasi2", "spesialisasi3" };
 
+	/** Seluruh nama properti Hibernate {@code Pegawai} yang tersedia untuk form biodata, sejajar indeks dengan {@link #DATA_DESC}. */
 	public final static String[] DATA = new String[] { "id", "mycode", "code", "idfinger", "ktp", "nama",
 
 			"statusPegawai",
@@ -138,6 +157,7 @@ public class FormBiodataPegawaiUtil {
 
 	};
 
+	/** Label tampilan berbahasa Indonesia untuk tiap properti pada {@link #DATA}, sejajar indeks. */
 	public final static String[] DATA_DESC = new String[] { "ID", "NIP", "NIP (PNS)", "Kode Fingerprint", "No. KTP",
 			"Nama Lengkap",
 
@@ -268,8 +288,10 @@ public class FormBiodataPegawaiUtil {
 
 	};
 
+	/** Peta {@code nama properti -> label tampilan}, dibangun otomatis dari {@link #DATA}/{@link #DATA_DESC} di blok statis kelas ini. */
 	public final static TreeMap<String, String> MAPPING_DATA = new TreeMap<String, String>();
 
+	/** Mengisi {@link #MAPPING_DATA} dari pasangan {@link #DATA}/{@link #DATA_DESC}; ketidakcocokan indeks per elemen dicatat ke log tanpa menghentikan proses. */
 	static {
 		for (int i = 0; i < DATA.length; i++) {
 			try {

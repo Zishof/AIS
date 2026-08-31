@@ -33,6 +33,14 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD untuk {@link Penghasilan} (kelompok/rentang penghasilan referensi, mis. untuk survei
+ * atau data sosial-ekonomi): nama, batas atas/bawah nilai, dan keterangan, dibangun di atas kerangka
+ * generik {@link GenericCrudAction}. Nama penghasilan wajib unik ({@link #checkNamaPenghasilan}
+ * menolak duplikat, mengecualikan entitas sendiri saat mode ubah). Layar juga menyediakan
+ * download/upload data massal lewat {@link Common#cetakData}/{@link Common#uploadData} yang
+ * ditempel setelah tombol tambah di {@link #onAfterInit}.
+ */
 public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -45,20 +53,25 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link Penghasilan}. */
     @Override
     protected Class<Penghasilan> getEntityClass() { return Penghasilan.class; }
 
+    /** @return instance {@link Penghasilan} kosong untuk form tambah baru. */
     @Override
     protected Penghasilan createNewEntity() { return new Penghasilan(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Penghasilan"; }
 
+    /** @return nama kolom yang disertakan pada download/upload data massal. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "nama", "batasAtas", "batasBawah", "keterangan", "aktif", "feeder" };
     }
 
+    /** Menambahkan tombol cetak (download template/data) dan upload massal di sebelah tombol tambah, sesuai privilese. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -74,6 +87,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
         }
     }
 
+    /** Membentuk criteria pencarian {@link Penghasilan} berdasarkan filter aktif dan nama (ILIKE), diurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -88,6 +102,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link Penghasilan} ({@link PenghasilanRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new PenghasilanRenderer();
@@ -95,6 +110,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link Penghasilan}: nama (wajib), batas atas, batas bawah, dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final Penghasilan penghasilan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -172,6 +188,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi dan harus unik) dan menyimpan {@link Penghasilan} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Penghasilan",
@@ -205,6 +222,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
         return true;
     }
 
+    /** @return {@code true} bila sudah ada {@link Penghasilan} lain dengan nama yang sama persis (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaPenghasilan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Penghasilan.class)
@@ -219,6 +237,7 @@ public class PenghasilanAction extends GenericCrudAction<Penghasilan> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link Penghasilan}: nama (dengan revisi), batas atas/bawah, keterangan, checkbox aktif (autosave), dan tombol ubah/hapus. */
     class PenghasilanRenderer extends MyRowRenderer {
 
         @Override

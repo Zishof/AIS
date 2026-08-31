@@ -34,6 +34,14 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK modul akunting yang mengelola grid pemetaan {@link ItemBiaya} ke akun "dibayar dimuka"
+ * ({@link ItemBiayaPunyaDibayarDimuka}) — daftar {@link Akun} tujuan pencatatan pendapatan diterima
+ * dimuka untuk satu item biaya, masing-masing bisa dibatasi cakupannya per fakultas/jurusan/program/
+ * angkatan mahasiswa. Setiap sel cakupan (fakultas, jurusan cascading, program, angkatan) langsung
+ * tersimpan ({@code Common.refreshSaveOrUpdate}) saat berubah; akun ditambahkan lewat picker
+ * banyak-pilih {@link AmbilDataBanyakAkun}.
+ */
 public class ItemBiayaPunyaDibayarDimukaHelper {
 
 	private MyGrid gridDibayarDimuka;
@@ -41,6 +49,7 @@ public class ItemBiayaPunyaDibayarDimukaHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper untuk grid target {@code gridDibayarDimuka}, membaca privilese CREATE/DELETE saat ini. */
 	public ItemBiayaPunyaDibayarDimukaHelper(MyGrid gridDibayarDimuka) {
 		this.gridDibayarDimuka = gridDibayarDimuka;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +57,12 @@ public class ItemBiayaPunyaDibayarDimukaHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka grid: toolbar "Tambah Akun" (membuka picker banyak-pilih {@link Akun},
+	 * setiap akun terpilih langsung menjadi baris {@link ItemBiayaPunyaDibayarDimuka} baru pada
+	 * grid) dan kolom (Kode, Akun, Fakultas, Jurusan, Program, Angkatan, Hapus), lalu memuat baris
+	 * yang sudah ada lewat {@link #loadDataDetail}.
+	 */
 	public Borderlayout initDetail(final ItemBiaya itemBiaya) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -144,6 +159,7 @@ public class ItemBiayaPunyaDibayarDimukaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang seluruh {@link ItemBiayaPunyaDibayarDimuka} milik {@code itemBiaya} ke grid (kosong bila {@code itemBiaya} belum tersimpan). */
 	private void loadDataDetail(final ItemBiaya itemBiaya) {
 
 		List<ItemBiayaPunyaDibayarDimuka> itemBiayaPunyaDibayarDimukas = itemBiaya == null || itemBiaya.getId() == null
@@ -161,6 +177,11 @@ public class ItemBiayaPunyaDibayarDimukaHelper {
 		}
 	}
 
+	/**
+	 * Merender satu baris grid untuk {@code itemBiayaPunyaDibayarDimuka}: kode+nama akun (dengan
+	 * detail revisi), combo cakupan fakultas/jurusan (cascading)/program dan textbox angkatan (semua
+	 * autosave saat berubah), dan tombol hapus.
+	 */
 	public void initRow(final Row row, final ItemBiayaPunyaDibayarDimuka itemBiayaPunyaDibayarDimuka) {
 		row.setValign("top");row.setAttribute("itemBiayaPunyaDibayarDimuka", itemBiayaPunyaDibayarDimuka);
 

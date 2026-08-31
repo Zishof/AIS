@@ -52,6 +52,17 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk kelola aturan pembatasan jumlah SKS yang boleh diambil mahasiswa saat KRS
+ * berdasarkan IP (kumulatif atau semester, tergantung konfigurasi
+ * {@code pembatasan_maksimal_sks_pada_pegambilan_krs_berdasarkan_ip_semester_sebelum_nya})
+ * ({@link PembatasanNilaiIPKUntukPengambilanKRS}): setiap aturan memasangkan ambang batas bawah
+ * IP dengan batas maksimum SKS yang boleh diambil, dapat dipersempit cakupannya ke
+ * fakultas/jurusan/program/tahun angkatan minimum, atau bahkan ke satu mahasiswa tertentu.
+ * Daftar dapat difilter fakultas/jurusan/program/NIM/nama; setiap baris punya toggle aktif dan
+ * semester-pendek langsung tersimpan, serta tombol unduh/unggah data massal. Akses diverifikasi
+ * lewat {@link Common#doCheckSecurity()} dan hak baca {@link CommonPrivilages#READ}.
+ */
 public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault {
 	private static final long serialVersionUID = 3786091220301468178L;
@@ -82,6 +93,7 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 
 	private Column colIpk;
 
+	/** Memverifikasi keamanan sesi lewat {@link Common#doCheckSecurity()} sebelum halaman disusun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -89,6 +101,12 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Memvalidasi sesi user dan hak baca (memaksa logoff bila gagal), mengisi kombo filter
+	 * program/fakultas/jurusan, menentukan hak ubah/hapus, memuat daftar awal, menyiapkan
+	 * paginasi, menentukan mode IP (semester vs kumulatif) dari konfigurasi, dan menambahkan
+	 * tombol cetak/unggah data massal ke toolbar.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -137,6 +155,7 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 
 	}
 
+	/** Renderer baris tabel: fakultas/jurusan/program, batas IP terendah dan maksimum SKS, angkatan minimum, mahasiswa target (bila ada), toggle aktif dan semester-pendek (langsung tersimpan), dan tombol ubah/hapus. */
 	class PembatasanIPKKRSRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
@@ -243,12 +262,21 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 
 	}
 
+	/** Membuka jendela isi data untuk membuat aturan pembatasan baru (record kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new PembatasanNilaiIPKUntukPengambilanKRS());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/**
+	 * Menyusun formulir tambah/ubah: fakultas/jurusan/program (masing-masing opsional, kosong
+	 * berarti berlaku untuk semua), batas IP terendah dan batas maksimum SKS, tahun angkatan
+	 * minimum berlaku, mahasiswa target opsional, dan keterangan. Kombo jurusan disaring ulang
+	 * sesuai fakultas terpilih (atau fakultas user yang login bila ada).
+	 *
+	 * @param pembatasanNilaiIPKUntukPengambilanKRS data yang diedit, atau instans baru untuk data baru
+	 */
 	private void init(PembatasanNilaiIPKUntukPengambilanKRS pembatasanNilaiIPKUntukPengambilanKRS) {
 		this.pembatasanNilaiIPKUntukPengambilanKRS = pembatasanNilaiIPKUntukPengambilanKRS;
 		Common.clear(addWindow);
@@ -397,6 +425,13 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 
 	}
 
+	/**
+	 * Memvalidasi batas IP terendah, batas maksimum SKS, dan tahun angkatan minimum wajib diisi,
+	 * lalu menyimpan (buat baru atau perbarui) entitas {@link PembatasanNilaiIPKUntukPengambilanKRS}.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+	 */
 	public boolean onSave(Event event) throws Exception {
 
 		// if (fakultas.getSelectedItem() ==
@@ -481,6 +516,7 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 		return true;
 	}
 
+	/** @return kriteria pencarian {@link PembatasanNilaiIPKUntukPengambilanKRS} berdasarkan fakultas/jurusan/program/NIM/nama mahasiswa, diurutkan menaik berdasarkan id bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PembatasanNilaiIPKUntukPengambilanKRS.class)
@@ -508,6 +544,7 @@ public class PembatasanNilaiIPKUntukPengambilanKRSAction extends GenericAutowire
 		return criteria;
 	}
 
+	/** Memuat ulang paginasi dan grid daftar aturan pembatasan sesuai filter formulir saat ini dan halaman aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);

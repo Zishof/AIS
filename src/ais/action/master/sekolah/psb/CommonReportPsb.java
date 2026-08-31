@@ -49,8 +49,44 @@ import ais.ui.util.MyIframe;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Kelas utilitas statis modul PSB (Penerimaan Siswa Baru) sekolah yang mengumpulkan seluruh
+ * pembuatan laporan/dokumen cetak terkait pendaftaran: kartu ujian, absensi ujian (per hari,
+ * dipecah per prodi pilihan atau digabung), formulir verifikasi berkas, surat pernyataan orang
+ * tua/siswa, dan biodata lengkap calon siswa. Sebagian besar method menyusun peta parameter
+ * laporan lalu mendelegasikan pembuatan berkas ke {@link Report} (template Jasper/JRXML).
+ *
+ * <p>
+ * Kop surat (kepala surat) laporan diambil dari {@link LampiranLain} bertipe
+ * {@code KOP_GELOMBANG_PSB} milik gelombang pendaftaran calon siswa, disisipkan sebagai path
+ * berkas ke parameter {@code kop_file} bila tersedia. {@link #onCetakAbsensiPSBFoto} membangun
+ * dialog interaktif dengan filter berjenjang (tahun akademik → gelombang → jadwal ujian) yang
+ * merender ulang pratinjau PDF secara live saat filter berubah, serta menyediakan ekspor XLS.
+ * {@link #onCetakCalonSiswa} adalah yang paling kompleks: menyusun biodata lengkap calon siswa
+ * ke dalam struktur label-nilai berkelompok (data calon siswa, pendidikan asal, orang tua/wali,
+ * parameter tambahan dinamis, dan status verifikasi kelengkapan berkas — membuat baris
+ * {@link CalonSiswaPunyaVerifikasiBerkas} kosong bila belum ada agar setiap item verifikasi
+ * gelombang selalu tampil di laporan) sebelum dirender sebagai PDF biodata.
+ * </p>
+ */
 public class CommonReportPsb {
 
+	/**
+	 * Mencetak kartu ujian PSB untuk {@code calonSiswa}: memvalidasi kelengkapan berkas dan
+	 * (bila diwajibkan konfigurasi) status pembayaran terlebih dahulu, memastikan calon sudah
+	 * memiliki penempatan ruang ujian (mengambilnya otomatis lewat {@code
+	 * CommonPSB#dapatkanRuangUjian} bila nomor ujian sudah ada tapi penempatan belum tersimpan),
+	 * lalu membuat PDF kartu ujian dan mengirimkannya via email lewat
+	 * {@code CommonEmail#infoDaftarUjianSiswa} (disertai lampiran {@code bio} tambahan bila
+	 * diberikan).
+	 *
+	 * @param calonSiswa calon siswa yang kartu ujiannya dicetak
+	 * @param nomorUjian nomor ujian yang dicantumkan pada kartu
+	 * @param bio        berkas biodata tambahan yang ikut dilampirkan ke email, boleh {@code null}
+	 * @return {@code true} bila kartu berhasil dibuat dan dikirim, {@code false} bila berkas
+	 *         belum lengkap, syarat bayar belum terpenuhi, ruang ujian belum tersedia, atau
+	 *         terjadi galat (dicatat ke audit)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static boolean onCetakKartuUjianPSB(CalonSiswa calonSiswa, String nomorUjian, File bio) throws Exception {
 
@@ -118,11 +154,25 @@ public class CommonReportPsb {
 		}
 	}
 
+	/** Membuka dialog absensi ujian PSB tanpa ruang spesifik (menampilkan opsi "Gabung Semua" ruang). Lihat {@link #onCetakAbsensiPSBFoto(RuangPSB)}. */
 	@SuppressWarnings({})
 	public static MyWindow onCetakAbsensiPSBFoto() throws Exception {
 		return onCetakAbsensiPSBFoto(null);
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog interaktif daftar absensi ujian PSB (berfoto), dengan
+	 * filter pilihan prodi (1-5), jurusan, tahun akademik, gelombang pendaftaran (bergantung
+	 * tahun akademik), dan jadwal ujian (bergantung gelombang) — mengubah salah satu filter
+	 * langsung merender ulang pratinjau PDF di iframe dalam dialog. Bila {@code ruang} diberikan,
+	 * dialog dibatasi ke ruang tersebut (opsi "Gabung Semua" disembunyikan); bila {@code null},
+	 * dialog menampilkan gabungan seluruh ruang. Tombol "XLS" mengekspor data yang sama sebagai
+	 * berkas Excel.
+	 *
+	 * @param ruang ruang ujian PSB yang membatasi cakupan absensi, boleh {@code null} untuk
+	 *              seluruh ruang
+	 * @return window dialog absensi siap ditampilkan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static MyWindow onCetakAbsensiPSBFoto(final RuangPSB ruang) throws Exception {
 
@@ -382,6 +432,23 @@ public class CommonReportPsb {
 		return window;
 	}
 
+	/**
+	 * Menyusun daftar baris data (satu per calon siswa) untuk laporan absensi/album foto ujian
+	 * PSB: mencari {@link RuangGelombangPendaftaranPsbPSB} calon siswa yang sudah punya nomor
+	 * induk (terdaftar), memilih jurusan sesuai {@code pilihan} ({@code "prodi1"} s/d
+	 * {@code "prodi5"}), difilter opsional per {@code ruang} dan/atau
+	 * {@code gelombangPendaftaranPsb}, lalu untuk tiap baris menyusun peta data cetak (waktu
+	 * ujian, nama, nomor ujian, ruang/gedung, TTL, jenis kelamin, alamat, foto).
+	 *
+	 * @param ruang                    ruang ujian pembatas, boleh {@code null} untuk seluruh ruang
+	 * @param pilihan                  nama properti pilihan prodi pada {@link CalonSiswa} (mis. {@code "prodi1"})
+	 * @param jadwalUjianPSB           jadwal ujian yang dipakai untuk kolom waktu bila {@code gabungSemua}
+	 * @param tahunAkademik            tahun akademik yang disisipkan ke setiap baris
+	 * @param gelombangPendaftaranPsb  gelombang pendaftaran pembatas, boleh {@code null}
+	 * @param jurusan                  jurusan/prodi yang dicocokkan ke properti {@code pilihan}
+	 * @param gabungSemua              bila {@code true}, kolom jadwal ujian memakai nama {@code jadwalUjianPSB} tunggal; bila {@code false}, memakai kombinasi ujian+jadwal per baris
+	 * @return daftar peta data siap dipakai sebagai sumber laporan Jasper
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Map<String, Object>> getDataAlbumPSBAdmin(RuangPSB ruang, String pilihan,
 			JadwalUjianPSB jadwalUjianPSB, String tahunAkademik, GelombangPendaftaranPsb gelombangPendaftaranPsb,
@@ -489,6 +556,7 @@ public class CommonReportPsb {
 		return maps;
 	}
 
+	/** Mencetak PDF absensi ujian PSB satu berkas per hari ujian ({@code ruangPSB.getUjianPSB().getJumlahHariUjian()}) untuk {@code ruangPSB}; tidak melakukan apa pun bila ruang belum terkait ujian. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakAbsensiPSB(RuangPSB ruangPSB) throws Exception {
 
@@ -514,6 +582,7 @@ public class CommonReportPsb {
 				names.toArray(new String[] {}), ais.ui.util.WaktuUtil.getDate());
 	}
 
+	/** Mencetak PDF surat pernyataan orang tua untuk {@code calonSiswa} (identitas calon, orang tua, dan sekolah asal), dengan kop surat gelombang bila tersedia. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakPernyataanOrtu(CalonSiswa calonSiswa) throws Exception {
 
@@ -546,6 +615,7 @@ public class CommonReportPsb {
 
 	}
 
+	/** Mencetak PDF surat pernyataan siswa untuk {@code calonSiswa} (identitas calon, kelas, orang tua, sekolah asal/tujuan beserta kepala sekolahnya), dengan kop surat gelombang bila tersedia. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakPernyataanSiswa(CalonSiswa calonSiswa) throws Exception {
 
@@ -587,6 +657,7 @@ public class CommonReportPsb {
 
 	}
 
+	/** Mencetak PDF formulir validasi/verifikasi PSB untuk {@code ruangPSB}; tidak melakukan apa pun bila ruang belum terkait ujian. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakVerifikasiPSB(RuangPSB ruangPSB) throws Exception {
 
@@ -604,6 +675,19 @@ public class CommonReportPsb {
 		Report.generatePDFReport(Report.PDF, parameters, "ValidasiPSB", ais.ui.util.WaktuUtil.getDate());
 	}
 
+	/**
+	 * Menyusun dan mencetak PDF biodata lengkap {@code calonSiswa}, berupa daftar label-nilai
+	 * berkelompok: data calon siswa (identitas, alamat, kewarganegaraan), pendidikan asal, data
+	 * orang tua/wali (termasuk pendapatan sebagai rentang Rupiah), parameter tambahan dinamis
+	 * yang dikonfigurasi admin, dan status verifikasi kelengkapan berkas untuk setiap item
+	 * verifikasi aktif pada gelombang pendaftaran (baris
+	 * {@link CalonSiswaPunyaVerifikasiBerkas} dibuat kosong bila belum ada, agar setiap item
+	 * verifikasi selalu tampil di laporan meski belum diverifikasi). Baris dengan nilai kosong
+	 * atau {@code "null"} disaring keluar sebelum dicetak.
+	 *
+	 * @param calonSiswa calon siswa yang biodatanya dicetak
+	 * @return berkas PDF biodata yang dihasilkan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static File onCetakCalonSiswa(final CalonSiswa calonSiswa) throws Exception {
 
@@ -846,6 +930,7 @@ public class CommonReportPsb {
 
 	}
 
+	/** Seperti {@link #onCetakKartuUjianPSB(CalonSiswa, String, File)} tanpa lampiran biodata tambahan. */
 	@SuppressWarnings({})
 	public static boolean onCetakKartuUjianPSB(CalonSiswa calonSiswa, String nomorUjian) throws Exception {
 		return onCetakKartuUjianPSB(calonSiswa, nomorUjian, null);

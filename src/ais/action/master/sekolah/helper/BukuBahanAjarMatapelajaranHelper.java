@@ -42,6 +42,14 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK untuk mengelola daftar buku bahan ajar/diktat ({@link MatapelajaranPunyaBukuBahanAjar})
+ * yang dikaitkan ke satu {@link Matapelajaran}. Menyediakan pengambilan buku dari koleksi yang
+ * sudah ada (dialog pemilihan banyak) atau penambahan buku baru langsung dari layar ini, detail
+ * per baris (unggah/unduh berkas buku dan cover, info pengarang/dosen, kutipan sitasi), dan
+ * notifikasi email ke pengajar jadwal terkait ({@link CommonEmail#infoAdaBukuAjar}) saat buku
+ * baru ditambahkan pada konteks satu {@link JadwalPelajaran}.
+ */
 public class BukuBahanAjarMatapelajaranHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -53,6 +61,7 @@ public class BukuBahanAjarMatapelajaranHelper implements DataLoader {
 
 	}
 
+	/** Renderer baris grid untuk satu {@link MatapelajaranPunyaBukuBahanAjar}: judul (dengan detail unggah/cover, dibuka via {@link MyDetail}), pengarang, ISBN, penerbit, link, keterangan, tahun, dan tombol kutipan/hapus. */
 	class DetailMatapelajaranRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -170,6 +179,7 @@ public class BukuBahanAjarMatapelajaranHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang daftar {@link MatapelajaranPunyaBukuBahanAjar} sesuai {@link #matapelajaran} (atau {@link #sqltambahan} bila tidak ada mata pelajaran spesifik) ke grid, dan memperbarui label tab dengan jumlah baris bila komponen induk adalah {@link Tabpanel}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -190,11 +200,19 @@ public class BukuBahanAjarMatapelajaranHelper implements DataLoader {
 
 	}
 
+	/** Seperti {@link #display(Matapelajaran, Component, JadwalPelajaran)}, tanpa mata pelajaran spesifik — daftar disaring memakai kondisi SQL mentah {@code sqltambahan}. */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(matapelajaran, component, null);
 	}
 
+	/**
+	 * Membangun kerangka layar daftar buku ajar untuk {@code matapelajaran} pada {@code component}
+	 * (bila berupa {@link Tabpanel}, ditambahkan toolbar "Ambil Buku Ajar"/"Tambah Buku Ajar" yang
+	 * tampil hanya untuk non-mahasiswa dan bila ada mata pelajaran/jadwal terpilih), lalu langsung
+	 * memuat datanya. {@code jadwalPelajaran} (boleh {@code null}) dipakai untuk mengirim notifikasi
+	 * email ke pengajar saat buku baru ditambahkan.
+	 */
 	public void display(final Matapelajaran matapelajaran, final Component component, final JadwalPelajaran jadwalPelajaran) {
 		this.matapelajaran = matapelajaran;
 		Common.clear(component);

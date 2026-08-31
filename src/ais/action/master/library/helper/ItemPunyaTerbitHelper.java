@@ -181,6 +181,16 @@ public class ItemPunyaTerbitHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menampilkan jendela modal isi/edit satu {@link ItemPunyaTerbit}: pemilih tanggal mulai/
+	 * sampai, satuan kerja, dan perpustakaan (kombo perpustakaan disaring ulang sesuai satuan
+	 * kerja terpilih), plus editor konten kaya yang diisi awal dari abstrak (ID lalu EN) atau
+	 * catatan {@code item} bila konten belum ada. Tombol Simpan memvalidasi mulai/konten/satuan
+	 * kerja/perpustakaan wajib diisi, lalu menyimpan langsung ke basis data (bila {@code item}
+	 * sudah punya id) atau hanya menambahkan baris ke grid (bila item belum tersimpan).
+	 *
+	 * @param itemPunyaTerbit data penerbitan yang diedit, atau instans baru untuk data baru
+	 */
 	private void init(final ItemPunyaTerbit itemPunyaTerbit) throws Exception {
 		final MyWindow window = new MyWindow("Item Terbit", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage()
@@ -362,6 +372,7 @@ public class ItemPunyaTerbitHelper {
 		window.onModal();
 	}
 
+	/** Memuat baris {@link ItemPunyaTerbit} tersimpan milik {@code item} (terbaru dahulu), difilter satuan kerja/perpustakaan bila dipilih pada toolbar; kosong bila item belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Item item) {
 
@@ -397,6 +408,15 @@ public class ItemPunyaTerbitHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan ringkasan penerbitan (satuan kerja, perpustakaan, tanggal
+	 * mulai/sampai/dibuat) serta tombol ubah (membuka {@link #init(ItemPunyaTerbit)}) dan hapus
+	 * (dengan dialog konfirmasi yang menghapus baris database dan melepas baris UI bila
+	 * dikonfirmasi).
+	 *
+	 * @param row             baris grid yang diisi
+	 * @param itemPunyaTerbit data penerbitan untuk baris ini
+	 */
 	public void initRow(final Row row, final ItemPunyaTerbit itemPunyaTerbit)
 			throws Exception {
 		row.setValign("top");row.setAttribute("itemPunyaTerbit", itemPunyaTerbit);

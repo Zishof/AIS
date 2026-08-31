@@ -53,6 +53,17 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI pengelola data keluarga pegawai ({@link Keluarga} — suami/istri, anak, mertua, orang
+ * tua, saudara). Struktur dan alur mengikuti pola {@link RiwayatKeteranganLainPegawaiHelper}/
+ * {@link RiwayatPelatihanPegawaiHelper}: alur persetujuan dua tahap dengan pembekuan form, mode
+ * terikat-pegawai atau lintas-pegawai dengan filter satuan kerja hierarkis, lampiran dokumen wajib,
+ * serta dukungan cetak dan unggah data massal (unggah hanya untuk pengguna berhak
+ * {@link CommonPrivilages#APPROVE}). Field spesifik keluarga: hubungan, tanggal nikah (bila
+ * berlaku), biodata (tempat/tanggal lahir, jenis kelamin, alamat, pekerjaan), dan data asuransi
+ * (jenis, nomor, premi) yang dropdown-nya difilter hanya menampilkan {@link AsuransiPegawai}
+ * berjenis khusus keluarga atau untuk keduanya.
+ */
 public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 
 	private MyGrid grid = new MyGrid();
@@ -82,11 +93,13 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 	private Textbox nomorAsuransiPegawai1;
 	private MyDoublebox premiAsuransi1;
 
+	/** Membuat helper; bila {@code pegawai} tidak {@code null}, tampilan terikat pada satu pegawai tersebut (dropdown pegawai dikunci), selain itu menampilkan lintas pegawai dengan filter satuan kerja. */
 	public KeluargaPegawaiHelper(final Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris grid: nama pegawai, hubungan, tanggal lahir+usia, nama anggota keluarga, jenis kelamin, alamat, nama asuransi, keterangan, ikon status persetujuan, dan tombol edit (membuka {@link #init}) + hapus (disembunyikan bila sudah disetujui, dengan dialog konfirmasi). */
 	class KeluargaPegawaiHelperRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -172,6 +185,15 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 		}
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel data keluarga: baris filter (pegawai terkunci atau satuan
+	 * kerja hierarkis bila lintas pegawai, plus status persetujuan), tombol "Tambah Data", cetak
+	 * data, dan unggah data massal (khusus pengguna berhak approve), diikuti grid berpaginasi (10
+	 * baris/halaman) yang dimuat lewat timer default memanggil {@link #onSearchDefault}.
+	 *
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail pegawai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -363,6 +385,7 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 		return borderlayout;
 	}
 
+	/** Menjalankan pencarian data keluarga sesuai kriteria saat ini ({@link #initCriteria}) dan menyegarkan grid dengan {@link KeluargaPegawaiHelperRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -377,6 +400,17 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/edit satu data keluarga: panel timur berisi pengelola lampiran
+	 * dokumen ({@code FotoLampiranPegawaiHelper}), panel tengah berisi form lengkap (pegawai,
+	 * hubungan, tanggal nikah, biodata, alamat, pekerjaan, data asuransi, keterangan, dan checkbox
+	 * status persetujuan — hanya tampil bagi pengguna berhak {@link CommonPrivilages#APPROVE}).
+	 * Form dibekukan bila entri sudah berstatus disetujui, dan otomatis dibekukan/dibuka ulang saat
+	 * checkbox status diubah. Tombol Simpan memicu {@link #save(Event)}.
+	 *
+	 * @param keluarga entitas baru atau tersimpan yang akan diedit
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void init(final Keluarga keluarga) throws Exception {
 		this.keluarga = keluarga;
 
@@ -625,6 +659,16 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi (pegawai, hubungan, nama, jenis kelamin, alamat, dan pekerjaan wajib diisi;
+	 * setiap baris lampiran pada grid foto harus sudah memiliki berkas terunggah) lalu menyimpan/
+	 * memperbarui entitas {@link Keluarga} beserta seluruh lampiran {@link FotoLampiranPegawai}
+	 * terkait dalam sesi Hibernate streaming terpisah.
+	 *
+	 * @param event event pemicu (tidak dipakai langsung)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan dari kegagalan Hibernate di luar penanganan lampiran (yang ditangkap dan ditampilkan hanya untuk admin)
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {
@@ -719,6 +763,7 @@ public class KeluargaPegawaiHelper implements DataCriteria, DataSearchDefault {
 		return true;
 	}
 
+	/** Membangun kriteria pencarian {@link Keluarga} berdasarkan satuan kerja pegawai (termasuk seluruh turunannya), pegawai terpilih, dan status persetujuan, diurutkan menurut hubungan. */
 	@Override
 	public Criteria initCriteria(boolean order) {
 

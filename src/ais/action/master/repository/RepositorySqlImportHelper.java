@@ -15,12 +15,42 @@ import org.hibernate.Session;
 
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Alat impor dump SQL MySQL (format phpMyCore/SLiMS-style, dikenali dari tabel {@code biblio})
+ * ke dalam skema repositori institusi AIS ({@code public.repo_item}/{@code repo_item_metadata}/
+ * {@code repo_bitstream}). Alur kerja dua tahap: (1) {@link #restoreSql} mem-parsing file
+ * {@code .sql} MySQL statement demi statement (mengenali string ber-quote tunggal dengan escape
+ * backslash untuk menghindari memotong statement di tengah literal), mengonversi tiap
+ * {@code CREATE TABLE}/{@code INSERT INTO} MySQL ke sintaks PostgreSQL (tipe kolom dipetakan lewat
+ * {@link #mapMysqlType}, identifier di-quote lewat {@link #qident}) dan menjalankannya ke sebuah
+ * skema staging sementara bernama {@code repository_<timestamp>}; statement selain dua jenis itu
+ * (SET, transaksi, DROP/ALTER TABLE, dll.) dilewati begitu saja; (2) {@link #migrateToRepository}
+ * memindahkan data dari tabel staging {@code biblio} (plus tabel referensi
+ * penerbit/bahasa/tipe/pengarang/topik) ke tabel repositori final lewat SQL {@code INSERT}/
+ * {@code UPDATE} gabungan (upsert manual berbasis {@code oai_identifier}), termasuk metadata
+ * Dublin Core per field dan lampiran berkas (bitstream) bila tabel sumbernya ada.
+ *
+ * <p>
+ * <b>Catatan keamanan</b> — fitur ini pada dasarnya adalah pintu eksekusi SQL: statement
+ * {@code CREATE TABLE}/{@code INSERT} hasil parsing file yang diunggah dijalankan langsung ke
+ * skema staging (nama tabel/kolom hanya di-quote sebagai identifier lewat {@link #qident}, TANPA
+ * whitelist nama tabel/kolom), dan sebagian besar SQL migrasi tahap kedua ({@link #buildUpdateItemsSql},
+ * {@link #buildInsertItemsSql}, {@link #insertMetadataField}, {@link #insertBitstreams}) dirakit
+ * lewat konkatenasi string (bukan parameter terikat), meskipun nama skema yang disisipkan berasal
+ * dari nilai yang di-generate server ({@code repository_<timestamp>}, bukan input pengguna
+ * langsung). Ini adalah keputusan desain untuk mendukung impor dump SQL sembarang oleh admin;
+ * dilaporkan di sini tanpa diperbaiki sesuai batasan tugas dokumentasi ini — pastikan endpoint
+ * yang memanggil kelas ini dibatasi ketat ke admin tepercaya.
+ * </p>
+ */
 public class RepositorySqlImportHelper {
 
+    /** Callback progres impor (persentase 0-100 dan pesan status) untuk ditampilkan ke UI. */
     public interface ProgressListener {
         void onProgress(int percent, String message);
     }
 
+    /** Ringkasan hasil satu proses impor: nama skema staging, statistik statement/data, dan pesan galat (maks 25 pertama). */
     public static class Result {
         public String schema;
         public File sqlFile;
@@ -33,6 +63,17 @@ public class RepositorySqlImportHelper {
         public List<String> messages = new ArrayList<String>();
     }
 
+    /**
+     * Titik masuk utama: memvalidasi berkas (harus ada, berekstensi {@code .sql}), lalu
+     * menjalankan {@link #restoreSql} (staging) diikuti {@link #migrateToRepository} (migrasi ke
+     * repositori final), melaporkan progres lewat {@code progressListener} di sepanjang proses.
+     *
+     * @param sqlFile          berkas dump SQL MySQL yang diunggah
+     * @param progressListener penerima kabar progres, boleh {@code null}
+     * @return ringkasan hasil impor
+     * @throws IllegalArgumentException bila berkas tidak valid atau tidak berisi tabel {@code biblio}
+     * @throws Exception                diteruskan dari kegagalan I/O atau basis data lainnya
+     */
     public Result importSql(File sqlFile, ProgressListener progressListener) throws Exception {
         if (sqlFile == null || !sqlFile.exists() || !sqlFile.isFile()) {
             throw new IllegalArgumentException("File SQL tidak ditemukan.");
@@ -52,6 +93,12 @@ public class RepositorySqlImportHelper {
         return result;
     }
 
+    /**
+     * Membuat skema staging {@code result.schema}, lalu membaca {@code result.sqlFile} byte demi
+     * byte untuk memecahnya menjadi statement individual (pemisah {@code ;} di luar literal
+     * string ber-quote tunggal, dengan penanganan escape backslash), memproses tiap statement
+     * lewat {@link #processMysqlStatement}, dan melaporkan progres berkala (setiap 100 statement).
+     */
     private void restoreSql(Result result, ProgressListener progressListener) throws Exception {
         update(progressListener, 8, "Membuat schema temporary " + result.schema + ".");
         Session session = HibernateUtil.currentSession();
@@ -100,6 +147,14 @@ public class RepositorySqlImportHelper {
                 + result.skippedStatements + ", gagal " + result.failedStatements + ".");
     }
 
+    /**
+     * Menyaring dan mengonversi satu statement MySQL mentah: melewati statement kosong/komentar/
+     * {@code SET}/kontrol transaksi/{@code LOCK TABLES}/{@code DROP TABLE}/{@code ALTER TABLE}
+     * (dicatat sebagai {@code skippedStatements}); mengonversi {@code CREATE TABLE} lewat
+     * {@link #convertCreateTable} dan {@code INSERT INTO} lewat {@link #convertInsert}; statement
+     * jenis lain juga dilewati. Statement hasil konversi dijalankan; kegagalan eksekusi dicatat
+     * ke {@code failedStatements} dan (maksimal 25) pesan galat ringkas.
+     */
     private void processMysqlStatement(Session session, String raw, Result result) {
         String statement = stripLeadingMysqlComments(raw == null ? "" : raw.trim());
         String upper = statement.toUpperCase(Locale.ENGLISH);
@@ -133,6 +188,14 @@ public class RepositorySqlImportHelper {
         }
     }
 
+    /**
+     * Mengonversi satu statement {@code CREATE TABLE} MySQL menjadi PostgreSQL: mengambil nama
+     * tabel lewat {@link #extractMysqlTableName}, memecah daftar kolom top-level lewat
+     * {@link #splitTopLevel}, dan untuk tiap kolom (dikenali dari nama yang diapit backtick)
+     * memetakan tipe datanya lewat {@link #mapMysqlType}. Baris/kolom non-kolom (mis. definisi
+     * index/constraint MySQL) dilewati begitu saja. Mengembalikan {@code null} bila nama tabel
+     * tidak ditemukan atau tidak ada kolom valid yang berhasil diparsing.
+     */
     private String convertCreateTable(String statement, String schema) {
         String table = extractMysqlTableName(statement);
         if (table == null) {
@@ -169,6 +232,7 @@ public class RepositorySqlImportHelper {
         return first ? null : sql.toString();
     }
 
+    /** Melepas komentar baris MySQL ({@code --} atau {@code #}) berulang di awal statement. */
     private String stripLeadingMysqlComments(String statement) {
         String result = statement == null ? "" : statement.trim();
         boolean changed = true;
@@ -187,6 +251,11 @@ public class RepositorySqlImportHelper {
         return result;
     }
 
+    /**
+     * Mengonversi satu statement {@code INSERT INTO} MySQL menjadi PostgreSQL: mengganti nama
+     * tabel dengan versi ber-skema+quote, mengganti seluruh backtick dengan tanda kutip ganda,
+     * dan melepas prefiks {@code _binary} pada literal biner MySQL yang tidak dikenal PostgreSQL.
+     */
     private String convertInsert(String statement, String schema) {
         String table = extractMysqlTableName(statement);
         if (table == null) {
@@ -199,6 +268,7 @@ public class RepositorySqlImportHelper {
         return sql;
     }
 
+    /** @return nama tabel dari statement MySQL: dari dalam backtick pertama bila ada, atau kata ketiga (heuristik posisi) bila tidak ada backtick sama sekali. */
     private String extractMysqlTableName(String statement) {
         int tick = statement.indexOf('`');
         if (tick >= 0) {
@@ -209,6 +279,13 @@ public class RepositorySqlImportHelper {
         return parts.length >= 3 ? parts[2] : null;
     }
 
+    /**
+     * Memetakan definisi kolom MySQL mentah (tipe + atribut seperti {@code UNSIGNED},
+     * {@code AUTO_INCREMENT}, {@code DEFAULT ...}, {@code COMMENT '...'}, dsb. — seluruhnya
+     * dilucuti) ke tipe data PostgreSQL terdekat: integer (bigint/integer/smallint sesuai
+     * ukuran), tanggal/waktu, numerik (decimal/double/float -> numeric), varchar/char (panjang
+     * dipertahankan), blob -> bytea, dan fallback {@code text} untuk tipe lain yang tidak dikenal.
+     */
     private String mapMysqlType(String raw) {
         String t = raw.toLowerCase(Locale.ENGLISH);
         t = t.replaceAll("(?i)character\\s+set\\s+\\S+", " ");
@@ -255,6 +332,7 @@ public class RepositorySqlImportHelper {
         return "text";
     }
 
+    /** Memecah {@code body} (isi tanda kurung {@code CREATE TABLE}) berdasarkan koma di level tanda kurung 0, mengabaikan koma di dalam literal string atau di dalam sub-kurung bersarang. */
     private List<String> splitTopLevel(String body) {
         List<String> result = new ArrayList<String>();
         StringBuilder current = new StringBuilder();
@@ -297,6 +375,16 @@ public class RepositorySqlImportHelper {
         return result;
     }
 
+    /**
+     * Memigrasikan data dari tabel staging (mensyaratkan tabel {@code biblio} ada) ke repositori
+     * final: memastikan koleksi default {@code REPOSITORY_IMPORT} ada, meng-upsert baris
+     * {@code repo_item} (update yang sudah ada berdasarkan {@code oai_identifier}, lalu insert
+     * sisanya), mengimpor metadata Dublin Core ({@link #insertMetadata}) dan lampiran berkas
+     * ({@link #insertBitstreams}).
+     *
+     * @throws IllegalArgumentException bila tabel {@code biblio} tidak ditemukan di skema staging
+     * @throws IllegalStateException    bila koleksi default gagal dibuat/ditemukan
+     */
     private void migrateToRepository(Result result, ProgressListener progressListener) {
         Session session = HibernateUtil.currentSession();
         update(progressListener, 62, "Memeriksa tabel staging repository.");
@@ -325,6 +413,7 @@ public class RepositorySqlImportHelper {
         result.importedBitstreams = insertBitstreams(result.schema);
     }
 
+    /** @return SQL {@code UPDATE repo_item} yang menyelaraskan baris item yang sudah ada (dicocokkan lewat {@code oai_identifier}) dengan data biblio staging terbaru. */
     private String buildUpdateItemsSql(String schema, Long collectionId) {
         return "update public.repo_item ri set "
                 + "collection_id=" + collectionId + ", "
@@ -345,6 +434,7 @@ public class RepositorySqlImportHelper {
                 + " where ri.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text)";
     }
 
+    /** @return SQL {@code INSERT INTO repo_item} untuk baris biblio staging yang belum punya padanan {@code oai_identifier} di repositori. */
     private String buildInsertItemsSql(String schema, Long collectionId) {
         return "insert into public.repo_item (collection_id, oai_identifier, is_withdrawn, source_class, source_id, source_label, title, abstract_text, authors, subjects, publisher, language, document_type, access_policy, sync_status, sync_message, submitted_at, issued_at, tanggal_dirubah, aktif) "
                 + "select " + collectionId + ", 'repository:biblio:' || CAST(b.biblio_id AS text), (coalesce(b.opac_hide,0)<>0), "
@@ -362,6 +452,7 @@ public class RepositorySqlImportHelper {
                 + " where not exists (select 1 from public.repo_item x where x.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text))";
     }
 
+    /** @return klausa {@code FROM ... LEFT JOIN ...} bersama yang menggabungkan {@code biblio} dengan tabel referensi penerbit/bahasa/tipe item/GMD serta pengarang dan topik teragregasi, dipakai oleh {@link #buildUpdateItemsSql}/{@link #buildInsertItemsSql}. */
     private String fromRepositoryData(String schema) {
         return " from " + qs(schema, "biblio") + " b "
                 + "left join " + qs(schema, "mst_publisher") + " p on p.publisher_id=b.publisher_id "
@@ -374,6 +465,7 @@ public class RepositorySqlImportHelper {
                 + "from " + qs(schema, "biblio_topic") + " bt join " + qs(schema, "mst_topic") + " mt on mt.topic_id=bt.topic_id group by bt.biblio_id) t on t.biblio_id=b.biblio_id ";
     }
 
+    /** @return jumlah baris metadata Dublin Core yang berhasil disisipkan, mencakup field title/creator/subject/description.abstract/publisher/identifier.isbn/date.issued/language.iso/identifier.callnumber/identifier.other (lihat {@link #insertMetadataField}). */
     private int insertMetadata(String schema) {
         String base = " from public.repo_item ri join " + qs(schema, "biblio") + " b on ri.oai_identifier='repository:biblio:' || CAST(b.biblio_id AS text) "
                 + "left join " + qs(schema, "mst_publisher") + " p on p.publisher_id=b.publisher_id "
@@ -392,6 +484,7 @@ public class RepositorySqlImportHelper {
         return total;
     }
 
+    /** Menyisipkan satu field metadata Dublin Core untuk setiap item repositori yang nilainya (dari {@code valueExpression}) tidak kosong dan belum pernah tercatat sama; mengembalikan jumlah baris tersisip. */
     private int insertMetadataField(String schema, String field, String valueExpression, String baseFrom) {
         String value = "nullif(trim(CAST((" + valueExpression + ") AS text)),'')";
         String sql = "insert into public.repo_item_metadata (item_id, metadata_field, metadata_value, language, place, confidence, tanggal_dirubah, aktif) "
@@ -403,6 +496,7 @@ public class RepositorySqlImportHelper {
         return executeCountSql(HibernateUtil.currentSession(), sql);
     }
 
+    /** Menyisipkan baris {@code repo_bitstream} dari tabel staging {@code biblio_attachment}+{@code files} bila keduanya ada; menandai lampiran pertama tiap item sebagai berkas utama; mengembalikan 0 bila tabel sumber tidak ditemukan. */
     private int insertBitstreams(String schema) {
         if (!tableExists(HibernateUtil.currentSession(), schema, "biblio_attachment")
                 || !tableExists(HibernateUtil.currentSession(), schema, "files")) {

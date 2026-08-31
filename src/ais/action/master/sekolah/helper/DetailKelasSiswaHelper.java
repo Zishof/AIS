@@ -68,6 +68,19 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI untuk layar detail penghuni kelas siswa ({@link KelasSiswa}/{@link KelasSiswaPunyaSiswa}).
+ * Mengikuti pola serupa {@link DetailAsramaSiswaHelper} (daftar berpaginasi, filter nama/angkatan,
+ * tambah lewat picker banyak-pilih, unggah massal Excel, pembersihan seluruh anggota, cetak, dan
+ * laporan absensi), dengan tambahan khusus kelas: (1) kolom nomor urut per siswa dalam kelas yang
+ * dapat diedit langsung; (2) pengecualian mata pelajaran per siswa (siswa tertentu dapat dikecualikan
+ * dari sebagian mata pelajaran kurikulum kelasnya, disimpan sebagai array JSON id mata pelajaran
+ * di {@code mpYgTidakDiambil}, diedit lewat dialog checklist); (3) fitur "Copy siswa dari kelas
+ * lain" yang menyalin seluruh anggota kelas lain (tahun ajaran+kelas dipilih) ke kelas ini tanpa
+ * menduplikasi siswa yang sudah ada. Kolom {@code siswa.kelas}/{@code current_kelas_id} disinkronkan
+ * mengikuti keanggotaan hanya bila {@code kelasSiswa.tahunAjaran} sama dengan tahun akademik
+ * berjalan (kelas untuk tahun ajaran lampau tidak memengaruhi kelas "aktif" siswa saat ini).
+ */
 public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -81,6 +94,7 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	private Paging paging;
 
+	/** Membuat helper, menentukan hak hapus/tambah dari hak akses pengguna saat ini, dan menginisialisasi komponen paging yang memicu {@link #loadData} saat halaman berganti. */
 	public DetailKelasSiswaHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -95,6 +109,15 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/**
+	 * Renderer baris grid: foto, label revisi+NIS, nama, tahun masuk, nomor urut (langsung
+	 * tersimpan saat diubah), ringkasan nama mata pelajaran yang dikecualikan siswa ini, tombol
+	 * "Edit" (membuka dialog checklist mata pelajaran yang tidak diikuti — daftar diambil dari
+	 * kurikulum kelas dikurangi yang sudah dikecualikan), dan tombol hapus (dengan dialog
+	 * konfirmasi; melepas kaitan {@code siswa.kelas} bila kelas ini untuk tahun ajaran berjalan).
+	 * Menyinkronkan {@code siswa.getKelas()} ke kelas ini bila belum tersinkron dan kelas untuk
+	 * tahun ajaran berjalan.
+	 */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -349,6 +372,7 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** Membangun kriteria pencarian {@link KelasSiswaPunyaSiswa} milik {@code kelasSiswa}, opsional difilter nama/NIS/NISN siswa (ILIKE sebagian) dan tahun masuk, diurutkan menurut nomor urut lalu nama dan id siswa menurun bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -377,6 +401,7 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat satu halaman penghuni sesuai kriteria/paging saat ini dan menyegarkan grid dengan {@link DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -391,6 +416,18 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun tampilan lengkap detail penghuni kelas ke dalam {@code component}: toolbar
+	 * pencarian nama/angkatan, tombol Absensi, "Ambil Siswa" (picker banyak-pilih, hanya bila
+	 * punya hak buat), "Bersihkan" (menghapus seluruh keanggotaan satu per satu, dengan dialog
+	 * konfirmasi), "Copy siswa dari kelas lain" (dialog pemilih tahun ajaran+kelas sumber, lalu
+	 * menyalin anggota yang belum ada di kelas ini), cetak data, dan unggah Excel
+	 * ({@link #uploadDataSiswa}); diikuti grid berpaginasi (50 baris/halaman) daftar penghuni.
+	 *
+	 * @param kelasSiswa kelas yang penghuninya dikelola
+	 * @param component  komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu)
+	 * @param window     jendela induk (tidak dipakai langsung, diteruskan untuk konteks pemanggil)
+	 */
 	public void displayDetailPA(final KelasSiswa kelasSiswa, final Component component, final MyWindow window) {
 
 		this.kelasSiswa = kelasSiswa;
@@ -817,6 +854,21 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Memproses berkas Excel (.xlsx) berisi daftar siswa untuk ditambahkan ke kelas ini (kolom 0:
+	 * siswa, kolom 3: nomor urut), dijalankan di thread terpisah dengan progres dan laporan
+	 * unduhan teks di akhir. Setiap baris di-reload ke sesi Hibernate khusus thread ini (bukan
+	 * sesi asal objek {@code siswa}/{@code kelasSiswa}) untuk menghindari
+	 * {@code TransientObjectException} akibat cascade relasi lintas sesi. Baris valid membuat/
+	 * memperbarui {@link KelasSiswaPunyaSiswa} (dicocokkan per tahun ajaran kelas) dan, bila kelas
+	 * untuk tahun ajaran berjalan, memperbarui {@code current_kelas_id} siswa lewat SQL native,
+	 * masing-masing dalam transaksi terpisah. Setelah selesai, laporan rinci diunduh sebagai
+	 * berkas teks dan ringkasan ditampilkan lewat dialog, lalu {@code eventListener} dipanggil.
+	 *
+	 * @param file          berkas Excel sementara yang sudah tersimpan di server
+	 * @param eventListener callback yang dipanggil setelah proses dan dialog ringkasan selesai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen UI progres
+	 */
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final StringBuilder laporan = new StringBuilder();

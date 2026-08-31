@@ -49,6 +49,13 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link TarifKhusus} pada modul SIRS: paket tarif khusus (kontrak) yang
+ * berlaku untuk kombinasi dokter, asuransi, komunitas, dan/atau pasien tertentu, dalam rentang
+ * tanggal berlaku. Detail rincian tarif per kategori (tindakan/perawatan, alat medis, item/obat,
+ * bed/tempat tidur) dikelola lewat sub-layar terpisah yang dimuat saat baris di-expand (lihat
+ * {@link TarifKhususRenderer}). Dibangun di atas kerangka {@link GenericCrudAction}.
+ */
 public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -66,15 +73,19 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
 
     // ======================== Abstract implementations ========================
 
+    /** Kelas entitas yang dikelola: {@link TarifKhusus}. */
     @Override
     protected Class<TarifKhusus> getEntityClass() { return TarifKhusus.class; }
 
+    /** Membuat instance {@link TarifKhusus} kosong untuk form tambah data baru. */
     @Override
     protected TarifKhusus createNewEntity() { return new TarifKhusus(); }
 
+    /** Judul jendela: {@code "Pendataan Tarif Khusus"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Tarif Khusus"; }
 
+    /** Menyusun kriteria pencarian {@link TarifKhusus}, difilter ilike berdasarkan nama, terurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -86,6 +97,7 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
         return criteria;
     }
 
+    /** Penyedia renderer baris grid hasil pencarian: {@link TarifKhususRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new TarifKhususRenderer();
@@ -93,6 +105,7 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link TarifKhusus}: nama, rentang tanggal berlaku, dokter/asuransi/komunitas/pasien (kriteria berlakunya tarif), status aktif, dan keterangan, beserta tombol Batal dan Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final TarifKhusus tarifKhusus) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -204,6 +217,13 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link TarifKhusus}: menolak bila nama kosong, tanggal mulai
+     * berlaku belum diisi, atau nama sudah dipakai tarif khusus lain (dicek via
+     * {@link #checkNamaTarifKhusus()}), lalu menyimpan/memperbarui entitas.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Tarif wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Tarif pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -239,6 +259,7 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai {@link TarifKhusus} lain (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaTarifKhusus() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(TarifKhusus.class)
@@ -253,6 +274,7 @@ public class TarifKhususAction extends GenericCrudAction<TarifKhusus> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link TarifKhusus}: nama (dengan tombol riwayat revisi), rentang tanggal berlaku, status aktif, dokter/asuransi/komunitas/pasien, keterangan, tombol edit/hapus, dan panel detail (dibuka via {@link MyDetail}) berisi 4 tab rincian tarif per kategori. */
     class TarifKhususRenderer extends MyRowRenderer {
 
         @Override

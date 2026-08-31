@@ -51,20 +51,61 @@ import ais.database.model.TemplateSurat;
 
 
 
+/**
+ * Titik akhir REST (Jersey/JAX-RS) untuk integrasi eksternal (mis. aplikasi mobile) seputar akun dan
+ * data akademik mahasiswa: login (beberapa varian: password DES-encrypted, NIM saja, PIN), lihat/ambil/
+ * hapus KRS (didelegasikan ke {@link KrsResourceHelper}), lihat nilai dan detail pembayaran per
+ * semester (lewat {@link PembayaranUtil}), pencarian data mahasiswa generik (diwarisi dari
+ * {@link DataResource}), serta beberapa endpoint terkait surat dan pembayaran. Autentikasi pada
+ * hampir seluruh endpoint memakai pola {@code username}/{@code password} sebagai segmen path URL
+ * (password dienkripsi DES sebelum dibandingkan ke kolom {@code pass}, lihat
+ * {@link Common#desEncrypter}), sama seperti keluarga {@code *Resource} lain di paket ini.
+ *
+ * <p>
+ * <b>Catatan keamanan:</b>
+ * </p>
+ * <ul>
+ * <li>Password dikirim sebagai bagian path URL pada permintaan GET (bukan header/body) — rawan
+ * tercatat di log akses, cache proxy, riwayat browser, dan header {@code Referer}, berlaku pada
+ * seluruh method yang menerima {@code @PathParam("password")}.</li>
+ * <li><b>{@link #bayar(String, String, String, String, String, String)} TIDAK melakukan
+ * autentikasi/otorisasi apa pun</b> (tidak ada {@code Common.checkLogin} atau pemeriksaan sesi) —
+ * endpoint ini menerima id mahasiswa, id jenis kegiatan, id item biaya, dan NOMINAL secara langsung
+ * dari path URL, lalu membuat baris {@link DetailBiaya} dan memicu
+ * {@link PembayaranUtil#simpanPembayaranMahasiswa} yang menghasilkan {@link Kegiatan} pembayaran.
+ * Siapa pun yang mengetahui/menebak URL-nya dapat men-trigger pembuatan transaksi pembayaran untuk
+ * mahasiswa mana pun dengan nominal sembarang tanpa login.</li>
+ * <li>{@link #reportLog(String)} dan {@link #getFormatTemplateSurat(String, String)} juga tidak
+ * memeriksa autentikasi (siapa pun dapat menulis baris {@link ReportLog} atau membaca format
+ * template surat).</li>
+ * </ul>
+ */
 public class MahasiswaResource extends DataResource<Mahasiswa> {
 
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Membuat resource yang terikat ke entitas {@link Mahasiswa}. */
 	public MahasiswaResource() {
 		super(Mahasiswa.class);
 	}
 
+	/** Mengembalikan diri sendiri (self) sebagai representasi JSON kosong — dipakai untuk pemeriksaan endpoint dasar. */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public MahasiswaResource getXml() {
 		return this;
 	}
 
+	/**
+	 * Melakukan login mahasiswa (NIM + password terenkripsi DES) dan mengembalikan ringkasan profil
+	 * ({@link CommonID}) berisi nama, NIM, jurusan/fakultas, email, foto, tahun akademik berjalan,
+	 * semester, dan status pembayaran semester berjalan.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL, dienkripsi DES sebelum dibandingkan)
+	 * @return ringkasan profil mahasiswa
+	 * @throws NotFoundException bila login gagal (NIM/password tidak cocok atau mahasiswa nonaktif)
+	 */
 	@GET
 	@Path("masuk/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -113,6 +154,15 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("login/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Melakukan login mahasiswa (NIM + password terenkripsi DES) dan mengembalikan entitas
+	 * {@link Mahasiswa} lengkap.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL, dienkripsi DES sebelum dibandingkan)
+	 * @return entitas mahasiswa yang login
+	 * @throws NotFoundException bila login gagal
+	 */
 	public Mahasiswa getLogin(@PathParam("username") String username, @PathParam("password") String password) {
 		Session session = HibernateUtil.currentNativeSession();
 		String mypassword = Common.desEncrypter.get().encrypt(password);
@@ -133,6 +183,13 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("login_nim/{username}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil mahasiswa aktif berdasarkan NIM saja, TANPA verifikasi password.
+	 *
+	 * @param username NIM mahasiswa
+	 * @return entitas mahasiswa yang cocok
+	 * @throws NotFoundException bila NIM tidak ditemukan
+	 */
 	public Mahasiswa getLoginNim(@PathParam("username") String username) {
 		Session session = HibernateUtil.currentNativeSession();
 		Mahasiswa mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(Restrictions.eq("nim", username))
@@ -150,6 +207,14 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("login_nim/{username}/{pin}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil mahasiswa aktif berdasarkan NIM dan PIN (bukan password).
+	 *
+	 * @param username NIM mahasiswa
+	 * @param pin      PIN akun mahasiswa
+	 * @return entitas mahasiswa yang cocok
+	 * @throws NotFoundException bila NIM/PIN tidak cocok
+	 */
 	public Mahasiswa getLoginNim(@PathParam("username") String username, @PathParam("pin") Long pin) {
 		Session session = HibernateUtil.currentNativeSession();
 		Mahasiswa mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(Restrictions.eq("nim", username))
@@ -167,6 +232,17 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("lihat_krs/{username}/{password}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu mengecek/melihat pengambilan KRS pada semester tertentu, mendelegasikan
+	 * ke {@link KrsResourceHelper#checkAmbil}.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester yang KRS-nya dilihat
+	 * @param krs      data KRS (dipetakan sebagai query param, bukan path — lihat {@code @PathParam("krs")} tanpa segmen path terkait)
+	 * @return entitas mahasiswa
+	 * @throws NotFoundException bila login gagal
+	 */
 	public Mahasiswa lihatKrs(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("semester") Integer semester, @PathParam("krs") String krs) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -189,6 +265,17 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("check_ambil_krs/{username}/{password}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu memeriksa kelayakan pengambilan KRS pada semester tertentu, mendelegasikan
+	 * ke {@link KrsResourceHelper#checkAmbil}.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester yang diperiksa
+	 * @param krs      data KRS yang diperiksa
+	 * @return entitas mahasiswa
+	 * @throws NotFoundException bila login gagal
+	 */
 	public Mahasiswa checkAmbilKrs(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("semester") Integer semester, @PathParam("krs") String krs) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -211,6 +298,17 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("ambil_krs/{username}/{password}/{semester}/{krs}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu mengambil (mendaftarkan) KRS pada semester tertentu, mendelegasikan ke
+	 * {@link KrsResourceHelper#ambilKrs}.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester KRS yang diambil
+	 * @param krs      data KRS yang diambil
+	 * @return entitas mahasiswa
+	 * @throws NotFoundException bila login gagal
+	 */
 	public Mahasiswa ambilKrs(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("semester") Integer semester, @PathParam("krs") String krs) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -233,6 +331,17 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("hapus_krs/{username}/{password}/{semester}/{krs}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu menghapus KRS pada semester tertentu, mendelegasikan ke
+	 * {@link KrsResourceHelper#hapusKrs}.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester KRS yang dihapus
+	 * @param krs      data KRS yang dihapus
+	 * @return entitas mahasiswa
+	 * @throws NotFoundException bila login gagal
+	 */
 	public Mahasiswa hapusKrs(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("semester") Integer semester, @PathParam("krs") String krs) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -256,6 +365,16 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("lihat_nilai/{username}/{password}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu mengambil daftar nilai perkuliahan (yang belum ditandai mengulang
+	 * {@code ikutiPerkuliahan}), opsional difilter satu semester.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester yang nilainya diambil, atau {@code null} untuk semua semester
+	 * @return daftar detail perkuliahan/nilai
+	 * @throws NotFoundException bila login gagal
+	 */
 	public List<Detailperkuliahan> lihatNilai(@PathParam("username") String username,
 			@PathParam("password") String password, @PathParam("semester") Integer semester) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -285,6 +404,16 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("lihat_detail_pembayaran/{username}/{password}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu mengambil rincian item biaya tagihan pembayaran mahasiswa lama pada
+	 * semester tertentu (lewat {@link PembayaranUtil#getDetailBiayaMahasiswa}).
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester tagihan yang dilihat
+	 * @return daftar rincian biaya
+	 * @throws NotFoundException bila login gagal atau tagihan pembayaran semester tersebut tidak ditemukan
+	 */
 	public List<DetailBiaya> lihatDetailPembayaran(@PathParam("username") String username,
 			@PathParam("password") String password, @PathParam("semester") Integer semester) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -321,6 +450,15 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("lihat_pembayaran/{username}/{password}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mahasiswa lalu mengambil status tagihan pembayaran mahasiswa lama pada semester tertentu.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @param semester semester tagihan yang dilihat
+	 * @return tagihan pembayaran mahasiswa
+	 * @throws NotFoundException bila login gagal atau tagihan pembayaran semester tersebut tidak ditemukan
+	 */
 	public PembayaranMahasiswa lihatPembayaran(@PathParam("username") String username,
 			@PathParam("password") String password, @PathParam("semester") Integer semester) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -356,6 +494,7 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 		return super.getData(username, password, id);
 	}
 
+	/** Mengambil seluruh data {@link Mahasiswa} tanpa filter pencarian, setelah autentikasi. */
 	@GET
 	@Path("search/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -363,6 +502,7 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 		return super.getAllData(username, password);
 	}
 
+	/** Mengambil data {@link Mahasiswa} yang cocok dengan satu kata kunci pencarian, setelah autentikasi. */
 	@GET
 	@Path("search/{username}/{password}/{search}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -371,6 +511,7 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 		return super.getAllData(username, password, search);
 	}
 
+	/** Mengambil data {@link Mahasiswa} yang cocok dengan dua kata kunci pencarian, setelah autentikasi. */
 	@GET
 	@Path("search/{username}/{password}/{search}/{search1}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -379,6 +520,14 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 		return super.getAllData(username, password, search, search1);
 	}
 
+	/**
+	 * Mengambil seluruh {@link TemplateSurat} yang tersedia, setelah autentikasi.
+	 *
+	 * @param username NIM mahasiswa
+	 * @param password password akun (dikirim polos via path URL)
+	 * @return daftar template surat
+	 * @throws NotFoundException bila autentikasi gagal
+	 */
 	@GET
 	@Path("jenis_surat/{username}/{password}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -399,6 +548,13 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("report_log/{url}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mencatat satu baris {@link ReportLog} berisi URL yang diberikan. TIDAK memeriksa autentikasi
+	 * apa pun.
+	 *
+	 * @param url string URL/keterangan yang dicatat sebagai log
+	 * @return baris log yang baru disimpan
+	 */
 	public ReportLog reportLog(@PathParam("url") String url) {
 		Session session = HibernateUtil.currentNativeSession();
 		ReportLog reportLog = new ReportLog();
@@ -413,6 +569,14 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("biaya_surat/{templateSurat}/{bahasa}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil format template surat terbaru untuk satu template dan bahasa tertentu. TIDAK
+	 * memeriksa autentikasi apa pun.
+	 *
+	 * @param templateSurat id {@link TemplateSurat} (string angka)
+	 * @param bahasa        kode bahasa format surat
+	 * @return format template surat yang cocok, atau instance kosong bila tidak ditemukan
+	 */
 	public FormatTemplateSurat getFormatTemplateSurat(@PathParam("templateSurat") String templateSurat,
 			@PathParam("bahasa") String bahasa) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -427,6 +591,25 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("bayar/{jenisKegiatan}/{mahasiswa}/{itemBiaya}/{bahasa}/{nominal}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Membuat satu transaksi pembayaran ({@link Kegiatan}) untuk mahasiswa, jenis kegiatan, item
+	 * biaya, dan nominal yang diberikan langsung lewat path URL: menyusun baris {@link DetailBiaya}
+	 * dari data mahasiswa saat ini (angkatan, fakultas/jurusan, jenjang, status, dsb.) dengan nominal
+	 * sesuai parameter, menyimpannya, lalu memicu {@link PembayaranUtil#simpanPembayaranMahasiswa}.
+	 *
+	 * <p>
+	 * <b>Catatan keamanan:</b> method ini TIDAK melakukan autentikasi/otorisasi apa pun — tidak ada
+	 * pemeriksaan login atau kepemilikan sesi. Siapa pun yang mengetahui/menebak URL dapat memicu
+	 * pembuatan transaksi pembayaran untuk mahasiswa mana pun dengan nominal sembarang.
+	 * </p>
+	 *
+	 * @param jenisKegiatan id {@link JenisKegiatan} (string angka)
+	 * @param mahasiswa     id {@link Mahasiswa} (string angka)
+	 * @param itemBiaya     id {@link ItemBiaya} (string angka)
+	 * @param bahasa        kode bahasa untuk detail biaya
+	 * @param nominal       nominal pembayaran (string angka, tidak divalidasi batas)
+	 * @return kegiatan pembayaran yang terbentuk
+	 */
 	public Kegiatan bayar(@PathParam("jenisKegiatan") String jenisKegiatan, @PathParam("mahasiswa") String mahasiswa,
 			@PathParam("itemBiaya") String itemBiaya, @PathParam("bahasa") String bahasa,
 			@PathParam("nominal") String nominal) {
@@ -486,6 +669,21 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	@GET
 	@Path("mahasiswa/{username}/{password}/{nim_nama}/{start}/{max}")
 	@Produces({ MediaType.TEXT_PLAIN })
+	/**
+	 * Mencari mahasiswa aktif berdasarkan NIM/nama (kata kunci diberikan URL-encoded, dengan garis
+	 * bawah sebagai placeholder karakter yang di-strip sebelum decode), dengan paging manual
+	 * ({@code start}/{@code max}), setelah autentikasi. Hasil dikembalikan sebagai teks JSON manual
+	 * (bukan lewat {@code @Produces(APPLICATION_JSON)} otomatis) berisi id, NIM, nama, angkatan,
+	 * program studi, program, status awal, dan status mahasiswa saat ini.
+	 *
+	 * @param username NIM untuk autentikasi (URL-encoded, garis bawah di-strip sebelum decode)
+	 * @param password password untuk autentikasi (URL-encoded, garis bawah di-strip sebelum decode)
+	 * @param nim_nama kata kunci pencarian NIM/nama (URL-encoded)
+	 * @param start    indeks awal hasil (paging), default 0 bila kosong/bukan angka
+	 * @param max      jumlah maksimum hasil (paging), default 10 bila kosong/bukan angka
+	 * @return string JSON array berisi data mahasiswa yang cocok
+	 * @throws Exception termasuk {@link NotFoundException} bila autentikasi gagal, atau kegagalan decode URL
+	 */
 	public String pembayaranMahasiswa(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("nim_nama") String nim_nama, @PathParam("start") String start, @PathParam("max") String max)
 			throws Exception {

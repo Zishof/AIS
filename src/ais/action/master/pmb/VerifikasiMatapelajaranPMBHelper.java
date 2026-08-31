@@ -41,8 +41,43 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyRowStyled;
 
+/**
+ * Helper statis untuk membangun dan menyimpan grid verifikasi nilai rapor sekolah asal pada formulir
+ * PMB, dipakai admin verifikator (input nilai + centang "sudah diverifikasi" per mata pelajaran per
+ * kelas/semester) maupun ditampilkan read-only ke calon mahasiswa. Struktur mata pelajaran dan
+ * daftar kelas/semester yang perlu diverifikasi ({@code getKelasVerifikasiRapor()}, format
+ * {@code "kelas:semester;kelas:semester;..."}) berasal dari konfigurasi {@link Paket} terpilih.
+ * Setiap perubahan nilai memicu penghitungan ulang rata-rata secara berjenjang (rata-rata per mata
+ * pelajaran, lalu rata-rata total menimpa baris ringkasan "Rata-Rata" di baris terakhir) secara
+ * langsung di UI DAN langsung tersimpan ke database per perubahan (bukan hanya saat tombol simpan
+ * ditekan) lewat {@link BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran}.
+ *
+ * <p>
+ * {@link #simpanVerifikasi} membaca kembali struktur komponen baris grid berdasarkan POSISI index
+ * anak komponen (bukan pencarian by tipe) — lihat komentar rinci pada method tersebut yang
+ * mendokumentasikan perbaikan bug ClassCastException/NPE akibat kesalahan asumsi index sebelumnya:
+ * index 0 = label nama, index 1 = komponen KKM, index 2 = komponen keterangan, index 3+ = komponen
+ * nilai per kelas (dibungkus {@link Hbox}), dan baris ringkasan "Rata-Rata" (di mana
+ * {@code matapelajaranSekolah == null}) tidak pernah membungkus nilai dalam {@code Hbox} maupun
+ * menyimpan atribut {@code "nilaiSemua"} karena nilainya murni hasil hitung, bukan input.
+ * </p>
+ */
 public class VerifikasiMatapelajaranPMBHelper {
 
+	/**
+	 * Membangun grid verifikasi nilai rapor dan memasang listener agar grid dibangun ulang otomatis
+	 * setiap kali pilihan gelombang pendaftaran berubah (komponen lama dilepas lebih dulu untuk
+	 * mencegah duplikasi). Mendelegasikan pembangunan sesungguhnya ke varian 4-parameter
+	 * {@link #tampilkanVerifikasi(BiodataCalonMahasiswa, Rows, Combobox, Paket)}.
+	 *
+	 * @param biodataCalonMahasiswa  calon mahasiswa yang nilainya diverifikasi
+	 * @param rows                   komponen {@link Rows} ZK tempat baris verifikasi dipasang
+	 * @param paket                  combobox paket pendaftaran terpilih, menentukan mata pelajaran yang diverifikasi
+	 * @param p                      paket eksplisit (mengesampingkan {@code paket} bila diisi)
+	 * @param gelombangPendaftaran   combobox gelombang pendaftaran; perubahan pilihannya memicu pembangunan ulang grid
+	 * @return {@link Rows} berisi baris-baris verifikasi mata pelajaran yang dibangun
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings("deprecation")
 	public static Rows tampilkanVerifikasi(final BiodataCalonMahasiswa biodataCalonMahasiswa, final Rows rows,
 			final Combobox paket, final Paket p, final Combobox gelombangPendaftaran) throws Exception {
@@ -84,6 +119,23 @@ public class VerifikasiMatapelajaranPMBHelper {
 		return holder[0] == null ? new Rows() : holder[0];
 	}
 
+	/**
+	 * Membangun grid verifikasi nilai rapor untuk paket yang ditentukan (dari parameter {@code p},
+	 * pilihan combobox {@code paket}, atau paket tersimpan pada calon mahasiswa, sesuai prioritas
+	 * tersebut), mengembalikan {@link Rows} kosong bila tidak ada paket yang dapat ditentukan. Untuk
+	 * setiap mata pelajaran aktif dalam paket, memastikan baris
+	 * {@link BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran} sudah ada (membuat bila belum),
+	 * menampilkan input KKM/keterangan/nilai per kelas (editable untuk admin, read-only untuk calon
+	 * mahasiswa), dan menghitung rata-rata berjenjang secara real-time. Dipasang ulang otomatis saat
+	 * pilihan {@code paket} berubah.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang nilainya diverifikasi
+	 * @param rows                  komponen {@link Rows} ZK induk tempat baris judul dipasang
+	 * @param paket                 combobox paket pendaftaran terpilih
+	 * @param p                     paket eksplisit (mengesampingkan {@code paket} bila diisi)
+	 * @return {@link Rows} berisi baris-baris verifikasi mata pelajaran yang dibangun
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings("deprecation")
 	public static Rows tampilkanVerifikasi(final BiodataCalonMahasiswa biodataCalonMahasiswa, Rows rows,
 			final Combobox paket, final Paket p) throws Exception {
@@ -462,6 +514,16 @@ public class VerifikasiMatapelajaranPMBHelper {
 
 	}
 
+	/**
+	 * Menuliskan kembali seluruh nilai verifikasi dari grid yang dibangun {@link #tampilkanVerifikasi}
+	 * ke database: mengambil keterangan dari posisi anak ke-2 tiap baris, dan untuk baris mata
+	 * pelajaran (bukan baris ringkasan "Rata-Rata") juga mengambil nilai per kelas beserta status
+	 * centang verifikasinya, lalu menghitung ulang rata-rata sebelum menyimpan. Lihat javadoc kelas
+	 * untuk penjelasan asumsi struktur posisi anak komponen yang dipakai method ini.
+	 *
+	 * @param biodataCalonMahasiswa       calon mahasiswa pemilik data verifikasi
+	 * @param subRowsMatapelajaranSekolah {@link Rows} hasil {@link #tampilkanVerifikasi} yang akan disimpan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void simpanVerifikasi(BiodataCalonMahasiswa biodataCalonMahasiswa, Rows subRowsMatapelajaranSekolah) {
 		if (subRowsMatapelajaranSekolah != null) {

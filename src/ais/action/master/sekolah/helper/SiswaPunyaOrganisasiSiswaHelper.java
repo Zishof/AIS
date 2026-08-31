@@ -60,6 +60,25 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola panel keanggotaan organisasi siswa ({@link OrganisasiSiswaPunyaSiswa}) — relasi
+ * banyak-ke-banyak antara {@link Siswa} dan {@link OrganisasiSiswa} (mis. OSIS, ekstrakurikuler)
+ * beserta jabatan yang diemban ({@link JabatanOrganisasiSiswa}) dan tahun keanggotaan. Dapat
+ * dipakai dalam dua konteks: ditampilkan pada tab riwayat organisasi seorang siswa tertentu (lewat
+ * {@link #display(Siswa, Component)}), atau sebagai daftar anggota satu organisasi tertentu
+ * (konstruktor {@link #SiswaPunyaOrganisasiSiswaHelper(OrganisasiSiswa, JabatanOrganisasiSiswa, Integer)}
+ * dengan filter organisasi/jabatan/tahun tetap).
+ *
+ * <p>
+ * {@link #initCriteria(boolean)} membangun kueri Hibernate dengan filter organisasi, jabatan,
+ * tahun, kata kunci nama organisasi, dan siswa (bila terikat ke satu siswa). {@link #loadData(Object)}
+ * mengeksekusi kueri tersebut secara asinkron (lewat {@link Common#createDefaultTimer}) dan
+ * merender hasilnya ke grid; bila sedang mengedit satu baris tertentu
+ * ({@link #organisasiSiswaPunyaSiswa} tidak {@code null}), baris tersebut selalu disisipkan di
+ * awal daftar terlepas dari hasil paginasi normal. {@link #display} membangun panel lengkap
+ * (form pencarian nama + grid) dan memasangnya ke {@code component} pemanggil.
+ * </p>
+ */
 public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -73,6 +92,7 @@ public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria
 	private Integer tahun = null;
 	private OrganisasiSiswaPunyaSiswa organisasiSiswaPunyaSiswa;
 
+	/** Membuat helper tanpa filter organisasi/jabatan/tahun tetap — cocok untuk tab riwayat organisasi satu siswa (diikat lewat {@link #display}). */
 	public SiswaPunyaOrganisasiSiswaHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -87,6 +107,14 @@ public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/**
+	 * Membuat helper dengan filter tetap organisasi/jabatan/tahun — cocok untuk menampilkan daftar
+	 * anggota satu organisasi tertentu.
+	 *
+	 * @param organisasiSiswa         organisasi yang menjadi cakupan, boleh {@code null} untuk semua organisasi
+	 * @param jabatanOrganisasiSiswa  jabatan yang menjadi cakupan, boleh {@code null} untuk semua jabatan
+	 * @param tahun                   tahun keanggotaan yang menjadi cakupan, boleh {@code null} untuk semua tahun
+	 */
 	public SiswaPunyaOrganisasiSiswaHelper(OrganisasiSiswa organisasiSiswa,
 			JabatanOrganisasiSiswa jabatanOrganisasiSiswa, Integer tahun) {
 		tbmuser = Common.getCurrentUser();
@@ -304,6 +332,14 @@ public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar keanggotaan organisasi siswa, difilter jabatan,
+	 * organisasi, tahun (bila ditentukan lewat konstruktor), kata kunci nama organisasi, dan siswa
+	 * (bila terikat ke satu siswa lewat {@link #display}).
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan id menurun
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(OrganisasiSiswaPunyaSiswa.class);
@@ -329,6 +365,14 @@ public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria
 		return criteria;
 	}
 
+	/**
+	 * Mengeksekusi {@link #initCriteria(boolean)} secara asinkron dan merender hasilnya ke grid.
+	 * Bila kelas sedang dalam mode edit satu baris ({@link #organisasiSiswaPunyaSiswa} tidak
+	 * {@code null}), baris tersebut disisipkan lebih dulu di awal daftar sebelum hasil pencarian
+	 * normal (dikecualikan dari hasil pencarian agar tidak duplikat).
+	 *
+	 * @param value tidak dipakai langsung, hanya untuk kesesuaian kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -368,10 +412,20 @@ public class SiswaPunyaOrganisasiSiswaHelper implements DataLoader, DataCriteria
 		return this;
 	}
 
+	/** Seperti {@link #display(Siswa, Component, OrganisasiSiswaPunyaSiswa)}, tanpa baris yang ditandai untuk selalu ditampilkan di awal. */
 	public void display(Siswa siswa, Component component) {
 		display(siswa, component, null);
 	}
 
+	/**
+	 * Membangun panel lengkap (form pencarian nama organisasi + grid keanggotaan) untuk
+	 * {@code siswa} dan memasangnya ke {@code component}.
+	 *
+	 * @param siswa                       siswa target yang riwayat organisasinya ditampilkan
+	 * @param component                   komponen ZK induk tempat panel dipasang
+	 * @param organisasiSiswaPunyaSiswa   baris yang harus selalu tampil di awal daftar (mis. baris
+	 *                                    yang baru disimpan), boleh {@code null}
+	 */
 	public void display(final Siswa siswa, final Component component,
 			OrganisasiSiswaPunyaSiswa organisasiSiswaPunyaSiswa) {
 		this.siswa = siswa;

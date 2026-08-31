@@ -59,6 +59,29 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar laporan absensi/kehadiran pegawai <b>rinci per hari</b> modul akademik (berbeda dari
+ * {@link ais.action.report.format1.payroll.LaporanAbsensiPegawai} yang hanya menampilkan rekap
+ * jumlah, kelas ini menghasilkan satu baris data per pegawai <b>per tanggal</b> dalam rentang
+ * terpilih — termasuk foto absen datang/pulang, lokasi absen, jam masuk/pulang, keterlambatan,
+ * lembur, dan jam kerja shift). Dapat ditampilkan dalam dua mode tata letak ({@code vertical}):
+ * panel filter di sisi barat (mode default) atau di bagian utara dengan tombol tambahan "Ajukan
+ * Cuti" (membuka iframe modul cuti-izin). Dapat dibatasi ke satu {@code pegawai} — bila pegawai
+ * tersebut dosen/guru, filter turut mencakup pegawai lain yang berbagi entitas dosen/guru yang
+ * sama (mis. dosen yang juga tercatat sebagai pegawai struktural).
+ *
+ * <p>
+ * Perhitungan data ({@link #data}) memakai pola konkurensi yang sama dengan
+ * {@link ais.action.report.format1.payroll.LaporanAbsensiPegawai}: cache libur nasional di
+ * memori, pemrosesan paralel per pegawai lewat {@link ParallelTaskExecutor}, dan array hasil
+ * terindeks agar urutan baris akhir tetap sesuai urutan pegawai asli meski dihitung paralel dan
+ * hasil per pegawai berupa banyak baris (satu per hari) yang perlu di-flatten kembali. Progres
+ * server push dikelola lewat {@link ais.common.AsyncTaskManager#jalankanDenganPush} (push
+ * ber-reference-count, dilepas otomatis di {@code finally}, berbeda dari pengelolaan push manual
+ * pada kelas rekap). Checkbox "Abaikan kehadiran jika hari tidak terpilih" menentukan apakah baris
+ * pada hari yang tidak ditandai aktif tetap disertakan bila pegawai kebetulan hadir pada hari itu.
+ * </p>
+ */
 public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 
 	private static final long serialVersionUID = -397946194166101691L;
@@ -105,6 +128,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 
 	private Desktop desktop;
 
+	/** Membuat layar laporan untuk seluruh pegawai, mode tata letak vertikal (panel filter di barat). */
 	public LaporanAbsensiPegawaiPerOrang() {
 		super();
 		try {
@@ -120,10 +144,22 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Seperti {@link #LaporanAbsensiPegawaiPerOrang(Pegawai, boolean)} dengan mode tata letak vertikal (panel filter di barat). */
 	public LaporanAbsensiPegawaiPerOrang(Pegawai pegawai) {
 		this(pegawai, true);
 	}
 
+	/**
+	 * Membuat layar laporan dibatasi ke satu {@code pegawai}, dengan mode tata letak yang dapat
+	 * dipilih.
+	 *
+	 * @param pegawai  pegawai yang dilaporkan; bila memiliki entitas dosen/guru, pegawai lain yang
+	 *                 berbagi entitas tersebut ikut tercakup
+	 * @param vertical {@code true} untuk panel filter di sisi barat (default); {@code false} untuk
+	 *                 panel filter di bagian utara dengan tombol tambahan "Ajukan Cuti" — laporan
+	 *                 langsung ditampilkan begitu jendela dibuka pada kedua mode ini (karena pegawai
+	 *                 sudah ditentukan)
+	 */
 	public LaporanAbsensiPegawaiPerOrang(Pegawai pegawai, boolean vertical) {
 		super();
 		this.pegawai = pegawai;
@@ -141,11 +177,13 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
 	public LaporanAbsensiPegawaiPerOrang(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun panel filter sesuai mode tata letak ({@code vertical}) dan area pratinjau/toolbar ekspor laporan; bila {@link #pegawai} sudah ditentukan, laporan langsung ditampilkan. */
 	@SuppressWarnings("deprecation")
 	private void init() throws Exception {
 
@@ -455,6 +493,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 	}
 
 
+	/** Menambahkan baris checkbox "Abaikan kehadiran jika hari tidak terpilih" beserta teks penjelasannya ke {@code rows}, dengan lebar kolom disesuaikan mode tata letak (4 kolom vs 2 kolom). */
 	private void initPilihanAbaikanKehadiranJikaHariTidakTerpilih(Rows rows, boolean empatKolom) {
 		MyFormRow row = new MyFormRow();
 		row.setParent(rows);
@@ -480,11 +519,13 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		row.appendChild(keterangan);
 	}
 
+	/** Mengembalikan status checkbox "abaikan kehadiran jika hari tidak terpilih", aman dipanggil sebelum komponen dibuat ({@code false} bila belum ada). */
 	private boolean isAbaikanKehadiranJikaHariTidakTerpilih() {
 		return abaikanKehadiranJikaHariTidakTerpilih != null
 				&& abaikanKehadiranJikaHariTidakTerpilih.isChecked();
 	}
 
+	/** Menyusun peta parameter laporan (indeks hari aktif, flag abaikan-kehadiran, rentang tanggal, dan {@code maps} hasil {@link #generateDataDanImageAlbum} bila sudah tersedia) untuk mesin laporan {@link Report}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Map generateParameter() throws Exception {
 
@@ -507,6 +548,15 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return parameters;
 	}
 
+	/**
+	 * Menentukan daftar pegawai yang lolos filter aktif (satuan kerja + turunannya, jenis pegawai,
+	 * ikatan kerja — dilewati seluruhnya bila {@link #pegawai} sudah ditentukan langsung, kecuali
+	 * turut menyertakan pegawai lain yang berbagi entitas dosen/guru yang sama), lalu
+	 * mendelegasikan perhitungan detail harian ke {@link #data} dan menyimpan hasilnya ke
+	 * {@link #maps}.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres, boleh {@code null}
+	 */
 	@SuppressWarnings({ })
 	public void generateDataDanImageAlbum(Label label) throws Exception {
 
@@ -585,12 +635,33 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Seperti {@link #data(List, Date, Date, Label, MyCheckboxConfig[], Desktop, boolean)} dengan {@code abaikanKehadiranJikaHariTidakTerpilih=false} (hari yang tidak ditandai aktif tetap disertakan bila pegawai kebetulan hadir). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static List data(final List<Pegawai> pegawais, final Date mulai, final Date sampai, final Label label,
 			final MyCheckboxConfig[] haris, final Desktop desktop) throws Exception {
 		return data(pegawais, mulai, sampai, label, haris, desktop, false);
 	}
 
+	/**
+	 * Implementasi statis inti: menghasilkan satu baris data (peta) per kombinasi pegawai x
+	 * tanggal dalam rentang {@code mulai}..{@code sampai}, berisi status kehadiran, jam masuk/
+	 * pulang, keterlambatan, lembur, foto dan lokasi absen. Dijalankan paralel per pegawai lewat
+	 * {@link ParallelTaskExecutor} dengan cache libur nasional di memori dan array hasil terindeks
+	 * ({@code orderedDailyMaps}) untuk menjaga urutan akhir (per pegawai, lalu di-flatten menjadi
+	 * satu list gabungan). Hari yang tidak ditandai aktif dilewati sesuai
+	 * {@link #harusLewatiTanggalKarenaHariTidakDipilih}. Data cuti/izin dan status kehadiran harian
+	 * dimuat sekali di muka dalam sesi Hibernate native terpisah yang selalu ditutup sebelum
+	 * pemrosesan paralel dimulai.
+	 *
+	 * @param pegawais                              daftar pegawai yang dihitung
+	 * @param mulai                                 tanggal awal rentang (inklusif)
+	 * @param sampai                                tanggal akhir rentang (inklusif)
+	 * @param label                                 komponen label UI untuk progres, boleh {@code null}
+	 * @param haris                                 checkbox hari aktif (indeks 0 = Minggu, dst. mengikuti {@link Calendar#DAY_OF_WEEK})
+	 * @param desktop                               desktop ZK untuk server push progres, boleh {@code null}
+	 * @param abaikanKehadiranJikaHariTidakTerpilih  bila {@code true}, hari yang tidak ditandai aktif selalu dilewati walau pegawai hadir pada hari itu
+	 * @return daftar peta data, satu per baris pegawai x tanggal yang tidak dilewati
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static List data(final List<Pegawai> pegawais, final Date mulai, final Date sampai, final Label label,
 			final MyCheckboxConfig[] haris, final Desktop desktop,
@@ -846,6 +917,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return finalMaps;
 	}
 
+	/** Menentukan apakah satu tanggal harus dilewati dari hasil karena harinya tidak ditandai aktif: dilewati bila hari tidak dicentang DAN (flag abaikan-kehadiran aktif ATAU pegawai memang tidak hadir pada tanggal itu). */
 	private static boolean harusLewatiTanggalKarenaHariTidakDipilih(final MyCheckboxConfig[] haris, final Integer hari,
 			final boolean adaHadir, final boolean abaikanKehadiranJikaHariTidakTerpilih) {
 		if (haris == null || hari == null) {
@@ -864,6 +936,15 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return abaikanKehadiranJikaHariTidakTerpilih || !adaHadir;
 	}
 
+	/**
+	 * Menangani klik "Tampilkan"/ekspor: menampilkan indikator progres, menjalankan perhitungan
+	 * data ({@link #generateDataDanImageAlbum}) di bawah pengelolaan server push
+	 * ({@link ais.common.AsyncTaskManager#jalankanDenganPush}) agar progres dapat diperbarui tanpa
+	 * membebani thread secara permanen, lalu merender hasilnya sebagai PDF dan menampilkannya di
+	 * panel pratinjau.
+	 *
+	 * @param event event pemicu (tombol tampilkan atau tombol ekspor toolbar)
+	 */
 	@SuppressWarnings({})
 	public void onKHS(Event event) throws Exception {
 

@@ -35,6 +35,20 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK generik untuk thread komentar/diskusi ({@link KomunikasiPegawai}) yang bisa ditempel ke
+ * entitas apa pun — target diidentifikasi lewat pasangan polymorphic {@code (clazz, item)}
+ * ({@code clazz} = nama kelas Java entitas induk, {@code item} = id-nya), bukan relasi
+ * foreign-key langsung. Menyediakan fitur "Quote": membalas komentar tertentu dengan menautkan
+ * {@code parent}, ditampilkan sebagai kutipan blok abu-abu di atas isi balasan.
+ *
+ * <p>
+ * Komentar hanya bisa dihapus oleh pemiliknya sendiri ({@code komunikasiPegawai.getTbmuser()}
+ * dicocokkan dengan user yang login). Saat {@code generalValueObject} belum tersimpan (id
+ * {@code null}), komentar baru langsung ditambahkan ke grid tanpa query ulang; bila sudah tersimpan,
+ * grid dimuat ulang penuh dari database.
+ * </p>
+ */
 public class KomunikasiPegawaiHelper {
 
 	private MyGrid gridKomunikasiPegawai;
@@ -44,11 +58,27 @@ public class KomunikasiPegawaiHelper {
 	@SuppressWarnings("rawtypes")
 	private Class clazz;
 
+	/** Membuat helper terikat grid target {@code gridKomunikasiPegawai} tempat daftar komentar akan dirender. */
 	public KomunikasiPegawaiHelper(MyGrid gridKomunikasiPegawai) {
 		this.gridKomunikasiPegawai = gridKomunikasiPegawai;
 	}
 
 	@SuppressWarnings("rawtypes")
+	/**
+	 * Membangun kerangka thread komentar: toolbar "Buat Komentar" dan grid dua kolom (isi + aksi),
+	 * lalu memuat komentar yang sudah ada lewat {@link #loadDataDetail}.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> tombol "Buat Komentar" memasang listenernya pada event {@code onUpload}
+	 * (bukan {@code onClick}) — perilaku ini dipertahankan apa adanya sesuai cakupan dokumentasi
+	 * ini; efeknya tombol tidak merespons klik biasa kecuali komponennya memicu {@code onUpload}
+	 * dengan caranya sendiri.
+	 * </p>
+	 *
+	 * @param generalValueObject entitas induk target thread komentar (identitas via {@code clazz}+{@code getId()})
+	 * @param clazz              kelas entitas induk (disimpan sebagai nama string pada {@link KomunikasiPegawai#setClazz})
+	 * @return borderlayout siap ditempelkan ke komponen host
+	 */
 	public Borderlayout initDetail(final GeneralValueObject generalValueObject,
 			final Class clazz) throws Exception {
 		this.generalValueObject = generalValueObject;
@@ -102,6 +132,12 @@ public class KomunikasiPegawaiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Membuka jendela modal "Tambah komentar" untuk {@code komunikasiPegawai} (baru atau balasan),
+	 * dengan {@code parent} sebagai komentar yang di-quote (boleh {@code null} untuk komentar
+	 * tingkat atas). Setelah validasi (judul dan isi wajib diisi) dan simpan, baris ditambahkan
+	 * langsung ke grid (bila induk belum tersimpan) atau grid dimuat ulang penuh.
+	 */
 	private void init(final KomunikasiPegawai komunikasiPegawai,
 			final KomunikasiPegawai parent) throws Exception {
 		final MyWindow window = new MyWindow("Tambah komentar", "none", true);
@@ -221,6 +257,7 @@ public class KomunikasiPegawaiHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Memuat ulang seluruh {@link KomunikasiPegawai} milik pasangan {@code (clazz, generalValueObject.getId())}, terurut terbaru lebih dulu; kosong bila {@code generalValueObject} belum tersimpan. */
 	private void loadDataDetail(final GeneralValueObject generalValueObject,
 			final Class clazz) throws Exception {
 
@@ -245,6 +282,12 @@ public class KomunikasiPegawaiHelper {
 
 	}
 
+	/**
+	 * Merender satu baris komentar: isi komentar (dengan blok kutipan "Quote" bila
+	 * {@code komunikasiPegawai.getParent()} tidak {@code null}), tombol "Quote" (membuka form balasan
+	 * baru dengan komentar ini sebagai parent), dan tombol hapus (hanya tampil bagi pemilik komentar
+	 * yang login).
+	 */
 	public void initRow(final Row row, final KomunikasiPegawai komunikasiPegawai)
 			throws Exception {
 		row.setValign("top");row.setAttribute("komunikasiPegawai", komunikasiPegawai);

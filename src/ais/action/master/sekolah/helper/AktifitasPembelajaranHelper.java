@@ -71,6 +71,34 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper UI besar untuk menampilkan "Aktifitas Pembelajaran" — tampilan detail satu
+ * {@link JadwalPelajaran} (mata pelajaran terjadwal, modul Sekolah) sebagai tab-box multi-tab:
+ * Home (pendahuluan, deskripsi pembelajaran, capaian/kompetensi, lampiran pendukung RPS/SAP/absen
+ * manual), Agenda (daftar {@link Pertemuan} berpaginasi dengan detail per pertemuan: status,
+ * topik, dosen tamu, video conference, tombol absen, komentar/diskusi berulir), Referensi (buku
+ * &amp; bahan ajar), Tugas Kelompok, Nilai (delegasi ke {@code DetailPenilaianSiswaHelper}), dan
+ * Laporan (monitor perkuliahan). Sebagian besar tab dimuat malas (lazy) saat pertama diklik untuk
+ * menghemat resource render awal.
+ *
+ * <p>
+ * Perilaku dan visibilitas kontrol bergantung pada peran pemanggil: bila dikonstruksi dengan
+ * {@code siswa}/{@code calonSiswa} non-null (dilihat dari sudut pandang siswa/calon siswa), tombol
+ * edit konten (pendahuluan, deskripsi, dsb) dan agenda toolbar disembunyikan — tampilan menjadi
+ * read-only. Bila {@code tbmuser} adalah dosen/guru, tombol edit konten dan pengelolaan agenda
+ * tampil.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan teknis ZK 5.5:</b> event {@code ON_SELECT} pada {@link Tabbox} (dipicu klik tab)
+ * TIDAK memicu {@code onClick} pada tab individual — sehingga pemuatan lazy yang dipasang di
+ * handler {@code onClick} tiap tab tidak pernah berjalan bila hanya mengandalkan seleksi tab.
+ * {@link #initDetail} bekerja di sekitar ini dengan mendengarkan {@code ON_SELECT} pada tabbox dan
+ * meneruskan (re-dispatch) sebagai event {@code onClick} sintetis ke tab yang sedang terpilih;
+ * setiap handler tab tetap idempoten (memeriksa {@code getChildren().isEmpty()}) agar konten tidak
+ * dibangun ulang.
+ * </p>
+ */
 public class AktifitasPembelajaranHelper {
 
 	protected PenjadwalanSiswaHelper penjadwalanHelper = new PenjadwalanSiswaHelper();
@@ -82,18 +110,21 @@ public class AktifitasPembelajaranHelper {
 
 	private Tbmuser tbmuser;
 
+	/** Membuat helper dari sudut pandang {@code siswa} atau {@code calonSiswa} (salah satu boleh null); bila keduanya null, dianggap dilihat dari sudut pandang staf/dosen. */
 	public AktifitasPembelajaranHelper(Siswa siswa, CalonSiswa calonSiswa) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Sama seperti {@link #AktifitasPembelajaranHelper(Siswa, CalonSiswa)}; parameter {@code tampilLangsungRinci} saat ini tidak dipakai (tab Agenda tetap dimuat lazy seperti biasa). */
 	public AktifitasPembelajaranHelper(Siswa siswa, CalonSiswa calonSiswa, boolean tampilLangsungRinci) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Membangun toolbar aksi agenda (Tambah/Ubah Agenda, buat satu pertemuan, Absensi/UTS/UAS, kalender Google, tombol kelas virtual, refresh); toolbar disembunyikan bila dilihat dari sudut pandang siswa/calon siswa atau tidak ada pengguna login. */
 	public Toolbar initAgendaJadwalPelajaran(final JadwalPelajaran jadwalPelajaran, final DataLoader dataLoader) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		Toolbar hbox = new Toolbar();
@@ -174,6 +205,7 @@ public class AktifitasPembelajaranHelper {
 		return hbox;
 	}
 
+	/** Menambahkan tombol "Kalender" (hanya tampil bagi staf, bukan siswa/calon siswa) yang mensinkronkan seluruh pertemuan {@code voPembelajaran} ke Google Calendar pengguna lewat {@link CalendarUtil}, menampilkan progres, lalu menyegarkan data. */
 	public static void tampilCalender(Component hbox, final DataLoader dataLoader,
 			final VOPembelajaran voPembelajaran) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -213,11 +245,13 @@ public class AktifitasPembelajaranHelper {
 		});
 	}
 
+	/** Membangun tampilan detail jadwal pelajaran dengan {@code DataLoader} default (memanggil {@link #tampilRinci}); lihat {@link #initDetail(JadwalPelajaran, DataLoader, Component, int, int)}. */
 	public void initDetail(final JadwalPelajaran jadwalPelajaran, final Component groupbox, int mulai, int banyak)
 			throws Exception {
 		initDetail(jadwalPelajaran, null, groupbox, mulai, banyak);
 	}
 
+	/** Membangun tab "Home": panel pendahuluan, deskripsi pembelajaran, dan capaian/kompetensi (masing-masing mode tampil/edit dapat ditukar lewat tombol Ubah/Simpan, hanya tampil bagi staf), diikuti lampiran pendukung ({@link #tampilkanLampiran}) dan catatan arahan ke tab Agenda. */
 	private void displayHeader(final JadwalPelajaran jadwalPelajaran, Component header) {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -459,6 +493,25 @@ public class AktifitasPembelajaranHelper {
 		row.appendChild(label);
 	}
 
+	/**
+	 * Menambahkan baris unggah/unduh lampiran pendukung mata pelajaran ke {@code rows}: RPS
+	 * (bila konfigurasi {@code tampilkan_rps} aktif), SAP (bila {@code tampilkan_sap} aktif),
+	 * Absen Manual (bila {@code tampilkan_absen_manual} aktif), dan daftar lampiran kustom
+	 * tambahan dari konfigurasi {@code tampilkan_lampiran_lain_di_agenda_pelajaran} (dipisah
+	 * koma). Untuk setiap jenis lampiran, {@link AktifitasPerkuliahanHelper#chekSimpan} lebih dulu
+	 * memastikan/menyalin data lampiran dari referensi sumber ({@code refAmbilDari}) bila belum
+	 * ada pada referensi target ({@code ref}) — memungkinkan lampiran diwarisi dari mata kuliah ke
+	 * jadwal pelajaran spesifik. Setiap unggahan baru langsung dikaitkan ke {@code ref} lewat sesi
+	 * Hibernate streaming terpisah.
+	 *
+	 * @param rows              grid baris tempat komponen ditambahkan
+	 * @param ref                id referensi target (biasanya id jadwal pelajaran)
+	 * @param refAmbilDari       id referensi sumber warisan lampiran (biasanya id mata pelajaran)
+	 * @param tambahan           akhiran kunci lampiran pada referensi target
+	 * @param tambahanAmbilDari  akhiran kunci lampiran pada referensi sumber
+	 * @param bolehUpload        izinkan pengguna mengunggah/mengubah lampiran
+	 * @param span               nilai colspan opsional untuk baris (kosong berarti default)
+	 */
 	@SuppressWarnings("deprecation")
 	public static void tampilkanLampiran(Rows rows, final Long ref, final Long refAmbilDari, final String tambahan,
 			final String tambahanAmbilDari, final boolean bolehUpload, final String span) {

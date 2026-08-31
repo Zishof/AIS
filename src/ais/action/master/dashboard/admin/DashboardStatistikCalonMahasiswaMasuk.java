@@ -36,6 +36,23 @@ import ais.ui.util.DataCriteriaWithColumn;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Widget dasbor "Statistik Calon Mahasiswa Masuk": tabel + grafik batang HTML/CSS jumlah
+ * {@link BiodataCalonMahasiswa} (pendaftar) per program studi dan tahun masuk, dibatasi otomatis
+ * ke fakultas/jurusan/perguruan tinggi milik {@link Tbmuser} yang login. Tahun-tahun lama (di luar
+ * jendela tampilan — 50 tahun terakhir untuk mode chart, 5 tahun untuk mode ringkas) digabung jadi
+ * satu baris "&gt;= tahun" per prodi lewat {@link #cetakBarisTahunLama} agar tabel tidak terlalu
+ * panjang.
+ *
+ * <p>
+ * Setiap angka jumlah pada tabel adalah tautan ({@link A}) yang bila diklik memicu
+ * {@link MyEventListener}: membuka unduhan Excel data {@link BiodataCalonMahasiswa} yang cocok
+ * (prodi + tahun spesifik, atau "&gt;= tahun" untuk baris gabungan) lewat
+ * {@link Common#cetakDataCustomButton}. Data agregat diambil lewat satu query SQL native; id
+ * fakultas/jurusan/PT yang disisipkan ke SQL berasal dari objek terpilih user (bukan input bebas
+ * pengguna).
+ * </p>
+ */
 public class DashboardStatistikCalonMahasiswaMasuk extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -44,24 +61,29 @@ public class DashboardStatistikCalonMahasiswaMasuk extends MyWindow {
 	private int width = 750;
 	private int height = 100;
 
+	/** Konstruktor default kosong; pemanggil bertanggung jawab memanggil {@link #init()} sendiri. */
 	public DashboardStatistikCalonMahasiswaMasuk() {
 		super();
 	}
 
+	/** Konstruktor mode widget berukuran tetap; hanya menyimpan ukuran (tidak otomatis memanggil {@link #init()}). */
 	public DashboardStatistikCalonMahasiswaMasuk(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/** Menyimpan ukuran widget baru. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit. */
 	public DashboardStatistikCalonMahasiswaMasuk(String title, String border, boolean closable) {
 		super(title, border, closable);
 	}
 
+	/** Membangun kartu dasbor tunggal (via {@link ais.ui.util.DasborResponsifHelper#isiTunggal}) dan memuat tabel+grafik lewat {@link #initChart(Component, boolean)} dengan grafik ditampilkan. */
 	public void init() {
 		setHeight("100%");
 		setWidth("100%");
@@ -74,17 +96,25 @@ public class DashboardStatistikCalonMahasiswaMasuk extends MyWindow {
 		initChart(center, true);
 	}
 
+	/**
+	 * Listener klik untuk tautan angka pada tabel: memicu unduhan data
+	 * {@link BiodataCalonMahasiswa} yang cocok (prodi tertentu atau semua, tahun spesifik atau
+	 * {@code <= mintahun} untuk baris gabungan "tahun lama") lewat
+	 * {@link Common#cetakDataCustomButton}.
+	 */
 	public class MyEventListener implements EventListener {
 
 		private Integer tahunMasuk;
 		private Long jurusanId;
 		private Integer mintahun = null;
 
+		/** Listener untuk baris tahun spesifik (bukan gabungan). */
 		public MyEventListener(Integer tahunMasuk, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
 		}
 
+		/** Listener untuk baris gabungan "tahun lama" (filter {@code tahun <= mintahun}). */
 		public MyEventListener(Integer tahunMasuk, Integer mintahun, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
@@ -141,6 +171,17 @@ public class DashboardStatistikCalonMahasiswaMasuk extends MyWindow {
 	}
 
 	@SuppressWarnings({ "deprecation" })
+	/**
+	 * Menjalankan query agregat jumlah calon mahasiswa per prodi/tahun (dibatasi fakultas/jurusan/PT
+	 * user), lalu merender tabel: baris per (prodi, tahun) dalam jendela tampilan (50 tahun terakhir
+	 * bila {@code tampilkanChart}, 5 tahun bila tidak), digabung jadi satu baris "&gt;= tahun" untuk
+	 * sisanya per prodi lewat {@link #cetakBarisTahunLama}, ditutup baris total. Bila
+	 * {@code tampilkanChart} true, menambahkan grafik batang HTML/CSS di bawah tabel dan menyesuaikan
+	 * tinggi minimum komponen berdasarkan jumlah item grafik.
+	 *
+	 * @param center         komponen host tempat tabel/grafik dirender (dibersihkan dulu)
+	 * @param tampilkanChart sertakan grafik batang dan gunakan jendela tahun yang lebih lebar bila {@code true}
+	 */
 	public void initChart(Component center, boolean tampilkanChart) {
 		Common.clear(center);
 
@@ -279,6 +320,7 @@ public class DashboardStatistikCalonMahasiswaMasuk extends MyWindow {
 		}
 	}
 
+	/** Menambahkan satu baris tabel gabungan "&gt;= {@code mintahun}" untuk prodi {@code jurusanName}, beserta item grafik batang yang sesuai. */
 	private void cetakBarisTahunLama(Rows rows, String jurusanName, int mintahun, int totalTahunLama, Long jurusanId,
 			List<DashboardAkademikHtmlCssHelper.BarItem> chartItems) {
 		Row row = new Row();

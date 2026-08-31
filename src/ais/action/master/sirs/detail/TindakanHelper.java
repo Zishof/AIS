@@ -46,6 +46,14 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI ZK untuk mengelola daftar tindakan medis ({@link TindakanDiagnosaPenyakit}) yang
+ * dikaitkan ke satu {@link DiagnosaPenyakit} pasien SIRS: menambah tindakan dari dialog pemilihan
+ * banyak (dengan biaya diambil otomatis dari tarif kelas perawatan pasien via
+ * {@link CommonTarifTindakan#getBiayaTindakanPerKelas}), mengedit jumlah/tanggal/keterangan
+ * langsung dari grid, menghapus per baris, serta menerapkan isi paket perawatan ({@link #setPaket})
+ * yang otomatis memecah paket menjadi daftar tindakan individual.
+ */
 public class TindakanHelper {
 
 	private Grid gridTindakan;
@@ -60,6 +68,7 @@ public class TindakanHelper {
 
 	private North north;
 
+	/** Menyiapkan helper; {@code onSave} dipanggil untuk memaksa penyimpanan diagnosa penyakit terlebih dahulu bila belum tersimpan (id null) saat pengguna mulai menambah tindakan, {@code save} adalah tombol simpan utama yang statusnya ikut diperbarui. Hak hapus ditentukan dari privilese {@link CommonPrivilages#DELETE} user yang sedang login. */
 	public TindakanHelper(OnSave onSave, Toolbarbutton save) {
 		this.save = save;
 		this.onSave = onSave;
@@ -74,11 +83,19 @@ public class TindakanHelper {
 		});
 	}
 
+	/** Menyiapkan helper untuk {@code diagnosaPenyakit} tertentu lalu membangun kerangka layarnya — lihat {@link #display()}. */
 	public Borderlayout init(DiagnosaPenyakit diagnosaPenyakit) {
 		this.diagnosaPenyakit = diagnosaPenyakit;
 		return display();
 	}
 
+	/**
+	 * Membangun kerangka layar tindakan: toolbar tombol "Ambil Data Tindakan dan Perawatan"
+	 * (membuka dialog pemilihan banyak, memaksa penyimpanan diagnosa penyakit dulu bila belum
+	 * tersimpan, lalu untuk tiap tindakan terpilih membuat {@link TindakanDiagnosaPenyakit} dengan
+	 * biaya diambil otomatis dari tarif kelas perawatan pasien) dan grid rincian tindakan, lalu
+	 * langsung memuat datanya.
+	 */
 	public Borderlayout display() {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -194,6 +211,7 @@ public class TindakanHelper {
 		return borderlayout;
 	}
 
+	/** Renderer baris grid untuk {@link TindakanDiagnosaPenyakit}: nama tindakan, jumlah/tanggal/keterangan yang dapat diedit langsung (tersimpan saat berubah), dan tombol hapus dengan konfirmasi. */
 	class TindakanDiagnosaPenyakitRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -290,6 +308,18 @@ public class TindakanHelper {
 
 	}
 
+	/**
+	 * Menerapkan satu atau lebih paket perawatan ({@code pakets}, masing-masing sebuah
+	 * {@link Tindakan} yang berperan sebagai paket) ke {@code diagnosaPenyakit}: memecah tiap
+	 * paket menjadi {@link PaketPerawatanDetail}-nya, lalu membuat {@link TindakanDiagnosaPenyakit}
+	 * untuk tiap tindakan anggota paket yang belum ada (idempoten — tindakan yang sudah pernah
+	 * ditambahkan untuk diagnosa yang sama tidak diduplikasi). Bila diagnosa belum tersimpan,
+	 * memaksa penyimpanan lebih dulu lewat {@link #onSave}. Grid ditampilkan dalam mode
+	 * read-only/beku ({@link Common#freeze}) setelah paket diterapkan, dan toolbar tambah tindakan
+	 * disembunyikan.
+	 *
+	 * @return {@code true} bila berhasil diterapkan (termasuk bila paket kosong), {@code false} bila penyimpanan awal diagnosa gagal
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean setPaket(Set<Tindakan> pakets, DiagnosaPenyakit diagnosaPenyakit) throws Exception {
 		this.diagnosaPenyakit = diagnosaPenyakit;
@@ -358,6 +388,7 @@ public class TindakanHelper {
 		return true;
 	}
 
+	/** Memuat halaman {@link TindakanDiagnosaPenyakit} milik {@link #diagnosaPenyakit} saat ini (terbaru dulu, dipaginasi sesuai halaman aktif) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Event event) {
 		Session session = HibernateUtil.currentSession();

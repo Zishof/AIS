@@ -62,6 +62,17 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper layar daftar penerima satu aturan {@link DiskonSiswa} (diskon biaya sekolah) modul
+ * sekolah: menampilkan siswa/calon siswa yang tertaut lewat {@link DiskonSiswaPunyaSiswa}, beserta
+ * status persetujuan, keterangan, bukti dokumen pendukung, dan ringkasan tagihan yang menerima
+ * diskon tersebut. Mendukung sinkronisasi otomatis penerima berdasarkan jenis diskon (anak
+ * alumni/pegawai tetap/honorer, saudara, saudara alumni, alumni, atau semua siswa — lewat method
+ * statis {@link DiskonSiswa}), sinkronisasi ulang nilai diskon ke tagihan
+ * ({@link DiskonSiswaSyncHelper#sinkronkan}), serta unduh/unggah data massal dan ekspor Excel
+ * dengan tautan hyperlink ke berkas bukti. Dashboard kartu ringkas (total/disetujui/belum) dan
+ * indikator progres ditampilkan sebagai HTML lewat {@link CommonDashboardHtmlHelper}.
+ */
 public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -77,6 +88,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 	private Paging paging;
 	private Tbmuser tbmuser;
 
+	/** Menyiapkan combobox filter yayasan/sekolah dan komponen paginasi standar. */
 	public DiskonSiswaPunyaSiswaHelper() {
 
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
@@ -94,11 +106,18 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 
 	}
 
+	/**
+	 * Perender baris grid penerima diskon: menampilkan identitas siswa atau calon siswa (mengikuti
+	 * mana yang tertaut pada {@link DiskonSiswaPunyaSiswa}) dengan unggahan bukti dokumen, tahun
+	 * masuk, sekolah, keterangan yang dapat disunting langsung (tersimpan otomatis saat berubah),
+	 * ringkasan tagihan aktif yang menerima diskon ini, checkbox persetujuan, dan tombol hapus.
+	 */
 	class DetailDiskonSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
 		private boolean edit = false;
 
+		/** Menentukan hak akses hapus/ubah dari privilese pengguna saat ini. */
 		public DetailDiskonSiswaRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 			edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -271,6 +290,13 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian penerima diskon: selalu dibatasi ke {@link #diskonSiswa} yang
+	 * sedang ditampilkan (tidak menghasilkan baris apa pun bila belum ditentukan), disaring
+	 * berdasarkan yayasan/sekolah induk aturan diskon, angkatan (cocok pada siswa maupun calon
+	 * siswa), dan pencarian nama/NIM/nomor induk bebas; disaring pula sesuai hak akses orang tua
+	 * (bila user login adalah orang tua, hanya anaknya sendiri yang muncul).
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -330,6 +356,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 	}
 
 
+	/** Memuat ulang dashboard ringkas, paginasi, dan daftar penerima diskon (halaman aktif) secara asinkron di timer terpisah, menampilkan indikator progres bertahap selama proses berjalan. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -364,10 +391,23 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 
 	}
 
+	/** Mengembalikan {@code this} sebagai {@link DataLoader}, dipakai untuk memberi tahu dialog pemilihan siswa/calon siswa cara memuat ulang grid ini setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun seluruh tampilan layar penerima diskon untuk {@code diskonSiswa}: dashboard ringkas,
+	 * panel pencarian (nama/angkatan/yayasan/sekolah — yayasan/sekolah terkunci bila aturan diskon
+	 * sudah menetapkannya), toolbar aksi (ambil siswa/calon siswa secara massal, sinkronkan
+	 * penerima sesuai jenis diskon, sinkronkan tagihan, kirim diskon ke proses pembayaran bila
+	 * diskon tidak memotong tagihan langsung, bersihkan seluruh data, unduh/unggah massal), dan
+	 * grid hasil berpaging 50 baris.
+	 *
+	 * @param diskonSiswa aturan diskon yang penerimanya ditampilkan/dikelola
+	 * @param component   komponen induk tempat tampilan dibangun (dibersihkan lebih dulu)
+	 * @param window      jendela induk, diteruskan ke dialog pemilihan siswa/calon siswa
+	 */
 	public void display(final DiskonSiswa diskonSiswa, final Component component, final MyWindow window) {
 		this.diskonSiswa = diskonSiswa;
 		Common.clear(component);
@@ -753,6 +793,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 
 	}
 
+	/** Menghitung ulang total/disetujui/belum disetujui sesuai filter aktif dan merender kartu ringkas dashboard sebagai HTML. */
 	private void refreshDashboard() {
 		if (dashboardHtml == null) {
 			return;
@@ -777,6 +818,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 		}
 	}
 
+	/** Menghitung jumlah baris penerima diskon sesuai filter aktif, opsional dibatasi hanya yang sudah disetujui. */
 	private long countRows(boolean hanyaDisetujui) {
 		try {
 			Criteria criteria = initCriteria(false);
@@ -792,6 +834,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 		}
 	}
 
+	/** Menampilkan/memperbarui bar progres HTML dengan persentase dan pesan tahap saat ini. */
 	private void showProgress(int percent, String title, String detail) {
 		if (progressHtml == null) {
 			return;
@@ -800,6 +843,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 		progressHtml.setContent(CommonDashboardHtmlHelper.progressBar(percent, title, detail));
 	}
 
+	/** Menyembunyikan bar progres HTML setelah proses selesai. */
 	private void hideProgress() {
 		try {
 			if (progressHtml != null) {
@@ -810,6 +854,7 @@ public class DiskonSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, Da
 		}
 	}
 
+	/** Menjalankan pencarian standar, meneruskan langsung ke {@link #loadData(Object)}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

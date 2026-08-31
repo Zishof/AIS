@@ -36,6 +36,20 @@ import ais.database.model.Kegiatan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Resource JAX-RS ({@code /biaya}) yang mengekspos data referensi dan transaksi biaya kuliah
+ * (jenis kegiatan pembayaran, item biaya, detail teks biaya per bahasa, serta riwayat cicilan
+ * pembayaran mahasiswa) sebagai JSON ke konsumen eksternal. Mewarisi CRUD generik dari
+ * {@link DataResource DataResource&lt;Mahasiswa&gt;}.
+ * <p>
+ * <b>Catatan keamanan</b>: hampir seluruh endpoint mengautentikasi lewat {@code username}/
+ * {@code password} yang dikirim sebagai segmen URL path (lihat pola serupa di
+ * {@link KelulusanResource} dan {@link PerpustakaanResource}), termasuk method {@link #pembayaran}
+ * yang bahkan mengenkripsi ulang password path secara manual untuk dicocokkan langsung ke kolom
+ * {@code pass} milik {@link Mahasiswa} — pola ini berisiko kredensial tercatat di log server atau
+ * riwayat browser.
+ * </p>
+ */
 @Path("/biaya")
 @Singleton
 
@@ -45,16 +59,19 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Konstruktor default; mendaftarkan {@link Mahasiswa} sebagai entitas CRUD generik ke superclass {@link DataResource}. */
 	public BiayaResource() {
 		super(Mahasiswa.class);
 	}
 
+	/** Endpoint pemeriksaan/handshake sederhana yang mengembalikan resource ini sendiri sebagai JSON. */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public BiayaResource getXml() {
 		return this;
 	}
 
+	/** Mengambil seluruh {@link DetailBiaya} (teks rincian biaya, dapat multi-bahasa) untuk satu {@link JenisKegiatan} berdasarkan kodenya. */
 	@GET
 	@Path("daftar/{username}/{password}/{kode}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -74,6 +91,7 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return detailBiayas;
 	}
 
+	/** Mengambil seluruh {@link JenisKegiatan} tanpa filter maupun autentikasi. */
 	@GET
 	@Path("jenis_bayar")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -87,6 +105,7 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return jenisPembayaran;
 	}
 
+	/** Mengambil {@link JenisKegiatan} aktif, opsional difilter berdasarkan flag {@code defaultKegiatan}, setelah validasi kredensial via {@link Common#checkLogin}. */
 	@GET
 	@Path("jenis_pembayaran/{username}/{password}/{defaultKegiatan}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -108,6 +127,7 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return jenisPembayaran;
 	}
 
+	/** Mengambil satu {@link DetailBiaya} spesifik berdasarkan kombinasi kode jenis kegiatan, kode item biaya, dan kode bahasa (exact match), setelah validasi kredensial. */
 	@GET
 	@Path("ambil/{username}/{password}/{kode}/{item}/{bahasa}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -127,6 +147,15 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return detailBiaya;
 	}
 
+	/**
+	 * Mengambil {@link Kegiatan} pembayaran mahasiswa untuk satu jenis pembayaran dan semester.
+	 * Autentikasi pada method ini <b>tidak</b> memakai {@link Common#checkLogin} seperti endpoint
+	 * lain, melainkan mengenkripsi ulang {@code password} secara manual
+	 * ({@link Common#desEncrypter}) dan mencocokkannya langsung ke kolom {@code pass} pada
+	 * {@link Mahasiswa} aktif dengan NIM sama dengan {@code username}.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila kredensial gagal atau pembayaran tidak ditemukan
+	 */
 	@GET
 	@Path("pembayaran/{username}/{password}/{jenis_pembayaran}/{semester}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -152,6 +181,12 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return kegiatan;
 	}
 
+	/**
+	 * Mencari {@link JenisKegiatan} aktif berdasarkan ilike nama atau kode kegiatan, terurut nama,
+	 * dipaginasi, dikembalikan sebagai JSON array (string) di dalam {@code info1} pada
+	 * {@link CommonID}. Catatan: parameter {@code username}/{@code password} diterima tetapi tidak
+	 * divalidasi (tidak ada pemanggilan {@link Common#checkLogin}) pada overload ini.
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("jenis_pembayaran/{username}/{password}/{jenis}/{start}/{max}")
@@ -201,6 +236,12 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return commonID;
 	}
 
+	/**
+	 * Mencari {@link ItemBiaya} aktif berdasarkan ilike nama atau kode, terurut nama, dipaginasi,
+	 * dikembalikan sebagai JSON array (string) di dalam {@code info1} pada {@link CommonID}.
+	 * Catatan: parameter {@code username}/{@code password} diterima tetapi tidak divalidasi pada
+	 * overload ini.
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("item_biaya/{username}/{password}/{jenis}/{start}/{max}")
@@ -250,6 +291,17 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 		return commonID;
 	}
 
+	/**
+	 * Mencari riwayat {@link CicilanPembayaran} (mahasiswa maupun calon mahasiswa) berdasarkan
+	 * kombinasi filter program, NIM/no. registrasi (ilike), jenis kegiatan, tahun akademik dan
+	 * paritas semester (dari parameter {@code ta} 5 digit: 4 digit tahun mulai + 1 digit kode
+	 * semester), terurut terbaru dan dipaginasi. Tiap hasil dirangkum sebagai JSON: jenis
+	 * pembayaran, identitas pembayar (mahasiswa atau calon mahasiswa), semester, item biaya,
+	 * bulan (untuk cicilan bulanan), waktu, nilai, dan keterangan — dikembalikan sebagai JSON
+	 * array (string) di dalam {@code info1} pada {@link CommonID}.
+	 *
+	 * @throws com.sun.jersey.api.NotFoundException bila autentikasi username/password gagal
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("pembayaran_mahasiswa/{username}/{password}/{jenis}/{program}/{ta}/{nim}/{start}/{max}")

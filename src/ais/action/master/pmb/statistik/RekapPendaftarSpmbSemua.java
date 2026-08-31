@@ -51,6 +51,30 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.UIUtil;
 
+/**
+ * Composer laporan rekapitulasi pendaftar PMB/SPMB per jurusan: satu baris per {@link Jurusan}
+ * (dikelompokkan per {@link Fakultas} lewat {@link Group}), menampilkan corong pendaftaran mulai
+ * dari jumlah peminat, pembayaran formulir pendaftaran, kelulusan/diterima, pengisian form
+ * tambahan (opsional), pembayaran daftar ulang, perolehan NIM, kolom "Selisih" (jumlah kasus yang
+ * datanya tidak konsisten — sudah bayar daftar ulang tapi belum dapat NIM, atau sebaliknya sudah
+ * dapat NIM tapi belum tercatat bayar), dan jumlah data mahasiswa aktual di tabel {@link Mahasiswa}
+ * (dipakai sebagai pembanding silang terhadap data {@link BiodataCalonMahasiswa}). Setiap angka di
+ * grid maupun baris footer total dapat diklik ({@link A}) untuk mengunduh data detail baris
+ * BiodataCalonMahasiswa/Mahasiswa yang mendasarinya, lewat {@link MyEventListener}/
+ * {@link MyEventListenerMahasiswa}.
+ *
+ * <p>
+ * Tampilan sangat dikonfigurasi lewat flag {@code Konfigurasi}: {@code dibalik_nim_dan_lulus}
+ * menukar urutan kolom "Dapat NIM"/"Bayar Daftar Ulang"; {@code custom_bayar_formulir_jenis_seleksi}
+ * memecah kolom "Bayar Formulir" menjadi 4 sub-kolom berdasarkan jenis seleksi (Reguler Pilihan I/
+ * II, RPL, KIP — dicocokkan lewat id {@link JenisSeleksi} tetap 80 dan 99); {@code
+ * custom_bayar_formulir_pembayaran_tidak_dihitung} menonaktifkan syarat nominal bayar &gt; 0 pada
+ * mode kustom tersebut; {@code tampil_isi_form_tambahan} menambah kolom form tambahan; dan filter
+ * tanggal opsional ({@code searchTanggal}) membatasi setiap sub-perhitungan ke rentang tanggal
+ * kejadian masing-masing (pendaftaran/pembayaran registrasi/kelulusan/pembayaran daftar ulang/
+ * perolehan NIM — masing-masing kolom tanggal berbeda per tahap).
+ * </p>
+ */
 public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 3173385938131248092L;
@@ -87,6 +111,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 	private MyDatebox end;
 	private MyLabelConfig tgl;
 
+	/** Menjalankan pemeriksaan keamanan sebelum komponen ZK dibangun (hook siklus hidup ZK). */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -94,6 +119,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menginisialisasi bahasa, filter tanggal, flag konfigurasi tampilan, dropdown filter, kolom bersyarat, data awal, dan tombol Download grid; memuat data awal lewat timer default. */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -132,6 +158,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menyiapkan checkbox filter tanggal dan field mulai/selesai (default 5 tahun lalu s.d. besok), termasuk menyembunyikan/menampilkannya sesuai status checkbox dan memicu pencarian ulang saat checkbox diklik. */
 	private void initTanggal() {
 		if (searchTanggal == null) return;
 		if (tgl != null) tgl.setVisible(searchTanggal.isChecked());
@@ -166,6 +193,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		});
 	}
 
+	/** Membaca seluruh flag konfigurasi yang menentukan variasi tampilan laporan (lihat javadoc kelas). */
 	private void initKonfigurasi() {
 		dibalik_nim_dan_lulus = Common.bolehKonfigurasi("dibalik_nim_dan_lulus", Konfigurasi.TIDAK_AKTIF);
 		custom_bayar_formulir_jenis_seleksi = Common.bolehKonfigurasi("custom_bayar_formulir_jenis_seleksi", Konfigurasi.TIDAK_AKTIF);
@@ -173,6 +201,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		tampil_isi_form_tambahan = Common.bolehKonfigurasi("tampil_isi_form_tambahan");
 	}
 
+	/** Mengisi dropdown jenis semester (Ganjil/Genap/Semua), dropdown pilihan prodi peminat (Pilihan I-V sesuai konfigurasi, plus "Semua Peminatan"), dan dropdown program. */
 	private void initCombobox() {
 		// Jenis Semester
 		org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
@@ -207,6 +236,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		Common.initPrograms(program);
 	}
 
+	/** Menambahkan satu item dropdown pilihan prodi peminat dengan {@code label} dan {@code value} (nama field prodi1..5/"gabungan"). */
 	private void appendProdiCombo(String label, String value) {
 		org.zkoss.zul.Comboitem comboitem = new MyComboitemConfig();
 		comboitem.setLabel(label);
@@ -214,6 +244,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		prodiPilihanSearch.appendChild(comboitem);
 	}
 
+	/** Mengisi dropdown jenis seleksi dan tahun ajaran (default dari konfigurasi/tahun akademik berjalan), serta dropdown gelombang pendaftaran yang dimuat ulang otomatis mengikuti tahun ajaran terpilih. */
 	private void initDataAwal() {
 		Common.insertComboDanSemua(jenisseleksisearch, new String[] { "nama" }, "deskripsi", JenisSeleksi.class, "=Jenis Seleksi=", Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 		String tahunAkademikPenerimaanMahasiswaBaru = Common.getKonfigurasi("tahunAkademikPenerimaanMahasiswaBaru", Common.getCurrentTahunAkademik()).getNilai();
@@ -241,6 +272,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		searchTahunAjaran.addEventListener("onChange", gelombangEventListener);
 	}
 
+	/** Menambahkan satu kolom grid dengan label, perataan opsional, dan dukungan teks multi-baris opsional. */
 	private MyColumnConfig createColumn(Columns parent, String label, String align, boolean multiline) {
 		MyColumnConfig col = new MyColumnConfig();
 		col.setParent(parent);
@@ -250,6 +282,15 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		return col;
 	}
 
+	/**
+	 * Membangun ulang seluruh grid rekapitulasi: menentukan kolom sesuai flag konfigurasi aktif,
+	 * lalu untuk setiap {@link Jurusan} aktif (dikelompokkan per fakultas) menjalankan serangkaian
+	 * hitungan bersyarat lewat {@link #tampilandata} (peminat, bayar formulir — dipecah per jenis
+	 * seleksi bila {@code custom_bayar_formulir_jenis_seleksi} aktif, lulus, isi form tambahan,
+	 * bayar daftar ulang, dapat NIM) dan menghitung kolom "Selisih" (kasus data pembayaran/NIM
+	 * yang tidak konsisten). Setiap nilai ditautkan ke unduhan data detail. Baris footer total
+	 * dirender di akhir lewat {@link #renderFooter}.
+	 */
 	public void onSearchDefault(Event event) {
 		Session session = HibernateUtil.currentSession();
 		PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
@@ -465,10 +506,12 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		renderFooter(grid, jen, selectedProgram, selectedSemester, selectedJenisSeleksi, selectedTahunAjaran, selectedGelombang, tahunangkatan);
 	}
 
+	/** Mengembalikan seluruh akumulator kolom (untuk baris footer total) ke nol. */
 	private void resetAccumulators() {
 		pilA1 = pilB1 = pilB1a1 = pilB1a2 = pilB1b = pilB1c = pilC1 = pilCC1 = pilCC2 = pilD1 = pilE1 = pilSelisih = 0;
 	}
 
+	/** Menyaring {@code crits} menjadi array baru tanpa elemen {@code null} (memudahkan penggabungan kriteria opsional, mis. filter tanggal yang mungkin tidak aktif). */
 	private Criterion[] buildArray(Criterion... crits) {
 		int count = 0;
 		for (Criterion c : crits) if (c != null) count++;
@@ -478,6 +521,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		return result;
 	}
 
+	/** Merender baris footer "Total" yang menjumlahkan seluruh kolom lintas jurusan, dengan setiap nilai juga dapat diklik untuk mengunduh data detail agregat (bukan per-jurusan). */
 	private void renderFooter(MyGrid grid, String jen, String selectedProgram, String selectedSemester, JenisSeleksi selectedJenisSeleksi, String selectedTahunAjaran, GelombangPendaftaran selectedGelombang, int tahunangkatan) {
 		Foot foot = new Foot();
 		foot.setParent(grid);
@@ -528,6 +572,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		addFooterItem(foot, pilE1, new MyEventListenerMahasiswa(null, selectedProgram, selectedSemester, selectedJenisSeleksi, tahunangkatan));
 	}
 
+	/** Menambahkan satu sel footer berisi angka {@code value} yang dapat diklik untuk memicu {@code listener} (biasanya mengunduh data detail). */
 	private void addFooterItem(Foot foot, int value, EventListener listener) {
 		Footer footer = new Footer();
 		A a = new A(Common.numberFormat.get().format(value));
@@ -537,6 +582,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		foot.appendChild(footer);
 	}
 
+	/** Listener klik angka pada grid/footer (jalur {@link BiodataCalonMahasiswa}): membuka unduhan data detail calon mahasiswa sesuai kombinasi jurusan/pilihan/program/semester/jenis seleksi/tahun ajaran/gelombang dan kriteria tambahan yang sama persis dipakai untuk menghitung angka tersebut. */
 	public class MyEventListener implements EventListener {
 		private Jurusan j;
 		private Criterion[] crits;
@@ -546,6 +592,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		private JenisSeleksi jenisSeleksiVal;
 		private GelombangPendaftaran gelombangVal;
 
+		/** Menyimpan seluruh konteks filter yang dipakai untuk membangun ulang kriteria unduhan detail saat diklik. */
 		public MyEventListener(Jurusan j, String pilihan, boolean gabungan, String programVal, String semesterVal, JenisSeleksi jenisSeleksiVal, String tahunAjaranVal, GelombangPendaftaran gelombangVal, Criterion... crits) {
 			this.j = j;
 			this.pilihan = pilihan;
@@ -599,6 +646,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		}
 	}
 	
+	/** Listener klik angka kolom "Jml Data Mhs" pada grid/footer (jalur {@link Mahasiswa}): membuka unduhan data detail mahasiswa aktif sesuai kombinasi jurusan/program/semester/jenis seleksi/tahun angkatan yang sama persis dipakai untuk menghitung angka tersebut. */
 	public class MyEventListenerMahasiswa implements EventListener {
 		private Jurusan j;
 		private Criterion[] crits;
@@ -606,6 +654,7 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		private JenisSeleksi jenisSeleksiVal;
 		private int tahunAngkatanVal;
 
+		/** Menyimpan seluruh konteks filter yang dipakai untuk membangun ulang kriteria unduhan detail mahasiswa saat diklik. */
 		public MyEventListenerMahasiswa(Jurusan j, String programVal, String semesterVal, JenisSeleksi jenisSeleksiVal, int tahunAngkatanVal, Criterion... crits) {
 			this.j = j;
 			this.programVal = programVal;
@@ -645,6 +694,16 @@ public class RekapPendaftarSpmbSemua extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Menghitung jumlah {@link BiodataCalonMahasiswa} yang memenuhi kombinasi filter dasar
+	 * (program/semester/jenis seleksi/tahun ajaran/gelombang), kecocokan jurusan pada satu kolom
+	 * pilihan tertentu (atau gabungan seluruh 5 slot pilihan bila {@code gabungan}), dan kriteria
+	 * tambahan bebas ({@code crits}, mis. syarat pembayaran/kelulusan/tanggal). Menambahkan satu
+	 * sel angka yang dapat diklik ke {@code row} (bila diberikan) yang membuka unduhan detail
+	 * dengan kriteria yang sama persis.
+	 *
+	 * @return jumlah baris yang cocok
+	 */
 	private int tampilandata(Session session, Row row, Jurusan j, String pilihan, boolean gabungan, String programVal, String semesterVal, JenisSeleksi jenisSeleksiVal, String tahunAjaranVal, GelombangPendaftaran gelombangVal, Criterion... crits) {
 		Criteria c = session.createCriteria(BiodataCalonMahasiswa.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))

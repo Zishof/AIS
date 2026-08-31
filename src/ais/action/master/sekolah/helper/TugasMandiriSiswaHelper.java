@@ -64,6 +64,24 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK modul sekolah untuk fitur "Tugas Mandiri" pada satu {@link Pertemuan}
+ * perkuliahan/pelajaran: guru/dosen menetapkan instruksi tugas (judul, isi, lampiran, rentang
+ * waktu pengumpulan, dan keterkaitan opsional ke {@link FormatNilai}), sedangkan siswa
+ * mengunggah berkas jawaban ({@link TugasFileContent}) yang direkap staf dengan nilai dan
+ * keterangan per unggahan.
+ *
+ * <p>
+ * Kelas ini dipakai dalam dua konteks berbeda ditentukan lewat konstruktor: {@code siswa}/
+ * {@code calonSiswa} bernilai {@code null} untuk tampilan staf (dapat mengubah instruksi, menilai,
+ * mengunduh seluruh tugas sebagai zip, memicu penghitungan nilai otomatis lewat
+ * {@code GradingHelper#hitungNilaiBerdasarkanFormatNilai}), atau diisi untuk tampilan satu siswa
+ * tertentu (hanya dapat mengunggah tugasnya sendiri dan melihat nilainya sendiri). Tombol unggah
+ * tugas hanya tampil dalam rentang waktu {@code mulai}-{@code selesai} milik pertemuan. Berkas
+ * unggahan disimpan lewat {@link StreamingHibernateUtil} (streaming blob) dan diberi nama ulang
+ * sesuai NIM/nomor induk pemiliknya sebelum diunduh atau di-zip.
+ * </p>
+ */
 public class TugasMandiriSiswaHelper {
 
 	private MyGrid uploadTugasGrid;
@@ -72,6 +90,7 @@ public class TugasMandiriSiswaHelper {
 	private CalonSiswa calonSiswa;
 	private Pertemuan pertemuan;
 
+	/** Membangun helper untuk konteks siswa {@code siswa}/{@code calonSiswa} tertentu, atau tampilan staf bila keduanya {@code null}. */
 	public TugasMandiriSiswaHelper(final Siswa siswa, final CalonSiswa calonSiswa) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
@@ -79,6 +98,18 @@ public class TugasMandiriSiswaHelper {
 
 	private MyToolbarbuttonConfig buttonMasukkanNilai;
 
+	/**
+	 * Membuka dialog modal untuk staf mengubah instruksi tugas mandiri {@link #pertemuan}:
+	 * judul, isi instruksi (rich text), lampiran, rentang waktu mulai/selesai pengumpulan, dan
+	 * (bila pertemuan terkait suatu perkuliahan) keterkaitan opsional ke {@link FormatNilai}
+	 * beserta bobot persentasenya (dikunci bila penilaian perkuliahan sudah dikunci). Menyimpan
+	 * mensyaratkan judul terisi; setelah tersimpan, memicu {@code eventListener} yang diberikan
+	 * (membawa {@link Pertemuan} terbaru sebagai data event), mengirim notifikasi email
+	 * ({@code CommonEmail#infoAdaTugasPerkuliahan}) dan in-app
+	 * ({@code CommonNotifikasi#infoTugasBaru}) ke peserta.
+	 *
+	 * @param eventListener callback yang dipanggil setelah instruksi tugas berhasil disimpan
+	 */
 	public void onUbahPerintahTugas(final EventListener eventListener) throws Exception {
 		final MyWindow addWindow = new MyWindow();
 		addWindow.setHeight("95%");
@@ -315,6 +346,17 @@ public class TugasMandiriSiswaHelper {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun panel utama fitur Tugas Mandiri pada {@code tabpanelFileTugasPertemuan}: kolom
+	 * kiri menampilkan instruksi tugas (judul, isi, rentang waktu, lampiran instruksi, info
+	 * keterkaitan format nilai) beserta tombol "Masukkan Instruksi Tugas" (khusus staf); kolom
+	 * kanan menampilkan toolbar unggah/unduh-semua dan grid rekap unggahan siswa. Tombol unggah
+	 * hanya tampil dalam rentang waktu tugas berlaku; tombol unduh-semua dan tombol "Masukkan
+	 * Nilai ke ..." (memicu penghitungan nilai otomatis) hanya tampil untuk staf.
+	 *
+	 * @param pertemuan                    pertemuan yang menjadi konteks tugas mandiri
+	 * @param tabpanelFileTugasPertemuan   tab panel target, label tab-nya diperbarui dengan jumlah unggahan
+	 */
 	@SuppressWarnings("deprecation")
 	public void createTugas(final Pertemuan pertemuan, final Tabpanel tabpanelFileTugasPertemuan) throws Exception {
 		this.pertemuan = pertemuan;
@@ -727,6 +769,7 @@ public class TugasMandiriSiswaHelper {
 		reloadTugasFileContent();
 	}
 
+	/** Memuat ulang daftar unggahan tugas ({@link TugasFileContent}) untuk {@link #pertemuan} (terbaru dulu), memperbarui label jumlah pada tab, dan merender ulang grid. */
 	@SuppressWarnings("unchecked")
 	private void reloadTugasFileContent() {
 		Session session = StreamingHibernateUtil.getInstance().currentSession();
@@ -745,10 +788,20 @@ public class TugasMandiriSiswaHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Perenderan satu baris tabel unggahan tugas: identitas pengunggah (siswa atau calon siswa,
+	 * dicari sesuai kolom mana yang terisi pada {@link TugasFileContent}), nama berkas, tanggal
+	 * unggah, keterangan (editable oleh staf, langsung disimpan lewat SQL native saat berubah;
+	 * label read-only bagi siswa), nilai (editable oleh staf; siswa hanya melihat nilai miliknya
+	 * sendiri, siswa lain melihat kolom kosong), tombol unduh (tampil bagi staf atau pemilik
+	 * unggahan), dan tombol hapus (hanya tampil bila nilai belum diisi/di bawah 1.0, dan hanya
+	 * bagi staf atau pemilik unggahan).
+	 */
 	class DetailTugasFileContentRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();
 
+		/** Konstruktor baku, menangkap pengguna yang sedang login untuk keperluan pemeriksaan hak akses per baris. */
 		public DetailTugasFileContentRenderer() {
 
 		}

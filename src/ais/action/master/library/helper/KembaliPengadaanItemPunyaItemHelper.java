@@ -45,6 +45,29 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul perpustakaan untuk memproses pengembalian item pinjaman
+ * ({@link KembaliPengadaanItem}), lewat baris {@link KembaliPengadaanItemDetail} yang menautkan
+ * kembali ke {@link PeminjamanPengadaanItemDetail} asal. Alur kerja utamanya berbasis pemindaian
+ * barcode: petugas memindai barcode fisik item, dan baris yang sesuai pada daftar pinjaman aktif
+ * dicentang otomatis sebagai dikembalikan.
+ *
+ * <p>
+ * Dua sumber pengisian baris: {@link #setPeminjamanPengadaanItem} memuat seluruh pinjaman aktif
+ * anggota (belum ada {@link KembaliPengadaanItemDetail} terkait) sebagai baris belum dicentang;
+ * {@link #initDetail} memuat baris pengembalian yang sudah tersimpan untuk transaksi yang sudah
+ * ada. Mencentang checkbox baris (manual atau via scan barcode di {@link #loadBarcode}) memicu
+ * perhitungan ulang denda keterlambatan ({@code LibraryUtil#hitungDendaItem}) ditambah biaya
+ * penggantian/kerusakan (disimpan terenkode dalam kolom {@code ketDenda}, format
+ * {@code "[BIAYA_PENGGANTIAN=nilai]"}) dan kondisi fisik item (disimpan terenkode dalam kolom
+ * {@code keterangan}, format {@code "[KONDISI=BAIK|RUSAK|HILANG|PERBAIKAN] catatan"}) — kedua
+ * pola encoding string-dalam-kolom ini dipakai karena tidak ada kolom terpisah pada entitas.
+ * Tombol Perpanjang/Batal Perpanjang memicu {@code LibraryUtil#onPerpanjang}/{@code
+ * onBatalPerpanjang} dan menghitung ulang tampilan; tombol Batalkan (nonaktif) mengarahkan
+ * pengguna ke jalur reversal transaksi resmi karena detail pengembalian yang sudah terposting
+ * tidak boleh dihapus langsung.
+ * </p>
+ */
 public class KembaliPengadaanItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -57,6 +80,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 	private KembaliPengadaanItem kembaliPengadaanItem;
 	private Textbox barcode;
 
+	/** Membangun helper terikat pada {@code gridItem} dan menghitung hak ubah/hapus pengguna saat ini. */
 	public KembaliPengadaanItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -64,6 +88,16 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar pemindaian barcode dan grid daftar item
+	 * pengembalian untuk {@code kembaliPengadaanItem}, lalu memuat data yang sudah tersimpan.
+	 * Bila {@code barcodeItem} diberikan, langsung memproses barcode tersebut layaknya baru
+	 * dipindai; selain itu fokus diarahkan ke kolom input barcode.
+	 *
+	 * @param kembaliPengadaanItem transaksi pengembalian yang menjadi konteks detail
+	 * @param barcodeItem          barcode yang langsung diproses saat panel dibuka, boleh {@code null}
+	 * @return border layout siap disisipkan sebagai konten form pengembalian
+	 */
 	public Borderlayout initDetail(final KembaliPengadaanItem kembaliPengadaanItem, final String barcodeItem)
 			throws Exception {
 		this.kembaliPengadaanItem = kembaliPengadaanItem;
@@ -209,6 +243,12 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Memuat baris-baris pengembalian tersimpan untuk {@code kembaliPengadaanItem} dari
+	 * database. Bila {@code refresh} bernilai {@code true}, denda tiap baris dihitung ulang
+	 * ({@code LibraryUtil#hitungDendaItem} ditambah biaya penggantian) dan disimpan bila
+	 * berbeda dari nilai tersimpan, sebelum baris dirender ke grid.
+	 */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final KembaliPengadaanItem kembaliPengadaanItem, boolean refresh) throws Exception {
 
@@ -260,6 +300,17 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan checkbox "dikembalikan" (tercentang dan terkunci bila baris
+	 * sudah tersimpan), gambar sampul item, tautan riwayat revisi, barcode, ringkasan detail
+	 * pinjaman (tanggal pinjam/setujui, batas dan lama pinjam, jumlah perpanjangan,
+	 * keterlambatan, denda berjalan), tanggal kembali, status/nominal pembayaran denda, kondisi
+	 * fisik item dan biaya penggantian/kerusakan, keterangan, serta tombol Perpanjang/Batal
+	 * Perpanjang/Batalkan (nonaktif, mengarahkan ke jalur reversal). Mencentang/melepas checkbox
+	 * atau mengubah tanggal memicu perhitungan ulang denda dan pembaruan seluruh label ringkasan
+	 * terkait secara langsung di UI; field terkunci mengikuti status persetujuan transaksi dan
+	 * hak ubah pengguna.
+	 */
 	public void initRow(final Row row, final KembaliPengadaanItemDetail kembaliPengadaanItemDetail) throws Exception {
 		row.setValign("top");
 		row.setAttribute("kembaliPengadaanItemDetail", kembaliPengadaanItemDetail);
@@ -616,6 +667,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		return peminjamanPengadaanItem;
 	}
 
+	/** Menetapkan transaksi peminjaman sumber dan langsung memuat item-item aktifnya sebagai baris pengembalian lewat {@link #loadDataDetailFromPeminjaman()}. */
 	public void setPeminjamanPengadaanItem(PeminjamanPengadaanItem peminjamanPengadaanItem) {
 		this.peminjamanPengadaanItem = peminjamanPengadaanItem;
 		try {
@@ -625,6 +677,12 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Memuat seluruh detail pinjaman aktif ({@link PeminjamanPengadaanItemDetail} tanpa
+	 * {@code kembaliPengadaanItemDetail} terkait) milik anggota yang sama dengan
+	 * {@link #peminjamanPengadaanItem}, membangun baris {@link KembaliPengadaanItemDetail} baru
+	 * (belum tersimpan) untuk masing-masing, dan merendernya ke grid.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataDetailFromPeminjaman() throws Exception {
 
@@ -662,6 +720,16 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Memproses satu pemindaian barcode: mencari {@link ItemPunyaBarcode} yang cocok persis
+	 * (fallback ke pencarian {@link Item} lewat ISBN10/ISBN/ISSN bila barcode tidak ditemukan
+	 * langsung, namun tetap mensyaratkan {@code itemPunyaBarcode} valid), lalu mencari baris di
+	 * grid yang barcode-nya cocok dan mencentang checkbox-nya (memicu listener perhitungan ulang
+	 * yang sama seperti mencentang manual). Menampilkan pesan peringatan pada setiap kegagalan
+	 * (barcode kosong, tidak ditemukan, grid belum berisi data, atau ditemukan di master item
+	 * tapi tidak ada dalam daftar pinjaman aktif) dan selalu mengembalikan fokus ke kolom
+	 * barcode setelahnya.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadBarcode(KembaliPengadaanItem kembaliPengadaanItem) throws Exception {
 		String barcodeText = barcode == null ? null : barcode.getText();
@@ -743,6 +811,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		focusBarcodeInput();
 	}
 
+	/** Mengambil attribute {@code kembaliPengadaanItemDetail} dari {@code row}, atau {@code null} bila tidak ada/tidak bertipe sesuai. */
 	private KembaliPengadaanItemDetail getDetailFromRow(Row row) {
 		if (row == null) {
 			return null;
@@ -754,6 +823,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		return null;
 	}
 
+	/** Mengambil attribute {@code checkbox} dari {@code row}, atau {@code null} bila tidak ada/tidak bertipe sesuai. */
 	private MyCheckboxConfig getCheckboxFromRow(Row row) {
 		if (row == null) {
 			return null;
@@ -765,6 +835,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		return null;
 	}
 
+	/** Mengecek apakah {@code itemPunyaBarcode} adalah barcode yang sama (id sama) dengan yang tercatat pada {@code kembaliPengadaanItemDetail}. */
 	private boolean samaBarcode(ItemPunyaBarcode itemPunyaBarcode,
 			KembaliPengadaanItemDetail kembaliPengadaanItemDetail) {
 		if (itemPunyaBarcode == null || itemPunyaBarcode.getId() == null || kembaliPengadaanItemDetail == null
@@ -775,6 +846,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		return itemPunyaBarcode.getId().equals(kembaliPengadaanItemDetail.getItemPunyaBarcode().getId());
 	}
 
+	/** Mengembalikan fokus dan menyeleksi isi kolom input barcode lewat timer default (memastikan komponen sudah siap sebelum fokus diberikan). */
 	private void focusBarcodeInput() {
 		Common.createDefaultTimer(new EventListener() {
 
@@ -788,6 +860,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		});
 	}
 
+	/** Mengekstrak nilai biaya penggantian dari string terenkode {@code "[BIAYA_PENGGANTIAN=nilai]"} pada {@code value}, atau {@code 0.0} bila polanya tidak cocok/{@code value} {@code null}. */
 	private static Double replacementCharge(String value) {
 		if (value == null) return 0.0;
 		try {

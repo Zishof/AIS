@@ -49,8 +49,29 @@ import ais.ui.util.MyIframe;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Kumpulan utilitas statis pencetakan laporan/dokumen modul rekrutmen pegawai (kartu ujian, absen
+ * ujian bergambar per pilihan program studi, daftar hadir ujian per hari, surat pernyataan orang
+ * tua/calon pegawai, lembar verifikasi, dan biodata lengkap calon pegawai). Sebagian besar method
+ * membangun peta parameter untuk mesin laporan terpusat ({@link Report}) yang kemudian
+ * di-render menjadi PDF/XLS; beberapa method juga mengirim hasil cetak lewat email
+ * ({@link CommonEmail#infoDaftarUjianPegawai}).
+ */
 public class CommonReportPegawai {
 
+	/**
+	 * Mencetak kartu ujian PDF untuk {@code calonPegawai} yang sudah memiliki ruang ujian (dicari
+	 * dari {@link RuangGelombangPendaftaranPegawaiPegawai}, atau di-generate otomatis lewat
+	 * {@link CommonPegawai#dapatkanRuangUjian} bila nomor ujian sudah ada tapi ruang belum
+	 * ditetapkan). Menandai {@code cetakKartu=1} pada data calon pegawai, lalu mengirim kartu ujian
+	 * (beserta {@code bio} bila diberikan) ke email calon pegawai lewat
+	 * {@link CommonEmail#infoDaftarUjianPegawai}.
+	 *
+	 * @param calonPegawai calon pegawai yang kartu ujiannya dicetak
+	 * @param nomorUjian   nomor ujian yang dicetak pada kartu
+	 * @param bio          berkas biodata tambahan yang turut dilampirkan pada email, boleh {@code null}
+	 * @return {@code true} bila kartu berhasil dibuat dan email terkirim; {@code false} bila ruang ujian belum tersedia atau terjadi kegagalan (dicatat ke audit error, tidak melempar exception)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static boolean onCetakKartuUjianPegawai(CalonPegawai calonPegawai, String nomorUjian, File bio)
 			throws Exception {
@@ -104,11 +125,24 @@ public class CommonReportPegawai {
 		}
 	}
 
+	/** Seperti {@link #onCetakAbsensiPegawaiFoto(RuangPegawai)} tanpa membatasi ke satu ruang tertentu (mode gabung semua ruang, filter lengkap dipilih interaktif di jendela laporan). */
 	@SuppressWarnings({})
 	public static MyWindow onCetakAbsensiPegawaiFoto() throws Exception {
 		return onCetakAbsensiPegawaiFoto(null);
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela laporan interaktif "Absensi Pegawai Bergambar per Pilihan
+	 * Prodi": kombinasi filter pilihan prodi (1-5), jurusan, tahun akademik, gelombang pendaftaran,
+	 * dan jadwal ujian menentukan daftar calon pegawai yang ditampilkan (lewat
+	 * {@link #getDataAlbumPegawaiAdmin}), dirender langsung ke iframe pratinjau PDF di dalam
+	 * jendela dan dapat diunduh sebagai XLS. Bila {@code ruang} diberikan, laporan dibatasi ke ruang
+	 * ujian tersebut; bila {@code null}, filter "Gabung Semua" dapat dicentang untuk mencakup semua
+	 * ruang pada jadwal ujian terpilih.
+	 *
+	 * @param ruang ruang ujian yang membatasi cakupan laporan, atau {@code null} untuk cakupan bebas
+	 * @return jendela modal {@link MyWindow} berisi panel filter dan pratinjau laporan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static MyWindow onCetakAbsensiPegawaiFoto(final RuangPegawai ruang) throws Exception {
 
@@ -370,6 +404,16 @@ public class CommonReportPegawai {
 		return window;
 	}
 
+	/**
+	 * Mengambil daftar calon pegawai (beserta foto dan data ruang/jadwal ujian) yang memilih
+	 * {@code jurusan} pada slot pilihan {@code pilihan} (mis. {@code "prodi1"}..{@code "prodi5"}),
+	 * disaring gelombang pendaftaran dan — bila {@code ruang} diberikan — dibatasi ke ruang
+	 * tersebut, atau — bila {@code gabungSemua} — mencakup seluruh ruang pada ujian dari
+	 * {@code jadwalUjianPegawai}. Setiap baris hasil disusun sebagai peta siap pakai untuk mesin
+	 * laporan (nama, nomor ujian, waktu, ruang, gedung, TTL, alamat, foto, dll).
+	 *
+	 * @return daftar peta data siap dipakai sebagai sumber data laporan
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Map<String, Object>> getDataAlbumPegawaiAdmin(RuangPegawai ruang, String pilihan,
 			JadwalUjianPegawai jadwalUjianPegawai, String tahunAkademik,
@@ -481,6 +525,7 @@ public class CommonReportPegawai {
 		return maps;
 	}
 
+	/** Mencetak daftar hadir ujian (PDF, satu bagian per hari ujian sesuai {@code jumlahHariUjian}) untuk satu {@code ruangPegawai}; tidak melakukan apa pun bila ruang belum tertaut ke ujian pegawai. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakAbsensiPegawai(RuangPegawai ruangPegawai) throws Exception {
 
@@ -505,6 +550,7 @@ public class CommonReportPegawai {
 				names.toArray(new String[] {}), ais.ui.util.WaktuUtil.getDate());
 	}
 
+	/** Mencetak surat pernyataan orang tua (PDF) atas nama {@code calonPegawai}, berisi nama calon pegawai serta nama ayah/ibu. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakPernyataanOrtu(CalonPegawai calonPegawai) throws Exception {
 
@@ -523,6 +569,7 @@ public class CommonReportPegawai {
 
 	}
 
+	/** Mencetak surat pernyataan calon pegawai (PDF), berisi identitas diri (TTL, alamat) beserta nama ayah/ibu. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakPernyataanPegawai(CalonPegawai calonPegawai) throws Exception {
 
@@ -546,6 +593,7 @@ public class CommonReportPegawai {
 
 	}
 
+	/** Mencetak lembar validasi/verifikasi pegawai (PDF) untuk satu {@code ruangPegawai}; tidak melakukan apa pun bila ruang belum tertaut ke ujian pegawai. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakVerifikasiPegawai(RuangPegawai ruangPegawai) throws Exception {
 
@@ -562,6 +610,18 @@ public class CommonReportPegawai {
 		Report.generatePDFReport(Report.PDF, parameters, "ValidasiPegawai", ais.ui.util.WaktuUtil.getDate());
 	}
 
+	/**
+	 * Mencetak biodata lengkap (PDF) satu calon pegawai: menyusun daftar label-nilai berkelompok
+	 * (info pendaftaran, data calon pegawai, data pendidikan asal, data orang tua/wali, parameter
+	 * tambahan kustom {@link CommonVO}) — pasangan dengan nilai kosong/{@code "null"} dilewati agar
+	 * tidak muncul di cetakan. Turut menyertakan status verifikasi kelengkapan berkas
+	 * ({@link VerifikasiKelengkapanCalonPegawai} aktif pada gelombang pendaftaran terkait): baris
+	 * {@link CalonPegawaiPunyaVerifikasiBerkas} dibuat otomatis (default belum diverifikasi) bila
+	 * belum ada, lengkap dengan tautan lampiran bukti bila sudah diunggah.
+	 *
+	 * @param calonPegawai calon pegawai yang biodatanya dicetak
+	 * @return berkas PDF hasil cetak
+	 */
 	public static File onCetakCalonPegawai(final CalonPegawai calonPegawai) throws Exception {
 
 		Map<String, Serializable> parameters = ais.common.HashMapGenerator.getRandStringSerializable();
@@ -736,6 +796,7 @@ public class CommonReportPegawai {
 
 	}
 
+	/** Seperti {@link #onCetakKartuUjianPegawai(CalonPegawai, String, File)} tanpa lampiran biodata tambahan. */
 	@SuppressWarnings({})
 	public static boolean onCetakKartuUjianPegawai(CalonPegawai calonPegawai, String nomorUjian) throws Exception {
 		return onCetakKartuUjianPegawai(calonPegawai, nomorUjian, null);

@@ -53,6 +53,31 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Composer ZK untuk menampilkan riwayat "Penggunaan Anggaran" ({@link PenggunaanAnggaran}) — baris
+ * agregat yang merekam pemakaian saldo suatu {@link Workspace} (unit RAB) oleh berbagai jenis
+ * transaksi keuangan/aset di seluruh modul: jurnal umum ({@link GrupTransaksi}), permintaan
+ * pengadaan aset ({@link PermintaanPengadaanMasterAssetDetail}), uang muka ({@link UangMuka}),
+ * pertanggungjawaban ({@link Pertangungjawaban}), saldo awal aset
+ * ({@link SaldoAwalMasterAssetDetail}), pembayaran gaji ({@link PembayaranGaji}), kas kecil
+ * ({@link KasKecil}), dan kas besar ({@link KasBesar}). Checkbox {@code tampilkan*} pada toolbar
+ * pencarian memungkinkan pengguna menyaring baris menurut jenis transaksi sumbernya (satu baris
+ * {@link PenggunaanAnggaran} hanya terkait ke SATU dari kolom-kolom relasi tersebut, tidak
+ * pernah lebih dari satu).
+ *
+ * <p>
+ * {@link #doAfterCompose(Component)} (didahului pemeriksaan keamanan di {@code doBeforeCompose})
+ * membaca parameter URL {@code workspace} bila ada — jika diberikan, filter workspace pada
+ * toolbar pencarian dikunci ke workspace tersebut (dipakai saat dibuka dari drill-down layar RAB
+ * lain). Pencarian utama ({@link #initCriteria(Session, boolean)}) membangun kriteria gabungan
+ * (OR) dari checkbox jenis transaksi yang dicentang, cakupan workspace (termasuk seluruh
+ * turunannya lewat {@link Workspace#getAllWorkspaceIds}), status aktif, rentang tanggal, serta
+ * kata kunci nama/kode. Karena kontrak {@link DataCriteria#initCriteria(boolean)} baku tidak
+ * membawa parameter {@link Session}, overload tanpa sesi ({@link #initCriteria(boolean)}) hanya
+ * fallback yang selalu mengembalikan {@code null} — pemanggilan sesungguhnya selalu lewat
+ * {@link #onSearchDefault(Event)} yang membuka sesi sendiri dan memanggil overload lengkap.
+ * </p>
+ */
 public class PenggunaanAnggaranAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 
 	private static final long serialVersionUID = -5779730267402400328L;
@@ -80,12 +105,18 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 	private MyToolbarbuttonConfig add;
 
 	@Override
+	/** Menjalankan pemeriksaan keamanan halaman ({@code Common.doCheckSecurity()}) sebelum komponen ZK di-compose. */
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Inisialisasi composer setelah komponen ZK ter-wiring: bila parameter URL {@code workspace}
+	 * diberikan, mengunci filter workspace pencarian ke workspace tersebut (mode drill-down dari
+	 * layar lain); selain itu menyiapkan checkbox filter jenis transaksi dan paging.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -511,6 +542,17 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 	}
 
 	// Helper Method untuk menjaga DataCriteria interface aman
+	/**
+	 * Membangun kriteria Hibernate lengkap untuk daftar penggunaan anggaran: gabungan (OR)
+	 * kriteria "relasi ke jenis transaksi tidak null" untuk setiap checkbox
+	 * {@code tampilkan*} yang dicentang (bila SEMUA dicentang, dipersingkat jadi tanpa filter jenis
+	 * sama sekali), cakupan {@link Workspace} beserta seluruh turunannya, status aktif, rentang
+	 * tanggal ({@code waktu} antara {@link #start} dan {@link #end}), serta kata kunci nama/kode.
+	 *
+	 * @param session sesi Hibernate yang dipakai untuk membangun kriteria dan resolusi turunan workspace
+	 * @param order   {@code true} untuk mengurutkan hasil berdasarkan waktu menurun (terbaru dahulu)
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(Session session, boolean order) {
 		Criterion criterion = Restrictions.sqlRestriction("false");
 
@@ -562,12 +604,24 @@ public class PenggunaanAnggaranAction extends GenericAutowireComposer implements
 		return criteria;
 	}
 
+	/**
+	 * Fallback yang dipersyaratkan kontrak {@link DataCriteria}, TIDAK dipakai secara nyata karena
+	 * kelas ini memerlukan {@link Session} eksplisit untuk membangun kriteria — selalu
+	 * mengembalikan {@code null}; pemanggil sesungguhnya harus memakai
+	 * {@link #initCriteria(Session, boolean)} lewat {@link #onSearchDefault(Event)}.
+	 */
 	// Fallback wajib karena implement DataCriteria, tapi akan kita pass nilai null
 	// karena pemanggilan asli harus menyertakan Session
 	public Criteria initCriteria(boolean order) {
 		return null;
 	}
 
+	/**
+	 * Mengeksekusi ulang pencarian penggunaan anggaran (membuka sesi Hibernate sendiri, memanggil
+	 * {@link #initCriteria(Session, boolean)}) untuk halaman aktif dan merender hasilnya ke grid.
+	 *
+	 * @param event tidak dipakai langsung, hanya untuk kesesuaian kontrak {@link DataSearchDefault}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = null;

@@ -34,8 +34,32 @@ import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sisdes.Penduduk;
 
+/**
+ * Implementasi logika (dipanggil dari servlet {@link Api}) bagi API mobile/eksternal untuk modul
+ * Angket Umum ({@link ChecklistPenilaianUmum}) — kuesioner/survei generik yang dapat ditujukan ke
+ * berbagai jenis pengguna (mahasiswa, alumni, dosen, guru, siswa, orang tua, atau tautan publik
+ * umum) tergantung konfigurasi target {@link GrupChecklistPenilaianUmum}. Setiap method menerima
+ * {@code req}/{@code request} JSON baku ala API AIS dan mengembalikan {@link JSONObject} beramplop
+ * {@code status}/{@code description} (kode {@code "00"} sukses, {@code "97"} token tidak valid,
+ * {@code "90"} galat lain). Otentikasi seluruhnya berbasis token (lewat
+ * {@link ApiUtil#currentUser(JSONObject, HttpServletRequest)}), tidak ditemukan kredensial
+ * tertanam pada kelas ini.
+ */
 public class AngketUtilUmumApi {
 
+	/**
+	 * Menyimpan satu jawaban penilaian ({@link ChecklistHasilPenilaianUmum}) untuk item checklist
+	 * {@code check_id} dengan nilai yang diberikan, terikat ke identitas user pemanggil (mahasiswa,
+	 * dosen, guru, atau siswa — ditentukan dari token) untuk tahun akademik dan semester tertentu
+	 * (default: tahun akademik/semester berjalan bila tidak diberikan). Baris hasil yang sudah ada
+	 * untuk kombinasi user+checklist+semester+tahun yang sama diperbarui (bukan dibuat baru
+	 * berulang, dicari lewat kombinasi field identitas yang relevan).
+	 *
+	 * @param req     permintaan HTTP asli (untuk resolusi user via sesi/token)
+	 * @param request payload JSON: {@code check_id}, {@code nilai}, opsional {@code tahunAkademik},
+	 *                {@code keterangan}, {@code semester}
+	 * @return {@code {"status":"00","description":"Simpan data berhasil"}} atau kode galat
+	 */
 	public static JSONObject simpanAngket(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -153,6 +177,21 @@ public class AngketUtilUmumApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Logout API mobile: menghapus token push/GCP dan token sesi ({@code gcpToken}/{@code token})
+	 * pada entitas identitas user (penduduk/siswa/mahasiswa/tbmuser, dipilih sesuai jenis akun),
+	 * mencabut token API dari {@link Api#removeToken(String)}, DAN — penting — turut membersihkan
+	 * sesi HTTP servlet (atribut {@code mytbmuser}/{@code usersTemp}, lalu {@code invalidate()}).
+	 * Pembersihan sesi HTTP ini sengaja ditambahkan karena
+	 * {@link ApiUtil#currentUser(JSONObject, HttpServletRequest)} memiliki jalur otentikasi kedua
+	 * lewat cookie {@code JSESSIONID}/sesi HTTP di luar token — tanpa membersihkan sesi ini, klien
+	 * yang menyimpan cookie sesi (mis. Postman) tetap bisa terotentikasi walau tokennya sudah
+	 * dihapus, menyebabkan gejala "sudah logout tapi masih bisa akses".
+	 *
+	 * @param req     permintaan HTTP asli (untuk resolusi user dan pembersihan sesi HTTP)
+	 * @param request payload JSON: {@code token} (token yang akan dicabut)
+	 * @return {@code {"status":"00","description":"Logout berhasil"}} atau kode galat
+	 */
 	public static JSONObject logout(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -248,6 +287,19 @@ public class AngketUtilUmumApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil daftar angket/kuesioner yang berlaku bagi user pemanggil untuk tahun akademik dan
+	 * semester tertentu (default berjalan). Kelayakan sasaran ditentukan lewat kombinasi kriteria
+	 * SQL kondisional per jenis pengguna: role umum ({@code ConstantValues.tbmroleUmum}) melihat
+	 * angket bertarget {@code UNTUK_LINK_UMUM}; mahasiswa berstatus lulus melihat angket bertarget
+	 * {@code UNTUK_ALUMNI} yang cocok status/rentang angkatan/fakultas/jurusan; mahasiswa aktif
+	 * melihat angket bertarget {@code UNTUK_MAHASISWA} dengan kecocokan serupa. Parameter
+	 * {@code refresh} mengendalikan apakah daftar diambil ulang dari sumber (bukan cache).
+	 *
+	 * @param req     permintaan HTTP asli (untuk resolusi user via sesi/token)
+	 * @param request payload JSON: opsional {@code tahunAkademik}, {@code semester}, {@code refresh}
+	 * @return {@code status}/{@code description} beserta daftar angket yang berlaku bagi user
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject daftarAngket(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();

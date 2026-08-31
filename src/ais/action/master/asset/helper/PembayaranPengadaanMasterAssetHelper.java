@@ -40,6 +40,22 @@ import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper pengelola grid rincian tagihan pada form "Pembayaran Pengadaan Aset"
+ * ({@link PembayaranPengadaanMasterAsset}) — tahap pelunasan tagihan dari penyedia
+ * ({@link PenyediaAsset}) atas barang/jasa yang sudah diterima ({@link PenerimaanPengadaanMasterAsset})
+ * atau saldo awal aset ({@link SaldoAwalMasterAsset}). Setiap baris tagihan menampilkan nilai
+ * tagihan, jumlah yang sudah tertagih sebelumnya, sisa, dan nominal yang akan dibayarkan pada
+ * transaksi ini, dengan checkbox untuk memilih tagihan mana yang diikutsertakan dalam pembayaran.
+ *
+ * <p>
+ * Baris grid mendukung dua sumber tagihan yang saling eksklusif: bila
+ * {@code penerimaanPengadaanMasterAsset} terisi, baris berasal dari alur penerimaan pengadaan
+ * biasa; bila {@code saldoAwalMasterAsset} terisi, baris berasal dari saldo awal aset (migrasi data
+ * lama). Kontrol edit dinonaktifkan begitu pembayaran sudah disetujui
+ * ({@code getDisetujuiOleh() != null}) atau berada dalam mode persetujuan ({@link #persetujuan}).
+ * </p>
+ */
 public class PembayaranPengadaanMasterAssetHelper {
 
 	private MyGrid gridPenerimaanPengadaanMasterAsset;
@@ -52,11 +68,22 @@ public class PembayaranPengadaanMasterAssetHelper {
 	private PembayaranPengadaanMasterAsset pembayaranPengadaanMasterAsset;
 	private boolean persetujuan = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridPenerimaanPengadaanMasterAsset} sebagai grid rincian pembayaran tagihan. */
 	public PembayaranPengadaanMasterAssetHelper(MyGrid gridPenerimaanPengadaanMasterAsset) {
 		this.gridPenerimaanPengadaanMasterAsset = gridPenerimaanPengadaanMasterAsset;
 
 	}
 
+	/**
+	 * Membangun panel "Daftar Pembayaran Tagihan Barang/Jasa": toolbar refresh (dinonaktifkan bila
+	 * pembayaran sudah disetujui), kolom grid (Kode/Keterangan, Tagihan, Tertagih, Sisa, Dibayar,
+	 * Keterangan), footer total keseluruhan dan total dibayar, dan memuat baris detail tagihan yang
+	 * relevan dengan penyedia terkait.
+	 *
+	 * @param pembayaranPengadaanMasterAsset entitas pembayaran yang sedang diedit
+	 * @param persetujuan                    {@code true} bila form dibuka dalam mode tinjau/persetujuan (read-only)
+	 * @return groupbox berisi toolbar dan grid rincian, siap ditambahkan ke form
+	 */
 	public Groupbox initDetail(final PembayaranPengadaanMasterAsset pembayaranPengadaanMasterAsset, boolean persetujuan)
 			throws Exception {
 		this.persetujuan = persetujuan;
@@ -292,6 +319,15 @@ public class PembayaranPengadaanMasterAssetHelper {
 		}
 	};
 
+	/**
+	 * Mengisi satu baris grid dengan detail tagihan: menampilkan komponen penerimaan pengadaan
+	 * ({@link PenerimaanPengadaanMasterAssetDetailAction}) atau saldo awal aset
+	 * ({@link SaldoAwalMasterAssetDetailAction}) sesuai sumber tagihan baris ini, checkbox pemilihan
+	 * pembayaran, serta field nominal tagihan/tertagih/sisa/dibayar dan keterangan.
+	 *
+	 * @param row                                    baris grid target
+	 * @param pembayaranPengadaanMasterAssetDetail    data detail pembayaran untuk baris ini
+	 */
 	public void initRow(final Row row, final PembayaranPengadaanMasterAssetDetail pembayaranPengadaanMasterAssetDetail)
 			throws Exception {
 

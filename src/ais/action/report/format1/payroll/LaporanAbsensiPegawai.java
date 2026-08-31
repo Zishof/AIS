@@ -56,6 +56,29 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Layar laporan rekap absensi/kehadiran pegawai modul payroll untuk periode tanggal tertentu,
+ * mencakup jumlah hadir/alpa/sakit/izin/terlambat/pulang cepat/tidak hadir per pegawai, dipecah
+ * per hari aktif (checkbox hari mana yang dihitung sebagai hari kerja) dan digabung dengan data
+ * cuti/izin serta jatah cuti tahunan (lewat {@link LaporanCutiPegawai#generateCutiDanIzinParameter}).
+ * Dapat ditampilkan untuk satu pegawai spesifik ({@link #LaporanAbsensiPegawai(Pegawai)}) atau
+ * seluruh pegawai (opsional disaring satuan kerja beserta seluruh unit turunannya, hanya
+ * dosen/guru/pegawai non-akademik, dan ikatan kerja dosen tertentu).
+ *
+ * <p>
+ * Perhitungan per pegawai ({@link #generateDataDanImageAlbum}) dijalankan <b>paralel multi-thread</b>
+ * (lewat {@link ParallelTaskExecutor}, hingga sejumlah thread maksimum default laporan) demi
+ * kecepatan pada instansi berpegawai banyak, dengan sejumlah optimasi eksplisit: cache status
+ * libur nasional di memori per tanggal ({@code holidayCache}, mencegah query {@code isHoliday}
+ * membanjiri database dari puluhan/ratusan thread sekaligus), pengelompokan cuti/izin per pegawai
+ * di muka ({@code mapCutiByPegawai}, menghindari nested-loop berat), array hasil terindeks
+ * ({@code orderedMaps}) agar urutan baris laporan tetap sama persis dengan urutan hasil query
+ * database walau dihitung paralel, dan server push ZK yang diaktifkan sementara (hanya bila
+ * sebelumnya belum aktif, dan hanya dimatikan lagi oleh kode ini sendiri) untuk memperbarui label
+ * progres tanpa membebani thread Tomcat secara permanen. Hasil akhir dirender sebagai PDF lewat
+ * {@link Report#generateFileReportWithProgress}.
+ * </p>
+ */
 public class LaporanAbsensiPegawai extends MyWindow {
 
 	private static final long serialVersionUID = -397946194166101691L;
@@ -88,6 +111,7 @@ public class LaporanAbsensiPegawai extends MyWindow {
 
 	private MyCheckboxConfig abaikanKehadiranJikaHariTidakTerpilih;
 
+	/** Membuat layar laporan untuk seluruh pegawai (tanpa pra-filter satu pegawai tertentu). */
 	public LaporanAbsensiPegawai() {
 		super();
 		try {
@@ -103,6 +127,7 @@ public class LaporanAbsensiPegawai extends MyWindow {
 		}
 	}
 
+	/** Membuat layar laporan dibatasi ke satu {@code pegawai} tertentu (filter satuan kerja/pegawai pada panel disembunyikan). */
 	public LaporanAbsensiPegawai(Pegawai pegawai) {
 		super();
 		this.pegawai = pegawai;
@@ -119,11 +144,13 @@ public class LaporanAbsensiPegawai extends MyWindow {
 		}
 	}
 
+	/** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
 	public LaporanAbsensiPegawai(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun panel filter (satuan kerja, pegawai, jenis pegawai, ikatan kerja, rentang tanggal default sebulan penuh dari konfigurasi {@code tanggal_mulai_absensi}, checkbox hari aktif) dan area pratinjau/toolbar ekspor laporan. */
 	private void init() throws Exception {
 
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -292,6 +319,7 @@ public class LaporanAbsensiPegawai extends MyWindow {
 
 	}
 
+	/** Menyusun peta parameter laporan (indeks hari aktif, rentang tanggal, dan {@code maps} hasil {@link #generateDataDanImageAlbum} bila sudah tersedia) untuk mesin laporan {@link Report}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Map generateParameter() throws Exception {
 
@@ -312,6 +340,23 @@ public class LaporanAbsensiPegawai extends MyWindow {
 		return parameters;
 	}
 
+	/**
+	 * Menghitung rekap kehadiran seluruh pegawai yang lolos filter (satuan kerja + turunannya,
+	 * jenis pegawai, ikatan kerja) untuk rentang tanggal terpilih, dan menyimpan hasilnya ke
+	 * {@link #maps} (siap dipakai sebagai sumber data laporan PDF). Alur singkat: (1) memuat daftar
+	 * pegawai aktif dan data cuti bersama/cuti-izin yang relevan dalam satu sesi Hibernate native
+	 * yang selalu ditutup di {@code finally}; (2) membangun cache libur nasional per tanggal di
+	 * memori; (3) memproses setiap pegawai secara paralel ({@link ParallelTaskExecutor}) — untuk
+	 * setiap hari dalam rentang, menentukan status kehadiran ({@code masuk/alpa/sakit/izin/belum/
+	 * lain}), ketepatan waktu, dan jumlah hari efektif, dengan opsi melewati hari yang tidak
+	 * ditandai aktif (lewat {@code KehadiranPresensiUtil}); (4) menggabungkan hasil cuti/izin per
+	 * pegawai; (5) mengembalikan hasil ke {@link #maps} dengan urutan yang sama persis dengan
+	 * urutan query database (bukan urutan selesainya thread). Memperbarui {@code label} progres
+	 * secara berkala lewat server push ZK bila diberikan. Lihat javadoc kelas untuk detail optimasi
+	 * konkurensi.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres, boleh {@code null} (mis. dipanggil dari thread latar tanpa UI)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void generateDataDanImageAlbum(final Label label) throws Exception {
 
@@ -739,6 +784,13 @@ public class LaporanAbsensiPegawai extends MyWindow {
 		}
 	}
 
+	/**
+	 * Menangani klik "Tampilkan"/ekspor: menampilkan indikator progres, menjalankan perhitungan
+	 * data ({@link #generateDataDanImageAlbum}) di thread terpisah agar UI tidak terkunci, lalu
+	 * merender hasilnya sebagai berkas PDF dan menampilkannya di panel pratinjau.
+	 *
+	 * @param event event pemicu (tombol tampilkan atau tombol ekspor toolbar)
+	 */
 	@SuppressWarnings({})
 	public void onKHS(Event event) throws Exception {
 

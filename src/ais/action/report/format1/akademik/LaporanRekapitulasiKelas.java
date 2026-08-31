@@ -56,6 +56,20 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan "Rekapitulasi Kelas": mencetak PDF berisi daftar mahasiswa per kelas (kelas KRS
+ * aktual, bukan kelas administratif) untuk satu semester/tahun akademik, dengan filter luas
+ * (kelas, fakultas/prodi, program, rentang tahun angkatan, status mahasiswa, status awal, jenis
+ * kelamin, status keluar). Data disusun dalam dua tahap: (1) mengambil seluruh mahasiswa aktif
+ * dalam rentang tahun angkatan, menyinkronkan KRS-nya untuk semester terpilih
+ * ({@code Common.singkronkanKrsMahasiswa}), lalu mengurutkan berdasarkan nama kelas (agar baris
+ * laporan terkelompok per kelas); (2) untuk tiap mahasiswa yang lolos seluruh filter, membangun
+ * satu {@link Map} data amat lengkap (biodata, akademik, IPK/IPS/SKS, masa studi terhitung dari
+ * selisih tanggal masuk-lulus, judisium, jabatan struktural terkait — dosen PA, kaprodi, dekan,
+ * pudek 1-3, kajur — beserta NIP/NIDN masing-masing) sebagai baris template laporan. Proses
+ * berjalan di thread terpisah dengan progres ditampilkan via {@link Label}, hasil PDF ditampilkan
+ * lewat {@link CommonReport#tampilkanReportPDF}.
+ */
 public class LaporanRekapitulasiKelas extends MyWindow {
 
 	private static final long serialVersionUID = 4766478176972379068L;
@@ -82,6 +96,7 @@ public class LaporanRekapitulasiKelas extends MyWindow {
 	private String jenisSemester;
 	private Intbox tahunAngkatanSd;
 
+	/** Membuat jendela laporan dengan pengaturan default dan langsung membangun tata letak filter+laporan ({@link #init()}); kegagalan pemuatan awal ditampilkan sebagai pesan galat formal. */
 	public LaporanRekapitulasiKelas() {
 		super();
 		try {
@@ -99,12 +114,14 @@ public class LaporanRekapitulasiKelas extends MyWindow {
 
 	}
 
+	/** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
 	public LaporanRekapitulasiKelas(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 
 		init();
 	}
 
+	/** Membangun tata letak panel filter kiri (kelas, fakultas/prodi, program, rentang tahun angkatan, status, jenis kelamin, status keluar, tahun akademik+semester, tombol "Lihat Laporan") dan toolbar ekspor/cetak di atas area tampilan PDF. */
 	private void init() throws Exception {
 
 		kurikulumFakultas = new Combobox();
@@ -298,6 +315,7 @@ public class LaporanRekapitulasiKelas extends MyWindow {
 
 	}
 
+	/** Membaca seluruh nilai filter saat ini menjadi peta parameter laporan (id fakultas/jurusan/status, rentang tahun angkatan, program, jenis kelamin, semester, tahun akademik, logo, dan {@code maps} data baris bila sudah tersedia dari pemuatan sebelumnya). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected Map generateParameter() throws Exception {
 
@@ -349,6 +367,7 @@ public class LaporanRekapitulasiKelas extends MyWindow {
 		return parameters;
 	}
 
+	/** Memicu pembuatan laporan: menampilkan progress bar, lalu di thread terpisah menyusun data baris ({@link #generateDataDanImageAlbum}) dan menghasilkan PDF ({@link Report#generateFileReportWithProgress}) yang ditampilkan lewat {@link CommonReport#tampilkanReportPDF}. Kegagalan menampilkan pesan galat formal. */
 	@SuppressWarnings({})
 	public void onLaporanPerkuliahan(Event event) throws Exception {
 
@@ -385,6 +404,20 @@ public class LaporanRekapitulasiKelas extends MyWindow {
 
 	}
 
+	/**
+	 * Menyusun {@link #maps} — daftar baris data laporan siap dicetak, satu per mahasiswa yang
+	 * lolos seluruh filter. Tahap 1: mengambil seluruh {@link Mahasiswa} aktif dalam rentang
+	 * tahun angkatan, menyinkronkan KRS semester terpilih untuk masing-masing
+	 * ({@code Common.singkronkanKrsMahasiswa}), dan mengurutkan berdasarkan nama kelas KRS
+	 * (memakai {@link TreeMap} berkunci {@code "<namaKelas>_____<mahasiswaId>"} agar baris
+   	 * terkelompok per kelas sekaligus terurut stabil). Tahap 2: untuk tiap mahasiswa terurut,
+	 * menerapkan seluruh filter (kelas, fakultas, jurusan, jenis kelamin, program, status keluar,
+	 * status awal, rentang tahun angkatan, status mahasiswa dari histori) dan bila lolos,
+	 * membangun satu {@link Map} data lengkap (lihat javadoc kelas) yang ditambahkan ke
+	 * {@link #maps}. Progres ditulis ke {@code label}; dipanggil dari thread terpisah oleh
+	 * {@link #onLaporanPerkuliahan}, tidak mengembalikan nilai (hasil disimpan ke field
+	 * {@link #maps}).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected void generateDataDanImageAlbum(Label label) {
 		Kelas kelas = (Kelas) searchkelas.getAttribute("kelas");

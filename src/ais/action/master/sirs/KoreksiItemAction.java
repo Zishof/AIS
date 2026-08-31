@@ -48,6 +48,26 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}, modul SIRS/rumah sakit) untuk
+ * mengelola dokumen "Koreksi Persediaan Barang Medis" ({@link KoreksiItemMedis}) — penyesuaian
+ * stok item medis per {@link Lokasi} (mis. hasil stok opname), dengan rincian item pada
+ * {@link KoreksiItemMedisDetail} yang dikelola lewat action anak
+ * {@link ais.action.master.sirs.detail.KoreksiItemDetailAction}. Header dokumen terikat ke satu
+ * lokasi tetap ({@link Common#getCurrentLokasi()}, dikunci bila lokasi konteks sudah ditentukan)
+ * dan kode koreksi yang dibangkitkan otomatis (prefix {@code "ADJ"}) begitu lokasi dipilih.
+ *
+ * <p>
+ * {@link #doAfterCompose(Component)} menyiapkan filter lokasi (dikunci ke lokasi konteks bila
+ * ada) dan flag hak akses {@code approve}/{@code reject} untuk alur persetujuan dokumen.
+ * {@link #buildFormContent(MyWindow, KoreksiItemMedis)} membangun form header (kode read-only,
+ * tanggal pembuatan, lokasi, keterangan) dengan kode yang otomatis diperbarui saat lokasi berubah.
+ * {@link #onSave(Event)} memvalidasi kode dan lokasi wajib terisi, lalu untuk dokumen baru
+ * membangkitkan nomor urut per lokasi ({@code Common.generateMaxByLokasi}) dan kode final sebelum
+ * menyimpan. {@link #onCetak(Event)} membuka jendela laporan koreksi per periode
+ * ({@link LaporanKoreksiItemWindow}).
+ * </p>
+ */
 public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -81,6 +101,11 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
     protected String getWindowTitle() { return "Pendataan Koreksi Persediaan Barang"; }
 
     @Override
+    /**
+     * Inisialisasi tambahan setelah {@code GenericCrudAction} baku ter-compose: mengunci filter
+     * lokasi ke lokasi konteks bila ada, dan menentukan hak akses {@code approve}/{@code reject}
+     * dari {@link CommonPrivilages}.
+     */
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         myLokasi = Common.getCurrentLokasi();
@@ -92,6 +117,12 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
         reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
     }
 
+    /**
+     * Membangun kueri pencarian dokumen koreksi item, difilter lokasi dan kata kunci kode.
+     *
+     * @param order {@code true} untuk mengurutkan hasil berdasarkan id menurun
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -113,6 +144,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
 
     // ======================== Cetak report ========================
 
+    /** Membuka jendela modal "Laporan Koreksi Per Periode" ({@link LaporanKoreksiItemWindow}). */
     public void onCetak(Event event) throws Exception {
         LaporanKoreksiItemWindow laporanKoreksiItemWindow = new LaporanKoreksiItemWindow();
         laporanKoreksiItemWindow.setTitle("Laporan Koreksi Per Periode");
@@ -226,6 +258,14 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode dan lokasi wajib terisi) dan menyimpan dokumen koreksi item. Untuk
+     * dokumen baru, nomor urut per lokasi dan kode final (prefix {@code "ADJ"}) dibangkitkan ulang
+     * sesaat sebelum disimpan agar konsisten dengan lokasi yang benar-benar dipilih pengguna.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila dokumen berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Koreksi Persediaan Barang wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) tentukan Lokasi agar kode dapat dibuat otomatis; (2) pastikan kolom kode tidak kosong; (3) simpan kembali data setelah kode terisi.", "Peringatan",

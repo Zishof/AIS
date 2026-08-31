@@ -44,6 +44,21 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper ZK untuk mengelola pengembalian item surat/dokumen yang dipinjam ({@link
+ * KembaliSuratItem}, dengan baris detail {@link KembaliSuratItemDetail} per surat) pada modul
+ * sirkulasi surat (relasi "punya banyak"). Baris pengembalian dapat dibangun dari data pengembalian
+ * yang sudah tersimpan ({@link #initDetail}) ATAU digenerate ulang dari seluruh detail peminjaman
+ * ({@link PeminjamanSuratItemDetail}) milik satu {@link PeminjamanSuratItem} lewat
+ * {@link #loadDataDetailFromPeminjaman} (dipicu otomatis saat {@code setPeminjamanSuratItem}
+ * dipanggil) — detail yang belum punya baris kembali dibuatkan instance baru di memori (belum
+ * disimpan). Setiap baris menghitung dan menampilkan info keterlambatan pengembalian secara
+ * real-time saat tanggal kembali diubah (lewat {@link PeminjamanSuratItemDetail#getJumlahHariTerlambat()}
+ * dkk.), serta tombol lihat lampiran gambar surat asli dan tombol batalkan (hapus). Mode
+ * {@code persetujuan} (read-only, dipakai layar approval) menonaktifkan editing keterangan.
+ * Fitur pemindaian barcode untuk menandai surat yang dikembalikan (method {@code loadBarcode})
+ * dinonaktifkan (kode di-comment-out) pada versi saat ini.
+ */
 public class KembaliSuratItemPunyaItemHelper {
 
 	private boolean edit = false;
@@ -58,6 +73,13 @@ public class KembaliSuratItemPunyaItemHelper {
 	private String tipe;
 	private MyGrid gridItem;
 
+	/**
+	 * Membuat helper untuk satu konteks pengembalian, sekaligus mengevaluasi hak akses ubah dan hapus
+	 * pengguna saat ini.
+	 *
+	 * @param tipe        label jenis item yang ditampilkan pada judul groupbox (mis. "Surat")
+	 * @param persetujuan {@code true} untuk mode read-only (layar persetujuan), {@code false} untuk mode edit
+	 */
 	public KembaliSuratItemPunyaItemHelper(String tipe, boolean persetujuan) {
 
 		this.persetujuan = persetujuan;
@@ -67,6 +89,16 @@ public class KembaliSuratItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka groupbox (toolbar refresh bila bukan mode persetujuan + kolom grid) dan
+	 * langsung memuat data pengembalian tersimpan untuk item kembali surat yang diberikan.
+	 *
+	 * @param gridItem       komponen grid ZK tempat baris pengembalian dirender
+	 * @param kembaliSuratItem item kembali surat yang detailnya ditampilkan/dikelola
+	 * @param barcodeItem    parameter barcode awal (tidak dipakai pada implementasi saat ini — fitur pemindaian dinonaktifkan)
+	 * @return komponen {@link Groupbox} berisi toolbar dan grid yang siap dipasang ke layar pemanggil
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan data
+	 */
 	public Groupbox initDetail(final MyGrid gridItem, final KembaliSuratItem kembaliSuratItem, final String barcodeItem)
 			throws Exception {
 		this.kembaliSuratItem = kembaliSuratItem;
@@ -198,6 +230,18 @@ public class KembaliSuratItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan info surat (nomor/perihal dengan link riwayat revisi, kode),
+	 * ringkasan tenggat/keterlambatan peminjaman, input tanggal kembali (memicu penghitungan ulang
+	 * keterlambatan secara real-time), kolom keterangan (editable kecuali mode persetujuan/terkunci),
+	 * tombol lihat lampiran gambar surat asli (aktif hanya dalam rentang tanggal peminjaman berlaku),
+	 * dan tombol batalkan/hapus.
+	 *
+	 * @param gridItem              komponen grid induk (dipakai untuk memuat ulang setelah hapus)
+	 * @param row                   baris grid yang diisi
+	 * @param kembaliSuratItemDetail detail pengembalian yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final MyGrid gridItem, final Row row, final KembaliSuratItemDetail kembaliSuratItemDetail)
 			throws Exception {
 		row.setValign("top");
@@ -466,18 +510,22 @@ public class KembaliSuratItemPunyaItemHelper {
 		});
 	}
 
+	/** @return perpustakaan yang sedang aktif pada helper ini */
 	public Perpustakaan getPerpustakaan() {
 		return perpustakaan;
 	}
 
+	/** Mengganti perpustakaan aktif pada helper ini (tanpa efek samping pemuatan ulang data). */
 	public void setPerpustakaan(Perpustakaan perpustakaan) {
 		this.perpustakaan = perpustakaan;
 	}
 
+	/** @return peminjaman surat yang sedang aktif pada helper ini */
 	public PeminjamanSuratItem getPeminjamanSuratItem() {
 		return peminjamanSuratItem;
 	}
 
+	/** Mengganti peminjaman surat aktif dan langsung memuat ulang baris pengembalian dari detail peminjaman tersebut ke grid yang tersimpan di helper. */
 	public void setPeminjamanSuratItem(PeminjamanSuratItem peminjamanSuratItem) {
 		this.peminjamanSuratItem = peminjamanSuratItem;
 		try {
@@ -487,6 +535,7 @@ public class KembaliSuratItemPunyaItemHelper {
 		}
 	}
 
+	/** Mengganti peminjaman surat aktif dan langsung memuat ulang baris pengembalian dari detail peminjaman tersebut ke grid yang diberikan. */
 	public void setPeminjamanSuratItem(MyGrid gridItem, PeminjamanSuratItem peminjamanSuratItem) {
 		this.peminjamanSuratItem = peminjamanSuratItem;
 		try {
@@ -496,6 +545,16 @@ public class KembaliSuratItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Membangun ulang seluruh baris grid dari detail peminjaman ({@link PeminjamanSuratItemDetail})
+	 * milik peminjam surat yang sama dengan {@link #peminjamanSuratItem} aktif: detail yang belum
+	 * punya baris pengembalian tersimpan dibuatkan {@link KembaliSuratItemDetail} baru di memori
+	 * (jumlah dikembalikan default sama dengan jumlah dipinjam), detail yang sudah punya dipakai apa
+	 * adanya.
+	 *
+	 * @param gridItem komponen grid ZK yang dibersihkan dan diisi ulang
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataDetailFromPeminjaman(final MyGrid gridItem) throws Exception {
 
