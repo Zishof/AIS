@@ -5427,7 +5427,10 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						});
 					}
 
-					if (reloadBlnSd && eventRefresh != null) {
+					/* Beri tahu panel pendamping juga pada load awal. Sebelumnya callback
+					 * hanya berjalan setelah refresh filter, sehingga panel kanan e-Learning
+					 * menerima pertemuansa kosong sampai pengguna menekan Refresh. */
+					if ((reloadBlnSd || jadikanAwal) && eventRefresh != null) {
 						reloadBlnSd = false;
 						eventRefresh.onEvent(arg0);
 					}
@@ -5611,7 +5614,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						});
 					}
 
-					if (reloadBlnSd && eventRefresh != null) {
+					if ((reloadBlnSd || jadikanAwal) && eventRefresh != null) {
 						reloadBlnSd = false;
 						eventRefresh.onEvent(arg0);
 					}
@@ -5830,7 +5833,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 				});
 			}
 
-			if (reloadBlnSd && eventRefresh != null) {
+			if ((reloadBlnSd || jadikanAwal) && eventRefresh != null) {
 				reloadBlnSd = false;
 				eventRefresh.onEvent(null);
 			}
