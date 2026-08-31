@@ -33,13 +33,28 @@ import ais.database.model.radius.Radcheck;
  * {@code radcheck} (atribut {@code "Password"}, operator {@code "=="}) — ini konvensi umum
  * RADIUS/FreeRADIUS untuk PAP, namun berarti password plaintext pengguna (termasuk password
  * akun orang tua siswa, {@code userOrtu}/{@code passOrtu}) disalin dan disimpan permanen di
- * basis data RADIUS terpisah, memperluas permukaan risiko bila basis data RADIUS itu bocor.</li>
- * <li>Proses ini digerbangi oleh konfigurasi {@code radius_syncrhonizer} yang nilai defaultnya
- * memuat daftar <b>alamat IP tertanam langsung di kode</b> ({@code 116.66.206.181},
- * {@code 171.27.27.10}, {@code 172.27.18.181}) — sinkronisasi hanya berjalan bila hostname
- * mesin saat ini cocok dengan salah satu IP tersebut (dibandingkan sebagai string, bukan
- * validasi IP sesungguhnya). Alamat IP produksi tertanam di source code sebaiknya dipindah ke
- * konfigurasi eksternal murni.</li>
+ * basis data RADIUS terpisah, memperluas permukaan risiko bila basis data RADIUS itu bocor.
+ * <b>Belum diperbaiki di sini</b> — beralih dari PAP ke CHAP/MS-CHAP di sisi FreeRADIUS TIDAK
+ * menghilangkan kebutuhan ini: kedua protokol tersebut tetap mengharuskan server RADIUS
+ * menyimpan sesuatu yang setara dengan password reversibel (plaintext atau NT-hash, yang
+ * fungsinya identik sebagai kredensial autentikasi langsung) agar bisa memvalidasi
+ * challenge-response — bukan sekadar pergantian kolom/atribut di {@code radcheck}. Migrasi
+ * yang benar-benar menghilangkan kebutuhan ini (mis. WPA2/WPA3-Enterprise dengan EAP-TLS
+ * berbasis sertifikat per perangkat) adalah proyek infrastruktur jaringan tersendiri (konfigurasi
+ * ulang access point/FreeRADIUS, distribusi sertifikat ke seluruh perangkat pengguna) — di luar
+ * cakupan perubahan kode ini; mitigasi jangka pendek yang realistis adalah membatasi akses ke
+ * basis data RADIUS itu sendiri (isolasi jaringan/firewall, kredensial DB berhak akses minimal).</li>
+ * <li><b>Diperbaiki</b>: proses ini digerbangi oleh konfigurasi {@code radius_syncrhonizer} yang
+ * nilai default {@code info1}/{@code info2}/{@code info3}-nya sebelumnya memuat daftar
+ * <b>alamat IP produksi tertanam langsung di kode</b> ({@code 116.66.206.181},
+ * {@code 171.27.27.10}, {@code 172.27.18.181}) — kini nilai seed default tersebut dikosongkan
+ * (bila baris {@link Konfigurasi} belum ada di database, dibuat kosong; harus diisi eksplisit
+ * lewat menu Konfigurasi agar sinkronisasi berjalan di suatu host). Baris {@link Konfigurasi}
+ * yang sudah ada di database produksi (skenario paling umum) tidak terpengaruh — nilai
+ * {@code info1}/{@code info2}/{@code info3} tersimpan di database yang dibaca lebih dulu,
+ * bukan dari default di kode ini; lihat {@link Common#getKonfigurasi(String, String, String,
+ * String, String)}. Sinkronisasi tetap hanya berjalan bila hostname mesin saat ini cocok dengan
+ * salah satu IP terkonfigurasi (dibandingkan sebagai string, bukan validasi IP sesungguhnya).</li>
  * </ul>
  */
 public class RadiusProcessor extends TimerTask {
@@ -82,8 +97,8 @@ public class RadiusProcessor extends TimerTask {
 	private void doProcess() {
 
 		Konfigurasi auto_proses_tunggakan = Common.getKonfigurasi(
-				"radius_syncrhonizer", Konfigurasi.AKTIF, "116.66.206.181",
-				"171.27.27.10", "172.27.18.181");
+				"radius_syncrhonizer", Konfigurasi.AKTIF, "",
+				"", "");
 
 		boolean ketemuIp = (auto_proses_tunggakan.getInfo1() != null && auto_proses_tunggakan
 				.getInfo1().trim().equals(localIp.trim()))
