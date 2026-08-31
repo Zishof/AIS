@@ -75,6 +75,33 @@ import ais.database.model.sirs.TransaksiMedisDetail;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Controller/action ZK untuk transaksi. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Grid grid}, {@code Paging paging},
+ * {@code Tabpanel tambahData}, {@code MyTextbox searchkode}, {@code MyTextbox searchmr}, {@code MyTextbox
+ * searchnama}, {@code MyTextbox searchtelp}, {@code Combobox searchkelas}; inisialisasi/lifecycle ({@code
+ * doAfterCompose()}, {@code init()}, {@code initCriteria()}); pembacaan/pencarian ({@code onSearchDefault()},
+ * {@code getTransaksi()}, {@code getLokasi()}, {@code getAdd()}, {@code getSimpan()}, {@code
+ * getKelasPerawatan()}); validasi/perhitungan ({@code checkKodeTransaksi()}); mutasi data ({@code onSave()},
+ * {@code onBerubah()}); penghapusan/pembatalan ({@code onDelete()}); pelaporan/ekspor ({@code onCetak()});
+ * operasi domain lain ({@code onAdd()}, {@code createMain()}, {@code onBebas()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class TransaksiAction extends GenericAutowireComposer implements GetTransaksi, TransaksiListener {
 
 	/**

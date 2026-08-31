@@ -73,6 +73,26 @@ import ais.ui.util.MyLabelAgakKecilBoldBiru;
 import ais.ui.util.MyLabelBolder;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Tipe khusus untuk ppdb simple2. Kelas ini memberi nama dan batas tanggung jawab yang eksplisit
+ * pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * PPDB}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox nama}, {@code Textbox
+ * tempatLahir}, {@code MyDatebox tanggalLahir}, {@code MyCheckboxConfig pernyataan}, {@code Textbox
+ * teleponSiswa}, {@code TreeSet selectedKelasLesSiswa}, {@code Combobox penjurusanSekolah}, {@code Row
+ * rowParameterTambahan}; inisialisasi/lifecycle ({@code init()}); mutasi data ({@code onSave()}, {@code
+ * setdata()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see PPDB
+ */
 public class PPDB_Simple2 extends PPDB {
 
 	/**

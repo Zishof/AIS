@@ -40,6 +40,28 @@ import ais.database.model.sekolah.PengaturanBiayaItemBiaya;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Tagihan;
 
+/**
+ * Tipe khusus untuk tagihan util. Kelas ini memberi nama dan batas tanggung jawab yang eksplisit
+ * pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int DETIK_MAKS_ANTRI_GENERATE}, {@code
+ * int JUMLAH_STRIPE_SISWA}, {@code ReentrantLock KUNCI_GENERATE_SISWA}; pembacaan/pencarian ({@code
+ * jalankanTulisTahanDeadlock()}, {@code ambilKeanggotaanSiswaTerbaru()}, {@code getBulanMulai()}, {@code
+ * findTagihanByKodeUnik()}, {@code ambilNominalBiaya()}, {@code ambilNominalBiaya()}); validasi/perhitungan
+ * ({@code hapusTagihanTidakValid()}); mutasi data ({@code saveTagihanAman()}, {@code
+ * resetNominalBiayaDanTagihan()}, {@code resetSemuaTagihanDalamPB()}); penghapusan/pembatalan ({@code
+ * hapusTagihanAman()}); operasi domain lain ({@code kunciGenerateUntukSiswa()}, {@code isKonflikKunci()}, {@code
+ * tidurBackoffDeadlock()}, {@code isSiswaMemenuhiSyarat()}, {@code sinkronkanKelasTagihan()}, {@code
+ * perbaikiJumlahAngsuran()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class TagihanUtil {
 
 	// === Anti-deadlock generate tagihan (KE-1/2/3): serialisasi per-siswa + retry saat deadlock ===

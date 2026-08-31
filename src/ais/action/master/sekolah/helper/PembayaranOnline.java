@@ -108,6 +108,38 @@ import ais.ui.util.KeuanganDashboardEnhanceUtil;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Tipe khusus untuk pembayaran online. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int MAKS_WORKER_TAGIHAN}, {@code
+ * AmbilDataSiswaBanbox siswa}, {@code AmbilDataCalonSiswaBanbox calonSiswa}, {@code MyWindow window}, {@code
+ * Siswa selectedSiswa}, {@code CalonSiswa selectedCalonSiswa}, {@code MyDoublebox deposit}, {@code Component
+ * east}; inisialisasi/lifecycle ({@code doAfterCompose()}, {@code setupInitialStudentVisibility()}, {@code
+ * initTabAndPanel()}, {@code init()}); pembacaan/pencarian ({@code refreshClientScrollableLayout()}, {@code
+ * getSiswaLokal()}, {@code getCalonSiswaLokal()}, {@code reloadRiwayatPembayaran()}, {@code
+ * refreshPanelJurnalPembayaranOnline()}, {@code reloadTagihan()}); validasi/perhitungan ({@code
+ * hitungJumlahWorkerTagihan()}, {@code checkUlangHarusBayar()}, {@code checkKondisiSebelumbayar()}, {@code
+ * hitungTotalTagihanTerpilihUntukBayar()}, {@code hitungUlangTagihan()}); pelaporan/ekspor ({@code
+ * renderPanelJurnalPembayaranOnline()}, {@code renderRiwayatPage()}, {@code renderUIHasilPembayaran()}, {@code
+ * renderDasborPanel()}, {@code renderModernPaymentHistoryCharts()}); operasi domain lain ({@code
+ * closeSessionAndDisconnect()}, {@code appendStyle()}, {@code applyFullSizeScrollable()}, {@code
+ * applyFullSizeHidden()}, {@code bukaRevisiPembayaranSiswaDetail()}, {@code merupakanAdmin()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class PembayaranOnline extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 7381263733011550603L;

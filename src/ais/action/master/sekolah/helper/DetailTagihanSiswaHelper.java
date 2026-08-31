@@ -101,6 +101,27 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper terfokus untuk detail tagihan siswa. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}, {@link DataCriteria}.
+ * Implementasi konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil
+ * sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code List
+ * pengaturanBiayaItemBiayas}, {@code PengaturanBiaya pengaturanBiaya}, {@code Textbox nama}, {@code Siswa
+ * siswa}, {@code boolean edit}, {@code boolean approve}, {@code String contents}; inisialisasi/lifecycle ({@code
+ * initCriteria()}, {@code initCriteria()}, {@code initCriteria()}, {@code initCriteriaDenganNama()});
+ * pembacaan/pencarian ({@code loadData()}, {@code getDataloader()}, {@code reloadGrid()}, {@code
+ * uploadDataSiswa()}); mutasi data ({@code tambahkanBantuanReset()}); operasi domain lain ({@code
+ * butTagihanBaru()}, {@code onTagihanRinciBaru()}, {@code apakahAda()}, {@code apakahAda()}, {@code display()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;

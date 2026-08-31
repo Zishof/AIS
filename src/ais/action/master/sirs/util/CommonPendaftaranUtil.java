@@ -83,6 +83,28 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Tipe khusus untuk common pendaftaran util. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code initTransaksi()}, {@code
+ * initBookingRegistrasi()}, {@code initPendaftaran()}, {@code initJadwalPemeriksaan()}, {@code
+ * initJadwalPemeriksaan()}); validasi/perhitungan ({@code validasiTransaksiDetailPaket()}, {@code
+ * validasiTransaksiDetailPaketFinal()}, {@code validasiTransaksiItem()}, {@code validasiTransaksiAlatMedis()},
+ * {@code validasiTransaksiLayanan()}); mutasi data ({@code setDetailBiayaPaket()}, {@code setDetailBiaya()},
+ * {@code setDetailBiaya()}, {@code setDetailBiaya()}, {@code setDetailBiaya()}, {@code setDetailBiayaPaket()});
+ * operasi domain lain ({@code generateNomorAntrian()}, {@code generateNomorAntrian()}, {@code
+ * riwayatPenyakitPasien()}, {@code riwayatPenyakitPasien()}, {@code dokterDanBidanPemeriksa()}, {@code
+ * displayDetailPaket()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class CommonPendaftaranUtil {
 
 	@SuppressWarnings("deprecation")
