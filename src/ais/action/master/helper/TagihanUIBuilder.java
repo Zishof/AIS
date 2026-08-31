@@ -62,8 +62,56 @@ import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Kelas fasad tunggal ({@link #loadTagihan}) yang membangun panel "Rincian Tagihan" — tampilan
+ * inti keuangan mahasiswa/calon mahasiswa di seluruh AIS: memuat filter (jenis kegiatan
+ * pembayaran, rentang semester mulai-sampai), lalu menghitung dan menampilkan rincian tagihan
+ * per item biaya (biaya reguler maupun bulanan/cicilan) lengkap dengan nilai tagihan, jumlah
+ * sudah dibayar, sisa, denda, dan persentase, untuk seluruh kombinasi (jenis kegiatan × semester)
+ * yang relevan sekaligus.
+ *
+ * <p>
+ * <b>Pemrosesan paralel</b>: setiap kombinasi (jenis kegiatan aktif × semester dalam rentang yang
+ * dipilih) diproses sebagai satu {@link java.util.concurrent.Callable} pada
+ * {@link java.util.concurrent.ExecutorService} berukuran tetap (dibatasi 1-10 thread, dikonfigurasi
+ * lewat {@code tagihan_ui_builder_max_thread}, lihat {@link #getAsyncThreadPoolSize}), dijalankan
+ * lewat {@code ais.common.AsyncTaskManager.executeAsync} agar tidak memblokir UI thread ZK. Setiap
+ * task membuka sesi Hibernate mandiri sendiri, menghitung {@link DetailBiaya}/
+ * {@link PengaturanPembayaranBulanan} yang berlaku (termasuk jalur khusus untuk
+ * {@link BiodataCalonMahasiswa} — pendaftaran calon mahasiswa dan daftar ulang mahasiswa baru
+ * memiliki logika pengambilan biaya terpisah), menghitung denda lewat
+ * {@code checkDenda}/{@link JadwalPembayaran}, jumlah sudah dibayar lewat
+ * {@link VOMahasiswa#hitungTotalCicilan}, dan menghasilkan potongan UI ({@link Div} berisi grid
+ * rincian) beserta "snapshot" baris laporan (disimpan ke {@code semua}, map yang dipakai bersama
+ * oleh pemanggil, mis. untuk pencetakan PDF tagihan) — snapshot ini SENGAJA dipakai apa adanya oleh
+ * PDF alih-alih dihitung ulang lewat jalur lain, untuk menghindari selisih angka antara layar dan
+ * cetakan (lihat komentar di kode terkait insiden "layar lunas tapi PDF masih menyisakan tagihan").
+ * </p>
+ *
+ * <p>
+ * <b>Sinkronisasi UI dari background thread</b>: karena beberapa task membangun potongan komponen
+ * ZK di luar UI thread utama, akses ke {@link Desktop} dijaga lewat pola
+ * {@code Executions.activate(desktop)}/{@code deactivate(desktop)} (dengan penanganan
+ * {@link org.zkoss.zk.ui.DesktopUnavailableException} bila tab sudah ditutup pengguna sebelum
+ * task selesai). Progres keseluruhan ditampilkan lewat indikator mengambang
+ * ({@code KeuanganDashboardEnhanceUtil.showFloatingProgress}/{@code hideFloatingProgress}) dan
+ * kontainer progres inline (label + {@link Progressmeter}) di atas area hasil, dilepas setelah
+ * seluruh task selesai lewat callback {@code updateUI}.
+ * </p>
+ *
+ * <p>
+ * Kombobox filter jenis kegiatan (dengan opsi tambahan "Belum Lunas"/"Semua Tagihan") dan rentang
+ * semester memicu pemuatan ulang otomatis saat berubah; bila {@code actionInstance}
+ * ({@link InformasiPembayaranMahasiswaAction}) diberikan, pilihan terakhir pengguna diingat lintas
+ * pemanggilan (mis. saat berpindah tab) lewat {@code getLastSelectedJkLabel}/
+ * {@code getLastSelectedSmtMulai}/{@code getLastSelectedSmtSampai}. Parameter {@code SMT} yang
+ * diberikan langsung oleh pemanggil (bukan dari kombobox) tunduk pada aturan yang sama: tagihan
+ * semester yang belum berjalan (lebih besar dari semester berjalan mahasiswa) tidak ditampilkan.
+ * </p>
+ */
 public class TagihanUIBuilder {
 
+	/** Menentukan ukuran thread pool paralel per pemanggilan {@link #loadTagihan}, dari konfigurasi {@code tagihan_ui_builder_max_thread} (default 4), dibatasi rentang 1-10 dan tidak melebihi jumlah task yang sebenarnya akan diproses. */
 	private static int getAsyncThreadPoolSize(int totalTasks) {
 		int maxThread = 4;
 		try {
@@ -80,6 +128,7 @@ public class TagihanUIBuilder {
 		return Math.max(1, Math.min(maxThread, Math.max(1, totalTasks)));
 	}
 
+	/** Menutup {@code session} Hibernate mandiri secara bertahap dan aman (clear → disconnect → close), masing-masing langkah dijaga agar galat pada satu langkah tidak menghalangi langkah berikutnya; tidak melakukan apa pun bila {@code session} {@code null}. */
 	private static void closeOpenedSession(Session session) {
 		if (session == null) {
 			return;
@@ -101,6 +150,7 @@ public class TagihanUIBuilder {
 	}
 
 
+	/** Seperti {@link #loadTagihan(Component, JenisKegiatan, VOMahasiswa, VOMahasiswa, TreeMap, boolean, boolean, Integer, boolean, InformasiPembayaranMahasiswaAction)} tanpa {@code actionInstance} (tidak ada pengingatan pilihan filter terakhir lintas pemanggilan). */
 	public static Combobox loadTagihan(final Component west, final JenisKegiatan selectedJenisKegiatan,
 			final VOMahasiswa mhsAtas, final VOMahasiswa mahasiswa, final TreeMap<String, Object[]> semua,
 			final boolean vertical, final boolean sederhana, final Integer SMT, final boolean refresh)
@@ -109,6 +159,37 @@ public class TagihanUIBuilder {
 				null);
 	}
 
+	/**
+	 * Implementasi kanonik: membangun form filter (jenis kegiatan, semester mulai/sampai — kolom
+	 * semester disembunyikan bila {@code SMT} sudah ditentukan pemanggil) ke dalam {@code west},
+	 * lalu memuat rincian tagihan sesuai filter secara asinkron ke dalam sebuah {@link Div}
+	 * internal. Lihat javadoc kelas untuk uraian lengkap alur perhitungan paralel, penulisan
+	 * {@code semua}, dan sinkronisasi UI dari background thread.
+	 *
+	 * @param west               kontainer ZK tujuan form filter + hasil rincian; isi sebelumnya
+	 *                           dibersihkan lewat {@link Common#clear}
+	 * @param selectedJenisKegiatan jenis kegiatan yang dipilih sebagai default pada kombobox filter
+	 * @param mhsAtas            diterima untuk keseragaman kontrak antar-helper serupa; tidak
+	 *                           dipakai langsung di badan method ini
+	 * @param mahasiswa          {@link Mahasiswa} atau {@link BiodataCalonMahasiswa} pemilik
+	 *                           tagihan yang ditampilkan
+	 * @param semua              peta hasil perhitungan (kunci {@code "<idJenisKegiatan>-<semester>"})
+	 *                           yang DITULISI oleh method ini — dipakai bersama pemanggil, mis.
+	 *                           untuk pencetakan PDF tagihan dengan angka yang identik dengan layar
+	 * @param vertical           pengaruhi kombobox jenis kegiatan yang ditawarkan
+	 *                           ({@link Common#initJenisPembayaranMahasiswa} vs varian yang juga
+	 *                           menyertakan kegiatan calon mahasiswa) dan tata letak grid rincian
+	 *                           (vertikal/horizontal)
+	 * @param sederhana          sembunyikan sebagian baris form filter untuk tampilan ringkas
+	 * @param SMT                bila diberikan, membatasi tampilan hanya pada semester ini
+	 *                           (kolom filter semester disembunyikan); semester yang belum
+	 *                           berjalan bagi mahasiswa aktif tidak akan ditampilkan
+	 * @param refresh            paksa muat ulang cache kegiatan/detail biaya/cicilan dari database
+	 * @param actionInstance     bila diberikan, dipakai untuk mengingat dan memulihkan pilihan
+	 *                           filter (jenis kegiatan, semester mulai/sampai) terakhir pengguna
+	 * @return kombobox jenis kegiatan yang dipasang ke {@code west} (referensi yang sama dengan
+	 *         yang tampil pada form filter)
+	 */
 	@SuppressWarnings("deprecation")
 	public static Combobox loadTagihan(final Component west, final JenisKegiatan selectedJenisKegiatan,
 			final VOMahasiswa mhsAtas, final VOMahasiswa mahasiswa, final TreeMap<String, Object[]> semua,
@@ -257,6 +338,15 @@ public class TagihanUIBuilder {
 				return this;
 			}
 
+			/**
+			 * Titik masuk pemuatan ulang rincian tagihan: menentukan jenis kegiatan & rentang
+			 * semester aktif dari kombobox filter (mengunci pilihan semester ke 0/1 secara
+			 * otomatis untuk jenis kegiatan pendaftaran calon mahasiswa/daftar ulang), membangun
+			 * indikator progres, lalu mendelegasikan penghitungan paralel per kombinasi jenis
+			 * kegiatan × semester ke {@code AsyncTaskManager.executeAsync} (lihat javadoc kelas).
+			 * Tidak melakukan apa pun bila semester yang diminta pemanggil ({@code SMT}) berada di
+			 * masa depan relatif terhadap semester berjalan mahasiswa.
+			 */
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			private void load() throws Exception {
 				final boolean gateway = TampilanPaymentGateway.adaPaymentGatewayYangAktif();
@@ -374,6 +464,15 @@ public class TagihanUIBuilder {
 				ais.common.AsyncTaskManager.executeAsync(desktop, null, null,
 						new ais.common.AsyncTaskManager.BackgroundTask() {
 
+							/**
+							 * Menyiapkan daftar {@link java.util.concurrent.Callable} (satu per kombinasi jenis
+							 * kegiatan aktif × semester dalam rentang terpilih) dan menjalankannya pada
+							 * {@link java.util.concurrent.ExecutorService} berukuran {@link #getAsyncThreadPoolSize},
+							 * lalu mengumpulkan hasil ({@code Future.get()}) dan menempelkan potongan UI-nya ke
+							 * {@code myDiv} secara berurutan. Membuka/menutup sesi Hibernate "parent" mandiri
+							 * untuk re-init cache kegiatan sebelum task paralel dimulai (tidak ditahan selama
+							 * task berjalan, agar tidak menahan koneksi pool terlalu lama).
+							 */
 							@Override
 							public Object doInBackground() throws Exception {
 
@@ -470,6 +569,17 @@ public class TagihanUIBuilder {
 											final int fSmt = smt;
 
 											tasks.add(new java.util.concurrent.Callable<Map<String, Object>>() {
+												/**
+												 * Menghitung rincian tagihan untuk SATU kombinasi (jenis kegiatan, semester):
+												 * resolusi {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} yang berlaku
+												 * (termasuk jalur khusus calon mahasiswa), jumlah tagihan & denda per item lewat
+												 * {@link Kegiatan#ambilJumlahTagihan}/{@code checkDenda}, jumlah sudah dibayar
+												 * lewat {@link VOMahasiswa#hitungTotalCicilan}, lalu merender potongan UI grid
+												 * rincian (dikunci sesaat lewat {@code Executions.activate}/{@code deactivate}
+												 * karena berjalan di luar UI thread) dan menuliskan snapshot baris laporan ke
+												 * {@code semua}. Mengembalikan map kosong bila tidak ada {@link DetailBiaya}
+												 * yang berlaku untuk kombinasi ini.
+												 */
 												@Override
 												public Map<String, Object> call() {
 													Map<String, Object> resultDTO = new HashMap<String, Object>();
@@ -1619,6 +1729,7 @@ public class TagihanUIBuilder {
 								return null;
 							}
 						}, new ais.common.AsyncTaskManager.UITask() {
+							/** Dijalankan kembali di UI thread setelah {@code doInBackground} selesai: menandai progres 100% lalu melepas kontainer progres inline dan indikator mengambang. */
 							@Override
 							public void updateUI(Object backgroundResult) throws Exception {
 								try {
@@ -1635,6 +1746,7 @@ public class TagihanUIBuilder {
 						});
 			}
 
+			/** Kontrak {@link EventListener}: pemanggilan langsung ({@code arg0=null}, mis. dari akhir {@link #loadTagihan}) memuat segera; pemanggilan dari event UI (perubahan kombobox) ditunda lewat timer default agar state komponen (mis. item terpilih) sudah settle sebelum dibaca. */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				if (arg0 == null) {

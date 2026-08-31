@@ -91,6 +91,47 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper utama layar "Hasil Ujian" (modul sekolah) — menampilkan dan mengelola hasil
+ * ujian seluruh peserta ({@link Siswa}/{@link CalonSiswa}) untuk satu
+ * {@link PertemuanPunyaUjian}. Ini adalah salah satu layar terbesar dan paling banyak
+ * fitur di modul {@code ais.action.master.helper}, dengan tiga area utama:
+ * <ol>
+ * <li><b>Toolbar aksi massal</b> ({@link #display}) — "Ulang Semua" (menghapus seluruh
+ * jawaban tersimpan agar peserta dapat mengulang, hanya bila jendela ujian masih
+ * berlangsung), "Peserta dianggap hadir" (mengonversi hasil ujian menjadi catatan
+ * absensi lewat {@link #ujianDianggapHadir}), "Hitung Ulang Semua" (rekalkulasi nilai
+ * seluruh peserta), <b>"Koreksi Otomatis via AI"</b> (mengumpulkan seluruh jawaban esai
+ * yang belum dikoreksi lewat {@link KoreksiHasilUjian#kumpulkanEssay}, mengirim prompt ke
+ * LLM lewat {@link GenerateAiHelper#panggilAi} di thread terpisah dengan progress bar
+ * streaming, lalu menerapkan skor+koreksi hasilnya lewat
+ * {@link KoreksiHasilUjian#terapkanKoreksiEssay} dan menghitung ulang nilai), cetak rekap
+ * Excel (termasuk kolom jawaban lengkap/belum terjawab), unduh seluruh lampiran jawaban
+ * sebagai satu ZIP (disimpan sementara di direktori server
+ * {@code /opt/ecampus/lampiran_hasil_ujian_*}), dan unggah lampiran ke Google Drive
+ * pengguna ({@link GDriveUtilPerPengguna}).</li>
+ * <li><b>Kartu per peserta</b> ({@link DetailPertemuanPunyaUjianRenderer}) — satu baris
+ * per peserta menampilkan identitas, waktu mulai/selesai, jumlah pengulangan ujian, sisa
+ * waktu pengerjaan (dapat diubah admin lewat HQL bulk update langsung — bukan
+ * save-entity — karena getter properti sisa waktu menimpa nilai in-memory dengan cache
+ * file), nilai (auto-save dengan indikator ✓/✗), tombol "Hitung Ulang" per peserta,
+ * catatan pengawas, kolom "Pelanggaran" (rekap anti-curang: jumlah + log pelanggaran),
+ * dan tombol "Reset Ujian" per peserta (admin/guru saja, menghapus seluruh jawaban dan
+ * riwayat pengerjaan satu peserta seolah belum pernah ujian). Membuka kartu memicu
+ * {@link #tampilRow}, yang mendelegasikan tampilan detail koreksi soal-per-soal ke
+ * {@link KoreksiHasilUjian}.</li>
+ * <li><b>Tab Statistik</b> ({@link #displayStatistik}) — ringkasan donat chart (HTML/CSS
+ * via {@link ais.ui.util.HtmlChartHelper}) untuk kelengkapan jawaban, keikutsertaan
+ * ujian, dan akses ujian.</li>
+ * </ol>
+ *
+ * <p>
+ * Helper ini dipakai dalam tiga konteks berbeda (menentukan cakupan peserta dan mode
+ * baca/tulis): admin/guru melihat SEMUA peserta ({@link #pertemuan} terisi, {@link #siswa}/
+ * {@link #calonSiswa} {@code null}); satu siswa melihat hasilnya sendiri; atau satu calon
+ * siswa (PMB) melihat hasilnya sendiri.
+ * </p>
+ */
 public class HasilUjianSiswaHelper implements DataLoader {
 
 	private PertemuanPunyaUjian pertemuanPunyaUjian;
@@ -103,18 +144,31 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	private Pertemuan pertemuan;
 	private Textbox nama;
 
+	/** Membuat helper dalam mode admin/guru: menampilkan hasil ujian SELURUH peserta {@code pertemuan}. */
 	public HasilUjianSiswaHelper(Pertemuan pertemuan) {
 		this.siswa = null;
 		this.calonSiswa = null;
 		this.pertemuan = pertemuan;
 	}
 
+	/** Membuat helper dalam mode satu peserta: menampilkan hasil ujian milik {@code siswa} atau {@code calonSiswa} (salah satu terisi) saja. */
 	public HasilUjianSiswaHelper(Siswa siswa, CalonSiswa calonSiswa, Pertemuan pertemuan) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
 		this.pertemuan = pertemuan;
 	}
 
+	/**
+	 * Membangun tab "Statistik" ke dalam region {@link #east}: tiga donat chart
+	 * (kelengkapan jawaban, keikutsertaan ujian, akses ujian) beserta angka
+	 * pendukungnya (jumlah soal, total soal x peserta, terjawab/belum, peserta yang
+	 * sudah/belum ujian, peserta yang sudah/belum mengakses ujian sama sekali —
+	 * dihitung dari log akses {@link Pertemuan#ambilData}).
+	 *
+	 * @param jumlahPeserta      total peserta yang berhak mengikuti ujian
+	 * @param terjawab           total soal yang sudah terjawab lintas seluruh peserta
+	 * @param pesertaYgIkutUjian jumlah peserta yang sudah memulai/menyelesaikan ujian
+	 */
 	@SuppressWarnings({ "deprecation" })
 	private void displayStatistik(int jumlahPeserta, int terjawab, int pesertaYgIkutUjian) {
 		Common.clear(east);
@@ -268,6 +322,19 @@ public class HasilUjianSiswaHelper implements DataLoader {
 		dsn = null;
 	}
 
+	/**
+	 * Membangun layar lengkap "Hasil Ujian" untuk {@code pertemuanPunyaUjian} ke dalam
+	 * {@code detail}: toolbar aksi massal (lihat javadoc kelas untuk rincian setiap
+	 * tombol — Ulang Semua/Peserta dianggap hadir/Hitung Ulang Semua/Koreksi Otomatis
+	 * via AI/cetak rekap/download lampiran/lampiran ke Drive/Refresh/pencarian nama),
+	 * tab "Peserta" (grid kartu per peserta, satu halaman menampung hingga 1000 baris)
+	 * dan tab "Statistik", lalu memuat data awal lewat {@link #loadData(Object)}.
+	 * Ketersediaan/visibilitas sebagian tombol bergantung mode helper (admin/guru vs
+	 * satu peserta) dan konfigurasi {@code tampilkan_rekap_hasil_ujian}.
+	 *
+	 * @param pertemuanPunyaUjian ujian yang hasilnya ditampilkan
+	 * @param detail              komponen ZK induk yang akan diisi tampilan
+	 */
 	public void display(final PertemuanPunyaUjian pertemuanPunyaUjian, final Component detail) {
 		this.pertemuanPunyaUjian = pertemuanPunyaUjian;
 		grid = new MyGrid();
@@ -1236,6 +1303,16 @@ public class HasilUjianSiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menampilkan detail koreksi soal-per-soal satu peserta ke dalam panel
+	 * {@code detail} (dibuka saat kartu peserta di-expand). Sinkronisasi
+	 * {@link #pertemuanPunyaUjian} lebih dulu dari data hasil ujian bila tersedia
+	 * (menjaga konsistensi bila helper ini dipakai lintas beberapa ujian). Implementasi
+	 * detail sesungguhnya sepenuhnya didelegasikan ke {@link KoreksiHasilUjian#display}.
+	 *
+	 * @param detail                    panel tempat detail koreksi dirender
+	 * @param tempHasilUjianMahasiswa   hasil ujian peserta yang akan dikoreksi/dilihat
+	 */
 	public void tampilRow(final MyDetail detail, final HasilUjianMahasiswa tempHasilUjianMahasiswa) {
 		if (tempHasilUjianMahasiswa != null && tempHasilUjianMahasiswa.getPertemuanPunyaUjian() != null) {
 			pertemuanPunyaUjian = tempHasilUjianMahasiswa.getPertemuanPunyaUjian();
@@ -1243,8 +1320,23 @@ public class HasilUjianSiswaHelper implements DataLoader {
 		new KoreksiHasilUjian().display(detail, tempHasilUjianMahasiswa, pertemuanPunyaUjian);
 	}
 
-	
 
+
+	/**
+	 * Perender kartu grid untuk satu peserta ujian ({@link Siswa} atau
+	 * {@link CalonSiswa}): foto+identitas dengan riwayat revisi, waktu mulai/selesai,
+	 * jumlah pengulangan ("Ikut ujian ... kali", dapat diedit), lama pengerjaan, sisa
+	 * waktu pengerjaan yang dapat diedit admin (disimpan via HQL bulk update langsung
+	 * ke database — BUKAN save-entity biasa — karena getter properti
+	 * {@code sisaWaktuPengerjaan} sengaja menimpa nilai in-memory dengan cache "live"
+	 * dari file, sehingga save-entity biasa akan kehilangan perubahan admin saat
+	 * Hibernate memanggil getter tersebut ketika dirty-checking), nilai auto-save
+	 * dengan indikator status, tombol "Hitung Ulang" nilai satu peserta, catatan
+	 * pengawas auto-save, ringkasan pelanggaran anti-curang (jumlah + log), dan tombol
+	 * "Reset Ujian" (admin/guru saja) yang menghapus seluruh jawaban dan riwayat
+	 * pengerjaan peserta tersebut secara permanen (dengan konfirmasi). Membuka detail
+	 * kartu ({@code onOpen}) memicu {@link #tampilRow}.
+	 */
 	public class DetailPertemuanPunyaUjianRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -1729,6 +1821,22 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	private List<VOSiswa> siswasTemorary = null;
 	private int jumlahPeserta = 0;
 
+	/**
+	 * Memuat ulang daftar peserta dan hasil ujian mereka ke {@link #grid}. Sumber
+	 * daftar peserta bervariasi menurut mode helper dan jenis ujian: satu peserta
+	 * (mode {@link #siswa}/{@link #calonSiswa}); peserta gelombang PMB (bila pertemuan
+	 * berasal dari {@code JadwalUjianPSB} dengan gelombang tertentu); peserta yang
+	 * sudah punya hasil ujian tersimpan (bila tidak ada gelombang PMB spesifik); daftar
+	 * hadir kelas via {@link AbsensiSiswaHelper#populateSiswaDariPertemuan} (mode
+	 * admin/guru dengan {@link #pertemuan} terisi, dikurangi siswa yang secara eksplisit
+	 * dikecualikan lewat {@code mhsYgTidakIkut}); atau gabungan calon siswa + siswa yang
+	 * sudah punya hasil ujian (fallback umum). Pencarian nama/NIM/no registrasi/no
+	 * ujian diterapkan pada seluruh jalur. Setelah daftar siap, grid dirender lewat
+	 * {@link Common#displayLoadBar} (indikator loading) dan statistik ringkas
+	 * dihitung untuk ditampilkan di tab Statistik.
+	 *
+	 * @param value bila {@link Boolean} {@code true}, memaksa muat ulang data (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public void loadData(Object value) {
@@ -1969,6 +2077,19 @@ public class HasilUjianSiswaHelper implements DataLoader {
 		}).start();
 	}
 
+	/**
+	 * Mengonversi hasil ujian menjadi catatan absensi kelas: setelah konfirmasi, untuk
+	 * setiap peserta yang punya {@code mulaiPada}+{@code selesaiPada} terisi (berarti
+	 * benar-benar mengerjakan), status absensinya pada {@link Pertemuan} terkait diset
+	 * {@link ConstantValues#MASUK} dengan catatan otomatis berisi ringkasan waktu
+	 * pengerjaan dan jumlah soal terjawab (via {@link Pertemuan#populate}). Jam
+	 * masuk/selesai absensi diambil dari catatan absensi yang sudah ada, atau jatuh
+	 * kembali ke jam mulai/selesai baku pertemuan bila belum ada.
+	 *
+	 * @param pertemuanPunyaUjian ujian yang hasilnya dikonversi menjadi absensi
+	 * @param eventListener       callback yang dipanggil setelah proses selesai
+	 * @throws Exception diteruskan dari dialog messagebox
+	 */
 	public static void ujianDianggapHadir(final PertemuanPunyaUjian pertemuanPunyaUjian,
 			final EventListener eventListener) throws Exception {
 
