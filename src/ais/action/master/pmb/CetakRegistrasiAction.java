@@ -4029,18 +4029,85 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		private Checkbox checkbox;
 	}
 
-	private void tampilkanAnalisisUrutanNim(Event event) throws Exception {
-		List<NimUrutanSuggestion> suggestions = buatSaranUrutanNim();
-
+	private void tampilkanAnalisisUrutanNim(final Event event) throws Exception {
 		final org.zkoss.zul.Window win = new org.zkoss.zul.Window();
 		win.setTitle("Analisis Urutan NIM");
 		win.setClosable(true);
 		win.setBorder("normal");
 		win.setWidth("980px");
 
-		Vbox vbMain = new Vbox();
+		final Vbox vbMain = new Vbox();
 		vbMain.setWidth("100%");
 		vbMain.setParent(win);
+
+		new org.zkoss.zul.Html(
+				"<div style='margin:14px;padding:14px 16px;background:#eef7ff;"
+				+ "border-left:4px solid #0d6efd;border-radius:0 8px 8px 0;"
+				+ "font-size:13px;line-height:1.6'>"
+				+ "<b>Menyiapkan analisis urutan NIM...</b><br>"
+				+ "Data sedang diproses berdasarkan filter calon mahasiswa yang aktif."
+				+ "<br><span style='color:#495057'>Filter aktif: " + filterAnalisisNimRingkas() + "</span>"
+				+ "</div>").setParent(vbMain);
+
+		final org.zkoss.zul.Progressmeter progress = new org.zkoss.zul.Progressmeter();
+		progress.setWidth("94%");
+		progress.setValue(15);
+		progress.setStyle("margin:4px 14px 6px;height:14px;");
+		progress.setParent(vbMain);
+
+		final Label lblProgress = new Label("Mengambil data sesuai filter...");
+		lblProgress.setStyle("display:block;margin:0 14px 18px;color:#495057;font-size:12px;");
+		lblProgress.setParent(vbMain);
+
+		win.setParent(event.getTarget().getPage().getFirstRoot());
+		win.doHighlighted();
+
+		final Timer timer = new Timer(250);
+		timer.setRepeats(false);
+		timer.setParent(win);
+		timer.addEventListener("onTimer", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				try {
+					progress.setValue(35);
+					lblProgress.setValue("Membaca NIM existing dan menyusun urutan suggestion...");
+					List<NimUrutanSuggestion> suggestions = buatSaranUrutanNim();
+					progress.setValue(85);
+					lblProgress.setValue("Menyiapkan tabel perbandingan NIM...");
+					renderAnalisisUrutanNim(win, vbMain, suggestions);
+				} catch (Exception e) {
+					vbMain.getChildren().clear();
+					new org.zkoss.zul.Html(
+							"<div style='margin:14px;padding:14px 16px;background:#fff5f5;"
+							+ "border-left:4px solid #dc3545;border-radius:0 8px 8px 0;"
+							+ "font-size:13px;line-height:1.6'>"
+							+ "<b style='color:#dc3545'>Analisis urutan NIM gagal diproses.</b><br>"
+							+ "Silakan coba kembali. Jika masih gagal, buka detail error sistem untuk melihat stack trace teknis."
+							+ "<br><span style='color:#6c757d'>" + bersihkan(e.getMessage()) + "</span>"
+							+ "</div>").setParent(vbMain);
+					Hbox hbFooter = new Hbox();
+					hbFooter.setStyle("padding:10px 16px;border-top:1px solid #dee2e6;");
+					hbFooter.setParent(vbMain);
+					MyToolbarbuttonConfig btnTutup = new MyToolbarbuttonConfig("Tutup");
+					btnTutup.setParent(hbFooter);
+					btnTutup.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event e) throws Exception {
+							win.detach();
+						}
+					});
+					Common.tampilErrorJikaAdmin(e);
+				} finally {
+					timer.detach();
+				}
+			}
+		});
+		timer.start();
+	}
+
+	private void renderAnalisisUrutanNim(final org.zkoss.zul.Window win, Vbox vbMain,
+			List<NimUrutanSuggestion> suggestions) throws Exception {
+		vbMain.getChildren().clear();
 
 		int perluDirapikan = 0;
 		for (int i = 0; i < suggestions.size(); i++) {
@@ -4189,8 +4256,6 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			}
 		});
 
-		win.setParent(event.getTarget().getPage().getFirstRoot());
-		win.doHighlighted();
 	}
 
 	@SuppressWarnings("unchecked")
